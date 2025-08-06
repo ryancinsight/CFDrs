@@ -19,13 +19,11 @@ serde_json.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 
-# TODO: Add when scheme library is available
-# scheme = { git = "https://github.com/ryancinsight/scheme" }
-# or for local development:
-# scheme = { path = "../../scheme" }
+# 2D schematic visualization support
+scheme = { git = "https://github.com/ryancinsight/scheme", optional = true }
 
 [features]
 default = []
 # Enable 2D schematic visualization support
-# scheme-integration = ["scheme"]
+scheme-integration = ["scheme"]
 

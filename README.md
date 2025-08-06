@@ -73,6 +73,7 @@ The CFD suite is organized as a Rust workspace with the following crates:
 
 - **CSGrs**: Used in `cfd-3d` for 3D mesh handling and constructive solid geometry operations
 - **scheme**: Used in `cfd-1d` for 2D schematic visualization of microfluidic networks (similar to electronic circuit design tools)
+  - **Note**: The scheme integration currently requires nightly Rust due to unstable features. See `crates/cfd-1d/README.md` for details.
 
 ### Plugin System
 
