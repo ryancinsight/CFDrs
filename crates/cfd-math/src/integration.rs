@@ -316,17 +316,24 @@ impl<Q> TensorProductQuadrature<Q> {
                 let x = ax.clone() + T::from_usize(i).unwrap() * hx.clone();
                 let y = ay.clone() + T::from_usize(j).unwrap() * hy.clone();
 
-                let weight = if (i == 0 || i == n) && (j == 0 || j == n) {
-                    T::one() // Corner points
-                } else if (i == 0 || i == n) || (j == 0 || j == n) {
-                    two.clone() // Edge points
-                } else if i % 2 == 1 && j % 2 == 1 {
-                    four.clone() * four.clone() // Interior odd points
-                } else if i % 2 == 1 || j % 2 == 1 {
-                    four.clone() * two.clone() // Mixed points
+                // Correct 2D Simpson's rule weights using tensor product of 1D weights
+                let weight_i = if i == 0 || i == n {
+                    T::one()
+                } else if i % 2 == 1 {
+                    four.clone()
                 } else {
-                    four.clone() // Interior even points
+                    two.clone()
                 };
+
+                let weight_j = if j == 0 || j == n {
+                    T::one()
+                } else if j % 2 == 1 {
+                    four.clone()
+                } else {
+                    two.clone()
+                };
+
+                let weight = weight_i * weight_j;
 
                 result += weight * f(x, y);
             }

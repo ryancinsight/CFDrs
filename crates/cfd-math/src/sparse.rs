@@ -271,35 +271,28 @@ impl<T: RealField> SparseMatrixExt<T> for CsrMatrix<T> {
             return false;
         }
 
-        // Check if A[i,j] ≈ A[j,i] for all i,j
+        // Optimized symmetry check: only check non-zero entries and their symmetric counterparts
+        // This leverages the sparse structure to avoid O(n²) complexity
+        use std::collections::HashMap;
+
+        // Build a map of (row, col) -> value for efficient lookup
+        let mut entries: HashMap<(usize, usize), T> = HashMap::new();
+
         for (row_idx, row) in self.row_iter().enumerate() {
             for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
-                // Find the transpose element A[col_idx, row_idx]
-                let mut transpose_value = T::zero();
-                let mut found = false;
+                entries.insert((row_idx, *col_idx), value.clone());
+            }
+        }
 
-                if *col_idx < self.nrows() {
-                    for (transpose_row_idx, transpose_row) in self.row_iter().enumerate() {
-                        if transpose_row_idx == *col_idx {
-                            for (transpose_col_idx, transpose_val) in transpose_row.col_indices().iter().zip(transpose_row.values()) {
-                                if *transpose_col_idx == row_idx {
-                                    transpose_value = transpose_val.clone();
-                                    found = true;
-                                    break;
-                                }
-                            }
-                            break;
-                        }
-                    }
-                }
+        // Check symmetry only for existing entries
+        for ((i, j), value) in &entries {
+            // Get the symmetric entry A[j,i]
+            let symmetric_value = entries.get(&(*j, *i)).cloned().unwrap_or_else(T::zero);
 
-                if found {
-                    if (value.clone() - transpose_value).abs() > tolerance {
-                        return false;
-                    }
-                } else if value.abs() > tolerance {
-                    return false;
-                }
+            // Check if A[i,j] ≈ A[j,i]
+            let diff = (value.clone() - symmetric_value).abs();
+            if diff > tolerance.clone() {
+                return false;
             }
         }
 

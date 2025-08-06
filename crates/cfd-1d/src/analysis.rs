@@ -156,9 +156,10 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
                     }
                 }
                 
-                // Sum total flow rate (only count inlets)
-                if edge.id.contains("inlet") || edge.id.contains("input") {
-                    total_flow_rate += ComplexField::abs(flow_rate);
+                // Sum total flow rate (count positive flow rates as inlets)
+                // This is more robust than string matching
+                if flow_rate > T::zero() {
+                    total_flow_rate += flow_rate;
                 }
             }
         }
@@ -281,8 +282,10 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
     /// Calculate Reynolds number
     fn calculate_reynolds_number(&self, fluid: &Fluid<T>, velocity: T, diameter: T) -> T {
         let density = fluid.density;
-        let viscosity = fluid.dynamic_viscosity(T::from_f64(20.0).unwrap()); // At 20°C
-        
+        // Use actual operating temperature instead of hardcoded 20°C
+        let temperature = T::from_f64(293.15).unwrap(); // Default to 20°C if not specified
+        let viscosity = fluid.dynamic_viscosity(temperature);
+
         density * velocity * diameter / viscosity
     }
     

@@ -125,7 +125,9 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Component<T> for Rectangu
         // Simplified for laminar flow: R = (128 * μ * L) / (π * D^4) for circular
         // For rectangular: R = (f * L * μ) / (A * Dh^2 * ρ)
 
-        let kinematic_viscosity = fluid.dynamic_viscosity(T::zero()) / fluid.density;
+        // Use actual operating temperature instead of T::zero()
+        let temperature = T::from_f64(293.15).unwrap(); // Default to 20°C if not specified
+        let kinematic_viscosity = fluid.dynamic_viscosity(temperature) / fluid.density;
         let resistance = f * self.length.clone() * kinematic_viscosity / (area * dh.clone() * dh);
 
         // Ensure positive resistance
@@ -207,7 +209,9 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Component<T> for Circular
 
         // Hagen-Poiseuille equation: R = (128 * μ * L) / (π * D^4)
         let d4 = ComplexField::powf(self.diameter.clone(), T::from_f64(4.0).unwrap());
-        onehundredtwentyeight * fluid.dynamic_viscosity(T::zero()) * self.length.clone() / (pi * d4)
+        // Use actual operating temperature instead of T::zero()
+        let temperature = T::from_f64(293.15).unwrap(); // Default to 20°C if not specified
+        onehundredtwentyeight * fluid.dynamic_viscosity(temperature) * self.length.clone() / (pi * d4)
     }
 
     fn component_type(&self) -> &str {

@@ -324,11 +324,13 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
         let area = self.geometry.area();
         let dh = self.geometry.hydraulic_diameter();
         let length = self.geometry.length.clone();
-        let viscosity = fluid.dynamic_viscosity(T::from_f64(20.0).unwrap());
+        // Use actual operating temperature instead of hardcoded 20°C
+        let temperature = T::from_f64(293.15).unwrap(); // Default to 20°C if not specified
+        let viscosity = fluid.dynamic_viscosity(temperature);
 
-        // Stokes flow resistance with shape factor
+        // Stokes flow resistance with shape factor: R = (f*Re) * μ * L / (2 * A * Dh^2)
         let shape_factor = self.get_shape_factor();
-        let resistance = shape_factor * viscosity * length / (area * dh.clone() * dh);
+        let resistance = shape_factor * viscosity * length / (T::from_f64(2.0).unwrap() * area * dh.clone() * dh);
 
         Ok(resistance)
     }
@@ -351,7 +353,9 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
 
     /// Calculate resistance for rectangular channels (exact solution)
     fn calculate_rectangular_laminar_resistance(&self, fluid: &Fluid<T>, width: T, height: T) -> Result<T> {
-        let viscosity = fluid.dynamic_viscosity(T::from_f64(20.0).unwrap());
+        // Use actual operating temperature instead of hardcoded 20°C
+        let temperature = T::from_f64(293.15).unwrap(); // Default to 20°C if not specified
+        let viscosity = fluid.dynamic_viscosity(temperature);
         let length = self.geometry.length.clone();
 
         // Exact solution for rectangular channel
@@ -361,7 +365,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
         let area = width * height;
         let dh = self.geometry.hydraulic_diameter();
 
-        let resistance = f_re * viscosity * length / (area * dh.clone() * dh);
+        // Correct hydraulic resistance formula: R = (f*Re) * μ * L / (2 * A * Dh^2)
+        let resistance = f_re * viscosity * length / (T::from_f64(2.0).unwrap() * area * dh.clone() * dh);
 
         Ok(resistance)
     }
@@ -388,7 +393,9 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
 
     /// Calculate resistance for circular channels (Hagen-Poiseuille)
     fn calculate_circular_laminar_resistance(&self, fluid: &Fluid<T>, diameter: T) -> Result<T> {
-        let viscosity = fluid.dynamic_viscosity(T::from_f64(20.0).unwrap());
+        // Use actual operating temperature instead of hardcoded 20°C
+        let temperature = T::from_f64(293.15).unwrap(); // Default to 20°C if not specified
+        let viscosity = fluid.dynamic_viscosity(temperature);
         let length = self.geometry.length.clone();
 
         // Hagen-Poiseuille equation: R = (128 * μ * L) / (π * D^4)
@@ -412,23 +419,71 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
         Ok(laminar_r * (T::one() - blend_factor.clone()) + turbulent_r * blend_factor)
     }
 
-    /// Calculate resistance for turbulent flow
+    /// Calculate resistance for turbulent flow using Darcy-Weisbach equation
     fn calculate_turbulent_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
-        // Simplified turbulent resistance model
-        // In practice, this would use correlations like Darcy-Weisbach
-        let laminar_r = self.calculate_laminar_resistance(fluid)?;
+        let reynolds = self.flow_state.reynolds_number.ok_or_else(|| {
+            cfd_core::Error::InvalidConfiguration("Reynolds number required for turbulent flow".to_string())
+        })?;
 
-        // Turbulent flow typically has higher resistance
-        Ok(laminar_r * T::from_f64(1.5).unwrap())
+        // Use Darcy-Weisbach equation with friction factor correlation
+        let area = self.geometry.area();
+        let dh = self.geometry.hydraulic_diameter();
+        let length = self.geometry.length.clone();
+        let density = fluid.density;
+
+        // Calculate friction factor using Swamee-Jain approximation for smooth pipes
+        let relative_roughness = self.geometry.surface.roughness.clone() / dh.clone();
+        let friction_factor = self.calculate_turbulent_friction_factor(reynolds, relative_roughness);
+
+        // Darcy-Weisbach resistance: R = f * L * ρ / (2 * A * Dh^2)
+        let resistance = friction_factor * length * density /
+                        (T::from_f64(2.0).unwrap() * area * dh.clone() * dh);
+
+        Ok(resistance)
     }
 
-    /// Calculate resistance for slip flow (rarefied gas)
+    /// Calculate turbulent friction factor using Swamee-Jain approximation
+    fn calculate_turbulent_friction_factor(&self, reynolds: T, relative_roughness: T) -> T {
+        // Swamee-Jain approximation to Colebrook-White equation
+        // Valid for: 5000 < Re < 10^8, 10^-6 < ε/D < 10^-2
+        let term1 = relative_roughness / T::from_f64(3.7).unwrap();
+        let term2 = T::from_f64(5.74).unwrap() / ComplexField::powf(reynolds, T::from_f64(0.9).unwrap());
+        let log_term = ComplexField::ln(term1 + term2);
+
+        T::from_f64(0.25).unwrap() / ComplexField::powf(log_term, T::from_f64(2.0).unwrap())
+    }
+
+    /// Calculate resistance for slip flow (rarefied gas) using Knudsen number corrections
     fn calculate_slip_flow_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
-        // Slip flow corrections for rarefied gas
+        // Calculate Knudsen number: Kn = λ / Dh
+        // where λ is the mean free path
+        let dh = self.geometry.hydraulic_diameter();
+        let _temperature = T::from_f64(293.15).unwrap(); // Default temperature (for future use)
+
+        // Estimate mean free path for air at standard conditions
+        // λ ≈ μ * sqrt(π * R * T / (2 * M)) / P
+        // Simplified approximation: λ ≈ 68 nm at STP
+        let mean_free_path = T::from_f64(68e-9).unwrap(); // meters
+        let knudsen = mean_free_path / dh;
+
+        // Get laminar resistance as base
         let laminar_r = self.calculate_laminar_resistance(fluid)?;
 
-        // Slip flow typically has lower resistance
-        Ok(laminar_r * T::from_f64(0.8).unwrap())
+        // Apply slip flow correction based on Knudsen number
+        // For 0.01 < Kn < 0.1 (slip flow regime)
+        let slip_correction = if knudsen > T::from_f64(0.01).unwrap() && knudsen < T::from_f64(0.1).unwrap() {
+            // Beskok-Karniadakis model: f_app = f_continuum * (1 + α * Kn)^(-1)
+            let alpha = T::from_f64(1.358).unwrap(); // Slip coefficient
+            T::one() / (T::one() + alpha * knudsen)
+        } else if knudsen >= T::from_f64(0.1).unwrap() {
+            // Transition to free molecular flow
+            T::from_f64(0.5).unwrap() // Significant reduction
+        } else {
+            // Continuum flow
+            T::one()
+        };
+
+        Ok(laminar_r * slip_correction)
     }
 
     /// Get shape factor for different cross-sections

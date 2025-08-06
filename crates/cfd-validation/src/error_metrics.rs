@@ -55,7 +55,9 @@ impl<T: RealField + FromPrimitive> ErrorMetric<T> for L2Norm {
             })
             .fold(T::zero(), |acc, x| acc + x);
 
-        let n = T::from_usize(numerical.len()).unwrap();
+        let n = T::from_usize(numerical.len()).ok_or_else(|| {
+            Error::InvalidConfiguration("Failed to convert array length to target type".to_string())
+        })?;
         Ok((sum_squared_diff / n).sqrt())
     }
 
@@ -114,7 +116,9 @@ impl<T: RealField + FromPrimitive> ErrorMetric<T> for L1Norm {
             .map(|(num, ref_val)| (num.clone() - ref_val.clone()).abs())
             .fold(T::zero(), |acc, x| acc + x);
 
-        let n = T::from_usize(numerical.len()).unwrap();
+        let n = T::from_usize(numerical.len()).ok_or_else(|| {
+            Error::InvalidConfiguration("Failed to convert array length to target type".to_string())
+        })?;
         Ok(sum_abs_diff / n)
     }
 
@@ -154,7 +158,9 @@ where
         let absolute_error = self.base_metric.compute_error(numerical, reference)?;
         let reference_norm = self.base_metric.compute_error(reference, &vec![T::zero(); reference.len()])?;
 
-        let tolerance_t = T::from_f64(self.tolerance).unwrap();
+        let tolerance_t = T::from_f64(self.tolerance).ok_or_else(|| {
+            Error::InvalidConfiguration("Failed to convert tolerance to target type".to_string())
+        })?;
         if reference_norm < tolerance_t {
             // Reference is essentially zero, return absolute error
             Ok(absolute_error)
