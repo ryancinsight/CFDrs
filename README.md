@@ -58,19 +58,21 @@ results.export_csv("pipe_flow_results.csv")?;
 
 ## Architecture
 
-The suite follows a modular architecture with clear separation of concerns:
+The CFD suite is organized as a Rust workspace with the following crates:
 
-```
-cfd-suite/
-├── cfd-core/       # Core abstractions and plugin system
-├── cfd-1d/         # 1D solvers (microfluidics, pipe networks)
-├── cfd-2d/         # 2D solvers (FDM, FVM, LBM)
-├── cfd-3d/         # 3D solvers (FEM, spectral methods)
-├── cfd-mesh/       # Mesh handling and CSGrs integration
-├── cfd-io/         # I/O operations and file formats
-├── cfd-math/       # Mathematical utilities and solvers
-└── cfd-validation/ # Validation framework and benchmarks
-```
+- **`cfd-core`**: Core abstractions, plugin system, and common types
+- **`cfd-math`**: Mathematical utilities and numerical methods
+- **`cfd-io`**: File I/O operations (VTK, CSV, JSON, HDF5)
+- **`cfd-mesh`**: Mesh handling and geometry operations
+- **`cfd-1d`**: 1D solvers for pipe networks and microfluidic simulations
+- **`cfd-2d`**: 2D solvers (FDM, FVM, LBM)
+- **`cfd-3d`**: 3D solvers with CSGrs integration (FEM, spectral methods)
+- **`cfd-validation`**: Validation framework and benchmark problems
+
+### External Integrations
+
+- **CSGrs**: Used in `cfd-3d` for 3D mesh handling and constructive solid geometry operations
+- **scheme**: Used in `cfd-1d` for 2D schematic visualization of microfluidic networks (similar to electronic circuit design tools)
 
 ### Plugin System
 
@@ -159,6 +161,33 @@ let simulation = Simulation3D::from_csg(domain)
     .set_inlet_velocity(vec3(1.0, 0.0, 0.0))
     .set_fluid_properties(Fluid::air())
     .build()?;
+```
+
+### 1D Microfluidic Network Example
+
+```rust
+use cfd_1d::prelude::*;
+use cfd_core::prelude::*;
+
+// Create a simple microfluidic network
+let mut network = NetworkBuilder::new()
+    .add_channel("ch1", 1e-3, 50e-6) // 1mm long, 50μm diameter
+    .add_pump("pump1", PumpType::Pressure(1000.0)) // 1 kPa
+    .add_junction("j1", JunctionType::TMixer)
+    .connect("pump1", "ch1")
+    .connect("ch1", "j1")
+    .build()?;
+
+// Set fluid properties
+network.set_fluid(Fluid::water());
+
+// Solve for steady-state flow
+let solution = ElectricalAnalogySolver::new()
+    .solve(&network)?;
+
+// Export to 2D schematic (when scheme integration is available)
+// let schematic = network.to_scheme()?;
+// schematic.save("network.scheme")?;
 ```
 
 ## Validation

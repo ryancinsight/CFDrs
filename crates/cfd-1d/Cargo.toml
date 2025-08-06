@@ -6,25 +6,26 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 documentation.workspace = true
-description = "1D CFD solvers for pipe networks and microfluidic simulations"
+description = "1D CFD simulations for microfluidic networks"
 
 [dependencies]
-cfd-core.workspace = true
-cfd-math.workspace = true
-cfd-io.workspace = true
+cfd-core = { path = "../cfd-core" }
+cfd-math = { path = "../cfd-math" }
 nalgebra.workspace = true
-nalgebra-sparse.workspace = true
+num-traits.workspace = true
+petgraph.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
-serde = { workspace = true, features = ["derive"] }
-petgraph.workspace = true
-indexmap.workspace = true
-num-traits.workspace = true
-tracing.workspace = true
 
-[dev-dependencies]
-proptest.workspace = true
-approx.workspace = true
-criterion.workspace = true
-cfd-validation.workspace = true
+# TODO: Add when scheme library is available
+# scheme = { git = "https://github.com/ryancinsight/scheme" }
+# or for local development:
+# scheme = { path = "../../scheme" }
+
+[features]
+default = []
+# Enable 2D schematic visualization support
+# scheme-integration = ["scheme"]
 

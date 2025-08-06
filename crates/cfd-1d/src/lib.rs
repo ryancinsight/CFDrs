@@ -24,9 +24,10 @@ pub mod channel;
 pub mod components;
 pub mod solver;
 pub mod resistance;
+pub mod scheme_integration;
 
 // TODO: Add when scheme integration is implemented
-// #[cfg(feature = "scheme")]
+// #[cfg(feature = "scheme-integration")]
 // pub mod scheme_integration;
 
 // TODO: Implement these exports
@@ -38,6 +39,8 @@ pub mod resistance;
 
 /// Common 1D CFD types and traits
 pub mod prelude {
+    pub use crate::scheme_integration::{SchemeConversion, ComponentType, SchematicLayout};
+    
     // TODO: Add exports when implemented
     // pub use crate::{
     //     network::{Network, NetworkBuilder},

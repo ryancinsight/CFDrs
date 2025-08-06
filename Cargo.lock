@@ -97,21 +97,14 @@ name = "cfd-1d"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "approx",
  "cfd-core",
- "cfd-io",
  "cfd-math",
- "cfd-validation",
- "criterion",
- "indexmap",
  "nalgebra",
- "nalgebra-sparse",
  "num-traits",
  "petgraph",
- "proptest",
  "serde",
+ "serde_json",
  "thiserror",
- "tracing",
 ]
 
 [[package]]
