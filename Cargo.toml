@@ -95,10 +95,6 @@ repository.workspace = true
 documentation.workspace = true
 description = "Computational Fluid Dynamics Simulation Suite"
 
-[features]
-default = []
-scheme-integration = ["cfd-1d/scheme-integration"]
-
 [dependencies]
 cfd-core.workspace = true
 cfd-math.workspace = true
@@ -108,7 +104,6 @@ cfd-1d.workspace = true
 cfd-2d.workspace = true
 cfd-3d.workspace = true
 cfd-validation.workspace = true
-nalgebra.workspace = true
 
 [[example]]
 name = "simple_pipe_flow"
