@@ -231,7 +231,7 @@ mod tests {
         assert!(bc.is_dirichlet());
         assert!(!bc.is_neumann());
 
-        let bc = BoundaryCondition::wall_no_slip();
+        let bc: BoundaryCondition<f64> = BoundaryCondition::wall_no_slip();
         assert!(bc.is_wall());
         assert!(bc.is_dirichlet());
     }

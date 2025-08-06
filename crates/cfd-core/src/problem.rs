@@ -177,7 +177,7 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(problem.fluid.name, "Water");
+        assert_eq!(problem.fluid.name, "Water (20°C)");
         assert_eq!(problem.boundary_conditions.conditions.len(), 3);
         assert!(problem.parameters.transient);
     }

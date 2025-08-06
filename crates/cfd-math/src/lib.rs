@@ -12,7 +12,7 @@ pub mod differentiation;
 pub mod integration;
 
 pub use interpolation::{Interpolation, LinearInterpolation, CubicSplineInterpolation};
-pub use linear_solver::{LinearSolver, ConjugateGradient, GMRES, BiCGSTAB};
+pub use linear_solver::{LinearSolver, LinearSolverConfig, ConjugateGradient, GMRES, BiCGSTAB, Preconditioner};
 pub use sparse::{SparseMatrix, SparseMatrixBuilder};
 pub use differentiation::{FiniteDifference, Gradient};
 pub use integration::{Quadrature, GaussQuadrature};
@@ -21,7 +21,7 @@ pub use integration::{Quadrature, GaussQuadrature};
 pub mod prelude {
     pub use crate::{
         interpolation::{Interpolation, LinearInterpolation},
-        linear_solver::{LinearSolver, ConjugateGradient},
+        linear_solver::{LinearSolver, LinearSolverConfig, ConjugateGradient},
         sparse::{SparseMatrix, SparseMatrixBuilder},
         differentiation::FiniteDifference,
         integration::Quadrature,
