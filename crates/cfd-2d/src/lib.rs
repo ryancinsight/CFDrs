@@ -19,8 +19,7 @@ pub use fvm::{FvmSolver, FvmConfig, FluxScheme};
 pub use lbm::{LbmSolver, LbmConfig, D2Q9};
 pub use simple::{SimpleSolver, SimpleConfig};
 
-// TODO: Implement these exports
-// pub use schemes::{AdvectionScheme, DiffusionScheme, Upwind, CentralDifference};
+
 
 /// Common 2D CFD types and traits
 pub mod prelude {
@@ -32,9 +31,4 @@ pub mod prelude {
         lbm::{LbmSolver, LbmConfig, D2Q9},
         simple::{SimpleSolver, SimpleConfig},
     };
-
-    // TODO: Add exports when implemented
-    // pub use crate::{
-    //     schemes::{Upwind, CentralDifference},
-    // };
 }

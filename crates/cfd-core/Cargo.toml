@@ -18,6 +18,7 @@ nalgebra.workspace = true
 nalgebra-sparse.workspace = true
 num-traits.workspace = true
 indexmap.workspace = true
+rayon.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

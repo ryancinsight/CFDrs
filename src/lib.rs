@@ -17,28 +17,34 @@ pub use cfd_validation as validation;
 
 /// Prelude module for convenient imports with explicit re-exports to avoid ambiguity
 pub mod prelude {
-    // Core functionality
-    pub use cfd_core::{Fluid, Error, Result};
-    pub use cfd_core::BoundaryCondition as CoreBoundaryCondition;
+    // Core functionality - fundamental types used across all modules
+    pub use cfd_core::{Fluid, Error, Result, BoundaryCondition, Domain, Problem, Solver};
+    pub use cfd_core::{Plugin, PluginRegistry, SimulationPlugin};
 
-    // Math functionality
-    pub use cfd_math::{SparseMatrix, SparseMatrixBuilder};
-    pub use cfd_math::integration::{GaussQuadrature, AdaptiveQuadrature};
+    // Math functionality - essential numerical methods
+    pub use cfd_math::{SparseMatrix, SparseMatrixBuilder, LinearSolver, ConjugateGradient};
+    pub use cfd_math::{GaussQuadrature, FiniteDifference};
+    pub use cfd_math::integration::AdaptiveQuadrature;
 
-    // I/O functionality
-    pub use cfd_io::{VtkWriter, CsvWriter, JsonWriter};
+    // I/O functionality - common file operations
+    pub use cfd_io::{VtkWriter, CsvWriter, JsonWriter, CheckpointManager};
+    #[cfg(feature = "hdf5-support")]
+    pub use cfd_io::{Hdf5Writer, Hdf5Reader, DatasetMetadata, DataChunk};
 
-    // Mesh functionality
-    pub use cfd_mesh::Mesh;
-    // TODO: Add MeshBuilder, Element, Node, Edge when implemented in cfd-mesh
+    // Mesh functionality - geometric operations
+    pub use cfd_mesh::{Mesh, Vertex, Face, Cell, MeshTopology};
 
-    // 1D CFD functionality
+    // 1D CFD functionality - microfluidic networks
     pub use cfd_1d::{Network, NetworkBuilder, NetworkSolver, SolverConfig};
-    pub use cfd_1d::{Node as NetworkNode, Edge as NetworkEdge};
-    pub use cfd_1d::BoundaryCondition as NetworkBoundaryCondition;
     pub use cfd_1d::{Component, RectangularChannel, CircularChannel, Micropump, Microvalve};
+    pub use cfd_1d::{NetworkAnalyzer, FlowAnalysis, PressureAnalysis};
 
-    // Validation functionality
-    pub use cfd_validation::AnalyticalSolution;
-    // TODO: Add ValidationSuite when implemented
+    // 2D CFD functionality - grid-based methods
+    pub use cfd_2d::{StructuredGrid2D, PoissonSolver, FvmSolver, LbmSolver};
+
+    // 3D CFD functionality - advanced solvers
+    pub use cfd_3d::{FemSolver, SpectralSolver, MeshAdapter, StlAdapter};
+
+    // Validation functionality - testing and verification
+    pub use cfd_validation::{AnalyticalSolution, ErrorMetric, ConvergenceAnalysis};
 }

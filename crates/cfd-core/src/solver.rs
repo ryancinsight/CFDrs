@@ -239,8 +239,31 @@ pub trait DirectSolver<T: RealField>: Solver<T> {
     /// Sequential matrix assembly
     fn sequential_assemble(&self, entries: Vec<MatrixEntry<T>>) -> Result<SystemMatrix<T>>;
 
-    /// Parallel matrix assembly
-    fn parallel_assemble(&self, entries: Vec<MatrixEntry<T>>) -> Result<SystemMatrix<T>>;
+    /// Parallel matrix assembly using rayon
+    fn parallel_assemble(&self, entries: Vec<MatrixEntry<T>>) -> Result<SystemMatrix<T>> {
+        use rayon::prelude::*;
+
+        // Group entries by row for efficient parallel assembly
+        let mut row_groups: std::collections::HashMap<usize, Vec<MatrixEntry<T>>> =
+            std::collections::HashMap::new();
+
+        entries.into_iter().for_each(|entry| {
+            row_groups.entry(entry.row).or_default().push(entry);
+        });
+
+        // Process rows in parallel
+        let processed_entries: Vec<_> = row_groups
+            .into_par_iter()
+            .flat_map(|(_, row_entries)| {
+                // Sort entries within each row by column index
+                let mut sorted_entries = row_entries;
+                sorted_entries.sort_by_key(|entry| entry.col);
+                sorted_entries
+            })
+            .collect();
+
+        self.sequential_assemble(processed_entries)
+    }
 
     /// Solve the linear system
     fn solve_system(&self, system: &SystemMatrix<T>) -> Result<Self::Solution>;

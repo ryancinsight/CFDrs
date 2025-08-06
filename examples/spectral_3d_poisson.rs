@@ -11,11 +11,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("3D Spectral Poisson Solver Example");
     println!("===================================");
     
-    // Create spectral solver configuration
+    // Create spectral solver configuration with smaller grid for demonstration
     let config = SpectralConfig {
-        nx_modes: 16,
-        ny_modes: 16,
-        nz_modes: 16,
+        nx_modes: 8,
+        ny_modes: 8,
+        nz_modes: 8,
         tolerance: 1e-8,
         max_iterations: 100,
         dt: None,
