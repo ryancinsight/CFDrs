@@ -278,6 +278,7 @@ dependencies = [
  "cfd-math",
  "cfd-mesh",
  "cfd-validation",
+ "nalgebra",
 ]
 
 [[package]]

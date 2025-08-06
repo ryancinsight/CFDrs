@@ -130,11 +130,18 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
                 Ok(())
             })?;
 
-        // Solve the linear system
+        // Solve the linear system using configuration parameters
         let matrix = matrix_builder.build()?;
-        let solver_config = LinearSolverConfig::default();
+        let mut solver_config = LinearSolverConfig::default();
+        solver_config.tolerance = self.config.tolerance.clone();
+        solver_config.max_iterations = self.config.max_iterations;
+
         let solver = ConjugateGradient::new(solver_config);
         let solution_vector = solver.solve(&matrix, &rhs, None)?;
+
+        if self.config.verbose {
+            tracing::info!("FVM solver completed successfully");
+        }
 
         // Convert solution vector back to grid format
         Ok(grid.iter()
