@@ -1,0 +1,31 @@
+[package]
+name = "cfd-3d"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+description = "3D CFD solvers with CSGrs mesh integration"
+
+[dependencies]
+cfd-core.workspace = true
+cfd-math.workspace = true
+cfd-mesh.workspace = true
+cfd-io.workspace = true
+nalgebra.workspace = true
+nalgebra-sparse.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+serde = { workspace = true, features = ["derive"] }
+rayon.workspace = true
+crossbeam.workspace = true
+num-traits.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+approx.workspace = true
+criterion.workspace = true
+cfd-validation.workspace = true
+

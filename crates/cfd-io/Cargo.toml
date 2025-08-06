@@ -1,0 +1,25 @@
+[package]
+name = "cfd-io"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+description = "I/O operations and file format support for CFD simulations"
+
+[dependencies]
+cfd-core.workspace = true
+cfd-math.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+bincode.workspace = true
+csv.workspace = true
+nalgebra.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile = "3.8"
+proptest.workspace = true
