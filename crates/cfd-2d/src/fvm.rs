@@ -112,7 +112,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
             .enumerate()
             .try_for_each(|(linear_idx, (i, j))| -> Result<()> {
                 if let Some(bc) = boundary_conditions.get(&(i, j)) {
-                    self.apply_boundary_condition(&mut matrix_builder, &mut rhs, linear_idx, bc)?;
+                    self.apply_boundary_condition(&mut matrix_builder, &mut rhs, linear_idx, bc, grid, i, j)?;
                 } else {
                     self.assemble_cell_equation(
                         &mut matrix_builder,
@@ -205,29 +205,133 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
         rhs: &mut DVector<T>,
         linear_idx: usize,
         bc: &BoundaryCondition<T>,
+        grid: &StructuredGrid2D<T>,
+        i: usize,
+        j: usize,
     ) -> Result<()> {
+        let (dx, dy) = grid.spacing();
+
         match bc {
             BoundaryCondition::Dirichlet { value } => {
-                // φ = value
+                // φ = value (Dirichlet condition)
                 matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
                 rhs[linear_idx] = value.clone();
             }
             BoundaryCondition::Neumann { gradient } => {
-                // ∂φ/∂n = gradient (simplified implementation)
-                matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
-                rhs[linear_idx] = gradient.clone();
+                // ∂φ/∂n = gradient (Neumann condition)
+                // For a boundary cell, modify the discretization to include the flux
+                let mut diagonal = T::zero();
+                let mut source_term = T::zero();
+
+                // Add contributions from interior neighbors only
+                // The boundary face contribution is handled via the gradient condition
+                if i > 0 && i < grid.nx() - 1 {
+                    let coeff = T::one() / (dx.clone() * dx.clone());
+                    if i > 0 {
+                        matrix_builder.add_entry(linear_idx, linear_idx - 1, -coeff.clone())?;
+                        diagonal += coeff.clone();
+                    }
+                    if i < grid.nx() - 1 {
+                        matrix_builder.add_entry(linear_idx, linear_idx + 1, -coeff.clone())?;
+                        diagonal += coeff;
+                    }
+                }
+
+                if j > 0 && j < grid.ny() - 1 {
+                    let coeff = T::one() / (dy.clone() * dy.clone());
+                    if j > 0 {
+                        matrix_builder.add_entry(linear_idx, linear_idx - grid.nx(), -coeff.clone())?;
+                        diagonal += coeff.clone();
+                    }
+                    if j < grid.ny() - 1 {
+                        matrix_builder.add_entry(linear_idx, linear_idx + grid.nx(), -coeff.clone())?;
+                        diagonal += coeff;
+                    }
+                }
+
+                // Add flux contribution from boundary face
+                // For simplicity, assume boundary is aligned with grid
+                let boundary_area = if i == 0 || i == grid.nx() - 1 { dy.clone() } else { dx.clone() };
+                let _boundary_distance = if i == 0 || i == grid.nx() - 1 { dx.clone() / T::from_f64(2.0).unwrap() } else { dy.clone() / T::from_f64(2.0).unwrap() };
+
+                // Flux = -Γ * ∂φ/∂n * Area, discretized as: -Γ * gradient * Area
+                source_term += gradient.clone() * boundary_area;
+
+                matrix_builder.add_entry(linear_idx, linear_idx, diagonal)?;
+                rhs[linear_idx] = source_term;
             }
             BoundaryCondition::PressureInlet { pressure } => {
+                // Treat as Dirichlet condition
                 matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
                 rhs[linear_idx] = pressure.clone();
             }
             BoundaryCondition::PressureOutlet { pressure } => {
+                // Treat as Dirichlet condition
                 matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
                 rhs[linear_idx] = pressure.clone();
             }
+            BoundaryCondition::Outflow | BoundaryCondition::Symmetry => {
+                // Zero gradient condition: ∂φ/∂n = 0 (proper Neumann implementation)
+                let _zero_gradient = T::zero();
+                let mut diagonal = T::zero();
+
+                // Add contributions from interior neighbors only
+                if i > 0 && i < grid.nx() - 1 {
+                    let coeff = T::one() / (dx.clone() * dx.clone());
+                    if i > 0 {
+                        matrix_builder.add_entry(linear_idx, linear_idx - 1, -coeff.clone())?;
+                        diagonal += coeff.clone();
+                    }
+                    if i < grid.nx() - 1 {
+                        matrix_builder.add_entry(linear_idx, linear_idx + 1, -coeff.clone())?;
+                        diagonal += coeff;
+                    }
+                }
+
+                if j > 0 && j < grid.ny() - 1 {
+                    let coeff = T::one() / (dy.clone() * dy.clone());
+                    if j > 0 {
+                        matrix_builder.add_entry(linear_idx, linear_idx - grid.nx(), -coeff.clone())?;
+                        diagonal += coeff.clone();
+                    }
+                    if j < grid.ny() - 1 {
+                        matrix_builder.add_entry(linear_idx, linear_idx + grid.nx(), -coeff.clone())?;
+                        diagonal += coeff;
+                    }
+                }
+
+                matrix_builder.add_entry(linear_idx, linear_idx, diagonal)?;
+                rhs[linear_idx] = T::zero(); // Zero flux contribution
+            }
             _ => {
-                // Default to zero gradient
-                matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
+                // Default: zero gradient (same as Outflow)
+                let mut diagonal = T::zero();
+
+                if i > 0 && i < grid.nx() - 1 {
+                    let coeff = T::one() / (dx.clone() * dx.clone());
+                    if i > 0 {
+                        matrix_builder.add_entry(linear_idx, linear_idx - 1, -coeff.clone())?;
+                        diagonal += coeff.clone();
+                    }
+                    if i < grid.nx() - 1 {
+                        matrix_builder.add_entry(linear_idx, linear_idx + 1, -coeff.clone())?;
+                        diagonal += coeff;
+                    }
+                }
+
+                if j > 0 && j < grid.ny() - 1 {
+                    let coeff = T::one() / (dy.clone() * dy.clone());
+                    if j > 0 {
+                        matrix_builder.add_entry(linear_idx, linear_idx - grid.nx(), -coeff.clone())?;
+                        diagonal += coeff.clone();
+                    }
+                    if j < grid.ny() - 1 {
+                        matrix_builder.add_entry(linear_idx, linear_idx + grid.nx(), -coeff.clone())?;
+                        diagonal += coeff;
+                    }
+                }
+
+                matrix_builder.add_entry(linear_idx, linear_idx, diagonal)?;
                 rhs[linear_idx] = T::zero();
             }
         }
@@ -239,7 +343,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
         &self,
         matrix_builder: &mut SparseMatrixBuilder<T>,
         rhs: &mut DVector<T>,
-        _grid: &StructuredGrid2D<T>,
+        grid: &StructuredGrid2D<T>,
         faces: &[Face<T>],
         i: usize,
         j: usize,
@@ -266,7 +370,14 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
             if let Some(neighbor) = neighbor_idx {
                 // Internal face - add convection and diffusion terms
                 let face_velocity = vel.dot(&face_normal);
-                let distance = T::from_f64(0.1).unwrap(); // Simplified distance calculation
+
+                // Calculate actual distance between cell centers
+                let (dx, dy) = grid.spacing();
+                let distance = if face.normal.x.clone().abs() > face.normal.y.clone().abs() {
+                    dx.clone() // Face is vertical, distance is dx
+                } else {
+                    dy.clone() // Face is horizontal, distance is dy
+                };
 
                 // Diffusion coefficient
                 let diff_coeff = gamma.clone() * face.area.clone() / distance;

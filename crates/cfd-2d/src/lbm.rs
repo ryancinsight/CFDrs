@@ -232,12 +232,25 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
             if i < self.nx && j < self.ny {
                 match bc {
                     BoundaryCondition::Wall { .. } => {
-                        // Bounce-back boundary condition
+                        // Proper bounce-back boundary condition
+                        // f_q(x_b, t+1) = f*_opp(x_b, t) where f* is post-collision
+                        // For simplicity, we apply bounce-back to current distributions
+                        let mut f_new = vec![T::zero(); D2Q9::Q];
+
+                        // Copy current distributions
                         for q in 0..D2Q9::Q {
+                            f_new[q] = self.f[i][j][q].clone();
+                        }
+
+                        // Apply bounce-back: outgoing = incoming from opposite direction
+                        for q in 1..D2Q9::Q { // Skip rest particle (q=0)
                             let opp = D2Q9::OPPOSITE[q];
-                            let temp = self.f[i][j][q].clone();
-                            self.f[i][j][q] = self.f[i][j][opp].clone();
-                            self.f[i][j][opp] = temp;
+                            f_new[q] = self.f[i][j][opp].clone();
+                        }
+
+                        // Update distributions
+                        for q in 0..D2Q9::Q {
+                            self.f[i][j][q] = f_new[q].clone();
                         }
                     }
                     BoundaryCondition::VelocityInlet { velocity } => {
@@ -255,12 +268,23 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                         }
                     }
                     _ => {
-                        // Default: no-slip wall (bounce-back)
+                        // Default: no-slip wall (proper bounce-back)
+                        let mut f_new = vec![T::zero(); D2Q9::Q];
+
+                        // Copy current distributions
                         for q in 0..D2Q9::Q {
+                            f_new[q] = self.f[i][j][q].clone();
+                        }
+
+                        // Apply bounce-back: outgoing = incoming from opposite direction
+                        for q in 1..D2Q9::Q { // Skip rest particle (q=0)
                             let opp = D2Q9::OPPOSITE[q];
-                            let temp = self.f[i][j][q].clone();
-                            self.f[i][j][q] = self.f[i][j][opp].clone();
-                            self.f[i][j][opp] = temp;
+                            f_new[q] = self.f[i][j][opp].clone();
+                        }
+
+                        // Update distributions
+                        for q in 0..D2Q9::Q {
+                            self.f[i][j][q] = f_new[q].clone();
                         }
                     }
                 }

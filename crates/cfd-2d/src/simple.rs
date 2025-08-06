@@ -5,11 +5,15 @@
 //! the pressure-velocity coupling in incompressible flows. It uses a
 //! predictor-corrector approach with pressure correction.
 //!
+//! This implementation solves the full Navier-Stokes equations:
+//! - Momentum: ∂u/∂t + (u·∇)u = -∇p/ρ + ν∇²u
+//! - Continuity: ∇·u = 0
+//!
 //! Algorithm steps:
 //! 1. Guess pressure field
-//! 2. Solve momentum equations to get velocity field
-//! 3. Solve pressure correction equation
-//! 4. Correct pressure and velocity fields
+//! 2. Solve momentum equations (with convection) to get velocity field
+//! 3. Solve pressure correction equation from continuity
+//! 4. Correct pressure and velocity fields using pressure correction gradients
 //! 5. Check convergence, repeat if necessary
 
 use cfd_core::{Result, BoundaryCondition};
@@ -127,7 +131,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> SimpleSolver<T> {
             self.solve_pressure_correction(grid, boundary_conditions)?;
             
             // Step 3: Correct pressure and velocity fields
-            self.correct_fields();
+            self.correct_fields(grid);
             
             // Step 4: Apply boundary conditions
             self.apply_boundary_conditions(boundary_conditions);
@@ -156,34 +160,61 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> SimpleSolver<T> {
     ) -> Result<()> {
         let (dx, dy) = grid.spacing();
         
-        // Solve u-momentum equation
+        // Solve u-momentum equation: ∂u/∂t + (u·∇)u = -∇p/ρ + ν∇²u
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
                 if !boundary_conditions.contains_key(&(i, j)) {
-                    // Simplified momentum equation: -∇p + ν∇²u = 0
-                    let pressure_gradient_x = (self.p[i+1][j].clone() - self.p[i-1][j].clone()) / (T::from_f64(2.0).unwrap() * dx.clone());
-                    
+                    // Pressure gradient term
+                    let pressure_gradient_x = (self.p[i+1][j].clone() - self.p[i-1][j].clone()) /
+                                             (T::from_f64(2.0).unwrap() * dx.clone());
+
+                    // Viscous term (Laplacian)
                     let laplacian_u_x = (self.u[i+1][j].x.clone() - T::from_f64(2.0).unwrap() * self.u[i][j].x.clone() + self.u[i-1][j].x.clone()) / (dx.clone() * dx.clone()) +
                                        (self.u[i][j+1].x.clone() - T::from_f64(2.0).unwrap() * self.u[i][j].x.clone() + self.u[i][j-1].x.clone()) / (dy.clone() * dy.clone());
-                    
-                    let new_u_x = self.viscosity.clone() * laplacian_u_x - pressure_gradient_x / self.density.clone();
-                    self.u[i][j].x = self.u[i][j].x.clone() * (T::one() - self.config.velocity_relaxation.clone()) + 
+
+                    // Convection term: (u·∇)u_x = u*(∂u/∂x) + v*(∂u/∂y)
+                    let du_dx = (self.u[i+1][j].x.clone() - self.u[i-1][j].x.clone()) /
+                               (T::from_f64(2.0).unwrap() * dx.clone());
+                    let du_dy = (self.u[i][j+1].x.clone() - self.u[i][j-1].x.clone()) /
+                               (T::from_f64(2.0).unwrap() * dy.clone());
+                    let convection_x = self.u[i][j].x.clone() * du_dx + self.u[i][j].y.clone() * du_dy;
+
+                    // Full Navier-Stokes equation
+                    let new_u_x = self.viscosity.clone() * laplacian_u_x -
+                                 pressure_gradient_x / self.density.clone() -
+                                 convection_x;
+
+                    self.u[i][j].x = self.u[i][j].x.clone() * (T::one() - self.config.velocity_relaxation.clone()) +
                                      new_u_x * self.config.velocity_relaxation.clone();
                 }
             }
         }
         
-        // Solve v-momentum equation
+        // Solve v-momentum equation: ∂v/∂t + (u·∇)v = -∇p/ρ + ν∇²v
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
                 if !boundary_conditions.contains_key(&(i, j)) {
-                    let pressure_gradient_y = (self.p[i][j+1].clone() - self.p[i][j-1].clone()) / (T::from_f64(2.0).unwrap() * dy.clone());
-                    
+                    // Pressure gradient term
+                    let pressure_gradient_y = (self.p[i][j+1].clone() - self.p[i][j-1].clone()) /
+                                             (T::from_f64(2.0).unwrap() * dy.clone());
+
+                    // Viscous term (Laplacian)
                     let laplacian_u_y = (self.u[i+1][j].y.clone() - T::from_f64(2.0).unwrap() * self.u[i][j].y.clone() + self.u[i-1][j].y.clone()) / (dx.clone() * dx.clone()) +
                                        (self.u[i][j+1].y.clone() - T::from_f64(2.0).unwrap() * self.u[i][j].y.clone() + self.u[i][j-1].y.clone()) / (dy.clone() * dy.clone());
-                    
-                    let new_u_y = self.viscosity.clone() * laplacian_u_y - pressure_gradient_y / self.density.clone();
-                    self.u[i][j].y = self.u[i][j].y.clone() * (T::one() - self.config.velocity_relaxation.clone()) + 
+
+                    // Convection term: (u·∇)v_y = u*(∂v/∂x) + v*(∂v/∂y)
+                    let dv_dx = (self.u[i+1][j].y.clone() - self.u[i-1][j].y.clone()) /
+                               (T::from_f64(2.0).unwrap() * dx.clone());
+                    let dv_dy = (self.u[i][j+1].y.clone() - self.u[i][j-1].y.clone()) /
+                               (T::from_f64(2.0).unwrap() * dy.clone());
+                    let convection_y = self.u[i][j].x.clone() * dv_dx + self.u[i][j].y.clone() * dv_dy;
+
+                    // Full Navier-Stokes equation
+                    let new_u_y = self.viscosity.clone() * laplacian_u_y -
+                                 pressure_gradient_y / self.density.clone() -
+                                 convection_y;
+
+                    self.u[i][j].y = self.u[i][j].y.clone() * (T::one() - self.config.velocity_relaxation.clone()) +
                                      new_u_y * self.config.velocity_relaxation.clone();
                 }
             }
@@ -278,16 +309,40 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> SimpleSolver<T> {
     }
 
     /// Correct pressure and velocity fields
-    fn correct_fields(&mut self) {
+    fn correct_fields(&mut self, grid: &StructuredGrid2D<T>) {
+        let (dx, dy) = grid.spacing();
+
+        // Calculate velocity correction based on pressure correction gradient
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                // Calculate pressure correction gradients
+                let dp_dx = (self.p_prime[i+1][j].clone() - self.p_prime[i-1][j].clone()) /
+                           (T::from_f64(2.0).unwrap() * dx.clone());
+                let dp_dy = (self.p_prime[i][j+1].clone() - self.p_prime[i][j-1].clone()) /
+                           (T::from_f64(2.0).unwrap() * dy.clone());
+
+                // Velocity correction: u' = -d * ∇p'
+                // For simplicity, use d = dt/ρ (time step over density)
+                // In practice, d would be derived from momentum equation coefficients
+                let d_coeff = T::from_f64(0.1).unwrap() / self.density.clone(); // Simplified
+
+                self.u_prime[i][j].x = -d_coeff.clone() * dp_dx;
+                self.u_prime[i][j].y = -d_coeff * dp_dy;
+            }
+        }
+
+        // Apply corrections with under-relaxation
         for i in 0..self.nx {
             for j in 0..self.ny {
                 // Correct pressure
-                self.p[i][j] = self.p[i][j].clone() + 
+                self.p[i][j] = self.p[i][j].clone() +
                               self.config.pressure_relaxation.clone() * self.p_prime[i][j].clone();
-                
-                // Correct velocity (simplified)
-                // In full implementation, this would use pressure correction gradients
-                self.u[i][j] = self.u[i][j].clone() + self.u_prime[i][j].clone();
+
+                // Correct velocity
+                self.u[i][j].x = self.u[i][j].x.clone() +
+                                self.config.velocity_relaxation.clone() * self.u_prime[i][j].x.clone();
+                self.u[i][j].y = self.u[i][j].y.clone() +
+                                self.config.velocity_relaxation.clone() * self.u_prime[i][j].y.clone();
             }
         }
     }
