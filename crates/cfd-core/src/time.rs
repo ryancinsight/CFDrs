@@ -247,6 +247,7 @@ mod tests {
 
     // Simple state for testing
     #[derive(Clone)]
+    #[allow(dead_code)]
     struct TestState(f64);
 
     impl std::ops::AddAssign for TestState {
@@ -273,7 +274,7 @@ mod tests {
     fn test_forward_euler() {
         use approx::assert_abs_diff_eq;
 
-        let integrator = ForwardEuler::<f64>::new();
+        let integrator = ForwardEuler;
         
         // Test with a simple ODE: dy/dt = -y
         // Solution: y(t) = y0 * exp(-t)
@@ -286,7 +287,7 @@ mod tests {
         };
         
         // Take one step
-        integrator.step(&mut state, 0.0, dt, derivative);
+        integrator.step(&mut state, 0.0, dt, derivative).unwrap();
         
         // After one step: y ≈ y0 * (1 - dt) = 1.0 * (1 - 0.1) = 0.9
         assert_abs_diff_eq!(state[0], 0.9, epsilon = 1e-10);

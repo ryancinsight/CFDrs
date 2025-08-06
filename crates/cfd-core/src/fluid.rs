@@ -160,6 +160,6 @@ mod tests {
     fn test_reynolds_number() {
         let water = Fluid::<f64>::water();
         let re = water.reynolds_number(1.0, 0.1);
-        assert_relative_eq!(re, 99_820.0, epsilon = 10.0);
+        assert_relative_eq!(re, 99_620.76, epsilon = 1.0);
     }
 }

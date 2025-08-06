@@ -22,7 +22,10 @@ pub mod prelude {
     pub use cfd_io::prelude::*;
     pub use cfd_mesh::prelude::*;
     pub use cfd_1d::prelude::*;
-    pub use cfd_2d::prelude::*;
-    pub use cfd_3d::prelude::*;
-    pub use cfd_validation::prelude::*;
+    // TODO: Enable when cfd_2d prelude has exports
+    // pub use cfd_2d::prelude::*;
+    // TODO: Enable when cfd_3d prelude has exports  
+    // pub use cfd_3d::prelude::*;
+    // TODO: Enable when cfd_validation prelude has exports
+    // pub use cfd_validation::prelude::*;
 }

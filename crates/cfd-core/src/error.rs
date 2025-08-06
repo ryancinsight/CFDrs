@@ -28,6 +28,10 @@ pub enum Error {
     /// I/O error
     #[error("I/O error: {0}")]
     IoError(#[from] std::io::Error),
+    
+    /// CSV error
+    #[error("CSV error: {0}")]
+    CsvError(String),
 
     /// Serialization error
     #[error("Serialization error: {0}")]

@@ -28,7 +28,7 @@ fn main() {
     bc_set.add("outlet", BoundaryCondition::pressure_outlet(101225.0)); // Slightly lower pressure
     
     // Create plugin registry
-    let registry = PluginRegistry::new();
+    let _registry = PluginRegistry::new();
     println!("\nPlugin registry created");
     
     // Calculate Reynolds number for a given velocity

@@ -9,12 +9,14 @@ documentation.workspace = true
 description = "Mathematical utilities and numerical methods for CFD simulations"
 
 [dependencies]
+cfd-core.workspace = true
 nalgebra.workspace = true
 nalgebra-sparse.workspace = true
 num-traits.workspace = true
 approx.workspace = true
 thiserror.workspace = true
 rayon.workspace = true
+tracing.workspace = true
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
