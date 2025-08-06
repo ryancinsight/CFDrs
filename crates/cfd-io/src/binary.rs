@@ -1,44 +1,21 @@
-//! Binary file format support.
+//! Binary file I/O operations.
 
-use cfd_core::Result;
-use nalgebra::RealField;
+/// Binary writer
+pub struct BinaryWriter;
 
-/// Binary file writer
-pub struct BinaryWriter<T: RealField> {
-    _phantom: std::marker::PhantomData<T>,
-}
-
-impl<T: RealField> BinaryWriter<T> {
+impl BinaryWriter {
     /// Create a new binary writer
     pub fn new() -> Self {
-        Self {
-            _phantom: std::marker::PhantomData,
-        }
+        Self
     }
 }
 
-impl<T: RealField> Default for BinaryWriter<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+/// Binary reader
+pub struct BinaryReader;
 
-/// Binary file reader
-pub struct BinaryReader<T: RealField> {
-    _phantom: std::marker::PhantomData<T>,
-}
-
-impl<T: RealField> BinaryReader<T> {
+impl BinaryReader {
     /// Create a new binary reader
     pub fn new() -> Self {
-        Self {
-            _phantom: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<T: RealField> Default for BinaryReader<T> {
-    fn default() -> Self {
-        Self::new()
+        Self
     }
 }

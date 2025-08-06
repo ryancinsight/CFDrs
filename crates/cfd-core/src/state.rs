@@ -1,6 +1,8 @@
 //! Simulation state representations.
 
+use indexmap::IndexMap;
 use nalgebra::{DVector, RealField, Vector3};
+use num_traits::cast::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
 /// Trait for simulation states
@@ -89,17 +91,17 @@ pub struct BasicState<T: RealField> {
     /// Iteration count
     pub iteration: usize,
     /// Field variables
-    pub fields: indexmap::IndexMap<FieldVariable, FieldData<T>>,
+    pub fields: IndexMap<FieldVariable, FieldData<T>>,
 }
 
-impl<T: RealField> BasicState<T> {
+impl<T: RealField + FromPrimitive> BasicState<T> {
     /// Create a new basic state
     pub fn new() -> Self {
         Self {
             time: T::zero(),
-            time_step: T::from(1e-3).unwrap(),
+            time_step: T::from_f64(1e-3).unwrap(),
             iteration: 0,
-            fields: indexmap::IndexMap::new(),
+            fields: IndexMap::new(),
         }
     }
 
@@ -146,7 +148,7 @@ impl<T: RealField> BasicState<T> {
     }
 }
 
-impl<T: RealField> Default for BasicState<T> {
+impl<T: RealField + FromPrimitive> Default for BasicState<T> {
     fn default() -> Self {
         Self::new()
     }

@@ -14,14 +14,14 @@ resolver = "2"
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-authors = ["CFD Suite Contributors"]
-license = "MIT"
-repository = "https://github.com/yourusername/cfd-suite"
-homepage = "https://github.com/yourusername/cfd-suite"
+authors = ["Ryan Clanton <ryan@clanton.dev>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ryancinsight/cfd-suite"
+homepage = "https://github.com/ryancinsight/cfd-suite"
 documentation = "https://docs.rs/cfd-suite"
 readme = "README.md"
 keywords = ["cfd", "simulation", "fluid-dynamics", "computational", "physics"]
-categories = ["science", "simulation", "mathematics"]
+categories = ["science", "simulation"]
 
 [workspace.dependencies]
 # Core dependencies

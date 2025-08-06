@@ -18,13 +18,8 @@ pub enum Error {
     NumericalError(String),
 
     /// Convergence failure
-    #[error("Failed to converge after {iterations} iterations (residual: {residual})")]
-    ConvergenceFailure {
-        /// Number of iterations performed
-        iterations: usize,
-        /// Final residual value
-        residual: f64,
-    },
+    #[error("Convergence failure: {0}")]
+    ConvergenceFailure(String),
 
     /// Plugin-related error
     #[error("Plugin error: {0}")]
@@ -38,14 +33,18 @@ pub enum Error {
     #[error("Serialization error: {0}")]
     SerializationError(String),
 
-    /// Generic error with context
-    #[error("{context}: {source}")]
+    /// Not implemented
+    #[error("Not implemented: {0}")]
+    NotImplemented(String),
+
+    /// Error with context
+    #[error("{message}: {source}")]
     WithContext {
-        /// Context description
-        context: String,
-        /// Underlying error
+        /// Context message
+        message: String,
+        /// Source error
         #[source]
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: Box<Error>,
     },
 }
 
@@ -56,7 +55,7 @@ impl Error {
     /// Add context to an error
     pub fn context<S: Into<String>>(self, context: S) -> Self {
         Self::WithContext {
-            context: context.into(),
+            message: context.into(),
             source: Box::new(self),
         }
     }

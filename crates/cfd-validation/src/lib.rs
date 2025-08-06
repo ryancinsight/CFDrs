@@ -1,4 +1,4 @@
-//! Validation framework and benchmark problems for CFD simulations.
+//! Validation and benchmarking tools for CFD simulations.
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
@@ -11,23 +11,25 @@ pub mod error_metrics;
 pub mod convergence;
 pub mod conservation;
 
-pub use analytical::{
-    AnalyticalSolution, PoiseuilleFlow, CouetteFlow, StokesFlow, TaylorGreenVortex,
-};
-pub use benchmarks::{
-    Benchmark, LidDrivenCavity, FlowOverCylinder, BackwardFacingStep,
-};
-pub use error_metrics::{ErrorMetric, L2Norm, LInfNorm, RelativeError};
-pub use convergence::{ConvergenceAnalysis, RichardsonExtrapolation};
-pub use conservation::{ConservationChecker, MassConservation, EnergyConservation};
+// TODO: Implement these exports
+// pub use analytical::{
+//     AnalyticalSolution, PoiseuilleFlow, CouetteFlow, StokesFlow, TaylorGreenVortex,
+// };
+// pub use benchmarks::{
+//     Benchmark, LidDrivenCavity, FlowOverCylinder, BackwardFacingStep,
+// };
+// pub use error_metrics::{ErrorMetric, L2Norm, LInfNorm, RelativeError};
+// pub use convergence::{ConvergenceAnalysis, RichardsonExtrapolation};
+// pub use conservation::{ConservationChecker, MassConservation, EnergyConservation};
 
-/// Prelude module for convenient imports
+/// Common validation types and traits
 pub mod prelude {
-    pub use crate::{
-        analytical::{AnalyticalSolution, PoiseuilleFlow},
-        benchmarks::{Benchmark, LidDrivenCavity},
-        error_metrics::{ErrorMetric, L2Norm},
-        convergence::ConvergenceAnalysis,
-        conservation::ConservationChecker,
-    };
+    // TODO: Add exports when implemented
+    // pub use crate::{
+    //     analytical::{AnalyticalSolution, PoiseuilleFlow},
+    //     benchmarks::{Benchmark, LidDrivenCavity},
+    //     error_metrics::{ErrorMetric, L2Norm},
+    //     convergence::ConvergenceAnalysis,
+    //     conservation::ConservationChecker,
+    // };
 }

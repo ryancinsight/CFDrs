@@ -1,7 +1,8 @@
-//! Problem definition traits and structures.
+//! Problem definition and configuration.
 
 use crate::{boundary::BoundaryConditionSet, domain::Domain, fluid::Fluid, Result};
 use nalgebra::RealField;
+use num_traits::cast::FromPrimitive;
 use std::sync::Arc;
 
 /// Trait for defining CFD problems
@@ -59,11 +60,11 @@ pub struct ProblemParameters<T: RealField> {
     pub energy: bool,
 }
 
-impl<T: RealField> Default for ProblemParameters<T> {
+impl<T: RealField + FromPrimitive> Default for ProblemParameters<T> {
     fn default() -> Self {
         Self {
-            reference_pressure: T::from(101325.0).unwrap(), // 1 atm
-            reference_temperature: Some(T::from(293.15).unwrap()), // 20°C
+            reference_pressure: T::from_f64(101325.0).unwrap(), // 1 atm
+            reference_temperature: Some(T::from_f64(293.15).unwrap()), // 20°C
             gravity: None,
             transient: false,
             energy: false,

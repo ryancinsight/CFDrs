@@ -1,7 +1,9 @@
 //! Solver trait and common solver functionality.
 
-use crate::{problem::Problem, Result};
+use crate::{Problem, Result};
 use nalgebra::RealField;
+use num_traits::cast::FromPrimitive;
+use std::fmt::LowerExp;
 
 /// Main solver trait for CFD simulations
 pub trait Solver<T: RealField>: Send + Sync {
@@ -40,10 +42,10 @@ pub struct SolverConfig<T: RealField> {
     pub num_threads: Option<usize>,
 }
 
-impl<T: RealField> Default for SolverConfig<T> {
+impl<T: RealField + FromPrimitive> Default for SolverConfig<T> {
     fn default() -> Self {
         Self {
-            tolerance: T::from(1e-6).unwrap(),
+            tolerance: T::from_f64(1e-6).unwrap(),
             max_iterations: 1000,
             relaxation_factor: T::one(),
             verbosity: 1,
@@ -54,29 +56,24 @@ impl<T: RealField> Default for SolverConfig<T> {
 }
 
 /// Iterative solver trait
-pub trait IterativeSolver<T: RealField>: Solver<T> {
+pub trait IterativeSolver<T: RealField + LowerExp>: Solver<T> {
     /// Perform one iteration
     fn iterate(&mut self, state: &mut Self::Solution) -> Result<T>;
 
-    /// Check convergence
-    fn is_converged(&self, residual: T) -> bool {
-        residual < self.config().tolerance
-    }
-
-    /// Run the iterative solver
-    fn solve_iterative(&mut self, problem: &Self::Problem) -> Result<Self::Solution> {
-        let mut state = self.initialize(problem)?;
-        let config = self.config();
+    /// Default iterative solve implementation
+    fn iterative_solve(&mut self, mut state: Self::Solution) -> Result<Self::Solution> {
+        let max_iterations = self.config().max_iterations;
+        let verbosity = self.config().verbosity;
         
-        for iter in 0..config.max_iterations {
+        for iter in 0..max_iterations {
             let residual = self.iterate(&mut state)?;
             
-            if config.verbosity >= 2 {
-                tracing::debug!("Iteration {}: residual = {:e}", iter + 1, residual);
+            if verbosity >= 2 {
+                tracing::debug!("Iteration {}: residual = {:e}", iter + 1, residual.clone());
             }
             
-            if self.is_converged(residual) {
-                if config.verbosity >= 1 {
+            if self.is_converged(residual.clone()) {
+                if verbosity >= 1 {
                     tracing::info!(
                         "Converged after {} iterations (residual: {:e})",
                         iter + 1,
@@ -87,10 +84,15 @@ pub trait IterativeSolver<T: RealField>: Solver<T> {
             }
         }
         
-        Err(crate::Error::ConvergenceFailure {
-            iterations: config.max_iterations,
-            residual: self.get_residual(&state),
-        })
+        Err(crate::Error::ConvergenceFailure(format!(
+            "Failed to converge after {} iterations",
+            max_iterations
+        )))
+    }
+
+    /// Check convergence
+    fn is_converged(&self, residual: T) -> bool {
+        residual < self.config().tolerance
     }
 
     /// Initialize the solution state

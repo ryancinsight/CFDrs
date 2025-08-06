@@ -1,28 +1,28 @@
-//! I/O operations and file format support for CFD simulations.
+//! I/O operations for CFD simulations.
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
-pub mod vtk;
-pub mod csv;
-pub mod json;
 pub mod binary;
-pub mod checkpoint;
+pub mod csv;
+pub mod formats;
+pub mod json;
+pub mod vtk;
 
-pub use vtk::{VtkWriter, VtkReader};
-pub use csv::{CsvWriter, CsvReader};
-pub use json::{JsonConfig, JsonWriter, JsonReader};
-pub use binary::{BinaryWriter, BinaryReader};
-pub use checkpoint::{Checkpoint, CheckpointManager};
+// Re-export commonly used types
+pub use csv::{CsvReader, CsvWriter};
+pub use json::{JsonReader, JsonWriter};
+pub use vtk::{VtkReader, VtkWriter};
+pub use binary::{BinaryReader, BinaryWriter};
 
-/// Prelude module for convenient imports
+/// Common I/O types and traits
 pub mod prelude {
     pub use crate::{
-        vtk::VtkWriter,
-        csv::CsvWriter,
-        json::{JsonConfig, JsonWriter},
-        checkpoint::CheckpointManager,
+        csv::{CsvReader, CsvWriter},
+        json::{JsonReader, JsonWriter},
+        vtk::{VtkReader, VtkWriter},
+        binary::{BinaryReader, BinaryWriter},
     };
 }

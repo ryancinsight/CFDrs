@@ -1,44 +1,21 @@
-//! CSV file format support.
+//! CSV file I/O operations.
 
-use cfd_core::Result;
-use nalgebra::RealField;
+/// CSV writer
+pub struct CsvWriter;
 
-/// CSV file writer
-pub struct CsvWriter<T: RealField> {
-    _phantom: std::marker::PhantomData<T>,
-}
-
-impl<T: RealField> CsvWriter<T> {
+impl CsvWriter {
     /// Create a new CSV writer
     pub fn new() -> Self {
-        Self {
-            _phantom: std::marker::PhantomData,
-        }
+        Self
     }
 }
 
-impl<T: RealField> Default for CsvWriter<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+/// CSV reader
+pub struct CsvReader;
 
-/// CSV file reader
-pub struct CsvReader<T: RealField> {
-    _phantom: std::marker::PhantomData<T>,
-}
-
-impl<T: RealField> CsvReader<T> {
+impl CsvReader {
     /// Create a new CSV reader
     pub fn new() -> Self {
-        Self {
-            _phantom: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<T: RealField> Default for CsvReader<T> {
-    fn default() -> Self {
-        Self::new()
+        Self
     }
 }

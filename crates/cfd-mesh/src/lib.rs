@@ -1,32 +1,41 @@
-//! Mesh handling and CSGrs integration for CFD simulations.
+//! Mesh handling and generation.
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
-pub mod mesh;
+pub mod connectivity;
+pub mod geometry;
 pub mod grid;
+pub mod mesh;
 pub mod quality;
 pub mod refinement;
 
-#[cfg(feature = "csg")]
-pub mod csg_integration;
+// Re-export commonly used types
+pub use connectivity::Connectivity;
+pub use geometry::Geometry;
+pub use mesh::{Cell, Edge, Face, Mesh, MeshTopology, Vertex};
+// TODO: Implement these types
+// pub use grid::{StructuredGrid, UnstructuredGrid, GridGenerator};
+// pub use quality::{MeshQuality, QualityMetric};
+// pub use refinement::{MeshRefinement, AdaptiveRefinement};
 
-pub use mesh::{Mesh, MeshTopology, Cell, Face, Edge, Vertex};
-pub use grid::{StructuredGrid, UnstructuredGrid, GridGenerator};
-pub use quality::{MeshQuality, QualityMetric};
-pub use refinement::{MeshRefinement, AdaptiveRefinement};
+// #[cfg(feature = "csg")]
+// pub mod csg;
 
-/// Prelude module for convenient imports
+/// Common mesh types and traits
 pub mod prelude {
     pub use crate::{
-        mesh::{Mesh, Cell, Face, Vertex},
-        grid::{StructuredGrid, UnstructuredGrid},
-        quality::MeshQuality,
-        refinement::MeshRefinement,
+        connectivity::Connectivity,
+        geometry::Geometry,
+        mesh::{Cell, Edge, Face, Mesh, MeshTopology, Vertex},
+        // TODO: Add these when implemented
+        // grid::{StructuredGrid, UnstructuredGrid},
+        // quality::MeshQuality,
+        // refinement::MeshRefinement,
     };
-    
-    #[cfg(feature = "csg")]
-    pub use crate::csg_integration::CsgMeshGenerator;
+
+    // #[cfg(feature = "csg")]
+    // pub use crate::csg::*;
 }

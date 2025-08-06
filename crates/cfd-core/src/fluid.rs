@@ -1,6 +1,8 @@
 //! Fluid properties and models.
 
 use nalgebra::RealField;
+use num_traits::cast::FromPrimitive;
+use num_traits::Float;
 use serde::{Deserialize, Serialize};
 
 /// Represents fluid properties
@@ -58,14 +60,14 @@ pub enum ViscosityModel<T: RealField> {
     },
 }
 
-impl<T: RealField> Fluid<T> {
+impl<T: RealField + FromPrimitive + Float> Fluid<T> {
     /// Create a new Newtonian fluid
     pub fn new_newtonian(name: impl Into<String>, density: T, viscosity: T) -> Self {
-        let kinematic_viscosity = viscosity / density;
+        let kinematic_viscosity = viscosity.clone() / density.clone();
         Self {
             name: name.into(),
-            density,
-            viscosity,
+            density: density.clone(),
+            viscosity: viscosity.clone(),
             kinematic_viscosity,
             specific_heat: None,
             thermal_conductivity: None,
@@ -74,52 +76,45 @@ impl<T: RealField> Fluid<T> {
     }
 
     /// Create water at 20°C
-    pub fn water() -> Self
-    where
-        T: From<f64>,
-    {
-        use num_traits::cast::FromPrimitive;
+    pub fn water() -> Self {
         Self::new_newtonian(
-            "Water",
-            T::from_f64(998.2).unwrap(),  // kg/m³
-            T::from_f64(1.002e-3).unwrap(), // Pa·s
+            "Water (20°C)",
+            T::from_f64(998.2).unwrap(),
+            T::from_f64(1.002e-3).unwrap(),
         )
     }
 
     /// Create air at 20°C, 1 atm
-    pub fn air() -> Self
-    where
-        T: From<f64>,
-    {
-        use num_traits::cast::FromPrimitive;
+    pub fn air() -> Self {
         Self::new_newtonian(
-            "Air",
-            T::from_f64(1.204).unwrap(),    // kg/m³
-            T::from_f64(1.825e-5).unwrap(), // Pa·s
+            "Air (20°C, 1 atm)",
+            T::from_f64(1.204).unwrap(),
+            T::from_f64(1.825e-5).unwrap(),
         )
     }
 
-    /// Calculate dynamic viscosity for a given shear rate
+    /// Get dynamic viscosity for a given shear rate
     pub fn dynamic_viscosity(&self, shear_rate: T) -> T {
         match &self.viscosity_model {
-            ViscosityModel::Newtonian => self.viscosity,
+            ViscosityModel::Newtonian => self.viscosity.clone(),
             ViscosityModel::PowerLaw {
                 consistency_index,
                 flow_index,
-            } => *consistency_index * num_traits::Float::powf(shear_rate, *flow_index - T::one()),
+            } => {
+                *consistency_index * num_traits::Float::powf(shear_rate, *flow_index - T::one())
+            }
             ViscosityModel::Carreau {
                 mu_zero,
                 mu_inf,
                 lambda,
                 n,
             } => {
-                let lambda_gamma = *lambda * shear_rate;
-                let exponent = (*n - T::one()) / T::from(2.0).unwrap();
-                let factor = num_traits::Float::powf(
-                    T::one() + lambda_gamma * lambda_gamma,
-                    exponent
-                );
-                *mu_inf + (*mu_zero - *mu_inf) * factor
+                let exponent = (*n - T::one()) / T::from_f64(2.0).unwrap();
+                let factor = T::one() + num_traits::Float::powf(*lambda * shear_rate, T::from_f64(2.0).unwrap());
+                
+                *mu_inf
+                    + (*mu_zero - *mu_inf)
+                        * num_traits::Float::powf(factor, exponent)
             }
             ViscosityModel::Cross {
                 mu_zero,
@@ -127,21 +122,22 @@ impl<T: RealField> Fluid<T> {
                 lambda,
                 m,
             } => {
-                let denominator = T::one() + num_traits::Float::powf(*lambda * shear_rate, *m);
-                *mu_inf + (*mu_zero - *mu_inf) / denominator
+                let factor = T::one() + num_traits::Float::powf(*lambda * shear_rate, *m);
+                *mu_inf
+                    + (*mu_zero - *mu_inf) / factor
             }
         }
     }
 
     /// Calculate Reynolds number
     pub fn reynolds_number(&self, velocity: T, length: T) -> T {
-        velocity * length / self.kinematic_viscosity
+        velocity * length / self.kinematic_viscosity.clone()
     }
 
-    /// Calculate Prandtl number (if thermal properties are available)
+    /// Calculate Prandtl number  
     pub fn prandtl_number(&self) -> Option<T> {
-        match (self.specific_heat, self.thermal_conductivity) {
-            (Some(cp), Some(k)) => Some(self.viscosity * cp / k),
+        match (self.specific_heat.clone(), self.thermal_conductivity.clone()) {
+            (Some(cp), Some(k)) => Some(self.viscosity.clone() * cp / k),
             _ => None,
         }
     }
@@ -155,7 +151,7 @@ mod tests {
     #[test]
     fn test_water_properties() {
         let water = Fluid::<f64>::water();
-        assert_eq!(water.name, "Water");
+        assert_eq!(water.name, "Water (20°C)");
         assert_relative_eq!(water.density, 998.2, epsilon = 0.1);
         assert_relative_eq!(water.viscosity, 1.002e-3, epsilon = 1e-6);
     }

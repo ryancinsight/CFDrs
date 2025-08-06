@@ -1,4 +1,4 @@
-//! 1D CFD solvers for pipe networks and microfluidic simulations.
+//! 1D CFD simulations and microfluidic network solvers.
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
@@ -11,19 +11,21 @@ pub mod components;
 pub mod solver;
 pub mod resistance;
 
-pub use network::{Network, Node, NetworkBuilder};
-pub use channel::{Channel, ChannelGeometry};
-pub use components::{Pump, Valve, Sensor, Component};
-pub use solver::{NetworkSolver, ElectricalAnalogySolver, HagenPoiseuilleSolver};
-pub use resistance::{ResistanceModel, RectangularChannel, CircularChannel};
+// TODO: Implement these exports
+// pub use network::{Network, Node, NetworkBuilder};
+// pub use channel::{Channel, ChannelGeometry};
+// pub use components::{Pump, Valve, Sensor, Component};
+// pub use solver::{NetworkSolver, ElectricalAnalogySolver, HagenPoiseuilleSolver};
+// pub use resistance::{ResistanceModel, RectangularChannel, CircularChannel};
 
-/// Prelude module for convenient imports
+/// Common 1D CFD types and traits
 pub mod prelude {
-    pub use crate::{
-        network::{Network, NetworkBuilder},
-        channel::Channel,
-        components::{Pump, Component},
-        solver::NetworkSolver,
-        resistance::ResistanceModel,
-    };
+    // TODO: Add exports when implemented
+    // pub use crate::{
+    //     network::{Network, NetworkBuilder},
+    //     channel::Channel,
+    //     components::{Pump, Component},
+    //     solver::NetworkSolver,
+    //     resistance::ResistanceModel,
+    // };
 }

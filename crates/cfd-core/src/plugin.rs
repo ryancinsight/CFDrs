@@ -1,7 +1,7 @@
-//! Plugin system for extensible CFD simulations.
+//! Plugin system for extensible CFD solvers.
 
 use crate::{Error, Result};
-use std::any::{Any, TypeId};
+use std::any::Any;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -101,23 +101,6 @@ impl PluginRegistry {
             .get(name)
             .cloned()
             .ok_or_else(|| Error::PluginError(format!("Plugin '{}' not found", name)))
-    }
-
-    /// Get a typed plugin
-    pub fn get_typed<P: Plugin + 'static>(&self, name: &str) -> Result<Arc<P>> {
-        let plugin = self.get(name)?;
-        
-        // Try to downcast
-        let any_plugin = plugin.as_any();
-        if any_plugin.type_id() == TypeId::of::<P>() {
-            // Safe because we checked the type
-            Ok(unsafe { Arc::from_raw(Arc::into_raw(plugin) as *const P) })
-        } else {
-            Err(Error::PluginError(format!(
-                "Plugin '{}' is not of the expected type",
-                name
-            )))
-        }
     }
 
     /// List all registered plugins

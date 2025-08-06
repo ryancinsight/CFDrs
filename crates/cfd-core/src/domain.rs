@@ -35,7 +35,12 @@ impl<T: RealField> Domain1D<T> {
 
     /// Get the length of the domain
     pub fn length(&self) -> T {
-        (self.end - self.start).abs()
+        (self.end.clone() - self.start.clone()).abs()
+    }
+
+    /// Get the center of the domain
+    pub fn center(&self) -> T {
+        (self.start.clone() + self.end.clone()) / (T::one() + T::one())
     }
 }
 
@@ -45,18 +50,18 @@ impl<T: RealField> Domain<T> for Domain1D<T> {
     }
 
     fn contains(&self, point: &Point3<T>) -> bool {
-        let x = point.x;
-        let min = self.start.min(self.end);
-        let max = self.start.max(self.end);
+        let x = point.x.clone();
+        let min = self.start.clone().min(self.end.clone());
+        let max = self.start.clone().max(self.end.clone());
         x >= min && x <= max
     }
 
     fn bounding_box(&self) -> (Point3<T>, Point3<T>) {
-        let min = self.start.min(self.end);
-        let max = self.start.max(self.end);
+        let min = self.start.clone().min(self.end.clone());
+        let max = self.start.clone().max(self.end.clone());
         (
-            Point3::new(min, T::zero(), T::zero()),
-            Point3::new(max, T::zero(), T::zero()),
+            Point3::new(min.clone(), T::zero(), T::zero()),
+            Point3::new(max.clone(), T::zero(), T::zero()),
         )
     }
 
@@ -85,12 +90,12 @@ impl<T: RealField> Domain2D<T> {
 
     /// Get the width of the domain
     pub fn width(&self) -> T {
-        self.max.x - self.min.x
+        self.max.x.clone() - self.min.x.clone()
     }
 
     /// Get the height of the domain
     pub fn height(&self) -> T {
-        self.max.y - self.min.y
+        self.max.y.clone() - self.min.y.clone()
     }
 
     /// Get the area of the domain
@@ -135,30 +140,48 @@ impl<T: RealField> Domain3D<T> {
         Self { min, max }
     }
 
-    /// Create a box domain from center and half-extents
-    pub fn from_center_half_extents(center: Point3<T>, half_extents: Vector3<T>) -> Self {
-        Self {
-            min: center - half_extents,
-            max: center + half_extents,
-        }
+    /// Get the width (x dimension)
+    pub fn width(&self) -> T {
+        self.max.x.clone() - self.min.x.clone()
     }
 
-    /// Get the dimensions of the domain
-    pub fn dimensions(&self) -> Vector3<T> {
-        self.max - self.min
+    /// Get the height (y dimension)
+    pub fn height(&self) -> T {
+        self.max.y.clone() - self.min.y.clone()
+    }
+
+    /// Get the depth (z dimension)
+    pub fn depth(&self) -> T {
+        self.max.z.clone() - self.min.z.clone()
     }
 
     /// Get the center of the domain
     pub fn center(&self) -> Point3<T> {
-        let two = T::from(2.0).unwrap();
-        let center_coords = (self.min.coords + self.max.coords) / two;
-        Point3::from(center_coords)
+        let two = T::one() + T::one();
+        Point3::new(
+            (self.min.x.clone() + self.max.x.clone()) / two.clone(),
+            (self.min.y.clone() + self.max.y.clone()) / two.clone(),
+            (self.min.z.clone() + self.max.z.clone()) / two,
+        )
     }
 
-    /// Get the volume of the domain
+    /// Create from center and half-extents
+    pub fn from_center_half_extents(center: Point3<T>, half_extents: Vector3<T>) -> Self {
+        Self {
+            min: center.clone() - half_extents.clone(),
+            max: center + half_extents,
+        }
+    }
+
+    /// Get the diagonal vector
+    pub fn diagonal(&self) -> Vector3<T> {
+        self.max.clone() - self.min.clone()
+    }
+
+    /// Get the volume
     pub fn volume(&self) -> T {
-        let dims = self.dimensions();
-        dims.x * dims.y * dims.z
+        let dims = self.diagonal();
+        dims.x.clone() * dims.y.clone() * dims.z.clone()
     }
 }
 
@@ -181,7 +204,10 @@ impl<T: RealField> Domain<T> for Domain3D<T> {
     }
 
     fn volume(&self) -> T {
-        self.volume()
+        let dx = self.max.x.clone() - self.min.x.clone();
+        let dy = self.max.y.clone() - self.min.y.clone();
+        let dz = self.max.z.clone() - self.min.z.clone();
+        dx * dy * dz
     }
 }
 

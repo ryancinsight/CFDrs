@@ -27,8 +27,8 @@ pub enum BoundaryCondition<T: RealField> {
     },
     /// Periodic boundary condition
     Periodic {
-        /// Paired boundary identifier
-        paired_with: String,
+        /// Name of the paired boundary
+        partner: String,
     },
     /// Inlet boundary with specified velocity
     VelocityInlet {
@@ -174,25 +174,38 @@ impl<T: RealField> BoundaryConditionSet<T> {
         self.conditions.get(name)
     }
 
-    /// Check if all periodic boundaries are properly paired
-    pub fn validate_periodic(&self) -> Result<(), String> {
+    /// Validate that periodic boundary conditions are properly paired
+    pub fn validate_periodic(&self) -> crate::Result<()> {
         for (name, bc) in &self.conditions {
-            if let BoundaryCondition::Periodic { paired_with } = bc {
-                match self.conditions.get(paired_with) {
-                    Some(BoundaryCondition::Periodic {
-                        paired_with: other,
-                    }) if other == name => {}
-                    Some(_) => {
-                        return Err(format!(
-                            "Boundary '{}' is paired with '{}' which is not periodic",
-                            name, paired_with
-                        ))
+            if let BoundaryCondition::Periodic { partner } = bc {
+                // Check partner exists
+                if !self.conditions.contains_key(partner) {
+                    return Err(crate::Error::InvalidConfiguration(format!(
+                        "Periodic boundary {} references non-existent partner {}",
+                        name, partner
+                    )));
+                }
+
+                // Check partner is also periodic
+                if let Some(partner_bc) = self.conditions.get(partner) {
+                    if !matches!(partner_bc, BoundaryCondition::Periodic { .. }) {
+                        return Err(crate::Error::InvalidConfiguration(format!(
+                            "Periodic boundary {} has non-periodic partner {}",
+                            name, partner
+                        )));
                     }
-                    None => {
-                        return Err(format!(
-                            "Boundary '{}' is paired with non-existent boundary '{}'",
-                            name, paired_with
-                        ))
+
+                    // Check partner points back
+                    if let BoundaryCondition::Periodic {
+                        partner: partner_partner,
+                    } = partner_bc
+                    {
+                        if partner_partner != name {
+                            return Err(crate::Error::InvalidConfiguration(format!(
+                                "Periodic boundary {} and {} do not reference each other",
+                                name, partner
+                            )));
+                        }
                     }
                 }
             }
