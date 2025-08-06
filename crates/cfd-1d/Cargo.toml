@@ -18,6 +18,8 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
+rand.workspace = true
+approx.workspace = true
 
 # 2D schematic visualization support
 scheme = { git = "https://github.com/ryancinsight/scheme", optional = true }

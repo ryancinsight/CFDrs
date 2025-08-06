@@ -24,6 +24,7 @@ pub mod channel;
 pub mod components;
 pub mod solver;
 pub mod resistance;
+pub mod analysis;
 
 #[cfg(feature = "scheme-integration")]
 pub mod scheme_integration;
@@ -32,12 +33,41 @@ pub mod scheme_integration;
 #[cfg(not(feature = "scheme-integration"))]
 pub mod scheme_integration;
 
-// TODO: Implement these exports
-// pub use network::{Network, Node, NetworkBuilder};
-// pub use channel::{Channel, ChannelGeometry};
-// pub use components::{Pump, Valve, Sensor, Component};
-// pub use solver::{NetworkSolver, ElectricalAnalogySolver, HagenPoiseuilleSolver};
-// pub use resistance::{ResistanceModel, RectangularChannel, CircularChannel};
+// Export network functionality
+pub use network::{
+    Network, Node, Edge, NetworkBuilder, NetworkGraph, NodeType, EdgeType,
+    BoundaryCondition, NodeProperties, EdgeProperties, NetworkMetadata,
+};
+
+// Export solver functionality
+pub use solver::{
+    NetworkSolver, SolverConfig, SolutionResult,
+};
+
+// Export component functionality
+pub use components::{
+    Component, RectangularChannel, CircularChannel, Micropump, Microvalve,
+    FlowSensor, Micromixer, ComponentFactory, PumpType, ValveType, SensorType, MixerType,
+};
+
+// Export analysis functionality
+pub use analysis::{
+    NetworkAnalyzer, FlowAnalysis, PressureAnalysis, ResistanceAnalysis,
+    PerformanceMetrics, NetworkAnalysisResult, FlowRegime,
+};
+
+// Export channel functionality
+pub use channel::{
+    Channel, ChannelGeometry, ChannelType, CrossSection, SurfaceProperties,
+    FlowState, FlowRegime as ChannelFlowRegime, NumericalParameters, Wettability,
+};
+
+// Export resistance functionality
+pub use resistance::{
+    ResistanceModel, FlowConditions, HagenPoiseuilleModel, RectangularChannelModel,
+    DarcyWeisbachModel, ResistanceModelFactory, ResistanceCalculator,
+    ChannelGeometry as ResistanceChannelGeometry, CombinationMethod,
+};
 
 /// Common 1D CFD types and traits
 pub mod prelude {
@@ -46,12 +76,13 @@ pub mod prelude {
     #[cfg(feature = "scheme-integration")]
     pub use crate::scheme_integration::{JunctionType, ChannelPathType, helpers};
     
-    // TODO: Add exports when implemented
-    // pub use crate::{
-    //     network::{Network, NetworkBuilder},
-    //     channel::Channel,
-    //     components::{Pump, Component},
-    //     solver::NetworkSolver,
-    //     resistance::ResistanceModel,
-    // };
+    // Export commonly used types
+    pub use crate::{
+        network::{Network, NetworkBuilder, Node, Edge, BoundaryCondition},
+        components::{Component, RectangularChannel, CircularChannel, Micropump, Microvalve, ComponentFactory},
+        solver::{NetworkSolver, SolverConfig},
+        analysis::{NetworkAnalyzer, FlowAnalysis, PressureAnalysis, PerformanceMetrics},
+        channel::{Channel, ChannelGeometry, ChannelType, CrossSection},
+        resistance::{ResistanceModel, ResistanceModelFactory, ResistanceCalculator, FlowConditions},
+    };
 }
