@@ -30,28 +30,62 @@ pub enum ChannelType {
     /// Straight channel
     Straight,
     /// Curved channel
-    Curved { radius: f64 },
+    Curved {
+        /// Radius of curvature in meters
+        radius: f64
+    },
     /// Tapered channel
     Tapered,
     /// Serpentine channel
-    Serpentine { turns: usize },
+    Serpentine {
+        /// Number of turns in the serpentine path
+        turns: usize
+    },
     /// Spiral channel
-    Spiral { turns: f64 },
+    Spiral {
+        /// Number of turns in the spiral (can be fractional)
+        turns: f64
+    },
 }
 
 /// Cross-sectional geometry
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CrossSection<T: RealField> {
     /// Rectangular cross-section
-    Rectangular { width: T, height: T },
+    Rectangular {
+        /// Width of the rectangular channel
+        width: T,
+        /// Height of the rectangular channel
+        height: T
+    },
     /// Circular cross-section
-    Circular { diameter: T },
+    Circular {
+        /// Diameter of the circular channel
+        diameter: T
+    },
     /// Elliptical cross-section
-    Elliptical { major_axis: T, minor_axis: T },
+    Elliptical {
+        /// Major axis length of the ellipse
+        major_axis: T,
+        /// Minor axis length of the ellipse
+        minor_axis: T
+    },
     /// Trapezoidal cross-section
-    Trapezoidal { top_width: T, bottom_width: T, height: T },
+    Trapezoidal {
+        /// Width at the top of the trapezoid
+        top_width: T,
+        /// Width at the bottom of the trapezoid
+        bottom_width: T,
+        /// Height of the trapezoid
+        height: T
+    },
     /// Custom cross-section with area and hydraulic diameter
-    Custom { area: T, hydraulic_diameter: T },
+    Custom {
+        /// Cross-sectional area
+        area: T,
+        /// Hydraulic diameter (4 * area / perimeter)
+        hydraulic_diameter: T
+    },
 }
 
 /// Surface properties affecting flow
@@ -585,7 +619,7 @@ mod tests {
     #[test]
     fn test_circular_resistance_calculation() {
         let geometry = ChannelGeometry::circular(0.001, 100e-6, 1e-6);
-        let mut channel = Channel::new(geometry);
+        let channel = Channel::new(geometry);
         let fluid = cfd_core::Fluid::water();
 
         let resistance = channel.calculate_circular_laminar_resistance(&fluid, 100e-6).unwrap();
@@ -598,7 +632,7 @@ mod tests {
     #[test]
     fn test_rectangular_resistance_calculation() {
         let geometry = ChannelGeometry::rectangular(0.001, 100e-6, 50e-6, 1e-6);
-        let mut channel = Channel::new(geometry);
+        let channel = Channel::new(geometry);
         let fluid = cfd_core::Fluid::water();
 
         let resistance = channel.calculate_rectangular_laminar_resistance(&fluid, 100e-6, 50e-6).unwrap();

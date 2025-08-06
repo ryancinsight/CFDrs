@@ -438,7 +438,7 @@ mod tests {
 
     #[test]
     fn test_resistance_analysis() {
-        let mut network = NetworkBuilder::new()
+        let network = NetworkBuilder::new()
             .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0).unwrap()
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0).unwrap()
             .add_channel("ch1", "inlet", "outlet", 100.0, 0.001, 1e-6).unwrap()

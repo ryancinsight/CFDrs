@@ -277,9 +277,21 @@ impl ResistanceModelFactory {
 #[derive(Debug, Clone)]
 pub enum ChannelGeometry<T: RealField> {
     /// Circular channel
-    Circular { diameter: T, length: T },
+    Circular {
+        /// Diameter of the circular channel
+        diameter: T,
+        /// Length of the channel
+        length: T
+    },
     /// Rectangular channel
-    Rectangular { width: T, height: T, length: T },
+    Rectangular {
+        /// Width of the rectangular channel
+        width: T,
+        /// Height of the rectangular channel
+        height: T,
+        /// Length of the channel
+        length: T
+    },
 }
 
 /// Resistance calculator with model selection and validation
