@@ -1,0 +1,24 @@
+[package]
+name = "cfd-validation"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+description = "Validation framework and benchmark problems for CFD simulations"
+
+[dependencies]
+cfd-core.workspace = true
+cfd-math.workspace = true
+cfd-io.workspace = true
+nalgebra.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+serde = { workspace = true, features = ["derive"] }
+approx.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+criterion.workspace = true

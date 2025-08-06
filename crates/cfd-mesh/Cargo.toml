@@ -1,0 +1,30 @@
+[package]
+name = "cfd-mesh"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+description = "Mesh handling and CSGrs integration for CFD simulations"
+
+[dependencies]
+cfd-core.workspace = true
+cfd-math.workspace = true
+nalgebra.workspace = true
+thiserror.workspace = true
+serde = { workspace = true, features = ["derive"] }
+petgraph.workspace = true
+indexmap.workspace = true
+
+# [dependencies.csgrs]
+# version = "0.20"
+# optional = true
+
+[features]
+default = []
+# csg = ["dep:csgrs"]
+
+[dev-dependencies]
+proptest.workspace = true
+approx.workspace = true

@@ -1,0 +1,109 @@
+[workspace]
+members = [
+    "crates/cfd-core",
+    "crates/cfd-math",
+    "crates/cfd-io",
+    "crates/cfd-mesh",
+    "crates/cfd-1d",
+    "crates/cfd-2d", 
+    "crates/cfd-3d",
+    "crates/cfd-validation",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["CFD Suite Contributors"]
+license = "MIT"
+repository = "https://github.com/yourusername/cfd-suite"
+homepage = "https://github.com/yourusername/cfd-suite"
+documentation = "https://docs.rs/cfd-suite"
+readme = "README.md"
+keywords = ["cfd", "simulation", "fluid-dynamics", "computational", "physics"]
+categories = ["science", "simulation", "mathematics"]
+
+[workspace.dependencies]
+# Core dependencies
+thiserror = "1.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Math and numerical
+nalgebra = { version = "0.33", features = ["serde-serialize"] }
+nalgebra-sparse = "0.10"
+num-traits = "0.2"
+approx = "0.5"
+
+# Data structures
+indexmap = "2.0"
+petgraph = "0.6"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = "1.3"
+
+# Parallel processing
+rayon = "1.8"
+crossbeam = "0.8"
+
+# File I/O
+csv = "1.3"
+
+# Testing
+proptest = "1.4"
+criterion = "0.5"
+
+# 3D mesh support (optional for now)
+# csgrs = "0.20"
+
+# Internal crates
+cfd-core = { path = "crates/cfd-core" }
+cfd-math = { path = "crates/cfd-math" }
+cfd-io = { path = "crates/cfd-io" }
+cfd-mesh = { path = "crates/cfd-mesh" }
+cfd-1d = { path = "crates/cfd-1d" }
+cfd-2d = { path = "crates/cfd-2d" }
+cfd-3d = { path = "crates/cfd-3d" }
+cfd-validation = { path = "crates/cfd-validation" }
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+
+[profile.bench]
+inherits = "release"
+
+[profile.dev]
+opt-level = 0
+
+[profile.test]
+opt-level = 2
+
+# Root package for examples
+[package]
+name = "cfd-suite"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+description = "Computational Fluid Dynamics Simulation Suite"
+
+[dependencies]
+cfd-core.workspace = true
+cfd-math.workspace = true
+cfd-io.workspace = true
+cfd-mesh.workspace = true
+cfd-1d.workspace = true
+cfd-2d.workspace = true
+cfd-3d.workspace = true
+cfd-validation.workspace = true
+
+[[example]]
+name = "simple_pipe_flow"
+path = "examples/simple_pipe_flow.rs"
