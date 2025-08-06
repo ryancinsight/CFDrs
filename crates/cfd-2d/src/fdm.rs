@@ -6,7 +6,7 @@
 //! - Advection-diffusion equations
 //! - Navier-Stokes equations
 
-use cfd_core::Result;
+use cfd_core::{Error, Result};
 use cfd_math::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
@@ -16,6 +16,9 @@ use std::collections::HashMap;
 use crate::grid::{Grid2D, StructuredGrid2D};
 
 /// Finite Difference Method solver configuration
+///
+/// Generic over T to support both f32 and f64 precision.
+/// Most CFD applications use f64 for numerical accuracy.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FdmConfig<T: RealField> {
     /// Convergence tolerance
@@ -26,6 +29,74 @@ pub struct FdmConfig<T: RealField> {
     pub relaxation_factor: T,
     /// Enable verbose output
     pub verbose: bool,
+}
+
+/// Shared Gauss-Seidel linear solver implementation
+///
+/// Solves the linear system Ax = b using Gauss-Seidel iteration with relaxation.
+/// Returns an error if convergence is not achieved within max_iterations.
+fn solve_gauss_seidel<T: RealField + FromPrimitive>(
+    matrix: &SparseMatrix<T>,
+    rhs: &DVector<T>,
+    config: &FdmConfig<T>,
+    solver_name: &str,
+) -> Result<DVector<T>> {
+    let n = rhs.len();
+    let mut solution: DVector<T> = DVector::zeros(n);
+
+    for iteration in 0..config.max_iterations {
+        let mut max_residual = T::zero();
+
+        for (row_idx, row) in matrix.row_iter().enumerate() {
+            let mut sum = T::zero();
+            let mut diagonal = T::one();
+
+            // Sum contributions from other variables and find diagonal
+            for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
+                if row_idx == *col_idx {
+                    diagonal = value.clone();
+                } else {
+                    sum += value.clone() * solution[*col_idx].clone();
+                }
+            }
+
+            // Check for zero diagonal (singular matrix)
+            if diagonal.clone().abs() < T::from_f64(1e-14).unwrap() {
+                return Err(Error::InvalidConfiguration(
+                    format!("{}: Singular matrix detected (zero diagonal)", solver_name)
+                ));
+            }
+
+            // Update solution
+            let new_value = (rhs[row_idx].clone() - sum) / diagonal;
+            let residual = (new_value.clone() - solution[row_idx].clone()).abs();
+
+            if residual > max_residual {
+                max_residual = residual;
+            }
+
+            // Apply relaxation
+            solution[row_idx] = solution[row_idx].clone() +
+                              config.relaxation_factor.clone() *
+                              (new_value - solution[row_idx].clone());
+        }
+
+        if config.verbose && iteration % 100 == 0 {
+            println!("{} iteration {}: residual = {:?}", solver_name, iteration, max_residual);
+        }
+
+        if max_residual < config.tolerance {
+            if config.verbose {
+                println!("{} converged in {} iterations", solver_name, iteration + 1);
+            }
+            return Ok(solution);
+        }
+    }
+
+    // Convergence failure
+    Err(Error::InvalidConfiguration(
+        format!("{}: Failed to converge after {} iterations", solver_name, config.max_iterations)
+    ))
 }
 
 impl<T: RealField + FromPrimitive> Default for FdmConfig<T> {
@@ -89,7 +160,7 @@ impl<T: RealField + FromPrimitive> PoissonSolver<T> {
 
         // Solve the linear system
         let matrix = matrix_builder.build()?;
-        let solution = self.solve_linear_system(&matrix, &rhs)?;
+        let solution = solve_gauss_seidel(&matrix, &rhs, &self.config, "Poisson")?;
 
         // Convert solution back to grid coordinates
         let mut result = HashMap::new();
@@ -162,61 +233,7 @@ impl<T: RealField + FromPrimitive> PoissonSolver<T> {
         j * grid.nx() + i
     }
 
-    /// Solve linear system using iterative method
-    fn solve_linear_system(
-        &self,
-        matrix: &SparseMatrix<T>,
-        rhs: &DVector<T>,
-    ) -> Result<DVector<T>> {
-        // Use Gauss-Seidel iteration for now
-        // TODO: Integrate with cfd-math linear solvers
-        let n = rhs.len();
-        let mut solution: DVector<T> = DVector::zeros(n);
 
-        for iteration in 0..self.config.max_iterations {
-            let mut max_residual = T::zero();
-
-            for (row_idx, row) in matrix.row_iter().enumerate() {
-                let mut sum = T::zero();
-                let mut diagonal = T::one();
-
-                // Sum contributions from other variables and find diagonal
-                for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
-                    if row_idx == *col_idx {
-                        diagonal = value.clone();
-                    } else {
-                        sum += value.clone() * solution[*col_idx].clone();
-                    }
-                }
-
-                // Update solution
-                let new_value = (rhs[row_idx].clone() - sum) / diagonal;
-                let residual = (new_value.clone() - solution[row_idx].clone()).abs();
-
-                if residual > max_residual {
-                    max_residual = residual;
-                }
-
-                // Apply relaxation
-                solution[row_idx] = solution[row_idx].clone() +
-                                  self.config.relaxation_factor.clone() *
-                                  (new_value - solution[row_idx].clone());
-            }
-
-            if self.config.verbose && iteration % 100 == 0 {
-                println!("FDM iteration {}: residual = {:?}", iteration, max_residual);
-            }
-
-            if max_residual < self.config.tolerance {
-                if self.config.verbose {
-                    println!("FDM converged in {} iterations", iteration + 1);
-                }
-                break;
-            }
-        }
-
-        Ok(solution)
-    }
 }
 
 /// Advection-diffusion equation solver
@@ -270,7 +287,7 @@ impl<T: RealField + FromPrimitive> AdvectionDiffusionSolver<T> {
 
         // Solve the linear system
         let matrix = matrix_builder.build()?;
-        let solution = self.solve_linear_system(&matrix, &rhs)?;
+        let solution = solve_gauss_seidel(&matrix, &rhs, &self.config, "AdvectionDiffusion")?;
 
         // Convert solution back to grid coordinates
         let mut result = HashMap::new();
@@ -315,28 +332,36 @@ impl<T: RealField + FromPrimitive> AdvectionDiffusionSolver<T> {
             if ni == i + 1 {
                 // Right neighbor: diffusion + upwind advection
                 coeff += diffusivity.clone() / dx2.clone();
-                if u > T::zero() {
-                    coeff -= u.clone() / dx.clone();
-                    center_coeff += u.clone() / dx.clone();
+                // For positive u (left-to-right flow), use backward difference (upwind)
+                if u < T::zero() {
+                    // Negative velocity: flow from right to left, use forward difference
+                    coeff += u.clone() / dx.clone();
+                    center_coeff -= u.clone() / dx.clone();
                 }
             } else if ni + 1 == i {
                 // Left neighbor: diffusion + upwind advection
                 coeff += diffusivity.clone() / dx2.clone();
-                if u < T::zero() {
+                // For positive u (left-to-right flow), use backward difference (upwind)
+                if u > T::zero() {
+                    // Positive velocity: flow from left to right, use backward difference
                     coeff += u.clone() / dx.clone();
                     center_coeff -= u.clone() / dx.clone();
                 }
             } else if nj == j + 1 {
                 // Top neighbor: diffusion + upwind advection
                 coeff += diffusivity.clone() / dy2.clone();
-                if v > T::zero() {
-                    coeff -= v.clone() / dy.clone();
-                    center_coeff += v.clone() / dy.clone();
+                // For positive v (bottom-to-top flow), use backward difference (upwind)
+                if v < T::zero() {
+                    // Negative velocity: flow from top to bottom, use forward difference
+                    coeff += v.clone() / dy.clone();
+                    center_coeff -= v.clone() / dy.clone();
                 }
             } else if nj + 1 == j {
                 // Bottom neighbor: diffusion + upwind advection
                 coeff += diffusivity.clone() / dy2.clone();
-                if v < T::zero() {
+                // For positive v (bottom-to-top flow), use backward difference (upwind)
+                if v > T::zero() {
+                    // Positive velocity: flow from bottom to top, use backward difference
                     coeff += v.clone() / dy.clone();
                     center_coeff -= v.clone() / dy.clone();
                 }
@@ -360,60 +385,7 @@ impl<T: RealField + FromPrimitive> AdvectionDiffusionSolver<T> {
         j * grid.nx() + i
     }
 
-    /// Solve linear system (reuse from PoissonSolver)
-    fn solve_linear_system(
-        &self,
-        matrix: &SparseMatrix<T>,
-        rhs: &DVector<T>,
-    ) -> Result<DVector<T>> {
-        // Use Gauss-Seidel iteration
-        let n = rhs.len();
-        let mut solution: DVector<T> = DVector::zeros(n);
 
-        for iteration in 0..self.config.max_iterations {
-            let mut max_residual = T::zero();
-
-            for (row_idx, row) in matrix.row_iter().enumerate() {
-                let mut sum = T::zero();
-                let mut diagonal = T::one();
-
-                // Sum contributions from other variables and find diagonal
-                for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
-                    if row_idx == *col_idx {
-                        diagonal = value.clone();
-                    } else {
-                        sum += value.clone() * solution[*col_idx].clone();
-                    }
-                }
-
-                // Update solution
-                let new_value = (rhs[row_idx].clone() - sum) / diagonal;
-                let residual = (new_value.clone() - solution[row_idx].clone()).abs();
-
-                if residual > max_residual {
-                    max_residual = residual;
-                }
-
-                // Apply relaxation
-                solution[row_idx] = solution[row_idx].clone() +
-                                  self.config.relaxation_factor.clone() *
-                                  (new_value - solution[row_idx].clone());
-            }
-
-            if self.config.verbose && iteration % 100 == 0 {
-                println!("AdvDiff iteration {}: residual = {:?}", iteration, max_residual);
-            }
-
-            if max_residual < self.config.tolerance {
-                if self.config.verbose {
-                    println!("AdvDiff converged in {} iterations", iteration + 1);
-                }
-                break;
-            }
-        }
-
-        Ok(solution)
-    }
 }
 
 #[cfg(test)]

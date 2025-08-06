@@ -45,12 +45,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         boundary_values.insert((grid.nx() - 1, j), 0.0);
     }
     
-    // Insulated top and bottom walls (zero gradient approximation)
+    // Insulated top and bottom walls (simplified as fixed temperature)
+    // Note: This is a simplified approach. For true Neumann boundary conditions
+    // (zero gradient), we would need to modify the finite difference stencil
+    // to enforce ∂T/∂n = 0 at the boundary.
     for i in 1..grid.nx()-1 {
-        // For simplicity, we'll set these to the average of neighboring values
-        // In a more sophisticated implementation, we'd use Neumann boundary conditions
-        boundary_values.insert((i, 0), 50.0);           // Bottom wall
-        boundary_values.insert((i, grid.ny() - 1), 50.0); // Top wall
+        boundary_values.insert((i, 0), 50.0);           // Bottom wall (simplified)
+        boundary_values.insert((i, grid.ny() - 1), 50.0); // Top wall (simplified)
     }
     
     // No source term for steady-state heat conduction
