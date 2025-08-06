@@ -23,10 +23,7 @@ pub use spectral::{
     SpectralSolver, SpectralConfig, SpectralBasis, SpectralSolution
 };
 
-// TODO: Implement these exports when modules are completed
-// pub use ibm::{ImmersedBoundaryMethod, IbmSolver};
-// pub use level_set::{LevelSetMethod, LevelSet};
-// pub use vof::{VolumeOfFluid, VofSolver};
+
 
 /// Common 3D CFD types and traits
 pub mod prelude {
@@ -36,11 +33,4 @@ pub mod prelude {
         mesh_integration::{MeshAdapter, MeshQualityReport, StlAdapter, CsgMeshAdapter},
         spectral::{SpectralSolver, SpectralConfig, SpectralBasis, SpectralSolution},
     };
-
-    // TODO: Add exports when implemented
-    // pub use crate::{
-    //     ibm::IbmSolver,
-    //     level_set::LevelSetMethod,
-    //     vof::VofSolver,
-    // };
 }

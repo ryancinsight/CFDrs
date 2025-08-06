@@ -5,7 +5,7 @@
 
 use cfd_3d::prelude::*;
 use cfd_mesh::{Mesh, Vertex, Face, Cell, MeshTopology};
-use std::collections::HashMap;
+
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("3D Mesh Integration Example");

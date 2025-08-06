@@ -72,34 +72,42 @@ impl<T: RealField + FromPrimitive> MeshAdapter<T> for StlAdapter<T> {
     }
 
     fn validate_mesh(&self, mesh: &Mesh<T>) -> Result<MeshQualityReport<T>> {
-        let mut min_quality = T::one();
-        let mut max_quality = T::zero();
-        let mut total_quality = T::zero();
-        let mut degenerate_count = 0;
-        let mut inverted_count = 0;
-
-        // Compute quality metrics for each cell
-        for cell in &mesh.cells {
-            let quality = self.compute_cell_quality(cell, &mesh.vertices)?;
-
-            if quality < min_quality {
-                min_quality = quality.clone();
-            }
-            if quality > max_quality {
-                max_quality = quality.clone();
-            }
-            total_quality += quality.clone();
-
-            // Check for degenerate elements
-            if quality < T::from_f64(0.1).unwrap() {
-                degenerate_count += 1;
-            }
-
-            // Check for inverted elements
-            if quality < T::zero() {
-                inverted_count += 1;
-            }
+        if mesh.cells.is_empty() {
+            return Ok(MeshQualityReport {
+                min_quality: T::zero(),
+                max_quality: T::zero(),
+                avg_quality: T::zero(),
+                degenerate_elements: 0,
+                inverted_elements: 0,
+                is_valid: false,
+            });
         }
+
+        // Compute quality metrics using iterator combinators for better performance
+        let quality_threshold = T::from_f64(0.1).unwrap();
+        let qualities: Result<Vec<T>> = mesh.cells
+            .iter()
+            .map(|cell| self.compute_cell_quality(cell, &mesh.vertices))
+            .collect();
+
+        let qualities = qualities?;
+
+        // Use iterator methods for efficient aggregation
+        let (min_quality, max_quality, total_quality, degenerate_count, inverted_count) = qualities
+            .iter()
+            .fold(
+                (T::one(), T::zero(), T::zero(), 0usize, 0usize),
+                |(mut min_q, mut max_q, mut total_q, mut deg_count, mut inv_count), quality| {
+                    if *quality < min_q { min_q = quality.clone(); }
+                    if *quality > max_q { max_q = quality.clone(); }
+                    total_q += quality.clone();
+
+                    if *quality < quality_threshold { deg_count += 1; }
+                    if *quality < T::zero() { inv_count += 1; }
+
+                    (min_q, max_q, total_q, deg_count, inv_count)
+                }
+            );
 
         let avg_quality = if !mesh.cells.is_empty() {
             total_quality / T::from_usize(mesh.cells.len()).unwrap()

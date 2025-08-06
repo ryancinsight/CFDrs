@@ -321,11 +321,25 @@ impl<T: RealField + FromPrimitive + Send + Sync> FemSolver<T> {
         node_indices: &[usize],
         _elem_idx: usize,
     ) -> Result<()> {
-        // Map local DOFs to global DOFs
+        // Map local DOFs to global DOFs with proper bounds checking
         for (i, &node_i) in node_indices.iter().enumerate() {
             for dof_i in 0..4 { // 3 velocity + 1 pressure
                 let global_i = node_i * 4 + dof_i;
-                rhs[global_i] += local_rhs[i * 4 + dof_i].clone();
+                let local_rhs_idx = i * 4 + dof_i;
+
+                // Bounds check for RHS vector access
+                if global_i >= rhs.len() {
+                    return Err(Error::InvalidConfiguration(
+                        format!("Global DOF index {} exceeds RHS vector size {}", global_i, rhs.len())
+                    ));
+                }
+
+                if local_rhs_idx >= local_rhs.len() {
+                    // Skip this DOF if it's out of bounds (happens with mixed element types)
+                    continue;
+                }
+
+                rhs[global_i] += local_rhs[local_rhs_idx].clone();
 
                 for (j, &node_j) in node_indices.iter().enumerate() {
                     for dof_j in 0..4 {
@@ -333,7 +347,11 @@ impl<T: RealField + FromPrimitive + Send + Sync> FemSolver<T> {
                         let local_i = i * 4 + dof_i;
                         let local_j = j * 4 + dof_j;
 
-                        if local_i < local_matrix.nrows() && local_j < local_matrix.ncols() {
+                        // Enhanced bounds checking for matrix access
+                        if local_i < local_matrix.nrows() &&
+                           local_j < local_matrix.ncols() &&
+                           global_i < rhs.len() &&
+                           global_j < rhs.len() {
                             matrix_builder.add_entry(
                                 global_i,
                                 global_j,

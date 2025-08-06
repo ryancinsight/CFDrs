@@ -98,7 +98,7 @@ pub trait Plugin: Any + Send + Sync {
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-/// Plugin metadata
+/// Plugin metadata with enhanced dependency management
 #[derive(Debug, Clone, Default)]
 pub struct PluginMetadata {
     /// Plugin name
@@ -113,13 +113,41 @@ pub struct PluginMetadata {
     pub license: Option<String>,
     /// Plugin capabilities
     pub capabilities: Vec<String>,
+    /// Required dependencies
+    pub dependencies: Vec<String>,
+    /// Minimum API version required
+    pub min_api_version: String,
+    /// Plugin priority for loading order
+    pub priority: i32,
 }
 
-/// Plugin registry for managing available plugins
+/// Plugin registry for managing available plugins with advanced features
 #[derive(Clone)]
 pub struct PluginRegistry {
     plugins: Arc<RwLock<HashMap<String, Arc<dyn Plugin>>>>,
     factories: Arc<RwLock<HashMap<TypeId, Arc<dyn Any + Send + Sync>>>>,
+    plugin_metadata: Arc<RwLock<HashMap<String, PluginMetadata>>>,
+    plugin_dependencies: Arc<RwLock<HashMap<String, Vec<String>>>>,
+    load_order: Arc<RwLock<Vec<String>>>,
+}
+
+
+
+impl PluginMetadata {
+    /// Create default metadata for a plugin
+    pub fn default_for_plugin(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            version: "1.0.0".to_string(),
+            description: format!("Plugin: {}", name),
+            author: None,
+            license: None,
+            capabilities: Vec::new(),
+            dependencies: Vec::new(),
+            min_api_version: "1.0.0".to_string(),
+            priority: 0,
+        }
+    }
 }
 
 impl PluginRegistry {
@@ -128,24 +156,65 @@ impl PluginRegistry {
         Self {
             plugins: Arc::new(RwLock::new(HashMap::new())),
             factories: Arc::new(RwLock::new(HashMap::new())),
+            plugin_metadata: Arc::new(RwLock::new(HashMap::new())),
+            plugin_dependencies: Arc::new(RwLock::new(HashMap::new())),
+            load_order: Arc::new(RwLock::new(Vec::new())),
         }
     }
 
     /// Register a plugin
     pub fn register<P: Plugin + 'static>(&self, plugin: P) -> Result<()> {
         let name = plugin.name().to_string();
-        let mut plugins = self.plugins.write().map_err(|_| {
-            Error::PluginError("Failed to acquire write lock on plugin registry".to_string())
-        })?;
+        let metadata = PluginMetadata::default_for_plugin(&name);
+        self.register_with_metadata(plugin, metadata)
+    }
 
-        if plugins.contains_key(&name) {
-            return Err(Error::PluginError(format!(
-                "Plugin '{}' is already registered",
-                name
-            )));
+    /// Register a plugin with metadata and dependency checking
+    pub fn register_with_metadata<P: Plugin + 'static>(
+        &self,
+        plugin: P,
+        metadata: PluginMetadata,
+    ) -> Result<()> {
+        let name = plugin.name().to_string();
+
+        // Check dependencies
+        self.validate_dependencies(&metadata.dependencies)?;
+
+        // Register plugin
+        {
+            let mut plugins = self.plugins.write().map_err(|_| {
+                Error::PluginError("Failed to acquire write lock on plugin registry".to_string())
+            })?;
+
+            if plugins.contains_key(&name) {
+                return Err(Error::PluginError(format!(
+                    "Plugin '{}' is already registered",
+                    name
+                )));
+            }
+
+            plugins.insert(name.clone(), Arc::new(plugin));
         }
 
-        plugins.insert(name, Arc::new(plugin));
+        // Store metadata
+        {
+            let mut plugin_metadata = self.plugin_metadata.write().map_err(|_| {
+                Error::PluginError("Failed to acquire write lock on metadata".to_string())
+            })?;
+            plugin_metadata.insert(name.clone(), metadata.clone());
+        }
+
+        // Store dependencies
+        {
+            let mut plugin_dependencies = self.plugin_dependencies.write().map_err(|_| {
+                Error::PluginError("Failed to acquire write lock on dependencies".to_string())
+            })?;
+            plugin_dependencies.insert(name.clone(), metadata.dependencies.clone());
+        }
+
+        // Update load order
+        self.update_load_order()?;
+
         Ok(())
     }
 
@@ -232,6 +301,123 @@ impl PluginRegistry {
                 })
             })
             .collect())
+    }
+
+    /// Validate plugin dependencies
+    fn validate_dependencies(&self, dependencies: &[String]) -> Result<()> {
+        let plugins = self.plugins.read().map_err(|_| {
+            Error::PluginError("Failed to acquire read lock on plugins".to_string())
+        })?;
+
+        for dep in dependencies {
+            if !plugins.contains_key(dep) {
+                return Err(Error::InvalidConfiguration(
+                    format!("Missing dependency: {}", dep)
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Update plugin load order based on dependencies
+    fn update_load_order(&self) -> Result<()> {
+        let dependencies = self.plugin_dependencies.read().map_err(|_| {
+            Error::PluginError("Failed to acquire read lock on dependencies".to_string())
+        })?;
+        let _metadata = self.plugin_metadata.read().map_err(|_| {
+            Error::PluginError("Failed to acquire read lock on metadata".to_string())
+        })?;
+
+        // Topological sort for dependency resolution
+        let mut load_order = Vec::new();
+        let mut visited = std::collections::HashSet::new();
+        let mut temp_visited = std::collections::HashSet::new();
+
+        for plugin_name in dependencies.keys() {
+            if !visited.contains(plugin_name) {
+                self.topological_sort_visit(
+                    plugin_name,
+                    &dependencies,
+                    &mut visited,
+                    &mut temp_visited,
+                    &mut load_order,
+                )?;
+            }
+        }
+
+        // Store the computed load order
+        {
+            let mut order = self.load_order.write().map_err(|_| {
+                Error::PluginError("Failed to acquire write lock on load order".to_string())
+            })?;
+            *order = load_order;
+        }
+
+        Ok(())
+    }
+
+    /// Topological sort helper for dependency resolution
+    fn topological_sort_visit(
+        &self,
+        plugin_name: &str,
+        dependencies: &HashMap<String, Vec<String>>,
+        visited: &mut std::collections::HashSet<String>,
+        temp_visited: &mut std::collections::HashSet<String>,
+        load_order: &mut Vec<String>,
+    ) -> Result<()> {
+        if temp_visited.contains(plugin_name) {
+            return Err(Error::InvalidConfiguration(
+                format!("Circular dependency detected involving: {}", plugin_name)
+            ));
+        }
+
+        if visited.contains(plugin_name) {
+            return Ok(());
+        }
+
+        temp_visited.insert(plugin_name.to_string());
+
+        // Visit dependencies first
+        if let Some(deps) = dependencies.get(plugin_name) {
+            for dep in deps {
+                self.topological_sort_visit(
+                    dep,
+                    dependencies,
+                    visited,
+                    temp_visited,
+                    load_order,
+                )?;
+            }
+        }
+
+        temp_visited.remove(plugin_name);
+        visited.insert(plugin_name.to_string());
+
+        // Add to load order (dependencies first, then this plugin)
+        load_order.push(plugin_name.to_string());
+
+        Ok(())
+    }
+
+    /// Get plugin metadata
+    pub fn get_metadata(&self, name: &str) -> Result<PluginMetadata> {
+        let metadata = self.plugin_metadata.read().map_err(|_| {
+            Error::PluginError("Failed to acquire read lock on metadata".to_string())
+        })?;
+
+        metadata.get(name).cloned().ok_or_else(|| {
+            Error::PluginError(format!("Plugin '{}' not found", name))
+        })
+    }
+
+    /// Get plugin load order
+    pub fn get_load_order(&self) -> Result<Vec<String>> {
+        let order = self.load_order.read().map_err(|_| {
+            Error::PluginError("Failed to acquire read lock on load order".to_string())
+        })?;
+
+        Ok(order.clone())
     }
 }
 

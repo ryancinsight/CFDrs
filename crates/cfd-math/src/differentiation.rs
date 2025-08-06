@@ -49,7 +49,7 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
         Self::new(FiniteDifferenceScheme::Backward, spacing)
     }
 
-    /// Compute first derivative at interior points
+    /// Compute first derivative using iterator combinators and zero-copy operations
     pub fn first_derivative(&self, values: &[T]) -> Result<DVector<T>> {
         if values.len() < 2 {
             return Err(Error::InvalidConfiguration(
@@ -59,35 +59,49 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
 
         let n = values.len();
         let mut result = DVector::zeros(n);
+        let inv_spacing = T::one() / self.spacing.clone();
 
         match self.scheme {
             FiniteDifferenceScheme::Forward => {
-                for i in 0..n-1 {
-                    result[i] = (values[i+1].clone() - values[i].clone()) / self.spacing.clone();
+                // Use windows() for efficient forward differences
+                values.windows(2)
+                    .enumerate()
+                    .for_each(|(i, window)| {
+                        result[i] = (window[1].clone() - window[0].clone()) * inv_spacing.clone();
+                    });
+
+                // Backward difference for last point
+                if n > 1 {
+                    result[n-1] = (values[n-1].clone() - values[n-2].clone()) * inv_spacing;
                 }
-                // Use backward difference for last point
-                result[n-1] = (values[n-1].clone() - values[n-2].clone()) / self.spacing.clone();
             },
             FiniteDifferenceScheme::Backward => {
-                // Use forward difference for first point
-                result[0] = (values[1].clone() - values[0].clone()) / self.spacing.clone();
-                for i in 1..n {
-                    result[i] = (values[i].clone() - values[i-1].clone()) / self.spacing.clone();
-                }
+                // Forward difference for first point
+                result[0] = (values[1].clone() - values[0].clone()) * inv_spacing.clone();
+
+                // Use windows() for backward differences: (values[i] - values[i-1])
+                values.windows(2)
+                    .enumerate()
+                    .for_each(|(i, window)| {
+                        result[i + 1] = (window[1].clone() - window[0].clone()) * inv_spacing.clone();
+                    });
             },
             FiniteDifferenceScheme::Central => {
                 // Forward difference for first point
-                result[0] = (values[1].clone() - values[0].clone()) / self.spacing.clone();
+                result[0] = (values[1].clone() - values[0].clone()) * inv_spacing.clone();
 
-                // Central difference for interior points
-                let two = T::from_f64(2.0).unwrap();
-                for i in 1..n-1 {
-                    result[i] = (values[i+1].clone() - values[i-1].clone()) /
-                               (two.clone() * self.spacing.clone());
-                }
+                // Central difference using windows(3) for interior points
+                let two_inv_spacing = inv_spacing.clone() / T::from_f64(2.0).unwrap();
+                values.windows(3)
+                    .enumerate()
+                    .for_each(|(i, window)| {
+                        result[i + 1] = (window[2].clone() - window[0].clone()) * two_inv_spacing.clone();
+                    });
 
                 // Backward difference for last point
-                result[n-1] = (values[n-1].clone() - values[n-2].clone()) / self.spacing.clone();
+                if n > 1 {
+                    result[n-1] = (values[n-1].clone() - values[n-2].clone()) * inv_spacing;
+                }
             },
             FiniteDifferenceScheme::ForwardSecondOrder => {
                 if n < 3 {
