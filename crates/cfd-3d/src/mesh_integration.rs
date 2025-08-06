@@ -92,11 +92,13 @@ impl<T: RealField + FromPrimitive> MeshAdapter<T> for StlAdapter<T> {
 
         let qualities = qualities?;
 
-        // Use iterator methods for efficient aggregation
+        // Use iterator methods for efficient aggregation with proper initialization
+        let first_quality = qualities[0].clone();
         let (min_quality, max_quality, total_quality, degenerate_count, inverted_count) = qualities
             .iter()
+            .skip(1) // Skip first element since we use it for initialization
             .fold(
-                (T::one(), T::zero(), T::zero(), 0usize, 0usize),
+                (first_quality.clone(), first_quality.clone(), first_quality, 0usize, 0usize),
                 |(mut min_q, mut max_q, mut total_q, mut deg_count, mut inv_count), quality| {
                     if *quality < min_q { min_q = quality.clone(); }
                     if *quality > max_q { max_q = quality.clone(); }
@@ -108,6 +110,15 @@ impl<T: RealField + FromPrimitive> MeshAdapter<T> for StlAdapter<T> {
                     (min_q, max_q, total_q, deg_count, inv_count)
                 }
             );
+
+        // Check the first quality value for degenerate/inverted counts
+        let (degenerate_count, inverted_count) = if qualities[0] < quality_threshold {
+            (degenerate_count + 1, if qualities[0] < T::zero() { inverted_count + 1 } else { inverted_count })
+        } else if qualities[0] < T::zero() {
+            (degenerate_count, inverted_count + 1)
+        } else {
+            (degenerate_count, inverted_count)
+        };
 
         let avg_quality = if !mesh.cells.is_empty() {
             total_quality / T::from_usize(mesh.cells.len()).unwrap()

@@ -375,24 +375,26 @@ impl Hdf5Reader {
         }
     }
 
-    /// Read metadata from dataset attributes
+    /// Read metadata from dataset attributes with proper error handling
     #[cfg(feature = "hdf5-support")]
     fn read_metadata_attributes(&self, dataset: &Dataset) -> Result<DatasetMetadata> {
+        // Read required attributes with proper error handling
         let name = dataset.attr("name")
             .and_then(|attr| attr.read_scalar::<hdf5::types::VarLenUnicode>())
             .map(|s| s.to_string())
-            .unwrap_or_else(|_| "unknown".to_string());
+            .map_err(|e| Error::IoError(format!("Failed to read required 'name' attribute: {}", e)))?;
 
         let data_type = dataset.attr("data_type")
             .and_then(|attr| attr.read_scalar::<hdf5::types::VarLenUnicode>())
             .map(|s| s.to_string())
-            .unwrap_or_else(|_| "unknown".to_string());
+            .map_err(|e| Error::IoError(format!("Failed to read required 'data_type' attribute: {}", e)))?;
 
         let dimensions = dataset.attr("dimensions")
             .and_then(|attr| attr.read::<u64>())
             .map(|dims| dims.into_iter().map(|d| d as usize).collect())
-            .unwrap_or_else(|_| vec![]);
+            .map_err(|e| Error::IoError(format!("Failed to read required 'dimensions' attribute: {}", e)))?;
 
+        // Read optional attributes
         let units = dataset.attr("units")
             .and_then(|attr| attr.read_scalar::<hdf5::types::VarLenUnicode>())
             .map(|s| Some(s.to_string()))
@@ -402,13 +404,40 @@ impl Hdf5Reader {
             .and_then(|attr| attr.read_scalar::<f64>())
             .ok();
 
+        // Read all additional attributes into the attributes map
+        let mut attributes = std::collections::HashMap::new();
+
+        // Get all attribute names from the dataset
+        let attr_names = dataset.attr_names()
+            .map_err(|e| Error::IoError(format!("Failed to get attribute names: {}", e)))?;
+
+        // Skip the standard attributes we've already processed
+        let standard_attrs = ["name", "data_type", "dimensions", "units", "time_step"];
+
+        for attr_name in attr_names {
+            if !standard_attrs.contains(&attr_name.as_str()) {
+                // Try to read as string attribute
+                if let Ok(attr) = dataset.attr(&attr_name) {
+                    if let Ok(value) = attr.read_scalar::<hdf5::types::VarLenUnicode>() {
+                        attributes.insert(attr_name, value.to_string());
+                    } else if let Ok(value) = attr.read_scalar::<f64>() {
+                        // Convert numeric values to strings for consistency
+                        attributes.insert(attr_name, value.to_string());
+                    } else if let Ok(value) = attr.read_scalar::<i64>() {
+                        attributes.insert(attr_name, value.to_string());
+                    }
+                    // Add more type conversions as needed
+                }
+            }
+        }
+
         Ok(DatasetMetadata {
             name,
             data_type,
             dimensions,
             units,
             time_step,
-            attributes: std::collections::HashMap::new(),
+            attributes,
         })
     }
 
