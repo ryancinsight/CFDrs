@@ -111,4 +111,3 @@ path = "examples/simple_pipe_flow.rs"
 
 [[example]]
 name = "scheme_integration_demo"
-required-features = ["cfd-1d/scheme-integration"]

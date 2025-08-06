@@ -3,7 +3,7 @@
 //! This module provides the core network representation for microfluidic and millifluidic
 //! systems using graph-based data structures optimized for CFD analysis.
 
-use cfd_core::{Error, Result, Fluid};
+use cfd_core::{Error, Result, Fluid, BoundaryCondition as CoreBoundaryCondition};
 use nalgebra::{RealField, Vector3};
 use num_traits::cast::FromPrimitive;
 use petgraph::{Graph, Directed};
@@ -11,6 +11,9 @@ use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+/// Type alias for boundary conditions in 1D networks
+pub type BoundaryCondition<T> = CoreBoundaryCondition<T>;
 
 /// Network graph type using petgraph
 pub type NetworkGraph<N, E> = Graph<N, E, Directed>;
@@ -58,18 +61,7 @@ pub struct NodeProperties<T: RealField> {
     pub component_id: Option<String>,
 }
 
-/// Boundary conditions for network nodes
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum BoundaryCondition<T: RealField> {
-    /// Fixed pressure boundary
-    Pressure(T),
-    /// Fixed flow rate boundary
-    FlowRate(T),
-    /// Fixed velocity boundary
-    Velocity(T),
-    /// Zero gradient (outflow) boundary
-    ZeroGradient,
-}
+
 
 /// An edge representing a channel or component in the network
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -206,21 +198,21 @@ impl<T: RealField + FromPrimitive> Node<T> {
     /// Create an inlet node with pressure boundary condition
     pub fn inlet_pressure(id: String, position: Vector3<T>, pressure: T) -> Self {
         let mut node = Self::new(id, NodeType::Inlet, position);
-        node.properties.boundary_condition = Some(BoundaryCondition::Pressure(pressure));
+        node.properties.boundary_condition = Some(BoundaryCondition::pressure_inlet(pressure));
         node
     }
 
     /// Create an outlet node with pressure boundary condition
     pub fn outlet_pressure(id: String, position: Vector3<T>, pressure: T) -> Self {
         let mut node = Self::new(id, NodeType::Outlet, position);
-        node.properties.boundary_condition = Some(BoundaryCondition::Pressure(pressure));
+        node.properties.boundary_condition = Some(BoundaryCondition::pressure_outlet(pressure));
         node
     }
 
     /// Create an inlet node with flow rate boundary condition
     pub fn inlet_flow_rate(id: String, position: Vector3<T>, flow_rate: T) -> Self {
         let mut node = Self::new(id, NodeType::Inlet, position);
-        node.properties.boundary_condition = Some(BoundaryCondition::FlowRate(flow_rate));
+        node.properties.boundary_condition = Some(BoundaryCondition::flow_rate_inlet(flow_rate));
         node
     }
 
@@ -637,10 +629,14 @@ mod tests {
         assert_eq!(node.node_type, NodeType::Inlet);
         assert!(node.has_boundary_condition());
 
-        if let Some(BoundaryCondition::Pressure(p)) = node.boundary_condition() {
-            assert_relative_eq!(*p, 1000.0, epsilon = 1e-10);
+        if let Some(bc) = node.boundary_condition() {
+            if let Some(p) = bc.pressure_value() {
+                assert_relative_eq!(p, 1000.0, epsilon = 1e-10);
+            } else {
+                panic!("Expected pressure boundary condition");
+            }
         } else {
-            panic!("Expected pressure boundary condition");
+            panic!("Expected boundary condition");
         }
     }
 

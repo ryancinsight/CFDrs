@@ -1,9 +1,12 @@
 //! Integration with the scheme library for 2D schematic visualization.
-//! 
+//!
 //! This module provides functionality to:
 //! - Import microfluidic network designs from 2D schematics
 //! - Export 1D simulation results to 2D visualizations
 //! - Map between schematic components and simulation elements
+//!
+//! When the `scheme-integration` feature is disabled, this module provides
+//! stub implementations that return appropriate errors.
 
 #[cfg(feature = "scheme-integration")]
 use scheme::{
@@ -61,6 +64,10 @@ pub enum SchemeError {
     /// JSON serialization error
     #[error("JSON error: {0}")]
     JsonError(#[from] serde_json::Error),
+
+    /// Feature disabled error
+    #[error("Feature disabled: {0}")]
+    FeatureDisabled(String),
 }
 
 /// Component mapping between scheme and simulation
@@ -221,6 +228,33 @@ pub mod helpers {
                 }
             })
             .collect()
+    }
+}
+
+/// Fallback implementations when scheme integration is disabled
+#[cfg(not(feature = "scheme-integration"))]
+pub mod helpers {
+    use super::*;
+
+    /// Create a simple bifurcation network schematic (fallback)
+    pub fn create_bifurcation_schematic(
+        _width: f64,
+        _height: f64,
+        _levels: usize,
+    ) -> Result<(), SchemeError> {
+        Err(SchemeError::FeatureDisabled(
+            "scheme-integration feature is not enabled".to_string()
+        ))
+    }
+
+    /// Export a channel system to PNG (fallback)
+    pub fn export_to_png(
+        _system: &(),
+        _filename: &str,
+    ) -> Result<(), SchemeError> {
+        Err(SchemeError::FeatureDisabled(
+            "scheme-integration feature is not enabled".to_string()
+        ))
     }
 }
 

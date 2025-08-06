@@ -3,7 +3,7 @@
 //! This module provides a basic solver for analyzing fluid flow in microfluidic
 //! networks using simple iterative methods.
 
-use crate::network::{Network, Edge, BoundaryCondition};
+use crate::network::{Network, Edge};
 use petgraph::visit::EdgeRef;
 use cfd_core::Result;
 use nalgebra::{RealField, ComplexField};
@@ -123,17 +123,13 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkSolver<T> {
     fn initialize_boundary_conditions(&self, network: &mut Network<T>) -> Result<()> {
         for node in network.graph.node_weights_mut() {
             if let Some(bc) = &node.properties.boundary_condition {
-                match bc {
-                    BoundaryCondition::Pressure(pressure) => {
-                        node.pressure = Some(pressure.clone());
-                    },
-                    BoundaryCondition::FlowRate(_) => {
-                        // Initialize with zero pressure for flow rate boundaries
-                        node.pressure = Some(T::zero());
-                    },
-                    _ => {
-                        node.pressure = Some(T::zero());
-                    }
+                if let Some(pressure) = bc.pressure_value() {
+                    node.pressure = Some(pressure);
+                } else if bc.flow_rate_value().is_some() {
+                    // Initialize with zero pressure for flow rate boundaries
+                    node.pressure = Some(T::zero());
+                } else {
+                    node.pressure = Some(T::zero());
                 }
             } else {
                 // Initialize internal nodes with zero pressure
@@ -156,8 +152,10 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkSolver<T> {
             if has_bc {
                 // Skip boundary nodes with pressure conditions
                 if let Some(node) = network.get_node(&node_id) {
-                    if let Some(BoundaryCondition::Pressure(_)) = node.boundary_condition() {
-                        continue;
+                    if let Some(bc) = node.boundary_condition() {
+                        if bc.pressure_value().is_some() {
+                            continue;
+                        }
                     }
                 }
             }
@@ -211,8 +209,10 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkSolver<T> {
 
         // Handle flow rate boundary condition
         if let Some(node) = network.get_node(node_id) {
-            if let Some(BoundaryCondition::FlowRate(flow_rate)) = node.boundary_condition() {
-                source_term += flow_rate.clone();
+            if let Some(bc) = node.boundary_condition() {
+                if let Some(flow_rate) = bc.flow_rate_value() {
+                    source_term += flow_rate;
+                }
             }
         }
 
