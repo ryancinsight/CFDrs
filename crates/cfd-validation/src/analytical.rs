@@ -449,7 +449,6 @@ impl AnalyticalUtils {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use nalgebra::Vector3;
 
     #[test]
     fn test_poiseuille_flow_2d() {
