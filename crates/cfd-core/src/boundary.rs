@@ -50,6 +50,11 @@ pub enum BoundaryCondition<T: RealField> {
         /// Mass flow rate [kg/s]
         mass_flow: T,
     },
+    /// Volume flow rate inlet (for 1D networks)
+    VolumeFlowInlet {
+        /// Volume flow rate [m³/s]
+        flow_rate: T,
+    },
     /// Wall boundary
     Wall {
         /// Wall type
@@ -119,6 +124,23 @@ impl<T: RealField> BoundaryCondition<T> {
         }
     }
 
+    /// Create a volume flow rate inlet boundary condition (for 1D networks)
+    pub fn flow_rate_inlet(flow_rate: T) -> Self {
+        Self::VolumeFlowInlet { flow_rate }
+    }
+
+    /// Create a 1D velocity inlet (scalar velocity)
+    pub fn velocity_inlet_1d(velocity: T) -> Self {
+        Self::VelocityInlet {
+            velocity: Vector3::new(velocity, T::zero(), T::zero()),
+        }
+    }
+
+    /// Create a zero gradient outflow boundary condition
+    pub fn zero_gradient() -> Self {
+        Self::Outflow
+    }
+
     /// Check if this is a Dirichlet-type boundary condition
     pub fn is_dirichlet(&self) -> bool {
         matches!(
@@ -141,6 +163,35 @@ impl<T: RealField> BoundaryCondition<T> {
     /// Check if this is a wall boundary condition
     pub fn is_wall(&self) -> bool {
         matches!(self, Self::Wall { .. })
+    }
+
+    /// Extract pressure value if this is a pressure boundary condition
+    pub fn pressure_value(&self) -> Option<T> {
+        match self {
+            Self::PressureInlet { pressure } | Self::PressureOutlet { pressure } => Some(pressure.clone()),
+            _ => None,
+        }
+    }
+
+    /// Extract flow rate value if this is a flow rate boundary condition
+    pub fn flow_rate_value(&self) -> Option<T> {
+        match self {
+            Self::VolumeFlowInlet { flow_rate } => Some(flow_rate.clone()),
+            _ => None,
+        }
+    }
+
+    /// Extract 1D velocity value if this is a velocity boundary condition
+    pub fn velocity_1d_value(&self) -> Option<T> {
+        match self {
+            Self::VelocityInlet { velocity } => Some(velocity.x.clone()),
+            _ => None,
+        }
+    }
+
+    /// Check if this is a zero gradient boundary condition
+    pub fn is_zero_gradient(&self) -> bool {
+        matches!(self, Self::Outflow | Self::Symmetry)
     }
 }
 
