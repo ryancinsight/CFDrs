@@ -1,4 +1,18 @@
 //! 1D CFD simulations and microfluidic network solvers.
+//! 
+//! This crate provides 1D computational fluid dynamics solvers specifically
+//! designed for microfluidic and millifluidic networks. It includes support
+//! for:
+//! - Channel-based flow networks
+//! - Electrical circuit analogy solvers
+//! - Pressure-driven flow simulations
+//! - Component-based microfluidic devices
+//! 
+//! ## 2D Schematic Support
+//! 
+//! This crate is designed to integrate with the `scheme` library for
+//! 2D schematic representation of 1D microfluidic networks, similar to
+//! how `cfd-3d` integrates with `csgrs` for 3D mesh handling.
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
@@ -10,6 +24,10 @@ pub mod channel;
 pub mod components;
 pub mod solver;
 pub mod resistance;
+
+// TODO: Add when scheme integration is implemented
+// #[cfg(feature = "scheme")]
+// pub mod scheme_integration;
 
 // TODO: Implement these exports
 // pub use network::{Network, Node, NetworkBuilder};

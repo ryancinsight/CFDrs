@@ -112,25 +112,39 @@ This checklist provides a detailed breakdown of all tasks required to implement 
 ## 🔬 Phase 5: 1D Implementation (cfd-1d)
 
 ### Network Topology
-- [ ] Implement `Node` struct
-- [ ] Implement `Channel` struct
-- [ ] Create `Network` builder
-- [ ] Add topology validation
-- [ ] Implement graph algorithms
+- [ ] Define network graph structure
+- [ ] Implement node and edge types
+- [ ] Create network builder API
+- [ ] Add network validation
+
+### Channel Models
+- [ ] Rectangular channel resistance
+- [ ] Circular channel resistance
+- [ ] Variable cross-section channels
+- [ ] Channel junction models
 
 ### Components
-- [ ] Implement pressure pump
-- [ ] Implement flow rate pump
-- [ ] Add sink/source nodes
-- [ ] Create valve component
-- [ ] Add sensor components
+- [ ] Pump models (pressure/flow rate)
+- [ ] Valve models (on/off, proportional)
+- [ ] Sensor integration points
+- [ ] Mixer components
+- [ ] Droplet generators
 
 ### Solvers
-- [ ] Hagen-Poiseuille solver
-- [ ] Electrical analogy solver
-- [ ] Matrix assembly for networks
-- [ ] Time stepping implementation
-- [ ] Steady-state solver
+- [ ] Electrical circuit analogy solver
+- [ ] Hagen-Poiseuille flow solver
+- [ ] Pressure-driven flow solver
+- [ ] Time-dependent flow solver
+
+### Integration
+- [ ] JSON import/export (MMFT format)
+- [ ] Network visualization
+- [ ] Component library
+- [ ] Scheme library integration for 2D schematics
+  - [ ] Define scheme integration traits
+  - [ ] Implement schematic import/export
+  - [ ] Create layout algorithms
+  - [ ] Add interactive editing support
 
 ### Fluid Models
 - [ ] Newtonian fluid model

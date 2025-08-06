@@ -93,6 +93,14 @@ trait SolverFactory {
    - Implicit Euler
    - Runge-Kutta methods
 
+### 1D Simulations
+
+- **Microfluidic Networks**: Channel-based flow simulation with electrical circuit analogy
+- **Components**: Pumps, valves, sensors, mixers, junctions
+- **Resistance Models**: Hagen-Poiseuille for various channel geometries
+- **JSON Configuration**: Compatible with MMFT simulator format
+- **2D Schematic Integration**: Support for the `scheme` library to visualize and design 1D networks using 2D schematics (similar to electronic circuit design)
+
 ### 2D Simulation Requirements
 
 #### Core Features
@@ -144,6 +152,14 @@ trait SolverFactory {
 3. **Immersed Boundary Method (IBM)**
 4. **Level Set Method** (for free surfaces)
 5. **Volume of Fluid (VOF)** method
+
+### 3D Simulations
+
+- **Mesh Handling**: Integration with CSGrs crate for constructive solid geometry
+- **Mesh Import/Export**: STL, OBJ, and other common formats
+- **Boolean Operations**: Union, intersection, difference on 3D geometries
+- **Advanced Methods**: FEM, spectral methods, immersed boundary method
+- **Multiphase Flow**: Level set and volume of fluid methods
 
 ### Common Components
 
@@ -251,3 +267,12 @@ trait SolverFactory {
 3. **Multiphysics**: Heat transfer, chemical reactions
 4. **Machine Learning**: Surrogate models, turbulence modeling
 5. **Cloud Computing**: Distributed simulations
+
+## External Dependencies
+
+### Core Libraries
+- **nalgebra**: Linear algebra operations
+- **CSGrs**: 3D mesh handling and CSG operations
+- **scheme**: 2D schematic representation for 1D microfluidic networks (planned)
+- **rayon**: Parallel computing
+- **serde**: Serialization/deserialization
