@@ -1,1 +1,603 @@
-//! Placeholder module
+//! Analytical solutions for CFD validation.
+//!
+//! This module provides exact analytical solutions for various fluid flow problems
+//! that can be used to validate numerical CFD solvers.
+
+// use cfd_core::Result; // TODO: Use when needed
+use nalgebra::{RealField, Vector3};
+use num_traits::cast::FromPrimitive;
+use std::f64::consts::PI;
+
+/// Trait for analytical solutions
+pub trait AnalyticalSolution<T: RealField> {
+    /// Evaluate the solution at given coordinates and time
+    fn evaluate(&self, x: T, y: T, z: T, t: T) -> Vector3<T>;
+
+    /// Get the velocity field at given coordinates and time
+    fn velocity(&self, x: T, y: T, z: T, t: T) -> Vector3<T> {
+        self.evaluate(x, y, z, t)
+    }
+
+    /// Get the pressure field at given coordinates and time
+    fn pressure(&self, x: T, y: T, z: T, t: T) -> T;
+
+    /// Get the name of the analytical solution
+    fn name(&self) -> &str;
+
+    /// Get the domain bounds [x_min, x_max, y_min, y_max, z_min, z_max]
+    fn domain_bounds(&self) -> [T; 6];
+
+    /// Check if the solution is valid at given coordinates
+    fn is_valid_at(&self, x: T, y: T, z: T) -> bool {
+        let bounds = self.domain_bounds();
+        x >= bounds[0] && x <= bounds[1] &&
+        y >= bounds[2] && y <= bounds[3] &&
+        z >= bounds[4] && z <= bounds[5]
+    }
+}
+
+/// Poiseuille flow in a channel (1D/2D)
+pub struct PoiseuilleFlow<T: RealField> {
+    /// Maximum velocity at channel center
+    pub u_max: T,
+    /// Channel half-width (for 2D) or radius (for cylindrical)
+    pub channel_width: T,
+    /// Pressure gradient (dp/dx)
+    pub pressure_gradient: T,
+    /// Dynamic viscosity
+    pub viscosity: T,
+    /// Channel length
+    pub length: T,
+    /// Flow type: true for 2D channel, false for cylindrical pipe
+    pub is_2d_channel: bool,
+}
+
+impl<T: RealField + FromPrimitive> PoiseuilleFlow<T> {
+    /// Create new Poiseuille flow solution
+    pub fn new(
+        u_max: T,
+        channel_width: T,
+        pressure_gradient: T,
+        viscosity: T,
+        length: T,
+        is_2d_channel: bool,
+    ) -> Self {
+        Self {
+            u_max,
+            channel_width,
+            pressure_gradient,
+            viscosity,
+            length,
+            is_2d_channel,
+        }
+    }
+
+    /// Create 2D channel Poiseuille flow
+    pub fn channel_2d(u_max: T, half_width: T, length: T, viscosity: T) -> Self {
+        // For 2D channel: u_max = -dp/dx * h^2 / (2*mu)
+        // So dp/dx = -2*mu*u_max / h^2
+        let pressure_gradient = -T::from_f64(2.0).unwrap() * viscosity.clone() * u_max.clone() /
+                               (half_width.clone() * half_width.clone());
+
+        Self::new(u_max, half_width, pressure_gradient, viscosity, length, true)
+    }
+
+    /// Create cylindrical pipe Poiseuille flow
+    pub fn pipe_cylindrical(u_max: T, radius: T, length: T, viscosity: T) -> Self {
+        // For cylindrical pipe: u_max = -dp/dx * R^2 / (4*mu)
+        // So dp/dx = -4*mu*u_max / R^2
+        let pressure_gradient = -T::from_f64(4.0).unwrap() * viscosity.clone() * u_max.clone() /
+                               (radius.clone() * radius.clone());
+
+        Self::new(u_max, radius, pressure_gradient, viscosity, length, false)
+    }
+}
+
+impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for PoiseuilleFlow<T> {
+    fn evaluate(&self, _x: T, y: T, _z: T, _t: T) -> Vector3<T> {
+        if self.is_2d_channel {
+            // 2D channel flow: u(y) = u_max * (1 - (y/h)^2)
+            let y_normalized = y / self.channel_width.clone();
+            let u = self.u_max.clone() * (T::one() - y_normalized.clone() * y_normalized);
+            Vector3::new(u, T::zero(), T::zero())
+        } else {
+            // Cylindrical pipe flow: u(r) = u_max * (1 - (r/R)^2)
+            let r = (y.clone() * y + _z.clone() * _z).sqrt();
+            let r_normalized = r / self.channel_width.clone();
+            let u = if r_normalized <= T::one() {
+                self.u_max.clone() * (T::one() - r_normalized.clone() * r_normalized)
+            } else {
+                T::zero()
+            };
+            Vector3::new(u, T::zero(), T::zero())
+        }
+    }
+
+    fn pressure(&self, x: T, _y: T, _z: T, _t: T) -> T {
+        // Linear pressure drop: p(x) = p0 + (dp/dx) * x
+        // Assuming p0 = 0 at x = 0
+        self.pressure_gradient.clone() * x
+    }
+
+    fn name(&self) -> &str {
+        if self.is_2d_channel {
+            "Poiseuille Flow (2D Channel)"
+        } else {
+            "Poiseuille Flow (Cylindrical Pipe)"
+        }
+    }
+
+    fn domain_bounds(&self) -> [T; 6] {
+        if self.is_2d_channel {
+            [T::zero(), self.length.clone(),
+             -self.channel_width.clone(), self.channel_width.clone(),
+             T::zero(), T::zero()]
+        } else {
+            [T::zero(), self.length.clone(),
+             -self.channel_width.clone(), self.channel_width.clone(),
+             -self.channel_width.clone(), self.channel_width.clone()]
+        }
+    }
+}
+
+/// Couette flow between parallel plates
+pub struct CouetteFlow<T: RealField> {
+    /// Velocity of the moving plate
+    pub plate_velocity: T,
+    /// Gap between plates
+    pub gap: T,
+    /// Pressure gradient (optional)
+    pub pressure_gradient: T,
+    /// Dynamic viscosity
+    pub viscosity: T,
+    /// Length of the plates
+    pub length: T,
+}
+
+impl<T: RealField + FromPrimitive> CouetteFlow<T> {
+    /// Create new Couette flow solution
+    pub fn new(plate_velocity: T, gap: T, pressure_gradient: T, viscosity: T, length: T) -> Self {
+        Self {
+            plate_velocity,
+            gap,
+            pressure_gradient,
+            viscosity,
+            length,
+        }
+    }
+
+    /// Create simple Couette flow (no pressure gradient)
+    pub fn simple(plate_velocity: T, gap: T, length: T) -> Self {
+        Self::new(plate_velocity, gap, T::zero(), T::one(), length)
+    }
+}
+
+impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for CouetteFlow<T> {
+    fn evaluate(&self, _x: T, y: T, _z: T, _t: T) -> Vector3<T> {
+        // Couette flow: u(y) = U * y/h + (dp/dx) * y * (h - y) / (2*mu)
+        let y_normalized = y.clone() / self.gap.clone();
+        let linear_term = self.plate_velocity.clone() * y_normalized;
+
+        let pressure_term = if self.pressure_gradient != T::zero() {
+            let two = T::from_f64(2.0).unwrap();
+            self.pressure_gradient.clone() * y.clone() * (self.gap.clone() - y) /
+            (two * self.viscosity.clone())
+        } else {
+            T::zero()
+        };
+
+        let u = linear_term + pressure_term;
+        Vector3::new(u, T::zero(), T::zero())
+    }
+
+    fn pressure(&self, x: T, _y: T, _z: T, _t: T) -> T {
+        self.pressure_gradient.clone() * x
+    }
+
+    fn name(&self) -> &str {
+        "Couette Flow"
+    }
+
+    fn domain_bounds(&self) -> [T; 6] {
+        [T::zero(), self.length.clone(),
+         T::zero(), self.gap.clone(),
+         T::zero(), T::zero()]
+    }
+}
+
+/// Taylor-Green vortex solution
+pub struct TaylorGreenVortex<T: RealField> {
+    /// Amplitude of the vortex
+    pub amplitude: T,
+    /// Kinematic viscosity
+    pub viscosity: T,
+    /// Domain size (assumed square)
+    pub domain_size: T,
+}
+
+impl<T: RealField + FromPrimitive> TaylorGreenVortex<T> {
+    /// Create new Taylor-Green vortex solution
+    pub fn new(amplitude: T, viscosity: T, domain_size: T) -> Self {
+        Self {
+            amplitude,
+            viscosity,
+            domain_size,
+        }
+    }
+}
+
+impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for TaylorGreenVortex<T> {
+    fn evaluate(&self, x: T, y: T, _z: T, t: T) -> Vector3<T> {
+        let pi = T::from_f64(PI).unwrap();
+        let two = T::from_f64(2.0).unwrap();
+
+        // Decay factor: exp(-2*nu*t)
+        let decay = (-two.clone() * self.viscosity.clone() * t).exp();
+
+        // Normalized coordinates
+        let kx = two.clone() * pi.clone() * x / self.domain_size.clone();
+        let ky = two.clone() * pi.clone() * y / self.domain_size.clone();
+
+        // Velocity components
+        let u = self.amplitude.clone() * kx.clone().cos() * ky.clone().sin() * decay.clone();
+        let v = -self.amplitude.clone() * kx.sin() * ky.cos() * decay;
+
+        Vector3::new(u, v, T::zero())
+    }
+
+    fn pressure(&self, x: T, y: T, _z: T, t: T) -> T {
+        let pi = T::from_f64(PI).unwrap();
+        let two = T::from_f64(2.0).unwrap();
+        let four = T::from_f64(4.0).unwrap();
+
+        // Decay factor: exp(-4*nu*t)
+        let decay = (-four.clone() * self.viscosity.clone() * t).exp();
+
+        // Normalized coordinates
+        let kx = two.clone() * pi.clone() * x / self.domain_size.clone();
+        let ky = two.clone() * pi.clone() * y / self.domain_size.clone();
+
+        // Pressure field
+        let amp_squared = self.amplitude.clone() * self.amplitude.clone();
+        -amp_squared * (kx.clone().cos() * two.clone() + ky.clone().cos() * two) * decay / four
+    }
+
+    fn name(&self) -> &str {
+        "Taylor-Green Vortex"
+    }
+
+    fn domain_bounds(&self) -> [T; 6] {
+        [T::zero(), self.domain_size.clone(),
+         T::zero(), self.domain_size.clone(),
+         T::zero(), T::zero()]
+    }
+}
+
+/// Stokes flow around a sphere
+pub struct StokesFlow<T: RealField> {
+    /// Sphere radius
+    pub radius: T,
+    /// Free stream velocity
+    pub u_infinity: T,
+    /// Dynamic viscosity
+    pub viscosity: T,
+    /// Sphere center coordinates
+    pub center: Vector3<T>,
+}
+
+impl<T: RealField + FromPrimitive> StokesFlow<T> {
+    /// Create new Stokes flow solution
+    pub fn new(radius: T, u_infinity: T, viscosity: T, center: Vector3<T>) -> Self {
+        Self {
+            radius,
+            u_infinity,
+            viscosity,
+            center,
+        }
+    }
+
+    /// Create Stokes flow with sphere at origin
+    pub fn at_origin(radius: T, u_infinity: T, viscosity: T) -> Self {
+        Self::new(radius, u_infinity, viscosity, Vector3::zeros())
+    }
+}
+
+impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T> {
+    fn evaluate(&self, x: T, y: T, z: T, _t: T) -> Vector3<T> {
+        // Position relative to sphere center
+        let pos = Vector3::new(x, y, z) - self.center.clone();
+        let r = pos.norm();
+
+        if r <= self.radius {
+            // Inside sphere: zero velocity
+            return Vector3::zeros();
+        }
+
+        let three = T::from_f64(3.0).unwrap();
+        let four = T::from_f64(4.0).unwrap();
+
+        // Stokes flow solution
+        let a_over_r = self.radius.clone() / r.clone();
+        let a_over_r_cubed = a_over_r.clone() * a_over_r.clone() * a_over_r.clone();
+
+        // Velocity components (assuming flow in x-direction)
+        let cos_theta = pos.x.clone() / r.clone();
+        let sin_theta = (pos.y.clone() * pos.y.clone() + pos.z.clone() * pos.z.clone()).sqrt() / r.clone();
+
+        let u_r = self.u_infinity.clone() * cos_theta.clone() *
+                  (T::one() - three.clone() * a_over_r.clone() / T::from_f64(2.0).unwrap() + a_over_r_cubed.clone() / T::from_f64(2.0).unwrap());
+        let u_theta = -self.u_infinity.clone() * sin_theta.clone() *
+                      (T::one() - three * a_over_r / four.clone() - a_over_r_cubed / four);
+
+        // Convert to Cartesian coordinates
+        let u_x = u_r.clone() * cos_theta.clone() - u_theta.clone() * sin_theta.clone();
+        let u_y = if sin_theta.clone() != T::zero() {
+            (u_r.clone() * pos.y.clone() / r.clone() + u_theta.clone() * pos.y.clone() / (r.clone() * sin_theta.clone())) / r.clone()
+        } else {
+            T::zero()
+        };
+        let u_z = if sin_theta != T::zero() {
+            (u_r * pos.z.clone() / r.clone() + u_theta * pos.z.clone() / (r.clone() * sin_theta)) / r
+        } else {
+            T::zero()
+        };
+
+        Vector3::new(u_x, u_y, u_z)
+    }
+
+    fn pressure(&self, x: T, y: T, z: T, _t: T) -> T {
+        // Position relative to sphere center
+        let pos = Vector3::new(x, y, z) - self.center.clone();
+        let r = pos.norm();
+
+        if r <= self.radius {
+            // Inside sphere: constant pressure
+            return T::zero();
+        }
+
+        let three = T::from_f64(3.0).unwrap();
+        let two = T::from_f64(2.0).unwrap();
+
+        // Pressure field
+        let cos_theta = pos.x.clone() / r.clone();
+        -three * self.viscosity.clone() * self.u_infinity.clone() * self.radius.clone() * cos_theta /
+         (two * r.clone() * r)
+    }
+
+    fn name(&self) -> &str {
+        "Stokes Flow Around Sphere"
+    }
+
+    fn domain_bounds(&self) -> [T; 6] {
+        let bound = T::from_f64(10.0).unwrap() * self.radius.clone();
+        [self.center.x.clone() - bound.clone(), self.center.x.clone() + bound.clone(),
+         self.center.y.clone() - bound.clone(), self.center.y.clone() + bound.clone(),
+         self.center.z.clone() - bound.clone(), self.center.z.clone() + bound]
+    }
+}
+
+/// Utility functions for analytical solutions
+pub struct AnalyticalUtils;
+
+impl AnalyticalUtils {
+    /// Create a grid of points for evaluation
+    pub fn create_grid<T: RealField + FromPrimitive>(
+        bounds: [T; 6],
+        nx: usize,
+        ny: usize,
+        nz: usize,
+    ) -> Vec<(T, T, T)> {
+        let mut points = Vec::with_capacity(nx * ny * nz);
+
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let x = if nx > 1 {
+                        bounds[0].clone() + (bounds[1].clone() - bounds[0].clone()) *
+                        T::from_usize(i).unwrap() / T::from_usize(nx - 1).unwrap()
+                    } else {
+                        (bounds[0].clone() + bounds[1].clone()) / T::from_f64(2.0).unwrap()
+                    };
+
+                    let y = if ny > 1 {
+                        bounds[2].clone() + (bounds[3].clone() - bounds[2].clone()) *
+                        T::from_usize(j).unwrap() / T::from_usize(ny - 1).unwrap()
+                    } else {
+                        (bounds[2].clone() + bounds[3].clone()) / T::from_f64(2.0).unwrap()
+                    };
+
+                    let z = if nz > 1 {
+                        bounds[4].clone() + (bounds[5].clone() - bounds[4].clone()) *
+                        T::from_usize(k).unwrap() / T::from_usize(nz - 1).unwrap()
+                    } else {
+                        (bounds[4].clone() + bounds[5].clone()) / T::from_f64(2.0).unwrap()
+                    };
+
+                    points.push((x, y, z));
+                }
+            }
+        }
+
+        points
+    }
+
+    /// Evaluate solution on a grid
+    pub fn evaluate_on_grid<T, S>(
+        solution: &S,
+        points: &[(T, T, T)],
+        time: T,
+    ) -> (Vec<Vector3<T>>, Vec<T>)
+    where
+        T: RealField + Clone,
+        S: AnalyticalSolution<T>,
+    {
+        let velocities: Vec<Vector3<T>> = points
+            .iter()
+            .map(|(x, y, z)| solution.velocity(x.clone(), y.clone(), z.clone(), time.clone()))
+            .collect();
+
+        let pressures: Vec<T> = points
+            .iter()
+            .map(|(x, y, z)| solution.pressure(x.clone(), y.clone(), z.clone(), time.clone()))
+            .collect();
+
+        (velocities, pressures)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+    use nalgebra::Vector3;
+
+    #[test]
+    fn test_poiseuille_flow_2d() {
+        let flow = PoiseuilleFlow::channel_2d(1.0, 1.0, 10.0, 0.001);
+
+        // Test centerline velocity
+        let vel_center = flow.velocity(5.0, 0.0, 0.0, 0.0);
+        assert_relative_eq!(vel_center.x, 1.0, epsilon = 1e-10);
+        assert_relative_eq!(vel_center.y, 0.0, epsilon = 1e-10);
+
+        // Test wall velocity (should be zero)
+        let vel_wall = flow.velocity(5.0, 1.0, 0.0, 0.0);
+        assert_relative_eq!(vel_wall.x, 0.0, epsilon = 1e-10);
+
+        // Test pressure gradient
+        let p1 = flow.pressure(0.0, 0.0, 0.0, 0.0);
+        let p2 = flow.pressure(1.0, 0.0, 0.0, 0.0);
+        let dp_dx = p2 - p1;
+        assert!(dp_dx < 0.0); // Pressure should decrease downstream
+
+        // Test domain bounds
+        let bounds = flow.domain_bounds();
+        assert_eq!(bounds[0], 0.0); // x_min
+        assert_eq!(bounds[1], 10.0); // x_max
+        assert_eq!(bounds[2], -1.0); // y_min
+        assert_eq!(bounds[3], 1.0); // y_max
+    }
+
+    #[test]
+    fn test_poiseuille_flow_cylindrical() {
+        let flow = PoiseuilleFlow::pipe_cylindrical(2.0, 0.5, 5.0, 0.001);
+
+        // Test centerline velocity
+        let vel_center = flow.velocity(2.5, 0.0, 0.0, 0.0);
+        assert_relative_eq!(vel_center.x, 2.0, epsilon = 1e-10);
+
+        // Test velocity at r = R/2
+        let vel_half = flow.velocity(2.5, 0.25, 0.0, 0.0);
+        let expected = 2.0 * (1.0 - 0.25); // u_max * (1 - (r/R)^2)
+        assert_relative_eq!(vel_half.x, expected, epsilon = 1e-10);
+
+        // Test velocity at wall (r = R)
+        let vel_wall = flow.velocity(2.5, 0.5, 0.0, 0.0);
+        assert_relative_eq!(vel_wall.x, 0.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_couette_flow() {
+        let flow = CouetteFlow::simple(1.0, 2.0, 10.0);
+
+        // Test velocity at bottom plate
+        let vel_bottom = flow.velocity(5.0, 0.0, 0.0, 0.0);
+        assert_relative_eq!(vel_bottom.x, 0.0, epsilon = 1e-10);
+
+        // Test velocity at top plate
+        let vel_top = flow.velocity(5.0, 2.0, 0.0, 0.0);
+        assert_relative_eq!(vel_top.x, 1.0, epsilon = 1e-10);
+
+        // Test velocity at middle
+        let vel_middle = flow.velocity(5.0, 1.0, 0.0, 0.0);
+        assert_relative_eq!(vel_middle.x, 0.5, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_taylor_green_vortex() {
+        let vortex = TaylorGreenVortex::new(1.0, 0.01, 2.0 * PI);
+
+        // Test velocity at t=0, x=0, y=0 (should be zero due to sin(0) and cos(0))
+        let vel = vortex.velocity(0.0, 0.0, 0.0, 0.0);
+        assert_relative_eq!(vel.x, 0.0, epsilon = 1e-10); // cos(0) * sin(0) = 0
+        assert_relative_eq!(vel.y, 0.0, epsilon = 1e-10); // -sin(0) * cos(0) = 0
+
+        // Test pressure at origin
+        let p = vortex.pressure(0.0, 0.0, 0.0, 0.0);
+        assert!(p < 0.0); // Should be negative due to vortex
+
+        // Test decay over time
+        let vel_t0 = vortex.velocity(PI / 2.0, PI / 2.0, 0.0, 0.0);
+        let vel_t1 = vortex.velocity(PI / 2.0, PI / 2.0, 0.0, 1.0);
+        assert!(vel_t1.norm() < vel_t0.norm()); // Should decay over time
+    }
+
+    #[test]
+    fn test_stokes_flow() {
+        let flow = StokesFlow::at_origin(1.0, 1.0, 0.001);
+
+        // Test velocity inside sphere (should be zero)
+        let vel_inside = flow.velocity(0.5, 0.0, 0.0, 0.0);
+        assert_relative_eq!(vel_inside.x, 0.0, epsilon = 1e-10);
+        assert_relative_eq!(vel_inside.y, 0.0, epsilon = 1e-10);
+        assert_relative_eq!(vel_inside.z, 0.0, epsilon = 1e-10);
+
+        // Test velocity far from sphere (should approach free stream)
+        let vel_far = flow.velocity(100.0, 0.0, 0.0, 0.0);
+        assert_relative_eq!(vel_far.x, 1.0, epsilon = 2e-2); // Should approach u_infinity (looser tolerance)
+
+        // Test that velocity is finite at sphere surface
+        let vel_surface = flow.velocity(1.0_f64, 0.0, 0.0, 0.0);
+        assert!(vel_surface.x.is_finite());
+        assert!(vel_surface.y.is_finite());
+        assert!(vel_surface.z.is_finite());
+    }
+
+    #[test]
+    fn test_analytical_utils_grid() {
+        let bounds = [0.0, 1.0, 0.0, 1.0, 0.0, 0.0];
+        let points = AnalyticalUtils::create_grid(bounds, 3, 3, 1);
+
+        assert_eq!(points.len(), 9);
+
+        // Check corner points
+        assert_relative_eq!(points[0].0, 0.0, epsilon = 1e-10);
+        assert_relative_eq!(points[0].1, 0.0, epsilon = 1e-10);
+        assert_relative_eq!(points[8].0, 1.0, epsilon = 1e-10);
+        assert_relative_eq!(points[8].1, 1.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_evaluate_on_grid() {
+        let flow = PoiseuilleFlow::channel_2d(1.0, 1.0, 2.0, 0.001);
+        let bounds = flow.domain_bounds();
+        let points = AnalyticalUtils::create_grid(bounds, 3, 3, 1);
+
+        let (velocities, pressures) = AnalyticalUtils::evaluate_on_grid(&flow, &points, 0.0);
+
+        assert_eq!(velocities.len(), 9);
+        assert_eq!(pressures.len(), 9);
+
+        // All velocities should be in x-direction only
+        for vel in &velocities {
+            assert_relative_eq!(vel.y, 0.0, epsilon = 1e-10);
+            assert_relative_eq!(vel.z, 0.0, epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_domain_validation() {
+        let flow = PoiseuilleFlow::channel_2d(1.0, 1.0, 10.0, 0.001);
+
+        // Test valid points
+        assert!(flow.is_valid_at(5.0, 0.0, 0.0));
+        assert!(flow.is_valid_at(0.0, -1.0, 0.0));
+        assert!(flow.is_valid_at(10.0, 1.0, 0.0));
+
+        // Test invalid points
+        assert!(!flow.is_valid_at(-1.0, 0.0, 0.0)); // x < 0
+        assert!(!flow.is_valid_at(11.0, 0.0, 0.0)); // x > length
+        assert!(!flow.is_valid_at(5.0, 2.0, 0.0)); // y > channel_width
+        assert!(!flow.is_valid_at(5.0, -2.0, 0.0)); // y < -channel_width
+    }
+}

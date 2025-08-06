@@ -11,25 +11,38 @@ pub mod error_metrics;
 pub mod convergence;
 pub mod conservation;
 
-// TODO: Implement these exports
-// pub use analytical::{
-//     AnalyticalSolution, PoiseuilleFlow, CouetteFlow, StokesFlow, TaylorGreenVortex,
-// };
+// Export analytical solutions
+pub use analytical::{
+    AnalyticalSolution, PoiseuilleFlow, CouetteFlow, StokesFlow, TaylorGreenVortex,
+    AnalyticalUtils,
+};
+
+// Export error metrics
+pub use error_metrics::{
+    ErrorMetric, L2Norm, L1Norm, LInfNorm, RelativeError, RootMeanSquareError,
+    MeanAbsoluteError, NormalizedRMSE, NormalizationMethod, ErrorStatistics, ErrorAnalysis,
+};
+
+// Export convergence analysis
+pub use convergence::{
+    ConvergenceStudy, ConvergenceOrder, RichardsonExtrapolation, GridConvergenceIndex,
+    ConvergenceAnalysis, ConvergenceStatus, ConvergenceCriterion,
+};
+
+// TODO: Implement these exports when modules are completed
 // pub use benchmarks::{
 //     Benchmark, LidDrivenCavity, FlowOverCylinder, BackwardFacingStep,
 // };
-// pub use error_metrics::{ErrorMetric, L2Norm, LInfNorm, RelativeError};
-// pub use convergence::{ConvergenceAnalysis, RichardsonExtrapolation};
 // pub use conservation::{ConservationChecker, MassConservation, EnergyConservation};
 
 /// Common validation types and traits
 pub mod prelude {
-    // TODO: Add exports when implemented
-    // pub use crate::{
-    //     analytical::{AnalyticalSolution, PoiseuilleFlow},
-    //     benchmarks::{Benchmark, LidDrivenCavity},
-    //     error_metrics::{ErrorMetric, L2Norm},
-    //     convergence::ConvergenceAnalysis,
-    //     conservation::ConservationChecker,
-    // };
+    pub use crate::{
+        analytical::{AnalyticalSolution, PoiseuilleFlow, CouetteFlow, TaylorGreenVortex, AnalyticalUtils},
+        error_metrics::{ErrorMetric, L2Norm, L1Norm, LInfNorm, ErrorStatistics, ErrorAnalysis},
+        convergence::{ConvergenceAnalysis, ConvergenceStudy, RichardsonExtrapolation},
+        // TODO: Add when implemented
+        // benchmarks::{Benchmark, LidDrivenCavity},
+        // conservation::ConservationChecker,
+    };
 }
