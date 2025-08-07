@@ -3,10 +3,11 @@
 //! This example demonstrates solving the 2D heat equation using finite differences.
 //! We solve: ∇²T = 0 with specified boundary conditions.
 
-use cfd_2d::prelude::*;
+use cfd_suite::prelude::*;
+use cfd_2d::{GridEdge, AdvectionDiffusionSolver};
 use std::collections::HashMap;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("=== 2D Heat Diffusion Example ===");
     
     // Create a 2D grid for a rectangular domain

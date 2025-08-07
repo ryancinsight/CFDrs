@@ -219,27 +219,30 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
         })
     }
     
-    /// Analyze hydraulic resistances
+    /// Analyze hydraulic resistances using iterator combinators
     pub fn analyze_resistance(&self, network: &Network<T>) -> Result<ResistanceAnalysis<T>> {
-        let mut resistances = HashMap::new();
-        let mut resistance_by_type = HashMap::new();
-        
-        // Collect individual resistances
-        for edge in network.edges() {
-            let resistance = edge.effective_resistance();
-            resistances.insert(edge.id.clone(), resistance.clone());
-            
-            // Group by edge type
-            let type_key = format!("{:?}", edge.edge_type);
-            *resistance_by_type.entry(type_key).or_insert(T::zero()) += resistance;
-        }
-        
+        // Use iterator patterns for zero-copy resistance collection
+        let (resistances, resistance_by_type) = network.edges()
+            .map(|edge| {
+                let resistance = edge.effective_resistance();
+                let type_key = format!("{:?}", edge.edge_type);
+                ((edge.id.clone(), resistance.clone()), (type_key, resistance))
+            })
+            .fold(
+                (HashMap::new(), HashMap::new()),
+                |(mut resistances, mut by_type), ((id, resistance), (type_key, res))| {
+                    resistances.insert(id, resistance);
+                    *by_type.entry(type_key).or_insert(T::zero()) += res;
+                    (resistances, by_type)
+                }
+            );
+
         // Calculate total equivalent resistance (simplified)
         let total_resistance = self.calculate_equivalent_resistance(network);
-        
+
         // Find critical paths (simplified - just high resistance paths)
         let critical_paths = self.find_critical_paths(network);
-        
+
         Ok(ResistanceAnalysis {
             resistances,
             total_resistance,

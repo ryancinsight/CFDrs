@@ -21,14 +21,23 @@ pub use simple::{SimpleSolver, SimpleConfig};
 
 
 
-/// Common 2D CFD types and traits
+/// 2D CFD domain-specific prelude for advanced grid operations
+///
+/// This prelude exports 2D-specific functionality not available in the main prelude.
+/// Use this when working extensively with 2D grids and need access to specialized
+/// grid operations, advanced solver configurations, or detailed boundary handling.
+///
+/// For basic 2D functionality, prefer `cfd_suite::prelude::*`.
 pub mod prelude {
-    // Export implemented functionality
+    // === Advanced Grid Operations ===
+    // Detailed grid functionality beyond basic StructuredGrid2D
+    pub use crate::grid::{GridEdge, GridIterator};
+
+    // === Specialized Solver Components ===
+    // Advanced solver configurations and specialized methods
     pub use crate::{
-        grid::{Grid2D, StructuredGrid2D, BoundaryType, GridEdge},
-        fdm::{PoissonSolver, AdvectionDiffusionSolver, FdmConfig},
-        fvm::{FvmSolver, FvmConfig, FluxScheme},
-        lbm::{LbmSolver, LbmConfig, D2Q9},
-        simple::{SimpleSolver, SimpleConfig},
+        fdm::{AdvectionDiffusionSolver},
+        fvm::{FluxScheme, Face},
+        lbm::{D2Q9},
     };
 }

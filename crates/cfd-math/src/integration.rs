@@ -145,11 +145,15 @@ impl<T: RealField + FromPrimitive> Quadrature<T> for GaussQuadrature<T> {
         let half_interval = (b.clone() - a.clone()) / two.clone();
         let mid_point = (a.clone() + b.clone()) / two;
 
-        let mut result = T::zero();
-        for (point, weight) in self.points.iter().zip(self.weights.iter()) {
-            let x = mid_point.clone() + half_interval.clone() * point.clone();
-            result += weight.clone() * f(x);
-        }
+        // Use iterator combinators for zero-copy optimization
+        let result = self.points
+            .iter()
+            .zip(self.weights.iter())
+            .map(|(point, weight)| {
+                let x = mid_point.clone() + half_interval.clone() * point.clone();
+                weight.clone() * f(x)
+            })
+            .fold(T::zero(), |acc, term| acc + term);
 
         result * half_interval
     }
@@ -191,14 +195,14 @@ where
         let n = T::from_usize(self.num_intervals).unwrap();
         let h = (b.clone() - a.clone()) / n;
 
-        let mut result = T::zero();
-        for i in 0..self.num_intervals {
-            let xi = a.clone() + T::from_usize(i).unwrap() * h.clone();
-            let xi_plus_1 = xi.clone() + h.clone();
-            result += self.base_rule.integrate(&f, xi, xi_plus_1);
-        }
-
-        result
+        // Use iterator range with fold for zero-copy optimization
+        (0..self.num_intervals)
+            .map(|i| {
+                let xi = a.clone() + T::from_usize(i).unwrap() * h.clone();
+                let xi_plus_1 = xi.clone() + h.clone();
+                self.base_rule.integrate(&f, xi, xi_plus_1)
+            })
+            .fold(T::zero(), |acc, integral| acc + integral)
     }
 
     fn order(&self) -> usize {

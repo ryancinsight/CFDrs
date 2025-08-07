@@ -3,7 +3,7 @@
 //! This example demonstrates the use of the 3D spectral method solver
 //! for solving Poisson's equation with a known analytical solution.
 
-use cfd_3d::prelude::*;
+use cfd_suite::prelude::*;
 use cfd_core::BoundaryCondition;
 use std::collections::HashMap;
 

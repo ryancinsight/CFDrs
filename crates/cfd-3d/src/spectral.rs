@@ -191,30 +191,34 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
         Ok(points)
     }
 
-    /// Generate Chebyshev-Gauss-Lobatto points
+    /// Generate Chebyshev-Gauss-Lobatto points using iterator combinators
     fn chebyshev_points(&self, n: usize) -> Result<Vec<T>> {
-        let mut points = Vec::with_capacity(n);
         let pi = T::from_f64(std::f64::consts::PI).unwrap();
+        let n_minus_1 = T::from_usize(n - 1).unwrap();
 
-        for i in 0..n {
-            let theta = pi.clone() * T::from_usize(i).unwrap() / T::from_usize(n - 1).unwrap();
-            let point = -theta.cos(); // Chebyshev points in [-1, 1]
-            points.push(point);
-        }
+        // Use iterator pattern for zero-copy generation
+        let points = (0..n)
+            .map(|i| {
+                let theta = pi.clone() * T::from_usize(i).unwrap() / n_minus_1.clone();
+                -theta.cos() // Chebyshev points in [-1, 1]
+            })
+            .collect();
 
         Ok(points)
     }
 
-    /// Generate Fourier points (equispaced)
+    /// Generate Fourier points (equispaced) using iterator combinators
     fn fourier_points(&self, n: usize) -> Result<Vec<T>> {
-        let mut points = Vec::with_capacity(n);
         let two = T::from_f64(2.0).unwrap();
+        let n_val = T::from_usize(n).unwrap();
 
-        for i in 0..n {
-            // Generate points in [-1, 1) range
-            let point = two.clone() * T::from_usize(i).unwrap() / T::from_usize(n).unwrap() - T::one();
-            points.push(point);
-        }
+        // Use iterator pattern for zero-copy generation
+        let points = (0..n)
+            .map(|i| {
+                // Generate points in [-1, 1) range
+                two.clone() * T::from_usize(i).unwrap() / n_val.clone() - T::one()
+            })
+            .collect();
 
         Ok(points)
     }

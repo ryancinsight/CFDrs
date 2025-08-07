@@ -29,20 +29,37 @@ pub use convergence::{
     ConvergenceAnalysis, ConvergenceStatus, ConvergenceCriterion,
 };
 
-// TODO: Implement these exports when modules are completed
-// pub use benchmarks::{
-//     Benchmark, LidDrivenCavity, FlowOverCylinder, BackwardFacingStep,
-// };
-// pub use conservation::{ConservationChecker, MassConservation, EnergyConservation};
+// Export benchmark and conservation modules
+pub use benchmarks::{
+    Benchmark, BenchmarkResult, BenchmarkSuite, LidDrivenCavity, FlowOverCylinder, BackwardFacingStep,
+};
+pub use conservation::{ConservationChecker, MassConservation, EnergyConservation, ConservationReport};
 
-/// Common validation types and traits
+/// Validation domain-specific prelude for advanced analysis
+///
+/// This prelude exports validation-specific functionality not available in the main prelude.
+/// Use this when performing detailed validation studies, implementing custom benchmarks,
+/// or conducting comprehensive error analysis.
+///
+/// For basic validation functionality, prefer `cfd_suite::prelude::*`.
 pub mod prelude {
+    // === Advanced Error Analysis ===
+    // Detailed error metrics and statistical analysis
     pub use crate::{
-        analytical::{AnalyticalSolution, PoiseuilleFlow, CouetteFlow, TaylorGreenVortex, AnalyticalUtils},
-        error_metrics::{ErrorMetric, L2Norm, L1Norm, LInfNorm, ErrorStatistics, ErrorAnalysis},
-        convergence::{ConvergenceAnalysis, ConvergenceStudy, RichardsonExtrapolation},
-        // TODO: Add when implemented
-        // benchmarks::{Benchmark, LidDrivenCavity},
-        // conservation::ConservationChecker,
+        error_metrics::{
+            RelativeError, RootMeanSquareError, MeanAbsoluteError, NormalizedRMSE,
+            NormalizationMethod, ErrorStatistics, ErrorAnalysis
+        },
+        convergence::{
+            ConvergenceStatus, GridConvergenceIndex, RichardsonExtrapolation,
+            ConvergenceOrder
+        },
+    };
+
+    // === Benchmark Framework ===
+    // Advanced benchmarking and validation tools
+    pub use crate::{
+        benchmarks::{BenchmarkSuite, BenchmarkRunner, BenchmarkConfig, ValidationReport},
+        conservation::{ConservationReport, ConservationTolerance, ConservationHistory},
     };
 }
