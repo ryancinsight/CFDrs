@@ -342,21 +342,20 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
         let total_cells = T::from_usize(self.nx * self.ny).ok_or_else(|| cfd_core::Error::Internal("Grid size is too large to be represented by float type".to_string()))?;
 
         // Calculate velocity magnitudes and residuals using iterator patterns
-        let (velocity_residual, density_residual, _max_velocity_magnitude) = (0..self.nx)
+        let (velocity_residual, density_residual) = (0..self.nx)
             .flat_map(|i| (0..self.ny).map(move |j| (i, j)))
             .map(|(i, j)| {
                 let u_mag = (self.u[i][j].x.clone() * self.u[i][j].x.clone() +
                            self.u[i][j].y.clone() * self.u[i][j].y.clone()).sqrt();
                 let density_residual = (self.rho[i][j].clone() - T::one()).abs();
-                (u_mag.clone(), density_residual, u_mag)
+                (u_mag, density_residual)
             })
             .fold(
-                (T::zero(), T::zero(), T::zero()),
-                |(vel_acc, dens_acc, max_acc), (u_mag, dens_res, u_mag_max)| {
+                (T::zero(), T::zero()),
+                |(vel_acc, dens_acc), (u_mag, dens_res)| {
                     (
                         vel_acc + u_mag,
-                        dens_acc + dens_res,
-                        if u_mag_max > max_acc { u_mag_max } else { max_acc }
+                        dens_acc + dens_res
                     )
                 }
             );
