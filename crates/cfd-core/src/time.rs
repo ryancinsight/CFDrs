@@ -56,13 +56,17 @@ impl<T: RealField + FromPrimitive> TimeIntegrator<T> for RungeKutta2 {
     where
         F: Fn(T, &Self::State) -> Self::State,
     {
+        let half = T::from_f64(0.5).ok_or_else(|| {
+            crate::Error::NumericalError("Failed to convert 0.5 to target type".to_string())
+        })?;
+
         let k1 = f(t.clone(), state);
         let mut temp = state.clone();
-        temp.axpy(dt.clone() * T::from_f64(0.5).unwrap(), &k1, T::one());
-        
-        let k2 = f(t + dt.clone() * T::from_f64(0.5).unwrap(), &temp);
+        temp.axpy(dt.clone() * half.clone(), &k1, T::one());
+
+        let k2 = f(t + dt.clone() * half, &temp);
         state.axpy(dt, &k2, T::one());
-        
+
         Ok(())
     }
 
@@ -85,9 +89,15 @@ impl<T: RealField + FromPrimitive> TimeIntegrator<T> for RungeKutta4 {
     where
         F: Fn(T, &Self::State) -> Self::State,
     {
-        let two = T::from_f64(2.0).unwrap();
-        let six = T::from_f64(6.0).unwrap();
-        let half = T::from_f64(0.5).unwrap();
+        let two = T::from_f64(2.0).ok_or_else(|| {
+            crate::Error::NumericalError("Failed to convert 2.0 to target type".to_string())
+        })?;
+        let six = T::from_f64(6.0).ok_or_else(|| {
+            crate::Error::NumericalError("Failed to convert 6.0 to target type".to_string())
+        })?;
+        let half = T::from_f64(0.5).ok_or_else(|| {
+            crate::Error::NumericalError("Failed to convert 0.5 to target type".to_string())
+        })?;
         
         let k1 = f(t.clone(), state);
         
@@ -138,18 +148,70 @@ impl<T: RealField + FromPrimitive> Default for BackwardEuler<T> {
     }
 }
 
+impl<T: RealField + FromPrimitive> BackwardEuler<T> {
+    /// Create a new BackwardEuler integrator with default settings
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the maximum number of iterations
+    pub fn with_max_iterations(mut self, max_iterations: usize) -> Self {
+        self.max_iterations = max_iterations;
+        self
+    }
+
+    /// Set the tolerance
+    pub fn with_tolerance(mut self, tolerance: T) -> Self {
+        self.tolerance = tolerance;
+        self
+    }
+}
+
 impl<T: RealField> TimeIntegrator<T> for BackwardEuler<T> {
     type State = DVector<T>;
 
-    fn step<F>(&self, _state: &mut Self::State, _t: T, _dt: T, _f: F) -> Result<()>
+    fn step<F>(&self, state: &mut Self::State, t: T, dt: T, f: F) -> Result<()>
     where
         F: Fn(T, &Self::State) -> Self::State,
     {
-        // TODO: Implement implicit solver
-        // This requires solving: y_{n+1} = y_n + dt * f(t_{n+1}, y_{n+1})
-        Err(crate::Error::NotImplemented(
-            "Backward Euler requires nonlinear solver".to_string(),
-        ))
+        // Implement implicit Backward Euler using fixed-point iteration
+        // Solve: y_{n+1} = y_n + dt * f(t_{n+1}, y_{n+1})
+
+        let mut y_new = state.clone();
+        let y_old = state.clone();
+        let t_new = t + dt.clone();
+
+        // Check for valid iteration count
+        if self.max_iterations == 0 {
+            return Err(crate::Error::InvalidConfiguration(
+                "BackwardEuler requires max_iterations > 0".to_string()
+            ));
+        }
+
+        // Fixed-point iteration: y_{n+1}^{k+1} = y_n + dt * f(t_{n+1}, y_{n+1}^k)
+        for iteration in 0..self.max_iterations {
+            let f_val = f(t_new.clone(), &y_new);
+            let y_next = &y_old + &(&f_val * dt.clone());
+
+            // Check convergence
+            let error = (&y_next - &y_new).norm();
+            if error < self.tolerance {
+                *state = y_next;
+                return Ok(());
+            }
+
+            y_new = y_next;
+
+            // Prevent infinite loops
+            if iteration == self.max_iterations - 1 {
+                return Err(crate::Error::ConvergenceFailure(format!(
+                    "Backward Euler failed to converge after {} iterations, error: {}",
+                    self.max_iterations, error
+                )));
+            }
+        }
+
+        Ok(())
     }
 
     fn order(&self) -> usize {
@@ -178,18 +240,77 @@ impl<T: RealField + FromPrimitive> Default for CrankNicolson<T> {
     }
 }
 
+impl<T: RealField + FromPrimitive> CrankNicolson<T> {
+    /// Create a new CrankNicolson integrator with default settings
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the maximum number of iterations
+    pub fn with_max_iterations(mut self, max_iterations: usize) -> Self {
+        self.max_iterations = max_iterations;
+        self
+    }
+
+    /// Set the tolerance
+    pub fn with_tolerance(mut self, tolerance: T) -> Self {
+        self.tolerance = tolerance;
+        self
+    }
+}
+
 impl<T: RealField> TimeIntegrator<T> for CrankNicolson<T> {
     type State = DVector<T>;
 
-    fn step<F>(&self, _state: &mut Self::State, _t: T, _dt: T, _f: F) -> Result<()>
+    fn step<F>(&self, state: &mut Self::State, t: T, dt: T, f: F) -> Result<()>
     where
         F: Fn(T, &Self::State) -> Self::State,
     {
-        // TODO: Implement implicit solver
-        // This requires solving: y_{n+1} = y_n + dt/2 * (f(t_n, y_n) + f(t_{n+1}, y_{n+1}))
-        Err(crate::Error::NotImplemented(
-            "Crank-Nicolson requires nonlinear solver".to_string(),
-        ))
+        // Implement Crank-Nicolson using fixed-point iteration
+        // Solve: y_{n+1} = y_n + dt/2 * (f(t_n, y_n) + f(t_{n+1}, y_{n+1}))
+
+        let mut y_new = state.clone();
+        let y_old = state.clone();
+        let t_new = t.clone() + dt.clone();
+        let half = T::from_f64(0.5).ok_or_else(|| {
+            crate::Error::NumericalError("Failed to convert 0.5 to target type".to_string())
+        })?;
+        let half_dt = dt * half;
+
+        // Compute f(t_n, y_n) once
+        let f_old = f(t, &y_old);
+
+        // Check for valid iteration count
+        if self.max_iterations == 0 {
+            return Err(crate::Error::InvalidConfiguration(
+                "CrankNicolson requires max_iterations > 0".to_string()
+            ));
+        }
+
+        // Fixed-point iteration: y_{n+1}^{k+1} = y_n + dt/2 * (f(t_n, y_n) + f(t_{n+1}, y_{n+1}^k))
+        for iteration in 0..self.max_iterations {
+            let f_new = f(t_new.clone(), &y_new);
+            let y_next = &y_old + &((&f_old + &f_new) * half_dt.clone());
+
+            // Check convergence
+            let error = (&y_next - &y_new).norm();
+            if error < self.tolerance {
+                *state = y_next;
+                return Ok(());
+            }
+
+            y_new = y_next;
+
+            // Prevent infinite loops
+            if iteration == self.max_iterations - 1 {
+                return Err(crate::Error::ConvergenceFailure(format!(
+                    "Crank-Nicolson failed to converge after {} iterations, error: {}",
+                    self.max_iterations, error
+                )));
+            }
+        }
+
+        Ok(())
     }
 
     fn order(&self) -> usize {
@@ -304,5 +425,35 @@ mod tests {
         // Error is greater than target
         let new_dt = controller.calculate_dt(0.01, 1e-4, 2);
         assert!(new_dt < 0.01);
+    }
+
+    #[test]
+    fn test_backward_euler_zero_iterations() {
+        let integrator = BackwardEuler::new().with_max_iterations(0);
+        let mut state = nalgebra::DVector::from_element(1, 1.0);
+        let t = 0.0;
+        let dt = 0.1;
+
+        let f = |_t: f64, y: &nalgebra::DVector<f64>| -y;
+
+        // Should return an error for zero iterations
+        let result = integrator.step(&mut state, t, dt, f);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), crate::Error::InvalidConfiguration(_)));
+    }
+
+    #[test]
+    fn test_crank_nicolson_zero_iterations() {
+        let integrator = CrankNicolson::new().with_max_iterations(0);
+        let mut state = nalgebra::DVector::from_element(1, 1.0);
+        let t = 0.0;
+        let dt = 0.1;
+
+        let f = |_t: f64, y: &nalgebra::DVector<f64>| -y;
+
+        // Should return an error for zero iterations
+        let result = integrator.step(&mut state, t, dt, f);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), crate::Error::InvalidConfiguration(_)));
     }
 }

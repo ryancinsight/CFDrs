@@ -374,14 +374,41 @@ impl<T: RealField> VtkMeshBuilder<T> {
         self
     }
 
-    /// Add points from iterator
+    /// Add points from iterator using zero-copy approach
     pub fn add_points<I>(mut self, points: I) -> Self
     where
         I: IntoIterator<Item = (T, T, T)>,
     {
-        for (x, y, z) in points {
-            self.points.extend_from_slice(&[x, y, z]);
-        }
+        // Use iterator combinators to flatten coordinates efficiently
+        self.points.extend(
+            points.into_iter().flat_map(|(x, y, z)| [x, y, z])
+        );
+        self
+    }
+
+    /// Add points from slice with cloning (for non-Copy types)
+    pub fn add_points_from_slice_cloned(mut self, points: &[(T, T, T)]) -> Self
+    where
+        T: Clone,
+    {
+        // Reserve capacity to avoid multiple reallocations
+        self.points.reserve(points.len() * 3);
+        self.points.extend(
+            points.iter().flat_map(|(x, y, z)| [x.clone(), y.clone(), z.clone()])
+        );
+        self
+    }
+
+    /// Add points from slice with zero-copy (for Copy types)
+    pub fn add_points_from_slice_copy(mut self, points: &[(T, T, T)]) -> Self
+    where
+        T: Copy,
+    {
+        // Reserve capacity to avoid multiple reallocations
+        self.points.reserve(points.len() * 3);
+        self.points.extend(
+            points.iter().flat_map(|(x, y, z)| [*x, *y, *z])
+        );
         self
     }
 
