@@ -309,7 +309,7 @@ impl<T: RealField> Interpolation<T> for LagrangeInterpolation<T> {
             .enumerate()
             .map(|(i, yi)| yi.clone() * self.lagrange_basis(i, &x))
             .reduce(|acc, term| acc + term)
-            .unwrap_or_else(T::zero))
+            .unwrap_or_else(|| T::zero()))
     }
 
     fn bounds(&self) -> (T, T) {
