@@ -7,7 +7,7 @@ use cfd_suite::prelude::*;
 use cfd_core::BoundaryCondition;
 use std::collections::HashMap;
 
-fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("3D Spectral Poisson Solver Example");
     println!("===================================");
     
