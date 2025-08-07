@@ -275,7 +275,7 @@ impl<T: RealField + Debug> LinearSolver<T> for GMRES<T> {
                 let r_k = (h_k.clone() * h_k.clone() + h_kp1.clone() * h_kp1.clone()).sqrt();
 
                 // Improved numerical stability for Givens rotation
-                let (c, s) = if r_k < T::from_f64(1e-14).unwrap() {
+                let (c, s) = if r_k < T::epsilon() {
                     // Handle near-zero case to prevent division by zero
                     (T::one(), T::zero())
                 } else {
