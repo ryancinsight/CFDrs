@@ -189,7 +189,7 @@ where
         ComplexField::abs(v1.cross(&v2).dot(&v3)) / six
     }
 
-    /// Compute statistics for a set of values using iterator patterns
+    /// Compute statistics for a set of values using advanced iterator patterns
     fn compute_statistics(&self, values: &[T]) -> QualityStatistics<T> {
         if values.is_empty() {
             return QualityStatistics {
@@ -201,22 +201,16 @@ where
             };
         }
 
-        // Use iterator combinators for efficient statistics computation
+        // Use advanced iterator combinators for zero-copy statistics computation
+        use cfd_math::MathIteratorExt;
+
         let min = values.iter().cloned().fold(T::infinity(), RealField::min);
         let max = values.iter().cloned().fold(T::neg_infinity(), RealField::max);
-        let sum: T = values.iter().cloned().sum();
         let count = values.len();
-        let mean = sum / <T as From<usize>>::from(count);
 
-        // Calculate standard deviation
-        let variance: T = values
-            .iter()
-            .map(|x| {
-                let diff = x.clone() - mean.clone();
-                diff.clone() * diff
-            })
-            .sum::<T>() / <T as From<usize>>::from(count);
-
+        // Use zero-copy slice operations for better performance
+        let mean = values.iter().cloned().mean().unwrap_or_else(T::zero);
+        let variance = values.iter().cloned().variance().unwrap_or_else(T::zero);
         let std_dev = ComplexField::sqrt(variance);
 
         QualityStatistics {

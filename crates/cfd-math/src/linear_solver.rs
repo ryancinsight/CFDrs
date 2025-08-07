@@ -9,29 +9,8 @@ use nalgebra_sparse::CsrMatrix;
 use num_traits::{cast::FromPrimitive, Float};
 use std::fmt::Debug;
 
-/// Configuration for linear solvers
-#[derive(Debug, Clone)]
-pub struct LinearSolverConfig<T: RealField> {
-    /// Maximum iterations
-    pub max_iterations: usize,
-    /// Convergence tolerance
-    pub tolerance: T,
-    /// Restart parameter for GMRES
-    pub restart: usize,
-    /// Use preconditioning
-    pub use_preconditioner: bool,
-}
-
-impl<T: RealField + FromPrimitive> Default for LinearSolverConfig<T> {
-    fn default() -> Self {
-        Self {
-            max_iterations: 1000,
-            tolerance: T::from_f64(1e-10).unwrap(),
-            restart: 30,
-            use_preconditioner: false,
-        }
-    }
-}
+// Re-export the unified configuration from cfd-core
+pub use cfd_core::{LinearSolverConfig, SolverConfiguration};
 
 /// Trait for linear solvers
 pub trait LinearSolver<T: RealField>: Send + Sync {
@@ -48,7 +27,7 @@ pub trait LinearSolver<T: RealField>: Send + Sync {
 
     /// Check if residual satisfies convergence criteria
     fn is_converged(&self, residual_norm: T) -> bool {
-        residual_norm < self.config().tolerance
+        residual_norm < self.config().tolerance()
     }
 }
 
@@ -114,11 +93,12 @@ impl<T: RealField + Debug> LinearSolver<T> for ConjugateGradient<T> {
         let mut rsold = r.dot(&r);
 
         // CG iterations
-        for iter in 0..self.config.max_iterations {
+        for iter in 0..self.config.max_iterations() {
             let ap = a * &p;
             let alpha = rsold.clone() / p.dot(&ap);
             
-            // Zero-copy update using iterator combinators for SIMD optimization
+            // Zero-copy update using advanced iterator combinators for SIMD optimization
+            // Use zero-copy in-place operations for better performance
             x.iter_mut()
                 .zip(p.iter())
                 .for_each(|(xi, pi)| *xi += alpha.clone() * pi.clone());
@@ -147,7 +127,7 @@ impl<T: RealField + Debug> LinearSolver<T> for ConjugateGradient<T> {
 
         Err(Error::ConvergenceFailure(format!(
             "CG failed to converge after {} iterations",
-            self.config.max_iterations
+            self.config.max_iterations()
         )))
     }
 
@@ -342,7 +322,7 @@ impl<T: RealField + Debug + Float> LinearSolver<T> for GMRES<T> {
         let mut x = x0.map_or_else(|| DVector::zeros(b.len()), DVector::clone);
         let restart = self.config.restart.min(b.len());
 
-        for _outer in 0..self.config.max_iterations {
+        for _outer in 0..self.config.max_iterations() {
             let r = b - a * &x;
             let beta = r.norm();
 
@@ -413,7 +393,7 @@ impl<T: RealField + Debug> LinearSolver<T> for BiCGSTAB<T> {
         let mut p = DVector::zeros(n);
         let mut v = DVector::zeros(n);
 
-        for iter in 0..self.config.max_iterations {
+        for iter in 0..self.config.max_iterations() {
             let rho_new = r0_hat.dot(&r);
             
             if rho_new.clone().abs() < T::from_f64(1e-14).unwrap() {
@@ -464,7 +444,7 @@ impl<T: RealField + Debug> LinearSolver<T> for BiCGSTAB<T> {
 
         Err(Error::ConvergenceFailure(format!(
             "BiCGSTAB failed to converge after {} iterations",
-            self.config.max_iterations
+            self.config.max_iterations()
         )))
     }
 
@@ -509,7 +489,7 @@ mod tests {
         let (a, b) = create_test_system();
         let mut config = LinearSolverConfig::default();
         config.restart = 3; // Use full restart for small system
-        config.max_iterations = 10;
+        config.base.max_iterations = 10;
         let solver = GMRES::new(config);
         let x = solver.solve(&a, &b, None).unwrap();
         

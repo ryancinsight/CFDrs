@@ -326,12 +326,14 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
             return Vec::new();
         }
 
-        // Calculate statistics in single pass
-        let (sum, count) = edge_data.iter()
-            .map(|(_, resistance)| *resistance)
-            .fold((T::zero(), 0), |(sum, count), r| (sum + r, count + 1));
+        // Use advanced iterator patterns for statistical analysis
+        use cfd_math::MathIteratorExt;
 
-        let avg_resistance = sum / T::from_usize(count).unwrap();
+        let resistances: Vec<_> = edge_data.iter().map(|(_, resistance)| *resistance).collect();
+        let mean_resistance = resistances.iter().cloned().mean().unwrap_or_else(T::zero);
+        let _variance = resistances.iter().cloned().variance().unwrap_or_else(T::zero);
+
+        let avg_resistance = mean_resistance;
 
         // Find critical edges using iterator chains
         let critical_edges: Vec<String> = edge_data.into_iter()

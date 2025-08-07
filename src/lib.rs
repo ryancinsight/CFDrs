@@ -34,14 +34,18 @@ pub mod prelude {
     // Fundamental types used across all CFD simulations
     pub use cfd_core::{
         Fluid, Error, Result, BoundaryCondition, Domain, Problem, Solver,
-        Plugin, PluginRegistry, SimulationPlugin, SimulationState, TimeIntegrator
+        Plugin, PluginRegistry, SimulationPlugin, SimulationState, TimeIntegrator,
+        SolverConfiguration, SolverConfig, LinearSolverConfig, NetworkSolverConfig,
+        SolverFactory, SolverFactoryRegistry, Builder, ConfigurationBuilder, ResourceManager,
+        SimulationOrchestrator, ExecutionContext, ExecutionContextBuilder, ExecutionMode, PerformanceMetrics
     };
 
     // === Mathematical Utilities ===
     // Essential numerical methods and linear algebra
     pub use cfd_math::{
         SparseMatrix, SparseMatrixBuilder, LinearSolver, ConjugateGradient, GMRES, BiCGSTAB,
-        GaussQuadrature, FiniteDifference, Interpolation, LinearInterpolation, CubicSplineInterpolation
+        GaussQuadrature, FiniteDifference, Interpolation, LinearInterpolation, CubicSplineInterpolation,
+        MathIteratorExt, VectorOps, SliceOps, CfdIteratorChain, VectorizedOps, StencilOps
     };
     pub use cfd_math::integration::AdaptiveQuadrature;
 
@@ -58,7 +62,7 @@ pub mod prelude {
     // === 1D CFD Simulations ===
     // Microfluidic networks and pipe flow
     pub use cfd_1d::{
-        Network, NetworkBuilder, NetworkSolver, SolverConfig as NetworkSolverConfig,
+        Network, NetworkBuilder, NetworkSolver,
         Component, RectangularChannel, CircularChannel, Micropump, Microvalve,
         NetworkAnalyzer, FlowAnalysis, PressureAnalysis, ResistanceModel
     };

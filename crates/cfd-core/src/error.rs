@@ -9,6 +9,18 @@ pub enum Error {
     #[error("Invalid configuration: {0}")]
     InvalidConfiguration(String),
 
+    /// Invalid input provided
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
+    /// Invalid state encountered
+    #[error("Invalid state: {0}")]
+    InvalidState(String),
+
+    /// Timeout error
+    #[error("Timeout error: {0}")]
+    TimeoutError(String),
+
     /// Invalid mesh or geometry
     #[error("Invalid mesh: {0}")]
     InvalidMesh(String),

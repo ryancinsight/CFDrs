@@ -8,12 +8,14 @@ use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use std::fmt::Debug;
 
-/// Main solver trait for CFD simulations
+/// Main solver trait for CFD simulations following Dependency Inversion Principle
 pub trait Solver<T: RealField>: Send + Sync {
     /// Problem type this solver can handle
     type Problem: Problem<T>;
     /// Solution type produced by this solver
     type Solution;
+    /// Configuration type for this solver
+    type Config: SolverConfiguration<T>;
 
     /// Solve the given problem
     fn solve(&mut self, problem: &Self::Problem) -> Result<Self::Solution>;
@@ -22,13 +24,25 @@ pub trait Solver<T: RealField>: Send + Sync {
     fn name(&self) -> &str;
 
     /// Get solver configuration
-    fn config(&self) -> &SolverConfig<T>;
+    fn config(&self) -> &Self::Config;
 
     /// Set solver configuration
-    fn set_config(&mut self, config: SolverConfig<T>);
+    fn set_config(&mut self, config: Self::Config);
 }
 
-/// Common solver configuration
+/// Base solver configuration trait following Interface Segregation Principle
+pub trait SolverConfiguration<T: RealField>: Clone + Send + Sync {
+    /// Get convergence tolerance
+    fn tolerance(&self) -> T;
+    /// Get maximum iterations
+    fn max_iterations(&self) -> usize;
+    /// Get verbosity level
+    fn verbosity(&self) -> u8;
+    /// Check if parallel execution is enabled
+    fn parallel(&self) -> bool;
+}
+
+/// Common solver configuration implementing the base trait
 #[derive(Debug, Clone)]
 pub struct SolverConfig<T: RealField> {
     /// Convergence tolerance
@@ -45,6 +59,24 @@ pub struct SolverConfig<T: RealField> {
     pub num_threads: Option<usize>,
 }
 
+impl<T: RealField> SolverConfiguration<T> for SolverConfig<T> {
+    fn tolerance(&self) -> T {
+        self.tolerance.clone()
+    }
+
+    fn max_iterations(&self) -> usize {
+        self.max_iterations
+    }
+
+    fn verbosity(&self) -> u8 {
+        self.verbosity
+    }
+
+    fn parallel(&self) -> bool {
+        self.parallel
+    }
+}
+
 impl<T: RealField + FromPrimitive> Default for SolverConfig<T> {
     fn default() -> Self {
         Self {
@@ -54,6 +86,100 @@ impl<T: RealField + FromPrimitive> Default for SolverConfig<T> {
             verbosity: 1,
             parallel: true,
             num_threads: None,
+        }
+    }
+}
+
+/// Linear solver specific configuration
+#[derive(Debug, Clone)]
+pub struct LinearSolverConfig<T: RealField> {
+    /// Base configuration
+    pub base: SolverConfig<T>,
+    /// Restart parameter for GMRES
+    pub restart: usize,
+    /// Use preconditioning
+    pub use_preconditioner: bool,
+}
+
+impl<T: RealField> SolverConfiguration<T> for LinearSolverConfig<T> {
+    fn tolerance(&self) -> T {
+        self.base.tolerance()
+    }
+
+    fn max_iterations(&self) -> usize {
+        self.base.max_iterations()
+    }
+
+    fn verbosity(&self) -> u8 {
+        self.base.verbosity()
+    }
+
+    fn parallel(&self) -> bool {
+        self.base.parallel()
+    }
+}
+
+impl<T: RealField> LinearSolverConfig<T> {
+    /// Get restart parameter
+    pub fn restart(&self) -> usize {
+        self.restart
+    }
+
+    /// Check if preconditioning is enabled
+    pub fn use_preconditioner(&self) -> bool {
+        self.use_preconditioner
+    }
+}
+
+impl<T: RealField + FromPrimitive> Default for LinearSolverConfig<T> {
+    fn default() -> Self {
+        Self {
+            base: SolverConfig::default(),
+            restart: 30,
+            use_preconditioner: false,
+        }
+    }
+}
+
+/// Network solver specific configuration
+#[derive(Debug, Clone)]
+pub struct NetworkSolverConfig<T: RealField> {
+    /// Base configuration
+    pub base: SolverConfig<T>,
+    /// Enable verbose output
+    pub verbose: bool,
+}
+
+impl<T: RealField> SolverConfiguration<T> for NetworkSolverConfig<T> {
+    fn tolerance(&self) -> T {
+        self.base.tolerance()
+    }
+
+    fn max_iterations(&self) -> usize {
+        self.base.max_iterations()
+    }
+
+    fn verbosity(&self) -> u8 {
+        if self.verbose { 2 } else { self.base.verbosity() }
+    }
+
+    fn parallel(&self) -> bool {
+        self.base.parallel()
+    }
+}
+
+impl<T: RealField> NetworkSolverConfig<T> {
+    /// Get relaxation factor from base configuration
+    pub fn relaxation_factor(&self) -> T {
+        self.base.relaxation_factor.clone()
+    }
+}
+
+impl<T: RealField + FromPrimitive> Default for NetworkSolverConfig<T> {
+    fn default() -> Self {
+        Self {
+            base: SolverConfig::default(),
+            verbose: false,
         }
     }
 }
@@ -144,20 +270,20 @@ where
     /// Default iterative solve using iterator
     fn iterative_solve(&mut self, initial: Self::Solution) -> Result<Self::Solution> {
         let config = self.config();
-        let max_iterations = config.max_iterations;
-        let tolerance = config.tolerance.clone();
-        let verbosity = config.verbosity;
+        let max_iterations = config.max_iterations();
+        let tolerance = config.tolerance();
+        let verbosity = config.verbosity();
 
         let mut current_solution = initial;
-        
+
         for iter in 0..max_iterations {
             let mut state = self.create_iteration_state(current_solution);
             let (solution, residual) = state.iterate()?;
-            
+
             if verbosity >= 2 {
                 tracing::debug!("Iteration {}: residual = {:?}", iter + 1, residual);
             }
-            
+
             if residual < tolerance {
                 if verbosity >= 1 {
                     tracing::info!(
@@ -229,7 +355,7 @@ pub trait DirectSolver<T: RealField>: Solver<T> {
         let entries: Vec<_> = self.matrix_entries(problem).collect();
         
         // Use parallel assembly if configured
-        if self.config().parallel {
+        if self.config().parallel() {
             self.parallel_assemble(entries)
         } else {
             self.sequential_assemble(entries)

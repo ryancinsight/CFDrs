@@ -9,29 +9,8 @@ use cfd_core::Result;
 use nalgebra::{RealField, ComplexField};
 use num_traits::cast::FromPrimitive;
 
-/// Solver configuration and parameters
-#[derive(Debug, Clone)]
-pub struct SolverConfig<T: RealField> {
-    /// Maximum number of iterations for iterative solvers
-    pub max_iterations: usize,
-    /// Convergence tolerance
-    pub tolerance: T,
-    /// Relaxation factor for iterative methods
-    pub relaxation_factor: T,
-    /// Enable verbose output
-    pub verbose: bool,
-}
-
-impl<T: RealField + FromPrimitive> Default for SolverConfig<T> {
-    fn default() -> Self {
-        Self {
-            max_iterations: 1000,
-            tolerance: T::from_f64(1e-6).unwrap(),
-            relaxation_factor: T::from_f64(1.0).unwrap(),
-            verbose: false,
-        }
-    }
-}
+// Re-export the unified configuration from cfd-core
+pub use cfd_core::{NetworkSolverConfig as SolverConfig, SolverConfiguration};
 
 /// Solution results from the solver
 #[derive(Debug, Clone)]
@@ -79,7 +58,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkSolver<T> {
         let mut iterations = 0;
         let mut residual = T::zero();
 
-        for iter in 0..self.config.max_iterations {
+        for iter in 0..self.config.max_iterations() {
             iterations = iter + 1;
 
             // Update pressures at internal nodes
@@ -95,7 +74,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkSolver<T> {
             }
 
             // Check convergence
-            if residual < self.config.tolerance {
+            if residual < self.config.tolerance() {
                 converged = true;
                 break;
             }
@@ -173,7 +152,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkSolver<T> {
 
                 // Apply relaxation
                 let relaxed_pressure = old_pressure.clone() +
-                    self.config.relaxation_factor.clone() * (new_pressure - old_pressure);
+                    self.config.relaxation_factor() * (new_pressure - old_pressure);
                 node.pressure = Some(relaxed_pressure);
             }
         }
@@ -312,8 +291,8 @@ mod tests {
     fn test_solver_config_default() {
         let config: SolverConfig<f64> = SolverConfig::default();
 
-        assert_eq!(config.max_iterations, 1000);
-        assert_relative_eq!(config.tolerance, 1e-6, epsilon = 1e-10);
+        assert_eq!(config.max_iterations(), 1000);
+        assert_relative_eq!(config.tolerance(), 1e-6, epsilon = 1e-10);
         assert!(!config.verbose);
     }
 
@@ -357,8 +336,8 @@ mod tests {
             .build().unwrap();
 
         let mut config = SolverConfig::default();
-        config.max_iterations = 2000;
-        config.tolerance = 1e-3;
+        config.base.max_iterations = 2000;
+        config.base.tolerance = 1e-3;
         let solver = NetworkSolver::with_config(config);
         let result = solver.solve_steady_state(&mut network).unwrap();
 

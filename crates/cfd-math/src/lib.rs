@@ -10,12 +10,16 @@ pub mod linear_solver;
 pub mod sparse;
 pub mod differentiation;
 pub mod integration;
+pub mod iterators;
+pub mod vectorization;
 
 pub use interpolation::{Interpolation, LinearInterpolation, CubicSplineInterpolation};
 pub use linear_solver::{LinearSolver, LinearSolverConfig, ConjugateGradient, GMRES, BiCGSTAB, Preconditioner};
 pub use sparse::{SparseMatrix, SparseMatrixBuilder};
 pub use differentiation::{FiniteDifference, Gradient};
 pub use integration::{Quadrature, GaussQuadrature};
+pub use iterators::{MathIteratorExt, VectorOps, SliceOps, CfdIteratorChain};
+pub use vectorization::{VectorizedOps, StencilOps};
 
 /// Prelude module for convenient imports
 pub mod prelude {

@@ -40,8 +40,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create solver with custom configuration
     let mut solver_config = SolverConfig::default();
-    solver_config.max_iterations = 1000;
-    solver_config.tolerance = 1e-6;
+    solver_config.base.max_iterations = 1000;
+    solver_config.base.tolerance = 1e-6;
     solver_config.verbose = true;
     
     let solver = NetworkSolver::with_config(solver_config);

@@ -250,8 +250,8 @@ impl<T: RealField + FromPrimitive + Send + Sync> FemSolver<T> {
         // Solve the linear system
         let matrix = matrix_builder.build()?;
         let mut solver_config = LinearSolverConfig::default();
-        solver_config.tolerance = self.config.tolerance.clone();
-        solver_config.max_iterations = self.config.max_iterations;
+        solver_config.base.tolerance = self.config.tolerance.clone();
+        solver_config.base.max_iterations = self.config.max_iterations;
 
         let solver = ConjugateGradient::new(solver_config);
         let solution_vector = solver.solve(&matrix, &rhs, None)?;
