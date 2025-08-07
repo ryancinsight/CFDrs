@@ -185,7 +185,7 @@ impl<T: RealField + FromPrimitive + std::iter::Sum> ConservationChecker<T> for E
         let (kinetic, potential, dissipation) = field;
 
         // Simplified energy balance check
-        let total_energy: T = kinetic.iter().cloned().sum::<T>() + potential.iter().cloned().sum::<T>();
+        let total_energy: T = kinetic.iter().zip(potential.iter()).map(|(k, p)| k.clone() + p.clone()).sum();
         let total_dissipation: T = dissipation.iter().cloned().sum();
 
         // For steady flow, energy input should equal dissipation
