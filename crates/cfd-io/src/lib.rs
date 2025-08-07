@@ -23,13 +23,4 @@ pub use checkpoint::{Checkpoint, CheckpointManager};
 #[cfg(feature = "hdf5")]
 pub use hdf5::{Hdf5Reader, Hdf5Writer, DatasetMetadata, DataChunk};
 
-/// Common I/O types and traits
-pub mod prelude {
-    pub use crate::{
-        csv::{CsvReader, CsvWriter, TimeSeriesData},
-        json::{JsonReader, JsonWriter},
-        vtk::{VtkReader, VtkWriter, VtkMesh, VtkMeshBuilder},
-        binary::{BinaryReader, BinaryWriter},
-        checkpoint::CheckpointManager,
-    };
-}
+// Prelude removed - use cfd_suite::prelude::* for unified SSOT interface

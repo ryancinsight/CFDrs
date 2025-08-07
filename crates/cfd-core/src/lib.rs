@@ -38,23 +38,4 @@ pub use state::SimulationState;
 pub use time::TimeIntegrator;
 pub use values::{ReynoldsNumber, Pressure, Velocity, Temperature, DimensionlessNumber};
 
-/// Core-specific prelude for internal use and advanced scenarios
-///
-/// This prelude is primarily for internal use within the CFD suite.
-/// Most users should use `cfd_suite::prelude::*` instead for a unified interface.
-///
-/// Use this prelude only when you need core-specific functionality not exposed
-/// in the main prelude, or when developing plugins/extensions.
-pub mod prelude {
-    pub use crate::{
-        boundary::BoundaryCondition,
-        domain::{Domain, Domain1D, Domain2D, Domain3D},
-        error::{Error, Result},
-        fluid::Fluid,
-        plugin::{Plugin, PluginRegistry, SimulationPlugin, SolverFactory, PluginMetadata},
-        problem::{Problem, ProblemBuilder, ProblemParameters},
-        solver::{Solver, SolverConfig, IterativeSolver, DirectSolver},
-        state::SimulationState,
-        time::{TimeIntegrator, ForwardEuler, BackwardEuler, CrankNicolson},
-    };
-}
+// Prelude removed - use cfd_suite::prelude::* for unified SSOT interface
