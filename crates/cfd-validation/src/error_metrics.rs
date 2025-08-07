@@ -292,7 +292,7 @@ impl<T: RealField + FromPrimitive> ErrorMetric<T> for NormalizedRMSE {
 }
 
 /// Error statistics for comprehensive analysis
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ErrorStatistics<T: RealField> {
     /// L1 norm error
     pub l1_norm: T,

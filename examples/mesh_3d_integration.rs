@@ -3,11 +3,12 @@
 //! This example demonstrates the mesh integration capabilities of the 3D CFD module,
 //! including mesh creation, quality assessment, and CSG integration.
 
-use cfd_3d::prelude::*;
+use cfd_suite::prelude::*;
+use cfd_3d::MeshAdapter;
 use cfd_mesh::{Mesh, Vertex, Face, Cell, MeshTopology};
 
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("3D Mesh Integration Example");
     println!("===========================");
     
@@ -139,7 +140,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Create a simple unit tetrahedron mesh
-fn create_unit_tetrahedron() -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
+fn create_unit_tetrahedron() -> std::result::Result<Mesh<f64>, Box<dyn std::error::Error>> {
     let vertices = vec![
         Vertex { position: nalgebra::Point3::new(0.0, 0.0, 0.0), id: 0 },
         Vertex { position: nalgebra::Point3::new(1.0, 0.0, 0.0), id: 1 },
@@ -175,7 +176,7 @@ fn create_unit_tetrahedron() -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
 }
 
 /// Calculate the volume of a tetrahedral mesh
-fn calculate_mesh_volume(mesh: &Mesh<f64>) -> Result<f64, Box<dyn std::error::Error>> {
+fn calculate_mesh_volume(mesh: &Mesh<f64>) -> std::result::Result<f64, Box<dyn std::error::Error>> {
     let mut total_volume = 0.0;
     
     // For each cell (assuming tetrahedral)
@@ -201,7 +202,7 @@ fn calculate_mesh_volume(mesh: &Mesh<f64>) -> Result<f64, Box<dyn std::error::Er
 }
 
 /// Calculate the surface area of a mesh
-fn calculate_surface_area(mesh: &Mesh<f64>) -> Result<f64, Box<dyn std::error::Error>> {
+fn calculate_surface_area(mesh: &Mesh<f64>) -> std::result::Result<f64, Box<dyn std::error::Error>> {
     let mut total_area = 0.0;
     
     // For each face, calculate triangle area

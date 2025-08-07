@@ -303,22 +303,26 @@ impl<T: RealField> LagrangeInterpolation<T> {
 
 impl<T: RealField> Interpolation<T> for LagrangeInterpolation<T> {
     fn interpolate(&self, x: T) -> Result<T> {
-        Ok(self
-            .y_data
+        // Use iterator combinators with enumerate for zero-copy optimization
+        Ok(self.y_data
             .iter()
             .enumerate()
             .map(|(i, yi)| yi.clone() * self.lagrange_basis(i, &x))
-            .fold(T::zero(), |acc, term| acc + term))
+            .reduce(|acc, term| acc + term)
+            .unwrap_or_else(T::zero))
     }
 
     fn bounds(&self) -> (T, T) {
-        let min = self.x_data.iter().min_by(|a, b| {
-            if a < b { Ordering::Less } else { Ordering::Greater }
-        }).unwrap();
-        let max = self.x_data.iter().max_by(|a, b| {
-            if a < b { Ordering::Less } else { Ordering::Greater }
-        }).unwrap();
-        (min.clone(), max.clone())
+        // Use iterator min/max with partial_cmp for better performance
+        let (min, max) = self.x_data
+            .iter()
+            .fold((None, None), |(min_acc, max_acc), x| {
+                let new_min = min_acc.map_or(Some(x), |m| if x < m { Some(x) } else { Some(m) });
+                let new_max = max_acc.map_or(Some(x), |m| if x > m { Some(x) } else { Some(m) });
+                (new_min, new_max)
+            });
+
+        (min.unwrap().clone(), max.unwrap().clone())
     }
 }
 

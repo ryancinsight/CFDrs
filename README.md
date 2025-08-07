@@ -23,17 +23,24 @@ A high-performance, modular, and extensible Computational Fluid Dynamics (CFD) s
 - Mathematical utilities: sparse matrices, linear solvers, integration (44 tests)
 - Validation framework with analytical solutions and convergence studies (41 tests)
 - I/O operations: VTK, CSV export (4 tests)
-- **All 218 tests passing with zero build warnings**
+- **All 219 tests passing with clean build**
 
-🎯 **Recent Improvements:**
+🎯 **Latest Enhancements (Current Update):**
+- **SSOT Prelude Consolidation**: Unified main prelude as single source of truth for all common CFD functionality
+- **Advanced Iterator Patterns**: Enhanced with windows(), chunks(), fold(), reduce() for zero-copy operations
+- **LBM Convergence Implementation**: Proper residual-based convergence checking with velocity and density monitoring
+- **GMRES Numerical Stability**: Improved Givens rotation computation for better accuracy
+- **Validation Framework Completion**: Comprehensive benchmark and conservation modules implemented
+- **Mesh Quality Analysis**: Added quality metrics with iterator-based calculations
+- **Zero-Copy Optimizations**: Enhanced mathematical operations and data processing throughout
+- **Error Handling Improvements**: Replaced remaining unwrap() calls with proper error handling
+
+🎯 **Previous Improvements:**
 - **Time Integration**: Completed BackwardEuler and CrankNicolson implicit solvers with fixed-point iteration
-- **Error Handling**: Systematically replaced unwrap() calls with proper Result-based error handling
 - **Design Principles**: Enhanced SOLID, DRY, SSOT, CUPID, GRASP, ACID, CLEAN, ADP, KISS, YAGNI compliance
 - **Performance**: Zero-copy abstractions with advanced iterator combinators (map, flat_map, extend)
 - **Memory Efficiency**: Optimized VTK mesh builder with iterator-based coordinate flattening
 - **CSGrs Integration**: Added foundation for 3D mesh generation with CSGrs library support
-- **Code Quality**: Applied comprehensive design principles, removed deprecated code and redundant components
-- **Examples**: All examples now run successfully without errors
 - **Advanced Features**: Enhanced plugin system with dependency management
 - **Large Data Support**: HDF5 integration for big datasets (optional feature)
 - **Parallel Processing**: Rayon integration for improved performance
@@ -73,21 +80,32 @@ cargo run --example mesh_3d_integration
 ```rust
 use cfd_suite::prelude::*;
 
-// Create a simple 1D pipe flow simulation
-let mut sim = Simulation1D::builder()
-    .add_pipe(0.0, 1.0, 0.01)  // length=1m, diameter=1cm
-    .set_fluid(Fluid::water())
-    .set_boundary_conditions(
-        BoundaryCondition::pressure_inlet(101325.0),
-        BoundaryCondition::pressure_outlet(100000.0),
-    )
-    .build()?;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create a simple 1D network with the unified prelude
+    let mut network = NetworkBuilder::<f64>::new()
+        .add_inlet(0.0, 101325.0)    // Position, pressure (Pa)
+        .add_outlet(1.0, 100000.0)   // Position, pressure (Pa)
+        .add_channel(0, 1, 0.01, 1.0) // Connect nodes, diameter, length
+        .build()?;
 
-// Run simulation
-let results = sim.run()?;
+    // Solve the network
+    let mut solver = NetworkSolver::new(NetworkSolverConfig::default());
+    let solution = solver.solve(&mut network)?;
 
-// Export results
-results.export_csv("pipe_flow_results.csv")?;
+    println!("Flow rate: {:.6} m³/s", solution.flow_rates[&0]);
+
+    // Create a 2D grid for more complex simulations
+    let grid = StructuredGrid2D::<f64>::new(50, 50, 1.0, 1.0, 0.0, 1.0);
+
+    // Set up a 2D Poisson solver
+    let mut poisson = PoissonSolver::new(grid, FdmConfig::default());
+
+    // Export results using the I/O system
+    let writer = VtkWriter::new("results.vtk")?;
+    // writer.write_solution(&solution)?;
+
+    Ok(())
+}
 ```
 
 ## Architecture

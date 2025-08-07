@@ -3,12 +3,12 @@
 //! This example demonstrates the use of the 3D FEM solver for solving
 //! the Stokes equations in a simple tetrahedral domain.
 
-use cfd_3d::prelude::*;
+use cfd_suite::prelude::*;
 use cfd_core::Fluid;
 use cfd_mesh::{Mesh, Vertex, Face, Cell, MeshTopology};
 use std::collections::HashMap;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("3D FEM Stokes Flow Example");
     println!("==========================");
     
@@ -118,7 +118,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Create a simple tetrahedral mesh of a unit cube
-fn create_unit_cube_mesh() -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
+fn create_unit_cube_mesh() -> std::result::Result<Mesh<f64>, Box<dyn std::error::Error>> {
     // Create vertices for a unit cube
     let vertices = vec![
         Vertex { position: nalgebra::Point3::new(0.0, 0.0, 0.0), id: 0 }, // Bottom-front-left

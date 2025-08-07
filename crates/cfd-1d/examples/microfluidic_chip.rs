@@ -9,7 +9,7 @@
 //!
 //! Run with: cargo run --example microfluidic_chip
 
-use cfd_1d::prelude::*;
+use cfd_1d::{NetworkBuilder, NetworkSolver, SolverConfig};
 use cfd_core::Fluid;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

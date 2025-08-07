@@ -28,17 +28,23 @@ pub use solver::Solver;
 pub use state::SimulationState;
 pub use time::TimeIntegrator;
 
-/// Prelude module for convenient imports
+/// Core-specific prelude for internal use and advanced scenarios
+///
+/// This prelude is primarily for internal use within the CFD suite.
+/// Most users should use `cfd_suite::prelude::*` instead for a unified interface.
+///
+/// Use this prelude only when you need core-specific functionality not exposed
+/// in the main prelude, or when developing plugins/extensions.
 pub mod prelude {
     pub use crate::{
         boundary::BoundaryCondition,
-        domain::Domain,
+        domain::{Domain, Domain1D, Domain2D, Domain3D},
         error::{Error, Result},
         fluid::Fluid,
-        plugin::{Plugin, PluginRegistry, SimulationPlugin},
-        problem::Problem,
-        solver::Solver,
+        plugin::{Plugin, PluginRegistry, SimulationPlugin, SolverFactory, PluginMetadata},
+        problem::{Problem, ProblemBuilder, ProblemParameters},
+        solver::{Solver, SolverConfig, IterativeSolver, DirectSolver},
         state::SimulationState,
-        time::TimeIntegrator,
+        time::{TimeIntegrator, ForwardEuler, BackwardEuler, CrankNicolson},
     };
 }

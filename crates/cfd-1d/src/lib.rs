@@ -69,20 +69,28 @@ pub use resistance::{
     ChannelGeometry as ResistanceChannelGeometry, CombinationMethod,
 };
 
-/// Common 1D CFD types and traits
+/// 1D CFD domain-specific prelude for microfluidic networks
+///
+/// This prelude exports 1D-specific functionality not available in the main prelude.
+/// Use this when working extensively with microfluidic networks and need access to
+/// specialized components, analysis tools, or scheme integration features.
+///
+/// For basic 1D functionality, prefer `cfd_suite::prelude::*`.
 pub mod prelude {
+    // === Scheme Integration (2D Visualization) ===
+    // Tools for converting 1D networks to 2D schematics
     pub use crate::scheme_integration::{SchemeConversion, ComponentType, SchematicLayout};
-    
+
     #[cfg(feature = "scheme-integration")]
     pub use crate::scheme_integration::{JunctionType, ChannelPathType, helpers};
-    
-    // Export commonly used types
+
+    // === Advanced Network Components ===
+    // Specialized components not in main prelude
     pub use crate::{
-        network::{Network, NetworkBuilder, Node, Edge, BoundaryCondition},
-        components::{Component, RectangularChannel, CircularChannel, Micropump, Microvalve, ComponentFactory},
-        solver::{NetworkSolver, SolverConfig},
-        analysis::{NetworkAnalyzer, FlowAnalysis, PressureAnalysis, PerformanceMetrics},
-        channel::{Channel, ChannelGeometry, ChannelType, CrossSection},
-        resistance::{ResistanceModel, ResistanceModelFactory, ResistanceCalculator, FlowConditions},
+        network::{Node, Edge, NodeType, EdgeType, NodeProperties, EdgeProperties},
+        components::{ComponentFactory, FlowSensor, Micromixer, PumpType, ValveType, SensorType, MixerType},
+        analysis::{PerformanceMetrics, NetworkAnalysisResult, FlowRegime as AnalysisFlowRegime},
+        channel::{Channel, ChannelGeometry, ChannelType, CrossSection, SurfaceProperties, FlowState, Wettability},
+        resistance::{ResistanceModelFactory, ResistanceCalculator, FlowConditions, DarcyWeisbachModel},
     };
 }

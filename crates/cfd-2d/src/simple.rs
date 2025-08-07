@@ -297,13 +297,13 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> SimpleSolver<T> {
         let solver = ConjugateGradient::new(solver_config);
         let solution = solver.solve(&matrix, &rhs, None)?;
         
-        // Update pressure correction field
-        for i in 0..self.nx {
-            for j in 0..self.ny {
+        // Update pressure correction field using iterator combinators
+        (0..self.nx)
+            .flat_map(|i| (0..self.ny).map(move |j| (i, j)))
+            .for_each(|(i, j)| {
                 let linear_idx = j * self.nx + i;
                 self.p_prime[i][j] = solution[linear_idx].clone();
-            }
-        }
+            });
         
         Ok(())
     }

@@ -15,36 +15,75 @@ pub use cfd_2d as d2;
 pub use cfd_3d as d3;
 pub use cfd_validation as validation;
 
-/// Prelude module for convenient imports with explicit re-exports to avoid ambiguity
+/// Unified prelude module - Single Source of Truth for all common CFD functionality
+///
+/// This module provides a comprehensive set of imports for CFD simulations across all dimensions.
+/// It follows the SSOT (Single Source of Truth) principle by being the primary interface for users.
+///
+/// # Usage
+/// ```rust
+/// use cfd_suite::prelude::*;
+///
+/// // Now you have access to all commonly used CFD functionality
+/// let fluid = Fluid::<f64>::water();
+/// let network = NetworkBuilder::<f64>::new();
+/// let grid = StructuredGrid2D::<f64>::new(10, 10, 1.0, 1.0, 0.0, 1.0);
+/// ```
 pub mod prelude {
-    // Core functionality - fundamental types used across all modules
-    pub use cfd_core::{Fluid, Error, Result, BoundaryCondition, Domain, Problem, Solver};
-    pub use cfd_core::{Plugin, PluginRegistry, SimulationPlugin};
+    // === Core Abstractions ===
+    // Fundamental types used across all CFD simulations
+    pub use cfd_core::{
+        Fluid, Error, Result, BoundaryCondition, Domain, Problem, Solver,
+        Plugin, PluginRegistry, SimulationPlugin, SimulationState, TimeIntegrator
+    };
 
-    // Math functionality - essential numerical methods
-    pub use cfd_math::{SparseMatrix, SparseMatrixBuilder, LinearSolver, ConjugateGradient};
-    pub use cfd_math::{GaussQuadrature, FiniteDifference};
+    // === Mathematical Utilities ===
+    // Essential numerical methods and linear algebra
+    pub use cfd_math::{
+        SparseMatrix, SparseMatrixBuilder, LinearSolver, ConjugateGradient, GMRES, BiCGSTAB,
+        GaussQuadrature, FiniteDifference, Interpolation, LinearInterpolation, CubicSplineInterpolation
+    };
     pub use cfd_math::integration::AdaptiveQuadrature;
 
-    // I/O functionality - common file operations
-    pub use cfd_io::{VtkWriter, CsvWriter, JsonWriter, CheckpointManager};
+    // === I/O Operations ===
+    // File input/output for all supported formats
+    pub use cfd_io::{VtkWriter, CsvWriter, JsonWriter, CheckpointManager, VtkMesh, VtkMeshBuilder};
     #[cfg(feature = "hdf5-support")]
     pub use cfd_io::{Hdf5Writer, Hdf5Reader, DatasetMetadata, DataChunk};
 
-    // Mesh functionality - geometric operations
+    // === Mesh Operations ===
+    // Geometric operations and mesh handling
     pub use cfd_mesh::{Mesh, Vertex, Face, Cell, MeshTopology};
 
-    // 1D CFD functionality - microfluidic networks
-    pub use cfd_1d::{Network, NetworkBuilder, NetworkSolver, SolverConfig};
-    pub use cfd_1d::{Component, RectangularChannel, CircularChannel, Micropump, Microvalve};
-    pub use cfd_1d::{NetworkAnalyzer, FlowAnalysis, PressureAnalysis};
+    // === 1D CFD Simulations ===
+    // Microfluidic networks and pipe flow
+    pub use cfd_1d::{
+        Network, NetworkBuilder, NetworkSolver, SolverConfig as NetworkSolverConfig,
+        Component, RectangularChannel, CircularChannel, Micropump, Microvalve,
+        NetworkAnalyzer, FlowAnalysis, PressureAnalysis, ResistanceModel
+    };
 
-    // 2D CFD functionality - grid-based methods
-    pub use cfd_2d::{StructuredGrid2D, PoissonSolver, FvmSolver, LbmSolver};
+    // === 2D CFD Simulations ===
+    // Grid-based methods for 2D flows
+    pub use cfd_2d::{
+        StructuredGrid2D, Grid2D, BoundaryType,
+        PoissonSolver, FvmSolver, LbmSolver, SimpleSolver,
+        FdmConfig, FvmConfig, LbmConfig, SimpleConfig
+    };
 
-    // 3D CFD functionality - advanced solvers
-    pub use cfd_3d::{FemSolver, SpectralSolver, MeshAdapter, StlAdapter};
+    // === 3D CFD Simulations ===
+    // Advanced 3D methods with CSGrs integration
+    pub use cfd_3d::{
+        FemSolver, FemConfig, SpectralSolver, SpectralConfig, SpectralBasis,
+        MeshAdapter, MeshQualityReport, StlAdapter, CsgMeshAdapter,
+        Element, ElementType, MaterialProperties, Tetrahedron4
+    };
 
-    // Validation functionality - testing and verification
-    pub use cfd_validation::{AnalyticalSolution, ErrorMetric, ConvergenceAnalysis};
+    // === Validation Framework ===
+    // Analytical solutions and error analysis
+    pub use cfd_validation::{
+        AnalyticalSolution, PoiseuilleFlow, CouetteFlow, StokesFlow, TaylorGreenVortex,
+        ErrorMetric, L2Norm, L1Norm, LInfNorm, ErrorStatistics, ErrorAnalysis,
+        ConvergenceAnalysis, ConvergenceStudy, RichardsonExtrapolation
+    };
 }

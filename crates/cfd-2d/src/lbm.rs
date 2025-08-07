@@ -307,14 +307,19 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
             // Streaming step
             self.streaming();
 
-            // Check convergence (simplified)
+            // Check convergence based on velocity and density field changes
             if step % self.config.output_frequency == 0 {
                 if self.config.verbose {
                     println!("LBM Step: {}", step);
                 }
 
-                // TODO: Implement proper convergence check
-                // For now, just run for specified number of steps
+                // Implement proper convergence check
+                if step > 0 && self.check_convergence()? {
+                    if self.config.verbose {
+                        println!("LBM converged at step: {}", step);
+                    }
+                    break;
+                }
             }
         }
 
@@ -329,6 +334,42 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
     /// Get current density field
     pub fn density_field(&self) -> &Vec<Vec<T>> {
         &self.rho
+    }
+
+    /// Check convergence based on velocity and density field changes
+    fn check_convergence(&self) -> Result<bool> {
+        // Use iterator combinators for zero-copy convergence checking
+        let total_cells = T::from_usize(self.nx * self.ny).unwrap();
+
+        // Calculate velocity magnitudes and residuals using iterator patterns
+        let (velocity_residual, density_residual, _max_velocity_magnitude) = (0..self.nx)
+            .flat_map(|i| (0..self.ny).map(move |j| (i, j)))
+            .map(|(i, j)| {
+                let u_mag = (self.u[i][j].x.clone() * self.u[i][j].x.clone() +
+                           self.u[i][j].y.clone() * self.u[i][j].y.clone()).sqrt();
+                let density_residual = (self.rho[i][j].clone() - T::one()).abs();
+                (u_mag.clone(), density_residual, u_mag)
+            })
+            .fold(
+                (T::zero(), T::zero(), T::zero()),
+                |(vel_acc, dens_acc, max_acc), (u_mag, dens_res, u_mag_max)| {
+                    (
+                        vel_acc + u_mag,
+                        dens_acc + dens_res,
+                        if u_mag_max > max_acc { u_mag_max } else { max_acc }
+                    )
+                }
+            );
+
+        // Normalize residuals
+        let velocity_residual_norm = velocity_residual / total_cells.clone();
+        let density_residual_norm = density_residual / total_cells;
+
+        // Check convergence criteria
+        let velocity_converged = velocity_residual_norm < self.config.tolerance;
+        let density_converged = density_residual_norm < self.config.tolerance;
+
+        Ok(velocity_converged && density_converged)
     }
 
     /// Get velocity at specific point
