@@ -139,8 +139,8 @@ where
             .map(|pair| (pair[1] - pair[0]).norm())
             .collect();
 
-        let min_dist = distances.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
-        let max_dist = distances.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
+        let min_dist = distances.iter().cloned().fold(T::infinity(), T::min);
+        let max_dist = distances.iter().cloned().fold(T::neg_infinity(), T::max);
 
         if *max_dist > T::zero() {
             min_dist.clone() / max_dist.clone()
