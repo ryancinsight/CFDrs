@@ -191,8 +191,8 @@ where
         }
 
         // Use iterator combinators for efficient statistics computation
-        let min = values.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap().clone();
-        let max = values.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap().clone();
+        let min = values.iter().cloned().fold(T::infinity(), T::min);
+        let max = values.iter().cloned().fold(T::neg_infinity(), T::max);
         let sum: T = values.iter().cloned().sum();
         let count = values.len();
         let mean = sum / T::from(count);
