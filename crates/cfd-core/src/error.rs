@@ -57,6 +57,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 impl Error {
     /// Add context to an error
+    #[must_use]
     pub fn context<S: Into<String>>(self, context: S) -> Self {
         Self::WithContext {
             message: context.into(),

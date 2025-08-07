@@ -63,7 +63,7 @@ pub struct ProblemParameters<T: RealField> {
 impl<T: RealField + FromPrimitive> Default for ProblemParameters<T> {
     fn default() -> Self {
         Self {
-            reference_pressure: T::from_f64(101325.0).unwrap(), // 1 atm
+            reference_pressure: T::from_f64(101_325.0).unwrap(), // 1 atm
             reference_temperature: Some(T::from_f64(293.15).unwrap()), // 20°C
             gravity: None,
             transient: false,

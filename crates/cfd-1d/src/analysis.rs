@@ -225,14 +225,14 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
         let (resistances, resistance_by_type) = network.edges()
             .map(|edge| {
                 let resistance = edge.effective_resistance();
-                let type_key = format!("{:?}", edge.edge_type);
-                ((edge.id.clone(), resistance.clone()), (type_key, resistance))
+                let type_key = edge.edge_type.as_str();
+                ((edge.id.as_str(), resistance), (type_key, resistance))
             })
             .fold(
                 (HashMap::new(), HashMap::new()),
                 |(mut resistances, mut by_type), ((id, resistance), (type_key, res))| {
-                    resistances.insert(id, resistance);
-                    *by_type.entry(type_key).or_insert(T::zero()) += res;
+                    resistances.insert(id.to_string(), resistance);
+                    *by_type.entry(type_key.to_string()).or_insert(T::zero()) += res;
                     (resistances, by_type)
                 }
             );
@@ -315,25 +315,30 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
             .fold(T::zero(), |acc, r| acc + r)
     }
     
-    /// Find critical resistance paths
+    /// Find critical resistance paths using advanced iterator patterns
     fn find_critical_paths(&self, network: &Network<T>) -> Vec<Vec<String>> {
-        // Simplified: find edges with resistance above average
-        let resistances: Vec<T> = network.edges()
-            .map(|edge| edge.effective_resistance())
+        // Zero-copy analysis using iterator combinators
+        let edge_data: Vec<_> = network.edges()
+            .map(|edge| (edge.id.as_str(), edge.effective_resistance()))
             .collect();
-        
-        if resistances.is_empty() {
+
+        if edge_data.is_empty() {
             return Vec::new();
         }
-        
-        let avg_resistance = resistances.iter()
-            .fold(T::zero(), |acc, &r| acc + r) / T::from_usize(resistances.len()).unwrap();
-        
-        let critical_edges: Vec<String> = network.edges()
-            .filter(|edge| edge.effective_resistance() > avg_resistance)
-            .map(|edge| edge.id.clone())
+
+        // Calculate statistics in single pass
+        let (sum, count) = edge_data.iter()
+            .map(|(_, resistance)| *resistance)
+            .fold((T::zero(), 0), |(sum, count), r| (sum + r, count + 1));
+
+        let avg_resistance = sum / T::from_usize(count).unwrap();
+
+        // Find critical edges using iterator chains
+        let critical_edges: Vec<String> = edge_data.into_iter()
+            .filter(|(_, resistance)| *resistance > avg_resistance)
+            .map(|(id, _)| id.to_string())
             .collect();
-        
+
         if critical_edges.is_empty() {
             Vec::new()
         } else {

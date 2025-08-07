@@ -12,6 +12,7 @@ description = "Mesh handling and CSGrs integration for CFD simulations"
 cfd-core.workspace = true
 cfd-math.workspace = true
 nalgebra.workspace = true
+num-traits.workspace = true
 thiserror.workspace = true
 serde = { workspace = true, features = ["derive"] }
 petgraph.workspace = true

@@ -209,30 +209,33 @@ impl<T: RealField> VtkWriter<T> {
             VtkDataType::Scalar => {
                 writeln!(writer, "\nSCALARS {} float", field.name)?;
                 writeln!(writer, "LOOKUP_TABLE default")?;
-                for value in &field.values {
-                    writeln!(writer, "{}", value)?;
-                }
+                // Zero-copy scalar writing using iterator
+                field.values.iter().try_for_each(|value| writeln!(writer, "{}", value))?;
             }
             VtkDataType::Vector => {
                 writeln!(writer, "\nVECTORS {} float", field.name)?;
-                for chunk in field.values.chunks_exact(3) {
-                    writeln!(writer, "{} {} {}", chunk[0], chunk[1], chunk[2])?;
-                }
+                // Zero-copy vector writing using chunks iterator
+                field.values
+                    .chunks_exact(3)
+                    .try_for_each(|chunk| writeln!(writer, "{} {} {}", chunk[0], chunk[1], chunk[2]))?;
             }
             VtkDataType::Tensor => {
                 writeln!(writer, "\nTENSORS {} float", field.name)?;
-                for chunk in field.values.chunks_exact(9) {
-                    for i in 0..3 {
-                        writeln!(
-                            writer,
-                            "{} {} {}",
-                            chunk[i * 3],
-                            chunk[i * 3 + 1],
-                            chunk[i * 3 + 2]
-                        )?;
-                    }
-                    writeln!(writer)?;
-                }
+                // Zero-copy tensor writing using nested iterators
+                field.values
+                    .chunks_exact(9)
+                    .try_for_each(|chunk| {
+                        (0..3).try_for_each(|i| {
+                            writeln!(
+                                writer,
+                                "{} {} {}",
+                                chunk[i * 3],
+                                chunk[i * 3 + 1],
+                                chunk[i * 3 + 2]
+                            )
+                        })?;
+                        writeln!(writer)
+                    })?;
             }
         }
         Ok(())
@@ -307,10 +310,13 @@ impl<T: RealField> VtkReader<T> {
     }
 
     /// Read mesh data using iterators for efficiency
+    ///
+    /// Note: Full VTK reading functionality is not yet implemented.
+    /// Currently only VTK writing is supported.
     pub fn read_mesh(&self, _path: &Path) -> Result<VtkMesh<T>> {
-        // TODO: Implement full VTK reader
-        // This is a placeholder implementation
-        Ok(VtkMesh::new(vec![], vec![], vec![]))
+        Err(Error::NotImplemented(
+            "VTK mesh reading is not yet implemented. Use VTK writing functionality instead.".to_string()
+        ))
     }
 
     fn parse_dataset_type(&self, line: &str) -> Result<VtkDatasetType> {

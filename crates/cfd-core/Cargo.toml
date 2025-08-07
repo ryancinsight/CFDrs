@@ -9,6 +9,7 @@ documentation.workspace = true
 description = "Core abstractions and plugin system for the CFD simulation suite"
 
 [dependencies]
+chrono = { version = "0.4", features = ["serde"] }
 thiserror.workspace = true
 anyhow.workspace = true
 tracing.workspace = true

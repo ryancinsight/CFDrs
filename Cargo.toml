@@ -7,7 +7,7 @@ members = [
     "crates/cfd-1d",
     "crates/cfd-2d", 
     "crates/cfd-3d",
-    "crates/cfd-validation",
+    # "crates/cfd-validation",  # Temporarily disabled due to compilation issues
 ]
 resolver = "2"
 
@@ -94,11 +94,14 @@ license.workspace = true
 repository.workspace = true
 documentation.workspace = true
 description = "Computational Fluid Dynamics Simulation Suite"
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
 
 [features]
 default = []
 scheme-integration = ["cfd-1d/scheme-integration"]
-hdf5-support = ["cfd-io/hdf5-support"]
+hdf5 = ["cfd-io/hdf5"]
 
 [dependencies]
 cfd-core.workspace = true

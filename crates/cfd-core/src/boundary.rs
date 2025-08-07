@@ -4,7 +4,7 @@ use nalgebra::{RealField, Vector3};
 use serde::{Deserialize, Serialize};
 
 /// Boundary condition types for CFD simulations
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BoundaryCondition<T: RealField> {
     /// Dirichlet boundary condition (fixed value)
     Dirichlet {
@@ -67,7 +67,7 @@ pub enum BoundaryCondition<T: RealField> {
 }
 
 /// Wall boundary types
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WallType<T: RealField> {
     /// No-slip wall (zero velocity)
     NoSlip,
@@ -89,43 +89,45 @@ pub enum WallType<T: RealField> {
 
 impl<T: RealField> BoundaryCondition<T> {
     /// Create a pressure inlet boundary condition
-    pub fn pressure_inlet(pressure: T) -> Self {
+    pub const fn pressure_inlet(pressure: T) -> Self {
         Self::PressureInlet { pressure }
     }
 
     /// Create a pressure outlet boundary condition
-    pub fn pressure_outlet(pressure: T) -> Self {
+    pub const fn pressure_outlet(pressure: T) -> Self {
         Self::PressureOutlet { pressure }
     }
 
     /// Create a velocity inlet boundary condition
-    pub fn velocity_inlet(velocity: Vector3<T>) -> Self {
+    pub const fn velocity_inlet(velocity: Vector3<T>) -> Self {
         Self::VelocityInlet { velocity }
     }
 
     /// Create a no-slip wall boundary condition
-    pub fn wall_no_slip() -> Self {
+    #[must_use]
+    pub const fn wall_no_slip() -> Self {
         Self::Wall {
             wall_type: WallType::NoSlip,
         }
     }
 
     /// Create a slip wall boundary condition
-    pub fn wall_slip() -> Self {
+    #[must_use]
+    pub const fn wall_slip() -> Self {
         Self::Wall {
             wall_type: WallType::Slip,
         }
     }
 
     /// Create a moving wall boundary condition
-    pub fn wall_moving(velocity: Vector3<T>) -> Self {
+    pub const fn wall_moving(velocity: Vector3<T>) -> Self {
         Self::Wall {
             wall_type: WallType::Moving { velocity },
         }
     }
 
     /// Create a volume flow rate inlet boundary condition (for 1D networks)
-    pub fn flow_rate_inlet(flow_rate: T) -> Self {
+    pub const fn flow_rate_inlet(flow_rate: T) -> Self {
         Self::VolumeFlowInlet { flow_rate }
     }
 
@@ -137,12 +139,13 @@ impl<T: RealField> BoundaryCondition<T> {
     }
 
     /// Create a zero gradient outflow boundary condition
-    pub fn zero_gradient() -> Self {
+    #[must_use]
+    pub const fn zero_gradient() -> Self {
         Self::Outflow
     }
 
     /// Check if this is a Dirichlet-type boundary condition
-    pub fn is_dirichlet(&self) -> bool {
+    pub const fn is_dirichlet(&self) -> bool {
         matches!(
             self,
             Self::Dirichlet { .. }
@@ -153,7 +156,7 @@ impl<T: RealField> BoundaryCondition<T> {
     }
 
     /// Check if this is a Neumann-type boundary condition
-    pub fn is_neumann(&self) -> bool {
+    pub const fn is_neumann(&self) -> bool {
         matches!(
             self,
             Self::Neumann { .. } | Self::Outflow | Self::Symmetry
@@ -161,7 +164,7 @@ impl<T: RealField> BoundaryCondition<T> {
     }
 
     /// Check if this is a wall boundary condition
-    pub fn is_wall(&self) -> bool {
+    pub const fn is_wall(&self) -> bool {
         matches!(self, Self::Wall { .. })
     }
 
@@ -190,7 +193,7 @@ impl<T: RealField> BoundaryCondition<T> {
     }
 
     /// Check if this is a zero gradient boundary condition
-    pub fn is_zero_gradient(&self) -> bool {
+    pub const fn is_zero_gradient(&self) -> bool {
         matches!(self, Self::Outflow | Self::Symmetry)
     }
 }
@@ -204,6 +207,7 @@ pub struct BoundaryConditionSet<T: RealField> {
 
 impl<T: RealField> BoundaryConditionSet<T> {
     /// Create a new empty boundary condition set
+    #[must_use]
     pub fn new() -> Self {
         Self {
             conditions: indexmap::IndexMap::new(),
@@ -221,19 +225,26 @@ impl<T: RealField> BoundaryConditionSet<T> {
     }
 
     /// Get a boundary condition by name
+    #[must_use]
     pub fn get(&self, name: &str) -> Option<&BoundaryCondition<T>> {
         self.conditions.get(name)
     }
 
     /// Validate that periodic boundary conditions are properly paired
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - A periodic boundary references a non-existent partner
+    /// - A periodic boundary's partner is not also periodic
+    /// - Periodic boundaries do not reference each other mutually
     pub fn validate_periodic(&self) -> crate::Result<()> {
         for (name, bc) in &self.conditions {
             if let BoundaryCondition::Periodic { partner } = bc {
                 // Check partner exists
                 if !self.conditions.contains_key(partner) {
                     return Err(crate::Error::InvalidConfiguration(format!(
-                        "Periodic boundary {} references non-existent partner {}",
-                        name, partner
+                        "Periodic boundary {name} references non-existent partner {partner}"
                     )));
                 }
 
@@ -241,8 +252,7 @@ impl<T: RealField> BoundaryConditionSet<T> {
                 if let Some(partner_bc) = self.conditions.get(partner) {
                     if !matches!(partner_bc, BoundaryCondition::Periodic { .. }) {
                         return Err(crate::Error::InvalidConfiguration(format!(
-                            "Periodic boundary {} has non-periodic partner {}",
-                            name, partner
+                            "Periodic boundary {name} has non-periodic partner {partner}"
                         )));
                     }
 
@@ -253,8 +263,7 @@ impl<T: RealField> BoundaryConditionSet<T> {
                     {
                         if partner_partner != name {
                             return Err(crate::Error::InvalidConfiguration(format!(
-                                "Periodic boundary {} and {} do not reference each other",
-                                name, partner
+                                "Periodic boundary {name} and {partner} do not reference each other"
                             )));
                         }
                     }

@@ -37,6 +37,15 @@ pub trait AnalyticalSolution<T: RealField> {
 }
 
 /// Poiseuille flow in a channel (1D/2D)
+///
+/// **Literature References:**
+/// - Poiseuille, J.L.M. (1846). "Recherches expérimentales sur le mouvement des liquides"
+/// - White, F.M. (2011). "Fluid Mechanics", 7th Edition, McGraw-Hill
+/// - Schlichting, H. & Gersten, K. (2017). "Boundary-Layer Theory", 9th Edition
+///
+/// **Mathematical Formulation:**
+/// - 2D channel: u(y) = u_max * (1 - (y/h)²) where h is half-height
+/// - Pipe flow: u(r) = u_max * (1 - (r/R)²) where R is radius
 pub struct PoiseuilleFlow<T: RealField> {
     /// Maximum velocity at channel center
     pub u_max: T,
@@ -141,6 +150,15 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for PoiseuilleFlow<T> {
 }
 
 /// Couette flow between parallel plates
+///
+/// **Literature References:**
+/// - Couette, M. (1890). "Études sur le frottement des liquides"
+/// - White, F.M. (2011). "Fluid Mechanics", 7th Edition, McGraw-Hill
+/// - Kundu, P.K. & Cohen, I.M. (2016). "Fluid Mechanics", 6th Edition
+///
+/// **Mathematical Formulation:**
+/// u(y) = U * y/h + (dp/dx) * y * (h - y) / (2*μ)
+/// where U is plate velocity, h is gap, dp/dx is pressure gradient
 pub struct CouetteFlow<T: RealField> {
     /// Velocity of the moving plate
     pub plate_velocity: T,

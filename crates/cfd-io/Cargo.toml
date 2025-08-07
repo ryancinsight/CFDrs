@@ -23,7 +23,7 @@ hdf5 = { version = "0.8", optional = true }
 
 [features]
 default = []
-hdf5-support = ["dep:hdf5"]
+hdf5 = ["dep:hdf5"]
 
 [dev-dependencies]
 tempfile = "3.8"

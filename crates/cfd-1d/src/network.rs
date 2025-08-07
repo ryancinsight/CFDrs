@@ -95,6 +95,19 @@ pub enum EdgeType {
     Virtual,
 }
 
+impl EdgeType {
+    /// Get static string representation for performance optimization
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            EdgeType::Channel => "Channel",
+            EdgeType::Pump => "Pump",
+            EdgeType::Valve => "Valve",
+            EdgeType::Sensor => "Sensor",
+            EdgeType::Virtual => "Virtual",
+        }
+    }
+}
+
 /// Properties specific to different edge types
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EdgeProperties<T: RealField> {

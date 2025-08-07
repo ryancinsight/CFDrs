@@ -26,7 +26,7 @@ fn main() {
 }
 
 #[cfg(feature = "scheme-integration")]
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     use scheme::{
         geometry::{generator::create_geometry, SplitType},
         config::{GeometryConfig, ChannelTypeConfig, SerpentineConfig},

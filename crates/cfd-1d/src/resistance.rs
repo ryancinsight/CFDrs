@@ -8,7 +8,6 @@ use cfd_core::{Fluid, Result, Error};
 use nalgebra::{RealField, ComplexField};
 use num_traits::cast::FromPrimitive;
 use serde::{Deserialize, Serialize};
-// use std::collections::HashMap; // TODO: Use when needed
 
 /// Trait for hydraulic resistance models
 pub trait ResistanceModel<T: RealField> {

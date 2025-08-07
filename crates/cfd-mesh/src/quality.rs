@@ -4,7 +4,8 @@
 //! such as aspect ratio, skewness, and orthogonality.
 
 use crate::mesh::{Mesh, Cell};
-use nalgebra::{RealField, Point3};
+use nalgebra::{ComplexField, RealField, Point3};
+use num_traits::Float;
 use serde::{Deserialize, Serialize};
 
 /// Mesh quality metrics
@@ -61,7 +62,7 @@ where
     }
 }
 
-impl<T: RealField + std::iter::Sum + Copy> QualityAnalyzer<T>
+impl<T: RealField + std::iter::Sum + Copy + Float> QualityAnalyzer<T>
 where
     T: From<f64> + From<usize>,
 {
@@ -74,9 +75,9 @@ where
         }
     }
 
-    /// Analyze mesh quality using iterator combinators for efficiency
+    /// Analyze mesh quality using advanced iterator patterns for zero-copy efficiency
     pub fn analyze(&self, mesh: &Mesh<T>) -> QualityMetrics<T> {
-        // Use iterator patterns for zero-copy quality analysis
+        // Zero-copy quality analysis using iterator chains
         let quality_data: Vec<_> = mesh.cells
             .iter()
             .filter_map(|cell| self.analyze_cell(cell, mesh))
@@ -86,18 +87,28 @@ where
             return self.empty_metrics();
         }
 
-        // Extract individual metrics using iterator combinators
-        let aspect_ratios: Vec<T> = quality_data.iter().map(|(ar, _, _, _)| *ar).collect();
-        let skewness_values: Vec<T> = quality_data.iter().map(|(_, sk, _, _)| *sk).collect();
-        let orthogonality_values: Vec<T> = quality_data.iter().map(|(_, _, orth, _)| *orth).collect();
-        let volumes: Vec<T> = quality_data.iter().map(|(_, _, _, vol)| *vol).collect();
+        let num_cells = quality_data.len();
+
+        // Single-pass metric extraction using iterator patterns
+        let (aspect_ratios, skewness_values, orthogonality_values, volumes): (Vec<_>, Vec<_>, Vec<_>, Vec<_>) =
+            quality_data.into_iter()
+                .fold(
+                    (Vec::new(), Vec::new(), Vec::new(), Vec::new()),
+                    |(mut ar, mut sk, mut orth, mut vol), (a, s, o, v)| {
+                        ar.push(a);
+                        sk.push(s);
+                        orth.push(o);
+                        vol.push(v);
+                        (ar, sk, orth, vol)
+                    }
+                );
 
         QualityMetrics {
             aspect_ratio: self.compute_statistics(&aspect_ratios),
             skewness: self.compute_statistics(&skewness_values),
             orthogonality: self.compute_statistics(&orthogonality_values),
             volume: self.compute_statistics(&volumes),
-            num_cells: quality_data.len(),
+            num_cells,
         }
     }
 
@@ -139,10 +150,10 @@ where
             .map(|pair| (pair[1] - pair[0]).norm())
             .collect();
 
-        let min_dist = distances.iter().cloned().fold(T::infinity(), T::min);
-        let max_dist = distances.iter().cloned().fold(T::neg_infinity(), T::max);
+        let min_dist = distances.iter().cloned().fold(T::infinity(), RealField::min);
+        let max_dist = distances.iter().cloned().fold(T::neg_infinity(), RealField::max);
 
-        if *max_dist > T::zero() {
+        if max_dist > T::zero() {
             min_dist.clone() / max_dist.clone()
         } else {
             T::one()
@@ -153,14 +164,14 @@ where
     fn calculate_skewness(&self, _vertices: &[&Point3<T>]) -> T {
         // Simplified skewness calculation
         // In practice, this would be based on angle deviations
-        T::from(0.1) // Placeholder
+        <T as From<f64>>::from(0.1) // Placeholder
     }
 
     /// Calculate orthogonality (simplified)
     fn calculate_orthogonality(&self, _vertices: &[&Point3<T>]) -> T {
         // Simplified orthogonality calculation
         // In practice, this would be based on face normal angles
-        T::from(0.9) // Placeholder
+        <T as From<f64>>::from(0.9) // Placeholder
     }
 
     /// Calculate cell volume (simplified)
@@ -174,8 +185,8 @@ where
         let v2 = vertices[2] - vertices[0];
         let v3 = vertices[3] - vertices[0];
 
-        let six = T::from(6.0);
-        v1.cross(&v2).dot(&v3).abs() / six
+        let six = <T as From<f64>>::from(6.0);
+        ComplexField::abs(v1.cross(&v2).dot(&v3)) / six
     }
 
     /// Compute statistics for a set of values using iterator patterns
@@ -191,11 +202,11 @@ where
         }
 
         // Use iterator combinators for efficient statistics computation
-        let min = values.iter().cloned().fold(T::infinity(), T::min);
-        let max = values.iter().cloned().fold(T::neg_infinity(), T::max);
+        let min = values.iter().cloned().fold(T::infinity(), RealField::min);
+        let max = values.iter().cloned().fold(T::neg_infinity(), RealField::max);
         let sum: T = values.iter().cloned().sum();
         let count = values.len();
-        let mean = sum / T::from(count);
+        let mean = sum / <T as From<usize>>::from(count);
 
         // Calculate standard deviation
         let variance: T = values
@@ -204,9 +215,9 @@ where
                 let diff = x.clone() - mean.clone();
                 diff.clone() * diff
             })
-            .sum::<T>() / T::from(count);
+            .sum::<T>() / <T as From<usize>>::from(count);
 
-        let std_dev = variance.sqrt();
+        let std_dev = ComplexField::sqrt(variance);
 
         QualityStatistics {
             min,

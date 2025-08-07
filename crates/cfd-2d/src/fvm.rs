@@ -490,8 +490,8 @@ mod tests {
         boundary_conditions.insert((0, 0), BoundaryCondition::Dirichlet { value: 1.0 });
         boundary_conditions.insert((2, 2), BoundaryCondition::Dirichlet { value: 0.0 });
 
-        // For now, just test that the solver runs without panicking
-        // TODO: Improve matrix assembly for better convergence
+        // Test that the solver runs without panicking
+        // Note: Matrix assembly could be improved for better convergence in future iterations
         let result = solver.solve_scalar_transport(
             &grid,
             &velocity,
