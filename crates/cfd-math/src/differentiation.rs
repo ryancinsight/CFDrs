@@ -426,6 +426,62 @@ mod tests {
     }
 
     #[test]
+    fn test_finite_difference_accuracy_polynomial() {
+        // Test accuracy on polynomial functions
+        // Literature: LeVeque (2007), "Finite Difference Methods for ODEs and PDEs"
+
+        let h = 0.1;
+        let fd = FiniteDifference::central(h);
+
+        // Test on quadratic polynomial: f(x) = x², f'(x) = 2x
+        let x_points: Vec<f64> = (0..11).map(|i| i as f64 * h).collect();
+        let f_values: Vec<f64> = x_points.iter().map(|&x| x.powi(2)).collect();
+        let derivatives = fd.first_derivative(&f_values).unwrap();
+
+        // Check interior points (central difference should be exact for linear derivative)
+        for i in 1..derivatives.len()-1 {
+            let x = x_points[i];
+            let expected = 2.0 * x;
+            let computed = derivatives[i];
+            assert_relative_eq!(computed, expected, epsilon = 1e-12);
+        }
+    }
+
+    #[test]
+    fn test_finite_difference_convergence_rate() {
+        // Test convergence rate of finite difference schemes
+        // Literature: Fornberg (1988), "Calculation of Weights in Finite Difference Formulas"
+
+        let test_function = |x: f64| x.sin();
+        let test_derivative = |x: f64| x.cos();
+        let x_test = 1.0;
+
+        let grid_sizes = vec![0.1, 0.05, 0.025, 0.0125];
+        let mut errors = Vec::new();
+
+        for &h in &grid_sizes {
+            let fd = FiniteDifference::central(h);
+
+            // Create local grid around test point
+            let x_values = vec![x_test - h, x_test, x_test + h];
+            let f_values: Vec<f64> = x_values.iter().map(|&x| test_function(x)).collect();
+
+            let derivatives = fd.first_derivative(&f_values).unwrap();
+            let computed = derivatives[1]; // Central point
+            let expected = test_derivative(x_test);
+            let error = (computed - expected).abs();
+            errors.push(error);
+        }
+
+        // Check that error decreases quadratically (central difference is O(h²))
+        for i in 1..errors.len() {
+            let ratio = errors[i-1] / errors[i];
+            // Should be approximately 4 (since h is halved each time, error should decrease by factor of 4)
+            assert!(ratio > 3.5 && ratio < 4.5, "Convergence rate not quadratic: ratio = {}", ratio);
+        }
+    }
+
+    #[test]
     fn test_finite_difference_forward() {
         let fd = FiniteDifference::forward(1.0);
 

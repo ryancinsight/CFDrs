@@ -1,6 +1,6 @@
 //! HDF5 support for large dataset I/O operations.
 
-#[cfg(feature = "hdf5-support")]
+#[cfg(feature = "hdf5")]
 use hdf5::{File, Group, Dataset, H5Type};
 use cfd_core::{Error, Result, RealField};
 use nalgebra::{DVector, DMatrix};
@@ -9,17 +9,17 @@ use serde::{Serialize, Deserialize};
 
 /// HDF5 writer for large CFD datasets
 pub struct Hdf5Writer {
-    #[cfg(feature = "hdf5-support")]
+    #[cfg(feature = "hdf5")]
     file: Option<File>,
-    #[cfg(not(feature = "hdf5-support"))]
+    #[cfg(not(feature = "hdf5"))]
     _phantom: std::marker::PhantomData<()>,
 }
 
 /// HDF5 reader for large CFD datasets
 pub struct Hdf5Reader {
-    #[cfg(feature = "hdf5-support")]
+    #[cfg(feature = "hdf5")]
     file: Option<File>,
-    #[cfg(not(feature = "hdf5-support"))]
+    #[cfg(not(feature = "hdf5"))]
     _phantom: std::marker::PhantomData<()>,
 }
 
@@ -57,26 +57,26 @@ impl Hdf5Writer {
     /// Create new HDF5 writer
     pub fn new() -> Self {
         Self {
-            #[cfg(feature = "hdf5-support")]
+            #[cfg(feature = "hdf5")]
             file: None,
-            #[cfg(not(feature = "hdf5-support"))]
+            #[cfg(not(feature = "hdf5"))]
             _phantom: std::marker::PhantomData,
         }
     }
 
     /// Open HDF5 file for writing
     pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
-        #[cfg(feature = "hdf5-support")]
+        #[cfg(feature = "hdf5")]
         {
             let file = File::create(path.as_ref())
                 .map_err(|e| Error::IoError(format!("Failed to create HDF5 file: {}", e)))?;
             self.file = Some(file);
             Ok(())
         }
-        #[cfg(not(feature = "hdf5-support"))]
+        #[cfg(not(feature = "hdf5"))]
         {
             Err(Error::InvalidConfiguration(
-                "HDF5 support not enabled. Enable 'hdf5-support' feature".to_string()
+                "HDF5 support not enabled. Enable 'hdf5' feature".to_string()
             ))
         }
     }
@@ -90,7 +90,7 @@ impl Hdf5Writer {
         chunk_size: usize,
         metadata: &DatasetMetadata,
     ) -> Result<()> {
-        #[cfg(feature = "hdf5-support")]
+        #[cfg(feature = "hdf5")]
         {
             let file = self.file.as_ref()
                 .ok_or_else(|| Error::InvalidConfiguration("HDF5 file not opened".to_string()))?;
@@ -123,10 +123,10 @@ impl Hdf5Writer {
 
             Ok(())
         }
-        #[cfg(not(feature = "hdf5-support"))]
+        #[cfg(not(feature = "hdf5"))]
         {
             Err(Error::InvalidConfiguration(
-                "HDF5 support not enabled. Enable 'hdf5-support' feature".to_string()
+                "HDF5 support not enabled. Enable 'hdf5' feature".to_string()
             ))
         }
     }
@@ -140,7 +140,7 @@ impl Hdf5Writer {
         chunk_dims: (usize, usize),
         metadata: &DatasetMetadata,
     ) -> Result<()> {
-        #[cfg(feature = "hdf5-support")]
+        #[cfg(feature = "hdf5")]
         {
             let file = self.file.as_ref()
                 .ok_or_else(|| Error::InvalidConfiguration("HDF5 file not opened".to_string()))?;
@@ -167,10 +167,10 @@ impl Hdf5Writer {
 
             Ok(())
         }
-        #[cfg(not(feature = "hdf5-support"))]
+        #[cfg(not(feature = "hdf5"))]
         {
             Err(Error::InvalidConfiguration(
-                "HDF5 support not enabled. Enable 'hdf5-support' feature".to_string()
+                "HDF5 support not enabled. Enable 'hdf5' feature".to_string()
             ))
         }
     }
@@ -184,7 +184,7 @@ impl Hdf5Writer {
         data: &[DVector<T>],
         metadata: &DatasetMetadata,
     ) -> Result<()> {
-        #[cfg(feature = "hdf5-support")]
+        #[cfg(feature = "hdf5")]
         {
             if time_steps.len() != data.len() {
                 return Err(Error::InvalidConfiguration(
@@ -232,16 +232,16 @@ impl Hdf5Writer {
 
             Ok(())
         }
-        #[cfg(not(feature = "hdf5-support"))]
+        #[cfg(not(feature = "hdf5"))]
         {
             Err(Error::InvalidConfiguration(
-                "HDF5 support not enabled. Enable 'hdf5-support' feature".to_string()
+                "HDF5 support not enabled. Enable 'hdf5' feature".to_string()
             ))
         }
     }
 
     /// Write metadata as HDF5 attributes
-    #[cfg(feature = "hdf5-support")]
+    #[cfg(feature = "hdf5")]
     fn write_metadata_attributes<T: H5Type>(
         &self,
         dataset: &Dataset,
@@ -288,7 +288,7 @@ impl Hdf5Writer {
 
     /// Close the HDF5 file
     pub fn close(&mut self) -> Result<()> {
-        #[cfg(feature = "hdf5-support")]
+        #[cfg(feature = "hdf5")]
         {
             self.file = None;
         }
@@ -300,26 +300,26 @@ impl Hdf5Reader {
     /// Create new HDF5 reader
     pub fn new() -> Self {
         Self {
-            #[cfg(feature = "hdf5-support")]
+            #[cfg(feature = "hdf5")]
             file: None,
-            #[cfg(not(feature = "hdf5-support"))]
+            #[cfg(not(feature = "hdf5"))]
             _phantom: std::marker::PhantomData,
         }
     }
 
     /// Open HDF5 file for reading
     pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
-        #[cfg(feature = "hdf5-support")]
+        #[cfg(feature = "hdf5")]
         {
             let file = File::open(path.as_ref())
                 .map_err(|e| Error::IoError(format!("Failed to open HDF5 file: {}", e)))?;
             self.file = Some(file);
             Ok(())
         }
-        #[cfg(not(feature = "hdf5-support"))]
+        #[cfg(not(feature = "hdf5"))]
         {
             Err(Error::InvalidConfiguration(
-                "HDF5 support not enabled. Enable 'hdf5-support' feature".to_string()
+                "HDF5 support not enabled. Enable 'hdf5' feature".to_string()
             ))
         }
     }
@@ -331,7 +331,7 @@ impl Hdf5Reader {
         dataset_name: &str,
         chunk_size: usize,
     ) -> Result<impl Iterator<Item = Result<DataChunk<T>>>> {
-        #[cfg(feature = "hdf5-support")]
+        #[cfg(feature = "hdf5")]
         {
             let file = self.file.as_ref()
                 .ok_or_else(|| Error::InvalidConfiguration("HDF5 file not opened".to_string()))?;
@@ -367,16 +367,16 @@ impl Hdf5Reader {
 
             Ok(chunk_iter)
         }
-        #[cfg(not(feature = "hdf5-support"))]
+        #[cfg(not(feature = "hdf5"))]
         {
             Err(Error::InvalidConfiguration(
-                "HDF5 support not enabled. Enable 'hdf5-support' feature".to_string()
+                "HDF5 support not enabled. Enable 'hdf5' feature".to_string()
             ))
         }
     }
 
     /// Read metadata from dataset attributes with proper error handling
-    #[cfg(feature = "hdf5-support")]
+    #[cfg(feature = "hdf5")]
     fn read_metadata_attributes(&self, dataset: &Dataset) -> Result<DatasetMetadata> {
         // Read required attributes with proper error handling
         let name = dataset.attr("name")
@@ -443,7 +443,7 @@ impl Hdf5Reader {
 
     /// Close the HDF5 file
     pub fn close(&mut self) -> Result<()> {
-        #[cfg(feature = "hdf5-support")]
+        #[cfg(feature = "hdf5")]
         {
             self.file = None;
         }

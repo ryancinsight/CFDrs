@@ -303,6 +303,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "approx",
+ "chrono",
  "criterion",
  "indexmap",
  "nalgebra",
@@ -362,6 +363,7 @@ dependencies = [
  "cfd-math",
  "indexmap",
  "nalgebra",
+ "num-traits 0.2.19",
  "petgraph",
  "proptest",
  "serde",
@@ -394,6 +396,7 @@ dependencies = [
  "cfd-math",
  "criterion",
  "nalgebra",
+ "nalgebra-sparse",
  "num-traits 0.2.19",
  "proptest",
  "serde",

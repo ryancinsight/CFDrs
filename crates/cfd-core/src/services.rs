@@ -1,0 +1,289 @@
+//! Domain services for CFD computations.
+//!
+//! This module provides domain services that encapsulate complex business logic
+//! and coordinate between different domain entities following DDD principles.
+
+use crate::{Error, Result, Fluid};
+use nalgebra::RealField;
+use num_traits::FromPrimitive;
+
+/// Service for fluid dynamics calculations
+pub struct FluidDynamicsService;
+
+impl FluidDynamicsService {
+    /// Calculate Reynolds number for a given flow configuration
+    pub fn reynolds_number<T: RealField>(
+        fluid: &Fluid<T>,
+        velocity: T,
+        characteristic_length: T,
+    ) -> T {
+        velocity * characteristic_length / fluid.kinematic_viscosity.clone()
+    }
+
+    /// Calculate Prandtl number if thermal properties are available
+    pub fn prandtl_number<T: RealField>(fluid: &Fluid<T>) -> Option<T> {
+        match (fluid.specific_heat.clone(), fluid.thermal_conductivity.clone()) {
+            (Some(cp), Some(k)) => Some(fluid.viscosity.clone() * cp / k),
+            _ => None,
+        }
+    }
+
+    /// Determine flow regime based on Reynolds number
+    pub fn flow_regime<T: RealField + FromPrimitive>(reynolds: T) -> FlowRegime {
+        let re_2300 = T::from_f64(2300.0).unwrap();
+        let re_4000 = T::from_f64(4000.0).unwrap();
+
+        if reynolds < re_2300 {
+            FlowRegime::Laminar
+        } else if reynolds > re_4000 {
+            FlowRegime::Turbulent
+        } else {
+            FlowRegime::Transitional
+        }
+    }
+
+    /// Calculate pressure drop for pipe flow
+    pub fn pipe_pressure_drop<T: RealField + FromPrimitive + Copy>(
+        fluid: &Fluid<T>,
+        velocity: T,
+        length: T,
+        diameter: T,
+        roughness: Option<T>,
+    ) -> Result<T> {
+        let reynolds = Self::reynolds_number(fluid, velocity, diameter);
+        let friction_factor = Self::friction_factor(reynolds, diameter, roughness)?;
+
+        let two = T::one() + T::one();
+
+        Ok(friction_factor * length * fluid.density * velocity * velocity / (two * diameter))
+    }
+
+    /// Calculate friction factor using appropriate correlation
+    fn friction_factor<T: RealField + FromPrimitive + Copy>(
+        reynolds: T,
+        diameter: T,
+        roughness: Option<T>,
+    ) -> Result<T> {
+        let re_2300 = T::from_f64(2300.0).unwrap();
+        let sixty_four = T::from_f64(64.0).unwrap();
+
+        if reynolds < re_2300 {
+            // Laminar flow: f = 64/Re
+            Ok(sixty_four / reynolds)
+        } else {
+            // Turbulent flow: use Colebrook-White or smooth pipe approximation
+            match roughness {
+                Some(eps) => {
+                    // Colebrook-White equation (simplified)
+                    let relative_roughness = eps / diameter;
+                    Self::colebrook_white_friction_factor(reynolds, relative_roughness)
+                }
+                None => {
+                    // Smooth pipe: Blasius equation for Re < 100,000
+                    let re_100k = T::from_f64(100_000.0).unwrap();
+                    if reynolds < re_100k {
+                        let coeff = T::from_f64(0.316).unwrap();
+                        let exp = T::from_f64(0.25).unwrap();
+                        Ok(coeff / reynolds.powf(exp))
+                    } else {
+                        // Use Prandtl-Karman equation
+                        Self::prandtl_karman_friction_factor(reynolds)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Colebrook-White friction factor (iterative solution)
+    fn colebrook_white_friction_factor<T: RealField + FromPrimitive + Copy>(
+        reynolds: T,
+        relative_roughness: T,
+    ) -> Result<T> {
+        let mut f = T::from_f64(0.02).unwrap(); // Initial guess
+        let tolerance = T::from_f64(1e-6).unwrap();
+        let max_iterations = 50;
+
+        for _ in 0..max_iterations {
+            let term1 = relative_roughness / T::from_f64(3.7).unwrap();
+            let term2 = T::from_f64(2.51).unwrap() / (reynolds * f.sqrt());
+            let f_new = T::from_f64(0.25).unwrap() / 
+                (T::from_f64(10.0).unwrap().ln() * (term1 + term2)).powi(2);
+            
+            if (f_new - f).abs() < tolerance {
+                return Ok(f_new);
+            }
+            f = f_new;
+        }
+
+        Err(Error::ConvergenceFailure(
+            "Colebrook-White friction factor did not converge".to_string()
+        ))
+    }
+
+    /// Prandtl-Karman friction factor for smooth pipes
+    fn prandtl_karman_friction_factor<T: RealField + FromPrimitive + Copy>(reynolds: T) -> Result<T> {
+        let log_re = reynolds.ln() / T::from_f64(10.0).unwrap().ln();
+        let coeff = T::from_f64(2.0).unwrap() * log_re - T::from_f64(0.8).unwrap();
+        Ok(T::one() / (coeff * coeff))
+    }
+}
+
+/// Flow regime classification
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlowRegime {
+    /// Laminar flow (Re < 2300)
+    Laminar,
+    /// Transitional flow (2300 < Re < 4000)
+    Transitional,
+    /// Turbulent flow (Re > 4000)
+    Turbulent,
+}
+
+/// Service for mesh quality assessment
+pub struct MeshQualityService;
+
+impl MeshQualityService {
+    /// Assess overall mesh quality and provide recommendations
+    pub fn assess_quality<T: RealField + FromPrimitive>(
+        aspect_ratio_stats: &QualityStatistics<T>,
+        skewness_stats: &QualityStatistics<T>,
+        orthogonality_stats: &QualityStatistics<T>,
+    ) -> QualityAssessment {
+        let aspect_ratio_quality = Self::assess_aspect_ratio(aspect_ratio_stats);
+        let skewness_quality = Self::assess_skewness(skewness_stats);
+        let orthogonality_quality = Self::assess_orthogonality(orthogonality_stats);
+
+        let overall_quality = [aspect_ratio_quality, skewness_quality, orthogonality_quality]
+            .iter()
+            .min()
+            .copied()
+            .unwrap_or(QualityLevel::Poor);
+
+        QualityAssessment {
+            overall_quality,
+            aspect_ratio_quality,
+            skewness_quality,
+            orthogonality_quality,
+            recommendations: Self::generate_recommendations(
+                aspect_ratio_quality,
+                skewness_quality,
+                orthogonality_quality,
+            ),
+        }
+    }
+
+    fn assess_aspect_ratio<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
+        let excellent_threshold = T::from_f64(2.0).unwrap();
+        let good_threshold = T::from_f64(5.0).unwrap();
+        let acceptable_threshold = T::from_f64(10.0).unwrap();
+
+        if stats.max < excellent_threshold {
+            QualityLevel::Excellent
+        } else if stats.max < good_threshold {
+            QualityLevel::Good
+        } else if stats.max < acceptable_threshold {
+            QualityLevel::Acceptable
+        } else {
+            QualityLevel::Poor
+        }
+    }
+
+    fn assess_skewness<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
+        let excellent_threshold = T::from_f64(0.25).unwrap();
+        let good_threshold = T::from_f64(0.5).unwrap();
+        let acceptable_threshold = T::from_f64(0.8).unwrap();
+
+        if stats.max < excellent_threshold {
+            QualityLevel::Excellent
+        } else if stats.max < good_threshold {
+            QualityLevel::Good
+        } else if stats.max < acceptable_threshold {
+            QualityLevel::Acceptable
+        } else {
+            QualityLevel::Poor
+        }
+    }
+
+    fn assess_orthogonality<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
+        let excellent_threshold = T::from_f64(0.95).unwrap();
+        let good_threshold = T::from_f64(0.85).unwrap();
+        let acceptable_threshold = T::from_f64(0.7).unwrap();
+
+        if stats.min > excellent_threshold {
+            QualityLevel::Excellent
+        } else if stats.min > good_threshold {
+            QualityLevel::Good
+        } else if stats.min > acceptable_threshold {
+            QualityLevel::Acceptable
+        } else {
+            QualityLevel::Poor
+        }
+    }
+
+    fn generate_recommendations(
+        aspect_ratio: QualityLevel,
+        skewness: QualityLevel,
+        orthogonality: QualityLevel,
+    ) -> Vec<String> {
+        let mut recommendations = Vec::new();
+
+        if aspect_ratio == QualityLevel::Poor {
+            recommendations.push("Consider refining mesh in regions with high aspect ratio cells".to_string());
+        }
+
+        if skewness == QualityLevel::Poor {
+            recommendations.push("Improve mesh quality by reducing cell skewness".to_string());
+        }
+
+        if orthogonality == QualityLevel::Poor {
+            recommendations.push("Enhance mesh orthogonality for better numerical accuracy".to_string());
+        }
+
+        if recommendations.is_empty() {
+            recommendations.push("Mesh quality is acceptable for CFD simulation".to_string());
+        }
+
+        recommendations
+    }
+}
+
+/// Quality level enumeration
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum QualityLevel {
+    /// Poor quality - may cause numerical issues
+    Poor,
+    /// Acceptable quality - usable but not optimal
+    Acceptable,
+    /// Good quality - suitable for most applications
+    Good,
+    /// Excellent quality - optimal for high-accuracy simulations
+    Excellent,
+}
+
+/// Quality statistics structure
+#[derive(Debug, Clone)]
+pub struct QualityStatistics<T: RealField> {
+    /// Minimum value
+    pub min: T,
+    /// Maximum value
+    pub max: T,
+    /// Mean value
+    pub mean: T,
+    /// Standard deviation
+    pub std_dev: T,
+}
+
+/// Overall quality assessment
+#[derive(Debug, Clone)]
+pub struct QualityAssessment {
+    /// Overall mesh quality
+    pub overall_quality: QualityLevel,
+    /// Aspect ratio quality
+    pub aspect_ratio_quality: QualityLevel,
+    /// Skewness quality
+    pub skewness_quality: QualityLevel,
+    /// Orthogonality quality
+    pub orthogonality_quality: QualityLevel,
+    /// Improvement recommendations
+    pub recommendations: Vec<String>,
+}

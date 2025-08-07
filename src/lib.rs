@@ -48,7 +48,7 @@ pub mod prelude {
     // === I/O Operations ===
     // File input/output for all supported formats
     pub use cfd_io::{VtkWriter, CsvWriter, JsonWriter, CheckpointManager, VtkMesh, VtkMeshBuilder};
-    #[cfg(feature = "hdf5-support")]
+    #[cfg(feature = "hdf5")]
     pub use cfd_io::{Hdf5Writer, Hdf5Reader, DatasetMetadata, DataChunk};
 
     // === Mesh Operations ===

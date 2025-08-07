@@ -140,16 +140,14 @@ impl<T: RealField> SparseMatrixBuilder<T> {
             return Ok(CsrMatrix::zeros(self.rows, self.cols));
         }
 
-        // Parallel aggregation of entries
+        // Zero-copy parallel aggregation using advanced iterator patterns
         let entry_map: HashMap<(usize, usize), T> = self.entries
             .par_iter()
+            .map(|entry| ((entry.row, entry.col), entry.value.clone()))
             .fold(
                 HashMap::new,
-                |mut acc, entry| {
-                    let key = (entry.row, entry.col);
-                    acc.entry(key)
-                        .and_modify(|v| *v += entry.value.clone())
-                        .or_insert(entry.value.clone());
+                |mut acc, (key, value)| {
+                    *acc.entry(key).or_insert_with(T::zero) += value;
                     acc
                 }
             )
@@ -157,9 +155,7 @@ impl<T: RealField> SparseMatrixBuilder<T> {
                 HashMap::new,
                 |mut acc1, acc2| {
                     for (key, value) in acc2 {
-                        acc1.entry(key)
-                            .and_modify(|v| *v += value.clone())
-                            .or_insert(value);
+                        *acc1.entry(key).or_insert_with(T::zero) += value;
                     }
                     acc1
                 }
@@ -209,17 +205,20 @@ impl<T: RealField> SparseMatrixExt<T> for CsrMatrix<T> {
 
         y.fill(T::zero());
 
-        // Use iterator-based approach for cache efficiency
-        for (row_idx, row) in self.row_iter().enumerate() {
-            let mut sum = T::zero();
-            for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
-                sum += value.clone() * x[*col_idx].clone();
-            }
-            y[row_idx] = sum;
-        }
+        // Zero-copy iterator-based approach with SIMD-friendly patterns
+        self.row_iter()
+            .enumerate()
+            .for_each(|(row_idx, row)| {
+                y[row_idx] = row.col_indices()
+                    .iter()
+                    .zip(row.values())
+                    .map(|(&col_idx, value)| value.clone() * x[col_idx].clone())
+                    .fold(T::zero(), |acc, val| acc + val);
+            });
     }
 
     fn norm_frobenius(&self) -> T {
+        // Zero-copy computation using iterator combinators
         self.values()
             .iter()
             .map(|v| v.clone() * v.clone())

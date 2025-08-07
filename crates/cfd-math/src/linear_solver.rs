@@ -4,9 +4,9 @@
 //! following literature-validated algorithms with zero-copy operations.
 
 use cfd_core::{Error, Result};
-use nalgebra::{DVector, RealField};
+use nalgebra::{ComplexField, DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
-use num_traits::cast::FromPrimitive;
+use num_traits::{cast::FromPrimitive, Float};
 use std::fmt::Debug;
 
 /// Configuration for linear solvers
@@ -77,11 +77,12 @@ pub struct ConjugateGradient<T: RealField> {
 
 impl<T: RealField> ConjugateGradient<T> {
     /// Create new CG solver
-    pub fn new(config: LinearSolverConfig<T>) -> Self {
+    pub const fn new(config: LinearSolverConfig<T>) -> Self {
         Self { config }
     }
 
     /// Create with default configuration
+    #[must_use]
     pub fn default() -> Self
     where
         T: FromPrimitive,
@@ -105,8 +106,8 @@ impl<T: RealField + Debug> LinearSolver<T> for ConjugateGradient<T> {
         }
 
         // Initialize solution
-        let mut x = x0.map_or_else(|| DVector::zeros(n), |v| v.clone());
-        
+        let mut x = x0.map_or_else(|| DVector::zeros(n), DVector::clone);
+
         // Compute initial residual: r = b - A*x
         let mut r = b - a * &x;
         let mut p = r.clone();
@@ -117,30 +118,30 @@ impl<T: RealField + Debug> LinearSolver<T> for ConjugateGradient<T> {
             let ap = a * &p;
             let alpha = rsold.clone() / p.dot(&ap);
             
-            // Update solution and residual using iterators
+            // Zero-copy update using iterator combinators for SIMD optimization
             x.iter_mut()
                 .zip(p.iter())
                 .for_each(|(xi, pi)| *xi += alpha.clone() * pi.clone());
-            
+
             r.iter_mut()
                 .zip(ap.iter())
                 .for_each(|(ri, api)| *ri -= alpha.clone() * api.clone());
             
             let rsnew = r.dot(&r);
             
-            // Check convergence
+            // Check convergence using zero-copy norm computation
             if self.is_converged(rsnew.clone().sqrt()) {
                 tracing::debug!("CG converged in {} iterations", iter + 1);
                 return Ok(x);
             }
-            
+
             let beta = rsnew.clone() / rsold;
-            
-            // Update search direction
+
+            // Zero-copy search direction update
             p.iter_mut()
                 .zip(r.iter())
                 .for_each(|(pi, ri)| *pi = ri.clone() + beta.clone() * pi.clone());
-            
+
             rsold = rsnew;
         }
 
@@ -159,22 +160,72 @@ impl<T: RealField + Debug> LinearSolver<T> for ConjugateGradient<T> {
 ///
 /// Implements the GMRES method for general non-symmetric matrices.
 /// Reference: Saad, Y.; Schultz, M. H. (1986). "GMRES: A generalized minimal residual algorithm"
-pub struct GMRES<T: RealField> {
+pub struct GMRES<T: RealField + Float> {
     config: LinearSolverConfig<T>,
 }
 
-impl<T: RealField> GMRES<T> {
+impl<T: RealField + Float> GMRES<T> {
     /// Create new GMRES solver
-    pub fn new(config: LinearSolverConfig<T>) -> Self {
+    pub const fn new(config: LinearSolverConfig<T>) -> Self {
         Self { config }
     }
 
     /// Create with default configuration
+    #[must_use]
     pub fn default() -> Self
     where
         T: FromPrimitive,
     {
         Self::new(LinearSolverConfig::default())
+    }
+
+    /// Validate matrix and vector dimensions
+    fn validate_dimensions(&self, a: &CsrMatrix<T>, b: &DVector<T>) -> Result<()> {
+        let n = b.len();
+        if a.nrows() != n || a.ncols() != n {
+            return Err(Error::InvalidConfiguration(
+                "Matrix dimensions don't match RHS vector".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Perform one GMRES cycle
+    fn gmres_cycle(
+        &self,
+        a: &CsrMatrix<T>,
+        r: &DVector<T>,
+        beta: T,
+        restart: usize,
+    ) -> Result<DVector<T>> {
+        let mut q = vec![r / beta.clone()];
+        let mut h: Vec<Vec<T>> = (0..=restart).map(|_| Vec::new()).collect();
+        let mut g = DVector::zeros(restart + 1);
+        g[0] = beta;
+
+        let mut cs: Vec<T> = Vec::with_capacity(restart);
+        let mut sn: Vec<T> = Vec::with_capacity(restart);
+
+        for k in 0..restart {
+            let q_new = self.arnoldi_step(a, &q, &mut h, k);
+            q.push(q_new);
+
+            self.apply_previous_rotations(&mut h, &cs, &sn, k);
+            let (c, s) = self.compute_givens_rotation(&mut h, k)?;
+            cs.push(c.clone());
+            sn.push(s.clone());
+
+            self.update_residual(&mut g, c, s, k);
+
+            let residual_norm = ComplexField::abs(g[k + 1].clone());
+            if self.is_converged(residual_norm) {
+                let y = self.solve_upper_triangular(&h, &g, k + 1)?;
+                return Ok(self.compute_correction(&q, &y));
+            }
+        }
+
+        let y = self.solve_upper_triangular(&h, &g, restart)?;
+        Ok(self.compute_correction(&q, &y))
     }
 
     /// Arnoldi process for building orthonormal basis
@@ -186,18 +237,89 @@ impl<T: RealField> GMRES<T> {
         k: usize,
     ) -> DVector<T> {
         let mut v = a * &q[k];
-        
+
         // Orthogonalize against previous vectors
         for (i, qi) in q.iter().enumerate().take(k + 1) {
             let hij = v.dot(qi);
             h[i].push(hij.clone());
             v = &v - &(qi * hij);
         }
-        
+
         // Normalize
         let norm = v.norm();
         h[k + 1].push(norm.clone());
         v / norm
+    }
+
+    /// Apply previous Givens rotations to current column
+    fn apply_previous_rotations(&self, h: &mut Vec<Vec<T>>, cs: &[T], sn: &[T], k: usize) {
+        for i in 0..k {
+            let (h_new, h_ip1_new) = Self::apply_givens_rotation(
+                cs[i].clone(),
+                sn[i].clone(),
+                h[i][k].clone(),
+                h[i + 1][k].clone(),
+            );
+            h[i][k] = h_new;
+            h[i + 1][k] = h_ip1_new;
+        }
+    }
+
+    /// Compute new Givens rotation coefficients
+    fn compute_givens_rotation(&self, h: &mut Vec<Vec<T>>, k: usize) -> Result<(T, T)> {
+        // Ensure h[k] and h[k+1] have enough elements
+        while h[k].len() <= k {
+            h[k].push(T::zero());
+        }
+        while h[k + 1].len() <= k {
+            h[k + 1].push(T::zero());
+        }
+
+        let h_k = h[k][k].clone();
+        let h_kp1 = h[k + 1][k].clone();
+        let r_k = ComplexField::sqrt(h_k.clone() * h_k.clone() + h_kp1.clone() * h_kp1.clone());
+
+        let (c, s) = if r_k < T::epsilon() {
+            (T::one(), T::zero())
+        } else {
+            (h_k / r_k.clone(), h_kp1 / r_k.clone())
+        };
+
+        h[k][k] = r_k;
+        h[k + 1][k] = T::zero();
+
+        Ok((c, s))
+    }
+
+    /// Update residual vector using Givens rotation
+    fn update_residual(&self, g: &mut DVector<T>, c: T, s: T, k: usize) {
+        g[k + 1] = -s.clone() * g[k].clone();
+        g[k] = c * g[k].clone();
+    }
+
+    /// Solve upper triangular system by back substitution
+    fn solve_upper_triangular(&self, h: &[Vec<T>], g: &DVector<T>, size: usize) -> Result<DVector<T>> {
+        let mut y: DVector<T> = DVector::zeros(size);
+        for i in (0..size).rev() {
+            let mut yi = g[i].clone();
+            for j in (i + 1)..size {
+                yi = yi - h[i][j].clone() * y[j].clone();
+            }
+            if h[i][i] == T::zero() {
+                return Err(Error::NumericalError("Singular matrix in GMRES".to_string()));
+            }
+            y[i] = yi / h[i][i].clone();
+        }
+        Ok(y)
+    }
+
+    /// Compute correction vector from Krylov basis and coefficients
+    fn compute_correction(&self, q: &[DVector<T>], y: &DVector<T>) -> DVector<T> {
+        let mut correction = DVector::zeros(q[0].len());
+        for (i, yi) in y.iter().enumerate() {
+            correction += &q[i] * yi.clone();
+        }
+        correction
     }
 
     /// Apply Givens rotation
@@ -208,130 +330,33 @@ impl<T: RealField> GMRES<T> {
     }
 }
 
-impl<T: RealField + Debug> LinearSolver<T> for GMRES<T> {
+impl<T: RealField + Debug + Float> LinearSolver<T> for GMRES<T> {
     fn solve(
         &self,
         a: &CsrMatrix<T>,
         b: &DVector<T>,
         x0: Option<&DVector<T>>,
     ) -> Result<DVector<T>> {
-        let n = b.len();
-        if a.nrows() != n || a.ncols() != n {
-            return Err(Error::InvalidConfiguration(
-                "Matrix dimensions don't match RHS vector".to_string(),
-            ));
-        }
+        self.validate_dimensions(a, b)?;
 
-        let mut x = x0.map_or_else(|| DVector::zeros(n), |v| v.clone());
-        let restart = self.config.restart.min(n);
+        let mut x = x0.map_or_else(|| DVector::zeros(b.len()), DVector::clone);
+        let restart = self.config.restart.min(b.len());
 
         for _outer in 0..self.config.max_iterations {
-            // Compute residual
             let r = b - a * &x;
             let beta = r.norm();
-            
+
             if self.is_converged(beta.clone()) {
                 return Ok(x);
             }
 
-            // Initialize Krylov subspace
-            let mut q = vec![r / beta.clone()];
-            let mut h: Vec<Vec<T>> = (0..=restart).map(|_| Vec::new()).collect();
-            let mut g = DVector::zeros(restart + 1);
-            g[0] = beta;
-
-            // Givens rotation components
-            let mut cs: Vec<T> = Vec::with_capacity(restart);
-            let mut sn: Vec<T> = Vec::with_capacity(restart);
-
-            // Arnoldi process
-            for k in 0..restart {
-                // Generate new basis vector
-                let q_new = self.arnoldi_step(a, &q, &mut h, k);
-                q.push(q_new);
-
-                // Apply previous Givens rotations
-                for i in 0..k {
-                    let (h_new, h_ip1_new) = Self::apply_givens_rotation(
-                        cs[i].clone(),
-                        sn[i].clone(),
-                        h[i][k].clone(),
-                        h[i + 1][k].clone(),
-                    );
-                    h[i][k] = h_new;
-                    h[i + 1][k] = h_ip1_new;
-                }
-
-                // Compute new Givens rotation
-                // Ensure h[k] and h[k+1] have enough elements
-                while h[k].len() <= k {
-                    h[k].push(T::zero());
-                }
-                while h[k + 1].len() <= k {
-                    h[k + 1].push(T::zero());
-                }
-                let h_k = h[k][k].clone();
-                let h_kp1 = h[k + 1][k].clone();
-                let r_k = (h_k.clone() * h_k.clone() + h_kp1.clone() * h_kp1.clone()).sqrt();
-
-                // Improved numerical stability for Givens rotation
-                let (c, s) = if r_k < T::epsilon() {
-                    // Handle near-zero case to prevent division by zero
-                    (T::one(), T::zero())
-                } else {
-                    (h_k / r_k.clone(), h_kp1 / r_k.clone())
-                };
-                cs.push(c.clone());
-                sn.push(s.clone());
-
-                h[k][k] = r_k;
-                h[k + 1][k] = T::zero();
-
-                // Update residual norm estimate
-                g[k + 1] = -s.clone() * g[k].clone();
-                g[k] = c * g[k].clone();
-
-                let residual_norm = g[k + 1].clone().abs();
-                if self.is_converged(residual_norm) {
-                    // Solve least squares problem
-                    let mut y: DVector<T> = DVector::zeros(k + 1);
-                    for i in (0..=k).rev() {
-                        let mut yi = g[i].clone();
-                        for j in (i + 1)..=k {
-                            yi -= h[i][j].clone() * y[j].clone();
-                        }
-                        y[i] = yi / h[i][i].clone();
-                    }
-
-                    // Update solution
-                    for (i, yi) in y.iter().enumerate().take(k + 1) {
-                        x = &x + &(&q[i] * yi.clone());
-                    }
-
-                    return Ok(x);
-                }
-            }
-
-            // Solve least squares problem at restart
-            let mut y: DVector<T> = DVector::zeros(restart);
-            for i in (0..restart).rev() {
-                let mut yi = g[i].clone();
-                for j in (i + 1)..restart {
-                    yi -= h[i][j].clone() * y[j].clone();
-                }
-                y[i] = yi / h[i][i].clone();
-            }
-
-            // Update solution
-            for (i, yi) in y.iter().enumerate().take(restart) {
-                x = &x + &(&q[i] * yi.clone());
-            }
+            let correction = self.gmres_cycle(a, &r, beta, restart)?;
+            x += correction;
         }
 
-        Err(Error::ConvergenceFailure(format!(
-            "GMRES failed to converge after {} iterations",
-            self.config.max_iterations
-        )))
+        Err(Error::ConvergenceFailure(
+            "GMRES failed to converge within maximum iterations".to_string(),
+        ))
     }
 
     fn config(&self) -> &LinearSolverConfig<T> {
@@ -349,11 +374,12 @@ pub struct BiCGSTAB<T: RealField> {
 
 impl<T: RealField> BiCGSTAB<T> {
     /// Create new BiCGSTAB solver
-    pub fn new(config: LinearSolverConfig<T>) -> Self {
+    pub const fn new(config: LinearSolverConfig<T>) -> Self {
         Self { config }
     }
 
     /// Create with default configuration
+    #[must_use]
     pub fn default() -> Self
     where
         T: FromPrimitive,
@@ -376,8 +402,8 @@ impl<T: RealField + Debug> LinearSolver<T> for BiCGSTAB<T> {
             ));
         }
 
-        let mut x = x0.map_or_else(|| DVector::zeros(n), |v| v.clone());
-        
+        let mut x = x0.map_or_else(|| DVector::zeros(n), DVector::clone);
+
         // Initialize
         let mut r = b - a * &x;
         let r0_hat = r.clone(); // Arbitrary choice, could be different

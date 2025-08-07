@@ -10,6 +10,8 @@ pub mod benchmarks;
 pub mod error_metrics;
 pub mod convergence;
 pub mod conservation;
+pub mod numerical_validation;
+pub mod time_integration_validation;
 
 // Export analytical solutions
 pub use analytical::{
@@ -34,6 +36,12 @@ pub use benchmarks::{
     Benchmark, BenchmarkResult, BenchmarkSuite, LidDrivenCavity, FlowOverCylinder, BackwardFacingStep,
 };
 pub use conservation::{ConservationChecker, MassConservation, EnergyConservation, ConservationReport};
+
+// Export numerical validation
+pub use numerical_validation::{LinearSolverValidator, ValidationResult, ErrorMetrics, ConvergenceInfo};
+
+// Export time integration validation
+pub use time_integration_validation::{TimeIntegrationValidator, TimeIntegrationResult};
 
 /// Validation domain-specific prelude for advanced analysis
 ///

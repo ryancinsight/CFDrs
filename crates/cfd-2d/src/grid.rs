@@ -281,6 +281,50 @@ impl<T: RealField + FromPrimitive> StructuredGrid2D<T> {
     pub fn interior_iter(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
         self.iter().filter(move |(i, j)| !self.is_boundary(*i, *j))
     }
+
+    /// Create an iterator over cell rows for efficient processing
+    pub fn row_iter(&self) -> impl Iterator<Item = impl Iterator<Item = (usize, usize)> + '_> + '_ {
+        (0..self.ny).map(move |j| (0..self.nx).map(move |i| (i, j)))
+    }
+
+    /// Create an iterator over cell columns for efficient processing
+    pub fn col_iter(&self) -> impl Iterator<Item = impl Iterator<Item = (usize, usize)> + '_> + '_ {
+        (0..self.nx).map(move |i| (0..self.ny).map(move |j| (i, j)))
+    }
+
+    /// Create windowed iterator for stencil operations
+    pub fn stencil_iter(&self, stencil_size: usize) -> impl Iterator<Item = Vec<(usize, usize)>> + '_ {
+        let half_size = stencil_size / 2;
+        self.interior_iter()
+            .filter(move |(i, j)| {
+                *i >= half_size && *i < self.nx - half_size &&
+                *j >= half_size && *j < self.ny - half_size
+            })
+            .map(move |(i, j)| {
+                let mut stencil = Vec::with_capacity(stencil_size * stencil_size);
+                for dj in 0..stencil_size {
+                    for di in 0..stencil_size {
+                        stencil.push((i + di - half_size, j + dj - half_size));
+                    }
+                }
+                stencil
+            })
+    }
+
+    /// Create neighbor iterator for a specific cell
+    pub fn neighbor_iter(&self, i: usize, j: usize) -> impl Iterator<Item = (usize, usize)> + '_ {
+        [(0isize, 1isize), (0, -1), (1, 0), (-1, 0)]
+            .iter()
+            .filter_map(move |&(di, dj)| {
+                let ni = i as isize + di;
+                let nj = j as isize + dj;
+                if ni >= 0 && ni < self.nx as isize && nj >= 0 && nj < self.ny as isize {
+                    Some((ni as usize, nj as usize))
+                } else {
+                    None
+                }
+            })
+    }
 }
 
 #[cfg(test)]

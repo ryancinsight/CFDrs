@@ -576,4 +576,66 @@ mod tests {
         let expected = 1.7724538509055159; // High-precision reference value
         assert_relative_eq!(result, expected, epsilon = 1e-1); // Looser tolerance for this challenging integral
     }
+
+    #[test]
+    fn test_gauss_quadrature_exactness() {
+        // Test that n-point Gauss quadrature is exact for polynomials of degree 2n-1
+        // Literature: Abramowitz & Stegun (1964), "Handbook of Mathematical Functions"
+
+        for n in 2..=4 {
+            let quad = GaussQuadrature::new(n).unwrap();
+            let max_degree = 2 * n - 1;
+
+            // Test polynomials up to maximum exact degree
+            for degree in 0..=max_degree {
+                let f = |x: f64| x.powi(degree as i32);
+                let result = quad.integrate(f, -1.0, 1.0);
+
+                // Analytical integral of x^k from -1 to 1
+                let expected = if degree % 2 == 0 {
+                    2.0 / (degree as f64 + 1.0)
+                } else {
+                    0.0 // Odd functions integrate to zero over symmetric interval
+                };
+
+                assert_relative_eq!(result, expected, epsilon = 1e-14);
+            }
+        }
+    }
+
+    #[test]
+    fn test_integration_convergence_rates() {
+        // Test convergence rates of different integration methods
+        // Literature: Davis & Rabinowitz (1984), "Methods of Numerical Integration"
+
+        let test_function = |x: f64| (x * PI).sin();
+        let exact_integral = 2.0 / PI; // ∫₀¹ sin(πx) dx = 2/π
+
+        let intervals = vec![10, 20, 40, 80];
+        let mut trap_errors = Vec::new();
+        let mut simpson_errors = Vec::new();
+
+        for &n in &intervals {
+            // Trapezoidal rule
+            let trap_result = IntegrationUtils::trapezoidal(test_function, 0.0, 1.0, n);
+            trap_errors.push((trap_result - exact_integral).abs());
+
+            // Simpson's rule
+            let simpson_result = IntegrationUtils::simpsons(test_function, 0.0, 1.0, n).unwrap();
+            simpson_errors.push((simpson_result - exact_integral).abs());
+        }
+
+        // Check convergence rates
+        for i in 1..trap_errors.len() {
+            let trap_ratio = trap_errors[i-1] / trap_errors[i];
+            // Trapezoidal should converge as O(h²), so ratio should be ~4
+            assert!(trap_ratio > 3.0 && trap_ratio < 5.0,
+                "Trapezoidal convergence rate incorrect: {}", trap_ratio);
+
+            let simpson_ratio = simpson_errors[i-1] / simpson_errors[i];
+            // Simpson's should converge as O(h⁴), so ratio should be ~16
+            assert!(simpson_ratio > 10.0 && simpson_ratio < 20.0,
+                "Simpson's convergence rate incorrect: {}", simpson_ratio);
+        }
+    }
 }

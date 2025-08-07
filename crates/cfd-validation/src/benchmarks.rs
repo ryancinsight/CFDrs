@@ -149,6 +149,21 @@ impl<T: RealField> LidDrivenCavity<T> {
             lid_velocity,
         }
     }
+
+    /// Get the Reynolds number
+    pub fn reynolds(&self) -> &T {
+        &self.reynolds
+    }
+
+    /// Get the grid size
+    pub fn grid_size(&self) -> (usize, usize) {
+        self.grid_size
+    }
+
+    /// Get the lid velocity
+    pub fn lid_velocity(&self) -> &T {
+        &self.lid_velocity
+    }
 }
 
 impl<T: RealField> Benchmark<T> for LidDrivenCavity<T> {
@@ -214,6 +229,16 @@ impl<T: RealField> FlowOverCylinder<T> {
     pub fn new(reynolds: T, diameter: T) -> Self {
         Self { reynolds, diameter }
     }
+
+    /// Get the Reynolds number
+    pub fn reynolds(&self) -> &T {
+        &self.reynolds
+    }
+
+    /// Get the cylinder diameter
+    pub fn diameter(&self) -> &T {
+        &self.diameter
+    }
 }
 
 impl<T: RealField> Benchmark<T> for FlowOverCylinder<T> {
@@ -262,6 +287,16 @@ impl<T: RealField> BackwardFacingStep<T> {
     /// Create a new backward-facing step benchmark
     pub fn new(reynolds: T, step_height: T) -> Self {
         Self { reynolds, step_height }
+    }
+
+    /// Get the Reynolds number
+    pub fn reynolds(&self) -> &T {
+        &self.reynolds
+    }
+
+    /// Get the step height
+    pub fn step_height(&self) -> &T {
+        &self.step_height
     }
 }
 

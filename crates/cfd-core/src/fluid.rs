@@ -6,7 +6,7 @@ use num_traits::Float;
 use serde::{Deserialize, Serialize};
 
 /// Represents fluid properties
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Fluid<T: RealField> {
     /// Fluid name
     pub name: String,
@@ -25,7 +25,7 @@ pub struct Fluid<T: RealField> {
 }
 
 /// Viscosity models for non-Newtonian fluids
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ViscosityModel<T: RealField> {
     /// Newtonian fluid with constant viscosity
     Newtonian,
@@ -63,11 +63,11 @@ pub enum ViscosityModel<T: RealField> {
 impl<T: RealField + FromPrimitive + Float> Fluid<T> {
     /// Create a new Newtonian fluid
     pub fn new_newtonian(name: impl Into<String>, density: T, viscosity: T) -> Self {
-        let kinematic_viscosity = viscosity.clone() / density.clone();
+        let kinematic_viscosity = viscosity / density;
         Self {
             name: name.into(),
-            density: density.clone(),
-            viscosity: viscosity.clone(),
+            density,
+            viscosity,
             kinematic_viscosity,
             specific_heat: None,
             thermal_conductivity: None,
@@ -76,6 +76,11 @@ impl<T: RealField + FromPrimitive + Float> Fluid<T> {
     }
 
     /// Create water at 20°C
+    ///
+    /// # Panics
+    ///
+    /// Panics if the numeric conversion from f64 fails for the target type T.
+    #[must_use]
     pub fn water() -> Self {
         Self::new_newtonian(
             "Water (20°C)",
@@ -85,6 +90,11 @@ impl<T: RealField + FromPrimitive + Float> Fluid<T> {
     }
 
     /// Create air at 20°C, 1 atm
+    ///
+    /// # Panics
+    ///
+    /// Panics if the numeric conversion from f64 fails for the target type T.
+    #[must_use]
     pub fn air() -> Self {
         Self::new_newtonian(
             "Air (20°C, 1 atm)",
@@ -94,9 +104,13 @@ impl<T: RealField + FromPrimitive + Float> Fluid<T> {
     }
 
     /// Get dynamic viscosity for a given shear rate
+    ///
+    /// # Panics
+    ///
+    /// Panics if the numeric conversion from f64 fails for the target type T in power-law calculations.
     pub fn dynamic_viscosity(&self, shear_rate: T) -> T {
         match &self.viscosity_model {
-            ViscosityModel::Newtonian => self.viscosity.clone(),
+            ViscosityModel::Newtonian => self.viscosity,
             ViscosityModel::PowerLaw {
                 consistency_index,
                 flow_index,
@@ -131,13 +145,13 @@ impl<T: RealField + FromPrimitive + Float> Fluid<T> {
 
     /// Calculate Reynolds number
     pub fn reynolds_number(&self, velocity: T, length: T) -> T {
-        velocity * length / self.kinematic_viscosity.clone()
+        velocity * length / self.kinematic_viscosity
     }
 
-    /// Calculate Prandtl number  
+    /// Calculate Prandtl number
     pub fn prandtl_number(&self) -> Option<T> {
-        match (self.specific_heat.clone(), self.thermal_conductivity.clone()) {
-            (Some(cp), Some(k)) => Some(self.viscosity.clone() * cp / k),
+        match (self.specific_heat, self.thermal_conductivity) {
+            (Some(cp), Some(k)) => Some(self.viscosity * cp / k),
             _ => None,
         }
     }

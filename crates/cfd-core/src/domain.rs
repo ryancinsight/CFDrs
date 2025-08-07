@@ -19,7 +19,7 @@ pub trait Domain<T: RealField>: Send + Sync {
 }
 
 /// 1D domain (line segment)
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Domain1D<T: RealField> {
     /// Start point
     pub start: T,
@@ -29,7 +29,7 @@ pub struct Domain1D<T: RealField> {
 
 impl<T: RealField> Domain1D<T> {
     /// Create a new 1D domain
-    pub fn new(start: T, end: T) -> Self {
+    pub const fn new(start: T, end: T) -> Self {
         Self { start, end }
     }
 
@@ -40,7 +40,8 @@ impl<T: RealField> Domain1D<T> {
 
     /// Get the center of the domain
     pub fn center(&self) -> T {
-        (self.start.clone() + self.end.clone()) / (T::one() + T::one())
+        let two = T::one() + T::one();
+        (self.start.clone() + self.end.clone()) / two
     }
 }
 
@@ -60,8 +61,8 @@ impl<T: RealField> Domain<T> for Domain1D<T> {
         let min = self.start.clone().min(self.end.clone());
         let max = self.start.clone().max(self.end.clone());
         (
-            Point3::new(min.clone(), T::zero(), T::zero()),
-            Point3::new(max.clone(), T::zero(), T::zero()),
+            Point3::new(min, T::zero(), T::zero()),
+            Point3::new(max, T::zero(), T::zero()),
         )
     }
 
@@ -136,7 +137,7 @@ pub struct Domain3D<T: RealField> {
 
 impl<T: RealField> Domain3D<T> {
     /// Create a new 3D domain
-    pub fn new(min: Point3<T>, max: Point3<T>) -> Self {
+    pub const fn new(min: Point3<T>, max: Point3<T>) -> Self {
         Self { min, max }
     }
 

@@ -8,25 +8,31 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
+pub mod aggregates;
 pub mod boundary;
 pub mod domain;
 pub mod error;
 pub mod fluid;
 pub mod plugin;
 pub mod problem;
+pub mod services;
 pub mod solver;
 pub mod state;
 pub mod time;
+pub mod values;
 
+pub use aggregates::{SimulationAggregate, MeshAggregate, SimulationMetadata, PhysicalParameters};
 pub use boundary::BoundaryCondition;
 pub use domain::Domain;
 pub use error::{Error, Result};
 pub use fluid::Fluid;
 pub use plugin::{Plugin, PluginRegistry, SimulationPlugin};
 pub use problem::Problem;
+pub use services::{FluidDynamicsService, MeshQualityService, FlowRegime, QualityLevel};
 pub use solver::Solver;
 pub use state::SimulationState;
 pub use time::TimeIntegrator;
+pub use values::{ReynoldsNumber, Pressure, Velocity, Temperature, DimensionlessNumber};
 
 /// Core-specific prelude for internal use and advanced scenarios
 ///
