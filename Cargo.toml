@@ -57,8 +57,8 @@ csv = "1.3"
 proptest = "1.4"
 criterion = "0.5"
 
-# 3D mesh support (optional for now)
-# csgrs = "0.20"
+# 3D mesh support
+csgrs = "0.20"
 
 # Internal crates
 cfd-core = { path = "crates/cfd-core" }

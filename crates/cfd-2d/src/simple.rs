@@ -451,32 +451,34 @@ mod tests {
         let mut solver = SimpleSolver::new(config, &grid, 1.0, 0.001);
         solver.initialize(Vector2::zeros(), 0.0).unwrap();
 
-        // Set up boundary conditions
+        // Set up boundary conditions using iterator combinators
         let mut boundaries = HashMap::new();
 
-        // Left wall: velocity inlet
-        for j in 0..grid.ny() {
-            boundaries.insert(
-                (0, j),
-                BoundaryCondition::VelocityInlet {
+        // Left wall: velocity inlet - using iterator combinator
+        boundaries.extend(
+            (0..grid.ny()).map(|j| {
+                ((0, j), BoundaryCondition::VelocityInlet {
                     velocity: nalgebra::Vector3::new(1.0, 0.0, 0.0)
-                }
-            );
-        }
+                })
+            })
+        );
 
-        // Right wall: pressure outlet
-        for j in 0..grid.ny() {
-            boundaries.insert(
-                (grid.nx() - 1, j),
-                BoundaryCondition::PressureOutlet { pressure: 0.0 }
-            );
-        }
+        // Right wall: pressure outlet - using iterator combinator
+        boundaries.extend(
+            (0..grid.ny()).map(|j| {
+                ((grid.nx() - 1, j), BoundaryCondition::PressureOutlet { pressure: 0.0 })
+            })
+        );
 
-        // Top and bottom walls
-        for i in 0..grid.nx() {
-            boundaries.insert((i, 0), BoundaryCondition::wall_no_slip());
-            boundaries.insert((i, grid.ny() - 1), BoundaryCondition::wall_no_slip());
-        }
+        // Top and bottom walls - using iterator combinators with flat_map
+        boundaries.extend(
+            (0..grid.nx()).flat_map(|i| {
+                [
+                    ((i, 0), BoundaryCondition::wall_no_slip()),
+                    ((i, grid.ny() - 1), BoundaryCondition::wall_no_slip())
+                ]
+            })
+        );
 
         // Run one iteration (handle potential convergence issues)
         let result = solver.solve(&grid, &boundaries);
