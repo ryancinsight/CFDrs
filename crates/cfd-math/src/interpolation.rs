@@ -322,7 +322,7 @@ impl<T: RealField> Interpolation<T> for LagrangeInterpolation<T> {
                 (new_min, new_max)
             });
 
-        (min.unwrap().clone(), max.unwrap().clone())
+        (min.expect("x_data is guaranteed to be non-empty by constructor").clone(), max.expect("x_data is guaranteed to be non-empty by constructor").clone())
     }
 }
 
