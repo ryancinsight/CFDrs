@@ -80,8 +80,8 @@ impl FluidDynamicsService {
                 }
                 None => {
                     // Smooth pipe: Blasius equation for Re < 100,000
-                    let re_100k = T::from_f64(100_000.0).unwrap();
-                    if reynolds < re_100k {
+                    let re_turbulent = T::from_f64(100_000.0).unwrap();
+                    if reynolds < re_turbulent {
                         let coeff = T::from_f64(0.316).unwrap();
                         let exp = T::from_f64(0.25).unwrap();
                         Ok(coeff / reynolds.powf(exp))

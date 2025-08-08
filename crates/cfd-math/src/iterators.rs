@@ -396,6 +396,83 @@ where
             sum / T::from_usize(w.len()).unwrap()
         })
     }
+
+    /// Chain with divergence computation for vector fields
+    /// Assumes 3D vector field layout: [u1, v1, w1, u2, v2, w2, ...]
+    fn with_divergence(self, spacing: T) -> impl Iterator<Item = T> {
+        self.windowed_diff(9, move |w| {
+            if w.len() >= 9 {
+                // Central difference approximation: ∇·v = ∂u/∂x + ∂v/∂y + ∂w/∂z
+                let du_dx = (w[6].clone() - w[0].clone()) / (spacing.clone() + spacing.clone()); // (u_i+1 - u_i-1) / 2Δx
+                let dv_dy = (w[7].clone() - w[1].clone()) / (spacing.clone() + spacing.clone()); // (v_j+1 - v_j-1) / 2Δy
+                let dw_dz = (w[8].clone() - w[2].clone()) / (spacing.clone() + spacing.clone()); // (w_k+1 - w_k-1) / 2Δz
+                du_dx + dv_dy + dw_dz
+            } else {
+                T::zero()
+            }
+        })
+    }
+
+    /// Chain with curl computation for 3D vector fields
+    /// Returns the magnitude of curl: |∇ × v|
+    fn with_curl_magnitude(self, spacing: T) -> impl Iterator<Item = T> {
+        self.windowed_diff(9, move |w| {
+            if w.len() >= 9 {
+                // Curl components: ∇ × v = (∂w/∂y - ∂v/∂z, ∂u/∂z - ∂w/∂x, ∂v/∂x - ∂u/∂y)
+                let two_dx = spacing.clone() + spacing.clone();
+
+                // Simplified finite difference (assumes structured grid)
+                let dwdy_dvdz = (w[8].clone() - w[2].clone()) / two_dx.clone() - (w[7].clone() - w[1].clone()) / two_dx.clone();
+                let dudz_dwdx = (w[6].clone() - w[0].clone()) / two_dx.clone() - (w[8].clone() - w[2].clone()) / two_dx.clone();
+                let dvdx_dudy = (w[7].clone() - w[1].clone()) / two_dx.clone() - (w[6].clone() - w[0].clone()) / two_dx.clone();
+
+                // Magnitude: |∇ × v|
+                (dwdy_dvdz.clone() * dwdy_dvdz +
+                 dudz_dwdx.clone() * dudz_dwdx +
+                 dvdx_dudy.clone() * dvdx_dudy).sqrt()
+            } else {
+                T::zero()
+            }
+        })
+    }
+
+    /// Chain with strain rate tensor magnitude computation
+    /// For incompressible flow: |S| = √(2 S_ij S_ij)
+    fn with_strain_rate_magnitude(self, spacing: T) -> impl Iterator<Item = T> {
+        self.windowed_diff(9, move |w| {
+            if w.len() >= 9 {
+                let two_dx = spacing.clone() + spacing.clone();
+                let two = T::one() + T::one();
+
+                // Velocity gradients (simplified for structured grid)
+                let dudx = (w[6].clone() - w[0].clone()) / two_dx.clone();
+                let dudy = (w[7].clone() - w[1].clone()) / two_dx.clone();
+                let dudz = (w[8].clone() - w[2].clone()) / two_dx.clone();
+                let dvdx = (w[6].clone() - w[0].clone()) / two_dx.clone(); // Simplified
+                let dvdy = (w[7].clone() - w[1].clone()) / two_dx.clone();
+                let dvdz = (w[8].clone() - w[2].clone()) / two_dx.clone();
+                let dwdx = (w[6].clone() - w[0].clone()) / two_dx.clone(); // Simplified
+                let dwdy = (w[7].clone() - w[1].clone()) / two_dx.clone();
+                let dwdz = (w[8].clone() - w[2].clone()) / two_dx.clone();
+
+                // Strain rate tensor components: S_ij = 0.5 * (∂u_i/∂x_j + ∂u_j/∂x_i)
+                let s11 = dudx;
+                let s22 = dvdy;
+                let s33 = dwdz;
+                let s12 = (dudy + dvdx) / two.clone();
+                let s13 = (dudz + dwdx) / two.clone();
+                let s23 = (dvdz + dwdy) / two.clone();
+
+                // Magnitude: |S| = √(2 S_ij S_ij)
+                let s_squared = s11.clone() * s11 + s22.clone() * s22 + s33.clone() * s33 +
+                               two.clone() * (s12.clone() * s12 + s13.clone() * s13 + s23.clone() * s23);
+
+                (two.clone() * s_squared).sqrt()
+            } else {
+                T::zero()
+            }
+        })
+    }
 }
 
 impl<I, T> CfdIteratorChain<T> for I

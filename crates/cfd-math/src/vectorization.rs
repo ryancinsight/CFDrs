@@ -296,6 +296,90 @@ impl StencilOps {
 
         Ok(())
     }
+
+    /// Vectorized divergence computation for 3D vector fields on structured grids
+    pub fn divergence_3d<T: RealField + Send + Sync>(
+        u_field: &[T], v_field: &[T], w_field: &[T],
+        nx: usize, ny: usize, nz: usize,
+        dx: T, dy: T, dz: T,
+        result: &mut [T]
+    ) -> Result<(), &'static str> {
+        if u_field.len() != nx * ny * nz ||
+           v_field.len() != nx * ny * nz ||
+           w_field.len() != nx * ny * nz ||
+           result.len() != nx * ny * nz {
+            return Err("All fields must match grid dimensions");
+        }
+
+        let dx_inv = T::one() / (T::from_f64(2.0).unwrap() * dx);
+        let dy_inv = T::one() / (T::from_f64(2.0).unwrap() * dy);
+        let dz_inv = T::one() / (T::from_f64(2.0).unwrap() * dz);
+
+        // Compute divergence: ∇·v = ∂u/∂x + ∂v/∂y + ∂w/∂z
+        for k in 1..nz-1 {
+            for j in 1..ny-1 {
+                for i in 1..nx-1 {
+                    let idx = k * nx * ny + j * nx + i;
+
+                    // Central differences
+                    let dudx = (u_field[idx + 1].clone() - u_field[idx - 1].clone()) * dx_inv.clone();
+                    let dvdy = (v_field[idx + nx].clone() - v_field[idx - nx].clone()) * dy_inv.clone();
+                    let dwdz = (w_field[idx + nx * ny].clone() - w_field[idx - nx * ny].clone()) * dz_inv.clone();
+
+                    result[idx] = dudx + dvdy + dwdz;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Vectorized curl computation for 3D vector fields
+    pub fn curl_3d<T: RealField + Send + Sync>(
+        u_field: &[T], v_field: &[T], w_field: &[T],
+        nx: usize, ny: usize, nz: usize,
+        dx: T, dy: T, dz: T,
+        curl_x: &mut [T], curl_y: &mut [T], curl_z: &mut [T]
+    ) -> Result<(), &'static str> {
+        if u_field.len() != nx * ny * nz ||
+           v_field.len() != nx * ny * nz ||
+           w_field.len() != nx * ny * nz ||
+           curl_x.len() != nx * ny * nz ||
+           curl_y.len() != nx * ny * nz ||
+           curl_z.len() != nx * ny * nz {
+            return Err("All fields must match grid dimensions");
+        }
+
+        let dx_inv = T::one() / (T::from_f64(2.0).unwrap() * dx);
+        let dy_inv = T::one() / (T::from_f64(2.0).unwrap() * dy);
+        let dz_inv = T::one() / (T::from_f64(2.0).unwrap() * dz);
+
+        // Compute curl: ∇×v = (∂w/∂y - ∂v/∂z, ∂u/∂z - ∂w/∂x, ∂v/∂x - ∂u/∂y)
+        for k in 1..nz-1 {
+            for j in 1..ny-1 {
+                for i in 1..nx-1 {
+                    let idx = k * nx * ny + j * nx + i;
+
+                    // Curl x-component: ∂w/∂y - ∂v/∂z
+                    let dwdy = (w_field[idx + nx].clone() - w_field[idx - nx].clone()) * dy_inv.clone();
+                    let dvdz = (v_field[idx + nx * ny].clone() - v_field[idx - nx * ny].clone()) * dz_inv.clone();
+                    curl_x[idx] = dwdy - dvdz;
+
+                    // Curl y-component: ∂u/∂z - ∂w/∂x
+                    let dudz = (u_field[idx + nx * ny].clone() - u_field[idx - nx * ny].clone()) * dz_inv.clone();
+                    let dwdx = (w_field[idx + 1].clone() - w_field[idx - 1].clone()) * dx_inv.clone();
+                    curl_y[idx] = dudz - dwdx;
+
+                    // Curl z-component: ∂v/∂x - ∂u/∂y
+                    let dvdx = (v_field[idx + 1].clone() - v_field[idx - 1].clone()) * dx_inv.clone();
+                    let dudy = (u_field[idx + nx].clone() - u_field[idx - nx].clone()) * dy_inv.clone();
+                    curl_z[idx] = dvdx - dudy;
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

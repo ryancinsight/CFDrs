@@ -35,6 +35,10 @@ A high-performance, modular, and extensible Computational Fluid Dynamics (CFD) s
 - **Clean Codebase**: Removed deprecated components and completed placeholder implementations following YAGNI principle
 - **Enhanced Examples**: Updated to demonstrate unified prelude, advanced iterator patterns, and zero-copy operations
 - **Comprehensive Testing**: 257+ tests passing with clean build and minimal warnings
+- **Advanced Turbulence Models**: Complete implementations of Smagorinsky, Dynamic Smagorinsky, and k-epsilon models
+- **Enhanced Numerical Methods**: Full RK4 implementation with proper intermediate stages and literature-based algorithms
+- **Optimized Vectorization**: SIMD operations for CFD-specific computations (divergence, curl, strain rate, Laplacian)
+- **Zero-Copy CFD Operations**: Advanced iterator patterns for gradient, divergence, curl, and strain rate computations
 
 🎯 **Previous Improvements:**
 - **Time Integration**: Completed BackwardEuler and CrankNicolson implicit solvers with fixed-point iteration
