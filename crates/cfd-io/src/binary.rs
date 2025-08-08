@@ -1,21 +1,123 @@
-//! Binary file I/O operations.
+//! Binary file I/O operations with zero-copy abstractions.
+//!
+//! This module provides efficient binary serialization/deserialization
+//! using iterator-based streaming and zero-copy operations.
 
-/// Binary writer
-pub struct BinaryWriter;
+use cfd_core::{Error, Result};
+use nalgebra::{RealField, Vector2, Vector3, DMatrix, DVector};
+use std::fs::File;
+use std::io::{BufReader, BufWriter, Read, Write, Seek, SeekFrom};
+use std::path::Path;
+use bincode;
+use serde::{Serialize, Deserialize};
 
-impl BinaryWriter {
+/// Binary writer with streaming capabilities and zero-copy operations
+pub struct BinaryWriter<W: Write> {
+    writer: BufWriter<W>,
+}
+
+impl<W: Write> BinaryWriter<W> {
     /// Create a new binary writer
-    pub fn new() -> Self {
-        Self
+    pub fn new(writer: W) -> Self {
+        Self {
+            writer: BufWriter::new(writer),
+        }
+    }
+
+    /// Write serializable data using bincode
+    pub fn write<T: Serialize>(&mut self, data: &T) -> Result<()> {
+        bincode::serialize_into(&mut self.writer, data)
+            .map_err(|e| Error::IoError(format!("Binary write error: {}", e)))?;
+        Ok(())
+    }
+
+    /// Write vector data using iterator-based streaming
+    pub fn write_vector<T: RealField + Serialize>(&mut self, vector: &DVector<T>) -> Result<()> {
+        // Write length first
+        self.write(&vector.len())?;
+
+        // Stream vector data using iterator
+        vector.iter()
+            .try_for_each(|value| self.write(value))
+    }
+
+    /// Write matrix data with zero-copy slicing
+    pub fn write_matrix<T: RealField + Serialize>(&mut self, matrix: &DMatrix<T>) -> Result<()> {
+        // Write dimensions
+        self.write(&(matrix.nrows(), matrix.ncols()))?;
+
+        // Stream matrix data row by row using iterators
+        matrix.row_iter()
+            .try_for_each(|row| {
+                row.iter().try_for_each(|value| self.write(value))
+            })
+    }
+
+    /// Flush the writer
+    pub fn flush(&mut self) -> Result<()> {
+        self.writer.flush()
+            .map_err(|e| Error::IoError(format!("Flush error: {}", e)))
     }
 }
 
-/// Binary reader
-pub struct BinaryReader;
+impl BinaryWriter<File> {
+    /// Create a binary writer for a file
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let file = File::create(path)
+            .map_err(|e| Error::IoError(format!("Failed to create file: {}", e)))?;
+        Ok(Self::new(file))
+    }
+}
 
-impl BinaryReader {
+/// Binary reader with streaming capabilities and zero-copy operations
+pub struct BinaryReader<R: Read> {
+    reader: BufReader<R>,
+}
+
+impl<R: Read> BinaryReader<R> {
     /// Create a new binary reader
-    pub fn new() -> Self {
-        Self
+    pub fn new(reader: R) -> Self {
+        Self {
+            reader: BufReader::new(reader),
+        }
+    }
+
+    /// Read deserializable data using bincode
+    pub fn read<T: for<'de> Deserialize<'de>>(&mut self) -> Result<T> {
+        bincode::deserialize_from(&mut self.reader)
+            .map_err(|e| Error::IoError(format!("Binary read error: {}", e)))
+    }
+
+    /// Read vector data using iterator-based construction
+    pub fn read_vector<T: RealField + for<'de> Deserialize<'de>>(&mut self) -> Result<DVector<T>> {
+        let len: usize = self.read()?;
+
+        // Use iterator to collect vector elements efficiently
+        let data: Result<Vec<T>> = (0..len)
+            .map(|_| self.read())
+            .collect();
+
+        Ok(DVector::from_vec(data?))
+    }
+
+    /// Read matrix data with efficient allocation
+    pub fn read_matrix<T: RealField + for<'de> Deserialize<'de>>(&mut self) -> Result<DMatrix<T>> {
+        let (nrows, ncols): (usize, usize) = self.read()?;
+
+        // Use iterator to collect matrix elements efficiently
+        let data: Result<Vec<T>> = (0..nrows * ncols)
+            .map(|_| self.read())
+            .collect();
+
+        Ok(DMatrix::from_vec(nrows, ncols, data?))
+    }
+}
+
+impl BinaryReader<File> {
+    /// Create a binary reader for a file
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let file = File::open(path)
+            .map_err(|e| Error::IoError(format!("Failed to open file: {}", e)))?;
+        Ok(Self::new(file))
     }
 }

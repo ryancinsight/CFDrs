@@ -77,17 +77,37 @@ pub struct SolverConfig<T: RealField> {
     pub parallel: bool,
     /// Number of threads (None = use all available)
     pub num_threads: Option<usize>,
-    /// Enable verbose output (legacy compatibility)
-    pub verbose: bool,
+    /// Verbosity level (0 = silent, 1 = summary, 2 = detailed)
+    pub verbosity: u8,
+}
+
+/// Numerical method configuration
+#[derive(Debug, Clone)]
+pub struct NumericalConfig<T: RealField> {
+    /// Relaxation factor for iterative methods
+    pub relaxation_factor: T,
+    /// Under-relaxation factor (alternative name for compatibility)
+    pub under_relaxation: Option<T>,
+}
+
+/// Unified solver configuration using composition over inheritance
+#[derive(Debug, Clone)]
+pub struct SolverConfig<T: RealField> {
+    /// Convergence parameters
+    pub convergence: ConvergenceConfig<T>,
+    /// Execution parameters
+    pub execution: ExecutionConfig,
+    /// Numerical method parameters
+    pub numerical: NumericalConfig<T>,
 }
 
 impl<T: RealField> SolverConfiguration<T> for SolverConfig<T> {
     fn tolerance(&self) -> T {
-        self.tolerance.clone()
+        self.convergence.tolerance.clone()
     }
 
     fn max_iterations(&self) -> usize {
-        self.max_iterations
+        self.convergence.max_iterations
     }
 
     fn verbosity(&self) -> u8 {
@@ -111,13 +131,18 @@ impl<T: RealField> SolverConfig<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive> Default for SolverConfig<T> {
+impl<T: RealField + FromPrimitive> Default for ConvergenceConfig<T> {
     fn default() -> Self {
         Self {
             tolerance: T::from_f64(1e-6).unwrap(),
             max_iterations: 1000,
-            relaxation_factor: T::one(),
-            verbosity: 1,
+        }
+    }
+}
+
+impl Default for ExecutionConfig {
+    fn default() -> Self {
+        Self {
             parallel: true,
             num_threads: None,
             verbose: false,
@@ -125,10 +150,10 @@ impl<T: RealField + FromPrimitive> Default for SolverConfig<T> {
     }
 }
 
-/// Linear solver specific configuration
+/// Linear solver specific configuration using composition
 #[derive(Debug, Clone)]
 pub struct LinearSolverConfig<T: RealField> {
-    /// Base configuration
+    /// Base solver configuration
     pub base: SolverConfig<T>,
     /// Restart parameter for GMRES
     pub restart: usize,
@@ -164,6 +189,11 @@ impl<T: RealField> LinearSolverConfig<T> {
     pub fn use_preconditioner(&self) -> bool {
         self.use_preconditioner
     }
+
+    /// Get relaxation factor from base configuration
+    pub fn relaxation_factor(&self) -> T {
+        self.base.numerical.relaxation_factor.clone()
+    }
 }
 
 impl<T: RealField + FromPrimitive> Default for LinearSolverConfig<T> {
@@ -176,12 +206,12 @@ impl<T: RealField + FromPrimitive> Default for LinearSolverConfig<T> {
     }
 }
 
-/// Network solver specific configuration
+/// Network solver specific configuration using composition
 #[derive(Debug, Clone)]
 pub struct NetworkSolverConfig<T: RealField> {
-    /// Base configuration
+    /// Base solver configuration
     pub base: SolverConfig<T>,
-    /// Enable verbose output
+    /// Enable verbose output (overrides base verbosity)
     pub verbose: bool,
 }
 
@@ -206,7 +236,12 @@ impl<T: RealField> SolverConfiguration<T> for NetworkSolverConfig<T> {
 impl<T: RealField> NetworkSolverConfig<T> {
     /// Get relaxation factor from base configuration
     pub fn relaxation_factor(&self) -> T {
-        self.base.relaxation_factor.clone()
+        self.base.numerical.relaxation_factor.clone()
+    }
+
+    /// Get under-relaxation factor if set
+    pub fn under_relaxation(&self) -> Option<T> {
+        self.base.numerical.under_relaxation.clone()
     }
 }
 
@@ -224,62 +259,108 @@ impl<T: RealField> SolverConfig<T> {
     pub fn builder() -> SolverConfigBuilder<T> {
         SolverConfigBuilder::default()
     }
+
+    /// Get relaxation factor
+    pub fn relaxation_factor(&self) -> T {
+        self.numerical.relaxation_factor.clone()
+    }
+
+    /// Get under-relaxation factor if set
+    pub fn under_relaxation(&self) -> Option<T> {
+        self.numerical.under_relaxation.clone()
+    }
+
+    /// Get number of threads
+    pub fn num_threads(&self) -> Option<usize> {
+        self.execution.num_threads
+    }
 }
 
-/// Builder for solver configuration
+/// Enhanced builder for unified solver configuration using fluent interface
 #[derive(Debug, Clone)]
 pub struct SolverConfigBuilder<T: RealField> {
-    config: SolverConfig<T>,
+    convergence: ConvergenceConfig<T>,
+    execution: ExecutionConfig,
+    numerical: NumericalConfig<T>,
 }
 
 impl<T: RealField + FromPrimitive> Default for SolverConfigBuilder<T> {
     fn default() -> Self {
         Self {
-            config: SolverConfig::default(),
+            convergence: ConvergenceConfig::default(),
+            execution: ExecutionConfig::default(),
+            numerical: NumericalConfig::default(),
         }
     }
 }
 
 impl<T: RealField> SolverConfigBuilder<T> {
-    /// Set tolerance
+    /// Set convergence tolerance
     pub fn tolerance(mut self, tolerance: T) -> Self {
-        self.config.tolerance = tolerance;
+        self.convergence.tolerance = tolerance;
         self
     }
 
     /// Set maximum iterations
     pub fn max_iterations(mut self, max_iterations: usize) -> Self {
-        self.config.max_iterations = max_iterations;
+        self.convergence.max_iterations = max_iterations;
         self
     }
 
     /// Set relaxation factor
     pub fn relaxation_factor(mut self, factor: T) -> Self {
-        self.config.relaxation_factor = factor;
+        self.numerical.relaxation_factor = factor;
+        self
+    }
+
+    /// Set under-relaxation factor
+    pub fn under_relaxation(mut self, factor: T) -> Self {
+        self.numerical.under_relaxation = Some(factor);
         self
     }
 
     /// Set verbosity level
     pub fn verbosity(mut self, verbosity: u8) -> Self {
-        self.config.verbosity = verbosity;
+        self.execution.verbosity = verbosity;
         self
     }
 
     /// Enable/disable parallel execution
     pub fn parallel(mut self, parallel: bool) -> Self {
-        self.config.parallel = parallel;
+        self.execution.parallel = parallel;
         self
     }
 
     /// Set number of threads
     pub fn num_threads(mut self, threads: Option<usize>) -> Self {
-        self.config.num_threads = threads;
+        self.execution.num_threads = threads;
         self
     }
 
-    /// Build the configuration
+    /// Build the unified configuration
     pub fn build(self) -> SolverConfig<T> {
-        self.config
+        SolverConfig {
+            convergence: self.convergence,
+            execution: self.execution,
+            numerical: self.numerical,
+        }
+    }
+
+    /// Build a linear solver configuration with additional parameters
+    pub fn build_linear(self, restart: usize, use_preconditioner: bool) -> LinearSolverConfig<T> {
+        LinearSolverConfig {
+            base: self.build(),
+            restart,
+            use_preconditioner,
+        }
+    }
+
+    /// Build a network solver configuration with verbose option
+    pub fn build_network(self, verbose: bool) -> NetworkSolverConfig<T> {
+        NetworkSolverConfig {
+            base: self.build(),
+            verbose,
+        }
     }
 }
 
@@ -302,41 +383,54 @@ where
     /// Create iteration state from initial solution
     fn create_iteration_state(&self, initial: Self::Solution) -> Self::IterationState;
 
-    /// Default iterative solve using iterator
+    /// Enhanced iterative solve using iterator combinators and functional patterns
     fn iterative_solve(&mut self, initial: Self::Solution) -> Result<Self::Solution> {
         let config = self.config();
         let max_iterations = config.max_iterations();
         let tolerance = config.tolerance();
         let verbosity = config.verbosity();
 
-        let mut current_solution = initial;
+        // Use iterator-based approach with scan for stateful iteration
+        let result = (0..max_iterations)
+            .scan(&mut initial, |current_solution, iter| {
+                let mut state = self.create_iteration_state(current_solution);
+                match state.iterate() {
+                    Ok((solution, residual)) => {
+                        if verbosity >= 2 {
+                            tracing::debug!("Iteration {}: residual = {:?}", iter + 1, residual);
+                        }
 
-        for iter in 0..max_iterations {
-            let mut state = self.create_iteration_state(current_solution);
-            let (solution, residual) = state.iterate()?;
-
-            if verbosity >= 2 {
-                tracing::debug!("Iteration {}: residual = {:?}", iter + 1, residual);
-            }
-
-            if residual < tolerance {
-                if verbosity >= 1 {
-                    tracing::info!(
-                        "Converged after {} iterations (residual: {:?})",
-                        iter + 1,
-                        residual
-                    );
+                        *current_solution = solution;
+                        Some(Ok((iter + 1, current_solution.clone(), residual)))
+                    }
+                    Err(e) => Some(Err(e)),
                 }
-                return Ok(solution);
-            }
-            
-            current_solution = solution;
+            })
+            .find_map(|result| match result {
+                Ok((iter, solution, residual)) => {
+                    if residual < tolerance {
+                        if verbosity >= 1 {
+                            tracing::info!(
+                                "Converged after {} iterations (residual: {:?})",
+                                iter,
+                                residual
+                            );
+                        }
+                        Some(Ok(solution))
+                    } else {
+                        None
+                    }
+                }
+                Err(e) => Some(Err(e)),
+            });
+
+        match result {
+            Some(result) => result,
+            None => Err(crate::Error::ConvergenceFailure(format!(
+                "Failed to converge after {} iterations",
+                max_iterations
+            ))),
         }
-        
-        Err(crate::Error::ConvergenceFailure(format!(
-            "Failed to converge after {} iterations",
-            max_iterations
-        )))
     }
 }
 
@@ -615,11 +709,33 @@ mod tests {
             .parallel(false)
             .build();
 
-        assert_eq!(config.tolerance, 1e-8);
-        assert_eq!(config.max_iterations, 500);
-        assert_eq!(config.relaxation_factor, 0.9);
-        assert_eq!(config.verbosity, 2);
-        assert!(!config.parallel);
+        assert_eq!(config.convergence.tolerance, 1e-8);
+        assert_eq!(config.convergence.max_iterations, 500);
+        assert_eq!(config.numerical.relaxation_factor, 0.9);
+        assert_eq!(config.execution.verbosity, 2);
+        assert!(!config.execution.parallel);
+    }
+
+    #[test]
+    fn test_unified_config_composition() {
+        let linear_config = SolverConfig::<f64>::builder()
+            .tolerance(1e-10)
+            .max_iterations(2000)
+            .under_relaxation(0.8)
+            .parallel(true)
+            .build_linear(50, true);
+
+        assert_eq!(linear_config.base.tolerance(), 1e-10);
+        assert_eq!(linear_config.restart, 50);
+        assert!(linear_config.use_preconditioner);
+
+        let network_config = SolverConfig::<f64>::builder()
+            .tolerance(1e-6)
+            .relaxation_factor(0.9)
+            .build_network(true);
+
+        assert_eq!(network_config.verbosity(), 2); // verbose overrides
+        assert_eq!(network_config.relaxation_factor(), 0.9);
     }
 
     #[test]

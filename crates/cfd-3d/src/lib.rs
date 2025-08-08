@@ -22,24 +22,4 @@ pub use spectral::{
 
 
 
-/// 3D CFD domain-specific prelude for advanced mesh operations
-///
-/// This prelude exports 3D-specific functionality not available in the main prelude.
-/// Use this when working extensively with 3D meshes, CSG operations, or advanced
-/// numerical methods like spectral or immersed boundary methods.
-///
-/// For basic 3D functionality, prefer `cfd_suite::prelude::*`.
-pub mod prelude {
-    // === Advanced Mesh Operations ===
-    // Detailed mesh functionality beyond basic adapters
-    pub use crate::mesh_integration::{
-        MeshQualityReport, StlAdapter, CsgMeshAdapter
-    };
-
-    // === Specialized Numerical Methods ===
-    // Advanced 3D-specific solvers and techniques
-    pub use crate::{
-        fem::{Element, ElementType, MaterialProperties, Tetrahedron4},
-        spectral::{SpectralSolution, SpectralBasis},
-    };
-}
+// Prelude removed - use cfd_suite::prelude::* for unified SSOT interface
