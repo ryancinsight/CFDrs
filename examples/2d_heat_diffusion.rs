@@ -59,12 +59,13 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let source = HashMap::new();
     
     // Configure the Poisson solver
-    let config = FdmConfig {
-        tolerance: 1e-8,
-        max_iterations: 2000,
-        relaxation_factor: 1.0,
-        verbose: true,
-    };
+    let mut base = cfd_core::SolverConfig::default();
+    base.tolerance = 1e-8;
+    base.max_iterations = 2000;
+    base.relaxation_factor = 1.0;
+    base.verbose = true;
+
+    let config = FdmConfig { base };
     
     // Solve the heat equation
     println!("\nSolving 2D heat equation...");
@@ -137,12 +138,13 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Solve advection-diffusion equation
     let diffusivity = 0.1; // Thermal diffusivity
     
-    let advdiff_config = FdmConfig {
-        tolerance: 1e-6,
-        max_iterations: 1000,
-        relaxation_factor: 0.8,
-        verbose: false,
-    };
+    let mut advdiff_base = cfd_core::SolverConfig::default();
+    advdiff_base.tolerance = 1e-6;
+    advdiff_base.max_iterations = 1000;
+    advdiff_base.relaxation_factor = 0.8;
+    advdiff_base.verbose = false;
+
+    let advdiff_config = FdmConfig { base: advdiff_base };
     
     let advdiff_solver = AdvectionDiffusionSolver::new(advdiff_config);
     let advdiff_solution = advdiff_solver.solve_steady(

@@ -16,7 +16,7 @@
 //! 4. Correct pressure and velocity fields using pressure correction gradients
 //! 5. Check convergence, repeat if necessary
 
-use cfd_core::{Result, BoundaryCondition};
+use cfd_core::{Result, BoundaryCondition, SolverConfiguration};
 use cfd_math::{SparseMatrixBuilder, LinearSolver, LinearSolverConfig, ConjugateGradient};
 use nalgebra::{DVector, RealField, Vector2};
 use num_traits::FromPrimitive;
@@ -26,10 +26,11 @@ use std::collections::HashMap;
 use crate::grid::{Grid2D, StructuredGrid2D};
 
 /// SIMPLE algorithm configuration
+/// Uses unified SolverConfig as base to follow SSOT principle
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimpleConfig<T: RealField> {
-    /// Maximum number of outer iterations
-    pub max_iterations: usize,
+    /// Base solver configuration (SSOT)
+    pub base: cfd_core::SolverConfig<T>,
     /// Convergence tolerance for velocity
     pub velocity_tolerance: T,
     /// Convergence tolerance for pressure
@@ -38,24 +39,81 @@ pub struct SimpleConfig<T: RealField> {
     pub velocity_relaxation: T,
     /// Under-relaxation factor for pressure
     pub pressure_relaxation: T,
-    /// Enable verbose output
-    pub verbose: bool,
 }
 
 impl<T: RealField + FromPrimitive> Default for SimpleConfig<T> {
     fn default() -> Self {
+        let mut base = cfd_core::SolverConfig::default();
+        // SIMPLE typically needs more iterations
+        base.max_iterations = 100;
+        base.tolerance = T::from_f64(1e-6).unwrap();
+
         Self {
-            max_iterations: 1000,
+            base,
             velocity_tolerance: T::from_f64(1e-6).unwrap(),
             pressure_tolerance: T::from_f64(1e-6).unwrap(),
             velocity_relaxation: T::from_f64(0.7).unwrap(),
             pressure_relaxation: T::from_f64(0.3).unwrap(),
-            verbose: false,
         }
     }
 }
 
-/// SIMPLE algorithm solver for incompressible Navier-Stokes equations
+impl<T: RealField> SimpleConfig<T> {
+    /// Get maximum iterations from base configuration
+    pub fn max_iterations(&self) -> usize {
+        self.base.max_iterations()
+    }
+
+    /// Get tolerance from base configuration
+    pub fn tolerance(&self) -> T {
+        self.base.tolerance()
+    }
+
+    /// Check if verbose output is enabled
+    pub fn verbose(&self) -> bool {
+        self.base.verbose()
+    }
+
+    /// Check if parallel execution is enabled
+    pub fn parallel(&self) -> bool {
+        self.base.parallel()
+    }
+}
+
+/// SIMPLE (Semi-Implicit Method for Pressure-Linked Equations) algorithm solver
+///
+/// This solver implements the SIMPLE algorithm for solving the incompressible
+/// Navier-Stokes equations on a structured grid using the finite volume method.
+///
+/// ## Algorithm Overview
+///
+/// The SIMPLE algorithm solves the coupled velocity-pressure system through:
+/// 1. **Momentum Prediction**: Solve momentum equations with guessed pressure
+/// 2. **Pressure Correction**: Solve pressure correction equation from continuity
+/// 3. **Velocity Correction**: Update velocities using pressure correction
+/// 4. **Under-relaxation**: Apply relaxation factors for stability
+///
+/// ## Mathematical Formulation
+///
+/// The momentum equations are discretized as:
+/// ```text
+/// a_P u_P = Σ(a_nb u_nb) + b + (p_W - p_E) * A_e
+/// a_P v_P = Σ(a_nb v_nb) + b + (p_S - p_N) * A_n
+/// ```
+///
+/// The pressure correction equation is derived from continuity:
+/// ```text
+/// a_P p'_P = Σ(a_nb p'_nb) + b
+/// ```
+///
+/// Where `p'` is the pressure correction and `b` represents mass imbalance.
+///
+/// ## References
+/// Patankar, S.V. (1980). "Numerical Heat Transfer and Fluid Flow."
+/// Hemisphere Publishing Corporation, Washington, DC.
+///
+/// Versteeg, H.K. and Malalasekera, W. (2007). "An Introduction to Computational
+/// Fluid Dynamics: The Finite Volume Method." Pearson Education Limited.
 pub struct SimpleSolver<T: RealField> {
     config: SimpleConfig<T>,
     /// Velocity field [nx][ny]
@@ -123,7 +181,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> SimpleSolver<T> {
         grid: &StructuredGrid2D<T>,
         boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
     ) -> Result<()> {
-        for iteration in 0..self.config.max_iterations {
+        for iteration in 0..self.config.max_iterations() {
             // Step 1: Solve momentum equations with guessed pressure
             self.solve_momentum_equations(grid, boundary_conditions)?;
             
@@ -138,13 +196,13 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> SimpleSolver<T> {
             
             // Step 5: Check convergence
             if self.check_convergence() {
-                if self.config.verbose {
+                if self.config.verbose() {
                     println!("SIMPLE converged after {} iterations", iteration + 1);
                 }
                 break;
             }
             
-            if self.config.verbose && iteration % 10 == 0 {
+            if self.config.verbose() && iteration % 10 == 0 {
                 println!("SIMPLE iteration: {}", iteration);
             }
         }
@@ -399,12 +457,12 @@ mod tests {
     #[test]
     fn test_simple_config_default() {
         let config = SimpleConfig::<f64>::default();
-        assert_eq!(config.max_iterations, 1000);
+        assert_eq!(config.max_iterations(), 100);
         assert_relative_eq!(config.velocity_tolerance, 1e-6, epsilon = 1e-10);
         assert_relative_eq!(config.pressure_tolerance, 1e-6, epsilon = 1e-10);
         assert_relative_eq!(config.velocity_relaxation, 0.7, epsilon = 1e-10);
         assert_relative_eq!(config.pressure_relaxation, 0.3, epsilon = 1e-10);
-        assert!(!config.verbose);
+        assert!(!config.verbose());
     }
 
     #[test]
@@ -445,8 +503,8 @@ mod tests {
     fn test_simple_boundary_conditions() {
         let grid = StructuredGrid2D::<f64>::unit_square(5, 5).unwrap();
         let mut config = SimpleConfig::<f64>::default();
-        config.max_iterations = 1; // Just one iteration for testing
-        config.verbose = false;
+        config.base.max_iterations = 1; // Just one iteration for testing
+        config.base.verbose = false;
 
         let mut solver = SimpleSolver::new(config, &grid, 1.0, 0.001);
         solver.initialize(Vector2::zeros(), 0.0).unwrap();

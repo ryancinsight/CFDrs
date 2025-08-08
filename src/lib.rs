@@ -35,8 +35,8 @@ pub mod prelude {
     pub use cfd_core::{
         Fluid, Error, Result, BoundaryCondition, Domain, Problem, Solver,
         Plugin, PluginRegistry, SimulationPlugin, SimulationState, TimeIntegrator,
-        SolverConfiguration, SolverConfig, LinearSolverConfig, NetworkSolverConfig,
-        SolverFactory, SolverFactoryRegistry, Builder, ConfigurationBuilder, ResourceManager,
+        SolverConfiguration, Configurable, Validatable, IterativeSolver, DirectSolver, SolverConfig, LinearSolverConfig, NetworkSolverConfig,
+        AbstractSolverFactory, ConcreteSolverFactory, FactoryCapability, SolverFactoryRegistry, Builder, ConfigurationBuilder, ResourceManager,
         SimulationOrchestrator, ExecutionContext, ExecutionContextBuilder, ExecutionMode, PerformanceMetrics
     };
 

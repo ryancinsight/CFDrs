@@ -25,12 +25,15 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
              mesh.vertices.len(), mesh.cells.len());
     
     // Create FEM solver configuration
+    let mut base = cfd_core::SolverConfig::default();
+    base.tolerance = 1e-6;
+    base.max_iterations = 1000;
+    base.verbose = true;
+
     let config = FemConfig {
-        tolerance: 1e-6,
-        max_iterations: 1000,
+        base,
         element_type: ElementType::Tetrahedron4,
         integration_order: 2,
-        verbose: true,
     };
     
     // Create FEM solver

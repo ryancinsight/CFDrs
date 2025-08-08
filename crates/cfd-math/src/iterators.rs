@@ -5,7 +5,7 @@
 
 use nalgebra::{RealField, DVector};
 use rayon::prelude::*;
-use std::iter::{Iterator, IntoIterator};
+use std::iter::Iterator;
 
 /// Extension trait for iterator-based mathematical operations
 pub trait MathIteratorExt<T>: Iterator<Item = T>
@@ -82,10 +82,13 @@ where
 }
 
 /// Windowed difference iterator for finite difference operations
+/// Enhanced with circular buffer for zero-copy sliding window
 pub struct WindowedDiff<I, F, T> {
     iter: I,
     window_size: usize,
     buffer: Vec<T>,
+    buffer_start: usize,
+    buffer_len: usize,
     func: F,
 }
 
@@ -99,7 +102,9 @@ where
         Self {
             iter,
             window_size,
-            buffer: Vec::with_capacity(window_size),
+            buffer: Vec::with_capacity(window_size * 2), // Double capacity for circular buffer
+            buffer_start: 0,
+            buffer_len: 0,
             func,
         }
     }
@@ -114,22 +119,47 @@ where
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // Fill buffer to window size
-        while self.buffer.len() < self.window_size {
+        // Fill buffer to window size initially
+        while self.buffer_len < self.window_size {
             if let Some(item) = self.iter.next() {
-                self.buffer.push(item);
+                if self.buffer.len() < self.buffer.capacity() {
+                    self.buffer.push(item);
+                } else {
+                    // Circular buffer is full, overwrite
+                    let idx = (self.buffer_start + self.buffer_len) % self.buffer.len();
+                    self.buffer[idx] = item;
+                }
+                self.buffer_len += 1;
             } else {
                 return None;
             }
         }
 
-        if self.buffer.len() == self.window_size {
-            let result = (self.func)(&self.buffer);
-            // Slide window
-            self.buffer.remove(0);
-            if let Some(item) = self.iter.next() {
-                self.buffer.push(item);
+        if self.buffer_len >= self.window_size {
+            // Create window slice without allocation
+            let mut window = Vec::with_capacity(self.window_size);
+            for i in 0..self.window_size {
+                let idx = (self.buffer_start + i) % self.buffer.len();
+                window.push(self.buffer[idx].clone());
             }
+
+            let result = (self.func)(&window);
+
+            // Slide window by advancing start position
+            self.buffer_start = (self.buffer_start + 1) % self.buffer.len();
+            self.buffer_len -= 1;
+
+            // Try to add next item
+            if let Some(item) = self.iter.next() {
+                let idx = (self.buffer_start + self.buffer_len) % self.buffer.len();
+                if idx < self.buffer.len() {
+                    self.buffer[idx] = item;
+                } else {
+                    self.buffer.push(item);
+                }
+                self.buffer_len += 1;
+            }
+
             Some(result)
         } else {
             None
@@ -158,6 +188,8 @@ impl VectorOps {
         Ok(DVector::from_vec(result))
     }
 
+
+
     /// Element-wise multiplication using iterators
     pub fn hadamard<T: RealField>(a: &DVector<T>, b: &DVector<T>) -> Result<DVector<T>, &'static str> {
         if a.len() != b.len() {
@@ -170,6 +202,19 @@ impl VectorOps {
             .collect();
 
         Ok(DVector::from_vec(result))
+    }
+
+    /// In-place element-wise multiplication for zero-copy operations
+    pub fn hadamard_inplace<T: RealField>(dest: &mut DVector<T>, src: &DVector<T>) -> Result<(), &'static str> {
+        if dest.len() != src.len() {
+            return Err("Vector dimensions must match");
+        }
+
+        dest.iter_mut()
+            .zip(src.iter())
+            .for_each(|(d, s)| *d *= s.clone());
+
+        Ok(())
     }
 
     /// Dot product using iterator fold
@@ -285,33 +330,71 @@ impl SliceOps {
             .map(op)
             .collect()
     }
+
+    /// Zero-copy slice-based matrix-vector multiplication (for row-major matrices)
+    pub fn matvec_slice<T: RealField>(
+        matrix: &[T],
+        vector: &[T],
+        result: &mut [T],
+        rows: usize,
+        cols: usize
+    ) -> Result<(), &'static str> {
+        if matrix.len() != rows * cols {
+            return Err("Matrix dimensions don't match data length");
+        }
+        if vector.len() != cols || result.len() != rows {
+            return Err("Vector dimensions don't match matrix");
+        }
+
+        result.iter_mut()
+            .enumerate()
+            .for_each(|(i, res)| {
+                *res = matrix[i * cols..(i + 1) * cols]
+                    .iter()
+                    .zip(vector.iter())
+                    .map(|(m, v)| m.clone() * v.clone())
+                    .fold(T::zero(), |acc, val| acc + val);
+            });
+
+        Ok(())
+    }
+
+    /// Zero-copy slice-based transpose operation (in-place for square matrices)
+    pub fn transpose_square_inplace<T: Clone>(matrix: &mut [T], n: usize) -> Result<(), &'static str> {
+        if matrix.len() != n * n {
+            return Err("Matrix must be square");
+        }
+
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let idx1 = i * n + j;
+                let idx2 = j * n + i;
+                matrix.swap(idx1, idx2);
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// Composable iterator chains for CFD operations
+/// Enhanced to avoid unnecessary collect() calls for better zero-copy performance
 pub trait CfdIteratorChain<T>: Iterator<Item = T>
 where
     T: RealField,
     Self: Sized,
 {
-    /// Chain with gradient computation
+    /// Chain with gradient computation using windowed_diff for zero-copy
     fn with_gradient(self, spacing: T) -> impl Iterator<Item = T> {
-        self.collect::<Vec<_>>()
-            .windows(2)
-            .map(move |w| (w[1].clone() - w[0].clone()) / spacing.clone())
-            .collect::<Vec<_>>()
-            .into_iter()
+        self.windowed_diff(2, move |w| (w[1].clone() - w[0].clone()) / spacing.clone())
     }
 
-    /// Chain with smoothing filter
+    /// Chain with smoothing filter using windowed operations
     fn with_smoothing(self, window: usize) -> impl Iterator<Item = T> {
-        let data: Vec<_> = self.collect();
-        data.windows(window)
-            .map(|w| {
-                let sum = w.iter().fold(T::zero(), |acc, x| acc + x.clone());
-                sum / T::from_usize(w.len()).unwrap()
-            })
-            .collect::<Vec<_>>()
-            .into_iter()
+        self.windowed_diff(window, |w| {
+            let sum = w.iter().fold(T::zero(), |acc, x| acc + x.clone());
+            sum / T::from_usize(w.len()).unwrap()
+        })
     }
 }
 

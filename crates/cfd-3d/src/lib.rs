@@ -7,9 +7,6 @@
 
 pub mod fem;
 pub mod spectral;
-pub mod ibm;
-pub mod level_set;
-pub mod vof;
 pub mod mesh_integration;
 
 // Export implemented functionality

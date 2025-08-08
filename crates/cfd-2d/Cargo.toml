@@ -28,3 +28,7 @@ approx.workspace = true
 criterion.workspace = true
 cfd-validation.workspace = true
 
+[[bench]]
+name = "solver_benchmarks"
+harness = false
+

@@ -9,14 +9,42 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-/// Simulation orchestrator implementing Controller pattern from GRASP
-pub struct SimulationOrchestrator<T: RealField> {
-    /// Registered solver names and types
-    solver_registry: HashMap<String, String>,
+/// Execution coordinator following Single Responsibility Principle
+/// Responsible only for coordinating execution flow
+pub struct ExecutionCoordinator<T: RealField> {
     /// Execution context
     context: ExecutionContext<T>,
+}
+
+/// Resource manager following Single Responsibility Principle
+/// Responsible only for managing computational resources
+pub struct ResourceManager {
     /// Performance metrics
     metrics: Arc<Mutex<PerformanceMetrics>>,
+    /// Resource limits
+    memory_limit: Option<usize>,
+    /// Thread pool size
+    thread_pool_size: Option<usize>,
+}
+
+/// Solver registry following Single Responsibility Principle
+/// Responsible only for managing solver registration and lookup
+pub struct SolverRegistry {
+    /// Registered solver names and types
+    solver_types: HashMap<String, String>,
+    /// Solver capabilities
+    capabilities: HashMap<String, Vec<String>>,
+}
+
+/// Simulation orchestrator implementing Controller pattern from GRASP
+/// Coordinates between different components following Low Coupling principle
+pub struct SimulationOrchestrator<T: RealField> {
+    /// Execution coordinator
+    coordinator: ExecutionCoordinator<T>,
+    /// Resource manager
+    resource_manager: ResourceManager,
+    /// Solver registry
+    solver_registry: SolverRegistry,
 }
 
 /// Execution context for simulation runs
@@ -120,29 +148,121 @@ impl Default for ResourceLimits {
     }
 }
 
-impl<T: RealField> SimulationOrchestrator<T> {
-    /// Create new orchestrator
-    pub fn new() -> Self {
-        Self {
-            solver_registry: HashMap::new(),
-            context: ExecutionContext::default(),
-            metrics: Arc::new(Mutex::new(PerformanceMetrics::default())),
-        }
+impl<T: RealField> ExecutionCoordinator<T> {
+    /// Create new execution coordinator
+    pub fn new(context: ExecutionContext<T>) -> Self {
+        Self { context }
     }
 
-    /// Register a solver type (simplified approach)
-    pub fn register_solver_type(&mut self, name: String, solver_type: String) -> Result<()> {
-        if self.solver_registry.contains_key(&name) {
-            return Err(Error::InvalidInput(format!("Solver '{}' already registered", name)));
-        }
-
-        self.solver_registry.insert(name, solver_type);
-        Ok(())
+    /// Get execution context
+    pub fn context(&self) -> &ExecutionContext<T> {
+        &self.context
     }
 
     /// Set execution context
     pub fn set_context(&mut self, context: ExecutionContext<T>) {
         self.context = context;
+    }
+}
+
+impl ResourceManager {
+    /// Create new resource manager
+    pub fn new() -> Self {
+        Self {
+            metrics: Arc::new(Mutex::new(PerformanceMetrics::default())),
+            memory_limit: None,
+            thread_pool_size: None,
+        }
+    }
+
+    /// Set memory limit
+    pub fn set_memory_limit(&mut self, limit: usize) {
+        self.memory_limit = Some(limit);
+    }
+
+    /// Set thread pool size
+    pub fn set_thread_pool_size(&mut self, size: usize) {
+        self.thread_pool_size = Some(size);
+    }
+
+    /// Get performance metrics
+    pub fn metrics(&self) -> Arc<Mutex<PerformanceMetrics>> {
+        Arc::clone(&self.metrics)
+    }
+}
+
+impl SolverRegistry {
+    /// Create new solver registry
+    pub fn new() -> Self {
+        Self {
+            solver_types: HashMap::new(),
+            capabilities: HashMap::new(),
+        }
+    }
+
+    /// Register a solver type
+    pub fn register_solver(&mut self, name: String, solver_type: String, capabilities: Vec<String>) -> Result<()> {
+        if self.solver_types.contains_key(&name) {
+            return Err(Error::InvalidInput(format!("Solver '{}' already registered", name)));
+        }
+
+        self.solver_types.insert(name.clone(), solver_type);
+        self.capabilities.insert(name, capabilities);
+        Ok(())
+    }
+
+    /// Get solver type
+    pub fn get_solver_type(&self, name: &str) -> Option<&str> {
+        self.solver_types.get(name).map(|s| s.as_str())
+    }
+
+    /// Get solver capabilities
+    pub fn get_capabilities(&self, name: &str) -> Option<&Vec<String>> {
+        self.capabilities.get(name)
+    }
+}
+
+impl<T: RealField> SimulationOrchestrator<T> {
+    /// Create new orchestrator following Dependency Injection
+    pub fn new() -> Self {
+        Self {
+            coordinator: ExecutionCoordinator::new(ExecutionContext::default()),
+            resource_manager: ResourceManager::new(),
+            solver_registry: SolverRegistry::new(),
+        }
+    }
+
+    /// Create orchestrator with custom components (Dependency Injection)
+    pub fn with_components(
+        coordinator: ExecutionCoordinator<T>,
+        resource_manager: ResourceManager,
+        solver_registry: SolverRegistry,
+    ) -> Self {
+        Self {
+            coordinator,
+            resource_manager,
+            solver_registry,
+        }
+    }
+
+    /// Register a solver type with capabilities
+    pub fn register_solver_type(&mut self, name: String, solver_type: String, capabilities: Vec<String>) -> Result<()> {
+        self.solver_registry.register_solver(name, solver_type, capabilities)
+    }
+
+    /// Set execution context
+    pub fn set_context(&mut self, context: ExecutionContext<T>) {
+        self.coordinator.set_context(context);
+    }
+
+    /// Get resource manager
+    pub fn resource_manager(&self) -> &ResourceManager {
+        &self.resource_manager
+    }
+
+    /// Get solver registry
+    pub fn solver_registry(&self) -> &SolverRegistry {
+        &self.solver_registry
     }
 
     /// Execute simulation with proper separation of concerns (simplified)
@@ -161,26 +281,27 @@ impl<T: RealField> SimulationOrchestrator<T> {
 
     /// Prepare execution environment (SOC: preparation logic)
     fn prepare_execution(&mut self) -> Result<()> {
-        self.context.start_time = Some(Instant::now());
+        self.coordinator.context.start_time = Some(Instant::now());
 
         // Validate resource limits
-        if let Some(max_memory) = self.context.resource_limits.max_memory {
+        if let Some(max_memory) = self.coordinator.context.resource_limits.max_memory {
             if max_memory == 0 {
                 return Err(Error::InvalidInput("Max memory must be positive".to_string()));
             }
         }
 
         // Initialize metrics
-        let mut metrics = self.metrics.lock().unwrap();
+        let metrics_arc = self.resource_manager.metrics();
+        let mut metrics = metrics_arc.lock().unwrap();
         *metrics = PerformanceMetrics::default();
 
-        tracing::info!("Simulation '{}' prepared for execution", self.context.name);
+        tracing::info!("Simulation '{}' prepared for execution", self.coordinator.context.name);
         Ok(())
     }
 
     /// Execute solver with monitoring (SOC: execution logic, simplified)
     fn execute_solver_by_name(&mut self, solver_name: &str) -> Result<String> {
-        let solver_type = self.solver_registry.get(solver_name)
+        let solver_type = self.solver_registry.get_solver_type(solver_name)
             .ok_or_else(|| Error::InvalidInput(format!("Solver '{}' not found", solver_name)))?;
 
         let start_time = Instant::now();
@@ -193,7 +314,8 @@ impl<T: RealField> SimulationOrchestrator<T> {
 
         // Record metrics
         let execution_time = start_time.elapsed();
-        let mut metrics = self.metrics.lock().unwrap();
+        let metrics_arc = self.resource_manager.metrics();
+        let mut metrics = metrics_arc.lock().unwrap();
         metrics.solver_times.insert(solver_name.to_string(), execution_time);
         metrics.total_time += execution_time;
 
@@ -203,21 +325,22 @@ impl<T: RealField> SimulationOrchestrator<T> {
 
     /// Finalize execution (SOC: cleanup logic)
     fn finalize_execution(&mut self) -> Result<()> {
-        let total_time = self.context.start_time
+        let total_time = self.coordinator.context.start_time
             .map(|start| start.elapsed())
             .unwrap_or_default();
 
-        let mut metrics = self.metrics.lock().unwrap();
+        let metrics_arc = self.resource_manager.metrics();
+        let mut metrics = metrics_arc.lock().unwrap();
         metrics.total_time = total_time;
 
-        tracing::info!("Simulation '{}' completed in {:?}", self.context.name, total_time);
+        tracing::info!("Simulation '{}' completed in {:?}", self.coordinator.context.name, total_time);
         Ok(())
     }
 
     /// Check resource limits (SOC: resource management)
     fn check_resource_limits(&self) -> Result<()> {
-        if let Some(max_duration) = self.context.max_duration {
-            if let Some(start_time) = self.context.start_time {
+        if let Some(max_duration) = self.coordinator.context.max_duration {
+            if let Some(start_time) = self.coordinator.context.start_time {
                 if start_time.elapsed() > max_duration {
                     return Err(Error::TimeoutError("Execution time limit exceeded".to_string()));
                 }
@@ -230,25 +353,40 @@ impl<T: RealField> SimulationOrchestrator<T> {
 
     /// Get registered solver types
     pub fn get_solver_types(&self) -> Vec<(&str, &str)> {
-        self.solver_registry.iter()
+        self.solver_registry.solver_types.iter()
             .map(|(name, solver_type)| (name.as_str(), solver_type.as_str()))
             .collect()
     }
 
     /// Get performance metrics
     pub fn get_metrics(&self) -> PerformanceMetrics {
-        self.metrics.lock().unwrap().clone()
+        let metrics_arc = self.resource_manager.metrics();
+        let result = metrics_arc.lock().unwrap().clone();
+        result
     }
 
     /// Reset orchestrator state
     pub fn reset(&mut self) {
-        self.context = ExecutionContext::default();
-        let mut metrics = self.metrics.lock().unwrap();
+        self.coordinator.set_context(ExecutionContext::default());
+        let metrics_arc = self.resource_manager.metrics();
+        let mut metrics = metrics_arc.lock().unwrap();
         *metrics = PerformanceMetrics::default();
     }
 }
 
 impl<T: RealField> Default for SimulationOrchestrator<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for ResourceManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for SolverRegistry {
     fn default() -> Self {
         Self::new()
     }
@@ -322,7 +460,7 @@ mod tests {
     #[test]
     fn test_orchestrator_creation() {
         let orchestrator = SimulationOrchestrator::<f64>::new();
-        assert_eq!(orchestrator.solver_registry.len(), 0);
-        assert_eq!(orchestrator.context.name, "default");
+        assert_eq!(orchestrator.solver_registry.solver_types.len(), 0);
+        assert_eq!(orchestrator.coordinator.context.name, "default");
     }
 }

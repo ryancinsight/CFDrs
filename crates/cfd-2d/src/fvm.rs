@@ -10,7 +10,7 @@
 //! The FVM approach ensures conservation of mass, momentum, and energy by
 //! integrating governing equations over control volumes.
 
-use cfd_core::{Result, BoundaryCondition};
+use cfd_core::{Result, BoundaryCondition, SolverConfiguration};
 use cfd_math::{SparseMatrixBuilder, LinearSolver, LinearSolverConfig, ConjugateGradient};
 use nalgebra::{DVector, RealField, Vector2};
 use num_traits::FromPrimitive;
@@ -20,26 +20,41 @@ use std::collections::HashMap;
 use crate::grid::{Grid2D, StructuredGrid2D, BoundaryType};
 
 /// Finite Volume Method solver configuration
+/// Uses unified SolverConfig as base to follow SSOT principle
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FvmConfig<T: RealField> {
-    /// Convergence tolerance
-    pub tolerance: T,
-    /// Maximum number of iterations
-    pub max_iterations: usize,
-    /// Under-relaxation factor for iterative methods
-    pub under_relaxation: T,
-    /// Enable verbose output
-    pub verbose: bool,
+    /// Base solver configuration (SSOT)
+    pub base: cfd_core::SolverConfig<T>,
 }
 
 impl<T: RealField + FromPrimitive> Default for FvmConfig<T> {
     fn default() -> Self {
-        Self {
-            tolerance: T::from_f64(1e-6).unwrap(),
-            max_iterations: 1000,
-            under_relaxation: T::from_f64(0.7).unwrap(),
-            verbose: false,
-        }
+        let mut base = cfd_core::SolverConfig::default();
+        // Set under-relaxation factor (0.7 is typical for FVM)
+        base.relaxation_factor = T::from_f64(0.7).unwrap();
+        Self { base }
+    }
+}
+
+impl<T: RealField> FvmConfig<T> {
+    /// Get tolerance from base configuration
+    pub fn tolerance(&self) -> T {
+        self.base.tolerance()
+    }
+
+    /// Get max iterations from base configuration
+    pub fn max_iterations(&self) -> usize {
+        self.base.max_iterations()
+    }
+
+    /// Get under-relaxation factor (same as relaxation factor)
+    pub fn under_relaxation(&self) -> T {
+        self.base.relaxation_factor()
+    }
+
+    /// Check if verbose output is enabled
+    pub fn verbose(&self) -> bool {
+        self.base.verbose()
     }
 }
 
@@ -133,13 +148,13 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
         // Solve the linear system using configuration parameters
         let matrix = matrix_builder.build()?;
         let mut solver_config = LinearSolverConfig::default();
-        solver_config.base.tolerance = self.config.tolerance.clone();
-        solver_config.base.max_iterations = self.config.max_iterations;
+        solver_config.base.tolerance = self.config.tolerance().clone();
+        solver_config.base.max_iterations = self.config.max_iterations();
 
         let solver = ConjugateGradient::new(solver_config);
         let solution_vector = solver.solve(&matrix, &rhs, None)?;
 
-        if self.config.verbose {
+        if self.config.verbose() {
             tracing::info!("FVM solver completed successfully");
         }
 

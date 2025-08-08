@@ -7,8 +7,23 @@ use crate::{Error, Result, Solver, SolverConfiguration};
 use nalgebra::RealField;
 use std::collections::HashMap;
 
-/// Factory trait for creating solvers based on GRASP Creator principle
-pub trait SolverFactory<T: RealField>: Send + Sync {
+/// Abstract factory trait following GRASP Creator principle
+/// Assigns creation responsibility to classes with initializing data
+/// Uses type erasure to avoid dyn compatibility issues
+pub trait AbstractSolverFactory<T: RealField>: Send + Sync {
+    /// Create a solver with the given configuration (simplified)
+    fn create_solver_simple(&self, name: &str) -> Result<String>;
+
+    /// Get factory name for identification
+    fn name(&self) -> &str;
+
+    /// Get supported problem types
+    fn supported_types(&self) -> Vec<&str>;
+}
+
+/// Concrete factory trait for type-safe creation
+/// Follows Open/Closed Principle - open for extension, closed for modification
+pub trait ConcreteSolverFactory<T: RealField>: Send + Sync {
     /// Solver type this factory creates
     type Solver: Solver<T>;
     /// Configuration type for the solver
@@ -22,6 +37,16 @@ pub trait SolverFactory<T: RealField>: Send + Sync {
 
     /// Check if this factory can create a solver for the given problem type
     fn can_handle(&self, problem_type: &str) -> bool;
+}
+
+/// Factory capability trait following Interface Segregation Principle
+/// Separates capability checking from creation
+pub trait FactoryCapability {
+    /// Check if factory supports the given capability
+    fn supports_capability(&self, capability: &str) -> bool;
+
+    /// Get all supported capabilities
+    fn capabilities(&self) -> Vec<&str>;
 }
 
 /// Simplified factory registry avoiding trait object issues
@@ -142,6 +167,7 @@ impl<T: RealField + num_traits::FromPrimitive> Builder<crate::SolverConfig<T>> f
             verbosity: self.verbosity.unwrap_or(1),
             parallel: self.parallel.unwrap_or(true),
             num_threads: None,
+            verbose: false,
         })
     }
 

@@ -6,7 +6,7 @@
 //! - Advection-diffusion equations
 //! - Navier-Stokes equations
 
-use cfd_core::{Error, Result};
+use cfd_core::{Error, Result, SolverConfiguration};
 use cfd_math::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
@@ -16,19 +16,11 @@ use std::collections::HashMap;
 use crate::grid::{Grid2D, StructuredGrid2D};
 
 /// Finite Difference Method solver configuration
-///
-/// Generic over T to support both f32 and f64 precision.
-/// Most CFD applications use f64 for numerical accuracy.
+/// Uses unified SolverConfig as base to follow SSOT principle
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FdmConfig<T: RealField> {
-    /// Convergence tolerance
-    pub tolerance: T,
-    /// Maximum number of iterations
-    pub max_iterations: usize,
-    /// Relaxation factor for iterative methods
-    pub relaxation_factor: T,
-    /// Enable verbose output
-    pub verbose: bool,
+    /// Base solver configuration (SSOT)
+    pub base: cfd_core::SolverConfig<T>,
 }
 
 /// Shared Gauss-Seidel linear solver implementation
@@ -44,7 +36,7 @@ fn solve_gauss_seidel<T: RealField + FromPrimitive>(
     let n = rhs.len();
     let mut solution: DVector<T> = DVector::zeros(n);
 
-    for iteration in 0..config.max_iterations {
+    for iteration in 0..config.max_iterations() {
         let mut max_residual = T::zero();
 
         for (row_idx, row) in matrix.row_iter().enumerate() {
@@ -77,16 +69,16 @@ fn solve_gauss_seidel<T: RealField + FromPrimitive>(
 
             // Apply relaxation
             solution[row_idx] = solution[row_idx].clone() +
-                              config.relaxation_factor.clone() *
+                              config.relaxation_factor().clone() *
                               (new_value - solution[row_idx].clone());
         }
 
-        if config.verbose && iteration % 100 == 0 {
+        if config.verbose() && iteration % 100 == 0 {
             println!("{} iteration {}: residual = {:?}", solver_name, iteration, max_residual);
         }
 
-        if max_residual < config.tolerance {
-            if config.verbose {
+        if max_residual < config.tolerance() {
+            if config.verbose() {
                 println!("{} converged in {} iterations", solver_name, iteration + 1);
             }
             return Ok(solution);
@@ -95,18 +87,37 @@ fn solve_gauss_seidel<T: RealField + FromPrimitive>(
 
     // Convergence failure
     Err(Error::InvalidConfiguration(
-        format!("{}: Failed to converge after {} iterations", solver_name, config.max_iterations)
+        format!("{}: Failed to converge after {} iterations", solver_name, config.max_iterations())
     ))
 }
 
 impl<T: RealField + FromPrimitive> Default for FdmConfig<T> {
     fn default() -> Self {
         Self {
-            tolerance: T::from_f64(1e-6).unwrap(),
-            max_iterations: 1000,
-            relaxation_factor: T::from_f64(1.0).unwrap(),
-            verbose: false,
+            base: cfd_core::SolverConfig::default(),
         }
+    }
+}
+
+impl<T: RealField> FdmConfig<T> {
+    /// Get tolerance from base configuration
+    pub fn tolerance(&self) -> T {
+        self.base.tolerance()
+    }
+
+    /// Get max iterations from base configuration
+    pub fn max_iterations(&self) -> usize {
+        self.base.max_iterations()
+    }
+
+    /// Get relaxation factor from base configuration
+    pub fn relaxation_factor(&self) -> T {
+        self.base.relaxation_factor()
+    }
+
+    /// Check if verbose output is enabled
+    pub fn verbose(&self) -> bool {
+        self.base.verbose()
     }
 }
 
@@ -413,12 +424,13 @@ mod tests {
 
         let source = HashMap::new(); // No source term
 
-        let config = FdmConfig {
-            tolerance: 1e-10,
-            max_iterations: 1000,
-            relaxation_factor: 1.0,
-            verbose: false,
-        };
+        let mut base = cfd_core::SolverConfig::default();
+        base.tolerance = 1e-10;
+        base.max_iterations = 1000;
+        base.relaxation_factor = 1.0;
+        base.verbose = false;
+
+        let config = FdmConfig { base };
 
         let solver = PoissonSolver::new(config);
         let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
@@ -456,12 +468,13 @@ mod tests {
             }
         }
 
-        let config = FdmConfig {
-            tolerance: 1e-10,
-            max_iterations: 2000,
-            relaxation_factor: 0.9,
-            verbose: false,
-        };
+        let mut base = cfd_core::SolverConfig::default();
+        base.tolerance = 1e-10;
+        base.max_iterations = 2000;
+        base.relaxation_factor = 0.9;
+        base.verbose = false;
+
+        let config = FdmConfig { base };
 
         let solver = PoissonSolver::new(config);
         let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
@@ -501,12 +514,13 @@ mod tests {
         let source = HashMap::new();
         let diffusivity = 1.0;
 
-        let config = FdmConfig {
-            tolerance: 1e-10,
-            max_iterations: 1000,
-            relaxation_factor: 1.0,
-            verbose: false,
-        };
+        let mut base = cfd_core::SolverConfig::default();
+        base.tolerance = 1e-10;
+        base.max_iterations = 1000;
+        base.relaxation_factor = 1.0;
+        base.verbose = false;
+
+        let config = FdmConfig { base };
 
         let solver = AdvectionDiffusionSolver::new(config);
         let solution = solver.solve_steady(
@@ -558,12 +572,13 @@ mod tests {
         let source = HashMap::new();
         let diffusivity = 0.01; // Small diffusivity
 
-        let config = FdmConfig {
-            tolerance: 1e-8,
-            max_iterations: 1000,
-            relaxation_factor: 0.8,
-            verbose: false,
-        };
+        let mut base = cfd_core::SolverConfig::default();
+        base.tolerance = 1e-8;
+        base.max_iterations = 1000;
+        base.relaxation_factor = 0.8;
+        base.verbose = false;
+
+        let config = FdmConfig { base };
 
         let solver = AdvectionDiffusionSolver::new(config);
         let solution = solver.solve_steady(

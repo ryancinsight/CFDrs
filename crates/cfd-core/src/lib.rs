@@ -11,6 +11,7 @@
 pub mod aggregates;
 pub mod boundary;
 pub mod domain;
+pub mod domains;
 pub mod error;
 pub mod factory;
 pub mod fluid;
@@ -31,12 +32,19 @@ pub use fluid::Fluid;
 pub use plugin::{Plugin, PluginRegistry, SimulationPlugin};
 pub use problem::Problem;
 pub use services::{FluidDynamicsService, MeshQualityService, FlowRegime, QualityLevel};
-pub use solver::{Solver, SolverConfiguration, SolverConfig, LinearSolverConfig, NetworkSolverConfig};
-pub use factory::{SolverFactory, SolverFactoryRegistry, Builder, ConfigurationBuilder, ResourceManager};
+pub use solver::{Solver, SolverConfiguration, Configurable, Validatable, IterativeSolver, DirectSolver, SolverConfig, LinearSolverConfig, NetworkSolverConfig};
+pub use factory::{AbstractSolverFactory, ConcreteSolverFactory, FactoryCapability, SolverFactoryRegistry, Builder, ConfigurationBuilder, ResourceManager};
 pub use orchestration::{SimulationOrchestrator, ExecutionContext, ExecutionContextBuilder, ExecutionMode, PerformanceMetrics};
 pub use state::SimulationState;
 pub use time::TimeIntegrator;
 pub use values::{ReynoldsNumber, Pressure, Velocity, Temperature, DimensionlessNumber};
+pub use domains::{
+    FlowField, VelocityField, PressureField, TurbulenceModel,
+    DiscretizationScheme, TimeIntegrationScheme, LinearSystemSolver,
+    MeshGeneration, MeshRefinement, MeshQuality,
+    BoundaryConditionType, BoundaryConditionApplicator,
+    FluidProperties, SolidProperties, InterfaceProperties
+};
 
 /// Core-specific prelude for internal use and advanced scenarios
 ///

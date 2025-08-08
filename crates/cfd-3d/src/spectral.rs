@@ -3,42 +3,59 @@
 //! This module provides high-order spectral methods for solving fluid dynamics
 //! problems with excellent accuracy for smooth solutions.
 
-use cfd_core::{Error, Result, BoundaryCondition};
+use cfd_core::{Error, Result, BoundaryCondition, SolverConfiguration};
 use nalgebra::{RealField, Vector3, DVector, DMatrix};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Spectral method configuration
+/// Uses unified SolverConfig as base to follow SSOT principle
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpectralConfig<T: RealField> {
+    /// Base solver configuration (SSOT)
+    pub base: cfd_core::SolverConfig<T>,
     /// Number of modes in x direction
     pub nx_modes: usize,
     /// Number of modes in y direction
     pub ny_modes: usize,
     /// Number of modes in z direction
     pub nz_modes: usize,
-    /// Convergence tolerance
-    pub tolerance: T,
-    /// Maximum iterations for nonlinear problems
-    pub max_iterations: usize,
     /// Time step for time-dependent problems
     pub dt: Option<T>,
-    /// Enable verbose output
-    pub verbose: bool,
 }
 
 impl<T: RealField + FromPrimitive> Default for SpectralConfig<T> {
     fn default() -> Self {
+        let mut base = cfd_core::SolverConfig::default();
+        // Spectral methods typically need higher precision
+        base.tolerance = T::from_f64(1e-8).unwrap();
+        base.max_iterations = 100;
+
         Self {
+            base,
             nx_modes: 32,
             ny_modes: 32,
             nz_modes: 32,
-            tolerance: T::from_f64(1e-8).unwrap(),
-            max_iterations: 100,
             dt: None,
-            verbose: false,
         }
+    }
+}
+
+impl<T: RealField> SpectralConfig<T> {
+    /// Get tolerance from base configuration
+    pub fn tolerance(&self) -> T {
+        self.base.tolerance()
+    }
+
+    /// Get max iterations from base configuration
+    pub fn max_iterations(&self) -> usize {
+        self.base.max_iterations()
+    }
+
+    /// Check if verbose output is enabled
+    pub fn verbose(&self) -> bool {
+        self.base.verbose()
     }
 }
 
@@ -132,7 +149,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
         // Solve the linear system
         let solution_coeffs = self.solve_linear_system(&modified_laplacian, &modified_rhs)?;
 
-        if self.config.verbose {
+        if self.config.verbose() {
             tracing::info!("Spectral Poisson solver completed successfully");
         }
 
@@ -438,8 +455,8 @@ mod tests {
         assert_eq!(config.nx_modes, 32);
         assert_eq!(config.ny_modes, 32);
         assert_eq!(config.nz_modes, 32);
-        assert!(config.tolerance > 0.0);
-        assert!(config.max_iterations > 0);
+        assert!(config.tolerance() > 0.0);
+        assert!(config.max_iterations() > 0);
     }
 
     #[test]

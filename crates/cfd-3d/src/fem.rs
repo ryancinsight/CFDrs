@@ -3,7 +3,7 @@
 //! This module provides FEM implementations for solving 3D fluid dynamics problems
 //! using various element types and numerical schemes.
 
-use cfd_core::{Error, Result};
+use cfd_core::{Error, Result, SolverConfiguration};
 use cfd_math::{LinearSolver, LinearSolverConfig, ConjugateGradient, SparseMatrixBuilder};
 use cfd_mesh::{Mesh, Cell};
 use nalgebra::{RealField, Vector3, DVector};
@@ -13,29 +13,41 @@ use std::collections::HashMap;
 use rayon::prelude::*;
 
 /// FEM solver configuration
+/// Uses unified SolverConfig as base to follow SSOT principle
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FemConfig<T: RealField> {
-    /// Convergence tolerance
-    pub tolerance: T,
-    /// Maximum number of iterations
-    pub max_iterations: usize,
+    /// Base solver configuration (SSOT)
+    pub base: cfd_core::SolverConfig<T>,
     /// Element type to use
     pub element_type: ElementType,
     /// Integration order
     pub integration_order: usize,
-    /// Enable verbose output
-    pub verbose: bool,
 }
 
 impl<T: RealField + FromPrimitive> Default for FemConfig<T> {
     fn default() -> Self {
         Self {
-            tolerance: T::from_f64(1e-6).unwrap(),
-            max_iterations: 1000,
+            base: cfd_core::SolverConfig::default(),
             element_type: ElementType::Tetrahedron4,
             integration_order: 2,
-            verbose: false,
         }
+    }
+}
+
+impl<T: RealField> FemConfig<T> {
+    /// Get tolerance from base configuration
+    pub fn tolerance(&self) -> T {
+        self.base.tolerance()
+    }
+
+    /// Get max iterations from base configuration
+    pub fn max_iterations(&self) -> usize {
+        self.base.max_iterations()
+    }
+
+    /// Check if verbose output is enabled
+    pub fn verbose(&self) -> bool {
+        self.base.verbose()
     }
 }
 
@@ -250,13 +262,13 @@ impl<T: RealField + FromPrimitive + Send + Sync> FemSolver<T> {
         // Solve the linear system
         let matrix = matrix_builder.build()?;
         let mut solver_config = LinearSolverConfig::default();
-        solver_config.base.tolerance = self.config.tolerance.clone();
-        solver_config.base.max_iterations = self.config.max_iterations;
+        solver_config.base.tolerance = self.config.tolerance().clone();
+        solver_config.base.max_iterations = self.config.max_iterations();
 
         let solver = ConjugateGradient::new(solver_config);
         let solution_vector = solver.solve(&matrix, &rhs, None)?;
 
-        if self.config.verbose {
+        if self.config.verbose() {
             tracing::info!("FEM Stokes solver completed successfully");
         }
 

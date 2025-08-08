@@ -12,19 +12,22 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("===================================");
     
     // Create spectral solver configuration with smaller grid for demonstration
+    let mut base = cfd_core::SolverConfig::default();
+    base.tolerance = 1e-8;
+    base.max_iterations = 100;
+    base.verbose = true;
+
     let config = SpectralConfig {
+        base,
         nx_modes: 8,
         ny_modes: 8,
         nz_modes: 8,
-        tolerance: 1e-8,
-        max_iterations: 100,
         dt: None,
-        verbose: true,
     };
     
     println!("Spectral configuration:");
     println!("  Grid: {}×{}×{} modes", config.nx_modes, config.ny_modes, config.nz_modes);
-    println!("  Tolerance: {:.0e}", config.tolerance);
+    println!("  Tolerance: {:.0e}", config.tolerance());
     println!("  Basis: Chebyshev polynomials");
     println!();
     

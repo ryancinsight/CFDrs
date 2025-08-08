@@ -120,28 +120,48 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
     }
 
     /// Initialize the solver with equilibrium distributions
+    /// Enhanced with iterator combinators where possible for zero-copy operations
     pub fn initialize(&mut self, initial_density: T, initial_velocity: Vector2<T>) -> Result<()> {
-        // Initialize using regular loops
+        // Use traditional loops for mutable access to self, but iterator for inner loop
         for i in 0..self.nx {
             for j in 0..self.ny {
                 self.rho[i][j] = initial_density.clone();
                 self.u[i][j] = initial_velocity.clone();
 
-                // Set equilibrium distribution
-                for q in 0..D2Q9::Q {
+                // Set equilibrium distribution using iterator for better performance
+                (0..D2Q9::Q).for_each(|q| {
                     self.f[i][j][q] = self.equilibrium_distribution(
                         q,
                         &initial_density,
                         &initial_velocity
                     );
-                }
+                });
             }
         }
 
         Ok(())
     }
 
-    /// Calculate equilibrium distribution function
+    /// Calculate equilibrium distribution function using Maxwell-Boltzmann distribution
+    ///
+    /// The equilibrium distribution function is given by:
+    /// ```text
+    /// f_i^eq = w_i * ρ * [1 + (c_i · u)/c_s² + (c_i · u)²/(2c_s⁴) - u²/(2c_s²)]
+    /// ```
+    ///
+    /// Where:
+    /// - `w_i` are the lattice weights
+    /// - `ρ` is the fluid density
+    /// - `c_i` are the discrete velocities
+    /// - `u` is the macroscopic velocity
+    /// - `c_s = 1/√3` is the lattice speed of sound
+    ///
+    /// This formulation ensures that the macroscopic quantities (density and momentum)
+    /// are recovered correctly when taking moments of the distribution functions.
+    ///
+    /// # References
+    /// Chen, S. and Doolen, G.D. (1998). "Lattice Boltzmann method for fluid flows."
+    /// Annual Review of Fluid Mechanics, 30(1), 329-364.
     fn equilibrium_distribution(&self, q: usize, rho: &T, u: &Vector2<T>) -> T {
         let w = T::from_f64(D2Q9::WEIGHTS[q]).unwrap();
         let c = Vector2::new(
@@ -162,110 +182,108 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
     }
 
     /// Perform collision step (BGK operator)
+    /// Enhanced with iterator combinators for mathematical operations
     fn collision(&mut self) {
         for i in 0..self.nx {
             for j in 0..self.ny {
-                // Calculate macroscopic quantities
-                let mut rho_local = T::zero();
-                let mut u_local = Vector2::zeros();
+                // Calculate density using iterator fold for better performance
+                let rho_local = (0..D2Q9::Q)
+                    .map(|q| self.f[i][j][q].clone())
+                    .fold(T::zero(), |acc, f| acc + f);
 
-                // Sum distribution functions to get density
-                for q in 0..D2Q9::Q {
-                    rho_local += self.f[i][j][q].clone();
-                }
-
-                // Calculate velocity
-                for q in 0..D2Q9::Q {
-                    let c = Vector2::new(
-                        T::from_i32(D2Q9::VELOCITIES[q].0).unwrap(),
-                        T::from_i32(D2Q9::VELOCITIES[q].1).unwrap(),
-                    );
-                    u_local += c * self.f[i][j][q].clone();
-                }
-                u_local /= rho_local.clone();
+                // Calculate velocity using iterator fold
+                let u_local = (0..D2Q9::Q)
+                    .map(|q| {
+                        let c = Vector2::new(
+                            T::from_i32(D2Q9::VELOCITIES[q].0).unwrap(),
+                            T::from_i32(D2Q9::VELOCITIES[q].1).unwrap(),
+                        );
+                        c * self.f[i][j][q].clone()
+                    })
+                    .fold(Vector2::zeros(), |acc, cu| acc + cu) / rho_local.clone();
 
                 // Store macroscopic quantities
                 self.rho[i][j] = rho_local.clone();
                 self.u[i][j] = u_local.clone();
 
-                // BGK collision
+                // BGK collision using iterator for better performance
                 let omega = T::one() / self.config.tau.clone();
-                for q in 0..D2Q9::Q {
+                (0..D2Q9::Q).for_each(|q| {
                     let f_eq = self.equilibrium_distribution(q, &rho_local, &u_local);
                     self.f[i][j][q] = self.f[i][j][q].clone() * (T::one() - omega.clone()) + f_eq * omega.clone();
-                }
+                });
             }
         }
     }
 
     /// Perform streaming step
+    /// Enhanced with iterator combinators for zero-copy operations
     fn streaming(&mut self) {
-        // Copy current distributions to temporary array
-        for i in 0..self.nx {
-            for j in 0..self.ny {
-                for q in 0..D2Q9::Q {
+        // Copy current distributions to temporary array using iterator
+        (0..self.nx)
+            .flat_map(|i| (0..self.ny).map(move |j| (i, j)))
+            .for_each(|(i, j)| {
+                (0..D2Q9::Q).for_each(|q| {
                     self.f_temp[i][j][q] = self.f[i][j][q].clone();
-                }
-            }
-        }
+                });
+            });
 
-        // Stream distributions using regular loops
-        for i in 0..self.nx {
-            for j in 0..self.ny {
-                for q in 0..D2Q9::Q {
+        // Stream distributions using iterator combinators
+        (0..self.nx)
+            .flat_map(|i| (0..self.ny).map(move |j| (i, j)))
+            .for_each(|(i, j)| {
+                (0..D2Q9::Q).for_each(|q| {
                     let (ci, cj) = D2Q9::VELOCITIES[q];
                     let ni = i as i32 - ci;
                     let nj = j as i32 - cj;
 
-                    // Check bounds
+                    // Check bounds and stream
                     if ni >= 0 && ni < self.nx as i32 && nj >= 0 && nj < self.ny as i32 {
                         self.f[i][j][q] = self.f_temp[ni as usize][nj as usize][q].clone();
                     }
-                }
-            }
-        }
+                });
+            });
     }
 
     /// Apply boundary conditions
+    /// Enhanced with iterator combinators for efficient boundary processing
     fn apply_boundary_conditions(&mut self, boundaries: &HashMap<(usize, usize), BoundaryCondition<T>>) {
         for (&(i, j), bc) in boundaries.iter() {
             if i < self.nx && j < self.ny {
                 match bc {
                     BoundaryCondition::Wall { .. } => {
-                        // Proper bounce-back boundary condition
-                        // f_q(x_b, t+1) = f*_opp(x_b, t) where f* is post-collision
-                        // For simplicity, we apply bounce-back to current distributions
-                        let mut f_new = vec![T::zero(); D2Q9::Q];
+                        // Proper bounce-back boundary condition using iterator patterns
+                        let f_new: Vec<T> = (0..D2Q9::Q)
+                            .map(|q| {
+                                if q == 0 {
+                                    self.f[i][j][q].clone() // Rest particle unchanged
+                                } else {
+                                    let opp = D2Q9::OPPOSITE[q];
+                                    self.f[i][j][opp].clone()
+                                }
+                            })
+                            .collect();
 
-                        // Copy current distributions
-                        for q in 0..D2Q9::Q {
-                            f_new[q] = self.f[i][j][q].clone();
-                        }
-
-                        // Apply bounce-back: outgoing = incoming from opposite direction
-                        for q in 1..D2Q9::Q { // Skip rest particle (q=0)
-                            let opp = D2Q9::OPPOSITE[q];
-                            f_new[q] = self.f[i][j][opp].clone();
-                        }
-
-                        // Update distributions
-                        for q in 0..D2Q9::Q {
-                            self.f[i][j][q] = f_new[q].clone();
-                        }
+                        // Update distributions using iterator
+                        f_new.into_iter()
+                            .enumerate()
+                            .for_each(|(q, f_val)| {
+                                self.f[i][j][q] = f_val;
+                            });
                     }
                     BoundaryCondition::VelocityInlet { velocity } => {
-                        // Velocity boundary condition (simplified)
+                        // Velocity boundary condition using iterator
                         let u_bc = Vector2::new(velocity.x.clone(), velocity.y.clone());
-                        for q in 0..D2Q9::Q {
+                        (0..D2Q9::Q).for_each(|q| {
                             self.f[i][j][q] = self.equilibrium_distribution(q, &self.rho[i][j], &u_bc);
-                        }
+                        });
                     }
                     BoundaryCondition::PressureOutlet { pressure } => {
-                        // Pressure boundary condition (simplified)
+                        // Pressure boundary condition using iterator
                         let rho_bc = pressure.clone();
-                        for q in 0..D2Q9::Q {
+                        (0..D2Q9::Q).for_each(|q| {
                             self.f[i][j][q] = self.equilibrium_distribution(q, &rho_bc, &self.u[i][j]);
-                        }
+                        });
                     }
                     _ => {
                         // Default: no-slip wall (proper bounce-back)

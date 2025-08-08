@@ -8,26 +8,45 @@ use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use std::fmt::Debug;
 
-/// Main solver trait for CFD simulations following Dependency Inversion Principle
+/// Core solver trait following Single Responsibility Principle
+/// Focused solely on solving problems
 pub trait Solver<T: RealField>: Send + Sync {
     /// Problem type this solver can handle
     type Problem: Problem<T>;
     /// Solution type produced by this solver
     type Solution;
-    /// Configuration type for this solver
-    type Config: SolverConfiguration<T>;
 
     /// Solve the given problem
     fn solve(&mut self, problem: &Self::Problem) -> Result<Self::Solution>;
 
-    /// Get solver name
+    /// Get solver name for identification
     fn name(&self) -> &str;
+}
+
+/// Configuration management trait following Interface Segregation Principle
+/// Separated from core solving functionality
+pub trait Configurable<T: RealField> {
+    /// Configuration type for this solver
+    type Config: SolverConfiguration<T>;
 
     /// Get solver configuration
     fn config(&self) -> &Self::Config;
 
     /// Set solver configuration
     fn set_config(&mut self, config: Self::Config);
+}
+
+/// Validation trait following Single Responsibility Principle
+/// Separated validation concerns from solving
+pub trait Validatable<T: RealField> {
+    /// Problem type to validate
+    type Problem: Problem<T>;
+
+    /// Validate problem before solving
+    fn validate_problem(&self, problem: &Self::Problem) -> Result<()>;
+
+    /// Check if solver can handle this problem type
+    fn can_handle(&self, problem: &Self::Problem) -> bool;
 }
 
 /// Base solver configuration trait following Interface Segregation Principle
@@ -43,13 +62,14 @@ pub trait SolverConfiguration<T: RealField>: Clone + Send + Sync {
 }
 
 /// Common solver configuration implementing the base trait
-#[derive(Debug, Clone)]
+/// This serves as the Single Source of Truth for all solver configurations
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SolverConfig<T: RealField> {
     /// Convergence tolerance
     pub tolerance: T,
     /// Maximum number of iterations
     pub max_iterations: usize,
-    /// Relaxation factor
+    /// Relaxation factor (also used as under-relaxation in FVM)
     pub relaxation_factor: T,
     /// Verbosity level (0 = silent, 1 = summary, 2 = detailed)
     pub verbosity: u8,
@@ -57,6 +77,8 @@ pub struct SolverConfig<T: RealField> {
     pub parallel: bool,
     /// Number of threads (None = use all available)
     pub num_threads: Option<usize>,
+    /// Enable verbose output (legacy compatibility)
+    pub verbose: bool,
 }
 
 impl<T: RealField> SolverConfiguration<T> for SolverConfig<T> {
@@ -69,11 +91,23 @@ impl<T: RealField> SolverConfiguration<T> for SolverConfig<T> {
     }
 
     fn verbosity(&self) -> u8 {
-        self.verbosity
+        if self.verbose { 2 } else { self.verbosity }
     }
 
     fn parallel(&self) -> bool {
         self.parallel
+    }
+}
+
+impl<T: RealField> SolverConfig<T> {
+    /// Get relaxation factor (also serves as under-relaxation factor)
+    pub fn relaxation_factor(&self) -> T {
+        self.relaxation_factor.clone()
+    }
+
+    /// Check if verbose output is enabled (legacy compatibility)
+    pub fn verbose(&self) -> bool {
+        self.verbose || self.verbosity >= 2
     }
 }
 
@@ -86,6 +120,7 @@ impl<T: RealField + FromPrimitive> Default for SolverConfig<T> {
             verbosity: 1,
             parallel: true,
             num_threads: None,
+            verbose: false,
         }
     }
 }
@@ -249,7 +284,7 @@ impl<T: RealField> SolverConfigBuilder<T> {
 }
 
 /// Iterative solver trait with iterator-based convergence
-pub trait IterativeSolver<T: RealField>: Solver<T> 
+pub trait IterativeSolver<T: RealField>: Solver<T> + Configurable<T>
 where
     Self::Solution: Clone,
 {
@@ -343,7 +378,7 @@ where
 }
 
 /// Direct solver trait with lazy evaluation
-pub trait DirectSolver<T: RealField>: Solver<T> {
+pub trait DirectSolver<T: RealField>: Solver<T> + Configurable<T> {
     /// Matrix assembly iterator
     type MatrixIterator: Iterator<Item = MatrixEntry<T>>;
 
