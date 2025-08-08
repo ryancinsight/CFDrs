@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Use advanced mathematical operations
     use cfd_math::SliceOps;
-    let mean_re = re_values.iter().sum::<f64>() / re_values.len() as f64;
+    let mean_re = re_values.iter().cloned().mean().unwrap_or(0.0);
     let max_re = re_values.iter().fold(0.0, |acc, &x| acc.max(x));
 
     println!("\nStatistical Analysis:");
