@@ -380,16 +380,16 @@ where
 
         // Use iterator-based approach with scan for stateful iteration
         let result = (0..max_iterations)
-            .scan(initial, |current_solution, iter| {
-                let mut state = self.create_iteration_state(current_solution.clone());
+            .scan(&mut initial, |current_solution, iter| {
+                let mut state = self.create_iteration_state(current_solution);
                 match state.iterate() {
                     Ok((solution, residual)) => {
                         if verbosity >= 2 {
                             tracing::debug!("Iteration {}: residual = {:?}", iter + 1, residual);
                         }
 
-                        *current_solution = solution.clone();
-                        Some(Ok((iter + 1, solution, residual)))
+                        *current_solution = solution;
+                        Some(Ok((iter + 1, current_solution.clone(), residual)))
                     }
                     Err(e) => Some(Err(e)),
                 }
