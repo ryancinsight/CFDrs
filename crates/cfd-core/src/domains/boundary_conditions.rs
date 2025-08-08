@@ -206,21 +206,58 @@ pub mod applicators {
 }
 
 /// Time-dependent boundary condition evaluator
-pub struct TimeDependentEvaluator<T: RealField> {
-    /// Cached function evaluations
-    cache: HashMap<String, T>,
+/// Provides functionality for evaluating time-varying boundary conditions
+pub struct TimeDependentEvaluator<T: RealField + num_traits::Float> {
+    /// Function registry for time-dependent evaluations
+    functions: HashMap<String, Box<dyn Fn(T) -> T + Send + Sync>>,
 }
 
-impl<T: RealField> TimeDependentEvaluator<T> {
+impl<T: RealField + num_traits::Float> TimeDependentEvaluator<T> {
     /// Create new evaluator
     pub fn new() -> Self {
         Self {
-            cache: HashMap::new(),
+            functions: HashMap::new(),
         }
     }
+
+    /// Register a time-dependent function
+    pub fn register_function<F>(&mut self, name: String, func: F)
+    where
+        F: Fn(T) -> T + Send + Sync + 'static,
+    {
+        self.functions.insert(name, Box::new(func));
+    }
+
+    /// Evaluate a registered function at given time
+    pub fn evaluate(&self, name: &str, time: T) -> Option<T> {
+        self.functions.get(name).map(|f| f(time))
+    }
+
+    /// Register common time-dependent functions
+    pub fn register_common_functions(&mut self) {
+        // Sinusoidal function: sin(ωt)
+        self.register_function("sin".to_string(), |t| {
+            num_traits::Float::sin(t)
+        });
+
+        // Exponential decay: exp(-t)
+        self.register_function("exp_decay".to_string(), |t| {
+            num_traits::Float::exp(-t)
+        });
+
+        // Step function: H(t-1) where H is Heaviside
+        self.register_function("step".to_string(), |t| {
+            if t >= T::one() { T::one() } else { T::zero() }
+        });
+
+        // Ramp function: max(0, t)
+        self.register_function("ramp".to_string(), |t| {
+            if t >= T::zero() { t } else { T::zero() }
+        });
+    }
     
-    /// Evaluate time-dependent function
-    pub fn evaluate(&mut self, spec: &TimeDependentSpec<T>, time: T) -> T {
+    /// Evaluate time-dependent specification
+    pub fn evaluate_spec(&mut self, spec: &TimeDependentSpec<T>, time: T) -> T {
         match spec.function_type {
             TimeFunctionType::Constant => {
                 spec.parameters.first().cloned().unwrap_or_else(T::zero)
@@ -269,8 +306,6 @@ impl<T: RealField> TimeDependentEvaluator<T> {
 pub struct BoundaryConditionsService<T: RealField> {
     /// Available applicators
     applicators: HashMap<String, Box<dyn BoundaryConditionApplicator<T>>>,
-    /// Time-dependent evaluator
-    evaluator: TimeDependentEvaluator<T>,
     /// Boundary regions
     regions: HashMap<String, BoundaryRegion<T>>,
 }
@@ -280,7 +315,6 @@ impl<T: RealField> BoundaryConditionsService<T> {
     pub fn new() -> Self {
         let mut service = Self {
             applicators: HashMap::new(),
-            evaluator: TimeDependentEvaluator::new(),
             regions: HashMap::new(),
         };
         
@@ -347,7 +381,7 @@ impl<T: RealField> Default for BoundaryConditionsService<T> {
     }
 }
 
-impl<T: RealField> Default for TimeDependentEvaluator<T> {
+impl<T: RealField + num_traits::Float> Default for TimeDependentEvaluator<T> {
     fn default() -> Self {
         Self::new()
     }

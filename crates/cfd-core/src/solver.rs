@@ -61,18 +61,18 @@ pub trait SolverConfiguration<T: RealField>: Clone + Send + Sync {
     fn parallel(&self) -> bool;
 }
 
-/// Common solver configuration implementing the base trait
-/// This serves as the Single Source of Truth for all solver configurations
+/// Convergence configuration following Single Responsibility Principle
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct SolverConfig<T: RealField> {
+pub struct ConvergenceConfig<T: RealField> {
     /// Convergence tolerance
     pub tolerance: T,
     /// Maximum number of iterations
     pub max_iterations: usize,
-    /// Relaxation factor (also used as under-relaxation in FVM)
-    pub relaxation_factor: T,
-    /// Verbosity level (0 = silent, 1 = summary, 2 = detailed)
-    pub verbosity: u8,
+}
+
+/// Execution configuration following Single Responsibility Principle
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ExecutionConfig {
     /// Use parallel execution
     pub parallel: bool,
     /// Number of threads (None = use all available)
@@ -81,8 +81,8 @@ pub struct SolverConfig<T: RealField> {
     pub verbosity: u8,
 }
 
-/// Numerical method configuration
-#[derive(Debug, Clone)]
+/// Numerical method configuration following Single Responsibility Principle
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct NumericalConfig<T: RealField> {
     /// Relaxation factor for iterative methods
     pub relaxation_factor: T,
@@ -91,7 +91,8 @@ pub struct NumericalConfig<T: RealField> {
 }
 
 /// Unified solver configuration using composition over inheritance
-#[derive(Debug, Clone)]
+/// This serves as the Single Source of Truth for all solver configurations
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SolverConfig<T: RealField> {
     /// Convergence parameters
     pub convergence: ConvergenceConfig<T>,
@@ -111,23 +112,33 @@ impl<T: RealField> SolverConfiguration<T> for SolverConfig<T> {
     }
 
     fn verbosity(&self) -> u8 {
-        if self.verbose { 2 } else { self.verbosity }
+        self.execution.verbosity
     }
 
     fn parallel(&self) -> bool {
-        self.parallel
+        self.execution.parallel
     }
 }
 
 impl<T: RealField> SolverConfig<T> {
     /// Get relaxation factor (also serves as under-relaxation factor)
     pub fn relaxation_factor(&self) -> T {
-        self.relaxation_factor.clone()
+        self.numerical.relaxation_factor.clone()
+    }
+
+    /// Get under-relaxation factor if set
+    pub fn under_relaxation(&self) -> Option<T> {
+        self.numerical.under_relaxation.clone()
+    }
+
+    /// Get number of threads
+    pub fn num_threads(&self) -> Option<usize> {
+        self.execution.num_threads
     }
 
     /// Check if verbose output is enabled (legacy compatibility)
     pub fn verbose(&self) -> bool {
-        self.verbose || self.verbosity >= 2
+        self.execution.verbosity >= 2
     }
 }
 
@@ -145,7 +156,26 @@ impl Default for ExecutionConfig {
         Self {
             parallel: true,
             num_threads: None,
-            verbose: false,
+            verbosity: 0,
+        }
+    }
+}
+
+impl<T: RealField + FromPrimitive> Default for NumericalConfig<T> {
+    fn default() -> Self {
+        Self {
+            relaxation_factor: T::from_f64(1.0).unwrap(),
+            under_relaxation: None,
+        }
+    }
+}
+
+impl<T: RealField + FromPrimitive> Default for SolverConfig<T> {
+    fn default() -> Self {
+        Self {
+            convergence: ConvergenceConfig::default(),
+            execution: ExecutionConfig::default(),
+            numerical: NumericalConfig::default(),
         }
     }
 }
@@ -192,7 +222,7 @@ impl<T: RealField> LinearSolverConfig<T> {
 
     /// Get relaxation factor from base configuration
     pub fn relaxation_factor(&self) -> T {
-        self.base.numerical.relaxation_factor.clone()
+        self.base.relaxation_factor()
     }
 }
 
@@ -236,12 +266,12 @@ impl<T: RealField> SolverConfiguration<T> for NetworkSolverConfig<T> {
 impl<T: RealField> NetworkSolverConfig<T> {
     /// Get relaxation factor from base configuration
     pub fn relaxation_factor(&self) -> T {
-        self.base.numerical.relaxation_factor.clone()
+        self.base.relaxation_factor()
     }
 
     /// Get under-relaxation factor if set
     pub fn under_relaxation(&self) -> Option<T> {
-        self.base.numerical.under_relaxation.clone()
+        self.base.under_relaxation()
     }
 }
 
@@ -258,21 +288,6 @@ impl<T: RealField> SolverConfig<T> {
     /// Builder pattern for configuration
     pub fn builder() -> SolverConfigBuilder<T> {
         SolverConfigBuilder::default()
-    }
-
-    /// Get relaxation factor
-    pub fn relaxation_factor(&self) -> T {
-        self.numerical.relaxation_factor.clone()
-    }
-
-    /// Get under-relaxation factor if set
-    pub fn under_relaxation(&self) -> Option<T> {
-        self.numerical.under_relaxation.clone()
-    }
-
-    /// Get number of threads
-    pub fn num_threads(&self) -> Option<usize> {
-        self.execution.num_threads
     }
 }
 
@@ -391,16 +406,17 @@ where
         let verbosity = config.verbosity();
 
         // Use iterator-based approach with scan for stateful iteration
+        let mut current_solution = initial;
         let result = (0..max_iterations)
-            .scan(&mut initial, |current_solution, iter| {
-                let mut state = self.create_iteration_state(current_solution);
+            .scan((), |_, iter| {
+                let mut state = self.create_iteration_state(current_solution.clone());
                 match state.iterate() {
                     Ok((solution, residual)) => {
                         if verbosity >= 2 {
                             tracing::debug!("Iteration {}: residual = {:?}", iter + 1, residual);
                         }
 
-                        *current_solution = solution;
+                        current_solution = solution;
                         Some(Ok((iter + 1, current_solution.clone(), residual)))
                     }
                     Err(e) => Some(Err(e)),
@@ -709,11 +725,11 @@ mod tests {
             .parallel(false)
             .build();
 
-        assert_eq!(config.convergence.tolerance, 1e-8);
-        assert_eq!(config.convergence.max_iterations, 500);
-        assert_eq!(config.numerical.relaxation_factor, 0.9);
-        assert_eq!(config.execution.verbosity, 2);
-        assert!(!config.execution.parallel);
+        assert_eq!(config.tolerance(), 1e-8);
+        assert_eq!(config.max_iterations(), 500);
+        assert_eq!(config.relaxation_factor(), 0.9);
+        assert_eq!(config.verbosity(), 2);
+        assert!(!config.parallel());
     }
 
     #[test]

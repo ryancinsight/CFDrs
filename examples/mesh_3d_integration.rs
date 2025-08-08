@@ -80,13 +80,15 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         }
     }
     
-    // Import mesh (placeholder functionality)
-    let empty_data = vec![];
-    match stl_adapter.import_mesh(&empty_data) {
+    // Import mesh using unit tetrahedron as test data
+    let test_mesh = stl_adapter.create_unit_tetrahedron()?;
+    let exported_data = stl_adapter.export_mesh(&test_mesh)?;
+
+    match stl_adapter.import_mesh(&exported_data) {
         Ok(imported_mesh) => {
             println!("Mesh import successful:");
             println!("  Imported vertices: {}", imported_mesh.vertices.len());
-            println!("  Imported cells: {}", imported_mesh.cells.len());
+            println!("  Imported faces: {}", imported_mesh.faces.len());
         }
         Err(e) => {
             println!("Mesh import failed: {}", e);
@@ -102,8 +104,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         Ok(csg_mesh) => {
             println!("CSG mesh generation successful:");
             println!("  Generated vertices: {}", csg_mesh.vertices.len());
-            println!("  Generated cells: {}", csg_mesh.cells.len());
-            println!("  Note: This is a placeholder implementation");
+            println!("  Generated faces: {}", csg_mesh.faces.len());
+            println!("  Note: CSG generates surface meshes (icosahedron approximation)");
         }
         Err(e) => {
             println!("CSG mesh generation failed: {}", e);

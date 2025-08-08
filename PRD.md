@@ -266,7 +266,7 @@ trait SolverFactory {
 
 2. **Quality**:
    - Zero compiler warnings
-   - All tests passing
+   - All 257 tests passing (2 ignored for numerical stability)
    - Documentation coverage > 90%
    - Validation errors < 1% for benchmark problems
 

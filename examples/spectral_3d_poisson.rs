@@ -12,10 +12,11 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("===================================");
     
     // Create spectral solver configuration with smaller grid for demonstration
-    let mut base = cfd_core::SolverConfig::default();
-    base.tolerance = 1e-8;
-    base.max_iterations = 100;
-    base.verbose = true;
+    let base = cfd_core::SolverConfig::<f64>::builder()
+        .tolerance(1e-8)
+        .max_iterations(100)
+        .verbosity(2) // verbose = true means verbosity level 2
+        .build();
 
     let config = SpectralConfig {
         base,

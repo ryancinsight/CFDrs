@@ -3,7 +3,7 @@
 //! This module provides exact analytical solutions for various fluid flow problems
 //! that can be used to validate numerical CFD solvers.
 
-// use cfd_core::Result; // TODO: Use when needed
+// Result type available from cfd_core when needed
 use nalgebra::{RealField, Vector3};
 use num_traits::cast::FromPrimitive;
 use std::f64::consts::PI;

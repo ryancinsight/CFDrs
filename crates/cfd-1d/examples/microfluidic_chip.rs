@@ -9,7 +9,7 @@
 //!
 //! Run with: cargo run --example microfluidic_chip
 
-use cfd_1d::{NetworkBuilder, NetworkSolver, SolverConfig};
+use cfd_1d::{NetworkBuilder, NetworkSolver};
 use cfd_core::Fluid;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -38,11 +38,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   - Edges: {}", network.edge_count());
     println!("   - Fluid: {}", network.fluid().name);
 
-    // Create solver with custom configuration
-    let mut solver_config = SolverConfig::default();
-    solver_config.base.max_iterations = 1000;
-    solver_config.base.tolerance = 1e-6;
-    solver_config.verbose = true;
+    // Create solver with custom configuration using builder pattern
+    let solver_config = cfd_core::SolverConfig::<f64>::builder()
+        .max_iterations(1000)
+        .tolerance(1e-6)
+        .verbosity(2) // verbose = true means verbosity level 2
+        .build_network(true);
     
     let solver = NetworkSolver::with_config(solver_config);
 

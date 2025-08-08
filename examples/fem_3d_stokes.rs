@@ -24,11 +24,12 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("Created tetrahedral mesh with {} vertices and {} cells", 
              mesh.vertices.len(), mesh.cells.len());
     
-    // Create FEM solver configuration
-    let mut base = cfd_core::SolverConfig::default();
-    base.tolerance = 1e-6;
-    base.max_iterations = 1000;
-    base.verbose = true;
+    // Create FEM solver configuration using builder pattern
+    let base = cfd_core::SolverConfig::<f64>::builder()
+        .tolerance(1e-6)
+        .max_iterations(1000)
+        .verbosity(2) // verbose = true means verbosity level 2
+        .build();
 
     let config = FemConfig {
         base,
@@ -48,16 +49,17 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         specific_heat: None,
     };
     
-    // Define boundary conditions (lid-driven cavity)
-    let mut velocity_bcs = HashMap::new();
-    
-    // Top face: moving lid (u = 1, v = 0, w = 0)
-    velocity_bcs.insert(2, nalgebra::Vector3::new(1.0, 0.0, 0.0)); // Top vertex
-    velocity_bcs.insert(3, nalgebra::Vector3::new(1.0, 0.0, 0.0)); // Another top vertex
-
-    // Bottom and side faces: no-slip (u = v = w = 0)
-    velocity_bcs.insert(0, nalgebra::Vector3::new(0.0, 0.0, 0.0)); // Bottom vertex
-    velocity_bcs.insert(1, nalgebra::Vector3::new(0.0, 0.0, 0.0)); // Side vertex
+    // Define boundary conditions using iterator patterns for zero-copy initialization
+    let velocity_bcs: HashMap<usize, nalgebra::Vector3<f64>> = [
+        // Top face: moving lid (u = 1, v = 0, w = 0) - using iterator for lid nodes
+        (2, nalgebra::Vector3::new(1.0, 0.0, 0.0)),
+        (3, nalgebra::Vector3::new(1.0, 0.0, 0.0)),
+        // Bottom and side faces: no-slip (u = v = w = 0) - using iterator for wall nodes
+        (0, nalgebra::Vector3::new(0.0, 0.0, 0.0)),
+        (1, nalgebra::Vector3::new(0.0, 0.0, 0.0)),
+    ]
+    .into_iter()
+    .collect();
     
     println!("Boundary conditions:");
     for (&node, &velocity) in &velocity_bcs {
@@ -66,12 +68,11 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     }
     println!();
     
-    // Body forces (gravity in -z direction)
-    let mut body_forces = HashMap::new();
+    // Body forces using iterator patterns for uniform field application
     let gravity = nalgebra::Vector3::new(0.0, 0.0, -9.81);
-    for i in 0..4 {
-        body_forces.insert(i, gravity);
-    }
+    let body_forces: HashMap<usize, nalgebra::Vector3<f64>> = (0..4)
+        .map(|i| (i, gravity))
+        .collect();
     
     // Solve the Stokes equations
     println!("Solving 3D Stokes equations...");

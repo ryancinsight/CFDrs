@@ -336,8 +336,10 @@ mod tests {
             .build().unwrap();
 
         let mut config = SolverConfig::default();
-        config.base.max_iterations = 2000;
-        config.base.tolerance = 1e-3;
+        config.base = cfd_core::SolverConfig::builder()
+            .max_iterations(2000)
+            .tolerance(1e-3)
+            .build();
         let solver = NetworkSolver::with_config(config);
         let result = solver.solve_steady_state(&mut network).unwrap();
 

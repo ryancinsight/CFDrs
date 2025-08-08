@@ -7,7 +7,7 @@ use cfd_core::{Fluid, Result};
 use nalgebra::{RealField, ComplexField};
 use num_traits::cast::FromPrimitive;
 use serde::{Deserialize, Serialize};
-// use std::collections::HashMap; // TODO: Use when needed
+// Removed unused import following YAGNI principle
 
 /// Advanced channel geometry representation
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -489,7 +489,9 @@ mod tests {
         let (a, b) = create_test_system();
         let mut config = LinearSolverConfig::default();
         config.restart = 3; // Use full restart for small system
-        config.base.max_iterations = 10;
+        config.base = cfd_core::SolverConfig::builder()
+            .max_iterations(10)
+            .build();
         let solver = GMRES::new(config);
         let x = solver.solve(&a, &b, None).unwrap();
         

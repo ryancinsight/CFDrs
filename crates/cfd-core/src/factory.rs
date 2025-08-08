@@ -160,15 +160,14 @@ impl<T: RealField + num_traits::FromPrimitive> Builder<crate::SolverConfig<T>> f
     fn build(self) -> Result<crate::SolverConfig<T>> {
         self.validate()?;
 
-        Ok(crate::SolverConfig {
-            tolerance: self.tolerance.unwrap_or_else(|| T::from_f64(1e-6).unwrap()),
-            max_iterations: self.max_iterations.unwrap_or(1000),
-            relaxation_factor: T::one(),
-            verbosity: self.verbosity.unwrap_or(1),
-            parallel: self.parallel.unwrap_or(true),
-            num_threads: None,
-            verbose: false,
-        })
+        Ok(crate::SolverConfig::builder()
+            .tolerance(self.tolerance.unwrap_or_else(|| T::from_f64(1e-6).unwrap()))
+            .max_iterations(self.max_iterations.unwrap_or(1000))
+            .relaxation_factor(T::one())
+            .verbosity(self.verbosity.unwrap_or(1))
+            .parallel(self.parallel.unwrap_or(true))
+            .num_threads(None)
+            .build())
     }
 
     fn validate(&self) -> Result<()> {
@@ -298,10 +297,10 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(config.tolerance, 1e-8);
-        assert_eq!(config.max_iterations, 500);
-        assert_eq!(config.verbosity, 2);
-        assert!(config.parallel);
+        assert_eq!(config.tolerance(), 1e-8);
+        assert_eq!(config.max_iterations(), 500);
+        assert_eq!(config.verbosity(), 2);
+        assert!(config.parallel());
     }
 
     #[test]

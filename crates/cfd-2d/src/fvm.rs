@@ -29,9 +29,10 @@ pub struct FvmConfig<T: RealField> {
 
 impl<T: RealField + FromPrimitive> Default for FvmConfig<T> {
     fn default() -> Self {
-        let mut base = cfd_core::SolverConfig::default();
         // Set under-relaxation factor (0.7 is typical for FVM)
-        base.relaxation_factor = T::from_f64(0.7).unwrap();
+        let base = cfd_core::SolverConfig::builder()
+            .relaxation_factor(T::from_f64(0.7).unwrap())
+            .build();
         Self { base }
     }
 }
@@ -148,8 +149,10 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
         // Solve the linear system using configuration parameters
         let matrix = matrix_builder.build()?;
         let mut solver_config = LinearSolverConfig::default();
-        solver_config.base.tolerance = self.config.tolerance().clone();
-        solver_config.base.max_iterations = self.config.max_iterations();
+        solver_config.base = cfd_core::SolverConfig::builder()
+            .tolerance(self.config.tolerance())
+            .max_iterations(self.config.max_iterations())
+            .build();
 
         let solver = ConjugateGradient::new(solver_config);
         let solution_vector = solver.solve(&matrix, &rhs, None)?;

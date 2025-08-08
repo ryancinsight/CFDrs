@@ -8,7 +8,7 @@
 
 use cfd_suite::prelude::*;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("Enhanced Pipe Flow Example - Unified SSOT Design");
     println!("================================================");
 
@@ -20,9 +20,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create 1D network using unified builder pattern
     let mut network = NetworkBuilder::<f64>::new()
-        .add_inlet(0.0, 101325.0)    // Position, pressure (Pa)
-        .add_outlet(1.0, 101225.0)   // Position, pressure (Pa)
-        .add_channel(0, 1, 0.01, 1.0) // Connect nodes, diameter, length
+        .add_inlet_pressure("inlet", 0.0, 0.0, 101325.0)?    // ID, x, y, pressure (Pa)
+        .add_outlet_pressure("outlet", 1.0, 0.0, 101225.0)?   // ID, x, y, pressure (Pa)
+        .add_channel("ch1", "inlet", "outlet", 100.0, 1.0, 1e-6)? // ID, from, to, resistance, length, area
         .build()?;
 
     println!("\nNetwork created with unified builder pattern");
@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Configuration built using composition pattern");
 
     // Create solver with enhanced configuration
-    let mut solver = NetworkSolver::with_config(config);
+    let solver = NetworkSolver::with_config(config);
     let solution = solver.solve_steady_state(&mut network)?;
 
     println!("\nSolution Results:");
@@ -82,7 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Use advanced mathematical operations
     use cfd_math::SliceOps;
     let mean_re = re_values.iter().cloned().mean().unwrap_or(0.0);
-    let max_re = re_values.iter().fold(0.0, |acc, &x| acc.max(x));
+    let max_re = re_values.iter().fold(0.0_f64, |acc, &x| acc.max(x));
 
     println!("\nStatistical Analysis:");
     println!("Mean Reynolds number: {:.1}", mean_re);

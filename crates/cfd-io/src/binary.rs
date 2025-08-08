@@ -4,9 +4,9 @@
 //! using iterator-based streaming and zero-copy operations.
 
 use cfd_core::{Error, Result};
-use nalgebra::{RealField, Vector2, Vector3, DMatrix, DVector};
+use nalgebra::{RealField, DMatrix, DVector};
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Write, Seek, SeekFrom};
+use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use bincode;
 use serde::{Serialize, Deserialize};
@@ -27,7 +27,7 @@ impl<W: Write> BinaryWriter<W> {
     /// Write serializable data using bincode
     pub fn write<T: Serialize>(&mut self, data: &T) -> Result<()> {
         bincode::serialize_into(&mut self.writer, data)
-            .map_err(|e| Error::IoError(format!("Binary write error: {}", e)))?;
+            .map_err(|e| Error::SerializationError(format!("Binary write error: {}", e)))?;
         Ok(())
     }
 
@@ -56,7 +56,7 @@ impl<W: Write> BinaryWriter<W> {
     /// Flush the writer
     pub fn flush(&mut self) -> Result<()> {
         self.writer.flush()
-            .map_err(|e| Error::IoError(format!("Flush error: {}", e)))
+            .map_err(|e| Error::IoError(e))
     }
 }
 
@@ -64,7 +64,7 @@ impl BinaryWriter<File> {
     /// Create a binary writer for a file
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
         let file = File::create(path)
-            .map_err(|e| Error::IoError(format!("Failed to create file: {}", e)))?;
+            .map_err(|e| Error::IoError(e))?;
         Ok(Self::new(file))
     }
 }
@@ -85,7 +85,7 @@ impl<R: Read> BinaryReader<R> {
     /// Read deserializable data using bincode
     pub fn read<T: for<'de> Deserialize<'de>>(&mut self) -> Result<T> {
         bincode::deserialize_from(&mut self.reader)
-            .map_err(|e| Error::IoError(format!("Binary read error: {}", e)))
+            .map_err(|e| Error::SerializationError(format!("Binary read error: {}", e)))
     }
 
     /// Read vector data using iterator-based construction
@@ -117,7 +117,7 @@ impl BinaryReader<File> {
     /// Create a binary reader for a file
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
         let file = File::open(path)
-            .map_err(|e| Error::IoError(format!("Failed to open file: {}", e)))?;
+            .map_err(|e| Error::IoError(e))?;
         Ok(Self::new(file))
     }
 }

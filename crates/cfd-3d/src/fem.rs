@@ -175,13 +175,63 @@ impl<T: RealField + FromPrimitive> Element<T> for Tetrahedron4<T> {
             ));
         }
 
-        // For now, return a simple identity-based stiffness matrix
-        // TODO: Implement proper stiffness matrix computation for Navier-Stokes
-        let mut k = nalgebra::DMatrix::zeros(12, 12); // 4 nodes × 3 DOF per node
-        let stiffness_factor = material_properties.viscosity.clone() * det_j.clone();
+        // Proper stiffness matrix computation for Navier-Stokes equations
+        // Based on Zienkiewicz & Taylor "The Finite Element Method" Vol. 3
+        // K = ∫ B^T D B dV where B is strain-displacement matrix, D is material matrix
 
-        for i in 0..12 {
-            k[(i, i)] = stiffness_factor.clone();
+        let mut k = nalgebra::DMatrix::zeros(12, 12); // 4 nodes × 3 DOF per node
+        let viscosity = material_properties.viscosity.clone();
+
+        // Compute shape function derivatives in physical coordinates
+        let j_inv = jacobian.try_inverse().ok_or_else(|| {
+            Error::InvalidConfiguration("Singular Jacobian matrix".to_string())
+        })?;
+
+        // Natural coordinates for tetrahedral element (ξ, η, ζ, 1-ξ-η-ζ)
+        let gauss_points = vec![
+            (T::from_f64(0.25).unwrap(), T::from_f64(0.25).unwrap(), T::from_f64(0.25).unwrap(), T::from_f64(1.0/6.0).unwrap()),
+        ];
+
+        for (_xi, _eta, _zeta, weight) in gauss_points {
+            // Shape function derivatives in natural coordinates
+            let mut dn_dxi = nalgebra::DMatrix::zeros(4, 3);
+            dn_dxi[(0, 0)] = -T::one(); dn_dxi[(0, 1)] = -T::one(); dn_dxi[(0, 2)] = -T::one();
+            dn_dxi[(1, 0)] = T::one();  dn_dxi[(1, 1)] = T::zero(); dn_dxi[(1, 2)] = T::zero();
+            dn_dxi[(2, 0)] = T::zero(); dn_dxi[(2, 1)] = T::one();  dn_dxi[(2, 2)] = T::zero();
+            dn_dxi[(3, 0)] = T::zero(); dn_dxi[(3, 1)] = T::zero(); dn_dxi[(3, 2)] = T::one();
+
+            // Transform to physical coordinates: dN/dx = J^(-1) * dN/dξ
+            let dn_dx = &j_inv * &dn_dxi.transpose();
+
+            // Build strain-displacement matrix B for 3D Navier-Stokes
+            let mut b_matrix = nalgebra::DMatrix::zeros(6, 12); // 6 strain components, 12 DOFs
+
+            for i in 0..4 {
+                let base_col = i * 3;
+                // Velocity gradients for viscous stress tensor
+                b_matrix[(0, base_col)] = dn_dx[(0, i)].clone(); // ∂u/∂x
+                b_matrix[(1, base_col + 1)] = dn_dx[(1, i)].clone(); // ∂v/∂y
+                b_matrix[(2, base_col + 2)] = dn_dx[(2, i)].clone(); // ∂w/∂z
+                b_matrix[(3, base_col)] = dn_dx[(1, i)].clone(); // ∂u/∂y
+                b_matrix[(3, base_col + 1)] = dn_dx[(0, i)].clone(); // ∂v/∂x
+                b_matrix[(4, base_col + 1)] = dn_dx[(2, i)].clone(); // ∂v/∂z
+                b_matrix[(4, base_col + 2)] = dn_dx[(1, i)].clone(); // ∂w/∂y
+                b_matrix[(5, base_col)] = dn_dx[(2, i)].clone(); // ∂u/∂z
+                b_matrix[(5, base_col + 2)] = dn_dx[(0, i)].clone(); // ∂w/∂x
+            }
+
+            // Material matrix D for viscous fluid (isotropic)
+            let mut d_matrix = nalgebra::DMatrix::zeros(6, 6);
+            let two_mu = T::from_f64(2.0).unwrap() * viscosity.clone();
+            d_matrix[(0, 0)] = two_mu.clone(); d_matrix[(1, 1)] = two_mu.clone(); d_matrix[(2, 2)] = two_mu.clone();
+            d_matrix[(3, 3)] = viscosity.clone(); d_matrix[(4, 4)] = viscosity.clone(); d_matrix[(5, 5)] = viscosity.clone();
+
+            // Compute element stiffness: K_e += B^T * D * B * det(J) * weight
+            let bd = &b_matrix.transpose() * &d_matrix;
+            let bdb = &bd * &b_matrix;
+            let integration_factor = det_j.clone() * weight;
+
+            k += bdb * integration_factor;
         }
 
         Ok(k)
@@ -262,8 +312,10 @@ impl<T: RealField + FromPrimitive + Send + Sync> FemSolver<T> {
         // Solve the linear system
         let matrix = matrix_builder.build()?;
         let mut solver_config = LinearSolverConfig::default();
-        solver_config.base.tolerance = self.config.tolerance().clone();
-        solver_config.base.max_iterations = self.config.max_iterations();
+        solver_config.base = cfd_core::SolverConfig::builder()
+            .tolerance(self.config.tolerance())
+            .max_iterations(self.config.max_iterations())
+            .build();
 
         let solver = ConjugateGradient::new(solver_config);
         let solution_vector = solver.solve(&matrix, &rhs, None)?;
