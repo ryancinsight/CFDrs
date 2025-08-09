@@ -6,7 +6,7 @@
 use crate::error_metrics::ErrorStatistics;
 use cfd_core::Result;
 use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -168,7 +168,6 @@ impl<T: RealField + FromPrimitive> LidDrivenCavity<T> {
     
     /// Get reference data from Ghia et al. (1982)
     fn get_ghia_reference_data(&self) -> HashMap<String, Vec<T>> {
-        use num_traits::FromPrimitive;
         let mut data = HashMap::new();
         
         // Reference centerline velocities for different Reynolds numbers
@@ -306,7 +305,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
                 .build(),
         };
         
-        let mut solver = PoissonSolver::new(config);
+        let solver = PoissonSolver::new(config);
         
         // Solve for stream function with vorticity as source
         // This is a simplified placeholder - real implementation would solve
@@ -354,7 +353,6 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
     }
 
     fn validate(&self, solution: &Self::Solution) -> Result<BenchmarkResult<T>> {
-        use num_traits::FromPrimitive;
         
         // Reference data from Ghia et al. (1982) for Re=100, 400, 1000
         // These are centerline velocities at specific y-locations
@@ -426,11 +424,11 @@ impl<T: RealField + FromPrimitive> FlowOverCylinder<T> {
     }
     
     /// Compute drag coefficient from solution
+    #[allow(dead_code)]
     fn compute_drag_coefficient(&self, _solution: &[T]) -> T {
         // Simplified drag coefficient calculation
         // In a real implementation, this would integrate pressure and shear stress
         // around the cylinder surface
-        use num_traits::FromPrimitive;
         
         // Use empirical correlation for circular cylinder
         let re: f64 = self.reynolds.to_subset().unwrap_or(100.0);
