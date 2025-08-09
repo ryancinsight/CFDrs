@@ -308,7 +308,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
         
         // Initialize vorticity field based on Reynolds number
         let mut vorticity = HashMap::new();
-        let nu = T::one() / self.reynolds.clone(); // Kinematic viscosity
+        let _nu = T::one() / self.reynolds.clone(); // Kinematic viscosity (unused in simplified version)
         
         // Boundary vorticity (Thom formula)
         for i in 0..nx {
@@ -334,7 +334,6 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
                             (T::zero(), T::zero())
                         } else {
                             // Interior points: u = ∂ψ/∂y, v = -∂ψ/∂x
-                            let psi_c = stream_function.get(&(i, j)).cloned().unwrap_or(T::zero());
                             let psi_n = stream_function.get(&(i, j+1)).cloned().unwrap_or(T::zero());
                             let psi_s = stream_function.get(&(i, j-1)).cloned().unwrap_or(T::zero());
                             let psi_e = stream_function.get(&(i+1, j)).cloned().unwrap_or(T::zero());
@@ -469,7 +468,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
 
     fn run(&self) -> Result<Self::Solution> {
         use cfd_2d::{StructuredGrid2D, FvmSolver, FvmConfig};
-        use std::collections::HashMap;
+        
         
         // Create computational domain (20D x 10D where D is cylinder diameter)
         let domain_length = self.diameter.clone() * T::from_f64(20.0).unwrap();
@@ -479,7 +478,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
         let nx = if self.reynolds.to_subset().unwrap_or(100.0) < 100.0 { 100 } else { 200 };
         let ny = nx / 2;
         
-        let grid = StructuredGrid2D::new(
+        let _grid = StructuredGrid2D::new(
             nx, ny,
             domain_length.clone(), domain_height.clone(),
             T::zero(), domain_length.clone()
@@ -652,7 +651,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
         let density = T::from_f64(1.225).unwrap(); // kg/m³
         let viscosity = T::from_f64(1.8e-5).unwrap(); // Pa·s
         
-        let mut solver = SimpleSolver::new(config, &grid, density, viscosity);
+        let _solver = SimpleSolver::new(config, &grid, density, viscosity);
         
         // Set boundary conditions
         let mut boundary_conditions = HashMap::new();
