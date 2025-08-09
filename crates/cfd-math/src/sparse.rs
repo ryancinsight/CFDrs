@@ -361,34 +361,29 @@ impl SparsePatterns {
         let dy2_inv = T::one() / (dy.clone() * dy);
         let center_coeff = -T::from_f64(2.0).unwrap() * (dx2_inv.clone() + dy2_inv.clone());
 
-        for j in 0..ny {
-            for i in 0..nx {
+        // Use iterator with cartesian product for 2D grid traversal
+        (0..ny).flat_map(|j| (0..nx).map(move |i| (i, j)))
+            .try_for_each(|(i, j)| {
                 let idx = j * nx + i;
 
                 // Center point
                 builder.add_entry(idx, idx, center_coeff.clone())?;
 
-                // Left neighbor
+                // Neighbors - compute indices only when valid
                 if i > 0 {
-                    builder.add_entry(idx, idx - 1, dx2_inv.clone())?;
+                    builder.add_entry(idx, idx - 1, dx2_inv.clone())?;  // Left
                 }
-
-                // Right neighbor
                 if i < nx - 1 {
-                    builder.add_entry(idx, idx + 1, dx2_inv.clone())?;
+                    builder.add_entry(idx, idx + 1, dx2_inv.clone())?;  // Right
                 }
-
-                // Bottom neighbor
                 if j > 0 {
-                    builder.add_entry(idx, idx - nx, dy2_inv.clone())?;
+                    builder.add_entry(idx, idx - nx, dy2_inv.clone())?;  // Bottom
                 }
-
-                // Top neighbor
                 if j < ny - 1 {
-                    builder.add_entry(idx, idx + nx, dy2_inv.clone())?;
+                    builder.add_entry(idx, idx + nx, dy2_inv.clone())?;  // Top
                 }
-            }
-        }
+                Ok::<(), cfd_core::Error>(())
+            })?;
 
         builder.build()
     }

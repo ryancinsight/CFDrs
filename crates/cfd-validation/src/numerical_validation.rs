@@ -434,32 +434,80 @@ impl LinearSolverValidator {
         Ok((a, b, analytical))
     }
 
-    /// Create 2D Poisson system (simplified)
+    /// Create 2D Poisson system with 5-point stencil discretization
+    /// Solves: -∇²u = f on unit square with Dirichlet boundary conditions
     fn create_2d_poisson_system<T: RealField + FromPrimitive + Copy>(nx: usize, ny: usize) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
-        // Simplified 2D Poisson - just return identity for now
         let n = nx * ny;
-        let mut row_indices = Vec::new();
+        let h = T::one() / T::from_usize(nx - 1).unwrap();
+        let h2 = h.clone() * h.clone();
+        
+        // Build sparse matrix using 5-point stencil
+        let mut row_offsets = vec![0];
         let mut col_indices = Vec::new();
         let mut values = Vec::new();
-
-        for i in 0..n {
-            row_indices.push(i);
-            col_indices.push(i);
-            values.push(T::one());
-        }
-
-        let a = {
-            // Convert triplets to CSR format for identity matrix
-            let row_offsets: Vec<usize> = (0..=n).collect();
-            let csr_col_indices: Vec<usize> = (0..n).collect();
-            let csr_values = values;
+        
+        // Process each grid point
+        for idx in 0..n {
+            let i = idx % nx;
+            let j = idx / nx;
             
-            CsrMatrix::try_from_csr_data(n, n, row_offsets, csr_col_indices, csr_values)
-                .map_err(|e| Error::NumericalError(format!("Failed to create matrix: {:?}", e)))?
-        };
-
-        let b = DVector::from_element(n, T::one());
-        let analytical = DVector::from_element(n, T::one());
+            if i == 0 || i == nx - 1 || j == 0 || j == ny - 1 {
+                // Boundary point: u = 0 (identity row)
+                col_indices.push(idx);
+                values.push(T::one());
+            } else {
+                // Interior point: 5-point stencil
+                let center_coeff = T::from_f64(4.0).unwrap() / h2.clone();
+                let neighbor_coeff = -T::one() / h2.clone();
+                
+                // Left neighbor
+                col_indices.push(idx - 1);
+                values.push(neighbor_coeff.clone());
+                
+                // Bottom neighbor  
+                col_indices.push(idx - nx);
+                values.push(neighbor_coeff.clone());
+                
+                // Center
+                col_indices.push(idx);
+                values.push(center_coeff);
+                
+                // Top neighbor
+                col_indices.push(idx + nx);
+                values.push(neighbor_coeff.clone());
+                
+                // Right neighbor
+                col_indices.push(idx + 1);
+                values.push(neighbor_coeff);
+            }
+            
+            row_offsets.push(col_indices.len());
+        }
+        
+        let a = CsrMatrix::try_from_csr_data(n, n, row_offsets, col_indices, values)
+            .map_err(|e| Error::NumericalError(format!("Failed to create matrix: {:?}", e)))?;
+        
+        // Create RHS with manufactured solution u(x,y) = sin(πx)sin(πy)
+        let pi = T::from_f64(std::f64::consts::PI).unwrap();
+        let mut b = DVector::zeros(n);
+        let mut analytical = DVector::zeros(n);
+        
+        for idx in 0..n {
+            let i = idx % nx;
+            let j = idx / nx;
+            let x = T::from_usize(i).unwrap() * h.clone();
+            let y = T::from_usize(j).unwrap() * h.clone();
+            
+            if i == 0 || i == nx - 1 || j == 0 || j == ny - 1 {
+                b[idx] = T::zero();
+                analytical[idx] = T::zero();
+            } else {
+                // f = 2π²sin(πx)sin(πy)
+                b[idx] = T::from_f64(2.0).unwrap() * pi.clone() * pi.clone() 
+                    * (pi.clone() * x.clone()).sin() * (pi.clone() * y.clone()).sin();
+                analytical[idx] = (pi.clone() * x).sin() * (pi.clone() * y).sin();
+            }
+        }
 
         Ok((a, b, analytical))
     }

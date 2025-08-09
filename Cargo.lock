@@ -391,6 +391,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "approx",
+ "cfd-2d",
  "cfd-core",
  "cfd-io",
  "cfd-math",
