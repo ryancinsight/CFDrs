@@ -380,7 +380,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Default for ResistanceCal
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use approx::assert_relative_eq; // TODO: Use when needed
+    // use approx::assert_relative_eq; // Available when needed
 
     fn create_test_conditions() -> FlowConditions<f64> {
         FlowConditions {

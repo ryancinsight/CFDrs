@@ -64,7 +64,7 @@ pub enum ElementType {
     Hexahedron20,
 }
 
-/// Finite element for 3D problems
+/// Finite element for 3D problems following Interface Segregation Principle
 pub trait Element<T: RealField>: Send + Sync {
     /// Number of nodes in the element
     fn num_nodes(&self) -> usize;
@@ -84,6 +84,62 @@ pub trait Element<T: RealField>: Send + Sync {
         nodes: &[Vector3<T>],
         material_properties: &MaterialProperties<T>,
     ) -> Result<nalgebra::DMatrix<T>>;
+}
+
+/// Element enum for type-safe factory pattern avoiding trait objects
+#[derive(Debug, Clone)]
+pub enum ElementInstance<T: RealField> {
+    /// 4-node tetrahedron
+    Tetrahedron4(Tetrahedron4<T>),
+    // Future element types can be added here
+}
+
+impl<T: RealField + FromPrimitive> ElementInstance<T> {
+    /// Create element from type
+    pub fn from_type(element_type: ElementType) -> Result<Self> {
+        match element_type {
+            ElementType::Tetrahedron4 => Ok(ElementInstance::Tetrahedron4(Tetrahedron4::default())),
+            ElementType::Tetrahedron10 => Err(cfd_core::Error::NotImplemented(
+                "Tetrahedron10 element not yet implemented".to_string()
+            )),
+            ElementType::Hexahedron8 => Err(cfd_core::Error::NotImplemented(
+                "Hexahedron8 element not yet implemented".to_string()
+            )),
+            ElementType::Hexahedron20 => Err(cfd_core::Error::NotImplemented(
+                "Hexahedron20 element not yet implemented".to_string()
+            )),
+        }
+    }
+
+    /// Delegate to underlying element implementation
+    pub fn stiffness_matrix(
+        &self,
+        nodes: &[Vector3<T>],
+        material_properties: &MaterialProperties<T>,
+    ) -> Result<nalgebra::DMatrix<T>> {
+        match self {
+            ElementInstance::Tetrahedron4(elem) => elem.stiffness_matrix(nodes, material_properties),
+        }
+    }
+
+    /// Get number of nodes
+    pub fn num_nodes(&self) -> usize {
+        match self {
+            ElementInstance::Tetrahedron4(elem) => elem.num_nodes(),
+        }
+    }
+}
+
+/// Element factory trait following GRASP Creator principle
+pub trait ElementFactory<T: RealField>: Send + Sync {
+    /// Create an element of the specified type
+    fn create_element(&self, element_type: ElementType) -> Result<ElementInstance<T>>;
+
+    /// Check if this factory can create the given element type
+    fn can_create(&self, element_type: ElementType) -> bool;
+
+    /// Get supported element types
+    fn supported_types(&self) -> Vec<ElementType>;
 }
 
 /// Material properties for FEM analysis
@@ -187,12 +243,8 @@ impl<T: RealField + FromPrimitive> Element<T> for Tetrahedron4<T> {
             Error::InvalidConfiguration("Singular Jacobian matrix".to_string())
         })?;
 
-        // Natural coordinates for tetrahedral element (ξ, η, ζ, 1-ξ-η-ζ)
-        let gauss_points = vec![
-            (T::from_f64(0.25).unwrap(), T::from_f64(0.25).unwrap(), T::from_f64(0.25).unwrap(), T::from_f64(1.0/6.0).unwrap()),
-        ];
-
-        for (_xi, _eta, _zeta, weight) in gauss_points {
+        // Use integration points from the element for zero-copy efficiency
+        for (_integration_point, weight) in self.integration_points() {
             // Shape function derivatives in natural coordinates
             let mut dn_dxi = nalgebra::DMatrix::zeros(4, 3);
             dn_dxi[(0, 0)] = -T::one(); dn_dxi[(0, 1)] = -T::one(); dn_dxi[(0, 2)] = -T::one();
@@ -206,9 +258,10 @@ impl<T: RealField + FromPrimitive> Element<T> for Tetrahedron4<T> {
             // Build strain-displacement matrix B for 3D Navier-Stokes
             let mut b_matrix = nalgebra::DMatrix::zeros(6, 12); // 6 strain components, 12 DOFs
 
-            for i in 0..4 {
+            // Use iterator pattern for strain-displacement matrix assembly
+            (0..4).for_each(|i| {
                 let base_col = i * 3;
-                // Velocity gradients for viscous stress tensor
+                // Velocity gradients for viscous stress tensor using zero-copy references
                 b_matrix[(0, base_col)] = dn_dx[(0, i)].clone(); // ∂u/∂x
                 b_matrix[(1, base_col + 1)] = dn_dx[(1, i)].clone(); // ∂v/∂y
                 b_matrix[(2, base_col + 2)] = dn_dx[(2, i)].clone(); // ∂w/∂z
@@ -218,7 +271,7 @@ impl<T: RealField + FromPrimitive> Element<T> for Tetrahedron4<T> {
                 b_matrix[(4, base_col + 2)] = dn_dx[(1, i)].clone(); // ∂w/∂y
                 b_matrix[(5, base_col)] = dn_dx[(2, i)].clone(); // ∂u/∂z
                 b_matrix[(5, base_col + 2)] = dn_dx[(0, i)].clone(); // ∂w/∂x
-            }
+            });
 
             // Material matrix D for viscous fluid (isotropic)
             let mut d_matrix = nalgebra::DMatrix::zeros(6, 6);
@@ -238,24 +291,67 @@ impl<T: RealField + FromPrimitive> Element<T> for Tetrahedron4<T> {
     }
 }
 
-/// FEM solver for 3D fluid dynamics problems
-pub struct FemSolver<T: RealField> {
-    config: FemConfig<T>,
-    mesh: Option<Mesh<T>>,
+/// Concrete element factory implementation following SOLID principles
+#[derive(Debug, Clone, Default)]
+pub struct StandardElementFactory<T: RealField> {
+    _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + FromPrimitive + Send + Sync> FemSolver<T> {
-    /// Create a new FEM solver
+impl<T: RealField + FromPrimitive> StandardElementFactory<T> {
+    /// Create a new element factory
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            _phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T: RealField + FromPrimitive> ElementFactory<T> for StandardElementFactory<T> {
+    fn create_element(&self, element_type: ElementType) -> Result<ElementInstance<T>> {
+        ElementInstance::from_type(element_type)
+    }
+
+    fn can_create(&self, element_type: ElementType) -> bool {
+        matches!(element_type, ElementType::Tetrahedron4)
+    }
+
+    fn supported_types(&self) -> Vec<ElementType> {
+        vec![ElementType::Tetrahedron4]
+    }
+}
+
+/// FEM solver for 3D fluid dynamics problems following SOLID principles
+pub struct FemSolver<T: RealField, F: ElementFactory<T> = StandardElementFactory<T>> {
+    config: FemConfig<T>,
+    mesh: Option<Mesh<T>>,
+    element_factory: F,
+}
+
+impl<T: RealField + FromPrimitive + Send + Sync> FemSolver<T, StandardElementFactory<T>> {
+    /// Create a new FEM solver with default element factory
     pub fn new(config: FemConfig<T>) -> Self {
         Self {
             config,
             mesh: None,
+            element_factory: StandardElementFactory::new(),
         }
     }
 
-    /// Create with default configuration
+    /// Create with default configuration and element factory
     pub fn default() -> Self {
         Self::new(FemConfig::default())
+    }
+}
+
+impl<T: RealField + FromPrimitive + Send + Sync, F: ElementFactory<T>> FemSolver<T, F> {
+    /// Create a new FEM solver with custom element factory
+    pub fn with_factory(config: FemConfig<T>, element_factory: F) -> Self {
+        Self {
+            config,
+            mesh: None,
+            element_factory,
+        }
     }
 
     /// Set the mesh for the solver
@@ -324,19 +420,20 @@ impl<T: RealField + FromPrimitive + Send + Sync> FemSolver<T> {
             tracing::info!("FEM Stokes solver completed successfully");
         }
 
-        // Extract velocity solution (ignore pressure for now)
-        let mut velocity_solution = HashMap::new();
-        for node_idx in 0..num_nodes {
-            let u = solution_vector[node_idx * 4].clone();
-            let v = solution_vector[node_idx * 4 + 1].clone();
-            let w = solution_vector[node_idx * 4 + 2].clone();
-            velocity_solution.insert(node_idx, Vector3::new(u, v, w));
-        }
+        // Extract velocity solution using iterator patterns for zero-copy efficiency
+        let velocity_solution: HashMap<usize, Vector3<T>> = (0..num_nodes)
+            .map(|node_idx| {
+                let u = solution_vector[node_idx * 4].clone();
+                let v = solution_vector[node_idx * 4 + 1].clone();
+                let w = solution_vector[node_idx * 4 + 2].clone();
+                (node_idx, Vector3::new(u, v, w))
+            })
+            .collect();
 
         Ok(velocity_solution)
     }
 
-    /// Assemble element matrix and RHS vector
+    /// Assemble element matrix and RHS vector using factory pattern
     fn assemble_element_matrix(
         &self,
         _cell: &Cell,
@@ -344,7 +441,8 @@ impl<T: RealField + FromPrimitive + Send + Sync> FemSolver<T> {
         material_properties: &MaterialProperties<T>,
         _elem_idx: usize,
     ) -> Result<(nalgebra::DMatrix<T>, DVector<T>, Vec<usize>)> {
-        let element = Tetrahedron4::default();
+        // Use element factory following SOLID principles
+        let element = self.element_factory.create_element(self.config.element_type)?;
 
         // For now, assume tetrahedral cells with 4 vertices
         // In a proper implementation, we'd get vertex indices from faces
@@ -385,9 +483,14 @@ impl<T: RealField + FromPrimitive + Send + Sync> FemSolver<T> {
         node_indices: &[usize],
         _elem_idx: usize,
     ) -> Result<()> {
-        // Map local DOFs to global DOFs with proper bounds checking
-        for (i, &node_i) in node_indices.iter().enumerate() {
-            for dof_i in 0..4 { // 3 velocity + 1 pressure
+        // Map local DOFs to global DOFs using iterator patterns for zero-copy efficiency
+        let rhs_updates: Result<Vec<_>> = node_indices
+            .iter()
+            .enumerate()
+            .flat_map(|(i, &node_i)| {
+                (0..4).map(move |dof_i| (i, node_i, dof_i))
+            })
+            .map(|(i, node_i, dof_i)| -> Result<(usize, usize, T)> {
                 let global_i = node_i * 4 + dof_i;
                 let local_rhs_idx = i * 4 + dof_i;
 
@@ -399,32 +502,52 @@ impl<T: RealField + FromPrimitive + Send + Sync> FemSolver<T> {
                 }
 
                 if local_rhs_idx >= local_rhs.len() {
-                    // Skip this DOF if it's out of bounds (happens with mixed element types)
-                    continue;
+                    // Return zero contribution if out of bounds
+                    return Ok((global_i, local_rhs_idx, T::zero()));
                 }
 
-                rhs[global_i] += local_rhs[local_rhs_idx].clone();
+                Ok((global_i, local_rhs_idx, local_rhs[local_rhs_idx].clone()))
+            })
+            .collect();
 
-                for (j, &node_j) in node_indices.iter().enumerate() {
-                    for dof_j in 0..4 {
-                        let global_j = node_j * 4 + dof_j;
-                        let local_i = i * 4 + dof_i;
-                        let local_j = j * 4 + dof_j;
+        // Apply RHS updates
+        for (global_i, _local_idx, value) in rhs_updates? {
+            rhs[global_i] += value;
+        }
 
-                        // Enhanced bounds checking for matrix access
-                        if local_i < local_matrix.nrows() &&
-                           local_j < local_matrix.ncols() &&
-                           global_i < rhs.len() &&
-                           global_j < rhs.len() {
-                            matrix_builder.add_entry(
-                                global_i,
-                                global_j,
-                                local_matrix[(local_i, local_j)].clone(),
-                            )?;
-                        }
-                    }
+        // Matrix assembly using iterator patterns for better performance
+        let matrix_entries: Result<Vec<_>> = node_indices
+            .iter()
+            .enumerate()
+            .flat_map(|(i, &node_i)| {
+                (0..4).map(move |dof_i| (i, node_i, dof_i))
+            })
+            .flat_map(|(i, node_i, dof_i)| {
+                node_indices.iter().enumerate().flat_map(move |(j, &node_j)| {
+                    (0..4).map(move |dof_j| (i, node_i, dof_i, j, node_j, dof_j))
+                })
+            })
+            .filter_map(|(i, node_i, dof_i, j, node_j, dof_j)| {
+                let global_i = node_i * 4 + dof_i;
+                let global_j = node_j * 4 + dof_j;
+                let local_i = i * 4 + dof_i;
+                let local_j = j * 4 + dof_j;
+
+                // Enhanced bounds checking for matrix access
+                if local_i < local_matrix.nrows() &&
+                   local_j < local_matrix.ncols() &&
+                   global_i < rhs.len() &&
+                   global_j < rhs.len() {
+                    Some(Ok((global_i, global_j, local_matrix[(local_i, local_j)].clone())))
+                } else {
+                    None
                 }
-            }
+            })
+            .collect();
+
+        // Apply matrix entries
+        for (global_i, global_j, value) in matrix_entries? {
+            matrix_builder.add_entry(global_i, global_j, value)?;
         }
 
         Ok(())

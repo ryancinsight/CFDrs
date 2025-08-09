@@ -71,6 +71,46 @@ where
         WindowedDiff::new(self, window_size, f)
     }
 
+    /// Compute running average using iterator scan for zero-copy efficiency
+    fn running_average(self) -> impl Iterator<Item = T> {
+        let mut count = 0;
+        let mut sum = T::zero();
+
+        self.map(move |x| {
+            count += 1;
+            sum += x;
+            sum.clone() / T::from_usize(count).unwrap()
+        })
+    }
+
+    /// Compute exponential moving average with given alpha
+    fn exponential_moving_average(self, alpha: T) -> impl Iterator<Item = T> {
+        let mut ema = None;
+
+        self.map(move |x| {
+            match ema {
+                None => {
+                    ema = Some(x.clone());
+                    x
+                }
+                Some(ref mut prev) => {
+                    *prev = alpha.clone() * x + (T::one() - alpha.clone()) * prev.clone();
+                    prev.clone()
+                }
+            }
+        })
+    }
+
+    /// Apply Savitzky-Golay smoothing filter using windowed operations
+    fn savitzky_golay_smooth(self, window_size: usize) -> impl Iterator<Item = T> {
+        // Simplified Savitzky-Golay filter (moving average for now)
+        // Full implementation would use polynomial fitting
+        self.windowed_diff(window_size, |w| {
+            let sum = w.iter().fold(T::zero(), |acc, x| acc + x.clone());
+            sum / T::from_usize(w.len()).unwrap()
+        })
+    }
+
     // Note: Parallel reduction is available through rayon's ParallelIterator trait directly
 }
 
@@ -263,7 +303,7 @@ impl VectorOps {
     }
 
     /// Zero-copy vector scaling
-    pub fn scale_inplace<T: RealField>(vector: &mut DVector<T>, scalar: T) {
+    pub fn scale_inplace<T: RealField>(vector: &mut DVector<T>, scalar: &T) {
         vector.iter_mut().for_each(|x| *x *= scalar.clone());
     }
 }
@@ -305,7 +345,7 @@ impl SliceOps {
     }
 
     /// Zero-copy slice-based scaling
-    pub fn scale_slice_inplace<T: RealField>(slice: &mut [T], scalar: T) {
+    pub fn scale_slice_inplace<T: RealField>(slice: &mut [T], scalar: &T) {
         slice.iter_mut().for_each(|x| *x *= scalar.clone());
     }
 
@@ -476,6 +516,76 @@ where
 }
 
 impl<I, T> CfdIteratorChain<T> for I
+where
+    I: Iterator<Item = T>,
+    T: RealField,
+{
+}
+
+/// Advanced CFD field operations using iterator patterns
+pub trait CfdFieldOps<T>: Iterator<Item = T>
+where
+    T: RealField,
+    Self: Sized,
+{
+    /// Compute field magnitude for vector fields
+    /// Assumes data layout: [u1, v1, w1, u2, v2, w2, ...]
+    fn vector_magnitude(self) -> impl Iterator<Item = T> {
+        // Use windowed approach instead of unstable array_chunks
+        self.windowed_diff(3, |w| {
+            if w.len() >= 3 {
+                let u = w[0].clone();
+                let v = w[1].clone();
+                let w_comp = w[2].clone();
+                (u.clone() * u + v.clone() * v + w_comp.clone() * w_comp).sqrt()
+            } else {
+                T::zero()
+            }
+        })
+    }
+
+    /// Compute field divergence using central differences
+    /// For structured grids with uniform spacing
+    fn field_divergence(self, spacing: T) -> impl Iterator<Item = T> {
+        self.windowed_diff(3, move |w| {
+            if w.len() >= 3 {
+                (w[2].clone() - w[0].clone()) / (spacing.clone() + spacing.clone())
+            } else {
+                T::zero()
+            }
+        })
+    }
+
+    /// Apply field interpolation between grid points
+    fn field_interpolate(self, weights: Vec<T>) -> impl Iterator<Item = T> {
+        let weight_sum: T = weights.iter().fold(T::zero(), |acc, w| acc + w.clone());
+
+        self.windowed_diff(weights.len(), move |w| {
+            w.iter()
+                .zip(weights.iter())
+                .fold(T::zero(), |acc, (val, weight)| {
+                    acc + val.clone() * weight.clone()
+                }) / weight_sum.clone()
+        })
+    }
+
+    /// Compute field Laplacian using 5-point stencil
+    fn field_laplacian(self, spacing: T) -> impl Iterator<Item = T> {
+        let dx_sq = spacing.clone() * spacing.clone();
+
+        self.windowed_diff(5, move |w| {
+            if w.len() >= 5 {
+                // 5-point stencil: (u_{i-1} - 2u_i + u_{i+1}) / dx^2
+                let d2u_dx2 = (w[0].clone() - T::from_f64(2.0).unwrap() * w[2].clone() + w[4].clone()) / dx_sq.clone();
+                d2u_dx2
+            } else {
+                T::zero()
+            }
+        })
+    }
+}
+
+impl<I, T> CfdFieldOps<T> for I
 where
     I: Iterator<Item = T>,
     T: RealField,

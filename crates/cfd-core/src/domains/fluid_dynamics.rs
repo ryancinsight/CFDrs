@@ -61,7 +61,7 @@ pub trait TurbulenceModel<T: RealField>: Send + Sync {
 
 /// Reynolds-Averaged Navier-Stokes (RANS) turbulence models
 pub mod rans {
-    use super::*;
+    use super::{RealField, TurbulenceModel, FlowField};
     
     /// k-epsilon turbulence model
     #[derive(Debug, Clone)]
@@ -73,26 +73,26 @@ pub mod rans {
     /// k-epsilon model constants
     ///
     /// Standard constants from Launder & Spalding (1974):
-    /// - C_μ = 0.09: Model constant relating turbulent viscosity to k and ε
-    /// - C_1ε = 1.44: Production term constant in ε equation
-    /// - C_2ε = 1.92: Destruction term constant in ε equation
-    /// - σ_k = 1.0: Prandtl number for turbulent kinetic energy
-    /// - σ_ε = 1.3: Prandtl number for dissipation rate
+    /// - `C_μ` = 0.09: Model constant relating turbulent viscosity to k and ε
+    /// - `C_1ε` = 1.44: Production term constant in ε equation
+    /// - `C_2ε` = 1.92: Destruction term constant in ε equation
+    /// - `σ_k` = 1.0: Prandtl number for turbulent kinetic energy
+    /// - `σ_ε` = 1.3: Prandtl number for dissipation rate
     ///
     /// # References
     /// Launder, B.E. and Spalding, D.B. (1974). "The numerical computation of turbulent flows."
     /// Computer Methods in Applied Mechanics and Engineering, 3(2), 269-289.
     #[derive(Debug, Clone)]
     pub struct KEpsilonConstants<T: RealField> {
-        /// Model constant C_μ = 0.09
+        /// Model constant `C_μ` = 0.09
         pub c_mu: T,
-        /// Production constant C_1ε = 1.44
+        /// Production constant `C_1ε` = 1.44
         pub c_1: T,
-        /// Destruction constant C_2ε = 1.92
+        /// Destruction constant `C_2ε` = 1.92
         pub c_2: T,
-        /// Turbulent Prandtl number for k, σ_k = 1.0
+        /// Turbulent Prandtl number for k, `σ_k` = 1.0
         pub sigma_k: T,
-        /// Turbulent Prandtl number for ε, σ_ε = 1.3
+        /// Turbulent Prandtl number for ε, `σ_ε` = 1.3
         pub sigma_epsilon: T,
     }
     
@@ -107,7 +107,7 @@ pub mod rans {
             vec![T::zero(); flow_field.velocity.components.len()]
         }
         
-        fn name(&self) -> &str {
+        fn name(&self) -> &'static str {
             "k-epsilon"
         }
     }

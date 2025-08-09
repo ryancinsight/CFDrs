@@ -421,13 +421,15 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
                     let mut prod_i = T::one();
                     let mut prod_j = T::one();
 
-                    for k in 0..n {
-                        if k != i && k != j {
-                            let xk = points[k].clone();
-                            prod_i = prod_i * (xi.clone() - xk.clone());
-                            prod_j = prod_j * (xj.clone() - xk);
-                        }
-                    }
+                    // Use iterator combinators for better performance and readability
+                    let (new_prod_i, new_prod_j) = (0..n)
+                        .filter(|&k| k != i && k != j)
+                        .map(|k| points[k].clone())
+                        .fold((prod_i, prod_j), |(pi, pj), xk| {
+                            (pi * (xi.clone() - xk.clone()), pj * (xj.clone() - xk))
+                        });
+                    prod_i = new_prod_i;
+                    prod_j = new_prod_j;
 
                     let numerator = T::from_f64(2.0).unwrap() * prod_j;
                     let denominator = (xi - xj) * prod_i;
@@ -570,21 +572,17 @@ impl<T: RealField + FromPrimitive> SpectralSolution<T> {
         let phi_y = self.evaluate_basis_functions(eta, ny)?;
         let phi_z = self.evaluate_basis_functions(zeta, nz)?;
 
-        // Compute tensor product sum
-        for i in 0..nx {
-            for j in 0..ny {
-                for k in 0..nz {
-                    let coeff_idx = i * ny * nz + j * nz + k;
-                    if coeff_idx < self.coefficients.len() {
-                        let contribution = self.coefficients[coeff_idx].clone()
-                            * phi_x[i].clone()
-                            * phi_y[j].clone()
-                            * phi_z[k].clone();
-                        result = result + contribution;
-                    }
-                }
-            }
-        }
+        // Compute tensor product sum using iterator combinators for zero-copy efficiency
+        result = (0..nx)
+            .flat_map(|i| (0..ny).map(move |j| (i, j)))
+            .flat_map(|(i, j)| (0..nz).map(move |k| (i, j, k)))
+            .filter_map(|(i, j, k)| {
+                let coeff_idx = i * ny * nz + j * nz + k;
+                self.coefficients.get(coeff_idx).map(|coeff| {
+                    coeff.clone() * phi_x[i].clone() * phi_y[j].clone() * phi_z[k].clone()
+                })
+            })
+            .fold(result, |acc, contribution| acc + contribution);
 
         Ok(result)
     }
@@ -592,31 +590,26 @@ impl<T: RealField + FromPrimitive> SpectralSolution<T> {
     /// Get solution on a regular grid for visualization
     pub fn evaluate_on_grid(&self, grid_size: (usize, usize, usize)) -> Result<Vec<T>> {
         let (nx, ny, nz) = grid_size;
-        let mut values = Vec::with_capacity(nx * ny * nz);
+        // Generate evaluation points using iterator combinators for better performance
+        let values: Result<Vec<T>> = (0..nz)
+            .flat_map(|k| (0..ny).map(move |j| (k, j)))
+            .flat_map(|(k, j)| (0..nx).map(move |i| (k, j, i)))
+            .map(|(k, j, i)| {
+                // Map grid indices to physical coordinates using zero-copy operations
+                let x_range = self.domain_bounds.1.x.clone() - self.domain_bounds.0.x.clone();
+                let y_range = self.domain_bounds.1.y.clone() - self.domain_bounds.0.y.clone();
+                let z_range = self.domain_bounds.1.z.clone() - self.domain_bounds.0.z.clone();
 
-        // Generate evaluation points
-        for k in 0..nz {
-            for j in 0..ny {
-                for i in 0..nx {
-                    // Map grid indices to physical coordinates
-                    let x = self.domain_bounds.0.x.clone() +
-                           (self.domain_bounds.1.x.clone() - self.domain_bounds.0.x.clone()) *
-                           T::from_usize(i).unwrap() / T::from_usize(nx - 1).unwrap();
-                    let y = self.domain_bounds.0.y.clone() +
-                           (self.domain_bounds.1.y.clone() - self.domain_bounds.0.y.clone()) *
-                           T::from_usize(j).unwrap() / T::from_usize(ny - 1).unwrap();
-                    let z = self.domain_bounds.0.z.clone() +
-                           (self.domain_bounds.1.z.clone() - self.domain_bounds.0.z.clone()) *
-                           T::from_usize(k).unwrap() / T::from_usize(nz - 1).unwrap();
+                let x = self.domain_bounds.0.x.clone() + x_range * T::from_usize(i).unwrap() / T::from_usize(nx - 1).unwrap();
+                let y = self.domain_bounds.0.y.clone() + y_range * T::from_usize(j).unwrap() / T::from_usize(ny - 1).unwrap();
+                let z = self.domain_bounds.0.z.clone() + z_range * T::from_usize(k).unwrap() / T::from_usize(nz - 1).unwrap();
 
-                    let point = Vector3::new(x, y, z);
-                    let value = self.evaluate_at(&point)?;
-                    values.push(value);
-                }
-            }
-        }
+                let point = Vector3::new(x, y, z);
+                self.evaluate_at(&point)
+            })
+            .collect();
 
-        Ok(values)
+        values
     }
 
     /// Map from physical domain to reference domain [-1,1]

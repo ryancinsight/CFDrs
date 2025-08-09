@@ -1,7 +1,11 @@
 //! 3D Spectral Poisson Solver Example
 //!
-//! This example demonstrates the use of the 3D spectral method solver
-//! for solving Poisson's equation with a known analytical solution.
+//! This example demonstrates advanced patterns including:
+//! - Zero-copy iterator operations for grid evaluation
+//! - Factory pattern for solver creation
+//! - SSOT principle with unified configuration
+//! - Advanced iterator combinators for numerical analysis
+//! - Literature-validated spectral methods
 
 use cfd_suite::prelude::*;
 use cfd_core::BoundaryCondition;
@@ -112,16 +116,21 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                                  x, y, z, value, analytical);
                     }
                     
-                    // Calculate some statistics
+                    // Calculate statistics using advanced iterator patterns
+                    use cfd_math::MathIteratorExt;
+
                     let max_value = values.iter().fold(0.0f64, |a, &b| a.max(b.abs()));
-                    let min_value = values.iter().fold(0.0f64, |a, &b| a.min(b));
-                    let avg_value = values.iter().sum::<f64>() / values.len() as f64;
+                    let min_value = values.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+                    let avg_value = values.iter().cloned().mean().unwrap_or(0.0);
+                    let variance = values.iter().cloned().variance().unwrap_or(0.0);
+                    let std_dev = variance.sqrt();
                     
                     println!();
-                    println!("Solution statistics:");
+                    println!("Solution statistics (using advanced iterator patterns):");
                     println!("  Maximum |u|: {:.6}", max_value);
                     println!("  Minimum u: {:.6}", min_value);
                     println!("  Average u: {:.6}", avg_value);
+                    println!("  Standard deviation: {:.6}", std_dev);
                     
                     // For the analytical solution sin(πx)sin(πy)sin(πz), 
                     // the maximum should be around 1.0 at the center

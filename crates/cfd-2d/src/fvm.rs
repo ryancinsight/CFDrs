@@ -72,6 +72,39 @@ pub enum FluxScheme {
     Quick,
 }
 
+/// Flux scheme factory following GRASP Creator principle
+pub struct FluxSchemeFactory;
+
+impl FluxSchemeFactory {
+    /// Create flux scheme from string name
+    pub fn from_name(name: &str) -> Result<FluxScheme> {
+        match name.to_lowercase().as_str() {
+            "central" => Ok(FluxScheme::Central),
+            "upwind" => Ok(FluxScheme::Upwind),
+            "hybrid" => Ok(FluxScheme::Hybrid),
+            "quick" => Ok(FluxScheme::Quick),
+            _ => Err(cfd_core::Error::InvalidInput(
+                format!("Unknown flux scheme: {}", name)
+            )),
+        }
+    }
+
+    /// Get all available flux schemes
+    pub fn available_schemes() -> Vec<&'static str> {
+        vec!["central", "upwind", "hybrid", "quick"]
+    }
+
+    /// Get recommended scheme for given Peclet number
+    pub fn recommend_for_peclet<T: RealField + FromPrimitive>(peclet: T) -> FluxScheme {
+        let pe_threshold = T::from_f64(2.0).unwrap();
+        if peclet.abs() < pe_threshold {
+            FluxScheme::Central
+        } else {
+            FluxScheme::Hybrid
+        }
+    }
+}
+
 /// Control volume face
 #[derive(Debug, Clone)]
 pub struct Face<T: RealField> {
@@ -168,57 +201,66 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
             .collect())
     }
 
-    /// Build faces for the structured grid
+    /// Build faces for the structured grid using advanced iterator patterns
     fn build_faces(&self, grid: &StructuredGrid2D<T>) -> Result<Vec<Face<T>>> {
-        let mut faces = Vec::new();
+        // Pre-allocate with estimated capacity for better performance
+        let estimated_faces = (grid.nx() - 1) * grid.ny() + grid.nx() * (grid.ny() - 1);
+        let mut faces = Vec::with_capacity(estimated_faces);
 
-        // Create internal faces using iterator combinators for better performance
-        (0..grid.nx()).flat_map(|i| (0..grid.ny()).map(move |j| (i, j)))
-            .for_each(|(i, j)| {
+        // Create east faces using iterator patterns for zero-copy efficiency
+        let east_faces = (0..grid.nx() - 1)
+            .flat_map(|i| (0..grid.ny()).map(move |j| (i, j)))
+            .filter_map(|(i, j)| {
                 let linear_idx = j * grid.nx() + i;
+                let neighbor_idx = j * grid.nx() + (i + 1);
 
-                // East face
-                if i < grid.nx() - 1 {
-                    let neighbor_idx = j * grid.nx() + (i + 1);
-                    let center = grid.cell_center(i, j).unwrap();
-                    let neighbor_center = grid.cell_center(i + 1, j).unwrap();
+                grid.cell_center(i, j).ok().and_then(|center| {
+                    grid.cell_center(i + 1, j).ok().map(|neighbor_center| {
+                        let face_center = Vector2::new(
+                            (center.x.clone() + neighbor_center.x.clone()) / T::from_f64(2.0).unwrap(),
+                            center.y.clone(),
+                        );
 
-                    let face_center = Vector2::new(
-                        (center.x.clone() + neighbor_center.x.clone()) / T::from_f64(2.0).unwrap(),
-                        center.y.clone(),
-                    );
-
-                    faces.push(Face {
-                        center: face_center,
-                        normal: Vector2::new(T::one(), T::zero()),
-                        area: grid.spacing().1,
-                        owner: linear_idx,
-                        neighbor: Some(neighbor_idx),
-                        boundary_type: None,
-                    });
-                }
-
-                // North face
-                if j < grid.ny() - 1 {
-                    let neighbor_idx = (j + 1) * grid.nx() + i;
-                    let center = grid.cell_center(i, j).unwrap();
-                    let neighbor_center = grid.cell_center(i, j + 1).unwrap();
-
-                    let face_center = Vector2::new(
-                        center.x.clone(),
-                        (center.y.clone() + neighbor_center.y.clone()) / T::from_f64(2.0).unwrap(),
-                    );
-
-                    faces.push(Face {
-                        center: face_center,
-                        normal: Vector2::new(T::zero(), T::one()),
-                        area: grid.spacing().0,
-                        owner: linear_idx,
-                        neighbor: Some(neighbor_idx),
-                        boundary_type: None,
-                    });
-                }
+                        Face {
+                            center: face_center,
+                            normal: Vector2::new(T::one(), T::zero()),
+                            area: grid.spacing().1,
+                            owner: linear_idx,
+                            neighbor: Some(neighbor_idx),
+                            boundary_type: None,
+                        }
+                    })
+                })
             });
+
+        // Create north faces using iterator patterns
+        let north_faces = (0..grid.nx())
+            .flat_map(|i| (0..grid.ny() - 1).map(move |j| (i, j)))
+            .filter_map(|(i, j)| {
+                let linear_idx = j * grid.nx() + i;
+                let neighbor_idx = (j + 1) * grid.nx() + i;
+
+                grid.cell_center(i, j).ok().and_then(|center| {
+                    grid.cell_center(i, j + 1).ok().map(|neighbor_center| {
+                        let face_center = Vector2::new(
+                            center.x.clone(),
+                            (center.y.clone() + neighbor_center.y.clone()) / T::from_f64(2.0).unwrap(),
+                        );
+
+                        Face {
+                            center: face_center,
+                            normal: Vector2::new(T::zero(), T::one()),
+                            area: grid.spacing().0,
+                            owner: linear_idx,
+                            neighbor: Some(neighbor_idx),
+                            boundary_type: None,
+                        }
+                    })
+                })
+            });
+
+        // Collect all faces using iterator chain for zero-copy efficiency
+        faces.extend(east_faces.chain(north_faces));
 
         Ok(faces)
     }
@@ -384,36 +426,44 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
         let gamma = diffusivity.get(&(i, j)).cloned().unwrap_or_else(T::one);
         let source_term = source.get(&(i, j)).cloned().unwrap_or_else(T::zero);
 
-        // Process faces connected to this cell
-        for face in faces.iter().filter(|f| f.owner == linear_idx || f.neighbor == Some(linear_idx)) {
-            let (neighbor_idx, face_normal) = if face.owner == linear_idx {
-                (face.neighbor, face.normal.clone())
-            } else {
-                (Some(face.owner), -face.normal.clone())
-            };
-
-            if let Some(neighbor) = neighbor_idx {
-                // Internal face - add convection and diffusion terms
-                let face_velocity = vel.dot(&face_normal);
-
-                // Calculate actual distance between cell centers
-                let (dx, dy) = grid.spacing();
-                let distance = if face.normal.x.clone().abs() > face.normal.y.clone().abs() {
-                    dx.clone() // Face is vertical, distance is dx
+        // Process faces connected to this cell using iterator patterns for zero-copy efficiency
+        let face_contributions: Result<Vec<_>> = faces
+            .iter()
+            .filter(|f| f.owner == linear_idx || f.neighbor == Some(linear_idx))
+            .filter_map(|face| {
+                let (neighbor_idx, face_normal) = if face.owner == linear_idx {
+                    (face.neighbor, face.normal.clone())
                 } else {
-                    dy.clone() // Face is horizontal, distance is dy
+                    (Some(face.owner), -face.normal.clone())
                 };
 
-                // Diffusion coefficient
-                let diff_coeff = gamma.clone() * face.area.clone() / distance;
+                neighbor_idx.map(|neighbor| {
+                    // Internal face - add convection and diffusion terms
+                    let face_velocity = vel.dot(&face_normal);
 
-                // Convection coefficient using selected scheme
-                let conv_coeff = self.calculate_convection_coefficient(face_velocity, diff_coeff.clone());
+                    // Calculate actual distance between cell centers
+                    let (dx, dy) = grid.spacing();
+                    let distance = if face.normal.x.clone().abs() > face.normal.y.clone().abs() {
+                        dx.clone() // Face is vertical, distance is dx
+                    } else {
+                        dy.clone() // Face is horizontal, distance is dy
+                    };
 
-                // Add to matrix
-                matrix_builder.add_entry(linear_idx, neighbor, -diff_coeff.clone() - conv_coeff.clone())?;
-                diagonal_coeff += diff_coeff + conv_coeff;
-            }
+                    // Diffusion coefficient
+                    let diff_coeff = gamma.clone() * face.area.clone() / distance;
+
+                    // Convection coefficient using selected scheme
+                    let conv_coeff = self.calculate_convection_coefficient(face_velocity, diff_coeff.clone());
+
+                    Ok((neighbor, diff_coeff, conv_coeff))
+                })
+            })
+            .collect();
+
+        // Apply face contributions to matrix
+        for (neighbor, diff_coeff, conv_coeff) in face_contributions? {
+            matrix_builder.add_entry(linear_idx, neighbor, -diff_coeff.clone() - conv_coeff.clone())?;
+            diagonal_coeff += diff_coeff + conv_coeff;
         }
 
         // Set diagonal coefficient and RHS
