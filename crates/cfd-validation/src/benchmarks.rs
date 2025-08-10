@@ -131,6 +131,10 @@ where
 }
 
 /// Lid-driven cavity benchmark problem
+/// 
+/// This implementation uses the SIMPLE algorithm to solve the incompressible
+/// Navier-Stokes equations. Full convergence may require careful tuning of
+/// relaxation parameters and many iterations.
 #[derive(Debug)]
 pub struct LidDrivenCavity<T: RealField> {
     /// Reynolds number
@@ -285,7 +289,8 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
     }
 
     fn run(&self) -> Result<Self::Solution> {
-        use cfd_2d::{StructuredGrid2D, FdmConfig, PoissonSolver};
+        use cfd_2d::{StructuredGrid2D, SimpleSolver, SimpleConfig};
+        use cfd_core::BoundaryCondition;
         use std::collections::HashMap;
         
         // Create grid for lid-driven cavity
@@ -296,66 +301,72 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
             T::zero(), T::one()  // Domain from (0,0) to (1,1)
         )?;
         
-        // Stream function-vorticity formulation for steady lid-driven cavity
-        let config = FdmConfig {
+        // Use SIMPLE algorithm for incompressible Navier-Stokes
+        // Note: Lid-driven cavity can be challenging to converge
+        let config = SimpleConfig {
             base: cfd_core::SolverConfig::builder()
-                .tolerance(T::from_f64(1e-6).unwrap())
-                .max_iterations(1000)
+                .tolerance(T::from_f64(1e-4).unwrap())  // Relaxed tolerance
+                .max_iterations(100)  // Fewer outer iterations
                 .build(),
+            velocity_tolerance: T::from_f64(1e-4).unwrap(),
+            pressure_tolerance: T::from_f64(1e-3).unwrap(),
+            velocity_relaxation: T::from_f64(0.5).unwrap(),  // More relaxation
+            pressure_relaxation: T::from_f64(0.3).unwrap(),
         };
         
-        let solver = PoissonSolver::new(config);
+        // Fluid properties
+        let density = T::one(); // Normalized
+        let viscosity = density.clone() / self.reynolds.clone(); // μ = ρ/Re for unit velocity
         
-        // Initialize vorticity field based on Reynolds number
-        let mut vorticity = HashMap::new();
-        let _nu = T::one() / self.reynolds.clone(); // Kinematic viscosity (unused in simplified version)
+        let mut solver = SimpleSolver::new(config, &grid, density, viscosity);
         
-        // Boundary vorticity (Thom formula)
+        // Set boundary conditions
+        let mut boundary_conditions = HashMap::new();
+        
+        // Top wall (lid) - moving with velocity u = lid_velocity
         for i in 0..nx {
-            // Top wall (lid) vorticity
-            vorticity.insert((i, ny-1), 
-                -T::from_f64(2.0).unwrap() * self.lid_velocity.clone() * T::from_usize(ny).unwrap());
+            boundary_conditions.insert(
+                (i, ny - 1),
+                BoundaryCondition::Dirichlet { value: self.lid_velocity.clone() }
+            );
         }
         
-        match solver.solve(&grid, &vorticity, &HashMap::new()) {
-            Ok(stream_function) => {
-                // Convert stream function to velocity field using central differences
-                let h = T::one() / T::from_usize(nx - 1).unwrap();
-                
-                let mut velocity = Vec::with_capacity(nx * ny * 2);
-                
-                for j in 0..ny {
-                    for i in 0..nx {
-                        let (u, v) = if j == ny - 1 {
-                            // Top boundary (lid)
-                            (self.lid_velocity.clone(), T::zero())
-                        } else if i == 0 || i == nx - 1 || j == 0 {
-                            // Other walls - no-slip
-                            (T::zero(), T::zero())
-                        } else {
-                            // Interior points: u = ∂ψ/∂y, v = -∂ψ/∂x
-                            let psi_n = stream_function.get(&(i, j+1)).cloned().unwrap_or(T::zero());
-                            let psi_s = stream_function.get(&(i, j-1)).cloned().unwrap_or(T::zero());
-                            let psi_e = stream_function.get(&(i+1, j)).cloned().unwrap_or(T::zero());
-                            let psi_w = stream_function.get(&(i-1, j)).cloned().unwrap_or(T::zero());
-                            
-                            let u = (psi_n - psi_s) / (T::from_f64(2.0).unwrap() * h.clone());
-                            let v = -(psi_e - psi_w) / (T::from_f64(2.0).unwrap() * h.clone());
-                            (u, v)
-                        };
-                        velocity.push(u);
-                        velocity.push(v);
-                    }
-                }
-                
-                Ok(velocity)
-            },
-            Err(_) => {
-                // Return zero solution if solver fails
-                let size = nx * ny * 2;
-                Ok(vec![T::zero(); size])
+        // Other walls - no-slip (u = 0)
+        for i in 0..nx {
+            // Bottom wall
+            boundary_conditions.insert(
+                (i, 0),
+                BoundaryCondition::Dirichlet { value: T::zero() }
+            );
+        }
+        for j in 1..ny-1 {
+            // Left wall
+            boundary_conditions.insert(
+                (0, j),
+                BoundaryCondition::Dirichlet { value: T::zero() }
+            );
+            // Right wall
+            boundary_conditions.insert(
+                (nx - 1, j),
+                BoundaryCondition::Dirichlet { value: T::zero() }
+            );
+        }
+        
+        // Solve the flow
+        solver.solve(&grid, &boundary_conditions)?;
+        
+        // Extract velocity field from solver
+        let mut velocity = Vec::with_capacity(nx * ny * 2);
+        let field = solver.velocity_field();
+        for j in 0..ny {
+            for i in 0..nx {
+                let vel = &field[i][j];
+                velocity.push(vel.x.clone());
+                velocity.push(vel.y.clone());
             }
         }
+        
+        Ok(velocity)
     }
 
     fn validate(&self, solution: &Self::Solution) -> Result<BenchmarkResult<T>> {
@@ -405,6 +416,10 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
 }
 
 /// Flow over cylinder benchmark problem
+/// 
+/// This implementation uses the SIMPLE algorithm to solve flow around a circular
+/// cylinder. The drag coefficient validation is based on empirical correlations.
+/// Full CFD simulation would require fine mesh resolution and many iterations.
 #[derive(Debug)]
 pub struct FlowOverCylinder<T: RealField> {
     /// Reynolds number
@@ -467,8 +482,9 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
     }
 
     fn run(&self) -> Result<Self::Solution> {
-        use cfd_2d::{StructuredGrid2D, FvmSolver, FvmConfig};
-        
+        use cfd_2d::{StructuredGrid2D, SimpleSolver, SimpleConfig};
+        use cfd_core::BoundaryCondition;
+        use std::collections::HashMap;
         
         // Create computational domain (20D x 10D where D is cylinder diameter)
         let domain_length = self.diameter.clone() * T::from_f64(20.0).unwrap();
@@ -478,32 +494,68 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
         let nx = if self.reynolds.to_subset().unwrap_or(100.0) < 100.0 { 100 } else { 200 };
         let ny = nx / 2;
         
-        let _grid = StructuredGrid2D::new(
+        let grid = StructuredGrid2D::new(
             nx, ny,
             domain_length.clone(), domain_height.clone(),
             T::zero(), domain_length.clone()
         )?;
         
-        // Configure FVM solver
-        let config = FvmConfig {
+        // Configure SIMPLE solver for incompressible flow
+        // Note: External flow problems need careful setup
+        let config = SimpleConfig {
             base: cfd_core::SolverConfig::builder()
-                .tolerance(T::from_f64(1e-6).unwrap())
-                .max_iterations(10000)
-                .relaxation_factor(T::from_f64(0.7).unwrap())
+                .tolerance(T::from_f64(1e-3).unwrap())  // Relaxed tolerance
+                .max_iterations(50)  // Fewer iterations for example
                 .build(),
+            velocity_tolerance: T::from_f64(1e-3).unwrap(),
+            pressure_tolerance: T::from_f64(1e-2).unwrap(),
+            velocity_relaxation: T::from_f64(0.3).unwrap(),  // Strong relaxation
+            pressure_relaxation: T::from_f64(0.2).unwrap(),
         };
         
-        let _solver = FvmSolver::new(config, cfd_2d::FluxScheme::Upwind);
+        // Fluid properties (normalized)
+        let u_inlet = T::one(); // Inlet velocity
+        let density = T::one();
+        let viscosity = density.clone() * u_inlet.clone() * self.diameter.clone() / self.reynolds.clone();
         
-        // Set up flow field with cylinder
+        let mut solver = SimpleSolver::new(config, &grid, density, viscosity);
+        
+        // Set boundary conditions
+        let mut boundary_conditions = HashMap::new();
+        
+        // Inlet boundary (left side) - uniform flow
+        for j in 0..ny {
+            boundary_conditions.insert(
+                (0, j),
+                BoundaryCondition::Dirichlet { value: u_inlet.clone() }
+            );
+        }
+        
+        // Top and bottom walls - slip condition (symmetry)
+        for i in 0..nx {
+            boundary_conditions.insert(
+                (i, 0),
+                BoundaryCondition::Neumann { gradient: T::zero() }
+            );
+            boundary_conditions.insert(
+                (i, ny - 1),
+                BoundaryCondition::Neumann { gradient: T::zero() }
+            );
+        }
+        
+        // Outlet boundary (right side) - zero gradient
+        for j in 0..ny {
+            boundary_conditions.insert(
+                (nx - 1, j),
+                BoundaryCondition::Neumann { gradient: T::zero() }
+            );
+        }
+        
+        // Apply cylinder boundary as internal obstacle (no-slip on cylinder surface)
         let cx = T::from_f64(5.0).unwrap() * self.diameter.clone(); // Cylinder center x
         let cy = domain_height.clone() / T::from_f64(2.0).unwrap(); // Cylinder center y
+        let radius = self.diameter.clone() / T::from_f64(2.0).unwrap();
         
-        // Create initial velocity field (uniform flow)
-        let u_inlet = T::one(); // Normalized inlet velocity
-        let mut velocity_field = vec![u_inlet.clone(); nx * ny * 2];
-        
-        // Apply cylinder boundary (zero velocity inside)
         for j in 0..ny {
             for i in 0..nx {
                 let x = T::from_usize(i).unwrap() * domain_length.clone() / T::from_usize(nx).unwrap();
@@ -511,14 +563,29 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
                 
                 let dx = x - cx.clone();
                 let dy = y - cy.clone();
-                let dist_sq = dx.clone() * dx + dy.clone() * dy;
-                let radius_sq = (self.diameter.clone() / T::from_f64(2.0).unwrap()).powi(2);
+                let dist = (dx.clone() * dx + dy.clone() * dy).sqrt();
                 
-                if dist_sq < radius_sq {
-                    let idx = (j * nx + i) * 2;
-                    velocity_field[idx] = T::zero();     // u = 0
-                    velocity_field[idx + 1] = T::zero(); // v = 0
+                // Points inside or on cylinder surface
+                if dist <= radius.clone() {
+                    boundary_conditions.insert(
+                        (i, j),
+                        BoundaryCondition::Dirichlet { value: T::zero() }
+                    );
                 }
+            }
+        }
+        
+        // Solve the flow
+        solver.solve(&grid, &boundary_conditions)?;
+        
+        // Extract velocity field from solver
+        let mut velocity_field = Vec::with_capacity(nx * ny * 2);
+        let field = solver.velocity_field();
+        for j in 0..ny {
+            for i in 0..nx {
+                let vel = &field[i][j];
+                velocity_field.push(vel.x.clone());
+                velocity_field.push(vel.y.clone());
             }
         }
         
