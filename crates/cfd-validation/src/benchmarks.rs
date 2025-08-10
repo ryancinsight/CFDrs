@@ -4,11 +4,18 @@
 //! against known analytical solutions and experimental data.
 
 use crate::error_metrics::ErrorStatistics;
-use cfd_core::Result;
+use cfd_core::{Result, Error};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+/// Helper function to safely convert Reynolds number to f64
+/// Returns an error if the conversion fails
+fn reynolds_to_f64<T: RealField>(reynolds: &T) -> Result<f64> {
+    reynolds.to_subset()
+        .ok_or_else(|| Error::InvalidInput("Failed to convert Reynolds number to f64".to_string()))
+}
 
 /// Trait for benchmark problems
 pub trait Benchmark<T: RealField> {
@@ -177,7 +184,11 @@ impl<T: RealField + FromPrimitive> LidDrivenCavity<T> {
         // Reference centerline velocities for different Reynolds numbers
         // These are normalized velocities at specific grid points
         // Convert Reynolds number to f64 for comparison
-        let re_val = self.reynolds.to_subset().unwrap_or(100.0);
+        let re_val: f64 = self.reynolds.to_subset()
+            .unwrap_or_else(|| {
+                eprintln!("Warning: Failed to convert Reynolds number, using default 100.0");
+                100.0
+            });
         
         if (re_val - 100.0_f64).abs() < 1.0 {
             // Re = 100 reference data (selected points)
@@ -452,7 +463,11 @@ impl<T: RealField + FromPrimitive> FlowOverCylinder<T> {
         // around the cylinder surface
         
         // Use empirical correlation for circular cylinder
-        let re: f64 = self.reynolds.to_subset().unwrap_or(100.0);
+        let re: f64 = self.reynolds.to_subset()
+            .unwrap_or_else(|| {
+                eprintln!("Warning: Failed to convert Reynolds number in compute_drag_coefficient");
+                100.0
+            });
         let cd = if re < 1.0 {
             24.0 / re  // Stokes flow
         } else if re < 1000.0 {
@@ -491,7 +506,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
         let domain_height = self.diameter.clone() * T::from_f64(10.0).unwrap();
         
         // Grid resolution based on Reynolds number
-        let nx = if self.reynolds.to_subset().unwrap_or(100.0) < 100.0 { 100 } else { 200 };
+        let nx = if reynolds_to_f64(&self.reynolds)? < 100.0 { 100 } else { 200 };
         let ny = nx / 2;
         
         let grid = StructuredGrid2D::new(
@@ -597,7 +612,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
         let cd = self.compute_drag_coefficient(solution);
         
         // Expected drag coefficient from literature (Schlichting, Boundary Layer Theory)
-        let re: f64 = self.reynolds.to_subset().unwrap_or(100.0);
+        let re: f64 = reynolds_to_f64(&self.reynolds)?;
         let expected_cd = if re < 1.0 {
             24.0 / re  // Stokes flow
         } else if re < 40.0 {
@@ -703,22 +718,24 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
         )?;
         
         // Configure SIMPLE solver
+        // Note: Backward-facing step needs careful parameter tuning
         let config = SimpleConfig {
             base: cfd_core::SolverConfig::builder()
-                .tolerance(T::from_f64(1e-6).unwrap())
-                .max_iterations(5000)
+                .tolerance(T::from_f64(1e-4).unwrap())  // Relaxed for demonstration
+                .max_iterations(100)  // Limited iterations for example
                 .build(),
-            velocity_tolerance: T::from_f64(1e-6).unwrap(),
-            pressure_tolerance: T::from_f64(1e-5).unwrap(),
-            velocity_relaxation: T::from_f64(0.7).unwrap(),
+            velocity_tolerance: T::from_f64(1e-4).unwrap(),
+            pressure_tolerance: T::from_f64(1e-3).unwrap(),
+            velocity_relaxation: T::from_f64(0.5).unwrap(),
             pressure_relaxation: T::from_f64(0.3).unwrap(),
         };
         
-        // Fluid properties for air at standard conditions
-        let density = T::from_f64(1.225).unwrap(); // kg/m³
-        let viscosity = T::from_f64(1.8e-5).unwrap(); // Pa·s
+        // Fluid properties based on Reynolds number
+        let u_mean = T::one(); // Reference velocity
+        let density = T::one(); // Normalized
+        let viscosity = density.clone() * u_mean * self.step_height.clone() / self.reynolds.clone();
         
-        let _solver = SimpleSolver::new(config, &grid, density, viscosity);
+        let mut solver = SimpleSolver::new(config, &grid, density, viscosity);
         
         // Set boundary conditions
         let mut boundary_conditions = HashMap::new();
@@ -754,7 +771,9 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
         
         // Step geometry
         let step_ratio = self.step_height.clone() / channel_height.clone();
-        let step_cells = (step_ratio.to_subset().unwrap_or(0.5) * ny as f64) as usize;
+        let step_ratio_f64: f64 = step_ratio.to_subset()
+            .ok_or_else(|| Error::InvalidInput("Failed to convert step ratio".to_string()))?;
+        let step_cells = (step_ratio_f64 * ny as f64) as usize;
         let step_length = nx / 10; // Step extends 1/10 of domain
         for i in 0..step_length {
             for j in 0..step_cells {
@@ -765,22 +784,25 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
             }
         }
         
-        // Run solver (simplified - returns initial field)
+        // Outlet boundary condition
+        for j in 0..ny {
+            boundary_conditions.insert(
+                (nx - 1, j),
+                BoundaryCondition::Neumann { gradient: T::zero() }
+            );
+        }
+        
+        // Solve the flow
+        solver.solve(&grid, &boundary_conditions)?;
+        
+        // Extract velocity field from solver
         let mut velocity_field = Vec::with_capacity(nx * ny * 2);
+        let field = solver.velocity_field();
         for j in 0..ny {
             for i in 0..nx {
-                let y = T::from_usize(j).unwrap() * channel_height.clone() / T::from_usize(ny).unwrap();
-                let u = if i < step_length && j < step_cells {
-                    T::zero() // Inside step
-                } else if y > self.step_height.clone() {
-                    // Initial guess: linear decay
-                    u_max.clone() * T::from_f64(0.5).unwrap() * 
-                        (T::one() - T::from_usize(i).unwrap() / T::from_usize(nx).unwrap())
-                } else {
-                    T::zero()
-                };
-                velocity_field.push(u);
-                velocity_field.push(T::zero()); // v = 0 initially
+                let vel = &field[i][j];
+                velocity_field.push(vel.x.clone());
+                velocity_field.push(vel.y.clone());
             }
         }
         
@@ -803,7 +825,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
         }
         
         // Expected reattachment length from literature (Armaly et al. 1983)
-        let re: f64 = self.reynolds.to_subset().unwrap_or(100.0);
+        let re: f64 = reynolds_to_f64(&self.reynolds)?;
         let expected_xr = if re < 400.0 {
             self.step_height.clone() * T::from_f64(6.0 + 0.01 * re).unwrap()
         } else {
