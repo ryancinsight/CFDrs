@@ -4,8 +4,8 @@
 //! satisfies continuity and reduces the number of variables.
 
 use crate::grid::StructuredGrid2D;
-use cfd_core::{Result, Error, RealField, Solver};
-use nalgebra::{Vector2, ComplexField};
+use cfd_core::{Result, Error};
+use nalgebra::{Vector2, ComplexField, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +21,8 @@ const SOR_OPTIMAL_FACTOR: f64 = 1.85; // Optimal for Poisson on square grid
 pub struct VorticityStreamConfig<T: RealField> {
     /// Base solver configuration
     pub base: cfd_core::SolverConfig<T>,
+    /// Time step for transient simulation
+    pub time_step: T,
     /// Convergence tolerance for stream function
     pub stream_tolerance: T,
     /// Convergence tolerance for vorticity
@@ -38,6 +40,7 @@ impl<T: RealField + FromPrimitive> Default for VorticityStreamConfig<T> {
 
         Self {
             base,
+            time_step: T::from_f64(0.001).unwrap(), // Default time step
             stream_tolerance: T::from_f64(DEFAULT_TOLERANCE).unwrap(),
             vorticity_tolerance: T::from_f64(DEFAULT_TOLERANCE).unwrap(),
             sor_omega: T::from_f64(SOR_OPTIMAL_FACTOR).unwrap(),
@@ -146,7 +149,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
                     self.psi[i][j] = (T::one() - omega_sor.clone()) * psi_old.clone() 
                         + omega_sor.clone() * psi_new;
                     
-                    let change = ComplexField::abs(self.psi[i][j].clone() - psi_old);
+                    let change = (self.psi[i][j].clone() - psi_old).abs();
                     if change > max_change {
                         max_change = change;
                     }
@@ -163,7 +166,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
 
     /// Solve vorticity transport equation
     fn solve_vorticity_transport(&mut self) -> Result<()> {
-        let dt = self.config.base.time_step.clone();
+        let dt = self.config.time_step.clone();
         let dx2 = self.dx.clone() * self.dx.clone();
         let dy2 = self.dy.clone() * self.dy.clone();
         let two_dx = T::from_f64(GRADIENT_FACTOR).unwrap() * self.dx.clone();
@@ -238,7 +241,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
         for i in 1..self.nx-1 {
             let lid_velocity = self.u[i][self.ny-1].x.clone();
             self.omega[i][self.ny-1] = -two.clone() * self.psi[i][self.ny-2].clone() / dy2.clone()
-                - two.clone() * lid_velocity * self.dy.clone() / dy2;
+                - two.clone() * lid_velocity * self.dy.clone() / dy2.clone();
         }
         
         // Left wall (x = 0)
@@ -275,7 +278,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
         
         for i in 0..self.nx {
             for j in 0..self.ny {
-                let change = ComplexField::abs(self.psi[i][j].clone() - psi_old[i][j].clone());
+                let change = (self.psi[i][j].clone() - psi_old[i][j].clone()).abs();
                 if change > max_change {
                     max_change = change;
                 }
@@ -308,39 +311,6 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
     /// Calculate vorticity at center for validation
     pub fn vorticity_at_center(&self) -> T {
         self.omega[self.nx/2][self.ny/2].clone()
-    }
-}
-
-impl<T: RealField + FromPrimitive + Send + Sync> Solver<T> for VorticityStreamSolver<T> {
-    type Config = VorticityStreamConfig<T>;
-    type State = (Vec<Vec<T>>, Vec<Vec<T>>); // (stream function, vorticity)
-
-    fn new(config: Self::Config) -> Result<Self> {
-        Err(Error::InvalidConfiguration(
-            "Vorticity-Stream solver requires grid and Reynolds number. Use VorticityStreamSolver::new() instead".to_string()
-        ))
-    }
-
-    fn solve(&mut self, _problem: &cfd_core::Problem<T>) -> Result<cfd_core::Solution<T>> {
-        // Time stepping loop
-        for iter in 0..self.config.base.max_iterations() {
-            let psi_old = self.psi.clone();
-            
-            self.step()?;
-            
-            if self.check_convergence(&psi_old) {
-                if self.config.base.verbose() {
-                    println!("Vorticity-Stream converged at iteration {}", iter + 1);
-                }
-                break;
-            }
-        }
-        
-        Ok(cfd_core::Solution::default())
-    }
-
-    fn step(&mut self, _dt: T) -> Result<()> {
-        self.step()
     }
 }
 

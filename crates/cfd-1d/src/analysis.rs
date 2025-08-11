@@ -1,44 +1,26 @@
-//! Analysis tools for 1D CFD networks.
-//!
-//! This module provides comprehensive analysis capabilities for microfluidic
-//! and millifluidic networks including flow analysis, pressure analysis,
-//! and resistance analysis with validation against analytical solutions.
+//! Network analysis and performance metrics for 1D CFD simulations.
 
-use crate::{
-    network::Network,
-};
-use crate::solver::{NetworkSolver, SolverConfig, SolutionResult};
-use cfd_core::{Result, Fluid};
+use crate::network::{Network, Node, Edge, NodeType, EdgeType};
+use crate::channel::{Channel, FlowRegime};
+use cfd_core::{Result, Error, Fluid};
 use nalgebra::{RealField, ComplexField};
-use num_traits::cast::FromPrimitive;
-use std::collections::HashMap;
+use num_traits::FromPrimitive;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 
 /// Comprehensive flow analysis for network systems
 #[derive(Debug, Clone)]
 pub struct FlowAnalysis<T: RealField> {
-    /// Total volumetric flow rate [m³/s]
+    /// Total flow rate through the network [m³/s]
     pub total_flow_rate: T,
-    /// Flow rates by component [m³/s]
+    /// Flow rates through individual components [m³/s]
     pub component_flows: HashMap<String, T>,
-    /// Flow velocities [m/s]
+    /// Average velocities in channels [m/s]
     pub velocities: HashMap<String, T>,
-    /// Reynolds numbers (dimensionless)
+    /// Reynolds numbers for each channel
     pub reynolds_numbers: HashMap<String, T>,
-    /// Flow regime classifications
+    /// Flow regime classification
     pub flow_regimes: HashMap<String, FlowRegime>,
-}
-
-/// Flow regime classification
-#[derive(Debug, Clone, PartialEq)]
-pub enum FlowRegime {
-    /// Stokes flow (Re << 1)
-    Stokes,
-    /// Laminar flow (Re < 2300)
-    Laminar,
-    /// Transitional flow (2300 <= Re <= 4000)
-    Transitional,
-    /// Turbulent flow (Re > 4000)
-    Turbulent,
 }
 
 /// Pressure analysis for network systems
@@ -86,21 +68,21 @@ pub struct PerformanceMetrics<T: RealField> {
 
 /// Comprehensive network analyzer
 pub struct NetworkAnalyzer<T: RealField> {
-    solver: NetworkSolver<T>,
+    solver: crate::solver::NetworkSolver<T>,
 }
 
 impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
     /// Create a new network analyzer
     pub fn new() -> Self {
         Self {
-            solver: NetworkSolver::new(),
+            solver: crate::solver::NetworkSolver::new(),
         }
     }
     
     /// Create analyzer with custom solver configuration
-    pub fn with_solver_config(config: SolverConfig<T>) -> Self {
+    pub fn with_solver_config(config: crate::solver::SolverConfig<T>) -> Self {
         Self {
-            solver: NetworkSolver::with_config(config),
+            solver: crate::solver::NetworkSolver::with_config(config),
         }
     }
     
@@ -371,30 +353,92 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
         }
     }
     
-    /// Find all paths between two nodes (simplified approach)
+    /// Find all simple paths between two nodes using DFS
     fn find_paths(&self, network: &Network<T>, start: usize, end: usize) -> Vec<Vec<usize>> {
-        // Simplified: just return a single dummy path for now
-        // A full implementation would use graph traversal algorithms
-        let mut paths = Vec::new();
+        use petgraph::visit::EdgeRef;
         
-        // Check if both nodes exist
-        let start_exists = network.nodes().any(|n| n.id == start.to_string());
-        let end_exists = network.nodes().any(|n| n.id == end.to_string());
+        let mut all_paths = Vec::new();
         
-        if start_exists && end_exists {
-            // Create a simple path with all edges
-            // This is a simplification - real implementation would trace actual paths
-            let path: Vec<usize> = network.edges()
-                .enumerate()
-                .map(|(i, _)| i)
-                .collect();
+        // Convert node IDs to NodeIndex
+        let start_id = start.to_string();
+        let end_id = end.to_string();
+        
+        // Find NodeIndex for start and end nodes
+        let start_idx = network.get_node_index(&start_id);
+        let end_idx = network.get_node_index(&end_id);
+        
+        if let (Some(start_node), Some(end_node)) = (start_idx, end_idx) {
+            // Use DFS to find all paths
+            let mut visited_edges = HashSet::new();
+            let mut current_path = Vec::new();
             
-            if !path.is_empty() {
-                paths.push(path);
-            }
+            self.dfs_find_paths(
+                network,
+                start_node,
+                end_node,
+                &mut visited_edges,
+                &mut current_path,
+                &mut all_paths
+            );
         }
         
-        paths
+        all_paths
+    }
+    
+    /// Recursive DFS helper for finding paths
+    fn dfs_find_paths(
+        &self,
+        network: &Network<T>,
+        current: petgraph::graph::NodeIndex,
+        target: petgraph::graph::NodeIndex,
+        visited_edges: &mut HashSet<petgraph::graph::EdgeIndex>,
+        current_path: &mut Vec<usize>,
+        all_paths: &mut Vec<Vec<usize>>
+    ) {
+        use petgraph::visit::EdgeRef;
+        
+        if current == target {
+            // Found a path to the target
+            if !current_path.is_empty() {
+                all_paths.push(current_path.clone());
+            }
+            return;
+        }
+        
+        // Explore all outgoing edges
+        for edge_ref in network.graph.edges(current) {
+            let edge_idx = edge_ref.id();
+            let next_node = edge_ref.target();
+            
+            // Skip if we've already used this edge in the current path
+            if !visited_edges.contains(&edge_idx) {
+                // Add edge to current path
+                // Convert EdgeIndex to edge ID then to position
+                if let Some(edge_id) = network.get_edge_id_by_index(edge_idx) {
+                    // Find the position of this edge in the edges iterator
+                    if let Some(edge_pos) = network.edges()
+                        .position(|e| e.id == edge_id) {
+                        
+                        visited_edges.insert(edge_idx);
+                        current_path.push(edge_pos);
+                        
+                        // Recursively explore from the next node
+                        self.dfs_find_paths(
+                            network,
+                            next_node,
+                            target,
+                            visited_edges,
+                            current_path,
+                            all_paths
+                        );
+                        
+                        // Backtrack
+                        current_path.pop();
+                        visited_edges.remove(&edge_idx);
+                    }
+                }
+            }
+        }
     }
     
     /// Find critical resistance paths using advanced iterator patterns
@@ -522,7 +566,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
 #[derive(Debug, Clone)]
 pub struct NetworkAnalysisResult<T: RealField> {
     /// Solver results
-    pub solution_result: SolutionResult<T>,
+    pub solution_result: crate::solver::SolutionResult<T>,
     /// Flow analysis
     pub flow_analysis: FlowAnalysis<T>,
     /// Pressure analysis

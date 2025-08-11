@@ -31,6 +31,8 @@ use crate::grid::{Grid2D, StructuredGrid2D};
 pub struct SimpleConfig<T: RealField> {
     /// Base solver configuration (SSOT)
     pub base: cfd_core::SolverConfig<T>,
+    /// Time step for simulation
+    pub time_step: T,
     /// Convergence tolerance for velocity
     pub velocity_tolerance: T,
     /// Convergence tolerance for pressure
@@ -51,6 +53,7 @@ impl<T: RealField + FromPrimitive> Default for SimpleConfig<T> {
 
         Self {
             base,
+            time_step: T::from_f64(0.01).unwrap(), // Default time step
             velocity_tolerance: T::from_f64(1e-6).unwrap(),
             pressure_tolerance: T::from_f64(1e-6).unwrap(),
             velocity_relaxation: T::from_f64(0.7).unwrap(),
@@ -72,7 +75,7 @@ impl<T: RealField> SimpleConfig<T> {
     
     /// Get time step from base configuration
     pub fn time_step(&self) -> T {
-        self.base.time_step.clone()
+        self.time_step.clone()
     }
 
     /// Check if verbose output is enabled
@@ -552,6 +555,7 @@ mod tests {
             .build();
         let config = SimpleConfig {
             base,
+            time_step: 0.01, // Add time_step for boundary condition test
             velocity_tolerance: 1e-6,
             pressure_tolerance: 1e-6,
             velocity_relaxation: 0.7,

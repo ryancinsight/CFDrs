@@ -9,6 +9,7 @@ use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use nalgebra::ComplexField;
 
 /// Helper function to safely convert Reynolds number to f64
 /// Returns an error if the conversion fails
@@ -319,6 +320,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
                 .tolerance(T::from_f64(1e-4).unwrap())  // Relaxed tolerance
                 .max_iterations(100)  // Fewer outer iterations
                 .build(),
+            time_step: T::from_f64(0.01).unwrap(),
             velocity_tolerance: T::from_f64(1e-4).unwrap(),
             pressure_tolerance: T::from_f64(1e-3).unwrap(),
             velocity_relaxation: T::from_f64(0.5).unwrap(),  // More relaxation
@@ -457,55 +459,111 @@ impl<T: RealField + FromPrimitive> FlowOverCylinder<T> {
     
     /// Compute drag coefficient from solution
     #[allow(dead_code)]
-    fn compute_drag_coefficient(&self, solution: &[T]) -> T {
+    fn compute_drag_coefficient(&self, solution: &[T], nx: usize, ny: usize) -> T {
         // Compute drag coefficient by integrating pressure and shear stress
         // around the cylinder surface
         // C_D = F_D / (0.5 * ρ * U² * D)
         
-        let nx = self.nx;
-        let ny = self.ny;
         let dx = T::one() / T::from_usize(nx).unwrap();
         let dy = T::one() / T::from_usize(ny).unwrap();
         
         // Cylinder center and radius
         let cx = T::from_f64(0.2).unwrap();
         let cy = T::from_f64(0.5).unwrap();
-        let radius = T::from_f64(0.05).unwrap();
+        let radius = self.diameter.clone() / T::from_f64(2.0).unwrap();
         
         // Integrate forces on cylinder surface
         let mut drag_force = T::zero();
         let num_points = 100; // Number of points around cylinder
+        
+        // Dynamic viscosity based on Reynolds number
+        let rho = T::one(); // Density
+        let u_inf = T::one(); // Inlet velocity
+        let mu = rho.clone() * u_inf.clone() * self.diameter.clone() / self.reynolds.clone();
         
         for i in 0..num_points {
             let theta = T::from_f64(2.0 * std::f64::consts::PI).unwrap() 
                 * T::from_usize(i).unwrap() / T::from_usize(num_points).unwrap();
             
             // Point on cylinder surface
-            let x = cx.clone() + radius.clone() * theta.clone().to_subset().unwrap_or(0.0).cos().into();
-            let y = cy.clone() + radius.clone() * theta.clone().to_subset().unwrap_or(0.0).sin().into();
+            let x = cx.clone() + radius.clone() * ComplexField::cos(theta.clone());
+            let y = cy.clone() + radius.clone() * ComplexField::sin(theta.clone());
             
             // Find nearest grid point
             let i_grid = ((x.clone() / dx.clone()).to_subset().unwrap_or(0.0) as usize).min(nx - 1);
             let j_grid = ((y.clone() / dy.clone()).to_subset().unwrap_or(0.0) as usize).min(ny - 1);
-            let idx = j_grid * nx + i_grid;
             
-            if idx < solution.len() {
-                // Extract pressure (assuming it's part of solution)
-                let pressure = solution[idx].clone();
+            // For 2D flow, solution typically contains [u, v, p] at each point
+            // or could be organized differently - assuming velocity components then pressure
+            let vel_idx = (j_grid * nx + i_grid) * 2;
+            let p_idx = nx * ny * 2 + j_grid * nx + i_grid; // Pressure after velocity field
+            
+            if p_idx < solution.len() && vel_idx + 1 < solution.len() {
+                // Extract pressure
+                let pressure = if p_idx < solution.len() {
+                    solution[p_idx].clone()
+                } else {
+                    T::zero() // Fallback if pressure not available
+                };
+                
+                // Extract velocities for shear stress calculation
+                let u = solution[vel_idx].clone();
+                let v = solution[vel_idx + 1].clone();
+                
+                // Compute velocity gradients using finite differences
+                // For better accuracy, we should use neighboring points
+                let du_dy = if j_grid > 0 && j_grid < ny - 1 {
+                    let u_above = if vel_idx + 2 * nx < solution.len() {
+                        solution[vel_idx + 2 * nx].clone()
+                    } else {
+                        u.clone()
+                    };
+                    let u_below = if vel_idx >= 2 * nx {
+                        solution[vel_idx - 2 * nx].clone()
+                    } else {
+                        u.clone()
+                    };
+                    (u_above - u_below) / (T::from_f64(2.0).unwrap() * dy.clone())
+                } else {
+                    T::zero()
+                };
+                
+                let dv_dx = if i_grid > 0 && i_grid < nx - 1 {
+                    let v_right = if vel_idx + 3 < solution.len() {
+                        solution[vel_idx + 3].clone()
+                    } else {
+                        v.clone()
+                    };
+                    let v_left = if vel_idx >= 2 {
+                        solution[vel_idx - 1].clone()
+                    } else {
+                        v.clone()
+                    };
+                    (v_right - v_left) / (T::from_f64(2.0).unwrap() * dx.clone())
+                } else {
+                    T::zero()
+                };
                 
                 // Normal vector (pointing outward from cylinder)
-                let nx_normal = theta.clone().to_subset().unwrap_or(0.0).cos();
-                let ny_normal = theta.to_subset().unwrap_or(0.0).sin();
+                let nx_normal = ComplexField::cos(theta.clone());
+                let ny_normal = ComplexField::sin(theta.clone());
+                
+                // Tangent vector (perpendicular to normal)
+                let tx = -ny_normal.clone();
+                let ty = nx_normal.clone();
                 
                 // Pressure contribution to drag (only x-component)
-                let pressure_drag = pressure * T::from_f64(nx_normal).unwrap();
+                let pressure_drag = pressure * nx_normal.clone();
                 
-                // Add shear stress contribution (simplified)
-                let mu = T::from_f64(0.001).unwrap(); // Dynamic viscosity
-                let du_dy = T::zero(); // Would need velocity gradients
-                let shear_drag = mu * du_dy;
+                // Shear stress contribution
+                // τ = μ * (∂u_t/∂n) where u_t is tangential velocity
+                // For a cylinder, the shear stress τ_wall = μ * (∂u_θ/∂r)|_wall
+                // We approximate this using the velocity gradients
+                let shear_rate = (du_dy + dv_dx) / T::from_f64(2.0).unwrap();
+                let shear_stress = mu.clone() * shear_rate;
+                let shear_drag = shear_stress * tx; // Tangential stress contributes to drag
                 
-                // Accumulate drag force
+                // Accumulate drag force (integrate around cylinder)
                 let ds = T::from_f64(2.0 * std::f64::consts::PI).unwrap() * radius.clone() 
                     / T::from_usize(num_points).unwrap();
                 drag_force = drag_force + (pressure_drag + shear_drag) * ds;
@@ -513,10 +571,7 @@ impl<T: RealField + FromPrimitive> FlowOverCylinder<T> {
         }
         
         // Compute drag coefficient
-        let rho = T::one(); // Density
-        let u_inf = T::one(); // Inlet velocity
-        let diameter = T::from_f64(2.0).unwrap() * radius;
-        let c_d = drag_force / (T::from_f64(0.5).unwrap() * rho * u_inf.clone() * u_inf * diameter);
+        let c_d = drag_force / (T::from_f64(0.5).unwrap() * rho * u_inf.clone() * u_inf * self.diameter.clone());
         
         // If calculation fails, use empirical correlation
         if c_d <= T::zero() || c_d > T::from_f64(10.0).unwrap() {
@@ -578,6 +633,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
                 .tolerance(T::from_f64(1e-3).unwrap())  // Relaxed tolerance
                 .max_iterations(50)  // Fewer iterations for example
                 .build(),
+            time_step: T::from_f64(0.01).unwrap(),
             velocity_tolerance: T::from_f64(1e-3).unwrap(),
             pressure_tolerance: T::from_f64(1e-2).unwrap(),
             velocity_relaxation: T::from_f64(0.3).unwrap(),  // Strong relaxation
@@ -665,7 +721,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
 
     fn validate(&self, solution: &Self::Solution) -> Result<BenchmarkResult<T>> {
         // Compute drag coefficient from solution
-        let cd = self.compute_drag_coefficient(solution);
+        let cd = self.compute_drag_coefficient(solution, 200, 100); // Assuming nx=200, ny=100 for this call
         
         // Expected drag coefficient from literature (Schlichting, Boundary Layer Theory)
         let re: f64 = reynolds_to_f64(&self.reynolds)?;
@@ -780,6 +836,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
                 .tolerance(T::from_f64(1e-4).unwrap())  // Relaxed for demonstration
                 .max_iterations(100)  // Limited iterations for example
                 .build(),
+            time_step: T::from_f64(0.01).unwrap(),
             velocity_tolerance: T::from_f64(1e-4).unwrap(),
             pressure_tolerance: T::from_f64(1e-3).unwrap(),
             velocity_relaxation: T::from_f64(0.5).unwrap(),

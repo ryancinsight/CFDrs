@@ -4,8 +4,8 @@
 //! for improved accuracy in transient calculations.
 
 use crate::grid::StructuredGrid2D;
-use cfd_core::{Result, Error, RealField, Solver};
-use nalgebra::{Vector2, ComplexField};
+use cfd_core::{Result, Error};
+use nalgebra::{Vector2, ComplexField, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -22,6 +22,8 @@ const GRADIENT_FACTOR: f64 = 2.0;
 pub struct PisoConfig<T: RealField> {
     /// Base solver configuration
     pub base: cfd_core::SolverConfig<T>,
+    /// Time step for transient simulation
+    pub time_step: T,
     /// Number of corrector steps (typically 2)
     pub num_correctors: usize,
     /// Convergence tolerance for velocity
@@ -41,6 +43,7 @@ impl<T: RealField + FromPrimitive> Default for PisoConfig<T> {
 
         Self {
             base,
+            time_step: T::from_f64(0.01).unwrap(), // Default time step
             num_correctors: DEFAULT_MAX_CORRECTORS,
             velocity_tolerance: T::from_f64(1e-6).unwrap(),
             pressure_tolerance: T::from_f64(1e-6).unwrap(),
@@ -143,7 +146,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
 
     /// Compute momentum equation coefficients
     fn compute_momentum_coefficients(&mut self) {
-        let dt = self.config.base.time_step.clone();
+        let dt = self.config.time_step.clone();
         let dx2 = self.dx.clone() * self.dx.clone();
         let dy2 = self.dy.clone() * self.dy.clone();
         
@@ -165,15 +168,16 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
                 let conv_s = self.density.clone() * v_s / self.dy.clone();
                 
                 // Hybrid scheme coefficients
-                self.a_e[i][j] = diff_x.clone() + ComplexField::max(T::zero(), -conv_e.clone());
-                self.a_w[i][j] = diff_x.clone() + ComplexField::max(T::zero(), conv_w.clone());
-                self.a_n[i][j] = diff_y.clone() + ComplexField::max(T::zero(), -conv_n.clone());
-                self.a_s[i][j] = diff_y.clone() + ComplexField::max(T::zero(), conv_s.clone());
+                let zero = T::zero();
+                self.a_e[i][j] = diff_x.clone() + if -conv_e.clone() > zero { -conv_e.clone() } else { zero.clone() };
+                self.a_w[i][j] = diff_x.clone() + if conv_w.clone() > zero { conv_w.clone() } else { zero.clone() };
+                self.a_n[i][j] = diff_y.clone() + if -conv_n.clone() > zero { -conv_n.clone() } else { zero.clone() };
+                self.a_s[i][j] = diff_y.clone() + if conv_s.clone() > zero { conv_s } else { zero.clone() };
                 
                 // Central coefficient (includes transient term)
                 self.a_p[i][j] = self.a_e[i][j].clone() + self.a_w[i][j].clone() 
                     + self.a_n[i][j].clone() + self.a_s[i][j].clone()
-                    + self.density.clone() * self.dx.clone() * self.dy.clone() / dt;
+                    + self.density.clone() * self.dx.clone() * self.dy.clone() / dt.clone();
             }
         }
     }
@@ -197,7 +201,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
                         * self.dy.clone() / T::from_f64(GRADIENT_FACTOR).unwrap();
                     
                     let source_x = self.density.clone() * self.dx.clone() * self.dy.clone() 
-                        * u_old[i][j].x.clone() / self.config.base.time_step.clone();
+                        * u_old[i][j].x.clone() / self.config.time_step.clone();
                     
                     self.u[i][j].x = (sum_nb_x + pressure_gradient_x + source_x) / self.a_p[i][j].clone();
                     
@@ -211,7 +215,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
                         * self.dx.clone() / T::from_f64(GRADIENT_FACTOR).unwrap();
                     
                     let source_y = self.density.clone() * self.dx.clone() * self.dy.clone() 
-                        * u_old[i][j].y.clone() / self.config.base.time_step.clone();
+                        * u_old[i][j].y.clone() / self.config.time_step.clone();
                     
                     self.u[i][j].y = (sum_nb_y + pressure_gradient_y + source_y) / self.a_p[i][j].clone();
                 }
@@ -222,7 +226,14 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
     }
 
     /// Solve pressure correction equation
-    fn solve_pressure_correction(&mut self, correction_field: &mut Vec<Vec<T>>) -> Result<()> {
+    fn solve_pressure_correction(&mut self, use_double_prime: bool) -> Result<()> {
+        // Choose which correction field to use
+        let correction_field = if use_double_prime {
+            &mut self.p_double_prime
+        } else {
+            &mut self.p_prime
+        };
+        
         // Reset correction field
         for i in 0..self.nx {
             for j in 0..self.ny {
@@ -265,8 +276,19 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
     }
 
     /// Apply velocity correction
-    fn apply_velocity_correction(&mut self, pressure_correction: &Vec<Vec<T>>, 
-                                velocity_correction: &mut Vec<Vec<Vector2<T>>>) {
+    fn apply_velocity_correction(&mut self, use_double_prime: bool) {
+        let pressure_correction = if use_double_prime {
+            &self.p_double_prime
+        } else {
+            &self.p_prime
+        };
+        
+        let velocity_correction = if use_double_prime {
+            &mut self.u_double_prime
+        } else {
+            &mut self.u_prime
+        };
+        
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
                 // Velocity correction from pressure gradient
@@ -292,10 +314,10 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
         self.solve_momentum_predictor()?;
         
         // Step 2: First pressure correction
-        self.solve_pressure_correction(&mut self.p_prime)?;
+        self.solve_pressure_correction(false)?;
         
         // Step 3: First velocity correction
-        self.apply_velocity_correction(&self.p_prime, &mut self.u_prime);
+        self.apply_velocity_correction(false);
         
         // Update pressure with first correction
         for i in 0..self.nx {
@@ -306,10 +328,10 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
         
         // Step 4: Second pressure correction (PISO specific)
         if self.config.num_correctors >= 2 {
-            self.solve_pressure_correction(&mut self.p_double_prime)?;
+            self.solve_pressure_correction(true)?;
             
             // Step 5: Second velocity correction
-            self.apply_velocity_correction(&self.p_double_prime, &mut self.u_double_prime);
+            self.apply_velocity_correction(true);
             
             // Update pressure with second correction
             for i in 0..self.nx {
@@ -360,7 +382,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
                     / (T::from_f64(GRADIENT_FACTOR).unwrap() * self.dx.clone());
                 let dvdy = (self.u[i][j+1].y.clone() - self.u[i][j-1].y.clone()) 
                     / (T::from_f64(GRADIENT_FACTOR).unwrap() * self.dy.clone());
-                let continuity_error = ComplexField::abs(dudx + dvdy);
+                let continuity_error = (dudx + dvdy).abs();
                 
                 if continuity_error > max_continuity_error {
                     max_continuity_error = continuity_error;
@@ -379,37 +401,6 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
     /// Get pressure field
     pub fn pressure_field(&self) -> &Vec<Vec<T>> {
         &self.p
-    }
-}
-
-impl<T: RealField + FromPrimitive + Send + Sync> Solver<T> for PisoSolver<T> {
-    type Config = PisoConfig<T>;
-    type State = (Vec<Vec<Vector2<T>>>, Vec<Vec<T>>); // (velocity, pressure)
-
-    fn new(config: Self::Config) -> Result<Self> {
-        Err(Error::InvalidConfiguration(
-            "PISO solver requires grid and fluid properties. Use PisoSolver::new() instead".to_string()
-        ))
-    }
-
-    fn solve(&mut self, _problem: &cfd_core::Problem<T>) -> Result<cfd_core::Solution<T>> {
-        // Run PISO iterations
-        for iter in 0..self.config.base.max_iterations() {
-            self.step()?;
-            
-            if self.check_convergence() {
-                if self.config.base.verbose() {
-                    println!("PISO converged at iteration {}", iter + 1);
-                }
-                break;
-            }
-        }
-        
-        Ok(cfd_core::Solution::default())
-    }
-
-    fn step(&mut self, _dt: T) -> Result<()> {
-        self.step()
     }
 }
 

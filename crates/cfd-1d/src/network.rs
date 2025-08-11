@@ -404,6 +404,23 @@ impl<T: RealField + FromPrimitive> Network<T> {
     pub fn edge_count(&self) -> usize {
         self.graph.edge_count()
     }
+    
+    /// Get node index by ID
+    pub fn get_node_index(&self, id: &str) -> Option<NodeIndex> {
+        self.node_map.get(id).copied()
+    }
+    
+    /// Get edge index by ID
+    pub fn get_edge_index(&self, id: &str) -> Option<EdgeIndex> {
+        self.edge_map.get(id).copied()
+    }
+    
+    /// Get edge ID by index
+    pub fn get_edge_id_by_index(&self, edge_idx: EdgeIndex) -> Option<String> {
+        self.edge_map.iter()
+            .find(|(_, &idx)| idx == edge_idx)
+            .map(|(id, _)| id.clone())
+    }
 
     /// Check if the network is connected
     pub fn is_connected(&self) -> bool {

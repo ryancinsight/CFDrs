@@ -53,21 +53,21 @@ pub enum BoundaryType {
     Periodic,
 }
 
-/// Structured rectangular grid
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// 2D structured grid implementation
+#[derive(Debug, Clone)]
 pub struct StructuredGrid2D<T: RealField> {
     /// Number of cells in x direction
-    nx: usize,
+    pub nx: usize,
     /// Number of cells in y direction
-    ny: usize,
+    pub ny: usize,
     /// Domain bounds: (x_min, x_max, y_min, y_max)
-    bounds: (T, T, T, T),
+    pub bounds: (T, T, T, T),
     /// Cell spacing in x direction
-    dx: T,
+    pub dx: T,
     /// Cell spacing in y direction
-    dy: T,
+    pub dy: T,
     /// Boundary conditions
-    boundaries: HashMap<(usize, usize), BoundaryType>,
+    pub boundaries: HashMap<(usize, usize), BoundaryType>,
 }
 
 impl<T: RealField + FromPrimitive> StructuredGrid2D<T> {
