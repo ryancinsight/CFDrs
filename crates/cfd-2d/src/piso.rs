@@ -157,7 +157,11 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
                 let diff_y = self.viscosity.clone() / dy2.clone();
                 
                 // Convection coefficients (using central differencing)
-                let u_e = (self.u[i][j].x.clone() + self.u[i+1][j].x.clone()) / T::from_f64(GRADIENT_FACTOR).unwrap();
+                let u_e = if i+1 < self.nx {
+                    (self.u[i][j].x.clone() + self.u[i+1][j].x.clone()) / T::from_f64(GRADIENT_FACTOR).unwrap()
+                } else {
+                    self.u[i][j].x.clone() / T::from_f64(GRADIENT_FACTOR).unwrap()
+                };
                 let u_w = (self.u[i-1][j].x.clone() + self.u[i][j].x.clone()) / T::from_f64(GRADIENT_FACTOR).unwrap();
                 let v_n = (self.u[i][j].y.clone() + self.u[i][j+1].y.clone()) / T::from_f64(GRADIENT_FACTOR).unwrap();
                 let v_s = (self.u[i][j-1].y.clone() + self.u[i][j].y.clone()) / T::from_f64(GRADIENT_FACTOR).unwrap();
