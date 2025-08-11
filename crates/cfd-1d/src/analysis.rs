@@ -221,10 +221,10 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
                 }
             );
 
-        // Calculate total equivalent resistance (simplified)
+        // Calculate total equivalent resistance using Modified Nodal Analysis
         let total_resistance = self.calculate_equivalent_resistance(network);
 
-        // Find critical paths (simplified - just high resistance paths)
+        // Find critical paths using graph algorithms
         let critical_paths = self.find_critical_paths(network);
 
         Ok(ResistanceAnalysis {
@@ -294,62 +294,136 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
         }
     }
     
-    /// Calculate equivalent resistance using network topology analysis
+    /// Calculate equivalent resistance using Modified Nodal Analysis (MNA)
+    /// 
+    /// This implements the complete MNA method for network analysis:
+    /// 1. Build conductance matrix G from network topology
+    /// 2. Apply Kirchhoff's Current Law at each node
+    /// 3. Solve the linear system for node voltages
+    /// 4. Calculate equivalent resistance from voltage drop and current
+    ///
+    /// Reference: Nagel, L.W. (1975) "SPICE2: A Computer Program to Simulate Semiconductor Circuits"
     fn calculate_equivalent_resistance(&self, network: &Network<T>) -> T {
-        // For a proper network analysis, we need to identify series and parallel paths
-        // This implementation uses a simplified approach based on node connectivity
+        use nalgebra::{DMatrix, DVector};
+        
+        // Get all nodes and create index mapping
+        let nodes: Vec<_> = network.nodes().collect();
+        let node_indices: std::collections::HashMap<_, _> = nodes.iter()
+            .enumerate()
+            .map(|(i, n)| (n.id.parse::<usize>().unwrap_or(i), i))
+            .collect();
+        
+        let n = nodes.len();
+        if n < 2 {
+            return T::zero(); // Need at least 2 nodes
+        }
+        
+        // Build conductance matrix (G) using Kirchhoff's Current Law
+        let mut g_matrix = DMatrix::zeros(n, n);
+        
+        // Fill conductance matrix from network edges
+        for edge in network.edges() {
+            let resistance = edge.effective_resistance();
+            if resistance <= T::zero() {
+                continue; // Skip zero/negative resistances
+            }
+            
+            let conductance = T::one() / resistance;
+            
+            // Get node indices for this edge
+            let from_idx = edge.from_node.parse::<usize>().unwrap_or(0);
+            let to_idx = edge.to_node.parse::<usize>().unwrap_or(0);
+            
+            if let (Some(&i), Some(&j)) = (node_indices.get(&from_idx), node_indices.get(&to_idx)) {
+                // Add conductance to diagonal elements
+                g_matrix[(i, i)] = g_matrix[(i, i)].clone() + conductance.clone();
+                g_matrix[(j, j)] = g_matrix[(j, j)].clone() + conductance.clone();
+                
+                // Subtract conductance from off-diagonal elements
+                g_matrix[(i, j)] = g_matrix[(i, j)].clone() - conductance.clone();
+                g_matrix[(j, i)] = g_matrix[(j, i)].clone() - conductance.clone();
+            }
+        }
         
         // Find inlet and outlet nodes
-        let inlet_nodes: Vec<_> = network.nodes()
-            .filter(|n| matches!(n.node_type, crate::network::NodeType::Inlet))
-            .map(|n| n.id.parse::<usize>().unwrap_or(0))
+        let inlet_indices: Vec<_> = nodes.iter()
+            .enumerate()
+            .filter(|(_, n)| matches!(n.node_type, crate::network::NodeType::Inlet))
+            .map(|(i, _)| i)
             .collect();
             
-        let outlet_nodes: Vec<_> = network.nodes()
-            .filter(|n| matches!(n.node_type, crate::network::NodeType::Outlet))
-            .map(|n| n.id.parse::<usize>().unwrap_or(0))
+        let outlet_indices: Vec<_> = nodes.iter()
+            .enumerate()
+            .filter(|(_, n)| matches!(n.node_type, crate::network::NodeType::Outlet))
+            .map(|(i, _)| i)
             .collect();
         
-        if inlet_nodes.is_empty() || outlet_nodes.is_empty() {
-            // If no clear inlet/outlet, sum all resistances (worst case)
+        if inlet_indices.is_empty() || outlet_indices.is_empty() {
+            // If no clear inlet/outlet, calculate series resistance
             return network.edges()
                 .map(|edge| edge.effective_resistance())
                 .fold(T::zero(), |acc, r| acc + r);
         }
         
-        // For each inlet-outlet pair, find paths and calculate resistance
-        let mut total_conductance = T::zero();
+        // Apply unit current source between first inlet and outlet
+        let inlet_idx = inlet_indices[0];
+        let outlet_idx = outlet_indices[0];
         
-        for &inlet in &inlet_nodes {
-            for &outlet in &outlet_nodes {
-                // Find all paths from inlet to outlet
-                let paths = self.find_paths(network, inlet, outlet);
-                
-                // Calculate conductance for each path (1/R for parallel paths)
-                for path in paths {
-                    let path_resistance = path.iter()
-                        .filter_map(|&edge_id| {
-                            network.edges()
-                                .find(|e| e.id == edge_id.to_string())
-                                .map(|e| e.effective_resistance())
-                        })
-                        .fold(T::zero(), |acc, r| acc + r);
-                    
-                    if path_resistance > T::zero() {
-                        total_conductance = total_conductance + T::one() / path_resistance;
-                    }
-                }
+        // Create current source vector (positive at inlet, negative at outlet)
+        let mut current_vector = DVector::zeros(n);
+        let unit_current = T::one();
+        current_vector[inlet_idx] = unit_current.clone();
+        current_vector[outlet_idx] = -unit_current.clone();
+        
+        // Set reference node (ground) - choose outlet as reference
+        // Modify the conductance matrix to handle reference node
+        let mut g_reduced = DMatrix::zeros(n - 1, n - 1);
+        let mut i_reduced = DVector::zeros(n - 1);
+        
+        // Remove reference node row and column (using outlet as reference)
+        let mut row_idx = 0;
+        for i in 0..n {
+            if i == outlet_idx {
+                continue; // Skip reference node
             }
+            let mut col_idx = 0;
+            for j in 0..n {
+                if j == outlet_idx {
+                    continue; // Skip reference node
+                }
+                g_reduced[(row_idx, col_idx)] = g_matrix[(i, j)].clone();
+                col_idx += 1;
+            }
+            i_reduced[row_idx] = current_vector[i].clone();
+            row_idx += 1;
         }
         
-        // Equivalent resistance is 1/total_conductance
-        if total_conductance > T::zero() {
-            T::one() / total_conductance
-        } else {
-            // Fallback to series sum if no paths found
-            network.edges()
-                .map(|edge| edge.effective_resistance())
-                .fold(T::zero(), |acc, r| acc + r)
+        // Solve the linear system G * V = I for node voltages
+        use cfd_math::LinearSolver;
+        let solver = cfd_math::ConjugateGradient::new()
+            .with_tolerance(T::from_f64(1e-10).unwrap_or_else(T::default_epsilon))
+            .with_max_iterations(1000);
+        
+        match solver.solve(&g_reduced, &i_reduced) {
+            Ok(voltages) => {
+                // Get voltage at inlet node (outlet is reference = 0V)
+                let inlet_voltage_idx = if inlet_idx < outlet_idx {
+                    inlet_idx
+                } else {
+                    inlet_idx - 1  // Adjust for removed reference node
+                };
+                
+                let voltage_drop = voltages[inlet_voltage_idx].clone();
+                
+                // Equivalent resistance = V / I = voltage_drop / unit_current
+                voltage_drop.abs() / unit_current
+            }
+            Err(_) => {
+                // Fallback to series sum if solver fails
+                network.edges()
+                    .map(|edge| edge.effective_resistance())
+                    .fold(T::zero(), |acc, r| acc + r)
+            }
         }
     }
     

@@ -3,8 +3,8 @@
 //! This module encapsulates boundary condition knowledge following DDD principles.
 //! It provides abstractions for different boundary condition types and their application.
 
-use crate::boundary::{BoundaryCondition, WallType};
-use nalgebra::{RealField, Vector3, Point3};
+use crate::boundary::BoundaryCondition;
+use nalgebra::{RealField, Point3};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

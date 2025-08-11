@@ -4,6 +4,7 @@
 //! using various element types and numerical schemes.
 
 use cfd_core::{Error, Result, SolverConfiguration};
+use crate::constants;
 use cfd_math::{LinearSolver, LinearSolverConfig, ConjugateGradient, SparseMatrixBuilder};
 use cfd_mesh::{Mesh, Cell};
 use nalgebra::{RealField, Vector3, DVector};
@@ -149,6 +150,12 @@ pub struct MaterialProperties<T: RealField> {
     pub density: T,
     /// Dynamic viscosity
     pub viscosity: T,
+    /// Young's modulus (for structural analysis)
+    pub youngs_modulus: T,
+    /// Poisson's ratio
+    pub poisson_ratio: T,
+    /// Body force vector (e.g., gravity)
+    pub body_force: Option<Vector3<T>>,
     /// Thermal conductivity (for heat transfer)
     pub thermal_conductivity: Option<T>,
     /// Specific heat capacity
@@ -433,6 +440,64 @@ impl<T: RealField + FromPrimitive + Send + Sync, F: ElementFactory<T>> FemSolver
         Ok(velocity_solution)
     }
 
+    /// Compute body force contribution for an element
+    /// 
+    /// Implements numerical integration of body forces over the element:
+    /// F_i = ∫_Ω N_i · f dΩ
+    /// 
+    /// Uses Gaussian quadrature for accurate integration
+    fn compute_body_force_contribution(
+        &self,
+        element: &TetrahedralElement<T>,
+        nodes: &[Vector3<T>],
+        material_properties: &MaterialProperties<T>,
+    ) -> Result<DVector<T>> {
+        let ndof = element.nodes.len() * 3; // 3 DOF per node (u, v, w)
+        let mut force_vector = DVector::zeros(ndof);
+        
+        // Get body force from material properties (e.g., gravity)
+        let body_force = material_properties.body_force.clone().unwrap_or_else(Vector3::zeros);
+        
+        if body_force.norm() < T::from_f64(1e-14).unwrap() {
+            return Ok(force_vector); // No body forces
+        }
+        
+        // Gauss quadrature points for tetrahedron (order 2, 4 points)
+        // Reference: Zienkiewicz & Taylor, "The Finite Element Method", 6th Ed.
+        let gauss_points = vec![
+            (T::from_f64(0.58541020).unwrap(), T::from_f64(0.13819660).unwrap(), 
+             T::from_f64(0.13819660).unwrap(), T::from_f64(0.25).unwrap()),
+            (T::from_f64(0.13819660).unwrap(), T::from_f64(0.58541020).unwrap(),
+             T::from_f64(0.13819660).unwrap(), T::from_f64(0.25).unwrap()),
+            (T::from_f64(0.13819660).unwrap(), T::from_f64(0.13819660).unwrap(),
+             T::from_f64(0.58541020).unwrap(), T::from_f64(0.25).unwrap()),
+            (T::from_f64(0.13819660).unwrap(), T::from_f64(0.13819660).unwrap(),
+             T::from_f64(0.13819660).unwrap(), T::from_f64(0.25).unwrap()),
+        ];
+        
+        // Compute Jacobian determinant for coordinate transformation
+        let jacobian = element.jacobian(nodes)?;
+        let det_j = jacobian.determinant();
+        
+        // Numerical integration using Gaussian quadrature
+        for (xi, eta, zeta, weight) in gauss_points {
+            // Evaluate shape functions at Gauss point
+            let shape_functions = element.shape_functions(xi.clone(), eta.clone(), zeta.clone());
+            
+            // Add contribution to force vector
+            for (i, n_i) in shape_functions.iter().enumerate() {
+                force_vector[i * 3] = force_vector[i * 3].clone() + 
+                    weight.clone() * n_i.clone() * body_force.x.clone() * det_j.clone();
+                force_vector[i * 3 + 1] = force_vector[i * 3 + 1].clone() + 
+                    weight.clone() * n_i.clone() * body_force.y.clone() * det_j.clone();
+                force_vector[i * 3 + 2] = force_vector[i * 3 + 2].clone() + 
+                    weight.clone() * n_i.clone() * body_force.z.clone() * det_j.clone();
+            }
+        }
+        
+        Ok(force_vector)
+    }
+
     /// Assemble element matrix and RHS vector using factory pattern
     fn assemble_element_matrix(
         &self,
@@ -467,8 +532,9 @@ impl<T: RealField + FromPrimitive + Send + Sync, F: ElementFactory<T>> FemSolver
         // Compute element stiffness matrix
         let k_elem = element.stiffness_matrix(&nodes, material_properties)?;
 
-        // For now, zero RHS (no body forces in this simplified implementation)
-        let rhs_elem = DVector::zeros(k_elem.nrows());
+        // Compute RHS with body forces using Galerkin method
+        // F_i = ∫_Ω N_i · f dΩ where N_i are shape functions and f is body force
+        let rhs_elem = self.compute_body_force_contribution(element, &nodes, material_properties)?;
 
         Ok((k_elem, rhs_elem, node_indices))
     }

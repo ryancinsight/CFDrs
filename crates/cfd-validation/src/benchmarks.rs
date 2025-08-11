@@ -565,7 +565,7 @@ impl<T: RealField + FromPrimitive> FlowOverCylinder<T> {
                 
                 // Tangent vector (perpendicular to normal)
                 let tx = -ny_normal.clone();
-                let ty = nx_normal.clone();
+                let _ty = nx_normal.clone();
                 
                 // Pressure contribution to drag (only x-component)
                 let pressure_drag = pressure * nx_normal.clone();
