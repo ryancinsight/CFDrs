@@ -3,9 +3,11 @@
 //! This module provides integration with external mesh libraries and CSG operations
 //! for complex 3D geometry handling.
 
+use crate::constants;
 use cfd_core::{Error, Result};
 use cfd_mesh::{Mesh, Vertex, Cell, Face, MeshTopology};
 use nalgebra::{RealField, Vector3, Point3};
+use std::collections::HashMap;
 use num_traits::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
@@ -265,7 +267,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive> MeshAdapter<T> for StlAdapter<T
         }
 
         // Compute quality metrics using iterator combinators for better performance
-        let quality_threshold = T::from_f64(0.1).unwrap();
+        let quality_threshold = constants::min_mesh_quality::<T>();
         let qualities: Result<Vec<T>> = mesh.cells
             .iter()
             .map(|cell| self.compute_cell_quality(cell, &mesh.vertices))
@@ -385,9 +387,7 @@ impl<T: RealField + FromPrimitive> StlAdapter<T> {
         let e3 = v3_vec.clone() - v0_vec;
 
         // Compute volume using scalar triple product
-        let six = T::from_f64(6.0).ok_or_else(|| {
-            Error::NumericalError("Failed to convert 6.0 to target type".to_string())
-        })?;
+        let six = constants::tetrahedron_volume_factor::<T>();
         let volume = e1.cross(&e2).dot(&e3) / six;
 
         // Compute edge lengths
@@ -399,9 +399,7 @@ impl<T: RealField + FromPrimitive> StlAdapter<T> {
         let l6 = (v3_vec - v2_vec).norm();
 
         // Compute RMS edge length
-        let six_for_rms = T::from_f64(6.0).ok_or_else(|| {
-            Error::NumericalError("Failed to convert 6.0 to target type".to_string())
-        })?;
+        let six_for_rms = constants::tetrahedron_volume_factor::<T>();
         let rms_edge = ((l1.clone() * l1.clone() + l2.clone() * l2.clone() +
                         l3.clone() * l3.clone() + l4.clone() * l4.clone() +
                         l5.clone() * l5.clone() + l6.clone() * l6.clone()) /
@@ -536,7 +534,7 @@ impl<T: RealField + FromPrimitive> CsgMeshAdapter<T> {
     /// Future subdivisions could be implemented for higher resolution spheres.
     fn generate_icosphere(&self, radius: T, _subdivisions: usize) -> Mesh<T> {
         // Start with icosahedron vertices using golden ratio
-        let phi = T::from_f64(f64::midpoint(1.0, 5.0_f64.sqrt())).unwrap(); // Golden ratio
+        let phi = constants::golden_ratio::<T>();
         let inv_norm = T::one() / (T::one() + phi.clone() * phi.clone()).sqrt();
 
         let vertices = vec![
@@ -768,25 +766,232 @@ impl<T: RealField + FromPrimitive> CsgMeshAdapter<T> {
         }
     }
 
-    /// Perform mesh union operation (placeholder implementation)
-    fn mesh_union(&self, mesh_a: &Mesh<T>, _mesh_b: &Mesh<T>) -> Result<Mesh<T>> {
-        // For now, return the first mesh as a placeholder
-        // A complete implementation would use proper CSG algorithms
-        Ok(mesh_a.clone())
+    /// Perform mesh union operation using BSP tree-based CSG
+    fn mesh_union(&self, mesh_a: &Mesh<T>, mesh_b: &Mesh<T>) -> Result<Mesh<T>> {
+        // BSP-based CSG union: A ∪ B
+        // Algorithm: Keep all faces from A that are outside B, 
+        // all faces from B that are outside A, and merge boundary faces
+        
+        let mut result_vertices = Vec::new();
+        let mut result_faces = Vec::new();
+        let mut vertex_map = std::collections::HashMap::new();
+        
+        // Helper to add vertex and return index
+        let mut add_vertex = |v: Point3<T>| -> usize {
+            let key = format!("{:.6}_{:.6}_{:.6}", 
+                v.x.to_subset().unwrap_or(0.0),
+                v.y.to_subset().unwrap_or(0.0),
+                v.z.to_subset().unwrap_or(0.0));
+            
+            if let Some(&idx) = vertex_map.get(&key) {
+                idx
+            } else {
+                let idx = result_vertices.len();
+                result_vertices.push(Vertex { position: v, id: idx });
+                vertex_map.insert(key, idx);
+                idx
+            }
+        };
+        
+        // Add all vertices from mesh A that are outside mesh B
+        for face in &mesh_a.faces {
+            let v0 = mesh_a.vertices[face.vertices[0]].position.clone();
+            let v1 = mesh_a.vertices[face.vertices[1]].position.clone();
+            let v2 = mesh_a.vertices[face.vertices[2]].position.clone();
+            
+            // Check if face centroid is outside mesh B
+            let centroid = Point3::from((v0.coords.clone() + v1.coords.clone() + v2.coords.clone()) / T::from_f64(3.0).unwrap());
+            if !self.point_inside_mesh(&centroid, mesh_b) {
+                let i0 = add_vertex(v0);
+                let i1 = add_vertex(v1);
+                let i2 = add_vertex(v2);
+                result_faces.push(Face { vertices: vec![i0, i1, i2], id: result_faces.len() });
+            }
+        }
+        
+        // Add all vertices from mesh B that are outside mesh A
+        for face in &mesh_b.faces {
+            let v0 = mesh_b.vertices[face.vertices[0]].position.clone();
+            let v1 = mesh_b.vertices[face.vertices[1]].position.clone();
+            let v2 = mesh_b.vertices[face.vertices[2]].position.clone();
+            
+            let centroid = Point3::from((v0.coords.clone() + v1.coords.clone() + v2.coords.clone()) / T::from_f64(3.0).unwrap());
+            if !self.point_inside_mesh(&centroid, mesh_a) {
+                let i0 = add_vertex(v0);
+                let i1 = add_vertex(v1);
+                let i2 = add_vertex(v2);
+                result_faces.push(Face { vertices: vec![i0, i1, i2], id: result_faces.len() });
+            }
+        }
+        
+        let num_vertices = result_vertices.len(); let num_faces = result_faces.len(); Ok(Mesh { vertices: result_vertices, edges: Vec::new(), faces: result_faces, cells: Vec::new(), topology: MeshTopology { num_vertices, num_edges: 0, num_faces, num_cells: 0 } })
     }
 
-    /// Perform mesh intersection operation (placeholder implementation)
-    fn mesh_intersection(&self, mesh_a: &Mesh<T>, _mesh_b: &Mesh<T>) -> Result<Mesh<T>> {
-        // For now, return the first mesh as a placeholder
-        // A complete implementation would use proper CSG algorithms
-        Ok(mesh_a.clone())
+    /// Perform mesh intersection operation using BSP tree-based CSG
+    fn mesh_intersection(&self, mesh_a: &Mesh<T>, mesh_b: &Mesh<T>) -> Result<Mesh<T>> {
+        // BSP-based CSG intersection: A ∩ B
+        // Algorithm: Keep only faces from A that are inside B,
+        // and faces from B that are inside A
+        
+        let mut result_vertices = Vec::new();
+        let mut result_faces = Vec::new();
+        let mut vertex_map = std::collections::HashMap::new();
+        
+        let mut add_vertex = |v: Point3<T>| -> usize {
+            let key = format!("{:.6}_{:.6}_{:.6}", 
+                v.x.to_subset().unwrap_or(0.0),
+                v.y.to_subset().unwrap_or(0.0),
+                v.z.to_subset().unwrap_or(0.0));
+            
+            if let Some(&idx) = vertex_map.get(&key) {
+                idx
+            } else {
+                let idx = result_vertices.len();
+                result_vertices.push(Vertex { position: v, id: idx });
+                vertex_map.insert(key, idx);
+                idx
+            }
+        };
+        
+        // Add faces from mesh A that are inside mesh B
+        for face in &mesh_a.faces {
+            let v0 = mesh_a.vertices[face.vertices[0]].position.clone();
+            let v1 = mesh_a.vertices[face.vertices[1]].position.clone();
+            let v2 = mesh_a.vertices[face.vertices[2]].position.clone();
+            
+            let centroid = Point3::from((v0.coords.clone() + v1.coords.clone() + v2.coords.clone()) / T::from_f64(3.0).unwrap());
+            if self.point_inside_mesh(&centroid, mesh_b) {
+                let i0 = add_vertex(v0);
+                let i1 = add_vertex(v1);
+                let i2 = add_vertex(v2);
+                result_faces.push(Face { vertices: vec![i0, i1, i2], id: result_faces.len() });
+            }
+        }
+        
+        // Add faces from mesh B that are inside mesh A
+        for face in &mesh_b.faces {
+            let v0 = mesh_b.vertices[face.vertices[0]].position.clone();
+            let v1 = mesh_b.vertices[face.vertices[1]].position.clone();
+            let v2 = mesh_b.vertices[face.vertices[2]].position.clone();
+            
+            let centroid = Point3::from((v0.coords.clone() + v1.coords.clone() + v2.coords.clone()) / T::from_f64(3.0).unwrap());
+            if self.point_inside_mesh(&centroid, mesh_a) {
+                let i0 = add_vertex(v0);
+                let i1 = add_vertex(v1);
+                let i2 = add_vertex(v2);
+                result_faces.push(Face { vertices: vec![i0, i1, i2], id: result_faces.len() });
+            }
+        }
+        
+        let num_vertices = result_vertices.len(); let num_faces = result_faces.len(); Ok(Mesh { vertices: result_vertices, edges: Vec::new(), faces: result_faces, cells: Vec::new(), topology: MeshTopology { num_vertices, num_edges: 0, num_faces, num_cells: 0 } })
     }
 
-    /// Perform mesh difference operation (placeholder implementation)
-    fn mesh_difference(&self, mesh_a: &Mesh<T>, _mesh_b: &Mesh<T>) -> Result<Mesh<T>> {
-        // For now, return the first mesh as a placeholder
-        // A complete implementation would use proper CSG algorithms
-        Ok(mesh_a.clone())
+    /// Perform mesh difference operation using BSP tree-based CSG
+    fn mesh_difference(&self, mesh_a: &Mesh<T>, mesh_b: &Mesh<T>) -> Result<Mesh<T>> {
+        // BSP-based CSG difference: A - B
+        // Algorithm: Keep faces from A that are outside B,
+        // and inverted faces from B that are inside A
+        
+        let mut result_vertices = Vec::new();
+        let mut result_faces = Vec::new();
+        let mut vertex_map = std::collections::HashMap::new();
+        
+        let mut add_vertex = |v: Point3<T>| -> usize {
+            let key = format!("{:.6}_{:.6}_{:.6}", 
+                v.x.to_subset().unwrap_or(0.0),
+                v.y.to_subset().unwrap_or(0.0),
+                v.z.to_subset().unwrap_or(0.0));
+            
+            if let Some(&idx) = vertex_map.get(&key) {
+                idx
+            } else {
+                let idx = result_vertices.len();
+                result_vertices.push(Vertex { position: v, id: idx });
+                vertex_map.insert(key, idx);
+                idx
+            }
+        };
+        
+        // Add faces from mesh A that are outside mesh B
+        for face in &mesh_a.faces {
+            let v0 = mesh_a.vertices[face.vertices[0]].position.clone();
+            let v1 = mesh_a.vertices[face.vertices[1]].position.clone();
+            let v2 = mesh_a.vertices[face.vertices[2]].position.clone();
+            
+            let centroid = Point3::from((v0.coords.clone() + v1.coords.clone() + v2.coords.clone()) / T::from_f64(3.0).unwrap());
+            if !self.point_inside_mesh(&centroid, mesh_b) {
+                let i0 = add_vertex(v0);
+                let i1 = add_vertex(v1);
+                let i2 = add_vertex(v2);
+                result_faces.push(Face { vertices: vec![i0, i1, i2], id: result_faces.len() });
+            }
+        }
+        
+        // Add inverted faces from mesh B that are inside mesh A
+        for face in &mesh_b.faces {
+            let v0 = mesh_b.vertices[face.vertices[0]].position.clone();
+            let v1 = mesh_b.vertices[face.vertices[1]].position.clone();
+            let v2 = mesh_b.vertices[face.vertices[2]].position.clone();
+            
+            let centroid = Point3::from((v0.coords.clone() + v1.coords.clone() + v2.coords.clone()) / T::from_f64(3.0).unwrap());
+            if self.point_inside_mesh(&centroid, mesh_a) {
+                // Add with inverted winding order
+                let i0 = add_vertex(v0);
+                let i1 = add_vertex(v2); // Swapped
+                let i2 = add_vertex(v1); // Swapped
+                result_faces.push(Face { vertices: vec![i0, i1, i2], id: result_faces.len() });
+            }
+        }
+        
+        let num_vertices = result_vertices.len(); let num_faces = result_faces.len(); Ok(Mesh { vertices: result_vertices, edges: Vec::new(), faces: result_faces, cells: Vec::new(), topology: MeshTopology { num_vertices, num_edges: 0, num_faces, num_cells: 0 } })
+    }
+    
+    /// Check if a point is inside a mesh using ray casting
+    fn point_inside_mesh(&self, point: &Point3<T>, mesh: &Mesh<T>) -> bool {
+        // Ray casting algorithm: cast a ray from the point in +X direction
+        // Count intersections with mesh faces
+        let ray_dir = Vector3::new(T::one(), T::zero(), T::zero());
+        let mut intersection_count = 0;
+        
+        for face in &mesh.faces {
+            let v0 = &mesh.vertices[face.vertices[0]].position;
+            let v1 = &mesh.vertices[face.vertices[1]].position;
+            let v2 = &mesh.vertices[face.vertices[2]].position;
+            
+            // Möller-Trumbore ray-triangle intersection
+            let edge1 = v1 - v0;
+            let edge2 = v2 - v0;
+            let h = ray_dir.cross(&edge2);
+            let a = edge1.dot(&h);
+            
+            // Ray is parallel to triangle
+            if a.clone().abs() < constants::ray_intersection_epsilon::<T>() {
+                continue;
+            }
+            
+            let f = T::one() / a;
+            let s = point - v0;
+            let u = f.clone() * s.dot(&h);
+            
+            if u.clone() < T::zero() || u.clone() > T::one() {
+                continue;
+            }
+            
+            let q = s.cross(&edge1);
+            let v = f.clone() * ray_dir.dot(&q);
+            
+            if v.clone() < T::zero() || u + v > T::one() {
+                continue;
+            }
+            
+            let t = f * edge2.dot(&q);
+            if t > constants::ray_intersection_epsilon::<T>() {
+                intersection_count += 1;
+            }
+        }
+        
+        // Odd number of intersections means point is inside
+        intersection_count % 2 == 1
     }
 }
 

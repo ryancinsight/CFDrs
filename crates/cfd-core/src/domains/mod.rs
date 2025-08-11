@@ -17,5 +17,5 @@ pub mod material_properties;
 pub use fluid_dynamics::{FlowField, VelocityField, PressureField, TurbulenceModel};
 pub use numerical_methods::{DiscretizationScheme, TimeIntegrationScheme, LinearSystemSolver};
 pub use mesh_operations::{MeshGeneration, MeshRefinement, MeshQuality};
-pub use boundary_conditions::{BoundaryConditionType, BoundaryConditionApplicator};
+pub use boundary_conditions::BoundaryConditionApplicator;
 pub use material_properties::{FluidProperties, SolidProperties, InterfaceProperties};
