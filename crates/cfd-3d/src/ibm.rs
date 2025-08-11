@@ -131,7 +131,9 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
             let one = T::one();
             let three = T::from_f64(3.0).unwrap();
             // Clamp the argument to sqrt to be non-negative
-            let arg = (one.clone() - three.clone() * r_norm.clone() * r_norm.clone()).max(T::zero());
+            let r_norm_squared = r_norm.clone() * r_norm.clone();
+            // Clamp the argument to sqrt to be non-negative
+            let arg = (one.clone() - three.clone() * r_norm_squared).max(T::zero());
             (one + ComplexField::sqrt(arg)) / (three * h)
         } else {
             let one = T::one();
