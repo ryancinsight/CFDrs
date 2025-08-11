@@ -7,10 +7,11 @@
 
 pub mod fdm;
 pub mod fvm;
-pub mod lbm;
 pub mod grid;
-pub mod schemes;
+pub mod lbm;
 pub mod simple;
+pub mod piso;
+pub mod vorticity_stream;
 
 // Export implemented functionality
 pub use grid::{Grid2D, StructuredGrid2D, BoundaryType, GridEdge, GridIterator};

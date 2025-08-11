@@ -1,11 +1,19 @@
-//! Material properties domain - Physical properties and constitutive relations.
+//! Material properties domain module
 //!
-//! This module encapsulates material property knowledge following DDD principles.
-//! It provides abstractions for fluid, solid, and interface properties.
+//! Provides fluid and material property models following Domain-Driven Design
 
-use nalgebra::RealField;
+use nalgebra::{RealField, Vector3};
+use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+// Named constants for material properties
+const SOLID_LIKE_VISCOSITY: f64 = 1e6;  // High viscosity for zero shear rate
+const YIELD_STRESS_VISCOSITY: f64 = 1e10; // Very high viscosity below yield stress
+const DEFAULT_WATER_DENSITY: f64 = 998.2; // kg/m³ at 20°C
+const DEFAULT_WATER_VISCOSITY: f64 = 1.002e-3; // Pa·s at 20°C
+const DEFAULT_AIR_DENSITY: f64 = 1.225; // kg/m³ at 15°C, sea level
+const DEFAULT_AIR_VISCOSITY: f64 = 1.81e-5; // Pa·s at 15°C
 
 /// Fluid properties abstraction
 pub trait FluidProperties<T: RealField>: Send + Sync {
@@ -161,7 +169,7 @@ pub mod non_newtonian {
                 self.consistency_index.clone() * shear_rate.powf(self.flow_behavior_index.clone() - T::one())
             } else {
                 // At zero shear rate, use a large viscosity to represent solid-like behavior
-                self.consistency_index.clone() * T::from_f64(1e6).unwrap_or(T::from_f64(1000000.0).unwrap())
+                self.consistency_index.clone() * T::from_f64(SOLID_LIKE_VISCOSITY).unwrap_or(T::from_f64(SOLID_LIKE_VISCOSITY).unwrap())
             }
         }
     }
@@ -210,7 +218,7 @@ pub mod non_newtonian {
             let shear_stress_abs = shear_stress.abs();
             if shear_stress_abs < self.yield_stress {
                 // Below yield stress - solid-like behavior
-                T::from_f64(1e10).unwrap_or(T::from_f64(10000000000.0).unwrap())
+                T::from_f64(YIELD_STRESS_VISCOSITY).unwrap_or(T::from_f64(YIELD_STRESS_VISCOSITY).unwrap())
             } else {
                 // Above yield stress - flows with plastic viscosity
                 // Effective viscosity includes yield stress contribution
