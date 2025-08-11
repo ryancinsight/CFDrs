@@ -21,9 +21,9 @@ pub mod level_set;
 pub mod vof;
 
 // Re-export commonly used types
-pub use fem::{FemSolver, FemConfig};
-pub use spectral::{SpectralSolver, SpectralConfig};
-pub use mesh_integration::{MeshAdapter, MeshQualityReport, StlAdapter, CsgMeshAdapter};
+pub use fem::{FemSolver, FemConfig, ElementType, MaterialProperties};
+pub use spectral::{SpectralSolver, SpectralConfig, SpectralBasis};
+pub use mesh_integration::{MeshAdapter, MeshQualityReport, StlAdapter, CsgMeshAdapter, ElementType as MeshElementType};
 pub use ibm::{IbmSolver, IbmConfig, LagrangianPoint};
 pub use level_set::{LevelSetSolver, LevelSetConfig};
 pub use vof::{VofSolver, VofConfig};

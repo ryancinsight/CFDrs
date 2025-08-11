@@ -78,9 +78,11 @@ pub mod prelude {
     // === 3D CFD Simulations ===
     // Advanced 3D methods with CSGrs integration
     pub use cfd_3d::{
-        FemSolver, FemConfig, SpectralSolver, SpectralConfig, SpectralBasis,
+        FemSolver, FemConfig, SpectralSolver, SpectralConfig,
         MeshAdapter, MeshQualityReport, StlAdapter, CsgMeshAdapter,
-        Element, ElementType, MaterialProperties, Tetrahedron4
+        IbmSolver, IbmConfig, LagrangianPoint,
+        LevelSetSolver, LevelSetConfig,
+        VofSolver, VofConfig
     };
 
     // === Validation Framework ===

@@ -6,6 +6,7 @@
 use cfd_suite::prelude::*;
 use cfd_core::Fluid;
 use cfd_mesh::{Mesh, Vertex, Face, Cell, MeshTopology};
+use cfd_3d::{ElementType, MaterialProperties};
 use std::collections::HashMap;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {

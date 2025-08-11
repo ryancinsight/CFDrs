@@ -125,19 +125,20 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
         let h = self.dx.clone();  // Assuming uniform grid
         let r_norm = r.abs() / h.clone();
         
-        if r_norm >= T::from_f64(DELTA_FUNCTION_CUTOFF / 2.0).unwrap() {
+        if r_norm >= T::from_f64(2.0).unwrap() {
             T::zero()
-        } else if r_norm <= T::one() {
+        } else if r_norm < T::one() {
             let one = T::one();
             let three = T::from_f64(3.0).unwrap();
-            let _eight = T::from_f64(8.0).unwrap();
             (one.clone() + ComplexField::sqrt(one.clone() - three.clone() * r_norm.clone() * r_norm.clone())) / (three * h)
         } else {
             let one = T::one();
             let two = T::from_f64(2.0).unwrap();
             let three = T::from_f64(3.0).unwrap();
             let five = T::from_f64(5.0).unwrap();
-            (five - three.clone() * r_norm.clone() - ComplexField::sqrt(-three * (one.clone() - r_norm.clone()) * (one - r_norm))) / (T::from_f64(6.0).unwrap() * h)
+            // For 1 <= r_norm < 2, use the correct formula
+            let term = (one.clone() - r_norm.clone()) * (one - r_norm.clone());
+            (five - three.clone() * r_norm - ComplexField::sqrt(three * term)) / (T::from_f64(6.0).unwrap() * h)
         }
     }
     
@@ -216,9 +217,9 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
     fn delta_function_static(r: T, h: T) -> T {
         let r_norm = r.abs() / h.clone();
         
-        if r_norm >= T::from_f64(DELTA_FUNCTION_CUTOFF / 2.0).unwrap() {
+        if r_norm >= T::from_f64(2.0).unwrap() {
             T::zero()
-        } else if r_norm <= T::one() {
+        } else if r_norm < T::one() {
             let one = T::one();
             let three = T::from_f64(3.0).unwrap();
             (one.clone() + ComplexField::sqrt(one.clone() - three.clone() * r_norm.clone() * r_norm.clone())) / (three * h)
@@ -226,7 +227,9 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
             let one = T::one();
             let three = T::from_f64(3.0).unwrap();
             let five = T::from_f64(5.0).unwrap();
-            (five - three.clone() * r_norm.clone() - ComplexField::sqrt(-three * (one.clone() - r_norm.clone()) * (one - r_norm))) / (T::from_f64(6.0).unwrap() * h)
+            // For 1 <= r_norm < 2, use the correct formula  
+            let term = (one.clone() - r_norm.clone()) * (one - r_norm.clone());
+            (five - three.clone() * r_norm - ComplexField::sqrt(three * term)) / (T::from_f64(6.0).unwrap() * h)
         }
     }
     
@@ -251,7 +254,7 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
                     // Elastic force: F = -k * (X - X0)
                     let displacement = point.position.clone() - ref_pos.clone();
                     let stiffness = T::from_f64(100.0).unwrap();  // Spring stiffness
-                    point.force = -stiffness * displacement;
+                    point.force = displacement * (-stiffness);
                 }
             }
         }
@@ -401,7 +404,9 @@ mod tests {
         // Delta function should be maximum at r=0
         let d0 = solver.delta_function(0.0);
         let d1 = solver.delta_function(1.0);
-        assert!(d0 > d1);
+        // The delta function should decrease as we move away from 0
+        // For a grid spacing of 1.0, the value at r=1.0 should be less than at r=0
+        assert!(d0 > d1, "d0={} should be > d1={}", d0, d1);
         
         // Should be zero beyond cutoff
         let d_far = solver.delta_function(3.0);

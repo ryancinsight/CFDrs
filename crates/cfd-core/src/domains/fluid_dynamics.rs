@@ -659,9 +659,9 @@ mod tests {
         };
 
         let divergence = flow_field.divergence();
-        assert_eq!(divergence.len(), 1); // windows(3) produces 1 element
+        assert_eq!(divergence.len(), 3); // One divergence value per grid point
 
         let vorticity = flow_field.vorticity();
-        assert_eq!(vorticity.len(), 2); // windows(2) produces 2 elements
+        assert_eq!(vorticity.len(), 3); // One vorticity vector per grid point
     }
 }

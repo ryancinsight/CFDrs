@@ -5,7 +5,7 @@ use crate::channel::FlowRegime;
 use cfd_core::{Result, Fluid};
 use nalgebra::{RealField, ComplexField};
 use num_traits::FromPrimitive;
-use serde::{Deserialize, Serialize};
+
 use std::collections::{HashMap, HashSet};
 
 /// Comprehensive flow analysis for network systems

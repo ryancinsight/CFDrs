@@ -168,7 +168,7 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
             * self.dx.clone().max(self.dy.clone()).max(self.dz.clone());
         
         for idx in 0..self.phi.len() {
-            if self.phi[idx].abs() <= band_width {
+            if self.phi[idx].clone().abs() <= band_width {
                 self.narrow_band.push(idx);
             }
         }
@@ -184,8 +184,8 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
             0 => {  // x-direction
                 if i < 2 || i >= self.nx - 3 {
                     // Use lower order at boundaries
-                    let vm1 = if i > 0 { v[self.index(i-1, j, k)] } else { v[idx] };
-                    let vp1 = if i < self.nx-1 { v[self.index(i+1, j, k)] } else { v[idx] };
+                    let vm1 = if i > 0 { v[self.index(i-1, j, k)].clone() } else { v[idx].clone() };
+                    let vp1 = if i < self.nx-1 { v[self.index(i+1, j, k)].clone() } else { v[idx].clone() };
                     return ((v[idx].clone() - vm1) / self.dx.clone(),
                             (vp1 - v[idx].clone()) / self.dx.clone());
                 }
@@ -198,8 +198,8 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
             },
             1 => {  // y-direction
                 if j < 2 || j >= self.ny - 3 {
-                    let vm1 = if j > 0 { v[self.index(i, j-1, k)] } else { v[idx] };
-                    let vp1 = if j < self.ny-1 { v[self.index(i, j+1, k)] } else { v[idx] };
+                    let vm1 = if j > 0 { v[self.index(i, j-1, k)].clone() } else { v[idx].clone() };
+                    let vp1 = if j < self.ny-1 { v[self.index(i, j+1, k)].clone() } else { v[idx].clone() };
                     return ((v[idx].clone() - vm1) / self.dy.clone(),
                             (vp1 - v[idx].clone()) / self.dy.clone());
                 }
@@ -212,8 +212,8 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
             },
             _ => {  // z-direction
                 if k < 2 || k >= self.nz - 3 {
-                    let vm1 = if k > 0 { v[self.index(i, j, k-1)] } else { v[idx] };
-                    let vp1 = if k < self.nz-1 { v[self.index(i, j, k+1)] } else { v[idx] };
+                    let vm1 = if k > 0 { v[self.index(i, j, k-1)].clone() } else { v[idx].clone() };
+                    let vp1 = if k < self.nz-1 { v[self.index(i, j, k+1)].clone() } else { v[idx].clone() };
                     return ((v[idx].clone() - vm1) / self.dz.clone(),
                             (vp1 - v[idx].clone()) / self.dz.clone());
                 }
@@ -238,7 +238,7 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
         let beta1 = (thirteen.clone() * (vm1.clone() - two.clone() * v0.clone() + vp1.clone()).powi(2)
             + three.clone() * (vm1.clone() - vp1.clone()).powi(2)) / T::from_f64(12.0).unwrap();
         let beta2 = (thirteen.clone() * (v0.clone() - two.clone() * vp1.clone() + vp2.clone()).powi(2)
-            + three.clone() * (three.clone() * v0 - T::from_f64(4.0).unwrap() * vp1.clone() + vp2.clone()).powi(2)) / T::from_f64(12.0).unwrap();
+            + three.clone() * (three.clone() * v0.clone() - T::from_f64(4.0).unwrap() * vp1.clone() + vp2.clone()).powi(2)) / T::from_f64(12.0).unwrap();
         
         // Weights
         let d0 = T::from_f64(0.1).unwrap();
@@ -262,9 +262,9 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
             _ => self.dz.clone(),
         };
         
-        let derivative_minus = (w0.clone() * (two.clone() * vm1.clone() - T::from_f64(7.0).unwrap() * v0.clone() + T::from_f64(11.0).unwrap() * vp1.clone())
-            + w1.clone() * (-vm1 + T::from_f64(5.0).unwrap() * v0.clone() + two.clone() * vp1.clone())
-            + w2.clone() * (two * v0 + T::from_f64(5.0).unwrap() * vp1 - vp2)) / (six * h.clone());
+        let derivative_minus = (w0 * (two.clone() * vm1.clone() - T::from_f64(7.0).unwrap() * v0.clone() + T::from_f64(11.0).unwrap() * vp1.clone())
+            + w1 * (-vm1 + T::from_f64(5.0).unwrap() * v0.clone() + two.clone() * vp1.clone())
+            + w2 * (two * v0 + T::from_f64(5.0).unwrap() * vp1 - vp2)) / (six * h.clone());
         
         let derivative_plus = derivative_minus.clone();  // Simplified for now
         
@@ -349,7 +349,7 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
     pub fn reinitialize(&mut self) {
         let mut phi_temp = self.phi.clone();
         let sign_phi = self.phi.iter()
-            .map(|&p| p.clone() / ComplexField::sqrt(p.clone() * p.clone() + T::from_f64(EPSILON_SMOOTHING).unwrap().powi(2)))
+            .map(|p| p.clone() / ComplexField::sqrt(p.clone() * p.clone() + T::from_f64(EPSILON_SMOOTHING).unwrap().powi(2)))
             .collect::<Vec<_>>();
         
         let dtau = T::from_f64(0.5).unwrap() * self.dx.clone().min(self.dy.clone()).min(self.dz.clone());
@@ -472,14 +472,15 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
     /// Get volume fraction in each cell
     pub fn get_volume_fraction(&self) -> Vec<T> {
         self.phi.iter()
-            .map(|&p| {
+            .map(|p| {
+                let p = p.clone();
                 let eps = T::from_f64(EPSILON_SMOOTHING).unwrap() * self.dx.clone();
-                if p > eps {
+                if p.clone() > eps.clone() {
                     T::zero()
-                } else if p < -eps {
+                } else if p.clone() < -eps.clone() {
                     T::one()
                 } else {
-                    T::from_f64(0.5).unwrap() * (T::one() - p / eps.clone() 
+                    T::from_f64(0.5).unwrap() * (T::one() - p.clone() / eps.clone() 
                         - ComplexField::sin(T::from_f64(std::f64::consts::PI).unwrap() * p / eps) 
                         / T::from_f64(std::f64::consts::PI).unwrap())
                 }

@@ -8,6 +8,7 @@
 //! - Literature-validated spectral methods
 
 use cfd_suite::prelude::*;
+use cfd_3d::SpectralBasis;
 use cfd_core::BoundaryCondition;
 use std::collections::HashMap;
 
