@@ -3,11 +3,10 @@
 //! The IBM allows simulation of flow around complex objects without
 //! body-fitted meshes by using forcing terms in the momentum equations.
 
-use cfd_core::{Result, Error};
-use nalgebra::{Vector3, DMatrix, DVector, RealField};
+use cfd_core::Result;
+use nalgebra::{Vector3, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 // Named constants for IBM
 const DEFAULT_SMOOTHING_WIDTH: f64 = 1.5;  // Delta function width in grid cells

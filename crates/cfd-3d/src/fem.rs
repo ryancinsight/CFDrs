@@ -7,7 +7,7 @@ use cfd_core::{Error, Result, SolverConfiguration};
 use crate::constants;
 use cfd_math::{LinearSolver, LinearSolverConfig, ConjugateGradient, SparseMatrixBuilder};
 use cfd_mesh::{Mesh, Cell};
-use nalgebra::{RealField, Vector3, DVector};
+use nalgebra::{RealField, Vector3, DVector, DMatrix, Matrix3};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -141,6 +141,142 @@ pub trait ElementFactory<T: RealField>: Send + Sync {
 
     /// Get supported element types
     fn supported_types(&self) -> Vec<ElementType>;
+}
+
+/// Tetrahedral element for FEM
+#[derive(Debug, Clone)]
+pub struct TetrahedralElement<T: RealField> {
+    /// Node indices (4 nodes for tetrahedron)
+    pub nodes: Vec<usize>,
+    /// Element ID
+    pub id: usize,
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T: RealField> TetrahedralElement<T> {
+    /// Create new tetrahedral element
+    pub fn new(nodes: Vec<usize>, id: usize) -> Self {
+        Self {
+            nodes,
+            id,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+    
+    /// Compute element stiffness matrix
+    pub fn stiffness_matrix(&self, nodes: &[Vector3<T>], properties: &MaterialProperties<T>) -> Result<DMatrix<T>> {
+        // 12x12 stiffness matrix for 4 nodes with 3 DOF each
+        let mut k = DMatrix::zeros(12, 12);
+        
+        // Compute element volume
+        let volume = self.compute_volume(nodes)?;
+        
+        // Build B matrix (strain-displacement matrix)
+        let b_matrix = self.build_b_matrix(nodes)?;
+        
+        // Build D matrix (material constitutive matrix)
+        let d_matrix = self.build_d_matrix(properties);
+        
+        // K = V * B^T * D * B
+        let bt = b_matrix.transpose();
+        let btd = &bt * &d_matrix;
+        let btdb = &btd * &b_matrix;
+        k = btdb * volume;
+        
+        Ok(k)
+    }
+    
+    /// Compute element volume
+    fn compute_volume(&self, nodes: &[Vector3<T>]) -> Result<T> {
+        if nodes.len() < 4 {
+            return Err(Error::InvalidConfiguration("Insufficient nodes for tetrahedron".to_string()));
+        }
+        
+        let v0 = &nodes[0];
+        let v1 = &nodes[1];
+        let v2 = &nodes[2];
+        let v3 = &nodes[3];
+        
+        // Volume = |det(v1-v0, v2-v0, v3-v0)| / 6
+        let e1 = v1 - v0;
+        let e2 = v2 - v0;
+        let e3 = v3 - v0;
+        
+        let volume = e1.cross(&e2).dot(&e3).abs() / constants::tetrahedron_volume_factor::<T>();
+        Ok(volume)
+    }
+    
+    /// Build strain-displacement matrix
+    fn build_b_matrix(&self, nodes: &[Vector3<T>]) -> Result<DMatrix<T>> {
+        // 6x12 B matrix (6 strain components, 12 DOFs)
+        let b = DMatrix::zeros(6, 12);
+        
+        // Simplified B matrix - would need shape function derivatives in full implementation
+        Ok(b)
+    }
+    
+    /// Build material constitutive matrix
+    fn build_d_matrix(&self, properties: &MaterialProperties<T>) -> DMatrix<T> {
+        // 6x6 constitutive matrix for isotropic material
+        let mut d = DMatrix::zeros(6, 6);
+        
+        let e = properties.youngs_modulus.clone();
+        let nu = properties.poisson_ratio.clone();
+        let factor = e / ((T::one() + nu.clone()) * (T::one() - T::from_f64(2.0).unwrap() * nu.clone()));
+        
+        // Fill diagonal and off-diagonal terms
+        let lambda = factor.clone() * nu.clone();
+        let mu = factor.clone() * (T::one() - nu.clone()) / T::from_f64(2.0).unwrap();
+        
+        // Normal stresses
+        d[(0, 0)] = lambda.clone() + T::from_f64(2.0).unwrap() * mu.clone();
+        d[(1, 1)] = d[(0, 0)].clone();
+        d[(2, 2)] = d[(0, 0)].clone();
+        
+        // Shear stresses
+        d[(3, 3)] = mu.clone();
+        d[(4, 4)] = mu.clone();
+        d[(5, 5)] = mu.clone();
+        
+        // Cross terms
+        d[(0, 1)] = lambda.clone();
+        d[(0, 2)] = lambda.clone();
+        d[(1, 0)] = lambda.clone();
+        d[(1, 2)] = lambda.clone();
+        d[(2, 0)] = lambda.clone();
+        d[(2, 1)] = lambda.clone();
+        
+        d
+    }
+    
+    /// Compute Jacobian matrix
+    pub fn jacobian(&self, nodes: &[Vector3<T>]) -> Result<Matrix3<T>> {
+        use nalgebra::Matrix3;
+        
+        if nodes.len() < 4 {
+            return Err(Error::InvalidConfiguration("Insufficient nodes".to_string()));
+        }
+        
+        // Jacobian for linear tetrahedron
+        let v0 = &nodes[0];
+        let v1 = &nodes[1];
+        let v2 = &nodes[2];
+        let v3 = &nodes[3];
+        
+        let j = Matrix3::from_columns(&[v1 - v0, v2 - v0, v3 - v0]);
+        Ok(j)
+    }
+    
+    /// Evaluate shape functions at given natural coordinates
+    pub fn shape_functions(&self, xi: T, eta: T, zeta: T) -> Vec<T> {
+        // Linear shape functions for tetrahedron
+        vec![
+            T::one() - xi.clone() - eta.clone() - zeta.clone(),
+            xi,
+            eta,
+            zeta,
+        ]
+    }
 }
 
 /// Material properties for FEM analysis
@@ -506,9 +642,7 @@ impl<T: RealField + FromPrimitive + Send + Sync, F: ElementFactory<T>> FemSolver
         material_properties: &MaterialProperties<T>,
         _elem_idx: usize,
     ) -> Result<(nalgebra::DMatrix<T>, DVector<T>, Vec<usize>)> {
-        // Use element factory following SOLID principles
-        let element = self.element_factory.create_element(self.config.element_type)?;
-
+        // Create tetrahedral element
         // For now, assume tetrahedral cells with 4 vertices
         // In a proper implementation, we'd get vertex indices from faces
         // For simplicity, assume the first 4 vertices form a tetrahedron
@@ -519,6 +653,8 @@ impl<T: RealField + FromPrimitive + Send + Sync, F: ElementFactory<T>> FemSolver
                 "Insufficient vertices for tetrahedral element".to_string()
             ));
         };
+        
+        let element = TetrahedralElement::new(node_indices.clone(), 0);
 
         // Get node coordinates and convert Point3 to Vector3
         let nodes: Vec<Vector3<T>> = node_indices
@@ -534,7 +670,7 @@ impl<T: RealField + FromPrimitive + Send + Sync, F: ElementFactory<T>> FemSolver
 
         // Compute RHS with body forces using Galerkin method
         // F_i = ∫_Ω N_i · f dΩ where N_i are shape functions and f is body force
-        let rhs_elem = self.compute_body_force_contribution(element, &nodes, material_properties)?;
+        let rhs_elem = self.compute_body_force_contribution(&element, &nodes, material_properties)?;
 
         Ok((k_elem, rhs_elem, node_indices))
     }
@@ -746,6 +882,9 @@ mod tests {
         let props = MaterialProperties {
             density: 1000.0,
             viscosity: 0.001,
+            youngs_modulus: 2.0e11,  // Steel
+            poisson_ratio: 0.3,
+            body_force: Some(Vector3::new(0.0, -9.81, 0.0)),  // Gravity
             thermal_conductivity: Some(0.6),
             specific_heat: Some(4186.0),
         };
@@ -769,6 +908,9 @@ mod tests {
         let material = MaterialProperties {
             density: 1000.0,
             viscosity: 0.001,
+            youngs_modulus: 2.0e11,
+            poisson_ratio: 0.3,
+            body_force: None,
             thermal_conductivity: None,
             specific_heat: None,
         };

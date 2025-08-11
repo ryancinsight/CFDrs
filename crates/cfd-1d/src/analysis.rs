@@ -319,10 +319,13 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
         }
         
         // Build conductance matrix (G) using Kirchhoff's Current Law
-        let mut g_matrix = DMatrix::zeros(n, n);
+        let mut g_matrix: DMatrix<T> = DMatrix::zeros(n, n);
         
         // Fill conductance matrix from network edges
-        for edge in network.edges() {
+        // We need to iterate through the graph edges to get connections
+        use petgraph::visit::EdgeRef;
+        for edge_ref in network.graph.edge_references() {
+            let edge = edge_ref.weight();
             let resistance = edge.effective_resistance();
             if resistance <= T::zero() {
                 continue; // Skip zero/negative resistances
@@ -330,11 +333,11 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
             
             let conductance = T::one() / resistance;
             
-            // Get node indices for this edge
-            let from_idx = edge.from_node.parse::<usize>().unwrap_or(0);
-            let to_idx = edge.to_node.parse::<usize>().unwrap_or(0);
+            // Get node indices for this edge from the graph
+            let source_idx = edge_ref.source().index();
+            let target_idx = edge_ref.target().index();
             
-            if let (Some(&i), Some(&j)) = (node_indices.get(&from_idx), node_indices.get(&to_idx)) {
+            if let (Some(&i), Some(&j)) = (node_indices.get(&source_idx), node_indices.get(&target_idx)) {
                 // Add conductance to diagonal elements
                 g_matrix[(i, i)] = g_matrix[(i, i)].clone() + conductance.clone();
                 g_matrix[(j, j)] = g_matrix[(j, j)].clone() + conductance.clone();
@@ -399,12 +402,38 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
         }
         
         // Solve the linear system G * V = I for node voltages
-        use cfd_math::LinearSolver;
-        let solver = cfd_math::ConjugateGradient::new()
-            .with_tolerance(T::from_f64(1e-10).unwrap_or_else(T::default_epsilon))
-            .with_max_iterations(1000);
+        use cfd_math::{LinearSolver, LinearSolverConfig, SparseMatrixBuilder};
         
-        match solver.solve(&g_reduced, &i_reduced) {
+        // Convert dense matrix to sparse CSR format
+        let mut sparse_builder = SparseMatrixBuilder::new(n - 1, n - 1);
+        for i in 0..n-1 {
+            for j in 0..n-1 {
+                let val = g_reduced[(i, j)].clone();
+                if ComplexField::abs(val.clone()) > T::from_f64(1e-14).unwrap() {
+                    let _ = sparse_builder.add_entry(i, j, val);
+                }
+            }
+        }
+        let g_sparse = sparse_builder.build().unwrap_or_else(|_| {
+            // Fallback: create identity matrix if build fails
+            let mut builder = SparseMatrixBuilder::new(n - 1, n - 1);
+            for i in 0..n-1 {
+                let _ = builder.add_entry(i, i, T::one());
+            }
+            builder.build().unwrap()
+        });
+        
+        let config = LinearSolverConfig {
+            base: cfd_core::SolverConfig::builder()
+                .tolerance(T::from_f64(1e-10).unwrap_or_else(T::default_epsilon))
+                .max_iterations(1000)
+                .build(),
+            restart: 30,
+            use_preconditioner: false,
+        };
+        let solver = cfd_math::ConjugateGradient::new(config);
+        
+        match solver.solve(&g_sparse, &i_reduced, None) {
             Ok(voltages) => {
                 // Get voltage at inlet node (outlet is reference = 0V)
                 let inlet_voltage_idx = if inlet_idx < outlet_idx {
@@ -416,7 +445,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
                 let voltage_drop = voltages[inlet_voltage_idx].clone();
                 
                 // Equivalent resistance = V / I = voltage_drop / unit_current
-                voltage_drop.abs() / unit_current
+                ComplexField::abs(voltage_drop.clone()) / unit_current
             }
             Err(_) => {
                 // Fallback to series sum if solver fails

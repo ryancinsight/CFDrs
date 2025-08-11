@@ -7,7 +7,6 @@ use crate::constants;
 use cfd_core::{Error, Result};
 use cfd_mesh::{Mesh, Vertex, Cell, Face, MeshTopology};
 use nalgebra::{RealField, Vector3, Point3};
-use std::collections::HashMap;
 use num_traits::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 

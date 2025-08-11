@@ -3,8 +3,8 @@
 //! The VOF method tracks interfaces by advecting volume fractions,
 //! providing excellent mass conservation properties.
 
-use cfd_core::{Result, Error};
-use nalgebra::{Vector3, DMatrix, DVector, RealField};
+use cfd_core::Result;
+use nalgebra::{Vector3, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
