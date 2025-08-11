@@ -381,9 +381,12 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> SimpleSolver<T> {
                            (T::from_f64(2.0).unwrap() * dy.clone());
 
                 // Velocity correction: u' = -d * ∇p'
-                // For simplicity, use d = dt/ρ (time step over density)
-                // In practice, d would be derived from momentum equation coefficients
-                let d_coeff = T::from_f64(0.1).unwrap() / self.density.clone(); // Simplified
+                // d coefficient from momentum equation discretization
+                // d = V / a_P where V is cell volume and a_P is the diagonal coefficient
+                let cell_volume = self.grid.dx.clone() * self.grid.dy.clone();
+                let a_p = self.density.clone() * cell_volume.clone() / self.config.time_step.clone()
+                    + T::from_f64(4.0).unwrap() * self.viscosity.clone() / self.grid.dx.clone();
+                let d_coeff = cell_volume / a_p;
 
                 self.u_prime[i][j].x = -d_coeff.clone() * dp_dx;
                 self.u_prime[i][j].y = -d_coeff * dp_dy;
@@ -431,9 +434,39 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> SimpleSolver<T> {
 
     /// Check convergence
     fn check_convergence(&self) -> bool {
-        // Simplified convergence check
-        // In practice, would check residuals of momentum and continuity equations
-        true // For now, assume convergence after applying corrections
+        // Check residuals of momentum and continuity equations
+        let nx = self.grid.nx;
+        let ny = self.grid.ny;
+        let mut max_continuity_residual = T::zero();
+        let mut max_momentum_residual = T::zero();
+        
+        for i in 1..nx-1 {
+            for j in 1..ny-1 {
+                // Continuity residual: ∇·u = ∂u/∂x + ∂v/∂y
+                let dudx = (self.u[i+1][j].x.clone() - self.u[i-1][j].x.clone()) 
+                    / (T::from_f64(2.0).unwrap() * self.grid.dx.clone());
+                let dvdy = (self.v[i][j+1].y.clone() - self.v[i][j-1].y.clone()) 
+                    / (T::from_f64(2.0).unwrap() * self.grid.dy.clone());
+                let continuity_residual = (dudx + dvdy).abs();
+                
+                if continuity_residual > max_continuity_residual {
+                    max_continuity_residual = continuity_residual;
+                }
+                
+                // Momentum residual: Check change in velocity
+                let u_change = (self.u_prime[i][j].x.clone()).abs();
+                let v_change = (self.u_prime[i][j].y.clone()).abs();
+                let momentum_residual = u_change.max(v_change);
+                
+                if momentum_residual > max_momentum_residual {
+                    max_momentum_residual = momentum_residual;
+                }
+            }
+        }
+        
+        // Check if both residuals are below tolerance
+        max_continuity_residual < self.config.convergence_tolerance 
+            && max_momentum_residual < self.config.convergence_tolerance
     }
 
     /// Get current velocity field

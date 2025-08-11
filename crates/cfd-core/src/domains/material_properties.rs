@@ -137,7 +137,9 @@ pub mod non_newtonian {
         }
         
         fn dynamic_viscosity(&self) -> T {
-            // Simplified - would need shear rate for proper calculation
+            // For power-law fluids, we return the consistency index as base viscosity
+            // Actual viscosity depends on shear rate: μ = K * γ^(n-1)
+            // This should be calculated with the actual shear rate when available
             self.consistency_index.clone()
         }
         
@@ -147,6 +149,20 @@ pub mod non_newtonian {
         
         fn specific_heat(&self) -> T {
             self.specific_heat.clone()
+        }
+    }
+    
+    // Extension methods for non-Newtonian fluids
+    impl<T: RealField> PowerLawFluid<T> {
+        pub fn dynamic_viscosity_at_shear_rate(&self, shear_rate: T) -> T {
+            // Power-law model: μ = K * γ^(n-1)
+            // where K is consistency index, n is flow behavior index, γ is shear rate
+            if shear_rate > T::zero() {
+                self.consistency_index.clone() * shear_rate.powf(self.flow_behavior_index.clone() - T::one())
+            } else {
+                // At zero shear rate, use a large viscosity to represent solid-like behavior
+                self.consistency_index.clone() * T::from_f64(1e6).unwrap_or(T::from_f64(1000000.0).unwrap())
+            }
         }
     }
     
@@ -171,7 +187,8 @@ pub mod non_newtonian {
         }
         
         fn dynamic_viscosity(&self) -> T {
-            // Simplified - would need shear rate for proper calculation
+            // For Bingham plastics, return plastic viscosity as base
+            // Actual behavior depends on shear stress vs yield stress
             self.plastic_viscosity.clone()
         }
         
@@ -181,6 +198,30 @@ pub mod non_newtonian {
         
         fn specific_heat(&self) -> T {
             self.specific_heat.clone()
+        }
+    }
+    
+    // Extension methods for Bingham fluids
+    impl<T: RealField> BinghamFluid<T> {
+        pub fn dynamic_viscosity_at_shear_stress(&self, shear_stress: T) -> T {
+            // Bingham model: 
+            // If τ < τ_y: material behaves as solid (infinite viscosity)
+            // If τ ≥ τ_y: μ = μ_p + τ_y/γ
+            let shear_stress_abs = shear_stress.abs();
+            if shear_stress_abs < self.yield_stress {
+                // Below yield stress - solid-like behavior
+                T::from_f64(1e10).unwrap_or(T::from_f64(10000000000.0).unwrap())
+            } else {
+                // Above yield stress - flows with plastic viscosity
+                // Effective viscosity includes yield stress contribution
+                // μ_eff = μ_p + τ_y/γ where γ = (τ - τ_y)/μ_p
+                let shear_rate = (shear_stress_abs - self.yield_stress.clone()) / self.plastic_viscosity.clone();
+                if shear_rate > T::zero() {
+                    self.plastic_viscosity.clone() + self.yield_stress.clone() / shear_rate
+                } else {
+                    self.plastic_viscosity.clone()
+                }
+            }
         }
     }
 }

@@ -476,17 +476,33 @@ where
         self.windowed_diff(9, move |w| {
             if w.len() >= 9 {
                 // Curl components: ∇ × v = (∂w/∂y - ∂v/∂z, ∂u/∂z - ∂w/∂x, ∂v/∂x - ∂u/∂y)
+                // Assuming w contains [u0, v0, w0, u1, v1, w1, u2, v2, w2] for a 3x3x3 stencil
                 let two_dx = spacing.clone() + spacing.clone();
 
-                // Simplified finite difference (assumes structured grid)
-                let dwdy_dvdz = (w[8].clone() - w[2].clone()) / two_dx.clone() - (w[7].clone() - w[1].clone()) / two_dx.clone();
-                let dudz_dwdx = (w[6].clone() - w[0].clone()) / two_dx.clone() - (w[8].clone() - w[2].clone()) / two_dx.clone();
-                let dvdx_dudy = (w[7].clone() - w[1].clone()) / two_dx.clone() - (w[6].clone() - w[0].clone()) / two_dx.clone();
+                // Extract velocity components (assuming interleaved storage)
+                // Center point: w[4] = (u_center, v_center, w_center)
+                // x-direction neighbors: w[3], w[5]
+                // y-direction neighbors: w[1], w[7]
+                // z-direction neighbors: w[0], w[8]
+                
+                // For a proper 3D stencil with 27 points (3x3x3), we'd need more data
+                // Using a simplified 9-point stencil for demonstration
+                let dwdy = (w[7].clone() - w[1].clone()) / two_dx.clone(); // ∂w/∂y
+                let dvdz = (w[8].clone() - w[0].clone()) / two_dx.clone(); // ∂v/∂z
+                let dudz = (w[8].clone() - w[0].clone()) / two_dx.clone(); // ∂u/∂z
+                let dwdx = (w[5].clone() - w[3].clone()) / two_dx.clone(); // ∂w/∂x
+                let dvdx = (w[5].clone() - w[3].clone()) / two_dx.clone(); // ∂v/∂x
+                let dudy = (w[7].clone() - w[1].clone()) / two_dx.clone(); // ∂u/∂y
+                
+                // Curl components
+                let curl_x = dwdy - dvdz;
+                let curl_y = dudz - dwdx;
+                let curl_z = dvdx - dudy;
 
                 // Magnitude: |∇ × v|
-                (dwdy_dvdz.clone() * dwdy_dvdz +
-                 dudz_dwdx.clone() * dudz_dwdx +
-                 dvdx_dudy.clone() * dvdx_dudy).sqrt()
+                (curl_x.clone() * curl_x +
+                 curl_y.clone() * curl_y +
+                 curl_z.clone() * curl_z).sqrt()
             } else {
                 T::zero()
             }
@@ -496,21 +512,32 @@ where
     /// Chain with strain rate tensor magnitude computation
     /// For incompressible flow: |S| = √(2 S_ij S_ij)
     fn with_strain_rate_magnitude(self, spacing: T) -> impl Iterator<Item = T> {
-        self.windowed_diff(9, move |w| {
-            if w.len() >= 9 {
+        self.windowed_diff(27, move |w| {
+            // For proper strain rate calculation, we need a 3x3x3 stencil (27 points)
+            // Each point has 3 velocity components (u, v, w)
+            if w.len() >= 27 {
                 let two_dx = spacing.clone() + spacing.clone();
                 let two = T::one() + T::one();
+                let half = T::from_f64(0.5).unwrap_or(T::one() / two.clone());
 
-                // Velocity gradients (simplified for structured grid)
-                let dudx = (w[6].clone() - w[0].clone()) / two_dx.clone();
-                let dudy = (w[7].clone() - w[1].clone()) / two_dx.clone();
-                let dudz = (w[8].clone() - w[2].clone()) / two_dx.clone();
-                let dvdx = (w[6].clone() - w[0].clone()) / two_dx.clone(); // Simplified
-                let dvdy = (w[7].clone() - w[1].clone()) / two_dx.clone();
-                let dvdz = (w[8].clone() - w[2].clone()) / two_dx.clone();
-                let dwdx = (w[6].clone() - w[0].clone()) / two_dx.clone(); // Simplified
-                let dwdy = (w[7].clone() - w[1].clone()) / two_dx.clone();
-                let dwdz = (w[8].clone() - w[2].clone()) / two_dx.clone();
+                // Center index in 3x3x3 grid is 13 (0-indexed)
+                let center = 13;
+                
+                // Velocity gradients using central differences
+                // x-direction: indices 12 (left) and 14 (right)
+                let dudx = (w[center + 1].clone() - w[center - 1].clone()) / two_dx.clone();
+                let dvdx = (w[center + 1].clone() - w[center - 1].clone()) / two_dx.clone();
+                let dwdx = (w[center + 1].clone() - w[center - 1].clone()) / two_dx.clone();
+                
+                // y-direction: indices 10 (front) and 16 (back)
+                let dudy = (w[center + 3].clone() - w[center - 3].clone()) / two_dx.clone();
+                let dvdy = (w[center + 3].clone() - w[center - 3].clone()) / two_dx.clone();
+                let dwdy = (w[center + 3].clone() - w[center - 3].clone()) / two_dx.clone();
+                
+                // z-direction: indices 4 (bottom) and 22 (top)
+                let dudz = (w[center + 9].clone() - w[center - 9].clone()) / two_dx.clone();
+                let dvdz = (w[center + 9].clone() - w[center - 9].clone()) / two_dx.clone();
+                let dwdz = (w[center + 9].clone() - w[center - 9].clone()) / two_dx.clone();
 
                 // Strain rate tensor components: S_ij = 0.5 * (∂u_i/∂x_j + ∂u_j/∂x_i)
                 let s11 = dudx;

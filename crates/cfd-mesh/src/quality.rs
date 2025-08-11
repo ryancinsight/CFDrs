@@ -160,32 +160,119 @@ where
         }
     }
 
-    /// Calculate skewness (simplified)
-    fn calculate_skewness(&self, _vertices: &[&Point3<T>]) -> T {
-        // Simplified skewness calculation
-        // In practice, this would be based on angle deviations
-        <T as From<f64>>::from(0.1) // Placeholder
+    /// Calculate skewness based on angle deviations
+    fn calculate_skewness(&self, vertices: &[&Point3<T>]) -> T {
+        // Skewness measures deviation from ideal element shape
+        // For a tetrahedron, we check angle deviations from ideal angles
+        if vertices.len() < 4 {
+            return T::one(); // Maximum skewness for degenerate element
+        }
+        
+        // Calculate all edge vectors
+        let edges = vec![
+            vertices[1] - vertices[0],
+            vertices[2] - vertices[0],
+            vertices[3] - vertices[0],
+            vertices[2] - vertices[1],
+            vertices[3] - vertices[1],
+            vertices[3] - vertices[2],
+        ];
+        
+        // Calculate angles between edges
+        let mut max_angle_deviation = T::zero();
+        let ideal_angle = T::from_f64(60.0_f64.to_radians()).unwrap_or(T::one());
+        
+        for i in 0..edges.len() {
+            for j in i+1..edges.len() {
+                let dot = edges[i].dot(&edges[j]);
+                let mag_i = edges[i].norm();
+                let mag_j = edges[j].norm();
+                
+                if mag_i > T::zero() && mag_j > T::zero() {
+                    let cos_angle = dot / (mag_i * mag_j);
+                    // Clamp to valid range for acos
+                    let cos_f64: f64 = cos_angle.to_subset().unwrap_or(0.0);
+                    let cos_clamped = cos_f64.max(-1.0).min(1.0);
+                    let angle = T::from_f64(cos_clamped.acos()).unwrap_or(T::zero());
+                    let deviation = ComplexField::abs(angle - ideal_angle.clone()) / ideal_angle.clone();
+                    if deviation > max_angle_deviation {
+                        max_angle_deviation = deviation;
+                    }
+                }
+            }
+        }
+        
+        // Skewness ranges from 0 (perfect) to 1 (highly skewed)
+        if max_angle_deviation > T::one() {
+            T::one()
+        } else {
+            max_angle_deviation
+        }
     }
 
-    /// Calculate orthogonality (simplified)
-    fn calculate_orthogonality(&self, _vertices: &[&Point3<T>]) -> T {
-        // Simplified orthogonality calculation
-        // In practice, this would be based on face normal angles
-        <T as From<f64>>::from(0.9) // Placeholder
+    /// Calculate orthogonality based on face normal angles
+    fn calculate_orthogonality(&self, vertices: &[&Point3<T>]) -> T {
+        // Orthogonality measures how perpendicular adjacent faces are
+        // For a tetrahedron, we check angles between face normals
+        if vertices.len() < 4 {
+            return T::zero(); // No orthogonality for degenerate element
+        }
+        
+        // Calculate face normals
+        let face_normals = vec![
+            // Face 0-1-2
+            (vertices[1] - vertices[0]).cross(&(vertices[2] - vertices[0])),
+            // Face 0-1-3
+            (vertices[1] - vertices[0]).cross(&(vertices[3] - vertices[0])),
+            // Face 0-2-3
+            (vertices[2] - vertices[0]).cross(&(vertices[3] - vertices[0])),
+            // Face 1-2-3
+            (vertices[2] - vertices[1]).cross(&(vertices[3] - vertices[1])),
+        ];
+        
+        // Calculate minimum angle between face normals
+        let mut min_orthogonality = T::one();
+        
+        for i in 0..face_normals.len() {
+            for j in i+1..face_normals.len() {
+                let norm_i = face_normals[i].norm();
+                let norm_j = face_normals[j].norm();
+                
+                if norm_i > T::zero() && norm_j > T::zero() {
+                    let dot = face_normals[i].dot(&face_normals[j]);
+                    let cos_angle = dot / (norm_i * norm_j);
+                    // Orthogonality: 1 when perpendicular (cos = 0), 0 when parallel (|cos| = 1)
+                    let orthogonality = T::one() - ComplexField::abs(cos_angle);
+                    if orthogonality < min_orthogonality {
+                        min_orthogonality = orthogonality;
+                    }
+                }
+            }
+        }
+        
+        // Return value between 0 (parallel faces) and 1 (perpendicular faces)
+        if min_orthogonality < T::zero() {
+            T::zero()
+        } else if min_orthogonality > T::one() {
+            T::one()
+        } else {
+            min_orthogonality
+        }
     }
 
-    /// Calculate cell volume (simplified)
+    /// Calculate cell volume for tetrahedron
     fn calculate_volume(&self, vertices: &[&Point3<T>]) -> T {
         if vertices.len() < 4 {
             return T::zero();
         }
 
-        // Simplified volume calculation for tetrahedron
+        // Volume of tetrahedron: V = |det(v1, v2, v3)| / 6
+        // where v1, v2, v3 are edge vectors from vertex 0
         let v1 = vertices[1] - vertices[0];
         let v2 = vertices[2] - vertices[0];
         let v3 = vertices[3] - vertices[0];
 
-        let six = <T as From<f64>>::from(6.0);
+        let six = T::from_f64(6.0).unwrap_or(T::from_usize(6).unwrap());
         ComplexField::abs(v1.cross(&v2).dot(&v3)) / six
     }
 

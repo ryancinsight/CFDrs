@@ -127,7 +127,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
         let (d2_x, d2_y, d2_z) = self.build_differentiation_matrices()?;
 
         // Assemble Laplacian operator using Kronecker products
-        let laplacian = self.assemble_laplacian(&d2_x, &d2_y, &d2_z)?;
+        let laplacian = self.assemble_laplacian()?;
 
         // Evaluate source function on spectral grid
         let grid_points = self.generate_spectral_grid()?;
@@ -494,23 +494,72 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
     }
 
     /// Assemble 3D Laplacian using Kronecker products
-    fn assemble_laplacian(
-        &self,
-        _d2_x: &DMatrix<T>,
-        _d2_y: &DMatrix<T>,
-        _d2_z: &DMatrix<T>,
-    ) -> Result<DMatrix<T>> {
+    fn assemble_laplacian(&self) -> Result<DMatrix<T>> {
         let nx = self.config.nx_modes;
         let ny = self.config.ny_modes;
         let nz = self.config.nz_modes;
         let total_size = nx * ny * nz;
 
-        let mut laplacian = DMatrix::zeros(total_size, total_size);
+        // Get differentiation matrices
+        let d2x = match self.basis {
+            SpectralBasis::Fourier => self.fourier_d2_matrix(nx)?,
+            SpectralBasis::Chebyshev => self.chebyshev_d2_matrix(nx)?,
+            SpectralBasis::Legendre => self.legendre_d2_matrix(nx)?,
+        };
 
-        // Simplified assembly - proper implementation would use Kronecker products
-        // ∇² = ∂²/∂x² ⊗ I ⊗ I + I ⊗ ∂²/∂y² ⊗ I + I ⊗ I ⊗ ∂²/∂z²
-        for i in 0..total_size {
-            laplacian[(i, i)] = T::from_f64(-6.0).unwrap(); // Simplified diagonal
+        let d2y = match self.basis {
+            SpectralBasis::Fourier => self.fourier_d2_matrix(ny)?,
+            SpectralBasis::Chebyshev => self.chebyshev_d2_matrix(ny)?,
+            SpectralBasis::Legendre => self.legendre_d2_matrix(ny)?,
+        };
+
+        let d2z = match self.basis {
+            SpectralBasis::Fourier => self.fourier_d2_matrix(nz)?,
+            SpectralBasis::Chebyshev => self.chebyshev_d2_matrix(nz)?,
+            SpectralBasis::Legendre => self.legendre_d2_matrix(nz)?,
+        };
+
+        // Compute Laplacian using Kronecker products
+        // ∇² = D²ₓ ⊗ Iᵧ ⊗ Iz + Iₓ ⊗ D²ᵧ ⊗ Iz + Iₓ ⊗ Iᵧ ⊗ D²z
+        let mut laplacian: DMatrix<T> = DMatrix::zeros(total_size, total_size);
+
+        // Add ∂²/∂x² contribution
+        for kz in 0..nz {
+            for ky in 0..ny {
+                for kx in 0..nx {
+                    for jx in 0..nx {
+                        let row = kz * ny * nx + ky * nx + kx;
+                        let col = kz * ny * nx + ky * nx + jx;
+                        laplacian[(row, col)] = laplacian[(row, col)].clone() + d2x[(kx, jx)].clone();
+                    }
+                }
+            }
+        }
+
+        // Add ∂²/∂y² contribution
+        for kz in 0..nz {
+            for ky in 0..ny {
+                for jy in 0..ny {
+                    for kx in 0..nx {
+                        let row = kz * ny * nx + ky * nx + kx;
+                        let col = kz * ny * nx + jy * nx + kx;
+                        laplacian[(row, col)] = laplacian[(row, col)].clone() + d2y[(ky, jy)].clone();
+                    }
+                }
+            }
+        }
+
+        // Add ∂²/∂z² contribution
+        for kz in 0..nz {
+            for jz in 0..nz {
+                for ky in 0..ny {
+                    for kx in 0..nx {
+                        let row = kz * ny * nx + ky * nx + kx;
+                        let col = jz * ny * nx + ky * nx + kx;
+                        laplacian[(row, col)] = laplacian[(row, col)].clone() + d2z[(kz, jz)].clone();
+                    }
+                }
+            }
         }
 
         Ok(laplacian)
