@@ -493,17 +493,17 @@ impl<T: RealField + FromPrimitive> FlowOverCylinder<T> {
             let i_float = x.clone() / dx.clone();
             let j_float = y.clone() / dy.clone();
             
-            // Convert to indices using floor and bounds checking
+            // Convert to indices using floor and bounds checking (safe conversion)
             let i_grid = if let Some(val) = i_float.clone().floor().to_subset() {
                 let val_f64: f64 = val;
-                (val_f64 as usize).min(nx - 1)
+                (val_f64.max(0.0) as usize).min(nx - 1)
             } else {
                 0
             };
             
             let j_grid = if let Some(val) = j_float.clone().floor().to_subset() {
                 let val_f64: f64 = val;
-                (val_f64 as usize).min(ny - 1)
+                (val_f64.max(0.0) as usize).min(ny - 1)
             } else {
                 0
             };

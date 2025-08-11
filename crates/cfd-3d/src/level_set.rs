@@ -234,7 +234,7 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
         
         // Smoothness indicators
         let beta0 = (thirteen.clone() * (vm2.clone() - two.clone() * vm1.clone() + v0.clone()).powi(2)
-            + three.clone() * (vm2 - T::from_f64(4.0).unwrap() * vm1.clone() + three.clone() * v0.clone()).powi(2)) / T::from_f64(12.0).unwrap();
+            + three.clone() * (vm2.clone() - T::from_f64(4.0).unwrap() * vm1.clone() + three.clone() * v0.clone()).powi(2)) / T::from_f64(12.0).unwrap();
         let beta1 = (thirteen.clone() * (vm1.clone() - two.clone() * v0.clone() + vp1.clone()).powi(2)
             + three.clone() * (vm1.clone() - vp1.clone()).powi(2)) / T::from_f64(12.0).unwrap();
         let beta2 = (thirteen.clone() * (v0.clone() - two.clone() * vp1.clone() + vp2.clone()).powi(2)
@@ -262,11 +262,16 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
             _ => self.dz.clone(),
         };
         
-        let derivative_minus = (w0 * (two.clone() * vm1.clone() - T::from_f64(7.0).unwrap() * v0.clone() + T::from_f64(11.0).unwrap() * vp1.clone())
-            + w1 * (-vm1 + T::from_f64(5.0).unwrap() * v0.clone() + two.clone() * vp1.clone())
-            + w2 * (two * v0 + T::from_f64(5.0).unwrap() * vp1 - vp2)) / (six * h.clone());
+        // Negative-biased stencil (for positive velocities)
+        let derivative_minus = (w0.clone() * (two.clone() * vm1.clone() - T::from_f64(7.0).unwrap() * v0.clone() + T::from_f64(11.0).unwrap() * vp1.clone())
+            + w1.clone() * (-vm1.clone() + T::from_f64(5.0).unwrap() * v0.clone() + two.clone() * vp1.clone())
+            + w2.clone() * (two.clone() * v0.clone() + T::from_f64(5.0).unwrap() * vp1.clone() - vp2.clone())) / (six.clone() * h.clone());
         
-        let derivative_plus = derivative_minus.clone();  // Simplified for now
+        // Positive-biased stencil (for negative velocities)
+        // Need to recalculate with shifted stencil
+        let derivative_plus = (w2 * (T::from_f64(11.0).unwrap() * v0.clone() - T::from_f64(7.0).unwrap() * vp1.clone() + two.clone() * vp2)
+            + w1 * (two.clone() * vm1.clone() + T::from_f64(5.0).unwrap() * v0.clone() - vp1.clone())
+            + w0 * (-vm2.clone() + T::from_f64(5.0).unwrap() * vm1 + two * v0)) / (six * h);
         
         (derivative_minus, derivative_plus)
     }

@@ -130,10 +130,11 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
         } else if r_norm < T::one() {
             let one = T::one();
             let three = T::from_f64(3.0).unwrap();
-            (one.clone() + ComplexField::sqrt(one.clone() - three.clone() * r_norm.clone() * r_norm.clone())) / (three * h)
+            // Clamp the argument to sqrt to be non-negative
+            let arg = (one.clone() - three.clone() * r_norm.clone() * r_norm.clone()).max(T::zero());
+            (one + ComplexField::sqrt(arg)) / (three * h)
         } else {
             let one = T::one();
-            let two = T::from_f64(2.0).unwrap();
             let three = T::from_f64(3.0).unwrap();
             let five = T::from_f64(5.0).unwrap();
             // For 1 <= r_norm < 2, use the correct formula
@@ -155,22 +156,22 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
         for point in &mut self.lagrangian_points {
             let mut vel = Vector3::zeros();
             
-            // Find grid cell containing the point
+            // Find grid cell containing the point (clamping to valid range)
             let i_center = if let Some(val) = (point.position[0].clone() / dx.clone()).floor().to_subset() {
                 let val_f64: f64 = val;
-                (val_f64 as usize).min(nx - 1)
+                (val_f64.max(0.0) as usize).min(nx - 1)
             } else {
                 0
             };
             let j_center = if let Some(val) = (point.position[1].clone() / dy.clone()).floor().to_subset() {
                 let val_f64: f64 = val;
-                (val_f64 as usize).min(ny - 1)
+                (val_f64.max(0.0) as usize).min(ny - 1)
             } else {
                 0
             };
             let k_center = if let Some(val) = (point.position[2].clone() / dz.clone()).floor().to_subset() {
                 let val_f64: f64 = val;
-                (val_f64 as usize).min(nz - 1)
+                (val_f64.max(0.0) as usize).min(nz - 1)
             } else {
                 0
             };
@@ -222,7 +223,9 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
         } else if r_norm < T::one() {
             let one = T::one();
             let three = T::from_f64(3.0).unwrap();
-            (one.clone() + ComplexField::sqrt(one.clone() - three.clone() * r_norm.clone() * r_norm.clone())) / (three * h)
+            // Clamp the argument to sqrt to be non-negative
+            let arg = (one.clone() - three.clone() * r_norm.clone() * r_norm.clone()).max(T::zero());
+            (one + ComplexField::sqrt(arg)) / (three * h)
         } else {
             let one = T::one();
             let three = T::from_f64(3.0).unwrap();
@@ -266,22 +269,22 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
         self.force_field.iter_mut().for_each(|f| *f = Vector3::zeros());
         
         for point in &self.lagrangian_points {
-            // Find grid cell containing the point
+            // Find grid cell containing the point (clamping to valid range)
             let i_center = if let Some(val) = (point.position[0].clone() / self.dx.clone()).floor().to_subset() {
                 let val_f64: f64 = val;
-                (val_f64 as usize).min(self.nx - 1)
+                (val_f64.max(0.0) as usize).min(self.nx - 1)
             } else {
                 0
             };
             let j_center = if let Some(val) = (point.position[1].clone() / self.dy.clone()).floor().to_subset() {
                 let val_f64: f64 = val;
-                (val_f64 as usize).min(self.ny - 1)
+                (val_f64.max(0.0) as usize).min(self.ny - 1)
             } else {
                 0
             };
             let k_center = if let Some(val) = (point.position[2].clone() / self.dz.clone()).floor().to_subset() {
                 let val_f64: f64 = val;
-                (val_f64 as usize).min(self.nz - 1)
+                (val_f64.max(0.0) as usize).min(self.nz - 1)
             } else {
                 0
             };

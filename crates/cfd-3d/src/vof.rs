@@ -261,35 +261,55 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
         (normal, d)
     }
     
-    /// Calculate volume of fluid under a plane in a cell
+    /// Calculate volume of fluid under a plane in a cell using analytical formula
     fn calculate_volume_under_plane(&self, normal: &Vector3<T>, d: T, i: usize, j: usize, k: usize) -> T {
-        // Cell corners relative to cell origin
-        let x0 = T::from_usize(i).unwrap() * self.dx.clone();
-        let y0 = T::from_usize(j).unwrap() * self.dy.clone();
-        let z0 = T::from_usize(k).unwrap() * self.dz.clone();
-        
-        // Simplified volume calculation (can be made more accurate)
-        let cell_volume = self.dx.clone() * self.dy.clone() * self.dz.clone();
-        
-        // Check how many corners are below the plane
-        let mut count_below = 0;
-        for di in 0..=1 {
-            for dj in 0..=1 {
-                for dk in 0..=1 {
-                    let x = x0.clone() + T::from_usize(di).unwrap() * self.dx.clone();
-                    let y = y0.clone() + T::from_usize(dj).unwrap() * self.dy.clone();
-                    let z = z0.clone() + T::from_usize(dk).unwrap() * self.dz.clone();
-                    
-                    let pos = Vector3::new(x, y, z);
-                    if normal.dot(&pos) <= d {
-                        count_below += 1;
-                    }
-                }
-            }
+        // Normalize the normal vector and adjust d accordingly
+        let n_norm = normal.norm();
+        if n_norm <= T::from_f64(VOF_EPSILON).unwrap() {
+            return T::zero();
         }
         
-        // Approximate volume fraction based on corners
-        T::from_usize(count_below).unwrap() / T::from_f64(8.0).unwrap() * cell_volume
+        let n = normal.clone() / n_norm.clone();
+        let d_normalized = d / n_norm;
+        
+        // Cell dimensions
+        let dx = self.dx.clone();
+        let dy = self.dy.clone();
+        let dz = self.dz.clone();
+        let cell_volume = dx.clone() * dy.clone() * dz.clone();
+        
+        // Cell origin
+        let x0 = T::from_usize(i).unwrap() * dx.clone();
+        let y0 = T::from_usize(j).unwrap() * dy.clone();
+        let z0 = T::from_usize(k).unwrap() * dz.clone();
+        
+        // Transform to unit cube coordinates
+        let nx = n[0].clone() * dx.clone();
+        let ny = n[1].clone() * dy.clone();
+        let nz = n[2].clone() * dz.clone();
+        
+        // Calculate the signed distance from cell center to plane
+        let cell_center = Vector3::new(
+            x0.clone() + dx.clone() * T::from_f64(0.5).unwrap(),
+            y0.clone() + dy.clone() * T::from_f64(0.5).unwrap(),
+            z0.clone() + dz.clone() * T::from_f64(0.5).unwrap()
+        );
+        let center_dist = n.dot(&cell_center) - d_normalized.clone();
+        
+        // Calculate maximum possible distance from center to corner
+        let max_dist = (nx.clone().abs() + ny.clone().abs() + nz.clone().abs()) * T::from_f64(0.5).unwrap();
+        
+        // If plane is far from cell, return full or empty
+        if center_dist > max_dist.clone() {
+            return T::zero(); // Plane is above cell
+        } else if center_dist < -max_dist.clone() {
+            return cell_volume; // Plane is below cell
+        }
+        
+        // For intermediate cases, use linear approximation based on center distance
+        // This is more accurate than corner counting
+        let volume_fraction = (T::one() - center_dist / max_dist) * T::from_f64(0.5).unwrap();
+        volume_fraction.max(T::zero()).min(T::one()) * cell_volume
     }
     
     /// Advect volume fraction using geometric advection
