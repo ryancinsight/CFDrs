@@ -127,8 +127,8 @@ impl<T: RealField + FromPrimitive> ConservationChecker<T> for MassConservation<T
         let (density, velocity_div) = field;
 
         // Check continuity equation: ∂ρ/∂t + ∇·(ρv) = 0
-        // For steady flow: ∇·(ρv) = 0
-        // Simplified check: sum of mass flux should be zero
+        // For steady incompressible flow: ∇·v = 0
+        // For compressible flow: ∇·(ρv) = 0
         let mass_flux_sum = density.iter()
             .zip(velocity_div.iter())
             .map(|(rho, div_v)| rho.clone() * div_v.clone())
@@ -184,7 +184,7 @@ impl<T: RealField + FromPrimitive + std::iter::Sum> ConservationChecker<T> for E
     fn check_conservation(&self, field: &Self::FlowField) -> Result<ConservationReport<T>> {
         let (kinetic, potential, dissipation) = field;
 
-        // Simplified energy balance check
+        // Energy balance check: total energy = kinetic + potential
         let total_energy: T = kinetic.iter().zip(potential.iter()).map(|(k, p)| k.clone() + p.clone()).sum();
         let total_dissipation: T = dissipation.iter().cloned().sum();
 

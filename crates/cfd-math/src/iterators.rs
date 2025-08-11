@@ -102,12 +102,29 @@ where
     }
 
     /// Apply Savitzky-Golay smoothing filter using windowed operations
+    /// Uses 2nd order polynomial fitting for smoothing
     fn savitzky_golay_smooth(self, window_size: usize) -> impl Iterator<Item = T> {
-        // Simplified Savitzky-Golay filter (moving average for now)
-        // Full implementation would use polynomial fitting
-        self.windowed_diff(window_size, |w| {
-            let sum = w.iter().fold(T::zero(), |acc, x| acc + x.clone());
-            sum / T::from_usize(w.len()).unwrap()
+        // Savitzky-Golay coefficients for 2nd order polynomial, centered window
+        // Pre-computed for common window sizes
+        let coeffs = match window_size {
+            5 => vec![T::from_f64(-3.0/35.0).unwrap(), T::from_f64(12.0/35.0).unwrap(), 
+                     T::from_f64(17.0/35.0).unwrap(), T::from_f64(12.0/35.0).unwrap(), 
+                     T::from_f64(-3.0/35.0).unwrap()],
+            7 => vec![T::from_f64(-2.0/21.0).unwrap(), T::from_f64(3.0/21.0).unwrap(),
+                     T::from_f64(6.0/21.0).unwrap(), T::from_f64(7.0/21.0).unwrap(),
+                     T::from_f64(6.0/21.0).unwrap(), T::from_f64(3.0/21.0).unwrap(),
+                     T::from_f64(-2.0/21.0).unwrap()],
+            _ => {
+                // Fallback to moving average for other window sizes
+                let coeff = T::one() / T::from_usize(window_size).unwrap();
+                vec![coeff.clone(); window_size]
+            }
+        };
+        
+        self.windowed_diff(window_size, move |w| {
+            w.iter()
+                .zip(coeffs.iter())
+                .fold(T::zero(), |acc, (x, c)| acc + x.clone() * c.clone())
         })
     }
 

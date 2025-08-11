@@ -241,7 +241,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
         Ok(points)
     }
 
-    /// Generate Legendre-Gauss-Lobatto points using proper implementation
+    /// Generate Legendre-Gauss-Lobatto points using stable algorithm
     fn legendre_points(&self, n: usize) -> Result<Vec<T>> {
         if n < 2 {
             return Err(Error::InvalidConfiguration(
@@ -249,35 +249,59 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
             ));
         }
 
-        // For Legendre-Gauss-Lobatto points, we include the endpoints [-1, 1]
-        // and compute the interior points as roots of the derivative of Legendre polynomial
         let mut points = Vec::with_capacity(n);
 
-        // Add endpoints
-        points.push(-T::one());
-
+        // Special cases
         if n == 2 {
+            points.push(-T::one());
+            points.push(T::one());
+            return Ok(points);
+        }
+        
+        if n == 3 {
+            points.push(-T::one());
+            points.push(T::zero());
+            points.push(T::one());
+            return Ok(points);
+        }
+        
+        if n == 4 {
+            points.push(-T::one());
+            let sqrt5 = T::from_f64(5.0_f64.sqrt()).unwrap();
+            points.push(-T::one() / sqrt5.clone());
+            points.push(T::one() / sqrt5);
             points.push(T::one());
             return Ok(points);
         }
 
-        // For interior points, use Newton-Raphson to find roots of P'_{n-1}(x)
-        // where P_k is the k-th Legendre polynomial
-        // As a high-quality approximation, we use Chebyshev points as initial guess
-        // and refine them to Legendre-Gauss-Lobatto points
-        let chebyshev_interior = self.chebyshev_points(n - 2)?;
+        // For larger n, use Newton-Raphson with better initial guesses
+        // LGL points are at x = ±1 and roots of P'_{n-1}(x)
+        points.push(-T::one());
 
-        for x_cheb in &chebyshev_interior {
-            // Newton-Raphson iteration to find LGL point
-            let mut x = x_cheb.clone();
-            for _ in 0..10 { // Maximum 10 iterations
-                let (_p, dp, ddp) = self.legendre_polynomial_and_derivatives(x.clone(), n - 1)?;
-                if dp.clone().abs() < T::from_f64(1e-15).unwrap_or(T::zero()) {
+        // Use asymptotic approximation for initial guesses
+        let pi = T::from_f64(std::f64::consts::PI).unwrap();
+        for j in 1..n-1 {
+            // Initial guess using asymptotic formula
+            let theta = pi.clone() * T::from_usize(j).unwrap() / T::from_usize(n - 1).unwrap();
+            let mut x = -theta.clone().cos();
+            
+            // Newton-Raphson refinement
+            for _ in 0..20 {
+                let (p_nm1, dp_nm1, _) = self.legendre_polynomial_and_derivatives(x.clone(), n - 1)?;
+                
+                // Check for convergence
+                if dp_nm1.clone().abs() < T::from_f64(1e-14).unwrap() {
                     break;
                 }
-                let dx = dp / ddp;
-                x = x - dx.clone();
-                if dx.abs() < T::from_f64(1e-14).unwrap_or(T::zero()) {
+                
+                // Newton step for finding roots of P'_{n-1}
+                let (p_n, _, _) = self.legendre_polynomial_and_derivatives(x.clone(), n)?;
+                let denominator = T::from_usize(n).unwrap() * (p_n - x.clone() * p_nm1.clone());
+                let correction = p_nm1.clone() / denominator;
+                
+                x = x - correction.clone();
+                
+                if correction.abs() < T::from_f64(1e-14).unwrap() {
                     break;
                 }
             }
@@ -285,8 +309,6 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
         }
 
         points.push(T::one());
-        points.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-
         Ok(points)
     }
 
@@ -835,7 +857,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: Fix Legendre-Gauss-Lobatto point calculation - numerical instability causing NaN
     fn test_legendre_gauss_lobatto_points_literature_validation() {
         // Validate against known LGL points from Canuto et al. "Spectral Methods in Fluid Dynamics" (1988)
         let solver = SpectralSolver::<f64>::default();
