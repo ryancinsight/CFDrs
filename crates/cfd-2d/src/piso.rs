@@ -4,11 +4,10 @@
 //! for improved accuracy in transient calculations.
 
 use crate::grid::StructuredGrid2D;
-use cfd_core::{Result, Error};
+use cfd_core::Result;
 use nalgebra::{Vector2, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 // Named constants for PISO algorithm
 const DEFAULT_MAX_CORRECTORS: usize = 2;

@@ -4,8 +4,8 @@
 //! satisfies continuity and reduces the number of variables.
 
 use crate::grid::StructuredGrid2D;
-use cfd_core::{Result, Error};
-use nalgebra::{Vector2, ComplexField, RealField};
+use cfd_core::Result;
+use nalgebra::{Vector2, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 

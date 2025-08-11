@@ -3,55 +3,22 @@
 //! This module encapsulates boundary condition knowledge following DDD principles.
 //! It provides abstractions for different boundary condition types and their application.
 
-use nalgebra::{RealField, Vector3, Point3};
+use crate::boundary::BoundaryCondition;
+use nalgebra::{RealField, Point3};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Boundary condition type enumeration
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum BoundaryConditionType {
-    /// Dirichlet boundary condition (specified value)
-    Dirichlet,
-    /// Neumann boundary condition (specified gradient)
-    Neumann,
-    /// Robin boundary condition (mixed)
-    Robin,
-    /// Periodic boundary condition
-    Periodic,
-    /// Inlet boundary condition
-    Inlet,
-    /// Outlet boundary condition
-    Outlet,
-    /// Wall boundary condition
-    Wall,
-    /// Symmetry boundary condition
-    Symmetry,
-}
+
 
 /// Boundary condition specification
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoundaryConditionSpec<T: RealField> {
-    /// Boundary condition type
-    pub bc_type: BoundaryConditionType,
+    /// Boundary condition
+    pub condition: BoundaryCondition<T>,
     /// Boundary region identifier
     pub region_id: String,
-    /// Boundary condition values
-    pub values: BoundaryValues<T>,
     /// Time-dependent specification
     pub time_dependent: Option<TimeDependentSpec<T>>,
-}
-
-/// Boundary condition values
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum BoundaryValues<T: RealField> {
-    /// Scalar value
-    Scalar(T),
-    /// Vector value
-    Vector(Vector3<T>),
-    /// Multiple scalar values
-    MultiScalar(HashMap<String, T>),
-    /// Multiple vector values
-    MultiVector(HashMap<String, Vector3<T>>),
 }
 
 /// Time-dependent boundary condition specification
@@ -86,8 +53,8 @@ pub trait BoundaryConditionApplicator<T: RealField>: Send + Sync {
     /// Get applicator name
     fn name(&self) -> &str;
     
-    /// Get supported boundary condition types
-    fn supported_types(&self) -> Vec<BoundaryConditionType>;
+    /// Check if this applicator supports the given boundary condition
+    fn supports(&self, condition: &BoundaryCondition<T>) -> bool;
 }
 
 /// Boundary region specification
@@ -138,13 +105,13 @@ pub mod applicators {
     
     impl<T: RealField> BoundaryConditionApplicator<T> for DirichletApplicator {
         fn apply(&self, field: &mut [T], boundary_spec: &BoundaryConditionSpec<T>, _time: T) -> Result<(), String> {
-            match &boundary_spec.values {
-                BoundaryValues::Scalar(value) => {
+            match &boundary_spec.condition {
+                BoundaryCondition::Dirichlet { value } => {
                     // Apply scalar Dirichlet condition
                     field.iter_mut().for_each(|f| *f = value.clone());
                     Ok(())
                 }
-                _ => Err("Dirichlet applicator only supports scalar values".to_string()),
+                _ => Err("Dirichlet applicator only supports Dirichlet boundary conditions".to_string()),
             }
         }
         
@@ -152,8 +119,8 @@ pub mod applicators {
             "Dirichlet"
         }
         
-        fn supported_types(&self) -> Vec<BoundaryConditionType> {
-            vec![BoundaryConditionType::Dirichlet]
+        fn supports(&self, condition: &BoundaryCondition<T>) -> bool {
+            matches!(condition, BoundaryCondition::Dirichlet { .. })
         }
     }
     
@@ -163,15 +130,15 @@ pub mod applicators {
     
     impl<T: RealField> BoundaryConditionApplicator<T> for NeumannApplicator {
         fn apply(&self, field: &mut [T], boundary_spec: &BoundaryConditionSpec<T>, _time: T) -> Result<(), String> {
-            match &boundary_spec.values {
-                BoundaryValues::Scalar(gradient) => {
-                    // Apply scalar Neumann condition (simplified)
+            match &boundary_spec.condition {
+                BoundaryCondition::Neumann { gradient } => {
+                    // Apply scalar Neumann condition
                     if let Some(last) = field.last_mut() {
                         *last = gradient.clone();
                     }
                     Ok(())
                 }
-                _ => Err("Neumann applicator only supports scalar gradients".to_string()),
+                _ => Err("Neumann applicator only supports Neumann boundary conditions".to_string()),
             }
         }
         
@@ -179,8 +146,8 @@ pub mod applicators {
             "Neumann"
         }
         
-        fn supported_types(&self) -> Vec<BoundaryConditionType> {
-            vec![BoundaryConditionType::Neumann]
+        fn supports(&self, condition: &BoundaryCondition<T>) -> bool {
+            matches!(condition, BoundaryCondition::Neumann { .. })
         }
     }
     
@@ -199,8 +166,8 @@ pub mod applicators {
             "Wall"
         }
         
-        fn supported_types(&self) -> Vec<BoundaryConditionType> {
-            vec![BoundaryConditionType::Wall]
+        fn supports(&self, condition: &BoundaryCondition<T>) -> bool {
+            matches!(condition, BoundaryCondition::Wall { .. })
         }
     }
 }
@@ -356,16 +323,13 @@ impl<T: RealField> BoundaryConditionsService<T> {
     /// Apply boundary conditions to field
     pub fn apply_boundary_conditions(&mut self, field: &mut [T], time: T) -> Result<(), String> {
         for region in self.regions.values() {
-            if let Some(condition) = &region.condition {
-                let applicator_name = match condition.bc_type {
-                    BoundaryConditionType::Dirichlet => "dirichlet",
-                    BoundaryConditionType::Neumann => "neumann",
-                    BoundaryConditionType::Wall => "wall",
-                    _ => continue, // Skip unsupported types for now
-                };
-
-                if let Some(applicator) = self.applicators.get(applicator_name) {
-                    applicator.apply(field, condition, time.clone())?;
+            if let Some(spec) = &region.condition {
+                // Find the appropriate applicator based on the boundary condition type
+                let applicator = self.applicators.values()
+                    .find(|app| app.supports(&spec.condition));
+                
+                if let Some(app) = applicator {
+                    app.apply(field, spec, time.clone())?;
                 }
             }
         }

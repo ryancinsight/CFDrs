@@ -42,7 +42,7 @@ pub use domains::{
     FlowField, VelocityField, PressureField, TurbulenceModel,
     DiscretizationScheme, TimeIntegrationScheme, LinearSystemSolver,
     MeshGeneration, MeshRefinement, MeshQuality,
-    BoundaryConditionType, BoundaryConditionApplicator,
+    BoundaryConditionApplicator,
     FluidProperties, SolidProperties, InterfaceProperties
 };
 

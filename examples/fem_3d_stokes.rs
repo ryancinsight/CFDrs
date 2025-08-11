@@ -46,6 +46,9 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let material = MaterialProperties {
         density: fluid.density,
         viscosity: fluid.viscosity,
+        youngs_modulus: 2.0e11,  // Steel-like for structural coupling
+        poisson_ratio: 0.3,
+        body_force: Some(nalgebra::Vector3::new(0.0, -9.81, 0.0)),  // Gravity
         thermal_conductivity: None,
         specific_heat: None,
     };

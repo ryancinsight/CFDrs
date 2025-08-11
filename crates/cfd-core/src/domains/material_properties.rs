@@ -2,7 +2,7 @@
 //!
 //! Provides fluid and material property models following Domain-Driven Design
 
-use nalgebra::{RealField, Vector3};
+use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
