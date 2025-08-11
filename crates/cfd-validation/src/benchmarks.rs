@@ -490,8 +490,16 @@ impl<T: RealField + FromPrimitive> FlowOverCylinder<T> {
             let y = cy.clone() + radius.clone() * ComplexField::sin(theta.clone());
             
             // Find nearest grid point
-            let i_grid = ((x.clone() / dx.clone()).to_subset().unwrap_or(0.0) as usize).min(nx - 1);
-            let j_grid = ((y.clone() / dy.clone()).to_subset().unwrap_or(0.0) as usize).min(ny - 1);
+            let i_opt = (x.clone() / dx.clone()).to_subset();
+            let j_opt = (y.clone() / dy.clone()).to_subset();
+            let (i_grid, j_grid) = match (i_opt, j_opt) {
+                (Some(i), Some(j)) => {
+                    let i_grid = (i as usize).min(nx - 1);
+                    let j_grid = (j as usize).min(ny - 1);
+                    (i_grid, j_grid)
+                }
+                _ => continue, // Skip this point if conversion fails
+            };
             
             // For 2D flow, solution typically contains [u, v, p] at each point
             // or could be organized differently - assuming velocity components then pressure
