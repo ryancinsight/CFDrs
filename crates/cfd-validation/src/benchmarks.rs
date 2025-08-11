@@ -491,7 +491,8 @@ impl<T: RealField + FromPrimitive> FlowOverCylinder<T> {
             
             // Find nearest grid point
             let i_float = x.clone() / dx.clone();
-            let j_float = y.clone() / dy.clone();
+            let i_float = x / dx;
+            let j_float = y / dy;
             
             // Convert to indices using floor and bounds checking (safe conversion)
             let i_grid = if let Some(val) = i_float.clone().floor().to_subset() {
