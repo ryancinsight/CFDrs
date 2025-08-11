@@ -1,8 +1,8 @@
 //! Network analysis and performance metrics for 1D CFD simulations.
 
-use crate::network::{Network, Node, Edge, NodeType, EdgeType};
-use crate::channel::{Channel, FlowRegime};
-use cfd_core::{Result, Error, Fluid};
+use crate::network::Network;
+use crate::channel::FlowRegime;
+use cfd_core::{Result, Fluid};
 use nalgebra::{RealField, ComplexField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -355,7 +355,6 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
     
     /// Find all simple paths between two nodes using DFS
     fn find_paths(&self, network: &Network<T>, start: usize, end: usize) -> Vec<Vec<usize>> {
-        use petgraph::visit::EdgeRef;
         
         let mut all_paths = Vec::new();
         

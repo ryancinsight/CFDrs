@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 const DEFAULT_MAX_ITERATIONS: usize = 1000;
 const DEFAULT_TOLERANCE: f64 = 1e-6;
 const GRADIENT_FACTOR: f64 = 2.0;
-const LAPLACIAN_FACTOR: f64 = 4.0;
+const _LAPLACIAN_FACTOR: f64 = 4.0;
 const SOR_OPTIMAL_FACTOR: f64 = 1.85; // Optimal for Poisson on square grid
 
 /// Vorticity-Stream function solver configuration
@@ -169,8 +169,8 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
         let dt = self.config.time_step.clone();
         let dx2 = self.dx.clone() * self.dx.clone();
         let dy2 = self.dy.clone() * self.dy.clone();
-        let two_dx = T::from_f64(GRADIENT_FACTOR).unwrap() * self.dx.clone();
-        let two_dy = T::from_f64(GRADIENT_FACTOR).unwrap() * self.dy.clone();
+        let _two_dx = T::from_f64(GRADIENT_FACTOR).unwrap() * self.dx.clone();
+        let _two_dy = T::from_f64(GRADIENT_FACTOR).unwrap() * self.dy.clone();
         
         // Store old vorticity
         let omega_old = self.omega.clone();
