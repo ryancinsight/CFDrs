@@ -5,16 +5,16 @@
 
 use crate::grid::StructuredGrid2D;
 use cfd_core::{Result, Error};
-use nalgebra::{Vector2, ComplexField, RealField};
+use nalgebra::{Vector2, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 // Named constants for PISO algorithm
 const DEFAULT_MAX_CORRECTORS: usize = 2;
-const DEFAULT_VELOCITY_RELAXATION: f64 = 1.0; // No under-relaxation in PISO
-const DEFAULT_PRESSURE_RELAXATION: f64 = 1.0;
-const MOMENTUM_COEFFICIENT_FACTOR: f64 = 4.0;
+const _DEFAULT_VELOCITY_RELAXATION: f64 = 1.0; // No under-relaxation in PISO
+const _DEFAULT_PRESSURE_RELAXATION: f64 = 1.0;
+const _MOMENTUM_COEFFICIENT_FACTOR: f64 = 4.0;
 const GRADIENT_FACTOR: f64 = 2.0;
 
 /// PISO solver configuration

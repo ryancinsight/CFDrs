@@ -80,7 +80,9 @@ pub mod prelude {
     pub use cfd_3d::{
         FemSolver, FemConfig, SpectralSolver, SpectralConfig, SpectralBasis,
         MeshAdapter, MeshQualityReport, StlAdapter, CsgMeshAdapter,
-        Element, ElementType, MaterialProperties, Tetrahedron4
+        IbmSolver, IbmConfig, LagrangianPoint,
+        LevelSetSolver, LevelSetConfig,
+        VofSolver, VofConfig
     };
 
     // === Validation Framework ===
