@@ -79,7 +79,7 @@ pub mod prelude {
     // Advanced 3D methods with CSGrs integration
     pub use cfd_3d::{
         FemSolver, FemConfig, SpectralSolver, SpectralConfig, SpectralBasis,
-        MeshAdapter, MeshQualityReport, StlAdapter, CsgMeshAdapter,
+        CsgMeshAdapter,
         IbmSolver, IbmConfig, LagrangianPoint,
         LevelSetSolver, LevelSetConfig,
         VofSolver, VofConfig

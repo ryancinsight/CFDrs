@@ -208,10 +208,81 @@ impl<T: RealField> TetrahedralElement<T> {
     
     /// Build strain-displacement matrix
     fn build_b_matrix(&self, nodes: &[Vector3<T>]) -> Result<DMatrix<T>> {
-        // 6x12 B matrix (6 strain components, 12 DOFs)
-        let b = DMatrix::zeros(6, 12);
+        // 6x12 B matrix (6 strain components, 12 DOFs for 4 nodes)
+        let mut b = DMatrix::zeros(6, 12);
         
-        // Simplified B matrix - would need shape function derivatives in full implementation
+        // Calculate shape function derivatives at the centroid
+        // For a tetrahedron, shape functions are linear: N_i = (a_i + b_i*x + c_i*y + d_i*z) / (6*V)
+        let v0 = nodes[0].clone();
+        let v1 = nodes[1].clone();
+        let v2 = nodes[2].clone();
+        let v3 = nodes[3].clone();
+        
+        // Calculate volume
+        let e1 = &v1 - &v0;
+        let e2 = &v2 - &v0;
+        let e3 = &v3 - &v0;
+        let volume = e1.cross(&e2).dot(&e3).abs() / constants::tetrahedron_volume_factor::<T>();
+        
+        if volume < T::from_f64(1e-10).unwrap() {
+            return Err(Error::InvalidInput("Degenerate tetrahedron element".into()));
+        }
+        
+        // Calculate shape function derivatives (constant for linear tetrahedron)
+        // Using the standard formula for tetrahedral shape function derivatives
+        let inv_6v = T::one() / (constants::tetrahedron_volume_factor::<T>() * volume);
+        
+        // Shape function derivatives with respect to global coordinates
+        // dN_i/dx, dN_i/dy, dN_i/dz for each node i
+        let mut dn_dx = vec![T::zero(); 4];
+        let mut dn_dy = vec![T::zero(); 4];
+        let mut dn_dz = vec![T::zero(); 4];
+        
+        // Node 0 derivatives
+        let n0_vec = (&v2 - &v1).cross(&(&v3 - &v1));
+        dn_dx[0] = n0_vec.x.clone() * inv_6v.clone();
+        dn_dy[0] = n0_vec.y.clone() * inv_6v.clone();
+        dn_dz[0] = n0_vec.z.clone() * inv_6v.clone();
+        
+        // Node 1 derivatives
+        let n1_vec = (&v3 - &v0).cross(&(&v2 - &v0));
+        dn_dx[1] = n1_vec.x.clone() * inv_6v.clone();
+        dn_dy[1] = n1_vec.y.clone() * inv_6v.clone();
+        dn_dz[1] = n1_vec.z.clone() * inv_6v.clone();
+        
+        // Node 2 derivatives
+        let n2_vec = (&v1 - &v0).cross(&(&v3 - &v0));
+        dn_dx[2] = n2_vec.x.clone() * inv_6v.clone();
+        dn_dy[2] = n2_vec.y.clone() * inv_6v.clone();
+        dn_dz[2] = n2_vec.z.clone() * inv_6v.clone();
+        
+        // Node 3 derivatives
+        let n3_vec = (&v2 - &v0).cross(&(&v1 - &v0));
+        dn_dx[3] = n3_vec.x.clone() * inv_6v.clone();
+        dn_dy[3] = n3_vec.y.clone() * inv_6v.clone();
+        dn_dz[3] = n3_vec.z.clone() * inv_6v.clone();
+        
+        // Fill B matrix: relates strains to nodal displacements
+        // Strain = B * u, where u = [u0x, u0y, u0z, u1x, u1y, u1z, ...]
+        for i in 0..4 {
+            let col_offset = i * 3;
+            
+            // Normal strains
+            b[(0, col_offset)] = dn_dx[i].clone();     // ε_xx = ∂u/∂x
+            b[(1, col_offset + 1)] = dn_dy[i].clone();  // ε_yy = ∂v/∂y
+            b[(2, col_offset + 2)] = dn_dz[i].clone();  // ε_zz = ∂w/∂z
+            
+            // Shear strains (engineering strain = 2 * tensorial strain)
+            b[(3, col_offset)] = dn_dy[i].clone();      // γ_xy = ∂u/∂y + ∂v/∂x
+            b[(3, col_offset + 1)] = dn_dx[i].clone();
+            
+            b[(4, col_offset + 1)] = dn_dz[i].clone();  // γ_yz = ∂v/∂z + ∂w/∂y
+            b[(4, col_offset + 2)] = dn_dy[i].clone();
+            
+            b[(5, col_offset)] = dn_dz[i].clone();      // γ_xz = ∂u/∂z + ∂w/∂x
+            b[(5, col_offset + 2)] = dn_dx[i].clone();
+        }
+        
         Ok(b)
     }
     
