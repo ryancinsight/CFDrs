@@ -114,7 +114,9 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
                     // Smooth initialization using a tanh function
                     let eps = T::from_f64(INTERFACE_THICKNESS).unwrap() * self.dx.clone();
                     self.alpha[idx] = T::from_f64(0.5).unwrap() 
-                        * (T::one() + ComplexField::tanh((radius.clone() - distance) / eps));
+                    let arg = (radius.clone() - distance) / eps;
+                    self.alpha[idx] = T::from_f64(0.5).unwrap()
+                        * (T::one() + arg.tanh());
                 }
             }
         }
