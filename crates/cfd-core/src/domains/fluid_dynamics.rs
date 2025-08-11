@@ -149,24 +149,45 @@ pub mod les {
                     
                     // Compute ∂u/∂x, ∂v/∂y, ∂w/∂z (diagonal terms)
                     if i > 0 && i < grid_size - 1 {
-                        let u_plus = flow_field.velocity.components[(k * grid_size + j) * grid_size + i + 1].x.clone();
-                        let u_minus = flow_field.velocity.components[(k * grid_size + j) * grid_size + i - 1].x.clone();
-                        let dudx = (u_plus - u_minus) / (T::from_f64(2.0).unwrap() * delta.clone());
-                        strain_rate_squared = strain_rate_squared + dudx.clone() * dudx;
+                        let idx_plus = (k * grid_size + j) * grid_size + i + 1;
+                        let idx_minus = (k * grid_size + j) * grid_size + i - 1;
+                        if let (Some(u_plus_vec), Some(u_minus_vec)) = (
+                            flow_field.velocity.components.get(idx_plus),
+                            flow_field.velocity.components.get(idx_minus),
+                        ) {
+                            let u_plus = u_plus_vec.x.clone();
+                            let u_minus = u_minus_vec.x.clone();
+                            let dudx = (u_plus - u_minus) / (T::from_f64(2.0).unwrap() * delta.clone());
+                            strain_rate_squared = strain_rate_squared + dudx.clone() * dudx;
+                        }
                     }
                     
                     if j > 0 && j < grid_size - 1 {
-                        let v_plus = flow_field.velocity.components[(k * grid_size + j + 1) * grid_size + i].y.clone();
-                        let v_minus = flow_field.velocity.components[(k * grid_size + j - 1) * grid_size + i].y.clone();
-                        let dvdy = (v_plus - v_minus) / (T::from_f64(2.0).unwrap() * delta.clone());
-                        strain_rate_squared = strain_rate_squared + dvdy.clone() * dvdy;
+                        let idx_plus = (k * grid_size + j + 1) * grid_size + i;
+                        let idx_minus = (k * grid_size + j - 1) * grid_size + i;
+                        if let (Some(v_plus_vec), Some(v_minus_vec)) = (
+                            flow_field.velocity.components.get(idx_plus),
+                            flow_field.velocity.components.get(idx_minus),
+                        ) {
+                            let v_plus = v_plus_vec.y.clone();
+                            let v_minus = v_minus_vec.y.clone();
+                            let dvdy = (v_plus - v_minus) / (T::from_f64(2.0).unwrap() * delta.clone());
+                            strain_rate_squared = strain_rate_squared + dvdy.clone() * dvdy;
+                        }
                     }
                     
                     if k > 0 && k < grid_size - 1 {
-                        let w_plus = flow_field.velocity.components[((k + 1) * grid_size + j) * grid_size + i].z.clone();
-                        let w_minus = flow_field.velocity.components[((k - 1) * grid_size + j) * grid_size + i].z.clone();
-                        let dwdz = (w_plus - w_minus) / (T::from_f64(2.0).unwrap() * delta.clone());
-                        strain_rate_squared = strain_rate_squared + dwdz.clone() * dwdz;
+                        let idx_plus = ((k + 1) * grid_size + j) * grid_size + i;
+                        let idx_minus = ((k - 1) * grid_size + j) * grid_size + i;
+                        if let (Some(w_plus_vec), Some(w_minus_vec)) = (
+                            flow_field.velocity.components.get(idx_plus),
+                            flow_field.velocity.components.get(idx_minus),
+                        ) {
+                            let w_plus = w_plus_vec.z.clone();
+                            let w_minus = w_minus_vec.z.clone();
+                            let dwdz = (w_plus - w_minus) / (T::from_f64(2.0).unwrap() * delta.clone());
+                            strain_rate_squared = strain_rate_squared + dwdz.clone() * dwdz;
+                        }
                     }
                     
                     // Compute off-diagonal terms (shear components)
