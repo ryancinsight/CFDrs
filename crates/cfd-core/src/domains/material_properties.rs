@@ -1,11 +1,19 @@
-//! Material properties domain - Physical properties and constitutive relations.
+//! Material properties domain module
 //!
-//! This module encapsulates material property knowledge following DDD principles.
-//! It provides abstractions for fluid, solid, and interface properties.
+//! Provides fluid and material property models following Domain-Driven Design
 
-use nalgebra::RealField;
+use nalgebra::{RealField, Vector3};
+use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+// Named constants for material properties
+const SOLID_LIKE_VISCOSITY: f64 = 1e6;  // High viscosity for zero shear rate
+const YIELD_STRESS_VISCOSITY: f64 = 1e10; // Very high viscosity below yield stress
+const DEFAULT_WATER_DENSITY: f64 = 998.2; // kg/m³ at 20°C
+const DEFAULT_WATER_VISCOSITY: f64 = 1.002e-3; // Pa·s at 20°C
+const DEFAULT_AIR_DENSITY: f64 = 1.225; // kg/m³ at 15°C, sea level
+const DEFAULT_AIR_VISCOSITY: f64 = 1.81e-5; // Pa·s at 15°C
 
 /// Fluid properties abstraction
 pub trait FluidProperties<T: RealField>: Send + Sync {
@@ -137,7 +145,9 @@ pub mod non_newtonian {
         }
         
         fn dynamic_viscosity(&self) -> T {
-            // Simplified - would need shear rate for proper calculation
+            // For power-law fluids, we return the consistency index as base viscosity
+            // Actual viscosity depends on shear rate: μ = K * γ^(n-1)
+            // This should be calculated with the actual shear rate when available
             self.consistency_index.clone()
         }
         
@@ -147,6 +157,20 @@ pub mod non_newtonian {
         
         fn specific_heat(&self) -> T {
             self.specific_heat.clone()
+        }
+    }
+    
+    // Extension methods for non-Newtonian fluids
+    impl<T: RealField> PowerLawFluid<T> {
+        pub fn dynamic_viscosity_at_shear_rate(&self, shear_rate: T) -> T {
+            // Power-law model: μ = K * γ^(n-1)
+            // where K is consistency index, n is flow behavior index, γ is shear rate
+            if shear_rate > T::zero() {
+                self.consistency_index.clone() * shear_rate.powf(self.flow_behavior_index.clone() - T::one())
+            } else {
+                // At zero shear rate, use a large viscosity to represent solid-like behavior
+                self.consistency_index.clone() * T::from_f64(SOLID_LIKE_VISCOSITY).unwrap_or(T::from_f64(SOLID_LIKE_VISCOSITY).unwrap())
+            }
         }
     }
     
@@ -171,7 +195,8 @@ pub mod non_newtonian {
         }
         
         fn dynamic_viscosity(&self) -> T {
-            // Simplified - would need shear rate for proper calculation
+            // For Bingham plastics, return plastic viscosity as base
+            // Actual behavior depends on shear stress vs yield stress
             self.plastic_viscosity.clone()
         }
         
@@ -181,6 +206,30 @@ pub mod non_newtonian {
         
         fn specific_heat(&self) -> T {
             self.specific_heat.clone()
+        }
+    }
+    
+    // Extension methods for Bingham fluids
+    impl<T: RealField> BinghamFluid<T> {
+        pub fn dynamic_viscosity_at_shear_stress(&self, shear_stress: T) -> T {
+            // Bingham model: 
+            // If τ < τ_y: material behaves as solid (infinite viscosity)
+            // If τ ≥ τ_y: μ = μ_p + τ_y/γ
+            let shear_stress_abs = shear_stress.abs();
+            if shear_stress_abs < self.yield_stress {
+                // Below yield stress - solid-like behavior
+                T::from_f64(YIELD_STRESS_VISCOSITY).unwrap_or(T::from_f64(YIELD_STRESS_VISCOSITY).unwrap())
+            } else {
+                // Above yield stress - flows with plastic viscosity
+                // Effective viscosity includes yield stress contribution
+                // μ_eff = μ_p + τ_y/γ where γ = (τ - τ_y)/μ_p
+                let shear_rate = (shear_stress_abs - self.yield_stress.clone()) / self.plastic_viscosity.clone();
+                if shear_rate > T::zero() {
+                    self.plastic_viscosity.clone() + self.yield_stress.clone() / shear_rate
+                } else {
+                    self.plastic_viscosity.clone()
+                }
+            }
         }
     }
 }

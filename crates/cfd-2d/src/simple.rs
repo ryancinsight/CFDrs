@@ -31,6 +31,8 @@ use crate::grid::{Grid2D, StructuredGrid2D};
 pub struct SimpleConfig<T: RealField> {
     /// Base solver configuration (SSOT)
     pub base: cfd_core::SolverConfig<T>,
+    /// Time step for simulation
+    pub time_step: T,
     /// Convergence tolerance for velocity
     pub velocity_tolerance: T,
     /// Convergence tolerance for pressure
@@ -51,6 +53,7 @@ impl<T: RealField + FromPrimitive> Default for SimpleConfig<T> {
 
         Self {
             base,
+            time_step: T::from_f64(0.01).unwrap(), // Default time step
             velocity_tolerance: T::from_f64(1e-6).unwrap(),
             pressure_tolerance: T::from_f64(1e-6).unwrap(),
             velocity_relaxation: T::from_f64(0.7).unwrap(),
@@ -68,6 +71,11 @@ impl<T: RealField> SimpleConfig<T> {
     /// Get tolerance from base configuration
     pub fn tolerance(&self) -> T {
         self.base.tolerance()
+    }
+    
+    /// Get time step from base configuration
+    pub fn time_step(&self) -> T {
+        self.time_step.clone()
     }
 
     /// Check if verbose output is enabled
@@ -128,6 +136,9 @@ pub struct SimpleSolver<T: RealField> {
     /// Grid dimensions
     nx: usize,
     ny: usize,
+    /// Grid spacing
+    dx: T,
+    dy: T,
     /// Fluid properties
     density: T,
     viscosity: T,
@@ -152,6 +163,8 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> SimpleSolver<T> {
             u_prime: vec![vec![Vector2::zeros(); ny]; nx],
             nx,
             ny,
+            dx: grid.dx.clone(),
+            dy: grid.dy.clone(),
             density,
             viscosity,
         }
@@ -381,9 +394,12 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> SimpleSolver<T> {
                            (T::from_f64(2.0).unwrap() * dy.clone());
 
                 // Velocity correction: u' = -d * ∇p'
-                // For simplicity, use d = dt/ρ (time step over density)
-                // In practice, d would be derived from momentum equation coefficients
-                let d_coeff = T::from_f64(0.1).unwrap() / self.density.clone(); // Simplified
+                // d coefficient from momentum equation discretization
+                // d = V / a_P where V is cell volume and a_P is the diagonal coefficient
+                let cell_volume = self.dx.clone() * self.dy.clone();
+                let a_p = self.density.clone() * cell_volume.clone() / self.config.time_step()
+                    + T::from_f64(4.0).unwrap() * self.viscosity.clone() / self.dx.clone();
+                let d_coeff = cell_volume / a_p;
 
                 self.u_prime[i][j].x = -d_coeff.clone() * dp_dx;
                 self.u_prime[i][j].y = -d_coeff * dp_dy;
@@ -431,9 +447,39 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> SimpleSolver<T> {
 
     /// Check convergence
     fn check_convergence(&self) -> bool {
-        // Simplified convergence check
-        // In practice, would check residuals of momentum and continuity equations
-        true // For now, assume convergence after applying corrections
+        // Check residuals of momentum and continuity equations
+        let nx = self.nx;
+        let ny = self.ny;
+        let mut max_continuity_residual = T::zero();
+        let mut max_momentum_residual = T::zero();
+        
+        for i in 1..nx-1 {
+            for j in 1..ny-1 {
+                // Continuity residual: ∇·u = ∂u/∂x + ∂v/∂y
+                let dudx = (self.u[i+1][j].x.clone() - self.u[i-1][j].x.clone()) 
+                    / (T::from_f64(2.0).unwrap() * self.dx.clone());
+                let dvdy = (self.u[i][j+1].y.clone() - self.u[i][j-1].y.clone()) 
+                    / (T::from_f64(2.0).unwrap() * self.dy.clone());
+                let continuity_residual = (dudx + dvdy).abs();
+                
+                if continuity_residual > max_continuity_residual {
+                    max_continuity_residual = continuity_residual;
+                }
+                
+                // Momentum residual: Check change in velocity
+                let u_change = (self.u_prime[i][j].x.clone()).abs();
+                let v_change = (self.u_prime[i][j].y.clone()).abs();
+                let momentum_residual = u_change.max(v_change);
+                
+                if momentum_residual > max_momentum_residual {
+                    max_momentum_residual = momentum_residual;
+                }
+            }
+        }
+        
+        // Check if both residuals are below tolerance
+        max_continuity_residual < self.config.pressure_tolerance 
+            && max_momentum_residual < self.config.velocity_tolerance
     }
 
     /// Get current velocity field
@@ -509,6 +555,7 @@ mod tests {
             .build();
         let config = SimpleConfig {
             base,
+            time_step: 0.01, // Add time_step for boundary condition test
             velocity_tolerance: 1e-6,
             pressure_tolerance: 1e-6,
             velocity_relaxation: 0.7,

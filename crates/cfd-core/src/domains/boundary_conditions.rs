@@ -271,25 +271,33 @@ impl<T: RealField + num_traits::Float> TimeDependentEvaluator<T> {
             }
             TimeFunctionType::Sinusoidal => {
                 if spec.parameters.len() >= 3 {
-                    // A * sin(omega * t + phi)
+                    // A * sin(ω * t + φ)
                     let amplitude = spec.parameters[0].clone();
                     let omega = spec.parameters[1].clone();
                     let phase = spec.parameters[2].clone();
                     
-                    // Simplified sine approximation (would use proper trig functions in real implementation)
-                    amplitude * (omega * time + phase)
+                    // Use proper sine function
+                    let angle = omega * time + phase;
+                    // Convert to f64 for trig calculation, then back
+                    let angle_f64: f64 = angle.to_subset().unwrap_or(0.0);
+                    let sin_value = angle_f64.sin();
+                    amplitude * T::from_f64(sin_value).unwrap_or(T::zero())
                 } else {
                     T::zero()
                 }
             }
             TimeFunctionType::Exponential => {
                 if spec.parameters.len() >= 2 {
-                    // A * exp(lambda * t)
+                    // A * exp(λ * t)
                     let amplitude = spec.parameters[0].clone();
                     let lambda = spec.parameters[1].clone();
                     
-                    // Simplified exponential approximation
-                    amplitude * (T::one() + lambda * time)
+                    // Use proper exponential function
+                    let exponent = lambda * time;
+                    // Convert to f64 for exp calculation, then back
+                    let exp_f64: f64 = exponent.to_subset().unwrap_or(0.0);
+                    let exp_value = exp_f64.exp();
+                    amplitude * T::from_f64(exp_value).unwrap_or(T::one())
                 } else {
                     T::zero()
                 }

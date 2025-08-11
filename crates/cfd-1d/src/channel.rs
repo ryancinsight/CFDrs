@@ -326,14 +326,40 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
     /// Update flow state based on current conditions
     fn update_flow_state(&mut self, _fluid: &Fluid<T>) -> Result<()> {
         // Calculate Reynolds number if velocity is known
-        if let Some(re) = self.flow_state.reynolds_number {
-            self.flow_state.flow_regime = self.classify_flow_regime(re);
+        if let Some(re) = self.flow_state.reynolds_number.clone() {
+            self.flow_state.flow_regime = self.classify_flow_regime(re.clone());
+            
+            // Check for entrance effects
+            let dh = self.geometry.hydraulic_diameter();
+            // Entrance length correlations:
+            // Laminar: L_e/D_h ≈ 0.06 * Re
+            // Turbulent: L_e/D_h ≈ 4.4 * Re^(1/6)
+            let entrance_length = match self.flow_state.flow_regime {
+                FlowRegime::Laminar => {
+                    // Laminar entrance length
+                    dh.clone() * T::from_f64(0.06).unwrap() * re.clone()
+                }
+                FlowRegime::Transitional => {
+                    // Use turbulent correlation for transitional
+                    let one_sixth = T::from_f64(1.0/6.0).unwrap();
+                    dh.clone() * T::from_f64(4.4).unwrap() * ComplexField::powf(re.clone(), one_sixth)
+                }
+                FlowRegime::Turbulent => {
+                    // Turbulent entrance length
+                    let one_sixth = T::from_f64(1.0/6.0).unwrap();
+                    dh.clone() * T::from_f64(4.4).unwrap() * ComplexField::powf(re.clone(), one_sixth)
+                }
+                FlowRegime::Stokes => {
+                    // Stokes flow - use laminar correlation
+                    dh.clone() * T::from_f64(0.06).unwrap() * re.clone()
+                }
+                FlowRegime::SlipFlow => {
+                    // Slip flow - use modified correlation
+                    dh.clone() * T::from_f64(0.1).unwrap() * re.clone()
+                }
+            };
+            self.flow_state.entrance_effects = self.geometry.length < entrance_length;
         }
-
-        // Check for entrance effects
-        let dh = self.geometry.hydraulic_diameter();
-        let entrance_length = dh.clone() * T::from_f64(0.05).unwrap(); // Simplified
-        self.flow_state.entrance_effects = self.geometry.length < entrance_length * T::from_f64(10.0).unwrap();
 
         Ok(())
     }

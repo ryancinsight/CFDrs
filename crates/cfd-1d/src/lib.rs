@@ -53,13 +53,13 @@ pub use components::{
 // Export analysis functionality
 pub use analysis::{
     NetworkAnalyzer, FlowAnalysis, PressureAnalysis, ResistanceAnalysis,
-    PerformanceMetrics, NetworkAnalysisResult, FlowRegime,
+    PerformanceMetrics, NetworkAnalysisResult,
 };
 
 // Export channel functionality
 pub use channel::{
     Channel, ChannelGeometry, ChannelType, CrossSection, SurfaceProperties,
-    FlowState, FlowRegime as ChannelFlowRegime, NumericalParameters, Wettability,
+    FlowState, FlowRegime, NumericalParameters, Wettability,
 };
 
 // Export resistance functionality
@@ -89,8 +89,8 @@ pub mod prelude {
     pub use crate::{
         network::{Node, Edge, NodeType, EdgeType, NodeProperties, EdgeProperties},
         components::{ComponentFactory, FlowSensor, Micromixer, PumpType, ValveType, SensorType, MixerType},
-        analysis::{PerformanceMetrics, NetworkAnalysisResult, FlowRegime as AnalysisFlowRegime},
-        channel::{Channel, ChannelGeometry, ChannelType, CrossSection, SurfaceProperties, FlowState, Wettability},
+        analysis::{PerformanceMetrics, NetworkAnalysisResult},
+        channel::{Channel, ChannelGeometry, ChannelType, CrossSection, SurfaceProperties, FlowState, FlowRegime, Wettability},
         resistance::{ResistanceModelFactory, ResistanceCalculator, FlowConditions, DarcyWeisbachModel},
     };
 }

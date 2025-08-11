@@ -126,53 +126,119 @@ pub mod les {
     
     impl<T: RealField> TurbulenceModel<T> for SmagorinskyModel<T> {
         fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
-            // Smagorinsky model: ν_t = (C_s * Δ)² * |S|
-            // where |S| = √(2 * S_ij * S_ij) is the strain rate magnitude
-            // Reference: Smagorinsky, J. "General circulation experiments with the primitive equations" (1963)
-
-            // Note: Advanced iterator extensions would be available from cfd_math crate
-
-            // Calculate strain rate tensor magnitude using zero-copy operations
-            // Working with Vector3<T> velocity components
+            // Compute strain rate tensor and its magnitude for Smagorinsky model
+            // νₜ = (Cs * Δ)² * |S|
+            // where |S| = √(2 * Sᵢⱼ * Sᵢⱼ) is the strain rate magnitude
+            
+            let n = flow_field.velocity.components.len();
+            let grid_size = (n as f64).powf(1.0 / 3.0) as usize;
+            let delta = T::from_f64(1.0 / grid_size as f64).unwrap_or_else(T::one);
+            
             flow_field.velocity.components
                 .iter()
-                .map(|velocity_vector| {
-                    // Extract velocity components from Vector3
-                    let u = velocity_vector.x.clone();
-                    let v = velocity_vector.y.clone();
-                    let w = velocity_vector.z.clone();
-
-                    // Simplified strain rate calculation for demonstration
-                    // In practice, this would involve spatial derivatives
-                    let velocity_magnitude_squared = u.clone() * u + v.clone() * v + w.clone() * w;
-                    let strain_rate_magnitude = velocity_magnitude_squared.sqrt();
-
-                    // Characteristic length scale (grid spacing)
-                    let delta = T::from_f64(0.1).unwrap_or_else(T::one); // Simplified
-
-                    // Smagorinsky turbulent viscosity
-                    self.cs.clone() * self.cs.clone() * delta.clone() * delta * strain_rate_magnitude
+                .enumerate()
+                .map(|(idx, _)| {
+                    // Calculate strain rate tensor components using finite differences
+                    // For a structured grid, compute gradients
+                    let i = idx % grid_size;
+                    let j = (idx / grid_size) % grid_size;
+                    let k = idx / (grid_size * grid_size);
+                    
+                    // Get neighboring velocities for gradient computation
+                    let mut strain_rate_squared = T::zero();
+                    
+                    // Compute ∂u/∂x, ∂v/∂y, ∂w/∂z (diagonal terms)
+                    if i > 0 && i < grid_size - 1 {
+                        let idx_plus = (k * grid_size + j) * grid_size + i + 1;
+                        let idx_minus = (k * grid_size + j) * grid_size + i - 1;
+                        if let (Some(u_plus_vec), Some(u_minus_vec)) = (
+                            flow_field.velocity.components.get(idx_plus),
+                            flow_field.velocity.components.get(idx_minus),
+                        ) {
+                            let u_plus = u_plus_vec.x.clone();
+                            let u_minus = u_minus_vec.x.clone();
+                            let dudx = (u_plus - u_minus) / (T::from_f64(2.0).unwrap() * delta.clone());
+                            strain_rate_squared = strain_rate_squared + dudx.clone() * dudx;
+                        }
+                    }
+                    
+                    if j > 0 && j < grid_size - 1 {
+                        let idx_plus = (k * grid_size + j + 1) * grid_size + i;
+                        let idx_minus = (k * grid_size + j - 1) * grid_size + i;
+                        if let (Some(v_plus_vec), Some(v_minus_vec)) = (
+                            flow_field.velocity.components.get(idx_plus),
+                            flow_field.velocity.components.get(idx_minus),
+                        ) {
+                            let v_plus = v_plus_vec.y.clone();
+                            let v_minus = v_minus_vec.y.clone();
+                            let dvdy = (v_plus - v_minus) / (T::from_f64(2.0).unwrap() * delta.clone());
+                            strain_rate_squared = strain_rate_squared + dvdy.clone() * dvdy;
+                        }
+                    }
+                    
+                    if k > 0 && k < grid_size - 1 {
+                        let idx_plus = ((k + 1) * grid_size + j) * grid_size + i;
+                        let idx_minus = ((k - 1) * grid_size + j) * grid_size + i;
+                        if let (Some(w_plus_vec), Some(w_minus_vec)) = (
+                            flow_field.velocity.components.get(idx_plus),
+                            flow_field.velocity.components.get(idx_minus),
+                        ) {
+                            let w_plus = w_plus_vec.z.clone();
+                            let w_minus = w_minus_vec.z.clone();
+                            let dwdz = (w_plus - w_minus) / (T::from_f64(2.0).unwrap() * delta.clone());
+                            strain_rate_squared = strain_rate_squared + dwdz.clone() * dwdz;
+                        }
+                    }
+                    
+                    // Compute off-diagonal terms (shear components)
+                    // Add ∂u/∂y + ∂v/∂x, ∂u/∂z + ∂w/∂x, ∂v/∂z + ∂w/∂y
+                    if i > 0 && i < grid_size - 1 && j > 0 && j < grid_size - 1 {
+                        let u_j_plus = flow_field.velocity.components[(k * grid_size + j + 1) * grid_size + i].x.clone();
+                        let u_j_minus = flow_field.velocity.components[(k * grid_size + j - 1) * grid_size + i].x.clone();
+                        let v_i_plus = flow_field.velocity.components[(k * grid_size + j) * grid_size + i + 1].y.clone();
+                        let v_i_minus = flow_field.velocity.components[(k * grid_size + j) * grid_size + i - 1].y.clone();
+                        
+                        let dudy = (u_j_plus - u_j_minus) / (T::from_f64(2.0).unwrap() * delta.clone());
+                        let dvdx = (v_i_plus - v_i_minus) / (T::from_f64(2.0).unwrap() * delta.clone());
+                        let shear_xy = (dudy + dvdx) / T::from_f64(2.0).unwrap();
+                        strain_rate_squared = strain_rate_squared + shear_xy.clone() * shear_xy;
+                    }
+                    
+                    // Strain rate magnitude: |S| = √(2 * Sᵢⱼ * Sᵢⱼ)
+                    let strain_rate_magnitude = (T::from_f64(2.0).unwrap() * strain_rate_squared).sqrt();
+                    
+                    // Smagorinsky turbulent viscosity: νₜ = (Cs * Δ)²  * |S|
+                    self.cs.clone() * self.cs.clone() * delta.clone() * delta.clone() * strain_rate_magnitude
                 })
                 .collect()
         }
 
         fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
-            // For Smagorinsky model, TKE is not directly computed
-            // Instead, we estimate it from the velocity fluctuations
-            // k ≈ 0.5 * (u'² + v'² + w'²)
-
+            // For Smagorinsky model, TKE is estimated from velocity fluctuations
+            // k = 0.5 * <u'ᵢ * u'ᵢ>
+            // We compute fluctuations as deviations from local mean
+            
+            let window_size = 3; // Local averaging window
+            
             flow_field.velocity.components
-                .iter()
-                .map(|velocity_vector| {
-                    // Extract velocity components from Vector3
-                    let u = velocity_vector.x.clone();
-                    let v = velocity_vector.y.clone();
-                    let w = velocity_vector.z.clone();
-
-                    // Simplified TKE estimation
-                    let half = T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one()));
-                    half * (u.clone() * u + v.clone() * v + w.clone() * w)
+                .windows(window_size)
+                .map(|window| {
+                    // Compute local mean velocity
+                    let mean_velocity = window.iter()
+                        .fold(Vector3::zeros(), |acc, v| acc + v.clone())
+                        .scale(T::from_f64(1.0 / window_size as f64).unwrap());
+                    
+                    // Compute TKE from fluctuations
+                    window.iter()
+                        .map(|v| {
+                            let fluctuation = v.clone() - mean_velocity.clone();
+                            let half = T::from_f64(0.5).unwrap();
+                            half * fluctuation.dot(&fluctuation)
+                        })
+                        .fold(T::zero(), |acc, tke| acc + tke)
+                        .scale(T::from_f64(1.0 / window_size as f64).unwrap())
                 })
+                .chain(std::iter::repeat(T::zero()).take(window_size - 1))
                 .collect()
         }
 
@@ -323,32 +389,105 @@ pub mod rans_extended {
 
 /// Flow field operations using zero-copy iterators
 impl<T: RealField> FlowField<T> {
-    /// Calculate divergence using iterator combinators
+    /// Calculate divergence using finite differences
+    /// ∇·v = ∂u/∂x + ∂v/∂y + ∂w/∂z
     pub fn divergence(&self) -> Vec<T> {
+        let n = self.velocity.components.len();
+        let grid_size = (n as f64).powf(1.0 / 3.0).max(1.0) as usize;
+        let dx = T::from_f64(1.0 / grid_size as f64).unwrap_or_else(T::one);
+        
         self.velocity.components
-            .windows(3)
-            .map(|window| {
-                // Simplified divergence calculation
-                window.iter()
-                    .map(|v| v.x.clone() + v.y.clone() + v.z.clone())
-                    .fold(T::zero(), |acc, div| acc + div)
+            .iter()
+            .enumerate()
+            .map(|(idx, _)| {
+                let i = idx % grid_size;
+                let j = (idx / grid_size) % grid_size;
+                let k = idx / (grid_size * grid_size);
+                
+                let mut div = T::zero();
+                
+                // ∂u/∂x using central differences
+                if i > 0 && i < grid_size - 1 {
+                    let u_plus = self.velocity.components[(k * grid_size + j) * grid_size + i + 1].x.clone();
+                    let u_minus = self.velocity.components[(k * grid_size + j) * grid_size + i - 1].x.clone();
+                    div = div + (u_plus - u_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
+                }
+                
+                // ∂v/∂y using central differences
+                if j > 0 && j < grid_size - 1 {
+                    let v_plus = self.velocity.components[(k * grid_size + j + 1) * grid_size + i].y.clone();
+                    let v_minus = self.velocity.components[(k * grid_size + j - 1) * grid_size + i].y.clone();
+                    div = div + (v_plus - v_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
+                }
+                
+                // ∂w/∂z using central differences
+                if k > 0 && k < grid_size - 1 {
+                    let w_plus = self.velocity.components[((k + 1) * grid_size + j) * grid_size + i].z.clone();
+                    let w_minus = self.velocity.components[((k - 1) * grid_size + j) * grid_size + i].z.clone();
+                    div = div + (w_plus - w_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
+                }
+                
+                div
             })
             .collect()
     }
     
-    /// Calculate vorticity using zero-copy operations
+    /// Calculate vorticity using finite differences
+    /// ω = ∇ × v = (∂w/∂y - ∂v/∂z, ∂u/∂z - ∂w/∂x, ∂v/∂x - ∂u/∂y)
     pub fn vorticity(&self) -> Vec<Vector3<T>> {
+        let n = self.velocity.components.len();
+        let grid_size = (n as f64).powf(1.0 / 3.0).max(1.0) as usize;
+        let dx = T::from_f64(1.0 / grid_size as f64).unwrap_or_else(T::one);
+        
         self.velocity.components
-            .windows(2)
-            .map(|window| {
-                // Simplified vorticity calculation
-                let v1 = &window[0];
-                let v2 = &window[1];
-                Vector3::new(
-                    v2.y.clone() - v1.y.clone(),
-                    v1.x.clone() - v2.x.clone(),
-                    T::zero()
-                )
+            .iter()
+            .enumerate()
+            .map(|(idx, _)| {
+                let i = idx % grid_size;
+                let j = (idx / grid_size) % grid_size;
+                let k = idx / (grid_size * grid_size);
+                
+                let mut omega_x = T::zero();
+                let mut omega_y = T::zero();
+                let mut omega_z = T::zero();
+                
+                // ωₓ = ∂w/∂y - ∂v/∂z
+                if j > 0 && j < grid_size - 1 && k > 0 && k < grid_size - 1 {
+                    let w_j_plus = self.velocity.components[(k * grid_size + j + 1) * grid_size + i].z.clone();
+                    let w_j_minus = self.velocity.components[(k * grid_size + j - 1) * grid_size + i].z.clone();
+                    let v_k_plus = self.velocity.components[((k + 1) * grid_size + j) * grid_size + i].y.clone();
+                    let v_k_minus = self.velocity.components[((k - 1) * grid_size + j) * grid_size + i].y.clone();
+                    
+                    let dwdy = (w_j_plus - w_j_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
+                    let dvdz = (v_k_plus - v_k_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
+                    omega_x = dwdy - dvdz;
+                }
+                
+                // ωᵧ = ∂u/∂z - ∂w/∂x
+                if i > 0 && i < grid_size - 1 && k > 0 && k < grid_size - 1 {
+                    let u_k_plus = self.velocity.components[((k + 1) * grid_size + j) * grid_size + i].x.clone();
+                    let u_k_minus = self.velocity.components[((k - 1) * grid_size + j) * grid_size + i].x.clone();
+                    let w_i_plus = self.velocity.components[(k * grid_size + j) * grid_size + i + 1].z.clone();
+                    let w_i_minus = self.velocity.components[(k * grid_size + j) * grid_size + i - 1].z.clone();
+                    
+                    let dudz = (u_k_plus - u_k_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
+                    let dwdx = (w_i_plus - w_i_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
+                    omega_y = dudz - dwdx;
+                }
+                
+                // ωz = ∂v/∂x - ∂u/∂y
+                if i > 0 && i < grid_size - 1 && j > 0 && j < grid_size - 1 {
+                    let v_i_plus = self.velocity.components[(k * grid_size + j) * grid_size + i + 1].y.clone();
+                    let v_i_minus = self.velocity.components[(k * grid_size + j) * grid_size + i - 1].y.clone();
+                    let u_j_plus = self.velocity.components[(k * grid_size + j + 1) * grid_size + i].x.clone();
+                    let u_j_minus = self.velocity.components[(k * grid_size + j - 1) * grid_size + i].x.clone();
+                    
+                    let dvdx = (v_i_plus - v_i_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
+                    let dudy = (u_j_plus - u_j_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
+                    omega_z = dvdx - dudy;
+                }
+                
+                Vector3::new(omega_x, omega_y, omega_z)
             })
             .collect()
     }
