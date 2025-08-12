@@ -632,6 +632,25 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
         T::one() - dot_xy.max(dot_xz).max(dot_yz)
     }
     
+    /// Get cell center for cell (i, j, k)
+    fn cell_center(&self, i: usize, j: usize, k: usize) -> Point3<T> {
+        // Calculate center as average of 8 vertices
+        let vertices = [
+            self.get_point(i, j, k).cloned().unwrap_or_else(Point3::origin),
+            self.get_point(i + 1, j, k).cloned().unwrap_or_else(Point3::origin),
+            self.get_point(i + 1, j + 1, k).cloned().unwrap_or_else(Point3::origin),
+            self.get_point(i, j + 1, k).cloned().unwrap_or_else(Point3::origin),
+            self.get_point(i, j, k + 1).cloned().unwrap_or_else(Point3::origin),
+            self.get_point(i + 1, j, k + 1).cloned().unwrap_or_else(Point3::origin),
+            self.get_point(i + 1, j + 1, k + 1).cloned().unwrap_or_else(Point3::origin),
+            self.get_point(i, j + 1, k + 1).cloned().unwrap_or_else(Point3::origin),
+        ];
+        
+        let sum = vertices.iter()
+            .fold(Vector3::zeros(), |acc, v| acc + v.coords);
+        Point3::from(sum / T::from_f64(8.0).unwrap())
+    }
+    
     /// Compute skewness at cell (i, j, k)
     fn compute_skewness(&self, i: usize, j: usize, k: usize) -> T {
         // Complete skewness implementation based on cell geometry
@@ -642,46 +661,47 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
         
         // Get the 8 vertices of the hexahedral cell
         let vertices = [
-            self.get_point(i, j, k),
-            self.get_point(i + 1, j, k),
-            self.get_point(i + 1, j + 1, k),
-            self.get_point(i, j + 1, k),
-            self.get_point(i, j, k + 1),
-            self.get_point(i + 1, j, k + 1),
-            self.get_point(i + 1, j + 1, k + 1),
-            self.get_point(i, j + 1, k + 1),
+            self.get_point(i, j, k).cloned().unwrap_or_else(Point3::origin),
+            self.get_point(i + 1, j, k).cloned().unwrap_or_else(Point3::origin),
+            self.get_point(i + 1, j + 1, k).cloned().unwrap_or_else(Point3::origin),
+            self.get_point(i, j + 1, k).cloned().unwrap_or_else(Point3::origin),
+            self.get_point(i, j, k + 1).cloned().unwrap_or_else(Point3::origin),
+            self.get_point(i + 1, j, k + 1).cloned().unwrap_or_else(Point3::origin),
+            self.get_point(i + 1, j + 1, k + 1).cloned().unwrap_or_else(Point3::origin),
+            self.get_point(i, j + 1, k + 1).cloned().unwrap_or_else(Point3::origin),
         ];
         
         // Calculate face centers
+        let four = T::from_f64(constants::VERTICES_PER_FACE).unwrap();
         let face_centers = [
             // Front face (k)
-            (vertices[0] + vertices[1] + vertices[2] + vertices[3]) / T::from_f64(4.0).unwrap(),
+            Point3::from((vertices[0].coords + vertices[1].coords + vertices[2].coords + vertices[3].coords) / four.clone()),
             // Back face (k+1)
-            (vertices[4] + vertices[5] + vertices[6] + vertices[7]) / T::from_f64(4.0).unwrap(),
+            Point3::from((vertices[4].coords + vertices[5].coords + vertices[6].coords + vertices[7].coords) / four.clone()),
             // Bottom face (j)
-            (vertices[0] + vertices[1] + vertices[4] + vertices[5]) / T::from_f64(4.0).unwrap(),
+            Point3::from((vertices[0].coords + vertices[1].coords + vertices[4].coords + vertices[5].coords) / four.clone()),
             // Top face (j+1)
-            (vertices[2] + vertices[3] + vertices[6] + vertices[7]) / T::from_f64(4.0).unwrap(),
+            Point3::from((vertices[2].coords + vertices[3].coords + vertices[6].coords + vertices[7].coords) / four.clone()),
             // Left face (i)
-            (vertices[0] + vertices[3] + vertices[4] + vertices[7]) / T::from_f64(4.0).unwrap(),
+            Point3::from((vertices[0].coords + vertices[3].coords + vertices[4].coords + vertices[7].coords) / four.clone()),
             // Right face (i+1)
-            (vertices[1] + vertices[2] + vertices[5] + vertices[6]) / T::from_f64(4.0).unwrap(),
+            Point3::from((vertices[1].coords + vertices[2].coords + vertices[5].coords + vertices[6].coords) / four),
         ];
         
         // Calculate face normals
         let face_normals = [
             // Front face normal
-            (vertices[1] - vertices[0]).cross(&(vertices[3] - vertices[0])).normalize(),
+            (vertices[1].coords - vertices[0].coords).cross(&(vertices[3].coords - vertices[0].coords)).normalize(),
             // Back face normal
-            (vertices[5] - vertices[4]).cross(&(vertices[7] - vertices[4])).normalize(),
+            (vertices[5].coords - vertices[4].coords).cross(&(vertices[7].coords - vertices[4].coords)).normalize(),
             // Bottom face normal
-            (vertices[1] - vertices[0]).cross(&(vertices[4] - vertices[0])).normalize(),
+            (vertices[1].coords - vertices[0].coords).cross(&(vertices[4].coords - vertices[0].coords)).normalize(),
             // Top face normal
-            (vertices[2] - vertices[3]).cross(&(vertices[7] - vertices[3])).normalize(),
+            (vertices[2].coords - vertices[3].coords).cross(&(vertices[7].coords - vertices[3].coords)).normalize(),
             // Left face normal
-            (vertices[3] - vertices[0]).cross(&(vertices[4] - vertices[0])).normalize(),
+            (vertices[3].coords - vertices[0].coords).cross(&(vertices[4].coords - vertices[0].coords)).normalize(),
             // Right face normal
-            (vertices[2] - vertices[1]).cross(&(vertices[5] - vertices[1])).normalize(),
+            (vertices[2].coords - vertices[1].coords).cross(&(vertices[5].coords - vertices[1].coords)).normalize(),
         ];
         
         // Calculate skewness as the maximum angle deviation from orthogonal
@@ -697,7 +717,7 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
         
         // Also check vector from center to each face center against face normal
         for i in 0..6 {
-            let center_to_face = (face_centers[i] - center).normalize();
+            let center_to_face = (face_centers[i].coords - center.coords).normalize();
             let alignment = center_to_face.dot(&face_normals[i]).abs();
             // For perfect alignment, dot product should be 1
             let skewness = T::one() - alignment;

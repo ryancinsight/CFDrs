@@ -290,10 +290,10 @@ impl<T: RealField + FromPrimitive> BspTree<T> {
         for polygon in polygons {
             let classification = Self::classify_polygon(&polygon, &plane);
             match classification {
-                PolygonClass::Front => front_polygons.push(polygon),
-                PolygonClass::Back => back_polygons.push(polygon),
-                PolygonClass::Coplanar => coplanar.push(polygon),
-                PolygonClass::Spanning => {
+                PolygonClassification::Front => front_polygons.push(polygon),
+                PolygonClassification::Back => back_polygons.push(polygon),
+                PolygonClassification::Coplanar => coplanar.push(polygon),
+                PolygonClassification::Spanning => {
                     // Split polygon and add to both sides
                     let (front, back) = Self::split_polygon(&polygon, &plane);
                     if let Some(f) = front {
@@ -339,27 +339,7 @@ impl<T: RealField + FromPrimitive> BspTree<T> {
         BspPlane { normal, distance }
     }
     
-    fn classify_polygon(polygon: &BspPolygon<T>, plane: &BspPlane<T>) -> PolygonClass {
-        let epsilon = T::from_f64(1e-6).unwrap();
-        let mut front = false;
-        let mut back = false;
-        
-        for vertex in &polygon.vertices {
-            let dist = plane.normal.dot(&vertex.coords) - plane.distance.clone();
-            if dist > epsilon.clone() {
-                front = true;
-            } else if dist < -epsilon.clone() {
-                back = true;
-            }
-        }
-        
-        match (front, back) {
-            (true, false) => PolygonClass::Front,
-            (false, true) => PolygonClass::Back,
-            (false, false) => PolygonClass::Coplanar,
-            (true, true) => PolygonClass::Spanning,
-        }
-    }
+
     
     fn split_polygon(polygon: &BspPolygon<T>, plane: &BspPlane<T>) -> (Option<BspPolygon<T>>, Option<BspPolygon<T>>) {
         let epsilon = T::from_f64(constants::BSP_EPSILON).unwrap();
@@ -549,12 +529,10 @@ impl<T: RealField + FromPrimitive> BspTree<T> {
                 if let Some(ref mut front) = node.front {
                     Self::add_polygon_to_node(front, polygon);
                 } else {
-                    // Create new front node
+                    // Create new front node with plane from polygon
+                    let plane = Self::plane_from_polygon(&polygon);
                     node.front = Some(Box::new(BspNode {
-                        plane: BspPlane {
-                            normal: polygon.vertices[0].normal.clone(),
-                            distance: polygon.vertices[0].position.coords.dot(&polygon.vertices[0].normal),
-                        },
+                        plane,
                         polygons: vec![polygon],
                         front: None,
                         back: None,
@@ -566,12 +544,10 @@ impl<T: RealField + FromPrimitive> BspTree<T> {
                 if let Some(ref mut back) = node.back {
                     Self::add_polygon_to_node(back, polygon);
                 } else {
-                    // Create new back node
+                    // Create new back node with plane from polygon
+                    let plane = Self::plane_from_polygon(&polygon);
                     node.back = Some(Box::new(BspNode {
-                        plane: BspPlane {
-                            normal: polygon.vertices[0].normal.clone(),
-                            distance: polygon.vertices[0].position.coords.dot(&polygon.vertices[0].normal),
-                        },
+                        plane,
                         polygons: vec![polygon],
                         front: None,
                         back: None,
@@ -586,11 +562,9 @@ impl<T: RealField + FromPrimitive> BspTree<T> {
                     if let Some(ref mut front) = node.front {
                         Self::add_polygon_to_node(front, f);
                     } else {
+                        let plane = Self::plane_from_polygon(&f);
                         node.front = Some(Box::new(BspNode {
-                            plane: BspPlane {
-                                normal: f.vertices[0].normal.clone(),
-                                distance: f.vertices[0].position.coords.dot(&f.vertices[0].normal),
-                            },
+                            plane,
                             polygons: vec![f],
                             front: None,
                             back: None,
@@ -602,11 +576,9 @@ impl<T: RealField + FromPrimitive> BspTree<T> {
                     if let Some(ref mut back) = node.back {
                         Self::add_polygon_to_node(back, b);
                     } else {
+                        let plane = Self::plane_from_polygon(&b);
                         node.back = Some(Box::new(BspNode {
-                            plane: BspPlane {
-                                normal: b.vertices[0].normal.clone(),
-                                distance: b.vertices[0].position.coords.dot(&b.vertices[0].normal),
-                            },
+                            plane,
                             polygons: vec![b],
                             front: None,
                             back: None,
@@ -624,11 +596,11 @@ impl<T: RealField + FromPrimitive> BspTree<T> {
         let mut back_count = 0;
         
         for vertex in &polygon.vertices {
-            let distance = vertex.position.coords.dot(&plane.normal) - plane.distance.clone();
+            let distance = vertex.coords.dot(&plane.normal) - plane.distance.clone();
             
-            if distance > epsilon {
+            if distance > epsilon.clone() {
                 front_count += 1;
-            } else if distance < -epsilon {
+            } else if distance < -epsilon.clone() {
                 back_count += 1;
             }
         }
@@ -666,13 +638,7 @@ impl<T: RealField + FromPrimitive> BspTree<T> {
     }
 }
 
-#[derive(Debug)]
-enum PolygonClass {
-    Front,
-    Back,
-    Coplanar,
-    Spanning,
-}
+
 
 #[cfg(test)]
 mod tests {
