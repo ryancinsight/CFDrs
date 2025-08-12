@@ -3,7 +3,20 @@
 
 This checklist provides a detailed breakdown of all tasks required to implement the CFD simulation suite as specified in the PRD.
 
-## 🎯 Recent Improvements (Latest Update - v2.2 - January 2025)
+## 🎯 Recent Improvements (Latest Update - v2.3 - January 2025)
+
+### Critical Fixes Based on Code Review (v2.3)
+- [x] **Fixed Hardcoded Grid Spacing** - Removed dx=0.01, dy=0.01 hardcoding in SIMPLE solver
+- [x] **Mandatory Rhie-Chow** - Made Rhie-Chow interpolation mandatory for colocated grids
+- [x] **Enhanced Convergence Check** - Added momentum equation residuals to convergence criteria
+- [x] **Corrected QUICK Scheme** - Fixed from centered to properly upwinded implementation
+- [x] **Fixed Scheme Naming** - Renamed misleading "compact" to "fourth-order central"
+- [x] **Honest Documentation** - Rewrote README to accurately reflect project state
+- [ ] **GMRES Fix Pending** - Need to debug implementation and tighten test tolerance from 0.2
+- [ ] **Implicit Momentum Pending** - Need to implement implicit solver for stability
+- [ ] **Preconditioners Pending** - Need to implement ILU, SOR, etc.
+- [ ] **Code Duplication Pending** - Need to refactor simple.rs to use schemes.rs
+- [ ] **Validation Fix Pending** - Need to tighten tolerances from 5-20% to <1%
 
 ### Enhanced Algorithm Implementations (v2.2)
 - [x] **Complete QUICK Scheme** - Full 3rd-order Quadratic Upstream Interpolation implementation

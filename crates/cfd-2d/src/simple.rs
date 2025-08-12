@@ -183,7 +183,7 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
         self.assemble_momentum_coefficients(grid)?;
         
         // Step 2: Solve momentum equations to get u*, v*
-        self.solve_momentum_predictor(boundary_conditions)?;
+        self.solve_momentum_predictor(grid, boundary_conditions)?;
         
         // Step 3: Calculate face velocities using Rhie-Chow if needed
         if self.config.use_rhie_chow {
@@ -371,9 +371,10 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
     /// Solve momentum predictor step
     fn solve_momentum_predictor(
         &mut self,
+        grid: &StructuredGrid2D<T>,
         boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
     ) -> Result<()> {
-        let (dx, dy) = (T::from_f64(constants::GRID_SPACING).unwrap(), T::from_f64(constants::GRID_SPACING).unwrap()); // Grid spacing
+        let (dx, dy) = grid.spacing();
         
         // Solve u-momentum with under-relaxation
         for i in 1..self.nx-1 {
@@ -662,7 +663,7 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
         for _iter in 0..max_iter {
             self.solve_step(grid, boundary_conditions)?;
             
-            if self.check_convergence()? {
+            if self.check_convergence(grid)? {
                 break;
             }
         }
@@ -671,19 +672,47 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
     }
     
     /// Check convergence
-    pub fn check_convergence(&self) -> Result<bool> {
-        let mut max_residual = T::zero();
+    pub fn check_convergence(&self, grid: &StructuredGrid2D<T>) -> Result<bool> {
+        let mut max_continuity_residual = T::zero();
+        let mut max_u_momentum_residual = T::zero();
+        let mut max_v_momentum_residual = T::zero();
         
-        // Check continuity residual
+        let (dx, dy) = grid.spacing();
+        let two = T::from_f64(constants::TWO).unwrap();
+        
+        // Check continuity and momentum residuals
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
-                let div_u = (self.u[i+1][j].x.clone() - self.u[i-1][j].x.clone()) / T::from_f64(0.02).unwrap() +
-                           (self.u[i][j+1].y.clone() - self.u[i][j-1].y.clone()) / T::from_f64(0.02).unwrap();
-                max_residual = max_residual.max(div_u.abs());
+                // Continuity residual: ∇·u
+                let div_u = (self.u[i+1][j].x.clone() - self.u[i-1][j].x.clone()) / (two.clone() * dx.clone()) +
+                           (self.u[i][j+1].y.clone() - self.u[i][j-1].y.clone()) / (two.clone() * dy.clone());
+                max_continuity_residual = max_continuity_residual.max(div_u.abs());
+                
+                // U-momentum residual (simplified - could be more comprehensive)
+                let u_residual = if self.au[i][j].d != T::zero() {
+                    ((self.u[i][j].x.clone() - self.u_star[i][j].x.clone()) / self.config.dt.clone()).abs()
+                } else {
+                    T::zero()
+                };
+                max_u_momentum_residual = max_u_momentum_residual.max(u_residual);
+                
+                // V-momentum residual
+                let v_residual = if self.av[i][j].d != T::zero() {
+                    ((self.u[i][j].y.clone() - self.u_star[i][j].y.clone()) / self.config.dt.clone()).abs()
+                } else {
+                    T::zero()
+                };
+                max_v_momentum_residual = max_v_momentum_residual.max(v_residual);
             }
         }
         
-        Ok(max_residual < self.config.base.tolerance())
+        // Check if all residuals are below their tolerances
+        let tolerance = self.config.base.tolerance();
+        let converged = max_continuity_residual < tolerance &&
+                       max_u_momentum_residual < tolerance &&
+                       max_v_momentum_residual < tolerance;
+        
+        Ok(converged)
     }
 
     /// Get velocity field
