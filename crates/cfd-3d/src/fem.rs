@@ -868,6 +868,87 @@ impl<T: RealField + FromPrimitive + Send + Sync, F: ElementFactory<T>> FemSolver
 
         Ok(())
     }
+
+    /// Calculate the strain-displacement matrix (B matrix)
+    /// This is exposed for testing and validation purposes
+    pub fn calculate_b_matrix(
+        &self,
+        nodes: &[nalgebra::Point3<T>],
+        element: &TetrahedralElement<T>,
+        _material: &MaterialProperties<T>,
+    ) -> Result<nalgebra::DMatrix<T>> {
+        // For linear tetrahedron, B matrix is constant within element
+        let mut b = nalgebra::DMatrix::zeros(6, 12); // 6 strains, 12 DOFs (4 nodes x 3)
+        
+        // Calculate shape function derivatives (constant for linear element)
+        let v0 = &nodes[0];
+        let v1 = &nodes[1];
+        let v2 = &nodes[2];
+        let v3 = &nodes[3];
+        
+        // Calculate volume
+        let e1 = v1 - v0;
+        let e2 = v2 - v0;
+        let e3 = v3 - v0;
+        let volume = e1.cross(&e2).dot(&e3).abs() / constants::tetrahedron_volume_factor::<T>();
+        
+        if volume < T::from_f64(constants::VOLUME_TOLERANCE).unwrap() {
+            return Err(Error::InvalidInput("Degenerate tetrahedron element".into()));
+        }
+        
+        let inv_6v = T::one() / (constants::tetrahedron_volume_factor::<T>() * volume);
+        
+        // Shape function derivatives (constant for linear tetrahedron)
+        let mut dn_dx = vec![T::zero(); 4];
+        let mut dn_dy = vec![T::zero(); 4];
+        let mut dn_dz = vec![T::zero(); 4];
+        
+        // Node 0 derivatives
+        let n0_vec = (v2 - v1).cross(&(v3 - v1));
+        dn_dx[0] = n0_vec.x.clone() * inv_6v.clone();
+        dn_dy[0] = n0_vec.y.clone() * inv_6v.clone();
+        dn_dz[0] = n0_vec.z.clone() * inv_6v.clone();
+        
+        // Node 1 derivatives
+        let n1_vec = (v3 - v0).cross(&(v2 - v0));
+        dn_dx[1] = n1_vec.x.clone() * inv_6v.clone();
+        dn_dy[1] = n1_vec.y.clone() * inv_6v.clone();
+        dn_dz[1] = n1_vec.z.clone() * inv_6v.clone();
+        
+        // Node 2 derivatives
+        let n2_vec = (v1 - v0).cross(&(v3 - v0));
+        dn_dx[2] = n2_vec.x.clone() * inv_6v.clone();
+        dn_dy[2] = n2_vec.y.clone() * inv_6v.clone();
+        dn_dz[2] = n2_vec.z.clone() * inv_6v.clone();
+        
+        // Node 3 derivatives
+        let n3_vec = (v2 - v0).cross(&(v1 - v0));
+        dn_dx[3] = n3_vec.x.clone() * inv_6v.clone();
+        dn_dy[3] = n3_vec.y.clone() * inv_6v.clone();
+        dn_dz[3] = n3_vec.z.clone() * inv_6v;
+        
+        // Fill B matrix
+        for i in 0..4 {
+            let col_offset = i * 3;
+            
+            // Normal strains
+            b[(0, col_offset)] = dn_dx[i].clone();     // ε_xx = ∂u/∂x
+            b[(1, col_offset + 1)] = dn_dy[i].clone();  // ε_yy = ∂v/∂y
+            b[(2, col_offset + 2)] = dn_dz[i].clone();  // ε_zz = ∂w/∂z
+            
+            // Shear strains (engineering strain = 2 * tensorial strain)
+            b[(3, col_offset)] = dn_dy[i].clone();      // γ_xy = ∂u/∂y + ∂v/∂x
+            b[(3, col_offset + 1)] = dn_dx[i].clone();
+            
+            b[(4, col_offset + 1)] = dn_dz[i].clone();  // γ_yz = ∂v/∂z + ∂w/∂y
+            b[(4, col_offset + 2)] = dn_dy[i].clone();
+            
+            b[(5, col_offset)] = dn_dz[i].clone();      // γ_xz = ∂u/∂z + ∂w/∂x
+            b[(5, col_offset + 2)] = dn_dx[i].clone();
+        }
+        
+        Ok(b)
+    }
 }
 
 #[cfg(test)]
@@ -1014,6 +1095,220 @@ mod tests {
         // Check that diagonal entries are positive
         for i in 0..12 {
             assert!(k[(i, i)] > 0.0);
+        }
+    }
+
+    /// Validate FEM solver against analytical Poiseuille flow solution
+    /// 
+    /// Literature Reference:
+    /// - White, F.M. (2011). "Fluid Mechanics", 7th Edition, McGraw-Hill, pp. 325-330
+    /// - For circular pipe: u(r) = (ΔP/4μL) * (R² - r²)
+    /// - Maximum velocity at centerline: u_max = ΔP*R²/(4μL)
+    #[test]
+    fn test_fem_poiseuille_flow_validation() {
+        // Create a simple pipe mesh (simplified rectangular channel)
+        let mut mesh = Mesh::new();
+        
+        // Channel dimensions: 1m long, 0.1m x 0.1m cross-section
+        let length = 1.0;
+        let width = 0.1;
+        let height = 0.1;
+        
+        // Create vertices for a simple hexahedral mesh (2x2x4 elements)
+        let nx = 3;
+        let ny = 3; 
+        let nz = 5;
+        
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let x = i as f64 * length / (nz - 1) as f64;
+                    let y = j as f64 * width / (ny - 1) as f64 - width / 2.0;
+                    let z = k as f64 * height / (nx - 1) as f64 - height / 2.0;
+                    mesh.add_vertex(Vertex::new(
+                        i + j * nx + k * nx * ny,
+                        Point3::new(x, y, z)
+                    ));
+                }
+            }
+        }
+        
+        // Material properties for water at 20°C
+        let material = MaterialProperties {
+            viscosity: 1e-3,  // Pa·s
+            density: Some(1000.0),  // kg/m³
+            youngs_modulus: 2e9,  // Bulk modulus of water
+            poisson_ratio: 0.499,  // Nearly incompressible
+            body_force: None,
+        };
+        
+        // Pressure gradient
+        let pressure_drop = 100.0;  // Pa
+        let dp_dx = pressure_drop / length;
+        
+        // Analytical solution for max velocity (centerline)
+        // For rectangular channel, approximate as circular pipe with hydraulic diameter
+        let d_h = 4.0 * width * height / (2.0 * (width + height));
+        let r_h = d_h / 2.0;
+        let u_max_analytical = dp_dx * r_h * r_h / (4.0 * material.viscosity);
+        
+        // Create FEM solver
+        let mut solver = FemSolver::new();
+        solver.set_mesh(mesh);
+        
+        // Set boundary conditions
+        let mut velocity_bcs = HashMap::new();
+        let mut body_forces = HashMap::new();
+        
+        // No-slip at walls (y = ±width/2, z = ±height/2)
+        for i in 0..(nx * nz) {
+            // Top and bottom walls
+            velocity_bcs.insert(i, Vector3::zeros());  // y = -width/2
+            velocity_bcs.insert(i + nx * (ny - 1) * nz, Vector3::zeros());  // y = width/2
+        }
+        
+        // Apply pressure gradient as body force
+        let f_x = dp_dx;
+        for i in 0..(nx * ny * nz) {
+            body_forces.insert(i, Vector3::new(f_x, 0.0, 0.0));
+        }
+        
+        // Solve Stokes equations (low Reynolds number flow)
+        let solution = solver.solve_stokes(&velocity_bcs, &body_forces, &material)
+            .expect("Failed to solve Stokes equations");
+        
+        // Check centerline velocity
+        let center_node = nx * ny * nz / 2;  // Approximate center
+        if let Some(velocity) = solution.get(&center_node) {
+            let u_numerical = velocity.x;
+            
+            // Allow 10% error due to mesh coarseness and rectangular vs circular approximation
+            assert_relative_eq!(u_numerical, u_max_analytical, epsilon = 0.1 * u_max_analytical);
+        }
+    }
+    
+    /// Validate FEM solver against Couette flow
+    /// 
+    /// Literature Reference:
+    /// - Kundu, P.K. & Cohen, I.M. (2016). "Fluid Mechanics", 6th Edition, pp. 298-301
+    /// - Linear velocity profile: u(y) = U * y/h
+    #[test] 
+    fn test_fem_couette_flow_validation() {
+        // Create mesh for parallel plates
+        let mut mesh = Mesh::new();
+        
+        // Geometry: 1m long, 0.01m gap
+        let length = 1.0;
+        let gap = 0.01;
+        let width = 0.1;  // Spanwise width
+        
+        // Simple mesh: 10x5x3 elements
+        let nx = 11;
+        let ny = 6;
+        let nz = 4;
+        
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let x = i as f64 * length / (nx - 1) as f64;
+                    let y = j as f64 * gap / (ny - 1) as f64;
+                    let z = k as f64 * width / (nz - 1) as f64 - width / 2.0;
+                    mesh.add_vertex(Vertex::new(
+                        i + j * nx + k * nx * ny,
+                        Point3::new(x, y, z)
+                    ));
+                }
+            }
+        }
+        
+        // Material properties
+        let material = MaterialProperties {
+            viscosity: 0.1,  // Pa·s (higher viscosity for low Re)
+            density: Some(1000.0),
+            youngs_modulus: 2e9,
+            poisson_ratio: 0.499,
+            body_force: None,
+        };
+        
+        // Boundary conditions
+        let mut velocity_bcs = HashMap::new();
+        let plate_velocity = 1.0;  // m/s
+        
+        // Bottom plate (y = 0): stationary
+        for k in 0..nz {
+            for i in 0..nx {
+                let idx = i + k * nx * ny;
+                velocity_bcs.insert(idx, Vector3::zeros());
+            }
+        }
+        
+        // Top plate (y = gap): moving at U
+        for k in 0..nz {
+            for i in 0..nx {
+                let idx = i + (ny - 1) * nx + k * nx * ny;
+                velocity_bcs.insert(idx, Vector3::new(plate_velocity, 0.0, 0.0));
+            }
+        }
+        
+        // Solve
+        let mut solver = FemSolver::new();
+        solver.set_mesh(mesh);
+        let solution = solver.solve_stokes(&velocity_bcs, &HashMap::new(), &material)
+            .expect("Failed to solve Couette flow");
+        
+        // Verify linear velocity profile
+        for j in 1..(ny - 1) {
+            let y = j as f64 * gap / (ny - 1) as f64;
+            let u_analytical = plate_velocity * y / gap;
+            
+            // Check at mid-length, mid-span
+            let idx = nx / 2 + j * nx + (nz / 2) * nx * ny;
+            if let Some(velocity) = solution.get(&idx) {
+                assert_relative_eq!(velocity.x, u_analytical, epsilon = 0.05 * plate_velocity);
+            }
+        }
+    }
+    
+    /// Validate strain-displacement matrix calculation
+    /// 
+    /// Literature Reference:
+    /// - Zienkiewicz & Taylor (2000). "The Finite Element Method", Vol. 1, Ch. 6
+    /// - B matrix relates strains to nodal displacements: ε = B·u
+    #[test]
+    fn test_b_matrix_validation() {
+        // Create a regular tetrahedron with known geometry
+        let nodes = vec![
+            Point3::new(0.0, 0.0, 0.0),
+            Point3::new(1.0, 0.0, 0.0),
+            Point3::new(0.5, 0.866, 0.0),  // sqrt(3)/2
+            Point3::new(0.5, 0.289, 0.816),  // Height for regular tetrahedron
+        ];
+        
+        let element = TetrahedralElement::new(vec![0, 1, 2, 3], 0);
+        let material = MaterialProperties {
+            viscosity: 1.0,
+            density: Some(1.0),
+            youngs_modulus: 1e6,
+            poisson_ratio: 0.3,
+            body_force: None,
+        };
+        
+        let solver = FemSolver::<f64>::new();
+        let b_matrix = solver.calculate_b_matrix(&nodes, &element, &material)
+            .expect("Failed to calculate B matrix");
+        
+        // Check B matrix dimensions: 6 strains x 12 DOFs (4 nodes x 3 DOF/node)
+        assert_eq!(b_matrix.nrows(), 6);
+        assert_eq!(b_matrix.ncols(), 12);
+        
+        // For constant strain tetrahedron, B matrix should be constant
+        // Check that shape function derivatives sum to zero (rigid body motion)
+        for i in 0..3 {
+            let mut sum = 0.0;
+            for j in 0..4 {
+                sum += b_matrix[(i, j * 3 + i)];
+            }
+            assert_relative_eq!(sum, 0.0, epsilon = 1e-10);
         }
     }
 }

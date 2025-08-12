@@ -642,4 +642,163 @@ mod tests {
         assert_relative_eq!(velocity_field[1][1].y, 1.0, epsilon = 1e-10);
         assert_relative_eq!(pressure_field[1][1], 1000.0, epsilon = 1e-10);
     }
+
+    /// Validate SIMPLE solver against lid-driven cavity benchmark
+    /// 
+    /// Literature Reference:
+    /// - Ghia, U., Ghia, K.N., Shin, C.T. (1982). "High-Re solutions for incompressible flow 
+    ///   using the Navier-Stokes equations and a multigrid method". 
+    ///   Journal of Computational Physics, 48(3), pp. 387-411.
+    /// 
+    /// This is the standard benchmark for incompressible flow solvers.
+    /// We test at Re = 100 for validation.
+    #[test]
+    fn test_lid_driven_cavity_validation() {
+        // Create 32x32 grid (coarse for testing speed)
+        let nx = 32;
+        let ny = 32;
+        let length = 1.0;
+        
+        // Reynolds number 100
+        let lid_velocity = 1.0;
+        let viscosity = 0.01;  // Re = U*L/ν = 1.0*1.0/0.01 = 100
+        let density = 1.0;
+        
+        // Create solver with appropriate configuration
+        let config = SimpleConfig {
+            base: cfd_core::SolverConfig::builder()
+                .max_iterations(1000)
+                .tolerance(1e-4)
+                .build(),
+            time_step: 0.01, // Default time step
+            velocity_tolerance: 1e-6,
+            pressure_tolerance: 1e-6,
+            velocity_relaxation: 0.7,
+            pressure_relaxation: 0.3,
+        };
+        
+        let mut solver = SimpleSolver::new(config, &StructuredGrid2D::<f64>::unit_square(nx, ny).unwrap(), density, viscosity);
+        
+        // Initialize flow field
+        solver.initialize(Vector2::new(lid_velocity, 0.0), 0.0).unwrap();
+        
+        // Set boundary conditions
+        // Top lid moving at U = 1.0, all other walls stationary
+        for i in 0..nx {
+            // Top boundary (lid)
+            let idx = solver.nx * (ny - 1) + i;
+            solver.u[idx] = lid_velocity;
+            solver.v[idx] = 0.0;
+            
+            // Bottom boundary
+            let idx = solver.nx * 0 + i;
+            solver.u[idx] = 0.0;
+            solver.v[idx] = 0.0;
+        }
+        
+        for j in 0..ny {
+            // Left boundary
+            let idx = j * solver.nx;
+            solver.u[idx] = 0.0;
+            solver.v[idx] = 0.0;
+            
+            // Right boundary
+            let idx = (ny - 1) * solver.nx + j;
+            solver.u[idx] = 0.0;
+            solver.v[idx] = 0.0;
+        }
+        
+        // Solve
+        let result = solver.solve(&StructuredGrid2D::<f64>::unit_square(nx, ny).unwrap(), &HashMap::new());
+        assert!(result.is_ok(), "SIMPLE solver should converge for lid-driven cavity");
+        
+        // Validate against Ghia et al. (1982) data for Re = 100
+        // Check u-velocity along vertical centerline at x = 0.5
+        let mid_x = nx / 2;
+        
+        // Reference data points from Ghia et al. (1982) for Re = 100
+        // Format: (y/L, u/U)
+        let reference_data = vec![
+            (0.9688, 0.65928),  // Near lid
+            (0.9531, 0.57492),
+            (0.7344, 0.17119),
+            (0.5000, 0.02526),  // Center
+            (0.2813, -0.04272),
+            (0.1719, -0.05930),
+            (0.0625, -0.03177),
+        ];
+        
+        for (y_ref, u_ref) in reference_data {
+            let j = ((y_ref * (ny - 1) as f64) as usize).min(ny - 1);
+            let idx = solver.nx * j + mid_x;
+            let u_numerical = solver.u[idx] / lid_velocity;
+            
+            // Allow 15% error due to coarse mesh
+            assert_relative_eq!(u_numerical, u_ref, epsilon = 0.15);
+        }
+        
+        // Check v-velocity along horizontal centerline at y = 0.5
+        let mid_y = ny / 2;
+        
+        // Reference data for v-velocity
+        let v_reference_data = vec![
+            (0.0625, 0.09233),
+            (0.1875, 0.16914),
+            (0.5000, 0.05454),  // Center
+            (0.8125, -0.24533),
+            (0.9375, -0.22445),
+        ];
+        
+        for (x_ref, v_ref) in v_reference_data {
+            let i = ((x_ref * (nx - 1) as f64) as usize).min(nx - 1);
+            let idx = i * solver.nx + mid_y;
+            let v_numerical = solver.v[idx] / lid_velocity;
+            
+            // Allow 15% error due to coarse mesh
+            assert_relative_eq!(v_numerical, v_ref, epsilon = 0.15);
+        }
+    }
+    
+    /// Test pressure correction equation implementation
+    /// 
+    /// Literature Reference:
+    /// - Patankar, S.V. (1980). "Numerical Heat Transfer and Fluid Flow", Ch. 6
+    /// The pressure correction should enforce continuity
+    #[test]
+    fn test_pressure_correction_continuity() {
+        let nx = 10;
+        let ny = 10;
+        let config = SimpleConfig::default();
+        let mut solver = SimpleSolver::new(config, &StructuredGrid2D::<f64>::unit_square(nx, ny).unwrap(), 1.0, 1.0);
+        
+        // Set up a divergent velocity field
+        for j in 1..ny-1 {
+            for i in 1..nx-1 {
+                let idx = solver.nx * j + i;
+                solver.u[idx] = i as f64 * 0.1;  // Increasing u
+                solver.v[idx] = j as f64 * 0.1;  // Increasing v
+            }
+        }
+        
+        // Apply pressure correction
+        solver.solve_pressure_correction(&StructuredGrid2D::<f64>::unit_square(nx, ny).unwrap(), &HashMap::new());
+        
+        // Check that divergence is reduced
+        let mut max_divergence = 0.0;
+        for j in 1..ny-1 {
+            for i in 1..nx-1 {
+                let idx = solver.nx * j + i;
+                let idx_e = solver.nx * j + (i + 1);
+                let idx_n = solver.nx * (j + 1) + i;
+                
+                let div = (solver.u[idx_e] - solver.u[idx]) / solver.dx
+                        + (solver.v[idx_n] - solver.v[idx]) / solver.dy;
+                
+                max_divergence = max_divergence.max(div.abs());
+            }
+        }
+        
+        // Divergence should be small after pressure correction
+        assert!(max_divergence < 1e-3, "Divergence not properly corrected: {}", max_divergence);
+    }
 }

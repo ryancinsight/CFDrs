@@ -15,6 +15,8 @@ const DEFAULT_CFL_NUMBER: f64 = 0.3;
 const VOF_EPSILON: f64 = 1e-10;  // Small value to avoid division by zero
 const INTERFACE_THICKNESS: f64 = 1.5;  // Interface thickness in cells
 const PLIC_ITERATIONS: usize = 10;  // Iterations for PLIC reconstruction
+const VOF_INTERFACE_LOWER: f64 = 0.01;  // Lower bound for interface cells
+const VOF_INTERFACE_UPPER: f64 = 0.99;  // Upper bound for interface cells
 
 /// VOF configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -197,19 +199,21 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
                     let idx = self.index(i, j, k);
                     
                     // Only calculate curvature for interface cells
-                    if self.alpha[idx] > T::from_f64(0.01).unwrap() && 
-                       self.alpha[idx] < T::from_f64(0.99).unwrap() {
+                    let alpha_val = &self.alpha[idx];
+                    if *alpha_val > T::from_f64(VOF_INTERFACE_LOWER).unwrap() && 
+                       *alpha_val < T::from_f64(VOF_INTERFACE_UPPER).unwrap() {
                         
-                        // Divergence of normal vector field
-                        let dn_dx = (self.normals[self.index(i+1, j, k)][0].clone() 
-                            - self.normals[self.index(i-1, j, k)][0].clone()) 
-                            / (T::from_f64(2.0).unwrap() * self.dx.clone());
-                        let dn_dy = (self.normals[self.index(i, j+1, k)][1].clone() 
-                            - self.normals[self.index(i, j-1, k)][1].clone()) 
-                            / (T::from_f64(2.0).unwrap() * self.dy.clone());
-                        let dn_dz = (self.normals[self.index(i, j, k+1)][2].clone() 
-                            - self.normals[self.index(i, j, k-1)][2].clone()) 
-                            / (T::from_f64(2.0).unwrap() * self.dz.clone());
+                        // Divergence of normal vector field using central differences
+                        let two_dx = T::from_f64(2.0).unwrap() * self.dx.clone();
+                        let two_dy = T::from_f64(2.0).unwrap() * self.dy.clone();
+                        let two_dz = T::from_f64(2.0).unwrap() * self.dz.clone();
+                        
+                        let dn_dx = (self.normals[self.index(i+1, j, k)].x.clone() 
+                            - self.normals[self.index(i-1, j, k)].x.clone()) / two_dx;
+                        let dn_dy = (self.normals[self.index(i, j+1, k)].y.clone() 
+                            - self.normals[self.index(i, j-1, k)].y.clone()) / two_dy;
+                        let dn_dz = (self.normals[self.index(i, j, k+1)].z.clone() 
+                            - self.normals[self.index(i, j, k-1)].z.clone()) / two_dz;
                         
                         self.curvature[idx] = -(dn_dx + dn_dy + dn_dz);
                     } else {
