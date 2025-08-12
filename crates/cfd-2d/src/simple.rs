@@ -177,10 +177,7 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
         let av = vec![vec![CellCoefficients::new(); ny]; nx];
         
         // Create finite difference operator with the specified scheme
-        let fd_operator = FiniteDifference::new(
-            config.convection_scheme.clone(),
-            FluxLimiter::None,
-        );
+        let fd_operator = FiniteDifference::new(config.convection_scheme.clone());
         
         Self {
             config,
@@ -795,30 +792,137 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
         &mut self,
         boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
     ) -> Result<()> {
-        for (&(i, j), bc) in boundary_conditions {
-            if i < self.nx && j < self.ny {
-                match bc {
-                    BoundaryCondition::Dirichlet { value } => {
-                        // For velocity BC - expecting a 2D vector encoded as value
-                        // This is simplified - in practice would need better BC handling
-                        self.u[i][j] = Vector2::new(value.clone(), T::zero());
-                    }
-                    BoundaryCondition::Neumann { gradient: _ } => {
-                        // Apply gradient BC (implementation depends on specific needs)
-                    }
-                    _ => {}
-                }
+        // First, check that all boundary cells have conditions specified
+        let mut missing_bcs = Vec::new();
+        
+        // Check all boundary cells
+        for i in 0..self.nx {
+            // Bottom boundary
+            if !boundary_conditions.contains_key(&(i, 0)) {
+                missing_bcs.push((i, 0));
+            }
+            // Top boundary
+            if !boundary_conditions.contains_key(&(i, self.ny - 1)) {
+                missing_bcs.push((i, self.ny - 1));
             }
         }
         
-        // Apply no-slip walls (default boundaries)
-        for i in 0..self.nx {
-            self.u[i][0] = Vector2::zeros();
-            self.u[i][self.ny-1] = Vector2::zeros();
+        for j in 1..self.ny - 1 {
+            // Left boundary
+            if !boundary_conditions.contains_key(&(0, j)) {
+                missing_bcs.push((0, j));
+            }
+            // Right boundary
+            if !boundary_conditions.contains_key(&(self.nx - 1, j)) {
+                missing_bcs.push((self.nx - 1, j));
+            }
         }
-        for j in 0..self.ny {
-            self.u[0][j] = Vector2::zeros();
-            self.u[self.nx-1][j] = Vector2::zeros();
+        
+        if !missing_bcs.is_empty() {
+            tracing::warn!(
+                "Missing boundary conditions for {} cells. Using no-slip walls as default.",
+                missing_bcs.len()
+            );
+            // Apply default no-slip conditions for missing BCs
+            for (i, j) in missing_bcs {
+                self.u[i][j] = Vector2::zeros();
+            }
+        }
+        
+        // Apply user-specified boundary conditions
+        for (&(i, j), bc) in boundary_conditions {
+            if i >= self.nx || j >= self.ny {
+                return Err(cfd_core::Error::InvalidConfiguration(
+                    format!("Boundary condition at ({}, {}) is out of bounds", i, j)
+                ));
+            }
+            
+            match bc {
+                BoundaryCondition::Dirichlet { value } => {
+                    // For velocity BC - expecting scalar value for u-component
+                    // v-component is set to zero for simplicity
+                    self.u[i][j] = Vector2::new(value.clone(), T::zero());
+                }
+                BoundaryCondition::VelocityInlet { velocity } => {
+                    // Use x and y components of the 3D velocity vector
+                    self.u[i][j] = Vector2::new(velocity.x.clone(), velocity.y.clone());
+                }
+                BoundaryCondition::PressureOutlet { pressure } => {
+                    // Set pressure at outlet
+                    self.p[i][j] = pressure.clone();
+                    // Extrapolate velocity from interior
+                    if i > 0 {
+                        self.u[i][j] = self.u[i-1][j].clone();
+                    } else if i < self.nx - 1 {
+                        self.u[i][j] = self.u[i+1][j].clone();
+                    }
+                }
+                BoundaryCondition::Wall { wall_type } => {
+                    match wall_type {
+                        cfd_core::boundary::WallType::NoSlip => {
+                            // No-slip wall condition
+                            self.u[i][j] = Vector2::zeros();
+                        }
+                        cfd_core::boundary::WallType::Slip => {
+                            // Slip wall: zero normal velocity
+                            if i == 0 || i == self.nx - 1 {
+                                // Vertical wall: u = 0
+                                self.u[i][j].x = T::zero();
+                            } else if j == 0 || j == self.ny - 1 {
+                                // Horizontal wall: v = 0
+                                self.u[i][j].y = T::zero();
+                            }
+                        }
+                        cfd_core::boundary::WallType::Moving { velocity } => {
+                            // Moving wall with specified velocity
+                            self.u[i][j] = Vector2::new(velocity.x.clone(), velocity.y.clone());
+                        }
+                        _ => {
+                            // Other wall types not implemented
+                            self.u[i][j] = Vector2::zeros();
+                        }
+                    }
+                }
+                BoundaryCondition::Symmetry => {
+                    // Symmetry boundary: zero normal gradient
+                    // Implementation depends on boundary orientation
+                    if i == 0 || i == self.nx - 1 {
+                        // Vertical boundary: u = 0, dv/dx = 0
+                        self.u[i][j].x = T::zero();
+                        if i == 0 && i < self.nx - 1 {
+                            self.u[i][j].y = self.u[i+1][j].y.clone();
+                        } else if i == self.nx - 1 && i > 0 {
+                            self.u[i][j].y = self.u[i-1][j].y.clone();
+                        }
+                    } else if j == 0 || j == self.ny - 1 {
+                        // Horizontal boundary: v = 0, du/dy = 0
+                        self.u[i][j].y = T::zero();
+                        if j == 0 && j < self.ny - 1 {
+                            self.u[i][j].x = self.u[i][j+1].x.clone();
+                        } else if j == self.ny - 1 && j > 0 {
+                            self.u[i][j].x = self.u[i][j-1].x.clone();
+                        }
+                    }
+                }
+                BoundaryCondition::Neumann { gradient } => {
+                    // Apply gradient BC
+                    // This is a simplified implementation
+                    if i == 0 {
+                        self.u[i][j] = self.u[i+1][j].clone() - Vector2::repeat(gradient.clone());
+                    } else if i == self.nx - 1 {
+                        self.u[i][j] = self.u[i-1][j].clone() + Vector2::repeat(gradient.clone());
+                    } else if j == 0 {
+                        self.u[i][j] = self.u[i][j+1].clone() - Vector2::repeat(gradient.clone());
+                    } else if j == self.ny - 1 {
+                        self.u[i][j] = self.u[i][j-1].clone() + Vector2::repeat(gradient.clone());
+                    }
+                }
+                _ => {
+                    // Other BC types not yet implemented
+                    tracing::warn!("Boundary condition type not fully implemented, using no-slip");
+                    self.u[i][j] = Vector2::zeros();
+                }
+            }
         }
         
         Ok(())

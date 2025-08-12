@@ -160,73 +160,156 @@ impl<T: RealField> Preconditioner<T> for SORPreconditioner<T> {
 /// 
 /// Computes incomplete LU factorization preserving the sparsity pattern
 pub struct ILU0Preconditioner<T: RealField> {
-    /// Lower triangular factor (including diagonal)
+    /// Lower triangular factor (including unit diagonal)
     l_factor: CsrMatrix<T>,
-    /// Upper triangular factor
+    /// Upper triangular factor (including diagonal)
     u_factor: CsrMatrix<T>,
 }
 
 impl<T: RealField + FromPrimitive> ILU0Preconditioner<T> {
     /// Create ILU(0) preconditioner from matrix
+    /// 
+    /// This implementation works directly with sparse matrices without
+    /// creating dense intermediate storage, making it suitable for large CFD problems.
     pub fn new(a: &CsrMatrix<T>) -> Result<Self> {
         let n = a.nrows();
-        
-        // Copy matrix structure for factorization
-        let mut l_builder = SparseMatrixBuilder::new(n, n);
-        let mut u_builder = SparseMatrixBuilder::new(n, n);
-        
-        // Working copy of matrix
-        let mut work = vec![vec![T::zero(); n]; n];
-        let mut pattern = vec![vec![false; n]; n];
-        
-        // Copy matrix to dense working array (only non-zero pattern)
-        for i in 0..n {
-            let row = a.row(i);
-            for (&j, val) in row.col_indices().iter().zip(row.values()) {
-                work[i][j] = val.clone();
-                pattern[i][j] = true;
-            }
+        if n != a.ncols() {
+            return Err(Error::InvalidConfiguration(
+                "ILU0 requires square matrix".to_string()
+            ));
         }
         
-        // ILU(0) factorization
+        // Clone the input matrix pattern and values for in-place factorization
+        // We'll work directly with CSR format
+        let mut row_offsets = Vec::with_capacity(n + 1);
+        let mut col_indices = Vec::new();
+        let mut values = Vec::new();
+        
+        // Copy the matrix structure
+        row_offsets.push(0);
+        for i in 0..n {
+            let row = a.row(i);
+            let start = col_indices.len();
+            
+            // Collect this row's entries
+            let mut row_entries: Vec<(usize, T)> = Vec::new();
+            for (&j, val) in row.col_indices().iter().zip(row.values()) {
+                row_entries.push((j, val.clone()));
+            }
+            
+            // Ensure diagonal entry exists (add zero if missing)
+            if !row_entries.iter().any(|(j, _)| *j == i) {
+                row_entries.push((i, T::zero()));
+            }
+            
+            // Sort by column index to maintain CSR format
+            row_entries.sort_by_key(|(j, _)| *j);
+            
+            // Add to arrays
+            for (j, val) in row_entries {
+                col_indices.push(j);
+                values.push(val);
+            }
+            
+            row_offsets.push(col_indices.len());
+        }
+        
+        // Perform ILU(0) factorization in-place
+        // Algorithm: for each row k, update rows i > k that have a_ik != 0
         for k in 0..n {
-            // Check for zero pivot
-            if ComplexField::abs(work[k][k].clone()) < T::from_f64(1e-14).unwrap() {
+            // Find diagonal element a_kk
+            let k_start = row_offsets[k];
+            let k_end = row_offsets[k + 1];
+            
+            let mut diag_idx = None;
+            for idx in k_start..k_end {
+                if col_indices[idx] == k {
+                    diag_idx = Some(idx);
+                    break;
+                }
+            }
+            
+            let diag_idx = diag_idx.ok_or_else(|| {
+                Error::NumericalError(format!("Missing diagonal element at row {}", k))
+            })?;
+            
+            if ComplexField::abs(values[diag_idx].clone()) < T::from_f64(1e-14).unwrap() {
                 return Err(Error::NumericalError(
                     format!("Zero pivot encountered at row {}", k)
                 ));
             }
             
+            let diag_k = values[diag_idx].clone();
+            
+            // Update subsequent rows that have non-zero in column k
             for i in (k + 1)..n {
-                if pattern[i][k] {
-                    // Compute multiplier
-                    work[i][k] = work[i][k].clone() / work[k][k].clone();
+                let i_start = row_offsets[i];
+                let i_end = row_offsets[i + 1];
+                
+                // Find a_ik
+                let mut ik_idx = None;
+                for idx in i_start..i_end {
+                    if col_indices[idx] == k {
+                        ik_idx = Some(idx);
+                        break;
+                    }
+                    if col_indices[idx] > k {
+                        break; // CSR is sorted, so we won't find it
+                    }
+                }
+                
+                if let Some(ik_idx) = ik_idx {
+                    // Compute multiplier l_ik = a_ik / a_kk
+                    values[ik_idx] = values[ik_idx].clone() / diag_k.clone();
+                    let l_ik = values[ik_idx].clone();
                     
-                    // Update row i
-                    for j in (k + 1)..n {
-                        if pattern[i][j] && pattern[k][j] {
-                            work[i][j] = work[i][j].clone() - work[i][k].clone() * work[k][j].clone();
+                    // Update row i: a_ij = a_ij - l_ik * a_kj for j > k
+                    // Only update entries that exist in the sparsity pattern (ILU(0))
+                    
+                    // Build a map of column indices to value indices for row k
+                    let mut k_row_map = std::collections::HashMap::new();
+                    for idx in k_start..k_end {
+                        if col_indices[idx] > k {
+                            k_row_map.insert(col_indices[idx], idx);
+                        }
+                    }
+                    
+                    // Update entries in row i
+                    for idx in i_start..i_end {
+                        let j = col_indices[idx];
+                        if j > k {
+                            // Check if a_kj exists
+                            if let Some(&k_idx) = k_row_map.get(&j) {
+                                values[idx] = values[idx].clone() - l_ik.clone() * values[k_idx].clone();
+                            }
                         }
                     }
                 }
             }
         }
         
-        // Extract L and U factors
+        // Extract L and U factors from the factorized matrix
+        let mut l_builder = SparseMatrixBuilder::new(n, n);
+        let mut u_builder = SparseMatrixBuilder::new(n, n);
+        
         for i in 0..n {
-            for j in 0..=i {
-                if pattern[i][j] {
-                    if i == j {
-                        l_builder.add_entry(i, j, T::one());
-                        u_builder.add_entry(i, j, work[i][j].clone());
-                    } else {
-                        l_builder.add_entry(i, j, work[i][j].clone());
-                    }
-                }
-            }
-            for j in (i + 1)..n {
-                if pattern[i][j] {
-                    u_builder.add_entry(i, j, work[i][j].clone());
+            let start = row_offsets[i];
+            let end = row_offsets[i + 1];
+            
+            for idx in start..end {
+                let j = col_indices[idx];
+                let val = values[idx].clone();
+                
+                if j < i {
+                    // Strictly lower triangular part goes to L
+                    l_builder.add_entry(i, j, val);
+                } else if j == i {
+                    // Diagonal: L gets 1, U gets the actual value
+                    l_builder.add_entry(i, j, T::one());
+                    u_builder.add_entry(i, j, val);
+                } else {
+                    // Upper triangular part goes to U
+                    u_builder.add_entry(i, j, val);
                 }
             }
         }
