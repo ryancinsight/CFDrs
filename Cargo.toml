@@ -120,3 +120,11 @@ path = "examples/simple_pipe_flow.rs"
 
 [[example]]
 name = "scheme_integration_demo"
+
+[[example]]
+name = "pipe_flow_validation"
+path = "examples/pipe_flow_validation.rs"
+
+[[example]]
+name = "pipe_flow_1d_validation"
+path = "examples/pipe_flow_1d_validation.rs"

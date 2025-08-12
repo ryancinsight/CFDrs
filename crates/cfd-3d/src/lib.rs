@@ -3,7 +3,7 @@
 //! This crate provides various 3D computational fluid dynamics solvers including:
 //! - Finite Element Method (FEM)
 //! - Spectral methods
-//! - Mesh integration with CSGrs
+//! - Mesh integration with CSGrs via cfd-mesh
 //! - Immersed Boundary Method (IBM)
 //! - Level Set Method
 //! - Volume of Fluid (VOF)
@@ -16,7 +16,6 @@
 pub mod constants;
 pub mod fem;
 pub mod spectral;
-pub mod mesh_integration;
 pub mod ibm;
 pub mod level_set;
 pub mod vof;
@@ -24,10 +23,11 @@ pub mod vof;
 // Re-export commonly used types
 pub use fem::{FemSolver, FemConfig, ElementType, MaterialProperties};
 pub use spectral::{SpectralSolver, SpectralConfig, SpectralBasis};
-pub use mesh_integration::{MeshAdapter, MeshQualityReport, StlAdapter, CsgMeshAdapter, ElementType as MeshElementType};
 pub use ibm::{IbmSolver, IbmConfig, LagrangianPoint};
 pub use level_set::{LevelSetSolver, LevelSetConfig};
 pub use vof::{VofSolver, VofConfig};
 
+// Use CSGrs integration from cfd-mesh
+pub use cfd_mesh::csg::CsgMeshAdapter;
 
 // Prelude removed - use cfd_suite::prelude::* for unified SSOT interface

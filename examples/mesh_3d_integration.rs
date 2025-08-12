@@ -1,22 +1,20 @@
 //! 3D Mesh Integration Example
 //!
-//! This example demonstrates the mesh integration capabilities of the 3D CFD module,
-//! including mesh creation, quality assessment, and CSG integration.
+//! This example demonstrates the CSG mesh integration capabilities of the 3D CFD module,
+//! including mesh creation, CSG operations, and mesh quality assessment.
 
 use cfd_suite::prelude::*;
-use cfd_3d::MeshAdapter;
-use cfd_mesh::{Mesh, Vertex, Face, Cell, MeshTopology};
-
+use cfd_mesh::{Mesh, Vertex, Face, Cell, MeshTopology, csg::CsgMeshAdapter};
+use nalgebra::Point3;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("3D Mesh Integration Example");
     println!("===========================");
     
-    // Create STL adapter for mesh operations
-    let stl_adapter = StlAdapter::<f64>::default();
+    // Create CSG adapter for mesh operations
+    let csg_adapter = CsgMeshAdapter::<f64>::new();
     
-    println!("STL Adapter created");
-    println!("Supported extensions: {:?}", stl_adapter.supported_extensions());
+    println!("CSG Mesh Adapter created");
     println!();
     
     // Create a simple tetrahedral mesh
@@ -37,190 +35,125 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     }
     println!();
     
-    // Validate mesh quality
-    println!("Validating mesh quality...");
-    match stl_adapter.validate_mesh(&mesh) {
-        Ok(quality_report) => {
-            println!("Quality assessment completed:");
-            println!("  Minimum quality: {:.6}", quality_report.min_quality);
-            println!("  Maximum quality: {:.6}", quality_report.max_quality);
-            println!("  Average quality: {:.6}", quality_report.avg_quality);
-            println!("  Degenerate elements: {}", quality_report.degenerate_elements);
-            println!("  Inverted elements: {}", quality_report.inverted_elements);
-            println!("  Mesh is valid: {}", quality_report.is_valid);
-            
-            if quality_report.inverted_elements == 0 {
-                println!("  ✓ No inverted elements detected");
-            } else {
-                println!("  ⚠ Warning: {} inverted elements found", quality_report.inverted_elements);
-            }
-            
-            if quality_report.degenerate_elements == 0 {
-                println!("  ✓ No degenerate elements detected");
-            } else {
-                println!("  ⚠ Warning: {} degenerate elements found", quality_report.degenerate_elements);
-            }
+    // Create a second mesh for CSG operations
+    println!("Creating a second tetrahedron for CSG operations...");
+    let mesh2 = create_offset_tetrahedron(0.5)?;
+    
+    // Perform CSG union
+    println!("Performing CSG union operation...");
+    match csg_adapter.union(&mesh, &mesh2) {
+        Ok(union_mesh) => {
+            println!("Union mesh created:");
+            println!("  Vertices: {}", union_mesh.vertices.len());
+            println!("  Faces: {}", union_mesh.faces.len());
         }
         Err(e) => {
-            println!("Quality validation failed: {}", e);
+            println!("Union operation failed: {}", e);
         }
     }
     println!();
     
-    // Test mesh import/export functionality
-    println!("Testing mesh I/O operations...");
-    
-    // Export mesh (placeholder functionality)
-    match stl_adapter.export_mesh(&mesh) {
-        Ok(data) => {
-            println!("Mesh export successful (placeholder): {} bytes", data.len());
+    // Perform CSG intersection
+    println!("Performing CSG intersection operation...");
+    match csg_adapter.intersection(&mesh, &mesh2) {
+        Ok(intersection_mesh) => {
+            println!("Intersection mesh created:");
+            println!("  Vertices: {}", intersection_mesh.vertices.len());
+            println!("  Faces: {}", intersection_mesh.faces.len());
         }
         Err(e) => {
-            println!("Mesh export failed: {}", e);
-        }
-    }
-    
-    // Import mesh using unit tetrahedron as test data
-    let test_mesh = stl_adapter.create_unit_tetrahedron()?;
-    let exported_data = stl_adapter.export_mesh(&test_mesh)?;
-
-    match stl_adapter.import_mesh(&exported_data) {
-        Ok(imported_mesh) => {
-            println!("Mesh import successful:");
-            println!("  Imported vertices: {}", imported_mesh.vertices.len());
-            println!("  Imported faces: {}", imported_mesh.faces.len());
-        }
-        Err(e) => {
-            println!("Mesh import failed: {}", e);
+            println!("Intersection operation failed: {}", e);
         }
     }
     println!();
     
-    // Demonstrate CSG mesh adapter
-    println!("Testing CSG mesh adapter...");
-    let csg_adapter = CsgMeshAdapter::<f64>::new();
-    
-    match csg_adapter.generate_from_csg("sphere(1.0)") {
-        Ok(csg_mesh) => {
-            println!("CSG mesh generation successful:");
-            println!("  Generated vertices: {}", csg_mesh.vertices.len());
-            println!("  Generated faces: {}", csg_mesh.faces.len());
-            println!("  Note: CSG generates surface meshes (icosahedron approximation)");
+    // Perform CSG difference
+    println!("Performing CSG difference operation...");
+    match csg_adapter.difference(&mesh, &mesh2) {
+        Ok(difference_mesh) => {
+            println!("Difference mesh created:");
+            println!("  Vertices: {}", difference_mesh.vertices.len());
+            println!("  Faces: {}", difference_mesh.faces.len());
         }
         Err(e) => {
-            println!("CSG mesh generation failed: {}", e);
+            println!("Difference operation failed: {}", e);
         }
     }
     println!();
     
-    // Calculate mesh statistics
-    println!("Mesh statistics:");
-    let total_volume = calculate_mesh_volume(&mesh)?;
-    let surface_area = calculate_surface_area(&mesh)?;
-    
-    println!("  Total volume: {:.6} cubic units", total_volume);
-    println!("  Surface area: {:.6} square units", surface_area);
-    
-    // For a unit tetrahedron with vertices at (0,0,0), (1,0,0), (0,1,0), (0,0,1)
-    // The theoretical volume is 1/6 ≈ 0.166667
-    let theoretical_volume = 1.0 / 6.0;
-    let volume_error = (total_volume - theoretical_volume).abs() / theoretical_volume;
-    
-    println!("  Theoretical volume: {:.6}", theoretical_volume);
-    println!("  Volume error: {:.2}%", volume_error * 100.0);
-    
-    if volume_error < 0.01 {
-        println!("  ✓ Volume calculation is accurate");
-    } else {
-        println!("  ⚠ Volume calculation may have errors");
-    }
-    
-    println!();
-    println!("3D mesh integration demonstration completed successfully!");
+    println!("Example completed successfully!");
     
     Ok(())
 }
 
-/// Create a simple unit tetrahedron mesh
+/// Create a unit tetrahedron mesh
 fn create_unit_tetrahedron() -> std::result::Result<Mesh<f64>, Box<dyn std::error::Error>> {
-    let vertices = vec![
-        Vertex { position: nalgebra::Point3::new(0.0, 0.0, 0.0), id: 0 },
-        Vertex { position: nalgebra::Point3::new(1.0, 0.0, 0.0), id: 1 },
-        Vertex { position: nalgebra::Point3::new(0.0, 1.0, 0.0), id: 2 },
-        Vertex { position: nalgebra::Point3::new(0.0, 0.0, 1.0), id: 3 },
+    let mut mesh = Mesh::new();
+    
+    // Define vertices of a unit tetrahedron
+    mesh.vertices = vec![
+        Vertex { id: 0, position: Point3::new(0.0, 0.0, 0.0) },
+        Vertex { id: 1, position: Point3::new(1.0, 0.0, 0.0) },
+        Vertex { id: 2, position: Point3::new(0.5, 0.866, 0.0) },
+        Vertex { id: 3, position: Point3::new(0.5, 0.289, 0.816) },
     ];
     
-    let faces = vec![
-        Face { vertices: vec![0, 1, 2], id: 0 }, // Bottom face
-        Face { vertices: vec![0, 1, 3], id: 1 }, // Front face
-        Face { vertices: vec![1, 2, 3], id: 2 }, // Right face
-        Face { vertices: vec![0, 2, 3], id: 3 }, // Left face
+    // Define faces (triangles)
+    mesh.faces = vec![
+        Face { id: 0, vertices: vec![0, 1, 2] }, // Base
+        Face { id: 1, vertices: vec![0, 1, 3] }, // Side 1
+        Face { id: 2, vertices: vec![1, 2, 3] }, // Side 2
+        Face { id: 3, vertices: vec![2, 0, 3] }, // Side 3
     ];
     
-    let cells = vec![
-        Cell { faces: vec![0, 1, 2, 3], id: 0 },
+    // Define the single tetrahedral cell
+    mesh.cells = vec![
+        Cell { id: 0, faces: vec![0, 1, 2, 3] },
     ];
     
-    let topology = MeshTopology {
-        num_vertices: 4,
-        num_edges: 6,
-        num_faces: 4,
-        num_cells: 1,
+    // Update topology
+    mesh.topology = MeshTopology {
+        num_vertices: mesh.vertices.len(),
+        num_edges: 6,  // A tetrahedron has 6 edges
+        num_faces: mesh.faces.len(),
+        num_cells: mesh.cells.len(),
     };
     
-    Ok(Mesh {
-        vertices,
-        edges: vec![],
-        faces,
-        cells,
-        topology,
-    })
+    Ok(mesh)
 }
 
-/// Calculate the volume of a tetrahedral mesh
-fn calculate_mesh_volume(mesh: &Mesh<f64>) -> std::result::Result<f64, Box<dyn std::error::Error>> {
-    let mut total_volume = 0.0;
+/// Create an offset tetrahedron mesh
+fn create_offset_tetrahedron(offset: f64) -> std::result::Result<Mesh<f64>, Box<dyn std::error::Error>> {
+    let mut mesh = Mesh::new();
     
-    // For each cell (assuming tetrahedral)
-    for _cell in &mesh.cells {
-        // For simplicity, calculate volume of the single tetrahedron
-        // Volume = |det(v1-v0, v2-v0, v3-v0)| / 6
-        if mesh.vertices.len() >= 4 {
-            let v0 = &mesh.vertices[0].position;
-            let v1 = &mesh.vertices[1].position;
-            let v2 = &mesh.vertices[2].position;
-            let v3 = &mesh.vertices[3].position;
-            
-            let e1 = nalgebra::Vector3::new(v1.x - v0.x, v1.y - v0.y, v1.z - v0.z);
-            let e2 = nalgebra::Vector3::new(v2.x - v0.x, v2.y - v0.y, v2.z - v0.z);
-            let e3 = nalgebra::Vector3::new(v3.x - v0.x, v3.y - v0.y, v3.z - v0.z);
-            
-            let volume = e1.cross(&e2).dot(&e3).abs() / 6.0;
-            total_volume += volume;
-        }
-    }
+    // Define vertices of an offset tetrahedron
+    mesh.vertices = vec![
+        Vertex { id: 0, position: Point3::new(offset, offset, offset) },
+        Vertex { id: 1, position: Point3::new(1.0 + offset, offset, offset) },
+        Vertex { id: 2, position: Point3::new(0.5 + offset, 0.866 + offset, offset) },
+        Vertex { id: 3, position: Point3::new(0.5 + offset, 0.289 + offset, 0.816 + offset) },
+    ];
     
-    Ok(total_volume)
-}
-
-/// Calculate the surface area of a mesh
-fn calculate_surface_area(mesh: &Mesh<f64>) -> std::result::Result<f64, Box<dyn std::error::Error>> {
-    let mut total_area = 0.0;
+    // Define faces (triangles)
+    mesh.faces = vec![
+        Face { id: 0, vertices: vec![0, 1, 2] }, // Base
+        Face { id: 1, vertices: vec![0, 1, 3] }, // Side 1
+        Face { id: 2, vertices: vec![1, 2, 3] }, // Side 2
+        Face { id: 3, vertices: vec![2, 0, 3] }, // Side 3
+    ];
     
-    // For each face, calculate triangle area
-    for face in &mesh.faces {
-        if face.vertices.len() >= 3 {
-            let v0 = &mesh.vertices[face.vertices[0]].position;
-            let v1 = &mesh.vertices[face.vertices[1]].position;
-            let v2 = &mesh.vertices[face.vertices[2]].position;
-            
-            let e1 = nalgebra::Vector3::new(v1.x - v0.x, v1.y - v0.y, v1.z - v0.z);
-            let e2 = nalgebra::Vector3::new(v2.x - v0.x, v2.y - v0.y, v2.z - v0.z);
-            
-            let area = e1.cross(&e2).norm() / 2.0;
-            total_area += area;
-        }
-    }
+    // Define the single tetrahedral cell
+    mesh.cells = vec![
+        Cell { id: 0, faces: vec![0, 1, 2, 3] },
+    ];
     
-    Ok(total_area)
+    // Update topology
+    mesh.topology = MeshTopology {
+        num_vertices: mesh.vertices.len(),
+        num_edges: 6,  // A tetrahedron has 6 edges
+        num_faces: mesh.faces.len(),
+        num_cells: mesh.cells.len(),
+    };
+    
+    Ok(mesh)
 }

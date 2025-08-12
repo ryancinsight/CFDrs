@@ -17,14 +17,10 @@ thiserror.workspace = true
 serde = { workspace = true, features = ["derive"] }
 petgraph.workspace = true
 indexmap.workspace = true
-
-# [dependencies.csgrs]
-# version = "0.20"
-# optional = true
+csgrs.workspace = true
 
 [features]
 default = []
-# csg = ["dep:csgrs"]
 
 [dev-dependencies]
 proptest.workspace = true

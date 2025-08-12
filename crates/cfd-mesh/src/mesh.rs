@@ -82,6 +82,16 @@ impl<T: RealField> Mesh<T> {
             },
         }
     }
+    
+    /// Update mesh topology counts
+    pub fn update_topology(&mut self) {
+        self.topology = MeshTopology {
+            num_vertices: self.vertices.len(),
+            num_edges: self.edges.len(),
+            num_faces: self.faces.len(),
+            num_cells: self.cells.len(),
+        };
+    }
 }
 
 impl<T: RealField> Default for Mesh<T> {

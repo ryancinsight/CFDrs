@@ -1,0 +1,385 @@
+//! Pipe Flow Validation with CSGrs-generated Mesh
+//!
+//! This example demonstrates:
+//! 1. Creating a cylindrical pipe mesh using CSGrs
+//! 2. Setting up a 3D pipe flow simulation
+//! 3. Validating results against the analytical Hagen-Poiseuille solution
+
+use cfd_mesh::{Mesh, Vertex, Face, MeshTopology, csg::CsgMeshAdapter};
+use cfd_3d::{FemSolver, FemConfig, MaterialProperties};
+use nalgebra::{Point3, Vector3};
+use std::f64::consts::PI;
+use std::collections::HashMap;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("========================================");
+    println!("Pipe Flow Validation with CSGrs");
+    println!("========================================\n");
+    
+    // Pipe geometry parameters
+    let pipe_radius = 0.01; // 10 mm radius
+    let pipe_length = 0.1;  // 100 mm length
+    let n_axial = 20;       // Axial divisions
+    let n_circumferential = 16; // Circumferential divisions
+    
+    println!("Pipe Geometry:");
+    println!("  Radius: {} m", pipe_radius);
+    println!("  Length: {} m", pipe_length);
+    println!("  Mesh divisions: {}x{}", n_circumferential, n_axial);
+    
+    // Create cylindrical pipe mesh
+    println!("\nGenerating cylindrical pipe mesh...");
+    let pipe_mesh = create_pipe_mesh(pipe_radius, pipe_length, n_circumferential, n_axial)?;
+    println!("  Generated {} vertices, {} faces", pipe_mesh.vertices.len(), pipe_mesh.faces.len());
+    
+    // Use CSGrs to create end caps
+    let csg_adapter = CsgMeshAdapter::<f64>::new();
+    
+    // Create inlet cap (disk at z=0)
+    let inlet_cap = create_disk_mesh(pipe_radius, n_circumferential, 0.0)?;
+    
+    // Create outlet cap (disk at z=pipe_length)
+    let outlet_cap = create_disk_mesh(pipe_radius, n_circumferential, pipe_length)?;
+    
+    // Combine meshes using CSG union
+    println!("\nCombining pipe sections using CSG operations...");
+    let pipe_with_inlet = csg_adapter.union(&pipe_mesh, &inlet_cap)?;
+    let complete_pipe = csg_adapter.union(&pipe_with_inlet, &outlet_cap)?;
+    println!("  Complete pipe mesh: {} vertices, {} faces", 
+             complete_pipe.vertices.len(), complete_pipe.faces.len());
+    
+    // Set up flow parameters
+    let fluid_viscosity = 1e-3;  // Water at 20°C (Pa·s)
+    let fluid_density = 1000.0;   // Water density (kg/m³)
+    let pressure_gradient = -100.0; // Pressure gradient (Pa/m)
+    
+    println!("\nFlow Parameters:");
+    println!("  Fluid viscosity: {} Pa·s", fluid_viscosity);
+    println!("  Fluid density: {} kg/m³", fluid_density);
+    println!("  Pressure gradient: {} Pa/m", pressure_gradient);
+    
+    // Calculate analytical solution (Hagen-Poiseuille)
+    let max_velocity_analytical = -pressure_gradient * pipe_radius * pipe_radius / (4.0 * fluid_viscosity);
+    let flow_rate_analytical = PI * pipe_radius.powi(4) * (-pressure_gradient) / (8.0 * fluid_viscosity);
+    let reynolds_number = fluid_density * max_velocity_analytical * 2.0 * pipe_radius / fluid_viscosity;
+    
+    println!("\nAnalytical Solution (Hagen-Poiseuille):");
+    println!("  Maximum velocity: {:.6} m/s", max_velocity_analytical);
+    println!("  Flow rate: {:.9} m³/s", flow_rate_analytical);
+    println!("  Reynolds number: {:.1}", reynolds_number);
+    
+    if reynolds_number > 2300.0 {
+        println!("  ⚠ Warning: Re > 2300, flow may be turbulent!");
+    } else {
+        println!("  ✓ Laminar flow regime (Re < 2300)");
+    }
+    
+    // Set up FEM solver for validation
+    println!("\nSetting up FEM solver...");
+    let fem_config = FemConfig::default();
+    let fem_solver = FemSolver::new(fem_config);
+    
+    // Set material properties
+    let material = MaterialProperties {
+        density: fluid_density,
+        viscosity: fluid_viscosity,
+        youngs_modulus: 1e9,  // Not used for fluid flow
+        poisson_ratio: 0.3,    // Not used for fluid flow
+        body_force: Some(Vector3::new(0.0, 0.0, pressure_gradient / pipe_length)),
+        thermal_conductivity: None,
+        specific_heat: None,
+    };
+    
+    // Apply boundary conditions
+    let mut velocity_bcs = HashMap::new();
+    let mut body_forces = HashMap::new();
+    
+    // No-slip condition on pipe walls
+    for (i, vertex) in complete_pipe.vertices.iter().enumerate() {
+        let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
+        
+        // Wall boundary (r ≈ pipe_radius)
+        if (r - pipe_radius).abs() < 1e-6 {
+            velocity_bcs.insert(i, Vector3::zeros()); // No-slip
+        }
+        
+        // Apply body force (pressure gradient) to all nodes
+        body_forces.insert(i, Vector3::new(0.0, 0.0, -pressure_gradient / pipe_length));
+    }
+    
+    println!("  Applied {} velocity BCs (no-slip walls)", velocity_bcs.len());
+    println!("  Applied body force to simulate pressure gradient");
+    
+    // Solve for steady-state flow
+    println!("\nSolving steady-state Stokes flow...");
+    let velocity = fem_solver.solve_stokes(&velocity_bcs, &body_forces, &material)?;
+    
+    // Validate results
+    println!("\nValidation Results:");
+    
+    // Find maximum velocity along centerline
+    let mut max_velocity_numerical = 0.0;
+    let mut centerline_velocities = Vec::new();
+    
+    for (i, vertex) in complete_pipe.vertices.iter().enumerate() {
+        let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
+        
+        // Check if point is near centerline (r ≈ 0)
+        if r < pipe_radius * 0.1 {
+            if let Some(v) = velocity.get(&i) {
+                let v_z = v.z; // z-component of velocity
+                centerline_velocities.push((vertex.position.z, v_z));
+                if v_z.abs() > max_velocity_numerical {
+                    max_velocity_numerical = v_z.abs();
+                }
+            }
+        }
+    }
+    
+    println!("  Maximum velocity (numerical): {:.6} m/s", max_velocity_numerical);
+    println!("  Maximum velocity (analytical): {:.6} m/s", max_velocity_analytical);
+    
+    if max_velocity_numerical > 0.0 {
+        let velocity_error = ((max_velocity_numerical - max_velocity_analytical) / max_velocity_analytical).abs() * 100.0;
+        println!("  Relative error: {:.2}%", velocity_error);
+        
+        if velocity_error < 5.0 {
+            println!("  ✓ Excellent agreement (error < 5%)");
+        } else if velocity_error < 10.0 {
+            println!("  ✓ Good agreement (error < 10%)");
+        } else {
+            println!("  ⚠ Large error - check mesh resolution or solver settings");
+        }
+    } else {
+        println!("  ⚠ No flow detected - check boundary conditions");
+    }
+    
+    // Calculate numerical flow rate
+    let mut flow_rate_numerical = 0.0;
+    let dr = pipe_radius / 10.0;
+    let dtheta = 2.0 * PI / n_circumferential as f64;
+    
+    // Integrate velocity over cross-section at mid-length
+    let mid_z = pipe_length / 2.0;
+    for vertex in &complete_pipe.vertices {
+        if (vertex.position.z - mid_z).abs() < pipe_length / (2.0 * n_axial as f64) {
+            let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
+            if r <= pipe_radius {
+                if let Some(v) = velocity.get(&vertex.id) {
+                    let v_z = v.z;
+                    flow_rate_numerical += v_z * r * dr * dtheta; // Cylindrical integration
+                }
+            }
+        }
+    }
+    
+    println!("\n  Flow rate (numerical): {:.9} m³/s", flow_rate_numerical);
+    println!("  Flow rate (analytical): {:.9} m³/s", flow_rate_analytical);
+    
+    if flow_rate_numerical.abs() > 0.0 {
+        let flow_rate_error = ((flow_rate_numerical - flow_rate_analytical) / flow_rate_analytical).abs() * 100.0;
+        println!("  Relative error: {:.2}%", flow_rate_error);
+    }
+    
+    // Check parabolic velocity profile
+    println!("\nVelocity Profile Validation:");
+    let mut profile_points = Vec::new();
+    
+    // Sample radial positions at mid-length
+    for vertex in &complete_pipe.vertices {
+        if (vertex.position.z - mid_z).abs() < pipe_length / (2.0 * n_axial as f64) {
+            let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
+            if r <= pipe_radius {
+                if let Some(v) = velocity.get(&vertex.id) {
+                    let v_z = v.z;
+                    let v_analytical = max_velocity_analytical * (1.0 - (r / pipe_radius).powi(2));
+                    profile_points.push((r / pipe_radius, v_z, v_analytical));
+                }
+            }
+        }
+    }
+    
+    // Sort by radius
+    profile_points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    
+    if !profile_points.is_empty() {
+        // Display profile comparison
+        println!("  r/R     v_numerical  v_analytical  error(%)");
+        println!("  ------  -----------  ------------  --------");
+        let step = profile_points.len() / 5 + 1;
+        for i in (0..profile_points.len()).step_by(step) {
+            let (r_norm, v_num, v_ana) = profile_points[i];
+            let error = if v_ana.abs() > 1e-10 {
+                ((v_num - v_ana) / v_ana).abs() * 100.0
+            } else {
+                0.0
+            };
+            println!("  {:.3}   {:.6}    {:.6}     {:.2}", r_norm, v_num, v_ana, error);
+        }
+    }
+    
+    println!("\n========================================");
+    println!("Pipe Flow Validation Complete!");
+    println!("========================================");
+    
+    Ok(())
+}
+
+/// Create a cylindrical pipe mesh
+fn create_pipe_mesh(
+    radius: f64,
+    length: f64,
+    n_circumferential: usize,
+    n_axial: usize,
+) -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
+    let mut mesh = Mesh::new();
+    let mut vertex_id = 0;
+    
+    // Generate vertices in cylindrical coordinates
+    for k in 0..=n_axial {
+        let z = k as f64 * length / n_axial as f64;
+        
+        for j in 0..n_circumferential {
+            let theta = j as f64 * 2.0 * PI / n_circumferential as f64;
+            
+            // Only outer surface for hollow pipe
+            let r = radius;
+            let x = r * theta.cos();
+            let y = r * theta.sin();
+            
+            mesh.vertices.push(Vertex {
+                id: vertex_id,
+                position: Point3::new(x, y, z),
+            });
+            vertex_id += 1;
+        }
+    }
+    
+    // Generate faces (quadrilaterals split into triangles)
+    let mut face_id = 0;
+    for k in 0..n_axial {
+        for j in 0..n_circumferential {
+            let j_next = (j + 1) % n_circumferential;
+            
+            // Current ring
+            let v0 = k * n_circumferential + j;
+            let v1 = k * n_circumferential + j_next;
+            
+            // Next ring
+            let v2 = (k + 1) * n_circumferential + j;
+            let v3 = (k + 1) * n_circumferential + j_next;
+            
+            // First triangle
+            mesh.faces.push(Face {
+                id: face_id,
+                vertices: vec![v0, v1, v2],
+            });
+            face_id += 1;
+            
+            // Second triangle
+            mesh.faces.push(Face {
+                id: face_id,
+                vertices: vec![v1, v3, v2],
+            });
+            face_id += 1;
+        }
+    }
+    
+    // Update topology
+    mesh.topology = MeshTopology {
+        num_vertices: mesh.vertices.len(),
+        num_edges: 0, // Not computed
+        num_faces: mesh.faces.len(),
+        num_cells: 0, // Surface mesh only
+    };
+    
+    Ok(mesh)
+}
+
+/// Create a disk mesh (for end caps)
+fn create_disk_mesh(
+    radius: f64,
+    n_circumferential: usize,
+    z_position: f64,
+) -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
+    let mut mesh = Mesh::new();
+    let mut vertex_id = 0;
+    let n_radial = 5; // Fixed radial divisions for simplicity
+    
+    // Center vertex
+    mesh.vertices.push(Vertex {
+        id: vertex_id,
+        position: Point3::new(0.0, 0.0, z_position),
+    });
+    vertex_id += 1;
+    
+    // Generate vertices in rings
+    for i in 1..=n_radial {
+        let r = i as f64 * radius / n_radial as f64;
+        
+        for j in 0..n_circumferential {
+            let theta = j as f64 * 2.0 * PI / n_circumferential as f64;
+            let x = r * theta.cos();
+            let y = r * theta.sin();
+            
+            mesh.vertices.push(Vertex {
+                id: vertex_id,
+                position: Point3::new(x, y, z_position),
+            });
+            vertex_id += 1;
+        }
+    }
+    
+    // Generate faces
+    let mut face_id = 0;
+    
+    // Center triangles
+    for j in 0..n_circumferential {
+        let j_next = (j + 1) % n_circumferential;
+        
+        mesh.faces.push(Face {
+            id: face_id,
+            vertices: vec![0, 1 + j, 1 + j_next],
+        });
+        face_id += 1;
+    }
+    
+    // Ring triangles
+    for i in 1..n_radial {
+        for j in 0..n_circumferential {
+            let j_next = (j + 1) % n_circumferential;
+            
+            let inner_base = 1 + (i - 1) * n_circumferential;
+            let outer_base = 1 + i * n_circumferential;
+            
+            let v0 = inner_base + j;
+            let v1 = inner_base + j_next;
+            let v2 = outer_base + j;
+            let v3 = outer_base + j_next;
+            
+            // First triangle
+            mesh.faces.push(Face {
+                id: face_id,
+                vertices: vec![v0, v2, v1],
+            });
+            face_id += 1;
+            
+            // Second triangle
+            mesh.faces.push(Face {
+                id: face_id,
+                vertices: vec![v1, v2, v3],
+            });
+            face_id += 1;
+        }
+    }
+    
+    // Update topology
+    mesh.topology = MeshTopology {
+        num_vertices: mesh.vertices.len(),
+        num_edges: 0, // Not computed
+        num_faces: mesh.faces.len(),
+        num_cells: 0, // Surface mesh only
+    };
+    
+    Ok(mesh)
+}
