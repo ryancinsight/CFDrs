@@ -136,7 +136,7 @@ pub struct SimpleSolver<T: RealField> {
     mu: T,
 }
 
-impl<T: RealField + FromPrimitive> SimpleSolver<T> {
+impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
     /// Create new SIMPLE solver
     pub fn new(config: SimpleConfig<T>, nx: usize, ny: usize) -> Self {
         let zero_vec = Vector2::zeros();
@@ -145,7 +145,7 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
             config,
             nx,
             ny,
-            u: vec![vec![zero_vec; ny]; nx],
+            u: vec![vec![zero_vec.clone(); ny]; nx],
             u_star: vec![vec![zero_vec; ny]; nx],
             p: vec![vec![T::zero(); ny]; nx],
             p_prime: vec![vec![T::zero(); ny]; nx],
@@ -190,34 +190,34 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
     /// Assemble coefficients for momentum equations
     fn assemble_momentum_coefficients(&mut self, grid: &StructuredGrid2D<T>) -> Result<()> {
         let (dx, dy) = grid.spacing();
-        let dt = self.config.dt;
-        let nu = self.mu / self.rho;
+        let dt = self.config.dt.clone();
+        let nu = self.mu.clone() / self.rho.clone();
         
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
                 // Get velocities at cell faces (for convection terms)
-                let u_e = (self.u[i][j].x + self.u[i+1][j].x) / T::from_f64(2.0).unwrap();
-                let u_w = (self.u[i][j].x + self.u[i-1][j].x) / T::from_f64(2.0).unwrap();
-                let v_n = (self.u[i][j].y + self.u[i][j+1].y) / T::from_f64(2.0).unwrap();
-                let v_s = (self.u[i][j].y + self.u[i][j-1].y) / T::from_f64(2.0).unwrap();
+                let u_e = (self.u[i][j].x.clone() + self.u[i+1][j].x.clone()) / T::from_f64(2.0).unwrap();
+                let u_w = (self.u[i][j].x.clone() + self.u[i-1][j].x.clone()) / T::from_f64(2.0).unwrap();
+                let v_n = (self.u[i][j].y.clone() + self.u[i][j+1].y.clone()) / T::from_f64(2.0).unwrap();
+                let v_s = (self.u[i][j].y.clone() + self.u[i][j-1].y.clone()) / T::from_f64(2.0).unwrap();
                 
                 // Mass fluxes through faces
-                let fe = self.rho * u_e * dy;
-                let fw = self.rho * u_w * dy;
-                let fn_ = self.rho * v_n * dx;
-                let fs = self.rho * v_s * dx;
+                let fe = self.rho.clone() * u_e * dy.clone();
+                let fw = self.rho.clone() * u_w * dy.clone();
+                let fn_ = self.rho.clone() * v_n * dx.clone();
+                let fs = self.rho.clone() * v_s * dx.clone();
                 
                 // Diffusion coefficients
-                let de = nu * dy / dx;
-                let dw = nu * dy / dx;
-                let dn = nu * dx / dy;
-                let ds = nu * dx / dy;
+                let de = nu.clone() * dy.clone() / dx.clone();
+                let dw = nu.clone() * dy.clone() / dx.clone();
+                let dn = nu.clone() * dx.clone() / dy.clone();
+                let ds = nu.clone() * dx.clone() / dy.clone();
                 
                 // Calculate Peclet numbers
-                let pe_e = fe / de;
-                let pe_w = fw / dw;
-                let pe_n = fn_ / dn;
-                let pe_s = fs / ds;
+                let pe_e = fe.clone() / de.clone();
+                let pe_w = fw.clone() / dw.clone();
+                let pe_n = fn_.clone() / dn.clone();
+                let pe_s = fs.clone() / ds.clone();
                 
                 // Apply convection scheme
                 let (ae, aw, an, as_) = self.apply_convection_scheme(
@@ -569,13 +569,12 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
         for (&(i, j), bc) in boundary_conditions {
             if i < self.nx && j < self.ny {
                 match bc {
-                    BoundaryCondition::Dirichlet(value) => {
-                        // For velocity BC
-                        if let Ok(v) = Vector2::try_from(value.as_slice()) {
-                            self.u[i][j] = v;
-                        }
+                    BoundaryCondition::Dirichlet { value } => {
+                        // For velocity BC - expecting a 2D vector encoded as value
+                        // This is simplified - in practice would need better BC handling
+                        self.u[i][j] = Vector2::new(value.clone(), T::zero());
                     }
-                    BoundaryCondition::Neumann(_gradient) => {
+                    BoundaryCondition::Neumann { gradient: _ } => {
                         // Apply gradient BC (implementation depends on specific needs)
                     }
                     _ => {}
@@ -718,7 +717,7 @@ mod tests {
         // Left wall: velocity inlet - using iterator combinator
         boundaries.extend(
             (0..grid.ny()).map(|j| {
-                ((0, j), BoundaryCondition::Dirichlet(vec![1.0, 0.0]))
+                ((0, j), BoundaryCondition::Dirichlet { value: 1.0 })
             })
         );
 
@@ -733,8 +732,8 @@ mod tests {
         boundaries.extend(
             (0..grid.nx()).flat_map(|i| {
                 [
-                    ((i, 0), BoundaryCondition::Dirichlet(vec![0.0, 0.0])),
-                    ((i, grid.ny() - 1), BoundaryCondition::Dirichlet(vec![0.0, 0.0]))
+                    ((i, 0), BoundaryCondition::Dirichlet { value: 0.0 }),
+                    ((i, grid.ny() - 1), BoundaryCondition::Dirichlet { value: 0.0 })
                 ]
             })
         );
@@ -853,16 +852,16 @@ mod tests {
         
         // Top lid moving at unit velocity
         for i in 0..nx {
-            bc.insert((i, ny-1), BoundaryCondition::Dirichlet(vec![lid_velocity, 0.0]));
+            bc.insert((i, ny-1), BoundaryCondition::Dirichlet { value: lid_velocity });
         }
         
         // No-slip on other walls
         for i in 0..nx {
-            bc.insert((i, 0), BoundaryCondition::Dirichlet(vec![0.0, 0.0]));
+            bc.insert((i, 0), BoundaryCondition::Dirichlet { value: 0.0 });
         }
         for j in 1..ny-1 {
-            bc.insert((0, j), BoundaryCondition::Dirichlet(vec![0.0, 0.0]));
-            bc.insert((nx-1, j), BoundaryCondition::Dirichlet(vec![0.0, 0.0]));
+            bc.insert((0, j), BoundaryCondition::Dirichlet { value: 0.0 });
+            bc.insert((nx-1, j), BoundaryCondition::Dirichlet { value: 0.0 });
         }
         
         // Create grid

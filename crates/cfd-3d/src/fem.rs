@@ -122,9 +122,9 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
         let n_pres_dof = constants::TET4_NODES; // 4
         
         // Initialize matrices
-        let mut k_matrix = DMatrix::zeros(n_vel_dof, n_vel_dof);
-        let mut g_matrix = DMatrix::zeros(n_vel_dof, n_pres_dof);
-        let mut m_matrix = DMatrix::zeros(n_vel_dof, n_vel_dof);
+        let mut k_matrix: DMatrix<T> = DMatrix::zeros(n_vel_dof, n_vel_dof);
+        let mut g_matrix: DMatrix<T> = DMatrix::zeros(n_vel_dof, n_pres_dof);
+        let mut m_matrix: DMatrix<T> = DMatrix::zeros(n_vel_dof, n_vel_dof);
         
         // Compute element volume and shape function derivatives
         let volume = self.compute_volume(node_coords)?;
@@ -134,7 +134,7 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
         let rho = properties.density.clone();
         
         // Single-point quadrature for linear elements
-        let weight = volume; // For single Gauss point at centroid
+        let weight = volume.clone(); // For single Gauss point at centroid
         
         // Build viscous stiffness matrix K
         // K_ij = ∫ μ (∇N_i : ∇N_j) dΩ
@@ -332,27 +332,27 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
         
         // Node 0
         let n0_vec = (v2 - v1).cross(&(v3 - v1));
-        dn_dx[0] = n0_vec.x / six_v.clone();
-        dn_dy[0] = n0_vec.y / six_v.clone();
-        dn_dz[0] = n0_vec.z / six_v.clone();
+        dn_dx[0] = n0_vec.x.clone() / six_v.clone();
+        dn_dy[0] = n0_vec.y.clone() / six_v.clone();
+        dn_dz[0] = n0_vec.z.clone() / six_v.clone();
         
         // Node 1
         let n1_vec = (v3 - v0).cross(&(v2 - v0));
-        dn_dx[1] = n1_vec.x / six_v.clone();
-        dn_dy[1] = n1_vec.y / six_v.clone();
-        dn_dz[1] = n1_vec.z / six_v.clone();
+        dn_dx[1] = n1_vec.x.clone() / six_v.clone();
+        dn_dy[1] = n1_vec.y.clone() / six_v.clone();
+        dn_dz[1] = n1_vec.z.clone() / six_v.clone();
         
         // Node 2
         let n2_vec = (v1 - v0).cross(&(v3 - v0));
-        dn_dx[2] = n2_vec.x / six_v.clone();
-        dn_dy[2] = n2_vec.y / six_v.clone();
-        dn_dz[2] = n2_vec.z / six_v.clone();
+        dn_dx[2] = n2_vec.x.clone() / six_v.clone();
+        dn_dy[2] = n2_vec.y.clone() / six_v.clone();
+        dn_dz[2] = n2_vec.z.clone() / six_v.clone();
         
         // Node 3
         let n3_vec = (v2 - v0).cross(&(v1 - v0));
-        dn_dx[3] = n3_vec.x / six_v.clone();
-        dn_dy[3] = n3_vec.y / six_v.clone();
-        dn_dz[3] = n3_vec.z / six_v;
+        dn_dx[3] = n3_vec.x.clone() / six_v.clone();
+        dn_dy[3] = n3_vec.y.clone() / six_v.clone();
+        dn_dz[3] = n3_vec.z.clone() / six_v;
         
         Ok((dn_dx, dn_dy, dn_dz))
     }
@@ -431,9 +431,9 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
                     .map(|&idx| {
                         let v = &self.mesh.vertices[idx];
                         Vector3::new(
-                            T::from_f64(v.position.x as f64).unwrap(),
-                            T::from_f64(v.position.y as f64).unwrap(),
-                            T::from_f64(v.position.z as f64).unwrap(),
+                            v.position.x.clone(),
+                            v.position.y.clone(),
+                            v.position.z.clone(),
                         )
                     })
                     .collect();
@@ -575,9 +575,9 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
             .map(|&idx| {
                 let v = &self.mesh.vertices[idx];
                 Vector3::new(
-                    T::from_f64(v.position.x as f64).unwrap(),
-                    T::from_f64(v.position.y as f64).unwrap(),
-                    T::from_f64(v.position.z as f64).unwrap(),
+                    v.position.x.clone(),
+                    v.position.y.clone(),
+                    v.position.z.clone(),
                 )
             })
             .collect();
