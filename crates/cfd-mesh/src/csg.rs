@@ -504,7 +504,7 @@ impl<T: RealField + FromPrimitive> BspTree<T> {
             
             if self.root.is_none() && !other_polygons.is_empty() {
                 // If this tree is empty, build from other's polygons
-                self.root = Self::build_node(&other_polygons);
+                self.root = Some(Box::new(Self::build_node(other_polygons)));
             } else if let Some(ref mut root) = self.root {
                 // Add other's polygons to this tree properly
                 for polygon in other_polygons {

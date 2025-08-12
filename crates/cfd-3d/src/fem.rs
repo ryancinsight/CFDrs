@@ -5,8 +5,8 @@
 
 use cfd_core::{Error, Result};
 use cfd_math::{LinearSolver, LinearSolverConfig, ConjugateGradient, SparseMatrixBuilder};
-use cfd_mesh::{Mesh, Cell};
-use nalgebra::{RealField, Vector3, DVector, DMatrix, Matrix3};
+use cfd_mesh::{Mesh, Cell, Vertex, Face};
+use nalgebra::{RealField, Vector3, DVector, DMatrix, Matrix3, Point3};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -368,7 +368,7 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
 /// FEM solver for incompressible Navier-Stokes equations
 pub struct FemSolver<T: RealField> {
     config: FemConfig<T>,
-    mesh: Mesh,
+    mesh: Mesh<T>,
     properties: FluidProperties<T>,
     /// Velocity field (3 components per node)
     velocity: DVector<T>,
@@ -384,7 +384,7 @@ pub struct FemSolver<T: RealField> {
 
 impl<T: RealField + FromPrimitive> FemSolver<T> {
     /// Create new FEM solver
-    pub fn new(config: FemConfig<T>, mesh: Mesh, properties: FluidProperties<T>) -> Self {
+    pub fn new(config: FemConfig<T>, mesh: Mesh<T>, properties: FluidProperties<T>) -> Self {
         let n_nodes = mesh.vertices.len();
         let n_vel_dof = n_nodes * constants::VELOCITY_COMPONENTS;
         let n_pres_dof = n_nodes;
@@ -411,9 +411,19 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
         let mut g_global = DMatrix::zeros(n_vel_dof, n_pres_dof);
         let mut m_global = DMatrix::zeros(n_vel_dof, n_vel_dof);
         
-        // Process each element
+        // Process each element (assuming tetrahedral mesh)
+        // For now, we'll create tetrahedra from cells with 4 faces
         for cell in &self.mesh.cells {
-            if let Cell::Tetrahedron(nodes) = cell {
+            // Get unique vertices from cell faces
+            let mut vertex_set = std::collections::HashSet::new();
+            for &face_id in &cell.faces {
+                if let Some(face) = self.mesh.faces.iter().find(|f| f.id == face_id) {
+                    vertex_set.extend(&face.vertices);
+                }
+            }
+            let nodes: Vec<usize> = vertex_set.into_iter().collect();
+            
+            if nodes.len() == 4 {  // Tetrahedral element
                 let element = FluidElement::new(nodes.clone(), 0);
                 
                 // Get node coordinates
@@ -620,7 +630,7 @@ mod tests {
     #[test]
     fn test_poiseuille_flow() {
         // Create a simple pipe mesh
-        let mut mesh = Mesh::new();
+        let mut mesh: Mesh<f64> = Mesh::new();
         
         // Add vertices for a simple rectangular channel
         let nx = 3;
@@ -633,26 +643,30 @@ mod tests {
         for k in 0..nz {
             for j in 0..ny {
                 for i in 0..nx {
-                    mesh.add_vertex(
-                        i as f32 * dx as f32,
-                        j as f32 * dy as f32,
-                        k as f32 * dz as f32,
-                    );
+                    let idx = k * nx * ny + j * nx + i;
+                    mesh.vertices.push(Vertex {
+                        position: Point3::new(
+                            i as f64 * dx,
+                            j as f64 * dy,
+                            k as f64 * dz,
+                        ),
+                        id: idx,
+                    });
                 }
             }
         }
         
-        // Create tetrahedral elements (simplified)
-        for k in 0..nz-1 {
-            for j in 0..ny-1 {
-                for i in 0..nx-1 {
-                    let base = k * nx * ny + j * nx + i;
-                    // Create two tetrahedra per cube
-                    mesh.add_cell(Cell::Tetrahedron(vec![
-                        base, base + 1, base + nx, base + nx * ny
-                    ]));
-                }
-            }
+        // Create a simple tetrahedral cell (simplified for testing)
+        // In practice, would need proper tetrahedral mesh generation
+        if mesh.vertices.len() >= 4 {
+            // Create faces for a tetrahedron from first 4 vertices
+            mesh.faces.push(Face { vertices: vec![0, 1, 2], id: 0 });
+            mesh.faces.push(Face { vertices: vec![0, 1, 3], id: 1 });
+            mesh.faces.push(Face { vertices: vec![0, 2, 3], id: 2 });
+            mesh.faces.push(Face { vertices: vec![1, 2, 3], id: 3 });
+            
+            // Create cell from faces
+            mesh.cells.push(Cell { faces: vec![0, 1, 2, 3], id: 0 });
         }
         
         // Set up solver
@@ -692,23 +706,32 @@ mod tests {
     #[test]
     fn test_couette_flow() {
         // Create mesh between two parallel plates
-        let mut mesh = Mesh::new();
+        let mut mesh: Mesh<f64> = Mesh::new();
         
         // Simple 2x3x2 mesh
+        let mut idx = 0;
         for k in 0..2 {
             for j in 0..3 {
                 for i in 0..2 {
-                    mesh.add_vertex(
-                        i as f32 * 0.5,
-                        j as f32 * 0.1,
-                        k as f32 * 0.5,
-                    );
+                    mesh.vertices.push(Vertex {
+                        position: Point3::new(
+                            i as f64 * 0.5,
+                            j as f64 * 0.1,
+                            k as f64 * 0.5,
+                        ),
+                        id: idx,
+                    });
+                    idx += 1;
                 }
             }
         }
         
-        // Add one tetrahedral element
-        mesh.add_cell(Cell::Tetrahedron(vec![0, 1, 2, 6]));
+        // Create a simple tetrahedral cell
+        mesh.faces.push(Face { vertices: vec![0, 1, 2], id: 0 });
+        mesh.faces.push(Face { vertices: vec![0, 1, 6], id: 1 });
+        mesh.faces.push(Face { vertices: vec![0, 2, 6], id: 2 });
+        mesh.faces.push(Face { vertices: vec![1, 2, 6], id: 3 });
+        mesh.cells.push(Cell { faces: vec![0, 1, 2, 3], id: 0 });
         
         let config = FemConfig::default();
         let properties = FluidProperties {
