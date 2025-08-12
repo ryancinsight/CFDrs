@@ -237,37 +237,41 @@ impl<T: RealField + FromPrimitive> Gradient<T> {
         let mut gradients = Vec::with_capacity(nx * ny);
         let two = T::from_f64(2.0).unwrap();
 
-        for j in 0..ny {
-            for i in 0..nx {
+        // Use iterator combinators instead of nested loops
+        gradients.extend((0..ny).flat_map(|j| {
+            let two = two.clone();
+            let dx = self.dx.clone();
+            let dy = self.dy.clone();
+            (0..nx).map(move |i| {
                 let idx = j * nx + i;
 
                 // Compute x-derivative
                 let dfdx = if i == 0 {
                     // Forward difference
-                    (field[idx + 1].clone() - field[idx].clone()) / self.dx.clone()
+                    (field[idx + 1].clone() - field[idx].clone()) / dx.clone()
                 } else if i == nx - 1 {
                     // Backward difference
-                    (field[idx].clone() - field[idx - 1].clone()) / self.dx.clone()
+                    (field[idx].clone() - field[idx - 1].clone()) / dx.clone()
                 } else {
                     // Central difference
-                    (field[idx + 1].clone() - field[idx - 1].clone()) / (two.clone() * self.dx.clone())
+                    (field[idx + 1].clone() - field[idx - 1].clone()) / (two.clone() * dx.clone())
                 };
 
                 // Compute y-derivative
                 let dfdy = if j == 0 {
                     // Forward difference
-                    (field[idx + nx].clone() - field[idx].clone()) / self.dy.clone()
+                    (field[idx + nx].clone() - field[idx].clone()) / dy.clone()
                 } else if j == ny - 1 {
                     // Backward difference
-                    (field[idx].clone() - field[idx - nx].clone()) / self.dy.clone()
+                    (field[idx].clone() - field[idx - nx].clone()) / dy.clone()
                 } else {
                     // Central difference
-                    (field[idx + nx].clone() - field[idx - nx].clone()) / (two.clone() * self.dy.clone())
+                    (field[idx + nx].clone() - field[idx - nx].clone()) / (two.clone() * dy.clone())
                 };
 
-                gradients.push(Vector3::new(dfdx, dfdy, T::zero()));
-            }
-        }
+                Vector3::new(dfdx, dfdy, T::zero())
+            })
+        }));
 
         Ok(gradients)
     }
@@ -283,42 +287,51 @@ impl<T: RealField + FromPrimitive> Gradient<T> {
         let mut gradients = Vec::with_capacity(nx * ny * nz);
         let two = T::from_f64(2.0).unwrap();
 
-        for k in 0..nz {
-            for j in 0..ny {
-                for i in 0..nx {
+        // Use iterator combinators for better performance
+        gradients.extend((0..nz).flat_map(|k| {
+            let two = two.clone();
+            let dx = self.dx.clone();
+            let dy = self.dy.clone();
+            let dz = self.dz.clone();
+            (0..ny).flat_map(move |j| {
+                let two = two.clone();
+                let dx = dx.clone();
+                let dy = dy.clone();
+                let dz = dz.clone();
+                (0..nx).map(move |i| {
                     let idx = k * nx * ny + j * nx + i;
 
                     // Compute x-derivative
                     let dfdx = if i == 0 {
-                        (field[idx + 1].clone() - field[idx].clone()) / self.dx.clone()
+                        (field[idx + 1].clone() - field[idx].clone()) / dx.clone()
                     } else if i == nx - 1 {
-                        (field[idx].clone() - field[idx - 1].clone()) / self.dx.clone()
+                        (field[idx].clone() - field[idx - 1].clone()) / dx.clone()
                     } else {
-                        (field[idx + 1].clone() - field[idx - 1].clone()) / (two.clone() * self.dx.clone())
+                        (field[idx + 1].clone() - field[idx - 1].clone()) / (two.clone() * dx.clone())
                     };
 
                     // Compute y-derivative
                     let dfdy = if j == 0 {
-                        (field[idx + nx].clone() - field[idx].clone()) / self.dy.clone()
+                        (field[idx + nx].clone() - field[idx].clone()) / dy.clone()
                     } else if j == ny - 1 {
-                        (field[idx].clone() - field[idx - nx].clone()) / self.dy.clone()
+                        (field[idx].clone() - field[idx - nx].clone()) / dy.clone()
                     } else {
-                        (field[idx + nx].clone() - field[idx - nx].clone()) / (two.clone() * self.dy.clone())
+                        (field[idx + nx].clone() - field[idx - nx].clone()) / (two.clone() * dy.clone())
                     };
 
                     // Compute z-derivative
                     let dfdz = if k == 0 {
-                        (field[idx + nx * ny].clone() - field[idx].clone()) / self.dz.clone()
+                        (field[idx + nx * ny].clone() - field[idx].clone()) / dz.clone()
                     } else if k == nz - 1 {
-                        (field[idx].clone() - field[idx - nx * ny].clone()) / self.dz.clone()
+                        (field[idx].clone() - field[idx - nx * ny].clone()) / dz.clone()
                     } else {
-                        (field[idx + nx * ny].clone() - field[idx - nx * ny].clone()) / (two.clone() * self.dz.clone())
+                        (field[idx + nx * ny].clone() - field[idx - nx * ny].clone()) / (two.clone() * dz.clone())
                     };
 
-                    gradients.push(Vector3::new(dfdx, dfdy, dfdz));
-                }
-            }
-        }
+                    Vector3::new(dfdx, dfdy, dfdz)
+                })
+            })
+        }));
 
         Ok(gradients)
     }

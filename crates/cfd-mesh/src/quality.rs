@@ -138,26 +138,112 @@ where
         Some((aspect_ratio, skewness, orthogonality, volume))
     }
 
-    /// Calculate aspect ratio (simplified)
+    /// Calculate aspect ratio - ratio of minimum to maximum edge length
+    /// For high-quality elements, aspect ratio should be close to 1.0
+    /// Reference: Knupp, P. "Algebraic Mesh Quality Metrics" (2001)
     fn calculate_aspect_ratio(&self, vertices: &[&Point3<T>]) -> T {
         if vertices.len() < 2 {
             return T::one();
         }
 
-        // Find min and max distances using iterator patterns
-        let distances: Vec<T> = vertices
-            .windows(2)
-            .map(|pair| (pair[1] - pair[0]).norm())
-            .collect();
+        // Compute all edge lengths based on element type
+        let edge_lengths = match vertices.len() {
+            3 => {
+                // Triangle: 3 edges
+                vec![
+                    (vertices[1] - vertices[0]).norm(),
+                    (vertices[2] - vertices[1]).norm(),
+                    (vertices[0] - vertices[2]).norm(),
+                ]
+            }
+            4 => {
+                // Tetrahedron or Quadrilateral
+                if self.is_planar(vertices) {
+                    // Quadrilateral: 4 edges
+                    vec![
+                        (vertices[1] - vertices[0]).norm(),
+                        (vertices[2] - vertices[1]).norm(),
+                        (vertices[3] - vertices[2]).norm(),
+                        (vertices[0] - vertices[3]).norm(),
+                    ]
+                } else {
+                    // Tetrahedron: 6 edges
+                    vec![
+                        (vertices[1] - vertices[0]).norm(),
+                        (vertices[2] - vertices[0]).norm(),
+                        (vertices[3] - vertices[0]).norm(),
+                        (vertices[2] - vertices[1]).norm(),
+                        (vertices[3] - vertices[1]).norm(),
+                        (vertices[3] - vertices[2]).norm(),
+                    ]
+                }
+            }
+            8 => {
+                // Hexahedron: 12 edges
+                vec![
+                    // Bottom face edges
+                    (vertices[1] - vertices[0]).norm(),
+                    (vertices[2] - vertices[1]).norm(),
+                    (vertices[3] - vertices[2]).norm(),
+                    (vertices[0] - vertices[3]).norm(),
+                    // Top face edges
+                    (vertices[5] - vertices[4]).norm(),
+                    (vertices[6] - vertices[5]).norm(),
+                    (vertices[7] - vertices[6]).norm(),
+                    (vertices[4] - vertices[7]).norm(),
+                    // Vertical edges
+                    (vertices[4] - vertices[0]).norm(),
+                    (vertices[5] - vertices[1]).norm(),
+                    (vertices[6] - vertices[2]).norm(),
+                    (vertices[7] - vertices[3]).norm(),
+                ]
+            }
+            _ => {
+                // General polyhedron: compute all pairwise edges
+                vertices
+                    .windows(2)
+                    .map(|pair| (pair[1] - pair[0]).norm())
+                    .collect()
+            }
+        };
 
-        let min_dist = distances.iter().cloned().fold(T::infinity(), RealField::min);
-        let max_dist = distances.iter().cloned().fold(T::neg_infinity(), RealField::max);
+        // Find min and max edge lengths using iterator combinators
+        let min_length = edge_lengths.iter()
+            .cloned()
+            .fold(T::infinity(), RealField::min);
+        let max_length = edge_lengths.iter()
+            .cloned()
+            .fold(T::neg_infinity(), RealField::max);
 
-        if max_dist > T::zero() {
-            min_dist.clone() / max_dist.clone()
+        if max_length > T::zero() && min_length > T::zero() {
+            min_length / max_length
         } else {
             T::one()
         }
+    }
+    
+    /// Check if vertices are approximately coplanar
+    fn is_planar(&self, vertices: &[&Point3<T>]) -> bool {
+        if vertices.len() < 4 {
+            return true;
+        }
+        
+        // Compute normal from first three vertices
+        let v1 = vertices[1] - vertices[0];
+        let v2 = vertices[2] - vertices[0];
+        let normal = v1.cross(&v2);
+        
+        if normal.norm() < T::from_f64(1e-10).unwrap_or_else(T::zero) {
+            return true; // Degenerate case
+        }
+        
+        // Check if fourth vertex is in the same plane
+        let v3 = vertices[3] - vertices[0];
+        let dot_product = v3.dot(&normal);
+        let abs_dot = if dot_product >= T::zero() { dot_product.clone() } else { -dot_product.clone() };
+        let distance = abs_dot / normal.norm();
+        
+        distance < T::from_f64(1e-6).unwrap_or_else(T::zero)
     }
 
     /// Calculate skewness based on angle deviations
