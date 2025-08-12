@@ -21,7 +21,7 @@ pub mod level_set;
 pub mod vof;
 
 // Re-export commonly used types
-pub use fem::{FemSolver, FemConfig, ElementType, MaterialProperties};
+pub use fem::{FemSolver, FemConfig, FluidProperties, FluidElement};
 pub use spectral::{SpectralSolver, SpectralConfig, SpectralBasis};
 pub use ibm::{IbmSolver, IbmConfig, LagrangianPoint};
 pub use level_set::{LevelSetSolver, LevelSetConfig};

@@ -49,43 +49,90 @@ pub trait FactoryCapability {
     fn capabilities(&self) -> Vec<&str>;
 }
 
-/// Simplified factory registry avoiding trait object issues
-pub struct SolverFactoryRegistry {
-    factory_names: HashMap<String, String>,
+/// Complete factory registry with proper factory pattern implementation
+pub struct SolverFactoryRegistry<T: RealField> {
+    factories: HashMap<String, Box<dyn AbstractSolverFactory<T>>>,
+    factory_metadata: HashMap<String, FactoryMetadata>,
 }
 
-impl Default for SolverFactoryRegistry {
+/// Metadata for registered factories
+#[derive(Debug, Clone)]
+pub struct FactoryMetadata {
+    pub name: String,
+    pub factory_type: String,
+    pub version: String,
+    pub capabilities: Vec<String>,
+}
+
+impl<T: RealField> Default for SolverFactoryRegistry<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl SolverFactoryRegistry {
+impl<T: RealField> SolverFactoryRegistry<T> {
     /// Create new factory registry
     pub fn new() -> Self {
         Self {
-            factory_names: HashMap::new(),
+            factories: HashMap::new(),
+            factory_metadata: HashMap::new(),
         }
     }
 
-    /// Register a factory name (simplified approach)
-    pub fn register(&mut self, name: String, factory_type: String) -> Result<()> {
-        if self.factory_names.contains_key(&name) {
+    /// Register a factory with metadata
+    pub fn register_factory(
+        &mut self, 
+        name: String, 
+        factory: Box<dyn AbstractSolverFactory<T>>,
+        metadata: FactoryMetadata
+    ) -> Result<()> {
+        if self.factories.contains_key(&name) {
             return Err(Error::InvalidInput(format!("Factory '{}' already registered", name)));
         }
 
-        self.factory_names.insert(name, factory_type);
+        self.factories.insert(name.clone(), factory);
+        self.factory_metadata.insert(name, metadata);
         Ok(())
+    }
+
+    /// Get a factory by name
+    pub fn get_factory(&self, name: &str) -> Option<&dyn AbstractSolverFactory<T>> {
+        self.factories.get(name).map(|f| f.as_ref())
     }
 
     /// List available factories
     pub fn list_factories(&self) -> Vec<&str> {
-        self.factory_names.keys().map(|s| s.as_str()).collect()
+        self.factories.keys().map(|s| s.as_str()).collect()
     }
 
-    /// Get factory type for a given name
-    pub fn get_factory_type(&self, name: &str) -> Option<&str> {
-        self.factory_names.get(name).map(|s| s.as_str())
+    /// Get factory metadata
+    pub fn get_factory_metadata(&self, name: &str) -> Option<&FactoryMetadata> {
+        self.factory_metadata.get(name)
+    }
+    
+    /// Create a solver using the specified factory
+    pub fn create_solver(&self, factory_name: &str, solver_name: &str) -> Result<String> {
+        self.factories
+            .get(factory_name)
+            .ok_or_else(|| Error::InvalidInput(format!("Factory '{}' not found", factory_name)))?
+            .create_solver_simple(solver_name)
+    }
+    
+    /// Get all factories of a specific type
+    pub fn get_factories_by_type(&self, factory_type: &str) -> Vec<&str> {
+        self.factory_metadata
+            .iter()
+            .filter(|(_, metadata)| metadata.factory_type == factory_type)
+            .map(|(name, _)| name.as_str())
+            .collect()
+    }
+    
+    /// Check if a factory supports a specific capability
+    pub fn factory_supports(&self, factory_name: &str, capability: &str) -> bool {
+        self.factory_metadata
+            .get(factory_name)
+            .map(|metadata| metadata.capabilities.contains(&capability.to_string()))
+            .unwrap_or(false)
     }
 }
 

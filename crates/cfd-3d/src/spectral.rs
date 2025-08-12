@@ -10,6 +10,26 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use nalgebra::Complex;
 
+/// Constants for spectral methods
+mod constants {
+    /// Default solver tolerance
+    pub const DEFAULT_TOLERANCE: f64 = 1e-8;
+    /// Small value for numerical stability checks
+    pub const EPSILON: f64 = 1e-14;
+    /// Factor of 2 used in many calculations
+    pub const TWO: f64 = 2.0;
+    /// Factor of 0.5 (half)
+    pub const HALF: f64 = 0.5;
+    /// Factor of 6 for polynomial calculations
+    pub const SIX: f64 = 6.0;
+    /// Default domain boundary
+    pub const DEFAULT_DOMAIN_MIN: f64 = -1.0;
+    /// Chebyshev polynomial constant
+    pub const CHEBYSHEV_FACTOR: f64 = 2.0;
+    /// Energy normalization factor
+    pub const ENERGY_NORMALIZATION: f64 = 2.0;
+}
+
 /// Spectral method configuration
 /// Uses unified SolverConfig as base to follow SSOT principle
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,7 +50,7 @@ impl<T: RealField + FromPrimitive> Default for SpectralConfig<T> {
     fn default() -> Self {
         // Spectral methods typically need higher precision
         let base = cfd_core::SolverConfig::builder()
-            .tolerance(T::from_f64(1e-8).unwrap())
+            .tolerance(T::from_f64(constants::DEFAULT_TOLERANCE).unwrap())
             .max_iterations(100)
             .build();
 
@@ -109,9 +129,9 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
     /// Create with default configuration
     pub fn default() -> Self {
         let min_bounds = Vector3::new(
-            T::from_f64(-1.0).unwrap(),
-            T::from_f64(-1.0).unwrap(),
-            T::from_f64(-1.0).unwrap(),
+            T::from_f64(constants::DEFAULT_DOMAIN_MIN).unwrap(),
+            T::from_f64(constants::DEFAULT_DOMAIN_MIN).unwrap(),
+            T::from_f64(constants::DEFAULT_DOMAIN_MIN).unwrap(),
         );
         let max_bounds = Vector3::new(T::one(), T::one(), T::one());
 
@@ -304,7 +324,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
                 let (p_nm1, dp_nm1, _) = self.legendre_polynomial_and_derivatives(x.clone(), n - 1)?;
                 
                 // Check for convergence
-                if dp_nm1.clone().abs() < T::from_f64(1e-14).unwrap() {
+                if dp_nm1.clone().abs() < T::from_f64(constants::EPSILON).unwrap() {
                     break;
                 }
                 
@@ -315,7 +335,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
                 
                 x = x - correction.clone();
                 
-                if correction.abs() < T::from_f64(1e-14).unwrap() {
+                if correction.abs() < T::from_f64(constants::EPSILON).unwrap() {
                     break;
                 }
             }

@@ -301,7 +301,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
     }
 
     fn run(&self) -> Result<Self::Solution> {
-        use cfd_2d::{StructuredGrid2D, SimpleSolver, SimpleConfig};
+        use cfd_2d::{StructuredGrid2D, SimpleSolver, SimpleConfig, Grid2D};
         use cfd_core::BoundaryCondition;
         use std::collections::HashMap;
         
@@ -320,18 +320,18 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
                 .tolerance(T::from_f64(1e-4).unwrap())  // Relaxed tolerance
                 .max_iterations(100)  // Fewer outer iterations
                 .build(),
-            time_step: T::from_f64(0.01).unwrap(),
-            velocity_tolerance: T::from_f64(1e-4).unwrap(),
-            pressure_tolerance: T::from_f64(1e-3).unwrap(),
-            velocity_relaxation: T::from_f64(0.5).unwrap(),  // More relaxation
-            pressure_relaxation: T::from_f64(0.3).unwrap(),
+            dt: T::from_f64(0.01).unwrap(),
+            alpha_u: T::from_f64(0.5).unwrap(),  // Velocity under-relaxation
+            alpha_p: T::from_f64(0.3).unwrap(),  // Pressure under-relaxation
+            use_rhie_chow: true,
+            convection_scheme: "hybrid".to_string(),
         };
         
         // Fluid properties
         let density = T::one(); // Normalized
         let viscosity = density.clone() / self.reynolds.clone(); // μ = ρ/Re for unit velocity
         
-        let mut solver = SimpleSolver::new(config, &grid, density, viscosity);
+        let mut solver = SimpleSolver::new_with_properties(config, grid.nx(), grid.ny(), density, viscosity);
         
         // Set boundary conditions
         let mut boundary_conditions = HashMap::new();
@@ -623,7 +623,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
     }
 
     fn run(&self) -> Result<Self::Solution> {
-        use cfd_2d::{StructuredGrid2D, SimpleSolver, SimpleConfig};
+        use cfd_2d::{StructuredGrid2D, SimpleSolver, SimpleConfig, Grid2D};
         use cfd_core::BoundaryCondition;
         use std::collections::HashMap;
         
@@ -648,11 +648,11 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
                 .tolerance(T::from_f64(1e-3).unwrap())  // Relaxed tolerance
                 .max_iterations(50)  // Fewer iterations for example
                 .build(),
-            time_step: T::from_f64(0.01).unwrap(),
-            velocity_tolerance: T::from_f64(1e-3).unwrap(),
-            pressure_tolerance: T::from_f64(1e-2).unwrap(),
-            velocity_relaxation: T::from_f64(0.3).unwrap(),  // Strong relaxation
-            pressure_relaxation: T::from_f64(0.2).unwrap(),
+            dt: T::from_f64(0.01).unwrap(),
+            alpha_u: T::from_f64(0.3).unwrap(),  // Strong velocity relaxation
+            alpha_p: T::from_f64(0.2).unwrap(),  // Strong pressure relaxation
+            use_rhie_chow: true,
+            convection_scheme: "hybrid".to_string(),
         };
         
         // Fluid properties (normalized)
@@ -660,7 +660,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
         let density = T::one();
         let viscosity = density.clone() * u_inlet.clone() * self.diameter.clone() / self.reynolds.clone();
         
-        let mut solver = SimpleSolver::new(config, &grid, density, viscosity);
+        let mut solver = SimpleSolver::new_with_properties(config, grid.nx(), grid.ny(), density, viscosity);
         
         // Set boundary conditions
         let mut boundary_conditions = HashMap::new();
@@ -825,7 +825,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
     }
 
     fn run(&self) -> Result<Self::Solution> {
-        use cfd_2d::{StructuredGrid2D, SimpleSolver, SimpleConfig};
+        use cfd_2d::{StructuredGrid2D, SimpleSolver, SimpleConfig, Grid2D};
         use cfd_core::BoundaryCondition;
         use std::collections::HashMap;
         
@@ -851,11 +851,11 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
                 .tolerance(T::from_f64(1e-4).unwrap())  // Relaxed for demonstration
                 .max_iterations(100)  // Limited iterations for example
                 .build(),
-            time_step: T::from_f64(0.01).unwrap(),
-            velocity_tolerance: T::from_f64(1e-4).unwrap(),
-            pressure_tolerance: T::from_f64(1e-3).unwrap(),
-            velocity_relaxation: T::from_f64(0.5).unwrap(),
-            pressure_relaxation: T::from_f64(0.3).unwrap(),
+            dt: T::from_f64(0.01).unwrap(),
+            alpha_u: T::from_f64(0.5).unwrap(),
+            alpha_p: T::from_f64(0.3).unwrap(),
+            use_rhie_chow: true,
+            convection_scheme: "hybrid".to_string(),
         };
         
         // Fluid properties based on Reynolds number
@@ -863,7 +863,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
         let density = T::one(); // Normalized
         let viscosity = density.clone() * u_mean * self.step_height.clone() / self.reynolds.clone();
         
-        let mut solver = SimpleSolver::new(config, &grid, density, viscosity);
+        let mut solver = SimpleSolver::new_with_properties(config, grid.nx(), grid.ny(), density, viscosity);
         
         // Set boundary conditions
         let mut boundary_conditions = HashMap::new();
