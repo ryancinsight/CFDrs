@@ -587,18 +587,108 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         }
     }
     
-    /// Compute cell curvature
+    /// Compute cell curvature based on face normal variations
     fn compute_cell_curvature(&self, mesh: &Mesh<T>, cell: &Cell) -> T {
-        // Compute curvature based on face normals
-        // This is a placeholder implementation
-        T::zero()
+        // Build lookup map for faces
+        let face_map = Self::build_face_map(mesh);
+        
+        // Collect face normals
+        let mut normals = Vec::new();
+        for &face_id in &cell.faces {
+            if let Some(face) = face_map.get(&face_id) {
+                if let Some(normal) = self.compute_face_normal(mesh, face) {
+                    normals.push(normal);
+                }
+            }
+        }
+        
+        if normals.len() < 2 {
+            return T::zero();
+        }
+        
+        // Compute maximum curvature as the maximum angle between normals
+        let mut max_curvature = T::zero();
+        for i in 0..normals.len() {
+            for j in i+1..normals.len() {
+                let dot_product = normals[i].dot(&normals[j]);
+                // Clamp to [-1, 1] to avoid numerical issues with acos
+                let clamped = dot_product.max(-T::one()).min(T::one());
+                let angle = clamped.acos();
+                max_curvature = max_curvature.max(angle);
+            }
+        }
+        
+        max_curvature
     }
     
-    /// Compute feature angle
+    /// Compute feature angle as maximum angle between adjacent face normals
     fn compute_feature_angle(&self, mesh: &Mesh<T>, cell: &Cell) -> T {
-        // Compute maximum angle between face normals
-        // This is a placeholder implementation
-        T::zero()
+        // Build lookup map for faces
+        let face_map = Self::build_face_map(mesh);
+        
+        // Build adjacency information
+        let mut face_pairs = Vec::new();
+        for i in 0..cell.faces.len() {
+            for j in i+1..cell.faces.len() {
+                let face1_id = cell.faces[i];
+                let face2_id = cell.faces[j];
+                
+                // Check if faces share an edge (are adjacent)
+                if let (Some(face1), Some(face2)) = (face_map.get(&face1_id), face_map.get(&face2_id)) {
+                    let shared_vertices: Vec<_> = face1.vertices.iter()
+                        .filter(|v| face2.vertices.contains(v))
+                        .collect();
+                    
+                    // Two faces share an edge if they have exactly 2 vertices in common
+                    if shared_vertices.len() == 2 {
+                        face_pairs.push((face1, face2));
+                    }
+                }
+            }
+        }
+        
+        // Compute maximum angle between adjacent faces
+        let mut max_angle = T::zero();
+        for (face1, face2) in face_pairs {
+            if let (Some(n1), Some(n2)) = (
+                self.compute_face_normal(mesh, face1),
+                self.compute_face_normal(mesh, face2)
+            ) {
+                let dot_product = n1.dot(&n2);
+                let clamped = dot_product.max(-T::one()).min(T::one());
+                let angle = clamped.acos();
+                max_angle = max_angle.max(angle);
+            }
+        }
+        
+        max_angle
+    }
+    
+    /// Helper: Compute face normal
+    fn compute_face_normal(&self, mesh: &Mesh<T>, face: &Face) -> Option<Vector3<T>> {
+        let vertex_map = Self::build_vertex_map(mesh);
+        
+        if face.vertices.len() < 3 {
+            return None;
+        }
+        
+        // Get first three vertices to compute normal
+        let v0 = vertex_map.get(&face.vertices[0])?;
+        let v1 = vertex_map.get(&face.vertices[1])?;
+        let v2 = vertex_map.get(&face.vertices[2])?;
+        
+        // Compute normal using cross product
+        let e1 = &v1.position - &v0.position;
+        let e2 = &v2.position - &v0.position;
+        let normal = e1.cross(&e2);
+        
+        // Normalize if non-zero
+        let norm = normal.norm();
+        if norm > T::zero() {
+            Some(normal / norm)
+        } else {
+            None
+        }
     }
     
     /// Compute cell size

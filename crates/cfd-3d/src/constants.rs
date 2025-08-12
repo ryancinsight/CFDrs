@@ -12,6 +12,10 @@ pub const EPSILON_F64: f64 = 1e-10;
 pub const SMALL_NUMBER: f64 = 1e-14;
 /// Default convergence tolerance
 pub const DEFAULT_TOLERANCE: f64 = 1e-6;
+/// Minimum volume tolerance for element validity
+pub const VOLUME_TOLERANCE: f64 = 1e-10;
+/// Tolerance for shape function tests
+pub const SHAPE_FUNCTION_TOLERANCE: f64 = 1e-12;
 
 // Mesh quality thresholds
 /// Minimum acceptable mesh quality (0-1 scale)

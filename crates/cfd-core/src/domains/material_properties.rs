@@ -3,17 +3,12 @@
 //! Provides fluid and material property models following Domain-Driven Design
 
 use nalgebra::RealField;
-use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 // Named constants for material properties
 const SOLID_LIKE_VISCOSITY: f64 = 1e6;  // High viscosity for zero shear rate
 const YIELD_STRESS_VISCOSITY: f64 = 1e10; // Very high viscosity below yield stress
-const DEFAULT_WATER_DENSITY: f64 = 998.2; // kg/m³ at 20°C
-const DEFAULT_WATER_VISCOSITY: f64 = 1.002e-3; // Pa·s at 20°C
-const DEFAULT_AIR_DENSITY: f64 = 1.225; // kg/m³ at 15°C, sea level
-const DEFAULT_AIR_VISCOSITY: f64 = 1.81e-5; // Pa·s at 15°C
 
 /// Fluid properties abstraction
 pub trait FluidProperties<T: RealField>: Send + Sync {
