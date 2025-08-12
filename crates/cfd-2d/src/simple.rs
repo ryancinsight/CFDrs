@@ -227,24 +227,24 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
                 );
                 
                 // U-momentum coefficients
-                self.au[i][j].ae = ae;
-                self.au[i][j].aw = aw;
-                self.au[i][j].an = an;
-                self.au[i][j].as_ = as_;
+                self.au[i][j].ae = ae.clone();
+                self.au[i][j].aw = aw.clone();
+                self.au[i][j].an = an.clone();
+                self.au[i][j].as_ = as_.clone();
                 
                 // Add transient term for unsteady problems
-                let ap0 = self.rho * dx * dy / dt;
-                self.au[i][j].ap = ae + aw + an + as_ + ap0;
+                let ap0 = self.rho.clone() * dx.clone() * dy.clone() / dt.clone();
+                self.au[i][j].ap = ae.clone() + aw.clone() + an.clone() + as_.clone() + ap0.clone();
                 
                 // Pressure gradient coefficient (for velocity correction)
-                self.au[i][j].d = dx * dy / self.au[i][j].ap;
+                self.au[i][j].d = dx.clone() * dy.clone() / self.au[i][j].ap.clone();
                 
                 // Source term (includes previous time step for unsteady)
-                self.au[i][j].su = ap0 * self.u[i][j].x;
+                self.au[i][j].su = ap0.clone() * self.u[i][j].x.clone();
                 
                 // V-momentum coefficients (similar)
                 self.av[i][j] = self.au[i][j].clone();
-                self.av[i][j].su = ap0 * self.u[i][j].y;
+                self.av[i][j].su = ap0.clone() * self.u[i][j].y.clone();
             }
         }
         
@@ -261,27 +261,27 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
         match self.config.convection_scheme.as_str() {
             "upwind" => {
                 // First-order upwind scheme
-                let ae = de + T::max(T::zero(), -fe);
-                let aw = dw + T::max(T::zero(), fw);
-                let an = dn + T::max(T::zero(), -fn_);
-                let as_ = ds + T::max(T::zero(), fs);
+                let ae = de.clone() + T::max(T::zero(), -fe.clone());
+                let aw = dw.clone() + T::max(T::zero(), fw.clone());
+                let an = dn.clone() + T::max(T::zero(), -fn_.clone());
+                let as_ = ds.clone() + T::max(T::zero(), fs.clone());
                 (ae, aw, an, as_)
             }
             "central" => {
                 // Central differencing (can be unstable for high Pe)
-                let ae = de - fe / T::from_f64(2.0).unwrap();
-                let aw = dw + fw / T::from_f64(2.0).unwrap();
-                let an = dn - fn_ / T::from_f64(2.0).unwrap();
-                let as_ = ds + fs / T::from_f64(2.0).unwrap();
+                let ae = de.clone() - fe.clone() / T::from_f64(2.0).unwrap();
+                let aw = dw.clone() + fw.clone() / T::from_f64(2.0).unwrap();
+                let an = dn.clone() - fn_.clone() / T::from_f64(2.0).unwrap();
+                let as_ = ds.clone() + fs.clone() / T::from_f64(2.0).unwrap();
                 (ae, aw, an, as_)
             }
             "hybrid" => {
                 // Hybrid scheme (Spalding 1972)
                 let two = T::from_f64(2.0).unwrap();
-                let ae = T::max(T::max(-fe, de - fe / two), T::zero());
-                let aw = T::max(T::max(fw, dw + fw / two), T::zero());
-                let an = T::max(T::max(-fn_, dn - fn_ / two), T::zero());
-                let as_ = T::max(T::max(fs, ds + fs / two), T::zero());
+                let ae = T::max(T::max(-fe.clone(), de.clone() - fe.clone() / two.clone()), T::zero());
+                let aw = T::max(T::max(fw.clone(), dw.clone() + fw.clone() / two.clone()), T::zero());
+                let an = T::max(T::max(-fn_.clone(), dn.clone() - fn_.clone() / two.clone()), T::zero());
+                let as_ = T::max(T::max(fs.clone(), ds.clone() + fs.clone() / two.clone()), T::zero());
                 (ae, aw, an, as_)
             }
             "quick" => {
@@ -327,20 +327,20 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
                     
                     // Neighboring velocities contribution
                     let neighbor_sum = 
-                        coeff.ae * self.u[i+1][j].x +
-                        coeff.aw * self.u[i-1][j].x +
-                        coeff.an * self.u[i][j+1].x +
-                        coeff.as_ * self.u[i][j-1].x;
+                        coeff.ae.clone() * self.u[i+1][j].x.clone() +
+                        coeff.aw.clone() * self.u[i-1][j].x.clone() +
+                        coeff.an.clone() * self.u[i][j+1].x.clone() +
+                        coeff.as_.clone() * self.u[i][j-1].x.clone();
                     
                     // Pressure gradient (using current pressure)
-                    let pressure_gradient = (self.p[i+1][j] - self.p[i-1][j]) / (T::from_f64(2.0).unwrap() * dx);
+                    let pressure_gradient = (self.p[i+1][j].clone() - self.p[i-1][j].clone()) / (T::from_f64(2.0).unwrap() * dx.clone());
                     
                     // Calculate new u-velocity with under-relaxation
-                    let u_new = (neighbor_sum + coeff.su - pressure_gradient * dx * dy) / coeff.ap;
+                    let u_new = (neighbor_sum + coeff.su.clone() - pressure_gradient * dx.clone() * dy.clone()) / coeff.ap.clone();
                     
                     // Apply under-relaxation: u* = α*u_new + (1-α)*u_old
-                    self.u_star[i][j].x = self.config.alpha_u * u_new + 
-                                          (T::one() - self.config.alpha_u) * self.u[i][j].x;
+                    self.u_star[i][j].x = self.config.alpha_u.clone() * u_new + 
+                                          (T::one() - self.config.alpha_u.clone()) * self.u[i][j].x.clone();
                 }
             }
         }
@@ -353,20 +353,20 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
                     
                     // Neighboring velocities contribution
                     let neighbor_sum = 
-                        coeff.ae * self.u[i+1][j].y +
-                        coeff.aw * self.u[i-1][j].y +
-                        coeff.an * self.u[i][j+1].y +
-                        coeff.as_ * self.u[i][j-1].y;
+                        coeff.ae.clone() * self.u[i+1][j].y.clone() +
+                        coeff.aw.clone() * self.u[i-1][j].y.clone() +
+                        coeff.an.clone() * self.u[i][j+1].y.clone() +
+                        coeff.as_.clone() * self.u[i][j-1].y.clone();
                     
                     // Pressure gradient
-                    let pressure_gradient = (self.p[i][j+1] - self.p[i][j-1]) / (T::from_f64(2.0).unwrap() * dy);
+                    let pressure_gradient = (self.p[i][j+1].clone() - self.p[i][j-1].clone()) / (T::from_f64(2.0).unwrap() * dy.clone());
                     
                     // Calculate new v-velocity with under-relaxation
-                    let v_new = (neighbor_sum + coeff.su - pressure_gradient * dx * dy) / coeff.ap;
+                    let v_new = (neighbor_sum + coeff.su.clone() - pressure_gradient * dx.clone() * dy.clone()) / coeff.ap.clone();
                     
                     // Apply under-relaxation
-                    self.u_star[i][j].y = self.config.alpha_u * v_new + 
-                                          (T::one() - self.config.alpha_u) * self.u[i][j].y;
+                    self.u_star[i][j].y = self.config.alpha_u.clone() * v_new + 
+                                          (T::one() - self.config.alpha_u.clone()) * self.u[i][j].y.clone();
                 }
             }
         }
@@ -382,16 +382,16 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
         for i in 1..self.nx {
             for j in 0..self.ny {
                 // Linear interpolation of cell velocities
-                let u_avg = (self.u_star[i-1][j].x + self.u_star[i][j].x) / T::from_f64(2.0).unwrap();
+                let u_avg = (self.u_star[i-1][j].x.clone() + self.u_star[i][j].x.clone()) / T::from_f64(2.0).unwrap();
                 
                 // Pressure gradient at face
-                let dp_dx_face = (self.p[i][j] - self.p[i-1][j]) / dx;
+                let dp_dx_face = (self.p[i][j].clone() - self.p[i-1][j].clone()) / dx.clone();
                 
                 // Average of d coefficients
                 let d_avg = if i > 0 && i < self.nx {
-                    (self.au[i-1][j].d + self.au[i][j].d) / T::from_f64(2.0).unwrap()
+                    (self.au[i-1][j].d.clone() + self.au[i][j].d.clone()) / T::from_f64(2.0).unwrap()
                 } else {
-                    self.au[i.min(self.nx-1)][j].d
+                    self.au[i.min(self.nx-1)][j].d.clone()
                 };
                 
                 // Rhie-Chow correction
@@ -403,16 +403,16 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
         for i in 0..self.nx {
             for j in 1..self.ny {
                 // Linear interpolation
-                let v_avg = (self.u_star[i][j-1].y + self.u_star[i][j].y) / T::from_f64(2.0).unwrap();
+                let v_avg = (self.u_star[i][j-1].y.clone() + self.u_star[i][j].y.clone()) / T::from_f64(2.0).unwrap();
                 
                 // Pressure gradient at face
-                let dp_dy_face = (self.p[i][j] - self.p[i][j-1]) / dy;
+                let dp_dy_face = (self.p[i][j].clone() - self.p[i][j-1].clone()) / dy.clone();
                 
                 // Average of d coefficients
                 let d_avg = if j > 0 && j < self.ny {
-                    (self.av[i][j-1].d + self.av[i][j].d) / T::from_f64(2.0).unwrap()
+                    (self.av[i][j-1].d.clone() + self.av[i][j].d.clone()) / T::from_f64(2.0).unwrap()
                 } else {
-                    self.av[i][j.min(self.ny-1)].d
+                    self.av[i][j.min(self.ny-1)].d.clone()
                 };
                 
                 // Rhie-Chow correction
@@ -450,57 +450,57 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
                     
                     // East coefficient and flux
                     if i < self.nx - 1 {
-                        let de = self.rho * self.au[i][j].d * dy / dx;
-                        matrix_builder.add_entry(idx, idx + 1, -de)?;
-                        ap += de;
+                        let de = self.rho.clone() * self.au[i][j].d.clone() * dy.clone() / dx.clone();
+                        matrix_builder.add_entry(idx, idx + 1, -de.clone())?;
+                        ap = ap + de;
                         
                         // Mass flux through east face (using predicted velocity)
                         if self.config.use_rhie_chow {
-                            source -= self.rho * self.u_face_e[i+1][j] * dy;
+                            source = source - self.rho.clone() * self.u_face_e[i+1][j].clone() * dy.clone();
                         } else {
-                            source -= self.rho * self.u_star[i][j].x * dy;
+                            source = source - self.rho.clone() * self.u_star[i][j].x.clone() * dy.clone();
                         }
                     }
                     
                     // West coefficient and flux
                     if i > 0 {
-                        let dw = self.rho * self.au[i][j].d * dy / dx;
-                        matrix_builder.add_entry(idx, idx - 1, -dw)?;
-                        ap += dw;
+                        let dw = self.rho.clone() * self.au[i][j].d.clone() * dy.clone() / dx.clone();
+                        matrix_builder.add_entry(idx, idx - 1, -dw.clone())?;
+                        ap = ap + dw;
                         
                         // Mass flux through west face
                         if self.config.use_rhie_chow {
-                            source += self.rho * self.u_face_e[i][j] * dy;
+                            source = source + self.rho.clone() * self.u_face_e[i][j].clone() * dy.clone();
                         } else {
-                            source += self.rho * self.u_star[i-1][j].x * dy;
+                            source = source + self.rho.clone() * self.u_star[i-1][j].x.clone() * dy.clone();
                         }
                     }
                     
                     // North coefficient and flux
                     if j < self.ny - 1 {
-                        let dn = self.rho * self.av[i][j].d * dx / dy;
-                        matrix_builder.add_entry(idx, idx + self.nx, -dn)?;
-                        ap += dn;
+                        let dn = self.rho.clone() * self.av[i][j].d.clone() * dx.clone() / dy.clone();
+                        matrix_builder.add_entry(idx, idx + self.nx, -dn.clone())?;
+                        ap = ap + dn;
                         
                         // Mass flux through north face
                         if self.config.use_rhie_chow {
-                            source -= self.rho * self.u_face_n[i][j+1] * dx;
+                            source = source - self.rho.clone() * self.u_face_n[i][j+1].clone() * dx.clone();
                         } else {
-                            source -= self.rho * self.u_star[i][j].y * dx;
+                            source = source - self.rho.clone() * self.u_star[i][j].y.clone() * dx.clone();
                         }
                     }
                     
                     // South coefficient and flux
                     if j > 0 {
-                        let ds = self.rho * self.av[i][j].d * dx / dy;
-                        matrix_builder.add_entry(idx, idx - self.nx, -ds)?;
-                        ap += ds;
+                        let ds = self.rho.clone() * self.av[i][j].d.clone() * dx.clone() / dy.clone();
+                        matrix_builder.add_entry(idx, idx - self.nx, -ds.clone())?;
+                        ap = ap + ds;
                         
                         // Mass flux through south face
                         if self.config.use_rhie_chow {
-                            source += self.rho * self.u_face_n[i][j] * dx;
+                            source = source + self.rho.clone() * self.u_face_n[i][j].clone() * dx.clone();
                         } else {
-                            source += self.rho * self.u_star[i][j-1].y * dx;
+                            source = source + self.rho.clone() * self.u_star[i][j-1].y.clone() * dx.clone();
                         }
                     }
                     
@@ -523,7 +523,7 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
         for i in 0..self.nx {
             for j in 0..self.ny {
                 let idx = j * self.nx + i;
-                self.p_prime[i][j] = solution[idx];
+                self.p_prime[i][j] = solution[idx].clone();
             }
         }
         
@@ -537,7 +537,7 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
         // Correct pressure with under-relaxation
         for i in 0..self.nx {
             for j in 0..self.ny {
-                self.p[i][j] = self.p[i][j] + self.config.alpha_p * self.p_prime[i][j];
+                self.p[i][j] = self.p[i][j].clone() + self.config.alpha_p.clone() * self.p_prime[i][j].clone();
             }
         }
         
@@ -545,16 +545,16 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
                 // Pressure correction gradients
-                let dp_dx = (self.p_prime[i+1][j] - self.p_prime[i-1][j]) / (T::from_f64(2.0).unwrap() * dx);
-                let dp_dy = (self.p_prime[i][j+1] - self.p_prime[i][j-1]) / (T::from_f64(2.0).unwrap() * dy);
+                let dp_dx = (self.p_prime[i+1][j].clone() - self.p_prime[i-1][j].clone()) / (T::from_f64(2.0).unwrap() * dx.clone());
+                let dp_dy = (self.p_prime[i][j+1].clone() - self.p_prime[i][j-1].clone()) / (T::from_f64(2.0).unwrap() * dy.clone());
                 
                 // Velocity corrections
-                let u_correction = -self.au[i][j].d * dp_dx;
-                let v_correction = -self.av[i][j].d * dp_dy;
+                let u_correction = -self.au[i][j].d.clone() * dp_dx;
+                let v_correction = -self.av[i][j].d.clone() * dp_dy;
                 
                 // Update velocities (already includes relaxation from predictor step)
-                self.u[i][j].x = self.u_star[i][j].x + u_correction;
-                self.u[i][j].y = self.u_star[i][j].y + v_correction;
+                self.u[i][j].x = self.u_star[i][j].x.clone() + u_correction;
+                self.u[i][j].y = self.u_star[i][j].y.clone() + v_correction;
             }
         }
         
@@ -602,8 +602,8 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
         // Check continuity residual
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
-                let div_u = (self.u[i+1][j].x - self.u[i-1][j].x) / T::from_f64(0.02).unwrap() +
-                           (self.u[i][j+1].y - self.u[i][j-1].y) / T::from_f64(0.02).unwrap();
+                let div_u = (self.u[i+1][j].x.clone() - self.u[i-1][j].x.clone()) / T::from_f64(0.02).unwrap() +
+                           (self.u[i][j+1].y.clone() - self.u[i][j-1].y.clone()) / T::from_f64(0.02).unwrap();
                 max_residual = max_residual.max(div_u.abs());
             }
         }
