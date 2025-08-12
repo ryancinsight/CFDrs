@@ -401,7 +401,7 @@ impl<T: RealField + Float> GMRES<T> {
         beta: T,
         restart: usize,
     ) -> Result<DVector<T>> {
-        let n = r.len();
+        let _n = r.len();
         
         // Initialize Krylov subspace basis
         let mut q = Vec::with_capacity(restart + 1);
@@ -673,7 +673,7 @@ impl<T: RealField + Debug> LinearSolver<T> for BiCGSTAB<T> {
         let mut p = DVector::zeros(n);
         let mut v = DVector::zeros(n);
         let mut s = DVector::zeros(n);
-        let mut t = DVector::zeros(n);
+        let mut t: DVector<T> = DVector::zeros(n);
 
         for iter in 0..self.config.max_iterations() {
             let rho_new = r0_hat.dot(&r);

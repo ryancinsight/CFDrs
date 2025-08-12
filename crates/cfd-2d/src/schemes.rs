@@ -3,10 +3,9 @@
 //! This module provides various discretization schemes for spatial and temporal
 //! derivatives in 2D computational fluid dynamics.
 
-use nalgebra::{DMatrix, DVector, RealField};
+use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
 use cfd_core::Error;
-use std::ops::{Index, IndexMut};
 use serde::{Deserialize, Serialize};
 
 /// Named constants for scheme parameters

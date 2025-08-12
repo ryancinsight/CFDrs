@@ -16,14 +16,14 @@
 //! 4. Correct pressure and velocity fields
 //! 5. Check convergence, repeat if necessary
 
-use cfd_core::{Result, BoundaryCondition, SolverConfiguration, Error};
+use cfd_core::{Result, BoundaryCondition, SolverConfiguration};
 use cfd_math::{SparseMatrixBuilder, LinearSolver, LinearSolverConfig, ConjugateGradient, BiCGSTAB};
 use nalgebra::{DVector, RealField, Vector2};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::grid::{Grid2D, StructuredGrid2D};
+use crate::grid::StructuredGrid2D;
 use crate::schemes::{SpatialScheme, FiniteDifference, FluxLimiter};
 
 /// Constants for SIMPLE algorithm
@@ -902,6 +902,7 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use crate::grid::Grid2D;
     use cfd_core::BoundaryCondition;
     use nalgebra::Vector2;
     use std::collections::HashMap;

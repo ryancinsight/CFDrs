@@ -4,9 +4,9 @@
 //! using mixed velocity-pressure formulation with appropriate stabilization.
 
 use cfd_core::{Error, Result};
-use cfd_math::{LinearSolver, LinearSolverConfig, ConjugateGradient, SparseMatrixBuilder};
-use cfd_mesh::{Mesh, Cell, Vertex, Face};
-use nalgebra::{RealField, Vector3, DVector, DMatrix, Matrix3, Point3};
+use cfd_math::LinearSolver;
+use cfd_mesh::Mesh;
+use nalgebra::{RealField, Vector3, DVector, DMatrix, Matrix3};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -628,6 +628,8 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use nalgebra::Point3;
+    use cfd_mesh::{Vertex, Face, Cell};
     
     #[test]
     fn test_fluid_properties() {

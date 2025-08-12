@@ -12,10 +12,7 @@ use std::collections::HashMap;
 use nalgebra::ComplexField;
 
 use cfd_2d::{
-    SimpleSolver, SimpleConfig, Grid2D, StructuredGrid2D, GridIterator,
-    LbmSolver, LbmConfig, D2Q9,
-    FdmConfig, PoissonSolver,
-    FvmSolver, FvmConfig, FluxScheme,
+    SimpleSolver, SimpleConfig, Grid2D, StructuredGrid2D,
     SpatialScheme,
 };
 
