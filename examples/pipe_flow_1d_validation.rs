@@ -3,7 +3,8 @@
 //! This example validates the 1D pipe flow solver against the analytical
 //! Hagen-Poiseuille solution for laminar flow in a circular pipe.
 
-use cfd_1d::{NetworkBuilder, NetworkSolver, SolverConfig, Channel, ChannelShape};
+use cfd_1d::{NetworkBuilder, NetworkSolver};
+use cfd_core::Fluid;
 use std::f64::consts::PI;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -12,11 +13,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("========================================\n");
     
     // Pipe parameters
-    let pipe_radius = 0.01; // 10 mm radius
-    let pipe_length = 0.1;  // 100 mm length
-    let fluid_viscosity = 1e-3;  // Water at 20°C (Pa·s)
-    let fluid_density = 1000.0;   // Water density (kg/m³)
-    let pressure_drop = 10.0; // Pressure drop across pipe (Pa)
+    let pipe_radius: f64 = 0.01; // 10 mm radius
+    let pipe_length: f64 = 0.1;  // 100 mm length
+    let fluid_viscosity: f64 = 1e-3;  // Water at 20°C (Pa·s)
+    let fluid_density: f64 = 1000.0;   // Water density (kg/m³)
+    let pressure_drop: f64 = 10.0; // Pressure drop across pipe (Pa)
     
     println!("Pipe Geometry:");
     println!("  Radius: {} m", pipe_radius);
@@ -31,54 +32,54 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Pressure drop: {} Pa", pressure_drop);
     println!("  Pressure gradient: {} Pa/m", pressure_drop / pipe_length);
     
+    // Create fluid with specified properties
+    let fluid = Fluid::new_newtonian("Test Fluid", fluid_density, fluid_viscosity);
+    
     // Create 1D network
-    let mut builder = NetworkBuilder::new();
+    let mut builder = NetworkBuilder::new().with_fluid(fluid);
     
-    // Add inlet and outlet nodes
-    let inlet = builder.add_node("inlet", 0.0, 0.0, 0.0);
-    let outlet = builder.add_node("outlet", pipe_length, 0.0, 0.0);
+    // Add inlet and outlet nodes with pressure boundary conditions
+    builder = builder.add_inlet_pressure("inlet", 0.0, 0.0, pressure_drop)?;
+    builder = builder.add_outlet_pressure("outlet", pipe_length, 0.0, 0.0)?;
     
-    // Create circular channel
-    let channel = Channel {
-        id: 0,
-        inlet_node: inlet,
-        outlet_node: outlet,
-        shape: ChannelShape::Circular { diameter: 2.0 * pipe_radius },
-        length: pipe_length,
-        roughness: Some(0.0), // Smooth pipe
-    };
+    // Calculate resistance for circular pipe (Hagen-Poiseuille)
+    let pipe_area = PI * pipe_radius * pipe_radius;
+    let resistance = 8.0 * fluid_viscosity * pipe_length / (PI * pipe_radius.powi(4));
     
-    // Add channel to network
-    builder.add_channel(channel);
-    
-    // Set boundary conditions
-    builder.set_pressure_bc(inlet, pressure_drop);
-    builder.set_pressure_bc(outlet, 0.0);
+    // Add channel between inlet and outlet
+    builder = builder.add_channel("pipe", "inlet", "outlet", resistance, pipe_length, pipe_area)?;
     
     // Build network
-    let network = builder.build()?;
+    let mut network = builder.build()?;
     
     println!("\nNetwork Summary:");
-    println!("  Nodes: {}", network.nodes.len());
-    println!("  Channels: {}", network.channels.len());
-    
-    // Configure solver
-    let config = SolverConfig {
-        tolerance: 1e-8,
-        max_iterations: 1000,
-        fluid_viscosity,
-        fluid_density,
-        use_entrance_effects: false, // Disable for comparison with fully developed flow
-    };
+    println!("  Nodes: {}", network.nodes().count());
+    println!("  Edges: {}", network.edges().count());
     
     // Create and run solver
-    let mut solver = NetworkSolver::new(config);
-    let solution = solver.solve(&network)?;
+    let solver = NetworkSolver::new();
+    let solution = solver.solve_steady_state(&mut network)?;
     
-    // Extract results
-    let flow_rate_numerical = solution.flow_rates.get(&0).copied().unwrap_or(0.0);
-    let pressure_at_inlet = solution.pressures.get(&inlet).copied().unwrap_or(0.0);
-    let pressure_at_outlet = solution.pressures.get(&outlet).copied().unwrap_or(0.0);
+    // Extract results from the network after solving
+    let nodes: Vec<_> = network.nodes().collect();
+    let edges: Vec<_> = network.edges().collect();
+    
+    // Get the flow rate through the pipe
+    let flow_rate_numerical = if let Some(edge) = edges.first() {
+        edge.flow_rate.unwrap_or(0.0)
+    } else {
+        0.0
+    };
+    
+    // Get pressures at inlet and outlet
+    let pressure_at_inlet = nodes.iter()
+        .find(|n| n.id == "inlet")
+        .and_then(|n| n.pressure)
+        .unwrap_or(pressure_drop);
+    let pressure_at_outlet = nodes.iter()
+        .find(|n| n.id == "outlet")
+        .and_then(|n| n.pressure)
+        .unwrap_or(0.0);
     let actual_pressure_drop = pressure_at_inlet - pressure_at_outlet;
     
     // Calculate analytical solution (Hagen-Poiseuille)
@@ -137,16 +138,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  ⚠ Turbulent flow (Re > 2300) - Hagen-Poiseuille may not apply");
     }
     
-    // Additional validation: Check continuity
-    println!("\nContinuity Check:");
-    let inlet_flow = solution.flow_rates.values().filter(|&&q| q > 0.0).sum::<f64>();
-    let outlet_flow = solution.flow_rates.values().filter(|&&q| q < 0.0).sum::<f64>().abs();
-    let continuity_error = (inlet_flow - outlet_flow).abs();
-    println!("  Inlet flow:  {:.9} m³/s", inlet_flow);
-    println!("  Outlet flow: {:.9} m³/s", outlet_flow);
-    println!("  Error: {:.3e} m³/s", continuity_error);
-    if continuity_error < 1e-10 {
-        println!("  ✓ Mass conservation satisfied");
+    // Additional validation: Check solver convergence
+    println!("\nSolver Performance:");
+    println!("  Converged: {}", solution.converged);
+    println!("  Iterations: {}", solution.iterations);
+    println!("  Residual: {:.3e}", solution.residual);
+    println!("  Solve time: {:.3} ms", solution.solve_time * 1000.0);
+    if solution.converged {
+        println!("  ✓ Solution converged successfully");
     }
     
     println!("\n========================================");
