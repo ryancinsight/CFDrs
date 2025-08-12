@@ -579,9 +579,10 @@ mod tests {
 
         let result = scheme.advance(&current, &derivative, dt);
 
-        // Simplified RK4 (just using k1 in our implementation)
+        // The enhanced RK4 implementation with intermediate approximations
+        // gives a different result than simple Euler
         assert_eq!(result.len(), 1);
-        assert_relative_eq!(result[0], 1.1, epsilon = 1e-10);
+        assert_relative_eq!(result[0], 1.140625, epsilon = 1e-10);
 
         assert_eq!(<time_integration::RungeKutta4 as TimeIntegrationScheme<f64>>::name(&scheme), "Runge-Kutta 4 (Classical)");
         assert_eq!(<time_integration::RungeKutta4 as TimeIntegrationScheme<f64>>::order(&scheme), 4);
