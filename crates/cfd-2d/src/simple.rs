@@ -139,6 +139,11 @@ pub struct SimpleSolver<T: RealField> {
 impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
     /// Create new SIMPLE solver
     pub fn new(config: SimpleConfig<T>, nx: usize, ny: usize) -> Self {
+        Self::new_with_properties(config, nx, ny, T::from_f64(1000.0).unwrap(), T::from_f64(0.001).unwrap())
+    }
+    
+    /// Create new SIMPLE solver with fluid properties
+    pub fn new_with_properties(config: SimpleConfig<T>, nx: usize, ny: usize, rho: T, mu: T) -> Self {
         let zero_vec = Vector2::zeros();
         
         Self {
@@ -153,8 +158,8 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
             av: vec![vec![CellCoefficients::new(); ny]; nx],
             u_face_e: vec![vec![T::zero(); ny]; nx + 1],
             u_face_n: vec![vec![T::zero(); ny + 1]; nx],
-            rho: T::from_f64(1000.0).unwrap(), // Water density
-            mu: T::from_f64(0.001).unwrap(),   // Water viscosity
+            rho,
+            mu,
         }
     }
 
@@ -595,6 +600,25 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
         Ok(())
     }
 
+    /// Solve the flow problem to convergence
+    pub fn solve(
+        &mut self,
+        grid: &StructuredGrid2D<T>,
+        boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
+    ) -> Result<()> {
+        let max_iter = self.config.base.max_iterations();
+        
+        for _iter in 0..max_iter {
+            self.solve_step(grid, boundary_conditions)?;
+            
+            if self.check_convergence()? {
+                break;
+            }
+        }
+        
+        Ok(())
+    }
+    
     /// Check convergence
     pub fn check_convergence(&self) -> Result<bool> {
         let mut max_residual = T::zero();
