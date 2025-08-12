@@ -15,6 +15,8 @@ const DEFAULT_CFL_NUMBER: f64 = 0.3;
 const VOF_EPSILON: f64 = 1e-10;  // Small value to avoid division by zero
 const INTERFACE_THICKNESS: f64 = 1.5;  // Interface thickness in cells
 const PLIC_ITERATIONS: usize = 10;  // Iterations for PLIC reconstruction
+const VOF_INTERFACE_LOWER: f64 = 0.01;  // Lower bound for interface cells
+const VOF_INTERFACE_UPPER: f64 = 0.99;  // Upper bound for interface cells
 
 /// VOF configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -197,19 +199,21 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
                     let idx = self.index(i, j, k);
                     
                     // Only calculate curvature for interface cells
-                    if self.alpha[idx] > T::from_f64(0.01).unwrap() && 
-                       self.alpha[idx] < T::from_f64(0.99).unwrap() {
+                    let alpha_val = &self.alpha[idx];
+                    if *alpha_val > T::from_f64(VOF_INTERFACE_LOWER).unwrap() && 
+                       *alpha_val < T::from_f64(VOF_INTERFACE_UPPER).unwrap() {
                         
-                        // Divergence of normal vector field
-                        let dn_dx = (self.normals[self.index(i+1, j, k)][0].clone() 
-                            - self.normals[self.index(i-1, j, k)][0].clone()) 
-                            / (T::from_f64(2.0).unwrap() * self.dx.clone());
-                        let dn_dy = (self.normals[self.index(i, j+1, k)][1].clone() 
-                            - self.normals[self.index(i, j-1, k)][1].clone()) 
-                            / (T::from_f64(2.0).unwrap() * self.dy.clone());
-                        let dn_dz = (self.normals[self.index(i, j, k+1)][2].clone() 
-                            - self.normals[self.index(i, j, k-1)][2].clone()) 
-                            / (T::from_f64(2.0).unwrap() * self.dz.clone());
+                        // Divergence of normal vector field using central differences
+                        let two_dx = T::from_f64(2.0).unwrap() * self.dx.clone();
+                        let two_dy = T::from_f64(2.0).unwrap() * self.dy.clone();
+                        let two_dz = T::from_f64(2.0).unwrap() * self.dz.clone();
+                        
+                        let dn_dx = (self.normals[self.index(i+1, j, k)].x.clone() 
+                            - self.normals[self.index(i-1, j, k)].x.clone()) / two_dx;
+                        let dn_dy = (self.normals[self.index(i, j+1, k)].y.clone() 
+                            - self.normals[self.index(i, j-1, k)].y.clone()) / two_dy;
+                        let dn_dz = (self.normals[self.index(i, j, k+1)].z.clone() 
+                            - self.normals[self.index(i, j, k-1)].z.clone()) / two_dz;
                         
                         self.curvature[idx] = -(dn_dx + dn_dy + dn_dz);
                     } else {
@@ -445,10 +449,76 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
             if normal.norm() > T::from_f64(VOF_EPSILON).unwrap() {
                 // Compression velocity proportional to interface normal
                 let c_alpha = T::one();  // Compression coefficient
-                let _u_c = normal.clone() * c_alpha;
+                let u_c = normal.clone() * c_alpha;
+                
+                // Compute compression flux divergence
+                // Using upwind scheme for compression term
+                let i = idx % self.nx;
+                let j = (idx / self.nx) % self.ny;
+                let k = idx / (self.nx * self.ny);
+                let mut compression_term = T::zero();
+                
+                // X-direction compression flux
+                if i > 0 && i < self.nx - 1 {
+                    let idx_right = idx + 1;
+                    let idx_left = idx - 1;
+                    
+                    let flux_right = if u_c.x > T::zero() {
+                        u_c.x.clone() * self.alpha[idx].clone()
+                    } else {
+                        u_c.x.clone() * self.alpha[idx_right].clone()
+                    };
+                    
+                    let flux_left = if u_c.x > T::zero() {
+                        u_c.x.clone() * self.alpha[idx_left].clone()
+                    } else {
+                        u_c.x.clone() * self.alpha[idx].clone()
+                    };
+                    
+                    compression_term = compression_term + (flux_right - flux_left) / self.dx.clone();
+                }
+                
+                // Y-direction compression flux
+                if j > 0 && j < self.ny - 1 {
+                    let idx_up = idx + self.nx;
+                    let idx_down = idx - self.nx;
+                    
+                    let flux_up = if u_c.y > T::zero() {
+                        u_c.y.clone() * self.alpha[idx].clone()
+                    } else {
+                        u_c.y.clone() * self.alpha[idx_up].clone()
+                    };
+                    
+                    let flux_down = if u_c.y > T::zero() {
+                        u_c.y.clone() * self.alpha[idx_down].clone()
+                    } else {
+                        u_c.y.clone() * self.alpha[idx].clone()
+                    };
+                    
+                    compression_term = compression_term + (flux_up - flux_down) / self.dy.clone();
+                }
+                
+                // Z-direction compression flux
+                if k > 0 && k < self.nz - 1 {
+                    let idx_top = idx + self.nx * self.ny;
+                    let idx_bottom = idx - self.nx * self.ny;
+                    
+                    let flux_top = if u_c.z > T::zero() {
+                        u_c.z.clone() * self.alpha[idx].clone()
+                    } else {
+                        u_c.z.clone() * self.alpha[idx_top].clone()
+                    };
+                    
+                    let flux_bottom = if u_c.z > T::zero() {
+                        u_c.z.clone() * self.alpha[idx_bottom].clone()
+                    } else {
+                        u_c.z.clone() * self.alpha[idx].clone()
+                    };
+                    
+                    compression_term = compression_term + (flux_top - flux_bottom) / self.dz.clone();
+                }
                 
                 // Apply compression flux
-                let compression_term = T::zero();  // Simplified for now
                 self.alpha[idx] = self.alpha[idx].clone() - dt * compression_term;
             }
         }

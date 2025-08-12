@@ -12,6 +12,10 @@ pub const EPSILON_F64: f64 = 1e-10;
 pub const SMALL_NUMBER: f64 = 1e-14;
 /// Default convergence tolerance
 pub const DEFAULT_TOLERANCE: f64 = 1e-6;
+/// Minimum volume tolerance for element validity
+pub const VOLUME_TOLERANCE: f64 = 1e-10;
+/// Tolerance for shape function tests
+pub const SHAPE_FUNCTION_TOLERANCE: f64 = 1e-12;
 
 // Mesh quality thresholds
 /// Minimum acceptable mesh quality (0-1 scale)
@@ -30,6 +34,14 @@ pub const TETRAHEDRON_VERTICES: usize = 4;
 pub const TETRAHEDRON_FACES: usize = 4;
 /// Number of edges in a tetrahedron
 pub const TETRAHEDRON_EDGES: usize = 6;
+
+// FEM integration constants
+/// Gauss point coordinate for tetrahedral centroid
+pub const TETRAHEDRON_GAUSS_POINT: f64 = 0.25;
+/// Gauss weight for single-point tetrahedral integration
+pub const TETRAHEDRON_GAUSS_WEIGHT: f64 = 1.0 / 6.0;
+/// Factor of 2 for material properties
+pub const TWO_FACTOR: f64 = 2.0;
 
 // Golden ratio for icosahedron generation
 /// Golden ratio value
@@ -76,4 +88,19 @@ pub fn golden_ratio<T: RealField>() -> T {
 /// Get ray intersection epsilon for type T
 pub fn ray_intersection_epsilon<T: RealField>() -> T {
     T::from_f64(RAY_INTERSECTION_EPSILON).unwrap_or_else(T::default_epsilon)
+}
+
+/// Get tetrahedral Gauss point coordinate for type T
+pub fn tetrahedron_gauss_point<T: RealField>() -> T {
+    T::from_f64(TETRAHEDRON_GAUSS_POINT).unwrap()
+}
+
+/// Get tetrahedral Gauss weight for type T
+pub fn tetrahedron_gauss_weight<T: RealField>() -> T {
+    T::from_f64(TETRAHEDRON_GAUSS_WEIGHT).unwrap()
+}
+
+/// Get factor of two for type T
+pub fn two<T: RealField>() -> T {
+    T::from_f64(TWO_FACTOR).unwrap()
 }

@@ -30,7 +30,6 @@ pub enum RefinementError {
 }
 
 /// Refinement criteria for adaptive mesh refinement
-#[derive(Debug)]
 pub enum RefinementCriterion<T: RealField> {
     /// Refine based on solution gradient
     Gradient {
@@ -49,6 +48,26 @@ pub enum RefinementCriterion<T: RealField> {
     },
     /// Custom refinement function
     Custom(Box<dyn Fn(&Cell, &[Vertex<T>]) -> bool + Send + Sync>),
+}
+
+impl<T: RealField> std::fmt::Debug for RefinementCriterion<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Gradient { field, threshold } => f.debug_struct("Gradient")
+                .field("field_len", &field.len())
+                .field("threshold", threshold)
+                .finish(),
+            Self::Error { error_field, threshold } => f.debug_struct("Error")
+                .field("error_field_len", &error_field.len())
+                .field("threshold", threshold)
+                .finish(),
+            Self::Geometric { curvature_threshold, feature_angle } => f.debug_struct("Geometric")
+                .field("curvature_threshold", curvature_threshold)
+                .field("feature_angle", feature_angle)
+                .finish(),
+            Self::Custom(_) => f.debug_struct("Custom").finish(),
+        }
+    }
 }
 
 /// Mesh refinement strategy
@@ -112,6 +131,21 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
             config,
             refinement_levels: HashMap::new(),
         }
+    }
+    
+    /// Build vertex lookup map for O(1) access
+    fn build_vertex_map<'a>(mesh: &'a Mesh<T>) -> HashMap<usize, &'a Vertex<T>> {
+        mesh.vertices.iter().map(|v| (v.id, v)).collect()
+    }
+    
+    /// Build face lookup map for O(1) access
+    fn build_face_map<'a>(mesh: &'a Mesh<T>) -> HashMap<usize, &'a Face> {
+        mesh.faces.iter().map(|f| (f.id, f)).collect()
+    }
+    
+    /// Build cell lookup map for O(1) access
+    fn build_cell_map<'a>(mesh: &'a Mesh<T>) -> HashMap<usize, &'a Cell> {
+        mesh.cells.iter().map(|c| (c.id, c)).collect()
     }
     
     /// Refine mesh based on criteria
@@ -266,9 +300,9 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         
         for &cell_id in cells_to_refine {
             // Check refinement level
-            let level = self.refinement_levels.get(&cell_id).unwrap_or(&0);
-            if *level >= self.config.max_level {
-                return Err(RefinementError::MaxLevelReached(*level));
+            let level = *self.refinement_levels.get(&cell_id).unwrap_or(&0);
+            if level >= self.config.max_level {
+                return Err(RefinementError::MaxLevelReached(level));
             }
             
             // Find the cell
@@ -290,12 +324,13 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                 
                 new_vertices.extend(refined.0);
                 new_faces.extend(refined.1);
-                new_cells.extend(refined.2);
                 
-                // Update refinement levels
+                // Update refinement levels before moving cells
                 for new_cell in &refined.2 {
                     self.refinement_levels.insert(new_cell.id, level + 1);
                 }
+                
+                new_cells.extend(refined.2);
             }
         }
         
@@ -408,11 +443,12 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         let mut midpoints = Vec::new();
         let two = T::from_f64(2.0).unwrap();
         
-        for i in 0..vertices.len() {
-            for j in i+1..vertices.len() {
+        // Use iterator combinators for midpoint calculation
+        for (i, v1) in vertices.iter().enumerate() {
+            for v2 in vertices.iter().skip(i + 1) {
                 let mid = Point3::from(
-                    (vertices[i].position.coords.clone() + 
-                     vertices[j].position.coords.clone()) / two.clone()
+                    (v1.position.coords.clone() + 
+                     v2.position.coords.clone()) / two.clone()
                 );
                 midpoints.push(mid);
             }
@@ -438,8 +474,8 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                 let neighbors = self.find_cell_neighbors(mesh, cell_id);
                 
                 for neighbor_id in neighbors {
-                    let cell_level = self.refinement_levels.get(&cell_id).unwrap_or(&0);
-                    let neighbor_level = self.refinement_levels.get(&neighbor_id).unwrap_or(&0);
+                    let cell_level = *self.refinement_levels.get(&cell_id).unwrap_or(&0);
+                    let neighbor_level = *self.refinement_levels.get(&neighbor_id).unwrap_or(&0);
                     
                     // Enforce 2:1 rule
                     if cell_level > neighbor_level + 1 {
@@ -511,10 +547,14 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
     
     /// Compute cell gradient
     fn compute_cell_gradient(&self, mesh: &Mesh<T>, cell: &Cell, field: &[T]) -> T {
+        // Build lookup maps for O(1) access
+        let face_map = Self::build_face_map(mesh);
+        let vertex_map = Self::build_vertex_map(mesh);
+        
         // Get cell vertices
-        let mut vertex_ids = HashSet::new();
+        let mut vertex_ids: HashSet<usize> = HashSet::new();
         for &face_id in &cell.faces {
-            if let Some(face) = mesh.faces.iter().find(|f| f.id == face_id) {
+            if let Some(face) = face_map.get(&face_id) {
                 vertex_ids.extend(&face.vertices);
             }
         }
@@ -525,15 +565,16 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         
         for &id1 in &vertex_ids {
             for &id2 in &vertex_ids {
-                if id1 < id2 {
-                    let v1 = &mesh.vertices[id1];
-                    let v2 = &mesh.vertices[id2];
-                    let dist = (v1.position - v2.position).norm();
-                    
-                    if dist > T::zero() {
-                        let df = (field[id2].clone() - field[id1].clone()).abs();
-                        grad_mag = grad_mag + df / dist;
-                        count += 1;
+                if id1 < id2 && id1 < field.len() && id2 < field.len() {
+                    if let (Some(&v1), Some(&v2)) = (vertex_map.get(&id1), vertex_map.get(&id2)) {
+                        let diff = &v2.position - &v1.position;
+                        let dist = diff.norm();
+                        
+                        if dist > T::zero() {
+                            let df = (field[id2].clone() - field[id1].clone()).abs();
+                            grad_mag = grad_mag + df / dist;
+                            count += 1;
+                        }
                     }
                 }
             }
@@ -546,47 +587,136 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         }
     }
     
-    /// Compute cell curvature
+    /// Compute cell curvature based on face normal variations
     fn compute_cell_curvature(&self, mesh: &Mesh<T>, cell: &Cell) -> T {
-        // Compute curvature based on face normals
-        // This is a placeholder implementation
-        T::zero()
+        // Build lookup map for faces
+        let face_map = Self::build_face_map(mesh);
+        
+        // Collect face normals
+        let mut normals = Vec::new();
+        for &face_id in &cell.faces {
+            if let Some(face) = face_map.get(&face_id) {
+                if let Some(normal) = self.compute_face_normal(mesh, face) {
+                    normals.push(normal);
+                }
+            }
+        }
+        
+        if normals.len() < 2 {
+            return T::zero();
+        }
+        
+        // Compute maximum curvature as the maximum angle between normals
+        let mut max_curvature = T::zero();
+        for i in 0..normals.len() {
+            for j in i+1..normals.len() {
+                let dot_product = normals[i].dot(&normals[j]);
+                // Clamp to [-1, 1] to avoid numerical issues with acos
+                let clamped = dot_product.max(-T::one()).min(T::one());
+                let angle = clamped.acos();
+                max_curvature = max_curvature.max(angle);
+            }
+        }
+        
+        max_curvature
     }
     
-    /// Compute feature angle
+    /// Compute feature angle as maximum angle between adjacent face normals
     fn compute_feature_angle(&self, mesh: &Mesh<T>, cell: &Cell) -> T {
-        // Compute maximum angle between face normals
-        // This is a placeholder implementation
-        T::zero()
+        // Build lookup map for faces
+        let face_map = Self::build_face_map(mesh);
+        
+        // Build adjacency information
+        let mut face_pairs = Vec::new();
+        for i in 0..cell.faces.len() {
+            for j in i+1..cell.faces.len() {
+                let face1_id = cell.faces[i];
+                let face2_id = cell.faces[j];
+                
+                // Check if faces share an edge (are adjacent)
+                if let (Some(face1), Some(face2)) = (face_map.get(&face1_id), face_map.get(&face2_id)) {
+                    let shared_vertices: Vec<_> = face1.vertices.iter()
+                        .filter(|v| face2.vertices.contains(v))
+                        .collect();
+                    
+                    // Two faces share an edge if they have exactly 2 vertices in common
+                    if shared_vertices.len() == 2 {
+                        face_pairs.push((face1, face2));
+                    }
+                }
+            }
+        }
+        
+        // Compute maximum angle between adjacent faces
+        let mut max_angle = T::zero();
+        for (face1, face2) in face_pairs {
+            if let (Some(n1), Some(n2)) = (
+                self.compute_face_normal(mesh, face1),
+                self.compute_face_normal(mesh, face2)
+            ) {
+                let dot_product = n1.dot(&n2);
+                let clamped = dot_product.max(-T::one()).min(T::one());
+                let angle = clamped.acos();
+                max_angle = max_angle.max(angle);
+            }
+        }
+        
+        max_angle
+    }
+    
+    /// Helper: Compute face normal
+    fn compute_face_normal(&self, mesh: &Mesh<T>, face: &Face) -> Option<Vector3<T>> {
+        let vertex_map = Self::build_vertex_map(mesh);
+        
+        if face.vertices.len() < 3 {
+            return None;
+        }
+        
+        // Get first three vertices to compute normal
+        let v0 = vertex_map.get(&face.vertices[0])?;
+        let v1 = vertex_map.get(&face.vertices[1])?;
+        let v2 = vertex_map.get(&face.vertices[2])?;
+        
+        // Compute normal using cross product
+        let e1 = &v1.position - &v0.position;
+        let e2 = &v2.position - &v0.position;
+        let normal = e1.cross(&e2);
+        
+        // Normalize if non-zero
+        let norm = normal.norm();
+        if norm > T::zero() {
+            Some(normal / norm)
+        } else {
+            None
+        }
     }
     
     /// Compute cell size
     fn compute_cell_size(&self, mesh: &Mesh<T>, cell: &Cell) -> T {
-        // Compute characteristic size (e.g., longest edge)
-        let mut max_size = T::zero();
+        // Build lookup maps for O(1) access
+        let face_map = Self::build_face_map(mesh);
+        let vertex_map = Self::build_vertex_map(mesh);
         
         // Get cell vertices
         let mut vertex_ids = HashSet::new();
         for &face_id in &cell.faces {
-            if let Some(face) = mesh.faces.iter().find(|f| f.id == face_id) {
+            if let Some(face) = face_map.get(&face_id) {
                 vertex_ids.extend(&face.vertices);
             }
         }
         
         let vertices: Vec<&Vertex<T>> = vertex_ids.iter()
-            .filter_map(|id: &usize| mesh.vertices.iter().find(|v| v.id == *id))
+            .filter_map(|id| vertex_map.get(id).copied())
             .collect();
         
-        for i in 0..vertices.len() {
-            for j in i+1..vertices.len() {
-                let dist = (vertices[i].position - vertices[j].position).norm();
-                if dist > max_size {
-                    max_size = dist;
-                }
-            }
-        }
-        
-        max_size
+        // Use iterator combinators to find maximum distance
+        vertices.iter().enumerate()
+            .flat_map(|(i, v1)| {
+                vertices.iter()
+                    .skip(i + 1)
+                    .map(move |v2| (&v1.position - &v2.position).norm())
+            })
+            .fold(T::zero(), T::max)
     }
     
     /// Smooth mesh after refinement
