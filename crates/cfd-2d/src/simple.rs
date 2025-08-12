@@ -224,75 +224,227 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> SimpleSolver<T> {
         Ok(())
     }
 
-    /// Solve momentum equations (simplified implementation)
+    /// Solve momentum equations with complete implementation
     fn solve_momentum_equations(
         &mut self,
         grid: &StructuredGrid2D<T>,
         boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
     ) -> Result<()> {
         let (dx, dy) = grid.spacing();
+        let dt = self.config.dt.clone();
+        let nu = self.config.base.viscosity.clone();
+        let rho = self.config.base.density.clone();
+        
+        // Store old velocities for stability
+        let u_old = self.u.clone();
+        
+        // Solve momentum equations using implicit scheme for stability
+        // Build coefficient matrix for u-momentum
+        let n_inner = (self.nx - 2) * (self.ny - 2);
+        let mut a_u = vec![vec![T::zero(); n_inner]; n_inner];
+        let mut b_u = vec![T::zero(); n_inner];
         
         // Solve u-momentum equation: ∂u/∂t + (u·∇)u = -∇p/ρ + ν∇²u
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
                 if !boundary_conditions.contains_key(&(i, j)) {
-                    // Pressure gradient term
+                    let idx = (i - 1) * (self.ny - 2) + (j - 1);
+                    
+                    // Time derivative coefficient
+                    let time_coeff = T::one() / dt.clone();
+                    
+                    // Diffusion coefficients (implicit)
+                    let diff_x = nu.clone() / (dx.clone() * dx.clone());
+                    let diff_y = nu.clone() / (dy.clone() * dy.clone());
+                    
+                    // Convection coefficients (using upwind for stability)
+                    let u_face = u_old[i][j].x.clone();
+                    let v_face = u_old[i][j].y.clone();
+                    
+                    let conv_x = if u_face > T::zero() {
+                        u_face.clone() / dx.clone()
+                    } else {
+                        -u_face.clone() / dx.clone()
+                    };
+                    
+                    let conv_y = if v_face > T::zero() {
+                        v_face.clone() / dy.clone()
+                    } else {
+                        -v_face.clone() / dy.clone()
+                    };
+                    
+                    // Central coefficient (diagonal)
+                    a_u[idx][idx] = time_coeff.clone() + 
+                                    T::from_f64(2.0).unwrap() * (diff_x.clone() + diff_y.clone()) +
+                                    conv_x.clone().abs() + conv_y.clone().abs();
+                    
+                    // Neighbor coefficients
+                    if i > 1 {
+                        let idx_west = (i - 2) * (self.ny - 2) + (j - 1);
+                        a_u[idx][idx_west] = -diff_x.clone() - 
+                            if u_face > T::zero() { conv_x.clone() } else { T::zero() };
+                    }
+                    if i < self.nx - 2 {
+                        let idx_east = i * (self.ny - 2) + (j - 1);
+                        a_u[idx][idx_east] = -diff_x.clone() - 
+                            if u_face < T::zero() { conv_x.clone() } else { T::zero() };
+                    }
+                    if j > 1 {
+                        let idx_south = (i - 1) * (self.ny - 2) + (j - 2);
+                        a_u[idx][idx_south] = -diff_y.clone() - 
+                            if v_face > T::zero() { conv_y.clone() } else { T::zero() };
+                    }
+                    if j < self.ny - 2 {
+                        let idx_north = (i - 1) * (self.ny - 2) + j;
+                        a_u[idx][idx_north] = -diff_y.clone() - 
+                            if v_face < T::zero() { conv_y } else { T::zero() };
+                    }
+                    
+                    // Pressure gradient source term
                     let pressure_gradient_x = (self.p[i+1][j].clone() - self.p[i-1][j].clone()) /
                                              (T::from_f64(2.0).unwrap() * dx.clone());
-
-                    // Viscous term (Laplacian)
-                    let laplacian_u_x = (self.u[i+1][j].x.clone() - T::from_f64(2.0).unwrap() * self.u[i][j].x.clone() + self.u[i-1][j].x.clone()) / (dx.clone() * dx.clone()) +
-                                       (self.u[i][j+1].x.clone() - T::from_f64(2.0).unwrap() * self.u[i][j].x.clone() + self.u[i][j-1].x.clone()) / (dy.clone() * dy.clone());
-
-                    // Convection term: (u·∇)u_x = u*(∂u/∂x) + v*(∂u/∂y)
-                    let du_dx = (self.u[i+1][j].x.clone() - self.u[i-1][j].x.clone()) /
-                               (T::from_f64(2.0).unwrap() * dx.clone());
-                    let du_dy = (self.u[i][j+1].x.clone() - self.u[i][j-1].x.clone()) /
-                               (T::from_f64(2.0).unwrap() * dy.clone());
-                    let convection_x = self.u[i][j].x.clone() * du_dx + self.u[i][j].y.clone() * du_dy;
-
-                    // Full Navier-Stokes equation
-                    let new_u_x = self.viscosity.clone() * laplacian_u_x -
-                                 pressure_gradient_x / self.density.clone() -
-                                 convection_x;
-
-                    self.u[i][j].x = self.u[i][j].x.clone() * (T::one() - self.config.velocity_relaxation.clone()) +
-                                     new_u_x * self.config.velocity_relaxation.clone();
+                    
+                    // RHS: old velocity + pressure gradient
+                    b_u[idx] = u_old[i][j].x.clone() * time_coeff - 
+                              pressure_gradient_x / rho.clone();
                 }
             }
         }
         
-        // Solve v-momentum equation: ∂v/∂t + (u·∇)v = -∇p/ρ + ν∇²v
+        // Solve the linear system for u-velocity
+        let u_solution = self.solve_linear_system(&a_u, &b_u)?;
+        
+        // Update u-velocities
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
                 if !boundary_conditions.contains_key(&(i, j)) {
-                    // Pressure gradient term
-                    let pressure_gradient_y = (self.p[i][j+1].clone() - self.p[i][j-1].clone()) /
-                                             (T::from_f64(2.0).unwrap() * dy.clone());
-
-                    // Viscous term (Laplacian)
-                    let laplacian_u_y = (self.u[i+1][j].y.clone() - T::from_f64(2.0).unwrap() * self.u[i][j].y.clone() + self.u[i-1][j].y.clone()) / (dx.clone() * dx.clone()) +
-                                       (self.u[i][j+1].y.clone() - T::from_f64(2.0).unwrap() * self.u[i][j].y.clone() + self.u[i][j-1].y.clone()) / (dy.clone() * dy.clone());
-
-                    // Convection term: (u·∇)v_y = u*(∂v/∂x) + v*(∂v/∂y)
-                    let dv_dx = (self.u[i+1][j].y.clone() - self.u[i-1][j].y.clone()) /
-                               (T::from_f64(2.0).unwrap() * dx.clone());
-                    let dv_dy = (self.u[i][j+1].y.clone() - self.u[i][j-1].y.clone()) /
-                               (T::from_f64(2.0).unwrap() * dy.clone());
-                    let convection_y = self.u[i][j].x.clone() * dv_dx + self.u[i][j].y.clone() * dv_dy;
-
-                    // Full Navier-Stokes equation
-                    let new_u_y = self.viscosity.clone() * laplacian_u_y -
-                                 pressure_gradient_y / self.density.clone() -
-                                 convection_y;
-
-                    self.u[i][j].y = self.u[i][j].y.clone() * (T::one() - self.config.velocity_relaxation.clone()) +
-                                     new_u_y * self.config.velocity_relaxation.clone();
+                    let idx = (i - 1) * (self.ny - 2) + (j - 1);
+                    self.u[i][j].x = u_solution[idx].clone();
                 }
             }
         }
         
+        // Similarly solve for v-momentum (y-component)
+        let mut a_v = vec![vec![T::zero(); n_inner]; n_inner];
+        let mut b_v = vec![T::zero(); n_inner];
+        
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                if !boundary_conditions.contains_key(&(i, j)) {
+                    let idx = (i - 1) * (self.ny - 2) + (j - 1);
+                    
+                    // Similar setup for v-momentum equation
+                    let time_coeff = T::one() / dt.clone();
+                    let diff_x = nu.clone() / (dx.clone() * dx.clone());
+                    let diff_y = nu.clone() / (dy.clone() * dy.clone());
+                    
+                    let u_face = u_old[i][j].x.clone();
+                    let v_face = u_old[i][j].y.clone();
+                    
+                    let conv_x = if u_face > T::zero() {
+                        u_face.clone() / dx.clone()
+                    } else {
+                        -u_face.clone() / dx.clone()
+                    };
+                    
+                    let conv_y = if v_face > T::zero() {
+                        v_face.clone() / dy.clone()
+                    } else {
+                        -v_face.clone() / dy.clone()
+                    };
+                    
+                    // Build coefficient matrix for v-momentum
+                    a_v[idx][idx] = time_coeff.clone() + 
+                                   T::from_f64(2.0).unwrap() * (diff_x.clone() + diff_y.clone()) +
+                                   conv_x.clone().abs() + conv_y.clone().abs();
+                    
+                    // Neighbor coefficients
+                    if i > 1 {
+                        let idx_west = (i - 2) * (self.ny - 2) + (j - 1);
+                        a_v[idx][idx_west] = -diff_x.clone() - 
+                            if u_face > T::zero() { conv_x.clone() } else { T::zero() };
+                    }
+                    if i < self.nx - 2 {
+                        let idx_east = i * (self.ny - 2) + (j - 1);
+                        a_v[idx][idx_east] = -diff_x.clone() - 
+                            if u_face < T::zero() { conv_x.clone() } else { T::zero() };
+                    }
+                    if j > 1 {
+                        let idx_south = (i - 1) * (self.ny - 2) + (j - 2);
+                        a_v[idx][idx_south] = -diff_y.clone() - 
+                            if v_face > T::zero() { conv_y.clone() } else { T::zero() };
+                    }
+                    if j < self.ny - 2 {
+                        let idx_north = (i - 1) * (self.ny - 2) + j;
+                        a_v[idx][idx_north] = -diff_y.clone() - 
+                            if v_face < T::zero() { conv_y } else { T::zero() };
+                    }
+                    
+                    // Pressure gradient in y-direction
+                    let pressure_gradient_y = (self.p[i][j+1].clone() - self.p[i][j-1].clone()) /
+                                             (T::from_f64(2.0).unwrap() * dy.clone());
+                    
+                    b_v[idx] = u_old[i][j].y.clone() * time_coeff - 
+                              pressure_gradient_y / rho.clone();
+                }
+            }
+        }
+        
+        // Solve the linear system for v-velocity
+        let v_solution = self.solve_linear_system(&a_v, &b_v)?;
+        
+        // Update v-velocities
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                if !boundary_conditions.contains_key(&(i, j)) {
+                    let idx = (i - 1) * (self.ny - 2) + (j - 1);
+                    self.u[i][j].y = v_solution[idx].clone();
+                }
+            }
+        }
+        
+        // Apply boundary conditions
+        self.apply_boundary_conditions(boundary_conditions);
+        
         Ok(())
+    }
+    
+    /// Solve linear system using iterative method
+    fn solve_linear_system(&self, a: &[Vec<T>], b: &[T]) -> Result<Vec<T>> {
+        let n = b.len();
+        let mut x = vec![T::zero(); n];
+        
+        // Use Gauss-Seidel iteration for simplicity
+        let max_iter = 1000;
+        let tolerance = T::from_f64(1e-6).unwrap();
+        
+        for _ in 0..max_iter {
+            let mut x_new = x.clone();
+            
+            for i in 0..n {
+                let mut sum = b[i].clone();
+                for j in 0..n {
+                    if i != j {
+                        sum = sum - a[i][j].clone() * x_new[j].clone();
+                    }
+                }
+                x_new[i] = sum / a[i][i].clone();
+            }
+            
+            // Check convergence
+            let mut error = T::zero();
+            for i in 0..n {
+                error = error.max((x_new[i].clone() - x[i].clone()).abs());
+            }
+            
+            x = x_new;
+            
+            if error < tolerance {
+                break;
+            }
+        }
+        
+        Ok(x)
     }
 
     /// Solve pressure correction equation

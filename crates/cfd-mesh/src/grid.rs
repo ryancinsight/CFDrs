@@ -10,10 +10,32 @@ use std::f64::consts::PI;
 use thiserror::Error;
 
 /// Named constants for grid parameters
-const DEFAULT_MIN_SPACING: f64 = 1e-6;
-const DEFAULT_STRETCHING_RATIO: f64 = 1.1;
-const DEFAULT_SMOOTHING_ITERATIONS: usize = 10;
-const ORTHOGONALITY_TOLERANCE: f64 = 1e-3;
+mod constants {
+    use std::f64::consts::PI;
+    
+    /// Minimum allowed grid spacing
+    pub const DEFAULT_MIN_SPACING: f64 = 1e-6;
+    /// Default stretching ratio for non-uniform grids
+    pub const DEFAULT_STRETCHING_RATIO: f64 = 1.1;
+    /// Default number of smoothing iterations
+    pub const DEFAULT_SMOOTHING_ITERATIONS: usize = 10;
+    /// Tolerance for orthogonality checks
+    pub const ORTHOGONALITY_TOLERANCE: f64 = 1e-3;
+    /// Default grid spacing for uniform grids
+    pub const DEFAULT_UNIFORM_SPACING: f64 = 0.1;
+    /// Smoothing factor for Laplacian smoothing
+    pub const SMOOTHING_FACTOR: f64 = 0.5;
+    /// Amplitude for sinusoidal perturbations
+    pub const PERTURBATION_AMPLITUDE: f64 = 0.1;
+    /// Number of vertices per face for face center calculation
+    pub const VERTICES_PER_FACE: f64 = 4.0;
+    /// Frequency multiplier for sinusoidal functions
+    pub const TWO_PI: f64 = 2.0 * PI;
+    /// Midpoint value for normalized coordinates
+    pub const MIDPOINT: f64 = 2.0;
+    /// Normalization offset
+    pub const NORMALIZATION_OFFSET: f64 = -1.0;
+}
 
 /// Grid generation errors
 #[derive(Debug, Error)]
@@ -98,12 +120,12 @@ impl<T: RealField + FromPrimitive> Default for GridConfig<T> {
             ],
             coordinate_system: CoordinateSystem::Cartesian,
             spacing: [
-                GridSpacing::Uniform(T::from_f64(0.1).unwrap()),
-                GridSpacing::Uniform(T::from_f64(0.1).unwrap()),
-                GridSpacing::Uniform(T::from_f64(0.1).unwrap()),
+                GridSpacing::Uniform(T::from_f64(constants::DEFAULT_UNIFORM_SPACING).unwrap()),
+                GridSpacing::Uniform(T::from_f64(constants::DEFAULT_UNIFORM_SPACING).unwrap()),
+                GridSpacing::Uniform(T::from_f64(constants::DEFAULT_UNIFORM_SPACING).unwrap()),
             ],
             enable_smoothing: false,
-            smoothing_iterations: DEFAULT_SMOOTHING_ITERATIONS,
+            smoothing_iterations: constants::DEFAULT_SMOOTHING_ITERATIONS,
         }
     }
 }
@@ -612,8 +634,77 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
     
     /// Compute skewness at cell (i, j, k)
     fn compute_skewness(&self, i: usize, j: usize, k: usize) -> T {
-        // Simplified skewness metric
-        T::zero()
+        // Complete skewness implementation based on cell geometry
+        // Skewness measures how far the cell deviates from an ideal orthogonal cell
+        
+        // Get cell center and vertices
+        let center = self.cell_center(i, j, k);
+        
+        // Get the 8 vertices of the hexahedral cell
+        let vertices = [
+            self.get_point(i, j, k),
+            self.get_point(i + 1, j, k),
+            self.get_point(i + 1, j + 1, k),
+            self.get_point(i, j + 1, k),
+            self.get_point(i, j, k + 1),
+            self.get_point(i + 1, j, k + 1),
+            self.get_point(i + 1, j + 1, k + 1),
+            self.get_point(i, j + 1, k + 1),
+        ];
+        
+        // Calculate face centers
+        let face_centers = [
+            // Front face (k)
+            (vertices[0] + vertices[1] + vertices[2] + vertices[3]) / T::from_f64(4.0).unwrap(),
+            // Back face (k+1)
+            (vertices[4] + vertices[5] + vertices[6] + vertices[7]) / T::from_f64(4.0).unwrap(),
+            // Bottom face (j)
+            (vertices[0] + vertices[1] + vertices[4] + vertices[5]) / T::from_f64(4.0).unwrap(),
+            // Top face (j+1)
+            (vertices[2] + vertices[3] + vertices[6] + vertices[7]) / T::from_f64(4.0).unwrap(),
+            // Left face (i)
+            (vertices[0] + vertices[3] + vertices[4] + vertices[7]) / T::from_f64(4.0).unwrap(),
+            // Right face (i+1)
+            (vertices[1] + vertices[2] + vertices[5] + vertices[6]) / T::from_f64(4.0).unwrap(),
+        ];
+        
+        // Calculate face normals
+        let face_normals = [
+            // Front face normal
+            (vertices[1] - vertices[0]).cross(&(vertices[3] - vertices[0])).normalize(),
+            // Back face normal
+            (vertices[5] - vertices[4]).cross(&(vertices[7] - vertices[4])).normalize(),
+            // Bottom face normal
+            (vertices[1] - vertices[0]).cross(&(vertices[4] - vertices[0])).normalize(),
+            // Top face normal
+            (vertices[2] - vertices[3]).cross(&(vertices[7] - vertices[3])).normalize(),
+            // Left face normal
+            (vertices[3] - vertices[0]).cross(&(vertices[4] - vertices[0])).normalize(),
+            // Right face normal
+            (vertices[2] - vertices[1]).cross(&(vertices[5] - vertices[1])).normalize(),
+        ];
+        
+        // Calculate skewness as the maximum angle deviation from orthogonal
+        let mut max_skewness = T::zero();
+        
+        // Check opposite face pairs
+        for i in 0..3 {
+            let dot_product = face_normals[2 * i].dot(&face_normals[2 * i + 1]).abs();
+            // For perfectly opposite faces, dot product should be 1
+            let skewness = T::one() - dot_product;
+            max_skewness = max_skewness.max(skewness);
+        }
+        
+        // Also check vector from center to each face center against face normal
+        for i in 0..6 {
+            let center_to_face = (face_centers[i] - center).normalize();
+            let alignment = center_to_face.dot(&face_normals[i]).abs();
+            // For perfect alignment, dot product should be 1
+            let skewness = T::one() - alignment;
+            max_skewness = max_skewness.max(skewness);
+        }
+        
+        max_skewness
     }
     
     /// Compute aspect ratio at cell (i, j, k)

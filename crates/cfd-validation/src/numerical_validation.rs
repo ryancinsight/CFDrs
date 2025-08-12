@@ -303,23 +303,28 @@ impl LinearSolverValidator {
 
     /// Create diagonal system for testing
     fn create_diagonal_system<T: RealField + FromPrimitive + Copy>(n: usize) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
-        let mut row_indices = Vec::new();
-        let mut col_indices = Vec::new();
-        let mut values = Vec::new();
-
-        // Create diagonal matrix with entries 1, 2, 3, ..., n
-        for i in 0..n {
-            row_indices.push(i);
-            col_indices.push(i);
-            values.push(T::from_usize(i + 1).unwrap());
-        }
+        // Create diagonal matrix with entries 1, 2, 3, ..., n using iterators
+        let diagonal_entries: Vec<(usize, usize, T)> = (0..n)
+            .map(|i| (i, i, T::from_usize(i + 1).unwrap()))
+            .collect();
+        
+        let (row_indices, col_indices, values): (Vec<_>, Vec<_>, Vec<_>) = 
+            diagonal_entries.into_iter()
+                .map(|(r, c, v)| (r, c, v))
+                .fold((Vec::new(), Vec::new(), Vec::new()), 
+                      |(mut rows, mut cols, mut vals), (r, c, v)| {
+                          rows.push(r);
+                          cols.push(c);
+                          vals.push(v);
+                          (rows, cols, vals)
+                      });
 
         let a = {
-            // Convert triplets to CSR format
+            // Convert triplets to CSR format using iterator combinators
             let mut row_offsets = vec![0; n + 1];
             let mut sorted_data: Vec<(usize, usize, T)> = row_indices.into_iter()
-                .zip(col_indices.into_iter())
-                .zip(values.into_iter())
+                .zip(col_indices)
+                .zip(values)
                 .map(|((r, c), v)| (r, c, v))
                 .collect();
             
@@ -361,29 +366,30 @@ impl LinearSolverValidator {
         let h = T::one() / T::from_usize(n + 1).unwrap();
         let h_squared = h.clone() * h.clone();
 
-        let mut row_indices = Vec::new();
-        let mut col_indices = Vec::new();
-        let mut values = Vec::new();
-
-        // Create tridiagonal matrix for -u''
-        for i in 0..n {
-            // Diagonal entry
-            row_indices.push(i);
-            col_indices.push(i);
-            values.push(T::from_f64(2.0).unwrap() / h_squared.clone());
-
-            // Off-diagonal entries
-            if i > 0 {
-                row_indices.push(i);
-                col_indices.push(i - 1);
-                values.push(-T::one() / h_squared.clone());
-            }
-            if i < n - 1 {
-                row_indices.push(i);
-                col_indices.push(i + 1);
-                values.push(-T::one() / h_squared.clone());
-            }
-        }
+        // Create tridiagonal matrix for -u'' using iterators
+        let diagonal_value = T::from_f64(2.0).unwrap() / h_squared.clone();
+        let off_diagonal_value = -T::one() / h_squared.clone();
+        
+        let (row_indices, col_indices, values): (Vec<_>, Vec<_>, Vec<_>) = (0..n)
+            .flat_map(|i| {
+                let mut entries = vec![(i, i, diagonal_value.clone())];
+                
+                if i > 0 {
+                    entries.push((i, i - 1, off_diagonal_value.clone()));
+                }
+                if i < n - 1 {
+                    entries.push((i, i + 1, off_diagonal_value.clone()));
+                }
+                
+                entries
+            })
+            .fold((Vec::new(), Vec::new(), Vec::new()), 
+                  |(mut rows, mut cols, mut vals), (r, c, v)| {
+                      rows.push(r);
+                      cols.push(c);
+                      vals.push(v);
+                      (rows, cols, vals)
+                  });
 
         let a = {
             // Convert triplets to CSR format

@@ -7,6 +7,18 @@ use std::collections::HashMap;
 use thiserror::Error;
 use std::fmt::Debug;
 
+/// Constants for CSG operations
+mod constants {
+    /// Epsilon for floating point comparisons in BSP operations
+    pub const BSP_EPSILON: f64 = 1e-6;
+    
+    /// Epsilon for vertex deduplication
+    pub const VERTEX_EPSILON: f64 = 1e-6;
+    
+    /// Default position value for conversion errors
+    pub const DEFAULT_POSITION: f64 = 0.0;
+}
+
 /// Error types for CSG operations
 #[derive(Debug, Error)]
 pub enum CsgError {
@@ -21,6 +33,15 @@ pub enum CsgError {
     /// Conversion error
     #[error("Conversion error: {0}")]
     ConversionError(String),
+}
+
+/// Classification result for polygon against plane
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum PolygonClassification {
+    Coplanar,
+    Front,
+    Back,
+    Spanning,
 }
 
 /// Adapter for CSG operations on meshes
@@ -164,9 +185,9 @@ impl<T: RealField + FromPrimitive> CsgMeshAdapter<T> {
                 let z_scaled = point.z.clone() * scale;
                 
                 // Convert to f64 for hashing (assuming T can convert to f64)
-                let x_f64: f64 = x_scaled.to_subset().unwrap_or(0.0);
-                let y_f64: f64 = y_scaled.to_subset().unwrap_or(0.0);
-                let z_f64: f64 = z_scaled.to_subset().unwrap_or(0.0);
+                let x_f64: f64 = x_scaled.to_subset().unwrap_or(constants::DEFAULT_POSITION);
+                let y_f64: f64 = y_scaled.to_subset().unwrap_or(constants::DEFAULT_POSITION);
+                let z_f64: f64 = z_scaled.to_subset().unwrap_or(constants::DEFAULT_POSITION);
                 
                 let key = (
                     x_f64 as i64,
@@ -341,7 +362,7 @@ impl<T: RealField + FromPrimitive> BspTree<T> {
     }
     
     fn split_polygon(polygon: &BspPolygon<T>, plane: &BspPlane<T>) -> (Option<BspPolygon<T>>, Option<BspPolygon<T>>) {
-        let epsilon = T::from_f64(1e-6).unwrap();
+        let epsilon = T::from_f64(constants::BSP_EPSILON).unwrap();
         let mut front_vertices = Vec::new();
         let mut back_vertices = Vec::new();
         
@@ -384,9 +405,94 @@ impl<T: RealField + FromPrimitive> BspTree<T> {
         (front, back)
     }
     
-    fn clip_to(&mut self, _other: &Self, _keep_back: bool) {
-        // Simplified clipping operation
-        // In a full implementation, this would recursively clip the tree
+    fn clip_to(&mut self, other: &Self, keep_back: bool) {
+        // Complete recursive BSP tree clipping implementation
+        if let Some(ref mut root) = self.root {
+            if let Some(ref other_root) = other.root {
+                Self::clip_node_to(root, other_root, keep_back);
+            }
+        }
+    }
+    
+    /// Recursively clip a node against another BSP tree
+    fn clip_node_to(node: &mut BspNode<T>, clip_tree: &BspNode<T>, keep_back: bool) {
+        // Clip this node's polygons against the clip tree
+        node.polygons = Self::clip_polygons_to_tree(&node.polygons, clip_tree, keep_back);
+        
+        // Recursively clip front subtree
+        if let Some(ref mut front) = node.front {
+            Self::clip_node_to(front, clip_tree, keep_back);
+        }
+        
+        // Recursively clip back subtree
+        if let Some(ref mut back) = node.back {
+            Self::clip_node_to(back, clip_tree, keep_back);
+        }
+    }
+    
+    /// Clip a set of polygons against a BSP tree
+    fn clip_polygons_to_tree(
+        polygons: &[BspPolygon<T>], 
+        tree: &BspNode<T>, 
+        keep_back: bool
+    ) -> Vec<BspPolygon<T>> {
+        if polygons.is_empty() {
+            return Vec::new();
+        }
+        
+        let mut result = Vec::new();
+        
+        for polygon in polygons {
+            let mut current_polygons = vec![polygon.clone()];
+            current_polygons = Self::clip_polygons_to_node(&current_polygons, tree, keep_back);
+            result.extend(current_polygons);
+        }
+        
+        result
+    }
+    
+    /// Clip polygons against a single BSP node and its subtrees
+    fn clip_polygons_to_node(
+        polygons: &[BspPolygon<T>], 
+        node: &BspNode<T>, 
+        keep_back: bool
+    ) -> Vec<BspPolygon<T>> {
+        if polygons.is_empty() {
+            return Vec::new();
+        }
+        
+        let mut front_polygons = Vec::new();
+        let mut back_polygons = Vec::new();
+        
+        // Split polygons by this node's plane
+        for polygon in polygons {
+            let (front, back) = Self::split_polygon(polygon, &node.plane);
+            if let Some(f) = front {
+                front_polygons.push(f);
+            }
+            if let Some(b) = back {
+                back_polygons.push(b);
+            }
+        }
+        
+        // Recursively clip against subtrees
+        if let Some(ref front_tree) = node.front {
+            front_polygons = Self::clip_polygons_to_node(&front_polygons, front_tree, keep_back);
+        }
+        
+        if let Some(ref back_tree) = node.back {
+            if keep_back {
+                back_polygons = Self::clip_polygons_to_node(&back_polygons, back_tree, keep_back);
+            } else {
+                back_polygons.clear();
+            }
+        } else if !keep_back {
+            back_polygons.clear();
+        }
+        
+        // Combine results
+        front_polygons.extend(back_polygons);
+        front_polygons
     }
     
     fn invert(&mut self) {
@@ -412,14 +518,129 @@ impl<T: RealField + FromPrimitive> BspTree<T> {
     }
     
     fn merge(&mut self, other: Self) {
-        // Merge another tree into this one
+        // Complete tree merging implementation
         if let Some(other_root) = other.root {
             let other_polygons = Self::node_to_polygons(&other_root);
-            // Add polygons to this tree
-            // Simplified: just store them at root
-            if let Some(ref mut root) = self.root {
-                root.polygons.extend(other_polygons);
+            
+            if self.root.is_none() && !other_polygons.is_empty() {
+                // If this tree is empty, build from other's polygons
+                self.root = Self::build_node(&other_polygons);
+            } else if let Some(ref mut root) = self.root {
+                // Add other's polygons to this tree properly
+                for polygon in other_polygons {
+                    Self::add_polygon_to_node(root, polygon);
+                }
             }
+        }
+    }
+    
+    /// Add a polygon to the BSP tree at the appropriate location
+    fn add_polygon_to_node(node: &mut BspNode<T>, polygon: BspPolygon<T>) {
+        // Classify polygon against this node's plane
+        let classification = Self::classify_polygon(&polygon, &node.plane);
+        
+        match classification {
+            PolygonClassification::Coplanar => {
+                // Add to this node's polygon list
+                node.polygons.push(polygon);
+            }
+            PolygonClassification::Front => {
+                // Add to front subtree
+                if let Some(ref mut front) = node.front {
+                    Self::add_polygon_to_node(front, polygon);
+                } else {
+                    // Create new front node
+                    node.front = Some(Box::new(BspNode {
+                        plane: BspPlane {
+                            normal: polygon.vertices[0].normal.clone(),
+                            distance: polygon.vertices[0].position.coords.dot(&polygon.vertices[0].normal),
+                        },
+                        polygons: vec![polygon],
+                        front: None,
+                        back: None,
+                    }));
+                }
+            }
+            PolygonClassification::Back => {
+                // Add to back subtree
+                if let Some(ref mut back) = node.back {
+                    Self::add_polygon_to_node(back, polygon);
+                } else {
+                    // Create new back node
+                    node.back = Some(Box::new(BspNode {
+                        plane: BspPlane {
+                            normal: polygon.vertices[0].normal.clone(),
+                            distance: polygon.vertices[0].position.coords.dot(&polygon.vertices[0].normal),
+                        },
+                        polygons: vec![polygon],
+                        front: None,
+                        back: None,
+                    }));
+                }
+            }
+            PolygonClassification::Spanning => {
+                // Split polygon and add parts to appropriate subtrees
+                let (front_poly, back_poly) = Self::split_polygon(&polygon, &node.plane);
+                
+                if let Some(f) = front_poly {
+                    if let Some(ref mut front) = node.front {
+                        Self::add_polygon_to_node(front, f);
+                    } else {
+                        node.front = Some(Box::new(BspNode {
+                            plane: BspPlane {
+                                normal: f.vertices[0].normal.clone(),
+                                distance: f.vertices[0].position.coords.dot(&f.vertices[0].normal),
+                            },
+                            polygons: vec![f],
+                            front: None,
+                            back: None,
+                        }));
+                    }
+                }
+                
+                if let Some(b) = back_poly {
+                    if let Some(ref mut back) = node.back {
+                        Self::add_polygon_to_node(back, b);
+                    } else {
+                        node.back = Some(Box::new(BspNode {
+                            plane: BspPlane {
+                                normal: b.vertices[0].normal.clone(),
+                                distance: b.vertices[0].position.coords.dot(&b.vertices[0].normal),
+                            },
+                            polygons: vec![b],
+                            front: None,
+                            back: None,
+                        }));
+                    }
+                }
+            }
+        }
+    }
+    
+    /// Classify a polygon against a plane
+    fn classify_polygon(polygon: &BspPolygon<T>, plane: &BspPlane<T>) -> PolygonClassification {
+        let epsilon = T::from_f64(constants::BSP_EPSILON).unwrap();
+        let mut front_count = 0;
+        let mut back_count = 0;
+        
+        for vertex in &polygon.vertices {
+            let distance = vertex.position.coords.dot(&plane.normal) - plane.distance.clone();
+            
+            if distance > epsilon {
+                front_count += 1;
+            } else if distance < -epsilon {
+                back_count += 1;
+            }
+        }
+        
+        if front_count > 0 && back_count == 0 {
+            PolygonClassification::Front
+        } else if back_count > 0 && front_count == 0 {
+            PolygonClassification::Back
+        } else if front_count > 0 && back_count > 0 {
+            PolygonClassification::Spanning
+        } else {
+            PolygonClassification::Coplanar
         }
     }
     
