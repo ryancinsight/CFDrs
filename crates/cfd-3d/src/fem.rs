@@ -213,15 +213,15 @@ impl<T: RealField> TetrahedralElement<T> {
         
         // Calculate shape function derivatives at the centroid
         // For a tetrahedron, shape functions are linear: N_i = (a_i + b_i*x + c_i*y + d_i*z) / (6*V)
-        let v0 = nodes[0].clone();
-        let v1 = nodes[1].clone();
-        let v2 = nodes[2].clone();
-        let v3 = nodes[3].clone();
+        let v0 = &nodes[0];
+        let v1 = &nodes[1];
+        let v2 = &nodes[2];
+        let v3 = &nodes[3];
         
         // Calculate volume
-        let e1 = &v1 - &v0;
-        let e2 = &v2 - &v0;
-        let e3 = &v3 - &v0;
+        let e1 = v1 - v0;
+        let e2 = v2 - v0;
+        let e3 = v3 - v0;
         let volume = e1.cross(&e2).dot(&e3).abs() / constants::tetrahedron_volume_factor::<T>();
         
         if volume < T::from_f64(1e-10).unwrap() {
@@ -239,25 +239,25 @@ impl<T: RealField> TetrahedralElement<T> {
         let mut dn_dz = vec![T::zero(); 4];
         
         // Node 0 derivatives
-        let n0_vec = (&v2 - &v1).cross(&(&v3 - &v1));
+        let n0_vec = (v2 - v1).cross(&(v3 - v1));
         dn_dx[0] = n0_vec.x.clone() * inv_6v.clone();
         dn_dy[0] = n0_vec.y.clone() * inv_6v.clone();
         dn_dz[0] = n0_vec.z.clone() * inv_6v.clone();
         
         // Node 1 derivatives
-        let n1_vec = (&v3 - &v0).cross(&(&v2 - &v0));
+        let n1_vec = (v3 - v0).cross(&(v2 - v0));
         dn_dx[1] = n1_vec.x.clone() * inv_6v.clone();
         dn_dy[1] = n1_vec.y.clone() * inv_6v.clone();
         dn_dz[1] = n1_vec.z.clone() * inv_6v.clone();
         
         // Node 2 derivatives
-        let n2_vec = (&v1 - &v0).cross(&(&v3 - &v0));
+        let n2_vec = (v1 - v0).cross(&(v3 - v0));
         dn_dx[2] = n2_vec.x.clone() * inv_6v.clone();
         dn_dy[2] = n2_vec.y.clone() * inv_6v.clone();
         dn_dz[2] = n2_vec.z.clone() * inv_6v.clone();
         
         // Node 3 derivatives
-        let n3_vec = (&v2 - &v0).cross(&(&v1 - &v0));
+        let n3_vec = (v2 - v0).cross(&(v1 - v0));
         dn_dx[3] = n3_vec.x.clone() * inv_6v.clone();
         dn_dy[3] = n3_vec.y.clone() * inv_6v.clone();
         dn_dz[3] = n3_vec.z.clone() * inv_6v;
@@ -438,9 +438,10 @@ impl<T: RealField + FromPrimitive> Element<T> for Tetrahedron4<T> {
 
         for i in 0..3 {
             for j in 0..4 {
-                jacobian[(i, 0)] += derivatives[j][i].clone() * nodes[j].x.clone();
-                jacobian[(i, 1)] += derivatives[j][i].clone() * nodes[j].y.clone();
-                jacobian[(i, 2)] += derivatives[j][i].clone() * nodes[j].z.clone();
+                let deriv = derivatives[j][i].clone();
+                jacobian[(i, 0)] += deriv.clone() * nodes[j].x.clone();
+                jacobian[(i, 1)] += deriv.clone() * nodes[j].y.clone();
+                jacobian[(i, 2)] += deriv * nodes[j].z.clone();
             }
         }
 
@@ -496,8 +497,12 @@ impl<T: RealField + FromPrimitive> Element<T> for Tetrahedron4<T> {
             // Material matrix D for viscous fluid (isotropic)
             let mut d_matrix = nalgebra::DMatrix::zeros(6, 6);
             let two_mu = constants::two::<T>() * viscosity.clone();
-            d_matrix[(0, 0)] = two_mu.clone(); d_matrix[(1, 1)] = two_mu.clone(); d_matrix[(2, 2)] = two_mu.clone();
-            d_matrix[(3, 3)] = viscosity.clone(); d_matrix[(4, 4)] = viscosity.clone(); d_matrix[(5, 5)] = viscosity.clone();
+            d_matrix[(0, 0)] = two_mu.clone(); 
+            d_matrix[(1, 1)] = two_mu.clone(); 
+            d_matrix[(2, 2)] = two_mu;
+            d_matrix[(3, 3)] = viscosity.clone(); 
+            d_matrix[(4, 4)] = viscosity.clone(); 
+            d_matrix[(5, 5)] = viscosity.clone();
 
             // Compute element stiffness: K_e += B^T * D * B * det(J) * weight
             let bd = &b_matrix.transpose() * &d_matrix;
@@ -668,18 +673,20 @@ impl<T: RealField + FromPrimitive + Send + Sync, F: ElementFactory<T>> FemSolver
         let ndof = element.nodes.len() * 3; // 3 DOF per node (u, v, w)
         
         // Get body force from material properties
-        let body_force = material_properties.body_force.clone().unwrap_or_else(Vector3::zeros);
+        let body_force = material_properties.body_force.as_ref()
+            .map(|f| f.clone())
+            .unwrap_or_else(Vector3::zeros);
         
         // Compute Jacobian determinant for integration
         // For linear tetrahedron, det(J) = 6 * Volume
-        let v0 = nodes[0].clone();
-        let v1 = nodes[1].clone();
-        let v2 = nodes[2].clone();
-        let v3 = nodes[3].clone();
+        let v0 = &nodes[0];
+        let v1 = &nodes[1];
+        let v2 = &nodes[2];
+        let v3 = &nodes[3];
         
-        let e1 = &v1 - &v0;
-        let e2 = &v2 - &v0;
-        let e3 = &v3 - &v0;
+        let e1 = v1 - v0;
+        let e2 = v2 - v0;
+        let e3 = v3 - v0;
         let det_j = e1.cross(&e2).dot(&e3).abs();
         
         // Initialize force vector

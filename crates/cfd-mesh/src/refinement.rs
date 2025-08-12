@@ -133,6 +133,21 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         }
     }
     
+    /// Build vertex lookup map for O(1) access
+    fn build_vertex_map<'a>(mesh: &'a Mesh<T>) -> HashMap<usize, &'a Vertex<T>> {
+        mesh.vertices.iter().map(|v| (v.id, v)).collect()
+    }
+    
+    /// Build face lookup map for O(1) access
+    fn build_face_map<'a>(mesh: &'a Mesh<T>) -> HashMap<usize, &'a Face> {
+        mesh.faces.iter().map(|f| (f.id, f)).collect()
+    }
+    
+    /// Build cell lookup map for O(1) access
+    fn build_cell_map<'a>(mesh: &'a Mesh<T>) -> HashMap<usize, &'a Cell> {
+        mesh.cells.iter().map(|c| (c.id, c)).collect()
+    }
+    
     /// Refine mesh based on criteria
     pub fn refine(
         &mut self,
@@ -532,10 +547,14 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
     
     /// Compute cell gradient
     fn compute_cell_gradient(&self, mesh: &Mesh<T>, cell: &Cell, field: &[T]) -> T {
+        // Build lookup maps for O(1) access
+        let face_map = Self::build_face_map(mesh);
+        let vertex_map = Self::build_vertex_map(mesh);
+        
         // Get cell vertices
         let mut vertex_ids: HashSet<usize> = HashSet::new();
         for &face_id in &cell.faces {
-            if let Some(face) = mesh.faces.iter().find(|f| f.id == face_id) {
+            if let Some(face) = face_map.get(&face_id) {
                 vertex_ids.extend(&face.vertices);
             }
         }
@@ -546,22 +565,15 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         
         for &id1 in &vertex_ids {
             for &id2 in &vertex_ids {
-                if id1 < id2 {
-                    if let (Some(v1), Some(v2)) = (
-                        mesh.vertices.iter().find(|v| v.id == id1),
-                        mesh.vertices.iter().find(|v| v.id == id2)
-                    ) {
-                        if id1 < field.len() && id2 < field.len() {
-                            let diff = v2.position.clone() - v1.position.clone();
-                            let dist = diff.norm();
-                            
-                            if dist > T::zero() {
-                                let f1: &T = &field[id1];
-                                let f2: &T = &field[id2];
-                                let df = (f2.clone() - f1.clone()).abs();
-                                grad_mag = grad_mag + df / dist;
-                                count += 1;
-                            }
+                if id1 < id2 && id1 < field.len() && id2 < field.len() {
+                    if let (Some(&v1), Some(&v2)) = (vertex_map.get(&id1), vertex_map.get(&id2)) {
+                        let diff = &v2.position - &v1.position;
+                        let dist = diff.norm();
+                        
+                        if dist > T::zero() {
+                            let df = (field[id2].clone() - field[id1].clone()).abs();
+                            grad_mag = grad_mag + df / dist;
+                            count += 1;
                         }
                     }
                 }
@@ -591,31 +603,30 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
     
     /// Compute cell size
     fn compute_cell_size(&self, mesh: &Mesh<T>, cell: &Cell) -> T {
-        // Compute characteristic size (e.g., longest edge)
-        let mut max_size = T::zero();
+        // Build lookup maps for O(1) access
+        let face_map = Self::build_face_map(mesh);
+        let vertex_map = Self::build_vertex_map(mesh);
         
         // Get cell vertices
         let mut vertex_ids = HashSet::new();
         for &face_id in &cell.faces {
-            if let Some(face) = mesh.faces.iter().find(|f| f.id == face_id) {
+            if let Some(face) = face_map.get(&face_id) {
                 vertex_ids.extend(&face.vertices);
             }
         }
         
         let vertices: Vec<&Vertex<T>> = vertex_ids.iter()
-            .filter_map(|id: &usize| mesh.vertices.iter().find(|v| v.id == *id))
+            .filter_map(|id| vertex_map.get(id).copied())
             .collect();
         
         // Use iterator combinators to find maximum distance
-        max_size = vertices.iter().enumerate()
+        vertices.iter().enumerate()
             .flat_map(|(i, v1)| {
                 vertices.iter()
                     .skip(i + 1)
                     .map(move |v2| (&v1.position - &v2.position).norm())
             })
-            .fold(max_size, T::max);
-        
-        max_size
+            .fold(T::zero(), T::max)
     }
     
     /// Smooth mesh after refinement
