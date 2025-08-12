@@ -285,7 +285,7 @@ impl<T: RealField + FromPrimitive> GridConvergenceIndex<T> {
         let ratio = gci_coarse / (r_p * gci_fine);
 
         // Should be close to 1.0 in asymptotic range
-        let tolerance = T::from_f64(0.05).unwrap(); // 5% tolerance
+        let tolerance = T::from_f64(0.01).unwrap(); // 1% tolerance
         (ratio - T::one()).abs() < tolerance
     }
 }

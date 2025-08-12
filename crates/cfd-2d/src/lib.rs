@@ -13,6 +13,7 @@ pub mod lbm;
 pub mod simple;
 pub mod piso;
 pub mod vorticity_stream;
+pub mod schemes;
 
 // Export implemented functionality
 pub use grid::{Grid2D, StructuredGrid2D, BoundaryType, GridEdge, GridIterator};
@@ -20,6 +21,7 @@ pub use fdm::{PoissonSolver, AdvectionDiffusionSolver, FdmConfig};
 pub use fvm::{FvmSolver, FvmConfig, FluxScheme};
 pub use lbm::{LbmSolver, LbmConfig, D2Q9};
 pub use simple::{SimpleSolver, SimpleConfig};
+pub use schemes::{SpatialScheme, FluxLimiter, TimeScheme, FiniteDifference};
 
 
 

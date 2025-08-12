@@ -11,6 +11,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use nalgebra::ComplexField;
 
+use cfd_2d::{
+    SimpleSolver, SimpleConfig, Grid2D, StructuredGrid2D, GridIterator,
+    LbmSolver, LbmConfig, D2Q9,
+    FdmConfig, PoissonSolver,
+    FvmSolver, FvmConfig, FluxScheme,
+    SpatialScheme,
+};
+
 /// Helper function to safely convert Reynolds number to f64
 /// Returns an error if the conversion fails
 fn reynolds_to_f64<T: RealField>(reynolds: &T) -> Result<f64> {
@@ -301,7 +309,6 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
     }
 
     fn run(&self) -> Result<Self::Solution> {
-        use cfd_2d::{StructuredGrid2D, SimpleSolver, SimpleConfig, Grid2D};
         use cfd_core::BoundaryCondition;
         use std::collections::HashMap;
         
@@ -324,7 +331,8 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
             alpha_u: T::from_f64(0.5).unwrap(),  // Velocity under-relaxation
             alpha_p: T::from_f64(0.3).unwrap(),  // Pressure under-relaxation
             use_rhie_chow: true,
-            convection_scheme: "hybrid".to_string(),
+            convection_scheme: SpatialScheme::SecondOrderUpwind,
+            implicit_momentum: true,
         };
         
         // Fluid properties
@@ -408,7 +416,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
         }
         
         // Check if errors are within acceptable tolerance
-        let tolerance = T::from_f64(0.05).unwrap(); // 5% relative error tolerance
+        let tolerance = T::from_f64(0.01).unwrap(); // 1% relative error tolerance
         let passed = error_stats.values()
             .all(|stats| stats.relative_l2 < tolerance);
         
@@ -623,7 +631,6 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
     }
 
     fn run(&self) -> Result<Self::Solution> {
-        use cfd_2d::{StructuredGrid2D, SimpleSolver, SimpleConfig, Grid2D};
         use cfd_core::BoundaryCondition;
         use std::collections::HashMap;
         
@@ -641,18 +648,18 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
             T::zero(), domain_length.clone()
         )?;
         
-        // Configure SIMPLE solver for incompressible flow
-        // Note: External flow problems need careful setup
+        // SIMPLE configuration with appropriate parameters
         let config = SimpleConfig {
             base: cfd_core::SolverConfig::builder()
-                .tolerance(T::from_f64(1e-3).unwrap())  // Relaxed tolerance
-                .max_iterations(50)  // Fewer iterations for example
+                .tolerance(T::from_f64(1e-5).unwrap())
+                .max_iterations(500)
                 .build(),
-            dt: T::from_f64(0.01).unwrap(),
-            alpha_u: T::from_f64(0.3).unwrap(),  // Strong velocity relaxation
-            alpha_p: T::from_f64(0.2).unwrap(),  // Strong pressure relaxation
+            dt: T::from_f64(0.001).unwrap(),
+            alpha_u: T::from_f64(0.7).unwrap(),
+            alpha_p: T::from_f64(0.3).unwrap(),
             use_rhie_chow: true,
-            convection_scheme: "hybrid".to_string(),
+            convection_scheme: SpatialScheme::SecondOrderUpwind,
+            implicit_momentum: true,
         };
         
         // Fluid properties (normalized)
@@ -751,7 +758,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
         };
         
         let error = ((cd.to_subset().unwrap_or(0.0) - expected_cd) / expected_cd).abs();
-        let passed = error < 0.15; // 15% tolerance
+        let passed = error < 0.01; // 1% tolerance
         
         let mut error_stats = HashMap::new();
         error_stats.insert(
@@ -825,7 +832,6 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
     }
 
     fn run(&self) -> Result<Self::Solution> {
-        use cfd_2d::{StructuredGrid2D, SimpleSolver, SimpleConfig, Grid2D};
         use cfd_core::BoundaryCondition;
         use std::collections::HashMap;
         
@@ -844,18 +850,18 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
             T::zero(), domain_length
         )?;
         
-        // Configure SIMPLE solver
-        // Note: Backward-facing step needs careful parameter tuning
+        // SIMPLE configuration
         let config = SimpleConfig {
             base: cfd_core::SolverConfig::builder()
-                .tolerance(T::from_f64(1e-4).unwrap())  // Relaxed for demonstration
-                .max_iterations(100)  // Limited iterations for example
+                .tolerance(T::from_f64(1e-5).unwrap())
+                .max_iterations(1000)
                 .build(),
             dt: T::from_f64(0.01).unwrap(),
-            alpha_u: T::from_f64(0.5).unwrap(),
+            alpha_u: T::from_f64(0.7).unwrap(),
             alpha_p: T::from_f64(0.3).unwrap(),
             use_rhie_chow: true,
-            convection_scheme: "hybrid".to_string(),
+            convection_scheme: SpatialScheme::SecondOrderUpwind,
+            implicit_momentum: true,
         };
         
         // Fluid properties based on Reynolds number
@@ -961,7 +967,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
         };
         
         let error = ((reattachment_x.clone() - expected_xr.clone()) / expected_xr.clone()).abs();
-        let passed = error < T::from_f64(0.2).unwrap(); // 20% tolerance
+        let passed = error < T::from_f64(0.01).unwrap(); // 1% tolerance
         
         let mut error_stats = HashMap::new();
         error_stats.insert(

@@ -1,13 +1,15 @@
-//! Linear solver implementations.
+//! Linear solver implementations for CFD applications.
 //!
-//! This module provides iterative linear solvers for sparse systems
-//! following literature-validated algorithms with zero-copy operations.
+//! This module provides various iterative linear solvers optimized for
+//! sparse matrices arising from CFD discretizations.
 
 use cfd_core::{Error, Result};
 use nalgebra::{ComplexField, DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::{cast::FromPrimitive, Float};
 use std::fmt::Debug;
+
+use crate::sparse::SparseMatrixBuilder;
 
 // Re-export the unified configuration from cfd-core
 pub use cfd_core::{LinearSolverConfig, SolverConfiguration};
@@ -43,6 +45,231 @@ pub struct IdentityPreconditioner;
 impl<T: RealField> Preconditioner<T> for IdentityPreconditioner {
     fn apply(&self, r: &DVector<T>) -> DVector<T> {
         r.clone()
+    }
+}
+
+/// Jacobi (diagonal) preconditioner
+/// 
+/// Uses the diagonal of the matrix as preconditioner: M = diag(A)
+pub struct JacobiPreconditioner<T: RealField> {
+    /// Inverse of diagonal elements
+    inv_diagonal: DVector<T>,
+}
+
+impl<T: RealField> JacobiPreconditioner<T> {
+    /// Create Jacobi preconditioner from matrix
+    pub fn new(a: &CsrMatrix<T>) -> Result<Self> {
+        let n = a.nrows();
+        let mut inv_diagonal = DVector::zeros(n);
+        
+        // Extract diagonal elements
+        for i in 0..n {
+            let mut diag = T::zero();
+            let row = a.row(i);
+            for (&j, val) in row.col_indices().iter().zip(row.values()) {
+                if i == j {
+                    diag = val.clone();
+                    break;
+                }
+            }
+            
+            if ComplexField::abs(diag.clone()) < T::from_f64(1e-14).unwrap() {
+                return Err(Error::NumericalError(
+                    format!("Zero diagonal element at row {}", i)
+                ));
+            }
+            inv_diagonal[i] = T::one() / diag;
+        }
+        
+        Ok(Self { inv_diagonal })
+    }
+}
+
+impl<T: RealField> Preconditioner<T> for JacobiPreconditioner<T> {
+    fn apply(&self, r: &DVector<T>) -> DVector<T> {
+        r.component_mul(&self.inv_diagonal)
+    }
+}
+
+/// SOR (Successive Over-Relaxation) preconditioner
+/// 
+/// Uses forward SOR sweep as preconditioner: M = (D + ωL)
+pub struct SORPreconditioner<T: RealField> {
+    /// Matrix in CSR format
+    matrix: CsrMatrix<T>,
+    /// Relaxation parameter (typically 1.0 < ω < 2.0)
+    omega: T,
+}
+
+impl<T: RealField + FromPrimitive> SORPreconditioner<T> {
+    /// Create SOR preconditioner with given relaxation parameter
+    pub fn new(a: &CsrMatrix<T>, omega: T) -> Result<Self> {
+        if omega <= T::zero() || omega >= T::from_f64(2.0).unwrap() {
+            return Err(Error::InvalidConfiguration(
+                "SOR relaxation parameter must be in (0, 2)".to_string()
+            ));
+        }
+        
+        Ok(Self {
+            matrix: a.clone(),
+            omega,
+        })
+    }
+    
+    /// Create with optimal omega for symmetric positive definite matrices
+    /// ω_opt = 2 / (1 + sin(π/n))
+    pub fn with_optimal_omega(a: &CsrMatrix<T>) -> Result<Self> {
+        let n = a.nrows() as f64;
+        let omega_opt = 2.0 / (1.0 + (std::f64::consts::PI / n).sin());
+        let omega = T::from_f64(omega_opt).unwrap();
+        Self::new(a, omega)
+    }
+}
+
+impl<T: RealField> Preconditioner<T> for SORPreconditioner<T> {
+    fn apply(&self, r: &DVector<T>) -> DVector<T> {
+        let n = r.len();
+        let mut z: DVector<T> = DVector::zeros(n);
+        
+        // Forward SOR sweep: (D + ωL)z = r
+        for i in 0..n {
+            let mut sum = r[i].clone();
+            let mut diag = T::one();
+            
+            let row = self.matrix.row(i);
+            for (&j, val) in row.col_indices().iter().zip(row.values()) {
+                if j < i {
+                    sum = sum - val.clone() * z[j].clone() * self.omega.clone();
+                } else if j == i {
+                    diag = val.clone();
+                }
+            }
+            
+            z[i] = sum / (diag * self.omega.clone());
+        }
+        
+        z
+    }
+}
+
+/// ILU(0) (Incomplete LU factorization with zero fill-in) preconditioner
+/// 
+/// Computes incomplete LU factorization preserving the sparsity pattern
+pub struct ILU0Preconditioner<T: RealField> {
+    /// Lower triangular factor (including diagonal)
+    l_factor: CsrMatrix<T>,
+    /// Upper triangular factor
+    u_factor: CsrMatrix<T>,
+}
+
+impl<T: RealField + FromPrimitive> ILU0Preconditioner<T> {
+    /// Create ILU(0) preconditioner from matrix
+    pub fn new(a: &CsrMatrix<T>) -> Result<Self> {
+        let n = a.nrows();
+        
+        // Copy matrix structure for factorization
+        let mut l_builder = SparseMatrixBuilder::new(n, n);
+        let mut u_builder = SparseMatrixBuilder::new(n, n);
+        
+        // Working copy of matrix
+        let mut work = vec![vec![T::zero(); n]; n];
+        let mut pattern = vec![vec![false; n]; n];
+        
+        // Copy matrix to dense working array (only non-zero pattern)
+        for i in 0..n {
+            let row = a.row(i);
+            for (&j, val) in row.col_indices().iter().zip(row.values()) {
+                work[i][j] = val.clone();
+                pattern[i][j] = true;
+            }
+        }
+        
+        // ILU(0) factorization
+        for k in 0..n {
+            // Check for zero pivot
+            if ComplexField::abs(work[k][k].clone()) < T::from_f64(1e-14).unwrap() {
+                return Err(Error::NumericalError(
+                    format!("Zero pivot encountered at row {}", k)
+                ));
+            }
+            
+            for i in (k + 1)..n {
+                if pattern[i][k] {
+                    // Compute multiplier
+                    work[i][k] = work[i][k].clone() / work[k][k].clone();
+                    
+                    // Update row i
+                    for j in (k + 1)..n {
+                        if pattern[i][j] && pattern[k][j] {
+                            work[i][j] = work[i][j].clone() - work[i][k].clone() * work[k][j].clone();
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Extract L and U factors
+        for i in 0..n {
+            for j in 0..=i {
+                if pattern[i][j] {
+                    if i == j {
+                        l_builder.add_entry(i, j, T::one());
+                        u_builder.add_entry(i, j, work[i][j].clone());
+                    } else {
+                        l_builder.add_entry(i, j, work[i][j].clone());
+                    }
+                }
+            }
+            for j in (i + 1)..n {
+                if pattern[i][j] {
+                    u_builder.add_entry(i, j, work[i][j].clone());
+                }
+            }
+        }
+        
+        Ok(Self {
+            l_factor: l_builder.build()?,
+            u_factor: u_builder.build()?,
+        })
+    }
+}
+
+impl<T: RealField> Preconditioner<T> for ILU0Preconditioner<T> {
+    fn apply(&self, r: &DVector<T>) -> DVector<T> {
+        let n = r.len();
+        
+        // Forward substitution: L * y = r
+        let mut y: DVector<T> = DVector::zeros(n);
+        for i in 0..n {
+            let mut sum = r[i].clone();
+            let row = self.l_factor.row(i);
+            for (&j, val) in row.col_indices().iter().zip(row.values()) {
+                if j < i {
+                    sum = sum - val.clone() * y[j].clone();
+                }
+            }
+            y[i] = sum;
+        }
+        
+        // Backward substitution: U * z = y
+        let mut z: DVector<T> = DVector::zeros(n);
+        for i in (0..n).rev() {
+            let mut sum = y[i].clone();
+            let mut diag = T::one();
+            
+            let row = self.u_factor.row(i);
+            for (&j, val) in row.col_indices().iter().zip(row.values()) {
+                if j > i {
+                    sum = sum - val.clone() * z[j].clone();
+                } else if j == i {
+                    diag = val.clone();
+                }
+            }
+            
+            z[i] = sum / diag;
+        }
+        
+        z
     }
 }
 
@@ -218,17 +445,30 @@ impl<T: RealField + Float> GMRES<T> {
     ) -> DVector<T> {
         let mut v = a * &q[k];
 
-        // Orthogonalize against previous vectors
+        // Modified Gram-Schmidt orthogonalization for better numerical stability
         for (i, qi) in q.iter().enumerate().take(k + 1) {
             let hij = v.dot(qi);
             h[i].push(hij.clone());
             v = &v - &(qi * hij);
+            
+            // Re-orthogonalize for better numerical stability (Classical Gram-Schmidt with reorthogonalization)
+            let hij_correction = v.dot(qi);
+            if ComplexField::abs(hij_correction.clone()) > T::from_f64(1e-10).unwrap() {
+                h[i][k] = h[i][k].clone() + hij_correction.clone();
+                v = &v - &(qi * hij_correction);
+            }
         }
 
         // Normalize
         let norm = v.norm();
-        h[k + 1].push(norm.clone());
-        v / norm
+        if norm < T::from_f64(1e-14).unwrap() {
+            // Handle breakdown - vector is in the span of previous vectors
+            h[k + 1].push(T::zero());
+            DVector::zeros(v.len())
+        } else {
+            h[k + 1].push(norm.clone());
+            v / norm
+        }
     }
 
     /// Apply previous Givens rotations to current column
@@ -257,18 +497,36 @@ impl<T: RealField + Float> GMRES<T> {
 
         let h_k = h[k][k].clone();
         let h_kp1 = h[k + 1][k].clone();
-        let r_k = ComplexField::sqrt(h_k.clone() * h_k.clone() + h_kp1.clone() * h_kp1.clone());
-
-        let (c, s) = if r_k < T::epsilon() {
-            (T::one(), T::zero())
+        
+        // Improved numerical stability for Givens rotation
+        if ComplexField::abs(h_kp1.clone()) < T::from_f64(1e-14).unwrap() {
+            // h_kp1 is essentially zero
+            let c = if ComplexField::abs(h_k.clone()) < T::from_f64(1e-14).unwrap() {
+                T::one()
+            } else {
+                ComplexField::signum(h_k.clone())
+            };
+            h[k][k] = ComplexField::abs(h_k);
+            h[k + 1][k] = T::zero();
+            return Ok((c, T::zero()));
+        }
+        
+        // Use more stable formulation
+        if ComplexField::abs(h_kp1.clone()) > ComplexField::abs(h_k.clone()) {
+            let tau = h_k.clone() / h_kp1.clone();
+            let s = T::one() / ComplexField::sqrt(T::one() + tau.clone() * tau.clone());
+            let c = s.clone() * tau;
+            h[k][k] = h_kp1.clone() / s;
+            h[k + 1][k] = T::zero();
+            Ok((c, s))
         } else {
-            (h_k / r_k.clone(), h_kp1 / r_k.clone())
-        };
-
-        h[k][k] = r_k;
-        h[k + 1][k] = T::zero();
-
-        Ok((c, s))
+            let tau = h_kp1.clone() / h_k.clone();
+            let c = T::one() / ComplexField::sqrt(T::one() + tau.clone() * tau.clone());
+            let s = c.clone() * tau;
+            h[k][k] = h_k.clone() / c;
+            h[k + 1][k] = T::zero();
+            Ok((c, s))
+        }
     }
 
     /// Update residual vector using Givens rotation
@@ -490,7 +748,8 @@ mod tests {
         let mut config = LinearSolverConfig::default();
         config.restart = 3; // Use full restart for small system
         config.base = cfd_core::SolverConfig::builder()
-            .max_iterations(10)
+            .max_iterations(50)
+            .tolerance(1e-6)
             .build();
         let solver = GMRES::new(config);
         let x = solver.solve(&a, &b, None).unwrap();
@@ -500,9 +759,8 @@ mod tests {
         println!("GMRES residual norm: {}", residual.norm());
         println!("Solution: {:?}", x);
 
-        // GMRES accuracy improved with better numerical stability
-        // The test system converges to reasonable accuracy with the improved implementation
-        assert!(residual.norm() < 0.2, "GMRES should achieve reasonable accuracy with improved stability");
+        // GMRES should achieve good accuracy with improved numerical stability
+        assert!(residual.norm() < 1e-6, "GMRES should achieve accuracy of 1e-6 with improved stability");
     }
 
     #[test]
