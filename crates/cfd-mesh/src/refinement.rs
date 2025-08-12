@@ -30,7 +30,6 @@ pub enum RefinementError {
 }
 
 /// Refinement criteria for adaptive mesh refinement
-#[derive(Debug)]
 pub enum RefinementCriterion<T: RealField> {
     /// Refine based on solution gradient
     Gradient {
@@ -49,6 +48,26 @@ pub enum RefinementCriterion<T: RealField> {
     },
     /// Custom refinement function
     Custom(Box<dyn Fn(&Cell, &[Vertex<T>]) -> bool + Send + Sync>),
+}
+
+impl<T: RealField> std::fmt::Debug for RefinementCriterion<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Gradient { field, threshold } => f.debug_struct("Gradient")
+                .field("field_len", &field.len())
+                .field("threshold", threshold)
+                .finish(),
+            Self::Error { error_field, threshold } => f.debug_struct("Error")
+                .field("error_field_len", &error_field.len())
+                .field("threshold", threshold)
+                .finish(),
+            Self::Geometric { curvature_threshold, feature_angle } => f.debug_struct("Geometric")
+                .field("curvature_threshold", curvature_threshold)
+                .field("feature_angle", feature_angle)
+                .finish(),
+            Self::Custom(_) => f.debug_struct("Custom").finish(),
+        }
+    }
 }
 
 /// Mesh refinement strategy
@@ -266,9 +285,9 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         
         for &cell_id in cells_to_refine {
             // Check refinement level
-            let level = self.refinement_levels.get(&cell_id).unwrap_or(&0);
-            if *level >= self.config.max_level {
-                return Err(RefinementError::MaxLevelReached(*level));
+            let level = *self.refinement_levels.get(&cell_id).unwrap_or(&0);
+            if level >= self.config.max_level {
+                return Err(RefinementError::MaxLevelReached(level));
             }
             
             // Find the cell
@@ -290,12 +309,13 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                 
                 new_vertices.extend(refined.0);
                 new_faces.extend(refined.1);
-                new_cells.extend(refined.2);
                 
-                // Update refinement levels
+                // Update refinement levels before moving cells
                 for new_cell in &refined.2 {
                     self.refinement_levels.insert(new_cell.id, level + 1);
                 }
+                
+                new_cells.extend(refined.2);
             }
         }
         
@@ -438,8 +458,8 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                 let neighbors = self.find_cell_neighbors(mesh, cell_id);
                 
                 for neighbor_id in neighbors {
-                    let cell_level = self.refinement_levels.get(&cell_id).unwrap_or(&0);
-                    let neighbor_level = self.refinement_levels.get(&neighbor_id).unwrap_or(&0);
+                    let cell_level = *self.refinement_levels.get(&cell_id).unwrap_or(&0);
+                    let neighbor_level = *self.refinement_levels.get(&neighbor_id).unwrap_or(&0);
                     
                     // Enforce 2:1 rule
                     if cell_level > neighbor_level + 1 {
@@ -512,7 +532,7 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
     /// Compute cell gradient
     fn compute_cell_gradient(&self, mesh: &Mesh<T>, cell: &Cell, field: &[T]) -> T {
         // Get cell vertices
-        let mut vertex_ids = HashSet::new();
+        let mut vertex_ids: HashSet<usize> = HashSet::new();
         for &face_id in &cell.faces {
             if let Some(face) = mesh.faces.iter().find(|f| f.id == face_id) {
                 vertex_ids.extend(&face.vertices);
@@ -526,14 +546,22 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         for &id1 in &vertex_ids {
             for &id2 in &vertex_ids {
                 if id1 < id2 {
-                    let v1 = &mesh.vertices[id1];
-                    let v2 = &mesh.vertices[id2];
-                    let dist = (v1.position - v2.position).norm();
-                    
-                    if dist > T::zero() {
-                        let df = (field[id2].clone() - field[id1].clone()).abs();
-                        grad_mag = grad_mag + df / dist;
-                        count += 1;
+                    if let (Some(v1), Some(v2)) = (
+                        mesh.vertices.iter().find(|v| v.id == id1),
+                        mesh.vertices.iter().find(|v| v.id == id2)
+                    ) {
+                        if id1 < field.len() && id2 < field.len() {
+                            let diff = v2.position.clone() - v1.position.clone();
+                            let dist = diff.norm();
+                            
+                            if dist > T::zero() {
+                                let f1: &T = &field[id1];
+                                let f2: &T = &field[id2];
+                                let df = (f2.clone() - f1.clone()).abs();
+                                grad_mag = grad_mag + df / dist;
+                                count += 1;
+                            }
+                        }
                     }
                 }
             }
@@ -579,7 +607,7 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         
         for i in 0..vertices.len() {
             for j in i+1..vertices.len() {
-                let dist = (vertices[i].position - vertices[j].position).norm();
+                let dist = (&vertices[i].position - &vertices[j].position).norm();
                 if dist > max_size {
                     max_size = dist;
                 }

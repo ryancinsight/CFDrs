@@ -213,15 +213,15 @@ impl<T: RealField> TetrahedralElement<T> {
         
         // Calculate shape function derivatives at the centroid
         // For a tetrahedron, shape functions are linear: N_i = (a_i + b_i*x + c_i*y + d_i*z) / (6*V)
-        let v0 = nodes[0];
-        let v1 = nodes[1];
-        let v2 = nodes[2];
-        let v3 = nodes[3];
+        let v0 = nodes[0].clone();
+        let v1 = nodes[1].clone();
+        let v2 = nodes[2].clone();
+        let v3 = nodes[3].clone();
         
         // Calculate volume
-        let e1 = v1 - v0;
-        let e2 = v2 - v0;
-        let e3 = v3 - v0;
+        let e1 = &v1 - &v0;
+        let e2 = &v2 - &v0;
+        let e3 = &v3 - &v0;
         let volume = e1.cross(&e2).dot(&e3).abs() / constants::tetrahedron_volume_factor::<T>();
         
         if volume < T::from_f64(1e-10).unwrap() {
@@ -239,28 +239,28 @@ impl<T: RealField> TetrahedralElement<T> {
         let mut dn_dz = vec![T::zero(); 4];
         
         // Node 0 derivatives
-        let n0_vec = (v2 - v1).cross(&(v3 - v1));
-        dn_dx[0] = n0_vec.x * inv_6v;
-        dn_dy[0] = n0_vec.y * inv_6v;
-        dn_dz[0] = n0_vec.z * inv_6v;
+        let n0_vec = (&v2 - &v1).cross(&(&v3 - &v1));
+        dn_dx[0] = n0_vec.x.clone() * inv_6v.clone();
+        dn_dy[0] = n0_vec.y.clone() * inv_6v.clone();
+        dn_dz[0] = n0_vec.z.clone() * inv_6v.clone();
         
         // Node 1 derivatives
-        let n1_vec = (v3 - v0).cross(&(v2 - v0));
-        dn_dx[1] = n1_vec.x * inv_6v;
-        dn_dy[1] = n1_vec.y * inv_6v;
-        dn_dz[1] = n1_vec.z * inv_6v;
+        let n1_vec = (&v3 - &v0).cross(&(&v2 - &v0));
+        dn_dx[1] = n1_vec.x.clone() * inv_6v.clone();
+        dn_dy[1] = n1_vec.y.clone() * inv_6v.clone();
+        dn_dz[1] = n1_vec.z.clone() * inv_6v.clone();
         
         // Node 2 derivatives
-        let n2_vec = (v1 - v0).cross(&(v3 - v0));
-        dn_dx[2] = n2_vec.x * inv_6v;
-        dn_dy[2] = n2_vec.y * inv_6v;
-        dn_dz[2] = n2_vec.z * inv_6v;
+        let n2_vec = (&v1 - &v0).cross(&(&v3 - &v0));
+        dn_dx[2] = n2_vec.x.clone() * inv_6v.clone();
+        dn_dy[2] = n2_vec.y.clone() * inv_6v.clone();
+        dn_dz[2] = n2_vec.z.clone() * inv_6v.clone();
         
         // Node 3 derivatives
-        let n3_vec = (v2 - v0).cross(&(v1 - v0));
-        dn_dx[3] = n3_vec.x * inv_6v;
-        dn_dy[3] = n3_vec.y * inv_6v;
-        dn_dz[3] = n3_vec.z * inv_6v;
+        let n3_vec = (&v2 - &v0).cross(&(&v1 - &v0));
+        dn_dx[3] = n3_vec.x.clone() * inv_6v.clone();
+        dn_dy[3] = n3_vec.y.clone() * inv_6v.clone();
+        dn_dz[3] = n3_vec.z.clone() * inv_6v;
         
         // Fill B matrix: relates strains to nodal displacements
         // Strain = B * u, where u = [u0x, u0y, u0z, u1x, u1y, u1z, ...]
@@ -268,19 +268,19 @@ impl<T: RealField> TetrahedralElement<T> {
             let col_offset = i * 3;
             
             // Normal strains
-            b[(0, col_offset)] = dn_dx[i];     // ε_xx = ∂u/∂x
-            b[(1, col_offset + 1)] = dn_dy[i];  // ε_yy = ∂v/∂y
-            b[(2, col_offset + 2)] = dn_dz[i];  // ε_zz = ∂w/∂z
+            b[(0, col_offset)] = dn_dx[i].clone();     // ε_xx = ∂u/∂x
+            b[(1, col_offset + 1)] = dn_dy[i].clone();  // ε_yy = ∂v/∂y
+            b[(2, col_offset + 2)] = dn_dz[i].clone();  // ε_zz = ∂w/∂z
             
             // Shear strains (engineering strain = 2 * tensorial strain)
-            b[(3, col_offset)] = dn_dy[i];      // γ_xy = ∂u/∂y + ∂v/∂x
-            b[(3, col_offset + 1)] = dn_dx[i];
+            b[(3, col_offset)] = dn_dy[i].clone();      // γ_xy = ∂u/∂y + ∂v/∂x
+            b[(3, col_offset + 1)] = dn_dx[i].clone();
             
-            b[(4, col_offset + 1)] = dn_dz[i];  // γ_yz = ∂v/∂z + ∂w/∂y
-            b[(4, col_offset + 2)] = dn_dy[i];
+            b[(4, col_offset + 1)] = dn_dz[i].clone();  // γ_yz = ∂v/∂z + ∂w/∂y
+            b[(4, col_offset + 2)] = dn_dy[i].clone();
             
-            b[(5, col_offset)] = dn_dz[i];      // γ_xz = ∂u/∂z + ∂w/∂x
-            b[(5, col_offset + 2)] = dn_dx[i];
+            b[(5, col_offset)] = dn_dz[i].clone();      // γ_xz = ∂u/∂z + ∂w/∂x
+            b[(5, col_offset + 2)] = dn_dx[i].clone();
         }
         
         Ok(b)
@@ -291,30 +291,31 @@ impl<T: RealField> TetrahedralElement<T> {
         let mut d = DMatrix::zeros(6, 6);
         
         // For linear elastic material (used in structural analysis)
-        let e = properties.youngs_modulus;
-        let nu = properties.poisson_ratio;
-        let factor = e / ((T::one() + nu) * (T::one() - T::from_f64(2.0).unwrap() * nu));
+        let e = properties.youngs_modulus.clone();
+        let nu = properties.poisson_ratio.clone();
+        let factor = e.clone() / ((T::one() + nu.clone()) * (T::one() - T::from_f64(2.0).unwrap() * nu.clone()));
         
         // Lamé parameters
-        let lambda = factor * nu;
+        let lambda = factor.clone() * nu.clone();
         let mu = factor * (T::one() - nu) / T::from_f64(2.0).unwrap();
         
         // Normal stress components
-        d[(0, 0)] = lambda + T::from_f64(2.0).unwrap() * mu;
-        d[(1, 1)] = d[(0, 0)];
-        d[(2, 2)] = d[(0, 0)];
+        let two_mu = T::from_f64(2.0).unwrap() * mu.clone();
+        d[(0, 0)] = lambda.clone() + two_mu.clone();
+        d[(1, 1)] = lambda.clone() + two_mu.clone();
+        d[(2, 2)] = lambda.clone() + two_mu;
         
         // Shear stress components
-        d[(3, 3)] = mu;
-        d[(4, 4)] = mu;
-        d[(5, 5)] = mu;
+        d[(3, 3)] = mu.clone();
+        d[(4, 4)] = mu.clone();
+        d[(5, 5)] = mu.clone();
         
         // Off-diagonal terms
-        d[(0, 1)] = lambda;
-        d[(0, 2)] = lambda;
-        d[(1, 0)] = lambda;
-        d[(1, 2)] = lambda;
-        d[(2, 0)] = lambda;
+        d[(0, 1)] = lambda.clone();
+        d[(0, 2)] = lambda.clone();
+        d[(1, 0)] = lambda.clone();
+        d[(1, 2)] = lambda.clone();
+        d[(2, 0)] = lambda.clone();
         d[(2, 1)] = lambda;
         
         d
@@ -664,16 +665,24 @@ impl<T: RealField + FromPrimitive + Send + Sync, F: ElementFactory<T>> FemSolver
         material_properties: &MaterialProperties<T>,
     ) -> Result<DVector<T>> {
         let ndof = element.nodes.len() * 3; // 3 DOF per node (u, v, w)
-        let mut force_vector = DVector::zeros(ndof);
         
         // Get body force from material properties
         let body_force = material_properties.body_force.unwrap_or_else(Vector3::zeros);
         
         // Compute Jacobian determinant for integration
-        let det_j = self.compute_jacobian_determinant(nodes)?;
+        // For linear tetrahedron, det(J) = 6 * Volume
+        let v0 = nodes[0].clone();
+        let v1 = nodes[1].clone();
+        let v2 = nodes[2].clone();
+        let v3 = nodes[3].clone();
+        
+        let e1 = &v1 - &v0;
+        let e2 = &v2 - &v0;
+        let e3 = &v3 - &v0;
+        let det_j = e1.cross(&e2).dot(&e3).abs();
         
         // Initialize force vector
-        let mut force_vector = DVector::zeros(12); // 4 nodes × 3 DOF
+        let mut force_vector = DVector::zeros(ndof);
         
         // Gauss quadrature integration
         // For linear tetrahedron, single point at centroid is sufficient

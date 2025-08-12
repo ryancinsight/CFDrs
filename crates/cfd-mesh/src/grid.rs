@@ -42,7 +42,6 @@ pub enum CoordinateSystem {
 }
 
 /// Grid spacing type
-#[derive(Debug)]
 pub enum GridSpacing<T: RealField> {
     /// Uniform spacing
     Uniform(T),
@@ -52,6 +51,23 @@ pub enum GridSpacing<T: RealField> {
     Hyperbolic { center: T, width: T },
     /// Custom spacing function
     Custom(Box<dyn Fn(usize, usize) -> T + Send + Sync>),
+}
+
+impl<T: RealField> std::fmt::Debug for GridSpacing<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Uniform(spacing) => f.debug_tuple("Uniform").field(spacing).finish(),
+            Self::Geometric { first, ratio } => f.debug_struct("Geometric")
+                .field("first", first)
+                .field("ratio", ratio)
+                .finish(),
+            Self::Hyperbolic { center, width } => f.debug_struct("Hyperbolic")
+                .field("center", center)
+                .field("width", width)
+                .finish(),
+            Self::Custom(_) => f.debug_struct("Custom").finish(),
+        }
+    }
 }
 
 /// Structured grid configuration
@@ -229,7 +245,7 @@ impl<T: RealField + FromPrimitive> GridGenerator<T> {
                     let phi = phi_coords[k].clone();
                     
                     let x = r.clone() * theta.clone().sin() * phi.clone().cos();
-                    let y = r.clone() * theta.sin() * phi.sin();
+                    let y = r.clone() * theta.clone().sin() * phi.clone().sin();
                     let z = r * theta.cos();
                     
                     points.push(Point3::new(x, y, z));
@@ -291,7 +307,7 @@ impl<T: RealField + FromPrimitive> GridGenerator<T> {
                 let actual_max = coords.last().unwrap().clone();
                 let scale = (max.clone() - min.clone()) / (actual_max - min.clone());
                 for coord in &mut coords {
-                    *coord = min.clone() + (*coord - min.clone()) * scale.clone();
+                    *coord = min.clone() + (coord.clone() - min.clone()) * scale.clone();
                 }
             }
             GridSpacing::Hyperbolic { center, width } => {
