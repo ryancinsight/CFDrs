@@ -293,14 +293,15 @@ impl<T: RealField> TetrahedralElement<T> {
         // For linear elastic material (used in structural analysis)
         let e = properties.youngs_modulus.clone();
         let nu = properties.poisson_ratio.clone();
-        let factor = e.clone() / ((T::one() + nu.clone()) * (T::one() - T::from_f64(2.0).unwrap() * nu.clone()));
+        let two = constants::two::<T>();
+        let factor = e.clone() / ((T::one() + nu.clone()) * (T::one() - two.clone() * nu.clone()));
         
         // Lamé parameters
         let lambda = factor.clone() * nu.clone();
-        let mu = factor * (T::one() - nu) / T::from_f64(2.0).unwrap();
+        let mu = factor * (T::one() - nu) / two.clone();
         
         // Normal stress components
-        let two_mu = T::from_f64(2.0).unwrap() * mu.clone();
+        let two_mu = two * mu.clone();
         d[(0, 0)] = lambda.clone() + two_mu.clone();
         d[(1, 1)] = lambda.clone() + two_mu.clone();
         d[(2, 2)] = lambda.clone() + two_mu;
@@ -396,10 +397,10 @@ impl<T: RealField + FromPrimitive> Element<T> for Tetrahedron4<T> {
         // N2 = η
         // N3 = ζ
         vec![
-            T::one() - xi.x - xi.y - xi.z,
-            xi.x,
-            xi.y,
-            xi.z,
+            T::one() - xi.x.clone() - xi.y.clone() - xi.z.clone(),
+            xi.x.clone(),
+            xi.y.clone(),
+            xi.z.clone(),
         ]
     }
 
@@ -415,9 +416,9 @@ impl<T: RealField + FromPrimitive> Element<T> for Tetrahedron4<T> {
 
     fn integration_points(&self) -> Vec<(Vector3<T>, T)> {
         // Single-point integration at centroid for linear tetrahedron
-        let quarter = T::from_f64(0.25).unwrap();
-        let weight = T::from_f64(1.0 / 6.0).unwrap(); // Volume of reference tetrahedron
-        vec![(Vector3::new(quarter, quarter, quarter), weight)]
+        let quarter = constants::tetrahedron_gauss_point::<T>();
+        let weight = constants::tetrahedron_gauss_weight::<T>();
+        vec![(Vector3::new(quarter.clone(), quarter.clone(), quarter), weight)]
     }
 
     fn stiffness_matrix(
@@ -437,9 +438,9 @@ impl<T: RealField + FromPrimitive> Element<T> for Tetrahedron4<T> {
 
         for i in 0..3 {
             for j in 0..4 {
-                jacobian[(i, 0)] += derivatives[j][i] * nodes[j].x;
-                jacobian[(i, 1)] += derivatives[j][i] * nodes[j].y;
-                jacobian[(i, 2)] += derivatives[j][i] * nodes[j].z;
+                jacobian[(i, 0)] += derivatives[j][i].clone() * nodes[j].x.clone();
+                jacobian[(i, 1)] += derivatives[j][i].clone() * nodes[j].y.clone();
+                jacobian[(i, 2)] += derivatives[j][i].clone() * nodes[j].z.clone();
             }
         }
 
@@ -455,7 +456,7 @@ impl<T: RealField + FromPrimitive> Element<T> for Tetrahedron4<T> {
         // K = ∫ B^T D B dV where B is strain-displacement matrix, D is material matrix
 
         let mut k = nalgebra::DMatrix::zeros(12, 12); // 4 nodes × 3 DOF per node
-        let viscosity = material_properties.viscosity;
+        let viscosity = material_properties.viscosity.clone();
 
         // Compute shape function derivatives in physical coordinates
         let j_inv = jacobian.try_inverse().ok_or_else(|| {
@@ -481,27 +482,27 @@ impl<T: RealField + FromPrimitive> Element<T> for Tetrahedron4<T> {
             (0..4).for_each(|i| {
                 let base_col = i * 3;
                 // Velocity gradients for viscous stress tensor using zero-copy references
-                b_matrix[(0, base_col)] = dn_dx[(0, i)]; // ∂u/∂x
-                b_matrix[(1, base_col + 1)] = dn_dx[(1, i)]; // ∂v/∂y
-                b_matrix[(2, base_col + 2)] = dn_dx[(2, i)]; // ∂w/∂z
-                b_matrix[(3, base_col)] = dn_dx[(1, i)]; // ∂u/∂y
-                b_matrix[(3, base_col + 1)] = dn_dx[(0, i)]; // ∂v/∂x
-                b_matrix[(4, base_col + 1)] = dn_dx[(2, i)]; // ∂v/∂z
-                b_matrix[(4, base_col + 2)] = dn_dx[(1, i)]; // ∂w/∂y
-                b_matrix[(5, base_col)] = dn_dx[(2, i)]; // ∂u/∂z
-                b_matrix[(5, base_col + 2)] = dn_dx[(0, i)]; // ∂w/∂x
+                b_matrix[(0, base_col)] = dn_dx[(0, i)].clone(); // ∂u/∂x
+                b_matrix[(1, base_col + 1)] = dn_dx[(1, i)].clone(); // ∂v/∂y
+                b_matrix[(2, base_col + 2)] = dn_dx[(2, i)].clone(); // ∂w/∂z
+                b_matrix[(3, base_col)] = dn_dx[(1, i)].clone(); // ∂u/∂y
+                b_matrix[(3, base_col + 1)] = dn_dx[(0, i)].clone(); // ∂v/∂x
+                b_matrix[(4, base_col + 1)] = dn_dx[(2, i)].clone(); // ∂v/∂z
+                b_matrix[(4, base_col + 2)] = dn_dx[(1, i)].clone(); // ∂w/∂y
+                b_matrix[(5, base_col)] = dn_dx[(2, i)].clone(); // ∂u/∂z
+                b_matrix[(5, base_col + 2)] = dn_dx[(0, i)].clone(); // ∂w/∂x
             });
 
             // Material matrix D for viscous fluid (isotropic)
             let mut d_matrix = nalgebra::DMatrix::zeros(6, 6);
-            let two_mu = T::from_f64(2.0).unwrap() * viscosity;
-            d_matrix[(0, 0)] = two_mu; d_matrix[(1, 1)] = two_mu; d_matrix[(2, 2)] = two_mu;
-            d_matrix[(3, 3)] = viscosity; d_matrix[(4, 4)] = viscosity; d_matrix[(5, 5)] = viscosity;
+            let two_mu = constants::two::<T>() * viscosity.clone();
+            d_matrix[(0, 0)] = two_mu.clone(); d_matrix[(1, 1)] = two_mu.clone(); d_matrix[(2, 2)] = two_mu.clone();
+            d_matrix[(3, 3)] = viscosity.clone(); d_matrix[(4, 4)] = viscosity.clone(); d_matrix[(5, 5)] = viscosity.clone();
 
             // Compute element stiffness: K_e += B^T * D * B * det(J) * weight
             let bd = &b_matrix.transpose() * &d_matrix;
             let bdb = &bd * &b_matrix;
-            let integration_factor = det_j * weight;
+            let integration_factor = det_j.clone() * weight;
 
             k += bdb * integration_factor;
         }
@@ -667,7 +668,7 @@ impl<T: RealField + FromPrimitive + Send + Sync, F: ElementFactory<T>> FemSolver
         let ndof = element.nodes.len() * 3; // 3 DOF per node (u, v, w)
         
         // Get body force from material properties
-        let body_force = material_properties.body_force.unwrap_or_else(Vector3::zeros);
+        let body_force = material_properties.body_force.clone().unwrap_or_else(Vector3::zeros);
         
         // Compute Jacobian determinant for integration
         // For linear tetrahedron, det(J) = 6 * Volume
@@ -696,9 +697,9 @@ impl<T: RealField + FromPrimitive + Send + Sync, F: ElementFactory<T>> FemSolver
             
             // Add contribution to force vector
             for (i, n_i) in shape_functions.iter().enumerate() {
-                force_vector[i * 3] += weight * *n_i * body_force.x * det_j;
-                force_vector[i * 3 + 1] += weight * *n_i * body_force.y * det_j;
-                force_vector[i * 3 + 2] += weight * *n_i * body_force.z * det_j;
+                force_vector[i * 3] += weight.clone() * n_i.clone() * body_force.x.clone() * det_j.clone();
+                force_vector[i * 3 + 1] += weight.clone() * n_i.clone() * body_force.y.clone() * det_j.clone();
+                force_vector[i * 3 + 2] += weight.clone() * n_i.clone() * body_force.z.clone() * det_j.clone();
             }
         }
         

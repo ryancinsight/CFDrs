@@ -31,6 +31,14 @@ pub const TETRAHEDRON_FACES: usize = 4;
 /// Number of edges in a tetrahedron
 pub const TETRAHEDRON_EDGES: usize = 6;
 
+// FEM integration constants
+/// Gauss point coordinate for tetrahedral centroid
+pub const TETRAHEDRON_GAUSS_POINT: f64 = 0.25;
+/// Gauss weight for single-point tetrahedral integration
+pub const TETRAHEDRON_GAUSS_WEIGHT: f64 = 1.0 / 6.0;
+/// Factor of 2 for material properties
+pub const TWO_FACTOR: f64 = 2.0;
+
 // Golden ratio for icosahedron generation
 /// Golden ratio value
 pub const GOLDEN_RATIO: f64 = 1.618033988749895; // (1 + sqrt(5)) / 2
@@ -76,4 +84,19 @@ pub fn golden_ratio<T: RealField>() -> T {
 /// Get ray intersection epsilon for type T
 pub fn ray_intersection_epsilon<T: RealField>() -> T {
     T::from_f64(RAY_INTERSECTION_EPSILON).unwrap_or_else(T::default_epsilon)
+}
+
+/// Get tetrahedral Gauss point coordinate for type T
+pub fn tetrahedron_gauss_point<T: RealField>() -> T {
+    T::from_f64(TETRAHEDRON_GAUSS_POINT).unwrap()
+}
+
+/// Get tetrahedral Gauss weight for type T
+pub fn tetrahedron_gauss_weight<T: RealField>() -> T {
+    T::from_f64(TETRAHEDRON_GAUSS_WEIGHT).unwrap()
+}
+
+/// Get factor of two for type T
+pub fn two<T: RealField>() -> T {
+    T::from_f64(TWO_FACTOR).unwrap()
 }

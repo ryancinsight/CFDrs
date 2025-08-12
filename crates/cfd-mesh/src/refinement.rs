@@ -428,11 +428,12 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         let mut midpoints = Vec::new();
         let two = T::from_f64(2.0).unwrap();
         
-        for i in 0..vertices.len() {
-            for j in i+1..vertices.len() {
+        // Use iterator combinators for midpoint calculation
+        for (i, v1) in vertices.iter().enumerate() {
+            for v2 in vertices.iter().skip(i + 1) {
                 let mid = Point3::from(
-                    (vertices[i].position.coords.clone() + 
-                     vertices[j].position.coords.clone()) / two.clone()
+                    (v1.position.coords.clone() + 
+                     v2.position.coords.clone()) / two.clone()
                 );
                 midpoints.push(mid);
             }
@@ -605,14 +606,14 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
             .filter_map(|id: &usize| mesh.vertices.iter().find(|v| v.id == *id))
             .collect();
         
-        for i in 0..vertices.len() {
-            for j in i+1..vertices.len() {
-                let dist = (&vertices[i].position - &vertices[j].position).norm();
-                if dist > max_size {
-                    max_size = dist;
-                }
-            }
-        }
+        // Use iterator combinators to find maximum distance
+        max_size = vertices.iter().enumerate()
+            .flat_map(|(i, v1)| {
+                vertices.iter()
+                    .skip(i + 1)
+                    .map(move |v2| (&v1.position - &v2.position).norm())
+            })
+            .fold(max_size, T::max);
         
         max_size
     }
