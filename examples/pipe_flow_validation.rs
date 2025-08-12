@@ -6,7 +6,7 @@
 //! 3. Validating results against the analytical Hagen-Poiseuille solution
 
 use cfd_mesh::{Mesh, Vertex, Face, MeshTopology, csg::CsgMeshAdapter};
-use cfd_3d::{FemSolver, FemConfig, MaterialProperties};
+use cfd_3d::{FemSolver, FemConfig, FluidProperties};
 use nalgebra::{Point3, Vector3};
 use std::f64::consts::PI;
 use std::collections::HashMap;
@@ -74,45 +74,69 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  ✓ Laminar flow regime (Re < 2300)");
     }
     
-    // Set up FEM solver for validation
+    // Create FEM solver
     println!("\nSetting up FEM solver...");
-    let fem_config = FemConfig::default();
-    let fem_solver = FemSolver::new(fem_config);
+    let base_config = cfd_core::SolverConfig::<f64>::builder()
+        .tolerance(1e-6)
+        .max_iterations(1000)
+        .verbosity(1)
+        .build();
     
-    // Set material properties
-    let material = MaterialProperties {
-        density: fluid_density,
-        viscosity: fluid_viscosity,
-        youngs_modulus: 1e9,  // Not used for fluid flow
-        poisson_ratio: 0.3,    // Not used for fluid flow
-        body_force: Some(Vector3::new(0.0, 0.0, pressure_gradient / pipe_length)),
-        thermal_conductivity: None,
-        specific_heat: None,
+    let fem_config = FemConfig {
+        base: base_config,
+        use_stabilization: true,
+        tau: 0.1,
+        dt: None, // Steady state
+        reynolds: Some(reynolds_number),
     };
     
-    // Apply boundary conditions
-    let mut velocity_bcs = HashMap::new();
-    let mut body_forces = HashMap::new();
+    // Create fluid properties
+    let fluid_props = FluidProperties {
+        density: fluid_density,
+        viscosity: fluid_viscosity,
+        body_force: None, // No body forces for horizontal pipe
+    };
     
-    // No-slip condition on pipe walls
+    let mut fem_solver = FemSolver::new(fem_config, complete_pipe.clone(), fluid_props);
+    
+    // Apply boundary conditions
+    println!("\nApplying boundary conditions:");
+    let mut velocity_bcs = HashMap::new();
+    
+    // Inlet: parabolic velocity profile (Poiseuille flow)
+    // u_z(r) = u_max * (1 - (r/R)^2)
+    let u_max = 2.0 * max_velocity_analytical; // Maximum velocity at centerline
+    println!("  Inlet: Parabolic profile with u_max = {:.4} m/s", u_max);
+    
+    // Apply parabolic profile at inlet nodes
     for (i, vertex) in complete_pipe.vertices.iter().enumerate() {
-        let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
-        
-        // Wall boundary (r ≈ pipe_radius)
-        if (r - pipe_radius).abs() < 1e-6 {
-            velocity_bcs.insert(i, Vector3::zeros()); // No-slip
+        if vertex.position.z.abs() < 1e-6 { // Inlet at z=0
+            let r = (vertex.position.x * vertex.position.x + 
+                    vertex.position.y * vertex.position.y).sqrt();
+            let u_z = u_max * (1.0 - (r/pipe_radius).powi(2));
+            velocity_bcs.insert(i, Vector3::new(0.0, 0.0, u_z));
         }
-        
-        // Apply body force (pressure gradient) to all nodes
-        body_forces.insert(i, Vector3::new(0.0, 0.0, -pressure_gradient / pipe_length));
     }
     
-    println!("  Applied {} velocity BCs (no-slip walls)", velocity_bcs.len());
-    println!("  Applied body force to simulate pressure gradient");
+    // Walls: no-slip condition
+    println!("  Walls: No-slip (u = v = w = 0)");
+    for (i, vertex) in complete_pipe.vertices.iter().enumerate() {
+        let r = (vertex.position.x * vertex.position.x + 
+                vertex.position.y * vertex.position.y).sqrt();
+        if (r - pipe_radius).abs() < 1e-6 { // On pipe wall
+            velocity_bcs.insert(i, Vector3::new(0.0, 0.0, 0.0));
+        }
+    }
+    
+    // Outlet: stress-free (natural BC, no explicit constraint needed)
+    println!("  Outlet: Stress-free (natural BC)");
     
     // Solve for steady-state flow
     println!("\nSolving steady-state Stokes flow...");
-    let velocity = fem_solver.solve_stokes(&velocity_bcs, &body_forces, &material)?;
+    fem_solver.solve_stokes(&velocity_bcs)?;
+    
+    // Get velocity solution
+    let velocity = fem_solver.get_velocity_field();
     
     // Validate results
     println!("\nValidation Results:");
@@ -126,8 +150,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         
         // Check if point is near centerline (r ≈ 0)
         if r < pipe_radius * 0.1 {
-            if let Some(v) = velocity.get(&i) {
-                let v_z = v.z; // z-component of velocity
+            // Velocity is stored as [u0, v0, w0, u1, v1, w1, ...]
+            let vel_idx = i * 3;
+            if vel_idx + 2 < velocity.len() {
+                let v_z = velocity[vel_idx + 2]; // z-component of velocity
                 centerline_velocities.push((vertex.position.z, v_z));
                 if v_z.abs() > max_velocity_numerical {
                     max_velocity_numerical = v_z.abs();
@@ -165,10 +191,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if (vertex.position.z - mid_z).abs() < pipe_length / (2.0 * n_axial as f64) {
             let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
             if r <= pipe_radius {
-                if let Some(v) = velocity.get(&vertex.id) {
-                    let v_z = v.z;
-                    flow_rate_numerical += v_z * r * dr * dtheta; // Cylindrical integration
-                }
+                            let vel_idx = vertex.id * 3;
+            if vel_idx + 2 < velocity.len() {
+                let v_z = velocity[vel_idx + 2];
+                flow_rate_numerical += v_z * r * dr * dtheta; // Cylindrical integration
+            }
             }
         }
     }
@@ -190,8 +217,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if (vertex.position.z - mid_z).abs() < pipe_length / (2.0 * n_axial as f64) {
             let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
             if r <= pipe_radius {
-                if let Some(v) = velocity.get(&vertex.id) {
-                    let v_z = v.z;
+                let vel_idx = vertex.id * 3;
+                if vel_idx + 2 < velocity.len() {
+                    let v_z = velocity[vel_idx + 2];
                     let v_analytical = max_velocity_analytical * (1.0 - (r / pipe_radius).powi(2));
                     profile_points.push((r / pipe_radius, v_z, v_analytical));
                 }
