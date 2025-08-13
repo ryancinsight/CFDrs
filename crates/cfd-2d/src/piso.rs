@@ -8,6 +8,7 @@ use cfd_core::Result;
 use nalgebra::{Vector2, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 // Named constants for PISO algorithm
 const DEFAULT_MAX_CORRECTORS: usize = 2;
@@ -96,18 +97,24 @@ pub struct PisoSolver<T: RealField> {
     a_w: Vec<Vec<T>>,
     a_n: Vec<Vec<T>>,
     a_s: Vec<Vec<T>>,
+    /// Grid structure
+    grid: StructuredGrid2D<T>,
+    /// Boundary conditions
+    boundary_conditions: HashMap<(usize, usize), cfd_core::BoundaryCondition<T>>,
 }
 
 impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
     /// Create a new PISO solver
     pub fn new(
         config: PisoConfig<T>,
-        grid: &StructuredGrid2D<T>,
+        grid: StructuredGrid2D<T>,
         density: T,
         viscosity: T,
     ) -> Self {
         let nx = grid.nx;
         let ny = grid.ny;
+        let dx = grid.dx.clone();
+        let dy = grid.dy.clone();
 
         Self {
             config,
@@ -119,8 +126,8 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
             u_double_prime: vec![vec![Vector2::zeros(); ny]; nx],
             nx,
             ny,
-            dx: grid.dx.clone(),
-            dy: grid.dy.clone(),
+            dx,
+            dy,
             density,
             viscosity,
             a_p: vec![vec![T::zero(); ny]; nx],
@@ -128,7 +135,14 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
             a_w: vec![vec![T::zero(); ny]; nx],
             a_n: vec![vec![T::zero(); ny]; nx],
             a_s: vec![vec![T::zero(); ny]; nx],
+            grid,
+            boundary_conditions: HashMap::new(),
         }
+    }
+    
+    /// Set boundary conditions
+    pub fn set_boundary_conditions(&mut self, bcs: HashMap<(usize, usize), cfd_core::BoundaryCondition<T>>) {
+        self.boundary_conditions = bcs;
     }
 
     /// Initialize solver with initial conditions
@@ -239,7 +253,13 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
         }
         
         // Apply boundary conditions to the system
-        self.apply_momentum_boundary_conditions(&mut a_matrix, &mut b_x, &mut b_y)?;
+        self.apply_momentum_boundary_conditions(
+            &mut a_matrix, 
+            &mut b_x, 
+            &mut b_y,
+            &self.grid, // Assuming grid is a member of PisoSolver
+            &self.boundary_conditions // Assuming boundary_conditions is a member of PisoSolver
+        )?;
         
         // Solve using iterative method (Gauss-Seidel for now)
         let mut u_x = vec![T::zero(); n];
@@ -301,50 +321,134 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
         &self, 
         a_matrix: &mut Vec<Vec<T>>, 
         b_x: &mut Vec<T>, 
-        b_y: &mut Vec<T>
+        b_y: &mut Vec<T>,
+        grid: &StructuredGrid2D<T>,
+        boundary_conditions: &HashMap<(usize, usize), cfd_core::BoundaryCondition<T>>
     ) -> Result<()> {
-        // Apply actual boundary conditions from the grid, not hardcoded values
-        // This is a placeholder - should get BCs from the grid structure
+        use cfd_core::BoundaryCondition;
         
-        // For now, apply no-slip on all boundaries (u=0, v=0)
+        // Apply boundary conditions based on grid and specified BCs
         for i in 0..self.nx {
-            // Bottom boundary (j=0)
-            let idx = i * self.ny + 0;
-            for k in 0..a_matrix.len() {
-                a_matrix[idx][k] = T::zero();
+            for j in 0..self.ny {
+                if i == 0 || i == self.nx - 1 || j == 0 || j == self.ny - 1 {
+                    let idx = i * self.ny + j;
+                    
+                    // Get boundary condition for this cell
+                    let bc = boundary_conditions.get(&(i, j));
+                    
+                    // Use default wall BC if not specified for boundary cells
+                    let default_wall_bc = BoundaryCondition::wall_no_slip();
+                    let bc = if bc.is_none() && (j == 0 || j == self.ny - 1) {
+                        Some(&default_wall_bc)
+                    } else {
+                        bc
+                    };
+                    
+                    if let Some(bc) = bc {
+                        match bc {
+                            BoundaryCondition::Wall { wall_type } => {
+                                use cfd_core::boundary::WallType;
+                                match wall_type {
+                                    WallType::NoSlip => {
+                                        // No-slip: u = 0, v = 0
+                                        for k in 0..a_matrix.len() {
+                                            a_matrix[idx][k] = T::zero();
+                                        }
+                                        a_matrix[idx][idx] = T::one();
+                                        b_x[idx] = T::zero();
+                                        b_y[idx] = T::zero();
+                                    },
+                                    WallType::Slip => {
+                                        // Slip: normal velocity = 0, tangential free
+                                        if j == 0 || j == self.ny - 1 {
+                                            // Horizontal wall: v = 0, du/dy = 0
+                                            for k in 0..a_matrix.len() {
+                                                a_matrix[idx][k] = T::zero();
+                                            }
+                                            a_matrix[idx][idx] = T::one();
+                                            b_y[idx] = T::zero();
+                                            // Keep tangential velocity from interior
+                                        } else if i == 0 || i == self.nx - 1 {
+                                            // Vertical wall: u = 0, dv/dx = 0
+                                            for k in 0..a_matrix.len() {
+                                                a_matrix[idx][k] = T::zero();
+                                            }
+                                            a_matrix[idx][idx] = T::one();
+                                            b_x[idx] = T::zero();
+                                            // Keep tangential velocity from interior
+                                        }
+                                    },
+                                    WallType::Moving { velocity } => {
+                                        // Moving wall: u = u_wall, v = v_wall
+                                        for k in 0..a_matrix.len() {
+                                            a_matrix[idx][k] = T::zero();
+                                        }
+                                        a_matrix[idx][idx] = T::one();
+                                        b_x[idx] = velocity.x.clone();
+                                        b_y[idx] = velocity.y.clone();
+                                    },
+                                    WallType::Rotating { .. } => {
+                                        // Rotating wall - compute tangential velocity
+                                        // This requires position information
+                                        // For now, treat as no-slip
+                                        for k in 0..a_matrix.len() {
+                                            a_matrix[idx][k] = T::zero();
+                                        }
+                                        a_matrix[idx][idx] = T::one();
+                                        b_x[idx] = T::zero();
+                                        b_y[idx] = T::zero();
+                                    }
+                                }
+                            },
+                            BoundaryCondition::VelocityInlet { velocity } => {
+                                // Fixed velocity at inlet
+                                for k in 0..a_matrix.len() {
+                                    a_matrix[idx][k] = T::zero();
+                                }
+                                a_matrix[idx][idx] = T::one();
+                                b_x[idx] = velocity.x.clone();
+                                b_y[idx] = velocity.y.clone();
+                            },
+                            BoundaryCondition::PressureOutlet { .. } => {
+                                // Zero gradient for velocity (Neumann BC)
+                                // This is handled by not modifying the interior equations
+                                // The pressure correction will handle the pressure BC
+                            },
+                            BoundaryCondition::Symmetry => {
+                                // Symmetry: normal velocity = 0, tangential gradient = 0
+                                if j == 0 || j == self.ny - 1 {
+                                    // Horizontal symmetry plane
+                                    for k in 0..a_matrix.len() {
+                                        a_matrix[idx][k] = T::zero();
+                                    }
+                                    a_matrix[idx][idx] = T::one();
+                                    b_y[idx] = T::zero();
+                                } else if i == 0 || i == self.nx - 1 {
+                                    // Vertical symmetry plane
+                                    for k in 0..a_matrix.len() {
+                                        a_matrix[idx][k] = T::zero();
+                                    }
+                                    a_matrix[idx][idx] = T::one();
+                                    b_x[idx] = T::zero();
+                                }
+                            },
+                            BoundaryCondition::Outflow => {
+                                // Zero gradient - handled by interior equations
+                            },
+                            _ => {
+                                // Other BC types not directly applicable to momentum
+                                // Use default no-slip for safety
+                                for k in 0..a_matrix.len() {
+                                    a_matrix[idx][k] = T::zero();
+                                }
+                                a_matrix[idx][idx] = T::one();
+                                b_x[idx] = T::zero();
+                                b_y[idx] = T::zero();
+                            }
+                        }
+                    }
+                }
             }
-            a_matrix[idx][idx] = T::one();
-            b_x[idx] = T::zero();
-            b_y[idx] = T::zero();
-            
-            // Top boundary (j=ny-1)
-            let idx = i * self.ny + (self.ny - 1);
-            for k in 0..a_matrix.len() {
-                a_matrix[idx][k] = T::zero();
-            }
-            a_matrix[idx][idx] = T::one();
-            b_x[idx] = T::zero();
-            b_y[idx] = T::zero();
-        }
-        
-        for j in 0..self.ny {
-            // Left boundary (i=0)
-            let idx = 0 * self.ny + j;
-            for k in 0..a_matrix.len() {
-                a_matrix[idx][k] = T::zero();
-            }
-            a_matrix[idx][idx] = T::one();
-            b_x[idx] = T::zero();
-            b_y[idx] = T::zero();
-            
-            // Right boundary (i=nx-1)
-            let idx = (self.nx - 1) * self.ny + j;
-            for k in 0..a_matrix.len() {
-                a_matrix[idx][k] = T::zero();
-            }
-            a_matrix[idx][idx] = T::one();
-            b_x[idx] = T::zero();
-            b_y[idx] = T::zero();
         }
         
         Ok(())
@@ -538,7 +642,7 @@ mod tests {
     fn test_piso_creation() {
         let grid = StructuredGrid2D::<f64>::unit_square(5, 5).unwrap();
         let config = PisoConfig::default();
-        let solver = PisoSolver::new(config, &grid, 1.0, 0.001);
+        let solver = PisoSolver::new(config, grid, 1.0, 0.001);
         
         assert_eq!(solver.nx, 5);
         assert_eq!(solver.ny, 5);
@@ -548,7 +652,7 @@ mod tests {
     fn test_piso_initialization() {
         let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
         let config = PisoConfig::default();
-        let mut solver = PisoSolver::new(config, &grid, 1.0, 0.001);
+        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001);
         
         solver.initialize(Vector2::new(1.0, 0.5), 101325.0).unwrap();
         

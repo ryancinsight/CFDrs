@@ -83,10 +83,12 @@ impl<T: RealField + FromPrimitive> Default for LbmConfig<T> {
 /// Lattice Boltzmann Method solver for 2D incompressible flows
 pub struct LbmSolver<T: RealField> {
     config: LbmConfig<T>,
-    /// Distribution functions [nx][ny][Q]
+    /// Distribution functions [nx][ny][Q] - current timestep
     f: Vec<Vec<Vec<T>>>,
-    /// Temporary distribution functions for streaming
-    f_temp: Vec<Vec<Vec<T>>>,
+    /// Distribution functions [nx][ny][Q] - next timestep
+    f_new: Vec<Vec<Vec<T>>>,
+    /// Flag to track which array is current (for double buffering)
+    use_f_as_current: bool,
     /// Macroscopic density
     rho: Vec<Vec<T>>,
     /// Macroscopic velocity
@@ -104,19 +106,52 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
 
         // Initialize distribution functions
         let f = vec![vec![vec![T::zero(); D2Q9::Q]; ny]; nx];
-        let f_temp = vec![vec![vec![T::zero(); D2Q9::Q]; ny]; nx];
+        let f_new = vec![vec![vec![T::zero(); D2Q9::Q]; ny]; nx];
         let rho = vec![vec![T::one(); ny]; nx];
         let u = vec![vec![Vector2::zeros(); ny]; nx];
 
         Self {
             config,
             f,
-            f_temp,
+            f_new,
+            use_f_as_current: true,
             rho,
             u,
             nx,
             ny,
         }
+    }
+    
+    /// Get current distribution functions (for reading)
+    fn f_current(&self) -> &Vec<Vec<Vec<T>>> {
+        if self.use_f_as_current {
+            &self.f
+        } else {
+            &self.f_new
+        }
+    }
+    
+    /// Get current distribution functions (mutable for writing)
+    fn f_current_mut(&mut self) -> &mut Vec<Vec<Vec<T>>> {
+        if self.use_f_as_current {
+            &mut self.f
+        } else {
+            &mut self.f_new
+        }
+    }
+    
+    /// Get next distribution functions (for writing during streaming)
+    fn f_next_mut(&mut self) -> &mut Vec<Vec<Vec<T>>> {
+        if self.use_f_as_current {
+            &mut self.f_new
+        } else {
+            &mut self.f
+        }
+    }
+    
+    /// Swap the distribution function buffers (zero-cost operation)
+    fn swap_buffers(&mut self) {
+        self.use_f_as_current = !self.use_f_as_current;
     }
 
     /// Initialize the solver with equilibrium distributions
@@ -128,13 +163,18 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                 self.u[i][j] = initial_velocity.clone();
 
                 // Set equilibrium distribution using iterator for better performance
-                (0..D2Q9::Q).for_each(|q| {
-                    self.f[i][j][q] = self.equilibrium_distribution(
+                for q in 0..D2Q9::Q {
+                    let eq_dist = self.equilibrium_distribution(
                         q,
                         &initial_density,
                         &initial_velocity
                     );
-                });
+                    if self.use_f_as_current {
+                        self.f[i][j][q] = eq_dist;
+                    } else {
+                        self.f_new[i][j][q] = eq_dist;
+                    }
+                }
             }
         }
 
@@ -182,11 +222,21 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
 
     /// Perform collision step (BGK operator)
     fn collision(&mut self) {
+        // We need to read from current and write to the same array
+        // So we'll use a temporary array for the collision result
+        
         for i in 0..self.nx {
             for j in 0..self.ny {
+                // Get current distributions
+                let f_ij = if self.use_f_as_current {
+                    &self.f[i][j]
+                } else {
+                    &self.f_new[i][j]
+                };
+                
                 // Calculate density using iterator fold for better performance
                 let rho_local = (0..D2Q9::Q)
-                    .map(|q| self.f[i][j][q].clone())
+                    .map(|q| f_ij[q].clone())
                     .fold(T::zero(), |acc, f| acc + f);
 
                 // Calculate velocity using iterator fold
@@ -196,41 +246,35 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                             T::from_i32(D2Q9::VELOCITIES[q].0).unwrap(),
                             T::from_i32(D2Q9::VELOCITIES[q].1).unwrap(),
                         );
-                        c * self.f[i][j][q].clone()
+                        c * f_ij[q].clone()
                     })
-                    .fold(Vector2::zeros(), |acc, cu| acc + cu) / rho_local.clone();
+                    .fold(Vector2::zeros(), |acc, v| acc + v) / rho_local.clone();
 
                 // Store macroscopic quantities
                 self.rho[i][j] = rho_local.clone();
                 self.u[i][j] = u_local.clone();
 
-                // BGK collision using iterator for better performance
-                let omega = T::one() / self.config.tau.clone();
-                (0..D2Q9::Q).for_each(|q| {
+                // Collision with BGK operator - update in place
+                for q in 0..D2Q9::Q {
                     let f_eq = self.equilibrium_distribution(q, &rho_local, &u_local);
-                    self.f[i][j][q] = self.f[i][j][q].clone() * (T::one() - omega.clone()) + f_eq * omega.clone();
-                });
+                    if self.use_f_as_current {
+                        let f_old = self.f[i][j][q].clone();
+                        self.f[i][j][q] = f_old.clone() - (f_old - f_eq) / self.config.tau.clone();
+                    } else {
+                        let f_old = self.f_new[i][j][q].clone();
+                        self.f_new[i][j][q] = f_old.clone() - (f_old - f_eq) / self.config.tau.clone();
+                    }
+                }
             }
         }
     }
 
-    /// Perform streaming step
+    /// Perform streaming step with zero-copy double buffering
     fn streaming(&mut self) {
-        // PERFORMANCE WARNING: This implementation copies the entire distribution array!
-        // This is a known LBM bottleneck. A proper implementation would use pointer swapping
-        // between two arrays to eliminate this O(N*Q) copy operation.
-        // TODO: Implement double-buffering with pointer swapping for real performance
+        // Stream from current buffer to next buffer
         
-        // Copy distributions to temporary array (EXPENSIVE!)
-        for i in 0..self.nx {
-            for j in 0..self.ny {
-                for q in 0..D2Q9::Q {
-                    self.f_temp[i][j][q] = self.f[i][j][q].clone();
-                }
-            }
-        }
-
-        // Stream distributions from temp to main array
+        // Stream distributions - this is now the only copy operation
+        // and it's necessary for the streaming physics
         for i in 0..self.nx {
             for j in 0..self.ny {
                 for q in 0..D2Q9::Q {
@@ -240,11 +284,38 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
 
                     // Check bounds and stream
                     if ni >= 0 && ni < self.nx as i32 && nj >= 0 && nj < self.ny as i32 {
-                        self.f[i][j][q] = self.f_temp[ni as usize][nj as usize][q].clone();
+                        // Stream from source to destination
+                        let value = if self.use_f_as_current {
+                            self.f[ni as usize][nj as usize][q].clone()
+                        } else {
+                            self.f_new[ni as usize][nj as usize][q].clone()
+                        };
+                        
+                        if self.use_f_as_current {
+                            self.f_new[i][j][q] = value;
+                        } else {
+                            self.f[i][j][q] = value;
+                        }
+                    } else {
+                        // Boundary nodes keep their post-collision values
+                        let value = if self.use_f_as_current {
+                            self.f[i][j][q].clone()
+                        } else {
+                            self.f_new[i][j][q].clone()
+                        };
+                        
+                        if self.use_f_as_current {
+                            self.f_new[i][j][q] = value;
+                        } else {
+                            self.f[i][j][q] = value;
+                        }
                     }
                 }
             }
         }
+        
+        // Swap buffers for next iteration (zero-cost pointer swap)
+        self.swap_buffers();
     }
 
     /// Apply boundary conditions
@@ -252,61 +323,85 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
         for (&(i, j), bc) in boundaries.iter() {
             if i < self.nx && j < self.ny {
                 match bc {
-                    BoundaryCondition::Wall { .. } => {
-                        // Proper halfway bounce-back implementation
-                        // This must be applied DURING the streaming step
-                        // For now, mark boundary nodes for special treatment
-                        // The actual bounce-back will be handled in streaming
-                        
-                        // Store that this is a wall node for streaming step
-                        // In a proper implementation, we'd have a boundary_type array
-                        // For now, we apply the standard bounce-back
+                    BoundaryCondition::Wall { wall_type } => {
+                        // Apply bounce-back for walls using iterator
                         for q in 1..D2Q9::Q {
-                            let (cx, cy) = D2Q9::VELOCITIES[q];
-                            let ni = (i as i32 + cx) as usize;
-                            let nj = (j as i32 + cy) as usize;
-                            
-                            // Check if the neighbor is within bounds
+                            let (ci, cj) = D2Q9::VELOCITIES[q];
+                            let ni = (i as i32 + ci) as usize;
+                            let nj = (j as i32 + cj) as usize;
+
                             if ni < self.nx && nj < self.ny {
                                 // Apply halfway bounce-back
                                 let opp = D2Q9::OPPOSITE[q];
                                 // The distribution streaming TO the wall bounces back
-                                self.f[ni][nj][opp] = self.f_temp[i][j][q].clone();
+                                let value = if self.use_f_as_current {
+                                    self.f[i][j][q].clone()
+                                } else {
+                                    self.f_new[i][j][q].clone()
+                                };
+                                
+                                if self.use_f_as_current {
+                                    self.f_new[ni][nj][opp] = value;
+                                } else {
+                                    self.f[ni][nj][opp] = value;
+                                }
                             }
                         }
                     }
                     BoundaryCondition::VelocityInlet { velocity } => {
                         // Velocity boundary condition using iterator
                         let u_bc = Vector2::new(velocity.x.clone(), velocity.y.clone());
-                        (0..D2Q9::Q).for_each(|q| {
-                            self.f[i][j][q] = self.equilibrium_distribution(q, &self.rho[i][j], &u_bc);
-                        });
+                        for q in 0..D2Q9::Q {
+                            let value = self.equilibrium_distribution(q, &self.rho[i][j], &u_bc);
+                            if self.use_f_as_current {
+                                self.f_new[i][j][q] = value;
+                            } else {
+                                self.f[i][j][q] = value;
+                            }
+                        }
                     }
                     BoundaryCondition::PressureOutlet { pressure } => {
                         // Pressure boundary condition using iterator
                         let rho_bc = pressure.clone();
-                        (0..D2Q9::Q).for_each(|q| {
-                            self.f[i][j][q] = self.equilibrium_distribution(q, &rho_bc, &self.u[i][j]);
-                        });
+                        for q in 0..D2Q9::Q {
+                            let value = self.equilibrium_distribution(q, &rho_bc, &self.u[i][j]);
+                            if self.use_f_as_current {
+                                self.f_new[i][j][q] = value;
+                            } else {
+                                self.f[i][j][q] = value;
+                            }
+                        }
                     }
                     _ => {
-                        // Default: no-slip wall (proper bounce-back)
+                        // Default bounce-back for other boundary types
                         let mut f_new = vec![T::zero(); D2Q9::Q];
 
                         // Copy current distributions
                         for q in 0..D2Q9::Q {
-                            f_new[q] = self.f[i][j][q].clone();
+                            f_new[q] = if self.use_f_as_current {
+                                self.f[i][j][q].clone()
+                            } else {
+                                self.f_new[i][j][q].clone()
+                            };
                         }
 
                         // Apply bounce-back: outgoing = incoming from opposite direction
                         for q in 1..D2Q9::Q { // Skip rest particle (q=0)
                             let opp = D2Q9::OPPOSITE[q];
-                            f_new[q] = self.f[i][j][opp].clone();
+                            f_new[q] = if self.use_f_as_current {
+                                self.f[i][j][opp].clone()
+                            } else {
+                                self.f_new[i][j][opp].clone()
+                            };
                         }
 
                         // Update distributions
                         for q in 0..D2Q9::Q {
-                            self.f[i][j][q] = f_new[q].clone();
+                            if self.use_f_as_current {
+                                self.f_new[i][j][q] = f_new[q].clone();
+                            } else {
+                                self.f[i][j][q] = f_new[q].clone();
+                            }
                         }
                     }
                 }
@@ -354,7 +449,11 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                     
                     // The distribution coming from direction q will be reflected
                     // back in the opposite direction q_opp
-                    reflected[q_opp] = self.f[ni][nj][q].clone();
+                    reflected[q_opp] = if self.use_f_as_current {
+                        self.f[ni][nj][q].clone()
+                    } else {
+                        self.f_new[ni][nj][q].clone()
+                    };
                 }
             }
             
@@ -370,7 +469,11 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                 if ni >= 0 && ni < self.nx as i32 && 
                    nj >= 0 && nj < self.ny as i32 {
                     // This direction points into the fluid, apply reflection
-                    self.f[i][j][q] = reflected[q].clone();
+                    if self.use_f_as_current {
+                        self.f_new[i][j][q] = reflected[q].clone();
+                    } else {
+                        self.f[i][j][q] = reflected[q].clone();
+                    }
                 }
             }
         }

@@ -26,7 +26,7 @@ pub mod time;
 pub mod values;
 
 pub use aggregates::{SimulationAggregate, MeshAggregate, SimulationMetadata, PhysicalParameters};
-pub use boundary::BoundaryCondition;
+pub use boundary::{BoundaryCondition, WallType};
 pub use domain::Domain;
 pub use error::{Error, Result};
 pub use fluid::Fluid;
