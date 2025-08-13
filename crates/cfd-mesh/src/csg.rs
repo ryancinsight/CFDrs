@@ -128,12 +128,12 @@ impl<T: RealField + FromPrimitive> CsgPrimitives<T> {
             center.clone() + Vector3::new(-half_size.x.clone(), -half_size.y.clone(),  half_size.z.clone()),
             center.clone() + Vector3::new( half_size.x.clone(), -half_size.y.clone(),  half_size.z.clone()),
             center.clone() + Vector3::new( half_size.x.clone(),  half_size.y.clone(),  half_size.z.clone()),
-            center + Vector3::new(-half_size.x,  half_size.y,  half_size.z),
+            center + Vector3::new(-half_size.x.clone(),  half_size.y.clone(),  half_size.z.clone()),
         ];
         
         for (i, pos) in positions.iter().enumerate() {
             mesh.vertices.push(Vertex {
-                position: Point3::from(*pos),
+                position: pos.clone(),
                 id: i,
             });
         }
@@ -188,7 +188,7 @@ impl<T: RealField + FromPrimitive> CsgPrimitives<T> {
         
         for (i, pos) in positions.iter().enumerate() {
             mesh.vertices.push(Vertex {
-                position: Point3::from(*pos),
+                position: pos.clone(),
                 id: i,
             });
         }
@@ -226,10 +226,10 @@ impl<T: RealField + FromPrimitive> CsgPrimitives<T> {
         
         // Create vertices for top and bottom circles
         for i in 0..segments {
-            let angle = angle_step * T::from_usize(i).unwrap();
+            let angle = angle_step.clone() * T::from_usize(i).unwrap();
             let angle_f64: f64 = angle.to_subset().unwrap_or(0.0);
-            let x = radius * T::from_f64(angle_f64.cos()).unwrap();
-            let z = radius * T::from_f64(angle_f64.sin()).unwrap();
+            let x = radius.clone() * T::from_f64(angle_f64.cos()).unwrap();
+            let z = radius.clone() * T::from_f64(angle_f64.sin()).unwrap();
             
             // Bottom vertex
             mesh.vertices.push(Vertex {
@@ -247,7 +247,7 @@ impl<T: RealField + FromPrimitive> CsgPrimitives<T> {
         // Add center vertices for caps
         let bottom_center_idx = mesh.vertices.len();
         mesh.vertices.push(Vertex {
-            position: base_center,
+            position: base_center.clone(),
             id: bottom_center_idx,
         });
         

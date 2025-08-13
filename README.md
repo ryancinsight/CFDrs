@@ -1,12 +1,32 @@
-# CFD Simulation Suite
+# Rust CFD Suite
 
-A Rust-based computational fluid dynamics (CFD) simulation framework for 1D, 2D, and 3D problems. This project implements various CFD algorithms and numerical methods with a focus on clean architecture, performance, and maintainability.
+⚠️ **CRITICAL WARNING: This codebase is fundamentally broken and should NOT be used for any production or research purposes.**
 
 ## Project Status
 
-✅ **SIX PROFESSIONAL REVIEWS COMPLETE - Major Bugs Fixed**
+❌ **NOT SUITABLE FOR USE - Seven Professional Reviews Revealed Critical Failures**
 
-### Recent Improvements (v2.15 - January 2025)
+After seven comprehensive code reviews, this project has been found to be a "Potemkin village" - it appears to be a sophisticated CFD suite but lacks fundamental functionality. Most advertised features are either non-functional, incorrectly implemented, or completely missing.
+
+### Critical Issues Summary
+
+See [CRITICAL_ISSUES.md](CRITICAL_ISSUES.md) for the complete list of problems found.
+
+#### Non-Functional Components
+- **PISO Solver**: Hardcoded BCs, no proper solvers
+- **VOF Method**: No advection, no reconstruction, no physics
+- **CSG Operations**: Boolean operations do nothing
+- **LBM**: Critical physics bug in bounce-back
+- **FEM**: Incorrect stabilization, uses dense matrices
+- **Orchestration**: Returns strings instead of executing
+
+#### Major Bugs
+- 1D solver had O(n²) performance bug (partially fixed)
+- Dimensional analysis errors in boundary conditions
+- Validation tests that pass without validating
+- Factory system returns strings instead of solvers
+
+### Recent "Improvements" (v2.15 - January 2025)
 
 #### Sixth Code Review - Performance & CSG
 - ✅ **O(n²) Bug Fixed**: 1D network solver now uses efficient graph traversal

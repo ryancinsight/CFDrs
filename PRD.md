@@ -2,19 +2,34 @@
 ## CFD Simulation Suite
 
 ### Document Information
-- **Version**: 2.15
+- **Version**: 2.16
 - **Last Updated**: 2025-01-14
-- **Status**: SIX REVIEWS COMPLETE - CRITICAL BUGS FIXED
+- **Status**: PROJECT FAILURE - NOT SUITABLE FOR USE
 - **Author**: Development Team
+
+---
+
+## ⚠️ CRITICAL WARNING
+
+**This project has been found to be fundamentally broken after seven comprehensive code reviews. It should NOT be used for any CFD work.**
+
+The codebase is a "Potemkin village" - it has the structure and appearance of a sophisticated CFD suite, but the core functionality is either missing, broken, or incorrectly implemented. See [CRITICAL_ISSUES.md](CRITICAL_ISSUES.md) for details.
 
 ---
 
 ## 1. Executive Summary
 
 ### 1.1 Product Overview
-The CFD Simulation Suite is a Rust-based computational fluid dynamics framework for 1D, 2D, and 3D problems. This project implements various CFD algorithms and numerical methods with a focus on clean architecture, performance, and maintainability. The suite demonstrates best practices in scientific computing with Rust.
+The CFD Simulation Suite was intended to be a Rust-based computational fluid dynamics framework. However, after extensive review, it has been found to be largely non-functional.
 
-### 1.2 Sixth Code Review - Performance & CSG (v2.15)
+### 1.2 Seventh Code Review - PISO & VOF (v2.16)
+- **PISO Solver**: Completely unusable with hardcoded BCs
+- **VOF Method**: Non-functional skeleton with no physics
+- **Code Duplication**: PISO is copy-pasted from SIMPLE
+- **CSG Integration**: Failed due to API incompatibilities
+- **Final Verdict**: Project is a façade, not production-ready
+
+### 1.3 Sixth Code Review - Performance & CSG (v2.15)
 - **Catastrophic Bug Fixed**:
   - 1D network solver had O(n²) performance bug
   - Every neighbor lookup scanned ALL edges
