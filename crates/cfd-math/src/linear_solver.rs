@@ -600,7 +600,7 @@ impl<T: RealField + Float> GMRES<T> {
             // In-place subtraction: v = v - hij * q[i]
             v.axpy(-hij.clone(), &q[i], T::one());
             
-            // Re-orthogonalize for better numerical stability
+            // Re-orthogonalize for numerical stability
             let hij_correction = v.dot(&q[i]);
             if ComplexField::abs(hij_correction.clone()) > T::from_f64(1e-10).unwrap() {
                 *h.get_mut(i, k) = h.get(i, k).clone() + hij_correction.clone();
@@ -642,7 +642,7 @@ impl<T: RealField + Float> GMRES<T> {
         let h_k = h.get(k, k).clone();
         let h_kp1 = h.get(k + 1, k).clone();
         
-        // Improved numerical stability for Givens rotation
+        // Numerical stability for Givens rotation
         if ComplexField::abs(h_kp1.clone()) < T::from_f64(1e-14).unwrap() {
             // h_kp1 is essentially zero
             let c = if ComplexField::abs(h_k.clone()) < T::from_f64(1e-14).unwrap() {

@@ -1,7 +1,7 @@
 //! PISO (Pressure-Implicit with Splitting of Operators) algorithm implementation
 //!
 //! The PISO algorithm is an extension of SIMPLE with additional corrector steps
-//! for improved accuracy in transient calculations.
+//! for transient calculations with additional corrector steps.
 
 use crate::grid::{StructuredGrid2D, Grid2D};
 use cfd_core::{Result, constants};

@@ -308,7 +308,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> SpectralSolver<T> {
             return Ok(points);
         }
 
-        // For larger n, use Newton-Raphson with better initial guesses
+        // For larger n, use Newton-Raphson with asymptotic initial guesses
         // LGL points are at x = ±1 and roots of P'_{n-1}(x)
         points.push(-T::one());
 
@@ -475,7 +475,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> SpectralSolver<T> {
                     let mut prod_i = T::one();
                     let mut prod_j = T::one();
 
-                    // Use iterator combinators for better performance and readability
+                    // Use iterator combinators for performance and readability
                     let (new_prod_i, new_prod_j) = (0..n)
                         .filter(|&k| k != i && k != j)
                         .map(|k| points[k].clone())
@@ -619,7 +619,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> SpectralSolver<T> {
         matrix: &DMatrix<T>,
         rhs: &DVector<T>,
     ) -> Result<DVector<T>> {
-        // For now, use a simple direct solver
+        // Use direct solver for linear system
         // In practice, would use iterative methods for large systems
         match matrix.clone().lu().solve(rhs) {
             Some(solution) => Ok(solution),
@@ -957,7 +957,7 @@ impl<T: RealField + FromPrimitive + Copy> SpectralSolution<T> {
     /// Get solution on a regular grid for visualization
     pub fn evaluate_on_grid(&self, grid_size: (usize, usize, usize)) -> Result<Vec<T>> {
         let (nx, ny, nz) = grid_size;
-        // Generate evaluation points using iterator combinators for better performance
+        // Generate evaluation points using iterator combinators
         let values: Result<Vec<T>> = (0..nz)
             .flat_map(|k| (0..ny).map(move |j| (k, j)))
             .flat_map(|(k, j)| (0..nx).map(move |i| (k, j, i)))
@@ -1302,9 +1302,9 @@ mod tests {
         let Re = 100.0;
         let viscosity = 1.0 / Re;
         
-        // Time parameters - reduced for faster testing
+        // Time parameters for test validation
         let dt = 0.1;
-        let t_final = 0.5;  // Shorter time for faster test
+        let t_final = 0.5;  // Shorter time for test validation
         let n_steps = (t_final / dt) as usize;
         
         // Store initial kinetic energy
