@@ -103,8 +103,8 @@ pub const WATER_DENSITY: f64 = 998.2;
 /// Water dynamic viscosity at 20°C [Pa·s]
 pub const WATER_VISCOSITY: f64 = 1.002e-3;
 
-/// Water kinematic viscosity at 20°C [m²/s]
-pub const WATER_KINEMATIC_VISCOSITY: f64 = 1.004e-6;
+/// Water kinematic viscosity at 20°C [m²/s] (derived from dynamic viscosity and density)
+pub const WATER_KINEMATIC_VISCOSITY: f64 = WATER_VISCOSITY / WATER_DENSITY;
 
 /// Air density at 20°C, 1 atm [kg/m³]
 pub const AIR_DENSITY: f64 = 1.204;

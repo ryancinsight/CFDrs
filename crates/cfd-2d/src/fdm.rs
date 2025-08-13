@@ -182,7 +182,7 @@ impl<T: RealField + FromPrimitive> PoissonSolver<T> {
         Ok(result)
     }
 
-    /// Add 5-point Laplacian stencil for interior points
+    /// Add 5-point Laplacian stencil for interior points with iterator optimization
     fn add_laplacian_stencil(
         &self,
         matrix_builder: &mut SparseMatrixBuilder<T>,
@@ -202,39 +202,25 @@ impl<T: RealField + FromPrimitive> PoissonSolver<T> {
                           - T::from_f64(2.0).unwrap() / dy2.clone();
         matrix_builder.add_entry(linear_idx, linear_idx, center_coeff)?;
 
-        // Add neighbor contributions with correct coefficients
-        if i > 0 {
-            // Left neighbor
-            let neighbor_idx = self.linear_index(grid, i - 1, j);
-            let coeff = T::one() / dx2.clone();
-            matrix_builder.add_entry(linear_idx, neighbor_idx, coeff)?;
-        }
+        // Use iterator for neighbor contributions with zero-copy access
+        // Define stencil neighbors: (di, dj, coefficient)
+        let neighbors = [
+            (i.wrapping_sub(1), j, T::one() / dx2.clone(), i > 0),                    // Left
+            (i + 1, j, T::one() / dx2.clone(), i < grid.nx() - 1),                   // Right  
+            (i, j.wrapping_sub(1), T::one() / dy2.clone(), j > 0),                   // Bottom
+            (i, j + 1, T::one() / dy2.clone(), j < grid.ny() - 1),                   // Top
+        ];
 
-        if i < grid.nx() - 1 {
-            // Right neighbor
-            let neighbor_idx = self.linear_index(grid, i + 1, j);
-            let coeff = T::one() / dx2.clone();
-            matrix_builder.add_entry(linear_idx, neighbor_idx, coeff)?;
-        }
+        // Process neighbors using iterator filter and for_each for vectorization
+        neighbors.iter()
+            .filter(|(_, _, _, valid)| *valid)
+            .try_for_each(|(ni, nj, coeff, _)| {
+                let neighbor_idx = self.linear_index(grid, *ni, *nj);
+                matrix_builder.add_entry(linear_idx, neighbor_idx, coeff.clone())
+            })?;
 
-        if j > 0 {
-            // Bottom neighbor
-            let neighbor_idx = self.linear_index(grid, i, j - 1);
-            let coeff = T::one() / dy2.clone();
-            matrix_builder.add_entry(linear_idx, neighbor_idx, coeff)?;
-        }
-
-        if j < grid.ny() - 1 {
-            // Top neighbor
-            let neighbor_idx = self.linear_index(grid, i, j + 1);
-            let coeff = T::one() / dy2.clone();
-            matrix_builder.add_entry(linear_idx, neighbor_idx, coeff)?;
-        }
-
-        // Set RHS from source term
-        if let Some(source_value) = source.get(&(i, j)) {
-            rhs[linear_idx] = source_value.clone();
-        }
+        // Set RHS from source term using get with default
+        rhs[linear_idx] = source.get(&(i, j)).cloned().unwrap_or_else(T::zero);
 
         Ok(())
     }
