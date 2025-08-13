@@ -55,7 +55,7 @@ impl<T: RealField + FromPrimitive> Default for SimpleConfig<T> {
 
         Self {
             base,
-            dt: T::from_f64(constants::DEFAULT_CFL_NUMBER * 0.02).unwrap(), // Default time step based on CFL
+            dt: T::from_f64(constants::DEFAULT_CFL_NUMBER * constants::DEFAULT_TIME_STEP_FACTOR).unwrap(), // Default time step based on CFL
             alpha_u: T::from_f64(constants::VELOCITY_UNDER_RELAXATION).unwrap(),
             alpha_p: T::from_f64(constants::PRESSURE_UNDER_RELAXATION).unwrap(),
             use_rhie_chow: true,

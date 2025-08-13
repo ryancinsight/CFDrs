@@ -56,6 +56,10 @@ pub const DEFAULT_CFL_NUMBER: f64 = 0.5;
 /// Maximum safe CFL number
 pub const MAX_CFL_NUMBER: f64 = 1.0;
 
+/// Default time step factor for SIMPLE solver
+/// This is multiplied with CFL number to get initial time step
+pub const DEFAULT_TIME_STEP_FACTOR: f64 = 0.02;
+
 /// Default relaxation factor for iterative methods
 pub const DEFAULT_RELAXATION_FACTOR: f64 = 0.7;
 
@@ -261,13 +265,17 @@ pub const MAX_MESH_ASPECT_RATIO: f64 = 100.0;
 /// Maximum acceptable skewness
 pub const MAX_MESH_SKEWNESS: f64 = 0.95;
 
+/// Epsilon multiplier for fallback tolerance calculation
+/// Used when DEFAULT_TOLERANCE cannot be converted to type T
+pub const EPSILON_MULTIPLIER_FALLBACK: f64 = 100.0;
+
 // ============================================================================
 // HELPER FUNCTIONS FOR GENERIC TYPES
 // ============================================================================
 
 /// Get default tolerance for type T
 pub fn default_tolerance<T: RealField>() -> T {
-    T::from_f64(DEFAULT_TOLERANCE).unwrap_or_else(|| T::default_epsilon() * T::from_f64(100.0).unwrap())
+    T::from_f64(DEFAULT_TOLERANCE).unwrap_or_else(|| T::default_epsilon() * T::from_f64(EPSILON_MULTIPLIER_FALLBACK).unwrap())
 }
 
 /// Get epsilon for type T

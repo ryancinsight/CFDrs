@@ -353,12 +353,35 @@ pub mod rans_extended {
     }
 
     impl<T: RealField> TurbulenceModel<T> for KEpsilonModel<T> {
+        /// Compute turbulent viscosity using k-ε model
+        /// 
+        /// # Warning
+        /// 
+        /// This is a **simplified demonstration implementation** that estimates turbulent
+        /// viscosity based on velocity gradients only. Production code MUST solve the
+        /// full k-ε transport equations for turbulent kinetic energy (k) and dissipation (ε).
+        /// 
+        /// # Limitations
+        /// 
+        /// - Does not solve transport equations for k and ε
+        /// - Uses simplified estimation based on velocity gradients
+        /// - Not suitable for production CFD simulations
+        /// - Results will not match validated k-ε model predictions
+        /// 
+        /// # TODO
+        /// 
+        /// Implement full k-ε transport equation solver with:
+        /// - Production and dissipation terms
+        /// - Diffusion terms with appropriate turbulent Prandtl numbers
+        /// - Proper boundary conditions for k and ε
+        /// - Source terms and buoyancy effects if needed
         fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
             // ν_t = C_μ * k² / ε
             // This requires k and ε fields to be available in the flow field
 
-            // For demonstration, we'll compute based on velocity gradients
-            // In practice, k and ε would be solved from transport equations
+            // WARNING: Simplified implementation - see function documentation
+            // This demonstration code only estimates based on velocity gradients
+            // TODO: Implement full k-ε transport equation solver
 
             flow_field.velocity.components
                 .iter()
