@@ -700,7 +700,65 @@ mod tests {
                             id: base_cell_id,
                         });
                         
-                        // TODO: Implement the remaining 5 tetrahedra for a complete hex-to-tet decomposition.
+                        // Tetrahedron 2: v100, v110, v010, v111
+                        let face_id_2 = mesh.faces.len();
+                        let cell_id_2 = mesh.cells.len();
+                        mesh.faces.push(Face { vertices: vec![v100, v110, v010], id: face_id_2 });
+                        mesh.faces.push(Face { vertices: vec![v100, v110, v111], id: face_id_2 + 1 });
+                        mesh.faces.push(Face { vertices: vec![v100, v010, v111], id: face_id_2 + 2 });
+                        mesh.faces.push(Face { vertices: vec![v110, v010, v111], id: face_id_2 + 3 });
+                        mesh.cells.push(Cell {
+                            faces: vec![face_id_2, face_id_2 + 1, face_id_2 + 2, face_id_2 + 3],
+                            id: cell_id_2,
+                        });
+                        
+                        // Tetrahedron 3: v100, v001, v101, v111
+                        let face_id_3 = mesh.faces.len();
+                        let cell_id_3 = mesh.cells.len();
+                        mesh.faces.push(Face { vertices: vec![v100, v001, v101], id: face_id_3 });
+                        mesh.faces.push(Face { vertices: vec![v100, v001, v111], id: face_id_3 + 1 });
+                        mesh.faces.push(Face { vertices: vec![v100, v101, v111], id: face_id_3 + 2 });
+                        mesh.faces.push(Face { vertices: vec![v001, v101, v111], id: face_id_3 + 3 });
+                        mesh.cells.push(Cell {
+                            faces: vec![face_id_3, face_id_3 + 1, face_id_3 + 2, face_id_3 + 3],
+                            id: cell_id_3,
+                        });
+                        
+                        // Tetrahedron 4: v010, v011, v001, v111
+                        let face_id_4 = mesh.faces.len();
+                        let cell_id_4 = mesh.cells.len();
+                        mesh.faces.push(Face { vertices: vec![v010, v011, v001], id: face_id_4 });
+                        mesh.faces.push(Face { vertices: vec![v010, v011, v111], id: face_id_4 + 1 });
+                        mesh.faces.push(Face { vertices: vec![v010, v001, v111], id: face_id_4 + 2 });
+                        mesh.faces.push(Face { vertices: vec![v011, v001, v111], id: face_id_4 + 3 });
+                        mesh.cells.push(Cell {
+                            faces: vec![face_id_4, face_id_4 + 1, face_id_4 + 2, face_id_4 + 3],
+                            id: cell_id_4,
+                        });
+                        
+                        // Tetrahedron 5: v100, v010, v001, v111
+                        let face_id_5 = mesh.faces.len();
+                        let cell_id_5 = mesh.cells.len();
+                        mesh.faces.push(Face { vertices: vec![v100, v010, v001], id: face_id_5 });
+                        mesh.faces.push(Face { vertices: vec![v100, v010, v111], id: face_id_5 + 1 });
+                        mesh.faces.push(Face { vertices: vec![v100, v001, v111], id: face_id_5 + 2 });
+                        mesh.faces.push(Face { vertices: vec![v010, v001, v111], id: face_id_5 + 3 });
+                        mesh.cells.push(Cell {
+                            faces: vec![face_id_5, face_id_5 + 1, face_id_5 + 2, face_id_5 + 3],
+                            id: cell_id_5,
+                        });
+                        
+                        // Tetrahedron 6: v010, v110, v111, v011
+                        let face_id_6 = mesh.faces.len();
+                        let cell_id_6 = mesh.cells.len();
+                        mesh.faces.push(Face { vertices: vec![v010, v110, v111], id: face_id_6 });
+                        mesh.faces.push(Face { vertices: vec![v010, v110, v011], id: face_id_6 + 1 });
+                        mesh.faces.push(Face { vertices: vec![v010, v111, v011], id: face_id_6 + 2 });
+                        mesh.faces.push(Face { vertices: vec![v110, v111, v011], id: face_id_6 + 3 });
+                        mesh.cells.push(Cell {
+                            faces: vec![face_id_6, face_id_6 + 1, face_id_6 + 2, face_id_6 + 3],
+                            id: cell_id_6,
+                        });
                     }
                 }
             }
