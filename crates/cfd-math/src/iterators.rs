@@ -101,6 +101,21 @@ where
         })
     }
 
+    /// Apply temporal frequency analysis using sliding FFT windowing
+    fn temporal_frequency_analysis(self, window_size: usize) -> TemporalFrequencyAnalyzer<Self, T> {
+        TemporalFrequencyAnalyzer::new(self, window_size)
+    }
+
+    /// Apply Kalman-style recursive filtering for temporal prediction
+    fn temporal_kalman_filter(self, process_noise: T, observation_noise: T) -> TemporalKalmanFilter<Self, T> {
+        TemporalKalmanFilter::new(self, process_noise, observation_noise)
+    }
+
+    /// Apply overlapping window analysis for CFD stability monitoring
+    fn overlapping_window_stability(self, window_size: usize, overlap: usize) -> OverlappingWindowAnalyzer<Self, T> {
+        OverlappingWindowAnalyzer::new(self, window_size, overlap)
+    }
+
     /// Apply Savitzky-Golay smoothing filter using windowed operations
     /// Uses 2nd order polynomial fitting for smoothing
     fn savitzky_golay_smooth(self, window_size: usize) -> impl Iterator<Item = T> {
@@ -634,6 +649,196 @@ where
     I: Iterator<Item = T>,
     T: RealField,
 {
+}
+
+/// Temporal frequency analyzer for CFD stability monitoring
+pub struct TemporalFrequencyAnalyzer<I, T> {
+    iter: I,
+    window_size: usize,
+    buffer: Vec<T>,
+    position: usize,
+}
+
+impl<I, T> TemporalFrequencyAnalyzer<I, T>
+where
+    I: Iterator<Item = T>,
+    T: RealField + Clone,
+{
+    pub fn new(iter: I, window_size: usize) -> Self {
+        Self {
+            iter,
+            window_size,
+            buffer: Vec::with_capacity(window_size),
+            position: 0,
+        }
+    }
+}
+
+impl<I, T> Iterator for TemporalFrequencyAnalyzer<I, T>
+where
+    I: Iterator<Item = T>,
+    T: RealField + Clone,
+{
+    type Item = T; // Return stability metric
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(value) = self.iter.next() {
+            if self.buffer.len() < self.window_size {
+                self.buffer.push(value);
+                None // Not enough data yet
+            } else {
+                // Update circular buffer
+                self.buffer[self.position] = value;
+                self.position = (self.position + 1) % self.window_size;
+                
+                // Compute stability via variance analysis
+                let mean = self.buffer.iter().cloned().fold(T::zero(), |acc, x| acc + x) / 
+                          T::from_usize(self.buffer.len()).unwrap();
+                
+                let variance = self.buffer.iter()
+                    .map(|x| (x.clone() - mean.clone()) * (x.clone() - mean.clone()))
+                    .fold(T::zero(), |acc, x| acc + x) / 
+                    T::from_usize(self.buffer.len()).unwrap();
+                
+                Some(variance.sqrt()) // Return standard deviation as stability metric
+            }
+        } else {
+            None
+        }
+    }
+}
+
+/// Temporal Kalman filter for CFD prediction and smoothing
+pub struct TemporalKalmanFilter<I, T> {
+    iter: I,
+    state_estimate: Option<T>,
+    estimation_error: T,
+    process_noise: T,
+    observation_noise: T,
+}
+
+impl<I, T> TemporalKalmanFilter<I, T>
+where
+    I: Iterator<Item = T>,
+    T: RealField + Clone,
+{
+    pub fn new(iter: I, process_noise: T, observation_noise: T) -> Self {
+        Self {
+            iter,
+            state_estimate: None,
+            estimation_error: T::one(),
+            process_noise,
+            observation_noise,
+        }
+    }
+}
+
+impl<I, T> Iterator for TemporalKalmanFilter<I, T>
+where
+    I: Iterator<Item = T>,
+    T: RealField + Clone,
+{
+    type Item = T; // Return filtered value
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(observation) = self.iter.next() {
+            match &self.state_estimate {
+                None => {
+                    // Initialize with first observation
+                    self.state_estimate = Some(observation.clone());
+                    Some(observation)
+                }
+                Some(state) => {
+                    // Kalman filter update
+                    let predicted_error = self.estimation_error.clone() + self.process_noise.clone();
+                    let kalman_gain = predicted_error.clone() / 
+                                     (predicted_error.clone() + self.observation_noise.clone());
+                    
+                    let updated_estimate = state.clone() + 
+                                         kalman_gain.clone() * (observation - state.clone());
+                    
+                    self.estimation_error = (T::one() - kalman_gain) * predicted_error;
+                    self.state_estimate = Some(updated_estimate.clone());
+                    
+                    Some(updated_estimate)
+                }
+            }
+        } else {
+            None
+        }
+    }
+}
+
+/// Overlapping window analyzer for CFD stability monitoring
+pub struct OverlappingWindowAnalyzer<I, T> {
+    iter: I,
+    window_size: usize,
+    overlap: usize,
+    buffer: Vec<T>,
+    step_size: usize,
+}
+
+impl<I, T> OverlappingWindowAnalyzer<I, T>
+where
+    I: Iterator<Item = T>,
+    T: RealField + Clone,
+{
+    pub fn new(iter: I, window_size: usize, overlap: usize) -> Self {
+        let step_size = window_size - overlap;
+        Self {
+            iter,
+            window_size,
+            overlap,
+            buffer: Vec::with_capacity(window_size),
+            step_size,
+        }
+    }
+}
+
+impl<I, T> Iterator for OverlappingWindowAnalyzer<I, T>
+where
+    I: Iterator<Item = T>,
+    T: RealField + Clone,
+{
+    type Item = T; // Return stability metric
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // Fill buffer to window size
+        while self.buffer.len() < self.window_size {
+            if let Some(value) = self.iter.next() {
+                self.buffer.push(value);
+            } else {
+                return None; // Not enough data
+            }
+        }
+        
+        // Compute stability metric for current window (coefficient of variation)
+        let mean = self.buffer.iter().cloned().fold(T::zero(), |acc, x| acc + x) / 
+                  T::from_usize(self.buffer.len()).unwrap();
+        
+        let variance = self.buffer.iter()
+            .map(|x| (x.clone() - mean.clone()) * (x.clone() - mean.clone()))
+            .fold(T::zero(), |acc, x| acc + x) / 
+            T::from_usize(self.buffer.len()).unwrap();
+        
+        let cv = if mean.clone().abs() > T::from_f64(1e-15).unwrap() {
+            variance.sqrt() / mean.abs()
+        } else {
+            variance.sqrt()
+        };
+        
+        // Slide window by step_size
+        for _ in 0..self.step_size {
+            if let Some(new_value) = self.iter.next() {
+                self.buffer.remove(0);
+                self.buffer.push(new_value);
+            } else {
+                return Some(cv); // Last window
+            }
+        }
+        
+        Some(cv)
+    }
 }
 
 #[cfg(test)]

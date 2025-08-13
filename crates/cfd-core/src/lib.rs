@@ -30,7 +30,7 @@ pub use boundary::{BoundaryCondition, WallType};
 pub use domain::Domain;
 pub use error::{Error, Result};
 pub use fluid::Fluid;
-pub use plugin::{Plugin, PluginRegistry, SimulationPlugin, PluginLifecycle, PluginCapabilities, PluginValidation};
+pub use plugin::{Plugin, PluginRegistry, SimulationPlugin, PluginLifecycle, PluginCapabilities, PluginValidation, PluginHealth, PluginHealthStatus, PluginMetrics};
 pub use problem::Problem;
 pub use services::{FluidDynamicsService, MeshQualityService, FlowRegime, QualityLevel};
 pub use solver::{Solver, SolverConfiguration, Configurable, Validatable, IterativeSolver, DirectSolver, SolverConfig, LinearSolverConfig, NetworkSolverConfig};

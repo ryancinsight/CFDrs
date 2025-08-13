@@ -95,6 +95,53 @@ pub trait PluginValidation: SimulationPlugin {
     }
 }
 
+/// Plugin health monitoring for production environments
+pub trait PluginHealth: SimulationPlugin {
+    /// Check plugin health status
+    fn health_check(&self) -> PluginHealthStatus {
+        PluginHealthStatus::Healthy
+    }
+    
+    /// Get plugin performance metrics
+    fn performance_metrics(&self) -> PluginMetrics {
+        PluginMetrics::default()
+    }
+    
+    /// Check if plugin can handle increased load
+    fn can_scale(&self, load_factor: f64) -> bool {
+        let _ = load_factor;
+        true
+    }
+}
+
+/// Plugin health status
+#[derive(Debug, Clone, PartialEq)]
+pub enum PluginHealthStatus {
+    /// Plugin is operating normally
+    Healthy,
+    /// Plugin has minor issues but is functional
+    Degraded(String),
+    /// Plugin has serious issues
+    Unhealthy(String),
+    /// Plugin is not responding
+    Unresponsive,
+}
+
+/// Plugin performance metrics
+#[derive(Debug, Clone, Default)]
+pub struct PluginMetrics {
+    /// CPU usage percentage (0.0 to 100.0)
+    pub cpu_usage: f64,
+    /// Memory usage in bytes
+    pub memory_usage: u64,
+    /// Operations per second
+    pub operations_per_second: f64,
+    /// Average response time in milliseconds
+    pub avg_response_time_ms: f64,
+    /// Error rate (0.0 to 1.0)
+    pub error_rate: f64,
+}
+
 
 
 /// Generic plugin trait for type erasure

@@ -222,3 +222,117 @@ impl<T: RealField + FromPrimitive + std::iter::Sum> ConservationChecker<T> for E
         self.tolerance.absolute.clone()
     }
 }
+
+/// Global conservation integrals for comprehensive validation
+#[derive(Debug, Clone)]
+pub struct GlobalConservationIntegrals<T: RealField> {
+    /// Total mass in the domain
+    pub total_mass: T,
+    /// Total momentum in each direction
+    pub total_momentum: [T; 3],
+    /// Total kinetic energy
+    pub total_kinetic_energy: T,
+    /// Domain volume/area
+    pub domain_volume: T,
+    /// Mass flux through boundaries
+    pub boundary_mass_flux: T,
+    /// Momentum flux through boundaries
+    pub boundary_momentum_flux: [T; 3],
+    /// Energy flux through boundaries
+    pub boundary_energy_flux: T,
+}
+
+impl<T: RealField + FromPrimitive> GlobalConservationIntegrals<T> {
+    /// Create new global conservation integrals
+    pub fn new() -> Self {
+        Self {
+            total_mass: T::zero(),
+            total_momentum: [T::zero(), T::zero(), T::zero()],
+            total_kinetic_energy: T::zero(),
+            domain_volume: T::zero(),
+            boundary_mass_flux: T::zero(),
+            boundary_momentum_flux: [T::zero(), T::zero(), T::zero()],
+            boundary_energy_flux: T::zero(),
+        }
+    }
+
+    /// Compute conservation integrals from velocity and density fields using iterator optimization
+    pub fn compute_from_fields(
+        density: &[T],
+        velocity_x: &[T],
+        velocity_y: &[T],
+        velocity_z: &[T],
+        cell_volumes: &[T]
+    ) -> Result<Self> {
+        if density.len() != velocity_x.len() || 
+           density.len() != velocity_y.len() || 
+           density.len() != velocity_z.len() ||
+           density.len() != cell_volumes.len() {
+            return Err(cfd_core::Error::InvalidConfiguration(
+                "All field arrays must have the same length".to_string()
+            ));
+        }
+
+        let mut integrals = Self::new();
+
+        // Use iterator combinators for zero-copy computation
+        let (total_mass, total_momentum, total_kinetic_energy, domain_volume) = 
+            density.iter()
+                .zip(velocity_x.iter())
+                .zip(velocity_y.iter())
+                .zip(velocity_z.iter())
+                .zip(cell_volumes.iter())
+                .fold(
+                    (T::zero(), [T::zero(), T::zero(), T::zero()], T::zero(), T::zero()),
+                    |(mass, [mx, my, mz], ke, vol), ((((rho, u), v), w), dv)| {
+                        let dm = rho.clone() * dv.clone();
+                        let u_sq = u.clone() * u.clone();
+                        let v_sq = v.clone() * v.clone();
+                        let w_sq = w.clone() * w.clone();
+                        let half = T::from_f64(0.5).unwrap();
+
+                        (
+                            mass + dm.clone(),
+                            [
+                                mx + dm.clone() * u.clone(),
+                                my + dm.clone() * v.clone(),
+                                mz + dm.clone() * w.clone(),
+                            ],
+                            ke + dm * (u_sq + v_sq + w_sq) * half,
+                            vol + dv.clone(),
+                        )
+                    }
+                );
+
+        integrals.total_mass = total_mass;
+        integrals.total_momentum = total_momentum;
+        integrals.total_kinetic_energy = total_kinetic_energy;
+        integrals.domain_volume = domain_volume;
+
+        Ok(integrals)
+    }
+
+    /// Check mass conservation: dm/dt + ∇·(ρu) = 0
+    pub fn mass_conservation_error(&self, previous: &Self, dt: T) -> T {
+        let mass_change = (self.total_mass.clone() - previous.total_mass.clone()) / dt;
+        (mass_change + self.boundary_mass_flux.clone()).abs()
+    }
+
+    /// Check momentum conservation: d(ρu)/dt + ∇·(ρuu) = -∇p + ∇·τ + F
+    pub fn momentum_conservation_error(&self, previous: &Self, dt: T) -> [T; 3] {
+        [
+            ((self.total_momentum[0].clone() - previous.total_momentum[0].clone()) / dt.clone() + 
+             self.boundary_momentum_flux[0].clone()).abs(),
+            ((self.total_momentum[1].clone() - previous.total_momentum[1].clone()) / dt.clone() + 
+             self.boundary_momentum_flux[1].clone()).abs(),
+            ((self.total_momentum[2].clone() - previous.total_momentum[2].clone()) / dt.clone() + 
+             self.boundary_momentum_flux[2].clone()).abs(),
+        ]
+    }
+
+    /// Check energy conservation: dE/dt + ∇·(u(E+p)) = ∇·(k∇T) + Φ
+    pub fn energy_conservation_error(&self, previous: &Self, dt: T) -> T {
+        let energy_change = (self.total_kinetic_energy.clone() - previous.total_kinetic_energy.clone()) / dt;
+        (energy_change + self.boundary_energy_flux.clone()).abs()
+    }
+}
