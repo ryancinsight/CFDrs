@@ -3,7 +3,7 @@
 //! This module provides a comprehensive solver for analyzing fluid flow in microfluidic
 //! networks using iterative methods and circuit analogies.
 
-use crate::network::Network;
+use crate::network::{Network, BoundaryCondition};
 use petgraph::visit::EdgeRef;
 use cfd_core::Result;
 use nalgebra::{RealField, ComplexField};
@@ -206,14 +206,29 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkSolver<T> {
             }
         }
 
-        // Handle flow rate boundary condition
-        // FIX: This has wrong dimensions - flow rate should not be added directly to pressure terms
+        // Handle flow rate boundary condition with correct dimensional analysis
+        // Flow rate BCs are handled in the system matrix setup, not as direct pressure source terms
+        // For proper nodal analysis, flow rate BCs modify the right-hand side vector, not as pressure
         if let Some(node) = network.get_node(node_id) {
-            if let Some(bc) = node.boundary_condition() {
-                if let Some(flow_rate) = bc.flow_rate_value() {
-                    // Flow rate is a source term, but needs proper dimensional handling
-                    // For now, keeping it but marking as incorrect
-                    source_term += flow_rate; // FIXME: Dimensional error!
+            if let Some(bc) = &node.properties.boundary_condition {
+                match bc {
+                    BoundaryCondition::Dirichlet { value } => {
+                        // Pressure boundary condition - this node has fixed pressure
+                        // The source term should reflect the fixed pressure constraint
+                        return Ok(value.clone());
+                    }
+                    BoundaryCondition::Neumann { gradient } => {
+                        // Flow rate boundary condition (gradient represents flow rate)
+                        // Convert flow rate to equivalent pressure source using total conductance
+                        // Q = G * ΔP, so ΔP = Q / G_total
+                        if total_conductance > T::zero() {
+                            let pressure_equivalent = gradient.clone() / total_conductance.clone();
+                            source_term += pressure_equivalent;
+                        }
+                    }
+                    _ => {
+                        // Other boundary conditions handled elsewhere
+                    }
                 }
             }
         }

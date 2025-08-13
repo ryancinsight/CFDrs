@@ -4,7 +4,7 @@
 //! using mixed velocity-pressure formulation with appropriate stabilization.
 
 use cfd_core::{Error, Result};
-use cfd_math::LinearSolver;
+
 use cfd_mesh::Mesh;
 use nalgebra::{RealField, Vector3, DVector, DMatrix, Matrix3};
 use num_traits::FromPrimitive;

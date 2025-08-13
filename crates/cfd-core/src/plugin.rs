@@ -32,7 +32,7 @@ pub trait SimulationPlugin: Send + Sync + 'static {
     }
 }
 
-/// Plugin lifecycle hooks for advanced control
+/// Plugin lifecycle hooks for simulation control
 pub trait PluginLifecycle: SimulationPlugin {
     /// Called before simulation starts
     fn on_start(&self, _state: &mut Self::State) -> Result<()> {
@@ -74,7 +74,7 @@ pub trait Plugin: Any + Send + Sync {
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-/// Plugin metadata with enhanced dependency management
+/// Plugin metadata with dependency management
 #[derive(Debug, Clone, Default)]
 pub struct PluginMetadata {
     /// Plugin name
@@ -97,7 +97,7 @@ pub struct PluginMetadata {
     pub priority: i32,
 }
 
-/// Plugin registry for managing available plugins with advanced features
+/// Plugin registry for managing available plugins with comprehensive features
 #[derive(Clone)]
 pub struct PluginRegistry {
     plugins: Arc<RwLock<HashMap<String, Arc<dyn Plugin>>>>,

@@ -30,17 +30,29 @@ pub const LOOSE_TOLERANCE: f64 = 1e-3;
 // ============================================================================
 
 /// Common numerical factors
+/// Zero value
 pub const ZERO: f64 = 0.0;
+/// Unity value
 pub const ONE: f64 = 1.0;
+/// Two value
 pub const TWO: f64 = 2.0;
+/// Three value  
 pub const THREE: f64 = 3.0;
+/// Four value
 pub const FOUR: f64 = 4.0;
+/// Five value
 pub const FIVE: f64 = 5.0;
+/// Six value
 pub const SIX: f64 = 6.0;
+/// Half value
 pub const HALF: f64 = 0.5;
+/// One third value
 pub const ONE_THIRD: f64 = 1.0 / 3.0;
+/// Two thirds value
 pub const TWO_THIRDS: f64 = 2.0 / 3.0;
+/// One fourth value
 pub const ONE_FOURTH: f64 = 0.25;
+/// One sixth value
 pub const ONE_SIXTH: f64 = 1.0 / 6.0;
 
 // ============================================================================
@@ -59,6 +71,9 @@ pub const MAX_CFL_NUMBER: f64 = 1.0;
 /// Default time step factor for SIMPLE solver
 /// This is multiplied with CFL number to get initial time step
 pub const DEFAULT_TIME_STEP_FACTOR: f64 = 0.02;
+
+/// Default time step for transient simulations (seconds)
+pub const DEFAULT_TIME_STEP: f64 = 0.01;
 
 /// Default relaxation factor for iterative methods
 pub const DEFAULT_RELAXATION_FACTOR: f64 = 0.7;

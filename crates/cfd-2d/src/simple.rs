@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::grid::StructuredGrid2D;
-use crate::schemes::{SpatialScheme, FiniteDifference, FluxLimiter};
+use crate::schemes::{SpatialScheme, FiniteDifference};
 use cfd_core::constants;
 
 /// SIMPLE algorithm configuration

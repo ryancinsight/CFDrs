@@ -291,7 +291,7 @@ impl<T: RealField> SolverConfig<T> {
     }
 }
 
-/// Enhanced builder for unified solver configuration using fluent interface
+/// Builder for unified solver configuration using fluent interface
 #[derive(Debug, Clone)]
 pub struct SolverConfigBuilder<T: RealField> {
     convergence: ConvergenceConfig<T>,
@@ -398,7 +398,7 @@ where
     /// Create iteration state from initial solution
     fn create_iteration_state(&self, initial: Self::Solution) -> Self::IterationState;
 
-    /// Enhanced iterative solve using iterator combinators and functional patterns
+    /// Iterative solve using iterator combinators and functional patterns
     fn iterative_solve(&mut self, initial: Self::Solution) -> Result<Self::Solution> {
         let config = self.config();
         let max_iterations = config.max_iterations();
@@ -492,12 +492,12 @@ pub trait DirectSolver<T: RealField>: Solver<T> + Configurable<T> {
     /// Sequential matrix assembly
     fn sequential_assemble(&self, entries: Vec<MatrixEntry<T>>) -> Result<SystemMatrix<T>>;
 
-    /// Parallel matrix assembly using rayon with enhanced zero-copy patterns
+    /// Parallel matrix assembly using rayon with zero-copy patterns
     fn parallel_assemble(&self, entries: Vec<MatrixEntry<T>>) -> Result<SystemMatrix<T>> {
         use rayon::prelude::*;
         use std::collections::HashMap;
 
-        // Enhanced parallel assembly with better memory locality
+        // Parallel assembly with memory locality optimization
         // Reference: "Parallel Sparse Matrix Assembly" by Karypis & Kumar (1999)
 
         // Phase 1: Parallel grouping by row with zero-copy aggregation

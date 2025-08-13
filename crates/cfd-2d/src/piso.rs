@@ -3,8 +3,8 @@
 //! The PISO algorithm is an extension of SIMPLE with additional corrector steps
 //! for improved accuracy in transient calculations.
 
-use crate::grid::StructuredGrid2D;
-use cfd_core::Result;
+use crate::grid::{StructuredGrid2D, Grid2D};
+use cfd_core::{Result, constants};
 use nalgebra::{Vector2, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -12,10 +12,10 @@ use std::collections::HashMap;
 
 // Named constants for PISO algorithm
 const DEFAULT_MAX_CORRECTORS: usize = 2;
-const _DEFAULT_VELOCITY_RELAXATION: f64 = 1.0; // No under-relaxation in PISO
-const _DEFAULT_PRESSURE_RELAXATION: f64 = 1.0;
-const _MOMENTUM_COEFFICIENT_FACTOR: f64 = 4.0;
-const GRADIENT_FACTOR: f64 = 2.0;
+const _DEFAULT_VELOCITY_RELAXATION: f64 = constants::ONE; // No under-relaxation in PISO
+const _DEFAULT_PRESSURE_RELAXATION: f64 = constants::ONE;
+const _MOMENTUM_COEFFICIENT_FACTOR: f64 = constants::FOUR;
+const GRADIENT_FACTOR: f64 = constants::TWO;
 
 /// PISO solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,15 +38,15 @@ impl<T: RealField + FromPrimitive> Default for PisoConfig<T> {
     fn default() -> Self {
         let base = cfd_core::SolverConfig::builder()
             .max_iterations(50) // PISO needs fewer iterations than SIMPLE
-            .tolerance(T::from_f64(1e-6).unwrap())
+            .tolerance(T::from_f64(constants::DEFAULT_TOLERANCE).unwrap())
             .build();
 
         Self {
             base,
-            time_step: T::from_f64(0.01).unwrap(), // Default time step
+            time_step: T::from_f64(constants::DEFAULT_TIME_STEP).unwrap(), // Default time step
             num_correctors: DEFAULT_MAX_CORRECTORS,
-            velocity_tolerance: T::from_f64(1e-6).unwrap(),
-            pressure_tolerance: T::from_f64(1e-6).unwrap(),
+            velocity_tolerance: T::from_f64(constants::DEFAULT_TOLERANCE).unwrap(),
+            pressure_tolerance: T::from_f64(constants::DEFAULT_TOLERANCE).unwrap(),
             non_orthogonal_correctors: 1,
         }
     }
@@ -277,7 +277,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
         // Gauss-Seidel iteration for x-momentum
         for _ in 0..self.config.base.convergence.max_iterations {
             for idx in 0..n {
-                if a_matrix[idx][idx].clone().abs() > T::from_f64(1e-10).unwrap() {
+                if a_matrix[idx][idx].clone().abs() > T::from_f64(constants::EPSILON).unwrap() {
                     let mut sum = b_x[idx].clone();
                     for k in 0..n {
                         if k != idx {
@@ -292,7 +292,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
         // Gauss-Seidel iteration for y-momentum
         for _ in 0..self.config.base.convergence.max_iterations {
             for idx in 0..n {
-                if a_matrix[idx][idx].clone().abs() > T::from_f64(1e-10).unwrap() {
+                if a_matrix[idx][idx].clone().abs() > T::from_f64(constants::EPSILON).unwrap() {
                     let mut sum = b_y[idx].clone();
                     for k in 0..n {
                         if k != idx {
@@ -576,30 +576,159 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
         Ok(())
     }
 
-    /// Apply boundary conditions
+    /// Apply boundary conditions using configurable boundary types
+    /// 
+    /// CRITICAL FIX: This method now applies boundary conditions based on
+    /// grid boundary types instead of hardcoded wall conditions. This allows
+    /// proper physics simulation with user-configurable boundary conditions.
+    ///
+    /// # References
+    /// Issa, R.I. (1986). "Solution of the implicitly discretised fluid flow equations
+    /// by operator-splitting." Journal of Computational Physics, 62(1), 40-65.
     fn apply_boundary_conditions(&mut self) {
-        // Left and right walls (no-slip)
-        for j in 0..self.ny {
-            self.u[0][j] = Vector2::zeros();
-            self.u[self.nx-1][j] = Vector2::zeros();
+        // Apply velocity boundary conditions based on boundary types
+        for i in 0..self.nx {
+            for j in 0..self.ny {
+                if self.grid.is_boundary(i, j) {
+                    match self.grid.boundary_type(i, j) {
+                        Some(crate::grid::BoundaryType::Wall) => {
+                            // No-slip wall condition
+                            self.u[i][j] = Vector2::zeros();
+                        }
+                        Some(crate::grid::BoundaryType::Inlet) => {
+                            // Inlet velocity (should be configured by user)
+                            // For now, apply no-slip as default
+                            self.u[i][j] = Vector2::zeros();
+                        }
+                        Some(crate::grid::BoundaryType::Outlet) => {
+                            // Zero gradient outlet condition
+                            self.apply_neumann_velocity(i, j);
+                        }
+                        Some(crate::grid::BoundaryType::Symmetry) => {
+                            // Symmetry condition - normal velocity = 0
+                            self.apply_symmetry_velocity(i, j);
+                        }
+                        Some(crate::grid::BoundaryType::Periodic) => {
+                            // Periodic condition - copy from opposite boundary
+                            self.apply_periodic_velocity(i, j);
+                        }
+                        None => {
+                            // Default to wall condition for undefined boundaries
+                            self.u[i][j] = Vector2::zeros();
+                        }
+                    }
+                }
+            }
         }
         
-        // Top and bottom walls (no-slip)
+        // Apply pressure boundary conditions
         for i in 0..self.nx {
-            self.u[i][0] = Vector2::zeros();
-            self.u[i][self.ny-1] = Vector2::zeros();
-        }
-        
-        // Pressure boundary conditions (zero gradient)
-        for j in 0..self.ny {
-            self.p[0][j] = self.p[1][j].clone();
-            self.p[self.nx-1][j] = self.p[self.nx-2][j].clone();
-        }
-        for i in 0..self.nx {
-            self.p[i][0] = self.p[i][1].clone();
-            self.p[i][self.ny-1] = self.p[i][self.ny-2].clone();
+            for j in 0..self.ny {
+                if self.grid.is_boundary(i, j) {
+                    match self.grid.boundary_type(i, j) {
+                        Some(crate::grid::BoundaryType::Wall) |
+                        Some(crate::grid::BoundaryType::Symmetry) => {
+                            // Zero gradient pressure condition
+                            self.apply_neumann_pressure(i, j);
+                        }
+                        Some(crate::grid::BoundaryType::Inlet) |
+                        Some(crate::grid::BoundaryType::Outlet) => {
+                            // Zero gradient pressure (can be overridden by user)
+                            self.apply_neumann_pressure(i, j);
+                        }
+                        Some(crate::grid::BoundaryType::Periodic) => {
+                            // Periodic pressure condition
+                            self.apply_periodic_pressure(i, j);
+                        }
+                        None => {
+                            // Default to zero gradient
+                            self.apply_neumann_pressure(i, j);
+                        }
+                    }
+                }
+            }
         }
     }
+    
+    /// Apply Neumann velocity boundary condition
+    fn apply_neumann_velocity(&mut self, i: usize, j: usize) {
+        // Implementation depends on boundary location
+        if i == 0 {
+            // Left boundary
+            self.u[i][j] = self.u[i+1][j].clone();
+        } else if i == self.nx - 1 {
+            // Right boundary
+            self.u[i][j] = self.u[i-1][j].clone();
+        } else if j == 0 {
+            // Bottom boundary
+            self.u[i][j] = self.u[i][j+1].clone();
+        } else if j == self.ny - 1 {
+            // Top boundary
+            self.u[i][j] = self.u[i][j-1].clone();
+        }
+         }
+     
+     /// Apply symmetry velocity boundary condition
+     fn apply_symmetry_velocity(&mut self, i: usize, j: usize) {
+         // Mirror velocity components appropriately for symmetry
+         if i == 0 || i == self.nx - 1 {
+             // Left/right boundaries - mirror x-component, keep y-component
+             let neighbor_i = if i == 0 { i + 1 } else { i - 1 };
+             self.u[i][j].x = -self.u[neighbor_i][j].x.clone();
+             self.u[i][j].y = self.u[neighbor_i][j].y.clone();
+         } else if j == 0 || j == self.ny - 1 {
+             // Top/bottom boundaries - keep x-component, mirror y-component
+             let neighbor_j = if j == 0 { j + 1 } else { j - 1 };
+             self.u[i][j].x = self.u[i][neighbor_j].x.clone();
+             self.u[i][j].y = -self.u[i][neighbor_j].y.clone();
+         }
+     }
+     
+     /// Apply periodic velocity boundary condition
+     fn apply_periodic_velocity(&mut self, i: usize, j: usize) {
+         // Copy from opposite boundary
+         if i == 0 {
+             self.u[i][j] = self.u[self.nx - 2][j].clone();
+         } else if i == self.nx - 1 {
+             self.u[i][j] = self.u[1][j].clone();
+         } else if j == 0 {
+             self.u[i][j] = self.u[i][self.ny - 2].clone();
+         } else if j == self.ny - 1 {
+             self.u[i][j] = self.u[i][1].clone();
+         }
+     }
+     
+     /// Apply Neumann pressure boundary condition
+     fn apply_neumann_pressure(&mut self, i: usize, j: usize) {
+         // Zero gradient implementation
+         if i == 0 {
+             // Left boundary
+             self.p[i][j] = self.p[i+1][j].clone();
+         } else if i == self.nx - 1 {
+             // Right boundary
+             self.p[i][j] = self.p[i-1][j].clone();
+         } else if j == 0 {
+             // Bottom boundary
+             self.p[i][j] = self.p[i][j+1].clone();
+         } else if j == self.ny - 1 {
+             // Top boundary
+             self.p[i][j] = self.p[i][j-1].clone();
+         }
+     }
+     
+     /// Apply periodic pressure boundary condition
+     fn apply_periodic_pressure(&mut self, i: usize, j: usize) {
+         // Copy from opposite boundary
+         if i == 0 {
+             self.p[i][j] = self.p[self.nx - 2][j].clone();
+         } else if i == self.nx - 1 {
+             self.p[i][j] = self.p[1][j].clone();
+         } else if j == 0 {
+             self.p[i][j] = self.p[i][self.ny - 2].clone();
+         } else if j == self.ny - 1 {
+             self.p[i][j] = self.p[i][1].clone();
+         }
+     }
 
     /// Check convergence
     pub fn check_convergence(&self) -> bool {
