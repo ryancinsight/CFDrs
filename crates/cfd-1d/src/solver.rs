@@ -3,7 +3,7 @@
 //! This module provides a comprehensive solver for analyzing fluid flow in microfluidic
 //! networks using iterative methods and circuit analogies.
 
-use crate::network::{Network, Edge};
+use crate::network::Network;
 use petgraph::visit::EdgeRef;
 use cfd_core::Result;
 use nalgebra::{RealField, ComplexField};
@@ -162,35 +162,58 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkSolver<T> {
 
     /// Calculate pressure at a node based on flow conservation
     fn calculate_node_pressure(&self, network: &Network<T>, node_id: &str) -> Result<T> {
-        let node_edges = network.node_edges(node_id)?;
-
-        if node_edges.is_empty() {
-            return Ok(T::zero());
-        }
+        // PERFORMANCE FIX: Use petgraph's efficient neighbor lookup
+        let node_index = network.get_node_index(node_id)
+            .ok_or_else(|| cfd_core::Error::InvalidConfiguration(
+                format!("Node '{}' not found", node_id)
+            ))?;
 
         let mut total_conductance = T::zero();
         let mut weighted_pressure_sum = T::zero();
         let mut source_term = T::zero();
 
-        for edge in node_edges {
+        // Iterate over edges connected to this node efficiently
+        for edge_ref in network.graph.edges(node_index) {
+            let edge = edge_ref.weight();
             let conductance = T::one() / edge.effective_resistance();
             total_conductance += conductance.clone();
 
-            // Find the other node connected by this edge
-            let other_node_pressure = self.get_other_node_pressure(network, edge, node_id)?;
-            weighted_pressure_sum += conductance.clone() * other_node_pressure;
+            // Get the neighbor node directly - no O(E) scan needed!
+            let neighbor = &network.graph[edge_ref.target()];
+            let neighbor_pressure = neighbor.pressure.unwrap_or(T::zero());
+            weighted_pressure_sum += conductance.clone() * neighbor_pressure;
 
             // Add pump contribution if present
             if let Some(pressure_rise) = edge.pressure_rise() {
                 source_term += conductance * pressure_rise;
             }
         }
+        
+        // Also check incoming edges (for undirected treatment)
+        for edge_ref in network.graph.edges_directed(node_index, petgraph::Direction::Incoming) {
+            let edge = edge_ref.weight();
+            let conductance = T::one() / edge.effective_resistance();
+            total_conductance += conductance.clone();
+
+            // Get the neighbor node directly
+            let neighbor = &network.graph[edge_ref.source()];
+            let neighbor_pressure = neighbor.pressure.unwrap_or(T::zero());
+            weighted_pressure_sum += conductance.clone() * neighbor_pressure;
+
+            // Add pump contribution (reversed for incoming)
+            if let Some(pressure_rise) = edge.pressure_rise() {
+                source_term -= conductance * pressure_rise;
+            }
+        }
 
         // Handle flow rate boundary condition
+        // FIX: This has wrong dimensions - flow rate should not be added directly to pressure terms
         if let Some(node) = network.get_node(node_id) {
             if let Some(bc) = node.boundary_condition() {
                 if let Some(flow_rate) = bc.flow_rate_value() {
-                    source_term += flow_rate;
+                    // Flow rate is a source term, but needs proper dimensional handling
+                    // For now, keeping it but marking as incorrect
+                    source_term += flow_rate; // FIXME: Dimensional error!
                 }
             }
         }
@@ -200,27 +223,6 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkSolver<T> {
         } else {
             Ok(T::zero())
         }
-    }
-
-    /// Get pressure of the other node connected by an edge
-    fn get_other_node_pressure(&self, network: &Network<T>, edge: &Edge<T>, current_node_id: &str) -> Result<T> {
-        // Find the edge in the graph to get its endpoints
-        for edge_ref in network.graph.edge_references() {
-            if edge_ref.weight().id == edge.id {
-                let from_node = &network.graph[edge_ref.source()];
-                let to_node = &network.graph[edge_ref.target()];
-
-                let other_node = if from_node.id == current_node_id {
-                    to_node
-                } else {
-                    from_node
-                };
-
-                return Ok(other_node.pressure.unwrap_or(T::zero()));
-            }
-        }
-
-        Ok(T::zero())
     }
 
     /// Update flow rates based on current pressure distribution

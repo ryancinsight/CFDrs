@@ -3,7 +3,19 @@
 
 This checklist provides a detailed breakdown of all tasks required to implement the CFD simulation suite as specified in the PRD.
 
-## 🎯 Recent Improvements (Latest Update - v2.14 - January 2025)
+## 🎯 Recent Improvements (Latest Update - v2.15 - January 2025)
+
+### Code Review Round 6 - Performance & CSG (v2.15)
+- [x] **1D Solver O(n²) Bug Fixed** - Catastrophic performance issue eliminated
+- [x] **CSG Module Replaced** - Non-functional BSP implementation removed
+- [x] **Performance Improved** - Now uses petgraph's efficient neighbor lookups
+- [x] **Dimensional Error Marked** - Flow rate boundary condition issue documented
+- ✅ **BUILD SUCCESS**: All modules compile without errors
+- ⚠️ **CSG Status**: Module exists but operations not implemented (marked clearly)
+- ⚠️ **Known Issues**:
+  - CSG operations need proper library integration
+  - 1D solver should use sparse matrices from cfd-math
+  - Flow rate BC has dimensional analysis error (marked with FIXME)
 
 ### Comprehensive Code Review & Cleanup (v2.14)
 - [x] **Orchestration Module Removed** - Non-functional conflicting system deleted
