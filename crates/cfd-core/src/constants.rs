@@ -157,7 +157,7 @@ pub const ASPECT_RATIO_CORRECTION: f64 = 0.63;
 /// Minimum aspect ratio for numerical stability
 pub const MIN_ASPECT_RATIO: f64 = 0.1;
 
-/// Maximum aspect ratio for accurate approximation
+/// Maximum aspect ratio for mesh element validity
 pub const MAX_ASPECT_RATIO: f64 = 10.0;
 
 /// Shah correlation coefficient for entrance length

@@ -162,7 +162,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                 self.rho[i][j] = initial_density.clone();
                 self.u[i][j] = initial_velocity.clone();
 
-                // Set equilibrium distribution using iterator for better performance
+                // Set equilibrium distribution using iterator pattern
                 for q in 0..D2Q9::Q {
                     let eq_dist = self.equilibrium_distribution(
                         q,
@@ -220,9 +220,9 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
         w * rho.clone() * (T::one() + term1 + term2 - term3)
     }
 
-    /// Perform collision step (BGK operator) with optimized inner loops
+    /// Perform collision step (BGK operator) with iterator patterns
     fn collision(&mut self) {
-        // Process grid cells with optimized inner calculations
+        // Process grid cells using iterator calculations
         for i in 0..self.nx {
             for j in 0..self.ny {
                 // Get current distributions slice for zero-copy access
@@ -251,7 +251,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                 self.rho[i][j] = rho_local.clone();
                 self.u[i][j] = u_local.clone();
 
-                // Collision with BGK operator using optimized indexing
+                // Collision with BGK operator using direct indexing
                 let tau_inv = T::one() / self.config.tau.clone();
                 
                 // Use iterator pattern for the collision step to avoid borrow conflicts
@@ -273,7 +273,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
     /// Perform streaming step with zero-copy double buffering and iterator optimization
     fn streaming(&mut self) {
         // Use iterator combinators with index-based access to avoid borrow conflicts
-        // Pre-compute all streaming operations for better cache locality
+        // Pre-compute all streaming operations for cache locality
         
         let streaming_ops: Vec<_> = (0..self.nx)
             .flat_map(|i| (0..self.ny).map(move |j| (i, j)))
