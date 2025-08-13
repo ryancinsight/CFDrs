@@ -8,8 +8,8 @@ use nalgebra::{RealField, DVector, ComplexField};
 use num_traits::{FromPrimitive, Float, ToPrimitive};
 use std::f64::consts::PI;
 
-/// Simple time integrator trait for validation
-pub trait SimpleTimeIntegrator<T: RealField> {
+/// Time integrator trait for validation
+pub trait TimeIntegratorTrait<T: RealField> {
     /// Take one time step
     fn step<F>(&self, y: &mut DVector<T>, t: T, dt: T, f: F) -> Result<()>
     where
@@ -32,7 +32,7 @@ pub enum TimeIntegratorEnum<T: RealField> {
     _Phantom(std::marker::PhantomData<T>),
 }
 
-impl<T: RealField + FromPrimitive> SimpleTimeIntegrator<T> for TimeIntegratorEnum<T> {
+impl<T: RealField + FromPrimitive> TimeIntegratorTrait<T> for TimeIntegratorEnum<T> {
     fn step<F>(&self, y: &mut DVector<T>, t: T, dt: T, f: F) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
@@ -59,7 +59,7 @@ impl<T: RealField + FromPrimitive> SimpleTimeIntegrator<T> for TimeIntegratorEnu
 #[derive(Debug)]
 pub struct ForwardEuler;
 
-impl<T: RealField> SimpleTimeIntegrator<T> for ForwardEuler {
+impl<T: RealField> TimeIntegratorTrait<T> for ForwardEuler {
     fn step<F>(&self, y: &mut DVector<T>, t: T, dt: T, f: F) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
@@ -76,7 +76,7 @@ impl<T: RealField> SimpleTimeIntegrator<T> for ForwardEuler {
 #[derive(Debug)]
 pub struct RungeKutta2;
 
-impl<T: RealField + FromPrimitive> SimpleTimeIntegrator<T> for RungeKutta2 {
+impl<T: RealField + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta2 {
     fn step<F>(&self, y: &mut DVector<T>, t: T, dt: T, f: F) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
@@ -97,7 +97,7 @@ impl<T: RealField + FromPrimitive> SimpleTimeIntegrator<T> for RungeKutta2 {
 #[derive(Debug)]
 pub struct RungeKutta4;
 
-impl<T: RealField + FromPrimitive> SimpleTimeIntegrator<T> for RungeKutta4 {
+impl<T: RealField + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta4 {
     fn step<F>(&self, y: &mut DVector<T>, t: T, dt: T, f: F) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
