@@ -787,7 +787,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
         let mut length = 2;
         while length <= n {
             let angle = T::from_f64(-2.0 * std::f64::consts::PI).unwrap() / T::from_usize(length).unwrap();
-            let wlen = Complex::new(angle.cos(), angle.sin());
+            let wlen = Complex::new(angle.clone().cos(), angle.sin());
             
             for i in (0..n).step_by(length) {
                 let mut w = Complex::new(T::one(), T::zero());
@@ -824,7 +824,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
         let mut length = 2;
         while length <= n {
             let angle = T::from_f64(2.0 * std::f64::consts::PI).unwrap() / T::from_usize(length).unwrap();
-            let wlen = Complex::new(angle.cos(), angle.sin());
+            let wlen = Complex::new(angle.clone().cos(), angle.sin());
             
             for i in (0..n).step_by(length) {
                 let mut w = Complex::new(T::one(), T::zero());

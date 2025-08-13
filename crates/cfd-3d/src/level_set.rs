@@ -368,9 +368,9 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
     
     /// Smooth Heaviside function for better numerical stability
     fn smooth_heaviside(&self, phi: T, epsilon: T) -> T {
-        if phi < -epsilon {
+        if phi < -epsilon.clone() {
             T::zero()
-        } else if phi > epsilon {
+        } else if phi > epsilon.clone() {
             T::one()
         } else {
             let half = T::from_f64(0.5).unwrap();

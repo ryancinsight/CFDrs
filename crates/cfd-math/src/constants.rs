@@ -85,12 +85,12 @@ pub mod physical {
 /// Helper trait to convert constants to generic RealField types
 pub trait ConstantConvert<T: RealField> {
     /// Convert the constant to the target type
-    fn to_field() -> T;
+    fn to_field(value: f64) -> T;
 }
 
 impl<T: RealField> ConstantConvert<T> for f64 {
-    fn to_field() -> T {
-        T::from_f64(*self).unwrap_or_else(T::one)
+    fn to_field(value: f64) -> T {
+        T::from_f64(value).unwrap_or_else(T::one)
     }
 }
 

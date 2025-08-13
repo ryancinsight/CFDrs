@@ -696,7 +696,6 @@ mod tests {
                         mesh.faces.push(Face { vertices: vec![v000, v010, v001], id: base_face_id + 2 });
                         mesh.faces.push(Face { vertices: vec![v100, v010, v001], id: base_face_id + 3 });
                         mesh.cells.push(Cell {
-                            vertices: vec![v000, v100, v010, v001],
                             faces: vec![base_face_id, base_face_id + 1, base_face_id + 2, base_face_id + 3],
                             id: base_cell_id,
                         });

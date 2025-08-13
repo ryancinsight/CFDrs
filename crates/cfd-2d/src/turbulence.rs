@@ -79,7 +79,7 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
             for j in 0..self.ny {
                 let k_val = self.k[i][j].clone();
                 let eps_val = self.epsilon[i][j].clone().max(T::from_f64(constants::EPSILON_MIN).unwrap());
-                self.nu_t[i][j] = c_mu * k_val.clone() * k_val / eps_val;
+                self.nu_t[i][j] = c_mu.clone() * k_val.clone() * k_val / eps_val;
             }
         }
     }
@@ -124,14 +124,14 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
             if y_plus > T::from_f64(11.63).unwrap() {
                 // Log-law region
                 // Set k and ε based on equilibrium assumptions
-                self.k[i][0] = u_tau.clone() * u_tau.clone() / c_mu.sqrt();
-                self.epsilon[i][0] = u_tau.clone().powi(3) / (kappa * y.clone());
+                self.k[i][0] = u_tau.clone() * u_tau.clone() / c_mu.clone().sqrt();
+                self.epsilon[i][0] = u_tau.clone().powi(3) / (kappa.clone() * y.clone());
                 
                 // Wall shear stress
                 let tau_wall = u_tau.clone() * u_tau.clone();
                 
                 // Set turbulent viscosity at wall
-                self.nu_t[i][0] = kappa * u_tau * y - nu;
+                self.nu_t[i][0] = kappa.clone() * u_tau.clone() * y - nu.clone();
             } else {
                 // Viscous sublayer
                 self.k[i][0] = T::zero();
@@ -168,11 +168,11 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
             
             // Blended k and ε
             let k_visc = T::zero();
-            let k_log = u_tau.clone() * u_tau / T::from_f64(constants::C_MU).unwrap().sqrt();
+            let k_log = u_tau.clone() * u_tau.clone() / T::from_f64(constants::C_MU).unwrap().sqrt();
             self.k[i][0] = (T::one() - gamma.clone()) * k_visc + gamma.clone() * k_log;
             
             let eps_visc = T::from_f64(2.0).unwrap() * nu.clone() * self.k[i][1].clone() / (y.clone() * y.clone());
-            let eps_log = u_tau.clone().powi(3) / (kappa * y.clone());
+            let eps_log = u_tau.clone().powi(3) / (kappa.clone() * y.clone());
             self.epsilon[i][0] = (T::one() - gamma.clone()) * eps_visc + gamma * eps_log;
             
             // Damped turbulent viscosity
@@ -198,7 +198,7 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
             if y_plus > T::from_f64(11.63).unwrap() {
                 // Log-law
                 let u_plus = u_p.clone() / u_tau.clone();
-                let f = u_plus - (y_plus.ln() / kappa.clone() + e_smooth.ln() * kappa.clone());
+                let f = u_plus - (y_plus.ln() / kappa.clone() + e_smooth.clone().ln() * kappa.clone());
                 let df = -u_p.clone() / (u_tau.clone() * u_tau.clone()) - T::one() / (kappa.clone() * u_tau.clone());
                 
                 let delta = f / df;

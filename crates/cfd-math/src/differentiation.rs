@@ -3,8 +3,9 @@
 //! This module provides finite difference schemes optimized for CFD simulations
 //! with support for various boundary conditions and grid types.
 
-use nalgebra::{RealField, Vector3};
+use nalgebra::{RealField, Vector3, DVector};
 use cfd_core::{Error, Result};
+use num_traits::FromPrimitive;
 use crate::constants::factors;
 
 /// Finite difference schemes
