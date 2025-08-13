@@ -119,85 +119,30 @@ pub mod time_integration {
         }
     }
     
-    /// Runge-Kutta 4th order scheme with full implementation
-    /// Based on Butcher tableau for classical RK4 method
+    /// Constant derivative time integration (equivalent to Forward Euler)
+    /// 
+    /// This scheme assumes the derivative is constant over the time step.
+    /// For systems where the derivative changes with state, this reduces to
+    /// Forward Euler regardless of the intended higher-order method.
     #[derive(Debug, Clone)]
-    pub struct RungeKutta4;
+    pub struct ConstantDerivative;
 
-    impl<T: RealField> TimeIntegrationScheme<T> for RungeKutta4 {
+    impl<T: RealField> TimeIntegrationScheme<T> for ConstantDerivative {
         fn advance(&self, current: &[T], derivative: &[T], dt: T) -> Vec<T> {
-            // Classical RK4 implementation
-            // Reference: Butcher, J.C. "Numerical Methods for Ordinary Differential Equations" (2016)
-            
-            // RK4 coefficients from Butcher tableau
-            let half = T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one()));
-            let one_sixth = T::from_f64(1.0/6.0).unwrap_or_else(|| T::one() / T::from_usize(6).unwrap_or_else(T::one));
-            let _one_third = T::from_f64(1.0/3.0).unwrap_or_else(|| T::one() / T::from_usize(3).unwrap_or_else(T::one));
-            let two = T::one() + T::one();
-            
-            // Stage 1: k1 = dt * f(t, y)
-            let k1: Vec<T> = derivative.iter()
-                .map(|d| d.clone() * dt.clone())
-                .collect();
-            
-            // Stage 2: k2 = dt * f(t + dt/2, y + k1/2)
-            let _y_mid1: Vec<T> = current.iter()
-                .zip(k1.iter())
-                .map(|(y, k)| y.clone() + k.clone() * half.clone())
-                .collect();
-            // In practice, would compute derivative at (t + dt/2, y_mid1)
-            // For demonstration, using same derivative
-            let k2: Vec<T> = derivative.iter()
-                .map(|d| d.clone() * dt.clone())
-                .collect();
-            
-            // Stage 3: k3 = dt * f(t + dt/2, y + k2/2)
-            let _y_mid2: Vec<T> = current.iter()
-                .zip(k2.iter())
-                .map(|(y, k)| y.clone() + k.clone() * half.clone())
-                .collect();
-            // Would compute derivative at (t + dt/2, y_mid2)
-            let k3: Vec<T> = derivative.iter()
-                .map(|d| d.clone() * dt.clone())
-                .collect();
-            
-            // Stage 4: k4 = dt * f(t + dt, y + k3)
-            let _y_end: Vec<T> = current.iter()
-                .zip(k3.iter())
-                .map(|(y, k)| y.clone() + k.clone())
-                .collect();
-            
-            let k4: Vec<T> = derivative.iter()
-                .zip(k3.iter())
-                .map(|(d, k)| {
-                    // Final stage with full step correction
-                    let slope_correction = k.clone() / dt.clone();
-                    (d.clone() + slope_correction) * dt.clone()
-                })
-                .collect();
-            
-            // Combine stages: y_new = y + (k1 + 2*k2 + 2*k3 + k4) / 6
+            // With constant derivative assumption: y_new = y + dt * f(y)
+            // This is exactly Forward Euler method
             current.iter()
-                .zip(k1.iter())
-                .zip(k2.iter())
-                .zip(k3.iter())
-                .zip(k4.iter())
-                .map(|((((y, k1), k2), k3), k4)| {
-                    let weighted_sum = k1.clone() + 
-                                     k2.clone() * two.clone() + 
-                                     k3.clone() * two.clone() + 
-                                     k4.clone();
-                    y.clone() + weighted_sum * one_sixth.clone()
-                })
+                .zip(derivative.iter())
+                .map(|(y, d)| y.clone() + d.clone() * dt.clone())
                 .collect()
         }
 
         fn name(&self) -> &str {
-            "Runge-Kutta 4 (Classical)"
+            "Constant Derivative (Euler)"
         }
 
         fn order(&self) -> usize {
-            4
+            1  // First order accurate
         }
 
         fn is_implicit(&self) -> bool {
@@ -205,12 +150,12 @@ pub mod time_integration {
         }
     }
 
-    /// Advanced Runge-Kutta 4th order scheme with function evaluation
-    /// This version can work with derivative functions for proper RK4 implementation
+    /// Runge-Kutta 4th order scheme
+    /// Properly evaluates derivatives at each RK4 stage
     #[derive(Debug, Clone)]
-    pub struct RungeKutta4Advanced;
+    pub struct RungeKutta4;
 
-    impl RungeKutta4Advanced {
+    impl RungeKutta4 {
         /// Advance with derivative function for proper RK4
         /// Reference: Hairer, E., Nørsett, S.P., Wanner, G. "Solving Ordinary Differential Equations I" (1993)
         pub fn advance_with_function<T, F>(
@@ -430,10 +375,13 @@ impl<T: RealField> NumericalMethodsService<T> {
             "forward_euler".to_string(),
             Box::new(time_integration::ForwardEuler)
         );
+        // Note: True RK4 requires derivative function evaluation at intermediate points
+        // The ConstantDerivative scheme is registered here for compatibility but is only first-order accurate
         service.register_time_integration_scheme(
-            "rk4".to_string(),
-            Box::new(time_integration::RungeKutta4)
+            "constant_derivative".to_string(),
+            Box::new(time_integration::ConstantDerivative)
         );
+        // For proper RK4, use RungeKutta4::advance_with_function directly
         
         service.register_linear_solver(
             "cg".to_string(),
@@ -558,22 +506,43 @@ mod tests {
     }
 
     #[test]
-    fn test_runge_kutta_4_scheme() {
-        let scheme = time_integration::RungeKutta4;
+    fn test_constant_derivative_scheme() {
+        let scheme = time_integration::ConstantDerivative;
         let current = vec![1.0f64];
         let derivative = vec![1.0f64];
         let dt = 0.1f64;
 
         let result = scheme.advance(&current, &derivative, dt);
 
-        // The simplified RK4 implementation using constant derivative
-        // gives: y + dt * (1/6 * (1 + 2 + 2 + 1)) * derivative = 1 + 0.1 * 1 * 7/6 = 1.1166666...
+        // Constant derivative is equivalent to Forward Euler: y + dt * derivative
         assert_eq!(result.len(), 1);
-        assert_relative_eq!(result[0], 1.1166666666666667, epsilon = 1e-10);
+        assert_relative_eq!(result[0], 1.1, epsilon = 1e-10);
 
-        assert_eq!(<time_integration::RungeKutta4 as TimeIntegrationScheme<f64>>::name(&scheme), "Runge-Kutta 4 (Classical)");
-        assert_eq!(<time_integration::RungeKutta4 as TimeIntegrationScheme<f64>>::order(&scheme), 4);
-        assert!(!<time_integration::RungeKutta4 as TimeIntegrationScheme<f64>>::is_implicit(&scheme));
+        assert_eq!(<time_integration::ConstantDerivative as TimeIntegrationScheme<f64>>::name(&scheme), "Constant Derivative (Euler)");
+        assert_eq!(<time_integration::ConstantDerivative as TimeIntegrationScheme<f64>>::order(&scheme), 1);
+        assert!(!<time_integration::ConstantDerivative as TimeIntegrationScheme<f64>>::is_implicit(&scheme));
+    }
+    
+    #[test]
+    fn test_runge_kutta_4_proper() {
+        // Test proper RK4 with a simple ODE: dy/dt = -y, y(0) = 1
+        // Exact solution: y(t) = exp(-t)
+        let rk4 = time_integration::RungeKutta4;
+        let y0 = vec![1.0f64];
+        let t0 = 0.0;
+        let dt = 0.1;
+        
+        // Derivative function for dy/dt = -y
+        let derivative_fn = |_t: f64, y: &[f64]| -> Vec<f64> {
+            y.iter().map(|&val| -val).collect()
+        };
+        
+        let result = rk4.advance_with_function(&y0, t0, dt, derivative_fn);
+        
+        // Expected value: exp(-0.1) ≈ 0.9048374180359595
+        // RK4 should be very accurate for this simple problem
+        assert_eq!(result.len(), 1);
+        assert_relative_eq!(result[0], 0.9048374180359595, epsilon = 1e-6);
     }
 
     #[test]
@@ -603,7 +572,7 @@ mod tests {
         assert!(service.get_discretization_scheme("central").is_some());
         assert!(service.get_discretization_scheme("upwind").is_some());
         assert!(service.get_time_integration_scheme("forward_euler").is_some());
-        assert!(service.get_time_integration_scheme("rk4").is_some());
+        assert!(service.get_time_integration_scheme("constant_derivative").is_some());
         assert!(service.get_linear_solver("cg").is_some());
 
         // Test non-existent schemes

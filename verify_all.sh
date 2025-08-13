@@ -56,9 +56,9 @@ check_result ${PIPESTATUS[0]} "Build examples"
 # 6. Run sample examples
 echo ""
 echo "5. Running sample examples..."
-echo "   - Running simple_pipe_flow..."
-cargo run --release --example simple_pipe_flow 2>&1 | grep "Converged:" > /dev/null
-check_result $? "simple_pipe_flow example"
+echo "   - Running pipe_flow_1d..."
+cargo run --release --example pipe_flow_1d 2>&1 | grep "Converged:" > /dev/null
+check_result $? "pipe_flow_1d example"
 
 echo "   - Running 2d_heat_diffusion..."
 cargo run --release --example 2d_heat_diffusion 2>&1 | grep "Example Complete" > /dev/null

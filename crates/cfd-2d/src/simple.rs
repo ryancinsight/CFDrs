@@ -25,32 +25,7 @@ use std::collections::HashMap;
 
 use crate::grid::StructuredGrid2D;
 use crate::schemes::{SpatialScheme, FiniteDifference, FluxLimiter};
-
-/// Constants for SIMPLE algorithm
-mod constants {
-    /// Default time step
-    pub const DEFAULT_TIME_STEP: f64 = 0.01;
-    /// Default velocity tolerance
-    pub const DEFAULT_VELOCITY_TOLERANCE: f64 = 1e-6;
-    /// Default pressure tolerance  
-    pub const DEFAULT_PRESSURE_TOLERANCE: f64 = 1e-6;
-    /// Default velocity relaxation factor
-    pub const DEFAULT_VELOCITY_RELAXATION: f64 = 0.7;
-    /// Default pressure relaxation factor
-    pub const DEFAULT_PRESSURE_RELAXATION: f64 = 0.3;
-    /// Small value for numerical stability
-    pub const EPSILON: f64 = 1e-10;
-    /// Hybrid scheme blending factor
-    pub const HYBRID_BLEND: f64 = 0.1;
-    /// QUICK scheme downstream coefficient (6/8)
-    pub const QUICK_DOWNSTREAM: f64 = 0.75;
-    /// QUICK scheme central coefficient (3/8)
-    pub const QUICK_CENTRAL: f64 = 0.375;
-    /// QUICK scheme upstream coefficient (1/8)
-    pub const QUICK_UPSTREAM: f64 = 0.125;
-    /// Factor of 2 for central differences
-    pub const TWO: f64 = 2.0;
-}
+use cfd_core::constants;
 
 /// SIMPLE algorithm configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,14 +50,14 @@ impl<T: RealField + FromPrimitive> Default for SimpleConfig<T> {
     fn default() -> Self {
         let base = cfd_core::SolverConfig::builder()
             .max_iterations(100)
-            .tolerance(T::from_f64(constants::DEFAULT_VELOCITY_TOLERANCE).unwrap())
+            .tolerance(T::from_f64(constants::DEFAULT_TOLERANCE).unwrap())
             .build();
 
         Self {
             base,
-            dt: T::from_f64(constants::DEFAULT_TIME_STEP).unwrap(),
-            alpha_u: T::from_f64(constants::DEFAULT_VELOCITY_RELAXATION).unwrap(),
-            alpha_p: T::from_f64(constants::DEFAULT_PRESSURE_RELAXATION).unwrap(),
+            dt: T::from_f64(constants::DEFAULT_CFL_NUMBER * constants::DEFAULT_TIME_STEP_FACTOR).unwrap(), // Default time step based on CFL
+            alpha_u: T::from_f64(constants::VELOCITY_UNDER_RELAXATION).unwrap(),
+            alpha_p: T::from_f64(constants::PRESSURE_UNDER_RELAXATION).unwrap(),
             use_rhie_chow: true,
             convection_scheme: SpatialScheme::SecondOrderUpwind,
             implicit_momentum: true,  // Default to implicit for stability
@@ -152,14 +127,23 @@ pub struct SimpleSolver<T: RealField> {
 }
 
 impl<T: RealField + FromPrimitive> SimpleSolver<T> {
+    /// Helper function to convert 2D grid indices to 1D matrix index
+    /// for interior points only (excluding boundaries)
+    #[inline]
+    fn grid_to_matrix_idx(&self, i: usize, j: usize) -> usize {
+        debug_assert!(i > 0 && i < self.nx - 1);
+        debug_assert!(j > 0 && j < self.ny - 1);
+        (i - 1) * (self.ny - 2) + (j - 1)
+    }
+
     /// Create a new SIMPLE solver
     pub fn new(config: SimpleConfig<T>, nx: usize, ny: usize) -> Self {
         Self::new_with_properties(
             config,
             nx,
             ny,
-            T::from_f64(1000.0).unwrap(),  // Default water density
-            T::from_f64(0.001).unwrap(),   // Default water viscosity
+            T::from_f64(constants::WATER_DENSITY).unwrap(),  // Default water density
+            T::from_f64(constants::WATER_VISCOSITY).unwrap(),   // Default water viscosity
         )
     }
     
@@ -219,7 +203,7 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
         self.correct_fields(grid)?;
         
         // Step 6: Apply boundary conditions
-        self.apply_boundary_conditions(boundary_conditions)?;
+        self.apply_boundary_conditions(grid, boundary_conditions)?;
         
         Ok(())
     }
@@ -308,7 +292,7 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
             }
             SpatialScheme::CentralDifference => {
                 // Central differencing (can be unstable for high Pe)
-                let two = T::from_f64(2.0).unwrap();
+                let two = T::one() + T::one();
                 let ae = de.clone() - fe.clone() / two.clone();
                 let aw = dw.clone() + fw.clone() / two.clone();
                 let an = dn.clone() - fn_.clone() / two.clone();
@@ -788,6 +772,7 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
     /// Apply boundary conditions
     fn apply_boundary_conditions(
         &mut self,
+        grid: &StructuredGrid2D<T>,
         boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
     ) -> Result<()> {
         // First, check that all boundary cells have conditions specified
@@ -903,16 +888,24 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
                     }
                 }
                 BoundaryCondition::Neumann { gradient } => {
-                    // Apply gradient BC
-                    // This is a simplified implementation
+                    // Apply Neumann (gradient) boundary condition
+                    // ∂u/∂n = gradient, where n is the outward normal
+                    // Using first-order backward/forward differences with actual grid spacing
+                    // Critical: Must use actual grid spacing, not unit spacing, for correct physics
+                    let (dx, dy) = grid.spacing();
+                    
                     if i == 0 {
-                        self.u[i][j] = self.u[i+1][j].clone() - Vector2::repeat(gradient.clone());
+                        // West boundary: u[0] = u[1] - gradient * dx
+                        self.u[i][j] = self.u[i+1][j].clone() - Vector2::repeat(gradient.clone() * dx.clone());
                     } else if i == self.nx - 1 {
-                        self.u[i][j] = self.u[i-1][j].clone() + Vector2::repeat(gradient.clone());
+                        // East boundary: u[nx-1] = u[nx-2] + gradient * dx
+                        self.u[i][j] = self.u[i-1][j].clone() + Vector2::repeat(gradient.clone() * dx.clone());
                     } else if j == 0 {
-                        self.u[i][j] = self.u[i][j+1].clone() - Vector2::repeat(gradient.clone());
+                        // South boundary: u[0] = u[1] - gradient * dy
+                        self.u[i][j] = self.u[i][j+1].clone() - Vector2::repeat(gradient.clone() * dy.clone());
                     } else if j == self.ny - 1 {
-                        self.u[i][j] = self.u[i][j-1].clone() + Vector2::repeat(gradient.clone());
+                        // North boundary: u[ny-1] = u[ny-2] + gradient * dy
+                        self.u[i][j] = self.u[i][j-1].clone() + Vector2::repeat(gradient.clone() * dy);
                     }
                 }
                 _ => {
@@ -962,9 +955,16 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
                            (self.u[i][j+1].y.clone() - self.u[i][j-1].y.clone()) / (two.clone() * dy.clone());
                 max_continuity_residual = max_continuity_residual.max(div_u.abs());
                 
-                // U-momentum residual (simplified - could be more comprehensive)
+                // U-momentum residual: |∂u/∂t + (u·∇)u + ∇p/ρ - ν∇²u|
+                // For steady state, this reduces to the change between iterations
                 let u_residual = if self.au[i][j].d != T::zero() {
-                    ((self.u[i][j].x.clone() - self.u_star[i][j].x.clone()) / self.config.dt.clone()).abs()
+                    let du_dt = (self.u[i][j].x.clone() - self.u_star[i][j].x.clone()) / self.config.dt.clone();
+                    let convection = self.au[i][j].ae.clone() * self.u[i+1][j].x.clone() +
+                                    self.au[i][j].aw.clone() * self.u[i-1][j].x.clone() +
+                                    self.au[i][j].an.clone() * self.u[i][j+1].x.clone() +
+                                    self.au[i][j].as_.clone() * self.u[i][j-1].x.clone() -
+                                    self.au[i][j].ap.clone() * self.u[i][j].x.clone();
+                    (du_dt + convection).abs()
                 } else {
                     T::zero()
                 };
@@ -1029,8 +1029,8 @@ mod tests {
 
         assert_eq!(solver.nx, 5);
         assert_eq!(solver.ny, 5);
-        assert_relative_eq!(solver.rho, 1000.0, epsilon = 1e-10);
-        assert_relative_eq!(solver.mu, 0.001, epsilon = 1e-10);
+        assert_relative_eq!(solver.rho, 998.2, epsilon = 1e-10);
+        assert_relative_eq!(solver.mu, 1.002e-3, epsilon = 1e-10);
     }
 
     #[test]
@@ -1127,7 +1127,7 @@ mod tests {
             Err(_) => {
                 // Convergence failure is acceptable for this basic test
                 // The important thing is that the boundary conditions are applied
-                solver.apply_boundary_conditions(&boundaries);
+                solver.apply_boundary_conditions(&grid, &boundaries).ok();
             }
         }
 
@@ -1362,5 +1362,36 @@ mod tests {
                 // as the pressure correction equation can be ill-conditioned
             }
         }
+    }
+
+    #[test]
+    fn test_neumann_bc_with_non_unit_spacing() {
+        // Test that Neumann BC correctly uses actual grid spacing
+        let config = SimpleConfig::default();
+        let nx = 10;
+        let ny = 10;
+        let mut solver = SimpleSolver::new(config, nx, ny);
+        
+        // Create a non-unit grid (dx=0.5, dy=0.2)
+        let grid = StructuredGrid2D::new(nx, ny, 0.0, 5.0, 0.0, 2.0).unwrap();
+        let (dx, dy) = grid.spacing();
+        assert_relative_eq!(dx, 0.5, epsilon = 1e-10);
+        assert_relative_eq!(dy, 0.2, epsilon = 1e-10);
+        
+        // Set up Neumann BC with gradient = 2.0
+        let gradient_value = 2.0;
+        let mut boundaries = HashMap::new();
+        boundaries.insert((0, 5), BoundaryCondition::Neumann { gradient: gradient_value });
+        
+        // Initialize interior velocity
+        solver.u[1][5] = Vector2::new(10.0, 0.0);
+        
+        // Apply boundary conditions
+        solver.apply_boundary_conditions(&grid, &boundaries).unwrap();
+        
+        // Check that Neumann BC was applied correctly:
+        // u[0][5] = u[1][5] - gradient * dx
+        // u[0][5] = 10.0 - 2.0 * 0.5 = 9.0
+        assert_relative_eq!(solver.u[0][5].x, 9.0, epsilon = 1e-10);
     }
 }

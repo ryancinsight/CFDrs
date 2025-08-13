@@ -6,7 +6,7 @@
 use cfd_core::{Error, Result};
 use nalgebra::RealField;
 use std::fs::File;
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Write, Lines};
 use std::path::Path;
 
 /// VTK data types
@@ -35,6 +35,21 @@ pub enum VtkCellType {
     Tetrahedron = 10,
     /// Hexahedron (8 points)
     Hexahedron = 12,
+}
+
+impl VtkCellType {
+    /// Convert from u8 representation
+    pub fn from_u8(value: u8) -> Self {
+        match value {
+            1 => VtkCellType::Vertex,
+            3 => VtkCellType::Line,
+            5 => VtkCellType::Triangle,
+            9 => VtkCellType::Quad,
+            10 => VtkCellType::Tetrahedron,
+            12 => VtkCellType::Hexahedron,
+            _ => VtkCellType::Vertex, // Default fallback
+        }
+    }
 }
 
 /// VTK dataset types
@@ -172,30 +187,48 @@ impl<T: RealField> VtkWriter<T> {
         Ok(())
     }
 
-    /// Write cells
+    /// Write cells (only for unstructured grids)
     fn write_cells<W: Write>(&self, writer: &mut W, mesh: &VtkMesh<T>) -> Result<()> {
-        let total_size: usize = mesh.cells.iter()
-            .map(|cell| 1 + cell.len())
-            .sum();
-        
-        writeln!(writer, "\nCELLS {} {}", mesh.num_cells(), total_size)?;
-        
-        // Write connectivity
-        for cell in &mesh.cells {
-            write!(writer, "{}", cell.len())?;
-            for &idx in cell {
-                write!(writer, " {}", idx)?;
+        // CRITICAL: Only write cells for dataset types that require explicit connectivity
+        // STRUCTURED_GRID and STRUCTURED_POINTS have implicit connectivity!
+        match self.dataset_type {
+            VtkDatasetType::StructuredGrid | VtkDatasetType::StructuredPoints => {
+                // These dataset types have implicit connectivity - DO NOT write CELLS
+                // TODO: Should write DIMENSIONS instead for structured grids
+                Ok(())
             }
-            writeln!(writer)?;
-        }
+            VtkDatasetType::UnstructuredGrid | VtkDatasetType::PolyData => {
+                // These require explicit cell connectivity
+                let total_size: usize = mesh.cells.iter()
+                    .map(|cell| 1 + cell.len())
+                    .sum();
+                
+                writeln!(writer, "\nCELLS {} {}", mesh.num_cells(), total_size)?;
+                
+                // Write connectivity
+                for cell in &mesh.cells {
+                    write!(writer, "{}", cell.len())?;
+                    for &idx in cell {
+                        write!(writer, " {}", idx)?;
+                    }
+                    writeln!(writer)?;
+                }
 
-        // Write cell types
-        writeln!(writer, "\nCELL_TYPES {}", mesh.num_cells())?;
-        for cell_type in &mesh.cell_types {
-            writeln!(writer, "{}", *cell_type as u8)?;
+                // Write cell types
+                writeln!(writer, "\nCELL_TYPES {}", mesh.num_cells())?;
+                for cell_type in &mesh.cell_types {
+                    writeln!(writer, "{}", *cell_type as u8)?;
+                }
+                
+                Ok(())
+            }
+            _ => {
+                // Other types not yet fully supported
+                Err(Error::NotImplemented(
+                    format!("Cell writing for {:?} not yet implemented", self.dataset_type)
+                ))
+            }
         }
-        
-        Ok(())
     }
 
     /// Write field data
@@ -309,14 +342,146 @@ impl<T: RealField> VtkReader<T> {
         })
     }
 
-    /// Read mesh data using iterators for efficiency
-    ///
-    /// Note: Full VTK reading functionality is not yet implemented.
-    /// Currently only VTK writing is supported.
-    pub fn read_mesh(&self, _path: &Path) -> Result<VtkMesh<T>> {
-        Err(Error::NotImplemented(
-            "VTK mesh reading is not yet implemented. Use VTK writing functionality instead.".to_string()
-        ))
+    /// Read mesh data from VTK file
+    pub fn read_mesh(&self, path: &Path) -> Result<VtkMesh<T>> {
+        // First read the header to determine dataset type
+        let header = self.read_header(path)?;
+        
+        // Now read the file again for the actual data
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        let mut lines = reader.lines();
+        
+        // Skip header lines (already parsed)
+        for _ in 0..4 {
+            lines.next();
+        }
+        
+        // Parse based on dataset type
+        match header.dataset_type {
+            VtkDatasetType::UnstructuredGrid => self.read_unstructured_grid(&mut lines),
+            VtkDatasetType::StructuredGrid => self.read_structured_grid(&mut lines),
+            _ => Err(Error::NotImplemented(
+                format!("VTK reading for {:?} not yet implemented", header.dataset_type)
+            ))
+        }
+    }
+    
+    /// Read unstructured grid data
+    fn read_unstructured_grid(&self, lines: &mut Lines<BufReader<File>>) -> Result<VtkMesh<T>> {
+        let mut points = Vec::new();
+        let mut cells = Vec::new();
+        let mut cell_types = Vec::new();
+        
+        while let Some(line) = lines.next() {
+            let line = line?;
+            let line = line.trim();
+            
+            if line.starts_with("POINTS") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                let n_points = parts[1].parse::<usize>()
+                    .map_err(|_| Error::InvalidInput("Invalid points count".to_string()))?;
+                
+                // Read point coordinates
+                for _ in 0..n_points {
+                    if let Some(point_line) = lines.next() {
+                        let coords: Vec<f64> = point_line?
+                            .split_whitespace()
+                            .map(|s| s.parse::<f64>())
+                            .collect::<std::result::Result<Vec<_>, _>>()
+                            .map_err(|_| Error::InvalidInput("Invalid point coordinates".to_string()))?;
+                        
+                        if coords.len() >= 3 {
+                            // Points are stored flattened
+                            points.push(T::from_f64(coords[0]).unwrap());
+                            points.push(T::from_f64(coords[1]).unwrap());
+                            points.push(T::from_f64(coords[2]).unwrap());
+                        }
+                    }
+                }
+            } else if line.starts_with("CELLS") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                let n_cells = parts[1].parse::<usize>()
+                    .map_err(|_| Error::InvalidInput("Invalid cells count".to_string()))?;
+                
+                // Read cell connectivity
+                for _ in 0..n_cells {
+                    if let Some(cell_line) = lines.next() {
+                        let indices: Vec<usize> = cell_line?
+                            .split_whitespace()
+                            .skip(1) // Skip count
+                            .map(|s| s.parse::<usize>())
+                            .collect::<std::result::Result<Vec<_>, _>>()
+                            .map_err(|_| Error::InvalidInput("Invalid cell indices".to_string()))?;
+                        
+                        cells.push(indices);
+                    }
+                }
+            } else if line.starts_with("CELL_TYPES") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                let n_types = parts[1].parse::<usize>()
+                    .map_err(|_| Error::InvalidInput("Invalid cell types count".to_string()))?;
+                
+                // Read cell types
+                for _ in 0..n_types {
+                    if let Some(type_line) = lines.next() {
+                        let cell_type = type_line?.trim().parse::<u8>()
+                            .map_err(|_| Error::InvalidInput("Invalid cell type".to_string()))?;
+                        
+                        cell_types.push(VtkCellType::from_u8(cell_type));
+                    }
+                }
+            }
+        }
+        
+        Ok(VtkMesh { points, cells, cell_types })
+    }
+    
+    /// Read structured grid data
+    fn read_structured_grid(&self, lines: &mut Lines<BufReader<File>>) -> Result<VtkMesh<T>> {
+        // For structured grids, we only need points and dimensions
+        // Connectivity is implicit
+        let mut points = Vec::new();
+        
+        while let Some(line) = lines.next() {
+            let line = line?;
+            let line = line.trim();
+            
+            if line.starts_with("DIMENSIONS") {
+                // Parse grid dimensions for structured grid
+                // This determines implicit connectivity
+                continue;
+            } else if line.starts_with("POINTS") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                let n_points = parts[1].parse::<usize>()
+                    .map_err(|_| Error::InvalidInput("Invalid points count".to_string()))?;
+                
+                // Read point coordinates
+                for _ in 0..n_points {
+                    if let Some(point_line) = lines.next() {
+                        let coords: Vec<f64> = point_line?
+                            .split_whitespace()
+                            .map(|s| s.parse::<f64>())
+                            .collect::<std::result::Result<Vec<_>, _>>()
+                            .map_err(|_| Error::InvalidInput("Invalid point coordinates".to_string()))?;
+                        
+                        if coords.len() >= 3 {
+                            // Points are stored flattened
+                            points.push(T::from_f64(coords[0]).unwrap());
+                            points.push(T::from_f64(coords[1]).unwrap());
+                            points.push(T::from_f64(coords[2]).unwrap());
+                        }
+                    }
+                }
+            }
+        }
+        
+        // For structured grids, cells and cell_types are implicit
+        Ok(VtkMesh { 
+            points, 
+            cells: Vec::new(), // Implicit connectivity
+            cell_types: Vec::new() // All cells are hexahedra for structured grids
+        })
     }
 
     fn parse_dataset_type(&self, line: &str) -> Result<VtkDatasetType> {

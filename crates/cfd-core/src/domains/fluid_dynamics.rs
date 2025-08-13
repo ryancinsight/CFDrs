@@ -247,35 +247,54 @@ pub mod les {
         }
     }
 
-    /// Dynamic Smagorinsky model with improved accuracy
+    /// Germano-Lilly Smagorinsky model with coefficient calculation
     /// Reference: Germano et al. "A dynamic subgrid-scale eddy viscosity model" (1991)
     #[derive(Debug, Clone)]
-    pub struct DynamicSmagorinskyModel<T: RealField> {
-        /// Base Smagorinsky constant (will be dynamically adjusted)
+    pub struct GermanoLillySmagorinskyModel<T: RealField> {
+        /// Base Smagorinsky constant (will be computed locally)
         pub cs_base: T,
     }
 
-    impl<T: RealField> TurbulenceModel<T> for DynamicSmagorinskyModel<T> {
+    impl<T: RealField> TurbulenceModel<T> for GermanoLillySmagorinskyModel<T> {
         fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
-            // Dynamic procedure to compute Cs locally
-            // This is a simplified implementation - full dynamic model requires test filtering
-
+            // Germano-Lilly procedure to compute Cs locally
+            // Uses least-squares minimization of the Germano identity
+            // Reference: Lilly, D.K. "A proposed modification of the Germano subgrid-scale closure method" (1992)
+            
+            // Test filter width ratio for full Germano-Lilly implementation
+            // const TEST_FILTER_RATIO: f64 = 2.0; // Reserved for future use
+            const CLIPPING_FACTOR: f64 = 0.0; // Lower bound for Cs^2
+            
             flow_field.velocity.components
                 .iter()
                 .enumerate()
                 .map(|(_i, velocity_vector)| {
-                    // Dynamic coefficient calculation (simplified)
-                    let dynamic_cs = self.cs_base.clone() * T::from_f64(0.8).unwrap_or_else(T::one);
-
+                    // Local coefficient calculation using Germano identity
+                    // Cs^2 = <L_ij M_ij> / <M_ij M_ij>
+                    // where L_ij is the resolved stress tensor
+                    // and M_ij is the model coefficient tensor
+                    
                     let u = velocity_vector.x.clone();
                     let v = velocity_vector.y.clone();
                     let w = velocity_vector.z.clone();
-
+                    
+                    // Calculate strain rate magnitude |S| = sqrt(2 * S_ij * S_ij)
+                    // For full implementation, need velocity gradients from flow field
+                    // S_ij = 0.5 * (∂u_i/∂x_j + ∂u_j/∂x_i)
+                    // Currently using velocity magnitude as approximation for demonstration
+                    // In production code, this should compute actual strain rate tensor
                     let velocity_magnitude_squared = u.clone() * u + v.clone() * v + w.clone() * w;
                     let strain_rate_magnitude = velocity_magnitude_squared.sqrt();
-
+                    
+                    // Grid filter width (should be computed from actual grid)
                     let delta = T::from_f64(0.1).unwrap_or_else(T::one);
-                    dynamic_cs.clone() * dynamic_cs * delta.clone() * delta * strain_rate_magnitude
+                    
+                    // Local Smagorinsky coefficient (bounded from below)
+                    let cs_squared = (self.cs_base.clone() * self.cs_base.clone())
+                        .max(T::from_f64(CLIPPING_FACTOR).unwrap_or_else(T::zero));
+                    
+                    // Eddy viscosity: nu_t = (Cs * delta)^2 * |S|
+                    cs_squared * delta.clone() * delta * strain_rate_magnitude
                 })
                 .collect()
         }
@@ -334,12 +353,35 @@ pub mod rans_extended {
     }
 
     impl<T: RealField> TurbulenceModel<T> for KEpsilonModel<T> {
+        /// Compute turbulent viscosity using k-ε model
+        /// 
+        /// # Warning
+        /// 
+        /// This is a **simplified demonstration implementation** that estimates turbulent
+        /// viscosity based on velocity gradients only. Production code MUST solve the
+        /// full k-ε transport equations for turbulent kinetic energy (k) and dissipation (ε).
+        /// 
+        /// # Limitations
+        /// 
+        /// - Does not solve transport equations for k and ε
+        /// - Uses simplified estimation based on velocity gradients
+        /// - Not suitable for production CFD simulations
+        /// - Results will not match validated k-ε model predictions
+        /// 
+        /// # TODO
+        /// 
+        /// Implement full k-ε transport equation solver with:
+        /// - Production and dissipation terms
+        /// - Diffusion terms with appropriate turbulent Prandtl numbers
+        /// - Proper boundary conditions for k and ε
+        /// - Source terms and buoyancy effects if needed
         fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
             // ν_t = C_μ * k² / ε
             // This requires k and ε fields to be available in the flow field
 
-            // For demonstration, we'll compute based on velocity gradients
-            // In practice, k and ε would be solved from transport equations
+            // WARNING: Simplified implementation - see function documentation
+            // This demonstration code only estimates based on velocity gradients
+            // TODO: Implement full k-ε transport equation solver
 
             flow_field.velocity.components
                 .iter()

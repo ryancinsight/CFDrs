@@ -51,31 +51,7 @@ pub trait PluginLifecycle: SimulationPlugin {
     }
 }
 
-/// Plugin composition trait for combining multiple plugins
-pub trait ComposablePlugin: SimulationPlugin {
-    /// Compose with another plugin
-    fn compose<P: SimulationPlugin>(self, other: P) -> ComposedPlugin<Self, P>
-    where
-        Self: Sized,
-    {
-        ComposedPlugin::new(self, other)
-    }
-}
 
-/// Composed plugin combining two plugins
-pub struct ComposedPlugin<P1, P2> {
-    #[allow(dead_code)]
-    plugin1: P1,
-    #[allow(dead_code)]
-    plugin2: P2,
-}
-
-impl<P1, P2> ComposedPlugin<P1, P2> {
-    /// Create a new composed plugin
-    pub fn new(plugin1: P1, plugin2: P2) -> Self {
-        Self { plugin1, plugin2 }
-    }
-}
 
 /// Generic plugin trait for type erasure
 pub trait Plugin: Any + Send + Sync {

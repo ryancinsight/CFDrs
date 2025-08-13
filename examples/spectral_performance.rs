@@ -1,4 +1,4 @@
-//! Demonstration of the optimized spectral solver with Copy trait
+//! Demonstration of the spectral solver with Copy trait
 //! 
 //! This example shows how adding the Copy trait bound eliminates
 //! hundreds of unnecessary .clone() calls in the FFT implementation.
@@ -6,7 +6,7 @@
 fn main() {
     println!("=== Spectral Solver Copy Trait Optimization ===\n");
     
-    println!("The spectral.rs module has been optimized by adding the Copy trait bound");
+    println!("The spectral.rs module uses the Copy trait bound for efficiency");
     println!("to eliminate unnecessary .clone() calls in performance-critical code.\n");
     
     println!("Key changes made:");

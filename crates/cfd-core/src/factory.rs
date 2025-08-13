@@ -8,10 +8,13 @@ use nalgebra::RealField;
 use std::collections::HashMap;
 
 /// Abstract factory trait following GRASP Creator principle
-/// Assigns creation responsibility to classes with initializing data
-/// Uses type erasure to avoid dyn compatibility issues
+/// This trait is deprecated and should not be used.
+/// Use ConcreteSolverFactory directly instead.
+#[deprecated(note = "Use ConcreteSolverFactory directly for type-safe solver creation")]
 pub trait AbstractSolverFactory<T: RealField>: Send + Sync {
-    /// Create a solver with the given configuration (simplified)
+    /// Create a solver with the given configuration
+    /// WARNING: This returns a String description, not an actual solver!
+    /// This is a design flaw that will be removed in the next major version.
     fn create_solver_simple(&self, name: &str) -> Result<String>;
 
     /// Get factory name for identification
@@ -240,95 +243,7 @@ impl<T: RealField + num_traits::FromPrimitive> Builder<crate::SolverConfig<T>> f
     }
 }
 
-/// Resource manager implementing ACID principles for data operations
-pub struct ResourceManager<T> {
-    resources: HashMap<String, T>,
-    transaction_log: Vec<TransactionEntry>,
-}
 
-/// Transaction entry for audit logging
-#[derive(Debug, Clone)]
-pub struct TransactionEntry {
-    /// Operation type (ADD, REMOVE, etc.)
-    pub operation: String,
-    /// Resource identifier
-    pub resource_id: String,
-    /// Timestamp of the operation
-    pub timestamp: std::time::SystemTime,
-}
-
-impl<T: Clone> ResourceManager<T> {
-    /// Create new resource manager
-    pub fn new() -> Self {
-        Self {
-            resources: HashMap::new(),
-            transaction_log: Vec::new(),
-        }
-    }
-
-    /// Atomic operation to add resource
-    pub fn add_resource(&mut self, id: String, resource: T) -> Result<()> {
-        // Atomicity: Either succeeds completely or fails completely
-        if self.resources.contains_key(&id) {
-            return Err(Error::InvalidInput(format!("Resource '{}' already exists", id)));
-        }
-
-        // Log transaction for durability
-        self.transaction_log.push(TransactionEntry {
-            operation: "ADD".to_string(),
-            resource_id: id.clone(),
-            timestamp: std::time::SystemTime::now(),
-        });
-
-        self.resources.insert(id, resource);
-        Ok(())
-    }
-
-    /// Atomic operation to remove resource
-    pub fn remove_resource(&mut self, id: &str) -> Result<T> {
-        let resource = self.resources.remove(id)
-            .ok_or_else(|| Error::InvalidInput(format!("Resource '{}' not found", id)))?;
-
-        // Log transaction
-        self.transaction_log.push(TransactionEntry {
-            operation: "REMOVE".to_string(),
-            resource_id: id.to_string(),
-            timestamp: std::time::SystemTime::now(),
-        });
-
-        Ok(resource)
-    }
-
-    /// Get resource (Isolation: read-only access)
-    pub fn get_resource(&self, id: &str) -> Option<&T> {
-        self.resources.get(id)
-    }
-
-    /// Get transaction log for auditing (Durability)
-    pub fn get_transaction_log(&self) -> &[TransactionEntry] {
-        &self.transaction_log
-    }
-
-    /// Consistency check
-    pub fn validate_consistency(&self) -> Result<()> {
-        // Implement consistency checks based on business rules
-        // For now, just check that all logged resources exist
-        for entry in &self.transaction_log {
-            if entry.operation == "ADD" && !self.resources.contains_key(&entry.resource_id) {
-                return Err(Error::InvalidState(
-                    format!("Inconsistency: Resource '{}' in log but not in storage", entry.resource_id)
-                ));
-            }
-        }
-        Ok(())
-    }
-}
-
-impl<T: Clone> Default for ResourceManager<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -350,20 +265,5 @@ mod tests {
         assert!(config.parallel());
     }
 
-    #[test]
-    fn test_resource_manager() {
-        let mut manager = ResourceManager::new();
-        
-        // Test atomic add
-        manager.add_resource("test".to_string(), 42).unwrap();
-        assert_eq!(manager.get_resource("test"), Some(&42));
-        
-        // Test consistency
-        manager.validate_consistency().unwrap();
-        
-        // Test atomic remove
-        let removed = manager.remove_resource("test").unwrap();
-        assert_eq!(removed, 42);
-        assert_eq!(manager.get_resource("test"), None);
-    }
+
 }

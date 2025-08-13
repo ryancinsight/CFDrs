@@ -266,22 +266,33 @@ impl<T: RealField + FromPrimitive> ILU0Preconditioner<T> {
                     // Update row i: a_ij = a_ij - l_ik * a_kj for j > k
                     // Only update entries that exist in the sparsity pattern (ILU(0))
                     
-                    // Build a map of column indices to value indices for row k
-                    let mut k_row_map = std::collections::HashMap::new();
-                    for idx in k_start..k_end {
-                        if col_indices[idx] > k {
-                            k_row_map.insert(col_indices[idx], idx);
-                        }
+                    // Use merge-join style iteration since both rows are sorted by column index
+                    // This avoids the HashMap overhead in the inner loop
+                    let mut i_idx = i_start;
+                    let mut k_idx = k_start;
+                    
+                    // Skip to entries with column > k
+                    while i_idx < i_end && col_indices[i_idx] <= k {
+                        i_idx += 1;
+                    }
+                    while k_idx < k_end && col_indices[k_idx] <= k {
+                        k_idx += 1;
                     }
                     
-                    // Update entries in row i
-                    for idx in i_start..i_end {
-                        let j = col_indices[idx];
-                        if j > k {
-                            // Check if a_kj exists
-                            if let Some(&k_idx) = k_row_map.get(&j) {
-                                values[idx] = values[idx].clone() - l_ik.clone() * values[k_idx].clone();
-                            }
+                    // Merge-join: iterate through both sorted sequences
+                    while i_idx < i_end && k_idx < k_end {
+                        let j_i = col_indices[i_idx];
+                        let j_k = col_indices[k_idx];
+                        
+                        if j_i < j_k {
+                            i_idx += 1;
+                        } else if j_i > j_k {
+                            k_idx += 1;
+                        } else {
+                            // j_i == j_k, so update the value
+                            values[i_idx] = values[i_idx].clone() - l_ik.clone() * values[k_idx].clone();
+                            i_idx += 1;
+                            k_idx += 1;
                         }
                     }
                 }
@@ -442,6 +453,44 @@ impl<T: RealField + Debug> LinearSolver<T> for ConjugateGradient<T> {
     }
 }
 
+/// Helper struct for Hessenberg matrix indexing in GMRES
+/// Provides cleaner 2D indexing for the column-major Hessenberg matrix
+struct HessenbergMatrix<T: RealField> {
+    data: Vec<T>,
+    rows: usize,
+    cols: usize,
+}
+
+impl<T: RealField> HessenbergMatrix<T> {
+    /// Create a new Hessenberg matrix
+    fn new(rows: usize, cols: usize) -> Self {
+        Self {
+            data: vec![T::zero(); rows * cols],
+            rows,
+            cols,
+        }
+    }
+    
+    /// Get mutable reference to element at (row, col)
+    #[inline]
+    fn get_mut(&mut self, row: usize, col: usize) -> &mut T {
+        debug_assert!(row < self.rows && col < self.cols);
+        &mut self.data[row + col * self.rows]
+    }
+    
+    /// Get reference to element at (row, col)
+    #[inline]
+    fn get(&self, row: usize, col: usize) -> &T {
+        debug_assert!(row < self.rows && col < self.cols);
+        &self.data[row + col * self.rows]
+    }
+    
+    /// Get raw data for solving
+    fn as_slice(&self) -> &[T] {
+        &self.data
+    }
+}
+
 /// GMRES solver (Generalized Minimal Residual)
 ///
 /// Implements the GMRES method for general non-symmetric matrices.
@@ -490,9 +539,9 @@ impl<T: RealField + Float> GMRES<T> {
         let mut q = Vec::with_capacity(restart + 1);
         q.push(r / beta.clone());
         
-        // Hessenberg matrix stored as flat vector in column-major order
+        // Hessenberg matrix with cleaner indexing
         // H is (restart+1) x restart
-        let mut h = vec![T::zero(); (restart + 1) * restart];
+        let mut h = HessenbergMatrix::new(restart + 1, restart);
         
         // Givens rotation coefficients
         let mut cs = Vec::with_capacity(restart);
@@ -535,7 +584,7 @@ impl<T: RealField + Float> GMRES<T> {
         &self,
         a: &CsrMatrix<T>,
         q: &[DVector<T>],
-        h: &mut Vec<T>,
+        h: &mut HessenbergMatrix<T>,
         k: usize,
         restart: usize,
     ) -> Result<DVector<T>> {
@@ -545,8 +594,8 @@ impl<T: RealField + Float> GMRES<T> {
         for i in 0..=k {
             let hij = v.dot(&q[i]);
             
-            // Store in column-major order: h[i][k] = h[i + k * (restart + 1)]
-            h[i + k * (restart + 1)] = hij.clone();
+            // Store in Hessenberg matrix
+            *h.get_mut(i, k) = hij.clone();
             
             // In-place subtraction: v = v - hij * q[i]
             v.axpy(-hij.clone(), &q[i], T::one());
@@ -554,7 +603,7 @@ impl<T: RealField + Float> GMRES<T> {
             // Re-orthogonalize for better numerical stability
             let hij_correction = v.dot(&q[i]);
             if ComplexField::abs(hij_correction.clone()) > T::from_f64(1e-10).unwrap() {
-                h[i + k * (restart + 1)] = h[i + k * (restart + 1)].clone() + hij_correction.clone();
+                *h.get_mut(i, k) = h.get(i, k).clone() + hij_correction.clone();
                 v.axpy(-hij_correction, &q[i], T::one());
             }
         }
@@ -563,38 +612,35 @@ impl<T: RealField + Float> GMRES<T> {
         let norm = v.norm();
         if norm < T::from_f64(1e-14).unwrap() {
             // Handle breakdown - vector is in the span of previous vectors
-            h[(k + 1) + k * (restart + 1)] = T::zero();
+            *h.get_mut(k + 1, k) = T::zero();
             Ok(DVector::zeros(v.len()))
         } else {
-            h[(k + 1) + k * (restart + 1)] = norm.clone();
+            *h.get_mut(k + 1, k) = norm.clone();
             Ok(v / norm)
         }
     }
 
     /// Apply previous Givens rotations to current column
-    fn apply_previous_rotations(&self, h: &mut Vec<T>, cs: &[T], sn: &[T], k: usize, restart: usize) {
+    fn apply_previous_rotations(&self, h: &mut HessenbergMatrix<T>, cs: &[T], sn: &[T], k: usize, _restart: usize) {
         for i in 0..k {
-            let idx_i = i + k * (restart + 1);
-            let idx_ip1 = (i + 1) + k * (restart + 1);
+            let h_i = h.get(i, k).clone();
+            let h_ip1 = h.get(i + 1, k).clone();
             
             let (h_new, h_ip1_new) = Self::apply_givens_rotation(
                 cs[i].clone(),
                 sn[i].clone(),
-                h[idx_i].clone(),
-                h[idx_ip1].clone(),
+                h_i,
+                h_ip1,
             );
-            h[idx_i] = h_new;
-            h[idx_ip1] = h_ip1_new;
+            *h.get_mut(i, k) = h_new;
+            *h.get_mut(i + 1, k) = h_ip1_new;
         }
     }
 
     /// Compute new Givens rotation coefficients
-    fn compute_givens_rotation(&self, h: &mut Vec<T>, k: usize, restart: usize) -> Result<(T, T)> {
-        let idx_k = k + k * (restart + 1);
-        let idx_kp1 = (k + 1) + k * (restart + 1);
-        
-        let h_k = h[idx_k].clone();
-        let h_kp1 = h[idx_kp1].clone();
+    fn compute_givens_rotation(&self, h: &mut HessenbergMatrix<T>, k: usize, _restart: usize) -> Result<(T, T)> {
+        let h_k = h.get(k, k).clone();
+        let h_kp1 = h.get(k + 1, k).clone();
         
         // Improved numerical stability for Givens rotation
         if ComplexField::abs(h_kp1.clone()) < T::from_f64(1e-14).unwrap() {
@@ -604,8 +650,8 @@ impl<T: RealField + Float> GMRES<T> {
             } else {
                 ComplexField::signum(h_k.clone())
             };
-            h[idx_k] = ComplexField::abs(h_k);
-            h[idx_kp1] = T::zero();
+            *h.get_mut(k, k) = ComplexField::abs(h_k);
+            *h.get_mut(k + 1, k) = T::zero();
             return Ok((c, T::zero()));
         }
         
@@ -614,15 +660,15 @@ impl<T: RealField + Float> GMRES<T> {
             let tau = h_k.clone() / h_kp1.clone();
             let s = T::one() / ComplexField::sqrt(T::one() + tau.clone() * tau.clone());
             let c = s.clone() * tau;
-            h[idx_k] = h_kp1.clone() / s;
-            h[idx_kp1] = T::zero();
+            *h.get_mut(k, k) = h_kp1.clone() / s;
+            *h.get_mut(k + 1, k) = T::zero();
             Ok((c, s))
         } else {
             let tau = h_kp1.clone() / h_k.clone();
             let c = T::one() / ComplexField::sqrt(T::one() + tau.clone() * tau.clone());
             let s = c.clone() * tau;
-            h[idx_k] = h_k.clone() / c;
-            h[idx_kp1] = T::zero();
+            *h.get_mut(k, k) = h_k.clone() / c;
+            *h.get_mut(k + 1, k) = T::zero();
             Ok((c, s))
         }
     }
@@ -634,15 +680,15 @@ impl<T: RealField + Float> GMRES<T> {
     }
 
     /// Solve upper triangular system by back substitution
-    fn solve_upper_triangular(&self, h: &[T], g: &DVector<T>, size: usize, restart: usize) -> Result<DVector<T>> {
+    fn solve_upper_triangular(&self, h: &HessenbergMatrix<T>, g: &DVector<T>, size: usize, _restart: usize) -> Result<DVector<T>> {
         let mut y: DVector<T> = DVector::zeros(size);
         for i in (0..size).rev() {
             let mut yi = g[i].clone();
             for j in (i + 1)..size {
-                let h_ij = h[i + j * (restart + 1)];
-                yi = yi - h_ij.clone() * y[j].clone();
+                let h_ij = h.get(i, j).clone();
+                yi = yi - h_ij * y[j].clone();
             }
-            let h_ii = h[i + i * (restart + 1)];
+            let h_ii = h.get(i, i).clone();
             if h_ii == T::zero() {
                 return Err(Error::NumericalError("Singular matrix in GMRES".to_string()));
             }

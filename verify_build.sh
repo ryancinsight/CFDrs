@@ -49,8 +49,8 @@ if [ "$EXAMPLE_COUNT" -gt 0 ]; then
     echo -e "${GREEN}✓${NC} $EXAMPLE_COUNT examples available"
     
     # Run a simple example
-    echo "   Running simple_pipe_flow example..."
-    if cargo run --example simple_pipe_flow 2>&1 | grep -q "Reynolds"; then
+    echo "   Running pipe_flow_1d example..."
+    if cargo run --example pipe_flow_1d 2>&1 | grep -q "Reynolds"; then
         echo -e "   ${GREEN}✓${NC} Example runs successfully"
     else
         echo -e "   ${RED}✗${NC} Example failed to run"

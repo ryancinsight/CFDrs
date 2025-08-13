@@ -62,7 +62,7 @@ pub trait SolverConfiguration<T: RealField>: Clone + Send + Sync {
 }
 
 /// Convergence configuration following Single Responsibility Principle
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct ConvergenceConfig<T: RealField> {
     /// Convergence tolerance
     pub tolerance: T,
@@ -82,7 +82,7 @@ pub struct ExecutionConfig {
 }
 
 /// Numerical method configuration following Single Responsibility Principle
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct NumericalConfig<T: RealField> {
     /// Relaxation factor for iterative methods
     pub relaxation_factor: T,
@@ -405,48 +405,30 @@ where
         let tolerance = config.tolerance();
         let verbosity = config.verbosity();
 
-        // Use iterator-based approach with scan for stateful iteration
-        let mut current_solution = initial;
-        let result = (0..max_iterations)
-            .scan((), |_, iter| {
-                let mut state = self.create_iteration_state(current_solution.clone());
-                match state.iterate() {
-                    Ok((solution, residual)) => {
-                        if verbosity >= 2 {
-                            tracing::debug!("Iteration {}: residual = {:?}", iter + 1, residual);
-                        }
+        let mut iterator = self.iterations(initial);
 
-                        current_solution = solution;
-                        Some(Ok((iter + 1, current_solution.clone(), residual)))
+        for iter in 0..max_iterations {
+            match iterator.next() {
+                Some(Ok((solution, residual))) => {
+                    if verbosity >= 2 {
+                        tracing::debug!("Iteration {}: residual = {:?}", iter + 1, residual);
                     }
-                    Err(e) => Some(Err(e)),
-                }
-            })
-            .find_map(|result| match result {
-                Ok((iter, solution, residual)) => {
                     if residual < tolerance {
                         if verbosity >= 1 {
-                            tracing::info!(
-                                "Converged after {} iterations (residual: {:?})",
-                                iter,
-                                residual
-                            );
+                            tracing::info!("Converged after {} iterations (residual: {:?})", iter + 1, residual);
                         }
-                        Some(Ok(solution))
-                    } else {
-                        None
+                        return Ok(solution);
                     }
                 }
-                Err(e) => Some(Err(e)),
-            });
-
-        match result {
-            Some(result) => result,
-            None => Err(crate::Error::ConvergenceFailure(format!(
-                "Failed to converge after {} iterations",
-                max_iterations
-            ))),
+                Some(Err(e)) => return Err(e),
+                None => break, // Iterator exhausted
+            }
         }
+
+        Err(crate::Error::ConvergenceFailure(format!(
+            "Failed to converge after {} iterations",
+            max_iterations
+        )))
     }
 }
 

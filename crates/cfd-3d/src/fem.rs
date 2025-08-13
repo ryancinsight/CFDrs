@@ -108,16 +108,18 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
     }
     
     /// Compute element matrices for Stokes flow
-    /// Returns (K, G, G^T, M) where:
+    /// Returns (K, G, G^T, M, S_pp) where:
     /// - K: viscous stiffness matrix (velocity-velocity)
     /// - G: gradient matrix (velocity-pressure)
+    /// - G^T: divergence matrix (pressure-velocity)
     /// - M: mass matrix (for transient terms)
+    /// - S_pp: pressure stabilization matrix (pressure-pressure)
     pub fn stokes_matrices(
         &self,
         node_coords: &[Vector3<T>],
         properties: &FluidProperties<T>,
         config: &FemConfig<T>,
-    ) -> Result<(DMatrix<T>, DMatrix<T>, DMatrix<T>, DMatrix<T>)> {
+    ) -> Result<(DMatrix<T>, DMatrix<T>, DMatrix<T>, DMatrix<T>, DMatrix<T>)> {
         let n_vel_dof = constants::TET4_NODES * constants::VELOCITY_COMPONENTS; // 12
         let n_pres_dof = constants::TET4_NODES; // 4
         
@@ -191,7 +193,7 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
         }
         
         // Add SUPG/PSPG stabilization if enabled
-        if config.use_stabilization {
+        let s_pp = if config.use_stabilization {
             self.add_stabilization(
                 &mut k_matrix,
                 &mut g_matrix,
@@ -202,15 +204,19 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
                 &dn_dy,
                 &dn_dz,
                 volume,
-            )?;
-        }
+            )?
+        } else {
+            DMatrix::zeros(constants::TET4_NODES, constants::TET4_NODES)
+        };
         
         let gt_matrix = g_matrix.transpose();
         
-        Ok((k_matrix, g_matrix, gt_matrix, m_matrix))
+        // Return all matrices including the pressure stabilization matrix
+        Ok((k_matrix, g_matrix, gt_matrix, m_matrix, s_pp))
     }
     
     /// Add SUPG/PSPG stabilization for equal-order interpolation
+    /// Returns the pressure stabilization matrix S_pp
     fn add_stabilization(
         &self,
         k_matrix: &mut DMatrix<T>,
@@ -222,7 +228,7 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
         dn_dy: &[T],
         dn_dz: &[T],
         volume: T,
-    ) -> Result<()> {
+    ) -> Result<DMatrix<T>> {
         // Calculate element length scale
         let h = self.element_length_scale(node_coords)?;
         
@@ -230,8 +236,11 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
         let nu = properties.kinematic_viscosity();
         let tau = self.calculate_tau(h, nu, config)?;
         
-        // PSPG stabilization: adds pressure Laplacian term
+        // PSPG stabilization: pressure Laplacian term
         // S_pp = τ ∫ ∇M_i · ∇M_j dΩ
+        let n_pres_dof = constants::TET4_NODES;
+        let mut s_pp = DMatrix::zeros(n_pres_dof, n_pres_dof);
+        
         for i in 0..constants::TET4_NODES {
             for j in 0..constants::TET4_NODES {
                 let s_val = tau.clone() * volume.clone() * (
@@ -240,22 +249,15 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
                     dn_dz[i].clone() * dn_dz[j].clone()
                 ) / properties.density.clone();
                 
-                // This would be added to a pressure Laplacian matrix
-                // For simplicity, we modify the gradient matrix
-                let factor = s_val * T::from_f64(0.1).unwrap(); // Reduced factor for stability
-                
-                // Add to velocity-pressure coupling
-                for d in 0..constants::VELOCITY_COMPONENTS {
-                    let row = i * constants::VELOCITY_COMPONENTS + d;
-                    g_matrix[(row, j)] = g_matrix[(row, j)].clone() + 
-                        factor.clone() * if d == 0 { dn_dx[i].clone() } 
-                        else if d == 1 { dn_dy[i].clone() } 
-                        else { dn_dz[i].clone() };
-                }
+                s_pp[(i, j)] = s_val;
             }
         }
         
-        Ok(())
+        // Note: The gradient matrix g_matrix should NOT be modified
+        // The stabilization matrix s_pp will be added to the (2,2) block
+        // of the global system matrix during assembly
+        
+        Ok(s_pp)
     }
     
     /// Calculate stabilization parameter τ
@@ -380,6 +382,8 @@ pub struct FemSolver<T: RealField> {
     g_global: Option<DMatrix<T>>,
     /// Global mass matrix
     m_global: Option<DMatrix<T>>,
+    /// Global pressure stabilization matrix
+    s_pp_global: Option<DMatrix<T>>,
 }
 
 impl<T: RealField + FromPrimitive> FemSolver<T> {
@@ -398,6 +402,7 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
             k_global: None,
             g_global: None,
             m_global: None,
+            s_pp_global: None,
         }
     }
     
@@ -410,6 +415,7 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
         let mut k_global = DMatrix::zeros(n_vel_dof, n_vel_dof);
         let mut g_global = DMatrix::zeros(n_vel_dof, n_pres_dof);
         let mut m_global = DMatrix::zeros(n_vel_dof, n_vel_dof);
+        let mut s_pp_global = DMatrix::zeros(n_pres_dof, n_pres_dof);
         
         // Process each element (assuming tetrahedral mesh)
         // For now, we'll create tetrahedra from cells with 4 faces
@@ -439,7 +445,7 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
                     .collect();
                 
                 // Compute element matrices
-                let (k_elem, g_elem, _, m_elem) = element.stokes_matrices(
+                let (k_elem, g_elem, _, m_elem, s_pp_elem) = element.stokes_matrices(
                     &node_coords,
                     &self.properties,
                     &self.config,
@@ -468,6 +474,9 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
                             
                             g_global[(global_row, global_j)] += g_elem[(local_row, local_j)].clone();
                         }
+                        
+                        // Pressure-pressure stabilization
+                        s_pp_global[(global_i, global_j)] += s_pp_elem[(local_i, local_j)].clone();
                     }
                 }
             }
@@ -476,6 +485,7 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
         self.k_global = Some(k_global);
         self.g_global = Some(g_global);
         self.m_global = Some(m_global);
+        self.s_pp_global = Some(s_pp_global);
         
         Ok(())
     }
@@ -489,14 +499,15 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
         let k = self.k_global.as_ref().unwrap();
         let g = self.g_global.as_ref().unwrap();
         let gt = g.transpose();
+        let s_pp = self.s_pp_global.as_ref().unwrap();
         
         let n_vel = self.velocity.len();
         let n_pres = self.pressure.len();
         let n_total = n_vel + n_pres;
         
-        // Build saddle-point system
-        // [K   G ] [u]   [f]
-        // [G^T 0 ] [p] = [0]
+        // Build saddle-point system with stabilization
+        // [K   G  ] [u]   [f]
+        // [G^T S_pp] [p] = [0]
         let mut a_matrix = DMatrix::zeros(n_total, n_total);
         let mut b_vector = DVector::zeros(n_total);
         
@@ -505,10 +516,17 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
         a_matrix.view_mut((0, n_vel), (n_vel, n_pres)).copy_from(g);
         a_matrix.view_mut((n_vel, 0), (n_pres, n_vel)).copy_from(&gt);
         
-        // Add small pressure stabilization on diagonal (for singular pressure)
-        let eps = T::from_f64(1e-10).unwrap();
-        for i in 0..n_pres {
-            a_matrix[(n_vel + i, n_vel + i)] = eps.clone();
+        // Add PSPG stabilization to pressure-pressure block
+        // This stabilizes the inf-sup condition for equal-order elements
+        a_matrix.view_mut((n_vel, n_vel), (n_pres, n_pres)).copy_from(s_pp);
+        
+        // No need for artificial stabilization when PSPG is used
+        if !self.config.use_stabilization {
+            // Only add small diagonal term if stabilization is disabled
+            let eps = T::from_f64(1e-10).unwrap();
+            for i in 0..n_pres {
+                a_matrix[(n_vel + i, n_vel + i)] = a_matrix[(n_vel + i, n_vel + i)].clone() + eps.clone();
+            }
         }
         
         // Apply body forces
@@ -540,7 +558,11 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
             }
         }
         
-        // Solve the system (would use sparse solver in practice)
+        // PERFORMANCE WARNING: Using dense matrix for simplicity
+        // For production use, this should be converted to sparse matrices (CsrMatrix)
+        // and solved with iterative methods (GMRES, BiCGSTAB) from cfd_math::linear_solver
+        // The current dense LU decomposition has O(N^3) complexity and O(N^2) memory
+        // which is prohibitive for realistic 3D problems
         let solution = a_matrix.lu().solve(&b_vector)
             .ok_or_else(|| Error::NumericalError("Failed to solve linear system".into()))?;
         
@@ -797,19 +819,13 @@ mod tests {
         // Inlet pressure (implicit through solution)
         // Outlet pressure (implicit through solution)
         
-        // Solve - may fail due to CG convergence issues
-        match solver.solve_stokes(&bc) {
-            Ok(_) => {
-                // Check that center velocity is positive (flow direction)
-                let center_node = nz/2 * nx * ny + ny/2 * nx + nx/2;
-                let center_vel = solver.get_velocity(center_node);
-                assert!(center_vel.z > 0.0, "Flow should be in positive z direction");
-            }
-            Err(_) => {
-                // CG solver failed to converge - acceptable for this test
-                // as the linear system can be ill-conditioned
-            }
-        }
+        // Solve - test should fail if solver doesn't converge
+        solver.solve_stokes(&bc).expect("Stokes solver should converge for Poiseuille flow test");
+        
+        // Check that center velocity is positive (flow direction)
+        let center_node = nz/2 * nx * ny + ny/2 * nx + nx/2;
+        let center_vel = solver.get_velocity(center_node);
+        assert!(center_vel.z > 0.0, "Flow should be in positive z direction");
     }
     
     #[test]
@@ -858,16 +874,11 @@ mod tests {
         bc.insert(4, Vector3::new(1.0, 0.0, 0.0)); // Top plate moving in x
         bc.insert(5, Vector3::new(1.0, 0.0, 0.0));
         
-        // Solve - may fail due to CG convergence issues
-        match solver.solve_stokes(&bc) {
-            Ok(_) => {
-                // Velocity should vary linearly between plates
-                let mid_vel = solver.get_velocity(2);
-                assert!(mid_vel.x > 0.0 && mid_vel.x < 1.0, "Mid-plane velocity should be between 0 and 1");
-            }
-            Err(_) => {
-                // CG solver failed to converge - acceptable for this test
-            }
-        }
+        // Solve - test should fail if solver doesn't converge
+        solver.solve_stokes(&bc).expect("Stokes solver should converge for Couette flow test");
+        
+        // Velocity should vary linearly between plates
+        let mid_vel = solver.get_velocity(2);
+        assert!(mid_vel.x > 0.0 && mid_vel.x < 1.0, "Mid-plane velocity should be between 0 and 1");
     }
 }
