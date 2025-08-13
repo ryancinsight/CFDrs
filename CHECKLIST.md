@@ -15,6 +15,7 @@ This checklist provides a detailed breakdown of all tasks required to implement 
 - [x] **Constants Usage** - Updated SimpleSolver to use centralized constants for water properties
 - [x] **Architecture Validation** - Confirmed plugin/factory patterns, zero-copy usage, SOLID compliance
 - [x] **No Redundancy Found** - All solver implementations serve distinct purposes
+- [x] **Critical Physics Fix** - Fixed Neumann BC to use actual grid spacing instead of unit spacing
 - [x] **Clean Build** - All compilation errors resolved, tests passing
 
 ### Code Quality and Architecture Refinement (v2.7)

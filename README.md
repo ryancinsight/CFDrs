@@ -12,6 +12,7 @@ A Rust-based computational fluid dynamics (CFD) simulation framework for 1D, 2D,
 - ✅ **Absolute Naming Compliance**: ALL adjective-based names eliminated
 - ✅ **QualityLevel Refactored**: Changed from adjectives to neutral Level1-4 system
 - ✅ **Zero Magic Numbers**: All hardcoded values use named constants
+- ✅ **Critical Physics Fix**: Neumann BC now uses actual grid spacing (not unit spacing)
 - ✅ **Documentation Accuracy**: All approximations and limitations clearly stated
 - ✅ **Architecture Validated**: Plugin patterns, zero-copy, SOLID fully implemented
 - ✅ **No Redundancy**: All implementations serve distinct purposes

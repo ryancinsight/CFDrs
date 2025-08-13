@@ -23,9 +23,12 @@ The CFD Simulation Suite is a Rust-based computational fluid dynamics framework 
   - All hardcoded values replaced with named constants
   - Physical properties use centralized constants
   - Time steps and solver parameters properly configured
+- **Critical Physics Fixes**:
+  - Fixed Neumann BC to use actual grid spacing (not unit spacing)
+  - Proper gradient boundary conditions now work correctly on non-unit grids
+  - All approximations properly documented
 - **Full Documentation Accuracy**:
   - No misleading "simplified" labels remain
-  - All approximations properly documented
   - Implementation limitations clearly stated
 - **Architecture Excellence**:
   - Plugin/factory patterns fully implemented

@@ -194,7 +194,7 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
         self.correct_fields(grid)?;
         
         // Step 6: Apply boundary conditions
-        self.apply_boundary_conditions(boundary_conditions)?;
+        self.apply_boundary_conditions(grid, boundary_conditions)?;
         
         Ok(())
     }
@@ -763,6 +763,7 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
     /// Apply boundary conditions
     fn apply_boundary_conditions(
         &mut self,
+        grid: &StructuredGrid2D<T>,
         boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
     ) -> Result<()> {
         // First, check that all boundary cells have conditions specified
@@ -880,10 +881,9 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
                 BoundaryCondition::Neumann { gradient } => {
                     // Apply Neumann (gradient) boundary condition
                     // ∂u/∂n = gradient, where n is the outward normal
-                    // Using first-order backward/forward differences
-                    // Note: Using unit spacing as we don't have grid in this context
-                    let dx = T::one();
-                    let dy = T::one();
+                    // Using first-order backward/forward differences with actual grid spacing
+                    // Critical: Must use actual grid spacing, not unit spacing, for correct physics
+                    let (dx, dy) = grid.spacing();
                     
                     if i == 0 {
                         // West boundary: u[0] = u[1] - gradient * dx
@@ -1118,7 +1118,7 @@ mod tests {
             Err(_) => {
                 // Convergence failure is acceptable for this basic test
                 // The important thing is that the boundary conditions are applied
-                solver.apply_boundary_conditions(&boundaries);
+                solver.apply_boundary_conditions(&grid, &boundaries).ok();
             }
         }
 
@@ -1353,5 +1353,36 @@ mod tests {
                 // as the pressure correction equation can be ill-conditioned
             }
         }
+    }
+
+    #[test]
+    fn test_neumann_bc_with_non_unit_spacing() {
+        // Test that Neumann BC correctly uses actual grid spacing
+        let config = SimpleConfig::default();
+        let nx = 10;
+        let ny = 10;
+        let mut solver = SimpleSolver::new(config, nx, ny);
+        
+        // Create a non-unit grid (dx=0.5, dy=0.2)
+        let grid = StructuredGrid2D::new(nx, ny, 0.0, 5.0, 0.0, 2.0).unwrap();
+        let (dx, dy) = grid.spacing();
+        assert_relative_eq!(dx, 0.5, epsilon = 1e-10);
+        assert_relative_eq!(dy, 0.2, epsilon = 1e-10);
+        
+        // Set up Neumann BC with gradient = 2.0
+        let gradient_value = 2.0;
+        let mut boundaries = HashMap::new();
+        boundaries.insert((0, 5), BoundaryCondition::Neumann { gradient: gradient_value });
+        
+        // Initialize interior velocity
+        solver.u[1][5] = Vector2::new(10.0, 0.0);
+        
+        // Apply boundary conditions
+        solver.apply_boundary_conditions(&grid, &boundaries).unwrap();
+        
+        // Check that Neumann BC was applied correctly:
+        // u[0][5] = u[1][5] - gradient * dx
+        // u[0][5] = 10.0 - 2.0 * 0.5 = 9.0
+        assert_relative_eq!(solver.u[0][5].x, 9.0, epsilon = 1e-10);
     }
 }
