@@ -700,8 +700,7 @@ mod tests {
                             id: base_cell_id,
                         });
                         
-                        // Continue with remaining 5 tetrahedra...
-                        // (Full implementation would include all 6 tetrahedra)
+                        // TODO: Implement the remaining 5 tetrahedra for a complete hex-to-tet decomposition.
                     }
                 }
             }
