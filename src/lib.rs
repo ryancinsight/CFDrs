@@ -36,8 +36,7 @@ pub mod prelude {
         Fluid, Error, Result, BoundaryCondition, Domain, Problem, Solver,
         Plugin, PluginRegistry, SimulationPlugin, SimulationState, TimeIntegrator,
         SolverConfiguration, Configurable, Validatable, IterativeSolver, DirectSolver, SolverConfig, LinearSolverConfig, NetworkSolverConfig,
-        AbstractSolverFactory, ConcreteSolverFactory, FactoryCapability, SolverFactoryRegistry, Builder, ConfigurationBuilder,
-        SimulationOrchestrator, ExecutionContext, ExecutionContextBuilder, ExecutionMode, PerformanceMetrics
+        AbstractSolverFactory, ConcreteSolverFactory, FactoryCapability, SolverFactoryRegistry, Builder, ConfigurationBuilder
     };
 
     // === Mathematical Utilities ===

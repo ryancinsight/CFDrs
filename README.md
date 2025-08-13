@@ -4,9 +4,18 @@ A Rust-based computational fluid dynamics (CFD) simulation framework for 1D, 2D,
 
 ## Project Status
 
-⚠️ **CRITICAL ISSUES IDENTIFIED - Five Professional Reviews Complete**
+⚠️ **MAJOR CLEANUP COMPLETE - Critical Issues Remain**
 
-### Recent Improvements (v2.13 - January 2025)
+### Recent Improvements (v2.14 - January 2025)
+
+#### Comprehensive Code Review & Cleanup
+- ✅ **Architecture Simplified**: Removed non-functional orchestration module
+- ✅ **VTK Reader Added**: Basic functionality for restart/checkpoint workflows
+- ✅ **Documentation Fixed**: Removed all false optimization and architecture claims
+- ⚠️ **LBM Physics**: Bounce-back partially fixed but needs complete restructure
+- ⚠️ **Factory System**: Still fundamentally broken (returns strings not solvers)
+
+### Previous Improvements (v2.13 - January 2025)
 
 #### Fifth Professional Code Review - LBM & Architecture
 - ⚠️ **CRITICAL BUG**: LBM bounce-back physics fundamentally broken

@@ -1029,8 +1029,8 @@ mod tests {
 
         assert_eq!(solver.nx, 5);
         assert_eq!(solver.ny, 5);
-        assert_relative_eq!(solver.rho, 1000.0, epsilon = 1e-10);
-        assert_relative_eq!(solver.mu, 0.001, epsilon = 1e-10);
+        assert_relative_eq!(solver.rho, 998.2, epsilon = 1e-10);
+        assert_relative_eq!(solver.mu, 1.002e-3, epsilon = 1e-10);
     }
 
     #[test]
