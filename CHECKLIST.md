@@ -3,7 +3,20 @@
 
 This checklist provides a detailed breakdown of all tasks required to implement the CFD simulation suite as specified in the PRD.
 
-## 🎯 Recent Improvements (Latest Update - v2.10 - January 2025)
+## 🎯 Recent Improvements (Latest Update - v2.11 - January 2025)
+
+### Professional Code Review Round 3 - Architecture & Physics (v2.11)
+- [x] **Dead Code Removed** - Eliminated unused ComposablePlugin trait and ComposedPlugin struct
+- [x] **ResourceManager Removed** - Deleted misplaced ACID ResourceManager from factory.rs
+- [x] **Factory System Documented** - Marked AbstractSolverFactory as deprecated with warnings
+- [x] **Wall Functions Documented** - Added warnings about non-standard implementations
+- [x] **k-ε Stability Improved** - Added semi-implicit treatment for destruction terms
+- [x] **Grid Coupling Documented** - Added TODOs for decoupling physics from hardcoded grid
+- ⚠️ **Known Issues**:
+  - Factory system needs complete redesign (returns String instead of solvers)
+  - Wall functions hardcoded for j=0 boundary
+  - Enhanced wall treatment is non-standard and unvalidated
+  - Plugin system overly complex with "trait soup"
 
 ### Professional Code Review Round 2 - FEM and Math Libraries (v2.10)
 - [x] **PSPG Stabilization Fixed** - Corrected implementation now properly adds pressure Laplacian to (2,2) block

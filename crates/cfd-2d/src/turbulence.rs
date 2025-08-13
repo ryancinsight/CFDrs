@@ -99,6 +99,8 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
     }
     
     /// Standard wall function implementation
+    /// WARNING: This implementation is hardcoded for walls at j=0 boundary
+    /// TODO: Refactor to work with arbitrary wall boundaries and unstructured meshes
     fn apply_standard_wall_function(
         &mut self,
         u_velocity: &[Vec<T>],
@@ -144,6 +146,11 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
     }
     
     /// Enhanced wall treatment for all y+ regions
+    /// Enhanced wall treatment for all y+ values
+    /// WARNING: This is a non-standard, unvalidated implementation
+    /// The blending function and f_mu damping are ad-hoc and not from literature
+    /// TODO: Replace with validated model (e.g., Launder-Sharma or k-ω SST)
+    /// WARNING: Hardcoded for walls at j=0 boundary
     fn apply_enhanced_wall_treatment(
         &mut self,
         u_velocity: &[Vec<T>],
@@ -257,14 +264,17 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
                     production.clone() - self.epsilon[i][j].clone() + k_diffusion
                 );
                 
-                // ε equation
+                // ε equation with semi-implicit treatment for stability
+                // Treat destruction term implicitly to avoid singularity when k is small
                 let eps_diffusion = self.calculate_diffusion(&self.epsilon, i, j,
                     (nu.clone() + self.nu_t[i][j].clone() / sigma_eps.clone()), dx.clone(), dy.clone());
-                new_epsilon[i][j] = self.epsilon[i][j].clone() + dt.clone() * (
-                    c1_eps.clone() * production * self.epsilon[i][j].clone() / self.k[i][j].clone()
-                    - c2_eps.clone() * self.epsilon[i][j].clone() * self.epsilon[i][j].clone() / self.k[i][j].clone()
-                    + eps_diffusion
-                );
+                
+                // Semi-implicit formulation: ε_new = (ε_old + dt * source) / (1 + dt * destruction_coeff)
+                let source_term = c1_eps.clone() * production * self.epsilon[i][j].clone() / self.k[i][j].clone() + eps_diffusion;
+                let destruction_coeff = c2_eps.clone() * self.epsilon[i][j].clone() / self.k[i][j].clone().max(T::from_f64(constants::EPSILON_MIN).unwrap());
+                
+                new_epsilon[i][j] = (self.epsilon[i][j].clone() + dt.clone() * source_term) / 
+                                   (T::one() + dt.clone() * destruction_coeff);
                 
                 // Ensure positive values
                 new_k[i][j] = new_k[i][j].clone().max(T::from_f64(constants::EPSILON_MIN).unwrap());
