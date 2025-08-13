@@ -1,7 +1,10 @@
-//! Simulation orchestration implementing Separation of Concerns (SOC) principle.
+//! DEPRECATED: Non-functional orchestration stub
 //!
-//! This module separates the concerns of simulation execution, coordination,
-//! and resource management, following CLEAN architecture principles.
+//! WARNING: This module is a non-functional skeleton that cannot execute any solvers.
+//! It conflicts with the PluginRegistry system and should be removed.
+//! The grandiose claims about SOLID, GRASP, and CLEAN architecture are aspirational fiction.
+//! 
+//! TODO: Remove this entire module and use the plugin/factory system instead
 
 use crate::{Error, Result};
 use nalgebra::RealField;
@@ -265,17 +268,15 @@ impl<T: RealField> SimulationOrchestrator<T> {
         &self.solver_registry
     }
 
-    /// Execute simulation with proper separation of concerns
+    /// Execute simulation
+    /// WARNING: This is a STUB that cannot actually execute any solver!
+    /// It just returns a string saying it executed something.
+    /// This entire module should be removed.
     pub fn execute(&mut self, solver_name: &str) -> Result<String> {
-        // Preparation phase (separated concern)
+        // This doesn't actually execute anything
         self.prepare_execution()?;
-
-        // Execution phase (separated concern)
         let result = self.execute_solver_by_name(solver_name)?;
-
-        // Cleanup phase (separated concern)
         self.finalize_execution()?;
-
         Ok(result)
     }
 

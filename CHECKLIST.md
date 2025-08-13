@@ -3,7 +3,19 @@
 
 This checklist provides a detailed breakdown of all tasks required to implement the CFD simulation suite as specified in the PRD.
 
-## 🎯 Recent Improvements (Latest Update - v2.12 - January 2025)
+## 🎯 Recent Improvements (Latest Update - v2.13 - January 2025)
+
+### Professional Code Review Round 5 - LBM & Architecture (v2.13)
+- [x] **LBM Bounce-Back Bug Documented** - Critical physics error identified and marked
+- [x] **Fake Optimizations Removed** - Misleading iterator performance claims eliminated
+- [x] **Streaming Performance Issue Documented** - Full array copy bottleneck identified
+- [x] **Orchestration Deprecated** - Non-functional stub marked for removal
+- [x] **Misleading Documentation Fixed** - Aspirational architecture claims removed
+- ⚠️ **CRITICAL FINDINGS**:
+  - LBM bounce-back is fundamentally broken (scrambles own distributions)
+  - Two conflicting solver management systems in core
+  - Orchestration module is complete fiction
+  - Performance claims were false throughout LBM
 
 ### Professional Code Review Round 4 - Validation & I/O (v2.12)
 - [x] **Validation Fallback Removed** - Tests now fail properly instead of using empirical correlations

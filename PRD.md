@@ -2,9 +2,9 @@
 ## CFD Simulation Suite
 
 ### Document Information
-- **Version**: 2.12
+- **Version**: 2.13
 - **Last Updated**: 2025-01-14
-- **Status**: PRODUCTION READY - QUAD REVIEW COMPLETE
+- **Status**: CRITICAL ISSUES IDENTIFIED - FIVE REVIEWS COMPLETE
 - **Author**: Development Team
 
 ---
@@ -14,7 +14,21 @@
 ### 1.1 Product Overview
 The CFD Simulation Suite is a Rust-based computational fluid dynamics framework for 1D, 2D, and 3D problems. This project implements various CFD algorithms and numerical methods with a focus on clean architecture, performance, and maintainability. The suite demonstrates best practices in scientific computing with Rust.
 
-### 1.2 Fourth Professional Code Review - Validation & I/O (v2.12)
+### 1.2 Fifth Professional Code Review - LBM & Architecture (v2.13)
+- **CRITICAL Physics Bug**:
+  - LBM bounce-back boundary condition is fundamentally broken
+  - Scrambles boundary node's own distributions instead of reflecting from fluid
+  - Will produce physically incorrect results for any wall-bounded flow
+- **Architectural Schism**:
+  - Two completely incompatible solver systems in core
+  - Orchestration module is non-functional fiction
+  - Claims about SOLID/GRASP/CLEAN are aspirational lies
+- **Performance Deception**:
+  - Iterator "optimizations" provide no benefit
+  - LBM streaming uses expensive full array copy
+  - Misleading comments throughout
+
+### 1.3 Fourth Professional Code Review - Validation & I/O (v2.12)
 - **Validation Framework Fixed**:
   - Removed dangerous fallback to empirical formulas
   - Fixed silent failures in reference data lookup

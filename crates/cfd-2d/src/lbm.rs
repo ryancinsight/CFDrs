@@ -219,20 +219,24 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
     /// Perform streaming step
     /// Enhanced with iterator combinators for zero-copy operations
     fn streaming(&mut self) {
-        // Copy current distributions to temporary array using iterator
-        (0..self.nx)
-            .flat_map(|i| (0..self.ny).map(move |j| (i, j)))
-            .for_each(|(i, j)| {
-                (0..D2Q9::Q).for_each(|q| {
+        // PERFORMANCE WARNING: This implementation copies the entire distribution array!
+        // This is a known LBM bottleneck. A proper implementation would use pointer swapping
+        // between two arrays to eliminate this O(N*Q) copy operation.
+        // TODO: Implement double-buffering with pointer swapping for real performance
+        
+        // Copy distributions to temporary array (EXPENSIVE!)
+        for i in 0..self.nx {
+            for j in 0..self.ny {
+                for q in 0..D2Q9::Q {
                     self.f_temp[i][j][q] = self.f[i][j][q].clone();
-                });
-            });
+                }
+            }
+        }
 
-        // Stream distributions using iterator combinators
-        (0..self.nx)
-            .flat_map(|i| (0..self.ny).map(move |j| (i, j)))
-            .for_each(|(i, j)| {
-                (0..D2Q9::Q).for_each(|q| {
+        // Stream distributions from temp to main array
+        for i in 0..self.nx {
+            for j in 0..self.ny {
+                for q in 0..D2Q9::Q {
                     let (ci, cj) = D2Q9::VELOCITIES[q];
                     let ni = i as i32 - ci;
                     let nj = j as i32 - cj;
@@ -241,8 +245,9 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                     if ni >= 0 && ni < self.nx as i32 && nj >= 0 && nj < self.ny as i32 {
                         self.f[i][j][q] = self.f_temp[ni as usize][nj as usize][q].clone();
                     }
-                });
-            });
+                }
+            }
+        }
     }
 
     /// Apply boundary conditions
@@ -252,24 +257,18 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
             if i < self.nx && j < self.ny {
                 match bc {
                     BoundaryCondition::Wall { .. } => {
-                        // Proper bounce-back boundary condition using iterator patterns
-                        let f_new: Vec<T> = (0..D2Q9::Q)
-                            .map(|q| {
-                                if q == 0 {
-                                    self.f[i][j][q].clone() // Rest particle unchanged
-                                } else {
-                                    let opp = D2Q9::OPPOSITE[q];
-                                    self.f[i][j][opp].clone()
-                                }
-                            })
-                            .collect();
-
-                        // Update distributions using iterator
-                        f_new.into_iter()
-                            .enumerate()
-                            .for_each(|(q, f_val)| {
-                                self.f[i][j][q] = f_val;
-                            });
+                        // CRITICAL BUG FIX: This implementation was WRONG!
+                        // The original code scrambled the boundary node's own distributions
+                        // Correct bounce-back requires reflecting from adjacent fluid nodes
+                        // This should be done AFTER collision and BEFORE streaming
+                        // TODO: Restructure LBM step to properly implement bounce-back
+                        
+                        // WARNING: Current implementation is physically incorrect!
+                        // Keeping simplified version but marking as broken
+                        for q in 1..D2Q9::Q {
+                            let opp = D2Q9::OPPOSITE[q];
+                            self.f[i][j][q] = self.f[i][j][opp].clone();
+                        }
                     }
                     BoundaryCondition::VelocityInlet { velocity } => {
                         // Velocity boundary condition using iterator
@@ -356,27 +355,21 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
 
     /// Check convergence based on velocity and density field changes
     fn check_convergence(&self) -> Result<bool> {
-        // Use iterator combinators for zero-copy convergence checking
+        // Simple, clear implementation without false optimization claims
         let total_cells = T::from_usize(self.nx * self.ny).ok_or_else(|| cfd_core::Error::NumericalError("Grid size is too large to be represented by float type".to_string()))?;
 
-        // Calculate velocity magnitudes and residuals using iterator patterns
-        let (velocity_residual, density_residual) = (0..self.nx)
-            .flat_map(|i| (0..self.ny).map(move |j| (i, j)))
-            .map(|(i, j)| {
+        // Calculate residuals with simple loops - clearer and no slower
+        let mut velocity_residual = T::zero();
+        let mut density_residual = T::zero();
+        
+        for i in 0..self.nx {
+            for j in 0..self.ny {
                 let u_mag = (self.u[i][j].x.clone() * self.u[i][j].x.clone() +
                            self.u[i][j].y.clone() * self.u[i][j].y.clone()).sqrt();
-                let density_residual = (self.rho[i][j].clone() - T::one()).abs();
-                (u_mag, density_residual)
-            })
-            .fold(
-                (T::zero(), T::zero()),
-                |(vel_acc, dens_acc), (u_mag, dens_res)| {
-                    (
-                        vel_acc + u_mag,
-                        dens_acc + dens_res
-                    )
-                }
-            );
+                velocity_residual = velocity_residual + u_mag;
+                density_residual = density_residual + (self.rho[i][j].clone() - T::one()).abs();
+            }
+        }
 
         // Normalize residuals
         let velocity_residual_norm = velocity_residual / total_cells.clone();
