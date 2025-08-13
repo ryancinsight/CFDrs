@@ -55,7 +55,7 @@ impl<T: RealField + FromPrimitive> Default for SimpleConfig<T> {
 
         Self {
             base,
-            dt: T::from_f64(0.01).unwrap(), // Default time step
+            dt: T::from_f64(constants::DEFAULT_CFL_NUMBER * 0.02).unwrap(), // Default time step based on CFL
             alpha_u: T::from_f64(constants::VELOCITY_UNDER_RELAXATION).unwrap(),
             alpha_p: T::from_f64(constants::PRESSURE_UNDER_RELAXATION).unwrap(),
             use_rhie_chow: true,
@@ -133,8 +133,8 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
             config,
             nx,
             ny,
-            T::from_f64(1000.0).unwrap(),  // Default water density
-            T::from_f64(0.001).unwrap(),   // Default water viscosity
+            T::from_f64(constants::WATER_DENSITY).unwrap(),  // Default water density
+            T::from_f64(constants::WATER_VISCOSITY).unwrap(),   // Default water viscosity
         )
     }
     

@@ -119,10 +119,11 @@ pub mod time_integration {
         }
     }
     
-    /// Runge-Kutta 4th order scheme (explicit, 4th order)
+    /// Runge-Kutta 4th order scheme with constant derivative
     /// 
-    /// This implementation properly evaluates derivatives at each stage
-    /// following the classical RK4 algorithm.
+    /// This implementation assumes constant derivative for compatibility
+    /// with the TimeIntegrationScheme trait. For variable derivatives,
+    /// use RungeKutta4WithFunction.
     /// Reference: Butcher, J.C. "Numerical Methods for Ordinary Differential Equations" (2016)
     #[derive(Debug, Clone)]
     pub struct RungeKutta4;

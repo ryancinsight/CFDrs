@@ -1,15 +1,15 @@
-//! Simple pipe flow example demonstrating unified SSOT prelude and enhanced design principles.
+//! Pipe flow 1D example demonstrating unified SSOT prelude and design principles.
 //!
 //! This example showcases:
 //! - Unified prelude usage (SSOT principle)
 //! - Composition-based configuration (SOLID principles)
 //! - Iterator-based operations (CUPID principles)
-//! - Zero-copy abstractions and advanced patterns
+//! - Zero-copy abstractions and iterator patterns
 
 use cfd_suite::prelude::*;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    println!("Enhanced Pipe Flow Example - Unified SSOT Design");
+    println!("Pipe Flow 1D Example - Unified SSOT Design");
     println!("================================================");
 
     // Demonstrate unified prelude and composition-based configuration
@@ -27,7 +27,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     println!("\nNetwork created with unified builder pattern");
 
-    // Demonstrate enhanced configuration system using composition
+    // Demonstrate configuration system using composition
     let config = SolverConfig::<f64>::builder()
         .tolerance(1e-8)
         .max_iterations(1000)
@@ -38,7 +38,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     println!("Configuration built using composition pattern");
 
-    // Create solver with enhanced configuration
+    // Create solver with configuration
     let solver = NetworkSolver::with_config(config);
     let solution = solver.solve_steady_state(&mut network)?;
 
@@ -47,7 +47,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("Iterations: {}", solution.iterations);
     println!("Residual: {:.2e}", solution.residual);
 
-    // Demonstrate advanced iterator patterns for analysis
+    // Demonstrate iterator patterns for analysis
     let velocities = vec![0.05, 0.1, 0.15, 0.2, 0.25, 0.3];
     let diameter = 0.01; // 10 mm pipe
 
@@ -79,7 +79,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .map(|(_, re, _)| *re)
         .collect();
 
-    // Use advanced mathematical operations
+    // Use mathematical operations
     use cfd_math::SliceOps;
     let mean_re = re_values.iter().cloned().mean().unwrap_or(0.0);
     let max_re = re_values.iter().fold(0.0_f64, |acc, &x| acc.max(x));

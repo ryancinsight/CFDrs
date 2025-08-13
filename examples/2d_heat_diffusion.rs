@@ -33,7 +33,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     grid.set_edge_boundary(GridEdge::Bottom, BoundaryType::Wall);
     grid.set_edge_boundary(GridEdge::Top, BoundaryType::Wall);
     
-    // Set boundary values using advanced iterator patterns for zero-copy operations
+    // Set boundary values using iterator patterns for zero-copy operations
     let boundary_values: HashMap<(usize, usize), f64> = [
         // Hot left wall - using iterator combinators
         (0..grid.ny()).map(|j| ((0, j), 100.0)).collect::<Vec<_>>(),
@@ -70,7 +70,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Analyze results
     println!("\n=== Results Analysis ===");
     
-    // Find temperature statistics using advanced iterator combinators for zero-copy analysis
+    // Find temperature statistics using iterator combinators for zero-copy analysis
 
     let temperatures: Vec<f64> = grid.iter()
         .filter_map(|(i, j)| solution.get(&(i, j)).copied())

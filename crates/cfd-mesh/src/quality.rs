@@ -222,7 +222,7 @@ where
         }
     }
     
-    /// Check if vertices are approximately coplanar
+    /// Check if vertices are coplanar within tolerance
     fn is_planar(&self, vertices: &[&Point3<T>]) -> bool {
         if vertices.len() < 4 {
             return true;
@@ -266,7 +266,7 @@ where
         
         // Calculate angles between edges
         let mut max_angle_deviation = T::zero();
-        let ideal_angle = T::from_f64(60.0_f64.to_radians()).unwrap_or(T::one());
+        let reference_angle = T::from_f64(60.0_f64.to_radians()).unwrap_or(T::one());
         
         for i in 0..edges.len() {
             for j in i+1..edges.len() {
@@ -280,7 +280,7 @@ where
                     let cos_f64: f64 = cos_angle.to_subset().unwrap_or(0.0);
                     let cos_clamped = cos_f64.max(-1.0).min(1.0);
                     let angle = T::from_f64(cos_clamped.acos()).unwrap_or(T::zero());
-                    let deviation = ComplexField::abs(angle - ideal_angle.clone()) / ideal_angle.clone();
+                    let deviation = ComplexField::abs(angle - reference_angle.clone()) / reference_angle.clone();
                     if deviation > max_angle_deviation {
                         max_angle_deviation = deviation;
                     }

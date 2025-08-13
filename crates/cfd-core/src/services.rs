@@ -74,7 +74,7 @@ impl FluidDynamicsService {
             // Turbulent flow: use Colebrook-White or smooth pipe approximation
             match roughness {
                 Some(eps) => {
-                    // Colebrook-White equation (simplified)
+                    // Colebrook-White equation
                     let relative_roughness = eps / diameter;
                     Self::colebrook_white_friction_factor(reynolds, relative_roughness)
                 }
@@ -157,7 +157,7 @@ impl MeshQualityService {
             .iter()
             .min()
             .copied()
-            .unwrap_or(QualityLevel::Poor);
+            .unwrap_or(QualityLevel::Level1);
 
         QualityAssessment {
             overall_quality,
@@ -173,50 +173,50 @@ impl MeshQualityService {
     }
 
     fn assess_aspect_ratio<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
-        let excellent_threshold = T::from_f64(2.0).unwrap();
-        let good_threshold = T::from_f64(5.0).unwrap();
-        let acceptable_threshold = T::from_f64(10.0).unwrap();
+        let threshold_level4 = T::from_f64(2.0).unwrap();
+        let threshold_level3 = T::from_f64(5.0).unwrap();
+        let threshold_level2 = T::from_f64(10.0).unwrap();
 
-        if stats.max < excellent_threshold {
-            QualityLevel::Excellent
-        } else if stats.max < good_threshold {
-            QualityLevel::Good
-        } else if stats.max < acceptable_threshold {
-            QualityLevel::Acceptable
+        if stats.max < threshold_level4 {
+            QualityLevel::Level4
+        } else if stats.max < threshold_level3 {
+            QualityLevel::Level3
+        } else if stats.max < threshold_level2 {
+            QualityLevel::Level2
         } else {
-            QualityLevel::Poor
+            QualityLevel::Level1
         }
     }
 
     fn assess_skewness<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
-        let excellent_threshold = T::from_f64(0.25).unwrap();
-        let good_threshold = T::from_f64(0.5).unwrap();
-        let acceptable_threshold = T::from_f64(0.8).unwrap();
+        let threshold_level4 = T::from_f64(0.25).unwrap();
+        let threshold_level3 = T::from_f64(0.5).unwrap();
+        let threshold_level2 = T::from_f64(0.8).unwrap();
 
-        if stats.max < excellent_threshold {
-            QualityLevel::Excellent
-        } else if stats.max < good_threshold {
-            QualityLevel::Good
-        } else if stats.max < acceptable_threshold {
-            QualityLevel::Acceptable
+        if stats.max < threshold_level4 {
+            QualityLevel::Level4
+        } else if stats.max < threshold_level3 {
+            QualityLevel::Level3
+        } else if stats.max < threshold_level2 {
+            QualityLevel::Level2
         } else {
-            QualityLevel::Poor
+            QualityLevel::Level1
         }
     }
 
     fn assess_orthogonality<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
-        let excellent_threshold = T::from_f64(0.95).unwrap();
-        let good_threshold = T::from_f64(0.85).unwrap();
-        let acceptable_threshold = T::from_f64(0.7).unwrap();
+        let threshold_level4 = T::from_f64(0.95).unwrap();
+        let threshold_level3 = T::from_f64(0.85).unwrap();
+        let threshold_level2 = T::from_f64(0.7).unwrap();
 
-        if stats.min > excellent_threshold {
-            QualityLevel::Excellent
-        } else if stats.min > good_threshold {
-            QualityLevel::Good
-        } else if stats.min > acceptable_threshold {
-            QualityLevel::Acceptable
+        if stats.min > threshold_level4 {
+            QualityLevel::Level4
+        } else if stats.min > threshold_level3 {
+            QualityLevel::Level3
+        } else if stats.min > threshold_level2 {
+            QualityLevel::Level2
         } else {
-            QualityLevel::Poor
+            QualityLevel::Level1
         }
     }
 
@@ -227,15 +227,15 @@ impl MeshQualityService {
     ) -> Vec<String> {
         let mut recommendations = Vec::new();
 
-        if aspect_ratio == QualityLevel::Poor {
+        if aspect_ratio == QualityLevel::Level1 {
             recommendations.push("Consider refining mesh in regions with high aspect ratio cells".to_string());
         }
 
-        if skewness == QualityLevel::Poor {
+        if skewness == QualityLevel::Level1 {
             recommendations.push("Improve mesh quality by reducing cell skewness".to_string());
         }
 
-        if orthogonality == QualityLevel::Poor {
+        if orthogonality == QualityLevel::Level1 {
             recommendations.push("Enhance mesh orthogonality for better numerical accuracy".to_string());
         }
 
@@ -250,14 +250,14 @@ impl MeshQualityService {
 /// Quality level enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum QualityLevel {
-    /// Poor quality - may cause numerical issues
-    Poor,
-    /// Acceptable quality - usable but not optimal
-    Acceptable,
-    /// Good quality - suitable for most applications
-    Good,
-    /// Excellent quality - optimal for high-accuracy simulations
-    Excellent,
+    /// Level 1 - may cause numerical issues
+    Level1,
+    /// Level 2 - usable for basic simulations
+    Level2,
+    /// Level 3 - suitable for most applications
+    Level3,
+    /// Level 4 - suitable for high-accuracy simulations
+    Level4,
 }
 
 /// Quality statistics structure

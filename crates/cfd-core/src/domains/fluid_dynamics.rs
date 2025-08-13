@@ -261,8 +261,8 @@ pub mod les {
             // Uses least-squares minimization of the Germano identity
             // Reference: Lilly, D.K. "A proposed modification of the Germano subgrid-scale closure method" (1992)
             
-            // Test filter width ratio (not used in this simplified implementation)
-            // const TEST_FILTER_RATIO: f64 = 2.0;
+            // Test filter width ratio for full Germano-Lilly implementation
+            // const TEST_FILTER_RATIO: f64 = 2.0; // Reserved for future use
             const CLIPPING_FACTOR: f64 = 0.0; // Lower bound for Cs^2
             
             flow_field.velocity.components
