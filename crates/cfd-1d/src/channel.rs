@@ -451,17 +451,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
         let c4 = T::from_f64(0.9564).unwrap();
         let c5 = T::from_f64(0.2537).unwrap();
         
-        let alpha2 = alpha.clone() * alpha.clone();
-        let alpha3 = alpha2.clone() * alpha.clone();
-        let alpha4 = alpha3.clone() * alpha.clone();
-        let alpha5 = alpha4.clone() * alpha.clone();
-        
-        let polynomial = T::one() 
-            - c1 * alpha.clone()
-            + c2 * alpha2
-            - c3 * alpha3
-            + c4 * alpha4
-            - c5 * alpha5;
+        // Evaluate polynomial using Horner's method for efficiency and numerical stability
+        let polynomial = ((((-c5 * alpha + c4) * alpha - c3) * alpha + c2) * alpha - c1) * alpha + T::one();
         
         // f*Re = 24 * polynomial
         T::from_f64(24.0).unwrap() * polynomial
