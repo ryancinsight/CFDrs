@@ -51,6 +51,50 @@ pub trait PluginLifecycle: SimulationPlugin {
     }
 }
 
+/// Plugin capability interface following Interface Segregation Principle
+/// Allows fine-grained capability queries without forcing implementation
+pub trait PluginCapabilities {
+    /// Check if plugin supports parallel execution
+    fn supports_parallel(&self) -> bool {
+        false
+    }
+    
+    /// Check if plugin supports adaptive time stepping
+    fn supports_adaptive_timestep(&self) -> bool {
+        false
+    }
+    
+    /// Check if plugin supports state persistence
+    fn supports_persistence(&self) -> bool {
+        false
+    }
+    
+    /// Get supported input/output formats
+    fn supported_formats(&self) -> Vec<&'static str> {
+        vec![]
+    }
+}
+
+/// Plugin validation interface for ensuring physics correctness
+pub trait PluginValidation: SimulationPlugin {
+    /// Validate plugin state for physics consistency
+    fn validate_state(&self, state: &Self::State) -> Result<()> {
+        let _ = state; // Avoid unused parameter warning
+        Ok(())
+    }
+    
+    /// Validate configuration parameters
+    fn validate_config(&self, config: &Self::Config) -> Result<()> {
+        let _ = config; // Avoid unused parameter warning
+        Ok(())
+    }
+    
+    /// Get conservation properties that must be maintained
+    fn conservation_properties(&self) -> Vec<&'static str> {
+        vec![]
+    }
+}
+
 
 
 /// Generic plugin trait for type erasure

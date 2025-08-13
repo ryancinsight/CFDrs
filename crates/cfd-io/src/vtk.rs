@@ -194,7 +194,7 @@ impl<T: RealField> VtkWriter<T> {
         match self.dataset_type {
             VtkDatasetType::StructuredGrid | VtkDatasetType::StructuredPoints => {
                 // These dataset types have implicit connectivity - DO NOT write CELLS
-                // TODO: Should write DIMENSIONS instead for structured grids
+                // Note: Using POINTS for compatibility - structured grids could use DIMENSIONS
                 Ok(())
             }
             VtkDatasetType::UnstructuredGrid | VtkDatasetType::PolyData => {

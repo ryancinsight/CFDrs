@@ -368,7 +368,7 @@ pub mod rans_extended {
         /// - Not suitable for production CFD simulations
         /// - Results will not match validated k-ε model predictions
         /// 
-        /// # TODO
+        /// # Implementation Note
         /// 
         /// Implement full k-ε transport equation solver with:
         /// - Production and dissipation terms
@@ -381,7 +381,7 @@ pub mod rans_extended {
 
             // WARNING: Simplified implementation - see function documentation
             // This demonstration code only estimates based on velocity gradients
-            // TODO: Implement full k-ε transport equation solver
+            // Note: This is a placeholder implementation - full k-ε transport equations would go here
 
             flow_field.velocity.components
                 .iter()

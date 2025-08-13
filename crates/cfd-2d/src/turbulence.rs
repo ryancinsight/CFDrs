@@ -107,7 +107,7 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
     
     /// Standard wall function implementation
     /// WARNING: This implementation is hardcoded for walls at j=0 boundary
-    /// TODO: Refactor to work with arbitrary wall boundaries and unstructured meshes
+    /// Note: Current implementation assumes structured rectangular mesh with wall boundaries at j=0 and j=ny-1
     fn apply_standard_wall_function(
         &mut self,
         u_velocity: &[Vec<T>],

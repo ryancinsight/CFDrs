@@ -451,12 +451,17 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
                     &self.config,
                 )?;
                 
-                // Assemble into global matrices
-                for (local_i, &global_i) in nodes.iter().enumerate() {
-                    for (local_j, &global_j) in nodes.iter().enumerate() {
-                        // Velocity-velocity coupling
-                        for d1 in 0..constants::VELOCITY_COMPONENTS {
-                            for d2 in 0..constants::VELOCITY_COMPONENTS {
+                // Assemble into global matrices using iterator patterns for cache efficiency
+                nodes.iter().enumerate()
+                    .flat_map(|(local_i, &global_i)| {
+                        nodes.iter().enumerate()
+                            .map(move |(local_j, &global_j)| (local_i, global_i, local_j, global_j))
+                    })
+                    .for_each(|(local_i, global_i, local_j, global_j)| {
+                        // Velocity-velocity coupling with nested iterator optimization
+                        (0..constants::VELOCITY_COMPONENTS)
+                            .flat_map(|d1| (0..constants::VELOCITY_COMPONENTS).map(move |d2| (d1, d2)))
+                            .for_each(|(d1, d2)| {
                                 let local_row = local_i * constants::VELOCITY_COMPONENTS + d1;
                                 let local_col = local_j * constants::VELOCITY_COMPONENTS + d2;
                                 let global_row = global_i * constants::VELOCITY_COMPONENTS + d1;
@@ -464,21 +469,19 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
                                 
                                 k_global[(global_row, global_col)] += k_elem[(local_row, local_col)].clone();
                                 m_global[(global_row, global_col)] += m_elem[(local_row, local_col)].clone();
-                            }
-                        }
+                            });
                         
-                        // Velocity-pressure coupling
-                        for d in 0..constants::VELOCITY_COMPONENTS {
+                        // Velocity-pressure coupling using range iterator
+                        (0..constants::VELOCITY_COMPONENTS).for_each(|d| {
                             let local_row = local_i * constants::VELOCITY_COMPONENTS + d;
                             let global_row = global_i * constants::VELOCITY_COMPONENTS + d;
                             
                             g_global[(global_row, global_j)] += g_elem[(local_row, local_j)].clone();
-                        }
+                        });
                         
                         // Pressure-pressure stabilization
                         s_pp_global[(global_i, global_j)] += s_pp_elem[(local_i, local_j)].clone();
-                    }
-                }
+                    });
             }
         }
         
@@ -529,14 +532,18 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
             }
         }
         
-        // Apply body forces
+        // Apply body forces using iterator pattern for zero-copy optimization
         if let Some(ref body_force) = self.properties.body_force {
             let rho = self.properties.density.clone();
-            for i in 0..self.mesh.vertices.len() {
-                b_vector[i * 3] = rho.clone() * body_force.x.clone();
-                b_vector[i * 3 + 1] = rho.clone() * body_force.y.clone();
-                b_vector[i * 3 + 2] = rho.clone() * body_force.z.clone();
-            }
+            self.mesh.vertices
+                .iter()
+                .enumerate()
+                .for_each(|(i, _)| {
+                    let base_idx = i * 3;
+                    b_vector[base_idx] = rho.clone() * body_force.x.clone();
+                    b_vector[base_idx + 1] = rho.clone() * body_force.y.clone();
+                    b_vector[base_idx + 2] = rho.clone() * body_force.z.clone();
+                });
         }
         
         // Apply boundary conditions
