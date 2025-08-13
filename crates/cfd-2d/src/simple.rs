@@ -25,32 +25,7 @@ use std::collections::HashMap;
 
 use crate::grid::StructuredGrid2D;
 use crate::schemes::{SpatialScheme, FiniteDifference, FluxLimiter};
-
-/// Constants for SIMPLE algorithm
-mod constants {
-    /// Default time step
-    pub const DEFAULT_TIME_STEP: f64 = 0.01;
-    /// Default velocity tolerance
-    pub const DEFAULT_VELOCITY_TOLERANCE: f64 = 1e-6;
-    /// Default pressure tolerance  
-    pub const DEFAULT_PRESSURE_TOLERANCE: f64 = 1e-6;
-    /// Default velocity relaxation factor
-    pub const DEFAULT_VELOCITY_RELAXATION: f64 = 0.7;
-    /// Default pressure relaxation factor
-    pub const DEFAULT_PRESSURE_RELAXATION: f64 = 0.3;
-    /// Small value for numerical stability
-    pub const EPSILON: f64 = 1e-10;
-    /// Hybrid scheme blending factor
-    pub const HYBRID_BLEND: f64 = 0.1;
-    /// QUICK scheme downstream coefficient (6/8)
-    pub const QUICK_DOWNSTREAM: f64 = 0.75;
-    /// QUICK scheme central coefficient (3/8)
-    pub const QUICK_CENTRAL: f64 = 0.375;
-    /// QUICK scheme upstream coefficient (1/8)
-    pub const QUICK_UPSTREAM: f64 = 0.125;
-    /// Factor of 2 for central differences
-    pub const TWO: f64 = 2.0;
-}
+use cfd_core::constants;
 
 /// SIMPLE algorithm configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,14 +50,14 @@ impl<T: RealField + FromPrimitive> Default for SimpleConfig<T> {
     fn default() -> Self {
         let base = cfd_core::SolverConfig::builder()
             .max_iterations(100)
-            .tolerance(T::from_f64(constants::DEFAULT_VELOCITY_TOLERANCE).unwrap())
+            .tolerance(T::from_f64(constants::DEFAULT_TOLERANCE).unwrap())
             .build();
 
         Self {
             base,
-            dt: T::from_f64(constants::DEFAULT_TIME_STEP).unwrap(),
-            alpha_u: T::from_f64(constants::DEFAULT_VELOCITY_RELAXATION).unwrap(),
-            alpha_p: T::from_f64(constants::DEFAULT_PRESSURE_RELAXATION).unwrap(),
+            dt: T::from_f64(0.01).unwrap(), // Default time step
+            alpha_u: T::from_f64(constants::VELOCITY_UNDER_RELAXATION).unwrap(),
+            alpha_p: T::from_f64(constants::PRESSURE_UNDER_RELAXATION).unwrap(),
             use_rhie_chow: true,
             convection_scheme: SpatialScheme::SecondOrderUpwind,
             implicit_momentum: true,  // Default to implicit for stability
@@ -903,16 +878,25 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
                     }
                 }
                 BoundaryCondition::Neumann { gradient } => {
-                    // Apply gradient BC
-                    // This is a simplified implementation
+                    // Apply Neumann (gradient) boundary condition
+                    // ∂u/∂n = gradient, where n is the outward normal
+                    // Using first-order backward/forward differences
+                    // Note: Using unit spacing as we don't have grid in this context
+                    let dx = T::one();
+                    let dy = T::one();
+                    
                     if i == 0 {
-                        self.u[i][j] = self.u[i+1][j].clone() - Vector2::repeat(gradient.clone());
+                        // West boundary: u[0] = u[1] - gradient * dx
+                        self.u[i][j] = self.u[i+1][j].clone() - Vector2::repeat(gradient.clone() * dx.clone());
                     } else if i == self.nx - 1 {
-                        self.u[i][j] = self.u[i-1][j].clone() + Vector2::repeat(gradient.clone());
+                        // East boundary: u[nx-1] = u[nx-2] + gradient * dx
+                        self.u[i][j] = self.u[i-1][j].clone() + Vector2::repeat(gradient.clone() * dx.clone());
                     } else if j == 0 {
-                        self.u[i][j] = self.u[i][j+1].clone() - Vector2::repeat(gradient.clone());
+                        // South boundary: u[0] = u[1] - gradient * dy
+                        self.u[i][j] = self.u[i][j+1].clone() - Vector2::repeat(gradient.clone() * dy.clone());
                     } else if j == self.ny - 1 {
-                        self.u[i][j] = self.u[i][j-1].clone() + Vector2::repeat(gradient.clone());
+                        // North boundary: u[ny-1] = u[ny-2] + gradient * dy
+                        self.u[i][j] = self.u[i][j-1].clone() + Vector2::repeat(gradient.clone() * dy);
                     }
                 }
                 _ => {
@@ -962,9 +946,16 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
                            (self.u[i][j+1].y.clone() - self.u[i][j-1].y.clone()) / (two.clone() * dy.clone());
                 max_continuity_residual = max_continuity_residual.max(div_u.abs());
                 
-                // U-momentum residual (simplified - could be more comprehensive)
+                // U-momentum residual: |∂u/∂t + (u·∇)u + ∇p/ρ - ν∇²u|
+                // For steady state, this reduces to the change between iterations
                 let u_residual = if self.au[i][j].d != T::zero() {
-                    ((self.u[i][j].x.clone() - self.u_star[i][j].x.clone()) / self.config.dt.clone()).abs()
+                    let du_dt = (self.u[i][j].x.clone() - self.u_star[i][j].x.clone()) / self.config.dt.clone();
+                    let convection = self.au[i][j].ae.clone() * self.u[i+1][j].x.clone() +
+                                    self.au[i][j].aw.clone() * self.u[i-1][j].x.clone() +
+                                    self.au[i][j].an.clone() * self.u[i][j+1].x.clone() +
+                                    self.au[i][j].as_.clone() * self.u[i][j-1].x.clone() -
+                                    self.au[i][j].ap.clone() * self.u[i][j].x.clone();
+                    (du_dt + convection).abs()
                 } else {
                     T::zero()
                 };

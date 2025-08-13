@@ -10,6 +10,7 @@
 
 pub mod aggregates;
 pub mod boundary;
+pub mod constants;
 pub mod domain;
 pub mod domains;
 pub mod error;

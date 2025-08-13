@@ -5,7 +5,6 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
-pub mod constants;
 pub mod interpolation;
 pub mod linear_solver;
 pub mod sparse;
@@ -14,7 +13,6 @@ pub mod integration;
 pub mod iterators;
 pub mod vectorization;
 
-pub use constants::{factors, fem, channel, physical};
 pub use interpolation::{Interpolation, LinearInterpolation, CubicSplineInterpolation};
 pub use linear_solver::{
     LinearSolver, LinearSolverConfig, ConjugateGradient, GMRES, BiCGSTAB, 

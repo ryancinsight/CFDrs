@@ -121,8 +121,6 @@ impl<T: RealField> EnergyEquationSolver<T> {
     }
     
     /// Calculate Nusselt number for heat transfer analysis
-    pub fn nusselt_number(&self, wall_temp: T, bulk_temp: T, characteristic_length: T) -> T {
-        let dt_dy_wall = (self.temperature[0][1].clone() - self.temperature[0][0].clone()) 
     pub fn nusselt_number(&self, wall_temp: T, bulk_temp: T, characteristic_length: T, dy: T) -> T {
         let dt_dy_wall = (self.temperature[0][1].clone() - self.temperature[0][0].clone()) 
             / dy; // Use actual dy

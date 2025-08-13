@@ -115,8 +115,8 @@ cfd-validation.workspace = true
 nalgebra.workspace = true
 
 [[example]]
-name = "simple_pipe_flow"
-path = "examples/simple_pipe_flow.rs"
+name = "pipe_flow_1d"
+path = "examples/pipe_flow_1d.rs"
 
 [[example]]
 name = "spectral_performance"

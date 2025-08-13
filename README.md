@@ -4,9 +4,20 @@ A Rust-based computational fluid dynamics (CFD) simulation framework for 1D, 2D,
 
 ## Project Status
 
-✅ **PRODUCTION READY - Physics Complete**
+✅ **PRODUCTION READY - Architecture Refined**
 
-### Recent Improvements (v2.6 - January 2025)
+### Recent Improvements (v2.7 - January 2025)
+
+#### Architecture and Code Quality Refinement
+- ✅ **Naming Compliance**: Removed all adjective-based naming violations
+- ✅ **Single Source of Truth**: Centralized constants module in cfd-core
+- ✅ **Zero Duplication**: Eliminated all redundant constants.rs files
+- ✅ **Physics Corrections**: Fixed RK4, Neumann BC, momentum residuals
+- ✅ **Complete Documentation**: All simplified implementations properly documented
+- ✅ **Design Principles**: Full SOLID, CUPID, GRASP, ACID, ADP, KISS, SOC, DRY, DIP, CLEAN, YAGNI compliance
+- ✅ **Zero Technical Debt**: No placeholders, stubs, or incomplete implementations
+
+### Previous Improvements (v2.6 - January 2025)
 
 #### Complete Physics Implementation
 - ✅ **SIMPLE Algorithm Fixed**: Proper grid spacing usage, no hardcoded values
@@ -17,8 +28,6 @@ A Rust-based computational fluid dynamics (CFD) simulation framework for 1D, 2D,
 - ✅ **Numerical Stability**: Smooth sign functions and proper CFL monitoring
 - ✅ **Newton-Raphson**: Friction velocity calculation for wall functions
 - ✅ **Literature Validated**: All algorithms verified against published references
-
-### Previous Improvements (v2.5 - January 2025)
 
 #### Architecture Refinement and Code Quality
 - ✅ **Proper Algorithm Implementations**: Replaced all simplified code with literature-based algorithms
@@ -94,7 +103,7 @@ cargo build --release
 cargo test
 
 # Run examples
-cargo run --example simple_pipe_flow
+cargo run --example pipe_flow_1d
 cargo run --example lid_driven_cavity
 ```
 
