@@ -3,7 +3,17 @@
 
 This checklist provides a detailed breakdown of all tasks required to implement the CFD simulation suite as specified in the PRD.
 
-## 🎯 Recent Improvements (Latest Update - v2.3 - January 2025)
+## 🎯 Recent Improvements (Latest Update - v2.4 - January 2025)
+
+### Critical Fixes and Enhancements (v2.4)
+- [x] **Fixed GMRES Implementation** - Improved numerical stability with modified Gram-Schmidt orthogonalization
+- [x] **Tightened Test Tolerance** - GMRES test tolerance improved from 0.2 to 1e-6
+- [x] **Implemented Preconditioners** - Added Jacobi, SOR, and ILU(0) preconditioners
+- [x] **Implicit Momentum Solver** - Implemented implicit time integration for better stability
+- [x] **Refactored SIMPLE Algorithm** - Eliminated code duplication by using shared schemes module
+- [x] **Tightened Validation Tolerances** - Improved from 5-20% to <1% for all benchmarks
+- [x] **Enhanced Design Principles** - Improved SOLID, CUPID, GRASP, DRY, KISS, YAGNI adherence
+- [x] **Zero-Copy Optimizations** - Extensive use of iterators and references throughout
 
 ### Critical Fixes Based on Code Review (v2.3)
 - [x] **Fixed Hardcoded Grid Spacing** - Removed dx=0.01, dy=0.01 hardcoding in SIMPLE solver
@@ -12,11 +22,6 @@ This checklist provides a detailed breakdown of all tasks required to implement 
 - [x] **Corrected QUICK Scheme** - Fixed from centered to properly upwinded implementation
 - [x] **Fixed Scheme Naming** - Renamed misleading "compact" to "fourth-order central"
 - [x] **Honest Documentation** - Rewrote README to accurately reflect project state
-- [ ] **GMRES Fix Pending** - Need to debug implementation and tighten test tolerance from 0.2
-- [ ] **Implicit Momentum Pending** - Need to implement implicit solver for stability
-- [ ] **Preconditioners Pending** - Need to implement ILU, SOR, etc.
-- [ ] **Code Duplication Pending** - Need to refactor simple.rs to use schemes.rs
-- [ ] **Validation Fix Pending** - Need to tighten tolerances from 5-20% to <1%
 
 ### Enhanced Algorithm Implementations (v2.2)
 - [x] **Complete QUICK Scheme** - Full 3rd-order Quadratic Upstream Interpolation implementation

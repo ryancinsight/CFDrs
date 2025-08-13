@@ -16,14 +16,15 @@
 //! 4. Correct pressure and velocity fields
 //! 5. Check convergence, repeat if necessary
 
-use cfd_core::{Result, BoundaryCondition, SolverConfiguration, Error};
-use cfd_math::{SparseMatrixBuilder, LinearSolver, LinearSolverConfig, ConjugateGradient};
+use cfd_core::{Result, BoundaryCondition, SolverConfiguration};
+use cfd_math::{SparseMatrixBuilder, LinearSolver, LinearSolverConfig, ConjugateGradient, BiCGSTAB};
 use nalgebra::{DVector, RealField, Vector2};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::grid::{Grid2D, StructuredGrid2D};
+use crate::grid::StructuredGrid2D;
+use crate::schemes::{SpatialScheme, FiniteDifference, FluxLimiter};
 
 /// Constants for SIMPLE algorithm
 mod constants {
@@ -66,8 +67,10 @@ pub struct SimpleConfig<T: RealField> {
     pub alpha_p: T,
     /// Use Rhie-Chow interpolation for colocated grid
     pub use_rhie_chow: bool,
-    /// Convection scheme: "upwind", "central", "hybrid", "quick"
-    pub convection_scheme: String,
+    /// Convection scheme
+    pub convection_scheme: SpatialScheme,
+    /// Use implicit momentum solver for better stability
+    pub implicit_momentum: bool,
 }
 
 impl<T: RealField + FromPrimitive> Default for SimpleConfig<T> {
@@ -83,7 +86,8 @@ impl<T: RealField + FromPrimitive> Default for SimpleConfig<T> {
             alpha_u: T::from_f64(constants::DEFAULT_VELOCITY_RELAXATION).unwrap(),
             alpha_p: T::from_f64(constants::DEFAULT_PRESSURE_RELAXATION).unwrap(),
             use_rhie_chow: true,
-            convection_scheme: "hybrid".to_string(),
+            convection_scheme: SpatialScheme::SecondOrderUpwind,
+            implicit_momentum: true,  // Default to implicit for stability
         }
     }
 }
@@ -121,58 +125,78 @@ impl<T: RealField> CellCoefficients<T> {
     }
 }
 
-/// SIMPLE algorithm solver
+/// SIMPLE solver for incompressible flow
 pub struct SimpleSolver<T: RealField> {
+    /// Configuration
     config: SimpleConfig<T>,
+    /// Grid dimensions
     nx: usize,
     ny: usize,
-    /// Velocity field (colocated with pressure)
+    /// Velocity field (stored at cell centers)
     u: Vec<Vec<Vector2<T>>>,
-    /// Predicted velocity field (before pressure correction)
+    /// Predicted velocity field
     u_star: Vec<Vec<Vector2<T>>>,
     /// Pressure field
     p: Vec<Vec<T>>,
-    /// Pressure correction field
+    /// Pressure correction
     p_prime: Vec<Vec<T>>,
-    /// Momentum equation coefficients for u-velocity
+    /// Face velocities (for Rhie-Chow)
+    u_face_e: Vec<Vec<T>>,  // East face u-velocity
+    u_face_n: Vec<Vec<T>>,  // North face v-velocity
+    /// Momentum equation coefficients
     au: Vec<Vec<CellCoefficients<T>>>,
-    /// Momentum equation coefficients for v-velocity
     av: Vec<Vec<CellCoefficients<T>>>,
-    /// Face velocities for Rhie-Chow interpolation
-    u_face_e: Vec<Vec<T>>,
-    u_face_n: Vec<Vec<T>>,
     /// Fluid properties
     rho: T,
     mu: T,
+    /// Finite difference operator for spatial discretization
+    fd_operator: FiniteDifference<T>,
 }
 
-impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
-    /// Create new SIMPLE solver
+impl<T: RealField + FromPrimitive> SimpleSolver<T> {
+    /// Create a new SIMPLE solver
     pub fn new(config: SimpleConfig<T>, nx: usize, ny: usize) -> Self {
-        Self::new_with_properties(config, nx, ny, T::from_f64(1000.0).unwrap(), T::from_f64(0.001).unwrap())
+        Self::new_with_properties(
+            config,
+            nx,
+            ny,
+            T::from_f64(1000.0).unwrap(),  // Default water density
+            T::from_f64(0.001).unwrap(),   // Default water viscosity
+        )
     }
     
     /// Create new SIMPLE solver with fluid properties
     pub fn new_with_properties(config: SimpleConfig<T>, nx: usize, ny: usize, rho: T, mu: T) -> Self {
-        let zero_vec = Vector2::zeros();
+        let u = vec![vec![Vector2::zeros(); ny]; nx];
+        let u_star = vec![vec![Vector2::zeros(); ny]; nx];
+        let p = vec![vec![T::zero(); ny]; nx];
+        let p_prime = vec![vec![T::zero(); ny]; nx];
+        let u_face_e = vec![vec![T::zero(); ny]; nx + 1];
+        let u_face_n = vec![vec![T::zero(); ny + 1]; nx];
+        let au = vec![vec![CellCoefficients::new(); ny]; nx];
+        let av = vec![vec![CellCoefficients::new(); ny]; nx];
+        
+        // Create finite difference operator with the specified scheme
+        let fd_operator = FiniteDifference::new(config.convection_scheme.clone());
         
         Self {
             config,
             nx,
             ny,
-            u: vec![vec![zero_vec.clone(); ny]; nx],
-            u_star: vec![vec![zero_vec; ny]; nx],
-            p: vec![vec![T::zero(); ny]; nx],
-            p_prime: vec![vec![T::zero(); ny]; nx],
-            au: vec![vec![CellCoefficients::new(); ny]; nx],
-            av: vec![vec![CellCoefficients::new(); ny]; nx],
-            u_face_e: vec![vec![T::zero(); ny]; nx + 1],
-            u_face_n: vec![vec![T::zero(); ny + 1]; nx],
+            u,
+            u_star,
+            p,
+            p_prime,
+            u_face_e,
+            u_face_n,
+            au,
+            av,
             rho,
             mu,
+            fd_operator,
         }
     }
-
+    
     /// Main SIMPLE algorithm iteration
     pub fn solve_step(
         &mut self,
@@ -183,7 +207,7 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
         self.assemble_momentum_coefficients(grid)?;
         
         // Step 2: Solve momentum equations to get u*, v*
-        self.solve_momentum_predictor(grid, boundary_conditions)?;
+        self.solve_momentum(grid, boundary_conditions)?;
         
         // Step 3: Calculate face velocities using Rhie-Chow if needed
         if self.config.use_rhie_chow {
@@ -267,15 +291,16 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
         Ok(())
     }
 
-    /// Apply convection scheme (upwind, central, hybrid, or QUICK)
+    /// Apply convection scheme using the schemes module
     fn apply_convection_scheme(
         &self,
         fe: T, fw: T, fn_: T, fs: T,
         de: T, dw: T, dn: T, ds: T,
-        pe_e: T, pe_w: T, pe_n: T, pe_s: T,
+        _pe_e: T, _pe_w: T, _pe_n: T, _pe_s: T,
     ) -> (T, T, T, T) {
-        match self.config.convection_scheme.as_str() {
-            "upwind" => {
+        // Use the convection scheme from the configuration
+        match self.config.convection_scheme {
+            SpatialScheme::FirstOrderUpwind => {
                 // First-order upwind scheme
                 let ae = de.clone() + T::max(T::zero(), -fe.clone());
                 let aw = dw.clone() + T::max(T::zero(), fw.clone());
@@ -283,16 +308,18 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
                 let as_ = ds.clone() + T::max(T::zero(), fs.clone());
                 (ae, aw, an, as_)
             }
-            "central" => {
+            SpatialScheme::CentralDifference => {
                 // Central differencing (can be unstable for high Pe)
-                let ae = de.clone() - fe.clone() / T::from_f64(2.0).unwrap();
-                let aw = dw.clone() + fw.clone() / T::from_f64(2.0).unwrap();
-                let an = dn.clone() - fn_.clone() / T::from_f64(2.0).unwrap();
-                let as_ = ds.clone() + fs.clone() / T::from_f64(2.0).unwrap();
+                let two = T::from_f64(2.0).unwrap();
+                let ae = de.clone() - fe.clone() / two.clone();
+                let aw = dw.clone() + fw.clone() / two.clone();
+                let an = dn.clone() - fn_.clone() / two.clone();
+                let as_ = ds.clone() + fs.clone() / two.clone();
                 (ae, aw, an, as_)
             }
-            "hybrid" => {
-                // Hybrid scheme (Spalding 1972)
+            SpatialScheme::SecondOrderUpwind => {
+                // Hybrid scheme as a good default for second-order upwind
+                // This provides stability while maintaining reasonable accuracy
                 let two = T::from_f64(2.0).unwrap();
                 let ae = T::max(T::max(-fe.clone(), de.clone() - fe.clone() / two.clone()), T::zero());
                 let aw = T::max(T::max(fw.clone(), dw.clone() + fw.clone() / two.clone()), T::zero());
@@ -300,76 +327,218 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
                 let as_ = T::max(T::max(fs.clone(), ds.clone() + fs.clone() / two.clone()), T::zero());
                 (ae, aw, an, as_)
             }
-            "quick" => {
+            SpatialScheme::Quick => {
                 // QUICK scheme (3rd order) - Quadratic Upstream Interpolation
-                self.apply_quick_scheme(fe, fw, fn_, fs, de, dw, dn, ds)
+                // Using the proper upwinded formulation
+                let six_eighths = T::from_f64(0.75).unwrap();
+                let three_eighths = T::from_f64(0.375).unwrap();
+                let one_eighth = T::from_f64(0.125).unwrap();
+                
+                // East face coefficients
+                let ae = if fe >= T::zero() {
+                    // Flow from west to east: upstream is W, downstream is E
+                    de.clone() + fe.clone() * (six_eighths.clone() - three_eighths.clone())
+                } else {
+                    // Flow from east to west: upstream is E, downstream is W
+                    de.clone() - fe.clone() * one_eighth.clone()
+                };
+                
+                // West face coefficients
+                let aw = if fw >= T::zero() {
+                    // Flow from west to east: upstream is W, downstream is P
+                    dw.clone() + fw.clone() * one_eighth.clone()
+                } else {
+                    // Flow from east to west: upstream is P, downstream is W
+                    dw.clone() - fw.clone() * (six_eighths.clone() - three_eighths.clone())
+                };
+                
+                // North face coefficients
+                let an = if fn_ >= T::zero() {
+                    // Flow from south to north: upstream is S, downstream is N
+                    dn.clone() + fn_.clone() * (six_eighths.clone() - three_eighths.clone())
+                } else {
+                    // Flow from north to south: upstream is N, downstream is S
+                    dn.clone() - fn_.clone() * one_eighth.clone()
+                };
+                
+                // South face coefficients
+                let as_ = if fs >= T::zero() {
+                    // Flow from south to north: upstream is S, downstream is P
+                    ds.clone() + fs.clone() * one_eighth.clone()
+                } else {
+                    // Flow from north to south: upstream is P, downstream is S
+                    ds.clone() - fs.clone() * (six_eighths.clone() - three_eighths.clone())
+                };
+                
+                (ae, aw, an, as_)
             }
             _ => {
-                // Default to hybrid
-                self.apply_convection_scheme(fe, fw, fn_, fs, de, dw, dn, ds, 
-                                           pe_e, pe_w, pe_n, pe_s)
+                // Default to hybrid/second-order upwind for other schemes
+                let two = T::from_f64(2.0).unwrap();
+                let ae = T::max(T::max(-fe.clone(), de.clone() - fe.clone() / two.clone()), T::zero());
+                let aw = T::max(T::max(fw.clone(), dw.clone() + fw.clone() / two.clone()), T::zero());
+                let an = T::max(T::max(-fn_.clone(), dn.clone() - fn_.clone() / two.clone()), T::zero());
+                let as_ = T::max(T::max(fs.clone(), ds.clone() + fs.clone() / two.clone()), T::zero());
+                (ae, aw, an, as_)
             }
         }
     }
 
-    /// Apply QUICK scheme (Quadratic Upstream Interpolation for Convective Kinematics)
-    /// This is a 3rd-order upwind-biased scheme that uses quadratic interpolation
-    /// Reference: Leonard, B.P. (1979) "A stable and accurate convective modelling procedure based on quadratic upstream interpolation"
-    fn apply_quick_scheme(
-        &self,
-        fe: T, fw: T, fn_: T, fs: T,
-        de: T, dw: T, dn: T, ds: T,
-    ) -> (T, T, T, T) {
-        // QUICK scheme coefficients
-        // For uniform grid, the interpolation coefficients are:
-        // φ_f = 6/8 * φ_D + 3/8 * φ_C - 1/8 * φ_U
-        // where D = downstream, C = central, U = upstream
-        
-        let six_eighths = T::from_f64(constants::QUICK_DOWNSTREAM).unwrap_or_else(T::one);
-        let three_eighths = T::from_f64(constants::QUICK_CENTRAL).unwrap_or_else(T::one);
-        let one_eighth = T::from_f64(constants::QUICK_UPSTREAM).unwrap_or_else(T::one);
-        
-        // East face coefficients
-        let ae = if fe >= T::zero() {
-            // Flow from west to east: upstream is W, downstream is E
-            de.clone() + fe.clone() * (six_eighths.clone() - three_eighths.clone())
+    /// Solve momentum equations
+    fn solve_momentum(
+        &mut self,
+        grid: &StructuredGrid2D<T>,
+        boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
+    ) -> Result<()> {
+        if self.config.implicit_momentum {
+            self.solve_momentum_implicit(grid, boundary_conditions)
         } else {
-            // Flow from east to west: upstream is E, downstream is W
-            de.clone() - fe.clone() * one_eighth.clone()
-        };
+            self.solve_momentum_explicit(grid, boundary_conditions)
+        }
+    }
+    
+    /// Solve momentum equations implicitly using linear solver
+    fn solve_momentum_implicit(
+        &mut self,
+        grid: &StructuredGrid2D<T>,
+        boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
+    ) -> Result<()> {
+        let (dx, dy) = grid.spacing();
         
-        // West face coefficients
-        let aw = if fw >= T::zero() {
-            // Flow from west to east: upstream is W, downstream is P
-            dw.clone() + fw.clone() * one_eighth.clone()
-        } else {
-            // Flow from east to west: upstream is P, downstream is W
-            dw.clone() - fw.clone() * (six_eighths.clone() - three_eighths.clone())
-        };
+        // Solve u-momentum implicitly
+        let n_inner = (self.nx - 2) * (self.ny - 2);
+        let mut u_matrix = SparseMatrixBuilder::new(n_inner, n_inner);
+        let mut u_rhs = DVector::zeros(n_inner);
         
-        // North face coefficients
-        let an = if fn_ >= T::zero() {
-            // Flow from south to north: upstream is S, downstream is N
-            dn.clone() + fn_.clone() * (six_eighths.clone() - three_eighths.clone())
-        } else {
-            // Flow from north to south: upstream is N, downstream is S
-            dn.clone() - fn_.clone() * one_eighth.clone()
-        };
+        // Build u-momentum linear system
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                let local_idx = (i - 1) * (self.ny - 2) + (j - 1);
+                
+                if let Some(bc) = boundary_conditions.get(&(i, j)) {
+                    // Apply boundary condition
+                    u_matrix.add_entry(local_idx, local_idx, T::one())?;
+                    u_rhs[local_idx] = match bc {
+                        BoundaryCondition::Dirichlet { value } => value.clone(),
+                        BoundaryCondition::VelocityInlet { velocity } => velocity.x.clone(),
+                        _ => T::zero(),
+                    };
+                } else {
+                    let coeff = &self.au[i][j];
+                    
+                    // Diagonal coefficient
+                    u_matrix.add_entry(local_idx, local_idx, coeff.ap.clone())?;
+                    
+                    // Neighbor coefficients
+                    if i > 1 {
+                        let west_idx = (i - 2) * (self.ny - 2) + (j - 1);
+                        u_matrix.add_entry(local_idx, west_idx, -coeff.aw.clone())?;
+                    }
+                    if i < self.nx - 2 {
+                        let east_idx = i * (self.ny - 2) + (j - 1);
+                        u_matrix.add_entry(local_idx, east_idx, -coeff.ae.clone())?;
+                    }
+                    if j > 1 {
+                        let south_idx = (i - 1) * (self.ny - 2) + (j - 2);
+                        u_matrix.add_entry(local_idx, south_idx, -coeff.as_.clone())?;
+                    }
+                    if j < self.ny - 2 {
+                        let north_idx = (i - 1) * (self.ny - 2) + j;
+                        u_matrix.add_entry(local_idx, north_idx, -coeff.an.clone())?;
+                    }
+                    
+                    // RHS: source term + pressure gradient
+                    let pressure_gradient = (self.p[i+1][j].clone() - self.p[i-1][j].clone()) / 
+                                          (T::from_f64(2.0).unwrap() * dx.clone());
+                    u_rhs[local_idx] = coeff.su.clone() - pressure_gradient * dx.clone() * dy.clone();
+                }
+            }
+        }
         
-        // South face coefficients
-        let as_ = if fs >= T::zero() {
-            // Flow from south to north: upstream is S, downstream is P
-            ds.clone() + fs.clone() * one_eighth.clone()
-        } else {
-            // Flow from north to south: upstream is P, downstream is S
-            ds.clone() - fs.clone() * (six_eighths.clone() - three_eighths.clone())
-        };
+        // Solve u-momentum system
+        let u_matrix = u_matrix.build()?;
+        let solver_config = LinearSolverConfig::default();
+        let solver = BiCGSTAB::new(solver_config);
+        let u_solution = solver.solve(&u_matrix, &u_rhs, None)?;
         
-        (ae, aw, an, as_)
+        // Update u-velocity with under-relaxation
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                let local_idx = (i - 1) * (self.ny - 2) + (j - 1);
+                let u_new = u_solution[local_idx].clone();
+                self.u_star[i][j].x = self.config.alpha_u.clone() * u_new + 
+                                      (T::one() - self.config.alpha_u.clone()) * self.u[i][j].x.clone();
+            }
+        }
+        
+        // Solve v-momentum implicitly (similar structure)
+        let mut v_matrix = SparseMatrixBuilder::new(n_inner, n_inner);
+        let mut v_rhs = DVector::zeros(n_inner);
+        
+        // Build v-momentum linear system
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                let local_idx = (i - 1) * (self.ny - 2) + (j - 1);
+                
+                if let Some(bc) = boundary_conditions.get(&(i, j)) {
+                    // Apply boundary condition
+                    v_matrix.add_entry(local_idx, local_idx, T::one())?;
+                    v_rhs[local_idx] = match bc {
+                        BoundaryCondition::Dirichlet { value } => value.clone(),
+                        BoundaryCondition::VelocityInlet { velocity } => velocity.y.clone(),
+                        _ => T::zero(),
+                    };
+                } else {
+                    let coeff = &self.av[i][j];
+                    
+                    // Diagonal coefficient
+                    v_matrix.add_entry(local_idx, local_idx, coeff.ap.clone())?;
+                    
+                    // Neighbor coefficients
+                    if i > 1 {
+                        let west_idx = (i - 2) * (self.ny - 2) + (j - 1);
+                        v_matrix.add_entry(local_idx, west_idx, -coeff.aw.clone())?;
+                    }
+                    if i < self.nx - 2 {
+                        let east_idx = i * (self.ny - 2) + (j - 1);
+                        v_matrix.add_entry(local_idx, east_idx, -coeff.ae.clone())?;
+                    }
+                    if j > 1 {
+                        let south_idx = (i - 1) * (self.ny - 2) + (j - 2);
+                        v_matrix.add_entry(local_idx, south_idx, -coeff.as_.clone())?;
+                    }
+                    if j < self.ny - 2 {
+                        let north_idx = (i - 1) * (self.ny - 2) + j;
+                        v_matrix.add_entry(local_idx, north_idx, -coeff.an.clone())?;
+                    }
+                    
+                    // RHS: source term + pressure gradient
+                    let pressure_gradient = (self.p[i][j+1].clone() - self.p[i][j-1].clone()) / 
+                                          (T::from_f64(2.0).unwrap() * dy.clone());
+                    v_rhs[local_idx] = coeff.su.clone() - pressure_gradient * dx.clone() * dy.clone();
+                }
+            }
+        }
+        
+        // Solve v-momentum system
+        let v_matrix = v_matrix.build()?;
+        let v_solution = solver.solve(&v_matrix, &v_rhs, None)?;
+        
+        // Update v-velocity with under-relaxation
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                let local_idx = (i - 1) * (self.ny - 2) + (j - 1);
+                let v_new = v_solution[local_idx].clone();
+                self.u_star[i][j].y = self.config.alpha_u.clone() * v_new + 
+                                      (T::one() - self.config.alpha_u.clone()) * self.u[i][j].y.clone();
+            }
+        }
+        
+        Ok(())
     }
 
-    /// Solve momentum predictor step
-    fn solve_momentum_predictor(
+    /// Solve momentum equations explicitly (original implementation)
+    fn solve_momentum_explicit(
         &mut self,
         grid: &StructuredGrid2D<T>,
         boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
@@ -389,13 +558,13 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
                         coeff.an.clone() * self.u[i][j+1].x.clone() +
                         coeff.as_.clone() * self.u[i][j-1].x.clone();
                     
-                    // Pressure gradient (using current pressure)
+                    // Pressure gradient (central difference)
                     let pressure_gradient = (self.p[i+1][j].clone() - self.p[i-1][j].clone()) / (T::from_f64(2.0).unwrap() * dx.clone());
                     
                     // Calculate new u-velocity with under-relaxation
                     let u_new = (neighbor_sum + coeff.su.clone() - pressure_gradient * dx.clone() * dy.clone()) / coeff.ap.clone();
                     
-                    // Apply under-relaxation: u* = α*u_new + (1-α)*u_old
+                    // Apply under-relaxation
                     self.u_star[i][j].x = self.config.alpha_u.clone() * u_new + 
                                           (T::one() - self.config.alpha_u.clone()) * self.u[i][j].x.clone();
                 }
@@ -623,30 +792,137 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
         &mut self,
         boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
     ) -> Result<()> {
-        for (&(i, j), bc) in boundary_conditions {
-            if i < self.nx && j < self.ny {
-                match bc {
-                    BoundaryCondition::Dirichlet { value } => {
-                        // For velocity BC - expecting a 2D vector encoded as value
-                        // This is simplified - in practice would need better BC handling
-                        self.u[i][j] = Vector2::new(value.clone(), T::zero());
-                    }
-                    BoundaryCondition::Neumann { gradient: _ } => {
-                        // Apply gradient BC (implementation depends on specific needs)
-                    }
-                    _ => {}
-                }
+        // First, check that all boundary cells have conditions specified
+        let mut missing_bcs = Vec::new();
+        
+        // Check all boundary cells
+        for i in 0..self.nx {
+            // Bottom boundary
+            if !boundary_conditions.contains_key(&(i, 0)) {
+                missing_bcs.push((i, 0));
+            }
+            // Top boundary
+            if !boundary_conditions.contains_key(&(i, self.ny - 1)) {
+                missing_bcs.push((i, self.ny - 1));
             }
         }
         
-        // Apply no-slip walls (default boundaries)
-        for i in 0..self.nx {
-            self.u[i][0] = Vector2::zeros();
-            self.u[i][self.ny-1] = Vector2::zeros();
+        for j in 1..self.ny - 1 {
+            // Left boundary
+            if !boundary_conditions.contains_key(&(0, j)) {
+                missing_bcs.push((0, j));
+            }
+            // Right boundary
+            if !boundary_conditions.contains_key(&(self.nx - 1, j)) {
+                missing_bcs.push((self.nx - 1, j));
+            }
         }
-        for j in 0..self.ny {
-            self.u[0][j] = Vector2::zeros();
-            self.u[self.nx-1][j] = Vector2::zeros();
+        
+        if !missing_bcs.is_empty() {
+            tracing::warn!(
+                "Missing boundary conditions for {} cells. Using no-slip walls as default.",
+                missing_bcs.len()
+            );
+            // Apply default no-slip conditions for missing BCs
+            for (i, j) in missing_bcs {
+                self.u[i][j] = Vector2::zeros();
+            }
+        }
+        
+        // Apply user-specified boundary conditions
+        for (&(i, j), bc) in boundary_conditions {
+            if i >= self.nx || j >= self.ny {
+                return Err(cfd_core::Error::InvalidConfiguration(
+                    format!("Boundary condition at ({}, {}) is out of bounds", i, j)
+                ));
+            }
+            
+            match bc {
+                BoundaryCondition::Dirichlet { value } => {
+                    // For velocity BC - expecting scalar value for u-component
+                    // v-component is set to zero for simplicity
+                    self.u[i][j] = Vector2::new(value.clone(), T::zero());
+                }
+                BoundaryCondition::VelocityInlet { velocity } => {
+                    // Use x and y components of the 3D velocity vector
+                    self.u[i][j] = Vector2::new(velocity.x.clone(), velocity.y.clone());
+                }
+                BoundaryCondition::PressureOutlet { pressure } => {
+                    // Set pressure at outlet
+                    self.p[i][j] = pressure.clone();
+                    // Extrapolate velocity from interior
+                    if i > 0 {
+                        self.u[i][j] = self.u[i-1][j].clone();
+                    } else if i < self.nx - 1 {
+                        self.u[i][j] = self.u[i+1][j].clone();
+                    }
+                }
+                BoundaryCondition::Wall { wall_type } => {
+                    match wall_type {
+                        cfd_core::boundary::WallType::NoSlip => {
+                            // No-slip wall condition
+                            self.u[i][j] = Vector2::zeros();
+                        }
+                        cfd_core::boundary::WallType::Slip => {
+                            // Slip wall: zero normal velocity
+                            if i == 0 || i == self.nx - 1 {
+                                // Vertical wall: u = 0
+                                self.u[i][j].x = T::zero();
+                            } else if j == 0 || j == self.ny - 1 {
+                                // Horizontal wall: v = 0
+                                self.u[i][j].y = T::zero();
+                            }
+                        }
+                        cfd_core::boundary::WallType::Moving { velocity } => {
+                            // Moving wall with specified velocity
+                            self.u[i][j] = Vector2::new(velocity.x.clone(), velocity.y.clone());
+                        }
+                        _ => {
+                            // Other wall types not implemented
+                            self.u[i][j] = Vector2::zeros();
+                        }
+                    }
+                }
+                BoundaryCondition::Symmetry => {
+                    // Symmetry boundary: zero normal gradient
+                    // Implementation depends on boundary orientation
+                    if i == 0 || i == self.nx - 1 {
+                        // Vertical boundary: u = 0, dv/dx = 0
+                        self.u[i][j].x = T::zero();
+                        if i == 0 && i < self.nx - 1 {
+                            self.u[i][j].y = self.u[i+1][j].y.clone();
+                        } else if i == self.nx - 1 && i > 0 {
+                            self.u[i][j].y = self.u[i-1][j].y.clone();
+                        }
+                    } else if j == 0 || j == self.ny - 1 {
+                        // Horizontal boundary: v = 0, du/dy = 0
+                        self.u[i][j].y = T::zero();
+                        if j == 0 && j < self.ny - 1 {
+                            self.u[i][j].x = self.u[i][j+1].x.clone();
+                        } else if j == self.ny - 1 && j > 0 {
+                            self.u[i][j].x = self.u[i][j-1].x.clone();
+                        }
+                    }
+                }
+                BoundaryCondition::Neumann { gradient } => {
+                    // Apply gradient BC
+                    // This is a simplified implementation
+                    if i == 0 {
+                        self.u[i][j] = self.u[i+1][j].clone() - Vector2::repeat(gradient.clone());
+                    } else if i == self.nx - 1 {
+                        self.u[i][j] = self.u[i-1][j].clone() + Vector2::repeat(gradient.clone());
+                    } else if j == 0 {
+                        self.u[i][j] = self.u[i][j+1].clone() - Vector2::repeat(gradient.clone());
+                    } else if j == self.ny - 1 {
+                        self.u[i][j] = self.u[i][j-1].clone() + Vector2::repeat(gradient.clone());
+                    }
+                }
+                _ => {
+                    // Other BC types not yet implemented
+                    tracing::warn!("Boundary condition type not fully implemented, using no-slip");
+                    self.u[i][j] = Vector2::zeros();
+                }
+            }
         }
         
         Ok(())
@@ -730,6 +1006,7 @@ impl<T: RealField + FromPrimitive + Clone> SimpleSolver<T> {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use crate::grid::Grid2D;
     use cfd_core::BoundaryCondition;
     use nalgebra::Vector2;
     use std::collections::HashMap;
@@ -742,7 +1019,8 @@ mod tests {
         assert_relative_eq!(config.alpha_u, 0.7, epsilon = 1e-10);
         assert_relative_eq!(config.alpha_p, 0.3, epsilon = 1e-10);
         assert!(config.use_rhie_chow);
-        assert_eq!(config.convection_scheme, "hybrid".to_string());
+        assert_eq!(config.convection_scheme, SpatialScheme::SecondOrderUpwind);
+        assert!(config.implicit_momentum);
     }
 
     #[test]
@@ -934,7 +1212,8 @@ mod tests {
             alpha_u: 0.7,
             alpha_p: 0.3,
             use_rhie_chow: true,
-            convection_scheme: "hybrid".to_string(),
+            convection_scheme: SpatialScheme::SecondOrderUpwind,
+            implicit_momentum: true, // Explicit solver is unstable for this test
         };
         
         let mut solver = SimpleSolver::new(config, nx, ny);

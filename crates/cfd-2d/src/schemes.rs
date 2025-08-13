@@ -3,10 +3,10 @@
 //! This module provides various discretization schemes for spatial and temporal
 //! derivatives in 2D computational fluid dynamics.
 
-use nalgebra::{DMatrix, DVector, RealField};
+use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
-use crate::Error;
-use std::ops::{Index, IndexMut};
+use cfd_core::Error;
+use serde::{Deserialize, Serialize};
 
 /// Named constants for scheme parameters
 const DEFAULT_CFL_NUMBER: f64 = 0.5;
@@ -15,7 +15,7 @@ const WENO_EPSILON: f64 = 1e-6;
 const WENO_POWER: i32 = 2;
 
 /// Spatial discretization scheme
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum SpatialScheme {
     /// First-order upwind
     FirstOrderUpwind,
@@ -34,7 +34,7 @@ pub enum SpatialScheme {
 }
 
 /// Flux limiter for TVD schemes
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum FluxLimiter {
     /// No limiter (unlimited)
     None,
@@ -51,7 +51,7 @@ pub enum FluxLimiter {
 }
 
 /// Time integration scheme
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum TimeScheme {
     /// Forward Euler (explicit)
     ForwardEuler,
@@ -168,195 +168,477 @@ impl<T: RealField + FromPrimitive> Grid2D<T> {
     }
 }
 
-/// Finite difference operators for 2D grids
+/// Finite difference operator for spatial derivatives
 pub struct FiniteDifference<T: RealField> {
     scheme: SpatialScheme,
-    limiter: FluxLimiter,
+    limiter: Option<FluxLimiter>,
     _phantom: std::marker::PhantomData<T>,
 }
 
 impl<T: RealField + FromPrimitive> FiniteDifference<T> {
     /// Create a new finite difference operator
-    pub fn new(scheme: SpatialScheme, limiter: FluxLimiter) -> Self {
+    pub fn new(scheme: SpatialScheme) -> Self {
         Self {
             scheme,
-            limiter,
+            limiter: None,
             _phantom: std::marker::PhantomData,
         }
     }
     
+    /// Set flux limiter for TVD schemes
+    pub fn with_limiter(mut self, limiter: FluxLimiter) -> Self {
+        self.limiter = Some(limiter);
+        self
+    }
+    
     /// Compute x-derivative using specified scheme
-    pub fn ddx(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
+    /// For upwind schemes, velocity is required to determine direction
+    pub fn ddx(&self, grid: &Grid2D<T>, i: usize, j: usize, u_velocity: Option<T>) -> T {
         match self.scheme {
-            SpatialScheme::FirstOrderUpwind => self.first_order_upwind_x(grid, i, j),
+            SpatialScheme::FirstOrderUpwind => {
+                let u = u_velocity.unwrap_or_else(|| T::zero());
+                self.first_order_upwind_x(grid, i, j, u)
+            }
             SpatialScheme::CentralDifference => self.central_difference_x(grid, i, j),
-            SpatialScheme::SecondOrderUpwind => self.second_order_upwind_x(grid, i, j),
-            SpatialScheme::Quick => self.quick_x(grid, i, j),
-            SpatialScheme::Muscl => self.muscl_x(grid, i, j),
+            SpatialScheme::SecondOrderUpwind => {
+                let u = u_velocity.unwrap_or_else(|| T::zero());
+                self.second_order_upwind_x(grid, i, j, u)
+            }
+            SpatialScheme::Quick => {
+                let u = u_velocity.unwrap_or_else(|| T::zero());
+                self.quick_x(grid, i, j, u)
+            }
+            SpatialScheme::Muscl => {
+                let u = u_velocity.unwrap_or_else(|| T::zero());
+                self.muscl_x(grid, i, j, u)
+            }
             SpatialScheme::Weno5 => self.weno5_x(grid, i, j),
             SpatialScheme::FourthOrderCentral => self.fourth_order_central_x(grid, i, j),
         }
     }
     
     /// Compute y-derivative using specified scheme
-    pub fn ddy(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
+    /// For upwind schemes, velocity is required to determine direction
+    pub fn ddy(&self, grid: &Grid2D<T>, i: usize, j: usize, v_velocity: Option<T>) -> T {
         match self.scheme {
-            SpatialScheme::FirstOrderUpwind => self.first_order_upwind_y(grid, i, j),
+            SpatialScheme::FirstOrderUpwind => {
+                let v = v_velocity.unwrap_or_else(|| T::zero());
+                self.first_order_upwind_y(grid, i, j, v)
+            }
             SpatialScheme::CentralDifference => self.central_difference_y(grid, i, j),
-            SpatialScheme::SecondOrderUpwind => self.second_order_upwind_y(grid, i, j),
-            SpatialScheme::Quick => self.quick_y(grid, i, j),
-            SpatialScheme::Muscl => self.muscl_y(grid, i, j),
+            SpatialScheme::SecondOrderUpwind => {
+                let v = v_velocity.unwrap_or_else(|| T::zero());
+                self.second_order_upwind_y(grid, i, j, v)
+            }
+            SpatialScheme::Quick => {
+                let v = v_velocity.unwrap_or_else(|| T::zero());
+                self.quick_y(grid, i, j, v)
+            }
+            SpatialScheme::Muscl => {
+                let v = v_velocity.unwrap_or_else(|| T::zero());
+                self.muscl_y(grid, i, j, v)
+            }
             SpatialScheme::Weno5 => self.weno5_y(grid, i, j),
             SpatialScheme::FourthOrderCentral => self.fourth_order_central_y(grid, i, j),
         }
     }
     
-    /// First-order upwind in x-direction
-    fn first_order_upwind_x(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
-        // Assuming positive velocity for simplicity
-        (grid.data[(i, j)].clone() - grid.data[(i-1, j)].clone()) / grid.dx.clone()
+    /// First-order upwind in x-direction with velocity-dependent stencil
+    fn first_order_upwind_x(&self, grid: &Grid2D<T>, i: usize, j: usize, u: T) -> T {
+        if u >= T::zero() {
+            // Positive velocity: backward difference
+            if i > 0 {
+                (grid.data[(i, j)].clone() - grid.data[(i-1, j)].clone()) / grid.dx.clone()
+            } else {
+                // Use forward difference at boundary
+                (grid.data[(i+1, j)].clone() - grid.data[(i, j)].clone()) / grid.dx.clone()
+            }
+        } else {
+            // Negative velocity: forward difference
+            if i < grid.data.nrows() - 1 {
+                (grid.data[(i+1, j)].clone() - grid.data[(i, j)].clone()) / grid.dx.clone()
+            } else {
+                // Use backward difference at boundary
+                (grid.data[(i, j)].clone() - grid.data[(i-1, j)].clone()) / grid.dx.clone()
+            }
+        }
     }
     
-    /// First-order upwind in y-direction
-    fn first_order_upwind_y(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
-        (grid.data[(i, j)].clone() - grid.data[(i, j-1)].clone()) / grid.dy.clone()
+    /// First-order upwind in y-direction with velocity-dependent stencil
+    fn first_order_upwind_y(&self, grid: &Grid2D<T>, i: usize, j: usize, v: T) -> T {
+        if v >= T::zero() {
+            // Positive velocity: backward difference
+            if j > 0 {
+                (grid.data[(i, j)].clone() - grid.data[(i, j-1)].clone()) / grid.dy.clone()
+            } else {
+                // Use forward difference at boundary
+                (grid.data[(i, j+1)].clone() - grid.data[(i, j)].clone()) / grid.dy.clone()
+            }
+        } else {
+            // Negative velocity: forward difference
+            if j < grid.data.ncols() - 1 {
+                (grid.data[(i, j+1)].clone() - grid.data[(i, j)].clone()) / grid.dy.clone()
+            } else {
+                // Use backward difference at boundary
+                (grid.data[(i, j)].clone() - grid.data[(i, j-1)].clone()) / grid.dy.clone()
+            }
+        }
     }
     
-    /// Central difference in x-direction
+    /// Central difference in x-direction (velocity-independent)
     fn central_difference_x(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
-        (grid.data[(i+1, j)].clone() - grid.data[(i-1, j)].clone()) / 
-        (T::from_f64(2.0).unwrap() * grid.dx.clone())
+        if i == 0 {
+            // Forward difference at left boundary
+            (grid.data[(i+1, j)].clone() - grid.data[(i, j)].clone()) / grid.dx.clone()
+        } else if i == grid.data.nrows() - 1 {
+            // Backward difference at right boundary
+            (grid.data[(i, j)].clone() - grid.data[(i-1, j)].clone()) / grid.dx.clone()
+        } else {
+            // Central difference in interior
+            (grid.data[(i+1, j)].clone() - grid.data[(i-1, j)].clone()) / 
+            (T::from_f64(2.0).unwrap() * grid.dx.clone())
+        }
     }
     
-    /// Central difference in y-direction
+    /// Central difference in y-direction (velocity-independent)
     fn central_difference_y(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
-        (grid.data[(i, j+1)].clone() - grid.data[(i, j-1)].clone()) / 
-        (T::from_f64(2.0).unwrap() * grid.dy.clone())
+        if j == 0 {
+            // Forward difference at bottom boundary
+            (grid.data[(i, j+1)].clone() - grid.data[(i, j)].clone()) / grid.dy.clone()
+        } else if j == grid.data.ncols() - 1 {
+            // Backward difference at top boundary
+            (grid.data[(i, j)].clone() - grid.data[(i, j-1)].clone()) / grid.dy.clone()
+        } else {
+            // Central difference in interior
+            (grid.data[(i, j+1)].clone() - grid.data[(i, j-1)].clone()) / 
+            (T::from_f64(2.0).unwrap() * grid.dy.clone())
+        }
     }
     
-    /// Second-order upwind in x-direction
-    fn second_order_upwind_x(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
+    /// Second-order upwind in x-direction with velocity-dependent stencil
+    fn second_order_upwind_x(&self, grid: &Grid2D<T>, i: usize, j: usize, u: T) -> T {
         let three = T::from_f64(3.0).unwrap();
         let four = T::from_f64(4.0).unwrap();
         let two = T::from_f64(2.0).unwrap();
         
-        (three * grid.data[(i, j)].clone() - 
-         four * grid.data[(i-1, j)].clone() + 
-         grid.data[(i-2, j)].clone()) / (two * grid.dx.clone())
+        if u >= T::zero() {
+            // Positive velocity: use points i-2, i-1, i
+            if i >= 2 {
+                (three * grid.data[(i, j)].clone() - 
+                 four * grid.data[(i-1, j)].clone() + 
+                 grid.data[(i-2, j)].clone()) / (two * grid.dx.clone())
+            } else {
+                // Fall back to first-order at boundary
+                self.first_order_upwind_x(grid, i, j, u)
+            }
+        } else {
+            // Negative velocity: use points i, i+1, i+2
+            if i < grid.data.nrows() - 2 {
+                (-three * grid.data[(i, j)].clone() + 
+                 four * grid.data[(i+1, j)].clone() - 
+                 grid.data[(i+2, j)].clone()) / (two * grid.dx.clone())
+            } else {
+                // Fall back to first-order at boundary
+                self.first_order_upwind_x(grid, i, j, u)
+            }
+        }
     }
     
-    /// Second-order upwind in y-direction
-    fn second_order_upwind_y(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
+    /// Second-order upwind in y-direction with velocity-dependent stencil
+    fn second_order_upwind_y(&self, grid: &Grid2D<T>, i: usize, j: usize, v: T) -> T {
         let three = T::from_f64(3.0).unwrap();
         let four = T::from_f64(4.0).unwrap();
         let two = T::from_f64(2.0).unwrap();
         
-        (three * grid.data[(i, j)].clone() - 
-         four * grid.data[(i, j-1)].clone() + 
-         grid.data[(i, j-2)].clone()) / (two * grid.dy.clone())
+        if v >= T::zero() {
+            // Positive velocity: use points j-2, j-1, j
+            if j >= 2 {
+                (three * grid.data[(i, j)].clone() - 
+                 four * grid.data[(i, j-1)].clone() + 
+                 grid.data[(i, j-2)].clone()) / (two * grid.dy.clone())
+            } else {
+                // Fall back to first-order at boundary
+                self.first_order_upwind_y(grid, i, j, v)
+            }
+        } else {
+            // Negative velocity: use points j, j+1, j+2
+            if j < grid.data.ncols() - 2 {
+                (-three * grid.data[(i, j)].clone() + 
+                 four * grid.data[(i, j+1)].clone() - 
+                 grid.data[(i, j+2)].clone()) / (two * grid.dy.clone())
+            } else {
+                // Fall back to first-order at boundary
+                self.first_order_upwind_y(grid, i, j, v)
+            }
+        }
     }
     
-    /// QUICK scheme in x-direction (properly upwinded)
+    /// QUICK scheme in x-direction with proper velocity-dependent upwinding
     /// Reference: Leonard, B.P. (1979) "A stable and accurate convective modelling procedure"
-    fn quick_x(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
-        // QUICK requires velocity information to determine upwind direction
-        // For now, we'll use a velocity field if available, otherwise assume positive flow
-        // In practice, this should be passed as a parameter
-        
+    fn quick_x(&self, grid: &Grid2D<T>, i: usize, j: usize, u: T) -> T {
         let six_eighths = T::from_f64(0.75).unwrap();
         let three_eighths = T::from_f64(0.375).unwrap();
         let one_eighth = T::from_f64(0.125).unwrap();
         
-        // Assuming positive velocity (flow from left to right)
-        // For negative velocity, the stencil would be reversed
-        // φ_f = 6/8 * φ_D + 3/8 * φ_C - 1/8 * φ_U
-        // where D = downstream, C = central, U = upstream
-        
-        if i >= 2 && i < grid.data.nrows() - 1 {
+        if u >= T::zero() {
             // Positive flow: upstream is i-2, central is i-1, downstream is i
-            let phi_u = grid.data[(i-2, j)].clone();
-            let phi_c = grid.data[(i-1, j)].clone();
-            let phi_d = grid.data[(i, j)].clone();
-            
-            let phi_face = six_eighths * phi_d + three_eighths * phi_c - one_eighth * phi_u;
-            
-            // Compute derivative using the interpolated face value
-            (grid.data[(i+1, j)].clone() - phi_face) / grid.dx.clone()
+            if i >= 2 && i < grid.data.nrows() - 1 {
+                let phi_u = grid.data[(i-2, j)].clone();
+                let phi_c = grid.data[(i-1, j)].clone();
+                let phi_d = grid.data[(i, j)].clone();
+                
+                let phi_face = six_eighths.clone() * phi_d + three_eighths.clone() * phi_c - one_eighth.clone() * phi_u;
+                
+                // Compute derivative using the interpolated face value
+                (grid.data[(i+1, j)].clone() - phi_face) / grid.dx.clone()
+            } else {
+                // Fall back to second-order upwind at boundaries
+                self.second_order_upwind_x(grid, i, j, u)
+            }
         } else {
-            // Fall back to central difference at boundaries
-            self.central_difference_x(grid, i, j)
+            // Negative flow: upstream is i+2, central is i+1, downstream is i
+            if i < grid.data.nrows() - 2 && i > 0 {
+                let phi_u = grid.data[(i+2, j)].clone();
+                let phi_c = grid.data[(i+1, j)].clone();
+                let phi_d = grid.data[(i, j)].clone();
+                
+                let phi_face = six_eighths * phi_d + three_eighths * phi_c - one_eighth * phi_u;
+                
+                // Compute derivative using the interpolated face value
+                (phi_face - grid.data[(i-1, j)].clone()) / grid.dx.clone()
+            } else {
+                // Fall back to second-order upwind at boundaries
+                self.second_order_upwind_x(grid, i, j, u)
+            }
         }
     }
     
-    /// QUICK scheme in y-direction (properly upwinded)
-    fn quick_y(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
+    /// QUICK scheme in y-direction with proper velocity-dependent upwinding
+    fn quick_y(&self, grid: &Grid2D<T>, i: usize, j: usize, v: T) -> T {
         let six_eighths = T::from_f64(0.75).unwrap();
         let three_eighths = T::from_f64(0.375).unwrap();
         let one_eighth = T::from_f64(0.125).unwrap();
         
-        // Assuming positive velocity (flow from bottom to top)
-        if j >= 2 && j < grid.data.ncols() - 1 {
+        if v >= T::zero() {
             // Positive flow: upstream is j-2, central is j-1, downstream is j
-            let phi_u = grid.data[(i, j-2)].clone();
-            let phi_c = grid.data[(i, j-1)].clone();
-            let phi_d = grid.data[(i, j)].clone();
-            
-            let phi_face = six_eighths * phi_d + three_eighths * phi_c - one_eighth * phi_u;
-            
-            // Compute derivative using the interpolated face value
-            (grid.data[(i, j+1)].clone() - phi_face) / grid.dy.clone()
+            if j >= 2 && j < grid.data.ncols() - 1 {
+                let phi_u = grid.data[(i, j-2)].clone();
+                let phi_c = grid.data[(i, j-1)].clone();
+                let phi_d = grid.data[(i, j)].clone();
+                
+                let phi_face = six_eighths.clone() * phi_d + three_eighths.clone() * phi_c - one_eighth.clone() * phi_u;
+                
+                // Compute derivative using the interpolated face value
+                (grid.data[(i, j+1)].clone() - phi_face) / grid.dy.clone()
+            } else {
+                // Fall back to second-order upwind at boundaries
+                self.second_order_upwind_y(grid, i, j, v)
+            }
         } else {
-            // Fall back to central difference at boundaries
-            self.central_difference_y(grid, i, j)
+            // Negative flow: upstream is j+2, central is j+1, downstream is j
+            if j < grid.data.ncols() - 2 && j > 0 {
+                let phi_u = grid.data[(i, j+2)].clone();
+                let phi_c = grid.data[(i, j+1)].clone();
+                let phi_d = grid.data[(i, j)].clone();
+                
+                let phi_face = six_eighths * phi_d + three_eighths * phi_c - one_eighth * phi_u;
+                
+                // Compute derivative using the interpolated face value
+                (phi_face - grid.data[(i, j-1)].clone()) / grid.dy.clone()
+            } else {
+                // Fall back to second-order upwind at boundaries
+                self.second_order_upwind_y(grid, i, j, v)
+            }
         }
     }
     
-    /// MUSCL scheme in x-direction
-    fn muscl_x(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
-        let r = self.compute_gradient_ratio_x(grid, i, j);
-        let phi = self.apply_limiter(r);
-        
-        let half = T::from_f64(0.5).unwrap();
-        let base = (grid.data[(i+1, j)].clone() - grid.data[(i, j)].clone()) / grid.dx.clone();
-        let correction = phi * (grid.data[(i, j)].clone() - grid.data[(i-1, j)].clone()) / grid.dx.clone();
-        
-        base + half * correction
+    /// MUSCL scheme in x-direction with velocity-dependent upwinding
+    fn muscl_x(&self, grid: &Grid2D<T>, i: usize, j: usize, u: T) -> T {
+        if u >= T::zero() {
+            // Positive velocity
+            let r = self.compute_gradient_ratio_x(grid, i, j);
+            let phi = self.apply_limiter(r);
+            
+            let half = T::from_f64(0.5).unwrap();
+            let base = (grid.data[(i+1, j)].clone() - grid.data[(i, j)].clone()) / grid.dx.clone();
+            let correction = phi * (grid.data[(i, j)].clone() - grid.data[(i-1, j)].clone()) / grid.dx.clone();
+            
+            base + half * correction
+        } else {
+            // Negative velocity - reverse the stencil
+            let r = self.compute_gradient_ratio_x_negative(grid, i, j);
+            let phi = self.apply_limiter(r);
+            
+            let half = T::from_f64(0.5).unwrap();
+            let base = (grid.data[(i, j)].clone() - grid.data[(i-1, j)].clone()) / grid.dx.clone();
+            let correction = phi * (grid.data[(i+1, j)].clone() - grid.data[(i, j)].clone()) / grid.dx.clone();
+            
+            base - half * correction
+        }
     }
     
-    /// MUSCL scheme in y-direction
-    fn muscl_y(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
-        let r = self.compute_gradient_ratio_y(grid, i, j);
-        let phi = self.apply_limiter(r);
-        
-        let half = T::from_f64(0.5).unwrap();
-        let base = (grid.data[(i, j+1)].clone() - grid.data[(i, j)].clone()) / grid.dy.clone();
-        let correction = phi * (grid.data[(i, j)].clone() - grid.data[(i, j-1)].clone()) / grid.dy.clone();
-        
-        base + half * correction
+    /// MUSCL scheme in y-direction with velocity-dependent upwinding
+    fn muscl_y(&self, grid: &Grid2D<T>, i: usize, j: usize, v: T) -> T {
+        if v >= T::zero() {
+            // Positive velocity
+            let r = self.compute_gradient_ratio_y(grid, i, j);
+            let phi = self.apply_limiter(r);
+            
+            let half = T::from_f64(0.5).unwrap();
+            let base = (grid.data[(i, j+1)].clone() - grid.data[(i, j)].clone()) / grid.dy.clone();
+            let correction = phi * (grid.data[(i, j)].clone() - grid.data[(i, j-1)].clone()) / grid.dy.clone();
+            
+            base + half * correction
+        } else {
+            // Negative velocity - reverse the stencil
+            let r = self.compute_gradient_ratio_y_negative(grid, i, j);
+            let phi = self.apply_limiter(r);
+            
+            let half = T::from_f64(0.5).unwrap();
+            let base = (grid.data[(i, j)].clone() - grid.data[(i, j-1)].clone()) / grid.dy.clone();
+            let correction = phi * (grid.data[(i, j+1)].clone() - grid.data[(i, j)].clone()) / grid.dy.clone();
+            
+            base - half * correction
+        }
     }
     
-    /// WENO5 scheme in x-direction
+    /// WENO5 in x-direction
+    /// Reference: Shu, C.W. (2009) "High order weighted essentially non-oscillatory schemes"
     fn weno5_x(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
-        // WENO5 stencil points
-        let vm2 = grid.data[(i-2, j)].clone();
-        let vm1 = grid.data[(i-1, j)].clone();
-        let v0 = grid.data[(i, j)].clone();
-        let vp1 = grid.data[(i+1, j)].clone();
-        let vp2 = grid.data[(i+2, j)].clone();
+        if i < 2 || i >= grid.data.nrows() - 2 {
+            // Fall back to central difference at boundaries
+            return self.central_difference_x(grid, i, j);
+        }
         
-        // Compute WENO5 derivative
-        self.weno5_derivative(&[vm2, vm1, v0, vp1, vp2]) / grid.dx.clone()
+        // WENO5 stencil values
+        let v = [
+            grid.data[(i-2, j)].clone(),
+            grid.data[(i-1, j)].clone(),
+            grid.data[(i, j)].clone(),
+            grid.data[(i+1, j)].clone(),
+            grid.data[(i+2, j)].clone(),
+        ];
+        
+        // Three sub-stencils for reconstruction
+        let s0 = (v[0].clone() * T::from_f64(-1.0).unwrap() + 
+                  v[1].clone() * T::from_f64(3.0).unwrap() - 
+                  v[2].clone() * T::from_f64(3.0).unwrap() + 
+                  v[3].clone()) / T::from_f64(6.0).unwrap();
+                  
+        let s1 = (v[1].clone() * T::from_f64(-1.0).unwrap() + 
+                  v[3].clone()) / T::from_f64(2.0).unwrap();
+                  
+        let s2 = (v[2].clone() * T::from_f64(-3.0).unwrap() + 
+                  v[3].clone() * T::from_f64(3.0).unwrap() + 
+                  v[4].clone() * T::from_f64(-1.0).unwrap()) / T::from_f64(6.0).unwrap();
+        
+        // Compute smoothness indicators
+        let thirteen = T::from_f64(13.0).unwrap();
+        let twelve = T::from_f64(12.0).unwrap();
+        let three = T::from_f64(3.0).unwrap();
+        let four = T::from_f64(4.0).unwrap();
+        
+        let beta0 = thirteen.clone() / twelve.clone() * 
+                   (v[0].clone() - T::from_f64(2.0).unwrap() * v[1].clone() + v[2].clone()).powi(2) +
+                   T::one() / four.clone() * 
+                   (v[0].clone() - four.clone() * v[1].clone() + three.clone() * v[2].clone()).powi(2);
+        
+        let beta1 = thirteen.clone() / twelve.clone() * 
+                   (v[1].clone() - T::from_f64(2.0).unwrap() * v[2].clone() + v[3].clone()).powi(2) +
+                   T::one() / four.clone() * 
+                   (v[1].clone() - v[3].clone()).powi(2);
+        
+        let beta2 = thirteen.clone() / twelve.clone() * 
+                   (v[2].clone() - T::from_f64(2.0).unwrap() * v[3].clone() + v[4].clone()).powi(2) +
+                   T::one() / four.clone() * 
+                   (three.clone() * v[2].clone() - four.clone() * v[3].clone() + v[4].clone()).powi(2);
+        
+        // WENO weights
+        let d0 = T::from_f64(0.1).unwrap();
+        let d1 = T::from_f64(0.6).unwrap();
+        let d2 = T::from_f64(0.3).unwrap();
+        
+        let alpha0 = d0 / (T::from_f64(WENO_EPSILON).unwrap() + beta0).powi(WENO_POWER);
+        let alpha1 = d1 / (T::from_f64(WENO_EPSILON).unwrap() + beta1).powi(WENO_POWER);
+        let alpha2 = d2 / (T::from_f64(WENO_EPSILON).unwrap() + beta2).powi(WENO_POWER);
+        
+        let sum_alpha = alpha0.clone() + alpha1.clone() + alpha2.clone();
+        
+        let w0 = alpha0 / sum_alpha.clone();
+        let w1 = alpha1 / sum_alpha.clone();
+        let w2 = alpha2 / sum_alpha;
+        
+        // WENO reconstruction and derivative
+        (w0 * s0 + w1 * s1 + w2 * s2) / grid.dx.clone()
     }
     
     /// WENO5 scheme in y-direction
     fn weno5_y(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
-        let vm2 = grid.data[(i, j-2)].clone();
-        let vm1 = grid.data[(i, j-1)].clone();
-        let v0 = grid.data[(i, j)].clone();
-        let vp1 = grid.data[(i, j+1)].clone();
-        let vp2 = grid.data[(i, j+2)].clone();
+        if j < 2 || j >= grid.data.ncols() - 2 {
+            // Fall back to central difference at boundaries
+            return self.central_difference_y(grid, i, j);
+        }
         
-        self.weno5_derivative(&[vm2, vm1, v0, vp1, vp2]) / grid.dy.clone()
+        // WENO5 stencil values
+        let v = [
+            grid.data[(i, j-2)].clone(),
+            grid.data[(i, j-1)].clone(),
+            grid.data[(i, j)].clone(),
+            grid.data[(i, j+1)].clone(),
+            grid.data[(i, j+2)].clone(),
+        ];
+        
+        // Three sub-stencils for reconstruction
+        let s0 = (v[0].clone() * T::from_f64(-1.0).unwrap() + 
+                  v[1].clone() * T::from_f64(3.0).unwrap() - 
+                  v[2].clone() * T::from_f64(3.0).unwrap() + 
+                  v[3].clone()) / T::from_f64(6.0).unwrap();
+                  
+        let s1 = (v[1].clone() * T::from_f64(-1.0).unwrap() + 
+                  v[3].clone()) / T::from_f64(2.0).unwrap();
+                  
+        let s2 = (v[2].clone() * T::from_f64(-3.0).unwrap() + 
+                  v[3].clone() * T::from_f64(3.0).unwrap() + 
+                  v[4].clone() * T::from_f64(-1.0).unwrap()) / T::from_f64(6.0).unwrap();
+        
+        // Compute smoothness indicators
+        let thirteen = T::from_f64(13.0).unwrap();
+        let twelve = T::from_f64(12.0).unwrap();
+        let three = T::from_f64(3.0).unwrap();
+        let four = T::from_f64(4.0).unwrap();
+        
+        let beta0 = thirteen.clone() / twelve.clone() * 
+                   (v[0].clone() - T::from_f64(2.0).unwrap() * v[1].clone() + v[2].clone()).powi(2) +
+                   T::one() / four.clone() * 
+                   (v[0].clone() - four.clone() * v[1].clone() + three.clone() * v[2].clone()).powi(2);
+        
+        let beta1 = thirteen.clone() / twelve.clone() * 
+                   (v[1].clone() - T::from_f64(2.0).unwrap() * v[2].clone() + v[3].clone()).powi(2) +
+                   T::one() / four.clone() * 
+                   (v[1].clone() - v[3].clone()).powi(2);
+        
+        let beta2 = thirteen.clone() / twelve.clone() * 
+                   (v[2].clone() - T::from_f64(2.0).unwrap() * v[3].clone() + v[4].clone()).powi(2) +
+                   T::one() / four.clone() * 
+                   (three.clone() * v[2].clone() - four.clone() * v[3].clone() + v[4].clone()).powi(2);
+        
+        // WENO weights
+        let d0 = T::from_f64(0.1).unwrap();
+        let d1 = T::from_f64(0.6).unwrap();
+        let d2 = T::from_f64(0.3).unwrap();
+        
+        let alpha0 = d0 / (T::from_f64(WENO_EPSILON).unwrap() + beta0).powi(WENO_POWER);
+        let alpha1 = d1 / (T::from_f64(WENO_EPSILON).unwrap() + beta1).powi(WENO_POWER);
+        let alpha2 = d2 / (T::from_f64(WENO_EPSILON).unwrap() + beta2).powi(WENO_POWER);
+        
+        let sum_alpha = alpha0.clone() + alpha1.clone() + alpha2.clone();
+        
+        let w0 = alpha0 / sum_alpha.clone();
+        let w1 = alpha1 / sum_alpha.clone();
+        let w2 = alpha2 / sum_alpha;
+        
+        // WENO reconstruction and derivative
+        (w0 * s0 + w1 * s1 + w2 * s2) / grid.dy.clone()
     }
     
     /// Fourth-order explicit central difference in x-direction
@@ -373,11 +655,12 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
     /// Fourth-order explicit central difference in y-direction
     fn fourth_order_central_y(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         let twelve = T::from_f64(12.0).unwrap();
+        let eight = T::from_f64(8.0).unwrap();
         
-        (grid.data[(i, j-2)].clone() * T::from_f64(-1.0).unwrap() +
-         grid.data[(i, j-1)].clone() * T::from_f64(8.0).unwrap() -
-         grid.data[(i, j+1)].clone() * T::from_f64(8.0).unwrap() +
-         grid.data[(i, j+2)].clone()) / (twelve * grid.dy.clone())
+        (-grid.data[(i, j+2)].clone() + 
+         eight.clone() * grid.data[(i, j+1)].clone() - 
+         eight * grid.data[(i, j-1)].clone() + 
+         grid.data[(i, j-2)].clone()) / (twelve * grid.dy.clone())
     }
     
     /// Compute gradient ratio for flux limiting (x-direction)
@@ -385,7 +668,7 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
         let num = grid.data[(i, j)].clone() - grid.data[(i-1, j)].clone();
         let den = grid.data[(i+1, j)].clone() - grid.data[(i, j)].clone();
         
-        if den.abs() < T::from_f64(MIN_LIMITER_THRESHOLD).unwrap() {
+        if den.clone().abs() < T::from_f64(MIN_LIMITER_THRESHOLD).unwrap() {
             T::zero()
         } else {
             num / den
@@ -397,7 +680,31 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
         let num = grid.data[(i, j)].clone() - grid.data[(i, j-1)].clone();
         let den = grid.data[(i, j+1)].clone() - grid.data[(i, j)].clone();
         
-        if den.abs() < T::from_f64(MIN_LIMITER_THRESHOLD).unwrap() {
+        if den.clone().abs() < T::from_f64(MIN_LIMITER_THRESHOLD).unwrap() {
+            T::zero()
+        } else {
+            num / den
+        }
+    }
+
+    /// Compute gradient ratio for flux limiting (x-direction) for negative velocity
+    fn compute_gradient_ratio_x_negative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
+        let num = grid.data[(i, j)].clone() - grid.data[(i+1, j)].clone();
+        let den = grid.data[(i-1, j)].clone() - grid.data[(i, j)].clone();
+        
+        if den.clone().abs() < T::from_f64(MIN_LIMITER_THRESHOLD).unwrap() {
+            T::zero()
+        } else {
+            num / den
+        }
+    }
+
+    /// Compute gradient ratio for flux limiting (y-direction) for negative velocity
+    fn compute_gradient_ratio_y_negative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
+        let num = grid.data[(i, j)].clone() - grid.data[(i, j+1)].clone();
+        let den = grid.data[(i, j-1)].clone() - grid.data[(i, j)].clone();
+        
+        if den.clone().abs() < T::from_f64(MIN_LIMITER_THRESHOLD).unwrap() {
             T::zero()
         } else {
             num / den
@@ -407,12 +714,13 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
     /// Apply flux limiter
     fn apply_limiter(&self, r: T) -> T {
         match self.limiter {
-            FluxLimiter::None => T::one(),
-            FluxLimiter::MinMod => self.minmod_limiter(r),
-            FluxLimiter::VanLeer => self.vanleer_limiter(r),
-            FluxLimiter::VanAlbada => self.vanalbada_limiter(r),
-            FluxLimiter::Superbee => self.superbee_limiter(r),
-            FluxLimiter::MC => self.mc_limiter(r),
+            Some(FluxLimiter::None) => T::one(),
+            Some(FluxLimiter::MinMod) => self.minmod_limiter(r),
+            Some(FluxLimiter::VanLeer) => self.van_leer_limiter(r),
+            Some(FluxLimiter::VanAlbada) => self.van_albada_limiter(r),
+            Some(FluxLimiter::Superbee) => self.superbee_limiter(r),
+            Some(FluxLimiter::MC) => self.mc_limiter(r),
+            None => T::one(), // No limiter
         }
     }
     
@@ -422,13 +730,13 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
     }
     
     /// Van Leer limiter
-    fn vanleer_limiter(&self, r: T) -> T {
-        let two = T::from_f64(2.0).unwrap();
-        (r.clone() + r.abs()) / (T::one() + r.abs())
+    fn van_leer_limiter(&self, r: T) -> T {
+        let abs_r = r.clone().abs();
+        (r.clone() + abs_r.clone()) / (T::one() + abs_r)
     }
     
     /// Van Albada limiter
-    fn vanalbada_limiter(&self, r: T) -> T {
+    fn van_albada_limiter(&self, r: T) -> T {
         (r.clone() * r.clone() + r.clone()) / (r.clone() * r + T::one())
     }
     
@@ -436,7 +744,7 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
     fn superbee_limiter(&self, r: T) -> T {
         let two = T::from_f64(2.0).unwrap();
         T::zero().max(T::one().min(two.clone() * r.clone()))
-            .max(T::two().min(r))
+            .max(two.clone().min(r))
     }
     
     /// MC (Monotonized Central) limiter
@@ -448,62 +756,6 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
             ((T::one() + r.clone()) * half).min(two.clone())
                 .min(two * r)
         )
-    }
-    
-    /// WENO5 derivative computation
-    fn weno5_derivative(&self, v: &[T; 5]) -> T {
-        let eps = T::from_f64(WENO_EPSILON).unwrap();
-        
-        // Three sub-stencils
-        let s0 = (v[0].clone() * T::from_f64(-1.0).unwrap() + 
-                  v[1].clone() * T::from_f64(3.0).unwrap() - 
-                  v[2].clone() * T::from_f64(3.0).unwrap() + 
-                  v[3].clone()) / T::from_f64(6.0).unwrap();
-                  
-        let s1 = (v[1].clone() * T::from_f64(-1.0).unwrap() + 
-                  v[3].clone()) / T::from_f64(2.0).unwrap();
-                  
-        let s2 = (v[2].clone() * T::from_f64(-3.0).unwrap() + 
-                  v[3].clone() * T::from_f64(3.0).unwrap() + 
-                  v[4].clone() * T::from_f64(-1.0).unwrap()) / T::from_f64(6.0).unwrap();
-        
-        // Smoothness indicators
-        let thirteen = T::from_f64(13.0).unwrap();
-        let twelve = T::from_f64(12.0).unwrap();
-        
-        let beta0 = thirteen / twelve * 
-            (v[0].clone() - T::from_f64(2.0).unwrap() * v[1].clone() + v[2].clone()).powi(2) +
-            T::from_f64(0.25).unwrap() * 
-            (v[0].clone() - T::from_f64(4.0).unwrap() * v[1].clone() + 
-             T::from_f64(3.0).unwrap() * v[2].clone()).powi(2);
-             
-        let beta1 = thirteen / twelve * 
-            (v[1].clone() - T::from_f64(2.0).unwrap() * v[2].clone() + v[3].clone()).powi(2) +
-            T::from_f64(0.25).unwrap() * (v[1].clone() - v[3].clone()).powi(2);
-            
-        let beta2 = thirteen / twelve * 
-            (v[2].clone() - T::from_f64(2.0).unwrap() * v[3].clone() + v[4].clone()).powi(2) +
-            T::from_f64(0.25).unwrap() * 
-            (T::from_f64(3.0).unwrap() * v[2].clone() - 
-             T::from_f64(4.0).unwrap() * v[3].clone() + v[4].clone()).powi(2);
-        
-        // WENO weights
-        let d0 = T::from_f64(0.1).unwrap();
-        let d1 = T::from_f64(0.6).unwrap();
-        let d2 = T::from_f64(0.3).unwrap();
-        
-        let alpha0 = d0 / (eps.clone() + beta0).powi(WENO_POWER);
-        let alpha1 = d1 / (eps.clone() + beta1).powi(WENO_POWER);
-        let alpha2 = d2 / (eps + beta2).powi(WENO_POWER);
-        
-        let sum_alpha = alpha0.clone() + alpha1.clone() + alpha2.clone();
-        
-        let w0 = alpha0 / sum_alpha.clone();
-        let w1 = alpha1 / sum_alpha.clone();
-        let w2 = alpha2 / sum_alpha;
-        
-        // WENO reconstruction
-        w0 * s0 + w1 * s1 + w2 * s2
     }
     
     /// Compute second derivative in x-direction
@@ -671,8 +923,8 @@ mod tests {
             }
         }
         
-        let fd = FiniteDifference::new(SpatialScheme::CentralDifference, FluxLimiter::None);
-        let ddx = fd.ddx(&grid, 4, 4);
+        let fd = FiniteDifference::new(SpatialScheme::CentralDifference);
+        let ddx = fd.ddx(&grid, 4, 4, None);
         
         // For u = x, du/dx = 1
         assert!((ddx - 1.0).abs() < 1e-10);

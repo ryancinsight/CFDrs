@@ -1,13 +1,15 @@
-//! Linear solver implementations.
+//! Linear solver implementations for CFD applications.
 //!
-//! This module provides iterative linear solvers for sparse systems
-//! following literature-validated algorithms with zero-copy operations.
+//! This module provides various iterative linear solvers optimized for
+//! sparse matrices arising from CFD discretizations.
 
 use cfd_core::{Error, Result};
 use nalgebra::{ComplexField, DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::{cast::FromPrimitive, Float};
 use std::fmt::Debug;
+
+use crate::sparse::SparseMatrixBuilder;
 
 // Re-export the unified configuration from cfd-core
 pub use cfd_core::{LinearSolverConfig, SolverConfiguration};
@@ -33,16 +35,326 @@ pub trait LinearSolver<T: RealField>: Send + Sync {
 
 /// Preconditioner trait
 pub trait Preconditioner<T: RealField>: Send + Sync {
-    /// Apply preconditioner: solve M * z = r
-    fn apply(&self, r: &DVector<T>) -> DVector<T>;
+    /// Apply preconditioner: solve M * z = r, storing result in z
+    /// 
+    /// # Arguments
+    /// * `r` - Right-hand side vector
+    /// * `z` - Output vector (pre-allocated)
+    fn apply(&self, r: &DVector<T>, z: &mut DVector<T>);
 }
 
 /// Identity preconditioner (no preconditioning)
 pub struct IdentityPreconditioner;
 
 impl<T: RealField> Preconditioner<T> for IdentityPreconditioner {
-    fn apply(&self, r: &DVector<T>) -> DVector<T> {
-        r.clone()
+    fn apply(&self, r: &DVector<T>, z: &mut DVector<T>) {
+        z.copy_from(r);
+    }
+}
+
+/// Jacobi (diagonal) preconditioner
+/// 
+/// Uses the diagonal of the matrix as preconditioner: M = diag(A)
+pub struct JacobiPreconditioner<T: RealField> {
+    /// Inverse of diagonal elements
+    inv_diagonal: DVector<T>,
+}
+
+impl<T: RealField> JacobiPreconditioner<T> {
+    /// Create Jacobi preconditioner from matrix
+    pub fn new(a: &CsrMatrix<T>) -> Result<Self> {
+        let n = a.nrows();
+        let mut inv_diagonal = DVector::zeros(n);
+        
+        // Extract diagonal elements
+        for i in 0..n {
+            let mut diag = T::zero();
+            let row = a.row(i);
+            for (&j, val) in row.col_indices().iter().zip(row.values()) {
+                if i == j {
+                    diag = val.clone();
+                    break;
+                }
+            }
+            
+            if ComplexField::abs(diag.clone()) < T::from_f64(1e-14).unwrap() {
+                return Err(Error::NumericalError(
+                    format!("Zero diagonal element at row {}", i)
+                ));
+            }
+            inv_diagonal[i] = T::one() / diag;
+        }
+        
+        Ok(Self { inv_diagonal })
+    }
+}
+
+impl<T: RealField> Preconditioner<T> for JacobiPreconditioner<T> {
+    fn apply(&self, r: &DVector<T>, z: &mut DVector<T>) {
+        // z = inv_diagonal .* r (element-wise multiplication)
+        z.copy_from(r);
+        z.component_mul_assign(&self.inv_diagonal);
+    }
+}
+
+/// SOR (Successive Over-Relaxation) preconditioner
+/// 
+/// Uses forward SOR sweep as preconditioner: M = (D + ωL)
+pub struct SORPreconditioner<T: RealField> {
+    /// Matrix in CSR format
+    matrix: CsrMatrix<T>,
+    /// Relaxation parameter (typically 1.0 < ω < 2.0)
+    omega: T,
+}
+
+impl<T: RealField + FromPrimitive> SORPreconditioner<T> {
+    /// Create SOR preconditioner with given relaxation parameter
+    pub fn new(a: &CsrMatrix<T>, omega: T) -> Result<Self> {
+        if omega <= T::zero() || omega >= T::from_f64(2.0).unwrap() {
+            return Err(Error::InvalidConfiguration(
+                "SOR relaxation parameter must be in (0, 2)".to_string()
+            ));
+        }
+        
+        Ok(Self {
+            matrix: a.clone(),
+            omega,
+        })
+    }
+    
+    /// Create with optimal omega for symmetric positive definite matrices
+    /// ω_opt = 2 / (1 + sin(π/n))
+    pub fn with_optimal_omega(a: &CsrMatrix<T>) -> Result<Self> {
+        let n = a.nrows() as f64;
+        let omega_opt = 2.0 / (1.0 + (std::f64::consts::PI / n).sin());
+        let omega = T::from_f64(omega_opt).unwrap();
+        Self::new(a, omega)
+    }
+}
+
+impl<T: RealField> Preconditioner<T> for SORPreconditioner<T> {
+    fn apply(&self, r: &DVector<T>, z: &mut DVector<T>) {
+        let n = r.len();
+        z.fill(T::zero());
+        
+        // Forward SOR sweep: (D + ωL)z = r
+        for i in 0..n {
+            let mut sum = r[i].clone();
+            let mut diag = T::one();
+            
+            let row = self.matrix.row(i);
+            for (&j, val) in row.col_indices().iter().zip(row.values()) {
+                if j < i {
+                    sum = sum - val.clone() * z[j].clone() * self.omega.clone();
+                } else if j == i {
+                    diag = val.clone();
+                }
+            }
+            
+            z[i] = sum / (diag * self.omega.clone());
+        }
+    }
+}
+
+/// ILU(0) (Incomplete LU factorization with zero fill-in) preconditioner
+/// 
+/// Computes incomplete LU factorization preserving the sparsity pattern
+pub struct ILU0Preconditioner<T: RealField> {
+    /// Lower triangular factor (including unit diagonal)
+    l_factor: CsrMatrix<T>,
+    /// Upper triangular factor (including diagonal)
+    u_factor: CsrMatrix<T>,
+}
+
+impl<T: RealField + FromPrimitive> ILU0Preconditioner<T> {
+    /// Create ILU(0) preconditioner from matrix
+    /// 
+    /// This implementation works directly with sparse matrices without
+    /// creating dense intermediate storage, making it suitable for large CFD problems.
+    pub fn new(a: &CsrMatrix<T>) -> Result<Self> {
+        let n = a.nrows();
+        if n != a.ncols() {
+            return Err(Error::InvalidConfiguration(
+                "ILU0 requires square matrix".to_string()
+            ));
+        }
+        
+        // Clone the input matrix pattern and values for in-place factorization
+        // We'll work directly with CSR format
+        let mut row_offsets = Vec::with_capacity(n + 1);
+        let mut col_indices = Vec::new();
+        let mut values = Vec::new();
+        
+        // Copy the matrix structure
+        row_offsets.push(0);
+        for i in 0..n {
+            let row = a.row(i);
+            let start = col_indices.len();
+            
+            // Collect this row's entries
+            let mut row_entries: Vec<(usize, T)> = Vec::new();
+            for (&j, val) in row.col_indices().iter().zip(row.values()) {
+                row_entries.push((j, val.clone()));
+            }
+            
+            // Ensure diagonal entry exists (add zero if missing)
+            if !row_entries.iter().any(|(j, _)| *j == i) {
+                row_entries.push((i, T::zero()));
+            }
+            
+            // Sort by column index to maintain CSR format
+            row_entries.sort_by_key(|(j, _)| *j);
+            
+            // Add to arrays
+            for (j, val) in row_entries {
+                col_indices.push(j);
+                values.push(val);
+            }
+            
+            row_offsets.push(col_indices.len());
+        }
+        
+        // Perform ILU(0) factorization in-place
+        // Algorithm: for each row k, update rows i > k that have a_ik != 0
+        for k in 0..n {
+            // Find diagonal element a_kk
+            let k_start = row_offsets[k];
+            let k_end = row_offsets[k + 1];
+            
+            let mut diag_idx = None;
+            for idx in k_start..k_end {
+                if col_indices[idx] == k {
+                    diag_idx = Some(idx);
+                    break;
+                }
+            }
+            
+            let diag_idx = diag_idx.ok_or_else(|| {
+                Error::NumericalError(format!("Missing diagonal element at row {}", k))
+            })?;
+            
+            if ComplexField::abs(values[diag_idx].clone()) < T::from_f64(1e-14).unwrap() {
+                return Err(Error::NumericalError(
+                    format!("Zero pivot encountered at row {}", k)
+                ));
+            }
+            
+            let diag_k = values[diag_idx].clone();
+            
+            // Update subsequent rows that have non-zero in column k
+            for i in (k + 1)..n {
+                let i_start = row_offsets[i];
+                let i_end = row_offsets[i + 1];
+                
+                // Find a_ik
+                let mut ik_idx = None;
+                for idx in i_start..i_end {
+                    if col_indices[idx] == k {
+                        ik_idx = Some(idx);
+                        break;
+                    }
+                    if col_indices[idx] > k {
+                        break; // CSR is sorted, so we won't find it
+                    }
+                }
+                
+                if let Some(ik_idx) = ik_idx {
+                    // Compute multiplier l_ik = a_ik / a_kk
+                    values[ik_idx] = values[ik_idx].clone() / diag_k.clone();
+                    let l_ik = values[ik_idx].clone();
+                    
+                    // Update row i: a_ij = a_ij - l_ik * a_kj for j > k
+                    // Only update entries that exist in the sparsity pattern (ILU(0))
+                    
+                    // Build a map of column indices to value indices for row k
+                    let mut k_row_map = std::collections::HashMap::new();
+                    for idx in k_start..k_end {
+                        if col_indices[idx] > k {
+                            k_row_map.insert(col_indices[idx], idx);
+                        }
+                    }
+                    
+                    // Update entries in row i
+                    for idx in i_start..i_end {
+                        let j = col_indices[idx];
+                        if j > k {
+                            // Check if a_kj exists
+                            if let Some(&k_idx) = k_row_map.get(&j) {
+                                values[idx] = values[idx].clone() - l_ik.clone() * values[k_idx].clone();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Extract L and U factors from the factorized matrix
+        let mut l_builder = SparseMatrixBuilder::new(n, n);
+        let mut u_builder = SparseMatrixBuilder::new(n, n);
+        
+        for i in 0..n {
+            let start = row_offsets[i];
+            let end = row_offsets[i + 1];
+            
+            for idx in start..end {
+                let j = col_indices[idx];
+                let val = values[idx].clone();
+                
+                if j < i {
+                    // Strictly lower triangular part goes to L
+                    l_builder.add_entry(i, j, val);
+                } else if j == i {
+                    // Diagonal: L gets 1, U gets the actual value
+                    l_builder.add_entry(i, j, T::one());
+                    u_builder.add_entry(i, j, val);
+                } else {
+                    // Upper triangular part goes to U
+                    u_builder.add_entry(i, j, val);
+                }
+            }
+        }
+        
+        Ok(Self {
+            l_factor: l_builder.build()?,
+            u_factor: u_builder.build()?,
+        })
+    }
+}
+
+impl<T: RealField> Preconditioner<T> for ILU0Preconditioner<T> {
+    fn apply(&self, r: &DVector<T>, z: &mut DVector<T>) {
+        let n = r.len();
+        
+        // Forward substitution: L * y = r
+        let mut y: DVector<T> = DVector::zeros(n);
+        for i in 0..n {
+            let mut sum = r[i].clone();
+            let row = self.l_factor.row(i);
+            for (&j, val) in row.col_indices().iter().zip(row.values()) {
+                if j < i {
+                    sum = sum - val.clone() * y[j].clone();
+                }
+            }
+            y[i] = sum;
+        }
+        
+        // Backward substitution: U * z = y
+        z.fill(T::zero());
+        for i in (0..n).rev() {
+            let mut sum = y[i].clone();
+            let mut diag = T::one();
+            
+            let row = self.u_factor.row(i);
+            for (&j, val) in row.col_indices().iter().zip(row.values()) {
+                if j > i {
+                    sum = sum - val.clone() * z[j].clone();
+                } else if j == i {
+                    diag = val.clone();
+                }
+            }
+            
+            z[i] = sum / diag;
+        }
     }
 }
 
@@ -97,19 +409,13 @@ impl<T: RealField + Debug> LinearSolver<T> for ConjugateGradient<T> {
             let ap = a * &p;
             let alpha = rsold.clone() / p.dot(&ap);
             
-            // Zero-copy update using advanced iterator combinators for SIMD optimization
-            // Use zero-copy in-place operations for better performance
-            x.iter_mut()
-                .zip(p.iter())
-                .for_each(|(xi, pi)| *xi += alpha.clone() * pi.clone());
-
-            r.iter_mut()
-                .zip(ap.iter())
-                .for_each(|(ri, api)| *ri -= alpha.clone() * api.clone());
+            // Use in-place nalgebra operations for efficiency
+            x.axpy(alpha.clone(), &p, T::one());  // x = x + alpha * p
+            r.axpy(-alpha.clone(), &ap, T::one()); // r = r - alpha * ap
             
             let rsnew = r.dot(&r);
             
-            // Check convergence using zero-copy norm computation
+            // Check convergence
             if self.is_converged(rsnew.clone().sqrt()) {
                 tracing::debug!("CG converged in {} iterations", iter + 1);
                 return Ok(x);
@@ -117,10 +423,10 @@ impl<T: RealField + Debug> LinearSolver<T> for ConjugateGradient<T> {
 
             let beta = rsnew.clone() / rsold;
 
-            // Zero-copy search direction update
-            p.iter_mut()
-                .zip(r.iter())
-                .for_each(|(pi, ri)| *pi = ri.clone() + beta.clone() * pi.clone());
+            // Update search direction: p = r + beta * p
+            // We need to compute p_new = r + beta * p_old
+            p *= beta;  // First scale p by beta
+            p += &r;    // Then add r
 
             rsold = rsnew;
         }
@@ -170,7 +476,7 @@ impl<T: RealField + Float> GMRES<T> {
         Ok(())
     }
 
-    /// Perform one GMRES cycle
+    /// GMRES iteration (one restart cycle)
     fn gmres_cycle(
         &self,
         a: &CsrMatrix<T>,
@@ -178,97 +484,147 @@ impl<T: RealField + Float> GMRES<T> {
         beta: T,
         restart: usize,
     ) -> Result<DVector<T>> {
-        let mut q = vec![r / beta.clone()];
-        let mut h: Vec<Vec<T>> = (0..=restart).map(|_| Vec::new()).collect();
+        let _n = r.len();
+        
+        // Initialize Krylov subspace basis
+        let mut q = Vec::with_capacity(restart + 1);
+        q.push(r / beta.clone());
+        
+        // Hessenberg matrix stored as flat vector in column-major order
+        // H is (restart+1) x restart
+        let mut h = vec![T::zero(); (restart + 1) * restart];
+        
+        // Givens rotation coefficients
+        let mut cs = Vec::with_capacity(restart);
+        let mut sn = Vec::with_capacity(restart);
+        
+        // Right-hand side for least squares problem
         let mut g = DVector::zeros(restart + 1);
         g[0] = beta;
-
-        let mut cs: Vec<T> = Vec::with_capacity(restart);
-        let mut sn: Vec<T> = Vec::with_capacity(restart);
-
+        
         for k in 0..restart {
-            let q_new = self.arnoldi_step(a, &q, &mut h, k);
-            q.push(q_new);
-
-            self.apply_previous_rotations(&mut h, &cs, &sn, k);
-            let (c, s) = self.compute_givens_rotation(&mut h, k)?;
+            // Arnoldi step
+            let qk_plus_1 = self.arnoldi_step(a, &q, &mut h, k, restart)?;
+            q.push(qk_plus_1);
+            
+            // Apply previous Givens rotations to new column
+            self.apply_previous_rotations(&mut h, &cs, &sn, k, restart);
+            
+            // Compute new Givens rotation
+            let (c, s) = self.compute_givens_rotation(&mut h, k, restart)?;
             cs.push(c.clone());
             sn.push(s.clone());
-
+            
+            // Update residual
             self.update_residual(&mut g, c, s, k);
-
+            
+            // Check convergence
             let residual_norm = ComplexField::abs(g[k + 1].clone());
             if self.is_converged(residual_norm) {
-                let y = self.solve_upper_triangular(&h, &g, k + 1)?;
+                let y = self.solve_upper_triangular(&h, &g, k + 1, restart)?;
                 return Ok(self.compute_correction(&q, &y));
             }
         }
 
-        let y = self.solve_upper_triangular(&h, &g, restart)?;
+        let y = self.solve_upper_triangular(&h, &g, restart, restart)?;
         Ok(self.compute_correction(&q, &y))
     }
 
-    /// Arnoldi process for building orthonormal basis
+    /// Arnoldi process for building orthonormal basis with in-place operations
     fn arnoldi_step(
         &self,
         a: &CsrMatrix<T>,
         q: &[DVector<T>],
-        h: &mut Vec<Vec<T>>,
+        h: &mut Vec<T>,
         k: usize,
-    ) -> DVector<T> {
+        restart: usize,
+    ) -> Result<DVector<T>> {
         let mut v = a * &q[k];
 
-        // Orthogonalize against previous vectors
-        for (i, qi) in q.iter().enumerate().take(k + 1) {
-            let hij = v.dot(qi);
-            h[i].push(hij.clone());
-            v = &v - &(qi * hij);
+        // Modified Gram-Schmidt orthogonalization with in-place operations
+        for i in 0..=k {
+            let hij = v.dot(&q[i]);
+            
+            // Store in column-major order: h[i][k] = h[i + k * (restart + 1)]
+            h[i + k * (restart + 1)] = hij.clone();
+            
+            // In-place subtraction: v = v - hij * q[i]
+            v.axpy(-hij.clone(), &q[i], T::one());
+            
+            // Re-orthogonalize for better numerical stability
+            let hij_correction = v.dot(&q[i]);
+            if ComplexField::abs(hij_correction.clone()) > T::from_f64(1e-10).unwrap() {
+                h[i + k * (restart + 1)] = h[i + k * (restart + 1)].clone() + hij_correction.clone();
+                v.axpy(-hij_correction, &q[i], T::one());
+            }
         }
 
         // Normalize
         let norm = v.norm();
-        h[k + 1].push(norm.clone());
-        v / norm
+        if norm < T::from_f64(1e-14).unwrap() {
+            // Handle breakdown - vector is in the span of previous vectors
+            h[(k + 1) + k * (restart + 1)] = T::zero();
+            Ok(DVector::zeros(v.len()))
+        } else {
+            h[(k + 1) + k * (restart + 1)] = norm.clone();
+            Ok(v / norm)
+        }
     }
 
     /// Apply previous Givens rotations to current column
-    fn apply_previous_rotations(&self, h: &mut Vec<Vec<T>>, cs: &[T], sn: &[T], k: usize) {
+    fn apply_previous_rotations(&self, h: &mut Vec<T>, cs: &[T], sn: &[T], k: usize, restart: usize) {
         for i in 0..k {
+            let idx_i = i + k * (restart + 1);
+            let idx_ip1 = (i + 1) + k * (restart + 1);
+            
             let (h_new, h_ip1_new) = Self::apply_givens_rotation(
                 cs[i].clone(),
                 sn[i].clone(),
-                h[i][k].clone(),
-                h[i + 1][k].clone(),
+                h[idx_i].clone(),
+                h[idx_ip1].clone(),
             );
-            h[i][k] = h_new;
-            h[i + 1][k] = h_ip1_new;
+            h[idx_i] = h_new;
+            h[idx_ip1] = h_ip1_new;
         }
     }
 
     /// Compute new Givens rotation coefficients
-    fn compute_givens_rotation(&self, h: &mut Vec<Vec<T>>, k: usize) -> Result<(T, T)> {
-        // Ensure h[k] and h[k+1] have enough elements
-        while h[k].len() <= k {
-            h[k].push(T::zero());
+    fn compute_givens_rotation(&self, h: &mut Vec<T>, k: usize, restart: usize) -> Result<(T, T)> {
+        let idx_k = k + k * (restart + 1);
+        let idx_kp1 = (k + 1) + k * (restart + 1);
+        
+        let h_k = h[idx_k].clone();
+        let h_kp1 = h[idx_kp1].clone();
+        
+        // Improved numerical stability for Givens rotation
+        if ComplexField::abs(h_kp1.clone()) < T::from_f64(1e-14).unwrap() {
+            // h_kp1 is essentially zero
+            let c = if ComplexField::abs(h_k.clone()) < T::from_f64(1e-14).unwrap() {
+                T::one()
+            } else {
+                ComplexField::signum(h_k.clone())
+            };
+            h[idx_k] = ComplexField::abs(h_k);
+            h[idx_kp1] = T::zero();
+            return Ok((c, T::zero()));
         }
-        while h[k + 1].len() <= k {
-            h[k + 1].push(T::zero());
-        }
-
-        let h_k = h[k][k].clone();
-        let h_kp1 = h[k + 1][k].clone();
-        let r_k = ComplexField::sqrt(h_k.clone() * h_k.clone() + h_kp1.clone() * h_kp1.clone());
-
-        let (c, s) = if r_k < T::epsilon() {
-            (T::one(), T::zero())
+        
+        // Use more stable formulation
+        if ComplexField::abs(h_kp1.clone()) > ComplexField::abs(h_k.clone()) {
+            let tau = h_k.clone() / h_kp1.clone();
+            let s = T::one() / ComplexField::sqrt(T::one() + tau.clone() * tau.clone());
+            let c = s.clone() * tau;
+            h[idx_k] = h_kp1.clone() / s;
+            h[idx_kp1] = T::zero();
+            Ok((c, s))
         } else {
-            (h_k / r_k.clone(), h_kp1 / r_k.clone())
-        };
-
-        h[k][k] = r_k;
-        h[k + 1][k] = T::zero();
-
-        Ok((c, s))
+            let tau = h_kp1.clone() / h_k.clone();
+            let c = T::one() / ComplexField::sqrt(T::one() + tau.clone() * tau.clone());
+            let s = c.clone() * tau;
+            h[idx_k] = h_k.clone() / c;
+            h[idx_kp1] = T::zero();
+            Ok((c, s))
+        }
     }
 
     /// Update residual vector using Givens rotation
@@ -278,17 +634,19 @@ impl<T: RealField + Float> GMRES<T> {
     }
 
     /// Solve upper triangular system by back substitution
-    fn solve_upper_triangular(&self, h: &[Vec<T>], g: &DVector<T>, size: usize) -> Result<DVector<T>> {
+    fn solve_upper_triangular(&self, h: &[T], g: &DVector<T>, size: usize, restart: usize) -> Result<DVector<T>> {
         let mut y: DVector<T> = DVector::zeros(size);
         for i in (0..size).rev() {
             let mut yi = g[i].clone();
             for j in (i + 1)..size {
-                yi = yi - h[i][j].clone() * y[j].clone();
+                let h_ij = h[i + j * (restart + 1)];
+                yi = yi - h_ij.clone() * y[j].clone();
             }
-            if h[i][i] == T::zero() {
+            let h_ii = h[i + i * (restart + 1)];
+            if h_ii == T::zero() {
                 return Err(Error::NumericalError("Singular matrix in GMRES".to_string()));
             }
-            y[i] = yi / h[i][i].clone();
+            y[i] = yi / h_ii.clone();
         }
         Ok(y)
     }
@@ -297,7 +655,7 @@ impl<T: RealField + Float> GMRES<T> {
     fn compute_correction(&self, q: &[DVector<T>], y: &DVector<T>) -> DVector<T> {
         let mut correction = DVector::zeros(q[0].len());
         for (i, yi) in y.iter().enumerate() {
-            correction += &q[i] * yi.clone();
+            correction.axpy(yi.clone(), &q[i], T::one());
         }
         correction
     }
@@ -386,51 +744,65 @@ impl<T: RealField + Debug> LinearSolver<T> for BiCGSTAB<T> {
 
         // Initialize
         let mut r = b - a * &x;
+        let initial_residual_norm = r.norm();
+        
+        // Compute breakdown tolerance relative to initial residual
+        let breakdown_tolerance = initial_residual_norm * T::from_f64(1e-14).unwrap();
+        
         let r0_hat = r.clone(); // Arbitrary choice, could be different
         let mut rho = T::one();
         let mut alpha = T::one();
         let mut omega = T::one();
         let mut p = DVector::zeros(n);
         let mut v = DVector::zeros(n);
+        let mut s = DVector::zeros(n);
+        let mut t: DVector<T> = DVector::zeros(n);
 
         for iter in 0..self.config.max_iterations() {
             let rho_new = r0_hat.dot(&r);
             
-            if rho_new.clone().abs() < T::from_f64(1e-14).unwrap() {
+            // Use relative tolerance for breakdown detection
+            if rho_new.clone().abs() < breakdown_tolerance {
                 return Err(Error::NumericalError(
-                    "BiCGSTAB breakdown: rho = 0".to_string(),
+                    "BiCGSTAB breakdown: rho is close to zero relative to initial residual".to_string(),
                 ));
             }
 
             let beta = (rho_new.clone() / rho.clone()) * (alpha.clone() / omega.clone());
             
-            // Update search direction
-            p = &r + &((&p - &(&v * omega.clone())) * beta);
+            // Update search direction using in-place operations
+            // p = r + beta * (p - omega * v)
+            p.axpy(-omega.clone(), &v, T::one()); // p = p - omega * v
+            p *= beta;                      // p = beta * p
+            p += &r;                        // p = p + r
             
             // Matrix-vector product
             v = a * &p;
             alpha = rho_new.clone() / r0_hat.dot(&v);
             
-            // Update s
-            let s = &r - &(&v * alpha.clone());
+            // Update s using in-place operations
+            s.copy_from(&r);
+            s.axpy(-alpha.clone(), &v, T::one()); // s = r - alpha * v
             
             // Check convergence
             let s_norm = s.norm();
             if self.is_converged(s_norm) {
-                x = &x + &(&p * alpha);
+                x.axpy(alpha.clone(), &p, T::one()); // x = x + alpha * p
                 tracing::debug!("BiCGSTAB converged in {} iterations", iter + 1);
                 return Ok(x);
             }
             
             // Second matrix-vector product
-            let t = a * &s;
-            omega = s.dot(&t) / t.norm_squared();
+            t = a * &s;
+            omega = s.dot(&t) / t.dot(&t);
             
-            // Update solution
-            x = &x + &(&p * alpha.clone()) + &(&s * omega.clone());
+            // Update solution using in-place operations
+            x.axpy(alpha.clone(), &p, T::one());  // x = x + alpha * p
+            x.axpy(omega.clone(), &s, T::one());  // x = x + omega * s
             
-            // Update residual
-            r = s - &t * omega.clone();
+            // Update residual using in-place operations
+            r.copy_from(&s);
+            r.axpy(-omega.clone(), &t, T::one()); // r = s - omega * t
             
             // Check convergence
             let r_norm = r.norm();
@@ -490,7 +862,8 @@ mod tests {
         let mut config = LinearSolverConfig::default();
         config.restart = 3; // Use full restart for small system
         config.base = cfd_core::SolverConfig::builder()
-            .max_iterations(10)
+            .max_iterations(50)
+            .tolerance(1e-6)
             .build();
         let solver = GMRES::new(config);
         let x = solver.solve(&a, &b, None).unwrap();
@@ -500,9 +873,8 @@ mod tests {
         println!("GMRES residual norm: {}", residual.norm());
         println!("Solution: {:?}", x);
 
-        // GMRES accuracy improved with better numerical stability
-        // The test system converges to reasonable accuracy with the improved implementation
-        assert!(residual.norm() < 0.2, "GMRES should achieve reasonable accuracy with improved stability");
+        // GMRES should achieve good accuracy with improved numerical stability
+        assert!(residual.norm() < 1e-6, "GMRES should achieve accuracy of 1e-6 with improved stability");
     }
 
     #[test]

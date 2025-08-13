@@ -396,8 +396,8 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         cell_counter: &mut usize,
     ) -> (Vec<Vertex<T>>, Vec<Face>, Vec<Cell>) {
         let mut new_vertices = Vec::new();
-        let mut new_faces = Vec::new();
-        let mut new_cells = Vec::new();
+        let new_faces = Vec::new();
+        let new_cells = Vec::new();
         
         // Get cell vertices (assuming tetrahedral cell with 4 vertices)
         if cell.faces.len() == 4 {

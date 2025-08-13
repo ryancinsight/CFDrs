@@ -14,7 +14,11 @@ pub mod iterators;
 pub mod vectorization;
 
 pub use interpolation::{Interpolation, LinearInterpolation, CubicSplineInterpolation};
-pub use linear_solver::{LinearSolver, LinearSolverConfig, ConjugateGradient, GMRES, BiCGSTAB, Preconditioner};
+pub use linear_solver::{
+    LinearSolver, LinearSolverConfig, ConjugateGradient, GMRES, BiCGSTAB, 
+    Preconditioner, IdentityPreconditioner, JacobiPreconditioner, 
+    SORPreconditioner, ILU0Preconditioner
+};
 pub use sparse::{SparseMatrix, SparseMatrixBuilder};
 pub use differentiation::{FiniteDifference, Gradient};
 pub use integration::{Quadrature, GaussQuadrature};
