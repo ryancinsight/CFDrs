@@ -172,30 +172,48 @@ impl<T: RealField> VtkWriter<T> {
         Ok(())
     }
 
-    /// Write cells
+    /// Write cells (only for unstructured grids)
     fn write_cells<W: Write>(&self, writer: &mut W, mesh: &VtkMesh<T>) -> Result<()> {
-        let total_size: usize = mesh.cells.iter()
-            .map(|cell| 1 + cell.len())
-            .sum();
-        
-        writeln!(writer, "\nCELLS {} {}", mesh.num_cells(), total_size)?;
-        
-        // Write connectivity
-        for cell in &mesh.cells {
-            write!(writer, "{}", cell.len())?;
-            for &idx in cell {
-                write!(writer, " {}", idx)?;
+        // CRITICAL: Only write cells for dataset types that require explicit connectivity
+        // STRUCTURED_GRID and STRUCTURED_POINTS have implicit connectivity!
+        match self.dataset_type {
+            VtkDatasetType::StructuredGrid | VtkDatasetType::StructuredPoints => {
+                // These dataset types have implicit connectivity - DO NOT write CELLS
+                // TODO: Should write DIMENSIONS instead for structured grids
+                Ok(())
             }
-            writeln!(writer)?;
-        }
+            VtkDatasetType::UnstructuredGrid | VtkDatasetType::PolyData => {
+                // These require explicit cell connectivity
+                let total_size: usize = mesh.cells.iter()
+                    .map(|cell| 1 + cell.len())
+                    .sum();
+                
+                writeln!(writer, "\nCELLS {} {}", mesh.num_cells(), total_size)?;
+                
+                // Write connectivity
+                for cell in &mesh.cells {
+                    write!(writer, "{}", cell.len())?;
+                    for &idx in cell {
+                        write!(writer, " {}", idx)?;
+                    }
+                    writeln!(writer)?;
+                }
 
-        // Write cell types
-        writeln!(writer, "\nCELL_TYPES {}", mesh.num_cells())?;
-        for cell_type in &mesh.cell_types {
-            writeln!(writer, "{}", *cell_type as u8)?;
+                // Write cell types
+                writeln!(writer, "\nCELL_TYPES {}", mesh.num_cells())?;
+                for cell_type in &mesh.cell_types {
+                    writeln!(writer, "{}", *cell_type as u8)?;
+                }
+                
+                Ok(())
+            }
+            _ => {
+                // Other types not yet fully supported
+                Err(Error::NotImplemented(
+                    format!("Cell writing for {:?} not yet implemented", self.dataset_type)
+                ))
+            }
         }
-        
-        Ok(())
     }
 
     /// Write field data
@@ -311,11 +329,15 @@ impl<T: RealField> VtkReader<T> {
 
     /// Read mesh data using iterators for efficiency
     ///
-    /// Note: Full VTK reading functionality is not yet implemented.
-    /// Currently only VTK writing is supported.
+    /// CRITICAL: This is a stub implementation!
+    /// The VTK reader cannot actually read any data, making it impossible to:
+    /// - Restart simulations from checkpoints
+    /// - Load meshes from VTK files
+    /// - Use the suite's own output for post-processing
+    /// TODO: Implement full VTK ASCII parsing for all dataset types
     pub fn read_mesh(&self, _path: &Path) -> Result<VtkMesh<T>> {
         Err(Error::NotImplemented(
-            "VTK mesh reading is not yet implemented. Use VTK writing functionality instead.".to_string()
+            "VTK mesh reading is not yet implemented. This is a critical functionality gap!".to_string()
         ))
     }
 

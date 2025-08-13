@@ -3,7 +3,18 @@
 
 This checklist provides a detailed breakdown of all tasks required to implement the CFD simulation suite as specified in the PRD.
 
-## 🎯 Recent Improvements (Latest Update - v2.11 - January 2025)
+## 🎯 Recent Improvements (Latest Update - v2.12 - January 2025)
+
+### Professional Code Review Round 4 - Validation & I/O (v2.12)
+- [x] **Validation Fallback Removed** - Tests now fail properly instead of using empirical correlations
+- [x] **Silent Failures Fixed** - Reference data lookup now panics if data unavailable
+- [x] **VTK Reader Documented** - Added critical warnings about stub implementation
+- [x] **VTK Dataset Types Fixed** - Structured grids no longer write unnecessary cell connectivity
+- ⚠️ **Critical Issues**:
+  - Validation was providing false confidence by falling back to formulas
+  - VTK reader is completely unimplemented (cannot read any files)
+  - Benchmarks tightly coupled to specific solver implementations
+  - Data extraction in benchmarks uses brittle hardcoded assumptions
 
 ### Professional Code Review Round 3 - Architecture & Physics (v2.11)
 - [x] **Dead Code Removed** - Eliminated unused ComposablePlugin trait and ComposedPlugin struct

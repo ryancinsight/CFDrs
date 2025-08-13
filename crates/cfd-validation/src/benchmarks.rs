@@ -401,16 +401,16 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
         // Compute error metrics
         let mut error_stats = HashMap::new();
         
-        // Compare with reference if available
-        if let Some(ref_u) = reference_data.get("u_centerline") {
-            let errors = self.compute_error_metrics(&centerline_u, ref_u);
-            error_stats.insert("u_centerline_error".to_string(), errors);
-        }
+        // Compare with reference - MUST have reference data for validation
+        let ref_u = reference_data.get("u_centerline")
+            .expect("No reference data available for u_centerline. Cannot validate without reference data!");
+        let errors = self.compute_error_metrics(&centerline_u, ref_u);
+        error_stats.insert("u_centerline_error".to_string(), errors);
         
-        if let Some(ref_v) = reference_data.get("v_centerline") {
-            let errors = self.compute_error_metrics(&centerline_v, ref_v);
-            error_stats.insert("v_centerline_error".to_string(), errors);
-        }
+        let ref_v = reference_data.get("v_centerline")
+            .expect("No reference data available for v_centerline. Cannot validate without reference data!");
+        let errors = self.compute_error_metrics(&centerline_v, ref_v);
+        error_stats.insert("v_centerline_error".to_string(), errors);
         
         // Check if errors are within acceptable tolerance
         let tolerance = T::from_f64(0.01).unwrap(); // 1% relative error tolerance
@@ -593,18 +593,11 @@ impl<T: RealField + FromPrimitive> FlowOverCylinder<T> {
         // Compute drag coefficient
         let c_d = drag_force / (T::from_f64(0.5).unwrap() * rho * u_inf.clone() * u_inf * self.diameter.clone());
         
-        // If calculation fails, use empirical correlation
+        // CRITICAL: Do NOT fall back to empirical correlations!
+        // The validation must fail if the computed value is non-physical
+        // This ensures we're actually testing the solver, not our fallback logic
         if c_d <= T::zero() || c_d > T::from_f64(10.0).unwrap() {
-            // Use empirical correlation for circular cylinder
-            let re: f64 = self.reynolds.to_subset().unwrap_or(100.0);
-            let cd = if re < 1.0 {
-                24.0 / re  // Stokes flow
-            } else if re < 1000.0 {
-                1.0 + 10.0 / re.powf(2.0/3.0)  // Intermediate Re
-            } else {
-                0.5  // Turbulent
-            };
-            return T::from_f64(cd).unwrap();
+            panic!("Computed drag coefficient is non-physical: {:?}. The solver has failed.", c_d);
         }
         
         c_d
