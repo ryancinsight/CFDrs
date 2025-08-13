@@ -629,16 +629,14 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> SpectralSolver<T> {
         }
     }
 
-    /// Compute total kinetic energy
+    /// Compute total kinetic energy using iterator optimization
     pub fn compute_kinetic_energy(&self) -> T {
-        let mut energy = T::zero();
         let volume_element = T::one() / T::from_usize(self.velocity.len()).unwrap();
+        let half = T::from_f64(2.0).unwrap();
         
-        for v in &self.velocity {
-            energy = energy + v.norm_squared() * volume_element.clone();
-        }
-        
-        energy / T::from_f64(2.0).unwrap()
+        self.velocity.iter()
+            .map(|v| v.norm_squared() * volume_element.clone())
+            .fold(T::zero(), |acc, term| acc + term) / half
     }
     
     /// Time step the solver

@@ -214,6 +214,15 @@ pub struct PluginRegistry {
     storage: PluginStorage,
     dependency_resolver: DependencyResolver,
     factory_registry: FactoryRegistry,
+    monitoring: PluginMonitoring,
+}
+
+/// Plugin monitoring system for production environments
+#[derive(Clone)]
+pub struct PluginMonitoring {
+    health_status: Arc<RwLock<HashMap<String, PluginHealthStatus>>>,
+    metrics: Arc<RwLock<HashMap<String, PluginMetrics>>>,
+    last_check: Arc<RwLock<HashMap<String, std::time::Instant>>>,
 }
 
 
@@ -428,6 +437,101 @@ impl FactoryRegistry {
     }
 }
 
+impl PluginMonitoring {
+    /// Create new plugin monitoring system
+    pub fn new() -> Self {
+        Self {
+            health_status: Arc::new(RwLock::new(HashMap::new())),
+            metrics: Arc::new(RwLock::new(HashMap::new())),
+            last_check: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+    
+    /// Update plugin health status
+    pub fn update_health(&self, plugin_name: &str, status: PluginHealthStatus) {
+        let mut health = self.health_status.write().unwrap();
+        let mut last_check = self.last_check.write().unwrap();
+        
+        health.insert(plugin_name.to_string(), status);
+        last_check.insert(plugin_name.to_string(), std::time::Instant::now());
+    }
+    
+    /// Update plugin metrics
+    pub fn update_metrics(&self, plugin_name: &str, metrics: PluginMetrics) {
+        let mut plugin_metrics = self.metrics.write().unwrap();
+        plugin_metrics.insert(plugin_name.to_string(), metrics);
+    }
+    
+    /// Get overall system health
+    pub fn system_health(&self) -> Result<SystemHealthReport> {
+        let health = self.health_status.read().unwrap();
+        let metrics = self.metrics.read().unwrap();
+        
+        let total_plugins = health.len();
+        let healthy_plugins = health.values()
+            .filter(|&status| matches!(status, PluginHealthStatus::Healthy))
+            .count();
+        
+        let average_cpu = if !metrics.is_empty() {
+            metrics.values().map(|m| m.cpu_usage).sum::<f64>() / metrics.len() as f64
+        } else {
+            0.0
+        };
+        
+        let total_memory = metrics.values().map(|m| m.memory_usage).sum::<u64>();
+        
+        Ok(SystemHealthReport {
+            total_plugins,
+            healthy_plugins,
+            degraded_plugins: health.values()
+                .filter(|status| matches!(status, PluginHealthStatus::Degraded(_)))
+                .count(),
+            unhealthy_plugins: health.values()
+                .filter(|status| matches!(status, PluginHealthStatus::Unhealthy(_)))
+                .count(),
+            average_cpu_usage: average_cpu,
+            total_memory_usage: total_memory,
+            system_status: if healthy_plugins == total_plugins {
+                SystemStatus::Healthy
+            } else if healthy_plugins as f64 / total_plugins as f64 > 0.8 {
+                SystemStatus::Degraded
+            } else {
+                SystemStatus::Critical
+            },
+        })
+    }
+}
+
+/// System health report
+#[derive(Debug, Clone)]
+pub struct SystemHealthReport {
+    /// Total number of plugins
+    pub total_plugins: usize,
+    /// Number of healthy plugins
+    pub healthy_plugins: usize,
+    /// Number of degraded plugins
+    pub degraded_plugins: usize,
+    /// Number of unhealthy plugins
+    pub unhealthy_plugins: usize,
+    /// Average CPU usage across all plugins
+    pub average_cpu_usage: f64,
+    /// Total memory usage across all plugins
+    pub total_memory_usage: u64,
+    /// Overall system status
+    pub system_status: SystemStatus,
+}
+
+/// Overall system status
+#[derive(Debug, Clone, PartialEq)]
+pub enum SystemStatus {
+    /// All plugins healthy
+    Healthy,
+    /// Some plugins degraded but system functional
+    Degraded,
+    /// Critical issues requiring attention
+    Critical,
+}
+
 impl PluginRegistry {
     /// Create a new plugin registry using composition
     pub fn new() -> Self {
@@ -435,6 +539,7 @@ impl PluginRegistry {
             storage: PluginStorage::new(),
             dependency_resolver: DependencyResolver::new(),
             factory_registry: FactoryRegistry::new(),
+            monitoring: PluginMonitoring::new(),
         }
     }
 
@@ -512,6 +617,21 @@ impl PluginRegistry {
                 })
             })
             .collect())
+    }
+    
+    /// Update plugin health status
+    pub fn update_plugin_health(&self, plugin_name: &str, status: PluginHealthStatus) {
+        self.monitoring.update_health(plugin_name, status);
+    }
+    
+    /// Update plugin metrics
+    pub fn update_plugin_metrics(&self, plugin_name: &str, metrics: PluginMetrics) {
+        self.monitoring.update_metrics(plugin_name, metrics);
+    }
+    
+    /// Get overall system health report
+    pub fn system_health(&self) -> Result<SystemHealthReport> {
+        self.monitoring.system_health()
     }
 
 

@@ -274,34 +274,30 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
             }
         }
         
-        // Gauss-Seidel iteration for x-momentum
+        // Gauss-Seidel iteration for x-momentum using iterator optimization
         for _ in 0..self.config.base.convergence.max_iterations {
-            for idx in 0..n {
+            (0..n).for_each(|idx| {
                 if a_matrix[idx][idx].clone().abs() > T::from_f64(constants::EPSILON).unwrap() {
-                    let mut sum = b_x[idx].clone();
-                    for k in 0..n {
-                        if k != idx {
-                            sum = sum - a_matrix[idx][k].clone() * u_x[k].clone();
-                        }
-                    }
+                    let sum = b_x[idx].clone() - 
+                        (0..n).filter(|&k| k != idx)
+                              .map(|k| a_matrix[idx][k].clone() * u_x[k].clone())
+                              .fold(T::zero(), |acc, term| acc + term);
                     u_x[idx] = sum / a_matrix[idx][idx].clone();
                 }
-            }
+            });
         }
         
-        // Gauss-Seidel iteration for y-momentum
+        // Gauss-Seidel iteration for y-momentum using iterator optimization
         for _ in 0..self.config.base.convergence.max_iterations {
-            for idx in 0..n {
+            (0..n).for_each(|idx| {
                 if a_matrix[idx][idx].clone().abs() > T::from_f64(constants::EPSILON).unwrap() {
-                    let mut sum = b_y[idx].clone();
-                    for k in 0..n {
-                        if k != idx {
-                            sum = sum - a_matrix[idx][k].clone() * u_y[k].clone();
-                        }
-                    }
+                    let sum = b_y[idx].clone() - 
+                        (0..n).filter(|&k| k != idx)
+                              .map(|k| a_matrix[idx][k].clone() * u_y[k].clone())
+                              .fold(T::zero(), |acc, term| acc + term);
                     u_y[idx] = sum / a_matrix[idx][idx].clone();
                 }
-            }
+            });
         }
         
         // Update velocity field
