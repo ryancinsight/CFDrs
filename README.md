@@ -13,6 +13,8 @@ A Rust-based computational fluid dynamics (CFD) simulation framework for 1D, 2D,
 - ✅ **QualityLevel Refactored**: Changed from adjectives to neutral Level1-4 system
 - ✅ **Zero Magic Numbers**: All hardcoded values use named constants
 - ✅ **Critical Physics Fix**: Neumann BC now uses actual grid spacing (not unit spacing)
+- ✅ **RK4 Implementation Fixed**: Removed misleading "RungeKutta4" that was actually Euler
+- ✅ **Honest Algorithm Naming**: Renamed to "ConstantDerivative" to reflect actual behavior
 - ✅ **Documentation Accuracy**: All approximations and limitations clearly stated
 - ✅ **Architecture Validated**: Plugin patterns, zero-copy, SOLID fully implemented
 - ✅ **No Redundancy**: All implementations serve distinct purposes

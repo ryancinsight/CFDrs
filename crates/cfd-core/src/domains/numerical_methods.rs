@@ -119,25 +119,18 @@ pub mod time_integration {
         }
     }
     
-    /// Runge-Kutta 4th order scheme with constant derivative
+    /// Constant derivative time integration (equivalent to Forward Euler)
     /// 
-    /// This implementation assumes constant derivative for compatibility
-    /// with the TimeIntegrationScheme trait. For variable derivatives,
-    /// use RungeKutta4WithFunction.
-    /// Reference: Butcher, J.C. "Numerical Methods for Ordinary Differential Equations" (2016)
+    /// This scheme assumes the derivative is constant over the time step.
+    /// For systems where the derivative changes with state, this reduces to
+    /// Forward Euler regardless of the intended higher-order method.
     #[derive(Debug, Clone)]
-    pub struct RungeKutta4;
+    pub struct ConstantDerivative;
 
-    impl<T: RealField> TimeIntegrationScheme<T> for RungeKutta4 {
+    impl<T: RealField> TimeIntegrationScheme<T> for ConstantDerivative {
         fn advance(&self, current: &[T], derivative: &[T], dt: T) -> Vec<T> {
-            // Note: This implementation assumes the derivative is constant
-            // For proper RK4, use RungeKutta4WithFunction which accepts a derivative function
-            // This simplified version is retained for backward compatibility with existing code
-            // that doesn't provide a derivative function
-            
-            // Classical RK4 with constant derivative approximation
-            // For constant derivative, RK4 reduces to simple Euler method
-            // This gives the result: y + dt * derivative
+            // With constant derivative assumption: y_new = y + dt * f(y)
+            // This is exactly Forward Euler method
             current.iter()
                 .zip(derivative.iter())
                 .map(|(y, d)| y.clone() + d.clone() * dt.clone())
@@ -145,11 +138,11 @@ pub mod time_integration {
         }
 
         fn name(&self) -> &str {
-            "Runge-Kutta 4"
+            "Constant Derivative (Euler)"
         }
 
         fn order(&self) -> usize {
-            4
+            1  // First order accurate
         }
 
         fn is_implicit(&self) -> bool {
@@ -157,12 +150,12 @@ pub mod time_integration {
         }
     }
 
-    /// Runge-Kutta 4th order scheme with function evaluation
-    /// This version properly evaluates derivatives at each RK4 stage
+    /// Runge-Kutta 4th order scheme
+    /// Properly evaluates derivatives at each RK4 stage
     #[derive(Debug, Clone)]
-    pub struct RungeKutta4WithFunction;
+    pub struct RungeKutta4;
 
-    impl RungeKutta4WithFunction {
+    impl RungeKutta4 {
         /// Advance with derivative function for proper RK4
         /// Reference: Hairer, E., Nørsett, S.P., Wanner, G. "Solving Ordinary Differential Equations I" (1993)
         pub fn advance_with_function<T, F>(
@@ -382,10 +375,13 @@ impl<T: RealField> NumericalMethodsService<T> {
             "forward_euler".to_string(),
             Box::new(time_integration::ForwardEuler)
         );
+        // Note: True RK4 requires derivative function evaluation at intermediate points
+        // The ConstantDerivative scheme is registered here for compatibility but is only first-order accurate
         service.register_time_integration_scheme(
-            "rk4".to_string(),
-            Box::new(time_integration::RungeKutta4)
+            "constant_derivative".to_string(),
+            Box::new(time_integration::ConstantDerivative)
         );
+        // For proper RK4, use RungeKutta4::advance_with_function directly
         
         service.register_linear_solver(
             "cg".to_string(),
@@ -510,21 +506,43 @@ mod tests {
     }
 
     #[test]
-    fn test_runge_kutta_4_scheme() {
-        let scheme = time_integration::RungeKutta4;
+    fn test_constant_derivative_scheme() {
+        let scheme = time_integration::ConstantDerivative;
         let current = vec![1.0f64];
         let derivative = vec![1.0f64];
         let dt = 0.1f64;
 
         let result = scheme.advance(&current, &derivative, dt);
 
-        // With constant derivative approximation, RK4 reduces to: y + dt * derivative
+        // Constant derivative is equivalent to Forward Euler: y + dt * derivative
         assert_eq!(result.len(), 1);
         assert_relative_eq!(result[0], 1.1, epsilon = 1e-10);
 
-        assert_eq!(<time_integration::RungeKutta4 as TimeIntegrationScheme<f64>>::name(&scheme), "Runge-Kutta 4");
-        assert_eq!(<time_integration::RungeKutta4 as TimeIntegrationScheme<f64>>::order(&scheme), 4);
-        assert!(!<time_integration::RungeKutta4 as TimeIntegrationScheme<f64>>::is_implicit(&scheme));
+        assert_eq!(<time_integration::ConstantDerivative as TimeIntegrationScheme<f64>>::name(&scheme), "Constant Derivative (Euler)");
+        assert_eq!(<time_integration::ConstantDerivative as TimeIntegrationScheme<f64>>::order(&scheme), 1);
+        assert!(!<time_integration::ConstantDerivative as TimeIntegrationScheme<f64>>::is_implicit(&scheme));
+    }
+    
+    #[test]
+    fn test_runge_kutta_4_proper() {
+        // Test proper RK4 with a simple ODE: dy/dt = -y, y(0) = 1
+        // Exact solution: y(t) = exp(-t)
+        let rk4 = time_integration::RungeKutta4;
+        let y0 = vec![1.0f64];
+        let t0 = 0.0;
+        let dt = 0.1;
+        
+        // Derivative function for dy/dt = -y
+        let derivative_fn = |_t: f64, y: &[f64]| -> Vec<f64> {
+            y.iter().map(|&val| -val).collect()
+        };
+        
+        let result = rk4.advance_with_function(&y0, t0, dt, derivative_fn);
+        
+        // Expected value: exp(-0.1) ≈ 0.9048374180359595
+        // RK4 should be very accurate for this simple problem
+        assert_eq!(result.len(), 1);
+        assert_relative_eq!(result[0], 0.9048374180359595, epsilon = 1e-6);
     }
 
     #[test]
@@ -554,7 +572,7 @@ mod tests {
         assert!(service.get_discretization_scheme("central").is_some());
         assert!(service.get_discretization_scheme("upwind").is_some());
         assert!(service.get_time_integration_scheme("forward_euler").is_some());
-        assert!(service.get_time_integration_scheme("rk4").is_some());
+        assert!(service.get_time_integration_scheme("constant_derivative").is_some());
         assert!(service.get_linear_solver("cg").is_some());
 
         // Test non-existent schemes
