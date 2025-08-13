@@ -278,6 +278,22 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
     
     /// Advect level set using velocity field
     pub fn advect(&mut self, dt: T) {
+        // Check CFL condition for stability
+        let max_velocity = self.velocity.iter()
+            .map(|v| v[0].clone().abs().max(v[1].clone().abs()).max(v[2].clone().abs()))
+            .fold(T::zero(), |acc, v| acc.max(v));
+        
+        let min_spacing = self.dx.clone().min(self.dy.clone()).min(self.dz.clone());
+        let cfl = max_velocity.clone() * dt.clone() / min_spacing.clone();
+        
+        if cfl > T::from_f64(self.config.cfl_number).unwrap() {
+            // Warning: CFL condition violated, stability may be compromised
+            // In production, should adapt time step or use sub-stepping
+            let recommended_dt = T::from_f64(self.config.cfl_number).unwrap() * min_spacing / max_velocity;
+            eprintln!("Warning: CFL = {:?} > {:?}, recommended dt = {:?}", 
+                     cfl, self.config.cfl_number, recommended_dt);
+        }
+        
         self.phi_old.clone_from(&self.phi);
         
         if self.config.use_weno {
@@ -350,11 +366,32 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
         }
     }
     
+    /// Smooth Heaviside function for better numerical stability
+    fn smooth_heaviside(&self, phi: T, epsilon: T) -> T {
+        if phi < -epsilon {
+            T::zero()
+        } else if phi > epsilon {
+            T::one()
+        } else {
+            let half = T::from_f64(0.5).unwrap();
+            let pi = T::from_f64(std::f64::consts::PI).unwrap();
+            half.clone() * (T::one() + phi.clone() / epsilon.clone() 
+                + (pi.clone() * phi / epsilon).sin() / pi)
+        }
+    }
+    
+    /// Smooth sign function using smooth Heaviside
+    fn smooth_sign(&self, phi: T, epsilon: T) -> T {
+        let two = T::from_f64(2.0).unwrap();
+        two * self.smooth_heaviside(phi, epsilon) - T::one()
+    }
+    
     /// Reinitialize to signed distance function
     pub fn reinitialize(&mut self) {
         let mut phi_temp = self.phi.clone();
+        let epsilon = T::from_f64(EPSILON_SMOOTHING).unwrap() * self.dx.clone();
         let sign_phi = self.phi.iter()
-            .map(|p| p.clone() / ComplexField::sqrt(p.clone() * p.clone() + T::from_f64(EPSILON_SMOOTHING).unwrap().powi(2)))
+            .map(|p| self.smooth_sign(p.clone(), epsilon.clone()))
             .collect::<Vec<_>>();
         
         let dtau = T::from_f64(0.5).unwrap() * self.dx.clone().min(self.dy.clone()).min(self.dz.clone());

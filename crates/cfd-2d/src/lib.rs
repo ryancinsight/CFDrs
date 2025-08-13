@@ -6,17 +6,21 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod constants;
+pub mod energy;
 pub mod fdm;
 pub mod fvm;
 pub mod grid;
 pub mod lbm;
 pub mod simple;
 pub mod piso;
+pub mod turbulence;
 pub mod vorticity_stream;
 pub mod schemes;
 
 // Export implemented functionality
 pub use grid::{Grid2D, StructuredGrid2D, BoundaryType, GridEdge, GridIterator};
+pub use energy::EnergyEquationSolver;
+pub use turbulence::{KEpsilonModel, WallFunction};
 pub use fdm::{PoissonSolver, AdvectionDiffusionSolver, FdmConfig};
 pub use fvm::{FvmSolver, FvmConfig, FluxScheme};
 pub use lbm::{LbmSolver, LbmConfig, D2Q9};

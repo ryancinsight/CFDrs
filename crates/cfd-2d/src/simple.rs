@@ -48,8 +48,6 @@ mod constants {
     pub const QUICK_CENTRAL: f64 = 0.375;
     /// QUICK scheme upstream coefficient (1/8)
     pub const QUICK_UPSTREAM: f64 = 0.125;
-    /// Grid spacing for pressure gradient (should be from grid)
-    pub const GRID_SPACING: f64 = 0.01;
     /// Factor of 2 for central differences
     pub const TWO: f64 = 2.0;
 }
@@ -449,7 +447,7 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
                     
                     // RHS: source term + pressure gradient
                     let pressure_gradient = (self.p[i+1][j].clone() - self.p[i-1][j].clone()) / 
-                                          (T::from_f64(2.0).unwrap() * dx.clone());
+                                          (T::from_f64(constants::TWO).unwrap() * dx.clone());
                     u_rhs[local_idx] = coeff.su.clone() - pressure_gradient * dx.clone() * dy.clone();
                 }
             }
@@ -514,7 +512,7 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
                     
                     // RHS: source term + pressure gradient
                     let pressure_gradient = (self.p[i][j+1].clone() - self.p[i][j-1].clone()) / 
-                                          (T::from_f64(2.0).unwrap() * dy.clone());
+                                          (T::from_f64(constants::TWO).unwrap() * dy.clone());
                     v_rhs[local_idx] = coeff.su.clone() - pressure_gradient * dx.clone() * dy.clone();
                 }
             }
