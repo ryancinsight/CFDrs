@@ -43,7 +43,7 @@ pub use numerical_validation::{LinearSolverValidator, ValidationResult, ErrorMet
 // Export time integration validation
 pub use time_integration_validation::{TimeIntegrationValidator, TimeIntegrationResult};
 
-/// Validation domain-specific prelude for advanced analysis
+/// Validation domain-specific prelude for analysis
 ///
 /// This prelude exports validation-specific functionality not available in the main prelude.
 /// Use this when performing detailed validation studies, implementing custom benchmarks,
@@ -51,7 +51,7 @@ pub use time_integration_validation::{TimeIntegrationValidator, TimeIntegrationR
 ///
 /// For basic validation functionality, prefer `cfd_suite::prelude::*`.
 pub mod prelude {
-    // === Advanced Error Analysis ===
+    // === Error Analysis ===
     // Detailed error metrics and statistical analysis
     pub use crate::{
         error_metrics::{
@@ -65,7 +65,7 @@ pub mod prelude {
     };
 
     // === Benchmark Framework ===
-    // Advanced benchmarking and validation tools
+    // Benchmarking and validation tools
     pub use crate::{
         benchmarks::{BenchmarkSuite, BenchmarkRunner, BenchmarkConfig, ValidationReport},
         conservation::{ConservationReport, ConservationTolerance, ConservationHistory},

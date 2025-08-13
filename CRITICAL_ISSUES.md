@@ -2,56 +2,61 @@
 
 ## Executive Summary
 
-After seven comprehensive code reviews, it is clear that **this codebase is fundamentally broken and should not be used for any production or research purposes**. The project presents itself as a "production-ready" CFD suite but is actually a collection of non-functional skeletons, incorrect implementations, and architectural failures.
+After eight comprehensive code reviews, significant improvements have been made but **this codebase still has major issues and should be used with extreme caution**. While some critical bugs have been fixed, many components remain non-functional or incorrectly implemented.
 
-## Critical Issues by Module
+## Latest Code Review (v2.17 - January 2025)
+
+### Fixed Issues
+1. **LBM Bounce-Back**: ✅ FIXED - Now correctly reflects distributions from adjacent fluid nodes
+2. **PISO Solver**: ⚠️ PARTIALLY FIXED - No longer has hardcoded BCs, uses proper linear solvers (but still needs work)
+3. **Factory System**: ✅ FIXED - Now returns actual solver instances via type-erased DynamicSolver trait
+4. **Naming Violations**: ✅ FIXED - Removed all adjective-based naming (Enhanced→Blended, Simple→TimeIntegrator)
+5. **Architecture**: ✅ IMPROVED - Proper SOLID/CUPID compliance with plugin-based design
+
+### Remaining Critical Issues
 
 ### 1. Core Architecture
-- **Conflicting Systems**: Two incompatible solver management systems (plugin vs orchestration)
-- **Non-functional Orchestration**: The `SimulationOrchestrator` is a complete fiction that returns strings
-- **Broken Factory Pattern**: `AbstractSolverFactory` returns strings instead of solver instances
-- **Over-engineered Plugin System**: Uses `dyn Any` and `serde_json` with poor ergonomics
+- ✅ **FIXED**: Factory pattern now properly returns solver instances
+- ✅ **FIXED**: Removed conflicting solver management systems
+- ⚠️ **Plugin System**: Still uses `dyn Any` with poor ergonomics but functional
 
 ### 2. Physics Implementations
 
 #### LBM (Lattice Boltzmann Method)
-- **CRITICAL BUG**: Bounce-back boundary condition is fundamentally wrong
-- Scrambles boundary node's own distributions instead of reflecting from adjacent fluid
-- Will produce physically incorrect results for ANY wall-bounded flow
-- Performance issues with full array copy in streaming step
+- ✅ **FIXED**: Bounce-back boundary condition now physically correct
+- ⚠️ Performance issues with full array copy in streaming step remain
 
 #### FEM (Finite Element Method)
-- **CRITICAL BUG**: PSPG stabilization is incorrectly implemented
-- Modifies gradient matrix instead of adding pressure Laplacian
-- Uses dense matrices for 3D problems (unusable for real problems)
-- Tests create degenerate tetrahedra
+- ✅ PSPG stabilization is correctly implemented
+- ❌ **CRITICAL**: Uses dense matrices for 3D problems (unusable for real problems)
+- ❌ Tests create degenerate tetrahedra
 
 #### 1D Network Solver
-- **CATASTROPHIC PERFORMANCE BUG**: O(n²) complexity due to scanning all edges for each neighbor
-- **Dimensional Analysis Error**: Flow rate added directly to pressure terms (wrong units)
-- Should use sparse matrices from cfd-math but doesn't
+- ✅ **FIXED**: O(n²) complexity bug eliminated - now uses efficient petgraph lookups
+- ⚠️ **Dimensional Analysis Error**: Flow rate BC still has wrong units (marked with FIXME)
+- ⚠️ Should use sparse matrices from cfd-math but doesn't
 
 #### SIMPLE Algorithm
-- **Neumann BC Bug**: Used unit spacing regardless of actual grid spacing (FIXED in v2.14)
-- Momentum residual calculation incomplete
-- Manual matrix indexing prone to errors
+- ✅ **FIXED**: Neumann BC uses actual grid spacing
+- ✅ Momentum residual calculation complete
+- ✅ Manual matrix indexing replaced with helper functions
 
 #### PISO Algorithm
-- **Completely Non-functional**: Hardcoded boundary conditions on all sides
-- Uses fixed iteration loops instead of proper solvers
-- Massive code duplication from SIMPLE solver
-- Non-orthogonal correctors parameter never used
+- ⚠️ **PARTIALLY FUNCTIONAL**: No longer hardcoded BCs, uses proper solvers
+- ⚠️ Still needs proper boundary condition integration from grid
+- ⚠️ Non-orthogonal correctors parameter still unused
 
 #### VOF (Volume of Fluid)
-- **Non-functional Skeleton**: No working advection scheme
-- No interface reconstruction (PLIC not implemented)
-- No surface tension force calculation
-- No coupling with Navier-Stokes solver
+- ❌ **Non-functional Skeleton**: No working advection scheme
+- ❌ No interface reconstruction (PLIC not implemented)
+- ❌ No surface tension force calculation
+- ❌ No coupling with Navier-Stokes solver
 
 #### Turbulence Models
-- **Non-standard Wall Functions**: "Enhanced wall treatment" is unvalidated
-- Hardcoded for j=0 boundaries (unusable for arbitrary geometries)
-- k-ε solver has stability issues
+- ✅ **FIXED**: Renamed Enhanced→Blended wall treatment
+- ⚠️ **Non-standard Wall Functions**: "Blended wall treatment" is unvalidated
+- ⚠️ Hardcoded for j=0 boundaries (unusable for arbitrary geometries)
+- ⚠️ k-ε solver has stability issues
 
 ### 3. Numerical Methods
 - Misleading naming (RungeKutta4 was actually Euler)

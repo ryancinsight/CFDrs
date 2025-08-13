@@ -1,32 +1,54 @@
 # Rust CFD Suite
 
-⚠️ **CRITICAL WARNING: This codebase is fundamentally broken and should NOT be used for any production or research purposes.**
+⚠️ **WARNING: This codebase has significant issues and should be used with extreme caution.**
 
 ## Project Status
 
-❌ **NOT SUITABLE FOR USE - Seven Professional Reviews Revealed Critical Failures**
+⚠️ **USE WITH CAUTION - Eighth Code Review Revealed Mixed Results**
 
-After seven comprehensive code reviews, this project has been found to be a "Potemkin village" - it appears to be a sophisticated CFD suite but lacks fundamental functionality. Most advertised features are either non-functional, incorrectly implemented, or completely missing.
+After eight comprehensive code reviews, some critical issues have been fixed but many problems remain. The project has improved from "completely broken" to "partially functional with major limitations."
 
 ### Critical Issues Summary
 
 See [CRITICAL_ISSUES.md](CRITICAL_ISSUES.md) for the complete list of problems found.
 
-#### Non-Functional Components
-- **PISO Solver**: Hardcoded BCs, no proper solvers
-- **VOF Method**: No advection, no reconstruction, no physics
-- **CSG Operations**: Boolean operations do nothing
-- **LBM**: Critical physics bug in bounce-back
-- **FEM**: Incorrect stabilization, uses dense matrices
-- **Orchestration**: Returns strings instead of executing
+#### Fixed Components (v2.17)
+- **LBM Bounce-Back**: ✅ Physics bug fixed - now correctly implements wall reflection
+- **Factory System**: ✅ Now returns actual solver instances instead of strings
+- **SIMPLE Solver**: ✅ Neumann BC fixed, proper grid spacing used
+- **Naming Compliance**: ✅ All adjective-based naming removed (no more "Enhanced", "Simple" as adjectives)
 
-#### Major Bugs
-- 1D solver had O(n²) performance bug (partially fixed)
-- Dimensional analysis errors in boundary conditions
-- Validation tests that pass without validating
-- Factory system returns strings instead of solvers
+#### Partially Fixed
+- **PISO Solver**: ⚠️ No longer hardcoded BCs, but needs grid integration
+- **1D Network**: ⚠️ O(n²) bug fixed, but dimensional analysis error remains
 
-### Recent "Improvements" (v2.15 - January 2025)
+#### Still Broken
+- **VOF Method**: ❌ Non-functional skeleton with no physics
+- **CSG Operations**: ❌ Placeholder only, no actual boolean operations
+- **FEM Solver**: ❌ Uses dense matrices (unusable for real problems)
+- **Turbulence Models**: ❌ Unvalidated, hardcoded boundaries
+
+### Recent Improvements (v2.17 - January 2025)
+
+#### Eighth Code Review - Architecture & Physics Fixes
+- ✅ **LBM Physics Fixed**: Bounce-back now correctly reflects from adjacent fluid
+- ✅ **Factory Pattern Fixed**: Proper type-erased DynamicSolver trait implementation
+- ✅ **Naming Compliance**: Removed all adjective-based naming violations
+- ✅ **SOLID/CUPID**: Improved architecture with plugin-based design
+- ✅ **Zero-Copy**: Extensive use of iterators and references
+- ⚠️ **PISO Improved**: Uses proper solvers but needs more work
+- ❌ **VOF/CSG**: Still non-functional
+
+### Previous Improvements (v2.16 - January 2025)
+
+#### Seventh Professional Code Review - LBM & Architecture
+- ⚠️ **CRITICAL BUG**: LBM bounce-back physics fundamentally broken
+- ⚠️ **Architecture Failure**: Two conflicting solver systems in core
+- ✅ **Documentation Fixed**: Removed false optimization and architecture claims
+- ✅ **Performance Issues Documented**: LBM streaming bottleneck identified
+- **Key Finding**: Orchestration module is complete fiction
+
+### Previous Improvements (v2.15 - January 2025)
 
 #### Sixth Code Review - Performance & CSG
 - ✅ **O(n²) Bug Fixed**: 1D network solver now uses efficient graph traversal

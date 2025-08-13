@@ -34,8 +34,8 @@ pub mod constants {
 pub enum WallFunction {
     /// Standard wall function (log-law)
     Standard,
-    /// Enhanced wall treatment (all y+)
-    Enhanced,
+    /// Blended wall treatment (all y+)
+    Blended,
     /// Low-Reynolds number (resolve to wall)
     LowReynolds,
 }
@@ -93,7 +93,7 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
     ) -> Result<()> {
         match self.wall_function {
             WallFunction::Standard => self.apply_standard_wall_function(u_velocity, wall_distance, nu),
-            WallFunction::Enhanced => self.apply_enhanced_wall_treatment(u_velocity, wall_distance, nu),
+            WallFunction::Blended => self.apply_blended_wall_treatment(u_velocity, wall_distance, nu),
             WallFunction::LowReynolds => Ok(()), // No special treatment, resolve to wall
         }
     }
@@ -145,13 +145,13 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
         Ok(())
     }
     
-    /// Enhanced wall treatment for all y+ regions
-    /// Enhanced wall treatment for all y+ values
+    /// Blended wall treatment for all y+ regions
+    /// Blended wall treatment for all y+ values
     /// WARNING: This is a non-standard, unvalidated implementation
     /// The blending function and f_mu damping are ad-hoc and not from literature
     /// TODO: Replace with validated model (e.g., Launder-Sharma or k-ω SST)
     /// WARNING: Hardcoded for walls at j=0 boundary
-    fn apply_enhanced_wall_treatment(
+    fn apply_blended_wall_treatment(
         &mut self,
         u_velocity: &[Vec<T>],
         wall_distance: &[Vec<T>],

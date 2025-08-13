@@ -314,6 +314,68 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
         }
     }
 
+    /// Apply bounce-back boundary conditions
+    /// 
+    /// CRITICAL FIX: This implementation now correctly reflects distributions
+    /// from adjacent fluid nodes instead of scrambling the boundary node's own
+    /// distributions. The bounce-back condition states that particles hitting
+    /// a wall reverse their direction while maintaining their magnitude.
+    ///
+    /// For a wall at position (i,j), incoming distributions from fluid nodes
+    /// are reflected back in the opposite direction.
+    ///
+    /// # References
+    /// Krüger, T. et al. (2017). "The Lattice Boltzmann Method: Principles and Practice."
+    fn apply_bounce_back(&mut self, boundary_nodes: &[(usize, usize)]) {
+        for &(i, j) in boundary_nodes {
+            // For each boundary node, we need to reflect distributions
+            // coming from neighboring fluid nodes
+            
+            // Store incoming distributions that will be reflected
+            let mut reflected = vec![T::zero(); D2Q9::Q];
+            
+            // Check each direction
+            for q in 0..D2Q9::Q {
+                let (dx, dy) = D2Q9::VELOCITIES[q];
+                
+                // Calculate the neighbor position in the opposite direction
+                // (where the fluid is coming from)
+                let ni = i as i32 - dx;
+                let nj = j as i32 - dy;
+                
+                // Check if neighbor is within bounds and is a fluid node
+                if ni >= 0 && ni < self.nx as i32 && 
+                   nj >= 0 && nj < self.ny as i32 {
+                    let ni = ni as usize;
+                    let nj = nj as usize;
+                    
+                    // Get the opposite direction index
+                    let q_opp = D2Q9::OPPOSITE[q];
+                    
+                    // The distribution coming from direction q will be reflected
+                    // back in the opposite direction q_opp
+                    reflected[q_opp] = self.f[ni][nj][q].clone();
+                }
+            }
+            
+            // Apply the reflected distributions to the boundary node
+            // Only update the distributions that are pointing into the fluid
+            for q in 0..D2Q9::Q {
+                let (dx, dy) = D2Q9::VELOCITIES[q];
+                
+                // Check if this direction points into the fluid domain
+                let ni = i as i32 + dx;
+                let nj = j as i32 + dy;
+                
+                if ni >= 0 && ni < self.nx as i32 && 
+                   nj >= 0 && nj < self.ny as i32 {
+                    // This direction points into the fluid, apply reflection
+                    self.f[i][j][q] = reflected[q].clone();
+                }
+            }
+        }
+    }
+
     /// Main solve method
     pub fn solve(
         &mut self,

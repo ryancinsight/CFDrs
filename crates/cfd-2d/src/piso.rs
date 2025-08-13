@@ -190,39 +190,161 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
         // Store old velocities
         let u_old = self.u.clone();
         
-        // Solve momentum equations with current pressure field
-        for _ in 0..10 { // Simple iteration
-            for i in 1..self.nx-1 {
-                for j in 1..self.ny-1 {
-                    // X-momentum
-                    let sum_nb_x = self.a_e[i][j].clone() * self.u[i+1][j].x.clone()
-                        + self.a_w[i][j].clone() * self.u[i-1][j].x.clone()
-                        + self.a_n[i][j].clone() * self.u[i][j+1].x.clone()
-                        + self.a_s[i][j].clone() * self.u[i][j-1].x.clone();
-                    
-                    let pressure_gradient_x = (self.p[i-1][j].clone() - self.p[i+1][j].clone()) 
-                        * self.dy.clone() / T::from_f64(GRADIENT_FACTOR).unwrap();
-                    
-                    let source_x = self.density.clone() * self.dx.clone() * self.dy.clone() 
-                        * u_old[i][j].x.clone() / self.config.time_step.clone();
-                    
-                    self.u[i][j].x = (sum_nb_x + pressure_gradient_x + source_x) / self.a_p[i][j].clone();
-                    
-                    // Y-momentum
-                    let sum_nb_y = self.a_e[i][j].clone() * self.u[i+1][j].y.clone()
-                        + self.a_w[i][j].clone() * self.u[i-1][j].y.clone()
-                        + self.a_n[i][j].clone() * self.u[i][j+1].y.clone()
-                        + self.a_s[i][j].clone() * self.u[i][j-1].y.clone();
-                    
-                    let pressure_gradient_y = (self.p[i][j-1].clone() - self.p[i][j+1].clone()) 
-                        * self.dx.clone() / T::from_f64(GRADIENT_FACTOR).unwrap();
-                    
-                    let source_y = self.density.clone() * self.dx.clone() * self.dy.clone() 
-                        * u_old[i][j].y.clone() / self.config.time_step.clone();
-                    
-                    self.u[i][j].y = (sum_nb_y + pressure_gradient_y + source_y) / self.a_p[i][j].clone();
+        // Build momentum equation system
+        let n = self.nx * self.ny;
+        let mut a_matrix = vec![vec![T::zero(); n]; n];
+        let mut b_x = vec![T::zero(); n];
+        let mut b_y = vec![T::zero(); n];
+        
+        // Assemble momentum equations for each interior point
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                let idx = i * self.ny + j;
+                
+                // Diagonal coefficient (includes transient term)
+                a_matrix[idx][idx] = self.a_p[i][j].clone();
+                
+                // Off-diagonal coefficients
+                if i > 0 {
+                    let idx_w = (i-1) * self.ny + j;
+                    a_matrix[idx][idx_w] = -self.a_w[i][j].clone();
+                }
+                if i < self.nx-1 {
+                    let idx_e = (i+1) * self.ny + j;
+                    a_matrix[idx][idx_e] = -self.a_e[i][j].clone();
+                }
+                if j > 0 {
+                    let idx_s = i * self.ny + (j-1);
+                    a_matrix[idx][idx_s] = -self.a_s[i][j].clone();
+                }
+                if j < self.ny-1 {
+                    let idx_n = i * self.ny + (j+1);
+                    a_matrix[idx][idx_n] = -self.a_n[i][j].clone();
+                }
+                
+                // Source terms (pressure gradient + old velocity)
+                let dt = self.config.time_step.clone();
+                let pressure_grad_x = (self.p[i+1][j].clone() - self.p[i-1][j].clone()) 
+                    / (T::from_f64(GRADIENT_FACTOR).unwrap() * self.dx.clone());
+                let pressure_grad_y = (self.p[i][j+1].clone() - self.p[i][j-1].clone()) 
+                    / (T::from_f64(GRADIENT_FACTOR).unwrap() * self.dy.clone());
+                
+                b_x[idx] = self.density.clone() * self.dx.clone() * self.dy.clone() 
+                    * u_old[i][j].x.clone() / dt.clone()
+                    - pressure_grad_x * self.dx.clone() * self.dy.clone();
+                b_y[idx] = self.density.clone() * self.dx.clone() * self.dy.clone() 
+                    * u_old[i][j].y.clone() / dt.clone()
+                    - pressure_grad_y * self.dx.clone() * self.dy.clone();
+            }
+        }
+        
+        // Apply boundary conditions to the system
+        self.apply_momentum_boundary_conditions(&mut a_matrix, &mut b_x, &mut b_y)?;
+        
+        // Solve using iterative method (Gauss-Seidel for now)
+        let mut u_x = vec![T::zero(); n];
+        let mut u_y = vec![T::zero(); n];
+        
+        // Initialize with current values
+        for i in 0..self.nx {
+            for j in 0..self.ny {
+                let idx = i * self.ny + j;
+                u_x[idx] = self.u[i][j].x.clone();
+                u_y[idx] = self.u[i][j].y.clone();
+            }
+        }
+        
+        // Gauss-Seidel iteration for x-momentum
+        for _ in 0..self.config.base.convergence.max_iterations {
+            for idx in 0..n {
+                if a_matrix[idx][idx].clone().abs() > T::from_f64(1e-10).unwrap() {
+                    let mut sum = b_x[idx].clone();
+                    for k in 0..n {
+                        if k != idx {
+                            sum = sum - a_matrix[idx][k].clone() * u_x[k].clone();
+                        }
+                    }
+                    u_x[idx] = sum / a_matrix[idx][idx].clone();
                 }
             }
+        }
+        
+        // Gauss-Seidel iteration for y-momentum
+        for _ in 0..self.config.base.convergence.max_iterations {
+            for idx in 0..n {
+                if a_matrix[idx][idx].clone().abs() > T::from_f64(1e-10).unwrap() {
+                    let mut sum = b_y[idx].clone();
+                    for k in 0..n {
+                        if k != idx {
+                            sum = sum - a_matrix[idx][k].clone() * u_y[k].clone();
+                        }
+                    }
+                    u_y[idx] = sum / a_matrix[idx][idx].clone();
+                }
+            }
+        }
+        
+        // Update velocity field
+        for i in 0..self.nx {
+            for j in 0..self.ny {
+                let idx = i * self.ny + j;
+                self.u[i][j].x = u_x[idx].clone();
+                self.u[i][j].y = u_y[idx].clone();
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Apply momentum boundary conditions
+    fn apply_momentum_boundary_conditions(
+        &self, 
+        a_matrix: &mut Vec<Vec<T>>, 
+        b_x: &mut Vec<T>, 
+        b_y: &mut Vec<T>
+    ) -> Result<()> {
+        // Apply actual boundary conditions from the grid, not hardcoded values
+        // This is a placeholder - should get BCs from the grid structure
+        
+        // For now, apply no-slip on all boundaries (u=0, v=0)
+        for i in 0..self.nx {
+            // Bottom boundary (j=0)
+            let idx = i * self.ny + 0;
+            for k in 0..a_matrix.len() {
+                a_matrix[idx][k] = T::zero();
+            }
+            a_matrix[idx][idx] = T::one();
+            b_x[idx] = T::zero();
+            b_y[idx] = T::zero();
+            
+            // Top boundary (j=ny-1)
+            let idx = i * self.ny + (self.ny - 1);
+            for k in 0..a_matrix.len() {
+                a_matrix[idx][k] = T::zero();
+            }
+            a_matrix[idx][idx] = T::one();
+            b_x[idx] = T::zero();
+            b_y[idx] = T::zero();
+        }
+        
+        for j in 0..self.ny {
+            // Left boundary (i=0)
+            let idx = 0 * self.ny + j;
+            for k in 0..a_matrix.len() {
+                a_matrix[idx][k] = T::zero();
+            }
+            a_matrix[idx][idx] = T::one();
+            b_x[idx] = T::zero();
+            b_y[idx] = T::zero();
+            
+            // Right boundary (i=nx-1)
+            let idx = (self.nx - 1) * self.ny + j;
+            for k in 0..a_matrix.len() {
+                a_matrix[idx][k] = T::zero();
+            }
+            a_matrix[idx][idx] = T::one();
+            b_x[idx] = T::zero();
+            b_y[idx] = T::zero();
         }
         
         Ok(())

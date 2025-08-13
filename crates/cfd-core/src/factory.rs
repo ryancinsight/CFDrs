@@ -6,23 +6,8 @@
 use crate::{Error, Result, Solver, SolverConfiguration};
 use nalgebra::RealField;
 use std::collections::HashMap;
-
-/// Abstract factory trait following GRASP Creator principle
-/// This trait is deprecated and should not be used.
-/// Use ConcreteSolverFactory directly instead.
-#[deprecated(note = "Use ConcreteSolverFactory directly for type-safe solver creation")]
-pub trait AbstractSolverFactory<T: RealField>: Send + Sync {
-    /// Create a solver with the given configuration
-    /// WARNING: This returns a String description, not an actual solver!
-    /// This is a design flaw that will be removed in the next major version.
-    fn create_solver_simple(&self, name: &str) -> Result<String>;
-
-    /// Get factory name for identification
-    fn name(&self) -> &str;
-
-    /// Get supported problem types
-    fn supported_types(&self) -> Vec<&str>;
-}
+use std::any::Any;
+use std::sync::Arc;
 
 /// Concrete factory trait for type-safe creation
 /// Follows Open/Closed Principle - open for extension, closed for modification
@@ -52,9 +37,130 @@ pub trait FactoryCapability {
     fn capabilities(&self) -> Vec<&str>;
 }
 
+/// Type-erased solver trait for dynamic dispatch
+pub trait DynamicSolver<T: RealField>: Send + Sync {
+    /// Solve the problem
+    fn solve(&mut self, problem: &dyn Any) -> Result<Box<dyn Any>>;
+    
+    /// Get solver name
+    fn name(&self) -> &str;
+}
+
+/// Wrapper to convert concrete solvers to dynamic solvers
+pub struct DynamicSolverWrapper<T, S>
+where
+    T: RealField,
+    S: Solver<T>,
+{
+    solver: S,
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T, S> DynamicSolverWrapper<T, S>
+where
+    T: RealField + 'static,
+    S: Solver<T> + 'static,
+    S::Problem: 'static,
+    S::Solution: 'static,
+{
+    pub fn new(solver: S) -> Self {
+        Self {
+            solver,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T, S> DynamicSolver<T> for DynamicSolverWrapper<T, S>
+where
+    T: RealField + 'static,
+    S: Solver<T> + 'static,
+    S::Problem: 'static,
+    S::Solution: 'static,
+{
+    fn solve(&mut self, problem: &dyn Any) -> Result<Box<dyn Any>> {
+        let typed_problem = problem
+            .downcast_ref::<S::Problem>()
+            .ok_or_else(|| Error::InvalidConfiguration("Invalid problem type".into()))?;
+        
+        let solution = self.solver.solve(typed_problem)?;
+        Ok(Box::new(solution))
+    }
+    
+    fn name(&self) -> &str {
+        self.solver.name()
+    }
+}
+
+/// Type-erased factory wrapper for heterogeneous storage
+pub trait DynamicFactory<T: RealField>: Send + Sync {
+    /// Create a solver from a configuration
+    fn create_solver(&self, config: &dyn Any) -> Result<Box<dyn DynamicSolver<T>>>;
+    
+    /// Get factory name
+    fn name(&self) -> &str;
+    
+    /// Check if this factory can handle a problem type
+    fn can_handle(&self, problem_type: &str) -> bool;
+}
+
+/// Wrapper to convert concrete factories to dynamic factories
+pub struct DynamicFactoryWrapper<T, F>
+where
+    T: RealField,
+    F: ConcreteSolverFactory<T>,
+{
+    factory: F,
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T, F> DynamicFactoryWrapper<T, F>
+where
+    T: RealField + 'static,
+    F: ConcreteSolverFactory<T> + 'static,
+    F::Solver: 'static,
+    F::Config: 'static,
+    <F::Solver as Solver<T>>::Problem: 'static,
+    <F::Solver as Solver<T>>::Solution: 'static,
+{
+    pub fn new(factory: F) -> Self {
+        Self {
+            factory,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T, F> DynamicFactory<T> for DynamicFactoryWrapper<T, F>
+where
+    T: RealField + 'static,
+    F: ConcreteSolverFactory<T> + 'static,
+    F::Solver: 'static,
+    F::Config: 'static,
+    <F::Solver as Solver<T>>::Problem: 'static,
+    <F::Solver as Solver<T>>::Solution: 'static,
+{
+    fn create_solver(&self, config: &dyn Any) -> Result<Box<dyn DynamicSolver<T>>> {
+        let typed_config = config
+            .downcast_ref::<F::Config>()
+            .ok_or_else(|| Error::InvalidConfiguration("Invalid configuration type".into()))?;
+        
+        let solver = self.factory.create(typed_config.clone())?;
+        Ok(Box::new(DynamicSolverWrapper::new(solver)))
+    }
+    
+    fn name(&self) -> &str {
+        self.factory.name()
+    }
+    
+    fn can_handle(&self, problem_type: &str) -> bool {
+        self.factory.can_handle(problem_type)
+    }
+}
+
 /// Complete factory registry with proper factory pattern implementation
 pub struct SolverFactoryRegistry<T: RealField> {
-    factories: HashMap<String, Box<dyn AbstractSolverFactory<T>>>,
+    factories: HashMap<String, Arc<dyn DynamicFactory<T>>>,
     factory_metadata: HashMap<String, FactoryMetadata>,
 }
 
@@ -86,7 +192,7 @@ impl<T: RealField> SolverFactoryRegistry<T> {
     pub fn register_factory(
         &mut self, 
         name: String, 
-        factory: Box<dyn AbstractSolverFactory<T>>,
+        factory: Arc<dyn DynamicFactory<T>>,
         metadata: FactoryMetadata
     ) -> Result<()> {
         if self.factories.contains_key(&name) {
@@ -99,7 +205,7 @@ impl<T: RealField> SolverFactoryRegistry<T> {
     }
 
     /// Get a factory by name
-    pub fn get_factory(&self, name: &str) -> Option<&dyn AbstractSolverFactory<T>> {
+    pub fn get_factory(&self, name: &str) -> Option<&dyn DynamicFactory<T>> {
         self.factories.get(name).map(|f| f.as_ref())
     }
 
@@ -113,12 +219,12 @@ impl<T: RealField> SolverFactoryRegistry<T> {
         self.factory_metadata.get(name)
     }
     
-    /// Create a solver using the specified factory
-    pub fn create_solver(&self, factory_name: &str, solver_name: &str) -> Result<String> {
+    /// Create a solver using the specified factory with a configuration
+    pub fn create_solver<C: Any>(&self, factory_name: &str, config: C) -> Result<Box<dyn DynamicSolver<T>>> {
         self.factories
             .get(factory_name)
             .ok_or_else(|| Error::InvalidInput(format!("Factory '{}' not found", factory_name)))?
-            .create_solver_simple(solver_name)
+            .create_solver(&config)
     }
     
     /// Get all factories of a specific type
