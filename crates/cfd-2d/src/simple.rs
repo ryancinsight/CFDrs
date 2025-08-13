@@ -127,6 +127,15 @@ pub struct SimpleSolver<T: RealField> {
 }
 
 impl<T: RealField + FromPrimitive> SimpleSolver<T> {
+    /// Helper function to convert 2D grid indices to 1D matrix index
+    /// for interior points only (excluding boundaries)
+    #[inline]
+    fn grid_to_matrix_idx(&self, i: usize, j: usize) -> usize {
+        debug_assert!(i > 0 && i < self.nx - 1);
+        debug_assert!(j > 0 && j < self.ny - 1);
+        (i - 1) * (self.ny - 2) + (j - 1)
+    }
+
     /// Create a new SIMPLE solver
     pub fn new(config: SimpleConfig<T>, nx: usize, ny: usize) -> Self {
         Self::new_with_properties(
@@ -283,7 +292,7 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
             }
             SpatialScheme::CentralDifference => {
                 // Central differencing (can be unstable for high Pe)
-                let two = T::from_f64(2.0).unwrap();
+                let two = T::one() + T::one();
                 let ae = de.clone() - fe.clone() / two.clone();
                 let aw = dw.clone() + fw.clone() / two.clone();
                 let an = dn.clone() - fn_.clone() / two.clone();
