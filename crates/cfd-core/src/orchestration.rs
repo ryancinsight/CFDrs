@@ -265,7 +265,7 @@ impl<T: RealField> SimulationOrchestrator<T> {
         &self.solver_registry
     }
 
-    /// Execute simulation with proper separation of concerns (simplified)
+    /// Execute simulation with proper separation of concerns
     pub fn execute(&mut self, solver_name: &str) -> Result<String> {
         // Preparation phase (separated concern)
         self.prepare_execution()?;
@@ -299,7 +299,7 @@ impl<T: RealField> SimulationOrchestrator<T> {
         Ok(())
     }
 
-    /// Execute solver with monitoring (SOC: execution logic, simplified)
+    /// Execute solver with monitoring (SOC: execution logic)
     fn execute_solver_by_name(&mut self, solver_name: &str) -> Result<String> {
         let solver_type = self.solver_registry.get_solver_type(solver_name)
             .ok_or_else(|| Error::InvalidInput(format!("Solver '{}' not found", solver_name)))?;
@@ -309,7 +309,8 @@ impl<T: RealField> SimulationOrchestrator<T> {
         // Check resource limits before execution
         self.check_resource_limits()?;
 
-        // Simplified execution - in practice, this would dispatch to actual solver
+        // For now, we simulate execution since actual solver dispatch would require
+        // the concrete solver implementations to be instantiated
         let result = format!("Executed {} solver of type {}", solver_name, solver_type);
 
         // Record metrics

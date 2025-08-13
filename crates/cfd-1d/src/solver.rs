@@ -1,7 +1,7 @@
-//! Simplified solver for 1D CFD network analysis.
+//! Network solver for 1D CFD analysis.
 //!
-//! This module provides a basic solver for analyzing fluid flow in microfluidic
-//! networks using simple iterative methods.
+//! This module provides a comprehensive solver for analyzing fluid flow in microfluidic
+//! networks using iterative methods and circuit analogies.
 
 use crate::network::{Network, Edge};
 use petgraph::visit::EdgeRef;

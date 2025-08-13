@@ -3,11 +3,12 @@
 //! This module provides finite difference schemes optimized for CFD simulations
 //! with support for various boundary conditions and grid types.
 
-use cfd_core::{Error, Result};
 use nalgebra::{RealField, Vector3, DVector};
-use num_traits::cast::FromPrimitive;
+use cfd_core::{Error, Result};
+use num_traits::FromPrimitive;
+use crate::constants::factors;
 
-/// Finite difference scheme types
+/// Finite difference schemes
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FiniteDifferenceScheme {
     /// Forward difference: f'(x) ≈ (f(x+h) - f(x)) / h
@@ -91,7 +92,7 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
                 result[0] = (values[1].clone() - values[0].clone()) * inv_spacing.clone();
 
                 // Central difference using windows(3) for interior points
-                let two_inv_spacing = inv_spacing.clone() / T::from_f64(2.0).unwrap();
+                let two_inv_spacing = inv_spacing.clone() / T::from_f64(factors::TWO).unwrap();
                 values.windows(3)
                     .enumerate()
                     .for_each(|(i, window)| {
@@ -110,23 +111,31 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
                     ));
                 }
 
-                let two = T::from_f64(2.0).unwrap();
-                let three = T::from_f64(3.0).unwrap();
-                let four = T::from_f64(4.0).unwrap();
+                let two = T::from_f64(factors::TWO).unwrap();
+                let three = T::from_f64(factors::THREE).unwrap();
+                let four = T::from_f64(factors::FOUR).unwrap();
 
-                for i in 0..n-2 {
-                    result[i] = (-three.clone() * values[i].clone() +
-                                four.clone() * values[i+1].clone() -
-                                values[i+2].clone()) / (two.clone() * self.spacing.clone());
-                }
+                // Use forward difference for first n-2 points
+                result.iter_mut()
+                    .take(n.saturating_sub(2))
+                    .enumerate()
+                    .for_each(|(i, r)| {
+                        *r = (-three.clone() * values[i].clone() +
+                              four.clone() * values[i+1].clone() -
+                              values[i+2].clone()) / (two.clone() * self.spacing.clone());
+                    });
 
                 // Use central difference for remaining points
-                for i in n-2..n {
-                    if i > 0 && i < n-1 {
-                        result[i] = (values[i+1].clone() - values[i-1].clone()) /
-                                   (two.clone() * self.spacing.clone());
-                    }
-                }
+                result.iter_mut()
+                    .skip(n.saturating_sub(2))
+                    .enumerate()
+                    .for_each(|(idx, r)| {
+                        let i = idx + n.saturating_sub(2);
+                        if i > 0 && i < n-1 {
+                            *r = (values[i+1].clone() - values[i-1].clone()) /
+                                 (two.clone() * self.spacing.clone());
+                        }
+                    });
             },
             FiniteDifferenceScheme::BackwardSecondOrder => {
                 if n < 3 {
@@ -135,23 +144,31 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
                     ));
                 }
 
-                let two = T::from_f64(2.0).unwrap();
-                let three = T::from_f64(3.0).unwrap();
-                let four = T::from_f64(4.0).unwrap();
+                let two = T::from_f64(factors::TWO).unwrap();
+                let three = T::from_f64(factors::THREE).unwrap();
+                let four = T::from_f64(factors::FOUR).unwrap();
 
                 // Use central difference for first points
-                for i in 0..2 {
-                    if i > 0 && i < n-1 {
-                        result[i] = (values[i+1].clone() - values[i-1].clone()) /
-                                   (two.clone() * self.spacing.clone());
-                    }
-                }
+                result.iter_mut()
+                    .take(2)
+                    .enumerate()
+                    .for_each(|(i, r)| {
+                        if i > 0 && i < n-1 {
+                            *r = (values[i+1].clone() - values[i-1].clone()) /
+                                 (two.clone() * self.spacing.clone());
+                        }
+                    });
 
-                for i in 2..n {
-                    result[i] = (values[i-2].clone() -
-                                four.clone() * values[i-1].clone() +
-                                three.clone() * values[i].clone()) / (two.clone() * self.spacing.clone());
-                }
+                // Use backward difference for remaining points
+                result.iter_mut()
+                    .skip(2)
+                    .enumerate()
+                    .for_each(|(idx, r)| {
+                        let i = idx + 2;
+                        *r = (values[i-2].clone() -
+                              four.clone() * values[i-1].clone() +
+                              three.clone() * values[i].clone()) / (two.clone() * self.spacing.clone());
+                    });
             },
         }
 
@@ -171,15 +188,15 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
         let h_squared = self.spacing.clone() * self.spacing.clone();
 
         // Use forward difference for first point
-        result[0] = (values[2].clone() - T::from_f64(2.0).unwrap() * values[1].clone() + values[0].clone()) / h_squared.clone();
+        result[0] = (values[2].clone() - T::from_f64(factors::TWO).unwrap() * values[1].clone() + values[0].clone()) / h_squared.clone();
 
         // Central difference for interior points
         for i in 1..n-1 {
-            result[i] = (values[i+1].clone() - T::from_f64(2.0).unwrap() * values[i].clone() + values[i-1].clone()) / h_squared.clone();
+            result[i] = (values[i+1].clone() - T::from_f64(factors::TWO).unwrap() * values[i].clone() + values[i-1].clone()) / h_squared.clone();
         }
 
         // Use backward difference for last point
-        result[n-1] = (values[n-1].clone() - T::from_f64(2.0).unwrap() * values[n-2].clone() + values[n-3].clone()) / h_squared.clone();
+        result[n-1] = (values[n-1].clone() - T::from_f64(factors::TWO).unwrap() * values[n-2].clone() + values[n-3].clone()) / h_squared.clone();
 
         Ok(result)
     }
@@ -235,7 +252,7 @@ impl<T: RealField + FromPrimitive> Gradient<T> {
         }
 
         let mut gradients = Vec::with_capacity(nx * ny);
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(factors::TWO).unwrap();
 
         // Use iterator combinators instead of nested loops
         gradients.extend((0..ny).flat_map(|j| {
@@ -285,7 +302,7 @@ impl<T: RealField + FromPrimitive> Gradient<T> {
         }
 
         let mut gradients = Vec::with_capacity(nx * ny * nz);
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(factors::TWO).unwrap();
 
         // Use iterator combinators for better performance
         gradients.extend((0..nz).flat_map(|k| {
@@ -344,11 +361,11 @@ impl<T: RealField + FromPrimitive> Gradient<T> {
             ));
         }
 
-        let mut divergence = Vec::with_capacity(nx * ny);
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(factors::TWO).unwrap();
 
-        for j in 0..ny {
-            for i in 0..nx {
+        let divergence: Vec<T> = (0..ny)
+            .flat_map(|j| (0..nx).map(move |i| (i, j)))
+            .map(|(i, j)| {
                 let idx = j * nx + i;
 
                 // Compute ∂u/∂x
@@ -369,9 +386,9 @@ impl<T: RealField + FromPrimitive> Gradient<T> {
                     (field[idx + nx].y.clone() - field[idx - nx].y.clone()) / (two.clone() * self.dy.clone())
                 };
 
-                divergence.push(dudx + dvdy);
-            }
-        }
+                dudx + dvdy
+            })
+            .collect();
 
         Ok(divergence)
     }
@@ -385,7 +402,7 @@ impl<T: RealField + FromPrimitive> Gradient<T> {
         }
 
         let mut curl = Vec::with_capacity(nx * ny);
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(factors::TWO).unwrap();
 
         for j in 0..ny {
             for i in 0..nx {

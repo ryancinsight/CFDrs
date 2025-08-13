@@ -103,7 +103,7 @@ pub struct SpectralSolver<T: RealField> {
     spectral_w: Vec<Complex<T>>, // Spectral w-velocity field
 }
 
-impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
+impl<T: RealField + FromPrimitive + Send + Sync + Copy> SpectralSolver<T> {
     /// Create a new spectral solver
     pub fn new(
         config: SpectralConfig<T>,
@@ -425,11 +425,9 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
 
     /// Build Chebyshev second derivative matrix
     fn chebyshev_d2_matrix(&self, n: usize) -> Result<DMatrix<T>> {
-        // Simplified implementation - in practice, this would use
-        // proper Chebyshev differentiation matrix construction
-        // Implement proper Chebyshev spectral differentiation matrix
-        // For Chebyshev points, the second derivative matrix can be computed
-        // using the differentiation matrix D: D2 = D * D
+        // Proper Chebyshev spectral differentiation matrix using the standard formula
+        // The second derivative matrix is computed as D² where D is the first derivative matrix
+        // This uses the exact Chebyshev differentiation matrix formulation
         let d1 = self.chebyshev_d1_matrix(n)?;
         let d2 = &d1 * &d1;
 
@@ -770,22 +768,38 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
     
     /// Forward transform (physical to spectral space)
     fn forward_transform(&self, physical: &[T]) -> Vec<Complex<T>> {
-        // Simplified FFT implementation for testing
-        // In production, use rustfft or similar
+        // Proper Cooley-Tukey FFT implementation with bit-reversal and butterfly operations
         let n = physical.len();
-        let mut spectral = vec![Complex::new(T::zero(), T::zero()); n];
         
-        for k in 0..n {
-            for j in 0..n {
-                let phase = T::from_f64(-2.0 * std::f64::consts::PI).unwrap() 
-                    * T::from_usize(k * j).unwrap() / T::from_usize(n).unwrap();
-                let (sin_phase, cos_phase) = phase.sin_cos();
-                let current = &spectral[k];
-                spectral[k] = Complex::new(
-                    current.re.clone() + physical[j].clone() * cos_phase.clone(),
-                    current.im.clone() + physical[j].clone() * sin_phase
-                );
+        // Check if n is a power of 2
+        if n & (n - 1) != 0 {
+            // Fall back to DFT for non-power-of-2 sizes
+            return self.dft_forward(physical);
+        }
+        
+        // Convert to complex and perform bit-reversal permutation
+        let mut spectral: Vec<Complex<T>> = physical.iter()
+            .map(|&x| Complex::new(x, T::zero()))
+            .collect();
+        self.bit_reverse_permutation(&mut spectral);
+        
+        // Cooley-Tukey butterfly operations
+        let mut length = 2;
+        while length <= n {
+            let angle = T::from_f64(-2.0 * std::f64::consts::PI).unwrap() / T::from_usize(length).unwrap();
+            let wlen = Complex::new(angle.cos(), angle.sin());
+            
+            for i in (0..n).step_by(length) {
+                let mut w = Complex::new(T::one(), T::zero());
+                for j in 0..length/2 {
+                    let u = spectral[i + j];
+                    let v = spectral[i + j + length/2] * w;
+                    spectral[i + j] = u + v;
+                    spectral[i + j + length/2] = u - v;
+                    w = w * wlen;
+                }
             }
+            length *= 2;
         }
         
         spectral
@@ -793,22 +807,95 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
     
     /// Backward transform (spectral to physical space)
     fn backward_transform(&self, spectral: &[Complex<T>]) -> Vec<T> {
-        // Simplified inverse FFT implementation for testing
+        // Proper inverse FFT using Cooley-Tukey algorithm
         let n = spectral.len();
-        let mut physical = vec![T::zero(); n];
-        let norm = T::one() / T::from_usize(n).unwrap();
         
-        for j in 0..n {
+        // Check if n is a power of 2
+        if n & (n - 1) != 0 {
+            // Fall back to DFT for non-power-of-2 sizes
+            return self.dft_backward(spectral);
+        }
+        
+        // Copy and perform bit-reversal permutation
+        let mut working = spectral.to_vec();
+        self.bit_reverse_permutation(&mut working);
+        
+        // Cooley-Tukey butterfly operations (with positive angle for inverse)
+        let mut length = 2;
+        while length <= n {
+            let angle = T::from_f64(2.0 * std::f64::consts::PI).unwrap() / T::from_usize(length).unwrap();
+            let wlen = Complex::new(angle.cos(), angle.sin());
+            
+            for i in (0..n).step_by(length) {
+                let mut w = Complex::new(T::one(), T::zero());
+                for j in 0..length/2 {
+                    let u = working[i + j];
+                    let v = working[i + j + length/2] * w;
+                    working[i + j] = u + v;
+                    working[i + j + length/2] = u - v;
+                    w = w * wlen;
+                }
+            }
+            length *= 2;
+        }
+        
+        // Extract real parts and normalize
+        let norm = T::one() / T::from_usize(n).unwrap();
+        working.iter()
+            .map(|c| c.re * norm)
+            .collect()
+    }
+    
+    /// Bit-reversal permutation for FFT
+    fn bit_reverse_permutation(&self, data: &mut [Complex<T>]) {
+        let n = data.len();
+        let mut j = 0;
+        for i in 1..n {
+            let mut bit = n >> 1;
+            while j & bit != 0 {
+                j ^= bit;
+                bit >>= 1;
+            }
+            j ^= bit;
+            
+            if i < j {
+                data.swap(i, j);
+            }
+        }
+    }
+    
+    /// DFT for non-power-of-2 sizes (fallback)
+    fn dft_forward(&self, physical: &[T]) -> Vec<Complex<T>> {
+        let n = physical.len();
+        (0..n).map(|k| {
+            let mut sum = Complex::new(T::zero(), T::zero());
+            for j in 0..n {
+                let phase = T::from_f64(-2.0 * std::f64::consts::PI).unwrap() 
+                    * T::from_usize(k * j).unwrap() / T::from_usize(n).unwrap();
+                let (sin_phase, cos_phase) = phase.sin_cos();
+                sum = sum + Complex::new(
+                    physical[j] * cos_phase,
+                    physical[j] * sin_phase
+                );
+            }
+            sum
+        }).collect()
+    }
+    
+    /// Inverse DFT for non-power-of-2 sizes (fallback)
+    fn dft_backward(&self, spectral: &[Complex<T>]) -> Vec<T> {
+        let n = spectral.len();
+        let norm = T::one() / T::from_usize(n).unwrap();
+        (0..n).map(|j| {
+            let mut sum = T::zero();
             for k in 0..n {
                 let phase = T::from_f64(2.0 * std::f64::consts::PI).unwrap() 
                     * T::from_usize(k * j).unwrap() / T::from_usize(n).unwrap();
                 let (sin_phase, cos_phase) = phase.sin_cos();
-                let contrib = spectral[k].re.clone() * cos_phase - spectral[k].im.clone() * sin_phase;
-                physical[j] = physical[j].clone() + contrib * norm.clone();
+                sum = sum + (spectral[k].re * cos_phase - spectral[k].im * sin_phase);
             }
-        }
-        
-        physical
+            sum * norm
+        }).collect()
     }
 }
 
@@ -829,18 +916,15 @@ pub struct SpectralSolution<T: RealField> {
     pub nz_modes: usize,
 }
 
-impl<T: RealField + FromPrimitive> SpectralSolution<T> {
+impl<T: RealField + FromPrimitive + Copy> SpectralSolution<T> {
     /// Evaluate solution at a given point
     pub fn evaluate_at(&self, point: &Vector3<T>) -> Result<T> {
-        // Simplified evaluation using first few coefficients
-        // In a proper implementation, this would evaluate the spectral expansion
-        if self.coefficients.is_empty() {
-            return Ok(T::zero());
-        }
-
         // Proper spectral evaluation using tensor product of basis functions
         // For a 3D spectral solution, we evaluate the sum over all modes:
         // u(x,y,z) = Σ_{i,j,k} c_{i,j,k} * φ_i(x) * φ_j(y) * φ_k(z)
+        if self.coefficients.is_empty() {
+            return Ok(T::zero());
+        }
 
         let mut result = T::zero();
         let nx = self.nx_modes;

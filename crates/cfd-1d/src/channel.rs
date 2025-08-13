@@ -433,22 +433,29 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
 
     /// Calculate friction factor for rectangular channels
     fn calculate_rectangular_friction_factor(&self, aspect_ratio: T) -> T {
-        let alpha = if aspect_ratio >= T::one() { aspect_ratio } else { T::one() / aspect_ratio };
-
-        // Simplified friction factor calculation to avoid numerical issues
-        let twentyfour = T::from_f64(24.0).unwrap();
-        let one = T::one();
-
-        if alpha >= one {
-            // Wide channel approximation (simplified)
-            let correction = one.clone() - T::from_f64(0.63).unwrap() / alpha;
-            twentyfour * RealField::max(correction, T::from_f64(0.1).unwrap()) // Ensure positive
-        } else {
-            // Tall channel approximation (simplified)
-            let inv_alpha = one / alpha;
-            let base = T::from_f64(56.91).unwrap();
-            base / RealField::max(inv_alpha, T::from_f64(0.1).unwrap()) // Ensure positive denominator
-        }
+        // Proper friction factor calculation using Shah and London (1978) correlation
+        // for laminar flow in rectangular ducts
+        // f*Re = 24*(1 - 1.3553*α + 1.9467*α² - 1.7012*α³ + 0.9564*α⁴ - 0.2537*α⁵)
+        // where α is the aspect ratio (width/height) normalized to [0,1]
+        
+        let alpha = if aspect_ratio >= T::one() { 
+            T::one() / aspect_ratio  // Normalize to [0,1] range
+        } else { 
+            aspect_ratio 
+        };
+        
+        // Shah and London correlation coefficients
+        let c1 = T::from_f64(1.3553).unwrap();
+        let c2 = T::from_f64(1.9467).unwrap();
+        let c3 = T::from_f64(1.7012).unwrap();
+        let c4 = T::from_f64(0.9564).unwrap();
+        let c5 = T::from_f64(0.2537).unwrap();
+        
+        // Evaluate polynomial using Horner's method for efficiency and numerical stability
+        let polynomial = ((((-c5 * alpha + c4) * alpha - c3) * alpha + c2) * alpha - c1) * alpha + T::one();
+        
+        // f*Re = 24 * polynomial
+        T::from_f64(24.0).unwrap() * polynomial
     }
 
     /// Calculate resistance for circular channels (Hagen-Poiseuille)
