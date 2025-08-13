@@ -103,7 +103,7 @@ pub struct SpectralSolver<T: RealField> {
     spectral_w: Vec<Complex<T>>, // Spectral w-velocity field
 }
 
-impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
+impl<T: RealField + FromPrimitive + Send + Sync + Copy> SpectralSolver<T> {
     /// Create a new spectral solver
     pub fn new(
         config: SpectralConfig<T>,
@@ -779,7 +779,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
         
         // Convert to complex and perform bit-reversal permutation
         let mut spectral: Vec<Complex<T>> = physical.iter()
-            .map(|x| Complex::new(x.clone(), T::zero()))
+            .map(|&x| Complex::new(x, T::zero()))
             .collect();
         self.bit_reverse_permutation(&mut spectral);
         
@@ -787,16 +787,16 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
         let mut length = 2;
         while length <= n {
             let angle = T::from_f64(-2.0 * std::f64::consts::PI).unwrap() / T::from_usize(length).unwrap();
-            let wlen = Complex::new(angle.clone().cos(), angle.sin());
+            let wlen = Complex::new(angle.cos(), angle.sin());
             
             for i in (0..n).step_by(length) {
                 let mut w = Complex::new(T::one(), T::zero());
                 for j in 0..length/2 {
-                    let u = spectral[i + j].clone();
-                    let v = spectral[i + j + length/2].clone() * w.clone();
-                    spectral[i + j] = u.clone() + v.clone();
+                    let u = spectral[i + j];
+                    let v = spectral[i + j + length/2] * w;
+                    spectral[i + j] = u + v;
                     spectral[i + j + length/2] = u - v;
-                    w = w * wlen.clone();
+                    w = w * wlen;
                 }
             }
             length *= 2;
@@ -824,16 +824,16 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
         let mut length = 2;
         while length <= n {
             let angle = T::from_f64(2.0 * std::f64::consts::PI).unwrap() / T::from_usize(length).unwrap();
-            let wlen = Complex::new(angle.clone().cos(), angle.sin());
+            let wlen = Complex::new(angle.cos(), angle.sin());
             
             for i in (0..n).step_by(length) {
                 let mut w = Complex::new(T::one(), T::zero());
                 for j in 0..length/2 {
-                    let u = working[i + j].clone();
-                    let v = working[i + j + length/2].clone() * w.clone();
-                    working[i + j] = u.clone() + v.clone();
+                    let u = working[i + j];
+                    let v = working[i + j + length/2] * w;
+                    working[i + j] = u + v;
                     working[i + j + length/2] = u - v;
-                    w = w * wlen.clone();
+                    w = w * wlen;
                 }
             }
             length *= 2;
@@ -842,7 +842,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
         // Extract real parts and normalize
         let norm = T::one() / T::from_usize(n).unwrap();
         working.iter()
-            .map(|c| c.re.clone() * norm.clone())
+            .map(|c| c.re * norm)
             .collect()
     }
     
@@ -874,8 +874,8 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
                     * T::from_usize(k * j).unwrap() / T::from_usize(n).unwrap();
                 let (sin_phase, cos_phase) = phase.sin_cos();
                 sum = sum + Complex::new(
-                    physical[j].clone() * cos_phase,
-                    physical[j].clone() * sin_phase
+                    physical[j] * cos_phase,
+                    physical[j] * sin_phase
                 );
             }
             sum
@@ -892,9 +892,9 @@ impl<T: RealField + FromPrimitive + Send + Sync> SpectralSolver<T> {
                 let phase = T::from_f64(2.0 * std::f64::consts::PI).unwrap() 
                     * T::from_usize(k * j).unwrap() / T::from_usize(n).unwrap();
                 let (sin_phase, cos_phase) = phase.sin_cos();
-                sum = sum.clone() + (spectral[k].re.clone() * cos_phase - spectral[k].im.clone() * sin_phase);
+                sum = sum + (spectral[k].re * cos_phase - spectral[k].im * sin_phase);
             }
-            sum * norm.clone()
+            sum * norm
         }).collect()
     }
 }
@@ -916,7 +916,7 @@ pub struct SpectralSolution<T: RealField> {
     pub nz_modes: usize,
 }
 
-impl<T: RealField + FromPrimitive> SpectralSolution<T> {
+impl<T: RealField + FromPrimitive + Copy> SpectralSolution<T> {
     /// Evaluate solution at a given point
     pub fn evaluate_at(&self, point: &Vector3<T>) -> Result<T> {
         // Proper spectral evaluation using tensor product of basis functions

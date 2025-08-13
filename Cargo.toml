@@ -119,6 +119,10 @@ name = "simple_pipe_flow"
 path = "examples/simple_pipe_flow.rs"
 
 [[example]]
+name = "spectral_performance"
+path = "examples/spectral_performance.rs"
+
+[[example]]
 name = "scheme_integration_demo"
 
 [[example]]
