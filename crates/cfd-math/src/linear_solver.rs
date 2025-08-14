@@ -152,7 +152,7 @@ impl<T: RealField + FromPrimitive> ILU0Preconditioner<T> {
         
         // Simplified diagonal decomposition (placeholder for real ILU)
         for i in 0..n {
-            l_builder.add_entry(i, i, T::one());
+            let _ = l_builder.add_entry(i, i, T::one());
             
             let diagonal_entry = a.row(i).get_entry(i)
                 .map(|entry| entry.into_value().clone())
@@ -164,7 +164,7 @@ impl<T: RealField + FromPrimitive> ILU0Preconditioner<T> {
                 ));
             }
             
-            u_builder.add_entry(i, i, diagonal_entry);
+            let _ = u_builder.add_entry(i, i, diagonal_entry);
         }
         
         Ok(Self {

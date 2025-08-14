@@ -92,30 +92,30 @@ impl<T: RealField + FromPrimitive> PressureCorrector<T> {
                 *self.coefficients.at_mut(i, j) = ap.clone();
                 
                 // Matrix entries
-                matrix_builder.add_entry(row, row, ap);
+                let _ = matrix_builder.add_entry(row, row, ap);
                 
                 // East neighbor
                 if i < fields.nx - 2 {
                     let col = (j - 1) * (fields.nx - 2) + i;
-                    matrix_builder.add_entry(row, col, -ae);
+                    let _ = matrix_builder.add_entry(row, col, -ae);
                 }
                 
                 // West neighbor
                 if i > 1 {
                     let col = (j - 1) * (fields.nx - 2) + (i - 2);
-                    matrix_builder.add_entry(row, col, -aw);
+                    let _ = matrix_builder.add_entry(row, col, -aw);
                 }
                 
                 // North neighbor
                 if j < fields.ny - 2 {
                     let col = j * (fields.nx - 2) + (i - 1);
-                    matrix_builder.add_entry(row, col, -an);
+                    let _ = matrix_builder.add_entry(row, col, -an);
                 }
                 
                 // South neighbor
                 if j > 1 {
                     let col = (j - 2) * (fields.nx - 2) + (i - 1);
-                    matrix_builder.add_entry(row, col, -as_);
+                    let _ = matrix_builder.add_entry(row, col, -as_);
                 }
                 
                 // RHS: negative of mass imbalance

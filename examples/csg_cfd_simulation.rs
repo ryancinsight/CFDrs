@@ -4,11 +4,11 @@
 //! in actual CFD simulations, showcasing the integration between the
 //! csgrs library and the CFD solvers.
 
-use cfd_mesh::csg::{CsgOperator, CsgBuilder, CsgError};
+use cfd_mesh::csg::{CsgOperator, CsgBuilder};
 use cfd_2d::{SimpleSolver, SimpleConfig, StructuredGrid2D, Grid2D};
-use cfd_3d::{FemSolver, FemConfig, FluidProperties};
+use cfd_3d::FemConfig;
 use cfd_core::{BoundaryCondition, WallType};
-use nalgebra::{Vector3, Vector2};
+use nalgebra::Vector3;
 use std::collections::HashMap;
 use std::fs;
 
@@ -88,10 +88,8 @@ fn flow_around_csg_cylinder() -> Result<(), Box<dyn std::error::Error>> {
     for j in 0..grid.ny() {
         boundary_conditions.insert(
             (0, j),
-            BoundaryCondition::Inlet {
-                velocity: Some(Vector2::new(1.0, 0.0)),
-                pressure: None,
-                temperature: None,
+            BoundaryCondition::VelocityInlet {
+                velocity: Vector3::new(1.0, 0.0, 0.0),
             },
         );
     }
@@ -100,10 +98,8 @@ fn flow_around_csg_cylinder() -> Result<(), Box<dyn std::error::Error>> {
     for j in 0..grid.ny() {
         boundary_conditions.insert(
             (grid.nx() - 1, j),
-            BoundaryCondition::Outlet {
-                pressure: Some(0.0),
-                velocity: None,
-                temperature: None,
+            BoundaryCondition::PressureOutlet {
+                pressure: 0.0,
             },
         );
     }
@@ -130,8 +126,8 @@ fn flow_around_csg_cylinder() -> Result<(), Box<dyn std::error::Error>> {
             println!("   ✅ Flow simulation converged");
             
             // Extract solution fields
-            let pressure = solver.pressure();
-            let velocity = solver.velocity();
+            let pressure = solver.pressure_field();
+            let velocity = solver.velocity_field();
             println!("   📊 Solution extracted: {} pressure nodes, {} velocity nodes", 
                      pressure.len(), velocity.len());
             
@@ -196,12 +192,13 @@ fn flow_through_csg_pipe() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
     
-    // Create fluid properties
-    let fluid_props = FluidProperties::water(); // Use built-in water properties
+    // Create fluid properties (water at 20°C)
+    let fluid_density = 1000.0; // kg/m³
+    let fluid_viscosity = 1e-3; // Pa·s
     
     println!("   🌊 FEM solver configured:");
     println!("      Fluid: Water (ρ={:.1} kg/m³, μ={:.1e} Pa·s)", 
-             fluid_props.density, fluid_props.viscosity);
+             fluid_density, fluid_viscosity);
     println!("      Reynolds number: {:.0}", fem_config.reynolds.unwrap_or(0.0));
     
     // In a real simulation, you would:

@@ -4,7 +4,7 @@
 //! the Stokes equations in a simple tetrahedral domain.
 
 use cfd_3d::{FemSolver, FemConfig, FluidProperties};
-use cfd_mesh::{Mesh, Vertex, Face, Cell};
+use cfd_mesh::{Mesh, Vertex, Cell};
 use nalgebra::{Point3, Vector3};
 use std::collections::HashMap;
 
@@ -39,8 +39,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         reynolds: Some(100.0),
     };
     
-    // Create FEM solver with mesh and properties
-    let mut solver = FemSolver::new(config, mesh, fluid_props);
+    // Create FEM solver
+    let mut solver = FemSolver::new(config);
     
     // Define boundary conditions for velocity at specific nodes
     let mut velocity_bcs = HashMap::new();
@@ -64,11 +64,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Solve the Stokes equations
     println!("Solving Stokes flow...");
-    solver.solve_stokes(&velocity_bcs)?;
+    let solution = solver.solve_stokes(&mesh, &fluid_props, &velocity_bcs)?;
     
-    // Get the solution
-    let velocity_solution = solver.get_velocity_field();
-    let pressure_solution = solver.get_pressure_field();
+    // Solution is now available in the returned StokesFlowSolution
+    let velocity_solution = &solution.velocity;
+    let pressure_solution = &solution.pressure;
     
     println!("\nSolution obtained!");
     

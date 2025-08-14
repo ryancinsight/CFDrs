@@ -281,30 +281,30 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
                 let coeffs = self.coefficients.at(i, j);
                 
                 // Central coefficient
-                matrix_builder.add_entry(row, row, coeffs.ap.clone());
+                let _ = matrix_builder.add_entry(row, row, coeffs.ap.clone());
                 
                 // East neighbor
                 if i < fields.nx - 2 {
                     let col = (j - 1) * (fields.nx - 2) + i;
-                    matrix_builder.add_entry(row, col, -coeffs.ae.clone());
+                    let _ = matrix_builder.add_entry(row, col, -coeffs.ae.clone());
                 }
                 
                 // West neighbor
                 if i > 1 {
                     let col = (j - 1) * (fields.nx - 2) + (i - 2);
-                    matrix_builder.add_entry(row, col, -coeffs.aw.clone());
+                    let _ = matrix_builder.add_entry(row, col, -coeffs.aw.clone());
                 }
                 
                 // North neighbor
                 if j < fields.ny - 2 {
                     let col = j * (fields.nx - 2) + (i - 1);
-                    matrix_builder.add_entry(row, col, -coeffs.an.clone());
+                    let _ = matrix_builder.add_entry(row, col, -coeffs.an.clone());
                 }
                 
                 // South neighbor
                 if j > 1 {
                     let col = (j - 2) * (fields.nx - 2) + (i - 1);
-                    matrix_builder.add_entry(row, col, -coeffs.as_.clone());
+                    let _ = matrix_builder.add_entry(row, col, -coeffs.as_.clone());
                 }
                 
                 // Pressure gradient term

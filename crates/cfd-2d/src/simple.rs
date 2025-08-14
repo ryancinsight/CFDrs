@@ -1380,10 +1380,24 @@ mod tests {
         assert_relative_eq!(dx, 0.5, epsilon = 1e-10);
         assert_relative_eq!(dy, 0.2, epsilon = 1e-10);
         
-        // Set up Neumann BC with gradient = 2.0
+        // Set up boundary conditions for all boundary cells
         let gradient_value = 2.0;
         let mut boundaries = HashMap::new();
-        boundaries.insert((0, 5), BoundaryCondition::Neumann { gradient: gradient_value });
+        
+        // Add boundary conditions for all boundary cells
+        for i in 0..grid.nx {
+            for j in 0..grid.ny {
+                if i == 0 || i == grid.nx - 1 || j == 0 || j == grid.ny - 1 {
+                    if i == 0 && j == 5 {
+                        // Test Neumann BC at this specific location
+                        boundaries.insert((i, j), BoundaryCondition::Neumann { gradient: gradient_value });
+                    } else {
+                        // Use no-slip wall for other boundary cells
+                        boundaries.insert((i, j), BoundaryCondition::Wall { wall_type: cfd_core::WallType::NoSlip });
+                    }
+                }
+            }
+        }
         
         // Initialize interior velocity
         solver.u[1][5] = Vector2::new(10.0, 0.0);

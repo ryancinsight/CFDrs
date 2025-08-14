@@ -6,7 +6,8 @@
 //! 3. Validating results against the analytical Hagen-Poiseuille solution
 
 use cfd_mesh::{Mesh, Vertex, Face};
-use cfd_3d::{FemSolver, FemConfig, FluidProperties, StokesFlowProblem, StokesFlowSolution};
+use cfd_3d::{FemSolver, FemConfig};
+use cfd_3d::fem::{StokesFlowProblem, StokesFlowSolution};
 use cfd_core::{BoundaryCondition, Fluid};
 use nalgebra::{Point3, Vector3};
 use std::f64::consts::PI;
@@ -74,9 +75,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Err(e) => {
             println!("Warning: FEM solver failed ({}), continuing with validation anyway...", e);
             // Create a dummy solution for validation purposes
-            let velocity = vec![Vector3::zeros(); problem.mesh.vertices.len()];
-            let pressure = vec![0.0; problem.mesh.vertices.len()];
-            StokesFlowSolution { velocity, pressure }
+            let n_nodes = problem.mesh.vertices.len();
+            let velocity = nalgebra::DVector::zeros(n_nodes * 3); // 3 components per node
+            let pressure = nalgebra::DVector::zeros(n_nodes);
+            StokesFlowSolution::new(velocity, pressure, n_nodes)
         }
     };
     
@@ -84,7 +86,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Validate against analytical solution
     println!("\nValidating against Hagen-Poiseuille analytical solution...");
-    validate_pipe_flow(&solution, &problem.mesh, pipe_radius, pipe_length, fluid_viscosity, pressure_gradient);
+    validate_pipe_flow(&solution, &problem.mesh, pipe_radius, pipe_length, fluid_viscosity, pressure_gradient, n_axial);
     
     // Output results
     println!("\nFlow Field Results:");
@@ -151,7 +153,7 @@ fn create_simple_pipe_mesh(radius: f64, length: f64, n_circ: usize, n_axial: usi
 }
 
 /// Validate the numerical solution against the analytical Hagen-Poiseuille solution
-fn validate_pipe_flow(solution: &StokesFlowSolution<f64>, mesh: &Mesh<f64>, radius: f64, length: f64, viscosity: f64, pressure_gradient: f64) {
+fn validate_pipe_flow(solution: &StokesFlowSolution<f64>, mesh: &Mesh<f64>, radius: f64, length: f64, viscosity: f64, pressure_gradient: f64, n_axial: usize) {
     let max_velocity_analytical = -pressure_gradient * radius * radius / (4.0 * viscosity);
     let flow_rate_analytical = PI * radius.powi(4) * (-pressure_gradient) / (8.0 * viscosity);
     let fluid_density = 1000.0; // Same as in main
@@ -178,7 +180,11 @@ fn validate_pipe_flow(solution: &StokesFlowSolution<f64>, mesh: &Mesh<f64>, radi
                  // Check if point is near centerline (r ≈ 0)
          if r < radius * 0.1 {
              if i < solution.velocity.len() {
-                 let v_z = solution.velocity[i].z; // z-component of velocity
+                 let v_z = if i * 3 + 2 < solution.velocity.len() {
+                solution.velocity[i * 3 + 2] // z-component of velocity
+            } else {
+                0.0
+            };
                 centerline_velocities.push((vertex.position.z, v_z));
                 if v_z.abs() > max_velocity_numerical {
                     max_velocity_numerical = v_z.abs();
@@ -214,11 +220,11 @@ fn validate_pipe_flow(solution: &StokesFlowSolution<f64>, mesh: &Mesh<f64>, radi
     let mid_z = length / 2.0;
     for vertex in &mesh.vertices {
         if (vertex.position.z - mid_z).abs() < length / (2.0 * n_axial as f64) {
-            let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
+                        let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
                          if r <= radius {
-                 if vertex.id < solution.velocity.len() {
-                     let v_z = solution.velocity[vertex.id].z;
-                     flow_rate_numerical += v_z * r * dr * dtheta; // Cylindrical integration
+                if vertex.id * 3 + 2 < solution.velocity.len() {
+                    let v_z = solution.velocity[vertex.id * 3 + 2];
+                    flow_rate_numerical += v_z * r * dr * dtheta; // Cylindrical integration
                  }
             }
         }
@@ -238,13 +244,13 @@ fn validate_pipe_flow(solution: &StokesFlowSolution<f64>, mesh: &Mesh<f64>, radi
     
     // Sample radial positions at mid-length
     for vertex in &mesh.vertices {
-        if (vertex.position.z - mid_z).abs() < length / (2.0 * n_axial as f64) {
+                if (vertex.position.z - mid_z).abs() < length / (2.0 * n_axial as f64) {
             let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
                          if r <= radius {
-                 if vertex.id < solution.velocity.len() {
-                     let v_z = solution.velocity[vertex.id].z;
-                     let v_analytical = max_velocity_analytical * (1.0 - (r / radius).powi(2));
-                     profile_points.push((r / radius, v_z, v_analytical));
+                if vertex.id * 3 + 2 < solution.velocity.len() {
+                    let v_z = solution.velocity[vertex.id * 3 + 2];
+                    let v_analytical = max_velocity_analytical * (1.0 - (r / radius).powi(2));
+                    profile_points.push((r / radius, v_z, v_analytical));
                  }
             }
         }
@@ -278,11 +284,13 @@ fn output_flow_field(solution: &StokesFlowSolution<f64>, mesh: &Mesh<f64>) {
     // Example: Print velocity at a few points
     println!("\nVelocity at selected points:");
     for (i, vertex) in mesh.vertices.iter().enumerate().take(5) {
-        if i < solution.velocity.len() {
-            let velocity = &solution.velocity[i];
+        if i * 3 + 2 < solution.velocity.len() {
+            let vx = solution.velocity[i * 3];
+            let vy = solution.velocity[i * 3 + 1];
+            let vz = solution.velocity[i * 3 + 2];
             println!("  Vertex {}: Position ({:.2}, {:.2}, {:.2}), Velocity ({:.6}, {:.6}, {:.6})",
                      i, vertex.position.x, vertex.position.y, vertex.position.z,
-                     velocity.x, velocity.y, velocity.z);
+                     vx, vy, vz);
         }
     }
 }
