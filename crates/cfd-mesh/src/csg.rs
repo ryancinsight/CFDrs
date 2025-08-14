@@ -491,7 +491,7 @@ pub type CsgMeshAdapter<T> = CsgOperator<T>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::Point3;
+
     
     #[test]
     fn test_mesh_generation() {
