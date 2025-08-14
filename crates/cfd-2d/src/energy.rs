@@ -5,7 +5,7 @@
 //! where α = k/(ρCp) is thermal diffusivity
 
 use nalgebra::RealField;
-use cfd_core::{Result, Error, BoundaryCondition};
+use cfd_core::{Result, BoundaryCondition};
 use std::collections::HashMap;
 
 /// Constants for energy equation

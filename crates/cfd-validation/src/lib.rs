@@ -35,7 +35,7 @@ pub use convergence::{
 pub use benchmarks::{
     Benchmark, BenchmarkResult, BenchmarkSuite, LidDrivenCavity, FlowOverCylinder, BackwardFacingStep,
 };
-pub use conservation::{ConservationChecker, MassConservation, EnergyConservation, ConservationReport};
+pub use conservation::{ConservationChecker, MassConservation, EnergyConservation, ConservationReport, GlobalConservationIntegrals};
 
 // Export numerical validation
 pub use numerical_validation::{LinearSolverValidator, ValidationResult, ErrorMetrics, ConvergenceInfo};

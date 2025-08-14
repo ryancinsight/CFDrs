@@ -1,84 +1,100 @@
 //! 3D Mesh Integration Example
 //!
-//! This example demonstrates the CSG mesh integration capabilities of the 3D CFD module,
-//! including mesh creation, CSG operations, and mesh quality assessment.
+//! This example demonstrates the basic mesh generation capabilities of the 3D CFD module,
+//! including mesh creation and validation. CSG boolean operations are not currently implemented.
 
-use cfd_suite::prelude::*;
-use cfd_mesh::{Mesh, Vertex, Face, Cell, MeshTopology, csg::CsgMeshAdapter};
+use cfd_mesh::{Mesh, Vertex, Face, Cell, MeshTopology, csg::CsgOperator};
 use nalgebra::Point3;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("3D Mesh Integration Example");
     println!("===========================");
     
-    // Create CSG adapter for mesh operations
-    let csg_adapter = CsgMeshAdapter::<f64>::new();
+    // Create CSG operator for mesh generation (basic primitives only)
+    let csg_operator = CsgOperator::<f64>::new();
     
-    println!("CSG Mesh Adapter created");
+    println!("CSG Operator created for basic mesh generation");
     println!();
     
-    // Create a simple tetrahedral mesh
-    println!("Creating unit tetrahedron mesh...");
-    let mesh = create_unit_tetrahedron()?;
-    
-    println!("Mesh created successfully:");
-    println!("  Vertices: {}", mesh.vertices.len());
-    println!("  Faces: {}", mesh.faces.len());
-    println!("  Cells: {}", mesh.cells.len());
+    // Create a sphere mesh using the CSG operator
+    println!("Creating sphere mesh...");
+    match csg_operator.create_sphere(1.0, 8) {
+        Ok(sphere_mesh) => {
+            println!("Sphere mesh created successfully:");
+            println!("  Vertices: {}", sphere_mesh.vertices.len());
+            println!("  Faces: {}", sphere_mesh.faces.len());
+            println!("  Cells: {}", sphere_mesh.cells.len());
+            
+            // Validate the mesh
+            match csg_operator.validate_mesh(&sphere_mesh) {
+                Ok(is_valid) => {
+                    println!("  Mesh validation: {}", if is_valid { "PASSED" } else { "FAILED" });
+                }
+                Err(e) => {
+                    println!("  Mesh validation error: {}", e);
+                }
+            }
+        }
+        Err(e) => {
+            println!("Sphere mesh creation failed: {}", e);
+        }
+    }
     println!();
+    
+    // Create a box mesh using the CSG operator  
+    println!("Creating box mesh...");
+    match csg_operator.create_box(2.0, 1.0, 1.5) {
+        Ok(box_mesh) => {
+            println!("Box mesh created successfully:");
+            println!("  Vertices: {}", box_mesh.vertices.len());
+            println!("  Faces: {}", box_mesh.faces.len());
+            println!("  Cells: {}", box_mesh.cells.len());
+            
+            // Validate the mesh
+            match csg_operator.validate_mesh(&box_mesh) {
+                Ok(is_valid) => {
+                    println!("  Mesh validation: {}", if is_valid { "PASSED" } else { "FAILED" });
+                }
+                Err(e) => {
+                    println!("  Mesh validation error: {}", e);
+                }
+            }
+        }
+        Err(e) => {
+            println!("Box mesh creation failed: {}", e);
+        }
+    }
+    println!();
+    
+    // Create a manual tetrahedral mesh
+    println!("Creating manual tetrahedral mesh...");
+    let tet_mesh = create_unit_tetrahedron()?;
+    
+    println!("Tetrahedron mesh created successfully:");
+    println!("  Vertices: {}", tet_mesh.vertices.len());
+    println!("  Faces: {}", tet_mesh.faces.len());
+    println!("  Cells: {}", tet_mesh.cells.len());
     
     // Display vertex coordinates
     println!("Vertex coordinates:");
-    for (i, vertex) in mesh.vertices.iter().enumerate() {
+    for (i, vertex) in tet_mesh.vertices.iter().enumerate() {
         println!("  Vertex {}: ({:.2}, {:.2}, {:.2})", 
                  i, vertex.position.x, vertex.position.y, vertex.position.z);
     }
-    println!();
     
-    // Create a second mesh for CSG operations
-    println!("Creating a second tetrahedron for CSG operations...");
-    let mesh2 = create_offset_tetrahedron(0.5)?;
-    
-    // Perform CSG union
-    println!("Performing CSG union operation...");
-    match csg_adapter.union(&mesh, &mesh2) {
-        Ok(union_mesh) => {
-            println!("Union mesh created:");
-            println!("  Vertices: {}", union_mesh.vertices.len());
-            println!("  Faces: {}", union_mesh.faces.len());
+    // Validate the manual mesh
+    match csg_operator.validate_mesh(&tet_mesh) {
+        Ok(is_valid) => {
+            println!("  Mesh validation: {}", if is_valid { "PASSED" } else { "FAILED" });
         }
         Err(e) => {
-            println!("Union operation failed: {}", e);
+            println!("  Mesh validation error: {}", e);
         }
     }
     println!();
     
-    // Perform CSG intersection
-    println!("Performing CSG intersection operation...");
-    match csg_adapter.intersection(&mesh, &mesh2) {
-        Ok(intersection_mesh) => {
-            println!("Intersection mesh created:");
-            println!("  Vertices: {}", intersection_mesh.vertices.len());
-            println!("  Faces: {}", intersection_mesh.faces.len());
-        }
-        Err(e) => {
-            println!("Intersection operation failed: {}", e);
-        }
-    }
-    println!();
-    
-    // Perform CSG difference
-    println!("Performing CSG difference operation...");
-    match csg_adapter.difference(&mesh, &mesh2) {
-        Ok(difference_mesh) => {
-            println!("Difference mesh created:");
-            println!("  Vertices: {}", difference_mesh.vertices.len());
-            println!("  Faces: {}", difference_mesh.faces.len());
-        }
-        Err(e) => {
-            println!("Difference operation failed: {}", e);
-        }
-    }
+    println!("NOTE: CSG boolean operations (union, intersection, difference) are not currently implemented.");
+    println!("This is a documented limitation. Only basic primitive generation and validation are available.");
     println!();
     
     println!("Example completed successfully!");
@@ -122,38 +138,4 @@ fn create_unit_tetrahedron() -> std::result::Result<Mesh<f64>, Box<dyn std::erro
     Ok(mesh)
 }
 
-/// Create an offset tetrahedron mesh
-fn create_offset_tetrahedron(offset: f64) -> std::result::Result<Mesh<f64>, Box<dyn std::error::Error>> {
-    let mut mesh = Mesh::new();
-    
-    // Define vertices of an offset tetrahedron
-    mesh.vertices = vec![
-        Vertex { id: 0, position: Point3::new(offset, offset, offset) },
-        Vertex { id: 1, position: Point3::new(1.0 + offset, offset, offset) },
-        Vertex { id: 2, position: Point3::new(0.5 + offset, 0.866 + offset, offset) },
-        Vertex { id: 3, position: Point3::new(0.5 + offset, 0.289 + offset, 0.816 + offset) },
-    ];
-    
-    // Define faces (triangles)
-    mesh.faces = vec![
-        Face { id: 0, vertices: vec![0, 1, 2] }, // Base
-        Face { id: 1, vertices: vec![0, 1, 3] }, // Side 1
-        Face { id: 2, vertices: vec![1, 2, 3] }, // Side 2
-        Face { id: 3, vertices: vec![2, 0, 3] }, // Side 3
-    ];
-    
-    // Define the single tetrahedral cell
-    mesh.cells = vec![
-        Cell { id: 0, faces: vec![0, 1, 2, 3] },
-    ];
-    
-    // Update topology
-    mesh.topology = MeshTopology {
-        num_vertices: mesh.vertices.len(),
-        num_edges: 6,  // A tetrahedron has 6 edges
-        num_faces: mesh.faces.len(),
-        num_cells: mesh.cells.len(),
-    };
-    
-    Ok(mesh)
-}
+

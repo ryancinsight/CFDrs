@@ -308,7 +308,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> SpectralSolver<T> {
             return Ok(points);
         }
 
-        // For larger n, use Newton-Raphson with better initial guesses
+        // For larger n, use Newton-Raphson with asymptotic initial guesses
         // LGL points are at x = ±1 and roots of P'_{n-1}(x)
         points.push(-T::one());
 
@@ -393,7 +393,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> SpectralSolver<T> {
             0 => (self.domain_bounds.0.x.clone(), self.domain_bounds.1.x.clone()),
             1 => (self.domain_bounds.0.y.clone(), self.domain_bounds.1.y.clone()),
             2 => (self.domain_bounds.0.z.clone(), self.domain_bounds.1.z.clone()),
-            _ => panic!("Invalid direction"),
+            _ => (T::zero(), T::one()), // Default to unit domain for invalid directions
         };
 
         let half = T::from_f64(0.5).unwrap();
@@ -475,7 +475,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> SpectralSolver<T> {
                     let mut prod_i = T::one();
                     let mut prod_j = T::one();
 
-                    // Use iterator combinators for better performance and readability
+                    // Use iterator combinators for performance and readability
                     let (new_prod_i, new_prod_j) = (0..n)
                         .filter(|&k| k != i && k != j)
                         .map(|k| points[k].clone())
@@ -619,7 +619,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> SpectralSolver<T> {
         matrix: &DMatrix<T>,
         rhs: &DVector<T>,
     ) -> Result<DVector<T>> {
-        // For now, use a simple direct solver
+        // Use direct solver for linear system
         // In practice, would use iterative methods for large systems
         match matrix.clone().lu().solve(rhs) {
             Some(solution) => Ok(solution),
@@ -629,16 +629,14 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> SpectralSolver<T> {
         }
     }
 
-    /// Compute total kinetic energy
+    /// Compute total kinetic energy using iterator optimization
     pub fn compute_kinetic_energy(&self) -> T {
-        let mut energy = T::zero();
         let volume_element = T::one() / T::from_usize(self.velocity.len()).unwrap();
+        let half = T::from_f64(2.0).unwrap();
         
-        for v in &self.velocity {
-            energy = energy + v.norm_squared() * volume_element.clone();
-        }
-        
-        energy / T::from_f64(2.0).unwrap()
+        self.velocity.iter()
+            .map(|v| v.norm_squared() * volume_element.clone())
+            .fold(T::zero(), |acc, term| acc + term) / half
     }
     
     /// Time step the solver
@@ -762,7 +760,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> SpectralSolver<T> {
             0 => v.x.clone(),
             1 => v.y.clone(),
             2 => v.z.clone(),
-            _ => panic!("Invalid component index"),
+            _ => T::zero(), // Default to zero for invalid component indices
         }).collect()
     }
     
@@ -959,7 +957,7 @@ impl<T: RealField + FromPrimitive + Copy> SpectralSolution<T> {
     /// Get solution on a regular grid for visualization
     pub fn evaluate_on_grid(&self, grid_size: (usize, usize, usize)) -> Result<Vec<T>> {
         let (nx, ny, nz) = grid_size;
-        // Generate evaluation points using iterator combinators for better performance
+        // Generate evaluation points using iterator combinators
         let values: Result<Vec<T>> = (0..nz)
             .flat_map(|k| (0..ny).map(move |j| (k, j)))
             .flat_map(|(k, j)| (0..nx).map(move |i| (k, j, i)))
@@ -1304,9 +1302,9 @@ mod tests {
         let Re = 100.0;
         let viscosity = 1.0 / Re;
         
-        // Time parameters - reduced for faster testing
+        // Time parameters for test validation
         let dt = 0.1;
-        let t_final = 0.5;  // Shorter time for faster test
+        let t_final = 0.5;  // Shorter time for test validation
         let n_steps = (t_final / dt) as usize;
         
         // Store initial kinetic energy

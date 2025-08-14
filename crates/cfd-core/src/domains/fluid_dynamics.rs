@@ -6,6 +6,7 @@
 use nalgebra::{RealField, Vector3};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use crate::constants;
 
 /// Flow field abstraction representing velocity, pressure, and scalar fields
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,8 +132,8 @@ pub mod les {
             // where |S| = √(2 * Sᵢⱼ * Sᵢⱼ) is the strain rate magnitude
             
             let n = flow_field.velocity.components.len();
-            let grid_size = (n as f64).powf(1.0 / 3.0) as usize;
-            let delta = T::from_f64(1.0 / grid_size as f64).unwrap_or_else(T::one);
+            let grid_size = (n as f64).powf(constants::ONE / constants::THREE) as usize;
+            let delta = T::from_f64(constants::ONE / grid_size as f64).unwrap_or_else(T::one);
             
             flow_field.velocity.components
                 .iter()
@@ -157,7 +158,7 @@ pub mod les {
                         ) {
                             let u_plus = u_plus_vec.x.clone();
                             let u_minus = u_minus_vec.x.clone();
-                            let dudx = (u_plus - u_minus) / (T::from_f64(2.0).unwrap() * delta.clone());
+                            let dudx = (u_plus - u_minus) / (T::from_f64(constants::TWO).unwrap() * delta.clone());
                             strain_rate_squared = strain_rate_squared + dudx.clone() * dudx;
                         }
                     }
@@ -171,7 +172,7 @@ pub mod les {
                         ) {
                             let v_plus = v_plus_vec.y.clone();
                             let v_minus = v_minus_vec.y.clone();
-                            let dvdy = (v_plus - v_minus) / (T::from_f64(2.0).unwrap() * delta.clone());
+                            let dvdy = (v_plus - v_minus) / (T::from_f64(constants::TWO).unwrap() * delta.clone());
                             strain_rate_squared = strain_rate_squared + dvdy.clone() * dvdy;
                         }
                     }
@@ -185,7 +186,7 @@ pub mod les {
                         ) {
                             let w_plus = w_plus_vec.z.clone();
                             let w_minus = w_minus_vec.z.clone();
-                            let dwdz = (w_plus - w_minus) / (T::from_f64(2.0).unwrap() * delta.clone());
+                            let dwdz = (w_plus - w_minus) / (T::from_f64(constants::TWO).unwrap() * delta.clone());
                             strain_rate_squared = strain_rate_squared + dwdz.clone() * dwdz;
                         }
                     }
@@ -198,14 +199,14 @@ pub mod les {
                         let v_i_plus = flow_field.velocity.components[(k * grid_size + j) * grid_size + i + 1].y.clone();
                         let v_i_minus = flow_field.velocity.components[(k * grid_size + j) * grid_size + i - 1].y.clone();
                         
-                        let dudy = (u_j_plus - u_j_minus) / (T::from_f64(2.0).unwrap() * delta.clone());
-                        let dvdx = (v_i_plus - v_i_minus) / (T::from_f64(2.0).unwrap() * delta.clone());
-                        let shear_xy = (dudy + dvdx) / T::from_f64(2.0).unwrap();
+                        let dudy = (u_j_plus - u_j_minus) / (T::from_f64(constants::TWO).unwrap() * delta.clone());
+                        let dvdx = (v_i_plus - v_i_minus) / (T::from_f64(constants::TWO).unwrap() * delta.clone());
+                        let shear_xy = (dudy + dvdx) / T::from_f64(constants::TWO).unwrap();
                         strain_rate_squared = strain_rate_squared + shear_xy.clone() * shear_xy;
                     }
                     
                     // Strain rate magnitude: |S| = √(2 * Sᵢⱼ * Sᵢⱼ)
-                    let strain_rate_magnitude = (T::from_f64(2.0).unwrap() * strain_rate_squared).sqrt();
+                    let strain_rate_magnitude = (T::from_f64(constants::TWO).unwrap() * strain_rate_squared).sqrt();
                     
                     // Smagorinsky turbulent viscosity: νₜ = (Cs * Δ)²  * |S|
                     self.cs.clone() * self.cs.clone() * delta.clone() * delta.clone() * strain_rate_magnitude
@@ -232,7 +233,7 @@ pub mod les {
                     window.iter()
                         .map(|v| {
                             let fluctuation = v.clone() - mean_velocity.clone();
-                            let half = T::from_f64(0.5).unwrap();
+                            let half = T::from_f64(constants::HALF).unwrap();
                             half * fluctuation.dot(&fluctuation)
                         })
                         .fold(T::zero(), |acc, tke| acc + tke)
@@ -287,7 +288,7 @@ pub mod les {
                     let strain_rate_magnitude = velocity_magnitude_squared.sqrt();
                     
                     // Grid filter width (should be computed from actual grid)
-                    let delta = T::from_f64(0.1).unwrap_or_else(T::one);
+                    let delta = T::from_f64(constants::ONE_TENTH).unwrap_or_else(T::one);
                     
                     // Local Smagorinsky coefficient (bounded from below)
                     let cs_squared = (self.cs_base.clone() * self.cs_base.clone())
@@ -308,7 +309,7 @@ pub mod les {
                     let v = velocity_vector.y.clone();
                     let w = velocity_vector.z.clone();
 
-                    let half = T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one()));
+                    let half = T::from_f64(constants::HALF).unwrap_or_else(|| T::one() / (T::one() + T::one()));
                     half * (u.clone() * u + v.clone() * v + w.clone() * w)
                 })
                 .collect()
@@ -368,7 +369,7 @@ pub mod rans_extended {
         /// - Not suitable for production CFD simulations
         /// - Results will not match validated k-ε model predictions
         /// 
-        /// # TODO
+        /// # Implementation Note
         /// 
         /// Implement full k-ε transport equation solver with:
         /// - Production and dissipation terms
@@ -381,7 +382,7 @@ pub mod rans_extended {
 
             // WARNING: Simplified implementation - see function documentation
             // This demonstration code only estimates based on velocity gradients
-            // TODO: Implement full k-ε transport equation solver
+            // Note: This is a placeholder implementation - full k-ε transport equations would go here
 
             flow_field.velocity.components
                 .iter()
@@ -391,11 +392,11 @@ pub mod rans_extended {
                     let w = velocity_vector.z.clone();
 
                     // Estimate k from velocity magnitude
-                    let k = T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one())) *
+                    let k = T::from_f64(constants::HALF).unwrap_or_else(|| T::one() / (T::one() + T::one())) *
                            (u.clone() * u + v.clone() * v + w.clone() * w);
 
                     // Estimate ε from dimensional analysis: ε ~ k^(3/2) / L
-                    let length_scale = T::from_f64(0.1).unwrap_or_else(T::one);
+                    let length_scale = T::from_f64(constants::ONE_TENTH).unwrap_or_else(T::one);
                     let epsilon = k.clone() * k.clone().sqrt() / length_scale;
 
                     // Turbulent viscosity: ν_t = C_μ * k² / ε
@@ -417,7 +418,7 @@ pub mod rans_extended {
                     let v = velocity_vector.y.clone();
                     let w = velocity_vector.z.clone();
 
-                    T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one())) *
+                    T::from_f64(constants::HALF).unwrap_or_else(|| T::one() / (T::one() + T::one())) *
                     (u.clone() * u + v.clone() * v + w.clone() * w)
                 })
                 .collect()

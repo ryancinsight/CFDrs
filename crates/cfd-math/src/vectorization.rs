@@ -49,7 +49,7 @@ impl VectorizedOps {
         Ok(())
     }
 
-    /// Vectorized scalar multiplication
+    /// Vectorized scalar multiplication with broadcasting
     pub fn scale_vectorized<T: RealField + Send + Sync>(
         input: &[T], 
         scalar: T, 
@@ -63,6 +63,65 @@ impl VectorizedOps {
             .zip(input.par_iter())
             .for_each(|(r, val)| {
                 *r = scalar.clone() * val.clone();
+            });
+
+        Ok(())
+    }
+
+    /// Broadcasting addition: adds scalar to each element of vector
+    pub fn broadcast_add<T: RealField + Send + Sync>(
+        input: &[T],
+        scalar: T,
+        result: &mut [T]
+    ) -> Result<(), &'static str> {
+        if input.len() != result.len() {
+            return Err("Input and result slices must have the same length");
+        }
+
+        // Use iterator chunks for cache-friendly access patterns
+        const CHUNK_SIZE: usize = 64; // Optimize for cache line size
+
+        input.par_chunks(CHUNK_SIZE)
+            .zip(result.par_chunks_mut(CHUNK_SIZE))
+            .for_each(|(input_chunk, result_chunk)| {
+                input_chunk.iter()
+                    .zip(result_chunk.iter_mut())
+                    .for_each(|(input_val, result_val)| {
+                        *result_val = input_val.clone() + scalar.clone();
+                    });
+            });
+
+        Ok(())
+    }
+
+    /// Broadcasting multiplication: multiplies each element by broadcasted vector
+    pub fn broadcast_mul_vector<T: RealField + Send + Sync>(
+        matrix: &[T], 
+        matrix_rows: usize,
+        matrix_cols: usize,
+        vector: &[T],
+        result: &mut [T]
+    ) -> Result<(), &'static str> {
+        if matrix.len() != matrix_rows * matrix_cols {
+            return Err("Matrix dimensions don't match data length");
+        }
+        if vector.len() != matrix_cols {
+            return Err("Vector length must match matrix columns");
+        }
+        if result.len() != matrix.len() {
+            return Err("Result must have same size as matrix");
+        }
+
+        // Row-wise broadcasting using parallel iteration
+        result.par_chunks_mut(matrix_cols)
+            .zip(matrix.par_chunks(matrix_cols))
+            .for_each(|(result_row, matrix_row)| {
+                result_row.iter_mut()
+                    .zip(matrix_row.iter())
+                    .zip(vector.iter())
+                    .for_each(|((r, m), v)| {
+                        *r = m.clone() * v.clone();
+                    });
             });
 
         Ok(())

@@ -585,7 +585,7 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
     }
 }
 
-use nalgebra::ComplexField;
+
 
 #[cfg(test)]
 mod tests {

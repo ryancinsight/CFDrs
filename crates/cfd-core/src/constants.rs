@@ -30,17 +30,31 @@ pub const LOOSE_TOLERANCE: f64 = 1e-3;
 // ============================================================================
 
 /// Common numerical factors
+/// Zero value
 pub const ZERO: f64 = 0.0;
+/// Unity value
 pub const ONE: f64 = 1.0;
+/// Two value
 pub const TWO: f64 = 2.0;
+/// Three value  
 pub const THREE: f64 = 3.0;
+/// Four value
 pub const FOUR: f64 = 4.0;
+/// Five value
 pub const FIVE: f64 = 5.0;
+/// Six value
 pub const SIX: f64 = 6.0;
+/// Half value
 pub const HALF: f64 = 0.5;
+/// One third value
 pub const ONE_THIRD: f64 = 1.0 / 3.0;
+/// One tenth value
+pub const ONE_TENTH: f64 = 0.1;
+/// Two thirds value
 pub const TWO_THIRDS: f64 = 2.0 / 3.0;
+/// One fourth value
 pub const ONE_FOURTH: f64 = 0.25;
+/// One sixth value
 pub const ONE_SIXTH: f64 = 1.0 / 6.0;
 
 // ============================================================================
@@ -59,6 +73,9 @@ pub const MAX_CFL_NUMBER: f64 = 1.0;
 /// Default time step factor for SIMPLE solver
 /// This is multiplied with CFL number to get initial time step
 pub const DEFAULT_TIME_STEP_FACTOR: f64 = 0.02;
+
+/// Default time step for transient simulations (seconds)
+pub const DEFAULT_TIME_STEP: f64 = 0.01;
 
 /// Default relaxation factor for iterative methods
 pub const DEFAULT_RELAXATION_FACTOR: f64 = 0.7;
@@ -88,8 +105,8 @@ pub const WATER_DENSITY: f64 = 998.2;
 /// Water dynamic viscosity at 20°C [Pa·s]
 pub const WATER_VISCOSITY: f64 = 1.002e-3;
 
-/// Water kinematic viscosity at 20°C [m²/s]
-pub const WATER_KINEMATIC_VISCOSITY: f64 = 1.004e-6;
+/// Water kinematic viscosity at 20°C [m²/s] (derived from dynamic viscosity and density)
+pub const WATER_KINEMATIC_VISCOSITY: f64 = WATER_VISCOSITY / WATER_DENSITY;
 
 /// Air density at 20°C, 1 atm [kg/m³]
 pub const AIR_DENSITY: f64 = 1.204;
@@ -142,7 +159,7 @@ pub const ASPECT_RATIO_CORRECTION: f64 = 0.63;
 /// Minimum aspect ratio for numerical stability
 pub const MIN_ASPECT_RATIO: f64 = 0.1;
 
-/// Maximum aspect ratio for accurate approximation
+/// Maximum aspect ratio for mesh element validity
 pub const MAX_ASPECT_RATIO: f64 = 10.0;
 
 /// Shah correlation coefficient for entrance length

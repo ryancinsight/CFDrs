@@ -35,18 +35,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Use CSGrs to create end caps
     let csg_adapter = CsgMeshAdapter::<f64>::new();
     
-    // Create inlet cap (disk at z=0)
-    let inlet_cap = create_disk_mesh(pipe_radius, n_circumferential, 0.0)?;
-    
-    // Create outlet cap (disk at z=pipe_length)
-    let outlet_cap = create_disk_mesh(pipe_radius, n_circumferential, pipe_length)?;
-    
-    // Combine meshes using CSG union
-    println!("\nCombining pipe sections using CSG operations...");
-    let pipe_with_inlet = csg_adapter.union(&pipe_mesh, &inlet_cap)?;
-    let complete_pipe = csg_adapter.union(&pipe_with_inlet, &outlet_cap)?;
+        // Create a simple closed pipe mesh using cylinder primitive from CSG
+    println!("\nCreating complete pipe mesh using CSG cylinder primitive...");
+    let complete_pipe = csg_adapter.create_cylinder(pipe_radius, pipe_length, n_circumferential)?;
     println!("  Complete pipe mesh: {} vertices, {} faces", 
              complete_pipe.vertices.len(), complete_pipe.faces.len());
+    
+    // Note: CSG boolean operations are not implemented, so we use basic primitives
     
     // Set up flow parameters
     let fluid_viscosity = 1e-3;  // Water at 20°C (Pa·s)
@@ -181,7 +176,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     
     // Calculate numerical flow rate
-    let mut flow_rate_numerical = 0.0;
+    let mut flow_rate_numerical: f64 = 0.0;
     let dr = pipe_radius / 10.0;
     let dtheta = 2.0 * PI / n_circumferential as f64;
     
@@ -324,90 +319,3 @@ fn create_pipe_mesh(
     Ok(mesh)
 }
 
-/// Create a disk mesh (for end caps)
-fn create_disk_mesh(
-    radius: f64,
-    n_circumferential: usize,
-    z_position: f64,
-) -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
-    let mut mesh = Mesh::new();
-    let mut vertex_id = 0;
-    let n_radial = 5; // Fixed radial divisions for simplicity
-    
-    // Center vertex
-    mesh.vertices.push(Vertex {
-        id: vertex_id,
-        position: Point3::new(0.0, 0.0, z_position),
-    });
-    vertex_id += 1;
-    
-    // Generate vertices in rings
-    for i in 1..=n_radial {
-        let r = i as f64 * radius / n_radial as f64;
-        
-        for j in 0..n_circumferential {
-            let theta = j as f64 * 2.0 * PI / n_circumferential as f64;
-            let x = r * theta.cos();
-            let y = r * theta.sin();
-            
-            mesh.vertices.push(Vertex {
-                id: vertex_id,
-                position: Point3::new(x, y, z_position),
-            });
-            vertex_id += 1;
-        }
-    }
-    
-    // Generate faces
-    let mut face_id = 0;
-    
-    // Center triangles
-    for j in 0..n_circumferential {
-        let j_next = (j + 1) % n_circumferential;
-        
-        mesh.faces.push(Face {
-            id: face_id,
-            vertices: vec![0, 1 + j, 1 + j_next],
-        });
-        face_id += 1;
-    }
-    
-    // Ring triangles
-    for i in 1..n_radial {
-        for j in 0..n_circumferential {
-            let j_next = (j + 1) % n_circumferential;
-            
-            let inner_base = 1 + (i - 1) * n_circumferential;
-            let outer_base = 1 + i * n_circumferential;
-            
-            let v0 = inner_base + j;
-            let v1 = inner_base + j_next;
-            let v2 = outer_base + j;
-            let v3 = outer_base + j_next;
-            
-            // First triangle
-            mesh.faces.push(Face {
-                id: face_id,
-                vertices: vec![v0, v2, v1],
-            });
-            face_id += 1;
-            
-            // Second triangle
-            mesh.faces.push(Face {
-                id: face_id,
-                vertices: vec![v1, v2, v3],
-            });
-            face_id += 1;
-        }
-    }
-    
-    // Update topology
-    mesh.topology = MeshTopology {
-        num_vertices: mesh.vertices.len(),
-        num_edges: 0, // Not computed
-        num_faces: mesh.faces.len(),
-        num_cells: 0, // Surface mesh only
-    };
-    
-    Ok(mesh)
-}

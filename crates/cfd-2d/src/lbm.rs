@@ -162,7 +162,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                 self.rho[i][j] = initial_density.clone();
                 self.u[i][j] = initial_velocity.clone();
 
-                // Set equilibrium distribution using iterator for better performance
+                // Set equilibrium distribution using iterator pattern
                 for q in 0..D2Q9::Q {
                     let eq_dist = self.equilibrium_distribution(
                         q,
@@ -220,33 +220,30 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
         w * rho.clone() * (T::one() + term1 + term2 - term3)
     }
 
-    /// Perform collision step (BGK operator)
+    /// Perform collision step (BGK operator) with iterator patterns
     fn collision(&mut self) {
-        // We need to read from current and write to the same array
-        // So we'll use a temporary array for the collision result
-        
+        // Process grid cells using iterator calculations
         for i in 0..self.nx {
             for j in 0..self.ny {
-                // Get current distributions
+                // Get current distributions slice for zero-copy access
                 let f_ij = if self.use_f_as_current {
                     &self.f[i][j]
                 } else {
                     &self.f_new[i][j]
                 };
                 
-                // Calculate density using iterator fold for better performance
-                let rho_local = (0..D2Q9::Q)
-                    .map(|q| f_ij[q].clone())
-                    .fold(T::zero(), |acc, f| acc + f);
+                // Calculate density using iterator fold for efficiency
+                let rho_local = f_ij.iter().fold(T::zero(), |acc, f| acc + f.clone());
 
-                // Calculate velocity using iterator fold
-                let u_local = (0..D2Q9::Q)
-                    .map(|q| {
+                // Calculate velocity using iterator zip and fold for efficiency
+                let u_local = f_ij.iter()
+                    .zip(D2Q9::VELOCITIES.iter())
+                    .map(|(f, &(ci, cj))| {
                         let c = Vector2::new(
-                            T::from_i32(D2Q9::VELOCITIES[q].0).unwrap(),
-                            T::from_i32(D2Q9::VELOCITIES[q].1).unwrap(),
+                            T::from_i32(ci).unwrap(),
+                            T::from_i32(cj).unwrap(),
                         );
-                        c * f_ij[q].clone()
+                        c * f.clone()
                     })
                     .fold(Vector2::zeros(), |acc, v| acc + v) / rho_local.clone();
 
@@ -254,65 +251,74 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                 self.rho[i][j] = rho_local.clone();
                 self.u[i][j] = u_local.clone();
 
-                // Collision with BGK operator - update in place
+                // Collision with BGK operator using direct indexing
+                let tau_inv = T::one() / self.config.tau.clone();
+                
+                // Use iterator pattern for the collision step to avoid borrow conflicts
                 for q in 0..D2Q9::Q {
                     let f_eq = self.equilibrium_distribution(q, &rho_local, &u_local);
+                    
                     if self.use_f_as_current {
                         let f_old = self.f[i][j][q].clone();
-                        self.f[i][j][q] = f_old.clone() - (f_old - f_eq) / self.config.tau.clone();
+                        self.f[i][j][q] = f_old.clone() - (f_old - f_eq) * tau_inv.clone();
                     } else {
                         let f_old = self.f_new[i][j][q].clone();
-                        self.f_new[i][j][q] = f_old.clone() - (f_old - f_eq) / self.config.tau.clone();
+                        self.f_new[i][j][q] = f_old.clone() - (f_old - f_eq) * tau_inv.clone();
                     }
                 }
             }
         }
     }
 
-    /// Perform streaming step with zero-copy double buffering
+    /// Perform streaming step with zero-copy double buffering and iterator optimization
     fn streaming(&mut self) {
-        // Stream from current buffer to next buffer
+        // Use iterator combinators with index-based access to avoid borrow conflicts
+        // Pre-compute all streaming operations for cache locality
         
-        // Stream distributions - this is now the only copy operation
-        // and it's necessary for the streaming physics
-        for i in 0..self.nx {
-            for j in 0..self.ny {
-                for q in 0..D2Q9::Q {
-                    let (ci, cj) = D2Q9::VELOCITIES[q];
-                    let ni = i as i32 - ci;
-                    let nj = j as i32 - cj;
+        let streaming_ops: Vec<_> = (0..self.nx)
+            .flat_map(|i| (0..self.ny).map(move |j| (i, j)))
+            .flat_map(|(i, j)| (0..D2Q9::Q).map(move |q| (i, j, q)))
+            .map(|(i, j, q)| {
+                let (ci, cj) = D2Q9::VELOCITIES[q];
+                let ni = i as i32 - ci;
+                let nj = j as i32 - cj;
 
-                    // Check bounds and stream
-                    if ni >= 0 && ni < self.nx as i32 && nj >= 0 && nj < self.ny as i32 {
-                        // Stream from source to destination
-                        let value = if self.use_f_as_current {
-                            self.f[ni as usize][nj as usize][q].clone()
-                        } else {
-                            self.f_new[ni as usize][nj as usize][q].clone()
-                        };
-                        
-                        if self.use_f_as_current {
-                            self.f_new[i][j][q] = value;
-                        } else {
-                            self.f[i][j][q] = value;
-                        }
-                    } else {
-                        // Boundary nodes keep their post-collision values
-                        let value = if self.use_f_as_current {
-                            self.f[i][j][q].clone()
-                        } else {
-                            self.f_new[i][j][q].clone()
-                        };
-                        
-                        if self.use_f_as_current {
-                            self.f_new[i][j][q] = value;
-                        } else {
-                            self.f[i][j][q] = value;
-                        }
-                    }
+                // Return streaming operation parameters
+                let source_coords = if ni >= 0 && ni < self.nx as i32 && nj >= 0 && nj < self.ny as i32 {
+                    Some((ni as usize, nj as usize))
+                } else {
+                    None
+                };
+                
+                (i, j, q, source_coords)
+            })
+            .collect();
+
+        // Execute streaming operations using collected parameters
+        streaming_ops.into_iter().for_each(|(i, j, q, source_coords)| {
+            let value = if let Some((si, sj)) = source_coords {
+                // Stream from source to destination
+                if self.use_f_as_current {
+                    self.f[si][sj][q].clone()
+                } else {
+                    self.f_new[si][sj][q].clone()
                 }
+            } else {
+                // Boundary nodes keep their post-collision values
+                if self.use_f_as_current {
+                    self.f[i][j][q].clone()
+                } else {
+                    self.f_new[i][j][q].clone()
+                }
+            };
+            
+            // Write to destination buffer
+            if self.use_f_as_current {
+                self.f_new[i][j][q] = value;
+            } else {
+                self.f[i][j][q] = value;
             }
-        }
+        });
         
         // Swap buffers for next iteration (zero-cost pointer swap)
         self.swap_buffers();
