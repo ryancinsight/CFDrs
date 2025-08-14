@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("============================");
     
     // Create output directory
-    fs::create_dir_all("output/simple_csg")?;
+    fs::create_dir_all("output/csg_primitives")?;
     
     // Create basic shapes using csgrs
     println!("Creating basic shapes...");
@@ -18,13 +18,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a cube
     let cube = csgrs::Cube::new(2.0, 2.0, 2.0);
     let cube_stl = cube.to_stl_ascii("cube");
-    fs::write("output/simple_csg/cube.stl", cube_stl)?;
+    fs::write("output/csg_primitives/cube.stl", cube_stl)?;
     println!("✓ Cube created and exported");
     
     // Create a sphere
     let sphere = csgrs::Sphere::new(1.0, 32, 16);
     let sphere_stl = sphere.to_stl_ascii("sphere");
-    fs::write("output/simple_csg/sphere.stl", sphere_stl)?;
+    fs::write("output/csg_primitives/sphere.stl", sphere_stl)?;
     println!("✓ Sphere created and exported");
     
     // Create a cylinder
