@@ -6,7 +6,12 @@
 //! 
 //! Features:
 //! - Full CSG boolean operations (union, intersection, difference, XOR)
-//! - Primitive geometry generation (spheres, boxes, cylinders, etc.)
+//! - Primitive geometry generation:
+//!   - Boxes/Cuboids
+//!   - Spheres
+//!   - Cylinders
+//!   - Frustums (truncated cones)
+//!   - Cones (frustums with top radius = 0)
 //! - Mesh transformations (translate, rotate, scale)
 //! - STL export functionality
 //! - Integration with CFD mesh structures
@@ -107,8 +112,9 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgOperator<T> {
         Ok(CsgGeometry::new(csg))
     }
     
-    /// Create a cone with specified base radius, top radius, height, and resolution
-    pub fn create_cone(&self, base_radius: T, top_radius: T, height: T, segments: usize) -> Result<CsgGeometry<T>, CsgError> {
+    /// Create a frustum (truncated cone) with specified base radius, top radius, height, and resolution
+    /// For a cone (top_radius = 0), this creates a proper cone shape
+    pub fn create_frustum(&self, base_radius: T, top_radius: T, height: T, segments: usize) -> Result<CsgGeometry<T>, CsgError> {
         let r1 = base_radius.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid base radius".to_string()))?;
         let r2 = top_radius.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid top radius".to_string()))?;
         let h = height.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid height".to_string()))?;
@@ -119,25 +125,22 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgOperator<T> {
         }
         
         if segments < 3 {
-            return Err(CsgError::InvalidParameters("Insufficient segments for cone".to_string()));
+            return Err(CsgError::InvalidParameters("Insufficient segments for frustum".to_string()));
         }
         
-        // csgrs doesn't have a direct cone function, use cylinder and scale it
-        // Create a cylinder and then scale the top to create a truncated cone
+        // Use csgrs frustum function which properly handles both cones and truncated cones
+        // frustum_ptp creates a frustum from point to point
+        let bottom = nalgebra::Point3::new(0.0, 0.0, 0.0);
+        let top = nalgebra::Point3::new(0.0, 0.0, h);
         
-        // For a true cone (top_radius = 0), we need a different approach
-        // For now, we'll use a cylinder as a placeholder
-        // TODO: Implement proper cone geometry using polygon construction
-        let csg = if r2.abs() < 1e-10 {
-            // Sharp cone - use cylinder with very small top radius for now
-            CsgMesh::<()>::cylinder(r1, h, segments, None)
-        } else {
-            // Truncated cone - use cylinder for now
-            // In a full implementation, we'd construct the cone manually
-            CsgMesh::<()>::cylinder((r1 + r2) / 2.0, h, segments, None)
-        };
+        let csg = CsgMesh::<()>::frustum_ptp(bottom, top, r1, r2, segments, None);
         
         Ok(CsgGeometry::new(csg))
+    }
+    
+    /// Create a cone (special case of frustum with top radius = 0)
+    pub fn create_cone(&self, base_radius: T, height: T, segments: usize) -> Result<CsgGeometry<T>, CsgError> {
+        self.create_frustum(base_radius, T::zero(), height, segments)
     }
 }
 
@@ -675,5 +678,23 @@ mod tests {
         assert_relative_eq!(max_point.y, 1.0, epsilon = 1e-6);
         assert_relative_eq!(min_point.z, -1.0, epsilon = 1e-6);
         assert_relative_eq!(max_point.z, 1.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_frustum_creation() {
+        let operator = CsgOperator::<f64>::new();
+        
+        // Test frustum (truncated cone)
+        let frustum = operator.create_frustum(2.0, 1.0, 3.0, 16).unwrap();
+        assert!(frustum.vertex_count() > 0);
+        assert!(frustum.face_count() > 0);
+        
+        // Test cone (frustum with top radius = 0)
+        let cone = operator.create_cone(2.0, 3.0, 16).unwrap();
+        assert!(cone.vertex_count() > 0);
+        assert!(cone.face_count() > 0);
+        
+        // Verify cone has fewer vertices than frustum (no top circle)
+        assert!(cone.vertex_count() <= frustum.vertex_count());
     }
 }

@@ -162,9 +162,9 @@ fn flow_through_csg_pipe() -> Result<(), Box<dyn std::error::Error>> {
             elbow.translate(&Vector3::new(1.5, 0.0, 2.0))?;
             elbow
         })?
-        // Add a reducer section
+        // Add a reducer section (frustum/truncated cone)
         .add({
-            let mut reducer = operator.create_cone(0.5, 0.3, 1.0, 24)?;
+            let mut reducer = operator.create_frustum(0.5, 0.3, 1.0, 24)?;
             reducer.translate(&Vector3::new(4.0, 0.0, 2.0))?;
             reducer
         })?
