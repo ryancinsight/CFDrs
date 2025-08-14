@@ -533,7 +533,7 @@ where
             if w.len() >= 27 {
                 let two_dx = spacing.clone() + spacing.clone();
                 let two = T::one() + T::one();
-                let half = T::from_f64(0.5).unwrap_or(T::one() / two.clone());
+                let _half = T::from_f64(0.5).unwrap_or(T::one() / two.clone());
 
                 // Center index in 3x3x3 grid is 13 (0-indexed)
                 let center = 13;
