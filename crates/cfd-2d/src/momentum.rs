@@ -149,17 +149,17 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
                 // Convection terms - extract velocity based on component
                 let (u_vel, v_vel) = match component {
                     MomentumComponent::U => {
-                        let u_e = (fields.u.at(i, j).x + fields.u.at(i + 1, j).x) / two.clone();
-                        let u_w = (fields.u.at(i - 1, j).x + fields.u.at(i, j).x) / two.clone();
-                        let v_n = (fields.u.at(i, j).y + fields.u.at(i, j + 1).y) / two.clone();
-                        let v_s = (fields.u.at(i, j - 1).y + fields.u.at(i, j).y) / two.clone();
+                        let u_e = (fields.u.at(i, j).x.clone() + fields.u.at(i + 1, j).x.clone()) / two.clone();
+                        let u_w = (fields.u.at(i - 1, j).x.clone() + fields.u.at(i, j).x.clone()) / two.clone();
+                        let v_n = (fields.u.at(i, j).y.clone() + fields.u.at(i, j + 1).y.clone()) / two.clone();
+                        let v_s = (fields.u.at(i, j - 1).y.clone() + fields.u.at(i, j).y.clone()) / two.clone();
                         ((u_e, u_w), (v_n, v_s))
                     },
                     MomentumComponent::V => {
-                        let u_e = (fields.u.at(i, j).x + fields.u.at(i + 1, j).x) / two.clone();
-                        let u_w = (fields.u.at(i - 1, j).x + fields.u.at(i, j).x) / two.clone();
-                        let v_n = (fields.u.at(i, j).y + fields.u.at(i, j + 1).y) / two.clone();
-                        let v_s = (fields.u.at(i, j - 1).y + fields.u.at(i, j).y) / two.clone();
+                        let u_e = (fields.u.at(i, j).x.clone() + fields.u.at(i + 1, j).x.clone()) / two.clone();
+                        let u_w = (fields.u.at(i - 1, j).x.clone() + fields.u.at(i, j).x.clone()) / two.clone();
+                        let v_n = (fields.u.at(i, j).y.clone() + fields.u.at(i, j + 1).y.clone()) / two.clone();
+                        let v_s = (fields.u.at(i, j - 1).y.clone() + fields.u.at(i, j).y.clone()) / two.clone();
                         ((u_e, u_w), (v_n, v_s))
                     }
                 };
@@ -169,9 +169,9 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
                 let fn_ = self.density.clone() * v_vel.0 * dx.clone();
                 let fs = self.density.clone() * v_vel.1 * dx.clone();
                 
-                // Apply convection scheme
-                let (ae_conv, aw_conv) = self.apply_convection_scheme(fe.clone(), fw.clone(), de.clone(), dw.clone());
-                let (an_conv, as_conv) = self.apply_convection_scheme(fn_.clone(), fs.clone(), dn.clone(), ds.clone());
+                // Apply convection scheme  
+                let (ae_conv, aw_conv) = self.convection_scheme.coefficients(fe.clone(), fw.clone(), de.clone(), dw.clone());
+                let (an_conv, as_conv) = self.convection_scheme.coefficients(fn_.clone(), fs.clone(), dn.clone(), ds.clone());
                 
                 coeffs.ae = ae_conv;
                 coeffs.aw = aw_conv;
@@ -181,13 +181,10 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
                 // Time derivative (implicit Euler)
                 let time_coeff = self.density.clone() * dx.clone() * dy.clone() / dt.clone();
                 
-                // Central coefficient
-                coeffs.ap = coeffs.ae.clone() + coeffs.aw.clone() + coeffs.an.clone() + coeffs.as_.clone() + time_coeff.clone();
-                
                 // Source term includes time derivative of old velocity
                 let old_vel = match component {
-                    MomentumComponent::U => fields.u.at(i, j).x,
-                    MomentumComponent::V => fields.u.at(i, j).y,
+                    MomentumComponent::U => fields.u.at(i, j).x.clone(),
+                    MomentumComponent::V => fields.u.at(i, j).y.clone(),
                 };
                 coeffs.su = time_coeff * old_vel;
             }
@@ -228,9 +225,9 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
                         BoundaryCondition::PressureOutlet { .. } => {
                             // Zero gradient
                             if j == 0 {
-                                *fields.u_star.at_mut(i, j) = *fields.u_star.at(i, 1);
+                                *fields.u_star.at_mut(i, j) = fields.u_star.at(i, 1).clone();
                             } else {
-                                *fields.u_star.at_mut(i, j) = *fields.u_star.at(i, fields.ny - 2);
+                                *fields.u_star.at_mut(i, j) = fields.u_star.at(i, fields.ny - 2).clone();
                             }
                         },
                         _ => {}
@@ -253,9 +250,9 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
                         },
                         BoundaryCondition::PressureOutlet { .. } => {
                             if i == 0 {
-                                *fields.u_star.at_mut(i, j) = *fields.u_star.at(1, j);
+                                *fields.u_star.at_mut(i, j) = fields.u_star.at(1, j).clone();
                             } else {
-                                *fields.u_star.at_mut(i, j) = *fields.u_star.at(fields.nx - 2, j);
+                                *fields.u_star.at_mut(i, j) = fields.u_star.at(fields.nx - 2, j).clone();
                             }
                         },
                         _ => {}

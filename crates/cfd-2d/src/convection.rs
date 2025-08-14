@@ -24,9 +24,11 @@ pub struct FirstOrderUpwind;
 
 impl<T: RealField> ConvectionScheme<T> for FirstOrderUpwind {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
-        // Upwind: take flux from upwind cell
+        // Upwind scheme: always take from upwind direction
+        // ae coefficient includes diffusion + convection from east face
+        // aw coefficient includes diffusion + convection from west face
         let ae = de + T::max(T::zero(), -fe);
-        let aw = dw + T::max(T::zero(), fw);
+        let aw = dw + T::max(T::zero(), -fw);
         (ae, aw)
     }
     
@@ -214,7 +216,7 @@ mod tests {
         // For negative fw, should use upwind (no convection contribution to aw)
         assert_eq!(ae, 0.5); // de only
         assert_eq!(aw, 1.5); // dw + |fw|
-        assert!(scheme.is_bounded());
+        assert!(<FirstOrderUpwind as ConvectionScheme<f64>>::is_bounded(&scheme));
     }
     
     #[test]
@@ -225,7 +227,7 @@ mod tests {
         // Central difference: ae = de - fe/2, aw = dw + fw/2
         assert_eq!(ae, 0.0); // 1.0 - 2.0/2.0
         assert_eq!(aw, 0.0); // 1.0 + (-2.0)/2.0
-        assert!(!scheme.is_bounded());
+        assert!(!<CentralDifference as ConvectionScheme<f64>>::is_bounded(&scheme));
     }
     
     #[test]

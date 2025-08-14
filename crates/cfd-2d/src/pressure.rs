@@ -220,8 +220,8 @@ impl<T: RealField + FromPrimitive> PressureCorrector<T> {
                 
                 // Apply velocity correction (simplified - should use momentum diagonal)
                 let d_coeff = T::from_f64(0.1).unwrap(); // Simplified coefficient
-                fields.u.at_mut(i, j).x = fields.u_star.at(i, j).x - d_coeff.clone() * dp_dx / self.density.clone();
-                fields.u.at_mut(i, j).y = fields.u_star.at(i, j).y - d_coeff * dp_dy / self.density.clone();
+                fields.u.at_mut(i, j).x = fields.u_star.at(i, j).x.clone() - d_coeff.clone() * dp_dx / self.density.clone();
+                fields.u.at_mut(i, j).y = fields.u_star.at(i, j).y.clone() - d_coeff * dp_dy / self.density.clone();
             }
         }
         
