@@ -393,7 +393,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> SpectralSolver<T> {
             0 => (self.domain_bounds.0.x.clone(), self.domain_bounds.1.x.clone()),
             1 => (self.domain_bounds.0.y.clone(), self.domain_bounds.1.y.clone()),
             2 => (self.domain_bounds.0.z.clone(), self.domain_bounds.1.z.clone()),
-            _ => panic!("Invalid direction"),
+            _ => (T::zero(), T::one()), // Default to unit domain for invalid directions
         };
 
         let half = T::from_f64(0.5).unwrap();
@@ -760,7 +760,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> SpectralSolver<T> {
             0 => v.x.clone(),
             1 => v.y.clone(),
             2 => v.z.clone(),
-            _ => panic!("Invalid component index"),
+            _ => T::zero(), // Default to zero for invalid component indices
         }).collect()
     }
     

@@ -233,7 +233,7 @@ pub mod les {
                     window.iter()
                         .map(|v| {
                             let fluctuation = v.clone() - mean_velocity.clone();
-                            let half = T::from_f64(0.5).unwrap();
+                            let half = T::from_f64(constants::HALF).unwrap();
                             half * fluctuation.dot(&fluctuation)
                         })
                         .fold(T::zero(), |acc, tke| acc + tke)
@@ -288,7 +288,7 @@ pub mod les {
                     let strain_rate_magnitude = velocity_magnitude_squared.sqrt();
                     
                     // Grid filter width (should be computed from actual grid)
-                    let delta = T::from_f64(0.1).unwrap_or_else(T::one);
+                    let delta = T::from_f64(constants::ONE_TENTH).unwrap_or_else(T::one);
                     
                     // Local Smagorinsky coefficient (bounded from below)
                     let cs_squared = (self.cs_base.clone() * self.cs_base.clone())
@@ -309,7 +309,7 @@ pub mod les {
                     let v = velocity_vector.y.clone();
                     let w = velocity_vector.z.clone();
 
-                    let half = T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one()));
+                    let half = T::from_f64(constants::HALF).unwrap_or_else(|| T::one() / (T::one() + T::one()));
                     half * (u.clone() * u + v.clone() * v + w.clone() * w)
                 })
                 .collect()
@@ -392,11 +392,11 @@ pub mod rans_extended {
                     let w = velocity_vector.z.clone();
 
                     // Estimate k from velocity magnitude
-                    let k = T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one())) *
+                    let k = T::from_f64(constants::HALF).unwrap_or_else(|| T::one() / (T::one() + T::one())) *
                            (u.clone() * u + v.clone() * v + w.clone() * w);
 
                     // Estimate ε from dimensional analysis: ε ~ k^(3/2) / L
-                    let length_scale = T::from_f64(0.1).unwrap_or_else(T::one);
+                    let length_scale = T::from_f64(constants::ONE_TENTH).unwrap_or_else(T::one);
                     let epsilon = k.clone() * k.clone().sqrt() / length_scale;
 
                     // Turbulent viscosity: ν_t = C_μ * k² / ε
@@ -418,7 +418,7 @@ pub mod rans_extended {
                     let v = velocity_vector.y.clone();
                     let w = velocity_vector.z.clone();
 
-                    T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one())) *
+                    T::from_f64(constants::HALF).unwrap_or_else(|| T::one() / (T::one() + T::one())) *
                     (u.clone() * u + v.clone() * v + w.clone() * w)
                 })
                 .collect()

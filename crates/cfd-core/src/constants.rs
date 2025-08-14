@@ -48,6 +48,8 @@ pub const SIX: f64 = 6.0;
 pub const HALF: f64 = 0.5;
 /// One third value
 pub const ONE_THIRD: f64 = 1.0 / 3.0;
+/// One tenth value
+pub const ONE_TENTH: f64 = 0.1;
 /// Two thirds value
 pub const TWO_THIRDS: f64 = 2.0 / 3.0;
 /// One fourth value
