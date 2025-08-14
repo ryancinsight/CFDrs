@@ -84,10 +84,9 @@ pub struct ExecutionConfig {
 /// Numerical method configuration following Single Responsibility Principle
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct NumericalConfig<T: RealField> {
-    /// Relaxation factor for iterative methods
+    /// Relaxation factor for iterative methods. Values < 1.0 are under-relaxation,
+    /// values > 1.0 are over-relaxation.
     pub relaxation_factor: T,
-    /// Under-relaxation factor (alternative name for compatibility)
-    pub under_relaxation: Option<T>,
 }
 
 /// Unified solver configuration using composition over inheritance
@@ -121,14 +120,9 @@ impl<T: RealField> SolverConfiguration<T> for SolverConfig<T> {
 }
 
 impl<T: RealField> SolverConfig<T> {
-    /// Get relaxation factor (also serves as under-relaxation factor)
+    /// Get relaxation factor (values < 1.0 are under-relaxation, > 1.0 are over-relaxation)
     pub fn relaxation_factor(&self) -> T {
         self.numerical.relaxation_factor.clone()
-    }
-
-    /// Get under-relaxation factor if set
-    pub fn under_relaxation(&self) -> Option<T> {
-        self.numerical.under_relaxation.clone()
     }
 
     /// Get number of threads
@@ -165,7 +159,6 @@ impl<T: RealField + FromPrimitive> Default for NumericalConfig<T> {
     fn default() -> Self {
         Self {
             relaxation_factor: T::from_f64(1.0).unwrap(),
-            under_relaxation: None,
         }
     }
 }
@@ -241,8 +234,6 @@ impl<T: RealField + FromPrimitive> Default for LinearSolverConfig<T> {
 pub struct NetworkSolverConfig<T: RealField> {
     /// Base solver configuration
     pub base: SolverConfig<T>,
-    /// Enable verbose output (overrides base verbosity)
-    pub verbose: bool,
 }
 
 impl<T: RealField> SolverConfiguration<T> for NetworkSolverConfig<T> {
@@ -255,7 +246,7 @@ impl<T: RealField> SolverConfiguration<T> for NetworkSolverConfig<T> {
     }
 
     fn verbosity(&self) -> u8 {
-        if self.verbose { 2 } else { self.base.verbosity() }
+        self.base.verbosity()
     }
 
     fn parallel(&self) -> bool {
@@ -268,18 +259,12 @@ impl<T: RealField> NetworkSolverConfig<T> {
     pub fn relaxation_factor(&self) -> T {
         self.base.relaxation_factor()
     }
-
-    /// Get under-relaxation factor if set
-    pub fn under_relaxation(&self) -> Option<T> {
-        self.base.under_relaxation()
-    }
 }
 
 impl<T: RealField + FromPrimitive> Default for NetworkSolverConfig<T> {
     fn default() -> Self {
         Self {
             base: SolverConfig::default(),
-            verbose: false,
         }
     }
 }
@@ -328,9 +313,9 @@ impl<T: RealField> SolverConfigBuilder<T> {
         self
     }
 
-    /// Set under-relaxation factor
+    /// Set under-relaxation factor (values < 1.0)
     pub fn under_relaxation(mut self, factor: T) -> Self {
-        self.numerical.under_relaxation = Some(factor);
+        self.numerical.relaxation_factor = factor;
         self
     }
 
@@ -370,11 +355,10 @@ impl<T: RealField> SolverConfigBuilder<T> {
         }
     }
 
-    /// Build a network solver configuration with verbose option
-    pub fn build_network(self, verbose: bool) -> NetworkSolverConfig<T> {
+    /// Build a network solver configuration
+    pub fn build_network(self) -> NetworkSolverConfig<T> {
         NetworkSolverConfig {
             base: self.build(),
-            verbose,
         }
     }
 }
@@ -545,7 +529,7 @@ pub trait DirectSolver<T: RealField>: Solver<T> + Configurable<T> {
                                 merged_entries.push(MatrixEntry {
                                     row: row_idx,
                                     col,
-                                    value: current_value.clone(),
+                                    value: current_value,
                                 });
                             }
                             current_col = Some(entry.col);
@@ -782,9 +766,10 @@ mod tests {
         let network_config = SolverConfig::<f64>::builder()
             .tolerance(1e-6)
             .relaxation_factor(0.9)
-            .build_network(true);
+            .verbosity(2)
+            .build_network();
 
-        assert_eq!(network_config.verbosity(), 2); // verbose overrides
+        assert_eq!(network_config.verbosity(), 2); 
         assert_eq!(network_config.relaxation_factor(), 0.9);
     }
 

@@ -80,19 +80,26 @@ impl<T: RealField + FromPrimitive> JacobiPreconditioner<T> {
         }
 
         let mut inv_diagonal = DVector::zeros(n);
+        
+        // More efficient: iterate through triplet entries to find diagonal elements
+        for (i, j, val) in a.triplet_iter() {
+            if i == j {
+                if val.abs() < T::from_f64(1e-14).unwrap() {
+                    return Err(Error::NumericalError(
+                        format!("Zero or near-zero diagonal entry at row {}", i)
+                    ));
+                }
+                inv_diagonal[i] = T::one() / val.clone();
+            }
+        }
+        
+        // Check for any missing diagonal entries
         for i in 0..n {
-            let row = a.row(i);
-            let diagonal_entry = row.get_entry(i)
-                .map(|entry| entry.into_value().clone())
-                .unwrap_or_else(T::zero);
-            
-            if diagonal_entry.clone().abs() < T::from_f64(1e-14).unwrap() {
+            if inv_diagonal[i] == T::zero() {
                 return Err(Error::NumericalError(
-                    format!("Zero or near-zero diagonal entry at row {}", i)
+                    format!("Missing diagonal entry at row {}", i)
                 ));
             }
-            
-            inv_diagonal[i] = T::one() / diagonal_entry;
         }
 
         Ok(Self { inv_diagonal })
@@ -204,13 +211,44 @@ impl<T: RealField> Preconditioner<T> for ILU0Preconditioner<T> {
     }
 
     fn apply_in_place(&self, r: &DVector<T>, z: &mut DVector<T>) {
-        *z = self.apply(r);
+        let n = r.len();
+        let mut y: DVector<T> = DVector::zeros(n);
+        
+        // True in-place forward substitution: L * y = r
+        for i in 0..n {
+            let mut sum = r[i].clone();
+            let row = self.l_factor.row(i);
+            for (j, val) in row.col_indices().iter().zip(row.values()) {
+                if *j < i {
+                    sum = sum - val.clone() * y[*j].clone();
+                }
+            }
+            y[i] = sum;
+        }
+        
+        // True in-place backward substitution: U * z = y
+        z.fill(T::zero());
+        for i in (0..n).rev() {
+            let mut sum = y[i].clone();
+            let mut diag = T::one();
+            
+            let row = self.u_factor.row(i);
+            for (j, val) in row.col_indices().iter().zip(row.values()) {
+                if *j > i {
+                    sum = sum - val.clone() * z[*j].clone();
+                } else if *j == i {
+                    diag = val.clone();
+                }
+            }
+            
+            z[i] = sum / diag;
+        }
     }
 }
 
 /// SOR (Successive Over-Relaxation) preconditioner
 pub struct SORPreconditioner<T: RealField> {
-    lower_plus_diag: CsrMatrix<T>,
+    matrix: CsrMatrix<T>,
     omega: T,
 }
 
@@ -224,19 +262,9 @@ impl<T: RealField + FromPrimitive> SORPreconditioner<T> {
             ));
         }
 
-        let mut builder = SparseMatrixBuilder::new(n, n);
-        
-        for i in 0..n {
-            let row = a.row(i);
-            for (j, val) in row.col_indices().iter().zip(row.values()) {
-                if *j <= i {
-                    builder.add_entry(i, *j, val.clone());
-                }
-            }
-        }
-
+        // Store reference to original matrix - no need to extract lower triangular part
         Ok(Self {
-            lower_plus_diag: builder.build()?,
+            matrix: a.clone(),
             omega,
         })
     }
@@ -264,10 +292,10 @@ impl<T: RealField> Preconditioner<T> for SORPreconditioner<T> {
         let n = r.len();
         let mut z: DVector<T> = DVector::zeros(n);
         
-        // Forward substitution with SOR
+        // Forward substitution with SOR using original matrix
         for i in 0..n {
             let mut sum = r[i].clone();
-            let row = self.lower_plus_diag.row(i);
+            let row = self.matrix.row(i);
             let mut diag = T::one();
             
             for (j, val) in row.col_indices().iter().zip(row.values()) {
@@ -282,6 +310,28 @@ impl<T: RealField> Preconditioner<T> for SORPreconditioner<T> {
         }
         
         z
+    }
+
+    fn apply_in_place(&self, r: &DVector<T>, z: &mut DVector<T>) {
+        let n = r.len();
+        z.fill(T::zero());
+        
+        // True in-place forward substitution with SOR
+        for i in 0..n {
+            let mut sum = r[i].clone();
+            let row = self.matrix.row(i);
+            let mut diag = T::one();
+            
+            for (j, val) in row.col_indices().iter().zip(row.values()) {
+                if *j < i {
+                    sum = sum - val.clone() * z[*j].clone();
+                } else if *j == i {
+                    diag = val.clone();
+                }
+            }
+            
+            z[i] = self.omega.clone() * sum / diag;
+        }
     }
 }
 
