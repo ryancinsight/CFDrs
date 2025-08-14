@@ -664,6 +664,7 @@ where
     I: Iterator<Item = T>,
     T: RealField + Clone,
 {
+    /// Create a new rolling statistics iterator
     pub fn new(iter: I, window_size: usize) -> Self {
         Self {
             iter,
@@ -722,6 +723,7 @@ where
     I: Iterator<Item = T>,
     T: RealField + Clone,
 {
+    /// Create a new Kalman filter iterator with process and observation noise
     pub fn new(iter: I, process_noise: T, observation_noise: T) -> Self {
         Self {
             iter,
@@ -783,6 +785,7 @@ where
     I: Iterator<Item = T>,
     T: RealField + Clone,
 {
+    /// Create a new overlapping window analyzer with specified window size and overlap
     pub fn new(iter: I, window_size: usize, overlap: usize) -> Self {
         let step_size = window_size - overlap;
         Self {
