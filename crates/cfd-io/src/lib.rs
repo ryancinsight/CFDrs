@@ -17,7 +17,7 @@ pub mod hdf5;
 // Re-export commonly used types
 pub use csv::{CsvReader, CsvWriter, TimeSeriesData, StreamReader, StreamWriter};
 pub use json::{JsonReader, JsonWriter};
-pub use vtk::{VtkReader, VtkWriter, VtkMesh, VtkMeshBuilder, VtkFieldData, VtkDataType, VtkCellType, VtkDatasetType};
+pub use vtk::{VtkReader, VtkWriter, VtkMesh, VtkMeshBuilder, VtkDataType, VtkCellType, VtkDatasetType};
 pub use binary::{BinaryReader, BinaryWriter};
 pub use checkpoint::{Checkpoint, CheckpointManager};
 #[cfg(feature = "hdf5")]

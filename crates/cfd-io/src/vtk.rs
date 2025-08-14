@@ -5,9 +5,11 @@
 
 use cfd_core::{Error, Result};
 use nalgebra::RealField;
+use num_traits::cast::ToPrimitive;
 use std::fs::File;
-use std::io::{BufRead, BufReader, BufWriter, Write, Lines};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
+use std::str::FromStr;
 
 /// VTK data types
 #[derive(Debug, Clone, Copy)]
@@ -39,15 +41,15 @@ pub enum VtkCellType {
 
 impl VtkCellType {
     /// Convert from u8 representation
-    pub fn from_u8(value: u8) -> Self {
+    pub fn from_u8(value: u8) -> Result<Self> {
         match value {
-            1 => VtkCellType::Vertex,
-            3 => VtkCellType::Line,
-            5 => VtkCellType::Triangle,
-            9 => VtkCellType::Quad,
-            10 => VtkCellType::Tetrahedron,
-            12 => VtkCellType::Hexahedron,
-            _ => VtkCellType::Vertex, // Default fallback
+            1 => Ok(VtkCellType::Vertex),
+            3 => Ok(VtkCellType::Line),
+            5 => Ok(VtkCellType::Triangle),
+            9 => Ok(VtkCellType::Quad),
+            10 => Ok(VtkCellType::Tetrahedron),
+            12 => Ok(VtkCellType::Hexahedron),
+            _ => Err(Error::InvalidInput(format!("Unknown VTK cell type: {}", value))),
         }
     }
 }
@@ -98,200 +100,227 @@ impl<T: RealField> VtkMesh<T> {
         self.cells.len()
     }
 
-    /// Iterator over points as 3D coordinates
+    /// Get point coordinates as iterator
     pub fn points_iter(&self) -> impl Iterator<Item = [&T; 3]> {
-        self.points.chunks_exact(3).map(|chunk| {
-            [&chunk[0], &chunk[1], &chunk[2]]
+        self.points.chunks_exact(3).map(|chunk| [&chunk[0], &chunk[1], &chunk[2]])
+    }
+
+    /// Get mutable point coordinates as iterator
+    pub fn points_iter_mut(&mut self) -> impl Iterator<Item = [&mut T; 3]> {
+        self.points.chunks_exact_mut(3).map(|chunk| {
+            let ptr = chunk.as_mut_ptr();
+            unsafe { [&mut *ptr, &mut *ptr.add(1), &mut *ptr.add(2)] }
         })
+    }
+
+    /// Get point coordinates by index
+    pub fn point(&self, index: usize) -> Option<[&T; 3]> {
+        if index * 3 + 2 < self.points.len() {
+            Some([
+                &self.points[index * 3],
+                &self.points[index * 3 + 1],
+                &self.points[index * 3 + 2],
+            ])
+        } else {
+            None
+        }
+    }
+
+    /// Get mutable point coordinates by index
+    pub fn point_mut(&mut self, index: usize) -> Option<[&mut T; 3]> {
+        if index * 3 + 2 < self.points.len() {
+            let ptr = self.points[index * 3..].as_mut_ptr();
+            Some(unsafe { [&mut *ptr, &mut *ptr.add(1), &mut *ptr.add(2)] })
+        } else {
+            None
+        }
     }
 }
 
-/// VTK field data
+/// VTK file header information
 #[derive(Debug, Clone)]
-pub struct VtkFieldData<T: RealField> {
-    /// Field name
-    pub name: String,
-    /// Data type
-    pub data_type: VtkDataType,
-    /// Field values
-    pub values: Vec<T>,
+pub struct VtkHeader {
+    /// File title/description
+    pub title: String,
+    /// Data format (ASCII or BINARY)
+    pub format: String,
+    /// Dataset type
+    pub dataset_type: VtkDatasetType,
 }
 
-/// VTK file writer with zero-copy streaming
+/// VTK writer for mesh data
 pub struct VtkWriter<T: RealField> {
-    dataset_type: VtkDatasetType,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField> VtkWriter<T> {
+impl<T: RealField + ToPrimitive> VtkWriter<T> {
     /// Create a new VTK writer
-    pub fn new(dataset_type: VtkDatasetType) -> Self {
+    pub fn new() -> Self {
         Self {
-            dataset_type,
             _phantom: std::marker::PhantomData,
         }
     }
 
-    /// Write mesh and field data to VTK file
-    pub fn write(
-        &self,
-        path: &Path,
-        mesh: &VtkMesh<T>,
-        point_data: &[VtkFieldData<T>],
-        cell_data: &[VtkFieldData<T>],
-    ) -> Result<()> {
+    /// Write mesh to VTK file
+    pub fn write_mesh(&self, mesh: &VtkMesh<T>, path: &Path, title: &str) -> Result<()> {
         let file = File::create(path)?;
         let mut writer = BufWriter::new(file);
 
         // Write header
         writeln!(writer, "# vtk DataFile Version 3.0")?;
-        writeln!(writer, "CFD Simulation Data")?;
+        writeln!(writer, "{}", title)?;
         writeln!(writer, "ASCII")?;
-        writeln!(writer, "DATASET {}", self.dataset_type_str())?;
+        writeln!(writer, "DATASET UNSTRUCTURED_GRID")?;
+        writeln!(writer)?;
 
         // Write points
-        self.write_points(&mut writer, mesh)?;
+        writeln!(writer, "POINTS {} float", mesh.num_points())?;
+        for point in mesh.points_iter() {
+            writeln!(writer, "{} {} {}", 
+                point[0].to_f64().unwrap_or(0.0),
+                point[1].to_f64().unwrap_or(0.0),
+                point[2].to_f64().unwrap_or(0.0)
+            )?;
+        }
+        writeln!(writer)?;
 
         // Write cells
-        self.write_cells(&mut writer, mesh)?;
+        let total_cell_data: usize = mesh.cells.iter().map(|cell| cell.len() + 1).sum();
+        writeln!(writer, "CELLS {} {}", mesh.num_cells(), total_cell_data)?;
+        for cell in &mesh.cells {
+            write!(writer, "{}", cell.len())?;
+            for &vertex_id in cell {
+                write!(writer, " {}", vertex_id)?;
+            }
+            writeln!(writer)?;
+        }
+        writeln!(writer)?;
+
+        // Write cell types
+        writeln!(writer, "CELL_TYPES {}", mesh.num_cells())?;
+        for &cell_type in &mesh.cell_types {
+            writeln!(writer, "{}", cell_type as u8)?;
+        }
+
+        Ok(())
+    }
+
+    /// Write scalar field data
+    pub fn write_scalar_field(
+        &self,
+        mesh: &VtkMesh<T>,
+        field_data: &[T],
+        field_name: &str,
+        path: &Path,
+        title: &str,
+    ) -> Result<()> {
+        if field_data.len() != mesh.num_points() {
+            return Err(Error::InvalidConfiguration(
+                "Field data length must match number of points".to_string(),
+            ));
+        }
+
+        let file = File::create(path)?;
+        let mut writer = BufWriter::new(file);
+
+        // Write mesh data first
+        self.write_mesh_data(&mut writer, mesh, title)?;
 
         // Write point data
-        if !point_data.is_empty() {
-            writeln!(writer, "\nPOINT_DATA {}", mesh.num_points())?;
-            for field in point_data {
-                self.write_field_data(&mut writer, field, mesh.num_points())?;
-            }
+        writeln!(writer, "POINT_DATA {}", mesh.num_points())?;
+        writeln!(writer, "SCALARS {} float 1", field_name)?;
+        writeln!(writer, "LOOKUP_TABLE default")?;
+        for value in field_data {
+            writeln!(writer, "{}", value.to_f64().unwrap_or(0.0))?;
         }
 
-        // Write cell data
-        if !cell_data.is_empty() {
-            writeln!(writer, "\nCELL_DATA {}", mesh.num_cells())?;
-            for field in cell_data {
-                self.write_field_data(&mut writer, field, mesh.num_cells())?;
-            }
-        }
-
-        writer.flush()?;
         Ok(())
     }
 
-    /// Write points using iterator
-    fn write_points<W: Write>(&self, writer: &mut W, mesh: &VtkMesh<T>) -> Result<()> {
-        writeln!(writer, "\nPOINTS {} float", mesh.num_points())?;
-        
-        // Use iterator for zero-copy writing
-        for [x, y, z] in mesh.points_iter() {
-            writeln!(writer, "{} {} {}", x, y, z)?;
-        }
-        
-        Ok(())
-    }
-
-    /// Write cells (only for unstructured grids)
-    fn write_cells<W: Write>(&self, writer: &mut W, mesh: &VtkMesh<T>) -> Result<()> {
-        // CRITICAL: Only write cells for dataset types that require explicit connectivity
-        // STRUCTURED_GRID and STRUCTURED_POINTS have implicit connectivity!
-        match self.dataset_type {
-            VtkDatasetType::StructuredGrid | VtkDatasetType::StructuredPoints => {
-                // These dataset types have implicit connectivity - DO NOT write CELLS
-                // Note: Using POINTS for compatibility - structured grids could use DIMENSIONS
-                Ok(())
-            }
-            VtkDatasetType::UnstructuredGrid | VtkDatasetType::PolyData => {
-                // These require explicit cell connectivity
-                let total_size: usize = mesh.cells.iter()
-                    .map(|cell| 1 + cell.len())
-                    .sum();
-                
-                writeln!(writer, "\nCELLS {} {}", mesh.num_cells(), total_size)?;
-                
-                // Write connectivity
-                for cell in &mesh.cells {
-                    write!(writer, "{}", cell.len())?;
-                    for &idx in cell {
-                        write!(writer, " {}", idx)?;
-                    }
-                    writeln!(writer)?;
-                }
-
-                // Write cell types
-                writeln!(writer, "\nCELL_TYPES {}", mesh.num_cells())?;
-                for cell_type in &mesh.cell_types {
-                    writeln!(writer, "{}", *cell_type as u8)?;
-                }
-                
-                Ok(())
-            }
-            _ => {
-                // Other types not yet fully supported
-                Err(Error::NotImplemented(
-                    format!("Cell writing for {:?} not yet implemented", self.dataset_type)
-                ))
-            }
-        }
-    }
-
-    /// Write field data
-    fn write_field_data<W: Write>(
+    /// Write vector field data
+    pub fn write_vector_field(
         &self,
-        writer: &mut W,
-        field: &VtkFieldData<T>,
-        _num_entities: usize,
+        mesh: &VtkMesh<T>,
+        field_data: &[(T, T, T)],
+        field_name: &str,
+        path: &Path,
+        title: &str,
     ) -> Result<()> {
-        match field.data_type {
-            VtkDataType::Scalar => {
-                writeln!(writer, "\nSCALARS {} float", field.name)?;
-                writeln!(writer, "LOOKUP_TABLE default")?;
-                // Zero-copy scalar writing using iterator
-                field.values.iter().try_for_each(|value| writeln!(writer, "{}", value))?;
-            }
-            VtkDataType::Vector => {
-                writeln!(writer, "\nVECTORS {} float", field.name)?;
-                // Zero-copy vector writing using chunks iterator
-                field.values
-                    .chunks_exact(3)
-                    .try_for_each(|chunk| writeln!(writer, "{} {} {}", chunk[0], chunk[1], chunk[2]))?;
-            }
-            VtkDataType::Tensor => {
-                writeln!(writer, "\nTENSORS {} float", field.name)?;
-                // Zero-copy tensor writing using nested iterators
-                field.values
-                    .chunks_exact(9)
-                    .try_for_each(|chunk| {
-                        (0..3).try_for_each(|i| {
-                            writeln!(
-                                writer,
-                                "{} {} {}",
-                                chunk[i * 3],
-                                chunk[i * 3 + 1],
-                                chunk[i * 3 + 2]
-                            )
-                        })?;
-                        writeln!(writer)
-                    })?;
-            }
+        if field_data.len() != mesh.num_points() {
+            return Err(Error::InvalidConfiguration(
+                "Field data length must match number of points".to_string(),
+            ));
         }
+
+        let file = File::create(path)?;
+        let mut writer = BufWriter::new(file);
+
+        // Write mesh data first
+        self.write_mesh_data(&mut writer, mesh, title)?;
+
+        // Write point data
+        writeln!(writer, "POINT_DATA {}", mesh.num_points())?;
+        writeln!(writer, "VECTORS {} float", field_name)?;
+        for (x, y, z) in field_data {
+            writeln!(writer, "{} {} {}", 
+                x.to_f64().unwrap_or(0.0),
+                y.to_f64().unwrap_or(0.0),
+                z.to_f64().unwrap_or(0.0)
+            )?;
+        }
+
         Ok(())
     }
 
-    fn dataset_type_str(&self) -> &'static str {
-        match self.dataset_type {
-            VtkDatasetType::StructuredPoints => "STRUCTURED_POINTS",
-            VtkDatasetType::StructuredGrid => "STRUCTURED_GRID",
-            VtkDatasetType::UnstructuredGrid => "UNSTRUCTURED_GRID",
-            VtkDatasetType::PolyData => "POLYDATA",
-            VtkDatasetType::RectilinearGrid => "RECTILINEAR_GRID",
+    fn write_mesh_data(&self, writer: &mut BufWriter<File>, mesh: &VtkMesh<T>, title: &str) -> Result<()> {
+        // Write header
+        writeln!(writer, "# vtk DataFile Version 3.0")?;
+        writeln!(writer, "{}", title)?;
+        writeln!(writer, "ASCII")?;
+        writeln!(writer, "DATASET UNSTRUCTURED_GRID")?;
+        writeln!(writer)?;
+
+        // Write points
+        writeln!(writer, "POINTS {} float", mesh.num_points())?;
+        for point in mesh.points_iter() {
+            writeln!(writer, "{} {} {}", 
+                point[0].to_f64().unwrap_or(0.0),
+                point[1].to_f64().unwrap_or(0.0),
+                point[2].to_f64().unwrap_or(0.0)
+            )?;
         }
+        writeln!(writer)?;
+
+        // Write cells
+        let total_cell_data: usize = mesh.cells.iter().map(|cell| cell.len() + 1).sum();
+        writeln!(writer, "CELLS {} {}", mesh.num_cells(), total_cell_data)?;
+        for cell in &mesh.cells {
+            write!(writer, "{}", cell.len())?;
+            for &vertex_id in cell {
+                write!(writer, " {}", vertex_id)?;
+            }
+            writeln!(writer)?;
+        }
+        writeln!(writer)?;
+
+        // Write cell types
+        writeln!(writer, "CELL_TYPES {}", mesh.num_cells())?;
+        for &cell_type in &mesh.cell_types {
+            writeln!(writer, "{}", cell_type as u8)?;
+        }
+        writeln!(writer)?;
+
+        Ok(())
     }
 }
 
-impl<T: RealField> Default for VtkWriter<T> {
+impl<T: RealField + ToPrimitive> Default for VtkWriter<T> {
     fn default() -> Self {
-        Self::new(VtkDatasetType::UnstructuredGrid)
+        Self::new()
     }
 }
 
-/// VTK file reader with streaming support
+/// VTK reader for mesh data
 pub struct VtkReader<T: RealField> {
     _phantom: std::marker::PhantomData<T>,
 }
@@ -304,10 +333,26 @@ impl<T: RealField> VtkReader<T> {
         }
     }
 
-    /// Read VTK file header
-    pub fn read_header(&self, path: &Path) -> Result<VtkHeader> {
+    /// Read mesh data from VTK file
+    pub fn read_mesh(&self, path: &Path) -> Result<VtkMesh<T>> {
         let file = File::open(path)?;
-        let reader = BufReader::new(file);
+        let mut reader = BufReader::new(file);
+        
+        // Read header and get dataset type
+        let header = self.read_header_from_reader(&mut reader)?;
+        
+        // Parse based on dataset type using the same reader
+        match header.dataset_type {
+            VtkDatasetType::UnstructuredGrid => self.read_unstructured_grid(reader),
+            VtkDatasetType::StructuredGrid => self.read_structured_grid(reader),
+            _ => Err(Error::NotImplemented(
+                format!("VTK reading for {:?} not yet implemented", header.dataset_type)
+            ))
+        }
+    }
+
+    /// Read VTK file header from a BufReader
+    fn read_header_from_reader(&self, reader: &mut BufReader<File>) -> Result<VtkHeader> {
         let mut lines = reader.lines();
 
         // Read header lines
@@ -341,37 +386,22 @@ impl<T: RealField> VtkReader<T> {
             dataset_type: self.parse_dataset_type(&dataset)?,
         })
     }
-
-    /// Read mesh data from VTK file
-    pub fn read_mesh(&self, path: &Path) -> Result<VtkMesh<T>> {
-        // First read the header to determine dataset type
-        let header = self.read_header(path)?;
-        
-        // Now read the file again for the actual data
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
-        let mut lines = reader.lines();
-        
-        // Skip header lines (already parsed)
-        for _ in 0..4 {
-            lines.next();
-        }
-        
-        // Parse based on dataset type
-        match header.dataset_type {
-            VtkDatasetType::UnstructuredGrid => self.read_unstructured_grid(&mut lines),
-            VtkDatasetType::StructuredGrid => self.read_structured_grid(&mut lines),
-            _ => Err(Error::NotImplemented(
-                format!("VTK reading for {:?} not yet implemented", header.dataset_type)
-            ))
-        }
-    }
     
+    /// Parse a line into a vector of values with better error handling
+    fn parse_line<V: FromStr>(&self, line: &str, context: &str) -> Result<Vec<V>> {
+        line.split_whitespace()
+            .map(|s| s.parse::<V>().map_err(|_| 
+                Error::InvalidInput(format!("Failed to parse '{}' in {}", s, context))
+            ))
+            .collect()
+    }
+
     /// Read unstructured grid data
-    fn read_unstructured_grid(&self, lines: &mut Lines<BufReader<File>>) -> Result<VtkMesh<T>> {
+    fn read_unstructured_grid(&self, reader: BufReader<File>) -> Result<VtkMesh<T>> {
         let mut points = Vec::new();
         let mut cells = Vec::new();
         let mut cell_types = Vec::new();
+        let mut lines = reader.lines();
         
         while let Some(line) = lines.next() {
             let line = line?;
@@ -379,56 +409,92 @@ impl<T: RealField> VtkReader<T> {
             
             if line.starts_with("POINTS") {
                 let parts: Vec<&str> = line.split_whitespace().collect();
-                let n_points = parts[1].parse::<usize>()
+                let n_points = parts.get(1)
+                    .ok_or_else(|| Error::InvalidInput("Missing points count".to_string()))?
+                    .parse::<usize>()
                     .map_err(|_| Error::InvalidInput("Invalid points count".to_string()))?;
                 
                 // Read point coordinates
-                for _ in 0..n_points {
+                for i in 0..n_points {
                     if let Some(point_line) = lines.next() {
-                        let coords: Vec<f64> = point_line?
-                            .split_whitespace()
-                            .map(|s| s.parse::<f64>())
-                            .collect::<std::result::Result<Vec<_>, _>>()
-                            .map_err(|_| Error::InvalidInput("Invalid point coordinates".to_string()))?;
+                        let coords: Vec<f64> = self.parse_line(&point_line?, 
+                            &format!("point {} coordinates", i))?;
                         
-                        if coords.len() >= 3 {
-                            // Points are stored flattened
-                            points.push(T::from_f64(coords[0]).unwrap());
-                            points.push(T::from_f64(coords[1]).unwrap());
-                            points.push(T::from_f64(coords[2]).unwrap());
+                        if coords.len() < 3 {
+                            return Err(Error::InvalidInput(
+                                format!("Point {} has insufficient coordinates (need 3, got {})", i, coords.len())
+                            ));
                         }
+                        
+                        // Convert to target type with proper error handling
+                        points.push(T::from_f64(coords[0])
+                            .ok_or_else(|| Error::InvalidInput(
+                                format!("Cannot convert x-coordinate {} to target type", coords[0])
+                            ))?);
+                        points.push(T::from_f64(coords[1])
+                            .ok_or_else(|| Error::InvalidInput(
+                                format!("Cannot convert y-coordinate {} to target type", coords[1])
+                            ))?);
+                        points.push(T::from_f64(coords[2])
+                            .ok_or_else(|| Error::InvalidInput(
+                                format!("Cannot convert z-coordinate {} to target type", coords[2])
+                            ))?);
+                    } else {
+                        return Err(Error::InvalidInput(
+                            format!("Missing point data for point {}", i)
+                        ));
                     }
                 }
             } else if line.starts_with("CELLS") {
                 let parts: Vec<&str> = line.split_whitespace().collect();
-                let n_cells = parts[1].parse::<usize>()
+                let n_cells = parts.get(1)
+                    .ok_or_else(|| Error::InvalidInput("Missing cells count".to_string()))?
+                    .parse::<usize>()
                     .map_err(|_| Error::InvalidInput("Invalid cells count".to_string()))?;
                 
                 // Read cell connectivity
-                for _ in 0..n_cells {
+                for i in 0..n_cells {
                     if let Some(cell_line) = lines.next() {
-                        let indices: Vec<usize> = cell_line?
-                            .split_whitespace()
-                            .skip(1) // Skip count
-                            .map(|s| s.parse::<usize>())
-                            .collect::<std::result::Result<Vec<_>, _>>()
-                            .map_err(|_| Error::InvalidInput("Invalid cell indices".to_string()))?;
+                        let indices: Vec<usize> = self.parse_line(&cell_line?, 
+                            &format!("cell {} connectivity", i))?;
                         
-                        cells.push(indices);
+                        if indices.is_empty() {
+                            return Err(Error::InvalidInput(
+                                format!("Cell {} has no connectivity data", i)
+                            ));
+                        }
+                        
+                        // Skip the first element (count) and take the rest as indices
+                        cells.push(indices.into_iter().skip(1).collect());
+                    } else {
+                        return Err(Error::InvalidInput(
+                            format!("Missing cell data for cell {}", i)
+                        ));
                     }
                 }
             } else if line.starts_with("CELL_TYPES") {
                 let parts: Vec<&str> = line.split_whitespace().collect();
-                let n_types = parts[1].parse::<usize>()
+                let n_types = parts.get(1)
+                    .ok_or_else(|| Error::InvalidInput("Missing cell types count".to_string()))?
+                    .parse::<usize>()
                     .map_err(|_| Error::InvalidInput("Invalid cell types count".to_string()))?;
                 
                 // Read cell types
-                for _ in 0..n_types {
+                for i in 0..n_types {
                     if let Some(type_line) = lines.next() {
-                        let cell_type = type_line?.trim().parse::<u8>()
-                            .map_err(|_| Error::InvalidInput("Invalid cell type".to_string()))?;
+                        let cell_type_val: u8 = self.parse_line(&type_line?, 
+                            &format!("cell type {}", i))?
+                            .into_iter()
+                            .next()
+                            .ok_or_else(|| Error::InvalidInput(
+                                format!("Missing cell type value for cell {}", i)
+                            ))?;
                         
-                        cell_types.push(VtkCellType::from_u8(cell_type));
+                        cell_types.push(VtkCellType::from_u8(cell_type_val)?);
+                    } else {
+                        return Err(Error::InvalidInput(
+                            format!("Missing cell type data for cell {}", i)
+                        ));
                     }
                 }
             }
@@ -438,10 +504,9 @@ impl<T: RealField> VtkReader<T> {
     }
     
     /// Read structured grid data
-    fn read_structured_grid(&self, lines: &mut Lines<BufReader<File>>) -> Result<VtkMesh<T>> {
-        // For structured grids, we only need points and dimensions
-        // Connectivity is implicit
+    fn read_structured_grid(&self, reader: BufReader<File>) -> Result<VtkMesh<T>> {
         let mut points = Vec::new();
+        let mut lines = reader.lines();
         
         while let Some(line) = lines.next() {
             let line = line?;
@@ -453,24 +518,40 @@ impl<T: RealField> VtkReader<T> {
                 continue;
             } else if line.starts_with("POINTS") {
                 let parts: Vec<&str> = line.split_whitespace().collect();
-                let n_points = parts[1].parse::<usize>()
+                let n_points = parts.get(1)
+                    .ok_or_else(|| Error::InvalidInput("Missing points count".to_string()))?
+                    .parse::<usize>()
                     .map_err(|_| Error::InvalidInput("Invalid points count".to_string()))?;
                 
                 // Read point coordinates
-                for _ in 0..n_points {
+                for i in 0..n_points {
                     if let Some(point_line) = lines.next() {
-                        let coords: Vec<f64> = point_line?
-                            .split_whitespace()
-                            .map(|s| s.parse::<f64>())
-                            .collect::<std::result::Result<Vec<_>, _>>()
-                            .map_err(|_| Error::InvalidInput("Invalid point coordinates".to_string()))?;
+                        let coords: Vec<f64> = self.parse_line(&point_line?, 
+                            &format!("point {} coordinates", i))?;
                         
-                        if coords.len() >= 3 {
-                            // Points are stored flattened
-                            points.push(T::from_f64(coords[0]).unwrap());
-                            points.push(T::from_f64(coords[1]).unwrap());
-                            points.push(T::from_f64(coords[2]).unwrap());
+                        if coords.len() < 3 {
+                            return Err(Error::InvalidInput(
+                                format!("Point {} has insufficient coordinates (need 3, got {})", i, coords.len())
+                            ));
                         }
+                        
+                        // Convert to target type with proper error handling
+                        points.push(T::from_f64(coords[0])
+                            .ok_or_else(|| Error::InvalidInput(
+                                format!("Cannot convert x-coordinate {} to target type", coords[0])
+                            ))?);
+                        points.push(T::from_f64(coords[1])
+                            .ok_or_else(|| Error::InvalidInput(
+                                format!("Cannot convert y-coordinate {} to target type", coords[1])
+                            ))?);
+                        points.push(T::from_f64(coords[2])
+                            .ok_or_else(|| Error::InvalidInput(
+                                format!("Cannot convert z-coordinate {} to target type", coords[2])
+                            ))?);
+                    } else {
+                        return Err(Error::InvalidInput(
+                            format!("Missing point data for point {}", i)
+                        ));
                     }
                 }
             }
@@ -498,8 +579,8 @@ impl<T: RealField> VtkReader<T> {
             "UNSTRUCTURED_GRID" => Ok(VtkDatasetType::UnstructuredGrid),
             "POLYDATA" => Ok(VtkDatasetType::PolyData),
             "RECTILINEAR_GRID" => Ok(VtkDatasetType::RectilinearGrid),
-            _ => Err(Error::InvalidConfiguration(
-                format!("Unknown dataset type: {}", parts[1]),
+            unknown => Err(Error::InvalidConfiguration(
+                format!("Unknown dataset type: {}", unknown),
             )),
         }
     }
@@ -511,18 +592,7 @@ impl<T: RealField> Default for VtkReader<T> {
     }
 }
 
-/// VTK file header information
-#[derive(Debug, Clone)]
-pub struct VtkHeader {
-    /// Title line
-    pub title: String,
-    /// Format (ASCII or BINARY)
-    pub format: String,
-    /// Dataset type
-    pub dataset_type: VtkDatasetType,
-}
-
-/// Builder for VTK mesh
+/// VTK mesh builder with simplified API
 pub struct VtkMeshBuilder<T: RealField> {
     points: Vec<T>,
     cells: Vec<Vec<usize>>,
@@ -545,40 +615,23 @@ impl<T: RealField> VtkMeshBuilder<T> {
         self
     }
 
-    /// Add points from iterator using zero-copy approach
+    /// Add points from iterator - unified API
     pub fn add_points<I>(mut self, points: I) -> Self
     where
         I: IntoIterator<Item = (T, T, T)>,
     {
+        // Reserve capacity to optimize performance
+        let iter = points.into_iter();
+        let size_hint = iter.size_hint();
+        if let (lower, Some(upper)) = size_hint {
+            if lower == upper {
+                self.points.reserve(lower * 3);
+            }
+        }
+        
         // Use iterator combinators to flatten coordinates efficiently
         self.points.extend(
-            points.into_iter().flat_map(|(x, y, z)| [x, y, z])
-        );
-        self
-    }
-
-    /// Add points from slice with cloning (for non-Copy types)
-    pub fn add_points_from_slice_cloned(mut self, points: &[(T, T, T)]) -> Self
-    where
-        T: Clone,
-    {
-        // Reserve capacity to avoid multiple reallocations
-        self.points.reserve(points.len() * 3);
-        self.points.extend(
-            points.iter().flat_map(|(x, y, z)| [x.clone(), y.clone(), z.clone()])
-        );
-        self
-    }
-
-    /// Add points from slice with zero-copy (for Copy types)
-    pub fn add_points_from_slice_copy(mut self, points: &[(T, T, T)]) -> Self
-    where
-        T: Copy,
-    {
-        // Reserve capacity to avoid multiple reallocations
-        self.points.reserve(points.len() * 3);
-        self.points.extend(
-            points.iter().flat_map(|(x, y, z)| [*x, *y, *z])
+            iter.flat_map(|(x, y, z)| [x, y, z])
         );
         self
     }
@@ -607,6 +660,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_vtk_cell_type_from_u8() {
+        assert!(matches!(VtkCellType::from_u8(1), Ok(VtkCellType::Vertex)));
+        assert!(matches!(VtkCellType::from_u8(3), Ok(VtkCellType::Line)));
+        assert!(matches!(VtkCellType::from_u8(5), Ok(VtkCellType::Triangle)));
+        assert!(matches!(VtkCellType::from_u8(9), Ok(VtkCellType::Quad)));
+        assert!(matches!(VtkCellType::from_u8(10), Ok(VtkCellType::Tetrahedron)));
+        assert!(matches!(VtkCellType::from_u8(12), Ok(VtkCellType::Hexahedron)));
+        assert!(VtkCellType::from_u8(99).is_err());
+    }
+
+    #[test]
     fn test_vtk_mesh_builder() {
         let mesh = VtkMeshBuilder::<f64>::new()
             .add_point(0.0, 0.0, 0.0)
@@ -617,6 +681,19 @@ mod tests {
             .build();
 
         assert_eq!(mesh.num_points(), 4);
+        assert_eq!(mesh.num_cells(), 1);
+    }
+
+    #[test]
+    fn test_vtk_mesh_builder_unified_api() {
+        let points_data = vec![(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0)];
+        
+        let mesh = VtkMeshBuilder::<f64>::new()
+            .add_points(points_data.iter().copied()) // for Copy types
+            .add_cell(vec![0, 1, 2], VtkCellType::Triangle)
+            .build();
+
+        assert_eq!(mesh.num_points(), 3);
         assert_eq!(mesh.num_cells(), 1);
     }
 
