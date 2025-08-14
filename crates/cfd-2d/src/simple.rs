@@ -27,9 +27,15 @@ use crate::grid::StructuredGrid2D;
 use crate::schemes::{SpatialScheme, FiniteDifference};
 use cfd_core::constants;
 
+// Type aliases for backward compatibility while eliminating adjective-based naming
+/// Type alias for SIMPLE solver configuration (backwards compatibility)
+pub type SimpleConfig<T> = PressureVelocityCouplingConfig<T>;
+/// Type alias for SIMPLE solver (backwards compatibility)  
+pub type SimpleSolver<T> = PressureVelocityCouplerSolver<T>;
+
 /// SIMPLE algorithm configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SimpleConfig<T: RealField> {
+pub struct PressureVelocityCouplingConfig<T: RealField> {
     /// Base solver configuration
     pub base: cfd_core::SolverConfig<T>,
     /// Time step (for unsteady problems)
@@ -46,7 +52,7 @@ pub struct SimpleConfig<T: RealField> {
     pub implicit_momentum: bool,
 }
 
-impl<T: RealField + FromPrimitive> Default for SimpleConfig<T> {
+impl<T: RealField + FromPrimitive> Default for PressureVelocityCouplingConfig<T> {
     fn default() -> Self {
         let base = cfd_core::SolverConfig::builder()
             .max_iterations(100)
@@ -99,9 +105,9 @@ impl<T: RealField> CellCoefficients<T> {
 }
 
 /// SIMPLE solver for incompressible flow
-pub struct SimpleSolver<T: RealField> {
+pub struct PressureVelocityCouplerSolver<T: RealField> {
     /// Configuration
-    config: SimpleConfig<T>,
+    config: PressureVelocityCouplingConfig<T>,
     /// Grid dimensions
     nx: usize,
     ny: usize,
@@ -126,7 +132,7 @@ pub struct SimpleSolver<T: RealField> {
     fd_operator: FiniteDifference<T>,
 }
 
-impl<T: RealField + FromPrimitive> SimpleSolver<T> {
+impl<T: RealField + FromPrimitive> PressureVelocityCouplerSolver<T> {
     /// Helper function to convert 2D grid indices to 1D matrix index
     /// for interior points only (excluding boundaries)
     #[inline]
@@ -137,7 +143,7 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
     }
 
     /// Create a new SIMPLE solver
-    pub fn new(config: SimpleConfig<T>, nx: usize, ny: usize) -> Self {
+    pub fn new(config: PressureVelocityCouplingConfig<T>, nx: usize, ny: usize) -> Self {
         Self::new_with_properties(
             config,
             nx,
@@ -148,7 +154,7 @@ impl<T: RealField + FromPrimitive> SimpleSolver<T> {
     }
     
     /// Create new SIMPLE solver with fluid properties
-    pub fn new_with_properties(config: SimpleConfig<T>, nx: usize, ny: usize, rho: T, mu: T) -> Self {
+    pub fn new_with_properties(config: PressureVelocityCouplingConfig<T>, nx: usize, ny: usize, rho: T, mu: T) -> Self {
         let u = vec![vec![Vector2::zeros(); ny]; nx];
         let u_star = vec![vec![Vector2::zeros(); ny]; nx];
         let p = vec![vec![T::zero(); ny]; nx];

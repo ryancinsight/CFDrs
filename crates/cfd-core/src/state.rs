@@ -81,9 +81,9 @@ impl<T: RealField> FieldData<T> {
     }
 }
 
-/// Basic simulation state implementation
+/// Simulation state implementation for field variables and time integration
 #[derive(Debug, Clone)]
-pub struct BasicState<T: RealField> {
+pub struct FieldState<T: RealField> {
     /// Current simulation time
     pub time: T,
     /// Time step
@@ -94,8 +94,8 @@ pub struct BasicState<T: RealField> {
     pub fields: IndexMap<FieldVariable, FieldData<T>>,
 }
 
-impl<T: RealField + FromPrimitive> BasicState<T> {
-    /// Create a new basic state
+impl<T: RealField + FromPrimitive> FieldState<T> {
+    /// Create a new field state
     pub fn new() -> Self {
         Self {
             time: T::zero(),
@@ -148,13 +148,13 @@ impl<T: RealField + FromPrimitive> BasicState<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive> Default for BasicState<T> {
+impl<T: RealField + FromPrimitive> Default for FieldState<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy> SimulationState for BasicState<T> {
+impl<T: RealField + Copy> SimulationState for FieldState<T> {
     type Scalar = T;
 
     fn time(&self) -> Self::Scalar {

@@ -14,7 +14,7 @@ const DEFAULT_MAX_REFINEMENT_LEVEL: usize = 5;
 const DEFAULT_MIN_CELL_SIZE: f64 = 1e-6;
 const DEFAULT_ERROR_THRESHOLD: f64 = 1e-3;
 const DEFAULT_GRADIENT_THRESHOLD: f64 = 0.1;
-const REFINEMENT_RATIO: usize = 2; // Binary refinement (split into 2^dim parts)
+// REFINEMENT_RATIO constant removed - was unused
 
 /// Refinement errors
 #[derive(Debug, Error)]

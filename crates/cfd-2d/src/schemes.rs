@@ -9,7 +9,7 @@ use cfd_core::Error;
 use serde::{Deserialize, Serialize};
 
 /// Named constants for scheme parameters
-const DEFAULT_CFL_NUMBER: f64 = 0.5;
+// Unused DEFAULT_CFL_NUMBER constant removed (CFL handled in cfd-core::constants)
 const MIN_LIMITER_THRESHOLD: f64 = 1e-10;
 const WENO_EPSILON: f64 = 1e-6;
 const WENO_POWER: i32 = 2;
