@@ -266,11 +266,14 @@ dependencies = [
  "num-traits 0.2.19",
  "petgraph",
  "rand 0.8.5",
+ "rayon",
  "scheme",
  "serde",
  "serde_json",
  "sprs",
  "thiserror 1.0.69",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

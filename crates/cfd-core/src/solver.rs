@@ -139,7 +139,7 @@ impl<T: RealField> SolverConfig<T> {
 impl<T: RealField + FromPrimitive> Default for ConvergenceConfig<T> {
     fn default() -> Self {
         Self {
-            tolerance: T::from_f64(1e-6).unwrap(),
+            tolerance: T::from_f64(1e-6).expect("Failed to convert default tolerance literal to generic type T"),
             max_iterations: 1000,
         }
     }
@@ -158,7 +158,7 @@ impl Default for ExecutionConfig {
 impl<T: RealField + FromPrimitive> Default for NumericalConfig<T> {
     fn default() -> Self {
         Self {
-            relaxation_factor: T::from_f64(1.0).unwrap(),
+            relaxation_factor: T::from_f64(1.0).expect("Failed to convert default relaxation factor literal to generic type T"),
         }
     }
 }
