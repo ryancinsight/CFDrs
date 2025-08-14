@@ -5,7 +5,7 @@
 //! csgrs library and the CFD solvers.
 
 use cfd_mesh::csg::{CsgOperator, CsgBuilder, CsgError};
-use cfd_2d::{SimpleSolver, SimpleConfig, StructuredGrid2D};
+use cfd_2d::{SimpleSolver, SimpleConfig, StructuredGrid2D, Grid2D};
 use cfd_3d::{FemSolver, FemConfig, FluidProperties};
 use cfd_core::{BoundaryCondition, WallType};
 use nalgebra::{Vector3, Vector2};
@@ -129,10 +129,11 @@ fn flow_around_csg_cylinder() -> Result<(), Box<dyn std::error::Error>> {
         Ok(_) => {
             println!("   ✅ Flow simulation converged");
             
-            // Extract solution
-            let solution = solver.solution();
-            println!("   📊 Final residuals: pressure={:.2e}, velocity={:.2e}", 
-                     solution.pressure_residual, solution.velocity_residual);
+            // Extract solution fields
+            let pressure = solver.pressure();
+            let velocity = solver.velocity();
+            println!("   📊 Solution extracted: {} pressure nodes, {} velocity nodes", 
+                     pressure.len(), velocity.len());
             
             // Save results (in practice, you'd export to VTK or similar)
             println!("   💾 Results saved for visualization");
@@ -157,7 +158,7 @@ fn flow_through_csg_pipe() -> Result<(), Box<dyn std::error::Error>> {
         // Add elbow section
         .add({
             let mut elbow = operator.create_cylinder(0.5, 3.0, 24)?;
-            elbow.rotate(&Vector3::new(0.0, 1.0, 0.0), std::f64::consts::PI / 2.0)?;
+            elbow.rotate(0.0, 90.0, 0.0)?;  // Rotate 90 degrees around Y axis
             elbow.translate(&Vector3::new(1.5, 0.0, 2.0))?;
             elbow
         })?
@@ -184,7 +185,7 @@ fn flow_through_csg_pipe() -> Result<(), Box<dyn std::error::Error>> {
     // Convert to CFD mesh for 3D FEM solver
     let cfd_mesh = pipe_geometry.to_mesh()?;
     println!("   🔄 Converted to CFD mesh: {} vertices, {} faces", 
-             cfd_mesh.vertices().len(), cfd_mesh.faces().len());
+             cfd_mesh.vertices.len(), cfd_mesh.faces.len());
     
     // Set up 3D FEM solver (simplified for demonstration)
     let fem_config = FemConfig {
@@ -293,14 +294,14 @@ fn complex_csg_validation() -> Result<(), Box<dyn std::error::Error>> {
         .add({
             let operator = CsgOperator::new();
             let mut inlet = operator.create_cylinder(0.3, 1.0, 16)?;
-            inlet.rotate(&Vector3::new(1.0, 0.0, 0.0), std::f64::consts::PI / 2.0)?;
+            inlet.rotate(90.0, 0.0, 0.0)?;  // Rotate 90 degrees around X axis
             inlet.translate(&Vector3::new(-1.5, -2.0, 0.5))?;
             inlet
         })?
         .add({
             let operator = CsgOperator::new();
             let mut outlet = operator.create_cylinder(0.3, 1.0, 16)?;
-            outlet.rotate(&Vector3::new(1.0, 0.0, 0.0), std::f64::consts::PI / 2.0)?;
+            outlet.rotate(90.0, 0.0, 0.0)?;  // Rotate 90 degrees around X axis
             outlet.translate(&Vector3::new(1.5, -2.0, 0.5))?;
             outlet
         })?
@@ -335,7 +336,7 @@ fn complex_csg_validation() -> Result<(), Box<dyn std::error::Error>> {
              min_bounds.x, min_bounds.y, min_bounds.z,
              max_bounds.x, max_bounds.y, max_bounds.z);
     println!("      CSG mesh: {} vertices, {} faces", vertex_count, face_count);
-    println!("      CFD mesh: {} vertices, {} faces", cfd_mesh.vertices().len(), cfd_mesh.faces().len());
+    println!("      CFD mesh: {} vertices, {} faces", cfd_mesh.vertices.len(), cfd_mesh.faces.len());
     
     // Mesh quality checks
     let aspect_ratio = (max_bounds.x - min_bounds.x) / (min_bounds.y - max_bounds.y).abs().max(1e-6);
@@ -355,7 +356,7 @@ fn complex_csg_validation() -> Result<(), Box<dyn std::error::Error>> {
     
     // CFD readiness assessment
     println!("   🌊 CFD readiness assessment:");
-    if cfd_mesh.vertices().len() > 8 && cfd_mesh.faces().len() > 12 {
+    if cfd_mesh.vertices.len() > 8 && cfd_mesh.faces.len() > 12 {
         println!("      ✅ Mesh suitable for CFD simulation");
         println!("      ✅ Ready for boundary condition application");
         println!("      ✅ Compatible with FEM/FVM solvers");
@@ -380,8 +381,8 @@ mod tests {
         
         // Test mesh conversion
         let cfd_mesh = cube.to_mesh().unwrap();
-        assert!(!cfd_mesh.vertices().is_empty());
-        assert!(!cfd_mesh.faces().is_empty());
+        assert!(!cfd_mesh.vertices.is_empty());
+        assert!(!cfd_mesh.faces.is_empty());
         
         // Test STL export
         let stl_content = cube.to_stl("test").unwrap();

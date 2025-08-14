@@ -4,7 +4,7 @@
 //! using mixed velocity-pressure formulation with appropriate stabilization.
 
 use cfd_core::{Error, Result};
-
+use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder, MatrixEntry};
 use cfd_mesh::Mesh;
 use nalgebra::{RealField, Vector3, DVector, DMatrix, Matrix3};
 use num_traits::FromPrimitive;
@@ -67,6 +67,18 @@ pub struct FluidProperties<T: RealField> {
     pub body_force: Option<Vector3<T>>,
 }
 
+/// Element matrix contributions for sparse assembly
+pub struct ElementMatrices<T: RealField> {
+    /// Viscous stiffness entries (row, col, value)
+    pub k_entries: Vec<(usize, usize, T)>,
+    /// Gradient matrix entries
+    pub g_entries: Vec<(usize, usize, T)>,
+    /// Mass matrix entries
+    pub m_entries: Vec<(usize, usize, T)>,
+    /// Stabilization matrix entries
+    pub s_entries: Vec<(usize, usize, T)>,
+}
+
 impl<T: RealField + FromPrimitive> FluidProperties<T> {
     /// Create properties for water at 20°C
     pub fn water() -> Self {
@@ -108,25 +120,21 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
     }
     
     /// Compute element matrices for Stokes flow
-    /// Returns (K, G, G^T, M, S_pp) where:
-    /// - K: viscous stiffness matrix (velocity-velocity)
-    /// - G: gradient matrix (velocity-pressure)
-    /// - G^T: divergence matrix (pressure-velocity)
-    /// - M: mass matrix (for transient terms)
-    /// - S_pp: pressure stabilization matrix (pressure-pressure)
+    /// Returns element contributions as triplets for sparse assembly
     pub fn stokes_matrices(
         &self,
         node_coords: &[Vector3<T>],
         properties: &FluidProperties<T>,
         config: &FemConfig<T>,
-    ) -> Result<(DMatrix<T>, DMatrix<T>, DMatrix<T>, DMatrix<T>, DMatrix<T>)> {
+    ) -> Result<ElementMatrices<T>> {
         let n_vel_dof = constants::TET4_NODES * constants::VELOCITY_COMPONENTS; // 12
         let n_pres_dof = constants::TET4_NODES; // 4
         
-        // Initialize matrices
-        let mut k_matrix: DMatrix<T> = DMatrix::zeros(n_vel_dof, n_vel_dof);
-        let mut g_matrix: DMatrix<T> = DMatrix::zeros(n_vel_dof, n_pres_dof);
-        let mut m_matrix: DMatrix<T> = DMatrix::zeros(n_vel_dof, n_vel_dof);
+        // Initialize element matrices (local dense, will be assembled into global sparse)
+        let mut k_entries = Vec::new(); // Viscous stiffness
+        let mut g_entries = Vec::new(); // Gradient
+        let mut m_entries = Vec::new(); // Mass
+        let mut s_entries = Vec::new(); // Stabilization
         
         // Compute element volume and shape function derivatives
         let volume = self.compute_volume(node_coords)?;
@@ -153,66 +161,73 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
                 for d in 0..constants::VELOCITY_COMPONENTS {
                     let row = i * constants::VELOCITY_COMPONENTS + d;
                     let col = j * constants::VELOCITY_COMPONENTS + d;
-                    k_matrix[(row, col)] = k_matrix[(row, col)].clone() + k_val.clone();
+                    k_entries.push((row, col, k_val.clone()));
                 }
             }
         }
         
         // Build gradient matrix G
-        // G_ij = -∫ (∇·N_i) M_j dΩ where N_i are velocity shape functions, M_j are pressure
+        // G_ij = -∫ (∇·N_i) M_j dΩ
         for i in 0..constants::TET4_NODES {
             for j in 0..constants::TET4_NODES {
-                let g_val = weight.clone() / T::from_f64(4.0).unwrap(); // Linear shape function value at centroid
+                // u-component row
+                let g_val_x = -weight.clone() * dn_dx[i].clone() / T::from_usize(constants::TET4_NODES).unwrap();
+                g_entries.push((i * constants::VELOCITY_COMPONENTS, j, g_val_x));
                 
-                // Velocity divergence coupled with pressure
-                g_matrix[(i * 3, j)] = g_matrix[(i * 3, j)].clone() - dn_dx[i].clone() * g_val.clone();
-                g_matrix[(i * 3 + 1, j)] = g_matrix[(i * 3 + 1, j)].clone() - dn_dy[i].clone() * g_val.clone();
-                g_matrix[(i * 3 + 2, j)] = g_matrix[(i * 3 + 2, j)].clone() - dn_dz[i].clone() * g_val.clone();
+                // v-component row
+                let g_val_y = -weight.clone() * dn_dy[i].clone() / T::from_usize(constants::TET4_NODES).unwrap();
+                g_entries.push((i * constants::VELOCITY_COMPONENTS + 1, j, g_val_y));
+                
+                // w-component row
+                let g_val_z = -weight.clone() * dn_dz[i].clone() / T::from_usize(constants::TET4_NODES).unwrap();
+                g_entries.push((i * constants::VELOCITY_COMPONENTS + 2, j, g_val_z));
             }
         }
         
         // Build mass matrix M (for transient terms)
         if config.dt.is_some() {
+            let mass_factor = rho * weight.clone() / T::from_usize(constants::TET4_NODES * constants::TET4_NODES).unwrap();
             for i in 0..constants::TET4_NODES {
                 for j in 0..constants::TET4_NODES {
-                    let m_val = rho.clone() * weight.clone() / T::from_f64(20.0).unwrap(); // Consistent mass
-                    if i == j {
-                        for d in 0..constants::VELOCITY_COMPONENTS {
-                            let idx = i * constants::VELOCITY_COMPONENTS + d;
-                            m_matrix[(idx, idx)] = m_val.clone() * T::from_f64(2.0).unwrap();
-                        }
+                    let m_val = if i == j {
+                        mass_factor.clone() * T::from_f64(2.0).unwrap()
                     } else {
-                        for d in 0..constants::VELOCITY_COMPONENTS {
-                            let row = i * constants::VELOCITY_COMPONENTS + d;
-                            let col = j * constants::VELOCITY_COMPONENTS + d;
-                            m_matrix[(row, col)] = m_val.clone();
-                        }
+                        mass_factor.clone()
+                    };
+                    
+                    for d in 0..constants::VELOCITY_COMPONENTS {
+                        let row = i * constants::VELOCITY_COMPONENTS + d;
+                        let col = j * constants::VELOCITY_COMPONENTS + d;
+                        m_entries.push((row, col, m_val.clone()));
                     }
                 }
             }
         }
         
-        // Add SUPG/PSPG stabilization if enabled
-        let s_pp = if config.use_stabilization {
-            self.add_stabilization(
-                &mut k_matrix,
-                &mut g_matrix,
-                node_coords,
-                properties,
-                config,
-                &dn_dx,
-                &dn_dy,
-                &dn_dz,
-                volume,
-            )?
-        } else {
-            DMatrix::zeros(constants::TET4_NODES, constants::TET4_NODES)
-        };
+        // Compute PSPG stabilization matrix if enabled
+        if config.use_stabilization {
+            let h = self.compute_element_size(node_coords)?;
+            let tau = self.compute_stabilization_parameter(h, nu.clone(), config)?;
+            
+            // S_pp = τ ∫ (∇M_i · ∇M_j) dΩ
+            for i in 0..constants::TET4_NODES {
+                for j in 0..constants::TET4_NODES {
+                    let s_val = tau.clone() * weight.clone() * (
+                        dn_dx[i].clone() * dn_dx[j].clone() +
+                        dn_dy[i].clone() * dn_dy[j].clone() +
+                        dn_dz[i].clone() * dn_dz[j].clone()
+                    );
+                    s_entries.push((i, j, s_val));
+                }
+            }
+        }
         
-        let gt_matrix = g_matrix.transpose();
-        
-        // Return all matrices including the pressure stabilization matrix
-        Ok((k_matrix, g_matrix, gt_matrix, m_matrix, s_pp))
+        Ok(ElementMatrices {
+            k_entries,
+            g_entries,
+            m_entries,
+            s_entries,
+        })
     }
     
     /// Add SUPG/PSPG stabilization for equal-order interpolation
@@ -376,14 +391,14 @@ pub struct FemSolver<T: RealField> {
     velocity: DVector<T>,
     /// Pressure field (1 per node)
     pressure: DVector<T>,
-    /// Global stiffness matrix
-    k_global: Option<DMatrix<T>>,
-    /// Global gradient matrix
-    g_global: Option<DMatrix<T>>,
-    /// Global mass matrix
-    m_global: Option<DMatrix<T>>,
-    /// Global pressure stabilization matrix
-    s_pp_global: Option<DMatrix<T>>,
+    /// Global stiffness matrix (sparse)
+    k_global: Option<SparseMatrix<T>>,
+    /// Global gradient matrix (sparse)
+    g_global: Option<SparseMatrix<T>>,
+    /// Global mass matrix (sparse)
+    m_global: Option<SparseMatrix<T>>,
+    /// Global pressure stabilization matrix (sparse)
+    s_pp_global: Option<SparseMatrix<T>>,
 }
 
 impl<T: RealField + FromPrimitive> FemSolver<T> {
@@ -412,10 +427,17 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
         let n_vel_dof = n_nodes * constants::VELOCITY_COMPONENTS;
         let n_pres_dof = n_nodes;
         
-        let mut k_global = DMatrix::zeros(n_vel_dof, n_vel_dof);
-        let mut g_global = DMatrix::zeros(n_vel_dof, n_pres_dof);
-        let mut m_global = DMatrix::zeros(n_vel_dof, n_vel_dof);
-        let mut s_pp_global = DMatrix::zeros(n_pres_dof, n_pres_dof);
+        // Use sparse matrix builders for efficient assembly
+        let mut k_builder = SparseMatrixBuilder::with_capacity(n_vel_dof, n_vel_dof, n_vel_dof * 27);
+        let mut g_builder = SparseMatrixBuilder::with_capacity(n_vel_dof, n_pres_dof, n_vel_dof * 4);
+        let mut m_builder = SparseMatrixBuilder::with_capacity(n_vel_dof, n_vel_dof, n_vel_dof * 27);
+        let mut s_builder = SparseMatrixBuilder::with_capacity(n_pres_dof, n_pres_dof, n_pres_dof * 27);
+        
+        // Allow duplicate entries (they will be summed during assembly)
+        k_builder = k_builder.allow_duplicates(true);
+        g_builder = g_builder.allow_duplicates(true);
+        m_builder = m_builder.allow_duplicates(true);
+        s_builder = s_builder.allow_duplicates(true);
         
         // Process each element (assuming tetrahedral mesh)
         // For now, we'll create tetrahedra from cells with 4 faces
@@ -445,50 +467,65 @@ impl<T: RealField + FromPrimitive> FemSolver<T> {
                     .collect();
                 
                 // Compute element matrices
-                let (k_elem, g_elem, _, m_elem, s_pp_elem) = element.stokes_matrices(
+                let elem_matrices = element.stokes_matrices(
                     &node_coords,
                     &self.properties,
                     &self.config,
                 )?;
                 
-                // Assemble into global matrices using iterator patterns for cache efficiency
-                nodes.iter().enumerate()
-                    .flat_map(|(local_i, &global_i)| {
-                        nodes.iter().enumerate()
-                            .map(move |(local_j, &global_j)| (local_i, global_i, local_j, global_j))
-                    })
-                    .for_each(|(local_i, global_i, local_j, global_j)| {
-                        // Velocity-velocity coupling with nested iterator optimization
-                        (0..constants::VELOCITY_COMPONENTS)
-                            .flat_map(|d1| (0..constants::VELOCITY_COMPONENTS).map(move |d2| (d1, d2)))
-                            .for_each(|(d1, d2)| {
-                                let local_row = local_i * constants::VELOCITY_COMPONENTS + d1;
-                                let local_col = local_j * constants::VELOCITY_COMPONENTS + d2;
-                                let global_row = global_i * constants::VELOCITY_COMPONENTS + d1;
-                                let global_col = global_j * constants::VELOCITY_COMPONENTS + d2;
-                                
-                                k_global[(global_row, global_col)] += k_elem[(local_row, local_col)].clone();
-                                m_global[(global_row, global_col)] += m_elem[(local_row, local_col)].clone();
-                            });
-                        
-                        // Velocity-pressure coupling using range iterator
-                        (0..constants::VELOCITY_COMPONENTS).for_each(|d| {
-                            let local_row = local_i * constants::VELOCITY_COMPONENTS + d;
-                            let global_row = global_i * constants::VELOCITY_COMPONENTS + d;
-                            
-                            g_global[(global_row, global_j)] += g_elem[(local_row, local_j)].clone();
-                        });
-                        
-                        // Pressure-pressure stabilization
-                        s_pp_global[(global_i, global_j)] += s_pp_elem[(local_i, local_j)].clone();
-                    });
+                // Assemble element contributions into global sparse matrices
+                // Map local to global indices and add entries
+                for (local_row, local_col, value) in &elem_matrices.k_entries {
+                    let node_i = nodes[local_row / constants::VELOCITY_COMPONENTS];
+                    let comp_i = local_row % constants::VELOCITY_COMPONENTS;
+                    let node_j = nodes[local_col / constants::VELOCITY_COMPONENTS];
+                    let comp_j = local_col % constants::VELOCITY_COMPONENTS;
+                    
+                    let global_row = node_i * constants::VELOCITY_COMPONENTS + comp_i;
+                    let global_col = node_j * constants::VELOCITY_COMPONENTS + comp_j;
+                    
+                    k_builder.add_entry(global_row, global_col, value.clone())?;
+                }
+                
+                // Assemble gradient matrix entries
+                for (local_row, local_col, value) in &elem_matrices.g_entries {
+                    let node_i = nodes[local_row / constants::VELOCITY_COMPONENTS];
+                    let comp_i = local_row % constants::VELOCITY_COMPONENTS;
+                    let node_j = nodes[*local_col];
+                    
+                    let global_row = node_i * constants::VELOCITY_COMPONENTS + comp_i;
+                    
+                    g_builder.add_entry(global_row, node_j, value.clone())?;
+                }
+                
+                // Assemble mass matrix entries
+                for (local_row, local_col, value) in &elem_matrices.m_entries {
+                    let node_i = nodes[local_row / constants::VELOCITY_COMPONENTS];
+                    let comp_i = local_row % constants::VELOCITY_COMPONENTS;
+                    let node_j = nodes[local_col / constants::VELOCITY_COMPONENTS];
+                    let comp_j = local_col % constants::VELOCITY_COMPONENTS;
+                    
+                    let global_row = node_i * constants::VELOCITY_COMPONENTS + comp_i;
+                    let global_col = node_j * constants::VELOCITY_COMPONENTS + comp_j;
+                    
+                    m_builder.add_entry(global_row, global_col, value.clone())?;
+                }
+                
+                // Assemble stabilization matrix entries
+                for (local_row, local_col, value) in &elem_matrices.s_entries {
+                    let node_i = nodes[*local_row];
+                    let node_j = nodes[*local_col];
+                    
+                    s_builder.add_entry(node_i, node_j, value.clone())?;
+                }
             }
         }
         
-        self.k_global = Some(k_global);
-        self.g_global = Some(g_global);
-        self.m_global = Some(m_global);
-        self.s_pp_global = Some(s_pp_global);
+        // Build the sparse matrices from the builders
+        self.k_global = Some(k_builder.build()?);
+        self.g_global = Some(g_builder.build()?);
+        self.m_global = Some(m_builder.build()?);
+        self.s_pp_global = Some(s_builder.build()?);
         
         Ok(())
     }

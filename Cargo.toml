@@ -58,7 +58,7 @@ proptest = "1.4"
 criterion = "0.5"
 
 # 3D mesh support
-csgrs = "0.20"
+csgrs = { version = "0.20", features = ["f64", "stl-io", "delaunay"] }
 
 # Internal crates
 cfd-core = { path = "crates/cfd-core" }
