@@ -58,7 +58,7 @@ proptest = "1.4"
 criterion = "0.5"
 
 # 3D mesh support
-csgrs = "0.20"
+csgrs = { version = "0.20", features = ["f64", "stl-io", "delaunay"] }
 
 # Internal crates
 cfd-core = { path = "crates/cfd-core" }
@@ -132,3 +132,11 @@ path = "examples/pipe_flow_validation.rs"
 [[example]]
 name = "pipe_flow_1d_validation"
 path = "examples/pipe_flow_1d_validation.rs"
+
+[[example]]
+name = "venturi_cavitation"
+path = "examples/venturi_cavitation.rs"
+
+[[example]]
+name = "validation_suite"
+path = "examples/validation_suite.rs"

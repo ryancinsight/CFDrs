@@ -6,17 +6,23 @@
 //! 
 //! Features:
 //! - Full CSG boolean operations (union, intersection, difference, XOR)
-//! - Primitive geometry generation (spheres, boxes, cylinders, etc.)
-//! - Mesh transformations (translate, rotate, scale, mirror)
+//! - Primitive geometry generation:
+//!   - Boxes/Cuboids
+//!   - Spheres
+//!   - Cylinders
+//!   - Frustums (truncated cones)
+//!   - Cones (frustums with top radius = 0)
+//! - Mesh transformations (translate, rotate, scale)
 //! - STL export functionality
 //! - Integration with CFD mesh structures
 
-use crate::mesh::{Mesh, Vertex, Face};
+use crate::mesh::{Mesh as CfdMesh, Vertex, Face};
 use nalgebra::{Vector3, Point3, RealField};
 use num_traits::{FromPrimitive, ToPrimitive};
 use thiserror::Error;
 use std::fmt::Debug;
 use cfd_core::constants;
+use csgrs::mesh::Mesh as CsgMesh;
 use csgrs::traits::CSG;
 
 /// Error types for CSG operations
@@ -66,8 +72,9 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgOperator<T> {
             return Err(CsgError::InvalidParameters("Dimensions must be positive".to_string()));
         }
         
-        let csg = csgrs::Cube::new(w, h, d);
-        Ok(CsgGeometry::new(Box::new(csg)))
+        // Use csgrs Mesh::cuboid for non-uniform dimensions
+        let csg = CsgMesh::<()>::cuboid(w, h, d, None);
+        Ok(CsgGeometry::new(csg))
     }
     
     /// Create a sphere with specified radius and resolution
@@ -83,8 +90,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgOperator<T> {
             return Err(CsgError::InvalidParameters("Insufficient resolution for sphere".to_string()));
         }
         
-        let csg = csgrs::Sphere::new(r, horizontal_segments, vertical_segments);
-        Ok(CsgGeometry::new(Box::new(csg)))
+        let csg = CsgMesh::<()>::sphere(r, horizontal_segments, vertical_segments, None);
+        Ok(CsgGeometry::new(csg))
     }
     
     /// Create a cylinder with specified radius, height, and resolution
@@ -101,12 +108,13 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgOperator<T> {
             return Err(CsgError::InvalidParameters("Insufficient segments for cylinder".to_string()));
         }
         
-        let csg = csgrs::Cylinder::new(r, h, segments);
-        Ok(CsgGeometry::new(Box::new(csg)))
+        let csg = CsgMesh::<()>::cylinder(r, h, segments, None);
+        Ok(CsgGeometry::new(csg))
     }
     
-    /// Create a cone with specified base radius, top radius, height, and resolution
-    pub fn create_cone(&self, base_radius: T, top_radius: T, height: T, segments: usize) -> Result<CsgGeometry<T>, CsgError> {
+    /// Create a frustum (truncated cone) with specified base radius, top radius, height, and resolution
+    /// For a cone (top_radius = 0), this creates a proper cone shape
+    pub fn create_frustum(&self, base_radius: T, top_radius: T, height: T, segments: usize) -> Result<CsgGeometry<T>, CsgError> {
         let r1 = base_radius.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid base radius".to_string()))?;
         let r2 = top_radius.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid top radius".to_string()))?;
         let h = height.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid height".to_string()))?;
@@ -117,11 +125,22 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgOperator<T> {
         }
         
         if segments < 3 {
-            return Err(CsgError::InvalidParameters("Insufficient segments for cone".to_string()));
+            return Err(CsgError::InvalidParameters("Insufficient segments for frustum".to_string()));
         }
         
-        let csg = csgrs::Cone::new(r1, r2, h, segments);
-        Ok(CsgGeometry::new(Box::new(csg)))
+        // Use csgrs frustum function which properly handles both cones and truncated cones
+        // frustum_ptp creates a frustum from point to point
+        let bottom = nalgebra::Point3::new(0.0, 0.0, 0.0);
+        let top = nalgebra::Point3::new(0.0, 0.0, h);
+        
+        let csg = CsgMesh::<()>::frustum_ptp(bottom, top, r1, r2, segments, None);
+        
+        Ok(CsgGeometry::new(csg))
+    }
+    
+    /// Create a cone (special case of frustum with top radius = 0)
+    pub fn create_cone(&self, base_radius: T, height: T, segments: usize) -> Result<CsgGeometry<T>, CsgError> {
+        self.create_frustum(base_radius, T::zero(), height, segments)
     }
 }
 
@@ -133,45 +152,45 @@ impl<T: RealField + FromPrimitive + ToPrimitive> Default for CsgOperator<T> {
 
 /// Wrapper for CSG geometry with type safety and CFD integration
 pub struct CsgGeometry<T: RealField> {
-    csg: Box<dyn CSG>,
+    csg: CsgMesh<()>,
     _phantom: std::marker::PhantomData<T>,
 }
 
 impl<T: RealField + FromPrimitive + ToPrimitive> CsgGeometry<T> {
     /// Create a new CSG geometry wrapper
-    pub fn new(csg: Box<dyn CSG>) -> Self {
+    pub fn new(csg: CsgMesh<()>) -> Self {
         Self {
             csg,
             _phantom: std::marker::PhantomData,
         }
     }
     
-    /// Get the underlying CSG object
-    pub fn inner(&self) -> &dyn CSG {
-        &*self.csg
+    /// Get the underlying CSG mesh
+    pub fn inner(&self) -> &CsgMesh<()> {
+        &self.csg
     }
     
     /// Perform union operation with another geometry
     pub fn union(&self, other: &CsgGeometry<T>) -> CsgGeometry<T> {
-        let result = self.csg.union(&*other.csg);
+        let result = self.csg.union(&other.csg);
         CsgGeometry::new(result)
     }
     
     /// Perform difference operation (subtract other from self)
     pub fn difference(&self, other: &CsgGeometry<T>) -> CsgGeometry<T> {
-        let result = self.csg.difference(&*other.csg);
+        let result = self.csg.difference(&other.csg);
         CsgGeometry::new(result)
     }
     
     /// Perform intersection operation with another geometry
     pub fn intersection(&self, other: &CsgGeometry<T>) -> CsgGeometry<T> {
-        let result = self.csg.intersection(&*other.csg);
+        let result = self.csg.intersection(&other.csg);
         CsgGeometry::new(result)
     }
     
     /// Perform XOR operation with another geometry
     pub fn xor(&self, other: &CsgGeometry<T>) -> CsgGeometry<T> {
-        let result = self.csg.xor(&*other.csg);
+        let result = self.csg.xor(&other.csg);
         CsgGeometry::new(result)
     }
     
@@ -181,18 +200,17 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgGeometry<T> {
         let ty = translation.y.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid translation y".to_string()))?;
         let tz = translation.z.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid translation z".to_string()))?;
         
-        self.csg.translate(tx, ty, tz);
+        self.csg = self.csg.translate(tx, ty, tz);
         Ok(())
     }
     
-    /// Rotate the geometry around the given axis by the given angle (in radians)
-    pub fn rotate(&mut self, axis: &Vector3<T>, angle: T) -> Result<(), CsgError> {
-        let ax = axis.x.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid axis x".to_string()))?;
-        let ay = axis.y.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid axis y".to_string()))?;
-        let az = axis.z.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid axis z".to_string()))?;
-        let angle_rad = angle.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid angle".to_string()))?;
+    /// Rotate the geometry around axes by given angles in degrees
+    pub fn rotate(&mut self, x_deg: T, y_deg: T, z_deg: T) -> Result<(), CsgError> {
+        let x = x_deg.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid x rotation".to_string()))?;
+        let y = y_deg.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid y rotation".to_string()))?;
+        let z = z_deg.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid z rotation".to_string()))?;
         
-        self.csg.rotate(ax, ay, az, angle_rad);
+        self.csg = self.csg.rotate(x, y, z);
         Ok(())
     }
     
@@ -207,30 +225,19 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgGeometry<T> {
             return Err(CsgError::InvalidParameters("Scale factors must be positive".to_string()));
         }
         
-        self.csg.scale(sx, sy, sz);
+        self.csg = self.csg.scale(sx, sy, sz);
         Ok(())
     }
     
     /// Mirror the geometry across a plane defined by a normal vector
-    pub fn mirror(&mut self, normal: &Vector3<T>) -> Result<(), CsgError> {
-        let nx = normal.x.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid normal x".to_string()))?;
-        let ny = normal.y.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid normal y".to_string()))?;
-        let nz = normal.z.to_f64().ok_or_else(|| CsgError::InvalidParameters("Invalid normal z".to_string()))?;
-        
-        // Normalize the normal vector
-        let length = (nx * nx + ny * ny + nz * nz).sqrt();
-        let small_number = T::from_f64(constants::SMALL_NUMBER).unwrap_or_else(|| T::from_f64(1e-12).unwrap());
-        if T::from_f64(length).unwrap() < small_number {
-            return Err(CsgError::InvalidParameters("Normal vector too small".to_string()));
-        }
-        
-        self.csg.mirror(nx / length, ny / length, nz / length);
+    pub fn mirror(&mut self, plane: csgrs::mesh::plane::Plane) -> Result<(), CsgError> {
+        self.csg = self.csg.mirror(plane);
         Ok(())
     }
     
     /// Convert to CFD mesh format
-    pub fn to_mesh(&self) -> Result<Mesh<T>, CsgError> {
-        let polygons = self.csg.to_polygons();
+    pub fn to_mesh(&self) -> Result<CfdMesh<T>, CsgError> {
+        let polygons = &self.csg.polygons;
         let mut vertices = Vec::new();
         let mut faces = Vec::new();
         let mut vertex_map = std::collections::HashMap::new();
@@ -239,20 +246,20 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgGeometry<T> {
         for polygon in polygons {
             let mut face_vertices = Vec::new();
             
-            for vertex in polygon.vertices {
+            for vertex in &polygon.vertices {
                 let pos = vertex.pos;
                 let point = Point3::new(
-                    T::from_f64(pos.x).ok_or_else(|| CsgError::OperationFailed("Invalid vertex x coordinate".to_string()))?,
-                    T::from_f64(pos.y).ok_or_else(|| CsgError::OperationFailed("Invalid vertex y coordinate".to_string()))?,
-                    T::from_f64(pos.z).ok_or_else(|| CsgError::OperationFailed("Invalid vertex z coordinate".to_string()))?,
+                    T::from_f64(pos.x as f64).ok_or_else(|| CsgError::OperationFailed("Invalid vertex x coordinate".to_string()))?,
+                    T::from_f64(pos.y as f64).ok_or_else(|| CsgError::OperationFailed("Invalid vertex y coordinate".to_string()))?,
+                    T::from_f64(pos.z as f64).ok_or_else(|| CsgError::OperationFailed("Invalid vertex z coordinate".to_string()))?,
                 );
                 
                 // Use a key based on position with small tolerance for deduplication
                 let scale = 1e6;
                 let key = (
-                    (pos.x * scale).round() as i64,
-                    (pos.y * scale).round() as i64,
-                    (pos.z * scale).round() as i64,
+                    (pos.x as f64 * scale).round() as i64,
+                    (pos.y as f64 * scale).round() as i64,
+                    (pos.z as f64 * scale).round() as i64,
                 );
                 
                 let id = if let Some(&existing_id) = vertex_map.get(&key) {
@@ -284,7 +291,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgGeometry<T> {
         }
         
         // Create mesh manually since Mesh::new() doesn't take parameters
-        let mut mesh = Mesh::new();
+        let mut mesh = CfdMesh::new();
         mesh.vertices = vertices;
         mesh.faces = faces;
         mesh.update_topology();
@@ -293,52 +300,139 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgGeometry<T> {
     }
     
     /// Export to STL format
-    pub fn to_stl(&self, name: &str) -> Result<String, CsgError> {
-        Ok(self.csg.to_stl_ascii(name))
+    pub fn to_stl(&self, _name: &str) -> Result<String, CsgError> {
+        // Use csgrs built-in STL export
+        #[cfg(feature = "stl-io")]
+        {
+            use csgrs::io::stl::write_stl_ascii;
+            let stl_string = write_stl_ascii(&self.csg.triangulate(), _name);
+            Ok(stl_string)
+        }
+        
+        #[cfg(not(feature = "stl-io"))]
+        {
+            // Manual STL generation if feature not enabled
+            let mut stl = format!("solid {}\n", _name);
+            
+            // Triangulate the mesh first
+            let triangulated = self.csg.triangulate();
+            
+            for polygon in &triangulated.polygons {
+                if polygon.vertices.len() == 3 {
+                    // Calculate normal (assuming CCW winding)
+                    let v0 = &polygon.vertices[0].pos;
+                    let v1 = &polygon.vertices[1].pos;
+                    let v2 = &polygon.vertices[2].pos;
+                    
+                    let edge1 = nalgebra::Vector3::new(
+                        (v1.x - v0.x) as f32,
+                        (v1.y - v0.y) as f32,
+                        (v1.z - v0.z) as f32,
+                    );
+                    let edge2 = nalgebra::Vector3::new(
+                        (v2.x - v0.x) as f32,
+                        (v2.y - v0.y) as f32,
+                        (v2.z - v0.z) as f32,
+                    );
+                    let normal = edge1.cross(&edge2).normalize();
+                    
+                    stl.push_str(&format!("  facet normal {} {} {}\n", normal.x, normal.y, normal.z));
+                    stl.push_str("    outer loop\n");
+                    
+                    for vertex in &polygon.vertices {
+                        stl.push_str(&format!("      vertex {} {} {}\n", 
+                            vertex.pos.x, vertex.pos.y, vertex.pos.z));
+                    }
+                    
+                    stl.push_str("    endloop\n");
+                    stl.push_str("  endfacet\n");
+                }
+            }
+            
+            stl.push_str(&format!("endsolid {}\n", _name));
+            Ok(stl)
+        }
     }
     
     /// Export to binary STL format
     pub fn to_stl_binary(&self, name: &str) -> Result<Vec<u8>, CsgError> {
-        Ok(self.csg.to_stl_binary(name))
+        // For binary STL, we need to implement the format manually
+        // Binary STL format:
+        // - 80 byte header
+        // - 4 byte unsigned integer (number of triangles)
+        // - For each triangle:
+        //   - 12 bytes (3 floats) for normal
+        //   - 36 bytes (9 floats) for 3 vertices
+        //   - 2 bytes attribute byte count
+        
+        let triangulated = self.csg.triangulate();
+        let num_triangles = triangulated.polygons.len() as u32;
+        
+        let mut buffer = Vec::new();
+        
+        // Write header (80 bytes)
+        let header = format!("Binary STL from csgrs: {}", name);
+        let mut header_bytes = header.as_bytes().to_vec();
+        header_bytes.resize(80, 0);
+        buffer.extend_from_slice(&header_bytes);
+        
+        // Write number of triangles
+        buffer.extend_from_slice(&num_triangles.to_le_bytes());
+        
+        // Write each triangle
+        for polygon in &triangulated.polygons {
+            if polygon.vertices.len() == 3 {
+                // Calculate normal
+                let v0 = &polygon.vertices[0].pos;
+                let v1 = &polygon.vertices[1].pos;
+                let v2 = &polygon.vertices[2].pos;
+                
+                let edge1 = nalgebra::Vector3::new(
+                    (v1.x - v0.x) as f32,
+                    (v1.y - v0.y) as f32,
+                    (v1.z - v0.z) as f32,
+                );
+                let edge2 = nalgebra::Vector3::new(
+                    (v2.x - v0.x) as f32,
+                    (v2.y - v0.y) as f32,
+                    (v2.z - v0.z) as f32,
+                );
+                let normal = edge1.cross(&edge2).normalize();
+                
+                // Write normal (3 floats)
+                buffer.extend_from_slice(&(normal.x as f32).to_le_bytes());
+                buffer.extend_from_slice(&(normal.y as f32).to_le_bytes());
+                buffer.extend_from_slice(&(normal.z as f32).to_le_bytes());
+                
+                // Write vertices (9 floats)
+                for vertex in &polygon.vertices {
+                    buffer.extend_from_slice(&(vertex.pos.x as f32).to_le_bytes());
+                    buffer.extend_from_slice(&(vertex.pos.y as f32).to_le_bytes());
+                    buffer.extend_from_slice(&(vertex.pos.z as f32).to_le_bytes());
+                }
+                
+                // Write attribute byte count (2 bytes, usually 0)
+                buffer.extend_from_slice(&0u16.to_le_bytes());
+            }
+        }
+        
+        Ok(buffer)
     }
     
     /// Get the bounding box of the geometry
     pub fn bounding_box(&self) -> Result<(Point3<T>, Point3<T>), CsgError> {
-        let polygons = self.csg.to_polygons();
-        
-        if polygons.is_empty() {
-            return Err(CsgError::OperationFailed("Empty geometry".to_string()));
-        }
-        
-        let mut min_x = f64::INFINITY;
-        let mut min_y = f64::INFINITY;
-        let mut min_z = f64::INFINITY;
-        let mut max_x = f64::NEG_INFINITY;
-        let mut max_y = f64::NEG_INFINITY;
-        let mut max_z = f64::NEG_INFINITY;
-        
-        for polygon in polygons {
-            for vertex in polygon.vertices {
-                let pos = vertex.pos;
-                min_x = min_x.min(pos.x);
-                min_y = min_y.min(pos.y);
-                min_z = min_z.min(pos.z);
-                max_x = max_x.max(pos.x);
-                max_y = max_y.max(pos.y);
-                max_z = max_z.max(pos.z);
-            }
-        }
+        let aabb = self.csg.bounding_box();
         
         let min_point = Point3::new(
-            T::from_f64(min_x).ok_or_else(|| CsgError::OperationFailed("Invalid min coordinate".to_string()))?,
-            T::from_f64(min_y).ok_or_else(|| CsgError::OperationFailed("Invalid min coordinate".to_string()))?,
-            T::from_f64(min_z).ok_or_else(|| CsgError::OperationFailed("Invalid min coordinate".to_string()))?,
+            T::from_f64(aabb.mins.x as f64).ok_or_else(|| CsgError::OperationFailed("Invalid min coordinate".to_string()))?,
+            T::from_f64(aabb.mins.y as f64).ok_or_else(|| CsgError::OperationFailed("Invalid min coordinate".to_string()))?,
+            T::from_f64(aabb.mins.z as f64).ok_or_else(|| CsgError::OperationFailed("Invalid min coordinate".to_string()))?,
         );
         
         let max_point = Point3::new(
-            T::from_f64(max_x).ok_or_else(|| CsgError::OperationFailed("Invalid max coordinate".to_string()))?,
-            T::from_f64(max_y).ok_or_else(|| CsgError::OperationFailed("Invalid max coordinate".to_string()))?,
-            T::from_f64(max_z).ok_or_else(|| CsgError::OperationFailed("Invalid max coordinate".to_string()))?,
+            T::from_f64(aabb.maxs.x as f64).ok_or_else(|| CsgError::OperationFailed("Invalid max coordinate".to_string()))?,
+            T::from_f64(aabb.maxs.y as f64).ok_or_else(|| CsgError::OperationFailed("Invalid max coordinate".to_string()))?,
+            T::from_f64(aabb.maxs.z as f64).ok_or_else(|| CsgError::OperationFailed("Invalid max coordinate".to_string()))?,
         );
         
         Ok((min_point, max_point))
@@ -346,14 +440,12 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgGeometry<T> {
     
     /// Get the number of vertices in the geometry
     pub fn vertex_count(&self) -> usize {
-        self.csg.to_polygons().iter()
-            .map(|p| p.vertices.len())
-            .sum()
+        self.csg.vertices().len()
     }
     
     /// Get the number of faces in the geometry
     pub fn face_count(&self) -> usize {
-        self.csg.to_polygons().len()
+        self.csg.polygons.len()
     }
 }
 
@@ -446,10 +538,10 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgBuilder<T> {
         }
     }
     
-    /// Apply rotation
-    pub fn rotate(mut self, axis: Vector3<T>, angle: T) -> Result<Self, CsgError> {
+    /// Apply rotation (in degrees)
+    pub fn rotate(mut self, x_deg: T, y_deg: T, z_deg: T) -> Result<Self, CsgError> {
         if let Some(mut geometry) = self.geometry.take() {
-            geometry.rotate(&axis, angle)?;
+            geometry.rotate(x_deg, y_deg, z_deg)?;
             self.geometry = Some(geometry);
             Ok(self)
         } else {
@@ -531,9 +623,8 @@ mod tests {
         let translation = Vector3::new(1.0, 2.0, 3.0);
         cube.translate(&translation).unwrap();
         
-        // Test rotation
-        let axis = Vector3::new(0.0, 0.0, 1.0);
-        cube.rotate(&axis, std::f64::consts::PI / 4.0).unwrap();
+        // Test rotation (in degrees)
+        cube.rotate(45.0, 0.0, 0.0).unwrap();
         
         // Test scaling
         cube.scale(2.0, 2.0, 2.0).unwrap();
@@ -557,8 +648,8 @@ mod tests {
         let cube = operator.create_cube(1.0, 1.0, 1.0).unwrap();
         
         let mesh = cube.to_mesh().unwrap();
-        assert!(!mesh.vertices().is_empty());
-        assert!(!mesh.faces().is_empty());
+        assert!(!mesh.vertices.is_empty());
+        assert!(!mesh.faces.is_empty());
     }
 
     #[test]
@@ -587,5 +678,23 @@ mod tests {
         assert_relative_eq!(max_point.y, 1.0, epsilon = 1e-6);
         assert_relative_eq!(min_point.z, -1.0, epsilon = 1e-6);
         assert_relative_eq!(max_point.z, 1.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_frustum_creation() {
+        let operator = CsgOperator::<f64>::new();
+        
+        // Test frustum (truncated cone)
+        let frustum = operator.create_frustum(2.0, 1.0, 3.0, 16).unwrap();
+        assert!(frustum.vertex_count() > 0);
+        assert!(frustum.face_count() > 0);
+        
+        // Test cone (frustum with top radius = 0)
+        let cone = operator.create_cone(2.0, 3.0, 16).unwrap();
+        assert!(cone.vertex_count() > 0);
+        assert!(cone.face_count() > 0);
+        
+        // Verify cone has fewer vertices than frustum (no top circle)
+        assert!(cone.vertex_count() <= frustum.vertex_count());
     }
 }
