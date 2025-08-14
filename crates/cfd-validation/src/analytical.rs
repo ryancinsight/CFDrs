@@ -242,6 +242,18 @@ impl<T: RealField + FromPrimitive> TaylorGreenVortex<T> {
             domain_size,
         }
     }
+
+    /// Calculate kinetic energy at time t
+    pub fn kinetic_energy(&self, t: T) -> T {
+        let two = T::from_f64(2.0).unwrap();
+        let half = T::from_f64(0.5).unwrap();
+        
+        // Decay factor: exp(-4*nu*t) for kinetic energy
+        let decay = (-T::from_f64(4.0).unwrap() * self.viscosity.clone() * t).exp();
+        
+        // Kinetic energy = 0.5 * amplitude^2 * exp(-4*nu*t)
+        half * self.amplitude.clone() * self.amplitude.clone() * decay
+    }
 }
 
 impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for TaylorGreenVortex<T> {

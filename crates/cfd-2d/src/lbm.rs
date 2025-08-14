@@ -58,6 +58,10 @@ impl D2Q9 {
 pub struct LbmConfig<T: RealField> {
     /// Relaxation time (related to viscosity)
     pub tau: T,
+    /// Collision frequency parameter (backward compatibility)
+    pub omega: T,
+    /// Lattice speed parameter (backward compatibility)
+    pub lattice_speed: T,
     /// Maximum number of time steps
     pub max_steps: usize,
     /// Convergence tolerance for steady-state
@@ -72,6 +76,8 @@ impl<T: RealField + FromPrimitive> Default for LbmConfig<T> {
     fn default() -> Self {
         Self {
             tau: T::from_f64(1.0).unwrap(),
+            omega: T::from_f64(1.0).unwrap(),
+            lattice_speed: T::from_f64(1.0).unwrap(),
             max_steps: 10000,
             tolerance: T::from_f64(1e-6).unwrap(),
             output_frequency: 100,
@@ -96,6 +102,8 @@ pub struct LbmSolver<T: RealField> {
     /// Grid dimensions
     nx: usize,
     ny: usize,
+    /// Current step count
+    step_count: usize,
 }
 
 impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
@@ -119,6 +127,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
             u,
             nx,
             ny,
+            step_count: 0,
         }
     }
     
@@ -574,6 +583,53 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
         } else {
             None
         }
+    }
+
+    /// Perform a single time step (backward compatibility)
+    pub fn step(&mut self, boundaries: &HashMap<(usize, usize), BoundaryCondition<T>>) -> cfd_core::Result<()> {
+        self.collision();
+        self.streaming();
+        self.apply_boundary_conditions(boundaries);
+        self.update_macroscopic();
+        self.step_count += 1;
+        Ok(())
+    }
+
+    /// Update macroscopic variables (density and velocity)
+    fn update_macroscopic(&mut self) {
+        for i in 0..self.nx {
+            for j in 0..self.ny {
+                // Copy the distribution function slice to avoid borrowing issues
+                let f_ij: Vec<T> = self.f_current()[i][j].iter().cloned().collect();
+                
+                // Calculate density using iterator fold for efficiency
+                let rho_local = f_ij.iter().fold(T::zero(), |acc, f| acc + f.clone());
+                self.rho[i][j] = rho_local.clone();
+                
+                // Calculate velocity using iterator for efficiency
+                let mut u_local = T::zero();
+                let mut v_local = T::zero();
+                
+                for (k, f_k) in f_ij.iter().enumerate() {
+                    let (cx, cy) = D2Q9::VELOCITIES[k];
+                    u_local = u_local + f_k.clone() * T::from_i32(cx).unwrap();
+                    v_local = v_local + f_k.clone() * T::from_i32(cy).unwrap();
+                }
+                
+                // Avoid division by zero
+                if rho_local.clone().abs() > T::from_f64(1e-14).unwrap() {
+                    u_local = u_local / rho_local.clone();
+                    v_local = v_local / rho_local;
+                }
+                
+                self.u[i][j] = Vector2::new(u_local, v_local);
+            }
+        }
+    }
+
+    /// Get macroscopic variables (backward compatibility)
+    pub fn get_macroscopic(&self) -> (&Vec<Vec<Vector2<T>>>, &Vec<Vec<T>>) {
+        (&self.u, &self.rho)
     }
 }
 
