@@ -5,6 +5,10 @@ use nalgebra::{DVector, RealField, Vector3};
 use num_traits::cast::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
+// Type alias for backward compatibility while eliminating adjective-based naming
+/// Type alias for simulation state (backwards compatibility)
+pub type BasicState<T> = FieldState<T>;
+
 /// Trait for simulation states
 pub trait SimulationState: Send + Sync {
     /// Scalar type

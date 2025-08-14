@@ -23,7 +23,7 @@ pub use turbulence::{KEpsilonModel, WallFunction};
 pub use fdm::{PoissonSolver, AdvectionDiffusionSolver, FdmConfig};
 pub use fvm::{FvmSolver, FvmConfig, FluxScheme};
 pub use lbm::{LbmSolver, LbmConfig, D2Q9};
-pub use simple::{SimpleSolver, SimpleConfig};
+pub use simple::{SimpleSolver, SimpleConfig, PressureVelocityCouplerSolver, PressureVelocityCouplingConfig};
 pub use schemes::{SpatialScheme, FluxLimiter, TimeScheme, FiniteDifference};
 
 
