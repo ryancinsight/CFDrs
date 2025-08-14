@@ -337,8 +337,8 @@ impl<T: RealField> SolverConfigBuilder<T> {
         self
     }
 
-    /// Build the unified configuration
-    pub fn build(self) -> SolverConfig<T> {
+    /// Build the base unified configuration
+    pub fn build_base(self) -> SolverConfig<T> {
         SolverConfig {
             convergence: self.convergence,
             execution: self.execution,
@@ -346,19 +346,33 @@ impl<T: RealField> SolverConfigBuilder<T> {
         }
     }
 
+    /// Build a network solver configuration (most common use case)
+    /// 
+    /// This builds a NetworkSolverConfig which is the most commonly used configuration
+    /// in 1D CFD applications. For other specific configurations, use build_linear() etc.
+    pub fn build(self) -> NetworkSolverConfig<T> {
+        NetworkSolverConfig {
+            base: self.build_base(),
+        }
+    }
+
     /// Build a linear solver configuration with additional parameters
     pub fn build_linear(self, restart: usize, use_preconditioner: bool) -> LinearSolverConfig<T> {
         LinearSolverConfig {
-            base: self.build(),
+            base: self.build_base(),
             restart,
             use_preconditioner,
         }
     }
 
     /// Build a network solver configuration
+    /// 
+    /// Note: This method name is deprecated in favor of the clearer `build()` method.
+    /// In the context of `SolverConfig::builder()`, calling `.build()` is unambiguous.
+    #[deprecated(since = "0.1.0", note = "Use build() for clearer API - the context makes it unambiguous")]
     pub fn build_network(self) -> NetworkSolverConfig<T> {
         NetworkSolverConfig {
-            base: self.build(),
+            base: self.build_base(),
         }
     }
 }

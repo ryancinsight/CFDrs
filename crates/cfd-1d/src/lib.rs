@@ -37,6 +37,7 @@ pub mod scheme_integration;
 pub use network::{
     Network, Node, Edge, NetworkBuilder, NetworkGraph, NodeType, EdgeType,
     BoundaryCondition, NodeProperties, EdgeProperties, NetworkMetadata,
+    ChannelProperties,
 };
 
 // Export solver functionality

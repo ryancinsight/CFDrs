@@ -333,7 +333,7 @@ impl<T: RealField + num_traits::FromPrimitive> Builder<crate::SolverConfig<T>> f
             .verbosity(self.verbosity.unwrap_or(1))
             .parallel(self.parallel.unwrap_or(true))
             .num_threads(None)
-            .build())
+            .build_base())
     }
 
     fn validate(&self) -> Result<()> {
