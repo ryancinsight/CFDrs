@@ -19,7 +19,7 @@ pub trait Domain<T: RealField>: Send + Sync {
 }
 
 /// 1D domain (line segment)
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Domain1D<T: RealField> {
     /// Start point
     pub start: T,
@@ -82,7 +82,15 @@ pub struct Domain2D<T: RealField> {
 
 impl<T: RealField> Domain2D<T> {
     /// Create a new 2D domain
-    pub fn new(x_min: T, y_min: T, x_max: T, y_max: T) -> Self {
+    pub fn new(min: Point3<T>, max: Point3<T>) -> Self {
+        // In debug builds, ensure z-components are zero for 2D domains
+        debug_assert!(min.z.is_zero());
+        debug_assert!(max.z.is_zero());
+        Self { min, max }
+    }
+
+    /// Create a new 2D domain from coordinates (convenience method)
+    pub fn from_coords(x_min: T, y_min: T, x_max: T, y_max: T) -> Self {
         Self {
             min: Point3::new(x_min, y_min, T::zero()),
             max: Point3::new(x_max, y_max, T::zero()),
@@ -205,10 +213,8 @@ impl<T: RealField> Domain<T> for Domain3D<T> {
     }
 
     fn volume(&self) -> T {
-        let dx = self.max.x.clone() - self.min.x.clone();
-        let dy = self.max.y.clone() - self.min.y.clone();
-        let dz = self.max.z.clone() - self.min.z.clone();
-        dx * dy * dz
+        // Delegate to the inherent volume method to avoid code duplication
+        Domain3D::volume(self)
     }
 }
 
@@ -257,6 +263,25 @@ impl<T: RealField> Domain<T> for AnyDomain<T> {
     }
 }
 
+// Ergonomic From implementations for AnyDomain conversions
+impl<T: RealField> From<Domain1D<T>> for AnyDomain<T> {
+    fn from(domain: Domain1D<T>) -> Self {
+        AnyDomain::D1(domain)
+    }
+}
+
+impl<T: RealField> From<Domain2D<T>> for AnyDomain<T> {
+    fn from(domain: Domain2D<T>) -> Self {
+        AnyDomain::D2(domain)
+    }
+}
+
+impl<T: RealField> From<Domain3D<T>> for AnyDomain<T> {
+    fn from(domain: Domain3D<T>) -> Self {
+        AnyDomain::D3(domain)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -273,11 +298,18 @@ mod tests {
 
     #[test]
     fn test_domain_2d() {
-        let domain = Domain2D::new(0.0, 0.0, 2.0, 3.0);
+        let domain = Domain2D::from_coords(0.0, 0.0, 2.0, 3.0);
         assert_eq!(domain.dimension(), 2);
         assert_relative_eq!(domain.area(), 6.0);
         assert!(domain.contains(&Point3::new(1.0, 1.0, 0.0)));
         assert!(!domain.contains(&Point3::new(3.0, 1.0, 0.0)));
+
+        // Test new Point3-based constructor
+        let domain2 = Domain2D::new(
+            Point3::new(0.0, 0.0, 0.0),
+            Point3::new(2.0, 3.0, 0.0),
+        );
+        assert_relative_eq!(domain2.area(), 6.0);
     }
 
     #[test]
@@ -290,5 +322,23 @@ mod tests {
         assert_relative_eq!(domain.volume(), 24.0);
         assert!(domain.contains(&Point3::new(1.0, 1.0, 1.0)));
         assert!(!domain.contains(&Point3::new(3.0, 1.0, 1.0)));
+    }
+
+    #[test]
+    fn test_any_domain_from_conversions() {
+        let domain_1d = Domain1D::new(0.0, 1.0);
+        let any_domain: AnyDomain<f64> = domain_1d.into();
+        assert_eq!(any_domain.dimension(), 1);
+
+        let domain_2d = Domain2D::from_coords(0.0, 0.0, 1.0, 1.0);
+        let any_domain: AnyDomain<f64> = domain_2d.into();
+        assert_eq!(any_domain.dimension(), 2);
+
+        let domain_3d = Domain3D::new(
+            Point3::new(0.0, 0.0, 0.0),
+            Point3::new(1.0, 1.0, 1.0),
+        );
+        let any_domain: AnyDomain<f64> = domain_3d.into();
+        assert_eq!(any_domain.dimension(), 3);
     }
 }
