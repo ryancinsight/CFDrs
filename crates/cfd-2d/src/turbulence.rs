@@ -14,7 +14,7 @@ pub mod constants {
     /// von Kármán constant
     pub const KAPPA: f64 = 0.41;
     /// Roughness parameter for smooth walls
-    pub const E_SMOOTH: f64 = 9.8;
+    pub const E_WALL_FUNCTION: f64 = 9.8;
     /// k-ε model constant Cμ
     pub const C_MU: f64 = 0.09;
     /// k-ε model constant C1ε
@@ -115,7 +115,7 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
         nu: T,
     ) -> Result<()> {
         let kappa = T::from_f64(constants::KAPPA).unwrap();
-        let e_smooth = T::from_f64(constants::E_SMOOTH).unwrap();
+        let _e_wall_function = T::from_f64(constants::E_WALL_FUNCTION).unwrap();
         let c_mu = T::from_f64(constants::C_MU).unwrap();
         
         // Apply at first cell from wall
@@ -245,7 +245,7 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
     /// Calculate friction velocity using Newton-Raphson iteration
     fn calculate_friction_velocity(&self, u_p: T, y: T, nu: T) -> Result<T> {
         let kappa = T::from_f64(constants::KAPPA).unwrap();
-        let e_smooth = T::from_f64(constants::E_SMOOTH).unwrap();
+        let e_wall_function = T::from_f64(constants::E_WALL_FUNCTION).unwrap();
         let tolerance = T::from_f64(1e-6).unwrap();
         let max_iter = 20;
         
@@ -258,7 +258,7 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
             if y_plus > T::from_f64(11.63).unwrap() {
                 // Log-law
                 let u_plus = u_p.clone() / u_tau.clone();
-                let f = u_plus - (y_plus.ln() / kappa.clone() + e_smooth.clone().ln() * kappa.clone());
+                let f = u_plus - (y_plus.ln() / kappa.clone() + e_wall_function.clone().ln() * kappa.clone());
                 let df = -u_p.clone() / (u_tau.clone() * u_tau.clone()) - T::one() / (kappa.clone() * u_tau.clone());
                 
                 let delta = f / df;

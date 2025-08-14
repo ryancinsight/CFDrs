@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use nalgebra::Complex;
 
 // Import from centralized constants module (SSOT principle)
-use cfd_core::constants::{TIGHT_TOLERANCE, SMALL_NUMBER, TWO, HALF, SIX};
+use cfd_core::constants::{TIGHT_TOLERANCE, SMALL_NUMBER};
 
 /// Spectral method specific constants
 mod constants {
@@ -1288,8 +1288,8 @@ mod tests {
         }
         
         // Reynolds number and viscosity
-        let Re = 100.0;
-        let viscosity = 1.0 / Re;
+        let reynolds_number = 100.0;
+        let viscosity = 1.0 / reynolds_number;
         
         // Time parameters for test validation
         let dt = 0.1;

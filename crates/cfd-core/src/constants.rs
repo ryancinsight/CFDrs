@@ -140,10 +140,8 @@ pub const VON_KARMAN: f64 = 0.41;
 
 /// Wall function constants
 pub const WALL_FUNCTION_E: f64 = 9.8;
-/// Wall function E constant (same as WALL_FUNCTION_E for backward compatibility)
+/// Wall function E constant (replaces deprecated E_SMOOTH)
 pub const E_WALL_FUNCTION: f64 = 9.8;
-/// Deprecated: Use E_WALL_FUNCTION instead
-pub const E_SMOOTH: f64 = 9.8;
 /// Y+ value below which laminar sublayer dominates
 pub const Y_PLUS_LAMINAR: f64 = 11.63;
 /// Y+ value at start of buffer layer

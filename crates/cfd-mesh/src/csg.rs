@@ -1,17 +1,17 @@
 //! CSG (Constructive Solid Geometry) operations
 //!
-//! KNOWN LIMITATION: This module provides basic mesh creation capabilities
-//! but does not implement complex boolean operations. The csgrs crate integration
+//! KNOWN LIMITATION: This module provides primitive mesh creation capabilities
+//! but does not implement boolean operations. The csgrs crate integration
 //! has API incompatibilities that prevent full CSG functionality.
 //! 
 //! Current capabilities:
-//! - Basic primitive mesh generation (spheres, boxes, cylinders)
+//! - Primitive mesh generation (spheres, boxes, cylinders)
 //! - Mesh validation and quality checking
-//! - Simple mesh transformations
+//! - Mesh transformations
 //!
 //! Missing capabilities (documented limitations):
 //! - Boolean operations (union, intersection, difference)
-//! - Complex CSG tree evaluation
+//! - CSG tree evaluation
 //! - Mesh healing and repair
 
 use crate::mesh::{Mesh, Vertex, Face};
@@ -35,7 +35,7 @@ pub enum CsgError {
 
 /// CSG operations and mesh generation
 /// 
-/// Provides basic mesh generation and validation capabilities.
+/// Provides mesh generation and validation capabilities.
 /// Boolean operations are documented as not implemented.
 pub struct CsgOperator<T: RealField> {
     _phantom: std::marker::PhantomData<T>,

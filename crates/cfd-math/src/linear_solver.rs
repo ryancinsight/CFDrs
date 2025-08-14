@@ -189,7 +189,7 @@ impl<T: RealField + FromPrimitive> ILU0Preconditioner<T> {
         row_offsets.push(0);
         for i in 0..n {
             let row = a.row(i);
-            let start = col_indices.len();
+            let _start = col_indices.len();
             
             // Collect this row's entries
             let mut row_entries: Vec<(usize, T)> = Vec::new();
@@ -313,14 +313,14 @@ impl<T: RealField + FromPrimitive> ILU0Preconditioner<T> {
                 
                 if j < i {
                     // Strictly lower triangular part goes to L
-                    l_builder.add_entry(i, j, val);
+                    let _ = l_builder.add_entry(i, j, val);
                 } else if j == i {
                     // Diagonal: L gets 1, U gets the actual value
-                    l_builder.add_entry(i, j, T::one());
-                    u_builder.add_entry(i, j, val);
+                    let _ = l_builder.add_entry(i, j, T::one());
+                    let _ = u_builder.add_entry(i, j, val);
                 } else {
                     // Upper triangular part goes to U
-                    u_builder.add_entry(i, j, val);
+                    let _ = u_builder.add_entry(i, j, val);
                 }
             }
         }
