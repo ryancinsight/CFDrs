@@ -5,6 +5,10 @@ use nalgebra::{DVector, RealField};
 use num_traits::cast::FromPrimitive;
 use num_traits::Float;
 
+// Type alias for backward compatibility while eliminating adjective-based naming
+/// Type alias for variable time step controller (backwards compatibility)
+pub type AdaptiveTimeStep<T> = VariableTimeStep<T>;
+
 /// Trait for time integration schemes
 pub trait TimeIntegrator<T: RealField>: Send + Sync {
     /// State type
@@ -323,7 +327,7 @@ impl<T: RealField> TimeIntegrator<T> for CrankNicolson<T> {
 }
 
 /// Adaptive time stepping controller
-pub struct AdaptiveTimeStep<T: RealField> {
+pub struct VariableTimeStep<T: RealField> {
     /// Minimum allowed time step
     pub dt_min: T,
     /// Maximum allowed time step
@@ -334,7 +338,7 @@ pub struct AdaptiveTimeStep<T: RealField> {
     pub target_error: T,
 }
 
-impl<T: RealField + FromPrimitive> Default for AdaptiveTimeStep<T> {
+impl<T: RealField + FromPrimitive> Default for VariableTimeStep<T> {
     fn default() -> Self {
         Self {
             dt_min: T::from_f64(1e-10).unwrap(),
@@ -345,7 +349,7 @@ impl<T: RealField + FromPrimitive> Default for AdaptiveTimeStep<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Float> AdaptiveTimeStep<T> {
+impl<T: RealField + FromPrimitive + Float> VariableTimeStep<T> {
     /// Calculate new time step based on error estimate
     pub fn calculate_dt(&self, current_dt: T, error: T, order: usize) -> T {
         if error < T::epsilon() {

@@ -36,7 +36,7 @@ pub mod prelude {
         Fluid, Error, Result, BoundaryCondition, Domain, Problem, Solver,
         Plugin, PluginRegistry, SimulationPlugin, SimulationState, TimeIntegrator,
         SolverConfiguration, Configurable, Validatable, IterativeSolver, DirectSolver, SolverConfig, LinearSolverConfig, NetworkSolverConfig,
-        ConcreteSolverFactory, FactoryCapability, SolverFactoryRegistry, Builder, ConfigurationBuilder, DynamicFactory, DynamicSolver
+        ConcreteSolverFactory, FactoryCapability, SolverFactoryRegistry, Builder, ConfigurationBuilder, DynamicFactory, DynamicSolver, TypeErasedFactory, TypeErasedSolver
     };
 
     // === Mathematical Utilities ===
@@ -46,7 +46,7 @@ pub mod prelude {
         GaussQuadrature, FiniteDifference, Interpolation, LinearInterpolation, CubicSplineInterpolation,
         MathIteratorExt, VectorOps, SliceOps, CfdIteratorChain, VectorizedOps, StencilOps
     };
-    pub use cfd_math::integration::AdaptiveQuadrature;
+    pub use cfd_math::integration::{AdaptiveQuadrature, VariableQuadrature};
 
     // === I/O Operations ===
     // File input/output for all supported formats
@@ -70,8 +70,8 @@ pub mod prelude {
     // Grid-based methods for 2D flows
     pub use cfd_2d::{
         StructuredGrid2D, Grid2D, BoundaryType,
-        PoissonSolver, FvmSolver, LbmSolver, SimpleSolver,
-        FdmConfig, FvmConfig, LbmConfig, SimpleConfig
+        PoissonSolver, FvmSolver, LbmSolver, SimpleSolver, PressureVelocityCouplerSolver,
+        FdmConfig, FvmConfig, LbmConfig, SimpleConfig, PressureVelocityCouplingConfig
     };
 
     // === 3D CFD Simulations ===

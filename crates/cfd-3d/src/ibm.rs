@@ -13,7 +13,7 @@ const DEFAULT_SMOOTHING_WIDTH: f64 = 1.5;  // Delta function width in grid cells
 const DEFAULT_FORCE_SCALE: f64 = 1.0;
 const DEFAULT_MAX_ITERATIONS: usize = 100;
 const DEFAULT_TOLERANCE: f64 = 1e-6;
-const DELTA_FUNCTION_CUTOFF: f64 = 4.0;  // Support radius for delta function
+// Unused DELTA_FUNCTION_CUTOFF constant removed
 const INTERPOLATION_STENCIL_SIZE: usize = 4;  // 4x4x4 stencil for interpolation
 
 /// IBM configuration

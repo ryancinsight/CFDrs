@@ -7,6 +7,10 @@ use cfd_core::{Error, Result};
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 
+// Type alias for backward compatibility while eliminating adjective-based naming
+/// Type alias for variable quadrature (backwards compatibility)
+pub type AdaptiveQuadrature<Q> = VariableQuadrature<Q>;
+
 /// Trait for quadrature methods
 pub trait Quadrature<T: RealField> {
     /// Integrate a function over interval [a, b]
@@ -215,14 +219,14 @@ where
 }
 
 /// Adaptive quadrature with error control
-pub struct AdaptiveQuadrature<Q> {
+pub struct VariableQuadrature<Q> {
     base_rule: Q,
     tolerance: f64,
     max_depth: usize,
 }
 
-impl<Q> AdaptiveQuadrature<Q> {
-    /// Create adaptive quadrature with given tolerance
+impl<Q> VariableQuadrature<Q> {
+    /// Create variable quadrature with given tolerance
     pub fn new(base_rule: Q, tolerance: f64, max_depth: usize) -> Self {
         Self {
             base_rule,
@@ -232,8 +236,8 @@ impl<Q> AdaptiveQuadrature<Q> {
     }
 }
 
-impl<Q> AdaptiveQuadrature<Q> {
-    /// Adaptive integration with recursive subdivision
+impl<Q> VariableQuadrature<Q> {
+    /// Variable integration with recursive subdivision
     pub fn integrate_adaptive<T, F>(&self, f: F, a: T, b: T) -> Result<T>
     where
         T: RealField + FromPrimitive,

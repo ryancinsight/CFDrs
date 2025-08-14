@@ -14,7 +14,7 @@ const DEFAULT_TOLERANCE: f64 = 1e-6;
 const DEFAULT_CFL_NUMBER: f64 = 0.3;
 const VOF_EPSILON: f64 = 1e-10;  // Small value to avoid division by zero
 const INTERFACE_THICKNESS: f64 = 1.5;  // Interface thickness in cells
-const PLIC_ITERATIONS: usize = 10;  // Iterations for PLIC reconstruction
+// Unused PLIC_ITERATIONS constant removed
 const VOF_INTERFACE_LOWER: f64 = 0.01;  // Lower bound for interface cells
 const VOF_INTERFACE_UPPER: f64 = 0.99;  // Upper bound for interface cells
 
@@ -245,7 +245,7 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
                 - normal[2].clone().abs() * self.dz.clone();
             let mut d_max = -d_min.clone();
             
-            for _ in 0..PLIC_ITERATIONS {
+            for _ in 0..10 {  // PLIC iterations hardcoded since not configurable yet
                 d = (d_min.clone() + d_max.clone()) / T::from_f64(2.0).unwrap();
                 
                 // Calculate volume under plane

@@ -15,7 +15,7 @@ const DEFAULT_CFL_NUMBER: f64 = 0.5;
 const DEFAULT_TOLERANCE: f64 = 1e-6;
 const DEFAULT_MAX_ITERATIONS: usize = 100;
 const EPSILON_SMOOTHING: f64 = 1.5;  // Interface thickness for smoothing
-const WENO_ORDER: usize = 5;  // WENO scheme order for advection
+// Unused WENO_ORDER constant removed
 
 /// Level Set configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

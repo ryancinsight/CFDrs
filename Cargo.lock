@@ -329,6 +329,7 @@ dependencies = [
  "csv",
  "hdf5",
  "nalgebra",
+ "num-traits 0.2.19",
  "proptest",
  "serde",
  "serde_json",

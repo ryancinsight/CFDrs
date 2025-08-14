@@ -21,7 +21,7 @@ use nalgebra::{Vector3, Point3, RealField};
 use num_traits::{FromPrimitive, ToPrimitive};
 use thiserror::Error;
 use std::fmt::Debug;
-use cfd_core::constants;
+// Unused import removed
 use csgrs::mesh::Mesh as CsgMesh;
 use csgrs::traits::CSG;
 

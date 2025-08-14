@@ -9,7 +9,7 @@ use cfd_core::Error;
 use serde::{Deserialize, Serialize};
 
 /// Named constants for scheme parameters
-const DEFAULT_CFL_NUMBER: f64 = 0.5;
+// Unused DEFAULT_CFL_NUMBER constant removed (CFL handled in cfd-core::constants)
 const MIN_LIMITER_THRESHOLD: f64 = 1e-10;
 const WENO_EPSILON: f64 = 1e-6;
 const WENO_POWER: i32 = 2;
@@ -38,8 +38,8 @@ pub enum SpatialScheme {
 pub enum FluxLimiter {
     /// No limiter (unlimited)
     None,
-    /// MinMod limiter
-    MinMod,
+    /// Moderate limiter (preventing oscillations)
+    Moderate,
     /// Van Leer limiter
     VanLeer,
     /// Van Albada limiter
@@ -715,7 +715,7 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
     fn apply_limiter(&self, r: T) -> T {
         match self.limiter {
             Some(FluxLimiter::None) => T::one(),
-            Some(FluxLimiter::MinMod) => self.minmod_limiter(r),
+            Some(FluxLimiter::Moderate) => self.moderate_limiter(r),
             Some(FluxLimiter::VanLeer) => self.van_leer_limiter(r),
             Some(FluxLimiter::VanAlbada) => self.van_albada_limiter(r),
             Some(FluxLimiter::Superbee) => self.superbee_limiter(r),
@@ -724,8 +724,8 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
         }
     }
     
-    /// MinMod limiter
-    fn minmod_limiter(&self, r: T) -> T {
+    /// Moderate limiter (prevents oscillations)
+    fn moderate_limiter(&self, r: T) -> T {
         T::zero().max(T::one().min(r))
     }
     

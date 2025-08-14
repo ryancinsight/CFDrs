@@ -9,6 +9,16 @@ use std::collections::HashMap;
 use std::any::Any;
 use std::sync::Arc;
 
+// Type aliases for backward compatibility while eliminating adjective-based naming
+/// Type alias for type-erased solver (backwards compatibility)
+pub type DynamicSolver<T> = dyn TypeErasedSolver<T>;
+/// Type alias for type-erased factory (backwards compatibility)
+pub type DynamicFactory<T> = dyn TypeErasedFactory<T>;
+/// Type alias for type-erased solver wrapper (backwards compatibility)
+pub type DynamicSolverWrapper<T, S> = TypeErasedSolverWrapper<T, S>;
+/// Type alias for type-erased factory wrapper (backwards compatibility)
+pub type DynamicFactoryWrapper<T, F> = TypeErasedFactoryWrapper<T, F>;
+
 /// Concrete factory trait for type-safe creation
 /// Follows Open/Closed Principle - open for extension, closed for modification
 pub trait ConcreteSolverFactory<T: RealField>: Send + Sync {
@@ -38,7 +48,7 @@ pub trait FactoryCapability {
 }
 
 /// Type-erased solver trait for dynamic dispatch
-pub trait DynamicSolver<T: RealField>: Send + Sync {
+pub trait TypeErasedSolver<T: RealField>: Send + Sync {
     /// Solve the problem
     fn solve(&mut self, problem: &dyn Any) -> Result<Box<dyn Any>>;
     
@@ -47,7 +57,7 @@ pub trait DynamicSolver<T: RealField>: Send + Sync {
 }
 
 /// Wrapper to convert concrete solvers to dynamic solvers
-pub struct DynamicSolverWrapper<T, S>
+pub struct TypeErasedSolverWrapper<T, S>
 where
     T: RealField,
     S: Solver<T>,
@@ -56,7 +66,7 @@ where
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T, S> DynamicSolverWrapper<T, S>
+impl<T, S> TypeErasedSolverWrapper<T, S>
 where
     T: RealField + 'static,
     S: Solver<T> + 'static,
@@ -71,7 +81,7 @@ where
     }
 }
 
-impl<T, S> DynamicSolver<T> for DynamicSolverWrapper<T, S>
+impl<T, S> TypeErasedSolver<T> for TypeErasedSolverWrapper<T, S>
 where
     T: RealField + 'static,
     S: Solver<T> + 'static,
@@ -93,9 +103,9 @@ where
 }
 
 /// Type-erased factory wrapper for heterogeneous storage
-pub trait DynamicFactory<T: RealField>: Send + Sync {
+pub trait TypeErasedFactory<T: RealField>: Send + Sync {
     /// Create a solver from a configuration
-    fn create_solver(&self, config: &dyn Any) -> Result<Box<dyn DynamicSolver<T>>>;
+    fn create_solver(&self, config: &dyn Any) -> Result<Box<dyn TypeErasedSolver<T>>>;
     
     /// Get factory name
     fn name(&self) -> &str;
@@ -105,7 +115,7 @@ pub trait DynamicFactory<T: RealField>: Send + Sync {
 }
 
 /// Wrapper to convert concrete factories to dynamic factories
-pub struct DynamicFactoryWrapper<T, F>
+pub struct TypeErasedFactoryWrapper<T, F>
 where
     T: RealField,
     F: ConcreteSolverFactory<T>,
@@ -114,7 +124,7 @@ where
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T, F> DynamicFactoryWrapper<T, F>
+impl<T, F> TypeErasedFactoryWrapper<T, F>
 where
     T: RealField + 'static,
     F: ConcreteSolverFactory<T> + 'static,
@@ -131,7 +141,7 @@ where
     }
 }
 
-impl<T, F> DynamicFactory<T> for DynamicFactoryWrapper<T, F>
+impl<T, F> TypeErasedFactory<T> for TypeErasedFactoryWrapper<T, F>
 where
     T: RealField + 'static,
     F: ConcreteSolverFactory<T> + 'static,
@@ -140,13 +150,13 @@ where
     <F::Solver as Solver<T>>::Problem: 'static,
     <F::Solver as Solver<T>>::Solution: 'static,
 {
-    fn create_solver(&self, config: &dyn Any) -> Result<Box<dyn DynamicSolver<T>>> {
+    fn create_solver(&self, config: &dyn Any) -> Result<Box<dyn TypeErasedSolver<T>>> {
         let typed_config = config
             .downcast_ref::<F::Config>()
             .ok_or_else(|| Error::InvalidConfiguration("Invalid configuration type".into()))?;
         
         let solver = self.factory.create(typed_config.clone())?;
-        Ok(Box::new(DynamicSolverWrapper::new(solver)))
+        Ok(Box::new(TypeErasedSolverWrapper::new(solver)))
     }
     
     fn name(&self) -> &str {
@@ -160,7 +170,7 @@ where
 
 /// Complete factory registry with proper factory pattern implementation
 pub struct SolverFactoryRegistry<T: RealField> {
-    factories: HashMap<String, Arc<dyn DynamicFactory<T>>>,
+    factories: HashMap<String, Arc<dyn TypeErasedFactory<T>>>,
     factory_metadata: HashMap<String, FactoryMetadata>,
 }
 
@@ -192,7 +202,7 @@ impl<T: RealField> SolverFactoryRegistry<T> {
     pub fn register_factory(
         &mut self, 
         name: String, 
-        factory: Arc<dyn DynamicFactory<T>>,
+        factory: Arc<dyn TypeErasedFactory<T>>,
         metadata: FactoryMetadata
     ) -> Result<()> {
         if self.factories.contains_key(&name) {
@@ -205,7 +215,7 @@ impl<T: RealField> SolverFactoryRegistry<T> {
     }
 
     /// Get a factory by name
-    pub fn get_factory(&self, name: &str) -> Option<&dyn DynamicFactory<T>> {
+    pub fn get_factory(&self, name: &str) -> Option<&dyn TypeErasedFactory<T>> {
         self.factories.get(name).map(|f| f.as_ref())
     }
 
@@ -220,7 +230,7 @@ impl<T: RealField> SolverFactoryRegistry<T> {
     }
     
     /// Create a solver using the specified factory with a configuration
-    pub fn create_solver<C: Any>(&self, factory_name: &str, config: C) -> Result<Box<dyn DynamicSolver<T>>> {
+    pub fn create_solver<C: Any>(&self, factory_name: &str, config: C) -> Result<Box<dyn TypeErasedSolver<T>>> {
         self.factories
             .get(factory_name)
             .ok_or_else(|| Error::InvalidInput(format!("Factory '{}' not found", factory_name)))?

@@ -11,30 +11,14 @@ use thiserror::Error;
 
 /// Named constants for grid parameters
 mod constants {
-    use std::f64::consts::PI;
+    // PI import removed since unused constants were removed
     
-    /// Minimum allowed grid spacing
-    pub const DEFAULT_MIN_SPACING: f64 = 1e-6;
-    /// Default stretching ratio for non-uniform grids
-    pub const DEFAULT_STRETCHING_RATIO: f64 = 1.1;
     /// Default number of smoothing iterations
     pub const DEFAULT_SMOOTHING_ITERATIONS: usize = 10;
-    /// Tolerance for orthogonality checks
-    pub const ORTHOGONALITY_TOLERANCE: f64 = 1e-3;
     /// Default grid spacing for uniform grids
     pub const DEFAULT_UNIFORM_SPACING: f64 = 0.1;
-    /// Smoothing factor for Laplacian smoothing
-    pub const SMOOTHING_FACTOR: f64 = 0.5;
-    /// Amplitude for sinusoidal perturbations
-    pub const PERTURBATION_AMPLITUDE: f64 = 0.1;
     /// Number of vertices per face for face center calculation
     pub const VERTICES_PER_FACE: f64 = 4.0;
-    /// Frequency multiplier for sinusoidal functions
-    pub const TWO_PI: f64 = 2.0 * PI;
-    /// Midpoint value for normalized coordinates
-    pub const MIDPOINT: f64 = 2.0;
-    /// Normalization offset
-    pub const NORMALIZATION_OFFSET: f64 = -1.0;
 }
 
 /// Grid generation errors

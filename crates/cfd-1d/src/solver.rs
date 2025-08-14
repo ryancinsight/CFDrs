@@ -69,7 +69,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkSolver<T> {
 
             residual = pressure_residual;
 
-            if self.config.verbose && iter % 100 == 0 {
+            if self.config.verbosity() > 1 && iter % 100 == 0 {
                 println!("Iteration {}: residual = {:?}", iter, residual);
             }
 
@@ -82,7 +82,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkSolver<T> {
 
         let solve_time = start_time.elapsed().as_secs_f64();
 
-        if self.config.verbose {
+        if self.config.verbosity() > 0 {
             if converged {
                 println!("Converged in {} iterations", iterations);
             } else {
@@ -310,7 +310,7 @@ mod tests {
 
         assert_eq!(config.max_iterations(), 1000);
         assert_relative_eq!(config.tolerance(), 1e-6, epsilon = 1e-10);
-        assert!(!config.verbose);
+        assert_eq!(config.verbosity(), 0);
     }
 
     #[test]

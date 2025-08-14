@@ -18,22 +18,15 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     
     // Create a sphere mesh using the CSG operator
     println!("Creating sphere mesh...");
-    match csg_operator.create_sphere(1.0, 8) {
+    match csg_operator.create_sphere(1.0, 8, 6) {
         Ok(sphere_mesh) => {
             println!("Sphere mesh created successfully:");
-            println!("  Vertices: {}", sphere_mesh.vertices.len());
-            println!("  Faces: {}", sphere_mesh.faces.len());
-            println!("  Cells: {}", sphere_mesh.cells.len());
+            println!("  Vertices: {}", sphere_mesh.vertex_count());
+            println!("  Faces: {}", sphere_mesh.face_count());
+            println!("  Cells: N/A (CSG geometry)");
             
-            // Validate the mesh
-            match csg_operator.validate_mesh(&sphere_mesh) {
-                Ok(is_valid) => {
-                    println!("  Mesh validation: {}", if is_valid { "PASSED" } else { "FAILED" });
-                }
-                Err(e) => {
-                    println!("  Mesh validation error: {}", e);
-                }
-            }
+            // Note: Mesh validation is not implemented in the current CSG API
+            println!("  ✓ Mesh created successfully");
         }
         Err(e) => {
             println!("Sphere mesh creation failed: {}", e);
@@ -43,22 +36,15 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     
     // Create a box mesh using the CSG operator  
     println!("Creating box mesh...");
-    match csg_operator.create_box(2.0, 1.0, 1.5) {
+    match csg_operator.create_cube(2.0, 1.0, 1.5) {
         Ok(box_mesh) => {
             println!("Box mesh created successfully:");
-            println!("  Vertices: {}", box_mesh.vertices.len());
-            println!("  Faces: {}", box_mesh.faces.len());
-            println!("  Cells: {}", box_mesh.cells.len());
+            println!("  Vertices: {}", box_mesh.vertex_count());
+            println!("  Faces: {}", box_mesh.face_count());
+            println!("  Cells: N/A (CSG geometry)");
             
-            // Validate the mesh
-            match csg_operator.validate_mesh(&box_mesh) {
-                Ok(is_valid) => {
-                    println!("  Mesh validation: {}", if is_valid { "PASSED" } else { "FAILED" });
-                }
-                Err(e) => {
-                    println!("  Mesh validation error: {}", e);
-                }
-            }
+            // Note: Mesh validation is not implemented in the current CSG API
+            println!("  ✓ Mesh created successfully");
         }
         Err(e) => {
             println!("Box mesh creation failed: {}", e);
@@ -82,15 +68,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                  i, vertex.position.x, vertex.position.y, vertex.position.z);
     }
     
-    // Validate the manual mesh
-    match csg_operator.validate_mesh(&tet_mesh) {
-        Ok(is_valid) => {
-            println!("  Mesh validation: {}", if is_valid { "PASSED" } else { "FAILED" });
-        }
-        Err(e) => {
-            println!("  Mesh validation error: {}", e);
-        }
-    }
+    // Note: Mesh validation is not implemented in the current CSG API
+    println!("  ✓ Manual mesh created successfully");
     println!();
     
     println!("NOTE: CSG boolean operations (union, intersection, difference) are not currently implemented.");

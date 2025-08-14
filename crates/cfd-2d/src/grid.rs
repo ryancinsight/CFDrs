@@ -28,8 +28,11 @@ pub trait Grid2D<T: RealField> {
     /// Get cell volume/area
     fn cell_area(&self, i: usize, j: usize) -> Result<T>;
 
-    /// Get neighboring cell indices
+    /// Get neighboring cell indices (prefer neighbor_iter for better performance)
     fn neighbors(&self, i: usize, j: usize) -> Vec<(usize, usize)>;
+
+    /// Get neighboring cell indices as iterator (more efficient)
+    fn neighbor_iter(&self, i: usize, j: usize) -> impl Iterator<Item = (usize, usize)>;
 
     /// Check if cell is on boundary
     fn is_boundary(&self, i: usize, j: usize) -> bool;
@@ -202,29 +205,23 @@ impl<T: RealField + FromPrimitive> Grid2D<T> for StructuredGrid2D<T> {
     }
 
     fn neighbors(&self, i: usize, j: usize) -> Vec<(usize, usize)> {
-        let mut neighbors = Vec::new();
+        // For backward compatibility, collect from the efficient iterator
+        // Note: prefer neighbor_iter() for better performance
+        self.neighbor_iter(i, j).collect()
+    }
 
-        // Left neighbor
-        if i > 0 {
-            neighbors.push((i - 1, j));
-        }
-
-        // Right neighbor
-        if i < self.nx - 1 {
-            neighbors.push((i + 1, j));
-        }
-
-        // Bottom neighbor
-        if j > 0 {
-            neighbors.push((i, j - 1));
-        }
-
-        // Top neighbor
-        if j < self.ny - 1 {
-            neighbors.push((i, j + 1));
-        }
-
-        neighbors
+    fn neighbor_iter(&self, i: usize, j: usize) -> impl Iterator<Item = (usize, usize)> {
+        [(0isize, 1isize), (0, -1), (1, 0), (-1, 0)]
+            .iter()
+            .filter_map(move |&(di, dj)| {
+                let ni = i as isize + di;
+                let nj = j as isize + dj;
+                if ni >= 0 && ni < self.nx as isize && nj >= 0 && nj < self.ny as isize {
+                    Some((ni as usize, nj as usize))
+                } else {
+                    None
+                }
+            })
     }
 
     fn is_boundary(&self, i: usize, j: usize) -> bool {
@@ -236,40 +233,12 @@ impl<T: RealField + FromPrimitive> Grid2D<T> for StructuredGrid2D<T> {
     }
 }
 
-/// Grid iterator for efficient traversal
-pub struct GridIterator {
-    nx: usize,
-    ny: usize,
-    current: usize,
-}
-
-impl GridIterator {
-    /// Create a new grid iterator
-    pub fn new(nx: usize, ny: usize) -> Self {
-        Self { nx, ny, current: 0 }
-    }
-}
-
-impl Iterator for GridIterator {
-    type Item = (usize, usize);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current >= self.nx * self.ny {
-            return None;
-        }
-
-        let i = self.current % self.nx;
-        let j = self.current / self.nx;
-        self.current += 1;
-
-        Some((i, j))
-    }
-}
+// GridIterator struct removed in favor of standard iterators
 
 impl<T: RealField + FromPrimitive> StructuredGrid2D<T> {
     /// Create an iterator over all cells
-    pub fn iter(&self) -> GridIterator {
-        GridIterator::new(self.nx, self.ny)
+    pub fn iter(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
+        (0..self.ny).flat_map(move |j| (0..self.nx).map(move |i| (i, j)))
     }
 
     /// Create an iterator over boundary cells only
@@ -292,8 +261,8 @@ impl<T: RealField + FromPrimitive> StructuredGrid2D<T> {
         (0..self.nx).map(move |i| (0..self.ny).map(move |j| (i, j)))
     }
 
-    /// Create windowed iterator for stencil operations
-    pub fn stencil_iter(&self, stencil_size: usize) -> impl Iterator<Item = Vec<(usize, usize)>> + '_ {
+    /// Create windowed iterator for stencil operations (zero-allocation)
+    pub fn stencil_iter(&self, stencil_size: usize) -> impl Iterator<Item = impl Iterator<Item = (usize, usize)>> + '_ {
         let half_size = stencil_size / 2;
         self.interior_iter()
             .filter(move |(i, j)| {
@@ -301,30 +270,16 @@ impl<T: RealField + FromPrimitive> StructuredGrid2D<T> {
                 *j >= half_size && *j < self.ny - half_size
             })
             .map(move |(i, j)| {
-                let mut stencil = Vec::with_capacity(stencil_size * stencil_size);
-                for dj in 0..stencil_size {
-                    for di in 0..stencil_size {
-                        stencil.push((i + di - half_size, j + dj - half_size));
-                    }
-                }
-                stencil
+                // Return an iterator that calculates indices on the fly
+                (0..stencil_size).flat_map(move |dj| {
+                    (0..stencil_size).map(move |di| {
+                        (i + di - half_size, j + dj - half_size)
+                    })
+                })
             })
     }
 
-    /// Create neighbor iterator for a specific cell
-    pub fn neighbor_iter(&self, i: usize, j: usize) -> impl Iterator<Item = (usize, usize)> + '_ {
-        [(0isize, 1isize), (0, -1), (1, 0), (-1, 0)]
-            .iter()
-            .filter_map(move |&(di, dj)| {
-                let ni = i as isize + di;
-                let nj = j as isize + dj;
-                if ni >= 0 && ni < self.nx as isize && nj >= 0 && nj < self.ny as isize {
-                    Some((ni as usize, nj as usize))
-                } else {
-                    None
-                }
-            })
-    }
+    // neighbor_iter is now implemented in the Grid2D trait
 }
 
 #[cfg(test)]

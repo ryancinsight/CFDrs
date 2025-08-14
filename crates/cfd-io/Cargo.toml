@@ -18,6 +18,7 @@ serde_json.workspace = true
 bincode.workspace = true
 csv.workspace = true
 nalgebra.workspace = true
+num-traits.workspace = true
 tracing.workspace = true
 hdf5 = { version = "0.8", optional = true }
 

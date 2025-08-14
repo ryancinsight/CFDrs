@@ -34,7 +34,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .relaxation_factor(0.9)
         .parallel(true)
         .verbosity(1)
-        .build_network(false); // Build network-specific config
+        .build_network(); // Build network-specific config
 
     println!("Configuration built using composition pattern");
 

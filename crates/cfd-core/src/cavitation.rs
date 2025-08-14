@@ -4,7 +4,7 @@
 //! literature including Brennen (1995), Franc & Michel (2004), and Rayleigh-Plesset
 //! dynamics for bubble growth and collapse.
 
-use nalgebra::{RealField, Vector3};
+use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -110,7 +110,7 @@ impl<T: RealField + FromPrimitive> RayleighPlesset<T> {
     }
     
     /// Calculate bubble pressure including surface tension
-    pub fn bubble_pressure(&self, ambient_pressure: T) -> T {
+    pub fn bubble_pressure(&self, _ambient_pressure: T) -> T {
         // p_B = p_v - 2σ/R - 4μṘ/R
         let surface_term = T::from_f64(2.0).unwrap() * self.surface_tension.clone() / self.radius.clone();
         let viscous_term = T::from_f64(4.0).unwrap() * self.viscosity.clone() * 
@@ -214,7 +214,7 @@ impl<T: RealField + FromPrimitive> CavitationModel<T> {
                 }
             },
             
-            CavitationModel::SchnerrSauer { bubble_density, initial_radius } => {
+            CavitationModel::SchnerrSauer { bubble_density, initial_radius: _ } => {
                 // Calculate bubble radius from void fraction
                 let n_b = bubble_density.clone();
                 let alpha = void_fraction.clone();
@@ -284,8 +284,11 @@ pub struct VenturiCavitation<T: RealField> {
     pub outlet_pressure: T,
     /// Fluid properties
     pub fluid_density: T,
+    /// Fluid dynamic viscosity (Pa·s)
     pub fluid_viscosity: T,
+    /// Vapor pressure of fluid (Pa)
     pub vapor_pressure: T,
+    /// Surface tension coefficient (N/m)
     pub surface_tension: T,
 }
 
@@ -355,11 +358,14 @@ impl<T: RealField + FromPrimitive> VenturiCavitation<T> {
 pub struct CavitationDamage<T: RealField> {
     /// Material properties
     pub material_hardness: T,  // Pa
-    pub material_resilience: T, // J/m³
+    /// Material resilience against cavitation damage (J/m³)
+    pub material_resilience: T,
     /// Cavitation intensity
     pub collapse_pressure: T,   // Pa
-    pub collapse_frequency: T,  // Hz
-    pub affected_area: T,       // m²
+    /// Frequency of bubble collapses (Hz)
+    pub collapse_frequency: T,
+    /// Area affected by cavitation damage (m²)
+    pub affected_area: T,
 }
 
 impl<T: RealField + FromPrimitive> CavitationDamage<T> {
