@@ -29,12 +29,15 @@ pub trait ConcreteSolverFactory<T: RealField>: Send + Sync {
 
 /// Factory capability trait following Interface Segregation Principle
 /// Separates capability checking from creation
-pub trait FactoryCapability {
-    /// Check if factory supports the given capability
-    fn supports_capability(&self, capability: &str) -> bool;
-
-    /// Get all supported capabilities
-    fn capabilities(&self) -> Vec<&str>;
+pub struct FactoryCapability {
+    /// Name of the solver factory
+    pub name: String,
+    /// Type of factory (e.g., "Simple", "PISO", "LBM")
+    pub factory_type: String,
+    /// Version string for the factory
+    pub version: String,
+    /// List of capabilities supported by this factory
+    pub capabilities: Vec<String>,
 }
 
 /// Type-erased solver trait for dynamic dispatch
@@ -63,6 +66,7 @@ where
     S::Problem: 'static,
     S::Solution: 'static,
 {
+    /// Create a new concrete solver wrapper
     pub fn new(solver: S) -> Self {
         Self {
             solver,
@@ -123,6 +127,7 @@ where
     <F::Solver as Solver<T>>::Problem: 'static,
     <F::Solver as Solver<T>>::Solution: 'static,
 {
+    /// Create a new dynamic factory wrapper
     pub fn new(factory: F) -> Self {
         Self {
             factory,

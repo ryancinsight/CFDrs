@@ -157,6 +157,7 @@ pub mod non_newtonian {
     
     // Extension methods for non-Newtonian fluids
     impl<T: RealField> PowerLawFluid<T> {
+        /// Calculate dynamic viscosity at given shear rate for non-Newtonian fluids
         pub fn dynamic_viscosity_at_shear_rate(&self, shear_rate: T) -> T {
             // Power-law model: μ = K * γ^(n-1)
             // where K is consistency index, n is flow behavior index, γ is shear rate
@@ -206,6 +207,7 @@ pub mod non_newtonian {
     
     // Extension methods for Bingham fluids
     impl<T: RealField> BinghamFluid<T> {
+        /// Calculate dynamic viscosity at given shear stress for Bingham plastics
         pub fn dynamic_viscosity_at_shear_stress(&self, shear_stress: T) -> T {
             // Bingham model: 
             // If τ < τ_y: material behaves as solid (infinite viscosity)

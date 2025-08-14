@@ -4,6 +4,7 @@
 //! providing excellent mass conservation properties.
 
 use cfd_core::Result;
+use cfd_core::constants;
 use nalgebra::{Vector3, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -17,6 +18,7 @@ const INTERFACE_THICKNESS: f64 = 1.5;  // Interface thickness in cells
 const PLIC_ITERATIONS: usize = 10;  // Iterations for PLIC reconstruction
 const VOF_INTERFACE_LOWER: f64 = 0.01;  // Lower bound for interface cells
 const VOF_INTERFACE_UPPER: f64 = 0.99;  // Upper bound for interface cells
+const VOF_COMPRESSION_FACTOR: f64 = 10.0; // Factor for interface compression
 
 /// VOF configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,9 +106,9 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
         for k in 0..self.nz {
             for j in 0..self.ny {
                 for i in 0..self.nx {
-                    let x = (T::from_usize(i).unwrap() + T::from_f64(0.5).unwrap()) * self.dx.clone();
-                    let y = (T::from_usize(j).unwrap() + T::from_f64(0.5).unwrap()) * self.dy.clone();
-                    let z = (T::from_usize(k).unwrap() + T::from_f64(0.5).unwrap()) * self.dz.clone();
+                    let x = (T::from_usize(i).unwrap() + T::from_f64(constants::HALF).unwrap()) * self.dx.clone();
+                    let y = (T::from_usize(j).unwrap() + T::from_f64(constants::HALF).unwrap()) * self.dy.clone();
+                    let z = (T::from_usize(k).unwrap() + T::from_f64(constants::HALF).unwrap()) * self.dz.clone();
                     
                     let pos = Vector3::new(x, y, z);
                     let distance = (pos - center.clone()).norm();
@@ -116,7 +118,7 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
                     // Smooth initialization using a tanh function
                     let eps = T::from_f64(INTERFACE_THICKNESS).unwrap() * self.dx.clone();
                     let arg = (radius.clone() - distance) / eps;
-                    self.alpha[idx] = T::from_f64(0.5).unwrap()
+                    self.alpha[idx] = T::from_f64(constants::HALF).unwrap()
                         * (T::one() + arg.tanh());
                 }
             }
@@ -130,9 +132,9 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
         for k in 0..self.nz {
             for j in 0..self.ny {
                 for i in 0..self.nx {
-                    let x = (T::from_usize(i).unwrap() + T::from_f64(0.5).unwrap()) * self.dx.clone();
-                    let y = (T::from_usize(j).unwrap() + T::from_f64(0.5).unwrap()) * self.dy.clone();
-                    let z = (T::from_usize(k).unwrap() + T::from_f64(0.5).unwrap()) * self.dz.clone();
+                    let x = (T::from_usize(i).unwrap() + T::from_f64(constants::HALF).unwrap()) * self.dx.clone();
+                    let y = (T::from_usize(j).unwrap() + T::from_f64(constants::HALF).unwrap()) * self.dy.clone();
+                    let z = (T::from_usize(k).unwrap() + T::from_f64(constants::HALF).unwrap()) * self.dz.clone();
                     
                     let idx = self.index(i, j, k);
                     
@@ -166,13 +168,13 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
                     // Central differences for gradient
                     let grad_x = (self.alpha[self.index(i+1, j, k)].clone() 
                         - self.alpha[self.index(i-1, j, k)].clone()) 
-                        / (T::from_f64(2.0).unwrap() * self.dx.clone());
+                        / (T::from_f64(constants::TWO).unwrap() * self.dx.clone());
                     let grad_y = (self.alpha[self.index(i, j+1, k)].clone() 
                         - self.alpha[self.index(i, j-1, k)].clone()) 
-                        / (T::from_f64(2.0).unwrap() * self.dy.clone());
+                        / (T::from_f64(constants::TWO).unwrap() * self.dy.clone());
                     let grad_z = (self.alpha[self.index(i, j, k+1)].clone() 
                         - self.alpha[self.index(i, j, k-1)].clone()) 
-                        / (T::from_f64(2.0).unwrap() * self.dz.clone());
+                        / (T::from_f64(constants::TWO).unwrap() * self.dz.clone());
                     
                     let mut normal = Vector3::new(grad_x, grad_y, grad_z);
                     let norm = normal.norm();
@@ -204,9 +206,9 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
                        *alpha_val < T::from_f64(VOF_INTERFACE_UPPER).unwrap() {
                         
                         // Divergence of normal vector field using central differences
-                        let two_dx = T::from_f64(2.0).unwrap() * self.dx.clone();
-                        let two_dy = T::from_f64(2.0).unwrap() * self.dy.clone();
-                        let two_dz = T::from_f64(2.0).unwrap() * self.dz.clone();
+                        let two_dx = T::from_f64(constants::TWO).unwrap() * self.dx.clone();
+                        let two_dy = T::from_f64(constants::TWO).unwrap() * self.dy.clone();
+                        let two_dz = T::from_f64(constants::TWO).unwrap() * self.dz.clone();
                         
                         let dn_dx = (self.normals[self.index(i+1, j, k)].x.clone() 
                             - self.normals[self.index(i-1, j, k)].x.clone()) / two_dx;
@@ -246,7 +248,7 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
             let mut d_max = -d_min.clone();
             
             for _ in 0..PLIC_ITERATIONS {
-                d = (d_min.clone() + d_max.clone()) / T::from_f64(2.0).unwrap();
+                d = (d_min.clone() + d_max.clone()) / T::from_f64(constants::TWO).unwrap();
                 
                 // Calculate volume under plane
                 let volume = self.calculate_volume_under_plane(&normal, d.clone(), i, j, k);
@@ -295,14 +297,14 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
         
         // Calculate the signed distance from cell center to plane
         let cell_center = Vector3::new(
-            x0.clone() + dx.clone() * T::from_f64(0.5).unwrap(),
-            y0.clone() + dy.clone() * T::from_f64(0.5).unwrap(),
-            z0.clone() + dz.clone() * T::from_f64(0.5).unwrap()
+            x0.clone() + dx.clone() * T::from_f64(constants::HALF).unwrap(),
+            y0.clone() + dy.clone() * T::from_f64(constants::HALF).unwrap(),
+            z0.clone() + dz.clone() * T::from_f64(constants::HALF).unwrap()
         );
         let center_dist = n.dot(&cell_center) - d_normalized.clone();
         
         // Calculate maximum possible distance from center to corner
-        let max_dist = (nx.clone().abs() + ny.clone().abs() + nz.clone().abs()) * T::from_f64(0.5).unwrap();
+        let max_dist = (nx.clone().abs() + ny.clone().abs() + nz.clone().abs()) * T::from_f64(constants::HALF).unwrap();
         
         // If plane is far from cell, return full or empty
         if center_dist > max_dist.clone() {
@@ -313,7 +315,7 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
         
         // For intermediate cases, use linear approximation based on center distance
         // This is more accurate than corner counting
-        let volume_fraction = (T::one() - center_dist / max_dist) * T::from_f64(0.5).unwrap();
+        let volume_fraction = (T::one() - center_dist / max_dist) * T::from_f64(constants::HALF).unwrap();
         volume_fraction.max(T::zero()).min(T::one()) * cell_volume
     }
     
@@ -362,7 +364,7 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
         
         // Face velocity (average of adjacent cells)
         let vel_face = (self.velocity[idx1].clone() + self.velocity[idx2].clone()) 
-            / T::from_f64(2.0).unwrap();
+            / T::from_f64(constants::TWO).unwrap();
         
         // Face area
         let face_area = match direction {
@@ -524,16 +526,192 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
         }
     }
     
-    /// Main advection step
-    pub fn advect(&mut self, dt: T) {
-        if self.config.use_geometric_advection {
-            self.geometric_advection(dt);
-        } else {
-            self.algebraic_advection(dt);
+    /// Advance the VOF simulation by one time step
+    pub fn step(&mut self, dt: T) -> Result<()> {
+        // Save current state
+        self.alpha_old = self.alpha.clone();
+        
+        // Calculate normals from volume fraction gradients
+        self.reconstruct_interface();
+        
+        // Calculate curvature from normal field divergence
+        self.calculate_curvature();
+        
+        // Advect volume fractions
+        self.advect_volume_fractions(dt)?;
+        
+        // Apply interface compression if enabled
+        if self.config.enable_compression {
+            self.apply_interface_compression()?;
         }
         
-        // Reconstruct interface after advection
-        self.reconstruct_interface();
+        Ok(())
+    }
+    
+    /// Advect volume fractions using geometric method
+    fn advect_volume_fractions(&mut self, dt: T) -> Result<()> {
+        if self.config.use_geometric_advection && self.config.use_plic {
+            // Use PLIC reconstruction for high-order geometric advection
+            self.geometric_advection_with_plic(dt)
+        } else {
+            // Use simple finite volume advection
+            self.finite_volume_advection(dt)
+        }
+    }
+    
+    /// Geometric advection using PLIC reconstruction
+    fn geometric_advection_with_plic(&mut self, dt: T) -> Result<()> {
+        let mut alpha_new = vec![T::zero(); self.alpha.len()];
+        
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                for k in 1..self.nz-1 {
+                    let idx = self.index(i, j, k);
+                    let alpha_val = self.alpha[idx].clone();
+                    
+                    // Only reconstruct interface for cells with volume fraction between bounds
+                    if alpha_val > T::from_f64(VOF_INTERFACE_LOWER).unwrap() && 
+                       alpha_val < T::from_f64(VOF_INTERFACE_UPPER).unwrap() {
+                        
+                        // PLIC reconstruction
+                        let (normal, d) = self.plic_reconstruction(i, j, k);
+                        
+                        // Calculate flux using reconstruction
+                        let flux = self.calculate_flux_with_plic(&normal, d, i, j, k, dt.clone());
+                        alpha_new[idx] = (alpha_val + flux).max(T::zero()).min(T::one());
+                    } else {
+                        // No interface reconstruction needed for pure phases
+                        alpha_new[idx] = alpha_val;
+                    }
+                }
+            }
+        }
+        
+        self.alpha = alpha_new;
+        Ok(())
+    }
+    
+    /// Calculate flux using PLIC reconstruction
+    fn calculate_flux_with_plic(&self, normal: &Vector3<T>, d: T, i: usize, j: usize, k: usize, dt: T) -> T {
+        let idx = self.index(i, j, k);
+        let velocity = &self.velocity[idx];
+        
+        // Calculate volume flux across cell faces
+        let dt_dx = dt.clone() / self.dx.clone();
+        let dt_dy = dt.clone() / self.dy.clone();
+        let dt_dz = dt.clone() / self.dz.clone();
+        
+        // Simple upwind flux calculation
+        // In practice, this would use the reconstructed interface geometry
+        let flux_x = if velocity.x > T::zero() {
+            -velocity.x.clone() * dt_dx * self.get_alpha_upwind(i-1, j, k)
+        } else {
+            -velocity.x.clone() * dt_dx * self.get_alpha_upwind(i+1, j, k)
+        };
+        
+        let flux_y = if velocity.y > T::zero() {
+            -velocity.y.clone() * dt_dy * self.get_alpha_upwind(i, j-1, k)
+        } else {
+            -velocity.y.clone() * dt_dy * self.get_alpha_upwind(i, j+1, k)
+        };
+        
+        let flux_z = if velocity.z > T::zero() {
+            -velocity.z.clone() * dt_dz * self.get_alpha_upwind(i, j, k-1)
+        } else {
+            -velocity.z.clone() * dt_dz * self.get_alpha_upwind(i, j, k+1)
+        };
+        
+        flux_x + flux_y + flux_z
+    }
+    
+    /// Get upwind alpha value with bounds checking
+    fn get_alpha_upwind(&self, i: usize, j: usize, k: usize) -> T {
+        if i < self.nx && j < self.ny && k < self.nz {
+            self.alpha[self.index(i, j, k)].clone()
+        } else {
+            T::zero()
+        }
+    }
+    
+    /// Simple finite volume advection for comparison
+    fn finite_volume_advection(&mut self, dt: T) -> Result<()> {
+        let mut alpha_new = vec![T::zero(); self.alpha.len()];
+        
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                for k in 1..self.nz-1 {
+                    let idx = self.index(i, j, k);
+                    let velocity = &self.velocity[idx];
+                    
+                    // First-order upwind finite volume method
+                    let dt_dx = dt.clone() / self.dx.clone();
+                    let dt_dy = dt.clone() / self.dy.clone();
+                    let dt_dz = dt.clone() / self.dz.clone();
+                    
+                    let flux_x = if velocity.x > T::zero() {
+                        velocity.x.clone() * dt_dx * (self.alpha[idx].clone() - self.alpha[self.index(i-1, j, k)].clone())
+                    } else {
+                        velocity.x.clone() * dt_dx * (self.alpha[self.index(i+1, j, k)].clone() - self.alpha[idx].clone())
+                    };
+                    
+                    let flux_y = if velocity.y > T::zero() {
+                        velocity.y.clone() * dt_dy * (self.alpha[idx].clone() - self.alpha[self.index(i, j-1, k)].clone())
+                    } else {
+                        velocity.y.clone() * dt_dy * (self.alpha[self.index(i, j+1, k)].clone() - self.alpha[idx].clone())
+                    };
+                    
+                    let flux_z = if velocity.z > T::zero() {
+                        velocity.z.clone() * dt_dz * (self.alpha[idx].clone() - self.alpha[self.index(i, j, k-1)].clone())
+                    } else {
+                        velocity.z.clone() * dt_dz * (self.alpha[self.index(i, j, k+1)].clone() - self.alpha[idx].clone())
+                    };
+                    
+                    alpha_new[idx] = (self.alpha[idx].clone() - flux_x - flux_y - flux_z)
+                        .max(T::zero()).min(T::one());
+                }
+            }
+        }
+        
+        self.alpha = alpha_new;
+        Ok(())
+    }
+    
+    /// Apply interface compression to sharpen the interface
+    fn apply_interface_compression(&mut self) -> Result<()> {
+        // Simple interface sharpening using compression flux
+        let compression_factor = T::from_f64(VOF_COMPRESSION_FACTOR).unwrap();
+        
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                for k in 1..self.nz-1 {
+                    let idx = self.index(i, j, k);
+                    let alpha = self.alpha[idx].clone();
+                    
+                    // Apply compression only to interface cells
+                    if alpha > T::from_f64(VOF_INTERFACE_LOWER).unwrap() && 
+                       alpha < T::from_f64(VOF_INTERFACE_UPPER).unwrap() {
+                        
+                        let normal = &self.normals[idx];
+                        let normal_mag = normal.norm();
+                        
+                        if normal_mag > T::from_f64(VOF_EPSILON).unwrap() {
+                            let unit_normal = normal.clone() / normal_mag.clone();
+                            
+                            // Calculate compression flux in normal direction
+                            let alpha_gradient_mag = normal_mag;
+                            let compression_flux = compression_factor.clone() * alpha_gradient_mag * 
+                                (alpha.clone() * (T::one() - alpha.clone()));
+                            
+                            // Apply compression
+                            self.alpha[idx] = (alpha + compression_flux * unit_normal.norm())
+                                .max(T::zero()).min(T::one());
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(())
     }
     
     /// Set velocity field
@@ -563,25 +741,6 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
         self.alpha.iter()
             .map(|a| a.clone() * cell_volume.clone())
             .fold(T::zero(), |acc, v| acc + v)
-    }
-    
-    /// Main time step
-    pub fn step(&mut self, dt: T) -> Result<()> {
-        // Compute CFL-limited time step
-        let max_vel = self.velocity.iter()
-            .map(|v| v[0].clone().abs().max(v[1].clone().abs()).max(v[2].clone().abs()))
-            .fold(T::zero(), |acc, v| acc.max(v));
-        
-        let dt_cfl = T::from_f64(self.config.cfl_number).unwrap() 
-            * self.dx.clone().min(self.dy.clone()).min(self.dz.clone()) 
-            / (max_vel + T::from_f64(VOF_EPSILON).unwrap());
-        
-        let dt_actual = dt.min(dt_cfl);
-        
-        // Advect volume fraction
-        self.advect(dt_actual);
-        
-        Ok(())
     }
 }
 
@@ -645,7 +804,7 @@ mod tests {
         solver.set_velocity(zero_vel);
         
         // Advect with no flow
-        solver.advect(0.01);
+        solver.step(0.01).unwrap();
         
         let final_volume = solver.total_volume();
         

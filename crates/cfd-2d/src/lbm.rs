@@ -122,26 +122,29 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
         }
     }
     
-    /// Get current distribution functions (for reading)
-    fn f_current(&self) -> &Vec<Vec<Vec<T>>> {
+    /// Get current distribution function arrays (for internal use)
+    #[inline]
+    fn distributions(&self) -> &Vec<Vec<Vec<T>>> {
         if self.use_f_as_current {
             &self.f
         } else {
             &self.f_new
         }
     }
-    
-    /// Get current distribution functions (mutable for writing)
-    fn f_current_mut(&mut self) -> &mut Vec<Vec<Vec<T>>> {
+
+    /// Get mutable reference to current distribution function arrays (for internal use)
+    #[inline]
+    fn distributions_mut(&mut self) -> &mut Vec<Vec<Vec<T>>> {
         if self.use_f_as_current {
             &mut self.f
         } else {
             &mut self.f_new
         }
     }
-    
-    /// Get next distribution functions (for writing during streaming)
-    fn f_next_mut(&mut self) -> &mut Vec<Vec<Vec<T>>> {
+
+    /// Get mutable reference to next distribution function arrays (for internal use)
+    #[inline]
+    fn next_distributions_mut(&mut self) -> &mut Vec<Vec<Vec<T>>> {
         if self.use_f_as_current {
             &mut self.f_new
         } else {

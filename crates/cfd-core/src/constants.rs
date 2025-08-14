@@ -126,6 +126,7 @@ pub const GRAVITY: f64 = 9.81;
 
 /// Reynolds number thresholds
 pub const LAMINAR_THRESHOLD: f64 = 2300.0;
+/// Turbulent flow Reynolds number threshold
 pub const TURBULENT_THRESHOLD: f64 = 4000.0;
 
 /// Prandtl number for air at 20°C
@@ -139,8 +140,13 @@ pub const VON_KARMAN: f64 = 0.41;
 
 /// Wall function constants
 pub const WALL_FUNCTION_E: f64 = 9.8;
+/// Wall function E constant (alternative name)
+pub const E_SMOOTH: f64 = 9.8;
+/// Wall function laminar sublayer Y+ threshold
 pub const Y_PLUS_LAMINAR: f64 = 11.63;
+/// Wall function buffer layer start Y+
 pub const Y_PLUS_BUFFER_START: f64 = 5.0;
+/// Wall function buffer layer end Y+
 pub const Y_PLUS_BUFFER_END: f64 = 30.0;
 
 // ============================================================================
@@ -180,7 +186,9 @@ pub const LBM_LATTICE_SPEED: f64 = 1.0;
 
 /// D2Q9 lattice weights
 pub const D2Q9_WEIGHT_CENTER: f64 = 4.0 / 9.0;
+/// D2Q9 face weight (4 directions)
 pub const D2Q9_WEIGHT_FACE: f64 = 1.0 / 9.0;
+/// D2Q9 corner weight (4 directions)
 pub const D2Q9_WEIGHT_CORNER: f64 = 1.0 / 36.0;
 
 // ============================================================================
@@ -192,9 +200,13 @@ pub const SMAGORINSKY_CONSTANT: f64 = 0.17;
 
 /// k-epsilon model constants
 pub const K_EPSILON_CMU: f64 = 0.09;
+/// k-epsilon C1 constant
 pub const K_EPSILON_C1: f64 = 1.44;
+/// k-epsilon C2 constant
 pub const K_EPSILON_C2: f64 = 1.92;
+/// k-epsilon turbulent kinetic energy diffusion coefficient
 pub const K_EPSILON_SIGMA_K: f64 = 1.0;
+/// k-epsilon dissipation rate diffusion coefficient
 pub const K_EPSILON_SIGMA_E: f64 = 1.3;
 
 /// Test filter ratio for Germano-Lilly model
@@ -206,11 +218,14 @@ pub const TEST_FILTER_RATIO: f64 = 2.0;
 
 /// QUICK scheme coefficients
 pub const QUICK_COEFF_UPSTREAM: f64 = 3.0 / 8.0;
+/// QUICK scheme downstream coefficient
 pub const QUICK_COEFF_DOWNSTREAM: f64 = 6.0 / 8.0;
+/// QUICK scheme far upstream coefficient
 pub const QUICK_COEFF_FAR_UPSTREAM: f64 = -1.0 / 8.0;
 
 /// WENO5 scheme order
 pub const WENO_ORDER: usize = 5;
+/// WENO epsilon for avoiding division by zero
 pub const WENO_EPSILON: f64 = 1e-6;
 
 /// Gradient calculation factor (for central differences)
@@ -231,7 +246,9 @@ pub const AIR_MEAN_FREE_PATH: f64 = 68e-9;
 
 /// Knudsen number thresholds
 pub const KNUDSEN_CONTINUUM_THRESHOLD: f64 = 0.01;
+/// Knudsen slip flow threshold
 pub const KNUDSEN_SLIP_THRESHOLD: f64 = 0.1;
+/// Knudsen transition flow threshold
 pub const KNUDSEN_TRANSITION_THRESHOLD: f64 = 10.0;
 
 // ============================================================================
@@ -243,13 +260,18 @@ pub const TYPICAL_YIELD_STRESS: f64 = 1.0;
 
 /// Power-law indices
 pub const SHEAR_THINNING_INDEX: f64 = 0.8;
+/// Newtonian fluid power-law index
 pub const NEWTONIAN_INDEX: f64 = 1.0;
+/// Shear thickening fluid power-law index
 pub const SHEAR_THICKENING_INDEX: f64 = 1.2;
 
 /// Viscosity limits for numerical stability
 pub const MIN_VISCOSITY: f64 = 1e-10;
+/// Maximum viscosity for numerical stability
 pub const MAX_VISCOSITY: f64 = 1e10;
+/// Solid-like viscosity for non-Newtonian fluids
 pub const SOLID_LIKE_VISCOSITY: f64 = 1e6;
+/// Yield stress viscosity for Bingham plastics
 pub const YIELD_STRESS_VISCOSITY: f64 = 1e10;
 
 // ============================================================================
@@ -264,6 +286,7 @@ pub const VOF_COMPRESSION_FACTOR: f64 = 1.0;
 
 /// Level set reinitialization parameters
 pub const LEVEL_SET_REINIT_ITERATIONS: usize = 10;
+/// Level set narrow band width in grid cells
 pub const LEVEL_SET_BAND_WIDTH: f64 = 5.0;
 
 /// Surface tension coefficient for water-air at 20°C [N/m]
