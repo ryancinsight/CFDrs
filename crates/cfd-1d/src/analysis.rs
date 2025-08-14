@@ -80,7 +80,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
     }
     
     /// Create analyzer with custom solver configuration
-    pub fn with_solver_config(config: crate::solver::SolverConfig<T>) -> Self {
+    pub fn with_solver_config(config: cfd_core::NetworkSolverConfig<T>) -> Self {
         Self {
             solver: crate::solver::NetworkSolver::with_config(config),
         }
@@ -427,7 +427,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
             base: cfd_core::SolverConfig::builder()
                 .tolerance(T::from_f64(1e-10).unwrap_or_else(T::default_epsilon))
                 .max_iterations(1000)
-                .build(),
+                .build_base(),
             restart: 30,
             use_preconditioner: false,
         };
@@ -688,14 +688,14 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Default for NetworkAnalyz
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::network::NetworkBuilder;
+use crate::network::{NetworkBuilder, ChannelProperties};
 
     #[test]
     fn test_flow_analysis() {
         let mut network = NetworkBuilder::new()
-            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0).unwrap()
-            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0).unwrap()
-            .add_channel("ch1", "inlet", "outlet", 100.0, 0.001, 1e-6).unwrap()
+            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
+            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
+            .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
             .build().unwrap();
 
         let analyzer = NetworkAnalyzer::new();
@@ -711,9 +711,9 @@ mod tests {
     #[test]
     fn test_pressure_analysis() {
         let mut network = NetworkBuilder::new()
-            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0).unwrap()
-            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0).unwrap()
-            .add_channel("ch1", "inlet", "outlet", 100.0, 0.001, 1e-6).unwrap()
+            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
+            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
+            .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
             .build().unwrap();
 
         let analyzer = NetworkAnalyzer::new();
@@ -730,9 +730,9 @@ mod tests {
     #[test]
     fn test_resistance_analysis() {
         let network = NetworkBuilder::new()
-            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0).unwrap()
-            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0).unwrap()
-            .add_channel("ch1", "inlet", "outlet", 100.0, 0.001, 1e-6).unwrap()
+            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
+            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
+            .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
             .build().unwrap();
 
         let analyzer = NetworkAnalyzer::new();
@@ -746,9 +746,9 @@ mod tests {
     #[test]
     fn test_performance_metrics() {
         let mut network = NetworkBuilder::new()
-            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0).unwrap()
-            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0).unwrap()
-            .add_channel("ch1", "inlet", "outlet", 100.0, 0.001, 1e-6).unwrap()
+            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
+            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
+            .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
             .build().unwrap();
 
         let analyzer = NetworkAnalyzer::new();
@@ -766,13 +766,13 @@ mod tests {
     #[test]
     fn test_comprehensive_analysis() {
         let mut network = NetworkBuilder::new()
-            .add_inlet_pressure("inlet", 0.0, 0.0, 2000.0).unwrap()
-            .add_junction("junction", 0.5, 0.0).unwrap()
-            .add_outlet_pressure("outlet1", 1.0, 0.5, 0.0).unwrap()
-            .add_outlet_pressure("outlet2", 1.0, -0.5, 0.0).unwrap()
-            .add_channel("input_ch", "inlet", "junction", 100.0, 0.001, 1e-6).unwrap()
-            .add_channel("output_ch1", "junction", "outlet1", 200.0, 0.001, 1e-6).unwrap()
-            .add_channel("output_ch2", "junction", "outlet2", 200.0, 0.001, 1e-6).unwrap()
+            .add_inlet_pressure("inlet", 0.0, 0.0, 2000.0)
+            .add_junction("junction", 0.5, 0.0)
+            .add_outlet_pressure("outlet1", 1.0, 0.5, 0.0)
+            .add_outlet_pressure("outlet2", 1.0, -0.5, 0.0)
+            .add_channel("input_ch", "inlet", "junction", ChannelProperties::new(100.0, 0.001, 1e-6))
+            .add_channel("output_ch1", "junction", "outlet1", ChannelProperties::new(200.0, 0.001, 1e-6))
+            .add_channel("output_ch2", "junction", "outlet2", ChannelProperties::new(200.0, 0.001, 1e-6))
             .build().unwrap();
 
         let analyzer = NetworkAnalyzer::new();

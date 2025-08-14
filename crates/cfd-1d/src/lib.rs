@@ -43,6 +43,7 @@ pub use network::{
 // Export solver functionality
 pub use solver::{
     NetworkSolver, SolverConfig, SolutionResult,
+    NetworkProblem, NetworkState, NetworkDomain,
 };
 
 // Export component functionality
