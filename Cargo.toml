@@ -136,3 +136,7 @@ path = "examples/pipe_flow_1d_validation.rs"
 [[example]]
 name = "venturi_cavitation"
 path = "examples/venturi_cavitation.rs"
+
+[[example]]
+name = "validation_suite"
+path = "examples/validation_suite.rs"
