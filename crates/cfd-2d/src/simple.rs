@@ -808,14 +808,10 @@ impl<T: RealField + FromPrimitive> PressureVelocityCouplerSolver<T> {
         }
         
         if !missing_bcs.is_empty() {
-            tracing::warn!(
-                "Missing boundary conditions for {} cells. Using no-slip walls as default.",
-                missing_bcs.len()
-            );
-            // Apply default no-slip conditions for missing BCs
-            for (i, j) in missing_bcs {
-                self.u[i][j] = Vector2::zeros();
-            }
+            return Err(cfd_core::Error::InvalidConfiguration(format!(
+                "Missing boundary conditions for the following cells: {:?}",
+                missing_bcs
+            )));
         }
         
         // Apply user-specified boundary conditions

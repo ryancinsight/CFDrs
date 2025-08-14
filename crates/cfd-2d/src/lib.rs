@@ -22,7 +22,7 @@ pub mod vorticity_stream;
 pub mod schemes;
 
 // Export implemented functionality
-pub use grid::{Grid2D, StructuredGrid2D, BoundaryType, GridEdge, GridIterator};
+pub use grid::{Grid2D, StructuredGrid2D, BoundaryType, GridEdge};
 pub use energy::EnergyEquationSolver;
 pub use turbulence::{KEpsilonModel, WallFunction};
 pub use fdm::{PoissonSolver, AdvectionDiffusionSolver, FdmConfig};
