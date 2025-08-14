@@ -15,9 +15,9 @@ pub mod vectorization;
 
 pub use interpolation::{Interpolation, LinearInterpolation, CubicSplineInterpolation};
 pub use linear_solver::{
-    LinearSolver, LinearSolverConfig, ConjugateGradient, GMRES, BiCGSTAB, 
+    LinearSolver, LinearSolverConfig, ConjugateGradient, BiCGSTAB, 
     Preconditioner, IdentityPreconditioner, JacobiPreconditioner, 
-    SORPreconditioner, ILU0Preconditioner
+    SORPreconditioner
 };
 pub use sparse::{SparseMatrix, SparseMatrixBuilder};
 pub use differentiation::{FiniteDifference, Gradient};
