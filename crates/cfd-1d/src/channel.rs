@@ -4,8 +4,9 @@
 //! complex geometries, surface effects, and flow regime transitions.
 
 use cfd_core::{Fluid, Result};
-use nalgebra::{RealField, ComplexField};
+use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
+use num_traits::Float as _; // bring Float methods into scope for T
 use serde::{Deserialize, Serialize};
 // Removed unused import following YAGNI principle
 
@@ -212,20 +213,20 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ChannelGeometry<T> {
     /// Get cross-sectional area
     pub fn area(&self) -> T {
         match &self.cross_section {
-            CrossSection::Rectangular { width, height } => width.clone() * height.clone(),
+            CrossSection::Rectangular { width, height } => *width * *height,
             CrossSection::Circular { diameter } => {
                 let pi = T::from_f64(std::f64::consts::PI).unwrap();
-                let radius = diameter.clone() / T::from_f64(2.0).unwrap();
-                pi * radius.clone() * radius
+                let radius = *diameter / T::from_f64(2.0).unwrap();
+                pi * radius * radius
             },
             CrossSection::Elliptical { major_axis, minor_axis } => {
                 let pi = T::from_f64(std::f64::consts::PI).unwrap();
-                pi * major_axis.clone() * minor_axis.clone() / T::from_f64(4.0).unwrap()
+                pi * *major_axis * *minor_axis / T::from_f64(4.0).unwrap()
             },
             CrossSection::Trapezoidal { top_width, bottom_width, height } => {
-                (top_width.clone() + bottom_width.clone()) * height.clone() / T::from_f64(2.0).unwrap()
+                (*top_width + *bottom_width) * *height / T::from_f64(2.0).unwrap()
             },
-            CrossSection::Custom { area, .. } => area.clone(),
+            CrossSection::Custom { area, .. } => *area,
         }
     }
 
@@ -234,24 +235,22 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ChannelGeometry<T> {
         match &self.cross_section {
             CrossSection::Rectangular { width, height } => {
                 let four = T::from_f64(4.0).unwrap();
-                four * self.area() / (T::from_f64(2.0).unwrap() * (width.clone() + height.clone()))
+                four * self.area() / (T::from_f64(2.0).unwrap() * (*width + *height))
             },
-            CrossSection::Circular { diameter } => diameter.clone(),
+            CrossSection::Circular { diameter } => *diameter,
             CrossSection::Elliptical { major_axis, minor_axis } => {
-                // Approximation for ellipse
-                let two = T::from_f64(2.0).unwrap();
-                two * ComplexField::sqrt(major_axis.clone() * minor_axis.clone())
+                // Use definition Dh = 4 A / P with Ramanujan perimeter
+                let four = T::from_f64(4.0).unwrap();
+                four * self.area() / self.wetted_perimeter()
             },
             CrossSection::Trapezoidal { top_width, bottom_width, height } => {
                 let area = self.area();
-                let perimeter = top_width.clone() + bottom_width.clone() +
-                    T::from_f64(2.0).unwrap() * ComplexField::sqrt(
-                        ComplexField::powi(height.clone(), 2) +
-                        ComplexField::powi((top_width.clone() - bottom_width.clone()) / T::from_f64(2.0).unwrap(), 2)
-                    );
+                let hw = (*top_width - *bottom_width) / T::from_f64(2.0).unwrap();
+                let side_length = num_traits::Float::sqrt(num_traits::Float::powi(*height, 2) + num_traits::Float::powi(hw, 2));
+                let perimeter = *top_width + *bottom_width + T::from_f64(2.0).unwrap() * side_length;
                 T::from_f64(4.0).unwrap() * area / perimeter
             },
-            CrossSection::Custom { hydraulic_diameter, .. } => hydraulic_diameter.clone(),
+            CrossSection::Custom { hydraulic_diameter, .. } => *hydraulic_diameter,
         }
     }
 
@@ -259,30 +258,28 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ChannelGeometry<T> {
     pub fn wetted_perimeter(&self) -> T {
         match &self.cross_section {
             CrossSection::Rectangular { width, height } => {
-                T::from_f64(2.0).unwrap() * (width.clone() + height.clone())
+                T::from_f64(2.0).unwrap() * (*width + *height)
             },
             CrossSection::Circular { diameter } => {
                 let pi = T::from_f64(std::f64::consts::PI).unwrap();
-                pi * diameter.clone()
+                pi * *diameter
             },
             CrossSection::Elliptical { major_axis, minor_axis } => {
                 // Ramanujan's approximation for ellipse perimeter
                 let pi = T::from_f64(std::f64::consts::PI).unwrap();
-                let a = major_axis.clone() / T::from_f64(2.0).unwrap();
-                let b = minor_axis.clone() / T::from_f64(2.0).unwrap();
-                let h = ComplexField::powi((a.clone() - b.clone()) / (a.clone() + b.clone()), 2);
-                pi * (a + b) * (T::one() + T::from_f64(3.0).unwrap() * h.clone() /
-                    (T::from_f64(10.0).unwrap() + ComplexField::sqrt(T::from_f64(4.0).unwrap() - T::from_f64(3.0).unwrap() * h)))
+                let a = *major_axis / T::from_f64(2.0).unwrap();
+                let b = *minor_axis / T::from_f64(2.0).unwrap();
+                let h = num_traits::Float::powi((a - b) / (a + b), 2);
+                pi * (a + b) * (T::one() + T::from_f64(3.0).unwrap() * h /
+                    (T::from_f64(10.0).unwrap() + num_traits::Float::sqrt(T::from_f64(4.0).unwrap() - T::from_f64(3.0).unwrap() * h)))
             },
             CrossSection::Trapezoidal { top_width, bottom_width, height } => {
-                let side_length = ComplexField::sqrt(
-                    ComplexField::powi(height.clone(), 2) +
-                    ComplexField::powi((top_width.clone() - bottom_width.clone()) / T::from_f64(2.0).unwrap(), 2)
-                );
-                top_width.clone() + bottom_width.clone() + T::from_f64(2.0).unwrap() * side_length
+                let hw = (*top_width - *bottom_width) / T::from_f64(2.0).unwrap();
+                let side_length = num_traits::Float::sqrt(num_traits::Float::powi(*height, 2) + num_traits::Float::powi(hw, 2));
+                *top_width + *bottom_width + T::from_f64(2.0).unwrap() * side_length
             },
             CrossSection::Custom { area, hydraulic_diameter } => {
-                T::from_f64(4.0).unwrap() * area.clone() / hydraulic_diameter.clone()
+                T::from_f64(4.0).unwrap() * *area / *hydraulic_diameter
             },
         }
     }
@@ -327,7 +324,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
     fn update_flow_state(&mut self, _fluid: &Fluid<T>) -> Result<()> {
         // Calculate Reynolds number if velocity is known
         if let Some(re) = self.flow_state.reynolds_number.clone() {
-            self.flow_state.flow_regime = self.classify_flow_regime(re.clone());
+            self.flow_state.flow_regime = self.classify_flow_regime(re);
             
             // Check for entrance effects
             let dh = self.geometry.hydraulic_diameter();
@@ -337,25 +334,25 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
             let entrance_length = match self.flow_state.flow_regime {
                 FlowRegime::Laminar => {
                     // Laminar entrance length
-                    dh.clone() * T::from_f64(0.06).unwrap() * re.clone()
+                    dh * T::from_f64(0.06).unwrap() * re
                 }
                 FlowRegime::Transitional => {
                     // Use turbulent correlation for transitional
                     let one_sixth = T::from_f64(1.0/6.0).unwrap();
-                    dh.clone() * T::from_f64(4.4).unwrap() * ComplexField::powf(re.clone(), one_sixth)
+                    dh * T::from_f64(4.4).unwrap() * num_traits::Float::powf(re, one_sixth)
                 }
                 FlowRegime::Turbulent => {
                     // Turbulent entrance length
                     let one_sixth = T::from_f64(1.0/6.0).unwrap();
-                    dh.clone() * T::from_f64(4.4).unwrap() * ComplexField::powf(re.clone(), one_sixth)
+                    dh * T::from_f64(4.4).unwrap() * num_traits::Float::powf(re, one_sixth)
                 }
                 FlowRegime::Stokes => {
                     // Stokes flow - use laminar correlation
-                    dh.clone() * T::from_f64(0.06).unwrap() * re.clone()
+                    dh * T::from_f64(0.06).unwrap() * re
                 }
                 FlowRegime::SlipFlow => {
                     // Slip flow - use modified correlation
-                    dh.clone() * T::from_f64(0.1).unwrap() * re.clone()
+                    dh * T::from_f64(0.1).unwrap() * re
                 }
             };
             self.flow_state.entrance_effects = self.geometry.length < entrance_length;
@@ -468,7 +465,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
         // Hagen-Poiseuille equation: R = (128 * μ * L) / (π * D^4)
         let pi = T::from_f64(std::f64::consts::PI).unwrap();
         let onehundredtwentyeight = T::from_f64(128.0).unwrap();
-        let d4 = ComplexField::powf(diameter, T::from_f64(4.0).unwrap());
+        let d4 = num_traits::Float::powf(diameter, T::from_f64(4.0).unwrap());
 
         let resistance = onehundredtwentyeight * viscosity * length / (pi * d4);
 
@@ -499,12 +496,12 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
         let density = fluid.density;
 
         // Calculate friction factor using Swamee-Jain approximation for smooth pipes
-        let relative_roughness = self.geometry.surface.roughness.clone() / dh.clone();
+        let relative_roughness = self.geometry.surface.roughness / dh;
         let friction_factor = self.calculate_turbulent_friction_factor(reynolds, relative_roughness);
 
         // Darcy-Weisbach resistance: R = f * L * ρ / (2 * A * Dh^2)
         let resistance = friction_factor * length * density /
-                        (T::from_f64(2.0).unwrap() * area * dh.clone() * dh);
+                        (T::from_f64(2.0).unwrap() * area * dh * dh);
 
         Ok(resistance)
     }
@@ -514,10 +511,9 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
         // Swamee-Jain approximation to Colebrook-White equation
         // Valid for: 5000 < Re < 10^8, 10^-6 < ε/D < 10^-2
         let term1 = relative_roughness / T::from_f64(3.7).unwrap();
-        let term2 = T::from_f64(5.74).unwrap() / ComplexField::powf(reynolds, T::from_f64(0.9).unwrap());
-        let log_term = ComplexField::ln(term1 + term2);
-
-        T::from_f64(0.25).unwrap() / ComplexField::powf(log_term, T::from_f64(2.0).unwrap())
+        let term2 = T::from_f64(5.74).unwrap() / num_traits::Float::powf(reynolds, T::from_f64(0.9).unwrap());
+        let log_term = num_traits::Float::ln(term1 + term2);
+        T::from_f64(0.25).unwrap() / num_traits::Float::powf(log_term, T::from_f64(2.0).unwrap())
     }
 
     /// Calculate resistance for slip flow (rarefied gas) using Knudsen number corrections

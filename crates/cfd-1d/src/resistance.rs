@@ -5,8 +5,9 @@
 //! solutions and empirical correlations.
 
 use cfd_core::{Fluid, Result, Error};
-use nalgebra::{RealField, ComplexField};
+use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
+use num_traits::Float as _;
 use serde::{Deserialize, Serialize};
 
 /// Trait for hydraulic resistance models
@@ -62,8 +63,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for Ha
         let onehundredtwentyeight = T::from_f64(128.0).unwrap();
 
         // R = (128 * μ * L) / (π * D^4)
-        let d4 = ComplexField::powf(self.diameter.clone(), T::from_f64(4.0).unwrap());
-        let resistance = onehundredtwentyeight * viscosity * self.length.clone() / (pi * d4);
+        let d4 = num_traits::Float::powf(self.diameter, T::from_f64(4.0).unwrap());
+        let resistance = onehundredtwentyeight * viscosity * self.length / (pi * d4);
 
         Ok(resistance)
     }
@@ -96,11 +97,11 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for Re
         // Calculate friction factor using exact series solution
         let f_re = self.calculate_friction_factor(aspect_ratio);
 
-        let area = self.width.clone() * self.height.clone();
-        let dh = T::from_f64(4.0).unwrap() * area.clone() /
-                (T::from_f64(2.0).unwrap() * (self.width.clone() + self.height.clone()));
+        let area = self.width * self.height;
+        let dh = T::from_f64(4.0).unwrap() * area /
+                (T::from_f64(2.0).unwrap() * (self.width + self.height));
 
-        let resistance = f_re * viscosity * self.length.clone() / (area * dh.clone() * dh);
+        let resistance = f_re * viscosity * self.length / (area * dh * dh);
 
         Ok(resistance)
     }
@@ -138,7 +139,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> RectangularChannelModel<T
         if alpha >= one {
             // Wide channel approximation (simplified)
             // Based on Shah & London (1978) with numerical stabilization
-            let correction = one.clone() - T::from_f64(0.63).unwrap() / alpha;
+            let correction = one - T::from_f64(0.63).unwrap() / alpha;
             twentyfour * RealField::max(correction, T::from_f64(0.1).unwrap()) // Ensure positive
         } else {
             // Tall channel approximation (simplified)
@@ -171,13 +172,13 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for Da
         let friction_factor = self.calculate_friction_factor(reynolds);
 
         let area = T::from_f64(std::f64::consts::PI).unwrap() *
-                  ComplexField::powf(self.hydraulic_diameter.clone(), T::from_f64(2.0).unwrap()) /
+                  num_traits::Float::powf(self.hydraulic_diameter, T::from_f64(2.0).unwrap()) /
                   T::from_f64(4.0).unwrap();
 
         // Convert Darcy friction factor to hydraulic resistance
         let density = fluid.density;
-        let resistance = friction_factor * self.length.clone() * density /
-                        (T::from_f64(2.0).unwrap() * area * ComplexField::powf(self.hydraulic_diameter.clone(), T::from_f64(2.0).unwrap()));
+        let resistance = friction_factor * self.length * density /
+                        (T::from_f64(2.0).unwrap() * area * num_traits::Float::powf(self.hydraulic_diameter, T::from_f64(2.0).unwrap()));
 
         Ok(resistance)
     }
@@ -194,14 +195,13 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for Da
 impl<T: RealField + FromPrimitive + num_traits::Float> DarcyWeisbachModel<T> {
     /// Calculate friction factor using Swamee-Jain approximation
     fn calculate_friction_factor(&self, reynolds: T) -> T {
-        let relative_roughness = self.roughness.clone() / self.hydraulic_diameter.clone();
+        let relative_roughness = self.roughness / self.hydraulic_diameter;
 
         // Swamee-Jain approximation to Colebrook-White equation
         let term1 = relative_roughness / T::from_f64(3.7).unwrap();
-        let term2 = T::from_f64(5.74).unwrap() / ComplexField::powf(reynolds, T::from_f64(0.9).unwrap());
-        let log_term = ComplexField::ln(term1 + term2);
-
-        T::from_f64(0.25).unwrap() / ComplexField::powf(log_term, T::from_f64(2.0).unwrap())
+        let term2 = T::from_f64(5.74).unwrap() / num_traits::Float::powf(reynolds, T::from_f64(0.9).unwrap());
+        let log_term = num_traits::Float::ln(term1 + term2);
+        T::from_f64(0.25).unwrap() / num_traits::Float::powf(log_term, T::from_f64(2.0).unwrap())
     }
 }
 
@@ -216,7 +216,7 @@ pub struct EntranceEffectsModel<T: RealField> {
 
 impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for EntranceEffectsModel<T> {
     fn calculate_resistance(&self, _fluid: &Fluid<T>, _conditions: &FlowConditions<T>) -> Result<T> {
-        Ok(self.base_resistance.clone() * (T::one() + self.entrance_coefficient.clone()))
+        Ok(self.base_resistance * (T::one() + self.entrance_coefficient))
     }
 
     fn model_name(&self) -> &str {
