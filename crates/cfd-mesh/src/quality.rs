@@ -14,7 +14,7 @@
 use crate::mesh::{Mesh, Cell, ElementType};
 use nalgebra::{Point3, RealField};
 use num_traits::Float;
-use nalgebra::ComplexField as CF;
+// Avoid ComplexField; use real-valued Float methods consistently
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -431,7 +431,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             let cos_clamped = Float::min(Float::max(cos_angle, -T::one()), T::one());
             let angle = Float::acos(cos_clamped);
             
-            let deviation = CF::abs(angle - ideal_angle) / ideal_angle;
+            let deviation = num_traits::Float::abs(angle - ideal_angle) / ideal_angle;
             max_deviation = Float::max(max_deviation, deviation);
         }
         
@@ -453,7 +453,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             let cos_clamped = Float::min(Float::max(cos_angle, -T::one()), T::one());
             let angle = Float::acos(cos_clamped);
             
-            let deviation = CF::abs(angle - ideal_angle) / ideal_angle;
+            let deviation = num_traits::Float::abs(angle - ideal_angle) / ideal_angle;
             max_deviation = Float::max(max_deviation, deviation);
         }
         
@@ -462,33 +462,21 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
 
     fn tetrahedron_skewness(&self, vertices: &[&Point3<T>]) -> T {
         if vertices.len() != 4 { return T::one(); }
-        
-        // Calculate all face angles and check deviation from ideal
-        let mut max_deviation = T::zero();
-        let ideal_angle = T::from(60.0_f64.to_radians()).unwrap();
-        
-        // Check all edge angles
-        let edges = [
-            vertices[1] - vertices[0],
-            vertices[2] - vertices[0], 
-            vertices[3] - vertices[0],
-            vertices[2] - vertices[1],
-            vertices[3] - vertices[1],
-            vertices[3] - vertices[2],
+
+        // Face-based skewness: max skewness across the four triangular faces
+        let faces = [
+            [vertices[0], vertices[1], vertices[2]],
+            [vertices[0], vertices[2], vertices[3]],
+            [vertices[0], vertices[3], vertices[1]],
+            [vertices[1], vertices[3], vertices[2]],
         ];
-        
-        for i in 0..edges.len() {
-            for j in (i+1)..edges.len() {
-                let cos_angle = edges[i].dot(&edges[j]) / (edges[i].norm() * edges[j].norm());
-                let cos_clamped = Float::min(Float::max(cos_angle, -T::one()), T::one());
-                let angle = Float::acos(cos_clamped);
-                
-                let deviation = CF::abs(angle - ideal_angle) / ideal_angle;
-                max_deviation = Float::max(max_deviation, deviation);
-            }
+
+        let mut max_face_skewness = T::zero();
+        for face in &faces {
+            let skew = self.triangle_skewness(face);
+            max_face_skewness = Float::max(max_face_skewness, skew);
         }
-        
-        Float::min(max_deviation, T::one())
+        max_face_skewness
     }
 
     fn hexahedron_skewness(&self, vertices: &[&Point3<T>]) -> T {
@@ -525,7 +513,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
                         let cos_clamped = Float::min(Float::max(cos_angle, -T::one()), T::one());
                         let angle = Float::acos(cos_clamped);
                         
-                        let deviation = CF::abs(angle - ideal_angle) / ideal_angle;
+                        let deviation = num_traits::Float::abs(angle - ideal_angle) / ideal_angle;
                         max_deviation = Float::max(max_deviation, deviation);
                     }
                 }
@@ -553,7 +541,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             
             // For a regular pyramid, apex angles should be equal
             let expected_angle = T::from(90.0_f64.to_radians()).unwrap();
-            let deviation = CF::abs(angle - expected_angle) / expected_angle;
+            let deviation = num_traits::Float::abs(angle - expected_angle) / expected_angle;
             apex_deviation = Float::max(apex_deviation, deviation);
         }
         
@@ -602,7 +590,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             let e2 = vertices[(i + 3) % 4] - vertices[i];
             
             let cos_angle = e1.dot(&e2) / (e1.norm() * e2.norm());
-            let orthogonality = T::one() - CF::abs(cos_angle);
+            let orthogonality = T::one() - num_traits::Float::abs(cos_angle);
             min_orthogonality = Float::min(min_orthogonality, orthogonality);
         }
         
@@ -629,7 +617,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
                 
                 if norm_i > T::zero() && norm_j > T::zero() {
                     let cos_angle = face_normals[i].dot(&face_normals[j]) / (norm_i * norm_j);
-                    let orthogonality = T::one() - CF::abs(cos_angle);
+                    let orthogonality = T::one() - num_traits::Float::abs(cos_angle);
                     min_orthogonality = Float::min(min_orthogonality, orthogonality);
                 }
             }
@@ -673,7 +661,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             
             if norm_i > T::zero() && norm_j > T::zero() {
                 let cos_angle = face_normals[i].dot(&face_normals[j]) / (norm_i * norm_j);
-                let orthogonality = T::one() - CF::abs(cos_angle);
+                let orthogonality = T::one() - num_traits::Float::abs(cos_angle);
                 min_orthogonality = Float::min(min_orthogonality, orthogonality);
             }
         }
@@ -699,7 +687,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             
             if base_norm > T::zero() && tri_norm > T::zero() {
                 let cos_angle = base_normal.dot(&tri_normal) / (base_norm * tri_norm);
-                let orthogonality = T::one() - CF::abs(cos_angle);
+                let orthogonality = T::one() - num_traits::Float::abs(cos_angle);
                 min_orthogonality = Float::min(min_orthogonality, orthogonality);
             }
         }
@@ -727,7 +715,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             
             if bottom_norm > T::zero() && rect_norm > T::zero() {
                 let cos_angle = bottom_normal.dot(&rect_normal) / (bottom_norm * rect_norm);
-                let orthogonality = T::one() - CF::abs(cos_angle);
+                let orthogonality = T::one() - num_traits::Float::abs(cos_angle);
                 min_orthogonality = Float::min(min_orthogonality, orthogonality);
             }
             
@@ -735,7 +723,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             let top_norm = top_normal.norm();
             if top_norm > T::zero() && rect_norm > T::zero() {
                 let cos_angle = top_normal.dot(&rect_normal) / (top_norm * rect_norm);
-                let orthogonality = T::one() - CF::abs(cos_angle);
+                let orthogonality = T::one() - num_traits::Float::abs(cos_angle);
                 min_orthogonality = Float::min(min_orthogonality, orthogonality);
             }
         }
@@ -779,39 +767,19 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
         let v2 = vertices[2] - vertices[0];
         let v3 = vertices[3] - vertices[0];
         
-        CF::abs(v1.cross(&v2).dot(&v3)) / T::from(6.0).unwrap()
+        num_traits::Float::abs(v1.cross(&v2).dot(&v3)) / T::from(6.0).unwrap()
     }
 
     fn hexahedron_volume(&self, vertices: &[&Point3<T>]) -> T {
         if vertices.len() != 8 { return T::zero(); }
-        
-        // Decompose hexahedron into 6 tetrahedra and sum volumes
-        let center = vertices.iter().fold(vertices[0].coords, |acc, v| acc + v.coords) 
-            / T::from(vertices.len()).unwrap();
-        let center_point = Point3::from(center);
-        
-        let mut total_volume = T::zero();
-        
-        // Each face forms a tetrahedron with the center
-        let faces = [
-            [0, 1, 2, 3], // Bottom
-            [4, 5, 6, 7], // Top
-            [0, 1, 5, 4], // Front
-            [2, 3, 7, 6], // Back
-            [0, 3, 7, 4], // Left
-            [1, 2, 6, 5], // Right
-        ];
-        
-        for face in &faces {
-            // Split each quadrilateral face into two triangles
-            let tri_verts = [vertices[face[0]], vertices[face[1]], vertices[face[2]], &center_point];
-            total_volume = total_volume + self.tetrahedron_volume(&tri_verts);
-            
-            let tri_verts = [vertices[face[0]], vertices[face[2]], vertices[face[3]], &center_point];
-            total_volume = total_volume + self.tetrahedron_volume(&tri_verts);
-        }
-        
-        total_volume
+
+        // Efficient 5-tetrahedra decomposition (assumes standard hexa ordering)
+        let v = |i: usize| vertices[i];
+        self.tetrahedron_volume(&[v(0), v(1), v(3), v(4)]) +
+        self.tetrahedron_volume(&[v(1), v(2), v(3), v(6)]) +
+        self.tetrahedron_volume(&[v(1), v(4), v(5), v(6)]) +
+        self.tetrahedron_volume(&[v(3), v(4), v(6), v(7)]) +
+        self.tetrahedron_volume(&[v(1), v(3), v(4), v(6)])
     }
 
     fn pyramid_volume(&self, vertices: &[&Point3<T>]) -> T {
@@ -823,22 +791,19 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
         // Calculate height as distance from apex to base plane
         let base_normal = (vertices[1] - vertices[0]).cross(&(vertices[3] - vertices[0]));
         let base_normal_unit = base_normal / base_normal.norm();
-        let height = CF::abs((vertices[4] - vertices[0]).dot(&base_normal_unit));
+        let height = num_traits::Float::abs((vertices[4] - vertices[0]).dot(&base_normal_unit));
         
         base_area * height / T::from(3.0).unwrap()
     }
 
     fn pentahedron_volume(&self, vertices: &[&Point3<T>]) -> T {
         if vertices.len() != 6 { return T::zero(); }
-        
-        // Decompose triangular prism into 3 tetrahedra
-        let tet1 = [vertices[0], vertices[1], vertices[2], vertices[3]];
-        let tet2 = [vertices[1], vertices[2], vertices[3], vertices[4]];
-        let tet3 = [vertices[2], vertices[3], vertices[4], vertices[5]];
-        
-        self.tetrahedron_volume(&tet1) + 
-        self.tetrahedron_volume(&tet2) + 
-        self.tetrahedron_volume(&tet3)
+        let v = |i: usize| vertices[i];
+        // Standard triangular prism decomposition: 3 tets
+        let vol1 = self.tetrahedron_volume(&[v(0), v(1), v(2), v(5)]);
+        let vol2 = self.tetrahedron_volume(&[v(0), v(1), v(3), v(5)]);
+        let vol3 = self.tetrahedron_volume(&[v(1), v(3), v(4), v(5)]);
+        vol1 + vol2 + vol3
     }
 }
 
