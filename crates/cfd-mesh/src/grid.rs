@@ -3,7 +3,7 @@
 //! This module provides structured grid generation capabilities for CFD simulations,
 //! including Cartesian, cylindrical, and curvilinear grid systems.
 
-use crate::mesh::{Mesh, Vertex, Face, Cell, MeshTopology};
+use crate::mesh::{Mesh, Vertex, Face, Cell, MeshTopology, ElementType};
 use nalgebra::{Point3, Vector3, RealField};
 use num_traits::FromPrimitive;
 use std::f64::consts::PI;
@@ -480,6 +480,7 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
                     mesh.cells.push(Cell {
                         id: cell_id,
                         faces: face_ids,
+                        element_type: ElementType::Hexahedron,
                     });
                     cell_id += 1;
                 }

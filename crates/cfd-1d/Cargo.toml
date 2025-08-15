@@ -12,6 +12,8 @@ description = "1D CFD simulations for microfluidic networks"
 cfd-core = { path = "../cfd-core" }
 cfd-math = { path = "../cfd-math" }
 nalgebra.workspace = true
+nalgebra-sparse = "0.10"
+sprs = "0.11"
 num-traits.workspace = true
 petgraph.workspace = true
 serde.workspace = true
@@ -20,9 +22,14 @@ thiserror.workspace = true
 anyhow.workspace = true
 rand.workspace = true
 approx.workspace = true
+rayon = "1.10"
+tracing = "0.1"
 
 # 2D schematic visualization support
 scheme = { git = "https://github.com/ryancinsight/scheme", optional = true }
+
+[dev-dependencies]
+tracing-subscriber = "0.3"
 
 [features]
 default = []

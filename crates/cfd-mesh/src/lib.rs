@@ -16,7 +16,7 @@ pub mod csg;
 // Re-export commonly used types
 pub use connectivity::Connectivity;
 pub use geometry::Geometry;
-pub use mesh::{Cell, Edge, Face, Mesh, MeshTopology, Vertex};
+pub use mesh::{Cell, Edge, Face, Mesh, MeshTopology, Vertex, ElementType};
 pub use csg::CsgMeshAdapter;
 
 /// Common mesh types and traits

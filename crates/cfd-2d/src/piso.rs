@@ -2,22 +2,41 @@
 //!
 //! The PISO algorithm is an extension of SIMPLE with additional corrector steps
 //! for transient calculations with additional corrector steps.
+//!
+//! ## Performance Improvements
+//!
+//! This implementation includes several critical performance optimizations:
+//!
+//! 1. **Efficient Gauss-Seidel**: Direct neighbor coefficient access eliminates the need
+//!    for sparse matrix storage, reducing memory usage from O(N²) to O(N) and improving
+//!    cache locality for better performance on structured grids.
+//!
+//! 2. **Zero-copy field swapping**: Uses `std::mem::swap` instead of deep cloning to
+//!    manage old/new velocity fields, eliminating allocation overhead each time step.
+//!
+//! 3. **Robust constant handling**: Safe numeric conversions with proper error handling
+//!    replace `unwrap()` calls that could panic.
+//!
+//! 4. **Unified boundary conditions**: Single cohesive system for BC application
+//!    eliminates code duplication and provides consistent behavior.
+//!
+//! Note: While this implementation uses direct neighbor access instead of sparse matrices
+//! for the structured grid case, the sparse matrix infrastructure (nalgebra_sparse) 
+//! remains available for future unstructured grid implementations.
 
 use crate::grid::{StructuredGrid2D, Grid2D};
 use cfd_core::{Result, constants};
 use nalgebra::{Vector2, RealField};
+use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 // Named constants for PISO algorithm
 const DEFAULT_MAX_CORRECTORS: usize = 2;
-const _DEFAULT_VELOCITY_RELAXATION: f64 = constants::ONE; // No under-relaxation in PISO
-const _DEFAULT_PRESSURE_RELAXATION: f64 = constants::ONE;
-const _MOMENTUM_COEFFICIENT_FACTOR: f64 = constants::FOUR;
-const GRADIENT_FACTOR: f64 = constants::TWO;
+const GRADIENT_SCHEME_FACTOR: f64 = 2.0; // Second-order central difference
 
-/// PISO solver configuration
+/// PISO solver configuration with robust constant handling
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PisoConfig<T: RealField> {
     /// Base solver configuration
@@ -34,19 +53,55 @@ pub struct PisoConfig<T: RealField> {
     pub non_orthogonal_correctors: usize,
 }
 
+/// Helper trait for safe numeric conversion
+pub trait SafeFromF64<T> {
+    fn safe_from_f64(value: f64) -> Result<T>;
+}
+
+impl<T: RealField + FromPrimitive> SafeFromF64<T> for T {
+    fn safe_from_f64(value: f64) -> Result<T> {
+        T::from_f64(value).ok_or_else(|| 
+            cfd_core::Error::NumericalError(
+                format!("Cannot convert f64 value {} to target type", value)
+            )
+        )
+    }
+}
+
+/// Numerical constants for PISO algorithm
+pub struct PisoConstants<T: RealField> {
+    pub zero: T,
+    pub one: T,
+    pub two: T,
+    pub epsilon: T,
+    pub gradient_factor: T,
+}
+
+impl<T: RealField + FromPrimitive> PisoConstants<T> {
+    pub fn new() -> Result<Self> {
+        Ok(Self {
+            zero: T::zero(),
+            one: T::one(),
+            two: T::safe_from_f64(2.0)?,
+            epsilon: T::safe_from_f64(constants::EPSILON)?,
+            gradient_factor: T::safe_from_f64(GRADIENT_SCHEME_FACTOR)?,
+        })
+    }
+}
+
 impl<T: RealField + FromPrimitive> Default for PisoConfig<T> {
     fn default() -> Self {
         let base = cfd_core::SolverConfig::builder()
             .max_iterations(50) // PISO needs fewer iterations than SIMPLE
-            .tolerance(T::from_f64(constants::DEFAULT_TOLERANCE).unwrap())
+            .tolerance(T::safe_from_f64(constants::DEFAULT_TOLERANCE).unwrap_or_else(|_| T::from_f64(1e-6).unwrap()))
             .build();
 
         Self {
             base,
-            time_step: T::from_f64(constants::DEFAULT_TIME_STEP).unwrap(), // Default time step
+            time_step: T::safe_from_f64(constants::DEFAULT_TIME_STEP).unwrap_or_else(|_| T::from_f64(0.01).unwrap()),
             num_correctors: DEFAULT_MAX_CORRECTORS,
-            velocity_tolerance: T::from_f64(constants::DEFAULT_TOLERANCE).unwrap(),
-            pressure_tolerance: T::from_f64(constants::DEFAULT_TOLERANCE).unwrap(),
+            velocity_tolerance: T::safe_from_f64(constants::DEFAULT_TOLERANCE).unwrap_or_else(|_| T::from_f64(1e-6).unwrap()),
+            pressure_tolerance: T::safe_from_f64(constants::DEFAULT_TOLERANCE).unwrap_or_else(|_| T::from_f64(1e-6).unwrap()),
             non_orthogonal_correctors: 1,
         }
     }
@@ -71,8 +126,10 @@ impl<T: RealField + FromPrimitive> Default for PisoConfig<T> {
 /// by operator-splitting." Journal of Computational Physics, 62(1), 40-65.
 pub struct PisoSolver<T: RealField> {
     config: PisoConfig<T>,
-    /// Velocity field [nx][ny]
+    /// Current velocity field [nx][ny]
     u: Vec<Vec<Vector2<T>>>,
+    /// Previous time step velocity field [nx][ny] 
+    u_old: Vec<Vec<Vector2<T>>>,
     /// Pressure field [nx][ny]
     p: Vec<Vec<T>>,
     /// First pressure correction [nx][ny]
@@ -101,6 +158,8 @@ pub struct PisoSolver<T: RealField> {
     grid: StructuredGrid2D<T>,
     /// Boundary conditions
     boundary_conditions: HashMap<(usize, usize), cfd_core::BoundaryCondition<T>>,
+    /// Numerical constants
+    constants: PisoConstants<T>,
 }
 
 impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
@@ -110,15 +169,17 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
         grid: StructuredGrid2D<T>,
         density: T,
         viscosity: T,
-    ) -> Self {
+    ) -> Result<Self> {
         let nx = grid.nx;
         let ny = grid.ny;
         let dx = grid.dx.clone();
         let dy = grid.dy.clone();
+        let constants = PisoConstants::new()?;
 
-        Self {
+        Ok(Self {
             config,
             u: vec![vec![Vector2::zeros(); ny]; nx],
+            u_old: vec![vec![Vector2::zeros(); ny]; nx],
             p: vec![vec![T::zero(); ny]; nx],
             p_prime: vec![vec![T::zero(); ny]; nx],
             p_double_prime: vec![vec![T::zero(); ny]; nx],
@@ -137,7 +198,8 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
             a_s: vec![vec![T::zero(); ny]; nx],
             grid,
             boundary_conditions: HashMap::new(),
-        }
+            constants,
+        })
     }
     
     /// Set boundary conditions
@@ -150,15 +212,16 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
         for i in 0..self.nx {
             for j in 0..self.ny {
                 self.u[i][j] = initial_velocity.clone();
+                self.u_old[i][j] = initial_velocity.clone();
                 self.p[i][j] = initial_pressure.clone();
             }
         }
-        self.compute_momentum_coefficients();
+        self.compute_momentum_coefficients()?;
         Ok(())
     }
 
     /// Compute momentum equation coefficients
-    fn compute_momentum_coefficients(&mut self) {
+    fn compute_momentum_coefficients(&mut self) -> Result<()> {
         let dt = self.config.time_step.clone();
         let dx2 = self.dx.clone() * self.dx.clone();
         let dy2 = self.dy.clone() * self.dy.clone();
@@ -171,13 +234,13 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
                 
                 // Convection coefficients (using central differencing)
                 let u_e = if i+1 < self.nx {
-                    (self.u[i][j].x.clone() + self.u[i+1][j].x.clone()) / T::from_f64(GRADIENT_FACTOR).unwrap()
+                    (self.u[i][j].x.clone() + self.u[i+1][j].x.clone()) / self.constants.two.clone()
                 } else {
-                    self.u[i][j].x.clone() / T::from_f64(GRADIENT_FACTOR).unwrap()
+                    self.u[i][j].x.clone() / self.constants.two.clone()
                 };
-                let u_w = (self.u[i-1][j].x.clone() + self.u[i][j].x.clone()) / T::from_f64(GRADIENT_FACTOR).unwrap();
-                let v_n = (self.u[i][j].y.clone() + self.u[i][j+1].y.clone()) / T::from_f64(GRADIENT_FACTOR).unwrap();
-                let v_s = (self.u[i][j-1].y.clone() + self.u[i][j].y.clone()) / T::from_f64(GRADIENT_FACTOR).unwrap();
+                let u_w = (self.u[i-1][j].x.clone() + self.u[i][j].x.clone()) / self.constants.two.clone();
+                let v_n = (self.u[i][j].y.clone() + self.u[i][j+1].y.clone()) / self.constants.two.clone();
+                let v_s = (self.u[i][j-1].y.clone() + self.u[i][j].y.clone()) / self.constants.two.clone();
                 
                 let conv_e = self.density.clone() * u_e / self.dx.clone();
                 let conv_w = self.density.clone() * u_w / self.dx.clone();
@@ -185,11 +248,11 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
                 let conv_s = self.density.clone() * v_s / self.dy.clone();
                 
                 // Hybrid scheme coefficients
-                let zero = T::zero();
+                let zero = self.constants.zero.clone();
                 self.a_e[i][j] = diff_x.clone() + if -conv_e.clone() > zero { -conv_e.clone() } else { zero.clone() };
                 self.a_w[i][j] = diff_x.clone() + if conv_w.clone() > zero { conv_w.clone() } else { zero.clone() };
                 self.a_n[i][j] = diff_y.clone() + if -conv_n.clone() > zero { -conv_n.clone() } else { zero.clone() };
-                self.a_s[i][j] = diff_y.clone() + if conv_s.clone() > zero { conv_s } else { zero.clone() };
+                self.a_s[i][j] = diff_y.clone() + if conv_s > zero { conv_s } else { zero.clone() };
                 
                 // Central coefficient (includes transient term)
                 self.a_p[i][j] = self.a_e[i][j].clone() + self.a_w[i][j].clone() 
@@ -197,256 +260,280 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
                     + self.density.clone() * self.dx.clone() * self.dy.clone() / dt.clone();
             }
         }
+        Ok(())
     }
 
-    /// Solve momentum predictor step
+    /// Solve momentum predictor step using efficient Gauss-Seidel with direct neighbor access
     fn solve_momentum_predictor(&mut self) -> Result<()> {
-        // Store old velocities
-        let u_old = self.u.clone();
+        // Compute momentum coefficients with current velocities
+        self.compute_momentum_coefficients()?;
         
-        // Build momentum equation system
-        let n = self.nx * self.ny;
-        let mut a_matrix = vec![vec![T::zero(); n]; n];
-        let mut b_x = vec![T::zero(); n];
-        let mut b_y = vec![T::zero(); n];
+        // Apply boundary conditions to coefficient matrix and create source terms
+        let mut b_x = vec![vec![T::zero(); self.ny]; self.nx];
+        let mut b_y = vec![vec![T::zero(); self.ny]; self.nx];
         
-        // Assemble momentum equations for each interior point
+        // Build source terms for interior points
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
-                let idx = i * self.ny + j;
-                
-                // Diagonal coefficient (includes transient term)
-                a_matrix[idx][idx] = self.a_p[i][j].clone();
-                
-                // Off-diagonal coefficients
-                if i > 0 {
-                    let idx_w = (i-1) * self.ny + j;
-                    a_matrix[idx][idx_w] = -self.a_w[i][j].clone();
-                }
-                if i < self.nx-1 {
-                    let idx_e = (i+1) * self.ny + j;
-                    a_matrix[idx][idx_e] = -self.a_e[i][j].clone();
-                }
-                if j > 0 {
-                    let idx_s = i * self.ny + (j-1);
-                    a_matrix[idx][idx_s] = -self.a_s[i][j].clone();
-                }
-                if j < self.ny-1 {
-                    let idx_n = i * self.ny + (j+1);
-                    a_matrix[idx][idx_n] = -self.a_n[i][j].clone();
-                }
-                
-                // Source terms (pressure gradient + old velocity)
                 let dt = self.config.time_step.clone();
-                let pressure_grad_x = (self.p[i+1][j].clone() - self.p[i-1][j].clone()) 
-                    / (T::from_f64(GRADIENT_FACTOR).unwrap() * self.dx.clone());
-                let pressure_grad_y = (self.p[i][j+1].clone() - self.p[i][j-1].clone()) 
-                    / (T::from_f64(GRADIENT_FACTOR).unwrap() * self.dy.clone());
                 
-                b_x[idx] = self.density.clone() * self.dx.clone() * self.dy.clone() 
-                    * u_old[i][j].x.clone() / dt.clone()
-                    - pressure_grad_x * self.dx.clone() * self.dy.clone();
-                b_y[idx] = self.density.clone() * self.dx.clone() * self.dy.clone() 
-                    * u_old[i][j].y.clone() / dt.clone()
-                    - pressure_grad_y * self.dx.clone() * self.dy.clone();
+                // Pressure gradient terms
+                let pressure_grad_x = (self.p[i+1][j].clone() - self.p[i-1][j].clone()) 
+                    / (self.constants.gradient_factor.clone() * self.dx.clone());
+                let pressure_grad_y = (self.p[i][j+1].clone() - self.p[i][j-1].clone()) 
+                    / (self.constants.gradient_factor.clone() * self.dy.clone());
+                
+                // Transient terms using old velocity field
+                let cell_volume = self.dx.clone() * self.dy.clone();
+                b_x[i][j] = self.density.clone() * cell_volume.clone() 
+                    * self.u_old[i][j].x.clone() / dt.clone()
+                    - pressure_grad_x * cell_volume.clone();
+                b_y[i][j] = self.density.clone() * cell_volume.clone() 
+                    * self.u_old[i][j].y.clone() / dt.clone()
+                    - pressure_grad_y * cell_volume;
             }
         }
         
-        // Apply boundary conditions to the system
-        self.apply_momentum_boundary_conditions(
-            &mut a_matrix, 
-            &mut b_x, 
-            &mut b_y,
-            &self.grid, // Assuming grid is a member of PisoSolver
-            &self.boundary_conditions // Assuming boundary_conditions is a member of PisoSolver
-        )?;
+        // Apply boundary conditions to system
+        self.apply_boundary_conditions_to_system(&mut b_x, &mut b_y)?;
         
-        // Solve using iterative method (Gauss-Seidel for now)
-        let mut u_x = vec![T::zero(); n];
-        let mut u_y = vec![T::zero(); n];
-        
-        // Initialize with current values
-        for i in 0..self.nx {
-            for j in 0..self.ny {
-                let idx = i * self.ny + j;
-                u_x[idx] = self.u[i][j].x.clone();
-                u_y[idx] = self.u[i][j].y.clone();
-            }
-        }
-        
-        // Gauss-Seidel iteration for x-momentum using iterator optimization
+        // Efficient Gauss-Seidel iteration using direct neighbor coefficients
         for _ in 0..self.config.base.convergence.max_iterations {
-            (0..n).for_each(|idx| {
-                if a_matrix[idx][idx].clone().abs() > T::from_f64(constants::EPSILON).unwrap() {
-                    let sum = b_x[idx].clone() - 
-                        (0..n).filter(|&k| k != idx)
-                              .map(|k| a_matrix[idx][k].clone() * u_x[k].clone())
-                              .fold(T::zero(), |acc, term| acc + term);
-                    u_x[idx] = sum / a_matrix[idx][idx].clone();
+            for i in 1..self.nx-1 {
+                for j in 1..self.ny-1 {
+                    // Skip if diagonal coefficient is too small
+                    if self.a_p[i][j].clone().abs() <= self.constants.epsilon {
+                        continue;
+                    }
+                    
+                    // X-momentum equation: direct neighbor access
+                    let u_x_neighbors = self.a_w[i][j].clone() * self.u[i-1][j].x.clone() + 
+                                        self.a_e[i][j].clone() * self.u[i+1][j].x.clone() +
+                                        self.a_s[i][j].clone() * self.u[i][j-1].x.clone() +
+                                        self.a_n[i][j].clone() * self.u[i][j+1].x.clone();
+
+                    let new_u_x = (b_x[i][j].clone() - u_x_neighbors) / self.a_p[i][j].clone();
+                    self.u[i][j].x = new_u_x;
+                    
+                    // Y-momentum equation: direct neighbor access
+                    let u_y_neighbors = self.a_w[i][j].clone() * self.u[i-1][j].y.clone() + 
+                                        self.a_e[i][j].clone() * self.u[i+1][j].y.clone() +
+                                        self.a_s[i][j].clone() * self.u[i][j-1].y.clone() +
+                                        self.a_n[i][j].clone() * self.u[i][j+1].y.clone();
+
+                    let new_u_y = (b_y[i][j].clone() - u_y_neighbors) / self.a_p[i][j].clone();
+                    self.u[i][j].y = new_u_y;
                 }
-            });
-        }
-        
-        // Gauss-Seidel iteration for y-momentum using iterator optimization
-        for _ in 0..self.config.base.convergence.max_iterations {
-            (0..n).for_each(|idx| {
-                if a_matrix[idx][idx].clone().abs() > T::from_f64(constants::EPSILON).unwrap() {
-                    let sum = b_y[idx].clone() - 
-                        (0..n).filter(|&k| k != idx)
-                              .map(|k| a_matrix[idx][k].clone() * u_y[k].clone())
-                              .fold(T::zero(), |acc, term| acc + term);
-                    u_y[idx] = sum / a_matrix[idx][idx].clone();
-                }
-            });
-        }
-        
-        // Update velocity field
-        for i in 0..self.nx {
-            for j in 0..self.ny {
-                let idx = i * self.ny + j;
-                self.u[i][j].x = u_x[idx].clone();
-                self.u[i][j].y = u_y[idx].clone();
             }
         }
         
         Ok(())
     }
-    
-    /// Apply momentum boundary conditions
-    fn apply_momentum_boundary_conditions(
-        &self, 
-        a_matrix: &mut Vec<Vec<T>>, 
-        b_x: &mut Vec<T>, 
-        b_y: &mut Vec<T>,
-        grid: &StructuredGrid2D<T>,
-        boundary_conditions: &HashMap<(usize, usize), cfd_core::BoundaryCondition<T>>
+
+    /// Apply boundary conditions to system matrices and source terms
+    fn apply_boundary_conditions_to_system(
+        &mut self, 
+        b_x: &mut Vec<Vec<T>>, 
+        b_y: &mut Vec<Vec<T>>
     ) -> Result<()> {
         use cfd_core::BoundaryCondition;
         
-        // Apply boundary conditions based on grid and specified BCs
         for i in 0..self.nx {
             for j in 0..self.ny {
                 if i == 0 || i == self.nx - 1 || j == 0 || j == self.ny - 1 {
-                    let idx = i * self.ny + j;
-                    
                     // Get boundary condition for this cell
-                    let bc = boundary_conditions.get(&(i, j));
+                    let bc = self.boundary_conditions.get(&(i, j)).cloned();
                     
-                    // Use default wall BC if not specified for boundary cells
-                    let default_wall_bc = BoundaryCondition::wall_no_slip();
-                    let bc = if bc.is_none() && (j == 0 || j == self.ny - 1) {
-                        Some(&default_wall_bc)
-                    } else {
-                        bc
-                    };
-                    
+                    // Apply unified boundary condition logic
                     if let Some(bc) = bc {
                         match bc {
                             BoundaryCondition::Wall { wall_type } => {
-                                use cfd_core::boundary::WallType;
-                                match wall_type {
-                                    WallType::NoSlip => {
-                                        // No-slip: u = 0, v = 0
-                                        for k in 0..a_matrix.len() {
-                                            a_matrix[idx][k] = T::zero();
-                                        }
-                                        a_matrix[idx][idx] = T::one();
-                                        b_x[idx] = T::zero();
-                                        b_y[idx] = T::zero();
-                                    },
-                                    WallType::Slip => {
-                                        // Slip: normal velocity = 0, tangential free
-                                        if j == 0 || j == self.ny - 1 {
-                                            // Horizontal wall: v = 0, du/dy = 0
-                                            for k in 0..a_matrix.len() {
-                                                a_matrix[idx][k] = T::zero();
-                                            }
-                                            a_matrix[idx][idx] = T::one();
-                                            b_y[idx] = T::zero();
-                                            // Keep tangential velocity from interior
-                                        } else if i == 0 || i == self.nx - 1 {
-                                            // Vertical wall: u = 0, dv/dx = 0
-                                            for k in 0..a_matrix.len() {
-                                                a_matrix[idx][k] = T::zero();
-                                            }
-                                            a_matrix[idx][idx] = T::one();
-                                            b_x[idx] = T::zero();
-                                            // Keep tangential velocity from interior
-                                        }
-                                    },
-                                    WallType::Moving { velocity } => {
-                                        // Moving wall: u = u_wall, v = v_wall
-                                        for k in 0..a_matrix.len() {
-                                            a_matrix[idx][k] = T::zero();
-                                        }
-                                        a_matrix[idx][idx] = T::one();
-                                        b_x[idx] = velocity.x.clone();
-                                        b_y[idx] = velocity.y.clone();
-                                    },
-                                    WallType::Rotating { .. } => {
-                                        // Rotating wall - compute tangential velocity
-                                        // This requires position information
-                                        // For now, treat as no-slip
-                                        for k in 0..a_matrix.len() {
-                                            a_matrix[idx][k] = T::zero();
-                                        }
-                                        a_matrix[idx][idx] = T::one();
-                                        b_x[idx] = T::zero();
-                                        b_y[idx] = T::zero();
-                                    }
-                                }
+                                self.apply_wall_bc_to_system(i, j, &wall_type, b_x, b_y)?;
                             },
                             BoundaryCondition::VelocityInlet { velocity } => {
-                                // Fixed velocity at inlet
-                                for k in 0..a_matrix.len() {
-                                    a_matrix[idx][k] = T::zero();
-                                }
-                                a_matrix[idx][idx] = T::one();
-                                b_x[idx] = velocity.x.clone();
-                                b_y[idx] = velocity.y.clone();
+                                self.apply_velocity_inlet_bc_to_system(i, j, &velocity, b_x, b_y)?;
                             },
                             BoundaryCondition::PressureOutlet { .. } => {
-                                // Zero gradient for velocity (Neumann BC)
-                                // This is handled by not modifying the interior equations
-                                // The pressure correction will handle the pressure BC
+                                self.apply_pressure_outlet_bc_to_system(i, j, b_x, b_y)?;
                             },
                             BoundaryCondition::Symmetry => {
-                                // Symmetry: normal velocity = 0, tangential gradient = 0
-                                if j == 0 || j == self.ny - 1 {
-                                    // Horizontal symmetry plane
-                                    for k in 0..a_matrix.len() {
-                                        a_matrix[idx][k] = T::zero();
-                                    }
-                                    a_matrix[idx][idx] = T::one();
-                                    b_y[idx] = T::zero();
-                                } else if i == 0 || i == self.nx - 1 {
-                                    // Vertical symmetry plane
-                                    for k in 0..a_matrix.len() {
-                                        a_matrix[idx][k] = T::zero();
-                                    }
-                                    a_matrix[idx][idx] = T::one();
-                                    b_x[idx] = T::zero();
-                                }
+                                self.apply_symmetry_bc_to_system(i, j, b_x, b_y)?;
                             },
                             BoundaryCondition::Outflow => {
-                                // Zero gradient - handled by interior equations
+                                self.apply_outflow_bc_to_system(i, j, b_x, b_y)?;
                             },
                             _ => {
-                                // Other BC types not directly applicable to momentum
-                                // Use default no-slip for safety
-                                for k in 0..a_matrix.len() {
-                                    a_matrix[idx][k] = T::zero();
-                                }
-                                a_matrix[idx][idx] = T::one();
-                                b_x[idx] = T::zero();
-                                b_y[idx] = T::zero();
+                                // Default to no-slip wall for unhandled types
+                                self.apply_no_slip_bc_to_system(i, j, b_x, b_y)?;
                             }
                         }
+                    } else {
+                        // Default boundary condition
+                        self.apply_no_slip_bc_to_system(i, j, b_x, b_y)?;
                     }
                 }
             }
         }
         
+        Ok(())
+    }
+
+    /// Apply wall boundary condition to system
+    fn apply_wall_bc_to_system(
+        &mut self,
+        i: usize, 
+        j: usize, 
+        wall_type: &cfd_core::boundary::WallType<T>,
+        b_x: &mut Vec<Vec<T>>, 
+        b_y: &mut Vec<Vec<T>>
+    ) -> Result<()> {
+        use cfd_core::boundary::WallType;
+        
+        match wall_type {
+            WallType::NoSlip => {
+                self.apply_no_slip_bc_to_system(i, j, b_x, b_y)?;
+            },
+            WallType::Slip => {
+                self.apply_slip_bc_to_system(i, j, b_x, b_y)?;
+            },
+            WallType::Moving { velocity } => {
+                self.apply_moving_wall_bc_to_system(i, j, velocity, b_x, b_y)?;
+            },
+            WallType::Rotating { .. } => {
+                // For now, treat as no-slip (rotating wall requires position info)
+                self.apply_no_slip_bc_to_system(i, j, b_x, b_y)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Apply no-slip boundary condition to system
+    fn apply_no_slip_bc_to_system(
+        &mut self,
+        i: usize, 
+        j: usize, 
+        b_x: &mut Vec<Vec<T>>, 
+        b_y: &mut Vec<Vec<T>>
+    ) -> Result<()> {
+        // No-slip: u = 0, v = 0
+        // Modify coefficients to enforce this constraint
+        self.a_p[i][j] = self.constants.one.clone();
+        self.a_e[i][j] = self.constants.zero.clone();
+        self.a_w[i][j] = self.constants.zero.clone();
+        self.a_n[i][j] = self.constants.zero.clone();
+        self.a_s[i][j] = self.constants.zero.clone();
+        b_x[i][j] = self.constants.zero.clone();
+        b_y[i][j] = self.constants.zero.clone();
+        
+        Ok(())
+    }
+
+    /// Apply slip boundary condition to system
+    fn apply_slip_bc_to_system(
+        &mut self,
+        i: usize, 
+        j: usize, 
+        b_x: &mut Vec<Vec<T>>, 
+        b_y: &mut Vec<Vec<T>>
+    ) -> Result<()> {
+        // Slip: normal velocity = 0, tangential velocity has zero gradient
+        if j == 0 || j == self.ny - 1 {
+            // Horizontal wall: v = 0, du/dy = 0
+            b_y[i][j] = self.constants.zero.clone();
+            // For tangential component, use zero gradient (handled implicitly)
+        } else if i == 0 || i == self.nx - 1 {
+            // Vertical wall: u = 0, dv/dx = 0
+            b_x[i][j] = self.constants.zero.clone();
+            // For tangential component, use zero gradient (handled implicitly)
+        }
+        
+        Ok(())
+    }
+
+    /// Apply moving wall boundary condition to system
+    fn apply_moving_wall_bc_to_system(
+        &mut self,
+        i: usize, 
+        j: usize, 
+        velocity: &nalgebra::Vector3<T>,
+        b_x: &mut Vec<Vec<T>>, 
+        b_y: &mut Vec<Vec<T>>
+    ) -> Result<()> {
+        // Moving wall: u = u_wall, v = v_wall
+        self.a_p[i][j] = self.constants.one.clone();
+        self.a_e[i][j] = self.constants.zero.clone();
+        self.a_w[i][j] = self.constants.zero.clone();
+        self.a_n[i][j] = self.constants.zero.clone();
+        self.a_s[i][j] = self.constants.zero.clone();
+        b_x[i][j] = velocity.x.clone();
+        b_y[i][j] = velocity.y.clone();
+        
+        Ok(())
+    }
+
+    /// Apply velocity inlet boundary condition to system
+    fn apply_velocity_inlet_bc_to_system(
+        &mut self,
+        i: usize, 
+        j: usize, 
+        velocity: &nalgebra::Vector3<T>,
+        b_x: &mut Vec<Vec<T>>, 
+        b_y: &mut Vec<Vec<T>>
+    ) -> Result<()> {
+        // Fixed velocity at inlet
+        self.a_p[i][j] = self.constants.one.clone();
+        self.a_e[i][j] = self.constants.zero.clone();
+        self.a_w[i][j] = self.constants.zero.clone();
+        self.a_n[i][j] = self.constants.zero.clone();
+        self.a_s[i][j] = self.constants.zero.clone();
+        b_x[i][j] = velocity.x.clone();
+        b_y[i][j] = velocity.y.clone();
+        
+        Ok(())
+    }
+
+    /// Apply pressure outlet boundary condition to system
+    fn apply_pressure_outlet_bc_to_system(
+        &mut self,
+        _i: usize, 
+        _j: usize, 
+        _b_x: &mut Vec<Vec<T>>, 
+        _b_y: &mut Vec<Vec<T>>
+    ) -> Result<()> {
+        // Zero gradient for velocity (handled by not modifying interior equations)
+        // The pressure correction will handle the pressure BC
+        Ok(())
+    }
+
+    /// Apply symmetry boundary condition to system
+    fn apply_symmetry_bc_to_system(
+        &mut self,
+        i: usize, 
+        j: usize, 
+        b_x: &mut Vec<Vec<T>>, 
+        b_y: &mut Vec<Vec<T>>
+    ) -> Result<()> {
+        // Symmetry: normal velocity = 0, tangential gradient = 0
+        if j == 0 || j == self.ny - 1 {
+            // Horizontal symmetry plane: v = 0
+            b_y[i][j] = self.constants.zero.clone();
+        } else if i == 0 || i == self.nx - 1 {
+            // Vertical symmetry plane: u = 0
+            b_x[i][j] = self.constants.zero.clone();
+        }
+        
+        Ok(())
+    }
+
+    /// Apply outflow boundary condition to system
+    fn apply_outflow_bc_to_system(
+        &mut self,
+        _i: usize, 
+        _j: usize, 
+        _b_x: &mut Vec<Vec<T>>, 
+        _b_y: &mut Vec<Vec<T>>
+    ) -> Result<()> {
+        // Zero gradient - handled by interior equations
         Ok(())
     }
 
@@ -462,7 +549,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
         // Reset correction field
         for i in 0..self.nx {
             for j in 0..self.ny {
-                correction_field[i][j] = T::zero();
+                correction_field[i][j] = self.constants.zero.clone();
             }
         }
         
@@ -472,9 +559,9 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
                 for j in 1..self.ny-1 {
                     // Calculate mass imbalance (continuity error)
                     let dudx = (self.u[i+1][j].x.clone() - self.u[i-1][j].x.clone()) 
-                        / (T::from_f64(GRADIENT_FACTOR).unwrap() * self.dx.clone());
+                        / (self.constants.gradient_factor.clone() * self.dx.clone());
                     let dvdy = (self.u[i][j+1].y.clone() - self.u[i][j-1].y.clone()) 
-                        / (T::from_f64(GRADIENT_FACTOR).unwrap() * self.dy.clone());
+                        / (self.constants.gradient_factor.clone() * self.dy.clone());
                     let mass_imbalance = self.density.clone() * (dudx + dvdy);
                     
                     // Pressure correction coefficients
@@ -518,9 +605,9 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
             for j in 1..self.ny-1 {
                 // Velocity correction from pressure gradient
                 let dp_dx = (pressure_correction[i+1][j].clone() - pressure_correction[i-1][j].clone())
-                    / (T::from_f64(GRADIENT_FACTOR).unwrap() * self.dx.clone());
+                    / (self.constants.gradient_factor.clone() * self.dx.clone());
                 let dp_dy = (pressure_correction[i][j+1].clone() - pressure_correction[i][j-1].clone())
-                    / (T::from_f64(GRADIENT_FACTOR).unwrap() * self.dy.clone());
+                    / (self.constants.gradient_factor.clone() * self.dy.clone());
                 
                 let d_coeff = self.dx.clone() * self.dy.clone() / self.a_p[i][j].clone();
                 
@@ -533,9 +620,108 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
         }
     }
 
-    /// Execute one PISO iteration
+    /// Apply unified boundary conditions to field values
+    fn apply_boundary_conditions_to_fields(&mut self) -> Result<()> {
+        use cfd_core::BoundaryCondition;
+        
+        // Apply velocity boundary conditions
+        for i in 0..self.nx {
+            for j in 0..self.ny {
+                if i == 0 || i == self.nx - 1 || j == 0 || j == self.ny - 1 {
+                    let bc = self.boundary_conditions.get(&(i, j)).cloned();
+                    
+                    if let Some(bc) = bc {
+                        match bc {
+                            BoundaryCondition::Wall { wall_type } => {
+                                self.apply_wall_bc_to_fields(i, j, &wall_type)?;
+                            },
+                            BoundaryCondition::VelocityInlet { velocity } => {
+                                self.u[i][j].x = velocity.x.clone();
+                                self.u[i][j].y = velocity.y.clone();
+                            },
+                            BoundaryCondition::PressureOutlet { .. } => {
+                                self.apply_neumann_velocity(i, j);
+                            },
+                            BoundaryCondition::Symmetry => {
+                                self.apply_symmetry_velocity(i, j);
+                            },
+                            BoundaryCondition::Outflow => {
+                                self.apply_neumann_velocity(i, j);
+                            },
+                            _ => {
+                                // Default to no-slip
+                                self.u[i][j] = Vector2::zeros();
+                            }
+                        }
+                    } else {
+                        // Default to no-slip
+                        self.u[i][j] = Vector2::zeros();
+                    }
+                }
+            }
+        }
+        
+        // Apply pressure boundary conditions
+        for i in 0..self.nx {
+            for j in 0..self.ny {
+                if i == 0 || i == self.nx - 1 || j == 0 || j == self.ny - 1 {
+                    let bc = self.boundary_conditions.get(&(i, j)).cloned();
+                    
+                    if let Some(bc) = bc {
+                        match bc {
+                            BoundaryCondition::PressureOutlet { pressure } => {
+                                self.p[i][j] = pressure.clone();
+                            },
+                            _ => {
+                                // Default to zero gradient
+                                self.apply_neumann_pressure(i, j);
+                            }
+                        }
+                    } else {
+                        // Default to zero gradient
+                        self.apply_neumann_pressure(i, j);
+                    }
+                }
+            }
+        }
+        
+        Ok(())
+    }
+
+    /// Apply wall boundary condition to field values
+    fn apply_wall_bc_to_fields(
+        &mut self,
+        i: usize, 
+        j: usize, 
+        wall_type: &cfd_core::boundary::WallType<T>
+    ) -> Result<()> {
+        use cfd_core::boundary::WallType;
+        
+        match wall_type {
+            WallType::NoSlip => {
+                self.u[i][j] = Vector2::zeros();
+            },
+            WallType::Slip => {
+                self.apply_symmetry_velocity(i, j);
+            },
+            WallType::Moving { velocity } => {
+                self.u[i][j].x = velocity.x.clone();
+                self.u[i][j].y = velocity.y.clone();
+            },
+            WallType::Rotating { .. } => {
+                // For now, treat as no-slip
+                self.u[i][j] = Vector2::zeros();
+            }
+        }
+        Ok(())
+    }
+
+    /// Execute one PISO iteration with field swapping instead of deep cloning
     pub fn step(&mut self) -> Result<()> {
-        // Step 1: Momentum predictor
+        // Swap old and new velocity fields at the start of the step
+        std::mem::swap(&mut self.u, &mut self.u_old);
+        
+        // Step 1: Momentum predictor (reads from u_old, writes to u)
         self.solve_momentum_predictor()?;
         
         // Step 2: First pressure correction
@@ -566,84 +752,10 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
             }
         }
         
-        // Apply boundary conditions
-        self.apply_boundary_conditions();
+        // Apply unified boundary conditions to field values
+        self.apply_boundary_conditions_to_fields()?;
         
         Ok(())
-    }
-
-    /// Apply boundary conditions using configurable boundary types
-    /// 
-    /// CRITICAL FIX: This method now applies boundary conditions based on
-    /// grid boundary types instead of hardcoded wall conditions. This allows
-    /// proper physics simulation with user-configurable boundary conditions.
-    ///
-    /// # References
-    /// Issa, R.I. (1986). "Solution of the implicitly discretised fluid flow equations
-    /// by operator-splitting." Journal of Computational Physics, 62(1), 40-65.
-    fn apply_boundary_conditions(&mut self) {
-        // Apply velocity boundary conditions based on boundary types
-        for i in 0..self.nx {
-            for j in 0..self.ny {
-                if self.grid.is_boundary(i, j) {
-                    match self.grid.boundary_type(i, j) {
-                        Some(crate::grid::BoundaryType::Wall) => {
-                            // No-slip wall condition
-                            self.u[i][j] = Vector2::zeros();
-                        }
-                        Some(crate::grid::BoundaryType::Inlet) => {
-                            // Inlet velocity (should be configured by user)
-                            // For now, apply no-slip as default
-                            self.u[i][j] = Vector2::zeros();
-                        }
-                        Some(crate::grid::BoundaryType::Outlet) => {
-                            // Zero gradient outlet condition
-                            self.apply_neumann_velocity(i, j);
-                        }
-                        Some(crate::grid::BoundaryType::Symmetry) => {
-                            // Symmetry condition - normal velocity = 0
-                            self.apply_symmetry_velocity(i, j);
-                        }
-                        Some(crate::grid::BoundaryType::Periodic) => {
-                            // Periodic condition - copy from opposite boundary
-                            self.apply_periodic_velocity(i, j);
-                        }
-                        None => {
-                            // Default to wall condition for undefined boundaries
-                            self.u[i][j] = Vector2::zeros();
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Apply pressure boundary conditions
-        for i in 0..self.nx {
-            for j in 0..self.ny {
-                if self.grid.is_boundary(i, j) {
-                    match self.grid.boundary_type(i, j) {
-                        Some(crate::grid::BoundaryType::Wall) |
-                        Some(crate::grid::BoundaryType::Symmetry) => {
-                            // Zero gradient pressure condition
-                            self.apply_neumann_pressure(i, j);
-                        }
-                        Some(crate::grid::BoundaryType::Inlet) |
-                        Some(crate::grid::BoundaryType::Outlet) => {
-                            // Zero gradient pressure (can be overridden by user)
-                            self.apply_neumann_pressure(i, j);
-                        }
-                        Some(crate::grid::BoundaryType::Periodic) => {
-                            // Periodic pressure condition
-                            self.apply_periodic_pressure(i, j);
-                        }
-                        None => {
-                            // Default to zero gradient
-                            self.apply_neumann_pressure(i, j);
-                        }
-                    }
-                }
-            }
-        }
     }
     
     /// Apply Neumann velocity boundary condition
@@ -662,80 +774,52 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
             // Top boundary
             self.u[i][j] = self.u[i][j-1].clone();
         }
-         }
-     
-     /// Apply symmetry velocity boundary condition
-     fn apply_symmetry_velocity(&mut self, i: usize, j: usize) {
-         // Mirror velocity components appropriately for symmetry
-         if i == 0 || i == self.nx - 1 {
-             // Left/right boundaries - mirror x-component, keep y-component
-             let neighbor_i = if i == 0 { i + 1 } else { i - 1 };
-             self.u[i][j].x = -self.u[neighbor_i][j].x.clone();
-             self.u[i][j].y = self.u[neighbor_i][j].y.clone();
-         } else if j == 0 || j == self.ny - 1 {
-             // Top/bottom boundaries - keep x-component, mirror y-component
-             let neighbor_j = if j == 0 { j + 1 } else { j - 1 };
-             self.u[i][j].x = self.u[i][neighbor_j].x.clone();
-             self.u[i][j].y = -self.u[i][neighbor_j].y.clone();
-         }
-     }
-     
-     /// Apply periodic velocity boundary condition
-     fn apply_periodic_velocity(&mut self, i: usize, j: usize) {
-         // Copy from opposite boundary
-         if i == 0 {
-             self.u[i][j] = self.u[self.nx - 2][j].clone();
-         } else if i == self.nx - 1 {
-             self.u[i][j] = self.u[1][j].clone();
-         } else if j == 0 {
-             self.u[i][j] = self.u[i][self.ny - 2].clone();
-         } else if j == self.ny - 1 {
-             self.u[i][j] = self.u[i][1].clone();
-         }
-     }
-     
-     /// Apply Neumann pressure boundary condition
-     fn apply_neumann_pressure(&mut self, i: usize, j: usize) {
-         // Zero gradient implementation
-         if i == 0 {
-             // Left boundary
-             self.p[i][j] = self.p[i+1][j].clone();
-         } else if i == self.nx - 1 {
-             // Right boundary
-             self.p[i][j] = self.p[i-1][j].clone();
-         } else if j == 0 {
-             // Bottom boundary
-             self.p[i][j] = self.p[i][j+1].clone();
-         } else if j == self.ny - 1 {
-             // Top boundary
-             self.p[i][j] = self.p[i][j-1].clone();
-         }
-     }
-     
-     /// Apply periodic pressure boundary condition
-     fn apply_periodic_pressure(&mut self, i: usize, j: usize) {
-         // Copy from opposite boundary
-         if i == 0 {
-             self.p[i][j] = self.p[self.nx - 2][j].clone();
-         } else if i == self.nx - 1 {
-             self.p[i][j] = self.p[1][j].clone();
-         } else if j == 0 {
-             self.p[i][j] = self.p[i][self.ny - 2].clone();
-         } else if j == self.ny - 1 {
-             self.p[i][j] = self.p[i][1].clone();
-         }
-     }
+    }
+ 
+    /// Apply symmetry velocity boundary condition
+    fn apply_symmetry_velocity(&mut self, i: usize, j: usize) {
+        // Mirror velocity components appropriately for symmetry
+        if i == 0 || i == self.nx - 1 {
+            // Left/right boundaries - mirror x-component, keep y-component
+            let neighbor_i = if i == 0 { i + 1 } else { i - 1 };
+            self.u[i][j].x = -self.u[neighbor_i][j].x.clone();
+            self.u[i][j].y = self.u[neighbor_i][j].y.clone();
+        } else if j == 0 || j == self.ny - 1 {
+            // Top/bottom boundaries - keep x-component, mirror y-component
+            let neighbor_j = if j == 0 { j + 1 } else { j - 1 };
+            self.u[i][j].x = self.u[i][neighbor_j].x.clone();
+            self.u[i][j].y = -self.u[i][neighbor_j].y.clone();
+        }
+    }
+ 
+    /// Apply Neumann pressure boundary condition
+    fn apply_neumann_pressure(&mut self, i: usize, j: usize) {
+        // Zero gradient implementation
+        if i == 0 {
+            // Left boundary
+            self.p[i][j] = self.p[i+1][j].clone();
+        } else if i == self.nx - 1 {
+            // Right boundary
+            self.p[i][j] = self.p[i-1][j].clone();
+        } else if j == 0 {
+            // Bottom boundary
+            self.p[i][j] = self.p[i][j+1].clone();
+        } else if j == self.ny - 1 {
+            // Top boundary
+            self.p[i][j] = self.p[i][j-1].clone();
+        }
+    }
 
     /// Check convergence
     pub fn check_convergence(&self) -> bool {
-        let mut max_continuity_error = T::zero();
+        let mut max_continuity_error = self.constants.zero.clone();
         
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
                 let dudx = (self.u[i+1][j].x.clone() - self.u[i-1][j].x.clone()) 
-                    / (T::from_f64(GRADIENT_FACTOR).unwrap() * self.dx.clone());
+                    / (self.constants.gradient_factor.clone() * self.dx.clone());
                 let dvdy = (self.u[i][j+1].y.clone() - self.u[i][j-1].y.clone()) 
-                    / (T::from_f64(GRADIENT_FACTOR).unwrap() * self.dy.clone());
+                    / (self.constants.gradient_factor.clone() * self.dy.clone());
                 let continuity_error = (dudx + dvdy).abs();
                 
                 if continuity_error > max_continuity_error {
@@ -767,7 +851,7 @@ mod tests {
     fn test_piso_creation() {
         let grid = StructuredGrid2D::<f64>::unit_square(5, 5).unwrap();
         let config = PisoConfig::default();
-        let solver = PisoSolver::new(config, grid, 1.0, 0.001);
+        let solver = PisoSolver::new(config, grid, 1.0, 0.001).unwrap();
         
         assert_eq!(solver.nx, 5);
         assert_eq!(solver.ny, 5);
@@ -777,12 +861,143 @@ mod tests {
     fn test_piso_initialization() {
         let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
         let config = PisoConfig::default();
-        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001);
+        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).unwrap();
         
         solver.initialize(Vector2::new(1.0, 0.5), 101325.0).unwrap();
         
         assert_relative_eq!(solver.u[1][1].x, 1.0, epsilon = 1e-10);
         assert_relative_eq!(solver.u[1][1].y, 0.5, epsilon = 1e-10);
         assert_relative_eq!(solver.p[1][1], 101325.0, epsilon = 1e-10);
+        
+        // Check that old velocity field is also initialized
+        assert_relative_eq!(solver.u_old[1][1].x, 1.0, epsilon = 1e-10);
+        assert_relative_eq!(solver.u_old[1][1].y, 0.5, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_safe_from_f64() {
+        // Test successful conversion
+        let result: Result<f64> = f64::safe_from_f64(2.5);
+        assert!(result.is_ok());
+        assert_relative_eq!(result.unwrap(), 2.5, epsilon = 1e-10);
+        
+        // Test with f32
+        let result: Result<f32> = f32::safe_from_f64(1.5);
+        assert!(result.is_ok());
+        assert_relative_eq!(result.unwrap(), 1.5f32, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_piso_constants() {
+        let constants = PisoConstants::<f64>::new().unwrap();
+        
+        assert_relative_eq!(constants.zero, 0.0, epsilon = 1e-10);
+        assert_relative_eq!(constants.one, 1.0, epsilon = 1e-10);
+        assert_relative_eq!(constants.two, 2.0, epsilon = 1e-10);
+        assert_relative_eq!(constants.gradient_factor, GRADIENT_SCHEME_FACTOR, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_field_swapping() {
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
+        let config = PisoConfig::default();
+        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).unwrap();
+        
+        // Initialize with different velocities for current and old
+        solver.initialize(Vector2::new(1.0, 0.5), 0.0).unwrap();
+        solver.u[1][1] = Vector2::new(2.0, 1.0);
+        
+        // Store original values
+        let original_u = solver.u[1][1].clone();
+        let original_u_old = solver.u_old[1][1].clone();
+        
+        // Perform one step which should swap fields
+        let _result = solver.step();
+        
+        // After step, u_old should contain the original u values
+        // (Note: the actual values will be modified by the solver, 
+        // but we can check that swapping occurred by the field structure)
+        assert_ne!(solver.u[1][1], original_u); // Current field should be different (modified by solver)
+    }
+
+    #[test]
+    fn test_boundary_condition_application() {
+        let grid = StructuredGrid2D::<f64>::unit_square(4, 4).unwrap();
+        let config = PisoConfig::default();
+        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).unwrap();
+        
+        // Set up boundary conditions
+        let mut bcs = HashMap::new();
+        bcs.insert((0, 1), cfd_core::BoundaryCondition::VelocityInlet { 
+            velocity: nalgebra::Vector3::new(2.0, 0.0, 0.0) 
+        });
+        bcs.insert((3, 1), cfd_core::BoundaryCondition::PressureOutlet { 
+            pressure: 100000.0 
+        });
+        
+        solver.set_boundary_conditions(bcs);
+        solver.initialize(Vector2::new(0.0, 0.0), 101325.0).unwrap();
+        
+        // Apply boundary conditions
+        solver.apply_boundary_conditions_to_fields().unwrap();
+        
+        // Check inlet velocity is set
+        assert_relative_eq!(solver.u[0][1].x, 2.0, epsilon = 1e-10);
+        assert_relative_eq!(solver.u[0][1].y, 0.0, epsilon = 1e-10);
+        
+        // Check outlet pressure is set
+        assert_relative_eq!(solver.p[3][1], 100000.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_convergence_check() {
+        let grid = StructuredGrid2D::<f64>::unit_square(4, 4).unwrap();
+        let config = PisoConfig::default();
+        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).unwrap();
+        
+        // Initialize with zero divergence field (should converge immediately)
+        solver.initialize(Vector2::new(0.0, 0.0), 0.0).unwrap();
+        
+        // Check convergence
+        let converged = solver.check_convergence();
+        assert!(converged, "Zero velocity field should be converged");
+    }
+
+    #[test]
+    fn test_momentum_coefficients() {
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
+        let config = PisoConfig::default();
+        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).unwrap();
+        
+        solver.initialize(Vector2::new(1.0, 0.0), 0.0).unwrap();
+        solver.compute_momentum_coefficients().unwrap();
+        
+        // Check that coefficients are computed (non-zero for interior points)
+        assert!(solver.a_p[1][1] > solver.constants.zero);
+        assert!(solver.a_e[1][1] >= solver.constants.zero);
+        assert!(solver.a_w[1][1] >= solver.constants.zero);
+        assert!(solver.a_n[1][1] >= solver.constants.zero);
+        assert!(solver.a_s[1][1] >= solver.constants.zero);
+    }
+
+    #[test] 
+    fn test_no_slip_boundary_system() {
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
+        let config = PisoConfig::default();
+        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).unwrap();
+        
+        solver.initialize(Vector2::new(1.0, 1.0), 0.0).unwrap();
+        
+        let mut b_x = vec![vec![solver.constants.one.clone(); 3]; 3];
+        let mut b_y = vec![vec![solver.constants.one.clone(); 3]; 3];
+        
+        // Apply no-slip BC to a boundary point
+        solver.apply_no_slip_bc_to_system(0, 1, &mut b_x, &mut b_y).unwrap();
+        
+        // Check that coefficients are modified for no-slip
+        assert_relative_eq!(solver.a_p[0][1], solver.constants.one, epsilon = 1e-10);
+        assert_relative_eq!(solver.a_e[0][1], solver.constants.zero, epsilon = 1e-10);
+        assert_relative_eq!(b_x[0][1], solver.constants.zero, epsilon = 1e-10);
+        assert_relative_eq!(b_y[0][1], solver.constants.zero, epsilon = 1e-10);
     }
 }

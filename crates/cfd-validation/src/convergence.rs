@@ -206,6 +206,13 @@ impl<T: RealField + FromPrimitive + ToPrimitive> RichardsonExtrapolation<T> {
         (r_p.clone() * fine_solution - coarse_solution) / (r_p - T::one())
     }
 
+    /// Extrapolate using two solutions (backward compatibility)
+    pub fn extrapolate(&self, solution1: T, solution2: T) -> T {
+        // Assume default grid ratio of 2.0
+        let grid_ratio = T::from_f64(2.0).unwrap();
+        self.extrapolate_two_grids(solution1, solution2, grid_ratio)
+    }
+
     /// Extrapolate using three solutions (more robust)
     /// Extrapolate using three grids with default tolerance (10%)
     pub fn extrapolate_three_grids(

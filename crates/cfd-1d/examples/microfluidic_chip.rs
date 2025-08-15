@@ -9,7 +9,7 @@
 //!
 //! Run with: cargo run --example microfluidic_chip
 
-use cfd_1d::{NetworkBuilder, NetworkSolver};
+use cfd_1d::{NetworkBuilder, NetworkSolver, ChannelProperties};
 use cfd_core::Fluid;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -21,15 +21,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_fluid(Fluid::water())
 
         // Simple T-junction network
-        .add_inlet_pressure("inlet", 0.0, 0.0, 2000.0)?  // 2 kPa
-        .add_junction("junction", 2.0, 0.0)?
-        .add_outlet_pressure("outlet_1", 4.0, 1.0, 0.0)?
-        .add_outlet_pressure("outlet_2", 4.0, -1.0, 0.0)?
+        .add_inlet_pressure("inlet", 0.0, 0.0, 2000.0)  // 2 kPa
+        .add_junction("junction", 2.0, 0.0)
+        .add_outlet_pressure("outlet_1", 4.0, 1.0, 0.0)
+        .add_outlet_pressure("outlet_2", 4.0, -1.0, 0.0)
 
-        // Channels connecting the network
-        .add_channel("input_ch", "inlet", "junction", 100.0, 0.001, 100e-6)?
-        .add_channel("output_ch1", "junction", "outlet_1", 200.0, 0.001, 100e-6)?
-        .add_channel("output_ch2", "junction", "outlet_2", 200.0, 0.001, 100e-6)?
+        // Channels connecting the network with self-documenting properties
+        .add_channel("input_ch", "inlet", "junction", ChannelProperties::new(100.0, 0.001, 100e-6))
+        .add_channel("output_ch1", "junction", "outlet_1", ChannelProperties::new(200.0, 0.001, 100e-6))
+        .add_channel("output_ch2", "junction", "outlet_2", ChannelProperties::new(200.0, 0.001, 100e-6))
 
         .build()?;
 
@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .max_iterations(1000)
         .tolerance(1e-6)
         .verbosity(2) // verbose = true means verbosity level 2
-        .build_network(true);
+        .build(); // Clean, unambiguous method name
     
     let solver = NetworkSolver::with_config(solver_config);
 

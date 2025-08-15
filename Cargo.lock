@@ -18,6 +18,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "alga"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f823d037a7ec6ea2197046bafd4ae150e6bc36f9ca347404f46a46823fa84f2"
+dependencies = [
+ "approx 0.3.2",
+ "num-complex 0.2.4",
+ "num-traits 0.2.19",
+]
+
+[[package]]
 name = "aligned-vec"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -64,6 +75,15 @@ name = "anyhow"
 version = "1.0.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
+
+[[package]]
+name = "approx"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0e60b75072ecd4168020818c0107f2857bb6c4e64252d8d3983f6263b40a5c3"
+dependencies = [
+ "num-traits 0.2.19",
+]
 
 [[package]]
 name = "approx"
@@ -238,17 +258,22 @@ name = "cfd-1d"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "approx",
+ "approx 0.5.1",
  "cfd-core",
  "cfd-math",
  "nalgebra",
+ "nalgebra-sparse",
  "num-traits 0.2.19",
  "petgraph",
  "rand 0.8.5",
+ "rayon",
  "scheme",
  "serde",
  "serde_json",
+ "sprs",
  "thiserror 1.0.69",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -256,7 +281,7 @@ name = "cfd-2d"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "approx",
+ "approx 0.5.1",
  "cfd-core",
  "cfd-io",
  "cfd-math",
@@ -278,7 +303,7 @@ name = "cfd-3d"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "approx",
+ "approx 0.5.1",
  "cfd-core",
  "cfd-io",
  "cfd-math",
@@ -302,7 +327,7 @@ name = "cfd-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "approx",
+ "approx 0.5.1",
  "chrono",
  "criterion",
  "indexmap",
@@ -342,7 +367,7 @@ dependencies = [
 name = "cfd-math"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "cfd-core",
  "criterion",
  "nalgebra",
@@ -359,7 +384,7 @@ dependencies = [
 name = "cfd-mesh"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "cfd-core",
  "cfd-math",
  "csgrs",
@@ -392,7 +417,7 @@ name = "cfd-validation"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "approx",
+ "approx 0.5.1",
  "cfd-2d",
  "cfd-core",
  "cfd-io",
@@ -1073,7 +1098,7 @@ version = "0.7.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75a4dcd69d35b2c87a7c83bce9af69fd65c9d68d3833a0ded568983928f3fc99"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "num-traits 0.2.19",
  "rayon",
  "rstar",
@@ -1638,10 +1663,10 @@ version = "0.33.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26aecdf64b707efd1310e3544d709c5c0ac61c13756046aaaba41be5c4f66a3b"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "matrixmultiply",
  "nalgebra-macros",
- "num-complex",
+ "num-complex 0.4.6",
  "num-rational",
  "num-traits 0.2.19",
  "serde",
@@ -1677,7 +1702,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "adb12d4e967ec485a5f71c6311fe28158e9d6f4bc4a447b474184d0f91a8fa32"
 dependencies = [
  "matrixmultiply",
- "num-complex",
+ "num-complex 0.4.6",
  "num-integer",
  "num-traits 0.2.19",
  "rawpointer",
@@ -1731,7 +1756,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35bd024e8b2ff75562e5f34e7f4905839deb4b22955ef5e73d2fea1b9813cb23"
 dependencies = [
  "num-bigint 0.4.6",
- "num-complex",
+ "num-complex 0.4.6",
  "num-integer",
  "num-iter",
  "num-rational",
@@ -1756,6 +1781,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5e44f723f1133c9deac646763579fdb3ac745e418f2a7af9cd0c431da1f20b9"
 dependencies = [
  "num-integer",
+ "num-traits 0.2.19",
+]
+
+[[package]]
+name = "num-complex"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6b19411a9719e753aff12e5187b74d60d3dc449ec3f4dc21e3989c3f554bc95"
+dependencies = [
+ "autocfg",
  "num-traits 0.2.19",
 ]
 
@@ -1831,6 +1866,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "num_cpus"
+version = "1.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91df4bbde75afed763b708b7eee1e8e7651e02d97f6d5dd763e89367e957b23b"
+dependencies = [
+ "hermit-abi",
+ "libc",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1894,7 +1939,7 @@ version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed9184cf88474deb3e5ec6c67a8c6fe51ee9572e8c476d44b7de643937a125c5"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "arrayvec",
  "bitflags 2.9.1",
  "downcast-rs",
@@ -2186,7 +2231,7 @@ version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75a10d0735644bdc60b54a573a1ba413bab4f4822ce403e4f637f4d0b3d54d6b"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "arrayvec",
  "bit-vec",
  "bitflags 2.9.1",
@@ -2507,8 +2552,8 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3a386a501cd104797982c15ae17aafe8b9261315b5d07e3ec803f2ea26be0fa"
 dependencies = [
- "approx",
- "num-complex",
+ "approx 0.5.1",
+ "num-complex 0.4.6",
  "num-traits 0.2.19",
  "paste",
  "wide",
@@ -2550,6 +2595,21 @@ dependencies = [
  "hashbrown",
  "num-traits 0.2.19",
  "robust",
+ "smallvec",
+]
+
+[[package]]
+name = "sprs"
+version = "0.11.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8bff8419009a08f6cb7519a602c5590241fbff1446bcc823c07af15386eb801b"
+dependencies = [
+ "alga",
+ "ndarray",
+ "num-complex 0.4.6",
+ "num-traits 0.2.19",
+ "num_cpus",
+ "rayon",
  "smallvec",
 ]
 

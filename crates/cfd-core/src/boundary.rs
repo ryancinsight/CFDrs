@@ -27,7 +27,7 @@ pub enum BoundaryCondition<T: RealField> {
     },
     /// Periodic boundary condition
     Periodic {
-        /// Name of the paired boundary
+        /// Name of the paired boundary (can also store indices as string)
         partner: String,
     },
     /// Inlet boundary with specified velocity
@@ -54,6 +54,16 @@ pub enum BoundaryCondition<T: RealField> {
     VolumeFlowInlet {
         /// Volume flow rate [m³/s]
         flow_rate: T,
+    },
+    /// Generic inlet boundary (backward compatibility)
+    Inlet {
+        /// Velocity vector at inlet
+        velocity: Vector3<T>,
+    },
+    /// Generic outlet boundary (backward compatibility)
+    Outlet {
+        /// Static pressure at outlet
+        pressure: T,
     },
     /// Wall boundary
     Wall {

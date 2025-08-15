@@ -995,6 +995,11 @@ impl<T: RealField + FromPrimitive> PressureVelocityCouplerSolver<T> {
     pub fn velocity_field(&self) -> &Vec<Vec<Vector2<T>>> {
         &self.u
     }
+
+    /// Get velocity field (backward compatibility alias)
+    pub fn velocity(&self) -> &Vec<Vec<Vector2<T>>> {
+        &self.u
+    }
     
     /// Get pressure field
     pub fn pressure_field(&self) -> &Vec<Vec<T>> {

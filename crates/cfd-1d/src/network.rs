@@ -18,6 +18,28 @@ pub type BoundaryCondition<T> = CoreBoundaryCondition<T>;
 /// Network graph type using petgraph
 pub type NetworkGraph<N, E> = Graph<N, E, Directed>;
 
+/// Channel properties with clear, self-documenting parameter names
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChannelProperties<T: RealField> {
+    /// Hydraulic resistance of the channel
+    pub resistance: T,
+    /// Physical length of the channel
+    pub length: T,
+    /// Cross-sectional area of the channel
+    pub area: T,
+}
+
+impl<T: RealField> ChannelProperties<T> {
+    /// Create new channel properties with explicit parameters
+    pub fn new(resistance: T, length: T, area: T) -> Self {
+        Self {
+            resistance,
+            length,
+            area,
+        }
+    }
+}
+
 /// A node in the microfluidic network
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node<T: RealField> {
@@ -539,9 +561,13 @@ impl<T: RealField + FromPrimitive> Network<T> {
     }
 }
 
-/// Builder pattern for constructing networks
+/// Builder pattern for constructing networks with error-free configuration
 pub struct NetworkBuilder<T: RealField> {
     network: Network<T>,
+    /// Pending nodes to be added to the network
+    pending_nodes: Vec<Node<T>>,
+    /// Pending edges to be added to the network
+    pending_edges: Vec<(Edge<T>, String, String)>,
 }
 
 impl<T: RealField + FromPrimitive + num_traits::Float> NetworkBuilder<T> {
@@ -549,6 +575,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkBuilder<T> {
     pub fn new() -> Self {
         Self {
             network: Network::new(Fluid::water()),
+            pending_nodes: Vec::new(),
+            pending_edges: Vec::new(),
         }
     }
 
@@ -564,67 +592,99 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkBuilder<T> {
         self
     }
 
-    /// Add a junction node
-    pub fn add_junction(mut self, id: &str, x: T, y: T) -> Result<Self> {
+    /// Add a junction node - error-free configuration
+    pub fn add_junction(mut self, id: &str, x: T, y: T) -> Self {
         let position = Vector3::new(x, y, T::zero());
         let node = Node::junction(id.to_string(), position);
-        self.network.add_node(node)?;
-        Ok(self)
+        self.pending_nodes.push(node);
+        self
     }
 
-    /// Add an inlet with pressure boundary condition
-    pub fn add_inlet_pressure(mut self, id: &str, x: T, y: T, pressure: T) -> Result<Self> {
+    /// Add an inlet with pressure boundary condition - error-free configuration
+    pub fn add_inlet_pressure(mut self, id: &str, x: T, y: T, pressure: T) -> Self {
         let position = Vector3::new(x, y, T::zero());
         let node = Node::inlet_pressure(id.to_string(), position, pressure);
-        self.network.add_node(node)?;
-        Ok(self)
+        self.pending_nodes.push(node);
+        self
     }
 
-    /// Add an outlet with pressure boundary condition
-    pub fn add_outlet_pressure(mut self, id: &str, x: T, y: T, pressure: T) -> Result<Self> {
+    /// Add an outlet with pressure boundary condition - error-free configuration
+    pub fn add_outlet_pressure(mut self, id: &str, x: T, y: T, pressure: T) -> Self {
         let position = Vector3::new(x, y, T::zero());
         let node = Node::outlet_pressure(id.to_string(), position, pressure);
-        self.network.add_node(node)?;
-        Ok(self)
+        self.pending_nodes.push(node);
+        self
     }
 
-    /// Add an inlet with flow rate boundary condition
-    pub fn add_inlet_flow_rate(mut self, id: &str, x: T, y: T, flow_rate: T) -> Result<Self> {
+    /// Add an inlet with flow rate boundary condition - error-free configuration
+    pub fn add_inlet_flow_rate(mut self, id: &str, x: T, y: T, flow_rate: T) -> Self {
         let position = Vector3::new(x, y, T::zero());
         let node = Node::inlet_flow_rate(id.to_string(), position, flow_rate);
-        self.network.add_node(node)?;
-        Ok(self)
+        self.pending_nodes.push(node);
+        self
     }
 
-    /// Add a channel between two nodes
-    pub fn add_channel(mut self, id: &str, from: &str, to: &str, resistance: T, length: T, area: T) -> Result<Self> {
+    /// Add a channel between two nodes with explicit properties - error-free configuration
+    pub fn add_channel(mut self, id: &str, from: &str, to: &str, props: ChannelProperties<T>) -> Self {
+        let edge = Edge::channel(id.to_string(), props.resistance, props.length, props.area);
+        self.pending_edges.push((edge, from.to_string(), to.to_string()));
+        self
+    }
+
+    /// Add a channel between two nodes (legacy method with individual parameters)
+    /// 
+    /// This method is deprecated in favor of `add_channel` with `ChannelProperties`.
+    /// Use `ChannelProperties::new(resistance, length, area)` for clearer parameter naming.
+    #[deprecated(since = "0.1.0", note = "Use add_channel with ChannelProperties for clearer parameter naming")]
+    pub fn add_channel_legacy(mut self, id: &str, from: &str, to: &str, resistance: T, length: T, area: T) -> Self {
         let edge = Edge::channel(id.to_string(), resistance, length, area);
-        self.network.add_edge(edge, from, to)?;
-        Ok(self)
+        self.pending_edges.push((edge, from.to_string(), to.to_string()));
+        self
     }
 
-    /// Add a pump between two nodes
-    pub fn add_pump(mut self, id: &str, from: &str, to: &str, pressure_rise: T) -> Result<Self> {
+    /// Add a pump between two nodes - error-free configuration
+    pub fn add_pump(mut self, id: &str, from: &str, to: &str, pressure_rise: T) -> Self {
         let edge = Edge::pump(id.to_string(), pressure_rise);
-        self.network.add_edge(edge, from, to)?;
-        Ok(self)
+        self.pending_edges.push((edge, from.to_string(), to.to_string()));
+        self
     }
 
-    /// Add a valve between two nodes
-    pub fn add_valve(mut self, id: &str, from: &str, to: &str, resistance: T, opening: T) -> Result<Self> {
+    /// Add a valve between two nodes - error-free configuration
+    pub fn add_valve(mut self, id: &str, from: &str, to: &str, resistance: T, opening: T) -> Self {
         let edge = Edge::valve(id.to_string(), resistance, opening);
-        self.network.add_edge(edge, from, to)?;
-        Ok(self)
+        self.pending_edges.push((edge, from.to_string(), to.to_string()));
+        self
     }
 
-    /// Build the network and validate it
-    pub fn build(self) -> Result<Network<T>> {
+    /// Build the network and validate it (single point of error handling)
+    pub fn build(mut self) -> Result<Network<T>> {
+        // Add all pending nodes to the network first
+        for node in self.pending_nodes {
+            self.network.add_node(node)?;
+        }
+
+        // Then add all pending edges to the network
+        for (edge, from_id, to_id) in self.pending_edges {
+            self.network.add_edge(edge, &from_id, &to_id)?;
+        }
+
+        // Perform comprehensive validation at the end
         self.network.validate()?;
         Ok(self.network)
     }
 
     /// Build the network without validation (for testing)
-    pub fn build_unchecked(self) -> Network<T> {
+    pub fn build_unchecked(mut self) -> Network<T> {
+        // Add all pending nodes to the network
+        for node in self.pending_nodes {
+            self.network.add_node(node).unwrap(); // Unwrap because we are building unchecked
+        }
+
+        // Add all pending edges to the network
+        for (edge, from_id, to_id) in self.pending_edges {
+            self.network.add_edge(edge, &from_id, &to_id).unwrap(); // Unwrap because we are building unchecked
+        }
+
         self.network
     }
 }
@@ -708,9 +768,9 @@ mod tests {
     #[test]
     fn test_network_builder_simple() {
         let network = NetworkBuilder::new()
-            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0).unwrap()
-            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0).unwrap()
-            .add_channel("ch1", "inlet", "outlet", 100.0, 0.001, 1e-6).unwrap()
+            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
+            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
+            .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
             .build().unwrap();
 
         assert_eq!(network.node_count(), 2);
@@ -728,13 +788,13 @@ mod tests {
     #[test]
     fn test_network_builder_t_junction() {
         let network = NetworkBuilder::new()
-            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0).unwrap()
-            .add_junction("junction", 0.5, 0.0).unwrap()
-            .add_outlet_pressure("outlet1", 1.0, 0.5, 0.0).unwrap()
-            .add_outlet_pressure("outlet2", 1.0, -0.5, 0.0).unwrap()
-            .add_channel("ch1", "inlet", "junction", 50.0, 0.0005, 1e-6).unwrap()
-            .add_channel("ch2", "junction", "outlet1", 100.0, 0.0005, 5e-7).unwrap()
-            .add_channel("ch3", "junction", "outlet2", 100.0, 0.0005, 5e-7).unwrap()
+            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
+            .add_junction("junction", 0.5, 0.0)
+            .add_outlet_pressure("outlet1", 1.0, 0.5, 0.0)
+            .add_outlet_pressure("outlet2", 1.0, -0.5, 0.0)
+            .add_channel("ch1", "inlet", "junction", ChannelProperties::new(50.0, 0.0005, 1e-6))
+            .add_channel("ch2", "junction", "outlet1", ChannelProperties::new(100.0, 0.0005, 5e-7))
+            .add_channel("ch3", "junction", "outlet2", ChannelProperties::new(100.0, 0.0005, 5e-7))
             .build().unwrap();
 
         assert_eq!(network.node_count(), 4);
@@ -749,9 +809,9 @@ mod tests {
     #[test]
     fn test_network_with_pump() {
         let network = NetworkBuilder::new()
-            .add_inlet_pressure("inlet", 0.0, 0.0, 0.0).unwrap()
-            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0).unwrap()
-            .add_pump("pump1", "inlet", "outlet", 1000.0).unwrap()
+            .add_inlet_pressure("inlet", 0.0, 0.0, 0.0)
+            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
+            .add_pump("pump1", "inlet", "outlet", 1000.0)
             .build().unwrap();
 
         let pump = network.get_edge("pump1").unwrap();
@@ -762,9 +822,9 @@ mod tests {
     #[test]
     fn test_network_validation_isolated_node() {
         let result = NetworkBuilder::new()
-            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0).unwrap()
-            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0).unwrap()
-            .add_junction("isolated", 0.5, 0.5).unwrap() // Not connected to anything
+            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
+            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
+            .add_junction("isolated", 0.5, 0.5) // Not connected to anything
             .build();
 
         assert!(result.is_err());
@@ -773,9 +833,9 @@ mod tests {
     #[test]
     fn test_network_validation_no_boundary_conditions() {
         let result = NetworkBuilder::new()
-            .add_junction("j1", 0.0, 0.0).unwrap()
-            .add_junction("j2", 1.0, 0.0).unwrap()
-            .add_channel("ch1", "j1", "j2", 100.0, 0.001, 1e-6).unwrap()
+            .add_junction("j1", 0.0, 0.0)
+            .add_junction("j2", 1.0, 0.0)
+            .add_channel("ch1", "j1", "j2", ChannelProperties::new(100.0, 0.001, 1e-6))
             .build();
 
         assert!(result.is_err());
@@ -784,12 +844,12 @@ mod tests {
     #[test]
     fn test_network_validation_disconnected() {
         let result = NetworkBuilder::new()
-            .add_inlet_pressure("inlet1", 0.0, 0.0, 1000.0).unwrap()
-            .add_outlet_pressure("outlet1", 0.5, 0.0, 0.0).unwrap()
-            .add_inlet_pressure("inlet2", 1.0, 0.0, 1000.0).unwrap()
-            .add_outlet_pressure("outlet2", 1.5, 0.0, 0.0).unwrap()
-            .add_channel("ch1", "inlet1", "outlet1", 100.0, 0.001, 1e-6).unwrap()
-            .add_channel("ch2", "inlet2", "outlet2", 100.0, 0.001, 1e-6).unwrap()
+            .add_inlet_pressure("inlet1", 0.0, 0.0, 1000.0)
+            .add_outlet_pressure("outlet1", 0.5, 0.0, 0.0)
+            .add_inlet_pressure("inlet2", 1.0, 0.0, 1000.0)
+            .add_outlet_pressure("outlet2", 1.5, 0.0, 0.0)
+            .add_channel("ch1", "inlet1", "outlet1", ChannelProperties::new(100.0, 0.001, 1e-6))
+            .add_channel("ch2", "inlet2", "outlet2", ChannelProperties::new(100.0, 0.001, 1e-6))
             .build();
 
         assert!(result.is_err());
@@ -798,13 +858,13 @@ mod tests {
     #[test]
     fn test_node_edges() {
         let network = NetworkBuilder::new()
-            .add_junction("junction", 0.0, 0.0).unwrap()
-            .add_inlet_pressure("inlet", -1.0, 0.0, 1000.0).unwrap()
-            .add_outlet_pressure("outlet1", 1.0, 1.0, 0.0).unwrap()
-            .add_outlet_pressure("outlet2", 1.0, -1.0, 0.0).unwrap()
-            .add_channel("ch1", "inlet", "junction", 50.0, 0.001, 1e-6).unwrap()
-            .add_channel("ch2", "junction", "outlet1", 100.0, 0.0005, 5e-7).unwrap()
-            .add_channel("ch3", "junction", "outlet2", 100.0, 0.0005, 5e-7).unwrap()
+            .add_junction("junction", 0.0, 0.0)
+            .add_inlet_pressure("inlet", -1.0, 0.0, 1000.0)
+            .add_outlet_pressure("outlet1", 1.0, 1.0, 0.0)
+            .add_outlet_pressure("outlet2", 1.0, -1.0, 0.0)
+            .add_channel("ch1", "inlet", "junction", ChannelProperties::new(50.0, 0.001, 1e-6))
+            .add_channel("ch2", "junction", "outlet1", ChannelProperties::new(100.0, 0.0005, 5e-7))
+            .add_channel("ch3", "junction", "outlet2", ChannelProperties::new(100.0, 0.0005, 5e-7))
             .build_unchecked(); // Use unchecked to avoid validation
 
         let junction_edges = network.node_edges("junction").unwrap();
@@ -817,9 +877,9 @@ mod tests {
     #[test]
     fn test_clear_solution() {
         let mut network = NetworkBuilder::new()
-            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0).unwrap()
-            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0).unwrap()
-            .add_channel("ch1", "inlet", "outlet", 100.0, 0.001, 1e-6).unwrap()
+            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
+            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
+            .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
             .build().unwrap();
 
         // Set some solution data
@@ -847,9 +907,9 @@ mod tests {
     fn test_fluid_properties() {
         let mut network = NetworkBuilder::new()
             .with_fluid(Fluid::air())
-            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0).unwrap()
-            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0).unwrap()
-            .add_channel("ch1", "inlet", "outlet", 100.0, 0.001, 1e-6).unwrap()
+            .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
+            .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
+            .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
             .build().unwrap();
 
         // Check initial fluid
