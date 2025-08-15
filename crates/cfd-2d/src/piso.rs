@@ -51,6 +51,8 @@ pub struct PisoConfig<T: RealField> {
     pub pressure_tolerance: T,
     /// Non-orthogonal correction iterations
     pub non_orthogonal_correctors: usize,
+    /// Maximum iterations for pressure correction Gauss-Seidel
+    pub pressure_correction_max_iters: usize,
 }
 
 /// Helper trait for safe numeric conversion
@@ -103,6 +105,7 @@ impl<T: RealField + FromPrimitive> Default for PisoConfig<T> {
             velocity_tolerance: T::safe_from_f64(constants::DEFAULT_TOLERANCE).unwrap_or_else(|_| T::from_f64(1e-6).unwrap()),
             pressure_tolerance: T::safe_from_f64(constants::DEFAULT_TOLERANCE).unwrap_or_else(|_| T::from_f64(1e-6).unwrap()),
             non_orthogonal_correctors: 1,
+            pressure_correction_max_iters: 20,
         }
     }
 }
@@ -162,7 +165,7 @@ pub struct PisoSolver<T: RealField> {
     constants: PisoConstants<T>,
 }
 
-impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
+impl<T: RealField + FromPrimitive + Send + Sync + Copy> PisoSolver<T> {
     /// Create a new PISO solver
     pub fn new(
         config: PisoConfig<T>,
@@ -222,42 +225,42 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
 
     /// Compute momentum equation coefficients
     fn compute_momentum_coefficients(&mut self) -> Result<()> {
-        let dt = self.config.time_step.clone();
-        let dx2 = self.dx.clone() * self.dx.clone();
-        let dy2 = self.dy.clone() * self.dy.clone();
+        let dt = self.config.time_step;
+        let dx2 = self.dx * self.dx;
+        let dy2 = self.dy * self.dy;
         
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
                 // Diffusion coefficients
-                let diff_x = self.viscosity.clone() / dx2.clone();
-                let diff_y = self.viscosity.clone() / dy2.clone();
+                let diff_x = self.viscosity / dx2;
+                let diff_y = self.viscosity / dy2;
                 
                 // Convection coefficients (using central differencing)
+                let half = self.constants.two;
                 let u_e = if i+1 < self.nx {
-                    (self.u[i][j].x.clone() + self.u[i+1][j].x.clone()) / self.constants.two.clone()
+                    (self.u[i][j].x + self.u[i+1][j].x) / half
                 } else {
-                    self.u[i][j].x.clone() / self.constants.two.clone()
+                    self.u[i][j].x / half
                 };
-                let u_w = (self.u[i-1][j].x.clone() + self.u[i][j].x.clone()) / self.constants.two.clone();
-                let v_n = (self.u[i][j].y.clone() + self.u[i][j+1].y.clone()) / self.constants.two.clone();
-                let v_s = (self.u[i][j-1].y.clone() + self.u[i][j].y.clone()) / self.constants.two.clone();
+                let u_w = (self.u[i-1][j].x + self.u[i][j].x) / half;
+                let v_n = (self.u[i][j].y + self.u[i][j+1].y) / half;
+                let v_s = (self.u[i][j-1].y + self.u[i][j].y) / half;
                 
-                let conv_e = self.density.clone() * u_e / self.dx.clone();
-                let conv_w = self.density.clone() * u_w / self.dx.clone();
-                let conv_n = self.density.clone() * v_n / self.dy.clone();
-                let conv_s = self.density.clone() * v_s / self.dy.clone();
+                let conv_e = self.density * u_e / self.dx;
+                let conv_w = self.density * u_w / self.dx;
+                let conv_n = self.density * v_n / self.dy;
+                let conv_s = self.density * v_s / self.dy;
                 
                 // Hybrid scheme coefficients
-                let zero = self.constants.zero.clone();
-                self.a_e[i][j] = diff_x.clone() + if -conv_e.clone() > zero { -conv_e.clone() } else { zero.clone() };
-                self.a_w[i][j] = diff_x.clone() + if conv_w.clone() > zero { conv_w.clone() } else { zero.clone() };
-                self.a_n[i][j] = diff_y.clone() + if -conv_n.clone() > zero { -conv_n.clone() } else { zero.clone() };
-                self.a_s[i][j] = diff_y.clone() + if conv_s > zero { conv_s } else { zero.clone() };
+                self.a_e[i][j] = diff_x + T::max(T::zero(), -conv_e);
+                self.a_w[i][j] = diff_x + T::max(T::zero(),  conv_w);
+                self.a_n[i][j] = diff_y + T::max(T::zero(), -conv_n);
+                self.a_s[i][j] = diff_y + T::max(T::zero(),  conv_s);
                 
                 // Central coefficient (includes transient term)
-                self.a_p[i][j] = self.a_e[i][j].clone() + self.a_w[i][j].clone() 
-                    + self.a_n[i][j].clone() + self.a_s[i][j].clone()
-                    + self.density.clone() * self.dx.clone() * self.dy.clone() / dt.clone();
+                self.a_p[i][j] = self.a_e[i][j] + self.a_w[i][j]
+                    + self.a_n[i][j] + self.a_s[i][j]
+                    + self.density * self.dx * self.dy / dt;
             }
         }
         Ok(())
@@ -549,39 +552,54 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
         // Reset correction field
         for i in 0..self.nx {
             for j in 0..self.ny {
-                correction_field[i][j] = self.constants.zero.clone();
+                correction_field[i][j] = self.constants.zero;
             }
         }
         
-        // Solve pressure correction equation iteratively
-        for _ in 0..20 {
+        // Precompute coefficients that depend only on a_p, dx, dy
+        let mut d_e = vec![vec![T::zero(); self.ny]; self.nx];
+        let mut d_w = vec![vec![T::zero(); self.ny]; self.nx];
+        let mut d_n = vec![vec![T::zero(); self.ny]; self.nx];
+        let mut d_s = vec![vec![T::zero(); self.ny]; self.nx];
+        let mut a_p_prime = vec![vec![T::zero(); self.ny]; self.nx];
+
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                let inv_ap = T::one() / self.a_p[i][j];
+                d_e[i][j] = self.dy * inv_ap;
+                d_w[i][j] = self.dy * inv_ap;
+                d_n[i][j] = self.dx * inv_ap;
+                d_s[i][j] = self.dx * inv_ap;
+                a_p_prime[i][j] = d_e[i][j] / self.dx + d_w[i][j] / self.dx
+                    + d_n[i][j] / self.dy + d_s[i][j] / self.dy;
+            }
+        }
+
+        // Solve pressure correction equation iteratively with convergence check
+        for _iter in 0..self.config.pressure_correction_max_iters {
+            let mut max_change = T::zero();
             for i in 1..self.nx-1 {
                 for j in 1..self.ny-1 {
                     // Calculate mass imbalance (continuity error)
-                    let dudx = (self.u[i+1][j].x.clone() - self.u[i-1][j].x.clone()) 
-                        / (self.constants.gradient_factor.clone() * self.dx.clone());
-                    let dvdy = (self.u[i][j+1].y.clone() - self.u[i][j-1].y.clone()) 
-                        / (self.constants.gradient_factor.clone() * self.dy.clone());
-                    let mass_imbalance = self.density.clone() * (dudx + dvdy);
-                    
-                    // Pressure correction coefficients
-                    let d_e = self.dy.clone() / self.a_p[i][j].clone();
-                    let d_w = self.dy.clone() / self.a_p[i][j].clone();
-                    let d_n = self.dx.clone() / self.a_p[i][j].clone();
-                    let d_s = self.dx.clone() / self.a_p[i][j].clone();
-                    
-                    let a_p_prime = d_e.clone() / self.dx.clone() + d_w.clone() / self.dx.clone()
-                        + d_n.clone() / self.dy.clone() + d_s.clone() / self.dy.clone();
-                    
-                    // Solve for pressure correction
-                    let sum_nb = (d_e * correction_field[i+1][j].clone() 
-                        + d_w * correction_field[i-1][j].clone()) / self.dx.clone()
-                        + (d_n * correction_field[i][j+1].clone() 
-                        + d_s * correction_field[i][j-1].clone()) / self.dy.clone();
-                    
-                    correction_field[i][j] = (sum_nb - mass_imbalance) / a_p_prime;
+                    let dudx = (self.u[i+1][j].x - self.u[i-1][j].x)
+                        / (self.constants.gradient_factor * self.dx);
+                    let dvdy = (self.u[i][j+1].y - self.u[i][j-1].y)
+                        / (self.constants.gradient_factor * self.dy);
+                    let mass_imbalance = self.density * (dudx + dvdy);
+
+                    // Solve for pressure correction using precomputed coefficients
+                    let sum_nb = (d_e[i][j] * correction_field[i+1][j]
+                        + d_w[i][j] * correction_field[i-1][j]) / self.dx
+                        + (d_n[i][j] * correction_field[i][j+1]
+                        + d_s[i][j] * correction_field[i][j-1]) / self.dy;
+
+                    let new_val = (sum_nb - mass_imbalance) / a_p_prime[i][j];
+                    let change = (new_val - correction_field[i][j]).abs();
+                    if change > max_change { max_change = change; }
+                    correction_field[i][j] = new_val;
                 }
             }
+            if max_change < self.config.pressure_tolerance { break; }
         }
         
         Ok(())
@@ -778,17 +796,17 @@ impl<T: RealField + FromPrimitive + Send + Sync> PisoSolver<T> {
  
     /// Apply symmetry velocity boundary condition
     fn apply_symmetry_velocity(&mut self, i: usize, j: usize) {
-        // Mirror velocity components appropriately for symmetry
+        // Enforce symmetry: normal velocity = 0, tangential gradient = 0
         if i == 0 || i == self.nx - 1 {
-            // Left/right boundaries - mirror x-component, keep y-component
+            // Vertical symmetry plane (left/right)
             let neighbor_i = if i == 0 { i + 1 } else { i - 1 };
-            self.u[i][j].x = -self.u[neighbor_i][j].x.clone();
-            self.u[i][j].y = self.u[neighbor_i][j].y.clone();
+            self.u[i][j].x = self.constants.zero; // normal component
+            self.u[i][j].y = self.u[neighbor_i][j].y; // tangential zero-gradient
         } else if j == 0 || j == self.ny - 1 {
-            // Top/bottom boundaries - keep x-component, mirror y-component
+            // Horizontal symmetry plane (top/bottom)
             let neighbor_j = if j == 0 { j + 1 } else { j - 1 };
-            self.u[i][j].x = self.u[i][neighbor_j].x.clone();
-            self.u[i][j].y = -self.u[i][neighbor_j].y.clone();
+            self.u[i][j].x = self.u[i][neighbor_j].x; // tangential zero-gradient
+            self.u[i][j].y = self.constants.zero; // normal component
         }
     }
  
