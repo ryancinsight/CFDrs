@@ -21,6 +21,10 @@ num-traits.workspace = true
 indexmap.workspace = true
 rayon.workspace = true
 
+[features]
+default = []
+experimental = []
+
 [dev-dependencies]
 proptest.workspace = true
 criterion.workspace = true

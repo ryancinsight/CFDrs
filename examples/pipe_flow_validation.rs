@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Create simple cylindrical pipe mesh
     println!("\nGenerating cylindrical pipe mesh...");
-    let pipe_mesh = create_simple_pipe_mesh(pipe_radius, pipe_length, n_circumferential, n_axial)?;
+    let pipe_mesh = create_pipe_mesh(pipe_radius, pipe_length, n_circumferential, n_axial)?;
     println!("  Generated {} vertices, {} faces", pipe_mesh.vertices.len(), pipe_mesh.faces.len());
     
     // Set up flow parameters
@@ -100,7 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Create a simple cylindrical pipe mesh
-fn create_simple_pipe_mesh(radius: f64, length: f64, n_circ: usize, n_axial: usize) -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
+fn create_pipe_mesh(radius: f64, length: f64, n_circ: usize, n_axial: usize) -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
     let mut vertices = Vec::new();
     let mut faces = Vec::new();
     

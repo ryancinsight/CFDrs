@@ -766,7 +766,7 @@ mod tests {
     }
 
     #[test]
-    fn test_network_builder_simple() {
+    fn test_network_builder_case() {
         let network = NetworkBuilder::new()
             .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)

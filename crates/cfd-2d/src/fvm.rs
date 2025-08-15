@@ -545,7 +545,7 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_diffusion() {
+    fn test_diffusion_case() {
         let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
         let solver = FvmSolver::new(FvmConfig::default(), FluxScheme::Central);
 

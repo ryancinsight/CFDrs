@@ -393,7 +393,7 @@ mod tests {
 
 
     #[test]
-    fn test_poisson_solver_simple() {
+    fn test_poisson_solver_case() {
         // Test simple Poisson equation: ∇²φ = 0 with φ = 1 on boundaries
         let mut grid = StructuredGrid2D::<f64>::unit_square(5, 5).unwrap();
 

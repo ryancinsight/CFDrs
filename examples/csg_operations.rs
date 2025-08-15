@@ -48,7 +48,7 @@ fn main() -> Result<(), CsgError> {
 }
 
 /// Demonstrate basic primitive creation
-fn basic_primitives() -> Result<(), CsgError> {
+fn primitives_demo() -> Result<(), CsgError> {
     let operator = CsgOperator::<f64>::new();
     
     // Create a cube
