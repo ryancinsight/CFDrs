@@ -212,7 +212,7 @@ mod tests {
 
     #[test]
     fn test_basic_state() {
-        let mut state = BasicState::<f64>::new();
+        let mut state = FieldState::<f64>::new();
         state.add_scalar_field(FieldVariable::Pressure, 10);
         state.add_vector_field(FieldVariable::Velocity, 10);
 

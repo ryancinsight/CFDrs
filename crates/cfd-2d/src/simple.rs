@@ -1013,7 +1013,7 @@ mod tests {
 
     #[test]
     fn test_simple_config_default() {
-        let config = SimpleConfig::<f64>::default();
+        let config = PressureVelocityCouplingConfig::<f64>::default();
         assert_eq!(config.base.max_iterations(), 100);
         assert_relative_eq!(config.dt, 0.01, epsilon = 1e-10);
         assert_relative_eq!(config.alpha_u, 0.7, epsilon = 1e-10);
@@ -1026,8 +1026,8 @@ mod tests {
     #[test]
     fn test_simple_solver_creation() {
         let grid = StructuredGrid2D::<f64>::unit_square(5, 5).unwrap();
-        let config = SimpleConfig::<f64>::default();
-        let solver = SimpleSolver::new(config, 5, 5);
+        let config = PressureVelocityCouplingConfig::<f64>::default();
+        let solver = PressureVelocityCouplerSolver::new(config, 5, 5);
 
         assert_eq!(solver.nx, 5);
         assert_eq!(solver.ny, 5);
@@ -1038,8 +1038,8 @@ mod tests {
     #[test]
     fn test_simple_initialization() {
         let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
-        let config = SimpleConfig::<f64>::default();
-        let mut solver = SimpleSolver::new(config, 3, 3);
+        let config = PressureVelocityCouplingConfig::<f64>::default();
+        let mut solver = PressureVelocityCouplerSolver::new(config, 3, 3);
 
         let initial_velocity = Vector2::new(1.0, 0.5);
         let initial_pressure = 101325.0;
@@ -1074,8 +1074,8 @@ mod tests {
     #[test]
     fn test_simple_boundary_conditions() {
         let grid = StructuredGrid2D::<f64>::unit_square(5, 5).unwrap();
-        let config = SimpleConfig::<f64>::default();
-        let mut solver = SimpleSolver::new(config, 5, 5);
+        let config = PressureVelocityCouplingConfig::<f64>::default();
+        let mut solver = PressureVelocityCouplerSolver::new(config, 5, 5);
 
         // Initialize pressure field
         for i in 0..solver.nx {
@@ -1150,8 +1150,8 @@ mod tests {
     #[test]
     fn test_simple_field_access() {
         let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
-        let config = SimpleConfig::<f64>::default();
-        let mut solver = SimpleSolver::new(config, 3, 3);
+        let config = PressureVelocityCouplingConfig::<f64>::default();
+        let mut solver = PressureVelocityCouplerSolver::new(config, 3, 3);
 
         // Initialize pressure field
         for i in 0..solver.nx {
@@ -1203,11 +1203,11 @@ mod tests {
         let viscosity = 0.01;  // Re = U*L/ν = 1.0*1.0/0.01 = 100
         
         // Create solver with appropriate configuration
-        let config = SimpleConfig {
+        let config = PressureVelocityCouplingConfig {
             base: cfd_core::SolverConfig::builder()
                 .max_iterations(1000)
                 .tolerance(1e-4)
-                .build(),
+                .build_base(),
             dt: 0.01,
             alpha_u: 0.7,
             alpha_p: 0.3,
@@ -1216,7 +1216,7 @@ mod tests {
             implicit_momentum: true, // Explicit solver is unstable for this test
         };
         
-        let mut solver = SimpleSolver::new(config, nx, ny);
+        let mut solver = PressureVelocityCouplerSolver::new(config, nx, ny);
         
         // Set fluid properties
         solver.mu = viscosity;
@@ -1330,8 +1330,8 @@ mod tests {
     fn test_pressure_correction_continuity() {
         let nx = 10;
         let ny = 10;
-        let config = SimpleConfig::default();
-        let mut solver = SimpleSolver::new(config, nx, ny);
+        let config = PressureVelocityCouplingConfig::default();
+        let mut solver = PressureVelocityCouplerSolver::new(config, nx, ny);
         
         // Set up a divergent velocity field
         for i in 1..nx-1 {
@@ -1369,10 +1369,10 @@ mod tests {
     #[test]
     fn test_neumann_bc_with_non_unit_spacing() {
         // Test that Neumann BC correctly uses actual grid spacing
-        let config = SimpleConfig::default();
+        let config = PressureVelocityCouplingConfig::default();
         let nx = 10;
         let ny = 10;
-        let mut solver = SimpleSolver::new(config, nx, ny);
+        let mut solver = PressureVelocityCouplerSolver::new(config, nx, ny);
         
         // Create a non-unit grid (dx=0.5, dy=0.2)
         let grid = StructuredGrid2D::new(nx, ny, 0.0, 5.0, 0.0, 2.0).unwrap();
