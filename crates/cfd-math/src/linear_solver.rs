@@ -24,6 +24,7 @@ use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::cast::FromPrimitive;
 use std::fmt::Debug;
+use crate::sparse::SparseMatrixExt;
 
 // Re-export the unified configuration from cfd-core
 pub use cfd_core::{LinearSolverConfig, SolverConfiguration};
@@ -85,27 +86,17 @@ impl<T: RealField + FromPrimitive> JacobiPreconditioner<T> {
             ));
         }
 
+        // Extract diagonal directly
+        let diag = a.diagonal();
         let mut inv_diagonal = DVector::zeros(n);
-        
-        // Efficiently extract diagonal elements
-        for (i, j, val) in a.triplet_iter() {
-            if i == j {
-                if val.abs() < T::from_f64(1e-14).unwrap() {
-                    return Err(Error::NumericalError(
-                        format!("Zero or near-zero diagonal entry at row {}", i)
-                    ));
-                }
-                inv_diagonal[i] = T::one() / val.clone();
-            }
-        }
-        
-        // Verify all diagonal entries were found
-        for i in 0..n {
-            if inv_diagonal[i] == T::zero() {
+
+        for (i, val) in diag.iter().enumerate() {
+            if val.clone().abs() < T::from_f64(1e-14).unwrap() {
                 return Err(Error::NumericalError(
-                    format!("Missing diagonal entry at row {}", i)
+                    format!("Zero or near-zero diagonal entry at row {}", i)
                 ));
             }
+            inv_diagonal[i] = T::one() / val.clone();
         }
 
         Ok(Self { inv_diagonal })
@@ -207,22 +198,25 @@ impl<T: RealField> Preconditioner<T> for SORPreconditioner<T> {
         let n = r.len();
         z.fill(T::zero());
         
-        // Forward SOR sweep with in-place operations
+        // Forward SOR sweep with in-place operations (standard SOR: (D/ω - L) z = r)
         for i in 0..n {
-            let mut sum = r[i].clone();
+            let mut sum = T::zero();
             let row = self.matrix.row(i);
             let mut diag = T::one();
             
             // Process row entries
             for (j, val) in row.col_indices().iter().zip(row.values()) {
                 if *j < i {
-                    sum = sum - val.clone() * z[*j].clone();
+                    // Accumulate strictly lower part L z
+                    sum = sum + val.clone() * z[*j].clone();
                 } else if *j == i {
                     diag = val.clone();
                 }
             }
             
-            z[i] = self.omega.clone() * sum / diag;
+            // Standard SOR preconditioner solves (D/ω - L) z = r
+            // => (diag/ω) z_i = r_i + (L z)_i
+            z[i] = (r[i].clone() + sum) * self.omega.clone() / diag;
         }
         
         Ok(())
@@ -382,6 +376,7 @@ impl<T: RealField> BiCGSTAB<T> {
         let mut s = DVector::zeros(n);
         let mut t = DVector::zeros(n);
         let mut z = DVector::zeros(n);
+        let mut z2 = DVector::zeros(n);
 
         // Compute initial residual: r = b - A*x
         let ax = a * &x;
@@ -389,7 +384,7 @@ impl<T: RealField> BiCGSTAB<T> {
         r -= &ax;
         
         let initial_residual_norm = r.norm();
-        let breakdown_tolerance = initial_residual_norm * T::from_f64(1e-14).unwrap();
+        let breakdown_tolerance = initial_residual_norm * T::default_epsilon();
         
         r0_hat.copy_from(&r); // Shadow residual
         
@@ -430,7 +425,6 @@ impl<T: RealField> BiCGSTAB<T> {
             }
 
             // Solve M*z2 = s and compute t = A*z2
-            let mut z2 = DVector::zeros(n);
             preconditioner.apply_to(&s, &mut z2)?;
             t = a * &z2;
             

@@ -301,57 +301,50 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgGeometry<T> {
     
     /// Export to STL format
     pub fn to_stl(&self, _name: &str) -> Result<String, CsgError> {
-        // Use csgrs built-in STL export
-        #[cfg(feature = "stl-io")]
-        {
-            use csgrs::io::stl::write_stl_ascii;
-            let stl_string = write_stl_ascii(&self.csg.triangulate(), _name);
-            Ok(stl_string)
-        }
-        
-        #[cfg(not(feature = "stl-io"))]
-        {
-            // Manual STL generation if feature not enabled
-            let mut stl = format!("solid {}\n", _name);
-            
-            // Triangulate the mesh first
-            let triangulated = self.csg.triangulate();
-            
-            for polygon in &triangulated.polygons {
-                if polygon.vertices.len() == 3 {
-                    // Calculate normal (assuming CCW winding)
-                    let v0 = &polygon.vertices[0].pos;
-                    let v1 = &polygon.vertices[1].pos;
-                    let v2 = &polygon.vertices[2].pos;
-                    
-                    let edge1 = nalgebra::Vector3::new(
-                        (v1.x - v0.x) as f32,
-                        (v1.y - v0.y) as f32,
-                        (v1.z - v0.z) as f32,
-                    );
-                    let edge2 = nalgebra::Vector3::new(
-                        (v2.x - v0.x) as f32,
-                        (v2.y - v0.y) as f32,
-                        (v2.z - v0.z) as f32,
-                    );
-                    let normal = edge1.cross(&edge2).normalize();
-                    
-                    stl.push_str(&format!("  facet normal {} {} {}\n", normal.x, normal.y, normal.z));
-                    stl.push_str("    outer loop\n");
-                    
-                    for vertex in &polygon.vertices {
-                        stl.push_str(&format!("      vertex {} {} {}\n", 
-                            vertex.pos.x, vertex.pos.y, vertex.pos.z));
-                    }
-                    
-                    stl.push_str("    endloop\n");
-                    stl.push_str("  endfacet\n");
-                }
+        // Manual STL generation using triangulated polygons
+        let mut stl = format!("solid {}\n", _name);
+        let triangulated = self.csg.triangulate();
+        for polygon in &triangulated.polygons {
+            if polygon.vertices.len() == 3 {
+                let v0 = &polygon.vertices[0].pos;
+                let v1 = &polygon.vertices[1].pos;
+                let v2 = &polygon.vertices[2].pos;
+
+                let edge1 = nalgebra::Vector3::new(
+                    (v1.x - v0.x) as f32,
+                    (v1.y - v0.y) as f32,
+                    (v1.z - v0.z) as f32,
+                );
+                let edge2 = nalgebra::Vector3::new(
+                    (v2.x - v0.x) as f32,
+                    (v2.y - v0.y) as f32,
+                    (v2.z - v0.z) as f32,
+                );
+                let normal = edge1.cross(&edge2).normalize();
+
+                stl.push_str(&format!(
+                    "  facet normal {} {} {}\n",
+                    normal.x, normal.y, normal.z
+                ));
+                stl.push_str("    outer loop\n");
+                stl.push_str(&format!(
+                    "      vertex {} {} {}\n",
+                    v0.x as f32, v0.y as f32, v0.z as f32
+                ));
+                stl.push_str(&format!(
+                    "      vertex {} {} {}\n",
+                    v1.x as f32, v1.y as f32, v1.z as f32
+                ));
+                stl.push_str(&format!(
+                    "      vertex {} {} {}\n",
+                    v2.x as f32, v2.y as f32, v2.z as f32
+                ));
+                stl.push_str("    endloop\n");
+                stl.push_str("  endfacet\n");
             }
-            
-            stl.push_str(&format!("endsolid {}\n", _name));
-            Ok(stl)
         }
+        stl.push_str("endsolid\n");
+        Ok(stl)
     }
     
     /// Export to binary STL format

@@ -513,7 +513,7 @@ pub struct FemSolver<T: RealField> {
     s_pp_global: Option<SparseMatrix<T>>,
 }
 
-// Custom solver implementation for FEM - simplified approach
+// FEM solver implementation for demonstration scope
 impl<T: RealField + FromPrimitive + Clone + num_traits::Float> FemSolver<T> {
     /// Solve a Stokes flow problem
     pub fn solve_problem(&mut self, problem: &StokesFlowProblem<T>) -> Result<StokesFlowSolution<T>> {
@@ -898,7 +898,7 @@ mod tests {
         mesh.faces.push(Face { vertices: vec![2, 3, 0], id: 3 }); // Side 3
         
         // Create the tetrahedral cell
-        mesh.cells.push(Cell { faces: vec![0, 1, 2, 3], id: 0 });
+        mesh.cells.push(Cell { faces: vec![0, 1, 2, 3], id: 0, element_type: cfd_mesh::ElementType::Tetrahedron });
         
         // Set up solver
         let config = FemConfig::default();
@@ -949,7 +949,7 @@ mod tests {
         mesh.faces.push(Face { vertices: vec![2, 3, 0], id: 3 }); // Left
         
         // Create the tetrahedral cell with proper face connectivity
-        mesh.cells.push(Cell { faces: vec![0, 1, 2, 3], id: 0 });
+        mesh.cells.push(Cell { faces: vec![0, 1, 2, 3], id: 0, element_type: cfd_mesh::ElementType::Tetrahedron });
         
         let config = FemConfig::default();
         let properties = FluidProperties {

@@ -119,157 +119,7 @@ impl<T: RealField> SolverConfiguration<T> for SolverConfig<T> {
     }
 }
 
-impl<T: RealField> SolverConfig<T> {
-    /// Get relaxation factor (values < 1.0 are under-relaxation, > 1.0 are over-relaxation)
-    pub fn relaxation_factor(&self) -> T {
-        self.numerical.relaxation_factor.clone()
-    }
-
-    /// Get number of threads
-    pub fn num_threads(&self) -> Option<usize> {
-        self.execution.num_threads
-    }
-
-    /// Check if verbose output is enabled (legacy compatibility)
-    pub fn verbose(&self) -> bool {
-        self.execution.verbosity >= 2
-    }
-}
-
-impl<T: RealField + FromPrimitive> Default for ConvergenceConfig<T> {
-    fn default() -> Self {
-        Self {
-            tolerance: T::from_f64(1e-6).expect("Failed to convert default tolerance literal to generic type T"),
-            max_iterations: 1000,
-        }
-    }
-}
-
-impl Default for ExecutionConfig {
-    fn default() -> Self {
-        Self {
-            parallel: true,
-            num_threads: None,
-            verbosity: 0,
-        }
-    }
-}
-
-impl<T: RealField + FromPrimitive> Default for NumericalConfig<T> {
-    fn default() -> Self {
-        Self {
-            relaxation_factor: T::from_f64(1.0).expect("Failed to convert default relaxation factor literal to generic type T"),
-        }
-    }
-}
-
-impl<T: RealField + FromPrimitive> Default for SolverConfig<T> {
-    fn default() -> Self {
-        Self {
-            convergence: ConvergenceConfig::default(),
-            execution: ExecutionConfig::default(),
-            numerical: NumericalConfig::default(),
-        }
-    }
-}
-
-/// Linear solver specific configuration using composition
-#[derive(Debug, Clone)]
-pub struct LinearSolverConfig<T: RealField> {
-    /// Base solver configuration
-    pub base: SolverConfig<T>,
-    /// Restart parameter for GMRES
-    pub restart: usize,
-    /// Use preconditioning
-    pub use_preconditioner: bool,
-}
-
-impl<T: RealField> SolverConfiguration<T> for LinearSolverConfig<T> {
-    fn tolerance(&self) -> T {
-        self.base.tolerance()
-    }
-
-    fn max_iterations(&self) -> usize {
-        self.base.max_iterations()
-    }
-
-    fn verbosity(&self) -> u8 {
-        self.base.verbosity()
-    }
-
-    fn parallel(&self) -> bool {
-        self.base.parallel()
-    }
-}
-
-impl<T: RealField> LinearSolverConfig<T> {
-    /// Get restart parameter
-    pub fn restart(&self) -> usize {
-        self.restart
-    }
-
-    /// Check if preconditioning is enabled
-    pub fn use_preconditioner(&self) -> bool {
-        self.use_preconditioner
-    }
-
-    /// Get relaxation factor from base configuration
-    pub fn relaxation_factor(&self) -> T {
-        self.base.relaxation_factor()
-    }
-}
-
-impl<T: RealField + FromPrimitive> Default for LinearSolverConfig<T> {
-    fn default() -> Self {
-        Self {
-            base: SolverConfig::default(),
-            restart: 30,
-            use_preconditioner: false,
-        }
-    }
-}
-
-/// Network solver specific configuration using composition
-#[derive(Debug, Clone)]
-pub struct NetworkSolverConfig<T: RealField> {
-    /// Base solver configuration
-    pub base: SolverConfig<T>,
-}
-
-impl<T: RealField> SolverConfiguration<T> for NetworkSolverConfig<T> {
-    fn tolerance(&self) -> T {
-        self.base.tolerance()
-    }
-
-    fn max_iterations(&self) -> usize {
-        self.base.max_iterations()
-    }
-
-    fn verbosity(&self) -> u8 {
-        self.base.verbosity()
-    }
-
-    fn parallel(&self) -> bool {
-        self.base.parallel()
-    }
-}
-
-impl<T: RealField> NetworkSolverConfig<T> {
-    /// Get relaxation factor from base configuration
-    pub fn relaxation_factor(&self) -> T {
-        self.base.relaxation_factor()
-    }
-}
-
-impl<T: RealField + FromPrimitive> Default for NetworkSolverConfig<T> {
-    fn default() -> Self {
-        Self {
-            base: SolverConfig::default(),
-        }
-    }
-}
-
-impl<T: RealField> SolverConfig<T> {
+impl<T: RealField + FromPrimitive> SolverConfig<T> {
     /// Builder pattern for configuration
     pub fn builder() -> SolverConfigBuilder<T> {
         SolverConfigBuilder::default()
@@ -351,18 +201,12 @@ impl<T: RealField> SolverConfigBuilder<T> {
     /// This builds a NetworkSolverConfig which is the most commonly used configuration
     /// in 1D CFD applications. For other specific configurations, use build_linear() etc.
     pub fn build(self) -> NetworkSolverConfig<T> {
-        NetworkSolverConfig {
-            base: self.build_base(),
-        }
+        NetworkSolverConfig { base: self.build_base() }
     }
 
     /// Build a linear solver configuration with additional parameters
     pub fn build_linear(self, restart: usize, use_preconditioner: bool) -> LinearSolverConfig<T> {
-        LinearSolverConfig {
-            base: self.build_base(),
-            restart,
-            use_preconditioner,
-        }
+        LinearSolverConfig { base: self.build_base(), restart, use_preconditioner }
     }
 
     /// Build a network solver configuration
@@ -371,9 +215,7 @@ impl<T: RealField> SolverConfigBuilder<T> {
     /// In the context of `SolverConfig::builder()`, calling `.build()` is unambiguous.
     #[deprecated(since = "0.1.0", note = "Use build() for clearer API - the context makes it unambiguous")]
     pub fn build_network(self) -> NetworkSolverConfig<T> {
-        NetworkSolverConfig {
-            base: self.build_base(),
-        }
+        NetworkSolverConfig { base: self.build_base() }
     }
 }
 
@@ -741,6 +583,106 @@ where
         self.criteria1.is_converged(residual.clone(), iteration)
             || self.criteria2.is_converged(residual, iteration)
     }
+}
+
+impl<T: RealField + FromPrimitive> Default for ConvergenceConfig<T> {
+    fn default() -> Self {
+        Self {
+            tolerance: T::from_f64(1e-6)
+                .expect("Default tolerance value (1e-6) could not be represented as generic type T."),
+            max_iterations: 1000,
+        }
+    }
+}
+
+impl Default for ExecutionConfig {
+    fn default() -> Self {
+        Self { parallel: true, num_threads: None, verbosity: 0 }
+    }
+}
+
+impl<T: RealField + FromPrimitive> Default for NumericalConfig<T> {
+    fn default() -> Self {
+        Self {
+            relaxation_factor: T::from_f64(1.0)
+                .expect("Default relaxation factor (1.0) could not be represented as generic type T."),
+        }
+    }
+}
+
+impl<T: RealField + FromPrimitive> Default for SolverConfig<T> {
+    fn default() -> Self {
+        Self {
+            convergence: ConvergenceConfig::default(),
+            execution: ExecutionConfig::default(),
+            numerical: NumericalConfig::default(),
+        }
+    }
+}
+
+/// Linear solver specific configuration using composition
+#[derive(Debug, Clone)]
+pub struct LinearSolverConfig<T: RealField> {
+    /// Base solver configuration
+    pub base: SolverConfig<T>,
+    /// Restart parameter for GMRES
+    pub restart: usize,
+    /// Use preconditioning
+    pub use_preconditioner: bool,
+}
+
+impl<T: RealField> SolverConfiguration<T> for LinearSolverConfig<T> {
+    fn tolerance(&self) -> T { self.base.tolerance() }
+    fn max_iterations(&self) -> usize { self.base.max_iterations() }
+    fn verbosity(&self) -> u8 { self.base.verbosity() }
+    fn parallel(&self) -> bool { self.base.parallel() }
+}
+
+impl<T: RealField> LinearSolverConfig<T> {
+    /// Get restart parameter
+    pub fn restart(&self) -> usize { self.restart }
+    /// Check if preconditioning is enabled
+    pub fn use_preconditioner(&self) -> bool { self.use_preconditioner }
+    /// Get relaxation factor from base configuration
+    pub fn relaxation_factor(&self) -> T { self.base.relaxation_factor() }
+}
+
+impl<T: RealField + FromPrimitive> Default for LinearSolverConfig<T> {
+    fn default() -> Self {
+        Self { base: SolverConfig::default(), restart: 30, use_preconditioner: false }
+    }
+}
+
+/// Network solver specific configuration using composition
+#[derive(Debug, Clone)]
+pub struct NetworkSolverConfig<T: RealField> {
+    /// Base solver configuration
+    pub base: SolverConfig<T>,
+}
+
+impl<T: RealField> SolverConfiguration<T> for NetworkSolverConfig<T> {
+    fn tolerance(&self) -> T { self.base.tolerance() }
+    fn max_iterations(&self) -> usize { self.base.max_iterations() }
+    fn verbosity(&self) -> u8 { self.base.verbosity() }
+    fn parallel(&self) -> bool { self.base.parallel() }
+}
+
+impl<T: RealField> NetworkSolverConfig<T> {
+    /// Get relaxation factor from base configuration
+    pub fn relaxation_factor(&self) -> T { self.base.relaxation_factor() }
+}
+
+impl<T: RealField + FromPrimitive> Default for NetworkSolverConfig<T> {
+    fn default() -> Self { Self { base: SolverConfig::default() } }
+}
+
+impl<T: RealField> SolverConfig<T> {
+    /// Get relaxation factor (values < 1.0 are under-relaxation, > 1.0 are over-relaxation)
+    pub fn relaxation_factor(&self) -> T { self.numerical.relaxation_factor.clone() }
+    /// Get number of threads
+    pub fn num_threads(&self) -> Option<usize> { self.execution.num_threads }
+    /// Check if verbose output is enabled (legacy compatibility)
+    pub fn verbose(&self) -> bool { self.execution.verbosity >= 2 }
 }
 
 #[cfg(test)]

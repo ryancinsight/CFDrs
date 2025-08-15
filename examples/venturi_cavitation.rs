@@ -10,7 +10,7 @@
 use cfd_mesh::csg::{CsgOperator, CsgBuilder};
 use cfd_core::cavitation::{VenturiCavitation, CavitationModel, RayleighPlesset};
 use cfd_1d::network::{NetworkBuilder, Channel};
-use cfd_2d::{SimpleSolver, SimpleConfig, StructuredGrid2D, Grid2D};
+use cfd_2d::{PressureVelocityCouplerSolver, PressureVelocityCouplingConfig, StructuredGrid2D, Grid2D};
 use cfd_3d::{FemSolver, FemConfig, FluidProperties};
 use cfd_core::{BoundaryCondition, WallType};
 use nalgebra::{Vector3, Vector2, Point3};
@@ -232,8 +232,8 @@ fn simulate_2d_cavitation() -> Result<(), Box<dyn std::error::Error>> {
         0.0, dim::INLET_DIAMETER / 2.0
     )?;
     
-    // Configure SIMPLE solver with cavitation model
-    let config = SimpleConfig {
+    // Configure pressure–velocity coupling solver with cavitation model
+    let config = PressureVelocityCouplingConfig {
         dt: 0.001,
         alpha_u: 0.7,
         alpha_p: 0.3,
@@ -243,7 +243,7 @@ fn simulate_2d_cavitation() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
     
-    let mut solver = SimpleSolver::new(config, grid.nx(), grid.ny());
+    let mut solver = PressureVelocityCouplerSolver::new(config, grid.nx(), grid.ny());
     
     // Set up boundary conditions
     let mut boundary_conditions = HashMap::new();

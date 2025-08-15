@@ -713,7 +713,7 @@ mod tests {
     }
 
     #[test]
-    fn test_lbm_simple_flow() {
+    fn test_lbm_flow_case() {
         let grid = StructuredGrid2D::<f64>::unit_square(5, 5).unwrap();
         let mut config = LbmConfig::<f64>::default();
         config.max_steps = 10; // Short simulation for testing

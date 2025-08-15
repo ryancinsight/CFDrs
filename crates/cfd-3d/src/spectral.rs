@@ -55,7 +55,7 @@ impl<T: RealField + FromPrimitive> Default for SpectralConfig<T> {
         let base = cfd_core::SolverConfig::builder()
             .tolerance(T::from_f64(TIGHT_TOLERANCE).unwrap())
             .max_iterations(100)
-            .build();
+            .build_base();
 
         Self {
             base,
@@ -1355,11 +1355,18 @@ mod tests {
             base: cfd_core::SolverConfig::builder()
                 .tolerance(f64::from(1e-8))
                 .max_iterations(100)
-                .build(),
+                .build_base(),
             nx_modes: n,
             ny_modes: n,
             nz_modes: n,
             dt: None,
+            nx: None,
+            ny: None,
+            nz: None,
+            lx: Some(2.0 * std::f64::consts::PI),
+            ly: Some(2.0 * std::f64::consts::PI),
+            lz: Some(2.0 * std::f64::consts::PI),
+            viscosity: None,
         };
         
         let mut solver = SpectralSolver::new(
@@ -1407,7 +1414,7 @@ mod tests {
         
         // Time evolution
         for _ in 0..n_steps {
-            solver.step(dt, viscosity);
+            solver.step_with_params(dt, viscosity);
         }
         
         // Compute final kinetic energy
@@ -1415,7 +1422,7 @@ mod tests {
         
         // Analytical decay rate for Taylor-Green vortex
         // E(t) = E(0) * exp(-2*nu*t) for early times
-        let expected_energy = initial_energy * (-2.0 * viscosity * t_final).exp();
+        let expected_energy = initial_energy * f64::exp(-2.0 * viscosity * t_final);
         
         // Check energy decay (allow larger error for this simplified test)
         // Note: The spectral solver implementation may need improvements
@@ -1447,11 +1454,18 @@ mod tests {
             base: cfd_core::SolverConfig::builder()
                 .tolerance(f64::from(1e-8))
                 .max_iterations(100)
-                .build(),
+                .build_base(),
             nx_modes: n,
             ny_modes: n,
             nz_modes: n,
             dt: None,
+            nx: None,
+            ny: None,
+            nz: None,
+            lx: Some(2.0 * std::f64::consts::PI),
+            ly: Some(2.0 * std::f64::consts::PI),
+            lz: Some(2.0 * std::f64::consts::PI),
+            viscosity: None,
         };
         
         let solver = SpectralSolver::new(

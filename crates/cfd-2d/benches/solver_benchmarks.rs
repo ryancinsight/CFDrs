@@ -4,7 +4,7 @@ use cfd_2d::{
     fdm::{PoissonSolver, AdvectionDiffusionSolver},
     fvm::FvmSolver,
     lbm::{LbmSolver, D2Q9},
-    simple::{SimpleSolver, SimpleConfig},
+    pressure_velocity_coupling::{PressureVelocityCouplerSolver, PressureVelocityCouplingConfig},
 };
 use nalgebra::Vector2;
 
@@ -115,7 +115,7 @@ fn benchmark_lbm_solver(c: &mut Criterion) {
     group.finish();
 }
 
-fn benchmark_simple_solver(c: &mut Criterion) {
+fn benchmark_pressure_velocity_coupling(c: &mut Criterion) {
     let mut group = c.benchmark_group("simple_solver");
     
     for size in [25, 50, 100].iter() {
@@ -123,7 +123,7 @@ fn benchmark_simple_solver(c: &mut Criterion) {
         let mut simple_solver = SimpleSolver::new(config, *size, *size);
         
         group.bench_with_input(
-            BenchmarkId::new("simple_single_iteration", size),
+            BenchmarkId::new("pvc_single_iteration", size),
             size,
             |b, _| {
                 b.iter(|| {
@@ -133,7 +133,7 @@ fn benchmark_simple_solver(c: &mut Criterion) {
         );
         
         group.bench_with_input(
-            BenchmarkId::new("simple_pressure_correction", size),
+            BenchmarkId::new("pvc_pressure_correction", size),
             size,
             |b, _| {
                 b.iter(|| {

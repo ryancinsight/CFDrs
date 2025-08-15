@@ -393,7 +393,7 @@ mod tests {
 
 
     #[test]
-    fn test_poisson_solver_simple() {
+    fn test_poisson_solver_case() {
         // Test simple Poisson equation: ∇²φ = 0 with φ = 1 on boundaries
         let mut grid = StructuredGrid2D::<f64>::unit_square(5, 5).unwrap();
 
@@ -415,7 +415,7 @@ mod tests {
             .max_iterations(1000)
             .relaxation_factor(1.0)
             .verbosity(0) // verbose = false means verbosity level 0
-            .build();
+            .build_base();
 
         let config = FdmConfig { base };
 
@@ -462,7 +462,7 @@ mod tests {
             .max_iterations(2000)
             .relaxation_factor(1.0)
             .verbosity(0)
-            .build();
+            .build_base();
 
         let config = FdmConfig { base };
 
@@ -533,7 +533,7 @@ mod tests {
                 base: cfd_core::SolverConfig::<f64>::builder()
                     .tolerance(1e-10)
                     .max_iterations(2000)
-                    .build()
+                    .build_base()
             };
             
             let solver = PoissonSolver::new(config);
@@ -599,7 +599,7 @@ mod tests {
             .max_iterations(1000)
             .relaxation_factor(1.0)
             .verbosity(0) // verbose = false means verbosity level 0
-            .build();
+            .build_base();
 
         let config = FdmConfig { base };
 
@@ -658,7 +658,7 @@ mod tests {
             .max_iterations(1000)
             .relaxation_factor(0.8)
             .verbosity(0) // verbose = false means verbosity level 0
-            .build();
+            .build_base();
 
         let config = FdmConfig { base };
 

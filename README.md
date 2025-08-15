@@ -10,7 +10,7 @@ Following comprehensive expert physics and code review, this CFD framework demon
 
 **All core physics implementations validated against established CFD literature:**
 
-- **SIMPLE Algorithm**: Mathematically correct Semi-Implicit Method implementation with proper pressure-velocity coupling, momentum discretization per Patankar (1980)
+- **Pressure–Velocity Coupling (SIMPLE)**: Semi-Implicit Method implementation with pressure-velocity coupling, momentum discretization per Patankar (1980)
 - **LBM (Lattice Boltzmann)**: Correct D2Q9 implementation with validated lattice velocities, weights, BGK collision operator per Sukop & Thorne (2007) 
 - **FEM (Finite Element)**: Proper Stokes flow formulation with mixed velocity-pressure elements following Hughes et al. (1986)
 - **Linear Solvers**: Robust CG, BiCGSTAB, GMRES implementations with proper preconditioning following Saad (2003)
@@ -109,12 +109,12 @@ Following comprehensive expert physics and code review, this CFD framework demon
 
 ```rust
 // SIMPLE solver for 2D incompressible flow
-use cfd_2d::{SimpleSolver, SimpleConfig};
+use cfd_2d::{PressureVelocityCouplerSolver, PressureVelocityCouplingConfig};
 use cfd_2d::grid::StructuredGrid2D;
 
-let config = SimpleConfig::default();
+let config = PressureVelocityCouplingConfig::default();
 let grid = StructuredGrid2D::unit_square(64, 64)?;
-let mut solver = SimpleSolver::new(config, grid.nx(), grid.ny());
+let mut solver = PressureVelocityCouplerSolver::new(config, grid.nx(), grid.ny());
 
 // Run simulation
 solver.solve(&grid, &boundary_conditions)?;

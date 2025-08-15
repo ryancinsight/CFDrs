@@ -57,9 +57,6 @@ csv = "1.3"
 proptest = "1.4"
 criterion = "0.5"
 
-# 3D mesh support
-csgrs = { version = "0.20", features = ["f64", "stl-io", "delaunay"] }
-
 # Internal crates
 cfd-core = { path = "crates/cfd-core" }
 cfd-math = { path = "crates/cfd-math" }
@@ -102,6 +99,7 @@ readme.workspace = true
 default = []
 scheme-integration = ["cfd-1d/scheme-integration"]
 hdf5 = ["cfd-io/hdf5"]
+csg = ["cfd-mesh/csg", "cfd-3d/csg"]
 
 [dependencies]
 cfd-core.workspace = true
@@ -140,3 +138,34 @@ path = "examples/venturi_cavitation.rs"
 [[example]]
 name = "validation_suite"
 path = "examples/validation_suite.rs"
+
+# CSG-related examples gated by feature
+[[example]]
+name = "csg_primitives_demo"
+path = "examples/csg_primitives_demo.rs"
+required-features = ["csg"]
+
+[[example]]
+name = "csg_cfd_simulation"
+path = "examples/csg_cfd_simulation.rs"
+required-features = ["csg"]
+
+[[example]]
+name = "csg_operations"
+path = "examples/csg_operations.rs"
+required-features = ["csg"]
+
+[[example]]
+name = "mesh_3d_integration"
+path = "examples/mesh_3d_integration.rs"
+required-features = ["csg"]
+
+[[example]]
+name = "csgrs_api_test"
+path = "examples/csgrs_api_test.rs"
+required-features = ["csg"]
+
+[[example]]
+name = "test_csgrs"
+path = "examples/test_csgrs.rs"
+required-features = ["csg"]

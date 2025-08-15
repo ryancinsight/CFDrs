@@ -5,7 +5,7 @@
 //! and published benchmark results.
 
 use cfd_core::{Error, Result};
-use cfd_math::{LinearSolver, ConjugateGradient, GMRES, BiCGSTAB, LinearSolverConfig};
+use cfd_math::{LinearSolver, ConjugateGradient, BiCGSTAB, LinearSolverConfig};
 use nalgebra::{RealField, DVector};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::{FromPrimitive, Float};
@@ -102,7 +102,7 @@ impl LinearSolverValidator {
         // Test different solvers
         let solvers: Vec<(&str, Box<dyn LinearSolver<T>>)> = vec![
             ("ConjugateGradient", Box::new(ConjugateGradient::new(LinearSolverConfig::default()))),
-            ("GMRES", Box::new(GMRES::new(LinearSolverConfig::default()))),
+            ("BiCGSTAB", Box::new(BiCGSTAB::new(LinearSolverConfig::default()))),
             ("BiCGSTAB", Box::new(BiCGSTAB::new(LinearSolverConfig::default()))),
         ];
 
@@ -167,7 +167,7 @@ impl LinearSolverValidator {
 
         let solvers: Vec<(&str, Box<dyn LinearSolver<T>>)> = vec![
             ("ConjugateGradient", Box::new(ConjugateGradient::new(LinearSolverConfig::default()))),
-            ("GMRES", Box::new(GMRES::new(LinearSolverConfig::default()))),
+            ("BiCGSTAB", Box::new(BiCGSTAB::new(LinearSolverConfig::default()))),
             ("BiCGSTAB", Box::new(BiCGSTAB::new(LinearSolverConfig::default()))),
         ];
 
@@ -207,7 +207,7 @@ impl LinearSolverValidator {
 
         let solvers: Vec<(&str, Box<dyn LinearSolver<T>>)> = vec![
             ("ConjugateGradient", Box::new(ConjugateGradient::new(LinearSolverConfig::default()))),
-            ("GMRES", Box::new(GMRES::new(LinearSolverConfig::default()))),
+            ("BiCGSTAB", Box::new(BiCGSTAB::new(LinearSolverConfig::default()))),
         ];
 
         for (name, solver) in solvers {
@@ -245,7 +245,7 @@ impl LinearSolverValidator {
 
         // Only test robust solvers for ill-conditioned systems
         let solvers: Vec<(&str, Box<dyn LinearSolver<T>>)> = vec![
-            ("GMRES", Box::new(GMRES::new(LinearSolverConfig::default()))),
+            ("BiCGSTAB", Box::new(BiCGSTAB::new(LinearSolverConfig::default()))),
             ("BiCGSTAB", Box::new(BiCGSTAB::new(LinearSolverConfig::default()))),
         ];
 

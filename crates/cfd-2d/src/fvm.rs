@@ -32,7 +32,7 @@ impl<T: RealField + FromPrimitive> Default for FvmConfig<T> {
         // Set under-relaxation factor (0.7 is typical for FVM)
         let base = cfd_core::SolverConfig::builder()
             .relaxation_factor(T::from_f64(0.7).unwrap())
-            .build();
+            .build_base();
         Self { base }
     }
 }
@@ -185,7 +185,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
         solver_config.base = cfd_core::SolverConfig::builder()
             .tolerance(self.config.tolerance())
             .max_iterations(self.config.max_iterations())
-            .build();
+            .build_base();
 
         let solver = ConjugateGradient::new(solver_config);
         let solution_vector = solver.solve(&matrix, &rhs, None)?;
@@ -504,27 +504,13 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
                 }
             }
             FluxScheme::Quick => {
-                // QUICK (Quadratic Upstream Interpolation for Convective Kinematics)
-                // Uses quadratic interpolation with two upstream and one downstream points
-                // φ_face = 6/8 * φ_U + 3/8 * φ_D - 1/8 * φ_UU
-                // where U = upstream, D = downstream, UU = far upstream
-                
-                if face_velocity >= T::zero() {
-                    // Flow from left to right (upstream is left)
-                    // Need values at i-2, i-1, i for quadratic interpolation
-                    let _six_eighths = T::from_f64(6.0/8.0).unwrap();
-                    let _three_eighths = T::from_f64(3.0/8.0).unwrap();
-                    let _one_eighth = T::from_f64(1.0/8.0).unwrap();
-                    
-                    // Assuming we have access to these values (would need proper indexing)
-                    // φ_face = 6/8 * φ_upstream + 3/8 * φ_downstream - 1/8 * φ_far_upstream
-                    // For now, use a weighted average as approximation
-                    let weight = T::from_f64(0.75).unwrap();
-                    face_velocity * weight
+                // QUICK requires multi-point stencil not available in coefficient-only API
+                // Fallback to Hybrid (bounded, literature-supported) to avoid oscillations
+                let peclet = face_velocity.clone() / diffusion_coeff;
+                if peclet.abs() <= T::from_f64(2.0).unwrap() {
+                    face_velocity / T::from_f64(2.0).unwrap()
                 } else {
-                    // Flow from right to left (upstream is right)
-                    let weight = T::from_f64(0.25).unwrap();
-                    face_velocity * weight
+                    if face_velocity > T::zero() { face_velocity } else { T::zero() }
                 }
             }
         }
@@ -559,11 +545,11 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_diffusion() {
+    fn test_diffusion_case() {
         let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
         let solver = FvmSolver::new(FvmConfig::default(), FluxScheme::Central);
 
-        // Set up simple diffusion problem
+        // Set up diffusion problem
         let velocity = HashMap::new(); // No convection
         let mut diffusivity = HashMap::new();
         let source = HashMap::new();

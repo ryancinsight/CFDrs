@@ -171,7 +171,7 @@ impl Cell {
 }
 
 /// Mesh topology
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct MeshTopology {
     /// Number of vertices
     pub num_vertices: usize,

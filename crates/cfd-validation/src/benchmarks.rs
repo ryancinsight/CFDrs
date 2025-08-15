@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use nalgebra::ComplexField;
 
 use cfd_2d::{
-    SimpleSolver, SimpleConfig, Grid2D, StructuredGrid2D,
+    PressureVelocityCouplerSolver, PressureVelocityCouplingConfig, Grid2D, StructuredGrid2D,
     SpatialScheme,
 };
 
@@ -319,11 +319,11 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
         
         // Use SIMPLE algorithm for incompressible Navier-Stokes
         // Note: Lid-driven cavity can be challenging to converge
-        let config = SimpleConfig {
+        let config = PressureVelocityCouplingConfig {
             base: cfd_core::SolverConfig::builder()
                 .tolerance(T::from_f64(1e-4).unwrap())  // Relaxed tolerance
                 .max_iterations(100)  // Fewer outer iterations
-                .build(),
+                .build_base(),
             dt: T::from_f64(0.01).unwrap(),
             alpha_u: T::from_f64(0.5).unwrap(),  // Velocity under-relaxation
             alpha_p: T::from_f64(0.3).unwrap(),  // Pressure under-relaxation
@@ -336,7 +336,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
         let density = T::one(); // Normalized
         let viscosity = density.clone() / self.reynolds.clone(); // μ = ρ/Re for unit velocity
         
-        let mut solver = SimpleSolver::new_with_properties(config, grid.nx(), grid.ny(), density, viscosity);
+        let mut solver = PressureVelocityCouplerSolver::new_with_properties(config, grid.nx(), grid.ny(), density, viscosity);
         
         // Set boundary conditions
         let mut boundary_conditions = HashMap::new();
@@ -638,12 +638,12 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
             T::zero(), domain_length.clone()
         )?;
         
-        // SIMPLE configuration with appropriate parameters
-        let config = SimpleConfig {
+        // Pressure-velocity coupling configuration with appropriate parameters
+        let config = PressureVelocityCouplingConfig {
             base: cfd_core::SolverConfig::builder()
                 .tolerance(T::from_f64(1e-5).unwrap())
                 .max_iterations(500)
-                .build(),
+                .build_base(),
             dt: T::from_f64(0.001).unwrap(),
             alpha_u: T::from_f64(0.7).unwrap(),
             alpha_p: T::from_f64(0.3).unwrap(),
@@ -657,7 +657,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
         let density = T::one();
         let viscosity = density.clone() * u_inlet.clone() * self.diameter.clone() / self.reynolds.clone();
         
-        let mut solver = SimpleSolver::new_with_properties(config, grid.nx(), grid.ny(), density, viscosity);
+        let mut solver = PressureVelocityCouplerSolver::new_with_properties(config, grid.nx(), grid.ny(), density, viscosity);
         
         // Set boundary conditions
         let mut boundary_conditions = HashMap::new();
@@ -840,12 +840,12 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
             T::zero(), domain_length
         )?;
         
-        // SIMPLE configuration
-        let config = SimpleConfig {
+        // Pressure-velocity coupling configuration
+        let config = PressureVelocityCouplingConfig {
             base: cfd_core::SolverConfig::builder()
                 .tolerance(T::from_f64(1e-5).unwrap())
                 .max_iterations(1000)
-                .build(),
+                .build_base(),
             dt: T::from_f64(0.01).unwrap(),
             alpha_u: T::from_f64(0.7).unwrap(),
             alpha_p: T::from_f64(0.3).unwrap(),
@@ -859,7 +859,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
         let density = T::one(); // Normalized
         let viscosity = density.clone() * u_mean * self.step_height.clone() / self.reynolds.clone();
         
-        let mut solver = SimpleSolver::new_with_properties(config, grid.nx(), grid.ny(), density, viscosity);
+        let mut solver = PressureVelocityCouplerSolver::new_with_properties(config, grid.nx(), grid.ny(), density, viscosity);
         
         // Set boundary conditions
         let mut boundary_conditions = HashMap::new();

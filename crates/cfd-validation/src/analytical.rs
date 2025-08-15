@@ -184,8 +184,8 @@ impl<T: RealField + FromPrimitive> CouetteFlow<T> {
         }
     }
 
-    /// Create simple Couette flow (no pressure gradient)
-    pub fn simple(plate_velocity: T, gap: T, length: T) -> Self {
+    /// Create Couette flow without pressure gradient
+    pub fn no_pressure_gradient(plate_velocity: T, gap: T, length: T) -> Self {
         Self::new(plate_velocity, gap, T::zero(), T::one(), length)
     }
 }
@@ -527,7 +527,7 @@ mod tests {
 
     #[test]
     fn test_couette_flow() {
-        let flow = CouetteFlow::simple(1.0, 2.0, 10.0);
+        let flow = CouetteFlow::no_pressure_gradient(1.0, 2.0, 10.0);
 
         // Test velocity at bottom plate
         let vel_bottom = flow.velocity(5.0, 0.0, 0.0, 0.0);

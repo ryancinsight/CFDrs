@@ -39,15 +39,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut builder = NetworkBuilder::new().with_fluid(fluid);
     
     // Add inlet and outlet nodes with pressure boundary conditions
-    builder = builder.add_inlet_pressure("inlet", 0.0, 0.0, pressure_drop)?;
-    builder = builder.add_outlet_pressure("outlet", pipe_length, 0.0, 0.0)?;
+    builder = builder.add_inlet_pressure("inlet", 0.0, 0.0, pressure_drop);
+    builder = builder.add_outlet_pressure("outlet", pipe_length, 0.0, 0.0);
     
     // Calculate resistance for circular pipe (Hagen-Poiseuille)
     let pipe_area = PI * pipe_radius * pipe_radius;
     let resistance = 8.0 * fluid_viscosity * pipe_length / (PI * pipe_radius.powi(4));
     
     // Add channel between inlet and outlet
-    builder = builder.add_channel("pipe", "inlet", "outlet", resistance, pipe_length, pipe_area)?;
+    builder = builder.add_channel("pipe", "inlet", "outlet", cfd_1d::ChannelProperties { resistance, length: pipe_length, area: pipe_area });
     
     // Build network
     let mut network = builder.build()?;

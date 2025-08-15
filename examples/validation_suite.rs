@@ -16,7 +16,7 @@ use cfd_validation::{
     LidDrivenCavity, ConservationChecker,
 };
 use cfd_1d::solver::NetworkSolver;
-use cfd_2d::{SimpleSolver, SimpleConfig, LbmSolver, LbmConfig, StructuredGrid2D, Grid2D};
+use cfd_2d::{PressureVelocityCouplerSolver, PressureVelocityCouplingConfig, LbmSolver, LbmConfig, StructuredGrid2D, Grid2D};
 use cfd_3d::{FemSolver, FemConfig, FluidProperties, SpectralSolver, SpectralConfig};
 use cfd_core::{BoundaryCondition, WallType};
 use nalgebra::{Vector2, Vector3, DVector};
@@ -106,8 +106,8 @@ fn validate_poiseuille_flow() -> Result<(), Box<dyn std::error::Error>> {
     let ny = 20;
     let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, length, -half_height, half_height)?;
     
-    // Setup SIMPLE solver
-    let config = SimpleConfig {
+    // Setup pressure-velocity coupling solver
+    let config = PressureVelocityCouplingConfig {
         dt: 0.01,
         alpha_u: 0.7,
         alpha_p: 0.3,
@@ -115,7 +115,7 @@ fn validate_poiseuille_flow() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
     
-    let mut solver = SimpleSolver::new(config, nx, ny);
+    let mut solver = PressureVelocityCouplerSolver::new(config, nx, ny);
     
     // Set boundary conditions for Poiseuille flow
     let mut bc = HashMap::new();
@@ -369,8 +369,8 @@ fn validate_lid_driven_cavity() -> Result<(), Box<dyn std::error::Error>> {
     let n = 64;  // Grid resolution
     let grid = StructuredGrid2D::<f64>::new(n, n, 0.0, cavity_size, 0.0, cavity_size)?;
     
-    // SIMPLE solver configuration
-    let config = SimpleConfig {
+    // Pressure-velocity coupling solver configuration
+    let config = PressureVelocityCouplingConfig {
         dt: 0.001,
         alpha_u: 0.7,
         alpha_p: 0.3,
@@ -378,7 +378,7 @@ fn validate_lid_driven_cavity() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
     
-    let mut solver = SimpleSolver::new(config, n, n);
+    let mut solver = PressureVelocityCouplerSolver::new(config, n, n);
     
     // Set boundary conditions
     let mut bc = HashMap::new();
@@ -491,7 +491,7 @@ fn compute_poiseuille_error(n: usize) -> Result<f64, Box<dyn std::error::Error>>
     
     let grid = StructuredGrid2D::<f64>::new(n, n, 0.0, length, -half_height, half_height)?;
     
-    let config = SimpleConfig {
+    let config = PressureVelocityCouplingConfig {
         dt: 0.001,
         alpha_u: 0.7,
         alpha_p: 0.3,
@@ -499,7 +499,7 @@ fn compute_poiseuille_error(n: usize) -> Result<f64, Box<dyn std::error::Error>>
         ..Default::default()
     };
     
-    let mut solver = SimpleSolver::new(config, n, n);
+    let mut solver = PressureVelocityCouplerSolver::new(config, n, n);
     
     // Set boundary conditions
     let mut bc = HashMap::new();
@@ -553,7 +553,7 @@ fn validate_conservation() -> Result<(), Box<dyn std::error::Error>> {
     let n = 32;
     let grid = StructuredGrid2D::<f64>::new(n, n, 0.0, 1.0, 0.0, 1.0)?;
     
-    let config = SimpleConfig {
+    let config = PressureVelocityCouplingConfig {
         dt: 0.01,
         alpha_u: 0.7,
         alpha_p: 0.3,
@@ -561,7 +561,7 @@ fn validate_conservation() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
     
-    let mut solver = SimpleSolver::new(config, n, n);
+    let mut solver = PressureVelocityCouplerSolver::new(config, n, n);
     
     // Set boundary conditions for channel flow
     let mut bc = HashMap::new();

@@ -322,6 +322,7 @@ pub mod les {
 }
 
 /// Additional Reynolds-Averaged Navier-Stokes (RANS) models
+#[cfg(feature = "experimental")]
 pub mod rans_extended {
     use super::*;
 
