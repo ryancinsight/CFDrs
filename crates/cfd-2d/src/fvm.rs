@@ -32,7 +32,7 @@ impl<T: RealField + FromPrimitive> Default for FvmConfig<T> {
         // Set under-relaxation factor (0.7 is typical for FVM)
         let base = cfd_core::SolverConfig::builder()
             .relaxation_factor(T::from_f64(0.7).unwrap())
-            .build();
+            .build_base();
         Self { base }
     }
 }
@@ -185,7 +185,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
         solver_config.base = cfd_core::SolverConfig::builder()
             .tolerance(self.config.tolerance())
             .max_iterations(self.config.max_iterations())
-            .build();
+            .build_base();
 
         let solver = ConjugateGradient::new(solver_config);
         let solution_vector = solver.solve(&matrix, &rhs, None)?;

@@ -4,7 +4,7 @@ use cfd_2d::{
     fdm::{PoissonSolver, AdvectionDiffusionSolver},
     fvm::FvmSolver,
     lbm::{LbmSolver, D2Q9},
-    simple::{SimpleSolver, SimpleConfig},
+    simple::{PressureVelocityCouplerSolver, PressureVelocityCouplingConfig},
 };
 use nalgebra::Vector2;
 

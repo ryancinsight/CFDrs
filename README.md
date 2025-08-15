@@ -109,12 +109,12 @@ Following comprehensive expert physics and code review, this CFD framework demon
 
 ```rust
 // SIMPLE solver for 2D incompressible flow
-use cfd_2d::{SimpleSolver, SimpleConfig};
+use cfd_2d::{PressureVelocityCouplerSolver, PressureVelocityCouplingConfig};
 use cfd_2d::grid::StructuredGrid2D;
 
-let config = SimpleConfig::default();
+let config = PressureVelocityCouplingConfig::default();
 let grid = StructuredGrid2D::unit_square(64, 64)?;
-let mut solver = SimpleSolver::new(config, grid.nx(), grid.ny());
+let mut solver = PressureVelocityCouplerSolver::new(config, grid.nx(), grid.ny());
 
 // Run simulation
 solver.solve(&grid, &boundary_conditions)?;

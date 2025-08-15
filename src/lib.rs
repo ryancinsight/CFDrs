@@ -42,8 +42,8 @@ pub mod prelude {
     // === Mathematical Utilities ===
     // Essential numerical methods and linear algebra
     pub use cfd_math::{
-        SparseMatrix, SparseMatrixBuilder, LinearSolver, ConjugateGradient, GMRES, BiCGSTAB,
-        GaussQuadrature, FiniteDifference, Interpolation, LinearInterpolation, CubicSplineInterpolation,
+                 SparseMatrix, SparseMatrixBuilder, LinearSolver, ConjugateGradient, BiCGSTAB,
+GaussQuadrature, FiniteDifference, Interpolation, LinearInterpolation, CubicSplineInterpolation,
         MathIteratorExt, VectorOps, SliceOps, CfdIteratorChain, VectorizedOps, StencilOps
     };
     pub use cfd_math::integration::{AdaptiveQuadrature, VariableQuadrature};
@@ -70,15 +70,14 @@ pub mod prelude {
     // Grid-based methods for 2D flows
     pub use cfd_2d::{
         StructuredGrid2D, Grid2D, BoundaryType,
-        PoissonSolver, FvmSolver, LbmSolver, SimpleSolver, PressureVelocityCouplerSolver,
-        FdmConfig, FvmConfig, LbmConfig, SimpleConfig, PressureVelocityCouplingConfig
+        PoissonSolver, FvmSolver, LbmSolver, PressureVelocityCouplerSolver,
+        FdmConfig, FvmConfig, LbmConfig, PressureVelocityCouplingConfig
     };
 
     // === 3D CFD Simulations ===
     // Advanced 3D methods with CSGrs integration
     pub use cfd_3d::{
         FemSolver, FemConfig, SpectralSolver, SpectralConfig, SpectralBasis,
-        CsgMeshAdapter,
         IbmSolver, IbmConfig, LagrangianPoint,
         LevelSetSolver, LevelSetConfig,
         VofSolver, VofConfig

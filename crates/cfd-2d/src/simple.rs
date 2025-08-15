@@ -27,11 +27,6 @@ use crate::grid::StructuredGrid2D;
 use crate::schemes::{SpatialScheme, FiniteDifference};
 use cfd_core::constants;
 
-// Type aliases for backward compatibility while eliminating adjective-based naming
-/// Type alias for SIMPLE solver configuration (backwards compatibility)
-pub type SimpleConfig<T> = PressureVelocityCouplingConfig<T>;
-/// Type alias for SIMPLE solver (backwards compatibility)  
-pub type SimpleSolver<T> = PressureVelocityCouplerSolver<T>;
 
 /// SIMPLE algorithm configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,7 +52,7 @@ impl<T: RealField + FromPrimitive> Default for PressureVelocityCouplingConfig<T>
         let base = cfd_core::SolverConfig::builder()
             .max_iterations(100)
             .tolerance(T::from_f64(constants::DEFAULT_TOLERANCE).unwrap())
-            .build();
+            .build_base();
 
         Self {
             base,

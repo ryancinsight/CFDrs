@@ -94,7 +94,7 @@ impl<T: RealField + FromPrimitive> Default for PisoConfig<T> {
         let base = cfd_core::SolverConfig::builder()
             .max_iterations(50) // PISO needs fewer iterations than SIMPLE
             .tolerance(T::safe_from_f64(constants::DEFAULT_TOLERANCE).unwrap_or_else(|_| T::from_f64(1e-6).unwrap()))
-            .build();
+            .build_base();
 
         Self {
             base,

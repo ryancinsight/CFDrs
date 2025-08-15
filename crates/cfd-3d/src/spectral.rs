@@ -55,7 +55,7 @@ impl<T: RealField + FromPrimitive> Default for SpectralConfig<T> {
         let base = cfd_core::SolverConfig::builder()
             .tolerance(T::from_f64(TIGHT_TOLERANCE).unwrap())
             .max_iterations(100)
-            .build();
+            .build_base();
 
         Self {
             base,
@@ -1355,7 +1355,7 @@ mod tests {
             base: cfd_core::SolverConfig::builder()
                 .tolerance(f64::from(1e-8))
                 .max_iterations(100)
-                .build(),
+                .build_base(),
             nx_modes: n,
             ny_modes: n,
             nz_modes: n,
@@ -1447,7 +1447,7 @@ mod tests {
             base: cfd_core::SolverConfig::builder()
                 .tolerance(f64::from(1e-8))
                 .max_iterations(100)
-                .build(),
+                .build_base(),
             nx_modes: n,
             ny_modes: n,
             nz_modes: n,

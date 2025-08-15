@@ -27,6 +27,7 @@ pub use level_set::{LevelSetSolver, LevelSetConfig};
 pub use vof::{VofSolver, VofConfig};
 
 // Use CSGrs integration from cfd-mesh
+#[cfg(feature = "csg")]
 pub use cfd_mesh::csg::CsgMeshAdapter;
 
 // Prelude removed - use cfd_suite::prelude::* for unified SSOT interface

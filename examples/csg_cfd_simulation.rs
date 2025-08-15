@@ -5,7 +5,7 @@
 //! csgrs library and the CFD solvers.
 
 use cfd_mesh::csg::{CsgOperator, CsgBuilder};
-use cfd_2d::{SimpleSolver, SimpleConfig, StructuredGrid2D, Grid2D};
+use cfd_2d::{PressureVelocityCouplerSolver, PressureVelocityCouplingConfig, StructuredGrid2D, Grid2D};
 use cfd_3d::FemConfig;
 use cfd_core::{BoundaryCondition, WallType};
 use nalgebra::Vector3;
@@ -68,7 +68,7 @@ fn flow_around_csg_cylinder() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     
     // Set up SIMPLE solver configuration
-    let config = SimpleConfig {
+    let config = PressureVelocityCouplingConfig {
         dt: 0.01,
         alpha_u: 0.7,    // Under-relaxation for velocity
         alpha_p: 0.3,    // Under-relaxation for pressure
@@ -79,7 +79,7 @@ fn flow_around_csg_cylinder() -> Result<(), Box<dyn std::error::Error>> {
     };
     
     // Create solver
-    let mut solver = SimpleSolver::new(config, grid.nx(), grid.ny());
+    let mut solver = PressureVelocityCouplerSolver::new(config, grid.nx(), grid.ny());
     
     // Set up boundary conditions
     let mut boundary_conditions = HashMap::new();

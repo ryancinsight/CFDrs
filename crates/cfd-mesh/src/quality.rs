@@ -12,8 +12,9 @@
 //! - Robust numerical methods avoiding floating-point conversion errors
 
 use crate::mesh::{Mesh, Cell, ElementType};
-use nalgebra::{RealField, Point3};
+use nalgebra::{Point3, RealField};
 use num_traits::Float;
+use nalgebra::ComplexField as CF;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -430,7 +431,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             let cos_clamped = Float::min(Float::max(cos_angle, -T::one()), T::one());
             let angle = Float::acos(cos_clamped);
             
-            let deviation = (angle - ideal_angle).abs() / ideal_angle;
+            let deviation = CF::abs(angle - ideal_angle) / ideal_angle;
             max_deviation = Float::max(max_deviation, deviation);
         }
         
@@ -452,7 +453,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             let cos_clamped = Float::min(Float::max(cos_angle, -T::one()), T::one());
             let angle = Float::acos(cos_clamped);
             
-            let deviation = (angle - ideal_angle).abs() / ideal_angle;
+            let deviation = CF::abs(angle - ideal_angle) / ideal_angle;
             max_deviation = Float::max(max_deviation, deviation);
         }
         
@@ -482,7 +483,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
                 let cos_clamped = Float::min(Float::max(cos_angle, -T::one()), T::one());
                 let angle = Float::acos(cos_clamped);
                 
-                let deviation = (angle - ideal_angle).abs() / ideal_angle;
+                let deviation = CF::abs(angle - ideal_angle) / ideal_angle;
                 max_deviation = Float::max(max_deviation, deviation);
             }
         }
@@ -524,7 +525,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
                         let cos_clamped = Float::min(Float::max(cos_angle, -T::one()), T::one());
                         let angle = Float::acos(cos_clamped);
                         
-                        let deviation = (angle - ideal_angle).abs() / ideal_angle;
+                        let deviation = CF::abs(angle - ideal_angle) / ideal_angle;
                         max_deviation = Float::max(max_deviation, deviation);
                     }
                 }
@@ -552,7 +553,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             
             // For a regular pyramid, apex angles should be equal
             let expected_angle = T::from(90.0_f64.to_radians()).unwrap();
-            let deviation = (angle - expected_angle).abs() / expected_angle;
+            let deviation = CF::abs(angle - expected_angle) / expected_angle;
             apex_deviation = Float::max(apex_deviation, deviation);
         }
         
@@ -580,10 +581,12 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             ];
             
             let face_skewness = self.quadrilateral_skewness(&rect_vertices);
-            rect_skewness = rect_skewness.max(face_skewness);
+            rect_skewness = Float::max(rect_skewness, face_skewness);
         }
         
-        bottom_skewness.max(top_skewness).max(rect_skewness).min(T::one())
+        let a = Float::max(bottom_skewness, top_skewness);
+        let b = Float::max(a, rect_skewness);
+        Float::min(b, T::one())
     }
 
     // Element-specific orthogonality implementations
@@ -599,11 +602,11 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             let e2 = vertices[(i + 3) % 4] - vertices[i];
             
             let cos_angle = e1.dot(&e2) / (e1.norm() * e2.norm());
-            let orthogonality = T::one() - cos_angle.abs();
+            let orthogonality = T::one() - CF::abs(cos_angle);
             min_orthogonality = Float::min(min_orthogonality, orthogonality);
         }
         
-        min_orthogonality.max(T::zero())
+        Float::max(min_orthogonality, T::zero())
     }
 
     fn tetrahedron_orthogonality(&self, vertices: &[&Point3<T>]) -> T {
@@ -626,13 +629,13 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
                 
                 if norm_i > T::zero() && norm_j > T::zero() {
                     let cos_angle = face_normals[i].dot(&face_normals[j]) / (norm_i * norm_j);
-                    let orthogonality = T::one() - cos_angle.abs();
+                    let orthogonality = T::one() - CF::abs(cos_angle);
                     min_orthogonality = Float::min(min_orthogonality, orthogonality);
                 }
             }
         }
         
-        min_orthogonality.max(T::zero())
+        Float::max(min_orthogonality, T::zero())
     }
 
     fn hexahedron_orthogonality(&self, vertices: &[&Point3<T>]) -> T {
@@ -670,12 +673,12 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             
             if norm_i > T::zero() && norm_j > T::zero() {
                 let cos_angle = face_normals[i].dot(&face_normals[j]) / (norm_i * norm_j);
-                let orthogonality = T::one() - cos_angle.abs();
+                let orthogonality = T::one() - CF::abs(cos_angle);
                 min_orthogonality = Float::min(min_orthogonality, orthogonality);
             }
         }
         
-        min_orthogonality.max(T::zero())
+        Float::max(min_orthogonality, T::zero())
     }
 
     fn pyramid_orthogonality(&self, vertices: &[&Point3<T>]) -> T {
@@ -696,12 +699,12 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             
             if base_norm > T::zero() && tri_norm > T::zero() {
                 let cos_angle = base_normal.dot(&tri_normal) / (base_norm * tri_norm);
-                let orthogonality = T::one() - cos_angle.abs();
+                let orthogonality = T::one() - CF::abs(cos_angle);
                 min_orthogonality = Float::min(min_orthogonality, orthogonality);
             }
         }
         
-        min_orthogonality.max(T::zero())
+        Float::max(min_orthogonality, T::zero())
     }
 
     fn pentahedron_orthogonality(&self, vertices: &[&Point3<T>]) -> T {
@@ -724,7 +727,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             
             if bottom_norm > T::zero() && rect_norm > T::zero() {
                 let cos_angle = bottom_normal.dot(&rect_normal) / (bottom_norm * rect_norm);
-                let orthogonality = T::one() - cos_angle.abs();
+                let orthogonality = T::one() - CF::abs(cos_angle);
                 min_orthogonality = Float::min(min_orthogonality, orthogonality);
             }
             
@@ -732,12 +735,12 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             let top_norm = top_normal.norm();
             if top_norm > T::zero() && rect_norm > T::zero() {
                 let cos_angle = top_normal.dot(&rect_normal) / (top_norm * rect_norm);
-                let orthogonality = T::one() - cos_angle.abs();
+                let orthogonality = T::one() - CF::abs(cos_angle);
                 min_orthogonality = Float::min(min_orthogonality, orthogonality);
             }
         }
         
-        min_orthogonality.max(T::zero())
+        Float::max(min_orthogonality, T::zero())
     }
 
     // Element-specific volume/area calculations
@@ -776,7 +779,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
         let v2 = vertices[2] - vertices[0];
         let v3 = vertices[3] - vertices[0];
         
-        v1.cross(&v2).dot(&v3).abs() / T::from(6.0).unwrap()
+        CF::abs(v1.cross(&v2).dot(&v3)) / T::from(6.0).unwrap()
     }
 
     fn hexahedron_volume(&self, vertices: &[&Point3<T>]) -> T {
@@ -820,7 +823,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
         // Calculate height as distance from apex to base plane
         let base_normal = (vertices[1] - vertices[0]).cross(&(vertices[3] - vertices[0]));
         let base_normal_unit = base_normal / base_normal.norm();
-        let height = (vertices[4] - vertices[0]).dot(&base_normal_unit).abs();
+        let height = CF::abs((vertices[4] - vertices[0]).dot(&base_normal_unit));
         
         base_area * height / T::from(3.0).unwrap()
     }
