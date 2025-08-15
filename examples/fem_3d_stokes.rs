@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .tolerance(1e-6)
         .max_iterations(1000)
         .verbosity(2)
-        .build();
+        .build_base();
 
     let config = FemConfig {
         base,
@@ -107,17 +107,17 @@ fn create_unit_cube_mesh() -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
     // A cube can be divided into 5 or 6 tetrahedra
     let cells = vec![
         // Tetrahedron 1
-        Cell { faces: vec![0, 1, 2, 4], id: 0 },
+        Cell { faces: vec![0, 1, 2, 4], id: 0, element_type: cfd_mesh::ElementType::Tetrahedron },
         // Tetrahedron 2
-        Cell { faces: vec![1, 2, 4, 5], id: 1 },
+        Cell { faces: vec![1, 2, 4, 5], id: 1, element_type: cfd_mesh::ElementType::Tetrahedron },
         // Tetrahedron 3
-        Cell { faces: vec![2, 4, 5, 6], id: 2 },
+        Cell { faces: vec![2, 4, 5, 6], id: 2, element_type: cfd_mesh::ElementType::Tetrahedron },
         // Tetrahedron 4
-        Cell { faces: vec![0, 2, 3, 4], id: 3 },
+        Cell { faces: vec![0, 2, 3, 4], id: 3, element_type: cfd_mesh::ElementType::Tetrahedron },
         // Tetrahedron 5
-        Cell { faces: vec![2, 3, 4, 7], id: 4 },
+        Cell { faces: vec![2, 3, 4, 7], id: 4, element_type: cfd_mesh::ElementType::Tetrahedron },
         // Tetrahedron 6
-        Cell { faces: vec![2, 4, 6, 7], id: 5 },
+        Cell { faces: vec![2, 4, 6, 7], id: 5, element_type: cfd_mesh::ElementType::Tetrahedron },
     ];
     
     // Create faces (not strictly necessary for FEM, but good for completeness)
