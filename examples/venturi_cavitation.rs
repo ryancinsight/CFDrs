@@ -232,7 +232,7 @@ fn simulate_2d_cavitation() -> Result<(), Box<dyn std::error::Error>> {
         0.0, dim::INLET_DIAMETER / 2.0
     )?;
     
-    // Configure SIMPLE solver with cavitation model
+    // Configure pressure–velocity coupling solver with cavitation model
     let config = PressureVelocityCouplingConfig {
         dt: 0.001,
         alpha_u: 0.7,

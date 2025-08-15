@@ -238,7 +238,7 @@ impl<T: RealField> Mesh<T> {
                     T::zero()
                 }
             }
-            _ => T::zero(), // Simplified for other element types
+            _ => T::zero(), // Fallback for other element types
         }
     }
     

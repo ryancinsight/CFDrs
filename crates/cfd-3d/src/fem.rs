@@ -513,7 +513,7 @@ pub struct FemSolver<T: RealField> {
     s_pp_global: Option<SparseMatrix<T>>,
 }
 
-// Custom solver implementation for FEM - simplified approach
+// FEM solver implementation for demonstration scope
 impl<T: RealField + FromPrimitive + Clone + num_traits::Float> FemSolver<T> {
     /// Solve a Stokes flow problem
     pub fn solve_problem(&mut self, problem: &StokesFlowProblem<T>) -> Result<StokesFlowSolution<T>> {

@@ -1,4 +1,4 @@
-//! Simple CSG demonstration using csgrs
+//! CSG demonstration using csgrs
 //!
 //! This example demonstrates basic usage of the csgrs library
 //! for creating and manipulating 3D geometries.

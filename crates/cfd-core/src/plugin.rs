@@ -359,7 +359,7 @@ impl DependencyResolver {
     
     /// Update plugin load order based on dependencies (topological sort)
     fn update_load_order(&self) -> Result<()> {
-        // Simplified topological sort implementation
+        // Topological sort implementation
         let dependencies = self.dependencies.read().map_err(|_| {
             Error::PluginError("Failed to acquire read lock on dependencies".to_string())
         })?;

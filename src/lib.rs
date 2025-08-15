@@ -75,7 +75,7 @@ GaussQuadrature, FiniteDifference, Interpolation, LinearInterpolation, CubicSpli
     };
 
     // === 3D CFD Simulations ===
-    // Advanced 3D methods with CSGrs integration
+    // 3D methods with CSGrs integration
     pub use cfd_3d::{
         FemSolver, FemConfig, SpectralSolver, SpectralConfig, SpectralBasis,
         IbmSolver, IbmConfig, LagrangianPoint,

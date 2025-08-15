@@ -67,7 +67,7 @@ fn flow_around_csg_cylinder() -> Result<(), Box<dyn std::error::Error>> {
         min_bounds.y, max_bounds.y
     )?;
     
-    // Set up SIMPLE solver configuration
+    // Set up pressure–velocity coupling solver configuration
     let config = PressureVelocityCouplingConfig {
         dt: 0.01,
         alpha_u: 0.7,    // Under-relaxation for velocity

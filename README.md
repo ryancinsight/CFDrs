@@ -10,7 +10,7 @@ Following comprehensive expert physics and code review, this CFD framework demon
 
 **All core physics implementations validated against established CFD literature:**
 
-- **SIMPLE Algorithm**: Mathematically correct Semi-Implicit Method implementation with proper pressure-velocity coupling, momentum discretization per Patankar (1980)
+- **Pressure–Velocity Coupling (SIMPLE)**: Semi-Implicit Method implementation with pressure-velocity coupling, momentum discretization per Patankar (1980)
 - **LBM (Lattice Boltzmann)**: Correct D2Q9 implementation with validated lattice velocities, weights, BGK collision operator per Sukop & Thorne (2007) 
 - **FEM (Finite Element)**: Proper Stokes flow formulation with mixed velocity-pressure elements following Hughes et al. (1986)
 - **Linear Solvers**: Robust CG, BiCGSTAB, GMRES implementations with proper preconditioning following Saad (2003)
