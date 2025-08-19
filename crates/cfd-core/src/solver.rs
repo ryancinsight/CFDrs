@@ -742,3 +742,124 @@ mod tests {
         // let combined = tol_criteria.and(max_iter_criteria);
     }
 }
+/// Configuration builder for creating SolverConfig instances
+/// This builder provides a fluent interface for constructing solver configurations
+pub struct ConfigurationBuilder<T: RealField> {
+    tolerance: Option<T>,
+    max_iterations: Option<usize>,
+    relaxation_factor: Option<T>,
+    verbosity: Option<u8>,
+    parallel: Option<bool>,
+    custom_params: HashMap<String, String>,
+}
+
+impl<T: RealField> Default for ConfigurationBuilder<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: RealField> ConfigurationBuilder<T> {
+    /// Create new configuration builder
+    pub fn new() -> Self {
+        Self {
+            tolerance: None,
+            max_iterations: None,
+            relaxation_factor: None,
+            verbosity: None,
+            parallel: None,
+            custom_params: HashMap::new(),
+        }
+    }
+
+    /// Set tolerance (fluent interface)
+    pub fn tolerance(mut self, tolerance: T) -> Self {
+        self.tolerance = Some(tolerance);
+        self
+    }
+
+    /// Set maximum iterations
+    pub fn max_iterations(mut self, max_iterations: usize) -> Self {
+        self.max_iterations = Some(max_iterations);
+        self
+    }
+
+    /// Set relaxation factor
+    pub fn relaxation_factor(mut self, factor: T) -> Self {
+        self.relaxation_factor = Some(factor);
+        self
+    }
+
+    /// Set verbosity level
+    pub fn verbosity(mut self, verbosity: u8) -> Self {
+        self.verbosity = Some(verbosity);
+        self
+    }
+
+    /// Enable/disable parallel execution
+    pub fn parallel(mut self, parallel: bool) -> Self {
+        self.parallel = Some(parallel);
+        self
+    }
+
+    /// Add custom parameter
+    pub fn custom_param(mut self, key: String, value: String) -> Self {
+        self.custom_params.insert(key, value);
+        self
+    }
+    
+    /// Validate the builder state before building
+    pub fn validate(&self) -> Result<()> {
+        if let Some(tolerance) = &self.tolerance {
+            if *tolerance <= T::zero() {
+                return Err(Error::InvalidInput("Tolerance must be positive".to_string()));
+            }
+        }
+
+        if let Some(max_iterations) = self.max_iterations {
+            if max_iterations == 0 {
+                return Err(Error::InvalidInput("Max iterations must be positive".to_string()));
+            }
+        }
+        
+        if let Some(factor) = &self.relaxation_factor {
+            if *factor <= T::zero() || *factor > T::from_f64(2.0).unwrap_or(T::one() + T::one()) {
+                return Err(Error::InvalidInput("Relaxation factor must be in (0, 2]".to_string()));
+            }
+        }
+
+        if let Some(verbosity) = self.verbosity {
+            if verbosity > 3 {
+                return Err(Error::InvalidInput("Verbosity level must be 0-3".to_string()));
+            }
+        }
+
+        Ok(())
+    }
+    
+    /// Build the final SolverConfig object
+    pub fn build(self) -> Result<SolverConfig<T>> 
+    where
+        T: num_traits::FromPrimitive,
+    {
+        self.validate()?;
+        
+        // Safely handle fallible conversions
+        let default_tolerance = T::from_f64(1e-6).ok_or_else(|| {
+            Error::InvalidConfiguration("Default tolerance 1e-6 is not representable by the numeric type".into())
+        })?;
+        
+        let default_relaxation = T::from_f64(1.0).ok_or_else(|| {
+            Error::InvalidConfiguration("Default relaxation factor 1.0 is not representable by the numeric type".into())
+        })?;
+        
+        Ok(SolverConfig::builder()
+            .tolerance(self.tolerance.unwrap_or(default_tolerance))
+            .max_iterations(self.max_iterations.unwrap_or(1000))
+            .relaxation_factor(self.relaxation_factor.unwrap_or(default_relaxation))
+            .verbosity(self.verbosity.unwrap_or(1))
+            .parallel(self.parallel.unwrap_or(true))
+            .num_threads(None)
+            .build())
+    }
+}
