@@ -21,27 +21,29 @@ pub trait Domain<T: RealField>: Send + Sync {
 /// 1D domain (line segment)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Domain1D<T: RealField> {
-    /// Start point
+    /// Start point (guaranteed to be <= end after construction)
     pub start: T,
-    /// End point
+    /// End point (guaranteed to be >= start after construction)
     pub end: T,
 }
 
 impl<T: RealField> Domain1D<T> {
-    /// Create a new 1D domain
-    pub const fn new(start: T, end: T) -> Self {
+    /// Create a new 1D domain. The start and end points are automatically ordered
+    /// so that start <= end.
+    pub fn new(p1: T, p2: T) -> Self {
+        let (start, end) = if p1 <= p2 { (p1, p2) } else { (p2, p1) };
         Self { start, end }
     }
 
     /// Get the length of the domain
     pub fn length(&self) -> T {
-        (self.end.clone() - self.start.clone()).abs()
+        self.end - self.start
     }
 
     /// Get the center of the domain
     pub fn center(&self) -> T {
         let two = T::one() + T::one();
-        (self.start.clone() + self.end.clone()) / two
+        (self.start + self.end) / two
     }
 }
 
@@ -51,18 +53,15 @@ impl<T: RealField> Domain<T> for Domain1D<T> {
     }
 
     fn contains(&self, point: &Point3<T>) -> bool {
-        let x = point.x.clone();
-        let min = self.start.clone().min(self.end.clone());
-        let max = self.start.clone().max(self.end.clone());
-        x >= min && x <= max
+        // Since we enforce start <= end in the constructor, we can simplify this
+        point.x >= self.start && point.x <= self.end
     }
 
     fn bounding_box(&self) -> (Point3<T>, Point3<T>) {
-        let min = self.start.clone().min(self.end.clone());
-        let max = self.start.clone().max(self.end.clone());
+        // Since we enforce start <= end in the constructor, we can simplify this
         (
-            Point3::new(min, T::zero(), T::zero()),
-            Point3::new(max, T::zero(), T::zero()),
+            Point3::new(self.start, T::zero(), T::zero()),
+            Point3::new(self.end, T::zero(), T::zero()),
         )
     }
 
@@ -81,30 +80,30 @@ pub struct Domain2D<T: RealField> {
 }
 
 impl<T: RealField> Domain2D<T> {
-    /// Create a new 2D domain
-    pub fn new(min: Point3<T>, max: Point3<T>) -> Self {
-        // In debug builds, ensure z-components are zero for 2D domains
-        debug_assert!(min.z.is_zero());
-        debug_assert!(max.z.is_zero());
-        Self { min, max }
-    }
-
-    /// Create a new 2D domain from coordinates (convenience method)
-    pub fn from_coords(x_min: T, y_min: T, x_max: T, y_max: T) -> Self {
+    /// Create a new 2D domain from scalar coordinates.
+    pub fn new(x_min: T, y_min: T, x_max: T, y_max: T) -> Self {
         Self {
             min: Point3::new(x_min, y_min, T::zero()),
             max: Point3::new(x_max, y_max, T::zero()),
         }
     }
 
+    /// Create a new 2D domain from corner points.
+    pub fn from_points(min: Point3<T>, max: Point3<T>) -> Self {
+        // In debug builds, ensure z-components are zero for 2D domains
+        debug_assert!(min.z.is_zero());
+        debug_assert!(max.z.is_zero());
+        Self { min, max }
+    }
+
     /// Get the width of the domain
     pub fn width(&self) -> T {
-        self.max.x.clone() - self.min.x.clone()
+        self.max.x - self.min.x
     }
 
     /// Get the height of the domain
     pub fn height(&self) -> T {
-        self.max.y.clone() - self.min.y.clone()
+        self.max.y - self.min.y
     }
 
     /// Get the area of the domain
@@ -126,7 +125,7 @@ impl<T: RealField> Domain<T> for Domain2D<T> {
     }
 
     fn bounding_box(&self) -> (Point3<T>, Point3<T>) {
-        (self.min.clone(), self.max.clone())
+        (self.min, self.max)
     }
 
     fn volume(&self) -> T {
@@ -151,46 +150,46 @@ impl<T: RealField> Domain3D<T> {
 
     /// Get the width (x dimension)
     pub fn width(&self) -> T {
-        self.max.x.clone() - self.min.x.clone()
+        self.max.x - self.min.x
     }
 
     /// Get the height (y dimension)
     pub fn height(&self) -> T {
-        self.max.y.clone() - self.min.y.clone()
+        self.max.y - self.min.y
     }
 
     /// Get the depth (z dimension)
     pub fn depth(&self) -> T {
-        self.max.z.clone() - self.min.z.clone()
+        self.max.z - self.min.z
     }
 
     /// Get the center of the domain
     pub fn center(&self) -> Point3<T> {
         let two = T::one() + T::one();
         Point3::new(
-            (self.min.x.clone() + self.max.x.clone()) / two.clone(),
-            (self.min.y.clone() + self.max.y.clone()) / two.clone(),
-            (self.min.z.clone() + self.max.z.clone()) / two,
+            (self.min.x + self.max.x) / two,
+            (self.min.y + self.max.y) / two,
+            (self.min.z + self.max.z) / two,
         )
     }
 
     /// Create from center and half-extents
     pub fn from_center_half_extents(center: Point3<T>, half_extents: Vector3<T>) -> Self {
         Self {
-            min: center.clone() - half_extents.clone(),
+            min: center - half_extents,
             max: center + half_extents,
         }
     }
 
     /// Get the diagonal vector
     pub fn diagonal(&self) -> Vector3<T> {
-        self.max.clone() - self.min.clone()
+        self.max - self.min
     }
 
     /// Get the volume
     pub fn volume(&self) -> T {
         let dims = self.diagonal();
-        dims.x.clone() * dims.y.clone() * dims.z.clone()
+        dims.x * dims.y * dims.z
     }
 }
 
@@ -209,7 +208,7 @@ impl<T: RealField> Domain<T> for Domain3D<T> {
     }
 
     fn bounding_box(&self) -> (Point3<T>, Point3<T>) {
-        (self.min.clone(), self.max.clone())
+        (self.min, self.max)
     }
 
     fn volume(&self) -> T {
@@ -294,18 +293,24 @@ mod tests {
         assert_relative_eq!(domain.length(), 1.0);
         assert!(domain.contains(&Point3::new(0.5, 0.0, 0.0)));
         assert!(!domain.contains(&Point3::new(1.5, 0.0, 0.0)));
+        
+        // Test automatic ordering
+        let domain_reversed = Domain1D::new(1.0, 0.0);
+        assert_eq!(domain_reversed.start, 0.0);
+        assert_eq!(domain_reversed.end, 1.0);
+        assert_relative_eq!(domain_reversed.length(), 1.0);
     }
 
     #[test]
     fn test_domain_2d() {
-        let domain = Domain2D::from_coords(0.0, 0.0, 2.0, 3.0);
+        let domain = Domain2D::new(0.0, 0.0, 2.0, 3.0);
         assert_eq!(domain.dimension(), 2);
         assert_relative_eq!(domain.area(), 6.0);
         assert!(domain.contains(&Point3::new(1.0, 1.0, 0.0)));
         assert!(!domain.contains(&Point3::new(3.0, 1.0, 0.0)));
 
-        // Test new Point3-based constructor
-        let domain2 = Domain2D::new(
+        // Test from_points constructor
+        let domain2 = Domain2D::from_points(
             Point3::new(0.0, 0.0, 0.0),
             Point3::new(2.0, 3.0, 0.0),
         );
@@ -330,7 +335,7 @@ mod tests {
         let any_domain: AnyDomain<f64> = domain_1d.into();
         assert_eq!(any_domain.dimension(), 1);
 
-        let domain_2d = Domain2D::from_coords(0.0, 0.0, 1.0, 1.0);
+        let domain_2d = Domain2D::new(0.0, 0.0, 1.0, 1.0);
         let any_domain: AnyDomain<f64> = domain_2d.into();
         assert_eq!(any_domain.dimension(), 2);
 

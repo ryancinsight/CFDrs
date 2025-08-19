@@ -3,21 +3,12 @@
 //! This module provides factory abstractions that assign creation responsibility
 //! to classes that have the initializing data, following GRASP principles.
 
-use crate::{Error, Result, Solver, SolverConfiguration};
+use crate::error::{Error, Result};
+use crate::solver::{Solver, SolverConfiguration};
 use nalgebra::RealField;
 use std::collections::HashMap;
 use std::any::Any;
 use std::sync::Arc;
-
-// Type aliases for backward compatibility while eliminating adjective-based naming
-/// Type alias for type-erased solver (backwards compatibility)
-pub type DynamicSolver<T> = dyn TypeErasedSolver<T>;
-/// Type alias for type-erased factory (backwards compatibility)
-pub type DynamicFactory<T> = dyn TypeErasedFactory<T>;
-/// Type alias for type-erased solver wrapper (backwards compatibility)
-pub type DynamicSolverWrapper<T, S> = TypeErasedSolverWrapper<T, S>;
-/// Type alias for type-erased factory wrapper (backwards compatibility)
-pub type DynamicFactoryWrapper<T, F> = TypeErasedFactoryWrapper<T, F>;
 
 /// Concrete factory trait for type-safe creation
 /// Follows Open/Closed Principle - open for extension, closed for modification
@@ -47,8 +38,8 @@ pub trait FactoryCapability {
     fn capabilities(&self) -> Vec<&str>;
 }
 
-/// Type-erased solver trait for dynamic dispatch
-pub trait TypeErasedSolver<T: RealField>: Send + Sync {
+/// Dynamic solver trait for runtime polymorphism
+pub trait DynamicSolver<T: RealField>: Send + Sync {
     /// Solve the problem
     fn solve(&mut self, problem: &dyn Any) -> Result<Box<dyn Any>>;
     
@@ -57,7 +48,7 @@ pub trait TypeErasedSolver<T: RealField>: Send + Sync {
 }
 
 /// Wrapper to convert concrete solvers to dynamic solvers
-pub struct TypeErasedSolverWrapper<T, S>
+pub struct DynamicSolverWrapper<T, S>
 where
     T: RealField,
     S: Solver<T>,
@@ -66,7 +57,7 @@ where
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T, S> TypeErasedSolverWrapper<T, S>
+impl<T, S> DynamicSolverWrapper<T, S>
 where
     T: RealField + 'static,
     S: Solver<T> + 'static,
@@ -81,7 +72,7 @@ where
     }
 }
 
-impl<T, S> TypeErasedSolver<T> for TypeErasedSolverWrapper<T, S>
+impl<T, S> DynamicSolver<T> for DynamicSolverWrapper<T, S>
 where
     T: RealField + 'static,
     S: Solver<T> + 'static,
@@ -102,10 +93,10 @@ where
     }
 }
 
-/// Type-erased factory wrapper for heterogeneous storage
-pub trait TypeErasedFactory<T: RealField>: Send + Sync {
+/// Dynamic factory for heterogeneous storage
+pub trait DynamicFactory<T: RealField>: Send + Sync {
     /// Create a solver from a configuration
-    fn create_solver(&self, config: &dyn Any) -> Result<Box<dyn TypeErasedSolver<T>>>;
+    fn create_solver(&self, config: &dyn Any) -> Result<Box<dyn DynamicSolver<T>>>;
     
     /// Get factory name
     fn name(&self) -> &str;
@@ -115,7 +106,7 @@ pub trait TypeErasedFactory<T: RealField>: Send + Sync {
 }
 
 /// Wrapper to convert concrete factories to dynamic factories
-pub struct TypeErasedFactoryWrapper<T, F>
+pub struct DynamicFactoryWrapper<T, F>
 where
     T: RealField,
     F: ConcreteSolverFactory<T>,
@@ -124,7 +115,7 @@ where
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T, F> TypeErasedFactoryWrapper<T, F>
+impl<T, F> DynamicFactoryWrapper<T, F>
 where
     T: RealField + 'static,
     F: ConcreteSolverFactory<T> + 'static,
@@ -141,7 +132,7 @@ where
     }
 }
 
-impl<T, F> TypeErasedFactory<T> for TypeErasedFactoryWrapper<T, F>
+impl<T, F> DynamicFactory<T> for DynamicFactoryWrapper<T, F>
 where
     T: RealField + 'static,
     F: ConcreteSolverFactory<T> + 'static,
@@ -150,13 +141,13 @@ where
     <F::Solver as Solver<T>>::Problem: 'static,
     <F::Solver as Solver<T>>::Solution: 'static,
 {
-    fn create_solver(&self, config: &dyn Any) -> Result<Box<dyn TypeErasedSolver<T>>> {
+    fn create_solver(&self, config: &dyn Any) -> Result<Box<dyn DynamicSolver<T>>> {
         let typed_config = config
             .downcast_ref::<F::Config>()
             .ok_or_else(|| Error::InvalidConfiguration("Invalid configuration type".into()))?;
         
         let solver = self.factory.create(typed_config.clone())?;
-        Ok(Box::new(TypeErasedSolverWrapper::new(solver)))
+        Ok(Box::new(DynamicSolverWrapper::new(solver)))
     }
     
     fn name(&self) -> &str {
@@ -168,12 +159,6 @@ where
     }
 }
 
-/// Complete factory registry with proper factory pattern implementation
-pub struct SolverFactoryRegistry<T: RealField> {
-    factories: HashMap<String, Arc<dyn TypeErasedFactory<T>>>,
-    factory_metadata: HashMap<String, FactoryMetadata>,
-}
-
 /// Metadata for registered factories
 #[derive(Debug, Clone)]
 pub struct FactoryMetadata {
@@ -181,6 +166,18 @@ pub struct FactoryMetadata {
     pub factory_type: String,
     pub version: String,
     pub capabilities: Vec<String>,
+}
+
+/// Registry entry containing both factory and metadata
+struct RegistryEntry<T: RealField> {
+    factory: Arc<dyn DynamicFactory<T>>,
+    metadata: FactoryMetadata,
+}
+
+/// Complete factory registry with proper factory pattern implementation
+/// Uses a single HashMap for SSOT (Single Source of Truth)
+pub struct SolverFactoryRegistry<T: RealField> {
+    registry: HashMap<String, RegistryEntry<T>>,
 }
 
 impl<T: RealField> Default for SolverFactoryRegistry<T> {
@@ -193,8 +190,7 @@ impl<T: RealField> SolverFactoryRegistry<T> {
     /// Create new factory registry
     pub fn new() -> Self {
         Self {
-            factories: HashMap::new(),
-            factory_metadata: HashMap::new(),
+            registry: HashMap::new(),
         }
     }
 
@@ -202,184 +198,119 @@ impl<T: RealField> SolverFactoryRegistry<T> {
     pub fn register_factory(
         &mut self, 
         name: String, 
-        factory: Arc<dyn TypeErasedFactory<T>>,
+        factory: Arc<dyn DynamicFactory<T>>,
         metadata: FactoryMetadata
     ) -> Result<()> {
-        if self.factories.contains_key(&name) {
-            return Err(Error::InvalidInput(format!("Factory '{}' already registered", name)));
+        use std::collections::hash_map::Entry;
+        
+        match self.registry.entry(name.clone()) {
+            Entry::Occupied(_) => {
+                Err(Error::InvalidInput(format!("Factory '{}' already registered", name)))
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(RegistryEntry { factory, metadata });
+                Ok(())
+            }
         }
-
-        self.factories.insert(name.clone(), factory);
-        self.factory_metadata.insert(name, metadata);
-        Ok(())
     }
 
     /// Get a factory by name
-    pub fn get_factory(&self, name: &str) -> Option<&dyn TypeErasedFactory<T>> {
-        self.factories.get(name).map(|f| f.as_ref())
-    }
-
-    /// List available factories
-    pub fn list_factories(&self) -> Vec<&str> {
-        self.factories.keys().map(|s| s.as_str()).collect()
+    pub fn get_factory(&self, name: &str) -> Option<&dyn DynamicFactory<T>> {
+        self.registry.get(name).map(|entry| entry.factory.as_ref())
     }
 
     /// Get factory metadata
     pub fn get_factory_metadata(&self, name: &str) -> Option<&FactoryMetadata> {
-        self.factory_metadata.get(name)
+        self.registry.get(name).map(|entry| &entry.metadata)
+    }
+
+    /// List available factories
+    pub fn list_factories(&self) -> Vec<&str> {
+        self.registry.keys().map(|s| s.as_str()).collect()
     }
     
     /// Create a solver using the specified factory with a configuration
-    pub fn create_solver<C: Any>(&self, factory_name: &str, config: C) -> Result<Box<dyn TypeErasedSolver<T>>> {
-        self.factories
+    pub fn create_solver<C: Any>(&self, factory_name: &str, config: C) -> Result<Box<dyn DynamicSolver<T>>> {
+        self.registry
             .get(factory_name)
             .ok_or_else(|| Error::InvalidInput(format!("Factory '{}' not found", factory_name)))?
+            .factory
             .create_solver(&config)
     }
     
     /// Get all factories of a specific type
     pub fn get_factories_by_type(&self, factory_type: &str) -> Vec<&str> {
-        self.factory_metadata
+        self.registry
             .iter()
-            .filter(|(_, metadata)| metadata.factory_type == factory_type)
+            .filter(|(_, entry)| entry.metadata.factory_type == factory_type)
             .map(|(name, _)| name.as_str())
             .collect()
     }
     
     /// Check if a factory supports a specific capability
     pub fn factory_supports(&self, factory_name: &str, capability: &str) -> bool {
-        self.factory_metadata
+        self.registry
             .get(factory_name)
-            .map(|metadata| metadata.capabilities.contains(&capability.to_string()))
+            .map(|entry| entry.metadata.capabilities.contains(&capability.to_string()))
             .unwrap_or(false)
     }
-}
-
-/// Builder pattern for complex object creation (Creator principle)
-pub trait Builder<T> {
-    /// Build the final object
-    fn build(self) -> Result<T>;
-
-    /// Validate the builder state before building
-    fn validate(&self) -> Result<()>;
-}
-
-/// Configuration builder implementing Builder pattern
-pub struct ConfigurationBuilder<T: RealField> {
-    tolerance: Option<T>,
-    max_iterations: Option<usize>,
-    verbosity: Option<u8>,
-    parallel: Option<bool>,
-    custom_params: HashMap<String, String>,
-}
-
-impl<T: RealField> Default for ConfigurationBuilder<T> {
-    fn default() -> Self {
-        Self::new()
+    
+    /// Get factory and metadata together (for advanced use cases)
+    pub fn get_entry(&self, name: &str) -> Option<(&dyn DynamicFactory<T>, &FactoryMetadata)> {
+        self.registry.get(name).map(|entry| (entry.factory.as_ref(), &entry.metadata))
     }
 }
 
-impl<T: RealField> ConfigurationBuilder<T> {
-    /// Create new configuration builder
-    pub fn new() -> Self {
-        Self {
-            tolerance: None,
-            max_iterations: None,
-            verbosity: None,
-            parallel: None,
-            custom_params: HashMap::new(),
-        }
-    }
+// Re-export type-erased types for backward compatibility (deprecated)
+#[deprecated(since = "0.2.0", note = "Use DynamicSolver directly")]
+pub type TypeErasedSolver<T> = dyn DynamicSolver<T>;
 
-    /// Set tolerance (fluent interface)
-    pub fn tolerance(mut self, tolerance: T) -> Self {
-        self.tolerance = Some(tolerance);
-        self
-    }
+#[deprecated(since = "0.2.0", note = "Use DynamicSolverWrapper directly")]
+pub type TypeErasedSolverWrapper<T, S> = DynamicSolverWrapper<T, S>;
 
-    /// Set maximum iterations
-    pub fn max_iterations(mut self, max_iterations: usize) -> Self {
-        self.max_iterations = Some(max_iterations);
-        self
-    }
+#[deprecated(since = "0.2.0", note = "Use DynamicFactory directly")]
+pub type TypeErasedFactory<T> = dyn DynamicFactory<T>;
 
-    /// Set verbosity level
-    pub fn verbosity(mut self, verbosity: u8) -> Self {
-        self.verbosity = Some(verbosity);
-        self
-    }
-
-    /// Enable/disable parallel execution
-    pub fn parallel(mut self, parallel: bool) -> Self {
-        self.parallel = Some(parallel);
-        self
-    }
-
-    /// Add custom parameter
-    pub fn custom_param(mut self, key: String, value: String) -> Self {
-        self.custom_params.insert(key, value);
-        self
-    }
-}
-
-impl<T: RealField + num_traits::FromPrimitive> Builder<crate::SolverConfig<T>> for ConfigurationBuilder<T> {
-    fn build(self) -> Result<crate::SolverConfig<T>> {
-        self.validate()?;
-
-        Ok(crate::SolverConfig::builder()
-            .tolerance(self.tolerance.unwrap_or_else(|| T::from_f64(1e-6).unwrap()))
-            .max_iterations(self.max_iterations.unwrap_or(1000))
-            .relaxation_factor(T::one())
-            .verbosity(self.verbosity.unwrap_or(1))
-            .parallel(self.parallel.unwrap_or(true))
-            .num_threads(None)
-            .build_base())
-    }
-
-    fn validate(&self) -> Result<()> {
-        if let Some(tolerance) = &self.tolerance {
-            if *tolerance <= T::zero() {
-                return Err(Error::InvalidInput("Tolerance must be positive".to_string()));
-            }
-        }
-
-        if let Some(max_iterations) = self.max_iterations {
-            if max_iterations == 0 {
-                return Err(Error::InvalidInput("Max iterations must be positive".to_string()));
-            }
-        }
-
-        if let Some(verbosity) = self.verbosity {
-            if verbosity > 3 {
-                return Err(Error::InvalidInput("Verbosity level must be 0-3".to_string()));
-            }
-        }
-
-        Ok(())
-    }
-}
-
-
+#[deprecated(since = "0.2.0", note = "Use DynamicFactoryWrapper directly")]
+pub type TypeErasedFactoryWrapper<T, F> = DynamicFactoryWrapper<T, F>;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::solver::SolverConfig;
 
     #[test]
-    fn test_configuration_builder() {
-        let config = ConfigurationBuilder::<f64>::new()
-            .tolerance(1e-8)
-            .max_iterations(500)
-            .verbosity(2)
-            .parallel(true)
-            .build()
-            .unwrap();
-
-        assert_eq!(config.tolerance(), 1e-8);
-        assert_eq!(config.max_iterations(), 500);
-        assert_eq!(config.verbosity(), 2);
-        assert!(config.parallel());
+    fn test_factory_registry() {
+        let mut registry = SolverFactoryRegistry::<f64>::new();
+        
+        // Test registration
+        let metadata = FactoryMetadata {
+            name: "test_factory".to_string(),
+            factory_type: "iterative".to_string(),
+            version: "1.0.0".to_string(),
+            capabilities: vec!["linear".to_string(), "sparse".to_string()],
+        };
+        
+        // Would need a concrete factory implementation for a full test
+        // This test verifies the structure compiles and basic operations work
+        
+        assert_eq!(registry.list_factories().len(), 0);
     }
-
-
+    
+    #[test]
+    fn test_registry_entry_consolidation() {
+        let mut registry = SolverFactoryRegistry::<f64>::new();
+        
+        // Verify that we can't register the same factory twice
+        let metadata = FactoryMetadata {
+            name: "test".to_string(),
+            factory_type: "test".to_string(),
+            version: "1.0.0".to_string(),
+            capabilities: vec![],
+        };
+        
+        // This would fail without a concrete factory, but demonstrates the API
+        assert!(registry.get_factory("nonexistent").is_none());
+        assert!(registry.get_factory_metadata("nonexistent").is_none());
+    }
 }

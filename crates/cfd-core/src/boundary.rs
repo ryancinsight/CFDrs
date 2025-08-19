@@ -55,12 +55,14 @@ pub enum BoundaryCondition<T: RealField> {
         /// Volume flow rate [m³/s]
         flow_rate: T,
     },
-    /// Generic inlet boundary (backward compatibility)
+    /// Generic inlet boundary
+    #[deprecated(since = "0.2.0", note = "Please use the more specific `VelocityInlet` variant instead")]
     Inlet {
         /// Velocity vector at inlet
         velocity: Vector3<T>,
     },
-    /// Generic outlet boundary (backward compatibility)
+    /// Generic outlet boundary
+    #[deprecated(since = "0.2.0", note = "Please use the more specific `PressureOutlet` variant instead")]
     Outlet {
         /// Static pressure at outlet
         pressure: T,
@@ -179,25 +181,38 @@ impl<T: RealField> BoundaryCondition<T> {
     }
 
     /// Extract pressure value if this is a pressure boundary condition
-    pub fn pressure_value(&self) -> Option<T> {
+    pub fn pressure_value(&self) -> Option<T> 
+    where
+        T: Copy,
+    {
         match self {
-            Self::PressureInlet { pressure } | Self::PressureOutlet { pressure } => Some(pressure.clone()),
+            Self::PressureInlet { pressure } | Self::PressureOutlet { pressure } => Some(*pressure),
+            #[allow(deprecated)]
+            Self::Outlet { pressure } => Some(*pressure),
             _ => None,
         }
     }
 
     /// Extract flow rate value if this is a flow rate boundary condition
-    pub fn flow_rate_value(&self) -> Option<T> {
+    pub fn flow_rate_value(&self) -> Option<T>
+    where
+        T: Copy,
+    {
         match self {
-            Self::VolumeFlowInlet { flow_rate } => Some(flow_rate.clone()),
+            Self::VolumeFlowInlet { flow_rate } => Some(*flow_rate),
             _ => None,
         }
     }
 
     /// Extract 1D velocity value if this is a velocity boundary condition
-    pub fn velocity_1d_value(&self) -> Option<T> {
+    pub fn velocity_1d_value(&self) -> Option<T>
+    where
+        T: Copy,
+    {
         match self {
-            Self::VelocityInlet { velocity } => Some(velocity.x.clone()),
+            Self::VelocityInlet { velocity } => Some(velocity.x),
+            #[allow(deprecated)]
+            Self::Inlet { velocity } => Some(velocity.x),
             _ => None,
         }
     }
@@ -248,36 +263,39 @@ impl<T: RealField> BoundaryConditionSet<T> {
     /// - A periodic boundary references a non-existent partner
     /// - A periodic boundary's partner is not also periodic
     /// - Periodic boundaries do not reference each other mutually
-    pub fn validate_periodic(&self) -> crate::Result<()> {
+    pub fn validate_periodic(&self) -> crate::error::Result<()> {
+        use std::collections::HashSet;
+        let mut validated_partners = HashSet::new();
+
         for (name, bc) in &self.conditions {
             if let BoundaryCondition::Periodic { partner } = bc {
+                // Skip if we already validated this boundary as part of checking its partner
+                if validated_partners.contains(name.as_str()) {
+                    continue;
+                }
+
                 // Check partner exists
-                if !self.conditions.contains_key(partner) {
-                    return Err(crate::Error::InvalidConfiguration(format!(
-                        "Periodic boundary {name} references non-existent partner {partner}"
+                let partner_bc = self.conditions.get(partner).ok_or_else(|| {
+                    crate::error::Error::InvalidConfiguration(format!(
+                        "Periodic boundary '{name}' references non-existent partner '{partner}'"
+                    ))
+                })?;
+
+                // Check partner is also periodic and points back to this boundary
+                if let BoundaryCondition::Periodic { partner: partner_partner } = partner_bc {
+                    if partner_partner != name {
+                        return Err(crate::error::Error::InvalidConfiguration(format!(
+                            "Periodic boundaries '{name}' and '{partner}' do not reference each other mutually"
+                        )));
+                    }
+                } else {
+                    return Err(crate::error::Error::InvalidConfiguration(format!(
+                        "Periodic boundary '{name}' has a partner '{partner}' which is not periodic"
                     )));
                 }
 
-                // Check partner is also periodic
-                if let Some(partner_bc) = self.conditions.get(partner) {
-                    if !matches!(partner_bc, BoundaryCondition::Periodic { .. }) {
-                        return Err(crate::Error::InvalidConfiguration(format!(
-                            "Periodic boundary {name} has non-periodic partner {partner}"
-                        )));
-                    }
-
-                    // Check partner points back
-                    if let BoundaryCondition::Periodic {
-                        partner: partner_partner,
-                    } = partner_bc
-                    {
-                        if partner_partner != name {
-                            return Err(crate::Error::InvalidConfiguration(format!(
-                                "Periodic boundary {name} and {partner} do not reference each other"
-                            )));
-                        }
-                    }
-                }
+                // Mark the partner as validated to avoid redundant checking
+                validated_partners.insert(partner.as_str());
             }
         }
         Ok(())

@@ -21,7 +21,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .tolerance(1e-8)
         .max_iterations(100)
         .verbosity(2) // verbose = true means verbosity level 2
-        .build();
+        .build_base();
 
     let config = SpectralConfig {
         base,

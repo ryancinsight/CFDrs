@@ -32,12 +32,10 @@ pub use cfd_validation as validation;
 pub mod prelude {
     // === Core Abstractions ===
     // Fundamental types used across all CFD simulations
-    pub use cfd_core::{
-        Fluid, Error, Result, BoundaryCondition, Domain, Problem, Solver,
-        Plugin, PluginRegistry, SimulationPlugin, SimulationState, TimeIntegrator,
-        SolverConfiguration, Configurable, Validatable, IterativeSolver, DirectSolver, SolverConfig, LinearSolverConfig, NetworkSolverConfig,
-        ConcreteSolverFactory, FactoryCapability, SolverFactoryRegistry, Builder, ConfigurationBuilder, DynamicFactory, DynamicSolver, TypeErasedFactory, TypeErasedSolver
-    };
+    pub use cfd_core::prelude::*;
+    
+    // Additional advanced types for solver implementors (not in core prelude)
+    pub use cfd_core::solvers::{Configurable, Validatable, IterativeSolver, DirectSolver};
 
     // === Mathematical Utilities ===
     // Essential numerical methods and linear algebra

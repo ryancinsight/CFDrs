@@ -1,6 +1,9 @@
 //! Problem definition and configuration.
 
-use crate::{boundary::BoundaryConditionSet, domain::Domain, fluid::Fluid, Result};
+use crate::boundary::BoundaryConditionSet;
+use crate::domain::Domain;
+use crate::fluid::Fluid;
+use crate::error::Result;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use std::sync::Arc;
@@ -135,11 +138,11 @@ impl<T: RealField, D: Domain<T>> ProblemBuilder<T, D> {
     pub fn build(self) -> Result<ProblemConfig<T, D>> {
         let domain = self
             .domain
-            .ok_or_else(|| crate::Error::InvalidConfiguration("Domain not set".to_string()))?;
+            .ok_or_else(|| crate::error::Error::InvalidConfiguration("Domain not set".to_string()))?;
         
         let fluid = self
             .fluid
-            .ok_or_else(|| crate::Error::InvalidConfiguration("Fluid not set".to_string()))?;
+            .ok_or_else(|| crate::error::Error::InvalidConfiguration("Fluid not set".to_string()))?;
 
         let config = ProblemConfig {
             domain,

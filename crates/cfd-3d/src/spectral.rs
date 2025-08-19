@@ -33,20 +33,6 @@ pub struct SpectralConfig<T: RealField> {
     pub nz_modes: usize,
     /// Time step for time-dependent problems
     pub dt: Option<T>,
-    /// Grid size in x direction (backward compatibility)
-    pub nx: Option<usize>,
-    /// Grid size in y direction (backward compatibility)
-    pub ny: Option<usize>,
-    /// Grid size in z direction (backward compatibility)
-    pub nz: Option<usize>,
-    /// Domain size in x direction (backward compatibility)
-    pub lx: Option<T>,
-    /// Domain size in y direction (backward compatibility)
-    pub ly: Option<T>,
-    /// Domain size in z direction (backward compatibility)
-    pub lz: Option<T>,
-    /// Viscosity parameter (backward compatibility)
-    pub viscosity: Option<T>,
 }
 
 impl<T: RealField + FromPrimitive> Default for SpectralConfig<T> {
@@ -63,13 +49,6 @@ impl<T: RealField + FromPrimitive> Default for SpectralConfig<T> {
             ny_modes: 32,
             nz_modes: 32,
             dt: None,
-            nx: None,
-            ny: None,
-            nz: None,
-            lx: None,
-            ly: None,
-            lz: None,
-            viscosity: None,
         }
     }
 }
@@ -909,23 +888,6 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> SpectralSolver<T> {
     /// Inverse transform (spectral to physical space)
     fn inverse_transform(&self, spectral: &[Complex<T>]) -> Vec<T> {
         self.dft_backward(spectral)
-    }
-
-    /// Set velocity at specific index (backward compatibility)
-    pub fn set_velocity(&mut self, idx: usize, velocity: Vector3<T>) {
-        if idx < self.velocity.len() {
-            self.velocity[idx] = velocity;
-        }
-    }
-
-    /// Perform a single time step with default parameters (backward compatibility)
-    pub fn step(&mut self) -> cfd_core::Result<()> {
-        // Use default parameters if not provided in config
-        let dt = self.config.dt.unwrap_or_else(|| T::from_f64(0.01).unwrap());
-        let viscosity = self.config.viscosity.unwrap_or_else(|| T::from_f64(0.001).unwrap());
-        
-        self.step_with_params(dt, viscosity);
-        Ok(())
     }
 
     /// Perform a single time step with explicit parameters (renamed to avoid conflicts)

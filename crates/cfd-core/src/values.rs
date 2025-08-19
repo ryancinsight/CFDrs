@@ -3,7 +3,7 @@
 //! This module provides immutable value objects that represent important
 //! domain concepts with built-in validation and behavior.
 
-use crate::{Error, Result};
+use crate::error::{Error, Result};
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};

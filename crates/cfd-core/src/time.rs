@@ -1,13 +1,10 @@
 //! Time integration schemes.
 
-use crate::Result;
+use crate::error::Result;
 use nalgebra::{DVector, RealField};
 use num_traits::cast::FromPrimitive;
 use num_traits::Float;
 
-// Type alias for backward compatibility while eliminating adjective-based naming
-/// Type alias for variable time step controller (backwards compatibility)
-pub type AdaptiveTimeStep<T> = VariableTimeStep<T>;
 
 /// Trait for time integration schemes
 pub trait TimeIntegrator<T: RealField>: Send + Sync {
@@ -61,7 +58,7 @@ impl<T: RealField + FromPrimitive> TimeIntegrator<T> for RungeKutta2 {
         F: Fn(T, &Self::State) -> Self::State,
     {
         let half = T::from_f64(0.5).ok_or_else(|| {
-            crate::Error::NumericalError("Failed to convert 0.5 to target type".to_string())
+            crate::error::Error::NumericalError("Failed to convert 0.5 to target type".to_string())
         })?;
 
         let k1 = f(t.clone(), state);
@@ -94,13 +91,13 @@ impl<T: RealField + FromPrimitive> TimeIntegrator<T> for RungeKutta4 {
         F: Fn(T, &Self::State) -> Self::State,
     {
         let two = T::from_f64(2.0).ok_or_else(|| {
-            crate::Error::NumericalError("Failed to convert 2.0 to target type".to_string())
+            crate::error::Error::NumericalError("Failed to convert 2.0 to target type".to_string())
         })?;
         let six = T::from_f64(6.0).ok_or_else(|| {
-            crate::Error::NumericalError("Failed to convert 6.0 to target type".to_string())
+            crate::error::Error::NumericalError("Failed to convert 6.0 to target type".to_string())
         })?;
         let half = T::from_f64(0.5).ok_or_else(|| {
-            crate::Error::NumericalError("Failed to convert 0.5 to target type".to_string())
+            crate::error::Error::NumericalError("Failed to convert 0.5 to target type".to_string())
         })?;
         
         let k1 = f(t.clone(), state);
@@ -187,7 +184,7 @@ impl<T: RealField> TimeIntegrator<T> for BackwardEuler<T> {
 
         // Check for valid iteration count
         if self.max_iterations == 0 {
-            return Err(crate::Error::InvalidConfiguration(
+            return Err(crate::error::Error::InvalidConfiguration(
                 "BackwardEuler requires max_iterations > 0".to_string()
             ));
         }
@@ -208,7 +205,7 @@ impl<T: RealField> TimeIntegrator<T> for BackwardEuler<T> {
 
             // Prevent infinite loops
             if iteration == self.max_iterations - 1 {
-                return Err(crate::Error::ConvergenceFailure(format!(
+                return Err(crate::error::Error::ConvergenceFailure(format!(
                     "Backward Euler failed to converge after {} iterations, error: {}",
                     self.max_iterations, error
                 )));
@@ -277,7 +274,7 @@ impl<T: RealField> TimeIntegrator<T> for CrankNicolson<T> {
         let y_old = state.clone();
         let t_new = t.clone() + dt.clone();
         let half = T::from_f64(0.5).ok_or_else(|| {
-            crate::Error::NumericalError("Failed to convert 0.5 to target type".to_string())
+            crate::error::Error::NumericalError("Failed to convert 0.5 to target type".to_string())
         })?;
         let half_dt = dt * half;
 
@@ -286,7 +283,7 @@ impl<T: RealField> TimeIntegrator<T> for CrankNicolson<T> {
 
         // Check for valid iteration count
         if self.max_iterations == 0 {
-            return Err(crate::Error::InvalidConfiguration(
+            return Err(crate::error::Error::InvalidConfiguration(
                 "CrankNicolson requires max_iterations > 0".to_string()
             ));
         }
@@ -307,7 +304,7 @@ impl<T: RealField> TimeIntegrator<T> for CrankNicolson<T> {
 
             // Prevent infinite loops
             if iteration == self.max_iterations - 1 {
-                return Err(crate::Error::ConvergenceFailure(format!(
+                return Err(crate::error::Error::ConvergenceFailure(format!(
                     "Crank-Nicolson failed to converge after {} iterations, error: {}",
                     self.max_iterations, error
                 )));
@@ -443,7 +440,7 @@ mod tests {
         // Should return an error for zero iterations
         let result = integrator.step(&mut state, t, dt, f);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), crate::Error::InvalidConfiguration(_)));
+        assert!(matches!(result.unwrap_err(), crate::error::Error::InvalidConfiguration(_)));
     }
 
     #[test]
@@ -458,6 +455,6 @@ mod tests {
         // Should return an error for zero iterations
         let result = integrator.step(&mut state, t, dt, f);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), crate::Error::InvalidConfiguration(_)));
+        assert!(matches!(result.unwrap_err(), crate::error::Error::InvalidConfiguration(_)));
     }
 }
