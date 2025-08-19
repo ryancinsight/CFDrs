@@ -175,8 +175,8 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> PisoSolver<T> {
     ) -> Result<Self> {
         let nx = grid.nx;
         let ny = grid.ny;
-        let dx = grid.dx.clone();
-        let dy = grid.dy.clone();
+        let dx = grid.dx;
+        let dy = grid.dy;
         let constants = PisoConstants::new()?;
 
         Ok(Self {
@@ -214,9 +214,9 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> PisoSolver<T> {
     pub fn initialize(&mut self, initial_velocity: Vector2<T>, initial_pressure: T) -> Result<()> {
         for i in 0..self.nx {
             for j in 0..self.ny {
-                self.u[i][j] = initial_velocity.clone();
-                self.u_old[i][j] = initial_velocity.clone();
-                self.p[i][j] = initial_pressure.clone();
+                self.u[i][j] = initial_velocity;
+                self.u_old[i][j] = initial_velocity;
+                self.p[i][j] = initial_pressure;
             }
         }
         self.compute_momentum_coefficients()?;
@@ -278,21 +278,21 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> PisoSolver<T> {
         // Build source terms for interior points
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
-                let dt = self.config.time_step.clone();
+                let dt = self.config.time_step;
                 
                 // Pressure gradient terms
-                let pressure_grad_x = (self.p[i+1][j].clone() - self.p[i-1][j].clone()) 
-                    / (self.constants.gradient_factor.clone() * self.dx.clone());
-                let pressure_grad_y = (self.p[i][j+1].clone() - self.p[i][j-1].clone()) 
-                    / (self.constants.gradient_factor.clone() * self.dy.clone());
+                let pressure_grad_x = (self.p[i+1][j] - self.p[i-1][j]) 
+                    / (self.constants.gradient_factor * self.dx);
+                let pressure_grad_y = (self.p[i][j+1] - self.p[i][j-1]) 
+                    / (self.constants.gradient_factor * self.dy);
                 
                 // Transient terms using old velocity field
-                let cell_volume = self.dx.clone() * self.dy.clone();
-                b_x[i][j] = self.density.clone() * cell_volume.clone() 
-                    * self.u_old[i][j].x.clone() / dt.clone()
-                    - pressure_grad_x * cell_volume.clone();
-                b_y[i][j] = self.density.clone() * cell_volume.clone() 
-                    * self.u_old[i][j].y.clone() / dt.clone()
+                let cell_volume = self.dx * self.dy;
+                b_x[i][j] = self.density * cell_volume 
+                    * self.u_old[i][j].x / dt
+                    - pressure_grad_x * cell_volume;
+                b_y[i][j] = self.density * cell_volume 
+                    * self.u_old[i][j].y / dt
                     - pressure_grad_y * cell_volume;
             }
         }
@@ -305,26 +305,26 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> PisoSolver<T> {
             for i in 1..self.nx-1 {
                 for j in 1..self.ny-1 {
                     // Skip if diagonal coefficient is too small
-                    if self.a_p[i][j].clone().abs() <= self.constants.epsilon {
+                    if self.a_p[i][j].abs() <= self.constants.epsilon {
                         continue;
                     }
                     
                     // X-momentum equation: direct neighbor access
-                    let u_x_neighbors = self.a_w[i][j].clone() * self.u[i-1][j].x.clone() + 
-                                        self.a_e[i][j].clone() * self.u[i+1][j].x.clone() +
-                                        self.a_s[i][j].clone() * self.u[i][j-1].x.clone() +
-                                        self.a_n[i][j].clone() * self.u[i][j+1].x.clone();
+                    let u_x_neighbors = self.a_w[i][j] * self.u[i-1][j].x + 
+                                        self.a_e[i][j] * self.u[i+1][j].x +
+                                        self.a_s[i][j] * self.u[i][j-1].x +
+                                        self.a_n[i][j] * self.u[i][j+1].x;
 
-                    let new_u_x = (b_x[i][j].clone() - u_x_neighbors) / self.a_p[i][j].clone();
+                    let new_u_x = (b_x[i][j] - u_x_neighbors) / self.a_p[i][j];
                     self.u[i][j].x = new_u_x;
                     
                     // Y-momentum equation: direct neighbor access
-                    let u_y_neighbors = self.a_w[i][j].clone() * self.u[i-1][j].y.clone() + 
-                                        self.a_e[i][j].clone() * self.u[i+1][j].y.clone() +
-                                        self.a_s[i][j].clone() * self.u[i][j-1].y.clone() +
-                                        self.a_n[i][j].clone() * self.u[i][j+1].y.clone();
+                    let u_y_neighbors = self.a_w[i][j] * self.u[i-1][j].y + 
+                                        self.a_e[i][j] * self.u[i+1][j].y +
+                                        self.a_s[i][j] * self.u[i][j-1].y +
+                                        self.a_n[i][j] * self.u[i][j+1].y;
 
-                    let new_u_y = (b_y[i][j].clone() - u_y_neighbors) / self.a_p[i][j].clone();
+                    let new_u_y = (b_y[i][j] - u_y_neighbors) / self.a_p[i][j];
                     self.u[i][j].y = new_u_y;
                 }
             }
@@ -420,13 +420,13 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> PisoSolver<T> {
     ) -> Result<()> {
         // No-slip: u = 0, v = 0
         // Modify coefficients to enforce this constraint
-        self.a_p[i][j] = self.constants.one.clone();
-        self.a_e[i][j] = self.constants.zero.clone();
-        self.a_w[i][j] = self.constants.zero.clone();
-        self.a_n[i][j] = self.constants.zero.clone();
-        self.a_s[i][j] = self.constants.zero.clone();
-        b_x[i][j] = self.constants.zero.clone();
-        b_y[i][j] = self.constants.zero.clone();
+        self.a_p[i][j] = self.constants.one;
+        self.a_e[i][j] = self.constants.zero;
+        self.a_w[i][j] = self.constants.zero;
+        self.a_n[i][j] = self.constants.zero;
+        self.a_s[i][j] = self.constants.zero;
+        b_x[i][j] = self.constants.zero;
+        b_y[i][j] = self.constants.zero;
         
         Ok(())
     }
