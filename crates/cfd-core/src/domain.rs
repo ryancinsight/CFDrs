@@ -27,7 +27,7 @@ pub struct Domain1D<T: RealField> {
     pub end: T,
 }
 
-impl<T: RealField> Domain1D<T> {
+impl<T: RealField + Copy> Domain1D<T> {
     /// Create a new 1D domain. The start and end points are automatically ordered
     /// so that start <= end.
     pub fn new(p1: T, p2: T) -> Self {
@@ -47,7 +47,7 @@ impl<T: RealField> Domain1D<T> {
     }
 }
 
-impl<T: RealField> Domain<T> for Domain1D<T> {
+impl<T: RealField + Copy> Domain<T> for Domain1D<T> {
     fn dimension(&self) -> usize {
         1
     }
@@ -79,7 +79,7 @@ pub struct Domain2D<T: RealField> {
     pub max: Point3<T>,
 }
 
-impl<T: RealField> Domain2D<T> {
+impl<T: RealField + Copy> Domain2D<T> {
     /// Create a new 2D domain from scalar coordinates.
     pub fn new(x_min: T, y_min: T, x_max: T, y_max: T) -> Self {
         Self {
@@ -112,7 +112,7 @@ impl<T: RealField> Domain2D<T> {
     }
 }
 
-impl<T: RealField> Domain<T> for Domain2D<T> {
+impl<T: RealField + Copy> Domain<T> for Domain2D<T> {
     fn dimension(&self) -> usize {
         2
     }
@@ -125,7 +125,7 @@ impl<T: RealField> Domain<T> for Domain2D<T> {
     }
 
     fn bounding_box(&self) -> (Point3<T>, Point3<T>) {
-        (self.min, self.max)
+        (self.min.clone(), self.max.clone())
     }
 
     fn volume(&self) -> T {
@@ -142,9 +142,9 @@ pub struct Domain3D<T: RealField> {
     pub max: Point3<T>,
 }
 
-impl<T: RealField> Domain3D<T> {
+impl<T: RealField + Copy> Domain3D<T> {
     /// Create a new 3D domain
-    pub const fn new(min: Point3<T>, max: Point3<T>) -> Self {
+    pub fn new(min: Point3<T>, max: Point3<T>) -> Self {
         Self { min, max }
     }
 
@@ -168,22 +168,22 @@ impl<T: RealField> Domain3D<T> {
         let two = T::one() + T::one();
         Point3::new(
             (self.min.x + self.max.x) / two,
-            (self.min.y + self.max.y) / two,
-            (self.min.z + self.max.z) / two,
+            (self.min.y + self.max.y) / two.clone(),
+            (self.min.z + self.max.z) / two.clone(),
         )
     }
 
     /// Create from center and half-extents
     pub fn from_center_half_extents(center: Point3<T>, half_extents: Vector3<T>) -> Self {
         Self {
-            min: center - half_extents,
+            min: center.clone() - half_extents.clone(),
             max: center + half_extents,
         }
     }
 
     /// Get the diagonal vector
     pub fn diagonal(&self) -> Vector3<T> {
-        self.max - self.min
+        self.max.clone() - self.min.clone()
     }
 
     /// Get the volume
@@ -193,7 +193,7 @@ impl<T: RealField> Domain3D<T> {
     }
 }
 
-impl<T: RealField> Domain<T> for Domain3D<T> {
+impl<T: RealField + Copy> Domain<T> for Domain3D<T> {
     fn dimension(&self) -> usize {
         3
     }
@@ -208,7 +208,7 @@ impl<T: RealField> Domain<T> for Domain3D<T> {
     }
 
     fn bounding_box(&self) -> (Point3<T>, Point3<T>) {
-        (self.min, self.max)
+        (self.min.clone(), self.max.clone())
     }
 
     fn volume(&self) -> T {
@@ -228,7 +228,7 @@ pub enum AnyDomain<T: RealField> {
     D3(Domain3D<T>),
 }
 
-impl<T: RealField> Domain<T> for AnyDomain<T> {
+impl<T: RealField + Copy> Domain<T> for AnyDomain<T> {
     fn dimension(&self) -> usize {
         match self {
             Self::D1(d) => d.dimension(),
@@ -263,19 +263,19 @@ impl<T: RealField> Domain<T> for AnyDomain<T> {
 }
 
 // Ergonomic From implementations for AnyDomain conversions
-impl<T: RealField> From<Domain1D<T>> for AnyDomain<T> {
+impl<T: RealField + Copy> From<Domain1D<T>> for AnyDomain<T> {
     fn from(domain: Domain1D<T>) -> Self {
         AnyDomain::D1(domain)
     }
 }
 
-impl<T: RealField> From<Domain2D<T>> for AnyDomain<T> {
+impl<T: RealField + Copy> From<Domain2D<T>> for AnyDomain<T> {
     fn from(domain: Domain2D<T>) -> Self {
         AnyDomain::D2(domain)
     }
 }
 
-impl<T: RealField> From<Domain3D<T>> for AnyDomain<T> {
+impl<T: RealField + Copy> From<Domain3D<T>> for AnyDomain<T> {
     fn from(domain: Domain3D<T>) -> Self {
         AnyDomain::D3(domain)
     }
