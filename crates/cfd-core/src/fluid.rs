@@ -199,7 +199,7 @@ impl<T: RealField + FromPrimitive + Float> Fluid<T> {
                 consistency_index,
                 flow_index,
             } => {
-                Ok(*consistency_index * num_traits::Float::powf(shear_rate,(*flow_index - T::one()))
+                Ok(*consistency_index * num_traits::Float::powf(shear_rate, *flow_index - T::one()))
             }
             ViscosityModel::Carreau {
                 mu_zero,
@@ -210,9 +210,9 @@ impl<T: RealField + FromPrimitive + Float> Fluid<T> {
                 let two = T::from_f64(2.0)
                     .ok_or_else(|| Error::InvalidConfiguration("Cannot convert 2.0 to target type".into()))?;
                 let exponent = (*n - T::one()) / two;
-                let factor = T::one() + (*num_traits::Float::powf(*lambda * shear_rate,(two);
+                let factor = T::one() + num_traits::Float::powf(*lambda * shear_rate, two);
                 
-                Ok(*mu_inf + (*mu_zero - *mu_inf) * num_traits::Float::powf(factor,(exponent))
+                Ok(*mu_inf + (*mu_zero - *mu_inf) * num_traits::Float::powf(factor, exponent))
             }
             ViscosityModel::Cross {
                 mu_zero,
@@ -220,7 +220,7 @@ impl<T: RealField + FromPrimitive + Float> Fluid<T> {
                 lambda,
                 m,
             } => {
-                let factor = T::one() + (*num_traits::Float::powf(*lambda * shear_rate,(*m);
+                let factor = T::one() + num_traits::Float::powf(*lambda * shear_rate, *m);
                 Ok(*mu_inf + (*mu_zero - *mu_inf) / factor)
             }
         }

@@ -86,6 +86,10 @@ pub enum PluginErrorKind {
     #[error("Plugin not found: {name}")]
     NotFound { name: String },
     
+    /// Plugin already registered
+    #[error("Plugin already registered: {0}")]
+    AlreadyRegistered(String),
+    
     /// Plugin initialization failed
     #[error("Plugin initialization failed: {reason}")]
     InitializationFailed { reason: String },
@@ -97,6 +101,18 @@ pub enum PluginErrorKind {
     /// Plugin execution error
     #[error("Plugin execution error: {0}")]
     ExecutionError(String),
+    
+    /// Missing dependency
+    #[error("Plugin {plugin} requires missing dependency: {dependency}")]
+    MissingDependency { plugin: String, dependency: String },
+    
+    /// Circular dependency detected
+    #[error("Circular dependency detected involving plugin: {0}")]
+    CircularDependency(String),
+    
+    /// Plugin is in use by another plugin
+    #[error("Cannot remove plugin {plugin} as it is used by {used_by}")]
+    InUse { plugin: String, used_by: String },
 }
 
 /// Main error type for CFD operations
