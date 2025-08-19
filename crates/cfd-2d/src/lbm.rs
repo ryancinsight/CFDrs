@@ -536,7 +536,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
     /// Check convergence based on velocity and density field changes
     fn check_convergence(&self) -> Result<bool> {
         // Simple, clear implementation without false optimization claims
-        let total_cells = T::from_usize(self.nx * self.ny).ok_or_else(|| cfd_core::Error::NumericalError("Grid size is too large to be represented by float type".to_string()))?;
+        let total_cells = T::from_usize(self.nx * self.ny).ok_or_else(|| cfd_core::Error::Numerical(cfd_core::error::NumericalErrorKind::Overflow))?;
 
         // Calculate residuals with simple loops - clearer and no slower
         let mut velocity_residual = T::zero();

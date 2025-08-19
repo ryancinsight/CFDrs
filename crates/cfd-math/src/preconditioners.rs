@@ -6,7 +6,7 @@
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
-use crate::linear_solver_fixed::{LinearSolverError, Result, Preconditioner};
+use crate::linear_solver::{LinearSolverError, Result, Preconditioner};
 
 /// Incomplete Cholesky factorization preconditioner (IC(0))
 /// 

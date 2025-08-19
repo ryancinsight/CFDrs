@@ -349,7 +349,7 @@ impl LinearSolverValidator {
             }
             
             CsrMatrix::try_from_csr_data(n, n, row_offsets, csr_col_indices, csr_values)
-                .map_err(|e| Error::NumericalError(format!("Failed to create matrix: {:?}", e)))?
+                .map_err(|e| Error::Numerical(crate::error::NumericalErrorKind::SingularMatrix))?
         };
 
         // Create RHS b = [1, 1, ..., 1]
@@ -421,7 +421,7 @@ impl LinearSolverValidator {
             }
             
             CsrMatrix::try_from_csr_data(n, n, row_offsets, csr_col_indices, csr_values)
-                .map_err(|e| Error::NumericalError(format!("Failed to create matrix: {:?}", e)))?
+                .map_err(|e| Error::Numerical(crate::error::NumericalErrorKind::SingularMatrix))?
         };
 
         // RHS for manufactured solution u(x) = x(1-x)
@@ -491,7 +491,7 @@ impl LinearSolverValidator {
         }
         
         let a = CsrMatrix::try_from_csr_data(n, n, row_offsets, col_indices, values)
-            .map_err(|e| Error::NumericalError(format!("Failed to create matrix: {:?}", e)))?;
+            .map_err(|e| Error::Numerical(crate::error::NumericalErrorKind::SingularMatrix))?;
         
         // Create RHS with manufactured solution u(x,y) = sin(πx)sin(πy)
         let pi = T::from_f64(std::f64::consts::PI).unwrap();
@@ -563,7 +563,7 @@ impl LinearSolverValidator {
             }
             
             CsrMatrix::try_from_csr_data(n, n, row_offsets, csr_col_indices, csr_values)
-                .map_err(|e| Error::NumericalError(format!("Failed to create matrix: {:?}", e)))?
+                .map_err(|e| Error::Numerical(crate::error::NumericalErrorKind::SingularMatrix))?
         };
 
         // Use known solution x = [1, 1, ..., 1] and compute b = A*x

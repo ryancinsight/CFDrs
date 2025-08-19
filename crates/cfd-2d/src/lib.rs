@@ -16,7 +16,7 @@ pub mod momentum;
 pub mod convection;
 pub mod pressure_velocity_coupling;
 pub mod piso;
-pub mod piso_refactored;  // Refactored PISO implementation
+
 pub mod problem;
 pub mod turbulence;
 pub mod vorticity_stream;

@@ -770,7 +770,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> FemSolver<T> {
         // Convert FluidProperties from Problem
         let properties = FluidProperties {
             density: problem.fluid.density.clone(),
-            viscosity: problem.fluid.viscosity.clone(),
+            viscosity: problem.fluid.characteristic_viscosity(),
             body_force: problem.body_force.clone(),
         };
         

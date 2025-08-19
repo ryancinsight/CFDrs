@@ -160,7 +160,7 @@ impl<T: RealField + FromPrimitive> SORPreconditioner<T> {
         let n = a.nrows() as f64;
         let omega_opt = 2.0 / (1.0 + (std::f64::consts::PI / n).sin());
         let omega = T::from_f64(omega_opt).ok_or_else(|| {
-            Error::NumericalError("Failed to convert optimal omega to target type".to_string())
+            Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
         })?;
         
         Self::new(a, omega)

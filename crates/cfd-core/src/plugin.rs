@@ -41,11 +41,6 @@ pub trait Plugin: Send + Sync {
         vec![]
     }
     
-    /// Get solver factories provided by this plugin
-    /// The key is a unique solver type name (e.g., "SIMPLE", "PISO")
-    fn get_solver_factories<T: RealField>(&self) -> HashMap<String, Arc<dyn DynamicFactory<T>>> {
-        HashMap::new()
-    }
     
     /// Check if plugin supports parallel execution
     fn supports_parallel(&self) -> bool {

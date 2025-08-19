@@ -18,13 +18,13 @@ impl FluidDynamicsService {
         velocity: T,
         characteristic_length: T,
     ) -> T {
-        velocity * characteristic_length / fluid.kinematic_viscosity.clone()
+        velocity * characteristic_length / fluid.kinematic_viscosity()
     }
 
     /// Calculate Prandtl number if thermal properties are available
     pub fn prandtl_number<T: RealField>(fluid: &Fluid<T>) -> Option<T> {
         match (fluid.specific_heat.clone(), fluid.thermal_conductivity.clone()) {
-            (Some(cp), Some(k)) => Some(fluid.viscosity.clone() * cp / k),
+            (Some(cp), Some(k)) => Some(fluid.characteristic_viscosity() * cp / k),
             _ => None,
         }
     }

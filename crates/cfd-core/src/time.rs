@@ -58,7 +58,7 @@ impl<T: RealField + FromPrimitive> TimeIntegrator<T> for RungeKutta2 {
         F: Fn(T, &Self::State) -> Self::State,
     {
         let half = T::from_f64(0.5).ok_or_else(|| {
-            crate::error::Error::NumericalError("Failed to convert 0.5 to target type".to_string())
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
         })?;
 
         let k1 = f(t.clone(), state);
@@ -91,13 +91,13 @@ impl<T: RealField + FromPrimitive> TimeIntegrator<T> for RungeKutta4 {
         F: Fn(T, &Self::State) -> Self::State,
     {
         let two = T::from_f64(2.0).ok_or_else(|| {
-            crate::error::Error::NumericalError("Failed to convert 2.0 to target type".to_string())
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
         })?;
         let six = T::from_f64(6.0).ok_or_else(|| {
-            crate::error::Error::NumericalError("Failed to convert 6.0 to target type".to_string())
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
         })?;
         let half = T::from_f64(0.5).ok_or_else(|| {
-            crate::error::Error::NumericalError("Failed to convert 0.5 to target type".to_string())
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
         })?;
         
         let k1 = f(t.clone(), state);
@@ -205,10 +205,11 @@ impl<T: RealField> TimeIntegrator<T> for BackwardEuler<T> {
 
             // Prevent infinite loops
             if iteration == self.max_iterations - 1 {
-                return Err(crate::error::Error::ConvergenceFailure(format!(
-                    "Backward Euler failed to converge after {} iterations, error: {}",
-                    self.max_iterations, error
-                )));
+                return Err(crate::error::Error::Convergence(
+                    crate::error::ConvergenceErrorKind::MaxIterationsExceeded { 
+                        max: self.max_iterations 
+                    }
+                ));
             }
         }
 
@@ -274,7 +275,7 @@ impl<T: RealField> TimeIntegrator<T> for CrankNicolson<T> {
         let y_old = state.clone();
         let t_new = t.clone() + dt.clone();
         let half = T::from_f64(0.5).ok_or_else(|| {
-            crate::error::Error::NumericalError("Failed to convert 0.5 to target type".to_string())
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
         })?;
         let half_dt = dt * half;
 
@@ -304,10 +305,11 @@ impl<T: RealField> TimeIntegrator<T> for CrankNicolson<T> {
 
             // Prevent infinite loops
             if iteration == self.max_iterations - 1 {
-                return Err(crate::error::Error::ConvergenceFailure(format!(
-                    "Crank-Nicolson failed to converge after {} iterations, error: {}",
-                    self.max_iterations, error
-                )));
+                return Err(crate::error::Error::Convergence(
+                    crate::error::ConvergenceErrorKind::MaxIterationsExceeded { 
+                        max: self.max_iterations 
+                    }
+                ));
             }
         }
 
