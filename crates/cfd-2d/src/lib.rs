@@ -7,6 +7,7 @@
 
 pub mod energy;
 pub mod fdm;
+pub mod field;  // New field abstraction module
 pub mod fields;
 pub mod fvm;
 pub mod grid;
@@ -15,6 +16,7 @@ pub mod momentum;
 pub mod convection;
 pub mod pressure_velocity_coupling;
 pub mod piso;
+pub mod piso_refactored;  // Refactored PISO implementation
 pub mod problem;
 pub mod turbulence;
 pub mod vorticity_stream;
