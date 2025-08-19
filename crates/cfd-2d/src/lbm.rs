@@ -58,10 +58,7 @@ impl D2Q9 {
 pub struct LbmConfig<T: RealField> {
     /// Relaxation time (related to viscosity)
     pub tau: T,
-    /// Collision frequency parameter (backward compatibility)
-    pub omega: T,
-    /// Lattice speed parameter (backward compatibility)
-    pub lattice_speed: T,
+
     /// Maximum number of time steps
     pub max_steps: usize,
     /// Convergence tolerance for steady-state
@@ -76,8 +73,6 @@ impl<T: RealField + FromPrimitive> Default for LbmConfig<T> {
     fn default() -> Self {
         Self {
             tau: T::from_f64(1.0).unwrap(),
-            omega: T::from_f64(1.0).unwrap(),
-            lattice_speed: T::from_f64(1.0).unwrap(),
             max_steps: 10000,
             tolerance: T::from_f64(1e-6).unwrap(),
             output_frequency: 100,

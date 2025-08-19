@@ -35,7 +35,7 @@ pub use plugin::{Plugin, PluginRegistry, SimulationPlugin, PluginLifecycle, Plug
 pub use problem::Problem;
 pub use services::{FluidDynamicsService, MeshQualityService, FlowRegime, QualityLevel};
 pub use solver::{Solver, SolverConfiguration, Configurable, Validatable, IterativeSolver, DirectSolver, SolverConfig, LinearSolverConfig, NetworkSolverConfig};
-pub use factory::{ConcreteSolverFactory, FactoryCapability, SolverFactoryRegistry, Builder, ConfigurationBuilder, DynamicFactory, DynamicSolver, TypeErasedFactory, TypeErasedSolver};
+pub use factory::{ConcreteSolverFactory, FactoryCapability, SolverFactoryRegistry, Builder, ConfigurationBuilder, TypeErasedFactory, TypeErasedSolver};
 
 pub use state::SimulationState;
 pub use time::TimeIntegrator;

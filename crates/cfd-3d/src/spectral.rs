@@ -890,7 +890,6 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> SpectralSolver<T> {
         self.dft_backward(spectral)
     }
 
-
     /// Perform a single time step with explicit parameters (renamed to avoid conflicts)
     pub fn step_with_params(&mut self, dt: T, viscosity: T) {
         // Transform to spectral space

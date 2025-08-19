@@ -9,15 +9,6 @@ use std::collections::HashMap;
 use std::any::Any;
 use std::sync::Arc;
 
-// Type aliases for backward compatibility while eliminating adjective-based naming
-/// Type alias for type-erased solver (backwards compatibility)
-pub type DynamicSolver<T> = dyn TypeErasedSolver<T>;
-/// Type alias for type-erased factory (backwards compatibility)
-pub type DynamicFactory<T> = dyn TypeErasedFactory<T>;
-/// Type alias for type-erased solver wrapper (backwards compatibility)
-pub type DynamicSolverWrapper<T, S> = TypeErasedSolverWrapper<T, S>;
-/// Type alias for type-erased factory wrapper (backwards compatibility)
-pub type DynamicFactoryWrapper<T, F> = TypeErasedFactoryWrapper<T, F>;
 
 /// Concrete factory trait for type-safe creation
 /// Follows Open/Closed Principle - open for extension, closed for modification
