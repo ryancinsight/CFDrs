@@ -3,7 +3,8 @@
 //! This module provides domain services that encapsulate complex business logic
 //! and coordinate between different domain entities following DDD principles.
 
-use crate::{Error, Result, Fluid};
+use crate::error::{Error, Result};
+use crate::fluid::Fluid;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 

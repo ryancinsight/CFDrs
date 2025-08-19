@@ -248,12 +248,12 @@ impl<T: RealField> BoundaryConditionSet<T> {
     /// - A periodic boundary references a non-existent partner
     /// - A periodic boundary's partner is not also periodic
     /// - Periodic boundaries do not reference each other mutually
-    pub fn validate_periodic(&self) -> crate::Result<()> {
+    pub fn validate_periodic(&self) -> crate::error::Result<()> {
         for (name, bc) in &self.conditions {
             if let BoundaryCondition::Periodic { partner } = bc {
                 // Check partner exists
                 if !self.conditions.contains_key(partner) {
-                    return Err(crate::Error::InvalidConfiguration(format!(
+                    return Err(crate::error::Error::InvalidConfiguration(format!(
                         "Periodic boundary {name} references non-existent partner {partner}"
                     )));
                 }
@@ -261,7 +261,7 @@ impl<T: RealField> BoundaryConditionSet<T> {
                 // Check partner is also periodic
                 if let Some(partner_bc) = self.conditions.get(partner) {
                     if !matches!(partner_bc, BoundaryCondition::Periodic { .. }) {
-                        return Err(crate::Error::InvalidConfiguration(format!(
+                        return Err(crate::error::Error::InvalidConfiguration(format!(
                             "Periodic boundary {name} has non-periodic partner {partner}"
                         )));
                     }
@@ -272,7 +272,7 @@ impl<T: RealField> BoundaryConditionSet<T> {
                     } = partner_bc
                     {
                         if partner_partner != name {
-                            return Err(crate::Error::InvalidConfiguration(format!(
+                            return Err(crate::error::Error::InvalidConfiguration(format!(
                                 "Periodic boundary {name} and {partner} do not reference each other"
                             )));
                         }

@@ -3,7 +3,7 @@
 //! This module provides a flexible plugin architecture following SOLID principles,
 //! enabling runtime extensibility while maintaining type safety and zero-cost abstractions.
 
-use crate::{Error, Result};
+use crate::error::{Error, Result};
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};

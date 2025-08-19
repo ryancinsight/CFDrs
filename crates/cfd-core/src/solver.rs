@@ -265,7 +265,7 @@ where
             }
         }
 
-        Err(crate::Error::ConvergenceFailure(format!(
+        Err(crate::error::Error::ConvergenceFailure(format!(
             "Failed to converge after {} iterations",
             max_iterations
         )))
