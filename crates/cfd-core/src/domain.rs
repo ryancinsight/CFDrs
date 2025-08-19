@@ -184,7 +184,7 @@ impl<T: RealField + Copy> Domain3D<T> {
 
     /// Get the diagonal vector
     pub fn diagonal(&self) -> Vector3<T> {
-        self.max.clone() - self.min.clone()
+        self.max - self.min
     }
 
     /// Get the volume
