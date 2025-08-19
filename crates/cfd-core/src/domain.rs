@@ -125,7 +125,7 @@ impl<T: RealField + Copy> Domain<T> for Domain2D<T> {
     }
 
     fn bounding_box(&self) -> (Point3<T>, Point3<T>) {
-        (self.min.clone(), self.max.clone())
+        (self.min, self.max)
     }
 
     fn volume(&self) -> T {
