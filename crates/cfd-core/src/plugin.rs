@@ -3,7 +3,7 @@
 //! This module provides a flexible plugin architecture following SOLID principles,
 //! enabling runtime extensibility while maintaining type safety and zero-cost abstractions.
 
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, PluginErrorKind};
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -260,7 +260,7 @@ impl PluginStorage {
         // Store plugin
         {
             let mut plugins = self.plugins.write().map_err(|_| {
-                Error::PluginError("Failed to acquire write lock on plugin storage".to_string())
+                Error::Plugin(PluginErrorKind::ExecutionError("Failed to acquire write lock on plugin storage".to_string()))
             })?;
             
             if plugins.contains_key(&name) {
@@ -276,7 +276,7 @@ impl PluginStorage {
         // Store metadata
         {
             let mut plugin_metadata = self.metadata.write().map_err(|_| {
-                Error::PluginError("Failed to acquire write lock on metadata".to_string())
+                Error::Plugin(PluginErrorKind::ExecutionError("Failed to acquire write lock on metadata".to_string()))
             })?;
             plugin_metadata.insert(name, metadata);
         }
@@ -287,19 +287,19 @@ impl PluginStorage {
     /// Get a plugin by name
     pub fn get(&self, name: &str) -> Result<Arc<dyn Plugin>> {
         let plugins = self.plugins.read().map_err(|_| {
-            Error::PluginError("Failed to acquire read lock on plugin storage".to_string())
+            Error::Plugin(PluginErrorKind::ExecutionError("Failed to acquire read lock on plugin storage".to_string()))
         })?;
 
         plugins
             .get(name)
             .cloned()
-            .ok_or_else(|| Error::PluginError(format!("Plugin '{}' not found", name)))
+            .ok_or_else(|| Error::Plugin(PluginErrorKind::ExecutionError(format!("Plugin '{}' not found", name))))
     }
     
     /// List all stored plugins
     pub fn list(&self) -> Result<Vec<String>> {
         let plugins = self.plugins.read().map_err(|_| {
-            Error::PluginError("Failed to acquire read lock on plugin storage".to_string())
+            Error::Plugin(PluginErrorKind::ExecutionError("Failed to acquire read lock on plugin storage".to_string()))
         })?;
 
         Ok(plugins.keys().cloned().collect())
@@ -308,13 +308,13 @@ impl PluginStorage {
     /// Get metadata for a plugin
     pub fn get_metadata(&self, name: &str) -> Result<PluginMetadata> {
         let metadata = self.metadata.read().map_err(|_| {
-            Error::PluginError("Failed to acquire read lock on metadata".to_string())
+            Error::Plugin(PluginErrorKind::ExecutionError("Failed to acquire read lock on metadata".to_string()))
         })?;
 
         metadata
             .get(name)
             .cloned()
-            .ok_or_else(|| Error::PluginError(format!("Metadata for '{}' not found", name)))
+            .ok_or_else(|| Error::Plugin(PluginErrorKind::ExecutionError(format!("Metadata for '{}' not found", name))))
     }
 }
 
@@ -331,7 +331,7 @@ impl DependencyResolver {
     pub fn add_dependencies(&self, plugin_name: String, deps: Vec<String>) -> Result<()> {
         {
             let mut dependencies = self.dependencies.write().map_err(|_| {
-                Error::PluginError("Failed to acquire write lock on dependencies".to_string())
+                Error::Plugin(PluginErrorKind::ExecutionError("Failed to acquire write lock on dependencies".to_string()))
             })?;
             dependencies.insert(plugin_name.clone(), deps);
         }
@@ -352,7 +352,7 @@ impl DependencyResolver {
     /// Get the computed load order
     pub fn get_load_order(&self) -> Result<Vec<String>> {
         let load_order = self.load_order.read().map_err(|_| {
-            Error::PluginError("Failed to acquire read lock on load order".to_string())
+            Error::Plugin(PluginErrorKind::ExecutionError("Failed to acquire read lock on load order".to_string()))
         })?;
         Ok(load_order.clone())
     }
@@ -361,7 +361,7 @@ impl DependencyResolver {
     fn update_load_order(&self) -> Result<()> {
         // Topological sort implementation
         let dependencies = self.dependencies.read().map_err(|_| {
-            Error::PluginError("Failed to acquire read lock on dependencies".to_string())
+            Error::Plugin(PluginErrorKind::ExecutionError("Failed to acquire read lock on dependencies".to_string()))
         })?;
         
         let mut visited = std::collections::HashSet::new();
@@ -395,7 +395,7 @@ impl DependencyResolver {
         
         {
             let mut load_order = self.load_order.write().map_err(|_| {
-                Error::PluginError("Failed to acquire write lock on load order".to_string())
+                Error::Plugin(PluginErrorKind::ExecutionError("Failed to acquire write lock on load order".to_string()))
             })?;
             *load_order = result;
         }
@@ -416,7 +416,7 @@ impl FactoryRegistry {
     pub fn register_factory<F: SolverFactory + 'static>(&self, factory: F) -> Result<()> {
         let type_id = TypeId::of::<F::Solver>();
         let mut factories = self.factories.write().map_err(|_| {
-            Error::PluginError("Failed to acquire write lock on factory registry".to_string())
+            Error::Plugin(PluginErrorKind::ExecutionError("Failed to acquire write lock on factory registry".to_string()))
         })?;
 
         factories.insert(type_id, Arc::new(factory));
@@ -427,13 +427,13 @@ impl FactoryRegistry {
     pub fn get_factory<S: SimulationPlugin + 'static>(&self) -> Result<Arc<dyn Any + Send + Sync>> {
         let type_id = TypeId::of::<S>();
         let factories = self.factories.read().map_err(|_| {
-            Error::PluginError("Failed to acquire read lock on factory registry".to_string())
+            Error::Plugin(PluginErrorKind::ExecutionError("Failed to acquire read lock on factory registry".to_string()))
         })?;
 
         factories
             .get(&type_id)
             .cloned()
-            .ok_or_else(|| Error::PluginError("Factory not found for solver type".to_string()))
+            .ok_or_else(|| Error::Plugin(PluginErrorKind::ExecutionError("Factory not found for solver type".to_string())))
     }
 }
 
