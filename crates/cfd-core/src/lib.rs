@@ -67,7 +67,6 @@ pub mod prelude {
 pub mod factories {
     pub use crate::factory::{
         ConcreteSolverFactory, FactoryCapability, SolverFactoryRegistry,
-        Builder, ConfigurationBuilder
     };
 }
 
