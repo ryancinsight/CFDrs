@@ -1,6 +1,9 @@
 //! Problem definition and configuration.
 
-use crate::{boundary::BoundaryConditionSet, domain::Domain, fluid::Fluid, Result};
+use crate::boundary::BoundaryConditionSet;
+use crate::domain::Domain;
+use crate::fluid::Fluid;
+use crate::error::Result;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use std::sync::Arc;

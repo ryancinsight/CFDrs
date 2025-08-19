@@ -3,10 +3,12 @@
 //! This module provides aggregate roots that encapsulate related entities
 //! and enforce business rules and invariants.
 
-use crate::{
-    Error, Result, Fluid, BoundaryCondition, Domain, 
-    FluidDynamicsService, ReynoldsNumber, Pressure, Velocity
-};
+use crate::error::{Error, Result};
+use crate::fluid::Fluid;
+use crate::boundary::BoundaryCondition;
+use crate::domain::Domain;
+use crate::services::FluidDynamicsService;
+use crate::values::{ReynoldsNumber, Pressure, Velocity};
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};

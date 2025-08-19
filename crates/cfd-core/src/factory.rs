@@ -314,11 +314,11 @@ impl<T: RealField> ConfigurationBuilder<T> {
     }
 }
 
-impl<T: RealField + num_traits::FromPrimitive> Builder<crate::SolverConfig<T>> for ConfigurationBuilder<T> {
-    fn build(self) -> Result<crate::SolverConfig<T>> {
+impl<T: RealField + num_traits::FromPrimitive> Builder<crate::solver::SolverConfig<T>> for ConfigurationBuilder<T> {
+    fn build(self) -> Result<crate::solver::SolverConfig<T>> {
         self.validate()?;
 
-        Ok(crate::SolverConfig::builder()
+        Ok(crate::solver::SolverConfig::builder()
             .tolerance(self.tolerance.unwrap_or_else(|| T::from_f64(1e-6).unwrap()))
             .max_iterations(self.max_iterations.unwrap_or(1000))
             .relaxation_factor(T::one())

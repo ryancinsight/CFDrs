@@ -3,7 +3,8 @@
 //! This module provides the core solver abstractions following SOLID principles
 //! with zero-copy operations and iterator-based processing.
 
-use crate::{Problem, Result};
+use crate::problem::Problem;
+use crate::error::Result;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use std::fmt::Debug;
