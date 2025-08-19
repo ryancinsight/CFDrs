@@ -144,7 +144,7 @@ pub struct Domain3D<T: RealField> {
 
 impl<T: RealField + Copy> Domain3D<T> {
     /// Create a new 3D domain
-    pub fn new(min: Point3<T>, max: Point3<T>) -> Self {
+    pub const fn new(min: Point3<T>, max: Point3<T>) -> Self {
         Self { min, max }
     }
 
