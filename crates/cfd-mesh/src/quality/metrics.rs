@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 /// Comprehensive quality metrics for mesh elements
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QualityMetrics<T: RealField> {
+pub struct QualityMetrics<T: RealField + Copy> {
     /// Aspect ratio (1.0 = perfect, >1 = stretched)
     pub aspect_ratio: T,
     
@@ -35,7 +35,7 @@ pub struct QualityMetrics<T: RealField> {
     pub overall_quality_score: T,
 }
 
-impl<T: RealField> QualityMetrics<T> {
+impl<T: RealField + Copy> QualityMetrics<T> {
     /// Create metrics with all values set to ideal
     pub fn ideal() -> Self {
         Self {

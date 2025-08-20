@@ -1,8 +1,9 @@
 //! Statistical analysis for mesh quality metrics
 
 use nalgebra::RealField;
-use num_traits::Float;
+use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};
+use std::iter::Sum;
 
 /// Statistical summary of quality metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,7 +26,7 @@ pub struct QualityStatistics<T: RealField> {
     pub count: usize,
 }
 
-impl<T: RealField + Float> QualityStatistics<T> {
+impl<T: RealField + Float + Sum + FromPrimitive> QualityStatistics<T> {
     /// Create new statistics from samples
     pub fn from_samples(samples: &[T]) -> Self {
         if samples.is_empty() {
@@ -37,13 +38,13 @@ impl<T: RealField + Float> QualityStatistics<T> {
         
         let count = samples.len();
         let sum: T = samples.iter().cloned().sum();
-        let mean = sum / T::from(count).unwrap_or_else(|_| T::one());
+        let mean = sum / T::from_usize(count).unwrap_or_else(|| T::one());
         
         let variance: T = samples.iter()
             .map(|x| (*x - mean) * (*x - mean))
-            .sum::<T>() / T::from(count - 1).unwrap_or_else(|_| T::one());
+            .sum::<T>() / T::from_usize(count - 1).unwrap_or_else(|| T::one());
         
-        let std_dev = variance.sqrt();
+        let std_dev = Float::sqrt(variance);
         
         let median = if count % 2 == 0 {
             (sorted[count / 2 - 1] + sorted[count / 2]) / (T::one() + T::one())
@@ -91,7 +92,7 @@ pub struct RunningStats<T: RealField> {
     max: T,
 }
 
-impl<T: RealField + Float> RunningStats<T> {
+impl<T: RealField + Float + Sum + FromPrimitive> RunningStats<T> {
     /// Create new running statistics
     pub fn new() -> Self {
         Self {
@@ -107,18 +108,18 @@ impl<T: RealField + Float> RunningStats<T> {
     pub fn push(&mut self, value: T) {
         self.count += 1;
         let delta = value - self.mean;
-        self.mean = self.mean + delta / T::from(self.count).unwrap_or_else(|_| T::one());
+        self.mean = self.mean + delta / T::from_usize(self.count).unwrap_or_else(|| T::one());
         let delta2 = value - self.mean;
         self.m2 = self.m2 + delta * delta2;
         
-        self.min = self.min.min(value);
-        self.max = self.max.max(value);
+        self.min = Float::min(self.min, value);
+        self.max = Float::max(self.max, value);
     }
     
     /// Get current statistics
     pub fn statistics(&self) -> QualityStatistics<T> {
         let variance = if self.count > 1 {
-            self.m2 / T::from(self.count - 1).unwrap_or_else(|_| T::one())
+            self.m2 / T::from_usize(self.count - 1).unwrap_or_else(|| T::one())
         } else {
             T::zero()
         };
@@ -127,10 +128,10 @@ impl<T: RealField + Float> RunningStats<T> {
             min: self.min,
             max: self.max,
             mean: self.mean,
-            std_dev: variance.sqrt(),
+            std_dev: Float::sqrt(variance),
             median: self.mean, // Approximation
-            q1: self.mean - variance.sqrt(), // Approximation
-            q3: self.mean + variance.sqrt(), // Approximation
+            q1: self.mean - Float::sqrt(variance), // Approximation
+            q3: self.mean + Float::sqrt(variance), // Approximation
             count: self.count,
         }
     }

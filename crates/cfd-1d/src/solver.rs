@@ -14,8 +14,8 @@ use crate::network::{Network, BoundaryCondition};
 use petgraph::visit::EdgeRef;
 use cfd_core::{
     Result, Problem, Solver, Configurable, Validatable, 
-    NetworkSolverConfig, Error as CoreError, Domain,
-    SolverConfiguration
+    NetworkSolverConfig, Error as CoreError,
+    SolverConfiguration, domain::Domain
 };
 use nalgebra::{RealField, DVector};
 use nalgebra_sparse::{CsrMatrix, coo::CooMatrix};
@@ -503,7 +503,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Send + Sync> NetworkSolv
         let lu = a_dense.lu();
         
         let pressures = lu.solve(&b).ok_or_else(|| {
-            CoreError::ConvergenceFailure(
+            CoreError::InvalidState(
                 "Linear system is singular - check for disconnected components".to_string()
             )
         })?;

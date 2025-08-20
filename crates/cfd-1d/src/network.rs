@@ -574,7 +574,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkBuilder<T> {
     /// Create a new network builder
     pub fn new() -> Self {
         Self {
-            network: Network::new(Fluid::water()),
+            network: Network::new(Fluid::water().expect("Failed to create water fluid")),
             pending_nodes: Vec::new(),
             pending_edges: Vec::new(),
         }

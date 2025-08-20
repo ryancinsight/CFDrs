@@ -1,0 +1,161 @@
+//! Convergence criteria for PISO algorithm
+
+use nalgebra::RealField;
+use num_traits::FromPrimitive;
+use crate::fields::SimulationFields;
+use cfd_core::constants::*;
+
+/// Convergence criteria for PISO iterations
+#[derive(Debug, Clone)]
+pub struct ConvergenceCriteria<T: RealField> {
+    /// Tolerance for velocity residual
+    pub velocity_tolerance: T,
+    /// Tolerance for pressure residual
+    pub pressure_tolerance: T,
+    /// Tolerance for continuity residual
+    pub continuity_tolerance: T,
+    /// Maximum iterations
+    pub max_iterations: usize,
+}
+
+impl<T: RealField + FromPrimitive> Default for ConvergenceCriteria<T> {
+    fn default() -> Self {
+        Self {
+            velocity_tolerance: T::from_f64(CONVERGENCE_TOLERANCE_VELOCITY).unwrap_or_else(|| T::from_f64(1e-6).unwrap()),
+            pressure_tolerance: T::from_f64(CONVERGENCE_TOLERANCE_PRESSURE).unwrap_or_else(|| T::from_f64(1e-6).unwrap()),
+            continuity_tolerance: T::from_f64(CONVERGENCE_TOLERANCE_CONTINUITY).unwrap_or_else(|| T::from_f64(1e-5).unwrap()),
+            max_iterations: MAX_ITERATIONS_OUTER,
+        }
+    }
+}
+
+/// Convergence monitor for tracking residuals
+pub struct ConvergenceMonitor<T: RealField> {
+    /// Velocity residual history
+    pub velocity_residuals: Vec<T>,
+    /// Pressure residual history
+    pub pressure_residuals: Vec<T>,
+    /// Continuity residual history
+    pub continuity_residuals: Vec<T>,
+    /// Current iteration
+    pub iteration: usize,
+}
+
+impl<T: RealField + FromPrimitive + Copy> ConvergenceMonitor<T> {
+    /// Create new convergence monitor
+    pub fn new() -> Self {
+        Self {
+            velocity_residuals: Vec::new(),
+            pressure_residuals: Vec::new(),
+            continuity_residuals: Vec::new(),
+            iteration: 0,
+        }
+    }
+
+    /// Check if converged
+    pub fn is_converged(&self, criteria: &ConvergenceCriteria<T>) -> bool {
+        if self.iteration >= criteria.max_iterations {
+            return true; // Stop due to max iterations
+        }
+        
+        if self.velocity_residuals.is_empty() {
+            return false;
+        }
+        
+        let vel_res = *self.velocity_residuals.last().unwrap();
+        let pres_res = *self.pressure_residuals.last().unwrap();
+        let cont_res = *self.continuity_residuals.last().unwrap();
+        
+        vel_res < criteria.velocity_tolerance &&
+        pres_res < criteria.pressure_tolerance &&
+        cont_res < criteria.continuity_tolerance
+    }
+
+    /// Update residuals
+    pub fn update(
+        &mut self,
+        fields_old: &SimulationFields<T>,
+        fields_new: &SimulationFields<T>,
+        nx: usize,
+        ny: usize,
+    ) {
+        let vel_res = self.calculate_velocity_residual(fields_old, fields_new, nx, ny);
+        let pres_res = self.calculate_pressure_residual(fields_old, fields_new, nx, ny);
+        let cont_res = self.calculate_continuity_residual(fields_new, nx, ny);
+        
+        self.velocity_residuals.push(vel_res);
+        self.pressure_residuals.push(pres_res);
+        self.continuity_residuals.push(cont_res);
+        self.iteration += 1;
+    }
+
+    /// Calculate velocity residual (L2 norm)
+    fn calculate_velocity_residual(
+        &self,
+        fields_old: &SimulationFields<T>,
+        fields_new: &SimulationFields<T>,
+        nx: usize,
+        ny: usize,
+    ) -> T {
+        let mut sum = T::zero();
+        let mut count = 0;
+        
+        for i in 1..nx-1 {
+            for j in 1..ny-1 {
+                let du = fields_new.u.at(i, j) - fields_old.u.at(i, j);
+                let dv = fields_new.v.at(i, j) - fields_old.v.at(i, j);
+                sum = sum + du * du + dv * dv;
+                count += 2;
+            }
+        }
+        
+        (sum / T::from_usize(count).unwrap()).sqrt()
+    }
+
+    /// Calculate pressure residual (L2 norm)
+    fn calculate_pressure_residual(
+        &self,
+        fields_old: &SimulationFields<T>,
+        fields_new: &SimulationFields<T>,
+        nx: usize,
+        ny: usize,
+    ) -> T {
+        let mut sum = T::zero();
+        let mut count = 0;
+        
+        for i in 1..nx-1 {
+            for j in 1..ny-1 {
+                let dp = fields_new.p.at(i, j) - fields_old.p.at(i, j);
+                sum = sum + dp * dp;
+                count += 1;
+            }
+        }
+        
+        (sum / T::from_usize(count).unwrap()).sqrt()
+    }
+
+    /// Calculate continuity residual (mass imbalance)
+    fn calculate_continuity_residual(
+        &self,
+        fields: &SimulationFields<T>,
+        nx: usize,
+        ny: usize,
+    ) -> T {
+        let mut max_imbalance = T::zero();
+        
+        for i in 1..nx-1 {
+            for j in 1..ny-1 {
+                // Simple continuity check (du/dx + dv/dy = 0)
+                let dudx = (fields.u.at(i+1, j) - fields.u.at(i-1, j)) / T::from_f64(2.0).unwrap();
+                let dvdy = (fields.v.at(i, j+1) - fields.v.at(i, j-1)) / T::from_f64(2.0).unwrap();
+                let imbalance = (dudx + dvdy).abs();
+                
+                if imbalance > max_imbalance {
+                    max_imbalance = imbalance;
+                }
+            }
+        }
+        
+        max_imbalance
+    }
+}

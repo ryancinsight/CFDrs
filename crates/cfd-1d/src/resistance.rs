@@ -4,7 +4,8 @@
 //! microfluidic components and flow conditions, including analytical
 //! solutions and empirical correlations.
 
-use cfd_core::fluid::Fluid; use cfd_core::error::{, Result, Error};
+use cfd_core::fluid::Fluid;
+use cfd_core::error::{Result, Error};
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use num_traits::Float as _;
@@ -58,7 +59,7 @@ pub struct HagenPoiseuilleModel<T: RealField> {
 
 impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for HagenPoiseuilleModel<T> {
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
-        let viscosity = fluid.dynamic_viscosity(conditions.temperature.clone());
+        let viscosity = fluid.dynamic_viscosity(conditions.temperature.clone())?;
         let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
         let onehundredtwentyeight = T::from_f64(128.0).unwrap_or_else(|| T::zero());
 
@@ -91,7 +92,7 @@ pub struct RectangularChannelModel<T: RealField> {
 
 impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for RectangularChannelModel<T> {
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
-        let viscosity = fluid.dynamic_viscosity(conditions.temperature.clone());
+        let viscosity = fluid.dynamic_viscosity(conditions.temperature.clone())?;
         let aspect_ratio = self.width.clone() / self.height.clone();
 
         // Calculate friction factor using exact series solution

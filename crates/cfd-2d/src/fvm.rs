@@ -10,8 +10,9 @@
 //! The FVM approach ensures conservation of mass, momentum, and energy by
 //! integrating governing equations over control volumes.
 
-use cfd_core::{Result, BoundaryCondition, SolverConfiguration};
-use cfd_math::{SparseMatrixBuilder, LinearSolver, LinearSolverConfig, ConjugateGradient};
+use cfd_core::{Result, BoundaryCondition, SolverConfiguration, solver::SolverConfig};
+use cfd_math::{SparseMatrixBuilder, LinearSolver, ConjugateGradient};
+use cfd_core::solver::LinearSolverConfig;
 use nalgebra::{DVector, RealField, Vector2};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -24,13 +25,13 @@ use crate::grid::{Grid2D, StructuredGrid2D, BoundaryType};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FvmConfig<T: RealField> {
     /// Base solver configuration (SSOT)
-    pub base: cfd_core::SolverConfig<T>,
+    pub base: cfd_core::solver::SolverConfig<T>,
 }
 
 impl<T: RealField + FromPrimitive> Default for FvmConfig<T> {
     fn default() -> Self {
         // Set under-relaxation factor (0.7 is typical for FVM)
-        let base = cfd_core::SolverConfig::builder()
+        let base = cfd_core::solver::SolverConfig::builder()
             .relaxation_factor(T::from_f64(0.7).unwrap_or_else(|| T::zero()))
             .build_base();
         Self { base }
@@ -182,7 +183,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
         // Solve the linear system using configuration parameters
         let matrix = matrix_builder.build()?;
         let mut solver_config = LinearSolverConfig::default();
-        solver_config.base = cfd_core::SolverConfig::builder()
+        solver_config.base = cfd_core::solver::SolverConfig::builder()
             .tolerance(self.config.tolerance())
             .max_iterations(self.config.max_iterations())
             .build_base();

@@ -274,7 +274,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
         let density = fluid.density;
         // Use actual operating temperature instead of hardcoded 20°C
         let temperature = T::from_f64(293.15).unwrap_or_else(|| T::zero()); // Default to 20°C if not specified
-        let viscosity = fluid.dynamic_viscosity(temperature);
+        let viscosity = fluid.dynamic_viscosity(temperature)
+            .unwrap_or_else(|_| T::from_f64(0.001).unwrap_or_else(|| T::one())); // Default to water viscosity
 
         density * velocity * diameter / viscosity
     }
@@ -402,7 +403,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
         }
         
         // Solve the linear system G * V = I for node voltages
-        use cfd_math::{LinearSolver, LinearSolverConfig, SparseMatrixBuilder};
+        use cfd_math::{SparseMatrix, SparseMatrixBuilder, LinearSolver, BiCGSTAB};
+use cfd_core::solver::LinearSolverConfig;;
         
         // Convert dense matrix to sparse CSR format
         let mut sparse_builder = SparseMatrixBuilder::new(n - 1, n - 1);
@@ -631,7 +633,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
             .filter(|node| matches!(node.node_type, crate::network::NodeType::Junction))
             .map(|junction| {
                 // Get flow rates at this junction
-                let connected_edges = network.node_edges(&junction.id).unwrap_or_else(|| T::zero());
+                let connected_edges = network.node_edges(&junction.id).unwrap_or_else(|_| Vec::new());
                 let flow_rates: Vec<T> = connected_edges.iter()
                     .filter_map(|edge| edge.flow_rate)
                     .collect();

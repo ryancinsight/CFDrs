@@ -17,8 +17,8 @@ impl<T: RealField> RhieChowInterpolation<T> {
     /// Create new interpolator
     pub fn new(grid: &StructuredGrid2D<T>) -> Self {
         Self {
-            nx: grid.nx(),
-            ny: grid.ny(),
+            nx: grid.nx,
+            ny: grid.ny,
         }
     }
     

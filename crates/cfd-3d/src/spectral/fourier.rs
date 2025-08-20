@@ -2,7 +2,8 @@
 //!
 //! Reference: Canuto et al. (2006). "Spectral Methods: Fundamentals in Single Domains"
 
-use nalgebra::{DVector, RealField, Complex};
+use nalgebra::{DVector, RealField};
+use num_complex::Complex;
 use num_traits::FromPrimitive;
 use cfd_core::error::Result;
 use std::f64::consts::PI;

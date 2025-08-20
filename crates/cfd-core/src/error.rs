@@ -157,6 +157,18 @@ pub enum Error {
     /// JSON serialization error from serde_json
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
+    
+    /// CSV processing error
+    #[error("CSV error: {0}")]
+    CsvError(String),
+    
+    /// Serialization error
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
+    
+    /// IO error variant for compatibility
+    #[error("IO error: {0}")]
+    IoError(std::io::Error),
 
     /// Not implemented
     #[error("Not implemented: {0}")]

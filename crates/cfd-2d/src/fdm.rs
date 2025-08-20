@@ -6,7 +6,7 @@
 //! - Advection-diffusion equations
 //! - Navier-Stokes equations
 
-use cfd_core::{Error, Result, SolverConfiguration};
+use cfd_core::{Error, Result, SolverConfiguration, solver::SolverConfig};
 use cfd_math::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
@@ -20,7 +20,7 @@ use crate::grid::{Grid2D, StructuredGrid2D};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FdmConfig<T: RealField> {
     /// Base solver configuration (SSOT)
-    pub base: cfd_core::SolverConfig<T>,
+    pub base: cfd_core::solver::SolverConfig<T>,
 }
 
 /// Shared Gauss-Seidel linear solver implementation
@@ -94,7 +94,7 @@ fn solve_gauss_seidel<T: RealField + FromPrimitive>(
 impl<T: RealField + FromPrimitive> Default for FdmConfig<T> {
     fn default() -> Self {
         Self {
-            base: cfd_core::SolverConfig::default(),
+            base: cfd_core::solver::SolverConfig::default(),
         }
     }
 }
@@ -410,7 +410,7 @@ mod tests {
 
         let source = HashMap::new(); // No source term
 
-        let base = cfd_core::SolverConfig::<f64>::builder()
+        let base = cfd_core::solver::SolverConfig::<f64>::builder()
             .tolerance(1e-10)
             .max_iterations(1000)
             .relaxation_factor(1.0)
@@ -457,7 +457,7 @@ mod tests {
             }
         }
 
-        let base = cfd_core::SolverConfig::<f64>::builder()
+        let base = cfd_core::solver::SolverConfig::<f64>::builder()
             .tolerance(1e-10)
             .max_iterations(2000)
             .relaxation_factor(1.0)
@@ -530,7 +530,7 @@ mod tests {
             }
             
             let config = FdmConfig {
-                base: cfd_core::SolverConfig::<f64>::builder()
+                base: cfd_core::solver::SolverConfig::<f64>::builder()
                     .tolerance(1e-10)
                     .max_iterations(2000)
                     .build_base()
@@ -594,7 +594,7 @@ mod tests {
         let source = HashMap::new();
         let diffusivity = 1.0;
 
-        let base = cfd_core::SolverConfig::<f64>::builder()
+        let base = cfd_core::solver::SolverConfig::<f64>::builder()
             .tolerance(1e-10)
             .max_iterations(1000)
             .relaxation_factor(1.0)
@@ -653,7 +653,7 @@ mod tests {
         let source = HashMap::new();
         let diffusivity = 0.01; // Small diffusivity
 
-        let base = cfd_core::SolverConfig::<f64>::builder()
+        let base = cfd_core::solver::SolverConfig::<f64>::builder()
             .tolerance(1e-8)
             .max_iterations(1000)
             .relaxation_factor(0.8)
