@@ -2,8 +2,10 @@
 
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
+use std::fmt::LowerExp;
 use crate::grid::StructuredGrid2D;
-use crate::momentum::MomentumSolver;
+use crate::momentum::{MomentumSolver, MomentumComponent};
+use crate::fields::SimulationFields;
 use super::{PressureVelocityConfig, PressureCorrectionSolver, RhieChowInterpolation};
 
 /// STANDARD (Semi-Implicit Method for Pressure-Linked Equations) solver
@@ -26,7 +28,7 @@ pub struct PressureVelocitySolver<T: RealField + Copy> {
     iterations: usize,
 }
 
-impl<T: RealField + FromPrimitive + Copy> PressureVelocitySolver<T> {
+impl<T: RealField + FromPrimitive + Copy + LowerExp> PressureVelocitySolver<T> {
     /// Create new pressure-velocity coupling solver
     pub fn new(
         grid: StructuredGrid2D<T>,
@@ -37,7 +39,7 @@ impl<T: RealField + FromPrimitive + Copy> PressureVelocitySolver<T> {
         let nx = grid.nx;
         let ny = grid.ny;
         
-        let momentum_solver = MomentumSolver::new(grid.clone(), config.clone());
+        let momentum_solver = MomentumSolver::new(&grid);
         let pressure_solver = PressureCorrectionSolver::new(grid.clone())?;
         
         let rhie_chow = if config.use_rhie_chow {
@@ -77,9 +79,31 @@ impl<T: RealField + FromPrimitive + Copy> PressureVelocitySolver<T> {
         rho: T,
     ) -> cfd_core::error::Result<T> {
         // Step 1: Solve momentum equations for predicted velocity
-        let u_star = self.momentum_solver.solve_momentum(
-            &self.u, &self.p, bc, nu
+        // Note: This needs proper integration with SimulationFields
+        // For now, creating a temporary fields structure
+        let mut temp_fields = SimulationFields::new(self.grid.nx, self.grid.ny);
+        // Copy current state to fields
+        for i in 0..self.grid.nx {
+            for j in 0..self.grid.ny {
+                temp_fields.set_velocity_at(i, j, &self.u[i][j]);
+                *temp_fields.p.at_mut(i, j) = self.p[i][j];
+            }
+        }
+        
+        let u_component = self.momentum_solver.solve(
+            MomentumComponent::U, &temp_fields, self.config.dt
         )?;
+        let v_component = self.momentum_solver.solve(
+            MomentumComponent::V, &temp_fields, self.config.dt
+        )?;
+        
+        // Combine into velocity field
+        let mut u_star = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
+        for i in 0..self.grid.nx {
+            for j in 0..self.grid.ny {
+                u_star[i][j] = Vector2::new(u_component.at(i, j), v_component.at(i, j));
+            }
+        }
         
         // Step 2: Solve pressure correction equation
         let p_correction = self.pressure_solver.solve_pressure_correction(

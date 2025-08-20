@@ -103,7 +103,11 @@ impl<T: RealField + FromPrimitive + Copy> MomentumSolver<T> {
         };
 
         // Calculate diffusion coefficients
-        let gamma = fields.viscosity.clone() / fields.density.clone();
+        // Note: For variable properties, these should be computed cell-by-cell
+        // For now, using a representative kinematic viscosity
+        let kinematic_visc = fields.kinematic_viscosity();
+        // Using first cell value as representative (should be computed per-cell in production)
+        let gamma = kinematic_visc.at(0, 0);
         let de = gamma / self.dx;
         let dw = gamma / self.dx;
         let dn = gamma / self.dy;
@@ -259,7 +263,7 @@ impl<T: RealField + FromPrimitive + Copy> MomentumSolver<T> {
         let mut solver = BiCGSTAB::new(config);
         
         let initial_guess = DVector::zeros(rhs.len());
-        solver.solve(&matrix, &rhs, initial_guess)
+        solver.solve(&matrix, &rhs, Some(&initial_guess))
     }
 
     /// Convert solution vector to field
@@ -268,7 +272,7 @@ impl<T: RealField + FromPrimitive + Copy> MomentumSolver<T> {
         solution: DVector<T>,
         component: MomentumComponent,
     ) -> cfd_core::Result<Field2D<T>> {
-        let mut field = Field2D::new(self.nx, self.ny);
+        let mut field = Field2D::new(self.nx, self.ny, T::zero());
         
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {

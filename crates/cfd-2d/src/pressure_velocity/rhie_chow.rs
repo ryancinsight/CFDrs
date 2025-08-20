@@ -19,6 +19,7 @@ impl<T: RealField + Copy> RhieChowInterpolation<T> {
     pub fn new(grid: &StructuredGrid2D<T>) -> Self {
         Self {
             nx: grid.nx,
+            _phantom: std::marker::PhantomData,
             ny: grid.ny,
         }
     }

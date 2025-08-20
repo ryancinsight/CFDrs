@@ -90,7 +90,7 @@ impl<T: RealField + FromPrimitive + Copy> PressureCorrectionSolver<T> {
         
         // Solve the linear system
         let matrix = builder.build()?;
-        let p_correction_vec = self.linear_solver.solve(&matrix, &rhs)?;
+        let p_correction_vec = self.linear_solver.solve(&matrix, &rhs, None)?;
         
         // Convert back to 2D grid
         let mut p_correction = vec![vec![T::zero(); ny]; nx];
