@@ -19,10 +19,10 @@ pub mod constants;
 
 // Re-export commonly used types
 pub use channels::{RectangularChannel, CircularChannel};
-pub use pumps::Micropump;
-pub use valves::Microvalve;
-pub use sensors::FlowSensor;
-pub use mixers::Micromixer;
+pub use pumps::{Micropump, PumpType};
+pub use valves::{Microvalve, ValveType};
+pub use sensors::{FlowSensor, SensorType};
+pub use mixers::{Micromixer, MixerType};
 pub use factory::ComponentFactory;
 
 /// Trait for all microfluidic components

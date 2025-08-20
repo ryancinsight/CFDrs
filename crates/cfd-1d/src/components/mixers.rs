@@ -7,6 +7,19 @@ use num_traits::{FromPrimitive, Float};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Mixer type enumeration
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum MixerType {
+    /// T-junction mixer
+    TJunction,
+    /// Y-junction mixer
+    YJunction,
+    /// Serpentine mixer
+    Serpentine,
+    /// Herringbone mixer
+    Herringbone,
+}
+
 /// Micromixer component
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Micromixer<T: RealField> {
@@ -47,7 +60,15 @@ impl<T: RealField + FromPrimitive + Float> Component<T> for Micromixer<T> {
 
     fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
         match key {
-            "efficiency" => self.efficiency = value.max(T::zero()).min(T::one()),
+            "efficiency" => {
+                self.efficiency = if value < T::zero() {
+                    T::zero()
+                } else if value > T::one() {
+                    T::one()
+                } else {
+                    value
+                };
+            }
             "resistance" => self.resistance = value,
             _ => {
                 self.parameters.insert(key.to_string(), value);

@@ -7,6 +7,19 @@ use num_traits::{FromPrimitive, Float};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Sensor type enumeration
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum SensorType {
+    /// Flow rate sensor
+    Flow,
+    /// Pressure sensor
+    Pressure,
+    /// Temperature sensor
+    Temperature,
+    /// Concentration sensor
+    Concentration,
+}
+
 /// Flow sensor component
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FlowSensor<T: RealField> {

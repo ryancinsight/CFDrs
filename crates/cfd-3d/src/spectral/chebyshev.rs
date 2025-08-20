@@ -109,7 +109,7 @@ pub struct ChebyshevDifferentiation<T: RealField> {
     basis: ChebyshevPolynomial<T>,
 }
 
-impl<T: RealField + FromPrimitive> ChebyshevDifferentiation<T> {
+impl<T: RealField + FromPrimitive + Copy> ChebyshevDifferentiation<T> {
     pub fn new(n: usize) -> Result<Self> {
         Ok(Self {
             basis: ChebyshevPolynomial::new(n)?,

@@ -7,6 +7,19 @@ use num_traits::{FromPrimitive, Float};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Valve type enumeration
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum ValveType {
+    /// Normally open valve
+    NormallyOpen,
+    /// Normally closed valve
+    NormallyClosed,
+    /// Check valve (one-way)
+    Check,
+    /// Proportional control valve
+    Proportional,
+}
+
 /// Microvalve component
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Microvalve<T: RealField> {
@@ -52,7 +65,15 @@ impl<T: RealField + FromPrimitive + Float> Component<T> for Microvalve<T> {
     fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
         match key {
             "cv" => self.cv = value,
-            "opening" => self.opening = value.max(T::zero()).min(T::one()),
+            "opening" => {
+                self.opening = if value < T::zero() {
+                    T::zero()
+                } else if value > T::one() {
+                    T::one()
+                } else {
+                    value
+                };
+            }
             _ => {
                 self.parameters.insert(key.to_string(), value);
             }

@@ -15,7 +15,7 @@ pub struct FourierTransform<T: RealField> {
     wavenumbers: Vec<T>,
 }
 
-impl<T: RealField + FromPrimitive> FourierTransform<T> {
+impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
     /// Create new Fourier transform operator
     pub fn new(n: usize) -> Result<Self> {
         let mut wavenumbers = Vec::with_capacity(n);
@@ -79,7 +79,7 @@ impl<T: RealField + FromPrimitive> FourierTransform<T> {
                 let exp = Complex::new(phase.cos(), phase.sin());
                 sum = sum + exp * u_hat[k];
             }
-            u[j] = sum.real();
+            u[j] = sum.re;
         }
         
         Ok(u)

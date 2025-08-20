@@ -7,6 +7,19 @@ use num_traits::{FromPrimitive, Float};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Pump type enumeration
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum PumpType {
+    /// Syringe pump
+    Syringe,
+    /// Peristaltic pump
+    Peristaltic,
+    /// Diaphragm pump
+    Diaphragm,
+    /// Electroosmotic pump
+    Electroosmotic,
+}
+
 /// Micropump component
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Micropump<T: RealField> {
