@@ -85,8 +85,8 @@ impl<T: RealField + FromPrimitive> PoiseuilleFlow<T> {
     pub fn channel_2d(u_max: T, half_width: T, length: T, viscosity: T) -> Self {
         // For 2D channel: u_max = -dp/dx * h^2 / (2*mu)
         // So dp/dx = -2*mu*u_max / h^2
-        let pressure_gradient = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) * viscosity.clone() * u_max.clone() /
-                               (half_width.clone() * half_width.clone());
+        let pressure_gradient = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) * viscosity * u_max /
+                               (half_width * half_width);
 
         Self::new(u_max, half_width, pressure_gradient, viscosity, length, true)
     }
@@ -95,8 +95,8 @@ impl<T: RealField + FromPrimitive> PoiseuilleFlow<T> {
     pub fn pipe_cylindrical(u_max: T, radius: T, length: T, viscosity: T) -> Self {
         // For cylindrical pipe: u_max = -dp/dx * R^2 / (4*mu)
         // So dp/dx = -4*mu*u_max / R^2
-        let pressure_gradient = -T::from_f64(4.0).unwrap_or_else(|| T::zero()) * viscosity.clone() * u_max.clone() /
-                               (radius.clone() * radius.clone());
+        let pressure_gradient = -T::from_f64(4.0).unwrap_or_else(|| T::zero()) * viscosity * u_max /
+                               (radius * radius);
 
         Self::new(u_max, radius, pressure_gradient, viscosity, length, false)
     }
@@ -106,15 +106,15 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for PoiseuilleFlow<T> {
     fn evaluate(&self, _x: T, y: T, _z: T, _t: T) -> Vector3<T> {
         if self.is_2d_channel {
             // 2D channel flow: u(y) = u_max * (1 - (y/h)^2)
-            let y_normalized = y / self.channel_width.clone();
-            let u = self.u_max.clone() * (T::one() - y_normalized.clone() * y_normalized);
+            let y_normalized = y / self.channel_width;
+            let u = self.u_max * (T::one() - y_normalized * y_normalized);
             Vector3::new(u, T::zero(), T::zero())
         } else {
             // Cylindrical pipe flow: u(r) = u_max * (1 - (r/R)^2)
-            let r = (y.clone() * y + _z.clone() * _z).sqrt();
-            let r_normalized = r / self.channel_width.clone();
+            let r = (y * y + _z * _z).sqrt();
+            let r_normalized = r / self.channel_width;
             let u = if r_normalized <= T::one() {
-                self.u_max.clone() * (T::one() - r_normalized.clone() * r_normalized)
+                self.u_max * (T::one() - r_normalized * r_normalized)
             } else {
                 T::zero()
             };
@@ -125,7 +125,7 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for PoiseuilleFlow<T> {
     fn pressure(&self, x: T, _y: T, _z: T, _t: T) -> T {
         // Linear pressure drop: p(x) = p0 + (dp/dx) * x
         // Assuming p0 = 0 at x = 0
-        self.pressure_gradient.clone() * x
+        self.pressure_gradient * x
     }
 
     fn name(&self) -> &str {
@@ -138,13 +138,13 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for PoiseuilleFlow<T> {
 
     fn domain_bounds(&self) -> [T; 6] {
         if self.is_2d_channel {
-            [T::zero(), self.length.clone(),
-             -self.channel_width.clone(), self.channel_width.clone(),
+            [T::zero(), self.length,
+             -self.channel_width, self.channel_width,
              T::zero(), T::zero()]
         } else {
-            [T::zero(), self.length.clone(),
-             -self.channel_width.clone(), self.channel_width.clone(),
-             -self.channel_width.clone(), self.channel_width.clone()]
+            [T::zero(), self.length,
+             -self.channel_width, self.channel_width,
+             -self.channel_width, self.channel_width]
         }
     }
 }
@@ -193,13 +193,13 @@ impl<T: RealField + FromPrimitive> CouetteFlow<T> {
 impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for CouetteFlow<T> {
     fn evaluate(&self, _x: T, y: T, _z: T, _t: T) -> Vector3<T> {
         // Couette flow: u(y) = U * y/h + (dp/dx) * y * (h - y) / (2*mu)
-        let y_normalized = y.clone() / self.gap.clone();
-        let linear_term = self.plate_velocity.clone() * y_normalized;
+        let y_normalized = y / self.gap;
+        let linear_term = self.plate_velocity * y_normalized;
 
         let pressure_term = if self.pressure_gradient != T::zero() {
             let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
-            self.pressure_gradient.clone() * y.clone() * (self.gap.clone() - y) /
-            (two * self.viscosity.clone())
+            self.pressure_gradient * y * (self.gap - y) /
+            (two * self.viscosity)
         } else {
             T::zero()
         };
@@ -209,7 +209,7 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for CouetteFlow<T> {
     }
 
     fn pressure(&self, x: T, _y: T, _z: T, _t: T) -> T {
-        self.pressure_gradient.clone() * x
+        self.pressure_gradient * x
     }
 
     fn name(&self) -> &str {
@@ -217,8 +217,8 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for CouetteFlow<T> {
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        [T::zero(), self.length.clone(),
-         T::zero(), self.gap.clone(),
+        [T::zero(), self.length,
+         T::zero(), self.gap,
          T::zero(), T::zero()]
     }
 }
@@ -249,10 +249,10 @@ impl<T: RealField + FromPrimitive> TaylorGreenVortex<T> {
         let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
         
         // Decay factor: exp(-4*nu*t) for kinetic energy
-        let decay = (-T::from_f64(4.0).unwrap_or_else(|| T::zero()) * self.viscosity.clone() * t).exp();
+        let decay = (-T::from_f64(4.0).unwrap_or_else(|| T::zero()) * self.viscosity * t).exp();
         
         // Kinetic energy = 0.5 * amplitude^2 * exp(-4*nu*t)
-        half * self.amplitude.clone() * self.amplitude.clone() * decay
+        half * self.amplitude * self.amplitude * decay
     }
 }
 
@@ -262,15 +262,15 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for TaylorGreenVortex<T
         let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
 
         // Decay factor: exp(-2*nu*t)
-        let decay = (-two.clone() * self.viscosity.clone() * t).exp();
+        let decay = (-two * self.viscosity * t).exp();
 
         // Normalized coordinates
-        let kx = two.clone() * pi.clone() * x / self.domain_size.clone();
-        let ky = two.clone() * pi.clone() * y / self.domain_size.clone();
+        let kx = two * pi * x / self.domain_size;
+        let ky = two * pi * y / self.domain_size;
 
         // Velocity components
-        let u = self.amplitude.clone() * kx.clone().cos() * ky.clone().sin() * decay.clone();
-        let v = -self.amplitude.clone() * kx.sin() * ky.cos() * decay;
+        let u = self.amplitude * kx.cos() * ky.sin() * decay;
+        let v = -self.amplitude * kx.sin() * ky.cos() * decay;
 
         Vector3::new(u, v, T::zero())
     }
@@ -281,15 +281,15 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for TaylorGreenVortex<T
         let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
 
         // Decay factor: exp(-4*nu*t)
-        let decay = (-four.clone() * self.viscosity.clone() * t).exp();
+        let decay = (-four * self.viscosity * t).exp();
 
         // Normalized coordinates
-        let kx = two.clone() * pi.clone() * x / self.domain_size.clone();
-        let ky = two.clone() * pi.clone() * y / self.domain_size.clone();
+        let kx = two * pi * x / self.domain_size;
+        let ky = two * pi * y / self.domain_size;
 
         // Pressure field
-        let amp_squared = self.amplitude.clone() * self.amplitude.clone();
-        -amp_squared * (kx.clone().cos() * two.clone() + ky.clone().cos() * two) * decay / four
+        let amp_squared = self.amplitude * self.amplitude;
+        -amp_squared * (kx.cos() * two + ky.cos() * two) * decay / four
     }
 
     fn name(&self) -> &str {
@@ -297,8 +297,8 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for TaylorGreenVortex<T
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        [T::zero(), self.domain_size.clone(),
-         T::zero(), self.domain_size.clone(),
+        [T::zero(), self.domain_size,
+         T::zero(), self.domain_size,
          T::zero(), T::zero()]
     }
 }
@@ -335,7 +335,7 @@ impl<T: RealField + FromPrimitive> StokesFlow<T> {
 impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T> {
     fn evaluate(&self, x: T, y: T, z: T, _t: T) -> Vector3<T> {
         // Position relative to sphere center
-        let pos = Vector3::new(x, y, z) - self.center.clone();
+        let pos = Vector3::new(x, y, z) - self.center;
         let r = pos.norm();
 
         if r <= self.radius {
@@ -347,27 +347,27 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T> {
         let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
 
         // Stokes flow solution
-        let a_over_r = self.radius.clone() / r.clone();
-        let a_over_r_cubed = a_over_r.clone() * a_over_r.clone() * a_over_r.clone();
+        let a_over_r = self.radius / r;
+        let a_over_r_cubed = a_over_r * a_over_r * a_over_r;
 
         // Velocity components (assuming flow in x-direction)
-        let cos_theta = pos.x.clone() / r.clone();
-        let sin_theta = (pos.y.clone() * pos.y.clone() + pos.z.clone() * pos.z.clone()).sqrt() / r.clone();
+        let cos_theta = pos.x / r;
+        let sin_theta = (pos.y * pos.y + pos.z * pos.z).sqrt() / r;
 
-        let u_r = self.u_infinity.clone() * cos_theta.clone() *
-                  (T::one() - three.clone() * a_over_r.clone() / T::from_f64(2.0).unwrap_or_else(|| T::zero()) + a_over_r_cubed.clone() / T::from_f64(2.0).unwrap_or_else(|| T::zero()));
-        let u_theta = -self.u_infinity.clone() * sin_theta.clone() *
-                      (T::one() - three * a_over_r / four.clone() - a_over_r_cubed / four);
+        let u_r = self.u_infinity * cos_theta *
+                  (T::one() - three * a_over_r / T::from_f64(2.0).unwrap_or_else(|| T::zero()) + a_over_r_cubed / T::from_f64(2.0).unwrap_or_else(|| T::zero()));
+        let u_theta = -self.u_infinity * sin_theta *
+                      (T::one() - three * a_over_r / four - a_over_r_cubed / four);
 
         // Convert to Cartesian coordinates
-        let u_x = u_r.clone() * cos_theta.clone() - u_theta.clone() * sin_theta.clone();
-        let u_y = if sin_theta.clone() != T::zero() {
-            (u_r.clone() * pos.y.clone() / r.clone() + u_theta.clone() * pos.y.clone() / (r.clone() * sin_theta.clone())) / r.clone()
+        let u_x = u_r * cos_theta - u_theta * sin_theta;
+        let u_y = if sin_theta != T::zero() {
+            (u_r * pos.y / r + u_theta * pos.y / (r * sin_theta)) / r
         } else {
             T::zero()
         };
         let u_z = if sin_theta != T::zero() {
-            (u_r * pos.z.clone() / r.clone() + u_theta * pos.z.clone() / (r.clone() * sin_theta)) / r
+            (u_r * pos.z / r + u_theta * pos.z / (r * sin_theta)) / r
         } else {
             T::zero()
         };
@@ -377,7 +377,7 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T> {
 
     fn pressure(&self, x: T, y: T, z: T, _t: T) -> T {
         // Position relative to sphere center
-        let pos = Vector3::new(x, y, z) - self.center.clone();
+        let pos = Vector3::new(x, y, z) - self.center;
         let r = pos.norm();
 
         if r <= self.radius {
@@ -389,9 +389,9 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T> {
         let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
 
         // Pressure field
-        let cos_theta = pos.x.clone() / r.clone();
-        -three * self.viscosity.clone() * self.u_infinity.clone() * self.radius.clone() * cos_theta /
-         (two * r.clone() * r)
+        let cos_theta = pos.x / r;
+        -three * self.viscosity * self.u_infinity * self.radius * cos_theta /
+         (two * r * r)
     }
 
     fn name(&self) -> &str {
@@ -399,10 +399,10 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T> {
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let bound = T::from_f64(10.0).unwrap_or_else(|| T::zero()) * self.radius.clone();
-        [self.center.x.clone() - bound.clone(), self.center.x.clone() + bound.clone(),
-         self.center.y.clone() - bound.clone(), self.center.y.clone() + bound.clone(),
-         self.center.z.clone() - bound.clone(), self.center.z.clone() + bound]
+        let bound = T::from_f64(10.0).unwrap_or_else(|| T::zero()) * self.radius;
+        [self.center.x - bound, self.center.x + bound,
+         self.center.y - bound, self.center.y + bound,
+         self.center.z - bound, self.center.z + bound]
     }
 }
 
@@ -423,24 +423,24 @@ impl AnalyticalUtils {
             for j in 0..ny {
                 for i in 0..nx {
                     let x = if nx > 1 {
-                        bounds[0].clone() + (bounds[1].clone() - bounds[0].clone()) *
+                        bounds[0] + (bounds[1] - bounds[0]) *
                         T::from_usize(i).unwrap_or_else(|| T::zero()) / T::from_usize(nx - 1).unwrap_or_else(|| T::zero())
                     } else {
-                        (bounds[0].clone() + bounds[1].clone()) / T::from_f64(2.0).unwrap_or_else(|| T::zero())
+                        (bounds[0] + bounds[1]) / T::from_f64(2.0).unwrap_or_else(|| T::zero())
                     };
 
                     let y = if ny > 1 {
-                        bounds[2].clone() + (bounds[3].clone() - bounds[2].clone()) *
+                        bounds[2] + (bounds[3] - bounds[2]) *
                         T::from_usize(j).unwrap_or_else(|| T::zero()) / T::from_usize(ny - 1).unwrap_or_else(|| T::zero())
                     } else {
-                        (bounds[2].clone() + bounds[3].clone()) / T::from_f64(2.0).unwrap_or_else(|| T::zero())
+                        (bounds[2] + bounds[3]) / T::from_f64(2.0).unwrap_or_else(|| T::zero())
                     };
 
                     let z = if nz > 1 {
-                        bounds[4].clone() + (bounds[5].clone() - bounds[4].clone()) *
+                        bounds[4] + (bounds[5] - bounds[4]) *
                         T::from_usize(k).unwrap_or_else(|| T::zero()) / T::from_usize(nz - 1).unwrap_or_else(|| T::zero())
                     } else {
-                        (bounds[4].clone() + bounds[5].clone()) / T::from_f64(2.0).unwrap_or_else(|| T::zero())
+                        (bounds[4] + bounds[5]) / T::from_f64(2.0).unwrap_or_else(|| T::zero())
                     };
 
                     points.push((x, y, z));
@@ -463,12 +463,12 @@ impl AnalyticalUtils {
     {
         let velocities: Vec<Vector3<T>> = points
             .iter()
-            .map(|(x, y, z)| solution.velocity(x.clone(), y.clone(), z.clone(), time.clone()))
+            .map(|(x, y, z)| solution.velocity(x, y, z, time))
             .collect();
 
         let pressures: Vec<T> = points
             .iter()
-            .map(|(x, y, z)| solution.pressure(x.clone(), y.clone(), z.clone(), time.clone()))
+            .map(|(x, y, z)| solution.pressure(x, y, z, time))
             .collect();
 
         (velocities, pressures)

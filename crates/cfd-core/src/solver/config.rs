@@ -62,6 +62,52 @@ pub struct SolverConfig<T: RealField> {
     pub numerical: NumericalConfig<T>,
 }
 
+impl<T: RealField + FromPrimitive> Default for SolverConfig<T> {
+    fn default() -> Self {
+        Self {
+            convergence: ConvergenceConfig {
+                max_iterations: 1000,
+                tolerance: T::from_f64(1e-6).unwrap_or_else(T::zero),
+                relative_tolerance: T::from_f64(1e-4).unwrap_or_else(T::zero),
+            },
+            execution: ExecutionConfig {
+                parallel: true,
+                num_threads: None,
+                verbose: false,
+                save_intermediate: false,
+            },
+            numerical: NumericalConfig {
+                dt: T::from_f64(0.01).unwrap_or_else(T::zero),
+                cfl: T::from_f64(0.5).unwrap_or_else(T::zero),
+                relaxation: T::one(),
+            },
+        }
+    }
+}
+
+impl<T: RealField> SolverConfig<T> {
+    /// Create a builder for configuration
+    pub fn builder() -> SolverConfigBuilder<T>
+    where
+        T: FromPrimitive,
+    {
+        SolverConfigBuilder::new()
+    }
+    
+    /// Get relaxation factor
+    pub fn relaxation_factor(&self) -> T
+    where
+        T: Copy,
+    {
+        self.numerical.relaxation
+    }
+    
+    /// Check if verbose output is enabled
+    pub fn verbose(&self) -> bool {
+        self.execution.verbose
+    }
+}
+
 impl<T: RealField + Copy> SolverConfiguration<T> for SolverConfig<T> {
     fn max_iterations(&self) -> usize {
         self.convergence.max_iterations
@@ -176,6 +222,24 @@ impl<T: RealField> SolverConfigBuilder<T> {
     /// Enable/disable parallel execution
     pub fn parallel(mut self, parallel: bool) -> Self {
         self.config.execution.parallel = parallel;
+        self
+    }
+    
+    /// Set relaxation factor
+    pub fn relaxation_factor(mut self, factor: T) -> Self {
+        self.config.numerical.relaxation = factor;
+        self
+    }
+    
+    /// Set CFL number
+    pub fn cfl(mut self, cfl: T) -> Self {
+        self.config.numerical.cfl = cfl;
+        self
+    }
+    
+    /// Enable/disable verbose output
+    pub fn verbose(mut self, verbose: bool) -> Self {
+        self.config.execution.verbose = verbose;
         self
     }
     

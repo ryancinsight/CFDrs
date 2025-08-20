@@ -36,7 +36,7 @@ impl<T: RealField + FromPrimitive> SpectralConfig<T> {
                         "Cannot convert tolerance".into()
                     ))?)
                 .max_iterations(100)
-                .build_base(),
+                .build(),
             nx_modes: nx,
             ny_modes: ny,
             nz_modes: nz,

@@ -87,9 +87,9 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
         
         for i in 0..self.nx {
             for j in 0..self.ny {
-                let k_val = self.k[i][j].clone();
-                let eps_val = self.epsilon[i][j].clone().max(T::from_f64(constants::EPSILON_MIN).unwrap_or_else(|| T::zero()));
-                self.nu_t[i][j] = c_mu.clone() * k_val.clone() * k_val / eps_val;
+                let k_val = self.k[i][j];
+                let eps_val = self.epsilon[i][j].max(T::from_f64(constants::EPSILON_MIN).unwrap_or_else(|| T::zero()));
+                self.nu_t[i][j] = c_mu * k_val * k_val / eps_val;
             }
         }
     }
@@ -131,31 +131,31 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
         // Apply at first cell from wall
         for i in 0..self.nx {
             // Bottom wall
-            let y = wall_distance[i][1].clone();
-            let u_p = u_velocity[i][1].clone();
+            let y = wall_distance[i][1];
+            let u_p = u_velocity[i][1];
             
             // Calculate friction velocity using log-law
-            let u_tau = self.calculate_friction_velocity(u_p.clone(), y.clone(), nu.clone())?;
+            let u_tau = self.calculate_friction_velocity(u_p, y, nu)?;
             
             // Calculate y+
-            let y_plus = y.clone() * u_tau.clone() / nu.clone();
+            let y_plus = y * u_tau / nu;
             
             if y_plus > T::from_f64(11.63).unwrap_or_else(|| T::zero()) {
                 // Log-law region
                 // Set k and ε based on equilibrium assumptions
-                self.k[i][0] = u_tau.clone() * u_tau.clone() / c_mu.clone().sqrt();
-                self.epsilon[i][0] = u_tau.clone().powi(3) / (kappa.clone() * y.clone());
+                self.k[i][0] = u_tau * u_tau / c_mu.sqrt();
+                self.epsilon[i][0] = u_tau.powi(3) / (kappa * y);
                 
                 // Wall shear stress
-                let tau_wall = u_tau.clone() * u_tau.clone();
+                let tau_wall = u_tau * u_tau;
                 
                 // Set turbulent viscosity at wall
-                self.nu_t[i][0] = kappa.clone() * u_tau.clone() * y - nu.clone();
+                self.nu_t[i][0] = kappa * u_tau * y - nu;
             } else {
                 // Viscous sublayer
                 self.k[i][0] = T::zero();
                 let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
-                self.epsilon[i][0] = two * nu.clone() * self.k[i][1].clone() / (y.clone() * y);
+                self.epsilon[i][0] = two * nu * self.k[i][1] / (y * y);
                 self.nu_t[i][0] = T::zero();
             }
         }
@@ -198,28 +198,28 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
                 continue; // Not a boundary wall
             };
             
-            let y = wall_distance[i_near][j_near].clone();
-            let u_p = u_velocity[i_near][j_near].clone();
+            let y = wall_distance[i_near][j_near];
+            let u_p = u_velocity[i_near][j_near];
             
             // Calculate friction velocity iteratively
-            let u_tau = self.calculate_friction_velocity(u_p.clone(), y.clone(), nu.clone())?;
-            let y_plus = y.clone() * u_tau.clone() / nu.clone();
+            let u_tau = self.calculate_friction_velocity(u_p, y, nu)?;
+            let y_plus = y * u_tau / nu;
             
             // Menter SST blending function for near-wall treatment
-            let arg1 = (y_plus.clone() / T::from_f64(2.5).unwrap_or_else(|| T::zero())).min(T::one());
-            let f1 = arg1.clone().powi(3);
+            let arg1 = (y_plus / T::from_f64(2.5).unwrap_or_else(|| T::zero())).min(T::one());
+            let f1 = arg1.powi(3);
             
             // k boundary condition (Menter 1994)
             if y_plus < T::from_f64(5.0).unwrap_or_else(|| T::zero()) {
                 // Viscous sublayer: k = 0 at wall
                 self.k[i_wall][j_wall] = T::zero();
-                self.k[i_near][j_near] = u_tau.clone() * u_tau.clone() * y_plus.clone() / 
+                self.k[i_near][j_near] = u_tau * u_tau * y_plus / 
                     T::from_f64(11.0).unwrap_or_else(|| T::zero());
             } else {
                 // Log-law region: k from equilibrium assumption
-                let k_log = u_tau.clone() * u_tau.clone() / beta_star.clone().sqrt();
+                let k_log = u_tau * u_tau / beta_star.sqrt();
                 let k_visc = T::zero();
-                self.k[i_wall][j_wall] = (T::one() - f1.clone()) * k_visc + f1.clone() * k_log.clone();
+                self.k[i_wall][j_wall] = (T::one() - f1) * k_visc + f1 * k_log;
                 self.k[i_near][j_near] = k_log;
             }
             
@@ -230,24 +230,24 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
             
             if y_plus < T::from_f64(5.0).unwrap_or_else(|| T::zero()) {
                 // Viscous sublayer
-                let omega_visc = T::from_f64(60.0).unwrap_or_else(|| T::zero()) * nu.clone() / 
-                    (beta_1 * y.clone() * y.clone());
-                self.epsilon[i_wall][j_wall] = omega_visc.clone() * self.k[i_wall][j_wall].clone();
-                self.epsilon[i_near][j_near] = omega_visc * self.k[i_near][j_near].clone();
+                let omega_visc = T::from_f64(60.0).unwrap_or_else(|| T::zero()) * nu / 
+                    (beta_1 * y * y);
+                self.epsilon[i_wall][j_wall] = omega_visc * self.k[i_wall][j_wall];
+                self.epsilon[i_near][j_near] = omega_visc * self.k[i_near][j_near];
             } else {
                 // Log-law region
-                let omega_log = u_tau.clone() / (beta_star.clone().sqrt() * kappa.clone() * y.clone());
-                self.epsilon[i_wall][j_wall] = omega_log.clone() * self.k[i_wall][j_wall].clone();
-                self.epsilon[i_near][j_near] = omega_log * self.k[i_near][j_near].clone();
+                let omega_log = u_tau / (beta_star.sqrt() * kappa * y);
+                self.epsilon[i_wall][j_wall] = omega_log * self.k[i_wall][j_wall];
+                self.epsilon[i_near][j_near] = omega_log * self.k[i_near][j_near];
             }
             
             // Turbulent viscosity with damping
-            let rev = u_tau.clone() * y.clone() / nu.clone(); // Reynolds number based on v_tau and y
-            let f_mu = T::one() - (-rev.clone() / T::from_f64(70.0).unwrap_or_else(|| T::zero())).exp();
+            let rev = u_tau * y / nu; // Reynolds number based on v_tau and y
+            let f_mu = T::one() - (-rev / T::from_f64(70.0).unwrap_or_else(|| T::zero())).exp();
             
             self.nu_t[i_wall][j_wall] = T::zero(); // Zero at wall
-            self.nu_t[i_near][j_near] = c_mu.clone() * self.k[i_near][j_near].clone() * 
-                self.k[i_near][j_near].clone() / self.epsilon[i_near][j_near].clone() * f_mu;
+            self.nu_t[i_near][j_near] = c_mu * self.k[i_near][j_near] * 
+                self.k[i_near][j_near] / self.epsilon[i_near][j_near] * f_mu;
         }
         
         Ok(())
@@ -261,26 +261,26 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
         let max_iter = 20;
         
         // Initial guess
-        let mut u_tau = T::from_f64(0.1).unwrap_or_else(|| T::zero()) * u_p.clone();
+        let mut u_tau = T::from_f64(0.1).unwrap_or_else(|| T::zero()) * u_p;
         
         for _ in 0..max_iter {
-            let y_plus = y.clone() * u_tau.clone() / nu.clone();
+            let y_plus = y * u_tau / nu;
             
             if y_plus > T::from_f64(11.63).unwrap_or_else(|| T::zero()) {
                 // Log-law
-                let u_plus = u_p.clone() / u_tau.clone();
-                let f = u_plus - (y_plus.ln() / kappa.clone() + e_wall_function.clone().ln() * kappa.clone());
-                let df = -u_p.clone() / (u_tau.clone() * u_tau.clone()) - T::one() / (kappa.clone() * u_tau.clone());
+                let u_plus = u_p / u_tau;
+                let f = u_plus - (y_plus.ln() / kappa + e_wall_function.ln() * kappa);
+                let df = -u_p / (u_tau * u_tau) - T::one() / (kappa * u_tau);
                 
                 let delta = f / df;
-                u_tau = u_tau - delta.clone();
+                u_tau = u_tau - delta;
                 
                 if delta.abs() < tolerance {
                     break;
                 }
             } else {
                 // Linear law
-                u_tau = (u_p.clone() * nu.clone() / y.clone()).sqrt();
+                u_tau = (u_p * nu / y).sqrt();
                 break;
             }
         }
@@ -302,47 +302,47 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
         let sigma_k = T::from_f64(constants::SIGMA_K).unwrap_or_else(|| T::zero());
         let sigma_eps = T::from_f64(constants::SIGMA_EPSILON).unwrap_or_else(|| T::zero());
         
-        let mut current_k = self.k.clone();
-        let mut current_epsilon = self.epsilon.clone();
+        let mut current_k = self.k;
+        let mut current_epsilon = self.epsilon;
         
         // Interior points only
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
                 // Calculate production term
-                let du_dx = (velocity[i+1][j].x.clone() - velocity[i-1][j].x.clone()) / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx.clone());
-                let du_dy = (velocity[i][j+1].x.clone() - velocity[i][j-1].x.clone()) / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy.clone());
-                let dv_dx = (velocity[i+1][j].y.clone() - velocity[i-1][j].y.clone()) / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx.clone());
-                let dv_dy = (velocity[i][j+1].y.clone() - velocity[i][j-1].y.clone()) / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy.clone());
+                let du_dx = (velocity[i+1][j].x - velocity[i-1][j].x) / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx);
+                let du_dy = (velocity[i][j+1].x - velocity[i][j-1].x) / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy);
+                let dv_dx = (velocity[i+1][j].y - velocity[i-1][j].y) / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx);
+                let dv_dy = (velocity[i][j+1].y - velocity[i][j-1].y) / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy);
                 
-                let s11 = du_dx.clone();
-                let s12 = T::from_f64(0.5).unwrap_or_else(|| T::zero()) * (du_dy.clone() + dv_dx.clone());
-                let s22 = dv_dy.clone();
+                let s11 = du_dx;
+                let s12 = T::from_f64(0.5).unwrap_or_else(|| T::zero()) * (du_dy + dv_dx);
+                let s22 = dv_dy;
                 
-                let production = T::from_f64(2.0).unwrap_or_else(|| T::zero()) * self.nu_t[i][j].clone() * 
-                    (s11.clone() * s11 + T::from_f64(2.0).unwrap_or_else(|| T::zero()) * s12.clone() * s12 + s22.clone() * s22);
+                let production = T::from_f64(2.0).unwrap_or_else(|| T::zero()) * self.nu_t[i][j] * 
+                    (s11 * s11 + T::from_f64(2.0).unwrap_or_else(|| T::zero()) * s12 * s12 + s22 * s22);
                 
                 // k equation
                 let k_diffusion = self.calculate_diffusion(&self.k, i, j, 
-                    (nu.clone() + self.nu_t[i][j].clone() / sigma_k.clone()), dx.clone(), dy.clone());
-                current_k[i][j] = self.k[i][j].clone() + dt.clone() * (
-                    production.clone() - self.epsilon[i][j].clone() + k_diffusion
+                    (nu + self.nu_t[i][j] / sigma_k), dx, dy);
+                current_k[i][j] = self.k[i][j] + dt * (
+                    production - self.epsilon[i][j] + k_diffusion
                 );
                 
                 // ε equation with semi-implicit treatment for stability
                 // Treat destruction term implicitly to avoid singularity when k is small
                 let eps_diffusion = self.calculate_diffusion(&self.epsilon, i, j,
-                    (nu.clone() + self.nu_t[i][j].clone() / sigma_eps.clone()), dx.clone(), dy.clone());
+                    (nu + self.nu_t[i][j] / sigma_eps), dx, dy);
                 
                 // Semi-implicit formulation: ε_new = (ε_old + dt * source) / (1 + dt * destruction_coeff)
-                let source_term = c1_eps.clone() * production * self.epsilon[i][j].clone() / self.k[i][j].clone() + eps_diffusion;
-                let destruction_coeff = c2_eps.clone() * self.epsilon[i][j].clone() / self.k[i][j].clone().max(T::from_f64(constants::EPSILON_MIN).unwrap_or_else(|| T::zero()));
+                let source_term = c1_eps * production * self.epsilon[i][j] / self.k[i][j] + eps_diffusion;
+                let destruction_coeff = c2_eps * self.epsilon[i][j] / self.k[i][j].max(T::from_f64(constants::EPSILON_MIN).unwrap_or_else(|| T::zero()));
                 
-                current_epsilon[i][j] = (self.epsilon[i][j].clone() + dt.clone() * source_term) / 
-                                   (T::one() + dt.clone() * destruction_coeff);
+                current_epsilon[i][j] = (self.epsilon[i][j] + dt * source_term) / 
+                                   (T::one() + dt * destruction_coeff);
                 
                 // Ensure positive values
-                current_k[i][j] = current_k[i][j].clone().max(T::from_f64(constants::EPSILON_MIN).unwrap_or_else(|| T::zero()));
-                current_epsilon[i][j] = current_epsilon[i][j].clone().max(T::from_f64(constants::EPSILON_MIN).unwrap_or_else(|| T::zero()));
+                current_k[i][j] = current_k[i][j].max(T::from_f64(constants::EPSILON_MIN).unwrap_or_else(|| T::zero()));
+                current_epsilon[i][j] = current_epsilon[i][j].max(T::from_f64(constants::EPSILON_MIN).unwrap_or_else(|| T::zero()));
             }
         }
         
@@ -356,10 +356,10 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
     /// Calculate diffusion term using central differences
     fn calculate_diffusion(&self, field: &[Vec<T>], i: usize, j: usize, 
                           diffusivity: T, dx: T, dy: T) -> T {
-        let d2f_dx2 = (field[i+1][j].clone() - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * field[i][j].clone() 
-            + field[i-1][j].clone()) / (dx.clone() * dx);
-        let d2f_dy2 = (field[i][j+1].clone() - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * field[i][j].clone() 
-            + field[i][j-1].clone()) / (dy.clone() * dy);
+        let d2f_dx2 = (field[i+1][j] - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * field[i][j] 
+            + field[i-1][j]) / (dx * dx);
+        let d2f_dy2 = (field[i][j+1] - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * field[i][j] 
+            + field[i][j-1]) / (dy * dy);
         
         diffusivity * (d2f_dx2 + d2f_dy2)
     }

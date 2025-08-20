@@ -31,7 +31,7 @@ use crate::sparse::SparseMatrixExt;
 pub use cfd_core::solver::{LinearSolverConfig, SolverConfiguration};
 
 /// Trait for linear solvers
-pub trait LinearSolver<T: RealField>: Send + Sync {
+pub trait LinearSolver<T: RealField + Copy>: Send + Sync {
     /// Solve Ax = b
     fn solve(
         &self,
@@ -45,7 +45,7 @@ pub trait LinearSolver<T: RealField>: Send + Sync {
 
     /// Check if residual satisfies convergence criteria
     fn is_converged(&self, residual_norm: T) -> bool {
-        residual_norm < self.config().tolerance()
+        residual_norm < self.config().tolerance
     }
 }
 
@@ -227,7 +227,7 @@ pub struct ConjugateGradient<T: RealField> {
     config: LinearSolverConfig<T>,
 }
 
-impl<T: RealField> ConjugateGradient<T> {
+impl<T: RealField + Copy> ConjugateGradient<T> {
     /// Create new CG solver
     pub const fn new(config: LinearSolverConfig<T>) -> Self {
         Self { config }
@@ -313,7 +313,7 @@ impl<T: RealField> ConjugateGradient<T> {
     }
 }
 
-impl<T: RealField + Debug> LinearSolver<T> for ConjugateGradient<T> {
+impl<T: RealField + Debug + Copy> LinearSolver<T> for ConjugateGradient<T> {
     fn solve(
         &self,
         a: &CsrMatrix<T>,
@@ -335,7 +335,7 @@ pub struct BiCGSTAB<T: RealField> {
     config: LinearSolverConfig<T>,
 }
 
-impl<T: RealField> BiCGSTAB<T> {
+impl<T: RealField + Copy> BiCGSTAB<T> {
     /// Create new BiCGSTAB solver
     pub const fn new(config: LinearSolverConfig<T>) -> Self {
         Self { config }
@@ -456,7 +456,7 @@ impl<T: RealField> BiCGSTAB<T> {
     }
 }
 
-impl<T: RealField + Debug> LinearSolver<T> for BiCGSTAB<T> {
+impl<T: RealField + Debug + Copy> LinearSolver<T> for BiCGSTAB<T> {
     fn solve(
         &self,
         a: &CsrMatrix<T>,

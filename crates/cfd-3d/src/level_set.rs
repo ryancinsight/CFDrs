@@ -106,15 +106,15 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
         for k in 0..self.nz {
             for j in 0..self.ny {
                 for i in 0..self.nx {
-                    let x = T::from_usize(i).unwrap_or_else(|| T::zero()) * self.dx.clone();
-                    let y = T::from_usize(j).unwrap_or_else(|| T::zero()) * self.dy.clone();
-                    let z = T::from_usize(k).unwrap_or_else(|| T::zero()) * self.dz.clone();
+                    let x = T::from_usize(i).unwrap_or_else(|| T::zero()) * self.dx;
+                    let y = T::from_usize(j).unwrap_or_else(|| T::zero()) * self.dy;
+                    let z = T::from_usize(k).unwrap_or_else(|| T::zero()) * self.dz;
                     
                     let pos = Vector3::new(x, y, z);
-                    let distance = (pos - center.clone()).norm();
+                    let distance = (pos - center).norm();
                     
                     let idx = self.index(i, j, k);
-                    self.phi[idx] = distance - radius.clone();
+                    self.phi[idx] = distance - radius;
                 }
             }
         }
@@ -129,17 +129,17 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
         for k in 0..self.nz {
             for j in 0..self.ny {
                 for i in 0..self.nx {
-                    let x = T::from_usize(i).unwrap_or_else(|| T::zero()) * self.dx.clone();
-                    let y = T::from_usize(j).unwrap_or_else(|| T::zero()) * self.dy.clone();
-                    let z = T::from_usize(k).unwrap_or_else(|| T::zero()) * self.dz.clone();
+                    let x = T::from_usize(i).unwrap_or_else(|| T::zero()) * self.dx;
+                    let y = T::from_usize(j).unwrap_or_else(|| T::zero()) * self.dy;
+                    let z = T::from_usize(k).unwrap_or_else(|| T::zero()) * self.dz;
                     
                     // Signed distance to box
-                    let dx_min = x.clone() - min_corner[0].clone();
-                    let dx_max = max_corner[0].clone() - x.clone();
-                    let dy_min = y.clone() - min_corner[1].clone();
-                    let dy_max = max_corner[1].clone() - y.clone();
-                    let dz_min = z.clone() - min_corner[2].clone();
-                    let dz_max = max_corner[2].clone() - z;
+                    let dx_min = x - min_corner[0];
+                    let dx_max = max_corner[0] - x;
+                    let dy_min = y - min_corner[1];
+                    let dy_max = max_corner[1] - y;
+                    let dz_min = z - min_corner[2];
+                    let dz_max = max_corner[2] - z;
                     
                     let dx_dist = dx_min.min(dx_max);
                     let dy_dist = dy_min.min(dy_max);
@@ -165,10 +165,10 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
     fn update_narrow_band(&mut self) {
         self.narrow_band.clear();
         let band_width = T::from_f64(self.config.band_width).unwrap_or_else(|| T::zero()) 
-            * self.dx.clone().max(self.dy.clone()).max(self.dz.clone());
+            * self.dx.max(self.dy).max(self.dz);
         
         for idx in 0..self.phi.len() {
-            if self.phi[idx].clone().abs() <= band_width {
+            if self.phi[idx].abs() <= band_width {
                 self.narrow_band.push(idx);
             }
         }
@@ -184,45 +184,45 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
             0 => {  // x-direction
                 if i < 2 || i >= self.nx - 3 {
                     // Use lower order at boundaries
-                    let vm1 = if i > 0 { v[self.index(i-1, j, k)].clone() } else { v[idx].clone() };
-                    let vp1 = if i < self.nx-1 { v[self.index(i+1, j, k)].clone() } else { v[idx].clone() };
-                    return ((v[idx].clone() - vm1) / self.dx.clone(),
-                            (vp1 - v[idx].clone()) / self.dx.clone());
+                    let vm1 = if i > 0 { v[self.index(i-1, j, k)] } else { v[idx] };
+                    let vp1 = if i < self.nx-1 { v[self.index(i+1, j, k)] } else { v[idx] };
+                    return ((v[idx] - vm1) / self.dx,
+                            (vp1 - v[idx]) / self.dx);
                 }
-                (v[self.index(i-2, j, k)].clone(),
-                 v[self.index(i-1, j, k)].clone(),
-                 v[idx].clone(),
-                 v[self.index(i+1, j, k)].clone(),
-                 v[self.index(i+2, j, k)].clone(),
-                 v[self.index(i.min(self.nx-1).min(i+3), j, k)].clone())
+                (v[self.index(i-2, j, k)],
+                 v[self.index(i-1, j, k)],
+                 v[idx],
+                 v[self.index(i+1, j, k)],
+                 v[self.index(i+2, j, k)],
+                 v[self.index(i.min(self.nx-1).min(i+3), j, k)])
             },
             1 => {  // y-direction
                 if j < 2 || j >= self.ny - 3 {
-                    let vm1 = if j > 0 { v[self.index(i, j-1, k)].clone() } else { v[idx].clone() };
-                    let vp1 = if j < self.ny-1 { v[self.index(i, j+1, k)].clone() } else { v[idx].clone() };
-                    return ((v[idx].clone() - vm1) / self.dy.clone(),
-                            (vp1 - v[idx].clone()) / self.dy.clone());
+                    let vm1 = if j > 0 { v[self.index(i, j-1, k)] } else { v[idx] };
+                    let vp1 = if j < self.ny-1 { v[self.index(i, j+1, k)] } else { v[idx] };
+                    return ((v[idx] - vm1) / self.dy,
+                            (vp1 - v[idx]) / self.dy);
                 }
-                (v[self.index(i, j-2, k)].clone(),
-                 v[self.index(i, j-1, k)].clone(),
-                 v[idx].clone(),
-                 v[self.index(i, j+1, k)].clone(),
-                 v[self.index(i, j+2, k)].clone(),
-                 v[self.index(i, j.min(self.ny-1).min(j+3), k)].clone())
+                (v[self.index(i, j-2, k)],
+                 v[self.index(i, j-1, k)],
+                 v[idx],
+                 v[self.index(i, j+1, k)],
+                 v[self.index(i, j+2, k)],
+                 v[self.index(i, j.min(self.ny-1).min(j+3), k)])
             },
             _ => {  // z-direction
                 if k < 2 || k >= self.nz - 3 {
-                    let vm1 = if k > 0 { v[self.index(i, j, k-1)].clone() } else { v[idx].clone() };
-                    let vp1 = if k < self.nz-1 { v[self.index(i, j, k+1)].clone() } else { v[idx].clone() };
-                    return ((v[idx].clone() - vm1) / self.dz.clone(),
-                            (vp1 - v[idx].clone()) / self.dz.clone());
+                    let vm1 = if k > 0 { v[self.index(i, j, k-1)] } else { v[idx] };
+                    let vp1 = if k < self.nz-1 { v[self.index(i, j, k+1)] } else { v[idx] };
+                    return ((v[idx] - vm1) / self.dz,
+                            (vp1 - v[idx]) / self.dz);
                 }
-                (v[self.index(i, j, k-2)].clone(),
-                 v[self.index(i, j, k-1)].clone(),
-                 v[idx].clone(),
-                 v[self.index(i, j, k+1)].clone(),
-                 v[self.index(i, j, k+2)].clone(),
-                 v[self.index(i, j, k.min(self.nz-1).min(k+3))].clone())
+                (v[self.index(i, j, k-2)],
+                 v[self.index(i, j, k-1)],
+                 v[idx],
+                 v[self.index(i, j, k+1)],
+                 v[self.index(i, j, k+2)],
+                 v[self.index(i, j, k.min(self.nz-1).min(k+3))])
             }
         };
         
@@ -233,45 +233,45 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
         let thirteen = T::from_f64(13.0).unwrap_or_else(|| T::zero());
         
         // Smoothness indicators
-        let beta0 = (thirteen.clone() * (vm2.clone() - two.clone() * vm1.clone() + v0.clone()).powi(2)
-            + three.clone() * (vm2.clone() - T::from_f64(4.0).unwrap_or_else(|| T::zero()) * vm1.clone() + three.clone() * v0.clone()).powi(2)) / T::from_f64(12.0).unwrap_or_else(|| T::zero());
-        let beta1 = (thirteen.clone() * (vm1.clone() - two.clone() * v0.clone() + vp1.clone()).powi(2)
-            + three.clone() * (vm1.clone() - vp1.clone()).powi(2)) / T::from_f64(12.0).unwrap_or_else(|| T::zero());
-        let beta2 = (thirteen.clone() * (v0.clone() - two.clone() * vp1.clone() + vp2.clone()).powi(2)
-            + three.clone() * (three.clone() * v0.clone() - T::from_f64(4.0).unwrap_or_else(|| T::zero()) * vp1.clone() + vp2.clone()).powi(2)) / T::from_f64(12.0).unwrap_or_else(|| T::zero());
+        let beta0 = (thirteen * (vm2 - two * vm1 + v0).powi(2)
+            + three * (vm2 - T::from_f64(4.0).unwrap_or_else(|| T::zero()) * vm1 + three * v0).powi(2)) / T::from_f64(12.0).unwrap_or_else(|| T::zero());
+        let beta1 = (thirteen * (vm1 - two * v0 + vp1).powi(2)
+            + three * (vm1 - vp1).powi(2)) / T::from_f64(12.0).unwrap_or_else(|| T::zero());
+        let beta2 = (thirteen * (v0 - two * vp1 + vp2).powi(2)
+            + three * (three * v0 - T::from_f64(4.0).unwrap_or_else(|| T::zero()) * vp1 + vp2).powi(2)) / T::from_f64(12.0).unwrap_or_else(|| T::zero());
         
         // Weights
         let d0 = T::from_f64(0.1).unwrap_or_else(|| T::zero());
         let d1 = T::from_f64(0.6).unwrap_or_else(|| T::zero());
         let d2 = T::from_f64(0.3).unwrap_or_else(|| T::zero());
         
-        let alpha0 = d0 / (eps.clone() + beta0).powi(2);
-        let alpha1 = d1 / (eps.clone() + beta1).powi(2);
-        let alpha2 = d2 / (eps.clone() + beta2).powi(2);
+        let alpha0 = d0 / (eps + beta0).powi(2);
+        let alpha1 = d1 / (eps + beta1).powi(2);
+        let alpha2 = d2 / (eps + beta2).powi(2);
         
-        let sum_alpha = alpha0.clone() + alpha1.clone() + alpha2.clone();
+        let sum_alpha = alpha0 + alpha1 + alpha2;
         
-        let w0 = alpha0 / sum_alpha.clone();
-        let w1 = alpha1 / sum_alpha.clone();
+        let w0 = alpha0 / sum_alpha;
+        let w1 = alpha1 / sum_alpha;
         let w2 = alpha2 / sum_alpha;
         
         // Compute derivatives
         let h = match direction {
-            0 => self.dx.clone(),
-            1 => self.dy.clone(),
-            _ => self.dz.clone(),
+            0 => self.dx,
+            1 => self.dy,
+            _ => self.dz,
         };
         
         // Negative-biased stencil (for positive velocities)
-        let derivative_minus = (w0.clone() * (two.clone() * vm1.clone() - T::from_f64(7.0).unwrap_or_else(|| T::zero()) * v0.clone() + T::from_f64(11.0).unwrap_or_else(|| T::zero()) * vp1.clone())
-            + w1.clone() * (-vm1.clone() + T::from_f64(5.0).unwrap_or_else(|| T::zero()) * v0.clone() + two.clone() * vp1.clone())
-            + w2.clone() * (two.clone() * v0.clone() + T::from_f64(5.0).unwrap_or_else(|| T::zero()) * vp1.clone() - vp2.clone())) / (six.clone() * h.clone());
+        let derivative_minus = (w0 * (two * vm1 - T::from_f64(7.0).unwrap_or_else(|| T::zero()) * v0 + T::from_f64(11.0).unwrap_or_else(|| T::zero()) * vp1)
+            + w1 * (-vm1 + T::from_f64(5.0).unwrap_or_else(|| T::zero()) * v0 + two * vp1)
+            + w2 * (two * v0 + T::from_f64(5.0).unwrap_or_else(|| T::zero()) * vp1 - vp2)) / (six * h);
         
         // Positive-biased stencil (for negative velocities)
         // Need to recalculate with shifted stencil
-        let derivative_plus = (w2 * (T::from_f64(11.0).unwrap_or_else(|| T::zero()) * v0.clone() - T::from_f64(7.0).unwrap_or_else(|| T::zero()) * vp1.clone() + two.clone() * vp2)
-            + w1 * (two.clone() * vm1.clone() + T::from_f64(5.0).unwrap_or_else(|| T::zero()) * v0.clone() - vp1.clone())
-            + w0 * (-vm2.clone() + T::from_f64(5.0).unwrap_or_else(|| T::zero()) * vm1 + two * v0)) / (six * h);
+        let derivative_plus = (w2 * (T::from_f64(11.0).unwrap_or_else(|| T::zero()) * v0 - T::from_f64(7.0).unwrap_or_else(|| T::zero()) * vp1 + two * vp2)
+            + w1 * (two * vm1 + T::from_f64(5.0).unwrap_or_else(|| T::zero()) * v0 - vp1)
+            + w0 * (-vm2 + T::from_f64(5.0).unwrap_or_else(|| T::zero()) * vm1 + two * v0)) / (six * h);
         
         (derivative_minus, derivative_plus)
     }
@@ -280,11 +280,11 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
     pub fn advect(&mut self, dt: T) {
         // Check CFL condition for stability
         let max_velocity = self.velocity.iter()
-            .map(|v| v[0].clone().abs().max(v[1].clone().abs()).max(v[2].clone().abs()))
+            .map(|v| v[0].abs().max(v[1].abs()).max(v[2].abs()))
             .fold(T::zero(), |acc, v| acc.max(v));
         
-        let min_spacing = self.dx.clone().min(self.dy.clone()).min(self.dz.clone());
-        let cfl = max_velocity.clone() * dt.clone() / min_spacing.clone();
+        let min_spacing = self.dx.min(self.dy).min(self.dz);
+        let cfl = max_velocity * dt / min_spacing;
         
         if cfl > T::from_f64(self.config.cfl_number).unwrap_or_else(|| T::zero()) {
             // Warning: CFL condition violated, stability may be compromised
@@ -315,10 +315,10 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
                         let dphi_dz = if vel[2] > T::zero() { dphi_dz_minus } else { dphi_dz_plus };
                         
                         // Update level set
-                        self.phi[idx] = self.phi_old[idx].clone() 
-                            - dt.clone() * (vel[0].clone() * dphi_dx 
-                                          + vel[1].clone() * dphi_dy 
-                                          + vel[2].clone() * dphi_dz);
+                        self.phi[idx] = self.phi_old[idx] 
+                            - dt * (vel[0] * dphi_dx 
+                                          + vel[1] * dphi_dy 
+                                          + vel[2] * dphi_dz);
                     }
                 }
             }
@@ -332,27 +332,27 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
                         
                         // Upwind differences
                         let dphi_dx = if vel[0] > T::zero() {
-                            (self.phi_old[idx].clone() - self.phi_old[self.index(i-1, j, k)].clone()) / self.dx.clone()
+                            (self.phi_old[idx] - self.phi_old[self.index(i-1, j, k)]) / self.dx
                         } else {
-                            (self.phi_old[self.index(i+1, j, k)].clone() - self.phi_old[idx].clone()) / self.dx.clone()
+                            (self.phi_old[self.index(i+1, j, k)] - self.phi_old[idx]) / self.dx
                         };
                         
                         let dphi_dy = if vel[1] > T::zero() {
-                            (self.phi_old[idx].clone() - self.phi_old[self.index(i, j-1, k)].clone()) / self.dy.clone()
+                            (self.phi_old[idx] - self.phi_old[self.index(i, j-1, k)]) / self.dy
                         } else {
-                            (self.phi_old[self.index(i, j+1, k)].clone() - self.phi_old[idx].clone()) / self.dy.clone()
+                            (self.phi_old[self.index(i, j+1, k)] - self.phi_old[idx]) / self.dy
                         };
                         
                         let dphi_dz = if vel[2] > T::zero() {
-                            (self.phi_old[idx].clone() - self.phi_old[self.index(i, j, k-1)].clone()) / self.dz.clone()
+                            (self.phi_old[idx] - self.phi_old[self.index(i, j, k-1)]) / self.dz
                         } else {
-                            (self.phi_old[self.index(i, j, k+1)].clone() - self.phi_old[idx].clone()) / self.dz.clone()
+                            (self.phi_old[self.index(i, j, k+1)] - self.phi_old[idx]) / self.dz
                         };
                         
-                        self.phi[idx] = self.phi_old[idx].clone() 
-                            - dt.clone() * (vel[0].clone() * dphi_dx 
-                                          + vel[1].clone() * dphi_dy 
-                                          + vel[2].clone() * dphi_dz);
+                        self.phi[idx] = self.phi_old[idx] 
+                            - dt * (vel[0] * dphi_dx 
+                                          + vel[1] * dphi_dy 
+                                          + vel[2] * dphi_dz);
                     }
                 }
             }
@@ -368,15 +368,15 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
     
     /// Smooth Heaviside function for better numerical stability
     fn smooth_heaviside(&self, phi: T, epsilon: T) -> T {
-        if phi < -epsilon.clone() {
+        if phi < -epsilon {
             T::zero()
-        } else if phi > epsilon.clone() {
+        } else if phi > epsilon {
             T::one()
         } else {
             let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
             let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
-            half.clone() * (T::one() + phi.clone() / epsilon.clone() 
-                + (pi.clone() * phi / epsilon).sin() / pi)
+            half * (T::one() + phi / epsilon 
+                + (pi * phi / epsilon).sin() / pi)
         }
     }
     
@@ -388,16 +388,16 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
     
     /// Reinitialize to signed distance function
     pub fn reinitialize(&mut self) {
-        let mut phi_temp = self.phi.clone();
-        let epsilon = T::from_f64(EPSILON_SMOOTHING).unwrap_or_else(|| T::zero()) * self.dx.clone();
+        let mut phi_temp = self.phi;
+        let epsilon = T::from_f64(EPSILON_SMOOTHING).unwrap_or_else(|| T::zero()) * self.dx;
         let sign_phi = self.phi.iter()
-            .map(|p| self.smooth_sign(p.clone(), epsilon.clone()))
+            .map(|p| self.smooth_sign(p, epsilon))
             .collect::<Vec<_>>();
         
-        let dtau = T::from_f64(0.5).unwrap_or_else(|| T::zero()) * self.dx.clone().min(self.dy.clone()).min(self.dz.clone());
+        let dtau = T::from_f64(0.5).unwrap_or_else(|| T::zero()) * self.dx.min(self.dy).min(self.dz);
         
         for _ in 0..self.config.max_iterations {
-            let phi_previous_temp = phi_temp.clone();
+            let phi_previous_temp = phi_temp;
             
             for k in 1..self.nz-1 {
                 for j in 1..self.ny-1 {
@@ -405,36 +405,36 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
                         let idx = self.index(i, j, k);
                         
                         // Godunov scheme for |∇φ|
-                        let dphi_dx_plus = (phi_previous_temp[self.index(i+1, j, k)].clone() - phi_previous_temp[idx].clone()) / self.dx.clone();
-                        let dphi_dx_minus = (phi_previous_temp[idx].clone() - phi_previous_temp[self.index(i-1, j, k)].clone()) / self.dx.clone();
-                        let dphi_dy_plus = (phi_previous_temp[self.index(i, j+1, k)].clone() - phi_previous_temp[idx].clone()) / self.dy.clone();
-                        let dphi_dy_minus = (phi_previous_temp[idx].clone() - phi_previous_temp[self.index(i, j-1, k)].clone()) / self.dy.clone();
-                        let dphi_dz_plus = (phi_previous_temp[self.index(i, j, k+1)].clone() - phi_previous_temp[idx].clone()) / self.dz.clone();
-                        let dphi_dz_minus = (phi_previous_temp[idx].clone() - phi_previous_temp[self.index(i, j, k-1)].clone()) / self.dz.clone();
+                        let dphi_dx_plus = (phi_previous_temp[self.index(i+1, j, k)] - phi_previous_temp[idx]) / self.dx;
+                        let dphi_dx_minus = (phi_previous_temp[idx] - phi_previous_temp[self.index(i-1, j, k)]) / self.dx;
+                        let dphi_dy_plus = (phi_previous_temp[self.index(i, j+1, k)] - phi_previous_temp[idx]) / self.dy;
+                        let dphi_dy_minus = (phi_previous_temp[idx] - phi_previous_temp[self.index(i, j-1, k)]) / self.dy;
+                        let dphi_dz_plus = (phi_previous_temp[self.index(i, j, k+1)] - phi_previous_temp[idx]) / self.dz;
+                        let dphi_dz_minus = (phi_previous_temp[idx] - phi_previous_temp[self.index(i, j, k-1)]) / self.dz;
                         
-                        let a_plus = dphi_dx_plus.clone().max(T::zero());
-                        let a_minus = dphi_dx_minus.clone().min(T::zero());
-                        let b_plus = dphi_dy_plus.clone().max(T::zero());
-                        let b_minus = dphi_dy_minus.clone().min(T::zero());
-                        let c_plus = dphi_dz_plus.clone().max(T::zero());
-                        let c_minus = dphi_dz_minus.clone().min(T::zero());
+                        let a_plus = dphi_dx_plus.max(T::zero());
+                        let a_minus = dphi_dx_minus.min(T::zero());
+                        let b_plus = dphi_dy_plus.max(T::zero());
+                        let b_minus = dphi_dy_minus.min(T::zero());
+                        let c_plus = dphi_dz_plus.max(T::zero());
+                        let c_minus = dphi_dz_minus.min(T::zero());
                         
                         let grad_phi_norm = if sign_phi[idx] > T::zero() {
                             ComplexField::sqrt(
-                                a_minus.clone() * a_minus + a_plus.clone() * a_plus
-                                + b_minus.clone() * b_minus + b_plus.clone() * b_plus
-                                + c_minus.clone() * c_minus + c_plus.clone() * c_plus
+                                a_minus * a_minus + a_plus * a_plus
+                                + b_minus * b_minus + b_plus * b_plus
+                                + c_minus * c_minus + c_plus * c_plus
                             )
                         } else {
                             ComplexField::sqrt(
-                                a_plus.clone() * a_plus + a_minus.clone() * a_minus
-                                + b_plus.clone() * b_plus + b_minus.clone() * b_minus
-                                + c_plus.clone() * c_plus + c_minus.clone() * c_minus
+                                a_plus * a_plus + a_minus * a_minus
+                                + b_plus * b_plus + b_minus * b_minus
+                                + c_plus * c_plus + c_minus * c_minus
                             )
                         };
                         
-                        phi_temp[idx] = phi_previous_temp[idx].clone() 
-                            - dtau.clone() * sign_phi[idx].clone() * (grad_phi_norm - T::one());
+                        phi_temp[idx] = phi_previous_temp[idx] 
+                            - dtau * sign_phi[idx] * (grad_phi_norm - T::one());
                     }
                 }
             }
@@ -442,7 +442,7 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
             // Check convergence
             let error = phi_temp.iter()
                 .zip(phi_previous_temp.iter())
-                .map(|(p1, p2)| (p1.clone() - p2.clone()).abs())
+                .map(|(p1, p2)| (p1 - p2).abs())
                 .fold(T::zero(), |acc, x| acc.max(x));
             
             if error < T::from_f64(self.config.tolerance).unwrap_or_else(|| T::zero()) {
@@ -467,43 +467,43 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
                     let idx = self.index(i, j, k);
                     
                     // Central differences for gradients
-                    let phi_x = (self.phi[self.index(i+1, j, k)].clone() - self.phi[self.index(i-1, j, k)].clone()) 
-                        / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * self.dx.clone());
-                    let phi_y = (self.phi[self.index(i, j+1, k)].clone() - self.phi[self.index(i, j-1, k)].clone()) 
-                        / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * self.dy.clone());
-                    let phi_z = (self.phi[self.index(i, j, k+1)].clone() - self.phi[self.index(i, j, k-1)].clone()) 
-                        / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * self.dz.clone());
+                    let phi_x = (self.phi[self.index(i+1, j, k)] - self.phi[self.index(i-1, j, k)]) 
+                        / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * self.dx);
+                    let phi_y = (self.phi[self.index(i, j+1, k)] - self.phi[self.index(i, j-1, k)]) 
+                        / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * self.dy);
+                    let phi_z = (self.phi[self.index(i, j, k+1)] - self.phi[self.index(i, j, k-1)]) 
+                        / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * self.dz);
                     
                     // Second derivatives
-                    let phi_xx = (self.phi[self.index(i+1, j, k)].clone() - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * self.phi[idx].clone() 
-                        + self.phi[self.index(i-1, j, k)].clone()) / (self.dx.clone() * self.dx.clone());
-                    let phi_yy = (self.phi[self.index(i, j+1, k)].clone() - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * self.phi[idx].clone() 
-                        + self.phi[self.index(i, j-1, k)].clone()) / (self.dy.clone() * self.dy.clone());
-                    let phi_zz = (self.phi[self.index(i, j, k+1)].clone() - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * self.phi[idx].clone() 
-                        + self.phi[self.index(i, j, k-1)].clone()) / (self.dz.clone() * self.dz.clone());
+                    let phi_xx = (self.phi[self.index(i+1, j, k)] - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * self.phi[idx] 
+                        + self.phi[self.index(i-1, j, k)]) / (self.dx * self.dx);
+                    let phi_yy = (self.phi[self.index(i, j+1, k)] - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * self.phi[idx] 
+                        + self.phi[self.index(i, j-1, k)]) / (self.dy * self.dy);
+                    let phi_zz = (self.phi[self.index(i, j, k+1)] - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * self.phi[idx] 
+                        + self.phi[self.index(i, j, k-1)]) / (self.dz * self.dz);
                     
                     // Mixed derivatives
-                    let phi_xy = (self.phi[self.index(i+1, j+1, k)].clone() - self.phi[self.index(i+1, j-1, k)].clone()
-                        - self.phi[self.index(i-1, j+1, k)].clone() + self.phi[self.index(i-1, j-1, k)].clone())
-                        / (T::from_f64(4.0).unwrap_or_else(|| T::zero()) * self.dx.clone() * self.dy.clone());
-                    let phi_xz = (self.phi[self.index(i+1, j, k+1)].clone() - self.phi[self.index(i+1, j, k-1)].clone()
-                        - self.phi[self.index(i-1, j, k+1)].clone() + self.phi[self.index(i-1, j, k-1)].clone())
-                        / (T::from_f64(4.0).unwrap_or_else(|| T::zero()) * self.dx.clone() * self.dz.clone());
-                    let phi_yz = (self.phi[self.index(i, j+1, k+1)].clone() - self.phi[self.index(i, j+1, k-1)].clone()
-                        - self.phi[self.index(i, j-1, k+1)].clone() + self.phi[self.index(i, j-1, k-1)].clone())
-                        / (T::from_f64(4.0).unwrap_or_else(|| T::zero()) * self.dy.clone() * self.dz.clone());
+                    let phi_xy = (self.phi[self.index(i+1, j+1, k)] - self.phi[self.index(i+1, j-1, k)]
+                        - self.phi[self.index(i-1, j+1, k)] + self.phi[self.index(i-1, j-1, k)])
+                        / (T::from_f64(4.0).unwrap_or_else(|| T::zero()) * self.dx * self.dy);
+                    let phi_xz = (self.phi[self.index(i+1, j, k+1)] - self.phi[self.index(i+1, j, k-1)]
+                        - self.phi[self.index(i-1, j, k+1)] + self.phi[self.index(i-1, j, k-1)])
+                        / (T::from_f64(4.0).unwrap_or_else(|| T::zero()) * self.dx * self.dz);
+                    let phi_yz = (self.phi[self.index(i, j+1, k+1)] - self.phi[self.index(i, j+1, k-1)]
+                        - self.phi[self.index(i, j-1, k+1)] + self.phi[self.index(i, j-1, k-1)])
+                        / (T::from_f64(4.0).unwrap_or_else(|| T::zero()) * self.dy * self.dz);
                     
                     // Compute curvature
-                    let grad_norm_sq = phi_x.clone() * phi_x.clone() + phi_y.clone() * phi_y.clone() + phi_z.clone() * phi_z.clone();
-                    let grad_norm = ComplexField::sqrt(grad_norm_sq.clone() + T::from_f64(1e-10).unwrap_or_else(|| T::zero()));
+                    let grad_norm_sq = phi_x * phi_x + phi_y * phi_y + phi_z * phi_z;
+                    let grad_norm = ComplexField::sqrt(grad_norm_sq + T::from_f64(1e-10).unwrap_or_else(|| T::zero()));
                     
-                    curvature[idx] = (phi_xx.clone() * (phi_y.clone() * phi_y.clone() + phi_z.clone() * phi_z.clone())
-                        + phi_yy.clone() * (phi_x.clone() * phi_x.clone() + phi_z.clone() * phi_z.clone())
-                        + phi_zz * (phi_x.clone() * phi_x.clone() + phi_y.clone() * phi_y.clone())
-                        - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (phi_x.clone() * phi_y.clone() * phi_xy 
-                            + phi_x.clone() * phi_z.clone() * phi_xz 
+                    curvature[idx] = (phi_xx * (phi_y * phi_y + phi_z * phi_z)
+                        + phi_yy * (phi_x * phi_x + phi_z * phi_z)
+                        + phi_zz * (phi_x * phi_x + phi_y * phi_y)
+                        - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (phi_x * phi_y * phi_xy 
+                            + phi_x * phi_z * phi_xz 
                             + phi_y * phi_z * phi_yz))
-                        / (grad_norm.clone() * grad_norm_sq);
+                        / (grad_norm * grad_norm_sq);
                 }
             }
         }
@@ -515,14 +515,14 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
     pub fn get_volume_fraction(&self) -> Vec<T> {
         self.phi.iter()
             .map(|p| {
-                let p = p.clone();
-                let eps = T::from_f64(EPSILON_SMOOTHING).unwrap_or_else(|| T::zero()) * self.dx.clone();
-                if p.clone() > eps.clone() {
+                let p = p;
+                let eps = T::from_f64(EPSILON_SMOOTHING).unwrap_or_else(|| T::zero()) * self.dx;
+                if p > eps {
                     T::zero()
-                } else if p.clone() < -eps.clone() {
+                } else if p < -eps {
                     T::one()
                 } else {
-                    T::from_f64(0.5).unwrap_or_else(|| T::zero()) * (T::one() - p.clone() / eps.clone() 
+                    T::from_f64(0.5).unwrap_or_else(|| T::zero()) * (T::one() - p / eps 
                         - ComplexField::sin(T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero()) * p / eps) 
                         / T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero()))
                 }
@@ -545,11 +545,11 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
     pub fn step(&mut self, dt: T) -> Result<()> {
         // Compute CFL-limited time step
         let max_vel = self.velocity.iter()
-            .map(|v| v[0].clone().abs().max(v[1].clone().abs()).max(v[2].clone().abs()))
+            .map(|v| v[0].abs().max(v[1].abs()).max(v[2].abs()))
             .fold(T::zero(), |acc, v| acc.max(v));
         
         let dt_cfl = T::from_f64(self.config.cfl_number).unwrap_or_else(|| T::zero()) 
-            * self.dx.clone().min(self.dy.clone()).min(self.dz.clone()) / (max_vel + T::from_f64(1e-10).unwrap_or_else(|| T::zero()));
+            * self.dx.min(self.dy).min(self.dz) / (max_vel + T::from_f64(1e-10).unwrap_or_else(|| T::zero()));
         
         let dt_actual = dt.min(dt_cfl);
         

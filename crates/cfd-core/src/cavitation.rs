@@ -54,10 +54,10 @@ impl<T: RealField + FromPrimitive> CavitationNumber<T> {
     /// Calculate cavitation number
     pub fn calculate(&self) -> T {
         let dynamic_pressure = T::from_f64(0.5).unwrap_or_else(|| T::one()) * 
-            self.density.clone() * self.velocity.clone() * self.velocity.clone();
+            self.density * self.velocity * self.velocity;
         
         if dynamic_pressure > T::from_f64(1e-10).unwrap_or_else(|| T::one()) {
-            (self.reference_pressure.clone() - self.vapor_pressure.clone()) / dynamic_pressure
+            (self.reference_pressure - self.vapor_pressure) / dynamic_pressure
         } else {
             T::from_f64(1e10).unwrap_or_else(|| T::one()) // Large number for zero velocity
         }
@@ -99,7 +99,7 @@ impl<T: RealField + FromPrimitive> RayleighPlesset<T> {
         vapor_pressure: T,
     ) -> Self {
         Self {
-            radius: initial_radius.clone(),
+            radius: initial_radius,
             velocity: T::zero(),
             liquid_density,
             surface_tension,
@@ -112,23 +112,23 @@ impl<T: RealField + FromPrimitive> RayleighPlesset<T> {
     /// Calculate bubble pressure including surface tension
     pub fn bubble_pressure(&self, _ambient_pressure: T) -> T {
         // p_B = p_v - 2σ/R - 4μṘ/R
-        let surface_term = T::from_f64(2.0).unwrap_or_else(|| T::one()) * self.surface_tension.clone() / self.radius.clone();
-        let viscous_term = T::from_f64(4.0).unwrap_or_else(|| T::one()) * self.viscosity.clone() * 
-            self.velocity.clone() / self.radius.clone();
+        let surface_term = T::from_f64(2.0).unwrap_or_else(|| T::one()) * self.surface_tension / self.radius;
+        let viscous_term = T::from_f64(4.0).unwrap_or_else(|| T::one()) * self.viscosity * 
+            self.velocity / self.radius;
         
-        self.vapor_pressure.clone() - surface_term - viscous_term
+        self.vapor_pressure - surface_term - viscous_term
     }
     
     /// Calculate bubble acceleration (R̈)
     pub fn acceleration(&self, ambient_pressure: T) -> T {
-        let p_bubble = self.bubble_pressure(ambient_pressure.clone());
+        let p_bubble = self.bubble_pressure(ambient_pressure);
         let pressure_diff = p_bubble - ambient_pressure;
         
         // R̈ = (1/R) * [(p_B - p_∞)/ρ - (3/2)Ṙ²]
-        let pressure_term = pressure_diff / self.liquid_density.clone();
-        let kinetic_term = T::from_f64(1.5).unwrap_or_else(|| T::one()) * self.velocity.clone() * self.velocity.clone();
+        let pressure_term = pressure_diff / self.liquid_density;
+        let kinetic_term = T::from_f64(1.5).unwrap_or_else(|| T::one()) * self.velocity * self.velocity;
         
-        (pressure_term - kinetic_term) / self.radius.clone()
+        (pressure_term - kinetic_term) / self.radius
     }
     
     /// Time step the bubble dynamics
@@ -136,8 +136,8 @@ impl<T: RealField + FromPrimitive> RayleighPlesset<T> {
         let accel = self.acceleration(ambient_pressure);
         
         // Update velocity and radius using explicit Euler
-        self.velocity = self.velocity.clone() + accel * dt.clone();
-        self.radius = self.radius.clone() + self.velocity.clone() * dt;
+        self.velocity = self.velocity + accel * dt;
+        self.radius = self.radius + self.velocity * dt;
         
         // Ensure minimum radius for stability
         let min_radius = T::from_f64(constants::MIN_BUBBLE_RADIUS).unwrap_or_else(|| T::one());
@@ -150,8 +150,8 @@ impl<T: RealField + FromPrimitive> RayleighPlesset<T> {
     /// Calculate collapse time (Rayleigh collapse time)
     pub fn rayleigh_collapse_time(&self, pressure_difference: T) -> T {
         // t_c = 0.915 * R_0 * sqrt(ρ / Δp)
-        T::from_f64(0.915).unwrap_or_else(|| T::one()) * self.initial_radius.clone() * 
-            (self.liquid_density.clone() / pressure_difference).sqrt()
+        T::from_f64(0.915).unwrap_or_else(|| T::one()) * self.initial_radius * 
+            (self.liquid_density / pressure_difference).sqrt()
     }
 }
 
@@ -197,43 +197,43 @@ impl<T: RealField + FromPrimitive> CavitationModel<T> {
     ) -> T {
         match self {
             CavitationModel::Kunz { vaporization_coeff, condensation_coeff } => {
-                let pressure_diff = pressure.clone() - vapor_pressure.clone();
+                let pressure_diff = pressure - vapor_pressure;
                 
                 if pressure_diff < T::zero() {
                     // Vaporization
-                    let rate = vaporization_coeff.clone() * density_vapor.clone() * 
-                        (T::one() - void_fraction.clone()) * pressure_diff.abs() / 
-                        (T::from_f64(0.5).unwrap_or_else(|| T::one()) * density_liquid.clone());
+                    let rate = vaporization_coeff * density_vapor * 
+                        (T::one() - void_fraction) * pressure_diff.abs() / 
+                        (T::from_f64(0.5).unwrap_or_else(|| T::one()) * density_liquid);
                     rate
                 } else {
                     // Condensation
-                    let rate = condensation_coeff.clone() * density_vapor.clone() * 
-                        void_fraction.clone() * pressure_diff / 
-                        (T::from_f64(0.5).unwrap_or_else(|| T::one()) * density_liquid.clone());
+                    let rate = condensation_coeff * density_vapor * 
+                        void_fraction * pressure_diff / 
+                        (T::from_f64(0.5).unwrap_or_else(|| T::one()) * density_liquid);
                     -rate
                 }
             },
             
             CavitationModel::SchnerrSauer { bubble_density, initial_radius: _ } => {
                 // Calculate bubble radius from void fraction
-                let n_b = bubble_density.clone();
-                let alpha = void_fraction.clone();
+                let n_b = bubble_density;
+                let alpha = void_fraction;
                 
                 // R_B = [(3α)/(4πn_B(1-α))]^(1/3)
                 let denominator = T::from_f64(4.0 * std::f64::consts::PI).unwrap_or_else(|| T::one()) * 
-                    n_b.clone() * (T::one() - alpha.clone());
+                    n_b * (T::one() - alpha);
                 
                 if denominator > T::from_f64(1e-10).unwrap_or_else(|| T::one()) {
-                    let radius_cubed = T::from_f64(3.0).unwrap_or_else(|| T::one()) * alpha.clone() / denominator;
+                    let radius_cubed = T::from_f64(3.0).unwrap_or_else(|| T::one()) * alpha / denominator;
                     let radius = radius_cubed.powf(T::from_f64(1.0/3.0).unwrap_or_else(|| T::one()));
                     
                     // Mass transfer rate
                     let pressure_diff = pressure - vapor_pressure;
                     let sign = if pressure_diff < T::zero() { T::one() } else { -T::one() };
                     
-                    let rate = sign * T::from_f64(3.0).unwrap_or_else(|| T::one()) * alpha.clone() * (T::one() - alpha) * 
-                        density_vapor.clone() * (T::from_f64(2.0/3.0).unwrap_or_else(|| T::one()) * 
-                        pressure_diff.abs() / density_liquid.clone()).sqrt() / radius;
+                    let rate = sign * T::from_f64(3.0).unwrap_or_else(|| T::one()) * alpha * (T::one() - alpha) * 
+                        density_vapor * (T::from_f64(2.0/3.0).unwrap_or_else(|| T::one()) * 
+                        pressure_diff.abs() / density_liquid).sqrt() / radius;
                     
                     rate
                 } else {
@@ -242,20 +242,20 @@ impl<T: RealField + FromPrimitive> CavitationModel<T> {
             },
             
             CavitationModel::ZGB { nucleation_fraction, bubble_radius, f_vap, f_cond } => {
-                let pressure_diff = pressure - vapor_pressure.clone();
-                let r_b = bubble_radius.clone();
+                let pressure_diff = pressure - vapor_pressure;
+                let r_b = bubble_radius;
                 
                 if pressure_diff < T::zero() {
                     // Vaporization
-                    let rate = f_vap.clone() * T::from_f64(3.0).unwrap_or_else(|| T::one()) * 
-                        nucleation_fraction.clone() * (T::one() - void_fraction.clone()) * 
-                        density_vapor.clone() * (T::from_f64(2.0/3.0).unwrap_or_else(|| T::one()) * 
-                        pressure_diff.abs() / density_liquid.clone()).sqrt() / r_b;
+                    let rate = f_vap * T::from_f64(3.0).unwrap_or_else(|| T::one()) * 
+                        nucleation_fraction * (T::one() - void_fraction) * 
+                        density_vapor * (T::from_f64(2.0/3.0).unwrap_or_else(|| T::one()) * 
+                        pressure_diff.abs() / density_liquid).sqrt() / r_b;
                     rate
                 } else {
                     // Condensation
-                    let rate = f_cond.clone() * T::from_f64(3.0).unwrap_or_else(|| T::one()) * 
-                        void_fraction.clone() * density_vapor * 
+                    let rate = f_cond * T::from_f64(3.0).unwrap_or_else(|| T::one()) * 
+                        void_fraction * density_vapor * 
                         (T::from_f64(2.0/3.0).unwrap_or_else(|| T::one()) * pressure_diff / 
                         density_liquid).sqrt() / r_b;
                     -rate
@@ -295,30 +295,30 @@ pub struct VenturiCavitation<T: RealField> {
 impl<T: RealField + FromPrimitive> VenturiCavitation<T> {
     /// Calculate throat velocity using continuity
     pub fn throat_velocity(&self, inlet_velocity: T) -> T {
-        let area_ratio = (self.inlet_diameter.clone() / self.throat_diameter.clone()).powi(2);
+        let area_ratio = (self.inlet_diameter / self.throat_diameter).powi(2);
         inlet_velocity * area_ratio
     }
     
     /// Calculate pressure at throat using Bernoulli
     pub fn throat_pressure(&self, inlet_velocity: T) -> T {
-        let v_throat = self.throat_velocity(inlet_velocity.clone());
+        let v_throat = self.throat_velocity(inlet_velocity);
         
         // p_throat = p_inlet - 0.5 * ρ * (v_throat² - v_inlet²)
-        let dynamic_diff = T::from_f64(0.5).unwrap_or_else(|| T::one()) * self.fluid_density.clone() * 
-            (v_throat.clone() * v_throat - inlet_velocity.clone() * inlet_velocity);
+        let dynamic_diff = T::from_f64(0.5).unwrap_or_else(|| T::one()) * self.fluid_density * 
+            (v_throat * v_throat - inlet_velocity * inlet_velocity);
         
-        self.inlet_pressure.clone() - dynamic_diff
+        self.inlet_pressure - dynamic_diff
     }
     
     /// Calculate cavitation number at throat
     pub fn throat_cavitation_number(&self, inlet_velocity: T) -> T {
-        let p_throat = self.throat_pressure(inlet_velocity.clone());
+        let p_throat = self.throat_pressure(inlet_velocity);
         let v_throat = self.throat_velocity(inlet_velocity);
         
         let cav = CavitationNumber {
             reference_pressure: p_throat,
-            vapor_pressure: self.vapor_pressure.clone(),
-            density: self.fluid_density.clone(),
+            vapor_pressure: self.vapor_pressure,
+            density: self.fluid_density,
             velocity: v_throat,
         };
         
@@ -328,7 +328,7 @@ impl<T: RealField + FromPrimitive> VenturiCavitation<T> {
     /// Calculate pressure recovery coefficient
     pub fn pressure_recovery_coefficient(&self) -> T {
         // C_pr = 1 - (A_throat/A_outlet)²
-        let area_ratio = (self.throat_diameter.clone() / self.outlet_diameter.clone()).powi(2);
+        let area_ratio = (self.throat_diameter / self.outlet_diameter).powi(2);
         T::one() - area_ratio
     }
     
@@ -339,11 +339,11 @@ impl<T: RealField + FromPrimitive> VenturiCavitation<T> {
         
         // σ = (p_inlet - p_v - 0.5*ρ*(v_throat² - v_inlet²)) / (0.5*ρ*v_throat²)
         // Solving for v_inlet when σ = σ_inception
-        let area_ratio = (self.inlet_diameter.clone() / self.throat_diameter.clone()).powi(2);
-        let ar2 = area_ratio.clone() * area_ratio.clone();
+        let area_ratio = (self.inlet_diameter / self.throat_diameter).powi(2);
+        let ar2 = area_ratio * area_ratio;
         
-        let numerator = T::from_f64(2.0).unwrap_or_else(|| T::one()) * (self.inlet_pressure.clone() - self.vapor_pressure.clone());
-        let denominator = self.fluid_density.clone() * (ar2 * (T::one() + sigma_inception) - T::one());
+        let numerator = T::from_f64(2.0).unwrap_or_else(|| T::one()) * (self.inlet_pressure - self.vapor_pressure);
+        let denominator = self.fluid_density * (ar2 * (T::one() + sigma_inception) - T::one());
         
         if denominator > T::zero() {
             (numerator / denominator).sqrt()
@@ -372,13 +372,13 @@ impl<T: RealField + FromPrimitive> CavitationDamage<T> {
     /// Calculate erosion rate (Hammitt model)
     pub fn erosion_rate(&self) -> T {
         // E = K * (p_collapse - p_threshold)^n * f * A
-        let threshold = self.material_hardness.clone() * T::from_f64(0.1).unwrap_or_else(|| T::one());
+        let threshold = self.material_hardness * T::from_f64(0.1).unwrap_or_else(|| T::one());
         
         if self.collapse_pressure > threshold {
-            let intensity = (self.collapse_pressure.clone() - threshold).powf(T::from_f64(2.0).unwrap_or_else(|| T::one()));
+            let intensity = (self.collapse_pressure - threshold).powf(T::from_f64(2.0).unwrap_or_else(|| T::one()));
             let rate = T::from_f64(1e-12).unwrap_or_else(|| T::one()) * intensity * 
-                self.collapse_frequency.clone() * self.affected_area.clone() / 
-                self.material_resilience.clone();
+                self.collapse_frequency * self.affected_area / 
+                self.material_resilience;
             rate
         } else {
             T::zero()
@@ -387,7 +387,7 @@ impl<T: RealField + FromPrimitive> CavitationDamage<T> {
     
     /// Calculate cavitation intensity parameter
     pub fn intensity_parameter(&self) -> T {
-        self.collapse_pressure.clone() * self.collapse_frequency.clone().sqrt()
+        self.collapse_pressure * self.collapse_frequency.sqrt()
     }
 }
 
