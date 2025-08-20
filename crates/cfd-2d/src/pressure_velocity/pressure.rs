@@ -20,7 +20,7 @@ impl<T: RealField + FromPrimitive + Copy> PressureCorrectionSolver<T> {
             base: cfd_core::solver::SolverConfig::builder()
                 .max_iterations(1000)
                 .tolerance(T::from_f64(1e-8).unwrap_or_else(|| T::zero()))
-                .build_base(),
+                .build(),
             restart: 50,
             use_preconditioner: true,
         };

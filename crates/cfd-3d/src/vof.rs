@@ -561,7 +561,7 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
     pub fn total_volume(&self) -> T {
         let cell_volume = self.dx * self.dy * self.dz;
         self.alpha.iter()
-            .map(|a| a * cell_volume)
+            .map(|a| *a * cell_volume)
             .fold(T::zero(), |acc, v| acc + v)
     }
     

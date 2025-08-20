@@ -117,7 +117,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         
         let fluid = network.fluid();
         
-        for edge in network.edges() {
+        for edge in network.edges_with_properties() {
             if let Some(flow_rate) = edge.flow_rate {
                 component_flows.insert(edge.id.clone(), flow_rate.clone());
                 
@@ -181,7 +181,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         }
         
         // Collect pressure drops and gradients
-        for edge in network.edges() {
+        for edge in network.edges_with_properties() {
             if let Some(pressure_drop) = edge.pressure_drop {
                 pressure_drops.insert(edge.id.clone(), pressure_drop.clone());
                 
@@ -583,7 +583,7 @@ use cfd_core::solver::LinearSolverConfig;;
     fn calculate_power_consumption(&self, network: &Network<T>) -> T {
         let mut total_power = T::zero();
         
-        for edge in network.edges() {
+        for edge in network.edges_with_properties() {
             if let (Some(flow_rate), Some(pressure_drop)) = (edge.flow_rate, edge.pressure_drop) {
                 // Hydraulic power = flow_rate * pressure_drop
                 total_power += ComplexField::abs(flow_rate * pressure_drop);
@@ -597,7 +597,7 @@ use cfd_core::solver::LinearSolverConfig;;
     fn calculate_residence_times(&self, network: &Network<T>) -> HashMap<String, T> {
         let mut residence_times = HashMap::new();
         
-        for edge in network.edges() {
+        for edge in network.edges_with_properties() {
             if let Some(flow_rate) = edge.flow_rate {
                 if flow_rate > T::zero() {
                     // Calculate volume from area and length if available

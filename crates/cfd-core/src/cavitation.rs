@@ -216,7 +216,7 @@ impl<T: RealField + FromPrimitive + Copy> CavitationModel<T> {
             
             CavitationModel::SchnerrSauer { bubble_density, initial_radius: _ } => {
                 // Calculate bubble radius from void fraction
-                let n_b = bubble_density;
+                let n_b = *bubble_density;
                 let alpha = void_fraction;
                 
                 // R_B = [(3α)/(4πn_B(1-α))]^(1/3)

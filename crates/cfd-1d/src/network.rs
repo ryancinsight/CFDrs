@@ -72,8 +72,7 @@ impl<T: RealField> ChannelProperties<T> {
 /// Node properties (for compatibility)
 pub type NodeProperties<T> = Node<T>;
 
-/// Edge properties (for compatibility)
-pub type EdgeProperties<T> = ChannelProperties<T>;
+
 
 /// Network metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -241,13 +240,32 @@ impl<T: RealField + FromPrimitive + Copy> Network<T> {
         &self.graph
     }
     
-    /// Get iterator over edges
+    /// Get iterator over edges (returns EdgeData for solver use)
     pub fn edges(&self) -> impl Iterator<Item = EdgeData<T>> + '_ {
         self.graph.edge_references()
             .map(|edge| EdgeData {
                 nodes: (edge.source().index(), edge.target().index()),
                 conductance: T::one() / edge.weight().resistance.clone(),
             })
+    }
+    
+    /// Get iterator over edges with full properties (for analysis)
+    pub fn edges_with_properties(&self) -> impl Iterator<Item = EdgeProperties<T>> + '_ {
+        self.edge_indices.iter().filter_map(move |(id, &idx)| {
+            self.graph.edge_endpoints(idx).map(|(s, t)| {
+                let edge = &self.graph[idx];
+                EdgeProperties {
+                    id: id.clone(),
+                    nodes: (s.index(), t.index()),
+                    properties: edge.clone(),
+                    flow_rate: if idx.index() < self.flow_rates.len() {
+                        Some(self.flow_rates[idx.index()])
+                    } else {
+                        None
+                    },
+                }
+            })
+        })
     }
     
     /// Get iterator over nodes
@@ -288,4 +306,12 @@ impl<T: RealField + FromPrimitive + Copy> Network<T> {
 pub struct EdgeData<T: RealField> {
     pub nodes: (usize, usize),
     pub conductance: T,
+}
+
+/// Edge with full properties for analysis
+pub struct EdgeProperties<T: RealField> {
+    pub id: String,
+    pub nodes: (usize, usize),
+    pub properties: ChannelProperties<T>,
+    pub flow_rate: Option<T>,
 }

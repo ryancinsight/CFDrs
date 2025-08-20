@@ -33,20 +33,16 @@ pub struct SolverConfig<T: RealField> {
 }
 
 impl<T: RealField + Copy> cfd_core::solver::SolverConfiguration<T> for SolverConfig<T> {
-    fn tolerance(&self) -> T {
-        self.tolerance
-    }
-    
     fn max_iterations(&self) -> usize {
         self.max_iterations
     }
     
-    fn verbosity(&self) -> u8 {
-        0 // Default verbosity
+    fn tolerance(&self) -> T {
+        self.tolerance
     }
     
-    fn parallel(&self) -> bool {
-        true // Enable parallel by default
+    fn use_preconditioning(&self) -> bool {
+        false // No preconditioning for network solver
     }
 }
 
@@ -155,7 +151,7 @@ impl<T: RealField + FromPrimitive + Copy> Validatable<T> for NetworkSolver<T> {
         Ok(())
     }
 
-    fn can_handle(&self, _problem: &Self::Problem) -> bool {
+    fn can_solve(&self, _problem: &Self::Problem) -> bool {
         true // Can handle any network problem
     }
 }

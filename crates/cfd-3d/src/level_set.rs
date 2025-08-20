@@ -391,7 +391,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
         let mut phi_temp = self.phi;
         let epsilon = T::from_f64(EPSILON_SMOOTHING).unwrap_or_else(|| T::zero()) * self.dx;
         let sign_phi = self.phi.iter()
-            .map(|p| self.smooth_sign(p, epsilon))
+            .map(|p| self.smooth_sign(*p, epsilon))
             .collect::<Vec<_>>();
         
         let dtau = T::from_f64(0.5).unwrap_or_else(|| T::zero()) * self.dx.min(self.dy).min(self.dz);
@@ -442,7 +442,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
             // Check convergence
             let error = phi_temp.iter()
                 .zip(phi_previous_temp.iter())
-                .map(|(p1, p2)| (p1 - p2).abs())
+                .map(|(p1, p2)| (*p1 - *p2).abs())
                 .fold(T::zero(), |acc, x| acc.max(x));
             
             if error < T::from_f64(self.config.tolerance).unwrap_or_else(|| T::zero()) {
@@ -517,13 +517,13 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
             .map(|p| {
                 let p = p;
                 let eps = T::from_f64(EPSILON_SMOOTHING).unwrap_or_else(|| T::zero()) * self.dx;
-                if p > eps {
+                if *p > eps {
                     T::zero()
-                } else if p < -eps {
+                } else if *p < -eps {
                     T::one()
                 } else {
-                    T::from_f64(0.5).unwrap_or_else(|| T::zero()) * (T::one() - p / eps 
-                        - ComplexField::sin(T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero()) * p / eps) 
+                    T::from_f64(0.5).unwrap_or_else(|| T::zero()) * (T::one() - *p / eps 
+                        - ComplexField::sin(T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero()) * *p / eps) 
                         / T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero()))
                 }
             })
