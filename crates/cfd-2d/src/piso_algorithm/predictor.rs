@@ -37,8 +37,8 @@ impl<T: RealField + FromPrimitive + Copy> VelocityPredictor<T> {
         fields: &mut SimulationFields<T>,
         dt: T,
     ) -> Result<()> {
-        let mut u_star = Field2D::new(self.nx, self.ny);
-        let mut v_star = Field2D::new(self.nx, self.ny);
+        let mut u_star = Field2D::new(self.nx, self.ny, T::zero());
+        let mut v_star = Field2D::new(self.nx, self.ny, T::zero());
 
         // Solve momentum equations without pressure gradient
         for i in 1..self.nx-1 {

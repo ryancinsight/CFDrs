@@ -53,10 +53,10 @@ impl<T: RealField + FromPrimitive + Copy> MomentumSolver<T> {
     /// Create a new momentum solver
     pub fn new(grid: &StructuredGrid2D<T>) -> Self {
         Self {
-            nx: grid.nx(),
-            ny: grid.ny(),
-            dx: grid.dx(),
-            dy: grid.dy(),
+            nx: grid.nx,
+            ny: grid.ny,
+            dx: grid.dx,
+            dy: grid.dy,
             boundary_conditions: HashMap::new(),
         }
     }
@@ -94,12 +94,12 @@ impl<T: RealField + FromPrimitive + Copy> MomentumSolver<T> {
         dt: T,
     ) -> cfd_core::Result<MomentumCoefficients<T>> {
         let mut coeffs = MomentumCoefficients {
-            ap: Field2D::new(self.nx, self.ny),
-            ae: Field2D::new(self.nx, self.ny),
-            aw: Field2D::new(self.nx, self.ny),
-            an: Field2D::new(self.nx, self.ny),
-            as_: Field2D::new(self.nx, self.ny),
-            source: Field2D::new(self.nx, self.ny),
+            ap: Field2D::new(self.nx, self.ny, T::zero()),
+            ae: Field2D::new(self.nx, self.ny, T::zero()),
+            aw: Field2D::new(self.nx, self.ny, T::zero()),
+            an: Field2D::new(self.nx, self.ny, T::zero()),
+            as_: Field2D::new(self.nx, self.ny, T::zero()),
+            source: Field2D::new(self.nx, self.ny, T::zero()),
         };
 
         // Calculate diffusion coefficients
@@ -314,14 +314,16 @@ impl<T: RealField + FromPrimitive + Copy> MomentumSolver<T> {
 
 impl<T: RealField> MomentumCoefficients<T> {
     /// Create new coefficient structure
-    pub fn new(nx: usize, ny: usize) -> Self {
+    pub fn new(nx: usize, ny: usize) -> Self 
+    where T: num_traits::Zero
+    {
         Self {
-            ap: Field2D::new(nx, ny),
-            ae: Field2D::new(nx, ny),
-            aw: Field2D::new(nx, ny),
-            an: Field2D::new(nx, ny),
-            as_: Field2D::new(nx, ny),
-            source: Field2D::new(nx, ny),
+            ap: Field2D::new(nx, ny, T::zero()),
+            ae: Field2D::new(nx, ny, T::zero()),
+            aw: Field2D::new(nx, ny, T::zero()),
+            an: Field2D::new(nx, ny, T::zero()),
+            as_: Field2D::new(nx, ny, T::zero()),
+            source: Field2D::new(nx, ny, T::zero()),
         }
     }
 }

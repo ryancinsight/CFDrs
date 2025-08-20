@@ -31,7 +31,7 @@ mod constants {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FemConfig<T: RealField> {
     /// Base solver configuration
-    pub base: cfd_core::SolverConfig<T>,
+    pub base: cfd_core::solver::SolverConfig<T>,
     /// Use SUPG/PSPG stabilization
     pub use_stabilization: bool,
     /// Stabilization parameter
@@ -45,7 +45,7 @@ pub struct FemConfig<T: RealField> {
 impl<T: RealField + FromPrimitive> Default for FemConfig<T> {
     fn default() -> Self {
         Self {
-            base: cfd_core::SolverConfig::default(),
+            base: cfd_core::solver::SolverConfig::default(),
             use_stabilization: true,
             tau: T::from_f64(constants::DEFAULT_STABILIZATION).unwrap_or_else(|| T::zero()),
             dt: None,
@@ -645,7 +645,7 @@ impl<T: RealField + FromPrimitive + Clone + num_traits::Float> FemSolver<T> {
 
         // Use BiCGSTAB solver for the saddle-point system
         use cfd_math::linear_solver::{BiCGSTAB, LinearSolver};
-        let solver_config = cfd_core::LinearSolverConfig::default();
+        let solver_config = cfd_core::solver::LinearSolverConfig::default();
         let solver = BiCGSTAB::new(solver_config);
 
         let solution = solver.solve(&a_matrix, &b_vector, None)?;

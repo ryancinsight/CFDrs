@@ -30,10 +30,10 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
         bc: &cfd_core::boundary::BoundaryCondition<T>,
         nu: T,
     ) -> cfd_core::error::Result<Vec<Vec<Vector2<T>>>> {
-        let nx = self.grid.nx();
-        let ny = self.grid.ny();
-        let dx = self.grid.dx();
-        let dy = self.grid.dy();
+        let nx = self.grid.nx;
+        let ny = self.grid.ny;
+        let dx = self.grid.dx;
+        let dy = self.grid.dy;
         
         let mut u_star = u.clone();
         
@@ -165,8 +165,8 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
         u: &mut Vec<Vec<Vector2<T>>>,
         bc: &cfd_core::boundary::BoundaryCondition<T>,
     ) -> cfd_core::error::Result<()> {
-        let nx = self.grid.nx();
-        let ny = self.grid.ny();
+        let nx = self.grid.nx;
+        let ny = self.grid.ny;
         
         // Apply boundary conditions based on type
         match bc {

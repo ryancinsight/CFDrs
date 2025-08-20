@@ -43,10 +43,10 @@ impl<T: RealField + FromPrimitive> PressureCorrectionSolver<T> {
         dt: T,
         rho: T,
     ) -> cfd_core::error::Result<Vec<Vec<T>>> {
-        let nx = self.grid.nx();
-        let ny = self.grid.ny();
-        let dx = self.grid.dx();
-        let dy = self.grid.dy();
+        let nx = self.grid.nx;
+        let ny = self.grid.ny;
+        let dx = self.grid.dx;
+        let dy = self.grid.dy;
         
         // Build discrete Laplacian matrix and divergence source term
         let n = (nx - 2) * (ny - 2); // Interior points only
@@ -123,10 +123,10 @@ impl<T: RealField + FromPrimitive> PressureCorrectionSolver<T> {
         rho: T,
         alpha: T,
     ) {
-        let nx = self.grid.nx();
-        let ny = self.grid.ny();
-        let dx = self.grid.dx();
-        let dy = self.grid.dy();
+        let nx = self.grid.nx;
+        let ny = self.grid.ny;
+        let dx = self.grid.dx;
+        let dy = self.grid.dy;
         
         let factor = dt / rho;
         
@@ -150,8 +150,8 @@ impl<T: RealField + FromPrimitive> PressureCorrectionSolver<T> {
         p_correction: &Vec<Vec<T>>,
         alpha: T,
     ) {
-        let nx = self.grid.nx();
-        let ny = self.grid.ny();
+        let nx = self.grid.nx;
+        let ny = self.grid.ny;
         
         for i in 0..nx {
             for j in 0..ny {

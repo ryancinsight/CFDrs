@@ -33,8 +33,8 @@ impl<T: RealField + FromPrimitive> PressureVelocitySolver<T> {
     ) -> cfd_core::error::Result<Self> {
         config.validate()?;
         
-        let nx = grid.nx();
-        let ny = grid.ny();
+        let nx = grid.nx;
+        let ny = grid.ny;
         
         let momentum_solver = MomentumSolver::new(grid.clone(), config.clone());
         let pressure_solver = PressureCorrectionSolver::new(grid.clone())?;
@@ -142,8 +142,8 @@ impl<T: RealField + FromPrimitive> PressureVelocitySolver<T> {
         u_old: &Vec<Vec<Vector2<T>>>,
         u_new: &Vec<Vec<Vector2<T>>>,
     ) -> T {
-        let nx = self.grid.nx();
-        let ny = self.grid.ny();
+        let nx = self.grid.nx;
+        let ny = self.grid.ny;
         
         let mut max_diff = T::zero();
         for i in 1..nx-1 {

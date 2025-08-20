@@ -3,7 +3,7 @@
 use nalgebra::{DMatrix, DVector, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
-use cfd_core::{Result, SolverConfiguration};
+use cfd_core::Result;
 use super::basis::SpectralBasis;
 use super::poisson::PoissonSolver;
 
@@ -11,7 +11,7 @@ use super::poisson::PoissonSolver;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpectralConfig<T: RealField> {
     /// Base solver configuration
-    pub base: cfd_core::SolverConfig<T>,
+    pub base: cfd_core::solver::SolverConfig<T>,
     /// Number of modes in x direction
     pub nx_modes: usize,
     /// Number of modes in y direction
@@ -30,7 +30,7 @@ impl<T: RealField + FromPrimitive> SpectralConfig<T> {
     /// Create new configuration with validation
     pub fn new(nx: usize, ny: usize, nz: usize) -> Result<Self> {
         Ok(Self {
-            base: cfd_core::SolverConfig::builder()
+            base: cfd_core::solver::SolverConfig::builder()
                 .tolerance(T::from_f64(1e-10)
                     .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                         "Cannot convert tolerance".into()
