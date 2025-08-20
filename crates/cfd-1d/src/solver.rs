@@ -14,8 +14,8 @@ use crate::network::{Network, BoundaryCondition};
 use petgraph::visit::EdgeRef;
 use cfd_core::{
     Result, Problem, Solver, Configurable, Validatable, 
-    NetworkSolverConfig, Error as CoreError, Domain,
-    SolverConfiguration
+    NetworkSolverConfig, Error as CoreError,
+    SolverConfiguration, domain::Domain
 };
 use nalgebra::{RealField, DVector};
 use nalgebra_sparse::{CsrMatrix, coo::CooMatrix};

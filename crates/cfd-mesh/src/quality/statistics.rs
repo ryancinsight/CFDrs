@@ -1,8 +1,9 @@
 //! Statistical analysis for mesh quality metrics
 
 use nalgebra::RealField;
-use num_traits::Float;
+use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};
+use std::iter::Sum;
 
 /// Statistical summary of quality metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]

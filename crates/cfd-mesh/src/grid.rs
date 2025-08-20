@@ -32,6 +32,8 @@ pub enum GridError {
     GenerationFailed(String),
     #[error("Transformation error: {0}")]
     TransformationError(String),
+    #[error("Invalid grid: {0}")]
+    InvalidGrid(String),
 }
 
 /// Grid coordinate system

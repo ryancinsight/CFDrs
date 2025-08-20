@@ -3,6 +3,17 @@
 use nalgebra::{Point3, RealField};
 use std::collections::HashSet;
 
+/// Mesh element representation
+#[derive(Debug, Clone)]
+pub struct Element<T: RealField> {
+    /// Indices of vertices that form this element
+    pub vertices: Vec<usize>,
+    /// Type of the element
+    pub element_type: ElementType,
+    /// Phantom data for type parameter
+    _phantom: std::marker::PhantomData<T>,
+}
+
 /// Element type classification for mesh cells
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ElementType {
@@ -225,6 +236,27 @@ impl<T: RealField> Mesh<T> {
         };
     }
 
+    /// Get mesh elements (cells as elements)
+    pub fn elements(&self) -> Vec<Element<T>> {
+        self.cells.iter().map(|cell| {
+            // Collect all unique vertices from the cell's faces
+            let mut vertex_indices = HashSet::new();
+            for &face_idx in &cell.faces {
+                if let Some(face) = self.faces.get(face_idx) {
+                    for &vertex_idx in &face.vertices {
+                        vertex_indices.insert(vertex_idx);
+                    }
+                }
+            }
+            
+            Element {
+                vertices: vertex_indices.into_iter().collect(),
+                element_type: cell.element_type,
+                _phantom: std::marker::PhantomData,
+            }
+        }).collect()
+    }
+    
     /// Validate mesh consistency
     pub fn validate(&self) -> Result<(), String> {
         // Check that all cells have valid element types and vertex counts

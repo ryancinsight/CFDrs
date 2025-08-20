@@ -3,7 +3,8 @@
 //! This module provides advanced channel modeling capabilities including
 //! complex geometries, surface effects, and flow regime transitions.
 
-use cfd_core::fluid::Fluid; use cfd_core::error::{, Result};
+use cfd_core::fluid::Fluid;
+use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use num_traits::Float as _; // bring Float methods into scope for T
