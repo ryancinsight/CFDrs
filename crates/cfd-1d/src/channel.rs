@@ -3,14 +3,14 @@
 //! This module provides advanced channel modeling capabilities including
 //! complex geometries, surface effects, and flow regime transitions.
 
-use cfd_core::{Fluid, Result};
+use cfd_core::fluid::Fluid; use cfd_core::error::{, Result};
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use num_traits::Float as _; // bring Float methods into scope for T
 use serde::{Deserialize, Serialize};
 // Removed unused import following YAGNI principle
 
-/// Advanced channel geometry representation
+/// Extended channel geometry representation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelGeometry<T: RealField> {
     /// Channel type
@@ -126,7 +126,7 @@ pub struct GeometricVariation<T: RealField> {
     pub roughness_factor: T,
 }
 
-/// Advanced channel flow model
+/// Extended channel flow model
 pub struct Channel<T: RealField> {
     /// Channel geometry
     pub geometry: ChannelGeometry<T>,
@@ -478,7 +478,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
         let laminar_r = self.calculate_laminar_resistance(fluid)?;
         let turbulent_r = self.calculate_turbulent_resistance(fluid)?;
 
-        // Simple linear interpolation (could be improved)
+        // Standard linear interpolation (could be improved)
         let blend_factor = T::from_f64(0.5).unwrap_or_else(|| T::zero());
         Ok(laminar_r * (T::one() - blend_factor.clone()) + turbulent_r * blend_factor)
     }

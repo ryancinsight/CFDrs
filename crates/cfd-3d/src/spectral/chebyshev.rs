@@ -66,7 +66,7 @@ impl<T: RealField + FromPrimitive> ChebyshevPolynomial<T> {
         for i in 0..n {
             for j in 0..n {
                 if i != j {
-                    let num = c[i] * T::from_i32(if (i + j) % 2 == 0 { 1 } else { -1 }).unwrap();
+                    let num = c[i] * T::from_i32(if (i + j) % 2 == 0 { 1 } else { -1 }).expect("CRITICAL: Add proper error handling");
                     let den = c[j] * (points[i] - points[j]);
                     d[(i, j)] = num / den;
                 }

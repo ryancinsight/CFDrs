@@ -1,4 +1,4 @@
-//! Advanced preconditioners for iterative linear solvers
+//! Extended preconditioners for iterative linear solvers
 //!
 //! This module provides state-of-the-art preconditioning techniques
 //! essential for practical CFD applications.
@@ -375,7 +375,7 @@ mod tests {
             }
         }
         
-        CsrMatrix::try_from_triplets(n, n, triplets).unwrap()
+        CsrMatrix::try_from_triplets(n, n, triplets).expect("CRITICAL: Add proper error handling")
     }
     
     #[test]

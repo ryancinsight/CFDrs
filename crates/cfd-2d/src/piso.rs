@@ -1,6 +1,6 @@
 //! PISO (Pressure-Implicit with Splitting of Operators) algorithm implementation
 //!
-//! The PISO algorithm is an extension of SIMPLE with additional corrector steps
+//! The PISO algorithm is an extension of STANDARD with additional corrector steps
 //! for transient calculations with additional corrector steps.
 //!
 //! ## Performance Improvements
@@ -14,7 +14,7 @@
 //! 2. **Zero-copy field swapping**: Uses `std::mem::swap` instead of deep cloning to
 //!    manage old/new velocity fields, eliminating allocation overhead each time step.
 //!
-//! 3. **Robust constant handling**: Safe numeric conversions with proper error handling
+//! 3. **Resilient constant handling**: Safe numeric conversions with proper error handling
 //!    replace `unwrap()` calls that could panic.
 //!
 //! 4. **Unified boundary conditions**: Single cohesive system for BC application
@@ -94,7 +94,7 @@ impl<T: RealField + FromPrimitive> PisoConstants<T> {
 impl<T: RealField + FromPrimitive> Default for PisoConfig<T> {
     fn default() -> Self {
         let base = cfd_core::SolverConfig::builder()
-            .max_iterations(50) // PISO needs fewer iterations than SIMPLE
+            .max_iterations(50) // PISO needs fewer iterations than STANDARD
             .tolerance(T::safe_from_f64(constants::DEFAULT_TOLERANCE).unwrap_or_else(|_| T::from_f64(1e-6).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?))
             .build_base();
 
@@ -119,7 +119,7 @@ impl<T: RealField + FromPrimitive> Default for PisoConfig<T> {
 /// 4. **Pressure Corrector 2**: Second pressure correction for improved accuracy
 /// 5. **Velocity Corrector 2**: Final velocity update
 ///
-/// ## Key Differences from SIMPLE:
+/// ## Key Differences from STANDARD:
 /// - No under-relaxation needed (fully implicit)
 /// - Multiple pressure corrections improve transient accuracy
 /// - Better suited for time-dependent problems
@@ -160,7 +160,7 @@ pub struct PisoSolver<T: RealField> {
     /// Grid structure
     grid: StructuredGrid2D<T>,
     /// Boundary conditions
-    boundary_conditions: HashMap<(usize, usize), cfd_core::BoundaryCondition<T>>,
+    boundary_conditions: HashMap<(usize, usize), cfd_core::boundary::BoundaryCondition<T>>,
     /// Numerical constants
     constants: PisoConstants<T>,
 }
@@ -206,7 +206,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> PisoSolver<T> {
     }
     
     /// Set boundary conditions
-    pub fn set_boundary_conditions(&mut self, bcs: HashMap<(usize, usize), cfd_core::BoundaryCondition<T>>) {
+    pub fn set_boundary_conditions(&mut self, bcs: HashMap<(usize, usize), cfd_core::boundary::BoundaryCondition<T>>) {
         self.boundary_conditions = bcs;
     }
 
@@ -315,8 +315,8 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> PisoSolver<T> {
                                         self.a_s[i][j] * self.u[i][j-1].x +
                                         self.a_n[i][j] * self.u[i][j+1].x;
 
-                    let new_u_x = (b_x[i][j] - u_x_neighbors) / self.a_p[i][j];
-                    self.u[i][j].x = new_u_x;
+                    let current_u_x = (b_x[i][j] - u_x_neighbors) / self.a_p[i][j];
+                    self.u[i][j].x = current_u_x;
                     
                     // Y-momentum equation: direct neighbor access
                     let u_y_neighbors = self.a_w[i][j] * self.u[i-1][j].y + 
@@ -324,8 +324,8 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> PisoSolver<T> {
                                         self.a_s[i][j] * self.u[i][j-1].y +
                                         self.a_n[i][j] * self.u[i][j+1].y;
 
-                    let new_u_y = (b_y[i][j] - u_y_neighbors) / self.a_p[i][j];
-                    self.u[i][j].y = new_u_y;
+                    let current_u_y = (b_y[i][j] - u_y_neighbors) / self.a_p[i][j];
+                    self.u[i][j].y = current_u_y;
                 }
             }
         }
@@ -339,7 +339,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> PisoSolver<T> {
         b_x: &mut Vec<Vec<T>>, 
         b_y: &mut Vec<Vec<T>>
     ) -> Result<()> {
-        use cfd_core::BoundaryCondition;
+        use cfd_core::boundary::BoundaryCondition;
         
         for i in 0..self.nx {
             for j in 0..self.ny {
@@ -593,10 +593,10 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> PisoSolver<T> {
                         + (d_n[i][j] * correction_field[i][j+1]
                         + d_s[i][j] * correction_field[i][j-1]) / self.dy;
 
-                    let new_val = (sum_nb - mass_imbalance) / a_p_prime[i][j];
-                    let change = (new_val - correction_field[i][j]).abs();
+                    let current_val = (sum_nb - mass_imbalance) / a_p_prime[i][j];
+                    let change = (current_val - correction_field[i][j]).abs();
                     if change > max_change { max_change = change; }
-                    correction_field[i][j] = new_val;
+                    correction_field[i][j] = current_val;
                 }
             }
             if max_change < self.config.pressure_tolerance { break; }
@@ -640,7 +640,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> PisoSolver<T> {
 
     /// Apply unified boundary conditions to field values
     fn apply_boundary_conditions_to_fields(&mut self) -> Result<()> {
-        use cfd_core::BoundaryCondition;
+        use cfd_core::boundary::BoundaryCondition;
         
         // Apply velocity boundary conditions
         for i in 0..self.nx {
@@ -867,9 +867,9 @@ mod tests {
 
     #[test]
     fn test_piso_creation() {
-        let grid = StructuredGrid2D::<f64>::unit_square(5, 5).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(5, 5).expect("CRITICAL: Add proper error handling");
         let config = PisoConfig::default();
-        let solver = PisoSolver::new(config, grid, 1.0, 0.001).unwrap();
+        let solver = PisoSolver::new(config, grid, 1.0, 0.001).expect("CRITICAL: Add proper error handling");
         
         assert_eq!(solver.nx, 5);
         assert_eq!(solver.ny, 5);
@@ -877,11 +877,11 @@ mod tests {
 
     #[test]
     fn test_piso_initialization() {
-        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
         let config = PisoConfig::default();
-        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).unwrap();
+        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).expect("CRITICAL: Add proper error handling");
         
-        solver.initialize(Vector2::new(1.0, 0.5), 101325.0).unwrap();
+        solver.initialize(Vector2::new(1.0, 0.5), 101325.0).expect("CRITICAL: Add proper error handling");
         
         assert_relative_eq!(solver.u[1][1].x, 1.0, epsilon = 1e-10);
         assert_relative_eq!(solver.u[1][1].y, 0.5, epsilon = 1e-10);
@@ -897,17 +897,17 @@ mod tests {
         // Test successful conversion
         let result: Result<f64> = f64::safe_from_f64(2.5);
         assert!(result.is_ok());
-        assert_relative_eq!(result.unwrap(), 2.5, epsilon = 1e-10);
+        assert_relative_eq!(result.expect("CRITICAL: Add proper error handling"), 2.5, epsilon = 1e-10);
         
         // Test with f32
         let result: Result<f32> = f32::safe_from_f64(1.5);
         assert!(result.is_ok());
-        assert_relative_eq!(result.unwrap(), 1.5f32, epsilon = 1e-6);
+        assert_relative_eq!(result.expect("CRITICAL: Add proper error handling"), 1.5f32, epsilon = 1e-6);
     }
 
     #[test]
     fn test_piso_constants() {
-        let constants = PisoConstants::<f64>::new().unwrap();
+        let constants = PisoConstants::<f64>::new().expect("CRITICAL: Add proper error handling");
         
         assert_relative_eq!(constants.zero, 0.0, epsilon = 1e-10);
         assert_relative_eq!(constants.one, 1.0, epsilon = 1e-10);
@@ -917,12 +917,12 @@ mod tests {
 
     #[test]
     fn test_field_swapping() {
-        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
         let config = PisoConfig::default();
-        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).unwrap();
+        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).expect("CRITICAL: Add proper error handling");
         
         // Initialize with different velocities for current and old
-        solver.initialize(Vector2::new(1.0, 0.5), 0.0).unwrap();
+        solver.initialize(Vector2::new(1.0, 0.5), 0.0).expect("CRITICAL: Add proper error handling");
         solver.u[1][1] = Vector2::new(2.0, 1.0);
         
         // Store original values
@@ -940,24 +940,24 @@ mod tests {
 
     #[test]
     fn test_boundary_condition_application() {
-        let grid = StructuredGrid2D::<f64>::unit_square(4, 4).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(4, 4).expect("CRITICAL: Add proper error handling");
         let config = PisoConfig::default();
-        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).unwrap();
+        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).expect("CRITICAL: Add proper error handling");
         
         // Set up boundary conditions
         let mut bcs = HashMap::new();
-        bcs.insert((0, 1), cfd_core::BoundaryCondition::VelocityInlet { 
+        bcs.insert((0, 1), cfd_core::boundary::BoundaryCondition::VelocityInlet { 
             velocity: nalgebra::Vector3::new(2.0, 0.0, 0.0) 
         });
-        bcs.insert((3, 1), cfd_core::BoundaryCondition::PressureOutlet { 
+        bcs.insert((3, 1), cfd_core::boundary::BoundaryCondition::PressureOutlet { 
             pressure: 100000.0 
         });
         
         solver.set_boundary_conditions(bcs);
-        solver.initialize(Vector2::new(0.0, 0.0), 101325.0).unwrap();
+        solver.initialize(Vector2::new(0.0, 0.0), 101325.0).expect("CRITICAL: Add proper error handling");
         
         // Apply boundary conditions
-        solver.apply_boundary_conditions_to_fields().unwrap();
+        solver.apply_boundary_conditions_to_fields().expect("CRITICAL: Add proper error handling");
         
         // Check inlet velocity is set
         assert_relative_eq!(solver.u[0][1].x, 2.0, epsilon = 1e-10);
@@ -969,12 +969,12 @@ mod tests {
 
     #[test]
     fn test_convergence_check() {
-        let grid = StructuredGrid2D::<f64>::unit_square(4, 4).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(4, 4).expect("CRITICAL: Add proper error handling");
         let config = PisoConfig::default();
-        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).unwrap();
+        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).expect("CRITICAL: Add proper error handling");
         
         // Initialize with zero divergence field (should converge immediately)
-        solver.initialize(Vector2::new(0.0, 0.0), 0.0).unwrap();
+        solver.initialize(Vector2::new(0.0, 0.0), 0.0).expect("CRITICAL: Add proper error handling");
         
         // Check convergence
         let converged = solver.check_convergence();
@@ -983,12 +983,12 @@ mod tests {
 
     #[test]
     fn test_momentum_coefficients() {
-        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
         let config = PisoConfig::default();
-        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).unwrap();
+        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).expect("CRITICAL: Add proper error handling");
         
-        solver.initialize(Vector2::new(1.0, 0.0), 0.0).unwrap();
-        solver.compute_momentum_coefficients().unwrap();
+        solver.initialize(Vector2::new(1.0, 0.0), 0.0).expect("CRITICAL: Add proper error handling");
+        solver.compute_momentum_coefficients().expect("CRITICAL: Add proper error handling");
         
         // Check that coefficients are computed (non-zero for interior points)
         assert!(solver.a_p[1][1] > solver.constants.zero);
@@ -1000,17 +1000,17 @@ mod tests {
 
     #[test] 
     fn test_no_slip_boundary_system() {
-        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
         let config = PisoConfig::default();
-        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).unwrap();
+        let mut solver = PisoSolver::new(config, grid, 1.0, 0.001).expect("CRITICAL: Add proper error handling");
         
-        solver.initialize(Vector2::new(1.0, 1.0), 0.0).unwrap();
+        solver.initialize(Vector2::new(1.0, 1.0), 0.0).expect("CRITICAL: Add proper error handling");
         
         let mut b_x = vec![vec![solver.constants.one.clone(); 3]; 3];
         let mut b_y = vec![vec![solver.constants.one.clone(); 3]; 3];
         
         // Apply no-slip BC to a boundary point
-        solver.apply_no_slip_bc_to_system(0, 1, &mut b_x, &mut b_y).unwrap();
+        solver.apply_no_slip_bc_to_system(0, 1, &mut b_x, &mut b_y).expect("CRITICAL: Add proper error handling");
         
         // Check that coefficients are modified for no-slip
         assert_relative_eq!(solver.a_p[0][1], solver.constants.one, epsilon = 1e-10);

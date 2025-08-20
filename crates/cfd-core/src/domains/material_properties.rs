@@ -84,9 +84,9 @@ pub struct WettingProperties<T: RealField> {
     pub adhesion_energy: T,
 }
 
-/// Newtonian fluid implementation
+/// Currenttonian fluid implementation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NewtonianFluid<T: RealField> {
+pub struct CurrenttonianFluid<T: RealField> {
     /// Fluid density
     pub density: T,
     /// Dynamic viscosity
@@ -97,7 +97,7 @@ pub struct NewtonianFluid<T: RealField> {
     pub specific_heat: T,
 }
 
-impl<T: RealField> FluidProperties<T> for NewtonianFluid<T> {
+impl<T: RealField> FluidProperties<T> for CurrenttonianFluid<T> {
     fn density(&self) -> T {
         self.density.clone()
     }
@@ -115,7 +115,7 @@ impl<T: RealField> FluidProperties<T> for NewtonianFluid<T> {
     }
 }
 
-/// Non-Newtonian fluid models
+/// Non-Currenttonian fluid models
 pub mod non_newtonian {
     use super::*;
     
@@ -155,7 +155,7 @@ pub mod non_newtonian {
         }
     }
     
-    // Extension methods for non-Newtonian fluids
+    // Extension methods for non-Currenttonian fluids
     impl<T: RealField> PowerLawFluid<T> {
         pub fn dynamic_viscosity_at_shear_rate(&self, shear_rate: T) -> T {
             // Power-law model: μ = K * γ^(n-1)

@@ -242,7 +242,7 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
         Ok(())
     }
     
-    /// Calculate friction velocity using Newton-Raphson iteration
+    /// Calculate friction velocity using Currentton-Raphson iteration
     fn calculate_friction_velocity(&self, u_p: T, y: T, nu: T) -> Result<T> {
         let kappa = T::from_f64(constants::KAPPA).unwrap_or_else(|| T::zero());
         let e_wall_function = T::from_f64(constants::E_WALL_FUNCTION).unwrap_or_else(|| T::zero());
@@ -291,8 +291,8 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
         let sigma_k = T::from_f64(constants::SIGMA_K).unwrap_or_else(|| T::zero());
         let sigma_eps = T::from_f64(constants::SIGMA_EPSILON).unwrap_or_else(|| T::zero());
         
-        let mut new_k = self.k.clone();
-        let mut new_epsilon = self.epsilon.clone();
+        let mut current_k = self.k.clone();
+        let mut current_epsilon = self.epsilon.clone();
         
         // Interior points only
         for i in 1..self.nx-1 {
@@ -313,7 +313,7 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
                 // k equation
                 let k_diffusion = self.calculate_diffusion(&self.k, i, j, 
                     (nu.clone() + self.nu_t[i][j].clone() / sigma_k.clone()), dx.clone(), dy.clone());
-                new_k[i][j] = self.k[i][j].clone() + dt.clone() * (
+                current_k[i][j] = self.k[i][j].clone() + dt.clone() * (
                     production.clone() - self.epsilon[i][j].clone() + k_diffusion
                 );
                 
@@ -326,17 +326,17 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
                 let source_term = c1_eps.clone() * production * self.epsilon[i][j].clone() / self.k[i][j].clone() + eps_diffusion;
                 let destruction_coeff = c2_eps.clone() * self.epsilon[i][j].clone() / self.k[i][j].clone().max(T::from_f64(constants::EPSILON_MIN).unwrap_or_else(|| T::zero()));
                 
-                new_epsilon[i][j] = (self.epsilon[i][j].clone() + dt.clone() * source_term) / 
+                current_epsilon[i][j] = (self.epsilon[i][j].clone() + dt.clone() * source_term) / 
                                    (T::one() + dt.clone() * destruction_coeff);
                 
                 // Ensure positive values
-                new_k[i][j] = new_k[i][j].clone().max(T::from_f64(constants::EPSILON_MIN).unwrap_or_else(|| T::zero()));
-                new_epsilon[i][j] = new_epsilon[i][j].clone().max(T::from_f64(constants::EPSILON_MIN).unwrap_or_else(|| T::zero()));
+                current_k[i][j] = current_k[i][j].clone().max(T::from_f64(constants::EPSILON_MIN).unwrap_or_else(|| T::zero()));
+                current_epsilon[i][j] = current_epsilon[i][j].clone().max(T::from_f64(constants::EPSILON_MIN).unwrap_or_else(|| T::zero()));
             }
         }
         
-        self.k = new_k;
-        self.epsilon = new_epsilon;
+        self.k = current_k;
+        self.epsilon = current_epsilon;
         self.update_turbulent_viscosity();
         
         Ok(())

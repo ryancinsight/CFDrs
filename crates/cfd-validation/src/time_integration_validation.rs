@@ -173,7 +173,7 @@ impl TimeIntegrationValidator {
         let y0 = T::one();
         let final_time = T::one();
         let dt = T::from_f64(0.1).unwrap_or_else(|| T::zero());
-        let n_steps = (final_time.to_f64().unwrap() / dt.to_f64().unwrap()) as usize;
+        let n_steps = (final_time.to_f64().expect("CRITICAL: Add proper error handling") / dt.to_f64().expect("CRITICAL: Add proper error handling")) as usize;
 
         // Define the ODE: dy/dt = -λy
         let ode = |_t: T, y: &DVector<T>| -> DVector<T> {
@@ -232,7 +232,7 @@ impl TimeIntegrationValidator {
         let omega_squared = omega.clone() * omega.clone();
         let final_time = T::from_f64(2.0 * PI).unwrap_or_else(|| T::zero()); // One full period
         let dt = T::from_f64(0.1).unwrap_or_else(|| T::zero());
-        let n_steps = (final_time.to_f64().unwrap() / dt.to_f64().unwrap()) as usize;
+        let n_steps = (final_time.to_f64().expect("CRITICAL: Add proper error handling") / dt.to_f64().expect("CRITICAL: Add proper error handling")) as usize;
 
         // Initial conditions: y(0) = 1, y'(0) = 0
         let y0 = DVector::from_vec(vec![T::one(), T::zero()]);
@@ -327,7 +327,7 @@ impl TimeIntegrationValidator {
         final_time: T,
         dt: T,
     ) -> Result<T> {
-        let n_steps = (final_time.to_f64().unwrap() / dt.to_f64().unwrap()) as usize;
+        let n_steps = (final_time.to_f64().expect("CRITICAL: Add proper error handling") / dt.to_f64().expect("CRITICAL: Add proper error handling")) as usize;
         let mut y = y0.clone();
         let mut t = T::zero();
 
@@ -349,7 +349,7 @@ mod tests {
 
     #[test]
     fn test_time_integration_validation() {
-        let results = TimeIntegrationValidator::validate_all::<f64>().unwrap();
+        let results = TimeIntegrationValidator::validate_all::<f64>().expect("CRITICAL: Add proper error handling");
         
         // Check that we have results
         assert!(!results.is_empty());
@@ -370,7 +370,7 @@ mod tests {
 
     #[test]
     fn test_harmonic_oscillator_conservation() {
-        let results = TimeIntegrationValidator::validate_all::<f64>().unwrap();
+        let results = TimeIntegrationValidator::validate_all::<f64>().expect("CRITICAL: Add proper error handling");
 
         let oscillator_tests: Vec<_> = results.iter()
             .filter(|r| r.test_problem == "Harmonic Oscillator")

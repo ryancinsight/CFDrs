@@ -504,7 +504,7 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
         let alpha = T::from_f64(0.5).unwrap_or_else(|| T::zero()); // Smoothing factor
         
         for _ in 0..iterations {
-            let mut new_points = self.points.clone();
+            let mut current_points = self.points.clone();
             
             // Smooth interior points only
             for k in 1..nz-1 {
@@ -530,7 +530,7 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
                         avg /= T::from_usize(neighbors.len()).expect("FIXME: Add proper error handling");
                         
                         // Blend with original
-                        new_points[index] = Point3::from(
+                        current_points[index] = Point3::from(
                             self.points[index].coords.clone() * (T::one() - alpha.clone()) +
                             avg * alpha.clone()
                         );
@@ -538,7 +538,7 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
                 }
             }
             
-            self.points = new_points;
+            self.points = current_points;
         }
     }
     

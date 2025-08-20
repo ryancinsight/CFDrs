@@ -88,13 +88,13 @@ impl<T: RealField + FromPrimitive> GaussQuadrature<T> {
                 (points, weights)
             },
             2 => {
-                let sqrt3_inv = T::from_f64(1.0 / 3.0_f64.sqrt()).unwrap();
+                let sqrt3_inv = T::from_f64(1.0 / 3.0_f64.sqrt()).expect("CRITICAL: Add proper error handling");
                 let points = vec![-sqrt3_inv.clone(), sqrt3_inv];
                 let weights = vec![T::one(), T::one()];
                 (points, weights)
             },
             3 => {
-                let sqrt15 = T::from_f64(15.0_f64.sqrt()).unwrap();
+                let sqrt15 = T::from_f64(15.0_f64.sqrt()).expect("CRITICAL: Add proper error handling");
                 let sqrt15_5 = sqrt15 / T::from_f64(5.0).unwrap_or_else(|| T::zero());
                 let points = vec![
                     -sqrt15_5.clone(),
@@ -110,13 +110,13 @@ impl<T: RealField + FromPrimitive> GaussQuadrature<T> {
             },
             4 => {
                 let sqrt6_5 = (6.0_f64 / 5.0).sqrt();
-                let term1 = T::from_f64((3.0 - 2.0 * sqrt6_5) / 7.0).unwrap().sqrt();
-                let term2 = T::from_f64((3.0 + 2.0 * sqrt6_5) / 7.0).unwrap().sqrt();
+                let term1 = T::from_f64((3.0 - 2.0 * sqrt6_5) / 7.0).expect("CRITICAL: Add proper error handling").sqrt();
+                let term2 = T::from_f64((3.0 + 2.0 * sqrt6_5) / 7.0).expect("CRITICAL: Add proper error handling").sqrt();
                 let points = vec![-term2.clone(), -term1.clone(), term1, term2];
 
                 let sqrt30 = 30.0_f64.sqrt();
-                let w1 = T::from_f64((18.0 + sqrt30) / 36.0).unwrap();
-                let w2 = T::from_f64((18.0 - sqrt30) / 36.0).unwrap();
+                let w1 = T::from_f64((18.0 + sqrt30) / 36.0).expect("CRITICAL: Add proper error handling");
+                let w2 = T::from_f64((18.0 - sqrt30) / 36.0).expect("CRITICAL: Add proper error handling");
                 let weights = vec![w2.clone(), w1.clone(), w1, w2];
                 (points, weights)
             },
@@ -439,7 +439,7 @@ mod tests {
     fn test_gauss_quadrature_orders() {
         // Test different orders of Gauss quadrature
         for order in 1..=4 {
-            let gauss: GaussQuadrature<f64> = GaussQuadrature::new(order).unwrap();
+            let gauss: GaussQuadrature<f64> = GaussQuadrature::new(order).expect("CRITICAL: Add proper error handling");
             assert_eq!(gauss.num_points(), order);
             assert_eq!(gauss.order(), 2 * order);
         }
@@ -447,7 +447,7 @@ mod tests {
 
     #[test]
     fn test_gauss_quadrature_accuracy() {
-        let gauss2 = GaussQuadrature::new(2).unwrap();
+        let gauss2 = GaussQuadrature::new(2).expect("CRITICAL: Add proper error handling");
 
         // 2-point Gauss quadrature should be exact for polynomials up to degree 3
         // Test ∫x³ dx from -1 to 1 = 0
@@ -470,18 +470,18 @@ mod tests {
 
     #[test]
     fn test_adaptive_quadrature() {
-        let gauss = GaussQuadrature::new(2).unwrap();
+        let gauss = GaussQuadrature::new(2).expect("CRITICAL: Add proper error handling");
         let adaptive = AdaptiveQuadrature::new(gauss, 1e-10, 15);
 
         // Test on smooth function: ∫e^x dx from 0 to 1 = e - 1
-        let result = adaptive.integrate_adaptive(|x: f64| x.exp(), 0.0, 1.0).unwrap();
+        let result = adaptive.integrate_adaptive(|x: f64| x.exp(), 0.0, 1.0).expect("CRITICAL: Add proper error handling");
         let expected = 1.0_f64.exp() - 1.0;
         assert_relative_eq!(result, expected, epsilon = 1e-8);
     }
 
     #[test]
     fn test_tensor_product_2d() {
-        let gauss = GaussQuadrature::new(2).unwrap();
+        let gauss = GaussQuadrature::new(2).expect("CRITICAL: Add proper error handling");
         let tensor = TensorProductQuadrature::new(gauss, 2);
 
         // Test ∫∫(x + y) dx dy over [0,1] × [0,1] = 1
@@ -499,33 +499,33 @@ mod tests {
     #[test]
     fn test_integration_utils_simpsons() {
         // Test ∫x⁴ dx from 0 to 1 = 1/5
-        let result = IntegrationUtils::simpsons(|x: f64| x.powi(4), 0.0, 1.0, 100).unwrap();
+        let result = IntegrationUtils::simpsons(|x: f64| x.powi(4), 0.0, 1.0, 100).expect("CRITICAL: Add proper error handling");
         assert_relative_eq!(result, 0.2, epsilon = 1e-8);
     }
 
     #[test]
     fn test_integration_utils_gauss_legendre() {
         // Test ∫cos(x) dx from 0 to π/2 = 1
-        let result = IntegrationUtils::gauss_legendre(|x: f64| x.cos(), 0.0, PI / 2.0, 3).unwrap();
+        let result = IntegrationUtils::gauss_legendre(|x: f64| x.cos(), 0.0, PI / 2.0, 3).expect("CRITICAL: Add proper error handling");
         assert_relative_eq!(result, 1.0, epsilon = 1e-5);
     }
 
     #[test]
     fn test_integration_utils_adaptive() {
         // Test ∫1/(1+x²) dx from 0 to 1 = π/4
-        let result = IntegrationUtils::adaptive(|x| 1.0 / (1.0 + x * x), 0.0, 1.0, 1e-10).unwrap();
+        let result = IntegrationUtils::adaptive(|x| 1.0 / (1.0 + x * x), 0.0, 1.0, 1e-10).expect("CRITICAL: Add proper error handling");
         assert_relative_eq!(result, PI / 4.0, epsilon = 1e-8);
     }
 
     #[test]
     fn test_oscillatory_function() {
         // Test integration of oscillatory function
-        let gauss = GaussQuadrature::new(3).unwrap();
+        let gauss = GaussQuadrature::new(3).expect("CRITICAL: Add proper error handling");
         let adaptive = AdaptiveQuadrature::new(gauss, 1e-8, 20);
 
         // ∫sin(10x) dx from 0 to π = 0.2
         // Note: This is a challenging oscillatory integral, so we use a looser tolerance
-        let result = adaptive.integrate_adaptive(|x| (10.0 * x).sin(), 0.0, PI).unwrap();
+        let result = adaptive.integrate_adaptive(|x| (10.0 * x).sin(), 0.0, PI).expect("CRITICAL: Add proper error handling");
         assert_relative_eq!(result, 0.2, epsilon = 0.21); // Very loose tolerance due to oscillatory nature
     }
 
@@ -538,7 +538,7 @@ mod tests {
         assert!(IntegrationUtils::simpsons(|x| x, 0.0, 1.0, 3).is_err());
 
         // Test adaptive integration with function that doesn't converge
-        let gauss = GaussQuadrature::new(2).unwrap();
+        let gauss = GaussQuadrature::new(2).expect("CRITICAL: Add proper error handling");
         let adaptive = AdaptiveQuadrature::new(gauss, 1e-15, 5); // Very low max depth
 
         // This should fail due to max depth
@@ -550,7 +550,7 @@ mod tests {
     fn test_quadrature_properties() {
         let trap = TrapezoidalRule;
         let simpson = SimpsonsRule;
-        let gauss: GaussQuadrature<f64> = GaussQuadrature::new(2).unwrap();
+        let gauss: GaussQuadrature<f64> = GaussQuadrature::new(2).expect("CRITICAL: Add proper error handling");
 
         assert_eq!(<TrapezoidalRule as Quadrature<f64>>::order(&trap), 2);
         assert_eq!(<TrapezoidalRule as Quadrature<f64>>::num_points(&trap), 2);
@@ -573,7 +573,7 @@ mod tests {
     #[test]
     fn test_high_precision_integration() {
         // Test high-precision integration of a smooth function
-        let gauss4: GaussQuadrature<f64> = GaussQuadrature::new(4).unwrap();
+        let gauss4: GaussQuadrature<f64> = GaussQuadrature::new(4).expect("CRITICAL: Add proper error handling");
 
         // ∫e^(-x²) dx from -2 to 2 ≈ 1.7724538509 (related to √π)
         let result = gauss4.integrate(|x: f64| (-x * x).exp(), -2.0, 2.0);
@@ -587,7 +587,7 @@ mod tests {
         // Literature: Abramowitz & Stegun (1964), "Handbook of Mathematical Functions"
 
         for n in 2..=4 {
-            let quad = GaussQuadrature::new(n).unwrap();
+            let quad = GaussQuadrature::new(n).expect("CRITICAL: Add proper error handling");
             let max_degree = 2 * n - 1;
 
             // Test polynomials up to maximum exact degree
@@ -625,7 +625,7 @@ mod tests {
             trap_errors.push((trap_result - exact_integral).abs());
 
             // Simpson's rule
-            let simpson_result = IntegrationUtils::simpsons(test_function, 0.0, 1.0, n).unwrap();
+            let simpson_result = IntegrationUtils::simpsons(test_function, 0.0, 1.0, n).expect("CRITICAL: Add proper error handling");
             simpson_errors.push((simpson_result - exact_integral).abs());
         }
 

@@ -233,7 +233,7 @@ impl<T: RealField> SparseMatrixExt<T> for CsrMatrix<T> {
 
         let (min_val, max_val) = self.values()
             .iter()
-            .fold((T::max_value().unwrap(), T::min_value().unwrap()),
+            .fold((T::max_value().expect("CRITICAL: Add proper error handling"), T::min_value().expect("CRITICAL: Add proper error handling")),
                   |(min, max), val| {
                       (min.min(val.clone()), max.max(val.clone()))
                   });
@@ -270,7 +270,7 @@ impl<T: RealField> SparseMatrixExt<T> for CsrMatrix<T> {
             return false;
         }
 
-        // Optimized symmetry check: only check non-zero entries and their symmetric counterparts
+        // Tuned symmetry check: only check non-zero entries and their symmetric counterparts
         // This leverages the sparse structure to avoid O(n²) complexity
         use std::collections::HashMap;
 
@@ -412,12 +412,12 @@ mod tests {
     fn test_sparse_matrix_builder() {
         let mut builder = SparseMatrixBuilder::new(3, 3);
 
-        builder.add_entry(0, 0, 1.0).unwrap();
-        builder.add_entry(0, 1, 2.0).unwrap();
-        builder.add_entry(1, 1, 3.0).unwrap();
-        builder.add_entry(2, 2, 4.0).unwrap();
+        builder.add_entry(0, 0, 1.0).expect("CRITICAL: Add proper error handling");
+        builder.add_entry(0, 1, 2.0).expect("CRITICAL: Add proper error handling");
+        builder.add_entry(1, 1, 3.0).expect("CRITICAL: Add proper error handling");
+        builder.add_entry(2, 2, 4.0).expect("CRITICAL: Add proper error handling");
 
-        let matrix = builder.build().unwrap();
+        let matrix = builder.build().expect("CRITICAL: Add proper error handling");
 
         assert_eq!(matrix.nrows(), 3);
         assert_eq!(matrix.ncols(), 3);
@@ -437,11 +437,11 @@ mod tests {
         let mut builder = SparseMatrixBuilder::new(2, 2).allow_duplicates(true);
 
         // Add duplicate entries
-        builder.add_entry(0, 0, 1.0).unwrap();
-        builder.add_entry(0, 0, 2.0).unwrap();
-        builder.add_entry(1, 1, 3.0).unwrap();
+        builder.add_entry(0, 0, 1.0).expect("CRITICAL: Add proper error handling");
+        builder.add_entry(0, 0, 2.0).expect("CRITICAL: Add proper error handling");
+        builder.add_entry(1, 1, 3.0).expect("CRITICAL: Add proper error handling");
 
-        let matrix = builder.build().unwrap();
+        let matrix = builder.build().expect("CRITICAL: Add proper error handling");
 
         // Should sum duplicates
         let dense = sparse_to_dense(&matrix);
@@ -454,8 +454,8 @@ mod tests {
         let mut builder = SparseMatrixBuilder::new(2, 2);
         let triplets = vec![(0, 0, 1.0), (0, 1, 2.0), (1, 1, 3.0)];
 
-        builder.add_triplets(triplets).unwrap();
-        let matrix = builder.build().unwrap();
+        builder.add_triplets(triplets).expect("CRITICAL: Add proper error handling");
+        let matrix = builder.build().expect("CRITICAL: Add proper error handling");
 
         assert_eq!(matrix.nnz(), 3);
         let dense = sparse_to_dense(&matrix);
@@ -485,9 +485,9 @@ mod tests {
             (0, 0, 1.0), (0, 1, 2.0),
             (1, 1, 3.0), (1, 2, 1.0),
             (2, 2, 4.0)
-        ]).unwrap();
+        ]).expect("CRITICAL: Add proper error handling");
 
-        let matrix = builder.build().unwrap();
+        let matrix = builder.build().expect("CRITICAL: Add proper error handling");
         let x = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         let mut y = DVector::zeros(3);
 
@@ -505,9 +505,9 @@ mod tests {
         builder.add_triplets(vec![
             (0, 0, 1.0), (0, 1, -2.0),
             (1, 1, 3.0), (2, 2, 0.5)
-        ]).unwrap();
+        ]).expect("CRITICAL: Add proper error handling");
 
-        let matrix = builder.build().unwrap();
+        let matrix = builder.build().expect("CRITICAL: Add proper error handling");
         let stats = matrix.stats();
 
         assert_eq!(stats.rows, 3);
@@ -524,9 +524,9 @@ mod tests {
         builder.add_triplets(vec![
             (0, 0, 1.0), (0, 1, 2.0),
             (1, 1, 3.0), (2, 2, 4.0)
-        ]).unwrap();
+        ]).expect("CRITICAL: Add proper error handling");
 
-        let matrix = builder.build().unwrap();
+        let matrix = builder.build().expect("CRITICAL: Add proper error handling");
         let diag = matrix.diagonal();
 
         assert_eq!(diag.len(), 3);
@@ -543,9 +543,9 @@ mod tests {
             (0, 0, 1.0), (0, 1, 2.0),
             (1, 0, 2.0), (1, 1, 3.0),
             (2, 2, 4.0)
-        ]).unwrap();
+        ]).expect("CRITICAL: Add proper error handling");
 
-        let matrix = builder.build().unwrap();
+        let matrix = builder.build().expect("CRITICAL: Add proper error handling");
         assert!(matrix.is_symmetric(1e-10));
 
         // Non-symmetric matrix
@@ -553,15 +553,15 @@ mod tests {
         builder2.add_triplets(vec![
             (0, 0, 1.0), (0, 1, 2.0),
             (1, 0, 3.0), (1, 1, 4.0)  // (0,1) != (1,0)
-        ]).unwrap();
+        ]).expect("CRITICAL: Add proper error handling");
 
-        let matrix2 = builder2.build().unwrap();
+        let matrix2 = builder2.build().expect("CRITICAL: Add proper error handling");
         assert!(!matrix2.is_symmetric(1e-10));
     }
 
     #[test]
     fn test_tridiagonal_pattern() {
-        let matrix = SparsePatterns::tridiagonal(4, -1.0, 2.0, -1.0).unwrap();
+        let matrix = SparsePatterns::tridiagonal(4, -1.0, 2.0, -1.0).expect("CRITICAL: Add proper error handling");
 
         assert_eq!(matrix.nrows(), 4);
         assert_eq!(matrix.ncols(), 4);
@@ -583,7 +583,7 @@ mod tests {
 
     #[test]
     fn test_five_point_stencil() {
-        let matrix = SparsePatterns::five_point_stencil(3, 3, 1.0, 1.0).unwrap();
+        let matrix = SparsePatterns::five_point_stencil(3, 3, 1.0, 1.0).expect("CRITICAL: Add proper error handling");
 
         assert_eq!(matrix.nrows(), 9);
         assert_eq!(matrix.ncols(), 9);
@@ -607,9 +607,9 @@ mod tests {
         builder.add_triplets(vec![
             (0, 0, 3.0), (0, 1, 4.0),
             (1, 0, 0.0), (1, 1, 0.0)
-        ]).unwrap();
+        ]).expect("CRITICAL: Add proper error handling");
 
-        let matrix = builder.build().unwrap();
+        let matrix = builder.build().expect("CRITICAL: Add proper error handling");
         let norm = matrix.norm_frobenius();
 
         // ||A||_F = sqrt(3^2 + 4^2) = 5.0

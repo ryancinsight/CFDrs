@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut network = NetworkBuilder::new()
         .with_fluid(Fluid::water())
 
-        // Simple T-junction network
+        // Standard T-junction network
         .add_inlet_pressure("inlet", 0.0, 0.0, 2000.0)  // 2 kPa
         .add_junction("junction", 2.0, 0.0)
         .add_outlet_pressure("outlet_1", 4.0, 1.0, 0.0)

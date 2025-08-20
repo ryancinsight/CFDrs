@@ -532,10 +532,10 @@ impl<T: RealField + FromPrimitive + Clone + num_traits::Float> FemSolver<T> {
         // Assemble global matrices for this problem
         self.assemble_global_matrices_for_problem(problem)?;
 
-        let k = self.k_global.as_ref().unwrap();
-        let g = self.g_global.as_ref().unwrap();
+        let k = self.k_global.as_ref().expect("CRITICAL: Add proper error handling");
+        let g = self.g_global.as_ref().expect("CRITICAL: Add proper error handling");
         let gt = g.transpose();
-        let s_pp = self.s_pp_global.as_ref().unwrap();
+        let s_pp = self.s_pp_global.as_ref().expect("CRITICAL: Add proper error handling");
 
         let n_total = n_vel + n_pres;
 
@@ -682,15 +682,15 @@ impl<T: RealField + FromPrimitive + num_traits::Float> FemSolver<T> {
     /// Legacy solve method for backward compatibility
     pub fn solve_stokes(&mut self, mesh: &Mesh<T>, properties: &FluidProperties<T>, boundary_conditions: &HashMap<usize, Vector3<T>>) -> Result<StokesFlowSolution<T>> {
         // Convert legacy boundary conditions to new format
-        let new_bcs: HashMap<usize, BoundaryCondition<T>> = boundary_conditions
+        let current_bcs: HashMap<usize, BoundaryCondition<T>> = boundary_conditions
             .iter()
             .map(|(&node, &velocity)| {
                 (node, BoundaryCondition::VelocityInlet { velocity })
             })
             .collect();
 
-        let fluid = Fluid::new_newtonian("solver_fluid", properties.density.clone(), properties.viscosity.clone());
-        let problem = StokesFlowProblem::new(mesh.clone(), fluid, new_bcs)
+        let fluid = Fluid::current_newtonian("solver_fluid", properties.density.clone(), properties.viscosity.clone());
+        let problem = StokesFlowProblem::new(mesh.clone(), fluid, current_bcs)
             .with_body_force(properties.body_force.unwrap_or_else(Vector3::zeros));
 
         self.solve_problem(&problem)

@@ -291,9 +291,9 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         mesh: &mut Mesh<T>,
         cells_to_refine: &[usize],
     ) -> Result<usize, RefinementError> {
-        let mut new_vertices = Vec::new();
-        let mut new_faces = Vec::new();
-        let mut new_cells = Vec::new();
+        let mut current_vertices = Vec::new();
+        let mut current_faces = Vec::new();
+        let mut current_cells = Vec::new();
         let mut vertex_id_counter = mesh.vertices.len();
         let mut face_id_counter = mesh.faces.len();
         let mut cell_id_counter = mesh.cells.len();
@@ -322,26 +322,26 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                     &mut cell_id_counter,
                 );
                 
-                new_vertices.extend(refined.0);
-                new_faces.extend(refined.1);
+                current_vertices.extend(refined.0);
+                current_faces.extend(refined.1);
                 
                 // Update refinement levels before moving cells
-                for new_cell in &refined.2 {
-                    self.refinement_levels.insert(new_cell.id, level + 1);
+                for current_cell in &refined.2 {
+                    self.refinement_levels.insert(current_cell.id, level + 1);
                 }
                 
-                new_cells.extend(refined.2);
+                current_cells.extend(refined.2);
             }
         }
         
         // Add new elements to mesh
-        let num_refined = new_cells.len();
-        mesh.vertices.extend(new_vertices);
-        mesh.faces.extend(new_faces);
+        let num_refined = current_cells.len();
+        mesh.vertices.extend(current_vertices);
+        mesh.faces.extend(current_faces);
         
         // Replace refined cells with new ones
         mesh.cells.retain(|c| !cells_to_refine.contains(&c.id));
-        mesh.cells.extend(new_cells);
+        mesh.cells.extend(current_cells);
         
         // Update mesh topology
         mesh.update_topology();
@@ -395,9 +395,9 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         face_counter: &mut usize,
         cell_counter: &mut usize,
     ) -> (Vec<Vertex<T>>, Vec<Face>, Vec<Cell>) {
-        let mut new_vertices = Vec::new();
-        let new_faces = Vec::new();
-        let new_cells = Vec::new();
+        let mut current_vertices = Vec::new();
+        let current_faces = Vec::new();
+        let current_cells = Vec::new();
         
         // Get cell vertices (assuming tetrahedral cell with 4 vertices)
         if cell.faces.len() == 4 {
@@ -419,7 +419,7 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                 
                 // Create new vertices at midpoints
                 for point in midpoints {
-                    new_vertices.push(Vertex {
+                    current_vertices.push(Vertex {
                         id: *vertex_counter,
                         position: point,
                     });
@@ -435,7 +435,7 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
             }
         }
         
-        (new_vertices, new_faces, new_cells)
+        (current_vertices, current_faces, current_cells)
     }
     
     /// Compute edge midpoints for subdivision
@@ -722,7 +722,7 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
     /// Smooth mesh after refinement
     fn smooth_mesh(&self, mesh: &mut Mesh<T>, iterations: usize) {
         for _ in 0..iterations {
-            let mut new_positions = Vec::with_capacity(mesh.vertices.len());
+            let mut current_positions = Vec::with_capacity(mesh.vertices.len());
             
             for vertex in &mesh.vertices {
                 // Find connected vertices
@@ -749,19 +749,19 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                     
                     // Blend with original position
                     let alpha = T::from_f64(0.5).unwrap_or_else(|| T::zero()); // Smoothing factor
-                    let new_pos = Point3::from(
+                    let current_pos = Point3::from(
                         vertex.position.coords.clone() * (T::one() - alpha.clone()) +
                         avg_pos * alpha
                     );
-                    new_positions.push(new_pos);
+                    current_positions.push(current_pos);
                 } else {
-                    new_positions.push(vertex.position.clone());
+                    current_positions.push(vertex.position.clone());
                 }
             }
             
             // Update vertex positions
-            for (vertex, new_pos) in mesh.vertices.iter_mut().zip(new_positions) {
-                vertex.position = new_pos;
+            for (vertex, current_pos) in mesh.vertices.iter_mut().zip(current_positions) {
+                vertex.position = current_pos;
             }
         }
     }

@@ -9,7 +9,7 @@
 //! - Single-pass analysis using running statistics to avoid memory allocation
 //! - Correct vertex collection using deduplication to eliminate false duplicates
 //! - Element-type-specific calculations for accurate metric computation
-//! - Robust numerical methods avoiding floating-point conversion errors
+//! - Resilient numerical methods avoiding floating-point conversion errors
 
 use crate::mesh::{Mesh, Cell, ElementType};
 use nalgebra::{Point3, RealField};
@@ -945,7 +945,7 @@ mod tests {
     }
 
     #[test]
-    fn test_robust_floating_point_handling() {
+    fn test_resilient_floating_point_handling() {
         let mut mesh = create_tetrahedron_mesh();
         
         // Create a nearly degenerate tetrahedron to test numerical robustness

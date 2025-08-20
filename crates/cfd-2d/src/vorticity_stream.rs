@@ -63,7 +63,7 @@ impl<T: RealField + FromPrimitive> Default for VorticityStreamConfig<T> {
 /// - Reduced number of variables (2 instead of 3)
 ///
 /// ## References:
-/// Anderson, J.D. (1995). "Computational Fluid Dynamics: The Basics with Applications."
+/// Anderson, J.D. (1995). "Computational Fluid Dynamics: The Cores with Applications."
 /// McGraw-Hill.
 pub struct VorticityStreamSolver<T: RealField> {
     config: VorticityStreamConfig<T>,
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_vorticity_stream_creation() {
-        let grid = StructuredGrid2D::<f64>::unit_square(10, 10).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(10, 10).expect("CRITICAL: Add proper error handling");
         let config = VorticityStreamConfig::default();
         let solver = VorticityStreamSolver::new(config, &grid, 100.0);
         
@@ -332,11 +332,11 @@ mod tests {
 
     #[test]
     fn test_lid_driven_cavity_initialization() {
-        let grid = StructuredGrid2D::<f64>::unit_square(5, 5).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(5, 5).expect("CRITICAL: Add proper error handling");
         let config = VorticityStreamConfig::default();
         let mut solver = VorticityStreamSolver::new(config, &grid, 100.0);
         
-        solver.initialize_lid_driven_cavity(1.0).unwrap();
+        solver.initialize_lid_driven_cavity(1.0).expect("CRITICAL: Add proper error handling");
         
         // Check lid velocity
         assert_relative_eq!(solver.u[2][4].x, 1.0, epsilon = 1e-10);

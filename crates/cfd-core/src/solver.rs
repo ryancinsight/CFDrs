@@ -379,7 +379,7 @@ pub trait DirectSolver<T: RealField>: Solver<T> + Configurable<T> {
                             current_value += entry.value;
                         }
                         _ => {
-                            // New column or first entry
+                            // Current column or first entry
                             if let Some(col) = current_col {
                                 merged_entries.push(MatrixEntry {
                                     row: row_idx,

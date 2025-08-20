@@ -937,14 +937,14 @@ mod tests {
         
         let integrator = TimeIntegrator::new(TimeScheme::ForwardEuler);
         
-        // Simple decay: du/dt = -u
+        // Standard decay: du/dt = -u
         let rhs = |g: &Grid2D<f64>| {
             let mut result = g.clone();
             result.data = -g.data.clone();
             result
         };
         
-        integrator.advance(&mut grid, 0.1, rhs).unwrap();
+        integrator.advance(&mut grid, 0.1, rhs).expect("CRITICAL: Add proper error handling");
         
         // After one step: u = 1.0 * (1 - 0.1) = 0.9
         assert!((grid.data[(4, 4)] - 0.9).abs() < 1e-10);

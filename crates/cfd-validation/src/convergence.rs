@@ -56,7 +56,7 @@ impl<T: RealField + FromPrimitive> ConvergenceStudy<T> {
         errors: &[T],
         convergence_rate: T,
     ) -> Result<(T, T)> {
-        let n = T::from_usize(grid_sizes.len()).unwrap();
+        let n = T::from_usize(grid_sizes.len()).expect("CRITICAL: Add proper error handling");
 
         // Single-pass calculation of all required statistics
         let (sum_log_e, sum_log_h, sum_log_e_sq, _sum_log_h_sq) = errors.iter()
@@ -404,7 +404,7 @@ impl ConvergenceAnalysis {
                      errors.push(errors[errors.len() - 1].clone() * ratio);
                  }
              } else {
-                 // Simple fallback for insufficient data
+                 // Standard fallback for insufficient data
                  errors.push(errors[0].clone() * T::from_f64(0.5).unwrap_or_else(|| T::zero()));
              }
 
@@ -508,7 +508,7 @@ mod tests {
         let grid_sizes = vec![0.1, 0.05, 0.025];
         let errors = vec![0.01, 0.0025, 0.000625]; // errors ∝ h^2
 
-        let study = ConvergenceStudy::new(grid_sizes, errors).unwrap();
+        let study = ConvergenceStudy::new(grid_sizes, errors).expect("CRITICAL: Add proper error handling");
 
         assert_relative_eq!(study.convergence_rate, 2.0, epsilon = 1e-10);
         assert!(study.r_squared > 0.99); // Should have excellent fit
@@ -525,7 +525,7 @@ mod tests {
         let grid_sizes = vec![0.1, 0.05, 0.025];
         let errors = vec![0.1, 0.05, 0.025]; // errors ∝ h^1
 
-        let study = ConvergenceStudy::new(grid_sizes, errors).unwrap();
+        let study = ConvergenceStudy::new(grid_sizes, errors).expect("CRITICAL: Add proper error handling");
 
         assert_relative_eq!(study.convergence_rate, 1.0, epsilon = 1e-10);
 
@@ -540,7 +540,7 @@ mod tests {
         let grid_sizes = vec![0.1, 0.05, 0.025];
         let errors = vec![0.01, 0.0025, 0.000625];
 
-        let study = ConvergenceStudy::new(grid_sizes, errors).unwrap();
+        let study = ConvergenceStudy::new(grid_sizes, errors).expect("CRITICAL: Add proper error handling");
 
         // Predict error for h = 0.0125 (should be ~0.000156)
         let predicted = study.predict_error(0.0125);
@@ -553,11 +553,11 @@ mod tests {
         let grid_sizes = vec![0.1, 0.05, 0.025];
         let errors = vec![0.01, 0.0025, 0.000625];
 
-        let study = ConvergenceStudy::new(grid_sizes, errors).unwrap();
+        let study = ConvergenceStudy::new(grid_sizes, errors).expect("CRITICAL: Add proper error handling");
 
         // Find grid size for target error of 0.0001
         let target_error = 0.0001;
-        let required_h = study.grid_size_for_error(target_error).unwrap();
+        let required_h = study.grid_size_for_error(target_error).expect("CRITICAL: Add proper error handling");
 
         // Verify by predicting error at this grid size
         let predicted_error = study.predict_error(required_h);
@@ -568,7 +568,7 @@ mod tests {
     fn test_grid_size_for_error_edge_cases() {
         let grid_sizes = vec![0.1, 0.05, 0.025];
         let errors = vec![0.01, 0.0025, 0.000625];
-        let study = ConvergenceStudy::new(grid_sizes, errors).unwrap();
+        let study = ConvergenceStudy::new(grid_sizes, errors).expect("CRITICAL: Add proper error handling");
 
         // Test with zero target error
         assert!(study.grid_size_for_error(0.0).is_err());
@@ -606,7 +606,7 @@ mod tests {
             medium_solution,
             fine_solution,
             grid_ratio,
-        ).unwrap();
+        ).expect("CRITICAL: Add proper error handling");
 
         // Should be close to exact solution (1.0)
         assert_relative_eq!(extrapolated, 1.0, epsilon = 1e-6);

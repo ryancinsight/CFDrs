@@ -87,7 +87,7 @@ impl<T: RealField> ConservationHistory<T> {
 
     /// Get the maximum error in the history
     pub fn max_error(&self) -> Option<T> {
-        self.errors.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).cloned()
+        self.errors.iter().max_by(|a, b| a.partial_cmp(b).expect("CRITICAL: Add proper error handling")).cloned()
     }
 
     /// Get the fraction of time points where conservation was satisfied

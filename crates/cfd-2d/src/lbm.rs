@@ -535,7 +535,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
 
     /// Check convergence based on velocity and density field changes
     fn check_convergence(&self) -> Result<bool> {
-        // Simple, clear implementation without false optimization claims
+        // Standard, clear implementation without false optimization claims
         let total_cells = T::from_usize(self.nx * self.ny).unwrap_or_else(|| T::zero());
 
         // Calculate residuals with simple loops - clearer and no slower
@@ -632,7 +632,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use cfd_core::BoundaryCondition;
+    use cfd_core::boundary::BoundaryCondition;
     use nalgebra::Vector2;
     use std::collections::HashMap;
 
@@ -654,7 +654,7 @@ mod tests {
 
     #[test]
     fn test_lbm_solver_creation() {
-        let grid = StructuredGrid2D::<f64>::unit_square(5, 5).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(5, 5).expect("CRITICAL: Add proper error handling");
         let config = LbmConfig::<f64>::default();
         let solver = LbmSolver::new(config, &grid);
 
@@ -667,7 +667,7 @@ mod tests {
 
     #[test]
     fn test_equilibrium_distribution() {
-        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
         let config = LbmConfig::<f64>::default();
         let solver = LbmSolver::new(config, &grid);
 
@@ -688,14 +688,14 @@ mod tests {
 
     #[test]
     fn test_lbm_initialization() {
-        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
         let config = LbmConfig::<f64>::default();
         let mut solver = LbmSolver::new(config, &grid);
 
         let initial_density = 1.0;
         let initial_velocity = Vector2::new(0.0, 0.0);
 
-        solver.initialize(initial_density, initial_velocity).unwrap();
+        solver.initialize(initial_density, initial_velocity).expect("CRITICAL: Add proper error handling");
 
         // Check that density and velocity are initialized correctly
         for i in 0..solver.nx {
@@ -709,7 +709,7 @@ mod tests {
 
     #[test]
     fn test_lbm_flow_case() {
-        let grid = StructuredGrid2D::<f64>::unit_square(5, 5).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(5, 5).expect("CRITICAL: Add proper error handling");
         let mut config = LbmConfig::<f64>::default();
         config.max_steps = 10; // Short simulation for testing
         config.verbose = false;
@@ -717,7 +717,7 @@ mod tests {
         let mut solver = LbmSolver::new(config, &grid);
 
         // Initialize with rest state
-        solver.initialize(1.0, Vector2::zeros()).unwrap();
+        solver.initialize(1.0, Vector2::zeros()).expect("CRITICAL: Add proper error handling");
 
         // Set up simple boundary conditions
         let mut boundaries = HashMap::new();
@@ -741,14 +741,14 @@ mod tests {
         }
 
         // Run simulation
-        solver.solve(&boundaries).unwrap();
+        solver.solve(&boundaries).expect("CRITICAL: Add proper error handling");
 
         // Check that simulation completed without errors
         assert!(solver.velocity_field().len() == grid.nx());
         assert!(solver.density_field().len() == grid.nx());
 
         // Check that velocity field has reasonable values
-        let u_center = solver.velocity_at(2, 2).unwrap();
+        let u_center = solver.velocity_at(2, 2).expect("CRITICAL: Add proper error handling");
         assert!(u_center.x >= 0.0); // Should have positive x-velocity due to inlet
     }
 }

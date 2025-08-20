@@ -145,7 +145,7 @@ where
 
 /// Lid-driven cavity benchmark problem
 /// 
-/// This implementation uses the SIMPLE algorithm to solve the incompressible
+/// This implementation uses the STANDARD algorithm to solve the incompressible
 /// Navier-Stokes equations. Full convergence may require careful tuning of
 /// relaxation parameters and many iterations.
 #[derive(Debug)]
@@ -306,7 +306,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
     }
 
     fn run(&self) -> Result<Self::Solution> {
-        use cfd_core::BoundaryCondition;
+        use cfd_core::boundary::BoundaryCondition;
         use std::collections::HashMap;
         
         // Create grid for lid-driven cavity
@@ -317,7 +317,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
             T::zero(), T::one()  // Domain from (0,0) to (1,1)
         )?;
         
-        // Use SIMPLE algorithm for incompressible Navier-Stokes
+        // Use STANDARD algorithm for incompressible Navier-Stokes
         // Note: Lid-driven cavity can be challenging to converge
         let config = PressureVelocityCouplingConfig {
             base: cfd_core::SolverConfig::builder()
@@ -336,7 +336,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
         let density = T::one(); // Normalized
         let viscosity = density.clone() / self.reynolds.clone(); // μ = ρ/Re for unit velocity
         
-        let mut solver = PressureVelocityCouplerSolver::new_with_properties(config, grid.nx(), grid.ny(), density, viscosity);
+        let mut solver = PressureVelocityCouplerSolver::current_with_properties(config, grid.nx(), grid.ny(), density, viscosity);
         
         // Set boundary conditions
         let mut boundary_conditions = HashMap::new();
@@ -435,7 +435,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
 
 /// Flow over cylinder benchmark problem
 /// 
-/// This implementation uses the SIMPLE algorithm to solve flow around a circular
+/// This implementation uses the STANDARD algorithm to solve flow around a circular
 /// cylinder. The drag coefficient validation is based on empirical correlations.
 /// Full CFD simulation would require fine mesh resolution and many iterations.
 #[derive(Debug)]
@@ -621,7 +621,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
     }
 
     fn run(&self) -> Result<Self::Solution> {
-        use cfd_core::BoundaryCondition;
+        use cfd_core::boundary::BoundaryCondition;
         use std::collections::HashMap;
         
         // Create computational domain (20D x 10D where D is cylinder diameter)
@@ -657,7 +657,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
         let density = T::one();
         let viscosity = density.clone() * u_inlet.clone() * self.diameter.clone() / self.reynolds.clone();
         
-        let mut solver = PressureVelocityCouplerSolver::new_with_properties(config, grid.nx(), grid.ny(), density, viscosity);
+        let mut solver = PressureVelocityCouplerSolver::current_with_properties(config, grid.nx(), grid.ny(), density, viscosity);
         
         // Set boundary conditions
         let mut boundary_conditions = HashMap::new();
@@ -822,7 +822,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
     }
 
     fn run(&self) -> Result<Self::Solution> {
-        use cfd_core::BoundaryCondition;
+        use cfd_core::boundary::BoundaryCondition;
         use std::collections::HashMap;
         
         // Domain dimensions (following Armaly et al. 1983)
@@ -859,7 +859,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
         let density = T::one(); // Normalized
         let viscosity = density.clone() * u_mean * self.step_height.clone() / self.reynolds.clone();
         
-        let mut solver = PressureVelocityCouplerSolver::new_with_properties(config, grid.nx(), grid.ny(), density, viscosity);
+        let mut solver = PressureVelocityCouplerSolver::current_with_properties(config, grid.nx(), grid.ny(), density, viscosity);
         
         // Set boundary conditions
         let mut boundary_conditions = HashMap::new();

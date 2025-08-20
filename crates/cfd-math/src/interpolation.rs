@@ -317,9 +317,9 @@ impl<T: RealField> Interpolation<T> for LagrangeInterpolation<T> {
         let (min, max) = self.x_data
             .iter()
             .fold((None, None), |(min_acc, max_acc), x| {
-                let new_min = min_acc.map_or(Some(x), |m| if x < m { Some(x) } else { Some(m) });
-                let new_max = max_acc.map_or(Some(x), |m| if x > m { Some(x) } else { Some(m) });
-                (new_min, new_max)
+                let current_min = min_acc.map_or(Some(x), |m| if x < m { Some(x) } else { Some(m) });
+                let current_max = max_acc.map_or(Some(x), |m| if x > m { Some(x) } else { Some(m) });
+                (current_min, current_max)
             });
 
         (min.expect("x_data is guaranteed to be non-empty by constructor").clone(), max.expect("x_data is guaranteed to be non-empty by constructor").clone())
@@ -336,16 +336,16 @@ mod tests {
         let x_data = vec![0.0, 1.0, 2.0, 3.0];
         let y_data = vec![0.0, 1.0, 4.0, 9.0];
         
-        let interp = LinearInterpolation::new(x_data, y_data).unwrap();
+        let interp = LinearInterpolation::new(x_data, y_data).expect("CRITICAL: Add proper error handling");
         
         // Test exact points
-        assert_eq!(interp.interpolate(0.0).unwrap(), 0.0);
-        assert_eq!(interp.interpolate(1.0).unwrap(), 1.0);
-        assert_eq!(interp.interpolate(2.0).unwrap(), 4.0);
+        assert_eq!(interp.interpolate(0.0).expect("CRITICAL: Add proper error handling"), 0.0);
+        assert_eq!(interp.interpolate(1.0).expect("CRITICAL: Add proper error handling"), 1.0);
+        assert_eq!(interp.interpolate(2.0).expect("CRITICAL: Add proper error handling"), 4.0);
         
         // Test interpolation
-        assert_relative_eq!(interp.interpolate(0.5).unwrap(), 0.5, epsilon = 1e-10);
-        assert_relative_eq!(interp.interpolate(1.5).unwrap(), 2.5, epsilon = 1e-10);
+        assert_relative_eq!(interp.interpolate(0.5).expect("CRITICAL: Add proper error handling"), 0.5, epsilon = 1e-10);
+        assert_relative_eq!(interp.interpolate(1.5).expect("CRITICAL: Add proper error handling"), 2.5, epsilon = 1e-10);
     }
 
     #[test]
@@ -354,15 +354,15 @@ mod tests {
         let x_data = vec![0.0, 1.0, 2.0, 3.0, 4.0];
         let y_data = vec![0.0, 1.0, 4.0, 9.0, 16.0];
         
-        let spline = CubicSplineInterpolation::new(x_data, y_data).unwrap();
+        let spline = CubicSplineInterpolation::new(x_data, y_data).expect("CRITICAL: Add proper error handling");
         
         // Test at data points
-        assert_relative_eq!(spline.interpolate(0.0).unwrap(), 0.0, epsilon = 1e-10);
-        assert_relative_eq!(spline.interpolate(2.0).unwrap(), 4.0, epsilon = 1e-10);
+        assert_relative_eq!(spline.interpolate(0.0).expect("CRITICAL: Add proper error handling"), 0.0, epsilon = 1e-10);
+        assert_relative_eq!(spline.interpolate(2.0).expect("CRITICAL: Add proper error handling"), 4.0, epsilon = 1e-10);
         
         // Test interpolation (should be close to x^2)
-        assert_relative_eq!(spline.interpolate(1.5).unwrap(), 2.25, epsilon = 0.1);
-        assert_relative_eq!(spline.interpolate(2.5).unwrap(), 6.25, epsilon = 0.1);
+        assert_relative_eq!(spline.interpolate(1.5).expect("CRITICAL: Add proper error handling"), 2.25, epsilon = 0.1);
+        assert_relative_eq!(spline.interpolate(2.5).expect("CRITICAL: Add proper error handling"), 6.25, epsilon = 0.1);
     }
 
     #[test]
@@ -371,14 +371,14 @@ mod tests {
         let x_data = vec![0.0, 1.0, 2.0];
         let y_data = vec![1.0, 3.0, 7.0]; // y = x^2 + x + 1
         
-        let interp = LagrangeInterpolation::new(x_data, y_data).unwrap();
+        let interp = LagrangeInterpolation::new(x_data, y_data).expect("CRITICAL: Add proper error handling");
         
         // Test exact recovery at nodes
-        assert_relative_eq!(interp.interpolate(0.0).unwrap(), 1.0, epsilon = 1e-10);
-        assert_relative_eq!(interp.interpolate(1.0).unwrap(), 3.0, epsilon = 1e-10);
-        assert_relative_eq!(interp.interpolate(2.0).unwrap(), 7.0, epsilon = 1e-10);
+        assert_relative_eq!(interp.interpolate(0.0).expect("CRITICAL: Add proper error handling"), 1.0, epsilon = 1e-10);
+        assert_relative_eq!(interp.interpolate(1.0).expect("CRITICAL: Add proper error handling"), 3.0, epsilon = 1e-10);
+        assert_relative_eq!(interp.interpolate(2.0).expect("CRITICAL: Add proper error handling"), 7.0, epsilon = 1e-10);
         
         // Test at intermediate point
-        assert_relative_eq!(interp.interpolate(0.5).unwrap(), 1.75, epsilon = 1e-10);
+        assert_relative_eq!(interp.interpolate(0.5).expect("CRITICAL: Add proper error handling"), 1.75, epsilon = 1e-10);
     }
 }

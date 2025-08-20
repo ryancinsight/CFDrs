@@ -51,7 +51,7 @@ impl<T: RealField> EnergyEquationSolver<T> {
         dy: T,
         boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
     ) -> Result<()> {
-        let mut new_temperature = self.temperature.clone();
+        let mut current_temperature = self.temperature.clone();
         
         // Interior points
         for i in 1..self.nx-1 {
@@ -86,7 +86,7 @@ impl<T: RealField> EnergyEquationSolver<T> {
                     + self.temperature[i][j-1].clone()) / (dy.clone() * dy.clone());
                 
                 // Update temperature
-                new_temperature[i][j] = t.clone() + dt.clone() * (
+                current_temperature[i][j] = t.clone() + dt.clone() * (
                     -u.clone() * dt_dx - v.clone() * dt_dy
                     + alpha.clone() * (d2t_dx2 + d2t_dy2)
                     + self.heat_source[i][j].clone()
@@ -98,25 +98,25 @@ impl<T: RealField> EnergyEquationSolver<T> {
         for ((i, j), bc) in boundary_conditions {
             match bc {
                 BoundaryCondition::Dirichlet { value } => {
-                    new_temperature[*i][*j] = value.clone();
+                    current_temperature[*i][*j] = value.clone();
                 },
                 BoundaryCondition::Neumann { gradient } => {
                     // Apply gradient boundary condition
                     if *i == 0 {
-                        new_temperature[0][*j] = new_temperature[1][*j].clone() - gradient.clone() * dx.clone();
+                        current_temperature[0][*j] = current_temperature[1][*j].clone() - gradient.clone() * dx.clone();
                     } else if *i == self.nx - 1 {
-                        new_temperature[self.nx-1][*j] = new_temperature[self.nx-2][*j].clone() + gradient.clone() * dx.clone();
+                        current_temperature[self.nx-1][*j] = current_temperature[self.nx-2][*j].clone() + gradient.clone() * dx.clone();
                     } else if *j == 0 {
-                        new_temperature[*i][0] = new_temperature[*i][1].clone() - gradient.clone() * dy.clone();
+                        current_temperature[*i][0] = current_temperature[*i][1].clone() - gradient.clone() * dy.clone();
                     } else if *j == self.ny - 1 {
-                        new_temperature[*i][self.ny-1] = new_temperature[*i][self.ny-2].clone() + gradient.clone() * dy.clone();
+                        current_temperature[*i][self.ny-1] = current_temperature[*i][self.ny-2].clone() + gradient.clone() * dy.clone();
                     }
                 },
                 _ => {}
             }
         }
         
-        self.temperature = new_temperature;
+        self.temperature = current_temperature;
         Ok(())
     }
     

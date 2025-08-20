@@ -365,26 +365,26 @@ mod tests {
         sim.add_boundary_condition(
             "inlet".to_string(),
             BoundaryCondition::velocity_inlet(Vector3::new(1.0, 0.0, 0.0))
-        ).unwrap();
+        ).expect("CRITICAL: Add proper error handling");
 
         // Set reference conditions
         sim.set_reference_conditions(
             Pressure::pascals(101_325.0),
             &Velocity::new(1.0, 0.0, 0.0),
             1.0
-        ).unwrap();
+        ).expect("CRITICAL: Add proper error handling");
 
         // Now should be ready
         assert!(sim.is_ready());
 
         // Configure and start
-        sim.configure().unwrap();
+        sim.configure().expect("CRITICAL: Add proper error handling");
         assert_eq!(sim.state, SimulationState::Configured);
 
-        sim.start().unwrap();
+        sim.start().expect("CRITICAL: Add proper error handling");
         assert_eq!(sim.state, SimulationState::Running);
 
-        sim.complete().unwrap();
+        sim.complete().expect("CRITICAL: Add proper error handling");
         assert_eq!(sim.state, SimulationState::Completed);
     }
 }

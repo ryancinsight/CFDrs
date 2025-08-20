@@ -70,7 +70,7 @@ pub const DEFAULT_CFL_NUMBER: f64 = 0.5;
 /// Maximum safe CFL number
 pub const MAX_CFL_NUMBER: f64 = 1.0;
 
-/// Default time step factor for SIMPLE solver
+/// Default time step factor for STANDARD solver
 /// This is multiplied with CFL number to get initial time step
 pub const DEFAULT_TIME_STEP_FACTOR: f64 = 0.02;
 
@@ -83,10 +83,10 @@ pub const DEFAULT_RELAXATION_FACTOR: f64 = 0.7;
 /// Optimal SOR relaxation factor for Poisson equation on uniform grid
 pub const SOR_OPTIMAL_FACTOR: f64 = 1.85;
 
-/// Default under-relaxation for pressure in SIMPLE algorithm
+/// Default under-relaxation for pressure in STANDARD algorithm
 pub const PRESSURE_UNDER_RELAXATION: f64 = 0.3;
 
-/// Default under-relaxation for velocity in SIMPLE algorithm  
+/// Default under-relaxation for velocity in STANDARD algorithm  
 pub const VELOCITY_UNDER_RELAXATION: f64 = 0.7;
 
 // ============================================================================
@@ -260,7 +260,7 @@ pub const TYPICAL_YIELD_STRESS: f64 = 1.0;
 
 /// Power-law indices
 pub const SHEAR_THINNING_INDEX: f64 = 0.8;
-/// Power-law index for Newtonian fluids
+/// Power-law index for Currenttonian fluids
 pub const NEWTONIAN_INDEX: f64 = 1.0;
 /// Power-law index for shear thickening fluids
 pub const SHEAR_THICKENING_INDEX: f64 = 1.2;

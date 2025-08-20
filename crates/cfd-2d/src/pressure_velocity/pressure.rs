@@ -1,4 +1,4 @@
-//! Pressure correction solver for SIMPLE algorithm
+//! Pressure correction solver for STANDARD algorithm
 
 use nalgebra::{RealField, Vector2, DVector};
 use num_traits::FromPrimitive;

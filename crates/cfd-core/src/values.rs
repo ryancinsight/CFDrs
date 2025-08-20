@@ -307,17 +307,17 @@ mod tests {
 
     #[test]
     fn test_reynolds_number() {
-        let re = ReynoldsNumber::new(1500.0).unwrap();
+        let re = ReynoldsNumber::new(1500.0).expect("CRITICAL: Add proper error handling");
         assert!(re.is_laminar());
         assert!(!re.is_turbulent());
         assert!(!re.is_transitional());
 
-        let re_turb = ReynoldsNumber::new(5000.0).unwrap();
+        let re_turb = ReynoldsNumber::new(5000.0).expect("CRITICAL: Add proper error handling");
         assert!(!re_turb.is_laminar());
         assert!(re_turb.is_turbulent());
         assert!(!re_turb.is_transitional());
 
-        let re_trans = ReynoldsNumber::new(3000.0).unwrap();
+        let re_trans = ReynoldsNumber::new(3000.0).expect("CRITICAL: Add proper error handling");
         assert!(!re_trans.is_laminar());
         assert!(!re_trans.is_turbulent());
         assert!(re_trans.is_transitional());
@@ -336,11 +336,11 @@ mod tests {
 
     #[test]
     fn test_temperature_conversion() {
-        let t_c = Temperature::celsius(0.0f64).unwrap();
+        let t_c = Temperature::celsius(0.0f64).expect("CRITICAL: Add proper error handling");
         let t_k = t_c.to_kelvin();
         assert!((t_k - 273.15).abs() < 1e-6);
 
-        let t_f = Temperature::fahrenheit(32.0f64).unwrap();
+        let t_f = Temperature::fahrenheit(32.0f64).expect("CRITICAL: Add proper error handling");
         let t_k_f = t_f.to_kelvin();
         assert!((t_k_f - 273.15).abs() < 1e-6);
     }

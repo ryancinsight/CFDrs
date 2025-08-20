@@ -1,4 +1,4 @@
-//! Momentum equation solver for SIMPLE algorithm
+//! Momentum equation solver for STANDARD algorithm
 
 use nalgebra::{RealField, Vector2, DVector};
 use num_traits::FromPrimitive;
@@ -27,7 +27,7 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
         &self,
         u: &Vec<Vec<Vector2<T>>>,
         p: &Vec<Vec<T>>,
-        bc: &cfd_core::BoundaryCondition<T>,
+        bc: &cfd_core::boundary::BoundaryCondition<T>,
         nu: T,
     ) -> cfd_core::error::Result<Vec<Vec<Vector2<T>>>> {
         let nx = self.grid.nx();
@@ -163,14 +163,14 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
     fn apply_boundary_conditions(
         &self,
         u: &mut Vec<Vec<Vector2<T>>>,
-        bc: &cfd_core::BoundaryCondition<T>,
+        bc: &cfd_core::boundary::BoundaryCondition<T>,
     ) -> cfd_core::error::Result<()> {
         let nx = self.grid.nx();
         let ny = self.grid.ny();
         
         // Apply boundary conditions based on type
         match bc {
-            cfd_core::BoundaryCondition::Dirichlet(value) => {
+            cfd_core::boundary::BoundaryCondition::Dirichlet(value) => {
                 // Fixed velocity at boundaries
                 for i in 0..nx {
                     u[i][0] = Vector2::new(*value, T::zero());
@@ -181,7 +181,7 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
                     u[nx-1][j] = Vector2::new(*value, T::zero());
                 }
             }
-            cfd_core::BoundaryCondition::Neumann(_) => {
+            cfd_core::boundary::BoundaryCondition::Neumann(_) => {
                 // Zero gradient at boundaries
                 for i in 0..nx {
                     u[i][0] = u[i][1];

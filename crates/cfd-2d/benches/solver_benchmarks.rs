@@ -116,18 +116,18 @@ fn benchmark_lbm_solver(c: &mut Criterion) {
 }
 
 fn benchmark_pressure_velocity_coupling(c: &mut Criterion) {
-    let mut group = c.benchmark_group("simple_solver");
+    let mut group = c.benchmark_group("standard_solver");
     
     for size in [25, 50, 100].iter() {
-        let config = SimpleConfig::default();
-        let mut simple_solver = SimpleSolver::new(config, *size, *size);
+        let config = StandardConfig::default();
+        let mut standard_solver = StandardSolver::new(config, *size, *size);
         
         group.bench_with_input(
             BenchmarkId::new("pvc_single_iteration", size),
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(simple_solver.solve_step().unwrap())
+                    black_box(standard_solver.solve_step().unwrap())
                 })
             },
         );
@@ -137,7 +137,7 @@ fn benchmark_pressure_velocity_coupling(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(simple_solver.solve_pressure_correction().unwrap())
+                    black_box(standard_solver.solve_pressure_correction().unwrap())
                 })
             },
         );
@@ -287,7 +287,7 @@ criterion_group!(
     benchmark_fdm_solvers,
     benchmark_fvm_solver,
     benchmark_lbm_solver,
-    benchmark_simple_solver,
+    benchmark_standard_solver,
     benchmark_grid_operations,
     benchmark_memory_access_patterns
 );

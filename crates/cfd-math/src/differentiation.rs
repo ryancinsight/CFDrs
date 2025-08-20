@@ -447,7 +447,7 @@ mod tests {
 
         // Test on quadratic function: f(x) = x^2, f'(x) = 2x
         let x_values = vec![0.0, 1.0, 4.0, 9.0, 16.0]; // x^2 for x = 0,1,2,3,4
-        let derivatives = fd.first_derivative(&x_values).unwrap();
+        let derivatives = fd.first_derivative(&x_values).expect("CRITICAL: Add proper error handling");
 
         // Expected derivatives: [1, 2, 4, 6, 7] (approximate due to boundary conditions)
         assert_relative_eq!(derivatives[1], 2.0, epsilon = 1e-10); // Interior point
@@ -466,7 +466,7 @@ mod tests {
         // Test on quadratic polynomial: f(x) = x², f'(x) = 2x
         let x_points: Vec<f64> = (0..11).map(|i| i as f64 * h).collect();
         let f_values: Vec<f64> = x_points.iter().map(|&x| x.powi(2)).collect();
-        let derivatives = fd.first_derivative(&f_values).unwrap();
+        let derivatives = fd.first_derivative(&f_values).expect("CRITICAL: Add proper error handling");
 
         // Check interior points (central difference should be exact for linear derivative)
         for i in 1..derivatives.len()-1 {
@@ -496,7 +496,7 @@ mod tests {
             let x_values = vec![x_test - h, x_test, x_test + h];
             let f_values: Vec<f64> = x_values.iter().map(|&x| test_function(x)).collect();
 
-            let derivatives = fd.first_derivative(&f_values).unwrap();
+            let derivatives = fd.first_derivative(&f_values).expect("CRITICAL: Add proper error handling");
             let computed = derivatives[1]; // Central point
             let expected = test_derivative(x_test);
             let error = (computed - expected).abs();
@@ -517,7 +517,7 @@ mod tests {
 
         // Test on linear function: f(x) = 2x, f'(x) = 2
         let x_values = vec![0.0, 2.0, 4.0, 6.0, 8.0];
-        let derivatives = fd.first_derivative(&x_values).unwrap();
+        let derivatives = fd.first_derivative(&x_values).expect("CRITICAL: Add proper error handling");
 
         // Should be exactly 2.0 for linear function
         for &deriv in derivatives.iter() {
@@ -531,7 +531,7 @@ mod tests {
 
         // Test on linear function: f(x) = 3x, f'(x) = 3
         let x_values = vec![0.0, 3.0, 6.0, 9.0, 12.0];
-        let derivatives = fd.first_derivative(&x_values).unwrap();
+        let derivatives = fd.first_derivative(&x_values).expect("CRITICAL: Add proper error handling");
 
         // Should be exactly 3.0 for linear function
         for &deriv in derivatives.iter() {
@@ -545,7 +545,7 @@ mod tests {
 
         // Test on quadratic function: f(x) = x^2, f''(x) = 2
         let x_values = vec![0.0, 1.0, 4.0, 9.0, 16.0, 25.0]; // x^2 for x = 0,1,2,3,4,5
-        let second_derivatives = fd.second_derivative(&x_values).unwrap();
+        let second_derivatives = fd.second_derivative(&x_values).expect("CRITICAL: Add proper error handling");
 
         // Should be exactly 2.0 for quadratic function (interior points)
         for i in 1..second_derivatives.len()-1 {
@@ -559,7 +559,7 @@ mod tests {
 
         // Test on quadratic function: f(x) = x^2, f'(x) = 2x
         let field = vec![0.0, 1.0, 4.0, 9.0, 16.0]; // x^2 for x = 0,1,2,3,4
-        let gradient = grad.gradient_1d(&field).unwrap();
+        let gradient = grad.gradient_1d(&field).expect("CRITICAL: Add proper error handling");
 
         // Check interior points
         assert_relative_eq!(gradient[1], 2.0, epsilon = 1e-10); // f'(1) = 2
@@ -585,7 +585,7 @@ mod tests {
             }
         }
 
-        let gradients = grad.gradient_2d(&field, nx, ny).unwrap();
+        let gradients = grad.gradient_2d(&field, nx, ny).expect("CRITICAL: Add proper error handling");
 
         // Check center point (1,1): should have gradient (2, 2, 0)
         let center_grad = &gradients[1 * nx + 1];
@@ -611,7 +611,7 @@ mod tests {
             }
         }
 
-        let divergence = grad.divergence_2d(&field, nx, ny).unwrap();
+        let divergence = grad.divergence_2d(&field, nx, ny).expect("CRITICAL: Add proper error handling");
 
         // Divergence should be 2.0 everywhere for this field
         for &div in &divergence {
@@ -636,7 +636,7 @@ mod tests {
             }
         }
 
-        let curl = grad.curl_2d(&field, nx, ny).unwrap();
+        let curl = grad.curl_2d(&field, nx, ny).expect("CRITICAL: Add proper error handling");
 
         // Curl should be 2.0 everywhere for this field (interior points)
         assert_relative_eq!(curl[1 * nx + 1], 2.0, epsilon = 1e-10); // Center point
@@ -664,7 +664,7 @@ mod tests {
             }
         }
 
-        let gradients = grad.gradient_3d(&field, nx, ny, nz).unwrap();
+        let gradients = grad.gradient_3d(&field, nx, ny, nz).expect("CRITICAL: Add proper error handling");
 
         // Check center point (1,1,1): should have gradient (2, 2, 2)
         let center_grad = &gradients[1 * nx * ny + 1 * nx + 1];

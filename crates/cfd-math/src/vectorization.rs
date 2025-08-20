@@ -451,7 +451,7 @@ mod tests {
         let b = vec![5.0, 6.0, 7.0, 8.0];
         let mut result = vec![0.0; 4];
 
-        VectorizedOps::add_vectorized(&a, &b, &mut result).unwrap();
+        VectorizedOps::add_vectorized(&a, &b, &mut result).expect("CRITICAL: Add proper error handling");
         assert_eq!(result, vec![6.0, 8.0, 10.0, 12.0]);
     }
 
@@ -460,7 +460,7 @@ mod tests {
         let a = vec![1.0, 2.0, 3.0];
         let b = vec![4.0, 5.0, 6.0];
 
-        let result = VectorizedOps::dot_vectorized(&a, &b).unwrap();
+        let result = VectorizedOps::dot_vectorized(&a, &b).expect("CRITICAL: Add proper error handling");
         assert_eq!(result, 32.0); // 1*4 + 2*5 + 3*6 = 32
     }
 

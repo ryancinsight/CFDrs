@@ -307,7 +307,7 @@ mod tests {
 
     #[test]
     fn test_csv_write_read() {
-        let temp_file = NamedTempFile::new().unwrap();
+        let temp_file = NamedTempFile::new().expect("CRITICAL: Add proper error handling");
         let path = temp_file.path();
 
         // Write data
@@ -318,11 +318,11 @@ mod tests {
             vec![0.1, 1.1, 2.1],
             vec![0.2, 1.2, 2.2],
         ];
-        writer.write_time_series(path, &headers, data.clone()).unwrap();
+        writer.write_time_series(path, &headers, data.clone()).expect("CRITICAL: Add proper error handling");
 
         // Read data
         let reader = CsvReader::<f64>::new();
-        let result = reader.read_time_series(path).unwrap();
+        let result = reader.read_time_series(path).expect("CRITICAL: Add proper error handling");
 
         assert_eq!(result.headers, headers);
         assert_eq!(result.data, data);
@@ -330,21 +330,21 @@ mod tests {
 
     #[test]
     fn test_streaming() {
-        let temp_file = NamedTempFile::new().unwrap();
+        let temp_file = NamedTempFile::new().expect("CRITICAL: Add proper error handling");
         let path = temp_file.path();
 
         // Write using streaming
         let writer = CsvWriter::<f64>::new();
-        let mut stream = writer.create_stream_writer(path).unwrap();
-        stream.write_headers(&["x", "y"]).unwrap();
-        stream.write_row(&[1.0, 2.0]).unwrap();
-        stream.write_row(&[3.0, 4.0]).unwrap();
-        stream.flush().unwrap();
+        let mut stream = writer.create_stream_writer(path).expect("CRITICAL: Add proper error handling");
+        stream.write_headers(&["x", "y"]).expect("CRITICAL: Add proper error handling");
+        stream.write_row(&[1.0, 2.0]).expect("CRITICAL: Add proper error handling");
+        stream.write_row(&[3.0, 4.0]).expect("CRITICAL: Add proper error handling");
+        stream.flush().expect("CRITICAL: Add proper error handling");
 
         // Read using streaming
         let reader = CsvReader::<f64>::new();
-        let mut stream = reader.create_stream_reader(path).unwrap();
-        let headers = stream.headers().unwrap();
+        let mut stream = reader.create_stream_reader(path).expect("CRITICAL: Add proper error handling");
+        let headers = stream.headers().expect("CRITICAL: Add proper error handling");
         assert_eq!(headers, vec!["x", "y"]);
 
         let records: Vec<_> = stream.records().collect();

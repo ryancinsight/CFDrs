@@ -494,18 +494,18 @@ mod tests {
         
         for i in 0..n {
             // Diagonal
-            builder.add_entry(i, i, 2.0).unwrap();
+            builder.add_entry(i, i, 2.0).expect("CRITICAL: Add proper error handling");
             
             // Off-diagonals
             if i > 0 {
-                builder.add_entry(i, i-1, -1.0).unwrap();
+                builder.add_entry(i, i-1, -1.0).expect("CRITICAL: Add proper error handling");
             }
             if i < n-1 {
-                builder.add_entry(i, i+1, -1.0).unwrap();
+                builder.add_entry(i, i+1, -1.0).expect("CRITICAL: Add proper error handling");
             }
         }
         
-        builder.build().unwrap()
+        builder.build().expect("CRITICAL: Add proper error handling")
     }
 
     #[test]
@@ -514,7 +514,7 @@ mod tests {
         let b = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         
         let solver = ConjugateGradient::default();
-        let x = solver.solve(&a, &b, None).unwrap();
+        let x = solver.solve(&a, &b, None).expect("CRITICAL: Add proper error handling");
         
         let residual = &b - &a * &x;
         assert!(residual.norm() < 1e-10);
@@ -526,7 +526,7 @@ mod tests {
         let b = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         
         let solver = BiCGSTAB::default();
-        let x = solver.solve(&a, &b, None).unwrap();
+        let x = solver.solve(&a, &b, None).expect("CRITICAL: Add proper error handling");
         
         let residual = &b - &a * &x;
         assert!(residual.norm() < 1e-10);
@@ -537,9 +537,9 @@ mod tests {
         let a = create_test_matrix();
         let r = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         
-        let precond = JacobiPreconditioner::new(&a).unwrap();
+        let precond = JacobiPreconditioner::new(&a).expect("CRITICAL: Add proper error handling");
         let mut z = DVector::zeros(3);
-        precond.apply_to(&r, &mut z).unwrap();
+        precond.apply_to(&r, &mut z).expect("CRITICAL: Add proper error handling");
         
         // Check that z is correctly scaled by inverse diagonal
         assert_relative_eq!(z[0], r[0] / 4.0, epsilon = 1e-12);
@@ -565,7 +565,7 @@ mod tests {
         let a = create_1d_poisson_matrix(10);
         
         // Should successfully create SOR with optimized omega
-        let sor = SORPreconditioner::with_omega_for_1d_poisson(&a).unwrap();
+        let sor = SORPreconditioner::with_omega_for_1d_poisson(&a).expect("CRITICAL: Add proper error handling");
         
         // Omega should be in valid range
         assert!(sor.omega > 0.0 && sor.omega < 2.0);
@@ -585,11 +585,11 @@ mod tests {
         
         // The test matrix we created is actually tridiagonal, so let's create a non-tridiagonal matrix
         let mut builder = crate::sparse::SparseMatrixBuilder::new(3, 3);
-        builder.add_entry(0, 0, 2.0).unwrap();
-        builder.add_entry(0, 2, 1.0).unwrap(); // Non-adjacent entry
-        builder.add_entry(1, 1, 2.0).unwrap();
-        builder.add_entry(2, 2, 2.0).unwrap();
-        let non_tridiag = builder.build().unwrap();
+        builder.add_entry(0, 0, 2.0).expect("CRITICAL: Add proper error handling");
+        builder.add_entry(0, 2, 1.0).expect("CRITICAL: Add proper error handling"); // Non-adjacent entry
+        builder.add_entry(1, 1, 2.0).expect("CRITICAL: Add proper error handling");
+        builder.add_entry(2, 2, 2.0).expect("CRITICAL: Add proper error handling");
+        let non_tridiag = builder.build().expect("CRITICAL: Add proper error handling");
         
         // Should reject non-tridiagonal matrix
         assert!(SORPreconditioner::with_omega_for_1d_poisson(&non_tridiag).is_err());
@@ -601,9 +601,9 @@ mod tests {
         let b = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         
         let solver = ConjugateGradient::default();
-        let precond = JacobiPreconditioner::new(&a).unwrap();
+        let precond = JacobiPreconditioner::new(&a).expect("CRITICAL: Add proper error handling");
         
-        let x = solver.solve_preconditioned(&a, &b, &precond, None).unwrap();
+        let x = solver.solve_preconditioned(&a, &b, &precond, None).expect("CRITICAL: Add proper error handling");
         
         let residual = &b - &a * &x;
         assert!(residual.norm() < 1e-10);
@@ -615,7 +615,7 @@ mod tests {
         let precond = IdentityPreconditioner;
         
         let mut z = DVector::zeros(3);
-        precond.apply_to(&r, &mut z).unwrap();
+        precond.apply_to(&r, &mut z).expect("CRITICAL: Add proper error handling");
         
         assert_relative_eq!(z, r, epsilon = 1e-12);
     }

@@ -211,7 +211,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_basic_state() {
+    fn test_core_state() {
         let mut state = FieldState::<f64>::new();
         state.add_scalar_field(FieldVariable::Pressure, 10);
         state.add_vector_field(FieldVariable::Velocity, 10);

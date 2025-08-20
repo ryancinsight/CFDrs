@@ -359,8 +359,8 @@ impl<T: RealField + FromPrimitive + Float> VariableTimeStep<T> {
         let factor = self.safety_factor.clone()
             * num_traits::Float::powf(self.target_error.clone() / error, exponent);
         
-        let new_dt = current_dt * factor;
-        let max_dt = num_traits::Float::max(new_dt, self.dt_min.clone());
+        let current_dt = current_dt * factor;
+        let max_dt = num_traits::Float::max(current_dt, self.dt_min.clone());
         num_traits::Float::min(max_dt, self.dt_max.clone())
     }
 }
@@ -369,7 +369,7 @@ impl<T: RealField + FromPrimitive + Float> VariableTimeStep<T> {
 mod tests {
     use super::*;
 
-    // Simple state for testing
+    // Standard state for testing
     #[derive(Clone)]
     #[allow(dead_code)]
     struct TestState(f64);
@@ -411,7 +411,7 @@ mod tests {
         };
         
         // Take one step
-        integrator.step(&mut state, 0.0, dt, derivative).unwrap();
+        integrator.step(&mut state, 0.0, dt, derivative).expect("CRITICAL: Add proper error handling");
         
         // After one step: y ≈ y0 * (1 - dt) = 1.0 * (1 - 0.1) = 0.9
         assert_abs_diff_eq!(state[0], 0.9, epsilon = 1e-10);
@@ -422,12 +422,12 @@ mod tests {
         let controller = AdaptiveTimeStep::<f64>::default();
         
         // Error is less than target
-        let new_dt = controller.calculate_dt(0.01, 1e-8, 2);
-        assert!(new_dt > 0.01);
+        let current_dt = controller.calculate_dt(0.01, 1e-8, 2);
+        assert!(current_dt > 0.01);
         
         // Error is greater than target
-        let new_dt = controller.calculate_dt(0.01, 1e-4, 2);
-        assert!(new_dt < 0.01);
+        let current_dt = controller.calculate_dt(0.01, 1e-4, 2);
+        assert!(current_dt < 0.01);
     }
 
     #[test]

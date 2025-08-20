@@ -86,7 +86,7 @@ pub mod prelude {
     #[cfg(feature = "scheme-integration")]
     pub use crate::scheme_integration::{JunctionType, ChannelPathType, helpers};
 
-    // === Advanced Network Components ===
+    // === Extended Network Components ===
     // Specialized components not in main prelude
     pub use crate::{
         network::{Node, Edge, NodeType, EdgeType, NodeProperties, EdgeProperties},

@@ -4,7 +4,7 @@
 //! microfluidic components and flow conditions, including analytical
 //! solutions and empirical correlations.
 
-use cfd_core::{Fluid, Result, Error};
+use cfd_core::fluid::Fluid; use cfd_core::error::{, Result, Error};
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use num_traits::Float as _;

@@ -258,13 +258,13 @@ impl<T: RealField + FromPrimitive> ErrorMetric<T> for NormalizedRMSE {
             },
             NormalizationMethod::Mean => {
                 let sum: T = reference.iter().fold(T::zero(), |acc, x| acc + x.clone());
-                let n = T::from_usize(reference.len()).unwrap();
+                let n = T::from_usize(reference.len()).expect("CRITICAL: Add proper error handling");
                 sum / n
             },
             NormalizationMethod::StandardDeviation => {
                 // Compute mean
                 let sum: T = reference.iter().fold(T::zero(), |acc, x| acc + x.clone());
-                let n = T::from_usize(reference.len()).unwrap();
+                let n = T::from_usize(reference.len()).expect("CRITICAL: Add proper error handling");
                 let mean = sum / n.clone();
 
                 // Compute variance
@@ -370,7 +370,7 @@ impl ErrorAnalysis {
 
         // Use least squares fit to log(error) = log(C) + p*log(h)
         // where p is the convergence rate
-        let n = T::from_usize(grid_sizes.len()).unwrap();
+        let n = T::from_usize(grid_sizes.len()).expect("CRITICAL: Add proper error handling");
 
         let log_h: Vec<T> = grid_sizes.iter().map(|h| h.clone().ln()).collect();
         let log_e: Vec<T> = errors.iter().map(|e| e.clone().ln()).collect();
@@ -427,13 +427,13 @@ mod tests {
         // Test identical arrays
         let numerical = vec![1.0, 2.0, 3.0];
         let reference = vec![1.0, 2.0, 3.0];
-        let error = l2.compute_error(&numerical, &reference).unwrap();
+        let error = l2.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
         assert_relative_eq!(error, 0.0, epsilon = 1e-10);
 
         // Test known error
         let numerical = vec![1.0, 2.0, 3.0];
         let reference = vec![0.0, 0.0, 0.0];
-        let error = l2.compute_error(&numerical, &reference).unwrap();
+        let error = l2.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
         let expected = (1.0_f64 + 4.0 + 9.0).sqrt() / 3.0_f64.sqrt(); // sqrt(14/3)
         assert_relative_eq!(error, expected, epsilon = 1e-10);
     }
@@ -445,7 +445,7 @@ mod tests {
         // Test maximum difference
         let numerical = vec![1.0, 5.0, 3.0];
         let reference = vec![0.0, 2.0, 3.0];
-        let error = linf.compute_error(&numerical, &reference).unwrap();
+        let error = linf.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
         assert_relative_eq!(error, 3.0, epsilon = 1e-10); // max(|1-0|, |5-2|, |3-3|) = 3
     }
 
@@ -456,7 +456,7 @@ mod tests {
         // Test mean absolute difference
         let numerical = vec![1.0, 5.0, 3.0];
         let reference = vec![0.0, 2.0, 1.0];
-        let error = l1.compute_error(&numerical, &reference).unwrap();
+        let error = l1.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
         let expected = (1.0 + 3.0 + 2.0) / 3.0; // (|1-0| + |5-2| + |3-1|) / 3 = 2.0
         assert_relative_eq!(error, expected, epsilon = 1e-10);
     }
@@ -468,10 +468,10 @@ mod tests {
         // Test relative error
         let numerical = vec![1.1, 2.1, 3.1];
         let reference = vec![1.0, 2.0, 3.0];
-        let error = rel_error.compute_error(&numerical, &reference).unwrap();
+        let error = rel_error.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
 
-        let abs_error = L2Norm.compute_error(&numerical, &reference).unwrap();
-        let ref_norm = L2Norm.compute_error(&reference, &vec![0.0; 3]).unwrap();
+        let abs_error = L2Norm.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
+        let ref_norm = L2Norm.compute_error(&reference, &vec![0.0; 3]).expect("CRITICAL: Add proper error handling");
         let expected = abs_error / ref_norm;
 
         assert_relative_eq!(error, expected, epsilon = 1e-10);
@@ -484,9 +484,9 @@ mod tests {
         // Test with near-zero reference (should return absolute error)
         let numerical = vec![1e-8, 2e-8, 3e-8];
         let reference = vec![0.0, 0.0, 0.0];
-        let error = rel_error.compute_error(&numerical, &reference).unwrap();
+        let error = rel_error.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
 
-        let abs_error = L2Norm.compute_error(&numerical, &reference).unwrap();
+        let abs_error = L2Norm.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
         assert_relative_eq!(error, abs_error, epsilon = 1e-10);
     }
 
@@ -498,8 +498,8 @@ mod tests {
         let numerical = vec![1.0, 2.0, 3.0];
         let reference = vec![0.5, 1.5, 2.5];
 
-        let rmse_error = rmse.compute_error(&numerical, &reference).unwrap();
-        let l2_error = l2.compute_error(&numerical, &reference).unwrap();
+        let rmse_error = rmse.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
+        let l2_error = l2.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
 
         // RMSE should be the same as L2 norm
         assert_relative_eq!(rmse_error, l2_error, epsilon = 1e-10);
@@ -513,8 +513,8 @@ mod tests {
         let numerical = vec![1.0, 2.0, 3.0];
         let reference = vec![0.5, 1.5, 2.5];
 
-        let mae_error = mae.compute_error(&numerical, &reference).unwrap();
-        let l1_error = l1.compute_error(&numerical, &reference).unwrap();
+        let mae_error = mae.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
+        let l1_error = l1.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
 
         // MAE should be the same as L1 norm
         assert_relative_eq!(mae_error, l1_error, epsilon = 1e-10);
@@ -527,8 +527,8 @@ mod tests {
         let numerical = vec![1.0, 3.0, 5.0];
         let reference = vec![0.0, 2.0, 4.0]; // range = 4.0
 
-        let error = nrmse.compute_error(&numerical, &reference).unwrap();
-        let rmse = RootMeanSquareError.compute_error(&numerical, &reference).unwrap();
+        let error = nrmse.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
+        let rmse = RootMeanSquareError.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
         let expected = rmse / 4.0; // normalized by range
 
         assert_relative_eq!(error, expected, epsilon = 1e-10);
@@ -541,8 +541,8 @@ mod tests {
         let numerical = vec![1.0, 3.0, 5.0];
         let reference = vec![0.0, 2.0, 4.0]; // mean = 2.0
 
-        let error = nrmse.compute_error(&numerical, &reference).unwrap();
-        let rmse = RootMeanSquareError.compute_error(&numerical, &reference).unwrap();
+        let error = nrmse.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
+        let rmse = RootMeanSquareError.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
         let expected = rmse / 2.0; // normalized by mean
 
         assert_relative_eq!(error, expected, epsilon = 1e-10);
@@ -553,7 +553,7 @@ mod tests {
         let numerical = vec![1.1, 2.1, 3.1];
         let reference = vec![1.0, 2.0, 3.0];
 
-        let stats = ErrorStatistics::compute(&numerical, &reference).unwrap();
+        let stats = ErrorStatistics::compute(&numerical, &reference).expect("CRITICAL: Add proper error handling");
 
         assert_eq!(stats.num_points, 3);
         assert!(stats.l1_norm > 0.0);
@@ -582,7 +582,7 @@ mod tests {
             Vector3::new(3.0, 0.0, 0.0),
         ];
 
-        let stats = ErrorStatistics::compute_vector(&numerical, &reference).unwrap();
+        let stats = ErrorStatistics::compute_vector(&numerical, &reference).expect("CRITICAL: Add proper error handling");
 
         assert_eq!(stats.num_points, 3);
         assert!(stats.l2_norm > 0.0);
@@ -601,7 +601,7 @@ mod tests {
             Vector3::new(0.0, 0.0, 0.0),
         ];
 
-        let error = l2.compute_vector_error(&numerical, &reference).unwrap();
+        let error = l2.compute_vector_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
 
         // Magnitudes are [1.0, 2.0], reference magnitudes are [0.0, 0.0]
         // L2 error = sqrt((1^2 + 2^2) / 2) = sqrt(2.5)
@@ -615,7 +615,7 @@ mod tests {
         let grid_sizes = vec![0.1, 0.05, 0.025];
         let errors = vec![0.01, 0.0025, 0.000625]; // errors ∝ h^2
 
-        let rate = ErrorAnalysis::convergence_rate(&grid_sizes, &errors).unwrap();
+        let rate = ErrorAnalysis::convergence_rate(&grid_sizes, &errors).expect("CRITICAL: Add proper error handling");
         assert_relative_eq!(rate, 2.0, epsilon = 1e-10);
     }
 
@@ -625,7 +625,7 @@ mod tests {
         let grid_sizes = vec![0.1, 0.05, 0.025];
         let errors = vec![0.1, 0.05, 0.025]; // errors ∝ h^1
 
-        let rate = ErrorAnalysis::convergence_rate(&grid_sizes, &errors).unwrap();
+        let rate = ErrorAnalysis::convergence_rate(&grid_sizes, &errors).expect("CRITICAL: Add proper error handling");
         assert_relative_eq!(rate, 1.0, epsilon = 1e-10);
     }
 
@@ -651,7 +651,7 @@ mod tests {
         let numerical: Vec<f64> = vec![];
         let reference: Vec<f64> = vec![];
 
-        let error = l2.compute_error(&numerical, &reference).unwrap();
+        let error = l2.compute_error(&numerical, &reference).expect("CRITICAL: Add proper error handling");
         assert_eq!(error, 0.0);
     }
 

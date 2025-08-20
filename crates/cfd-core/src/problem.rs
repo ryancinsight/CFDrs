@@ -178,7 +178,7 @@ mod tests {
             .reference_pressure(101325.0)
             .transient(true)
             .build()
-            .unwrap();
+            .expect("CRITICAL: Add proper error handling");
 
         assert_eq!(problem.fluid.name, "Water (20°C)");
         assert_eq!(problem.boundary_conditions.conditions.len(), 3);

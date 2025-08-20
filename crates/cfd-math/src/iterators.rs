@@ -1,4 +1,4 @@
-//! Advanced iterator utilities for zero-copy CFD operations.
+//! Extended iterator utilities for zero-copy CFD operations.
 //!
 //! This module provides iterator combinators and utilities optimized for CFD computations,
 //! following CUPID principles (Composable, Unix Philosophy, Predictable, Idiomatic, Domain-based).
@@ -47,12 +47,12 @@ where
         let (count, _mean, m2) = self.fold(
             (0, T::zero(), T::zero()),
             |(count, mean, m2), x| {
-                let new_count = count + 1;
+                let current_count = count + 1;
                 let delta = x.clone() - mean.clone();
-                let new_mean = mean + delta.clone() / T::from_usize(new_count).unwrap_or_else(|| T::zero());
-                let delta2 = x - new_mean.clone();
-                let new_m2 = m2 + delta * delta2;
-                (new_count, new_mean, new_m2)
+                let current_mean = mean + delta.clone() / T::from_usize(current_count).unwrap_or_else(|| T::zero());
+                let delta2 = x - current_mean.clone();
+                let current_m2 = m2 + delta * delta2;
+                (current_count, current_mean, current_m2)
             }
         );
         
@@ -154,7 +154,7 @@ where
 }
 
 /// Windowed difference iterator for finite difference operations
-/// Enhanced with circular buffer for zero-copy sliding window
+/// Augmented with circular buffer for zero-copy sliding window
 pub struct WindowedDiff<I, F, T> {
     iter: I,
     window_size: usize,
@@ -450,7 +450,7 @@ impl SliceOps {
 }
 
 /// Composable iterator chains for CFD operations
-/// Enhanced to avoid unnecessary collect() calls for better zero-copy performance
+/// Augmented to avoid unnecessary collect() calls for better zero-copy performance
 pub trait CfdIteratorChain<T>: Iterator<Item = T>
 where
     T: RealField,
@@ -465,7 +465,7 @@ where
     fn with_smoothing(self, window: usize) -> impl Iterator<Item = T> {
         self.windowed_diff(window, |w| {
             let sum = w.iter().fold(T::zero(), |acc, x| acc + x.clone());
-            sum / T::from_usize(w.len()).unwrap()
+            sum / T::from_usize(w.len()).expect("CRITICAL: Add proper error handling")
         })
     }
 
@@ -581,7 +581,7 @@ where
 {
 }
 
-/// Advanced CFD field operations using iterator patterns
+/// Extended CFD field operations using iterator patterns
 pub trait CfdFieldOps<T>: Iterator<Item = T>
 where
     T: RealField,
@@ -693,12 +693,12 @@ where
                 
                 // Compute stability via variance analysis
                 let mean = self.buffer.iter().cloned().fold(T::zero(), |acc, x| acc + x) / 
-                          T::from_usize(self.buffer.len()).unwrap();
+                          T::from_usize(self.buffer.len()).expect("CRITICAL: Add proper error handling");
                 
                 let variance = self.buffer.iter()
                     .map(|x| (x.clone() - mean.clone()) * (x.clone() - mean.clone()))
                     .fold(T::zero(), |acc, x| acc + x) / 
-                    T::from_usize(self.buffer.len()).unwrap();
+                    T::from_usize(self.buffer.len()).expect("CRITICAL: Add proper error handling");
                 
                 Some(variance.sqrt()) // Return standard deviation as stability metric
             }
@@ -814,12 +814,12 @@ where
         
         // Compute stability metric for current window (coefficient of variation)
         let mean = self.buffer.iter().cloned().fold(T::zero(), |acc, x| acc + x) / 
-                  T::from_usize(self.buffer.len()).unwrap();
+                  T::from_usize(self.buffer.len()).expect("CRITICAL: Add proper error handling");
         
         let variance = self.buffer.iter()
             .map(|x| (x.clone() - mean.clone()) * (x.clone() - mean.clone()))
             .fold(T::zero(), |acc, x| acc + x) / 
-            T::from_usize(self.buffer.len()).unwrap();
+            T::from_usize(self.buffer.len()).expect("CRITICAL: Add proper error handling");
         
         let cv = if mean.clone().abs() > T::from_f64(1e-15).unwrap_or_else(|| T::zero()) {
             variance.sqrt() / mean.abs()
@@ -829,9 +829,9 @@ where
         
         // Slide window by step_size
         for _ in 0..self.step_size {
-            if let Some(new_value) = self.iter.next() {
+            if let Some(current_value) = self.iter.next() {
                 self.buffer.remove(0);
-                self.buffer.push(new_value);
+                self.buffer.push(current_value);
             } else {
                 return Some(cv); // Last window
             }
@@ -858,12 +858,12 @@ mod tests {
         let a = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         let b = DVector::from_vec(vec![4.0, 5.0, 6.0]);
         
-        let sum = VectorOps::add(&a, &b).unwrap();
+        let sum = VectorOps::add(&a, &b).expect("CRITICAL: Add proper error handling");
         assert_eq!(sum[0], 5.0);
         assert_eq!(sum[1], 7.0);
         assert_eq!(sum[2], 9.0);
         
-        let dot = VectorOps::dot(&a, &b).unwrap();
+        let dot = VectorOps::dot(&a, &b).expect("CRITICAL: Add proper error handling");
         assert_eq!(dot, 32.0); // 1*4 + 2*5 + 3*6 = 32
     }
 

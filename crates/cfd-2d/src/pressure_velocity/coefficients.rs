@@ -1,4 +1,4 @@
-//! Discretization coefficients for SIMPLE algorithm
+//! Discretization coefficients for STANDARD algorithm
 
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};

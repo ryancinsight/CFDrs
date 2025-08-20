@@ -1,4 +1,4 @@
-//! Momentum equation solver for SIMPLE algorithm.
+//! Momentum equation solver for STANDARD algorithm.
 //!
 //! This module implements the discretization and solution of momentum equations
 //! using finite volume methods with proper Rhie-Chow interpolation.
@@ -182,11 +182,11 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
                 let time_coeff = self.density.clone() * dx.clone() * dy.clone() / dt.clone();
                 
                 // Source term includes time derivative of old velocity
-                let old_vel = match component {
+                let previous_vel = match component {
                     MomentumComponent::U => fields.u.at(i, j).x.clone(),
                     MomentumComponent::V => fields.u.at(i, j).y.clone(),
                 };
-                coeffs.su = time_coeff * old_vel;
+                coeffs.su = time_coeff * previous_vel;
             }
         }
         

@@ -119,7 +119,7 @@ pub struct PluginMetrics {
     pub avg_operation_time_ms: f64,
 }
 
-/// Simple data storage for plugins (no internal locking)
+/// Standard data storage for plugins (no internal locking)
 struct PluginStorage {
     plugins: HashMap<String, Arc<dyn Plugin>>,
 }
@@ -153,7 +153,7 @@ impl PluginStorage {
     }
 }
 
-/// Simple dependency resolver (no internal locking)
+/// Standard dependency resolver (no internal locking)
 struct DependencyResolver {
     dependencies: HashMap<String, Vec<String>>,
     load_order: Vec<String>,
@@ -245,7 +245,7 @@ impl DependencyResolver {
     }
 }
 
-/// Simple monitoring system (no internal locking)
+/// Standard monitoring system (no internal locking)
 struct PluginMonitoring {
     health_status: HashMap<String, PluginHealthStatus>,
     metrics: HashMap<String, PluginMetrics>,
@@ -531,9 +531,9 @@ mod tests {
         
         // Check load order
         let load_order = registry.get_load_order();
-        let a_idx = load_order.iter().position(|x| x == "A").unwrap();
-        let b_idx = load_order.iter().position(|x| x == "B").unwrap();
-        let c_idx = load_order.iter().position(|x| x == "C").unwrap();
+        let a_idx = load_order.iter().position(|x| x == "A").expect("CRITICAL: Add proper error handling");
+        let b_idx = load_order.iter().position(|x| x == "B").expect("CRITICAL: Add proper error handling");
+        let c_idx = load_order.iter().position(|x| x == "C").expect("CRITICAL: Add proper error handling");
         
         assert!(a_idx < b_idx);
         assert!(b_idx < c_idx);
@@ -574,7 +574,7 @@ mod tests {
             dependencies: vec![],
         });
         
-        registry.register(plugin).unwrap();
+        registry.register(plugin).expect("CRITICAL: Add proper error handling");
         
         // Check initial health
         assert!(matches!(
@@ -610,8 +610,8 @@ mod tests {
             dependencies: vec!["A".to_string()],
         });
         
-        registry.register(plugin_a).unwrap();
-        registry.register(plugin_b).unwrap();
+        registry.register(plugin_a).expect("CRITICAL: Add proper error handling");
+        registry.register(plugin_b).expect("CRITICAL: Add proper error handling");
         
         // Cannot remove A because B depends on it
         assert!(registry.unregister("A").is_err());

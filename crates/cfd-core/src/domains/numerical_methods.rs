@@ -549,12 +549,12 @@ mod tests {
     fn test_conjugate_gradient_solver() {
         let solver = linear_solvers::ConjugateGradientSolver::default();
 
-        // Simple 2x2 system: [2 1; 1 2] * [x; y] = [3; 3]
+        // Standard 2x2 system: [2 1; 1 2] * [x; y] = [3; 3]
         // Solution should be [1; 1]
         let matrix = DMatrix::from_row_slice(2, 2, &[2.0, 1.0, 1.0, 2.0]);
         let rhs = DVector::from_vec(vec![3.0, 3.0]);
 
-        let result = solver.solve(&matrix, &rhs).unwrap();
+        let result = solver.solve(&matrix, &rhs).expect("CRITICAL: Add proper error handling");
 
         assert_eq!(result.len(), 2);
         assert_relative_eq!(result[0], 1.0, epsilon = 1e-6);

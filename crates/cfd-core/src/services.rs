@@ -173,15 +173,15 @@ impl MeshQualityService {
     }
 
     fn assess_aspect_ratio<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
-        let threshold_level4 = T::from_f64(2.0).unwrap_or_else(|| T::one());
-        let threshold_level3 = T::from_f64(5.0).unwrap_or_else(|| T::one());
-        let threshold_level2 = T::from_f64(10.0).unwrap_or_else(|| T::one());
+        let threshprevious_level4 = T::from_f64(2.0).unwrap_or_else(|| T::one());
+        let threshprevious_level3 = T::from_f64(5.0).unwrap_or_else(|| T::one());
+        let threshprevious_level2 = T::from_f64(10.0).unwrap_or_else(|| T::one());
 
-        if stats.max < threshold_level4 {
+        if stats.max < threshprevious_level4 {
             QualityLevel::Level4
-        } else if stats.max < threshold_level3 {
+        } else if stats.max < threshprevious_level3 {
             QualityLevel::Level3
-        } else if stats.max < threshold_level2 {
+        } else if stats.max < threshprevious_level2 {
             QualityLevel::Level2
         } else {
             QualityLevel::Level1
@@ -189,15 +189,15 @@ impl MeshQualityService {
     }
 
     fn assess_skewness<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
-        let threshold_level4 = T::from_f64(0.25).unwrap_or_else(|| T::one());
-        let threshold_level3 = T::from_f64(0.5).unwrap_or_else(|| T::one());
-        let threshold_level2 = T::from_f64(0.8).unwrap_or_else(|| T::one());
+        let threshprevious_level4 = T::from_f64(0.25).unwrap_or_else(|| T::one());
+        let threshprevious_level3 = T::from_f64(0.5).unwrap_or_else(|| T::one());
+        let threshprevious_level2 = T::from_f64(0.8).unwrap_or_else(|| T::one());
 
-        if stats.max < threshold_level4 {
+        if stats.max < threshprevious_level4 {
             QualityLevel::Level4
-        } else if stats.max < threshold_level3 {
+        } else if stats.max < threshprevious_level3 {
             QualityLevel::Level3
-        } else if stats.max < threshold_level2 {
+        } else if stats.max < threshprevious_level2 {
             QualityLevel::Level2
         } else {
             QualityLevel::Level1
@@ -205,15 +205,15 @@ impl MeshQualityService {
     }
 
     fn assess_orthogonality<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
-        let threshold_level4 = T::from_f64(0.95).unwrap_or_else(|| T::one());
-        let threshold_level3 = T::from_f64(0.85).unwrap_or_else(|| T::one());
-        let threshold_level2 = T::from_f64(0.7).unwrap_or_else(|| T::one());
+        let threshprevious_level4 = T::from_f64(0.95).unwrap_or_else(|| T::one());
+        let threshprevious_level3 = T::from_f64(0.85).unwrap_or_else(|| T::one());
+        let threshprevious_level2 = T::from_f64(0.7).unwrap_or_else(|| T::one());
 
-        if stats.min > threshold_level4 {
+        if stats.min > threshprevious_level4 {
             QualityLevel::Level4
-        } else if stats.min > threshold_level3 {
+        } else if stats.min > threshprevious_level3 {
             QualityLevel::Level3
-        } else if stats.min > threshold_level2 {
+        } else if stats.min > threshprevious_level2 {
             QualityLevel::Level2
         } else {
             QualityLevel::Level1

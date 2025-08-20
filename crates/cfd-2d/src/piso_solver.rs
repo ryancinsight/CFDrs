@@ -602,7 +602,7 @@ mod tests {
             .gradient_scheme(GradientScheme::CentralDifference)
             .convection_scheme(ConvectionScheme::QUICK)
             .build()
-            .unwrap();
+            .expect("CRITICAL: Add proper error handling");
         
         assert_relative_eq!(config.time_step, 0.001, epsilon = 1e-10);
         assert_eq!(config.num_correctors, 3);

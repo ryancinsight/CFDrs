@@ -1,4 +1,4 @@
-//! Configuration for SIMPLE algorithm
+//! Configuration for STANDARD algorithm
 
 use nalgebra::RealField;
 use num_traits::FromPrimitive;

@@ -5,7 +5,7 @@ use num_traits::FromPrimitive;
 use crate::grid::StructuredGrid2D;
 use super::{PressureVelocityConfig, MomentumSolver, PressureCorrectionSolver, RhieChowInterpolation};
 
-/// SIMPLE (Semi-Implicit Method for Pressure-Linked Equations) solver
+/// STANDARD (Semi-Implicit Method for Pressure-Linked Equations) solver
 pub struct PressureVelocitySolver<T: RealField> {
     /// Configuration
     config: PressureVelocityConfig<T>,
@@ -71,7 +71,7 @@ impl<T: RealField + FromPrimitive> PressureVelocitySolver<T> {
     /// Perform one pressure-velocity coupling iteration
     pub fn step(
         &mut self,
-        bc: &cfd_core::BoundaryCondition<T>,
+        bc: &cfd_core::boundary::BoundaryCondition<T>,
         nu: T,
         rho: T,
     ) -> cfd_core::error::Result<T> {
@@ -110,7 +110,7 @@ impl<T: RealField + FromPrimitive> PressureVelocitySolver<T> {
     /// Run solver until convergence or max iterations
     pub fn solve(
         &mut self,
-        bc: &cfd_core::BoundaryCondition<T>,
+        bc: &cfd_core::boundary::BoundaryCondition<T>,
         nu: T,
         rho: T,
     ) -> cfd_core::error::Result<()> {

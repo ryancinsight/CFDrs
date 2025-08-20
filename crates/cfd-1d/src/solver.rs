@@ -8,7 +8,7 @@
 //! - Parallel matrix assembly for large networks using Rayon
 //! - Zero-allocation pressure/flow updates using indexed operations
 //! - Structured logging with the tracing framework
-//! - Robust error handling and numerical stability
+//! - Resilient error handling and numerical stability
 
 use crate::network::{Network, BoundaryCondition};
 use petgraph::visit::EdgeRef;
@@ -49,7 +49,7 @@ impl<T: RealField + FromPrimitive> Domain<T> for NetworkDomain<T> {
     fn bounding_box(&self) -> (nalgebra::Point3<T>, nalgebra::Point3<T>) {
         let zero = T::zero();
         let one = T::one();
-        // Simple unit box for network domain
+        // Standard unit box for network domain
         (
             nalgebra::Point3::new(zero.clone(), zero.clone(), zero),
             nalgebra::Point3::new(one.clone(), one.clone(), one)

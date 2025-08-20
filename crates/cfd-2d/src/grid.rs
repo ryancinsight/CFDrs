@@ -289,7 +289,7 @@ mod tests {
 
     #[test]
     fn test_structured_grid_creation() {
-        let grid = StructuredGrid2D::<f64>::new(10, 20, 0.0, 1.0, 0.0, 2.0).unwrap();
+        let grid = StructuredGrid2D::<f64>::new(10, 20, 0.0, 1.0, 0.0, 2.0).expect("CRITICAL: Add proper error handling");
 
         assert_eq!(grid.nx(), 10);
         assert_eq!(grid.ny(), 20);
@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     fn test_unit_square_grid() {
-        let grid = StructuredGrid2D::<f64>::unit_square(5, 5).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(5, 5).expect("CRITICAL: Add proper error handling");
 
         let (x_min, x_max, y_min, y_max) = grid.bounds();
         assert_eq!(x_min, 0.0);
@@ -313,30 +313,30 @@ mod tests {
 
     #[test]
     fn test_cell_center() {
-        let grid = StructuredGrid2D::<f64>::unit_square(4, 4).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(4, 4).expect("CRITICAL: Add proper error handling");
 
         // Test center of first cell
-        let center = grid.cell_center(0, 0).unwrap();
+        let center = grid.cell_center(0, 0).expect("CRITICAL: Add proper error handling");
         assert_relative_eq!(center.x, 0.125, epsilon = 1e-10);
         assert_relative_eq!(center.y, 0.125, epsilon = 1e-10);
 
         // Test center of last cell
-        let center = grid.cell_center(3, 3).unwrap();
+        let center = grid.cell_center(3, 3).expect("CRITICAL: Add proper error handling");
         assert_relative_eq!(center.x, 0.875, epsilon = 1e-10);
         assert_relative_eq!(center.y, 0.875, epsilon = 1e-10);
     }
 
     #[test]
     fn test_cell_area() {
-        let grid = StructuredGrid2D::<f64>::unit_square(4, 4).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(4, 4).expect("CRITICAL: Add proper error handling");
 
-        let area = grid.cell_area(0, 0).unwrap();
+        let area = grid.cell_area(0, 0).expect("CRITICAL: Add proper error handling");
         assert_relative_eq!(area, 0.0625, epsilon = 1e-10); // (1/4)^2
     }
 
     #[test]
     fn test_neighbors() {
-        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
 
         // Corner cell should have 2 neighbors
         let neighbors = grid.neighbors(0, 0);
@@ -355,7 +355,7 @@ mod tests {
 
     #[test]
     fn test_boundary_detection() {
-        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
 
         // Corner and edge cells should be boundary
         assert!(grid.is_boundary(0, 0));
@@ -369,7 +369,7 @@ mod tests {
 
     #[test]
     fn test_boundary_conditions() {
-        let mut grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
+        let mut grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
 
         // Set boundary conditions
         grid.set_edge_boundary(GridEdge::Left, BoundaryType::Inlet);
@@ -387,7 +387,7 @@ mod tests {
 
     #[test]
     fn test_grid_iterator() {
-        let grid = StructuredGrid2D::<f64>::unit_square(2, 2).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(2, 2).expect("CRITICAL: Add proper error handling");
 
         let cells: Vec<_> = grid.iter().collect();
         assert_eq!(cells.len(), 4);
@@ -396,7 +396,7 @@ mod tests {
 
     #[test]
     fn test_boundary_iterator() {
-        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
 
         let boundary_cells: Vec<_> = grid.boundary_iter().collect();
         assert_eq!(boundary_cells.len(), 8); // All cells except center

@@ -521,7 +521,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use cfd_core::BoundaryCondition;
+    use cfd_core::boundary::BoundaryCondition;
     use std::collections::HashMap;
 
     #[test]
@@ -534,10 +534,10 @@ mod tests {
 
     #[test]
     fn test_face_building() {
-        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
         let solver = FvmSolver::default();
 
-        let faces = solver.build_faces(&grid).unwrap();
+        let faces = solver.build_faces(&grid).expect("CRITICAL: Add proper error handling");
 
         // Should have (nx-1)*ny + nx*(ny-1) internal faces
         let expected_faces = (3 - 1) * 3 + 3 * (3 - 1);
@@ -546,7 +546,7 @@ mod tests {
 
     #[test]
     fn test_diffusion_case() {
-        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
         let solver = FvmSolver::new(FvmConfig::default(), FluxScheme::Central);
 
         // Set up diffusion problem
@@ -560,7 +560,7 @@ mod tests {
             diffusivity.insert((i, j), 1.0);
         }
 
-        // Simple boundary conditions: φ = 1 on one corner
+        // Standard boundary conditions: φ = 1 on one corner
         boundary_conditions.insert((0, 0), BoundaryCondition::Dirichlet { value: 1.0 });
         boundary_conditions.insert((2, 2), BoundaryCondition::Dirichlet { value: 0.0 });
 

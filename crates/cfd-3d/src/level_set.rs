@@ -323,7 +323,7 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
                 }
             }
         } else {
-            // Simple upwind scheme
+            // Standard upwind scheme
             for k in 1..self.nz-1 {
                 for j in 1..self.ny-1 {
                     for i in 1..self.nx-1 {
@@ -397,7 +397,7 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
         let dtau = T::from_f64(0.5).unwrap_or_else(|| T::zero()) * self.dx.clone().min(self.dy.clone()).min(self.dz.clone());
         
         for _ in 0..self.config.max_iterations {
-            let phi_old_temp = phi_temp.clone();
+            let phi_previous_temp = phi_temp.clone();
             
             for k in 1..self.nz-1 {
                 for j in 1..self.ny-1 {
@@ -405,12 +405,12 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
                         let idx = self.index(i, j, k);
                         
                         // Godunov scheme for |∇φ|
-                        let dphi_dx_plus = (phi_old_temp[self.index(i+1, j, k)].clone() - phi_old_temp[idx].clone()) / self.dx.clone();
-                        let dphi_dx_minus = (phi_old_temp[idx].clone() - phi_old_temp[self.index(i-1, j, k)].clone()) / self.dx.clone();
-                        let dphi_dy_plus = (phi_old_temp[self.index(i, j+1, k)].clone() - phi_old_temp[idx].clone()) / self.dy.clone();
-                        let dphi_dy_minus = (phi_old_temp[idx].clone() - phi_old_temp[self.index(i, j-1, k)].clone()) / self.dy.clone();
-                        let dphi_dz_plus = (phi_old_temp[self.index(i, j, k+1)].clone() - phi_old_temp[idx].clone()) / self.dz.clone();
-                        let dphi_dz_minus = (phi_old_temp[idx].clone() - phi_old_temp[self.index(i, j, k-1)].clone()) / self.dz.clone();
+                        let dphi_dx_plus = (phi_previous_temp[self.index(i+1, j, k)].clone() - phi_previous_temp[idx].clone()) / self.dx.clone();
+                        let dphi_dx_minus = (phi_previous_temp[idx].clone() - phi_previous_temp[self.index(i-1, j, k)].clone()) / self.dx.clone();
+                        let dphi_dy_plus = (phi_previous_temp[self.index(i, j+1, k)].clone() - phi_previous_temp[idx].clone()) / self.dy.clone();
+                        let dphi_dy_minus = (phi_previous_temp[idx].clone() - phi_previous_temp[self.index(i, j-1, k)].clone()) / self.dy.clone();
+                        let dphi_dz_plus = (phi_previous_temp[self.index(i, j, k+1)].clone() - phi_previous_temp[idx].clone()) / self.dz.clone();
+                        let dphi_dz_minus = (phi_previous_temp[idx].clone() - phi_previous_temp[self.index(i, j, k-1)].clone()) / self.dz.clone();
                         
                         let a_plus = dphi_dx_plus.clone().max(T::zero());
                         let a_minus = dphi_dx_minus.clone().min(T::zero());
@@ -433,7 +433,7 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
                             )
                         };
                         
-                        phi_temp[idx] = phi_old_temp[idx].clone() 
+                        phi_temp[idx] = phi_previous_temp[idx].clone() 
                             - dtau.clone() * sign_phi[idx].clone() * (grad_phi_norm - T::one());
                     }
                 }
@@ -441,7 +441,7 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
             
             // Check convergence
             let error = phi_temp.iter()
-                .zip(phi_old_temp.iter())
+                .zip(phi_previous_temp.iter())
                 .map(|(p1, p2)| (p1.clone() - p2.clone()).abs())
                 .fold(T::zero(), |acc, x| acc.max(x));
             

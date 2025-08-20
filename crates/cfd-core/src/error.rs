@@ -326,7 +326,7 @@ mod tests {
             // This would only be evaluated if there's an error
             format!("Context computed at {}", std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("CRITICAL: Add proper error handling")
                 .as_secs())
         };
         
