@@ -20,7 +20,7 @@ const SOR_OPTIMAL_FACTOR: f64 = 1.85; // Optimal for Poisson on square grid
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VorticityStreamConfig<T: RealField> {
     /// Base solver configuration
-    pub base: cfd_core::SolverConfig<T>,
+    pub base: cfd_core::solver::SolverConfig<T>,
     /// Time step for transient simulation
     pub time_step: T,
     /// Convergence tolerance for stream function
@@ -33,7 +33,7 @@ pub struct VorticityStreamConfig<T: RealField> {
 
 impl<T: RealField + FromPrimitive> Default for VorticityStreamConfig<T> {
     fn default() -> Self {
-        let base = cfd_core::SolverConfig::builder()
+        let base = cfd_core::solver::SolverConfig::builder()
             .max_iterations(DEFAULT_MAX_ITERATIONS)
             .tolerance(T::from_f64(DEFAULT_TOLERANCE).unwrap_or_else(|| T::zero()))
             .build_base();

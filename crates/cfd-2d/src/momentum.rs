@@ -1,22 +1,42 @@
+use cfd_core::solver::LinearSolverConfig;
 //! Momentum equation solver for STANDARD algorithm.
+use cfd_core::solver::LinearSolverConfig;
 //!
+use cfd_core::solver::LinearSolverConfig;
 //! This module implements the discretization and solution of momentum equations
+use cfd_core::solver::LinearSolverConfig;
 //! using finite volume methods with proper Rhie-Chow interpolation.
+use cfd_core::solver::LinearSolverConfig;
 
+use cfd_core::solver::LinearSolverConfig;
 use crate::fields::{Field2D, SimulationFields};
+use cfd_core::solver::LinearSolverConfig;
 use crate::grid::StructuredGrid2D;
+use cfd_core::solver::LinearSolverConfig;
 use crate::convection::ConvectionScheme;
+use cfd_core::solver::LinearSolverConfig;
 use cfd_core::{BoundaryCondition, Result};
+use cfd_core::solver::LinearSolverConfig;
 use cfd_core::constants;
-use cfd_math::{SparseMatrix, SparseMatrixBuilder, LinearSolver, BiCGSTAB, LinearSolverConfig};
+use cfd_core::solver::LinearSolverConfig;
+use cfd_math::{SparseMatrix, SparseMatrixBuilder, LinearSolver, BiCGSTAB};
+use cfd_core::solver::LinearSolverConfig;
 use nalgebra::{RealField, DVector, Vector2};
+use cfd_core::solver::LinearSolverConfig;
 use num_traits::FromPrimitive;
+use cfd_core::solver::LinearSolverConfig;
 use std::collections::HashMap;
+use cfd_core::solver::LinearSolverConfig;
 
+use cfd_core::solver::LinearSolverConfig;
 /// Momentum equation coefficients for a single cell
+use cfd_core::solver::LinearSolverConfig;
 #[derive(Debug, Clone)]
+use cfd_core::solver::LinearSolverConfig;
 pub struct MomentumCoefficients<T: RealField> {
+use cfd_core::solver::LinearSolverConfig;
     /// Central coefficient (diagonal)
+use cfd_core::solver::LinearSolverConfig;
     pub ap: T,
     /// East neighbor coefficient
     pub ae: T,

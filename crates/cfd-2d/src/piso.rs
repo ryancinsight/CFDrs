@@ -40,7 +40,7 @@ const GRADIENT_SCHEME_FACTOR: f64 = 2.0; // Second-order central difference
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PisoConfig<T: RealField> {
     /// Base solver configuration
-    pub base: cfd_core::SolverConfig<T>,
+    pub base: cfd_core::solver::SolverConfig<T>,
     /// Time step for transient simulation
     pub time_step: T,
     /// Number of corrector steps (typically 2)
@@ -93,7 +93,7 @@ impl<T: RealField + FromPrimitive> PisoConstants<T> {
 
 impl<T: RealField + FromPrimitive> Default for PisoConfig<T> {
     fn default() -> Self {
-        let base = cfd_core::SolverConfig::builder()
+        let base = cfd_core::solver::SolverConfig::builder()
             .max_iterations(50) // PISO needs fewer iterations than STANDARD
             .tolerance(T::safe_from_f64(constants::DEFAULT_TOLERANCE).unwrap_or_else(|_| T::from_f64(1e-6).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?))
             .build_base();
