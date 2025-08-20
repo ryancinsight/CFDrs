@@ -3,7 +3,8 @@
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 use crate::grid::StructuredGrid2D;
-use super::{PressureVelocityConfig, MomentumSolver, PressureCorrectionSolver, RhieChowInterpolation};
+use crate::momentum::MomentumSolver;
+use super::{PressureVelocityConfig, PressureCorrectionSolver, RhieChowInterpolation};
 
 /// STANDARD (Semi-Implicit Method for Pressure-Linked Equations) solver
 pub struct PressureVelocitySolver<T: RealField> {
