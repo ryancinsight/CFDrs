@@ -67,11 +67,11 @@ pub struct PerformanceMetrics<T: RealField> {
 }
 
 /// Comprehensive network analyzer
-pub struct NetworkAnalyzer<T: RealField> {
+pub struct NetworkAnalyzer<T: RealField + Copy> {
     solver: crate::solver::NetworkSolver<T>,
 }
 
-impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
+impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T> {
     /// Create a new network analyzer
     pub fn new() -> Self {
         Self {
@@ -80,16 +80,18 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
     }
     
     /// Create analyzer with custom solver configuration
-    pub fn with_solver_config(config: cfd_core::NetworkSolverConfig<T>) -> Self {
+    pub fn with_solver_config(config: crate::solver::SolverConfig<T>) -> Self {
         Self {
             solver: crate::solver::NetworkSolver::with_config(config),
         }
     }
     
     /// Perform comprehensive network analysis
-    pub fn analyze(&self, network: &mut Network<T>) -> Result<NetworkAnalysisResult<T>> {
+    pub fn analyze(&mut self, network: &mut Network<T>) -> Result<NetworkAnalysisResult<T>> {
         // Solve the network
-        let solution_result = self.solver.solve_steady_state(network)?;
+        // Create a problem from the network
+        let problem = crate::solver::NetworkProblem::new(network.clone());
+        let solution_result = self.solver.solve(&problem)?;
         
         // Perform individual analyses
         let flow_analysis = self.analyze_flow(network)?;

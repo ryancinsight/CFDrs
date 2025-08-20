@@ -234,7 +234,7 @@ impl<T: RealField + FromPrimitive + Copy> PressureCorrector<T> {
                 let u_ip1 = fields.u.at(i+1, j);
                 let u_jp1 = fields.u.at(i, j+1);
                 
-                // East face velocity
+                // East face velocity - access x component using index
                 let u_e = (u_ij[0] + u_ip1[0]) / (T::from_f64(2.0).unwrap());
                 let p_grad_e = (fields.p.at(i+1, j) - fields.p.at(i, j)) / self.dx;
                 let d_e = self.dx * self.dx / (fields.viscosity.at(i, j) * T::from_f64(4.0).unwrap());
@@ -242,7 +242,7 @@ impl<T: RealField + FromPrimitive + Copy> PressureCorrector<T> {
                 // Apply Rhie-Chow correction for u component
                 let u_corrected = u_e - d_e * p_grad_e;
                 
-                // North face velocity
+                // North face velocity - access y component using index
                 let v_n = (u_ij[1] + u_jp1[1]) / (T::from_f64(2.0).unwrap());
                 let p_grad_n = (fields.p.at(i, j+1) - fields.p.at(i, j)) / self.dy;
                 let d_n = self.dy * self.dy / (fields.viscosity.at(i, j) * T::from_f64(4.0).unwrap());

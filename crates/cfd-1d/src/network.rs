@@ -5,6 +5,7 @@ use nalgebra::{RealField, DVector};
 use num_traits::FromPrimitive;
 use petgraph::{Graph, Directed};
 use petgraph::graph::{EdgeIndex, NodeIndex};
+use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -86,7 +87,7 @@ pub struct NetworkBuilder<T: RealField> {
     network: Network<T>,
 }
 
-impl<T: RealField + FromPrimitive> NetworkBuilder<T> {
+impl<T: RealField + FromPrimitive + Copy> NetworkBuilder<T> {
     pub fn new(fluid: Fluid<T>) -> Self {
         Self {
             network: Network::new(fluid),
@@ -109,7 +110,7 @@ impl<T: RealField + FromPrimitive> NetworkBuilder<T> {
 }
 
 /// Main network structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Network<T: RealField> {
     graph: NetworkGraph<Node<T>, ChannelProperties<T>>,
     node_indices: HashMap<String, NodeIndex>,
@@ -120,7 +121,7 @@ pub struct Network<T: RealField> {
     flow_rates: DVector<T>,
 }
 
-impl<T: RealField + FromPrimitive> Network<T> {
+impl<T: RealField + FromPrimitive + Copy> Network<T> {
     pub fn new(fluid: Fluid<T>) -> Self {
         Self {
             graph: Graph::new(),
@@ -232,7 +233,7 @@ impl<T: RealField + FromPrimitive> Network<T> {
             .par_bridge()
             .map(|edge| EdgeData {
                 nodes: (edge.source().index(), edge.target().index()),
-                conductance: T::one() / edge.weight().resistance,
+                conductance: T::one() / edge.weight().resistance.clone(),
             })
     }
     
