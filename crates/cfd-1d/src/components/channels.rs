@@ -1,0 +1,198 @@
+//! Channel components for microfluidic networks
+
+use super::{Component, constants};
+use cfd_core::{Error, Result, Fluid};
+use nalgebra::{RealField, ComplexField};
+use num_traits::{FromPrimitive, Float};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+/// Rectangular microchannel component
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RectangularChannel<T: RealField> {
+    /// Channel length [m]
+    pub length: T,
+    /// Channel width [m]
+    pub width: T,
+    /// Channel height [m]
+    pub height: T,
+    /// Surface roughness [m]
+    pub roughness: T,
+    /// Additional parameters
+    pub parameters: HashMap<String, T>,
+}
+
+impl<T: RealField + FromPrimitive + Float> RectangularChannel<T> {
+    /// Create a new rectangular channel
+    pub fn new(length: T, width: T, height: T, roughness: T) -> Self {
+        Self {
+            length,
+            width,
+            height,
+            roughness,
+            parameters: HashMap::new(),
+        }
+    }
+
+    /// Create a square channel
+    pub fn square(length: T, side: T, roughness: T) -> Self {
+        Self::new(length, side.clone(), side, roughness)
+    }
+
+    /// Get cross-sectional area
+    pub fn area(&self) -> T {
+        self.width.clone() * self.height.clone()
+    }
+
+    /// Get hydraulic diameter
+    pub fn hydraulic_diameter(&self) -> T {
+        let two = T::from_f64(2.0).unwrap_or_else(T::zero);
+        two * self.area() / (self.width.clone() + self.height.clone())
+    }
+
+    /// Get aspect ratio (width/height)
+    pub fn aspect_ratio(&self) -> T {
+        self.width.clone() / self.height.clone()
+    }
+
+    /// Calculate friction factor for laminar flow
+    fn friction_factor_laminar(&self) -> T {
+        let alpha = self.aspect_ratio();
+        let one = T::one();
+        let c1 = T::from_f64(constants::RECT_CHANNEL_C1).unwrap_or_else(T::zero);
+        let c2 = T::from_f64(constants::RECT_CHANNEL_C2).unwrap_or_else(T::zero);
+
+        if alpha >= one {
+            // Wide channel approximation
+            c1
+        } else {
+            // Tall channel (alpha < 1)
+            let inv_alpha = one / alpha;
+            c2 / inv_alpha
+        }
+    }
+}
+
+impl<T: RealField + FromPrimitive + Float> Component<T> for RectangularChannel<T> {
+    fn resistance(&self, fluid: &Fluid<T>) -> T {
+        let dh = self.hydraulic_diameter();
+        let area = self.area();
+        let f = self.friction_factor_laminar();
+
+        // Use default temperature of 20°C (293.15 K)
+        let temperature = T::from_f64(293.15).unwrap_or_else(T::zero);
+        let kinematic_viscosity = fluid.dynamic_viscosity(temperature)
+            .unwrap_or_else(|_| T::from_f64(0.001).unwrap_or_else(T::one)) / fluid.density;
+        let resistance = f * self.length.clone() * kinematic_viscosity / (area * dh.clone() * dh);
+
+        // Ensure positive resistance
+        if resistance > T::zero() {
+            resistance
+        } else {
+            T::from_f64(1e-12).unwrap_or_else(T::zero)
+        }
+    }
+
+    fn component_type(&self) -> &str {
+        "RectangularChannel"
+    }
+
+    fn parameters(&self) -> &HashMap<String, T> {
+        &self.parameters
+    }
+
+    fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
+        match key {
+            "length" => self.length = value,
+            "width" => self.width = value,
+            "height" => self.height = value,
+            "roughness" => self.roughness = value,
+            _ => {
+                self.parameters.insert(key.to_string(), value);
+            }
+        }
+        Ok(())
+    }
+
+    fn volume(&self) -> Option<T> {
+        Some(self.length.clone() * self.area())
+    }
+}
+
+/// Circular microchannel component
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircularChannel<T: RealField> {
+    /// Channel length [m]
+    pub length: T,
+    /// Channel diameter [m]
+    pub diameter: T,
+    /// Surface roughness [m]
+    pub roughness: T,
+    /// Additional parameters
+    pub parameters: HashMap<String, T>,
+}
+
+impl<T: RealField + FromPrimitive + Float> CircularChannel<T> {
+    /// Create a new circular channel
+    pub fn new(length: T, diameter: T, roughness: T) -> Self {
+        Self {
+            length,
+            diameter,
+            roughness,
+            parameters: HashMap::new(),
+        }
+    }
+
+    /// Get cross-sectional area
+    pub fn area(&self) -> T {
+        let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(T::zero);
+        pi * self.diameter.clone() * self.diameter.clone() / T::from_f64(4.0).unwrap_or_else(T::zero)
+    }
+
+    /// Get hydraulic diameter (equals diameter for circular channels)
+    pub fn hydraulic_diameter(&self) -> T {
+        self.diameter.clone()
+    }
+}
+
+impl<T: RealField + FromPrimitive + Float> Component<T> for CircularChannel<T> {
+    fn resistance(&self, fluid: &Fluid<T>) -> T {
+        // Hagen-Poiseuille equation for circular channels
+        // R = 128 * μ * L / (π * D^4)
+        let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(T::zero);
+        let c128 = T::from_f64(128.0).unwrap_or_else(T::zero);
+        let temperature = T::from_f64(293.15).unwrap_or_else(T::zero);
+        
+        let viscosity = fluid.dynamic_viscosity(temperature)
+            .unwrap_or_else(|_| T::from_f64(0.001).unwrap_or_else(T::one));
+        
+        let d4 = self.diameter.clone() * self.diameter.clone() * 
+                 self.diameter.clone() * self.diameter.clone();
+        
+        c128 * viscosity * self.length.clone() / (pi * d4)
+    }
+
+    fn component_type(&self) -> &str {
+        "CircularChannel"
+    }
+
+    fn parameters(&self) -> &HashMap<String, T> {
+        &self.parameters
+    }
+
+    fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
+        match key {
+            "length" => self.length = value,
+            "diameter" => self.diameter = value,
+            "roughness" => self.roughness = value,
+            _ => {
+                self.parameters.insert(key.to_string(), value);
+            }
+        }
+        Ok(())
+    }
+
+    fn volume(&self) -> Option<T> {
+        Some(self.length.clone() * self.area())
+    }
+}

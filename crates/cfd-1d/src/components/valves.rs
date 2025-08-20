@@ -1,0 +1,66 @@
+//! Valve components for microfluidic networks
+
+use super::{Component, constants};
+use cfd_core::{Error, Result, Fluid};
+use nalgebra::RealField;
+use num_traits::{FromPrimitive, Float};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+/// Microvalve component
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Microvalve<T: RealField> {
+    /// Flow coefficient [m³/s/Pa^0.5]
+    pub cv: T,
+    /// Opening fraction (0=closed, 1=open)
+    pub opening: T,
+    /// Additional parameters
+    pub parameters: HashMap<String, T>,
+}
+
+impl<T: RealField + FromPrimitive + Float> Microvalve<T> {
+    /// Create a new microvalve
+    pub fn new(cv: T) -> Self {
+        Self {
+            cv,
+            opening: T::one(),
+            parameters: HashMap::new(),
+        }
+    }
+}
+
+impl<T: RealField + FromPrimitive + Float> Component<T> for Microvalve<T> {
+    fn resistance(&self, fluid: &Fluid<T>) -> T {
+        if self.opening <= T::zero() {
+            // Closed valve - infinite resistance
+            T::from_f64(1e12).unwrap_or_else(T::one)
+        } else {
+            // Resistance inversely proportional to opening
+            let base_resistance = T::one() / (self.cv.clone() * self.cv.clone());
+            base_resistance / (self.opening.clone() * self.opening.clone())
+        }
+    }
+
+    fn component_type(&self) -> &str {
+        "Microvalve"
+    }
+
+    fn parameters(&self) -> &HashMap<String, T> {
+        &self.parameters
+    }
+
+    fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
+        match key {
+            "cv" => self.cv = value,
+            "opening" => self.opening = value.max(T::zero()).min(T::one()),
+            _ => {
+                self.parameters.insert(key.to_string(), value);
+            }
+        }
+        Ok(())
+    }
+
+    fn is_active(&self) -> bool {
+        true
+    }
+}
