@@ -91,7 +91,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         // Solve the network
         // Create a problem from the network
         let problem = crate::solver::NetworkProblem::new(network.clone());
-        let solution_result = self.solver.solve(&problem)?;
+        let _solution_result = self.solver.solve_network(&problem)?;
         
         // Perform individual analyses
         let flow_analysis = self.analyze_flow(network)?;
@@ -100,7 +100,6 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         let performance_metrics = self.analyze_performance(network)?;
         
         Ok(NetworkAnalysisResult {
-            solution_result,
             flow_analysis,
             pressure_analysis,
             resistance_analysis,

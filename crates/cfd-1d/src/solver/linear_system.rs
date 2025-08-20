@@ -49,17 +49,21 @@ impl<T: RealField + FromPrimitive> LinearSystemSolver<T> {
         
         match self.method {
             LinearSolverMethod::ConjugateGradient => {
-                let solver = ConjugateGradient::<T>::new(
-                    self.max_iterations,
-                    self.tolerance,
-                );
+                let config = cfd_math::linear_solver::LinearSolverConfig {
+                    max_iterations: self.max_iterations,
+                    tolerance: self.tolerance,
+                    preconditioning: false,
+                };
+                let solver = ConjugateGradient::<T>::new(config);
                 solver.solve(a, b, Some(&x0))
             }
             LinearSolverMethod::BiCGSTAB => {
-                let solver = BiCGSTAB::<T>::new(
-                    self.max_iterations,
-                    self.tolerance,
-                );
+                let config = cfd_math::linear_solver::LinearSolverConfig {
+                    max_iterations: self.max_iterations,
+                    tolerance: self.tolerance,
+                    preconditioning: false,
+                };
+                let solver = BiCGSTAB::<T>::new(config);
                 solver.solve(a, b, Some(&x0))
             }
         }

@@ -276,7 +276,7 @@ impl<T: RealField> ConjugateGradient<T> {
         let mut rzold = r.dot(&z);
 
         // PCG iterations with in-place operations
-        for iter in 0..self.config.base.convergence.max_iterations {
+        for iter in 0..self.config.max_iterations {
             // Compute A*p
             ap = a * &p;
             
@@ -308,7 +308,7 @@ impl<T: RealField> ConjugateGradient<T> {
         }
 
         Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { 
-            max: self.config.base.convergence.max_iterations 
+            max: self.config.max_iterations 
         }))
     }
 }
@@ -390,7 +390,7 @@ impl<T: RealField> BiCGSTAB<T> {
         let mut alpha = T::one();
         let mut omega = T::one();
 
-        for iter in 0..self.config.base.convergence.max_iterations {
+        for iter in 0..self.config.max_iterations {
             let rho_new = r0_hat.dot(&r);
             
             if rho_new.clone().abs() < breakdown_tolerance {
@@ -451,7 +451,7 @@ impl<T: RealField> BiCGSTAB<T> {
         }
 
         Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { 
-            max: self.config.base.convergence.max_iterations 
+            max: self.config.max_iterations 
         }))
     }
 }

@@ -1,0 +1,186 @@
+//! Solver configuration types following SOLID principles
+
+use nalgebra::RealField;
+use serde::{Deserialize, Serialize};
+use num_traits::FromPrimitive;
+
+/// Core solver configuration trait
+pub trait SolverConfiguration<T: RealField>: Clone + Send + Sync {
+    /// Get maximum iterations
+    fn max_iterations(&self) -> usize;
+    
+    /// Get convergence tolerance
+    fn tolerance(&self) -> T;
+    
+    /// Check if preconditioning is enabled
+    fn use_preconditioning(&self) -> bool;
+}
+
+/// Convergence configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConvergenceConfig<T: RealField> {
+    /// Maximum iterations
+    pub max_iterations: usize,
+    /// Convergence tolerance
+    pub tolerance: T,
+    /// Relative tolerance
+    pub relative_tolerance: T,
+}
+
+/// Execution configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionConfig {
+    /// Enable parallel execution
+    pub parallel: bool,
+    /// Number of threads (None = auto)
+    pub num_threads: Option<usize>,
+    /// Enable verbose output
+    pub verbose: bool,
+    /// Save intermediate results
+    pub save_intermediate: bool,
+}
+
+/// Numerical configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NumericalConfig<T: RealField> {
+    /// Time step size
+    pub dt: T,
+    /// CFL number
+    pub cfl: T,
+    /// Relaxation factor
+    pub relaxation: T,
+}
+
+/// Complete solver configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SolverConfig<T: RealField> {
+    /// Convergence settings
+    pub convergence: ConvergenceConfig<T>,
+    /// Execution settings
+    pub execution: ExecutionConfig,
+    /// Numerical settings
+    pub numerical: NumericalConfig<T>,
+}
+
+impl<T: RealField + Copy> SolverConfiguration<T> for SolverConfig<T> {
+    fn max_iterations(&self) -> usize {
+        self.convergence.max_iterations
+    }
+    
+    fn tolerance(&self) -> T {
+        self.convergence.tolerance
+    }
+    
+    fn use_preconditioning(&self) -> bool {
+        false // Default implementation
+    }
+}
+
+/// Linear solver configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LinearSolverConfig<T: RealField> {
+    /// Maximum iterations
+    pub max_iterations: usize,
+    /// Convergence tolerance
+    pub tolerance: T,
+    /// Enable preconditioning
+    pub preconditioning: bool,
+}
+
+impl<T: RealField + num_traits::FromPrimitive> Default for LinearSolverConfig<T> {
+    fn default() -> Self {
+        Self {
+            max_iterations: 1000,
+            tolerance: T::from_f64(1e-6).unwrap_or_else(T::zero),
+            preconditioning: false,
+        }
+    }
+}
+
+impl<T: RealField> LinearSolverConfig<T> {
+    /// Get tolerance
+    pub fn tolerance(&self) -> T
+    where
+        T: Copy,
+    {
+        self.tolerance
+    }
+}
+
+/// Network solver configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkSolverConfig<T: RealField> {
+    /// Linear solver settings
+    pub linear_solver: LinearSolverConfig<T>,
+    /// Network-specific settings
+    pub network: NetworkConfig,
+}
+
+/// Network configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkConfig {
+    /// Enable parallel assembly
+    pub parallel_assembly: bool,
+    /// Minimum conductance threshold
+    pub min_conductance: f64,
+}
+
+/// Builder for solver configuration
+pub struct SolverConfigBuilder<T: RealField> {
+    config: SolverConfig<T>,
+}
+
+impl<T: RealField> SolverConfigBuilder<T> {
+    /// Create new builder with defaults
+    pub fn new() -> Self {
+        Self {
+            config: SolverConfig {
+                convergence: ConvergenceConfig {
+                    max_iterations: 1000,
+                    tolerance: T::from_f64(1e-6).unwrap_or_else(T::zero),
+                    relative_tolerance: T::from_f64(1e-4).unwrap_or_else(T::zero),
+                },
+                execution: ExecutionConfig {
+                    parallel: true,
+                    num_threads: None,
+                    verbose: false,
+                    save_intermediate: false,
+                },
+                numerical: NumericalConfig {
+                    dt: T::from_f64(0.01).unwrap_or_else(T::zero),
+                    cfl: T::from_f64(0.5).unwrap_or_else(T::zero),
+                    relaxation: T::one(),
+                },
+            },
+        }
+    }
+    
+    /// Set maximum iterations
+    pub fn max_iterations(mut self, max_iter: usize) -> Self {
+        self.config.convergence.max_iterations = max_iter;
+        self
+    }
+    
+    /// Set tolerance
+    pub fn tolerance(mut self, tol: T) -> Self {
+        self.config.convergence.tolerance = tol;
+        self
+    }
+    
+    /// Set time step
+    pub fn time_step(mut self, dt: T) -> Self {
+        self.config.numerical.dt = dt;
+        self
+    }
+    
+    /// Enable/disable parallel execution
+    pub fn parallel(mut self, parallel: bool) -> Self {
+        self.config.execution.parallel = parallel;
+        self
+    }
+    
+    /// Build the configuration
+    pub fn build(self) -> SolverConfig<T> {
+        self.config
+    }
+}

@@ -241,6 +241,45 @@ impl<T: RealField + FromPrimitive + Copy> Network<T> {
         &self.graph
     }
     
+    /// Get iterator over edges
+    pub fn edges(&self) -> impl Iterator<Item = EdgeData<T>> + '_ {
+        self.graph.edge_references()
+            .map(|edge| EdgeData {
+                nodes: (edge.source().index(), edge.target().index()),
+                conductance: T::one() / edge.weight().resistance.clone(),
+            })
+    }
+    
+    /// Get iterator over nodes
+    pub fn nodes(&self) -> impl Iterator<Item = &Node<T>> + '_ {
+        self.graph.node_weights()
+    }
+    
+    /// Get node index by ID
+    pub fn get_node_index(&self, id: &str) -> Option<usize> {
+        self.node_indices.get(id).map(|idx| idx.index())
+    }
+    
+    /// Get edge ID by index
+    pub fn get_edge_id_by_index(&self, idx: petgraph::graph::EdgeIndex) -> Option<String> {
+        self.edge_indices.iter()
+            .find(|(_, &edge_idx)| edge_idx == idx)
+            .map(|(id, _)| id.clone())
+    }
+    
+    /// Get edges connected to a node
+    pub fn node_edges(&self, node_id: &str) -> Result<Vec<EdgeData<T>>> {
+        let node_idx = self.node_indices.get(node_id)
+            .ok_or_else(|| Error::InvalidConfiguration(format!("Node {} not found", node_id)))?;
+        
+        Ok(self.graph.edges(*node_idx)
+            .map(|edge| EdgeData {
+                nodes: (edge.source().index(), edge.target().index()),
+                conductance: T::one() / edge.weight().resistance.clone(),
+            })
+            .collect())
+    }
+    
     pub fn node_indices(&self) -> &HashMap<String, NodeIndex> {
         &self.node_indices
     }
