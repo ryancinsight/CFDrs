@@ -208,11 +208,11 @@ pub struct PhysicalParameters<T: RealField> {
 impl<T: RealField + FromPrimitive> Default for PhysicalParameters<T> {
     fn default() -> Self {
         Self {
-            reference_pressure: Pressure::pascals(T::from_f64(101_325.0).unwrap()),
+            reference_pressure: Pressure::pascals(T::from_f64(101_325.0).unwrap_or_else(|| T::zero())),
             reference_velocity: T::one(),
             reference_length: T::one(),
             reynolds_number: None,
-            gravity: Some(Vector3::new(T::zero(), T::from_f64(-9.81).unwrap(), T::zero())),
+            gravity: Some(Vector3::new(T::zero(), T::from_f64(-9.81).unwrap_or_else(|| T::zero()), T::zero())),
             time_step: None,
         }
     }
@@ -272,7 +272,7 @@ impl<T: RealField> MeshAggregate<T> {
     /// Panics if the quality score cannot be converted from f64
     pub fn is_suitable_for_simulation(&self) -> bool {
         if let Some(ref metrics) = self.quality_metrics {
-            metrics.overall_quality_score > T::from_f64(0.7).unwrap()
+            metrics.overall_quality_score > T::from_f64(0.7).unwrap_or_else(|| T::zero())
         } else {
             false
         }

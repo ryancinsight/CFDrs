@@ -267,10 +267,10 @@ impl<T: RealField + FromPrimitive + Copy> PisoSolver<T> {
         for i in 1..self.grid.nx - 1 {
             for j in 1..self.grid.ny - 1 {
                 // Face velocities (simple averaging)
-                let u_e = (state.velocity[(i, j)].x + state.velocity[(i + 1, j)].x) / T::from_f64(2.0).unwrap();
-                let u_w = (state.velocity[(i - 1, j)].x + state.velocity[(i, j)].x) / T::from_f64(2.0).unwrap();
-                let v_n = (state.velocity[(i, j)].y + state.velocity[(i, j + 1)].y) / T::from_f64(2.0).unwrap();
-                let v_s = (state.velocity[(i, j - 1)].y + state.velocity[(i, j)].y) / T::from_f64(2.0).unwrap();
+                let u_e = (state.velocity[(i, j)].x + state.velocity[(i + 1, j)].x) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                let u_w = (state.velocity[(i - 1, j)].x + state.velocity[(i, j)].x) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                let v_n = (state.velocity[(i, j)].y + state.velocity[(i, j + 1)].y) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                let v_s = (state.velocity[(i, j - 1)].y + state.velocity[(i, j)].y) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                 
                 // Convective fluxes
                 let conv_e = self.density * u_e / dx;
@@ -290,29 +290,29 @@ impl<T: RealField + FromPrimitive + Copy> PisoSolver<T> {
                         let pe_x = conv_e / diff_x;
                         let pe_y = conv_n / diff_y;
                         
-                        if pe_x.abs() < T::from_f64(2.0).unwrap() {
+                        if pe_x.abs() < T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
                             // Central difference
-                            workspace.a_e[(i, j)] = diff_x - conv_e / T::from_f64(2.0).unwrap();
-                            workspace.a_w[(i, j)] = diff_x + conv_w / T::from_f64(2.0).unwrap();
+                            workspace.a_e[(i, j)] = diff_x - conv_e / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                            workspace.a_w[(i, j)] = diff_x + conv_w / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                         } else {
                             // Upwind
                             workspace.a_e[(i, j)] = diff_x + T::max(T::zero(), -conv_e);
                             workspace.a_w[(i, j)] = diff_x + T::max(T::zero(), conv_w);
                         }
                         
-                        if pe_y.abs() < T::from_f64(2.0).unwrap() {
-                            workspace.a_n[(i, j)] = diff_y - conv_n / T::from_f64(2.0).unwrap();
-                            workspace.a_s[(i, j)] = diff_y + conv_s / T::from_f64(2.0).unwrap();
+                        if pe_y.abs() < T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
+                            workspace.a_n[(i, j)] = diff_y - conv_n / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                            workspace.a_s[(i, j)] = diff_y + conv_s / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                         } else {
                             workspace.a_n[(i, j)] = diff_y + T::max(T::zero(), -conv_n);
                             workspace.a_s[(i, j)] = diff_y + T::max(T::zero(), conv_s);
                         }
                     }
                     ConvectionScheme::Central => {
-                        workspace.a_e[(i, j)] = diff_x - conv_e / T::from_f64(2.0).unwrap();
-                        workspace.a_w[(i, j)] = diff_x + conv_w / T::from_f64(2.0).unwrap();
-                        workspace.a_n[(i, j)] = diff_y - conv_n / T::from_f64(2.0).unwrap();
-                        workspace.a_s[(i, j)] = diff_y + conv_s / T::from_f64(2.0).unwrap();
+                        workspace.a_e[(i, j)] = diff_x - conv_e / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                        workspace.a_w[(i, j)] = diff_x + conv_w / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                        workspace.a_n[(i, j)] = diff_y - conv_n / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                        workspace.a_s[(i, j)] = diff_y + conv_s / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                     }
                     ConvectionScheme::QUICK => {
                         // Simplified QUICK implementation
@@ -373,7 +373,7 @@ impl<T: RealField + FromPrimitive + Copy> PisoSolver<T> {
         
         let (grad_x, grad_y) = match self.config.gradient_scheme {
             GradientScheme::CentralDifference => {
-                let two = T::from_f64(2.0).unwrap();
+                let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                 (
                     (state.pressure[(i + 1, j)] - state.pressure[(i - 1, j)]) / (two * dx),
                     (state.pressure[(i, j + 1)] - state.pressure[(i, j - 1)]) / (two * dy),
@@ -405,7 +405,7 @@ impl<T: RealField + FromPrimitive + Copy> PisoSolver<T> {
         for i in 1..self.grid.nx - 1 {
             for j in 1..self.grid.ny - 1 {
                 // Skip if diagonal coefficient is too small
-                if workspace.a_p[(i, j)].abs() <= T::from_f64(1e-14).unwrap() {
+                if workspace.a_p[(i, j)].abs() <= T::from_f64(1e-14).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
                     continue;
                 }
                 
@@ -446,7 +446,7 @@ impl<T: RealField + FromPrimitive + Copy> PisoSolver<T> {
         let dt = self.config.time_step;
         let dx2 = dx * dx;
         let dy2 = dy * dy;
-        let factor = T::from_f64(2.0).unwrap() * (dx2 + dy2);
+        let factor = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * (dx2 + dy2);
         
         // Build RHS: (ρ/Δt)∇·u*
         let mut rhs = ScalarField::new(self.grid.nx, self.grid.ny);
@@ -497,9 +497,9 @@ impl<T: RealField + FromPrimitive + Copy> PisoSolver<T> {
             for j in 1..self.grid.ny - 1 {
                 // Velocity correction: u' = -∇p'/a_p
                 let grad_p_prime_x = (workspace.p_prime[(i + 1, j)] - workspace.p_prime[(i - 1, j)])
-                    / (T::from_f64(2.0).unwrap() * dx);
+                    / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dx);
                 let grad_p_prime_y = (workspace.p_prime[(i, j + 1)] - workspace.p_prime[(i, j - 1)])
-                    / (T::from_f64(2.0).unwrap() * dy);
+                    / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dy);
                 
                 state.velocity[(i, j)].x -= grad_p_prime_x / workspace.a_p[(i, j)];
                 state.velocity[(i, j)].y -= grad_p_prime_y / workspace.a_p[(i, j)];
@@ -521,7 +521,7 @@ impl<T: RealField + FromPrimitive + Copy> PisoSolver<T> {
     ) -> Result<T> {
         let dx = self.grid.dx;
         let dy = self.grid.dy;
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         
         let dudx = (state.velocity[(i + 1, j)].x - state.velocity[(i - 1, j)].x) / (two * dx);
         let dvdy = (state.velocity[(i, j + 1)].y - state.velocity[(i, j - 1)].y) / (two * dy);

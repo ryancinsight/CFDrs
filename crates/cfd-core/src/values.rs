@@ -31,12 +31,12 @@ impl<T: RealField + FromPrimitive> ReynoldsNumber<T> {
 
     /// Check if flow is laminar (Re < 2300 for pipe flow)
     pub fn is_laminar(&self) -> bool {
-        self.0 < T::from_f64(2300.0).unwrap()
+        self.0 < T::from_f64(2300.0).unwrap_or_else(|| T::zero())
     }
 
     /// Check if flow is turbulent (Re > 4000 for pipe flow)
     pub fn is_turbulent(&self) -> bool {
-        self.0 > T::from_f64(4000.0).unwrap()
+        self.0 > T::from_f64(4000.0).unwrap_or_else(|| T::zero())
     }
 
     /// Check if flow is transitional
@@ -87,8 +87,8 @@ impl<T: RealField + FromPrimitive> Pressure<T> {
     pub fn to_pascals(&self) -> T {
         match self.unit {
             PressureUnit::Pascal => self.value.clone(),
-            PressureUnit::Atmosphere => self.value.clone() * T::from_f64(101_325.0).unwrap(),
-            PressureUnit::Bar => self.value.clone() * T::from_f64(100_000.0).unwrap(),
+            PressureUnit::Atmosphere => self.value.clone() * T::from_f64(101_325.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?,
+            PressureUnit::Bar => self.value.clone() * T::from_f64(100_000.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?,
         }
     }
 
@@ -202,13 +202,13 @@ impl<T: RealField + FromPrimitive> Temperature<T> {
 
     /// Create temperature in Celsius
     pub fn celsius(value: T) -> Result<Self> {
-        let kelvin_value = value + T::from_f64(273.15).unwrap();
+        let kelvin_value = value + T::from_f64(273.15).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
         Self::kelvin(kelvin_value)
     }
 
     /// Create temperature in Fahrenheit
     pub fn fahrenheit(value: T) -> Result<Self> {
-        let celsius_value = (value - T::from_f64(32.0).unwrap()) * T::from_f64(5.0).unwrap() / T::from_f64(9.0).unwrap();
+        let celsius_value = (value - T::from_f64(32.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?) * T::from_f64(5.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? / T::from_f64(9.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
         Self::celsius(celsius_value)
     }
 
@@ -216,10 +216,10 @@ impl<T: RealField + FromPrimitive> Temperature<T> {
     pub fn to_kelvin(&self) -> T {
         match self.unit {
             TemperatureUnit::Kelvin => self.value.clone(),
-            TemperatureUnit::Celsius => self.value.clone() + T::from_f64(273.15).unwrap(),
+            TemperatureUnit::Celsius => self.value.clone() + T::from_f64(273.15).unwrap_or_else(|| T::zero()),
             TemperatureUnit::Fahrenheit => {
-                let celsius = (self.value.clone() - T::from_f64(32.0).unwrap()) * T::from_f64(5.0).unwrap() / T::from_f64(9.0).unwrap();
-                celsius + T::from_f64(273.15).unwrap()
+                let celsius = (self.value.clone() - T::from_f64(32.0).unwrap_or_else(|| T::zero())) * T::from_f64(5.0).unwrap_or_else(|| T::zero()) / T::from_f64(9.0).unwrap_or_else(|| T::one());
+                celsius + T::from_f64(273.15).unwrap_or_else(|| T::zero())
             }
         }
     }

@@ -204,9 +204,9 @@ impl<T: RealField + FromPrimitive> Default for NetworkMetadata<T> {
         Self {
             name: "Untitled Network".to_string(),
             description: String::new(),
-            temperature: T::from_f64(293.15).unwrap(), // 20°C
-            reference_pressure: T::from_f64(101325.0).unwrap(), // 1 atm
-            gravity: Vector3::new(T::zero(), T::zero(), -T::from_f64(9.81).unwrap()),
+            temperature: T::from_f64(293.15).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, // 20°C
+            reference_pressure: T::from_f64(101325.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, // 1 atm
+            gravity: Vector3::new(T::zero(), T::zero(), -T::from_f64(9.81).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?),
             time_step: None,
         }
     }
@@ -304,7 +304,7 @@ impl<T: RealField + FromPrimitive> Edge<T> {
                 if let Some(opening) = self.properties.component_params.get("opening") {
                     if *opening <= T::zero() {
                         // Closed valve - infinite resistance
-                        T::from_f64(1e12).unwrap()
+                        T::from_f64(1e12).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
                     } else {
                         // Resistance inversely proportional to opening
                         self.resistance.clone() / opening.clone()

@@ -31,8 +31,8 @@ impl FluidDynamicsService {
 
     /// Determine flow regime based on Reynolds number
     pub fn flow_regime<T: RealField + FromPrimitive>(reynolds: T) -> FlowRegime {
-        let re_2300 = T::from_f64(2300.0).unwrap();
-        let re_4000 = T::from_f64(4000.0).unwrap();
+        let re_2300 = T::from_f64(2300.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
+        let re_4000 = T::from_f64(4000.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
 
         if reynolds < re_2300 {
             FlowRegime::Laminar
@@ -65,8 +65,8 @@ impl FluidDynamicsService {
         diameter: T,
         roughness: Option<T>,
     ) -> Result<T> {
-        let re_2300 = T::from_f64(2300.0).unwrap();
-        let sixty_four = T::from_f64(64.0).unwrap();
+        let re_2300 = T::from_f64(2300.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
+        let sixty_four = T::from_f64(64.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
 
         if reynolds < re_2300 {
             // Laminar flow: f = 64/Re
@@ -81,10 +81,10 @@ impl FluidDynamicsService {
                 }
                 None => {
                     // Smooth pipe: Blasius equation for Re < 100,000
-                    let re_turbulent = T::from_f64(100_000.0).unwrap();
+                    let re_turbulent = T::from_f64(100_000.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
                     if reynolds < re_turbulent {
-                        let coeff = T::from_f64(0.316).unwrap();
-                        let exp = T::from_f64(0.25).unwrap();
+                        let coeff = T::from_f64(0.316).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
+                        let exp = T::from_f64(0.25).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
                         Ok(coeff / reynolds.powf(exp))
                     } else {
                         // Use Prandtl-Karman equation
@@ -100,15 +100,15 @@ impl FluidDynamicsService {
         reynolds: T,
         relative_roughness: T,
     ) -> Result<T> {
-        let mut f = T::from_f64(0.02).unwrap(); // Initial guess
-        let tolerance = T::from_f64(1e-6).unwrap();
+        let mut f = T::from_f64(0.02).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?; // Initial guess
+        let tolerance = T::from_f64(1e-6).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
         let max_iterations = 50;
 
         for _ in 0..max_iterations {
-            let term1 = relative_roughness / T::from_f64(3.7).unwrap();
-            let term2 = T::from_f64(2.51).unwrap() / (reynolds * f.sqrt());
-            let f_new = T::from_f64(0.25).unwrap() / 
-                (T::from_f64(10.0).unwrap().ln() * (term1 + term2)).powi(2);
+            let term1 = relative_roughness / T::from_f64(3.7).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
+            let term2 = T::from_f64(2.51).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? / (reynolds * f.sqrt());
+            let f_new = T::from_f64(0.25).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? / 
+                (T::from_f64(10.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?.ln() * (term1 + term2)).powi(2);
             
             if (f_new - f).abs() < tolerance {
                 return Ok(f_new);
@@ -122,8 +122,8 @@ impl FluidDynamicsService {
 
     /// Prandtl-Karman friction factor for smooth pipes
     fn prandtl_karman_friction_factor<T: RealField + FromPrimitive + Copy>(reynolds: T) -> Result<T> {
-        let log_re = reynolds.ln() / T::from_f64(10.0).unwrap().ln();
-        let coeff = T::from_f64(2.0).unwrap() * log_re - T::from_f64(0.8).unwrap();
+        let log_re = reynolds.ln() / T::from_f64(10.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?.ln();
+        let coeff = T::from_f64(2.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? * log_re - T::from_f64(0.8).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
         Ok(T::one() / (coeff * coeff))
     }
 }
@@ -173,9 +173,9 @@ impl MeshQualityService {
     }
 
     fn assess_aspect_ratio<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
-        let threshold_level4 = T::from_f64(2.0).unwrap();
-        let threshold_level3 = T::from_f64(5.0).unwrap();
-        let threshold_level2 = T::from_f64(10.0).unwrap();
+        let threshold_level4 = T::from_f64(2.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
+        let threshold_level3 = T::from_f64(5.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
+        let threshold_level2 = T::from_f64(10.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
 
         if stats.max < threshold_level4 {
             QualityLevel::Level4
@@ -189,9 +189,9 @@ impl MeshQualityService {
     }
 
     fn assess_skewness<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
-        let threshold_level4 = T::from_f64(0.25).unwrap();
-        let threshold_level3 = T::from_f64(0.5).unwrap();
-        let threshold_level2 = T::from_f64(0.8).unwrap();
+        let threshold_level4 = T::from_f64(0.25).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
+        let threshold_level3 = T::from_f64(0.5).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
+        let threshold_level2 = T::from_f64(0.8).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
 
         if stats.max < threshold_level4 {
             QualityLevel::Level4
@@ -205,9 +205,9 @@ impl MeshQualityService {
     }
 
     fn assess_orthogonality<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
-        let threshold_level4 = T::from_f64(0.95).unwrap();
-        let threshold_level3 = T::from_f64(0.85).unwrap();
-        let threshold_level2 = T::from_f64(0.7).unwrap();
+        let threshold_level4 = T::from_f64(0.95).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
+        let threshold_level3 = T::from_f64(0.85).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
+        let threshold_level2 = T::from_f64(0.7).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
 
         if stats.min > threshold_level4 {
             QualityLevel::Level4

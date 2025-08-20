@@ -189,7 +189,7 @@ impl<T: RealField + FromPrimitive> CubicSplineInterpolation<T> {
         for i in 1..n - 1 {
             let term1 = (y_data[i + 1].clone() - y_data[i].clone()) / h[i].clone();
             let term2 = (y_data[i].clone() - y_data[i - 1].clone()) / h[i - 1].clone();
-            alpha.push(T::from_f64(3.0).unwrap() * (term1 - term2));
+            alpha.push(T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * (term1 - term2));
         }
 
         // Solve tridiagonal system for c coefficients
@@ -198,7 +198,7 @@ impl<T: RealField + FromPrimitive> CubicSplineInterpolation<T> {
         let mut z = vec![T::zero(); n];
 
         for i in 1..n - 1 {
-            l[i] = T::from_f64(2.0).unwrap() * (x_data[i + 1].clone() - x_data[i - 1].clone())
+            l[i] = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * (x_data[i + 1].clone() - x_data[i - 1].clone())
                 - h[i - 1].clone() * mu[i - 1].clone();
             mu[i] = h[i].clone() / l[i].clone();
             z[i] = (alpha[i - 1].clone() - h[i - 1].clone() * z[i - 1].clone()) / l[i].clone();
@@ -212,9 +212,9 @@ impl<T: RealField + FromPrimitive> CubicSplineInterpolation<T> {
         for j in (0..n - 1).rev() {
             c[j] = z[j].clone() - mu[j].clone() * c[j + 1].clone();
             b[j] = (y_data[j + 1].clone() - y_data[j].clone()) / h[j].clone()
-                - h[j].clone() * (c[j + 1].clone() + T::from_f64(2.0).unwrap() * c[j].clone())
-                    / T::from_f64(3.0).unwrap();
-            d[j] = (c[j + 1].clone() - c[j].clone()) / (T::from_f64(3.0).unwrap() * h[j].clone());
+                - h[j].clone() * (c[j + 1].clone() + T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * c[j].clone())
+                    / T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+            d[j] = (c[j + 1].clone() - c[j].clone()) / (T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * h[j].clone());
         }
 
         Ok(SplineCoefficients {

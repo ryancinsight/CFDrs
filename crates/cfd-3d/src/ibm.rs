@@ -124,11 +124,11 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
         let h = self.dx.clone();  // Assuming uniform grid
         let r_norm = r.abs() / h.clone();
         
-        if r_norm >= T::from_f64(2.0).unwrap() {
+        if r_norm >= T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
             T::zero()
         } else if r_norm < T::one() {
             let one = T::one();
-            let three = T::from_f64(3.0).unwrap();
+            let three = T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
             // Clamp the argument to sqrt to be non-negative
             let r_norm_squared = r_norm.clone() * r_norm.clone();
             // Clamp the argument to sqrt to be non-negative
@@ -136,11 +136,11 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
             (one + ComplexField::sqrt(arg)) / (three * h)
         } else {
             let one = T::one();
-            let three = T::from_f64(3.0).unwrap();
-            let five = T::from_f64(5.0).unwrap();
+            let three = T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+            let five = T::from_f64(5.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
             // For 1 <= r_norm < 2, use the correct formula
             let term = (one.clone() - r_norm.clone()) * (one - r_norm.clone());
-            (five - three.clone() * r_norm - ComplexField::sqrt(three * term)) / (T::from_f64(6.0).unwrap() * h)
+            (five - three.clone() * r_norm - ComplexField::sqrt(three * term)) / (T::from_f64(6.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * h)
         }
     }
     
@@ -188,9 +188,9 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
                         let k = (k_center + dk).saturating_sub(stencil_half).min(nz - 1);
                         
                         let grid_pos = Vector3::new(
-                            T::from_usize(i).unwrap() * dx.clone(),
-                            T::from_usize(j).unwrap() * dy.clone(),
-                            T::from_usize(k).unwrap() * dz.clone(),
+                            T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dx.clone(),
+                            T::from_usize(j).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dy.clone(),
+                            T::from_usize(k).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dz.clone(),
                         );
                         
                         let dx_val = point.position[0].clone() - grid_pos[0].clone();
@@ -219,21 +219,21 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
     fn delta_function_static(r: T, h: T) -> T {
         let r_norm = r.abs() / h.clone();
         
-        if r_norm >= T::from_f64(2.0).unwrap() {
+        if r_norm >= T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
             T::zero()
         } else if r_norm < T::one() {
             let one = T::one();
-            let three = T::from_f64(3.0).unwrap();
+            let three = T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
             // Clamp the argument to sqrt to be non-negative
             let arg = (one.clone() - three.clone() * r_norm.clone() * r_norm.clone()).max(T::zero());
             (one + ComplexField::sqrt(arg)) / (three * h)
         } else {
             let one = T::one();
-            let three = T::from_f64(3.0).unwrap();
-            let five = T::from_f64(5.0).unwrap();
+            let three = T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+            let five = T::from_f64(5.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
             // For 1 <= r_norm < 2, use the correct formula  
             let term = (one.clone() - r_norm.clone()) * (one - r_norm.clone());
-            (five - three.clone() * r_norm - ComplexField::sqrt(three * term)) / (T::from_f64(6.0).unwrap() * h)
+            (five - three.clone() * r_norm - ComplexField::sqrt(three * term)) / (T::from_f64(6.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * h)
         }
     }
     
@@ -249,7 +249,7 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
                 };
                 
                 // Force to enforce boundary condition
-                point.force = (u_target - point.velocity.clone()) * T::from_f64(self.config.force_scale).unwrap();
+                point.force = (u_target - point.velocity.clone()) * T::from_f64(self.config.force_scale).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
             }
         } else {
             // Feedback forcing or elastic boundary
@@ -257,7 +257,7 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
                 if let Some(ref_pos) = &point.reference_position {
                     // Elastic force: F = -k * (X - X0)
                     let displacement = point.position.clone() - ref_pos.clone();
-                    let stiffness = T::from_f64(100.0).unwrap();  // Spring stiffness
+                    let stiffness = T::from_f64(100.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;  // Spring stiffness
                     point.force = displacement * (-stiffness);
                 }
             }
@@ -301,9 +301,9 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
                         let k = (k_center + dk).saturating_sub(stencil_half).min(self.nz - 1);
                         
                         let grid_pos = Vector3::new(
-                            T::from_usize(i).unwrap() * self.dx.clone(),
-                            T::from_usize(j).unwrap() * self.dy.clone(),
-                            T::from_usize(k).unwrap() * self.dz.clone(),
+                            T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * self.dx.clone(),
+                            T::from_usize(j).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * self.dy.clone(),
+                            T::from_usize(k).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * self.dz.clone(),
                         );
                         
                         let dx = point.position[0].clone() - grid_pos[0].clone();

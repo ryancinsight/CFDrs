@@ -95,15 +95,15 @@ impl<T: RealField + FromPrimitive> Default for PisoConfig<T> {
     fn default() -> Self {
         let base = cfd_core::SolverConfig::builder()
             .max_iterations(50) // PISO needs fewer iterations than SIMPLE
-            .tolerance(T::safe_from_f64(constants::DEFAULT_TOLERANCE).unwrap_or_else(|_| T::from_f64(1e-6).unwrap()))
+            .tolerance(T::safe_from_f64(constants::DEFAULT_TOLERANCE).unwrap_or_else(|_| T::from_f64(1e-6).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?))
             .build_base();
 
         Self {
             base,
-            time_step: T::safe_from_f64(constants::DEFAULT_TIME_STEP).unwrap_or_else(|_| T::from_f64(0.01).unwrap()),
+            time_step: T::safe_from_f64(constants::DEFAULT_TIME_STEP).unwrap_or_else(|_| T::from_f64(0.01).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?),
             num_correctors: DEFAULT_MAX_CORRECTORS,
-            velocity_tolerance: T::safe_from_f64(constants::DEFAULT_TOLERANCE).unwrap_or_else(|_| T::from_f64(1e-6).unwrap()),
-            pressure_tolerance: T::safe_from_f64(constants::DEFAULT_TOLERANCE).unwrap_or_else(|_| T::from_f64(1e-6).unwrap()),
+            velocity_tolerance: T::safe_from_f64(constants::DEFAULT_TOLERANCE).unwrap_or_else(|_| T::from_f64(1e-6).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?),
+            pressure_tolerance: T::safe_from_f64(constants::DEFAULT_TOLERANCE).unwrap_or_else(|_| T::from_f64(1e-6).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?),
             non_orthogonal_correctors: 1,
             pressure_correction_max_iters: 20,
         }

@@ -161,8 +161,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
     pub fn analyze_pressure(&self, network: &Network<T>) -> Result<PressureAnalysis<T>> {
         let mut pressures = HashMap::new();
         let mut pressure_drops = HashMap::new();
-        let mut max_pressure = T::from_f64(f64::NEG_INFINITY).unwrap();
-        let mut min_pressure = T::from_f64(f64::INFINITY).unwrap();
+        let mut max_pressure = T::from_f64(f64::NEG_INFINITY).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let mut min_pressure = T::from_f64(f64::INFINITY).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         let mut pressure_gradients = HashMap::new();
         
         // Collect node pressures
@@ -273,7 +273,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
     fn calculate_reynolds_number(&self, fluid: &Fluid<T>, velocity: T, diameter: T) -> T {
         let density = fluid.density;
         // Use actual operating temperature instead of hardcoded 20°C
-        let temperature = T::from_f64(293.15).unwrap(); // Default to 20°C if not specified
+        let temperature = T::from_f64(293.15).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?; // Default to 20°C if not specified
         let viscosity = fluid.dynamic_viscosity(temperature);
 
         density * velocity * diameter / viscosity
@@ -409,7 +409,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
         for i in 0..n-1 {
             for j in 0..n-1 {
                 let val = g_reduced[(i, j)].clone();
-                if ComplexField::abs(val.clone()) > T::from_f64(1e-14).unwrap() {
+                if ComplexField::abs(val.clone()) > T::from_f64(1e-14).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
                     let _ = sparse_builder.add_entry(i, j, val);
                 }
             }

@@ -4,7 +4,8 @@
 //! with support for various boundary conditions and grid types.
 
 use nalgebra::{RealField, Vector3, DVector};
-use cfd_core::{Error, Result, constants};
+use cfd_core::{constants};
+use cfd_core::error::{Error, Result};
 use num_traits::FromPrimitive;
 
 /// Finite difference schemes
@@ -91,7 +92,7 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
                 result[0] = (values[1].clone() - values[0].clone()) * inv_spacing.clone();
 
                 // Central difference using windows(3) for interior points
-                let two_inv_spacing = inv_spacing.clone() / T::from_f64(constants::TWO).unwrap();
+                let two_inv_spacing = inv_spacing.clone() / T::from_f64(constants::TWO).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                 values.windows(3)
                     .enumerate()
                     .for_each(|(i, window)| {
@@ -110,9 +111,9 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
                     ));
                 }
 
-                let two = T::from_f64(constants::TWO).unwrap();
-                let three = T::from_f64(constants::THREE).unwrap();
-                let four = T::from_f64(constants::FOUR).unwrap();
+                let two = T::from_f64(constants::TWO).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                let three = T::from_f64(constants::THREE).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                let four = T::from_f64(constants::FOUR).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
 
                 // Use forward difference for first n-2 points
                 result.iter_mut()
@@ -143,9 +144,9 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
                     ));
                 }
 
-                let two = T::from_f64(constants::TWO).unwrap();
-                let three = T::from_f64(constants::THREE).unwrap();
-                let four = T::from_f64(constants::FOUR).unwrap();
+                let two = T::from_f64(constants::TWO).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                let three = T::from_f64(constants::THREE).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                let four = T::from_f64(constants::FOUR).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
 
                 // Use central difference for first points
                 result.iter_mut()
@@ -187,15 +188,15 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
         let h_squared = self.spacing.clone() * self.spacing.clone();
 
         // Use forward difference for first point
-        result[0] = (values[2].clone() - T::from_f64(constants::TWO).unwrap() * values[1].clone() + values[0].clone()) / h_squared.clone();
+        result[0] = (values[2].clone() - T::from_f64(constants::TWO).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * values[1].clone() + values[0].clone()) / h_squared.clone();
 
         // Central difference for interior points
         for i in 1..n-1 {
-            result[i] = (values[i+1].clone() - T::from_f64(constants::TWO).unwrap() * values[i].clone() + values[i-1].clone()) / h_squared.clone();
+            result[i] = (values[i+1].clone() - T::from_f64(constants::TWO).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * values[i].clone() + values[i-1].clone()) / h_squared.clone();
         }
 
         // Use backward difference for last point
-        result[n-1] = (values[n-1].clone() - T::from_f64(constants::TWO).unwrap() * values[n-2].clone() + values[n-3].clone()) / h_squared.clone();
+        result[n-1] = (values[n-1].clone() - T::from_f64(constants::TWO).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * values[n-2].clone() + values[n-3].clone()) / h_squared.clone();
 
         Ok(result)
     }
@@ -251,7 +252,7 @@ impl<T: RealField + FromPrimitive> Gradient<T> {
         }
 
         let mut gradients = Vec::with_capacity(nx * ny);
-        let two = T::from_f64(constants::TWO).unwrap();
+        let two = T::from_f64(constants::TWO).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
 
         // Use iterator combinators instead of nested loops
         gradients.extend((0..ny).flat_map(|j| {
@@ -301,7 +302,7 @@ impl<T: RealField + FromPrimitive> Gradient<T> {
         }
 
         let mut gradients = Vec::with_capacity(nx * ny * nz);
-        let two = T::from_f64(constants::TWO).unwrap();
+        let two = T::from_f64(constants::TWO).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
 
         // Use iterator combinators for better performance
         gradients.extend((0..nz).flat_map(|k| {
@@ -360,7 +361,7 @@ impl<T: RealField + FromPrimitive> Gradient<T> {
             ));
         }
 
-        let two = T::from_f64(constants::TWO).unwrap();
+        let two = T::from_f64(constants::TWO).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
 
         let divergence: Vec<T> = (0..ny)
             .flat_map(|j| (0..nx).map(move |i| (i, j)))
@@ -401,7 +402,7 @@ impl<T: RealField + FromPrimitive> Gradient<T> {
         }
 
         let mut curl = Vec::with_capacity(nx * ny);
-        let two = T::from_f64(constants::TWO).unwrap();
+        let two = T::from_f64(constants::TWO).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
 
         for j in 0..ny {
             for i in 0..nx {

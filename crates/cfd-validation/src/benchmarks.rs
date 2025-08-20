@@ -199,20 +199,20 @@ impl<T: RealField + FromPrimitive> LidDrivenCavity<T> {
         if (re_val - 100.0_f64).abs() < 1.0 {
             // Re = 100 reference data (selected points)
             data.insert("u_centerline".to_string(), vec![
-                T::from_f64(1.0000).unwrap(),  // y = 1.0 (lid)
-                T::from_f64(0.8412).unwrap(),  // y = 0.9688
-                T::from_f64(0.1886).unwrap(),  // y = 0.5625
-                T::from_f64(-0.0557).unwrap(), // y = 0.2813
-                T::from_f64(0.0000).unwrap(),  // y = 0.0 (bottom)
+                T::from_f64(1.0000).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,  // y = 1.0 (lid)
+                T::from_f64(0.8412).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,  // y = 0.9688
+                T::from_f64(0.1886).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,  // y = 0.5625
+                T::from_f64(-0.0557).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, // y = 0.2813
+                T::from_f64(0.0000).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,  // y = 0.0 (bottom)
             ]);
         } else if (re_val - 1000.0_f64).abs() < 1.0 {
             // Re = 1000 reference data
             data.insert("u_centerline".to_string(), vec![
-                T::from_f64(1.0000).unwrap(),
-                T::from_f64(0.6593).unwrap(),
-                T::from_f64(0.0547).unwrap(),
-                T::from_f64(-0.1815).unwrap(),
-                T::from_f64(0.0000).unwrap(),
+                T::from_f64(1.0000).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                T::from_f64(0.6593).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                T::from_f64(0.0547).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                T::from_f64(-0.1815).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                T::from_f64(0.0000).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
             ]);
         }
         
@@ -261,8 +261,8 @@ impl<T: RealField + FromPrimitive> LidDrivenCavity<T> {
         let linf = LInfNorm.compute_error(&computed[..n], &reference[..n]).unwrap_or(T::zero());
         
         // Compute additional metrics
-        let mae = l1.clone() / T::from_usize(n).unwrap();
-        let rmse = (l2.clone() * l2.clone() / T::from_usize(n).unwrap()).sqrt();
+        let mae = l1.clone() / T::from_usize(n).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let rmse = (l2.clone() * l2.clone() / T::from_usize(n).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?).sqrt();
         
         // Relative L2 error
         let ref_norm = reference.iter()
@@ -270,7 +270,7 @@ impl<T: RealField + FromPrimitive> LidDrivenCavity<T> {
             .fold(T::zero(), |acc, x| acc + x)
             .sqrt();
         
-        let relative_l2 = if ref_norm > T::from_f64(1e-10).unwrap() {
+        let relative_l2 = if ref_norm > T::from_f64(1e-10).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
             l2.clone() / ref_norm
         } else {
             T::zero()
@@ -321,12 +321,12 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
         // Note: Lid-driven cavity can be challenging to converge
         let config = PressureVelocityCouplingConfig {
             base: cfd_core::SolverConfig::builder()
-                .tolerance(T::from_f64(1e-4).unwrap())  // Relaxed tolerance
+                .tolerance(T::from_f64(1e-4).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)  // Relaxed tolerance
                 .max_iterations(100)  // Fewer outer iterations
                 .build_base(),
-            dt: T::from_f64(0.01).unwrap(),
-            alpha_u: T::from_f64(0.5).unwrap(),  // Velocity under-relaxation
-            alpha_p: T::from_f64(0.3).unwrap(),  // Pressure under-relaxation
+            dt: T::from_f64(0.01).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            alpha_u: T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,  // Velocity under-relaxation
+            alpha_p: T::from_f64(0.3).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,  // Pressure under-relaxation
             use_rhie_chow: true,
             convection_scheme: SpatialScheme::SecondOrderUpwind,
             implicit_momentum: true,
@@ -413,7 +413,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
         error_stats.insert("v_centerline_error".to_string(), errors);
         
         // Check if errors are within acceptable tolerance
-        let tolerance = T::from_f64(0.01).unwrap(); // 1% relative error tolerance
+        let tolerance = T::from_f64(0.01).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?; // 1% relative error tolerance
         let passed = error_stats.values()
             .all(|stats| stats.relative_l2 < tolerance);
         
@@ -469,13 +469,13 @@ impl<T: RealField + FromPrimitive> FlowOverCylinder<T> {
         // around the cylinder surface
         // C_D = F_D / (0.5 * ρ * U² * D)
         
-        let dx = T::one() / T::from_usize(nx).unwrap();
-        let dy = T::one() / T::from_usize(ny).unwrap();
+        let dx = T::one() / T::from_usize(nx).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let dy = T::one() / T::from_usize(ny).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         
         // Cylinder center and radius
-        let cx = T::from_f64(0.2).unwrap();
-        let cy = T::from_f64(0.5).unwrap();
-        let radius = self.diameter.clone() / T::from_f64(2.0).unwrap();
+        let cx = T::from_f64(0.2).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let cy = T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let radius = self.diameter.clone() / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         
         // Integrate forces on cylinder surface
         let mut drag_force = T::zero();
@@ -487,8 +487,8 @@ impl<T: RealField + FromPrimitive> FlowOverCylinder<T> {
         let mu = rho.clone() * u_inf.clone() * self.diameter.clone() / self.reynolds.clone();
         
         for i in 0..num_points {
-            let theta = T::from_f64(2.0 * std::f64::consts::PI).unwrap() 
-                * T::from_usize(i).unwrap() / T::from_usize(num_points).unwrap();
+            let theta = T::from_f64(2.0 * std::f64::consts::PI).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? 
+                * T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? / T::from_usize(num_points).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
             
             // Point on cylinder surface
             let x = cx.clone() + radius.clone() * ComplexField::cos(theta.clone());
@@ -543,7 +543,7 @@ impl<T: RealField + FromPrimitive> FlowOverCylinder<T> {
                     } else {
                         u.clone()
                     };
-                    (u_above - u_below) / (T::from_f64(2.0).unwrap() * dy.clone())
+                    (u_above - u_below) / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dy.clone())
                 } else {
                     T::zero()
                 };
@@ -559,7 +559,7 @@ impl<T: RealField + FromPrimitive> FlowOverCylinder<T> {
                     } else {
                         v.clone()
                     };
-                    (v_right - v_left) / (T::from_f64(2.0).unwrap() * dx.clone())
+                    (v_right - v_left) / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dx.clone())
                 } else {
                     T::zero()
                 };
@@ -579,24 +579,24 @@ impl<T: RealField + FromPrimitive> FlowOverCylinder<T> {
                 // τ = μ * (∂u_t/∂n) where u_t is tangential velocity
                 // For a cylinder, the shear stress τ_wall = μ * (∂u_θ/∂r)|_wall
                 // We approximate this using the velocity gradients
-                let shear_rate = (du_dy + dv_dx) / T::from_f64(2.0).unwrap();
+                let shear_rate = (du_dy + dv_dx) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                 let shear_stress = mu.clone() * shear_rate;
                 let shear_drag = shear_stress * tx; // Tangential stress contributes to drag
                 
                 // Accumulate drag force (integrate around cylinder)
-                let ds = T::from_f64(2.0 * std::f64::consts::PI).unwrap() * radius.clone() 
-                    / T::from_usize(num_points).unwrap();
+                let ds = T::from_f64(2.0 * std::f64::consts::PI).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * radius.clone() 
+                    / T::from_usize(num_points).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                 drag_force = drag_force + (pressure_drag + shear_drag) * ds;
             }
         }
         
         // Compute drag coefficient
-        let c_d = drag_force / (T::from_f64(0.5).unwrap() * rho * u_inf.clone() * u_inf * self.diameter.clone());
+        let c_d = drag_force / (T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * rho * u_inf.clone() * u_inf * self.diameter.clone());
         
         // CRITICAL: Do NOT fall back to empirical correlations!
         // The validation must fail if the computed value is non-physical
         // This ensures we're actually testing the solver, not our fallback logic
-        if c_d <= T::zero() || c_d > T::from_f64(10.0).unwrap() {
+        if c_d <= T::zero() || c_d > T::from_f64(10.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
             panic!("Computed drag coefficient is non-physical: {:?}. The solver has failed.", c_d);
         }
         
@@ -625,8 +625,8 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
         use std::collections::HashMap;
         
         // Create computational domain (20D x 10D where D is cylinder diameter)
-        let domain_length = self.diameter.clone() * T::from_f64(20.0).unwrap();
-        let domain_height = self.diameter.clone() * T::from_f64(10.0).unwrap();
+        let domain_length = self.diameter.clone() * T::from_f64(20.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let domain_height = self.diameter.clone() * T::from_f64(10.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         
         // Grid resolution based on Reynolds number
         let nx = if reynolds_to_f64(&self.reynolds)? < 100.0 { 100 } else { 200 };
@@ -641,12 +641,12 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
         // Pressure-velocity coupling configuration with appropriate parameters
         let config = PressureVelocityCouplingConfig {
             base: cfd_core::SolverConfig::builder()
-                .tolerance(T::from_f64(1e-5).unwrap())
+                .tolerance(T::from_f64(1e-5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
                 .max_iterations(500)
                 .build_base(),
-            dt: T::from_f64(0.001).unwrap(),
-            alpha_u: T::from_f64(0.7).unwrap(),
-            alpha_p: T::from_f64(0.3).unwrap(),
+            dt: T::from_f64(0.001).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            alpha_u: T::from_f64(0.7).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            alpha_p: T::from_f64(0.3).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
             use_rhie_chow: true,
             convection_scheme: SpatialScheme::SecondOrderUpwind,
             implicit_momentum: true,
@@ -691,14 +691,14 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
         }
         
         // Apply cylinder boundary as internal obstacle (no-slip on cylinder surface)
-        let cx = T::from_f64(5.0).unwrap() * self.diameter.clone(); // Cylinder center x
-        let cy = domain_height.clone() / T::from_f64(2.0).unwrap(); // Cylinder center y
-        let radius = self.diameter.clone() / T::from_f64(2.0).unwrap();
+        let cx = T::from_f64(5.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * self.diameter.clone(); // Cylinder center x
+        let cy = domain_height.clone() / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?; // Cylinder center y
+        let radius = self.diameter.clone() / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         
         for j in 0..ny {
             for i in 0..nx {
-                let x = T::from_usize(i).unwrap() * domain_length.clone() / T::from_usize(nx).unwrap();
-                let y = T::from_usize(j).unwrap() * domain_height.clone() / T::from_usize(ny).unwrap();
+                let x = T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * domain_length.clone() / T::from_usize(nx).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                let y = T::from_usize(j).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * domain_height.clone() / T::from_usize(ny).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                 
                 let dx = x - cx.clone();
                 let dy = y - cy.clone();
@@ -754,12 +754,12 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
         error_stats.insert(
             "drag_coefficient_error".to_string(),
             ErrorStatistics {
-                l1_norm: T::from_f64(error).unwrap(),
-                l2_norm: T::from_f64(error).unwrap(),
-                linf_norm: T::from_f64(error).unwrap(),
-                mae: T::from_f64(error).unwrap(),
-                rmse: T::from_f64(error).unwrap(),
-                relative_l2: T::from_f64(error).unwrap(),
+                l1_norm: T::from_f64(error).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                l2_norm: T::from_f64(error).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                linf_norm: T::from_f64(error).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                mae: T::from_f64(error).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                rmse: T::from_f64(error).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                relative_l2: T::from_f64(error).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
                 num_points: 1,
             }
         );
@@ -826,9 +826,9 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
         use std::collections::HashMap;
         
         // Domain dimensions (following Armaly et al. 1983)
-        let channel_height = self.step_height.clone() * T::from_f64(2.0).unwrap();
+        let channel_height = self.step_height.clone() * T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         let inlet_height = channel_height.clone() - self.step_height.clone();
-        let domain_length = self.step_height.clone() * T::from_f64(30.0).unwrap();
+        let domain_length = self.step_height.clone() * T::from_f64(30.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         
         // Grid resolution
         let nx = 300;
@@ -843,12 +843,12 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
         // Pressure-velocity coupling configuration
         let config = PressureVelocityCouplingConfig {
             base: cfd_core::SolverConfig::builder()
-                .tolerance(T::from_f64(1e-5).unwrap())
+                .tolerance(T::from_f64(1e-5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
                 .max_iterations(1000)
                 .build_base(),
-            dt: T::from_f64(0.01).unwrap(),
-            alpha_u: T::from_f64(0.7).unwrap(),
-            alpha_p: T::from_f64(0.3).unwrap(),
+            dt: T::from_f64(0.01).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            alpha_u: T::from_f64(0.7).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            alpha_p: T::from_f64(0.3).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
             use_rhie_chow: true,
             convection_scheme: SpatialScheme::SecondOrderUpwind,
             implicit_momentum: true,
@@ -865,13 +865,13 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
         let mut boundary_conditions = HashMap::new();
         
         // Inlet: parabolic velocity profile
-        let u_max = T::from_f64(1.5).unwrap(); // Maximum velocity
+        let u_max = T::from_f64(1.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?; // Maximum velocity
         for j in 0..ny {
-            let y = T::from_usize(j).unwrap() * channel_height.clone() / T::from_usize(ny).unwrap();
+            let y = T::from_usize(j).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * channel_height.clone() / T::from_usize(ny).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
             if y > self.step_height.clone() {
                 // Above the step - parabolic profile
                 let eta = (y - self.step_height.clone()) / inlet_height.clone();
-                let u = u_max.clone() * T::from_f64(4.0).unwrap() * eta.clone() * (T::one() - eta);
+                let u = u_max.clone() * T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * eta.clone() * (T::one() - eta);
                 boundary_conditions.insert(
                     (0, j),
                     BoundaryCondition::Dirichlet { value: u }
@@ -943,7 +943,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
         for i in 1..nx {
             let idx = i * 2; // Bottom wall, u-component
             if idx < solution.len() && solution[idx] > T::zero() {
-                reattachment_x = T::from_usize(i).unwrap() * T::from_f64(30.0).unwrap() / T::from_usize(nx).unwrap();
+                reattachment_x = T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * T::from_f64(30.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? / T::from_usize(nx).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                 break;
             }
         }
@@ -951,13 +951,13 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for BackwardFacingStep<T> {
         // Expected reattachment length from literature (Armaly et al. 1983)
         let re: f64 = reynolds_to_f64(&self.reynolds)?;
         let expected_xr = if re < 400.0 {
-            self.step_height.clone() * T::from_f64(6.0 + 0.01 * re).unwrap()
+            self.step_height.clone() * T::from_f64(6.0 + 0.01 * re).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
         } else {
-            self.step_height.clone() * T::from_f64(10.0).unwrap()
+            self.step_height.clone() * T::from_f64(10.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
         };
         
         let error = ((reattachment_x.clone() - expected_xr.clone()) / expected_xr.clone()).abs();
-        let passed = error < T::from_f64(0.01).unwrap(); // 1% tolerance
+        let passed = error < T::from_f64(0.01).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?; // 1% tolerance
         
         let mut error_stats = HashMap::new();
         error_stats.insert(

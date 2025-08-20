@@ -33,7 +33,7 @@ impl<T: RealField + FromPrimitive> Quadrature<T> for TrapezoidalRule {
     where
         F: Fn(T) -> T,
     {
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         (b.clone() - a.clone()) * (f(a) + f(b)) / two
     }
 
@@ -54,9 +54,9 @@ impl<T: RealField + FromPrimitive> Quadrature<T> for SimpsonsRule {
     where
         F: Fn(T) -> T,
     {
-        let two = T::from_f64(2.0).unwrap();
-        let four = T::from_f64(4.0).unwrap();
-        let six = T::from_f64(6.0).unwrap();
+        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let four = T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let six = T::from_f64(6.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
 
         let mid = (a.clone() + b.clone()) / two.clone();
         (b.clone() - a.clone()) * (f(a) + four * f(mid) + f(b)) / six
@@ -84,7 +84,7 @@ impl<T: RealField + FromPrimitive> GaussQuadrature<T> {
         let (points, weights) = match order {
             1 => {
                 let points = vec![T::zero()];
-                let weights = vec![T::from_f64(2.0).unwrap()];
+                let weights = vec![T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?];
                 (points, weights)
             },
             2 => {
@@ -95,16 +95,16 @@ impl<T: RealField + FromPrimitive> GaussQuadrature<T> {
             },
             3 => {
                 let sqrt15 = T::from_f64(15.0_f64.sqrt()).unwrap();
-                let sqrt15_5 = sqrt15 / T::from_f64(5.0).unwrap();
+                let sqrt15_5 = sqrt15 / T::from_f64(5.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                 let points = vec![
                     -sqrt15_5.clone(),
                     T::zero(),
                     sqrt15_5,
                 ];
                 let weights = vec![
-                    T::from_f64(5.0 / 9.0).unwrap(),
-                    T::from_f64(8.0 / 9.0).unwrap(),
-                    T::from_f64(5.0 / 9.0).unwrap(),
+                    T::from_f64(5.0 / 9.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                    T::from_f64(8.0 / 9.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                    T::from_f64(5.0 / 9.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
                 ];
                 (points, weights)
             },
@@ -145,7 +145,7 @@ impl<T: RealField + FromPrimitive> Quadrature<T> for GaussQuadrature<T> {
     where
         F: Fn(T) -> T,
     {
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         let half_interval = (b.clone() - a.clone()) / two.clone();
         let mid_point = (a.clone() + b.clone()) / two;
 
@@ -196,13 +196,13 @@ where
     where
         F: Fn(T) -> T,
     {
-        let n = T::from_usize(self.num_intervals).unwrap();
+        let n = T::from_usize(self.num_intervals).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         let h = (b.clone() - a.clone()) / n;
 
         // Use iterator range with fold for zero-copy optimization
         (0..self.num_intervals)
             .map(|i| {
-                let xi = a.clone() + T::from_usize(i).unwrap() * h.clone();
+                let xi = a.clone() + T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * h.clone();
                 let xi_plus_1 = xi.clone() + h.clone();
                 self.base_rule.integrate(&f, xi, xi_plus_1)
             })
@@ -254,8 +254,8 @@ impl<Q> VariableQuadrature<Q> {
         Q: Quadrature<T>,
     {
         if depth > self.max_depth {
-            return Err(Error::ConvergenceFailure(
-                "Maximum recursion depth reached in adaptive integration".to_string()
+            return Err(Error::Convergence(
+                cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max: self.max_depth }
             ));
         }
 
@@ -263,7 +263,7 @@ impl<Q> VariableQuadrature<Q> {
         let whole = self.base_rule.integrate(f, a.clone(), b.clone());
 
         // Compute integral over two halves
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         let mid = (a.clone() + b.clone()) / two;
         let left = self.base_rule.integrate(f, a.clone(), mid.clone());
         let right = self.base_rule.integrate(f, mid.clone(), b.clone());
@@ -271,7 +271,7 @@ impl<Q> VariableQuadrature<Q> {
 
         // Estimate error
         let error_estimate = (halves.clone() - whole.clone()).abs();
-        let tolerance_t = T::from_f64(self.tolerance).unwrap();
+        let tolerance_t = T::from_f64(self.tolerance).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
 
         if error_estimate < tolerance_t {
             // Accept the more accurate estimate from halves
@@ -311,18 +311,18 @@ impl<Q> TensorProductQuadrature<Q> {
     {
         // For simplicity, use composite Simpson's rule for 2D
         let n = 10; // Number of intervals in each direction
-        let hx = (bx.clone() - ax.clone()) / T::from_usize(n).unwrap();
-        let hy = (by.clone() - ay.clone()) / T::from_usize(n).unwrap();
+        let hx = (bx.clone() - ax.clone()) / T::from_usize(n).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let hy = (by.clone() - ay.clone()) / T::from_usize(n).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
 
         let mut result = T::zero();
-        let four = T::from_f64(4.0).unwrap();
-        let two = T::from_f64(2.0).unwrap();
-        let nine = T::from_f64(9.0).unwrap();
+        let four = T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let nine = T::from_f64(9.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
 
         for i in 0..=n {
             for j in 0..=n {
-                let x = ax.clone() + T::from_usize(i).unwrap() * hx.clone();
-                let y = ay.clone() + T::from_usize(j).unwrap() * hy.clone();
+                let x = ax.clone() + T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * hx.clone();
+                let y = ay.clone() + T::from_usize(j).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * hy.clone();
 
                 // Correct 2D Simpson's rule weights using tensor product of 1D weights
                 let weight_i = if i == 0 || i == n {

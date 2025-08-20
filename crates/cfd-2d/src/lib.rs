@@ -14,7 +14,7 @@ pub mod grid;
 pub mod lbm;
 pub mod momentum;
 pub mod convection;
-pub mod pressure_velocity_coupling;
+pub mod simple;  // Modularized SIMPLE algorithm (was pressure_velocity_coupling)
 pub mod piso;
 
 pub mod problem;

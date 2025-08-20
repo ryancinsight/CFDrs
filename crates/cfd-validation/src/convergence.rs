@@ -114,7 +114,7 @@ impl<T: RealField + FromPrimitive> ConvergenceStudy<T> {
 
     /// Get the convergence order (theoretical vs observed) with default tolerance
     pub fn convergence_order(&self) -> ConvergenceOrder<T> {
-        let default_tolerance = T::from_f64(0.1).unwrap();
+        let default_tolerance = T::from_f64(0.1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         self.convergence_order_with_tolerance(default_tolerance)
     }
 
@@ -122,9 +122,9 @@ impl<T: RealField + FromPrimitive> ConvergenceStudy<T> {
     pub fn convergence_order_with_tolerance(&self, tolerance: T) -> ConvergenceOrder<T> {
         let rate = self.convergence_rate.clone();
         let one = T::one();
-        let two = T::from_f64(2.0).unwrap();
-        let three = T::from_f64(3.0).unwrap();
-        let four = T::from_f64(4.0).unwrap();
+        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let three = T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let four = T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
 
         if (rate.clone() - one).abs() < tolerance {
             ConvergenceOrder::FirstOrder
@@ -150,7 +150,7 @@ impl<T: RealField + FromPrimitive> ConvergenceStudy<T> {
             return Err(Error::InvalidInput("Error coefficient is zero".to_string()));
         }
 
-        let epsilon = T::from_f64(1e-9).unwrap();
+        let epsilon = T::from_f64(1e-9).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         if self.convergence_rate.clone().abs() < epsilon {
             return Err(Error::InvalidInput("Convergence rate is zero or near-zero".to_string()));
         }
@@ -192,7 +192,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive> RichardsonExtrapolation<T> {
 
     /// Create Richardson extrapolation with second-order accuracy
     pub fn second_order() -> Self {
-        Self::new(T::from_f64(2.0).unwrap())
+        Self::new(T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
     }
 
     /// Extrapolate using two solutions on different grids
@@ -209,7 +209,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive> RichardsonExtrapolation<T> {
     /// Extrapolate using two solutions (backward compatibility)
     pub fn extrapolate(&self, solution1: T, solution2: T) -> T {
         // Assume default grid ratio of 2.0
-        let grid_ratio = T::from_f64(2.0).unwrap();
+        let grid_ratio = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         self.extrapolate_two_grids(solution1, solution2, grid_ratio)
     }
 
@@ -222,7 +222,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive> RichardsonExtrapolation<T> {
         fine_solution: T,
         grid_ratio: T, // constant ratio between grids
     ) -> Result<T> {
-        let default_tolerance = T::from_f64(0.1).unwrap();
+        let default_tolerance = T::from_f64(0.1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         self.extrapolate_three_grids_with_tolerance(
             coarse_solution, medium_solution, fine_solution, grid_ratio, default_tolerance
         )
@@ -292,12 +292,12 @@ impl<T: RealField + FromPrimitive> GridConvergenceIndex<T> {
 
     /// Create GCI for three or more grids
     pub fn for_multiple_grids() -> Self {
-        Self::new(T::from_f64(1.25).unwrap())
+        Self::new(T::from_f64(1.25).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
     }
 
     /// Create GCI for two grids
     pub fn for_two_grids() -> Self {
-        Self::new(T::from_f64(3.0).unwrap())
+        Self::new(T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
     }
 
     /// Compute GCI between two solutions
@@ -326,7 +326,7 @@ impl<T: RealField + FromPrimitive> GridConvergenceIndex<T> {
         let ratio = gci_coarse / (r_p * gci_fine);
 
         // Should be close to 1.0 in asymptotic range
-        let tolerance = T::from_f64(0.01).unwrap(); // 1% tolerance
+        let tolerance = T::from_f64(0.01).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?; // 1% tolerance
         (ratio - T::one()).abs() < tolerance
     }
 }
@@ -389,13 +389,13 @@ impl ConvergenceAnalysis {
                      let e_ratio = errors[errors.len() - 2].clone() / errors[errors.len() - 1].clone();
                      e_ratio.ln() / h_ratio.ln()
                  } else {
-                     T::from_f64(2.0).unwrap() // Assume second-order as default
+                     T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? // Assume second-order as default
                  };
                  
                  let h_ratio = h2 / h1;
                  let denominator = h_ratio.powf(p) - T::one();
                  
-                 if denominator.clone().abs() > T::from_f64(1e-10).unwrap() {
+                 if denominator.clone().abs() > T::from_f64(1e-10).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
                      let finest_error = (f1 - f2).abs() / denominator;
                      errors.push(finest_error);
                  } else {
@@ -405,7 +405,7 @@ impl ConvergenceAnalysis {
                  }
              } else {
                  // Simple fallback for insufficient data
-                 errors.push(errors[0].clone() * T::from_f64(0.5).unwrap());
+                 errors.push(errors[0].clone() * T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?);
              }
 
             errors

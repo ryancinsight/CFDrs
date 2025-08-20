@@ -248,7 +248,7 @@ impl<T: RealField + num_traits::Float> TimeDependentEvaluator<T> {
                     // Convert to f64 for trig calculation, then back
                     let angle_f64: f64 = angle.to_subset().unwrap_or(0.0);
                     let sin_value = angle_f64.sin();
-                    amplitude * T::from_f64(sin_value).unwrap_or(T::zero())
+                    amplitude * T::from_f64(sin_value).unwrap_or_else(|| T::zero())
                 } else {
                     T::zero()
                 }

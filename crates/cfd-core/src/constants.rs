@@ -315,7 +315,7 @@ pub const EPSILON_MULTIPLIER_FALLBACK: f64 = 100.0;
 
 /// Get default tolerance for type T
 pub fn default_tolerance<T: RealField>() -> T {
-    T::from_f64(DEFAULT_TOLERANCE).unwrap_or_else(|| T::default_epsilon() * T::from_f64(EPSILON_MULTIPLIER_FALLBACK).unwrap())
+    T::from_f64(DEFAULT_TOLERANCE).unwrap_or_else(|| T::default_epsilon() * T::from_f64(EPSILON_MULTIPLIER_FALLBACK).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?)
 }
 
 /// Get epsilon for type T

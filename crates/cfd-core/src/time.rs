@@ -143,7 +143,7 @@ pub struct BackwardEuler<T: RealField> {
 impl<T: RealField + FromPrimitive> Default for BackwardEuler<T> {
     fn default() -> Self {
         Self {
-            tolerance: T::from_f64(1e-10).unwrap(),
+            tolerance: T::from_f64(1e-10).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?,
             max_iterations: 100,
         }
     }
@@ -236,7 +236,7 @@ pub struct CrankNicolson<T: RealField> {
 impl<T: RealField + FromPrimitive> Default for CrankNicolson<T> {
     fn default() -> Self {
         Self {
-            tolerance: T::from_f64(1e-10).unwrap(),
+            tolerance: T::from_f64(1e-10).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?,
             max_iterations: 100,
         }
     }
@@ -340,10 +340,10 @@ pub struct VariableTimeStep<T: RealField> {
 impl<T: RealField + FromPrimitive> Default for VariableTimeStep<T> {
     fn default() -> Self {
         Self {
-            dt_min: T::from_f64(1e-10).unwrap(),
-            dt_max: T::from_f64(0.1).unwrap(),
-            safety_factor: T::from_f64(0.9).unwrap(),
-            target_error: T::from_f64(1e-6).unwrap(),
+            dt_min: T::from_f64(1e-10).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?,
+            dt_max: T::from_f64(0.1).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?,
+            safety_factor: T::from_f64(0.9).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?,
+            target_error: T::from_f64(1e-6).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?,
         }
     }
 }
@@ -352,10 +352,10 @@ impl<T: RealField + FromPrimitive + Float> VariableTimeStep<T> {
     /// Calculate new time step based on error estimate
     pub fn calculate_dt(&self, current_dt: T, error: T, order: usize) -> T {
         if error < T::epsilon() {
-            return num_traits::Float::min(self.dt_max.clone(), current_dt * T::from_f64(2.0).unwrap());
+            return num_traits::Float::min(self.dt_max.clone(), current_dt * T::from_f64(2.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?);
         }
         
-        let exponent = T::one() / T::from_f64(order as f64).unwrap();
+        let exponent = T::one() / T::from_f64(order as f64).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
         let factor = self.safety_factor.clone()
             * num_traits::Float::powf(self.target_error.clone() / error, exponent);
         

@@ -36,7 +36,7 @@ where
     fn mean(self) -> Option<T> {
         let (sum, count) = self.fold((T::zero(), 0), |(sum, count), x| (sum + x, count + 1));
         if count > 0 {
-            Some(sum / T::from_usize(count).unwrap())
+            Some(sum / T::from_usize(count).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
         } else {
             None
         }
@@ -49,7 +49,7 @@ where
             |(count, mean, m2), x| {
                 let new_count = count + 1;
                 let delta = x.clone() - mean.clone();
-                let new_mean = mean + delta.clone() / T::from_usize(new_count).unwrap();
+                let new_mean = mean + delta.clone() / T::from_usize(new_count).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                 let delta2 = x - new_mean.clone();
                 let new_m2 = m2 + delta * delta2;
                 (new_count, new_mean, new_m2)
@@ -57,7 +57,7 @@ where
         );
         
         if count > 1 {
-            Some(m2 / T::from_usize(count - 1).unwrap())
+            Some(m2 / T::from_usize(count - 1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
         } else {
             None
         }
@@ -79,7 +79,7 @@ where
         self.map(move |x| {
             count += 1;
             sum += x;
-            sum.clone() / T::from_usize(count).unwrap()
+            sum.clone() / T::from_usize(count).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
         })
     }
 
@@ -122,16 +122,16 @@ where
         // Savitzky-Golay coefficients for 2nd order polynomial, centered window
         // Pre-computed for common window sizes
         let coeffs = match window_size {
-            5 => vec![T::from_f64(-3.0/35.0).unwrap(), T::from_f64(12.0/35.0).unwrap(), 
-                     T::from_f64(17.0/35.0).unwrap(), T::from_f64(12.0/35.0).unwrap(), 
-                     T::from_f64(-3.0/35.0).unwrap()],
-            7 => vec![T::from_f64(-2.0/21.0).unwrap(), T::from_f64(3.0/21.0).unwrap(),
-                     T::from_f64(6.0/21.0).unwrap(), T::from_f64(7.0/21.0).unwrap(),
-                     T::from_f64(6.0/21.0).unwrap(), T::from_f64(3.0/21.0).unwrap(),
-                     T::from_f64(-2.0/21.0).unwrap()],
+            5 => vec![T::from_f64(-3.0/35.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, T::from_f64(12.0/35.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, 
+                     T::from_f64(17.0/35.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, T::from_f64(12.0/35.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, 
+                     T::from_f64(-3.0/35.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?],
+            7 => vec![T::from_f64(-2.0/21.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, T::from_f64(3.0/21.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                     T::from_f64(6.0/21.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, T::from_f64(7.0/21.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                     T::from_f64(6.0/21.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, T::from_f64(3.0/21.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                     T::from_f64(-2.0/21.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?],
             _ => {
                 // Fallback to moving average for other window sizes
-                let coeff = T::one() / T::from_usize(window_size).unwrap();
+                let coeff = T::one() / T::from_usize(window_size).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                 vec![coeff.clone(); window_size]
             }
         };
@@ -635,7 +635,7 @@ where
         self.windowed_diff(5, move |w| {
             if w.len() >= 5 {
                 // 5-point stencil: (u_{i-1} - 2u_i + u_{i+1}) / dx^2
-                let d2u_dx2 = (w[0].clone() - T::from_f64(2.0).unwrap() * w[2].clone() + w[4].clone()) / dx_sq.clone();
+                let d2u_dx2 = (w[0].clone() - T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * w[2].clone() + w[4].clone()) / dx_sq.clone();
                 d2u_dx2
             } else {
                 T::zero()
@@ -821,7 +821,7 @@ where
             .fold(T::zero(), |acc, x| acc + x) / 
             T::from_usize(self.buffer.len()).unwrap();
         
-        let cv = if mean.clone().abs() > T::from_f64(1e-15).unwrap() {
+        let cv = if mean.clone().abs() > T::from_f64(1e-15).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
             variance.sqrt() / mean.abs()
         } else {
             variance.sqrt()

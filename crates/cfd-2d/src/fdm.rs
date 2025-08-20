@@ -53,7 +53,7 @@ fn solve_gauss_seidel<T: RealField + FromPrimitive>(
             }
 
             // Check for zero diagonal (singular matrix)
-            if diagonal.clone().abs() < T::from_f64(1e-14).unwrap() {
+            if diagonal.clone().abs() < T::from_f64(1e-14).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
                 return Err(Error::InvalidConfiguration(
                     format!("{}: Singular matrix detected (zero diagonal)", solver_name)
                 ));
@@ -198,8 +198,8 @@ impl<T: RealField + FromPrimitive> PoissonSolver<T> {
         let dy2 = dy.clone() * dy.clone();
 
         // Central coefficient: -2/dx² - 2/dy²
-        let center_coeff = -T::from_f64(2.0).unwrap() / dx2.clone()
-                          - T::from_f64(2.0).unwrap() / dy2.clone();
+        let center_coeff = -T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? / dx2.clone()
+                          - T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? / dy2.clone();
         matrix_builder.add_entry(linear_idx, linear_idx, center_coeff)?;
 
         // Use iterator for neighbor contributions with zero-copy access
@@ -317,8 +317,8 @@ impl<T: RealField + FromPrimitive> AdvectionDiffusionSolver<T> {
         let v = velocity_y.get(&(i, j)).cloned().unwrap_or(T::zero());
 
         // Central coefficient (diffusion part): -2α/dx² - 2α/dy²
-        let mut center_coeff = -T::from_f64(2.0).unwrap() * diffusivity.clone() / dx2.clone()
-                              - T::from_f64(2.0).unwrap() * diffusivity.clone() / dy2.clone();
+        let mut center_coeff = -T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * diffusivity.clone() / dx2.clone()
+                              - T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * diffusivity.clone() / dy2.clone();
 
         // Add neighbor contributions
         let neighbors = grid.neighbors(i, j);

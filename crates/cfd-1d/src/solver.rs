@@ -119,7 +119,7 @@ impl<T: RealField + FromPrimitive> NetworkProblem<T> {
     /// Create a new network problem from a network
     pub fn new(network: Network<T>) -> Self {
         let node_count = network.node_count();
-        let characteristic_length = T::from_f64(1.0).unwrap(); // Default 1m
+        let characteristic_length = T::from_f64(1.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?; // Default 1m
         
         Self {
             network,

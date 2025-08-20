@@ -91,10 +91,8 @@ impl<T: RealField + FromPrimitive> JacobiPreconditioner<T> {
         let mut inv_diagonal = DVector::zeros(n);
 
         for (i, val) in diag.iter().enumerate() {
-            if val.clone().abs() < T::from_f64(1e-14).unwrap() {
-                return Err(Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation
-                    format!("Zero or near-zero diagonal entry at row {}", i)
-                ));
+            if val.clone().abs() < T::from_f64(1e-14).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
+                return Err(Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation));
             }
             inv_diagonal[i] = T::one() / val.clone();
         }
@@ -129,7 +127,7 @@ impl<T: RealField + FromPrimitive> SORPreconditioner<T> {
 
         // Validate omega range for stability
         let zero = T::zero();
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         if omega <= zero || omega >= two {
             return Err(Error::InvalidConfiguration(
                 "SOR omega parameter must be in range (0, 2) for stability".to_string()
@@ -160,7 +158,7 @@ impl<T: RealField + FromPrimitive> SORPreconditioner<T> {
         let n = a.nrows() as f64;
         let omega_opt = 2.0 / (1.0 + (std::f64::consts::PI / n).sin());
         let omega = T::from_f64(omega_opt).ok_or_else(|| {
-            Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
+            Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation)
         })?;
         
         Self::new(a, omega)
@@ -277,7 +275,7 @@ impl<T: RealField> ConjugateGradient<T> {
         let mut rzold = r.dot(&z);
 
         // PCG iterations with in-place operations
-        for iter in 0..self.config.max_iterations() {
+        for iter in 0..self.config.base.convergence.max_iterations {
             // Compute A*p
             ap = a * &p;
             
@@ -308,10 +306,9 @@ impl<T: RealField> ConjugateGradient<T> {
             rzold = rznew;
         }
 
-        Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max: self.config.max_iterations }format!(
-            "PCG failed to converge after {} iterations",
-            self.config.max_iterations()
-        )))
+        Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { 
+            max: self.config.base.convergence.max_iterations 
+        }))
     }
 }
 
@@ -392,12 +389,12 @@ impl<T: RealField> BiCGSTAB<T> {
         let mut alpha = T::one();
         let mut omega = T::one();
 
-        for iter in 0..self.config.max_iterations() {
+        for iter in 0..self.config.base.convergence.max_iterations {
             let rho_new = r0_hat.dot(&r);
             
             if rho_new.clone().abs() < breakdown_tolerance {
-                return Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max: self.config.max_iterations }
-                    "BiCGSTAB breakdown: rho near zero".to_string()
+                return Err(Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::SingularMatrix
                 ));
             }
 
@@ -444,18 +441,17 @@ impl<T: RealField> BiCGSTAB<T> {
             }
             
             if omega.clone().abs() < breakdown_tolerance {
-                return Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max: self.config.max_iterations }
-                    "BiCGSTAB breakdown: omega near zero".to_string()
+                return Err(Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::SingularMatrix
                 ));
             }
 
             rho = rho_new;
         }
 
-        Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max: self.config.max_iterations }format!(
-            "BiCGSTAB failed to converge after {} iterations",
-            self.config.max_iterations()
-        )))
+        Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { 
+            max: self.config.base.convergence.max_iterations 
+        }))
     }
 }
 

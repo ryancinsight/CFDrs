@@ -158,7 +158,7 @@ pub mod les {
                         ) {
                             let u_plus = u_plus_vec.x.clone();
                             let u_minus = u_minus_vec.x.clone();
-                            let dudx = (u_plus - u_minus) / (T::from_f64(constants::TWO).unwrap() * delta.clone());
+                            let dudx = (u_plus - u_minus) / (T::from_f64(constants::TWO).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? * delta.clone());
                             strain_rate_squared = strain_rate_squared + dudx.clone() * dudx;
                         }
                     }
@@ -172,7 +172,7 @@ pub mod les {
                         ) {
                             let v_plus = v_plus_vec.y.clone();
                             let v_minus = v_minus_vec.y.clone();
-                            let dvdy = (v_plus - v_minus) / (T::from_f64(constants::TWO).unwrap() * delta.clone());
+                            let dvdy = (v_plus - v_minus) / (T::from_f64(constants::TWO).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? * delta.clone());
                             strain_rate_squared = strain_rate_squared + dvdy.clone() * dvdy;
                         }
                     }
@@ -186,7 +186,7 @@ pub mod les {
                         ) {
                             let w_plus = w_plus_vec.z.clone();
                             let w_minus = w_minus_vec.z.clone();
-                            let dwdz = (w_plus - w_minus) / (T::from_f64(constants::TWO).unwrap() * delta.clone());
+                            let dwdz = (w_plus - w_minus) / (T::from_f64(constants::TWO).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? * delta.clone());
                             strain_rate_squared = strain_rate_squared + dwdz.clone() * dwdz;
                         }
                     }
@@ -199,14 +199,14 @@ pub mod les {
                         let v_i_plus = flow_field.velocity.components[(k * grid_size + j) * grid_size + i + 1].y.clone();
                         let v_i_minus = flow_field.velocity.components[(k * grid_size + j) * grid_size + i - 1].y.clone();
                         
-                        let dudy = (u_j_plus - u_j_minus) / (T::from_f64(constants::TWO).unwrap() * delta.clone());
-                        let dvdx = (v_i_plus - v_i_minus) / (T::from_f64(constants::TWO).unwrap() * delta.clone());
-                        let shear_xy = (dudy + dvdx) / T::from_f64(constants::TWO).unwrap();
+                        let dudy = (u_j_plus - u_j_minus) / (T::from_f64(constants::TWO).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? * delta.clone());
+                        let dvdx = (v_i_plus - v_i_minus) / (T::from_f64(constants::TWO).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? * delta.clone());
+                        let shear_xy = (dudy + dvdx) / T::from_f64(constants::TWO).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
                         strain_rate_squared = strain_rate_squared + shear_xy.clone() * shear_xy;
                     }
                     
                     // Strain rate magnitude: |S| = √(2 * Sᵢⱼ * Sᵢⱼ)
-                    let strain_rate_magnitude = (T::from_f64(constants::TWO).unwrap() * strain_rate_squared).sqrt();
+                    let strain_rate_magnitude = (T::from_f64(constants::TWO).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? * strain_rate_squared).sqrt();
                     
                     // Smagorinsky turbulent viscosity: νₜ = (Cs * Δ)²  * |S|
                     self.cs.clone() * self.cs.clone() * delta.clone() * delta.clone() * strain_rate_magnitude
@@ -227,17 +227,17 @@ pub mod les {
                     // Compute local mean velocity
                     let mean_velocity = window.iter()
                         .fold(Vector3::zeros(), |acc, v| acc + v.clone())
-                        .scale(T::from_f64(1.0 / window_size as f64).unwrap());
+                        .scale(T::from_f64(1.0 / window_size as f64).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?);
                     
                     // Compute TKE from fluctuations
                     window.iter()
                         .map(|v| {
                             let fluctuation = v.clone() - mean_velocity.clone();
-                            let half = T::from_f64(constants::HALF).unwrap();
+                            let half = T::from_f64(constants::HALF).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
                             half * fluctuation.dot(&fluctuation)
                         })
                         .fold(T::zero(), |acc, tke| acc + tke)
-                        .scale(T::from_f64(1.0 / window_size as f64).unwrap())
+                        .scale(T::from_f64(1.0 / window_size as f64).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?)
                 })
                 .chain(std::iter::repeat(T::zero()).take(window_size - 1))
                 .collect()
@@ -454,21 +454,21 @@ impl<T: RealField> FlowField<T> {
                 if i > 0 && i < grid_size - 1 {
                     let u_plus = self.velocity.components[(k * grid_size + j) * grid_size + i + 1].x.clone();
                     let u_minus = self.velocity.components[(k * grid_size + j) * grid_size + i - 1].x.clone();
-                    div = div + (u_plus - u_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
+                    div = div + (u_plus - u_minus) / (T::from_f64(2.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? * dx.clone());
                 }
                 
                 // ∂v/∂y using central differences
                 if j > 0 && j < grid_size - 1 {
                     let v_plus = self.velocity.components[(k * grid_size + j + 1) * grid_size + i].y.clone();
                     let v_minus = self.velocity.components[(k * grid_size + j - 1) * grid_size + i].y.clone();
-                    div = div + (v_plus - v_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
+                    div = div + (v_plus - v_minus) / (T::from_f64(2.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? * dx.clone());
                 }
                 
                 // ∂w/∂z using central differences
                 if k > 0 && k < grid_size - 1 {
                     let w_plus = self.velocity.components[((k + 1) * grid_size + j) * grid_size + i].z.clone();
                     let w_minus = self.velocity.components[((k - 1) * grid_size + j) * grid_size + i].z.clone();
-                    div = div + (w_plus - w_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
+                    div = div + (w_plus - w_minus) / (T::from_f64(2.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? * dx.clone());
                 }
                 
                 div
@@ -502,8 +502,8 @@ impl<T: RealField> FlowField<T> {
                     let v_k_plus = self.velocity.components[((k + 1) * grid_size + j) * grid_size + i].y.clone();
                     let v_k_minus = self.velocity.components[((k - 1) * grid_size + j) * grid_size + i].y.clone();
                     
-                    let dwdy = (w_j_plus - w_j_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
-                    let dvdz = (v_k_plus - v_k_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
+                    let dwdy = (w_j_plus - w_j_minus) / (T::from_f64(2.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? * dx.clone());
+                    let dvdz = (v_k_plus - v_k_minus) / (T::from_f64(2.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? * dx.clone());
                     omega_x = dwdy - dvdz;
                 }
                 
@@ -514,8 +514,8 @@ impl<T: RealField> FlowField<T> {
                     let w_i_plus = self.velocity.components[(k * grid_size + j) * grid_size + i + 1].z.clone();
                     let w_i_minus = self.velocity.components[(k * grid_size + j) * grid_size + i - 1].z.clone();
                     
-                    let dudz = (u_k_plus - u_k_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
-                    let dwdx = (w_i_plus - w_i_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
+                    let dudz = (u_k_plus - u_k_minus) / (T::from_f64(2.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? * dx.clone());
+                    let dwdx = (w_i_plus - w_i_minus) / (T::from_f64(2.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? * dx.clone());
                     omega_y = dudz - dwdx;
                 }
                 
@@ -526,8 +526,8 @@ impl<T: RealField> FlowField<T> {
                     let u_j_plus = self.velocity.components[(k * grid_size + j + 1) * grid_size + i].x.clone();
                     let u_j_minus = self.velocity.components[(k * grid_size + j - 1) * grid_size + i].x.clone();
                     
-                    let dvdx = (v_i_plus - v_i_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
-                    let dudy = (u_j_plus - u_j_minus) / (T::from_f64(2.0).unwrap() * dx.clone());
+                    let dvdx = (v_i_plus - v_i_minus) / (T::from_f64(2.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? * dx.clone());
+                    let dudy = (u_j_plus - u_j_minus) / (T::from_f64(2.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? * dx.clone());
                     omega_z = dvdx - dudy;
                 }
                 

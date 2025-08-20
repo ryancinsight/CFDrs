@@ -104,9 +104,9 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
         for k in 0..self.nz {
             for j in 0..self.ny {
                 for i in 0..self.nx {
-                    let x = (T::from_usize(i).unwrap() + T::from_f64(0.5).unwrap()) * self.dx.clone();
-                    let y = (T::from_usize(j).unwrap() + T::from_f64(0.5).unwrap()) * self.dy.clone();
-                    let z = (T::from_usize(k).unwrap() + T::from_f64(0.5).unwrap()) * self.dz.clone();
+                    let x = (T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?) * self.dx.clone();
+                    let y = (T::from_usize(j).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?) * self.dy.clone();
+                    let z = (T::from_usize(k).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?) * self.dz.clone();
                     
                     let pos = Vector3::new(x, y, z);
                     let distance = (pos - center.clone()).norm();
@@ -114,9 +114,9 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
                     let idx = self.index(i, j, k);
                     
                     // Smooth initialization using a tanh function
-                    let eps = T::from_f64(INTERFACE_THICKNESS).unwrap() * self.dx.clone();
+                    let eps = T::from_f64(INTERFACE_THICKNESS).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * self.dx.clone();
                     let arg = (radius.clone() - distance) / eps;
-                    self.alpha[idx] = T::from_f64(0.5).unwrap()
+                    self.alpha[idx] = T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
                         * (T::one() + arg.tanh());
                 }
             }
@@ -130,9 +130,9 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
         for k in 0..self.nz {
             for j in 0..self.ny {
                 for i in 0..self.nx {
-                    let x = (T::from_usize(i).unwrap() + T::from_f64(0.5).unwrap()) * self.dx.clone();
-                    let y = (T::from_usize(j).unwrap() + T::from_f64(0.5).unwrap()) * self.dy.clone();
-                    let z = (T::from_usize(k).unwrap() + T::from_f64(0.5).unwrap()) * self.dz.clone();
+                    let x = (T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?) * self.dx.clone();
+                    let y = (T::from_usize(j).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?) * self.dy.clone();
+                    let z = (T::from_usize(k).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?) * self.dz.clone();
                     
                     let idx = self.index(i, j, k);
                     
@@ -166,18 +166,18 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
                     // Central differences for gradient
                     let grad_x = (self.alpha[self.index(i+1, j, k)].clone() 
                         - self.alpha[self.index(i-1, j, k)].clone()) 
-                        / (T::from_f64(2.0).unwrap() * self.dx.clone());
+                        / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * self.dx.clone());
                     let grad_y = (self.alpha[self.index(i, j+1, k)].clone() 
                         - self.alpha[self.index(i, j-1, k)].clone()) 
-                        / (T::from_f64(2.0).unwrap() * self.dy.clone());
+                        / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * self.dy.clone());
                     let grad_z = (self.alpha[self.index(i, j, k+1)].clone() 
                         - self.alpha[self.index(i, j, k-1)].clone()) 
-                        / (T::from_f64(2.0).unwrap() * self.dz.clone());
+                        / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * self.dz.clone());
                     
                     let mut normal = Vector3::new(grad_x, grad_y, grad_z);
                     let norm = normal.norm();
                     
-                    if norm > T::from_f64(VOF_EPSILON).unwrap() {
+                    if norm > T::from_f64(VOF_EPSILON).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
                         normal /= norm;
                         self.normals[idx] = normal;
                     } else {
@@ -200,13 +200,13 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
                     
                     // Only calculate curvature for interface cells
                     let alpha_val = &self.alpha[idx];
-                    if *alpha_val > T::from_f64(VOF_INTERFACE_LOWER).unwrap() && 
-                       *alpha_val < T::from_f64(VOF_INTERFACE_UPPER).unwrap() {
+                    if *alpha_val > T::from_f64(VOF_INTERFACE_LOWER).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? && 
+                       *alpha_val < T::from_f64(VOF_INTERFACE_UPPER).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
                         
                         // Divergence of normal vector field using central differences
-                        let two_dx = T::from_f64(2.0).unwrap() * self.dx.clone();
-                        let two_dy = T::from_f64(2.0).unwrap() * self.dy.clone();
-                        let two_dz = T::from_f64(2.0).unwrap() * self.dz.clone();
+                        let two_dx = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * self.dx.clone();
+                        let two_dy = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * self.dy.clone();
+                        let two_dz = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * self.dz.clone();
                         
                         let dn_dx = (self.normals[self.index(i+1, j, k)].x.clone() 
                             - self.normals[self.index(i-1, j, k)].x.clone()) / two_dx;
@@ -234,7 +234,7 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
         // cuts the cell with the correct volume fraction
         let mut d = T::zero();
         
-        if normal.norm() > T::from_f64(VOF_EPSILON).unwrap() {
+        if normal.norm() > T::from_f64(VOF_EPSILON).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
             // Iterative solution for plane constant
             let cell_volume = self.dx.clone() * self.dy.clone() * self.dz.clone();
             let target_volume = alpha * cell_volume.clone();
@@ -246,12 +246,12 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
             let mut d_max = -d_min.clone();
             
             for _ in 0..10 {  // PLIC iterations hardcoded since not configurable yet
-                d = (d_min.clone() + d_max.clone()) / T::from_f64(2.0).unwrap();
+                d = (d_min.clone() + d_max.clone()) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                 
                 // Calculate volume under plane
                 let volume = self.calculate_volume_under_plane(&normal, d.clone(), i, j, k);
                 
-                if (volume.clone() - target_volume.clone()).abs() < T::from_f64(self.config.tolerance).unwrap() * cell_volume.clone() {
+                if (volume.clone() - target_volume.clone()).abs() < T::from_f64(self.config.tolerance).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * cell_volume.clone() {
                     break;
                 }
                 
@@ -270,7 +270,7 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
     fn calculate_volume_under_plane(&self, normal: &Vector3<T>, d: T, i: usize, j: usize, k: usize) -> T {
         // Normalize the normal vector and adjust d accordingly
         let n_norm = normal.norm();
-        if n_norm <= T::from_f64(VOF_EPSILON).unwrap() {
+        if n_norm <= T::from_f64(VOF_EPSILON).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
             return T::zero();
         }
         
@@ -284,9 +284,9 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
         let cell_volume = dx.clone() * dy.clone() * dz.clone();
         
         // Cell origin
-        let x0 = T::from_usize(i).unwrap() * dx.clone();
-        let y0 = T::from_usize(j).unwrap() * dy.clone();
-        let z0 = T::from_usize(k).unwrap() * dz.clone();
+        let x0 = T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dx.clone();
+        let y0 = T::from_usize(j).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dy.clone();
+        let z0 = T::from_usize(k).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dz.clone();
         
         // Transform to unit cube coordinates
         let nx = n[0].clone() * dx.clone();
@@ -295,14 +295,14 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
         
         // Calculate the signed distance from cell center to plane
         let cell_center = Vector3::new(
-            x0.clone() + dx.clone() * T::from_f64(0.5).unwrap(),
-            y0.clone() + dy.clone() * T::from_f64(0.5).unwrap(),
-            z0.clone() + dz.clone() * T::from_f64(0.5).unwrap()
+            x0.clone() + dx.clone() * T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            y0.clone() + dy.clone() * T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            z0.clone() + dz.clone() * T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
         );
         let center_dist = n.dot(&cell_center) - d_normalized.clone();
         
         // Calculate maximum possible distance from center to corner
-        let max_dist = (nx.clone().abs() + ny.clone().abs() + nz.clone().abs()) * T::from_f64(0.5).unwrap();
+        let max_dist = (nx.clone().abs() + ny.clone().abs() + nz.clone().abs()) * T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         
         // If plane is far from cell, return full or empty
         if center_dist > max_dist.clone() {
@@ -313,7 +313,7 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
         
         // For intermediate cases, use linear approximation based on center distance
         // This is more accurate than corner counting
-        let volume_fraction = (T::one() - center_dist / max_dist) * T::from_f64(0.5).unwrap();
+        let volume_fraction = (T::one() - center_dist / max_dist) * T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         volume_fraction.max(T::zero()).min(T::one()) * cell_volume
     }
     
@@ -362,7 +362,7 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
         
         // Face velocity (average of adjacent cells)
         let vel_face = (self.velocity[idx1].clone() + self.velocity[idx2].clone()) 
-            / T::from_f64(2.0).unwrap();
+            / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         
         // Face area
         let face_area = match direction {
@@ -442,11 +442,11 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
         let idx = self.index(i, j, k);
         
         // Only compress in interface region
-        if self.alpha[idx] > T::from_f64(0.01).unwrap() && 
-           self.alpha[idx] < T::from_f64(0.99).unwrap() {
+        if self.alpha[idx] > T::from_f64(0.01).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? && 
+           self.alpha[idx] < T::from_f64(0.99).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
             
             let normal = &self.normals[idx];
-            if normal.norm() > T::from_f64(VOF_EPSILON).unwrap() {
+            if normal.norm() > T::from_f64(VOF_EPSILON).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
                 // Compression velocity proportional to interface normal
                 let c_alpha = T::one();  // Compression coefficient
                 let u_c = normal.clone() * c_alpha;
@@ -572,9 +572,9 @@ impl<T: RealField + FromPrimitive> VofSolver<T> {
             .map(|v| v[0].clone().abs().max(v[1].clone().abs()).max(v[2].clone().abs()))
             .fold(T::zero(), |acc, v| acc.max(v));
         
-        let dt_cfl = T::from_f64(self.config.cfl_number).unwrap() 
+        let dt_cfl = T::from_f64(self.config.cfl_number).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? 
             * self.dx.clone().min(self.dy.clone()).min(self.dz.clone()) 
-            / (max_vel + T::from_f64(VOF_EPSILON).unwrap());
+            / (max_vel + T::from_f64(VOF_EPSILON).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?);
         
         let dt_actual = dt.min(dt_cfl);
         

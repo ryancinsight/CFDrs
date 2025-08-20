@@ -315,8 +315,8 @@ impl StencilOps {
                 let bottom = field[idx - nx].clone();
                 let top = field[idx + nx].clone();
 
-                result[idx] = (left - center.clone() * T::from_f64(2.0).unwrap() + right) / dx2.clone()
-                            + (bottom - center * T::from_f64(2.0).unwrap() + top) / dy2.clone();
+                result[idx] = (left - center.clone() * T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + right) / dx2.clone()
+                            + (bottom - center * T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + top) / dy2.clone();
             }
         }
 
@@ -337,8 +337,8 @@ impl StencilOps {
             return Err("All arrays must match grid size");
         }
 
-        let dx_inv = T::one() / (T::from_f64(2.0).unwrap() * dx);
-        let dy_inv = T::one() / (T::from_f64(2.0).unwrap() * dy);
+        let dx_inv = T::one() / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dx);
+        let dy_inv = T::one() / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dy);
 
         // Gradient computation (sequential for now due to mutable access patterns)
         for j in 1..ny-1 {
@@ -370,9 +370,9 @@ impl StencilOps {
             return Err("All fields must match grid dimensions");
         }
 
-        let dx_inv = T::one() / (T::from_f64(2.0).unwrap() * dx);
-        let dy_inv = T::one() / (T::from_f64(2.0).unwrap() * dy);
-        let dz_inv = T::one() / (T::from_f64(2.0).unwrap() * dz);
+        let dx_inv = T::one() / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dx);
+        let dy_inv = T::one() / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dy);
+        let dz_inv = T::one() / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dz);
 
         // Compute divergence: ∇·v = ∂u/∂x + ∂v/∂y + ∂w/∂z
         for k in 1..nz-1 {
@@ -409,9 +409,9 @@ impl StencilOps {
             return Err("All fields must match grid dimensions");
         }
 
-        let dx_inv = T::one() / (T::from_f64(2.0).unwrap() * dx);
-        let dy_inv = T::one() / (T::from_f64(2.0).unwrap() * dy);
-        let dz_inv = T::one() / (T::from_f64(2.0).unwrap() * dz);
+        let dx_inv = T::one() / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dx);
+        let dy_inv = T::one() / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dy);
+        let dz_inv = T::one() / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dz);
 
         // Compute curl: ∇×v = (∂w/∂y - ∂v/∂z, ∂u/∂z - ∂w/∂x, ∂v/∂x - ∂u/∂y)
         for k in 1..nz-1 {

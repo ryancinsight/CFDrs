@@ -47,7 +47,7 @@ impl<T: RealField + FromPrimitive> Default for FemConfig<T> {
         Self {
             base: cfd_core::SolverConfig::default(),
             use_stabilization: true,
-            tau: T::from_f64(constants::DEFAULT_STABILIZATION).unwrap(),
+            tau: T::from_f64(constants::DEFAULT_STABILIZATION).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
             dt: None,
             reynolds: None,
         }
@@ -81,12 +81,12 @@ impl<T: RealField + FromPrimitive> FluidProperties<T> {
     /// Create properties for water at 20°C
     pub fn water() -> Self {
         Self {
-            density: T::from_f64(998.2).unwrap(),
-            viscosity: T::from_f64(0.001).unwrap(),
+            density: T::from_f64(998.2).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            viscosity: T::from_f64(0.001).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
             body_force: Some(Vector3::new(
                 T::zero(),
                 T::zero(),
-                T::from_f64(-9.81).unwrap(),
+                T::from_f64(-9.81).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
             )),
         }
     }
@@ -173,26 +173,26 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
         for i in 0..constants::TET4_NODES {
             for j in 0..constants::TET4_NODES {
                 // u-component row
-                let g_val_x = -weight.clone() * dn_dx[i].clone() / T::from_usize(constants::TET4_NODES).unwrap();
+                let g_val_x = -weight.clone() * dn_dx[i].clone() / T::from_usize(constants::TET4_NODES).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                 g_entries.push((i * constants::VELOCITY_COMPONENTS, j, g_val_x));
                 
                 // v-component row
-                let g_val_y = -weight.clone() * dn_dy[i].clone() / T::from_usize(constants::TET4_NODES).unwrap();
+                let g_val_y = -weight.clone() * dn_dy[i].clone() / T::from_usize(constants::TET4_NODES).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                 g_entries.push((i * constants::VELOCITY_COMPONENTS + 1, j, g_val_y));
                 
                 // w-component row
-                let g_val_z = -weight.clone() * dn_dz[i].clone() / T::from_usize(constants::TET4_NODES).unwrap();
+                let g_val_z = -weight.clone() * dn_dz[i].clone() / T::from_usize(constants::TET4_NODES).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
                 g_entries.push((i * constants::VELOCITY_COMPONENTS + 2, j, g_val_z));
             }
         }
         
         // Build mass matrix M (for transient terms)
         if config.dt.is_some() {
-            let mass_factor = rho * weight.clone() / T::from_usize(constants::TET4_NODES * constants::TET4_NODES).unwrap();
+            let mass_factor = rho * weight.clone() / T::from_usize(constants::TET4_NODES * constants::TET4_NODES).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
             for i in 0..constants::TET4_NODES {
                 for j in 0..constants::TET4_NODES {
                     let m_val = if i == j {
-                        mass_factor.clone() * T::from_f64(2.0).unwrap()
+                        mass_factor.clone() * T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
                     } else {
                         mass_factor.clone()
                     };
@@ -247,8 +247,8 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
         // Standard formula: τ = h²/(4ν) for diffusion-dominated problems
         // For convection-dominated: τ = h/(2|u|) where |u| is velocity magnitude
         // Here we use diffusion form since this is Stokes flow
-        let two = T::from_f64(2.0).unwrap();
-        let four = T::from_f64(4.0).unwrap();
+        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let four = T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         Ok(h.clone() * h / (four * nu))
     }
 
@@ -305,7 +305,7 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
         
         // For Stokes flow (no convection), use diffusive scaling
         let h_squared = h.clone() * h;
-        let four = T::from_f64(4.0).unwrap();
+        let four = T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         let tau = h_squared / (four * nu);
         
         // Apply user scaling if provided
@@ -326,7 +326,7 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
             }
         }
         
-        Ok(total_length / T::from_usize(count).unwrap())
+        Ok(total_length / T::from_usize(count).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
     }
     
     /// Compute element volume
@@ -345,9 +345,9 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
         let e2 = v2 - v0;
         let e3 = v3 - v0;
         
-        let volume = e1.cross(&e2).dot(&e3).abs() / T::from_f64(constants::TET_VOLUME_FACTOR).unwrap();
+        let volume = e1.cross(&e2).dot(&e3).abs() / T::from_f64(constants::TET_VOLUME_FACTOR).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         
-        if volume < T::from_f64(constants::EPSILON).unwrap() {
+        if volume < T::from_f64(constants::EPSILON).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
             return Err(Error::InvalidInput("Degenerate tetrahedron element".into()));
         }
         
@@ -357,7 +357,7 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
     /// Calculate shape function derivatives
     fn shape_derivatives(&self, nodes: &[Vector3<T>]) -> Result<(Vec<T>, Vec<T>, Vec<T>)> {
         let volume = self.compute_volume(nodes)?;
-        let six_v = T::from_f64(constants::TET_VOLUME_FACTOR).unwrap() * volume;
+        let six_v = T::from_f64(constants::TET_VOLUME_FACTOR).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * volume;
         
         let v0 = &nodes[0];
         let v1 = &nodes[1];
@@ -399,7 +399,7 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
     /// Build strain rate tensor from velocity gradients
     pub fn strain_rate_tensor(&self, velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
         // ε̇ = 0.5 * (∇u + ∇u^T)
-        let half = T::from_f64(0.5).unwrap();
+        let half = T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         (velocity_gradient + velocity_gradient.transpose()) * half
     }
 }
@@ -579,7 +579,7 @@ impl<T: RealField + FromPrimitive + Clone + num_traits::Float> FemSolver<T> {
         // No need for artificial stabilization when PSPG is used
         if !self.config.use_stabilization {
             // Only add small diagonal term if stabilization is disabled
-            let eps = T::from_f64(1e-10).unwrap();
+            let eps = T::from_f64(1e-10).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
             for i in 0..n_pres {
                 a_builder.add_entry(n_vel + i, n_vel + i, eps.clone())?;
             }
@@ -600,7 +600,7 @@ impl<T: RealField + FromPrimitive + Clone + num_traits::Float> FemSolver<T> {
         }
 
         // Apply boundary conditions using penalty method before building matrix
-        let penalty = T::from_f64(1e12).unwrap(); // Large penalty parameter
+        let penalty = T::from_f64(1e12).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?; // Large penalty parameter
         
         for (&node_idx, bc) in &problem.boundary_conditions {
             match bc {

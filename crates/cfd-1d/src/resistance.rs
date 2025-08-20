@@ -59,11 +59,11 @@ pub struct HagenPoiseuilleModel<T: RealField> {
 impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for HagenPoiseuilleModel<T> {
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
         let viscosity = fluid.dynamic_viscosity(conditions.temperature.clone());
-        let pi = T::from_f64(std::f64::consts::PI).unwrap();
-        let onehundredtwentyeight = T::from_f64(128.0).unwrap();
+        let pi = T::from_f64(std::f64::consts::PI).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let onehundredtwentyeight = T::from_f64(128.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
 
         // R = (128 * μ * L) / (π * D^4)
-        let d4 = num_traits::Float::powf(self.diameter, T::from_f64(4.0).unwrap());
+        let d4 = num_traits::Float::powf(self.diameter, T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?);
         let resistance = onehundredtwentyeight * viscosity * self.length / (pi * d4);
 
         Ok(resistance)
@@ -74,7 +74,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for Ha
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), T::from_f64(2300.0).unwrap())
+        (T::zero(), T::from_f64(2300.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
     }
 }
 
@@ -98,8 +98,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for Re
         let f_re = self.calculate_friction_factor(aspect_ratio);
 
         let area = self.width * self.height;
-        let dh = T::from_f64(4.0).unwrap() * area /
-                (T::from_f64(2.0).unwrap() * (self.width + self.height));
+        let dh = T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * area /
+                (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * (self.width + self.height));
 
         let resistance = f_re * viscosity * self.length / (area * dh * dh);
 
@@ -111,7 +111,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for Re
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), T::from_f64(2300.0).unwrap())
+        (T::zero(), T::from_f64(2300.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
     }
 }
 
@@ -133,20 +133,20 @@ impl<T: RealField + FromPrimitive + num_traits::Float> RectangularChannelModel<T
         let alpha = if aspect_ratio >= T::one() { aspect_ratio } else { T::one() / aspect_ratio };
 
         // Simplified friction factor calculation to avoid numerical issues
-        let twentyfour = T::from_f64(24.0).unwrap();
+        let twentyfour = T::from_f64(24.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
         let one = T::one();
 
         if alpha >= one {
             // Wide channel approximation (simplified)
             // Based on Shah & London (1978) with numerical stabilization
-            let correction = one - T::from_f64(0.63).unwrap() / alpha;
-            twentyfour * RealField::max(correction, T::from_f64(0.1).unwrap()) // Ensure positive
+            let correction = one - T::from_f64(0.63).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? / alpha;
+            twentyfour * RealField::max(correction, T::from_f64(0.1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?) // Ensure positive
         } else {
             // Tall channel approximation (simplified)
             // Derived from reciprocal relationship with stabilization
             let inv_alpha = one / alpha;
-            let base = T::from_f64(56.91).unwrap();
-            base / RealField::max(inv_alpha, T::from_f64(0.1).unwrap()) // Ensure positive denominator
+            let base = T::from_f64(56.91).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+            base / RealField::max(inv_alpha, T::from_f64(0.1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?) // Ensure positive denominator
         }
     }
 }
@@ -171,14 +171,14 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for Da
         // Calculate friction factor using Colebrook-White equation (approximation)
         let friction_factor = self.calculate_friction_factor(reynolds);
 
-        let area = T::from_f64(std::f64::consts::PI).unwrap() *
-                  num_traits::Float::powf(self.hydraulic_diameter, T::from_f64(2.0).unwrap()) /
-                  T::from_f64(4.0).unwrap();
+        let area = T::from_f64(std::f64::consts::PI).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? *
+                  num_traits::Float::powf(self.hydraulic_diameter, T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?) /
+                  T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
 
         // Convert Darcy friction factor to hydraulic resistance
         let density = fluid.density;
         let resistance = friction_factor * self.length * density /
-                        (T::from_f64(2.0).unwrap() * area * num_traits::Float::powf(self.hydraulic_diameter, T::from_f64(2.0).unwrap()));
+                        (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * area * num_traits::Float::powf(self.hydraulic_diameter, T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?));
 
         Ok(resistance)
     }
@@ -188,7 +188,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for Da
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::from_f64(4000.0).unwrap(), T::from_f64(1e8).unwrap())
+        (T::from_f64(4000.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, T::from_f64(1e8).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
     }
 }
 
@@ -198,10 +198,10 @@ impl<T: RealField + FromPrimitive + num_traits::Float> DarcyWeisbachModel<T> {
         let relative_roughness = self.roughness / self.hydraulic_diameter;
 
         // Swamee-Jain approximation to Colebrook-White equation
-        let term1 = relative_roughness / T::from_f64(3.7).unwrap();
-        let term2 = T::from_f64(5.74).unwrap() / num_traits::Float::powf(reynolds, T::from_f64(0.9).unwrap());
+        let term1 = relative_roughness / T::from_f64(3.7).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let term2 = T::from_f64(5.74).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? / num_traits::Float::powf(reynolds, T::from_f64(0.9).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?);
         let log_term = num_traits::Float::ln(term1 + term2);
-        T::from_f64(0.25).unwrap() / num_traits::Float::powf(log_term, T::from_f64(2.0).unwrap())
+        T::from_f64(0.25).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? / num_traits::Float::powf(log_term, T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
     }
 }
 
@@ -224,7 +224,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for En
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), T::from_f64(1e6).unwrap())
+        (T::zero(), T::from_f64(1e6).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
     }
 }
 
