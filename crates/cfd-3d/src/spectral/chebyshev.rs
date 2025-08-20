@@ -17,7 +17,7 @@ pub struct ChebyshevPolynomial<T: RealField> {
     diff_matrix: DMatrix<T>,
 }
 
-impl<T: RealField + FromPrimitive> ChebyshevPolynomial<T> {
+impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
     /// Create new Chebyshev basis with n collocation points
     pub fn new(n: usize) -> Result<Self> {
         let points = Self::gauss_lobatto_points(n)?;

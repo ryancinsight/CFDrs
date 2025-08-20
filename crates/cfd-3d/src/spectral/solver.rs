@@ -54,7 +54,7 @@ pub struct SpectralSolver<T: RealField> {
     poisson_solver: PoissonSolver<T>,
 }
 
-impl<T: RealField + FromPrimitive> SpectralSolver<T> {
+impl<T: RealField + FromPrimitive + Copy> SpectralSolver<T> {
     /// Create new spectral solver
     pub fn new(config: SpectralConfig<T>) -> Result<Self> {
         let poisson_solver = PoissonSolver::new(
