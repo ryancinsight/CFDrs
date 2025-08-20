@@ -245,7 +245,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive> RichardsonExtrapolation<T> {
         let relative_error = (expected_coarse - coarse_solution.clone()).abs() / coarse_solution.abs();
 
         if relative_error > tolerance {
-            return Err(Error::ConvergenceFailure(
+            return Err(Error::InvalidState(
                 "Richardson extrapolation shows poor consistency across grids".to_string()
             ));
         }

@@ -7,7 +7,7 @@ use crate::mesh::{Mesh, Element};
 use super::{QualityMetrics, QualityStatistics, QualityCriteria};
 
 /// Comprehensive mesh quality analyzer
-pub struct QualityAnalyzer<T: RealField> {
+pub struct QualityAnalyzer<T: RealField + Copy> {
     /// Quality criteria for validation
     criteria: QualityCriteria<T>,
     /// Store detailed metrics
@@ -112,7 +112,7 @@ impl<T: RealField + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
 }
 
 /// Mesh quality analysis report
-pub struct MeshQualityReport<T: RealField> {
+pub struct MeshQualityReport<T: RealField + Copy> {
     /// Statistical summary
     pub statistics: QualityStatistics<T>,
     /// Indices of failed elements
@@ -123,7 +123,7 @@ pub struct MeshQualityReport<T: RealField> {
     pub detailed_metrics: Option<Vec<QualityMetrics<T>>>,
 }
 
-impl<T: RealField + FromPrimitive> MeshQualityReport<T> {
+impl<T: RealField + FromPrimitive + Copy> MeshQualityReport<T> {
     /// Check if mesh quality is acceptable
     pub fn is_acceptable(&self) -> bool {
         self.failed_elements.is_empty()

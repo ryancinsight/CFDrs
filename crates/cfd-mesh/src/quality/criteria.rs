@@ -6,7 +6,7 @@ use super::QualityMetrics;
 
 /// Quality criteria for mesh validation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QualityCriteria<T: RealField> {
+pub struct QualityCriteria<T: RealField + Copy> {
     /// Thresholds for different quality levels
     pub thresholds: QualityThresholds<T>,
     /// Strict mode (fail on any violation)
@@ -28,7 +28,7 @@ pub struct QualityThresholds<T: RealField> {
     pub min_quality_score: T,
 }
 
-impl<T: RealField> QualityCriteria<T> {
+impl<T: RealField + Copy> QualityCriteria<T> {
     /// Create criteria with default thresholds
     pub fn default_cfd() -> Self {
         Self {
@@ -73,7 +73,7 @@ impl<T: RealField> QualityCriteria<T> {
     }
 }
 
-impl<T: RealField> QualityThresholds<T> {
+impl<T: RealField + Copy> QualityThresholds<T> {
     /// Default thresholds for CFD meshes
     pub fn default_cfd() -> Self {
         Self {

@@ -127,7 +127,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Component<T> for Rectangu
 
         // Use actual operating temperature instead of T::zero()
         let temperature = T::from_f64(293.15).unwrap_or_else(|| T::zero()); // Default to 20°C if not specified
-        let kinematic_viscosity = fluid.dynamic_viscosity(temperature) / fluid.density;
+        let kinematic_viscosity = fluid.dynamic_viscosity(temperature)
+            .unwrap_or_else(|_| T::from_f64(0.001).unwrap_or_else(|| T::one())) / fluid.density;
         let resistance = f * self.length.clone() * kinematic_viscosity / (area * dh.clone() * dh);
 
         // Ensure positive resistance

@@ -29,7 +29,7 @@ pub use turbulence::{KEpsilonModel, WallFunction};
 pub use fdm::{PoissonSolver, AdvectionDiffusionSolver, FdmConfig};
 pub use fvm::{FvmSolver, FvmConfig, FluxScheme};
 pub use lbm::{LbmSolver, LbmConfig, D2Q9};
-pub use pressure_velocity_coupling::{PressureVelocityCouplerSolver, PressureVelocityCouplingConfig};
+pub use pressure_velocity::{PressureVelocitySolver, PressureVelocityConfig};
 pub use fields::{Field2D, SimulationFields};
 pub use momentum::{MomentumSolver, MomentumComponent, MomentumCoefficients};
 pub use problem::{IncompressibleFlowProblem, IncompressibleFlowSolution};

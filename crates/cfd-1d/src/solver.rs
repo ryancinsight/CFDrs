@@ -503,7 +503,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Send + Sync> NetworkSolv
         let lu = a_dense.lu();
         
         let pressures = lu.solve(&b).ok_or_else(|| {
-            CoreError::ConvergenceFailure(
+            CoreError::InvalidState(
                 "Linear system is singular - check for disconnected components".to_string()
             )
         })?;

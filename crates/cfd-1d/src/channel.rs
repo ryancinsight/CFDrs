@@ -384,7 +384,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
         let length = self.geometry.length.clone();
         // Use actual operating temperature instead of hardcoded 20°C
         let temperature = T::from_f64(293.15).unwrap_or_else(|| T::zero()); // Default to 20°C if not specified
-        let viscosity = fluid.dynamic_viscosity(temperature);
+        let viscosity = fluid.dynamic_viscosity(temperature)?;
 
         // Stokes flow resistance with shape factor: R = (f*Re) * μ * L / (2 * A * Dh^2)
         let shape_factor = self.get_shape_factor();
@@ -413,7 +413,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
     fn calculate_rectangular_laminar_resistance(&self, fluid: &Fluid<T>, width: T, height: T) -> Result<T> {
         // Use actual operating temperature instead of hardcoded 20°C
         let temperature = T::from_f64(293.15).unwrap_or_else(|| T::zero()); // Default to 20°C if not specified
-        let viscosity = fluid.dynamic_viscosity(temperature);
+        let viscosity = fluid.dynamic_viscosity(temperature)?;
         let length = self.geometry.length.clone();
 
         // Exact solution for rectangular channel
@@ -460,7 +460,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
     fn calculate_circular_laminar_resistance(&self, fluid: &Fluid<T>, diameter: T) -> Result<T> {
         // Use actual operating temperature instead of hardcoded 20°C
         let temperature = T::from_f64(293.15).unwrap_or_else(|| T::zero()); // Default to 20°C if not specified
-        let viscosity = fluid.dynamic_viscosity(temperature);
+        let viscosity = fluid.dynamic_viscosity(temperature)?;
         let length = self.geometry.length.clone();
 
         // Hagen-Poiseuille equation: R = (128 * μ * L) / (π * D^4)
