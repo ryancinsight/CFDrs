@@ -54,15 +54,7 @@ impl<T: RealField + FromPrimitive> Problem<T> for NetworkProblem<T> {
         &self.boundary_conditions
     }
 
-    fn initial_state(&self) -> Self::State {
-        NetworkState::from_network(&self.network)
-    }
-
-    fn reference_pressure(&self) -> Option<T> {
-        Some(T::zero())
-    }
-
-    fn is_transient(&self) -> bool {
-        false // 1D networks are typically steady-state
+    fn initial_state(&self) -> Result<Self::State> {
+        Ok(NetworkState::from_network(&self.network))
     }
 }

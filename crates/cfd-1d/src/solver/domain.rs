@@ -47,9 +47,4 @@ impl<T: RealField + FromPrimitive> Domain<T> for NetworkDomain<T> {
         // For 1D networks, "volume" is the characteristic length
         self.characteristic_length.clone()
     }
-
-    fn is_boundary(&self, _point: &Point3<T>) -> bool {
-        // Boundary conditions are handled at the node level
-        false
-    }
 }
