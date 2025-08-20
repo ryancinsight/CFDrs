@@ -6,8 +6,8 @@
 use std::fs;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🔧 Simple CSG Demonstration");
-    println!("============================");
+    println!("🔧 CSG Demonstration");
+    println!("===================");
     
     // Create output directory
     fs::create_dir_all("output/csg_primitives")?;
@@ -125,7 +125,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n✅ All CSG operations completed successfully!");
     println!("📁 STL files saved to: output/simple_csg/");
     println!("\nFiles created:");
-    println!("  - Basic shapes: cube.stl, sphere.stl, cylinder.stl");
+    println!("  - Primitive shapes: cube.stl, sphere.stl, cylinder.stl");
     println!("  - Boolean operations: union.stl, cube_with_hole.stl, intersection.stl");
     println!("  - Transformations: translated_cube.stl, rotated_cube.stl, scaled_cube.stl");
     println!("  - CFD geometries: flow_around_cylinder.stl, pipe_elbow.stl, heat_exchanger.stl");

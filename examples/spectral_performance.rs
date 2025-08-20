@@ -62,7 +62,7 @@ fn main() {
     println!("=== Performance Benefits ===\n");
     println!("✓ Eliminated hundreds of .clone() calls throughout the FFT");
     println!("✓ No heap allocations for primitive types (f32, f64)");
-    println!("✓ Better cache locality and reduced memory traffic");
+    println!("✓ Cache locality and reduced memory traffic");
     println!("✓ Compiler can better optimize with Copy semantics");
     println!("✓ Cleaner, more readable code");
     println!();
