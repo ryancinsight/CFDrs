@@ -71,7 +71,7 @@ pub struct VofSolver<T: RealField + FromPrimitive> {
     curvature: Vec<T>,
 }
 
-impl<T: RealField + FromPrimitive> VofSolver<T> {
+impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
     /// Create a new VOF solver
     pub fn new(
         config: VofConfig,

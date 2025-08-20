@@ -65,7 +65,7 @@ pub struct KEpsilonModel<T: RealField> {
     ny: usize,
 }
 
-impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
+impl<T: RealField + FromPrimitive + Copy> KEpsilonModel<T> {
     /// Create new k-ε model
     pub fn new(nx: usize, ny: usize, wall_function: WallFunction) -> Self {
         let k_init = T::from_f64(1e-4).unwrap_or_else(|| T::zero());

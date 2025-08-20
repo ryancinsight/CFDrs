@@ -73,7 +73,7 @@ pub struct LevelSetSolver<T: RealField + FromPrimitive> {
     time_step: usize,
 }
 
-impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
+impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
     /// Create a new Level Set solver
     pub fn new(
         config: LevelSetConfig,

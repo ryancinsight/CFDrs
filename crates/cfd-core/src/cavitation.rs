@@ -50,7 +50,7 @@ pub struct CavitationNumber<T: RealField> {
     pub velocity: T,
 }
 
-impl<T: RealField + FromPrimitive> CavitationNumber<T> {
+impl<T: RealField + FromPrimitive + Copy> CavitationNumber<T> {
     /// Calculate cavitation number
     pub fn calculate(&self) -> T {
         let dynamic_pressure = T::from_f64(0.5).unwrap_or_else(|| T::one()) * 
@@ -89,7 +89,7 @@ pub struct RayleighPlesset<T: RealField> {
     pub initial_radius: T,
 }
 
-impl<T: RealField + FromPrimitive> RayleighPlesset<T> {
+impl<T: RealField + FromPrimitive + Copy> RayleighPlesset<T> {
     /// Create new Rayleigh-Plesset model
     pub fn new(
         initial_radius: T,
@@ -185,7 +185,7 @@ pub enum CavitationModel<T: RealField> {
     },
 }
 
-impl<T: RealField + FromPrimitive> CavitationModel<T> {
+impl<T: RealField + FromPrimitive + Copy> CavitationModel<T> {
     /// Calculate mass transfer rate (kg/m³/s)
     pub fn mass_transfer_rate(
         &self,
@@ -201,13 +201,13 @@ impl<T: RealField + FromPrimitive> CavitationModel<T> {
                 
                 if pressure_diff < T::zero() {
                     // Vaporization
-                    let rate = vaporization_coeff * density_vapor * 
+                    let rate = *vaporization_coeff * density_vapor * 
                         (T::one() - void_fraction) * pressure_diff.abs() / 
                         (T::from_f64(0.5).unwrap_or_else(|| T::one()) * density_liquid);
                     rate
                 } else {
                     // Condensation
-                    let rate = condensation_coeff * density_vapor * 
+                    let rate = *condensation_coeff * density_vapor * 
                         void_fraction * pressure_diff / 
                         (T::from_f64(0.5).unwrap_or_else(|| T::one()) * density_liquid);
                     -rate
@@ -243,18 +243,18 @@ impl<T: RealField + FromPrimitive> CavitationModel<T> {
             
             CavitationModel::ZGB { nucleation_fraction, bubble_radius, f_vap, f_cond } => {
                 let pressure_diff = pressure - vapor_pressure;
-                let r_b = bubble_radius;
+                let r_b = *bubble_radius;
                 
                 if pressure_diff < T::zero() {
                     // Vaporization
-                    let rate = f_vap * T::from_f64(3.0).unwrap_or_else(|| T::one()) * 
-                        nucleation_fraction * (T::one() - void_fraction) * 
+                    let rate = *f_vap * T::from_f64(3.0).unwrap_or_else(|| T::one()) * 
+                        *nucleation_fraction * (T::one() - void_fraction) * 
                         density_vapor * (T::from_f64(2.0/3.0).unwrap_or_else(|| T::one()) * 
                         pressure_diff.abs() / density_liquid).sqrt() / r_b;
                     rate
                 } else {
                     // Condensation
-                    let rate = f_cond * T::from_f64(3.0).unwrap_or_else(|| T::one()) * 
+                    let rate = *f_cond * T::from_f64(3.0).unwrap_or_else(|| T::one()) * 
                         void_fraction * density_vapor * 
                         (T::from_f64(2.0/3.0).unwrap_or_else(|| T::one()) * pressure_diff / 
                         density_liquid).sqrt() / r_b;
@@ -292,7 +292,7 @@ pub struct VenturiCavitation<T: RealField> {
     pub surface_tension: T,
 }
 
-impl<T: RealField + FromPrimitive> VenturiCavitation<T> {
+impl<T: RealField + FromPrimitive + Copy> VenturiCavitation<T> {
     /// Calculate throat velocity using continuity
     pub fn throat_velocity(&self, inlet_velocity: T) -> T {
         let area_ratio = (self.inlet_diameter / self.throat_diameter).powi(2);
@@ -368,7 +368,7 @@ pub struct CavitationDamage<T: RealField> {
     pub affected_area: T,
 }
 
-impl<T: RealField + FromPrimitive> CavitationDamage<T> {
+impl<T: RealField + FromPrimitive + Copy> CavitationDamage<T> {
     /// Calculate erosion rate (Hammitt model)
     pub fn erosion_rate(&self) -> T {
         // E = K * (p_collapse - p_threshold)^n * f * A
