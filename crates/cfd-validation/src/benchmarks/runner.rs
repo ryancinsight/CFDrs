@@ -69,7 +69,10 @@ impl<T: RealField> ValidationReport<T> {
     }
     
     /// Export report to JSON
-    pub fn to_json(&self) -> Result<String> {
+    pub fn to_json(&self) -> Result<String> 
+    where
+        T: Serialize
+    {
         serde_json::to_string_pretty(self)
             .map_err(|e| cfd_core::Error::External(e.to_string()))
     }

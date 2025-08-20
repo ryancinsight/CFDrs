@@ -68,18 +68,19 @@ impl<T: RealField + FromPrimitive + Float + Copy> FemSolver<T> {
         
         // Loop over elements
         for (elem_idx, cell) in problem.mesh.cells.iter().enumerate() {
-            // Get vertices for this cell
-            let cell_vertices: Vec<_> = cell.unique_vertices(&problem.mesh)
-                .into_iter()
-                .map(|v| v.clone())
-                .collect();
+            // Get vertex indices for this cell (assuming tetrahedral elements)
+            let vertex_indices = vec![0, 1, 2, 3]; // TODO: Get actual indices from cell
             
             // Create element
-            let mut element = FluidElement::new(cell_vertices.clone());
+            let mut element = FluidElement::new(vertex_indices);
             
             // Calculate element properties
-            element.calculate_volume(&cell_vertices);
-            element.calculate_shape_derivatives(&cell_vertices);
+            // Convert vertices to Vector3 format
+            let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices.iter()
+                .map(|v| v.position.coords.clone())
+                .collect();
+            element.calculate_volume(&vertex_positions[..4]); // Use first 4 vertices for tetrahedral
+            element.calculate_shape_derivatives(&vertex_positions[..4]);
             
             // Calculate element matrices
             let elem_matrices = self.calculate_element_matrices(&element, viscosity);

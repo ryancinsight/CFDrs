@@ -14,7 +14,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("===========================================");
 
     // Demonstrate unified prelude and composition-based configuration
-    let water = Fluid::<f64>::water();
+    let water = Fluid::<f64>::water().expect("Failed to create water fluid");
     println!("Fluid Properties:");
     println!("  Name: {}", water.name);
     println!("  Density: {} kg/m³", water.density);

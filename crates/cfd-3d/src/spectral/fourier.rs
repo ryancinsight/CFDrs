@@ -96,7 +96,7 @@ pub struct SpectralDerivative<T: RealField> {
     transform: FourierTransform<T>,
 }
 
-impl<T: RealField + FromPrimitive> SpectralDerivative<T> {
+impl<T: RealField + FromPrimitive + Copy> SpectralDerivative<T> {
     pub fn new(n: usize) -> Result<Self> {
         Ok(Self {
             transform: FourierTransform::new(n)?,

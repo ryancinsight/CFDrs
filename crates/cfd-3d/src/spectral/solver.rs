@@ -103,8 +103,11 @@ impl<T: RealField> SpectralSolution<T> {
     }
     
     /// Get solution at a point
-    pub fn at(&self, i: usize, j: usize, k: usize) -> T {
+    pub fn at(&self, i: usize, j: usize, k: usize) -> T 
+    where
+        T: Clone
+    {
         let idx = i * self.ny + j;
-        self.u[(idx, k)]
+        self.u[(idx, k)].clone()
     }
 }

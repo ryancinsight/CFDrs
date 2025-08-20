@@ -68,8 +68,8 @@ GaussQuadrature, FiniteDifference, Interpolation, LinearInterpolation, CubicSpli
     // Grid-based methods for 2D flows
     pub use cfd_2d::{
         StructuredGrid2D, Grid2D, BoundaryType,
-        PoissonSolver, FvmSolver, LbmSolver, PressureVelocityCouplerSolver,
-        FdmConfig, FvmConfig, LbmConfig, PressureVelocityCouplingConfig
+        PoissonSolver, FvmSolver, LbmSolver, PressureVelocitySolver,
+        FdmConfig, FvmConfig, LbmConfig, PressureVelocityConfig
     };
 
     // === 3D CFD Simulations ===
