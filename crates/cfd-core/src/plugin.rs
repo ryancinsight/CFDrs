@@ -4,7 +4,6 @@
 //! with coarse-grained locking for safety and strongly-typed configurations.
 
 use crate::error::{Error, Result, PluginErrorKind};
-use crate::factory::DynamicFactory;
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;

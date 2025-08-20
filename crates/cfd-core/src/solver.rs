@@ -267,10 +267,7 @@ where
             }
         }
 
-        Err(crate::error::Error::ConvergenceFailure(format!(
-            "Failed to converge after {} iterations",
-            max_iterations
-        )))
+        Err(crate::error::Error::Convergence(crate::error::ConvergenceErrorKind::MaxIterationsExceeded { max: max_iterations }))
     }
 }
 
@@ -861,6 +858,6 @@ impl<T: RealField> ConfigurationBuilder<T> {
             .verbosity(self.verbosity.unwrap_or(1))
             .parallel(self.parallel.unwrap_or(true))
             .num_threads(None)
-            .build())
+            .build_base())
     }
 }

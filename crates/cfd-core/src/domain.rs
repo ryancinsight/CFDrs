@@ -168,7 +168,6 @@ impl<T: RealField + Copy> Domain3D<T> {
         let two = T::one() + T::one();
         Point3::new(
             (self.min.x + self.max.x) / two,
-            (self.min.y + self.max.y) / two.clone(),
             (self.min.y + self.max.y) / two,
             (self.min.z + self.max.z) / two,
         )

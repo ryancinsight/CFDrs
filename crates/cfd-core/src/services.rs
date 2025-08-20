@@ -13,7 +13,7 @@ pub struct FluidDynamicsService;
 
 impl FluidDynamicsService {
     /// Calculate Reynolds number for a given flow configuration
-    pub fn reynolds_number<T: RealField>(
+    pub fn reynolds_number<T: RealField + num_traits::Float>(
         fluid: &Fluid<T>,
         velocity: T,
         characteristic_length: T,
@@ -22,7 +22,7 @@ impl FluidDynamicsService {
     }
 
     /// Calculate Prandtl number if thermal properties are available
-    pub fn prandtl_number<T: RealField>(fluid: &Fluid<T>) -> Option<T> {
+    pub fn prandtl_number<T: RealField + num_traits::Float>(fluid: &Fluid<T>) -> Option<T> {
         match (fluid.specific_heat.clone(), fluid.thermal_conductivity.clone()) {
             (Some(cp), Some(k)) => Some(fluid.characteristic_viscosity() * cp / k),
             _ => None,
@@ -44,7 +44,7 @@ impl FluidDynamicsService {
     }
 
     /// Calculate pressure drop for pipe flow
-    pub fn pipe_pressure_drop<T: RealField + FromPrimitive + Copy>(
+    pub fn pipe_pressure_drop<T: RealField + FromPrimitive + Copy + num_traits::Float>(
         fluid: &Fluid<T>,
         velocity: T,
         length: T,
@@ -116,8 +116,7 @@ impl FluidDynamicsService {
             f = f_new;
         }
 
-        Err(Error::ConvergenceFailure(
-            "Colebrook-White friction factor did not converge".to_string()
+        Err(Error::Convergence(crate::error::ConvergenceErrorKind::MaxIterationsExceeded { max: 100 }
         ))
     }
 
