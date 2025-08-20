@@ -2,59 +2,65 @@
 
 use nalgebra::{RealField, DVector};
 use nalgebra_sparse::CsrMatrix;
-use cfd_core::{Result, solver::LinearSolverConfig};
+use cfd_core::Result;
 use cfd_math::linear_solver::{LinearSolver, ConjugateGradient, BiCGSTAB};
 use num_traits::FromPrimitive;
 
+/// Linear solver method selection
+#[derive(Debug, Clone, Copy)]
+pub enum LinearSolverMethod {
+    ConjugateGradient,
+    BiCGSTAB,
+}
+
 /// Linear system solver wrapper
 pub struct LinearSystemSolver<T: RealField> {
-    config: LinearSolverConfig,
-    _phantom: std::marker::PhantomData<T>,
+    method: LinearSolverMethod,
+    max_iterations: usize,
+    tolerance: T,
 }
 
-impl<T: RealField> LinearSystemSolver<T> {
+impl<T: RealField + FromPrimitive> LinearSystemSolver<T> {
     /// Create a new linear system solver
-    pub fn new(config: LinearSolverConfig) -> Self {
+    pub fn new() -> Self {
         Self {
-            config,
-            _phantom: std::marker::PhantomData,
+            method: LinearSolverMethod::BiCGSTAB,
+            max_iterations: 1000,
+            tolerance: T::from_f64(1e-6).unwrap_or_else(T::one),
         }
     }
-
-    /// Update solver configuration
-    pub fn update_config(&mut self, config: &LinearSolverConfig) -> Result<()> {
-        self.config = config.clone();
-        Ok(())
+    
+    /// Update configuration
+    pub fn with_method(mut self, method: LinearSolverMethod) -> Self {
+        self.method = method;
+        self
     }
-}
-
-impl<T: RealField + FromPrimitive + std::fmt::Debug> LinearSystemSolver<T> {
+    
+    /// Set tolerance
+    pub fn with_tolerance(mut self, tolerance: T) -> Self {
+        self.tolerance = tolerance;
+        self
+    }
+    
     /// Solve the linear system Ax = b
-    pub fn solve(&self, a: CsrMatrix<T>, b: DVector<T>) -> Result<DVector<T>> {
+    pub fn solve(&self, a: &CsrMatrix<T>, b: &DVector<T>) -> Result<DVector<T>> {
+        // Initial guess
         let x0 = DVector::zeros(b.len());
         
-        match self.config.method {
-            cfd_core::solver::LinearSolverMethod::ConjugateGradient => {
+        match self.method {
+            LinearSolverMethod::ConjugateGradient => {
                 let solver = ConjugateGradient::<T>::new(
-                    self.config.max_iterations,
-                    T::from_f64(self.config.tolerance).unwrap_or_else(T::zero),
+                    self.max_iterations,
+                    self.tolerance,
                 );
-                solver.solve(&a, &b, Some(&x0))
+                solver.solve(a, b, Some(&x0))
             }
-            cfd_core::solver::LinearSolverMethod::BiCGSTAB => {
+            LinearSolverMethod::BiCGSTAB => {
                 let solver = BiCGSTAB::<T>::new(
-                    self.config.max_iterations,
-                    T::from_f64(self.config.tolerance).unwrap_or_else(T::zero),
+                    self.max_iterations,
+                    self.tolerance,
                 );
-                solver.solve(&a, &b, Some(&x0))
-            }
-            _ => {
-                // Fallback to CG for other methods
-                let solver = ConjugateGradient::<T>::new(
-                    self.config.max_iterations,
-                    T::from_f64(self.config.tolerance).unwrap_or_else(T::zero),
-                );
-                solver.solve(&a, &b, Some(&x0))
+                solver.solve(a, b, Some(&x0))
             }
         }
     }

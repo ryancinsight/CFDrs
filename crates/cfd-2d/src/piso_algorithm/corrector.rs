@@ -142,7 +142,7 @@ impl<T: RealField + FromPrimitive + Copy> PressureCorrector<T> {
                 // H(u) = -sum(A_nb * u_nb)
                 let h_u = -(ae * u_e + aw * u_w + an * u_n + as_ * u_s);
                 
-                h_field[i][j] = h_u;
+                *h_field.at_mut(i, j) = h_u;
             }
         }
         
@@ -251,7 +251,7 @@ impl<T: RealField + FromPrimitive + Copy> PressureCorrector<T> {
                 let v_corrected = v_n - d_n * p_grad_n;
                 
                 // Update velocity field
-                fields.u[i][j] = Vector2::new(u_corrected, v_corrected);
+                *fields.u.at_mut(i, j) = Vector2::new(u_corrected, v_corrected);
             }
         }
     }

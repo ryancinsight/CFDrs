@@ -29,7 +29,7 @@ impl<T: RealField> ConvergenceChecker<T> {
         // Check for NaN/Inf values indicating divergence
         if solution.iter().any(|x| !x.is_finite()) {
             return Err(cfd_core::Error::Convergence(
-                cfd_core::error::ConvergenceErrorKind::Diverged
+                cfd_core::error::ConvergenceErrorKind::Divergence { residual: 0.0 }
             ));
         }
         
@@ -39,7 +39,7 @@ impl<T: RealField> ConvergenceChecker<T> {
         // Check if norm is within tolerance bounds
         if norm > T::from_f64(1e10).unwrap_or_else(T::one) {
             return Err(cfd_core::Error::Convergence(
-                cfd_core::error::ConvergenceErrorKind::Diverged
+                cfd_core::error::ConvergenceErrorKind::Divergence { residual: 0.0 }
             ));
         }
         

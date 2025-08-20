@@ -32,7 +32,7 @@ pub struct SolverConfig<T: RealField> {
     pub max_iterations: usize,
 }
 
-impl<T: RealField> cfd_core::solver::SolverConfiguration<T> for SolverConfig<T> {
+impl<T: RealField + Copy> cfd_core::solver::SolverConfiguration<T> for SolverConfig<T> {
     fn tolerance(&self) -> T {
         self.tolerance
     }
@@ -51,7 +51,7 @@ impl<T: RealField> cfd_core::solver::SolverConfiguration<T> for SolverConfig<T> 
 }
 
 /// Main network solver implementing the core CFD suite trait system
-pub struct NetworkSolver<T: RealField> {
+pub struct NetworkSolver<T: RealField + Copy> {
     /// Solver configuration
     config: SolverConfig<T>,
     /// Matrix assembler for building the linear system
@@ -62,7 +62,7 @@ pub struct NetworkSolver<T: RealField> {
     convergence: ConvergenceChecker<T>,
 }
 
-impl<T: RealField + FromPrimitive> NetworkSolver<T> {
+impl<T: RealField + FromPrimitive + Copy> NetworkSolver<T> {
     /// Create a new network solver with default configuration
     pub fn new() -> Self {
         let config = SolverConfig {
@@ -111,7 +111,7 @@ impl<T: RealField + FromPrimitive> NetworkSolver<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive> Solver<T> for NetworkSolver<T> {
+impl<T: RealField + FromPrimitive + Copy> Solver<T> for NetworkSolver<T> {
     type Problem = NetworkProblem<T>;
     type Solution = Network<T>;
 
@@ -124,15 +124,19 @@ impl<T: RealField + FromPrimitive> Solver<T> for NetworkSolver<T> {
     }
 }
 
-impl<T: RealField> Configurable<T> for NetworkSolver<T> {
+impl<T: RealField + Copy> Configurable<T> for NetworkSolver<T> {
     type Config = SolverConfig<T>;
 
     fn config(&self) -> &Self::Config {
         &self.config
     }
+    
+    fn set_config(&mut self, config: Self::Config) {
+        self.config = config;
+    }
 }
 
-impl<T: RealField + FromPrimitive> Validatable<T> for NetworkSolver<T> {
+impl<T: RealField + FromPrimitive + Copy> Validatable<T> for NetworkSolver<T> {
     type Problem = NetworkProblem<T>;
 
     fn validate_problem(&self, problem: &Self::Problem) -> Result<()> {
