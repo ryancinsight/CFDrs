@@ -349,7 +349,7 @@ impl<T: RealField + FromPrimitive> Default for AdaptiveTimeStepController<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive> AdaptiveTimeStepController<T> {
+impl<T: RealField + FromPrimitive + Copy> AdaptiveTimeStepController<T> {
     /// Calculate new time step based on error estimate
     pub fn calculate_dt(&self, current_dt: T, error: T, order: usize) -> T {
         let factor = (self.target_error / error).powf(T::one() / T::from_usize(order + 1).unwrap_or_else(T::one));
