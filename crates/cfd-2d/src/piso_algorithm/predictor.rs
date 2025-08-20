@@ -110,19 +110,19 @@ impl<T: RealField + FromPrimitive + Copy> VelocityPredictor<T> {
             rho * uw * fields.u.at(i, j) 
         };
         
-        let fn = if un > T::zero() { 
+        let f_n = if un > T::zero() { 
             rho * un * fields.u.at(i, j) 
         } else { 
             rho * un * fields.u.at(i, j+1) 
         };
         
-        let fs = if us > T::zero() { 
+        let f_s = if us > T::zero() { 
             rho * us * fields.u.at(i, j-1) 
         } else { 
             rho * us * fields.u.at(i, j) 
         };
         
-        (fe - fw) / self.dx + (fn - fs) / self.dy
+        (fe - fw) / self.dx + (f_n - f_s) / self.dy
     }
 
     /// Calculate convection term for v-velocity
@@ -148,19 +148,19 @@ impl<T: RealField + FromPrimitive + Copy> VelocityPredictor<T> {
             rho * vw * fields.v.at(i, j) 
         };
         
-        let fn = if vn > T::zero() { 
+        let f_n = if vn > T::zero() { 
             rho * vn * fields.v.at(i, j) 
         } else { 
             rho * vn * fields.v.at(i, j+1) 
         };
         
-        let fs = if vs > T::zero() { 
+        let f_s = if vs > T::zero() { 
             rho * vs * fields.v.at(i, j-1) 
         } else { 
             rho * vs * fields.v.at(i, j) 
         };
         
-        (fe - fw) / self.dx + (fn - fs) / self.dy
+        (fe - fw) / self.dx + (f_n - f_s) / self.dy
     }
 
     /// Calculate diffusion term for u-velocity

@@ -5,7 +5,6 @@
 
 pub mod config;
 pub mod coefficients;
-pub mod momentum;
 pub mod pressure;
 pub mod solver;
 pub mod rhie_chow;
@@ -13,7 +12,6 @@ pub mod rhie_chow;
 pub use config::PressureVelocityConfig;
 pub use coefficients::CellCoefficients;
 pub use solver::PressureVelocitySolver;
-pub use momentum::MomentumSolver;
 pub use pressure::PressureCorrectionSolver;
 pub use rhie_chow::RhieChowInterpolation;
 

@@ -23,7 +23,7 @@ pub struct CellCoefficients<T: RealField> {
     pub d: T,
 }
 
-impl<T: RealField> CellCoefficients<T> {
+impl<T: RealField + Copy> CellCoefficients<T> {
     /// Create zero coefficients
     pub fn zero() -> Self {
         Self {

@@ -1,6 +1,6 @@
-//! Improved Pipe Flow 1D Example - Ergonomic API Design
+//! Pipe Flow 1D Example - Ergonomic API Design
 //!
-//! This example demonstrates the improved 1D CFD API with:
+//! This example demonstrates the 1D CFD API with:
 //! - Error-free builder pattern (single point of failure in .build())
 //! - Self-documenting parameter names using ChannelProperties
 //! - Clear method naming (.build() instead of .build_network())
@@ -10,8 +10,8 @@
 use cfd_suite::prelude::*;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    println!("Improved Pipe Flow 1D Example - Ergonomic API Design");
-    println!("====================================================");
+    println!("Pipe Flow 1D Example - Ergonomic API Design");
+    println!("===========================================");
 
     // Demonstrate unified prelude and composition-based configuration
     let water = Fluid::<f64>::water();

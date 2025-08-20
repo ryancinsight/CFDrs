@@ -13,7 +13,7 @@ pub struct PressureCorrectionSolver<T: RealField> {
     linear_solver: ConjugateGradient<T>,
 }
 
-impl<T: RealField + FromPrimitive> PressureCorrectionSolver<T> {
+impl<T: RealField + FromPrimitive + Copy> PressureCorrectionSolver<T> {
     /// Create new pressure correction solver
     pub fn new(grid: StructuredGrid2D<T>) -> cfd_core::error::Result<Self> {
         let config = cfd_core::solver::LinearSolverConfig {
@@ -90,7 +90,7 @@ impl<T: RealField + FromPrimitive> PressureCorrectionSolver<T> {
         
         // Solve the linear system
         let matrix = builder.build()?;
-        let p_correction_vec = self.linear_solver.solve(&matrix, &rhs)?;
+        let p_correction_vec = self.linear_solver.solve(&matrix, &rhs, None)?;
         
         // Convert back to 2D grid
         let mut p_correction = vec![vec![T::zero(); ny]; nx];

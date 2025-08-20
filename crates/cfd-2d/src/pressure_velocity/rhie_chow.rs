@@ -10,14 +10,16 @@ use crate::grid::StructuredGrid2D;
 pub struct RhieChowInterpolation<T: RealField> {
     /// Grid dimensions
     nx: usize,
+    _phantom: std::marker::PhantomData<T>,
     ny: usize,
 }
 
-impl<T: RealField> RhieChowInterpolation<T> {
+impl<T: RealField + Copy> RhieChowInterpolation<T> {
     /// Create new interpolator
     pub fn new(grid: &StructuredGrid2D<T>) -> Self {
         Self {
             nx: grid.nx,
+            _phantom: std::marker::PhantomData,
             ny: grid.ny,
         }
     }

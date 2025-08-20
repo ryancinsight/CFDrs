@@ -84,11 +84,11 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let avg_temp = avg_temp / temperatures.len() as f64;
     
-    println!("Temperature range: {:.2}°C to {:.2}°C", min_temp, max_temp);
+    println!("Range: {:.2}°C to {:.2}°C", min_temp, max_temp);
     println!("Average temperature: {:.2}°C", avg_temp);
     
     // Print temperature distribution along centerline using iterator patterns
-    println!("\n=== Temperature along horizontal centerline ===");
+    println!("\n=== Horizontal centerline distribution ===");
     let center_j = grid.ny() / 2;
     println!("Position (x)\tTemperature (°C)");
 
