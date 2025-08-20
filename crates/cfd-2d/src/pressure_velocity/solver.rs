@@ -7,7 +7,7 @@ use crate::momentum::MomentumSolver;
 use super::{PressureVelocityConfig, PressureCorrectionSolver, RhieChowInterpolation};
 
 /// STANDARD (Semi-Implicit Method for Pressure-Linked Equations) solver
-pub struct PressureVelocitySolver<T: RealField> {
+pub struct PressureVelocitySolver<T: RealField + Copy> {
     /// Configuration
     config: PressureVelocityConfig<T>,
     /// Grid
@@ -26,7 +26,7 @@ pub struct PressureVelocitySolver<T: RealField> {
     iterations: usize,
 }
 
-impl<T: RealField + FromPrimitive> PressureVelocitySolver<T> {
+impl<T: RealField + FromPrimitive + Copy> PressureVelocitySolver<T> {
     /// Create new pressure-velocity coupling solver
     pub fn new(
         grid: StructuredGrid2D<T>,

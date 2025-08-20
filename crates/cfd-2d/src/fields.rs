@@ -4,7 +4,7 @@
 //! for better cache locality and performance, following SSOT and zero-copy principles.
 
 use nalgebra::{RealField, Vector2};
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, Float};
 use cfd_core::Fluid;
 
 /// Constants for field operations
@@ -128,7 +128,7 @@ pub struct SimulationFields<T: RealField> {
     pub ny: usize,
 }
 
-impl<T: RealField + FromPrimitive> SimulationFields<T> {
+impl<T: RealField + FromPrimitive + Copy> SimulationFields<T> {
     /// Create new simulation fields with zero initialization
     pub fn new(nx: usize, ny: usize) -> Self {
         Self {
@@ -146,7 +146,10 @@ impl<T: RealField + FromPrimitive> SimulationFields<T> {
     }
     
     /// Create fields with specified fluid properties
-    pub fn with_fluid(nx: usize, ny: usize, fluid: &Fluid<T>) -> Self {
+    pub fn with_fluid(nx: usize, ny: usize, fluid: &Fluid<T>) -> Self 
+    where 
+        T: Float
+    {
         let mut fields = Self::new(nx, ny);
         fields.density.map_inplace(|d| *d = fluid.density.clone());
         // For initialization, use zero shear rate (Newtonian behavior)

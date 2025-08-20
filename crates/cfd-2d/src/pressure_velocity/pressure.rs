@@ -13,7 +13,7 @@ pub struct PressureCorrectionSolver<T: RealField> {
     linear_solver: ConjugateGradient<T>,
 }
 
-impl<T: RealField + FromPrimitive> PressureCorrectionSolver<T> {
+impl<T: RealField + FromPrimitive + Copy> PressureCorrectionSolver<T> {
     /// Create new pressure correction solver
     pub fn new(grid: StructuredGrid2D<T>) -> cfd_core::error::Result<Self> {
         let config = cfd_core::solver::LinearSolverConfig {
