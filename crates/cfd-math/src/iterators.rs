@@ -9,48 +9,64 @@ use std::iter::Iterator;
 use num_traits::FromPrimitive;
 
 /// Extension trait for mathematical operations on iterators
-pub trait MathIteratorExt: Iterator
-where
-    Self::Item: RealField + Send + Sync + Copy,
-    Self: Sized,
-{
+pub trait MathIteratorExt: Iterator {
     /// Compute L2 norm without cloning
-    fn l2_norm(self) -> Self::Item {
+    fn l2_norm<T>(self) -> T
+    where
+        Self: Iterator<Item = T> + Sized,
+        T: RealField + Copy,
+    {
         self.map(|x| x * x)
-            .fold(Self::Item::zero(), |acc, x| acc + x)
+            .fold(T::zero(), |acc, x| acc + x)
             .sqrt()
     }
 
     /// Compute L1 norm without cloning
-    fn l1_norm(self) -> Self::Item {
+    fn l1_norm<T>(self) -> T
+    where
+        Self: Iterator<Item = T> + Sized,
+        T: RealField + Copy,
+    {
         self.map(|x| x.abs())
-            .fold(Self::Item::zero(), |acc, x| acc + x)
+            .fold(T::zero(), |acc, x| acc + x)
     }
 
     /// Compute L∞ norm without cloning
-    fn linf_norm(self) -> Self::Item {
+    fn linf_norm<T>(self) -> T
+    where
+        Self: Iterator<Item = T> + Sized,
+        T: RealField + Copy,
+    {
         self.map(|x| x.abs())
-            .fold(Self::Item::zero(), |acc, x| if x > acc { x } else { acc })
+            .fold(T::zero(), |acc, x| if x > acc { x } else { acc })
     }
 
     /// Compute mean using single-pass iterator
-    fn mean(self) -> Option<Self::Item> {
-        let (sum, count) = self.fold((Self::Item::zero(), 0), |(sum, count), x| (sum + x, count + 1));
+    fn mean<T>(self) -> Option<T>
+    where
+        Self: Iterator<Item = T> + Sized,
+        T: RealField + Copy + FromPrimitive,
+    {
+        let (sum, count) = self.fold((T::zero(), 0), |(sum, count), x| (sum + x, count + 1));
         if count > 0 {
-            Some(sum / Self::Item::from_usize(count).unwrap_or_else(|| Self::Item::zero()))
+            Some(sum / T::from_usize(count).unwrap_or_else(T::zero))
         } else {
             None
         }
     }
 
     /// Compute variance using Welford's online algorithm
-    fn variance(self) -> Option<Self::Item> {
+    fn variance<T>(self) -> Option<T>
+    where
+        Self: Iterator<Item = T> + Sized,
+        T: RealField + Copy + FromPrimitive,
+    {
         let (count, _mean, m2) = self.fold(
-            (0, Self::Item::zero(), Self::Item::zero()),
+            (0, T::zero(), T::zero()),
             |(count, mean, m2), x| {
                 let current_count = count + 1;
                 let delta = x - mean;
-                let current_mean = mean + delta / Self::Item::from_usize(current_count).unwrap_or_else(|| Self::Item::zero());
+                let current_mean = mean + delta / T::from_usize(current_count).unwrap_or_else(T::zero);
                 let delta2 = x - current_mean;
                 let current_m2 = m2 + delta * delta2;
                 (current_count, current_mean, current_m2)
@@ -58,57 +74,124 @@ where
         );
         
         if count > 1 {
-            Some(m2 / Self::Item::from_usize(count - 1).unwrap_or_else(|| Self::Item::zero()))
+            Some(m2 / T::from_usize(count - 1).unwrap_or_else(T::zero))
         } else {
             None
         }
     }
 
     /// Apply windowed operations for finite difference computations
-    fn windowed_diff<F>(self, window_size: usize, f: F) -> WindowedDiff<Self, F, Self::Item>
+    fn windowed_diff<T, F>(self, window_size: usize, f: F) -> WindowedDiff<Self, F, T>
     where
-        F: Fn(&[Self::Item]) -> Self::Item,
+        Self: Iterator<Item = T> + Sized,
+        F: Fn(&[T]) -> T,
+        T: Clone,
     {
         WindowedDiff::new(self, window_size, f)
     }
 
     /// Compute running average without cloning
-    fn running_average(self) -> impl Iterator<Item = Self::Item> {
-        let mut count = 0;
-        let mut sum = Self::Item::zero();
-
-        self.map(move |x| {
-            count += 1;
-            sum = sum + x;
-            sum / Self::Item::from_usize(count).unwrap_or_else(|| Self::Item::zero())
-        })
+    fn running_average<T>(self) -> RunningAverage<Self, T>
+    where
+        Self: Iterator<Item = T> + Sized,
+        T: RealField + Copy + FromPrimitive,
+    {
+        RunningAverage::new(self)
     }
 
     /// Compute exponential moving average with given alpha
-    fn exponential_moving_average(self, alpha: Self::Item) -> impl Iterator<Item = Self::Item> {
-        let mut ema = None;
+    fn exponential_moving_average<T>(self, alpha: T) -> ExponentialMovingAverage<Self, T>
+    where
+        Self: Iterator<Item = T> + Sized,
+        T: RealField + Copy,
+    {
+        ExponentialMovingAverage::new(self, alpha)
+    }
+}
 
-        self.map(move |x| {
-            match ema {
+// Blanket implementation for all iterators
+impl<I: Iterator> MathIteratorExt for I {}
+
+/// Running average iterator
+pub struct RunningAverage<I, T> {
+    iter: I,
+    count: usize,
+    sum: T,
+}
+
+impl<I, T> RunningAverage<I, T>
+where
+    I: Iterator<Item = T>,
+    T: RealField + Copy + FromPrimitive,
+{
+    fn new(iter: I) -> Self {
+        Self {
+            iter,
+            count: 0,
+            sum: T::zero(),
+        }
+    }
+}
+
+impl<I, T> Iterator for RunningAverage<I, T>
+where
+    I: Iterator<Item = T>,
+    T: RealField + Copy + FromPrimitive,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|x| {
+            self.count += 1;
+            self.sum = self.sum + x;
+            self.sum / T::from_usize(self.count).unwrap_or_else(T::zero)
+        })
+    }
+}
+
+/// Exponential moving average iterator
+pub struct ExponentialMovingAverage<I, T> {
+    iter: I,
+    alpha: T,
+    ema: Option<T>,
+}
+
+impl<I, T> ExponentialMovingAverage<I, T>
+where
+    I: Iterator<Item = T>,
+    T: RealField + Copy,
+{
+    fn new(iter: I, alpha: T) -> Self {
+        Self {
+            iter,
+            alpha,
+            ema: None,
+        }
+    }
+}
+
+impl<I, T> Iterator for ExponentialMovingAverage<I, T>
+where
+    I: Iterator<Item = T>,
+    T: RealField + Copy,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|x| {
+            match self.ema {
                 None => {
-                    ema = Some(x);
+                    self.ema = Some(x);
                     x
                 }
                 Some(ref mut prev) => {
-                    *prev = alpha * x + (Self::Item::one() - alpha) * *prev;
+                    *prev = self.alpha * x + (T::one() - self.alpha) * *prev;
                     *prev
                 }
             }
         })
     }
 }
-
-// Blanket implementation for all iterators with appropriate items
-impl<I> MathIteratorExt for I
-where
-    I: Iterator,
-    I::Item: RealField + Send + Sync + Copy,
-{}
 
 /// Windowed difference iterator for finite difference operations
 pub struct WindowedDiff<I, F, T> {
@@ -378,97 +461,188 @@ impl ParallelOps {
 }
 
 /// Composable iterator chains for CFD operations
-pub trait CfdIteratorChain<T>: Iterator<Item = T>
-where
-    T: RealField,
-    Self: Sized,
-{
+pub trait CfdIteratorChain: Iterator {
     /// Chain with finite difference operation
-    fn finite_diff(self, spacing: T) -> impl Iterator<Item = T>
+    fn finite_diff<T>(self, spacing: T) -> FiniteDiff<Self, T>
     where
-        T: Copy,
+        Self: Iterator<Item = T> + Sized,
+        T: RealField + Copy,
     {
-        let mut prev = None;
-        self.filter_map(move |current| {
-            match prev {
-                None => {
-                    prev = Some(current);
-                    None
-                }
-                Some(p) => {
-                    let diff = (current - p) / spacing;
-                    prev = Some(current);
-                    Some(diff)
-                }
-            }
-        })
+        FiniteDiff::new(self, spacing)
     }
 
     /// Apply smoothing using moving average
-    fn smooth(self, window_size: usize) -> impl Iterator<Item = T>
+    fn smooth<T>(self, window_size: usize) -> Smooth<Self, T>
     where
-        T: Copy + FromPrimitive,
+        Self: Iterator<Item = T> + Sized,
+        T: RealField + Copy + FromPrimitive,
     {
-        let mut buffer = Vec::with_capacity(window_size);
-        let mut sum = T::zero();
-        
-        self.map(move |x| {
-            if buffer.len() == window_size {
-                sum = sum - buffer[0];
-                buffer.remove(0);
+        Smooth::new(self, window_size)
+    }
+}
+
+impl<I: Iterator> CfdIteratorChain for I {}
+
+/// Finite difference iterator
+pub struct FiniteDiff<I, T> {
+    iter: I,
+    spacing: T,
+    prev: Option<T>,
+}
+
+impl<I, T> FiniteDiff<I, T>
+where
+    I: Iterator<Item = T>,
+    T: RealField + Copy,
+{
+    fn new(iter: I, spacing: T) -> Self {
+        Self {
+            iter,
+            spacing,
+            prev: None,
+        }
+    }
+}
+
+impl<I, T> Iterator for FiniteDiff<I, T>
+where
+    I: Iterator<Item = T>,
+    T: RealField + Copy,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.iter.next() {
+                Some(current) => {
+                    match self.prev {
+                        None => {
+                            self.prev = Some(current);
+                            continue;
+                        }
+                        Some(p) => {
+                            let diff = (current - p) / self.spacing;
+                            self.prev = Some(current);
+                            return Some(diff);
+                        }
+                    }
+                }
+                None => return None,
             }
-            buffer.push(x);
-            sum = sum + x;
-            sum / T::from_usize(buffer.len()).unwrap_or_else(T::one)
+        }
+    }
+}
+
+/// Smoothing iterator
+pub struct Smooth<I, T> {
+    iter: I,
+    window_size: usize,
+    buffer: Vec<T>,
+    sum: T,
+}
+
+impl<I, T> Smooth<I, T>
+where
+    I: Iterator<Item = T>,
+    T: RealField + Copy + FromPrimitive,
+{
+    fn new(iter: I, window_size: usize) -> Self {
+        Self {
+            iter,
+            window_size,
+            buffer: Vec::with_capacity(window_size),
+            sum: T::zero(),
+        }
+    }
+}
+
+impl<I, T> Iterator for Smooth<I, T>
+where
+    I: Iterator<Item = T>,
+    T: RealField + Copy + FromPrimitive,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|x| {
+            if self.buffer.len() == self.window_size {
+                self.sum = self.sum - self.buffer[0];
+                self.buffer.remove(0);
+            }
+            self.buffer.push(x);
+            self.sum = self.sum + x;
+            self.sum / T::from_usize(self.buffer.len()).unwrap_or_else(T::one)
         })
     }
 }
 
-impl<I, T> CfdIteratorChain<T> for I
-where
-    I: Iterator<Item = T>,
-    T: RealField,
-{}
-
 /// Field operations trait for CFD fields
-pub trait CfdFieldOps<T>: Iterator<Item = T>
-where
-    T: RealField,
-    Self: Sized,
-{
+pub trait CfdFieldOps: Iterator {
     /// Compute gradient using central differences
-    fn gradient(self, spacing: T) -> impl Iterator<Item = T>
+    fn gradient<T>(self, spacing: T) -> Gradient<Self, T>
     where
-        T: Copy,
+        Self: Iterator<Item = T> + Sized,
+        T: RealField + Copy,
     {
-        let mut buffer = Vec::with_capacity(3);
-        
-        self.filter_map(move |x| {
-            buffer.push(x);
-            if buffer.len() == 3 {
-                let grad = (buffer[2] - buffer[0]) / (spacing + spacing);
-                buffer.remove(0);
-                Some(grad)
-            } else {
-                None
-            }
-        })
+        Gradient::new(self, spacing)
     }
 
     /// Compute divergence (for vector fields)
-    fn divergence(self, spacing: T) -> T
+    fn divergence<T>(self, spacing: T) -> T
     where
-        T: Copy,
+        Self: Iterator<Item = T> + Sized,
+        T: RealField + Copy,
     {
         self.gradient(spacing).fold(T::zero(), |acc, x| acc + x)
     }
 }
 
-impl<I, T> CfdFieldOps<T> for I
+impl<I: Iterator> CfdFieldOps for I {}
+
+/// Gradient iterator
+pub struct Gradient<I, T> {
+    iter: I,
+    spacing: T,
+    buffer: Vec<T>,
+}
+
+impl<I, T> Gradient<I, T>
 where
     I: Iterator<Item = T>,
-    T: RealField,
-{}
+    T: RealField + Copy,
+{
+    fn new(iter: I, spacing: T) -> Self {
+        Self {
+            iter,
+            spacing,
+            buffer: Vec::with_capacity(3),
+        }
+    }
+}
+
+impl<I, T> Iterator for Gradient<I, T>
+where
+    I: Iterator<Item = T>,
+    T: RealField + Copy,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.iter.next() {
+                Some(x) => {
+                    self.buffer.push(x);
+                    if self.buffer.len() == 3 {
+                        let grad = (self.buffer[2] - self.buffer[0]) / (self.spacing + self.spacing);
+                        self.buffer.remove(0);
+                        return Some(grad);
+                    }
+                }
+                None => return None,
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

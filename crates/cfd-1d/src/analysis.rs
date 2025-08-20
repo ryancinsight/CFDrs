@@ -669,8 +669,8 @@ use cfd_core::solver::LinearSolverConfig;;
 /// Complete network analysis results
 #[derive(Debug, Clone)]
 pub struct NetworkAnalysisResult<T: RealField> {
-    /// Solver results
-    pub solution_result: crate::solver::SolutionResult<T>,
+    // TODO: Add solution result when available
+    // pub solution_result: crate::solver::SolutionResult<T>,
     /// Flow analysis
     pub flow_analysis: FlowAnalysis<T>,
     /// Pressure analysis

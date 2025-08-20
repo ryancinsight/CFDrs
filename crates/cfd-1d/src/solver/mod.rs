@@ -17,8 +17,7 @@ pub use matrix_assembly::MatrixAssembler;
 pub use linear_system::LinearSystemSolver;
 pub use convergence::ConvergenceChecker;
 
-// Re-export for convenience
-pub use cfd_core::NetworkSolverConfig as SolverConfig;
+
 
 use crate::network::Network;
 use cfd_core::{Result, Solver, Configurable, Validatable};

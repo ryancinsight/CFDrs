@@ -42,8 +42,9 @@ pub use network::{
 
 // Export solver functionality
 pub use solver::{
-    NetworkSolver, SolverConfig, SolutionResult,
+    NetworkSolver,
     NetworkProblem, NetworkState, NetworkDomain,
+    MatrixAssembler, LinearSystemSolver, ConvergenceChecker,
 };
 
 // Export component functionality

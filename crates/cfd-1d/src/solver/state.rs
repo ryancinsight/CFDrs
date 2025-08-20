@@ -2,11 +2,9 @@
 
 use crate::network::Network;
 use nalgebra::{RealField, DVector};
-use cfd_core::State;
-
 /// State representation for a 1D network
 #[derive(Debug, Clone)]
-pub struct NetworkState<T: RealField> {
+pub struct NetworkState<T: RealField + Copy> {
     /// Node pressures
     pub pressures: DVector<T>,
     /// Edge flow rates
@@ -15,7 +13,7 @@ pub struct NetworkState<T: RealField> {
     pub time: T,
 }
 
-impl<T: RealField> NetworkState<T> {
+impl<T: RealField + Copy> NetworkState<T> {
     /// Create a new network state
     pub fn new(num_nodes: usize, num_edges: usize) -> Self {
         Self {
@@ -33,18 +31,14 @@ impl<T: RealField> NetworkState<T> {
             time: T::zero(),
         }
     }
-}
-
-impl<T: RealField> State<T> for NetworkState<T> {
-    fn time(&self) -> T {
-        self.time.clone()
+    
+    /// Get time
+    pub fn time(&self) -> T {
+        self.time
     }
 
-    fn set_time(&mut self, time: T) {
+    /// Set time
+    pub fn set_time(&mut self, time: T) {
         self.time = time;
-    }
-
-    fn clone_state(&self) -> Box<dyn State<T>> {
-        Box::new(self.clone())
     }
 }
