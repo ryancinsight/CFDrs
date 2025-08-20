@@ -13,7 +13,7 @@ pub struct MatrixAssembler<T: RealField> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField> MatrixAssembler<T> {
+impl<T: RealField + Copy> MatrixAssembler<T> {
     /// Create a new matrix assembler
     pub fn new() -> Self {
         Self {
@@ -22,7 +22,7 @@ impl<T: RealField> MatrixAssembler<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Send + Sync> MatrixAssembler<T> {
+impl<T: RealField + FromPrimitive + Send + Sync + Copy> MatrixAssembler<T> {
     /// Assemble the linear system matrix and right-hand side vector
     /// 
     /// This builds the system Ax = b where:
@@ -36,8 +36,8 @@ impl<T: RealField + FromPrimitive + Send + Sync> MatrixAssembler<T> {
 
         // Parallel assembly of matrix entries
         network.edges_parallel().for_each(|edge| {
-            let (i, j) = edge.nodes();
-            let conductance = edge.conductance();
+            let (i, j) = edge.nodes;
+            let conductance = edge.conductance;
             
             let mut coo = coo_mutex.lock().unwrap();
             // Add conductance terms to matrix
@@ -50,16 +50,20 @@ impl<T: RealField + FromPrimitive + Send + Sync> MatrixAssembler<T> {
         // Add boundary conditions
         for (node_idx, bc) in network.boundary_conditions() {
             match bc {
-                crate::network::BoundaryCondition::Pressure(p) => {
+                crate::network::BoundaryCondition::PressureInlet { pressure } |
+                crate::network::BoundaryCondition::PressureOutlet { pressure } => {
                     // Dirichlet boundary condition
                     let mut coo = coo_mutex.lock().unwrap();
                     // Set row to identity
                     coo.push(node_idx, node_idx, T::one());
-                    rhs[node_idx] = p;
+                    rhs[node_idx] = *pressure;
                 }
-                crate::network::BoundaryCondition::FlowRate(q) => {
+                crate::network::BoundaryCondition::VolumeFlowInlet { flow_rate } => {
                     // Neumann boundary condition
-                    rhs[node_idx] += q;
+                    rhs[node_idx] += *flow_rate;
+                }
+                _ => {
+                    // Other boundary conditions not implemented for 1D
                 }
             }
         }
