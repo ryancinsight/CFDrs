@@ -24,7 +24,7 @@ pub enum FluxLimiter {
 
 impl FluxLimiter {
     /// Apply flux limiter function
-    pub fn apply<T: RealField + FromPrimitive>(&self, r: T) -> T {
+    pub fn apply<T: RealField + FromPrimitive + Copy>(&self, r: T) -> T {
         match self {
             FluxLimiter::None => T::one(),
             FluxLimiter::VanLeer => {
@@ -44,7 +44,7 @@ impl FluxLimiter {
             },
             FluxLimiter::Superbee => {
                 let two = T::from_f64(2.0).unwrap_or_else(T::zero);
-                T::zero().max(T::one().min(two * r)).max(T::two().min(r))
+                T::zero().max(T::one().min(two * r)).max(two.min(r))
             },
             FluxLimiter::MC => {
                 let two = T::from_f64(2.0).unwrap_or_else(T::zero);

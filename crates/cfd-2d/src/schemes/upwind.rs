@@ -18,7 +18,7 @@ impl<T: RealField + FromPrimitive> FirstOrderUpwind<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive> SpatialDiscretization<T> for FirstOrderUpwind<T> {
+impl<T: RealField + FromPrimitive + Copy> SpatialDiscretization<T> for FirstOrderUpwind<T> {
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         let velocity = grid.data[(i, j)];
         
@@ -54,7 +54,7 @@ impl<T: RealField + FromPrimitive> SecondOrderUpwind<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive> SpatialDiscretization<T> for SecondOrderUpwind<T> {
+impl<T: RealField + FromPrimitive + Copy> SpatialDiscretization<T> for SecondOrderUpwind<T> {
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         let velocity = grid.data[(i, j)];
         let three = T::from_f64(3.0).unwrap_or_else(T::zero);

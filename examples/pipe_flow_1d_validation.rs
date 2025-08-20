@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Pressure gradient: {} Pa/m", pressure_drop / pipe_length);
     
     // Create fluid with specified properties
-    let fluid = Fluid::new_newtonian("Test Fluid", fluid_density, fluid_viscosity);
+    let fluid = Fluid::newtonian("Test Fluid", fluid_density, fluid_viscosity);
     
     // Create 1D network
     let mut builder = NetworkBuilder::new().with_fluid(fluid);

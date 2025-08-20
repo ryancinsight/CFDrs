@@ -121,7 +121,7 @@ impl<T: RealField + FromPrimitive + Copy> StabilizationParameters<T> {
 }
 
 /// Calculate element size for different element types
-pub fn calculate_element_size<T: RealField + FromPrimitive>(
+pub fn calculate_element_size<T: RealField + FromPrimitive + Copy>(
     vertices: &[Vector3<T>],
     velocity_direction: &Vector3<T>,
 ) -> T {
@@ -138,7 +138,7 @@ pub fn calculate_element_size<T: RealField + FromPrimitive>(
 }
 
 /// Calculate size for tetrahedral element
-fn calculate_tetrahedral_size<T: RealField + FromPrimitive>(
+fn calculate_tetrahedral_size<T: RealField + FromPrimitive + Copy>(
     vertices: &[Vector3<T>],
     velocity_direction: &Vector3<T>,
 ) -> T {
@@ -164,7 +164,7 @@ fn calculate_tetrahedral_size<T: RealField + FromPrimitive>(
 }
 
 /// Calculate size for hexahedral element
-fn calculate_hexahedral_size<T: RealField + FromPrimitive>(
+fn calculate_hexahedral_size<T: RealField + FromPrimitive + Copy>(
     vertices: &[Vector3<T>],
     velocity_direction: &Vector3<T>,
 ) -> T {
@@ -173,7 +173,7 @@ fn calculate_hexahedral_size<T: RealField + FromPrimitive>(
 }
 
 /// Calculate minimum edge length of element
-fn calculate_min_edge_length<T: RealField>(vertices: &[Vector3<T>]) -> T {
+fn calculate_min_edge_length<T: RealField + Copy>(vertices: &[Vector3<T>]) -> T {
     let mut min_length = T::max_value().unwrap_or_else(T::one);
     
     for i in 0..vertices.len() {

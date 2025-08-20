@@ -144,7 +144,7 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
             } else {
                 // Viscous sublayer
                 self.k[i][0] = T::zero();
-                let two = T::from_f64(crate::constants::numerical::TWO).unwrap_or_else(|| T::zero());
+                let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
                 self.epsilon[i][0] = two * nu.clone() * self.k[i][1].clone() / (y.clone() * y);
                 self.nu_t[i][0] = T::zero();
             }
