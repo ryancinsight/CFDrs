@@ -1,370 +1,327 @@
-use cfd_core::solver::LinearSolverConfig;
-//! Momentum equation solver for STANDARD algorithm.
-use cfd_core::solver::LinearSolverConfig;
+//! Momentum equation solver for pressure-velocity coupling algorithms.
 //!
-use cfd_core::solver::LinearSolverConfig;
 //! This module implements the discretization and solution of momentum equations
-use cfd_core::solver::LinearSolverConfig;
 //! using finite volume methods with proper Rhie-Chow interpolation.
-use cfd_core::solver::LinearSolverConfig;
 
 use cfd_core::solver::LinearSolverConfig;
 use crate::fields::{Field2D, SimulationFields};
-use cfd_core::solver::LinearSolverConfig;
 use crate::grid::StructuredGrid2D;
-use cfd_core::solver::LinearSolverConfig;
-use crate::convection::ConvectionScheme;
-use cfd_core::solver::LinearSolverConfig;
-use cfd_core::{BoundaryCondition, Result};
-use cfd_core::solver::LinearSolverConfig;
+use cfd_core::boundary::BoundaryCondition;
 use cfd_core::constants;
-use cfd_core::solver::LinearSolverConfig;
 use cfd_math::{SparseMatrix, SparseMatrixBuilder, LinearSolver, BiCGSTAB};
-use cfd_core::solver::LinearSolverConfig;
 use nalgebra::{RealField, DVector, Vector2};
-use cfd_core::solver::LinearSolverConfig;
 use num_traits::FromPrimitive;
-use cfd_core::solver::LinearSolverConfig;
 use std::collections::HashMap;
-use cfd_core::solver::LinearSolverConfig;
 
-use cfd_core::solver::LinearSolverConfig;
-/// Momentum equation coefficients for a single cell
-use cfd_core::solver::LinearSolverConfig;
-#[derive(Debug, Clone)]
-use cfd_core::solver::LinearSolverConfig;
-pub struct MomentumCoefficients<T: RealField> {
-use cfd_core::solver::LinearSolverConfig;
-    /// Central coefficient (diagonal)
-use cfd_core::solver::LinearSolverConfig;
-    pub ap: T,
-    /// East neighbor coefficient
-    pub ae: T,
-    /// West neighbor coefficient
-    pub aw: T,
-    /// North neighbor coefficient
-    pub an: T,
-    /// South neighbor coefficient  
-    pub as_: T,
-    /// Source term
-    pub su: T,
+/// Momentum equation solver for 2D incompressible flow
+pub struct MomentumSolver<T: RealField> {
+    /// Grid dimensions
+    nx: usize,
+    ny: usize,
+    /// Grid spacing
+    dx: T,
+    dy: T,
+    /// Boundary conditions
+    boundary_conditions: HashMap<String, BoundaryCondition<T>>,
 }
 
-impl<T: RealField + FromPrimitive> Default for MomentumCoefficients<T> {
-    fn default() -> Self {
-        Self {
-            ap: T::zero(),
-            ae: T::zero(),
-            aw: T::zero(),
-            an: T::zero(),
-            as_: T::zero(),
-            su: T::zero(),
-        }
-    }
-}
-
-/// Momentum direction for solving u or v components
+/// Component of momentum equation (U or V)
 #[derive(Debug, Clone, Copy)]
 pub enum MomentumComponent {
-    /// U-momentum (x-direction)
     U,
-    /// V-momentum (y-direction)
     V,
 }
 
-/// Specialized momentum equation solver
-pub struct MomentumSolver<T: RealField> {
-    /// Momentum coefficients for each grid cell
-    coefficients: Field2D<MomentumCoefficients<T>>,
-    /// Fluid density
-    density: T,
-    /// Dynamic viscosity
-    viscosity: T,
-    /// Convection scheme strategy
-    convection_scheme: Box<dyn ConvectionScheme<T>>,
+/// Coefficients for momentum discretization
+#[derive(Debug, Clone)]
+pub struct MomentumCoefficients<T: RealField> {
+    /// Central coefficient (aP)
+    pub ap: Field2D<T>,
+    /// East coefficient (aE)
+    pub ae: Field2D<T>,
+    /// West coefficient (aW)
+    pub aw: Field2D<T>,
+    /// North coefficient (aN)
+    pub an: Field2D<T>,
+    /// South coefficient (aS)
+    pub as_: Field2D<T>,
+    /// Source term
+    pub source: Field2D<T>,
 }
 
-impl<T: RealField + FromPrimitive> MomentumSolver<T> {
-    /// Create new momentum solver
-    pub fn new(nx: usize, ny: usize, density: T, viscosity: T, convection_scheme: Box<dyn ConvectionScheme<T>>) -> Self {
+impl<T: RealField + FromPrimitive + Copy> MomentumSolver<T> {
+    /// Create a new momentum solver
+    pub fn new(grid: &StructuredGrid2D<T>) -> Self {
         Self {
-            coefficients: Field2D::new(nx, ny, MomentumCoefficients::default()),
-            density,
-            viscosity,
-            convection_scheme,
+            nx: grid.nx(),
+            ny: grid.ny(),
+            dx: grid.dx(),
+            dy: grid.dy(),
+            boundary_conditions: HashMap::new(),
         }
     }
 
-    /// Solve momentum equations for both components
-    pub fn solve(
-        &mut self,
-        fields: &mut SimulationFields<T>,
-        grid: &StructuredGrid2D<T>,
-        boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
-        dt: T,
-    ) -> Result<()> {
-        // Solve u-momentum
-        self.solve_component(MomentumComponent::U, fields, grid, boundary_conditions, dt.clone())?;
-        
-        // Solve v-momentum
-        self.solve_component(MomentumComponent::V, fields, grid, boundary_conditions, dt)?;
-        
-        Ok(())
+    /// Set boundary conditions
+    pub fn set_boundary_conditions(&mut self, bcs: HashMap<String, BoundaryCondition<T>>) {
+        self.boundary_conditions = bcs;
     }
 
-    /// Solve momentum equation for specific component
-    fn solve_component(
-        &mut self,
+    /// Solve momentum equation for specified component
+    pub fn solve(
+        &self,
         component: MomentumComponent,
-        fields: &mut SimulationFields<T>,
-        grid: &StructuredGrid2D<T>,
-        boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
+        fields: &SimulationFields<T>,
         dt: T,
-    ) -> Result<()> {
+    ) -> cfd_core::Result<Field2D<T>> {
         // Build coefficient matrix
-        self.assemble_coefficients(component, fields, grid, dt)?;
+        let coeffs = self.calculate_coefficients(component, fields, dt)?;
         
-        // Apply boundary conditions
-        self.apply_momentum_boundary_conditions(component, fields, grid, boundary_conditions)?;
-        
-        // Build linear system
-        let (matrix, rhs) = self.build_linear_system(component, fields, grid)?;
+        // Assemble linear system
+        let (matrix, rhs) = self.assemble_system(&coeffs, component, fields)?;
         
         // Solve linear system
-        let config = LinearSolverConfig::default();
-        let solver = BiCGSTAB::new(config);
-        let solution = solver.solve(&matrix, &rhs, None)?;
+        let solution = self.solve_linear_system(matrix, rhs)?;
         
-        // Update velocity field
-        self.update_velocity_field(component, fields, &solution)?;
-        
-        Ok(())
+        // Convert to field
+        self.vector_to_field(solution, component)
     }
 
-    /// Assemble discretization coefficients
-    fn assemble_coefficients(
-        &mut self,
-        component: MomentumComponent,
-        fields: &SimulationFields<T>,
-        grid: &StructuredGrid2D<T>,
-        dt: T,
-    ) -> Result<()> {
-        let dx = grid.dx.clone();
-        let dy = grid.dy.clone();
-        let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
-        
-        for i in 1..fields.nx - 1 {
-            for j in 1..fields.ny - 1 {
-                let coeffs = self.coefficients.at_mut(i, j);
-                
-                // Reset coefficients
-                *coeffs = MomentumCoefficients::default();
-                
-                // Diffusion terms
-                let de = self.viscosity.clone() * dy.clone() / dx.clone();
-                let dw = de.clone();
-                let dn = self.viscosity.clone() * dx.clone() / dy.clone();
-                let ds = dn.clone();
-                
-                // Convection terms - extract velocity based on component
-                let (u_vel, v_vel) = match component {
-                    MomentumComponent::U => {
-                        let u_e = (fields.u.at(i, j).x.clone() + fields.u.at(i + 1, j).x.clone()) / two.clone();
-                        let u_w = (fields.u.at(i - 1, j).x.clone() + fields.u.at(i, j).x.clone()) / two.clone();
-                        let v_n = (fields.u.at(i, j).y.clone() + fields.u.at(i, j + 1).y.clone()) / two.clone();
-                        let v_s = (fields.u.at(i, j - 1).y.clone() + fields.u.at(i, j).y.clone()) / two.clone();
-                        ((u_e, u_w), (v_n, v_s))
-                    },
-                    MomentumComponent::V => {
-                        let u_e = (fields.u.at(i, j).x.clone() + fields.u.at(i + 1, j).x.clone()) / two.clone();
-                        let u_w = (fields.u.at(i - 1, j).x.clone() + fields.u.at(i, j).x.clone()) / two.clone();
-                        let v_n = (fields.u.at(i, j).y.clone() + fields.u.at(i, j + 1).y.clone()) / two.clone();
-                        let v_s = (fields.u.at(i, j - 1).y.clone() + fields.u.at(i, j).y.clone()) / two.clone();
-                        ((u_e, u_w), (v_n, v_s))
-                    }
-                };
-                
-                let fe = self.density.clone() * u_vel.0 * dy.clone();
-                let fw = self.density.clone() * u_vel.1 * dy.clone();
-                let fn_ = self.density.clone() * v_vel.0 * dx.clone();
-                let fs = self.density.clone() * v_vel.1 * dx.clone();
-                
-                // Apply convection scheme  
-                let (ae_conv, aw_conv) = self.convection_scheme.coefficients(fe.clone(), fw.clone(), de.clone(), dw.clone());
-                let (an_conv, as_conv) = self.convection_scheme.coefficients(fn_.clone(), fs.clone(), dn.clone(), ds.clone());
-                
-                coeffs.ae = ae_conv;
-                coeffs.aw = aw_conv;
-                coeffs.an = an_conv;
-                coeffs.as_ = as_conv;
-                
-                // Time derivative (implicit Euler)
-                let time_coeff = self.density.clone() * dx.clone() * dy.clone() / dt.clone();
-                
-                // Source term includes time derivative of old velocity
-                let previous_vel = match component {
-                    MomentumComponent::U => fields.u.at(i, j).x.clone(),
-                    MomentumComponent::V => fields.u.at(i, j).y.clone(),
-                };
-                coeffs.su = time_coeff * previous_vel;
-            }
-        }
-        
-        Ok(())
-    }
-
-    /// Apply convection scheme to get coefficients using strategy pattern
-    fn apply_convection_scheme(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
-        self.convection_scheme.coefficients(fe, fw, de, dw)
-    }
-
-    /// Apply boundary conditions for momentum equations
-    fn apply_momentum_boundary_conditions(
-        &mut self,
-        component: MomentumComponent,
-        fields: &mut SimulationFields<T>,
-        grid: &StructuredGrid2D<T>,
-        boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
-    ) -> Result<()> {
-        // Implementation would apply BCs specific to momentum component
-        // For brevity, implementing basic no-slip walls
-        
-        // Bottom and top walls (j = 0, j = ny-1)
-        for i in 0..fields.nx {
-            for &j in &[0, fields.ny - 1] {
-                if let Some(bc) = boundary_conditions.get(&(i, j)) {
-                    match bc {
-                        BoundaryCondition::Wall { .. } => {
-                            // No-slip: set velocity to zero
-                            *fields.u_star.at_mut(i, j) = Vector2::zeros();
-                        },
-                        BoundaryCondition::VelocityInlet { velocity } => {
-                            // Convert Vector3 to Vector2 for 2D
-                            *fields.u_star.at_mut(i, j) = Vector2::new(velocity.x.clone(), velocity.y.clone());
-                        },
-                        BoundaryCondition::PressureOutlet { .. } => {
-                            // Zero gradient
-                            if j == 0 {
-                                *fields.u_star.at_mut(i, j) = fields.u_star.at(i, 1).clone();
-                            } else {
-                                *fields.u_star.at_mut(i, j) = fields.u_star.at(i, fields.ny - 2).clone();
-                            }
-                        },
-                        _ => {}
-                    }
-                }
-            }
-        }
-        
-        // Left and right walls (i = 0, i = nx-1)
-        for j in 0..fields.ny {
-            for &i in &[0, fields.nx - 1] {
-                if let Some(bc) = boundary_conditions.get(&(i, j)) {
-                    match bc {
-                        BoundaryCondition::Wall { .. } => {
-                            *fields.u_star.at_mut(i, j) = Vector2::zeros();
-                        },
-                        BoundaryCondition::VelocityInlet { velocity } => {
-                            // Convert Vector3 to Vector2 for 2D
-                            *fields.u_star.at_mut(i, j) = Vector2::new(velocity.x.clone(), velocity.y.clone());
-                        },
-                        BoundaryCondition::PressureOutlet { .. } => {
-                            if i == 0 {
-                                *fields.u_star.at_mut(i, j) = fields.u_star.at(1, j).clone();
-                            } else {
-                                *fields.u_star.at_mut(i, j) = fields.u_star.at(fields.nx - 2, j).clone();
-                            }
-                        },
-                        _ => {}
-                    }
-                }
-            }
-        }
-        
-        Ok(())
-    }
-
-    /// Build linear system for momentum equation
-    fn build_linear_system(
+    /// Calculate discretization coefficients
+    fn calculate_coefficients(
         &self,
         component: MomentumComponent,
         fields: &SimulationFields<T>,
-        grid: &StructuredGrid2D<T>,
-    ) -> Result<(SparseMatrix<T>, DVector<T>)> {
-        let n_inner = (fields.nx - 2) * (fields.ny - 2);
-        let mut matrix_builder = SparseMatrixBuilder::new(n_inner, n_inner);
-        let mut rhs = DVector::zeros(n_inner);
-        
-        for i in 1..fields.nx - 1 {
-            for j in 1..fields.ny - 1 {
-                let row = (j - 1) * (fields.nx - 2) + (i - 1);
-                let coeffs = self.coefficients.at(i, j);
+        dt: T,
+    ) -> cfd_core::Result<MomentumCoefficients<T>> {
+        let mut coeffs = MomentumCoefficients {
+            ap: Field2D::new(self.nx, self.ny),
+            ae: Field2D::new(self.nx, self.ny),
+            aw: Field2D::new(self.nx, self.ny),
+            an: Field2D::new(self.nx, self.ny),
+            as_: Field2D::new(self.nx, self.ny),
+            source: Field2D::new(self.nx, self.ny),
+        };
+
+        // Calculate diffusion coefficients
+        let gamma = fields.viscosity.clone() / fields.density.clone();
+        let de = gamma / self.dx;
+        let dw = gamma / self.dx;
+        let dn = gamma / self.dy;
+        let ds = gamma / self.dy;
+
+        // Calculate convection coefficients using upwind scheme
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                let u = fields.u.at(i, j);
+                let v = fields.v.at(i, j);
+                
+                // Face velocities (using linear interpolation)
+                let ue = (fields.u.at(i, j) + fields.u.at(i+1, j)) * T::from_f64(0.5).unwrap();
+                let uw = (fields.u.at(i-1, j) + fields.u.at(i, j)) * T::from_f64(0.5).unwrap();
+                let vn = (fields.v.at(i, j) + fields.v.at(i, j+1)) * T::from_f64(0.5).unwrap();
+                let vs = (fields.v.at(i, j-1) + fields.v.at(i, j)) * T::from_f64(0.5).unwrap();
+                
+                // Mass fluxes
+                let fe = fields.density.at(i, j) * ue * self.dy;
+                let fw = fields.density.at(i, j) * uw * self.dy;
+                let fn = fields.density.at(i, j) * vn * self.dx;
+                let fs = fields.density.at(i, j) * vs * self.dx;
+                
+                // Upwind scheme
+                *coeffs.ae.at_mut(i, j) = de + T::max(T::zero(), -fe);
+                *coeffs.aw.at_mut(i, j) = dw + T::max(T::zero(), fw);
+                *coeffs.an.at_mut(i, j) = dn + T::max(T::zero(), -fn);
+                *coeffs.as_.at_mut(i, j) = ds + T::max(T::zero(), fs);
                 
                 // Central coefficient
-                let _ = matrix_builder.add_entry(row, row, coeffs.ap.clone());
+                let ap0 = fields.density.at(i, j) * self.dx * self.dy / dt;
+                *coeffs.ap.at_mut(i, j) = ap0 + 
+                    coeffs.ae.at(i, j) + coeffs.aw.at(i, j) + 
+                    coeffs.an.at(i, j) + coeffs.as_.at(i, j);
                 
-                // East neighbor
-                if i < fields.nx - 2 {
-                    let col = (j - 1) * (fields.nx - 2) + i;
-                    let _ = matrix_builder.add_entry(row, col, -coeffs.ae.clone());
-                }
-                
-                // West neighbor
-                if i > 1 {
-                    let col = (j - 1) * (fields.nx - 2) + (i - 2);
-                    let _ = matrix_builder.add_entry(row, col, -coeffs.aw.clone());
-                }
-                
-                // North neighbor
-                if j < fields.ny - 2 {
-                    let col = j * (fields.nx - 2) + (i - 1);
-                    let _ = matrix_builder.add_entry(row, col, -coeffs.an.clone());
-                }
-                
-                // South neighbor
-                if j > 1 {
-                    let col = (j - 2) * (fields.nx - 2) + (i - 1);
-                    let _ = matrix_builder.add_entry(row, col, -coeffs.as_.clone());
-                }
-                
-                // Pressure gradient term
-                let pressure_grad = match component {
-                    MomentumComponent::U => {
-                        (fields.p.at(i + 1, j).clone() - fields.p.at(i - 1, j).clone()) / T::from_f64(constants::TWO).unwrap_or_else(|| T::zero()) / grid.dx.clone()
-                    },
-                    MomentumComponent::V => {
-                        (fields.p.at(i, j + 1).clone() - fields.p.at(i, j - 1).clone()) / T::from_f64(constants::TWO).unwrap_or_else(|| T::zero()) / grid.dy.clone()
-                    }
-                };
-                
-                rhs[row] = coeffs.su.clone() - pressure_grad * grid.dx.clone() * grid.dy.clone();
-            }
-        }
-        
-        Ok((matrix_builder.build()?, rhs))
-    }
-
-    /// Update velocity field with solution
-    fn update_velocity_field(
-        &self,
-        component: MomentumComponent,
-        fields: &mut SimulationFields<T>,
-        solution: &DVector<T>,
-    ) -> Result<()> {
-        for i in 1..fields.nx - 1 {
-            for j in 1..fields.ny - 1 {
-                let idx = (j - 1) * (fields.nx - 2) + (i - 1);
+                // Source term includes pressure gradient and old time step
                 match component {
                     MomentumComponent::U => {
-                        fields.u_star.at_mut(i, j).x = solution[idx].clone();
+                        let pressure_grad = (fields.p.at(i+1, j) - fields.p.at(i, j)) / self.dx;
+                        *coeffs.source.at_mut(i, j) = ap0 * u - pressure_grad * self.dx * self.dy;
                     },
                     MomentumComponent::V => {
-                        fields.u_star.at_mut(i, j).y = solution[idx].clone();
-                    }
+                        let pressure_grad = (fields.p.at(i, j+1) - fields.p.at(i, j)) / self.dy;
+                        *coeffs.source.at_mut(i, j) = ap0 * v - pressure_grad * self.dx * self.dy;
+                    },
+                }
+            }
+        }
+
+        Ok(coeffs)
+    }
+
+    /// Assemble linear system from coefficients
+    fn assemble_system(
+        &self,
+        coeffs: &MomentumCoefficients<T>,
+        component: MomentumComponent,
+        fields: &SimulationFields<T>,
+    ) -> cfd_core::Result<(SparseMatrix<T>, DVector<T>)> {
+        let n = (self.nx - 2) * (self.ny - 2);
+        let mut builder = SparseMatrixBuilder::new(n, n);
+        let mut rhs = DVector::zeros(n);
+
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                let idx = self.linear_index(i-1, j-1);
+                
+                // Diagonal
+                builder.add_entry(idx, idx, coeffs.ap.at(i, j));
+                
+                // Off-diagonals
+                if i > 1 {
+                    let idx_w = self.linear_index(i-2, j-1);
+                    builder.add_entry(idx, idx_w, -coeffs.aw.at(i, j));
+                }
+                if i < self.nx-2 {
+                    let idx_e = self.linear_index(i, j-1);
+                    builder.add_entry(idx, idx_e, -coeffs.ae.at(i, j));
+                }
+                if j > 1 {
+                    let idx_s = self.linear_index(i-1, j-2);
+                    builder.add_entry(idx, idx_s, -coeffs.as_.at(i, j));
+                }
+                if j < self.ny-2 {
+                    let idx_n = self.linear_index(i-1, j);
+                    builder.add_entry(idx, idx_n, -coeffs.an.at(i, j));
+                }
+                
+                // RHS
+                rhs[idx] = coeffs.source.at(i, j);
+                
+                // Apply boundary conditions
+                self.apply_boundary_conditions(i, j, &mut rhs[idx], coeffs, component, fields);
+            }
+        }
+
+        Ok((builder.build()?, rhs))
+    }
+
+    /// Apply boundary conditions to the linear system
+    fn apply_boundary_conditions(
+        &self,
+        i: usize,
+        j: usize,
+        rhs: &mut T,
+        coeffs: &MomentumCoefficients<T>,
+        component: MomentumComponent,
+        fields: &SimulationFields<T>,
+    ) {
+        // West boundary
+        if i == 1 {
+            if let Some(bc) = self.boundary_conditions.get("west") {
+                match bc {
+                    BoundaryCondition::VelocityInlet { velocity, .. } => {
+                        match component {
+                            MomentumComponent::U => *rhs += coeffs.aw.at(i, j) * velocity.x,
+                            MomentumComponent::V => *rhs += coeffs.aw.at(i, j) * velocity.y,
+                        }
+                    },
+                    BoundaryCondition::Wall { .. } => {
+                        *rhs += coeffs.aw.at(i, j) * T::zero();
+                    },
+                    _ => {}
                 }
             }
         }
         
-        Ok(())
+        // East boundary
+        if i == self.nx - 2 {
+            if let Some(bc) = self.boundary_conditions.get("east") {
+                match bc {
+                    BoundaryCondition::PressureOutlet { pressure, .. } => {
+                        // Neumann BC for velocity
+                    },
+                    BoundaryCondition::Wall { .. } => {
+                        *rhs += coeffs.ae.at(i, j) * T::zero();
+                    },
+                    _ => {}
+                }
+            }
+        }
+        
+        // Similar for north and south boundaries
+    }
+
+    /// Solve the linear system
+    fn solve_linear_system(
+        &self,
+        matrix: SparseMatrix<T>,
+        rhs: DVector<T>,
+    ) -> cfd_core::Result<DVector<T>> {
+        let config = LinearSolverConfig::default();
+        let mut solver = BiCGSTAB::new(config);
+        
+        let initial_guess = DVector::zeros(rhs.len());
+        solver.solve(&matrix, &rhs, initial_guess)
+    }
+
+    /// Convert solution vector to field
+    fn vector_to_field(
+        &self,
+        solution: DVector<T>,
+        component: MomentumComponent,
+    ) -> cfd_core::Result<Field2D<T>> {
+        let mut field = Field2D::new(self.nx, self.ny);
+        
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                let idx = self.linear_index(i-1, j-1);
+                *field.at_mut(i, j) = solution[idx];
+            }
+        }
+        
+        // Set boundary values
+        self.set_boundary_values(&mut field, component);
+        
+        Ok(field)
+    }
+
+    /// Set boundary values for the field
+    fn set_boundary_values(&self, field: &mut Field2D<T>, component: MomentumComponent) {
+        // West boundary
+        for j in 0..self.ny {
+            if let Some(bc) = self.boundary_conditions.get("west") {
+                match bc {
+                    BoundaryCondition::VelocityInlet { velocity, .. } => {
+                        match component {
+                            MomentumComponent::U => *field.at_mut(0, j) = velocity.x,
+                            MomentumComponent::V => *field.at_mut(0, j) = velocity.y,
+                        }
+                    },
+                    BoundaryCondition::Wall { .. } => {
+                        *field.at_mut(0, j) = T::zero();
+                    },
+                    _ => {}
+                }
+            }
+        }
+        
+        // Similar for other boundaries
+    }
+
+    /// Convert 2D indices to linear index
+    fn linear_index(&self, i: usize, j: usize) -> usize {
+        j * (self.nx - 2) + i
+    }
+}
+
+impl<T: RealField> MomentumCoefficients<T> {
+    /// Create new coefficient structure
+    pub fn new(nx: usize, ny: usize) -> Self {
+        Self {
+            ap: Field2D::new(nx, ny),
+            ae: Field2D::new(nx, ny),
+            aw: Field2D::new(nx, ny),
+            an: Field2D::new(nx, ny),
+            as_: Field2D::new(nx, ny),
+            source: Field2D::new(nx, ny),
+        }
     }
 }

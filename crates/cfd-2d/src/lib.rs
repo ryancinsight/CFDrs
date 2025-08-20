@@ -15,7 +15,7 @@ pub mod lbm;
 pub mod momentum;
 pub mod convection;
 pub mod pressure_velocity;  // Pressure-velocity coupling algorithm (STANDARD)
-pub mod piso;
+pub mod piso_algorithm;
 
 pub mod problem;
 pub mod turbulence;
