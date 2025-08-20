@@ -419,7 +419,7 @@ mod tests {
 
     #[test]
     fn test_adaptive_time_step() {
-        let controller = AdaptiveTimeStep::<f64>::default();
+        let controller = AdaptiveTimeStepController::<f64>::default();
         
         // Error is less than target
         let current_dt = controller.calculate_dt(0.01, 1e-8, 2);

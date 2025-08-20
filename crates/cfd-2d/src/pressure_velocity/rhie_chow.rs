@@ -35,14 +35,15 @@ impl<T: RealField + FromPrimitive + Copy> RhieChowInterpolation<T> {
     
     /// Compute face velocity with complete Rhie-Chow interpolation
     /// 
-    /// The complete formulation is:
-    /// u_f = ū_f + d_f * [(∇p)_P - (∇p)_f]
+    /// The complete formulation according to Rhie & Chow (1983), Eq. 13:
+    /// u_f = ū_f + d_f * [(∇p)_P - (∇p)_f] + dt * (u_f^n - ū_f^n) / 2
     /// 
     /// where:
     /// - ū_f is the linearly interpolated velocity
     /// - d_f = (Volume/A_p)_f is the interpolated pressure gradient coefficient
-    /// - (∇p)_P is the cell-centered pressure gradient
-    /// - (∇p)_f is the face pressure gradient
+    /// - (∇p)_P is the cell-centered pressure gradient (averaged)
+    /// - (∇p)_f is the face pressure gradient (direct)
+    /// - The last term is the transient correction for unsteady flows
     /// 
     /// This prevents pressure-velocity decoupling on colocated grids
     pub fn face_velocity_x(

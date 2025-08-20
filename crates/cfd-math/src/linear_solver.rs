@@ -509,6 +509,14 @@ mod tests {
         builder.build().expect("CRITICAL: Add proper error handling")
     }
 
+    fn create_test_matrix() -> DMatrix<f64> {
+        DMatrix::from_row_slice(3, 3, &[
+            4.0, -1.0, 0.0,
+            -1.0, 4.0, -1.0,
+            0.0, -1.0, 4.0,
+        ])
+    }
+
     #[test]
     fn test_cg_solver() {
         let a = create_test_matrix();

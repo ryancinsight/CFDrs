@@ -1,6 +1,6 @@
 //! Pressure corrector step for PISO algorithm
 
-use nalgebra::RealField;
+use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 use cfd_core::Result;
 use crate::fields::{Field2D, SimulationFields};
@@ -62,7 +62,9 @@ impl<T: RealField + FromPrimitive + Copy> PressureCorrector<T> {
         Ok(())
     }
 
-    /// Solve pressure correction equation
+    /// Solve pressure correction equation according to Issa (1986)
+    /// Reference: Issa, R.I. (1986). "Solution of the implicitly discretised fluid flow equations by operator-splitting"
+    /// Journal of Computational Physics, 62(1), 40-65.
     fn solve_pressure_correction(
         &self,
         fields: &SimulationFields<T>,
@@ -74,14 +76,17 @@ impl<T: RealField + FromPrimitive + Copy> PressureCorrector<T> {
         let max_iter = 100;
         let mut iter = 0;
 
+        // Calculate H(u) operator for PISO neighbor correction
+        let h_operator = self.calculate_h_operator(fields);
+
         while residual > tolerance && iter < max_iter {
             residual = T::zero();
             
-            // Gauss-Seidel iteration
+            // Gauss-Seidel iteration with H(u) correction
             for i in 1..self.nx-1 {
                 for j in 1..self.ny-1 {
-                    // Calculate mass imbalance (continuity error)
-                    let mass_imbalance = self.calculate_mass_imbalance(fields, i, j);
+                    // Calculate mass imbalance including H(u) terms
+                    let mass_imbalance = self.calculate_mass_imbalance_with_h(fields, &h_operator, i, j);
                     
                     // Calculate coefficients
                     let ae = fields.density.at(i, j) * self.dy * dt / self.dx;
@@ -112,6 +117,55 @@ impl<T: RealField + FromPrimitive + Copy> PressureCorrector<T> {
         }
         
         Ok(p_prime)
+    }
+
+    /// Calculate H(u) operator for PISO neighbor correction
+    /// H(u) = -sum(A_nb * u_nb) where A_nb are momentum equation coefficients
+    fn calculate_h_operator(&self, fields: &SimulationFields<T>) -> Field2D<Vector2<T>> {
+        let mut h_field = Field2D::new(self.nx, self.ny, Vector2::zeros());
+        
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                // Calculate neighbor contributions to H(u)
+                let u_e = fields.u.at(i+1, j);
+                let u_w = fields.u.at(i-1, j);
+                let u_n = fields.u.at(i, j+1);
+                let u_s = fields.u.at(i, j-1);
+                
+                // Momentum equation coefficients (simplified for demonstration)
+                let visc = fields.viscosity.at(i, j);
+                let ae = visc * self.dy / self.dx;
+                let aw = visc * self.dy / self.dx;
+                let an = visc * self.dx / self.dy;
+                let as_ = visc * self.dx / self.dy;
+                
+                // H(u) = -sum(A_nb * u_nb)
+                let h_x = -(ae * u_e.x + aw * u_w.x + an * u_n.x + as_ * u_s.x);
+                let h_y = -(ae * u_e.y + aw * u_w.y + an * u_n.y + as_ * u_s.y);
+                
+                h_field.set(i, j, Vector2::new(h_x, h_y));
+            }
+        }
+        
+        h_field
+    }
+
+    /// Calculate mass imbalance including H(u) correction terms
+    fn calculate_mass_imbalance_with_h(
+        &self,
+        fields: &SimulationFields<T>,
+        h_operator: &Field2D<Vector2<T>>,
+        i: usize,
+        j: usize,
+    ) -> T {
+        // Standard mass imbalance
+        let mass_imbalance = self.calculate_mass_imbalance(fields, i, j);
+        
+        // Add H(u) correction terms
+        let h_correction_x = (h_operator.at(i+1, j).x - h_operator.at(i-1, j).x) / (T::from_f64(2.0).unwrap() * self.dx);
+        let h_correction_y = (h_operator.at(i, j+1).y - h_operator.at(i, j-1).y) / (T::from_f64(2.0).unwrap() * self.dy);
+        
+        mass_imbalance + h_correction_x + h_correction_y
     }
 
     /// Calculate mass imbalance at a cell

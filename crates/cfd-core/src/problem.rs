@@ -170,8 +170,8 @@ mod tests {
     #[test]
     fn test_problem_builder() {
         let problem = ProblemBuilder::new()
-            .domain(Domain2D::from_coords(0.0, 0.0, 1.0, 1.0))
-            .fluid(Fluid::water())
+            .domain(Domain2D::new(0.0, 0.0, 1.0, 1.0))
+            .fluid(Fluid::water().expect("Failed to create water fluid"))
             .boundary_condition("inlet", BoundaryCondition::velocity_inlet(vector![1.0, 0.0, 0.0]))
             .boundary_condition("outlet", BoundaryCondition::pressure_outlet(0.0))
             .boundary_condition("walls", BoundaryCondition::wall_no_slip())
