@@ -82,7 +82,7 @@ impl<T: RealField + FromPrimitive> Problem<T> for NetworkProblem<T> {
         &self.domain
     }
 
-    fn fluid(&self) -> &cfd_core::Fluid<T> {
+    fn fluid(&self) -> &cfd_core::fluid::Fluid<T> {
         self.network.fluid()
     }
 
@@ -376,8 +376,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Send + Sync> NetworkSolv
                         
                         // Add to global matrices
                         {
-                            let mut coo = coo_mutex.lock().unwrap();
-                            let mut b = b_mutex.lock().unwrap();
+                            let mut coo = coo_mutex.lock().expect("Mutex should not be poisoned");
+                            let mut b = b_mutex.lock().expect("Mutex should not be poisoned");
                             coo.push(i, i, T::one());
                             b[i] = local_b_value;
                         }
@@ -390,8 +390,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Send + Sync> NetworkSolv
                         
                         // Add to global matrices
                         {
-                            let mut coo = coo_mutex.lock().unwrap();
-                            let mut b = b_mutex.lock().unwrap();
+                            let mut coo = coo_mutex.lock().expect("Mutex should not be poisoned");
+                            let mut b = b_mutex.lock().expect("Mutex should not be poisoned");
                             coo.push(i, i, T::one());
                             b[i] = local_b_value;
                         }
@@ -449,8 +449,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Send + Sync> NetworkSolv
 
             // Add local contributions to global matrices
             {
-                let mut coo = coo_mutex.lock().unwrap();
-                let mut b = b_mutex.lock().unwrap();
+                let mut coo = coo_mutex.lock().expect("Mutex should not be poisoned");
+                let mut b = b_mutex.lock().expect("Mutex should not be poisoned");
                 
                 for (row, col, val) in local_entries {
                     coo.push(row, col, val);
@@ -465,8 +465,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Send + Sync> NetworkSolv
         assembly_results?;
         
         // Extract final matrices
-        let coo = coo_mutex.into_inner().unwrap();
-        let b = b_mutex.into_inner().unwrap();
+        let coo = coo_mutex.into_inner().expect("FIXME: Add proper error handling");
+        let b = b_mutex.into_inner().expect("FIXME: Add proper error handling");
         let a = CsrMatrix::from(&coo);
         
         tracing::debug!(
@@ -755,7 +755,7 @@ mod tests {
             .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 1.0, 1e-6))
-            .build().unwrap();
+            .build().expect("FIXME: Add proper error handling");
 
         let problem = NetworkProblem::new(network);
         
@@ -764,7 +764,7 @@ mod tests {
         assert!(solver.can_handle(&problem));
         
         // Test solving
-        let solution = solver.solve(&problem).unwrap();
+        let solution = solver.solve(&problem).expect("FIXME: Add proper error handling");
         assert_eq!(solution.pressures.len(), 2);
         assert_eq!(solution.flow_rates.len(), 1);
         
@@ -803,12 +803,12 @@ mod tests {
         let network = builder
             .add_outlet_pressure("outlet", 20.0, 0.0, 0.0)
             .add_channel("final_ch", "junction_19", "outlet", ChannelProperties::new(100.0, 1.0, 1e-6))
-            .build().unwrap();
+            .build().expect("FIXME: Add proper error handling");
 
         let problem = NetworkProblem::new(network);
         
         // Test that parallel solving works
-        let solution = solver.solve(&problem).unwrap();
+        let solution = solver.solve(&problem).expect("FIXME: Add proper error handling");
         assert_eq!(solution.pressures.len(), 21); // inlet + 19 junctions + outlet
         assert_eq!(solution.flow_rates.len(), 20); // 20 channels
         
@@ -826,10 +826,10 @@ mod tests {
             .add_inlet_pressure("inlet", 0.0, 0.0, 100.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(50.0, 1.0, 1e-6))
-            .build().unwrap();
+            .build().expect("FIXME: Add proper error handling");
 
         let problem = NetworkProblem::new(network);
-        let (a, b) = solver.assemble_system_matrix(&problem).unwrap();
+        let (a, b) = solver.assemble_system_matrix(&problem).expect("FIXME: Add proper error handling");
         
         // Check matrix dimensions
         assert_eq!(a.nrows(), 2);
@@ -864,19 +864,19 @@ mod tests {
             .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 1.0, 1e-6))
-            .build().unwrap();
+            .build().expect("FIXME: Add proper error handling");
 
         // Test legacy interface still works
-        let result = solver.solve_steady_state(&mut network).unwrap();
+        let result = solver.solve_steady_state(&mut network).expect("FIXME: Add proper error handling");
         assert!(result.converged);
         
         // Check that network was updated
-        let inlet = network.get_node("inlet").unwrap();
-        let outlet = network.get_node("outlet").unwrap();
+        let inlet = network.get_node("inlet").expect("FIXME: Add proper error handling");
+        let outlet = network.get_node("outlet").expect("FIXME: Add proper error handling");
         assert!(inlet.pressure.is_some());
         assert!(outlet.pressure.is_some());
         
-        let channel = network.get_edge("ch1").unwrap();
+        let channel = network.get_edge("ch1").expect("FIXME: Add proper error handling");
         assert!(channel.flow_rate.is_some());
         assert!(channel.pressure_drop.is_some());
     }
@@ -890,7 +890,7 @@ mod tests {
             .add_inlet_flow_rate("inlet", 0.0, 0.0, 0.001) // 1 mL/s
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 1.0, 1e-6))
-            .build().unwrap();
+            .build().expect("FIXME: Add proper error handling");
 
         let problem = NetworkProblem::new(network);
         
@@ -898,7 +898,7 @@ mod tests {
         assert!(solver.validate_problem(&problem).is_ok());
         
         // Test solving with Neumann BC
-        let solution = solver.solve(&problem).unwrap();
+        let solution = solver.solve(&problem).expect("FIXME: Add proper error handling");
         assert_eq!(solution.pressures.len(), 2);
         assert_eq!(solution.flow_rates.len(), 1);
         
@@ -922,10 +922,10 @@ mod tests {
             .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 1.0, 1e-6))
-            .build().unwrap();
+            .build().expect("FIXME: Add proper error handling");
 
         // Test that logging works without panics
-        let result = solver.solve_steady_state(&mut network).unwrap();
+        let result = solver.solve_steady_state(&mut network).expect("FIXME: Add proper error handling");
         assert!(result.converged);
         assert!(result.solve_time >= 0.0);
     }

@@ -581,7 +581,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
     }
 
     /// Perform a single time step (backward compatibility)
-    pub fn step(&mut self, boundaries: &HashMap<(usize, usize), BoundaryCondition<T>>) -> cfd_core::Result<()> {
+    pub fn step(&mut self, boundaries: &HashMap<(usize, usize), BoundaryCondition<T>>) -> cfd_core::error::Result<()> {
         self.collision();
         self.streaming();
         self.apply_boundary_conditions(boundaries);

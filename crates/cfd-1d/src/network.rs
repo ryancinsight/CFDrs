@@ -452,7 +452,7 @@ impl<T: RealField + FromPrimitive> Network<T> {
 
         // Use DFS to check connectivity
         use petgraph::visit::Dfs;
-        let start_node = self.graph.node_indices().next().unwrap();
+        let start_node = self.graph.node_indices().next().expect("FIXME: Add proper error handling");
         let mut dfs = Dfs::new(&self.graph, start_node);
         let mut visited_count = 0;
 
@@ -677,12 +677,12 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkBuilder<T> {
     pub fn build_unchecked(mut self) -> Network<T> {
         // Add all pending nodes to the network
         for node in self.pending_nodes {
-            self.network.add_node(node).unwrap(); // Unwrap because we are building unchecked
+            self.network.add_node(node).expect("FIXME: Add proper error handling"); // Unwrap because we are building unchecked
         }
 
         // Add all pending edges to the network
         for (edge, from_id, to_id) in self.pending_edges {
-            self.network.add_edge(edge, &from_id, &to_id).unwrap(); // Unwrap because we are building unchecked
+            self.network.add_edge(edge, &from_id, &to_id).expect("FIXME: Add proper error handling"); // Unwrap because we are building unchecked
         }
 
         self.network
@@ -771,7 +771,7 @@ mod tests {
             .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
-            .build().unwrap();
+            .build().expect("FIXME: Add proper error handling");
 
         assert_eq!(network.node_count(), 2);
         assert_eq!(network.edge_count(), 1);
@@ -795,14 +795,14 @@ mod tests {
             .add_channel("ch1", "inlet", "junction", ChannelProperties::new(50.0, 0.0005, 1e-6))
             .add_channel("ch2", "junction", "outlet1", ChannelProperties::new(100.0, 0.0005, 5e-7))
             .add_channel("ch3", "junction", "outlet2", ChannelProperties::new(100.0, 0.0005, 5e-7))
-            .build().unwrap();
+            .build().expect("FIXME: Add proper error handling");
 
         assert_eq!(network.node_count(), 4);
         assert_eq!(network.edge_count(), 3);
         assert!(network.is_connected());
 
         // Check junction has correct neighbors
-        let neighbors = network.neighbors("junction").unwrap();
+        let neighbors = network.neighbors("junction").expect("FIXME: Add proper error handling");
         assert!(neighbors.len() >= 2); // Connected to at least inlet and one outlet
     }
 
@@ -812,9 +812,9 @@ mod tests {
             .add_inlet_pressure("inlet", 0.0, 0.0, 0.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_pump("pump1", "inlet", "outlet", 1000.0)
-            .build().unwrap();
+            .build().expect("FIXME: Add proper error handling");
 
-        let pump = network.get_edge("pump1").unwrap();
+        let pump = network.get_edge("pump1").expect("FIXME: Add proper error handling");
         assert!(pump.is_active_component());
         assert_eq!(pump.pressure_rise(), Some(1000.0));
     }
@@ -867,10 +867,10 @@ mod tests {
             .add_channel("ch3", "junction", "outlet2", ChannelProperties::new(100.0, 0.0005, 5e-7))
             .build_unchecked(); // Use unchecked to avoid validation
 
-        let junction_edges = network.node_edges("junction").unwrap();
+        let junction_edges = network.node_edges("junction").expect("FIXME: Add proper error handling");
         assert!(junction_edges.len() >= 2); // Should have at least 2 edges
 
-        let inlet_edges = network.node_edges("inlet").unwrap();
+        let inlet_edges = network.node_edges("inlet").expect("FIXME: Add proper error handling");
         assert_eq!(inlet_edges.len(), 1);
     }
 
@@ -880,7 +880,7 @@ mod tests {
             .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
-            .build().unwrap();
+            .build().expect("FIXME: Add proper error handling");
 
         // Set some solution data
         if let Some(node) = network.get_node_mut("inlet") {
@@ -897,10 +897,10 @@ mod tests {
         network.clear_solution();
 
         // Check that solution data is cleared
-        assert!(network.get_node("inlet").unwrap().pressure.is_none());
-        assert!(network.get_node("inlet").unwrap().flow_rate.is_none());
-        assert!(network.get_edge("ch1").unwrap().flow_rate.is_none());
-        assert!(network.get_edge("ch1").unwrap().pressure_drop.is_none());
+        assert!(network.get_node("inlet").expect("FIXME: Add proper error handling").pressure.is_none());
+        assert!(network.get_node("inlet").expect("FIXME: Add proper error handling").flow_rate.is_none());
+        assert!(network.get_edge("ch1").expect("FIXME: Add proper error handling").flow_rate.is_none());
+        assert!(network.get_edge("ch1").expect("FIXME: Add proper error handling").pressure_drop.is_none());
     }
 
     #[test]
@@ -910,7 +910,7 @@ mod tests {
             .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
-            .build().unwrap();
+            .build().expect("FIXME: Add proper error handling");
 
         // Check initial fluid
         assert!(network.fluid().name.contains("Air"));

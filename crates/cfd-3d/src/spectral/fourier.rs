@@ -4,7 +4,7 @@
 
 use nalgebra::{DVector, RealField, Complex};
 use num_traits::FromPrimitive;
-use cfd_core::Result;
+use cfd_core::error::Result;
 use std::f64::consts::PI;
 
 /// Fourier transform operations
@@ -29,7 +29,7 @@ impl<T: RealField + FromPrimitive> FourierTransform<T> {
             };
             
             let wn = T::from_f64(k)
-                .ok_or_else(|| cfd_core::Error::InvalidConfiguration(
+                .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert wavenumber".into()
                 ))?;
             wavenumbers.push(wn);
@@ -44,7 +44,7 @@ impl<T: RealField + FromPrimitive> FourierTransform<T> {
         let n = self.n;
         let mut u_hat = DVector::zeros(n);
         let two_pi = T::from_f64(2.0 * PI)
-            .ok_or_else(|| cfd_core::Error::InvalidConfiguration(
+            .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                 "Cannot convert constant".into()
             ))?;
         
@@ -67,7 +67,7 @@ impl<T: RealField + FromPrimitive> FourierTransform<T> {
         let n = self.n;
         let mut u = DVector::zeros(n);
         let two_pi = T::from_f64(2.0 * PI)
-            .ok_or_else(|| cfd_core::Error::InvalidConfiguration(
+            .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                 "Cannot convert constant".into()
             ))?;
         

@@ -537,7 +537,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> FlowSensor<T> {
     pub fn measure(&self, true_flow_rate: T) -> T {
         // Add measurement noise based on accuracy
         let noise_factor = T::one() - self.accuracy.clone();
-        let noise = (T::from_f64(rand::random::<f64>()).unwrap() - T::from_f64(0.5).unwrap_or_else(|| T::zero())) * noise_factor;
+        let noise = (T::from_f64(rand::random::<f64>()).expect("FIXME: Add proper error handling") - T::from_f64(0.5).unwrap_or_else(|| T::zero())) * noise_factor;
         true_flow_rate * (T::one() + noise)
     }
 }
@@ -775,7 +775,7 @@ mod tests {
         assert!(pump.is_active());
 
         // Test operating point
-        pump.set_operating_point(0.8).unwrap();
+        pump.set_operating_point(0.8).expect("FIXME: Add proper error handling");
         assert_relative_eq!(pump.operating_point, 0.8, epsilon = 1e-10);
 
         // Test pressure rise calculation
@@ -806,7 +806,7 @@ mod tests {
         assert!(!valve.is_closed());
 
         // Test partial opening
-        valve.set_opening(0.5).unwrap();
+        valve.set_opening(0.5).expect("FIXME: Add proper error handling");
         assert_relative_eq!(valve.opening, 0.5, epsilon = 1e-10);
 
         // Test resistance calculation
@@ -851,7 +851,7 @@ mod tests {
         assert!(error < 0.1); // Should be within 10% due to 95% accuracy
 
         // Test parameter setting
-        sensor.set_parameter("accuracy", 0.99).unwrap();
+        sensor.set_parameter("accuracy", 0.99).expect("FIXME: Add proper error handling");
         assert_relative_eq!(sensor.accuracy, 0.99, epsilon = 1e-10);
 
         // Test invalid accuracy
@@ -883,7 +883,7 @@ mod tests {
         assert!(mixing_time_zero.is_infinite());
 
         // Test parameter setting
-        mixer.set_parameter("efficiency", 0.9).unwrap();
+        mixer.set_parameter("efficiency", 0.9).expect("FIXME: Add proper error handling");
         assert_relative_eq!(mixer.efficiency, 0.9, epsilon = 1e-10);
 
         // Test invalid efficiency
@@ -933,11 +933,11 @@ mod tests {
         let mut channel = RectangularChannel::new(0.001, 100e-6, 50e-6, 1e-6);
 
         // Test setting built-in parameters
-        channel.set_parameter("length", 0.002).unwrap();
+        channel.set_parameter("length", 0.002).expect("FIXME: Add proper error handling");
         assert_relative_eq!(channel.length, 0.002, epsilon = 1e-15);
 
         // Test setting custom parameters
-        channel.set_parameter("custom_param", 42.0).unwrap();
+        channel.set_parameter("custom_param", 42.0).expect("FIXME: Add proper error handling");
         assert_eq!(channel.parameters().get("custom_param"), Some(&42.0));
 
         // Test getting parameters

@@ -486,7 +486,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
     /// Calculate resistance for turbulent flow using Darcy-Weisbach equation
     fn calculate_turbulent_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
         let reynolds = self.flow_state.reynolds_number.ok_or_else(|| {
-            cfd_core::Error::InvalidConfiguration("Reynolds number required for turbulent flow".to_string())
+            cfd_core::error::Error::InvalidConfiguration("Reynolds number required for turbulent flow".to_string())
         })?;
 
         // Use Darcy-Weisbach equation with friction factor correlation
@@ -649,9 +649,9 @@ mod tests {
     fn test_circular_resistance_calculation() {
         let geometry = ChannelGeometry::circular(0.001, 100e-6, 1e-6);
         let channel = Channel::new(geometry);
-        let fluid = cfd_core::Fluid::water();
+        let fluid = cfd_core::fluid::Fluid::water();
 
-        let resistance = channel.calculate_circular_laminar_resistance(&fluid, 100e-6).unwrap();
+        let resistance = channel.calculate_circular_laminar_resistance(&fluid, 100e-6).expect("FIXME: Add proper error handling");
 
         // Should be positive and reasonable for water flow
         assert!(resistance > 0.0);
@@ -662,9 +662,9 @@ mod tests {
     fn test_rectangular_resistance_calculation() {
         let geometry = ChannelGeometry::rectangular(0.001, 100e-6, 50e-6, 1e-6);
         let channel = Channel::new(geometry);
-        let fluid = cfd_core::Fluid::water();
+        let fluid = cfd_core::fluid::Fluid::water();
 
-        let resistance = channel.calculate_rectangular_laminar_resistance(&fluid, 100e-6, 50e-6).unwrap();
+        let resistance = channel.calculate_rectangular_laminar_resistance(&fluid, 100e-6, 50e-6).expect("FIXME: Add proper error handling");
 
         // Should be positive and reasonable for water flow
         assert!(resistance > 0.0);
@@ -675,20 +675,20 @@ mod tests {
     fn test_resistance_calculation_different_regimes() {
         let geometry = ChannelGeometry::rectangular(0.001, 100e-6, 50e-6, 1e-6);
         let mut channel = Channel::new(geometry);
-        let fluid = cfd_core::Fluid::water();
+        let fluid = cfd_core::fluid::Fluid::water();
 
         // Test different flow regimes
         channel.set_reynolds_number(0.1); // Stokes
-        let stokes_r = channel.calculate_resistance(&fluid).unwrap();
+        let stokes_r = channel.calculate_resistance(&fluid).expect("FIXME: Add proper error handling");
 
         channel.set_reynolds_number(100.0); // Laminar
-        let laminar_r = channel.calculate_resistance(&fluid).unwrap();
+        let laminar_r = channel.calculate_resistance(&fluid).expect("FIXME: Add proper error handling");
 
         channel.set_reynolds_number(3000.0); // Transitional
-        let transitional_r = channel.calculate_resistance(&fluid).unwrap();
+        let transitional_r = channel.calculate_resistance(&fluid).expect("FIXME: Add proper error handling");
 
         channel.set_reynolds_number(5000.0); // Turbulent
-        let turbulent_r = channel.calculate_resistance(&fluid).unwrap();
+        let turbulent_r = channel.calculate_resistance(&fluid).expect("FIXME: Add proper error handling");
 
         // All should be positive
         assert!(stokes_r > 0.0);

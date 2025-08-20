@@ -1,6 +1,6 @@
 //! Checkpoint and restart functionality.
 
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::RealField;
 
 /// Checkpoint data

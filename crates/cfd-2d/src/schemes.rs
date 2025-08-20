@@ -5,7 +5,7 @@
 
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
-use cfd_core::Error;
+use cfd_core::error::Error;
 use serde::{Deserialize, Serialize};
 
 /// Named constants for scheme parameters

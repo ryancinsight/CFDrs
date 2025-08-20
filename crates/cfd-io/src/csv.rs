@@ -3,7 +3,7 @@
 //! This module provides CSV file support for CFD simulation data
 //! with streaming and iterator-based processing for efficiency.
 
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use csv::{Reader as CsvReaderImpl, Writer as CsvWriterImpl};
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};

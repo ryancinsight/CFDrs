@@ -6,7 +6,7 @@
 //! - Wall functions for near-wall treatment
 
 use nalgebra::{RealField, Vector2};
-use cfd_core::Result;
+use cfd_core::error::Result;
 use num_traits::FromPrimitive;
 
 /// Turbulence model constants

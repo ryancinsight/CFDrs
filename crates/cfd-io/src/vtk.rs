@@ -3,7 +3,7 @@
 //! This module provides VTK (Visualization Toolkit) file format support
 //! for CFD simulation data with zero-copy operations where possible.
 
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
 use num_traits::cast::ToPrimitive;
 use std::fs::File;

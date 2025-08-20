@@ -3,7 +3,7 @@
 //! The Level Set method represents interfaces as the zero level set of a
 //! signed distance function, providing accurate interface tracking.
 
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::{Vector3, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};

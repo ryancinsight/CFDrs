@@ -4,7 +4,7 @@
 
 use nalgebra::{DMatrix, DVector, RealField};
 use num_traits::FromPrimitive;
-use cfd_core::Result;
+use cfd_core::error::Result;
 use std::f64::consts::PI;
 
 /// Chebyshev polynomial basis
@@ -39,7 +39,7 @@ impl<T: RealField + FromPrimitive> ChebyshevPolynomial<T> {
         for j in 0..n {
             let theta = PI * (j as f64) / n_f64;
             let x = T::from_f64(theta.cos())
-                .ok_or_else(|| cfd_core::Error::InvalidConfiguration(
+                .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert collocation point".into()
                 ))?;
             points.push(x);
@@ -53,7 +53,7 @@ impl<T: RealField + FromPrimitive> ChebyshevPolynomial<T> {
     fn differentiation_matrix(n: usize, points: &[T]) -> Result<DMatrix<T>> {
         let mut d = DMatrix::zeros(n, n);
         let two = T::from_f64(2.0)
-            .ok_or_else(|| cfd_core::Error::InvalidConfiguration(
+            .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                 "Cannot convert constant".into()
             ))?;
         

@@ -63,7 +63,7 @@ pub trait SafeFromF64<T> {
 impl<T: RealField + FromPrimitive> SafeFromF64<T> for T {
     fn safe_from_f64(value: f64) -> Result<T> {
         T::from_f64(value).ok_or_else(|| 
-            cfd_core::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation
+            cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation
                 format!("Cannot convert f64 value {} to target type", value)
             )
         )

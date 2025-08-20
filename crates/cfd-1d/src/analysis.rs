@@ -420,11 +420,11 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
             for i in 0..n-1 {
                 let _ = builder.add_entry(i, i, T::one());
             }
-            builder.build().unwrap()
+            builder.build().expect("FIXME: Add proper error handling")
         });
         
         let config = LinearSolverConfig {
-            base: cfd_core::SolverConfig::builder()
+            base: cfd_core::solver::SolverConfig::builder()
                 .tolerance(T::from_f64(1e-10).unwrap_or_else(T::default_epsilon))
                 .max_iterations(1000)
                 .build_base(),
@@ -696,12 +696,12 @@ use crate::network::{NetworkBuilder, ChannelProperties};
             .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
-            .build().unwrap();
+            .build().expect("FIXME: Add proper error handling");
 
         let analyzer = NetworkAnalyzer::new();
-        let _result = analyzer.solver.solve_steady_state(&mut network).unwrap();
+        let _result = analyzer.solver.solve_steady_state(&mut network).expect("FIXME: Add proper error handling");
 
-        let flow_analysis = analyzer.analyze_flow(&network).unwrap();
+        let flow_analysis = analyzer.analyze_flow(&network).expect("FIXME: Add proper error handling");
 
         // Should have flow data
         assert!(flow_analysis.component_flows.contains_key("ch1"));
@@ -714,12 +714,12 @@ use crate::network::{NetworkBuilder, ChannelProperties};
             .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
-            .build().unwrap();
+            .build().expect("FIXME: Add proper error handling");
 
         let analyzer = NetworkAnalyzer::new();
-        let _result = analyzer.solver.solve_steady_state(&mut network).unwrap();
+        let _result = analyzer.solver.solve_steady_state(&mut network).expect("FIXME: Add proper error handling");
 
-        let pressure_analysis = analyzer.analyze_pressure(&network).unwrap();
+        let pressure_analysis = analyzer.analyze_pressure(&network).expect("FIXME: Add proper error handling");
 
         // Should have pressure data
         assert!(pressure_analysis.pressures.contains_key("inlet"));
@@ -733,10 +733,10 @@ use crate::network::{NetworkBuilder, ChannelProperties};
             .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
-            .build().unwrap();
+            .build().expect("FIXME: Add proper error handling");
 
         let analyzer = NetworkAnalyzer::new();
-        let resistance_analysis = analyzer.analyze_resistance(&network).unwrap();
+        let resistance_analysis = analyzer.analyze_resistance(&network).expect("FIXME: Add proper error handling");
 
         // Should have resistance data
         assert!(resistance_analysis.resistances.contains_key("ch1"));
@@ -749,12 +749,12 @@ use crate::network::{NetworkBuilder, ChannelProperties};
             .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
-            .build().unwrap();
+            .build().expect("FIXME: Add proper error handling");
 
         let analyzer = NetworkAnalyzer::new();
-        let _result = analyzer.solver.solve_steady_state(&mut network).unwrap();
+        let _result = analyzer.solver.solve_steady_state(&mut network).expect("FIXME: Add proper error handling");
 
-        let performance = analyzer.analyze_performance(&network).unwrap();
+        let performance = analyzer.analyze_performance(&network).expect("FIXME: Add proper error handling");
 
         // Should have performance data
         assert!(performance.throughput >= 0.0);
@@ -773,10 +773,10 @@ use crate::network::{NetworkBuilder, ChannelProperties};
             .add_channel("input_ch", "inlet", "junction", ChannelProperties::new(100.0, 0.001, 1e-6))
             .add_channel("output_ch1", "junction", "outlet1", ChannelProperties::new(200.0, 0.001, 1e-6))
             .add_channel("output_ch2", "junction", "outlet2", ChannelProperties::new(200.0, 0.001, 1e-6))
-            .build().unwrap();
+            .build().expect("FIXME: Add proper error handling");
 
         let analyzer = NetworkAnalyzer::new();
-        let analysis_result = analyzer.analyze(&mut network).unwrap();
+        let analysis_result = analyzer.analyze(&mut network).expect("FIXME: Add proper error handling");
 
         // Check that all analyses completed
         assert!(analysis_result.solution_result.converged);
@@ -799,7 +799,7 @@ use crate::network::{NetworkBuilder, ChannelProperties};
     #[test]
     fn test_reynolds_number_calculation() {
         let analyzer = NetworkAnalyzer::<f64>::new();
-        let fluid = cfd_core::Fluid::water();
+        let fluid = cfd_core::fluid::Fluid::water();
 
         let velocity = 0.1; // m/s
         let diameter = 1e-3; // 1 mm

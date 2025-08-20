@@ -32,7 +32,7 @@ impl<T: RealField + FromPrimitive> SpectralConfig<T> {
         Ok(Self {
             base: cfd_core::SolverConfig::builder()
                 .tolerance(T::from_f64(1e-10)
-                    .ok_or_else(|| cfd_core::Error::InvalidConfiguration(
+                    .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                         "Cannot convert tolerance".into()
                     ))?)
                 .max_iterations(100)

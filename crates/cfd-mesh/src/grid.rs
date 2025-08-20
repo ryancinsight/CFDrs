@@ -514,12 +514,12 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
                         
                         // Get neighboring points
                         let neighbors = [
-                            self.get_point(i-1, j, k).unwrap(),
-                            self.get_point(i+1, j, k).unwrap(),
-                            self.get_point(i, j-1, k).unwrap(),
-                            self.get_point(i, j+1, k).unwrap(),
-                            self.get_point(i, j, k-1).unwrap(),
-                            self.get_point(i, j, k+1).unwrap(),
+                            self.get_point(i-1, j, k).expect("FIXME: Add proper error handling"),
+                            self.get_point(i+1, j, k).expect("FIXME: Add proper error handling"),
+                            self.get_point(i, j-1, k).expect("FIXME: Add proper error handling"),
+                            self.get_point(i, j+1, k).expect("FIXME: Add proper error handling"),
+                            self.get_point(i, j, k-1).expect("FIXME: Add proper error handling"),
+                            self.get_point(i, j, k+1).expect("FIXME: Add proper error handling"),
                         ];
                         
                         // Compute average
@@ -527,7 +527,7 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
                         for neighbor in &neighbors {
                             avg += &neighbor.coords;
                         }
-                        avg /= T::from_usize(neighbors.len()).unwrap();
+                        avg /= T::from_usize(neighbors.len()).expect("FIXME: Add proper error handling");
                         
                         // Blend with original
                         new_points[index] = Point3::from(
@@ -586,10 +586,10 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
     /// Compute Jacobian at cell (i, j, k)
     fn compute_jacobian(&self, i: usize, j: usize, k: usize) -> T {
         // Compute Jacobian determinant of transformation
-        let p000 = self.get_point(i, j, k).unwrap();
-        let p100 = self.get_point(i+1, j, k).unwrap();
-        let p010 = self.get_point(i, j+1, k).unwrap();
-        let p001 = self.get_point(i, j, k+1).unwrap();
+        let p000 = self.get_point(i, j, k).expect("FIXME: Add proper error handling");
+        let p100 = self.get_point(i+1, j, k).expect("FIXME: Add proper error handling");
+        let p010 = self.get_point(i, j+1, k).expect("FIXME: Add proper error handling");
+        let p001 = self.get_point(i, j, k+1).expect("FIXME: Add proper error handling");
         
         let dx = p100 - p000;
         let dy = p010 - p000;
@@ -600,10 +600,10 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
     
     /// Compute orthogonality at cell (i, j, k)
     fn compute_orthogonality(&self, i: usize, j: usize, k: usize) -> T {
-        let p000 = self.get_point(i, j, k).unwrap();
-        let p100 = self.get_point(i+1, j, k).unwrap();
-        let p010 = self.get_point(i, j+1, k).unwrap();
-        let p001 = self.get_point(i, j, k+1).unwrap();
+        let p000 = self.get_point(i, j, k).expect("FIXME: Add proper error handling");
+        let p100 = self.get_point(i+1, j, k).expect("FIXME: Add proper error handling");
+        let p010 = self.get_point(i, j+1, k).expect("FIXME: Add proper error handling");
+        let p001 = self.get_point(i, j, k+1).expect("FIXME: Add proper error handling");
         
         let dx = (p100 - p000).normalize();
         let dy = (p010 - p000).normalize();
@@ -714,10 +714,10 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
     
     /// Compute aspect ratio at cell (i, j, k)
     fn compute_aspect_ratio(&self, i: usize, j: usize, k: usize) -> T {
-        let p000 = self.get_point(i, j, k).unwrap();
-        let p100 = self.get_point(i+1, j, k).unwrap();
-        let p010 = self.get_point(i, j+1, k).unwrap();
-        let p001 = self.get_point(i, j, k+1).unwrap();
+        let p000 = self.get_point(i, j, k).expect("FIXME: Add proper error handling");
+        let p100 = self.get_point(i+1, j, k).expect("FIXME: Add proper error handling");
+        let p010 = self.get_point(i, j+1, k).expect("FIXME: Add proper error handling");
+        let p001 = self.get_point(i, j, k+1).expect("FIXME: Add proper error handling");
         
         let dx = (p100 - p000).norm();
         let dy = (p010 - p000).norm();
@@ -754,7 +754,7 @@ mod tests {
         let grid = GridGenerator::<f64>::uniform_cartesian(
             5, 5, 5,
             [[0.0, 1.0], [0.0, 1.0], [0.0, 1.0]],
-        ).unwrap();
+        ).expect("FIXME: Add proper error handling");
         
         assert_eq!(grid.dimensions, [5, 5, 5]);
         assert_eq!(grid.points.len(), 125);
@@ -766,7 +766,7 @@ mod tests {
         let grid = GridGenerator::<f64>::uniform_cartesian(
             3, 3, 3,
             [[0.0, 1.0], [0.0, 1.0], [0.0, 1.0]],
-        ).unwrap();
+        ).expect("FIXME: Add proper error handling");
         
         let mesh = grid.to_mesh();
         assert_eq!(mesh.vertices.len(), 27);

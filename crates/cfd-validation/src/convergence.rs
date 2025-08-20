@@ -4,7 +4,7 @@
 //! including Richardson extrapolation and grid convergence studies.
 
 use crate::error_metrics::{ErrorMetric, ErrorAnalysis};
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
 use num_traits::cast::{FromPrimitive, ToPrimitive};
 

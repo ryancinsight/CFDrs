@@ -310,7 +310,7 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                 // Check minimum size
                 let size = self.compute_cell_size(mesh, cell);
                 if size < self.config.min_size {
-                    return Err(RefinementError::MinSizeReached(size.to_subset().unwrap()));
+                    return Err(RefinementError::MinSizeReached(size.to_subset().expect("FIXME: Add proper error handling")));
                 }
                 
                 // Perform refinement (tetrahedral subdivision for 3D)
@@ -745,7 +745,7 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                             avg_pos += &v.position.coords;
                         }
                     }
-                    avg_pos /= T::from_usize(connected.len()).unwrap();
+                    avg_pos /= T::from_usize(connected.len()).expect("FIXME: Add proper error handling");
                     
                     // Blend with original position
                     let alpha = T::from_f64(0.5).unwrap_or_else(|| T::zero()); // Smoothing factor

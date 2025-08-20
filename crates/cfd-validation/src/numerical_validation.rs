@@ -4,7 +4,7 @@
 //! implemented in the CFD suite, comparing against known analytical solutions
 //! and published benchmark results.
 
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use cfd_math::{LinearSolver, ConjugateGradient, BiCGSTAB, LinearSolverConfig};
 use nalgebra::{RealField, DVector};
 use nalgebra_sparse::CsrMatrix;

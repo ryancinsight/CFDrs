@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   - Fluid: {}", network.fluid().name);
 
     // Create solver with custom configuration using builder pattern
-    let solver_config = cfd_core::SolverConfig::<f64>::builder()
+    let solver_config = cfd_core::solver::SolverConfig::<f64>::builder()
         .max_iterations(1000)
         .tolerance(1e-6)
         .verbosity(2) // verbose = true means verbosity level 2

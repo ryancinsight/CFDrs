@@ -30,18 +30,18 @@ pub enum IoError {
     
     /// Core error
     #[error(transparent)]
-    Core(#[from] cfd_core::Error),
+    Core(#[from] cfd_core::error::Error),
 }
 
 /// Result type for I/O operations
 pub type Result<T> = std::result::Result<T, IoError>;
 
 // Allow conversion from IoError to core Error for compatibility
-impl From<IoError> for cfd_core::Error {
+impl From<IoError> for cfd_core::error::Error {
     fn from(err: IoError) -> Self {
         match err {
             IoError::Core(e) => e,
-            other => cfd_core::Error::External(other.to_string()),
+            other => cfd_core::error::Error::External(other.to_string()),
         }
     }
 }

@@ -66,16 +66,16 @@ impl<T: RealField + FromPrimitive> PisoConfig<T> {
     pub fn new() -> Result<Self> {
         Ok(Self {
             time_step: T::from_f64(0.01)
-                .ok_or_else(|| cfd_core::Error::InvalidConfiguration(
+                .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert time_step to target type".into()
                 ))?,
             num_correctors: 2,
             velocity_tolerance: T::from_f64(1e-6)
-                .ok_or_else(|| cfd_core::Error::InvalidConfiguration(
+                .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert velocity_tolerance to target type".into()
                 ))?,
             pressure_tolerance: T::from_f64(1e-6)
-                .ok_or_else(|| cfd_core::Error::InvalidConfiguration(
+                .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert pressure_tolerance to target type".into()
                 ))?,
             non_orthogonal_correctors: 1,

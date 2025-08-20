@@ -3,7 +3,7 @@
 //! This module provides tools to verify that CFD simulations satisfy fundamental
 //! conservation laws such as mass, momentum, and energy conservation.
 
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::{RealField, DVector};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -268,7 +268,7 @@ impl<T: RealField + FromPrimitive> GlobalConservationIntegrals<T> {
            density.len() != velocity_y.len() || 
            density.len() != velocity_z.len() ||
            density.len() != cell_volumes.len() {
-            return Err(cfd_core::Error::InvalidConfiguration(
+            return Err(cfd_core::error::Error::InvalidConfiguration(
                 "All field arrays must have the same length".to_string()
             ));
         }

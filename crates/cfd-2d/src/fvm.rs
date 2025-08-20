@@ -83,7 +83,7 @@ impl FluxSchemeFactory {
             "upwind" => Ok(FluxScheme::Upwind),
             "hybrid" => Ok(FluxScheme::Hybrid),
             "quick" => Ok(FluxScheme::Quick),
-            _ => Err(cfd_core::Error::InvalidInput(
+            _ => Err(cfd_core::error::Error::InvalidInput(
                 format!("Unknown flux scheme: {}", name)
             )),
         }

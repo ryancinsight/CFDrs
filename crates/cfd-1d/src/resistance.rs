@@ -399,10 +399,10 @@ mod tests {
             length: 0.001,
         };
 
-        let fluid = cfd_core::Fluid::water();
+        let fluid = cfd_core::fluid::Fluid::water();
         let conditions = create_test_conditions();
 
-        let resistance = model.calculate_resistance(&fluid, &conditions).unwrap();
+        let resistance = model.calculate_resistance(&fluid, &conditions).expect("FIXME: Add proper error handling");
 
         // Should be positive and reasonable for water flow
         assert!(resistance > 0.0);
@@ -425,10 +425,10 @@ mod tests {
             length: 0.001,
         };
 
-        let fluid = cfd_core::Fluid::water();
+        let fluid = cfd_core::fluid::Fluid::water();
         let conditions = create_test_conditions();
 
-        let resistance = model.calculate_resistance(&fluid, &conditions).unwrap();
+        let resistance = model.calculate_resistance(&fluid, &conditions).expect("FIXME: Add proper error handling");
 
         // Should be positive and reasonable
         assert!(resistance > 0.0);
@@ -468,11 +468,11 @@ mod tests {
             roughness: 1e-6,
         };
 
-        let fluid = cfd_core::Fluid::water();
+        let fluid = cfd_core::fluid::Fluid::water();
         let mut conditions = create_test_conditions();
         conditions.reynolds_number = Some(5000.0); // Turbulent
 
-        let resistance = model.calculate_resistance(&fluid, &conditions).unwrap();
+        let resistance = model.calculate_resistance(&fluid, &conditions).expect("FIXME: Add proper error handling");
 
         // Should be positive
         assert!(resistance > 0.0);
@@ -509,7 +509,7 @@ mod tests {
             roughness: 1e-6,
         };
 
-        let fluid = cfd_core::Fluid::water();
+        let fluid = cfd_core::fluid::Fluid::water();
         let mut conditions = create_test_conditions();
         conditions.reynolds_number = None; // No Reynolds number
 
@@ -542,28 +542,28 @@ mod tests {
     #[test]
     fn test_resistance_calculator() {
         let calculator = ResistanceCalculator::new();
-        let fluid = cfd_core::Fluid::water();
+        let fluid = cfd_core::fluid::Fluid::water();
         let conditions = create_test_conditions();
 
         // Test Hagen-Poiseuille calculation
-        let resistance = calculator.calculate_hagen_poiseuille(100e-6, 0.001, &fluid, &conditions).unwrap();
+        let resistance = calculator.calculate_hagen_poiseuille(100e-6, 0.001, &fluid, &conditions).expect("FIXME: Add proper error handling");
         assert!(resistance > 0.0);
 
         // Test rectangular calculation
-        let resistance = calculator.calculate_rectangular(100e-6, 50e-6, 0.001, &fluid, &conditions).unwrap();
+        let resistance = calculator.calculate_rectangular(100e-6, 50e-6, 0.001, &fluid, &conditions).expect("FIXME: Add proper error handling");
         assert!(resistance > 0.0);
 
         // Test Darcy-Weisbach calculation
         let mut turbulent_conditions = create_test_conditions();
         turbulent_conditions.reynolds_number = Some(5000.0);
-        let resistance = calculator.calculate_darcy_weisbach(100e-6, 0.001, 1e-6, &fluid, &turbulent_conditions).unwrap();
+        let resistance = calculator.calculate_darcy_weisbach(100e-6, 0.001, 1e-6, &fluid, &turbulent_conditions).expect("FIXME: Add proper error handling");
         assert!(resistance > 0.0);
     }
 
     #[test]
     fn test_resistance_calculator_auto() {
         let calculator = ResistanceCalculator::new();
-        let fluid = cfd_core::Fluid::water();
+        let fluid = cfd_core::fluid::Fluid::water();
         let conditions = create_test_conditions();
 
         // Test auto calculation with circular geometry
@@ -572,7 +572,7 @@ mod tests {
             length: 0.001,
         };
 
-        let resistance = calculator.calculate_auto(&circular_geom, &fluid, &conditions).unwrap();
+        let resistance = calculator.calculate_auto(&circular_geom, &fluid, &conditions).expect("FIXME: Add proper error handling");
         assert!(resistance > 0.0);
 
         // Test auto calculation with rectangular geometry
@@ -582,7 +582,7 @@ mod tests {
             length: 0.001,
         };
 
-        let resistance = calculator.calculate_auto(&rect_geom, &fluid, &conditions).unwrap();
+        let resistance = calculator.calculate_auto(&rect_geom, &fluid, &conditions).expect("FIXME: Add proper error handling");
         assert!(resistance > 0.0);
     }
 

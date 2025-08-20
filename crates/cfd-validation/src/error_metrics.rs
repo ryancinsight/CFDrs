@@ -3,7 +3,7 @@
 //! This module provides various error metrics to quantify the difference
 //! between numerical solutions and analytical or reference solutions.
 
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::{RealField, Vector3};
 use num_traits::cast::FromPrimitive;
 

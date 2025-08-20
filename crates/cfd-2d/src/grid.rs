@@ -3,7 +3,7 @@
 //! This module provides various grid types for 2D CFD simulations, including
 //! structured and unstructured grids with support for adaptive refinement.
 
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};

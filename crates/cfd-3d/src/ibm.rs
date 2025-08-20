@@ -3,7 +3,7 @@
 //! The IBM allows simulation of flow around complex objects without
 //! body-fitted meshes by using forcing terms in the momentum equations.
 
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::{Vector3, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
