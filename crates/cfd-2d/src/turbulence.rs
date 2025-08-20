@@ -27,6 +27,16 @@ pub mod constants {
     pub const SIGMA_EPSILON: f64 = 1.3;
     /// Small value for numerical stability
     pub const EPSILON_MIN: f64 = 1e-10;
+    /// Y+ threshold for viscous sublayer
+    pub const Y_PLUS_VISCOUS_SUBLAYER: f64 = 5.0;
+    /// Y+ threshold for log-law region  
+    pub const Y_PLUS_LOG_LAW: f64 = 11.63;
+    /// K-epsilon coefficient for viscous sublayer
+    pub const K_VISC_COEFFICIENT: f64 = 11.0;
+    /// SST model constant beta_1
+    pub const SST_BETA_1: f64 = 0.075;
+    /// Omega wall coefficient for viscous sublayer
+    pub const OMEGA_WALL_COEFFICIENT: f64 = 60.0;
 }
 
 /// Wall function types

@@ -175,8 +175,6 @@ impl<T: RealField> BoundaryCondition<T> {
     {
         match self {
             Self::PressureInlet { pressure } | Self::PressureOutlet { pressure } => Some(*pressure),
-            #[allow(deprecated)]
-            Self::Outlet { pressure } => Some(*pressure),
             _ => None,
         }
     }
@@ -199,8 +197,6 @@ impl<T: RealField> BoundaryCondition<T> {
     {
         match self {
             Self::VelocityInlet { velocity } => Some(velocity.x),
-            #[allow(deprecated)]
-            Self::Inlet { velocity } => Some(velocity.x),
             _ => None,
         }
     }
