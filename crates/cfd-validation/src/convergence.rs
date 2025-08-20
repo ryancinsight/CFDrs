@@ -515,7 +515,7 @@ mod tests {
 
         match study.convergence_order() {
             ConvergenceOrder::SecondOrder => {},
-            _ => panic!("Expected second-order convergence"),
+            _ => assert!(false, "Expected second-order convergence"),
         }
     }
 
@@ -531,7 +531,7 @@ mod tests {
 
         match study.convergence_order() {
             ConvergenceOrder::FirstOrder => {},
-            _ => panic!("Expected first-order convergence"),
+            _ => assert!(false, "Expected first-order convergence"),
         }
     }
 
@@ -634,7 +634,7 @@ mod tests {
 
         match status {
             ConvergenceStatus::Converged { criterion: ConvergenceCriterion::Absolute, .. } => {},
-            _ => panic!("Expected absolute convergence"),
+            _ => assert!(false, "Expected absolute convergence"),
         }
     }
 
@@ -645,7 +645,7 @@ mod tests {
 
         match status {
             ConvergenceStatus::Converged { criterion: ConvergenceCriterion::Relative, .. } => {},
-            _ => panic!("Expected relative convergence"),
+            _ => assert!(false, "Expected relative convergence"),
         }
     }
 
@@ -656,7 +656,7 @@ mod tests {
 
         match status {
             ConvergenceStatus::NotConverged { .. } => {},
-            _ => panic!("Expected not converged"),
+            _ => assert!(false, "Expected not converged"),
         }
     }
 

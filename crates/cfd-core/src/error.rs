@@ -75,7 +75,7 @@ pub enum MeshErrorKind {
     NonManifold,
     
     /// Insufficient quality
-    #[error("Mesh quality below threshold: {quality:.3f} < {threshold:.3f}")]
+    #[error("Mesh quality below threshold: {quality} < {threshold}")]
     InsufficientQuality { quality: f64, threshold: f64 },
 }
 

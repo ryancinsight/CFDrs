@@ -434,23 +434,50 @@ impl<T: RealField + FromPrimitive + Copy> PisoSolver<T> {
     }
 
     /// Solve pressure correction equation
+    /// Solves: ∇²p' = (ρ/Δt)∇·u* using Jacobi iteration
+    /// Reference: Issa (1986), J. Comp. Phys. 62, 40-65
     fn solve_pressure_correction(
         &self,
         state: &SolverState<T>,
         workspace: &mut PisoWorkspace<T>,
     ) -> Result<()> {
-        // Build pressure correction equation
-        // This is a simplified implementation
-        // Full implementation would solve Poisson equation for pressure
+        let dx = self.grid.dx;
+        let dy = self.grid.dy;
+        let dt = self.config.time_step;
+        let dx2 = dx * dx;
+        let dy2 = dy * dy;
+        let factor = T::from_f64(2.0).unwrap() * (dx2 + dy2);
         
+        // Build RHS: (ρ/Δt)∇·u*
+        let mut rhs = ScalarField::new(self.grid.nx, self.grid.ny);
+        for i in 1..self.grid.nx - 1 {
+            for j in 1..self.grid.ny - 1 {
+                let div_u = self.compute_velocity_divergence(state, i, j)?;
+                rhs[(i, j)] = self.density * div_u / dt;
+            }
+        }
+        
+        // Solve Poisson equation using Jacobi iteration
         for _ in 0..self.config.pressure_correction_max_iters {
+            let p_old = workspace.p_prime.clone();
+            
             for i in 1..self.grid.nx - 1 {
                 for j in 1..self.grid.ny - 1 {
-                    // Simplified pressure correction
-                    // In a full implementation, this would solve: ∇²p' = ∇·u*
-                    let div_u = self.compute_velocity_divergence(state, i, j)?;
-                    workspace.p_prime[(i, j)] = -div_u * self.density * self.grid.dx * self.grid.dy;
+                    // Laplacian stencil: (p_E + p_W)/dx² + (p_N + p_S)/dy² - rhs
+                    let laplacian_x = (p_old[(i+1, j)] + p_old[(i-1, j)]) * dy2;
+                    let laplacian_y = (p_old[(i, j+1)] + p_old[(i, j-1)]) * dx2;
+                    workspace.p_prime[(i, j)] = (laplacian_x + laplacian_y - rhs[(i, j)] * dx2 * dy2) / factor;
                 }
+            }
+            
+            // Apply Neumann BC for pressure correction (∂p'/∂n = 0)
+            for i in 0..self.grid.nx {
+                workspace.p_prime[(i, 0)] = workspace.p_prime[(i, 1)];
+                workspace.p_prime[(i, self.grid.ny-1)] = workspace.p_prime[(i, self.grid.ny-2)];
+            }
+            for j in 0..self.grid.ny {
+                workspace.p_prime[(0, j)] = workspace.p_prime[(1, j)];
+                workspace.p_prime[(self.grid.nx-1, j)] = workspace.p_prime[(self.grid.nx-2, j)];
             }
         }
         
