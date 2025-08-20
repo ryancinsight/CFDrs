@@ -22,6 +22,7 @@
 use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
+use nalgebra_sparse::coo::CooMatrix;
 use num_traits::cast::FromPrimitive;
 use std::fmt::Debug;
 use crate::sparse::SparseMatrixExt;
@@ -509,12 +510,16 @@ mod tests {
         builder.build().expect("CRITICAL: Add proper error handling")
     }
 
-    fn create_test_matrix() -> DMatrix<f64> {
-        DMatrix::from_row_slice(3, 3, &[
-            4.0, -1.0, 0.0,
-            -1.0, 4.0, -1.0,
-            0.0, -1.0, 4.0,
-        ])
+    fn create_test_matrix() -> CsrMatrix<f64> {
+        let mut coo = CooMatrix::new(3, 3);
+        coo.push(0, 0, 4.0);
+        coo.push(0, 1, -1.0);
+        coo.push(1, 0, -1.0);
+        coo.push(1, 1, 4.0);
+        coo.push(1, 2, -1.0);
+        coo.push(2, 1, -1.0);
+        coo.push(2, 2, 4.0);
+        CsrMatrix::from(&coo)
     }
 
     #[test]
