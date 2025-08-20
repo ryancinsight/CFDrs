@@ -10,8 +10,9 @@
 //! The FVM approach ensures conservation of mass, momentum, and energy by
 //! integrating governing equations over control volumes.
 
-use cfd_core::{Result, BoundaryCondition, SolverConfiguration};
-use cfd_math::{SparseMatrixBuilder, LinearSolver, LinearSolverConfig, ConjugateGradient};
+use cfd_core::{Result, BoundaryCondition, SolverConfiguration, solver::SolverConfig};
+use cfd_math::{SparseMatrixBuilder, LinearSolver, ConjugateGradient};
+use cfd_core::solver::LinearSolverConfig;
 use nalgebra::{DVector, RealField, Vector2};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
