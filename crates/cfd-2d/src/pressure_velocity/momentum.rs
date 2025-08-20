@@ -6,19 +6,19 @@ use cfd_math::{LinearSolver, ConjugateGradient, BiCGSTAB};
 use crate::grid::StructuredGrid2D;
 use crate::schemes::{SpatialScheme, FiniteDifference};
 use super::coefficients::CellCoefficients;
-use super::config::SIMPLEConfig;
+use super::config::PressureVelocityConfig;
 
 /// Momentum equation solver
 pub struct MomentumSolver<T: RealField> {
     /// Grid
     grid: StructuredGrid2D<T>,
     /// Configuration
-    config: SIMPLEConfig<T>,
+    config: PressureVelocityConfig<T>,
 }
 
 impl<T: RealField + FromPrimitive> MomentumSolver<T> {
     /// Create new momentum solver
-    pub fn new(grid: StructuredGrid2D<T>, config: SIMPLEConfig<T>) -> Self {
+    pub fn new(grid: StructuredGrid2D<T>, config: PressureVelocityConfig<T>) -> Self {
         Self { grid, config }
     }
     

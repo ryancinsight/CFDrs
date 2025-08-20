@@ -1,14 +1,14 @@
-//! Main SIMPLE solver implementation
+//! Main pressure-velocity coupling solver implementation
 
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 use crate::grid::StructuredGrid2D;
-use super::{SIMPLEConfig, MomentumSolver, PressureCorrectionSolver, RhieChowInterpolation};
+use super::{PressureVelocityConfig, MomentumSolver, PressureCorrectionSolver, RhieChowInterpolation};
 
 /// SIMPLE (Semi-Implicit Method for Pressure-Linked Equations) solver
-pub struct SIMPLESolver<T: RealField> {
+pub struct PressureVelocitySolver<T: RealField> {
     /// Configuration
-    config: SIMPLEConfig<T>,
+    config: PressureVelocityConfig<T>,
     /// Grid
     grid: StructuredGrid2D<T>,
     /// Momentum solver
@@ -25,11 +25,11 @@ pub struct SIMPLESolver<T: RealField> {
     iterations: usize,
 }
 
-impl<T: RealField + FromPrimitive> SIMPLESolver<T> {
-    /// Create new SIMPLE solver
+impl<T: RealField + FromPrimitive> PressureVelocitySolver<T> {
+    /// Create new pressure-velocity coupling solver
     pub fn new(
         grid: StructuredGrid2D<T>,
-        config: SIMPLEConfig<T>,
+        config: PressureVelocityConfig<T>,
     ) -> cfd_core::error::Result<Self> {
         config.validate()?;
         
@@ -68,7 +68,7 @@ impl<T: RealField + FromPrimitive> SIMPLESolver<T> {
         self.iterations = 0;
     }
     
-    /// Perform one SIMPLE iteration
+    /// Perform one pressure-velocity coupling iteration
     pub fn step(
         &mut self,
         bc: &cfd_core::BoundaryCondition<T>,
@@ -122,7 +122,7 @@ impl<T: RealField + FromPrimitive> SIMPLESolver<T> {
             
             if residual < tolerance {
                 tracing::info!(
-                    "SIMPLE converged in {} iterations (residual: {:e})",
+                    "Pressure-velocity coupling converged in {} iterations (residual: {:e})",
                     self.iterations, residual
                 );
                 return Ok(());

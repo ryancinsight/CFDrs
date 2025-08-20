@@ -5,9 +5,9 @@ use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use cfd_core::constants;
 
-/// SIMPLE algorithm configuration
+/// Pressure-velocity coupling configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SIMPLEConfig<T: RealField> {
+pub struct PressureVelocityConfig<T: RealField> {
     /// Base solver configuration
     pub base: cfd_core::solver::SolverConfig<T>,
     /// Time step (for unsteady problems)
@@ -24,7 +24,7 @@ pub struct SIMPLEConfig<T: RealField> {
     pub implicit_momentum: bool,
 }
 
-impl<T: RealField + FromPrimitive> SIMPLEConfig<T> {
+impl<T: RealField + FromPrimitive> PressureVelocityConfig<T> {
     /// Create new configuration with validation
     pub fn new() -> cfd_core::error::Result<Self> {
         Ok(Self {

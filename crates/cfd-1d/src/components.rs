@@ -79,7 +79,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> RectangularChannel<T> {
 
     /// Get hydraulic diameter
     pub fn hydraulic_diameter(&self) -> T {
-        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         two * self.area() / (self.width.clone() + self.height.clone())
     }
 
@@ -92,24 +92,24 @@ impl<T: RealField + FromPrimitive + num_traits::Float> RectangularChannel<T> {
     fn friction_factor_laminar(&self) -> T {
         let alpha = self.aspect_ratio();
         let one = T::one();
-        let three = T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let four = T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let twentyfour = T::from_f64(24.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let sixtyfour = T::from_f64(64.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
+        let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
+        let twentyfour = T::from_f64(24.0).unwrap_or_else(|| T::zero());
+        let sixtyfour = T::from_f64(64.0).unwrap_or_else(|| T::zero());
 
         if alpha >= one {
             // Wide channel approximation
-            twentyfour * (one.clone() - T::from_f64(1.3553).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * alpha.clone() +
-                         T::from_f64(1.9467).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * alpha.clone() * alpha.clone() -
-                         T::from_f64(1.7012).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * ComplexField::powf(alpha.clone(), three.clone()) +
-                         T::from_f64(0.9564).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * ComplexField::powf(alpha.clone(), four.clone()) -
-                         T::from_f64(0.2537).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * ComplexField::powf(alpha, T::from_f64(5.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?))
+            twentyfour * (one.clone() - T::from_f64(1.3553).unwrap_or_else(|| T::zero()) * alpha.clone() +
+                         T::from_f64(1.9467).unwrap_or_else(|| T::zero()) * alpha.clone() * alpha.clone() -
+                         T::from_f64(1.7012).unwrap_or_else(|| T::zero()) * ComplexField::powf(alpha.clone(), three.clone()) +
+                         T::from_f64(0.9564).unwrap_or_else(|| T::zero()) * ComplexField::powf(alpha.clone(), four.clone()) -
+                         T::from_f64(0.2537).unwrap_or_else(|| T::zero()) * ComplexField::powf(alpha, T::from_f64(5.0).unwrap_or_else(|| T::zero())))
         } else {
             // Tall channel (alpha < 1)
             let inv_alpha = one / alpha;
-            sixtyfour / inv_alpha.clone() - T::from_f64(13.74).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? +
-            T::from_f64(7.37).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * inv_alpha.clone() -
-            T::from_f64(1.27).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * inv_alpha.clone() * inv_alpha
+            sixtyfour / inv_alpha.clone() - T::from_f64(13.74).unwrap_or_else(|| T::zero()) +
+            T::from_f64(7.37).unwrap_or_else(|| T::zero()) * inv_alpha.clone() -
+            T::from_f64(1.27).unwrap_or_else(|| T::zero()) * inv_alpha.clone() * inv_alpha
         }
     }
 }
@@ -126,7 +126,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Component<T> for Rectangu
         // For rectangular: R = (f * L * μ) / (A * Dh^2 * ρ)
 
         // Use actual operating temperature instead of T::zero()
-        let temperature = T::from_f64(293.15).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?; // Default to 20°C if not specified
+        let temperature = T::from_f64(293.15).unwrap_or_else(|| T::zero()); // Default to 20°C if not specified
         let kinematic_viscosity = fluid.dynamic_viscosity(temperature) / fluid.density;
         let resistance = f * self.length.clone() * kinematic_viscosity / (area * dh.clone() * dh);
 
@@ -134,7 +134,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Component<T> for Rectangu
         if resistance > T::zero() {
             resistance
         } else {
-            T::from_f64(1e-12).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? // Minimum resistance
+            T::from_f64(1e-12).unwrap_or_else(|| T::zero()) // Minimum resistance
         }
     }
 
@@ -190,27 +190,27 @@ impl<T: RealField + FromPrimitive + num_traits::Float> CircularChannel<T> {
 
     /// Get cross-sectional area
     pub fn area(&self) -> T {
-        let pi = T::from_f64(std::f64::consts::PI).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let four = T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
+        let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
         pi * self.diameter.clone() * self.diameter.clone() / four
     }
 
     /// Get radius
     pub fn radius(&self) -> T {
-        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         self.diameter.clone() / two
     }
 }
 
 impl<T: RealField + FromPrimitive + num_traits::Float> Component<T> for CircularChannel<T> {
     fn resistance(&self, fluid: &Fluid<T>) -> T {
-        let pi = T::from_f64(std::f64::consts::PI).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let onehundredtwentyeight = T::from_f64(128.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
+        let onehundredtwentyeight = T::from_f64(128.0).unwrap_or_else(|| T::zero());
 
         // Hagen-Poiseuille equation: R = (128 * μ * L) / (π * D^4)
-        let d4 = ComplexField::powf(self.diameter.clone(), T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?);
+        let d4 = ComplexField::powf(self.diameter.clone(), T::from_f64(4.0).unwrap_or_else(|| T::zero()));
         // Use actual operating temperature instead of T::zero()
-        let temperature = T::from_f64(293.15).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?; // Default to 20°C if not specified
+        let temperature = T::from_f64(293.15).unwrap_or_else(|| T::zero()); // Default to 20°C if not specified
         onehundredtwentyeight * fluid.dynamic_viscosity(temperature) * self.length.clone() / (pi * d4)
     }
 
@@ -277,8 +277,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Micropump<T> {
         Self {
             max_pressure,
             max_flow_rate,
-            efficiency: T::from_f64(0.8).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
-            operating_point: T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            efficiency: T::from_f64(0.8).unwrap_or_else(|| T::zero()),
+            operating_point: T::from_f64(0.5).unwrap_or_else(|| T::zero()),
             pump_type,
             parameters: HashMap::new(),
         }
@@ -319,7 +319,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Micropump<T> {
 impl<T: RealField + FromPrimitive + num_traits::Float> Component<T> for Micropump<T> {
     fn resistance(&self, _fluid: &Fluid<T>) -> T {
         // Pumps typically have very low resistance
-        T::from_f64(1e-6).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
+        T::from_f64(1e-6).unwrap_or_else(|| T::zero())
     }
 
     fn pressure_drop(&self, _flow_rate: T, _fluid: &Fluid<T>) -> T {
@@ -396,14 +396,14 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Microvalve<T> {
         let initial_opening = match valve_type {
             ValveType::NormallyOpen => T::one(),
             ValveType::NormallyClosed => T::zero(),
-            _ => T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            _ => T::from_f64(0.5).unwrap_or_else(|| T::zero()),
         };
 
         Self {
             base_resistance,
             opening: initial_opening,
             valve_type,
-            response_time: T::from_f64(0.001).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, // 1 ms default
+            response_time: T::from_f64(0.001).unwrap_or_else(|| T::zero()), // 1 ms default
             parameters: HashMap::new(),
         }
     }
@@ -454,7 +454,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Component<T> for Microval
     fn resistance(&self, _fluid: &Fluid<T>) -> T {
         if self.opening == T::zero() {
             // Closed valve - very high resistance
-            T::from_f64(1e12).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
+            T::from_f64(1e12).unwrap_or_else(|| T::zero())
         } else {
             // Resistance inversely proportional to opening
             self.base_resistance.clone() / self.opening.clone()
@@ -522,7 +522,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> FlowSensor<T> {
         Self {
             accuracy,
             range,
-            response_time: T::from_f64(0.001).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, // 1 ms default
+            response_time: T::from_f64(0.001).unwrap_or_else(|| T::zero()), // 1 ms default
             sensor_type,
             parameters: HashMap::new(),
         }
@@ -537,7 +537,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> FlowSensor<T> {
     pub fn measure(&self, true_flow_rate: T) -> T {
         // Add measurement noise based on accuracy
         let noise_factor = T::one() - self.accuracy.clone();
-        let noise = (T::from_f64(rand::random::<f64>()).unwrap() - T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?) * noise_factor;
+        let noise = (T::from_f64(rand::random::<f64>()).unwrap() - T::from_f64(0.5).unwrap_or_else(|| T::zero())) * noise_factor;
         true_flow_rate * (T::one() + noise)
     }
 }
@@ -545,7 +545,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> FlowSensor<T> {
 impl<T: RealField + FromPrimitive + num_traits::Float> Component<T> for FlowSensor<T> {
     fn resistance(&self, _fluid: &Fluid<T>) -> T {
         // Sensors should have minimal resistance
-        T::from_f64(1e-9).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
+        T::from_f64(1e-9).unwrap_or_else(|| T::zero())
     }
 
     fn component_type(&self) -> &str {
@@ -612,7 +612,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Micromixer<T> {
         Self {
             volume,
             efficiency,
-            pressure_drop_coeff: T::from_f64(1.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            pressure_drop_coeff: T::from_f64(1.0).unwrap_or_else(|| T::zero()),
             mixer_type,
             parameters: HashMap::new(),
         }
@@ -626,14 +626,14 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Micromixer<T> {
     /// Create a serpentine mixer
     pub fn serpentine(volume: T, efficiency: T) -> Self {
         let mut mixer = Self::new(volume, efficiency, MixerType::Serpentine);
-        mixer.pressure_drop_coeff = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?; // Higher pressure drop
+        mixer.pressure_drop_coeff = T::from_f64(2.0).unwrap_or_else(|| T::zero()); // Higher pressure drop
         mixer
     }
 
     /// Calculate mixing time based on flow rates
     pub fn mixing_time(&self, total_flow_rate: T) -> T {
         if total_flow_rate == T::zero() {
-            T::from_f64(f64::INFINITY).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
+            T::from_f64(f64::INFINITY).unwrap_or_else(|| T::zero())
         } else {
             self.volume.clone() / total_flow_rate
         }
@@ -643,7 +643,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Micromixer<T> {
 impl<T: RealField + FromPrimitive + num_traits::Float> Component<T> for Micromixer<T> {
     fn resistance(&self, _fluid: &Fluid<T>) -> T {
         // Resistance based on volume and pressure drop coefficient
-        let base_resistance = T::from_f64(1e6).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?; // Base value
+        let base_resistance = T::from_f64(1e6).unwrap_or_else(|| T::zero()); // Base value
         base_resistance * self.pressure_drop_coeff.clone() / self.volume.clone()
     }
 
@@ -689,35 +689,35 @@ impl ComponentFactory {
         width: T,
         height: T,
     ) -> RectangularChannel<T> {
-        RectangularChannel::new(length, width, height, T::from_f64(1e-6).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
+        RectangularChannel::new(length, width, height, T::from_f64(1e-6).unwrap_or_else(|| T::zero()))
     }
 
     /// Create a standard syringe pump
     pub fn standard_syringe_pump<T: RealField + FromPrimitive + num_traits::Float>() -> Micropump<T> {
         Micropump::syringe_pump(
-            T::from_f64(1e5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,  // 100 kPa max pressure
-            T::from_f64(1e-6).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, // 1 μL/s max flow rate
+            T::from_f64(1e5).unwrap_or_else(|| T::zero()),  // 100 kPa max pressure
+            T::from_f64(1e-6).unwrap_or_else(|| T::zero()), // 1 μL/s max flow rate
         )
     }
 
     /// Create a standard microvalve
     pub fn standard_microvalve<T: RealField + FromPrimitive + num_traits::Float>() -> Microvalve<T> {
-        Microvalve::normally_closed(T::from_f64(1e8).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?) // 100 MPa·s/m³
+        Microvalve::normally_closed(T::from_f64(1e8).unwrap_or_else(|| T::zero())) // 100 MPa·s/m³
     }
 
     /// Create a standard flow sensor
     pub fn standard_flow_sensor<T: RealField + FromPrimitive + num_traits::Float>() -> FlowSensor<T> {
         FlowSensor::thermal(
-            T::from_f64(1e-5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, // 10 μL/s range
-            T::from_f64(0.95).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, // 95% accuracy
+            T::from_f64(1e-5).unwrap_or_else(|| T::zero()), // 10 μL/s range
+            T::from_f64(0.95).unwrap_or_else(|| T::zero()), // 95% accuracy
         )
     }
 
     /// Create a standard T-junction mixer
     pub fn standard_t_mixer<T: RealField + FromPrimitive + num_traits::Float>() -> Micromixer<T> {
         Micromixer::t_junction(
-            T::from_f64(1e-9).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, // 1 nL volume
-            T::from_f64(0.8).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,  // 80% efficiency
+            T::from_f64(1e-9).unwrap_or_else(|| T::zero()), // 1 nL volume
+            T::from_f64(0.8).unwrap_or_else(|| T::zero()),  // 80% efficiency
         )
     }
 }

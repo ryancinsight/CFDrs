@@ -87,8 +87,8 @@ impl<T: RealField + FromPrimitive> Pressure<T> {
     pub fn to_pascals(&self) -> T {
         match self.unit {
             PressureUnit::Pascal => self.value.clone(),
-            PressureUnit::Atmosphere => self.value.clone() * T::from_f64(101_325.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?,
-            PressureUnit::Bar => self.value.clone() * T::from_f64(100_000.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?,
+            PressureUnit::Atmosphere => self.value.clone() * T::from_f64(101_325.0).unwrap_or_else(|| T::one()),
+            PressureUnit::Bar => self.value.clone() * T::from_f64(100_000.0).unwrap_or_else(|| T::one()),
         }
     }
 
@@ -202,13 +202,13 @@ impl<T: RealField + FromPrimitive> Temperature<T> {
 
     /// Create temperature in Celsius
     pub fn celsius(value: T) -> Result<Self> {
-        let kelvin_value = value + T::from_f64(273.15).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
+        let kelvin_value = value + T::from_f64(273.15).unwrap_or_else(|| T::one());
         Self::kelvin(kelvin_value)
     }
 
     /// Create temperature in Fahrenheit
     pub fn fahrenheit(value: T) -> Result<Self> {
-        let celsius_value = (value - T::from_f64(32.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?) * T::from_f64(5.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))? / T::from_f64(9.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?;
+        let celsius_value = (value - T::from_f64(32.0).unwrap_or_else(|| T::one())) * T::from_f64(5.0).unwrap_or_else(|| T::one()) / T::from_f64(9.0).unwrap_or_else(|| T::one());
         Self::celsius(celsius_value)
     }
 

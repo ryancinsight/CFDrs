@@ -31,7 +31,7 @@ impl<T: RealField + FromPrimitive> Default for FvmConfig<T> {
     fn default() -> Self {
         // Set under-relaxation factor (0.7 is typical for FVM)
         let base = cfd_core::SolverConfig::builder()
-            .relaxation_factor(T::from_f64(0.7).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
+            .relaxation_factor(T::from_f64(0.7).unwrap_or_else(|| T::zero()))
             .build_base();
         Self { base }
     }
@@ -96,7 +96,7 @@ impl FluxSchemeFactory {
 
     /// Get recommended scheme for given Peclet number
     pub fn recommend_for_peclet<T: RealField + FromPrimitive>(peclet: T) -> FluxScheme {
-        let pe_threshold = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let pe_threshold = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         if peclet.abs() < pe_threshold {
             FluxScheme::Central
         } else {
@@ -217,7 +217,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
                 grid.cell_center(i, j).ok().and_then(|center| {
                     grid.cell_center(i + 1, j).ok().map(|neighbor_center| {
                         let face_center = Vector2::new(
-                            (center.x.clone() + neighbor_center.x.clone()) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                            (center.x.clone() + neighbor_center.x.clone()) / T::from_f64(2.0).unwrap_or_else(|| T::zero()),
                             center.y.clone(),
                         );
 
@@ -244,7 +244,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
                     grid.cell_center(i, j + 1).ok().map(|neighbor_center| {
                         let face_center = Vector2::new(
                             center.x.clone(),
-                            (center.y.clone() + neighbor_center.y.clone()) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                            (center.y.clone() + neighbor_center.y.clone()) / T::from_f64(2.0).unwrap_or_else(|| T::zero()),
                         );
 
                         Face {
@@ -319,7 +319,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
                 // Add flux contribution from boundary face
                 // For simplicity, assume boundary is aligned with grid
                 let boundary_area = if i == 0 || i == grid.nx() - 1 { dy.clone() } else { dx.clone() };
-                let _boundary_distance = if i == 0 || i == grid.nx() - 1 { dx.clone() / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? } else { dy.clone() / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? };
+                let _boundary_distance = if i == 0 || i == grid.nx() - 1 { dx.clone() / T::from_f64(2.0).unwrap_or_else(|| T::zero()) } else { dy.clone() / T::from_f64(2.0).unwrap_or_else(|| T::zero()) };
 
                 // Flux = -Γ * ∂φ/∂n * Area, discretized as: -Γ * gradient * Area
                 source_term += gradient.clone() * boundary_area;
@@ -478,7 +478,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
         match self.flux_scheme {
             FluxScheme::Central => {
                 // Central differencing: F/2
-                face_velocity / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
+                face_velocity / T::from_f64(2.0).unwrap_or_else(|| T::zero())
             }
             FluxScheme::Upwind => {
                 // Upwind: max(F, 0)
@@ -491,9 +491,9 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
             FluxScheme::Hybrid => {
                 // Hybrid scheme: max(F, D + F/2, 0)
                 let peclet = face_velocity.clone() / diffusion_coeff;
-                if peclet.abs() <= T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
+                if peclet.abs() <= T::from_f64(2.0).unwrap_or_else(|| T::zero()) {
                     // Use central differencing
-                    face_velocity / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
+                    face_velocity / T::from_f64(2.0).unwrap_or_else(|| T::zero())
                 } else {
                     // Use upwind
                     if face_velocity > T::zero() {
@@ -507,8 +507,8 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
                 // QUICK requires multi-point stencil not available in coefficient-only API
                 // Fallback to Hybrid (bounded, literature-supported) to avoid oscillations
                 let peclet = face_velocity.clone() / diffusion_coeff;
-                if peclet.abs() <= T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
-                    face_velocity / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
+                if peclet.abs() <= T::from_f64(2.0).unwrap_or_else(|| T::zero()) {
+                    face_velocity / T::from_f64(2.0).unwrap_or_else(|| T::zero())
                 } else {
                     if face_velocity > T::zero() { face_velocity } else { T::zero() }
                 }

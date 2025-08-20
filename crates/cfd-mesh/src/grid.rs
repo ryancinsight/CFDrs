@@ -104,9 +104,9 @@ impl<T: RealField + FromPrimitive> Default for GridConfig<T> {
             ],
             coordinate_system: CoordinateSystem::Cartesian,
             spacing: [
-                GridSpacing::Uniform(T::from_f64(constants::DEFAULT_UNIFORM_SPACING).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?),
-                GridSpacing::Uniform(T::from_f64(constants::DEFAULT_UNIFORM_SPACING).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?),
-                GridSpacing::Uniform(T::from_f64(constants::DEFAULT_UNIFORM_SPACING).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?),
+                GridSpacing::Uniform(T::from_f64(constants::DEFAULT_UNIFORM_SPACING).unwrap_or_else(|| T::zero())),
+                GridSpacing::Uniform(T::from_f64(constants::DEFAULT_UNIFORM_SPACING).unwrap_or_else(|| T::zero())),
+                GridSpacing::Uniform(T::from_f64(constants::DEFAULT_UNIFORM_SPACING).unwrap_or_else(|| T::zero())),
             ],
             enable_smoothing: false,
             smoothing_iterations: constants::DEFAULT_SMOOTHING_ITERATIONS,
@@ -270,8 +270,8 @@ impl<T: RealField + FromPrimitive> GridGenerator<T> {
         // Apply curvilinear transformation (example: simple wave)
         let transformed: Vec<Point3<T>> = points.into_iter()
             .map(|p| {
-                let amplitude = T::from_f64(0.1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-                let frequency = T::from_f64(2.0 * PI).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                let amplitude = T::from_f64(0.1).unwrap_or_else(|| T::zero());
+                let frequency = T::from_f64(2.0 * PI).unwrap_or_else(|| T::zero());
                 
                 let x = p.x.clone();
                 let y = p.y.clone() + amplitude * (frequency * p.x.clone()).sin();
@@ -292,9 +292,9 @@ impl<T: RealField + FromPrimitive> GridGenerator<T> {
         match &self.config.spacing[dim] {
             GridSpacing::Uniform(spacing) => {
                 // Uniform spacing
-                let actual_spacing = (max.clone() - min.clone()) / T::from_usize(n - 1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                let actual_spacing = (max.clone() - min.clone()) / T::from_usize(n - 1).unwrap_or_else(|| T::zero());
                 for i in 0..n {
-                    coords.push(min.clone() + actual_spacing.clone() * T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?);
+                    coords.push(min.clone() + actual_spacing.clone() * T::from_usize(i).unwrap_or_else(|| T::zero()));
                 }
             }
             GridSpacing::Geometric { first, ratio } => {
@@ -319,12 +319,12 @@ impl<T: RealField + FromPrimitive> GridGenerator<T> {
             GridSpacing::Hyperbolic { center, width } => {
                 // Hyperbolic tangent stretching
                 for i in 0..n {
-                    let xi = T::from_f64(-1.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + 
-                             T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? / 
-                             T::from_usize(n - 1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                    let xi = T::from_f64(-1.0).unwrap_or_else(|| T::zero()) + 
+                             T::from_f64(2.0).unwrap_or_else(|| T::zero()) * T::from_usize(i).unwrap_or_else(|| T::zero()) / 
+                             T::from_usize(n - 1).unwrap_or_else(|| T::zero());
                     
                     let stretched = center.clone() + width.clone() * xi.tanh();
-                    let normalized = (stretched + T::one()) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                    let normalized = (stretched + T::one()) / T::from_f64(2.0).unwrap_or_else(|| T::zero());
                     
                     coords.push(min.clone() + (max.clone() - min.clone()) * normalized);
                 }
@@ -501,7 +501,7 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
     /// Apply Laplacian smoothing to grid
     pub fn smooth(&mut self, iterations: usize) {
         let [nx, ny, nz] = self.dimensions;
-        let alpha = T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?; // Smoothing factor
+        let alpha = T::from_f64(0.5).unwrap_or_else(|| T::zero()); // Smoothing factor
         
         for _ in 0..iterations {
             let mut new_points = self.points.clone();
@@ -544,11 +544,11 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
     
     /// Compute grid quality metrics
     pub fn compute_quality(&self) -> GridQuality<T> {
-        let mut min_jacobian = T::from_f64(f64::MAX).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let mut min_jacobian = T::from_f64(f64::MAX).unwrap_or_else(|| T::zero());
         let mut max_jacobian = T::zero();
-        let mut min_orthogonality = T::from_f64(f64::MAX).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let mut min_orthogonality = T::from_f64(f64::MAX).unwrap_or_else(|| T::zero());
         let mut max_skewness = T::zero();
-        let mut min_aspect_ratio = T::from_f64(f64::MAX).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let mut min_aspect_ratio = T::from_f64(f64::MAX).unwrap_or_else(|| T::zero());
         let mut max_aspect_ratio = T::zero();
         
         let [nx, ny, nz] = self.dimensions;
@@ -633,7 +633,7 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
         
         let sum = vertices.iter()
             .fold(Vector3::zeros(), |acc, v| acc + &v.coords);
-        Point3::from(sum / T::from_f64(8.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
+        Point3::from(sum / T::from_f64(8.0).unwrap_or_else(|| T::zero()))
     }
     
     /// Compute skewness at cell (i, j, k)
@@ -657,7 +657,7 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
         ];
         
         // Calculate face centers
-        let four = T::from_f64(constants::VERTICES_PER_FACE).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let four = T::from_f64(constants::VERTICES_PER_FACE).unwrap_or_else(|| T::zero());
         let face_centers = [
             // Front face (k)
             Point3::from((&vertices[0].coords + &vertices[1].coords + &vertices[2].coords + &vertices[3].coords) / four.clone()),
@@ -729,7 +729,7 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
         if min_len > T::zero() {
             max_len / min_len
         } else {
-            T::from_f64(f64::MAX).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
+            T::from_f64(f64::MAX).unwrap_or_else(|| T::zero())
         }
     }
 }

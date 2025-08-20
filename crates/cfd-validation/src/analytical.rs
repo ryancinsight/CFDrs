@@ -85,7 +85,7 @@ impl<T: RealField + FromPrimitive> PoiseuilleFlow<T> {
     pub fn channel_2d(u_max: T, half_width: T, length: T, viscosity: T) -> Self {
         // For 2D channel: u_max = -dp/dx * h^2 / (2*mu)
         // So dp/dx = -2*mu*u_max / h^2
-        let pressure_gradient = -T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * viscosity.clone() * u_max.clone() /
+        let pressure_gradient = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) * viscosity.clone() * u_max.clone() /
                                (half_width.clone() * half_width.clone());
 
         Self::new(u_max, half_width, pressure_gradient, viscosity, length, true)
@@ -95,7 +95,7 @@ impl<T: RealField + FromPrimitive> PoiseuilleFlow<T> {
     pub fn pipe_cylindrical(u_max: T, radius: T, length: T, viscosity: T) -> Self {
         // For cylindrical pipe: u_max = -dp/dx * R^2 / (4*mu)
         // So dp/dx = -4*mu*u_max / R^2
-        let pressure_gradient = -T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * viscosity.clone() * u_max.clone() /
+        let pressure_gradient = -T::from_f64(4.0).unwrap_or_else(|| T::zero()) * viscosity.clone() * u_max.clone() /
                                (radius.clone() * radius.clone());
 
         Self::new(u_max, radius, pressure_gradient, viscosity, length, false)
@@ -197,7 +197,7 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for CouetteFlow<T> {
         let linear_term = self.plate_velocity.clone() * y_normalized;
 
         let pressure_term = if self.pressure_gradient != T::zero() {
-            let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+            let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
             self.pressure_gradient.clone() * y.clone() * (self.gap.clone() - y) /
             (two * self.viscosity.clone())
         } else {
@@ -245,11 +245,11 @@ impl<T: RealField + FromPrimitive> TaylorGreenVortex<T> {
 
     /// Calculate kinetic energy at time t
     pub fn kinetic_energy(&self, t: T) -> T {
-        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let half = T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
         
         // Decay factor: exp(-4*nu*t) for kinetic energy
-        let decay = (-T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * self.viscosity.clone() * t).exp();
+        let decay = (-T::from_f64(4.0).unwrap_or_else(|| T::zero()) * self.viscosity.clone() * t).exp();
         
         // Kinetic energy = 0.5 * amplitude^2 * exp(-4*nu*t)
         half * self.amplitude.clone() * self.amplitude.clone() * decay
@@ -258,8 +258,8 @@ impl<T: RealField + FromPrimitive> TaylorGreenVortex<T> {
 
 impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for TaylorGreenVortex<T> {
     fn evaluate(&self, x: T, y: T, _z: T, t: T) -> Vector3<T> {
-        let pi = T::from_f64(PI).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let pi = T::from_f64(PI).unwrap_or_else(|| T::zero());
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
 
         // Decay factor: exp(-2*nu*t)
         let decay = (-two.clone() * self.viscosity.clone() * t).exp();
@@ -276,9 +276,9 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for TaylorGreenVortex<T
     }
 
     fn pressure(&self, x: T, y: T, _z: T, t: T) -> T {
-        let pi = T::from_f64(PI).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let four = T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let pi = T::from_f64(PI).unwrap_or_else(|| T::zero());
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
 
         // Decay factor: exp(-4*nu*t)
         let decay = (-four.clone() * self.viscosity.clone() * t).exp();
@@ -343,8 +343,8 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T> {
             return Vector3::zeros();
         }
 
-        let three = T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let four = T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
+        let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
 
         // Stokes flow solution
         let a_over_r = self.radius.clone() / r.clone();
@@ -355,7 +355,7 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T> {
         let sin_theta = (pos.y.clone() * pos.y.clone() + pos.z.clone() * pos.z.clone()).sqrt() / r.clone();
 
         let u_r = self.u_infinity.clone() * cos_theta.clone() *
-                  (T::one() - three.clone() * a_over_r.clone() / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + a_over_r_cubed.clone() / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?);
+                  (T::one() - three.clone() * a_over_r.clone() / T::from_f64(2.0).unwrap_or_else(|| T::zero()) + a_over_r_cubed.clone() / T::from_f64(2.0).unwrap_or_else(|| T::zero()));
         let u_theta = -self.u_infinity.clone() * sin_theta.clone() *
                       (T::one() - three * a_over_r / four.clone() - a_over_r_cubed / four);
 
@@ -385,8 +385,8 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T> {
             return T::zero();
         }
 
-        let three = T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
 
         // Pressure field
         let cos_theta = pos.x.clone() / r.clone();
@@ -399,7 +399,7 @@ impl<T: RealField + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T> {
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let bound = T::from_f64(10.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * self.radius.clone();
+        let bound = T::from_f64(10.0).unwrap_or_else(|| T::zero()) * self.radius.clone();
         [self.center.x.clone() - bound.clone(), self.center.x.clone() + bound.clone(),
          self.center.y.clone() - bound.clone(), self.center.y.clone() + bound.clone(),
          self.center.z.clone() - bound.clone(), self.center.z.clone() + bound]
@@ -424,23 +424,23 @@ impl AnalyticalUtils {
                 for i in 0..nx {
                     let x = if nx > 1 {
                         bounds[0].clone() + (bounds[1].clone() - bounds[0].clone()) *
-                        T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? / T::from_usize(nx - 1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
+                        T::from_usize(i).unwrap_or_else(|| T::zero()) / T::from_usize(nx - 1).unwrap_or_else(|| T::zero())
                     } else {
-                        (bounds[0].clone() + bounds[1].clone()) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
+                        (bounds[0].clone() + bounds[1].clone()) / T::from_f64(2.0).unwrap_or_else(|| T::zero())
                     };
 
                     let y = if ny > 1 {
                         bounds[2].clone() + (bounds[3].clone() - bounds[2].clone()) *
-                        T::from_usize(j).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? / T::from_usize(ny - 1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
+                        T::from_usize(j).unwrap_or_else(|| T::zero()) / T::from_usize(ny - 1).unwrap_or_else(|| T::zero())
                     } else {
-                        (bounds[2].clone() + bounds[3].clone()) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
+                        (bounds[2].clone() + bounds[3].clone()) / T::from_f64(2.0).unwrap_or_else(|| T::zero())
                     };
 
                     let z = if nz > 1 {
                         bounds[4].clone() + (bounds[5].clone() - bounds[4].clone()) *
-                        T::from_usize(k).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? / T::from_usize(nz - 1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
+                        T::from_usize(k).unwrap_or_else(|| T::zero()) / T::from_usize(nz - 1).unwrap_or_else(|| T::zero())
                     } else {
-                        (bounds[4].clone() + bounds[5].clone()) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
+                        (bounds[4].clone() + bounds[5].clone()) / T::from_f64(2.0).unwrap_or_else(|| T::zero())
                     };
 
                     points.push((x, y, z));

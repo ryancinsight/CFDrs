@@ -100,7 +100,7 @@ impl<T: RealField + FromPrimitive> FieldState<T> {
     pub fn new() -> Self {
         Self {
             time: T::zero(),
-            time_step: T::from_f64(1e-3).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?,
+            time_step: T::from_f64(1e-3).unwrap_or_else(|| T::one()),
             iteration: 0,
             fields: IndexMap::new(),
         }

@@ -66,8 +66,8 @@ pub struct ProblemParameters<T: RealField> {
 impl<T: RealField + FromPrimitive> Default for ProblemParameters<T> {
     fn default() -> Self {
         Self {
-            reference_pressure: T::from_f64(101_325.0).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?, // 1 atm
-            reference_temperature: Some(T::from_f64(293.15).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?), // 20°C
+            reference_pressure: T::from_f64(101_325.0).unwrap_or_else(|| T::one()), // 1 atm
+            reference_temperature: Some(T::from_f64(293.15).unwrap_or_else(|| T::one())), // 20°C
             gravity: None,
             transient: false,
             energy: false,

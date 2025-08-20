@@ -164,7 +164,7 @@ pub mod non_newtonian {
                 self.consistency_index.clone() * shear_rate.powf(self.flow_behavior_index.clone() - T::one())
             } else {
                 // At zero shear rate, use a large viscosity to represent solid-like behavior
-                self.consistency_index.clone() * T::from_f64(SOLID_LIKE_VISCOSITY).unwrap_or(T::from_f64(SOLID_LIKE_VISCOSITY).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?)
+                self.consistency_index.clone() * T::from_f64(SOLID_LIKE_VISCOSITY).unwrap_or(T::from_f64(SOLID_LIKE_VISCOSITY).unwrap_or_else(|| T::one()))
             }
         }
     }
@@ -213,7 +213,7 @@ pub mod non_newtonian {
             let shear_stress_abs = shear_stress.abs();
             if shear_stress_abs < self.yield_stress {
                 // Below yield stress - solid-like behavior
-                T::from_f64(YIELD_STRESS_VISCOSITY).unwrap_or(T::from_f64(YIELD_STRESS_VISCOSITY).ok_or_else(|| crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation))?)
+                T::from_f64(YIELD_STRESS_VISCOSITY).unwrap_or(T::from_f64(YIELD_STRESS_VISCOSITY).unwrap_or_else(|| T::one()))
             } else {
                 // Above yield stress - flows with plastic viscosity
                 // Effective viscosity includes yield stress contribution

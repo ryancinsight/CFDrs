@@ -108,10 +108,10 @@ impl<T: RealField + FromPrimitive> Default for RefinementConfig<T> {
     fn default() -> Self {
         Self {
             max_level: DEFAULT_MAX_REFINEMENT_LEVEL,
-            min_size: T::from_f64(DEFAULT_MIN_CELL_SIZE).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            min_size: T::from_f64(DEFAULT_MIN_CELL_SIZE).unwrap_or_else(|| T::zero()),
             strategy: RefinementStrategy::Adaptive,
-            error_threshold: T::from_f64(DEFAULT_ERROR_THRESHOLD).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
-            gradient_threshold: T::from_f64(DEFAULT_GRADIENT_THRESHOLD).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            error_threshold: T::from_f64(DEFAULT_ERROR_THRESHOLD).unwrap_or_else(|| T::zero()),
+            gradient_threshold: T::from_f64(DEFAULT_GRADIENT_THRESHOLD).unwrap_or_else(|| T::zero()),
             enable_smoothing: true,
             smoothing_iterations: 3,
         }
@@ -441,7 +441,7 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
     /// Compute edge midpoints for subdivision
     fn compute_edge_midpoints(&self, vertices: &[&Vertex<T>]) -> Vec<Point3<T>> {
         let mut midpoints = Vec::new();
-        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         
         // Use iterator combinators for midpoint calculation
         for (i, v1) in vertices.iter().enumerate() {
@@ -581,7 +581,7 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         }
         
         if count > 0 {
-            grad_mag / T::from_usize(count).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?
+            grad_mag / T::from_usize(count).unwrap_or_else(|| T::zero())
         } else {
             T::zero()
         }
@@ -748,7 +748,7 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                     avg_pos /= T::from_usize(connected.len()).unwrap();
                     
                     // Blend with original position
-                    let alpha = T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?; // Smoothing factor
+                    let alpha = T::from_f64(0.5).unwrap_or_else(|| T::zero()); // Smoothing factor
                     let new_pos = Point3::from(
                         vertex.position.coords.clone() * (T::one() - alpha.clone()) +
                         avg_pos * alpha

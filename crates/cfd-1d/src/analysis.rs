@@ -631,7 +631,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
             .filter(|node| matches!(node.node_type, crate::network::NodeType::Junction))
             .map(|junction| {
                 // Get flow rates at this junction
-                let connected_edges = network.node_edges(&junction.id).unwrap_or_default();
+                let connected_edges = network.node_edges(&junction.id).unwrap_or_else(|| T::zero());
                 let flow_rates: Vec<T> = connected_edges.iter()
                     .filter_map(|edge| edge.flow_rate)
                     .collect();
