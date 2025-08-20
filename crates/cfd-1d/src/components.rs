@@ -212,7 +212,9 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Component<T> for Circular
         let d4 = ComplexField::powf(self.diameter.clone(), T::from_f64(4.0).unwrap_or_else(|| T::zero()));
         // Use actual operating temperature instead of T::zero()
         let temperature = T::from_f64(293.15).unwrap_or_else(|| T::zero()); // Default to 20°C if not specified
-        onehundredtwentyeight * fluid.dynamic_viscosity(temperature) * self.length.clone() / (pi * d4)
+        let viscosity = fluid.dynamic_viscosity(temperature)
+            .unwrap_or_else(|_| T::from_f64(0.001).unwrap_or_else(|| T::one()));
+        onehundredtwentyeight * viscosity * self.length.clone() / (pi * d4)
     }
 
     fn component_type(&self) -> &str {
