@@ -408,7 +408,7 @@ impl ErrorAnalysis {
     /// Compute error reduction factor between two measurements
     pub fn error_reduction_factor<T: RealField>(coarse_error: T, fine_error: T) -> T {
         if fine_error == T::zero() {
-            return T::max_value().unwrap_or_else(|| T::from_f64(1e10).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?);
+            return T::max_value().unwrap_or_else(|| T::from_f64(1e10).unwrap_or_else(|| T::from_f64(1000000.0).unwrap_or_else(|| T::one())));
         }
         coarse_error / fine_error
     }

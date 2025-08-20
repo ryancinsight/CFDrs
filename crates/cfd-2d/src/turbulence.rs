@@ -144,7 +144,8 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
             } else {
                 // Viscous sublayer
                 self.k[i][0] = T::zero();
-                self.epsilon[i][0] = T::from_f64(2.0).unwrap_or_else(|| T::zero()) * nu.clone() * self.k[i][1].clone() / (y.clone() * y);
+                let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+                self.epsilon[i][0] = two * nu.clone() * self.k[i][1].clone() / (y.clone() * y);
                 self.nu_t[i][0] = T::zero();
             }
         }
@@ -170,7 +171,7 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
     ) -> Result<()> {
         let kappa = T::from_f64(constants::KAPPA).unwrap_or_else(|| T::zero());
         let c_mu = T::from_f64(constants::C_MU).unwrap_or_else(|| T::zero());
-        let beta_star = T::from_f64(0.09).unwrap_or_else(|| T::zero()); // SST model constant
+        let beta_star = T::from_f64(constants::C_MU).unwrap_or_else(|| T::zero()); // SST model constant
         
         // Process each wall boundary point
         for &(i_wall, j_wall) in wall_boundaries {

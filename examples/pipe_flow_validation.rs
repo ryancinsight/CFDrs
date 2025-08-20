@@ -49,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut fem_solver = FemSolver::new(fem_config);
     
     // Create fluid properties
-    let fluid = Fluid::new_newtonian("water", fluid_density, fluid_viscosity);
+    let fluid = Fluid::newtonian("water", fluid_density, fluid_viscosity);
     
     // Set up boundary conditions
     let mut boundary_conditions = HashMap::new();

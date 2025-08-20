@@ -5,6 +5,7 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
+pub mod constants;
 pub mod energy;
 pub mod fdm;
 pub mod fields;
@@ -33,7 +34,7 @@ pub use fields::{Field2D, SimulationFields};
 pub use momentum::{MomentumSolver, MomentumComponent, MomentumCoefficients};
 pub use problem::{IncompressibleFlowProblem, IncompressibleFlowSolution};
 pub use convection::{ConvectionScheme, ConvectionSchemeFactory, FirstOrderUpwind, CentralDifference, HybridScheme, PowerLawScheme, QuickScheme};
-pub use schemes::{SpatialScheme, FluxLimiter, TimeScheme, FiniteDifference};
+pub use schemes::{SpatialScheme, FluxLimiter, TimeScheme, Grid2D as SchemeGrid2D};
 
 
 

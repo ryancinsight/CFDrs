@@ -33,7 +33,7 @@ pub struct PoissonSolver<T: RealField> {
     basis_z: ChebyshevPolynomial<T>,
 }
 
-impl<T: RealField + FromPrimitive> PoissonSolver<T> {
+impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
     /// Create new Poisson solver
     pub fn new(nx: usize, ny: usize, nz: usize) -> Result<Self> {
         Ok(Self {

@@ -19,8 +19,10 @@ num-traits.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 approx.workspace = true
 tracing.workspace = true
+chrono = "0.4"
 
 [dev-dependencies]
 proptest.workspace = true

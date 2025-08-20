@@ -2,8 +2,7 @@
 //!
 //! Reference: Canuto et al. (2006). "Spectral Methods: Fundamentals in Single Domains"
 
-use nalgebra::{DVector, RealField};
-use num_complex::Complex;
+use nalgebra::{DVector, RealField, Complex};
 use num_traits::FromPrimitive;
 use cfd_core::error::Result;
 use std::f64::consts::PI;
@@ -16,7 +15,7 @@ pub struct FourierTransform<T: RealField> {
     wavenumbers: Vec<T>,
 }
 
-impl<T: RealField + FromPrimitive> FourierTransform<T> {
+impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
     /// Create new Fourier transform operator
     pub fn new(n: usize) -> Result<Self> {
         let mut wavenumbers = Vec::with_capacity(n);
@@ -50,7 +49,7 @@ impl<T: RealField + FromPrimitive> FourierTransform<T> {
             ))?;
         
         for k in 0..n {
-            let mut sum = Complex::zero();
+            let mut sum = Complex::new(T::zero(), T::zero());
             for j in 0..n {
                 let phase = -two_pi * self.wavenumbers[k] * T::from_usize(j).unwrap_or_else(|| T::zero()) 
                     / T::from_usize(n).unwrap_or_else(|| T::zero());
@@ -73,14 +72,14 @@ impl<T: RealField + FromPrimitive> FourierTransform<T> {
             ))?;
         
         for j in 0..n {
-            let mut sum = Complex::zero();
+            let mut sum = Complex::new(T::zero(), T::zero());
             for k in 0..n {
                 let phase = two_pi * self.wavenumbers[k] * T::from_usize(j).unwrap_or_else(|| T::zero()) 
                     / T::from_usize(n).unwrap_or_else(|| T::zero());
                 let exp = Complex::new(phase.cos(), phase.sin());
                 sum = sum + exp * u_hat[k];
             }
-            u[j] = sum.real();
+            u[j] = sum.re;
         }
         
         Ok(u)
@@ -97,7 +96,7 @@ pub struct SpectralDerivative<T: RealField> {
     transform: FourierTransform<T>,
 }
 
-impl<T: RealField + FromPrimitive> SpectralDerivative<T> {
+impl<T: RealField + FromPrimitive + Copy> SpectralDerivative<T> {
     pub fn new(n: usize) -> Result<Self> {
         Ok(Self {
             transform: FourierTransform::new(n)?,

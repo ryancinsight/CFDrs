@@ -128,13 +128,13 @@ impl<T: RealField + FromPrimitive + Copy> MomentumSolver<T> {
                 // Mass fluxes
                 let fe = fields.density.at(i, j).clone() * ue * self.dy.clone();
                 let fw = fields.density.at(i, j).clone() * uw * self.dy.clone();
-                let fn = fields.density.at(i, j).clone() * vn * self.dx.clone();
+                let fn_flux = fields.density.at(i, j).clone() * vn * self.dx.clone();
                 let fs = fields.density.at(i, j).clone() * vs * self.dx.clone();
                 
                 // Upwind scheme
                 *coeffs.ae.at_mut(i, j) = de + T::max(T::zero(), -fe);
                 *coeffs.aw.at_mut(i, j) = dw + T::max(T::zero(), fw);
-                *coeffs.an.at_mut(i, j) = dn + T::max(T::zero(), -fn);
+                *coeffs.an.at_mut(i, j) = dn + T::max(T::zero(), -fn_flux);
                 *coeffs.as_.at_mut(i, j) = ds + T::max(T::zero(), fs);
                 
                 // Central coefficient

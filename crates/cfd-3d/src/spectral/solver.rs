@@ -54,7 +54,7 @@ pub struct SpectralSolver<T: RealField> {
     poisson_solver: PoissonSolver<T>,
 }
 
-impl<T: RealField + FromPrimitive> SpectralSolver<T> {
+impl<T: RealField + FromPrimitive + Copy> SpectralSolver<T> {
     /// Create new spectral solver
     pub fn new(config: SpectralConfig<T>) -> Result<Self> {
         let poisson_solver = PoissonSolver::new(
@@ -103,8 +103,11 @@ impl<T: RealField> SpectralSolution<T> {
     }
     
     /// Get solution at a point
-    pub fn at(&self, i: usize, j: usize, k: usize) -> T {
+    pub fn at(&self, i: usize, j: usize, k: usize) -> T 
+    where
+        T: Clone
+    {
         let idx = i * self.ny + j;
-        self.u[(idx, k)]
+        self.u[(idx, k)].clone()
     }
 }

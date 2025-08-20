@@ -5,8 +5,8 @@
 //! and published benchmark results.
 
 use cfd_core::error::{Error, Result};
-use cfd_math::{SparseMatrix, SparseMatrixBuilder, LinearSolver, BiCGSTAB};
-use cfd_core::solver::LinearSolverConfig;;
+use cfd_math::{SparseMatrix, SparseMatrixBuilder, LinearSolver, BiCGSTAB, ConjugateGradient};
+use cfd_math::linear_solver::LinearSolverConfig;
 use nalgebra::{RealField, DVector};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::{FromPrimitive, Float};
@@ -350,7 +350,7 @@ impl LinearSolverValidator {
             }
             
             CsrMatrix::try_from_csr_data(n, n, row_offsets, csr_col_indices, csr_values)
-                .map_err(|e| Error::Numerical(crate::error::NumericalErrorKind::SingularMatrix))?
+                .map_err(|_| Error::InvalidConfiguration("Matrix solve failed".into()))?
         };
 
         // Create RHS b = [1, 1, ..., 1]
@@ -422,7 +422,7 @@ impl LinearSolverValidator {
             }
             
             CsrMatrix::try_from_csr_data(n, n, row_offsets, csr_col_indices, csr_values)
-                .map_err(|e| Error::Numerical(crate::error::NumericalErrorKind::SingularMatrix))?
+                .map_err(|_| Error::InvalidConfiguration("Matrix solve failed".into()))?
         };
 
         // RHS for manufactured solution u(x) = x(1-x)
@@ -492,7 +492,7 @@ impl LinearSolverValidator {
         }
         
         let a = CsrMatrix::try_from_csr_data(n, n, row_offsets, col_indices, values)
-            .map_err(|e| Error::Numerical(crate::error::NumericalErrorKind::SingularMatrix))?;
+            .map_err(|_| Error::InvalidConfiguration("Matrix construction failed".into()))?;
         
         // Create RHS with manufactured solution u(x,y) = sin(πx)sin(πy)
         let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
@@ -564,7 +564,7 @@ impl LinearSolverValidator {
             }
             
             CsrMatrix::try_from_csr_data(n, n, row_offsets, csr_col_indices, csr_values)
-                .map_err(|e| Error::Numerical(crate::error::NumericalErrorKind::SingularMatrix))?
+                .map_err(|_| Error::InvalidConfiguration("Matrix solve failed".into()))?
         };
 
         // Use known solution x = [1, 1, ..., 1] and compute b = A*x

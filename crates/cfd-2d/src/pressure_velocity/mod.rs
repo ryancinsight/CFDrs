@@ -15,3 +15,4 @@ pub use solver::PressureVelocitySolver;
 pub use pressure::PressureCorrectionSolver;
 pub use rhie_chow::RhieChowInterpolation;
 
+pub mod rhie_chow_complete;
