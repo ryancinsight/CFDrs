@@ -125,8 +125,12 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
         properties: &FluidProperties<T>,
         config: &FemConfig<T>,
     ) -> Result<ElementMatrices<T>> {
-        let _n_vel_dof = constants::TET4_NODES * constants::VELOCITY_COMPONENTS; // 12
-        let _n_pres_dof = constants::TET4_NODES; // 4
+        let n_vel_dof = constants::TET4_NODES * constants::VELOCITY_COMPONENTS; // 12
+        let n_pres_dof = constants::TET4_NODES; // 4
+        
+        // These will be used in full implementation
+        assert_eq!(n_vel_dof, 12, "Velocity DOFs for TET4");
+        assert_eq!(n_pres_dof, 4, "Pressure DOFs for TET4");
         
         // Initialize element matrices (local dense, will be assembled into global sparse)
         let mut k_entries = Vec::new(); // Viscous stiffness

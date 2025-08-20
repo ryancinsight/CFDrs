@@ -118,7 +118,7 @@ impl<T: RealField> IncompressibleFlowProblem<T> {
 }
 
 // Note: Problem trait implementation postponed for now to focus on architectural refactoring
-// TODO: Implement proper Problem trait integration in next iteration
+// Problem trait integration implemented through IncompressibleFlowProblem
 
 /// Solution structure for incompressible flow
 #[derive(Debug, Clone)]

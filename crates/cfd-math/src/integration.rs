@@ -3,7 +3,7 @@
 //! This module provides various quadrature rules and integration schemes
 //! optimized for CFD simulations with support for adaptive integration.
 
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 

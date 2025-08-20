@@ -55,15 +55,113 @@ impl<T: RealField + FromPrimitive> PoissonSolver<T> {
         bc_y: (PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
         bc_z: (PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
     ) -> Result<DMatrix<T>> {
-        // This is a placeholder for the full implementation
-        // A complete implementation would:
-        // 1. Apply boundary conditions
-        // 2. Form the discrete Laplacian using Kronecker products
-        // 3. Solve the resulting linear system
-        // 4. Return the solution
+        // Build the discrete Laplacian operator
+        let mut laplacian = self.build_laplacian_matrix()?;
+        let mut rhs = self.flatten_rhs(f);
         
-        // For now, return zeros with proper dimensions
-        Ok(DMatrix::zeros(self.nx * self.ny, self.nz))
+        // Apply boundary conditions
+        let boundary_indices_x = vec![0, self.nx - 1];
+        let boundary_indices_y = vec![0, self.ny - 1];
+        let boundary_indices_z = vec![0, self.nz - 1];
+        
+        self.apply_boundary_conditions(&mut laplacian, &mut rhs, &bc_x.0, &boundary_indices_x)?;
+        self.apply_boundary_conditions(&mut laplacian, &mut rhs, &bc_x.1, &boundary_indices_x)?;
+        self.apply_boundary_conditions(&mut laplacian, &mut rhs, &bc_y.0, &boundary_indices_y)?;
+        self.apply_boundary_conditions(&mut laplacian, &mut rhs, &bc_y.1, &boundary_indices_y)?;
+        self.apply_boundary_conditions(&mut laplacian, &mut rhs, &bc_z.0, &boundary_indices_z)?;
+        self.apply_boundary_conditions(&mut laplacian, &mut rhs, &bc_z.1, &boundary_indices_z)?;
+        
+        // Solve the linear system using LU decomposition
+        let lu = laplacian.lu();
+        let solution = lu.solve(&rhs)
+            .ok_or_else(|| cfd_core::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::SingularMatrix
+            ))?;
+        
+        // Reshape solution back to matrix form
+        Ok(self.unflatten_solution(&solution))
+    }
+    
+    /// Build the discrete Laplacian matrix using Kronecker products
+    fn build_laplacian_matrix(&self) -> Result<DMatrix<T>> {
+        let n_total = self.nx * self.ny * self.nz;
+        let mut laplacian = DMatrix::zeros(n_total, n_total);
+        
+        // Build 1D second derivative matrices
+        let d2x = self.basis_x.second_derivative_matrix()?;
+        let d2y = self.basis_y.second_derivative_matrix()?;
+        let d2z = self.basis_z.second_derivative_matrix()?;
+        
+        // Form 3D Laplacian using Kronecker products
+        // L = D2x ⊗ Iy ⊗ Iz + Ix ⊗ D2y ⊗ Iz + Ix ⊗ Iy ⊗ D2z
+        for i in 0..n_total {
+            for j in 0..n_total {
+                let (ix, iy, iz) = self.linear_to_3d_index(i);
+                let (jx, jy, jz) = self.linear_to_3d_index(j);
+                
+                let mut value = T::zero();
+                
+                // x-derivative contribution
+                if iy == jy && iz == jz {
+                    value = value + d2x[(ix, jx)];
+                }
+                
+                // y-derivative contribution
+                if ix == jx && iz == jz {
+                    value = value + d2y[(iy, jy)];
+                }
+                
+                // z-derivative contribution
+                if ix == jx && iy == jy {
+                    value = value + d2z[(iz, jz)];
+                }
+                
+                laplacian[(i, j)] = value;
+            }
+        }
+        
+        Ok(laplacian)
+    }
+    
+    /// Convert linear index to 3D indices
+    fn linear_to_3d_index(&self, idx: usize) -> (usize, usize, usize) {
+        let iz = idx % self.nz;
+        let iy = (idx / self.nz) % self.ny;
+        let ix = idx / (self.ny * self.nz);
+        (ix, iy, iz)
+    }
+    
+    /// Flatten RHS matrix to vector
+    fn flatten_rhs(&self, f: &DMatrix<T>) -> DVector<T> {
+        let n_total = self.nx * self.ny * self.nz;
+        let mut rhs = DVector::zeros(n_total);
+        
+        for ix in 0..self.nx {
+            for iy in 0..self.ny {
+                for iz in 0..self.nz {
+                    let idx = ix * self.ny * self.nz + iy * self.nz + iz;
+                    rhs[idx] = f[(ix * self.ny + iy, iz)];
+                }
+            }
+        }
+        
+        rhs
+    }
+    
+    /// Unflatten solution vector to matrix
+    fn unflatten_solution(&self, solution: &DVector<T>) -> DMatrix<T> {
+        let mut result = DMatrix::zeros(self.nx * self.ny, self.nz);
+        
+        for ix in 0..self.nx {
+            for iy in 0..self.ny {
+                for iz in 0..self.nz {
+                    let idx = ix * self.ny * self.nz + iy * self.nz + iz;
+                    result[(ix * self.ny + iy, iz)] = solution[idx];
+                }
+            }
+        }
+        
+        result
     }
     
     /// Apply boundary conditions to the system

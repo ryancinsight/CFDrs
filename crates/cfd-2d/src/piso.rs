@@ -930,7 +930,7 @@ mod tests {
         let original_u_old = solver.u_old[1][1].clone();
         
         // Perform one step which should swap fields
-        let _result = solver.step();
+        solver.step().expect("PISO step should succeed");
         
         // After step, u_old should contain the original u values
         // (Note: the actual values will be modified by the solver, 

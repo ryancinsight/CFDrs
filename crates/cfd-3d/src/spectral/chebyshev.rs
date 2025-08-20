@@ -96,6 +96,12 @@ impl<T: RealField + FromPrimitive> ChebyshevPolynomial<T> {
     pub fn points(&self) -> &[T] {
         &self.points
     }
+    
+    /// Get second derivative matrix (D²)
+    pub fn second_derivative_matrix(&self) -> Result<DMatrix<T>> {
+        // Second derivative is D * D
+        Ok(&self.diff_matrix * &self.diff_matrix)
+    }
 }
 
 /// Chebyshev differentiation operations

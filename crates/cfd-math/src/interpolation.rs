@@ -3,7 +3,7 @@
 //! This module provides various interpolation algorithms optimized for CFD applications
 //! with support for both regular and irregular grids.
 
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use std::cmp::Ordering;

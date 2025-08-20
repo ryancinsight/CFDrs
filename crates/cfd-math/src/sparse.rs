@@ -3,7 +3,7 @@
 //! This module provides zero-copy sparse matrix operations optimized for CFD applications
 //! with support for parallel assembly and iterator-based construction.
 
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::{CooMatrix, CsrMatrix};
 use rayon::prelude::*;

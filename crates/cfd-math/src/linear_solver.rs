@@ -19,7 +19,7 @@
 //! - Leveraging nalgebra's optimized BLAS-like operations
 //! - Providing efficient preconditioner APIs
 
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::cast::FromPrimitive;
@@ -27,7 +27,7 @@ use std::fmt::Debug;
 use crate::sparse::SparseMatrixExt;
 
 // Re-export the unified configuration from cfd-core
-pub use cfd_core::{LinearSolverConfig, SolverConfiguration};
+pub use cfd_core::solver::{LinearSolverConfig, SolverConfiguration};
 
 /// Trait for linear solvers
 pub trait LinearSolver<T: RealField>: Send + Sync {
@@ -92,7 +92,7 @@ impl<T: RealField + FromPrimitive> JacobiPreconditioner<T> {
 
         for (i, val) in diag.iter().enumerate() {
             if val.clone().abs() < T::from_f64(1e-14).unwrap() {
-                return Err(Error::NumericalError(
+                return Err(Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation
                     format!("Zero or near-zero diagonal entry at row {}", i)
                 ));
             }
@@ -308,7 +308,7 @@ impl<T: RealField> ConjugateGradient<T> {
             rzold = rznew;
         }
 
-        Err(Error::ConvergenceFailure(format!(
+        Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max: self.config.max_iterations }format!(
             "PCG failed to converge after {} iterations",
             self.config.max_iterations()
         )))
@@ -396,7 +396,7 @@ impl<T: RealField> BiCGSTAB<T> {
             let rho_new = r0_hat.dot(&r);
             
             if rho_new.clone().abs() < breakdown_tolerance {
-                return Err(Error::ConvergenceFailure(
+                return Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max: self.config.max_iterations }
                     "BiCGSTAB breakdown: rho near zero".to_string()
                 ));
             }
@@ -444,7 +444,7 @@ impl<T: RealField> BiCGSTAB<T> {
             }
             
             if omega.clone().abs() < breakdown_tolerance {
-                return Err(Error::ConvergenceFailure(
+                return Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max: self.config.max_iterations }
                     "BiCGSTAB breakdown: omega near zero".to_string()
                 ));
             }
@@ -452,7 +452,7 @@ impl<T: RealField> BiCGSTAB<T> {
             rho = rho_new;
         }
 
-        Err(Error::ConvergenceFailure(format!(
+        Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max: self.config.max_iterations }format!(
             "BiCGSTAB failed to converge after {} iterations",
             self.config.max_iterations()
         )))
