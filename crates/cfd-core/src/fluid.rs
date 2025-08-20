@@ -64,8 +64,8 @@ pub enum ViscosityModel<T: RealField> {
 }
 
 impl<T: RealField + FromPrimitive + Float> Fluid<T> {
-    /// Create a new Currenttonian fluid
-    pub fn current_newtonian(name: impl Into<String>, density: T, viscosity: T) -> Self {
+    /// Create a new Newtonian fluid
+    pub fn newtonian(name: impl Into<String>, density: T, viscosity: T) -> Self {
         Self {
             name: name.into(),
             density,
@@ -150,7 +150,7 @@ impl<T: RealField + FromPrimitive + Float> Fluid<T> {
             .ok_or_else(|| Error::InvalidConfiguration("Cannot convert water density to target type".into()))?;
         let viscosity = T::from_f64(1.002e-3)
             .ok_or_else(|| Error::InvalidConfiguration("Cannot convert water viscosity to target type".into()))?;
-        Ok(Self::current_newtonian("Water (20°C)", density, viscosity))
+        Ok(Self::newtonian("Water (20°C)", density, viscosity))
     }
 
     /// Create air at 20°C, 1 atm
@@ -163,12 +163,12 @@ impl<T: RealField + FromPrimitive + Float> Fluid<T> {
             .ok_or_else(|| Error::InvalidConfiguration("Cannot convert air density to target type".into()))?;
         let viscosity = T::from_f64(1.825e-5)
             .ok_or_else(|| Error::InvalidConfiguration("Cannot convert air viscosity to target type".into()))?;
-        Ok(Self::current_newtonian("Air (20°C, 1 atm)", density, viscosity))
+        Ok(Self::newtonian("Air (20°C, 1 atm)", density, viscosity))
     }
 
     /// Calculate kinematic viscosity [m²/s]
     /// 
-    /// For non-Currenttonian fluids, this uses the characteristic viscosity.
+    /// For non-Newtonian fluids, this uses the characteristic viscosity.
     pub fn kinematic_viscosity(&self) -> T {
         self.characteristic_viscosity() / self.density
     }

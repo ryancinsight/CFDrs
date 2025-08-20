@@ -15,6 +15,7 @@ pub mod valves;
 pub mod sensors;
 pub mod mixers;
 pub mod factory;
+pub mod constants;
 
 // Re-export commonly used types
 pub use channels::{RectangularChannel, CircularChannel};
@@ -52,31 +53,4 @@ pub trait Component<T: RealField> {
     fn volume(&self) -> Option<T> {
         None
     }
-}
-
-/// Constants for component physics
-pub mod constants {
-    /// Default surface roughness for smooth channels [m]
-    pub const DEFAULT_ROUGHNESS: f64 = 1e-6;
-    
-    /// Minimum Reynolds number for laminar flow
-    pub const RE_LAMINAR_MIN: f64 = 0.1;
-    
-    /// Maximum Reynolds number for laminar flow
-    pub const RE_LAMINAR_MAX: f64 = 2300.0;
-    
-    /// Transition Reynolds number
-    pub const RE_TRANSITION: f64 = 2300.0;
-    
-    /// Maximum Reynolds number for transition flow
-    pub const RE_TURBULENT_MIN: f64 = 4000.0;
-    
-    /// Default pump efficiency
-    pub const DEFAULT_PUMP_EFFICIENCY: f64 = 0.7;
-    
-    /// Default valve flow coefficient
-    pub const DEFAULT_VALVE_CV: f64 = 0.1;
-    
-    /// Default mixing efficiency
-    pub const DEFAULT_MIXING_EFFICIENCY: f64 = 0.95;
 }

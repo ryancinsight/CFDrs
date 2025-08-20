@@ -170,7 +170,7 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
     ) -> Result<()> {
         let kappa = T::from_f64(constants::KAPPA).unwrap_or_else(|| T::zero());
         let c_mu = T::from_f64(constants::C_MU).unwrap_or_else(|| T::zero());
-        let beta_star = T::from_f64(0.09).unwrap_or_else(|| T::zero()); // SST model constant
+        let beta_star = T::from_f64(constants::C_MU).unwrap_or_else(|| T::zero()); // SST model constant
         
         // Process each wall boundary point
         for &(i_wall, j_wall) in wall_boundaries {

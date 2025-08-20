@@ -49,7 +49,7 @@ impl<T: RealField + FromPrimitive> FourierTransform<T> {
             ))?;
         
         for k in 0..n {
-            let mut sum = Complex::zero();
+            let mut sum = Complex::new(T::zero(), T::zero());
             for j in 0..n {
                 let phase = -two_pi * self.wavenumbers[k] * T::from_usize(j).unwrap_or_else(|| T::zero()) 
                     / T::from_usize(n).unwrap_or_else(|| T::zero());
@@ -72,7 +72,7 @@ impl<T: RealField + FromPrimitive> FourierTransform<T> {
             ))?;
         
         for j in 0..n {
-            let mut sum = Complex::zero();
+            let mut sum = Complex::new(T::zero(), T::zero());
             for k in 0..n {
                 let phase = two_pi * self.wavenumbers[k] * T::from_usize(j).unwrap_or_else(|| T::zero()) 
                     / T::from_usize(n).unwrap_or_else(|| T::zero());

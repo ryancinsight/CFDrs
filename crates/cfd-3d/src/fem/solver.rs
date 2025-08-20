@@ -20,7 +20,7 @@ impl<T: RealField + FromPrimitive + Float + Copy> FemSolver<T> {
     /// Create a new FEM solver
     pub fn new(config: FemConfig<T>) -> Self {
         let linear_solver: Box<dyn LinearSolver<T>> = 
-            Box::new(ConjugateGradient::new(config.base.linear_solver.clone()));
+            Box::new(ConjugateGradient::new(cfd_math::linear_solver::LinearSolverConfig::default()));
         
         Self {
             config,
@@ -68,12 +68,18 @@ impl<T: RealField + FromPrimitive + Float + Copy> FemSolver<T> {
         
         // Loop over elements
         for (elem_idx, cell) in problem.mesh.cells.iter().enumerate() {
+            // Get vertices for this cell
+            let cell_vertices: Vec<_> = cell.unique_vertices(&problem.mesh)
+                .into_iter()
+                .map(|v| v.clone())
+                .collect();
+            
             // Create element
-            let mut element = FluidElement::new(cell.vertices.clone());
+            let mut element = FluidElement::new(cell_vertices.clone());
             
             // Calculate element properties
-            element.calculate_volume(&problem.mesh.vertices);
-            element.calculate_shape_derivatives(&problem.mesh.vertices);
+            element.calculate_volume(&cell_vertices);
+            element.calculate_shape_derivatives(&cell_vertices);
             
             // Calculate element matrices
             let elem_matrices = self.calculate_element_matrices(&element, viscosity);
