@@ -1,7 +1,8 @@
 //! Mesh quality analysis and validation
 
 use nalgebra::{RealField, Vector3};
-use num_traits::Float;
+use num_traits::{Float, FromPrimitive};
+use std::iter::Sum;
 use crate::mesh::{Mesh, Element};
 use super::{QualityMetrics, QualityStatistics, QualityCriteria};
 
@@ -13,7 +14,7 @@ pub struct QualityAnalyzer<T: RealField> {
     store_detailed: bool,
 }
 
-impl<T: RealField + Float> QualityAnalyzer<T> {
+impl<T: RealField + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     /// Create new analyzer with criteria
     pub fn new(criteria: QualityCriteria<T>) -> Self {
         Self {
@@ -122,7 +123,7 @@ pub struct MeshQualityReport<T: RealField> {
     pub detailed_metrics: Option<Vec<QualityMetrics<T>>>,
 }
 
-impl<T: RealField> MeshQualityReport<T> {
+impl<T: RealField + FromPrimitive> MeshQualityReport<T> {
     /// Check if mesh quality is acceptable
     pub fn is_acceptable(&self) -> bool {
         self.failed_elements.is_empty()
@@ -130,7 +131,7 @@ impl<T: RealField> MeshQualityReport<T> {
     
     /// Get failure rate
     pub fn failure_rate(&self) -> T {
-        T::from(self.failed_elements.len()).unwrap_or_else(|_| T::zero()) /
-        T::from(self.total_elements).unwrap_or_else(|_| T::one())
+        T::from_usize(self.failed_elements.len()).unwrap_or_else(|| T::zero()) /
+        T::from_usize(self.total_elements).unwrap_or_else(|| T::one())
     }
 }

@@ -274,7 +274,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
         let density = fluid.density;
         // Use actual operating temperature instead of hardcoded 20°C
         let temperature = T::from_f64(293.15).unwrap_or_else(|| T::zero()); // Default to 20°C if not specified
-        let viscosity = fluid.dynamic_viscosity(temperature);
+        let viscosity = fluid.dynamic_viscosity(temperature)
+            .unwrap_or_else(|_| T::from_f64(0.001).unwrap_or_else(|| T::one())); // Default to water viscosity
 
         density * velocity * diameter / viscosity
     }
@@ -631,7 +632,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
             .filter(|node| matches!(node.node_type, crate::network::NodeType::Junction))
             .map(|junction| {
                 // Get flow rates at this junction
-                let connected_edges = network.node_edges(&junction.id).unwrap_or_else(|| T::zero());
+                let connected_edges = network.node_edges(&junction.id).unwrap_or_else(|_| Vec::new());
                 let flow_rates: Vec<T> = connected_edges.iter()
                     .filter_map(|edge| edge.flow_rate)
                     .collect();
