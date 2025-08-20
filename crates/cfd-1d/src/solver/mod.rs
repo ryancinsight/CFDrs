@@ -23,6 +23,32 @@ use crate::network::Network;
 use cfd_core::{Result, Solver, Configurable, Validatable};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
+use serde::{Serialize, Deserialize};
+
+/// Solver configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SolverConfig<T: RealField> {
+    pub tolerance: T,
+    pub max_iterations: usize,
+}
+
+impl<T: RealField> cfd_core::solver::SolverConfiguration<T> for SolverConfig<T> {
+    fn tolerance(&self) -> T {
+        self.tolerance
+    }
+    
+    fn max_iterations(&self) -> usize {
+        self.max_iterations
+    }
+    
+    fn verbosity(&self) -> u8 {
+        0 // Default verbosity
+    }
+    
+    fn parallel(&self) -> bool {
+        true // Enable parallel by default
+    }
+}
 
 /// Main network solver implementing the core CFD suite trait system
 pub struct NetworkSolver<T: RealField> {
@@ -37,12 +63,26 @@ pub struct NetworkSolver<T: RealField> {
 }
 
 impl<T: RealField + FromPrimitive> NetworkSolver<T> {
-    /// Create a new network solver
-    pub fn new(config: SolverConfig<T>) -> Self {
+    /// Create a new network solver with default configuration
+    pub fn new() -> Self {
+        let config = SolverConfig {
+            tolerance: T::from_f64(1e-6).unwrap_or_else(T::one),
+            max_iterations: 1000,
+        };
+        Self {
+            config: config.clone(),
+            assembler: MatrixAssembler::new(),
+            linear_solver: LinearSystemSolver::new(),
+            convergence: ConvergenceChecker::new(config.tolerance),
+        }
+    }
+    
+    /// Create with specific configuration
+    pub fn with_config(config: SolverConfig<T>) -> Self {
         Self {
             assembler: MatrixAssembler::new(),
-            linear_solver: LinearSystemSolver::new(config.base.linear_solver.clone()),
-            convergence: ConvergenceChecker::new(config.base.tolerance.clone()),
+            linear_solver: LinearSystemSolver::new(),
+            convergence: ConvergenceChecker::new(config.tolerance),
             config,
         }
     }
@@ -75,34 +115,43 @@ impl<T: RealField + FromPrimitive> Solver<T> for NetworkSolver<T> {
     type Problem = NetworkProblem<T>;
     type Solution = Network<T>;
 
-    fn solve(&self, problem: &Self::Problem) -> Result<Self::Solution> {
+    fn solve(&mut self, problem: &Self::Problem) -> Result<Self::Solution> {
         self.solve_network(problem)
+    }
+    
+    fn name(&self) -> &str {
+        "NetworkSolver"
     }
 }
 
-impl<T: RealField> Configurable for NetworkSolver<T> {
+impl<T: RealField> Configurable<T> for NetworkSolver<T> {
     type Config = SolverConfig<T>;
-
-    fn configure(&mut self, config: Self::Config) -> Result<()> {
-        self.config = config.clone();
-        self.linear_solver.update_config(&config.base.linear_solver)?;
-        self.convergence.update_tolerance(config.base.tolerance);
-        Ok(())
-    }
 
     fn config(&self) -> &Self::Config {
         &self.config
     }
 }
 
-impl<T: RealField + FromPrimitive> Validatable for NetworkSolver<T> {
-    fn validate(&self) -> Result<()> {
-        // Validate configuration
-        if self.config.base.tolerance <= T::zero() {
+impl<T: RealField + FromPrimitive> Validatable<T> for NetworkSolver<T> {
+    type Problem = NetworkProblem<T>;
+
+    fn validate_problem(&self, problem: &Self::Problem) -> Result<()> {
+        // Validate network has nodes
+        if problem.network.node_count() == 0 {
+            return Err(cfd_core::Error::InvalidConfiguration(
+                "Network has no nodes".to_string()
+            ));
+        }
+        // Validate tolerance
+        if self.config.tolerance <= T::zero() {
             return Err(cfd_core::Error::InvalidConfiguration(
                 "Tolerance must be positive".to_string()
             ));
         }
         Ok(())
+    }
+
+    fn can_handle(&self, _problem: &Self::Problem) -> bool {
+        true // Can handle any network problem
     }
 }
