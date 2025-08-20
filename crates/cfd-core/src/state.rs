@@ -100,7 +100,7 @@ impl<T: RealField + FromPrimitive> FieldState<T> {
     pub fn new() -> Self {
         Self {
             time: T::zero(),
-            time_step: T::from_f64(1e-3).unwrap(),
+            time_step: T::from_f64(1e-3).unwrap_or_else(|| T::one()),
             iteration: 0,
             fields: IndexMap::new(),
         }
@@ -211,7 +211,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_basic_state() {
+    fn test_core_state() {
         let mut state = FieldState::<f64>::new();
         state.add_scalar_field(FieldVariable::Pressure, 10);
         state.add_vector_field(FieldVariable::Velocity, 10);

@@ -13,26 +13,26 @@ pub struct FluidDynamicsService;
 
 impl FluidDynamicsService {
     /// Calculate Reynolds number for a given flow configuration
-    pub fn reynolds_number<T: RealField>(
+    pub fn reynolds_number<T: RealField + num_traits::Float>(
         fluid: &Fluid<T>,
         velocity: T,
         characteristic_length: T,
     ) -> T {
-        velocity * characteristic_length / fluid.kinematic_viscosity.clone()
+        velocity * characteristic_length / fluid.kinematic_viscosity()
     }
 
     /// Calculate Prandtl number if thermal properties are available
-    pub fn prandtl_number<T: RealField>(fluid: &Fluid<T>) -> Option<T> {
+    pub fn prandtl_number<T: RealField + num_traits::Float>(fluid: &Fluid<T>) -> Option<T> {
         match (fluid.specific_heat.clone(), fluid.thermal_conductivity.clone()) {
-            (Some(cp), Some(k)) => Some(fluid.viscosity.clone() * cp / k),
+            (Some(cp), Some(k)) => Some(fluid.characteristic_viscosity() * cp / k),
             _ => None,
         }
     }
 
     /// Determine flow regime based on Reynolds number
     pub fn flow_regime<T: RealField + FromPrimitive>(reynolds: T) -> FlowRegime {
-        let re_2300 = T::from_f64(2300.0).unwrap();
-        let re_4000 = T::from_f64(4000.0).unwrap();
+        let re_2300 = T::from_f64(2300.0).unwrap_or_else(|| T::one());
+        let re_4000 = T::from_f64(4000.0).unwrap_or_else(|| T::one());
 
         if reynolds < re_2300 {
             FlowRegime::Laminar
@@ -44,7 +44,7 @@ impl FluidDynamicsService {
     }
 
     /// Calculate pressure drop for pipe flow
-    pub fn pipe_pressure_drop<T: RealField + FromPrimitive + Copy>(
+    pub fn pipe_pressure_drop<T: RealField + FromPrimitive + Copy + num_traits::Float>(
         fluid: &Fluid<T>,
         velocity: T,
         length: T,
@@ -65,8 +65,8 @@ impl FluidDynamicsService {
         diameter: T,
         roughness: Option<T>,
     ) -> Result<T> {
-        let re_2300 = T::from_f64(2300.0).unwrap();
-        let sixty_four = T::from_f64(64.0).unwrap();
+        let re_2300 = T::from_f64(2300.0).unwrap_or_else(|| T::one());
+        let sixty_four = T::from_f64(64.0).unwrap_or_else(|| T::one());
 
         if reynolds < re_2300 {
             // Laminar flow: f = 64/Re
@@ -81,10 +81,10 @@ impl FluidDynamicsService {
                 }
                 None => {
                     // Smooth pipe: Blasius equation for Re < 100,000
-                    let re_turbulent = T::from_f64(100_000.0).unwrap();
+                    let re_turbulent = T::from_f64(100_000.0).unwrap_or_else(|| T::one());
                     if reynolds < re_turbulent {
-                        let coeff = T::from_f64(0.316).unwrap();
-                        let exp = T::from_f64(0.25).unwrap();
+                        let coeff = T::from_f64(0.316).unwrap_or_else(|| T::one());
+                        let exp = T::from_f64(0.25).unwrap_or_else(|| T::one());
                         Ok(coeff / reynolds.powf(exp))
                     } else {
                         // Use Prandtl-Karman equation
@@ -100,15 +100,15 @@ impl FluidDynamicsService {
         reynolds: T,
         relative_roughness: T,
     ) -> Result<T> {
-        let mut f = T::from_f64(0.02).unwrap(); // Initial guess
-        let tolerance = T::from_f64(1e-6).unwrap();
+        let mut f = T::from_f64(0.02).unwrap_or_else(|| T::one()); // Initial guess
+        let tolerance = T::from_f64(1e-6).unwrap_or_else(|| T::one());
         let max_iterations = 50;
 
         for _ in 0..max_iterations {
-            let term1 = relative_roughness / T::from_f64(3.7).unwrap();
-            let term2 = T::from_f64(2.51).unwrap() / (reynolds * f.sqrt());
-            let f_new = T::from_f64(0.25).unwrap() / 
-                (T::from_f64(10.0).unwrap().ln() * (term1 + term2)).powi(2);
+            let term1 = relative_roughness / T::from_f64(3.7).unwrap_or_else(|| T::one());
+            let term2 = T::from_f64(2.51).unwrap_or_else(|| T::one()) / (reynolds * f.sqrt());
+            let f_new = T::from_f64(0.25).unwrap_or_else(|| T::one()) / 
+                (T::from_f64(10.0).unwrap_or_else(|| T::one()).ln() * (term1 + term2)).powi(2);
             
             if (f_new - f).abs() < tolerance {
                 return Ok(f_new);
@@ -116,15 +116,14 @@ impl FluidDynamicsService {
             f = f_new;
         }
 
-        Err(Error::ConvergenceFailure(
-            "Colebrook-White friction factor did not converge".to_string()
+        Err(Error::Convergence(crate::error::ConvergenceErrorKind::MaxIterationsExceeded { max: 100 }
         ))
     }
 
     /// Prandtl-Karman friction factor for smooth pipes
     fn prandtl_karman_friction_factor<T: RealField + FromPrimitive + Copy>(reynolds: T) -> Result<T> {
-        let log_re = reynolds.ln() / T::from_f64(10.0).unwrap().ln();
-        let coeff = T::from_f64(2.0).unwrap() * log_re - T::from_f64(0.8).unwrap();
+        let log_re = reynolds.ln() / T::from_f64(10.0).unwrap_or_else(|| T::one()).ln();
+        let coeff = T::from_f64(2.0).unwrap_or_else(|| T::one()) * log_re - T::from_f64(0.8).unwrap_or_else(|| T::one());
         Ok(T::one() / (coeff * coeff))
     }
 }
@@ -174,15 +173,15 @@ impl MeshQualityService {
     }
 
     fn assess_aspect_ratio<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
-        let threshold_level4 = T::from_f64(2.0).unwrap();
-        let threshold_level3 = T::from_f64(5.0).unwrap();
-        let threshold_level2 = T::from_f64(10.0).unwrap();
+        let threshprevious_level4 = T::from_f64(2.0).unwrap_or_else(|| T::one());
+        let threshprevious_level3 = T::from_f64(5.0).unwrap_or_else(|| T::one());
+        let threshprevious_level2 = T::from_f64(10.0).unwrap_or_else(|| T::one());
 
-        if stats.max < threshold_level4 {
+        if stats.max < threshprevious_level4 {
             QualityLevel::Level4
-        } else if stats.max < threshold_level3 {
+        } else if stats.max < threshprevious_level3 {
             QualityLevel::Level3
-        } else if stats.max < threshold_level2 {
+        } else if stats.max < threshprevious_level2 {
             QualityLevel::Level2
         } else {
             QualityLevel::Level1
@@ -190,15 +189,15 @@ impl MeshQualityService {
     }
 
     fn assess_skewness<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
-        let threshold_level4 = T::from_f64(0.25).unwrap();
-        let threshold_level3 = T::from_f64(0.5).unwrap();
-        let threshold_level2 = T::from_f64(0.8).unwrap();
+        let threshprevious_level4 = T::from_f64(0.25).unwrap_or_else(|| T::one());
+        let threshprevious_level3 = T::from_f64(0.5).unwrap_or_else(|| T::one());
+        let threshprevious_level2 = T::from_f64(0.8).unwrap_or_else(|| T::one());
 
-        if stats.max < threshold_level4 {
+        if stats.max < threshprevious_level4 {
             QualityLevel::Level4
-        } else if stats.max < threshold_level3 {
+        } else if stats.max < threshprevious_level3 {
             QualityLevel::Level3
-        } else if stats.max < threshold_level2 {
+        } else if stats.max < threshprevious_level2 {
             QualityLevel::Level2
         } else {
             QualityLevel::Level1
@@ -206,15 +205,15 @@ impl MeshQualityService {
     }
 
     fn assess_orthogonality<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
-        let threshold_level4 = T::from_f64(0.95).unwrap();
-        let threshold_level3 = T::from_f64(0.85).unwrap();
-        let threshold_level2 = T::from_f64(0.7).unwrap();
+        let threshprevious_level4 = T::from_f64(0.95).unwrap_or_else(|| T::one());
+        let threshprevious_level3 = T::from_f64(0.85).unwrap_or_else(|| T::one());
+        let threshprevious_level2 = T::from_f64(0.7).unwrap_or_else(|| T::one());
 
-        if stats.min > threshold_level4 {
+        if stats.min > threshprevious_level4 {
             QualityLevel::Level4
-        } else if stats.min > threshold_level3 {
+        } else if stats.min > threshprevious_level3 {
             QualityLevel::Level3
-        } else if stats.min > threshold_level2 {
+        } else if stats.min > threshprevious_level2 {
             QualityLevel::Level2
         } else {
             QualityLevel::Level1

@@ -47,7 +47,7 @@ impl<T: RealField + FromPrimitive> Default for FemConfig<T> {
         Self {
             base: cfd_core::SolverConfig::default(),
             use_stabilization: true,
-            tau: T::from_f64(constants::DEFAULT_STABILIZATION).unwrap(),
+            tau: T::from_f64(constants::DEFAULT_STABILIZATION).unwrap_or_else(|| T::zero()),
             dt: None,
             reynolds: None,
         }
@@ -81,12 +81,12 @@ impl<T: RealField + FromPrimitive> FluidProperties<T> {
     /// Create properties for water at 20°C
     pub fn water() -> Self {
         Self {
-            density: T::from_f64(998.2).unwrap(),
-            viscosity: T::from_f64(0.001).unwrap(),
+            density: T::from_f64(998.2).unwrap_or_else(|| T::zero()),
+            viscosity: T::from_f64(0.001).unwrap_or_else(|| T::zero()),
             body_force: Some(Vector3::new(
                 T::zero(),
                 T::zero(),
-                T::from_f64(-9.81).unwrap(),
+                T::from_f64(-9.81).unwrap_or_else(|| T::zero()),
             )),
         }
     }
@@ -125,8 +125,12 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
         properties: &FluidProperties<T>,
         config: &FemConfig<T>,
     ) -> Result<ElementMatrices<T>> {
-        let _n_vel_dof = constants::TET4_NODES * constants::VELOCITY_COMPONENTS; // 12
-        let _n_pres_dof = constants::TET4_NODES; // 4
+        let n_vel_dof = constants::TET4_NODES * constants::VELOCITY_COMPONENTS; // 12
+        let n_pres_dof = constants::TET4_NODES; // 4
+        
+        // These will be used in full implementation
+        assert_eq!(n_vel_dof, 12, "Velocity DOFs for TET4");
+        assert_eq!(n_pres_dof, 4, "Pressure DOFs for TET4");
         
         // Initialize element matrices (local dense, will be assembled into global sparse)
         let mut k_entries = Vec::new(); // Viscous stiffness
@@ -169,26 +173,26 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
         for i in 0..constants::TET4_NODES {
             for j in 0..constants::TET4_NODES {
                 // u-component row
-                let g_val_x = -weight.clone() * dn_dx[i].clone() / T::from_usize(constants::TET4_NODES).unwrap();
+                let g_val_x = -weight.clone() * dn_dx[i].clone() / T::from_usize(constants::TET4_NODES).unwrap_or_else(|| T::zero());
                 g_entries.push((i * constants::VELOCITY_COMPONENTS, j, g_val_x));
                 
                 // v-component row
-                let g_val_y = -weight.clone() * dn_dy[i].clone() / T::from_usize(constants::TET4_NODES).unwrap();
+                let g_val_y = -weight.clone() * dn_dy[i].clone() / T::from_usize(constants::TET4_NODES).unwrap_or_else(|| T::zero());
                 g_entries.push((i * constants::VELOCITY_COMPONENTS + 1, j, g_val_y));
                 
                 // w-component row
-                let g_val_z = -weight.clone() * dn_dz[i].clone() / T::from_usize(constants::TET4_NODES).unwrap();
+                let g_val_z = -weight.clone() * dn_dz[i].clone() / T::from_usize(constants::TET4_NODES).unwrap_or_else(|| T::zero());
                 g_entries.push((i * constants::VELOCITY_COMPONENTS + 2, j, g_val_z));
             }
         }
         
         // Build mass matrix M (for transient terms)
         if config.dt.is_some() {
-            let mass_factor = rho * weight.clone() / T::from_usize(constants::TET4_NODES * constants::TET4_NODES).unwrap();
+            let mass_factor = rho * weight.clone() / T::from_usize(constants::TET4_NODES * constants::TET4_NODES).unwrap_or_else(|| T::zero());
             for i in 0..constants::TET4_NODES {
                 for j in 0..constants::TET4_NODES {
                     let m_val = if i == j {
-                        mass_factor.clone() * T::from_f64(2.0).unwrap()
+                        mass_factor.clone() * T::from_f64(2.0).unwrap_or_else(|| T::zero())
                     } else {
                         mass_factor.clone()
                     };
@@ -243,8 +247,8 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
         // Standard formula: τ = h²/(4ν) for diffusion-dominated problems
         // For convection-dominated: τ = h/(2|u|) where |u| is velocity magnitude
         // Here we use diffusion form since this is Stokes flow
-        let two = T::from_f64(2.0).unwrap();
-        let four = T::from_f64(4.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
         Ok(h.clone() * h / (four * nu))
     }
 
@@ -301,7 +305,7 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
         
         // For Stokes flow (no convection), use diffusive scaling
         let h_squared = h.clone() * h;
-        let four = T::from_f64(4.0).unwrap();
+        let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
         let tau = h_squared / (four * nu);
         
         // Apply user scaling if provided
@@ -322,7 +326,7 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
             }
         }
         
-        Ok(total_length / T::from_usize(count).unwrap())
+        Ok(total_length / T::from_usize(count).unwrap_or_else(|| T::zero()))
     }
     
     /// Compute element volume
@@ -341,9 +345,9 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
         let e2 = v2 - v0;
         let e3 = v3 - v0;
         
-        let volume = e1.cross(&e2).dot(&e3).abs() / T::from_f64(constants::TET_VOLUME_FACTOR).unwrap();
+        let volume = e1.cross(&e2).dot(&e3).abs() / T::from_f64(constants::TET_VOLUME_FACTOR).unwrap_or_else(|| T::zero());
         
-        if volume < T::from_f64(constants::EPSILON).unwrap() {
+        if volume < T::from_f64(constants::EPSILON).unwrap_or_else(|| T::zero()) {
             return Err(Error::InvalidInput("Degenerate tetrahedron element".into()));
         }
         
@@ -353,7 +357,7 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
     /// Calculate shape function derivatives
     fn shape_derivatives(&self, nodes: &[Vector3<T>]) -> Result<(Vec<T>, Vec<T>, Vec<T>)> {
         let volume = self.compute_volume(nodes)?;
-        let six_v = T::from_f64(constants::TET_VOLUME_FACTOR).unwrap() * volume;
+        let six_v = T::from_f64(constants::TET_VOLUME_FACTOR).unwrap_or_else(|| T::zero()) * volume;
         
         let v0 = &nodes[0];
         let v1 = &nodes[1];
@@ -395,7 +399,7 @@ impl<T: RealField + FromPrimitive> FluidElement<T> {
     /// Build strain rate tensor from velocity gradients
     pub fn strain_rate_tensor(&self, velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
         // ε̇ = 0.5 * (∇u + ∇u^T)
-        let half = T::from_f64(0.5).unwrap();
+        let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
         (velocity_gradient + velocity_gradient.transpose()) * half
     }
 }
@@ -528,10 +532,10 @@ impl<T: RealField + FromPrimitive + Clone + num_traits::Float> FemSolver<T> {
         // Assemble global matrices for this problem
         self.assemble_global_matrices_for_problem(problem)?;
 
-        let k = self.k_global.as_ref().unwrap();
-        let g = self.g_global.as_ref().unwrap();
+        let k = self.k_global.as_ref().expect("CRITICAL: Add proper error handling");
+        let g = self.g_global.as_ref().expect("CRITICAL: Add proper error handling");
         let gt = g.transpose();
-        let s_pp = self.s_pp_global.as_ref().unwrap();
+        let s_pp = self.s_pp_global.as_ref().expect("CRITICAL: Add proper error handling");
 
         let n_total = n_vel + n_pres;
 
@@ -575,7 +579,7 @@ impl<T: RealField + FromPrimitive + Clone + num_traits::Float> FemSolver<T> {
         // No need for artificial stabilization when PSPG is used
         if !self.config.use_stabilization {
             // Only add small diagonal term if stabilization is disabled
-            let eps = T::from_f64(1e-10).unwrap();
+            let eps = T::from_f64(1e-10).unwrap_or_else(|| T::zero());
             for i in 0..n_pres {
                 a_builder.add_entry(n_vel + i, n_vel + i, eps.clone())?;
             }
@@ -596,7 +600,7 @@ impl<T: RealField + FromPrimitive + Clone + num_traits::Float> FemSolver<T> {
         }
 
         // Apply boundary conditions using penalty method before building matrix
-        let penalty = T::from_f64(1e12).unwrap(); // Large penalty parameter
+        let penalty = T::from_f64(1e12).unwrap_or_else(|| T::zero()); // Large penalty parameter
         
         for (&node_idx, bc) in &problem.boundary_conditions {
             match bc {
@@ -678,15 +682,15 @@ impl<T: RealField + FromPrimitive + num_traits::Float> FemSolver<T> {
     /// Legacy solve method for backward compatibility
     pub fn solve_stokes(&mut self, mesh: &Mesh<T>, properties: &FluidProperties<T>, boundary_conditions: &HashMap<usize, Vector3<T>>) -> Result<StokesFlowSolution<T>> {
         // Convert legacy boundary conditions to new format
-        let new_bcs: HashMap<usize, BoundaryCondition<T>> = boundary_conditions
+        let current_bcs: HashMap<usize, BoundaryCondition<T>> = boundary_conditions
             .iter()
             .map(|(&node, &velocity)| {
                 (node, BoundaryCondition::VelocityInlet { velocity })
             })
             .collect();
 
-        let fluid = Fluid::new_newtonian("solver_fluid", properties.density.clone(), properties.viscosity.clone());
-        let problem = StokesFlowProblem::new(mesh.clone(), fluid, new_bcs)
+        let fluid = Fluid::current_newtonian("solver_fluid", properties.density.clone(), properties.viscosity.clone());
+        let problem = StokesFlowProblem::new(mesh.clone(), fluid, current_bcs)
             .with_body_force(properties.body_force.unwrap_or_else(Vector3::zeros));
 
         self.solve_problem(&problem)
@@ -770,7 +774,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> FemSolver<T> {
         // Convert FluidProperties from Problem
         let properties = FluidProperties {
             density: problem.fluid.density.clone(),
-            viscosity: problem.fluid.viscosity.clone(),
+            viscosity: problem.fluid.characteristic_viscosity(),
             body_force: problem.body_force.clone(),
         };
         

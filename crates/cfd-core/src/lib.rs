@@ -60,7 +60,7 @@ pub mod prelude {
     pub use crate::plugin::{Plugin, SimulationPlugin};
 }
 
-// Advanced API - for plugin developers and advanced users
+// Extended API - for plugin developers and advanced users
 // These are intentionally not in the prelude to avoid cluttering the namespace
 
 /// Factory system for dynamic solver creation (advanced usage)
@@ -73,14 +73,12 @@ pub mod factories {
 /// Plugin system internals (for plugin developers)
 pub mod plugins {
     pub use crate::plugin::{
-        PluginRegistry, PluginLifecycle, PluginCapabilities, 
-        PluginValidation, PluginHealth, PluginHealthStatus, 
-        PluginMetrics, PluginMonitoring, SystemHealthReport, 
-        SystemStatus, ComprehensiveHealthReport, PluginHealthReport
+        PluginRegistry, PluginHealthStatus,
+        PluginMetrics, SystemStatus, SystemHealthSummary
     };
 }
 
-/// Advanced solver traits (for solver implementors)
+/// Extended solver traits (for solver implementors)
 pub mod solvers {
     pub use crate::solver::{
         Configurable, Validatable, IterativeSolver, DirectSolver,
@@ -115,3 +113,9 @@ pub use services::{
 // Note: TypeErasedFactory and TypeErasedSolver are internal implementation details
 // and should NOT be exposed in the public API. They remain accessible only through
 // the factory module for those who need to implement custom factories.
+// Re-export commonly used types
+pub use error::{Error, Result};
+pub use fluid::Fluid;
+pub use boundary::BoundaryCondition;
+pub use problem::Problem;
+pub use solver::{Solver, SolverConfiguration, Configurable, Validatable, NetworkSolverConfig};

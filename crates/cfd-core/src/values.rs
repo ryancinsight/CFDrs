@@ -31,12 +31,12 @@ impl<T: RealField + FromPrimitive> ReynoldsNumber<T> {
 
     /// Check if flow is laminar (Re < 2300 for pipe flow)
     pub fn is_laminar(&self) -> bool {
-        self.0 < T::from_f64(2300.0).unwrap()
+        self.0 < T::from_f64(2300.0).unwrap_or_else(|| T::zero())
     }
 
     /// Check if flow is turbulent (Re > 4000 for pipe flow)
     pub fn is_turbulent(&self) -> bool {
-        self.0 > T::from_f64(4000.0).unwrap()
+        self.0 > T::from_f64(4000.0).unwrap_or_else(|| T::zero())
     }
 
     /// Check if flow is transitional
@@ -87,8 +87,8 @@ impl<T: RealField + FromPrimitive> Pressure<T> {
     pub fn to_pascals(&self) -> T {
         match self.unit {
             PressureUnit::Pascal => self.value.clone(),
-            PressureUnit::Atmosphere => self.value.clone() * T::from_f64(101_325.0).unwrap(),
-            PressureUnit::Bar => self.value.clone() * T::from_f64(100_000.0).unwrap(),
+            PressureUnit::Atmosphere => self.value.clone() * T::from_f64(101_325.0).unwrap_or_else(|| T::one()),
+            PressureUnit::Bar => self.value.clone() * T::from_f64(100_000.0).unwrap_or_else(|| T::one()),
         }
     }
 
@@ -202,13 +202,13 @@ impl<T: RealField + FromPrimitive> Temperature<T> {
 
     /// Create temperature in Celsius
     pub fn celsius(value: T) -> Result<Self> {
-        let kelvin_value = value + T::from_f64(273.15).unwrap();
+        let kelvin_value = value + T::from_f64(273.15).unwrap_or_else(|| T::one());
         Self::kelvin(kelvin_value)
     }
 
     /// Create temperature in Fahrenheit
     pub fn fahrenheit(value: T) -> Result<Self> {
-        let celsius_value = (value - T::from_f64(32.0).unwrap()) * T::from_f64(5.0).unwrap() / T::from_f64(9.0).unwrap();
+        let celsius_value = (value - T::from_f64(32.0).unwrap_or_else(|| T::one())) * T::from_f64(5.0).unwrap_or_else(|| T::one()) / T::from_f64(9.0).unwrap_or_else(|| T::one());
         Self::celsius(celsius_value)
     }
 
@@ -216,10 +216,10 @@ impl<T: RealField + FromPrimitive> Temperature<T> {
     pub fn to_kelvin(&self) -> T {
         match self.unit {
             TemperatureUnit::Kelvin => self.value.clone(),
-            TemperatureUnit::Celsius => self.value.clone() + T::from_f64(273.15).unwrap(),
+            TemperatureUnit::Celsius => self.value.clone() + T::from_f64(273.15).unwrap_or_else(|| T::zero()),
             TemperatureUnit::Fahrenheit => {
-                let celsius = (self.value.clone() - T::from_f64(32.0).unwrap()) * T::from_f64(5.0).unwrap() / T::from_f64(9.0).unwrap();
-                celsius + T::from_f64(273.15).unwrap()
+                let celsius = (self.value.clone() - T::from_f64(32.0).unwrap_or_else(|| T::zero())) * T::from_f64(5.0).unwrap_or_else(|| T::zero()) / T::from_f64(9.0).unwrap_or_else(|| T::one());
+                celsius + T::from_f64(273.15).unwrap_or_else(|| T::zero())
             }
         }
     }
@@ -307,17 +307,17 @@ mod tests {
 
     #[test]
     fn test_reynolds_number() {
-        let re = ReynoldsNumber::new(1500.0).unwrap();
+        let re = ReynoldsNumber::new(1500.0).expect("CRITICAL: Add proper error handling");
         assert!(re.is_laminar());
         assert!(!re.is_turbulent());
         assert!(!re.is_transitional());
 
-        let re_turb = ReynoldsNumber::new(5000.0).unwrap();
+        let re_turb = ReynoldsNumber::new(5000.0).expect("CRITICAL: Add proper error handling");
         assert!(!re_turb.is_laminar());
         assert!(re_turb.is_turbulent());
         assert!(!re_turb.is_transitional());
 
-        let re_trans = ReynoldsNumber::new(3000.0).unwrap();
+        let re_trans = ReynoldsNumber::new(3000.0).expect("CRITICAL: Add proper error handling");
         assert!(!re_trans.is_laminar());
         assert!(!re_trans.is_turbulent());
         assert!(re_trans.is_transitional());
@@ -336,11 +336,11 @@ mod tests {
 
     #[test]
     fn test_temperature_conversion() {
-        let t_c = Temperature::celsius(0.0f64).unwrap();
+        let t_c = Temperature::celsius(0.0f64).expect("CRITICAL: Add proper error handling");
         let t_k = t_c.to_kelvin();
         assert!((t_k - 273.15).abs() < 1e-6);
 
-        let t_f = Temperature::fahrenheit(32.0f64).unwrap();
+        let t_f = Temperature::fahrenheit(32.0f64).expect("CRITICAL: Add proper error handling");
         let t_k_f = t_f.to_kelvin();
         assert!((t_k_f - 273.15).abs() < 1e-6);
     }

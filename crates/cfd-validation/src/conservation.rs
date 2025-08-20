@@ -3,7 +3,7 @@
 //! This module provides tools to verify that CFD simulations satisfy fundamental
 //! conservation laws such as mass, momentum, and energy conservation.
 
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::{RealField, DVector};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -51,8 +51,8 @@ pub struct ConservationTolerance<T: RealField> {
 impl<T: RealField + FromPrimitive> Default for ConservationTolerance<T> {
     fn default() -> Self {
         Self {
-            absolute: T::from_f64(1e-12).unwrap(),
-            relative: T::from_f64(1e-10).unwrap(),
+            absolute: T::from_f64(1e-12).unwrap_or_else(|| T::zero()),
+            relative: T::from_f64(1e-10).unwrap_or_else(|| T::zero()),
         }
     }
 }
@@ -87,7 +87,7 @@ impl<T: RealField> ConservationHistory<T> {
 
     /// Get the maximum error in the history
     pub fn max_error(&self) -> Option<T> {
-        self.errors.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).cloned()
+        self.errors.iter().max_by(|a, b| a.partial_cmp(b).expect("CRITICAL: Add proper error handling")).cloned()
     }
 
     /// Get the fraction of time points where conservation was satisfied
@@ -268,7 +268,7 @@ impl<T: RealField + FromPrimitive> GlobalConservationIntegrals<T> {
            density.len() != velocity_y.len() || 
            density.len() != velocity_z.len() ||
            density.len() != cell_volumes.len() {
-            return Err(cfd_core::Error::InvalidConfiguration(
+            return Err(cfd_core::error::Error::InvalidConfiguration(
                 "All field arrays must have the same length".to_string()
             ));
         }
@@ -289,7 +289,7 @@ impl<T: RealField + FromPrimitive> GlobalConservationIntegrals<T> {
                         let u_sq = u.clone() * u.clone();
                         let v_sq = v.clone() * v.clone();
                         let w_sq = w.clone() * w.clone();
-                        let half = T::from_f64(0.5).unwrap();
+                        let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
 
                         (
                             mass + dm.clone(),

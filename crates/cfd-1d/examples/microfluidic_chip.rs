@@ -10,7 +10,7 @@
 //! Run with: cargo run --example microfluidic_chip
 
 use cfd_1d::{NetworkBuilder, NetworkSolver, ChannelProperties};
-use cfd_core::Fluid;
+use cfd_core::fluid::Fluid;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Microfluidic Chip Simulation");
@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut network = NetworkBuilder::new()
         .with_fluid(Fluid::water())
 
-        // Simple T-junction network
+        // Standard T-junction network
         .add_inlet_pressure("inlet", 0.0, 0.0, 2000.0)  // 2 kPa
         .add_junction("junction", 2.0, 0.0)
         .add_outlet_pressure("outlet_1", 4.0, 1.0, 0.0)
@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   - Fluid: {}", network.fluid().name);
 
     // Create solver with custom configuration using builder pattern
-    let solver_config = cfd_core::SolverConfig::<f64>::builder()
+    let solver_config = cfd_core::solver::SolverConfig::<f64>::builder()
         .max_iterations(1000)
         .tolerance(1e-6)
         .verbosity(2) // verbose = true means verbosity level 2

@@ -102,7 +102,7 @@ impl Hdf5Writer {
 
             // Create dataset with chunking
             let dataset = group
-                .new_dataset::<T>()
+                .current_dataset::<T>()
                 .shape([data.len()])
                 .chunk([chunk_size])
                 .create(dataset_name)
@@ -151,7 +151,7 @@ impl Hdf5Writer {
 
             // Create 2D dataset with chunking
             let dataset = group
-                .new_dataset::<T>()
+                .current_dataset::<T>()
                 .shape([data.nrows(), data.ncols()])
                 .chunk([chunk_dims.0, chunk_dims.1])
                 .create(dataset_name)
@@ -201,7 +201,7 @@ impl Hdf5Writer {
 
             // Write time steps
             let time_dataset = group
-                .new_dataset::<f64>()
+                .current_dataset::<f64>()
                 .shape([time_steps.len()])
                 .create("time_steps")
                 .map_err(|e| Error::IoError(format!("Failed to create time dataset: {}", e)))?;
@@ -217,7 +217,7 @@ impl Hdf5Writer {
                 .collect();
 
             let data_dataset = group
-                .new_dataset::<T>()
+                .current_dataset::<T>()
                 .shape([data.len(), data_len])
                 .chunk([1, data_len])
                 .deflate(6) // Compression level
@@ -248,37 +248,37 @@ impl Hdf5Writer {
         metadata: &DatasetMetadata,
     ) -> Result<()> {
         // Write basic metadata
-        dataset.new_attr::<hdf5::types::VarLenUnicode>()
+        dataset.current_attr::<hdf5::types::VarLenUnicode>()
             .create("name")?
             .write_scalar(&metadata.name.as_str().into())?;
 
-        dataset.new_attr::<hdf5::types::VarLenUnicode>()
+        dataset.current_attr::<hdf5::types::VarLenUnicode>()
             .create("data_type")?
             .write_scalar(&metadata.data_type.as_str().into())?;
 
         // Write dimensions
         let dims: Vec<u64> = metadata.dimensions.iter().map(|&d| d as u64).collect();
-        dataset.new_attr::<u64>()
+        dataset.current_attr::<u64>()
             .shape(&[dims.len()])
             .create("dimensions")?
             .write(&dims)?;
 
         // Write optional fields
         if let Some(ref units) = metadata.units {
-            dataset.new_attr::<hdf5::types::VarLenUnicode>()
+            dataset.current_attr::<hdf5::types::VarLenUnicode>()
                 .create("units")?
                 .write_scalar(&units.as_str().into())?;
         }
 
         if let Some(time_step) = metadata.time_step {
-            dataset.new_attr::<f64>()
+            dataset.current_attr::<f64>()
                 .create("time_step")?
                 .write_scalar(&time_step)?;
         }
 
         // Write additional attributes
         for (key, value) in &metadata.attributes {
-            dataset.new_attr::<hdf5::types::VarLenUnicode>()
+            dataset.current_attr::<hdf5::types::VarLenUnicode>()
                 .create(key)?
                 .write_scalar(&value.as_str().into())?;
         }

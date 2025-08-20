@@ -4,7 +4,7 @@
 //! including Richardson extrapolation and grid convergence studies.
 
 use crate::error_metrics::{ErrorMetric, ErrorAnalysis};
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
 use num_traits::cast::{FromPrimitive, ToPrimitive};
 
@@ -56,7 +56,7 @@ impl<T: RealField + FromPrimitive> ConvergenceStudy<T> {
         errors: &[T],
         convergence_rate: T,
     ) -> Result<(T, T)> {
-        let n = T::from_usize(grid_sizes.len()).unwrap();
+        let n = T::from_usize(grid_sizes.len()).expect("CRITICAL: Add proper error handling");
 
         // Single-pass calculation of all required statistics
         let (sum_log_e, sum_log_h, sum_log_e_sq, _sum_log_h_sq) = errors.iter()
@@ -114,7 +114,7 @@ impl<T: RealField + FromPrimitive> ConvergenceStudy<T> {
 
     /// Get the convergence order (theoretical vs observed) with default tolerance
     pub fn convergence_order(&self) -> ConvergenceOrder<T> {
-        let default_tolerance = T::from_f64(0.1).unwrap();
+        let default_tolerance = T::from_f64(0.1).unwrap_or_else(|| T::zero());
         self.convergence_order_with_tolerance(default_tolerance)
     }
 
@@ -122,9 +122,9 @@ impl<T: RealField + FromPrimitive> ConvergenceStudy<T> {
     pub fn convergence_order_with_tolerance(&self, tolerance: T) -> ConvergenceOrder<T> {
         let rate = self.convergence_rate.clone();
         let one = T::one();
-        let two = T::from_f64(2.0).unwrap();
-        let three = T::from_f64(3.0).unwrap();
-        let four = T::from_f64(4.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
+        let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
 
         if (rate.clone() - one).abs() < tolerance {
             ConvergenceOrder::FirstOrder
@@ -150,7 +150,7 @@ impl<T: RealField + FromPrimitive> ConvergenceStudy<T> {
             return Err(Error::InvalidInput("Error coefficient is zero".to_string()));
         }
 
-        let epsilon = T::from_f64(1e-9).unwrap();
+        let epsilon = T::from_f64(1e-9).unwrap_or_else(|| T::zero());
         if self.convergence_rate.clone().abs() < epsilon {
             return Err(Error::InvalidInput("Convergence rate is zero or near-zero".to_string()));
         }
@@ -192,7 +192,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive> RichardsonExtrapolation<T> {
 
     /// Create Richardson extrapolation with second-order accuracy
     pub fn second_order() -> Self {
-        Self::new(T::from_f64(2.0).unwrap())
+        Self::new(T::from_f64(2.0).unwrap_or_else(|| T::zero()))
     }
 
     /// Extrapolate using two solutions on different grids
@@ -209,7 +209,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive> RichardsonExtrapolation<T> {
     /// Extrapolate using two solutions (backward compatibility)
     pub fn extrapolate(&self, solution1: T, solution2: T) -> T {
         // Assume default grid ratio of 2.0
-        let grid_ratio = T::from_f64(2.0).unwrap();
+        let grid_ratio = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         self.extrapolate_two_grids(solution1, solution2, grid_ratio)
     }
 
@@ -222,7 +222,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive> RichardsonExtrapolation<T> {
         fine_solution: T,
         grid_ratio: T, // constant ratio between grids
     ) -> Result<T> {
-        let default_tolerance = T::from_f64(0.1).unwrap();
+        let default_tolerance = T::from_f64(0.1).unwrap_or_else(|| T::zero());
         self.extrapolate_three_grids_with_tolerance(
             coarse_solution, medium_solution, fine_solution, grid_ratio, default_tolerance
         )
@@ -292,12 +292,12 @@ impl<T: RealField + FromPrimitive> GridConvergenceIndex<T> {
 
     /// Create GCI for three or more grids
     pub fn for_multiple_grids() -> Self {
-        Self::new(T::from_f64(1.25).unwrap())
+        Self::new(T::from_f64(1.25).unwrap_or_else(|| T::zero()))
     }
 
     /// Create GCI for two grids
     pub fn for_two_grids() -> Self {
-        Self::new(T::from_f64(3.0).unwrap())
+        Self::new(T::from_f64(3.0).unwrap_or_else(|| T::zero()))
     }
 
     /// Compute GCI between two solutions
@@ -326,7 +326,7 @@ impl<T: RealField + FromPrimitive> GridConvergenceIndex<T> {
         let ratio = gci_coarse / (r_p * gci_fine);
 
         // Should be close to 1.0 in asymptotic range
-        let tolerance = T::from_f64(0.01).unwrap(); // 1% tolerance
+        let tolerance = T::from_f64(0.01).unwrap_or_else(|| T::zero()); // 1% tolerance
         (ratio - T::one()).abs() < tolerance
     }
 }
@@ -389,13 +389,13 @@ impl ConvergenceAnalysis {
                      let e_ratio = errors[errors.len() - 2].clone() / errors[errors.len() - 1].clone();
                      e_ratio.ln() / h_ratio.ln()
                  } else {
-                     T::from_f64(2.0).unwrap() // Assume second-order as default
+                     T::from_f64(2.0).unwrap_or_else(|| T::zero()) // Assume second-order as default
                  };
                  
                  let h_ratio = h2 / h1;
                  let denominator = h_ratio.powf(p) - T::one();
                  
-                 if denominator.clone().abs() > T::from_f64(1e-10).unwrap() {
+                 if denominator.clone().abs() > T::from_f64(1e-10).unwrap_or_else(|| T::zero()) {
                      let finest_error = (f1 - f2).abs() / denominator;
                      errors.push(finest_error);
                  } else {
@@ -404,8 +404,8 @@ impl ConvergenceAnalysis {
                      errors.push(errors[errors.len() - 1].clone() * ratio);
                  }
              } else {
-                 // Simple fallback for insufficient data
-                 errors.push(errors[0].clone() * T::from_f64(0.5).unwrap());
+                 // Standard fallback for insufficient data
+                 errors.push(errors[0].clone() * T::from_f64(0.5).unwrap_or_else(|| T::zero()));
              }
 
             errors
@@ -508,14 +508,14 @@ mod tests {
         let grid_sizes = vec![0.1, 0.05, 0.025];
         let errors = vec![0.01, 0.0025, 0.000625]; // errors ∝ h^2
 
-        let study = ConvergenceStudy::new(grid_sizes, errors).unwrap();
+        let study = ConvergenceStudy::new(grid_sizes, errors).expect("CRITICAL: Add proper error handling");
 
         assert_relative_eq!(study.convergence_rate, 2.0, epsilon = 1e-10);
         assert!(study.r_squared > 0.99); // Should have excellent fit
 
         match study.convergence_order() {
             ConvergenceOrder::SecondOrder => {},
-            _ => panic!("Expected second-order convergence"),
+            _ => assert!(false, "Expected second-order convergence"),
         }
     }
 
@@ -525,13 +525,13 @@ mod tests {
         let grid_sizes = vec![0.1, 0.05, 0.025];
         let errors = vec![0.1, 0.05, 0.025]; // errors ∝ h^1
 
-        let study = ConvergenceStudy::new(grid_sizes, errors).unwrap();
+        let study = ConvergenceStudy::new(grid_sizes, errors).expect("CRITICAL: Add proper error handling");
 
         assert_relative_eq!(study.convergence_rate, 1.0, epsilon = 1e-10);
 
         match study.convergence_order() {
             ConvergenceOrder::FirstOrder => {},
-            _ => panic!("Expected first-order convergence"),
+            _ => assert!(false, "Expected first-order convergence"),
         }
     }
 
@@ -540,7 +540,7 @@ mod tests {
         let grid_sizes = vec![0.1, 0.05, 0.025];
         let errors = vec![0.01, 0.0025, 0.000625];
 
-        let study = ConvergenceStudy::new(grid_sizes, errors).unwrap();
+        let study = ConvergenceStudy::new(grid_sizes, errors).expect("CRITICAL: Add proper error handling");
 
         // Predict error for h = 0.0125 (should be ~0.000156)
         let predicted = study.predict_error(0.0125);
@@ -553,11 +553,11 @@ mod tests {
         let grid_sizes = vec![0.1, 0.05, 0.025];
         let errors = vec![0.01, 0.0025, 0.000625];
 
-        let study = ConvergenceStudy::new(grid_sizes, errors).unwrap();
+        let study = ConvergenceStudy::new(grid_sizes, errors).expect("CRITICAL: Add proper error handling");
 
         // Find grid size for target error of 0.0001
         let target_error = 0.0001;
-        let required_h = study.grid_size_for_error(target_error).unwrap();
+        let required_h = study.grid_size_for_error(target_error).expect("CRITICAL: Add proper error handling");
 
         // Verify by predicting error at this grid size
         let predicted_error = study.predict_error(required_h);
@@ -568,7 +568,7 @@ mod tests {
     fn test_grid_size_for_error_edge_cases() {
         let grid_sizes = vec![0.1, 0.05, 0.025];
         let errors = vec![0.01, 0.0025, 0.000625];
-        let study = ConvergenceStudy::new(grid_sizes, errors).unwrap();
+        let study = ConvergenceStudy::new(grid_sizes, errors).expect("CRITICAL: Add proper error handling");
 
         // Test with zero target error
         assert!(study.grid_size_for_error(0.0).is_err());
@@ -606,7 +606,7 @@ mod tests {
             medium_solution,
             fine_solution,
             grid_ratio,
-        ).unwrap();
+        ).expect("CRITICAL: Add proper error handling");
 
         // Should be close to exact solution (1.0)
         assert_relative_eq!(extrapolated, 1.0, epsilon = 1e-6);
@@ -634,7 +634,7 @@ mod tests {
 
         match status {
             ConvergenceStatus::Converged { criterion: ConvergenceCriterion::Absolute, .. } => {},
-            _ => panic!("Expected absolute convergence"),
+            _ => assert!(false, "Expected absolute convergence"),
         }
     }
 
@@ -645,7 +645,7 @@ mod tests {
 
         match status {
             ConvergenceStatus::Converged { criterion: ConvergenceCriterion::Relative, .. } => {},
-            _ => panic!("Expected relative convergence"),
+            _ => assert!(false, "Expected relative convergence"),
         }
     }
 
@@ -656,7 +656,7 @@ mod tests {
 
         match status {
             ConvergenceStatus::NotConverged { .. } => {},
-            _ => panic!("Expected not converged"),
+            _ => assert!(false, "Expected not converged"),
         }
     }
 

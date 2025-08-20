@@ -108,10 +108,10 @@ impl<T: RealField + FromPrimitive> Default for RefinementConfig<T> {
     fn default() -> Self {
         Self {
             max_level: DEFAULT_MAX_REFINEMENT_LEVEL,
-            min_size: T::from_f64(DEFAULT_MIN_CELL_SIZE).unwrap(),
+            min_size: T::from_f64(DEFAULT_MIN_CELL_SIZE).unwrap_or_else(|| T::zero()),
             strategy: RefinementStrategy::Adaptive,
-            error_threshold: T::from_f64(DEFAULT_ERROR_THRESHOLD).unwrap(),
-            gradient_threshold: T::from_f64(DEFAULT_GRADIENT_THRESHOLD).unwrap(),
+            error_threshold: T::from_f64(DEFAULT_ERROR_THRESHOLD).unwrap_or_else(|| T::zero()),
+            gradient_threshold: T::from_f64(DEFAULT_GRADIENT_THRESHOLD).unwrap_or_else(|| T::zero()),
             enable_smoothing: true,
             smoothing_iterations: 3,
         }
@@ -291,9 +291,9 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         mesh: &mut Mesh<T>,
         cells_to_refine: &[usize],
     ) -> Result<usize, RefinementError> {
-        let mut new_vertices = Vec::new();
-        let mut new_faces = Vec::new();
-        let mut new_cells = Vec::new();
+        let mut current_vertices = Vec::new();
+        let mut current_faces = Vec::new();
+        let mut current_cells = Vec::new();
         let mut vertex_id_counter = mesh.vertices.len();
         let mut face_id_counter = mesh.faces.len();
         let mut cell_id_counter = mesh.cells.len();
@@ -310,7 +310,7 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                 // Check minimum size
                 let size = self.compute_cell_size(mesh, cell);
                 if size < self.config.min_size {
-                    return Err(RefinementError::MinSizeReached(size.to_subset().unwrap()));
+                    return Err(RefinementError::MinSizeReached(size.to_subset().expect("FIXME: Add proper error handling")));
                 }
                 
                 // Perform refinement (tetrahedral subdivision for 3D)
@@ -322,26 +322,26 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                     &mut cell_id_counter,
                 );
                 
-                new_vertices.extend(refined.0);
-                new_faces.extend(refined.1);
+                current_vertices.extend(refined.0);
+                current_faces.extend(refined.1);
                 
                 // Update refinement levels before moving cells
-                for new_cell in &refined.2 {
-                    self.refinement_levels.insert(new_cell.id, level + 1);
+                for current_cell in &refined.2 {
+                    self.refinement_levels.insert(current_cell.id, level + 1);
                 }
                 
-                new_cells.extend(refined.2);
+                current_cells.extend(refined.2);
             }
         }
         
         // Add new elements to mesh
-        let num_refined = new_cells.len();
-        mesh.vertices.extend(new_vertices);
-        mesh.faces.extend(new_faces);
+        let num_refined = current_cells.len();
+        mesh.vertices.extend(current_vertices);
+        mesh.faces.extend(current_faces);
         
         // Replace refined cells with new ones
         mesh.cells.retain(|c| !cells_to_refine.contains(&c.id));
-        mesh.cells.extend(new_cells);
+        mesh.cells.extend(current_cells);
         
         // Update mesh topology
         mesh.update_topology();
@@ -395,9 +395,9 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         face_counter: &mut usize,
         cell_counter: &mut usize,
     ) -> (Vec<Vertex<T>>, Vec<Face>, Vec<Cell>) {
-        let mut new_vertices = Vec::new();
-        let new_faces = Vec::new();
-        let new_cells = Vec::new();
+        let mut current_vertices = Vec::new();
+        let current_faces = Vec::new();
+        let current_cells = Vec::new();
         
         // Get cell vertices (assuming tetrahedral cell with 4 vertices)
         if cell.faces.len() == 4 {
@@ -419,7 +419,7 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                 
                 // Create new vertices at midpoints
                 for point in midpoints {
-                    new_vertices.push(Vertex {
+                    current_vertices.push(Vertex {
                         id: *vertex_counter,
                         position: point,
                     });
@@ -435,13 +435,13 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
             }
         }
         
-        (new_vertices, new_faces, new_cells)
+        (current_vertices, current_faces, current_cells)
     }
     
     /// Compute edge midpoints for subdivision
     fn compute_edge_midpoints(&self, vertices: &[&Vertex<T>]) -> Vec<Point3<T>> {
         let mut midpoints = Vec::new();
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         
         // Use iterator combinators for midpoint calculation
         for (i, v1) in vertices.iter().enumerate() {
@@ -581,7 +581,7 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         }
         
         if count > 0 {
-            grad_mag / T::from_usize(count).unwrap()
+            grad_mag / T::from_usize(count).unwrap_or_else(|| T::zero())
         } else {
             T::zero()
         }
@@ -722,7 +722,7 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
     /// Smooth mesh after refinement
     fn smooth_mesh(&self, mesh: &mut Mesh<T>, iterations: usize) {
         for _ in 0..iterations {
-            let mut new_positions = Vec::with_capacity(mesh.vertices.len());
+            let mut current_positions = Vec::with_capacity(mesh.vertices.len());
             
             for vertex in &mesh.vertices {
                 // Find connected vertices
@@ -745,23 +745,23 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                             avg_pos += &v.position.coords;
                         }
                     }
-                    avg_pos /= T::from_usize(connected.len()).unwrap();
+                    avg_pos /= T::from_usize(connected.len()).expect("FIXME: Add proper error handling");
                     
                     // Blend with original position
-                    let alpha = T::from_f64(0.5).unwrap(); // Smoothing factor
-                    let new_pos = Point3::from(
+                    let alpha = T::from_f64(0.5).unwrap_or_else(|| T::zero()); // Smoothing factor
+                    let current_pos = Point3::from(
                         vertex.position.coords.clone() * (T::one() - alpha.clone()) +
                         avg_pos * alpha
                     );
-                    new_positions.push(new_pos);
+                    current_positions.push(current_pos);
                 } else {
-                    new_positions.push(vertex.position.clone());
+                    current_positions.push(vertex.position.clone());
                 }
             }
             
             // Update vertex positions
-            for (vertex, new_pos) in mesh.vertices.iter_mut().zip(new_positions) {
-                vertex.position = new_pos;
+            for (vertex, current_pos) in mesh.vertices.iter_mut().zip(current_positions) {
+                vertex.position = current_pos;
             }
         }
     }

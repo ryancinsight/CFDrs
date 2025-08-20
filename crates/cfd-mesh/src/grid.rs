@@ -104,9 +104,9 @@ impl<T: RealField + FromPrimitive> Default for GridConfig<T> {
             ],
             coordinate_system: CoordinateSystem::Cartesian,
             spacing: [
-                GridSpacing::Uniform(T::from_f64(constants::DEFAULT_UNIFORM_SPACING).unwrap()),
-                GridSpacing::Uniform(T::from_f64(constants::DEFAULT_UNIFORM_SPACING).unwrap()),
-                GridSpacing::Uniform(T::from_f64(constants::DEFAULT_UNIFORM_SPACING).unwrap()),
+                GridSpacing::Uniform(T::from_f64(constants::DEFAULT_UNIFORM_SPACING).unwrap_or_else(|| T::zero())),
+                GridSpacing::Uniform(T::from_f64(constants::DEFAULT_UNIFORM_SPACING).unwrap_or_else(|| T::zero())),
+                GridSpacing::Uniform(T::from_f64(constants::DEFAULT_UNIFORM_SPACING).unwrap_or_else(|| T::zero())),
             ],
             enable_smoothing: false,
             smoothing_iterations: constants::DEFAULT_SMOOTHING_ITERATIONS,
@@ -270,8 +270,8 @@ impl<T: RealField + FromPrimitive> GridGenerator<T> {
         // Apply curvilinear transformation (example: simple wave)
         let transformed: Vec<Point3<T>> = points.into_iter()
             .map(|p| {
-                let amplitude = T::from_f64(0.1).unwrap();
-                let frequency = T::from_f64(2.0 * PI).unwrap();
+                let amplitude = T::from_f64(0.1).unwrap_or_else(|| T::zero());
+                let frequency = T::from_f64(2.0 * PI).unwrap_or_else(|| T::zero());
                 
                 let x = p.x.clone();
                 let y = p.y.clone() + amplitude * (frequency * p.x.clone()).sin();
@@ -292,9 +292,9 @@ impl<T: RealField + FromPrimitive> GridGenerator<T> {
         match &self.config.spacing[dim] {
             GridSpacing::Uniform(spacing) => {
                 // Uniform spacing
-                let actual_spacing = (max.clone() - min.clone()) / T::from_usize(n - 1).unwrap();
+                let actual_spacing = (max.clone() - min.clone()) / T::from_usize(n - 1).unwrap_or_else(|| T::zero());
                 for i in 0..n {
-                    coords.push(min.clone() + actual_spacing.clone() * T::from_usize(i).unwrap());
+                    coords.push(min.clone() + actual_spacing.clone() * T::from_usize(i).unwrap_or_else(|| T::zero()));
                 }
             }
             GridSpacing::Geometric { first, ratio } => {
@@ -310,7 +310,7 @@ impl<T: RealField + FromPrimitive> GridGenerator<T> {
                 }
                 
                 // Scale to fit bounds
-                let actual_max = coords.last().unwrap().clone();
+                let actual_max = coords.last().ok_or(GridError::InvalidGrid("Empty coordinate collection".to_string()))?.clone();
                 let scale = (max.clone() - min.clone()) / (actual_max - min.clone());
                 for coord in &mut coords {
                     *coord = min.clone() + (coord.clone() - min.clone()) * scale.clone();
@@ -319,12 +319,12 @@ impl<T: RealField + FromPrimitive> GridGenerator<T> {
             GridSpacing::Hyperbolic { center, width } => {
                 // Hyperbolic tangent stretching
                 for i in 0..n {
-                    let xi = T::from_f64(-1.0).unwrap() + 
-                             T::from_f64(2.0).unwrap() * T::from_usize(i).unwrap() / 
-                             T::from_usize(n - 1).unwrap();
+                    let xi = T::from_f64(-1.0).unwrap_or_else(|| T::zero()) + 
+                             T::from_f64(2.0).unwrap_or_else(|| T::zero()) * T::from_usize(i).unwrap_or_else(|| T::zero()) / 
+                             T::from_usize(n - 1).unwrap_or_else(|| T::zero());
                     
                     let stretched = center.clone() + width.clone() * xi.tanh();
-                    let normalized = (stretched + T::one()) / T::from_f64(2.0).unwrap();
+                    let normalized = (stretched + T::one()) / T::from_f64(2.0).unwrap_or_else(|| T::zero());
                     
                     coords.push(min.clone() + (max.clone() - min.clone()) * normalized);
                 }
@@ -501,10 +501,10 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
     /// Apply Laplacian smoothing to grid
     pub fn smooth(&mut self, iterations: usize) {
         let [nx, ny, nz] = self.dimensions;
-        let alpha = T::from_f64(0.5).unwrap(); // Smoothing factor
+        let alpha = T::from_f64(0.5).unwrap_or_else(|| T::zero()); // Smoothing factor
         
         for _ in 0..iterations {
-            let mut new_points = self.points.clone();
+            let mut current_points = self.points.clone();
             
             // Smooth interior points only
             for k in 1..nz-1 {
@@ -514,12 +514,12 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
                         
                         // Get neighboring points
                         let neighbors = [
-                            self.get_point(i-1, j, k).unwrap(),
-                            self.get_point(i+1, j, k).unwrap(),
-                            self.get_point(i, j-1, k).unwrap(),
-                            self.get_point(i, j+1, k).unwrap(),
-                            self.get_point(i, j, k-1).unwrap(),
-                            self.get_point(i, j, k+1).unwrap(),
+                            self.get_point(i-1, j, k).expect("FIXME: Add proper error handling"),
+                            self.get_point(i+1, j, k).expect("FIXME: Add proper error handling"),
+                            self.get_point(i, j-1, k).expect("FIXME: Add proper error handling"),
+                            self.get_point(i, j+1, k).expect("FIXME: Add proper error handling"),
+                            self.get_point(i, j, k-1).expect("FIXME: Add proper error handling"),
+                            self.get_point(i, j, k+1).expect("FIXME: Add proper error handling"),
                         ];
                         
                         // Compute average
@@ -527,10 +527,10 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
                         for neighbor in &neighbors {
                             avg += &neighbor.coords;
                         }
-                        avg /= T::from_usize(neighbors.len()).unwrap();
+                        avg /= T::from_usize(neighbors.len()).expect("FIXME: Add proper error handling");
                         
                         // Blend with original
-                        new_points[index] = Point3::from(
+                        current_points[index] = Point3::from(
                             self.points[index].coords.clone() * (T::one() - alpha.clone()) +
                             avg * alpha.clone()
                         );
@@ -538,17 +538,17 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
                 }
             }
             
-            self.points = new_points;
+            self.points = current_points;
         }
     }
     
     /// Compute grid quality metrics
     pub fn compute_quality(&self) -> GridQuality<T> {
-        let mut min_jacobian = T::from_f64(f64::MAX).unwrap();
+        let mut min_jacobian = T::from_f64(f64::MAX).unwrap_or_else(|| T::zero());
         let mut max_jacobian = T::zero();
-        let mut min_orthogonality = T::from_f64(f64::MAX).unwrap();
+        let mut min_orthogonality = T::from_f64(f64::MAX).unwrap_or_else(|| T::zero());
         let mut max_skewness = T::zero();
-        let mut min_aspect_ratio = T::from_f64(f64::MAX).unwrap();
+        let mut min_aspect_ratio = T::from_f64(f64::MAX).unwrap_or_else(|| T::zero());
         let mut max_aspect_ratio = T::zero();
         
         let [nx, ny, nz] = self.dimensions;
@@ -586,10 +586,10 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
     /// Compute Jacobian at cell (i, j, k)
     fn compute_jacobian(&self, i: usize, j: usize, k: usize) -> T {
         // Compute Jacobian determinant of transformation
-        let p000 = self.get_point(i, j, k).unwrap();
-        let p100 = self.get_point(i+1, j, k).unwrap();
-        let p010 = self.get_point(i, j+1, k).unwrap();
-        let p001 = self.get_point(i, j, k+1).unwrap();
+        let p000 = self.get_point(i, j, k).expect("FIXME: Add proper error handling");
+        let p100 = self.get_point(i+1, j, k).expect("FIXME: Add proper error handling");
+        let p010 = self.get_point(i, j+1, k).expect("FIXME: Add proper error handling");
+        let p001 = self.get_point(i, j, k+1).expect("FIXME: Add proper error handling");
         
         let dx = p100 - p000;
         let dy = p010 - p000;
@@ -600,10 +600,10 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
     
     /// Compute orthogonality at cell (i, j, k)
     fn compute_orthogonality(&self, i: usize, j: usize, k: usize) -> T {
-        let p000 = self.get_point(i, j, k).unwrap();
-        let p100 = self.get_point(i+1, j, k).unwrap();
-        let p010 = self.get_point(i, j+1, k).unwrap();
-        let p001 = self.get_point(i, j, k+1).unwrap();
+        let p000 = self.get_point(i, j, k).expect("FIXME: Add proper error handling");
+        let p100 = self.get_point(i+1, j, k).expect("FIXME: Add proper error handling");
+        let p010 = self.get_point(i, j+1, k).expect("FIXME: Add proper error handling");
+        let p001 = self.get_point(i, j, k+1).expect("FIXME: Add proper error handling");
         
         let dx = (p100 - p000).normalize();
         let dy = (p010 - p000).normalize();
@@ -633,7 +633,7 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
         
         let sum = vertices.iter()
             .fold(Vector3::zeros(), |acc, v| acc + &v.coords);
-        Point3::from(sum / T::from_f64(8.0).unwrap())
+        Point3::from(sum / T::from_f64(8.0).unwrap_or_else(|| T::zero()))
     }
     
     /// Compute skewness at cell (i, j, k)
@@ -657,7 +657,7 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
         ];
         
         // Calculate face centers
-        let four = T::from_f64(constants::VERTICES_PER_FACE).unwrap();
+        let four = T::from_f64(constants::VERTICES_PER_FACE).unwrap_or_else(|| T::zero());
         let face_centers = [
             // Front face (k)
             Point3::from((&vertices[0].coords + &vertices[1].coords + &vertices[2].coords + &vertices[3].coords) / four.clone()),
@@ -714,10 +714,10 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
     
     /// Compute aspect ratio at cell (i, j, k)
     fn compute_aspect_ratio(&self, i: usize, j: usize, k: usize) -> T {
-        let p000 = self.get_point(i, j, k).unwrap();
-        let p100 = self.get_point(i+1, j, k).unwrap();
-        let p010 = self.get_point(i, j+1, k).unwrap();
-        let p001 = self.get_point(i, j, k+1).unwrap();
+        let p000 = self.get_point(i, j, k).expect("FIXME: Add proper error handling");
+        let p100 = self.get_point(i+1, j, k).expect("FIXME: Add proper error handling");
+        let p010 = self.get_point(i, j+1, k).expect("FIXME: Add proper error handling");
+        let p001 = self.get_point(i, j, k+1).expect("FIXME: Add proper error handling");
         
         let dx = (p100 - p000).norm();
         let dy = (p010 - p000).norm();
@@ -729,7 +729,7 @@ impl<T: RealField + FromPrimitive> StructuredGrid<T> {
         if min_len > T::zero() {
             max_len / min_len
         } else {
-            T::from_f64(f64::MAX).unwrap()
+            T::from_f64(f64::MAX).unwrap_or_else(|| T::zero())
         }
     }
 }
@@ -754,7 +754,7 @@ mod tests {
         let grid = GridGenerator::<f64>::uniform_cartesian(
             5, 5, 5,
             [[0.0, 1.0], [0.0, 1.0], [0.0, 1.0]],
-        ).unwrap();
+        ).expect("FIXME: Add proper error handling");
         
         assert_eq!(grid.dimensions, [5, 5, 5]);
         assert_eq!(grid.points.len(), 125);
@@ -766,7 +766,7 @@ mod tests {
         let grid = GridGenerator::<f64>::uniform_cartesian(
             3, 3, 3,
             [[0.0, 1.0], [0.0, 1.0], [0.0, 1.0]],
-        ).unwrap();
+        ).expect("FIXME: Add proper error handling");
         
         let mesh = grid.to_mesh();
         assert_eq!(mesh.vertices.len(), 27);

@@ -387,7 +387,6 @@ dependencies = [
  "approx 0.5.1",
  "cfd-core",
  "cfd-math",
- "csgrs",
  "indexmap",
  "nalgebra",
  "num-traits 0.2.19",

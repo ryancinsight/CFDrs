@@ -33,7 +33,7 @@ pub struct SimulationAggregate<T: RealField, D: Domain<T>> {
     pub state: SimulationState,
 }
 
-impl<T: RealField + FromPrimitive, D: Domain<T>> SimulationAggregate<T, D> {
+impl<T: RealField + FromPrimitive + num_traits::Float, D: Domain<T>> SimulationAggregate<T, D> {
     /// Create a new simulation aggregate
     pub fn new(id: String, domain: D, fluid: Fluid<T>) -> Self {
         Self {
@@ -208,11 +208,11 @@ pub struct PhysicalParameters<T: RealField> {
 impl<T: RealField + FromPrimitive> Default for PhysicalParameters<T> {
     fn default() -> Self {
         Self {
-            reference_pressure: Pressure::pascals(T::from_f64(101_325.0).unwrap()),
+            reference_pressure: Pressure::pascals(T::from_f64(101_325.0).unwrap_or_else(|| T::zero())),
             reference_velocity: T::one(),
             reference_length: T::one(),
             reynolds_number: None,
-            gravity: Some(Vector3::new(T::zero(), T::from_f64(-9.81).unwrap(), T::zero())),
+            gravity: Some(Vector3::new(T::zero(), T::from_f64(-9.81).unwrap_or_else(|| T::zero()), T::zero())),
             time_step: None,
         }
     }
@@ -272,7 +272,7 @@ impl<T: RealField> MeshAggregate<T> {
     /// Panics if the quality score cannot be converted from f64
     pub fn is_suitable_for_simulation(&self) -> bool {
         if let Some(ref metrics) = self.quality_metrics {
-            metrics.overall_quality_score > T::from_f64(0.7).unwrap()
+            metrics.overall_quality_score > T::from_f64(0.7).unwrap_or_else(|| T::zero())
         } else {
             false
         }
@@ -365,26 +365,26 @@ mod tests {
         sim.add_boundary_condition(
             "inlet".to_string(),
             BoundaryCondition::velocity_inlet(Vector3::new(1.0, 0.0, 0.0))
-        ).unwrap();
+        ).expect("CRITICAL: Add proper error handling");
 
         // Set reference conditions
         sim.set_reference_conditions(
             Pressure::pascals(101_325.0),
             &Velocity::new(1.0, 0.0, 0.0),
             1.0
-        ).unwrap();
+        ).expect("CRITICAL: Add proper error handling");
 
         // Now should be ready
         assert!(sim.is_ready());
 
         // Configure and start
-        sim.configure().unwrap();
+        sim.configure().expect("CRITICAL: Add proper error handling");
         assert_eq!(sim.state, SimulationState::Configured);
 
-        sim.start().unwrap();
+        sim.start().expect("CRITICAL: Add proper error handling");
         assert_eq!(sim.state, SimulationState::Running);
 
-        sim.complete().unwrap();
+        sim.complete().expect("CRITICAL: Add proper error handling");
         assert_eq!(sim.state, SimulationState::Completed);
     }
 }

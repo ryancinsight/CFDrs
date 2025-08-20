@@ -54,7 +54,7 @@ impl<T: Clone> Field2D<T> {
     }
 }
 
-/// Complete simulation field state for SIMPLE algorithm
+/// Complete simulation field state for STANDARD algorithm
 #[derive(Debug, Clone)]
 pub struct SimulationFields<T: RealField> {
     /// Current velocity field

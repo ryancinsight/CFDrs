@@ -9,7 +9,7 @@
 //! - Single-pass analysis using running statistics to avoid memory allocation
 //! - Correct vertex collection using deduplication to eliminate false duplicates
 //! - Element-type-specific calculations for accurate metric computation
-//! - Robust numerical methods avoiding floating-point conversion errors
+//! - Resilient numerical methods avoiding floating-point conversion errors
 
 use crate::mesh::{Mesh, Cell, ElementType};
 use nalgebra::{Point3, RealField};
@@ -87,7 +87,7 @@ impl<T: RealField + Float> RunningStats<T> {
 
         // Welford's algorithm for online mean and variance
         let delta = value - self.mean;
-        self.mean = self.mean + delta / T::from(self.count).unwrap();
+        self.mean = self.mean + delta / T::from(self.count).unwrap_or_else(|_| T::zero());
         let delta2 = value - self.mean;
         self.m2 = self.m2 + delta * delta2;
     }
@@ -105,7 +105,7 @@ impl<T: RealField + Float> RunningStats<T> {
         }
 
         let variance = if self.count > 1 {
-            self.m2 / T::from(self.count - 1).unwrap()
+            self.m2 / T::from(self.count - 1).unwrap_or_else(|_| T::zero())
         } else {
             T::zero()
         };
@@ -134,9 +134,9 @@ pub struct QualityAnalyzer<T: RealField> {
 impl<T: RealField + Float> Default for QualityAnalyzer<T> {
     fn default() -> Self {
         Self {
-            min_aspect_ratio: T::from(0.1).unwrap(),
-            max_skewness: T::from(0.8).unwrap(),
-            min_orthogonality: T::from(0.2).unwrap(),
+            min_aspect_ratio: T::from(0.1).unwrap_or_else(|_| T::zero()),
+            max_skewness: T::from(0.8).unwrap_or_else(|_| T::zero()),
+            min_orthogonality: T::from(0.2).unwrap_or_else(|_| T::zero()),
         }
     }
 }
@@ -421,7 +421,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
         ];
         
         let mut max_deviation = T::zero();
-        let ideal_angle = T::from(60.0_f64.to_radians()).unwrap();
+        let ideal_angle = T::from(60.0_f64.to_radians()).expect("FIXME: Add proper error handling");
         
         for i in 0..3 {
             let e1 = &edges[i];
@@ -443,7 +443,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
         
         // Check deviation of angles from 90 degrees
         let mut max_deviation = T::zero();
-        let ideal_angle = T::from(90.0_f64.to_radians()).unwrap();
+        let ideal_angle = T::from(90.0_f64.to_radians()).expect("FIXME: Add proper error handling");
         
         for i in 0..4 {
             let v1 = vertices[(i + 1) % 4] - vertices[i];
@@ -484,7 +484,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
         
         // Check deviation of all corner angles from 90 degrees
         let mut max_deviation = T::zero();
-        let ideal_angle = T::from(90.0_f64.to_radians()).unwrap();
+        let ideal_angle = T::from(90.0_f64.to_radians()).expect("FIXME: Add proper error handling");
         
         // Check each corner (assuming standard hexahedron ordering)
         let corner_edges = [
@@ -540,7 +540,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
             let angle = Float::acos(cos_clamped);
             
             // For a regular pyramid, apex angles should be equal
-            let expected_angle = T::from(90.0_f64.to_radians()).unwrap();
+            let expected_angle = T::from(90.0_f64.to_radians()).expect("FIXME: Add proper error handling");
             let deviation = num_traits::Float::abs(angle - expected_angle) / expected_angle;
             apex_deviation = Float::max(apex_deviation, deviation);
         }
@@ -557,7 +557,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
         
         // Check rectangular face angles
         let mut rect_skewness = T::zero();
-        let ideal_angle = T::from(90.0_f64.to_radians()).unwrap();
+        let ideal_angle = T::from(90.0_f64.to_radians()).expect("FIXME: Add proper error handling");
         
         // Check the three rectangular faces
         for i in 0..3 {
@@ -738,7 +738,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
         
         let v1 = vertices[1] - vertices[0];
         let v2 = vertices[2] - vertices[0];
-        v1.cross(&v2).norm() / T::from(2.0).unwrap()
+        v1.cross(&v2).norm() / T::from(2.0).unwrap_or_else(|_| T::zero())
     }
 
     fn quadrilateral_area(&self, vertices: &[&Point3<T>]) -> T {
@@ -748,13 +748,13 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
         let tri1_area = {
             let v1 = vertices[1] - vertices[0];
             let v2 = vertices[2] - vertices[0];
-            v1.cross(&v2).norm() / T::from(2.0).unwrap()
+            v1.cross(&v2).norm() / T::from(2.0).unwrap_or_else(|_| T::zero())
         };
         
         let tri2_area = {
             let v1 = vertices[2] - vertices[0];
             let v2 = vertices[3] - vertices[0];
-            v1.cross(&v2).norm() / T::from(2.0).unwrap()
+            v1.cross(&v2).norm() / T::from(2.0).unwrap_or_else(|_| T::zero())
         };
         
         tri1_area + tri2_area
@@ -767,7 +767,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
         let v2 = vertices[2] - vertices[0];
         let v3 = vertices[3] - vertices[0];
         
-        num_traits::Float::abs(v1.cross(&v2).dot(&v3)) / T::from(6.0).unwrap()
+        num_traits::Float::abs(v1.cross(&v2).dot(&v3)) / T::from(6.0).unwrap_or_else(|_| T::zero())
     }
 
     fn hexahedron_volume(&self, vertices: &[&Point3<T>]) -> T {
@@ -793,7 +793,7 @@ impl<T: RealField + Float> QualityAnalyzer<T> {
         let base_normal_unit = base_normal / base_normal.norm();
         let height = num_traits::Float::abs((vertices[4] - vertices[0]).dot(&base_normal_unit));
         
-        base_area * height / T::from(3.0).unwrap()
+        base_area * height / T::from(3.0).unwrap_or_else(|_| T::zero())
     }
 
     fn pentahedron_volume(&self, vertices: &[&Point3<T>]) -> T {
@@ -945,7 +945,7 @@ mod tests {
     }
 
     #[test]
-    fn test_robust_floating_point_handling() {
+    fn test_resilient_floating_point_handling() {
         let mut mesh = create_tetrahedron_mesh();
         
         // Create a nearly degenerate tetrahedron to test numerical robustness

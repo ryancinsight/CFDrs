@@ -3,7 +3,7 @@
 //! This module provides efficient binary serialization/deserialization
 //! using iterator-based streaming and zero-copy operations.
 
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::{RealField, DMatrix, DVector};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};

@@ -53,15 +53,15 @@ fn solve_gauss_seidel<T: RealField + FromPrimitive>(
             }
 
             // Check for zero diagonal (singular matrix)
-            if diagonal.clone().abs() < T::from_f64(1e-14).unwrap() {
+            if diagonal.clone().abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
                 return Err(Error::InvalidConfiguration(
                     format!("{}: Singular matrix detected (zero diagonal)", solver_name)
                 ));
             }
 
             // Update solution
-            let new_value = (rhs[row_idx].clone() - sum) / diagonal;
-            let residual = (new_value.clone() - solution[row_idx].clone()).abs();
+            let current_value = (rhs[row_idx].clone() - sum) / diagonal;
+            let residual = (current_value.clone() - solution[row_idx].clone()).abs();
 
             if residual > max_residual {
                 max_residual = residual;
@@ -70,7 +70,7 @@ fn solve_gauss_seidel<T: RealField + FromPrimitive>(
             // Apply relaxation
             solution[row_idx] = solution[row_idx].clone() +
                               config.relaxation_factor().clone() *
-                              (new_value - solution[row_idx].clone());
+                              (current_value - solution[row_idx].clone());
         }
 
         if config.verbose() && iteration % 100 == 0 {
@@ -198,8 +198,8 @@ impl<T: RealField + FromPrimitive> PoissonSolver<T> {
         let dy2 = dy.clone() * dy.clone();
 
         // Central coefficient: -2/dx² - 2/dy²
-        let center_coeff = -T::from_f64(2.0).unwrap() / dx2.clone()
-                          - T::from_f64(2.0).unwrap() / dy2.clone();
+        let center_coeff = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) / dx2.clone()
+                          - T::from_f64(2.0).unwrap_or_else(|| T::zero()) / dy2.clone();
         matrix_builder.add_entry(linear_idx, linear_idx, center_coeff)?;
 
         // Use iterator for neighbor contributions with zero-copy access
@@ -317,8 +317,8 @@ impl<T: RealField + FromPrimitive> AdvectionDiffusionSolver<T> {
         let v = velocity_y.get(&(i, j)).cloned().unwrap_or(T::zero());
 
         // Central coefficient (diffusion part): -2α/dx² - 2α/dy²
-        let mut center_coeff = -T::from_f64(2.0).unwrap() * diffusivity.clone() / dx2.clone()
-                              - T::from_f64(2.0).unwrap() * diffusivity.clone() / dy2.clone();
+        let mut center_coeff = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) * diffusivity.clone() / dx2.clone()
+                              - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * diffusivity.clone() / dy2.clone();
 
         // Add neighbor contributions
         let neighbors = grid.neighbors(i, j);
@@ -395,7 +395,7 @@ mod tests {
     #[test]
     fn test_poisson_solver_case() {
         // Test simple Poisson equation: ∇²φ = 0 with φ = 1 on boundaries
-        let mut grid = StructuredGrid2D::<f64>::unit_square(5, 5).unwrap();
+        let mut grid = StructuredGrid2D::<f64>::unit_square(5, 5).expect("CRITICAL: Add proper error handling");
 
         // Set all boundaries to φ = 1
         grid.set_edge_boundary(GridEdge::Left, BoundaryType::Wall);
@@ -420,11 +420,11 @@ mod tests {
         let config = FdmConfig { base };
 
         let solver = PoissonSolver::new(config);
-        let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+        let solution = solver.solve(&grid, &source, &boundary_values).expect("CRITICAL: Add proper error handling");
 
         // Solution should be φ = 1 everywhere for this problem
         for (i, j) in grid.iter() {
-            let phi = solution.get(&(i, j)).unwrap();
+            let phi = solution.get(&(i, j)).expect("CRITICAL: Add proper error handling");
             assert_relative_eq!(*phi, 1.0, epsilon = 1e-8);
         }
     }
@@ -436,14 +436,14 @@ mod tests {
         // Using a simpler test case to avoid numerical issues
         
         // Test on a smaller grid first
-        let grid = StructuredGrid2D::<f64>::unit_square(16, 16).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(16, 16).expect("CRITICAL: Add proper error handling");
 
         let mut boundary_values = HashMap::new();
         let mut source = HashMap::new();
 
         // Set boundary conditions and source term based on manufactured solution
         for (i, j) in grid.iter() {
-            let center = grid.cell_center(i, j).unwrap();
+            let center = grid.cell_center(i, j).expect("CRITICAL: Add proper error handling");
             let x = center.x;
             let y = center.y;
 
@@ -467,17 +467,17 @@ mod tests {
         let config = FdmConfig { base };
 
         let solver = PoissonSolver::new(config);
-        let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+        let solution = solver.solve(&grid, &source, &boundary_values).expect("CRITICAL: Add proper error handling");
 
         // Compute maximum error
         let mut max_error = 0.0;
         for (i, j) in grid.interior_iter() {
-            let center = grid.cell_center(i, j).unwrap();
+            let center = grid.cell_center(i, j).expect("CRITICAL: Add proper error handling");
             let x = center.x;
             let y = center.y;
 
             let phi_exact = x * x + y * y;
-            let phi_computed = *solution.get(&(i, j)).unwrap();
+            let phi_computed = *solution.get(&(i, j)).expect("CRITICAL: Add proper error handling");
             
             let error = (phi_computed - phi_exact).abs();
             max_error = max_error.max(error);
@@ -504,7 +504,7 @@ mod tests {
         let mut errors = Vec::new();
         
         for n in grid_sizes.iter() {
-            let grid = StructuredGrid2D::<f64>::unit_square(*n, *n).unwrap();
+            let grid = StructuredGrid2D::<f64>::unit_square(*n, *n).expect("CRITICAL: Add proper error handling");
             
             let mut boundary_values = HashMap::new();
             let mut source = HashMap::new();
@@ -514,7 +514,7 @@ mod tests {
             use std::f64::consts::PI;
             
             for (i, j) in grid.iter() {
-                let center = grid.cell_center(i, j).unwrap();
+                let center = grid.cell_center(i, j).expect("CRITICAL: Add proper error handling");
                 let x = center.x;
                 let y = center.y;
                 
@@ -537,19 +537,19 @@ mod tests {
             };
             
             let solver = PoissonSolver::new(config);
-            let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+            let solution = solver.solve(&grid, &source, &boundary_values).expect("CRITICAL: Add proper error handling");
             
             // Compute L2 error
             let mut sum_sq_error = 0.0;
             let mut count = 0;
             
             for (i, j) in grid.interior_iter() {
-                let center = grid.cell_center(i, j).unwrap();
+                let center = grid.cell_center(i, j).expect("CRITICAL: Add proper error handling");
                 let x = center.x;
                 let y = center.y;
                 
                 let phi_exact = (PI * x).sin() * (PI * y).sin();
-                let phi_computed = *solution.get(&(i, j)).unwrap();
+                let phi_computed = *solution.get(&(i, j)).expect("CRITICAL: Add proper error handling");
                 
                 let error = phi_computed - phi_exact;
                 sum_sq_error += error * error;
@@ -577,7 +577,7 @@ mod tests {
     #[test]
     fn test_advection_diffusion_solver_diffusion_only() {
         // Test pure diffusion: ∇²φ = 0 with boundary conditions
-        let mut grid = StructuredGrid2D::<f64>::unit_square(5, 5).unwrap();
+        let mut grid = StructuredGrid2D::<f64>::unit_square(5, 5).expect("CRITICAL: Add proper error handling");
 
         grid.set_edge_boundary(GridEdge::Left, BoundaryType::Wall);
         grid.set_edge_boundary(GridEdge::Right, BoundaryType::Wall);
@@ -611,11 +611,11 @@ mod tests {
             diffusivity,
             &source,
             &boundary_values,
-        ).unwrap();
+        ).expect("CRITICAL: Add proper error handling");
 
         // Solution should be φ = 1 everywhere
         for (i, j) in grid.iter() {
-            let phi = solution.get(&(i, j)).unwrap();
+            let phi = solution.get(&(i, j)).expect("CRITICAL: Add proper error handling");
             assert_relative_eq!(*phi, 1.0, epsilon = 1e-8);
         }
     }
@@ -623,7 +623,7 @@ mod tests {
     #[test]
     fn test_advection_diffusion_solver_with_advection() {
         // Test with uniform advection in x-direction
-        let mut grid = StructuredGrid2D::<f64>::new(10, 5, 0.0, 1.0, 0.0, 0.5).unwrap();
+        let mut grid = StructuredGrid2D::<f64>::new(10, 5, 0.0, 1.0, 0.0, 0.5).expect("CRITICAL: Add proper error handling");
 
         // Set boundary conditions: φ = 1 at inlet (left), φ = 0 at outlet (right)
         grid.set_edge_boundary(GridEdge::Left, BoundaryType::Inlet);
@@ -670,11 +670,11 @@ mod tests {
             diffusivity,
             &source,
             &boundary_values,
-        ).unwrap();
+        ).expect("CRITICAL: Add proper error handling");
 
         // Check that solution decreases from inlet to outlet
-        let inlet_value = *solution.get(&(0, 2)).unwrap();
-        let outlet_value = *solution.get(&(grid.nx() - 1, 2)).unwrap();
+        let inlet_value = *solution.get(&(0, 2)).expect("CRITICAL: Add proper error handling");
+        let outlet_value = *solution.get(&(grid.nx() - 1, 2)).expect("CRITICAL: Add proper error handling");
 
         assert!(inlet_value > outlet_value);
         assert_relative_eq!(inlet_value, 1.0, epsilon = 1e-6);

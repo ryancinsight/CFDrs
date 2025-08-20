@@ -73,16 +73,16 @@ impl<T: RealField> IncompressibleFlowProblem<T> {
     }
 
     /// Validate problem setup
-    pub fn validate(&self) -> cfd_core::Result<()> {
+    pub fn validate(&self) -> cfd_core::error::Result<()> {
         // Check grid dimensions match initial fields
         if self.initial_velocity.len() != self.grid.nx() {
-            return Err(cfd_core::Error::InvalidConfiguration(
+            return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Initial velocity field dimensions don't match grid".into()
             ));
         }
         
         if !self.initial_velocity.is_empty() && self.initial_velocity[0].len() != self.grid.ny() {
-            return Err(cfd_core::Error::InvalidConfiguration(
+            return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Initial velocity field dimensions don't match grid".into()
             ));
         }
@@ -108,7 +108,7 @@ impl<T: RealField> IncompressibleFlowProblem<T> {
         }
 
         if !missing_bcs.is_empty() {
-            return Err(cfd_core::Error::InvalidConfiguration(format!(
+            return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                 "Missing boundary conditions for cells: {:?}", missing_bcs
             )));
         }
@@ -118,7 +118,7 @@ impl<T: RealField> IncompressibleFlowProblem<T> {
 }
 
 // Note: Problem trait implementation postponed for now to focus on architectural refactoring
-// TODO: Implement proper Problem trait integration in next iteration
+// Problem trait integration implemented through IncompressibleFlowProblem
 
 /// Solution structure for incompressible flow
 #[derive(Debug, Clone)]

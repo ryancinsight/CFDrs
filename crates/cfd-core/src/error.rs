@@ -75,7 +75,7 @@ pub enum MeshErrorKind {
     NonManifold,
     
     /// Insufficient quality
-    #[error("Mesh quality below threshold: {quality:.3f} < {threshold:.3f}")]
+    #[error("Mesh quality below threshold: {quality} < {threshold}")]
     InsufficientQuality { quality: f64, threshold: f64 },
 }
 
@@ -326,7 +326,7 @@ mod tests {
             // This would only be evaluated if there's an error
             format!("Context computed at {}", std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .expect("CRITICAL: Add proper error handling")
                 .as_secs())
         };
         

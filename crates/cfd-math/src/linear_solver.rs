@@ -19,7 +19,7 @@
 //! - Leveraging nalgebra's optimized BLAS-like operations
 //! - Providing efficient preconditioner APIs
 
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::cast::FromPrimitive;
@@ -27,7 +27,7 @@ use std::fmt::Debug;
 use crate::sparse::SparseMatrixExt;
 
 // Re-export the unified configuration from cfd-core
-pub use cfd_core::{LinearSolverConfig, SolverConfiguration};
+pub use cfd_core::solver::{LinearSolverConfig, SolverConfiguration};
 
 /// Trait for linear solvers
 pub trait LinearSolver<T: RealField>: Send + Sync {
@@ -91,10 +91,8 @@ impl<T: RealField + FromPrimitive> JacobiPreconditioner<T> {
         let mut inv_diagonal = DVector::zeros(n);
 
         for (i, val) in diag.iter().enumerate() {
-            if val.clone().abs() < T::from_f64(1e-14).unwrap() {
-                return Err(Error::NumericalError(
-                    format!("Zero or near-zero diagonal entry at row {}", i)
-                ));
+            if val.clone().abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
+                return Err(Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation));
             }
             inv_diagonal[i] = T::one() / val.clone();
         }
@@ -129,7 +127,7 @@ impl<T: RealField + FromPrimitive> SORPreconditioner<T> {
 
         // Validate omega range for stability
         let zero = T::zero();
-        let two = T::from_f64(2.0).unwrap();
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         if omega <= zero || omega >= two {
             return Err(Error::InvalidConfiguration(
                 "SOR omega parameter must be in range (0, 2) for stability".to_string()
@@ -160,7 +158,7 @@ impl<T: RealField + FromPrimitive> SORPreconditioner<T> {
         let n = a.nrows() as f64;
         let omega_opt = 2.0 / (1.0 + (std::f64::consts::PI / n).sin());
         let omega = T::from_f64(omega_opt).ok_or_else(|| {
-            Error::NumericalError("Failed to convert optimal omega to target type".to_string())
+            Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation)
         })?;
         
         Self::new(a, omega)
@@ -277,7 +275,7 @@ impl<T: RealField> ConjugateGradient<T> {
         let mut rzold = r.dot(&z);
 
         // PCG iterations with in-place operations
-        for iter in 0..self.config.max_iterations() {
+        for iter in 0..self.config.base.convergence.max_iterations {
             // Compute A*p
             ap = a * &p;
             
@@ -308,10 +306,9 @@ impl<T: RealField> ConjugateGradient<T> {
             rzold = rznew;
         }
 
-        Err(Error::ConvergenceFailure(format!(
-            "PCG failed to converge after {} iterations",
-            self.config.max_iterations()
-        )))
+        Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { 
+            max: self.config.base.convergence.max_iterations 
+        }))
     }
 }
 
@@ -392,12 +389,12 @@ impl<T: RealField> BiCGSTAB<T> {
         let mut alpha = T::one();
         let mut omega = T::one();
 
-        for iter in 0..self.config.max_iterations() {
+        for iter in 0..self.config.base.convergence.max_iterations {
             let rho_new = r0_hat.dot(&r);
             
             if rho_new.clone().abs() < breakdown_tolerance {
-                return Err(Error::ConvergenceFailure(
-                    "BiCGSTAB breakdown: rho near zero".to_string()
+                return Err(Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::SingularMatrix
                 ));
             }
 
@@ -444,18 +441,17 @@ impl<T: RealField> BiCGSTAB<T> {
             }
             
             if omega.clone().abs() < breakdown_tolerance {
-                return Err(Error::ConvergenceFailure(
-                    "BiCGSTAB breakdown: omega near zero".to_string()
+                return Err(Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::SingularMatrix
                 ));
             }
 
             rho = rho_new;
         }
 
-        Err(Error::ConvergenceFailure(format!(
-            "BiCGSTAB failed to converge after {} iterations",
-            self.config.max_iterations()
-        )))
+        Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { 
+            max: self.config.base.convergence.max_iterations 
+        }))
     }
 }
 
@@ -498,18 +494,18 @@ mod tests {
         
         for i in 0..n {
             // Diagonal
-            builder.add_entry(i, i, 2.0).unwrap();
+            builder.add_entry(i, i, 2.0).expect("CRITICAL: Add proper error handling");
             
             // Off-diagonals
             if i > 0 {
-                builder.add_entry(i, i-1, -1.0).unwrap();
+                builder.add_entry(i, i-1, -1.0).expect("CRITICAL: Add proper error handling");
             }
             if i < n-1 {
-                builder.add_entry(i, i+1, -1.0).unwrap();
+                builder.add_entry(i, i+1, -1.0).expect("CRITICAL: Add proper error handling");
             }
         }
         
-        builder.build().unwrap()
+        builder.build().expect("CRITICAL: Add proper error handling")
     }
 
     #[test]
@@ -518,7 +514,7 @@ mod tests {
         let b = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         
         let solver = ConjugateGradient::default();
-        let x = solver.solve(&a, &b, None).unwrap();
+        let x = solver.solve(&a, &b, None).expect("CRITICAL: Add proper error handling");
         
         let residual = &b - &a * &x;
         assert!(residual.norm() < 1e-10);
@@ -530,7 +526,7 @@ mod tests {
         let b = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         
         let solver = BiCGSTAB::default();
-        let x = solver.solve(&a, &b, None).unwrap();
+        let x = solver.solve(&a, &b, None).expect("CRITICAL: Add proper error handling");
         
         let residual = &b - &a * &x;
         assert!(residual.norm() < 1e-10);
@@ -541,9 +537,9 @@ mod tests {
         let a = create_test_matrix();
         let r = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         
-        let precond = JacobiPreconditioner::new(&a).unwrap();
+        let precond = JacobiPreconditioner::new(&a).expect("CRITICAL: Add proper error handling");
         let mut z = DVector::zeros(3);
-        precond.apply_to(&r, &mut z).unwrap();
+        precond.apply_to(&r, &mut z).expect("CRITICAL: Add proper error handling");
         
         // Check that z is correctly scaled by inverse diagonal
         assert_relative_eq!(z[0], r[0] / 4.0, epsilon = 1e-12);
@@ -569,7 +565,7 @@ mod tests {
         let a = create_1d_poisson_matrix(10);
         
         // Should successfully create SOR with optimized omega
-        let sor = SORPreconditioner::with_omega_for_1d_poisson(&a).unwrap();
+        let sor = SORPreconditioner::with_omega_for_1d_poisson(&a).expect("CRITICAL: Add proper error handling");
         
         // Omega should be in valid range
         assert!(sor.omega > 0.0 && sor.omega < 2.0);
@@ -589,11 +585,11 @@ mod tests {
         
         // The test matrix we created is actually tridiagonal, so let's create a non-tridiagonal matrix
         let mut builder = crate::sparse::SparseMatrixBuilder::new(3, 3);
-        builder.add_entry(0, 0, 2.0).unwrap();
-        builder.add_entry(0, 2, 1.0).unwrap(); // Non-adjacent entry
-        builder.add_entry(1, 1, 2.0).unwrap();
-        builder.add_entry(2, 2, 2.0).unwrap();
-        let non_tridiag = builder.build().unwrap();
+        builder.add_entry(0, 0, 2.0).expect("CRITICAL: Add proper error handling");
+        builder.add_entry(0, 2, 1.0).expect("CRITICAL: Add proper error handling"); // Non-adjacent entry
+        builder.add_entry(1, 1, 2.0).expect("CRITICAL: Add proper error handling");
+        builder.add_entry(2, 2, 2.0).expect("CRITICAL: Add proper error handling");
+        let non_tridiag = builder.build().expect("CRITICAL: Add proper error handling");
         
         // Should reject non-tridiagonal matrix
         assert!(SORPreconditioner::with_omega_for_1d_poisson(&non_tridiag).is_err());
@@ -605,9 +601,9 @@ mod tests {
         let b = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         
         let solver = ConjugateGradient::default();
-        let precond = JacobiPreconditioner::new(&a).unwrap();
+        let precond = JacobiPreconditioner::new(&a).expect("CRITICAL: Add proper error handling");
         
-        let x = solver.solve_preconditioned(&a, &b, &precond, None).unwrap();
+        let x = solver.solve_preconditioned(&a, &b, &precond, None).expect("CRITICAL: Add proper error handling");
         
         let residual = &b - &a * &x;
         assert!(residual.norm() < 1e-10);
@@ -619,7 +615,7 @@ mod tests {
         let precond = IdentityPreconditioner;
         
         let mut z = DVector::zeros(3);
-        precond.apply_to(&r, &mut z).unwrap();
+        precond.apply_to(&r, &mut z).expect("CRITICAL: Add proper error handling");
         
         assert_relative_eq!(z, r, epsilon = 1e-12);
     }

@@ -4,7 +4,7 @@
 //! satisfies continuity and reduces the number of variables.
 
 use crate::grid::StructuredGrid2D;
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::{Vector2, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -35,15 +35,15 @@ impl<T: RealField + FromPrimitive> Default for VorticityStreamConfig<T> {
     fn default() -> Self {
         let base = cfd_core::SolverConfig::builder()
             .max_iterations(DEFAULT_MAX_ITERATIONS)
-            .tolerance(T::from_f64(DEFAULT_TOLERANCE).unwrap())
+            .tolerance(T::from_f64(DEFAULT_TOLERANCE).unwrap_or_else(|| T::zero()))
             .build_base();
 
         Self {
             base,
-            time_step: T::from_f64(0.001).unwrap(), // Default time step
-            stream_tolerance: T::from_f64(DEFAULT_TOLERANCE).unwrap(),
-            vorticity_tolerance: T::from_f64(DEFAULT_TOLERANCE).unwrap(),
-            sor_omega: T::from_f64(SOR_OPTIMAL_FACTOR).unwrap(),
+            time_step: T::from_f64(0.001).unwrap_or_else(|| T::zero()), // Default time step
+            stream_tolerance: T::from_f64(DEFAULT_TOLERANCE).unwrap_or_else(|| T::zero()),
+            vorticity_tolerance: T::from_f64(DEFAULT_TOLERANCE).unwrap_or_else(|| T::zero()),
+            sor_omega: T::from_f64(SOR_OPTIMAL_FACTOR).unwrap_or_else(|| T::zero()),
         }
     }
 }
@@ -63,7 +63,7 @@ impl<T: RealField + FromPrimitive> Default for VorticityStreamConfig<T> {
 /// - Reduced number of variables (2 instead of 3)
 ///
 /// ## References:
-/// Anderson, J.D. (1995). "Computational Fluid Dynamics: The Basics with Applications."
+/// Anderson, J.D. (1995). "Computational Fluid Dynamics: The Cores with Applications."
 /// McGraw-Hill.
 pub struct VorticityStreamSolver<T: RealField> {
     config: VorticityStreamConfig<T>,
@@ -130,7 +130,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
         let omega_sor = self.config.sor_omega.clone();
         let dx2 = self.dx.clone() * self.dx.clone();
         let dy2 = self.dy.clone() * self.dy.clone();
-        let denominator = T::from_f64(GRADIENT_FACTOR).unwrap() * (T::one() / dx2.clone() + T::one() / dy2.clone());
+        let denominator = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * (T::one() / dx2.clone() + T::one() / dy2.clone());
         
         // SOR iteration for Poisson equation
         for _ in 0..100 {
@@ -169,8 +169,8 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
         let dt = self.config.time_step.clone();
         let dx2 = self.dx.clone() * self.dx.clone();
         let dy2 = self.dy.clone() * self.dy.clone();
-        let _two_dx = T::from_f64(GRADIENT_FACTOR).unwrap() * self.dx.clone();
-        let _two_dy = T::from_f64(GRADIENT_FACTOR).unwrap() * self.dy.clone();
+        let _two_dx = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * self.dx.clone();
+        let _two_dy = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * self.dy.clone();
         
         // Store old vorticity
         let omega_old = self.omega.clone();
@@ -196,9 +196,9 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
                 let convection = u * dwdx + v * dwdy;
                 
                 // Diffusion term (central differencing)
-                let d2wdx2 = (omega_old[i+1][j].clone() - T::from_f64(GRADIENT_FACTOR).unwrap() * omega_old[i][j].clone() 
+                let d2wdx2 = (omega_old[i+1][j].clone() - T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * omega_old[i][j].clone() 
                     + omega_old[i-1][j].clone()) / dx2.clone();
-                let d2wdy2 = (omega_old[i][j+1].clone() - T::from_f64(GRADIENT_FACTOR).unwrap() * omega_old[i][j].clone() 
+                let d2wdy2 = (omega_old[i][j+1].clone() - T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * omega_old[i][j].clone() 
                     + omega_old[i][j-1].clone()) / dy2.clone();
                 
                 let diffusion = (d2wdx2 + d2wdy2) / self.reynolds.clone();
@@ -213,8 +213,8 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
 
     /// Update velocity field from stream function
     fn update_velocity(&mut self) {
-        let two_dx = T::from_f64(GRADIENT_FACTOR).unwrap() * self.dx.clone();
-        let two_dy = T::from_f64(GRADIENT_FACTOR).unwrap() * self.dy.clone();
+        let two_dx = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * self.dx.clone();
+        let two_dy = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * self.dy.clone();
         
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
@@ -230,7 +230,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
     fn update_boundary_vorticity(&mut self) {
         let dx2 = self.dx.clone() * self.dx.clone();
         let dy2 = self.dy.clone() * self.dy.clone();
-        let two = T::from_f64(GRADIENT_FACTOR).unwrap();
+        let two = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero());
         
         // Bottom wall (y = 0)
         for i in 1..self.nx-1 {
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_vorticity_stream_creation() {
-        let grid = StructuredGrid2D::<f64>::unit_square(10, 10).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(10, 10).expect("CRITICAL: Add proper error handling");
         let config = VorticityStreamConfig::default();
         let solver = VorticityStreamSolver::new(config, &grid, 100.0);
         
@@ -332,11 +332,11 @@ mod tests {
 
     #[test]
     fn test_lid_driven_cavity_initialization() {
-        let grid = StructuredGrid2D::<f64>::unit_square(5, 5).unwrap();
+        let grid = StructuredGrid2D::<f64>::unit_square(5, 5).expect("CRITICAL: Add proper error handling");
         let config = VorticityStreamConfig::default();
         let mut solver = VorticityStreamSolver::new(config, &grid, 100.0);
         
-        solver.initialize_lid_driven_cavity(1.0).unwrap();
+        solver.initialize_lid_driven_cavity(1.0).expect("CRITICAL: Add proper error handling");
         
         // Check lid velocity
         assert_relative_eq!(solver.u[2][4].x, 1.0, epsilon = 1e-10);

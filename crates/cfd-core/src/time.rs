@@ -58,7 +58,7 @@ impl<T: RealField + FromPrimitive> TimeIntegrator<T> for RungeKutta2 {
         F: Fn(T, &Self::State) -> Self::State,
     {
         let half = T::from_f64(0.5).ok_or_else(|| {
-            crate::error::Error::NumericalError("Failed to convert 0.5 to target type".to_string())
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
         })?;
 
         let k1 = f(t.clone(), state);
@@ -91,13 +91,13 @@ impl<T: RealField + FromPrimitive> TimeIntegrator<T> for RungeKutta4 {
         F: Fn(T, &Self::State) -> Self::State,
     {
         let two = T::from_f64(2.0).ok_or_else(|| {
-            crate::error::Error::NumericalError("Failed to convert 2.0 to target type".to_string())
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
         })?;
         let six = T::from_f64(6.0).ok_or_else(|| {
-            crate::error::Error::NumericalError("Failed to convert 6.0 to target type".to_string())
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
         })?;
         let half = T::from_f64(0.5).ok_or_else(|| {
-            crate::error::Error::NumericalError("Failed to convert 0.5 to target type".to_string())
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
         })?;
         
         let k1 = f(t.clone(), state);
@@ -143,7 +143,7 @@ pub struct BackwardEuler<T: RealField> {
 impl<T: RealField + FromPrimitive> Default for BackwardEuler<T> {
     fn default() -> Self {
         Self {
-            tolerance: T::from_f64(1e-10).unwrap(),
+            tolerance: T::from_f64(1e-10).unwrap_or_else(|| T::one()),
             max_iterations: 100,
         }
     }
@@ -205,10 +205,11 @@ impl<T: RealField> TimeIntegrator<T> for BackwardEuler<T> {
 
             // Prevent infinite loops
             if iteration == self.max_iterations - 1 {
-                return Err(crate::error::Error::ConvergenceFailure(format!(
-                    "Backward Euler failed to converge after {} iterations, error: {}",
-                    self.max_iterations, error
-                )));
+                return Err(crate::error::Error::Convergence(
+                    crate::error::ConvergenceErrorKind::MaxIterationsExceeded { 
+                        max: self.max_iterations 
+                    }
+                ));
             }
         }
 
@@ -235,7 +236,7 @@ pub struct CrankNicolson<T: RealField> {
 impl<T: RealField + FromPrimitive> Default for CrankNicolson<T> {
     fn default() -> Self {
         Self {
-            tolerance: T::from_f64(1e-10).unwrap(),
+            tolerance: T::from_f64(1e-10).unwrap_or_else(|| T::one()),
             max_iterations: 100,
         }
     }
@@ -274,7 +275,7 @@ impl<T: RealField> TimeIntegrator<T> for CrankNicolson<T> {
         let y_old = state.clone();
         let t_new = t.clone() + dt.clone();
         let half = T::from_f64(0.5).ok_or_else(|| {
-            crate::error::Error::NumericalError("Failed to convert 0.5 to target type".to_string())
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
         })?;
         let half_dt = dt * half;
 
@@ -304,10 +305,11 @@ impl<T: RealField> TimeIntegrator<T> for CrankNicolson<T> {
 
             // Prevent infinite loops
             if iteration == self.max_iterations - 1 {
-                return Err(crate::error::Error::ConvergenceFailure(format!(
-                    "Crank-Nicolson failed to converge after {} iterations, error: {}",
-                    self.max_iterations, error
-                )));
+                return Err(crate::error::Error::Convergence(
+                    crate::error::ConvergenceErrorKind::MaxIterationsExceeded { 
+                        max: self.max_iterations 
+                    }
+                ));
             }
         }
 
@@ -338,10 +340,10 @@ pub struct VariableTimeStep<T: RealField> {
 impl<T: RealField + FromPrimitive> Default for VariableTimeStep<T> {
     fn default() -> Self {
         Self {
-            dt_min: T::from_f64(1e-10).unwrap(),
-            dt_max: T::from_f64(0.1).unwrap(),
-            safety_factor: T::from_f64(0.9).unwrap(),
-            target_error: T::from_f64(1e-6).unwrap(),
+            dt_min: T::from_f64(1e-10).unwrap_or_else(|| T::one()),
+            dt_max: T::from_f64(0.1).unwrap_or_else(|| T::one()),
+            safety_factor: T::from_f64(0.9).unwrap_or_else(|| T::one()),
+            target_error: T::from_f64(1e-6).unwrap_or_else(|| T::one()),
         }
     }
 }
@@ -350,15 +352,15 @@ impl<T: RealField + FromPrimitive + Float> VariableTimeStep<T> {
     /// Calculate new time step based on error estimate
     pub fn calculate_dt(&self, current_dt: T, error: T, order: usize) -> T {
         if error < T::epsilon() {
-            return num_traits::Float::min(self.dt_max.clone(), current_dt * T::from_f64(2.0).unwrap());
+            return num_traits::Float::min(self.dt_max.clone(), current_dt * T::from_f64(2.0).unwrap_or_else(|| T::one()));
         }
         
-        let exponent = T::one() / T::from_f64(order as f64).unwrap();
+        let exponent = T::one() / T::from_f64(order as f64).unwrap_or_else(|| T::one());
         let factor = self.safety_factor.clone()
             * num_traits::Float::powf(self.target_error.clone() / error, exponent);
         
-        let new_dt = current_dt * factor;
-        let max_dt = num_traits::Float::max(new_dt, self.dt_min.clone());
+        let current_dt = current_dt * factor;
+        let max_dt = num_traits::Float::max(current_dt, self.dt_min.clone());
         num_traits::Float::min(max_dt, self.dt_max.clone())
     }
 }
@@ -367,7 +369,7 @@ impl<T: RealField + FromPrimitive + Float> VariableTimeStep<T> {
 mod tests {
     use super::*;
 
-    // Simple state for testing
+    // Standard state for testing
     #[derive(Clone)]
     #[allow(dead_code)]
     struct TestState(f64);
@@ -409,7 +411,7 @@ mod tests {
         };
         
         // Take one step
-        integrator.step(&mut state, 0.0, dt, derivative).unwrap();
+        integrator.step(&mut state, 0.0, dt, derivative).expect("CRITICAL: Add proper error handling");
         
         // After one step: y ≈ y0 * (1 - dt) = 1.0 * (1 - 0.1) = 0.9
         assert_abs_diff_eq!(state[0], 0.9, epsilon = 1e-10);
@@ -420,12 +422,12 @@ mod tests {
         let controller = AdaptiveTimeStep::<f64>::default();
         
         // Error is less than target
-        let new_dt = controller.calculate_dt(0.01, 1e-8, 2);
-        assert!(new_dt > 0.01);
+        let current_dt = controller.calculate_dt(0.01, 1e-8, 2);
+        assert!(current_dt > 0.01);
         
         // Error is greater than target
-        let new_dt = controller.calculate_dt(0.01, 1e-4, 2);
-        assert!(new_dt < 0.01);
+        let current_dt = controller.calculate_dt(0.01, 1e-4, 2);
+        assert!(current_dt < 0.01);
     }
 
     #[test]

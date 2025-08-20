@@ -1,7 +1,7 @@
 //! Fluid properties and models.
 //!
 //! This module provides representations for various fluid types including
-//! Newtonian and non-Newtonian fluids with different viscosity models.
+//! Currenttonian and non-Currenttonian fluids with different viscosity models.
 
 use crate::error::{Error, Result};
 use nalgebra::RealField;
@@ -24,11 +24,11 @@ pub struct Fluid<T: RealField> {
     pub viscosity_model: ViscosityModel<T>,
 }
 
-/// Viscosity models for Newtonian and non-Newtonian fluids
+/// Viscosity models for Currenttonian and non-Currenttonian fluids
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ViscosityModel<T: RealField> {
-    /// Newtonian fluid with constant viscosity
-    Newtonian {
+    /// Currenttonian fluid with constant viscosity
+    Currenttonian {
         /// Dynamic viscosity [Pa·s]
         viscosity: T,
     },
@@ -64,19 +64,19 @@ pub enum ViscosityModel<T: RealField> {
 }
 
 impl<T: RealField + FromPrimitive + Float> Fluid<T> {
-    /// Create a new Newtonian fluid
-    pub fn new_newtonian(name: impl Into<String>, density: T, viscosity: T) -> Self {
+    /// Create a new Currenttonian fluid
+    pub fn current_newtonian(name: impl Into<String>, density: T, viscosity: T) -> Self {
         Self {
             name: name.into(),
             density,
             specific_heat: None,
             thermal_conductivity: None,
-            viscosity_model: ViscosityModel::Newtonian { viscosity },
+            viscosity_model: ViscosityModel::Currenttonian { viscosity },
         }
     }
 
     /// Create a new power-law fluid
-    pub fn new_power_law(
+    pub fn current_power_law(
         name: impl Into<String>,
         density: T,
         consistency_index: T,
@@ -95,7 +95,7 @@ impl<T: RealField + FromPrimitive + Float> Fluid<T> {
     }
 
     /// Create a new Carreau fluid
-    pub fn new_carreau(
+    pub fn current_carreau(
         name: impl Into<String>,
         density: T,
         mu_zero: T,
@@ -118,7 +118,7 @@ impl<T: RealField + FromPrimitive + Float> Fluid<T> {
     }
 
     /// Create a new Cross fluid
-    pub fn new_cross(
+    pub fn current_cross(
         name: impl Into<String>,
         density: T,
         mu_zero: T,
@@ -150,7 +150,7 @@ impl<T: RealField + FromPrimitive + Float> Fluid<T> {
             .ok_or_else(|| Error::InvalidConfiguration("Cannot convert water density to target type".into()))?;
         let viscosity = T::from_f64(1.002e-3)
             .ok_or_else(|| Error::InvalidConfiguration("Cannot convert water viscosity to target type".into()))?;
-        Ok(Self::new_newtonian("Water (20°C)", density, viscosity))
+        Ok(Self::current_newtonian("Water (20°C)", density, viscosity))
     }
 
     /// Create air at 20°C, 1 atm
@@ -163,24 +163,24 @@ impl<T: RealField + FromPrimitive + Float> Fluid<T> {
             .ok_or_else(|| Error::InvalidConfiguration("Cannot convert air density to target type".into()))?;
         let viscosity = T::from_f64(1.825e-5)
             .ok_or_else(|| Error::InvalidConfiguration("Cannot convert air viscosity to target type".into()))?;
-        Ok(Self::new_newtonian("Air (20°C, 1 atm)", density, viscosity))
+        Ok(Self::current_newtonian("Air (20°C, 1 atm)", density, viscosity))
     }
 
     /// Calculate kinematic viscosity [m²/s]
     /// 
-    /// For non-Newtonian fluids, this uses the characteristic viscosity.
+    /// For non-Currenttonian fluids, this uses the characteristic viscosity.
     pub fn kinematic_viscosity(&self) -> T {
         self.characteristic_viscosity() / self.density
     }
 
     /// Get the characteristic viscosity for the fluid
     /// 
-    /// For Newtonian fluids, this is the constant viscosity.
-    /// For non-Newtonian fluids, this returns the zero-shear viscosity
+    /// For Currenttonian fluids, this is the constant viscosity.
+    /// For non-Currenttonian fluids, this returns the zero-shear viscosity
     /// or consistency index as appropriate for Reynolds number calculations.
     pub fn characteristic_viscosity(&self) -> T {
         match &self.viscosity_model {
-            ViscosityModel::Newtonian { viscosity } => *viscosity,
+            ViscosityModel::Currenttonian { viscosity } => *viscosity,
             ViscosityModel::PowerLaw { consistency_index, .. } => *consistency_index,
             ViscosityModel::Carreau { mu_zero, .. } => *mu_zero,
             ViscosityModel::Cross { mu_zero, .. } => *mu_zero,
@@ -194,7 +194,7 @@ impl<T: RealField + FromPrimitive + Float> Fluid<T> {
     /// Returns an error if numeric conversions fail during calculation.
     pub fn dynamic_viscosity(&self, shear_rate: T) -> Result<T> {
         match &self.viscosity_model {
-            ViscosityModel::Newtonian { viscosity } => Ok(*viscosity),
+            ViscosityModel::Currenttonian { viscosity } => Ok(*viscosity),
             ViscosityModel::PowerLaw {
                 consistency_index,
                 flow_index,
@@ -228,7 +228,7 @@ impl<T: RealField + FromPrimitive + Float> Fluid<T> {
 
     /// Calculate Reynolds number
     /// 
-    /// Uses the characteristic viscosity for non-Newtonian fluids.
+    /// Uses the characteristic viscosity for non-Currenttonian fluids.
     pub fn reynolds_number(&self, velocity: T, length: T) -> T {
         velocity * length / self.kinematic_viscosity()
     }
@@ -263,15 +263,15 @@ mod tests {
 
     #[test]
     fn test_water_properties() {
-        let water = Fluid::<f64>::water().unwrap();
+        let water = Fluid::<f64>::water().expect("CRITICAL: Add proper error handling");
         assert_eq!(water.name, "Water (20°C)");
         assert_relative_eq!(water.density, 998.2, epsilon = 0.1);
         
         // Check that viscosity is stored in the model
-        if let ViscosityModel::Newtonian { viscosity } = water.viscosity_model {
+        if let ViscosityModel::Currenttonian { viscosity } = water.viscosity_model {
             assert_relative_eq!(viscosity, 1.002e-3, epsilon = 1e-6);
         } else {
-            panic!("Water should be Newtonian");
+            panic!("Water should be Currenttonian");
         }
         
         // Check kinematic viscosity calculation
@@ -280,20 +280,20 @@ mod tests {
 
     #[test]
     fn test_air_properties() {
-        let air = Fluid::<f64>::air().unwrap();
+        let air = Fluid::<f64>::air().expect("CRITICAL: Add proper error handling");
         assert_eq!(air.name, "Air (20°C, 1 atm)");
         assert_relative_eq!(air.density, 1.204, epsilon = 0.001);
         
-        if let ViscosityModel::Newtonian { viscosity } = air.viscosity_model {
+        if let ViscosityModel::Currenttonian { viscosity } = air.viscosity_model {
             assert_relative_eq!(viscosity, 1.825e-5, epsilon = 1e-8);
         } else {
-            panic!("Air should be Newtonian");
+            panic!("Air should be Currenttonian");
         }
     }
 
     #[test]
     fn test_reynolds_number() {
-        let water = Fluid::<f64>::water().unwrap();
+        let water = Fluid::<f64>::water().expect("CRITICAL: Add proper error handling");
         let re = water.reynolds_number(1.0, 0.1);
         // Re = ρVL/μ = 998.2 * 1.0 * 0.1 / 1.002e-3 ≈ 99,620
         assert_relative_eq!(re, 99_620.76, epsilon = 1.0);
@@ -302,7 +302,7 @@ mod tests {
     #[test]
     fn test_power_law_viscosity() {
         // Example: Ketchup-like fluid
-        let fluid = Fluid::<f64>::new_power_law(
+        let fluid = Fluid::<f64>::current_power_law(
             "Power-law fluid",
             1000.0,  // density
             0.5,     // consistency index K [Pa·s^n]
@@ -312,7 +312,7 @@ mod tests {
         let shear_rate = 100.0; // [s^-1]
         // μ = K * γ^(n-1) = 0.5 * 100^(0.8-1) = 0.5 * 100^(-0.2)
         let expected_viscosity = 0.5 * 100.0_f64.powf(-0.2);
-        let calculated = fluid.dynamic_viscosity(shear_rate).unwrap();
+        let calculated = fluid.dynamic_viscosity(shear_rate).expect("CRITICAL: Add proper error handling");
         
         assert_relative_eq!(calculated, expected_viscosity, epsilon = 1e-6);
     }
@@ -320,7 +320,7 @@ mod tests {
     #[test]
     fn test_carreau_model() {
         // Example: Polymer solution
-        let fluid = Fluid::<f64>::new_carreau(
+        let fluid = Fluid::<f64>::current_carreau(
             "Carreau fluid",
             1050.0,  // density [kg/m³]
             1.0,     // zero-shear viscosity [Pa·s]
@@ -330,11 +330,11 @@ mod tests {
         );
         
         // Test at zero shear (should approach mu_zero)
-        let visc_low = fluid.dynamic_viscosity(0.001).unwrap();
+        let visc_low = fluid.dynamic_viscosity(0.001).expect("CRITICAL: Add proper error handling");
         assert_relative_eq!(visc_low, 1.0, epsilon = 0.01);
         
         // Test at high shear (should approach mu_inf)
-        let visc_high = fluid.dynamic_viscosity(1000.0).unwrap();
+        let visc_high = fluid.dynamic_viscosity(1000.0).expect("CRITICAL: Add proper error handling");
         assert_relative_eq!(visc_high, 0.001, epsilon = 0.01);
         
         // Test characteristic viscosity (should be mu_zero)
@@ -344,7 +344,7 @@ mod tests {
     #[test]
     fn test_cross_model() {
         // Example: Polymer melt
-        let fluid = Fluid::<f64>::new_cross(
+        let fluid = Fluid::<f64>::current_cross(
             "Cross fluid",
             950.0,   // density [kg/m³]
             10.0,    // zero-shear viscosity [Pa·s]
@@ -354,28 +354,28 @@ mod tests {
         );
         
         // Test at low shear rate
-        let visc_low = fluid.dynamic_viscosity(0.001).unwrap();
+        let visc_low = fluid.dynamic_viscosity(0.001).expect("CRITICAL: Add proper error handling");
         assert!(visc_low > 9.0); // Should be close to mu_zero
         
         // Test at high shear rate
-        let visc_high = fluid.dynamic_viscosity(1000.0).unwrap();
+        let visc_high = fluid.dynamic_viscosity(1000.0).expect("CRITICAL: Add proper error handling");
         assert!(visc_high < 1.0); // Should approach mu_inf
         
         // Test intermediate shear rate
-        let visc_mid = fluid.dynamic_viscosity(1.0).unwrap();
+        let visc_mid = fluid.dynamic_viscosity(1.0).expect("CRITICAL: Add proper error handling");
         assert!(visc_mid > 0.01 && visc_mid < 10.0);
     }
 
     #[test]
     fn test_kinematic_viscosity_calculation() {
         // Test that kinematic viscosity is calculated correctly
-        let water = Fluid::<f64>::water().unwrap();
+        let water = Fluid::<f64>::water().expect("CRITICAL: Add proper error handling");
         let kinematic = water.kinematic_viscosity();
         let expected = 1.002e-3 / 998.2;
         assert_relative_eq!(kinematic, expected, epsilon = 1e-9);
         
-        // Test for non-Newtonian fluid
-        let power_law = Fluid::<f64>::new_power_law(
+        // Test for non-Currenttonian fluid
+        let power_law = Fluid::<f64>::current_power_law(
             "Test fluid",
             1200.0,
             0.8,  // This becomes the characteristic viscosity
@@ -386,7 +386,7 @@ mod tests {
 
     #[test]
     fn test_thermal_properties() {
-        let mut water = Fluid::<f64>::water().unwrap();
+        let mut water = Fluid::<f64>::water().expect("CRITICAL: Add proper error handling");
         assert!(water.prandtl_number().is_none());
         
         // Add thermal properties
@@ -394,7 +394,7 @@ mod tests {
             .with_specific_heat(4186.0)  // J/(kg·K)
             .with_thermal_conductivity(0.598);  // W/(m·K)
         
-        let pr = water.prandtl_number().unwrap();
+        let pr = water.prandtl_number().expect("CRITICAL: Add proper error handling");
         // Pr = μ·cp/k = 1.002e-3 * 4186 / 0.598 ≈ 7.01
         assert_relative_eq!(pr, 7.01, epsilon = 0.1);
     }

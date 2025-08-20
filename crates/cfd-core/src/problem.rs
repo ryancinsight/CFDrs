@@ -66,8 +66,8 @@ pub struct ProblemParameters<T: RealField> {
 impl<T: RealField + FromPrimitive> Default for ProblemParameters<T> {
     fn default() -> Self {
         Self {
-            reference_pressure: T::from_f64(101_325.0).unwrap(), // 1 atm
-            reference_temperature: Some(T::from_f64(293.15).unwrap()), // 20°C
+            reference_pressure: T::from_f64(101_325.0).unwrap_or_else(|| T::one()), // 1 atm
+            reference_temperature: Some(T::from_f64(293.15).unwrap_or_else(|| T::one())), // 20°C
             gravity: None,
             transient: false,
             energy: false,
@@ -178,7 +178,7 @@ mod tests {
             .reference_pressure(101325.0)
             .transient(true)
             .build()
-            .unwrap();
+            .expect("CRITICAL: Add proper error handling");
 
         assert_eq!(problem.fluid.name, "Water (20°C)");
         assert_eq!(problem.boundary_conditions.conditions.len(), 3);

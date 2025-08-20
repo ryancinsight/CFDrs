@@ -3,7 +3,7 @@
 //! The IBM allows simulation of flow around complex objects without
 //! body-fitted meshes by using forcing terms in the momentum equations.
 
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::{Vector3, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -124,11 +124,11 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
         let h = self.dx.clone();  // Assuming uniform grid
         let r_norm = r.abs() / h.clone();
         
-        if r_norm >= T::from_f64(2.0).unwrap() {
+        if r_norm >= T::from_f64(2.0).unwrap_or_else(|| T::zero()) {
             T::zero()
         } else if r_norm < T::one() {
             let one = T::one();
-            let three = T::from_f64(3.0).unwrap();
+            let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
             // Clamp the argument to sqrt to be non-negative
             let r_norm_squared = r_norm.clone() * r_norm.clone();
             // Clamp the argument to sqrt to be non-negative
@@ -136,11 +136,11 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
             (one + ComplexField::sqrt(arg)) / (three * h)
         } else {
             let one = T::one();
-            let three = T::from_f64(3.0).unwrap();
-            let five = T::from_f64(5.0).unwrap();
+            let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
+            let five = T::from_f64(5.0).unwrap_or_else(|| T::zero());
             // For 1 <= r_norm < 2, use the correct formula
             let term = (one.clone() - r_norm.clone()) * (one - r_norm.clone());
-            (five - three.clone() * r_norm - ComplexField::sqrt(three * term)) / (T::from_f64(6.0).unwrap() * h)
+            (five - three.clone() * r_norm - ComplexField::sqrt(three * term)) / (T::from_f64(6.0).unwrap_or_else(|| T::zero()) * h)
         }
     }
     
@@ -188,9 +188,9 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
                         let k = (k_center + dk).saturating_sub(stencil_half).min(nz - 1);
                         
                         let grid_pos = Vector3::new(
-                            T::from_usize(i).unwrap() * dx.clone(),
-                            T::from_usize(j).unwrap() * dy.clone(),
-                            T::from_usize(k).unwrap() * dz.clone(),
+                            T::from_usize(i).unwrap_or_else(|| T::zero()) * dx.clone(),
+                            T::from_usize(j).unwrap_or_else(|| T::zero()) * dy.clone(),
+                            T::from_usize(k).unwrap_or_else(|| T::zero()) * dz.clone(),
                         );
                         
                         let dx_val = point.position[0].clone() - grid_pos[0].clone();
@@ -219,21 +219,21 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
     fn delta_function_static(r: T, h: T) -> T {
         let r_norm = r.abs() / h.clone();
         
-        if r_norm >= T::from_f64(2.0).unwrap() {
+        if r_norm >= T::from_f64(2.0).unwrap_or_else(|| T::zero()) {
             T::zero()
         } else if r_norm < T::one() {
             let one = T::one();
-            let three = T::from_f64(3.0).unwrap();
+            let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
             // Clamp the argument to sqrt to be non-negative
             let arg = (one.clone() - three.clone() * r_norm.clone() * r_norm.clone()).max(T::zero());
             (one + ComplexField::sqrt(arg)) / (three * h)
         } else {
             let one = T::one();
-            let three = T::from_f64(3.0).unwrap();
-            let five = T::from_f64(5.0).unwrap();
+            let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
+            let five = T::from_f64(5.0).unwrap_or_else(|| T::zero());
             // For 1 <= r_norm < 2, use the correct formula  
             let term = (one.clone() - r_norm.clone()) * (one - r_norm.clone());
-            (five - three.clone() * r_norm - ComplexField::sqrt(three * term)) / (T::from_f64(6.0).unwrap() * h)
+            (five - three.clone() * r_norm - ComplexField::sqrt(three * term)) / (T::from_f64(6.0).unwrap_or_else(|| T::zero()) * h)
         }
     }
     
@@ -249,7 +249,7 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
                 };
                 
                 // Force to enforce boundary condition
-                point.force = (u_target - point.velocity.clone()) * T::from_f64(self.config.force_scale).unwrap();
+                point.force = (u_target - point.velocity.clone()) * T::from_f64(self.config.force_scale).unwrap_or_else(|| T::zero());
             }
         } else {
             // Feedback forcing or elastic boundary
@@ -257,7 +257,7 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
                 if let Some(ref_pos) = &point.reference_position {
                     // Elastic force: F = -k * (X - X0)
                     let displacement = point.position.clone() - ref_pos.clone();
-                    let stiffness = T::from_f64(100.0).unwrap();  // Spring stiffness
+                    let stiffness = T::from_f64(100.0).unwrap_or_else(|| T::zero());  // Spring stiffness
                     point.force = displacement * (-stiffness);
                 }
             }
@@ -301,9 +301,9 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
                         let k = (k_center + dk).saturating_sub(stencil_half).min(self.nz - 1);
                         
                         let grid_pos = Vector3::new(
-                            T::from_usize(i).unwrap() * self.dx.clone(),
-                            T::from_usize(j).unwrap() * self.dy.clone(),
-                            T::from_usize(k).unwrap() * self.dz.clone(),
+                            T::from_usize(i).unwrap_or_else(|| T::zero()) * self.dx.clone(),
+                            T::from_usize(j).unwrap_or_else(|| T::zero()) * self.dy.clone(),
+                            T::from_usize(k).unwrap_or_else(|| T::zero()) * self.dz.clone(),
                         );
                         
                         let dx = point.position[0].clone() - grid_pos[0].clone();

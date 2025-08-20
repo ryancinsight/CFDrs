@@ -315,8 +315,8 @@ impl StencilOps {
                 let bottom = field[idx - nx].clone();
                 let top = field[idx + nx].clone();
 
-                result[idx] = (left - center.clone() * T::from_f64(2.0).unwrap() + right) / dx2.clone()
-                            + (bottom - center * T::from_f64(2.0).unwrap() + top) / dy2.clone();
+                result[idx] = (left - center.clone() * T::from_f64(2.0).unwrap_or_else(|| T::zero()) + right) / dx2.clone()
+                            + (bottom - center * T::from_f64(2.0).unwrap_or_else(|| T::zero()) + top) / dy2.clone();
             }
         }
 
@@ -337,8 +337,8 @@ impl StencilOps {
             return Err("All arrays must match grid size");
         }
 
-        let dx_inv = T::one() / (T::from_f64(2.0).unwrap() * dx);
-        let dy_inv = T::one() / (T::from_f64(2.0).unwrap() * dy);
+        let dx_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx);
+        let dy_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy);
 
         // Gradient computation (sequential for now due to mutable access patterns)
         for j in 1..ny-1 {
@@ -370,9 +370,9 @@ impl StencilOps {
             return Err("All fields must match grid dimensions");
         }
 
-        let dx_inv = T::one() / (T::from_f64(2.0).unwrap() * dx);
-        let dy_inv = T::one() / (T::from_f64(2.0).unwrap() * dy);
-        let dz_inv = T::one() / (T::from_f64(2.0).unwrap() * dz);
+        let dx_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx);
+        let dy_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy);
+        let dz_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dz);
 
         // Compute divergence: ∇·v = ∂u/∂x + ∂v/∂y + ∂w/∂z
         for k in 1..nz-1 {
@@ -409,9 +409,9 @@ impl StencilOps {
             return Err("All fields must match grid dimensions");
         }
 
-        let dx_inv = T::one() / (T::from_f64(2.0).unwrap() * dx);
-        let dy_inv = T::one() / (T::from_f64(2.0).unwrap() * dy);
-        let dz_inv = T::one() / (T::from_f64(2.0).unwrap() * dz);
+        let dx_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx);
+        let dy_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy);
+        let dz_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dz);
 
         // Compute curl: ∇×v = (∂w/∂y - ∂v/∂z, ∂u/∂z - ∂w/∂x, ∂v/∂x - ∂u/∂y)
         for k in 1..nz-1 {
@@ -451,7 +451,7 @@ mod tests {
         let b = vec![5.0, 6.0, 7.0, 8.0];
         let mut result = vec![0.0; 4];
 
-        VectorizedOps::add_vectorized(&a, &b, &mut result).unwrap();
+        VectorizedOps::add_vectorized(&a, &b, &mut result).expect("CRITICAL: Add proper error handling");
         assert_eq!(result, vec![6.0, 8.0, 10.0, 12.0]);
     }
 
@@ -460,7 +460,7 @@ mod tests {
         let a = vec![1.0, 2.0, 3.0];
         let b = vec![4.0, 5.0, 6.0];
 
-        let result = VectorizedOps::dot_vectorized(&a, &b).unwrap();
+        let result = VectorizedOps::dot_vectorized(&a, &b).expect("CRITICAL: Add proper error handling");
         assert_eq!(result, 32.0); // 1*4 + 2*5 + 3*6 = 32
     }
 

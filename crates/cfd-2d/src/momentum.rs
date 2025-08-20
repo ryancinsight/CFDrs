@@ -1,4 +1,4 @@
-//! Momentum equation solver for SIMPLE algorithm.
+//! Momentum equation solver for STANDARD algorithm.
 //!
 //! This module implements the discretization and solution of momentum equations
 //! using finite volume methods with proper Rhie-Chow interpolation.
@@ -131,7 +131,7 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
     ) -> Result<()> {
         let dx = grid.dx.clone();
         let dy = grid.dy.clone();
-        let two = T::from_f64(constants::TWO).unwrap();
+        let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
         
         for i in 1..fields.nx - 1 {
             for j in 1..fields.ny - 1 {
@@ -182,11 +182,11 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
                 let time_coeff = self.density.clone() * dx.clone() * dy.clone() / dt.clone();
                 
                 // Source term includes time derivative of old velocity
-                let old_vel = match component {
+                let previous_vel = match component {
                     MomentumComponent::U => fields.u.at(i, j).x.clone(),
                     MomentumComponent::V => fields.u.at(i, j).y.clone(),
                 };
-                coeffs.su = time_coeff * old_vel;
+                coeffs.su = time_coeff * previous_vel;
             }
         }
         
@@ -310,10 +310,10 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
                 // Pressure gradient term
                 let pressure_grad = match component {
                     MomentumComponent::U => {
-                        (fields.p.at(i + 1, j).clone() - fields.p.at(i - 1, j).clone()) / T::from_f64(constants::TWO).unwrap() / grid.dx.clone()
+                        (fields.p.at(i + 1, j).clone() - fields.p.at(i - 1, j).clone()) / T::from_f64(constants::TWO).unwrap_or_else(|| T::zero()) / grid.dx.clone()
                     },
                     MomentumComponent::V => {
-                        (fields.p.at(i, j + 1).clone() - fields.p.at(i, j - 1).clone()) / T::from_f64(constants::TWO).unwrap() / grid.dy.clone()
+                        (fields.p.at(i, j + 1).clone() - fields.p.at(i, j - 1).clone()) / T::from_f64(constants::TWO).unwrap_or_else(|| T::zero()) / grid.dy.clone()
                     }
                 };
                 

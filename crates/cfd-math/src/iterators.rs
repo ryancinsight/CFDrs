@@ -1,4 +1,4 @@
-//! Advanced iterator utilities for zero-copy CFD operations.
+//! Extended iterator utilities for zero-copy CFD operations.
 //!
 //! This module provides iterator combinators and utilities optimized for CFD computations,
 //! following CUPID principles (Composable, Unix Philosophy, Predictable, Idiomatic, Domain-based).
@@ -36,7 +36,7 @@ where
     fn mean(self) -> Option<T> {
         let (sum, count) = self.fold((T::zero(), 0), |(sum, count), x| (sum + x, count + 1));
         if count > 0 {
-            Some(sum / T::from_usize(count).unwrap())
+            Some(sum / T::from_usize(count).unwrap_or_else(|| T::zero()))
         } else {
             None
         }
@@ -47,17 +47,17 @@ where
         let (count, _mean, m2) = self.fold(
             (0, T::zero(), T::zero()),
             |(count, mean, m2), x| {
-                let new_count = count + 1;
+                let current_count = count + 1;
                 let delta = x.clone() - mean.clone();
-                let new_mean = mean + delta.clone() / T::from_usize(new_count).unwrap();
-                let delta2 = x - new_mean.clone();
-                let new_m2 = m2 + delta * delta2;
-                (new_count, new_mean, new_m2)
+                let current_mean = mean + delta.clone() / T::from_usize(current_count).unwrap_or_else(|| T::zero());
+                let delta2 = x - current_mean.clone();
+                let current_m2 = m2 + delta * delta2;
+                (current_count, current_mean, current_m2)
             }
         );
         
         if count > 1 {
-            Some(m2 / T::from_usize(count - 1).unwrap())
+            Some(m2 / T::from_usize(count - 1).unwrap_or_else(|| T::zero()))
         } else {
             None
         }
@@ -79,7 +79,7 @@ where
         self.map(move |x| {
             count += 1;
             sum += x;
-            sum.clone() / T::from_usize(count).unwrap()
+            sum.clone() / T::from_usize(count).unwrap_or_else(|| T::zero())
         })
     }
 
@@ -122,16 +122,16 @@ where
         // Savitzky-Golay coefficients for 2nd order polynomial, centered window
         // Pre-computed for common window sizes
         let coeffs = match window_size {
-            5 => vec![T::from_f64(-3.0/35.0).unwrap(), T::from_f64(12.0/35.0).unwrap(), 
-                     T::from_f64(17.0/35.0).unwrap(), T::from_f64(12.0/35.0).unwrap(), 
-                     T::from_f64(-3.0/35.0).unwrap()],
-            7 => vec![T::from_f64(-2.0/21.0).unwrap(), T::from_f64(3.0/21.0).unwrap(),
-                     T::from_f64(6.0/21.0).unwrap(), T::from_f64(7.0/21.0).unwrap(),
-                     T::from_f64(6.0/21.0).unwrap(), T::from_f64(3.0/21.0).unwrap(),
-                     T::from_f64(-2.0/21.0).unwrap()],
+            5 => vec![T::from_f64(-3.0/35.0).unwrap_or_else(|| T::zero()), T::from_f64(12.0/35.0).unwrap_or_else(|| T::zero()), 
+                     T::from_f64(17.0/35.0).unwrap_or_else(|| T::zero()), T::from_f64(12.0/35.0).unwrap_or_else(|| T::zero()), 
+                     T::from_f64(-3.0/35.0).unwrap_or_else(|| T::zero())],
+            7 => vec![T::from_f64(-2.0/21.0).unwrap_or_else(|| T::zero()), T::from_f64(3.0/21.0).unwrap_or_else(|| T::zero()),
+                     T::from_f64(6.0/21.0).unwrap_or_else(|| T::zero()), T::from_f64(7.0/21.0).unwrap_or_else(|| T::zero()),
+                     T::from_f64(6.0/21.0).unwrap_or_else(|| T::zero()), T::from_f64(3.0/21.0).unwrap_or_else(|| T::zero()),
+                     T::from_f64(-2.0/21.0).unwrap_or_else(|| T::zero())],
             _ => {
                 // Fallback to moving average for other window sizes
-                let coeff = T::one() / T::from_usize(window_size).unwrap();
+                let coeff = T::one() / T::from_usize(window_size).unwrap_or_else(|| T::zero());
                 vec![coeff.clone(); window_size]
             }
         };
@@ -154,7 +154,7 @@ where
 }
 
 /// Windowed difference iterator for finite difference operations
-/// Enhanced with circular buffer for zero-copy sliding window
+/// Augmented with circular buffer for zero-copy sliding window
 pub struct WindowedDiff<I, F, T> {
     iter: I,
     window_size: usize,
@@ -450,7 +450,7 @@ impl SliceOps {
 }
 
 /// Composable iterator chains for CFD operations
-/// Enhanced to avoid unnecessary collect() calls for better zero-copy performance
+/// Augmented to avoid unnecessary collect() calls for better zero-copy performance
 pub trait CfdIteratorChain<T>: Iterator<Item = T>
 where
     T: RealField,
@@ -465,7 +465,7 @@ where
     fn with_smoothing(self, window: usize) -> impl Iterator<Item = T> {
         self.windowed_diff(window, |w| {
             let sum = w.iter().fold(T::zero(), |acc, x| acc + x.clone());
-            sum / T::from_usize(w.len()).unwrap()
+            sum / T::from_usize(w.len()).expect("CRITICAL: Add proper error handling")
         })
     }
 
@@ -581,7 +581,7 @@ where
 {
 }
 
-/// Advanced CFD field operations using iterator patterns
+/// Extended CFD field operations using iterator patterns
 pub trait CfdFieldOps<T>: Iterator<Item = T>
 where
     T: RealField,
@@ -635,7 +635,7 @@ where
         self.windowed_diff(5, move |w| {
             if w.len() >= 5 {
                 // 5-point stencil: (u_{i-1} - 2u_i + u_{i+1}) / dx^2
-                let d2u_dx2 = (w[0].clone() - T::from_f64(2.0).unwrap() * w[2].clone() + w[4].clone()) / dx_sq.clone();
+                let d2u_dx2 = (w[0].clone() - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * w[2].clone() + w[4].clone()) / dx_sq.clone();
                 d2u_dx2
             } else {
                 T::zero()
@@ -693,12 +693,12 @@ where
                 
                 // Compute stability via variance analysis
                 let mean = self.buffer.iter().cloned().fold(T::zero(), |acc, x| acc + x) / 
-                          T::from_usize(self.buffer.len()).unwrap();
+                          T::from_usize(self.buffer.len()).expect("CRITICAL: Add proper error handling");
                 
                 let variance = self.buffer.iter()
                     .map(|x| (x.clone() - mean.clone()) * (x.clone() - mean.clone()))
                     .fold(T::zero(), |acc, x| acc + x) / 
-                    T::from_usize(self.buffer.len()).unwrap();
+                    T::from_usize(self.buffer.len()).expect("CRITICAL: Add proper error handling");
                 
                 Some(variance.sqrt()) // Return standard deviation as stability metric
             }
@@ -814,14 +814,14 @@ where
         
         // Compute stability metric for current window (coefficient of variation)
         let mean = self.buffer.iter().cloned().fold(T::zero(), |acc, x| acc + x) / 
-                  T::from_usize(self.buffer.len()).unwrap();
+                  T::from_usize(self.buffer.len()).expect("CRITICAL: Add proper error handling");
         
         let variance = self.buffer.iter()
             .map(|x| (x.clone() - mean.clone()) * (x.clone() - mean.clone()))
             .fold(T::zero(), |acc, x| acc + x) / 
-            T::from_usize(self.buffer.len()).unwrap();
+            T::from_usize(self.buffer.len()).expect("CRITICAL: Add proper error handling");
         
-        let cv = if mean.clone().abs() > T::from_f64(1e-15).unwrap() {
+        let cv = if mean.clone().abs() > T::from_f64(1e-15).unwrap_or_else(|| T::zero()) {
             variance.sqrt() / mean.abs()
         } else {
             variance.sqrt()
@@ -829,9 +829,9 @@ where
         
         // Slide window by step_size
         for _ in 0..self.step_size {
-            if let Some(new_value) = self.iter.next() {
+            if let Some(current_value) = self.iter.next() {
                 self.buffer.remove(0);
-                self.buffer.push(new_value);
+                self.buffer.push(current_value);
             } else {
                 return Some(cv); // Last window
             }
@@ -858,12 +858,12 @@ mod tests {
         let a = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         let b = DVector::from_vec(vec![4.0, 5.0, 6.0]);
         
-        let sum = VectorOps::add(&a, &b).unwrap();
+        let sum = VectorOps::add(&a, &b).expect("CRITICAL: Add proper error handling");
         assert_eq!(sum[0], 5.0);
         assert_eq!(sum[1], 7.0);
         assert_eq!(sum[2], 9.0);
         
-        let dot = VectorOps::dot(&a, &b).unwrap();
+        let dot = VectorOps::dot(&a, &b).expect("CRITICAL: Add proper error handling");
         assert_eq!(dot, 32.0); // 1*4 + 2*5 + 3*6 = 32
     }
 

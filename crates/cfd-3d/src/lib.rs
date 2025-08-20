@@ -14,7 +14,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod fem;
-pub mod spectral;
+pub mod spectral; // Refactored into submodules for proper separation
 pub mod ibm;
 pub mod level_set;
 pub mod vof;
