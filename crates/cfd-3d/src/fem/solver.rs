@@ -7,6 +7,7 @@ use num_traits::{FromPrimitive, Float};
 
 use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution, FluidElement, ElementMatrices};
 use crate::fem::constants;
+use cfd_mesh::{Mesh, Cell};
 
 /// Finite Element Method solver for 3D incompressible flow
 pub struct FemSolver<T: RealField> {
@@ -14,6 +15,33 @@ pub struct FemSolver<T: RealField> {
     config: FemConfig<T>,
     /// Linear solver for the system
     linear_solver: Box<dyn LinearSolver<T>>,
+}
+
+/// Extract vertex indices from a cell
+fn extract_vertex_indices<T: RealField>(cell: &Cell, mesh: &Mesh<T>) -> Vec<usize> {
+    // For tetrahedral elements, extract 4 unique vertex indices from faces
+    let mut indices = Vec::with_capacity(4);
+    let mut seen = std::collections::HashSet::new();
+    
+    for &face_idx in &cell.faces {
+        if let Some(face) = mesh.faces.get(face_idx) {
+            for &vertex_idx in &face.vertices {
+                if seen.insert(vertex_idx) && indices.len() < 4 {
+                    indices.push(vertex_idx);
+                }
+            }
+        }
+        if indices.len() >= 4 {
+            break;
+        }
+    }
+    
+    // Ensure we have exactly 4 indices for tetrahedral element
+    while indices.len() < 4 {
+        indices.push(0);
+    }
+    
+    indices
 }
 
 impl<T: RealField + FromPrimitive + Float + Copy> FemSolver<T> {
@@ -68,8 +96,8 @@ impl<T: RealField + FromPrimitive + Float + Copy> FemSolver<T> {
         
         // Loop over elements
         for (elem_idx, cell) in problem.mesh.cells.iter().enumerate() {
-            // Get vertex indices for this cell (assuming tetrahedral elements)
-            let vertex_indices = vec![0, 1, 2, 3]; // TODO: Get actual indices from cell
+            // Get vertex indices for this cell
+            let vertex_indices = extract_vertex_indices(cell, &problem.mesh);
             
             // Create element
             let mut element = FluidElement::new(vertex_indices);

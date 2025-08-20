@@ -478,7 +478,8 @@ mod tests {
     use approx::assert_relative_eq;
     use nalgebra::DMatrix;
 
-    fn create_test_matrix() -> CsrMatrix<f64> {
+    #[cfg(test)]
+    fn create_validation_matrix() -> CsrMatrix<f64> {
         // Create a simple 3x3 SPD matrix
         let dense = DMatrix::from_row_slice(3, 3, &[
             4.0, -1.0, 0.0,

@@ -16,6 +16,7 @@ pub mod fluid;
 pub mod problem;
 pub mod solution;
 pub mod solver;
+pub mod stabilization;
 
 // Re-export main types for convenience
 pub use config::FemConfig;
