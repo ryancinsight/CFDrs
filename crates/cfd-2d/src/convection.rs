@@ -46,7 +46,7 @@ pub struct CentralDifference;
 
 impl<T: RealField + FromPrimitive> ConvectionScheme<T> for CentralDifference {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
-        let two = T::from_f64(constants::TWO).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
         let ae = de - fe / two.clone();
         let aw = dw + fw / two;
         (ae, aw)
@@ -66,7 +66,7 @@ pub struct HybridScheme;
 
 impl<T: RealField + FromPrimitive> ConvectionScheme<T> for HybridScheme {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
-        let two = T::from_f64(constants::TWO).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
         
         // Calculate Peclet numbers
         let pe_e = fe.clone().abs() / de.clone();
@@ -111,7 +111,7 @@ impl<T: RealField + FromPrimitive> ConvectionScheme<T> for PowerLawScheme {
         // Power-law function: max(0, (1 - 0.1|Pe|)^5)
         let power_law = |pe: T| -> T {
             let abs_pe = pe.abs();
-            let one_tenth = T::from_f64(constants::ONE_TENTH).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+            let one_tenth = T::from_f64(constants::ONE_TENTH).unwrap_or_else(|| T::zero());
             let factor = T::one() - one_tenth * abs_pe;
             if factor > T::zero() {
                 // Approximate (1-x)^5 for small x
@@ -156,7 +156,7 @@ impl<T: RealField + FromPrimitive> ConvectionScheme<T> for QuickScheme {
 		let pe_w = fw.clone() / dw.clone();
 		let limiter = |pe: T| -> T {
 			let abs_pe = pe.abs();
-			let one_tenth = T::from_f64(constants::ONE_TENTH).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+			let one_tenth = T::from_f64(constants::ONE_TENTH).unwrap_or_else(|| T::zero());
 			let factor = T::one() - one_tenth * abs_pe;
 			            if factor > T::zero() { let f = factor.clone(); f.clone() * f.clone() * f.clone() * f.clone() * f } else { T::zero() }
 		};

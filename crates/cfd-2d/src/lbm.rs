@@ -72,9 +72,9 @@ pub struct LbmConfig<T: RealField> {
 impl<T: RealField + FromPrimitive> Default for LbmConfig<T> {
     fn default() -> Self {
         Self {
-            tau: T::from_f64(1.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            tau: T::from_f64(1.0).unwrap_or_else(|| T::zero()),
             max_steps: 10000,
-            tolerance: T::from_f64(1e-6).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            tolerance: T::from_f64(1e-6).unwrap_or_else(|| T::zero()),
             output_frequency: 100,
             verbose: false,
         }
@@ -206,20 +206,20 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
     /// Chen, S. and Doolen, G.D. (1998). "Lattice Boltzmann method for fluid flows."
     /// Annual Review of Fluid Mechanics, 30(1), 329-364.
     fn equilibrium_distribution(&self, q: usize, rho: &T, u: &Vector2<T>) -> T {
-        let w = T::from_f64(D2Q9::WEIGHTS[q]).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let w = T::from_f64(D2Q9::WEIGHTS[q]).unwrap_or_else(|| T::zero());
         let c = Vector2::new(
-            T::from_i32(D2Q9::VELOCITIES[q].0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
-            T::from_i32(D2Q9::VELOCITIES[q].1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            T::from_i32(D2Q9::VELOCITIES[q].0).unwrap_or_else(|| T::zero()),
+            T::from_i32(D2Q9::VELOCITIES[q].1).unwrap_or_else(|| T::zero()),
         );
 
         let cu = c.dot(u);
         let u_sqr = u.dot(u);
-        let cs2 = T::from_f64(1.0/3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?; // Speed of sound squared
+        let cs2 = T::from_f64(1.0/3.0).unwrap_or_else(|| T::zero()); // Speed of sound squared
 
         // Equilibrium distribution: w_i * rho * (1 + c_i·u/cs² + (c_i·u)²/(2cs⁴) - u²/(2cs²))
         let term1 = cu.clone() / cs2.clone();
-        let term2 = cu.clone() * cu / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * cs2.clone() * cs2.clone());
-        let term3 = u_sqr / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * cs2);
+        let term2 = cu.clone() * cu / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * cs2.clone() * cs2.clone());
+        let term3 = u_sqr / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * cs2);
 
         w * rho.clone() * (T::one() + term1 + term2 - term3)
     }
@@ -244,8 +244,8 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                     .zip(D2Q9::VELOCITIES.iter())
                     .map(|(f, &(ci, cj))| {
                         let c = Vector2::new(
-                            T::from_i32(ci).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
-                            T::from_i32(cj).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                            T::from_i32(ci).unwrap_or_else(|| T::zero()),
+                            T::from_i32(cj).unwrap_or_else(|| T::zero()),
                         );
                         c * f.clone()
                     })
@@ -536,7 +536,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
     /// Check convergence based on velocity and density field changes
     fn check_convergence(&self) -> Result<bool> {
         // Simple, clear implementation without false optimization claims
-        let total_cells = T::from_usize(self.nx * self.ny).ok_or_else(|| cfd_core::Error::Numerical(cfd_core::error::NumericalErrorKind::Overflow))?;
+        let total_cells = T::from_usize(self.nx * self.ny).unwrap_or_else(|| T::zero());
 
         // Calculate residuals with simple loops - clearer and no slower
         let mut velocity_residual = T::zero();
@@ -607,12 +607,12 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                 
                 for (k, f_k) in f_ij.iter().enumerate() {
                     let (cx, cy) = D2Q9::VELOCITIES[k];
-                    u_local = u_local + f_k.clone() * T::from_i32(cx).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-                    v_local = v_local + f_k.clone() * T::from_i32(cy).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                    u_local = u_local + f_k.clone() * T::from_i32(cx).unwrap_or_else(|| T::zero());
+                    v_local = v_local + f_k.clone() * T::from_i32(cy).unwrap_or_else(|| T::zero());
                 }
                 
                 // Avoid division by zero
-                if rho_local.clone().abs() > T::from_f64(1e-14).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
+                if rho_local.clone().abs() > T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
                     u_local = u_local / rho_local.clone();
                     v_local = v_local / rho_local;
                 }

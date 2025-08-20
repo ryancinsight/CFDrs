@@ -10,7 +10,7 @@
 //! Run with: cargo run --example microfluidic_chip
 
 use cfd_1d::{NetworkBuilder, NetworkSolver, ChannelProperties};
-use cfd_core::Fluid;
+use cfd_core::fluid::Fluid;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Microfluidic Chip Simulation");

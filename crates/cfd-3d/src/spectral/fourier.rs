@@ -51,12 +51,12 @@ impl<T: RealField + FromPrimitive> FourierTransform<T> {
         for k in 0..n {
             let mut sum = Complex::zero();
             for j in 0..n {
-                let phase = -two_pi * self.wavenumbers[k] * T::from_usize(j).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? 
-                    / T::from_usize(n).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                let phase = -two_pi * self.wavenumbers[k] * T::from_usize(j).unwrap_or_else(|| T::zero()) 
+                    / T::from_usize(n).unwrap_or_else(|| T::zero());
                 let exp = Complex::new(phase.cos(), phase.sin());
                 sum = sum + exp * u[j];
             }
-            u_hat[k] = sum / T::from_usize(n).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+            u_hat[k] = sum / T::from_usize(n).unwrap_or_else(|| T::zero());
         }
         
         Ok(u_hat)
@@ -74,8 +74,8 @@ impl<T: RealField + FromPrimitive> FourierTransform<T> {
         for j in 0..n {
             let mut sum = Complex::zero();
             for k in 0..n {
-                let phase = two_pi * self.wavenumbers[k] * T::from_usize(j).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? 
-                    / T::from_usize(n).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                let phase = two_pi * self.wavenumbers[k] * T::from_usize(j).unwrap_or_else(|| T::zero()) 
+                    / T::from_usize(n).unwrap_or_else(|| T::zero());
                 let exp = Complex::new(phase.cos(), phase.sin());
                 sum = sum + exp * u_hat[k];
             }

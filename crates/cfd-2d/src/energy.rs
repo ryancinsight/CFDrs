@@ -80,9 +80,9 @@ impl<T: RealField> EnergyEquationSolver<T> {
                 };
                 
                 // Diffusion terms (central difference)
-                let d2t_dx2 = (self.temperature[i+1][j].clone() - T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * t.clone() 
+                let d2t_dx2 = (self.temperature[i+1][j].clone() - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * t.clone() 
                     + self.temperature[i-1][j].clone()) / (dx.clone() * dx.clone());
-                let d2t_dy2 = (self.temperature[i][j+1].clone() - T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * t.clone() 
+                let d2t_dy2 = (self.temperature[i][j+1].clone() - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * t.clone() 
                     + self.temperature[i][j-1].clone()) / (dy.clone() * dy.clone());
                 
                 // Update temperature

@@ -310,7 +310,7 @@ impl<T: RealField + FromPrimitive> GridGenerator<T> {
                 }
                 
                 // Scale to fit bounds
-                let actual_max = coords.last().ok_or_else(|| cfd_core::error::Error::InvalidConfiguration("Empty collection".into()))?.clone();
+                let actual_max = coords.last().ok_or(GridError::InvalidGrid("Empty coordinate collection".to_string()))?.clone();
                 let scale = (max.clone() - min.clone()) / (actual_max - min.clone());
                 for coord in &mut coords {
                     *coord = min.clone() + (coord.clone() - min.clone()) * scale.clone();

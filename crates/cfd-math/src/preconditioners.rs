@@ -33,7 +33,7 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
         let n = a.nrows();
         
         // Check symmetry (with tolerance)
-        let tol = T::from_f64(1e-10).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let tol = T::from_f64(1e-10).unwrap_or_else(|| T::zero());
         let mut max_asymmetry = T::zero();
         let mut max_i = 0;
         let mut max_j = 0;
@@ -161,7 +161,7 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
                 }
             }
             
-            if diag.abs() < T::from_f64(1e-14).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
+            if diag.abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
                 return Err(LinearSolverError::ZeroDiagonalElement {
                     index: i,
                     value: diag.to_subset().unwrap_or(0.0),
@@ -208,7 +208,7 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
                 }
             }
             
-            if diag.abs() < T::from_f64(1e-14).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
+            if diag.abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
                 return Err(LinearSolverError::ZeroDiagonalElement {
                     index: i,
                     value: diag.to_subset().unwrap_or(0.0),
@@ -266,7 +266,7 @@ impl<T: RealField + Copy + FromPrimitive> SSORPreconditioner<T> {
         }
         
         // Validate omega parameter
-        if omega <= T::zero() || omega >= T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
+        if omega <= T::zero() || omega >= T::from_f64(2.0).unwrap_or_else(|| T::zero()) {
             return Err(LinearSolverError::InvalidOmega {
                 omega: omega.to_subset().unwrap_or(0.0),
             });
@@ -276,7 +276,7 @@ impl<T: RealField + Copy + FromPrimitive> SSORPreconditioner<T> {
         let mut diagonal = Vec::with_capacity(a.nrows());
         for i in 0..a.nrows() {
             let diag = a.get_entry(i, i).unwrap_or(T::zero());
-            if diag.abs() < T::from_f64(1e-14).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
+            if diag.abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
                 return Err(LinearSolverError::ZeroDiagonalElement {
                     index: i,
                     value: diag.to_subset().unwrap_or(0.0),

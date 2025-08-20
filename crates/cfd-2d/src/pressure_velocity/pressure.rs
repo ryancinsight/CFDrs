@@ -19,7 +19,7 @@ impl<T: RealField + FromPrimitive> PressureCorrectionSolver<T> {
         let config = cfd_core::solver::LinearSolverConfig {
             base: cfd_core::solver::SolverConfig::builder()
                 .max_iterations(1000)
-                .tolerance(T::from_f64(1e-8).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?)
+                .tolerance(T::from_f64(1e-8).unwrap_or_else(|| T::zero()))
                 .build_base(),
             restart: 50,
             use_preconditioner: true,
@@ -63,7 +63,7 @@ impl<T: RealField + FromPrimitive> PressureCorrectionSolver<T> {
                 let idx = (i - 1) * (ny - 2) + (j - 1);
                 
                 // Laplacian stencil
-                let ap = -T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * (dx2_inv + dy2_inv);
+                let ap = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (dx2_inv + dy2_inv);
                 builder.add_entry(idx, idx, ap)?;
                 
                 // Neighbors
@@ -81,8 +81,8 @@ impl<T: RealField + FromPrimitive> PressureCorrectionSolver<T> {
                 }
                 
                 // Divergence of predicted velocity
-                let div_u = (u_star[i+1][j].x - u_star[i-1][j].x) / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dx)
-                          + (u_star[i][j+1].y - u_star[i][j-1].y) / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dy);
+                let div_u = (u_star[i+1][j].x - u_star[i-1][j].x) / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx)
+                          + (u_star[i][j+1].y - u_star[i][j-1].y) / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy);
                 
                 rhs[idx] = coeff * div_u;
             }
@@ -133,8 +133,8 @@ impl<T: RealField + FromPrimitive> PressureCorrectionSolver<T> {
         for i in 1..nx-1 {
             for j in 1..ny-1 {
                 // Velocity correction from pressure gradient
-                let dp_dx = (p_correction[i+1][j] - p_correction[i-1][j]) / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dx);
-                let dp_dy = (p_correction[i][j+1] - p_correction[i][j-1]) / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dy);
+                let dp_dx = (p_correction[i+1][j] - p_correction[i-1][j]) / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx);
+                let dp_dy = (p_correction[i][j+1] - p_correction[i][j-1]) / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy);
                 
                 // Apply velocity correction with relaxation
                 u_star[i][j].x -= alpha * factor * dp_dx;

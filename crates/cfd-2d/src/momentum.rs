@@ -131,7 +131,7 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
     ) -> Result<()> {
         let dx = grid.dx.clone();
         let dy = grid.dy.clone();
-        let two = T::from_f64(constants::TWO).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
         
         for i in 1..fields.nx - 1 {
             for j in 1..fields.ny - 1 {
@@ -310,10 +310,10 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
                 // Pressure gradient term
                 let pressure_grad = match component {
                     MomentumComponent::U => {
-                        (fields.p.at(i + 1, j).clone() - fields.p.at(i - 1, j).clone()) / T::from_f64(constants::TWO).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? / grid.dx.clone()
+                        (fields.p.at(i + 1, j).clone() - fields.p.at(i - 1, j).clone()) / T::from_f64(constants::TWO).unwrap_or_else(|| T::zero()) / grid.dx.clone()
                     },
                     MomentumComponent::V => {
-                        (fields.p.at(i, j + 1).clone() - fields.p.at(i, j - 1).clone()) / T::from_f64(constants::TWO).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? / grid.dy.clone()
+                        (fields.p.at(i, j + 1).clone() - fields.p.at(i, j - 1).clone()) / T::from_f64(constants::TWO).unwrap_or_else(|| T::zero()) / grid.dy.clone()
                     }
                 };
                 

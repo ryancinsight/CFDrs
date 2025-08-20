@@ -45,8 +45,8 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
                 );
                 
                 // Apply pressure gradient
-                let dp_dx = (p[i+1][j] - p[i-1][j]) / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dx);
-                let dp_dy = (p[i][j+1] - p[i][j-1]) / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dy);
+                let dp_dx = (p[i+1][j] - p[i-1][j]) / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx);
+                let dp_dy = (p[i][j+1] - p[i][j-1]) / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy);
                 
                 // Solve for velocity components
                 if self.config.implicit_momentum {
@@ -93,15 +93,15 @@ impl<T: RealField + FromPrimitive> MomentumSolver<T> {
         match self.config.convection_scheme {
             SpatialScheme::CentralDifference => {
                 // Central differencing (may cause oscillations)
-                let ue = (u[i][j].x + u[i+1][j].x) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-                let uw = (u[i-1][j].x + u[i][j].x) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-                let vn = (u[i][j].y + u[i][j+1].y) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-                let vs = (u[i][j-1].y + u[i][j].y) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                let ue = (u[i][j].x + u[i+1][j].x) / T::from_f64(2.0).unwrap_or_else(|| T::zero());
+                let uw = (u[i-1][j].x + u[i][j].x) / T::from_f64(2.0).unwrap_or_else(|| T::zero());
+                let vn = (u[i][j].y + u[i][j+1].y) / T::from_f64(2.0).unwrap_or_else(|| T::zero());
+                let vs = (u[i][j-1].y + u[i][j].y) / T::from_f64(2.0).unwrap_or_else(|| T::zero());
                 
-                coeffs.ae = coeffs.ae - ue / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dx);
-                coeffs.aw = coeffs.aw + uw / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dx);
-                coeffs.an = coeffs.an - vn / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dy);
-                coeffs.as_ = coeffs.as_ + vs / (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * dy);
+                coeffs.ae = coeffs.ae - ue / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx);
+                coeffs.aw = coeffs.aw + uw / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx);
+                coeffs.an = coeffs.an - vn / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy);
+                coeffs.as_ = coeffs.as_ + vs / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy);
             }
             SpatialScheme::FirstOrderUpwind => {
                 // First-order upwind (stable but diffusive)

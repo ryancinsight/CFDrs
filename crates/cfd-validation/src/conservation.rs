@@ -51,8 +51,8 @@ pub struct ConservationTolerance<T: RealField> {
 impl<T: RealField + FromPrimitive> Default for ConservationTolerance<T> {
     fn default() -> Self {
         Self {
-            absolute: T::from_f64(1e-12).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
-            relative: T::from_f64(1e-10).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+            absolute: T::from_f64(1e-12).unwrap_or_else(|| T::zero()),
+            relative: T::from_f64(1e-10).unwrap_or_else(|| T::zero()),
         }
     }
 }
@@ -289,7 +289,7 @@ impl<T: RealField + FromPrimitive> GlobalConservationIntegrals<T> {
                         let u_sq = u.clone() * u.clone();
                         let v_sq = v.clone() * v.clone();
                         let w_sq = w.clone() * w.clone();
-                        let half = T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+                        let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
 
                         (
                             mass + dm.clone(),

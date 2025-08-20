@@ -228,8 +228,8 @@ impl<T: RealField> SparseMatrixExt<T> for CsrMatrix<T> {
 
     fn stats(&self) -> MatrixStats<T> {
         let nnz = self.nnz();
-        let density = T::from_usize(nnz).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? /
-                     T::from_usize(self.nrows() * self.ncols()).unwrap();
+        let density = T::from_usize(nnz).unwrap_or_else(|| T::zero()) /
+                     T::from_usize(self.nrows() * self.ncols()).unwrap_or_else(|| T::one());
 
         let (min_val, max_val) = self.values()
             .iter()
@@ -359,7 +359,7 @@ impl SparsePatterns {
 
         let dx2_inv = T::one() / (dx.clone() * dx);
         let dy2_inv = T::one() / (dy.clone() * dy);
-        let center_coeff = -T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * (dx2_inv.clone() + dy2_inv.clone());
+        let center_coeff = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (dx2_inv.clone() + dy2_inv.clone());
 
         // Use iterator with cartesian product for 2D grid traversal
         (0..ny).flat_map(|j| (0..nx).map(move |i| (i, j)))

@@ -89,8 +89,8 @@ impl<T: RealField + FromPrimitive> StructuredGrid2D<T> {
             ));
         }
 
-        let dx = (x_max.clone() - x_min.clone()) / T::from_usize(nx).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let dy = (y_max.clone() - y_min.clone()) / T::from_usize(ny).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let dx = (x_max.clone() - x_min.clone()) / T::from_usize(nx).unwrap_or_else(|| T::zero());
+        let dy = (y_max.clone() - y_min.clone()) / T::from_usize(ny).unwrap_or_else(|| T::zero());
 
         Ok(Self {
             nx,
@@ -185,11 +185,11 @@ impl<T: RealField + FromPrimitive> Grid2D<T> for StructuredGrid2D<T> {
             ));
         }
 
-        let half = T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
         let x = self.bounds.0.clone() +
-                (T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + half.clone()) * self.dx.clone();
+                (T::from_usize(i).unwrap_or_else(|| T::zero()) + half.clone()) * self.dx.clone();
         let y = self.bounds.2.clone() +
-                (T::from_usize(j).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + half) * self.dy.clone();
+                (T::from_usize(j).unwrap_or_else(|| T::zero()) + half) * self.dy.clone();
 
         Ok(Vector2::new(x, y))
     }

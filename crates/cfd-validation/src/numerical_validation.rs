@@ -123,7 +123,7 @@ impl LinearSolverValidator {
                             convergence_rate: None,
                         },
                         literature_reference: "Golub & Van Loan (2013), Matrix Computations, 4th Ed.".to_string(),
-                        passed: error_metrics.relative_l2_error < T::from_f64(1e-12).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                        passed: error_metrics.relative_l2_error < T::from_f64(1e-12).unwrap_or_else(|| T::zero()),
                     };
                     results.push(result);
                 },
@@ -142,7 +142,7 @@ impl LinearSolverValidator {
                         error_metrics: error_metrics.clone(),
                         convergence_info: ConvergenceInfo {
                             iterations: 0,
-                            final_residual: T::from_f64(f64::INFINITY).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                            final_residual: T::from_f64(f64::INFINITY).unwrap_or_else(|| T::zero()),
                             convergence_rate: None,
                         },
                         literature_reference: "Golub & Van Loan (2013), Matrix Computations, 4th Ed.".to_string(),
@@ -184,10 +184,10 @@ impl LinearSolverValidator {
                 convergence_info: ConvergenceInfo {
                     iterations: 50, // Typical for CG on Poisson
                     final_residual: error_metrics.l2_error.clone(),
-                    convergence_rate: Some(T::from_f64(0.95).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?), // Typical for CG
+                    convergence_rate: Some(T::from_f64(0.95).unwrap_or_else(|| T::zero())), // Typical for CG
                 },
                 literature_reference: "Strang (2007), Computational Science and Engineering".to_string(),
-                passed: error_metrics.relative_l2_error < T::from_f64(1e-10).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                passed: error_metrics.relative_l2_error < T::from_f64(1e-10).unwrap_or_else(|| T::zero()),
             };
             results.push(result);
         }
@@ -223,10 +223,10 @@ impl LinearSolverValidator {
                 convergence_info: ConvergenceInfo {
                     iterations: 100, // Typical for 2D Poisson
                     final_residual: error_metrics.l2_error.clone(),
-                    convergence_rate: Some(T::from_f64(0.98).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?),
+                    convergence_rate: Some(T::from_f64(0.98).unwrap_or_else(|| T::zero())),
                 },
                 literature_reference: "LeVeque (2007), Finite Difference Methods for ODEs and PDEs".to_string(),
-                passed: error_metrics.relative_l2_error < T::from_f64(1e-8).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                passed: error_metrics.relative_l2_error < T::from_f64(1e-8).unwrap_or_else(|| T::zero()),
             };
             results.push(result);
         }
@@ -264,10 +264,10 @@ impl LinearSolverValidator {
                         convergence_info: ConvergenceInfo {
                             iterations: 200, // More iterations for ill-conditioned
                             final_residual: error_metrics.l2_error.clone(),
-                            convergence_rate: Some(T::from_f64(0.99).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?),
+                            convergence_rate: Some(T::from_f64(0.99).unwrap_or_else(|| T::zero())),
                         },
                         literature_reference: "Higham (2002), Accuracy and Stability of Numerical Algorithms".to_string(),
-                        passed: error_metrics.relative_l2_error < T::from_f64(1e-6).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?, // Relaxed tolerance
+                        passed: error_metrics.relative_l2_error < T::from_f64(1e-6).unwrap_or_else(|| T::zero()), // Relaxed tolerance
                     };
                     results.push(result);
                 },
@@ -287,7 +287,7 @@ impl LinearSolverValidator {
                         error_metrics: error_metrics.clone(),
                         convergence_info: ConvergenceInfo {
                             iterations: 0,
-                            final_residual: T::from_f64(f64::INFINITY).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?,
+                            final_residual: T::from_f64(f64::INFINITY).unwrap_or_else(|| T::zero()),
                             convergence_rate: None,
                         },
                         literature_reference: "Higham (2002), Accuracy and Stability of Numerical Algorithms".to_string(),
@@ -305,7 +305,7 @@ impl LinearSolverValidator {
     fn create_diagonal_system<T: RealField + FromPrimitive + Copy>(n: usize) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
         // Create diagonal matrix with entries 1, 2, 3, ..., n using iterators
         let diagonal_entries: Vec<(usize, usize, T)> = (0..n)
-            .map(|i| (i, i, T::from_usize(i + 1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?))
+            .map(|i| (i, i, T::from_usize(i + 1).unwrap_or_else(|| T::zero())))
             .collect();
         
         let (row_indices, col_indices, values): (Vec<_>, Vec<_>, Vec<_>) = 
@@ -356,18 +356,18 @@ impl LinearSolverValidator {
         let b = DVector::from_element(n, T::one());
 
         // Analytical solution: x[i] = 1 / (i + 1)
-        let analytical = DVector::from_iterator(n, (0..n).map(|i| T::one() / T::from_usize(i + 1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?));
+        let analytical = DVector::from_iterator(n, (0..n).map(|i| T::one() / T::from_usize(i + 1).unwrap_or_else(|| T::zero())));
 
         Ok((a, b, analytical))
     }
 
     /// Create 1D Poisson system
     fn create_1d_poisson_system<T: RealField + FromPrimitive + Copy>(n: usize) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
-        let h = T::one() / T::from_usize(n + 1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let h = T::one() / T::from_usize(n + 1).unwrap_or_else(|| T::zero());
         let h_squared = h.clone() * h.clone();
 
         // Create tridiagonal matrix for -u'' using iterators
-        let diagonal_value = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? / h_squared.clone();
+        let diagonal_value = T::from_f64(2.0).unwrap_or_else(|| T::zero()) / h_squared.clone();
         let off_diagonal_value = -T::one() / h_squared.clone();
         
         let (row_indices, col_indices, values): (Vec<_>, Vec<_>, Vec<_>) = (0..n)
@@ -425,15 +425,15 @@ impl LinearSolverValidator {
         };
 
         // RHS for manufactured solution u(x) = x(1-x)
-        let _pi = T::from_f64(std::f64::consts::PI).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let _pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
         let b = DVector::from_iterator(n, (1..=n).map(|i| {
-            let _x = T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * h.clone();
-            T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? // f(x) = 2 for u(x) = x(1-x)
+            let _x = T::from_usize(i).unwrap_or_else(|| T::zero()) * h.clone();
+            T::from_f64(2.0).unwrap_or_else(|| T::zero()) // f(x) = 2 for u(x) = x(1-x)
         }));
 
         // Analytical solution
         let analytical = DVector::from_iterator(n, (1..=n).map(|i| {
-            let x = T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * h.clone();
+            let x = T::from_usize(i).unwrap_or_else(|| T::zero()) * h.clone();
             x.clone() * (T::one() - x)
         }));
 
@@ -444,7 +444,7 @@ impl LinearSolverValidator {
     /// Solves: -∇²u = f on unit square with Dirichlet boundary conditions
     fn create_2d_poisson_system<T: RealField + FromPrimitive + Copy>(nx: usize, ny: usize) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
         let n = nx * ny;
-        let h = T::one() / T::from_usize(nx - 1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let h = T::one() / T::from_usize(nx - 1).unwrap_or_else(|| T::zero());
         let h2 = h.clone() * h.clone();
         
         // Build sparse matrix using 5-point stencil
@@ -463,7 +463,7 @@ impl LinearSolverValidator {
                 values.push(T::one());
             } else {
                 // Interior point: 5-point stencil
-                let center_coeff = T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? / h2.clone();
+                let center_coeff = T::from_f64(4.0).unwrap_or_else(|| T::zero()) / h2.clone();
                 let neighbor_coeff = -T::one() / h2.clone();
                 
                 // Left neighbor
@@ -494,22 +494,22 @@ impl LinearSolverValidator {
             .map_err(|e| Error::Numerical(crate::error::NumericalErrorKind::SingularMatrix))?;
         
         // Create RHS with manufactured solution u(x,y) = sin(πx)sin(πy)
-        let pi = T::from_f64(std::f64::consts::PI).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
         let mut b = DVector::zeros(n);
         let mut analytical = DVector::zeros(n);
         
         for idx in 0..n {
             let i = idx % nx;
             let j = idx / nx;
-            let x = T::from_usize(i).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * h.clone();
-            let y = T::from_usize(j).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * h.clone();
+            let x = T::from_usize(i).unwrap_or_else(|| T::zero()) * h.clone();
+            let y = T::from_usize(j).unwrap_or_else(|| T::zero()) * h.clone();
             
             if i == 0 || i == nx - 1 || j == 0 || j == ny - 1 {
                 b[idx] = T::zero();
                 analytical[idx] = T::zero();
             } else {
                 // f = 2π²sin(πx)sin(πy)
-                b[idx] = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * pi.clone() * pi.clone() 
+                b[idx] = T::from_f64(2.0).unwrap_or_else(|| T::zero()) * pi.clone() * pi.clone() 
                     * (pi.clone() * x.clone()).sin() * (pi.clone() * y.clone()).sin();
                 analytical[idx] = (pi.clone() * x).sin() * (pi.clone() * y).sin();
             }
@@ -529,7 +529,7 @@ impl LinearSolverValidator {
             for j in 0..n {
                 row_indices.push(i);
                 col_indices.push(j);
-                values.push(T::one() / T::from_usize(i + j + 1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?);
+                values.push(T::one() / T::from_usize(i + j + 1).unwrap_or_else(|| T::zero()));
             }
         }
 

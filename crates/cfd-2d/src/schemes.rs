@@ -296,7 +296,7 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
         } else {
             // Central difference in interior
             (grid.data[(i+1, j)].clone() - grid.data[(i-1, j)].clone()) / 
-            (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * grid.dx.clone())
+            (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * grid.dx.clone())
         }
     }
     
@@ -311,15 +311,15 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
         } else {
             // Central difference in interior
             (grid.data[(i, j+1)].clone() - grid.data[(i, j-1)].clone()) / 
-            (T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * grid.dy.clone())
+            (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * grid.dy.clone())
         }
     }
     
     /// Second-order upwind in x-direction with velocity-dependent stencil
     fn second_order_upwind_x(&self, grid: &Grid2D<T>, i: usize, j: usize, u: T) -> T {
-        let three = T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let four = T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
+        let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         
         if u >= T::zero() {
             // Positive velocity: use points i-2, i-1, i
@@ -346,9 +346,9 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
     
     /// Second-order upwind in y-direction with velocity-dependent stencil
     fn second_order_upwind_y(&self, grid: &Grid2D<T>, i: usize, j: usize, v: T) -> T {
-        let three = T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let four = T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
+        let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         
         if v >= T::zero() {
             // Positive velocity: use points j-2, j-1, j
@@ -376,9 +376,9 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
     /// QUICK scheme in x-direction with proper velocity-dependent upwinding
     /// Reference: Leonard, B.P. (1979) "A stable and accurate convective modelling procedure"
     fn quick_x(&self, grid: &Grid2D<T>, i: usize, j: usize, u: T) -> T {
-        let six_eighths = T::from_f64(0.75).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let three_eighths = T::from_f64(0.375).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let one_eighth = T::from_f64(0.125).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let six_eighths = T::from_f64(0.75).unwrap_or_else(|| T::zero());
+        let three_eighths = T::from_f64(0.375).unwrap_or_else(|| T::zero());
+        let one_eighth = T::from_f64(0.125).unwrap_or_else(|| T::zero());
         
         if u >= T::zero() {
             // Positive flow: upstream is i-2, central is i-1, downstream is i
@@ -415,9 +415,9 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
     
     /// QUICK scheme in y-direction with proper velocity-dependent upwinding
     fn quick_y(&self, grid: &Grid2D<T>, i: usize, j: usize, v: T) -> T {
-        let six_eighths = T::from_f64(0.75).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let three_eighths = T::from_f64(0.375).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let one_eighth = T::from_f64(0.125).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let six_eighths = T::from_f64(0.75).unwrap_or_else(|| T::zero());
+        let three_eighths = T::from_f64(0.375).unwrap_or_else(|| T::zero());
+        let one_eighth = T::from_f64(0.125).unwrap_or_else(|| T::zero());
         
         if v >= T::zero() {
             // Positive flow: upstream is j-2, central is j-1, downstream is j
@@ -459,7 +459,7 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
             let r = self.compute_gradient_ratio_x(grid, i, j);
             let phi = self.apply_limiter(r);
             
-            let half = T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+            let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
             let base = (grid.data[(i+1, j)].clone() - grid.data[(i, j)].clone()) / grid.dx.clone();
             let correction = phi * (grid.data[(i, j)].clone() - grid.data[(i-1, j)].clone()) / grid.dx.clone();
             
@@ -469,7 +469,7 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
             let r = self.compute_gradient_ratio_x_negative(grid, i, j);
             let phi = self.apply_limiter(r);
             
-            let half = T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+            let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
             let base = (grid.data[(i, j)].clone() - grid.data[(i-1, j)].clone()) / grid.dx.clone();
             let correction = phi * (grid.data[(i+1, j)].clone() - grid.data[(i, j)].clone()) / grid.dx.clone();
             
@@ -484,7 +484,7 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
             let r = self.compute_gradient_ratio_y(grid, i, j);
             let phi = self.apply_limiter(r);
             
-            let half = T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+            let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
             let base = (grid.data[(i, j+1)].clone() - grid.data[(i, j)].clone()) / grid.dy.clone();
             let correction = phi * (grid.data[(i, j)].clone() - grid.data[(i, j-1)].clone()) / grid.dy.clone();
             
@@ -494,7 +494,7 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
             let r = self.compute_gradient_ratio_y_negative(grid, i, j);
             let phi = self.apply_limiter(r);
             
-            let half = T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+            let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
             let base = (grid.data[(i, j)].clone() - grid.data[(i, j-1)].clone()) / grid.dy.clone();
             let correction = phi * (grid.data[(i, j+1)].clone() - grid.data[(i, j)].clone()) / grid.dy.clone();
             
@@ -520,47 +520,47 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
         ];
         
         // Three sub-stencils for reconstruction
-        let s0 = (v[0].clone() * T::from_f64(-1.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + 
-                  v[1].clone() * T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? - 
-                  v[2].clone() * T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + 
-                  v[3].clone()) / T::from_f64(6.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let s0 = (v[0].clone() * T::from_f64(-1.0).unwrap_or_else(|| T::zero()) + 
+                  v[1].clone() * T::from_f64(3.0).unwrap_or_else(|| T::zero()) - 
+                  v[2].clone() * T::from_f64(3.0).unwrap_or_else(|| T::zero()) + 
+                  v[3].clone()) / T::from_f64(6.0).unwrap_or_else(|| T::zero());
                   
-        let s1 = (v[1].clone() * T::from_f64(-1.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + 
-                  v[3].clone()) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let s1 = (v[1].clone() * T::from_f64(-1.0).unwrap_or_else(|| T::zero()) + 
+                  v[3].clone()) / T::from_f64(2.0).unwrap_or_else(|| T::zero());
                   
-        let s2 = (v[2].clone() * T::from_f64(-3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + 
-                  v[3].clone() * T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + 
-                  v[4].clone() * T::from_f64(-1.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?) / T::from_f64(6.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let s2 = (v[2].clone() * T::from_f64(-3.0).unwrap_or_else(|| T::zero()) + 
+                  v[3].clone() * T::from_f64(3.0).unwrap_or_else(|| T::zero()) + 
+                  v[4].clone() * T::from_f64(-1.0).unwrap_or_else(|| T::zero())) / T::from_f64(6.0).unwrap_or_else(|| T::zero());
         
         // Compute smoothness indicators
-        let thirteen = T::from_f64(13.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let twelve = T::from_f64(12.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let three = T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let four = T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let thirteen = T::from_f64(13.0).unwrap_or_else(|| T::zero());
+        let twelve = T::from_f64(12.0).unwrap_or_else(|| T::zero());
+        let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
+        let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
         
         let beta0 = thirteen.clone() / twelve.clone() * 
-                   (v[0].clone() - T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * v[1].clone() + v[2].clone()).powi(2) +
+                   (v[0].clone() - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * v[1].clone() + v[2].clone()).powi(2) +
                    T::one() / four.clone() * 
                    (v[0].clone() - four.clone() * v[1].clone() + three.clone() * v[2].clone()).powi(2);
         
         let beta1 = thirteen.clone() / twelve.clone() * 
-                   (v[1].clone() - T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * v[2].clone() + v[3].clone()).powi(2) +
+                   (v[1].clone() - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * v[2].clone() + v[3].clone()).powi(2) +
                    T::one() / four.clone() * 
                    (v[1].clone() - v[3].clone()).powi(2);
         
         let beta2 = thirteen.clone() / twelve.clone() * 
-                   (v[2].clone() - T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * v[3].clone() + v[4].clone()).powi(2) +
+                   (v[2].clone() - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * v[3].clone() + v[4].clone()).powi(2) +
                    T::one() / four.clone() * 
                    (three.clone() * v[2].clone() - four.clone() * v[3].clone() + v[4].clone()).powi(2);
         
         // WENO weights
-        let d0 = T::from_f64(0.1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let d1 = T::from_f64(0.6).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let d2 = T::from_f64(0.3).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let d0 = T::from_f64(0.1).unwrap_or_else(|| T::zero());
+        let d1 = T::from_f64(0.6).unwrap_or_else(|| T::zero());
+        let d2 = T::from_f64(0.3).unwrap_or_else(|| T::zero());
         
-        let alpha0 = d0 / (T::from_f64(WENO_EPSILON).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + beta0).powi(WENO_POWER);
-        let alpha1 = d1 / (T::from_f64(WENO_EPSILON).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + beta1).powi(WENO_POWER);
-        let alpha2 = d2 / (T::from_f64(WENO_EPSILON).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + beta2).powi(WENO_POWER);
+        let alpha0 = d0 / (T::from_f64(WENO_EPSILON).unwrap_or_else(|| T::zero()) + beta0).powi(WENO_POWER);
+        let alpha1 = d1 / (T::from_f64(WENO_EPSILON).unwrap_or_else(|| T::zero()) + beta1).powi(WENO_POWER);
+        let alpha2 = d2 / (T::from_f64(WENO_EPSILON).unwrap_or_else(|| T::zero()) + beta2).powi(WENO_POWER);
         
         let sum_alpha = alpha0.clone() + alpha1.clone() + alpha2.clone();
         
@@ -589,47 +589,47 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
         ];
         
         // Three sub-stencils for reconstruction
-        let s0 = (v[0].clone() * T::from_f64(-1.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + 
-                  v[1].clone() * T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? - 
-                  v[2].clone() * T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + 
-                  v[3].clone()) / T::from_f64(6.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let s0 = (v[0].clone() * T::from_f64(-1.0).unwrap_or_else(|| T::zero()) + 
+                  v[1].clone() * T::from_f64(3.0).unwrap_or_else(|| T::zero()) - 
+                  v[2].clone() * T::from_f64(3.0).unwrap_or_else(|| T::zero()) + 
+                  v[3].clone()) / T::from_f64(6.0).unwrap_or_else(|| T::zero());
                   
-        let s1 = (v[1].clone() * T::from_f64(-1.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + 
-                  v[3].clone()) / T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let s1 = (v[1].clone() * T::from_f64(-1.0).unwrap_or_else(|| T::zero()) + 
+                  v[3].clone()) / T::from_f64(2.0).unwrap_or_else(|| T::zero());
                   
-        let s2 = (v[2].clone() * T::from_f64(-3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + 
-                  v[3].clone() * T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + 
-                  v[4].clone() * T::from_f64(-1.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?) / T::from_f64(6.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let s2 = (v[2].clone() * T::from_f64(-3.0).unwrap_or_else(|| T::zero()) + 
+                  v[3].clone() * T::from_f64(3.0).unwrap_or_else(|| T::zero()) + 
+                  v[4].clone() * T::from_f64(-1.0).unwrap_or_else(|| T::zero())) / T::from_f64(6.0).unwrap_or_else(|| T::zero());
         
         // Compute smoothness indicators
-        let thirteen = T::from_f64(13.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let twelve = T::from_f64(12.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let three = T::from_f64(3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let four = T::from_f64(4.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let thirteen = T::from_f64(13.0).unwrap_or_else(|| T::zero());
+        let twelve = T::from_f64(12.0).unwrap_or_else(|| T::zero());
+        let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
+        let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
         
         let beta0 = thirteen.clone() / twelve.clone() * 
-                   (v[0].clone() - T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * v[1].clone() + v[2].clone()).powi(2) +
+                   (v[0].clone() - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * v[1].clone() + v[2].clone()).powi(2) +
                    T::one() / four.clone() * 
                    (v[0].clone() - four.clone() * v[1].clone() + three.clone() * v[2].clone()).powi(2);
         
         let beta1 = thirteen.clone() / twelve.clone() * 
-                   (v[1].clone() - T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * v[2].clone() + v[3].clone()).powi(2) +
+                   (v[1].clone() - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * v[2].clone() + v[3].clone()).powi(2) +
                    T::one() / four.clone() * 
                    (v[1].clone() - v[3].clone()).powi(2);
         
         let beta2 = thirteen.clone() / twelve.clone() * 
-                   (v[2].clone() - T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * v[3].clone() + v[4].clone()).powi(2) +
+                   (v[2].clone() - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * v[3].clone() + v[4].clone()).powi(2) +
                    T::one() / four.clone() * 
                    (three.clone() * v[2].clone() - four.clone() * v[3].clone() + v[4].clone()).powi(2);
         
         // WENO weights
-        let d0 = T::from_f64(0.1).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let d1 = T::from_f64(0.6).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let d2 = T::from_f64(0.3).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let d0 = T::from_f64(0.1).unwrap_or_else(|| T::zero());
+        let d1 = T::from_f64(0.6).unwrap_or_else(|| T::zero());
+        let d2 = T::from_f64(0.3).unwrap_or_else(|| T::zero());
         
-        let alpha0 = d0 / (T::from_f64(WENO_EPSILON).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + beta0).powi(WENO_POWER);
-        let alpha1 = d1 / (T::from_f64(WENO_EPSILON).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + beta1).powi(WENO_POWER);
-        let alpha2 = d2 / (T::from_f64(WENO_EPSILON).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + beta2).powi(WENO_POWER);
+        let alpha0 = d0 / (T::from_f64(WENO_EPSILON).unwrap_or_else(|| T::zero()) + beta0).powi(WENO_POWER);
+        let alpha1 = d1 / (T::from_f64(WENO_EPSILON).unwrap_or_else(|| T::zero()) + beta1).powi(WENO_POWER);
+        let alpha2 = d2 / (T::from_f64(WENO_EPSILON).unwrap_or_else(|| T::zero()) + beta2).powi(WENO_POWER);
         
         let sum_alpha = alpha0.clone() + alpha1.clone() + alpha2.clone();
         
@@ -644,18 +644,18 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
     /// Fourth-order explicit central difference in x-direction
     fn fourth_order_central_x(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         // Fourth-order compact scheme
-        let twelve = T::from_f64(12.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let twelve = T::from_f64(12.0).unwrap_or_else(|| T::zero());
         
-        (grid.data[(i-2, j)].clone() * T::from_f64(-1.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? +
-         grid.data[(i-1, j)].clone() * T::from_f64(8.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? -
-         grid.data[(i+1, j)].clone() * T::from_f64(8.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? +
+        (grid.data[(i-2, j)].clone() * T::from_f64(-1.0).unwrap_or_else(|| T::zero()) +
+         grid.data[(i-1, j)].clone() * T::from_f64(8.0).unwrap_or_else(|| T::zero()) -
+         grid.data[(i+1, j)].clone() * T::from_f64(8.0).unwrap_or_else(|| T::zero()) +
          grid.data[(i+2, j)].clone()) / (twelve * grid.dx.clone())
     }
     
     /// Fourth-order explicit central difference in y-direction
     fn fourth_order_central_y(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
-        let twelve = T::from_f64(12.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let eight = T::from_f64(8.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let twelve = T::from_f64(12.0).unwrap_or_else(|| T::zero());
+        let eight = T::from_f64(8.0).unwrap_or_else(|| T::zero());
         
         (-grid.data[(i, j+2)].clone() + 
          eight.clone() * grid.data[(i, j+1)].clone() - 
@@ -668,7 +668,7 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
         let num = grid.data[(i, j)].clone() - grid.data[(i-1, j)].clone();
         let den = grid.data[(i+1, j)].clone() - grid.data[(i, j)].clone();
         
-        if den.clone().abs() < T::from_f64(MIN_LIMITER_THRESHOLD).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
+        if den.clone().abs() < T::from_f64(MIN_LIMITER_THRESHOLD).unwrap_or_else(|| T::zero()) {
             T::zero()
         } else {
             num / den
@@ -680,7 +680,7 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
         let num = grid.data[(i, j)].clone() - grid.data[(i, j-1)].clone();
         let den = grid.data[(i, j+1)].clone() - grid.data[(i, j)].clone();
         
-        if den.clone().abs() < T::from_f64(MIN_LIMITER_THRESHOLD).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
+        if den.clone().abs() < T::from_f64(MIN_LIMITER_THRESHOLD).unwrap_or_else(|| T::zero()) {
             T::zero()
         } else {
             num / den
@@ -692,7 +692,7 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
         let num = grid.data[(i, j)].clone() - grid.data[(i+1, j)].clone();
         let den = grid.data[(i-1, j)].clone() - grid.data[(i, j)].clone();
         
-        if den.clone().abs() < T::from_f64(MIN_LIMITER_THRESHOLD).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
+        if den.clone().abs() < T::from_f64(MIN_LIMITER_THRESHOLD).unwrap_or_else(|| T::zero()) {
             T::zero()
         } else {
             num / den
@@ -704,7 +704,7 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
         let num = grid.data[(i, j)].clone() - grid.data[(i, j+1)].clone();
         let den = grid.data[(i, j-1)].clone() - grid.data[(i, j)].clone();
         
-        if den.clone().abs() < T::from_f64(MIN_LIMITER_THRESHOLD).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
+        if den.clone().abs() < T::from_f64(MIN_LIMITER_THRESHOLD).unwrap_or_else(|| T::zero()) {
             T::zero()
         } else {
             num / den
@@ -742,15 +742,15 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
     
     /// Superbee limiter
     fn superbee_limiter(&self, r: T) -> T {
-        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         T::zero().max(T::one().min(two.clone() * r.clone()))
             .max(two.clone().min(r))
     }
     
     /// MC (Monotonized Central) limiter
     fn mc_limiter(&self, r: T) -> T {
-        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let half = T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
         
         T::zero().max(
             ((T::one() + r.clone()) * half).min(two.clone())
@@ -761,14 +761,14 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
     /// Compute second derivative in x-direction
     pub fn d2dx2(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         (grid.data[(i+1, j)].clone() - 
-         T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * grid.data[(i, j)].clone() + 
+         T::from_f64(2.0).unwrap_or_else(|| T::zero()) * grid.data[(i, j)].clone() + 
          grid.data[(i-1, j)].clone()) / grid.dx.clone().powi(2)
     }
     
     /// Compute second derivative in y-direction
     pub fn d2dy2(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         (grid.data[(i, j+1)].clone() - 
-         T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? * grid.data[(i, j)].clone() + 
+         T::from_f64(2.0).unwrap_or_else(|| T::zero()) * grid.data[(i, j)].clone() + 
          grid.data[(i, j-1)].clone()) / grid.dy.clone().powi(2)
     }
     
@@ -836,7 +836,7 @@ impl<T: RealField + FromPrimitive> TimeIntegrator<T> {
     where
         F: Fn(&Grid2D<T>) -> Grid2D<T>,
     {
-        let half = T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
         
         // Stage 1
         let k1 = rhs(grid);
@@ -860,9 +860,9 @@ impl<T: RealField + FromPrimitive> TimeIntegrator<T> {
     where
         F: Fn(&Grid2D<T>) -> Grid2D<T>,
     {
-        let half = T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let sixth = T::from_f64(1.0/6.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
-        let third = T::from_f64(1.0/3.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
+        let sixth = T::from_f64(1.0/6.0).unwrap_or_else(|| T::zero());
+        let third = T::from_f64(1.0/3.0).unwrap_or_else(|| T::zero());
         
         // Stage 1
         let k1 = rhs(grid);
@@ -881,8 +881,8 @@ impl<T: RealField + FromPrimitive> TimeIntegrator<T> {
         let k4 = rhs(&temp);
         
         // Combine stages
-        grid.data += (k1.data + k2.data * T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + 
-                      k3.data * T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? + k4.data) * dt * sixth;
+        grid.data += (k1.data + k2.data * T::from_f64(2.0).unwrap_or_else(|| T::zero()) + 
+                      k3.data * T::from_f64(2.0).unwrap_or_else(|| T::zero()) + k4.data) * dt * sixth;
         
         Ok(())
     }

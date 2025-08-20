@@ -91,7 +91,7 @@ impl<T: RealField + FromPrimitive> JacobiPreconditioner<T> {
         let mut inv_diagonal = DVector::zeros(n);
 
         for (i, val) in diag.iter().enumerate() {
-            if val.clone().abs() < T::from_f64(1e-14).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))? {
+            if val.clone().abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
                 return Err(Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation));
             }
             inv_diagonal[i] = T::one() / val.clone();
@@ -127,7 +127,7 @@ impl<T: RealField + FromPrimitive> SORPreconditioner<T> {
 
         // Validate omega range for stability
         let zero = T::zero();
-        let two = T::from_f64(2.0).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation))?;
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         if omega <= zero || omega >= two {
             return Err(Error::InvalidConfiguration(
                 "SOR omega parameter must be in range (0, 2) for stability".to_string()
