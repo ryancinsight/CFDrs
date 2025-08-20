@@ -33,7 +33,7 @@ where
     }
 
     /// Compute mean using single-pass iterator
-    fn mean(self) -> Option<Self::Item> {
+    fn mean(self) -> Option<T> {
         let (sum, count) = self.fold((Self::Item::zero(), 0), |(sum, count), x| (sum + x, count + 1));
         if count > 0 {
             Some(sum / Self::Item::from_usize(count).unwrap_or_else(|| Self::Item::zero()))
@@ -43,7 +43,7 @@ where
     }
 
     /// Compute variance using Welford's online algorithm
-    fn variance(self) -> Option<Self::Item> {
+    fn variance(self) -> Option<T> {
         let (count, _mean, m2) = self.fold(
             (0, Self::Item::zero(), Self::Item::zero()),
             |(count, mean, m2), x| {
@@ -64,7 +64,7 @@ where
     }
 
     /// Apply windowed operations for finite difference computations
-    fn windowed_diff<F>(self, window_size: usize, f: F) -> WindowedDiff<Self, F, Self::Item>
+    fn windowed_diff<F>(self, window_size: usize, f: F) -> WindowedDiff<Self, F, T>
     where
         F: Fn(&[Self::Item]) -> Self::Item,
     {
@@ -72,7 +72,7 @@ where
     }
 
     /// Compute running average using iterator scan for zero-copy efficiency
-    fn running_average(self) -> impl Iterator<Item = Self::Item> {
+    fn running_average(self) -> impl Iterator<Item = T> {
         let mut count = 0;
         let mut sum = Self::Item::zero();
 
@@ -84,7 +84,7 @@ where
     }
 
     /// Compute exponential moving average with given alpha
-    fn exponential_moving_average(self, alpha: Self::Item) -> impl Iterator<Item = Self::Item> {
+    fn exponential_moving_average(self, alpha: Self::Item) -> impl Iterator<Item = T> {
         let mut ema = None;
 
         self.map(move |x| {
@@ -102,23 +102,23 @@ where
     }
 
     /// Apply temporal frequency analysis using sliding FFT windowing
-    fn temporal_frequency_analysis(self, window_size: usize) -> Self::ItememporalFrequencyAnalyzer<Self, Self::Item> {
+    fn temporal_frequency_analysis(self, window_size: usize) -> Self::ItememporalFrequencyAnalyzer<Self, T> {
         TemporalFrequencyAnalyzer::new(self, window_size)
     }
 
     /// Apply Kalman-style recursive filtering for temporal prediction
-    fn temporal_kalman_filter(self, process_noise: Self::Item, observation_noise: Self::Item) -> Self::ItememporalKalmanFilter<Self, Self::Item> {
+    fn temporal_kalman_filter(self, process_noise: Self::Item, observation_noise: Self::Item) -> Self::ItememporalKalmanFilter<Self, T> {
         TemporalKalmanFilter::new(self, process_noise, observation_noise)
     }
 
     /// Apply overlapping window analysis for CFD stability monitoring
-    fn overlapping_window_stability(self, window_size: usize, overlap: usize) -> OverlappingWindowAnalyzer<Self, Self::Item> {
+    fn overlapping_window_stability(self, window_size: usize, overlap: usize) -> OverlappingWindowAnalyzer<Self, T> {
         OverlappingWindowAnalyzer::new(self, window_size, overlap)
     }
 
     /// Apply Savitzky-Golay smoothing filter using windowed operations
     /// Uses 2nd order polynomial fitting for smoothing
-    fn savitzky_golay_smooth(self, window_size: usize) -> impl Iterator<Item = Self::Item> {
+    fn savitzky_golay_smooth(self, window_size: usize) -> impl Iterator<Item = T> {
         // Savitzky-Golay coefficients for 2nd order polynomial, centered window
         // Pre-computed for common window sizes
         let coeffs = match window_size {
@@ -154,18 +154,18 @@ where
 
 /// Windowed difference iterator for finite difference operations
 /// Augmented with circular buffer for zero-copy sliding window
-pub struct WindowedDiff<I, F, Self::Item> {
+pub struct WindowedDiff<I, F, T> {
     iter: I,
     window_size: usize,
-    buffer: VecSelf::Item,
+    buffer: Vec<T::Item,
     buffer_start: usize,
     buffer_len: usize,
     func: F,
 }
 
-impl<I, F, Self::Item> WindowedDiff<I, F, Self::Item>
+impl<I, F, T> WindowedDiff<I, F, T>
 where
-    I: Iterator<Item = Self::Item>,
+    I: Iterator<Item = T>,
     F: Fn(&[Self::Item]) -> Self::Item,
     T: Clone,
 {
@@ -181,15 +181,15 @@ where
     }
 }
 
-impl<I, F, Self::Item> Iterator for WindowedDiff<I, F, Self::Item>
+impl<I, F, T> Iterator for WindowedDiff<I, F, T>
 where
-    I: Iterator<Item = Self::Item>,
+    I: Iterator<Item = T>,
     F: Fn(&[Self::Item]) -> Self::Item,
     T: Clone,
 {
     type Item = T;
 
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next(&mut self) -> Option<T> {
         // Fill buffer to window size initially
         while self.buffer_len < self.window_size {
             if let Some(item) = self.iter.next() {
@@ -251,7 +251,7 @@ impl VectorOps {
             return Err("Vector dimensions must match");
         }
 
-        let result: VecSelf::Item = a.iter()
+        let result: Vec<T::Item = a.iter()
             .zip(b.iter())
             .map(|(x, y)| x.clone() + y.clone())
             .collect();
@@ -267,7 +267,7 @@ impl VectorOps {
             return Err("Vector dimensions must match");
         }
 
-        let result: VecSelf::Item = a.iter()
+        let result: Vec<T::Item = a.iter()
             .zip(b.iter())
             .map(|(x, y)| x.clone() * y.clone())
             .collect();
@@ -311,7 +311,7 @@ impl VectorOps {
             return Err("Vector dimensions must match");
         }
 
-        let result: VecSelf::Item = a.as_slice()
+        let result: Vec<T::Item = a.as_slice()
             .par_iter()
             .zip(b.as_slice().par_iter())
             .map(|(x, y)| x.clone() + y.clone())
@@ -450,18 +450,18 @@ impl SliceOps {
 
 /// Composable iterator chains for CFD operations
 /// Augmented to avoid unnecessary collect() calls for better zero-copy performance
-pub trait CfdIteratorChainSelf::Item: Iterator<Item = Self::Item>
+pub trait CfdIteratorChainSelf::Item: Iterator<Item = T>
 where
     T: RealField,
     Self: Sized,
 {
     /// Chain with gradient computation using windowed_diff for zero-copy
-    fn with_gradient(self, spacing: Self::Item) -> impl Iterator<Item = Self::Item> {
+    fn with_gradient(self, spacing: Self::Item) -> impl Iterator<Item = T> {
         self.windowed_diff(2, move |w| (w[1].clone() - w[0].clone()) / spacing.clone())
     }
 
     /// Chain with smoothing filter using windowed operations
-    fn with_smoothing(self, window: usize) -> impl Iterator<Item = Self::Item> {
+    fn with_smoothing(self, window: usize) -> impl Iterator<Item = T> {
         self.windowed_diff(window, |w| {
             let sum = w.iter().fold(Self::Item::zero(), |acc, x| acc + x.clone());
             sum / Self::Item::from_usize(w.len()).expect("CRITICAL: Add proper error handling")
@@ -470,7 +470,7 @@ where
 
     /// Chain with divergence computation for vector fields
     /// Assumes 3D vector field layout: [u1, v1, w1, u2, v2, w2, ...]
-    fn with_divergence(self, spacing: Self::Item) -> impl Iterator<Item = Self::Item> {
+    fn with_divergence(self, spacing: Self::Item) -> impl Iterator<Item = T> {
         self.windowed_diff(9, move |w| {
             if w.len() >= 9 {
                 // Central difference approximation: ∇·v = ∂u/∂x + ∂v/∂y + ∂w/∂z
@@ -486,7 +486,7 @@ where
 
     /// Chain with curl computation for 3D vector fields
     /// Returns the magnitude of curl: |∇ × v|
-    fn with_curl_magnitude(self, spacing: Self::Item) -> impl Iterator<Item = Self::Item> {
+    fn with_curl_magnitude(self, spacing: Self::Item) -> impl Iterator<Item = T> {
         self.windowed_diff(9, move |w| {
             if w.len() >= 9 {
                 // Curl components: ∇ × v = (∂w/∂y - ∂v/∂z, ∂u/∂z - ∂w/∂x, ∂v/∂x - ∂u/∂y)
@@ -525,7 +525,7 @@ where
 
     /// Chain with strain rate tensor magnitude computation
     /// For incompressible flow: |S| = √(2 S_ij S_ij)
-    fn with_strain_rate_magnitude(self, spacing: Self::Item) -> impl Iterator<Item = Self::Item> {
+    fn with_strain_rate_magnitude(self, spacing: Self::Item) -> impl Iterator<Item = T> {
         self.windowed_diff(27, move |w| {
             // For proper strain rate calculation, we need a 3x3x3 stencil (27 points)
             // Each point has 3 velocity components (u, v, w)
@@ -573,22 +573,22 @@ where
     }
 }
 
-impl<I, Self::Item> CfdIteratorChainSelf::Item for I
+impl<I, T> CfdIteratorChainSelf::Item for I
 where
-    I: Iterator<Item = Self::Item>,
+    I: Iterator<Item = T>,
     T: RealField,
 {
 }
 
 /// Extended CFD field operations using iterator patterns
-pub trait CfdFieldOpsSelf::Item: Iterator<Item = Self::Item>
+pub trait CfdFieldOpsSelf::Item: Iterator<Item = T>
 where
     T: RealField,
     Self: Sized,
 {
     /// Compute field magnitude for vector fields
     /// Assumes data layout: [u1, v1, w1, u2, v2, w2, ...]
-    fn vector_magnitude(self) -> impl Iterator<Item = Self::Item> {
+    fn vector_magnitude(self) -> impl Iterator<Item = T> {
         // Use windowed approach instead of unstable array_chunks
         self.windowed_diff(3, |w| {
             if w.len() >= 3 {
@@ -604,7 +604,7 @@ where
 
     /// Compute field divergence using central differences
     /// For structured grids with uniform spacing
-    fn field_divergence(self, spacing: Self::Item) -> impl Iterator<Item = Self::Item> {
+    fn field_divergence(self, spacing: Self::Item) -> impl Iterator<Item = T> {
         self.windowed_diff(3, move |w| {
             if w.len() >= 3 {
                 (w[2].clone() - w[0].clone()) / (spacing.clone() + spacing.clone())
@@ -615,7 +615,7 @@ where
     }
 
     /// Apply field interpolation between grid points
-    fn field_interpolate(self, weights: VecSelf::Item) -> impl Iterator<Item = Self::Item> {
+    fn field_interpolate(self, weights: Vec<T::Item) -> impl Iterator<Item = T> {
         let weight_sum: T = weights.iter().fold(Self::Item::zero(), |acc, w| acc + w.clone());
 
         self.windowed_diff(weights.len(), move |w| {
@@ -628,7 +628,7 @@ where
     }
 
     /// Compute field Laplacian using 5-point stencil
-    fn field_laplacian(self, spacing: Self::Item) -> impl Iterator<Item = Self::Item> {
+    fn field_laplacian(self, spacing: Self::Item) -> impl Iterator<Item = T> {
         let dx_sq = spacing.clone() * spacing.clone();
 
         self.windowed_diff(5, move |w| {
@@ -643,24 +643,24 @@ where
     }
 }
 
-impl<I, Self::Item> CfdFieldOpsSelf::Item for I
+impl<I, T> CfdFieldOpsSelf::Item for I
 where
-    I: Iterator<Item = Self::Item>,
+    I: Iterator<Item = T>,
     T: RealField,
 {
 }
 
 /// Temporal frequency analyzer for CFD stability monitoring
-pub struct TemporalFrequencyAnalyzer<I, Self::Item> {
+pub struct TemporalFrequencyAnalyzer<I, T> {
     iter: I,
     window_size: usize,
-    buffer: VecSelf::Item,
+    buffer: Vec<T::Item,
     position: usize,
 }
 
-impl<I, Self::Item> TemporalFrequencyAnalyzer<I, Self::Item>
+impl<I, T> TemporalFrequencyAnalyzer<I, T>
 where
-    I: Iterator<Item = Self::Item>,
+    I: Iterator<Item = T>,
     T: RealField + Clone,
 {
     pub fn new(iter: I, window_size: usize) -> Self {
@@ -673,14 +673,14 @@ where
     }
 }
 
-impl<I, Self::Item> Iterator for TemporalFrequencyAnalyzer<I, Self::Item>
+impl<I, T> Iterator for TemporalFrequencyAnalyzer<I, T>
 where
-    I: Iterator<Item = Self::Item>,
+    I: Iterator<Item = T>,
     T: RealField + Clone,
 {
     type Item = T; // Return stability metric
 
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next(&mut self) -> Option<T> {
         if let Some(value) = self.iter.next() {
             if self.buffer.len() < self.window_size {
                 self.buffer.push(value);
@@ -708,7 +708,7 @@ where
 }
 
 /// Temporal Kalman filter for CFD prediction and smoothing
-pub struct TemporalKalmanFilter<I, Self::Item> {
+pub struct TemporalKalmanFilter<I, T> {
     iter: I,
     state_estimate: OptionSelf::Item,
     estimation_error: T,
@@ -716,9 +716,9 @@ pub struct TemporalKalmanFilter<I, Self::Item> {
     observation_noise: Self::Item,
 }
 
-impl<I, Self::Item> TemporalKalmanFilter<I, Self::Item>
+impl<I, T> TemporalKalmanFilter<I, T>
 where
-    I: Iterator<Item = Self::Item>,
+    I: Iterator<Item = T>,
     T: RealField + Clone,
 {
     pub fn new(iter: I, process_noise: Self::Item, observation_noise: Self::Item) -> Self {
@@ -732,14 +732,14 @@ where
     }
 }
 
-impl<I, Self::Item> Iterator for TemporalKalmanFilter<I, Self::Item>
+impl<I, T> Iterator for TemporalKalmanFilter<I, T>
 where
-    I: Iterator<Item = Self::Item>,
+    I: Iterator<Item = T>,
     T: RealField + Clone,
 {
     type Item = T; // Return filtered value
 
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next(&mut self) -> Option<T> {
         if let Some(observation) = self.iter.next() {
             match &self.state_estimate {
                 None => {
@@ -769,17 +769,17 @@ where
 }
 
 /// Overlapping window analyzer for CFD stability monitoring
-pub struct OverlappingWindowAnalyzer<I, Self::Item> {
+pub struct OverlappingWindowAnalyzer<I, T> {
     iter: I,
     window_size: usize,
     overlap: usize,
-    buffer: VecSelf::Item,
+    buffer: Vec<T::Item,
     step_size: usize,
 }
 
-impl<I, Self::Item> OverlappingWindowAnalyzer<I, Self::Item>
+impl<I, T> OverlappingWindowAnalyzer<I, T>
 where
-    I: Iterator<Item = Self::Item>,
+    I: Iterator<Item = T>,
     T: RealField + Clone,
 {
     pub fn new(iter: I, window_size: usize, overlap: usize) -> Self {
@@ -794,14 +794,14 @@ where
     }
 }
 
-impl<I, Self::Item> Iterator for OverlappingWindowAnalyzer<I, Self::Item>
+impl<I, T> Iterator for OverlappingWindowAnalyzer<I, T>
 where
-    I: Iterator<Item = Self::Item>,
+    I: Iterator<Item = T>,
     T: RealField + Clone,
 {
     type Item = T; // Return stability metric
 
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next(&mut self) -> Option<T> {
         // Fill buffer to window size
         while self.buffer.len() < self.window_size {
             if let Some(value) = self.iter.next() {

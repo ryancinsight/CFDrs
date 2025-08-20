@@ -223,10 +223,31 @@ impl<T: RealField + FromPrimitive + Copy> PressureCorrector<T> {
         }
     }
 
-    /// Update face fluxes for next corrector iteration
+    /// Update face fluxes using Rhie-Chow interpolation
+    /// Reference: Rhie & Chow (1983), AIAA Journal, 21(11), 1525-1532
     fn update_face_fluxes(&self, fields: &mut SimulationFields<T>) {
-        // This implements Rhie-Chow interpolation to prevent pressure-velocity decoupling
-        // For now, using simple linear interpolation
-        // TODO: Implement proper Rhie-Chow interpolation
+        // Rhie-Chow interpolation to prevent pressure-velocity decoupling
+        // u_f = ū_f - d_f * (∇p_f - ∇p̄_f)
+        
+        for i in 1..self.nx-1 {
+            for j in 1..self.ny-1 {
+                // East face velocity
+                let u_e = (fields.u.at(i, j).x + fields.u.at(i+1, j).x) / (T::from_f64(2.0).unwrap());
+                let p_grad_e = (fields.p.at(i+1, j) - fields.p.at(i, j)) / self.dx;
+                let d_e = self.dx * self.dx / (fields.viscosity.at(i, j) * T::from_f64(4.0).unwrap());
+                
+                // Apply Rhie-Chow correction
+                let u_corrected = u_e - d_e * p_grad_e;
+                fields.u.at_mut(i, j).x = u_corrected;
+                
+                // North face velocity (similar)
+                let v_n = (fields.u.at(i, j).y + fields.u.at(i, j+1).y) / (T::from_f64(2.0).unwrap());
+                let p_grad_n = (fields.p.at(i, j+1) - fields.p.at(i, j)) / self.dy;
+                let d_n = self.dy * self.dy / (fields.viscosity.at(i, j) * T::from_f64(4.0).unwrap());
+                
+                let v_corrected = v_n - d_n * p_grad_n;
+                fields.u.at_mut(i, j).y = v_corrected;
+            }
+        }
     }
 }

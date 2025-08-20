@@ -125,7 +125,7 @@ impl<T: RealField + FromPrimitive> KEpsilonModel<T> {
         nu: T,
     ) -> Result<()> {
         let kappa = T::from_f64(constants::KAPPA).unwrap_or_else(|| T::zero());
-        let _e_wall_function = T::from_f64(constants::E_WALL_FUNCTION).unwrap_or_else(|| T::zero());
+        let e_wall_function = T::from_f64(constants::E_WALL_FUNCTION).unwrap_or_else(|| T::zero());
         let c_mu = T::from_f64(constants::C_MU).unwrap_or_else(|| T::zero());
         
         // Apply at first cell from wall
