@@ -403,7 +403,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
         }
         
         // Solve the linear system G * V = I for node voltages
-        use cfd_math::{LinearSolver, LinearSolverConfig, SparseMatrixBuilder};
+        use cfd_math::{SparseMatrix, SparseMatrixBuilder, LinearSolver, BiCGSTAB};
+use cfd_core::solver::LinearSolverConfig;;
         
         // Convert dense matrix to sparse CSR format
         let mut sparse_builder = SparseMatrixBuilder::new(n - 1, n - 1);

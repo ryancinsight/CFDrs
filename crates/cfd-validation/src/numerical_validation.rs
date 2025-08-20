@@ -5,7 +5,8 @@
 //! and published benchmark results.
 
 use cfd_core::error::{Error, Result};
-use cfd_math::{LinearSolver, ConjugateGradient, BiCGSTAB, LinearSolverConfig};
+use cfd_math::{SparseMatrix, SparseMatrixBuilder, LinearSolver, BiCGSTAB};
+use cfd_core::solver::LinearSolverConfig;;
 use nalgebra::{RealField, DVector};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::{FromPrimitive, Float};
