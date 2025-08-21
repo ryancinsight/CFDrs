@@ -71,7 +71,7 @@ pub enum VtkDatasetType {
 
 /// VTK mesh data
 #[derive(Debug, Clone)]
-pub struct VtkMesh<T: RealField> {
+pub struct VtkMesh<T: RealField + Copy> {
     /// Points coordinates (x, y, z) flattened
     pub points: Vec<T>,
     /// Cell connectivity
@@ -80,7 +80,7 @@ pub struct VtkMesh<T: RealField> {
     pub cell_types: Vec<VtkCellType>,
 }
 
-impl<T: RealField> VtkMesh<T> {
+impl<T: RealField + Copy> VtkMesh<T> {
     /// Create new VTK mesh
     pub fn new(points: Vec<T>, cells: Vec<Vec<usize>>, cell_types: Vec<VtkCellType>) -> Self {
         Self {
@@ -149,7 +149,7 @@ pub struct VtkHeader {
 }
 
 /// VTK writer for mesh data
-pub struct VtkWriter<T: RealField> {
+pub struct VtkWriter<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
@@ -321,11 +321,11 @@ impl<T: RealField + ToPrimitive> Default for VtkWriter<T> {
 }
 
 /// VTK reader for mesh data
-pub struct VtkReader<T: RealField> {
+pub struct VtkReader<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField> VtkReader<T> {
+impl<T: RealField + Copy> VtkReader<T> {
     /// Create a new VTK reader
     pub fn new() -> Self {
         Self {
@@ -586,20 +586,20 @@ impl<T: RealField> VtkReader<T> {
     }
 }
 
-impl<T: RealField> Default for VtkReader<T> {
+impl<T: RealField + Copy> Default for VtkReader<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 /// VTK mesh builder with simplified API
-pub struct VtkMeshBuilder<T: RealField> {
+pub struct VtkMeshBuilder<T: RealField + Copy> {
     points: Vec<T>,
     cells: Vec<Vec<usize>>,
     cell_types: Vec<VtkCellType>,
 }
 
-impl<T: RealField> VtkMeshBuilder<T> {
+impl<T: RealField + Copy> VtkMeshBuilder<T> {
     /// Create new mesh builder
     pub fn new() -> Self {
         Self {
@@ -649,7 +649,7 @@ impl<T: RealField> VtkMeshBuilder<T> {
     }
 }
 
-impl<T: RealField> Default for VtkMeshBuilder<T> {
+impl<T: RealField + Copy> Default for VtkMeshBuilder<T> {
     fn default() -> Self {
         Self::new()
     }

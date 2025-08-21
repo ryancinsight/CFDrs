@@ -42,7 +42,7 @@ pub struct DatasetMetadata {
 
 /// Large dataset chunk for streaming I/O
 #[derive(Debug, Clone)]
-pub struct DataChunk<T: RealField> {
+pub struct DataChunk<T: RealField + Copy> {
     /// Chunk data
     pub data: Vec<T>,
     /// Chunk offset in global dataset
@@ -361,7 +361,7 @@ impl Hdf5Reader {
                         data: chunk_data,
                         offset: vec![start_idx],
                         dimensions: vec![end_idx - start_idx],
-                        metadata: metadata.clone(),
+                        metadata: metadata,
                     })
                 });
 

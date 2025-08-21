@@ -9,7 +9,7 @@ use num_traits::cast::FromPrimitive;
 use std::cmp::Ordering;
 
 /// Trait for interpolation methods
-pub trait Interpolation<T: RealField>: Send + Sync {
+pub trait Interpolation<T: RealField + Copy>: Send + Sync {
     /// Interpolate at a given point
     fn interpolate(&self, x: T) -> Result<T>;
 
@@ -19,7 +19,7 @@ pub trait Interpolation<T: RealField>: Send + Sync {
         I: IntoIterator<Item = T>,
         Self: Clone,
     {
-        let interpolator = self.clone();
+        let interpolator = self;
         points.into_iter().map(move |x| interpolator.interpolate(x))
     }
 
@@ -29,14 +29,14 @@ pub trait Interpolation<T: RealField>: Send + Sync {
 
 /// Linear interpolation between data points
 #[derive(Clone)]
-pub struct LinearInterpolation<T: RealField> {
+pub struct LinearInterpolation<T: RealField + Copy> {
     /// X coordinates (must be sorted)
     x_data: Vec<T>,
     /// Y values corresponding to x_data
     y_data: Vec<T>,
 }
 
-impl<T: RealField> LinearInterpolation<T> {
+impl<T: RealField + Copy> LinearInterpolation<T> {
     /// Create new linear interpolation from data points
     pub fn new(x_data: Vec<T>, y_data: Vec<T>) -> Result<Self> {
         if x_data.len() != y_data.len() {
@@ -84,7 +84,7 @@ impl<T: RealField> LinearInterpolation<T> {
     }
 }
 
-impl<T: RealField> Interpolation<T> for LinearInterpolation<T> {
+impl<T: RealField + Copy> Interpolation<T> for LinearInterpolation<T> {
     fn interpolate(&self, x: T) -> Result<T> {
         // Check bounds
         if x < self.x_data[0] || x > self.x_data[self.x_data.len() - 1] {
@@ -100,7 +100,7 @@ impl<T: RealField> Interpolation<T> for LinearInterpolation<T> {
 
         // Handle exact match
         if self.x_data[idx] == x {
-            return Ok(self.y_data[idx].clone());
+            return Ok(self.y_data[idx]);
         }
 
         // Linear interpolation
@@ -109,14 +109,14 @@ impl<T: RealField> Interpolation<T> for LinearInterpolation<T> {
         let y0 = &self.y_data[idx];
         let y1 = &self.y_data[idx + 1];
 
-        let t = (x - x0.clone()) / (x1.clone() - x0.clone());
-        Ok(y0.clone() + t * (y1.clone() - y0.clone()))
+        let t = (x - x0) / (x1 - x0);
+        Ok(y0 + t * (y1 - y0))
     }
 
     fn bounds(&self) -> (T, T) {
         (
-            self.x_data[0].clone(),
-            self.x_data[self.x_data.len() - 1].clone(),
+            self.x_data[0],
+            self.x_data[self.x_data.len() - 1],
         )
     }
 }
@@ -126,7 +126,7 @@ impl<T: RealField> Interpolation<T> for LinearInterpolation<T> {
 /// Natural cubic spline with continuous second derivatives.
 /// Reference: Burden & Faires, "Numerical Analysis"
 #[derive(Clone)]
-pub struct CubicSplineInterpolation<T: RealField> {
+pub struct CubicSplineInterpolation<T: RealField + Copy> {
     /// X coordinates (must be sorted)
     x_data: Vec<T>,
     /// Y values
@@ -144,7 +144,7 @@ struct SplineCoefficients<T> {
     d: Vec<T>, // third derivatives / 6
 }
 
-impl<T: RealField + FromPrimitive> CubicSplineInterpolation<T> {
+impl<T: RealField + FromPrimitive + Copy> CubicSplineInterpolation<T> {
     /// Create new cubic spline interpolation
     pub fn new(x_data: Vec<T>, y_data: Vec<T>) -> Result<Self> {
         if x_data.len() != y_data.len() {
@@ -183,12 +183,12 @@ impl<T: RealField + FromPrimitive> CubicSplineInterpolation<T> {
 
         // Compute intervals and divided differences
         for i in 0..n - 1 {
-            h.push(x_data[i + 1].clone() - x_data[i].clone());
+            h.push(x_data[i + 1] - x_data[i]);
         }
 
         for i in 1..n - 1 {
-            let term1 = (y_data[i + 1].clone() - y_data[i].clone()) / h[i].clone();
-            let term2 = (y_data[i].clone() - y_data[i - 1].clone()) / h[i - 1].clone();
+            let term1 = (y_data[i + 1] - y_data[i]) / h[i];
+            let term2 = (y_data[i] - y_data[i - 1]) / h[i - 1];
             alpha.push(T::from_f64(3.0).unwrap_or_else(|| T::zero()) * (term1 - term2));
         }
 
@@ -198,10 +198,10 @@ impl<T: RealField + FromPrimitive> CubicSplineInterpolation<T> {
         let mut z = vec![T::zero(); n];
 
         for i in 1..n - 1 {
-            l[i] = T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (x_data[i + 1].clone() - x_data[i - 1].clone())
-                - h[i - 1].clone() * mu[i - 1].clone();
-            mu[i] = h[i].clone() / l[i].clone();
-            z[i] = (alpha[i - 1].clone() - h[i - 1].clone() * z[i - 1].clone()) / l[i].clone();
+            l[i] = T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (x_data[i + 1] - x_data[i - 1])
+                - h[i - 1] * mu[i - 1];
+            mu[i] = h[i] / l[i];
+            z[i] = (alpha[i - 1] - h[i - 1] * z[i - 1]) / l[i];
         }
 
         // Back substitution
@@ -210,11 +210,11 @@ impl<T: RealField + FromPrimitive> CubicSplineInterpolation<T> {
         let mut d = vec![T::zero(); n - 1];
 
         for j in (0..n - 1).rev() {
-            c[j] = z[j].clone() - mu[j].clone() * c[j + 1].clone();
-            b[j] = (y_data[j + 1].clone() - y_data[j].clone()) / h[j].clone()
-                - h[j].clone() * (c[j + 1].clone() + T::from_f64(2.0).unwrap_or_else(|| T::zero()) * c[j].clone())
+            c[j] = z[j] - mu[j] * c[j + 1];
+            b[j] = (y_data[j + 1] - y_data[j]) / h[j]
+                - h[j] * (c[j + 1] + T::from_f64(2.0).unwrap_or_else(|| T::zero()) * c[j])
                     / T::from_f64(3.0).unwrap_or_else(|| T::zero());
-            d[j] = (c[j + 1].clone() - c[j].clone()) / (T::from_f64(3.0).unwrap_or_else(|| T::zero()) * h[j].clone());
+            d[j] = (c[j + 1] - c[j]) / (T::from_f64(3.0).unwrap_or_else(|| T::zero()) * h[j]);
         }
 
         Ok(SplineCoefficients {
@@ -233,7 +233,7 @@ impl<T: RealField + FromPrimitive> CubicSplineInterpolation<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive> Interpolation<T> for CubicSplineInterpolation<T> {
+impl<T: RealField + FromPrimitive + Copy> Interpolation<T> for CubicSplineInterpolation<T> {
     fn interpolate(&self, x: T) -> Result<T> {
         // Check bounds
         if x < self.x_data[0] || x > self.x_data[self.x_data.len() - 1] {
@@ -248,30 +248,30 @@ impl<T: RealField + FromPrimitive> Interpolation<T> for CubicSplineInterpolation
         })?;
 
         // Evaluate cubic polynomial
-        let dx = x - self.x_data[idx].clone();
-        let result = self.coefficients.a[idx].clone()
-            + dx.clone() * (self.coefficients.b[idx].clone()
-                + dx.clone() * (self.coefficients.c[idx].clone()
-                    + dx.clone() * self.coefficients.d[idx].clone()));
+        let dx = x - self.x_data[idx];
+        let result = self.coefficients.a[idx]
+            + dx * (self.coefficients.b[idx]
+                + dx * (self.coefficients.c[idx]
+                    + dx * self.coefficients.d[idx]));
 
         Ok(result)
     }
 
     fn bounds(&self) -> (T, T) {
         (
-            self.x_data[0].clone(),
-            self.x_data[self.x_data.len() - 1].clone(),
+            self.x_data[0],
+            self.x_data[self.x_data.len() - 1],
         )
     }
 }
 
 /// Lagrange polynomial interpolation
-pub struct LagrangeInterpolation<T: RealField> {
+pub struct LagrangeInterpolation<T: RealField + Copy> {
     x_data: Vec<T>,
     y_data: Vec<T>,
 }
 
-impl<T: RealField> LagrangeInterpolation<T> {
+impl<T: RealField + Copy> LagrangeInterpolation<T> {
     /// Create new Lagrange interpolation
     pub fn new(x_data: Vec<T>, y_data: Vec<T>) -> Result<Self> {
         if x_data.len() != y_data.len() {
@@ -296,18 +296,18 @@ impl<T: RealField> LagrangeInterpolation<T> {
             .enumerate()
             .filter(|(j, _)| *j != i)
             .fold(T::one(), |acc, (_j, xj)| {
-                acc * (x.clone() - xj.clone()) / (self.x_data[i].clone() - xj.clone())
+                acc * (x - xj) / (self.x_data[i] - xj)
             })
     }
 }
 
-impl<T: RealField> Interpolation<T> for LagrangeInterpolation<T> {
+impl<T: RealField + Copy> Interpolation<T> for LagrangeInterpolation<T> {
     fn interpolate(&self, x: T) -> Result<T> {
         // Use iterator combinators with enumerate for zero-copy optimization
         Ok(self.y_data
             .iter()
             .enumerate()
-            .map(|(i, yi)| yi.clone() * self.lagrange_basis(i, &x))
+            .map(|(i, yi)| yi * self.lagrange_basis(i, &x))
             .reduce(|acc, term| acc + term)
             .unwrap_or_else(|| T::zero()))
     }
@@ -322,7 +322,7 @@ impl<T: RealField> Interpolation<T> for LagrangeInterpolation<T> {
                 (current_min, current_max)
             });
 
-        (min.expect("x_data is guaranteed to be non-empty by constructor").clone(), max.expect("x_data is guaranteed to be non-empty by constructor").clone())
+        (min.expect("x_data is guaranteed to be non-empty by constructor"), max.expect("x_data is guaranteed to be non-empty by constructor"))
     }
 }
 

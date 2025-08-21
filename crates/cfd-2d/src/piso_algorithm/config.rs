@@ -8,7 +8,7 @@ use cfd_core::constants::*;
 
 /// PISO solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PisoConfig<T: RealField> {
+pub struct PisoConfig<T: RealField + Copy> {
     /// Base solver configuration
     pub base: SolverConfig<T>,
     /// Time step for transient simulation
@@ -25,7 +25,7 @@ pub struct PisoConfig<T: RealField> {
     pub pressure_max_iterations: usize,
 }
 
-impl<T: RealField + FromPrimitive> Default for PisoConfig<T> {
+impl<T: RealField + FromPrimitive + Copy> Default for PisoConfig<T> {
     fn default() -> Self {
         Self {
             base: SolverConfig::default(),

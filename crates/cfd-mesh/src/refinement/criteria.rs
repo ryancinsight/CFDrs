@@ -18,7 +18,7 @@ pub enum RefinementError {
 }
 
 /// Refinement criteria for adaptive mesh refinement
-pub enum RefinementCriterion<T: RealField> {
+pub enum RefinementCriterion<T: RealField + Copy> {
     /// Refine based on solution gradient
     Gradient {
         field: Vec<T>,
@@ -38,7 +38,7 @@ pub enum RefinementCriterion<T: RealField> {
     Custom(Box<dyn Fn(&Cell, &[Vertex<T>]) -> bool + Send + Sync>),
 }
 
-impl<T: RealField> std::fmt::Debug for RefinementCriterion<T> {
+impl<T: RealField + Copy> std::fmt::Debug for RefinementCriterion<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Gradient { field, threshold } => f.debug_struct("Gradient")

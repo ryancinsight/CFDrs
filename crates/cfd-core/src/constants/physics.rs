@@ -5,10 +5,10 @@
 //! - Numerical parameters: Ferziger & Perić (2002) "Computational Methods for Fluid Dynamics"
 
 // Reynolds number regime boundaries
-pub const REYNOLDS_LAMINAR_LIMIT: f64 = 2300.0;  // Below this: laminar flow
-pub const REYNOLDS_TRANSITION_START: f64 = 2300.0;  // Start of transition
-pub const REYNOLDS_TRANSITION_END: f64 = 4000.0;  // End of transition
-pub const REYNOLDS_TURBULENT_THRESHOLD: f64 = 4000.0;  // Above this: turbulent
+pub const REYNOLDS_LAMINAR_LIMIT: f64 = crate::constants::LAMINAR_THRESHOLD;  // Below this: laminar flow
+pub const REYNOLDS_TRANSITION_START: f64 = crate::constants::LAMINAR_THRESHOLD;  // Start of transition
+pub const REYNOLDS_TRANSITION_END: f64 = crate::constants::TURBULENT_THRESHOLD;  // End of transition
+pub const REYNOLDS_TURBULENT_THRESHOLD: f64 = crate::constants::TURBULENT_THRESHOLD;  // Above this: turbulent
 
 // Fluid properties at 20°C and 1 atm
 pub const WATER_DENSITY_20C: f64 = 998.2;  // kg/m³
@@ -30,7 +30,7 @@ pub const AIR_THERMAL_CONDUCTIVITY: f64 = 0.0257;  // W/(m·K)
 pub const AIR_PRANDTL_NUMBER: f64 = 0.71;  // Pr
 
 // Universal physical constants
-pub const GRAVITY_STANDARD: f64 = 9.80665;  // m/s²
+pub const GRAVITY_STANDARD: f64 = crate::constants::E_WALL_FUNCTION0665;  // m/s²
 pub const ATMOSPHERIC_PRESSURE: f64 = 101325.0;  // Pa
 pub const STEFAN_BOLTZMANN: f64 = 5.67e-8;  // W/(m²·K⁴)
 pub const UNIVERSAL_GAS_CONSTANT: f64 = 8314.46;  // J/(kmol·K)
@@ -69,11 +69,11 @@ pub const TURBULENCE_SIGMA_K: f64 = 1.0;
 pub const TURBULENCE_SIGMA_E: f64 = 1.3;
 
 // Wall function parameters
-pub const WALL_YPLUS_LAMINAR: f64 = 11.63;  // y+ < 11.63: viscous sublayer
+pub const WALL_YPLUS_LAMINAR: f64 = crate::constants::Y_PLUS_LAMINAR;  // y+ < crate::constants::Y_PLUS_LAMINAR: viscous sublayer
 pub const WALL_YPLUS_BUFFER_START: f64 = 5.0;  // Start of buffer layer
 pub const WALL_YPLUS_BUFFER_END: f64 = 30.0;  // End of buffer layer
-pub const WALL_KAPPA: f64 = 0.41;  // von Kármán constant
-pub const WALL_E: f64 = 9.8;  // Wall roughness parameter
+pub const WALL_KAPPA: f64 = crate::constants::VON_KARMAN;  // von Kármán constant
+pub const WALL_E: f64 = crate::constants::E_WALL_FUNCTION;  // Wall roughness parameter
 
 // Lattice Boltzmann D2Q9 weights (Sukop & Thorne 2007)
 pub const D2Q9_WEIGHT_CENTER: f64 = 4.0 / 9.0;

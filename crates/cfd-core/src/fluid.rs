@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 /// Represents fluid properties
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Fluid<T: RealField> {
+pub struct Fluid<T: RealField + Copy> {
     /// Fluid name
     pub name: String,
     /// Density [kg/m³]
@@ -26,7 +26,7 @@ pub struct Fluid<T: RealField> {
 
 /// Viscosity models for Currenttonian and non-Currenttonian fluids
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum ViscosityModel<T: RealField> {
+pub enum ViscosityModel<T: RealField + Copy> {
     /// Currenttonian fluid with constant viscosity
     Currenttonian {
         /// Dynamic viscosity [Pa·s]

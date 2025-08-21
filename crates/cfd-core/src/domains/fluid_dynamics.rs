@@ -66,7 +66,7 @@ pub mod rans {
     
     /// k-epsilon turbulence model
     #[derive(Debug, Clone)]
-    pub struct KEpsilonModel<T: RealField> {
+    pub struct KEpsilonModel<T: RealField + Copy> {
         /// Model constants
         pub constants: KEpsilonConstants<T>,
     }
@@ -84,7 +84,7 @@ pub mod rans {
     /// Launder, B.E. and Spalding, D.B. (1974). "The numerical computation of turbulent flows."
     /// Computer Methods in Applied Mechanics and Engineering, 3(2), 269-289.
     #[derive(Debug, Clone)]
-    pub struct KEpsilonConstants<T: RealField> {
+    pub struct KEpsilonConstants<T: RealField + Copy> {
         /// Model constant `C_μ` = 0.09
         pub c_mu: T,
         /// Production constant `C_1ε` = 1.44
@@ -120,7 +120,7 @@ pub mod les {
     
     /// Smagorinsky subgrid-scale model
     #[derive(Debug, Clone)]
-    pub struct SmagorinskyModel<T: RealField> {
+    pub struct SmagorinskyModel<T: RealField + Copy> {
         /// Smagorinsky constant
         pub cs: T,
     }
@@ -171,9 +171,9 @@ pub mod les {
                             flow_field.velocity.components.get(idx_minus),
                         ) {
                             let v_plus = v_plus_vec.y;
-                            let v_minus = v_minus_vec.y.clone();
-                            let dvdy = (v_plus - v_minus) / (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * delta.clone());
-                            strain_rate_squared = strain_rate_squared + dvdy.clone() * dvdy;
+                            let v_minus = v_minus_vec.y;
+                            let dvdy = (v_plus - v_minus) / (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * delta);
+                            strain_rate_squared = strain_rate_squared + dvdy * dvdy;
                         }
                     }
                     
@@ -184,32 +184,32 @@ pub mod les {
                             flow_field.velocity.components.get(idx_plus),
                             flow_field.velocity.components.get(idx_minus),
                         ) {
-                            let w_plus = w_plus_vec.z.clone();
-                            let w_minus = w_minus_vec.z.clone();
-                            let dwdz = (w_plus - w_minus) / (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * delta.clone());
-                            strain_rate_squared = strain_rate_squared + dwdz.clone() * dwdz;
+                            let w_plus = w_plus_vec.z;
+                            let w_minus = w_minus_vec.z;
+                            let dwdz = (w_plus - w_minus) / (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * delta);
+                            strain_rate_squared = strain_rate_squared + dwdz * dwdz;
                         }
                     }
                     
                     // Compute off-diagonal terms (shear components)
                     // Add ∂u/∂y + ∂v/∂x, ∂u/∂z + ∂w/∂x, ∂v/∂z + ∂w/∂y
                     if i > 0 && i < grid_size - 1 && j > 0 && j < grid_size - 1 {
-                        let u_j_plus = flow_field.velocity.components[(k * grid_size + j + 1) * grid_size + i].x.clone();
-                        let u_j_minus = flow_field.velocity.components[(k * grid_size + j - 1) * grid_size + i].x.clone();
-                        let v_i_plus = flow_field.velocity.components[(k * grid_size + j) * grid_size + i + 1].y.clone();
-                        let v_i_minus = flow_field.velocity.components[(k * grid_size + j) * grid_size + i - 1].y.clone();
+                        let u_j_plus = flow_field.velocity.components[(k * grid_size + j + 1) * grid_size + i].x;
+                        let u_j_minus = flow_field.velocity.components[(k * grid_size + j - 1) * grid_size + i].x;
+                        let v_i_plus = flow_field.velocity.components[(k * grid_size + j) * grid_size + i + 1].y;
+                        let v_i_minus = flow_field.velocity.components[(k * grid_size + j) * grid_size + i - 1].y;
                         
-                        let dudy = (u_j_plus - u_j_minus) / (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * delta.clone());
-                        let dvdx = (v_i_plus - v_i_minus) / (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * delta.clone());
+                        let dudy = (u_j_plus - u_j_minus) / (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * delta);
+                        let dvdx = (v_i_plus - v_i_minus) / (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * delta);
                         let shear_xy = (dudy + dvdx) / T::from_f64(constants::TWO).unwrap_or_else(|| T::one());
-                        strain_rate_squared = strain_rate_squared + shear_xy.clone() * shear_xy;
+                        strain_rate_squared = strain_rate_squared + shear_xy * shear_xy;
                     }
                     
                     // Strain rate magnitude: |S| = √(2 * Sᵢⱼ * Sᵢⱼ)
                     let strain_rate_magnitude = (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * strain_rate_squared).sqrt();
                     
                     // Smagorinsky turbulent viscosity: νₜ = (Cs * Δ)²  * |S|
-                    self.cs.clone() * self.cs.clone() * delta.clone() * delta.clone() * strain_rate_magnitude
+                    self.cs * self.cs * delta * delta * strain_rate_magnitude
                 })
                 .collect()
         }
@@ -226,13 +226,13 @@ pub mod les {
                 .map(|window| {
                     // Compute local mean velocity
                     let mean_velocity = window.iter()
-                        .fold(Vector3::zeros(), |acc, v| acc + v.clone())
+                        .fold(Vector3::zeros(), |acc, v| acc + v)
                         .scale(T::from_f64(1.0 / window_size as f64).unwrap_or_else(|| T::one()));
                     
                     // Compute TKE from fluctuations
                     window.iter()
                         .map(|v| {
-                            let fluctuation = v.clone() - mean_velocity.clone();
+                            let fluctuation = v - mean_velocity;
                             let half = T::from_f64(constants::HALF).unwrap_or_else(|| T::one());
                             half * fluctuation.dot(&fluctuation)
                         })
@@ -251,7 +251,7 @@ pub mod les {
     /// Germano-Lilly Smagorinsky model with coefficient calculation
     /// Reference: Germano et al. "A dynamic subgrid-scale eddy viscosity model" (1991)
     #[derive(Debug, Clone)]
-    pub struct GermanoLillySmagorinskyModel<T: RealField> {
+    pub struct GermanoLillySmagorinskyModel<T: RealField + Copy> {
         /// Base Smagorinsky constant (will be computed locally)
         pub cs_base: T,
     }
@@ -275,27 +275,27 @@ pub mod les {
                     // where L_ij is the resolved stress tensor
                     // and M_ij is the model coefficient tensor
                     
-                    let u = velocity_vector.x.clone();
-                    let v = velocity_vector.y.clone();
-                    let w = velocity_vector.z.clone();
+                    let u = velocity_vector.x;
+                    let v = velocity_vector.y;
+                    let w = velocity_vector.z;
                     
                     // Calculate strain rate magnitude |S| = sqrt(2 * S_ij * S_ij)
                     // For full implementation, need velocity gradients from flow field
                     // S_ij = 0.5 * (∂u_i/∂x_j + ∂u_j/∂x_i)
                     // Currently using velocity magnitude as approximation for demonstration
                     // In production code, this should compute actual strain rate tensor
-                    let velocity_magnitude_squared = u.clone() * u + v.clone() * v + w.clone() * w;
+                    let velocity_magnitude_squared = u * u + v * v + w * w;
                     let strain_rate_magnitude = velocity_magnitude_squared.sqrt();
                     
                     // Grid filter width (should be computed from actual grid)
                     let delta = T::from_f64(constants::ONE_TENTH).unwrap_or_else(T::one);
                     
                     // Local Smagorinsky coefficient (bounded from below)
-                    let cs_squared = (self.cs_base.clone() * self.cs_base.clone())
+                    let cs_squared = (self.cs_base * self.cs_base)
                         .max(T::from_f64(CLIPPING_FACTOR).unwrap_or_else(T::zero));
                     
                     // Eddy viscosity: nu_t = (Cs * delta)^2 * |S|
-                    cs_squared * delta.clone() * delta * strain_rate_magnitude
+                    cs_squared * delta * delta * strain_rate_magnitude
                 })
                 .collect()
         }
@@ -305,12 +305,12 @@ pub mod les {
             flow_field.velocity.components
                 .iter()
                 .map(|velocity_vector| {
-                    let u = velocity_vector.x.clone();
-                    let v = velocity_vector.y.clone();
-                    let w = velocity_vector.z.clone();
+                    let u = velocity_vector.x;
+                    let v = velocity_vector.y;
+                    let w = velocity_vector.z;
 
                     let half = T::from_f64(constants::HALF).unwrap_or_else(|| T::one() / (T::one() + T::one()));
-                    half * (u.clone() * u + v.clone() * v + w.clone() * w)
+                    half * (u * u + v * v + w * w)
                 })
                 .collect()
         }
@@ -329,7 +329,7 @@ pub mod rans_extended {
     /// Standard k-epsilon turbulence model
     /// Reference: Launder & Spalding "The numerical computation of turbulent flows" (1974)
     #[derive(Debug, Clone)]
-    pub struct KEpsilonModel<T: RealField> {
+    pub struct KEpsilonModel<T: RealField + Copy> {
         /// Model constant C_μ
         pub c_mu: T,
         /// Model constant C_1ε
@@ -342,7 +342,7 @@ pub mod rans_extended {
         pub sigma_epsilon: T,
     }
 
-    impl<T: RealField> Default for KEpsilonModel<T> {
+    impl<T: RealField + Copy> Default for KEpsilonModel<T> {
         fn default() -> Self {
             Self {
                 c_mu: T::from_f64(0.09).unwrap_or_else(T::one),
@@ -388,21 +388,21 @@ pub mod rans_extended {
             flow_field.velocity.components
                 .iter()
                 .map(|velocity_vector| {
-                    let u = velocity_vector.x.clone();
-                    let v = velocity_vector.y.clone();
-                    let w = velocity_vector.z.clone();
+                    let u = velocity_vector.x;
+                    let v = velocity_vector.y;
+                    let w = velocity_vector.z;
 
                     // Estimate k from velocity magnitude
                     let k = T::from_f64(constants::HALF).unwrap_or_else(|| T::one() / (T::one() + T::one())) *
-                           (u.clone() * u + v.clone() * v + w.clone() * w);
+                           (u * u + v * v + w * w);
 
                     // Estimate ε from dimensional analysis: ε ~ k^(3/2) / L
                     let length_scale = T::from_f64(constants::ONE_TENTH).unwrap_or_else(T::one);
-                    let epsilon = k.clone() * k.clone().sqrt() / length_scale;
+                    let epsilon = k * k.sqrt() / length_scale;
 
                     // Turbulent viscosity: ν_t = C_μ * k² / ε
                     if !epsilon.is_zero() {
-                        self.c_mu.clone() * k.clone() * k / epsilon
+                        self.c_mu * k * k / epsilon
                     } else {
                         T::zero()
                     }
@@ -415,12 +415,12 @@ pub mod rans_extended {
             flow_field.velocity.components
                 .iter()
                 .map(|velocity_vector| {
-                    let u = velocity_vector.x.clone();
-                    let v = velocity_vector.y.clone();
-                    let w = velocity_vector.z.clone();
+                    let u = velocity_vector.x;
+                    let v = velocity_vector.y;
+                    let w = velocity_vector.z;
 
                     T::from_f64(constants::HALF).unwrap_or_else(|| T::one() / (T::one() + T::one())) *
-                    (u.clone() * u + v.clone() * v + w.clone() * w)
+                    (u * u + v * v + w * w)
                 })
                 .collect()
         }
@@ -452,23 +452,23 @@ impl<T: RealField + Copy> FlowField<T> {
                 
                 // ∂u/∂x using central differences
                 if i > 0 && i < grid_size - 1 {
-                    let u_plus = self.velocity.components[(k * grid_size + j) * grid_size + i + 1].x.clone();
-                    let u_minus = self.velocity.components[(k * grid_size + j) * grid_size + i - 1].x.clone();
-                    div = div + (u_plus - u_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx.clone());
+                    let u_plus = self.velocity.components[(k * grid_size + j) * grid_size + i + 1].x;
+                    let u_minus = self.velocity.components[(k * grid_size + j) * grid_size + i - 1].x;
+                    div = div + (u_plus - u_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx);
                 }
                 
                 // ∂v/∂y using central differences
                 if j > 0 && j < grid_size - 1 {
-                    let v_plus = self.velocity.components[(k * grid_size + j + 1) * grid_size + i].y.clone();
-                    let v_minus = self.velocity.components[(k * grid_size + j - 1) * grid_size + i].y.clone();
-                    div = div + (v_plus - v_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx.clone());
+                    let v_plus = self.velocity.components[(k * grid_size + j + 1) * grid_size + i].y;
+                    let v_minus = self.velocity.components[(k * grid_size + j - 1) * grid_size + i].y;
+                    div = div + (v_plus - v_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx);
                 }
                 
                 // ∂w/∂z using central differences
                 if k > 0 && k < grid_size - 1 {
-                    let w_plus = self.velocity.components[((k + 1) * grid_size + j) * grid_size + i].z.clone();
-                    let w_minus = self.velocity.components[((k - 1) * grid_size + j) * grid_size + i].z.clone();
-                    div = div + (w_plus - w_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx.clone());
+                    let w_plus = self.velocity.components[((k + 1) * grid_size + j) * grid_size + i].z;
+                    let w_minus = self.velocity.components[((k - 1) * grid_size + j) * grid_size + i].z;
+                    div = div + (w_plus - w_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx);
                 }
                 
                 div
@@ -497,37 +497,37 @@ impl<T: RealField + Copy> FlowField<T> {
                 
                 // ωₓ = ∂w/∂y - ∂v/∂z
                 if j > 0 && j < grid_size - 1 && k > 0 && k < grid_size - 1 {
-                    let w_j_plus = self.velocity.components[(k * grid_size + j + 1) * grid_size + i].z.clone();
-                    let w_j_minus = self.velocity.components[(k * grid_size + j - 1) * grid_size + i].z.clone();
-                    let v_k_plus = self.velocity.components[((k + 1) * grid_size + j) * grid_size + i].y.clone();
-                    let v_k_minus = self.velocity.components[((k - 1) * grid_size + j) * grid_size + i].y.clone();
+                    let w_j_plus = self.velocity.components[(k * grid_size + j + 1) * grid_size + i].z;
+                    let w_j_minus = self.velocity.components[(k * grid_size + j - 1) * grid_size + i].z;
+                    let v_k_plus = self.velocity.components[((k + 1) * grid_size + j) * grid_size + i].y;
+                    let v_k_minus = self.velocity.components[((k - 1) * grid_size + j) * grid_size + i].y;
                     
-                    let dwdy = (w_j_plus - w_j_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx.clone());
-                    let dvdz = (v_k_plus - v_k_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx.clone());
+                    let dwdy = (w_j_plus - w_j_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx);
+                    let dvdz = (v_k_plus - v_k_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx);
                     omega_x = dwdy - dvdz;
                 }
                 
                 // ωᵧ = ∂u/∂z - ∂w/∂x
                 if i > 0 && i < grid_size - 1 && k > 0 && k < grid_size - 1 {
-                    let u_k_plus = self.velocity.components[((k + 1) * grid_size + j) * grid_size + i].x.clone();
-                    let u_k_minus = self.velocity.components[((k - 1) * grid_size + j) * grid_size + i].x.clone();
-                    let w_i_plus = self.velocity.components[(k * grid_size + j) * grid_size + i + 1].z.clone();
-                    let w_i_minus = self.velocity.components[(k * grid_size + j) * grid_size + i - 1].z.clone();
+                    let u_k_plus = self.velocity.components[((k + 1) * grid_size + j) * grid_size + i].x;
+                    let u_k_minus = self.velocity.components[((k - 1) * grid_size + j) * grid_size + i].x;
+                    let w_i_plus = self.velocity.components[(k * grid_size + j) * grid_size + i + 1].z;
+                    let w_i_minus = self.velocity.components[(k * grid_size + j) * grid_size + i - 1].z;
                     
-                    let dudz = (u_k_plus - u_k_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx.clone());
-                    let dwdx = (w_i_plus - w_i_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx.clone());
+                    let dudz = (u_k_plus - u_k_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx);
+                    let dwdx = (w_i_plus - w_i_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx);
                     omega_y = dudz - dwdx;
                 }
                 
                 // ωz = ∂v/∂x - ∂u/∂y
                 if i > 0 && i < grid_size - 1 && j > 0 && j < grid_size - 1 {
-                    let v_i_plus = self.velocity.components[(k * grid_size + j) * grid_size + i + 1].y.clone();
-                    let v_i_minus = self.velocity.components[(k * grid_size + j) * grid_size + i - 1].y.clone();
-                    let u_j_plus = self.velocity.components[(k * grid_size + j + 1) * grid_size + i].x.clone();
-                    let u_j_minus = self.velocity.components[(k * grid_size + j - 1) * grid_size + i].x.clone();
+                    let v_i_plus = self.velocity.components[(k * grid_size + j) * grid_size + i + 1].y;
+                    let v_i_minus = self.velocity.components[(k * grid_size + j) * grid_size + i - 1].y;
+                    let u_j_plus = self.velocity.components[(k * grid_size + j + 1) * grid_size + i].x;
+                    let u_j_minus = self.velocity.components[(k * grid_size + j - 1) * grid_size + i].x;
                     
-                    let dvdx = (v_i_plus - v_i_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx.clone());
-                    let dudy = (u_j_plus - u_j_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx.clone());
+                    let dvdx = (v_i_plus - v_i_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx);
+                    let dudy = (u_j_plus - u_j_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx);
                     omega_z = dvdx - dudy;
                 }
                 
@@ -538,12 +538,12 @@ impl<T: RealField + Copy> FlowField<T> {
 }
 
 /// Fluid dynamics service following Domain Service pattern
-pub struct FluidDynamicsService<T: RealField> {
+pub struct FluidDynamicsService<T: RealField + Copy> {
     /// Active turbulence model
     turbulence_model: Option<Box<dyn TurbulenceModel<T>>>,
 }
 
-impl<T: RealField> FluidDynamicsService<T>
+impl<T: RealField + Copy> FluidDynamicsService<T>
 where
     T: num_traits::ToPrimitive,
 {
@@ -568,9 +568,9 @@ where
     pub fn classify_flow_regime(&self, reynolds_number: T) -> FlowRegime {
         let re = reynolds_number.to_f64().unwrap_or(0.0);
 
-        if re < 2300.0 {
+        if re < crate::constants::LAMINAR_THRESHOLD {
             FlowRegime::Laminar
-        } else if re < 4000.0 {
+        } else if re < crate::constants::TURBULENT_THRESHOLD {
             FlowRegime::Transitional
         } else {
             FlowRegime::Turbulent

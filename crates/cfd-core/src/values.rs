@@ -11,9 +11,9 @@ use std::fmt;
 
 /// Reynolds number value object with validation
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct ReynoldsNumber<T: RealField>(T);
+pub struct ReynoldsNumber<T: RealField + Copy>(T);
 
-impl<T: RealField + FromPrimitive> ReynoldsNumber<T> {
+impl<T: RealField + FromPrimitive + Copy> ReynoldsNumber<T> {
     /// Create a new Reynolds number with validation
     pub fn new(value: T) -> Result<Self> {
         if value < T::zero() {
@@ -26,17 +26,17 @@ impl<T: RealField + FromPrimitive> ReynoldsNumber<T> {
 
     /// Get the raw value
     pub fn value(&self) -> T {
-        self.0.clone()
+        self.0
     }
 
     /// Check if flow is laminar (Re < 2300 for pipe flow)
     pub fn is_laminar(&self) -> bool {
-        self.0 < T::from_f64(2300.0).unwrap_or_else(|| T::zero())
+        self.0 < T::from_f64(crate::constants::LAMINAR_THRESHOLD).unwrap_or_else(|| T::zero())
     }
 
     /// Check if flow is turbulent (Re > 4000 for pipe flow)
     pub fn is_turbulent(&self) -> bool {
-        self.0 > T::from_f64(4000.0).unwrap_or_else(|| T::zero())
+        self.0 > T::from_f64(crate::constants::TURBULENT_THRESHOLD).unwrap_or_else(|| T::zero())
     }
 
     /// Check if flow is transitional
@@ -53,12 +53,12 @@ impl<T: RealField + fmt::Display> fmt::Display for ReynoldsNumber<T> {
 
 /// Pressure value object with unit awareness
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct Pressure<T: RealField> {
+pub struct Pressure<T: RealField + Copy> {
     value: T,
     unit: PressureUnit,
 }
 
-impl<T: RealField + FromPrimitive> Pressure<T> {
+impl<T: RealField + FromPrimitive + Copy> Pressure<T> {
     /// Create pressure in Pascals
     pub fn pascals(value: T) -> Self {
         Self {
@@ -86,15 +86,15 @@ impl<T: RealField + FromPrimitive> Pressure<T> {
     /// Convert to Pascals
     pub fn to_pascals(&self) -> T {
         match self.unit {
-            PressureUnit::Pascal => self.value.clone(),
-            PressureUnit::Atmosphere => self.value.clone() * T::from_f64(101_325.0).unwrap_or_else(|| T::one()),
-            PressureUnit::Bar => self.value.clone() * T::from_f64(100_000.0).unwrap_or_else(|| T::one()),
+            PressureUnit::Pascal => self.value,
+            PressureUnit::Atmosphere => self.value * T::from_f64(101_325.0).unwrap_or_else(|| T::one()),
+            PressureUnit::Bar => self.value * T::from_f64(100_000.0).unwrap_or_else(|| T::one()),
         }
     }
 
     /// Get value in current unit
     pub fn value(&self) -> T {
-        self.value.clone()
+        self.value
     }
 
     /// Get unit
@@ -126,11 +126,11 @@ impl fmt::Display for PressureUnit {
 
 /// Velocity value object with magnitude and direction
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct Velocity<T: RealField> {
+pub struct Velocity<T: RealField + Copy> {
     vector: Vector3<T>,
 }
 
-impl<T: RealField> Velocity<T> {
+impl<T: RealField + Copy> Velocity<T> {
     /// Create velocity from components
     pub fn new(x: T, y: T, z: T) -> Self {
         Self {
@@ -152,7 +152,7 @@ impl<T: RealField> Velocity<T> {
     pub fn direction(&self) -> Vector3<T> {
         let mag = self.magnitude();
         if mag > T::zero() {
-            self.vector.clone() / mag
+            self.vector / mag
         } else {
             Vector3::zeros()
         }
@@ -165,28 +165,28 @@ impl<T: RealField> Velocity<T> {
 
     /// Get x component
     pub fn x(&self) -> T {
-        self.vector.x.clone()
+        self.vector.x
     }
 
     /// Get y component
     pub fn y(&self) -> T {
-        self.vector.y.clone()
+        self.vector.y
     }
 
     /// Get z component
     pub fn z(&self) -> T {
-        self.vector.z.clone()
+        self.vector.z
     }
 }
 
 /// Temperature value object with unit conversion
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct Temperature<T: RealField> {
+pub struct Temperature<T: RealField + Copy> {
     value: T,
     unit: TemperatureUnit,
 }
 
-impl<T: RealField + FromPrimitive> Temperature<T> {
+impl<T: RealField + FromPrimitive + Copy> Temperature<T> {
     /// Create temperature in Kelvin
     pub fn kelvin(value: T) -> Result<Self> {
         if value < T::zero() {
@@ -215,10 +215,10 @@ impl<T: RealField + FromPrimitive> Temperature<T> {
     /// Convert to Kelvin
     pub fn to_kelvin(&self) -> T {
         match self.unit {
-            TemperatureUnit::Kelvin => self.value.clone(),
-            TemperatureUnit::Celsius => self.value.clone() + T::from_f64(273.15).unwrap_or_else(|| T::zero()),
+            TemperatureUnit::Kelvin => self.value,
+            TemperatureUnit::Celsius => self.value + T::from_f64(273.15).unwrap_or_else(|| T::zero()),
             TemperatureUnit::Fahrenheit => {
-                let celsius = (self.value.clone() - T::from_f64(32.0).unwrap_or_else(|| T::zero())) * T::from_f64(5.0).unwrap_or_else(|| T::zero()) / T::from_f64(9.0).unwrap_or_else(|| T::one());
+                let celsius = (self.value - T::from_f64(32.0).unwrap_or_else(|| T::zero())) * T::from_f64(5.0).unwrap_or_else(|| T::zero()) / T::from_f64(9.0).unwrap_or_else(|| T::one());
                 celsius + T::from_f64(273.15).unwrap_or_else(|| T::zero())
             }
         }
@@ -226,7 +226,7 @@ impl<T: RealField + FromPrimitive> Temperature<T> {
 
     /// Get value in current unit
     pub fn value(&self) -> T {
-        self.value.clone()
+        self.value
     }
 
     /// Get unit
@@ -258,12 +258,12 @@ impl fmt::Display for TemperatureUnit {
 
 /// Dimensionless number value object
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct DimensionlessNumber<T: RealField> {
+pub struct DimensionlessNumber<T: RealField + Copy> {
     value: T,
     name: &'static str,
 }
 
-impl<T: RealField> DimensionlessNumber<T> {
+impl<T: RealField + Copy> DimensionlessNumber<T> {
     /// Create a new dimensionless number
     pub fn new(value: T, name: &'static str) -> Self {
         Self { value, name }
@@ -286,7 +286,7 @@ impl<T: RealField> DimensionlessNumber<T> {
 
     /// Get value
     pub fn value(&self) -> T {
-        self.value.clone()
+        self.value
     }
 
     /// Get name

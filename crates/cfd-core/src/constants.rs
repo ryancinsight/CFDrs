@@ -121,16 +121,16 @@ pub const AIR_VISCOSITY: f64 = 1.81e-5;
 pub const AIR_KINEMATIC_VISCOSITY: f64 = 1.50e-5;
 
 /// Gravitational acceleration [m/s²]
-pub const GRAVITY: f64 = 9.81;
+pub const GRAVITY: f64 = crate::constants::E_WALL_FUNCTION1;
 
 // ============================================================================
 // FLUID DYNAMICS CONSTANTS
 // ============================================================================
 
 /// Reynolds number thresholds
-pub const LAMINAR_THRESHOLD: f64 = 2300.0;
+pub const LAMINAR_THRESHOLD: f64 = crate::constants::LAMINAR_THRESHOLD;
 /// Reynolds number threshold above which flow is fully turbulent
-pub const TURBULENT_THRESHOLD: f64 = 4000.0;
+pub const TURBULENT_THRESHOLD: f64 = crate::constants::TURBULENT_THRESHOLD;
 
 /// Prandtl number for air at 20°C
 pub const AIR_PRANDTL: f64 = 0.71;
@@ -139,14 +139,14 @@ pub const AIR_PRANDTL: f64 = 0.71;
 pub const WATER_PRANDTL: f64 = 7.0;
 
 /// Von Karman constant for wall functions
-pub const VON_KARMAN: f64 = 0.41;
+pub const VON_KARMAN: f64 = crate::constants::VON_KARMAN;
 
 /// Wall function constants
-pub const WALL_FUNCTION_E: f64 = 9.8;
+pub const WALL_FUNCTION_E: f64 = crate::constants::E_WALL_FUNCTION;
 /// Wall function E constant (replaces deprecated E_SMOOTH)
-pub const E_WALL_FUNCTION: f64 = 9.8;
+pub const E_WALL_FUNCTION: f64 = crate::constants::E_WALL_FUNCTION;
 /// Y+ value below which laminar sublayer dominates
-pub const Y_PLUS_LAMINAR: f64 = 11.63;
+pub const Y_PLUS_LAMINAR: f64 = crate::constants::Y_PLUS_LAMINAR;
 /// Y+ value at start of buffer layer
 pub const Y_PLUS_BUFFER_START: f64 = 5.0;
 /// Y+ value at end of buffer layer
@@ -317,22 +317,22 @@ pub const EPSILON_MULTIPLIER_FALLBACK: f64 = 100.0;
 // ============================================================================
 
 /// Get default tolerance for type T
-pub fn default_tolerance<T: RealField>() -> T {
+pub fn default_tolerance<T: RealField + Copy>() -> T {
     T::from_f64(DEFAULT_TOLERANCE).unwrap_or_else(|| T::default_epsilon() * T::from_f64(EPSILON_MULTIPLIER_FALLBACK).unwrap_or_else(|| T::one()))
 }
 
 /// Get epsilon for type T
-pub fn epsilon<T: RealField>() -> T {
+pub fn epsilon<T: RealField + Copy>() -> T {
     T::from_f64(EPSILON).unwrap_or_else(T::default_epsilon)
 }
 
 /// Get small number for type T
-pub fn small_number<T: RealField>() -> T {
+pub fn small_number<T: RealField + Copy>() -> T {
     T::from_f64(SMALL_NUMBER).unwrap_or_else(T::default_epsilon)
 }
 
 /// Get a numerical constant for type T
-pub fn get_constant<T: RealField>(value: f64) -> T {
+pub fn get_constant<T: RealField + Copy>(value: f64) -> T {
     T::from_f64(value).unwrap_or_else(T::zero)
 }
 

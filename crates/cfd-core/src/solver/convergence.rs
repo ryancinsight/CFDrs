@@ -4,7 +4,7 @@ use nalgebra::RealField;
 use std::marker::PhantomData;
 
 /// Convergence criteria trait
-pub trait ConvergenceCriteria<T: RealField>: Send + Sync {
+pub trait ConvergenceCriteria<T: RealField + Copy>: Send + Sync {
     /// Check if converged
     fn is_converged(&self, iteration: usize, residual: T, initial_residual: T) -> bool;
     

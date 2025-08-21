@@ -6,7 +6,7 @@ use cfd_math::{SparseMatrixBuilder, LinearSolver, ConjugateGradient};
 use crate::grid::StructuredGrid2D;
 
 /// Pressure correction solver
-pub struct PressureCorrectionSolver<T: RealField> {
+pub struct PressureCorrectionSolver<T: RealField + Copy> {
     /// Grid
     grid: StructuredGrid2D<T>,
     /// Linear solver for pressure Poisson equation

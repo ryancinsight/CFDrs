@@ -201,7 +201,7 @@ pub mod helpers {
     pub fn convert_nodes(scheme_nodes: &[Node]) -> Vec<(usize, Point2D)> {
         scheme_nodes
             .iter()
-            .map(|node| (node.id, node.point))
+            .map(|node| (node.id.clone(), node.point))
             .collect()
     }
     
@@ -216,8 +216,8 @@ pub mod helpers {
                     }
                     ChannelType::SmoothStraight { path } |
                     ChannelType::Serpentine { path } |
-                    ChannelType::Arc { path } => path.clone(),
-                    ChannelType::Frustum { path, .. } => path.clone(),
+                    ChannelType::Arc { path } => path,
+                    ChannelType::Frustum { path, .. } => path,
                 };
                 
                 ConnectionPath {

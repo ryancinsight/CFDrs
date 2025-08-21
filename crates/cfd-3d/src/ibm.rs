@@ -45,7 +45,7 @@ impl Default for IbmConfig {
 
 /// Lagrangian marker point for immersed boundary
 #[derive(Debug, Clone)]
-pub struct LagrangianPoint<T: RealField> {
+pub struct LagrangianPoint<T: RealField + Copy> {
     /// Position in 3D space
     pub position: Vector3<T>,
     /// Velocity at this point
@@ -59,7 +59,7 @@ pub struct LagrangianPoint<T: RealField> {
 }
 
 /// Immersed Boundary Method solver
-pub struct IbmSolver<T: RealField + FromPrimitive> {
+pub struct IbmSolver<T: RealField + FromPrimitive + Copy> {
     config: IbmConfig,
     /// Grid dimensions
     nx: usize,
@@ -77,7 +77,7 @@ pub struct IbmSolver<T: RealField + FromPrimitive> {
     velocity_field: Vec<Vector3<T>>,
 }
 
-impl<T: RealField + FromPrimitive> IbmSolver<T> {
+impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
     /// Create a new IBM solver
     pub fn new(
         config: IbmConfig,
@@ -108,21 +108,21 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
         self.lagrangian_points.clear();
         
         for (i, vertex) in vertices.iter().enumerate() {
-            let normal = normals.map(|n| n[i].clone());
+            let normal = normals.map(|n| n[i]);
             self.lagrangian_points.push(LagrangianPoint {
-                position: vertex.clone(),
+                position: vertex,
                 velocity: Vector3::zeros(),
                 force: Vector3::zeros(),
                 normal,
-                reference_position: Some(vertex.clone()),
+                reference_position: Some(vertex),
             });
         }
     }
     
     /// Discrete delta function (Roma et al., 1999)
     fn delta_function(&self, r: T) -> T {
-        let h = self.dx.clone();  // Assuming uniform grid
-        let r_norm = r.abs() / h.clone();
+        let h = self.dx;  // Assuming uniform grid
+        let r_norm = r.abs() / h;
         
         if r_norm >= T::from_f64(2.0).unwrap_or_else(|| T::zero()) {
             T::zero()
@@ -130,47 +130,47 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
             let one = T::one();
             let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
             // Clamp the argument to sqrt to be non-negative
-            let r_norm_squared = r_norm.clone() * r_norm.clone();
+            let r_norm_squared = r_norm * r_norm;
             // Clamp the argument to sqrt to be non-negative
-            let arg = (one.clone() - three.clone() * r_norm_squared).max(T::zero());
+            let arg = (one - three * r_norm_squared).max(T::zero());
             (one + ComplexField::sqrt(arg)) / (three * h)
         } else {
             let one = T::one();
             let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
             let five = T::from_f64(5.0).unwrap_or_else(|| T::zero());
             // For 1 <= r_norm < 2, use the correct formula
-            let term = (one.clone() - r_norm.clone()) * (one - r_norm.clone());
-            (five - three.clone() * r_norm - ComplexField::sqrt(three * term)) / (T::from_f64(6.0).unwrap_or_else(|| T::zero()) * h)
+            let term = (one - r_norm) * (one - r_norm);
+            (five - three * r_norm - ComplexField::sqrt(three * term)) / (T::from_f64(6.0).unwrap_or_else(|| T::zero()) * h)
         }
     }
     
     /// Interpolate velocity from Eulerian grid to Lagrangian points
     pub fn interpolate_velocity(&mut self) {
-        let dx = self.dx.clone();
-        let dy = self.dy.clone();
-        let dz = self.dz.clone();
+        let dx = self.dx;
+        let dy = self.dy;
+        let dz = self.dz;
         let nx = self.nx;
         let ny = self.ny;
         let nz = self.nz;
-        let velocity_field = self.velocity_field.clone();
+        let velocity_field = self.velocity_field;
         
         for point in &mut self.lagrangian_points {
             let mut vel = Vector3::zeros();
             
             // Find grid cell containing the point (clamping to valid range)
-            let i_center = if let Some(val) = (point.position[0].clone() / dx.clone()).floor().to_subset() {
+            let i_center = if let Some(val) = (point.position[0] / dx).floor().to_subset() {
                 let val_f64: f64 = val;
                 (val_f64.max(0.0) as usize).min(nx - 1)
             } else {
                 0
             };
-            let j_center = if let Some(val) = (point.position[1].clone() / dy.clone()).floor().to_subset() {
+            let j_center = if let Some(val) = (point.position[1] / dy).floor().to_subset() {
                 let val_f64: f64 = val;
                 (val_f64.max(0.0) as usize).min(ny - 1)
             } else {
                 0
             };
-            let k_center = if let Some(val) = (point.position[2].clone() / dz.clone()).floor().to_subset() {
+            let k_center = if let Some(val) = (point.position[2] / dz).floor().to_subset() {
                 let val_f64: f64 = val;
                 (val_f64.max(0.0) as usize).min(nz - 1)
             } else {
@@ -188,25 +188,25 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
                         let k = (k_center + dk).saturating_sub(stencil_half).min(nz - 1);
                         
                         let grid_pos = Vector3::new(
-                            T::from_usize(i).unwrap_or_else(|| T::zero()) * dx.clone(),
-                            T::from_usize(j).unwrap_or_else(|| T::zero()) * dy.clone(),
-                            T::from_usize(k).unwrap_or_else(|| T::zero()) * dz.clone(),
+                            T::from_usize(i).unwrap_or_else(|| T::zero()) * dx,
+                            T::from_usize(j).unwrap_or_else(|| T::zero()) * dy,
+                            T::from_usize(k).unwrap_or_else(|| T::zero()) * dz,
                         );
                         
-                        let dx_val = point.position[0].clone() - grid_pos[0].clone();
-                        let dy_val = point.position[1].clone() - grid_pos[1].clone();
-                        let dz_val = point.position[2].clone() - grid_pos[2].clone();
+                        let dx_val = point.position[0] - grid_pos[0];
+                        let dy_val = point.position[1] - grid_pos[1];
+                        let dz_val = point.position[2] - grid_pos[2];
                         
                         // Inline delta function calculation
-                        let weight_x = Self::delta_function_static(dx_val, dx.clone());
-                        let weight_y = Self::delta_function_static(dy_val, dy.clone());
-                        let weight_z = Self::delta_function_static(dz_val, dz.clone());
+                        let weight_x = Self::delta_function_static(dx_val, dx);
+                        let weight_y = Self::delta_function_static(dy_val, dy);
+                        let weight_z = Self::delta_function_static(dz_val, dz);
                         
                         let weight = weight_x * weight_y * weight_z
-                            * dx.clone() * dy.clone() * dz.clone();
+                            * dx * dy * dz;
                         
                         let idx = k * nx * ny + j * nx + i;
-                        vel += velocity_field[idx].clone() * weight;
+                        vel += velocity_field[idx] * weight;
                     }
                 }
             }
@@ -217,7 +217,7 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
     
     /// Static version of delta function for use in mutable contexts
     fn delta_function_static(r: T, h: T) -> T {
-        let r_norm = r.abs() / h.clone();
+        let r_norm = r.abs() / h;
         
         if r_norm >= T::from_f64(2.0).unwrap_or_else(|| T::zero()) {
             T::zero()
@@ -225,15 +225,15 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
             let one = T::one();
             let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
             // Clamp the argument to sqrt to be non-negative
-            let arg = (one.clone() - three.clone() * r_norm.clone() * r_norm.clone()).max(T::zero());
+            let arg = (one - three * r_norm * r_norm).max(T::zero());
             (one + ComplexField::sqrt(arg)) / (three * h)
         } else {
             let one = T::one();
             let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
             let five = T::from_f64(5.0).unwrap_or_else(|| T::zero());
             // For 1 <= r_norm < 2, use the correct formula  
-            let term = (one.clone() - r_norm.clone()) * (one - r_norm.clone());
-            (five - three.clone() * r_norm - ComplexField::sqrt(three * term)) / (T::from_f64(6.0).unwrap_or_else(|| T::zero()) * h)
+            let term = (one - r_norm) * (one - r_norm);
+            (five - three * r_norm - ComplexField::sqrt(three * term)) / (T::from_f64(6.0).unwrap_or_else(|| T::zero()) * h)
         }
     }
     
@@ -243,20 +243,20 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
             // Direct forcing: F = (u_target - u_interpolated) / dt
             for (i, point) in self.lagrangian_points.iter_mut().enumerate() {
                 let u_target = if let Some(targets) = target_velocity {
-                    targets[i].clone()
+                    targets[i]
                 } else {
                     Vector3::zeros()  // No-slip condition
                 };
                 
                 // Force to enforce boundary condition
-                point.force = (u_target - point.velocity.clone()) * T::from_f64(self.config.force_scale).unwrap_or_else(|| T::zero());
+                point.force = (u_target - point.velocity) * T::from_f64(self.config.force_scale).unwrap_or_else(|| T::zero());
             }
         } else {
             // Feedback forcing or elastic boundary
             for point in &mut self.lagrangian_points {
                 if let Some(ref_pos) = &point.reference_position {
                     // Elastic force: F = -k * (X - X0)
-                    let displacement = point.position.clone() - ref_pos.clone();
+                    let displacement = point.position - ref_pos;
                     let stiffness = T::from_f64(100.0).unwrap_or_else(|| T::zero());  // Spring stiffness
                     point.force = displacement * (-stiffness);
                 }
@@ -271,19 +271,19 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
         
         for point in &self.lagrangian_points {
             // Find grid cell containing the point (clamping to valid range)
-            let i_center = if let Some(val) = (point.position[0].clone() / self.dx.clone()).floor().to_subset() {
+            let i_center = if let Some(val) = (point.position[0] / self.dx).floor().to_subset() {
                 let val_f64: f64 = val;
                 (val_f64.max(0.0) as usize).min(self.nx - 1)
             } else {
                 0
             };
-            let j_center = if let Some(val) = (point.position[1].clone() / self.dy.clone()).floor().to_subset() {
+            let j_center = if let Some(val) = (point.position[1] / self.dy).floor().to_subset() {
                 let val_f64: f64 = val;
                 (val_f64.max(0.0) as usize).min(self.ny - 1)
             } else {
                 0
             };
-            let k_center = if let Some(val) = (point.position[2].clone() / self.dz.clone()).floor().to_subset() {
+            let k_center = if let Some(val) = (point.position[2] / self.dz).floor().to_subset() {
                 let val_f64: f64 = val;
                 (val_f64.max(0.0) as usize).min(self.nz - 1)
             } else {
@@ -301,21 +301,21 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
                         let k = (k_center + dk).saturating_sub(stencil_half).min(self.nz - 1);
                         
                         let grid_pos = Vector3::new(
-                            T::from_usize(i).unwrap_or_else(|| T::zero()) * self.dx.clone(),
-                            T::from_usize(j).unwrap_or_else(|| T::zero()) * self.dy.clone(),
-                            T::from_usize(k).unwrap_or_else(|| T::zero()) * self.dz.clone(),
+                            T::from_usize(i).unwrap_or_else(|| T::zero()) * self.dx,
+                            T::from_usize(j).unwrap_or_else(|| T::zero()) * self.dy,
+                            T::from_usize(k).unwrap_or_else(|| T::zero()) * self.dz,
                         );
                         
-                        let dx = point.position[0].clone() - grid_pos[0].clone();
-                        let dy = point.position[1].clone() - grid_pos[1].clone();
-                        let dz = point.position[2].clone() - grid_pos[2].clone();
+                        let dx = point.position[0] - grid_pos[0];
+                        let dy = point.position[1] - grid_pos[1];
+                        let dz = point.position[2] - grid_pos[2];
                         
                         let weight = self.delta_function(dx) 
                             * self.delta_function(dy)
                             * self.delta_function(dz);
                         
                         let idx = k * self.nx * self.ny + j * self.nx + i;
-                        self.force_field[idx] = self.force_field[idx].clone() + point.force.clone() * weight;
+                        self.force_field[idx] = self.force_field[idx] + point.force * weight;
                     }
                 }
             }
@@ -325,7 +325,7 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
     /// Update Lagrangian point positions (for moving boundaries)
     pub fn update_positions(&mut self, dt: T) {
         for point in &mut self.lagrangian_points {
-            point.position += point.velocity.clone() * dt.clone();
+            point.position += point.velocity * dt;
         }
     }
     
@@ -369,9 +369,9 @@ impl<T: RealField + FromPrimitive> IbmSolver<T> {
         let mut side = T::zero();
         
         for point in &self.lagrangian_points {
-            drag += point.force[0].clone();
-            lift += point.force[1].clone();
-            side += point.force[2].clone();
+            drag += point.force[0];
+            lift += point.force[1];
+            side += point.force[2];
         }
         
         (drag, lift, side)

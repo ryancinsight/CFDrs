@@ -31,13 +31,13 @@ pub enum EdgeType {
 
 /// Node in the network
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Node<T: RealField> {
+pub struct Node<T: RealField + Copy> {
     pub id: String,
     pub node_type: NodeType,
     pub position: (T, T),
 }
 
-impl<T: RealField> Node<T> {
+impl<T: RealField + Copy> Node<T> {
     pub fn new(id: String, node_type: NodeType) -> Self {
         Self {
             id,
@@ -49,7 +49,7 @@ impl<T: RealField> Node<T> {
 
 /// Edge in the network (channel/pipe)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Edge<T: RealField> {
+pub struct Edge<T: RealField + Copy> {
     pub id: String,
     pub edge_type: EdgeType,
     pub properties: ChannelProperties<T>,
@@ -57,14 +57,14 @@ pub struct Edge<T: RealField> {
 
 /// Channel properties
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChannelProperties<T: RealField> {
+pub struct ChannelProperties<T: RealField + Copy> {
     pub resistance: T,
     pub length: T,
     pub area: T,
     pub hydraulic_diameter: Option<T>,
 }
 
-impl<T: RealField> ChannelProperties<T> {
+impl<T: RealField + Copy> ChannelProperties<T> {
     pub fn new(resistance: T, length: T, area: T) -> Self {
         Self { resistance, length, area, hydraulic_diameter: None }
     }
@@ -83,7 +83,7 @@ pub struct NetworkMetadata {
 }
 
 /// Network builder
-pub struct NetworkBuilder<T: RealField> {
+pub struct NetworkBuilder<T: RealField + Copy> {
     network: Network<T>,
 }
 
@@ -111,7 +111,7 @@ impl<T: RealField + FromPrimitive + Copy> NetworkBuilder<T> {
 
 /// Main network structure
 #[derive(Debug, Clone)]
-pub struct Network<T: RealField> {
+pub struct Network<T: RealField + Copy> {
     graph: NetworkGraph<Node<T>, ChannelProperties<T>>,
     node_indices: HashMap<String, NodeIndex>,
     edge_indices: HashMap<String, EdgeIndex>,
@@ -233,7 +233,7 @@ impl<T: RealField + FromPrimitive + Copy> Network<T> {
             .par_bridge()
             .map(|edge| EdgeData {
                 nodes: (edge.source().index(), edge.target().index()),
-                conductance: T::one() / edge.weight().resistance.clone(),
+                conductance: T::one() / edge.weight().resistance,
             })
     }
     
@@ -246,7 +246,7 @@ impl<T: RealField + FromPrimitive + Copy> Network<T> {
         self.graph.edge_references()
             .map(|edge| EdgeData {
                 nodes: (edge.source().index(), edge.target().index()),
-                conductance: T::one() / edge.weight().resistance.clone(),
+                conductance: T::one() / edge.weight().resistance,
             })
     }
     
@@ -256,9 +256,9 @@ impl<T: RealField + FromPrimitive + Copy> Network<T> {
             self.graph.edge_endpoints(idx).map(|(s, t)| {
                 let edge = &self.graph[idx];
                 EdgeProperties {
-                    id: id.clone(),
+                    id: id,
                     nodes: (s.index(), t.index()),
-                    properties: edge.clone(),
+                    properties: edge,
                     flow_rate: if idx.index() < self.flow_rates.len() {
                         Some(self.flow_rates[idx.index()])
                     } else {
@@ -288,7 +288,7 @@ impl<T: RealField + FromPrimitive + Copy> Network<T> {
     pub fn get_edge_id_by_index(&self, idx: petgraph::graph::EdgeIndex) -> Option<String> {
         self.edge_indices.iter()
             .find(|(_, &edge_idx)| edge_idx == idx)
-            .map(|(id, _)| id.clone())
+            .map(|(id, _)| id)
     }
     
     /// Get edges connected to a node
@@ -299,7 +299,7 @@ impl<T: RealField + FromPrimitive + Copy> Network<T> {
         Ok(self.graph.edges(*node_idx)
             .map(|edge| EdgeData {
                 nodes: (edge.source().index(), edge.target().index()),
-                conductance: T::one() / edge.weight().resistance.clone(),
+                conductance: T::one() / edge.weight().resistance,
             })
             .collect())
     }
@@ -309,13 +309,13 @@ impl<T: RealField + FromPrimitive + Copy> Network<T> {
     }
 }
 
-pub struct EdgeData<T: RealField> {
+pub struct EdgeData<T: RealField + Copy> {
     pub nodes: (usize, usize),
     pub conductance: T,
 }
 
 /// Edge with full properties for analysis
-pub struct EdgeProperties<T: RealField> {
+pub struct EdgeProperties<T: RealField + Copy> {
     pub id: String,
     pub nodes: (usize, usize),
     pub properties: ChannelProperties<T>,

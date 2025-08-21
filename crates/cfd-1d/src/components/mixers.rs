@@ -22,7 +22,7 @@ pub enum MixerType {
 
 /// Micromixer component
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Micromixer<T: RealField> {
+pub struct Micromixer<T: RealField + Copy> {
     /// Number of inlets
     pub n_inlets: usize,
     /// Mixing efficiency (0-1)
@@ -47,7 +47,7 @@ impl<T: RealField + FromPrimitive + Float> Micromixer<T> {
 
 impl<T: RealField + FromPrimitive + Float> Component<T> for Micromixer<T> {
     fn resistance(&self, _fluid: &Fluid<T>) -> T {
-        self.resistance.clone()
+        self.resistance
     }
 
     fn component_type(&self) -> &str {

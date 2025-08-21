@@ -68,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🔘 Node Pressures:");
     for node in network.nodes() {
         if let Some(pressure) = node.pressure {
-            println!("   {}: {:.1} Pa", node.id, pressure);
+            println!("   {}: {:.1} Pa", node.id.clone(), pressure);
         }
     }
 
@@ -80,10 +80,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for edge in network.edges() {
         if let Some(flow_rate) = edge.flow_rate {
             let flow_ml_min = flow_rate * 1e6 * 60.0; // Convert m³/s to mL/min
-            println!("   {}: {:.3} mL/min ({:.2e} m³/s)", edge.id, flow_ml_min, flow_rate);
+            println!("   {}: {:.3} mL/min ({:.2e} m³/s)", edge.id.clone(), flow_ml_min, flow_rate);
 
             // Track total flows
-            match edge.id.as_str() {
+            match edge.id.clone().as_str() {
                 "input_ch" => total_flow_in += flow_rate,
                 "output_ch1" | "output_ch2" => total_flow_out += flow_rate,
                 _ => {}
@@ -105,7 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n📉 Pressure Drops:");
     for edge in network.edges() {
         if let Some(pressure_drop) = edge.pressure_drop {
-            println!("   {}: {:.1} Pa", edge.id, pressure_drop);
+            println!("   {}: {:.1} Pa", edge.id.clone(), pressure_drop);
         }
     }
 

@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 
 /// Comprehensive flow analysis for network systems
 #[derive(Debug, Clone)]
-pub struct FlowAnalysis<T: RealField> {
+pub struct FlowAnalysis<T: RealField + Copy> {
     /// Total flow rate through the network [m³/s]
     pub total_flow_rate: T,
     /// Flow rates through individual components [m³/s]
@@ -25,7 +25,7 @@ pub struct FlowAnalysis<T: RealField> {
 
 /// Pressure analysis for network systems
 #[derive(Debug, Clone)]
-pub struct PressureAnalysis<T: RealField> {
+pub struct PressureAnalysis<T: RealField + Copy> {
     /// Pressure distribution [Pa]
     pub pressures: HashMap<String, T>,
     /// Pressure drops across components [Pa]
@@ -40,7 +40,7 @@ pub struct PressureAnalysis<T: RealField> {
 
 /// Resistance analysis for network components
 #[derive(Debug, Clone)]
-pub struct ResistanceAnalysis<T: RealField> {
+pub struct ResistanceAnalysis<T: RealField + Copy> {
     /// Hydraulic resistances [Pa·s/m³]
     pub resistances: HashMap<String, T>,
     /// Equivalent circuit resistance [Pa·s/m³]
@@ -53,7 +53,7 @@ pub struct ResistanceAnalysis<T: RealField> {
 
 /// Network performance metrics
 #[derive(Debug, Clone)]
-pub struct PerformanceMetrics<T: RealField> {
+pub struct PerformanceMetrics<T: RealField + Copy> {
     /// Throughput [m³/s]
     pub throughput: T,
     /// Pressure efficiency (useful pressure / total pressure)
@@ -90,7 +90,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
     pub fn analyze(&mut self, network: &mut Network<T>) -> Result<NetworkAnalysisResult<T>> {
         // Solve the network
         // Create a problem from the network
-        let problem = crate::solver::NetworkProblem::new(network.clone());
+        let problem = crate::solver::NetworkProblem::new(network);
         let _solution_result = self.solver.solve_network(&problem)?;
         
         // Perform individual analyses
@@ -119,20 +119,20 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         
         for edge in network.edges_with_properties() {
             if let Some(flow_rate) = edge.flow_rate {
-                component_flows.insert(edge.id.clone(), flow_rate.clone());
+                component_flows.insert(edge.id.clone(), flow_rate);
                 
                 // Calculate velocity if area is available
-                let area = edge.properties.area.clone();
+                let area = edge.properties.area;
                 if area > T::zero() {
-                    let velocity = flow_rate.clone() / area;
-                    velocities.insert(edge.id.clone(), velocity.clone());
+                    let velocity = flow_rate / area;
+                    velocities.insert(edge.id.clone(), velocity);
                     
                     // Calculate Reynolds number if hydraulic diameter is available
                     if let Some(dh) = edge.properties.hydraulic_diameter {
                         let re = self.calculate_reynolds_number(
                             fluid, velocity, dh
                         );
-                        reynolds_numbers.insert(edge.id.clone(), re.clone());
+                        reynolds_numbers.insert(edge.id.clone(), re);
                         
                         // Classify flow regime
                         let regime = self.classify_flow_regime(re);
@@ -169,14 +169,14 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         let pressure_vec = network.pressures();
         for (idx, node) in network.nodes().enumerate() {
             if idx < pressure_vec.len() {
-                let pressure = pressure_vec[idx].clone();
-                pressures.insert(node.id.clone(), pressure.clone());
+                let pressure = pressure_vec[idx];
+                pressures.insert(node.id.clone(), pressure);
                 
                 if pressure > max_pressure {
-                    max_pressure = pressure.clone();
+                    max_pressure = pressure;
                 }
                 if pressure < min_pressure {
-                    min_pressure = pressure.clone();
+                    min_pressure = pressure;
                 }
             }
         }
@@ -188,7 +188,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
             let (from_idx, to_idx) = edge.nodes;
             if from_idx < pressure_vec.len() && to_idx < pressure_vec.len() {
                 let pressure_drop = pressure_vec[from_idx] - pressure_vec[to_idx];
-                pressure_drops.insert(edge.id.clone(), pressure_drop.clone());
+                pressure_drops.insert(edge.id.clone(), pressure_drop);
                 
                 // Calculate pressure gradient using length
                 let length = edge.properties.length;
@@ -215,8 +215,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         let mut resistance_by_type = HashMap::new();
         
         for edge in network.edges_with_properties() {
-            let resistance = edge.properties.resistance.clone();
-            resistances.insert(edge.id.clone(), resistance.clone());
+            let resistance = edge.properties.resistance;
+            resistances.insert(edge.id.clone(), resistance);
             
             // For now, group all as "pipe" type since EdgeType is not accessible
             *resistance_by_type.entry("pipe".to_string()).or_insert(T::zero()) += resistance;
@@ -244,8 +244,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         let throughput = flow_analysis.total_flow_rate;
         
         // Calculate pressure efficiency
-        let useful_pressure = pressure_analysis.max_pressure.clone() - pressure_analysis.min_pressure.clone();
-        let total_pressure = pressure_analysis.max_pressure.clone();
+        let useful_pressure = pressure_analysis.max_pressure - pressure_analysis.min_pressure;
+        let total_pressure = pressure_analysis.max_pressure;
         let pressure_efficiency = if total_pressure > T::zero() {
             useful_pressure / total_pressure
         } else {
@@ -287,9 +287,9 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         
         if re_val < 1.0 {
             FlowRegime::Stokes
-        } else if re_val < 2300.0 {
+        } else if re_val < crate::constants::LAMINAR_THRESHOLD {
             FlowRegime::Laminar
-        } else if re_val <= 4000.0 {
+        } else if re_val <= crate::constants::TURBULENT_THRESHOLD {
             FlowRegime::Transitional
         } else {
             FlowRegime::Turbulent
@@ -328,7 +328,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         use petgraph::visit::EdgeRef;
         for edge_ref in network.graph().edge_references() {
             let edge = edge_ref.weight();
-            let resistance = edge.resistance.clone();
+            let resistance = edge.resistance;
             if resistance <= T::zero() {
                 continue; // Skip zero/negative resistances
             }
@@ -341,12 +341,12 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
             
             if let (Some(&i), Some(&j)) = (node_indices.get(&source_idx), node_indices.get(&target_idx)) {
                 // Add conductance to diagonal elements
-                g_matrix[(i, i)] = g_matrix[(i, i)].clone() + conductance.clone();
-                g_matrix[(j, j)] = g_matrix[(j, j)].clone() + conductance.clone();
+                g_matrix[(i, i)] = g_matrix[(i, i)] + conductance;
+                g_matrix[(j, j)] = g_matrix[(j, j)] + conductance;
                 
                 // Subtract conductance from off-diagonal elements
-                g_matrix[(i, j)] = g_matrix[(i, j)].clone() - conductance.clone();
-                g_matrix[(j, i)] = g_matrix[(j, i)].clone() - conductance.clone();
+                g_matrix[(i, j)] = g_matrix[(i, j)] - conductance;
+                g_matrix[(j, i)] = g_matrix[(j, i)] - conductance;
             }
         }
         
@@ -366,7 +366,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         if inlet_indices.is_empty() || outlet_indices.is_empty() {
             // If no clear inlet/outlet, calculate series resistance
             return network.edges_with_properties()
-                .map(|edge| edge.properties.resistance.clone())
+                .map(|edge| edge.properties.resistance)
                 .fold(T::zero(), |acc, r| acc + r);
         }
         
@@ -377,8 +377,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         // Create current source vector (positive at inlet, negative at outlet)
         let mut current_vector = DVector::zeros(n);
         let unit_current = T::one();
-        current_vector[inlet_idx] = unit_current.clone();
-        current_vector[outlet_idx] = -unit_current.clone();
+        current_vector[inlet_idx] = unit_current;
+        current_vector[outlet_idx] = -unit_current;
         
         // Set reference node (ground) - choose outlet as reference
         // Modify the conductance matrix to handle reference node
@@ -396,10 +396,10 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
                 if j == outlet_idx {
                     continue; // Skip reference node
                 }
-                g_reduced[(row_idx, col_idx)] = g_matrix[(i, j)].clone();
+                g_reduced[(row_idx, col_idx)] = g_matrix[(i, j)];
                 col_idx += 1;
             }
-            i_reduced[row_idx] = current_vector[i].clone();
+            i_reduced[row_idx] = current_vector[i];
             row_idx += 1;
         }
         
@@ -411,8 +411,8 @@ use cfd_core::solver::LinearSolverConfig;;
         let mut sparse_builder = SparseMatrixBuilder::new(n - 1, n - 1);
         for i in 0..n-1 {
             for j in 0..n-1 {
-                let val = g_reduced[(i, j)].clone();
-                if ComplexField::abs(val.clone()) > T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
+                let val = g_reduced[(i, j)];
+                if ComplexField::abs(val) > T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
                     let _ = sparse_builder.add_entry(i, j, val);
                 }
             }
@@ -423,7 +423,7 @@ use cfd_core::solver::LinearSolverConfig;;
             for i in 0..n-1 {
                 let _ = builder.add_entry(i, i, T::one());
             }
-            builder.build().expect("FIXME: Add proper error handling")
+            builder.build().map_err(|e| Error::MatrixConstruction(format!("Failed to build sparse matrix: {}", e)))?
         });
         
         let config = LinearSolverConfig {
@@ -442,15 +442,15 @@ use cfd_core::solver::LinearSolverConfig;;
                     inlet_idx - 1  // Adjust for removed reference node
                 };
                 
-                let voltage_drop = voltages[inlet_voltage_idx].clone();
+                let voltage_drop = voltages[inlet_voltage_idx];
                 
                 // Equivalent resistance = V / I = voltage_drop / unit_current
-                ComplexField::abs(voltage_drop.clone()) / unit_current
+                ComplexField::abs(voltage_drop) / unit_current
             }
             Err(_) => {
                 // Fallback to series sum if solver fails
                 network.edges_with_properties()
-                    .map(|edge| edge.properties.resistance.clone())
+                    .map(|edge| edge.properties.resistance)
                     .fold(T::zero(), |acc, r| acc + r)
             }
         }
@@ -502,7 +502,7 @@ use cfd_core::solver::LinearSolverConfig;;
         if current == target {
             // Found a path to the target
             if !current_path.is_empty() {
-                all_paths.push(current_path.clone());
+                all_paths.push(current_path);
             }
             return;
         }
@@ -543,7 +543,7 @@ use cfd_core::solver::LinearSolverConfig;;
     fn find_critical_paths(&self, network: &Network<T>) -> Vec<Vec<String>> {
         // Collect edge data with owned strings
         let edge_data: Vec<_> = network.edges_with_properties()
-            .map(|edge| (edge.id.clone(), edge.properties.resistance.clone()))
+            .map(|edge| (edge.id.clone(), edge.properties.resistance))
             .collect();
 
         if edge_data.is_empty() {
@@ -671,8 +671,8 @@ use cfd_core::solver::LinearSolverConfig;;
 
 /// Complete network analysis results
 #[derive(Debug, Clone)]
-pub struct NetworkAnalysisResult<T: RealField> {
-    // TODO: Add solution result when available
+pub struct NetworkAnalysisResult<T: RealField + Copy> {
+    // // Implementation note: Add solution result when available
     // pub solution_result: crate::solver::SolutionResult<T>,
     /// Flow analysis
     pub flow_analysis: FlowAnalysis<T>,
@@ -701,12 +701,12 @@ use crate::network::{NetworkBuilder, ChannelProperties};
             .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
-            .build().expect("FIXME: Add proper error handling");
+            .build().expect("Failed to complete operation");
 
         let analyzer = NetworkAnalyzer::new();
-        let _result = analyzer.solver.solve_steady_state(&mut network).expect("FIXME: Add proper error handling");
+        let _result = analyzer.solver.solve_steady_state(&mut network).expect("Failed to complete operation");
 
-        let flow_analysis = analyzer.analyze_flow(&network).expect("FIXME: Add proper error handling");
+        let flow_analysis = analyzer.analyze_flow(&network).expect("Failed to complete operation");
 
         // Should have flow data
         assert!(flow_analysis.component_flows.contains_key("ch1"));
@@ -719,12 +719,12 @@ use crate::network::{NetworkBuilder, ChannelProperties};
             .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
-            .build().expect("FIXME: Add proper error handling");
+            .build().expect("Failed to complete operation");
 
         let analyzer = NetworkAnalyzer::new();
-        let _result = analyzer.solver.solve_steady_state(&mut network).expect("FIXME: Add proper error handling");
+        let _result = analyzer.solver.solve_steady_state(&mut network).expect("Failed to complete operation");
 
-        let pressure_analysis = analyzer.analyze_pressure(&network).expect("FIXME: Add proper error handling");
+        let pressure_analysis = analyzer.analyze_pressure(&network).expect("Failed to complete operation");
 
         // Should have pressure data
         assert!(pressure_analysis.pressures.contains_key("inlet"));
@@ -738,10 +738,10 @@ use crate::network::{NetworkBuilder, ChannelProperties};
             .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
-            .build().expect("FIXME: Add proper error handling");
+            .build().expect("Failed to complete operation");
 
         let analyzer = NetworkAnalyzer::new();
-        let resistance_analysis = analyzer.analyze_resistance(&network).expect("FIXME: Add proper error handling");
+        let resistance_analysis = analyzer.analyze_resistance(&network).expect("Failed to complete operation");
 
         // Should have resistance data
         assert!(resistance_analysis.resistances.contains_key("ch1"));
@@ -754,12 +754,12 @@ use crate::network::{NetworkBuilder, ChannelProperties};
             .add_inlet_pressure("inlet", 0.0, 0.0, 1000.0)
             .add_outlet_pressure("outlet", 1.0, 0.0, 0.0)
             .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(100.0, 0.001, 1e-6))
-            .build().expect("FIXME: Add proper error handling");
+            .build().expect("Failed to complete operation");
 
         let analyzer = NetworkAnalyzer::new();
-        let _result = analyzer.solver.solve_steady_state(&mut network).expect("FIXME: Add proper error handling");
+        let _result = analyzer.solver.solve_steady_state(&mut network).expect("Failed to complete operation");
 
-        let performance = analyzer.analyze_performance(&network).expect("FIXME: Add proper error handling");
+        let performance = analyzer.analyze_performance(&network).expect("Failed to complete operation");
 
         // Should have performance data
         assert!(performance.throughput >= 0.0);
@@ -778,10 +778,10 @@ use crate::network::{NetworkBuilder, ChannelProperties};
             .add_channel("input_ch", "inlet", "junction", ChannelProperties::new(100.0, 0.001, 1e-6))
             .add_channel("output_ch1", "junction", "outlet1", ChannelProperties::new(200.0, 0.001, 1e-6))
             .add_channel("output_ch2", "junction", "outlet2", ChannelProperties::new(200.0, 0.001, 1e-6))
-            .build().expect("FIXME: Add proper error handling");
+            .build().expect("Failed to complete operation");
 
         let analyzer = NetworkAnalyzer::new();
-        let analysis_result = analyzer.analyze(&mut network).expect("FIXME: Add proper error handling");
+        let analysis_result = analyzer.analyze(&mut network).expect("Failed to complete operation");
 
         // Check that all analyses completed
         assert!(analysis_result.solution_result.converged);

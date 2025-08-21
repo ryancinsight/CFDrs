@@ -81,8 +81,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float, D: Domain<T>> SimulationA
         // Calculate Reynolds number
         let reynolds_value = FluidDynamicsService::reynolds_number(
             &self.fluid,
-            self.parameters.reference_velocity.clone(),
-            self.parameters.reference_length.clone(),
+            self.parameters.reference_velocity,
+            self.parameters.reference_length,
         );
         self.parameters.reynolds_number = Some(ReynoldsNumber::new(reynolds_value)?);
         
@@ -190,7 +190,7 @@ impl Default for SimulationMetadata {
 
 /// Physical parameters for the simulation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PhysicalParameters<T: RealField> {
+pub struct PhysicalParameters<T: RealField + Copy> {
     /// Reference pressure
     pub reference_pressure: Pressure<T>,
     /// Reference velocity magnitude
@@ -205,14 +205,14 @@ pub struct PhysicalParameters<T: RealField> {
     pub time_step: Option<T>,
 }
 
-impl<T: RealField + FromPrimitive> Default for PhysicalParameters<T> {
+impl<T: RealField + FromPrimitive + Copy> Default for PhysicalParameters<T> {
     fn default() -> Self {
         Self {
             reference_pressure: Pressure::pascals(T::from_f64(101_325.0).unwrap_or_else(|| T::zero())),
             reference_velocity: T::one(),
             reference_length: T::one(),
             reynolds_number: None,
-            gravity: Some(Vector3::new(T::zero(), T::from_f64(-9.81).unwrap_or_else(|| T::zero()), T::zero())),
+            gravity: Some(Vector3::new(T::zero(), T::from_f64(-crate::constants::E_WALL_FUNCTION1).unwrap_or_else(|| T::zero()), T::zero())),
             time_step: None,
         }
     }
@@ -237,7 +237,7 @@ pub enum SimulationState {
 
 /// Mesh aggregate for managing mesh-related entities
 #[derive(Debug, Clone)]
-pub struct MeshAggregate<T: RealField> {
+pub struct MeshAggregate<T: RealField + Copy> {
     /// Mesh identifier
     pub id: String,
     /// Mesh metadata
@@ -248,7 +248,7 @@ pub struct MeshAggregate<T: RealField> {
     pub state: MeshState,
 }
 
-impl<T: RealField> MeshAggregate<T> {
+impl<T: RealField + Copy> MeshAggregate<T> {
     /// Create a new mesh aggregate
     #[must_use]
     pub fn new(id: String) -> Self {
@@ -319,7 +319,7 @@ pub enum MeshType {
 
 /// Mesh quality metrics
 #[derive(Debug, Clone)]
-pub struct MeshQualityMetrics<T: RealField> {
+pub struct MeshQualityMetrics<T: RealField + Copy> {
     /// Overall quality score (0-1)
     pub overall_quality_score: T,
     /// Minimum aspect ratio

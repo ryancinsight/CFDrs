@@ -7,7 +7,7 @@ use std::iter::Sum;
 
 /// Statistical summary of quality metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QualityStatistics<T: RealField> {
+pub struct QualityStatistics<T: RealField + Copy> {
     /// Minimum value
     pub min: T,
     /// Maximum value  
@@ -68,7 +68,7 @@ impl<T: RealField + Float + Sum + FromPrimitive> QualityStatistics<T> {
     }
 }
 
-impl<T: RealField> Default for QualityStatistics<T> {
+impl<T: RealField + Copy> Default for QualityStatistics<T> {
     fn default() -> Self {
         Self {
             min: T::zero(),
@@ -84,7 +84,7 @@ impl<T: RealField> Default for QualityStatistics<T> {
 }
 
 /// Running statistics calculator (Welford's algorithm)
-pub struct RunningStats<T: RealField> {
+pub struct RunningStats<T: RealField + Copy> {
     count: usize,
     mean: T,
     m2: T,

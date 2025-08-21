@@ -8,14 +8,14 @@ use cfd_core::Result;
 use super::{LiteratureValidation, ValidationReport};
 
 /// Patankar's lid-driven cavity test case
-pub struct PatankarLidDrivenCavity<T: RealField> {
+pub struct PatankarLidDrivenCavity<T: RealField + Copy> {
     /// Reynolds number
     reynolds: T,
     /// Grid size
     grid_size: usize,
 }
 
-impl<T: RealField + FromPrimitive> PatankarLidDrivenCavity<T> {
+impl<T: RealField + FromPrimitive + Copy> PatankarLidDrivenCavity<T> {
     /// Create new test case
     pub fn new(reynolds: T, grid_size: usize) -> Self {
         Self {
@@ -56,7 +56,7 @@ impl<T: RealField + FromPrimitive> PatankarLidDrivenCavity<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive> LiteratureValidation<T> for PatankarLidDrivenCavity<T> {
+impl<T: RealField + FromPrimitive + Copy> LiteratureValidation<T> for PatankarLidDrivenCavity<T> {
     fn validate(&self) -> Result<ValidationReport<T>> {
         // This would run actual SIMPLE algorithm and compare
         // For now, return placeholder

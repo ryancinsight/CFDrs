@@ -18,7 +18,7 @@ use crate::grid::{Grid2D, StructuredGrid2D};
 /// Finite Difference Method solver configuration
 /// Uses unified SolverConfig as base to follow SSOT principle
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FdmConfig<T: RealField> {
+pub struct FdmConfig<T: RealField + Copy> {
     /// Base solver configuration (SSOT)
     pub base: cfd_core::solver::SolverConfig<T>,
 }
@@ -46,31 +46,31 @@ fn solve_gauss_seidel<T: RealField + FromPrimitive + Copy>(
             // Sum contributions from other variables and find diagonal
             for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
                 if row_idx == *col_idx {
-                    diagonal = value.clone();
+                    diagonal = value;
                 } else {
-                    sum += value.clone() * solution[*col_idx].clone();
+                    sum += value * solution[*col_idx];
                 }
             }
 
             // Check for zero diagonal (singular matrix)
-            if diagonal.clone().abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
+            if diagonal.abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
                 return Err(Error::InvalidConfiguration(
                     format!("{}: Singular matrix detected (zero diagonal)", solver_name)
                 ));
             }
 
             // Update solution
-            let current_value = (rhs[row_idx].clone() - sum) / diagonal;
-            let residual = (current_value.clone() - solution[row_idx].clone()).abs();
+            let current_value = (rhs[row_idx] - sum) / diagonal;
+            let residual = (current_value - solution[row_idx]).abs();
 
             if residual > max_residual {
                 max_residual = residual;
             }
 
             // Apply relaxation
-            solution[row_idx] = solution[row_idx].clone() +
-                              config.relaxation_factor().clone() *
-                              (current_value - solution[row_idx].clone());
+            solution[row_idx] = solution[row_idx] +
+                              config.relaxation_factor() *
+                              (current_value - solution[row_idx]);
         }
 
         if config.verbose() && iteration % 100 == 0 {
@@ -123,7 +123,7 @@ impl<T: RealField + Copy> FdmConfig<T> {
 
 /// Poisson equation solver using finite differences
 /// Solves: ∇²φ = f with specified boundary conditions
-pub struct PoissonSolver<T: RealField> {
+pub struct PoissonSolver<T: RealField + Copy> {
     config: FdmConfig<T>,
 }
 
@@ -154,7 +154,7 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
             if let Some(boundary_value) = boundary_values.get(&(i, j)) {
                 // Dirichlet boundary condition: φ = boundary_value
                 matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
-                rhs[linear_idx] = boundary_value.clone();
+                rhs[linear_idx] = boundary_value;
             } else {
                 // Interior point: discretize Laplacian
                 self.add_laplacian_stencil(
@@ -176,7 +176,7 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
         // Convert solution back to grid coordinates
         let mut result = HashMap::new();
         for (linear_idx, (i, j)) in grid.iter().enumerate() {
-            result.insert((i, j), solution[linear_idx].clone());
+            result.insert((i, j), solution[linear_idx]);
         }
 
         Ok(result)
@@ -194,21 +194,21 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
         source: &HashMap<(usize, usize), T>,
     ) -> Result<()> {
         let (dx, dy) = grid.spacing();
-        let dx2 = dx.clone() * dx.clone();
-        let dy2 = dy.clone() * dy.clone();
+        let dx2 = dx * dx;
+        let dy2 = dy * dy;
 
         // Central coefficient: -2/dx² - 2/dy²
-        let center_coeff = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) / dx2.clone()
-                          - T::from_f64(2.0).unwrap_or_else(|| T::zero()) / dy2.clone();
+        let center_coeff = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) / dx2
+                          - T::from_f64(2.0).unwrap_or_else(|| T::zero()) / dy2;
         matrix_builder.add_entry(linear_idx, linear_idx, center_coeff)?;
 
         // Use iterator for neighbor contributions with zero-copy access
         // Define stencil neighbors: (di, dj, coefficient)
         let neighbors = [
-            (i.wrapping_sub(1), j, T::one() / dx2.clone(), i > 0),                    // Left
-            (i + 1, j, T::one() / dx2.clone(), i < grid.nx() - 1),                   // Right  
-            (i, j.wrapping_sub(1), T::one() / dy2.clone(), j > 0),                   // Bottom
-            (i, j + 1, T::one() / dy2.clone(), j < grid.ny() - 1),                   // Top
+            (i.wrapping_sub(1), j, T::one() / dx2, i > 0),                    // Left
+            (i + 1, j, T::one() / dx2, i < grid.nx() - 1),                   // Right  
+            (i, j.wrapping_sub(1), T::one() / dy2, j > 0),                   // Bottom
+            (i, j + 1, T::one() / dy2, j < grid.ny() - 1),                   // Top
         ];
 
         // Process neighbors using iterator filter and for_each for vectorization
@@ -216,7 +216,7 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
             .filter(|(_, _, _, valid)| *valid)
             .try_for_each(|(ni, nj, coeff, _)| {
                 let neighbor_idx = self.linear_index(grid, *ni, *nj);
-                matrix_builder.add_entry(linear_idx, neighbor_idx, coeff.clone())
+                matrix_builder.add_entry(linear_idx, neighbor_idx, coeff)
             })?;
 
         // Set RHS from source term using get with default
@@ -235,7 +235,7 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
 
 /// Advection-diffusion equation solver
 /// Solves: ∂φ/∂t + u·∇φ = α∇²φ + S
-pub struct AdvectionDiffusionSolver<T: RealField> {
+pub struct AdvectionDiffusionSolver<T: RealField + Copy> {
     config: FdmConfig<T>,
 }
 
@@ -264,7 +264,7 @@ impl<T: RealField + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
             if let Some(boundary_value) = boundary_values.get(&(i, j)) {
                 // Dirichlet boundary condition
                 matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
-                rhs[linear_idx] = boundary_value.clone();
+                rhs[linear_idx] = boundary_value;
             } else {
                 // Interior point: discretize advection-diffusion operator
                 self.add_advection_diffusion_stencil(
@@ -276,7 +276,7 @@ impl<T: RealField + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
                     linear_idx,
                     velocity_x,
                     velocity_y,
-                    diffusivity.clone(),
+                    diffusivity,
                     source,
                 )?;
             }
@@ -289,7 +289,7 @@ impl<T: RealField + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
         // Convert solution back to grid coordinates
         let mut result = HashMap::new();
         for (linear_idx, (i, j)) in grid.iter().enumerate() {
-            result.insert((i, j), solution[linear_idx].clone());
+            result.insert((i, j), solution[linear_idx]);
         }
 
         Ok(result)
@@ -310,15 +310,15 @@ impl<T: RealField + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
         source: &HashMap<(usize, usize), T>,
     ) -> Result<()> {
         let (dx, dy) = grid.spacing();
-        let dx2 = dx.clone() * dx.clone();
-        let dy2 = dy.clone() * dy.clone();
+        let dx2 = dx * dx;
+        let dy2 = dy * dy;
 
         let u = velocity_x.get(&(i, j)).cloned().unwrap_or(T::zero());
         let v = velocity_y.get(&(i, j)).cloned().unwrap_or(T::zero());
 
         // Central coefficient (diffusion part): -2α/dx² - 2α/dy²
-        let mut center_coeff = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) * diffusivity.clone() / dx2.clone()
-                              - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * diffusivity.clone() / dy2.clone();
+        let mut center_coeff = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) * diffusivity / dx2
+                              - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * diffusivity / dy2;
 
         // Add neighbor contributions
         let neighbors = grid.neighbors(i, j);
@@ -328,39 +328,39 @@ impl<T: RealField + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
 
             if ni == i + 1 {
                 // Right neighbor: diffusion + upwind advection
-                coeff += diffusivity.clone() / dx2.clone();
+                coeff += diffusivity / dx2;
                 // For positive u (left-to-right flow), use backward difference (upwind)
                 if u < T::zero() {
                     // Negative velocity: flow from right to left, use forward difference
-                    coeff += u.clone() / dx.clone();
-                    center_coeff -= u.clone() / dx.clone();
+                    coeff += u / dx;
+                    center_coeff -= u / dx;
                 }
             } else if ni + 1 == i {
                 // Left neighbor: diffusion + upwind advection
-                coeff += diffusivity.clone() / dx2.clone();
+                coeff += diffusivity / dx2;
                 // For positive u (left-to-right flow), use backward difference (upwind)
                 if u > T::zero() {
                     // Positive velocity: flow from left to right, use backward difference
-                    coeff += u.clone() / dx.clone();
-                    center_coeff -= u.clone() / dx.clone();
+                    coeff += u / dx;
+                    center_coeff -= u / dx;
                 }
             } else if nj == j + 1 {
                 // Top neighbor: diffusion + upwind advection
-                coeff += diffusivity.clone() / dy2.clone();
+                coeff += diffusivity / dy2;
                 // For positive v (bottom-to-top flow), use backward difference (upwind)
                 if v < T::zero() {
                     // Negative velocity: flow from top to bottom, use forward difference
-                    coeff += v.clone() / dy.clone();
-                    center_coeff -= v.clone() / dy.clone();
+                    coeff += v / dy;
+                    center_coeff -= v / dy;
                 }
             } else if nj + 1 == j {
                 // Bottom neighbor: diffusion + upwind advection
-                coeff += diffusivity.clone() / dy2.clone();
+                coeff += diffusivity / dy2;
                 // For positive v (bottom-to-top flow), use backward difference (upwind)
                 if v > T::zero() {
                     // Positive velocity: flow from bottom to top, use backward difference
-                    coeff += v.clone() / dy.clone();
-                    center_coeff -= v.clone() / dy.clone();
+                    coeff += v / dy;
+                    center_coeff -= v / dy;
                 }
             }
 
@@ -371,7 +371,7 @@ impl<T: RealField + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
 
         // Set RHS from source term
         if let Some(source_value) = source.get(&(i, j)) {
-            rhs[linear_idx] = source_value.clone();
+            rhs[linear_idx] = source_value;
         }
 
         Ok(())

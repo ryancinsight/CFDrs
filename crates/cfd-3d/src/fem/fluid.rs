@@ -5,7 +5,7 @@ use num_traits::FromPrimitive;
 
 /// Fluid properties for FEM calculations
 #[derive(Debug, Clone)]
-pub struct FluidProperties<T: RealField> {
+pub struct FluidProperties<T: RealField + Copy> {
     /// Dynamic viscosity
     pub mu: T,
     /// Density
@@ -14,10 +14,10 @@ pub struct FluidProperties<T: RealField> {
     pub nu: T,
 }
 
-impl<T: RealField + FromPrimitive> FluidProperties<T> {
+impl<T: RealField + FromPrimitive + Copy> FluidProperties<T> {
     /// Create new fluid properties
     pub fn new(mu: T, rho: T) -> Self {
-        let nu = mu.clone() / rho.clone();
+        let nu = mu / rho;
         Self { mu, rho, nu }
     }
     
@@ -25,12 +25,12 @@ impl<T: RealField + FromPrimitive> FluidProperties<T> {
     /// σ = -pI + 2μ ε̇
     pub fn stress_tensor(&self, pressure: T, strain_rate: &Matrix3<T>) -> Matrix3<T> {
         let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
-        let mut stress = strain_rate * (two * self.mu.clone());
+        let mut stress = strain_rate * (two * self.mu);
         
         // Add pressure contribution to diagonal
-        stress[(0, 0)] = stress[(0, 0)].clone() - pressure.clone();
-        stress[(1, 1)] = stress[(1, 1)].clone() - pressure.clone();
-        stress[(2, 2)] = stress[(2, 2)].clone() - pressure.clone();
+        stress[(0, 0)] = stress[(0, 0)] - pressure;
+        stress[(1, 1)] = stress[(1, 1)] - pressure;
+        stress[(2, 2)] = stress[(2, 2)] - pressure;
         
         stress
     }

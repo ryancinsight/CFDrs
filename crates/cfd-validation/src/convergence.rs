@@ -10,7 +10,7 @@ use num_traits::cast::{FromPrimitive, ToPrimitive};
 
 /// Convergence study results
 #[derive(Debug, Clone)]
-pub struct ConvergenceStudy<T: RealField> {
+pub struct ConvergenceStudy<T: RealField + Copy> {
     /// Grid sizes used in the study
     pub grid_sizes: Vec<T>,
     /// Corresponding errors
@@ -25,7 +25,7 @@ pub struct ConvergenceStudy<T: RealField> {
     pub extrapolated_value: Option<T>,
 }
 
-impl<T: RealField + FromPrimitive> ConvergenceStudy<T> {
+impl<T: RealField + FromPrimitive + Copy> ConvergenceStudy<T> {
     /// Create a new convergence study
     pub fn new(grid_sizes: Vec<T>, errors: Vec<T>) -> Result<Self> {
         if grid_sizes.len() != errors.len() || grid_sizes.len() < 2 {
@@ -38,7 +38,7 @@ impl<T: RealField + FromPrimitive> ConvergenceStudy<T> {
         let convergence_rate = ErrorAnalysis::convergence_rate(&grid_sizes, &errors)?;
 
         // Compute error coefficient and R-squared
-        let (error_coefficient, r_squared) = Self::compute_fit_quality(&grid_sizes, &errors, convergence_rate.clone())?;
+        let (error_coefficient, r_squared) = Self::compute_fit_quality(&grid_sizes, &errors, convergence_rate)?;
 
         Ok(Self {
             grid_sizes,
@@ -61,35 +61,35 @@ impl<T: RealField + FromPrimitive> ConvergenceStudy<T> {
         // Single-pass calculation of all required statistics
         let (sum_log_e, sum_log_h, sum_log_e_sq, _sum_log_h_sq) = errors.iter()
             .zip(grid_sizes.iter())
-            .map(|(e, h)| (e.clone().ln(), h.clone().ln()))
+            .map(|(e, h)| (e.ln(), h.ln()))
             .fold(
                 (T::zero(), T::zero(), T::zero(), T::zero()),
                 |(acc_e, acc_h, acc_e_sq, acc_h_sq), (log_e, log_h)| {
                     (
-                        acc_e + log_e.clone(),
-                        acc_h + log_h.clone(),
-                        acc_e_sq + log_e.clone() * log_e,
-                        acc_h_sq + log_h.clone() * log_h
+                        acc_e + log_e,
+                        acc_h + log_h,
+                        acc_e_sq + log_e * log_e,
+                        acc_h_sq + log_h * log_h
                     )
                 }
             );
 
-        let log_c = (sum_log_e.clone() - convergence_rate.clone() * sum_log_h) / n.clone();
-        let error_coefficient = log_c.clone().exp();
+        let log_c = (sum_log_e - convergence_rate * sum_log_h) / n;
+        let error_coefficient = log_c.exp();
 
         // R-squared calculation using single-pass statistics
-        let mean_log_error = sum_log_e / n.clone();
-        let ss_tot = sum_log_e_sq - n.clone() * mean_log_error.clone() * mean_log_error;
+        let mean_log_error = sum_log_e / n;
+        let ss_tot = sum_log_e_sq - n * mean_log_error * mean_log_error;
         
         // Calculate residual sum of squares in single pass
         let ss_res = errors.iter()
             .zip(grid_sizes.iter())
             .map(|(e, h)| {
-                let log_e = e.clone().ln();
-                let log_h = h.clone().ln();
-                let predicted = log_c.clone() + convergence_rate.clone() * log_h;
+                let log_e = e.ln();
+                let log_h = h.ln();
+                let predicted = log_c + convergence_rate * log_h;
                 let diff = log_e - predicted;
-                diff.clone() * diff
+                diff * diff
             })
             .fold(T::zero(), |acc, x| acc + x);
 
@@ -120,19 +120,19 @@ impl<T: RealField + FromPrimitive> ConvergenceStudy<T> {
 
     /// Get the convergence order with configurable tolerance
     pub fn convergence_order_with_tolerance(&self, tolerance: T) -> ConvergenceOrder<T> {
-        let rate = self.convergence_rate.clone();
+        let rate = self.convergence_rate;
         let one = T::one();
         let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
         let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
 
-        if (rate.clone() - one).abs() < tolerance {
+        if (rate - one).abs() < tolerance {
             ConvergenceOrder::FirstOrder
-        } else if (rate.clone() - two).abs() < tolerance {
+        } else if (rate - two).abs() < tolerance {
             ConvergenceOrder::SecondOrder
-        } else if (rate.clone() - three).abs() < tolerance {
+        } else if (rate - three).abs() < tolerance {
             ConvergenceOrder::ThirdOrder
-        } else if (rate.clone() - four).abs() < tolerance {
+        } else if (rate - four).abs() < tolerance {
             ConvergenceOrder::FourthOrder
         } else {
             ConvergenceOrder::Other(rate)
@@ -141,7 +141,7 @@ impl<T: RealField + FromPrimitive> ConvergenceStudy<T> {
 
     /// Predict error for a given grid size
     pub fn predict_error(&self, grid_size: T) -> T {
-        self.error_coefficient.clone() * grid_size.powf(self.convergence_rate.clone())
+        self.error_coefficient * grid_size.powf(self.convergence_rate)
     }
 
     /// Estimate grid size needed to achieve target error
@@ -151,7 +151,7 @@ impl<T: RealField + FromPrimitive> ConvergenceStudy<T> {
         }
 
         let epsilon = T::from_f64(1e-9).unwrap_or_else(|| T::zero());
-        if self.convergence_rate.clone().abs() < epsilon {
+        if self.convergence_rate.abs() < epsilon {
             return Err(Error::InvalidInput("Convergence rate is zero or near-zero".to_string()));
         }
 
@@ -159,13 +159,13 @@ impl<T: RealField + FromPrimitive> ConvergenceStudy<T> {
             return Err(Error::InvalidInput("Target error must be positive".to_string()));
         }
 
-        Ok((target_error / self.error_coefficient.clone()).powf(T::one() / self.convergence_rate.clone()))
+        Ok((target_error / self.error_coefficient).powf(T::one() / self.convergence_rate))
     }
 }
 
 /// Convergence order classification
 #[derive(Debug, Clone, PartialEq)]
-pub enum ConvergenceOrder<T: RealField> {
+pub enum ConvergenceOrder<T: RealField + Copy> {
     /// First-order convergence (p ≈ 1)
     FirstOrder,
     /// Second-order convergence (p ≈ 2)
@@ -179,7 +179,7 @@ pub enum ConvergenceOrder<T: RealField> {
 }
 
 /// Richardson extrapolation for improved accuracy
-pub struct RichardsonExtrapolation<T: RealField> {
+pub struct RichardsonExtrapolation<T: RealField + Copy> {
     /// Convergence rate (order of accuracy)
     pub convergence_rate: T,
 }
@@ -202,8 +202,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive> RichardsonExtrapolation<T> {
         fine_solution: T,
         grid_ratio: T, // h_coarse / h_fine
     ) -> T {
-        let r_p = grid_ratio.powf(self.convergence_rate.clone());
-        (r_p.clone() * fine_solution - coarse_solution) / (r_p - T::one())
+        let r_p = grid_ratio.powf(self.convergence_rate);
+        (r_p * fine_solution - coarse_solution) / (r_p - T::one())
     }
 
     /// Extrapolate using two solutions (backward compatibility)
@@ -238,11 +238,11 @@ impl<T: RealField + FromPrimitive + ToPrimitive> RichardsonExtrapolation<T> {
         tolerance: T,
     ) -> Result<T> {
         // Use the finest two grids for extrapolation
-        let extrapolated = self.extrapolate_two_grids(medium_solution.clone(), fine_solution, grid_ratio.clone());
+        let extrapolated = self.extrapolate_two_grids(medium_solution, fine_solution, grid_ratio);
 
         // Verify consistency with the coarse grid
-        let expected_coarse = self.extrapolate_two_grids(extrapolated.clone(), medium_solution, grid_ratio);
-        let relative_error = (expected_coarse - coarse_solution.clone()).abs() / coarse_solution.abs();
+        let expected_coarse = self.extrapolate_two_grids(extrapolated, medium_solution, grid_ratio);
+        let relative_error = (expected_coarse - coarse_solution).abs() / coarse_solution.abs();
 
         if relative_error > tolerance {
             return Err(Error::InvalidState(
@@ -262,16 +262,16 @@ impl<T: RealField + FromPrimitive + ToPrimitive> RichardsonExtrapolation<T> {
         }
 
         if solutions.len() == 2 {
-            let grid_ratio = grid_sizes[0].clone() / grid_sizes[1].clone();
-            Ok(self.extrapolate_two_grids(solutions[0].clone(), solutions[1].clone(), grid_ratio))
+            let grid_ratio = grid_sizes[0] / grid_sizes[1];
+            Ok(self.extrapolate_two_grids(solutions[0], solutions[1], grid_ratio))
         } else {
             // Use the finest three grids
             let n = solutions.len();
-            let grid_ratio = grid_sizes[n-2].clone() / grid_sizes[n-1].clone();
+            let grid_ratio = grid_sizes[n-2] / grid_sizes[n-1];
             self.extrapolate_three_grids(
-                solutions[n-3].clone(),
-                solutions[n-2].clone(),
-                solutions[n-1].clone(),
+                solutions[n-3],
+                solutions[n-2],
+                solutions[n-1],
                 grid_ratio,
             )
         }
@@ -279,12 +279,12 @@ impl<T: RealField + FromPrimitive + ToPrimitive> RichardsonExtrapolation<T> {
 }
 
 /// Grid convergence index (GCI) analysis
-pub struct GridConvergenceIndex<T: RealField> {
+pub struct GridConvergenceIndex<T: RealField + Copy> {
     /// Safety factor (typically 1.25 for 3+ grids, 3.0 for 2 grids)
     pub safety_factor: T,
 }
 
-impl<T: RealField + FromPrimitive> GridConvergenceIndex<T> {
+impl<T: RealField + FromPrimitive + Copy> GridConvergenceIndex<T> {
     /// Create new GCI analysis
     pub fn new(safety_factor: T) -> Self {
         Self { safety_factor }
@@ -308,10 +308,10 @@ impl<T: RealField + FromPrimitive> GridConvergenceIndex<T> {
         grid_ratio: T,
         convergence_rate: T,
     ) -> T {
-        let relative_error = (coarse_solution.clone() - fine_solution.clone()).abs() / fine_solution.abs();
+        let relative_error = (coarse_solution - fine_solution).abs() / fine_solution.abs();
         let r_p = grid_ratio.powf(convergence_rate);
 
-        self.safety_factor.clone() * relative_error / (r_p - T::one())
+        self.safety_factor * relative_error / (r_p - T::one())
     }
 
     /// Check if solutions are in asymptotic range
@@ -355,7 +355,7 @@ impl ConvergenceAnalysis {
         let errors = if let Some(reference) = reference_solution {
             // Compute errors against reference solution
             solutions.iter()
-                .map(|sol| metric.compute_error(&[sol.clone()], reference).unwrap_or(T::zero()))
+                .map(|sol| metric.compute_error(&[sol], reference).unwrap_or(T::zero()))
                 .collect()
         } else {
             // Use Richardson extrapolation to estimate errors
@@ -363,13 +363,13 @@ impl ConvergenceAnalysis {
             let mut errors = Vec::new();
 
             for i in 0..solutions.len() - 1 {
-                let grid_ratio = grid_sizes[i].clone() / grid_sizes[i + 1].clone();
+                let grid_ratio = grid_sizes[i] / grid_sizes[i + 1];
                 let extrapolated = richardson.extrapolate_two_grids(
-                    solutions[i].clone(),
-                    solutions[i + 1].clone(),
+                    solutions[i],
+                    solutions[i + 1],
                     grid_ratio,
                 );
-                let error = (solutions[i].clone() - extrapolated).abs();
+                let error = (solutions[i] - extrapolated).abs();
                 errors.push(error);
             }
 
@@ -377,16 +377,16 @@ impl ConvergenceAnalysis {
              // For the finest grid (h1) and the next one (h2), the error can be estimated as:
              // error1 ≈ |f1 - f2| / ( (h2/h1)^p - 1 )
              if errors.len() >= 2 && solutions.len() >= 2 {
-                 let h1 = grid_sizes[solutions.len() - 1].clone();
-                 let h2 = grid_sizes[solutions.len() - 2].clone();
-                 let f1 = solutions[solutions.len() - 1].clone();
-                 let f2 = solutions[solutions.len() - 2].clone();
+                 let h1 = grid_sizes[solutions.len() - 1];
+                 let h2 = grid_sizes[solutions.len() - 2];
+                 let f1 = solutions[solutions.len() - 1];
+                 let f2 = solutions[solutions.len() - 2];
                  
                  // Use computed convergence rate from existing data
                  let p = if errors.len() >= 2 {
                      // Estimate convergence rate from last two error points
-                     let h_ratio = grid_sizes[errors.len() - 2].clone() / grid_sizes[errors.len() - 1].clone();
-                     let e_ratio = errors[errors.len() - 2].clone() / errors[errors.len() - 1].clone();
+                     let h_ratio = grid_sizes[errors.len() - 2] / grid_sizes[errors.len() - 1];
+                     let e_ratio = errors[errors.len() - 2] / errors[errors.len() - 1];
                      e_ratio.ln() / h_ratio.ln()
                  } else {
                      T::from_f64(2.0).unwrap_or_else(|| T::zero()) // Assume second-order as default
@@ -395,17 +395,17 @@ impl ConvergenceAnalysis {
                  let h_ratio = h2 / h1;
                  let denominator = h_ratio.powf(p) - T::one();
                  
-                 if denominator.clone().abs() > T::from_f64(1e-10).unwrap_or_else(|| T::zero()) {
+                 if denominator.abs() > T::from_f64(1e-10).unwrap_or_else(|| T::zero()) {
                      let finest_error = (f1 - f2).abs() / denominator;
                      errors.push(finest_error);
                  } else {
                      // Fallback to simple extrapolation if denominator is too small
-                     let ratio = errors[errors.len() - 1].clone() / errors[errors.len() - 2].clone();
-                     errors.push(errors[errors.len() - 1].clone() * ratio);
+                     let ratio = errors[errors.len() - 1] / errors[errors.len() - 2];
+                     errors.push(errors[errors.len() - 1] * ratio);
                  }
              } else {
                  // Standard fallback for insufficient data
-                 errors.push(errors[0].clone() * T::from_f64(0.5).unwrap_or_else(|| T::zero()));
+                 errors.push(errors[0] * T::from_f64(0.5).unwrap_or_else(|| T::zero()));
              }
 
             errors
@@ -415,7 +415,7 @@ impl ConvergenceAnalysis {
     }
 
     /// Recommend next grid size for convergence study
-    pub fn recommend_next_grid_size<T: RealField + FromPrimitive>(
+    pub fn recommend_next_grid_size<T: RealField + FromPrimitive + Copy>(
         current_grid_sizes: &[T],
         target_error_reduction: T,
         convergence_rate: T,
@@ -424,14 +424,14 @@ impl ConvergenceAnalysis {
             return T::one();
         }
 
-        let finest_grid = current_grid_sizes[current_grid_sizes.len() - 1].clone();
+        let finest_grid = current_grid_sizes[current_grid_sizes.len() - 1];
         let refinement_ratio = target_error_reduction.powf(T::one() / convergence_rate);
 
         finest_grid / refinement_ratio
     }
 
     /// Check convergence criteria
-    pub fn check_convergence<T: RealField>(
+    pub fn check_convergence<T: RealField + Copy>(
         errors: &[T],
         absolute_tolerance: T,
         relative_tolerance: T,
@@ -445,7 +445,7 @@ impl ConvergenceAnalysis {
         // Check absolute convergence
         if *latest_error <= absolute_tolerance {
             return ConvergenceStatus::Converged {
-                final_error: latest_error.clone(),
+                final_error: latest_error,
                 criterion: ConvergenceCriterion::Absolute,
             };
         }
@@ -453,25 +453,25 @@ impl ConvergenceAnalysis {
         // Check relative convergence (if we have multiple errors)
         if errors.len() >= 2 {
             let previous_error = &errors[errors.len() - 2];
-            let relative_change = (latest_error.clone() - previous_error.clone()).abs() / previous_error.abs();
+            let relative_change = (latest_error - previous_error).abs() / previous_error.abs();
 
             if relative_change <= relative_tolerance {
                 return ConvergenceStatus::Converged {
-                    final_error: latest_error.clone(),
+                    final_error: latest_error,
                     criterion: ConvergenceCriterion::Relative,
                 };
             }
         }
 
         ConvergenceStatus::NotConverged {
-            current_error: latest_error.clone(),
+            current_error: latest_error,
         }
     }
 }
 
 /// Convergence status
 #[derive(Debug, Clone, PartialEq)]
-pub enum ConvergenceStatus<T: RealField> {
+pub enum ConvergenceStatus<T: RealField + Copy> {
     /// Convergence achieved
     Converged {
         /// Final error value

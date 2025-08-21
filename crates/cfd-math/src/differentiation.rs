@@ -24,12 +24,12 @@ pub enum FiniteDifferenceScheme {
 }
 
 /// Finite difference operator for 1D problems
-pub struct FiniteDifference<T: RealField> {
+pub struct FiniteDifference<T: RealField + Copy> {
     scheme: FiniteDifferenceScheme,
     spacing: T,
 }
 
-impl<T: RealField + FromPrimitive> FiniteDifference<T> {
+impl<T: RealField + FromPrimitive + Copy> FiniteDifference<T> {
     /// Create a new finite difference operator
     pub fn new(scheme: FiniteDifferenceScheme, spacing: T) -> Self {
         Self { scheme, spacing }
@@ -60,7 +60,7 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
 
         let n = values.len();
         let mut result = DVector::zeros(n);
-        let inv_spacing = T::one() / self.spacing.clone();
+        let inv_spacing = T::one() / self.spacing;
 
         match self.scheme {
             FiniteDifferenceScheme::Forward => {
@@ -68,40 +68,40 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
                 values.windows(2)
                     .enumerate()
                     .for_each(|(i, window)| {
-                        result[i] = (window[1].clone() - window[0].clone()) * inv_spacing.clone();
+                        result[i] = (window[1] - window[0]) * inv_spacing;
                     });
 
                 // Backward difference for last point
                 if n > 1 {
-                    result[n-1] = (values[n-1].clone() - values[n-2].clone()) * inv_spacing;
+                    result[n-1] = (values[n-1] - values[n-2]) * inv_spacing;
                 }
             },
             FiniteDifferenceScheme::Backward => {
                 // Forward difference for first point
-                result[0] = (values[1].clone() - values[0].clone()) * inv_spacing.clone();
+                result[0] = (values[1] - values[0]) * inv_spacing;
 
                 // Use windows() for backward differences: (values[i] - values[i-1])
                 values.windows(2)
                     .enumerate()
                     .for_each(|(i, window)| {
-                        result[i + 1] = (window[1].clone() - window[0].clone()) * inv_spacing.clone();
+                        result[i + 1] = (window[1] - window[0]) * inv_spacing;
                     });
             },
             FiniteDifferenceScheme::Central => {
                 // Forward difference for first point
-                result[0] = (values[1].clone() - values[0].clone()) * inv_spacing.clone();
+                result[0] = (values[1] - values[0]) * inv_spacing;
 
                 // Central difference using windows(3) for interior points
-                let two_inv_spacing = inv_spacing.clone() / T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
+                let two_inv_spacing = inv_spacing / T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
                 values.windows(3)
                     .enumerate()
                     .for_each(|(i, window)| {
-                        result[i + 1] = (window[2].clone() - window[0].clone()) * two_inv_spacing.clone();
+                        result[i + 1] = (window[2] - window[0]) * two_inv_spacing;
                     });
 
                 // Backward difference for last point
                 if n > 1 {
-                    result[n-1] = (values[n-1].clone() - values[n-2].clone()) * inv_spacing;
+                    result[n-1] = (values[n-1] - values[n-2]) * inv_spacing;
                 }
             },
             FiniteDifferenceScheme::ForwardSecondOrder => {
@@ -120,9 +120,9 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
                     .take(n.saturating_sub(2))
                     .enumerate()
                     .for_each(|(i, r)| {
-                        *r = (-three.clone() * values[i].clone() +
-                              four.clone() * values[i+1].clone() -
-                              values[i+2].clone()) / (two.clone() * self.spacing.clone());
+                        *r = (-three * values[i] +
+                              four * values[i+1] -
+                              values[i+2]) / (two * self.spacing);
                     });
 
                 // Use central difference for remaining points
@@ -132,8 +132,8 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
                     .for_each(|(idx, r)| {
                         let i = idx + n.saturating_sub(2);
                         if i > 0 && i < n-1 {
-                            *r = (values[i+1].clone() - values[i-1].clone()) /
-                                 (two.clone() * self.spacing.clone());
+                            *r = (values[i+1] - values[i-1]) /
+                                 (two * self.spacing);
                         }
                     });
             },
@@ -154,8 +154,8 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
                     .enumerate()
                     .for_each(|(i, r)| {
                         if i > 0 && i < n-1 {
-                            *r = (values[i+1].clone() - values[i-1].clone()) /
-                                 (two.clone() * self.spacing.clone());
+                            *r = (values[i+1] - values[i-1]) /
+                                 (two * self.spacing);
                         }
                     });
 
@@ -165,9 +165,9 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
                     .enumerate()
                     .for_each(|(idx, r)| {
                         let i = idx + 2;
-                        *r = (values[i-2].clone() -
-                              four.clone() * values[i-1].clone() +
-                              three.clone() * values[i].clone()) / (two.clone() * self.spacing.clone());
+                        *r = (values[i-2] -
+                              four * values[i-1] +
+                              three * values[i]) / (two * self.spacing);
                     });
             },
         }
@@ -185,18 +185,18 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
 
         let n = values.len();
         let mut result = DVector::zeros(n);
-        let h_squared = self.spacing.clone() * self.spacing.clone();
+        let h_squared = self.spacing * self.spacing;
 
         // Use forward difference for first point
-        result[0] = (values[2].clone() - T::from_f64(constants::TWO).unwrap_or_else(|| T::zero()) * values[1].clone() + values[0].clone()) / h_squared.clone();
+        result[0] = (values[2] - T::from_f64(constants::TWO).unwrap_or_else(|| T::zero()) * values[1] + values[0]) / h_squared;
 
         // Central difference for interior points
         for i in 1..n-1 {
-            result[i] = (values[i+1].clone() - T::from_f64(constants::TWO).unwrap_or_else(|| T::zero()) * values[i].clone() + values[i-1].clone()) / h_squared.clone();
+            result[i] = (values[i+1] - T::from_f64(constants::TWO).unwrap_or_else(|| T::zero()) * values[i] + values[i-1]) / h_squared;
         }
 
         // Use backward difference for last point
-        result[n-1] = (values[n-1].clone() - T::from_f64(constants::TWO).unwrap_or_else(|| T::zero()) * values[n-2].clone() + values[n-3].clone()) / h_squared.clone();
+        result[n-1] = (values[n-1] - T::from_f64(constants::TWO).unwrap_or_else(|| T::zero()) * values[n-2] + values[n-3]) / h_squared;
 
         Ok(result)
     }
@@ -208,24 +208,24 @@ impl<T: RealField + FromPrimitive> FiniteDifference<T> {
 
     /// Get the grid spacing
     pub fn spacing(&self) -> T {
-        self.spacing.clone()
+        self.spacing
     }
 }
 
-impl<T: RealField + FromPrimitive> Default for FiniteDifference<T> {
+impl<T: RealField + FromPrimitive + Copy> Default for FiniteDifference<T> {
     fn default() -> Self {
         Self::central(T::one())
     }
 }
 
 /// Gradient computation for multi-dimensional fields
-pub struct Gradient<T: RealField> {
+pub struct Gradient<T: RealField + Copy> {
     dx: T,
     dy: T,
     dz: T,
 }
 
-impl<T: RealField + FromPrimitive> Gradient<T> {
+impl<T: RealField + FromPrimitive + Copy> Gradient<T> {
     /// Create new gradient operator
     pub fn new(dx: T, dy: T, dz: T) -> Self {
         Self { dx, dy, dz }
@@ -233,14 +233,14 @@ impl<T: RealField + FromPrimitive> Gradient<T> {
 
     /// Create uniform spacing gradient operator
     pub fn uniform(spacing: T) -> Self {
-        Self::new(spacing.clone(), spacing.clone(), spacing)
+        Self::new(spacing, spacing, spacing)
     }
 
     /// Compute gradient of a 1D field
     pub fn gradient_1d(&self, field: &[T]) -> Result<Vec<T>> {
-        let fd = FiniteDifference::central(self.dx.clone());
+        let fd = FiniteDifference::central(self.dx);
         let grad = fd.first_derivative(field)?;
-        Ok(grad.data.as_vec().clone())
+        Ok(grad.data.as_vec())
     }
 
     /// Compute gradient of a 2D field (stored row-major)
@@ -256,34 +256,34 @@ impl<T: RealField + FromPrimitive> Gradient<T> {
 
         // Use iterator combinators instead of nested loops
         gradients.extend((0..ny).flat_map(|j| {
-            let two = two.clone();
-            let dx = self.dx.clone();
-            let dy = self.dy.clone();
+            let two = two;
+            let dx = self.dx;
+            let dy = self.dy;
             (0..nx).map(move |i| {
                 let idx = j * nx + i;
 
                 // Compute x-derivative
                 let dfdx = if i == 0 {
                     // Forward difference
-                    (field[idx + 1].clone() - field[idx].clone()) / dx.clone()
+                    (field[idx + 1] - field[idx]) / dx
                 } else if i == nx - 1 {
                     // Backward difference
-                    (field[idx].clone() - field[idx - 1].clone()) / dx.clone()
+                    (field[idx] - field[idx - 1]) / dx
                 } else {
                     // Central difference
-                    (field[idx + 1].clone() - field[idx - 1].clone()) / (two.clone() * dx.clone())
+                    (field[idx + 1] - field[idx - 1]) / (two * dx)
                 };
 
                 // Compute y-derivative
                 let dfdy = if j == 0 {
                     // Forward difference
-                    (field[idx + nx].clone() - field[idx].clone()) / dy.clone()
+                    (field[idx + nx] - field[idx]) / dy
                 } else if j == ny - 1 {
                     // Backward difference
-                    (field[idx].clone() - field[idx - nx].clone()) / dy.clone()
+                    (field[idx] - field[idx - nx]) / dy
                 } else {
                     // Central difference
-                    (field[idx + nx].clone() - field[idx - nx].clone()) / (two.clone() * dy.clone())
+                    (field[idx + nx] - field[idx - nx]) / (two * dy)
                 };
 
                 Vector3::new(dfdx, dfdy, T::zero())
@@ -306,43 +306,43 @@ impl<T: RealField + FromPrimitive> Gradient<T> {
 
         // Use iterator combinators for better performance
         gradients.extend((0..nz).flat_map(|k| {
-            let two = two.clone();
-            let dx = self.dx.clone();
-            let dy = self.dy.clone();
-            let dz = self.dz.clone();
+            let two = two;
+            let dx = self.dx;
+            let dy = self.dy;
+            let dz = self.dz;
             (0..ny).flat_map(move |j| {
-                let two = two.clone();
-                let dx = dx.clone();
-                let dy = dy.clone();
-                let dz = dz.clone();
+                let two = two;
+                let dx = dx;
+                let dy = dy;
+                let dz = dz;
                 (0..nx).map(move |i| {
                     let idx = k * nx * ny + j * nx + i;
 
                     // Compute x-derivative
                     let dfdx = if i == 0 {
-                        (field[idx + 1].clone() - field[idx].clone()) / dx.clone()
+                        (field[idx + 1] - field[idx]) / dx
                     } else if i == nx - 1 {
-                        (field[idx].clone() - field[idx - 1].clone()) / dx.clone()
+                        (field[idx] - field[idx - 1]) / dx
                     } else {
-                        (field[idx + 1].clone() - field[idx - 1].clone()) / (two.clone() * dx.clone())
+                        (field[idx + 1] - field[idx - 1]) / (two * dx)
                     };
 
                     // Compute y-derivative
                     let dfdy = if j == 0 {
-                        (field[idx + nx].clone() - field[idx].clone()) / dy.clone()
+                        (field[idx + nx] - field[idx]) / dy
                     } else if j == ny - 1 {
-                        (field[idx].clone() - field[idx - nx].clone()) / dy.clone()
+                        (field[idx] - field[idx - nx]) / dy
                     } else {
-                        (field[idx + nx].clone() - field[idx - nx].clone()) / (two.clone() * dy.clone())
+                        (field[idx + nx] - field[idx - nx]) / (two * dy)
                     };
 
                     // Compute z-derivative
                     let dfdz = if k == 0 {
-                        (field[idx + nx * ny].clone() - field[idx].clone()) / dz.clone()
+                        (field[idx + nx * ny] - field[idx]) / dz
                     } else if k == nz - 1 {
-                        (field[idx].clone() - field[idx - nx * ny].clone()) / dz.clone()
+                        (field[idx] - field[idx - nx * ny]) / dz
                     } else {
-                        (field[idx + nx * ny].clone() - field[idx - nx * ny].clone()) / (two.clone() * dz.clone())
+                        (field[idx + nx * ny] - field[idx - nx * ny]) / (two * dz)
                     };
 
                     Vector3::new(dfdx, dfdy, dfdz)
@@ -370,20 +370,20 @@ impl<T: RealField + FromPrimitive> Gradient<T> {
 
                 // Compute ∂u/∂x
                 let dudx = if i == 0 {
-                    (field[idx + 1].x.clone() - field[idx].x.clone()) / self.dx.clone()
+                    (field[idx + 1].x - field[idx].x) / self.dx
                 } else if i == nx - 1 {
-                    (field[idx].x.clone() - field[idx - 1].x.clone()) / self.dx.clone()
+                    (field[idx].x - field[idx - 1].x) / self.dx
                 } else {
-                    (field[idx + 1].x.clone() - field[idx - 1].x.clone()) / (two.clone() * self.dx.clone())
+                    (field[idx + 1].x - field[idx - 1].x) / (two * self.dx)
                 };
 
                 // Compute ∂v/∂y
                 let dvdy = if j == 0 {
-                    (field[idx + nx].y.clone() - field[idx].y.clone()) / self.dy.clone()
+                    (field[idx + nx].y - field[idx].y) / self.dy
                 } else if j == ny - 1 {
-                    (field[idx].y.clone() - field[idx - nx].y.clone()) / self.dy.clone()
+                    (field[idx].y - field[idx - nx].y) / self.dy
                 } else {
-                    (field[idx + nx].y.clone() - field[idx - nx].y.clone()) / (two.clone() * self.dy.clone())
+                    (field[idx + nx].y - field[idx - nx].y) / (two * self.dy)
                 };
 
                 dudx + dvdy
@@ -410,20 +410,20 @@ impl<T: RealField + FromPrimitive> Gradient<T> {
 
                 // Compute ∂v/∂x
                 let dvdx = if i == 0 {
-                    (field[idx + 1].y.clone() - field[idx].y.clone()) / self.dx.clone()
+                    (field[idx + 1].y - field[idx].y) / self.dx
                 } else if i == nx - 1 {
-                    (field[idx].y.clone() - field[idx - 1].y.clone()) / self.dx.clone()
+                    (field[idx].y - field[idx - 1].y) / self.dx
                 } else {
-                    (field[idx + 1].y.clone() - field[idx - 1].y.clone()) / (two.clone() * self.dx.clone())
+                    (field[idx + 1].y - field[idx - 1].y) / (two * self.dx)
                 };
 
                 // Compute ∂u/∂y
                 let dudy = if j == 0 {
-                    (field[idx + nx].x.clone() - field[idx].x.clone()) / self.dy.clone()
+                    (field[idx + nx].x - field[idx].x) / self.dy
                 } else if j == ny - 1 {
-                    (field[idx].x.clone() - field[idx - nx].x.clone()) / self.dy.clone()
+                    (field[idx].x - field[idx - nx].x) / self.dy
                 } else {
-                    (field[idx + nx].x.clone() - field[idx - nx].x.clone()) / (two.clone() * self.dy.clone())
+                    (field[idx + nx].x - field[idx - nx].x) / (two * self.dy)
                 };
 
                 // curl_z = ∂v/∂x - ∂u/∂y

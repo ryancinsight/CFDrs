@@ -23,16 +23,16 @@ impl FluidDynamicsService {
 
     /// Calculate Prandtl number if thermal properties are available
     pub fn prandtl_number<T: RealField + num_traits::Float>(fluid: &Fluid<T>) -> Option<T> {
-        match (fluid.specific_heat.clone(), fluid.thermal_conductivity.clone()) {
+        match (fluid.specific_heat, fluid.thermal_conductivity) {
             (Some(cp), Some(k)) => Some(fluid.characteristic_viscosity() * cp / k),
             _ => None,
         }
     }
 
     /// Determine flow regime based on Reynolds number
-    pub fn flow_regime<T: RealField + FromPrimitive>(reynolds: T) -> FlowRegime {
-        let re_2300 = T::from_f64(2300.0).unwrap_or_else(|| T::one());
-        let re_4000 = T::from_f64(4000.0).unwrap_or_else(|| T::one());
+    pub fn flow_regime<T: RealField + FromPrimitive + Copy>(reynolds: T) -> FlowRegime {
+        let re_2300 = T::from_f64(crate::constants::LAMINAR_THRESHOLD).unwrap_or_else(|| T::one());
+        let re_4000 = T::from_f64(crate::constants::TURBULENT_THRESHOLD).unwrap_or_else(|| T::one());
 
         if reynolds < re_2300 {
             FlowRegime::Laminar
@@ -65,7 +65,7 @@ impl FluidDynamicsService {
         diameter: T,
         roughness: Option<T>,
     ) -> Result<T> {
-        let re_2300 = T::from_f64(2300.0).unwrap_or_else(|| T::one());
+        let re_2300 = T::from_f64(crate::constants::LAMINAR_THRESHOLD).unwrap_or_else(|| T::one());
         let sixty_four = T::from_f64(64.0).unwrap_or_else(|| T::one());
 
         if reynolds < re_2300 {
@@ -144,7 +144,7 @@ pub struct MeshQualityService;
 
 impl MeshQualityService {
     /// Assess overall mesh quality and provide recommendations
-    pub fn assess_quality<T: RealField + FromPrimitive>(
+    pub fn assess_quality<T: RealField + FromPrimitive + Copy>(
         aspect_ratio_stats: &QualityStatistics<T>,
         skewness_stats: &QualityStatistics<T>,
         orthogonality_stats: &QualityStatistics<T>,
@@ -172,7 +172,7 @@ impl MeshQualityService {
         }
     }
 
-    fn assess_aspect_ratio<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
+    fn assess_aspect_ratio<T: RealField + FromPrimitive + Copy>(stats: &QualityStatistics<T>) -> QualityLevel {
         let threshprevious_level4 = T::from_f64(2.0).unwrap_or_else(|| T::one());
         let threshprevious_level3 = T::from_f64(5.0).unwrap_or_else(|| T::one());
         let threshprevious_level2 = T::from_f64(10.0).unwrap_or_else(|| T::one());
@@ -188,7 +188,7 @@ impl MeshQualityService {
         }
     }
 
-    fn assess_skewness<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
+    fn assess_skewness<T: RealField + FromPrimitive + Copy>(stats: &QualityStatistics<T>) -> QualityLevel {
         let threshprevious_level4 = T::from_f64(0.25).unwrap_or_else(|| T::one());
         let threshprevious_level3 = T::from_f64(0.5).unwrap_or_else(|| T::one());
         let threshprevious_level2 = T::from_f64(0.8).unwrap_or_else(|| T::one());
@@ -204,7 +204,7 @@ impl MeshQualityService {
         }
     }
 
-    fn assess_orthogonality<T: RealField + FromPrimitive>(stats: &QualityStatistics<T>) -> QualityLevel {
+    fn assess_orthogonality<T: RealField + FromPrimitive + Copy>(stats: &QualityStatistics<T>) -> QualityLevel {
         let threshprevious_level4 = T::from_f64(0.95).unwrap_or_else(|| T::one());
         let threshprevious_level3 = T::from_f64(0.85).unwrap_or_else(|| T::one());
         let threshprevious_level2 = T::from_f64(0.7).unwrap_or_else(|| T::one());
@@ -262,7 +262,7 @@ pub enum QualityLevel {
 
 /// Quality statistics structure
 #[derive(Debug, Clone)]
-pub struct QualityStatistics<T: RealField> {
+pub struct QualityStatistics<T: RealField + Copy> {
     /// Minimum value
     pub min: T,
     /// Maximum value

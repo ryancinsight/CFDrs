@@ -14,7 +14,7 @@ pub enum LinearSolverMethod {
 }
 
 /// Linear system solver wrapper
-pub struct LinearSystemSolver<T: RealField> {
+pub struct LinearSystemSolver<T: RealField + Copy> {
     method: LinearSolverMethod,
     max_iterations: usize,
     tolerance: T,

@@ -7,7 +7,7 @@ use cfd_core::constants;
 
 /// Pressure-velocity coupling configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PressureVelocityConfig<T: RealField> {
+pub struct PressureVelocityConfig<T: RealField + Copy> {
     /// Base solver configuration
     pub base: cfd_core::solver::SolverConfig<T>,
     /// Time step (for unsteady problems)
@@ -24,7 +24,7 @@ pub struct PressureVelocityConfig<T: RealField> {
     pub implicit_momentum: bool,
 }
 
-impl<T: RealField + FromPrimitive> PressureVelocityConfig<T> {
+impl<T: RealField + FromPrimitive + Copy> PressureVelocityConfig<T> {
     /// Create new configuration with validation
     pub fn new() -> cfd_core::error::Result<Self> {
         Ok(Self {

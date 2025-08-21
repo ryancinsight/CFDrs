@@ -6,7 +6,7 @@ use crate::fem::constants;
 
 /// Element matrices for FEM assembly
 #[derive(Debug, Clone)]
-pub struct ElementMatrices<T: RealField> {
+pub struct ElementMatrices<T: RealField + Copy> {
     /// Element stiffness matrix
     pub k_e: DMatrix<T>,
     /// Element mass matrix
@@ -15,7 +15,7 @@ pub struct ElementMatrices<T: RealField> {
     pub f_e: DMatrix<T>,
 }
 
-impl<T: RealField + FromPrimitive> ElementMatrices<T> {
+impl<T: RealField + FromPrimitive + Copy> ElementMatrices<T> {
     /// Create new element matrices
     pub fn new(n_dof: usize) -> Self {
         Self {
@@ -28,7 +28,7 @@ impl<T: RealField + FromPrimitive> ElementMatrices<T> {
 
 /// Fluid element for FEM calculations
 #[derive(Debug, Clone)]
-pub struct FluidElement<T: RealField> {
+pub struct FluidElement<T: RealField + Copy> {
     /// Node indices
     pub nodes: Vec<usize>,
     /// Element volume

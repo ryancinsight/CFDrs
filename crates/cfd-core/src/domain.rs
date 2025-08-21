@@ -4,7 +4,7 @@ use nalgebra::{Point3, RealField, Vector3};
 use serde::{Deserialize, Serialize};
 
 /// Trait for computational domains
-pub trait Domain<T: RealField>: Send + Sync {
+pub trait Domain<T: RealField + Copy>: Send + Sync {
     /// Get the dimensionality of the domain (1, 2, or 3)
     fn dimension(&self) -> usize;
 
@@ -20,7 +20,7 @@ pub trait Domain<T: RealField>: Send + Sync {
 
 /// 1D domain (line segment)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Domain1D<T: RealField> {
+pub struct Domain1D<T: RealField + Copy> {
     /// Start point (guaranteed to be <= end after construction)
     pub start: T,
     /// End point (guaranteed to be >= start after construction)
@@ -72,7 +72,7 @@ impl<T: RealField + Copy> Domain<T> for Domain1D<T> {
 
 /// 2D rectangular domain
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Domain2D<T: RealField> {
+pub struct Domain2D<T: RealField + Copy> {
     /// Minimum corner
     pub min: Point3<T>,
     /// Maximum corner
@@ -135,7 +135,7 @@ impl<T: RealField + Copy> Domain<T> for Domain2D<T> {
 
 /// 3D box domain
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Domain3D<T: RealField> {
+pub struct Domain3D<T: RealField + Copy> {
     /// Minimum corner
     pub min: Point3<T>,
     /// Maximum corner
@@ -176,7 +176,7 @@ impl<T: RealField + Copy> Domain3D<T> {
     /// Create from center and half-extents
     pub fn from_center_half_extents(center: Point3<T>, half_extents: Vector3<T>) -> Self {
         Self {
-            min: center.clone() - half_extents.clone(),
+            min: center - half_extents,
             max: center + half_extents,
         }
     }
@@ -208,7 +208,7 @@ impl<T: RealField + Copy> Domain<T> for Domain3D<T> {
     }
 
     fn bounding_box(&self) -> (Point3<T>, Point3<T>) {
-        (self.min.clone(), self.max.clone())
+        (self.min, self.max)
     }
 
     fn volume(&self) -> T {
@@ -219,7 +219,7 @@ impl<T: RealField + Copy> Domain<T> for Domain3D<T> {
 
 /// Generic domain that can be 1D, 2D, or 3D
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum AnyDomain<T: RealField> {
+pub enum AnyDomain<T: RealField + Copy> {
     /// 1D domain
     D1(Domain1D<T>),
     /// 2D domain

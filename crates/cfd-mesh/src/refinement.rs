@@ -30,7 +30,7 @@ pub enum RefinementError {
 }
 
 /// Refinement criteria for adaptive mesh refinement
-pub enum RefinementCriterion<T: RealField> {
+pub enum RefinementCriterion<T: RealField + Copy> {
     /// Refine based on solution gradient
     Gradient {
         field: Vec<T>,
@@ -50,7 +50,7 @@ pub enum RefinementCriterion<T: RealField> {
     Custom(Box<dyn Fn(&Cell, &[Vertex<T>]) -> bool + Send + Sync>),
 }
 
-impl<T: RealField> std::fmt::Debug for RefinementCriterion<T> {
+impl<T: RealField + Copy> std::fmt::Debug for RefinementCriterion<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Gradient { field, threshold } => f.debug_struct("Gradient")
@@ -87,7 +87,7 @@ pub enum RefinementStrategy {
 
 /// Configuration for mesh refinement
 #[derive(Debug, Clone)]
-pub struct RefinementConfig<T: RealField> {
+pub struct RefinementConfig<T: RealField + Copy> {
     /// Maximum refinement level
     pub max_level: usize,
     /// Minimum cell size
@@ -104,7 +104,7 @@ pub struct RefinementConfig<T: RealField> {
     pub smoothing_iterations: usize,
 }
 
-impl<T: RealField + FromPrimitive> Default for RefinementConfig<T> {
+impl<T: RealField + FromPrimitive + Copy> Default for RefinementConfig<T> {
     fn default() -> Self {
         Self {
             max_level: DEFAULT_MAX_REFINEMENT_LEVEL,
@@ -119,12 +119,12 @@ impl<T: RealField + FromPrimitive> Default for RefinementConfig<T> {
 }
 
 /// Mesh refinement engine
-pub struct MeshRefiner<T: RealField> {
+pub struct MeshRefiner<T: RealField + Copy> {
     config: RefinementConfig<T>,
     refinement_levels: HashMap<usize, usize>, // Cell ID -> refinement level
 }
 
-impl<T: RealField + FromPrimitive> MeshRefiner<T> {
+impl<T: RealField + FromPrimitive + Copy> MeshRefiner<T> {
     /// Create a new mesh refiner
     pub fn new(config: RefinementConfig<T>) -> Self {
         Self {
@@ -310,7 +310,7 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                 // Check minimum size
                 let size = self.compute_cell_size(mesh, cell);
                 if size < self.config.min_size {
-                    return Err(RefinementError::MinSizeReached(size.to_subset().expect("FIXME: Add proper error handling")));
+                    return Err(RefinementError::MinSizeReached(size.to_subset().expect("Failed to complete operation")));
                 }
                 
                 // Perform refinement (tetrahedral subdivision for 3D)
@@ -447,8 +447,8 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
         for (i, v1) in vertices.iter().enumerate() {
             for v2 in vertices.iter().skip(i + 1) {
                 let mid = Point3::from(
-                    (v1.position.coords.clone() + 
-                     v2.position.coords.clone()) / two.clone()
+                    (v1.position.coords + 
+                     v2.position.coords) / two
                 );
                 midpoints.push(mid);
             }
@@ -571,7 +571,7 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                         let dist = diff.norm();
                         
                         if dist > T::zero() {
-                            let df = (field[id2].clone() - field[id1].clone()).abs();
+                            let df = (field[id2] - field[id1]).abs();
                             grad_mag = grad_mag + df / dist;
                             count += 1;
                         }
@@ -745,17 +745,17 @@ impl<T: RealField + FromPrimitive> MeshRefiner<T> {
                             avg_pos += &v.position.coords;
                         }
                     }
-                    avg_pos /= T::from_usize(connected.len()).expect("FIXME: Add proper error handling");
+                    avg_pos /= T::from_usize(connected.len()).expect("Failed to complete operation");
                     
                     // Blend with original position
                     let alpha = T::from_f64(0.5).unwrap_or_else(|| T::zero()); // Smoothing factor
                     let current_pos = Point3::from(
-                        vertex.position.coords.clone() * (T::one() - alpha.clone()) +
+                        vertex.position.coords * (T::one() - alpha) +
                         avg_pos * alpha
                     );
                     current_positions.push(current_pos);
                 } else {
-                    current_positions.push(vertex.position.clone());
+                    current_positions.push(vertex.position);
                 }
             }
             

@@ -10,7 +10,7 @@ use crate::fem::constants;
 use cfd_mesh::{Mesh, Cell};
 
 /// Finite Element Method solver for 3D incompressible flow
-pub struct FemSolver<T: RealField> {
+pub struct FemSolver<T: RealField + Copy> {
     /// Configuration
     config: FemConfig<T>,
     /// Linear solver for the system
@@ -18,7 +18,7 @@ pub struct FemSolver<T: RealField> {
 }
 
 /// Extract vertex indices from a cell
-fn extract_vertex_indices<T: RealField>(cell: &Cell, mesh: &Mesh<T>) -> Vec<usize> {
+fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) -> Vec<usize> {
     // For tetrahedral elements, extract 4 unique vertex indices from faces
     let mut indices = Vec::with_capacity(4);
     let mut seen = std::collections::HashSet::new();
@@ -105,7 +105,7 @@ impl<T: RealField + FromPrimitive + Float + Copy> FemSolver<T> {
             // Calculate element properties
             // Convert vertices to Vector3 format
             let vertex_positions: Vec<Vector3<T>> = problem.mesh.vertices.iter()
-                .map(|v| v.position.coords.clone())
+                .map(|v| v.position.coords)
                 .collect();
             element.calculate_volume(&vertex_positions[..4]); // Use first 4 vertices for tetrahedral
             element.calculate_shape_derivatives(&vertex_positions[..4]);

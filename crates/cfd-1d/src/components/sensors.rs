@@ -22,7 +22,7 @@ pub enum SensorType {
 
 /// Flow sensor component
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FlowSensor<T: RealField> {
+pub struct FlowSensor<T: RealField + Copy> {
     /// Sensor resistance [Pa·s/m³]
     pub resistance: T,
     /// Measurement range [m³/s]
@@ -44,7 +44,7 @@ impl<T: RealField + FromPrimitive + Float> FlowSensor<T> {
 
 impl<T: RealField + FromPrimitive + Float> Component<T> for FlowSensor<T> {
     fn resistance(&self, _fluid: &Fluid<T>) -> T {
-        self.resistance.clone()
+        self.resistance
     }
 
     fn component_type(&self) -> &str {

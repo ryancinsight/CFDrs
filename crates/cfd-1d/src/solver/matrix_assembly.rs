@@ -9,7 +9,7 @@ use rayon::prelude::*;
 use std::sync::Mutex;
 
 /// Matrix assembler for building the linear system from network equations
-pub struct MatrixAssembler<T: RealField> {
+pub struct MatrixAssembler<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 

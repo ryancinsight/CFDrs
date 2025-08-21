@@ -22,7 +22,7 @@ pub enum PumpType {
 
 /// Micropump component
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Micropump<T: RealField> {
+pub struct Micropump<T: RealField + Copy> {
     /// Maximum flow rate [m³/s]
     pub max_flow_rate: T,
     /// Maximum pressure [Pa]
@@ -51,7 +51,7 @@ impl<T: RealField + FromPrimitive + Float> Micropump<T> {
 impl<T: RealField + FromPrimitive + Float> Component<T> for Micropump<T> {
     fn resistance(&self, _fluid: &Fluid<T>) -> T {
         // Pumps provide negative resistance (pressure source)
-        -self.max_pressure.clone() / self.max_flow_rate.clone()
+        -self.max_pressure / self.max_flow_rate
     }
 
     fn component_type(&self) -> &str {

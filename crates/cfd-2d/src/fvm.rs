@@ -23,7 +23,7 @@ use crate::grid::{Grid2D, StructuredGrid2D, BoundaryType};
 /// Finite Volume Method solver configuration
 /// Uses unified SolverConfig as base to follow SSOT principle
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FvmConfig<T: RealField> {
+pub struct FvmConfig<T: RealField + Copy> {
     /// Base solver configuration (SSOT)
     pub base: cfd_core::solver::SolverConfig<T>,
 }
@@ -96,7 +96,7 @@ impl FluxSchemeFactory {
     }
 
     /// Get recommended scheme for given Peclet number
-    pub fn recommend_for_peclet<T: RealField + FromPrimitive>(peclet: T) -> FluxScheme {
+    pub fn recommend_for_peclet<T: RealField + FromPrimitive + Copy>(peclet: T) -> FluxScheme {
         let pe_threshold = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         if peclet.abs() < pe_threshold {
             FluxScheme::Central
@@ -108,7 +108,7 @@ impl FluxSchemeFactory {
 
 /// Control volume face
 #[derive(Debug, Clone)]
-pub struct Face<T: RealField> {
+pub struct Face<T: RealField + Copy> {
     /// Face center coordinates
     pub center: Vector2<T>,
     /// Face normal vector (outward from owner cell)
@@ -125,7 +125,7 @@ pub struct Face<T: RealField> {
 
 /// Finite Volume Method solver for scalar transport equations
 /// Solves: ∂φ/∂t + ∇·(ρuφ) = ∇·(Γ∇φ) + S
-pub struct FvmSolver<T: RealField> {
+pub struct FvmSolver<T: RealField + Copy> {
     config: FvmConfig<T>,
     flux_scheme: FluxScheme,
 }
@@ -198,7 +198,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
         // Convert solution vector back to grid format
         Ok(grid.iter()
             .enumerate()
-            .map(|(linear_idx, (i, j))| ((i, j), solution_vector[linear_idx].clone()))
+            .map(|(linear_idx, (i, j))| ((i, j), solution_vector[linear_idx]))
             .collect())
     }
 
@@ -218,8 +218,8 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
                 grid.cell_center(i, j).ok().and_then(|center| {
                     grid.cell_center(i + 1, j).ok().map(|neighbor_center| {
                         let face_center = Vector2::new(
-                            (center.x.clone() + neighbor_center.x.clone()) / T::from_f64(2.0).unwrap_or_else(|| T::zero()),
-                            center.y.clone(),
+                            (center.x + neighbor_center.x) / T::from_f64(2.0).unwrap_or_else(|| T::zero()),
+                            center.y,
                         );
 
                         Face {
@@ -244,8 +244,8 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
                 grid.cell_center(i, j).ok().and_then(|center| {
                     grid.cell_center(i, j + 1).ok().map(|neighbor_center| {
                         let face_center = Vector2::new(
-                            center.x.clone(),
-                            (center.y.clone() + neighbor_center.y.clone()) / T::from_f64(2.0).unwrap_or_else(|| T::zero()),
+                            center.x,
+                            (center.y + neighbor_center.y) / T::from_f64(2.0).unwrap_or_else(|| T::zero()),
                         );
 
                         Face {
@@ -283,7 +283,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
             BoundaryCondition::Dirichlet { value } => {
                 // φ = value (Dirichlet condition)
                 matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
-                rhs[linear_idx] = value.clone();
+                rhs[linear_idx] = value;
             }
             BoundaryCondition::Neumann { gradient } => {
                 // ∂φ/∂n = gradient (Neumann condition)
@@ -294,36 +294,36 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
                 // Add contributions from interior neighbors only
                 // The boundary face contribution is handled via the gradient condition
                 if i > 0 && i < grid.nx() - 1 {
-                    let coeff = T::one() / (dx.clone() * dx.clone());
+                    let coeff = T::one() / (dx * dx);
                     if i > 0 {
-                        matrix_builder.add_entry(linear_idx, linear_idx - 1, -coeff.clone())?;
-                        diagonal += coeff.clone();
+                        matrix_builder.add_entry(linear_idx, linear_idx - 1, -coeff)?;
+                        diagonal += coeff;
                     }
                     if i < grid.nx() - 1 {
-                        matrix_builder.add_entry(linear_idx, linear_idx + 1, -coeff.clone())?;
+                        matrix_builder.add_entry(linear_idx, linear_idx + 1, -coeff)?;
                         diagonal += coeff;
                     }
                 }
 
                 if j > 0 && j < grid.ny() - 1 {
-                    let coeff = T::one() / (dy.clone() * dy.clone());
+                    let coeff = T::one() / (dy * dy);
                     if j > 0 {
-                        matrix_builder.add_entry(linear_idx, linear_idx - grid.nx(), -coeff.clone())?;
-                        diagonal += coeff.clone();
+                        matrix_builder.add_entry(linear_idx, linear_idx - grid.nx(), -coeff)?;
+                        diagonal += coeff;
                     }
                     if j < grid.ny() - 1 {
-                        matrix_builder.add_entry(linear_idx, linear_idx + grid.nx(), -coeff.clone())?;
+                        matrix_builder.add_entry(linear_idx, linear_idx + grid.nx(), -coeff)?;
                         diagonal += coeff;
                     }
                 }
 
                 // Add flux contribution from boundary face
                 // For simplicity, assume boundary is aligned with grid
-                let boundary_area = if i == 0 || i == grid.nx() - 1 { dy.clone() } else { dx.clone() };
-                let _boundary_distance = if i == 0 || i == grid.nx() - 1 { dx.clone() / T::from_f64(2.0).unwrap_or_else(|| T::zero()) } else { dy.clone() / T::from_f64(2.0).unwrap_or_else(|| T::zero()) };
+                let boundary_area = if i == 0 || i == grid.nx() - 1 { dy } else { dx };
+                let _boundary_distance = if i == 0 || i == grid.nx() - 1 { dx / T::from_f64(2.0).unwrap_or_else(|| T::zero()) } else { dy / T::from_f64(2.0).unwrap_or_else(|| T::zero()) };
 
                 // Flux = -Γ * ∂φ/∂n * Area, discretized as: -Γ * gradient * Area
-                source_term += gradient.clone() * boundary_area;
+                source_term += gradient * boundary_area;
 
                 matrix_builder.add_entry(linear_idx, linear_idx, diagonal)?;
                 rhs[linear_idx] = source_term;
@@ -331,12 +331,12 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
             BoundaryCondition::PressureInlet { pressure } => {
                 // Treat as Dirichlet condition
                 matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
-                rhs[linear_idx] = pressure.clone();
+                rhs[linear_idx] = pressure;
             }
             BoundaryCondition::PressureOutlet { pressure } => {
                 // Treat as Dirichlet condition
                 matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
-                rhs[linear_idx] = pressure.clone();
+                rhs[linear_idx] = pressure;
             }
             BoundaryCondition::Outflow | BoundaryCondition::Symmetry => {
                 // Zero gradient condition: ∂φ/∂n = 0 (proper Neumann implementation)
@@ -345,25 +345,25 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
 
                 // Add contributions from interior neighbors only
                 if i > 0 && i < grid.nx() - 1 {
-                    let coeff = T::one() / (dx.clone() * dx.clone());
+                    let coeff = T::one() / (dx * dx);
                     if i > 0 {
-                        matrix_builder.add_entry(linear_idx, linear_idx - 1, -coeff.clone())?;
-                        diagonal += coeff.clone();
+                        matrix_builder.add_entry(linear_idx, linear_idx - 1, -coeff)?;
+                        diagonal += coeff;
                     }
                     if i < grid.nx() - 1 {
-                        matrix_builder.add_entry(linear_idx, linear_idx + 1, -coeff.clone())?;
+                        matrix_builder.add_entry(linear_idx, linear_idx + 1, -coeff)?;
                         diagonal += coeff;
                     }
                 }
 
                 if j > 0 && j < grid.ny() - 1 {
-                    let coeff = T::one() / (dy.clone() * dy.clone());
+                    let coeff = T::one() / (dy * dy);
                     if j > 0 {
-                        matrix_builder.add_entry(linear_idx, linear_idx - grid.nx(), -coeff.clone())?;
-                        diagonal += coeff.clone();
+                        matrix_builder.add_entry(linear_idx, linear_idx - grid.nx(), -coeff)?;
+                        diagonal += coeff;
                     }
                     if j < grid.ny() - 1 {
-                        matrix_builder.add_entry(linear_idx, linear_idx + grid.nx(), -coeff.clone())?;
+                        matrix_builder.add_entry(linear_idx, linear_idx + grid.nx(), -coeff)?;
                         diagonal += coeff;
                     }
                 }
@@ -376,25 +376,25 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
                 let mut diagonal = T::zero();
 
                 if i > 0 && i < grid.nx() - 1 {
-                    let coeff = T::one() / (dx.clone() * dx.clone());
+                    let coeff = T::one() / (dx * dx);
                     if i > 0 {
-                        matrix_builder.add_entry(linear_idx, linear_idx - 1, -coeff.clone())?;
-                        diagonal += coeff.clone();
+                        matrix_builder.add_entry(linear_idx, linear_idx - 1, -coeff)?;
+                        diagonal += coeff;
                     }
                     if i < grid.nx() - 1 {
-                        matrix_builder.add_entry(linear_idx, linear_idx + 1, -coeff.clone())?;
+                        matrix_builder.add_entry(linear_idx, linear_idx + 1, -coeff)?;
                         diagonal += coeff;
                     }
                 }
 
                 if j > 0 && j < grid.ny() - 1 {
-                    let coeff = T::one() / (dy.clone() * dy.clone());
+                    let coeff = T::one() / (dy * dy);
                     if j > 0 {
-                        matrix_builder.add_entry(linear_idx, linear_idx - grid.nx(), -coeff.clone())?;
-                        diagonal += coeff.clone();
+                        matrix_builder.add_entry(linear_idx, linear_idx - grid.nx(), -coeff)?;
+                        diagonal += coeff;
                     }
                     if j < grid.ny() - 1 {
-                        matrix_builder.add_entry(linear_idx, linear_idx + grid.nx(), -coeff.clone())?;
+                        matrix_builder.add_entry(linear_idx, linear_idx + grid.nx(), -coeff)?;
                         diagonal += coeff;
                     }
                 }
@@ -433,9 +433,9 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
             .filter(|f| f.owner == linear_idx || f.neighbor == Some(linear_idx))
             .filter_map(|face| {
                 let (neighbor_idx, face_normal) = if face.owner == linear_idx {
-                    (face.neighbor, face.normal.clone())
+                    (face.neighbor, face.normal)
                 } else {
-                    (Some(face.owner), -face.normal.clone())
+                    (Some(face.owner), -face.normal)
                 };
 
                 neighbor_idx.map(|neighbor| {
@@ -444,17 +444,17 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
 
                     // Calculate actual distance between cell centers
                     let (dx, dy) = grid.spacing();
-                    let distance = if face.normal.x.clone().abs() > face.normal.y.clone().abs() {
-                        dx.clone() // Face is vertical, distance is dx
+                    let distance = if face.normal.x.abs() > face.normal.y.abs() {
+                        dx // Face is vertical, distance is dx
                     } else {
-                        dy.clone() // Face is horizontal, distance is dy
+                        dy // Face is horizontal, distance is dy
                     };
 
                     // Diffusion coefficient
-                    let diff_coeff = gamma.clone() * face.area.clone() / distance;
+                    let diff_coeff = gamma * face.area / distance;
 
                     // Convection coefficient using selected scheme
-                    let conv_coeff = self.calculate_convection_coefficient(face_velocity, diff_coeff.clone());
+                    let conv_coeff = self.calculate_convection_coefficient(face_velocity, diff_coeff);
 
                     Ok((neighbor, diff_coeff, conv_coeff))
                 })
@@ -463,7 +463,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
 
         // Apply face contributions to matrix
         for (neighbor, diff_coeff, conv_coeff) in face_contributions? {
-            matrix_builder.add_entry(linear_idx, neighbor, -diff_coeff.clone() - conv_coeff.clone())?;
+            matrix_builder.add_entry(linear_idx, neighbor, -diff_coeff - conv_coeff)?;
             diagonal_coeff += diff_coeff + conv_coeff;
         }
 
@@ -491,7 +491,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
             }
             FluxScheme::Hybrid => {
                 // Hybrid scheme: max(F, D + F/2, 0)
-                let peclet = face_velocity.clone() / diffusion_coeff;
+                let peclet = face_velocity / diffusion_coeff;
                 if peclet.abs() <= T::from_f64(2.0).unwrap_or_else(|| T::zero()) {
                     // Use central differencing
                     face_velocity / T::from_f64(2.0).unwrap_or_else(|| T::zero())
@@ -507,7 +507,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
             FluxScheme::Quick => {
                 // QUICK requires multi-point stencil not available in coefficient-only API
                 // Fallback to Hybrid (bounded, literature-supported) to avoid oscillations
-                let peclet = face_velocity.clone() / diffusion_coeff;
+                let peclet = face_velocity / diffusion_coeff;
                 if peclet.abs() <= T::from_f64(2.0).unwrap_or_else(|| T::zero()) {
                     face_velocity / T::from_f64(2.0).unwrap_or_else(|| T::zero())
                 } else {

@@ -54,7 +54,7 @@ impl<T: RealField + FromPrimitive + Copy + std::iter::Sum> PisoSolver<T> {
         grid: &StructuredGrid2D<T>,
     ) -> Result<bool> {
         // Store old fields for convergence check
-        let fields_old = fields.clone();
+        let fields_old = fields;
         
         // Step 1: Velocity predictor
         self.predictor.predict(fields, self.config.time_step)?;

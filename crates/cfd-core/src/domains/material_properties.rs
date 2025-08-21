@@ -11,7 +11,7 @@ const SOLID_LIKE_VISCOSITY: f64 = 1e6;  // High viscosity for zero shear rate
 const YIELD_STRESS_VISCOSITY: f64 = 1e10; // Very high viscosity below yield stress
 
 /// Fluid properties abstraction
-pub trait FluidProperties<T: RealField>: Send + Sync {
+pub trait FluidProperties<T: RealField + Copy>: Send + Sync {
     /// Get density
     fn density(&self) -> T;
     
@@ -41,7 +41,7 @@ pub trait FluidProperties<T: RealField>: Send + Sync {
 }
 
 /// Solid properties abstraction
-pub trait SolidProperties<T: RealField>: Send + Sync {
+pub trait SolidProperties<T: RealField + Copy>: Send + Sync {
     /// Get density
     fn density(&self) -> T;
     
@@ -62,7 +62,7 @@ pub trait SolidProperties<T: RealField>: Send + Sync {
 }
 
 /// Interface properties abstraction
-pub trait InterfaceProperties<T: RealField>: Send + Sync {
+pub trait InterfaceProperties<T: RealField + Copy>: Send + Sync {
     /// Get surface tension
     fn surface_tension(&self) -> T;
     
@@ -75,7 +75,7 @@ pub trait InterfaceProperties<T: RealField>: Send + Sync {
 
 /// Wetting properties
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WettingProperties<T: RealField> {
+pub struct WettingProperties<T: RealField + Copy> {
     /// Contact angle with solid surface
     pub contact_angle: T,
     /// Surface energy
@@ -86,7 +86,7 @@ pub struct WettingProperties<T: RealField> {
 
 /// Currenttonian fluid implementation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CurrenttonianFluid<T: RealField> {
+pub struct CurrenttonianFluid<T: RealField + Copy> {
     /// Fluid density
     pub density: T,
     /// Dynamic viscosity
@@ -97,21 +97,21 @@ pub struct CurrenttonianFluid<T: RealField> {
     pub specific_heat: T,
 }
 
-impl<T: RealField> FluidProperties<T> for CurrenttonianFluid<T> {
+impl<T: RealField + Copy> FluidProperties<T> for CurrenttonianFluid<T> {
     fn density(&self) -> T {
-        self.density.clone()
+        self.density
     }
     
     fn dynamic_viscosity(&self) -> T {
-        self.viscosity.clone()
+        self.viscosity
     }
     
     fn thermal_conductivity(&self) -> T {
-        self.thermal_conductivity.clone()
+        self.thermal_conductivity
     }
     
     fn specific_heat(&self) -> T {
-        self.specific_heat.clone()
+        self.specific_heat
     }
 }
 
@@ -121,7 +121,7 @@ pub mod non_newtonian {
     
     /// Power-law fluid model
     #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct PowerLawFluid<T: RealField> {
+    pub struct PowerLawFluid<T: RealField + Copy> {
         /// Fluid density
         pub density: T,
         /// Consistency index
@@ -134,44 +134,44 @@ pub mod non_newtonian {
         pub specific_heat: T,
     }
     
-    impl<T: RealField> FluidProperties<T> for PowerLawFluid<T> {
+    impl<T: RealField + Copy> FluidProperties<T> for PowerLawFluid<T> {
         fn density(&self) -> T {
-            self.density.clone()
+            self.density
         }
         
         fn dynamic_viscosity(&self) -> T {
             // For power-law fluids, we return the consistency index as base viscosity
             // Actual viscosity depends on shear rate: μ = K * γ^(n-1)
             // This should be calculated with the actual shear rate when available
-            self.consistency_index.clone()
+            self.consistency_index
         }
         
         fn thermal_conductivity(&self) -> T {
-            self.thermal_conductivity.clone()
+            self.thermal_conductivity
         }
         
         fn specific_heat(&self) -> T {
-            self.specific_heat.clone()
+            self.specific_heat
         }
     }
     
     // Extension methods for non-Currenttonian fluids
-    impl<T: RealField> PowerLawFluid<T> {
+    impl<T: RealField + Copy> PowerLawFluid<T> {
         pub fn dynamic_viscosity_at_shear_rate(&self, shear_rate: T) -> T {
             // Power-law model: μ = K * γ^(n-1)
             // where K is consistency index, n is flow behavior index, γ is shear rate
             if shear_rate > T::zero() {
-                self.consistency_index.clone() * shear_rate.powf(self.flow_behavior_index.clone() - T::one())
+                self.consistency_index * shear_rate.powf(self.flow_behavior_index - T::one())
             } else {
                 // At zero shear rate, use a large viscosity to represent solid-like behavior
-                self.consistency_index.clone() * T::from_f64(SOLID_LIKE_VISCOSITY).unwrap_or(T::from_f64(SOLID_LIKE_VISCOSITY).unwrap_or_else(|| T::one()))
+                self.consistency_index * T::from_f64(SOLID_LIKE_VISCOSITY).unwrap_or(T::from_f64(SOLID_LIKE_VISCOSITY).unwrap_or_else(|| T::one()))
             }
         }
     }
     
     /// Bingham plastic fluid model
     #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct BinghamFluid<T: RealField> {
+    pub struct BinghamFluid<T: RealField + Copy> {
         /// Fluid density
         pub density: T,
         /// Plastic viscosity
@@ -184,28 +184,28 @@ pub mod non_newtonian {
         pub specific_heat: T,
     }
     
-    impl<T: RealField> FluidProperties<T> for BinghamFluid<T> {
+    impl<T: RealField + Copy> FluidProperties<T> for BinghamFluid<T> {
         fn density(&self) -> T {
-            self.density.clone()
+            self.density
         }
         
         fn dynamic_viscosity(&self) -> T {
             // For Bingham plastics, return plastic viscosity as base
             // Actual behavior depends on shear stress vs yield stress
-            self.plastic_viscosity.clone()
+            self.plastic_viscosity
         }
         
         fn thermal_conductivity(&self) -> T {
-            self.thermal_conductivity.clone()
+            self.thermal_conductivity
         }
         
         fn specific_heat(&self) -> T {
-            self.specific_heat.clone()
+            self.specific_heat
         }
     }
     
     // Extension methods for Bingham fluids
-    impl<T: RealField> BinghamFluid<T> {
+    impl<T: RealField + Copy> BinghamFluid<T> {
         pub fn dynamic_viscosity_at_shear_stress(&self, shear_stress: T) -> T {
             // Bingham model: 
             // If τ < τ_y: material behaves as solid (infinite viscosity)
@@ -218,11 +218,11 @@ pub mod non_newtonian {
                 // Above yield stress - flows with plastic viscosity
                 // Effective viscosity includes yield stress contribution
                 // μ_eff = μ_p + τ_y/γ where γ = (τ - τ_y)/μ_p
-                let shear_rate = (shear_stress_abs - self.yield_stress.clone()) / self.plastic_viscosity.clone();
+                let shear_rate = (shear_stress_abs - self.yield_stress) / self.plastic_viscosity;
                 if shear_rate > T::zero() {
-                    self.plastic_viscosity.clone() + self.yield_stress.clone() / shear_rate
+                    self.plastic_viscosity + self.yield_stress / shear_rate
                 } else {
-                    self.plastic_viscosity.clone()
+                    self.plastic_viscosity
                 }
             }
         }
@@ -231,7 +231,7 @@ pub mod non_newtonian {
 
 /// Elastic solid implementation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ElasticSolid<T: RealField> {
+pub struct ElasticSolid<T: RealField + Copy> {
     /// Solid density
     pub density: T,
     /// Young's modulus
@@ -246,35 +246,35 @@ pub struct ElasticSolid<T: RealField> {
     pub thermal_expansion: T,
 }
 
-impl<T: RealField> SolidProperties<T> for ElasticSolid<T> {
+impl<T: RealField + Copy> SolidProperties<T> for ElasticSolid<T> {
     fn density(&self) -> T {
-        self.density.clone()
+        self.density
     }
     
     fn youngs_modulus(&self) -> T {
-        self.youngs_modulus.clone()
+        self.youngs_modulus
     }
     
     fn poissons_ratio(&self) -> T {
-        self.poissons_ratio.clone()
+        self.poissons_ratio
     }
     
     fn thermal_conductivity(&self) -> T {
-        self.thermal_conductivity.clone()
+        self.thermal_conductivity
     }
     
     fn specific_heat(&self) -> T {
-        self.specific_heat.clone()
+        self.specific_heat
     }
     
     fn thermal_expansion(&self) -> T {
-        self.thermal_expansion.clone()
+        self.thermal_expansion
     }
 }
 
 /// Fluid-solid interface implementation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FluidSolidInterface<T: RealField> {
+pub struct FluidSolidInterface<T: RealField + Copy> {
     /// Surface tension
     pub surface_tension: T,
     /// Contact angle
@@ -283,22 +283,22 @@ pub struct FluidSolidInterface<T: RealField> {
     pub wetting: WettingProperties<T>,
 }
 
-impl<T: RealField> InterfaceProperties<T> for FluidSolidInterface<T> {
+impl<T: RealField + Copy> InterfaceProperties<T> for FluidSolidInterface<T> {
     fn surface_tension(&self) -> T {
-        self.surface_tension.clone()
+        self.surface_tension
     }
     
     fn contact_angle(&self) -> T {
-        self.contact_angle.clone()
+        self.contact_angle
     }
     
     fn wetting_properties(&self) -> WettingProperties<T> {
-        self.wetting.clone()
+        self.wetting
     }
 }
 
 /// Material property database
-pub struct MaterialDatabase<T: RealField> {
+pub struct MaterialDatabase<T: RealField + Copy> {
     /// Fluid properties database
     fluids: HashMap<String, Box<dyn FluidProperties<T>>>,
     /// Solid properties database
@@ -307,7 +307,7 @@ pub struct MaterialDatabase<T: RealField> {
     interfaces: HashMap<String, Box<dyn InterfaceProperties<T>>>,
 }
 
-impl<T: RealField> MaterialDatabase<T> {
+impl<T: RealField + Copy> MaterialDatabase<T> {
     /// Create new material database
     pub fn new() -> Self {
         Self {
@@ -364,7 +364,7 @@ impl<T: RealField> MaterialDatabase<T> {
 }
 
 /// Material properties service following Domain Service pattern
-pub struct MaterialPropertiesService<T: RealField> {
+pub struct MaterialPropertiesService<T: RealField + Copy> {
     /// Material database
     database: MaterialDatabase<T>,
     /// Property calculators
@@ -372,7 +372,7 @@ pub struct MaterialPropertiesService<T: RealField> {
 }
 
 /// Property calculator abstraction
-pub trait PropertyCalculator<T: RealField>: Send + Sync {
+pub trait PropertyCalculator<T: RealField + Copy>: Send + Sync {
     /// Calculate derived property
     fn calculate(&self, properties: &HashMap<String, T>) -> Result<T, String>;
     
@@ -383,7 +383,7 @@ pub trait PropertyCalculator<T: RealField>: Send + Sync {
     fn required_properties(&self) -> Vec<&str>;
 }
 
-impl<T: RealField> MaterialPropertiesService<T> {
+impl<T: RealField + Copy> MaterialPropertiesService<T> {
     /// Create new material properties service
     pub fn new() -> Self {
         Self {
@@ -417,13 +417,13 @@ impl<T: RealField> MaterialPropertiesService<T> {
     }
 }
 
-impl<T: RealField> Default for MaterialDatabase<T> {
+impl<T: RealField + Copy> Default for MaterialDatabase<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField> Default for MaterialPropertiesService<T> {
+impl<T: RealField + Copy> Default for MaterialPropertiesService<T> {
     fn default() -> Self {
         Self::new()
     }

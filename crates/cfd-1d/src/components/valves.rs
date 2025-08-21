@@ -22,7 +22,7 @@ pub enum ValveType {
 
 /// Microvalve component
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Microvalve<T: RealField> {
+pub struct Microvalve<T: RealField + Copy> {
     /// Flow coefficient [m³/s/Pa^0.5]
     pub cv: T,
     /// Opening fraction (0=closed, 1=open)
@@ -49,8 +49,8 @@ impl<T: RealField + FromPrimitive + Float> Component<T> for Microvalve<T> {
             T::from_f64(1e12).unwrap_or_else(T::one)
         } else {
             // Resistance inversely proportional to opening
-            let base_resistance = T::one() / (self.cv.clone() * self.cv.clone());
-            base_resistance / (self.opening.clone() * self.opening.clone())
+            let base_resistance = T::one() / (self.cv * self.cv);
+            base_resistance / (self.opening * self.opening)
         }
     }
 

@@ -7,7 +7,7 @@ use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 
 /// Velocity predictor for PISO algorithm
-pub struct VelocityPredictor<T: RealField> {
+pub struct VelocityPredictor<T: RealField + Copy> {
     /// Grid dimensions
     nx: usize,
     ny: usize,

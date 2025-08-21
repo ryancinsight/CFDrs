@@ -14,7 +14,7 @@ pub type SparseMatrix<T> = nalgebra_sparse::CsrMatrix<T>;
 
 /// Entry for sparse matrix assembly
 #[derive(Debug, Clone, Copy)]
-pub struct MatrixEntry<T: RealField> {
+pub struct MatrixEntry<T: RealField + Copy> {
     /// Row index
     pub row: usize,
     /// Column index
@@ -23,7 +23,7 @@ pub struct MatrixEntry<T: RealField> {
     pub value: T,
 }
 
-impl<T: RealField> MatrixEntry<T> {
+impl<T: RealField + Copy> MatrixEntry<T> {
     /// Create a new matrix entry
     pub fn new(row: usize, col: usize, value: T) -> Self {
         Self { row, col, value }
@@ -31,14 +31,14 @@ impl<T: RealField> MatrixEntry<T> {
 }
 
 /// Sparse matrix builder with efficient assembly
-pub struct SparseMatrixBuilder<T: RealField> {
+pub struct SparseMatrixBuilder<T: RealField + Copy> {
     rows: usize,
     cols: usize,
     entries: Vec<MatrixEntry<T>>,
     allow_duplicates: bool,
 }
 
-impl<T: RealField> SparseMatrixBuilder<T> {
+impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     /// Create a new builder
     pub fn new(rows: usize, cols: usize) -> Self {
         Self {
@@ -110,7 +110,7 @@ impl<T: RealField> SparseMatrixBuilder<T> {
         if self.allow_duplicates {
             // Add entries directly (duplicates will be summed)
             for entry in &self.entries {
-                coo.push(entry.row, entry.col, entry.value.clone());
+                coo.push(entry.row, entry.col, entry.value);
             }
         } else {
             // Combine duplicate entries manually for better control
@@ -119,8 +119,8 @@ impl<T: RealField> SparseMatrixBuilder<T> {
             for entry in &self.entries {
                 let key = (entry.row, entry.col);
                 entry_map.entry(key)
-                    .and_modify(|v| *v += entry.value.clone())
-                    .or_insert(entry.value.clone());
+                    .and_modify(|v| *v += entry.value)
+                    .or_insert(entry.value);
             }
 
             for ((row, col), value) in entry_map {
@@ -143,7 +143,7 @@ impl<T: RealField> SparseMatrixBuilder<T> {
         // Zero-copy parallel aggregation using advanced iterator patterns
         let entry_map: HashMap<(usize, usize), T> = self.entries
             .par_iter()
-            .map(|entry| ((entry.row, entry.col), entry.value.clone()))
+            .map(|entry| ((entry.row, entry.col), entry.value))
             .fold(
                 HashMap::new,
                 |mut acc, (key, value)| {
@@ -181,7 +181,7 @@ impl<T: RealField> SparseMatrixBuilder<T> {
 }
 
 /// Extension trait for sparse matrix operations
-pub trait SparseMatrixExt<T: RealField> {
+pub trait SparseMatrixExt<T: RealField + Copy> {
     /// Matrix-vector multiplication with zero-copy optimization
     fn matvec_inplace(&self, x: &DVector<T>, y: &mut DVector<T>);
 
@@ -198,7 +198,7 @@ pub trait SparseMatrixExt<T: RealField> {
     fn is_symmetric(&self, tolerance: T) -> bool;
 }
 
-impl<T: RealField> SparseMatrixExt<T> for CsrMatrix<T> {
+impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
     fn matvec_inplace(&self, x: &DVector<T>, y: &mut DVector<T>) {
         assert_eq!(self.ncols(), x.len());
         assert_eq!(self.nrows(), y.len());
@@ -212,7 +212,7 @@ impl<T: RealField> SparseMatrixExt<T> for CsrMatrix<T> {
                 y[row_idx] = row.col_indices()
                     .iter()
                     .zip(row.values())
-                    .map(|(&col_idx, value)| value.clone() * x[col_idx].clone())
+                    .map(|(&col_idx, value)| value * x[col_idx])
                     .fold(T::zero(), |acc, val| acc + val);
             });
     }
@@ -221,7 +221,7 @@ impl<T: RealField> SparseMatrixExt<T> for CsrMatrix<T> {
         // Zero-copy computation using iterator combinators
         self.values()
             .iter()
-            .map(|v| v.clone() * v.clone())
+            .map(|v| v * v)
             .fold(T::zero(), |acc, v| acc + v)
             .sqrt()
     }
@@ -235,7 +235,7 @@ impl<T: RealField> SparseMatrixExt<T> for CsrMatrix<T> {
             .iter()
             .fold((T::max_value().expect("CRITICAL: Add proper error handling"), T::min_value().expect("CRITICAL: Add proper error handling")),
                   |(min, max), val| {
-                      (min.min(val.clone()), max.max(val.clone()))
+                      (min.min(val), max.max(val))
                   });
 
         MatrixStats {
@@ -256,7 +256,7 @@ impl<T: RealField> SparseMatrixExt<T> for CsrMatrix<T> {
         for (row_idx, row) in self.row_iter().enumerate().take(n) {
             for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
                 if *col_idx == row_idx {
-                    diag[row_idx] = value.clone();
+                    diag[row_idx] = value;
                     break;
                 }
             }
@@ -279,7 +279,7 @@ impl<T: RealField> SparseMatrixExt<T> for CsrMatrix<T> {
 
         for (row_idx, row) in self.row_iter().enumerate() {
             for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
-                entries.insert((row_idx, *col_idx), value.clone());
+                entries.insert((row_idx, *col_idx), value);
             }
         }
 
@@ -289,8 +289,8 @@ impl<T: RealField> SparseMatrixExt<T> for CsrMatrix<T> {
             let symmetric_value = entries.get(&(*j, *i)).cloned().unwrap_or_else(T::zero);
 
             // Check if A[i,j] ≈ A[j,i]
-            let diff = (value.clone() - symmetric_value).abs();
-            if diff > tolerance.clone() {
+            let diff = (value - symmetric_value).abs();
+            if diff > tolerance {
                 return false;
             }
         }
@@ -301,7 +301,7 @@ impl<T: RealField> SparseMatrixExt<T> for CsrMatrix<T> {
 
 /// Matrix statistics
 #[derive(Debug, Clone)]
-pub struct MatrixStats<T: RealField> {
+pub struct MatrixStats<T: RealField + Copy> {
     /// Number of rows
     pub rows: usize,
     /// Number of columns
@@ -321,7 +321,7 @@ pub struct SparsePatterns;
 
 impl SparsePatterns {
     /// Create a tridiagonal matrix
-    pub fn tridiagonal<T: RealField>(
+    pub fn tridiagonal<T: RealField + Copy>(
         n: usize,
         lower: T,
         diagonal: T,
@@ -331,16 +331,16 @@ impl SparsePatterns {
 
         for i in 0..n {
             // Diagonal element
-            builder.add_entry(i, i, diagonal.clone())?;
+            builder.add_entry(i, i, diagonal)?;
 
             // Lower diagonal
             if i > 0 {
-                builder.add_entry(i, i - 1, lower.clone())?;
+                builder.add_entry(i, i - 1, lower)?;
             }
 
             // Upper diagonal
             if i < n - 1 {
-                builder.add_entry(i, i + 1, upper.clone())?;
+                builder.add_entry(i, i + 1, upper)?;
             }
         }
 
@@ -348,7 +348,7 @@ impl SparsePatterns {
     }
 
     /// Create a 5-point stencil matrix for 2D finite differences
-    pub fn five_point_stencil<T: RealField>(
+    pub fn five_point_stencil<T: RealField + Copy>(
         nx: usize,
         ny: usize,
         dx: T,
@@ -357,9 +357,9 @@ impl SparsePatterns {
         let n = nx * ny;
         let mut builder = SparseMatrixBuilder::with_capacity(n, n, 5 * n);
 
-        let dx2_inv = T::one() / (dx.clone() * dx);
-        let dy2_inv = T::one() / (dy.clone() * dy);
-        let center_coeff = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (dx2_inv.clone() + dy2_inv.clone());
+        let dx2_inv = T::one() / (dx * dx);
+        let dy2_inv = T::one() / (dy * dy);
+        let center_coeff = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (dx2_inv + dy2_inv);
 
         // Use iterator with cartesian product for 2D grid traversal
         (0..ny).flat_map(|j| (0..nx).map(move |i| (i, j)))
@@ -367,20 +367,20 @@ impl SparsePatterns {
                 let idx = j * nx + i;
 
                 // Center point
-                builder.add_entry(idx, idx, center_coeff.clone())?;
+                builder.add_entry(idx, idx, center_coeff)?;
 
                 // Neighbors - compute indices only when valid
                 if i > 0 {
-                    builder.add_entry(idx, idx - 1, dx2_inv.clone())?;  // Left
+                    builder.add_entry(idx, idx - 1, dx2_inv)?;  // Left
                 }
                 if i < nx - 1 {
-                    builder.add_entry(idx, idx + 1, dx2_inv.clone())?;  // Right
+                    builder.add_entry(idx, idx + 1, dx2_inv)?;  // Right
                 }
                 if j > 0 {
-                    builder.add_entry(idx, idx - nx, dy2_inv.clone())?;  // Bottom
+                    builder.add_entry(idx, idx - nx, dy2_inv)?;  // Bottom
                 }
                 if j < ny - 1 {
-                    builder.add_entry(idx, idx + nx, dy2_inv.clone())?;  // Top
+                    builder.add_entry(idx, idx + nx, dy2_inv)?;  // Top
                 }
                 Ok::<(), cfd_core::error::Error>(())
             })?;
@@ -396,12 +396,12 @@ mod tests {
     use nalgebra::{DVector, DMatrix};
 
     // Helper function to convert sparse matrix to dense for testing
-    fn sparse_to_dense<T: RealField>(sparse: &CsrMatrix<T>) -> DMatrix<T> {
+    fn sparse_to_dense<T: RealField + Copy>(sparse: &CsrMatrix<T>) -> DMatrix<T> {
         let mut dense = DMatrix::zeros(sparse.nrows(), sparse.ncols());
 
         for (row_idx, row) in sparse.row_iter().enumerate() {
             for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
-                dense[(row_idx, *col_idx)] = value.clone();
+                dense[(row_idx, *col_idx)] = value;
             }
         }
 

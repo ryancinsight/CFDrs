@@ -9,7 +9,7 @@ use super::poisson::PoissonSolver;
 
 /// Spectral method configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SpectralConfig<T: RealField> {
+pub struct SpectralConfig<T: RealField + Copy> {
     /// Base solver configuration
     pub base: cfd_core::solver::SolverConfig<T>,
     /// Number of modes in x direction
@@ -26,7 +26,7 @@ pub struct SpectralConfig<T: RealField> {
     pub dt: Option<T>,
 }
 
-impl<T: RealField + FromPrimitive> SpectralConfig<T> {
+impl<T: RealField + FromPrimitive + Copy> SpectralConfig<T> {
     /// Create new configuration with validation
     pub fn new(nx: usize, ny: usize, nz: usize) -> Result<Self> {
         Ok(Self {
@@ -49,7 +49,7 @@ impl<T: RealField + FromPrimitive> SpectralConfig<T> {
 }
 
 /// Spectral solver for 3D problems
-pub struct SpectralSolver<T: RealField> {
+pub struct SpectralSolver<T: RealField + Copy> {
     config: SpectralConfig<T>,
     poisson_solver: PoissonSolver<T>,
 }
@@ -82,7 +82,7 @@ impl<T: RealField + FromPrimitive + Copy> SpectralSolver<T> {
 }
 
 /// Solution from spectral solver
-pub struct SpectralSolution<T: RealField> {
+pub struct SpectralSolution<T: RealField + Copy> {
     /// Solution field
     pub u: DMatrix<T>,
     /// Grid dimensions
@@ -91,7 +91,7 @@ pub struct SpectralSolution<T: RealField> {
     pub nz: usize,
 }
 
-impl<T: RealField> SpectralSolution<T> {
+impl<T: RealField + Copy> SpectralSolution<T> {
     /// Create new solution
     pub fn new(nx: usize, ny: usize, nz: usize) -> Self {
         Self {
@@ -108,6 +108,6 @@ impl<T: RealField> SpectralSolution<T> {
         T: Clone
     {
         let idx = i * self.ny + j;
-        self.u[(idx, k)].clone()
+        self.u[(idx, k)]
     }
 }

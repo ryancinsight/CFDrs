@@ -9,7 +9,7 @@ use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 
 /// SUPG/PSPG stabilization parameters
-pub struct StabilizationParameters<T: RealField> {
+pub struct StabilizationParameters<T: RealField + Copy> {
     /// Element size
     h: T,
     /// Kinematic viscosity

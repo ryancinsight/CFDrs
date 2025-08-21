@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 /// Mesh element representation
 #[derive(Debug, Clone)]
-pub struct Element<T: RealField> {
+pub struct Element<T: RealField + Copy> {
     /// Indices of vertices that form this element
     pub vertices: Vec<usize>,
     /// Type of the element
@@ -82,7 +82,7 @@ impl ElementType {
 
 /// Vertex in a mesh
 #[derive(Debug, Clone)]
-pub struct Vertex<T: RealField> {
+pub struct Vertex<T: RealField + Copy> {
     /// Position
     pub position: Point3<T>,
     /// Vertex ID
@@ -153,7 +153,7 @@ impl Cell {
     }
 
     /// Get unique vertex indices for this cell
-    pub fn unique_vertex_indices<T: RealField>(&self, mesh: &Mesh<T>) -> Vec<usize> {
+    pub fn unique_vertex_indices<T: RealField + Copy>(&self, mesh: &Mesh<T>) -> Vec<usize> {
         let mut vertex_indices = HashSet::new();
         
         for &face_idx in &self.faces {
@@ -168,7 +168,7 @@ impl Cell {
     }
 
     /// Validate that the cell has the expected number of vertices for its type
-    pub fn validate_vertex_count<T: RealField>(&self, mesh: &Mesh<T>) -> bool {
+    pub fn validate_vertex_count<T: RealField + Copy>(&self, mesh: &Mesh<T>) -> bool {
         let actual_count = self.unique_vertex_indices(mesh).len();
         let expected_count = self.element_type.expected_vertex_count();
         
@@ -196,7 +196,7 @@ pub struct MeshTopology {
 
 /// Generic mesh structure
 #[derive(Debug, Clone)]
-pub struct Mesh<T: RealField> {
+pub struct Mesh<T: RealField + Copy> {
     /// Vertices
     pub vertices: Vec<Vertex<T>>,
     /// Edges
@@ -209,7 +209,7 @@ pub struct Mesh<T: RealField> {
     pub topology: MeshTopology,
 }
 
-impl<T: RealField> Mesh<T> {
+impl<T: RealField + Copy> Mesh<T> {
     /// Create a new empty mesh
     pub fn new() -> Self {
         Self {
@@ -273,7 +273,7 @@ impl<T: RealField> Mesh<T> {
     }
 }
 
-impl<T: RealField> Default for Mesh<T> {
+impl<T: RealField + Copy> Default for Mesh<T> {
     fn default() -> Self {
         Self::new()
     }

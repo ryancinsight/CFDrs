@@ -4,12 +4,12 @@ use nalgebra::{RealField, DVector};
 use cfd_core::Result;
 
 /// Convergence checker for iterative solutions
-pub struct ConvergenceChecker<T: RealField> {
+pub struct ConvergenceChecker<T: RealField + Copy> {
     tolerance: T,
     max_iterations: usize,
 }
 
-impl<T: RealField> ConvergenceChecker<T> {
+impl<T: RealField + Copy> ConvergenceChecker<T> {
     /// Create a new convergence checker
     pub fn new(tolerance: T) -> Self {
         Self {

@@ -49,7 +49,7 @@ pub enum CsgError {
 /// 
 /// Provides comprehensive CSG functionality including boolean operations,
 /// primitive generation, and mesh transformations.
-pub struct CsgOperator<T: RealField> {
+pub struct CsgOperator<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
@@ -151,7 +151,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive> Default for CsgOperator<T> {
 }
 
 /// Wrapper for CSG geometry with type safety and CFD integration
-pub struct CsgGeometry<T: RealField> {
+pub struct CsgGeometry<T: RealField + Copy> {
     csg: CsgMesh<()>,
     _phantom: std::marker::PhantomData<T>,
 }
@@ -445,7 +445,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgGeometry<T> {
 impl<T: RealField + FromPrimitive + ToPrimitive> Clone for CsgGeometry<T> {
     fn clone(&self) -> Self {
         Self {
-            csg: self.csg.clone(),
+            csg: self.csg,
             _phantom: std::marker::PhantomData,
         }
     }
@@ -455,7 +455,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive> Clone for CsgGeometry<T> {
 pub type CsgMeshAdapter<T> = CsgOperator<T>;
 
 /// Builder pattern for complex CSG operations
-pub struct CsgBuilder<T: RealField> {
+pub struct CsgBuilder<T: RealField + Copy> {
     geometry: Option<CsgGeometry<T>>,
     _phantom: std::marker::PhantomData<T>,
 }
@@ -573,7 +573,7 @@ mod tests {
     #[test]
     fn test_create_cube() {
         let operator = CsgOperator::<f64>::new();
-        let cube = operator.create_cube(2.0, 2.0, 2.0).expect("FIXME: Add proper error handling");
+        let cube = operator.create_cube(2.0, 2.0, 2.0).expect("Failed to complete operation");
         
         assert!(cube.vertex_count() > 0);
         assert!(cube.face_count() > 0);
@@ -582,7 +582,7 @@ mod tests {
     #[test]
     fn test_create_sphere() {
         let operator = CsgOperator::<f64>::new();
-        let sphere = operator.create_sphere(1.0, 16, 8).expect("FIXME: Add proper error handling");
+        let sphere = operator.create_sphere(1.0, 16, 8).expect("Failed to complete operation");
         
         assert!(sphere.vertex_count() > 0);
         assert!(sphere.face_count() > 0);
@@ -591,8 +591,8 @@ mod tests {
     #[test]
     fn test_boolean_operations() {
         let operator = CsgOperator::<f64>::new();
-        let cube = operator.create_cube(2.0, 2.0, 2.0).expect("FIXME: Add proper error handling");
-        let sphere = operator.create_sphere(1.0, 16, 8).expect("FIXME: Add proper error handling");
+        let cube = operator.create_cube(2.0, 2.0, 2.0).expect("Failed to complete operation");
+        let sphere = operator.create_sphere(1.0, 16, 8).expect("Failed to complete operation");
         
         // Test union
         let union_result = cube.union(&sphere);
@@ -610,17 +610,17 @@ mod tests {
     #[test]
     fn test_transformations() {
         let operator = CsgOperator::<f64>::new();
-        let mut cube = operator.create_cube(1.0, 1.0, 1.0).expect("FIXME: Add proper error handling");
+        let mut cube = operator.create_cube(1.0, 1.0, 1.0).expect("Failed to complete operation");
         
         // Test translation
         let translation = Vector3::new(1.0, 2.0, 3.0);
-        cube.translate(&translation).expect("FIXME: Add proper error handling");
+        cube.translate(&translation).expect("Failed to complete operation");
         
         // Test rotation (in degrees)
-        cube.rotate(45.0, 0.0, 0.0).expect("FIXME: Add proper error handling");
+        cube.rotate(45.0, 0.0, 0.0).expect("Failed to complete operation");
         
         // Test scaling
-        cube.scale(2.0, 2.0, 2.0).expect("FIXME: Add proper error handling");
+        cube.scale(2.0, 2.0, 2.0).expect("Failed to complete operation");
         
         assert!(cube.vertex_count() > 0);
     }
@@ -628,9 +628,9 @@ mod tests {
     #[test]
     fn test_builder_pattern() {
         let result = CsgBuilder::<f64>::new()
-            .cube(2.0, 2.0, 2.0).expect("FIXME: Add proper error handling")
-            .translate(Vector3::new(1.0, 0.0, 0.0)).expect("FIXME: Add proper error handling")
-            .build().expect("FIXME: Add proper error handling");
+            .cube(2.0, 2.0, 2.0).expect("Failed to complete operation")
+            .translate(Vector3::new(1.0, 0.0, 0.0)).expect("Failed to complete operation")
+            .build().expect("Failed to complete operation");
         
         assert!(result.vertex_count() > 0);
     }
@@ -638,9 +638,9 @@ mod tests {
     #[test]
     fn test_mesh_conversion() {
         let operator = CsgOperator::<f64>::new();
-        let cube = operator.create_cube(1.0, 1.0, 1.0).expect("FIXME: Add proper error handling");
+        let cube = operator.create_cube(1.0, 1.0, 1.0).expect("Failed to complete operation");
         
-        let mesh = cube.to_mesh().expect("FIXME: Add proper error handling");
+        let mesh = cube.to_mesh().expect("Failed to complete operation");
         assert!(!mesh.vertices.is_empty());
         assert!(!mesh.faces.is_empty());
     }
@@ -648,9 +648,9 @@ mod tests {
     #[test]
     fn test_stl_export() {
         let operator = CsgOperator::<f64>::new();
-        let cube = operator.create_cube(1.0, 1.0, 1.0).expect("FIXME: Add proper error handling");
+        let cube = operator.create_cube(1.0, 1.0, 1.0).expect("Failed to complete operation");
         
-        let stl_content = cube.to_stl("test_cube").expect("FIXME: Add proper error handling");
+        let stl_content = cube.to_stl("test_cube").expect("Failed to complete operation");
         assert!(stl_content.contains("solid test_cube"));
         assert!(stl_content.contains("facet normal"));
         assert!(stl_content.contains("vertex"));
@@ -660,9 +660,9 @@ mod tests {
     #[test]
     fn test_bounding_box() {
         let operator = CsgOperator::<f64>::new();
-        let cube = operator.create_cube(2.0, 2.0, 2.0).expect("FIXME: Add proper error handling");
+        let cube = operator.create_cube(2.0, 2.0, 2.0).expect("Failed to complete operation");
         
-        let (min_point, max_point) = cube.bounding_box().expect("FIXME: Add proper error handling");
+        let (min_point, max_point) = cube.bounding_box().expect("Failed to complete operation");
         
         // Cube should be centered at origin, so bounds should be symmetric
         assert_relative_eq!(min_point.x, -1.0, epsilon = 1e-6);
@@ -678,12 +678,12 @@ mod tests {
         let operator = CsgOperator::<f64>::new();
         
         // Test frustum (truncated cone)
-        let frustum = operator.create_frustum(2.0, 1.0, 3.0, 16).expect("FIXME: Add proper error handling");
+        let frustum = operator.create_frustum(2.0, 1.0, 3.0, 16).expect("Failed to complete operation");
         assert!(frustum.vertex_count() > 0);
         assert!(frustum.face_count() > 0);
         
         // Test cone (frustum with top radius = 0)
-        let cone = operator.create_cone(2.0, 3.0, 16).expect("FIXME: Add proper error handling");
+        let cone = operator.create_cone(2.0, 3.0, 16).expect("Failed to complete operation");
         assert!(cone.vertex_count() > 0);
         assert!(cone.face_count() > 0);
         

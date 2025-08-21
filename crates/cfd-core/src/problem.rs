@@ -9,7 +9,7 @@ use num_traits::cast::FromPrimitive;
 use std::sync::Arc;
 
 /// Trait for defining CFD problems
-pub trait Problem<T: RealField>: Send + Sync {
+pub trait Problem<T: RealField + Copy>: Send + Sync {
     /// Domain type for this problem
     type Domain: Domain<T>;
     /// State type for this problem
@@ -50,7 +50,7 @@ pub struct ProblemConfig<T: RealField, D: Domain<T>> {
 
 /// Common problem parameters
 #[derive(Debug, Clone)]
-pub struct ProblemParameters<T: RealField> {
+pub struct ProblemParameters<T: RealField + Copy> {
     /// Reference pressure [Pa]
     pub reference_pressure: T,
     /// Reference temperature [K]
@@ -63,7 +63,7 @@ pub struct ProblemParameters<T: RealField> {
     pub energy: bool,
 }
 
-impl<T: RealField + FromPrimitive> Default for ProblemParameters<T> {
+impl<T: RealField + FromPrimitive + Copy> Default for ProblemParameters<T> {
     fn default() -> Self {
         Self {
             reference_pressure: T::from_f64(101_325.0).unwrap_or_else(|| T::one()), // 1 atm

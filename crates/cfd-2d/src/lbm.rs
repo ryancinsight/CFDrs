@@ -55,7 +55,7 @@ impl D2Q9 {
 
 /// LBM solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LbmConfig<T: RealField> {
+pub struct LbmConfig<T: RealField + Copy> {
     /// Relaxation time (related to viscosity)
     pub tau: T,
 
@@ -82,7 +82,7 @@ impl<T: RealField + FromPrimitive + Copy> Default for LbmConfig<T> {
 }
 
 /// Lattice Boltzmann Method solver for 2D incompressible flows
-pub struct LbmSolver<T: RealField> {
+pub struct LbmSolver<T: RealField + Copy> {
     config: LbmConfig<T>,
     /// Distribution functions [nx][ny][Q] - current timestep
     f: Vec<Vec<Vec<T>>>,
@@ -163,8 +163,8 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
         // Use traditional loops for mutable access to self, but iterator for inner loop
         for i in 0..self.nx {
             for j in 0..self.ny {
-                self.rho[i][j] = initial_density.clone();
-                self.u[i][j] = initial_velocity.clone();
+                self.rho[i][j] = initial_density;
+                self.u[i][j] = initial_velocity;
 
                 // Set equilibrium distribution using iterator pattern
                 for q in 0..D2Q9::Q {
@@ -217,11 +217,11 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
         let cs2 = T::from_f64(1.0/3.0).unwrap_or_else(|| T::zero()); // Speed of sound squared
 
         // Equilibrium distribution: w_i * rho * (1 + c_i·u/cs² + (c_i·u)²/(2cs⁴) - u²/(2cs²))
-        let term1 = cu.clone() / cs2.clone();
-        let term2 = cu.clone() * cu / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * cs2.clone() * cs2.clone());
+        let term1 = cu / cs2;
+        let term2 = cu * cu / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * cs2 * cs2);
         let term3 = u_sqr / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * cs2);
 
-        w * rho.clone() * (T::one() + term1 + term2 - term3)
+        w * rho * (T::one() + term1 + term2 - term3)
     }
 
     /// Perform collision step (BGK operator) with iterator patterns
@@ -237,7 +237,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                 };
                 
                 // Calculate density using iterator fold for efficiency
-                let rho_local = f_ij.iter().fold(T::zero(), |acc, f| acc + f.clone());
+                let rho_local = f_ij.iter().fold(T::zero(), |acc, f| acc + f);
 
                 // Calculate velocity using iterator zip and fold for efficiency
                 let u_local = f_ij.iter()
@@ -247,27 +247,27 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                             T::from_i32(ci).unwrap_or_else(|| T::zero()),
                             T::from_i32(cj).unwrap_or_else(|| T::zero()),
                         );
-                        c * f.clone()
+                        c * f
                     })
-                    .fold(Vector2::zeros(), |acc, v| acc + v) / rho_local.clone();
+                    .fold(Vector2::zeros(), |acc, v| acc + v) / rho_local;
 
                 // Store macroscopic quantities
-                self.rho[i][j] = rho_local.clone();
-                self.u[i][j] = u_local.clone();
+                self.rho[i][j] = rho_local;
+                self.u[i][j] = u_local;
 
                 // Collision with BGK operator using direct indexing
-                let tau_inv = T::one() / self.config.tau.clone();
+                let tau_inv = T::one() / self.config.tau;
                 
                 // Use iterator pattern for the collision step to avoid borrow conflicts
                 for q in 0..D2Q9::Q {
                     let f_eq = self.equilibrium_distribution(q, &rho_local, &u_local);
                     
                     if self.use_f_as_current {
-                        let f_old = self.f[i][j][q].clone();
-                        self.f[i][j][q] = f_old.clone() - (f_old - f_eq) * tau_inv.clone();
+                        let f_old = self.f[i][j][q];
+                        self.f[i][j][q] = f_old - (f_old - f_eq) * tau_inv;
                     } else {
-                        let f_old = self.f_new[i][j][q].clone();
-                        self.f_new[i][j][q] = f_old.clone() - (f_old - f_eq) * tau_inv.clone();
+                        let f_old = self.f_new[i][j][q];
+                        self.f_new[i][j][q] = f_old - (f_old - f_eq) * tau_inv;
                     }
                 }
             }
@@ -303,16 +303,16 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
             let value = if let Some((si, sj)) = source_coords {
                 // Stream from source to destination
                 if self.use_f_as_current {
-                    self.f[si][sj][q].clone()
+                    self.f[si][sj][q]
                 } else {
-                    self.f_new[si][sj][q].clone()
+                    self.f_new[si][sj][q]
                 }
             } else {
                 // Boundary nodes keep their post-collision values
                 if self.use_f_as_current {
-                    self.f[i][j][q].clone()
+                    self.f[i][j][q]
                 } else {
-                    self.f_new[i][j][q].clone()
+                    self.f_new[i][j][q]
                 }
             };
             
@@ -345,9 +345,9 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                                 let opp = D2Q9::OPPOSITE[q];
                                 // The distribution streaming TO the wall bounces back
                                 let value = if self.use_f_as_current {
-                                    self.f[i][j][q].clone()
+                                    self.f[i][j][q]
                                 } else {
-                                    self.f_new[i][j][q].clone()
+                                    self.f_new[i][j][q]
                                 };
                                 
                                 if self.use_f_as_current {
@@ -360,7 +360,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                     }
                     BoundaryCondition::VelocityInlet { velocity } => {
                         // Velocity boundary condition using iterator
-                        let u_bc = Vector2::new(velocity.x.clone(), velocity.y.clone());
+                        let u_bc = Vector2::new(velocity.x, velocity.y);
                         for q in 0..D2Q9::Q {
                             let value = self.equilibrium_distribution(q, &self.rho[i][j], &u_bc);
                             if self.use_f_as_current {
@@ -372,7 +372,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                     }
                     BoundaryCondition::PressureOutlet { pressure } => {
                         // Pressure boundary condition using iterator
-                        let rho_bc = pressure.clone();
+                        let rho_bc = pressure;
                         for q in 0..D2Q9::Q {
                             let value = self.equilibrium_distribution(q, &rho_bc, &self.u[i][j]);
                             if self.use_f_as_current {
@@ -389,9 +389,9 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                         // Copy current distributions
                         for q in 0..D2Q9::Q {
                             f_new[q] = if self.use_f_as_current {
-                                self.f[i][j][q].clone()
+                                self.f[i][j][q]
                             } else {
-                                self.f_new[i][j][q].clone()
+                                self.f_new[i][j][q]
                             };
                         }
 
@@ -399,18 +399,18 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                         for q in 1..D2Q9::Q { // Skip rest particle (q=0)
                             let opp = D2Q9::OPPOSITE[q];
                             f_new[q] = if self.use_f_as_current {
-                                self.f[i][j][opp].clone()
+                                self.f[i][j][opp]
                             } else {
-                                self.f_new[i][j][opp].clone()
+                                self.f_new[i][j][opp]
                             };
                         }
 
                         // Update distributions
                         for q in 0..D2Q9::Q {
                             if self.use_f_as_current {
-                                self.f_new[i][j][q] = f_new[q].clone();
+                                self.f_new[i][j][q] = f_new[q];
                             } else {
-                                self.f[i][j][q] = f_new[q].clone();
+                                self.f[i][j][q] = f_new[q];
                             }
                         }
                     }
@@ -460,9 +460,9 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                     // The distribution coming from direction q will be reflected
                     // back in the opposite direction q_opp
                     reflected[q_opp] = if self.use_f_as_current {
-                        self.f[ni][nj][q].clone()
+                        self.f[ni][nj][q]
                     } else {
-                        self.f_new[ni][nj][q].clone()
+                        self.f_new[ni][nj][q]
                     };
                 }
             }
@@ -480,9 +480,9 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                    nj >= 0 && nj < self.ny as i32 {
                     // This direction points into the fluid, apply reflection
                     if self.use_f_as_current {
-                        self.f_new[i][j][q] = reflected[q].clone();
+                        self.f_new[i][j][q] = reflected[q];
                     } else {
-                        self.f[i][j][q] = reflected[q].clone();
+                        self.f[i][j][q] = reflected[q];
                     }
                 }
             }
@@ -544,15 +544,15 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
         
         for i in 0..self.nx {
             for j in 0..self.ny {
-                let u_mag = (self.u[i][j].x.clone() * self.u[i][j].x.clone() +
-                           self.u[i][j].y.clone() * self.u[i][j].y.clone()).sqrt();
+                let u_mag = (self.u[i][j].x * self.u[i][j].x +
+                           self.u[i][j].y * self.u[i][j].y).sqrt();
                 velocity_residual = velocity_residual + u_mag;
-                density_residual = density_residual + (self.rho[i][j].clone() - T::one()).abs();
+                density_residual = density_residual + (self.rho[i][j] - T::one()).abs();
             }
         }
 
         // Normalize residuals
-        let velocity_residual_norm = velocity_residual / total_cells.clone();
+        let velocity_residual_norm = velocity_residual / total_cells;
         let density_residual_norm = density_residual / total_cells;
 
         // Check convergence criteria
@@ -598,8 +598,8 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                 let f_ij: Vec<T> = self.f_current()[i][j].iter().cloned().collect();
                 
                 // Calculate density using iterator fold for efficiency
-                let rho_local = f_ij.iter().fold(T::zero(), |acc, f| acc + f.clone());
-                self.rho[i][j] = rho_local.clone();
+                let rho_local = f_ij.iter().fold(T::zero(), |acc, f| acc + f);
+                self.rho[i][j] = rho_local;
                 
                 // Calculate velocity using iterator for efficiency
                 let mut u_local = T::zero();
@@ -607,13 +607,13 @@ impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                 
                 for (k, f_k) in f_ij.iter().enumerate() {
                     let (cx, cy) = D2Q9::VELOCITIES[k];
-                    u_local = u_local + f_k.clone() * T::from_i32(cx).unwrap_or_else(|| T::zero());
-                    v_local = v_local + f_k.clone() * T::from_i32(cy).unwrap_or_else(|| T::zero());
+                    u_local = u_local + f_k * T::from_i32(cx).unwrap_or_else(|| T::zero());
+                    v_local = v_local + f_k * T::from_i32(cy).unwrap_or_else(|| T::zero());
                 }
                 
                 // Avoid division by zero
-                if rho_local.clone().abs() > T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
-                    u_local = u_local / rho_local.clone();
+                if rho_local.abs() > T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
+                    u_local = u_local / rho_local;
                     v_local = v_local / rho_local;
                 }
                 

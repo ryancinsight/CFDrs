@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 /// Problem definition for 2D incompressible flow
 #[derive(Debug, Clone)]
-pub struct IncompressibleFlowProblem<T: RealField> {
+pub struct IncompressibleFlowProblem<T: RealField + Copy> {
     /// Computational grid
     pub grid: StructuredGrid2D<T>,
     /// Boundary conditions at specific grid points
@@ -27,7 +27,7 @@ pub struct IncompressibleFlowProblem<T: RealField> {
     pub end_time: Option<T>,
 }
 
-impl<T: RealField> IncompressibleFlowProblem<T> {
+impl<T: RealField + Copy> IncompressibleFlowProblem<T> {
     /// Create new incompressible flow problem
     pub fn new(
         grid: StructuredGrid2D<T>,
@@ -122,7 +122,7 @@ impl<T: RealField> IncompressibleFlowProblem<T> {
 
 /// Solution structure for incompressible flow
 #[derive(Debug, Clone)]
-pub struct IncompressibleFlowSolution<T: RealField> {
+pub struct IncompressibleFlowSolution<T: RealField + Copy> {
     /// Final velocity field
     pub velocity: Vec<Vec<Vector2<T>>>,
     /// Final pressure field
@@ -135,7 +135,7 @@ pub struct IncompressibleFlowSolution<T: RealField> {
     pub time: T,
 }
 
-impl<T: RealField> IncompressibleFlowSolution<T> {
+impl<T: RealField + Copy> IncompressibleFlowSolution<T> {
     /// Create new solution
     pub fn new(
         velocity: Vec<Vec<Vector2<T>>>,

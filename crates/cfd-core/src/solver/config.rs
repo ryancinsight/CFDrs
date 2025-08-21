@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use num_traits::FromPrimitive;
 
 /// Core solver configuration trait
-pub trait SolverConfiguration<T: RealField>: Clone + Send + Sync {
+pub trait SolverConfiguration<T: RealField + Copy>: Clone + Send + Sync {
     /// Get maximum iterations
     fn max_iterations(&self) -> usize;
     
@@ -18,7 +18,7 @@ pub trait SolverConfiguration<T: RealField>: Clone + Send + Sync {
 
 /// Convergence configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConvergenceConfig<T: RealField> {
+pub struct ConvergenceConfig<T: RealField + Copy> {
     /// Maximum iterations
     pub max_iterations: usize,
     /// Convergence tolerance
@@ -42,7 +42,7 @@ pub struct ExecutionConfig {
 
 /// Numerical configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NumericalConfig<T: RealField> {
+pub struct NumericalConfig<T: RealField + Copy> {
     /// Time step size
     pub dt: T,
     /// CFL number
@@ -53,7 +53,7 @@ pub struct NumericalConfig<T: RealField> {
 
 /// Complete solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SolverConfig<T: RealField> {
+pub struct SolverConfig<T: RealField + Copy> {
     /// Convergence settings
     pub convergence: ConvergenceConfig<T>,
     /// Execution settings
@@ -62,7 +62,7 @@ pub struct SolverConfig<T: RealField> {
     pub numerical: NumericalConfig<T>,
 }
 
-impl<T: RealField + FromPrimitive> Default for SolverConfig<T> {
+impl<T: RealField + FromPrimitive + Copy> Default for SolverConfig<T> {
     fn default() -> Self {
         Self {
             convergence: ConvergenceConfig {
@@ -85,7 +85,7 @@ impl<T: RealField + FromPrimitive> Default for SolverConfig<T> {
     }
 }
 
-impl<T: RealField> SolverConfig<T> {
+impl<T: RealField + Copy> SolverConfig<T> {
     /// Create a builder for configuration
     pub fn builder() -> SolverConfigBuilder<T>
     where
@@ -124,7 +124,7 @@ impl<T: RealField + Copy> SolverConfiguration<T> for SolverConfig<T> {
 
 /// Linear solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LinearSolverConfig<T: RealField> {
+pub struct LinearSolverConfig<T: RealField + Copy> {
     /// Maximum iterations
     pub max_iterations: usize,
     /// Convergence tolerance
@@ -143,7 +143,7 @@ impl<T: RealField + num_traits::FromPrimitive> Default for LinearSolverConfig<T>
     }
 }
 
-impl<T: RealField> LinearSolverConfig<T> {
+impl<T: RealField + Copy> LinearSolverConfig<T> {
     /// Get tolerance
     pub fn tolerance(&self) -> T
     where
@@ -155,7 +155,7 @@ impl<T: RealField> LinearSolverConfig<T> {
 
 /// Network solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NetworkSolverConfig<T: RealField> {
+pub struct NetworkSolverConfig<T: RealField + Copy> {
     /// Linear solver settings
     pub linear_solver: LinearSolverConfig<T>,
     /// Network-specific settings
@@ -172,11 +172,11 @@ pub struct NetworkConfig {
 }
 
 /// Builder for solver configuration
-pub struct SolverConfigBuilder<T: RealField> {
+pub struct SolverConfigBuilder<T: RealField + Copy> {
     config: SolverConfig<T>,
 }
 
-impl<T: RealField> SolverConfigBuilder<T> {
+impl<T: RealField + Copy> SolverConfigBuilder<T> {
     /// Create new builder with defaults
     pub fn new() -> Self {
         Self {

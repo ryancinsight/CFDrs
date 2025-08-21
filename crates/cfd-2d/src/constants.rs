@@ -39,10 +39,10 @@ pub mod relaxation {
 /// Turbulence model constants
 pub mod turbulence {
     /// von Karman constant
-    pub const KAPPA: f64 = 0.41;
+    pub const KAPPA: f64 = crate::constants::VON_KARMAN;
     
     /// Wall function constant
-    pub const E_WALL: f64 = 9.8;
+    pub const E_WALL: f64 = crate::constants::E_WALL_FUNCTION;
     
     /// k-epsilon model constant C_mu
     pub const C_MU: f64 = 0.09;

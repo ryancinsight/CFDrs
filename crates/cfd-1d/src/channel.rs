@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 /// Extended channel geometry representation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChannelGeometry<T: RealField> {
+pub struct ChannelGeometry<T: RealField + Copy> {
     /// Channel type
     pub channel_type: ChannelType,
     /// Length [m]
@@ -52,7 +52,7 @@ pub enum ChannelType {
 
 /// Cross-sectional geometry
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum CrossSection<T: RealField> {
+pub enum CrossSection<T: RealField + Copy> {
     /// Rectangular cross-section
     Rectangular {
         /// Width of the rectangular channel
@@ -92,7 +92,7 @@ pub enum CrossSection<T: RealField> {
 
 /// Surface properties affecting flow
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SurfaceProperties<T: RealField> {
+pub struct SurfaceProperties<T: RealField + Copy> {
     /// Surface roughness [m]
     pub roughness: T,
     /// Contact angle [radians]
@@ -118,7 +118,7 @@ pub enum Wettability {
 
 /// Geometric variation along channel length
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GeometricVariation<T: RealField> {
+pub struct GeometricVariation<T: RealField + Copy> {
     /// Position along channel [0-1]
     pub position: T,
     /// Scale factor for cross-section
@@ -128,7 +128,7 @@ pub struct GeometricVariation<T: RealField> {
 }
 
 /// Extended channel flow model
-pub struct Channel<T: RealField> {
+pub struct Channel<T: RealField + Copy> {
     /// Channel geometry
     pub geometry: ChannelGeometry<T>,
     /// Flow state
@@ -139,7 +139,7 @@ pub struct Channel<T: RealField> {
 
 /// Flow state information
 #[derive(Debug, Clone)]
-pub struct FlowState<T: RealField> {
+pub struct FlowState<T: RealField + Copy> {
     /// Reynolds number
     pub reynolds_number: Option<T>,
     /// Flow regime
@@ -167,7 +167,7 @@ pub enum FlowRegime {
 
 /// Numerical parameters for advanced modeling
 #[derive(Debug, Clone)]
-pub struct NumericalParameters<T: RealField> {
+pub struct NumericalParameters<T: RealField + Copy> {
     /// Number of discretization points
     pub discretization_points: usize,
     /// Convergence tolerance
@@ -324,7 +324,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
     /// Update flow state based on current conditions
     fn update_flow_state(&mut self, _fluid: &Fluid<T>) -> Result<()> {
         // Calculate Reynolds number if velocity is known
-        if let Some(re) = self.flow_state.reynolds_number.clone() {
+        if let Some(re) = self.flow_state.reynolds_number {
             self.flow_state.flow_regime = self.classify_flow_regime(re);
             
             // Check for entrance effects
@@ -368,9 +368,9 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
 
         if re_val < 0.1 {
             FlowRegime::Stokes
-        } else if re_val < 2300.0 {
+        } else if re_val < crate::constants::LAMINAR_THRESHOLD {
             FlowRegime::Laminar
-        } else if re_val <= 4000.0 {
+        } else if re_val <= crate::constants::TURBULENT_THRESHOLD {
             FlowRegime::Transitional
         } else {
             FlowRegime::Turbulent
@@ -381,14 +381,14 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
     fn calculate_stokes_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
         let area = self.geometry.area();
         let dh = self.geometry.hydraulic_diameter();
-        let length = self.geometry.length.clone();
+        let length = self.geometry.length;
         // Use actual operating temperature instead of hardcoded 20°C
         let temperature = T::from_f64(293.15).unwrap_or_else(|| T::zero()); // Default to 20°C if not specified
         let viscosity = fluid.dynamic_viscosity(temperature)?;
 
         // Stokes flow resistance with shape factor: R = (f*Re) * μ * L / (2 * A * Dh^2)
         let shape_factor = self.get_shape_factor();
-        let resistance = shape_factor * viscosity * length / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * dh.clone() * dh);
+        let resistance = shape_factor * viscosity * length / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * dh * dh);
 
         Ok(resistance)
     }
@@ -397,10 +397,10 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
     fn calculate_laminar_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
         match &self.geometry.cross_section {
             CrossSection::Rectangular { width, height } => {
-                self.calculate_rectangular_laminar_resistance(fluid, width.clone(), height.clone())
+                self.calculate_rectangular_laminar_resistance(fluid, width, height)
             },
             CrossSection::Circular { diameter } => {
-                self.calculate_circular_laminar_resistance(fluid, diameter.clone())
+                self.calculate_circular_laminar_resistance(fluid, diameter)
             },
             _ => {
                 // Use general formula for other shapes
@@ -414,17 +414,17 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
         // Use actual operating temperature instead of hardcoded 20°C
         let temperature = T::from_f64(293.15).unwrap_or_else(|| T::zero()); // Default to 20°C if not specified
         let viscosity = fluid.dynamic_viscosity(temperature)?;
-        let length = self.geometry.length.clone();
+        let length = self.geometry.length;
 
         // Exact solution for rectangular channel
-        let aspect_ratio = width.clone() / height.clone();
+        let aspect_ratio = width / height;
         let f_re = self.calculate_rectangular_friction_factor(aspect_ratio);
 
         let area = width * height;
         let dh = self.geometry.hydraulic_diameter();
 
         // Correct hydraulic resistance formula: R = (f*Re) * μ * L / (2 * A * Dh^2)
-        let resistance = f_re * viscosity * length / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * dh.clone() * dh);
+        let resistance = f_re * viscosity * length / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * dh * dh);
 
         Ok(resistance)
     }
@@ -461,7 +461,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
         // Use actual operating temperature instead of hardcoded 20°C
         let temperature = T::from_f64(293.15).unwrap_or_else(|| T::zero()); // Default to 20°C if not specified
         let viscosity = fluid.dynamic_viscosity(temperature)?;
-        let length = self.geometry.length.clone();
+        let length = self.geometry.length;
 
         // Hagen-Poiseuille equation: R = (128 * μ * L) / (π * D^4)
         let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
@@ -481,7 +481,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
 
         // Standard linear interpolation (could be improved)
         let blend_factor = T::from_f64(0.5).unwrap_or_else(|| T::zero());
-        Ok(laminar_r * (T::one() - blend_factor.clone()) + turbulent_r * blend_factor)
+        Ok(laminar_r * (T::one() - blend_factor) + turbulent_r * blend_factor)
     }
 
     /// Calculate resistance for turbulent flow using Darcy-Weisbach equation
@@ -493,7 +493,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
         // Use Darcy-Weisbach equation with friction factor correlation
         let area = self.geometry.area();
         let dh = self.geometry.hydraulic_diameter();
-        let length = self.geometry.length.clone();
+        let length = self.geometry.length;
         let density = fluid.density;
 
         // Calculate friction factor using Swamee-Jain approximation for smooth pipes
@@ -652,7 +652,7 @@ mod tests {
         let channel = Channel::new(geometry);
         let fluid = cfd_core::fluid::Fluid::water();
 
-        let resistance = channel.calculate_circular_laminar_resistance(&fluid, 100e-6).expect("FIXME: Add proper error handling");
+        let resistance = channel.calculate_circular_laminar_resistance(&fluid, 100e-6).expect("Failed to complete operation");
 
         // Should be positive and reasonable for water flow
         assert!(resistance > 0.0);
@@ -665,7 +665,7 @@ mod tests {
         let channel = Channel::new(geometry);
         let fluid = cfd_core::fluid::Fluid::water();
 
-        let resistance = channel.calculate_rectangular_laminar_resistance(&fluid, 100e-6, 50e-6).expect("FIXME: Add proper error handling");
+        let resistance = channel.calculate_rectangular_laminar_resistance(&fluid, 100e-6, 50e-6).expect("Failed to complete operation");
 
         // Should be positive and reasonable for water flow
         assert!(resistance > 0.0);
@@ -680,16 +680,16 @@ mod tests {
 
         // Test different flow regimes
         channel.set_reynolds_number(0.1); // Stokes
-        let stokes_r = channel.calculate_resistance(&fluid).expect("FIXME: Add proper error handling");
+        let stokes_r = channel.calculate_resistance(&fluid).expect("Failed to complete operation");
 
         channel.set_reynolds_number(100.0); // Laminar
-        let laminar_r = channel.calculate_resistance(&fluid).expect("FIXME: Add proper error handling");
+        let laminar_r = channel.calculate_resistance(&fluid).expect("Failed to complete operation");
 
         channel.set_reynolds_number(3000.0); // Transitional
-        let transitional_r = channel.calculate_resistance(&fluid).expect("FIXME: Add proper error handling");
+        let transitional_r = channel.calculate_resistance(&fluid).expect("Failed to complete operation");
 
         channel.set_reynolds_number(5000.0); // Turbulent
-        let turbulent_r = channel.calculate_resistance(&fluid).expect("FIXME: Add proper error handling");
+        let turbulent_r = channel.calculate_resistance(&fluid).expect("Failed to complete operation");
 
         // All should be positive
         assert!(stokes_r > 0.0);

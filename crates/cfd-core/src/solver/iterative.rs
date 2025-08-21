@@ -6,7 +6,7 @@ use nalgebra::RealField;
 use std::marker::PhantomData;
 
 /// Iterative solver trait
-pub trait IterativeSolver<T: RealField>: Solver<T> + Configurable<T> {
+pub trait IterativeSolver<T: RealField + Copy>: Solver<T> + Configurable<T> {
     /// Get current iteration count
     fn iteration_count(&self) -> usize;
     
@@ -21,7 +21,7 @@ pub trait IterativeSolver<T: RealField>: Solver<T> + Configurable<T> {
 }
 
 /// State for iterative solvers
-pub trait IterationState<T: RealField> {
+pub trait IterationState<T: RealField + Copy> {
     /// Get iteration number
     fn iteration(&self) -> usize;
     

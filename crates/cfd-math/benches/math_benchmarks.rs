@@ -93,8 +93,8 @@ fn benchmark_interpolation(c: &mut Criterion) {
         let y_data: Vec<f64> = x_data.iter().map(|&x| x.sin()).collect();
         let query_points: Vec<f64> = (0..(*size/2)).map(|i| (i as f64 + 0.5) / *size as f64).collect();
         
-        let linear_interp = LinearInterpolation::new(x_data.clone(), y_data.clone()).unwrap();
-        let cubic_interp = CubicSplineInterpolation::new(x_data.clone(), y_data.clone()).unwrap();
+        let linear_interp = LinearInterpolation::new(x_data, y_data).unwrap();
+        let cubic_interp = CubicSplineInterpolation::new(x_data, y_data).unwrap();
         
         group.bench_with_input(
             BenchmarkId::new("linear_interpolation", size),

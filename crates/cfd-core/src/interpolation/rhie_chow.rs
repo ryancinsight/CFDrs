@@ -10,7 +10,7 @@ use num_traits::FromPrimitive;
 /// 
 /// This interpolation prevents checkerboard pressure oscillations in collocated grids
 /// by adding a pressure-gradient-based correction to the interpolated velocity.
-pub struct RhieChowInterpolation<T: RealField> {
+pub struct RhieChowInterpolation<T: RealField + Copy> {
     /// Grid spacing in x-direction
     dx: T,
     /// Grid spacing in y-direction

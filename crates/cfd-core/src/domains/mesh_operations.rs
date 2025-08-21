@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Mesh generation strategy abstraction
-pub trait MeshGeneration<T: RealField>: Send + Sync {
+pub trait MeshGeneration<T: RealField + Copy>: Send + Sync {
     /// Generate mesh for given geometry
     fn generate(&self, geometry: &dyn Geometry<T>) -> Result<Mesh<T>, String>;
     
@@ -20,7 +20,7 @@ pub trait MeshGeneration<T: RealField>: Send + Sync {
 }
 
 /// Mesh refinement strategy abstraction
-pub trait MeshRefinement<T: RealField>: Send + Sync {
+pub trait MeshRefinement<T: RealField + Copy>: Send + Sync {
     /// Refine mesh based on criteria
     fn refine(&self, mesh: &Mesh<T>, criteria: &RefinementCriteria<T>) -> Result<Mesh<T>, String>;
     
@@ -32,7 +32,7 @@ pub trait MeshRefinement<T: RealField>: Send + Sync {
 }
 
 /// Mesh quality assessment abstraction
-pub trait MeshQuality<T: RealField>: Send + Sync {
+pub trait MeshQuality<T: RealField + Copy>: Send + Sync {
     /// Assess mesh quality
     fn assess(&self, mesh: &Mesh<T>) -> QualityReport<T>;
     
@@ -44,7 +44,7 @@ pub trait MeshQuality<T: RealField>: Send + Sync {
 }
 
 /// Generic geometry abstraction
-pub trait Geometry<T: RealField>: Send + Sync {
+pub trait Geometry<T: RealField + Copy>: Send + Sync {
     /// Get geometry type
     fn geometry_type(&self) -> &str;
     
@@ -60,7 +60,7 @@ pub trait Geometry<T: RealField>: Send + Sync {
 
 /// Mesh representation with zero-copy operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Mesh<T: RealField> {
+pub struct Mesh<T: RealField + Copy> {
     /// Mesh vertices
     pub vertices: Vec<Point3<T>>,
     /// Mesh elements (connectivity)
@@ -121,7 +121,7 @@ pub struct MeshStatistics {
 
 /// Refinement criteria
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RefinementCriteria<T: RealField> {
+pub struct RefinementCriteria<T: RealField + Copy> {
     /// Maximum element size
     pub max_element_size: Option<T>,
     /// Minimum element size
@@ -134,7 +134,7 @@ pub struct RefinementCriteria<T: RealField> {
 
 /// Quality assessment report
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QualityReport<T: RealField> {
+pub struct QualityReport<T: RealField + Copy> {
     /// Overall quality score
     pub overall_score: T,
     /// Quality metrics by element
@@ -147,7 +147,7 @@ pub struct QualityReport<T: RealField> {
 
 /// Quality statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QualityStatistics<T: RealField> {
+pub struct QualityStatistics<T: RealField + Copy> {
     /// Minimum quality
     pub min_quality: T,
     /// Maximum quality
@@ -159,7 +159,7 @@ pub struct QualityStatistics<T: RealField> {
 }
 
 /// Mesh operations using zero-copy iterators
-impl<T: RealField> Mesh<T> {
+impl<T: RealField + Copy> Mesh<T> {
     /// Calculate element volumes using iterator combinators
     pub fn element_volumes(&self) -> Vec<T> {
         self.elements
@@ -206,9 +206,9 @@ impl<T: RealField> Mesh<T> {
                     let edge1 = v1 - v0;
                     let edge2 = v2 - v0;
                     let cross = Vector3::new(
-                        edge1.y.clone() * edge2.z.clone() - edge1.z.clone() * edge2.y.clone(),
-                        edge1.z.clone() * edge2.x.clone() - edge1.x.clone() * edge2.z.clone(),
-                        edge1.x.clone() * edge2.y.clone() - edge1.y.clone() * edge2.x.clone(),
+                        edge1.y * edge2.z - edge1.z * edge2.y,
+                        edge1.z * edge2.x - edge1.x * edge2.z,
+                        edge1.x * edge2.y - edge1.y * edge2.x,
                     );
                     cross.norm() / (T::one() + T::one())
                 } else {
@@ -227,11 +227,11 @@ impl<T: RealField> Mesh<T> {
                     let edge3 = v3 - v0;
                     
                     let cross = Vector3::new(
-                        edge1.y.clone() * edge2.z.clone() - edge1.z.clone() * edge2.y.clone(),
-                        edge1.z.clone() * edge2.x.clone() - edge1.x.clone() * edge2.z.clone(),
-                        edge1.x.clone() * edge2.y.clone() - edge1.y.clone() * edge2.x.clone(),
+                        edge1.y * edge2.z - edge1.z * edge2.y,
+                        edge1.z * edge2.x - edge1.x * edge2.z,
+                        edge1.x * edge2.y - edge1.y * edge2.x,
                     );
-                    let volume = (cross.x.clone() * edge3.x.clone() + cross.y.clone() * edge3.y.clone() + cross.z.clone() * edge3.z.clone()).abs();
+                    let volume = (cross.x * edge3.x + cross.y * edge3.y + cross.z * edge3.z).abs();
                     let six = T::one() + T::one() + T::one() + T::one() + T::one() + T::one();
                     volume / six
                 } else {
@@ -262,7 +262,7 @@ impl<T: RealField> Mesh<T> {
 }
 
 /// Mesh operations service following Domain Service pattern
-pub struct MeshOperationsService<T: RealField> {
+pub struct MeshOperationsService<T: RealField + Copy> {
     /// Available mesh generators
     generators: HashMap<String, Box<dyn MeshGeneration<T>>>,
     /// Available refinement methods
@@ -271,7 +271,7 @@ pub struct MeshOperationsService<T: RealField> {
     quality_assessors: HashMap<String, Box<dyn MeshQuality<T>>>,
 }
 
-impl<T: RealField> MeshOperationsService<T> {
+impl<T: RealField + Copy> MeshOperationsService<T> {
     /// Create new mesh operations service
     pub fn new() -> Self {
         Self {
@@ -312,7 +312,7 @@ impl<T: RealField> MeshOperationsService<T> {
     }
 }
 
-impl<T: RealField> Default for MeshOperationsService<T> {
+impl<T: RealField + Copy> Default for MeshOperationsService<T> {
     fn default() -> Self {
         Self::new()
     }
