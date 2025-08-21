@@ -15,7 +15,7 @@ pub struct PatankarLidDrivenCavity<T: RealField + Copy> {
     grid_size: usize,
 }
 
-impl<T: RealField + FromPrimitive + Copy> PatankarLidDrivenCavity<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> PatankarLidDrivenCavity<T> {
     /// Create new test case
     pub fn new(reynolds: T, grid_size: usize) -> Self {
         Self {
@@ -56,7 +56,7 @@ impl<T: RealField + FromPrimitive + Copy> PatankarLidDrivenCavity<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> LiteratureValidation<T> for PatankarLidDrivenCavity<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> LiteratureValidation<T> for PatankarLidDrivenCavity<T> {
     fn validate(&self) -> Result<ValidationReport<T>> {
         // This would run actual SIMPLE algorithm and compare
         // For now, return placeholder

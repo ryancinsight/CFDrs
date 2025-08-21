@@ -61,7 +61,7 @@ pub struct LinearSolverValidator;
 
 impl LinearSolverValidator {
     /// Validate linear solvers against analytical solutions
-    pub fn validate_all<T: RealField + FromPrimitive + Copy + Float>() -> Result<Vec<ValidationResult<T>>> {
+    pub fn validate_all<T: RealField + Copy + FromPrimitive + Copy + Float>() -> Result<Vec<ValidationResult<T>>> {
         let mut results = Vec::new();
 
         // Test 1: Standard diagonal system
@@ -93,7 +93,7 @@ impl LinearSolverValidator {
 
     /// Test diagonal system: Ax = b where A is diagonal
     /// Literature: Golub & Van Loan (2013), "Matrix Computations", 4th Edition
-    fn test_diagonal_system<T: RealField + FromPrimitive + Copy + Float>() -> Result<Vec<ValidationResult<T>>> {
+    fn test_diagonal_system<T: RealField + Copy + FromPrimitive + Copy + Float>() -> Result<Vec<ValidationResult<T>>> {
         let n = 100;
         let mut results = Vec::new();
 
@@ -116,8 +116,8 @@ impl LinearSolverValidator {
                         algorithm_name: name.to_string(),
                         test_case: "Diagonal System".to_string(),
                         computed_solution: computed,
-                        analytical_solution: analytical,
-                        error_metrics: error_metrics,
+                        analytical_solution: analytical.clone(),
+                        error_metrics: error_metrics.clone(),
                         convergence_info: ConvergenceInfo {
                             iterations: 1, // Diagonal systems converge in 1 iteration
                             final_residual: error_metrics.l2_error,
@@ -139,8 +139,8 @@ impl LinearSolverValidator {
                         algorithm_name: name.to_string(),
                         test_case: "Diagonal System".to_string(),
                         computed_solution: dummy_solution,
-                        analytical_solution: analytical,
-                        error_metrics: error_metrics,
+                        analytical_solution: analytical.clone(),
+                        error_metrics: error_metrics.clone(),
                         convergence_info: ConvergenceInfo {
                             iterations: 0,
                             final_residual: T::from_f64(f64::INFINITY).unwrap_or_else(|| T::zero()),
@@ -159,7 +159,7 @@ impl LinearSolverValidator {
 
     /// Test tridiagonal system (1D Poisson equation)
     /// Literature: Strang (2007), "Computational Science and Engineering"
-    fn test_tridiagonal_system<T: RealField + FromPrimitive + Copy + Float>() -> Result<Vec<ValidationResult<T>>> {
+    fn test_tridiagonal_system<T: RealField + Copy + FromPrimitive + Copy + Float>() -> Result<Vec<ValidationResult<T>>> {
         let n = 64;
         let mut results = Vec::new();
 
@@ -180,8 +180,8 @@ impl LinearSolverValidator {
                 algorithm_name: name.to_string(),
                 test_case: "1D Poisson Equation".to_string(),
                 computed_solution: computed,
-                analytical_solution: analytical,
-                error_metrics: error_metrics,
+                analytical_solution: analytical.clone(),
+                error_metrics: error_metrics.clone(),
                 convergence_info: ConvergenceInfo {
                     iterations: 50, // Typical for CG on Poisson
                     final_residual: error_metrics.l2_error,
@@ -198,7 +198,7 @@ impl LinearSolverValidator {
 
     /// Test 2D Poisson equation
     /// Literature: LeVeque (2007), "Finite Difference Methods for ODEs and PDEs"
-    fn test_2d_poisson<T: RealField + FromPrimitive + Copy + Float>() -> Result<Vec<ValidationResult<T>>> {
+    fn test_2d_poisson<T: RealField + Copy + FromPrimitive + Copy + Float>() -> Result<Vec<ValidationResult<T>>> {
         let nx = 32;
         let ny = 32;
         let mut results = Vec::new();
@@ -219,8 +219,8 @@ impl LinearSolverValidator {
                 algorithm_name: name.to_string(),
                 test_case: "2D Poisson Equation".to_string(),
                 computed_solution: computed,
-                analytical_solution: analytical,
-                error_metrics: error_metrics,
+                analytical_solution: analytical.clone(),
+                error_metrics: error_metrics.clone(),
                 convergence_info: ConvergenceInfo {
                     iterations: 100, // Typical for 2D Poisson
                     final_residual: error_metrics.l2_error,
@@ -237,7 +237,7 @@ impl LinearSolverValidator {
 
     /// Test ill-conditioned system
     /// Literature: Higham (2002), "Accuracy and Stability of Numerical Algorithms"
-    fn test_ill_conditioned_system<T: RealField + FromPrimitive + Copy + Float>() -> Result<Vec<ValidationResult<T>>> {
+    fn test_ill_conditioned_system<T: RealField + Copy + FromPrimitive + Copy + Float>() -> Result<Vec<ValidationResult<T>>> {
         let n = 50;
         let mut results = Vec::new();
 
@@ -260,8 +260,8 @@ impl LinearSolverValidator {
                         algorithm_name: name.to_string(),
                         test_case: "Ill-Conditioned System (Hilbert)".to_string(),
                         computed_solution: computed,
-                        analytical_solution: analytical,
-                        error_metrics: error_metrics,
+                        analytical_solution: analytical.clone(),
+                        error_metrics: error_metrics.clone(),
                         convergence_info: ConvergenceInfo {
                             iterations: 200, // More iterations for ill-conditioned
                             final_residual: error_metrics.l2_error,
@@ -284,8 +284,8 @@ impl LinearSolverValidator {
                         algorithm_name: name.to_string(),
                         test_case: "Ill-Conditioned System (Hilbert)".to_string(),
                         computed_solution: dummy_solution,
-                        analytical_solution: analytical,
-                        error_metrics: error_metrics,
+                        analytical_solution: analytical.clone(),
+                        error_metrics: error_metrics.clone(),
                         convergence_info: ConvergenceInfo {
                             iterations: 0,
                             final_residual: T::from_f64(f64::INFINITY).unwrap_or_else(|| T::zero()),
@@ -303,7 +303,7 @@ impl LinearSolverValidator {
     }
 
     /// Create diagonal system for testing
-    fn create_diagonal_system<T: RealField + FromPrimitive + Copy>(n: usize) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
+    fn create_diagonal_system<T: RealField + Copy + FromPrimitive + Copy>(n: usize) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
         // Create diagonal matrix with entries 1, 2, 3, ..., n using iterators
         let diagonal_entries: Vec<(usize, usize, T)> = (0..n)
             .map(|i| (i, i, T::from_usize(i + 1).unwrap_or_else(|| T::zero())))
@@ -363,7 +363,7 @@ impl LinearSolverValidator {
     }
 
     /// Create 1D Poisson system
-    fn create_1d_poisson_system<T: RealField + FromPrimitive + Copy>(n: usize) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
+    fn create_1d_poisson_system<T: RealField + Copy + FromPrimitive + Copy>(n: usize) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
         let h = T::one() / T::from_usize(n + 1).unwrap_or_else(|| T::zero());
         let h_squared = h * h;
 
@@ -443,7 +443,7 @@ impl LinearSolverValidator {
 
     /// Create 2D Poisson system with 5-point stencil discretization
     /// Solves: -∇²u = f on unit square with Dirichlet boundary conditions
-    fn create_2d_poisson_system<T: RealField + FromPrimitive + Copy>(nx: usize, ny: usize) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
+    fn create_2d_poisson_system<T: RealField + Copy + FromPrimitive + Copy>(nx: usize, ny: usize) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
         let n = nx * ny;
         let h = T::one() / T::from_usize(nx - 1).unwrap_or_else(|| T::zero());
         let h2 = h * h;
@@ -520,7 +520,7 @@ impl LinearSolverValidator {
     }
 
     /// Create Hilbert matrix system
-    fn create_hilbert_system<T: RealField + FromPrimitive + Copy>(n: usize) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
+    fn create_hilbert_system<T: RealField + Copy + FromPrimitive + Copy>(n: usize) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
         let mut row_indices = Vec::new();
         let mut col_indices = Vec::new();
         let mut values = Vec::new();
@@ -575,7 +575,7 @@ impl LinearSolverValidator {
     }
 
     /// Compute error metrics
-    fn compute_error_metrics<T: RealField + FromPrimitive + Copy>(
+    fn compute_error_metrics<T: RealField + Copy + FromPrimitive + Copy>(
         computed: &DVector<T>,
         analytical: &DVector<T>,
     ) -> ErrorMetrics<T> {

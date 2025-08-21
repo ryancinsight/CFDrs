@@ -48,7 +48,7 @@ pub struct ConservationTolerance<T: RealField + Copy> {
     pub relative: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for ConservationTolerance<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for ConservationTolerance<T> {
     fn default() -> Self {
         Self {
             absolute: T::from_f64(1e-12).unwrap_or_else(|| T::zero()),
@@ -108,7 +108,7 @@ pub struct MassConservation<T: RealField + Copy> {
     tolerance: ConservationTolerance<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> MassConservation<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> MassConservation<T> {
     /// Create a new mass conservation checker
     pub fn new(tolerance: ConservationTolerance<T>) -> Self {
         Self { tolerance }
@@ -120,7 +120,7 @@ impl<T: RealField + FromPrimitive + Copy> MassConservation<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> ConservationChecker<T> for MassConservation<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> ConservationChecker<T> for MassConservation<T> {
     type FlowField = (DVector<T>, DVector<T>); // (density, velocity_divergence)
 
     fn check_conservation(&self, field: &Self::FlowField) -> Result<ConservationReport<T>> {
@@ -142,7 +142,7 @@ impl<T: RealField + FromPrimitive + Copy> ConservationChecker<T> for MassConserv
         details.insert("absolute_error".to_string(), error);
 
         Ok(ConservationReport {
-            check_name: self.name.clone()().to_string(),
+            check_name: self.name().clone()().to_string(),
             is_conserved,
             error,
             tolerance: self.tolerance.absolute,
@@ -166,7 +166,7 @@ pub struct EnergyConservation<T: RealField + Copy> {
     tolerance: ConservationTolerance<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> EnergyConservation<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> EnergyConservation<T> {
     /// Create a new energy conservation checker
     pub fn new(tolerance: ConservationTolerance<T>) -> Self {
         Self { tolerance }
@@ -206,7 +206,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConservationChecker<T
         details.insert("relative_error".to_string(), relative_error);
 
         Ok(ConservationReport {
-            check_name: self.name.clone()().to_string(),
+            check_name: self.name().clone()().to_string(),
             is_conserved,
             error: energy_imbalance,
             tolerance: self.tolerance.absolute,
@@ -242,7 +242,7 @@ pub struct GlobalConservationIntegrals<T: RealField + Copy> {
     pub boundary_energy_flux: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> GlobalConservationIntegrals<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> GlobalConservationIntegrals<T> {
     /// Create new global conservation integrals
     pub fn new() -> Self {
         Self {

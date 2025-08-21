@@ -32,7 +32,7 @@ pub enum TimeIntegratorEnum<T: RealField + Copy> {
     _Phantom(std::marker::PhantomData<T>),
 }
 
-impl<T: RealField + FromPrimitive + Copy> TimeIntegratorTrait<T> for TimeIntegratorEnum<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> TimeIntegratorTrait<T> for TimeIntegratorEnum<T> {
     fn step<F>(&self, y: &mut DVector<T>, t: T, dt: T, f: F) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
@@ -65,7 +65,7 @@ impl<T: RealField + Copy> TimeIntegratorTrait<T> for ForwardEuler {
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
         let k1 = f(t, y);
-        *y += *k1 * dt;
+        y += k1 * dt;
         Ok(())
     }
 
@@ -76,13 +76,13 @@ impl<T: RealField + Copy> TimeIntegratorTrait<T> for ForwardEuler {
 #[derive(Debug)]
 pub struct RungeKutta2;
 
-impl<T: RealField + FromPrimitive + Copy> TimeIntegratorTrait<T> for RungeKutta2 {
+impl<T: RealField + Copy + FromPrimitive + Copy> TimeIntegratorTrait<T> for RungeKutta2 {
     fn step<F>(&self, y: &mut DVector<T>, t: T, dt: T, f: F) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
         let k1 = f(t, y);
-        let y_temp = y + *k1 * dt;
+        let y_temp = y + k1 * dt;
         let k2 = f(t + dt, &y_temp);
 
         let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
@@ -97,7 +97,7 @@ impl<T: RealField + FromPrimitive + Copy> TimeIntegratorTrait<T> for RungeKutta2
 #[derive(Debug)]
 pub struct RungeKutta4;
 
-impl<T: RealField + FromPrimitive + Copy> TimeIntegratorTrait<T> for RungeKutta4 {
+impl<T: RealField + Copy + FromPrimitive + Copy> TimeIntegratorTrait<T> for RungeKutta4 {
     fn step<F>(&self, y: &mut DVector<T>, t: T, dt: T, f: F) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
@@ -107,12 +107,12 @@ impl<T: RealField + FromPrimitive + Copy> TimeIntegratorTrait<T> for RungeKutta4
         let k2 = f(t + dt * T::from_f64(0.5).unwrap_or_else(|| T::zero()), &y_temp1);
         let y_temp2 = y + &k2 * (dt * T::from_f64(0.5).unwrap_or_else(|| T::zero()));
         let k3 = f(t + dt * T::from_f64(0.5).unwrap_or_else(|| T::zero()), &y_temp2);
-        let y_temp3 = y + *k3 * dt;
+        let y_temp3 = y + k3 * dt;
         let k4 = f(t + dt, &y_temp3);
 
         let sixth = T::from_f64(1.0/6.0).unwrap_or_else(|| T::zero());
         let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
-        *y += &(k1 + *k2 * two + *k3 * two + k4) * (dt * sixth);
+        *y += &(k1 + k2 * two + k3 * two + k4) * (dt * sixth);
         Ok(())
     }
 
@@ -149,7 +149,7 @@ pub struct TimeIntegrationValidator;
 
 impl TimeIntegrationValidator {
     /// Validate all time integration methods
-    pub fn validate_all<T: RealField + FromPrimitive + Copy + Float + ToPrimitive>() -> Result<Vec<TimeIntegrationResult<T>>> {
+    pub fn validate_all<T: RealField + Copy + FromPrimitive + Copy + Float + ToPrimitive>() -> Result<Vec<TimeIntegrationResult<T>>> {
         let mut results = Vec::new();
 
         // Test 1: Linear ODE (exponential decay)
@@ -166,7 +166,7 @@ impl TimeIntegrationValidator {
     /// Test exponential decay: dy/dt = -λy, y(0) = y0
     /// Analytical solution: y(t) = y0 * exp(-λt)
     /// Literature: Hairer, Nørsett & Wanner (1993), "Solving ODEs I"
-    fn test_exponential_decay<T: RealField + FromPrimitive + Copy + ToPrimitive>() -> Result<Vec<TimeIntegrationResult<T>>> {
+    fn test_exponential_decay<T: RealField + Copy + FromPrimitive + Copy + ToPrimitive>() -> Result<Vec<TimeIntegrationResult<T>>> {
         let mut results = Vec::new();
         
         let lambda = T::one();
@@ -225,7 +225,7 @@ impl TimeIntegrationValidator {
     /// Converted to system: dy₁/dt = y₂, dy₂/dt = -ω²y₁
     /// Analytical solution: y₁(t) = A*cos(ωt) + B*sin(ωt)
     /// Literature: Butcher (2016), "Numerical Methods for ODEs"
-    fn test_harmonic_oscillator<T: RealField + FromPrimitive + Copy + ToPrimitive>() -> Result<Vec<TimeIntegrationResult<T>>> {
+    fn test_harmonic_oscillator<T: RealField + Copy + FromPrimitive + Copy + ToPrimitive>() -> Result<Vec<TimeIntegrationResult<T>>> {
         let mut results = Vec::new();
         
         let omega = T::one();
@@ -286,12 +286,12 @@ impl TimeIntegrationValidator {
     }
 
     /// Estimate theoretical order of accuracy
-    fn estimate_order<T: RealField + FromPrimitive + Copy>(order: usize) -> Option<T> {
+    fn estimate_order<T: RealField + Copy + FromPrimitive + Copy>(order: usize) -> Option<T> {
         T::from_usize(order)
     }
 
     /// Perform convergence study to determine observed order
-    pub fn convergence_study<T: RealField + FromPrimitive + Copy + Float + ToPrimitive>(
+    pub fn convergence_study<T: RealField + Copy + FromPrimitive + Copy + Float + ToPrimitive>(
         integrator: &TimeIntegratorEnum<T>,
         ode: impl Fn(T, &DVector<T>) -> DVector<T> + Copy,
         y0: &DVector<T>,
@@ -319,7 +319,7 @@ impl TimeIntegrationValidator {
     }
 
     /// Helper function to solve ODE and compute error
-    fn solve_and_compute_error<T: RealField + FromPrimitive + Copy + Float + ToPrimitive>(
+    fn solve_and_compute_error<T: RealField + Copy + FromPrimitive + Copy + Float + ToPrimitive>(
         integrator: &TimeIntegratorEnum<T>,
         ode: impl Fn(T, &DVector<T>) -> DVector<T>,
         y0: &DVector<T>,
