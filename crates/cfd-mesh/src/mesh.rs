@@ -53,6 +53,8 @@ impl Edge {
 /// Face defined by vertices
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Face {
+    /// Face ID
+    pub id: usize,
     /// Vertex indices
     pub vertices: Vec<usize>,
 }
@@ -61,6 +63,7 @@ impl Face {
     /// Create a triangular face
     pub fn triangle(v0: usize, v1: usize, v2: usize) -> Self {
         Self {
+            id: 0,  // ID should be set when adding to mesh
             vertices: vec![v0, v1, v2],
         }
     }
@@ -68,6 +71,7 @@ impl Face {
     /// Create a quadrilateral face
     pub fn quad(v0: usize, v1: usize, v2: usize, v3: usize) -> Self {
         Self {
+            id: 0,  // ID should be set when adding to mesh
             vertices: vec![v0, v1, v2, v3],
         }
     }

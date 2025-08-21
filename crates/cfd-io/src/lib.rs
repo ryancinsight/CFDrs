@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! I/O operations for CFD simulations.
 
 #![warn(missing_docs)]

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Mesh handling and generation.
 
 #![warn(missing_docs)]

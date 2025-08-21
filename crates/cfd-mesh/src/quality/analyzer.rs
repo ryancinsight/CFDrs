@@ -3,7 +3,7 @@
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use std::iter::Sum;
-use crate::mesh::{Mesh, Element};
+use crate::mesh::{Mesh, Cell};
 use super::{QualityMetrics, QualityStatistics, QualityCriteria};
 
 /// Comprehensive mesh quality analyzer
@@ -55,7 +55,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     }
     
     /// Compute quality metrics for a single element
-    fn compute_element_quality(&self, element: &Element<T>, mesh: &Mesh<T>) -> QualityMetrics<T> {
+    fn compute_element_quality(&self, element: &Cell, mesh: &Mesh<T>) -> QualityMetrics<T> {
         let mut metrics = QualityMetrics::ideal();
         
         // Compute aspect ratio
@@ -77,26 +77,26 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     }
     
     /// Compute aspect ratio for element
-    fn compute_aspect_ratio(&self, element: &Element<T>, mesh: &Mesh<T>) -> T {
+    fn compute_aspect_ratio(&self, element: &Cell, mesh: &Mesh<T>) -> T {
         // Implementation based on element type
         // For now, return ideal value
         T::one()
     }
     
     /// Compute skewness for element
-    fn compute_skewness(&self, element: &Element<T>, mesh: &Mesh<T>) -> T {
+    fn compute_skewness(&self, element: &Cell, mesh: &Mesh<T>) -> T {
         // Implementation based on element type
         T::zero()
     }
     
     /// Compute orthogonality for element
-    fn compute_orthogonality(&self, element: &Element<T>, mesh: &Mesh<T>) -> T {
+    fn compute_orthogonality(&self, element: &Cell, mesh: &Mesh<T>) -> T {
         // Implementation based on element type
         T::one()
     }
     
     /// Compute Jacobian determinant for element
-    fn compute_jacobian(&self, element: &Element<T>, mesh: &Mesh<T>) -> T {
+    fn compute_jacobian(&self, element: &Cell, mesh: &Mesh<T>) -> T {
         // Implementation based on element type
         T::one()
     }

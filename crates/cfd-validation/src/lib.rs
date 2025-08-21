@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Validation and benchmarking tools for CFD simulations.
 
 #![warn(missing_docs)]
