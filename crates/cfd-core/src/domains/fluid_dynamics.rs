@@ -49,7 +49,7 @@ pub struct ScalarField<T: RealField + Copy> {
 }
 
 /// Turbulence model abstraction following Strategy pattern
-pub trait TurbulenceModel<T: RealField>: Send + Sync {
+pub trait TurbulenceModel<T: RealField + Copy>: Send + Sync {
     /// Calculate turbulent viscosity
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T>;
     
@@ -97,7 +97,7 @@ pub mod rans {
         pub sigma_epsilon: T,
     }
     
-    impl<T: RealField> TurbulenceModel<T> for KEpsilonModel<T> {
+    impl<T: RealField + Copy> TurbulenceModel<T> for KEpsilonModel<T> {
         fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
             // Implementation would go here
             vec![T::zero(); flow_field.velocity.components.len()]
@@ -125,7 +125,7 @@ pub mod les {
         pub cs: T,
     }
     
-    impl<T: RealField> TurbulenceModel<T> for SmagorinskyModel<T> {
+    impl<T: RealField + Copy> TurbulenceModel<T> for SmagorinskyModel<T> {
         fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
             // Compute strain rate tensor and its magnitude for Smagorinsky model
             // νₜ = (Cs * Δ)² * |S|
@@ -256,7 +256,7 @@ pub mod les {
         pub cs_base: T,
     }
 
-    impl<T: RealField> TurbulenceModel<T> for GermanoLillySmagorinskyModel<T> {
+    impl<T: RealField + Copy> TurbulenceModel<T> for GermanoLillySmagorinskyModel<T> {
         fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
             // Germano-Lilly procedure to compute Cs locally
             // Uses least-squares minimization of the Germano identity
@@ -354,7 +354,7 @@ pub mod rans_extended {
         }
     }
 
-    impl<T: RealField> TurbulenceModel<T> for KEpsilonModel<T> {
+    impl<T: RealField + Copy> TurbulenceModel<T> for KEpsilonModel<T> {
         /// Compute turbulent viscosity using k-ε model
         /// 
         /// # Warning
