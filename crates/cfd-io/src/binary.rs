@@ -32,7 +32,7 @@ impl<W: Write> BinaryWriter<W> {
     }
 
     /// Write vector data using iterator-based streaming
-    pub fn write_vector<T: RealField + Serialize>(&mut self, vector: &DVector<T>) -> Result<()> {
+    pub fn write_vector<T: RealField + Copy + Serialize>(&mut self, vector: &DVector<T>) -> Result<()> {
         // Write length first
         self.write(&vector.len())?;
 
@@ -42,7 +42,7 @@ impl<W: Write> BinaryWriter<W> {
     }
 
     /// Write matrix data with zero-copy slicing
-    pub fn write_matrix<T: RealField + Serialize>(&mut self, matrix: &DMatrix<T>) -> Result<()> {
+    pub fn write_matrix<T: RealField + Copy + Serialize>(&mut self, matrix: &DMatrix<T>) -> Result<()> {
         // Write dimensions
         self.write(&(matrix.nrows(), matrix.ncols()))?;
 
@@ -89,7 +89,7 @@ impl<R: Read> BinaryReader<R> {
     }
 
     /// Read vector data using iterator-based construction
-    pub fn read_vector<T: RealField + for<'de> Deserialize<'de>>(&mut self) -> Result<DVector<T>> {
+    pub fn read_vector<T: RealField + Copy + for<'de> Deserialize<'de>>(&mut self) -> Result<DVector<T>> {
         let len: usize = self.read()?;
 
         // Use iterator to collect vector elements efficiently
@@ -101,7 +101,7 @@ impl<R: Read> BinaryReader<R> {
     }
 
     /// Read matrix data with efficient allocation
-    pub fn read_matrix<T: RealField + for<'de> Deserialize<'de>>(&mut self) -> Result<DMatrix<T>> {
+    pub fn read_matrix<T: RealField + Copy + for<'de> Deserialize<'de>>(&mut self) -> Result<DMatrix<T>> {
         let (nrows, ncols): (usize, usize) = self.read()?;
 
         // Use iterator to collect matrix elements efficiently

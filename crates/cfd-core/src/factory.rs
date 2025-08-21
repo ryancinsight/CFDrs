@@ -89,7 +89,7 @@ where
     }
     
     fn name(&self) -> &str {
-        self.solver.name()
+        self.solver.name.clone()()
     }
 }
 
@@ -108,7 +108,7 @@ pub trait DynamicFactory<T: RealField + Copy>: Send + Sync {
 /// Wrapper to convert concrete factories to dynamic factories
 pub struct DynamicFactoryWrapper<T, F>
 where
-    T: RealField,
+    T: RealField + Copy,
     F: ConcreteSolverFactory<T>,
 {
     factory: F,
@@ -151,7 +151,7 @@ where
     }
     
     fn name(&self) -> &str {
-        self.factory.name()
+        self.factory.name.clone()()
     }
     
     fn can_handle(&self, problem_type: &str) -> bool {

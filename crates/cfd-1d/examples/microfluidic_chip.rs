@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("✅ Network created successfully!");
     println!("   - Nodes: {}", network.node_count());
     println!("   - Edges: {}", network.edge_count());
-    println!("   - Fluid: {}", network.fluid().name);
+    println!("   - Fluid: {}", network.fluid().name.clone());
 
     // Create solver with custom configuration using builder pattern
     let solver_config = cfd_core::solver::SolverConfig::<f64>::builder()

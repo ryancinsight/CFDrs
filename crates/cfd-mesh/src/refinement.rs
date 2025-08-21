@@ -135,17 +135,17 @@ impl<T: RealField + FromPrimitive + Copy> MeshRefiner<T> {
     
     /// Build vertex lookup map for O(1) access
     fn build_vertex_map<'a>(mesh: &'a Mesh<T>) -> HashMap<usize, &'a Vertex<T>> {
-        mesh.vertices.iter().map(|v| (v.id, v)).collect()
+        mesh.vertices.iter().map(|v| (v.id.clone(), v)).collect()
     }
     
     /// Build face lookup map for O(1) access
     fn build_face_map<'a>(mesh: &'a Mesh<T>) -> HashMap<usize, &'a Face> {
-        mesh.faces.iter().map(|f| (f.id, f)).collect()
+        mesh.faces.iter().map(|f| (f.id.clone(), f)).collect()
     }
     
     /// Build cell lookup map for O(1) access
     fn build_cell_map<'a>(mesh: &'a Mesh<T>) -> HashMap<usize, &'a Cell> {
-        mesh.cells.iter().map(|c| (c.id, c)).collect()
+        mesh.cells.iter().map(|c| (c.id.clone(), c)).collect()
     }
     
     /// Refine mesh based on criteria
@@ -165,7 +165,7 @@ impl<T: RealField + FromPrimitive + Copy> MeshRefiner<T> {
     
     /// Perform uniform refinement
     fn uniform_refinement(&mut self, mesh: &mut Mesh<T>) -> Result<usize, RefinementError> {
-        let cells_to_refine: Vec<usize> = mesh.cells.iter().map(|c| c.id).collect();
+        let cells_to_refine: Vec<usize> = mesh.cells.iter().map(|c| c.id.clone()).collect();
         self.refine_cells(mesh, &cells_to_refine)
     }
     
@@ -234,9 +234,9 @@ impl<T: RealField + FromPrimitive + Copy> MeshRefiner<T> {
                 for cell in &mesh.cells {
                     let gradient = self.compute_cell_gradient(mesh, cell, field);
                     if gradient > *threshold {
-                        let level = self.refinement_levels.get(&cell.id).unwrap_or(&0);
+                        let level = self.refinement_levels.get(&cell.id.clone()).unwrap_or(&0);
                         if *level < self.config.max_level {
-                            marked_cells.push(cell.id);
+                            marked_cells.push(cell.id.clone());
                         }
                     }
                 }
@@ -250,9 +250,9 @@ impl<T: RealField + FromPrimitive + Copy> MeshRefiner<T> {
                 
                 for (i, cell) in mesh.cells.iter().enumerate() {
                     if error_field[i] > *threshold {
-                        let level = self.refinement_levels.get(&cell.id).unwrap_or(&0);
+                        let level = self.refinement_levels.get(&cell.id.clone()).unwrap_or(&0);
                         if *level < self.config.max_level {
-                            marked_cells.push(cell.id);
+                            marked_cells.push(cell.id.clone());
                         }
                     }
                 }
@@ -263,9 +263,9 @@ impl<T: RealField + FromPrimitive + Copy> MeshRefiner<T> {
                     let angle = self.compute_feature_angle(mesh, cell);
                     
                     if curvature > *curvature_threshold || angle > *feature_angle {
-                        let level = self.refinement_levels.get(&cell.id).unwrap_or(&0);
+                        let level = self.refinement_levels.get(&cell.id.clone()).unwrap_or(&0);
                         if *level < self.config.max_level {
-                            marked_cells.push(cell.id);
+                            marked_cells.push(cell.id.clone());
                         }
                     }
                 }
@@ -273,9 +273,9 @@ impl<T: RealField + FromPrimitive + Copy> MeshRefiner<T> {
             RefinementCriterion::Custom(predicate) => {
                 for cell in &mesh.cells {
                     if predicate(cell, &mesh.vertices) {
-                        let level = self.refinement_levels.get(&cell.id).unwrap_or(&0);
+                        let level = self.refinement_levels.get(&cell.id.clone()).unwrap_or(&0);
                         if *level < self.config.max_level {
-                            marked_cells.push(cell.id);
+                            marked_cells.push(cell.id.clone());
                         }
                     }
                 }
@@ -306,7 +306,7 @@ impl<T: RealField + FromPrimitive + Copy> MeshRefiner<T> {
             }
             
             // Find the cell
-            if let Some(cell) = mesh.cells.iter().find(|c| c.id == cell_id) {
+            if let Some(cell) = mesh.cells.iter().find(|c| c.id.clone() == cell_id) {
                 // Check minimum size
                 let size = self.compute_cell_size(mesh, cell);
                 if size < self.config.min_size {
@@ -327,7 +327,7 @@ impl<T: RealField + FromPrimitive + Copy> MeshRefiner<T> {
                 
                 // Update refinement levels before moving cells
                 for current_cell in &refined.2 {
-                    self.refinement_levels.insert(current_cell.id, level + 1);
+                    self.refinement_levels.insert(current_cell.id.clone(), level + 1);
                 }
                 
                 current_cells.extend(refined.2);
@@ -340,7 +340,7 @@ impl<T: RealField + FromPrimitive + Copy> MeshRefiner<T> {
         mesh.faces.extend(current_faces);
         
         // Replace refined cells with new ones
-        mesh.cells.retain(|c| !cells_to_refine.contains(&c.id));
+        mesh.cells.retain(|c| !cells_to_refine.contains(&c.id.clone()));
         mesh.cells.extend(current_cells);
         
         // Update mesh topology
@@ -404,13 +404,13 @@ impl<T: RealField + FromPrimitive + Copy> MeshRefiner<T> {
             // Get unique vertices from faces
             let mut vertex_ids = HashSet::new();
             for &face_id in &cell.faces {
-                if let Some(face) = mesh.faces.iter().find(|f| f.id == face_id) {
+                if let Some(face) = mesh.faces.iter().find(|f| f.id.clone() == face_id) {
                     vertex_ids.extend(&face.vertices);
                 }
             }
             
             let vertices: Vec<&Vertex<T>> = vertex_ids.iter()
-                .filter_map(|id: &usize| mesh.vertices.iter().find(|v| v.id == *id))
+                .filter_map(|id: &usize| mesh.vertices.iter().find(|v| v.id.clone() == *id))
                 .collect();
             
             if vertices.len() == 4 {
@@ -493,12 +493,12 @@ impl<T: RealField + FromPrimitive + Copy> MeshRefiner<T> {
     fn find_cell_neighbors(&self, mesh: &Mesh<T>, cell_id: usize) -> Vec<usize> {
         let mut neighbors = Vec::new();
         
-        if let Some(cell) = mesh.cells.iter().find(|c| c.id == cell_id) {
+        if let Some(cell) = mesh.cells.iter().find(|c| c.id.clone() == cell_id) {
             // Find cells that share a face with this cell
             for &face_id in &cell.faces {
                 for other_cell in &mesh.cells {
-                    if other_cell.id != cell_id && other_cell.faces.contains(&face_id) {
-                        neighbors.push(other_cell.id);
+                    if other_cell.id.clone() != cell_id && other_cell.faces.contains(&face_id) {
+                        neighbors.push(other_cell.id.clone());
                     }
                 }
             }
@@ -517,7 +517,7 @@ impl<T: RealField + FromPrimitive + Copy> MeshRefiner<T> {
         let mut directions = HashMap::new();
         
         for &cell_id in cells {
-            if let Some(cell) = mesh.cells.iter().find(|c| c.id == cell_id) {
+            if let Some(cell) = mesh.cells.iter().find(|c| c.id.clone() == cell_id) {
                 // Compute principal direction based on error distribution or gradient
                 let direction = match criterion {
                     RefinementCriterion::Gradient { field, .. } => {
@@ -728,9 +728,9 @@ impl<T: RealField + FromPrimitive + Copy> MeshRefiner<T> {
                 // Find connected vertices
                 let mut connected = HashSet::new();
                 for face in &mesh.faces {
-                    if face.vertices.contains(&vertex.id) {
+                    if face.vertices.contains(&vertex.id.clone()) {
                         for &vid in &face.vertices {
-                            if vid != vertex.id {
+                            if vid != vertex.id.clone() {
                                 connected.insert(vid);
                             }
                         }
@@ -741,7 +741,7 @@ impl<T: RealField + FromPrimitive + Copy> MeshRefiner<T> {
                     // Compute average position (Laplacian smoothing)
                     let mut avg_pos = Vector3::zeros();
                     for &vid in &connected {
-                        if let Some(v) = mesh.vertices.iter().find(|v| v.id == vid) {
+                        if let Some(v) = mesh.vertices.iter().find(|v| v.id.clone() == vid) {
                             avg_pos += &v.position.coords;
                         }
                     }

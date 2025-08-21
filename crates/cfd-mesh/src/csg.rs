@@ -53,7 +53,7 @@ pub struct CsgOperator<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + FromPrimitive + ToPrimitive> CsgOperator<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive> CsgOperator<T> {
     /// Create a new CSG operator
     pub fn new() -> Self {
         Self {
@@ -144,7 +144,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgOperator<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + ToPrimitive> Default for CsgOperator<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive> Default for CsgOperator<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -156,7 +156,7 @@ pub struct CsgGeometry<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + FromPrimitive + ToPrimitive> CsgGeometry<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive> CsgGeometry<T> {
     /// Create a new CSG geometry wrapper
     pub fn new(csg: CsgMesh<()>) -> Self {
         Self {
@@ -442,7 +442,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgGeometry<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + ToPrimitive> Clone for CsgGeometry<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive> Clone for CsgGeometry<T> {
     fn clone(&self) -> Self {
         Self {
             csg: self.csg,
@@ -460,7 +460,7 @@ pub struct CsgBuilder<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + FromPrimitive + ToPrimitive> CsgBuilder<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive> CsgBuilder<T> {
     /// Create a new CSG builder
     pub fn new() -> Self {
         Self {
@@ -559,7 +559,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive> CsgBuilder<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + ToPrimitive> Default for CsgBuilder<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive> Default for CsgBuilder<T> {
     fn default() -> Self {
         Self::new()
     }

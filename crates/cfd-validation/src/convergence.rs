@@ -184,7 +184,7 @@ pub struct RichardsonExtrapolation<T: RealField + Copy> {
     pub convergence_rate: T,
 }
 
-impl<T: RealField + FromPrimitive + ToPrimitive> RichardsonExtrapolation<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive> RichardsonExtrapolation<T> {
     /// Create new Richardson extrapolation
     pub fn new(convergence_rate: T) -> Self {
         Self { convergence_rate }

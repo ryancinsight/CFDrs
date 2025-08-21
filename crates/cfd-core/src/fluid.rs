@@ -63,7 +63,7 @@ pub enum ViscosityModel<T: RealField + Copy> {
     },
 }
 
-impl<T: RealField + FromPrimitive + Float> Fluid<T> {
+impl<T: RealField + Copy + FromPrimitive + Float> Fluid<T> {
     /// Create a new Newtonian fluid
     pub fn newtonian(name: impl Into<String>, density: T, viscosity: T) -> Self {
         Self {
@@ -264,7 +264,7 @@ mod tests {
     #[test]
     fn test_water_properties() {
         let water = Fluid::<f64>::water().expect("CRITICAL: Add proper error handling");
-        assert_eq!(water.name, "Water (20°C)");
+        assert_eq!(water.name.clone(), "Water (20°C)");
         assert_relative_eq!(water.density, 998.2, epsilon = 0.1);
         
         // Check that viscosity is stored in the model
@@ -281,7 +281,7 @@ mod tests {
     #[test]
     fn test_air_properties() {
         let air = Fluid::<f64>::air().expect("CRITICAL: Add proper error handling");
-        assert_eq!(air.name, "Air (20°C, 1 atm)");
+        assert_eq!(air.name.clone(), "Air (20°C, 1 atm)");
         assert_relative_eq!(air.density, 1.204, epsilon = 0.001);
         
         if let ViscosityModel::Currenttonian { viscosity } = air.viscosity_model {

@@ -10,7 +10,7 @@ pub struct ComponentFactory;
 
 impl ComponentFactory {
     /// Create a component from type string and parameters
-    pub fn create<T: RealField + FromPrimitive + Float>(
+    pub fn create<T: RealField + Copy + FromPrimitive + Float>(
         component_type: &str,
         params: &HashMap<String, T>,
     ) -> Result<Box<dyn Component<T>>> {

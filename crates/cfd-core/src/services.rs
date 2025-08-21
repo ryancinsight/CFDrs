@@ -13,7 +13,7 @@ pub struct FluidDynamicsService;
 
 impl FluidDynamicsService {
     /// Calculate Reynolds number for a given flow configuration
-    pub fn reynolds_number<T: RealField + num_traits::Float>(
+    pub fn reynolds_number<T: RealField + Copy + num_traits::Float>(
         fluid: &Fluid<T>,
         velocity: T,
         characteristic_length: T,
@@ -22,7 +22,7 @@ impl FluidDynamicsService {
     }
 
     /// Calculate Prandtl number if thermal properties are available
-    pub fn prandtl_number<T: RealField + num_traits::Float>(fluid: &Fluid<T>) -> Option<T> {
+    pub fn prandtl_number<T: RealField + Copy + num_traits::Float>(fluid: &Fluid<T>) -> Option<T> {
         match (fluid.specific_heat, fluid.thermal_conductivity) {
             (Some(cp), Some(k)) => Some(fluid.characteristic_viscosity() * cp / k),
             _ => None,

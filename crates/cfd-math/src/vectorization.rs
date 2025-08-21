@@ -11,7 +11,7 @@ pub struct VectorizedOps;
 
 impl VectorizedOps {
     /// Vectorized element-wise addition with potential SIMD optimization
-    pub fn add_vectorized<T: RealField + Send + Sync>(
+    pub fn add_vectorized<T: RealField + Copy + Send + Sync>(
         a: &[T], 
         b: &[T], 
         result: &mut [T]
@@ -31,7 +31,7 @@ impl VectorizedOps {
     }
 
     /// Vectorized element-wise multiplication
-    pub fn mul_vectorized<T: RealField + Send + Sync>(
+    pub fn mul_vectorized<T: RealField + Copy + Send + Sync>(
         a: &[T], 
         b: &[T], 
         result: &mut [T]
@@ -50,7 +50,7 @@ impl VectorizedOps {
     }
 
     /// Vectorized scalar multiplication with broadcasting
-    pub fn scale_vectorized<T: RealField + Send + Sync>(
+    pub fn scale_vectorized<T: RealField + Copy + Send + Sync>(
         input: &[T], 
         scalar: T, 
         result: &mut [T]
@@ -69,7 +69,7 @@ impl VectorizedOps {
     }
 
     /// Broadcasting addition: adds scalar to each element of vector
-    pub fn broadcast_add<T: RealField + Send + Sync>(
+    pub fn broadcast_add<T: RealField + Copy + Send + Sync>(
         input: &[T],
         scalar: T,
         result: &mut [T]
@@ -95,7 +95,7 @@ impl VectorizedOps {
     }
 
     /// Broadcasting multiplication: multiplies each element by broadcasted vector
-    pub fn broadcast_mul_vector<T: RealField + Send + Sync>(
+    pub fn broadcast_mul_vector<T: RealField + Copy + Send + Sync>(
         matrix: &[T], 
         matrix_rows: usize,
         matrix_cols: usize,
@@ -128,7 +128,7 @@ impl VectorizedOps {
     }
 
     /// Vectorized dot product with chunked processing for cache efficiency
-    pub fn dot_vectorized<T: RealField + Send + Sync>(a: &[T], b: &[T]) -> Result<T, &'static str> {
+    pub fn dot_vectorized<T: RealField + Copy + Send + Sync>(a: &[T], b: &[T]) -> Result<T, &'static str> {
         if a.len() != b.len() {
             return Err("Vectors must have the same length");
         }
@@ -150,7 +150,7 @@ impl VectorizedOps {
     }
 
     /// Vectorized L2 norm computation
-    pub fn l2_norm_vectorized<T: RealField + Send + Sync>(input: &[T]) -> T {
+    pub fn l2_norm_vectorized<T: RealField + Copy + Send + Sync>(input: &[T]) -> T {
         const CHUNK_SIZE: usize = 1024;
         
         let sum_of_squares = input.par_chunks(CHUNK_SIZE)
@@ -165,7 +165,7 @@ impl VectorizedOps {
     }
 
     /// Vectorized matrix-vector multiplication for sparse patterns
-    pub fn matvec_vectorized<T: RealField + Send + Sync>(
+    pub fn matvec_vectorized<T: RealField + Copy + Send + Sync>(
         values: &[T],
         col_indices: &[usize],
         row_ptr: &[usize],
@@ -195,7 +195,7 @@ impl VectorizedOps {
     }
 
     /// Vectorized finite difference computation
-    pub fn finite_diff_vectorized<T: RealField + Send + Sync>(
+    pub fn finite_diff_vectorized<T: RealField + Copy + Send + Sync>(
         input: &[T],
         spacing: T,
         result: &mut [T]
@@ -214,7 +214,7 @@ impl VectorizedOps {
     }
 
     /// Vectorized convolution for filtering operations
-    pub fn convolution_vectorized<T: RealField + Send + Sync>(
+    pub fn convolution_vectorized<T: RealField + Copy + Send + Sync>(
         signal: &[T],
         kernel: &[T],
         result: &mut [T]
@@ -263,7 +263,7 @@ impl VectorizedOps {
     }
 
     /// Vectorized prefix sum (scan) operation
-    pub fn prefix_sum_vectorized<T: RealField + Send + Sync>(
+    pub fn prefix_sum_vectorized<T: RealField + Copy + Send + Sync>(
         input: &[T],
         result: &mut [T]
     ) -> Result<(), &'static str> {
@@ -290,7 +290,7 @@ pub struct StencilOps;
 
 impl StencilOps {
     /// 5-point stencil for 2D Laplacian (vectorized)
-    pub fn laplacian_5point<T: RealField + Send + Sync>(
+    pub fn laplacian_5point<T: RealField + Copy + Send + Sync>(
         field: &[T],
         nx: usize,
         ny: usize,
@@ -324,7 +324,7 @@ impl StencilOps {
     }
 
     /// Vectorized gradient computation using central differences
-    pub fn gradient_central<T: RealField + Send + Sync>(
+    pub fn gradient_central<T: RealField + Copy + Send + Sync>(
         field: &[T],
         nx: usize,
         ny: usize,
@@ -357,7 +357,7 @@ impl StencilOps {
     }
 
     /// Vectorized divergence computation for 3D vector fields on structured grids
-    pub fn divergence_3d<T: RealField + Send + Sync>(
+    pub fn divergence_3d<T: RealField + Copy + Send + Sync>(
         u_field: &[T], v_field: &[T], w_field: &[T],
         nx: usize, ny: usize, nz: usize,
         dx: T, dy: T, dz: T,
@@ -394,7 +394,7 @@ impl StencilOps {
     }
 
     /// Vectorized curl computation for 3D vector fields
-    pub fn curl_3d<T: RealField + Send + Sync>(
+    pub fn curl_3d<T: RealField + Copy + Send + Sync>(
         u_field: &[T], v_field: &[T], w_field: &[T],
         nx: usize, ny: usize, nz: usize,
         dx: T, dy: T, dz: T,

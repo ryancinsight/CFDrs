@@ -666,7 +666,7 @@ mod tests {
             },
         };
 
-        assert_eq!(model.name(), "k-epsilon");
+        assert_eq!(model.name.clone()(), "k-epsilon");
 
         let flow_field = FlowField {
             velocity: VelocityField {

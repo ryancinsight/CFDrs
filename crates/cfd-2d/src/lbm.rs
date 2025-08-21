@@ -101,7 +101,7 @@ pub struct LbmSolver<T: RealField + Copy> {
     step_count: usize,
 }
 
-impl<T: RealField + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
     /// Create a new LBM solver
     pub fn new(config: LbmConfig<T>, grid: &StructuredGrid2D<T>) -> Self {
         let nx = grid.nx();

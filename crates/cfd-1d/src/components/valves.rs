@@ -31,7 +31,7 @@ pub struct Microvalve<T: RealField + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: RealField + FromPrimitive + Float> Microvalve<T> {
+impl<T: RealField + Copy + FromPrimitive + Float> Microvalve<T> {
     /// Create a new microvalve
     pub fn new(cv: T) -> Self {
         Self {
@@ -42,7 +42,7 @@ impl<T: RealField + FromPrimitive + Float> Microvalve<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Float> Component<T> for Microvalve<T> {
+impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Microvalve<T> {
     fn resistance(&self, fluid: &Fluid<T>) -> T {
         if self.opening <= T::zero() {
             // Closed valve - infinite resistance

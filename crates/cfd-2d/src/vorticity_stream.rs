@@ -83,7 +83,7 @@ pub struct VorticityStreamSolver<T: RealField + Copy> {
     reynolds: T,
 }
 
-impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
     /// Create a new vorticity-stream solver
     pub fn new(
         config: VorticityStreamConfig<T>,

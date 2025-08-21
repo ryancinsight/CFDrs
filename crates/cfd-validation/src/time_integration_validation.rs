@@ -41,7 +41,7 @@ impl<T: RealField + FromPrimitive + Copy> TimeIntegratorTrait<T> for TimeIntegra
             TimeIntegratorEnum::ForwardEuler(integrator) => integrator.step(y, t, dt, f),
             TimeIntegratorEnum::RungeKutta2(integrator) => integrator.step(y, t, dt, f),
             TimeIntegratorEnum::RungeKutta4(integrator) => integrator.step(y, t, dt, f),
-            TimeIntegratorEnum::_Phantom(_) => unreachable!(),
+            TimeIntegratorEnum::_Phantom(_) => panic!("Internal error: unreachable code"),
         }
     }
 
@@ -50,7 +50,7 @@ impl<T: RealField + FromPrimitive + Copy> TimeIntegratorTrait<T> for TimeIntegra
             TimeIntegratorEnum::ForwardEuler(_) => 1,
             TimeIntegratorEnum::RungeKutta2(_) => 2,
             TimeIntegratorEnum::RungeKutta4(_) => 4,
-            TimeIntegratorEnum::_Phantom(_) => unreachable!(),
+            TimeIntegratorEnum::_Phantom(_) => panic!("Internal error: unreachable code"),
         }
     }
 }

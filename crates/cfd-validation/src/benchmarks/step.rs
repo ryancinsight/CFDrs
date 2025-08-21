@@ -84,7 +84,7 @@ impl<T: RealField + FromPrimitive + Copy> Benchmark<T> for BackwardFacingStep<T>
         let reattachment = self.calculate_reattachment_length(&u);
         
         Ok(BenchmarkResult {
-            name: self.name().to_string(),
+            name: self.name.clone()().to_string(),
             values: vec![reattachment],
             errors: vec![],
             convergence,

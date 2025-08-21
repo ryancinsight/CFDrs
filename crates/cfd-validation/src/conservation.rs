@@ -142,7 +142,7 @@ impl<T: RealField + FromPrimitive + Copy> ConservationChecker<T> for MassConserv
         details.insert("absolute_error".to_string(), error);
 
         Ok(ConservationReport {
-            check_name: self.name().to_string(),
+            check_name: self.name.clone()().to_string(),
             is_conserved,
             error,
             tolerance: self.tolerance.absolute,
@@ -178,7 +178,7 @@ impl<T: RealField + FromPrimitive + Copy> EnergyConservation<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + std::iter::Sum> ConservationChecker<T> for EnergyConservation<T> {
+impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConservationChecker<T> for EnergyConservation<T> {
     type FlowField = (DVector<T>, DVector<T>, DVector<T>); // (kinetic_energy, potential_energy, dissipation)
 
     fn check_conservation(&self, field: &Self::FlowField) -> Result<ConservationReport<T>> {
@@ -206,7 +206,7 @@ impl<T: RealField + FromPrimitive + std::iter::Sum> ConservationChecker<T> for E
         details.insert("relative_error".to_string(), relative_error);
 
         Ok(ConservationReport {
-            check_name: self.name().to_string(),
+            check_name: self.name.clone()().to_string(),
             is_conserved,
             error: energy_imbalance,
             tolerance: self.tolerance.absolute,

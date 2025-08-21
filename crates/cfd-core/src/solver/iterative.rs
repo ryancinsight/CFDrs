@@ -42,7 +42,7 @@ pub struct SolverIterator<S, Solution, T> {
 impl<S, Solution, T> SolverIterator<S, Solution, T> 
 where
     S: IterativeSolver<T>,
-    T: RealField,
+    T: RealField + Copy,
 {
     /// Create new solver iterator
     pub fn new(solver: S) -> Self {
@@ -57,7 +57,7 @@ where
 impl<S, Solution, T> Iterator for SolverIterator<S, Solution, T>
 where
     S: IterativeSolver<T>,
-    T: RealField,
+    T: RealField + Copy,
 {
     type Item = Result<T>;
     

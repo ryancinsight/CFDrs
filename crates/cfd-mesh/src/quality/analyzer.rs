@@ -14,7 +14,7 @@ pub struct QualityAnalyzer<T: RealField + Copy> {
     store_detailed: bool,
 }
 
-impl<T: RealField + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
+impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     /// Create new analyzer with criteria
     pub fn new(criteria: QualityCriteria<T>) -> Self {
         Self {

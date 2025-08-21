@@ -31,7 +31,7 @@ pub struct FlowSensor<T: RealField + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: RealField + FromPrimitive + Float> FlowSensor<T> {
+impl<T: RealField + Copy + FromPrimitive + Float> FlowSensor<T> {
     /// Create a new flow sensor
     pub fn new(resistance: T, range: T) -> Self {
         Self {
@@ -42,7 +42,7 @@ impl<T: RealField + FromPrimitive + Float> FlowSensor<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Float> Component<T> for FlowSensor<T> {
+impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for FlowSensor<T> {
     fn resistance(&self, _fluid: &Fluid<T>) -> T {
         self.resistance
     }

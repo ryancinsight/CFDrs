@@ -153,7 +153,7 @@ pub struct VtkWriter<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + ToPrimitive> VtkWriter<T> {
+impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
     /// Create a new VTK writer
     pub fn new() -> Self {
         Self {
@@ -314,7 +314,7 @@ impl<T: RealField + ToPrimitive> VtkWriter<T> {
     }
 }
 
-impl<T: RealField + ToPrimitive> Default for VtkWriter<T> {
+impl<T: RealField + Copy + ToPrimitive> Default for VtkWriter<T> {
     fn default() -> Self {
         Self::new()
     }

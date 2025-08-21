@@ -27,7 +27,7 @@ pub struct TimeIntegrator<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + FromPrimitive + Clone> TimeIntegrator<T> {
+impl<T: RealField + Copy + FromPrimitive + Clone> TimeIntegrator<T> {
     /// Create new time integrator
     pub fn new(scheme: TimeScheme) -> Self {
         Self {

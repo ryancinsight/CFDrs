@@ -45,7 +45,7 @@ impl<C1, C2, T> AndCriteria<C1, C2, T>
 where
     C1: ConvergenceCriteria<T>,
     C2: ConvergenceCriteria<T>,
-    T: RealField,
+    T: RealField + Copy,
 {
     /// Create new AND criteria
     pub fn new(criterion1: C1, criterion2: C2) -> Self {
@@ -84,7 +84,7 @@ impl<C1, C2, T> OrCriteria<C1, C2, T>
 where
     C1: ConvergenceCriteria<T>,
     C2: ConvergenceCriteria<T>,
-    T: RealField,
+    T: RealField + Copy,
 {
     /// Create new OR criteria
     pub fn new(criterion1: C1, criterion2: C2) -> Self {

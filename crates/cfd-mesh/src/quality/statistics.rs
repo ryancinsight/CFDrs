@@ -26,7 +26,7 @@ pub struct QualityStatistics<T: RealField + Copy> {
     pub count: usize,
 }
 
-impl<T: RealField + Float + Sum + FromPrimitive> QualityStatistics<T> {
+impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityStatistics<T> {
     /// Create new statistics from samples
     pub fn from_samples(samples: &[T]) -> Self {
         if samples.is_empty() {
@@ -92,7 +92,7 @@ pub struct RunningStats<T: RealField + Copy> {
     max: T,
 }
 
-impl<T: RealField + Float + Sum + FromPrimitive> RunningStats<T> {
+impl<T: RealField + Copy + Float + Sum + FromPrimitive> RunningStats<T> {
     /// Create new running statistics
     pub fn new() -> Self {
         Self {

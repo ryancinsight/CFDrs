@@ -312,7 +312,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         let nodes: Vec<_> = network.nodes().collect();
         let node_indices: std::collections::HashMap<_, _> = nodes.iter()
             .enumerate()
-            .map(|(i, n)| (n.id.parse::<usize>().unwrap_or(i), i))
+            .map(|(i, n)| (n.id.clone().parse::<usize>().unwrap_or(i), i))
             .collect();
         
         let n = nodes.len();
@@ -509,7 +509,7 @@ use cfd_core::solver::LinearSolverConfig;;
         
         // Explore all outgoing edges
         for edge_ref in network.graph().edges(current) {
-            let edge_idx = edge_ref.id();
+            let edge_idx = edge_ref.id.clone()();
             let next_node = edge_ref.target();
             
             // Skip if we've already used this edge in the current path
@@ -636,7 +636,7 @@ use cfd_core::solver::LinearSolverConfig;;
                 // Get flow rates at this junction
                 // Since EdgeData doesn't have flow_rate, we need to get it from the network's flow_rates vector
                 let flow_rates_vec = network.flow_rates();
-                let connected_edges = network.node_edges(&junction.id).unwrap_or_else(|_| Vec::new());
+                let connected_edges = network.node_edges(&junction.id.clone()).unwrap_or_else(|_| Vec::new());
                 
                 // For now, use a simplified approach - count the number of connections
                 let flow_rates: Vec<T> = vec![T::one(); connected_edges.len()];
@@ -684,7 +684,7 @@ pub struct NetworkAnalysisResult<T: RealField + Copy> {
     pub performance_metrics: PerformanceMetrics<T>,
 }
 
-impl<T: RealField + FromPrimitive + num_traits::Float> Default for NetworkAnalyzer<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float> Default for NetworkAnalyzer<T> {
     fn default() -> Self {
         Self::new()
     }

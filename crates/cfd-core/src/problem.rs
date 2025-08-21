@@ -37,7 +37,7 @@ pub trait Problem<T: RealField + Copy>: Send + Sync {
 
 /// Generic problem configuration
 #[derive(Debug, Clone)]
-pub struct ProblemConfig<T: RealField, D: Domain<T>> {
+pub struct ProblemConfig<T: RealField + Copy, D: Domain<T>> {
     /// Computational domain
     pub domain: Arc<D>,
     /// Fluid properties
@@ -76,14 +76,14 @@ impl<T: RealField + FromPrimitive + Copy> Default for ProblemParameters<T> {
 }
 
 /// Problem builder for convenient construction
-pub struct ProblemBuilder<T: RealField, D: Domain<T>> {
+pub struct ProblemBuilder<T: RealField + Copy, D: Domain<T>> {
     domain: Option<Arc<D>>,
     fluid: Option<Fluid<T>>,
     boundary_conditions: BoundaryConditionSet<T>,
     parameters: ProblemParameters<T>,
 }
 
-impl<T: RealField, D: Domain<T>> ProblemBuilder<T, D> {
+impl<T: RealField + Copy, D: Domain<T>> ProblemBuilder<T, D> {
     /// Create a new problem builder
     pub fn new() -> Self {
         Self {
@@ -155,7 +155,7 @@ impl<T: RealField, D: Domain<T>> ProblemBuilder<T, D> {
     }
 }
 
-impl<T: RealField, D: Domain<T>> Default for ProblemBuilder<T, D> {
+impl<T: RealField + Copy, D: Domain<T>> Default for ProblemBuilder<T, D> {
     fn default() -> Self {
         Self::new()
     }
@@ -180,7 +180,7 @@ mod tests {
             .build()
             .expect("CRITICAL: Add proper error handling");
 
-        assert_eq!(problem.fluid.name, "Water (20°C)");
+        assert_eq!(problem.fluid.name.clone(), "Water (20°C)");
         assert_eq!(problem.boundary_conditions.conditions.len(), 3);
         assert!(problem.parameters.transient);
     }

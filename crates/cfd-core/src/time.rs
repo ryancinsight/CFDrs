@@ -381,7 +381,7 @@ impl<T: RealField + FromPrimitive + Copy> Default for VariableTimeStep<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Float> VariableTimeStep<T> {
+impl<T: RealField + Copy + FromPrimitive + Float> VariableTimeStep<T> {
     /// Calculate new time step based on error estimate
     pub fn calculate_dt(&self, current_dt: T, error: T, order: usize) -> T {
         if error < T::epsilon() {

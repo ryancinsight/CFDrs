@@ -82,7 +82,7 @@ impl Hdf5Writer {
     }
 
     /// Write large vector dataset with chunking
-    pub fn write_vector_chunked<T: RealField + H5Type>(
+    pub fn write_vector_chunked<T: RealField + Copy + H5Type>(
         &self,
         group_name: &str,
         dataset_name: &str,
@@ -132,7 +132,7 @@ impl Hdf5Writer {
     }
 
     /// Write large matrix dataset with 2D chunking
-    pub fn write_matrix_chunked<T: RealField + H5Type>(
+    pub fn write_matrix_chunked<T: RealField + Copy + H5Type>(
         &self,
         group_name: &str,
         dataset_name: &str,
@@ -176,7 +176,7 @@ impl Hdf5Writer {
     }
 
     /// Write time series data with compression
-    pub fn write_time_series<T: RealField + H5Type>(
+    pub fn write_time_series<T: RealField + Copy + H5Type>(
         &self,
         group_name: &str,
         dataset_name: &str,
@@ -250,7 +250,7 @@ impl Hdf5Writer {
         // Write basic metadata
         dataset.current_attr::<hdf5::types::VarLenUnicode>()
             .create("name")?
-            .write_scalar(&metadata.name.as_str().into())?;
+            .write_scalar(&metadata.name.clone().as_str().into())?;
 
         dataset.current_attr::<hdf5::types::VarLenUnicode>()
             .create("data_type")?
@@ -325,7 +325,7 @@ impl Hdf5Reader {
     }
 
     /// Read vector dataset in chunks
-    pub fn read_vector_chunked<T: RealField + H5Type>(
+    pub fn read_vector_chunked<T: RealField + Copy + H5Type>(
         &self,
         group_name: &str,
         dataset_name: &str,
@@ -491,7 +491,7 @@ mod tests {
             attributes: std::collections::HashMap::new(),
         };
 
-        assert_eq!(metadata.name, "test_dataset");
+        assert_eq!(metadata.name.clone(), "test_dataset");
         assert_eq!(metadata.dimensions, vec![100, 50]);
     }
 }

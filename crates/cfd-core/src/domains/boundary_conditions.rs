@@ -174,12 +174,12 @@ pub mod applicators {
 
 /// Time-dependent boundary condition evaluator
 /// Provides functionality for evaluating time-varying boundary conditions
-pub struct TimeDependentEvaluator<T: RealField + num_traits::Float> {
+pub struct TimeDependentEvaluator<T: RealField + Copy + num_traits::Float> {
     /// Function registry for time-dependent evaluations
     functions: HashMap<String, Box<dyn Fn(T) -> T + Send + Sync>>,
 }
 
-impl<T: RealField + num_traits::Float> TimeDependentEvaluator<T> {
+impl<T: RealField + Copy + num_traits::Float> TimeDependentEvaluator<T> {
     /// Create new evaluator
     pub fn new() -> Self {
         Self {
@@ -317,7 +317,7 @@ impl<T: RealField + Copy> BoundaryConditionsService<T> {
     
     /// Add boundary region
     pub fn add_region(&mut self, region: BoundaryRegion<T>) {
-        self.regions.insert(region.id, region);
+        self.regions.insert(region.id.clone(), region);
     }
     
     /// Apply boundary conditions to field
@@ -353,7 +353,7 @@ impl<T: RealField + Copy> Default for BoundaryConditionsService<T> {
     }
 }
 
-impl<T: RealField + num_traits::Float> Default for TimeDependentEvaluator<T> {
+impl<T: RealField + Copy + num_traits::Float> Default for TimeDependentEvaluator<T> {
     fn default() -> Self {
         Self::new()
     }

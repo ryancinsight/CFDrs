@@ -33,7 +33,7 @@ pub struct SimulationAggregate<T: RealField + Copy, D: Domain<T>> {
     pub state: SimulationState,
 }
 
-impl<T: RealField + FromPrimitive + num_traits::Float, D: Domain<T>> SimulationAggregate<T, D> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> SimulationAggregate<T, D> {
     /// Create a new simulation aggregate
     pub fn new(id: String, domain: D, fluid: Fluid<T>) -> Self {
         Self {

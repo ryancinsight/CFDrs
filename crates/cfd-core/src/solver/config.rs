@@ -133,7 +133,7 @@ pub struct LinearSolverConfig<T: RealField + Copy> {
     pub preconditioning: bool,
 }
 
-impl<T: RealField + num_traits::FromPrimitive> Default for LinearSolverConfig<T> {
+impl<T: RealField + Copy + num_traits::FromPrimitive> Default for LinearSolverConfig<T> {
     fn default() -> Self {
         Self {
             max_iterations: 1000,

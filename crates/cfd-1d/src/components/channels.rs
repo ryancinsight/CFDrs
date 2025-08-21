@@ -22,7 +22,7 @@ pub struct RectangularChannel<T: RealField + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: RealField + FromPrimitive + Float> RectangularChannel<T> {
+impl<T: RealField + Copy + FromPrimitive + Float> RectangularChannel<T> {
     /// Create a new rectangular channel
     pub fn new(length: T, width: T, height: T, roughness: T) -> Self {
         Self {
@@ -73,7 +73,7 @@ impl<T: RealField + FromPrimitive + Float> RectangularChannel<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Float> Component<T> for RectangularChannel<T> {
+impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for RectangularChannel<T> {
     fn resistance(&self, fluid: &Fluid<T>) -> T {
         let dh = self.hydraulic_diameter();
         let area = self.area();
@@ -132,7 +132,7 @@ pub struct CircularChannel<T: RealField + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: RealField + FromPrimitive + Float> CircularChannel<T> {
+impl<T: RealField + Copy + FromPrimitive + Float> CircularChannel<T> {
     /// Create a new circular channel
     pub fn new(length: T, diameter: T, roughness: T) -> Self {
         Self {
@@ -155,7 +155,7 @@ impl<T: RealField + FromPrimitive + Float> CircularChannel<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Float> Component<T> for CircularChannel<T> {
+impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for CircularChannel<T> {
     fn resistance(&self, fluid: &Fluid<T>) -> T {
         // Hagen-Poiseuille equation for circular channels
         // R = 128 * μ * L / (π * D^4)

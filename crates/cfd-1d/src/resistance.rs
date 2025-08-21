@@ -57,7 +57,7 @@ pub struct HagenPoiseuilleModel<T: RealField + Copy> {
     pub length: T,
 }
 
-impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for HagenPoiseuilleModel<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T> for HagenPoiseuilleModel<T> {
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
         let viscosity = fluid.dynamic_viscosity(conditions.temperature)?;
         let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
@@ -90,7 +90,7 @@ pub struct RectangularChannelModel<T: RealField + Copy> {
     pub length: T,
 }
 
-impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for RectangularChannelModel<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T> for RectangularChannelModel<T> {
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
         let viscosity = fluid.dynamic_viscosity(conditions.temperature)?;
         let aspect_ratio = self.width / self.height;
@@ -116,7 +116,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for Re
     }
 }
 
-impl<T: RealField + FromPrimitive + num_traits::Float> RectangularChannelModel<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float> RectangularChannelModel<T> {
     /// Calculate friction factor for rectangular channels
     ///
     /// # Accuracy Limitations
@@ -163,7 +163,7 @@ pub struct DarcyWeisbachModel<T: RealField + Copy> {
     pub roughness: T,
 }
 
-impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for DarcyWeisbachModel<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T> for DarcyWeisbachModel<T> {
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
         let reynolds = conditions.reynolds_number.ok_or_else(|| {
             Error::InvalidConfiguration("Reynolds number required for Darcy-Weisbach model".to_string())
@@ -193,7 +193,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for Da
     }
 }
 
-impl<T: RealField + FromPrimitive + num_traits::Float> DarcyWeisbachModel<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float> DarcyWeisbachModel<T> {
     /// Calculate friction factor using Swamee-Jain approximation
     fn calculate_friction_factor(&self, reynolds: T) -> T {
         let relative_roughness = self.roughness / self.hydraulic_diameter;
@@ -215,7 +215,7 @@ pub struct EntranceEffectsModel<T: RealField + Copy> {
     pub entrance_coefficient: T,
 }
 
-impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceModel<T> for EntranceEffectsModel<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T> for EntranceEffectsModel<T> {
     fn calculate_resistance(&self, _fluid: &Fluid<T>, _conditions: &FlowConditions<T>) -> Result<T> {
         Ok(self.base_resistance * (T::one() + self.entrance_coefficient))
     }
@@ -299,7 +299,7 @@ pub struct ResistanceCalculator<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceCalculator<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceCalculator<T> {
     /// Create new resistance calculator
     pub fn new() -> Self {
         Self {
@@ -372,7 +372,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ResistanceCalculator<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + num_traits::Float> Default for ResistanceCalculator<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float> Default for ResistanceCalculator<T> {
     fn default() -> Self {
         Self::new()
     }

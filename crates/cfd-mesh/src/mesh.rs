@@ -133,7 +133,7 @@ impl Cell {
     /// This method correctly handles the vertex collection by deduplicating
     /// vertices from all faces, fixing the issue where flattening face vertices
     /// resulted in many duplicates.
-    pub fn unique_vertices<'a, T: RealField>(&self, mesh: &'a Mesh<T>) -> Vec<&'a Point3<T>> {
+    pub fn unique_vertices<'a, T: RealField + Copy>(&self, mesh: &'a Mesh<T>) -> Vec<&'a Point3<T>> {
         let mut vertex_indices = HashSet::new();
         
         // Collect unique vertex indices from all faces
@@ -264,7 +264,7 @@ impl<T: RealField + Copy> Mesh<T> {
             if !cell.validate_vertex_count(self) {
                 return Err(format!(
                     "Cell {} has incorrect vertex count for element type {:?}",
-                    cell.id, cell.element_type
+                    cell.id.clone(), cell.element_type
                 ));
             }
         }

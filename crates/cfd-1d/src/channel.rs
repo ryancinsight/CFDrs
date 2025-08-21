@@ -178,7 +178,7 @@ pub struct NumericalParameters<T: RealField + Copy> {
     pub surface_tension_effects: bool,
 }
 
-impl<T: RealField + FromPrimitive + num_traits::Float> ChannelGeometry<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ChannelGeometry<T> {
     /// Create a rectangular channel geometry
     pub fn rectangular(length: T, width: T, height: T, roughness: T) -> Self {
         Self {
@@ -286,7 +286,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> ChannelGeometry<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + num_traits::Float> Channel<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float> Channel<T> {
     /// Create a new channel with geometry
     pub fn new(geometry: ChannelGeometry<T>) -> Self {
         Self {

@@ -33,7 +33,7 @@ pub struct Micromixer<T: RealField + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: RealField + FromPrimitive + Float> Micromixer<T> {
+impl<T: RealField + Copy + FromPrimitive + Float> Micromixer<T> {
     /// Create a new micromixer
     pub fn new(n_inlets: usize, resistance: T) -> Self {
         Self {
@@ -45,7 +45,7 @@ impl<T: RealField + FromPrimitive + Float> Micromixer<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Float> Component<T> for Micromixer<T> {
+impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Micromixer<T> {
     fn resistance(&self, _fluid: &Fluid<T>) -> T {
         self.resistance
     }

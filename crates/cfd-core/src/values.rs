@@ -45,7 +45,7 @@ impl<T: RealField + FromPrimitive + Copy> ReynoldsNumber<T> {
     }
 }
 
-impl<T: RealField + fmt::Display> fmt::Display for ReynoldsNumber<T> {
+impl<T: RealField + Copy + fmt::Display> fmt::Display for ReynoldsNumber<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Re = {}", self.0)
     }
@@ -295,9 +295,9 @@ impl<T: RealField + Copy> DimensionlessNumber<T> {
     }
 }
 
-impl<T: RealField + fmt::Display> fmt::Display for DimensionlessNumber<T> {
+impl<T: RealField + Copy + fmt::Display> fmt::Display for DimensionlessNumber<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} = {}", self.name, self.value)
+        write!(f, "{} = {}", self.name.clone(), self.value)
     }
 }
 
