@@ -132,7 +132,7 @@ impl PluginStorage {
     }
     
     fn insert(&mut self, plugin: Arc<dyn Plugin>) -> Result<()> {
-        let name = plugin.name.clone()().to_string();
+        let name = plugin.name().to_string();
         if self.plugins.contains_key(&name) {
             return Err(Error::Plugin(PluginErrorKind::AlreadyRegistered(name)));
         }
@@ -300,7 +300,7 @@ impl PluginRegistry {
     
     /// Register a plugin
     pub fn register(&mut self, plugin: Arc<dyn Plugin>) -> Result<()> {
-        let name = plugin.name.clone()().to_string();
+        let name = plugin.name().to_string();
         let deps: Vec<String> = plugin.dependencies().iter().map(|s| s.to_string()).collect();
         
         // Validate dependencies exist
@@ -369,7 +369,7 @@ impl PluginRegistry {
             .iter()
             .filter_map(|(name, plugin)| {
                 if plugin.capabilities().contains(&capability) {
-                    Some(name)
+                    Some(name.clone())
                 } else {
                     None
                 }

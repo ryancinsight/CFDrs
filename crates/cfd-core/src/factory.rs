@@ -89,7 +89,7 @@ where
     }
     
     fn name(&self) -> &str {
-        self.solver.name.clone()()
+        self.solver.name()
     }
 }
 
@@ -151,7 +151,7 @@ where
     }
     
     fn name(&self) -> &str {
-        self.factory.name.clone()()
+        self.factory.name()
     }
     
     fn can_handle(&self, problem_type: &str) -> bool {

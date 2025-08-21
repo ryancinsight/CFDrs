@@ -37,7 +37,7 @@ pub mod finite_difference {
             let dx = grid_spacing;
 
             field.windows(3)
-                .map(|window| (window[2] - window[0])* / *(two * dx))
+                .map(|window| (window[2] - window[0])/(two * dx))
                 .collect()
         }
         
@@ -61,7 +61,7 @@ pub mod finite_difference {
             }
             
             field.windows(2)
-                .map(|window| (window[1] - window[0])* / *grid_spacing)
+                .map(|window| (window[1] - window[0])/grid_spacing)
                 .collect()
         }
         
@@ -102,7 +102,7 @@ pub mod time_integration {
         fn advance(&self, current: &[T], derivative: &[T], dt: T) -> Vec<T> {
             current.iter()
                 .zip(derivative.iter())
-                .map(|(u, dudt)| *u + ***dudt * dt)
+                .map(|(u, dudt)| *u + *dudt * dt)
                 .collect()
         }
         
@@ -133,7 +133,7 @@ pub mod time_integration {
             // This is exactly Forward Euler method
             current.iter()
                 .zip(derivative.iter())
-                .map(|(y, d)| y + *d * dt)
+                .map(|(y, d)| *y + *d * dt)
                 .collect()
         }
 
@@ -169,62 +169,62 @@ pub mod time_integration {
             T: RealField + Clone,
             F: Fn(T, &[T]) -> Vec<T>,
         {
-            let half = T::from_f64(0.5).unwrap_or_else(|| T::one()* / *(T::one() + T::one()));
-            let one_sixth = T::from_f64(1.0/6.0).unwrap_or_else(|| T::one()* / *(T::from_usize(6).unwrap_or_else(|| T::one())));
+            let half = T::from_f64(0.5).unwrap_or_else(|| T::one()/(T::one() + T::one()));
+            let one_sixth = T::from_f64(1.0/6.0).unwrap_or_else(|| T::one()/(T::from_usize(6).unwrap_or_else(|| T::one())));
             let two = T::one() + T::one();
 
             // Classical RK4 stages
             // k1 = dt * f(t, y)
             let k1: Vec<T> = derivative_fn(t, current)
                 .into_iter()
-                .map(|val| *val * dt)
+                .map(|val| val * dt)
                 .collect();
 
             // y1 = y + k1/2
             let y1: Vec<T> = current.iter()
                 .zip(k1.iter())
-                .map(|(y, k)| *y + *k *half)
+                .map(|(y, k)| *y + *k * half)
                 .collect();
 
             // k2 = dt * f(t + dt/2, y1)
-            let k2: Vec<T> = derivative_fn(*t + *dt *half, &y1)
+            let k2: Vec<T> = derivative_fn(t + dt * half, &y1)
                 .into_iter()
-                .map(|val| *val * dt)
+                .map(|val| val * dt)
                 .collect();
 
             // y2 = y + k2/2
             let y2: Vec<T> = current.iter()
                 .zip(k2.iter())
-                .map(|(y, k)| *y + *k *half)
+                .map(|(y, k)| *y + *k * half)
                 .collect();
 
             // k3 = dt * f(t + dt/2, y2)
-            let k3: Vec<T> = derivative_fn(*t + *dt *half, &y2)
+            let k3: Vec<T> = derivative_fn(t + dt * half, &y2)
                 .into_iter()
-                .map(|val| *val * dt)
+                .map(|val| val * dt)
                 .collect();
 
             // y3 = y + k3
             let y3: Vec<T> = current.iter()
                 .zip(k3.iter())
-                .map(|(y, k)| y + k)
+                .map(|(y, k)| *y + *k)
                 .collect();
 
             // k4 = dt * f(t + dt, y3)
             let k4: Vec<T> = derivative_fn(t + dt, &y3)
                 .into_iter()
-                .map(|val| *val * dt)
+                .map(|val| val * dt)
                 .collect();
 
-            // Final combination: y_new = y + (k1 + 2*k2 + 2*k3 + k4)* / *6
+            // Final combination: y_new = y + (k1 + 2*k2 + 2*k3 + k4)/6
             current.iter()
                 .zip(k1.iter())
                 .zip(k2.iter())
                 .zip(k3.iter())
                 .zip(k4.iter())
                 .map(|((((y, k1), k2), k3), k4)| {
-                    let weighted_sum = k1 + k2 * two + k3 * two + k4;
-                    *y + *weighted_sum *one_sixth
+                    let weighted_sum = *k1 + *k2 * two + *k3 * two + *k4;
+                    *y + weighted_sum * one_sixth
                 })
                 .collect()
         }
@@ -281,9 +281,9 @@ pub mod linear_solvers {
             
             for iter in 0..self.max_iterations {
                 // Matrix-vector product: Ap
-                let ap = matrix * &p;
+                let ap = matrix * p.clone();
                 
-                // Step length: α = (r^T * r)* / *(p^T * Ap)
+                // Step length: α = (r^T * r)/(p^T * Ap)
                 let pap = p.dot(&ap);
                 
                 // Check for breakdown
@@ -295,13 +295,13 @@ pub mod linear_solvers {
                     return Err(format!("CG breakdown at iteration {}", iter));
                 }
                 
-                let alpha = *rsold / *pap;
+                let alpha = rsold / pap;
                 
                 // Update solution: x = x + α * p
-                x += &p * alpha;
+                x += p.clone() * alpha;
                 
                 // Update residual: r = r - α * Ap
-                r -= &ap * alpha;
+                r = r.clone() - ap.clone() * alpha;
                 
                 // Check convergence
                 let rsnew = r.dot(&r);
@@ -310,8 +310,8 @@ pub mod linear_solvers {
                 }
                 
                 // Update search direction
-                let beta = *rsnew / *rsold;
-                p = &r + &p * beta;
+                let beta = rsnew / rsold;
+                p = r.clone() + p * beta;
                 rsold = rsnew;
             }
             
@@ -454,7 +454,7 @@ mod tests {
 
         let result = scheme.discretize(&field, dx);
 
-        // Central difference: (f[i+1] - f[i-1])* / *(2*dx)
+        // Central difference: (f[i+1] - f[i-1])/(2*dx)
         // Expected: [(4-1)/2, (7-2)/2, (11-4)/2] = [1.5, 2.5, 3.5]
         assert_eq!(result.len(), 3);
         assert_relative_eq!(result[0], 1.5, epsilon = 1e-10);
@@ -473,7 +473,7 @@ mod tests {
 
         let result = scheme.discretize(&field, dx);
 
-        // Upwind difference: (f[i+1] - f[i])* / *dx
+        // Upwind difference: (f[i+1] - f[i])/dx
         // Expected: [(2-1)/1, (4-2)/1, (7-4)/1] = [1.0, 2.0, 3.0]
         assert_eq!(result.len(), 3);
         assert_relative_eq!(result[0], 1.0, epsilon = 1e-10);
