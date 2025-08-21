@@ -329,7 +329,7 @@ impl TimeIntegrationValidator {
         dt: T,
     ) -> Result<T> {
         let n_steps = (final_time.to_f64().expect("CRITICAL: Add proper error handling") / dt.to_f64().expect("CRITICAL: Add proper error handling")) as usize;
-        let mut y = y0;
+        let mut y = y0.clone();
         let mut t = T::zero();
 
         for _ in 0..n_steps {
@@ -338,7 +338,7 @@ impl TimeIntegrationValidator {
         }
 
         let analytical = analytical_solution(final_time);
-        let error = ((y - analytical)).norm();
+        let error = ((&y - &analytical)).norm();
 
         Ok(error)
     }

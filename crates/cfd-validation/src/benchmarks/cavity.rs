@@ -3,7 +3,7 @@
 //! Reference: Ghia et al. (1982) "High-Re solutions for incompressible flow
 //! using the Navier-Stokes equations and a multigrid method"
 
-use nalgebra::{DMatrix, DVector, RealField};
+use nalgebra::{DMatrix, RealField};
 use cfd_core::{Result, Error};
 use num_traits::FromPrimitive;
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
@@ -47,8 +47,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for LidDrivenCavit
         
         // Initialize velocity and pressure fields
         let mut u = DMatrix::<T>::zeros(n, n);
-        let mut v = DMatrix::<T>::zeros(n, n);
-        let mut p = DMatrix::<T>::zeros(n, n);
+        let v = DMatrix::<T>::zeros(n, n);
+        let p = DMatrix::<T>::zeros(n, n);
         
         // Set boundary conditions
         for j in 0..n {
@@ -85,7 +85,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for LidDrivenCavit
         values.extend(centerline_v);
         
         Ok(BenchmarkResult {
-            name: self.name().clone()().to_string(),
+            name: self.name().to_string(),
             values,
             errors: vec![],
             convergence,

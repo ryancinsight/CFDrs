@@ -1,6 +1,6 @@
 //! Mesh quality analysis and validation
 
-use nalgebra::{RealField, Vector3};
+use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use std::iter::Sum;
 use crate::mesh::{Mesh, Element};
