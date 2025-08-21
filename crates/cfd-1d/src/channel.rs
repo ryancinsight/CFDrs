@@ -7,7 +7,7 @@ use cfd_core::fluid::Fluid;
 use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
-use num_traits::Float as _; // bring Float methods into scope for T
+ // bring Float methods into scope for T
 use serde::{Deserialize, Serialize};
 // Removed unused import following YAGNI principle
 

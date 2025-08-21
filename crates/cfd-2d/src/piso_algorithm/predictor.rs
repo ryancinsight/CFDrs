@@ -1,6 +1,6 @@
 //! Velocity predictor step for PISO algorithm
 
-use nalgebra::{RealField, Vector2};
+use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use cfd_core::Result;
 use crate::fields::{Field2D, SimulationFields};

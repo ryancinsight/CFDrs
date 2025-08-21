@@ -8,7 +8,6 @@ use cfd_core::fluid::Fluid;
 use cfd_core::error::{Result, Error};
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
-use num_traits::Float as _;
 use serde::{Deserialize, Serialize};
 
 /// Trait for hydraulic resistance models

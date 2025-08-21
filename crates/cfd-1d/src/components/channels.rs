@@ -1,8 +1,8 @@
 //! Channel components for microfluidic networks
 
 use super::{Component, constants};
-use cfd_core::{Error, Result, Fluid};
-use nalgebra::{RealField, ComplexField};
+use cfd_core::{Result, Fluid};
+use nalgebra::RealField;
 use num_traits::{FromPrimitive, Float};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

@@ -323,7 +323,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> KEpsilonModel<T> {
                 
                 // k equation
                 let k_diffusion = self.calculate_diffusion(&self.k, i, j, 
-                    (nu + self.nu_t[i][j] / sigma_k), dx, dy);
+                    nu + self.nu_t[i][j] / sigma_k, dx, dy);
                 current_k[i][j] = self.k[i][j] + dt * (
                     production - self.epsilon[i][j] + k_diffusion
                 );
@@ -331,7 +331,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> KEpsilonModel<T> {
                 // ε equation with semi-implicit treatment for stability
                 // Treat destruction term implicitly to avoid singularity when k is small
                 let eps_diffusion = self.calculate_diffusion(&self.epsilon, i, j,
-                    (nu + self.nu_t[i][j] / sigma_eps), dx, dy);
+                    nu + self.nu_t[i][j] / sigma_eps, dx, dy);
                 
                 // Semi-implicit formulation: ε_new = (ε_old + dt * source) / (1 + dt * destruction_coeff)
                 let source_term = c1_eps * production * self.epsilon[i][j] / self.k[i][j] + eps_diffusion;

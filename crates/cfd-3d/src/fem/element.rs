@@ -84,7 +84,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
     /// Calculate element stiffness matrix contribution
     pub fn stiffness_contribution(&self, viscosity: T) -> DMatrix<T> {
         let n_dof = self.nodes.len() * constants::VELOCITY_COMPONENTS;
-        let mut k_e = DMatrix::zeros(n_dof, n_dof);
+        let k_e = DMatrix::zeros(n_dof, n_dof);
         
         // Placeholder implementation - needs proper Galerkin formulation
         // K_e = ∫_Ωe B^T D B dΩ

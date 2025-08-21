@@ -4,7 +4,6 @@ use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use cfd_core::solver::SolverConfig;
-use cfd_core::constants::*;
 
 /// PISO solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -6,7 +6,7 @@ use crate::channel::FlowRegime;
 use cfd_core::Result;
 use nalgebra::RealField;
 use num_traits::{FromPrimitive, Float};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::iter::Sum;
 
 /// Complete network analysis results

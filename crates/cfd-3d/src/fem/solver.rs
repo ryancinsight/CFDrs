@@ -1,6 +1,6 @@
 //! FEM solver implementation
 
-use cfd_core::{Result, Error};
+use cfd_core::Result;
 use cfd_math::{SparseMatrix, SparseMatrixBuilder, LinearSolver, ConjugateGradient};
 use nalgebra::{RealField, DVector, Vector3};
 use num_traits::{FromPrimitive, Float};
@@ -131,7 +131,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
         let n_nodes = element.nodes.len();
         let n_dof = n_nodes * (constants::VELOCITY_COMPONENTS + 1); // velocity + pressure
         
-        let mut matrices = ElementMatrices::new(n_dof);
+        let matrices = ElementMatrices::new(n_dof);
         
         // Placeholder - needs proper implementation with Gauss quadrature
         // and shape functions
