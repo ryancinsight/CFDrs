@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! 1D CFD simulations and microfluidic network solvers.
 //! 
 //! This crate provides 1D computational fluid dynamics solvers specifically
