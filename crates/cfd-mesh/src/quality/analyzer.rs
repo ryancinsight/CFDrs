@@ -28,7 +28,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
         let mut metrics = Vec::new();
         let mut failed_elements = Vec::new();
         
-        for (idx, element) in mesh.elements().iter().enumerate() {
+        for (idx, element) in mesh.cells.iter().enumerate() {
             let quality = self.compute_element_quality(element, mesh);
             
             if !self.criteria.is_acceptable(&quality) {
@@ -49,7 +49,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
         MeshQualityReport {
             statistics,
             failed_elements,
-            total_elements: mesh.elements().len(),
+            total_elements: mesh.cells.len(),
             detailed_metrics: if self.store_detailed { Some(metrics) } else { None },
         }
     }

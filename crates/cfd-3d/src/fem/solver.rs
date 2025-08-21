@@ -23,7 +23,7 @@ fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) -> V
     let mut indices = Vec::with_capacity(4);
     let mut seen = std::collections::HashSet::new();
     
-    for &face_idx in &cell.faces {
+    for &face_idx in &cell.vertices {
         if let Some(face) = mesh.faces.get(face_idx) {
             for &vertex_idx in &face.vertices {
                 if seen.insert(vertex_idx) && indices.len() < 4 {
