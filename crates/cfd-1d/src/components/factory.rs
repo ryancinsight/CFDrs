@@ -24,12 +24,12 @@ impl ComponentFactory {
                     .ok_or_else(|| Error::InvalidConfiguration("Missing height parameter".into()))?;
                 let roughness = params.get("roughness")
                     .cloned()
-                    .unwrap_or_else(|| T::from_f64(constants::DEFAULT_ROUGHNESS).unwrap_or_else(T::zero));
+                    .unwrap_or_else(|| T::from_f64(constants::DEFAULT_ROUGHNESS).unwrap_or_else(|| T::zero()));
                 
                 Ok(Box::new(RectangularChannel::new(
-                    length,
-                    width,
-                    height,
+                    *length,
+                    *width,
+                    *height,
                     roughness,
                 )))
             }
@@ -40,11 +40,11 @@ impl ComponentFactory {
                     .ok_or_else(|| Error::InvalidConfiguration("Missing diameter parameter".into()))?;
                 let roughness = params.get("roughness")
                     .cloned()
-                    .unwrap_or_else(|| T::from_f64(constants::DEFAULT_ROUGHNESS).unwrap_or_else(T::zero));
+                    .unwrap_or_else(|| T::from_f64(constants::DEFAULT_ROUGHNESS).unwrap_or_else(|| T::zero()));
                 
                 Ok(Box::new(CircularChannel::new(
-                    length,
-                    diameter,
+                    *length,
+                    *diameter,
                     roughness,
                 )))
             }
@@ -55,14 +55,14 @@ impl ComponentFactory {
                     .ok_or_else(|| Error::InvalidConfiguration("Missing max_pressure parameter".into()))?;
                 
                 Ok(Box::new(Micropump::new(
-                    max_flow_rate,
-                    max_pressure,
+                    *max_flow_rate,
+                    *max_pressure,
                 )))
             }
             "Microvalve" => {
                 let cv = params.get("cv")
                     .cloned()
-                    .unwrap_or_else(|| T::from_f64(constants::DEFAULT_VALVE_CV).unwrap_or_else(T::zero));
+                    .unwrap_or_else(|| T::from_f64(constants::DEFAULT_VALVE_CV).unwrap_or_else(|| T::zero()));
                 
                 Ok(Box::new(Microvalve::new(cv)))
             }

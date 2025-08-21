@@ -24,7 +24,7 @@ impl VectorizedOps {
         result.par_iter_mut()
             .zip(a.par_iter().zip(b.par_iter()))
             .for_each(|(r, (a_val, b_val))| {
-                *r = a_val + b_val;
+                *r = *a_val + *b_val;
             });
 
         Ok(())
@@ -43,7 +43,7 @@ impl VectorizedOps {
         result.par_iter_mut()
             .zip(a.par_iter().zip(b.par_iter()))
             .for_each(|(r, (a_val, b_val))| {
-                *r = a_val * b_val;
+                *r = *a_val * *b_val;
             });
 
         Ok(())
@@ -62,7 +62,7 @@ impl VectorizedOps {
         result.par_iter_mut()
             .zip(input.par_iter())
             .for_each(|(r, val)| {
-                *r = scalar * val;
+                *r = scalar * *val;
             });
 
         Ok(())
@@ -87,7 +87,7 @@ impl VectorizedOps {
                 input_chunk.iter()
                     .zip(result_chunk.iter_mut())
                     .for_each(|(input_val, result_val)| {
-                        *result_val = input_val + scalar;
+                        *result_val = *input_val + scalar;
                     });
             });
 
@@ -120,7 +120,7 @@ impl VectorizedOps {
                     .zip(matrix_row.iter())
                     .zip(vector.iter())
                     .for_each(|((r, m), v)| {
-                        *r = m * v;
+                        *r = *m * *v;
                     });
             });
 
@@ -141,7 +141,7 @@ impl VectorizedOps {
             .map(|(a_chunk, b_chunk)| {
                 a_chunk.iter()
                     .zip(b_chunk.iter())
-                    .map(|(x, y)| x * y)
+                    .map(|(x, y)| *x * *y)
                     .fold(T::zero(), |acc, val| acc + val)
             })
             .reduce(|| T::zero(), |acc, val| acc + val);
@@ -156,7 +156,7 @@ impl VectorizedOps {
         let sum_of_squares = input.par_chunks(CHUNK_SIZE)
             .map(|chunk| {
                 chunk.iter()
-                    .map(|x| x * x)
+                    .map(|x| *x * *x)
                     .fold(T::zero(), |acc, val| acc + val)
             })
             .reduce(|| T::zero(), |acc, val| acc + val);
@@ -257,9 +257,9 @@ impl VectorizedOps {
             .map(|chunk| {
                 chunk.iter()
                     .cloned()
-                    .fold(identity, |a, b| op(a, b))
+                    .fold(identity.clone(), |a, b| op(a, b))
             })
-            .reduce(|| identity, |a, b| op(a, b))
+            .reduce(|| identity.clone(), |a, b| op(a, b))
     }
 
     /// Vectorized prefix sum (scan) operation

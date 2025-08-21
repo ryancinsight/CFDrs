@@ -1,0 +1,19 @@
+--- a/crates/cfd-core/src/factory.rs
++++ b/crates/cfd-core/src/factory.rs
+@@ -16,7 +16,7 @@ pub trait ConcreteSolverFactory<T: RealField + Copy>: Send + Sync {
+     /// Solver type this factory creates
+     type Solver: Solver<T>;
+     /// Configuration type for the solver
+-    type Config: SolverConfiguration<T>;
++    type Config: SolverConfiguration<T> + Clone;
+ 
+     /// Create a solver with the given configuration
+     fn create(&self, config: Self::Config) -> Result<Self::Solver>;
+@@ -146,7 +146,7 @@ impl<T: RealField + Copy, F: ConcreteSolverFactory<T> + 'static> DynamicFactory
+             .downcast_ref::<F::Config>()
+             .ok_or_else(|| Error::InvalidConfiguration("Invalid configuration type".into()))?;
+         
+-        let solver = self.factory.create(typed_config)?;
++        let solver = self.factory.create(typed_config.clone())?;
+         Ok(Box::new(DynamicSolverWrapper::new(solver)))
+     }

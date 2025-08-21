@@ -2,7 +2,7 @@
 
 use crate::network::Network;
 use crate::channel::FlowRegime;
-use cfd_core::{Result, Fluid};
+use cfd_core::{Result, Error, Fluid};
 use nalgebra::{RealField, ComplexField};
 use num_traits::FromPrimitive;
 
@@ -71,7 +71,7 @@ pub struct NetworkAnalyzer<T: RealField + Copy> {
     solver: crate::solver::NetworkSolver<T>,
 }
 
-impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy + num_traits::Float + Copy> NetworkAnalyzer<T> {
     /// Create a new network analyzer
     pub fn new() -> Self {
         Self {
@@ -90,7 +90,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
     pub fn analyze(&mut self, network: &mut Network<T>) -> Result<NetworkAnalysisResult<T>> {
         // Solve the network
         // Create a problem from the network
-        let problem = crate::solver::NetworkProblem::new(network);
+        let problem = crate::solver::NetworkProblem::new(network.clone());
         let _solution_result = self.solver.solve_network(&problem)?;
         
         // Perform individual analyses
@@ -287,9 +287,9 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         
         if re_val < 1.0 {
             FlowRegime::Stokes
-        } else if re_val < crate::constants::LAMINAR_THRESHOLD {
+        } else if re_val < cfd_core::constants::LAMINAR_THRESHOLD {
             FlowRegime::Laminar
-        } else if re_val <= crate::constants::TURBULENT_THRESHOLD {
+        } else if re_val <= cfd_core::constants::TURBULENT_THRESHOLD {
             FlowRegime::Transitional
         } else {
             FlowRegime::Turbulent
@@ -423,7 +423,7 @@ use cfd_core::solver::LinearSolverConfig;;
             for i in 0..n-1 {
                 let _ = builder.add_entry(i, i, T::one());
             }
-            builder.build().map_err(|e| Error::MatrixConstruction(format!("Failed to build sparse matrix: {}", e)))?
+            builder.build().unwrap()
         });
         
         let config = LinearSolverConfig {
@@ -502,14 +502,14 @@ use cfd_core::solver::LinearSolverConfig;;
         if current == target {
             // Found a path to the target
             if !current_path.is_empty() {
-                all_paths.push(current_path);
+                all_paths.push(current_path.clone());
             }
             return;
         }
         
         // Explore all outgoing edges
         for edge_ref in network.graph().edges(current) {
-            let edge_idx = edge_ref.id.clone()();
+            let edge_idx = edge_ref.id();
             let next_node = edge_ref.target();
             
             // Skip if we've already used this edge in the current path

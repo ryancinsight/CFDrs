@@ -38,7 +38,7 @@ impl<T: RealField + Copy> BackwardFacingStep<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> Benchmark<T> for BackwardFacingStep<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacingStep<T> {
     fn name(&self) -> &str {
         "Backward Facing Step"
     }
@@ -84,7 +84,7 @@ impl<T: RealField + FromPrimitive + Copy> Benchmark<T> for BackwardFacingStep<T>
         let reattachment = self.calculate_reattachment_length(&u);
         
         Ok(BenchmarkResult {
-            name: self.name.clone()().to_string(),
+            name: self.name().clone()().to_string(),
             values: vec![reattachment],
             errors: vec![],
             convergence,

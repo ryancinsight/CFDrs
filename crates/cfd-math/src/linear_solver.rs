@@ -77,7 +77,7 @@ pub struct JacobiPreconditioner<T: RealField + Copy> {
     inv_diagonal: DVector<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> JacobiPreconditioner<T> {
+impl<T: RealField + From<f64> + FromPrimitive + Copy> JacobiPreconditioner<T> {
     /// Create Jacobi preconditioner from matrix diagonal
     pub fn new(a: &CsrMatrix<T>) -> Result<Self> {
         let n = a.nrows();
@@ -95,7 +95,7 @@ impl<T: RealField + FromPrimitive + Copy> JacobiPreconditioner<T> {
             if val.abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
                 return Err(Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation));
             }
-            inv_diagonal[i] = T::one() / val;
+            inv_diagonal[i] = T::one() / *val;
         }
 
         Ok(Self { inv_diagonal })
@@ -116,7 +116,7 @@ pub struct SORPreconditioner<T: RealField + Copy> {
     omega: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> SORPreconditioner<T> {
+impl<T: RealField + From<f64> + FromPrimitive + Copy> SORPreconditioner<T> {
     /// Create SOR preconditioner with specified relaxation parameter
     pub fn new(a: &CsrMatrix<T>, omega: T) -> Result<Self> {
         let n = a.nrows();
@@ -136,7 +136,7 @@ impl<T: RealField + FromPrimitive + Copy> SORPreconditioner<T> {
         }
 
         Ok(Self {
-            matrix: a,
+            matrix: a.clone(),
             omega,
         })
     }
@@ -207,9 +207,9 @@ impl<T: RealField + Copy> Preconditioner<T> for SORPreconditioner<T> {
             for (j, val) in row.col_indices().iter().zip(row.values()) {
                 if *j < i {
                     // Accumulate strictly lower part L z
-                    sum = sum + val * z[*j];
+                    sum = sum + *val * z[*j];
                 } else if *j == i {
-                    diag = val;
+                    diag = *val;
                 }
             }
             
@@ -530,7 +530,7 @@ mod tests {
         let solver = ConjugateGradient::default();
         let x = solver.solve(&a, &b, None).expect("CRITICAL: Add proper error handling");
         
-        let residual = &b - &a * &x;
+        let residual = (*&b - *&a) * &x;
         assert!(residual.norm() < 1e-10);
     }
 
@@ -542,7 +542,7 @@ mod tests {
         let solver = BiCGSTAB::default();
         let x = solver.solve(&a, &b, None).expect("CRITICAL: Add proper error handling");
         
-        let residual = &b - &a * &x;
+        let residual = (*&b - *&a) * &x;
         assert!(residual.norm() < 1e-10);
     }
 
@@ -619,7 +619,7 @@ mod tests {
         
         let x = solver.solve_preconditioned(&a, &b, &precond, None).expect("CRITICAL: Add proper error handling");
         
-        let residual = &b - &a * &x;
+        let residual = (*&b - *&a) * &x;
         assert!(residual.norm() < 1e-10);
     }
 

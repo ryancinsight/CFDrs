@@ -9,7 +9,7 @@
 use cfd_core::{Error, Result, SolverConfiguration, solver::SolverConfig};
 use cfd_math::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, Zero};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -27,14 +27,14 @@ pub struct FdmConfig<T: RealField + Copy> {
 ///
 /// Solves the linear system Ax = b using Gauss-Seidel iteration with relaxation.
 /// Returns an error if convergence is not achieved within max_iterations.
-fn solve_gauss_seidel<T: RealField + FromPrimitive + Copy>(
+fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive + Copy>(
     matrix: &SparseMatrix<T>,
     rhs: &DVector<T>,
     config: &FdmConfig<T>,
     solver_name: &str,
 ) -> Result<DVector<T>> {
     let n = rhs.len();
-    let mut solution: DVector<T> = DVector::zeros(n);
+    let mut solution: DVector<T> = DVector::from_element(n, T::zero());
 
     for iteration in 0..config.max_iterations() {
         let mut max_residual = T::zero();
@@ -46,9 +46,9 @@ fn solve_gauss_seidel<T: RealField + FromPrimitive + Copy>(
             // Sum contributions from other variables and find diagonal
             for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
                 if row_idx == *col_idx {
-                    diagonal = value;
+                    diagonal = *value;
                 } else {
-                    sum += value * solution[*col_idx];
+                    sum += *value * solution[*col_idx];
                 }
             }
 
@@ -91,7 +91,7 @@ fn solve_gauss_seidel<T: RealField + FromPrimitive + Copy>(
     ))
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for FdmConfig<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for FdmConfig<T> {
     fn default() -> Self {
         Self {
             base: cfd_core::solver::SolverConfig::default(),
@@ -127,7 +127,7 @@ pub struct PoissonSolver<T: RealField + Copy> {
     config: FdmConfig<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
     /// Create a new Poisson solver
     pub fn new(config: FdmConfig<T>) -> Self {
         Self { config }
@@ -147,11 +147,11 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
     ) -> Result<HashMap<(usize, usize), T>> {
         let n = grid.num_cells();
         let mut matrix_builder = SparseMatrixBuilder::new(n, n);
-        let mut rhs = DVector::zeros(n);
+        let mut rhs = DVector::from_element(n, T::zero());
 
         // Build system matrix and RHS vector
         for (linear_idx, (i, j)) in grid.iter().enumerate() {
-            if let Some(boundary_value) = boundary_values.get(&(i, j)) {
+            if let Some(boundary_value) = boundary_values.get(&(i, j)).copied() {
                 // Dirichlet boundary condition: φ = boundary_value
                 matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
                 rhs[linear_idx] = boundary_value;
@@ -216,11 +216,11 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
             .filter(|(_, _, _, valid)| *valid)
             .try_for_each(|(ni, nj, coeff, _)| {
                 let neighbor_idx = self.linear_index(grid, *ni, *nj);
-                matrix_builder.add_entry(linear_idx, neighbor_idx, coeff)
+                matrix_builder.add_entry(linear_idx, neighbor_idx, *coeff)
             })?;
 
         // Set RHS from source term using get with default
-        rhs[linear_idx] = source.get(&(i, j)).cloned().unwrap_or_else(T::zero);
+        rhs[linear_idx] = source.get(&(i, j)).copied().unwrap_or_else(T::zero);
 
         Ok(())
     }
@@ -239,7 +239,7 @@ pub struct AdvectionDiffusionSolver<T: RealField + Copy> {
     config: FdmConfig<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
     /// Create a new advection-diffusion solver
     pub fn new(config: FdmConfig<T>) -> Self {
         Self { config }
@@ -257,11 +257,11 @@ impl<T: RealField + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
     ) -> Result<HashMap<(usize, usize), T>> {
         let n = grid.num_cells();
         let mut matrix_builder = SparseMatrixBuilder::new(n, n);
-        let mut rhs = DVector::zeros(n);
+        let mut rhs = DVector::from_element(n, T::zero());
 
         // Build system matrix and RHS vector
         for (linear_idx, (i, j)) in grid.iter().enumerate() {
-            if let Some(boundary_value) = boundary_values.get(&(i, j)) {
+            if let Some(boundary_value) = boundary_values.get(&(i, j)).copied() {
                 // Dirichlet boundary condition
                 matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
                 rhs[linear_idx] = boundary_value;
@@ -370,7 +370,7 @@ impl<T: RealField + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
         matrix_builder.add_entry(linear_idx, linear_idx, center_coeff)?;
 
         // Set RHS from source term
-        if let Some(source_value) = source.get(&(i, j)) {
+        if let Some(source_value) = source.get(&(i, j)).copied() {
             rhs[linear_idx] = source_value;
         }
 

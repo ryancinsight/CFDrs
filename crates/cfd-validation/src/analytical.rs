@@ -61,7 +61,7 @@ pub struct PoiseuilleFlow<T: RealField + Copy> {
     pub is_2d_channel: bool,
 }
 
-impl<T: RealField + FromPrimitive + Copy> PoiseuilleFlow<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> PoiseuilleFlow<T> {
     /// Create new Poiseuille flow solution
     pub fn new(
         u_max: T,
@@ -102,7 +102,7 @@ impl<T: RealField + FromPrimitive + Copy> PoiseuilleFlow<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> AnalyticalSolution<T> for PoiseuilleFlow<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> AnalyticalSolution<T> for PoiseuilleFlow<T> {
     fn evaluate(&self, _x: T, y: T, _z: T, _t: T) -> Vector3<T> {
         if self.is_2d_channel {
             // 2D channel flow: u(y) = u_max * (1 - (y/h)^2)
@@ -172,7 +172,7 @@ pub struct CouetteFlow<T: RealField + Copy> {
     pub length: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> CouetteFlow<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> CouetteFlow<T> {
     /// Create new Couette flow solution
     pub fn new(plate_velocity: T, gap: T, pressure_gradient: T, viscosity: T, length: T) -> Self {
         Self {
@@ -190,7 +190,7 @@ impl<T: RealField + FromPrimitive + Copy> CouetteFlow<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> AnalyticalSolution<T> for CouetteFlow<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> AnalyticalSolution<T> for CouetteFlow<T> {
     fn evaluate(&self, _x: T, y: T, _z: T, _t: T) -> Vector3<T> {
         // Couette flow: u(y) = U * y/h + (dp/dx) * y * (h - y) / (2*mu)
         let y_normalized = y / self.gap;
@@ -233,7 +233,7 @@ pub struct TaylorGreenVortex<T: RealField + Copy> {
     pub domain_size: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> TaylorGreenVortex<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> TaylorGreenVortex<T> {
     /// Create new Taylor-Green vortex solution
     pub fn new(amplitude: T, viscosity: T, domain_size: T) -> Self {
         Self {
@@ -256,7 +256,7 @@ impl<T: RealField + FromPrimitive + Copy> TaylorGreenVortex<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> AnalyticalSolution<T> for TaylorGreenVortex<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> AnalyticalSolution<T> for TaylorGreenVortex<T> {
     fn evaluate(&self, x: T, y: T, _z: T, t: T) -> Vector3<T> {
         let pi = T::from_f64(PI).unwrap_or_else(|| T::zero());
         let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
@@ -315,7 +315,7 @@ pub struct StokesFlow<T: RealField + Copy> {
     pub center: Vector3<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> StokesFlow<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> StokesFlow<T> {
     /// Create new Stokes flow solution
     pub fn new(radius: T, u_infinity: T, viscosity: T, center: Vector3<T>) -> Self {
         Self {
@@ -332,7 +332,7 @@ impl<T: RealField + FromPrimitive + Copy> StokesFlow<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> AnalyticalSolution<T> for StokesFlow<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> AnalyticalSolution<T> for StokesFlow<T> {
     fn evaluate(&self, x: T, y: T, z: T, _t: T) -> Vector3<T> {
         // Position relative to sphere center
         let pos = Vector3::new(x, y, z) - self.center;
@@ -411,7 +411,7 @@ pub struct AnalyticalUtils;
 
 impl AnalyticalUtils {
     /// Create a grid of points for evaluation
-    pub fn create_grid<T: RealField + FromPrimitive + Copy>(
+    pub fn create_grid<T: RealField + Copy + FromPrimitive + Copy>(
         bounds: [T; 6],
         nx: usize,
         ny: usize,

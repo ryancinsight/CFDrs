@@ -12,9 +12,9 @@ use num_traits::FromPrimitive;
 /// Turbulence model constants
 pub mod constants {
     /// von Kármán constant
-    pub const KAPPA: f64 = crate::constants::VON_KARMAN;
+    pub const KAPPA: f64 = cfd_core::constants::VON_KARMAN;
     /// Roughness parameter for smooth walls
-    pub const E_WALL_FUNCTION: f64 = crate::constants::E_WALL_FUNCTION;
+    pub const E_WALL_FUNCTION: f64 = cfd_core::constants::E_WALL_FUNCTION;
     /// k-ε model constant Cμ
     pub const C_MU: f64 = 0.09;
     /// k-ε model constant C1ε
@@ -30,7 +30,7 @@ pub mod constants {
     /// Y+ threshold for viscous sublayer
     pub const Y_PLUS_VISCOUS_SUBLAYER: f64 = 5.0;
     /// Y+ threshold for log-law region  
-    pub const Y_PLUS_LOG_LAW: f64 = crate::constants::Y_PLUS_LAMINAR;
+    pub const Y_PLUS_LOG_LAW: f64 = cfd_core::constants::Y_PLUS_LAMINAR;
     /// K-epsilon coefficient for viscous sublayer
     pub const K_VISC_COEFFICIENT: f64 = 11.0;
     /// SST model constant beta_1
@@ -65,7 +65,7 @@ pub struct KEpsilonModel<T: RealField + Copy> {
     ny: usize,
 }
 
-impl<T: RealField + FromPrimitive + Copy> KEpsilonModel<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> KEpsilonModel<T> {
     /// Create new k-ε model
     pub fn new(nx: usize, ny: usize, wall_function: WallFunction) -> Self {
         let k_init = T::from_f64(1e-4).unwrap_or_else(|| T::zero());
@@ -140,7 +140,7 @@ impl<T: RealField + FromPrimitive + Copy> KEpsilonModel<T> {
             // Calculate y+
             let y_plus = y * u_tau / nu;
             
-            if y_plus > T::from_f64(crate::constants::Y_PLUS_LAMINAR).unwrap_or_else(|| T::zero()) {
+            if y_plus > T::from_f64(cfd_core::constants::Y_PLUS_LAMINAR).unwrap_or_else(|| T::zero()) {
                 // Log-law region
                 // Set k and ε based on equilibrium assumptions
                 self.k[i][0] = u_tau * u_tau / c_mu.sqrt();
@@ -266,7 +266,7 @@ impl<T: RealField + FromPrimitive + Copy> KEpsilonModel<T> {
         for _ in 0..max_iter {
             let y_plus = y * u_tau / nu;
             
-            if y_plus > T::from_f64(crate::constants::Y_PLUS_LAMINAR).unwrap_or_else(|| T::zero()) {
+            if y_plus > T::from_f64(cfd_core::constants::Y_PLUS_LAMINAR).unwrap_or_else(|| T::zero()) {
                 // Log-law
                 let u_plus = u_p / u_tau;
                 let f = u_plus - (y_plus.ln() / kappa + e_wall_function.ln() * kappa);
@@ -302,8 +302,8 @@ impl<T: RealField + FromPrimitive + Copy> KEpsilonModel<T> {
         let sigma_k = T::from_f64(constants::SIGMA_K).unwrap_or_else(|| T::zero());
         let sigma_eps = T::from_f64(constants::SIGMA_EPSILON).unwrap_or_else(|| T::zero());
         
-        let mut current_k = self.k;
-        let mut current_epsilon = self.epsilon;
+        let mut current_k = self.k.clone();
+        let mut current_epsilon = self.epsilon.clone();
         
         // Interior points only
         for i in 1..self.nx-1 {

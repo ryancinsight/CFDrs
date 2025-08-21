@@ -87,7 +87,7 @@ pub struct NetworkBuilder<T: RealField + Copy> {
     network: Network<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> NetworkBuilder<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> NetworkBuilder<T> {
     pub fn new(fluid: Fluid<T>) -> Self {
         Self {
             network: Network::new(fluid),
@@ -121,7 +121,7 @@ pub struct Network<T: RealField + Copy> {
     flow_rates: DVector<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Network<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
     pub fn new(fluid: Fluid<T>) -> Self {
         Self {
             graph: Graph::new(),
@@ -256,9 +256,9 @@ impl<T: RealField + FromPrimitive + Copy> Network<T> {
             self.graph.edge_endpoints(idx).map(|(s, t)| {
                 let edge = &self.graph[idx];
                 EdgeProperties {
-                    id: id,
+                    id: id.clone(),
                     nodes: (s.index(), t.index()),
-                    properties: edge,
+                    properties: edge.clone(),
                     flow_rate: if idx.index() < self.flow_rates.len() {
                         Some(self.flow_rates[idx.index()])
                     } else {
@@ -288,7 +288,7 @@ impl<T: RealField + FromPrimitive + Copy> Network<T> {
     pub fn get_edge_id_by_index(&self, idx: petgraph::graph::EdgeIndex) -> Option<String> {
         self.edge_indices.iter()
             .find(|(_, &edge_idx)| edge_idx == idx)
-            .map(|(id, _)| id)
+            .map(|(id, _)| id.clone())
     }
     
     /// Get edges connected to a node

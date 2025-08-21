@@ -18,7 +18,7 @@ pub struct ConvergenceCriteria<T: RealField + Copy> {
     pub max_iterations: usize,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for ConvergenceCriteria<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for ConvergenceCriteria<T> {
     fn default() -> Self {
         Self {
             velocity_tolerance: T::from_f64(CONVERGENCE_TOLERANCE_VELOCITY).unwrap_or_else(|| T::from_f64(1e-6).unwrap()),
@@ -41,7 +41,7 @@ pub struct ConvergenceMonitor<T: RealField + Copy> {
     pub iteration: usize,
 }
 
-impl<T: RealField + FromPrimitive + Copy> ConvergenceMonitor<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
     /// Create new convergence monitor
     pub fn new() -> Self {
         Self {

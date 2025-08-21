@@ -7,13 +7,13 @@ pub const DEFAULT_ROUGHNESS: f64 = 1e-6;
 pub const RE_LAMINAR_MIN: f64 = 0.1;
 
 /// Maximum Reynolds number for laminar flow
-pub const RE_LAMINAR_MAX: f64 = crate::constants::LAMINAR_THRESHOLD;
+pub const RE_LAMINAR_MAX: f64 = cfd_core::constants::LAMINAR_THRESHOLD;
 
 /// Transition Reynolds number
-pub const RE_TRANSITION: f64 = crate::constants::LAMINAR_THRESHOLD;
+pub const RE_TRANSITION: f64 = cfd_core::constants::LAMINAR_THRESHOLD;
 
 /// Minimum Reynolds number for turbulent flow
-pub const RE_TURBULENT_MIN: f64 = crate::constants::TURBULENT_THRESHOLD;
+pub const RE_TURBULENT_MIN: f64 = cfd_core::constants::TURBULENT_THRESHOLD;
 
 /// Default pump efficiency
 pub const DEFAULT_PUMP_EFFICIENCY: f64 = 0.7;

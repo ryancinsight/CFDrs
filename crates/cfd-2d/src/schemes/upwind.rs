@@ -9,7 +9,7 @@ pub struct FirstOrderUpwind<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> FirstOrderUpwind<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> FirstOrderUpwind<T> {
     /// Create new first-order upwind scheme
     pub fn new() -> Self {
         Self {
@@ -18,7 +18,7 @@ impl<T: RealField + FromPrimitive + Copy> FirstOrderUpwind<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> SpatialDiscretization<T> for FirstOrderUpwind<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for FirstOrderUpwind<T> {
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         let velocity = grid.data[(i, j)];
         
@@ -45,7 +45,7 @@ pub struct SecondOrderUpwind<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> SecondOrderUpwind<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> SecondOrderUpwind<T> {
     /// Create new second-order upwind scheme
     pub fn new() -> Self {
         Self {
@@ -54,7 +54,7 @@ impl<T: RealField + FromPrimitive + Copy> SecondOrderUpwind<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> SpatialDiscretization<T> for SecondOrderUpwind<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for SecondOrderUpwind<T> {
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         let velocity = grid.data[(i, j)];
         let three = T::from_f64(3.0).unwrap_or_else(T::zero);

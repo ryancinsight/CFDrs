@@ -74,7 +74,7 @@ pub trait InterfaceProperties<T: RealField + Copy>: Send + Sync {
 }
 
 /// Wetting properties
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct WettingProperties<T: RealField + Copy> {
     /// Contact angle with solid surface
     pub contact_angle: T,

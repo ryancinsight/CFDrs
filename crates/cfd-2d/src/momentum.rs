@@ -49,7 +49,7 @@ pub struct MomentumCoefficients<T: RealField + Copy> {
     pub source: Field2D<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> MomentumSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> MomentumSolver<T> {
     /// Create a new momentum solver
     pub fn new(grid: &StructuredGrid2D<T>) -> Self {
         Self {

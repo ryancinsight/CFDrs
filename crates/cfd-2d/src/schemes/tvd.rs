@@ -24,7 +24,7 @@ pub enum FluxLimiter {
 
 impl FluxLimiter {
     /// Apply flux limiter function
-    pub fn apply<T: RealField + FromPrimitive + Copy>(&self, r: T) -> T {
+    pub fn apply<T: RealField + Copy + FromPrimitive + Copy>(&self, r: T) -> T {
         match self {
             FluxLimiter::None => T::one(),
             FluxLimiter::VanLeer => {

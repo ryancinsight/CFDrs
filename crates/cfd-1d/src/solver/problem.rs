@@ -23,7 +23,7 @@ pub struct NetworkProblem<T: RealField + Copy> {
     boundary_conditions: BoundaryConditionSet<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> NetworkProblem<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> NetworkProblem<T> {
     /// Create a new network problem
     pub fn new(network: Network<T>) -> Self {
         let node_count = network.node_count();
@@ -31,14 +31,14 @@ impl<T: RealField + FromPrimitive + Copy> NetworkProblem<T> {
         
         Self {
             domain: NetworkDomain::new(node_count, characteristic_length),
-            fluid: network.fluid(),
+            fluid: network.fluid().clone(),
             boundary_conditions: BoundaryConditionSet::new(),
             network,
         }
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> Problem<T> for NetworkProblem<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Problem<T> for NetworkProblem<T> {
     type Domain = NetworkDomain<T>;
     type State = NetworkState<T>;
 

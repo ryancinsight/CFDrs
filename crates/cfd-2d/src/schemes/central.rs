@@ -18,7 +18,7 @@ impl<T: RealField + Copy> CentralDifference<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> SpatialDiscretization<T> for CentralDifference<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for CentralDifference<T> {
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         let two = T::from_f64(2.0).unwrap_or_else(T::zero);
         (grid.data[(i + 1, j)] - grid.data[(i - 1, j)]) / (two * grid.dx)
@@ -47,7 +47,7 @@ impl<T: RealField + Copy> FourthOrderCentral<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> SpatialDiscretization<T> for FourthOrderCentral<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for FourthOrderCentral<T> {
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         let eight = T::from_f64(8.0).unwrap_or_else(T::zero);
         let twelve = T::from_f64(12.0).unwrap_or_else(T::zero);

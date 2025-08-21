@@ -110,11 +110,11 @@ impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
         for (i, vertex) in vertices.iter().enumerate() {
             let normal = normals.map(|n| n[i]);
             self.lagrangian_points.push(LagrangianPoint {
-                position: vertex,
+                position: *vertex,
                 velocity: Vector3::zeros(),
                 force: Vector3::zeros(),
                 normal,
-                reference_position: Some(vertex),
+                reference_position: Some(*vertex),
             });
         }
     }
@@ -152,7 +152,7 @@ impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
         let nx = self.nx;
         let ny = self.ny;
         let nz = self.nz;
-        let velocity_field = self.velocity_field;
+        let velocity_field = &self.velocity_field;
         
         for point in &mut self.lagrangian_points {
             let mut vel = Vector3::zeros();

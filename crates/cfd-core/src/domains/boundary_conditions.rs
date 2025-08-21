@@ -108,7 +108,7 @@ pub mod applicators {
             match &boundary_spec.condition {
                 BoundaryCondition::Dirichlet { value } => {
                     // Apply scalar Dirichlet condition
-                    field.iter_mut().for_each(|f| *f = value);
+                    field.iter_mut().for_each(|f| *f = *value);
                     Ok(())
                 }
                 _ => Err("Dirichlet applicator only supports Dirichlet boundary conditions".to_string()),
@@ -134,7 +134,7 @@ pub mod applicators {
                 BoundaryCondition::Neumann { gradient } => {
                     // Apply scalar Neumann condition
                     if let Some(last) = field.last_mut() {
-                        *last = gradient;
+                        *last = *gradient;
                     }
                     Ok(())
                 }

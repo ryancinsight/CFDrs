@@ -28,7 +28,7 @@ pub struct FvmConfig<T: RealField + Copy> {
     pub base: cfd_core::solver::SolverConfig<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for FvmConfig<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for FvmConfig<T> {
     fn default() -> Self {
         // Set under-relaxation factor (0.7 is typical for FVM)
         let base = cfd_core::solver::SolverConfig::builder()
@@ -96,7 +96,7 @@ impl FluxSchemeFactory {
     }
 
     /// Get recommended scheme for given Peclet number
-    pub fn recommend_for_peclet<T: RealField + FromPrimitive + Copy>(peclet: T) -> FluxScheme {
+    pub fn recommend_for_peclet<T: RealField + Copy + FromPrimitive + Copy>(peclet: T) -> FluxScheme {
         let pe_threshold = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         if peclet.abs() < pe_threshold {
             FluxScheme::Central
@@ -130,7 +130,7 @@ pub struct FvmSolver<T: RealField + Copy> {
     flux_scheme: FluxScheme,
 }
 
-impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<T> {
     /// Create a new FVM solver
     pub fn new(config: FvmConfig<T>, flux_scheme: FluxScheme) -> Self {
         Self { config, flux_scheme }
@@ -283,7 +283,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
             BoundaryCondition::Dirichlet { value } => {
                 // φ = value (Dirichlet condition)
                 matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
-                rhs[linear_idx] = value;
+                rhs[linear_idx] = *value;
             }
             BoundaryCondition::Neumann { gradient } => {
                 // ∂φ/∂n = gradient (Neumann condition)
@@ -323,7 +323,7 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
                 let _boundary_distance = if i == 0 || i == grid.nx() - 1 { dx / T::from_f64(2.0).unwrap_or_else(|| T::zero()) } else { dy / T::from_f64(2.0).unwrap_or_else(|| T::zero()) };
 
                 // Flux = -Γ * ∂φ/∂n * Area, discretized as: -Γ * gradient * Area
-                source_term += gradient * boundary_area;
+                source_term += *gradient * boundary_area;
 
                 matrix_builder.add_entry(linear_idx, linear_idx, diagonal)?;
                 rhs[linear_idx] = source_term;
@@ -331,12 +331,12 @@ impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
             BoundaryCondition::PressureInlet { pressure } => {
                 // Treat as Dirichlet condition
                 matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
-                rhs[linear_idx] = pressure;
+                rhs[linear_idx] = *pressure;
             }
             BoundaryCondition::PressureOutlet { pressure } => {
                 // Treat as Dirichlet condition
                 matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
-                rhs[linear_idx] = pressure;
+                rhs[linear_idx] = *pressure;
             }
             BoundaryCondition::Outflow | BoundaryCondition::Symmetry => {
                 // Zero gradient condition: ∂φ/∂n = 0 (proper Neumann implementation)

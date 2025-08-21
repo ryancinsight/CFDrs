@@ -53,7 +53,7 @@ impl<T: RealField + Copy> FlowOverCylinder<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> Benchmark<T> for FlowOverCylinder<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylinder<T> {
     fn name(&self) -> &str {
         "Flow Over Cylinder"
     }
@@ -103,7 +103,7 @@ impl<T: RealField + FromPrimitive + Copy> Benchmark<T> for FlowOverCylinder<T> {
         let cl = self.calculate_lift(&forces);
         
         Ok(BenchmarkResult {
-            name: self.name.clone()().to_string(),
+            name: self.name().clone()().to_string(),
             values: vec![cd, cl],
             errors: vec![],
             convergence,

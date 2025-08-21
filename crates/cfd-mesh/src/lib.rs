@@ -6,6 +6,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod connectivity;
+pub mod error;
 pub mod geometry;
 pub mod grid;
 pub mod mesh;

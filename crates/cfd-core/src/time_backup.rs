@@ -62,7 +62,7 @@ impl<T: RealField + FromPrimitive + Copy> TimeIntegrator<T> for RungeKutta2 {
         })?;
 
         let k1 = f(t, state);
-        let mut temp = state.clone();
+        let mut temp = state;
         temp.axpy(dt * half, &k1, T::one());
 
         let k2 = f(t + dt * half, &temp);
@@ -102,7 +102,7 @@ impl<T: RealField + FromPrimitive + Copy> TimeIntegrator<T> for RungeKutta4 {
         
         let k1 = f(t, state);
         
-        let mut temp = state.clone();
+        let mut temp = state;
         temp.axpy(dt * half, &k1, T::one());
         let k2 = f(t + dt * half, &temp);
         
@@ -178,8 +178,8 @@ impl<T: RealField + Copy> TimeIntegrator<T> for BackwardEuler<T> {
         // Implement implicit Backward Euler using fixed-point iteration
         // Solve: y_{n+1} = y_n + dt * f(t_{n+1}, y_{n+1})
 
-        let mut y_new = state.clone();
-        let y_old = state.clone();
+        let mut y_new = state;
+        let y_old = state;
         let t_new = t + dt;
 
         // Check for valid iteration count
@@ -192,10 +192,10 @@ impl<T: RealField + Copy> TimeIntegrator<T> for BackwardEuler<T> {
         // Fixed-point iteration: y_{n+1}^{k+1} = y_n + dt * f(t_{n+1}, y_{n+1}^k)
         for iteration in 0..self.max_iterations {
             let f_val = f(t_new, &y_new);
-            let y_next = y_old.clone() + f_val * dt;
+            let y_next = &y_old + &(*&f_val * dt);
 
             // Check convergence
-            let error = (&y_next - &y_new).norm();
+            let error = ((*&y_next - *&y_new)).norm();
             if error < self.tolerance {
                 *state = y_next;
                 return Ok(());
@@ -271,8 +271,8 @@ impl<T: RealField + Copy> TimeIntegrator<T> for CrankNicolson<T> {
         // Implement Crank-Nicolson using fixed-point iteration
         // Solve: y_{n+1} = y_n + dt/2 * (f(t_n, y_n) + f(t_{n+1}, y_{n+1}))
 
-        let mut y_new = state.clone();
-        let y_old = state.clone();
+        let mut y_new = state;
+        let y_old = state;
         let t_new = t + dt;
         let half = T::from_f64(0.5).ok_or_else(|| {
             crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
@@ -292,10 +292,10 @@ impl<T: RealField + Copy> TimeIntegrator<T> for CrankNicolson<T> {
         // Fixed-point iteration: y_{n+1}^{k+1} = y_n + dt/2 * (f(t_n, y_n) + f(t_{n+1}, y_{n+1}^k))
         for iteration in 0..self.max_iterations {
             let f_new = f(t_new, &y_new);
-            let y_next = y_old.clone() + (f_old.clone() + f_new) * half_dt;
+            let y_next = &y_old + &((&f_old + &f_new) * half_dt);
 
             // Check convergence
-            let error = (&y_next - &y_new).norm();
+            let error = ((*&y_next - *&y_new)).norm();
             if error < self.tolerance {
                 *state = y_next;
                 return Ok(());

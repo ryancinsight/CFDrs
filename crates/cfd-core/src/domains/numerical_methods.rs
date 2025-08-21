@@ -166,7 +166,7 @@ pub mod time_integration {
             derivative_fn: F,
         ) -> Vec<T>
         where
-            T: RealField + Clone,
+            T: RealField + Copy,
             F: Fn(T, &[T]) -> Vec<T>,
         {
             let half = T::from_f64(0.5).unwrap_or_else(|| T::one()/(T::one() + T::one()));
@@ -177,7 +177,7 @@ pub mod time_integration {
             // k1 = dt * f(t, y)
             let k1: Vec<T> = derivative_fn(t, current)
                 .into_iter()
-                .map(|val| val * dt)
+                .map(move |val| val * dt)
                 .collect();
 
             // y1 = y + k1/2
@@ -189,7 +189,7 @@ pub mod time_integration {
             // k2 = dt * f(t + dt/2, y1)
             let k2: Vec<T> = derivative_fn(t + dt * half, &y1)
                 .into_iter()
-                .map(|val| val * dt)
+                .map(move |val| val * dt)
                 .collect();
 
             // y2 = y + k2/2
@@ -201,7 +201,7 @@ pub mod time_integration {
             // k3 = dt * f(t + dt/2, y2)
             let k3: Vec<T> = derivative_fn(t + dt * half, &y2)
                 .into_iter()
-                .map(|val| val * dt)
+                .map(move |val| val * dt)
                 .collect();
 
             // y3 = y + k3
@@ -213,7 +213,7 @@ pub mod time_integration {
             // k4 = dt * f(t + dt, y3)
             let k4: Vec<T> = derivative_fn(t + dt, &y3)
                 .into_iter()
-                .map(|val| val * dt)
+                .map(move |val| val * dt)
                 .collect();
 
             // Final combination: y_new = y + (k1 + 2*k2 + 2*k3 + k4)/6
@@ -270,8 +270,8 @@ pub mod linear_solvers {
             let mut x = DVector::zeros(n);
             
             // Initial residual r = b - Ax
-            let mut r = rhs;
-            let mut p = r;
+            let mut r = rhs.clone();
+            let mut p = r.clone();
             let mut rsold = r.dot(&r);
             
             // Check for zero right-hand side

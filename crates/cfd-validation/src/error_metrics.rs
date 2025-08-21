@@ -34,7 +34,7 @@ pub trait ErrorMetric<T: RealField + Copy> {
 /// L2 (Euclidean) norm error metric
 pub struct L2Norm;
 
-impl<T: RealField + FromPrimitive + Copy> ErrorMetric<T> for L2Norm {
+impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for L2Norm {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
@@ -50,7 +50,7 @@ impl<T: RealField + FromPrimitive + Copy> ErrorMetric<T> for L2Norm {
             .iter()
             .zip(reference.iter())
             .map(|(num, ref_val)| {
-                let diff = num - ref_val;
+                let diff = *num - *ref_val;
                 diff * diff
             })
             .fold(T::zero(), |acc, x| acc + x);
@@ -84,7 +84,7 @@ impl<T: RealField + Copy> ErrorMetric<T> for LInfNorm {
         let max_diff = numerical
             .iter()
             .zip(reference.iter())
-            .map(|(num, ref_val)| (num - ref_val).abs())
+            .map(|(num, ref_val)| (*num - *ref_val).abs())
             .fold(T::zero(), |acc, x| if x > acc { x } else { acc });
 
         Ok(max_diff)
@@ -98,7 +98,7 @@ impl<T: RealField + Copy> ErrorMetric<T> for LInfNorm {
 /// L1 (Manhattan) norm error metric
 pub struct L1Norm;
 
-impl<T: RealField + FromPrimitive + Copy> ErrorMetric<T> for L1Norm {
+impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for L1Norm {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
@@ -113,7 +113,7 @@ impl<T: RealField + FromPrimitive + Copy> ErrorMetric<T> for L1Norm {
         let sum_abs_diff: T = numerical
             .iter()
             .zip(reference.iter())
-            .map(|(num, ref_val)| (num - ref_val).abs())
+            .map(|(num, ref_val)| (*num - *ref_val).abs())
             .fold(T::zero(), |acc, x| acc + x);
 
         let n = T::from_usize(numerical.len()).ok_or_else(|| {
@@ -145,7 +145,7 @@ impl<M> RelativeError<M> {
 
 impl<T, M> ErrorMetric<T> for RelativeError<M>
 where
-    T: RealField + FromPrimitive,
+    T: RealField + FromPrimitive + Copy,
     M: ErrorMetric<T>,
 {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
@@ -177,7 +177,7 @@ where
 /// Root Mean Square Error (RMSE)
 pub struct RootMeanSquareError;
 
-impl<T: RealField + FromPrimitive + Copy> ErrorMetric<T> for RootMeanSquareError {
+impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for RootMeanSquareError {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         // RMSE is the same as L2 norm
         let l2 = L2Norm;
@@ -192,7 +192,7 @@ impl<T: RealField + FromPrimitive + Copy> ErrorMetric<T> for RootMeanSquareError
 /// Mean Absolute Error (MAE)
 pub struct MeanAbsoluteError;
 
-impl<T: RealField + FromPrimitive + Copy> ErrorMetric<T> for MeanAbsoluteError {
+impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for MeanAbsoluteError {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         // MAE is the same as L1 norm
         let l1 = L1Norm;
@@ -229,7 +229,7 @@ impl NormalizedRMSE {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> ErrorMetric<T> for NormalizedRMSE {
+impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for NormalizedRMSE {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
@@ -310,7 +310,7 @@ pub struct ErrorStatistics<T: RealField + Copy> {
     pub num_points: usize,
 }
 
-impl<T: RealField + FromPrimitive + Copy> ErrorStatistics<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> ErrorStatistics<T> {
     /// Compute comprehensive error statistics
     pub fn compute(numerical: &[T], reference: &[T]) -> Result<Self> {
         if numerical.len() != reference.len() {
@@ -358,7 +358,7 @@ pub struct ErrorAnalysis;
 
 impl ErrorAnalysis {
     /// Compute convergence rate from error measurements at different grid sizes
-    pub fn convergence_rate<T: RealField + FromPrimitive + Copy>(
+    pub fn convergence_rate<T: RealField + Copy + FromPrimitive + Copy>(
         grid_sizes: &[T],
         errors: &[T],
     ) -> Result<T> {

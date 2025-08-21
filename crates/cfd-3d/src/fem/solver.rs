@@ -44,7 +44,7 @@ fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) -> V
     indices
 }
 
-impl<T: RealField + FromPrimitive + Float + Copy> FemSolver<T> {
+impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
     /// Create a new FEM solver
     pub fn new(config: FemConfig<T>) -> Self {
         let linear_solver: Box<dyn LinearSolver<T>> = 

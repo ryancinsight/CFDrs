@@ -44,7 +44,7 @@ impl<T: RealField + Copy> ConvectionScheme<T> for FirstOrderUpwind {
 /// Central difference scheme - second-order accurate but can oscillate
 pub struct CentralDifference;
 
-impl<T: RealField + FromPrimitive + Copy> ConvectionScheme<T> for CentralDifference {
+impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for CentralDifference {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
         let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
         let ae = de - fe / two;
@@ -64,7 +64,7 @@ impl<T: RealField + FromPrimitive + Copy> ConvectionScheme<T> for CentralDiffere
 /// Hybrid scheme - switches between upwind and central difference
 pub struct HybridScheme;
 
-impl<T: RealField + FromPrimitive + Copy> ConvectionScheme<T> for HybridScheme {
+impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for HybridScheme {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
         let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
         
@@ -106,7 +106,7 @@ impl<T: RealField + FromPrimitive + Copy> ConvectionScheme<T> for HybridScheme {
 /// Power-law scheme - more accurate interpolation for convection-diffusion
 pub struct PowerLawScheme;
 
-impl<T: RealField + FromPrimitive + Copy> ConvectionScheme<T> for PowerLawScheme {
+impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for PowerLawScheme {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
         // Power-law function: max(0, (1 - 0.1|Pe|)^5)
         let power_law = |pe: T| -> T {
@@ -147,7 +147,7 @@ impl<T: RealField + FromPrimitive + Copy> ConvectionScheme<T> for PowerLawScheme
 /// QUICK scheme - third-order upwind-biased
 pub struct QuickScheme;
 
-impl<T: RealField + FromPrimitive + Copy> ConvectionScheme<T> for QuickScheme {
+impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for QuickScheme {
 	fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
 		// The QUICK stencil needs two upstream and one downstream cell values.
 		// This coefficient-only API cannot represent that stencil faithfully.
@@ -175,7 +175,7 @@ pub struct ConvectionSchemeFactory;
 
 impl ConvectionSchemeFactory {
     /// Create scheme by name
-    pub fn create<T: RealField + FromPrimitive + Copy>(scheme_name: &str) -> Box<dyn ConvectionScheme<T>> {
+    pub fn create<T: RealField + Copy + FromPrimitive + Copy>(scheme_name: &str) -> Box<dyn ConvectionScheme<T>> {
         match scheme_name.to_lowercase().as_str() {
             "upwind" | "first_order_upwind" => Box::new(FirstOrderUpwind),
             "central" | "central_difference" => Box::new(CentralDifference),

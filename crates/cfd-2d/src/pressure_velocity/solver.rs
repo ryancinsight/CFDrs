@@ -28,7 +28,7 @@ pub struct PressureVelocitySolver<T: RealField + Copy> {
     iterations: usize,
 }
 
-impl<T: RealField + FromPrimitive + Copy + LowerExp> PressureVelocitySolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp> PressureVelocitySolver<T> {
     /// Create new pressure-velocity coupling solver
     pub fn new(
         grid: StructuredGrid2D<T>,
@@ -40,7 +40,7 @@ impl<T: RealField + FromPrimitive + Copy + LowerExp> PressureVelocitySolver<T> {
         let ny = grid.ny;
         
         let momentum_solver = MomentumSolver::new(&grid);
-        let pressure_solver = PressureCorrectionSolver::new(grid)?;
+        let pressure_solver = PressureCorrectionSolver::new(grid.clone())?;
         
         let rhie_chow = if config.use_rhie_chow {
             Some(RhieChowInterpolation::new(&grid))

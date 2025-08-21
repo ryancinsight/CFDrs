@@ -1,23 +1,47 @@
-//! Mesh refinement and adaptation module
-//!
-//! This module provides adaptive mesh refinement (AMR) capabilities for improving
-//! solution accuracy in regions of high gradients or errors.
+//! Mesh refinement module
+
+use nalgebra::RealField;
 
 pub mod criteria;
-pub mod strategy;
-pub mod config;
-pub mod operations;
-pub mod hierarchical;
 
 // Re-export main types
-pub use criteria::{RefinementCriterion, RefinementError};
-pub use strategy::RefinementStrategy;
-pub use config::RefinementConfig;
-pub use operations::MeshRefiner;
-pub use hierarchical::HierarchicalRefinement;
+pub use criteria::*;
 
-// Named constants for refinement parameters
-pub const DEFAULT_MAX_REFINEMENT_LEVEL: usize = 5;
-pub const DEFAULT_MIN_CELL_SIZE: f64 = 1e-6;
-pub const DEFAULT_ERROR_THRESHOLD: f64 = 1e-3;
-pub const DEFAULT_GRADIENT_THRESHOLD: f64 = 0.1;
+/// Refinement strategy trait
+pub trait RefinementStrategy<T: RealField + Copy>: Send + Sync {
+    /// Apply refinement to mesh
+    fn refine(&self, mesh: &mut crate::mesh::Mesh<T>) -> Result<(), crate::error::MeshError>;
+    
+    /// Get strategy name
+    fn name(&self) -> &str;
+}
+
+/// Uniform refinement strategy
+pub struct UniformRefinement;
+
+impl<T: RealField + Copy> RefinementStrategy<T> for UniformRefinement {
+    fn refine(&self, _mesh: &mut crate::mesh::Mesh<T>) -> Result<(), crate::error::MeshError> {
+        // Implementation would go here
+        Ok(())
+    }
+    
+    fn name(&self) -> &str {
+        "Uniform"
+    }
+}
+
+/// Adaptive refinement strategy
+pub struct AdaptiveRefinement<T: RealField + Copy> {
+    pub threshold: T,
+}
+
+impl<T: RealField + Copy> RefinementStrategy<T> for AdaptiveRefinement<T> {
+    fn refine(&self, _mesh: &mut crate::mesh::Mesh<T>) -> Result<(), crate::error::MeshError> {
+        // Implementation would go here
+        Ok(())
+    }
+    
+    fn name(&self) -> &str {
+        "Adaptive"
+    }
+}

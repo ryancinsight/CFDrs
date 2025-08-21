@@ -31,7 +31,7 @@ impl<T: RealField + Copy> LidDrivenCavity<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> Benchmark<T> for LidDrivenCavity<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for LidDrivenCavity<T> {
     fn name(&self) -> &str {
         "Lid-Driven Cavity"
     }
@@ -85,7 +85,7 @@ impl<T: RealField + FromPrimitive + Copy> Benchmark<T> for LidDrivenCavity<T> {
         values.extend(centerline_v);
         
         Ok(BenchmarkResult {
-            name: self.name.clone()().to_string(),
+            name: self.name().clone()().to_string(),
             values,
             errors: vec![],
             convergence,

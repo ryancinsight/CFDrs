@@ -24,7 +24,7 @@ pub struct PressureVelocityConfig<T: RealField + Copy> {
     pub implicit_momentum: bool,
 }
 
-impl<T: RealField + FromPrimitive + Copy> PressureVelocityConfig<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> PressureVelocityConfig<T> {
     /// Create new configuration with validation
     pub fn new() -> cfd_core::error::Result<Self> {
         Ok(Self {

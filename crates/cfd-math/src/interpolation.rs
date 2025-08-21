@@ -109,8 +109,8 @@ impl<T: RealField + Copy> Interpolation<T> for LinearInterpolation<T> {
         let y0 = &self.y_data[idx];
         let y1 = &self.y_data[idx + 1];
 
-        let t = (x - x0) / (x1 - x0);
-        Ok(y0 + t * (y1 - y0))
+        let t = (x - *x0) / (*x1 - *x0);
+        Ok(*y0 + t * (*y1 - *y0))
     }
 
     fn bounds(&self) -> (T, T) {
@@ -296,7 +296,7 @@ impl<T: RealField + Copy> LagrangeInterpolation<T> {
             .enumerate()
             .filter(|(j, _)| *j != i)
             .fold(T::one(), |acc, (_j, xj)| {
-                acc * (x - xj) / (self.x_data[i] - xj)
+                acc * (*x - *xj) / (self.x_data[i] - *xj)
             })
     }
 }
@@ -307,7 +307,7 @@ impl<T: RealField + Copy> Interpolation<T> for LagrangeInterpolation<T> {
         Ok(self.y_data
             .iter()
             .enumerate()
-            .map(|(i, yi)| yi * self.lagrange_basis(i, &x))
+            .map(|(i, yi)| *yi * self.lagrange_basis(i, &x))
             .reduce(|acc, term| acc + term)
             .unwrap_or_else(|| T::zero()))
     }
@@ -322,7 +322,7 @@ impl<T: RealField + Copy> Interpolation<T> for LagrangeInterpolation<T> {
                 (current_min, current_max)
             });
 
-        (min.expect("x_data is guaranteed to be non-empty by constructor"), max.expect("x_data is guaranteed to be non-empty by constructor"))
+        (*min.expect("x_data is guaranteed to be non-empty by constructor"), *max.expect("x_data is guaranteed to be non-empty by constructor"))
     }
 }
 

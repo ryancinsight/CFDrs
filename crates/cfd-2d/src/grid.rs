@@ -73,7 +73,7 @@ pub struct StructuredGrid2D<T: RealField + Copy> {
     pub boundaries: HashMap<(usize, usize), BoundaryType>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> StructuredGrid2D<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> StructuredGrid2D<T> {
     /// Create a new structured grid
     pub fn new(
         nx: usize,
@@ -169,7 +169,7 @@ pub enum GridEdge {
     Top,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Grid2D<T> for StructuredGrid2D<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Grid2D<T> for StructuredGrid2D<T> {
     fn nx(&self) -> usize {
         self.nx
     }
@@ -235,7 +235,7 @@ impl<T: RealField + FromPrimitive + Copy> Grid2D<T> for StructuredGrid2D<T> {
 
 // GridIterator struct removed in favor of standard iterators
 
-impl<T: RealField + FromPrimitive + Copy> StructuredGrid2D<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> StructuredGrid2D<T> {
     /// Create an iterator over all cells
     pub fn iter(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
         (0..self.ny).flat_map(move |j| (0..self.nx).map(move |i| (i, j)))

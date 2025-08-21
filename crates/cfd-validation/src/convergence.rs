@@ -25,7 +25,7 @@ pub struct ConvergenceStudy<T: RealField + Copy> {
     pub extrapolated_value: Option<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> ConvergenceStudy<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceStudy<T> {
     /// Create a new convergence study
     pub fn new(grid_sizes: Vec<T>, errors: Vec<T>) -> Result<Self> {
         if grid_sizes.len() != errors.len() || grid_sizes.len() < 2 {
@@ -284,7 +284,7 @@ pub struct GridConvergenceIndex<T: RealField + Copy> {
     pub safety_factor: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> GridConvergenceIndex<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> GridConvergenceIndex<T> {
     /// Create new GCI analysis
     pub fn new(safety_factor: T) -> Self {
         Self { safety_factor }
@@ -343,7 +343,7 @@ impl ConvergenceAnalysis {
         reference_solution: Option<&[T]>,
     ) -> Result<ConvergenceStudy<T>>
     where
-        T: RealField + FromPrimitive + ToPrimitive + Clone,
+        T: RealField + FromPrimitive + Copy + ToPrimitive + Clone,
         M: ErrorMetric<T>,
     {
         if solutions.len() != grid_sizes.len() || solutions.len() < 2 {
@@ -415,7 +415,7 @@ impl ConvergenceAnalysis {
     }
 
     /// Recommend next grid size for convergence study
-    pub fn recommend_next_grid_size<T: RealField + FromPrimitive + Copy>(
+    pub fn recommend_next_grid_size<T: RealField + Copy + FromPrimitive + Copy>(
         current_grid_sizes: &[T],
         target_error_reduction: T,
         convergence_rate: T,

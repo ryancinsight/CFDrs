@@ -26,7 +26,7 @@ pub struct PisoSolver<T: RealField + Copy> {
     criteria: ConvergenceCriteria<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy + std::iter::Sum> PisoSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy + std::iter::Sum> PisoSolver<T> {
     /// Create new PISO solver
     pub fn new(config: PisoConfig<T>, grid: &StructuredGrid2D<T>) -> Self {
         let predictor = VelocityPredictor::new(grid, config.velocity_relaxation);
@@ -54,7 +54,7 @@ impl<T: RealField + FromPrimitive + Copy + std::iter::Sum> PisoSolver<T> {
         grid: &StructuredGrid2D<T>,
     ) -> Result<bool> {
         // Store old fields for convergence check
-        let fields_old = fields;
+        let fields_old = fields.clone();
         
         // Step 1: Velocity predictor
         self.predictor.predict(fields, self.config.time_step)?;

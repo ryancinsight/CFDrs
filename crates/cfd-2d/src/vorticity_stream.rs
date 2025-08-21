@@ -31,7 +31,7 @@ pub struct VorticityStreamConfig<T: RealField + Copy> {
     pub sor_omega: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for VorticityStreamConfig<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for VorticityStreamConfig<T> {
     fn default() -> Self {
         let base = cfd_core::solver::SolverConfig::builder()
             .max_iterations(DEFAULT_MAX_ITERATIONS)
@@ -173,7 +173,7 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
         let _two_dy = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * self.dy;
         
         // Store old vorticity
-        let omega_old = self.omega;
+        let omega_old = self.omega.clone();
         
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
