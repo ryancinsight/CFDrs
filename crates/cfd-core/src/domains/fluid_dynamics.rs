@@ -589,7 +589,7 @@ pub enum FlowRegime {
     Turbulent,
 }
 
-impl<T: RealField + num_traits::ToPrimitive> Default for FluidDynamicsService<T> {
+impl<T: RealField + num_traits::ToPrimitive + Copy> Default for FluidDynamicsService<T> {
     fn default() -> Self {
         Self::new()
     }

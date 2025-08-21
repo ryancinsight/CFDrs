@@ -121,16 +121,16 @@ pub const AIR_VISCOSITY: f64 = 1.81e-5;
 pub const AIR_KINEMATIC_VISCOSITY: f64 = 1.50e-5;
 
 /// Gravitational acceleration [m/s²]
-pub const GRAVITY: f64 = crate::constants::E_WALL_FUNCTION1;
+pub const GRAVITY: f64 = 9.81;
 
 // ============================================================================
 // FLUID DYNAMICS CONSTANTS
 // ============================================================================
 
 /// Reynolds number thresholds
-pub const LAMINAR_THRESHOLD: f64 = crate::constants::LAMINAR_THRESHOLD;
+pub const LAMINAR_THRESHOLD: f64 = 2300.0;
 /// Reynolds number threshold above which flow is fully turbulent
-pub const TURBULENT_THRESHOLD: f64 = crate::constants::TURBULENT_THRESHOLD;
+pub const TURBULENT_THRESHOLD: f64 = 4000.0;
 
 /// Prandtl number for air at 20°C
 pub const AIR_PRANDTL: f64 = 0.71;
@@ -139,14 +139,14 @@ pub const AIR_PRANDTL: f64 = 0.71;
 pub const WATER_PRANDTL: f64 = 7.0;
 
 /// Von Karman constant for wall functions
-pub const VON_KARMAN: f64 = crate::constants::VON_KARMAN;
+pub const VON_KARMAN: f64 = 0.41;
 
 /// Wall function constants
-pub const WALL_FUNCTION_E: f64 = crate::constants::E_WALL_FUNCTION;
+pub const WALL_FUNCTION_E: f64 = 9.8;
 /// Wall function E constant (replaces deprecated E_SMOOTH)
-pub const E_WALL_FUNCTION: f64 = crate::constants::E_WALL_FUNCTION;
+pub const E_WALL_FUNCTION: f64 = 9.8;
 /// Y+ value below which laminar sublayer dominates
-pub const Y_PLUS_LAMINAR: f64 = crate::constants::Y_PLUS_LAMINAR;
+pub const Y_PLUS_LAMINAR: f64 = 11.63;
 /// Y+ value at start of buffer layer
 pub const Y_PLUS_BUFFER_START: f64 = 5.0;
 /// Y+ value at end of buffer layer

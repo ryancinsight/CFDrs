@@ -16,7 +16,7 @@ use std::collections::HashMap;
 
 /// Simulation aggregate root that encapsulates all simulation-related entities
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SimulationAggregate<T: RealField, D: Domain<T>> {
+pub struct SimulationAggregate<T: RealField + Copy, D: Domain<T>> {
     /// Unique simulation identifier
     pub id: String,
     /// Simulation metadata
@@ -212,7 +212,7 @@ impl<T: RealField + FromPrimitive + Copy> Default for PhysicalParameters<T> {
             reference_velocity: T::one(),
             reference_length: T::one(),
             reynolds_number: None,
-            gravity: Some(Vector3::new(T::zero(), T::from_f64(-crate::constants::E_WALL_FUNCTION1).unwrap_or_else(|| T::zero()), T::zero())),
+            gravity: Some(Vector3::new(T::zero(), T::from_f64(-9.81).unwrap_or_else(|| T::zero()), T::zero())),
             time_step: None,
         }
     }

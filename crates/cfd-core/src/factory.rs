@@ -50,7 +50,7 @@ pub trait DynamicSolver<T: RealField + Copy>: Send + Sync {
 /// Wrapper to convert concrete solvers to dynamic solvers
 pub struct DynamicSolverWrapper<T, S>
 where
-    T: RealField,
+    T: RealField + Copy,
     S: Solver<T>,
 {
     solver: S,
@@ -59,7 +59,7 @@ where
 
 impl<T, S> DynamicSolverWrapper<T, S>
 where
-    T: RealField + 'static,
+    T: RealField + Copy + 'static,
     S: Solver<T> + 'static,
     S::Problem: 'static,
     S::Solution: 'static,
@@ -74,7 +74,7 @@ where
 
 impl<T, S> DynamicSolver<T> for DynamicSolverWrapper<T, S>
 where
-    T: RealField + 'static,
+    T: RealField + Copy + 'static,
     S: Solver<T> + 'static,
     S::Problem: 'static,
     S::Solution: 'static,
@@ -117,7 +117,7 @@ where
 
 impl<T, F> DynamicFactoryWrapper<T, F>
 where
-    T: RealField + 'static,
+    T: RealField + Copy + 'static,
     F: ConcreteSolverFactory<T> + 'static,
     F::Solver: 'static,
     F::Config: 'static,
@@ -134,7 +134,7 @@ where
 
 impl<T, F> DynamicFactory<T> for DynamicFactoryWrapper<T, F>
 where
-    T: RealField + 'static,
+    T: RealField + Copy + 'static,
     F: ConcreteSolverFactory<T> + 'static,
     F::Solver: 'static,
     F::Config: 'static,
