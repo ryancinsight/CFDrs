@@ -62,7 +62,7 @@ impl<T: RealField + FromPrimitive + Copy> TimeIntegrator<T> for RungeKutta2 {
         })?;
 
         let k1 = f(t, state);
-        let mut temp = state;
+        let mut temp = state.clone();
         temp.axpy(dt * half, &k1, T::one());
 
         let k2 = f(t + dt * half, &temp);
@@ -102,7 +102,7 @@ impl<T: RealField + FromPrimitive + Copy> TimeIntegrator<T> for RungeKutta4 {
         
         let k1 = f(t, state);
         
-        let mut temp = state;
+        let mut temp = state.clone();
         temp.axpy(dt * half, &k1, T::one());
         let k2 = f(t + dt * half, &temp);
         
@@ -271,8 +271,8 @@ impl<T: RealField + Copy> TimeIntegrator<T> for CrankNicolson<T> {
         // Implement Crank-Nicolson using fixed-point iteration
         // Solve: y_{n+1} = y_n + dt/2 * (f(t_n, y_n) + f(t_{n+1}, y_{n+1}))
 
-        let mut y_new = state;
-        let y_old = state;
+        let mut y_new = state.clone();
+        let y_old = state.clone();
         let t_new = t + dt;
         let half = T::from_f64(0.5).ok_or_else(|| {
             crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)

@@ -314,7 +314,7 @@ impl PluginRegistry {
         self.storage.insert(plugin)?;
         
         // Update dependency graph
-        self.resolver.add_plugin(name, deps)?;
+        self.resolver.add_plugin(name.clone(), deps)?;
         
         // Set initial health status
         self.monitoring.update_health(&name, PluginHealthStatus::Healthy);

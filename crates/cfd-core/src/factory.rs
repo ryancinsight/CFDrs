@@ -203,7 +203,7 @@ impl<T: RealField + Copy> SolverFactoryRegistry<T> {
     ) -> Result<()> {
         use std::collections::hash_map::Entry;
         
-        match self.registry.entry(name) {
+        match self.registry.entry(name.clone()) {
             Entry::Occupied(_) => {
                 Err(Error::InvalidInput(format!("Factory '{}' already registered", name)))
             }
