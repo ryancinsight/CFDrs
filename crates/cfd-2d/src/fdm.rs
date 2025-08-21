@@ -27,7 +27,7 @@ pub struct FdmConfig<T: RealField> {
 ///
 /// Solves the linear system Ax = b using Gauss-Seidel iteration with relaxation.
 /// Returns an error if convergence is not achieved within max_iterations.
-fn solve_gauss_seidel<T: RealField + FromPrimitive>(
+fn solve_gauss_seidel<T: RealField + FromPrimitive + Copy>(
     matrix: &SparseMatrix<T>,
     rhs: &DVector<T>,
     config: &FdmConfig<T>,

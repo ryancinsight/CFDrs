@@ -427,12 +427,9 @@ use cfd_core::solver::LinearSolverConfig;;
         });
         
         let config = LinearSolverConfig {
-            base: cfd_core::solver::SolverConfig::builder()
-                .tolerance(T::from_f64(1e-10).unwrap_or_else(T::default_epsilon))
-                .max_iterations(1000)
-                .build_base(),
-            restart: 30,
-            use_preconditioner: false,
+            tolerance: T::from_f64(1e-10).unwrap_or_else(T::default_epsilon),
+            max_iterations: 1000,
+            preconditioning: false,
         };
         let solver = cfd_math::ConjugateGradient::new(config);
         

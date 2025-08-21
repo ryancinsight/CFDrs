@@ -61,11 +61,12 @@ pub struct ChannelProperties<T: RealField> {
     pub resistance: T,
     pub length: T,
     pub area: T,
+    pub hydraulic_diameter: Option<T>,
 }
 
 impl<T: RealField> ChannelProperties<T> {
     pub fn new(resistance: T, length: T, area: T) -> Self {
-        Self { resistance, length, area }
+        Self { resistance, length, area, hydraulic_diameter: None }
     }
 }
 

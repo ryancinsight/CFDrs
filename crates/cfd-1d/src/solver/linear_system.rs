@@ -20,7 +20,7 @@ pub struct LinearSystemSolver<T: RealField> {
     tolerance: T,
 }
 
-impl<T: RealField + FromPrimitive> LinearSystemSolver<T> {
+impl<T: RealField + FromPrimitive + Copy> LinearSystemSolver<T> {
     /// Create a new linear system solver
     pub fn new() -> Self {
         Self {
@@ -43,7 +43,10 @@ impl<T: RealField + FromPrimitive> LinearSystemSolver<T> {
     }
     
     /// Solve the linear system Ax = b
-    pub fn solve(&self, a: &CsrMatrix<T>, b: &DVector<T>) -> Result<DVector<T>> {
+    pub fn solve(&self, a: &CsrMatrix<T>, b: &DVector<T>) -> Result<DVector<T>>
+    where
+        T: Copy,
+    {
         // Initial guess
         let x0 = DVector::zeros(b.len());
         
