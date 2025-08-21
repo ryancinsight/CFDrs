@@ -75,8 +75,8 @@ where
     ) -> Result<Field2D<T>> {
         let mut p_prime = Field2D::new(self.nx, self.ny, T::zero());
         let mut residual = T::from_f64(1.0).unwrap();
-        let tolerance = T::from_f64(1e-6).unwrap();
-        let max_iter = 100;
+        let tolerance = T::from_f64(crate::constants::numerical::DEFAULT_CONVERGENCE_TOLERANCE).unwrap();
+        let max_iter = crate::constants::numerical::DEFAULT_MAX_ITERATIONS;
         let mut iter = 0;
 
         // Calculate H(u) operator for PISO neighbor correction

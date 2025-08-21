@@ -4,19 +4,17 @@
 //! solution accuracy in regions of high gradients or errors.
 
 pub mod criteria;
-pub mod strategies;
-pub mod uniform;
-pub mod adaptive;
-pub mod quality;
+pub mod strategy;
+pub mod config;
 pub mod operations;
+pub mod hierarchical;
 
 // Re-export main types
 pub use criteria::{RefinementCriterion, RefinementError};
-pub use strategies::{RefinementStrategy, RefinementResult};
-pub use uniform::UniformRefinement;
-pub use adaptive::AdaptiveRefinement;
-pub use quality::QualityBasedRefinement;
-pub use operations::RefinementOperations;
+pub use strategy::RefinementStrategy;
+pub use config::RefinementConfig;
+pub use operations::MeshRefiner;
+pub use hierarchical::HierarchicalRefinement;
 
 // Named constants for refinement parameters
 pub const DEFAULT_MAX_REFINEMENT_LEVEL: usize = 5;
