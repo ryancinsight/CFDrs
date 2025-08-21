@@ -182,7 +182,7 @@ impl DependencyResolver {
             if !available_plugins.contains(dep) {
                 return Err(Error::Plugin(PluginErrorKind::MissingDependency {
                     plugin: "unknown".to_string(),
-                    dependency: dep,
+                    dependency: dep.to_string(),
                 }));
             }
         }
@@ -329,7 +329,7 @@ impl PluginRegistry {
             if plugin_name != name && deps.contains(&name.to_string()) {
                 return Err(Error::Plugin(PluginErrorKind::InUse {
                     plugin: name.to_string(),
-                    used_by: plugin_name,
+                    used_by: plugin_name.to_string(),
                 }));
             }
         }

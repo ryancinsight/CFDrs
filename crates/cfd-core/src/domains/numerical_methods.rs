@@ -270,8 +270,8 @@ pub mod linear_solvers {
             let mut x = DVector::zeros(n);
             
             // Initial residual r = b - Ax
-            let mut r = rhs;
-            let mut p = r;
+            let mut r = rhs.clone();
+            let mut p = r.clone();
             let mut rsold = r.dot(&r);
             
             // Check for zero right-hand side

@@ -178,8 +178,8 @@ impl<T: RealField + Copy> TimeIntegrator<T> for BackwardEuler<T> {
         // Implement implicit Backward Euler using fixed-point iteration
         // Solve: y_{n+1} = y_n + dt * f(t_{n+1}, y_{n+1})
 
-        let mut y_new = state.clone();
-        let y_old = state.clone();
+        let mut y_new = state;
+        let y_old = state;
         let t_new = t + dt;
 
         // Check for valid iteration count
