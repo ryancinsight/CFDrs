@@ -27,7 +27,7 @@ pub struct FdmConfig<T: RealField> {
 ///
 /// Solves the linear system Ax = b using Gauss-Seidel iteration with relaxation.
 /// Returns an error if convergence is not achieved within max_iterations.
-fn solve_gauss_seidel<T: RealField + FromPrimitive>(
+fn solve_gauss_seidel<T: RealField + FromPrimitive + Copy>(
     matrix: &SparseMatrix<T>,
     rhs: &DVector<T>,
     config: &FdmConfig<T>,
@@ -91,7 +91,7 @@ fn solve_gauss_seidel<T: RealField + FromPrimitive>(
     ))
 }
 
-impl<T: RealField + FromPrimitive> Default for FdmConfig<T> {
+impl<T: RealField + FromPrimitive + Copy> Default for FdmConfig<T> {
     fn default() -> Self {
         Self {
             base: cfd_core::solver::SolverConfig::default(),
@@ -99,7 +99,7 @@ impl<T: RealField + FromPrimitive> Default for FdmConfig<T> {
     }
 }
 
-impl<T: RealField> FdmConfig<T> {
+impl<T: RealField + Copy> FdmConfig<T> {
     /// Get tolerance from base configuration
     pub fn tolerance(&self) -> T {
         self.base.tolerance()
@@ -127,7 +127,7 @@ pub struct PoissonSolver<T: RealField> {
     config: FdmConfig<T>,
 }
 
-impl<T: RealField + FromPrimitive> PoissonSolver<T> {
+impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
     /// Create a new Poisson solver
     pub fn new(config: FdmConfig<T>) -> Self {
         Self { config }
@@ -239,7 +239,7 @@ pub struct AdvectionDiffusionSolver<T: RealField> {
     config: FdmConfig<T>,
 }
 
-impl<T: RealField + FromPrimitive> AdvectionDiffusionSolver<T> {
+impl<T: RealField + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
     /// Create a new advection-diffusion solver
     pub fn new(config: FdmConfig<T>) -> Self {
         Self { config }
@@ -415,7 +415,7 @@ mod tests {
             .max_iterations(1000)
             .relaxation_factor(1.0)
             .verbosity(0) // verbose = false means verbosity level 0
-            .build_base();
+            .build();
 
         let config = FdmConfig { base };
 
@@ -462,7 +462,7 @@ mod tests {
             .max_iterations(2000)
             .relaxation_factor(1.0)
             .verbosity(0)
-            .build_base();
+            .build();
 
         let config = FdmConfig { base };
 
@@ -533,7 +533,7 @@ mod tests {
                 base: cfd_core::solver::SolverConfig::<f64>::builder()
                     .tolerance(1e-10)
                     .max_iterations(2000)
-                    .build_base()
+                    .build()
             };
             
             let solver = PoissonSolver::new(config);
@@ -599,7 +599,7 @@ mod tests {
             .max_iterations(1000)
             .relaxation_factor(1.0)
             .verbosity(0) // verbose = false means verbosity level 0
-            .build_base();
+            .build();
 
         let config = FdmConfig { base };
 
@@ -658,7 +658,7 @@ mod tests {
             .max_iterations(1000)
             .relaxation_factor(0.8)
             .verbosity(0) // verbose = false means verbosity level 0
-            .build_base();
+            .build();
 
         let config = FdmConfig { base };
 

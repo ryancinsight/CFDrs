@@ -334,8 +334,10 @@ mod tests {
         assert_relative_eq!(visc_low, 1.0, epsilon = 0.01);
         
         // Test at high shear (should approach mu_inf)
+        // At shear_rate=1000: viscosity ≈ mu_inf + (mu_zero - mu_inf) * (1 + (lambda*gamma)^2)^((n-1)/2)
+        // ≈ 0.001 + 0.999 * (1 + 10000)^(-0.25) ≈ 0.001 + 0.999 * 0.1 ≈ 0.1
         let visc_high = fluid.dynamic_viscosity(1000.0).expect("CRITICAL: Add proper error handling");
-        assert_relative_eq!(visc_high, 0.001, epsilon = 0.01);
+        assert_relative_eq!(visc_high, 0.1, epsilon = 0.01);
         
         // Test characteristic viscosity (should be mu_zero)
         assert_relative_eq!(fluid.characteristic_viscosity(), 1.0, epsilon = 1e-9);

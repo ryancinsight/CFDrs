@@ -13,7 +13,7 @@ use super::{
 };
 
 /// PISO solver for incompressible flow
-pub struct PisoSolver<T: RealField> {
+pub struct PisoSolver<T: RealField + Copy> {
     /// Solver configuration
     config: PisoConfig<T>,
     /// Velocity predictor

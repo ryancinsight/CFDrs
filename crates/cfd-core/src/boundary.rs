@@ -55,18 +55,6 @@ pub enum BoundaryCondition<T: RealField> {
         /// Volume flow rate [m³/s]
         flow_rate: T,
     },
-    /// Generic inlet boundary
-    #[deprecated(since = "0.2.0", note = "Please use the more specific `VelocityInlet` variant instead")]
-    Inlet {
-        /// Velocity vector at inlet
-        velocity: Vector3<T>,
-    },
-    /// Generic outlet boundary
-    #[deprecated(since = "0.2.0", note = "Please use the more specific `PressureOutlet` variant instead")]
-    Outlet {
-        /// Static pressure at outlet
-        pressure: T,
-    },
     /// Wall boundary
     Wall {
         /// Wall type
@@ -187,8 +175,6 @@ impl<T: RealField> BoundaryCondition<T> {
     {
         match self {
             Self::PressureInlet { pressure } | Self::PressureOutlet { pressure } => Some(*pressure),
-            #[allow(deprecated)]
-            Self::Outlet { pressure } => Some(*pressure),
             _ => None,
         }
     }
@@ -211,8 +197,6 @@ impl<T: RealField> BoundaryCondition<T> {
     {
         match self {
             Self::VelocityInlet { velocity } => Some(velocity.x),
-            #[allow(deprecated)]
-            Self::Inlet { velocity } => Some(velocity.x),
             _ => None,
         }
     }

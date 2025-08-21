@@ -67,11 +67,11 @@ pub struct PerformanceMetrics<T: RealField> {
 }
 
 /// Comprehensive network analyzer
-pub struct NetworkAnalyzer<T: RealField> {
+pub struct NetworkAnalyzer<T: RealField + Copy> {
     solver: crate::solver::NetworkSolver<T>,
 }
 
-impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
+impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T> {
     /// Create a new network analyzer
     pub fn new() -> Self {
         Self {
@@ -80,16 +80,18 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
     }
     
     /// Create analyzer with custom solver configuration
-    pub fn with_solver_config(config: cfd_core::NetworkSolverConfig<T>) -> Self {
+    pub fn with_solver_config(config: crate::solver::SolverConfig<T>) -> Self {
         Self {
             solver: crate::solver::NetworkSolver::with_config(config),
         }
     }
     
     /// Perform comprehensive network analysis
-    pub fn analyze(&self, network: &mut Network<T>) -> Result<NetworkAnalysisResult<T>> {
+    pub fn analyze(&mut self, network: &mut Network<T>) -> Result<NetworkAnalysisResult<T>> {
         // Solve the network
-        let solution_result = self.solver.solve_steady_state(network)?;
+        // Create a problem from the network
+        let problem = crate::solver::NetworkProblem::new(network.clone());
+        let _solution_result = self.solver.solve_network(&problem)?;
         
         // Perform individual analyses
         let flow_analysis = self.analyze_flow(network)?;
@@ -98,7 +100,6 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
         let performance_metrics = self.analyze_performance(network)?;
         
         Ok(NetworkAnalysisResult {
-            solution_result,
             flow_analysis,
             pressure_analysis,
             resistance_analysis,
@@ -116,7 +117,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
         
         let fluid = network.fluid();
         
-        for edge in network.edges() {
+        for edge in network.edges_with_properties() {
             if let Some(flow_rate) = edge.flow_rate {
                 component_flows.insert(edge.id.clone(), flow_rate.clone());
                 
@@ -180,7 +181,7 @@ impl<T: RealField + FromPrimitive + num_traits::Float> NetworkAnalyzer<T> {
         }
         
         // Collect pressure drops and gradients
-        for edge in network.edges() {
+        for edge in network.edges_with_properties() {
             if let Some(pressure_drop) = edge.pressure_drop {
                 pressure_drops.insert(edge.id.clone(), pressure_drop.clone());
                 
@@ -426,12 +427,9 @@ use cfd_core::solver::LinearSolverConfig;;
         });
         
         let config = LinearSolverConfig {
-            base: cfd_core::solver::SolverConfig::builder()
-                .tolerance(T::from_f64(1e-10).unwrap_or_else(T::default_epsilon))
-                .max_iterations(1000)
-                .build_base(),
-            restart: 30,
-            use_preconditioner: false,
+            tolerance: T::from_f64(1e-10).unwrap_or_else(T::default_epsilon),
+            max_iterations: 1000,
+            preconditioning: false,
         };
         let solver = cfd_math::ConjugateGradient::new(config);
         
@@ -582,7 +580,7 @@ use cfd_core::solver::LinearSolverConfig;;
     fn calculate_power_consumption(&self, network: &Network<T>) -> T {
         let mut total_power = T::zero();
         
-        for edge in network.edges() {
+        for edge in network.edges_with_properties() {
             if let (Some(flow_rate), Some(pressure_drop)) = (edge.flow_rate, edge.pressure_drop) {
                 // Hydraulic power = flow_rate * pressure_drop
                 total_power += ComplexField::abs(flow_rate * pressure_drop);
@@ -596,7 +594,7 @@ use cfd_core::solver::LinearSolverConfig;;
     fn calculate_residence_times(&self, network: &Network<T>) -> HashMap<String, T> {
         let mut residence_times = HashMap::new();
         
-        for edge in network.edges() {
+        for edge in network.edges_with_properties() {
             if let Some(flow_rate) = edge.flow_rate {
                 if flow_rate > T::zero() {
                     // Calculate volume from area and length if available
@@ -669,8 +667,8 @@ use cfd_core::solver::LinearSolverConfig;;
 /// Complete network analysis results
 #[derive(Debug, Clone)]
 pub struct NetworkAnalysisResult<T: RealField> {
-    /// Solver results
-    pub solution_result: crate::solver::SolutionResult<T>,
+    // TODO: Add solution result when available
+    // pub solution_result: crate::solver::SolutionResult<T>,
     /// Flow analysis
     pub flow_analysis: FlowAnalysis<T>,
     /// Pressure analysis

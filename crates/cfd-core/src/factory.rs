@@ -261,18 +261,6 @@ impl<T: RealField> SolverFactoryRegistry<T> {
     }
 }
 
-// Re-export type-erased types for backward compatibility (deprecated)
-#[deprecated(since = "0.2.0", note = "Use DynamicSolver directly")]
-pub type TypeErasedSolver<T> = dyn DynamicSolver<T>;
-
-#[deprecated(since = "0.2.0", note = "Use DynamicSolverWrapper directly")]
-pub type TypeErasedSolverWrapper<T, S> = DynamicSolverWrapper<T, S>;
-
-#[deprecated(since = "0.2.0", note = "Use DynamicFactory directly")]
-pub type TypeErasedFactory<T> = dyn DynamicFactory<T>;
-
-#[deprecated(since = "0.2.0", note = "Use DynamicFactoryWrapper directly")]
-pub type TypeErasedFactoryWrapper<T, F> = DynamicFactoryWrapper<T, F>;
 
 #[cfg(test)]
 mod tests {

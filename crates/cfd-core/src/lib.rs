@@ -118,4 +118,4 @@ pub use error::{Error, Result};
 pub use fluid::Fluid;
 pub use boundary::BoundaryCondition;
 pub use problem::Problem;
-pub use solver::{Solver, SolverConfiguration, Configurable, Validatable, NetworkSolverConfig};
+pub use solver::{Solver, SolverConfiguration, Configurable, Validatable, NetworkSolverConfig, SolverConfig};

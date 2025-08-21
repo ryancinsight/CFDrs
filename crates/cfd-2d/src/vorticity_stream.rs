@@ -36,7 +36,7 @@ impl<T: RealField + FromPrimitive> Default for VorticityStreamConfig<T> {
         let base = cfd_core::solver::SolverConfig::builder()
             .max_iterations(DEFAULT_MAX_ITERATIONS)
             .tolerance(T::from_f64(DEFAULT_TOLERANCE).unwrap_or_else(|| T::zero()))
-            .build_base();
+            .build();
 
         Self {
             base,

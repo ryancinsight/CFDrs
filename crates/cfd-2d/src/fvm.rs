@@ -28,17 +28,17 @@ pub struct FvmConfig<T: RealField> {
     pub base: cfd_core::solver::SolverConfig<T>,
 }
 
-impl<T: RealField + FromPrimitive> Default for FvmConfig<T> {
+impl<T: RealField + FromPrimitive + Copy> Default for FvmConfig<T> {
     fn default() -> Self {
         // Set under-relaxation factor (0.7 is typical for FVM)
         let base = cfd_core::solver::SolverConfig::builder()
             .relaxation_factor(T::from_f64(0.7).unwrap_or_else(|| T::zero()))
-            .build_base();
+            .build();
         Self { base }
     }
 }
 
-impl<T: RealField> FvmConfig<T> {
+impl<T: RealField + Copy> FvmConfig<T> {
     /// Get tolerance from base configuration
     pub fn tolerance(&self) -> T {
         self.base.tolerance()
@@ -130,7 +130,7 @@ pub struct FvmSolver<T: RealField> {
     flux_scheme: FluxScheme,
 }
 
-impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
+impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
     /// Create a new FVM solver
     pub fn new(config: FvmConfig<T>, flux_scheme: FluxScheme) -> Self {
         Self { config, flux_scheme }
@@ -182,11 +182,11 @@ impl<T: RealField + FromPrimitive + Send + Sync> FvmSolver<T> {
 
         // Solve the linear system using configuration parameters
         let matrix = matrix_builder.build()?;
-        let mut solver_config = LinearSolverConfig::default();
-        solver_config.base = cfd_core::solver::SolverConfig::builder()
-            .tolerance(self.config.tolerance())
-            .max_iterations(self.config.max_iterations())
-            .build_base();
+        let solver_config = LinearSolverConfig {
+            max_iterations: self.config.max_iterations(),
+            tolerance: self.config.tolerance(),
+            preconditioning: false,
+        };
 
         let solver = ConjugateGradient::new(solver_config);
         let solution_vector = solver.solve(&matrix, &rhs, None)?;

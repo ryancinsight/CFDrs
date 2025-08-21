@@ -326,6 +326,39 @@ impl<T: RealField> TimeIntegrator<T> for CrankNicolson<T> {
 }
 
 /// Adaptive time stepping controller
+/// Adaptive time step controller for error-based time step adjustment
+pub struct AdaptiveTimeStepController<T: RealField> {
+    /// Target error tolerance
+    pub target_error: T,
+    /// Safety factor for time step adjustment
+    pub safety_factor: T,
+    /// Maximum time step increase factor
+    pub max_increase: T,
+    /// Minimum time step decrease factor
+    pub min_decrease: T,
+}
+
+impl<T: RealField + FromPrimitive> Default for AdaptiveTimeStepController<T> {
+    fn default() -> Self {
+        Self {
+            target_error: T::from_f64(1e-6).unwrap_or_else(T::zero),
+            safety_factor: T::from_f64(0.9).unwrap_or_else(T::zero),
+            max_increase: T::from_f64(2.0).unwrap_or_else(T::zero),
+            min_decrease: T::from_f64(0.1).unwrap_or_else(T::zero),
+        }
+    }
+}
+
+impl<T: RealField + FromPrimitive + Copy> AdaptiveTimeStepController<T> {
+    /// Calculate new time step based on error estimate
+    pub fn calculate_dt(&self, current_dt: T, error: T, order: usize) -> T {
+        let factor = (self.target_error / error).powf(T::one() / T::from_usize(order + 1).unwrap_or_else(T::one));
+        let factor = factor * self.safety_factor;
+        let factor = factor.min(self.max_increase).max(self.min_decrease);
+        current_dt * factor
+    }
+}
+
 pub struct VariableTimeStep<T: RealField> {
     /// Minimum allowed time step
     pub dt_min: T,
@@ -419,7 +452,7 @@ mod tests {
 
     #[test]
     fn test_adaptive_time_step() {
-        let controller = AdaptiveTimeStep::<f64>::default();
+        let controller = AdaptiveTimeStepController::<f64>::default();
         
         // Error is less than target
         let current_dt = controller.calculate_dt(0.01, 1e-8, 2);

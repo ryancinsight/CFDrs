@@ -34,7 +34,7 @@ impl<T: RealField + FromPrimitive> PressureVelocityConfig<T> {
                     .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                         "Cannot convert tolerance".into()
                     ))?)
-                .build_base(),
+                .build(),
             dt: T::from_f64(constants::DEFAULT_CFL_NUMBER * constants::DEFAULT_TIME_STEP_FACTOR)
                 .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert time step".into()
