@@ -28,7 +28,7 @@ pub trait Quadrature<T: RealField + Copy> {
 /// Trapezoidal rule for numerical integration
 pub struct TrapezoidalRule;
 
-impl<T: RealField + FromPrimitive + Copy> Quadrature<T> for TrapezoidalRule {
+impl<T: RealField + From<f64> + FromPrimitive + Copy> Quadrature<T> for TrapezoidalRule {
     fn integrate<F>(&self, f: F, a: T, b: T) -> T
     where
         F: Fn(T) -> T,
@@ -49,7 +49,7 @@ impl<T: RealField + FromPrimitive + Copy> Quadrature<T> for TrapezoidalRule {
 /// Simpson's rule for numerical integration
 pub struct SimpsonsRule;
 
-impl<T: RealField + FromPrimitive + Copy> Quadrature<T> for SimpsonsRule {
+impl<T: RealField + From<f64> + FromPrimitive + Copy> Quadrature<T> for SimpsonsRule {
     fn integrate<F>(&self, f: F, a: T, b: T) -> T
     where
         F: Fn(T) -> T,
@@ -78,7 +78,7 @@ pub struct GaussQuadrature<T: RealField + Copy> {
     order: usize,
 }
 
-impl<T: RealField + FromPrimitive + Copy> GaussQuadrature<T> {
+impl<T: RealField + From<f64> + FromPrimitive + Copy> GaussQuadrature<T> {
     /// Create Gauss-Legendre quadrature of given order
     pub fn new(order: usize) -> Result<Self> {
         let (points, weights) = match order {
@@ -140,7 +140,7 @@ impl<T: RealField + FromPrimitive + Copy> GaussQuadrature<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> Quadrature<T> for GaussQuadrature<T> {
+impl<T: RealField + From<f64> + FromPrimitive + Copy> Quadrature<T> for GaussQuadrature<T> {
     fn integrate<F>(&self, f: F, a: T, b: T) -> T
     where
         F: Fn(T) -> T,
@@ -189,7 +189,7 @@ impl<Q> CompositeQuadrature<Q> {
 
 impl<T, Q> Quadrature<T> for CompositeQuadrature<Q>
 where
-    T: RealField + FromPrimitive,
+    T: RealField + From<f64> + FromPrimitive + Copy,
     Q: Quadrature<T>,
 {
     fn integrate<F>(&self, f: F, a: T, b: T) -> T
@@ -240,7 +240,7 @@ impl<Q> VariableQuadrature<Q> {
     /// Variable integration with recursive subdivision
     pub fn integrate_adaptive<T, F>(&self, f: F, a: T, b: T) -> Result<T>
     where
-        T: RealField + FromPrimitive,
+        T: RealField + From<f64> + FromPrimitive + Copy,
         F: Fn(T) -> T + Copy,
         Q: Quadrature<T>,
     {
@@ -249,7 +249,7 @@ impl<Q> VariableQuadrature<Q> {
 
     fn integrate_recursive<T, F>(&self, f: F, a: T, b: T, depth: usize) -> Result<T>
     where
-        T: RealField + FromPrimitive,
+        T: RealField + From<f64> + FromPrimitive + Copy,
         F: Fn(T) -> T + Copy,
         Q: Quadrature<T>,
     {
@@ -305,7 +305,7 @@ impl<Q> TensorProductQuadrature<Q> {
     /// Integrate over 2D rectangle [ax, bx] × [ay, by]
     pub fn integrate_2d<T, F>(&self, f: F, ax: T, bx: T, ay: T, by: T) -> T
     where
-        T: RealField + FromPrimitive + Clone,
+        T: RealField + From<f64> + FromPrimitive + Copy + Clone,
         F: Fn(T, T) -> T,
         Q: Quadrature<T>,
     {
@@ -358,7 +358,7 @@ impl IntegrationUtils {
     /// Integrate using trapezoidal rule with n intervals
     pub fn trapezoidal<T, F>(f: F, a: T, b: T, n: usize) -> T
     where
-        T: RealField + FromPrimitive,
+        T: RealField + From<f64> + FromPrimitive + Copy,
         F: Fn(T) -> T,
     {
         let composite = CompositeQuadrature::new(TrapezoidalRule, n);
@@ -368,7 +368,7 @@ impl IntegrationUtils {
     /// Integrate using Simpson's rule with n intervals (must be even)
     pub fn simpsons<T, F>(f: F, a: T, b: T, n: usize) -> Result<T>
     where
-        T: RealField + FromPrimitive,
+        T: RealField + From<f64> + FromPrimitive + Copy,
         F: Fn(T) -> T,
     {
         if n % 2 != 0 {
@@ -384,7 +384,7 @@ impl IntegrationUtils {
     /// Integrate using Gauss-Legendre quadrature
     pub fn gauss_legendre<T, F>(f: F, a: T, b: T, order: usize) -> Result<T>
     where
-        T: RealField + FromPrimitive,
+        T: RealField + From<f64> + FromPrimitive + Copy,
         F: Fn(T) -> T,
     {
         let gauss = GaussQuadrature::new(order)?;
@@ -394,7 +394,7 @@ impl IntegrationUtils {
     /// Adaptive integration with automatic error control
     pub fn adaptive<T, F>(f: F, a: T, b: T, tolerance: f64) -> Result<T>
     where
-        T: RealField + FromPrimitive,
+        T: RealField + From<f64> + FromPrimitive + Copy,
         F: Fn(T) -> T + Copy,
     {
         let gauss = GaussQuadrature::new(3)?; // Use 3-point Gauss rule

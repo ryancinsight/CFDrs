@@ -77,7 +77,7 @@ pub struct JacobiPreconditioner<T: RealField + Copy> {
     inv_diagonal: DVector<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> JacobiPreconditioner<T> {
+impl<T: RealField + From<f64> + FromPrimitive + Copy> JacobiPreconditioner<T> {
     /// Create Jacobi preconditioner from matrix diagonal
     pub fn new(a: &CsrMatrix<T>) -> Result<Self> {
         let n = a.nrows();
@@ -116,7 +116,7 @@ pub struct SORPreconditioner<T: RealField + Copy> {
     omega: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> SORPreconditioner<T> {
+impl<T: RealField + From<f64> + FromPrimitive + Copy> SORPreconditioner<T> {
     /// Create SOR preconditioner with specified relaxation parameter
     pub fn new(a: &CsrMatrix<T>, omega: T) -> Result<Self> {
         let n = a.nrows();
@@ -530,7 +530,7 @@ mod tests {
         let solver = ConjugateGradient::default();
         let x = solver.solve(&a, &b, None).expect("CRITICAL: Add proper error handling");
         
-        let residual = &b - &a * &x;
+        let residual = (*&b - *&a) * &x;
         assert!(residual.norm() < 1e-10);
     }
 
@@ -542,7 +542,7 @@ mod tests {
         let solver = BiCGSTAB::default();
         let x = solver.solve(&a, &b, None).expect("CRITICAL: Add proper error handling");
         
-        let residual = &b - &a * &x;
+        let residual = (*&b - *&a) * &x;
         assert!(residual.norm() < 1e-10);
     }
 
@@ -619,7 +619,7 @@ mod tests {
         
         let x = solver.solve_preconditioned(&a, &b, &precond, None).expect("CRITICAL: Add proper error handling");
         
-        let residual = &b - &a * &x;
+        let residual = (*&b - *&a) * &x;
         assert!(residual.norm() < 1e-10);
     }
 

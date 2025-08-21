@@ -145,7 +145,7 @@ impl<M> RelativeError<M> {
 
 impl<T, M> ErrorMetric<T> for RelativeError<M>
 where
-    T: RealField + FromPrimitive,
+    T: RealField + FromPrimitive + Copy,
     M: ErrorMetric<T>,
 {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {

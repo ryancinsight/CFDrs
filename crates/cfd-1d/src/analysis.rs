@@ -71,7 +71,7 @@ pub struct NetworkAnalyzer<T: RealField + Copy> {
     solver: crate::solver::NetworkSolver<T>,
 }
 
-impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T> {
+impl<T: RealField + FromPrimitive + Copy + num_traits::Float + Copy> NetworkAnalyzer<T> {
     /// Create a new network analyzer
     pub fn new() -> Self {
         Self {

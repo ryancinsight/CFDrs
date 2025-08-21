@@ -90,10 +90,10 @@ impl<T: RealField + Copy> TimeIntegrator<T> for BackwardEuler<T> {
         // Fixed-point iteration: y_{n+1}^{k+1} = y_n + dt * f(t_{n+1}, y_{n+1}^k)
         for iteration in 0..self.max_iterations {
             let f_val = f(t_new, &y_new);
-            let y_next = &y_old + f_val * dt;
+            let y_next = *&y_old + f_val * dt;
 
             // Check convergence
-            let error = (&y_next - &y_new).norm();
+            let error = ((*&y_next - *&y_new)).norm();
             if error < self.tolerance {
                 *state = y_next;
                 return Ok(());
@@ -158,7 +158,7 @@ impl<T: RealField + Copy> TimeIntegrator<T> for CrankNicolson<T> {
             let y_next = &y_old + (&f_old + &f_new) * half_dt;
             
             // Check convergence
-            let error = (&y_next - &y_new).norm();
+            let error = ((*&y_next - *&y_new)).norm();
             if error < self.tolerance {
                 *state = y_next;
                 return Ok(());
@@ -204,7 +204,7 @@ impl<T: RealField + Copy> TimeIntegrator<T> for RungeKutta4 {
         let y_temp = state.clone() + &k2 * (dt / two);
         
         let k3 = f(t + dt / two, &y_temp);
-        let y_temp = state.clone() + &k3 * dt;
+        let y_temp = state.clone() + *&k3 * dt;
         
         let k4 = f(t + dt, &y_temp);
         

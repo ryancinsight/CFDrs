@@ -343,7 +343,7 @@ impl ConvergenceAnalysis {
         reference_solution: Option<&[T]>,
     ) -> Result<ConvergenceStudy<T>>
     where
-        T: RealField + FromPrimitive + ToPrimitive + Clone,
+        T: RealField + FromPrimitive + Copy + ToPrimitive + Clone,
         M: ErrorMetric<T>,
     {
         if solutions.len() != grid_sizes.len() || solutions.len() < 2 {

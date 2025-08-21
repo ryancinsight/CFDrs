@@ -65,7 +65,7 @@ impl<T: RealField + Copy> TimeIntegratorTrait<T> for ForwardEuler {
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
         let k1 = f(t, y);
-        *y += &k1 * dt;
+        *y += *&k1 * dt;
         Ok(())
     }
 
@@ -82,7 +82,7 @@ impl<T: RealField + FromPrimitive + Copy> TimeIntegratorTrait<T> for RungeKutta2
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
         let k1 = f(t, y);
-        let y_temp = y + &k1 * dt;
+        let y_temp = y + *&k1 * dt;
         let k2 = f(t + dt, &y_temp);
 
         let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
@@ -107,12 +107,12 @@ impl<T: RealField + FromPrimitive + Copy> TimeIntegratorTrait<T> for RungeKutta4
         let k2 = f(t + dt * T::from_f64(0.5).unwrap_or_else(|| T::zero()), &y_temp1);
         let y_temp2 = y + &k2 * (dt * T::from_f64(0.5).unwrap_or_else(|| T::zero()));
         let k3 = f(t + dt * T::from_f64(0.5).unwrap_or_else(|| T::zero()), &y_temp2);
-        let y_temp3 = y + &k3 * dt;
+        let y_temp3 = y + *&k3 * dt;
         let k4 = f(t + dt, &y_temp3);
 
         let sixth = T::from_f64(1.0/6.0).unwrap_or_else(|| T::zero());
         let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
-        *y += &(k1 + &k2 * two + &k3 * two + k4) * (dt * sixth);
+        *y += &(k1 + *&k2 * two + *&k3 * two + k4) * (dt * sixth);
         Ok(())
     }
 
@@ -200,7 +200,7 @@ impl TimeIntegrationValidator {
                 t += dt;
             }
 
-            let error = (&y - &analytical_final).norm();
+            let error = ((*&y - *&analytical_final)).norm();
             let relative_error = error / analytical_final.norm();
 
             let result = TimeIntegrationResult {
@@ -264,7 +264,7 @@ impl TimeIntegrationValidator {
                 t += dt;
             }
 
-            let error = (&y - &analytical_final).norm();
+            let error = ((*&y - *&analytical_final)).norm();
             let relative_error = error / analytical_final.norm();
 
             let result = TimeIntegrationResult {
@@ -337,7 +337,7 @@ impl TimeIntegrationValidator {
         }
 
         let analytical = analytical_solution(final_time);
-        let error = (&y - &analytical).norm();
+        let error = ((*&y - *&analytical)).norm();
 
         Ok(error)
     }

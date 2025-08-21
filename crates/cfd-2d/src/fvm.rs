@@ -130,7 +130,7 @@ pub struct FvmSolver<T: RealField + Copy> {
     flux_scheme: FluxScheme,
 }
 
-impl<T: RealField + FromPrimitive + Send + Sync + Copy> FvmSolver<T> {
+impl<T: RealField + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<T> {
     /// Create a new FVM solver
     pub fn new(config: FvmConfig<T>, flux_scheme: FluxScheme) -> Self {
         Self { config, flux_scheme }

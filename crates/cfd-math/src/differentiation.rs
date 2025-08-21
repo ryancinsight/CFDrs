@@ -29,7 +29,7 @@ pub struct FiniteDifference<T: RealField + Copy> {
     spacing: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> FiniteDifference<T> {
+impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
     /// Create a new finite difference operator
     pub fn new(scheme: FiniteDifferenceScheme, spacing: T) -> Self {
         Self { scheme, spacing }
@@ -212,7 +212,7 @@ impl<T: RealField + FromPrimitive + Copy> FiniteDifference<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for FiniteDifference<T> {
+impl<T: RealField + From<f64> + FromPrimitive + Copy> Default for FiniteDifference<T> {
     fn default() -> Self {
         Self::central(T::one())
     }
@@ -225,7 +225,7 @@ pub struct Gradient<T: RealField + Copy> {
     dz: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Gradient<T> {
+impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
     /// Create new gradient operator
     pub fn new(dx: T, dy: T, dz: T) -> Self {
         Self { dx, dy, dz }

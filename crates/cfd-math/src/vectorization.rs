@@ -257,9 +257,9 @@ impl VectorizedOps {
             .map(|chunk| {
                 chunk.iter()
                     .cloned()
-                    .fold(identity, |a, b| op(a, b))
+                    .fold(identity.clone(), |a, b| op(a, b))
             })
-            .reduce(|| identity, |a, b| op(a, b))
+            .reduce(|| identity.clone(), |a, b| op(a, b))
     }
 
     /// Vectorized prefix sum (scan) operation
