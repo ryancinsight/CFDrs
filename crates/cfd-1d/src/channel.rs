@@ -388,7 +388,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> Channel<T> {
 
         // Stokes flow resistance with shape factor: R = (f*Re) * μ * L / (2 * A * Dh^2)
         let shape_factor = self.get_shape_factor();
-        let resistance = shape_factor * viscosity * length / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * dh * dh);
+        let resistance = shape_factor * *viscosity * length / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * dh * dh);
 
         Ok(resistance)
     }
@@ -424,7 +424,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> Channel<T> {
         let dh = self.geometry.hydraulic_diameter();
 
         // Correct hydraulic resistance formula: R = (f*Re) * μ * L / (2 * A * Dh^2)
-        let resistance = f_re * viscosity * length / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * dh * dh);
+        let resistance = f_re * *viscosity * length / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * dh * dh);
 
         Ok(resistance)
     }
@@ -468,7 +468,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> Channel<T> {
         let onehundredtwentyeight = T::from_f64(128.0).unwrap_or_else(|| T::zero());
         let d4 = num_traits::Float::powf(diameter, T::from_f64(4.0).unwrap_or_else(|| T::zero()));
 
-        let resistance = onehundredtwentyeight * viscosity * length / (pi * d4);
+        let resistance = onehundredtwentyeight * *viscosity * length / (pi * d4);
 
         Ok(resistance)
     }
@@ -501,7 +501,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> Channel<T> {
         let friction_factor = self.calculate_turbulent_friction_factor(reynolds, relative_roughness);
 
         // Darcy-Weisbach resistance: R = f * L * ρ / (2 * A * Dh^2)
-        let resistance = friction_factor * length * density /
+        let resistance = friction_factor * length * *density /
                         (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * dh * dh);
 
         Ok(resistance)

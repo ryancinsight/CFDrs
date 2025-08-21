@@ -216,7 +216,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
             .filter(|(_, _, _, valid)| *valid)
             .try_for_each(|(ni, nj, coeff, _)| {
                 let neighbor_idx = self.linear_index(grid, *ni, *nj);
-                matrix_builder.add_entry(linear_idx, neighbor_idx, coeff)
+                matrix_builder.add_entry(linear_idx, neighbor_idx, *coeff)
             })?;
 
         // Set RHS from source term using get with default

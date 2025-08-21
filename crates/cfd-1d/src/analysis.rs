@@ -423,7 +423,7 @@ use cfd_core::solver::LinearSolverConfig;;
             for i in 0..n-1 {
                 let _ = builder.add_entry(i, i, T::one());
             }
-            builder.build().map_err(|e| Error::MatrixConstruction(format!("Failed to build sparse matrix: {}", e)))?
+            builder.build().map_err(|e| Error::InvalidConfiguration(format!("Failed to build sparse matrix: {}", e)))?
         });
         
         let config = LinearSolverConfig {
@@ -509,7 +509,7 @@ use cfd_core::solver::LinearSolverConfig;;
         
         // Explore all outgoing edges
         for edge_ref in network.graph().edges(current) {
-            let edge_idx = edge_ref.id.clone()();
+            let edge_idx = edge_ref.id();
             let next_node = edge_ref.target();
             
             // Skip if we've already used this edge in the current path

@@ -221,7 +221,7 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
         let term2 = cu * cu / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * cs2 * cs2);
         let term3 = u_sqr / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * cs2);
 
-        w * rho * (T::one() + term1 + term2 - term3)
+        w * *rho * (T::one() + term1 + term2 - term3)
     }
 
     /// Perform collision step (BGK operator) with iterator patterns
@@ -237,7 +237,7 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                 };
                 
                 // Calculate density using iterator fold for efficiency
-                let rho_local = f_ij.iter().fold(T::zero(), |acc, f| acc + f);
+                let rho_local = f_ij.iter().fold(T::zero(), |acc, f| acc + *f);
 
                 // Calculate velocity using iterator zip and fold for efficiency
                 let u_local = f_ij.iter()
@@ -247,7 +247,7 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                             T::from_i32(ci).unwrap_or_else(|| T::zero()),
                             T::from_i32(cj).unwrap_or_else(|| T::zero()),
                         );
-                        c * f
+                        c * *f
                     })
                     .fold(Vector2::zeros(), |acc, v| acc + v) / rho_local;
 
@@ -598,7 +598,7 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                 let f_ij: Vec<T> = self.f_current()[i][j].iter().cloned().collect();
                 
                 // Calculate density using iterator fold for efficiency
-                let rho_local = f_ij.iter().fold(T::zero(), |acc, f| acc + f);
+                let rho_local = f_ij.iter().fold(T::zero(), |acc, f| acc + *f);
                 self.rho[i][j] = rho_local;
                 
                 // Calculate velocity using iterator for efficiency
@@ -607,8 +607,8 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync + Clone> LbmSolver<T> {
                 
                 for (k, f_k) in f_ij.iter().enumerate() {
                     let (cx, cy) = D2Q9::VELOCITIES[k];
-                    u_local = u_local + f_k * T::from_i32(cx).unwrap_or_else(|| T::zero());
-                    v_local = v_local + f_k * T::from_i32(cy).unwrap_or_else(|| T::zero());
+                    u_local = u_local + *f_k * T::from_i32(cx).unwrap_or_else(|| T::zero());
+                    v_local = v_local + *f_k * T::from_i32(cy).unwrap_or_else(|| T::zero());
                 }
                 
                 // Avoid division by zero

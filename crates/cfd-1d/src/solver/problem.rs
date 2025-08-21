@@ -31,7 +31,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkProblem<T> {
         
         Self {
             domain: NetworkDomain::new(node_count, characteristic_length),
-            fluid: network.fluid(),
+            fluid: network.fluid().clone(),
             boundary_conditions: BoundaryConditionSet::new(),
             network,
         }

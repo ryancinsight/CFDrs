@@ -302,8 +302,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> KEpsilonModel<T> {
         let sigma_k = T::from_f64(constants::SIGMA_K).unwrap_or_else(|| T::zero());
         let sigma_eps = T::from_f64(constants::SIGMA_EPSILON).unwrap_or_else(|| T::zero());
         
-        let mut current_k = self.k;
-        let mut current_epsilon = self.epsilon;
+        let mut current_k = self.k.clone();
+        let mut current_epsilon = self.epsilon.clone();
         
         // Interior points only
         for i in 1..self.nx-1 {

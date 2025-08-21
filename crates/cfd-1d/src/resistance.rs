@@ -65,7 +65,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
 
         // R = (128 * μ * L) / (π * D^4)
         let d4 = num_traits::Float::powf(self.diameter, T::from_f64(4.0).unwrap_or_else(|| T::zero()));
-        let resistance = onehundredtwentyeight * viscosity * self.length / (pi * d4);
+        let resistance = onehundredtwentyeight * *viscosity * self.length / (pi * d4);
 
         Ok(resistance)
     }
@@ -102,7 +102,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
         let dh = T::from_f64(4.0).unwrap_or_else(|| T::zero()) * area /
                 (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (self.width + self.height));
 
-        let resistance = f_re * viscosity * self.length / (area * dh * dh);
+        let resistance = f_re * *viscosity * self.length / (area * dh * dh);
 
         Ok(resistance)
     }
@@ -178,7 +178,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
 
         // Convert Darcy friction factor to hydraulic resistance
         let density = fluid.density;
-        let resistance = friction_factor * self.length * density /
+        let resistance = friction_factor * self.length * *density /
                         (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * num_traits::Float::powf(self.hydraulic_diameter, T::from_f64(2.0).unwrap_or_else(|| T::zero())));
 
         Ok(resistance)
@@ -317,16 +317,16 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceCalculat
         match geometry {
             ChannelGeometry::Circular { diameter, length } => {
                 let model = HagenPoiseuilleModel {
-                    diameter: diameter,
-                    length: length,
+                    diameter: *diameter,
+                    length: *length,
                 };
                 model.calculate_resistance(fluid, conditions)
             },
             ChannelGeometry::Rectangular { width, height, length } => {
                 let model = RectangularChannelModel {
-                    width: width,
-                    height: height,
-                    length: length,
+                    width: *width,
+                    height: *height,
+                    length: *length,
                 };
                 model.calculate_resistance(fluid, conditions)
             },

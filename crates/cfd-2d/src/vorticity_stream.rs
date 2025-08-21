@@ -173,7 +173,7 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
         let _two_dy = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * self.dy;
         
         // Store old vorticity
-        let omega_old = self.omega;
+        let omega_old = self.omega.clone();
         
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {

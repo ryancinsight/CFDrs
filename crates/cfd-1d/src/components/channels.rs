@@ -169,7 +169,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for CircularChann
         let d4 = self.diameter * self.diameter * 
                  self.diameter * self.diameter;
         
-        c128 * viscosity * self.length / (pi * d4)
+        c128 * *viscosity * self.length / (pi * d4)
     }
 
     fn component_type(&self) -> &str {

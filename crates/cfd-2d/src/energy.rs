@@ -51,7 +51,7 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
         dy: T,
         boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
     ) -> Result<()> {
-        let mut current_temperature = self.temperature;
+        let mut current_temperature = self.temperature.clone();
         
         // Interior points
         for i in 1..self.nx-1 {

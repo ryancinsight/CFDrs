@@ -26,8 +26,8 @@ impl<T: RealField + Copy> NetworkState<T> {
     /// Create state from network
     pub fn from_network(network: &Network<T>) -> Self {
         Self {
-            pressures: network.pressures(),
-            flow_rates: network.flow_rates(),
+            pressures: network.pressures().clone(),
+            flow_rates: network.flow_rates().clone(),
             time: T::zero(),
         }
     }

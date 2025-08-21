@@ -30,7 +30,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
     /// Update momentum equation coefficients from discretized momentum equation
     /// A_p is the diagonal coefficient from momentum discretization
     pub fn update_coefficients(&mut self, ap: &Field2D<T>) {
-        self.ap_coefficients = ap;
+        self.ap_coefficients = ap.clone();
     }
     
     /// Compute face velocity with complete Rhie-Chow interpolation
