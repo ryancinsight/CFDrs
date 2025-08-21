@@ -200,8 +200,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
             .iter()
             .zip(self.v.data().iter())
             .map(|(u, v)| {
-                let u2 = u * u;
-                let v2 = v * v;
+                let u2 = *u * *u;
+                let v2 = *v * *v;
                 (u2 + v2).sqrt()
             })
             .fold(T::zero(), |acc, mag| if mag > acc { mag } else { acc })
@@ -213,7 +213,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
             data: self.viscosity.data()
                 .iter()
                 .zip(self.density.data().iter())
-                .map(|(mu, rho)| mu / rho)
+                .map(|(mu, rho)| *mu / *rho)
                 .collect(),
             nx: self.nx,
             ny: self.ny,
@@ -224,12 +224,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
     pub fn reynolds_number(&self, characteristic_length: T, characteristic_velocity: T) -> T {
         let avg_density = self.density.data()
             .iter()
-            .fold(T::zero(), |acc, d| acc + d) 
+            .fold(T::zero(), |acc, d| acc + *d) 
             / T::from_usize(self.density.data.len()).unwrap_or_else(T::one);
             
         let avg_viscosity = self.viscosity.data()
             .iter()
-            .fold(T::zero(), |acc, v| acc + v)
+            .fold(T::zero(), |acc, v| acc + *v)
             / T::from_usize(self.viscosity.data.len()).unwrap_or_else(T::one);
             
         avg_density * characteristic_velocity * characteristic_length / avg_viscosity

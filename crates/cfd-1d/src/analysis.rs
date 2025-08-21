@@ -2,7 +2,7 @@
 
 use crate::network::Network;
 use crate::channel::FlowRegime;
-use cfd_core::{Result, Fluid};
+use cfd_core::{Result, Error, Fluid};
 use nalgebra::{RealField, ComplexField};
 use num_traits::FromPrimitive;
 

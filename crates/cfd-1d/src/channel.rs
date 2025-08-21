@@ -397,10 +397,10 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> Channel<T> {
     fn calculate_laminar_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
         match &self.geometry.cross_section {
             CrossSection::Rectangular { width, height } => {
-                self.calculate_rectangular_laminar_resistance(fluid, width, height)
+                self.calculate_rectangular_laminar_resistance(fluid, *width, *height)
             },
             CrossSection::Circular { diameter } => {
-                self.calculate_circular_laminar_resistance(fluid, diameter)
+                self.calculate_circular_laminar_resistance(fluid, *diameter)
             },
             _ => {
                 // Use general formula for other shapes

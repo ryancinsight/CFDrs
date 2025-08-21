@@ -283,7 +283,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
             BoundaryCondition::Dirichlet { value } => {
                 // φ = value (Dirichlet condition)
                 matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
-                rhs[linear_idx] = value;
+                rhs[linear_idx] = *value;
             }
             BoundaryCondition::Neumann { gradient } => {
                 // ∂φ/∂n = gradient (Neumann condition)
