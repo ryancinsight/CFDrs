@@ -192,7 +192,7 @@ impl<T: RealField + Copy> TimeIntegrator<T> for BackwardEuler<T> {
         // Fixed-point iteration: y_{n+1}^{k+1} = y_n + dt * f(t_{n+1}, y_{n+1}^k)
         for iteration in 0..self.max_iterations {
             let f_val = f(t_new, &y_new);
-            let y_next = &y_old + &(&f_val * dt);
+            let y_next = y_old.clone() + f_val * dt;
 
             // Check convergence
             let error = (&y_next - &y_new).norm();
@@ -292,7 +292,7 @@ impl<T: RealField + Copy> TimeIntegrator<T> for CrankNicolson<T> {
         // Fixed-point iteration: y_{n+1}^{k+1} = y_n + dt/2 * (f(t_n, y_n) + f(t_{n+1}, y_{n+1}^k))
         for iteration in 0..self.max_iterations {
             let f_new = f(t_new, &y_new);
-            let y_next = &y_old + &((&f_old + &f_new) * half_dt);
+            let y_next = y_old.clone() + (f_old.clone() + f_new) * half_dt;
 
             // Check convergence
             let error = (&y_next - &y_new).norm();

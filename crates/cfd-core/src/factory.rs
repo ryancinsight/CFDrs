@@ -146,7 +146,7 @@ where
             .downcast_ref::<F::Config>()
             .ok_or_else(|| Error::InvalidConfiguration("Invalid configuration type".into()))?;
         
-        let solver = self.factory.create(&typed_config)?;
+        let solver = self.factory.create(typed_config)?;
         Ok(Box::new(DynamicSolverWrapper::new(solver)))
     }
     
