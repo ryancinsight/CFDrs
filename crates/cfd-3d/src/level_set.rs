@@ -388,7 +388,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
     
     /// Reinitialize to signed distance function
     pub fn reinitialize(&mut self) {
-        let mut phi_temp = self.phi;
+        let mut phi_temp = self.phi.clone();
         let epsilon = T::from_f64(EPSILON_SMOOTHING).unwrap_or_else(|| T::zero()) * self.dx;
         let sign_phi = self.phi.iter()
             .map(|p| self.smooth_sign(*p, epsilon))
@@ -397,7 +397,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
         let dtau = T::from_f64(0.5).unwrap_or_else(|| T::zero()) * self.dx.min(self.dy).min(self.dz);
         
         for _ in 0..self.config.max_iterations {
-            let phi_previous_temp = phi_temp;
+            let phi_previous_temp = phi_temp.clone();
             
             for k in 1..self.nz-1 {
                 for j in 1..self.ny-1 {

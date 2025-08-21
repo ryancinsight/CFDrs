@@ -17,7 +17,7 @@ pub struct RhieChowInterpolation<T: RealField + Copy> {
     ap_coefficients: Field2D<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> RhieChowInterpolation<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
     /// Create new interpolator with momentum coefficients
     pub fn new(grid: &StructuredGrid2D<T>) -> Self {
         Self {

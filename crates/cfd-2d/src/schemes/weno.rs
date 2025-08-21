@@ -10,7 +10,7 @@ pub struct WENO5<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> WENO5<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> WENO5<T> {
     /// Create new WENO5 scheme
     pub fn new() -> Self {
         Self {
@@ -60,7 +60,7 @@ impl<T: RealField + FromPrimitive + Copy> WENO5<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> SpatialDiscretization<T> for WENO5<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for WENO5<T> {
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         // Extract stencil
         let v = [

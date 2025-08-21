@@ -25,7 +25,7 @@ pub struct PisoConfig<T: RealField + Copy> {
     pub pressure_max_iterations: usize,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for PisoConfig<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for PisoConfig<T> {
     fn default() -> Self {
         Self {
             base: SolverConfig::default(),

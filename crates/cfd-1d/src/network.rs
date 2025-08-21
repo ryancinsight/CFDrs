@@ -87,7 +87,7 @@ pub struct NetworkBuilder<T: RealField + Copy> {
     network: Network<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> NetworkBuilder<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> NetworkBuilder<T> {
     pub fn new(fluid: Fluid<T>) -> Self {
         Self {
             network: Network::new(fluid),
@@ -121,7 +121,7 @@ pub struct Network<T: RealField + Copy> {
     flow_rates: DVector<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Network<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
     pub fn new(fluid: Fluid<T>) -> Self {
         Self {
             graph: Graph::new(),

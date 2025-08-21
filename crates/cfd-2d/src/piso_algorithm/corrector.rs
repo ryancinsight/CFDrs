@@ -20,7 +20,7 @@ pub struct PressureCorrector<T: RealField + Copy> {
     pressure_relaxation: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> PressureCorrector<T> 
+impl<T: RealField + Copy + FromPrimitive + Copy> PressureCorrector<T> 
 where
     T: Copy,
 {
@@ -75,8 +75,8 @@ where
     ) -> Result<Field2D<T>> {
         let mut p_prime = Field2D::new(self.nx, self.ny, T::zero());
         let mut residual = T::from_f64(1.0).unwrap();
-        let tolerance = T::from_f64(crate::constants::numerical::DEFAULT_CONVERGENCE_TOLERANCE).unwrap();
-        let max_iter = crate::constants::numerical::DEFAULT_MAX_ITERATIONS;
+        let tolerance = T::from_f64(cfd_core::constants::numerical::DEFAULT_CONVERGENCE_TOLERANCE).unwrap();
+        let max_iter = cfd_core::constants::numerical::DEFAULT_MAX_ITERATIONS;
         let mut iter = 0;
 
         // Calculate H(u) operator for PISO neighbor correction

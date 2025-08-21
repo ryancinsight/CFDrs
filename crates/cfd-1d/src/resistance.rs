@@ -75,7 +75,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), T::from_f64(crate::constants::LAMINAR_THRESHOLD).unwrap_or_else(|| T::zero()))
+        (T::zero(), T::from_f64(cfd_core::constants::LAMINAR_THRESHOLD).unwrap_or_else(|| T::zero()))
     }
 }
 
@@ -112,7 +112,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), T::from_f64(crate::constants::LAMINAR_THRESHOLD).unwrap_or_else(|| T::zero()))
+        (T::zero(), T::from_f64(cfd_core::constants::LAMINAR_THRESHOLD).unwrap_or_else(|| T::zero()))
     }
 }
 
@@ -189,7 +189,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::from_f64(crate::constants::TURBULENT_THRESHOLD).unwrap_or_else(|| T::zero()), T::from_f64(1e8).unwrap_or_else(|| T::zero()))
+        (T::from_f64(cfd_core::constants::TURBULENT_THRESHOLD).unwrap_or_else(|| T::zero()), T::from_f64(1e8).unwrap_or_else(|| T::zero()))
     }
 }
 
@@ -245,7 +245,7 @@ pub struct ResistanceModelFactory;
 
 impl ResistanceModelFactory {
     /// Create Hagen-Poiseuille model for circular channel
-    pub fn hagen_poiseuille<T: RealField + FromPrimitive + Copy>(
+    pub fn hagen_poiseuille<T: RealField + Copy + FromPrimitive + Copy>(
         diameter: T,
         length: T
     ) -> HagenPoiseuilleModel<T> {
@@ -253,7 +253,7 @@ impl ResistanceModelFactory {
     }
 
     /// Create rectangular channel model
-    pub fn rectangular_channel<T: RealField + FromPrimitive + Copy>(
+    pub fn rectangular_channel<T: RealField + Copy + FromPrimitive + Copy>(
         width: T,
         height: T,
         length: T
@@ -262,7 +262,7 @@ impl ResistanceModelFactory {
     }
 
     /// Create Darcy-Weisbach model for turbulent flow
-    pub fn darcy_weisbach<T: RealField + FromPrimitive + Copy>(
+    pub fn darcy_weisbach<T: RealField + Copy + FromPrimitive + Copy>(
         hydraulic_diameter: T,
         length: T,
         roughness: T
@@ -415,7 +415,7 @@ mod tests {
 
         let (re_min, re_max) = model.reynolds_range();
         assert_eq!(re_min, 0.0);
-        assert_eq!(re_max, crate::constants::LAMINAR_THRESHOLD);
+        assert_eq!(re_max, cfd_core::constants::LAMINAR_THRESHOLD);
     }
 
     #[test]
@@ -483,7 +483,7 @@ mod tests {
         assert!(model.is_applicable(&conditions));
 
         let (re_min, re_max) = model.reynolds_range();
-        assert_eq!(re_min, crate::constants::TURBULENT_THRESHOLD);
+        assert_eq!(re_min, cfd_core::constants::TURBULENT_THRESHOLD);
         assert_eq!(re_max, 1e8);
     }
 

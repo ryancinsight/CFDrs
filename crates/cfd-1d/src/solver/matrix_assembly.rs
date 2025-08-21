@@ -22,7 +22,7 @@ impl<T: RealField + Copy> MatrixAssembler<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy + Send + Sync + Copy> MatrixAssembler<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAssembler<T> {
     /// Assemble the linear system matrix and right-hand side vector
     /// 
     /// This builds the system Ax = b where:

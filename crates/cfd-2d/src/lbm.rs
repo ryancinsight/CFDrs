@@ -69,7 +69,7 @@ pub struct LbmConfig<T: RealField + Copy> {
     pub verbose: bool,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for LbmConfig<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for LbmConfig<T> {
     fn default() -> Self {
         Self {
             tau: T::from_f64(1.0).unwrap_or_else(|| T::zero()),

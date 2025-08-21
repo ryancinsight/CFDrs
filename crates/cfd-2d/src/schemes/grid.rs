@@ -16,7 +16,7 @@ pub struct Grid2D<T: RealField + Copy> {
     pub ghost_cells: usize,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Grid2D<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Grid2D<T> {
     /// Create a new 2D grid
     pub fn new(nx: usize, ny: usize, dx: T, dy: T, ghost_cells: usize) -> Self {
         let total_nx = nx + 2 * ghost_cells;

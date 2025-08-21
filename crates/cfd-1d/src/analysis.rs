@@ -71,7 +71,7 @@ pub struct NetworkAnalyzer<T: RealField + Copy> {
     solver: crate::solver::NetworkSolver<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy + num_traits::Float + Copy> NetworkAnalyzer<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy + num_traits::Float + Copy> NetworkAnalyzer<T> {
     /// Create a new network analyzer
     pub fn new() -> Self {
         Self {
@@ -287,9 +287,9 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::Float + Copy> NetworkAnal
         
         if re_val < 1.0 {
             FlowRegime::Stokes
-        } else if re_val < crate::constants::LAMINAR_THRESHOLD {
+        } else if re_val < cfd_core::constants::LAMINAR_THRESHOLD {
             FlowRegime::Laminar
-        } else if re_val <= crate::constants::TURBULENT_THRESHOLD {
+        } else if re_val <= cfd_core::constants::TURBULENT_THRESHOLD {
             FlowRegime::Transitional
         } else {
             FlowRegime::Turbulent

@@ -368,9 +368,9 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> Channel<T> {
 
         if re_val < 0.1 {
             FlowRegime::Stokes
-        } else if re_val < crate::constants::LAMINAR_THRESHOLD {
+        } else if re_val < cfd_core::constants::LAMINAR_THRESHOLD {
             FlowRegime::Laminar
-        } else if re_val <= crate::constants::TURBULENT_THRESHOLD {
+        } else if re_val <= cfd_core::constants::TURBULENT_THRESHOLD {
             FlowRegime::Transitional
         } else {
             FlowRegime::Turbulent

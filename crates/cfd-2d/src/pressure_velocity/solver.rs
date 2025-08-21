@@ -28,7 +28,7 @@ pub struct PressureVelocitySolver<T: RealField + Copy> {
     iterations: usize,
 }
 
-impl<T: RealField + FromPrimitive + Copy + LowerExp> PressureVelocitySolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp> PressureVelocitySolver<T> {
     /// Create new pressure-velocity coupling solver
     pub fn new(
         grid: StructuredGrid2D<T>,

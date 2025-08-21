@@ -27,7 +27,7 @@ pub struct FdmConfig<T: RealField + Copy> {
 ///
 /// Solves the linear system Ax = b using Gauss-Seidel iteration with relaxation.
 /// Returns an error if convergence is not achieved within max_iterations.
-fn solve_gauss_seidel<T: RealField + FromPrimitive + Copy>(
+fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive + Copy>(
     matrix: &SparseMatrix<T>,
     rhs: &DVector<T>,
     config: &FdmConfig<T>,
@@ -91,7 +91,7 @@ fn solve_gauss_seidel<T: RealField + FromPrimitive + Copy>(
     ))
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for FdmConfig<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for FdmConfig<T> {
     fn default() -> Self {
         Self {
             base: cfd_core::solver::SolverConfig::default(),
@@ -127,7 +127,7 @@ pub struct PoissonSolver<T: RealField + Copy> {
     config: FdmConfig<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
     /// Create a new Poisson solver
     pub fn new(config: FdmConfig<T>) -> Self {
         Self { config }
@@ -239,7 +239,7 @@ pub struct AdvectionDiffusionSolver<T: RealField + Copy> {
     config: FdmConfig<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
     /// Create a new advection-diffusion solver
     pub fn new(config: FdmConfig<T>) -> Self {
         Self { config }

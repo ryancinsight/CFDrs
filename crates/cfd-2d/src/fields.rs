@@ -128,7 +128,7 @@ pub struct SimulationFields<T: RealField + Copy> {
     pub ny: usize,
 }
 
-impl<T: RealField + FromPrimitive + Copy> SimulationFields<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
     /// Create new simulation fields with zero initialization
     pub fn new(nx: usize, ny: usize) -> Self {
         Self {

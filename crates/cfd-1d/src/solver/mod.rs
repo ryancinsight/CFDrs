@@ -58,7 +58,7 @@ pub struct NetworkSolver<T: RealField + Copy> {
     convergence: ConvergenceChecker<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> NetworkSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
     /// Create a new network solver with default configuration
     pub fn new() -> Self {
         let config = SolverConfig {
@@ -107,7 +107,7 @@ impl<T: RealField + FromPrimitive + Copy> NetworkSolver<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> Solver<T> for NetworkSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Solver<T> for NetworkSolver<T> {
     type Problem = NetworkProblem<T>;
     type Solution = Network<T>;
 
@@ -132,7 +132,7 @@ impl<T: RealField + Copy> Configurable<T> for NetworkSolver<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> Validatable<T> for NetworkSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Validatable<T> for NetworkSolver<T> {
     type Problem = NetworkProblem<T>;
 
     fn validate_problem(&self, problem: &Self::Problem) -> Result<()> {

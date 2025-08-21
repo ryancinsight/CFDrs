@@ -23,7 +23,7 @@ impl<T: RealField + Copy> NetworkDomain<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> Domain<T> for NetworkDomain<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Domain<T> for NetworkDomain<T> {
     fn dimension(&self) -> usize {
         1 // 1D network
     }

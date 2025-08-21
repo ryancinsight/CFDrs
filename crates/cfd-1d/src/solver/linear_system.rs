@@ -20,7 +20,7 @@ pub struct LinearSystemSolver<T: RealField + Copy> {
     tolerance: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> LinearSystemSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
     /// Create a new linear system solver
     pub fn new() -> Self {
         Self {

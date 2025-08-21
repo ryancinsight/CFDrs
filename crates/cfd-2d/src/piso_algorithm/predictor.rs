@@ -18,7 +18,7 @@ pub struct VelocityPredictor<T: RealField + Copy> {
     relaxation_factor: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> VelocityPredictor<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
     /// Create new velocity predictor
     pub fn new(grid: &StructuredGrid2D<T>, relaxation_factor: T) -> Self {
         Self {

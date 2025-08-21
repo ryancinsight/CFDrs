@@ -31,7 +31,7 @@ pub struct VorticityStreamConfig<T: RealField + Copy> {
     pub sor_omega: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for VorticityStreamConfig<T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for VorticityStreamConfig<T> {
     fn default() -> Self {
         let base = cfd_core::solver::SolverConfig::builder()
             .max_iterations(DEFAULT_MAX_ITERATIONS)
