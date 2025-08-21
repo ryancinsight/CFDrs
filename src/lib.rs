@@ -42,7 +42,7 @@ pub mod prelude {
     pub use cfd_math::{
                  SparseMatrix, SparseMatrixBuilder, LinearSolver, ConjugateGradient, BiCGSTAB,
 GaussQuadrature, FiniteDifference, Interpolation, LinearInterpolation, CubicSplineInterpolation,
-        MathIteratorExt, VectorOps, SliceOps, CfdIteratorChain, VectorizedOps, StencilOps
+        MathIteratorExt, VectorOps, CfdIteratorChain, VectorizedOps, StencilOps
     };
     pub use cfd_math::integration::{AdaptiveQuadrature, VariableQuadrature};
 

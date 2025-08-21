@@ -47,11 +47,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
              domain_bounds.0.x, domain_bounds.1.x);
     
     // Create spectral solver
-    let solver = SpectralSolver::new(
-        config,
-        SpectralBasis::Chebyshev,
-        domain_bounds,
-    );
+    let solver = SpectralSolver::new(config).expect("Failed to create spectral solver");
     
     // Define the source function for Poisson equation: ∇²u = f
     // We'll use f(x,y,z) = -3π²sin(πx)sin(πy)sin(πz)

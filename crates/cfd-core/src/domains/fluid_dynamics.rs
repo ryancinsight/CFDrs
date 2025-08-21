@@ -10,7 +10,7 @@ use crate::constants;
 
 /// Flow field abstraction representing velocity, pressure, and scalar fields
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FlowField<T: RealField> {
+pub struct FlowField<T: RealField + Copy> {
     /// Velocity field components
     pub velocity: VelocityField<T>,
     /// Pressure field
@@ -21,7 +21,7 @@ pub struct FlowField<T: RealField> {
 
 /// Velocity field representation with zero-copy operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VelocityField<T: RealField> {
+pub struct VelocityField<T: RealField + Copy> {
     /// Velocity components (u, v, w)
     pub components: Vec<Vector3<T>>,
     /// Field dimensions
@@ -30,7 +30,7 @@ pub struct VelocityField<T: RealField> {
 
 /// Pressure field representation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PressureField<T: RealField> {
+pub struct PressureField<T: RealField + Copy> {
     /// Pressure values
     pub values: Vec<T>,
     /// Field dimensions
@@ -39,7 +39,7 @@ pub struct PressureField<T: RealField> {
 
 /// Generic scalar field for temperature, concentration, etc.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ScalarField<T: RealField> {
+pub struct ScalarField<T: RealField + Copy> {
     /// Scalar values
     pub values: Vec<T>,
     /// Field dimensions
@@ -156,10 +156,10 @@ pub mod les {
                             flow_field.velocity.components.get(idx_plus),
                             flow_field.velocity.components.get(idx_minus),
                         ) {
-                            let u_plus = u_plus_vec.x.clone();
-                            let u_minus = u_minus_vec.x.clone();
-                            let dudx = (u_plus - u_minus) / (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * delta.clone());
-                            strain_rate_squared = strain_rate_squared + dudx.clone() * dudx;
+                            let u_plus = u_plus_vec.x;
+                            let u_minus = u_minus_vec.x;
+                            let dudx = (u_plus - u_minus) / (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * delta);
+                            strain_rate_squared = strain_rate_squared + dudx * dudx;
                         }
                     }
                     
@@ -170,7 +170,7 @@ pub mod les {
                             flow_field.velocity.components.get(idx_plus),
                             flow_field.velocity.components.get(idx_minus),
                         ) {
-                            let v_plus = v_plus_vec.y.clone();
+                            let v_plus = v_plus_vec.y;
                             let v_minus = v_minus_vec.y.clone();
                             let dvdy = (v_plus - v_minus) / (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * delta.clone());
                             strain_rate_squared = strain_rate_squared + dvdy.clone() * dvdy;
