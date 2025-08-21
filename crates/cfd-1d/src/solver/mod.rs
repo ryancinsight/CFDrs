@@ -89,7 +89,7 @@ impl<T: RealField + FromPrimitive + Copy> NetworkSolver<T> {
         let (matrix, rhs) = self.assembler.assemble(&problem.network)?;
         
         // Solve the linear system
-        let solution = self.linear_solver.solve(matrix, rhs)?;
+        let solution = self.linear_solver.solve(&matrix, &rhs)?;
         
         // Check convergence
         self.convergence.check(&solution)?;

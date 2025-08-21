@@ -122,22 +122,21 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
                 component_flows.insert(edge.id.clone(), flow_rate.clone());
                 
                 // Calculate velocity if area is available
-                if let Some(area) = edge.properties.area {
-                    if area > T::zero() {
-                        let velocity = flow_rate.clone() / area;
-                        velocities.insert(edge.id.clone(), velocity.clone());
+                let area = edge.properties.area.clone();
+                if area > T::zero() {
+                    let velocity = flow_rate.clone() / area;
+                    velocities.insert(edge.id.clone(), velocity.clone());
+                    
+                    // Calculate Reynolds number if hydraulic diameter is available
+                    if let Some(dh) = edge.properties.hydraulic_diameter {
+                        let re = self.calculate_reynolds_number(
+                            fluid, velocity, dh
+                        );
+                        reynolds_numbers.insert(edge.id.clone(), re.clone());
                         
-                        // Calculate Reynolds number if hydraulic diameter is available
-                        if let Some(dh) = edge.properties.hydraulic_diameter {
-                            let re = self.calculate_reynolds_number(
-                                fluid, velocity, dh
-                            );
-                            reynolds_numbers.insert(edge.id.clone(), re.clone());
-                            
-                            // Classify flow regime
-                            let regime = self.classify_flow_regime(re);
-                            flow_regimes.insert(edge.id.clone(), regime);
-                        }
+                        // Classify flow regime
+                        let regime = self.classify_flow_regime(re);
+                        flow_regimes.insert(edge.id.clone(), regime);
                     }
                 }
                 
@@ -167,8 +166,10 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         let mut pressure_gradients = HashMap::new();
         
         // Collect node pressures
-        for node in network.nodes() {
-            if let Some(pressure) = node.pressure {
+        let pressure_vec = network.pressures();
+        for (idx, node) in network.nodes().enumerate() {
+            if idx < pressure_vec.len() {
+                let pressure = pressure_vec[idx].clone();
                 pressures.insert(node.id.clone(), pressure.clone());
                 
                 if pressure > max_pressure {
@@ -181,16 +182,19 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         }
         
         // Collect pressure drops and gradients
+        let pressure_vec = network.pressures();
         for edge in network.edges_with_properties() {
-            if let Some(pressure_drop) = edge.pressure_drop {
+            // Calculate pressure drop from node pressures
+            let (from_idx, to_idx) = edge.nodes;
+            if from_idx < pressure_vec.len() && to_idx < pressure_vec.len() {
+                let pressure_drop = pressure_vec[from_idx] - pressure_vec[to_idx];
                 pressure_drops.insert(edge.id.clone(), pressure_drop.clone());
                 
-                // Calculate pressure gradient if length is available
-                if let Some(length) = edge.properties.length {
-                    if length > T::zero() {
-                        let gradient = pressure_drop / length;
-                        pressure_gradients.insert(edge.id.clone(), gradient);
-                    }
+                // Calculate pressure gradient using length
+                let length = edge.properties.length;
+                if length > T::zero() {
+                    let gradient = pressure_drop / length;
+                    pressure_gradients.insert(edge.id.clone(), gradient);
                 }
             }
         }
@@ -207,20 +211,16 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
     /// Analyze hydraulic resistances using iterator combinators
     pub fn analyze_resistance(&self, network: &Network<T>) -> Result<ResistanceAnalysis<T>> {
         // Use iterator patterns for zero-copy resistance collection
-        let (resistances, resistance_by_type) = network.edges()
-            .map(|edge| {
-                let resistance = edge.effective_resistance();
-                let type_key = edge.edge_type.as_str();
-                ((edge.id.as_str(), resistance), (type_key, resistance))
-            })
-            .fold(
-                (HashMap::new(), HashMap::new()),
-                |(mut resistances, mut by_type), ((id, resistance), (type_key, res))| {
-                    resistances.insert(id.to_string(), resistance);
-                    *by_type.entry(type_key.to_string()).or_insert(T::zero()) += res;
-                    (resistances, by_type)
-                }
-            );
+        let mut resistances = HashMap::new();
+        let mut resistance_by_type = HashMap::new();
+        
+        for edge in network.edges_with_properties() {
+            let resistance = edge.properties.resistance.clone();
+            resistances.insert(edge.id.clone(), resistance.clone());
+            
+            // For now, group all as "pipe" type since EdgeType is not accessible
+            *resistance_by_type.entry("pipe".to_string()).or_insert(T::zero()) += resistance;
+        }
 
         // Calculate total equivalent resistance using Modified Nodal Analysis
         let total_resistance = self.calculate_equivalent_resistance(network);
@@ -326,9 +326,9 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         // Fill conductance matrix from network edges
         // We need to iterate through the graph edges to get connections
         use petgraph::visit::EdgeRef;
-        for edge_ref in network.graph.edge_references() {
+        for edge_ref in network.graph().edge_references() {
             let edge = edge_ref.weight();
-            let resistance = edge.effective_resistance();
+            let resistance = edge.resistance.clone();
             if resistance <= T::zero() {
                 continue; // Skip zero/negative resistances
             }
@@ -365,8 +365,8 @@ impl<T: RealField + FromPrimitive + num_traits::Float + Copy> NetworkAnalyzer<T>
         
         if inlet_indices.is_empty() || outlet_indices.is_empty() {
             // If no clear inlet/outlet, calculate series resistance
-            return network.edges()
-                .map(|edge| edge.effective_resistance())
+            return network.edges_with_properties()
+                .map(|edge| edge.properties.resistance.clone())
                 .fold(T::zero(), |acc, r| acc + r);
         }
         
@@ -449,8 +449,8 @@ use cfd_core::solver::LinearSolverConfig;;
             }
             Err(_) => {
                 // Fallback to series sum if solver fails
-                network.edges()
-                    .map(|edge| edge.effective_resistance())
+                network.edges_with_properties()
+                    .map(|edge| edge.properties.resistance.clone())
                     .fold(T::zero(), |acc, r| acc + r)
             }
         }
@@ -466,8 +466,8 @@ use cfd_core::solver::LinearSolverConfig;;
         let end_id = end.to_string();
         
         // Find NodeIndex for start and end nodes
-        let start_idx = network.get_node_index(&start_id);
-        let end_idx = network.get_node_index(&end_id);
+        let start_idx = network.get_node_index_raw(&start_id);
+        let end_idx = network.get_node_index_raw(&end_id);
         
         if let (Some(start_node), Some(end_node)) = (start_idx, end_idx) {
             // Use DFS to find all paths
@@ -508,21 +508,19 @@ use cfd_core::solver::LinearSolverConfig;;
         }
         
         // Explore all outgoing edges
-        for edge_ref in network.graph.edges(current) {
+        for edge_ref in network.graph().edges(current) {
             let edge_idx = edge_ref.id();
             let next_node = edge_ref.target();
             
             // Skip if we've already used this edge in the current path
             if !visited_edges.contains(&edge_idx) {
                 // Add edge to current path
-                // Convert EdgeIndex to edge ID then to position
-                if let Some(edge_id) = network.get_edge_id_by_index(edge_idx) {
-                    // Find the position of this edge in the edges iterator
-                    if let Some(edge_pos) = network.edges()
-                        .position(|e| e.id == edge_id) {
-                        
-                        visited_edges.insert(edge_idx);
-                        current_path.push(edge_pos);
+                // Convert EdgeIndex to position
+                // Since edges() returns EdgeData without id, we use the edge index directly
+                let edge_pos = edge_idx.index();
+                
+                visited_edges.insert(edge_idx);
+                current_path.push(edge_pos);
                         
                         // Recursively explore from the next node
                         self.dfs_find_paths(
@@ -546,8 +544,8 @@ use cfd_core::solver::LinearSolverConfig;;
     /// Find critical resistance paths using advanced iterator patterns
     fn find_critical_paths(&self, network: &Network<T>) -> Vec<Vec<String>> {
         // Zero-copy analysis using iterator combinators
-        let edge_data: Vec<_> = network.edges()
-            .map(|edge| (edge.id.as_str(), edge.effective_resistance()))
+        let edge_data: Vec<_> = network.edges_with_properties()
+            .map(|edge| (edge.id.as_str(), edge.properties.resistance.clone()))
             .collect();
 
         if edge_data.is_empty() {

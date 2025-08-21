@@ -279,6 +279,11 @@ impl<T: RealField + FromPrimitive + Copy> Network<T> {
         self.node_indices.get(id).map(|idx| idx.index())
     }
     
+    /// Get node index as NodeIndex by ID
+    pub fn get_node_index_raw(&self, id: &str) -> Option<NodeIndex> {
+        self.node_indices.get(id).copied()
+    }
+    
     /// Get edge ID by index
     pub fn get_edge_id_by_index(&self, idx: petgraph::graph::EdgeIndex) -> Option<String> {
         self.edge_indices.iter()
