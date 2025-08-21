@@ -1,5 +1,8 @@
 //! Constants module for CFD simulations
 
+// Re-export commonly used constants at module level
+pub use self::physics::*;
+
 pub mod physics {
     //! Physical constants
     
@@ -20,4 +23,22 @@ pub mod physics {
     
     /// Two constant  
     pub const TWO: f64 = 2.0;
+    
+    /// One constant
+    pub const ONE: f64 = 1.0;
+    
+    /// Three constant
+    pub const THREE: f64 = 3.0;
+    
+    /// Four constant
+    pub const FOUR: f64 = 4.0;
+    
+    /// One tenth constant
+    pub const ONE_TENTH: f64 = 0.1;
+    
+    /// Laminar flow threshold (Reynolds number)
+    pub const LAMINAR_THRESHOLD: f64 = 2300.0;
+    
+    /// Turbulent flow threshold (Reynolds number)
+    pub const TURBULENT_THRESHOLD: f64 = 4000.0;
 }

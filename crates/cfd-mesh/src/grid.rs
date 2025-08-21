@@ -302,20 +302,20 @@ impl<T: RealField + FromPrimitive + Copy> GridGenerator<T> {
             GridSpacing::Geometric { first, ratio } => {
                 // Geometric progression
                 coords.push(min);
-                let mut current_spacing = first;
+                let mut current_spacing = *first;
                 let mut current = min;
                 
                 for _ in 1..n {
                     current = current + current_spacing;
                     coords.push(current);
-                    current_spacing = current_spacing * ratio;
+                    current_spacing = current_spacing * *ratio;
                 }
                 
                 // Scale to fit bounds
                 let actual_max = coords.last().ok_or(GridError::InvalidGrid("Empty coordinate collection".to_string()))?;
-                let scale = (max - min) / (actual_max - min);
+                let scale = (max - min) / (*actual_max - min);
                 for coord in &mut coords {
-                    *coord = min + (coord - min) * scale;
+                    *coord = min + (*coord - min) * scale;
                 }
             }
             GridSpacing::Hyperbolic { center, width } => {
@@ -325,7 +325,7 @@ impl<T: RealField + FromPrimitive + Copy> GridGenerator<T> {
                              T::from_f64(2.0).unwrap_or_else(|| T::zero()) * T::from_usize(i).unwrap_or_else(|| T::zero()) / 
                              T::from_usize(n - 1).unwrap_or_else(|| T::zero());
                     
-                    let stretched = center + width * xi.tanh();
+                    let stretched = *center + *width * xi.tanh();
                     let normalized = (stretched + T::one()) / T::from_f64(2.0).unwrap_or_else(|| T::zero());
                     
                     coords.push(min + (max - min) * normalized);
@@ -409,7 +409,7 @@ impl<T: RealField + FromPrimitive + Copy> StructuredGrid<T> {
         for (id, point) in self.points.iter().enumerate() {
             mesh.vertices.push(Vertex {
                 id,
-                position: point,
+                position: *point,
             });
         }
         
@@ -506,7 +506,7 @@ impl<T: RealField + FromPrimitive + Copy> StructuredGrid<T> {
         let alpha = T::from_f64(0.5).unwrap_or_else(|| T::zero()); // Smoothing factor
         
         for _ in 0..iterations {
-            let mut current_points = self.points;
+            let mut current_points = self.points.clone();
             
             // Smooth interior points only
             for k in 1..nz-1 {
