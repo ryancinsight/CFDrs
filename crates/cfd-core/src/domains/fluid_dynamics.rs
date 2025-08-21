@@ -432,7 +432,7 @@ pub mod rans_extended {
 }
 
 /// Flow field operations using zero-copy iterators
-impl<T: RealField> FlowField<T> {
+impl<T: RealField + Copy> FlowField<T> {
     /// Calculate divergence using finite differences
     /// ∇·v = ∂u/∂x + ∂v/∂y + ∂w/∂z
     pub fn divergence(&self) -> Vec<T> {
