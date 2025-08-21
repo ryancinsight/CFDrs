@@ -154,8 +154,8 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Quadrature<T> for GaussQua
             .iter()
             .zip(self.weights.iter())
             .map(|(point, weight)| {
-                let x = mid_point + half_interval * point;
-                weight * f(x)
+                let x = mid_point + half_interval * *point;
+                *weight * f(x)
             })
             .fold(T::zero(), |acc, term| acc + term);
 

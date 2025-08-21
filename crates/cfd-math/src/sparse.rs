@@ -212,7 +212,7 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
                 y[row_idx] = row.col_indices()
                     .iter()
                     .zip(row.values())
-                    .map(|(&col_idx, value)| value * x[col_idx])
+                    .map(|(&col_idx, value)| *value * x[col_idx])
                     .fold(T::zero(), |acc, val| acc + val);
             });
     }
@@ -221,7 +221,7 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
         // Zero-copy computation using iterator combinators
         self.values()
             .iter()
-            .map(|v| v * v)
+            .map(|v| *v * *v)
             .fold(T::zero(), |acc, v| acc + v)
             .sqrt()
     }
@@ -235,7 +235,7 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
             .iter()
             .fold((T::max_value().expect("CRITICAL: Add proper error handling"), T::min_value().expect("CRITICAL: Add proper error handling")),
                   |(min, max), val| {
-                      (min.min(val), max.max(val))
+                      (min.min(*val), max.max(*val))
                   });
 
         MatrixStats {
@@ -256,7 +256,7 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
         for (row_idx, row) in self.row_iter().enumerate().take(n) {
             for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
                 if *col_idx == row_idx {
-                    diag[row_idx] = value;
+                    diag[row_idx] = *value;
                     break;
                 }
             }
@@ -279,7 +279,7 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
 
         for (row_idx, row) in self.row_iter().enumerate() {
             for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
-                entries.insert((row_idx, *col_idx), value);
+                entries.insert((row_idx, *col_idx), *value);
             }
         }
 
@@ -289,7 +289,7 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
             let symmetric_value = entries.get(&(*j, *i)).cloned().unwrap_or_else(T::zero);
 
             // Check if A[i,j] ≈ A[j,i]
-            let diff = (value - symmetric_value).abs();
+            let diff = (*value - symmetric_value).abs();
             if diff > tolerance {
                 return false;
             }

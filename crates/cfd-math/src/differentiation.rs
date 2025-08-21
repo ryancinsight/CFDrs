@@ -240,7 +240,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
     pub fn gradient_1d(&self, field: &[T]) -> Result<Vec<T>> {
         let fd = FiniteDifference::central(self.dx);
         let grad = fd.first_derivative(field)?;
-        Ok(grad.data.as_vec())
+        Ok(grad.data.as_vec().to_vec())
     }
 
     /// Compute gradient of a 2D field (stored row-major)

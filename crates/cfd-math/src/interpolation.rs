@@ -296,7 +296,7 @@ impl<T: RealField + Copy> LagrangeInterpolation<T> {
             .enumerate()
             .filter(|(j, _)| *j != i)
             .fold(T::one(), |acc, (_j, xj)| {
-                acc * (x - *xj) / (self.x_data[i] - *xj)
+                acc * (*x - *xj) / (self.x_data[i] - *xj)
             })
     }
 }
@@ -322,7 +322,7 @@ impl<T: RealField + Copy> Interpolation<T> for LagrangeInterpolation<T> {
                 (current_min, current_max)
             });
 
-        (min.expect("x_data is guaranteed to be non-empty by constructor"), max.expect("x_data is guaranteed to be non-empty by constructor"))
+        (*min.expect("x_data is guaranteed to be non-empty by constructor"), *max.expect("x_data is guaranteed to be non-empty by constructor"))
     }
 }
 

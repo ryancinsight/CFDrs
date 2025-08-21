@@ -95,7 +95,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> JacobiPreconditioner<T> {
             if val.abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
                 return Err(Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation));
             }
-            inv_diagonal[i] = T::one() / val;
+            inv_diagonal[i] = T::one() / *val;
         }
 
         Ok(Self { inv_diagonal })
@@ -136,7 +136,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> SORPreconditioner<T> {
         }
 
         Ok(Self {
-            matrix: a,
+            matrix: a.clone(),
             omega,
         })
     }
@@ -207,9 +207,9 @@ impl<T: RealField + Copy> Preconditioner<T> for SORPreconditioner<T> {
             for (j, val) in row.col_indices().iter().zip(row.values()) {
                 if *j < i {
                     // Accumulate strictly lower part L z
-                    sum = sum + val * z[*j];
+                    sum = sum + *val * z[*j];
                 } else if *j == i {
-                    diag = val;
+                    diag = *val;
                 }
             }
             
