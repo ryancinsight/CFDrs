@@ -521,22 +521,20 @@ use cfd_core::solver::LinearSolverConfig;;
                 
                 visited_edges.insert(edge_idx);
                 current_path.push(edge_pos);
-                        
-                        // Recursively explore from the next node
-                        self.dfs_find_paths(
-                            network,
-                            next_node,
-                            target,
-                            visited_edges,
-                            current_path,
-                            all_paths
-                        );
-                        
-                        // Backtrack
-                        current_path.pop();
-                        visited_edges.remove(&edge_idx);
-                    }
-                }
+                
+                // Recursively explore from the next node
+                self.dfs_find_paths(
+                    network,
+                    next_node,
+                    target,
+                    visited_edges,
+                    current_path,
+                    all_paths
+                );
+                
+                // Backtrack
+                current_path.pop();
+                visited_edges.remove(&edge_idx);
             }
         }
     }

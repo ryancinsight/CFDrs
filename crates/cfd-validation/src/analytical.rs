@@ -411,7 +411,7 @@ pub struct AnalyticalUtils;
 
 impl AnalyticalUtils {
     /// Create a grid of points for evaluation
-    pub fn create_grid<T: RealField + FromPrimitive>(
+    pub fn create_grid<T: RealField + FromPrimitive + Copy>(
         bounds: [T; 6],
         nx: usize,
         ny: usize,
@@ -463,12 +463,12 @@ impl AnalyticalUtils {
     {
         let velocities: Vec<Vector3<T>> = points
             .iter()
-            .map(|(x, y, z)| solution.velocity(x, y, z, time))
+            .map(|(x, y, z)| solution.velocity(x.clone(), y.clone(), z.clone(), time.clone()))
             .collect();
 
         let pressures: Vec<T> = points
             .iter()
-            .map(|(x, y, z)| solution.pressure(x, y, z, time))
+            .map(|(x, y, z)| solution.pressure(x.clone(), y.clone(), z.clone(), time.clone()))
             .collect();
 
         (velocities, pressures)
