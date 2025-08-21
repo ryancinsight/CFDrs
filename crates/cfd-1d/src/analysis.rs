@@ -90,7 +90,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + num_traits::Float + Copy> Netw
     pub fn analyze(&mut self, network: &mut Network<T>) -> Result<NetworkAnalysisResult<T>> {
         // Solve the network
         // Create a problem from the network
-        let problem = crate::solver::NetworkProblem::new(network);
+        let problem = crate::solver::NetworkProblem::new(network.clone());
         let _solution_result = self.solver.solve_network(&problem)?;
         
         // Perform individual analyses
@@ -423,7 +423,7 @@ use cfd_core::solver::LinearSolverConfig;;
             for i in 0..n-1 {
                 let _ = builder.add_entry(i, i, T::one());
             }
-            builder.build().map_err(|e| Error::InvalidConfiguration(format!("Failed to build sparse matrix: {}", e)))?
+            builder.build().unwrap()
         });
         
         let config = LinearSolverConfig {
@@ -502,7 +502,7 @@ use cfd_core::solver::LinearSolverConfig;;
         if current == target {
             // Found a path to the target
             if !current_path.is_empty() {
-                all_paths.push(current_path);
+                all_paths.push(current_path.clone());
             }
             return;
         }

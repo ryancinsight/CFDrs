@@ -66,7 +66,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
             max_iterations: 1000,
         };
         Self {
-            config: config,
+            config: config.clone(),
             assembler: MatrixAssembler::new(),
             linear_solver: LinearSystemSolver::new(),
             convergence: ConvergenceChecker::new(config.tolerance),
@@ -95,7 +95,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
         self.convergence.check(&solution)?;
         
         // Update network with solution
-        let mut network = problem.network;
+        let mut network = problem.network.clone();
         self.update_network_solution(&mut network, solution)?;
         
         Ok(network)
