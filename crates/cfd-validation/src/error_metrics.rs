@@ -8,7 +8,7 @@ use nalgebra::{RealField, Vector3};
 use num_traits::cast::FromPrimitive;
 
 /// Trait for error metrics
-pub trait ErrorMetric<T: RealField> {
+pub trait ErrorMetric<T: RealField + Copy> {
     /// Compute the error between numerical and reference solutions
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T>;
 
@@ -34,7 +34,7 @@ pub trait ErrorMetric<T: RealField> {
 /// L2 (Euclidean) norm error metric
 pub struct L2Norm;
 
-impl<T: RealField + FromPrimitive> ErrorMetric<T> for L2Norm {
+impl<T: RealField + FromPrimitive + Copy> ErrorMetric<T> for L2Norm {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
@@ -50,8 +50,8 @@ impl<T: RealField + FromPrimitive> ErrorMetric<T> for L2Norm {
             .iter()
             .zip(reference.iter())
             .map(|(num, ref_val)| {
-                let diff = num.clone() - ref_val.clone();
-                diff.clone() * diff
+                let diff = num - ref_val;
+                diff * diff
             })
             .fold(T::zero(), |acc, x| acc + x);
 
@@ -69,7 +69,7 @@ impl<T: RealField + FromPrimitive> ErrorMetric<T> for L2Norm {
 /// L∞ (maximum) norm error metric
 pub struct LInfNorm;
 
-impl<T: RealField> ErrorMetric<T> for LInfNorm {
+impl<T: RealField + Copy> ErrorMetric<T> for LInfNorm {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
@@ -84,7 +84,7 @@ impl<T: RealField> ErrorMetric<T> for LInfNorm {
         let max_diff = numerical
             .iter()
             .zip(reference.iter())
-            .map(|(num, ref_val)| (num.clone() - ref_val.clone()).abs())
+            .map(|(num, ref_val)| (num - ref_val).abs())
             .fold(T::zero(), |acc, x| if x > acc { x } else { acc });
 
         Ok(max_diff)
@@ -98,7 +98,7 @@ impl<T: RealField> ErrorMetric<T> for LInfNorm {
 /// L1 (Manhattan) norm error metric
 pub struct L1Norm;
 
-impl<T: RealField + FromPrimitive> ErrorMetric<T> for L1Norm {
+impl<T: RealField + FromPrimitive + Copy> ErrorMetric<T> for L1Norm {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
@@ -113,7 +113,7 @@ impl<T: RealField + FromPrimitive> ErrorMetric<T> for L1Norm {
         let sum_abs_diff: T = numerical
             .iter()
             .zip(reference.iter())
-            .map(|(num, ref_val)| (num.clone() - ref_val.clone()).abs())
+            .map(|(num, ref_val)| (num - ref_val).abs())
             .fold(T::zero(), |acc, x| acc + x);
 
         let n = T::from_usize(numerical.len()).ok_or_else(|| {
@@ -177,7 +177,7 @@ where
 /// Root Mean Square Error (RMSE)
 pub struct RootMeanSquareError;
 
-impl<T: RealField + FromPrimitive> ErrorMetric<T> for RootMeanSquareError {
+impl<T: RealField + FromPrimitive + Copy> ErrorMetric<T> for RootMeanSquareError {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         // RMSE is the same as L2 norm
         let l2 = L2Norm;
@@ -192,7 +192,7 @@ impl<T: RealField + FromPrimitive> ErrorMetric<T> for RootMeanSquareError {
 /// Mean Absolute Error (MAE)
 pub struct MeanAbsoluteError;
 
-impl<T: RealField + FromPrimitive> ErrorMetric<T> for MeanAbsoluteError {
+impl<T: RealField + FromPrimitive + Copy> ErrorMetric<T> for MeanAbsoluteError {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         // MAE is the same as L1 norm
         let l1 = L1Norm;
@@ -229,7 +229,7 @@ impl NormalizedRMSE {
     }
 }
 
-impl<T: RealField + FromPrimitive> ErrorMetric<T> for NormalizedRMSE {
+impl<T: RealField + FromPrimitive + Copy> ErrorMetric<T> for NormalizedRMSE {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
@@ -248,30 +248,30 @@ impl<T: RealField + FromPrimitive> ErrorMetric<T> for NormalizedRMSE {
         // Compute normalization factor
         let normalization = match self.normalization_method {
             NormalizationMethod::Range => {
-                let min_val = reference.iter().fold(reference[0].clone(), |acc, x| {
-                    if *x < acc { x.clone() } else { acc }
+                let min_val = reference.iter().fold(reference[0], |acc, x| {
+                    if *x < acc { x } else { acc }
                 });
-                let max_val = reference.iter().fold(reference[0].clone(), |acc, x| {
-                    if *x > acc { x.clone() } else { acc }
+                let max_val = reference.iter().fold(reference[0], |acc, x| {
+                    if *x > acc { x } else { acc }
                 });
                 max_val - min_val
             },
             NormalizationMethod::Mean => {
-                let sum: T = reference.iter().fold(T::zero(), |acc, x| acc + x.clone());
+                let sum: T = reference.iter().fold(T::zero(), |acc, x| acc + x);
                 let n = T::from_usize(reference.len()).expect("CRITICAL: Add proper error handling");
                 sum / n
             },
             NormalizationMethod::StandardDeviation => {
                 // Compute mean
-                let sum: T = reference.iter().fold(T::zero(), |acc, x| acc + x.clone());
+                let sum: T = reference.iter().fold(T::zero(), |acc, x| acc + x);
                 let n = T::from_usize(reference.len()).expect("CRITICAL: Add proper error handling");
-                let mean = sum / n.clone();
+                let mean = sum / n;
 
                 // Compute variance
                 let variance: T = reference.iter()
                     .map(|x| {
-                        let diff = x.clone() - mean.clone();
-                        diff.clone() * diff
+                        let diff = x - mean;
+                        diff * diff
                     })
                     .fold(T::zero(), |acc, x| acc + x) / n;
 
@@ -293,7 +293,7 @@ impl<T: RealField + FromPrimitive> ErrorMetric<T> for NormalizedRMSE {
 
 /// Error statistics for comprehensive analysis
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ErrorStatistics<T: RealField> {
+pub struct ErrorStatistics<T: RealField + Copy> {
     /// L1 norm error
     pub l1_norm: T,
     /// L2 norm error
@@ -310,7 +310,7 @@ pub struct ErrorStatistics<T: RealField> {
     pub num_points: usize,
 }
 
-impl<T: RealField + FromPrimitive> ErrorStatistics<T> {
+impl<T: RealField + FromPrimitive + Copy> ErrorStatistics<T> {
     /// Compute comprehensive error statistics
     pub fn compute(numerical: &[T], reference: &[T]) -> Result<Self> {
         if numerical.len() != reference.len() {
@@ -358,7 +358,7 @@ pub struct ErrorAnalysis;
 
 impl ErrorAnalysis {
     /// Compute convergence rate from error measurements at different grid sizes
-    pub fn convergence_rate<T: RealField + FromPrimitive>(
+    pub fn convergence_rate<T: RealField + FromPrimitive + Copy>(
         grid_sizes: &[T],
         errors: &[T],
     ) -> Result<T> {
@@ -372,22 +372,22 @@ impl ErrorAnalysis {
         // where p is the convergence rate
         let n = T::from_usize(grid_sizes.len()).expect("CRITICAL: Add proper error handling");
 
-        let log_h: Vec<T> = grid_sizes.iter().map(|h| h.clone().ln()).collect();
-        let log_e: Vec<T> = errors.iter().map(|e| e.clone().ln()).collect();
+        let log_h: Vec<T> = grid_sizes.iter().map(|h| h.ln()).collect();
+        let log_e: Vec<T> = errors.iter().map(|e| e.ln()).collect();
 
         // Compute means
-        let mean_log_h = log_h.iter().fold(T::zero(), |acc, x| acc + x.clone()) / n.clone();
-        let mean_log_e = log_e.iter().fold(T::zero(), |acc, x| acc + x.clone()) / n.clone();
+        let mean_log_h = log_h.iter().fold(T::zero(), |acc, x| acc + x) / n;
+        let mean_log_e = log_e.iter().fold(T::zero(), |acc, x| acc + x) / n;
 
         // Compute slope (convergence rate)
         let numerator: T = log_h.iter().zip(log_e.iter())
-            .map(|(h, e)| (h.clone() - mean_log_h.clone()) * (e.clone() - mean_log_e.clone()))
+            .map(|(h, e)| (h - mean_log_h) * (e - mean_log_e))
             .fold(T::zero(), |acc, x| acc + x);
 
         let denominator: T = log_h.iter()
             .map(|h| {
-                let diff = h.clone() - mean_log_h.clone();
-                diff.clone() * diff
+                let diff = h - mean_log_h;
+                diff * diff
             })
             .fold(T::zero(), |acc, x| acc + x);
 
@@ -401,12 +401,12 @@ impl ErrorAnalysis {
     }
 
     /// Check if error is within acceptable tolerance
-    pub fn is_acceptable<T: RealField>(error: T, tolerance: T) -> bool {
+    pub fn is_acceptable<T: RealField + Copy>(error: T, tolerance: T) -> bool {
         error <= tolerance
     }
 
     /// Compute error reduction factor between two measurements
-    pub fn error_reduction_factor<T: RealField>(coarse_error: T, fine_error: T) -> T {
+    pub fn error_reduction_factor<T: RealField + Copy>(coarse_error: T, fine_error: T) -> T {
         if fine_error == T::zero() {
             return T::max_value().unwrap_or_else(|| T::from_f64(1e10).unwrap_or_else(|| T::from_f64(1000000.0).unwrap_or_else(|| T::one())));
         }

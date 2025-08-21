@@ -18,7 +18,7 @@ pub use step::BackwardFacingStep;
 pub use runner::{BenchmarkRunner, ValidationReport};
 
 /// Trait for CFD benchmark problems
-pub trait Benchmark<T: RealField> {
+pub trait Benchmark<T: RealField + Copy> {
     /// Get the name of the benchmark
     fn name(&self) -> &str;
     
@@ -37,7 +37,7 @@ pub trait Benchmark<T: RealField> {
 
 /// Results from running a benchmark
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BenchmarkResult<T: RealField> {
+pub struct BenchmarkResult<T: RealField + Copy> {
     /// Name of the benchmark
     pub name: String,
     /// Computed solution values
@@ -54,7 +54,7 @@ pub struct BenchmarkResult<T: RealField> {
 
 /// Configuration for running benchmarks
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BenchmarkConfig<T: RealField> {
+pub struct BenchmarkConfig<T: RealField + Copy> {
     /// Grid resolution
     pub resolution: usize,
     /// Convergence tolerance
@@ -69,7 +69,7 @@ pub struct BenchmarkConfig<T: RealField> {
     pub parallel: bool,
 }
 
-impl<T: RealField> Default for BenchmarkConfig<T> {
+impl<T: RealField + Copy> Default for BenchmarkConfig<T> {
     fn default() -> Self {
         Self {
             resolution: 64,
@@ -83,11 +83,11 @@ impl<T: RealField> Default for BenchmarkConfig<T> {
 }
 
 /// Benchmark suite for running multiple benchmarks
-pub struct BenchmarkSuite<T: RealField> {
+pub struct BenchmarkSuite<T: RealField + Copy> {
     benchmarks: Vec<Box<dyn Benchmark<T>>>,
 }
 
-impl<T: RealField> BenchmarkSuite<T> {
+impl<T: RealField + Copy> BenchmarkSuite<T> {
     /// Create a new benchmark suite
     pub fn new() -> Self {
         Self {
@@ -109,7 +109,7 @@ impl<T: RealField> BenchmarkSuite<T> {
     }
 }
 
-impl<T: RealField> Default for BenchmarkSuite<T> {
+impl<T: RealField + Copy> Default for BenchmarkSuite<T> {
     fn default() -> Self {
         Self::new()
     }

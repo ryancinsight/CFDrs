@@ -8,7 +8,7 @@ use cfd_core::error::Result;
 use std::f64::consts::PI;
 
 /// Fourier transform operations
-pub struct FourierTransform<T: RealField> {
+pub struct FourierTransform<T: RealField + Copy> {
     /// Number of modes
     n: usize,
     /// Wavenumbers
@@ -92,7 +92,7 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
 }
 
 /// Spectral derivative computation
-pub struct SpectralDerivative<T: RealField> {
+pub struct SpectralDerivative<T: RealField + Copy> {
     transform: FourierTransform<T>,
 }
 

@@ -4,16 +4,16 @@ use cfd_core::error::Result;
 use nalgebra::RealField;
 
 /// Checkpoint data
-pub struct Checkpoint<T: RealField> {
+pub struct Checkpoint<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
 /// Checkpoint manager
-pub struct CheckpointManager<T: RealField> {
+pub struct CheckpointManager<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField> CheckpointManager<T> {
+impl<T: RealField + Copy> CheckpointManager<T> {
     /// Create a new checkpoint manager
     pub fn new() -> Self {
         Self {
@@ -34,7 +34,7 @@ impl<T: RealField> CheckpointManager<T> {
     }
 }
 
-impl<T: RealField> Default for CheckpointManager<T> {
+impl<T: RealField + Copy> Default for CheckpointManager<T> {
     fn default() -> Self {
         Self::new()
     }

@@ -26,7 +26,7 @@ pub use mixers::{Micromixer, MixerType};
 pub use factory::ComponentFactory;
 
 /// Trait for all microfluidic components
-pub trait Component<T: RealField> {
+pub trait Component<T: RealField + Copy> {
     /// Get the hydraulic resistance of the component
     fn resistance(&self, fluid: &Fluid<T>) -> T;
 

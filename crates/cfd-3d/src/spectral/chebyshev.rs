@@ -8,7 +8,7 @@ use cfd_core::error::Result;
 use std::f64::consts::PI;
 
 /// Chebyshev polynomial basis
-pub struct ChebyshevPolynomial<T: RealField> {
+pub struct ChebyshevPolynomial<T: RealField + Copy> {
     /// Number of collocation points
     n: usize,
     /// Collocation points (Gauss-Lobatto)
@@ -105,7 +105,7 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
 }
 
 /// Chebyshev differentiation operations
-pub struct ChebyshevDifferentiation<T: RealField> {
+pub struct ChebyshevDifferentiation<T: RealField + Copy> {
     basis: ChebyshevPolynomial<T>,
 }
 

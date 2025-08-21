@@ -22,12 +22,12 @@ pub enum TimeScheme {
 }
 
 /// Time integrator for ODEs
-pub struct TimeIntegrator<T: RealField> {
+pub struct TimeIntegrator<T: RealField + Copy> {
     scheme: TimeScheme,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + FromPrimitive + Clone> TimeIntegrator<T> {
+impl<T: RealField + Copy + FromPrimitive + Clone> TimeIntegrator<T> {
     /// Create new time integrator
     pub fn new(scheme: TimeScheme) -> Self {
         Self {
@@ -46,9 +46,9 @@ impl<T: RealField + FromPrimitive + Clone> TimeIntegrator<T> {
                 y + f(t, y) * dt
             },
             TimeScheme::RungeKutta2 => {
-                let k1 = f(t.clone(), y);
-                let half_dt = dt.clone() / T::from_f64(2.0).unwrap_or_else(T::zero);
-                let y_mid = y + &k1 * half_dt.clone();
+                let k1 = f(t, y);
+                let half_dt = dt / T::from_f64(2.0).unwrap_or_else(T::zero);
+                let y_mid = y + &k1 * half_dt;
                 let k2 = f(t + half_dt, &y_mid);
                 y + k2 * dt
             },
@@ -56,16 +56,16 @@ impl<T: RealField + FromPrimitive + Clone> TimeIntegrator<T> {
                 let two = T::from_f64(2.0).unwrap_or_else(T::zero);
                 let six = T::from_f64(6.0).unwrap_or_else(T::zero);
                 
-                let k1 = f(t.clone(), y);
-                let half_dt = dt.clone() / two.clone();
-                let y2 = y + &k1 * half_dt.clone();
-                let k2 = f(t.clone() + half_dt.clone(), &y2);
-                let y3 = y + &k2 * half_dt.clone();
-                let k3 = f(t.clone() + half_dt, &y3);
-                let y4 = y + &k3 * dt.clone();
-                let k4 = f(t + dt.clone(), &y4);
+                let k1 = f(t, y);
+                let half_dt = dt / two;
+                let y2 = y + &k1 * half_dt;
+                let k2 = f(t + half_dt, &y2);
+                let y3 = y + &k2 * half_dt;
+                let k3 = f(t + half_dt, &y3);
+                let y4 = y + &k3 * dt;
+                let k4 = f(t + dt, &y4);
                 
-                y + (k1 + k2 * two.clone() + k3 * two + k4) * (dt / six)
+                y + (k1 + k2 * two + k3 * two + k4) * (dt / six)
             },
             _ => {
                 // Default to Forward Euler for unimplemented schemes

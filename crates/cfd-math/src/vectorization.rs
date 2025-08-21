@@ -11,7 +11,7 @@ pub struct VectorizedOps;
 
 impl VectorizedOps {
     /// Vectorized element-wise addition with potential SIMD optimization
-    pub fn add_vectorized<T: RealField + Send + Sync>(
+    pub fn add_vectorized<T: RealField + Copy + Send + Sync>(
         a: &[T], 
         b: &[T], 
         result: &mut [T]
@@ -24,14 +24,14 @@ impl VectorizedOps {
         result.par_iter_mut()
             .zip(a.par_iter().zip(b.par_iter()))
             .for_each(|(r, (a_val, b_val))| {
-                *r = a_val.clone() + b_val.clone();
+                *r = a_val + b_val;
             });
 
         Ok(())
     }
 
     /// Vectorized element-wise multiplication
-    pub fn mul_vectorized<T: RealField + Send + Sync>(
+    pub fn mul_vectorized<T: RealField + Copy + Send + Sync>(
         a: &[T], 
         b: &[T], 
         result: &mut [T]
@@ -43,14 +43,14 @@ impl VectorizedOps {
         result.par_iter_mut()
             .zip(a.par_iter().zip(b.par_iter()))
             .for_each(|(r, (a_val, b_val))| {
-                *r = a_val.clone() * b_val.clone();
+                *r = a_val * b_val;
             });
 
         Ok(())
     }
 
     /// Vectorized scalar multiplication with broadcasting
-    pub fn scale_vectorized<T: RealField + Send + Sync>(
+    pub fn scale_vectorized<T: RealField + Copy + Send + Sync>(
         input: &[T], 
         scalar: T, 
         result: &mut [T]
@@ -62,14 +62,14 @@ impl VectorizedOps {
         result.par_iter_mut()
             .zip(input.par_iter())
             .for_each(|(r, val)| {
-                *r = scalar.clone() * val.clone();
+                *r = scalar * val;
             });
 
         Ok(())
     }
 
     /// Broadcasting addition: adds scalar to each element of vector
-    pub fn broadcast_add<T: RealField + Send + Sync>(
+    pub fn broadcast_add<T: RealField + Copy + Send + Sync>(
         input: &[T],
         scalar: T,
         result: &mut [T]
@@ -87,7 +87,7 @@ impl VectorizedOps {
                 input_chunk.iter()
                     .zip(result_chunk.iter_mut())
                     .for_each(|(input_val, result_val)| {
-                        *result_val = input_val.clone() + scalar.clone();
+                        *result_val = input_val + scalar;
                     });
             });
 
@@ -95,7 +95,7 @@ impl VectorizedOps {
     }
 
     /// Broadcasting multiplication: multiplies each element by broadcasted vector
-    pub fn broadcast_mul_vector<T: RealField + Send + Sync>(
+    pub fn broadcast_mul_vector<T: RealField + Copy + Send + Sync>(
         matrix: &[T], 
         matrix_rows: usize,
         matrix_cols: usize,
@@ -120,7 +120,7 @@ impl VectorizedOps {
                     .zip(matrix_row.iter())
                     .zip(vector.iter())
                     .for_each(|((r, m), v)| {
-                        *r = m.clone() * v.clone();
+                        *r = m * v;
                     });
             });
 
@@ -128,7 +128,7 @@ impl VectorizedOps {
     }
 
     /// Vectorized dot product with chunked processing for cache efficiency
-    pub fn dot_vectorized<T: RealField + Send + Sync>(a: &[T], b: &[T]) -> Result<T, &'static str> {
+    pub fn dot_vectorized<T: RealField + Copy + Send + Sync>(a: &[T], b: &[T]) -> Result<T, &'static str> {
         if a.len() != b.len() {
             return Err("Vectors must have the same length");
         }
@@ -141,7 +141,7 @@ impl VectorizedOps {
             .map(|(a_chunk, b_chunk)| {
                 a_chunk.iter()
                     .zip(b_chunk.iter())
-                    .map(|(x, y)| x.clone() * y.clone())
+                    .map(|(x, y)| x * y)
                     .fold(T::zero(), |acc, val| acc + val)
             })
             .reduce(|| T::zero(), |acc, val| acc + val);
@@ -150,13 +150,13 @@ impl VectorizedOps {
     }
 
     /// Vectorized L2 norm computation
-    pub fn l2_norm_vectorized<T: RealField + Send + Sync>(input: &[T]) -> T {
+    pub fn l2_norm_vectorized<T: RealField + Copy + Send + Sync>(input: &[T]) -> T {
         const CHUNK_SIZE: usize = 1024;
         
         let sum_of_squares = input.par_chunks(CHUNK_SIZE)
             .map(|chunk| {
                 chunk.iter()
-                    .map(|x| x.clone() * x.clone())
+                    .map(|x| x * x)
                     .fold(T::zero(), |acc, val| acc + val)
             })
             .reduce(|| T::zero(), |acc, val| acc + val);
@@ -165,7 +165,7 @@ impl VectorizedOps {
     }
 
     /// Vectorized matrix-vector multiplication for sparse patterns
-    pub fn matvec_vectorized<T: RealField + Send + Sync>(
+    pub fn matvec_vectorized<T: RealField + Copy + Send + Sync>(
         values: &[T],
         col_indices: &[usize],
         row_ptr: &[usize],
@@ -186,7 +186,7 @@ impl VectorizedOps {
                 *y_i = (start..end)
                     .map(|j| {
                         let col = col_indices[j];
-                        values[j].clone() * x[col].clone()
+                        values[j] * x[col]
                     })
                     .fold(T::zero(), |acc, val| acc + val);
             });
@@ -195,7 +195,7 @@ impl VectorizedOps {
     }
 
     /// Vectorized finite difference computation
-    pub fn finite_diff_vectorized<T: RealField + Send + Sync>(
+    pub fn finite_diff_vectorized<T: RealField + Copy + Send + Sync>(
         input: &[T],
         spacing: T,
         result: &mut [T]
@@ -207,14 +207,14 @@ impl VectorizedOps {
         result.par_iter_mut()
             .enumerate()
             .for_each(|(i, diff)| {
-                *diff = (input[i + 1].clone() - input[i].clone()) / spacing.clone();
+                *diff = (input[i + 1] - input[i]) / spacing;
             });
 
         Ok(())
     }
 
     /// Vectorized convolution for filtering operations
-    pub fn convolution_vectorized<T: RealField + Send + Sync>(
+    pub fn convolution_vectorized<T: RealField + Copy + Send + Sync>(
         signal: &[T],
         kernel: &[T],
         result: &mut [T]
@@ -234,7 +234,7 @@ impl VectorizedOps {
                 *output = (0..kernel_len)
                     .filter_map(|k| {
                         if n >= k && n - k < signal_len {
-                            Some(signal[n - k].clone() * kernel[k].clone())
+                            Some(signal[n - k] * kernel[k])
                         } else {
                             None
                         }
@@ -257,13 +257,13 @@ impl VectorizedOps {
             .map(|chunk| {
                 chunk.iter()
                     .cloned()
-                    .fold(identity.clone(), |a, b| op(a, b))
+                    .fold(identity, |a, b| op(a, b))
             })
-            .reduce(|| identity.clone(), |a, b| op(a, b))
+            .reduce(|| identity, |a, b| op(a, b))
     }
 
     /// Vectorized prefix sum (scan) operation
-    pub fn prefix_sum_vectorized<T: RealField + Send + Sync>(
+    pub fn prefix_sum_vectorized<T: RealField + Copy + Send + Sync>(
         input: &[T],
         result: &mut [T]
     ) -> Result<(), &'static str> {
@@ -276,9 +276,9 @@ impl VectorizedOps {
         }
 
         // Sequential prefix sum (parallel prefix sum is complex and may not be worth it for most cases)
-        result[0] = input[0].clone();
+        result[0] = input[0];
         for i in 1..input.len() {
-            result[i] = result[i - 1].clone() + input[i].clone();
+            result[i] = result[i - 1] + input[i];
         }
 
         Ok(())
@@ -290,7 +290,7 @@ pub struct StencilOps;
 
 impl StencilOps {
     /// 5-point stencil for 2D Laplacian (vectorized)
-    pub fn laplacian_5point<T: RealField + Send + Sync>(
+    pub fn laplacian_5point<T: RealField + Copy + Send + Sync>(
         field: &[T],
         nx: usize,
         ny: usize,
@@ -302,21 +302,21 @@ impl StencilOps {
             return Err("Field and result dimensions must match grid size");
         }
 
-        let dx2 = dx.clone() * dx.clone();
-        let dy2 = dy.clone() * dy.clone();
+        let dx2 = dx * dx;
+        let dy2 = dy * dy;
 
         // Process interior points (sequential for now due to mutable access patterns)
         for j in 1..ny-1 {
             for i in 1..nx-1 {
                 let idx = j * nx + i;
-                let center = field[idx].clone();
-                let left = field[idx - 1].clone();
-                let right = field[idx + 1].clone();
-                let bottom = field[idx - nx].clone();
-                let top = field[idx + nx].clone();
+                let center = field[idx];
+                let left = field[idx - 1];
+                let right = field[idx + 1];
+                let bottom = field[idx - nx];
+                let top = field[idx + nx];
 
-                result[idx] = (left - center.clone() * T::from_f64(2.0).unwrap_or_else(|| T::zero()) + right) / dx2.clone()
-                            + (bottom - center * T::from_f64(2.0).unwrap_or_else(|| T::zero()) + top) / dy2.clone();
+                result[idx] = (left - center * T::from_f64(2.0).unwrap_or_else(|| T::zero()) + right) / dx2
+                            + (bottom - center * T::from_f64(2.0).unwrap_or_else(|| T::zero()) + top) / dy2;
             }
         }
 
@@ -324,7 +324,7 @@ impl StencilOps {
     }
 
     /// Vectorized gradient computation using central differences
-    pub fn gradient_central<T: RealField + Send + Sync>(
+    pub fn gradient_central<T: RealField + Copy + Send + Sync>(
         field: &[T],
         nx: usize,
         ny: usize,
@@ -346,10 +346,10 @@ impl StencilOps {
                 let idx = j * nx + i;
 
                 // X-gradient
-                grad_x[idx] = (field[idx + 1].clone() - field[idx - 1].clone()) * dx_inv.clone();
+                grad_x[idx] = (field[idx + 1] - field[idx - 1]) * dx_inv;
 
                 // Y-gradient
-                grad_y[idx] = (field[idx + nx].clone() - field[idx - nx].clone()) * dy_inv.clone();
+                grad_y[idx] = (field[idx + nx] - field[idx - nx]) * dy_inv;
             }
         }
 
@@ -357,7 +357,7 @@ impl StencilOps {
     }
 
     /// Vectorized divergence computation for 3D vector fields on structured grids
-    pub fn divergence_3d<T: RealField + Send + Sync>(
+    pub fn divergence_3d<T: RealField + Copy + Send + Sync>(
         u_field: &[T], v_field: &[T], w_field: &[T],
         nx: usize, ny: usize, nz: usize,
         dx: T, dy: T, dz: T,
@@ -381,9 +381,9 @@ impl StencilOps {
                     let idx = k * nx * ny + j * nx + i;
 
                     // Central differences
-                    let dudx = (u_field[idx + 1].clone() - u_field[idx - 1].clone()) * dx_inv.clone();
-                    let dvdy = (v_field[idx + nx].clone() - v_field[idx - nx].clone()) * dy_inv.clone();
-                    let dwdz = (w_field[idx + nx * ny].clone() - w_field[idx - nx * ny].clone()) * dz_inv.clone();
+                    let dudx = (u_field[idx + 1] - u_field[idx - 1]) * dx_inv;
+                    let dvdy = (v_field[idx + nx] - v_field[idx - nx]) * dy_inv;
+                    let dwdz = (w_field[idx + nx * ny] - w_field[idx - nx * ny]) * dz_inv;
 
                     result[idx] = dudx + dvdy + dwdz;
                 }
@@ -394,7 +394,7 @@ impl StencilOps {
     }
 
     /// Vectorized curl computation for 3D vector fields
-    pub fn curl_3d<T: RealField + Send + Sync>(
+    pub fn curl_3d<T: RealField + Copy + Send + Sync>(
         u_field: &[T], v_field: &[T], w_field: &[T],
         nx: usize, ny: usize, nz: usize,
         dx: T, dy: T, dz: T,
@@ -420,18 +420,18 @@ impl StencilOps {
                     let idx = k * nx * ny + j * nx + i;
 
                     // Curl x-component: ∂w/∂y - ∂v/∂z
-                    let dwdy = (w_field[idx + nx].clone() - w_field[idx - nx].clone()) * dy_inv.clone();
-                    let dvdz = (v_field[idx + nx * ny].clone() - v_field[idx - nx * ny].clone()) * dz_inv.clone();
+                    let dwdy = (w_field[idx + nx] - w_field[idx - nx]) * dy_inv;
+                    let dvdz = (v_field[idx + nx * ny] - v_field[idx - nx * ny]) * dz_inv;
                     curl_x[idx] = dwdy - dvdz;
 
                     // Curl y-component: ∂u/∂z - ∂w/∂x
-                    let dudz = (u_field[idx + nx * ny].clone() - u_field[idx - nx * ny].clone()) * dz_inv.clone();
-                    let dwdx = (w_field[idx + 1].clone() - w_field[idx - 1].clone()) * dx_inv.clone();
+                    let dudz = (u_field[idx + nx * ny] - u_field[idx - nx * ny]) * dz_inv;
+                    let dwdx = (w_field[idx + 1] - w_field[idx - 1]) * dx_inv;
                     curl_y[idx] = dudz - dwdx;
 
                     // Curl z-component: ∂v/∂x - ∂u/∂y
-                    let dvdx = (v_field[idx + 1].clone() - v_field[idx - 1].clone()) * dx_inv.clone();
-                    let dudy = (u_field[idx + nx].clone() - u_field[idx - nx].clone()) * dy_inv.clone();
+                    let dvdx = (v_field[idx + 1] - v_field[idx - 1]) * dx_inv;
+                    let dudy = (u_field[idx + nx] - u_field[idx - nx]) * dy_inv;
                     curl_z[idx] = dvdx - dudy;
                 }
             }

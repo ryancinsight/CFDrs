@@ -10,7 +10,7 @@ pub struct ComponentFactory;
 
 impl ComponentFactory {
     /// Create a component from type string and parameters
-    pub fn create<T: RealField + FromPrimitive + Float>(
+    pub fn create<T: RealField + Copy + FromPrimitive + Float>(
         component_type: &str,
         params: &HashMap<String, T>,
     ) -> Result<Box<dyn Component<T>>> {
@@ -27,9 +27,9 @@ impl ComponentFactory {
                     .unwrap_or_else(|| T::from_f64(constants::DEFAULT_ROUGHNESS).unwrap_or_else(T::zero));
                 
                 Ok(Box::new(RectangularChannel::new(
-                    length.clone(),
-                    width.clone(),
-                    height.clone(),
+                    length,
+                    width,
+                    height,
                     roughness,
                 )))
             }
@@ -43,8 +43,8 @@ impl ComponentFactory {
                     .unwrap_or_else(|| T::from_f64(constants::DEFAULT_ROUGHNESS).unwrap_or_else(T::zero));
                 
                 Ok(Box::new(CircularChannel::new(
-                    length.clone(),
-                    diameter.clone(),
+                    length,
+                    diameter,
                     roughness,
                 )))
             }
@@ -55,8 +55,8 @@ impl ComponentFactory {
                     .ok_or_else(|| Error::InvalidConfiguration("Missing max_pressure parameter".into()))?;
                 
                 Ok(Box::new(Micropump::new(
-                    max_flow_rate.clone(),
-                    max_pressure.clone(),
+                    max_flow_rate,
+                    max_pressure,
                 )))
             }
             "Microvalve" => {

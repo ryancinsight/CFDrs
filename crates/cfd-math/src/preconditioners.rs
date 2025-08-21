@@ -12,7 +12,7 @@ use crate::linear_solver::{LinearSolverError, Result, Preconditioner};
 /// 
 /// For symmetric positive definite matrices, computes L such that L*L^T ≈ A
 /// where L has the same sparsity pattern as the lower triangular part of A.
-pub struct IncompleteCholesky<T: RealField> {
+pub struct IncompleteCholesky<T: RealField + Copy> {
     /// Lower triangular factor stored in CSR format
     l_factor: CsrMatrix<T>,
     /// Workspace for forward/backward substitution
@@ -244,7 +244,7 @@ impl<T: RealField + Copy> Preconditioner<T> for IncompleteCholesky<T> {
 /// SSOR (Symmetric Successive Over-Relaxation) preconditioner
 ///
 /// For symmetric matrices, applies forward and backward SOR sweeps
-pub struct SSORPreconditioner<T: RealField> {
+pub struct SSORPreconditioner<T: RealField + Copy> {
     matrix: CsrMatrix<T>,
     omega: T,
     diagonal: Vec<T>,
@@ -286,7 +286,7 @@ impl<T: RealField + Copy + FromPrimitive> SSORPreconditioner<T> {
         }
         
         Ok(Self {
-            matrix: a.clone(),
+            matrix: a,
             omega,
             diagonal,
         })

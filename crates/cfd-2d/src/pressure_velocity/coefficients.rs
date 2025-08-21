@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// Cell coefficients for discretized momentum equation
 /// Following Patankar notation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CellCoefficients<T: RealField> {
+pub struct CellCoefficients<T: RealField + Copy> {
     /// Central coefficient (diagonal)
     pub ap: T,
     /// East neighbor coefficient

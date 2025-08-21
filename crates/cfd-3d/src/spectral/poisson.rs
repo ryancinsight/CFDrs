@@ -10,7 +10,7 @@ use super::chebyshev::ChebyshevPolynomial;
 
 /// Boundary condition type for Poisson equation
 #[derive(Debug, Clone)]
-pub enum PoissonBoundaryCondition<T: RealField> {
+pub enum PoissonBoundaryCondition<T: RealField + Copy> {
     /// Dirichlet: u = g on boundary
     Dirichlet(T),
     /// Neumann: ∂u/∂n = g on boundary
@@ -22,7 +22,7 @@ pub enum PoissonBoundaryCondition<T: RealField> {
 }
 
 /// Spectral Poisson solver
-pub struct PoissonSolver<T: RealField> {
+pub struct PoissonSolver<T: RealField + Copy> {
     /// Grid dimensions
     nx: usize,
     ny: usize,

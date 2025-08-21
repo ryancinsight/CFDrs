@@ -8,7 +8,7 @@ use nalgebra::{RealField, DVector, DMatrix};
 use std::collections::HashMap;
 
 /// Discretization scheme abstraction following Strategy pattern
-pub trait DiscretizationScheme<T: RealField>: Send + Sync {
+pub trait DiscretizationScheme<T: RealField + Copy>: Send + Sync {
     /// Apply discretization to a field
     fn discretize(&self, field: &[T], grid_spacing: T) -> Vec<T>;
     
@@ -27,17 +27,17 @@ pub mod finite_difference {
     #[derive(Debug, Clone)]
     pub struct CentralDifference;
     
-    impl<T: RealField> DiscretizationScheme<T> for CentralDifference {
+    impl<T: RealField + Copy> DiscretizationScheme<T> for CentralDifference {
         fn discretize(&self, field: &[T], grid_spacing: T) -> Vec<T> {
             if field.len() < 3 {
                 return field.to_vec();
             }
             
             let two = T::one() + T::one();
-            let dx = grid_spacing.clone();
+            let dx = grid_spacing;
 
             field.windows(3)
-                .map(|window| (window[2].clone() - window[0].clone()) / (two.clone() * dx.clone()))
+                .map(|window| (window[2] - window[0])/(two * dx))
                 .collect()
         }
         
@@ -54,14 +54,14 @@ pub mod finite_difference {
     #[derive(Debug, Clone)]
     pub struct UpwindDifference;
     
-    impl<T: RealField> DiscretizationScheme<T> for UpwindDifference {
+    impl<T: RealField + Copy> DiscretizationScheme<T> for UpwindDifference {
         fn discretize(&self, field: &[T], grid_spacing: T) -> Vec<T> {
             if field.len() < 2 {
                 return field.to_vec();
             }
             
             field.windows(2)
-                .map(|window| (window[1].clone() - window[0].clone()) / grid_spacing.clone())
+                .map(|window| (window[1] - window[0])/grid_spacing)
                 .collect()
         }
         
@@ -76,7 +76,7 @@ pub mod finite_difference {
 }
 
 /// Time integration scheme abstraction
-pub trait TimeIntegrationScheme<T: RealField>: Send + Sync {
+pub trait TimeIntegrationScheme<T: RealField + Copy>: Send + Sync {
     /// Advance solution in time
     fn advance(&self, current: &[T], derivative: &[T], dt: T) -> Vec<T>;
     
@@ -98,11 +98,11 @@ pub mod time_integration {
     #[derive(Debug, Clone)]
     pub struct ForwardEuler;
     
-    impl<T: RealField> TimeIntegrationScheme<T> for ForwardEuler {
+    impl<T: RealField + Copy> TimeIntegrationScheme<T> for ForwardEuler {
         fn advance(&self, current: &[T], derivative: &[T], dt: T) -> Vec<T> {
             current.iter()
                 .zip(derivative.iter())
-                .map(|(u, dudt)| u.clone() + dudt.clone() * dt.clone())
+                .map(|(u, dudt)| *u + *dudt * dt)
                 .collect()
         }
         
@@ -127,13 +127,13 @@ pub mod time_integration {
     #[derive(Debug, Clone)]
     pub struct ConstantDerivative;
 
-    impl<T: RealField> TimeIntegrationScheme<T> for ConstantDerivative {
+    impl<T: RealField + Copy> TimeIntegrationScheme<T> for ConstantDerivative {
         fn advance(&self, current: &[T], derivative: &[T], dt: T) -> Vec<T> {
-            // With constant derivative assumption: y_new = y + dt * f(y)
+            // With constant derivative assumption: y_new = *y + *dt *f(y)
             // This is exactly Forward Euler method
             current.iter()
                 .zip(derivative.iter())
-                .map(|(y, d)| y.clone() + d.clone() * dt.clone())
+                .map(|(y, d)| *y + *d * dt)
                 .collect()
         }
 
@@ -169,62 +169,62 @@ pub mod time_integration {
             T: RealField + Clone,
             F: Fn(T, &[T]) -> Vec<T>,
         {
-            let half = T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one()));
-            let one_sixth = T::from_f64(1.0/6.0).unwrap_or_else(|| T::one() / (T::from_usize(6).unwrap_or_else(|| T::one())));
+            let half = T::from_f64(0.5).unwrap_or_else(|| T::one()/(T::one() + T::one()));
+            let one_sixth = T::from_f64(1.0/6.0).unwrap_or_else(|| T::one()/(T::from_usize(6).unwrap_or_else(|| T::one())));
             let two = T::one() + T::one();
 
             // Classical RK4 stages
             // k1 = dt * f(t, y)
-            let k1: Vec<T> = derivative_fn(t.clone(), current)
+            let k1: Vec<T> = derivative_fn(t, current)
                 .into_iter()
-                .map(|val| val * dt.clone())
+                .map(|val| val * dt)
                 .collect();
 
             // y1 = y + k1/2
             let y1: Vec<T> = current.iter()
                 .zip(k1.iter())
-                .map(|(y, k)| y.clone() + k.clone() * half.clone())
+                .map(|(y, k)| *y + *k * half)
                 .collect();
 
             // k2 = dt * f(t + dt/2, y1)
-            let k2: Vec<T> = derivative_fn(t.clone() + dt.clone() * half.clone(), &y1)
+            let k2: Vec<T> = derivative_fn(t + dt * half, &y1)
                 .into_iter()
-                .map(|val| val * dt.clone())
+                .map(|val| val * dt)
                 .collect();
 
             // y2 = y + k2/2
             let y2: Vec<T> = current.iter()
                 .zip(k2.iter())
-                .map(|(y, k)| y.clone() + k.clone() * half.clone())
+                .map(|(y, k)| *y + *k * half)
                 .collect();
 
             // k3 = dt * f(t + dt/2, y2)
-            let k3: Vec<T> = derivative_fn(t.clone() + dt.clone() * half, &y2)
+            let k3: Vec<T> = derivative_fn(t + dt * half, &y2)
                 .into_iter()
-                .map(|val| val * dt.clone())
+                .map(|val| val * dt)
                 .collect();
 
             // y3 = y + k3
             let y3: Vec<T> = current.iter()
                 .zip(k3.iter())
-                .map(|(y, k)| y.clone() + k.clone())
+                .map(|(y, k)| *y + *k)
                 .collect();
 
             // k4 = dt * f(t + dt, y3)
-            let k4: Vec<T> = derivative_fn(t + dt.clone(), &y3)
+            let k4: Vec<T> = derivative_fn(t + dt, &y3)
                 .into_iter()
-                .map(|val| val * dt.clone())
+                .map(|val| val * dt)
                 .collect();
 
-            // Final combination: y_new = y + (k1 + 2*k2 + 2*k3 + k4) / 6
+            // Final combination: y_new = y + (k1 + 2*k2 + 2*k3 + k4)/6
             current.iter()
                 .zip(k1.iter())
                 .zip(k2.iter())
                 .zip(k3.iter())
                 .zip(k4.iter())
                 .map(|((((y, k1), k2), k3), k4)| {
-                    let weighted_sum = k1.clone() + k2.clone() * two.clone() + k3.clone() * two.clone() + k4.clone();
-                    y.clone() + weighted_sum * one_sixth.clone()
+                    let weighted_sum = *k1 + *k2 * two + *k3 * two + *k4;
+                    *y + weighted_sum * one_sixth
                 })
                 .collect()
         }
@@ -232,7 +232,7 @@ pub mod time_integration {
 }
 
 /// Linear system solver abstraction
-pub trait LinearSystemSolver<T: RealField>: Send + Sync {
+pub trait LinearSystemSolver<T: RealField + Copy>: Send + Sync {
     /// Solve linear system Ax = b
     fn solve(&self, matrix: &DMatrix<T>, rhs: &DVector<T>) -> Result<DVector<T>, String>;
     
@@ -249,14 +249,14 @@ pub mod linear_solvers {
     
     /// Conjugate Gradient solver for symmetric positive definite systems
     #[derive(Debug, Clone)]
-    pub struct ConjugateGradientSolver<T: RealField> {
+    pub struct ConjugateGradientSolver<T: RealField + Copy> {
         /// Maximum iterations
         pub max_iterations: usize,
         /// Convergence tolerance
         pub tolerance: T,
     }
     
-    impl<T: RealField> LinearSystemSolver<T> for ConjugateGradientSolver<T> {
+    impl<T: RealField + Copy> LinearSystemSolver<T> for ConjugateGradientSolver<T> {
         fn solve(&self, matrix: &DMatrix<T>, rhs: &DVector<T>) -> Result<DVector<T>, String> {
             // Conjugate Gradient implementation with preconditioning
             // Reference: Saad, Y. "Iterative Methods for Sparse Linear Systems" (2003)
@@ -270,8 +270,8 @@ pub mod linear_solvers {
             let mut x = DVector::zeros(n);
             
             // Initial residual r = b - Ax
-            let mut r = rhs.clone();
-            let mut p = r.clone();
+            let mut r = rhs;
+            let mut p = r;
             let mut rsold = r.dot(&r);
             
             // Check for zero right-hand side
@@ -281,13 +281,13 @@ pub mod linear_solvers {
             
             for iter in 0..self.max_iterations {
                 // Matrix-vector product: Ap
-                let ap = matrix * &p;
+                let ap = matrix * p.clone();
                 
-                // Step length: α = (r^T * r) / (p^T * Ap)
+                // Step length: α = (r^T * r)/(p^T * Ap)
                 let pap = p.dot(&ap);
                 
                 // Check for breakdown
-                if pap.clone().abs() < T::from_f64(1e-14).unwrap_or_else(T::zero) {
+                if pap.abs() < T::from_f64(1e-14).unwrap_or_else(T::zero) {
                     // Try to return current solution if residual is small enough
                     if r.norm() < self.tolerance {
                         return Ok(x);
@@ -295,23 +295,23 @@ pub mod linear_solvers {
                     return Err(format!("CG breakdown at iteration {}", iter));
                 }
                 
-                let alpha = rsold.clone() / pap;
+                let alpha = rsold / pap;
                 
                 // Update solution: x = x + α * p
-                x += &p * alpha.clone();
+                x += p.clone() * alpha;
                 
                 // Update residual: r = r - α * Ap
-                r -= &ap * alpha;
+                r = r.clone() - ap.clone() * alpha;
                 
                 // Check convergence
                 let rsnew = r.dot(&r);
-                if rsnew.clone().sqrt() < self.tolerance {
+                if rsnew.sqrt() < self.tolerance {
                     return Ok(x);
                 }
                 
                 // Update search direction
-                let beta = rsnew.clone() / rsold;
-                p = &r + &p * beta;
+                let beta = rsnew / rsold;
+                p = r.clone() + p * beta;
                 rsold = rsnew;
             }
             
@@ -331,7 +331,7 @@ pub mod linear_solvers {
         }
     }
     
-    impl<T: RealField> Default for ConjugateGradientSolver<T> {
+    impl<T: RealField + Copy> Default for ConjugateGradientSolver<T> {
         fn default() -> Self {
             // use num_traits::FromPrimitive;
             Self {
@@ -343,7 +343,7 @@ pub mod linear_solvers {
 }
 
 /// Numerical methods service following Domain Service pattern
-pub struct NumericalMethodsService<T: RealField> {
+pub struct NumericalMethodsService<T: RealField + Copy> {
     /// Available discretization schemes
     discretization_schemes: HashMap<String, Box<dyn DiscretizationScheme<T>>>,
     /// Available time integration schemes
@@ -352,7 +352,7 @@ pub struct NumericalMethodsService<T: RealField> {
     linear_solvers: HashMap<String, Box<dyn LinearSystemSolver<T>>>,
 }
 
-impl<T: RealField> NumericalMethodsService<T> {
+impl<T: RealField + Copy> NumericalMethodsService<T> {
     /// Create new numerical methods service
     pub fn new() -> Self {
         let mut service = Self {
@@ -434,7 +434,7 @@ impl<T: RealField> NumericalMethodsService<T> {
     }
 }
 
-impl<T: RealField> Default for NumericalMethodsService<T> {
+impl<T: RealField + Copy> Default for NumericalMethodsService<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -454,7 +454,7 @@ mod tests {
 
         let result = scheme.discretize(&field, dx);
 
-        // Central difference: (f[i+1] - f[i-1]) / (2*dx)
+        // Central difference: (f[i+1] - f[i-1])/(2*dx)
         // Expected: [(4-1)/2, (7-2)/2, (11-4)/2] = [1.5, 2.5, 3.5]
         assert_eq!(result.len(), 3);
         assert_relative_eq!(result[0], 1.5, epsilon = 1e-10);
@@ -473,7 +473,7 @@ mod tests {
 
         let result = scheme.discretize(&field, dx);
 
-        // Upwind difference: (f[i+1] - f[i]) / dx
+        // Upwind difference: (f[i+1] - f[i])/dx
         // Expected: [(2-1)/1, (4-2)/1, (7-4)/1] = [1.0, 2.0, 3.0]
         assert_eq!(result.len(), 3);
         assert_relative_eq!(result[0], 1.0, epsilon = 1e-10);
@@ -493,7 +493,7 @@ mod tests {
 
         let result = scheme.advance(&current, &derivative, dt);
 
-        // Forward Euler: u_new = u + dt * dudt
+        // Forward Euler: u_new = *u + *dt *dudt
         // Expected: [1.0 + 0.1*0.5, 2.0 + 0.1*(-0.5), 3.0 + 0.1*1.0] = [1.05, 1.95, 3.1]
         assert_eq!(result.len(), 3);
         assert_relative_eq!(result[0], 1.05, epsilon = 1e-10);
@@ -514,7 +514,7 @@ mod tests {
 
         let result = scheme.advance(&current, &derivative, dt);
 
-        // Constant derivative is equivalent to Forward Euler: y + dt * derivative
+        // Constant derivative is equivalent to Forward Euler: *y + *dt *derivative
         assert_eq!(result.len(), 1);
         assert_relative_eq!(result[0], 1.1, epsilon = 1e-10);
 
@@ -560,7 +560,7 @@ mod tests {
         assert_relative_eq!(result[0], 1.0, epsilon = 1e-6);
         assert_relative_eq!(result[1], 1.0, epsilon = 1e-6);
 
-        assert_eq!(solver.name(), "Conjugate Gradient");
+        assert_eq!(solver.name.clone()(), "Conjugate Gradient");
         assert!(solver.is_iterative());
     }
 

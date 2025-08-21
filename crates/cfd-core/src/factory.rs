@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 /// Concrete factory trait for type-safe creation
 /// Follows Open/Closed Principle - open for extension, closed for modification
-pub trait ConcreteSolverFactory<T: RealField>: Send + Sync {
+pub trait ConcreteSolverFactory<T: RealField + Copy>: Send + Sync {
     /// Solver type this factory creates
     type Solver: Solver<T>;
     /// Configuration type for the solver
@@ -39,7 +39,7 @@ pub trait FactoryCapability {
 }
 
 /// Dynamic solver trait for runtime polymorphism
-pub trait DynamicSolver<T: RealField>: Send + Sync {
+pub trait DynamicSolver<T: RealField + Copy>: Send + Sync {
     /// Solve the problem
     fn solve(&mut self, problem: &dyn Any) -> Result<Box<dyn Any>>;
     
@@ -50,7 +50,7 @@ pub trait DynamicSolver<T: RealField>: Send + Sync {
 /// Wrapper to convert concrete solvers to dynamic solvers
 pub struct DynamicSolverWrapper<T, S>
 where
-    T: RealField,
+    T: RealField + Copy,
     S: Solver<T>,
 {
     solver: S,
@@ -59,7 +59,7 @@ where
 
 impl<T, S> DynamicSolverWrapper<T, S>
 where
-    T: RealField + 'static,
+    T: RealField + Copy + 'static,
     S: Solver<T> + 'static,
     S::Problem: 'static,
     S::Solution: 'static,
@@ -74,7 +74,7 @@ where
 
 impl<T, S> DynamicSolver<T> for DynamicSolverWrapper<T, S>
 where
-    T: RealField + 'static,
+    T: RealField + Copy + 'static,
     S: Solver<T> + 'static,
     S::Problem: 'static,
     S::Solution: 'static,
@@ -94,7 +94,7 @@ where
 }
 
 /// Dynamic factory for heterogeneous storage
-pub trait DynamicFactory<T: RealField>: Send + Sync {
+pub trait DynamicFactory<T: RealField + Copy>: Send + Sync {
     /// Create a solver from a configuration
     fn create_solver(&self, config: &dyn Any) -> Result<Box<dyn DynamicSolver<T>>>;
     
@@ -108,7 +108,7 @@ pub trait DynamicFactory<T: RealField>: Send + Sync {
 /// Wrapper to convert concrete factories to dynamic factories
 pub struct DynamicFactoryWrapper<T, F>
 where
-    T: RealField,
+    T: RealField + Copy,
     F: ConcreteSolverFactory<T>,
 {
     factory: F,
@@ -117,7 +117,7 @@ where
 
 impl<T, F> DynamicFactoryWrapper<T, F>
 where
-    T: RealField + 'static,
+    T: RealField + Copy + 'static,
     F: ConcreteSolverFactory<T> + 'static,
     F::Solver: 'static,
     F::Config: 'static,
@@ -134,7 +134,7 @@ where
 
 impl<T, F> DynamicFactory<T> for DynamicFactoryWrapper<T, F>
 where
-    T: RealField + 'static,
+    T: RealField + Copy + 'static,
     F: ConcreteSolverFactory<T> + 'static,
     F::Solver: 'static,
     F::Config: 'static,
@@ -146,7 +146,7 @@ where
             .downcast_ref::<F::Config>()
             .ok_or_else(|| Error::InvalidConfiguration("Invalid configuration type".into()))?;
         
-        let solver = self.factory.create(typed_config.clone())?;
+        let solver = self.factory.create(typed_config)?;
         Ok(Box::new(DynamicSolverWrapper::new(solver)))
     }
     
@@ -169,24 +169,24 @@ pub struct FactoryMetadata {
 }
 
 /// Registry entry containing both factory and metadata
-struct RegistryEntry<T: RealField> {
+struct RegistryEntry<T: RealField + Copy> {
     factory: Arc<dyn DynamicFactory<T>>,
     metadata: FactoryMetadata,
 }
 
 /// Complete factory registry with proper factory pattern implementation
 /// Uses a single HashMap for SSOT (Single Source of Truth)
-pub struct SolverFactoryRegistry<T: RealField> {
+pub struct SolverFactoryRegistry<T: RealField + Copy> {
     registry: HashMap<String, RegistryEntry<T>>,
 }
 
-impl<T: RealField> Default for SolverFactoryRegistry<T> {
+impl<T: RealField + Copy> Default for SolverFactoryRegistry<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField> SolverFactoryRegistry<T> {
+impl<T: RealField + Copy> SolverFactoryRegistry<T> {
     /// Create new factory registry
     pub fn new() -> Self {
         Self {
@@ -203,7 +203,7 @@ impl<T: RealField> SolverFactoryRegistry<T> {
     ) -> Result<()> {
         use std::collections::hash_map::Entry;
         
-        match self.registry.entry(name.clone()) {
+        match self.registry.entry(name) {
             Entry::Occupied(_) => {
                 Err(Error::InvalidInput(format!("Factory '{}' already registered", name)))
             }

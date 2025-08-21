@@ -34,7 +34,7 @@ pub enum MomentumComponent {
 
 /// Coefficients for momentum discretization
 #[derive(Debug, Clone)]
-pub struct MomentumCoefficients<T: RealField> {
+pub struct MomentumCoefficients<T: RealField + Copy> {
     /// Central coefficient (aP)
     pub ap: Field2D<T>,
     /// East coefficient (aE)
@@ -116,20 +116,20 @@ impl<T: RealField + FromPrimitive + Copy> MomentumSolver<T> {
         // Calculate convection coefficients using upwind scheme
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
-                let u = fields.u.at(i, j).clone();
-                let v = fields.v.at(i, j).clone();
+                let u = fields.u.at(i, j);
+                let v = fields.v.at(i, j);
                 
                 // Face velocities (using linear interpolation)
-                let ue = (fields.u.at(i, j).clone() + fields.u.at(i+1, j).clone()) * T::from_f64(0.5).unwrap();
-                let uw = (fields.u.at(i-1, j).clone() + fields.u.at(i, j).clone()) * T::from_f64(0.5).unwrap();
-                let vn = (fields.v.at(i, j).clone() + fields.v.at(i, j+1).clone()) * T::from_f64(0.5).unwrap();
-                let vs = (fields.v.at(i, j-1).clone() + fields.v.at(i, j).clone()) * T::from_f64(0.5).unwrap();
+                let ue = (fields.u.at(i, j) + fields.u.at(i+1, j)) * T::from_f64(0.5).unwrap();
+                let uw = (fields.u.at(i-1, j) + fields.u.at(i, j)) * T::from_f64(0.5).unwrap();
+                let vn = (fields.v.at(i, j) + fields.v.at(i, j+1)) * T::from_f64(0.5).unwrap();
+                let vs = (fields.v.at(i, j-1) + fields.v.at(i, j)) * T::from_f64(0.5).unwrap();
                 
                 // Mass fluxes
-                let fe = fields.density.at(i, j).clone() * ue * self.dy.clone();
-                let fw = fields.density.at(i, j).clone() * uw * self.dy.clone();
-                let fn_flux = fields.density.at(i, j).clone() * vn * self.dx.clone();
-                let fs = fields.density.at(i, j).clone() * vs * self.dx.clone();
+                let fe = fields.density.at(i, j) * ue * self.dy;
+                let fw = fields.density.at(i, j) * uw * self.dy;
+                let fn_flux = fields.density.at(i, j) * vn * self.dx;
+                let fs = fields.density.at(i, j) * vs * self.dx;
                 
                 // Upwind scheme
                 *coeffs.ae.at_mut(i, j) = de + T::max(T::zero(), -fe);
@@ -316,7 +316,7 @@ impl<T: RealField + FromPrimitive + Copy> MomentumSolver<T> {
     }
 }
 
-impl<T: RealField> MomentumCoefficients<T> {
+impl<T: RealField + Copy> MomentumCoefficients<T> {
     /// Create new coefficient structure
     pub fn new(nx: usize, ny: usize) -> Self 
     where T: num_traits::Zero

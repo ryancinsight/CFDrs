@@ -5,11 +5,11 @@ use num_traits::FromPrimitive;
 use super::{Grid2D, SpatialDiscretization};
 
 /// Second-order central difference scheme
-pub struct CentralDifference<T: RealField> {
+pub struct CentralDifference<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField> CentralDifference<T> {
+impl<T: RealField + Copy> CentralDifference<T> {
     /// Create new central difference scheme
     pub fn new() -> Self {
         Self {
@@ -34,11 +34,11 @@ impl<T: RealField + FromPrimitive + Copy> SpatialDiscretization<T> for CentralDi
 }
 
 /// Fourth-order central difference scheme
-pub struct FourthOrderCentral<T: RealField> {
+pub struct FourthOrderCentral<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField> FourthOrderCentral<T> {
+impl<T: RealField + Copy> FourthOrderCentral<T> {
     /// Create new fourth-order central scheme
     pub fn new() -> Self {
         Self {

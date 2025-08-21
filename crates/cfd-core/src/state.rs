@@ -50,14 +50,14 @@ pub enum FieldVariable {
 
 /// Generic field data
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum FieldData<T: RealField> {
+pub enum FieldData<T: RealField + Copy> {
     /// Scalar field
     Scalar(DVector<T>),
     /// Vector field
     Vector(Vec<Vector3<T>>),
 }
 
-impl<T: RealField> FieldData<T> {
+impl<T: RealField + Copy> FieldData<T> {
     /// Create a scalar field with given size
     pub fn scalar(size: usize) -> Self {
         Self::Scalar(DVector::zeros(size))
@@ -84,7 +84,7 @@ impl<T: RealField> FieldData<T> {
 
 /// Simulation state implementation for field variables and time integration
 #[derive(Debug, Clone)]
-pub struct FieldState<T: RealField> {
+pub struct FieldState<T: RealField + Copy> {
     /// Current simulation time
     pub time: T,
     /// Time step
@@ -95,7 +95,7 @@ pub struct FieldState<T: RealField> {
     pub fields: IndexMap<FieldVariable, FieldData<T>>,
 }
 
-impl<T: RealField + FromPrimitive> FieldState<T> {
+impl<T: RealField + FromPrimitive + Copy> FieldState<T> {
     /// Create a new field state
     pub fn new() -> Self {
         Self {
@@ -149,7 +149,7 @@ impl<T: RealField + FromPrimitive> FieldState<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive> Default for FieldState<T> {
+impl<T: RealField + FromPrimitive + Copy> Default for FieldState<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -197,7 +197,7 @@ impl<T: RealField + Copy> SimulationState for FieldState<T> {
 
 /// State snapshot for checkpointing
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StateSnapshot<T: RealField> {
+pub struct StateSnapshot<T: RealField + Copy> {
     /// Simulation time
     pub time: T,
     /// Iteration number

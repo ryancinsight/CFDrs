@@ -9,14 +9,14 @@ use num_traits::FromPrimitive;
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 
 /// Lid-driven cavity benchmark
-pub struct LidDrivenCavity<T: RealField> {
+pub struct LidDrivenCavity<T: RealField + Copy> {
     /// Cavity dimensions (assumed square)
     pub size: T,
     /// Lid velocity
     pub lid_velocity: T,
 }
 
-impl<T: RealField> LidDrivenCavity<T> {
+impl<T: RealField + Copy> LidDrivenCavity<T> {
     /// Create a new lid-driven cavity benchmark
     pub fn new(size: T, lid_velocity: T) -> Self {
         Self { size, lid_velocity }
@@ -31,7 +31,7 @@ impl<T: RealField> LidDrivenCavity<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
+impl<T: RealField + FromPrimitive + Copy> Benchmark<T> for LidDrivenCavity<T> {
     fn name(&self) -> &str {
         "Lid-Driven Cavity"
     }
@@ -42,7 +42,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
     
     fn run(&self, config: &BenchmarkConfig<T>) -> Result<BenchmarkResult<T>> {
         let n = config.resolution;
-        let dx = self.size.clone() / T::from_usize(n).ok_or_else(|| 
+        let dx = self.size / T::from_usize(n).ok_or_else(|| 
             Error::InvalidConfiguration("Invalid resolution".into()))?;
         
         // Initialize velocity and pressure fields
@@ -52,7 +52,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
         
         // Set boundary conditions
         for j in 0..n {
-            u[(n-1, j)] = self.lid_velocity.clone(); // Top lid
+            u[(n-1, j)] = self.lid_velocity; // Top lid
         }
         
         // Simplified solver - in practice would use SIMPLE/PISO
@@ -68,7 +68,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
             // 4. Check convergence
             
             let residual = T::from_f64(0.001).unwrap_or_else(|| T::from_f64(0.001).unwrap());
-            convergence.push(residual.clone());
+            convergence.push(residual);
             
             if residual < config.tolerance {
                 break;
@@ -78,14 +78,14 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for LidDrivenCavity<T> {
         }
         
         // Extract centerline velocities for validation
-        let centerline_u: Vec<T> = (0..n).map(|i| u[(i, n/2)].clone()).collect();
-        let centerline_v: Vec<T> = (0..n).map(|j| v[(n/2, j)].clone()).collect();
+        let centerline_u: Vec<T> = (0..n).map(|i| u[(i, n/2)]).collect();
+        let centerline_v: Vec<T> = (0..n).map(|j| v[(n/2, j)]).collect();
         
         let mut values = centerline_u;
         values.extend(centerline_v);
         
         Ok(BenchmarkResult {
-            name: self.name().to_string(),
+            name: self.name.clone()().to_string(),
             values,
             errors: vec![],
             convergence,

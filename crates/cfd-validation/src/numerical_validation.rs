@@ -13,7 +13,7 @@ use num_traits::{FromPrimitive, Float};
 
 /// Validation result for a numerical algorithm
 #[derive(Debug, Clone)]
-pub struct ValidationResult<T: RealField> {
+pub struct ValidationResult<T: RealField + Copy> {
     /// Algorithm name
     pub algorithm_name: String,
     /// Test case name
@@ -34,7 +34,7 @@ pub struct ValidationResult<T: RealField> {
 
 /// Error metrics for validation
 #[derive(Debug, Clone)]
-pub struct ErrorMetrics<T: RealField> {
+pub struct ErrorMetrics<T: RealField + Copy> {
     /// L2 norm of error
     pub l2_error: T,
     /// L∞ norm of error
@@ -47,7 +47,7 @@ pub struct ErrorMetrics<T: RealField> {
 
 /// Convergence information
 #[derive(Debug, Clone)]
-pub struct ConvergenceInfo<T: RealField> {
+pub struct ConvergenceInfo<T: RealField + Copy> {
     /// Number of iterations
     pub iterations: usize,
     /// Final residual
@@ -116,11 +116,11 @@ impl LinearSolverValidator {
                         algorithm_name: name.to_string(),
                         test_case: "Diagonal System".to_string(),
                         computed_solution: computed,
-                        analytical_solution: analytical.clone(),
-                        error_metrics: error_metrics.clone(),
+                        analytical_solution: analytical,
+                        error_metrics: error_metrics,
                         convergence_info: ConvergenceInfo {
                             iterations: 1, // Diagonal systems converge in 1 iteration
-                            final_residual: error_metrics.l2_error.clone(),
+                            final_residual: error_metrics.l2_error,
                             convergence_rate: None,
                         },
                         literature_reference: "Golub & Van Loan (2013), Matrix Computations, 4th Ed.".to_string(),
@@ -139,8 +139,8 @@ impl LinearSolverValidator {
                         algorithm_name: name.to_string(),
                         test_case: "Diagonal System".to_string(),
                         computed_solution: dummy_solution,
-                        analytical_solution: analytical.clone(),
-                        error_metrics: error_metrics.clone(),
+                        analytical_solution: analytical,
+                        error_metrics: error_metrics,
                         convergence_info: ConvergenceInfo {
                             iterations: 0,
                             final_residual: T::from_f64(f64::INFINITY).unwrap_or_else(|| T::zero()),
@@ -180,11 +180,11 @@ impl LinearSolverValidator {
                 algorithm_name: name.to_string(),
                 test_case: "1D Poisson Equation".to_string(),
                 computed_solution: computed,
-                analytical_solution: analytical.clone(),
-                error_metrics: error_metrics.clone(),
+                analytical_solution: analytical,
+                error_metrics: error_metrics,
                 convergence_info: ConvergenceInfo {
                     iterations: 50, // Typical for CG on Poisson
-                    final_residual: error_metrics.l2_error.clone(),
+                    final_residual: error_metrics.l2_error,
                     convergence_rate: Some(T::from_f64(0.95).unwrap_or_else(|| T::zero())), // Typical for CG
                 },
                 literature_reference: "Strang (2007), Computational Science and Engineering".to_string(),
@@ -219,11 +219,11 @@ impl LinearSolverValidator {
                 algorithm_name: name.to_string(),
                 test_case: "2D Poisson Equation".to_string(),
                 computed_solution: computed,
-                analytical_solution: analytical.clone(),
-                error_metrics: error_metrics.clone(),
+                analytical_solution: analytical,
+                error_metrics: error_metrics,
                 convergence_info: ConvergenceInfo {
                     iterations: 100, // Typical for 2D Poisson
-                    final_residual: error_metrics.l2_error.clone(),
+                    final_residual: error_metrics.l2_error,
                     convergence_rate: Some(T::from_f64(0.98).unwrap_or_else(|| T::zero())),
                 },
                 literature_reference: "LeVeque (2007), Finite Difference Methods for ODEs and PDEs".to_string(),
@@ -260,11 +260,11 @@ impl LinearSolverValidator {
                         algorithm_name: name.to_string(),
                         test_case: "Ill-Conditioned System (Hilbert)".to_string(),
                         computed_solution: computed,
-                        analytical_solution: analytical.clone(),
-                        error_metrics: error_metrics.clone(),
+                        analytical_solution: analytical,
+                        error_metrics: error_metrics,
                         convergence_info: ConvergenceInfo {
                             iterations: 200, // More iterations for ill-conditioned
-                            final_residual: error_metrics.l2_error.clone(),
+                            final_residual: error_metrics.l2_error,
                             convergence_rate: Some(T::from_f64(0.99).unwrap_or_else(|| T::zero())),
                         },
                         literature_reference: "Higham (2002), Accuracy and Stability of Numerical Algorithms".to_string(),
@@ -284,8 +284,8 @@ impl LinearSolverValidator {
                         algorithm_name: name.to_string(),
                         test_case: "Ill-Conditioned System (Hilbert)".to_string(),
                         computed_solution: dummy_solution,
-                        analytical_solution: analytical.clone(),
-                        error_metrics: error_metrics.clone(),
+                        analytical_solution: analytical,
+                        error_metrics: error_metrics,
                         convergence_info: ConvergenceInfo {
                             iterations: 0,
                             final_residual: T::from_f64(f64::INFINITY).unwrap_or_else(|| T::zero()),
@@ -365,21 +365,21 @@ impl LinearSolverValidator {
     /// Create 1D Poisson system
     fn create_1d_poisson_system<T: RealField + FromPrimitive + Copy>(n: usize) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
         let h = T::one() / T::from_usize(n + 1).unwrap_or_else(|| T::zero());
-        let h_squared = h.clone() * h.clone();
+        let h_squared = h * h;
 
         // Create tridiagonal matrix for -u'' using iterators
-        let diagonal_value = T::from_f64(2.0).unwrap_or_else(|| T::zero()) / h_squared.clone();
-        let off_diagonal_value = -T::one() / h_squared.clone();
+        let diagonal_value = T::from_f64(2.0).unwrap_or_else(|| T::zero()) / h_squared;
+        let off_diagonal_value = -T::one() / h_squared;
         
         let (row_indices, col_indices, values): (Vec<_>, Vec<_>, Vec<_>) = (0..n)
             .flat_map(|i| {
-                let mut entries = vec![(i, i, diagonal_value.clone())];
+                let mut entries = vec![(i, i, diagonal_value)];
                 
                 if i > 0 {
-                    entries.push((i, i - 1, off_diagonal_value.clone()));
+                    entries.push((i, i - 1, off_diagonal_value));
                 }
                 if i < n - 1 {
-                    entries.push((i, i + 1, off_diagonal_value.clone()));
+                    entries.push((i, i + 1, off_diagonal_value));
                 }
                 
                 entries
@@ -428,14 +428,14 @@ impl LinearSolverValidator {
         // RHS for manufactured solution u(x) = x(1-x)
         let _pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
         let b = DVector::from_iterator(n, (1..=n).map(|i| {
-            let _x = T::from_usize(i).unwrap_or_else(|| T::zero()) * h.clone();
+            let _x = T::from_usize(i).unwrap_or_else(|| T::zero()) * h;
             T::from_f64(2.0).unwrap_or_else(|| T::zero()) // f(x) = 2 for u(x) = x(1-x)
         }));
 
         // Analytical solution
         let analytical = DVector::from_iterator(n, (1..=n).map(|i| {
-            let x = T::from_usize(i).unwrap_or_else(|| T::zero()) * h.clone();
-            x.clone() * (T::one() - x)
+            let x = T::from_usize(i).unwrap_or_else(|| T::zero()) * h;
+            x * (T::one() - x)
         }));
 
         Ok((a, b, analytical))
@@ -446,7 +446,7 @@ impl LinearSolverValidator {
     fn create_2d_poisson_system<T: RealField + FromPrimitive + Copy>(nx: usize, ny: usize) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
         let n = nx * ny;
         let h = T::one() / T::from_usize(nx - 1).unwrap_or_else(|| T::zero());
-        let h2 = h.clone() * h.clone();
+        let h2 = h * h;
         
         // Build sparse matrix using 5-point stencil
         let mut row_offsets = vec![0];
@@ -464,16 +464,16 @@ impl LinearSolverValidator {
                 values.push(T::one());
             } else {
                 // Interior point: 5-point stencil
-                let center_coeff = T::from_f64(4.0).unwrap_or_else(|| T::zero()) / h2.clone();
-                let neighbor_coeff = -T::one() / h2.clone();
+                let center_coeff = T::from_f64(4.0).unwrap_or_else(|| T::zero()) / h2;
+                let neighbor_coeff = -T::one() / h2;
                 
                 // Left neighbor
                 col_indices.push(idx - 1);
-                values.push(neighbor_coeff.clone());
+                values.push(neighbor_coeff);
                 
                 // Bottom neighbor  
                 col_indices.push(idx - nx);
-                values.push(neighbor_coeff.clone());
+                values.push(neighbor_coeff);
                 
                 // Center
                 col_indices.push(idx);
@@ -481,7 +481,7 @@ impl LinearSolverValidator {
                 
                 // Top neighbor
                 col_indices.push(idx + nx);
-                values.push(neighbor_coeff.clone());
+                values.push(neighbor_coeff);
                 
                 // Right neighbor
                 col_indices.push(idx + 1);
@@ -502,17 +502,17 @@ impl LinearSolverValidator {
         for idx in 0..n {
             let i = idx % nx;
             let j = idx / nx;
-            let x = T::from_usize(i).unwrap_or_else(|| T::zero()) * h.clone();
-            let y = T::from_usize(j).unwrap_or_else(|| T::zero()) * h.clone();
+            let x = T::from_usize(i).unwrap_or_else(|| T::zero()) * h;
+            let y = T::from_usize(j).unwrap_or_else(|| T::zero()) * h;
             
             if i == 0 || i == nx - 1 || j == 0 || j == ny - 1 {
                 b[idx] = T::zero();
                 analytical[idx] = T::zero();
             } else {
                 // f = 2π²sin(πx)sin(πy)
-                b[idx] = T::from_f64(2.0).unwrap_or_else(|| T::zero()) * pi.clone() * pi.clone() 
-                    * (pi.clone() * x.clone()).sin() * (pi.clone() * y.clone()).sin();
-                analytical[idx] = (pi.clone() * x).sin() * (pi.clone() * y).sin();
+                b[idx] = T::from_f64(2.0).unwrap_or_else(|| T::zero()) * pi * pi 
+                    * (pi * x).sin() * (pi * y).sin();
+                analytical[idx] = (pi * x).sin() * (pi * y).sin();
             }
         }
 
@@ -575,22 +575,22 @@ impl LinearSolverValidator {
     }
 
     /// Compute error metrics
-    fn compute_error_metrics<T: RealField + FromPrimitive>(
+    fn compute_error_metrics<T: RealField + FromPrimitive + Copy>(
         computed: &DVector<T>,
         analytical: &DVector<T>,
     ) -> ErrorMetrics<T> {
         let error = computed - analytical;
         let l2_error = error.norm();
-        let linf_error = error.iter().map(|x| x.clone().abs()).fold(T::zero(), |acc, x| if x > acc { x } else { acc });
+        let linf_error = error.iter().map(|x| x.abs()).fold(T::zero(), |acc, x| if x > acc { x } else { acc });
         
         let analytical_norm = analytical.norm();
         let relative_l2_error = if analytical_norm > T::zero() {
-            l2_error.clone() / analytical_norm
+            l2_error / analytical_norm
         } else {
-            l2_error.clone()
+            l2_error
         };
 
-        let rmse = l2_error.clone() / T::from_usize(computed.len()).expect("CRITICAL: Add proper error handling").sqrt();
+        let rmse = l2_error / T::from_usize(computed.len()).expect("CRITICAL: Add proper error handling").sqrt();
 
         ErrorMetrics {
             l2_error,

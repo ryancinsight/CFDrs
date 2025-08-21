@@ -9,7 +9,7 @@ use num_traits::cast::FromPrimitive;
 use std::f64::consts::PI;
 
 /// Trait for analytical solutions
-pub trait AnalyticalSolution<T: RealField> {
+pub trait AnalyticalSolution<T: RealField + Copy> {
     /// Evaluate the solution at given coordinates and time
     fn evaluate(&self, x: T, y: T, z: T, t: T) -> Vector3<T>;
 
@@ -46,7 +46,7 @@ pub trait AnalyticalSolution<T: RealField> {
 /// **Mathematical Formulation:**
 /// - 2D channel: u(y) = u_max * (1 - (y/h)²) where h is half-height
 /// - Pipe flow: u(r) = u_max * (1 - (r/R)²) where R is radius
-pub struct PoiseuilleFlow<T: RealField> {
+pub struct PoiseuilleFlow<T: RealField + Copy> {
     /// Maximum velocity at channel center
     pub u_max: T,
     /// Channel half-width (for 2D) or radius (for cylindrical)
@@ -159,7 +159,7 @@ impl<T: RealField + FromPrimitive + Copy> AnalyticalSolution<T> for PoiseuilleFl
 /// **Mathematical Formulation:**
 /// u(y) = U * y/h + (dp/dx) * y * (h - y) / (2*μ)
 /// where U is plate velocity, h is gap, dp/dx is pressure gradient
-pub struct CouetteFlow<T: RealField> {
+pub struct CouetteFlow<T: RealField + Copy> {
     /// Velocity of the moving plate
     pub plate_velocity: T,
     /// Gap between plates
@@ -224,7 +224,7 @@ impl<T: RealField + FromPrimitive + Copy> AnalyticalSolution<T> for CouetteFlow<
 }
 
 /// Taylor-Green vortex solution
-pub struct TaylorGreenVortex<T: RealField> {
+pub struct TaylorGreenVortex<T: RealField + Copy> {
     /// Amplitude of the vortex
     pub amplitude: T,
     /// Kinematic viscosity
@@ -304,7 +304,7 @@ impl<T: RealField + FromPrimitive + Copy> AnalyticalSolution<T> for TaylorGreenV
 }
 
 /// Stokes flow around a sphere
-pub struct StokesFlow<T: RealField> {
+pub struct StokesFlow<T: RealField + Copy> {
     /// Sphere radius
     pub radius: T,
     /// Free stream velocity
@@ -411,7 +411,7 @@ pub struct AnalyticalUtils;
 
 impl AnalyticalUtils {
     /// Create a grid of points for evaluation
-    pub fn create_grid<T: RealField + FromPrimitive>(
+    pub fn create_grid<T: RealField + FromPrimitive + Copy>(
         bounds: [T; 6],
         nx: usize,
         ny: usize,

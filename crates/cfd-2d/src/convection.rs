@@ -8,7 +8,7 @@ use num_traits::FromPrimitive;
 use cfd_core::constants;
 
 /// Trait for convection discretization schemes
-pub trait ConvectionScheme<T: RealField>: Send + Sync {
+pub trait ConvectionScheme<T: RealField + Copy>: Send + Sync {
     /// Calculate convection coefficients for east and west faces
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T);
     
@@ -22,7 +22,7 @@ pub trait ConvectionScheme<T: RealField>: Send + Sync {
 /// First-order upwind scheme - stable but diffusive
 pub struct FirstOrderUpwind;
 
-impl<T: RealField> ConvectionScheme<T> for FirstOrderUpwind {
+impl<T: RealField + Copy> ConvectionScheme<T> for FirstOrderUpwind {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
         // Upwind scheme: always take from upwind direction
         // ae coefficient includes diffusion + convection from east face
@@ -44,10 +44,10 @@ impl<T: RealField> ConvectionScheme<T> for FirstOrderUpwind {
 /// Central difference scheme - second-order accurate but can oscillate
 pub struct CentralDifference;
 
-impl<T: RealField + FromPrimitive> ConvectionScheme<T> for CentralDifference {
+impl<T: RealField + FromPrimitive + Copy> ConvectionScheme<T> for CentralDifference {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
         let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
-        let ae = de - fe / two.clone();
+        let ae = de - fe / two;
         let aw = dw + fw / two;
         (ae, aw)
     }
@@ -64,20 +64,20 @@ impl<T: RealField + FromPrimitive> ConvectionScheme<T> for CentralDifference {
 /// Hybrid scheme - switches between upwind and central difference
 pub struct HybridScheme;
 
-impl<T: RealField + FromPrimitive> ConvectionScheme<T> for HybridScheme {
+impl<T: RealField + FromPrimitive + Copy> ConvectionScheme<T> for HybridScheme {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
         let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
         
         // Calculate Peclet numbers
-        let pe_e = fe.clone().abs() / de.clone();
-        let pe_w = fw.clone().abs() / dw.clone();
+        let pe_e = fe.abs() / de;
+        let pe_w = fw.abs() / dw;
         
         // Hybrid switching criteria (Pe = 2)
-        let switch_criterion = two.clone();
+        let switch_criterion = two;
         
         let ae = if pe_e <= switch_criterion {
             // Central difference
-            de.clone() - fe.clone() / two.clone()
+            de - fe / two
         } else {
             // Upwind
             de + T::max(T::zero(), -fe)
@@ -85,7 +85,7 @@ impl<T: RealField + FromPrimitive> ConvectionScheme<T> for HybridScheme {
         
         let aw = if pe_w <= switch_criterion {
             // Central difference
-            dw.clone() + fw.clone() / two
+            dw + fw / two
         } else {
             // Upwind
             dw + T::max(T::zero(), fw)
@@ -106,7 +106,7 @@ impl<T: RealField + FromPrimitive> ConvectionScheme<T> for HybridScheme {
 /// Power-law scheme - more accurate interpolation for convection-diffusion
 pub struct PowerLawScheme;
 
-impl<T: RealField + FromPrimitive> ConvectionScheme<T> for PowerLawScheme {
+impl<T: RealField + FromPrimitive + Copy> ConvectionScheme<T> for PowerLawScheme {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
         // Power-law function: max(0, (1 - 0.1|Pe|)^5)
         let power_law = |pe: T| -> T {
@@ -115,19 +115,19 @@ impl<T: RealField + FromPrimitive> ConvectionScheme<T> for PowerLawScheme {
             let factor = T::one() - one_tenth * abs_pe;
             if factor > T::zero() {
                 // Approximate (1-x)^5 for small x
-                let factor2 = factor.clone() * factor.clone();
-                let factor4 = factor2.clone() * factor2;
+                let factor2 = factor * factor;
+                let factor4 = factor2 * factor2;
                 factor4 * factor
             } else {
                 T::zero()
             }
         };
         
-        let pe_e = fe.clone() / de.clone();
-        let pe_w = fw.clone() / dw.clone();
+        let pe_e = fe / de;
+        let pe_w = fw / dw;
         
-        let d_e_eff = de.clone() * power_law(pe_e) + T::max(T::zero(), -fe.clone());
-        let d_w_eff = dw.clone() * power_law(pe_w) + T::max(T::zero(), fw.clone());
+        let d_e_eff = de * power_law(pe_e) + T::max(T::zero(), -fe);
+        let d_w_eff = dw * power_law(pe_w) + T::max(T::zero(), fw);
         
         let ae = d_e_eff;
         let aw = d_w_eff;
@@ -147,21 +147,21 @@ impl<T: RealField + FromPrimitive> ConvectionScheme<T> for PowerLawScheme {
 /// QUICK scheme - third-order upwind-biased
 pub struct QuickScheme;
 
-impl<T: RealField + FromPrimitive> ConvectionScheme<T> for QuickScheme {
+impl<T: RealField + FromPrimitive + Copy> ConvectionScheme<T> for QuickScheme {
 	fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
 		// The QUICK stencil needs two upstream and one downstream cell values.
 		// This coefficient-only API cannot represent that stencil faithfully.
 		// Map to power-law behavior to preserve boundedness and reduce oscillations.
-		let pe_e = fe.clone() / de.clone();
-		let pe_w = fw.clone() / dw.clone();
+		let pe_e = fe / de;
+		let pe_w = fw / dw;
 		let limiter = |pe: T| -> T {
 			let abs_pe = pe.abs();
 			let one_tenth = T::from_f64(constants::ONE_TENTH).unwrap_or_else(|| T::zero());
 			let factor = T::one() - one_tenth * abs_pe;
-			            if factor > T::zero() { let f = factor.clone(); f.clone() * f.clone() * f.clone() * f.clone() * f } else { T::zero() }
+			            if factor > T::zero() { let f = factor; f * f * f * f * f } else { T::zero() }
 		};
-		let ae = de.clone() * limiter(pe_e) + T::max(T::zero(), -fe);
-		let aw = dw.clone() * limiter(pe_w) + T::max(T::zero(), fw);
+		let ae = de * limiter(pe_e) + T::max(T::zero(), -fe);
+		let aw = dw * limiter(pe_w) + T::max(T::zero(), fw);
 		(ae, aw)
 	}
 	
@@ -175,7 +175,7 @@ pub struct ConvectionSchemeFactory;
 
 impl ConvectionSchemeFactory {
     /// Create scheme by name
-    pub fn create<T: RealField + FromPrimitive>(scheme_name: &str) -> Box<dyn ConvectionScheme<T>> {
+    pub fn create<T: RealField + FromPrimitive + Copy>(scheme_name: &str) -> Box<dyn ConvectionScheme<T>> {
         match scheme_name.to_lowercase().as_str() {
             "upwind" | "first_order_upwind" => Box::new(FirstOrderUpwind),
             "central" | "central_difference" => Box::new(CentralDifference),
@@ -231,13 +231,13 @@ mod tests {
     #[test]
     fn test_scheme_factory() {
         let upwind: Box<dyn ConvectionScheme<f64>> = ConvectionSchemeFactory::create("upwind");
-        assert_eq!(upwind.name(), "First-Order Upwind");
+        assert_eq!(upwind.name.clone()(), "First-Order Upwind");
         
         let central: Box<dyn ConvectionScheme<f64>> = ConvectionSchemeFactory::create("central");
-        assert_eq!(central.name(), "Central Difference");
+        assert_eq!(central.name.clone()(), "Central Difference");
         
         // Test default fallback
         let unknown: Box<dyn ConvectionScheme<f64>> = ConvectionSchemeFactory::create("unknown");
-        assert_eq!(unknown.name(), "First-Order Upwind");
+        assert_eq!(unknown.name.clone()(), "First-Order Upwind");
     }
 }

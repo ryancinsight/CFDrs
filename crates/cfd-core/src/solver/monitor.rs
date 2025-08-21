@@ -4,7 +4,7 @@ use nalgebra::RealField;
 use std::marker::PhantomData;
 
 /// Solution monitor trait
-pub trait SolutionMonitor<T: RealField>: Send + Sync {
+pub trait SolutionMonitor<T: RealField + Copy>: Send + Sync {
     /// Called at each iteration
     fn on_iteration(&mut self, iteration: usize, residual: T);
     
@@ -58,7 +58,7 @@ pub struct NullMonitor<T> {
     _phantom: PhantomData<T>,
 }
 
-impl<T: RealField> Default for NullMonitor<T> {
+impl<T: RealField + Copy> Default for NullMonitor<T> {
     fn default() -> Self {
         Self {
             _phantom: PhantomData,
@@ -66,7 +66,7 @@ impl<T: RealField> Default for NullMonitor<T> {
     }
 }
 
-impl<T: RealField> SolutionMonitor<T> for NullMonitor<T> {
+impl<T: RealField + Copy> SolutionMonitor<T> for NullMonitor<T> {
     fn on_iteration(&mut self, _: usize, _: T) {}
     fn on_convergence(&mut self, _: usize, _: T) {}
     fn on_error(&mut self, _: &str) {}

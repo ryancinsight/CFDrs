@@ -62,12 +62,12 @@ impl FluxLimiter {
 }
 
 /// MUSCL (Monotonic Upstream-centered Scheme for Conservation Laws)
-pub struct MUSCLScheme<T: RealField> {
+pub struct MUSCLScheme<T: RealField + Copy> {
     limiter: FluxLimiter,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField> MUSCLScheme<T> {
+impl<T: RealField + Copy> MUSCLScheme<T> {
     /// Create new MUSCL scheme with specified limiter
     pub fn new(limiter: FluxLimiter) -> Self {
         Self {
@@ -78,11 +78,11 @@ impl<T: RealField> MUSCLScheme<T> {
 }
 
 /// QUICK (Quadratic Upstream Interpolation for Convective Kinematics)
-pub struct QUICKScheme<T: RealField> {
+pub struct QUICKScheme<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField> QUICKScheme<T> {
+impl<T: RealField + Copy> QUICKScheme<T> {
     /// Create new QUICK scheme
     pub fn new() -> Self {
         Self {

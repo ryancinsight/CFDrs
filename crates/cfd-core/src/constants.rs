@@ -317,22 +317,22 @@ pub const EPSILON_MULTIPLIER_FALLBACK: f64 = 100.0;
 // ============================================================================
 
 /// Get default tolerance for type T
-pub fn default_tolerance<T: RealField>() -> T {
+pub fn default_tolerance<T: RealField + Copy>() -> T {
     T::from_f64(DEFAULT_TOLERANCE).unwrap_or_else(|| T::default_epsilon() * T::from_f64(EPSILON_MULTIPLIER_FALLBACK).unwrap_or_else(|| T::one()))
 }
 
 /// Get epsilon for type T
-pub fn epsilon<T: RealField>() -> T {
+pub fn epsilon<T: RealField + Copy>() -> T {
     T::from_f64(EPSILON).unwrap_or_else(T::default_epsilon)
 }
 
 /// Get small number for type T
-pub fn small_number<T: RealField>() -> T {
+pub fn small_number<T: RealField + Copy>() -> T {
     T::from_f64(SMALL_NUMBER).unwrap_or_else(T::default_epsilon)
 }
 
 /// Get a numerical constant for type T
-pub fn get_constant<T: RealField>(value: f64) -> T {
+pub fn get_constant<T: RealField + Copy>(value: f64) -> T {
     T::from_f64(value).unwrap_or_else(T::zero)
 }
 

@@ -27,7 +27,7 @@ use serde::{Serialize, Deserialize};
 
 /// Solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SolverConfig<T: RealField> {
+pub struct SolverConfig<T: RealField + Copy> {
     pub tolerance: T,
     pub max_iterations: usize,
 }
@@ -66,7 +66,7 @@ impl<T: RealField + FromPrimitive + Copy> NetworkSolver<T> {
             max_iterations: 1000,
         };
         Self {
-            config: config.clone(),
+            config: config,
             assembler: MatrixAssembler::new(),
             linear_solver: LinearSystemSolver::new(),
             convergence: ConvergenceChecker::new(config.tolerance),
@@ -89,13 +89,13 @@ impl<T: RealField + FromPrimitive + Copy> NetworkSolver<T> {
         let (matrix, rhs) = self.assembler.assemble(&problem.network)?;
         
         // Solve the linear system
-        let solution = self.linear_solver.solve(matrix, rhs)?;
+        let solution = self.linear_solver.solve(&matrix, &rhs)?;
         
         // Check convergence
         self.convergence.check(&solution)?;
         
         // Update network with solution
-        let mut network = problem.network.clone();
+        let mut network = problem.network;
         self.update_network_solution(&mut network, solution)?;
         
         Ok(network)

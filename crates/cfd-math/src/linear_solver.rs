@@ -53,7 +53,7 @@ pub trait LinearSolver<T: RealField + Copy>: Send + Sync {
 /// 
 /// This API enforces explicit memory management and avoids hidden allocations
 /// by requiring the user to provide the output vector.
-pub trait Preconditioner<T: RealField>: Send + Sync {
+pub trait Preconditioner<T: RealField + Copy>: Send + Sync {
     /// Apply the preconditioner: M(z) = r
     /// 
     /// Solves the preconditioning system and stores the result in `z`.
@@ -65,7 +65,7 @@ pub trait Preconditioner<T: RealField>: Send + Sync {
 #[derive(Default)]
 pub struct IdentityPreconditioner;
 
-impl<T: RealField> Preconditioner<T> for IdentityPreconditioner {
+impl<T: RealField + Copy> Preconditioner<T> for IdentityPreconditioner {
     fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
         z.copy_from(r);
         Ok(())
@@ -73,11 +73,11 @@ impl<T: RealField> Preconditioner<T> for IdentityPreconditioner {
 }
 
 /// Jacobi (diagonal) preconditioner with optimized memory usage
-pub struct JacobiPreconditioner<T: RealField> {
+pub struct JacobiPreconditioner<T: RealField + Copy> {
     inv_diagonal: DVector<T>,
 }
 
-impl<T: RealField + FromPrimitive> JacobiPreconditioner<T> {
+impl<T: RealField + FromPrimitive + Copy> JacobiPreconditioner<T> {
     /// Create Jacobi preconditioner from matrix diagonal
     pub fn new(a: &CsrMatrix<T>) -> Result<Self> {
         let n = a.nrows();
@@ -92,17 +92,17 @@ impl<T: RealField + FromPrimitive> JacobiPreconditioner<T> {
         let mut inv_diagonal = DVector::zeros(n);
 
         for (i, val) in diag.iter().enumerate() {
-            if val.clone().abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
+            if val.abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
                 return Err(Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation));
             }
-            inv_diagonal[i] = T::one() / val.clone();
+            inv_diagonal[i] = T::one() / val;
         }
 
         Ok(Self { inv_diagonal })
     }
 }
 
-impl<T: RealField> Preconditioner<T> for JacobiPreconditioner<T> {
+impl<T: RealField + Copy> Preconditioner<T> for JacobiPreconditioner<T> {
     fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
         z.copy_from(r);
         z.component_mul_assign(&self.inv_diagonal);
@@ -111,12 +111,12 @@ impl<T: RealField> Preconditioner<T> for JacobiPreconditioner<T> {
 }
 
 /// SOR (Successive Over-Relaxation) preconditioner with validation
-pub struct SORPreconditioner<T: RealField> {
+pub struct SORPreconditioner<T: RealField + Copy> {
     matrix: CsrMatrix<T>,
     omega: T,
 }
 
-impl<T: RealField + FromPrimitive> SORPreconditioner<T> {
+impl<T: RealField + FromPrimitive + Copy> SORPreconditioner<T> {
     /// Create SOR preconditioner with specified relaxation parameter
     pub fn new(a: &CsrMatrix<T>, omega: T) -> Result<Self> {
         let n = a.nrows();
@@ -136,7 +136,7 @@ impl<T: RealField + FromPrimitive> SORPreconditioner<T> {
         }
 
         Ok(Self {
-            matrix: a.clone(),
+            matrix: a,
             omega,
         })
     }
@@ -192,7 +192,7 @@ impl<T: RealField + FromPrimitive> SORPreconditioner<T> {
     }
 }
 
-impl<T: RealField> Preconditioner<T> for SORPreconditioner<T> {
+impl<T: RealField + Copy> Preconditioner<T> for SORPreconditioner<T> {
     fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
         let n = r.len();
         z.fill(T::zero());
@@ -207,15 +207,15 @@ impl<T: RealField> Preconditioner<T> for SORPreconditioner<T> {
             for (j, val) in row.col_indices().iter().zip(row.values()) {
                 if *j < i {
                     // Accumulate strictly lower part L z
-                    sum = sum + val.clone() * z[*j].clone();
+                    sum = sum + val * z[*j];
                 } else if *j == i {
-                    diag = val.clone();
+                    diag = val;
                 }
             }
             
             // Standard SOR preconditioner solves (D/ω - L) z = r
             // => (diag/ω) z_i = r_i + (L z)_i
-            z[i] = (r[i].clone() + sum) * self.omega.clone() / diag;
+            z[i] = (r[i] + sum) * self.omega / diag;
         }
         
         Ok(())
@@ -223,7 +223,7 @@ impl<T: RealField> Preconditioner<T> for SORPreconditioner<T> {
 }
 
 /// Preconditioned Conjugate Gradient solver with optimized memory management
-pub struct ConjugateGradient<T: RealField> {
+pub struct ConjugateGradient<T: RealField + Copy> {
     config: LinearSolverConfig<T>,
 }
 
@@ -280,10 +280,10 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
             // Compute A*p
             ap = a * &p;
             
-            let alpha = rzold.clone() / p.dot(&ap);
+            let alpha = rzold / p.dot(&ap);
             
             // Update solution: x = x + alpha * p
-            x.axpy(alpha.clone(), &p, T::one());
+            x.axpy(alpha, &p, T::one());
             
             // Update residual: r = r - alpha * ap
             r.axpy(-alpha, &ap, T::one());
@@ -298,7 +298,7 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
             preconditioner.apply_to(&r, &mut z)?;
             
             let rznew = r.dot(&z);
-            let beta = rznew.clone() / rzold;
+            let beta = rznew / rzold;
 
             // Update search direction: p = z + beta * p
             p *= beta;
@@ -331,7 +331,7 @@ impl<T: RealField + Debug + Copy> LinearSolver<T> for ConjugateGradient<T> {
 }
 
 /// BiCGSTAB solver with optimized memory management
-pub struct BiCGSTAB<T: RealField> {
+pub struct BiCGSTAB<T: RealField + Copy> {
     config: LinearSolverConfig<T>,
 }
 
@@ -393,16 +393,16 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
         for iter in 0..self.config.max_iterations {
             let rho_new = r0_hat.dot(&r);
             
-            if rho_new.clone().abs() < breakdown_tolerance {
+            if rho_new.abs() < breakdown_tolerance {
                 return Err(Error::Numerical(
                     cfd_core::error::NumericalErrorKind::SingularMatrix
                 ));
             }
 
-            let beta = (rho_new.clone() / rho.clone()) * (alpha.clone() / omega.clone());
+            let beta = (rho_new / rho) * (alpha / omega);
             
             // p = r + beta * (p - omega * v) - using in-place operations
-            p.axpy(-omega.clone(), &v, T::one());
+            p.axpy(-omega, &v, T::one());
             p *= beta;
             p += &r;
 
@@ -410,14 +410,14 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
             preconditioner.apply_to(&p, &mut z)?;
             v = a * &z;
             
-            alpha = rho_new.clone() / r0_hat.dot(&v);
+            alpha = rho_new / r0_hat.dot(&v);
             
             // s = r - alpha * v
             s.copy_from(&r);
-            s.axpy(-alpha.clone(), &v, T::one());
+            s.axpy(-alpha, &v, T::one());
             
             if self.is_converged(s.norm()) {
-                x.axpy(alpha.clone(), &z, T::one());
+                x.axpy(alpha, &z, T::one());
                 tracing::debug!("BiCGSTAB converged in {} iterations", iter + 1);
                 return Ok(x);
             }
@@ -429,19 +429,19 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
             omega = s.dot(&t) / t.dot(&t);
             
             // Update solution: x = x + alpha*z + omega*z2
-            x.axpy(alpha.clone(), &z, T::one());
-            x.axpy(omega.clone(), &z2, T::one());
+            x.axpy(alpha, &z, T::one());
+            x.axpy(omega, &z2, T::one());
             
             // Update residual: r = s - omega * t
             r.copy_from(&s);
-            r.axpy(-omega.clone(), &t, T::one());
+            r.axpy(-omega, &t, T::one());
             
             if self.is_converged(r.norm()) {
                 tracing::debug!("BiCGSTAB converged in {} iterations", iter + 1);
                 return Ok(x);
             }
             
-            if omega.clone().abs() < breakdown_tolerance {
+            if omega.abs() < breakdown_tolerance {
                 return Err(Error::Numerical(
                     cfd_core::error::NumericalErrorKind::SingularMatrix
                 ));

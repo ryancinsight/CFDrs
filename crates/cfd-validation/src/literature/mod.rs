@@ -12,7 +12,7 @@ use nalgebra::RealField;
 use cfd_core::Result;
 
 /// Literature validation test trait
-pub trait LiteratureValidation<T: RealField> {
+pub trait LiteratureValidation<T: RealField + Copy> {
     /// Run validation test
     fn validate(&self) -> Result<ValidationReport<T>>;
     
@@ -25,7 +25,7 @@ pub trait LiteratureValidation<T: RealField> {
 
 /// Validation report
 #[derive(Debug, Clone)]
-pub struct ValidationReport<T: RealField> {
+pub struct ValidationReport<T: RealField + Copy> {
     /// Test name
     pub test_name: String,
     /// Citation

@@ -5,7 +5,7 @@ use num_traits::FromPrimitive;
 
 /// 2D grid for finite difference operations
 #[derive(Debug, Clone)]
-pub struct Grid2D<T: RealField> {
+pub struct Grid2D<T: RealField + Copy> {
     /// Grid values
     pub data: DMatrix<T>,
     /// Grid spacing in x-direction
@@ -16,7 +16,7 @@ pub struct Grid2D<T: RealField> {
     pub ghost_cells: usize,
 }
 
-impl<T: RealField + FromPrimitive> Grid2D<T> {
+impl<T: RealField + FromPrimitive + Copy> Grid2D<T> {
     /// Create a new 2D grid
     pub fn new(nx: usize, ny: usize, dx: T, dy: T, ghost_cells: usize) -> Self {
         let total_nx = nx + 2 * ghost_cells;

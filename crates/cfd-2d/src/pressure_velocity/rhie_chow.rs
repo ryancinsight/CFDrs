@@ -9,7 +9,7 @@ use crate::grid::StructuredGrid2D;
 use crate::fields::Field2D;
 
 /// Complete Rhie-Chow interpolation with momentum coefficients
-pub struct RhieChowInterpolation<T: RealField> {
+pub struct RhieChowInterpolation<T: RealField + Copy> {
     /// Grid dimensions
     nx: usize,
     ny: usize,
@@ -30,7 +30,7 @@ impl<T: RealField + FromPrimitive + Copy> RhieChowInterpolation<T> {
     /// Update momentum equation coefficients from discretized momentum equation
     /// A_p is the diagonal coefficient from momentum discretization
     pub fn update_coefficients(&mut self, ap: &Field2D<T>) {
-        self.ap_coefficients = ap.clone();
+        self.ap_coefficients = ap;
     }
     
     /// Compute face velocity with complete Rhie-Chow interpolation

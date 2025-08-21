@@ -12,11 +12,11 @@ use std::io::{BufReader, BufWriter};
 use std::path::Path;
 
 /// CSV writer for simulation data
-pub struct CsvWriter<T: RealField> {
+pub struct CsvWriter<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField> CsvWriter<T> {
+impl<T: RealField + Copy> CsvWriter<T> {
     /// Create a new CSV writer
     pub fn new() -> Self {
         Self {
@@ -81,7 +81,7 @@ impl<T: RealField> CsvWriter<T> {
     }
 }
 
-impl<T: RealField> Default for CsvWriter<T> {
+impl<T: RealField + Copy> Default for CsvWriter<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -118,11 +118,11 @@ impl StreamWriter {
 }
 
 /// CSV reader for simulation data
-pub struct CsvReader<T: RealField> {
+pub struct CsvReader<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField> CsvReader<T> {
+impl<T: RealField + Copy> CsvReader<T> {
     /// Create a new CSV reader
     pub fn new() -> Self {
         Self {
@@ -142,7 +142,7 @@ impl<T: RealField> CsvReader<T> {
         // Read headers
         let headers = reader.headers()
             .map_err(|e| Error::CsvError(e.to_string()))?
-            .clone();
+            ;
         let header_vec: Vec<String> = headers.iter()
             .map(|s| s.to_string())
             .collect();
@@ -193,7 +193,7 @@ impl<T: RealField> CsvReader<T> {
     }
 }
 
-impl<T: RealField> Default for CsvReader<T> {
+impl<T: RealField + Copy> Default for CsvReader<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -235,7 +235,7 @@ pub struct TimeSeriesData<T> {
     pub data: Vec<Vec<T>>,
 }
 
-impl<T: RealField> TimeSeriesData<T> {
+impl<T: RealField + Copy> TimeSeriesData<T> {
     /// Get number of rows
     pub fn num_rows(&self) -> usize {
         self.data.len()
@@ -252,7 +252,7 @@ impl<T: RealField> TimeSeriesData<T> {
         T: Clone,
     {
         let index = self.headers.iter().position(|h| h == name)?;
-        Some(self.data.iter().map(|row| row[index].clone()).collect())
+        Some(self.data.iter().map(|row| row[index]).collect())
     }
 
     /// Get column by index
@@ -263,7 +263,7 @@ impl<T: RealField> TimeSeriesData<T> {
         if index >= self.num_cols() {
             return None;
         }
-        Some(self.data.iter().map(|row| row[index].clone()).collect())
+        Some(self.data.iter().map(|row| row[index]).collect())
     }
 
     /// Iterator over rows
@@ -318,7 +318,7 @@ mod tests {
             vec![0.1, 1.1, 2.1],
             vec![0.2, 1.2, 2.2],
         ];
-        writer.write_time_series(path, &headers, data.clone()).expect("CRITICAL: Add proper error handling");
+        writer.write_time_series(path, &headers, data).expect("CRITICAL: Add proper error handling");
 
         // Read data
         let reader = CsvReader::<f64>::new();

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 /// Problem definition for 3D incompressible flow using FEM
 #[derive(Debug, Clone)]
-pub struct StokesFlowProblem<T: RealField> {
+pub struct StokesFlowProblem<T: RealField + Copy> {
     /// Computational mesh
     pub mesh: Mesh<T>,
     /// Fluid properties
@@ -18,7 +18,7 @@ pub struct StokesFlowProblem<T: RealField> {
     pub body_force: Option<Vector3<T>>,
 }
 
-impl<T: RealField> StokesFlowProblem<T> {
+impl<T: RealField + Copy> StokesFlowProblem<T> {
     /// Create a new Stokes flow problem
     pub fn new(
         mesh: Mesh<T>,

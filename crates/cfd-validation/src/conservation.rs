@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Trait for conservation checking
-pub trait ConservationChecker<T: RealField> {
+pub trait ConservationChecker<T: RealField + Copy> {
     /// Type representing the flow field
     type FlowField;
 
@@ -26,7 +26,7 @@ pub trait ConservationChecker<T: RealField> {
 
 /// Report on conservation properties
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConservationReport<T: RealField> {
+pub struct ConservationReport<T: RealField + Copy> {
     /// Name of the conservation check
     pub check_name: String,
     /// Whether conservation is satisfied within tolerance
@@ -41,14 +41,14 @@ pub struct ConservationReport<T: RealField> {
 
 /// Tolerance settings for conservation checks
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConservationTolerance<T: RealField> {
+pub struct ConservationTolerance<T: RealField + Copy> {
     /// Absolute tolerance
     pub absolute: T,
     /// Relative tolerance
     pub relative: T,
 }
 
-impl<T: RealField + FromPrimitive> Default for ConservationTolerance<T> {
+impl<T: RealField + FromPrimitive + Copy> Default for ConservationTolerance<T> {
     fn default() -> Self {
         Self {
             absolute: T::from_f64(1e-12).unwrap_or_else(|| T::zero()),
@@ -59,7 +59,7 @@ impl<T: RealField + FromPrimitive> Default for ConservationTolerance<T> {
 
 /// History of conservation errors over time
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConservationHistory<T: RealField> {
+pub struct ConservationHistory<T: RealField + Copy> {
     /// Time points
     pub times: Vec<T>,
     /// Conservation errors at each time point
@@ -68,7 +68,7 @@ pub struct ConservationHistory<T: RealField> {
     pub satisfied: Vec<bool>,
 }
 
-impl<T: RealField> ConservationHistory<T> {
+impl<T: RealField + Copy> ConservationHistory<T> {
     /// Create a new conservation history
     pub fn new() -> Self {
         Self {
@@ -103,12 +103,12 @@ impl<T: RealField> ConservationHistory<T> {
 
 /// Mass conservation checker
 #[derive(Debug)]
-pub struct MassConservation<T: RealField> {
+pub struct MassConservation<T: RealField + Copy> {
     /// Tolerance for mass conservation
     tolerance: ConservationTolerance<T>,
 }
 
-impl<T: RealField + FromPrimitive> MassConservation<T> {
+impl<T: RealField + FromPrimitive + Copy> MassConservation<T> {
     /// Create a new mass conservation checker
     pub fn new(tolerance: ConservationTolerance<T>) -> Self {
         Self { tolerance }
@@ -120,7 +120,7 @@ impl<T: RealField + FromPrimitive> MassConservation<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive> ConservationChecker<T> for MassConservation<T> {
+impl<T: RealField + FromPrimitive + Copy> ConservationChecker<T> for MassConservation<T> {
     type FlowField = (DVector<T>, DVector<T>); // (density, velocity_divergence)
 
     fn check_conservation(&self, field: &Self::FlowField) -> Result<ConservationReport<T>> {
@@ -131,21 +131,21 @@ impl<T: RealField + FromPrimitive> ConservationChecker<T> for MassConservation<T
         // For compressible flow: ∇·(ρv) = 0
         let mass_flux_sum = density.iter()
             .zip(velocity_div.iter())
-            .map(|(rho, div_v)| rho.clone() * div_v.clone())
+            .map(|(rho, div_v)| rho * div_v)
             .fold(T::zero(), |acc, x| acc + x);
 
-        let error = mass_flux_sum.clone().abs();
+        let error = mass_flux_sum.abs();
         let is_conserved = error <= self.tolerance.absolute;
 
         let mut details = HashMap::new();
         details.insert("mass_flux_sum".to_string(), mass_flux_sum);
-        details.insert("absolute_error".to_string(), error.clone());
+        details.insert("absolute_error".to_string(), error);
 
         Ok(ConservationReport {
-            check_name: self.name().to_string(),
+            check_name: self.name.clone()().to_string(),
             is_conserved,
             error,
-            tolerance: self.tolerance.absolute.clone(),
+            tolerance: self.tolerance.absolute,
             details,
         })
     }
@@ -155,18 +155,18 @@ impl<T: RealField + FromPrimitive> ConservationChecker<T> for MassConservation<T
     }
 
     fn tolerance(&self) -> T {
-        self.tolerance.absolute.clone()
+        self.tolerance.absolute
     }
 }
 
 /// Energy conservation checker
 #[derive(Debug)]
-pub struct EnergyConservation<T: RealField> {
+pub struct EnergyConservation<T: RealField + Copy> {
     /// Tolerance for energy conservation
     tolerance: ConservationTolerance<T>,
 }
 
-impl<T: RealField + FromPrimitive> EnergyConservation<T> {
+impl<T: RealField + FromPrimitive + Copy> EnergyConservation<T> {
     /// Create a new energy conservation checker
     pub fn new(tolerance: ConservationTolerance<T>) -> Self {
         Self { tolerance }
@@ -178,22 +178,22 @@ impl<T: RealField + FromPrimitive> EnergyConservation<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + std::iter::Sum> ConservationChecker<T> for EnergyConservation<T> {
+impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConservationChecker<T> for EnergyConservation<T> {
     type FlowField = (DVector<T>, DVector<T>, DVector<T>); // (kinetic_energy, potential_energy, dissipation)
 
     fn check_conservation(&self, field: &Self::FlowField) -> Result<ConservationReport<T>> {
         let (kinetic, potential, dissipation) = field;
 
         // Energy balance check: total energy = kinetic + potential
-        let total_energy: T = kinetic.iter().zip(potential.iter()).map(|(k, p)| k.clone() + p.clone()).sum();
+        let total_energy: T = kinetic.iter().zip(potential.iter()).map(|(k, p)| k + p).sum();
         let total_dissipation: T = dissipation.iter().cloned().sum();
 
         // For steady flow, energy input should equal dissipation
-        let energy_imbalance = (total_energy.clone() - total_dissipation.clone()).abs();
+        let energy_imbalance = (total_energy - total_dissipation).abs();
         let relative_error = if total_energy > T::zero() {
-            energy_imbalance.clone() / total_energy.clone()
+            energy_imbalance / total_energy
         } else {
-            energy_imbalance.clone()
+            energy_imbalance
         };
 
         let is_conserved = energy_imbalance <= self.tolerance.absolute
@@ -202,14 +202,14 @@ impl<T: RealField + FromPrimitive + std::iter::Sum> ConservationChecker<T> for E
         let mut details = HashMap::new();
         details.insert("total_energy".to_string(), total_energy);
         details.insert("total_dissipation".to_string(), total_dissipation);
-        details.insert("energy_imbalance".to_string(), energy_imbalance.clone());
+        details.insert("energy_imbalance".to_string(), energy_imbalance);
         details.insert("relative_error".to_string(), relative_error);
 
         Ok(ConservationReport {
-            check_name: self.name().to_string(),
+            check_name: self.name.clone()().to_string(),
             is_conserved,
             error: energy_imbalance,
-            tolerance: self.tolerance.absolute.clone(),
+            tolerance: self.tolerance.absolute,
             details,
         })
     }
@@ -219,13 +219,13 @@ impl<T: RealField + FromPrimitive + std::iter::Sum> ConservationChecker<T> for E
     }
 
     fn tolerance(&self) -> T {
-        self.tolerance.absolute.clone()
+        self.tolerance.absolute
     }
 }
 
 /// Global conservation integrals for comprehensive validation
 #[derive(Debug, Clone)]
-pub struct GlobalConservationIntegrals<T: RealField> {
+pub struct GlobalConservationIntegrals<T: RealField + Copy> {
     /// Total mass in the domain
     pub total_mass: T,
     /// Total momentum in each direction
@@ -242,7 +242,7 @@ pub struct GlobalConservationIntegrals<T: RealField> {
     pub boundary_energy_flux: T,
 }
 
-impl<T: RealField + FromPrimitive> GlobalConservationIntegrals<T> {
+impl<T: RealField + FromPrimitive + Copy> GlobalConservationIntegrals<T> {
     /// Create new global conservation integrals
     pub fn new() -> Self {
         Self {
@@ -285,21 +285,21 @@ impl<T: RealField + FromPrimitive> GlobalConservationIntegrals<T> {
                 .fold(
                     (T::zero(), [T::zero(), T::zero(), T::zero()], T::zero(), T::zero()),
                     |(mass, [mx, my, mz], ke, vol), ((((rho, u), v), w), dv)| {
-                        let dm = rho.clone() * dv.clone();
-                        let u_sq = u.clone() * u.clone();
-                        let v_sq = v.clone() * v.clone();
-                        let w_sq = w.clone() * w.clone();
+                        let dm = rho * dv;
+                        let u_sq = u * u;
+                        let v_sq = v * v;
+                        let w_sq = w * w;
                         let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
 
                         (
-                            mass + dm.clone(),
+                            mass + dm,
                             [
-                                mx + dm.clone() * u.clone(),
-                                my + dm.clone() * v.clone(),
-                                mz + dm.clone() * w.clone(),
+                                mx + dm * u,
+                                my + dm * v,
+                                mz + dm * w,
                             ],
                             ke + dm * (u_sq + v_sq + w_sq) * half,
-                            vol + dv.clone(),
+                            vol + dv,
                         )
                     }
                 );
@@ -314,25 +314,25 @@ impl<T: RealField + FromPrimitive> GlobalConservationIntegrals<T> {
 
     /// Check mass conservation: dm/dt + ∇·(ρu) = 0
     pub fn mass_conservation_error(&self, previous: &Self, dt: T) -> T {
-        let mass_change = (self.total_mass.clone() - previous.total_mass.clone()) / dt;
-        (mass_change + self.boundary_mass_flux.clone()).abs()
+        let mass_change = (self.total_mass - previous.total_mass) / dt;
+        (mass_change + self.boundary_mass_flux).abs()
     }
 
     /// Check momentum conservation: d(ρu)/dt + ∇·(ρuu) = -∇p + ∇·τ + F
     pub fn momentum_conservation_error(&self, previous: &Self, dt: T) -> [T; 3] {
         [
-            ((self.total_momentum[0].clone() - previous.total_momentum[0].clone()) / dt.clone() + 
-             self.boundary_momentum_flux[0].clone()).abs(),
-            ((self.total_momentum[1].clone() - previous.total_momentum[1].clone()) / dt.clone() + 
-             self.boundary_momentum_flux[1].clone()).abs(),
-            ((self.total_momentum[2].clone() - previous.total_momentum[2].clone()) / dt.clone() + 
-             self.boundary_momentum_flux[2].clone()).abs(),
+            ((self.total_momentum[0] - previous.total_momentum[0]) / dt + 
+             self.boundary_momentum_flux[0]).abs(),
+            ((self.total_momentum[1] - previous.total_momentum[1]) / dt + 
+             self.boundary_momentum_flux[1]).abs(),
+            ((self.total_momentum[2] - previous.total_momentum[2]) / dt + 
+             self.boundary_momentum_flux[2]).abs(),
         ]
     }
 
     /// Check energy conservation: dE/dt + ∇·(u(E+p)) = ∇·(k∇T) + Φ
     pub fn energy_conservation_error(&self, previous: &Self, dt: T) -> T {
-        let energy_change = (self.total_kinetic_energy.clone() - previous.total_kinetic_energy.clone()) / dt;
-        (energy_change + self.boundary_energy_flux.clone()).abs()
+        let energy_change = (self.total_kinetic_energy - previous.total_kinetic_energy) / dt;
+        (energy_change + self.boundary_energy_flux).abs()
     }
 }

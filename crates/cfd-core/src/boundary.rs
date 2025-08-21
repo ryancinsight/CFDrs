@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// Boundary condition types for CFD simulations
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum BoundaryCondition<T: RealField> {
+pub enum BoundaryCondition<T: RealField + Copy> {
     /// Dirichlet boundary condition (fixed value)
     Dirichlet {
         /// Fixed value at the boundary
@@ -68,7 +68,7 @@ pub enum BoundaryCondition<T: RealField> {
 
 /// Wall boundary types
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum WallType<T: RealField> {
+pub enum WallType<T: RealField + Copy> {
     /// No-slip wall (zero velocity)
     NoSlip,
     /// Slip wall (zero normal velocity)
@@ -87,7 +87,7 @@ pub enum WallType<T: RealField> {
     },
 }
 
-impl<T: RealField> BoundaryCondition<T> {
+impl<T: RealField + Copy> BoundaryCondition<T> {
     /// Create a pressure inlet boundary condition
     pub const fn pressure_inlet(pressure: T) -> Self {
         Self::PressureInlet { pressure }
@@ -209,12 +209,12 @@ impl<T: RealField> BoundaryCondition<T> {
 
 /// Boundary condition set for a complete problem
 #[derive(Debug, Clone)]
-pub struct BoundaryConditionSet<T: RealField> {
+pub struct BoundaryConditionSet<T: RealField + Copy> {
     /// Map of boundary names to conditions
     pub conditions: indexmap::IndexMap<String, BoundaryCondition<T>>,
 }
 
-impl<T: RealField> BoundaryConditionSet<T> {
+impl<T: RealField + Copy> BoundaryConditionSet<T> {
     /// Create a new empty boundary condition set
     #[must_use]
     pub fn new() -> Self {
@@ -286,7 +286,7 @@ impl<T: RealField> BoundaryConditionSet<T> {
     }
 }
 
-impl<T: RealField> Default for BoundaryConditionSet<T> {
+impl<T: RealField + Copy> Default for BoundaryConditionSet<T> {
     fn default() -> Self {
         Self::new()
     }

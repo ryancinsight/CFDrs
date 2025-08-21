@@ -75,8 +75,8 @@ where
     ) -> Result<Field2D<T>> {
         let mut p_prime = Field2D::new(self.nx, self.ny, T::zero());
         let mut residual = T::from_f64(1.0).unwrap();
-        let tolerance = T::from_f64(1e-6).unwrap();
-        let max_iter = 100;
+        let tolerance = T::from_f64(crate::constants::numerical::DEFAULT_CONVERGENCE_TOLERANCE).unwrap();
+        let max_iter = crate::constants::numerical::DEFAULT_MAX_ITERATIONS;
         let mut iter = 0;
 
         // Calculate H(u) operator for PISO neighbor correction
@@ -130,13 +130,13 @@ where
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
                 // Calculate neighbor contributions to H(u)
-                let u_e = Vector2::new(fields.u.at(i+1, j).clone(), fields.v.at(i+1, j).clone());
-                let u_w = Vector2::new(fields.u.at(i-1, j).clone(), fields.v.at(i-1, j).clone());
-                let u_n = Vector2::new(fields.u.at(i, j+1).clone(), fields.v.at(i, j+1).clone());
-                let u_s = Vector2::new(fields.u.at(i, j-1).clone(), fields.v.at(i, j-1).clone());
+                let u_e = Vector2::new(fields.u.at(i+1, j), fields.v.at(i+1, j));
+                let u_w = Vector2::new(fields.u.at(i-1, j), fields.v.at(i-1, j));
+                let u_n = Vector2::new(fields.u.at(i, j+1), fields.v.at(i, j+1));
+                let u_s = Vector2::new(fields.u.at(i, j-1), fields.v.at(i, j-1));
                 
                 // Momentum equation coefficients (simplified for demonstration)
-                let visc = fields.viscosity.at(i, j).clone();
+                let visc = fields.viscosity.at(i, j);
                 let ae = visc * self.dy / self.dx;
                 let aw = visc * self.dy / self.dx;
                 let an = visc * self.dx / self.dy;
@@ -234,23 +234,23 @@ where
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
                 // Get velocity components
-                let u_ij = fields.u.at(i, j).clone();
-                let u_ip1 = fields.u.at(i+1, j).clone();
-                let v_ij = fields.v.at(i, j).clone();
-                let v_jp1 = fields.v.at(i, j+1).clone();
+                let u_ij = fields.u.at(i, j);
+                let u_ip1 = fields.u.at(i+1, j);
+                let v_ij = fields.v.at(i, j);
+                let v_jp1 = fields.v.at(i, j+1);
                 
                 // East face velocity
                 let u_e = (u_ij + u_ip1) / (T::from_f64(2.0).unwrap());
-                let p_grad_e = (fields.p.at(i+1, j).clone() - fields.p.at(i, j).clone()) / self.dx;
-                let d_e = self.dx * self.dx / (fields.viscosity.at(i, j).clone() * T::from_f64(4.0).unwrap());
+                let p_grad_e = (fields.p.at(i+1, j) - fields.p.at(i, j)) / self.dx;
+                let d_e = self.dx * self.dx / (fields.viscosity.at(i, j) * T::from_f64(4.0).unwrap());
                 
                 // Apply Rhie-Chow correction for u component
                 let u_corrected = u_e - d_e * p_grad_e;
                 
                 // North face velocity
                 let v_n = (v_ij + v_jp1) / (T::from_f64(2.0).unwrap());
-                let p_grad_n = (fields.p.at(i, j+1).clone() - fields.p.at(i, j).clone()) / self.dy;
-                let d_n = self.dy * self.dy / (fields.viscosity.at(i, j).clone() * T::from_f64(4.0).unwrap());
+                let p_grad_n = (fields.p.at(i, j+1) - fields.p.at(i, j)) / self.dy;
+                let d_n = self.dy * self.dy / (fields.viscosity.at(i, j) * T::from_f64(4.0).unwrap());
                 
                 // Apply Rhie-Chow correction for v component
                 let v_corrected = v_n - d_n * p_grad_n;

@@ -13,8 +13,8 @@ fn benchmark_fdm_solvers(c: &mut Criterion) {
     
     for size in [50, 100, 200].iter() {
         let grid = create_test_grid(*size, *size);
-        let mut poisson_solver = PoissonSolver::new(grid.clone());
-        let mut advection_diffusion_solver = AdvectionDiffusionSolver::new(grid.clone());
+        let mut poisson_solver = PoissonSolver::new(grid);
+        let mut advection_diffusion_solver = AdvectionDiffusionSolver::new(grid);
         
         // Setup initial conditions
         let initial_field: Vec<Vec<f64>> = (0..*size)
@@ -30,7 +30,7 @@ fn benchmark_fdm_solvers(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    let mut field = initial_field.clone();
+                    let mut field = initial_field;
                     black_box(poisson_solver.solve(&mut field, 0.01).unwrap())
                 })
             },
@@ -41,7 +41,7 @@ fn benchmark_fdm_solvers(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    let mut field = initial_field.clone();
+                    let mut field = initial_field;
                     black_box(advection_diffusion_solver.solve(&mut field, &velocity_field, 0.01, 0.001).unwrap())
                 })
             },
@@ -67,7 +67,7 @@ fn benchmark_fvm_solver(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    let mut field = initial_field.clone();
+                    let mut field = initial_field;
                     black_box(fvm_solver.solve_diffusion(&mut field, 0.01, 0.001).unwrap())
                 })
             },

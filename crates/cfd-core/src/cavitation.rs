@@ -39,7 +39,7 @@ pub mod constants {
 /// Cavitation number (dimensionless)
 /// σ = (p - p_v) / (0.5 * ρ * v²)
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct CavitationNumber<T: RealField> {
+pub struct CavitationNumber<T: RealField + Copy> {
     /// Reference pressure (Pa)
     pub reference_pressure: T,
     /// Vapor pressure (Pa)
@@ -72,7 +72,7 @@ impl<T: RealField + FromPrimitive + Copy> CavitationNumber<T> {
 /// Rayleigh-Plesset equation for bubble dynamics
 /// R*R̈ + (3/2)*Ṙ² = (p_B - p_∞)/ρ
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RayleighPlesset<T: RealField> {
+pub struct RayleighPlesset<T: RealField + Copy> {
     /// Bubble radius (m)
     pub radius: T,
     /// Bubble wall velocity (m/s)
@@ -157,7 +157,7 @@ impl<T: RealField + FromPrimitive + Copy> RayleighPlesset<T> {
 
 /// Cavitation model types
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum CavitationModel<T: RealField> {
+pub enum CavitationModel<T: RealField + Copy> {
     /// Kunz model (2000)
     Kunz {
         /// Vaporization coefficient
@@ -267,7 +267,7 @@ impl<T: RealField + FromPrimitive + Copy> CavitationModel<T> {
 
 /// Venturi cavitation parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VenturiCavitation<T: RealField> {
+pub struct VenturiCavitation<T: RealField + Copy> {
     /// Inlet diameter (m)
     pub inlet_diameter: T,
     /// Throat diameter (m)
@@ -355,7 +355,7 @@ impl<T: RealField + FromPrimitive + Copy> VenturiCavitation<T> {
 
 /// Cavitation damage model (erosion potential)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CavitationDamage<T: RealField> {
+pub struct CavitationDamage<T: RealField + Copy> {
     /// Material properties
     pub material_hardness: T,  // Pa
     /// Material resilience against cavitation damage (J/m³)

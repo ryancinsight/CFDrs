@@ -106,7 +106,7 @@ impl<T: Clone> Field2D<T> {
 /// This structure provides both vector and component access to velocity fields,
 /// supporting the requirements of SIMPLE, PISO, and other algorithms.
 #[derive(Debug, Clone)]
-pub struct SimulationFields<T: RealField> {
+pub struct SimulationFields<T: RealField + Copy> {
     /// X-component of velocity field
     pub u: Field2D<T>,
     /// Y-component of velocity field  
@@ -151,11 +151,11 @@ impl<T: RealField + FromPrimitive + Copy> SimulationFields<T> {
         T: Float
     {
         let mut fields = Self::new(nx, ny);
-        fields.density.map_inplace(|d| *d = fluid.density.clone());
+        fields.density.map_inplace(|d| *d = fluid.density);
         // For initialization, use zero shear rate (Newtonian behavior)
         let viscosity = fluid.dynamic_viscosity(T::zero())
             .unwrap_or_else(|_| fluid.characteristic_viscosity());
-        fields.viscosity.map_inplace(|v| *v = viscosity.clone());
+        fields.viscosity.map_inplace(|v| *v = viscosity);
         fields
     }
 
@@ -173,24 +173,24 @@ impl<T: RealField + FromPrimitive + Copy> SimulationFields<T> {
     #[inline]
     pub fn velocity_at(&self, i: usize, j: usize) -> Vector2<T> {
         Vector2::new(
-            self.u.at(i, j).clone(),
-            self.v.at(i, j).clone()
+            self.u.at(i, j),
+            self.v.at(i, j)
         )
     }
     
     /// Set velocity from Vector2 at point (i, j)
     #[inline]
     pub fn set_velocity_at(&mut self, i: usize, j: usize, vel: &Vector2<T>) {
-        *self.u.at_mut(i, j) = vel.x.clone();
-        *self.v.at_mut(i, j) = vel.y.clone();
+        *self.u.at_mut(i, j) = vel.x;
+        *self.v.at_mut(i, j) = vel.y;
     }
     
     /// Get predicted velocity as Vector2
     #[inline]
     pub fn velocity_star_at(&self, i: usize, j: usize) -> Vector2<T> {
         Vector2::new(
-            self.u_star.at(i, j).clone(),
-            self.v_star.at(i, j).clone()
+            self.u_star.at(i, j),
+            self.v_star.at(i, j)
         )
     }
 
@@ -200,8 +200,8 @@ impl<T: RealField + FromPrimitive + Copy> SimulationFields<T> {
             .iter()
             .zip(self.v.data().iter())
             .map(|(u, v)| {
-                let u2 = u.clone() * u.clone();
-                let v2 = v.clone() * v.clone();
+                let u2 = u * u;
+                let v2 = v * v;
                 (u2 + v2).sqrt()
             })
             .fold(T::zero(), |acc, mag| if mag > acc { mag } else { acc })
@@ -213,7 +213,7 @@ impl<T: RealField + FromPrimitive + Copy> SimulationFields<T> {
             data: self.viscosity.data()
                 .iter()
                 .zip(self.density.data().iter())
-                .map(|(mu, rho)| mu.clone() / rho.clone())
+                .map(|(mu, rho)| mu / rho)
                 .collect(),
             nx: self.nx,
             ny: self.ny,
@@ -224,12 +224,12 @@ impl<T: RealField + FromPrimitive + Copy> SimulationFields<T> {
     pub fn reynolds_number(&self, characteristic_length: T, characteristic_velocity: T) -> T {
         let avg_density = self.density.data()
             .iter()
-            .fold(T::zero(), |acc, d| acc + d.clone()) 
+            .fold(T::zero(), |acc, d| acc + d) 
             / T::from_usize(self.density.data.len()).unwrap_or_else(T::one);
             
         let avg_viscosity = self.viscosity.data()
             .iter()
-            .fold(T::zero(), |acc, v| acc + v.clone())
+            .fold(T::zero(), |acc, v| acc + v)
             / T::from_usize(self.viscosity.data.len()).unwrap_or_else(T::one);
             
         avg_density * characteristic_velocity * characteristic_length / avg_viscosity

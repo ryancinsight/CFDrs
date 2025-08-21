@@ -6,14 +6,14 @@ use cfd_core::domain::Domain;
 
 /// 1D Network domain for the Problem trait
 #[derive(Debug, Clone)]
-pub struct NetworkDomain<T: RealField> {
+pub struct NetworkDomain<T: RealField + Copy> {
     /// Number of nodes in the network
     pub node_count: usize,
     /// Network characteristic length scale
     pub characteristic_length: T,
 }
 
-impl<T: RealField> NetworkDomain<T> {
+impl<T: RealField + Copy> NetworkDomain<T> {
     /// Create a new network domain
     pub fn new(node_count: usize, characteristic_length: T) -> Self {
         Self {
@@ -23,7 +23,7 @@ impl<T: RealField> NetworkDomain<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive> Domain<T> for NetworkDomain<T> {
+impl<T: RealField + FromPrimitive + Copy> Domain<T> for NetworkDomain<T> {
     fn dimension(&self) -> usize {
         1 // 1D network
     }
@@ -38,13 +38,13 @@ impl<T: RealField + FromPrimitive> Domain<T> for NetworkDomain<T> {
         let one = T::one();
         // Standard unit box for network domain
         (
-            Point3::new(zero.clone(), zero.clone(), zero),
-            Point3::new(one.clone(), one.clone(), one)
+            Point3::new(zero, zero, zero),
+            Point3::new(one, one, one)
         )
     }
 
     fn volume(&self) -> T {
         // For 1D networks, "volume" is the characteristic length
-        self.characteristic_length.clone()
+        self.characteristic_length
     }
 }

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 /// FEM configuration for fluid dynamics
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FemConfig<T: RealField> {
+pub struct FemConfig<T: RealField + Copy> {
     /// Base solver configuration
     pub base: cfd_core::solver::SolverConfig<T>,
     /// Use SUPG/PSPG stabilization
@@ -37,7 +37,7 @@ pub enum ElementType {
     Hex20,
 }
 
-impl<T: RealField + FromPrimitive> Default for FemConfig<T> {
+impl<T: RealField + FromPrimitive + Copy> Default for FemConfig<T> {
     fn default() -> Self {
         Self {
             base: cfd_core::solver::SolverConfig::default(),

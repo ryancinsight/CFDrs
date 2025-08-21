@@ -182,7 +182,7 @@ impl DependencyResolver {
             if !available_plugins.contains(dep) {
                 return Err(Error::Plugin(PluginErrorKind::MissingDependency {
                     plugin: "unknown".to_string(),
-                    dependency: dep.clone(),
+                    dependency: dep,
                 }));
             }
         }
@@ -314,7 +314,7 @@ impl PluginRegistry {
         self.storage.insert(plugin)?;
         
         // Update dependency graph
-        self.resolver.add_plugin(name.clone(), deps)?;
+        self.resolver.add_plugin(name, deps)?;
         
         // Set initial health status
         self.monitoring.update_health(&name, PluginHealthStatus::Healthy);
@@ -329,7 +329,7 @@ impl PluginRegistry {
             if plugin_name != name && deps.contains(&name.to_string()) {
                 return Err(Error::Plugin(PluginErrorKind::InUse {
                     plugin: name.to_string(),
-                    used_by: plugin_name.clone(),
+                    used_by: plugin_name,
                 }));
             }
         }

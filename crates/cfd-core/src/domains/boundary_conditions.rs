@@ -12,7 +12,7 @@ use std::collections::HashMap;
 
 /// Boundary condition specification
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BoundaryConditionSpec<T: RealField> {
+pub struct BoundaryConditionSpec<T: RealField + Copy> {
     /// Boundary condition
     pub condition: BoundaryCondition<T>,
     /// Boundary region identifier
@@ -23,7 +23,7 @@ pub struct BoundaryConditionSpec<T: RealField> {
 
 /// Time-dependent boundary condition specification
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TimeDependentSpec<T: RealField> {
+pub struct TimeDependentSpec<T: RealField + Copy> {
     /// Time function type
     pub function_type: TimeFunctionType,
     /// Function parameters
@@ -46,7 +46,7 @@ pub enum TimeFunctionType {
 }
 
 /// Boundary condition applicator abstraction
-pub trait BoundaryConditionApplicator<T: RealField>: Send + Sync {
+pub trait BoundaryConditionApplicator<T: RealField + Copy>: Send + Sync {
     /// Apply boundary condition to field
     fn apply(&self, field: &mut [T], boundary_spec: &BoundaryConditionSpec<T>, time: T) -> Result<(), String>;
     
@@ -59,7 +59,7 @@ pub trait BoundaryConditionApplicator<T: RealField>: Send + Sync {
 
 /// Boundary region specification
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BoundaryRegion<T: RealField> {
+pub struct BoundaryRegion<T: RealField + Copy> {
     /// Region identifier
     pub id: String,
     /// Region geometry
@@ -73,7 +73,7 @@ pub struct BoundaryRegion<T: RealField> {
 /// Defines the geometric representation of boundary regions for different dimensionalities.
 /// Used to specify where boundary conditions should be applied in the computational domain.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum BoundaryGeometry<T: RealField> {
+pub enum BoundaryGeometry<T: RealField + Copy> {
     /// Point boundary (0D) - single point in space
     Point(Point3<T>),
     /// Line boundary (1D) - line segment defined by start and end points
@@ -103,12 +103,12 @@ pub mod applicators {
     #[derive(Debug, Clone)]
     pub struct DirichletApplicator;
     
-    impl<T: RealField> BoundaryConditionApplicator<T> for DirichletApplicator {
+    impl<T: RealField + Copy> BoundaryConditionApplicator<T> for DirichletApplicator {
         fn apply(&self, field: &mut [T], boundary_spec: &BoundaryConditionSpec<T>, _time: T) -> Result<(), String> {
             match &boundary_spec.condition {
                 BoundaryCondition::Dirichlet { value } => {
                     // Apply scalar Dirichlet condition
-                    field.iter_mut().for_each(|f| *f = value.clone());
+                    field.iter_mut().for_each(|f| *f = value);
                     Ok(())
                 }
                 _ => Err("Dirichlet applicator only supports Dirichlet boundary conditions".to_string()),
@@ -128,13 +128,13 @@ pub mod applicators {
     #[derive(Debug, Clone)]
     pub struct NeumannApplicator;
     
-    impl<T: RealField> BoundaryConditionApplicator<T> for NeumannApplicator {
+    impl<T: RealField + Copy> BoundaryConditionApplicator<T> for NeumannApplicator {
         fn apply(&self, field: &mut [T], boundary_spec: &BoundaryConditionSpec<T>, _time: T) -> Result<(), String> {
             match &boundary_spec.condition {
                 BoundaryCondition::Neumann { gradient } => {
                     // Apply scalar Neumann condition
                     if let Some(last) = field.last_mut() {
-                        *last = gradient.clone();
+                        *last = gradient;
                     }
                     Ok(())
                 }
@@ -155,7 +155,7 @@ pub mod applicators {
     #[derive(Debug, Clone)]
     pub struct WallApplicator;
     
-    impl<T: RealField> BoundaryConditionApplicator<T> for WallApplicator {
+    impl<T: RealField + Copy> BoundaryConditionApplicator<T> for WallApplicator {
         fn apply(&self, field: &mut [T], _boundary_spec: &BoundaryConditionSpec<T>, _time: T) -> Result<(), String> {
             // Apply no-slip wall condition (zero velocity)
             field.iter_mut().for_each(|f| *f = T::zero());
@@ -174,12 +174,12 @@ pub mod applicators {
 
 /// Time-dependent boundary condition evaluator
 /// Provides functionality for evaluating time-varying boundary conditions
-pub struct TimeDependentEvaluator<T: RealField + num_traits::Float> {
+pub struct TimeDependentEvaluator<T: RealField + Copy + num_traits::Float> {
     /// Function registry for time-dependent evaluations
     functions: HashMap<String, Box<dyn Fn(T) -> T + Send + Sync>>,
 }
 
-impl<T: RealField + num_traits::Float> TimeDependentEvaluator<T> {
+impl<T: RealField + Copy + num_traits::Float> TimeDependentEvaluator<T> {
     /// Create new evaluator
     pub fn new() -> Self {
         Self {
@@ -231,7 +231,7 @@ impl<T: RealField + num_traits::Float> TimeDependentEvaluator<T> {
             }
             TimeFunctionType::Linear => {
                 if spec.parameters.len() >= 2 {
-                    spec.parameters[0].clone() + spec.parameters[1].clone() * time
+                    spec.parameters[0] + spec.parameters[1] * time
                 } else {
                     T::zero()
                 }
@@ -239,9 +239,9 @@ impl<T: RealField + num_traits::Float> TimeDependentEvaluator<T> {
             TimeFunctionType::Sinusoidal => {
                 if spec.parameters.len() >= 3 {
                     // A * sin(ω * t + φ)
-                    let amplitude = spec.parameters[0].clone();
-                    let omega = spec.parameters[1].clone();
-                    let phase = spec.parameters[2].clone();
+                    let amplitude = spec.parameters[0];
+                    let omega = spec.parameters[1];
+                    let phase = spec.parameters[2];
                     
                     // Use proper sine function
                     let angle = omega * time + phase;
@@ -256,8 +256,8 @@ impl<T: RealField + num_traits::Float> TimeDependentEvaluator<T> {
             TimeFunctionType::Exponential => {
                 if spec.parameters.len() >= 2 {
                     // A * exp(λ * t)
-                    let amplitude = spec.parameters[0].clone();
-                    let lambda = spec.parameters[1].clone();
+                    let amplitude = spec.parameters[0];
+                    let lambda = spec.parameters[1];
                     
                     // Use proper exponential function
                     let exponent = lambda * time;
@@ -278,14 +278,14 @@ impl<T: RealField + num_traits::Float> TimeDependentEvaluator<T> {
 }
 
 /// Boundary conditions service following Domain Service pattern
-pub struct BoundaryConditionsService<T: RealField> {
+pub struct BoundaryConditionsService<T: RealField + Copy> {
     /// Available applicators
     applicators: HashMap<String, Box<dyn BoundaryConditionApplicator<T>>>,
     /// Boundary regions
     regions: HashMap<String, BoundaryRegion<T>>,
 }
 
-impl<T: RealField> BoundaryConditionsService<T> {
+impl<T: RealField + Copy> BoundaryConditionsService<T> {
     /// Create new boundary conditions service
     pub fn new() -> Self {
         let mut service = Self {
@@ -329,7 +329,7 @@ impl<T: RealField> BoundaryConditionsService<T> {
                     .find(|app| app.supports(&spec.condition));
                 
                 if let Some(app) = applicator {
-                    app.apply(field, spec, time.clone())?;
+                    app.apply(field, spec, time)?;
                 }
             }
         }
@@ -347,13 +347,13 @@ impl<T: RealField> BoundaryConditionsService<T> {
     }
 }
 
-impl<T: RealField> Default for BoundaryConditionsService<T> {
+impl<T: RealField + Copy> Default for BoundaryConditionsService<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + num_traits::Float> Default for TimeDependentEvaluator<T> {
+impl<T: RealField + Copy + num_traits::Float> Default for TimeDependentEvaluator<T> {
     fn default() -> Self {
         Self::new()
     }

@@ -5,7 +5,7 @@ use num_traits::FromPrimitive;
 use super::{Grid2D, SpatialDiscretization, constants};
 
 /// Fifth-order WENO scheme
-pub struct WENO5<T: RealField> {
+pub struct WENO5<T: RealField + Copy> {
     epsilon: T,
     _phantom: std::marker::PhantomData<T>,
 }

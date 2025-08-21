@@ -49,7 +49,7 @@ impl Default for VofConfig {
 }
 
 /// Volume of Fluid solver for interface tracking
-pub struct VofSolver<T: RealField + FromPrimitive> {
+pub struct VofSolver<T: RealField + FromPrimitive + Copy> {
     config: VofConfig,
     /// Grid dimensions
     nx: usize,

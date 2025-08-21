@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Trait for 2D computational grids
-pub trait Grid2D<T: RealField> {
+pub trait Grid2D<T: RealField + Copy> {
     /// Get the number of cells in x direction
     fn nx(&self) -> usize;
 
@@ -58,7 +58,7 @@ pub enum BoundaryType {
 
 /// 2D structured grid implementation
 #[derive(Debug, Clone)]
-pub struct StructuredGrid2D<T: RealField> {
+pub struct StructuredGrid2D<T: RealField + Copy> {
     /// Number of cells in x direction
     pub nx: usize,
     /// Number of cells in y direction
@@ -73,7 +73,7 @@ pub struct StructuredGrid2D<T: RealField> {
     pub boundaries: HashMap<(usize, usize), BoundaryType>,
 }
 
-impl<T: RealField + FromPrimitive> StructuredGrid2D<T> {
+impl<T: RealField + FromPrimitive + Copy> StructuredGrid2D<T> {
     /// Create a new structured grid
     pub fn new(
         nx: usize,
@@ -89,8 +89,8 @@ impl<T: RealField + FromPrimitive> StructuredGrid2D<T> {
             ));
         }
 
-        let dx = (x_max.clone() - x_min.clone()) / T::from_usize(nx).unwrap_or_else(|| T::zero());
-        let dy = (y_max.clone() - y_min.clone()) / T::from_usize(ny).unwrap_or_else(|| T::zero());
+        let dx = (x_max - x_min) / T::from_usize(nx).unwrap_or_else(|| T::zero());
+        let dy = (y_max - y_min) / T::from_usize(ny).unwrap_or_else(|| T::zero());
 
         Ok(Self {
             nx,
@@ -147,12 +147,12 @@ impl<T: RealField + FromPrimitive> StructuredGrid2D<T> {
 
     /// Get grid spacing
     pub fn spacing(&self) -> (T, T) {
-        (self.dx.clone(), self.dy.clone())
+        (self.dx, self.dy)
     }
 
     /// Get domain bounds
     pub fn bounds(&self) -> (T, T, T, T) {
-        self.bounds.clone()
+        self.bounds
     }
 }
 
@@ -169,7 +169,7 @@ pub enum GridEdge {
     Top,
 }
 
-impl<T: RealField + FromPrimitive> Grid2D<T> for StructuredGrid2D<T> {
+impl<T: RealField + FromPrimitive + Copy> Grid2D<T> for StructuredGrid2D<T> {
     fn nx(&self) -> usize {
         self.nx
     }
@@ -186,10 +186,10 @@ impl<T: RealField + FromPrimitive> Grid2D<T> for StructuredGrid2D<T> {
         }
 
         let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
-        let x = self.bounds.0.clone() +
-                (T::from_usize(i).unwrap_or_else(|| T::zero()) + half.clone()) * self.dx.clone();
-        let y = self.bounds.2.clone() +
-                (T::from_usize(j).unwrap_or_else(|| T::zero()) + half) * self.dy.clone();
+        let x = self.bounds.0 +
+                (T::from_usize(i).unwrap_or_else(|| T::zero()) + half) * self.dx;
+        let y = self.bounds.2 +
+                (T::from_usize(j).unwrap_or_else(|| T::zero()) + half) * self.dy;
 
         Ok(Vector2::new(x, y))
     }
@@ -201,7 +201,7 @@ impl<T: RealField + FromPrimitive> Grid2D<T> for StructuredGrid2D<T> {
             ));
         }
 
-        Ok(self.dx.clone() * self.dy.clone())
+        Ok(self.dx * self.dy)
     }
 
     fn neighbors(&self, i: usize, j: usize) -> Vec<(usize, usize)> {
@@ -235,7 +235,7 @@ impl<T: RealField + FromPrimitive> Grid2D<T> for StructuredGrid2D<T> {
 
 // GridIterator struct removed in favor of standard iterators
 
-impl<T: RealField + FromPrimitive> StructuredGrid2D<T> {
+impl<T: RealField + FromPrimitive + Copy> StructuredGrid2D<T> {
     /// Create an iterator over all cells
     pub fn iter(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
         (0..self.ny).flat_map(move |j| (0..self.nx).map(move |i| (i, j)))

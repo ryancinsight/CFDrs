@@ -18,7 +18,7 @@ const SOR_OPTIMAL_FACTOR: f64 = 1.85; // Optimal for Poisson on square grid
 
 /// Vorticity-Stream function solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VorticityStreamConfig<T: RealField> {
+pub struct VorticityStreamConfig<T: RealField + Copy> {
     /// Base solver configuration
     pub base: cfd_core::solver::SolverConfig<T>,
     /// Time step for transient simulation
@@ -31,7 +31,7 @@ pub struct VorticityStreamConfig<T: RealField> {
     pub sor_omega: T,
 }
 
-impl<T: RealField + FromPrimitive> Default for VorticityStreamConfig<T> {
+impl<T: RealField + FromPrimitive + Copy> Default for VorticityStreamConfig<T> {
     fn default() -> Self {
         let base = cfd_core::solver::SolverConfig::builder()
             .max_iterations(DEFAULT_MAX_ITERATIONS)
@@ -65,7 +65,7 @@ impl<T: RealField + FromPrimitive> Default for VorticityStreamConfig<T> {
 /// ## References:
 /// Anderson, J.D. (1995). "Computational Fluid Dynamics: The Cores with Applications."
 /// McGraw-Hill.
-pub struct VorticityStreamSolver<T: RealField> {
+pub struct VorticityStreamSolver<T: RealField + Copy> {
     config: VorticityStreamConfig<T>,
     /// Stream function field [nx][ny]
     psi: Vec<Vec<T>>,
@@ -83,7 +83,7 @@ pub struct VorticityStreamSolver<T: RealField> {
     reynolds: T,
 }
 
-impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
     /// Create a new vorticity-stream solver
     pub fn new(
         config: VorticityStreamConfig<T>,
@@ -100,8 +100,8 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
             u: vec![vec![Vector2::zeros(); ny]; nx],
             nx,
             ny,
-            dx: grid.dx.clone(),
-            dy: grid.dy.clone(),
+            dx: grid.dx,
+            dy: grid.dy,
             reynolds,
         }
     }
@@ -118,7 +118,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
         
         // Set top lid velocity boundary condition
         for i in 0..self.nx {
-            self.u[i][self.ny-1].x = lid_velocity.clone();
+            self.u[i][self.ny-1].x = lid_velocity;
             self.u[i][self.ny-1].y = T::zero();
         }
         
@@ -127,10 +127,10 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
 
     /// Solve stream function Poisson equation: ∇²ψ = -ω
     fn solve_stream_function(&mut self) -> Result<()> {
-        let omega_sor = self.config.sor_omega.clone();
-        let dx2 = self.dx.clone() * self.dx.clone();
-        let dy2 = self.dy.clone() * self.dy.clone();
-        let denominator = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * (T::one() / dx2.clone() + T::one() / dy2.clone());
+        let omega_sor = self.config.sor_omega;
+        let dx2 = self.dx * self.dx;
+        let dy2 = self.dy * self.dy;
+        let denominator = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * (T::one() / dx2 + T::one() / dy2);
         
         // SOR iteration for Poisson equation
         for _ in 0..100 {
@@ -138,18 +138,18 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
             
             for i in 1..self.nx-1 {
                 for j in 1..self.ny-1 {
-                    let psi_old = self.psi[i][j].clone();
+                    let psi_old = self.psi[i][j];
                     
                     // Five-point stencil for Laplacian
-                    let psi_new = ((self.psi[i+1][j].clone() + self.psi[i-1][j].clone()) / dx2.clone()
-                        + (self.psi[i][j+1].clone() + self.psi[i][j-1].clone()) / dy2.clone()
-                        + self.omega[i][j].clone()) / denominator.clone();
+                    let psi_new = ((self.psi[i+1][j] + self.psi[i-1][j]) / dx2
+                        + (self.psi[i][j+1] + self.psi[i][j-1]) / dy2
+                        + self.omega[i][j]) / denominator;
                     
                     // SOR update
-                    self.psi[i][j] = (T::one() - omega_sor.clone()) * psi_old.clone() 
-                        + omega_sor.clone() * psi_new;
+                    self.psi[i][j] = (T::one() - omega_sor) * psi_old 
+                        + omega_sor * psi_new;
                     
-                    let change = (self.psi[i][j].clone() - psi_old).abs();
+                    let change = (self.psi[i][j] - psi_old).abs();
                     if change > max_change {
                         max_change = change;
                     }
@@ -166,45 +166,45 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
 
     /// Solve vorticity transport equation
     fn solve_vorticity_transport(&mut self) -> Result<()> {
-        let dt = self.config.time_step.clone();
-        let dx2 = self.dx.clone() * self.dx.clone();
-        let dy2 = self.dy.clone() * self.dy.clone();
-        let _two_dx = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * self.dx.clone();
-        let _two_dy = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * self.dy.clone();
+        let dt = self.config.time_step;
+        let dx2 = self.dx * self.dx;
+        let dy2 = self.dy * self.dy;
+        let _two_dx = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * self.dx;
+        let _two_dy = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * self.dy;
         
         // Store old vorticity
-        let omega_old = self.omega.clone();
+        let omega_old = self.omega;
         
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
                 // Convection terms (upwind differencing for stability)
-                let u = self.u[i][j].x.clone();
-                let v = self.u[i][j].y.clone();
+                let u = self.u[i][j].x;
+                let v = self.u[i][j].y;
                 
                 let dwdx = if u >= T::zero() {
-                    (self.omega[i][j].clone() - self.omega[i-1][j].clone()) / self.dx.clone()
+                    (self.omega[i][j] - self.omega[i-1][j]) / self.dx
                 } else {
-                    (self.omega[i+1][j].clone() - self.omega[i][j].clone()) / self.dx.clone()
+                    (self.omega[i+1][j] - self.omega[i][j]) / self.dx
                 };
                 
                 let dwdy = if v >= T::zero() {
-                    (self.omega[i][j].clone() - self.omega[i][j-1].clone()) / self.dy.clone()
+                    (self.omega[i][j] - self.omega[i][j-1]) / self.dy
                 } else {
-                    (self.omega[i][j+1].clone() - self.omega[i][j].clone()) / self.dy.clone()
+                    (self.omega[i][j+1] - self.omega[i][j]) / self.dy
                 };
                 
                 let convection = u * dwdx + v * dwdy;
                 
                 // Diffusion term (central differencing)
-                let d2wdx2 = (omega_old[i+1][j].clone() - T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * omega_old[i][j].clone() 
-                    + omega_old[i-1][j].clone()) / dx2.clone();
-                let d2wdy2 = (omega_old[i][j+1].clone() - T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * omega_old[i][j].clone() 
-                    + omega_old[i][j-1].clone()) / dy2.clone();
+                let d2wdx2 = (omega_old[i+1][j] - T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * omega_old[i][j] 
+                    + omega_old[i-1][j]) / dx2;
+                let d2wdy2 = (omega_old[i][j+1] - T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * omega_old[i][j] 
+                    + omega_old[i][j-1]) / dy2;
                 
-                let diffusion = (d2wdx2 + d2wdy2) / self.reynolds.clone();
+                let diffusion = (d2wdx2 + d2wdy2) / self.reynolds;
                 
                 // Time integration (explicit Euler)
-                self.omega[i][j] = omega_old[i][j].clone() + dt.clone() * (diffusion - convection);
+                self.omega[i][j] = omega_old[i][j] + dt * (diffusion - convection);
             }
         }
         
@@ -213,45 +213,45 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
 
     /// Update velocity field from stream function
     fn update_velocity(&mut self) {
-        let two_dx = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * self.dx.clone();
-        let two_dy = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * self.dy.clone();
+        let two_dx = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * self.dx;
+        let two_dy = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * self.dy;
         
         for i in 1..self.nx-1 {
             for j in 1..self.ny-1 {
                 // u = ∂ψ/∂y
-                self.u[i][j].x = (self.psi[i][j+1].clone() - self.psi[i][j-1].clone()) / two_dy.clone();
+                self.u[i][j].x = (self.psi[i][j+1] - self.psi[i][j-1]) / two_dy;
                 // v = -∂ψ/∂x
-                self.u[i][j].y = -(self.psi[i+1][j].clone() - self.psi[i-1][j].clone()) / two_dx.clone();
+                self.u[i][j].y = -(self.psi[i+1][j] - self.psi[i-1][j]) / two_dx;
             }
         }
     }
 
     /// Update boundary vorticity using Thom's formula
     fn update_boundary_vorticity(&mut self) {
-        let dx2 = self.dx.clone() * self.dx.clone();
-        let dy2 = self.dy.clone() * self.dy.clone();
+        let dx2 = self.dx * self.dx;
+        let dy2 = self.dy * self.dy;
         let two = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero());
         
         // Bottom wall (y = 0)
         for i in 1..self.nx-1 {
-            self.omega[i][0] = -two.clone() * self.psi[i][1].clone() / dy2.clone();
+            self.omega[i][0] = -two * self.psi[i][1] / dy2;
         }
         
         // Top wall (y = L) - moving lid
         for i in 1..self.nx-1 {
-            let lid_velocity = self.u[i][self.ny-1].x.clone();
-            self.omega[i][self.ny-1] = -two.clone() * self.psi[i][self.ny-2].clone() / dy2.clone()
-                - two.clone() * lid_velocity * self.dy.clone() / dy2.clone();
+            let lid_velocity = self.u[i][self.ny-1].x;
+            self.omega[i][self.ny-1] = -two * self.psi[i][self.ny-2] / dy2
+                - two * lid_velocity * self.dy / dy2;
         }
         
         // Left wall (x = 0)
         for j in 1..self.ny-1 {
-            self.omega[0][j] = -two.clone() * self.psi[1][j].clone() / dx2.clone();
+            self.omega[0][j] = -two * self.psi[1][j] / dx2;
         }
         
         // Right wall (x = L)
         for j in 1..self.ny-1 {
-            self.omega[self.nx-1][j] = -two.clone() * self.psi[self.nx-2][j].clone() / dx2.clone();
+            self.omega[self.nx-1][j] = -two * self.psi[self.nx-2][j] / dx2;
         }
     }
 
@@ -278,7 +278,7 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
         
         for i in 0..self.nx {
             for j in 0..self.ny {
-                let change = (self.psi[i][j].clone() - psi_old[i][j].clone()).abs();
+                let change = (self.psi[i][j] - psi_old[i][j]).abs();
                 if change > max_change {
                     max_change = change;
                 }
@@ -305,12 +305,12 @@ impl<T: RealField + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
 
     /// Calculate stream function at center for validation
     pub fn stream_at_center(&self) -> T {
-        self.psi[self.nx/2][self.ny/2].clone()
+        self.psi[self.nx/2][self.ny/2]
     }
 
     /// Calculate vorticity at center for validation
     pub fn vorticity_at_center(&self) -> T {
-        self.omega[self.nx/2][self.ny/2].clone()
+        self.omega[self.nx/2][self.ny/2]
     }
 }
 

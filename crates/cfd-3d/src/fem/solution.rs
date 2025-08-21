@@ -5,7 +5,7 @@ use crate::fem::constants;
 
 /// Solution for 3D incompressible flow
 #[derive(Debug, Clone)]
-pub struct StokesFlowSolution<T: RealField> {
+pub struct StokesFlowSolution<T: RealField + Copy> {
     /// Velocity field (3 components per node)
     pub velocity: DVector<T>,
     /// Pressure field (1 per node)

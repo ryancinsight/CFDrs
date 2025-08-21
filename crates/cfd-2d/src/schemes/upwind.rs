@@ -5,11 +5,11 @@ use num_traits::FromPrimitive;
 use super::{Grid2D, SpatialDiscretization};
 
 /// First-order upwind scheme
-pub struct FirstOrderUpwind<T: RealField> {
+pub struct FirstOrderUpwind<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + FromPrimitive> FirstOrderUpwind<T> {
+impl<T: RealField + FromPrimitive + Copy> FirstOrderUpwind<T> {
     /// Create new first-order upwind scheme
     pub fn new() -> Self {
         Self {
@@ -41,11 +41,11 @@ impl<T: RealField + FromPrimitive + Copy> SpatialDiscretization<T> for FirstOrde
 }
 
 /// Second-order upwind scheme
-pub struct SecondOrderUpwind<T: RealField> {
+pub struct SecondOrderUpwind<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + FromPrimitive> SecondOrderUpwind<T> {
+impl<T: RealField + FromPrimitive + Copy> SecondOrderUpwind<T> {
     /// Create new second-order upwind scheme
     pub fn new() -> Self {
         Self {

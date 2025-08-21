@@ -43,7 +43,7 @@ pub enum SpatialScheme {
 }
 
 /// Trait for spatial discretization schemes
-pub trait SpatialDiscretization<T: RealField> {
+pub trait SpatialDiscretization<T: RealField + Copy> {
     /// Compute spatial derivative
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T;
     

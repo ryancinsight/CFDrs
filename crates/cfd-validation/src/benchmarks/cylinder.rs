@@ -9,7 +9,7 @@ use num_traits::FromPrimitive;
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 
 /// Flow over cylinder benchmark
-pub struct FlowOverCylinder<T: RealField> {
+pub struct FlowOverCylinder<T: RealField + Copy> {
     /// Cylinder diameter
     pub diameter: T,
     /// Domain dimensions (length, height)
@@ -18,7 +18,7 @@ pub struct FlowOverCylinder<T: RealField> {
     pub inlet_velocity: T,
 }
 
-impl<T: RealField> FlowOverCylinder<T> {
+impl<T: RealField + Copy> FlowOverCylinder<T> {
     /// Create a new flow over cylinder benchmark
     pub fn new(diameter: T, domain: (T, T), inlet_velocity: T) -> Self {
         Self {
@@ -32,7 +32,7 @@ impl<T: RealField> FlowOverCylinder<T> {
     fn calculate_drag(&self, forces: &[T]) -> T {
         // Simplified drag calculation
         // CD = 2*FD / (ρ*U²*D)
-        forces[0].clone()
+        forces[0]
     }
     
     /// Calculate lift coefficient
@@ -40,7 +40,7 @@ impl<T: RealField> FlowOverCylinder<T> {
         // Simplified lift calculation
         // CL = 2*FL / (ρ*U²*D)
         if forces.len() > 1 {
-            forces[1].clone()
+            forces[1]
         } else {
             T::zero()
         }
@@ -49,11 +49,11 @@ impl<T: RealField> FlowOverCylinder<T> {
     /// Calculate Strouhal number
     fn calculate_strouhal(&self, frequency: T) -> T {
         // St = f*D/U
-        frequency * self.diameter.clone() / self.inlet_velocity.clone()
+        frequency * self.diameter / self.inlet_velocity
     }
 }
 
-impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
+impl<T: RealField + FromPrimitive + Copy> Benchmark<T> for FlowOverCylinder<T> {
     fn name(&self) -> &str {
         "Flow Over Cylinder"
     }
@@ -73,7 +73,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
         
         // Set inlet boundary condition
         for i in 0..ny {
-            u[(i, 0)] = self.inlet_velocity.clone();
+            u[(i, 0)] = self.inlet_velocity;
         }
         
         // Placeholder for actual solver
@@ -85,7 +85,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
             // Would implement immersed boundary or body-fitted mesh
             
             let residual = T::from_f64(0.001).unwrap_or_else(|| T::from_f64(0.001).unwrap());
-            convergence.push(residual.clone());
+            convergence.push(residual);
             
             // Calculate forces on cylinder
             let drag = T::from_f64(1.0).unwrap_or_else(|| T::one());
@@ -103,7 +103,7 @@ impl<T: RealField + FromPrimitive> Benchmark<T> for FlowOverCylinder<T> {
         let cl = self.calculate_lift(&forces);
         
         Ok(BenchmarkResult {
-            name: self.name().to_string(),
+            name: self.name.clone()().to_string(),
             values: vec![cd, cl],
             errors: vec![],
             convergence,

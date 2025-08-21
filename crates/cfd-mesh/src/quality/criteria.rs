@@ -15,7 +15,7 @@ pub struct QualityCriteria<T: RealField + Copy> {
 
 /// Quality thresholds
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QualityThresholds<T: RealField> {
+pub struct QualityThresholds<T: RealField + Copy> {
     /// Maximum acceptable aspect ratio
     pub max_aspect_ratio: T,
     /// Maximum acceptable skewness

@@ -12,7 +12,7 @@ use num_traits::cast::FromPrimitive;
 pub type AdaptiveQuadrature<Q> = VariableQuadrature<Q>;
 
 /// Trait for quadrature methods
-pub trait Quadrature<T: RealField> {
+pub trait Quadrature<T: RealField + Copy> {
     /// Integrate a function over interval [a, b]
     fn integrate<F>(&self, f: F, a: T, b: T) -> T
     where
@@ -28,13 +28,13 @@ pub trait Quadrature<T: RealField> {
 /// Trapezoidal rule for numerical integration
 pub struct TrapezoidalRule;
 
-impl<T: RealField + FromPrimitive> Quadrature<T> for TrapezoidalRule {
+impl<T: RealField + FromPrimitive + Copy> Quadrature<T> for TrapezoidalRule {
     fn integrate<F>(&self, f: F, a: T, b: T) -> T
     where
         F: Fn(T) -> T,
     {
         let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
-        (b.clone() - a.clone()) * (f(a) + f(b)) / two
+        (b - a) * (f(a) + f(b)) / two
     }
 
     fn order(&self) -> usize {
@@ -49,7 +49,7 @@ impl<T: RealField + FromPrimitive> Quadrature<T> for TrapezoidalRule {
 /// Simpson's rule for numerical integration
 pub struct SimpsonsRule;
 
-impl<T: RealField + FromPrimitive> Quadrature<T> for SimpsonsRule {
+impl<T: RealField + FromPrimitive + Copy> Quadrature<T> for SimpsonsRule {
     fn integrate<F>(&self, f: F, a: T, b: T) -> T
     where
         F: Fn(T) -> T,
@@ -58,8 +58,8 @@ impl<T: RealField + FromPrimitive> Quadrature<T> for SimpsonsRule {
         let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
         let six = T::from_f64(6.0).unwrap_or_else(|| T::zero());
 
-        let mid = (a.clone() + b.clone()) / two.clone();
-        (b.clone() - a.clone()) * (f(a) + four * f(mid) + f(b)) / six
+        let mid = (a + b) / two;
+        (b - a) * (f(a) + four * f(mid) + f(b)) / six
     }
 
     fn order(&self) -> usize {
@@ -72,13 +72,13 @@ impl<T: RealField + FromPrimitive> Quadrature<T> for SimpsonsRule {
 }
 
 /// Gauss-Legendre quadrature
-pub struct GaussQuadrature<T: RealField> {
+pub struct GaussQuadrature<T: RealField + Copy> {
     points: Vec<T>,
     weights: Vec<T>,
     order: usize,
 }
 
-impl<T: RealField + FromPrimitive> GaussQuadrature<T> {
+impl<T: RealField + FromPrimitive + Copy> GaussQuadrature<T> {
     /// Create Gauss-Legendre quadrature of given order
     pub fn new(order: usize) -> Result<Self> {
         let (points, weights) = match order {
@@ -89,7 +89,7 @@ impl<T: RealField + FromPrimitive> GaussQuadrature<T> {
             },
             2 => {
                 let sqrt3_inv = T::from_f64(1.0 / 3.0_f64.sqrt()).expect("CRITICAL: Add proper error handling");
-                let points = vec![-sqrt3_inv.clone(), sqrt3_inv];
+                let points = vec![-sqrt3_inv, sqrt3_inv];
                 let weights = vec![T::one(), T::one()];
                 (points, weights)
             },
@@ -97,7 +97,7 @@ impl<T: RealField + FromPrimitive> GaussQuadrature<T> {
                 let sqrt15 = T::from_f64(15.0_f64.sqrt()).expect("CRITICAL: Add proper error handling");
                 let sqrt15_5 = sqrt15 / T::from_f64(5.0).unwrap_or_else(|| T::zero());
                 let points = vec![
-                    -sqrt15_5.clone(),
+                    -sqrt15_5,
                     T::zero(),
                     sqrt15_5,
                 ];
@@ -112,12 +112,12 @@ impl<T: RealField + FromPrimitive> GaussQuadrature<T> {
                 let sqrt6_5 = (6.0_f64 / 5.0).sqrt();
                 let term1 = T::from_f64((3.0 - 2.0 * sqrt6_5) / 7.0).expect("CRITICAL: Add proper error handling").sqrt();
                 let term2 = T::from_f64((3.0 + 2.0 * sqrt6_5) / 7.0).expect("CRITICAL: Add proper error handling").sqrt();
-                let points = vec![-term2.clone(), -term1.clone(), term1, term2];
+                let points = vec![-term2, -term1, term1, term2];
 
                 let sqrt30 = 30.0_f64.sqrt();
                 let w1 = T::from_f64((18.0 + sqrt30) / 36.0).expect("CRITICAL: Add proper error handling");
                 let w2 = T::from_f64((18.0 - sqrt30) / 36.0).expect("CRITICAL: Add proper error handling");
-                let weights = vec![w2.clone(), w1.clone(), w1, w2];
+                let weights = vec![w2, w1, w1, w2];
                 (points, weights)
             },
             _ => {
@@ -140,22 +140,22 @@ impl<T: RealField + FromPrimitive> GaussQuadrature<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive> Quadrature<T> for GaussQuadrature<T> {
+impl<T: RealField + FromPrimitive + Copy> Quadrature<T> for GaussQuadrature<T> {
     fn integrate<F>(&self, f: F, a: T, b: T) -> T
     where
         F: Fn(T) -> T,
     {
         let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
-        let half_interval = (b.clone() - a.clone()) / two.clone();
-        let mid_point = (a.clone() + b.clone()) / two;
+        let half_interval = (b - a) / two;
+        let mid_point = (a + b) / two;
 
         // Use iterator combinators for zero-copy optimization
         let result = self.points
             .iter()
             .zip(self.weights.iter())
             .map(|(point, weight)| {
-                let x = mid_point.clone() + half_interval.clone() * point.clone();
-                weight.clone() * f(x)
+                let x = mid_point + half_interval * point;
+                weight * f(x)
             })
             .fold(T::zero(), |acc, term| acc + term);
 
@@ -197,13 +197,13 @@ where
         F: Fn(T) -> T,
     {
         let n = T::from_usize(self.num_intervals).unwrap_or_else(|| T::zero());
-        let h = (b.clone() - a.clone()) / n;
+        let h = (b - a) / n;
 
         // Use iterator range with fold for zero-copy optimization
         (0..self.num_intervals)
             .map(|i| {
-                let xi = a.clone() + T::from_usize(i).unwrap_or_else(|| T::zero()) * h.clone();
-                let xi_plus_1 = xi.clone() + h.clone();
+                let xi = a + T::from_usize(i).unwrap_or_else(|| T::zero()) * h;
+                let xi_plus_1 = xi + h;
                 self.base_rule.integrate(&f, xi, xi_plus_1)
             })
             .fold(T::zero(), |acc, integral| acc + integral)
@@ -260,17 +260,17 @@ impl<Q> VariableQuadrature<Q> {
         }
 
         // Compute integral over whole interval
-        let whole = self.base_rule.integrate(f, a.clone(), b.clone());
+        let whole = self.base_rule.integrate(f, a, b);
 
         // Compute integral over two halves
         let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
-        let mid = (a.clone() + b.clone()) / two;
-        let left = self.base_rule.integrate(f, a.clone(), mid.clone());
-        let right = self.base_rule.integrate(f, mid.clone(), b.clone());
-        let halves = left.clone() + right.clone();
+        let mid = (a + b) / two;
+        let left = self.base_rule.integrate(f, a, mid);
+        let right = self.base_rule.integrate(f, mid, b);
+        let halves = left + right;
 
         // Estimate error
-        let error_estimate = (halves.clone() - whole.clone()).abs();
+        let error_estimate = (halves - whole).abs();
         let tolerance_t = T::from_f64(self.tolerance).unwrap_or_else(|| T::zero());
 
         if error_estimate < tolerance_t {
@@ -278,7 +278,7 @@ impl<Q> VariableQuadrature<Q> {
             Ok(halves)
         } else {
             // Recursively refine both halves
-            let left_refined = self.integrate_recursive(f, a, mid.clone(), depth + 1)?;
+            let left_refined = self.integrate_recursive(f, a, mid, depth + 1)?;
             let right_refined = self.integrate_recursive(f, mid, b, depth + 1)?;
             Ok(left_refined + right_refined)
         }
@@ -311,8 +311,8 @@ impl<Q> TensorProductQuadrature<Q> {
     {
         // For simplicity, use composite Simpson's rule for 2D
         let n = 10; // Number of intervals in each direction
-        let hx = (bx.clone() - ax.clone()) / T::from_usize(n).unwrap_or_else(|| T::zero());
-        let hy = (by.clone() - ay.clone()) / T::from_usize(n).unwrap_or_else(|| T::zero());
+        let hx = (bx - ax) / T::from_usize(n).unwrap_or_else(|| T::zero());
+        let hy = (by - ay) / T::from_usize(n).unwrap_or_else(|| T::zero());
 
         let mut result = T::zero();
         let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
@@ -321,24 +321,24 @@ impl<Q> TensorProductQuadrature<Q> {
 
         for i in 0..=n {
             for j in 0..=n {
-                let x = ax.clone() + T::from_usize(i).unwrap_or_else(|| T::zero()) * hx.clone();
-                let y = ay.clone() + T::from_usize(j).unwrap_or_else(|| T::zero()) * hy.clone();
+                let x = ax + T::from_usize(i).unwrap_or_else(|| T::zero()) * hx;
+                let y = ay + T::from_usize(j).unwrap_or_else(|| T::zero()) * hy;
 
                 // Correct 2D Simpson's rule weights using tensor product of 1D weights
                 let weight_i = if i == 0 || i == n {
                     T::one()
                 } else if i % 2 == 1 {
-                    four.clone()
+                    four
                 } else {
-                    two.clone()
+                    two
                 };
 
                 let weight_j = if j == 0 || j == n {
                     T::one()
                 } else if j % 2 == 1 {
-                    four.clone()
+                    four
                 } else {
-                    two.clone()
+                    two
                 };
 
                 let weight = weight_i * weight_j;
