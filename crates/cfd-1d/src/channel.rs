@@ -650,7 +650,7 @@ mod tests {
     fn test_circular_resistance_calculation() {
         let geometry = ChannelGeometry::circular(0.001, 100e-6, 1e-6);
         let channel = Channel::<f64>::new(geometry);
-        let fluid = cfd_core::fluid::Fluid::<f64>::water();
+        let fluid = cfd_core::fluid::Fluid::<f64>::water().expect("Failed to create water fluid");
 
         let resistance = channel.calculate_circular_laminar_resistance(&fluid, 100e-6).expect("Failed to complete operation");
 
@@ -663,7 +663,7 @@ mod tests {
     fn test_rectangular_resistance_calculation() {
         let geometry = ChannelGeometry::rectangular(0.001, 100e-6, 50e-6, 1e-6);
         let channel = Channel::<f64>::new(geometry);
-        let fluid = cfd_core::fluid::Fluid::<f64>::water();
+        let fluid = cfd_core::fluid::Fluid::<f64>::water().expect("Failed to create water fluid");
 
         let resistance = channel.calculate_rectangular_laminar_resistance(&fluid, 100e-6, 50e-6).expect("Failed to complete operation");
 
@@ -676,7 +676,7 @@ mod tests {
     fn test_resistance_calculation_different_regimes() {
         let geometry = ChannelGeometry::rectangular(0.001, 100e-6, 50e-6, 1e-6);
         let mut channel = Channel::<f64>::new(geometry);
-        let fluid = cfd_core::fluid::Fluid::<f64>::water();
+        let fluid = cfd_core::fluid::Fluid::<f64>::water().expect("Failed to create water fluid");
 
         // Test different flow regimes
         channel.set_reynolds_number(0.1); // Stokes

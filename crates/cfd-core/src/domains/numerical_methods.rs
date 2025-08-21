@@ -560,7 +560,7 @@ mod tests {
         assert_relative_eq!(result[0], 1.0, epsilon = 1e-6);
         assert_relative_eq!(result[1], 1.0, epsilon = 1e-6);
 
-        assert_eq!(solver.name.clone()(), "Conjugate Gradient");
+        assert_eq!(solver.name(), "Conjugate Gradient");
         assert!(solver.is_iterative());
     }
 

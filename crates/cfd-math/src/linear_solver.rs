@@ -22,7 +22,6 @@
 use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
-use nalgebra_sparse::coo::CooMatrix;
 use num_traits::cast::FromPrimitive;
 use std::fmt::Debug;
 use crate::sparse::SparseMatrixExt;
@@ -530,7 +529,7 @@ mod tests {
         let solver = ConjugateGradient::default();
         let x = solver.solve(&a, &b, None).expect("CRITICAL: Add proper error handling");
         
-        let residual = (*&b - *&a) * &x;
+        let residual = &b - &a * &x;
         assert!(residual.norm() < 1e-10);
     }
 
@@ -542,7 +541,7 @@ mod tests {
         let solver = BiCGSTAB::default();
         let x = solver.solve(&a, &b, None).expect("CRITICAL: Add proper error handling");
         
-        let residual = (*&b - *&a) * &x;
+        let residual = &b - &a * &x;
         assert!(residual.norm() < 1e-10);
     }
 
@@ -619,7 +618,7 @@ mod tests {
         
         let x = solver.solve_preconditioned(&a, &b, &precond, None).expect("CRITICAL: Add proper error handling");
         
-        let residual = (*&b - *&a) * &x;
+        let residual = &b - &a * &x;
         assert!(residual.norm() < 1e-10);
     }
 
