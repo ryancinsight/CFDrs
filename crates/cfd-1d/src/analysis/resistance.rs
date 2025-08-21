@@ -2,6 +2,7 @@
 
 use nalgebra::RealField;
 use std::collections::HashMap;
+use std::iter::Sum;
 
 /// Resistance analysis for network components
 #[derive(Debug, Clone)]
@@ -16,7 +17,7 @@ pub struct ResistanceAnalysis<T: RealField + Copy> {
     pub critical_paths: Vec<Vec<String>>,
 }
 
-impl<T: RealField + Copy> ResistanceAnalysis<T> {
+impl<T: RealField + Copy + Sum> ResistanceAnalysis<T> {
     /// Create a new resistance analysis
     pub fn new() -> Self {
         Self {
@@ -94,7 +95,7 @@ impl<T: RealField + Copy> ResistanceAnalysis<T> {
     }
 }
 
-impl<T: RealField + Copy> Default for ResistanceAnalysis<T> {
+impl<T: RealField + Copy + Sum> Default for ResistanceAnalysis<T> {
     fn default() -> Self {
         Self::new()
     }

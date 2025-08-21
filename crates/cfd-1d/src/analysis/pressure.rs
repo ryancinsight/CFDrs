@@ -3,6 +3,7 @@
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use std::collections::HashMap;
+use std::iter::Sum;
 
 /// Pressure analysis for network systems
 #[derive(Debug, Clone)]
@@ -19,7 +20,7 @@ pub struct PressureAnalysis<T: RealField + Copy> {
     pub pressure_gradients: HashMap<String, T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> PressureAnalysis<T> {
+impl<T: RealField + Copy + FromPrimitive + Sum> PressureAnalysis<T> {
     /// Create a new pressure analysis
     pub fn new() -> Self {
         Self {
@@ -83,7 +84,7 @@ impl<T: RealField + Copy + FromPrimitive> PressureAnalysis<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for PressureAnalysis<T> {
+impl<T: RealField + Copy + FromPrimitive + Sum> Default for PressureAnalysis<T> {
     fn default() -> Self {
         Self::new()
     }

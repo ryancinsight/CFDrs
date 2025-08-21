@@ -2,6 +2,7 @@
 
 use nalgebra::RealField;
 use std::collections::HashMap;
+use std::iter::Sum;
 
 /// Network performance metrics
 #[derive(Debug, Clone)]
@@ -18,7 +19,7 @@ pub struct PerformanceMetrics<T: RealField + Copy> {
     pub residence_times: HashMap<String, T>,
 }
 
-impl<T: RealField + Copy> PerformanceMetrics<T> {
+impl<T: RealField + Copy + Sum> PerformanceMetrics<T> {
     /// Create new performance metrics
     pub fn new() -> Self {
         Self {
@@ -96,7 +97,7 @@ impl<T: RealField + Copy> PerformanceMetrics<T> {
     }
 }
 
-impl<T: RealField + Copy> Default for PerformanceMetrics<T> {
+impl<T: RealField + Copy + Sum> Default for PerformanceMetrics<T> {
     fn default() -> Self {
         Self::new()
     }

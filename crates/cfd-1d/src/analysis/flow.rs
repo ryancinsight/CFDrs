@@ -3,6 +3,7 @@
 use crate::channel::FlowRegime;
 use nalgebra::RealField;
 use std::collections::HashMap;
+use std::iter::Sum;
 
 /// Comprehensive flow analysis for network systems
 #[derive(Debug, Clone)]
@@ -19,7 +20,7 @@ pub struct FlowAnalysis<T: RealField + Copy> {
     pub flow_regimes: HashMap<String, FlowRegime>,
 }
 
-impl<T: RealField + Copy> FlowAnalysis<T> {
+impl<T: RealField + Copy + Sum> FlowAnalysis<T> {
     /// Create a new flow analysis
     pub fn new() -> Self {
         Self {
@@ -79,7 +80,7 @@ impl<T: RealField + Copy> FlowAnalysis<T> {
     }
 }
 
-impl<T: RealField + Copy> Default for FlowAnalysis<T> {
+impl<T: RealField + Copy + Sum> Default for FlowAnalysis<T> {
     fn default() -> Self {
         Self::new()
     }
