@@ -318,7 +318,7 @@ mod tests {
             vec![0.1, 1.1, 2.1],
             vec![0.2, 1.2, 2.2],
         ];
-        writer.write_time_series(path, &headers, data).expect("CRITICAL: Add proper error handling");
+        writer.write_time_series(path, &headers, data.clone()).expect("CRITICAL: Add proper error handling");
 
         // Read data
         let reader = CsvReader::<f64>::new();

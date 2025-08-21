@@ -3,7 +3,7 @@
 //! Reference: Gartling (1990) "A test problem for outflow boundary conditions"
 
 use nalgebra::{DMatrix, RealField};
-use cfd_core::{Result, Error};
+use cfd_core::Result;
 use num_traits::FromPrimitive;
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 
@@ -53,8 +53,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
         
         // Initialize fields
         let mut u = DMatrix::<T>::zeros(ny, nx);
-        let mut v = DMatrix::<T>::zeros(ny, nx);
-        let mut p = DMatrix::<T>::zeros(ny, nx);
+        let v = DMatrix::<T>::zeros(ny, nx);
+        let p = DMatrix::<T>::zeros(ny, nx);
         
         // Set parabolic inlet profile
         let h_inlet = self.channel_height - self.step_height;
@@ -84,7 +84,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
         let reattachment = self.calculate_reattachment_length(&u);
         
         Ok(BenchmarkResult {
-            name: self.name().clone()().to_string(),
+            name: self.name().to_string(),
             values: vec![reattachment],
             errors: vec![],
             convergence,

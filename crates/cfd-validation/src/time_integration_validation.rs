@@ -65,7 +65,7 @@ impl<T: RealField + Copy> TimeIntegratorTrait<T> for ForwardEuler {
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
         let k1 = f(t, y);
-        y += k1 * dt;
+        *y += k1 * dt;
         Ok(())
     }
 
@@ -76,17 +76,17 @@ impl<T: RealField + Copy> TimeIntegratorTrait<T> for ForwardEuler {
 #[derive(Debug)]
 pub struct RungeKutta2;
 
-impl<T: RealField + Copy + FromPrimitive + Copy> TimeIntegratorTrait<T> for RungeKutta2 {
+impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta2 {
     fn step<F>(&self, y: &mut DVector<T>, t: T, dt: T, f: F) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
         let k1 = f(t, y);
-        let y_temp = y + k1 * dt;
+        let y_temp = y.clone() + k1.clone() * dt;
         let k2 = f(t + dt, &y_temp);
 
         let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
-        *y += &(k1 + k2) * (dt * half);
+        *y += (k1 + k2) * (dt * half);
         Ok(())
     }
 
@@ -97,22 +97,23 @@ impl<T: RealField + Copy + FromPrimitive + Copy> TimeIntegratorTrait<T> for Rung
 #[derive(Debug)]
 pub struct RungeKutta4;
 
-impl<T: RealField + Copy + FromPrimitive + Copy> TimeIntegratorTrait<T> for RungeKutta4 {
+impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta4 {
     fn step<F>(&self, y: &mut DVector<T>, t: T, dt: T, f: F) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
+        let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
         let k1 = f(t, y);
-        let y_temp1 = y + &k1 * (dt * T::from_f64(0.5).unwrap_or_else(|| T::zero()));
-        let k2 = f(t + dt * T::from_f64(0.5).unwrap_or_else(|| T::zero()), &y_temp1);
-        let y_temp2 = y + &k2 * (dt * T::from_f64(0.5).unwrap_or_else(|| T::zero()));
-        let k3 = f(t + dt * T::from_f64(0.5).unwrap_or_else(|| T::zero()), &y_temp2);
-        let y_temp3 = y + k3 * dt;
+        let y_temp1 = y.clone() + k1.clone() * (dt * half);
+        let k2 = f(t + dt * half, &y_temp1);
+        let y_temp2 = y.clone() + k2.clone() * (dt * half);
+        let k3 = f(t + dt * half, &y_temp2);
+        let y_temp3 = y.clone() + k3.clone() * dt;
         let k4 = f(t + dt, &y_temp3);
 
         let sixth = T::from_f64(1.0/6.0).unwrap_or_else(|| T::zero());
         let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
-        *y += &(k1 + k2 * two + k3 * two + k4) * (dt * sixth);
+        *y += (k1 + k2 * two + k3 * two + k4) * (dt * sixth);
         Ok(())
     }
 
@@ -200,7 +201,7 @@ impl TimeIntegrationValidator {
                 t += dt;
             }
 
-            let error = ((y - analytical_final)).norm();
+            let error = ((&y - &analytical_final)).norm();
             let relative_error = error / analytical_final.norm();
 
             let result = TimeIntegrationResult {
@@ -209,7 +210,7 @@ impl TimeIntegrationValidator {
                 final_time: final_time,
                 time_step: dt,
                 computed_solution: y,
-                analytical_solution: analytical_final,
+                analytical_solution: analytical_final.clone(),
                 global_error: error,
                 observed_order: Self::estimate_order(integrator.order()),
                 literature_reference: "Hairer, Nørsett & Wanner (1993), Solving ODEs I".to_string(),
@@ -255,7 +256,7 @@ impl TimeIntegrationValidator {
         ];
 
         for (name, integrator) in methods {
-            let mut y = y0;
+            let mut y = y0.clone();
             let mut t = T::zero();
 
             // Integrate to final time
@@ -264,7 +265,7 @@ impl TimeIntegrationValidator {
                 t += dt;
             }
 
-            let error = ((y - analytical_final)).norm();
+            let error = ((&y - &analytical_final)).norm();
             let relative_error = error / analytical_final.norm();
 
             let result = TimeIntegrationResult {
@@ -273,7 +274,7 @@ impl TimeIntegrationValidator {
                 final_time: final_time,
                 time_step: dt,
                 computed_solution: y,
-                analytical_solution: analytical_final,
+                analytical_solution: analytical_final.clone(),
                 global_error: error,
                 observed_order: Self::estimate_order(integrator.order()),
                 literature_reference: "Butcher (2016), Numerical Methods for ODEs".to_string(),
@@ -328,7 +329,7 @@ impl TimeIntegrationValidator {
         dt: T,
     ) -> Result<T> {
         let n_steps = (final_time.to_f64().expect("CRITICAL: Add proper error handling") / dt.to_f64().expect("CRITICAL: Add proper error handling")) as usize;
-        let mut y = y0;
+        let mut y = y0.clone();
         let mut t = T::zero();
 
         for _ in 0..n_steps {
@@ -337,7 +338,7 @@ impl TimeIntegrationValidator {
         }
 
         let analytical = analytical_solution(final_time);
-        let error = ((y - analytical)).norm();
+        let error = ((&y - &analytical)).norm();
 
         Ok(error)
     }

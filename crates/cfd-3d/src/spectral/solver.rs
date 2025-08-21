@@ -1,6 +1,6 @@
 //! Main spectral solver implementation
 
-use nalgebra::{DMatrix, DVector, RealField};
+use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use cfd_core::Result;

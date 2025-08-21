@@ -5,7 +5,7 @@
 
 use nalgebra::{DMatrix, DVector, RealField};
 use num_traits::FromPrimitive;
-use cfd_core::{Result, BoundaryCondition};
+use cfd_core::Result;
 use super::chebyshev::ChebyshevPolynomial;
 
 /// Boundary condition type for Poisson equation

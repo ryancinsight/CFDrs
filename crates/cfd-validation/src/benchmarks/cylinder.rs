@@ -4,7 +4,7 @@
 //! around a cylinder"
 
 use nalgebra::{DMatrix, RealField};
-use cfd_core::{Result, Error};
+use cfd_core::Result;
 use num_traits::FromPrimitive;
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 
@@ -68,8 +68,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
         
         // Initialize flow field
         let mut u = DMatrix::<T>::zeros(ny, nx);
-        let mut v = DMatrix::<T>::zeros(ny, nx);
-        let mut p = DMatrix::<T>::zeros(ny, nx);
+        let v = DMatrix::<T>::zeros(ny, nx);
+        let p = DMatrix::<T>::zeros(ny, nx);
         
         // Set inlet boundary condition
         for i in 0..ny {
@@ -103,7 +103,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
         let cl = self.calculate_lift(&forces);
         
         Ok(BenchmarkResult {
-            name: self.name().clone()().to_string(),
+            name: self.name().to_string(),
             values: vec![cd, cl],
             errors: vec![],
             convergence,

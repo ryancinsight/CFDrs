@@ -7,9 +7,8 @@ use cfd_core::solver::LinearSolverConfig;
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use cfd_core::boundary::BoundaryCondition;
-use cfd_core::constants;
 use cfd_math::{SparseMatrix, SparseMatrixBuilder, LinearSolver, BiCGSTAB};
-use nalgebra::{RealField, DVector, Vector2};
+use nalgebra::{RealField, DVector};
 use num_traits::FromPrimitive;
 use std::collections::HashMap;
 
@@ -239,7 +238,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MomentumSolver<T> {
         if i == self.nx - 2 {
             if let Some(bc) = self.boundary_conditions.get("east") {
                 match bc {
-                    BoundaryCondition::PressureOutlet { pressure, .. } => {
+                    BoundaryCondition::PressureOutlet {  .. } => {
                         // Neumann BC for velocity
                     },
                     BoundaryCondition::Wall { .. } => {
@@ -260,7 +259,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MomentumSolver<T> {
         rhs: DVector<T>,
     ) -> cfd_core::Result<DVector<T>> {
         let config = LinearSolverConfig::default();
-        let mut solver = BiCGSTAB::new(config);
+        let solver = BiCGSTAB::new(config);
         
         let initial_guess = DVector::zeros(rhs.len());
         solver.solve(&matrix, &rhs, Some(&initial_guess))

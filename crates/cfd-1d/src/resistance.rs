@@ -8,7 +8,6 @@ use cfd_core::fluid::Fluid;
 use cfd_core::error::{Result, Error};
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
-use num_traits::Float as _;
 use serde::{Deserialize, Serialize};
 
 /// Trait for hydraulic resistance models
@@ -400,7 +399,7 @@ mod tests {
             length: 0.001,
         };
 
-        let fluid = cfd_core::fluid::Fluid::water();
+        let fluid = cfd_core::fluid::Fluid::<f64>::water().expect("Failed to create water fluid");
         let conditions = create_test_conditions();
 
         let resistance = model.calculate_resistance(&fluid, &conditions).expect("Failed to complete operation");
@@ -426,7 +425,7 @@ mod tests {
             length: 0.001,
         };
 
-        let fluid = cfd_core::fluid::Fluid::water();
+        let fluid = cfd_core::fluid::Fluid::<f64>::water().expect("Failed to create water fluid");
         let conditions = create_test_conditions();
 
         let resistance = model.calculate_resistance(&fluid, &conditions).expect("Failed to complete operation");
@@ -469,7 +468,7 @@ mod tests {
             roughness: 1e-6,
         };
 
-        let fluid = cfd_core::fluid::Fluid::water();
+        let fluid = cfd_core::fluid::Fluid::<f64>::water().expect("Failed to create water fluid");
         let mut conditions = create_test_conditions();
         conditions.reynolds_number = Some(5000.0); // Turbulent
 
@@ -510,7 +509,7 @@ mod tests {
             roughness: 1e-6,
         };
 
-        let fluid = cfd_core::fluid::Fluid::water();
+        let fluid = cfd_core::fluid::Fluid::<f64>::water().expect("Failed to create water fluid");
         let mut conditions = create_test_conditions();
         conditions.reynolds_number = None; // No Reynolds number
 
@@ -543,7 +542,7 @@ mod tests {
     #[test]
     fn test_resistance_calculator() {
         let calculator = ResistanceCalculator::new();
-        let fluid = cfd_core::fluid::Fluid::water();
+        let fluid = cfd_core::fluid::Fluid::<f64>::water().expect("Failed to create water fluid");
         let conditions = create_test_conditions();
 
         // Test Hagen-Poiseuille calculation
@@ -564,7 +563,7 @@ mod tests {
     #[test]
     fn test_resistance_calculator_auto() {
         let calculator = ResistanceCalculator::new();
-        let fluid = cfd_core::fluid::Fluid::water();
+        let fluid = cfd_core::fluid::Fluid::<f64>::water().expect("Failed to create water fluid");
         let conditions = create_test_conditions();
 
         // Test auto calculation with circular geometry

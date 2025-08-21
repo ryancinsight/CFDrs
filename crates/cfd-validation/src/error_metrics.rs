@@ -249,28 +249,28 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for NormalizedRM
         let normalization = match self.normalization_method {
             NormalizationMethod::Range => {
                 let min_val = reference.iter().fold(reference[0], |acc, x| {
-                    if *x < acc { x } else { acc }
+                    if *x < acc { *x } else { acc }
                 });
                 let max_val = reference.iter().fold(reference[0], |acc, x| {
-                    if *x > acc { x } else { acc }
+                    if *x > acc { *x } else { acc }
                 });
                 max_val - min_val
             },
             NormalizationMethod::Mean => {
-                let sum: T = reference.iter().fold(T::zero(), |acc, x| acc + x);
+                let sum: T = reference.iter().fold(T::zero(), |acc, x| acc + *x);
                 let n = T::from_usize(reference.len()).expect("CRITICAL: Add proper error handling");
                 sum / n
             },
             NormalizationMethod::StandardDeviation => {
                 // Compute mean
-                let sum: T = reference.iter().fold(T::zero(), |acc, x| acc + x);
+                let sum: T = reference.iter().fold(T::zero(), |acc, x| acc + *x);
                 let n = T::from_usize(reference.len()).expect("CRITICAL: Add proper error handling");
                 let mean = sum / n;
 
                 // Compute variance
                 let variance: T = reference.iter()
                     .map(|x| {
-                        let diff = x - mean;
+                        let diff = *x - mean;
                         diff * diff
                     })
                     .fold(T::zero(), |acc, x| acc + x) / n;
@@ -376,17 +376,17 @@ impl ErrorAnalysis {
         let log_e: Vec<T> = errors.iter().map(|e| e.ln()).collect();
 
         // Compute means
-        let mean_log_h = log_h.iter().fold(T::zero(), |acc, x| acc + x) / n;
-        let mean_log_e = log_e.iter().fold(T::zero(), |acc, x| acc + x) / n;
+        let mean_log_h = log_h.iter().fold(T::zero(), |acc, x| acc + *x) / n;
+        let mean_log_e = log_e.iter().fold(T::zero(), |acc, x| acc + *x) / n;
 
         // Compute slope (convergence rate)
         let numerator: T = log_h.iter().zip(log_e.iter())
-            .map(|(h, e)| (h - mean_log_h) * (e - mean_log_e))
+            .map(|(h, e)| (*h - mean_log_h) * (*e - mean_log_e))
             .fold(T::zero(), |acc, x| acc + x);
 
         let denominator: T = log_h.iter()
             .map(|h| {
-                let diff = h - mean_log_h;
+                let diff = *h - mean_log_h;
                 diff * diff
             })
             .fold(T::zero(), |acc, x| acc + x);

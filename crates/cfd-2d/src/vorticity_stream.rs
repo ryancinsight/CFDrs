@@ -4,7 +4,7 @@
 //! satisfies continuity and reduces the number of variables.
 
 use crate::grid::StructuredGrid2D;
-use cfd_core::{error::Result, solver::SolverConfig};
+use cfd_core::error::Result;
 use nalgebra::{Vector2, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};

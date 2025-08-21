@@ -401,7 +401,7 @@ mod tests {
 
         for (row_idx, row) in sparse.row_iter().enumerate() {
             for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
-                dense[(row_idx, *col_idx)] = value;
+                dense[(row_idx, *col_idx)] = *value;
             }
         }
 

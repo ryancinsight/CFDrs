@@ -1,6 +1,6 @@
 //! FEM solver implementation
 
-use cfd_core::{Result, Error};
+use cfd_core::Result;
 use cfd_math::{SparseMatrix, SparseMatrixBuilder, LinearSolver, ConjugateGradient};
 use nalgebra::{RealField, DVector, Vector3};
 use num_traits::{FromPrimitive, Float};
@@ -23,7 +23,7 @@ fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) -> V
     let mut indices = Vec::with_capacity(4);
     let mut seen = std::collections::HashSet::new();
     
-    for &face_idx in &cell.faces {
+    for &face_idx in &cell.vertices {
         if let Some(face) = mesh.faces.get(face_idx) {
             for &vertex_idx in &face.vertices {
                 if seen.insert(vertex_idx) && indices.len() < 4 {
@@ -131,7 +131,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
         let n_nodes = element.nodes.len();
         let n_dof = n_nodes * (constants::VELOCITY_COMPONENTS + 1); // velocity + pressure
         
-        let mut matrices = ElementMatrices::new(n_dof);
+        let matrices = ElementMatrices::new(n_dof);
         
         // Placeholder - needs proper implementation with Gauss quadrature
         // and shape functions

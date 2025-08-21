@@ -4,7 +4,7 @@
 //! channels, pumps, valves, mixers, and sensors with their characteristic
 //! hydraulic properties and behaviors.
 
-use cfd_core::{Error, Result, Fluid};
+use cfd_core::{Result, Fluid};
 use nalgebra::RealField;
 use std::collections::HashMap;
 

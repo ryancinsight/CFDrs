@@ -297,7 +297,7 @@ impl<T: RealField + Copy> DimensionlessNumber<T> {
 
 impl<T: RealField + Copy + fmt::Display> fmt::Display for DimensionlessNumber<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} = {}", self.name.clone(), self.value)
+        write!(f, "{} = {}", self.name, self.value)
     }
 }
 

@@ -231,13 +231,13 @@ mod tests {
     #[test]
     fn test_scheme_factory() {
         let upwind: Box<dyn ConvectionScheme<f64>> = ConvectionSchemeFactory::create("upwind");
-        assert_eq!(upwind.name.clone()(), "First-Order Upwind");
+        assert_eq!(upwind.name(), "First-Order Upwind");
         
         let central: Box<dyn ConvectionScheme<f64>> = ConvectionSchemeFactory::create("central");
-        assert_eq!(central.name.clone()(), "Central Difference");
+        assert_eq!(central.name(), "Central Difference");
         
         // Test default fallback
         let unknown: Box<dyn ConvectionScheme<f64>> = ConvectionSchemeFactory::create("unknown");
-        assert_eq!(unknown.name.clone()(), "First-Order Upwind");
+        assert_eq!(unknown.name(), "First-Order Upwind");
     }
 }

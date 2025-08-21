@@ -3,7 +3,6 @@
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
-use super::{Grid2D, SpatialDiscretization, constants};
 
 /// Flux limiter for TVD schemes
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

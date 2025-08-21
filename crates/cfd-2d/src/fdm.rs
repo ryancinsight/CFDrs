@@ -6,7 +6,7 @@
 //! - Advection-diffusion equations
 //! - Navier-Stokes equations
 
-use cfd_core::{Error, Result, SolverConfiguration, solver::SolverConfig};
+use cfd_core::{Error, Result, SolverConfiguration};
 use cfd_math::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField};
 use num_traits::{FromPrimitive, Zero};
@@ -414,7 +414,6 @@ mod tests {
             .tolerance(1e-10)
             .max_iterations(1000)
             .relaxation_factor(1.0)
-            .verbosity(0) // verbose = false means verbosity level 0
             .build();
 
         let config = FdmConfig { base };
@@ -461,7 +460,6 @@ mod tests {
             .tolerance(1e-10)
             .max_iterations(2000)
             .relaxation_factor(1.0)
-            .verbosity(0)
             .build();
 
         let config = FdmConfig { base };
@@ -598,7 +596,6 @@ mod tests {
             .tolerance(1e-10)
             .max_iterations(1000)
             .relaxation_factor(1.0)
-            .verbosity(0) // verbose = false means verbosity level 0
             .build();
 
         let config = FdmConfig { base };
@@ -657,7 +654,6 @@ mod tests {
             .tolerance(1e-8)
             .max_iterations(1000)
             .relaxation_factor(0.8)
-            .verbosity(0) // verbose = false means verbosity level 0
             .build();
 
         let config = FdmConfig { base };

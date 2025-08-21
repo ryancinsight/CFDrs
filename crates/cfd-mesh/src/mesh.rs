@@ -1,200 +1,121 @@
-//! Mesh data structures and operations.
+//! Core mesh data structures and operations
+//! Following SOLID principles
 
-use nalgebra::{Point3, RealField};
-use std::collections::HashSet;
+use nalgebra::{Point3, Vector3, RealField};
+use std::collections::{HashMap, HashSet};
+use serde::{Serialize, Deserialize};
 
-/// Mesh element representation
-#[derive(Debug, Clone)]
-pub struct Element<T: RealField + Copy> {
-    /// Indices of vertices that form this element
-    pub vertices: Vec<usize>,
-    /// Type of the element
-    pub element_type: ElementType,
-    /// Phantom data for type parameter
-    _phantom: std::marker::PhantomData<T>,
-}
-
-/// Element type classification for mesh cells
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ElementType {
-    /// 1D line element
-    Line,
-    /// 2D triangle element
-    Triangle,
-    /// 2D quadrilateral element
-    Quadrilateral,
-    /// 3D tetrahedron element
-    Tetrahedron,
-    /// 3D hexahedron (cube) element
-    Hexahedron,
-    /// 3D pentahedron (triangular prism) element
-    Pentahedron,
-    /// 3D pyramid element
-    Pyramid,
-    /// General polyhedron element
-    Polyhedron,
-}
-
-impl ElementType {
-    /// Get the expected number of vertices for this element type
-    pub fn expected_vertex_count(&self) -> usize {
-        match self {
-            ElementType::Line => 2,
-            ElementType::Triangle => 3,
-            ElementType::Quadrilateral => 4,
-            ElementType::Tetrahedron => 4,
-            ElementType::Hexahedron => 8,
-            ElementType::Pentahedron => 6,
-            ElementType::Pyramid => 5,
-            ElementType::Polyhedron => 0, // Variable
-        }
-    }
-
-    /// Check if this is a 3D element type
-    pub fn is_3d(&self) -> bool {
-        matches!(self, 
-            ElementType::Tetrahedron | 
-            ElementType::Hexahedron | 
-            ElementType::Pentahedron | 
-            ElementType::Pyramid | 
-            ElementType::Polyhedron
-        )
-    }
-
-    /// Check if this is a 2D element type
-    pub fn is_2d(&self) -> bool {
-        matches!(self, ElementType::Triangle | ElementType::Quadrilateral)
-    }
-
-    /// Infer element type from vertex count (fallback when type is unknown)
-    pub fn infer_from_vertex_count(count: usize) -> Self {
-        match count {
-            2 => ElementType::Line,
-            3 => ElementType::Triangle,
-            4 => ElementType::Tetrahedron, // Default to 3D for 4 vertices
-            5 => ElementType::Pyramid,
-            6 => ElementType::Pentahedron,
-            8 => ElementType::Hexahedron,
-            _ => ElementType::Polyhedron,
-        }
-    }
-}
-
-/// Vertex in a mesh
-#[derive(Debug, Clone)]
+/// Vertex in 3D space
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Vertex<T: RealField + Copy> {
-    /// Position
+    /// Position in 3D space
     pub position: Point3<T>,
     /// Vertex ID
     pub id: usize,
 }
 
-/// Edge in a mesh
-#[derive(Debug, Clone)]
-pub struct Edge {
-    /// Vertex indices
-    pub vertices: [usize; 2],
-    /// Edge ID
-    pub id: usize,
+impl<T: RealField + Copy> Vertex<T> {
+    /// Create a new vertex
+    pub fn new(id: usize, x: T, y: T, z: T) -> Self {
+        Self {
+            position: Point3::new(x, y, z),
+            id,
+        }
+    }
+    
+    /// Distance to another vertex
+    pub fn distance_to(&self, other: &Self) -> T {
+        (self.position - other.position).norm()
+    }
 }
 
-/// Face in a mesh
-#[derive(Debug, Clone)]
+/// Edge connecting two vertices
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Edge {
+    /// Start vertex index
+    pub start: usize,
+    /// End vertex index
+    pub end: usize,
+}
+
+impl Edge {
+    /// Create a new edge
+    pub fn new(start: usize, end: usize) -> Self {
+        Self { start, end }
+    }
+    
+    /// Check if edge contains vertex
+    pub fn contains(&self, vertex_id: usize) -> bool {
+        self.start == vertex_id || self.end == vertex_id
+    }
+}
+
+/// Face defined by vertices
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Face {
-    /// Vertex indices
-    pub vertices: Vec<usize>,
     /// Face ID
     pub id: usize,
+    /// Vertex indices
+    pub vertices: Vec<usize>,
 }
 
-/// Cell in a mesh with explicit element type
-#[derive(Debug, Clone)]
-pub struct Cell {
-    /// Face indices
-    pub faces: Vec<usize>,
-    /// Cell ID
-    pub id: usize,
-    /// Explicit element type
-    pub element_type: ElementType,
-}
-
-impl Cell {
-    /// Create a new cell with explicit element type
-    pub fn new(id: usize, faces: Vec<usize>, element_type: ElementType) -> Self {
+impl Face {
+    /// Create a triangular face
+    pub fn triangle(v0: usize, v1: usize, v2: usize) -> Self {
         Self {
-            faces,
-            id,
-            element_type,
+            id: 0,  // ID should be set when adding to mesh
+            vertices: vec![v0, v1, v2],
         }
     }
-
-    /// Get unique vertices for this cell from the mesh
-    /// 
-    /// This method correctly handles the vertex collection by deduplicating
-    /// vertices from all faces, fixing the issue where flattening face vertices
-    /// resulted in many duplicates.
-    pub fn unique_vertices<'a, T: RealField + Copy>(&self, mesh: &'a Mesh<T>) -> Vec<&'a Point3<T>> {
-        let mut vertex_indices = HashSet::new();
-        
-        // Collect unique vertex indices from all faces
-        for &face_idx in &self.faces {
-            if let Some(face) = mesh.faces.get(face_idx) {
-                for &vertex_idx in &face.vertices {
-                    vertex_indices.insert(vertex_idx);
-                }
-            }
+    
+    /// Create a quadrilateral face
+    pub fn quad(v0: usize, v1: usize, v2: usize, v3: usize) -> Self {
+        Self {
+            id: 0,  // ID should be set when adding to mesh
+            vertices: vec![v0, v1, v2, v3],
         }
-        
-        // Convert indices to vertex positions
-        vertex_indices
-            .into_iter()
-            .filter_map(|idx| mesh.vertices.get(idx).map(|v| &v.position))
-            .collect()
     }
-
-    /// Get unique vertex indices for this cell
-    pub fn unique_vertex_indices<T: RealField + Copy>(&self, mesh: &Mesh<T>) -> Vec<usize> {
-        let mut vertex_indices = HashSet::new();
-        
-        for &face_idx in &self.faces {
-            if let Some(face) = mesh.faces.get(face_idx) {
-                for &vertex_idx in &face.vertices {
-                    vertex_indices.insert(vertex_idx);
-                }
-            }
-        }
-        
-        vertex_indices.into_iter().collect()
-    }
-
-    /// Validate that the cell has the expected number of vertices for its type
-    pub fn validate_vertex_count<T: RealField + Copy>(&self, mesh: &Mesh<T>) -> bool {
-        let actual_count = self.unique_vertex_indices(mesh).len();
-        let expected_count = self.element_type.expected_vertex_count();
-        
-        if expected_count == 0 {
-            // Polyhedron can have any number of vertices
-            actual_count >= 4
-        } else {
-            actual_count == expected_count
-        }
+    
+    /// Number of vertices
+    pub fn vertex_count(&self) -> usize {
+        self.vertices.len()
     }
 }
 
-/// Mesh topology
+/// Cell (3D element)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Cell {
+    /// Cell type
+    pub element_type: ElementType,
+    /// Vertex indices
+    pub vertices: Vec<usize>,
+}
+
+/// Element types
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ElementType {
+    /// Tetrahedral element (4 vertices)
+    Tetrahedron,
+    /// Hexahedral element (8 vertices)
+    Hexahedron,
+    /// Pyramid element (5 vertices)
+    Pyramid,
+    /// Prism element (6 vertices)
+    Prism,
+}
+
+/// Mesh topology information
 #[derive(Debug, Clone, Default)]
 pub struct MeshTopology {
-    /// Number of vertices
-    pub num_vertices: usize,
-    /// Number of edges
-    pub num_edges: usize,
-    /// Number of faces
-    pub num_faces: usize,
-    /// Number of cells
-    pub num_cells: usize,
+    /// Vertex to cell connectivity
+    pub vertex_cells: HashMap<usize, Vec<usize>>,
+    /// Edge to face connectivity
+    pub edge_faces: HashMap<Edge, Vec<usize>>,
+    /// Face neighbors
+    pub face_neighbors: HashMap<usize, Vec<usize>>,
 }
 
-/// Generic mesh structure
+/// Main mesh structure
 #[derive(Debug, Clone)]
 pub struct Mesh<T: RealField + Copy> {
     /// Vertices
@@ -217,64 +138,181 @@ impl<T: RealField + Copy> Mesh<T> {
             edges: Vec::new(),
             faces: Vec::new(),
             cells: Vec::new(),
-            topology: MeshTopology {
-                num_vertices: 0,
-                num_edges: 0,
-                num_faces: 0,
-                num_cells: 0,
-            },
+            topology: MeshTopology::default(),
         }
     }
     
-    /// Update mesh topology counts
-    pub fn update_topology(&mut self) {
-        self.topology = MeshTopology {
-            num_vertices: self.vertices.len(),
-            num_edges: self.edges.len(),
-            num_faces: self.faces.len(),
-            num_cells: self.cells.len(),
-        };
-    }
-
-    /// Get mesh elements (cells as elements)
-    pub fn elements(&self) -> Vec<Element<T>> {
-        self.cells.iter().map(|cell| {
-            // Collect all unique vertices from the cell's faces
-            let mut vertex_indices = HashSet::new();
-            for &face_idx in &cell.faces {
-                if let Some(face) = self.faces.get(face_idx) {
-                    for &vertex_idx in &face.vertices {
-                        vertex_indices.insert(vertex_idx);
-                    }
-                }
-            }
-            
-            Element {
-                vertices: vertex_indices.into_iter().collect(),
-                element_type: cell.element_type,
-                _phantom: std::marker::PhantomData,
-            }
-        }).collect()
+    /// Add a vertex
+    pub fn add_vertex(&mut self, vertex: Vertex<T>) -> usize {
+        let id = self.vertices.len();
+        self.vertices.push(vertex);
+        id
     }
     
-    /// Validate mesh consistency
-    pub fn validate(&self) -> Result<(), String> {
-        // Check that all cells have valid element types and vertex counts
-        for cell in &self.cells {
-            if !cell.validate_vertex_count(self) {
-                return Err(format!(
-                    "Cell {} has incorrect vertex count for element type {:?}",
-                    cell.id.clone(), cell.element_type
-                ));
+    /// Add an edge
+    pub fn add_edge(&mut self, edge: Edge) -> usize {
+        let id = self.edges.len();
+        self.edges.push(edge);
+        id
+    }
+    
+    /// Add a face
+    pub fn add_face(&mut self, face: Face) -> usize {
+        let id = self.faces.len();
+        self.faces.push(face);
+        id
+    }
+    
+    /// Get vertex count
+    pub fn vertex_count(&self) -> usize {
+        self.vertices.len()
+    }
+    
+    /// Get edge count
+    pub fn edge_count(&self) -> usize {
+        self.edges.len()
+    }
+    
+    /// Get face count
+    pub fn face_count(&self) -> usize {
+        self.faces.len()
+    }
+    
+    /// Get cell count
+    pub fn cell_count(&self) -> usize {
+        self.cells.len()
+    }
+    
+    /// Build topology information
+    pub fn build_topology(&mut self) {
+        self.topology = MeshTopology::default();
+        
+        // Build vertex to cell connectivity
+        for (cell_id, cell) in self.cells.iter().enumerate() {
+            for &vertex_id in &cell.vertices {
+                self.topology
+                    .vertex_cells
+                    .entry(vertex_id)
+                    .or_default()
+                    .push(cell_id);
             }
         }
         
-        Ok(())
+        // Build edge to face connectivity
+        for (face_id, face) in self.faces.iter().enumerate() {
+            let n = face.vertices.len();
+            for i in 0..n {
+                let edge = Edge::new(face.vertices[i], face.vertices[(i + 1) % n]);
+                self.topology
+                    .edge_faces
+                    .entry(edge)
+                    .or_default()
+                    .push(face_id);
+            }
+        }
     }
 }
 
 impl<T: RealField + Copy> Default for Mesh<T> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+    
+    #[test]
+    fn test_vertex_creation() {
+        let v = Vertex::new(0, 1.0, 2.0, 3.0);
+        assert_eq!(v.id, 0);
+        assert_relative_eq!(v.position.x, 1.0);
+        assert_relative_eq!(v.position.y, 2.0);
+        assert_relative_eq!(v.position.z, 3.0);
+    }
+    
+    #[test]
+    fn test_vertex_distance() {
+        let v1 = Vertex::new(0, 0.0, 0.0, 0.0);
+        let v2 = Vertex::new(1, 3.0, 4.0, 0.0);
+        assert_relative_eq!(v1.distance_to(&v2), 5.0);
+    }
+    
+    #[test]
+    fn test_edge_creation() {
+        let edge = Edge::new(0, 1);
+        assert_eq!(edge.start, 0);
+        assert_eq!(edge.end, 1);
+        assert!(edge.contains(0));
+        assert!(edge.contains(1));
+        assert!(!edge.contains(2));
+    }
+    
+    #[test]
+    fn test_face_creation() {
+        let tri = Face::triangle(0, 1, 2);
+        assert_eq!(tri.vertex_count(), 3);
+        
+        let quad = Face::quad(0, 1, 2, 3);
+        assert_eq!(quad.vertex_count(), 4);
+    }
+    
+    #[test]
+    fn test_mesh_operations() {
+        let mut mesh = Mesh::<f64>::new();
+        
+        // Add vertices
+        let v0 = mesh.add_vertex(Vertex::new(0, 0.0, 0.0, 0.0));
+        let v1 = mesh.add_vertex(Vertex::new(1, 1.0, 0.0, 0.0));
+        let v2 = mesh.add_vertex(Vertex::new(2, 0.0, 1.0, 0.0));
+        
+        assert_eq!(mesh.vertex_count(), 3);
+        
+        // Add edge
+        mesh.add_edge(Edge::new(v0, v1));
+        assert_eq!(mesh.edge_count(), 1);
+        
+        // Add face
+        mesh.add_face(Face::triangle(v0, v1, v2));
+        assert_eq!(mesh.face_count(), 1);
+    }
+    
+    #[test]
+    fn test_mesh_topology() {
+        let mut mesh = Mesh::<f64>::new();
+        
+        // Create a simple tetrahedron
+        mesh.add_vertex(Vertex::new(0, 0.0, 0.0, 0.0));
+        mesh.add_vertex(Vertex::new(1, 1.0, 0.0, 0.0));
+        mesh.add_vertex(Vertex::new(2, 0.0, 1.0, 0.0));
+        mesh.add_vertex(Vertex::new(3, 0.0, 0.0, 1.0));
+        
+        // Add faces
+        mesh.add_face(Face::triangle(0, 1, 2));
+        mesh.add_face(Face::triangle(0, 1, 3));
+        mesh.add_face(Face::triangle(0, 2, 3));
+        mesh.add_face(Face::triangle(1, 2, 3));
+        
+        // Add cell
+        mesh.cells.push(Cell {
+            element_type: ElementType::Tetrahedron,
+            vertices: vec![0, 1, 2, 3],
+        });
+        
+        // Build topology
+        mesh.build_topology();
+        
+        // Check vertex-cell connectivity
+        assert_eq!(mesh.topology.vertex_cells[&0].len(), 1);
+        assert_eq!(mesh.topology.vertex_cells[&1].len(), 1);
+    }
+    
+    #[test]
+    fn test_element_types() {
+        let tet = ElementType::Tetrahedron;
+        let hex = ElementType::Hexahedron;
+        assert_ne!(tet, hex);
     }
 }

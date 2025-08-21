@@ -131,7 +131,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConservationChecker<T> for Mass
         // For compressible flow: ∇·(ρv) = 0
         let mass_flux_sum = density.iter()
             .zip(velocity_div.iter())
-            .map(|(rho, div_v)| rho * div_v)
+            .map(|(rho, div_v)| *rho * *div_v)
             .fold(T::zero(), |acc, x| acc + x);
 
         let error = mass_flux_sum.abs();
@@ -142,7 +142,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConservationChecker<T> for Mass
         details.insert("absolute_error".to_string(), error);
 
         Ok(ConservationReport {
-            check_name: self.name().clone()().to_string(),
+            check_name: self.name().to_string(),
             is_conserved,
             error,
             tolerance: self.tolerance.absolute,
@@ -185,7 +185,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConservationChecker<T
         let (kinetic, potential, dissipation) = field;
 
         // Energy balance check: total energy = kinetic + potential
-        let total_energy: T = kinetic.iter().zip(potential.iter()).map(|(k, p)| k + p).sum();
+        let total_energy: T = kinetic.iter().zip(potential.iter()).map(|(k, p)| *k + *p).sum();
         let total_dissipation: T = dissipation.iter().cloned().sum();
 
         // For steady flow, energy input should equal dissipation
@@ -206,7 +206,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConservationChecker<T
         details.insert("relative_error".to_string(), relative_error);
 
         Ok(ConservationReport {
-            check_name: self.name().clone()().to_string(),
+            check_name: self.name().to_string(),
             is_conserved,
             error: energy_imbalance,
             tolerance: self.tolerance.absolute,
@@ -285,21 +285,21 @@ impl<T: RealField + Copy + FromPrimitive + Copy> GlobalConservationIntegrals<T> 
                 .fold(
                     (T::zero(), [T::zero(), T::zero(), T::zero()], T::zero(), T::zero()),
                     |(mass, [mx, my, mz], ke, vol), ((((rho, u), v), w), dv)| {
-                        let dm = rho * dv;
-                        let u_sq = u * u;
-                        let v_sq = v * v;
-                        let w_sq = w * w;
+                        let dm = *rho * *dv;
+                        let u_sq = *u * *u;
+                        let v_sq = *v * *v;
+                        let w_sq = *w * *w;
                         let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
 
                         (
                             mass + dm,
                             [
-                                mx + dm * u,
-                                my + dm * v,
-                                mz + dm * w,
+                                mx + dm * *u,
+                                my + dm * *v,
+                                mz + dm * *w,
                             ],
                             ke + dm * (u_sq + v_sq + w_sq) * half,
-                            vol + dv,
+                            vol + *dv,
                         )
                     }
                 );

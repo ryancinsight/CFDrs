@@ -355,7 +355,7 @@ impl ConvergenceAnalysis {
         let errors = if let Some(reference) = reference_solution {
             // Compute errors against reference solution
             solutions.iter()
-                .map(|sol| metric.compute_error(&[sol], reference).unwrap_or(T::zero()))
+                .map(|sol| metric.compute_error(&[*sol], &reference).unwrap_or(T::zero()))
                 .collect()
         } else {
             // Use Richardson extrapolation to estimate errors
@@ -445,7 +445,7 @@ impl ConvergenceAnalysis {
         // Check absolute convergence
         if *latest_error <= absolute_tolerance {
             return ConvergenceStatus::Converged {
-                final_error: latest_error,
+                final_error: *latest_error,
                 criterion: ConvergenceCriterion::Absolute,
             };
         }
@@ -453,18 +453,18 @@ impl ConvergenceAnalysis {
         // Check relative convergence (if we have multiple errors)
         if errors.len() >= 2 {
             let previous_error = &errors[errors.len() - 2];
-            let relative_change = (latest_error - previous_error).abs() / previous_error.abs();
+            let relative_change = (*latest_error - *previous_error).abs() / previous_error.abs();
 
             if relative_change <= relative_tolerance {
                 return ConvergenceStatus::Converged {
-                    final_error: latest_error,
+                    final_error: *latest_error,
                     criterion: ConvergenceCriterion::Relative,
                 };
             }
         }
 
         ConvergenceStatus::NotConverged {
-            current_error: latest_error,
+            current_error: *latest_error,
         }
     }
 }

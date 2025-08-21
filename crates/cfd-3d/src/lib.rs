@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! 3D CFD solvers and algorithms
 //!
 //! This crate provides various 3D computational fluid dynamics solvers including:

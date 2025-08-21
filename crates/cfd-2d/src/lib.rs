@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+#![cfg_attr(not(test), allow(unused))]
 //! 2D CFD simulations.
 
 #![warn(missing_docs)]

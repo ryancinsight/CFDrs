@@ -458,17 +458,17 @@ impl AnalyticalUtils {
         time: T,
     ) -> (Vec<Vector3<T>>, Vec<T>)
     where
-        T: RealField + Clone,
+        T: RealField + Copy,
         S: AnalyticalSolution<T>,
     {
         let velocities: Vec<Vector3<T>> = points
             .iter()
-            .map(|(x, y, z)| solution.velocity(x, y, z, time))
+            .map(|(x, y, z)| solution.velocity(*x, *y, *z, time))
             .collect();
 
         let pressures: Vec<T> = points
             .iter()
-            .map(|(x, y, z)| solution.pressure(x, y, z, time))
+            .map(|(x, y, z)| solution.pressure(*x, *y, *z, time))
             .collect();
 
         (velocities, pressures)
