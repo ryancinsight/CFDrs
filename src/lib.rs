@@ -59,7 +59,8 @@ GaussQuadrature, FiniteDifference, Interpolation, LinearInterpolation, CubicSpli
     // === 1D CFD Simulations ===
     // Microfluidic networks and pipe flow
     pub use cfd_1d::{
-        Network, NetworkBuilder, NetworkSolver,
+        Network, NetworkBuilder, NetworkSolver, Node, NetworkProblem,
+        NodeType, ChannelProperties,
         Component, RectangularChannel, CircularChannel, Micropump, Microvalve,
         NetworkAnalyzer, FlowAnalysis, PressureAnalysis, ResistanceModel
     };
