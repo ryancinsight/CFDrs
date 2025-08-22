@@ -477,6 +477,7 @@ mod tests {
     use super::*;
     use approx::assert_relative_eq;
     use nalgebra::DMatrix;
+    use nalgebra_sparse::CooMatrix;
 
     #[cfg(test)]
     fn create_validation_matrix() -> CsrMatrix<f64> {

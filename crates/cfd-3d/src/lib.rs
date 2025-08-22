@@ -9,7 +9,7 @@
 //! - Level Set Method
 //! - Volume of Fluid (VOF)
 
-#![warn(missing_docs)]
+// #![warn(missing_docs)] // TODO: Enable after documentation sprint
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
