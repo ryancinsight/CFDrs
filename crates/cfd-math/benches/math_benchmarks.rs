@@ -24,7 +24,7 @@ fn benchmark_linear_solvers(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(cg_solver.solve(&matrix, &rhs).unwrap())
+                    black_box(cg_solver.solve(&matrix, &rhs, None).unwrap())
                 })
             },
         );
@@ -34,7 +34,7 @@ fn benchmark_linear_solvers(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(bicgstab_solver.solve(&matrix, &rhs).unwrap())
+                    black_box(bicgstab_solver.solve(&matrix, &rhs, None).unwrap())
                 })
             },
         );
@@ -55,7 +55,7 @@ fn benchmark_sparse_matrix_operations(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(sparse_matrix.multiply_vector(&vector))
+                    black_box(&sparse_matrix * &vector)
                 })
             },
         );
@@ -142,24 +142,24 @@ fn benchmark_differentiation(c: &mut Criterion) {
         let field: Vec<f64> = (0..*size).map(|i| (i as f64 * 0.01).sin()).collect();
         let dx = 0.01;
         
-        let finite_diff = FiniteDifference::new();
+        let finite_diff = FiniteDifference::central(dx);
         
         group.bench_with_input(
-            BenchmarkId::new("finite_difference_gradient", size),
+            BenchmarkId::new("finite_difference_first_derivative", size),
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(finite_diff.gradient(&field, dx))
+                    black_box(finite_diff.derivative(&field).unwrap())
                 })
             },
         );
         
         group.bench_with_input(
-            BenchmarkId::new("finite_difference_laplacian", size),
+            BenchmarkId::new("finite_difference_second_derivative", size),
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(finite_diff.laplacian(&field, dx))
+                    black_box(finite_diff.second_derivative(&field).unwrap())
                 })
             },
         );
@@ -176,21 +176,29 @@ fn benchmark_vectorized_operations(c: &mut Criterion) {
         let vec2: Vec<f64> = (0..*size).map(|i| (i as f64).sin()).collect();
         
         group.bench_with_input(
-            BenchmarkId::new("vectorized_add", size),
+            BenchmarkId::new("vector_add", size),
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(vec1.vectorized_add(&vec2))
+                    let result: Vec<f64> = vec1.iter()
+                        .zip(vec2.iter())
+                        .map(|(a, b)| a + b)
+                        .collect();
+                    black_box(result)
                 })
             },
         );
         
         group.bench_with_input(
-            BenchmarkId::new("vectorized_dot_product", size),
+            BenchmarkId::new("dot_product", size),
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(vec1.vectorized_dot(&vec2))
+                    let result: f64 = vec1.iter()
+                        .zip(vec2.iter())
+                        .map(|(a, b)| a * b)
+                        .sum();
+                    black_box(result)
                 })
             },
         );
@@ -200,7 +208,8 @@ fn benchmark_vectorized_operations(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(vec1.l2_norm())
+                    let result = vec1.iter().l2_norm();
+                    black_box(result)
                 })
             },
         );

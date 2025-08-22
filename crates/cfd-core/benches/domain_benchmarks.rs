@@ -86,9 +86,9 @@ fn benchmark_time_integration(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    let mut state = current.clone();
-                    let _ = forward_euler.step(&mut state, 0.0, dt, |_, s| s * (-0.1));
-                    black_box(state)
+                    let derivative: DVector<f64> = &current * (-0.1);
+                    let result = forward_euler.advance(current.as_slice(), derivative.as_slice(), dt);
+                    black_box(result)
                 })
             },
         );
@@ -98,9 +98,11 @@ fn benchmark_time_integration(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    let mut state = current.clone();
-                    let _ = rk4.step(&mut state, 0.0, dt, |_, s| s * (-0.1));
-                    black_box(state)
+                    let derivative_fn = |_t: f64, state: &[f64]| -> Vec<f64> {
+                        state.iter().map(|&x| x * (-0.1)).collect()
+                    };
+                    let result = rk4.advance_with_function(current.as_slice(), derivative_fn, 0.0, dt);
+                    black_box(result)
                 })
             },
         );
