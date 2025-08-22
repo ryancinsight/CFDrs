@@ -94,7 +94,7 @@ pub mod physics {
     pub const REFERENCE_TEMPERATURE_DEFAULT: f64 = 293.15;
     
     /// Standard atmospheric pressure (Pa)
-    pub const ATMOSPHERIC_PRESSURE: f64 = 101325.0;
+    pub const ATMOSPHERIC_PRESSURE: f64 = 101_325.0;
     
     /// Celsius to Kelvin offset
     pub const CELSIUS_TO_KELVIN_OFFSET: f64 = 273.15;

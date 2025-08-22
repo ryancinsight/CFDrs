@@ -285,9 +285,9 @@ impl Error {
     pub fn is_recoverable(&self) -> bool {
         matches!(
             self,
-            Self::Convergence(ConvergenceErrorKind::MaxIterationsExceeded { .. })
-                | Self::Convergence(ConvergenceErrorKind::Stagnation { .. })
-                | Self::Timeout { .. }
+            Self::Convergence(
+                ConvergenceErrorKind::MaxIterationsExceeded { .. } | ConvergenceErrorKind::Stagnation { .. }
+            ) | Self::Timeout { .. }
         )
     }
 }
