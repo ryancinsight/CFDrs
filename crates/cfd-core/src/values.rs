@@ -202,7 +202,8 @@ impl<T: RealField + FromPrimitive + Copy> Temperature<T> {
 
     /// Create temperature in Celsius
     pub fn celsius(value: T) -> Result<Self> {
-        let kelvin_value = value + T::from_f64(273.15).unwrap_or_else(|| T::one());
+        use crate::constants::CELSIUS_TO_KELVIN_OFFSET;
+        let kelvin_value = value + T::from_f64(CELSIUS_TO_KELVIN_OFFSET).unwrap_or_else(|| T::one());
         Self::kelvin(kelvin_value)
     }
 
@@ -214,12 +215,13 @@ impl<T: RealField + FromPrimitive + Copy> Temperature<T> {
 
     /// Convert to Kelvin
     pub fn to_kelvin(&self) -> T {
+        use crate::constants::CELSIUS_TO_KELVIN_OFFSET;
         match self.unit {
             TemperatureUnit::Kelvin => self.value,
-            TemperatureUnit::Celsius => self.value + T::from_f64(273.15).unwrap_or_else(|| T::zero()),
+            TemperatureUnit::Celsius => self.value + T::from_f64(CELSIUS_TO_KELVIN_OFFSET).unwrap_or_else(|| T::zero()),
             TemperatureUnit::Fahrenheit => {
                 let celsius = (self.value - T::from_f64(32.0).unwrap_or_else(|| T::zero())) * T::from_f64(5.0).unwrap_or_else(|| T::zero()) / T::from_f64(9.0).unwrap_or_else(|| T::one());
-                celsius + T::from_f64(273.15).unwrap_or_else(|| T::zero())
+                celsius + T::from_f64(CELSIUS_TO_KELVIN_OFFSET).unwrap_or_else(|| T::zero())
             }
         }
     }
