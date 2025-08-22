@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Solve the flow
     println!("\nSolving 3D Stokes flow...");
-    let solution = match fem_solver.solve_problem(&problem) {
+    let solution = match fem_solver.solve(&problem) {
         Ok(sol) => sol,
         Err(e) => {
             println!("Warning: FEM solver failed ({}), continuing with validation anyway...", e);
@@ -147,7 +147,7 @@ fn create_pipe_mesh(radius: f64, length: f64, n_circ: usize, n_axial: usize) -> 
     let mut mesh = Mesh::new();
     mesh.vertices = vertices;
     mesh.faces = faces;
-    mesh.update_topology();
+    mesh.build_topology();
     
     Ok(mesh)
 }

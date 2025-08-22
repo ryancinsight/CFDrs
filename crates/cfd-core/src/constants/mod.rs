@@ -36,6 +36,18 @@ pub mod physics {
     /// One tenth constant
     pub const ONE_TENTH: f64 = 0.1;
     
+    /// One quarter constant
+    pub const ONE_QUARTER: f64 = 0.25;
+    
+    /// Three quarters constant
+    pub const THREE_QUARTERS: f64 = 0.75;
+    
+    /// Eight constant
+    pub const EIGHT: f64 = 8.0;
+    
+    /// Twelve constant
+    pub const TWELVE: f64 = 12.0;
+    
     /// Laminar flow threshold (Reynolds number)
     pub const LAMINAR_THRESHOLD: f64 = 2300.0;
     
@@ -74,6 +86,15 @@ pub mod physics {
     
     /// Y+ threshold for laminar sublayer
     pub const Y_PLUS_LAMINAR: f64 = 11.63;
+    
+    /// Colebrook equation coefficient
+    pub const COLEBROOK_COEFF: f64 = 0.8;
+    
+    /// Default reference temperature (20°C in Kelvin)
+    pub const REFERENCE_TEMPERATURE_DEFAULT: f64 = 293.15;
+    
+    /// Standard atmospheric pressure (Pa)
+    pub const ATMOSPHERIC_PRESSURE: f64 = 101325.0;
 }
 
 pub mod numerical {
@@ -84,4 +105,10 @@ pub mod numerical {
     
     /// Default maximum iterations
     pub const DEFAULT_MAX_ITERATIONS: usize = 1000;
+    
+    /// Gradient computation factor for second-order schemes
+    pub const GRADIENT_FACTOR: f64 = 2.0;
+    
+    /// RK4 coefficient 1/6
+    pub const RK4_COEFF: f64 = 1.0 / 6.0;
 }

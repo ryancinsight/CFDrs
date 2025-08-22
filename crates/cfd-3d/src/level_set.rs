@@ -63,8 +63,8 @@ pub struct LevelSetSolver<T: RealField + FromPrimitive + Copy> {
     dz: T,
     /// Level set function (signed distance)
     phi: Vec<T>,
-    /// Previous level set function
-    phi_old: Vec<T>,
+    /// Previous timestep level set function
+    phi_previous: Vec<T>,
     /// Velocity field
     velocity: Vec<Vector3<T>>,
     /// Narrow band indices (if using narrow band)
@@ -94,7 +94,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
             dy,
             dz,
             phi: vec![T::zero(); grid_size],
-            phi_old: vec![T::zero(); grid_size],
+            phi_previous: vec![T::zero(); grid_size],
             velocity: vec![Vector3::zeros(); grid_size],
             narrow_band: Vec::new(),
             time_step: 0,
@@ -294,7 +294,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
                      cfl, self.config.cfl_number, recommended_dt);
         }
         
-        self.phi_old.clone_from(&self.phi);
+        self.phi_previous.clone_from(&self.phi);
         
         if self.config.use_weno {
             // WENO5 scheme for advection
@@ -305,9 +305,9 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
                         let vel = &self.velocity[idx];
                         
                         // Compute spatial derivatives using WENO5
-                        let (dphi_dx_minus, dphi_dx_plus) = self.weno5_derivative(&self.phi_old, 0, i, j, k);
-                        let (dphi_dy_minus, dphi_dy_plus) = self.weno5_derivative(&self.phi_old, 1, i, j, k);
-                        let (dphi_dz_minus, dphi_dz_plus) = self.weno5_derivative(&self.phi_old, 2, i, j, k);
+                        let (dphi_dx_minus, dphi_dx_plus) = self.weno5_derivative(&self.phi_previous, 0, i, j, k);
+                        let (dphi_dy_minus, dphi_dy_plus) = self.weno5_derivative(&self.phi_previous, 1, i, j, k);
+                        let (dphi_dz_minus, dphi_dz_plus) = self.weno5_derivative(&self.phi_previous, 2, i, j, k);
                         
                         // Upwind scheme based on velocity direction
                         let dphi_dx = if vel[0] > T::zero() { dphi_dx_minus } else { dphi_dx_plus };
@@ -315,7 +315,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
                         let dphi_dz = if vel[2] > T::zero() { dphi_dz_minus } else { dphi_dz_plus };
                         
                         // Update level set
-                        self.phi[idx] = self.phi_old[idx] 
+                        self.phi[idx] = self.phi_previous[idx] 
                             - dt * (vel[0] * dphi_dx 
                                           + vel[1] * dphi_dy 
                                           + vel[2] * dphi_dz);
@@ -332,24 +332,24 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
                         
                         // Upwind differences
                         let dphi_dx = if vel[0] > T::zero() {
-                            (self.phi_old[idx] - self.phi_old[self.index(i-1, j, k)]) / self.dx
+                            (self.phi_previous[idx] - self.phi_previous[self.index(i-1, j, k)]) / self.dx
                         } else {
-                            (self.phi_old[self.index(i+1, j, k)] - self.phi_old[idx]) / self.dx
+                            (self.phi_previous[self.index(i+1, j, k)] - self.phi_previous[idx]) / self.dx
                         };
                         
                         let dphi_dy = if vel[1] > T::zero() {
-                            (self.phi_old[idx] - self.phi_old[self.index(i, j-1, k)]) / self.dy
+                            (self.phi_previous[idx] - self.phi_previous[self.index(i, j-1, k)]) / self.dy
                         } else {
-                            (self.phi_old[self.index(i, j+1, k)] - self.phi_old[idx]) / self.dy
+                            (self.phi_previous[self.index(i, j+1, k)] - self.phi_previous[idx]) / self.dy
                         };
                         
                         let dphi_dz = if vel[2] > T::zero() {
-                            (self.phi_old[idx] - self.phi_old[self.index(i, j, k-1)]) / self.dz
+                            (self.phi_previous[idx] - self.phi_previous[self.index(i, j, k-1)]) / self.dz
                         } else {
-                            (self.phi_old[self.index(i, j, k+1)] - self.phi_old[idx]) / self.dz
+                            (self.phi_previous[self.index(i, j, k+1)] - self.phi_previous[idx]) / self.dz
                         };
                         
-                        self.phi[idx] = self.phi_old[idx] 
+                        self.phi[idx] = self.phi_previous[idx] 
                             - dt * (vel[0] * dphi_dx 
                                           + vel[1] * dphi_dy 
                                           + vel[2] * dphi_dz);

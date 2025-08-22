@@ -84,7 +84,7 @@ impl FluidDynamicsService {
                     let re_turbulent = T::from_f64(100_000.0).unwrap_or_else(|| T::one());
                     if reynolds < re_turbulent {
                         let coeff = T::from_f64(0.316).unwrap_or_else(|| T::one());
-                        let exp = T::from_f64(0.25).unwrap_or_else(|| T::one());
+                        let exp = T::from_f64(crate::constants::ONE_QUARTER).unwrap_or_else(|| T::one());
                         Ok(coeff / reynolds.powf(exp))
                     } else {
                         // Use Prandtl-Karman equation
@@ -107,7 +107,7 @@ impl FluidDynamicsService {
         for _ in 0..max_iterations {
             let term1 = relative_roughness / T::from_f64(3.7).unwrap_or_else(|| T::one());
             let term2 = T::from_f64(2.51).unwrap_or_else(|| T::one()) / (reynolds * f.sqrt());
-            let f_new = T::from_f64(0.25).unwrap_or_else(|| T::one()) / 
+            let f_new = T::from_f64(crate::constants::ONE_QUARTER).unwrap_or_else(|| T::one()) / 
                 (T::from_f64(10.0).unwrap_or_else(|| T::one()).ln() * (term1 + term2)).powi(2);
             
             if (f_new - f).abs() < tolerance {
@@ -123,7 +123,7 @@ impl FluidDynamicsService {
     /// Prandtl-Karman friction factor for smooth pipes
     fn prandtl_karman_friction_factor<T: RealField + FromPrimitive + Copy>(reynolds: T) -> Result<T> {
         let log_re = reynolds.ln() / T::from_f64(10.0).unwrap_or_else(|| T::one()).ln();
-        let coeff = T::from_f64(2.0).unwrap_or_else(|| T::one()) * log_re - T::from_f64(0.8).unwrap_or_else(|| T::one());
+        let coeff = T::from_f64(crate::constants::TWO).unwrap_or_else(|| T::one()) * log_re - T::from_f64(crate::constants::COLEBROOK_COEFF).unwrap_or_else(|| T::one());
         Ok(T::one() / (coeff * coeff))
     }
 }

@@ -4,7 +4,7 @@ use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 use std::fmt::LowerExp;
 use crate::grid::StructuredGrid2D;
-use crate::momentum::{MomentumSolver, MomentumComponent};
+use crate::physics::momentum::{MomentumSolver, MomentumComponent};
 use crate::fields::SimulationFields;
 use super::{PressureVelocityConfig, PressureCorrectionSolver, RhieChowInterpolation};
 
