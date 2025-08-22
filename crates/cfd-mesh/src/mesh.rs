@@ -1,8 +1,8 @@
 //! Core mesh data structures and operations
 //! Following SOLID principles
 
-use nalgebra::{Point3, Vector3, RealField};
-use std::collections::{HashMap, HashSet};
+use nalgebra::{Point3, RealField};
+use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 
 /// Vertex in 3D space

@@ -57,8 +57,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .tolerance(1e-8)
         .max_iterations(2000)
         .relaxation_factor(1.0)
-        .verbosity(2) // verbose = true means verbosity level 2
-        .build_base();
+        .verbose(true)
+        .build();
 
     let config = FdmConfig { base };
     
@@ -134,8 +134,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .tolerance(1e-6)
         .max_iterations(1000)
         .relaxation_factor(0.8)
-        .verbosity(0) // verbose = false means verbosity level 0
-        .build_base();
+        .verbose(false)
+        .build();
 
     let advdiff_config = FdmConfig { base: advdiff_base };
     

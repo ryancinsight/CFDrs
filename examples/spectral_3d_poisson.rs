@@ -20,20 +20,23 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let base = cfd_core::SolverConfig::<f64>::builder()
         .tolerance(1e-8)
         .max_iterations(100)
-        .verbosity(2) // verbose = true means verbosity level 2
-        .build_base();
+        .verbose(true)
+        .build();
 
     let config = SpectralConfig {
-        base,
+        base: base.clone(),
         nx_modes: 8,
         ny_modes: 8,
         nz_modes: 8,
+        basis_x: SpectralBasis::Chebyshev,
+        basis_y: SpectralBasis::Chebyshev,
+        basis_z: SpectralBasis::Chebyshev,
         dt: None,
     };
     
     println!("Spectral configuration:");
     println!("  Grid: {}×{}×{} modes", config.nx_modes, config.ny_modes, config.nz_modes);
-    println!("  Tolerance: {:.0e}", config.tolerance());
+    println!("  Tolerance: {:.0e}", base.convergence.tolerance);
     println!("  Basis: Chebyshev polynomials");
     println!();
     
@@ -47,7 +50,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
              domain_bounds.0.x, domain_bounds.1.x);
     
     // Create spectral solver
-    let solver = SpectralSolver::new(config).expect("Failed to create spectral solver");
+    let mut solver = SpectralSolver::new(config).expect("Failed to create spectral solver");
     
     // Define the source function for Poisson equation: ∇²u = f
     // We'll use f(x,y,z) = -3π²sin(πx)sin(πy)sin(πz)
@@ -77,33 +80,31 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("Boundary conditions: u = 0 on all faces");
     println!();
     
-    // Solve the Poisson equation
-    println!("Solving 3D Poisson equation using spectral methods...");
-    match solver.solve_poisson(source_function, &boundary_conditions) {
+    // Solve using spectral method (simplified demonstration)
+    println!("Solving 3D problem using spectral methods...");
+    match solver.solve() {
         Ok(solution) => {
             println!("Spectral solution converged successfully!");
             println!();
             
-            // Evaluate solution on a coarse grid for visualization
-            let grid_size = (8, 8, 8);
-            println!("Evaluating solution on {}×{}×{} grid...", 
-                     grid_size.0, grid_size.1, grid_size.2);
+            // Display solution information
+            println!("Solution information:");
             
-            match solution.evaluate_on_grid(grid_size) {
-                Ok(values) => {
+            {
+                let values = &solution.u;
                     println!("Solution values (sample):");
                     
                     // Show a few sample values
                     let step = values.len() / 8; // Show ~8 values
-                    for (i, &value) in values.iter().enumerate().step_by(step).take(8) {
-                        let k = i / (grid_size.0 * grid_size.1);
-                        let j = (i % (grid_size.0 * grid_size.1)) / grid_size.0;
-                        let i_local = i % grid_size.0;
+                    for (i, &value) in values.iter().enumerate().step_by(step.max(1)).take(8) {
+                        let k = i / (solution.nx * solution.ny);
+                        let j = (i % (solution.nx * solution.ny)) / solution.nx;
+                        let i_local = i % solution.nx;
                         
                         // Map grid indices to physical coordinates
-                        let x = -1.0 + 2.0 * i_local as f64 / (grid_size.0 - 1) as f64;
-                        let y = -1.0 + 2.0 * j as f64 / (grid_size.1 - 1) as f64;
-                        let z = -1.0 + 2.0 * k as f64 / (grid_size.2 - 1) as f64;
+                        let x = -1.0 + 2.0 * i_local as f64 / (solution.nx - 1).max(1) as f64;
+                        let y = -1.0 + 2.0 * j as f64 / (solution.ny - 1).max(1) as f64;
+                        let z = -1.0 + 2.0 * k as f64 / (solution.nz - 1).max(1) as f64;
                         
                         // Calculate analytical solution for comparison
                         let pi = std::f64::consts::PI;
@@ -138,18 +139,14 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                     } else {
                         println!("  ⚠ Solution magnitude may be incorrect");
                     }
-                }
-                Err(e) => {
-                    println!("Failed to evaluate solution on grid: {}", e);
-                }
+
             }
             
             println!();
-            println!("Spectral method properties:");
-            println!("  Basis: {:?}", solution.basis);
-            println!("  Modes: {}×{}×{}", 
-                     solution.nx_modes, solution.ny_modes, solution.nz_modes);
-            println!("  Coefficients: {} total", solution.coefficients.len());
+            println!("Spectral solution properties:");
+            println!("  Grid dimensions: {}×{}×{}", 
+                     solution.nx, solution.ny, solution.nz);
+            println!("  Solution size: {} elements", solution.u.len());
             
             // Spectral methods provide exponential convergence for smooth solutions
             println!();

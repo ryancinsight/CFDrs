@@ -61,8 +61,8 @@ pub struct VofSolver<T: RealField + FromPrimitive + Copy> {
     dz: T,
     /// Volume fraction field (0 = phase 1, 1 = phase 2)
     alpha: Vec<T>,
-    /// Previous volume fraction
-    alpha_old: Vec<T>,
+    /// Previous timestep volume fraction
+    alpha_previous: Vec<T>,
     /// Velocity field
     velocity: Vec<Vector3<T>>,
     /// Interface normal vectors
@@ -92,7 +92,7 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
             dy,
             dz,
             alpha: vec![T::zero(); grid_size],
-            alpha_old: vec![T::zero(); grid_size],
+            alpha_previous: vec![T::zero(); grid_size],
             velocity: vec![Vector3::zeros(); grid_size],
             normals: vec![Vector3::zeros(); grid_size],
             curvature: vec![T::zero(); grid_size],
@@ -319,7 +319,7 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
     
     /// Advect volume fraction using geometric advection
     fn geometric_advection(&mut self, dt: T) {
-        self.alpha_old.clone_from(&self.alpha);
+        self.alpha_previous.clone_from(&self.alpha);
         let mut alpha_new = vec![T::zero(); self.alpha.len()];
         
         for k in 1..self.nz-1 {
@@ -337,7 +337,7 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
                     
                     // Update volume fraction
                     let cell_volume = self.dx * self.dy * self.dz;
-                    alpha_new[idx] = self.alpha_old[idx] 
+                    alpha_new[idx] = self.alpha_previous[idx] 
                         - dt / cell_volume * (
                             flux_x_plus - flux_x_minus 
                             + flux_y_plus - flux_y_minus
@@ -383,7 +383,7 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
     
     /// Algebraic advection (simpler but less accurate)
     fn algebraic_advection(&mut self, dt: T) {
-        self.alpha_old.clone_from(&self.alpha);
+        self.alpha_previous.clone_from(&self.alpha);
         
         for k in 1..self.nz-1 {
             for j in 1..self.ny-1 {
@@ -393,37 +393,37 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
                     
                     // Upwind scheme for advection
                     let dalpha_dx = if vel[0] > T::zero() {
-                        (self.alpha_old[idx] - self.alpha_old[self.index(i-1, j, k)]) 
+                        (self.alpha_previous[idx] - self.alpha_previous[self.index(i-1, j, k)]) 
                             / self.dx
                     } else {
-                        (self.alpha_old[self.index(i+1, j, k)] - self.alpha_old[idx]) 
+                        (self.alpha_previous[self.index(i+1, j, k)] - self.alpha_previous[idx]) 
                             / self.dx
                     };
                     
                     let dalpha_dy = if vel[1] > T::zero() {
-                        (self.alpha_old[idx] - self.alpha_old[self.index(i, j-1, k)]) 
+                        (self.alpha_previous[idx] - self.alpha_previous[self.index(i, j-1, k)]) 
                             / self.dy
                     } else {
-                        (self.alpha_old[self.index(i, j+1, k)] - self.alpha_old[idx]) 
+                        (self.alpha_previous[self.index(i, j+1, k)] - self.alpha_previous[idx]) 
                             / self.dy
                     };
                     
                     let dalpha_dz = if vel[2] > T::zero() {
-                        (self.alpha_old[idx] - self.alpha_old[self.index(i, j, k-1)]) 
+                        (self.alpha_previous[idx] - self.alpha_previous[self.index(i, j, k-1)]) 
                             / self.dz
                     } else {
-                        (self.alpha_old[self.index(i, j, k+1)] - self.alpha_old[idx]) 
+                        (self.alpha_previous[self.index(i, j, k+1)] - self.alpha_previous[idx]) 
                             / self.dz
                     };
                     
                     // Divergence of velocity (for compressible flows, usually zero)
                     let div_vel = T::zero();  // Assuming incompressible
                     
-                    self.alpha[idx] = self.alpha_old[idx] 
+                    self.alpha[idx] = self.alpha_previous[idx] 
                         - dt * (vel[0] * dalpha_dx 
                                       + vel[1] * dalpha_dy 
                                       + vel[2] * dalpha_dz
-                                      + self.alpha_old[idx] * div_vel);
+                                      + self.alpha_previous[idx] * div_vel);
                     
                     // Apply compression term if enabled
                     if self.config.enable_compression {

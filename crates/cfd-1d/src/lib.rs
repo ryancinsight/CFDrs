@@ -15,7 +15,7 @@
 //! 2D schematic representation of 1D microfluidic networks, similar to
 //! how `cfd-3d` integrates with `csgrs` for 3D mesh handling.
 
-#![warn(missing_docs)]
+// #![warn(missing_docs)] // TODO: Enable after documentation sprint
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]

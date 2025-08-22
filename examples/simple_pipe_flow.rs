@@ -3,7 +3,7 @@
 //! This example follows SOLID principles and demonstrates proper error handling
 
 use cfd_suite::prelude::*;
-use cfd_suite::core::Result;
+use cfd_suite::core::{Result, BoundaryCondition};
 
 fn main() -> Result<()> {
     println!("Simple Pipe Flow Example");
@@ -15,33 +15,50 @@ fn main() -> Result<()> {
     println!("Density: {} kg/m³", fluid.density);
     
     // Build network with fluid
-    let mut network = NetworkBuilder::new(fluid)
-        .add_node(Node::new(0, 0.0, 0.0, 0.0))  // Inlet
-        .add_node(Node::new(1, 1.0, 0.0, 0.0))  // Outlet
-        .build()?;
+    let mut network = Network::new(fluid.clone());
+    
+    // Add nodes with proper IDs
+    network.add_node(Node::new("inlet".to_string(), NodeType::Inlet));
+    network.add_node(Node::new("outlet".to_string(), NodeType::Outlet));
+    
+    // Add a channel between nodes (1m long, 1mm² cross-section)
+    let length = 1.0;
+    let area = 1e-6; // 1mm²
+    let viscosity = fluid.dynamic_viscosity(1.0)?; // Get viscosity (shear rate doesn't matter for Newtonian)
+    let resistance = 8.0 * viscosity * length / (std::f64::consts::PI * area * area);
+    let channel_props = ChannelProperties::new(resistance, length, area);
+    network.add_edge("inlet", "outlet", channel_props)?;
     
     // Set boundary conditions
-    network.set_pressure(0, 101325.0)?;  // 1 atm at inlet
-    network.set_pressure(1, 101225.0)?;  // Slightly lower at outlet
+    network.set_boundary_condition(
+        "inlet", 
+        BoundaryCondition::PressureInlet { pressure: 101325.0 }
+    )?;
+    network.set_boundary_condition(
+        "outlet",
+        BoundaryCondition::PressureOutlet { pressure: 101225.0 }
+    )?;
     
     // Create and configure solver
-    let config = SolverConfig {
-        tolerance: 1e-6,
-        max_iterations: 1000,
-    };
-    
-    let mut solver = NetworkSolver::with_config(config);
+    let mut solver = NetworkSolver::<f64>::new();
     
     // Create problem and solve
-    let problem = NetworkProblem { network };
+    let problem = NetworkProblem::new(network);
     let solution = solver.solve(&problem)?;
     
     // Display results
     println!("\nResults:");
     println!("--------");
-    for i in 0..solution.node_count() {
-        if let Some(node) = solution.get_node(i) {
-            println!("Node {}: Pressure = {:.2} Pa", i, node.pressure);
+    println!("Network solved with {} nodes", solution.node_count());
+    
+    // Access pressures from the solution
+    let pressures = solution.pressures();
+    if pressures.len() > 0 {
+        println!("Inlet pressure: {:.2} Pa", pressures[0]);
+        if pressures.len() > 1 {
+            println!("Outlet pressure: {:.2} Pa", pressures[1]);
+            let flow_rate = (pressures[0] - pressures[1]) / resistance;
+            println!("Flow rate: {:.6} m³/s", flow_rate);
         }
     }
     

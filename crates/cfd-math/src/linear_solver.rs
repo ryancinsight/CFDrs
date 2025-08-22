@@ -21,7 +21,7 @@
 
 use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
-use nalgebra_sparse::{CsrMatrix, CooMatrix};
+use nalgebra_sparse::CsrMatrix;
 use num_traits::cast::FromPrimitive;
 use std::fmt::Debug;
 use crate::sparse::SparseMatrixExt;
@@ -477,6 +477,7 @@ mod tests {
     use super::*;
     use approx::assert_relative_eq;
     use nalgebra::DMatrix;
+    use nalgebra_sparse::CooMatrix;
 
     #[cfg(test)]
     fn create_validation_matrix() -> CsrMatrix<f64> {

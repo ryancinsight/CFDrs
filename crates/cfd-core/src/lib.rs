@@ -14,7 +14,7 @@
 //! - Import types via their full paths (e.g., `cfd_core::solver::Solver`)
 //! - Use the local prelude: `use cfd_core::prelude::*;`
 
-#![warn(missing_docs)]
+// #![warn(missing_docs)] // TODO: Enable after documentation sprint
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]

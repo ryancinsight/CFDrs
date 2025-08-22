@@ -8,148 +8,136 @@
 //! - Cohesive workflow connecting simulation results to analysis
 
 use cfd_suite::prelude::*;
+use cfd_suite::core::{Result, BoundaryCondition};
 
-fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     println!("Pipe Flow 1D Example - Ergonomic API Design");
     println!("===========================================");
 
     // Demonstrate unified prelude and composition-based configuration
-    let water = Fluid::<f64>::water().expect("Failed to create water fluid");
+    let water = Fluid::<f64>::water()?;
     println!("Fluid Properties:");
     println!("  Name: {}", water.name);
     println!("  Density: {} kg/m³", water.density);
-    println!("  Viscosity: {} Pa·s", water.viscosity);
+    let viscosity = water.dynamic_viscosity(1.0)?;
+    println!("  Viscosity: {} Pa·s", viscosity);
 
-    // Create 1D network using improved builder pattern (Issue 1: Error-free configuration)
-    let mut network = NetworkBuilder::<f64>::new()
-        .add_inlet_pressure("inlet", 0.0, 0.0, 101325.0)    // No Result<> needed
-        .add_outlet_pressure("outlet", 1.0, 0.0, 101225.0)   // Fluent API
-        .add_channel("ch1", "inlet", "outlet", ChannelProperties::new(
-            100.0,  // resistance (Pa·s/m³) - self-documenting!
-            1.0,    // length (m)
-            1e-6,   // area (m²)
-        ))
-        .build()?;  // Single point of failure
-
-    println!("\nNetwork created with improved builder pattern");
-    println!("✓ Error-free configuration methods");
-    println!("✓ Self-documenting ChannelProperties");
-
-    // Demonstrate improved configuration system (Issue 3: Clear method naming)
-    let config = SolverConfig::<f64>::builder()
-        .tolerance(1e-8)
-        .max_iterations(1000)
-        .relaxation_factor(0.9)
-        .parallel(true)
-        .verbosity(1)
-        .build(); // Clear, unambiguous method name
-
-    println!("✓ Configuration built using clear .build() method");
-
-    // Create solver and solve the network
-    let solver = NetworkSolver::with_config(config);
-    let solution = solver.solve_steady_state(&mut network)?;
-
-    println!("\nSolution Results:");
-    println!("  Converged: {}", solution.converged);
-    println!("  Iterations: {}", solution.iterations);
-    println!("  Residual: {:.2e}", solution.residual);
-
-    // Issue 5: Connect simulation results to analysis (cohesive workflow)
-    println!("\nExtracting Flow Results for Analysis:");
+    // Create 1D network 
+    let mut network = Network::new(water.clone());
     
-    // Get the calculated flow rate from the solved network
-    let channel = network.get_edge("ch1").unwrap();
-    let flow_rate = channel.flow_rate.unwrap_or(0.0);  // m³/s
+    // Add nodes
+    network.add_node(Node::new("inlet".to_string(), NodeType::Inlet));
+    network.add_node(Node::new("outlet".to_string(), NodeType::Outlet));
     
-    // Calculate velocity from flow rate and channel area
-    let channel_area = 1e-6;  // m² (from ChannelProperties)
-    let calculated_velocity = flow_rate / channel_area;  // m/s
-    
-    println!("  Flow rate: {:.6e} m³/s", flow_rate);
-    println!("  Calculated velocity: {:.4} m/s", calculated_velocity);
-
-    // Create a velocity range around the calculated value for comprehensive analysis
-    let base_velocity = calculated_velocity.max(0.01); // Ensure minimum velocity
-    let velocity_range: Vec<f64> = (0..6)
-        .map(|i| base_velocity * (0.5 + i as f64 * 0.2))  // Create range: 0.5x to 1.5x
-        .collect();
-
-    let diameter = (4.0 * channel_area / std::f64::consts::PI).sqrt(); // Hydraulic diameter
-
-    println!("\nReynolds Number Analysis for Flow Range:");
-    println!("Velocity (m/s) | Reynolds | Flow Regime     | Status");
-    println!("---------------|----------|-----------------|--------");
-
-    // Use iterator combinators for functional analysis
-    let reynolds_analysis: Vec<_> = velocity_range.iter()
-        .map(|&v| {
-            let re = water.reynolds_number(v, diameter);
-            let regime = match re {
-                r if r < 2300.0 => "Laminar",
-                r if r < 4000.0 => "Transitional",
-                _ => "Turbulent",
-            };
-            let status = if (v - calculated_velocity).abs() < 1e-6 { 
-                "← Calculated" 
-            } else { 
-                "" 
-            };
-            (v, re, regime, status)
-        })
-        .collect();
-
-    // Display results using iterator patterns
-    reynolds_analysis.iter()
-        .for_each(|(v, re, regime, status)| {
-            println!("{:13.4} | {:8.0} | {:15} | {}", v, re, regime, status);
-        });
-
-    // Issue 4: Use standard library instead of custom implementation
-    println!("\nVelocity Gradient Analysis (using std::slice::windows):");
-    
-    // OLD (custom implementation):
-    // let velocity_gradients: Vec<_> = SliceOps::windowed_operation(
-    //     &velocities, 2, |window| window[1] - window[0]
-    // );
-    
-    // NEW (standard library - idiomatic Rust):
-    let velocity_gradients: Vec<_> = velocity_range
-        .windows(2)
-        .map(|window| window[1] - window[0])
-        .collect();
-
-    println!("✓ Using standard library windows() method");
-    velocity_gradients.iter().enumerate().for_each(|(i, &grad)| {
-        println!("  Gradient {}: {:.4} m/s per step", i + 1, grad);
-    });
-
-    // Demonstrate zero-copy statistical operations using iterators
-    let re_values: Vec<f64> = reynolds_analysis.iter()
-        .map(|(_, re, _, _)| *re)
-        .collect();
-
-    use cfd_math::MathIteratorExt;
-    let mean_re = re_values.iter().cloned().mean().unwrap_or(0.0);
-    let variance_re = re_values.iter().cloned().variance().unwrap_or(0.0);
-    let std_dev_re = variance_re.sqrt();
-
-    println!("\nStatistical Analysis:");
-    println!("  Mean Reynolds number: {:.1}", mean_re);
-    println!("  Standard deviation: {:.1}", std_dev_re);
-    println!("  Flow regime classification: {}", 
-        if mean_re < 2300.0 { "Primarily Laminar" }
-        else if mean_re < 4000.0 { "Transitional Range" }
-        else { "Primarily Turbulent" }
+    // Add channel with properties
+    let channel_props = ChannelProperties::new(
+        100.0,  // resistance (Pa·s/m³) 
+        1.0,    // length (m)
+        1e-6,   // area (m²)
     );
+    network.add_edge("inlet", "outlet", channel_props)?;
+    
+    // Set boundary conditions
+    network.set_boundary_condition(
+        "inlet",
+        BoundaryCondition::PressureInlet { pressure: 101325.0 }
+    )?;
+    network.set_boundary_condition(
+        "outlet", 
+        BoundaryCondition::PressureOutlet { pressure: 101225.0 }
+    )?;
 
-    // Summary of improvements demonstrated
-    println!("\n🎉 API Improvements Demonstrated:");
-    println!("✓ Issue 1: Error-free builder pattern with single .build() failure point");
-    println!("✓ Issue 2: Self-documenting ChannelProperties instead of magic numbers");
-    println!("✓ Issue 3: Clear .build() method name instead of .build_network()");
-    println!("✓ Issue 4: Standard library windows() instead of custom windowed_operation");
-    println!("✓ Issue 5: Cohesive workflow connecting simulation to analysis");
+    println!("\nNetwork created with {} nodes", network.node_count());
+    println!("✓ Nodes and edges configured");
+    println!("✓ Boundary conditions set");
+
+    // Create solver 
+    let mut solver = NetworkSolver::<f64>::new();
+    let problem = NetworkProblem::new(network);
+    let solution = solver.solve(&problem)?;
+
+    println!("\n=== Solution ===");
+    println!("Converged successfully!");
+    
+    // Access solution data
+    let pressures = solution.pressures();
+    if pressures.len() >= 2 {
+        let dp = pressures[0] - pressures[1];
+        println!("Pressure drop: {:.2} Pa", dp);
+        
+        // Calculate flow rate using Hagen-Poiseuille equation
+        let flow_rate = dp / 100.0; // resistance = 100.0
+        println!("Flow rate: {:.6} m³/s", flow_rate);
+    }
+
+    // Demonstrate standard library usage with windows() for gradient calculation
+    println!("\n=== Gradient Analysis (using std::windows()) ===");
+    let pressure_data: Vec<f64> = pressures.iter().copied().collect();
+    
+    if pressure_data.len() >= 2 {
+        let gradients: Vec<f64> = pressure_data
+            .windows(2)
+            .map(|w| (w[1] - w[0]) / 0.5) // dx = 0.5m between nodes
+            .collect();
+        
+        println!("Pressure gradients calculated using windows():");
+        for (i, grad) in gradients.iter().enumerate() {
+            println!("  Segment {}: {:.2} Pa/m", i, grad);
+        }
+    }
+
+    // Simple flow analysis
+    println!("\n=== Flow Analysis ===");
+    if pressures.len() >= 2 {
+        // Calculate Reynolds number manually
+        let diameter = (4.0 * 1e-6 / std::f64::consts::PI).sqrt();
+        let velocity = (pressures[0] - pressures[1]) / (100.0 * 1e-6); // flow_rate / area
+        let reynolds = water.density * velocity * diameter / viscosity;
+        
+        println!("Reynolds number: {:.2}", reynolds);
+        let flow_regime = if reynolds < 2300.0 { "Laminar" } 
+                         else if reynolds < 4000.0 { "Transitional" }
+                         else { "Turbulent" };
+        println!("Flow regime: {}", flow_regime);
+        
+        // Pressure statistics
+        let max_p = pressures.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        let min_p = pressures.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+        let avg_p: f64 = pressures.iter().sum::<f64>() / pressures.len() as f64;
+        
+        println!("\n=== Pressure Analysis ===");
+        println!("Max pressure: {:.2} Pa", max_p);
+        println!("Min pressure: {:.2} Pa", min_p);
+        println!("Average pressure: {:.2} Pa", avg_p);
+    }
+
+    // Demonstrate iterator combinators for data processing
+    println!("\n=== Iterator Combinators Demo ===");
+    
+    // Chain operations for efficient processing
+    let processed_pressures: Vec<f64> = pressures.iter()
+        .copied()
+        .map(|p| p - 101225.0)  // Relative to outlet
+        .filter(|&p| p.abs() > 1e-6)  // Non-zero values
+        .collect();
+    
+    println!("Relative pressures (non-zero):");
+    for (i, p) in processed_pressures.iter().enumerate() {
+        println!("  Node {}: {:.2} Pa", i, p);
+    }
+
+    // Use fold for statistics
+    let (sum, count) = processed_pressures.iter()
+        .fold((0.0, 0), |(s, c), &p| (s + p, c + 1));
+    
+    if count > 0 {
+        println!("Average relative pressure: {:.2} Pa", sum / count as f64);
+    }
+
+    println!("\n✓ Simulation completed successfully!");
+    println!("✓ Demonstrated ergonomic API design");
+    println!("✓ Used standard library patterns (windows, fold)");
+    println!("✓ Cohesive workflow from simulation to analysis");
 
     Ok(())
 }

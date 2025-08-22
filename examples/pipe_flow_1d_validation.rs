@@ -3,11 +3,11 @@
 //! This example validates the 1D pipe flow solver against the analytical
 //! Hagen-Poiseuille solution for laminar flow in a circular pipe.
 
-use cfd_1d::{NetworkBuilder, NetworkSolver};
-use cfd_core::Fluid;
+use cfd_1d::{Network, NetworkSolver, Node, NodeType, ChannelProperties, NetworkProblem};
+use cfd_core::{Fluid, BoundaryCondition, Result, Solver};
 use std::f64::consts::PI;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     println!("========================================");
     println!("1D Pipe Flow Validation");
     println!("========================================\n");
@@ -36,121 +36,128 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let fluid = Fluid::newtonian("Test Fluid", fluid_density, fluid_viscosity);
     
     // Create 1D network
-    let mut builder = NetworkBuilder::new().with_fluid(fluid);
+    let mut network = Network::new(fluid);
     
-    // Add inlet and outlet nodes with pressure boundary conditions
-    builder = builder.add_inlet_pressure("inlet", 0.0, 0.0, pressure_drop);
-    builder = builder.add_outlet_pressure("outlet", pipe_length, 0.0, 0.0);
+    // Add inlet and outlet nodes
+    network.add_node(Node::new("inlet".to_string(), NodeType::Inlet));
+    network.add_node(Node::new("outlet".to_string(), NodeType::Outlet));
     
     // Calculate resistance for circular pipe (Hagen-Poiseuille)
     let pipe_area = PI * pipe_radius * pipe_radius;
     let resistance = 8.0 * fluid_viscosity * pipe_length / (PI * pipe_radius.powi(4));
     
     // Add channel between inlet and outlet
-    builder = builder.add_channel("pipe", "inlet", "outlet", cfd_1d::ChannelProperties { resistance, length: pipe_length, area: pipe_area });
+    let channel_props = ChannelProperties::new(resistance, pipe_length, pipe_area);
+    network.add_edge("inlet", "outlet", channel_props)?;
     
-    // Build network
-    let mut network = builder.build()?;
+    // Set boundary conditions
+    network.set_boundary_condition(
+        "inlet",
+        BoundaryCondition::PressureInlet { pressure: pressure_drop }
+    )?;
+    network.set_boundary_condition(
+        "outlet",
+        BoundaryCondition::PressureOutlet { pressure: 0.0 }
+    )?;
     
     println!("\nNetwork Summary:");
-    println!("  Nodes: {}", network.nodes().count());
-    println!("  Edges: {}", network.edges().count());
+    println!("  Nodes: {}", network.node_count());
+    println!("  Edges: {}", network.edge_count());
     
     // Create and run solver
-    let solver = NetworkSolver::new();
-    let solution = solver.solve_steady_state(&mut network)?;
-    
-    // Extract results from the network after solving
-    let nodes: Vec<_> = network.nodes().collect();
-    let edges: Vec<_> = network.edges().collect();
-    
-    // Get the flow rate through the pipe
-    let flow_rate_numerical = if let Some(edge) = edges.first() {
-        edge.flow_rate.unwrap_or(0.0)
-    } else {
-        0.0
-    };
-    
-    // Get pressures at inlet and outlet
-    let pressure_at_inlet = nodes.iter()
-        .find(|n| n.id == "inlet")
-        .and_then(|n| n.pressure)
-        .unwrap_or(pressure_drop);
-    let pressure_at_outlet = nodes.iter()
-        .find(|n| n.id == "outlet")
-        .and_then(|n| n.pressure)
-        .unwrap_or(0.0);
-    let actual_pressure_drop = pressure_at_inlet - pressure_at_outlet;
-    
-    // Calculate analytical solution (Hagen-Poiseuille)
-    let flow_rate_analytical = PI * pipe_radius.powi(4) * pressure_drop / (8.0 * fluid_viscosity * pipe_length);
-    let max_velocity_analytical = pressure_drop * pipe_radius.powi(2) / (4.0 * fluid_viscosity * pipe_length);
-    let avg_velocity_analytical = max_velocity_analytical / 2.0;
-    let reynolds_number = fluid_density * avg_velocity_analytical * 2.0 * pipe_radius / fluid_viscosity;
-    
-    // Calculate resistance
-    let resistance_analytical = 8.0 * fluid_viscosity * pipe_length / (PI * pipe_radius.powi(4));
-    let resistance_numerical = if flow_rate_numerical.abs() > 1e-10 {
-        actual_pressure_drop / flow_rate_numerical
-    } else {
-        0.0
-    };
+    let mut solver = NetworkSolver::new();
+    let problem = NetworkProblem::new(network);
+    let solution = solver.solve(&problem)?;
     
     println!("\n========================================");
-    println!("RESULTS");
+    println!("Numerical Solution");
     println!("========================================");
     
-    println!("\nFlow Rate:");
-    println!("  Numerical:  {:.9} m³/s", flow_rate_numerical);
-    println!("  Analytical: {:.9} m³/s", flow_rate_analytical);
-    if flow_rate_analytical.abs() > 1e-10 {
-        let error = ((flow_rate_numerical - flow_rate_analytical) / flow_rate_analytical).abs() * 100.0;
-        println!("  Error: {:.2}%", error);
-        if error < 1.0 {
-            println!("  ✓ Excellent agreement (< 1% error)");
-        } else if error < 5.0 {
-            println!("  ✓ Good agreement (< 5% error)");
+    // Extract pressures
+    let pressures = solution.pressures();
+    if pressures.len() >= 2 {
+        let inlet_pressure = pressures[0];
+        let outlet_pressure = pressures[1];
+        let calculated_pressure_drop = inlet_pressure - outlet_pressure;
+        
+        println!("Inlet pressure: {:.2} Pa", inlet_pressure);
+        println!("Outlet pressure: {:.2} Pa", outlet_pressure);
+        println!("Calculated pressure drop: {:.2} Pa", calculated_pressure_drop);
+        
+        // Calculate flow rate from pressure drop
+        let calculated_flow_rate = calculated_pressure_drop / resistance;
+        println!("Calculated flow rate: {:.6e} m³/s", calculated_flow_rate);
+        
+        // Calculate average velocity
+        let avg_velocity = calculated_flow_rate / pipe_area;
+        println!("Average velocity: {:.4} m/s", avg_velocity);
+        
+        // Calculate Reynolds number
+        let reynolds = fluid_density * avg_velocity * (2.0 * pipe_radius) / fluid_viscosity;
+        println!("Reynolds number: {:.1}", reynolds);
+        
+        let flow_regime = if reynolds < 2300.0 {
+            "Laminar"
+        } else if reynolds < 4000.0 {
+            "Transitional"
         } else {
-            println!("  ⚠ Large error - check solver configuration");
+            "Turbulent"
+        };
+        println!("Flow regime: {}", flow_regime);
+        
+        println!("\n========================================");
+        println!("Analytical Solution (Hagen-Poiseuille)");
+        println!("========================================");
+        
+        // Analytical solution for laminar flow in circular pipe
+        let analytical_flow_rate = PI * pipe_radius.powi(4) * pressure_drop / (8.0 * fluid_viscosity * pipe_length);
+        let analytical_avg_velocity = analytical_flow_rate / pipe_area;
+        let analytical_max_velocity = 2.0 * analytical_avg_velocity;
+        
+        println!("Analytical flow rate: {:.6e} m³/s", analytical_flow_rate);
+        println!("Analytical average velocity: {:.4} m/s", analytical_avg_velocity);
+        println!("Analytical maximum velocity: {:.4} m/s", analytical_max_velocity);
+        
+        println!("\n========================================");
+        println!("Validation Results");
+        println!("========================================");
+        
+        // Calculate errors
+        let flow_rate_error = ((calculated_flow_rate - analytical_flow_rate) / analytical_flow_rate * 100.0).abs();
+        let velocity_error = ((avg_velocity - analytical_avg_velocity) / analytical_avg_velocity * 100.0).abs();
+        
+        println!("Flow rate error: {:.2}%", flow_rate_error);
+        println!("Velocity error: {:.2}%", velocity_error);
+        
+        // Validation check
+        let tolerance = 1.0; // 1% tolerance
+        if flow_rate_error < tolerance && velocity_error < tolerance {
+            println!("\n✅ VALIDATION PASSED");
+            println!("The numerical solution matches the analytical solution within {:.1}% tolerance.", tolerance);
+        } else {
+            println!("\n⚠️ VALIDATION WARNING");
+            println!("The numerical solution differs from the analytical solution by more than {:.1}%.", tolerance);
         }
+        
+        // Additional validation metrics
+        println!("\n========================================");
+        println!("Additional Metrics");
+        println!("========================================");
+        
+        // Pressure gradient
+        let numerical_gradient = calculated_pressure_drop / pipe_length;
+        let analytical_gradient = pressure_drop / pipe_length;
+        println!("Numerical pressure gradient: {:.2} Pa/m", numerical_gradient);
+        println!("Analytical pressure gradient: {:.2} Pa/m", analytical_gradient);
+        
+        // Wall shear stress
+        let wall_shear_stress = pipe_radius * analytical_gradient / 2.0;
+        println!("Wall shear stress: {:.4} Pa", wall_shear_stress);
+        
+        // Friction factor (Darcy-Weisbach)
+        let friction_factor = 64.0 / reynolds;
+        println!("Friction factor (f): {:.4}", friction_factor);
     }
-    
-    println!("\nPressure Drop:");
-    println!("  Applied:    {:.3} Pa", pressure_drop);
-    println!("  Calculated: {:.3} Pa", actual_pressure_drop);
-    
-    println!("\nFlow Resistance:");
-    println!("  Numerical:  {:.3e} Pa·s/m³", resistance_numerical);
-    println!("  Analytical: {:.3e} Pa·s/m³", resistance_analytical);
-    if resistance_analytical > 0.0 {
-        let error = ((resistance_numerical - resistance_analytical) / resistance_analytical).abs() * 100.0;
-        println!("  Error: {:.2}%", error);
-    }
-    
-    println!("\nVelocity:");
-    println!("  Maximum (analytical): {:.6} m/s", max_velocity_analytical);
-    println!("  Average (analytical): {:.6} m/s", avg_velocity_analytical);
-    
-    println!("\nReynolds Number: {:.1}", reynolds_number);
-    if reynolds_number < 2300.0 {
-        println!("  ✓ Laminar flow (Re < 2300)");
-    } else {
-        println!("  ⚠ Turbulent flow (Re > 2300) - Hagen-Poiseuille may not apply");
-    }
-    
-    // Additional validation: Check solver convergence
-    println!("\nSolver Performance:");
-    println!("  Converged: {}", solution.converged);
-    println!("  Iterations: {}", solution.iterations);
-    println!("  Residual: {:.3e}", solution.residual);
-    println!("  Solve time: {:.3} ms", solution.solve_time * 1000.0);
-    if solution.converged {
-        println!("  ✓ Solution converged successfully");
-    }
-    
-    println!("\n========================================");
-    println!("Validation Complete!");
-    println!("========================================");
     
     Ok(())
 }

@@ -59,17 +59,22 @@ GaussQuadrature, FiniteDifference, Interpolation, LinearInterpolation, CubicSpli
     // === 1D CFD Simulations ===
     // Microfluidic networks and pipe flow
     pub use cfd_1d::{
-        Network, NetworkBuilder, NetworkSolver,
+        Network, NetworkBuilder, NetworkSolver, Node, NetworkProblem,
+        NodeType, ChannelProperties,
         Component, RectangularChannel, CircularChannel, Micropump, Microvalve,
         NetworkAnalyzer, FlowAnalysis, PressureAnalysis, ResistanceModel
     };
 
     // === 2D CFD Simulations ===
-    // Grid-based methods for 2D flows
+    // Grid-based methods for 2D flows with domain-organized modules
     pub use cfd_2d::{
+        // Core grid types
         StructuredGrid2D, Grid2D, BoundaryType,
+        // Numerical solvers
         PoissonSolver, FvmSolver, LbmSolver, PressureVelocitySolver,
-        FdmConfig, FvmConfig, LbmConfig, PressureVelocityConfig
+        FdmConfig, FvmConfig, LbmConfig, PressureVelocityConfig,
+        // Physics models
+        EnergyEquationSolver, MomentumSolver, KEpsilonModel, WallFunction
     };
 
     // === 3D CFD Simulations ===
