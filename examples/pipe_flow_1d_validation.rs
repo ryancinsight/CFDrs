@@ -4,7 +4,7 @@
 //! Hagen-Poiseuille solution for laminar flow in a circular pipe.
 
 use cfd_1d::{Network, NetworkSolver, Node, NodeType, ChannelProperties, NetworkProblem};
-use cfd_core::{Fluid, BoundaryCondition, Result};
+use cfd_core::{Fluid, BoundaryCondition, Result, Solver};
 use std::f64::consts::PI;
 
 fn main() -> Result<()> {
