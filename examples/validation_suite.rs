@@ -16,9 +16,14 @@ use cfd_validation::{
     LidDrivenCavity, ConservationChecker,
 };
 use cfd_1d::solver::NetworkSolver;
-use cfd_2d::{PressureVelocityCouplerSolver, PressureVelocityCouplingConfig, LbmSolver, LbmConfig, StructuredGrid2D, Grid2D};
-use cfd_3d::{FemSolver, FemConfig, FluidProperties, SpectralSolver, SpectralConfig};
-use cfd_core::{BoundaryCondition, WallType};
+use cfd_2d::{
+    pressure_velocity::PressureVelocitySolver,
+    solvers::{LbmSolver, LbmConfig},
+    grid::{StructuredGrid2D, Grid2D}
+};
+use cfd_3d::fem::{FemSolver, FemConfig};
+use cfd_3d::spectral::{SpectralSolver, SpectralConfig};
+use cfd_core::{BoundaryCondition, WallType, fluid::Fluid};
 use nalgebra::{Vector2, Vector3, DVector};
 use std::collections::HashMap;
 use std::f64::consts::PI;
@@ -124,19 +129,15 @@ fn validate_poiseuille_flow() -> Result<(), Box<dyn std::error::Error>> {
     for j in 0..ny {
         let y = -half_height + (j as f64 + 0.5) * channel_height / ny as f64;
         let u_inlet = u_max * (1.0 - (y / half_height).powi(2));
-        bc.insert((0, j), BoundaryCondition::Inlet {
-            velocity: Some(Vector2::new(u_inlet, 0.0)),
-            pressure: None,
-            temperature: None,
+        bc.insert((0, j), BoundaryCondition::VelocityInlet {
+            velocity: Vector3::new(u_inlet, 0.0, 0.0),
         });
     }
     
     // Outlet: pressure boundary
     for j in 0..ny {
-        bc.insert((nx - 1, j), BoundaryCondition::Outlet {
-            pressure: Some(0.0),
-            velocity: None,
-            temperature: None,
+        bc.insert((nx - 1, j), BoundaryCondition::PressureOutlet {
+            pressure: 0.0,
         });
     }
     
@@ -217,7 +218,7 @@ fn validate_couette_flow() -> Result<(), Box<dyn std::error::Error>> {
     
     // Moving top wall
     for i in 0..nx {
-        bc.insert((i, ny - 1), BoundaryCondition::Wall { wall_type: WallType::Moving(Vector3::new(u_wall, 0.0, 0.0)) });
+        bc.insert((i, ny - 1), BoundaryCondition::Wall { wall_type: WallType::Moving { velocity: Vector3::new(u_wall, 0.0, 0.0) } });
     }
     
     // Stationary bottom wall
