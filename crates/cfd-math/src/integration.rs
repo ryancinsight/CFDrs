@@ -287,17 +287,22 @@ impl<Q> VariableQuadrature<Q> {
 
 /// Multi-dimensional integration using tensor products
 pub struct TensorProductQuadrature<Q> {
-    _base_rule: Q,
-    _dimension: usize,
+    base_rule: Q,
+    dimension: usize,
 }
 
 impl<Q> TensorProductQuadrature<Q> {
     /// Create tensor product quadrature
     pub fn new(base_rule: Q, dimension: usize) -> Self {
         Self {
-            _base_rule: base_rule,
-            _dimension: dimension,
+            base_rule,
+            dimension,
         }
+    }
+    
+    /// Get the dimension of the quadrature
+    pub fn dimension(&self) -> usize {
+        self.dimension
     }
 }
 
@@ -309,7 +314,8 @@ impl<Q> TensorProductQuadrature<Q> {
         F: Fn(T, T) -> T,
         Q: Quadrature<T>,
     {
-        // For simplicity, use composite Simpson's rule for 2D
+        // Use the base quadrature rule for tensor product integration
+        // For now, use composite Simpson's rule for 2D
         let n = 10; // Number of intervals in each direction
         let hx = (bx - ax) / T::from_usize(n).unwrap_or_else(|| T::zero());
         let hy = (by - ay) / T::from_usize(n).unwrap_or_else(|| T::zero());

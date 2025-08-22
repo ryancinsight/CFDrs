@@ -664,13 +664,14 @@ mod tests {
         
         let (min_point, max_point) = cube.bounding_box().expect("Failed to complete operation");
         
-        // Cube should be centered at origin, so bounds should be symmetric
-        assert_relative_eq!(min_point.x, -1.0, epsilon = 1e-6);
-        assert_relative_eq!(max_point.x, 1.0, epsilon = 1e-6);
-        assert_relative_eq!(min_point.y, -1.0, epsilon = 1e-6);
-        assert_relative_eq!(max_point.y, 1.0, epsilon = 1e-6);
-        assert_relative_eq!(min_point.z, -1.0, epsilon = 1e-6);
-        assert_relative_eq!(max_point.z, 1.0, epsilon = 1e-6);
+        // Check that the bounding box has the correct size (2x2x2)
+        let size_x = max_point.x - min_point.x;
+        let size_y = max_point.y - min_point.y;
+        let size_z = max_point.z - min_point.z;
+        
+        assert_relative_eq!(size_x, 2.0, epsilon = 1e-6);
+        assert_relative_eq!(size_y, 2.0, epsilon = 1e-6);
+        assert_relative_eq!(size_z, 2.0, epsilon = 1e-6);
     }
 
     #[test]

@@ -3,38 +3,48 @@
 
 use cfd_suite::prelude::*;
 use cfd_suite::core::Result;
+use cfd_1d::solver::NetworkProblem;
 
 #[test]
 fn test_1d_network_integration() -> Result<()> {
     // Create a simple network
     let fluid = Fluid::<f64>::water()?;
-    let mut builder = NetworkBuilder::new(fluid);
+    let mut network = Network::new(fluid);
     
     // Add nodes
-    builder = builder.add_node(Node::new(0, 0.0, 0.0, 0.0));
-    builder = builder.add_node(Node::new(1, 1.0, 0.0, 0.0));
+    network.add_node(Node::new("inlet".to_string(), NodeType::Inlet));
+    network.add_node(Node::new("outlet".to_string(), NodeType::Outlet));
     
-    let mut network = builder.build()?;
+    // Add edge
+    let props = ChannelProperties::new(1.0, 0.01, 1e-6);
+    network.add_edge("inlet", "outlet", props)?;
     
     // Set boundary conditions
-    network.set_pressure(0, 101325.0)?;
-    network.set_pressure(1, 101225.0)?;
+    network.set_boundary_condition(
+        "inlet",
+        BoundaryCondition::PressureInlet { pressure: 101325.0 }
+    )?;
+    network.set_boundary_condition(
+        "outlet", 
+        BoundaryCondition::PressureOutlet { pressure: 101225.0 }
+    )?;
     
     // Create and solve
-    let mut solver = NetworkSolver::<f64>::new();
-    let problem = NetworkProblem { network };
-    let solution = solver.solve(&problem)?;
+    let solver = NetworkSolver::<f64>::new();
+    let problem = NetworkProblem::new(network);
+    let solution = solver.solve_network(&problem)?;
     
     // Verify solution
-    assert!(solution.node_count() > 0);
+    assert!(solution.nodes().count() > 0);
     Ok(())
 }
 
 #[test]
-fn test_2d_grid_creation() {
-    let grid = StructuredGrid2D::<f64>::new(10, 10, 1.0, 1.0, 0.0, 1.0);
-    assert_eq!(grid.nx(), 10);
-    assert_eq!(grid.ny(), 10);
+fn test_2d_grid_creation() -> Result<()> {
+    let grid = StructuredGrid2D::<f64>::new(10, 10, 0.0, 1.0, 0.0, 1.0)?;
+    assert_eq!(grid.nx, 10);
+    assert_eq!(grid.ny, 10);
+    Ok(())
 }
 
 #[test]
@@ -47,11 +57,11 @@ fn test_fluid_properties() -> Result<()> {
 
 #[test]
 fn test_solver_configuration() {
-    let config = SolverConfig::<f64> {
-        tolerance: 1e-6,
-        max_iterations: 1000,
-    };
-    assert_eq!(config.max_iterations, 1000);
+    let config = SolverConfig::<f64>::builder()
+        .tolerance(1e-6)
+        .max_iterations(1000)
+        .build();
+    assert_eq!(config.max_iterations(), 1000);
 }
 
 #[cfg(test)]
@@ -62,19 +72,34 @@ mod performance {
     #[test]
     fn test_solver_performance() -> Result<()> {
         let fluid = Fluid::<f64>::water()?;
-        let mut builder = NetworkBuilder::new(fluid);
+        let mut network = Network::new(fluid);
         
         // Create larger network
         for i in 0..10 {
-            builder = builder.add_node(Node::new(i, i as f64, 0.0, 0.0));
+            network.add_node(Node::new(format!("node_{}", i), NodeType::Junction));
         }
         
-        let network = builder.build()?;
-        let mut solver = NetworkSolver::<f64>::new();
-        let problem = NetworkProblem { network };
+        // Add edges
+        for i in 0..9 {
+            let props = ChannelProperties::new(1.0, 0.01, 1e-6);
+            network.add_edge(&format!("node_{}", i), &format!("node_{}", i+1), props)?;
+        }
+        
+        // Set boundary conditions
+        network.set_boundary_condition(
+            "node_0",
+            BoundaryCondition::PressureInlet { pressure: 101325.0 }
+        )?;
+        network.set_boundary_condition(
+            "node_9",
+            BoundaryCondition::PressureOutlet { pressure: 101225.0 }
+        )?;
+        
+        let solver = NetworkSolver::<f64>::new();
+        let problem = NetworkProblem::new(network);
         
         let start = Instant::now();
-        let _solution = solver.solve(&problem)?;
+        let _solution = solver.solve_network(&problem)?;
         let duration = start.elapsed();
         
         // Should complete in reasonable time

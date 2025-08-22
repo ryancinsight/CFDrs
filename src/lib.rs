@@ -23,11 +23,15 @@ pub use cfd_validation as validation;
 /// # Usage
 /// ```rust
 /// use cfd_suite::prelude::*;
+/// use cfd_suite::core::Result;
 ///
-/// // Now you have access to all commonly used CFD functionality
-/// let fluid = Fluid::<f64>::water();
-/// let network = NetworkBuilder::<f64>::new();
-/// let grid = StructuredGrid2D::<f64>::new(10, 10, 1.0, 1.0, 0.0, 1.0);
+/// fn main() -> Result<()> {
+///     // Now you have access to all commonly used CFD functionality
+///     let fluid = Fluid::<f64>::water()?;
+///     let mut network = Network::new(fluid);
+///     let grid = StructuredGrid2D::<f64>::new(10, 10, 0.0, 1.0, 0.0, 1.0)?;
+///     Ok(())
+/// }
 /// ```
 pub mod prelude {
     // === Core Abstractions ===

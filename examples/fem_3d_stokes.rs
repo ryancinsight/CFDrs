@@ -3,7 +3,8 @@
 //! This example demonstrates the use of the 3D FEM solver for solving
 //! the Stokes equations in a simple tetrahedral domain.
 
-use cfd_3d::{FemSolver, FemConfig, FluidProperties};
+use cfd_3d::fem::{FemSolver, FemConfig, ElementType, StokesFlowProblem};
+use cfd_core::fluid::Fluid;
 use cfd_mesh::{Mesh, Vertex, Cell};
 use nalgebra::{Point3, Vector3};
 use std::collections::HashMap;
@@ -13,10 +14,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("==========================");
     
     // Create fluid properties (water at 20°C)
-    let fluid_props = FluidProperties::<f64>::water();
+    let fluid = Fluid::<f64>::water()?;
     println!("Fluid: Water at 20°C");
-    println!("Density: {:.1} kg/m³", fluid_props.density);
-    println!("Viscosity: {:.6} Pa·s", fluid_props.viscosity);
+    println!("Density: {:.1} kg/m³", fluid.density());
+    println!("Viscosity: {:.6} Pa·s", fluid.dynamic_viscosity());
     println!();
     
     // Create a simple tetrahedral mesh
@@ -25,11 +26,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
              mesh.vertices.len(), mesh.cells.len());
     
     // Create FEM solver configuration
-    let base = cfd_core::SolverConfig::<f64>::builder()
+    let base = cfd_core::solver::SolverConfig::<f64>::builder()
         .tolerance(1e-6)
         .max_iterations(1000)
-        .verbosity(2)
-        .build_base();
+        .build();
 
     let config = FemConfig {
         base,
@@ -37,6 +37,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         tau: 0.1,
         dt: Some(0.01),
         reynolds: Some(100.0),
+        element_type: ElementType::Tetrahedral,
+        quadrature_order: 2,
     };
     
     // Create FEM solver
@@ -62,9 +64,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  - Top nodes (4-7): Moving lid with velocity (1, 0, 0)");
     println!();
     
-    // Solve the Stokes equations
+    // Create Stokes flow problem
     println!("Solving Stokes flow...");
-    let solution = solver.solve_stokes(&mesh, &fluid_props, &velocity_bcs)?;
+    let problem = StokesFlowProblem::new(mesh, fluid, velocity_bcs);
+    let solution = solver.solve(&problem)?;
     
     // Solution is now available in the returned StokesFlowSolution
     let velocity_solution = &solution.velocity;
