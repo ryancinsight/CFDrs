@@ -261,7 +261,7 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
         let mut r = DVector::zeros(n);
         let mut z = DVector::zeros(n);
         let mut p = DVector::zeros(n);
-        let mut ap = DVector::zeros(n);
+        let mut ap;
 
         // Compute initial residual: r = b - A*x
         let ax = a * &x;
@@ -371,7 +371,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
         let mut p = DVector::zeros(n);
         let mut v = DVector::zeros(n);
         let mut s = DVector::zeros(n);
-        let mut t = DVector::zeros(n);
+        let mut t;
         let mut z = DVector::zeros(n);
         let mut z2 = DVector::zeros(n);
 

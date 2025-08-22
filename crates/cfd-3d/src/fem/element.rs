@@ -34,7 +34,7 @@ pub struct FluidElement<T: RealField + Copy> {
     /// Element volume
     pub volume: T,
     /// Shape function derivatives
-    pub dN_dx: Matrix3<T>,
+    pub shape_derivatives: Matrix3<T>,
 }
 
 impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
@@ -43,7 +43,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
         Self {
             nodes,
             volume: T::zero(),
-            dN_dx: Matrix3::zeros(),
+            shape_derivatives: Matrix3::zeros(),
         }
     }
     
@@ -73,7 +73,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
     pub fn calculate_shape_derivatives(&mut self, vertices: &[Vector3<T>]) {
         if vertices.len() != 4 {
             // For non-tetrahedral elements, use identity as fallback
-            self.dN_dx = Matrix3::identity();
+            self.shape_derivatives = Matrix3::identity();
             return;
         }
         
@@ -91,7 +91,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
         
         if volume.abs() < T::from_f64(1e-12).unwrap_or_else(T::zero) {
             // Degenerate element
-            self.dN_dx = Matrix3::zeros();
+            self.shape_derivatives = Matrix3::zeros();
             return;
         }
         
@@ -101,7 +101,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
         let six_v = T::from_f64(6.0).unwrap_or_else(T::one) * volume;
         
         // Store as columns of the derivative matrix
-        self.dN_dx = Matrix3::from_columns(&[
+        self.shape_derivatives = Matrix3::from_columns(&[
             Vector3::new(
                 (v2.y * (v3.z - v4.z) + v3.y * (v4.z - v2.z) + v4.y * (v2.z - v3.z)) / six_v,
                 (v2.x * (v4.z - v3.z) + v3.x * (v2.z - v4.z) + v4.x * (v3.z - v2.z)) / six_v,
@@ -157,7 +157,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
                         
                         // Viscous contribution: μ ∫ ∇Ni · ∇Nj dΩ
                         // For constant shape function derivatives in tetrahedral elements
-                        let grad_prod = self.dN_dx[(d, i)] * self.dN_dx[(d, j)];
+                        let grad_prod = self.shape_derivatives[(d, i)] * self.shape_derivatives[(d, j)];
                         k_e[(row, col)] += factor * grad_prod;
                     }
                 }
