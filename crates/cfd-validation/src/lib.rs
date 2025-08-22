@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 //! Validation and benchmarking tools for CFD simulations.
 
-#![warn(missing_docs)]
+// #![warn(missing_docs)] // TODO: Enable after documentation sprint
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]

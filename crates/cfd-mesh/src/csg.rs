@@ -294,7 +294,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> CsgGeometry<T> {
         let mut mesh = CfdMesh::new();
         mesh.vertices = vertices;
         mesh.faces = faces;
-        mesh.update_topology();
+        mesh.build_topology();
         
         Ok(mesh)
     }
@@ -445,7 +445,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> CsgGeometry<T> {
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive> Clone for CsgGeometry<T> {
     fn clone(&self) -> Self {
         Self {
-            csg: self.csg,
+            csg: self.csg.clone(),
             _phantom: std::marker::PhantomData,
         }
     }

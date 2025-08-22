@@ -17,13 +17,12 @@ thiserror.workspace = true
 serde = { workspace = true, features = ["derive"] }
 petgraph.workspace = true
 indexmap.workspace = true
-# csgrs disabled - requires unstable Rust edition2024
-# csgrs = { version = "0.20", features = ["f64", "stl-io", "delaunay"], optional = true }
+# CSG support (optional)
+csgrs = { version = "0.20", features = ["f64", "stl-io", "delaunay"], optional = true }
 
 [features]
 default = []
-# CSG feature disabled due to dependency issues
-csg = []
+csg = ["csgrs"]
 
 [dev-dependencies]
 proptest.workspace = true

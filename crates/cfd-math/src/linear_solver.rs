@@ -21,7 +21,7 @@
 
 use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
-use nalgebra_sparse::{CsrMatrix, CooMatrix};
+use nalgebra_sparse::CsrMatrix;
 use num_traits::cast::FromPrimitive;
 use std::fmt::Debug;
 use crate::sparse::SparseMatrixExt;
