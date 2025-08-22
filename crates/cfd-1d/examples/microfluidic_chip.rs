@@ -9,41 +9,44 @@
 //!
 //! Run with: cargo run --example microfluidic_chip
 
-use cfd_1d::{NetworkBuilder, NetworkSolver, ChannelProperties};
+use cfd_1d::{NetworkBuilder, NetworkSolver, ChannelProperties, Node, NodeType, NetworkProblem};
 use cfd_core::fluid::Fluid;
+use cfd_core::BoundaryCondition;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Microfluidic Chip Simulation");
     println!("================================");
 
     // Create a simple but functional microfluidic network
-    let mut network = NetworkBuilder::new()
-        .with_fluid(Fluid::water())
-
+    let fluid = Fluid::water();
+    let mut network = NetworkBuilder::new(fluid)
         // Standard T-junction network
-        .add_inlet_pressure("inlet", 0.0, 0.0, 2000.0)  // 2 kPa
-        .add_junction("junction", 2.0, 0.0)
-        .add_outlet_pressure("outlet_1", 4.0, 1.0, 0.0)
-        .add_outlet_pressure("outlet_2", 4.0, -1.0, 0.0)
-
+        .add_node(Node::new("inlet".to_string(), NodeType::Inlet))
+        .add_node(Node::new("junction".to_string(), NodeType::Junction))
+        .add_node(Node::new("outlet_1".to_string(), NodeType::Outlet))
+        .add_node(Node::new("outlet_2".to_string(), NodeType::Outlet))
         // Channels connecting the network with self-documenting properties
-        .add_channel("input_ch", "inlet", "junction", ChannelProperties::new(100.0, 0.001, 100e-6))
-        .add_channel("output_ch1", "junction", "outlet_1", ChannelProperties::new(200.0, 0.001, 100e-6))
-        .add_channel("output_ch2", "junction", "outlet_2", ChannelProperties::new(200.0, 0.001, 100e-6))
-
-        .build()?;
+        .add_edge("inlet", "junction", ChannelProperties::new(100.0, 0.001, 100e-6))?
+        .add_edge("junction", "outlet_1", ChannelProperties::new(200.0, 0.001, 100e-6))?
+        .add_edge("junction", "outlet_2", ChannelProperties::new(200.0, 0.001, 100e-6))?
+        .build();
 
     println!("✅ Network created successfully!");
     println!("   - Nodes: {}", network.node_count());
     println!("   - Edges: {}", network.edge_count());
     println!("   - Fluid: {}", network.fluid().name.clone());
+    
+    // Set boundary conditions
+    network.set_boundary_condition("inlet", BoundaryCondition::PressureInlet { pressure: 2000.0 })?;
+    network.set_boundary_condition("outlet_1", BoundaryCondition::PressureOutlet { pressure: 0.0 })?;
+    network.set_boundary_condition("outlet_2", BoundaryCondition::PressureOutlet { pressure: 0.0 })?;
 
     // Create solver with custom configuration using builder pattern
     let solver_config = cfd_core::solver::SolverConfig::<f64>::builder()
         .max_iterations(1000)
         .tolerance(1e-6)
-        .verbosity(2) // verbose = true means verbosity level 2
-        .build(); // Clean, unambiguous method name
+        .verbose(true)
+        .build();
     
     let solver = NetworkSolver::with_config(solver_config);
 

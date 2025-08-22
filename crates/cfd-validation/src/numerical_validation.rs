@@ -426,10 +426,9 @@ impl LinearSolverValidator {
         };
 
         // RHS for manufactured solution u(x) = x(1-x)
-        let _pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
-        let b = DVector::from_iterator(n, (1..=n).map(|i| {
-            let _x = T::from_usize(i).unwrap_or_else(|| T::zero()) * h;
-            T::from_f64(2.0).unwrap_or_else(|| T::zero()) // f(x) = 2 for u(x) = x(1-x)
+        let b = DVector::from_iterator(n, (1..=n).map(|_i| {
+            // For the manufactured solution u(x) = x(1-x), the Laplacian is -2
+            T::from_f64(2.0).unwrap_or_else(|| T::zero())
         }));
 
         // Analytical solution
