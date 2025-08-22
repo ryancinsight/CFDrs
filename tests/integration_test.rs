@@ -3,6 +3,7 @@
 
 use cfd_suite::prelude::*;
 use cfd_suite::core::Result;
+use cfd_1d::solver::NetworkProblem;
 
 #[test]
 fn test_1d_network_integration() -> Result<()> {
