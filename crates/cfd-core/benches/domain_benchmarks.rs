@@ -86,7 +86,9 @@ fn benchmark_time_integration(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(forward_euler.advance(&current, &derivative, dt))
+                    let mut state = current.clone();
+                    let _ = forward_euler.step(&mut state, 0.0, dt, |_, s| derivative(s));
+                    black_box(state)
                 })
             },
         );
@@ -96,7 +98,9 @@ fn benchmark_time_integration(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(rk4.advance(&current, &derivative, dt))
+                    let mut state = current.clone();
+                    let _ = rk4.step(&mut state, 0.0, dt, |_, s| derivative(s));
+                    black_box(state)
                 })
             },
         );

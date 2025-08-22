@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
 use cfd_math::{
-    linear_solver::{LinearSolver, ConjugateGradient, GMRES, BiCGSTAB},
+    linear_solver::{LinearSolver, ConjugateGradient, BiCGSTAB},
     sparse::{SparseMatrix, SparseMatrixBuilder},
     interpolation::{Interpolation, LinearInterpolation, CubicSplineInterpolation},
     integration::{Quadrature, GaussQuadrature},

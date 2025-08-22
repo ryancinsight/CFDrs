@@ -1,10 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
 use cfd_2d::{
-    grid::{StructuredGrid, BoundaryCondition},
-    fdm::{PoissonSolver, AdvectionDiffusionSolver},
-    fvm::FvmSolver,
-    lbm::{LbmSolver, D2Q9},
-    pressure_velocity_coupling::{PressureVelocityCouplerSolver, PressureVelocityCouplingConfig},
+    grid::{StructuredGrid2D, BoundaryType},
+    solvers::{FdmSolver, FvmSolver, lbm::{LbmSolver, LbmConfig}},
+    pressure_velocity::{PressureVelocitySolver, PressureVelocityConfig},
 };
 use nalgebra::Vector2;
 
@@ -119,8 +117,9 @@ fn benchmark_pressure_velocity_coupling(c: &mut Criterion) {
     let mut group = c.benchmark_group("standard_solver");
     
     for size in [25, 50, 100].iter() {
-        let config = StandardConfig::default();
-        let mut standard_solver = StandardSolver::new(config, *size, *size);
+        let config = PressureVelocityConfig::default();
+        let grid = StructuredGrid2D::new(*size, *size, 1.0 / (*size as f64), 1.0 / (*size as f64));
+        let mut standard_solver = PressureVelocitySolver::new(config, &grid);
         
         group.bench_with_input(
             BenchmarkId::new("pvc_single_iteration", size),
