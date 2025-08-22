@@ -595,7 +595,7 @@ mod tests {
 
     #[test]
     fn test_1d_poisson_validation_rejects_invalid_matrix() {
-        let a = create_test_matrix(); // This is a 3x3 tridiagonal matrix: should actually pass validation
+        let _a = create_test_matrix(); // This is a 3x3 tridiagonal matrix: should actually pass validation
         
         // The test matrix we created is actually tridiagonal, so let's create a non-tridiagonal matrix
         let mut builder = crate::sparse::SparseMatrixBuilder::new(3, 3);

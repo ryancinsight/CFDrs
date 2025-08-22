@@ -49,16 +49,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Solve the flow problem
     println!("\n🔄 Solving flow equations...");
-    let result = solver.solve_steady_state(&mut network)?;
-
-    if result.converged {
-        println!("✅ Solution converged in {} iterations", result.iterations);
-        println!("   - Final residual: {:.2e}", result.residual);
-        println!("   - Solve time: {:.3} ms", result.solve_time * 1000.0);
-    } else {
-        println!("❌ Solution did not converge");
-        return Ok(());
-    }
+    let problem = NetworkProblem::new(network);
+    let solved_network = solver.solve_network(&problem)?;
+    
+    println!("✅ Solution completed");
+    network = solved_network;
 
     // Display results
     println!("\n📊 Flow Analysis Results");
