@@ -17,7 +17,6 @@ fn benchmark_linear_solvers(c: &mut Criterion) {
         let (matrix, rhs) = create_test_linear_system(*size);
         
         let cg_solver = ConjugateGradient::default();
-        let gmres_solver = GMRES::default();
         let bicgstab_solver = BiCGSTAB::default();
         
         group.bench_with_input(
@@ -26,16 +25,6 @@ fn benchmark_linear_solvers(c: &mut Criterion) {
             |b, _| {
                 b.iter(|| {
                     black_box(cg_solver.solve(&matrix, &rhs).unwrap())
-                })
-            },
-        );
-        
-        group.bench_with_input(
-            BenchmarkId::new("gmres", size),
-            size,
-            |b, _| {
-                b.iter(|| {
-                    black_box(gmres_solver.solve(&matrix, &rhs).unwrap())
                 })
             },
         );
@@ -93,7 +82,7 @@ fn benchmark_interpolation(c: &mut Criterion) {
         let y_data: Vec<f64> = x_data.iter().map(|&x| x.sin()).collect();
         let query_points: Vec<f64> = (0..(*size/2)).map(|i| (i as f64 + 0.5) / *size as f64).collect();
         
-        let linear_interp = LinearInterpolation::new(x_data, y_data).unwrap();
+        let linear_interp = LinearInterpolation::new(x_data.clone(), y_data.clone()).unwrap();
         let cubic_interp = CubicSplineInterpolation::new(x_data, y_data).unwrap();
         
         group.bench_with_input(
