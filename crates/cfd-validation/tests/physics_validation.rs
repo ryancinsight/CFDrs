@@ -3,7 +3,7 @@
 //! This module contains comprehensive tests validating the physics implementations
 //! against known analytical solutions and literature references.
 
-use cfd_validation::analytical::{TaylorGreenVortex, PoiseuilleFLow, CouetteFlow};
+use cfd_validation::analytical::{TaylorGreenVortex, PoiseuilleFlow, CouetteFlow, AnalyticalSolution};
 use nalgebra::Vector3;
 use approx::assert_relative_eq;
 
@@ -15,7 +15,7 @@ mod poiseuille_flow {
     /// Reference: White, F.M. (2006). Viscous Fluid Flow, 3rd ed.
     #[test]
     fn test_poiseuille_velocity_profile() {
-        let solution = PoiseuilleFLow::<f64>::new(
+        let solution = PoiseuilleFlow::<f64>::new(
             1.0,    // channel_height
             0.001,  // viscosity
             -1.0,   // pressure_gradient
@@ -39,7 +39,7 @@ mod poiseuille_flow {
     
     #[test]
     fn test_poiseuille_flow_rate() {
-        let solution = PoiseuilleFLow::<f64>::new(
+        let solution = PoiseuilleFlow::<f64>::new(
             1.0,    // channel_height
             0.001,  // viscosity  
             -1.0,   // pressure_gradient
@@ -71,9 +71,11 @@ mod couette_flow {
     #[test]
     fn test_couette_linear_profile() {
         let solution = CouetteFlow::<f64>::new(
-            1.0,  // gap_height
             1.0,  // wall_velocity
+            1.0,  // gap_height
             0.0,  // pressure_gradient (pure Couette flow)
+            0.001, // viscosity
+            1.0,  // length
         );
         
         // Test linear velocity profile
@@ -90,9 +92,11 @@ mod couette_flow {
     #[test]
     fn test_couette_with_pressure() {
         let solution = CouetteFlow::<f64>::new(
-            1.0,   // gap_height
             1.0,   // wall_velocity
+            1.0,   // gap_height
             -0.5,  // pressure_gradient
+            0.001, // viscosity
+            1.0,   // length
         );
         
         // Test combined Couette-Poiseuille flow

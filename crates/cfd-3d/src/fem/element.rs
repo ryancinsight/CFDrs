@@ -140,7 +140,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
         
         if self.nodes.len() == 4 {
             // Tetrahedral element
-            let two = T::from_f64(2.0).unwrap_or_else(T::one);
+            let _two = T::from_f64(2.0).unwrap_or_else(T::one);
             let factor = viscosity * self.volume;
             
             // Build B matrix (strain-displacement matrix)

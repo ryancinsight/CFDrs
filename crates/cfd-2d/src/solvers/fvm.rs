@@ -320,7 +320,6 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
                 // Add flux contribution from boundary face
                 // For simplicity, assume boundary is aligned with grid
                 let boundary_area = if i == 0 || i == grid.nx() - 1 { dy } else { dx };
-                let _boundary_distance = if i == 0 || i == grid.nx() - 1 { dx / T::from_f64(2.0).unwrap_or_else(|| T::zero()) } else { dy / T::from_f64(2.0).unwrap_or_else(|| T::zero()) };
 
                 // Flux = -Γ * ∂φ/∂n * Area, discretized as: -Γ * gradient * Area
                 source_term += *gradient * boundary_area;
@@ -340,7 +339,6 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
             }
             BoundaryCondition::Outflow | BoundaryCondition::Symmetry => {
                 // Zero gradient condition: ∂φ/∂n = 0 (proper Neumann implementation)
-                let _zero_gradient = T::zero();
                 let mut diagonal = T::zero();
 
                 // Add contributions from interior neighbors only

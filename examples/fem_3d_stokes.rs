@@ -126,12 +126,7 @@ fn create_unit_cube_mesh() -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
     // Create faces (not strictly necessary for FEM, but good for completeness)
     let faces = vec![];
     
-    let topology = cfd_mesh::MeshTopology {
-        num_vertices: vertices.len(),
-        num_edges: 0,
-        num_faces: faces.len(),
-        num_cells: cells.len(),
-    };
+    let topology = cfd_mesh::MeshTopology::default();
     
     Ok(Mesh {
         vertices,

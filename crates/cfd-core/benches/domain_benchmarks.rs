@@ -71,11 +71,11 @@ fn benchmark_numerical_schemes(c: &mut Criterion) {
 }
 
 fn benchmark_time_integration(c: &mut Criterion) {
+    use nalgebra::DVector;
     let mut group = c.benchmark_group("time_integration");
     
-    for size in [1000, 10000, 100000].iter() {
-        let current: Vec<f64> = vec![1.0; *size];
-        let derivative: Vec<f64> = vec![0.1; *size];
+    for size in [100, 1000, 10000].iter() {
+        let current = DVector::from_element(*size, 1.0);
         let dt = 0.001;
         
         let forward_euler = time_integration::ForwardEuler;
@@ -86,7 +86,9 @@ fn benchmark_time_integration(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(forward_euler.advance(&current, &derivative, dt))
+                    let derivative: DVector<f64> = &current * (-0.1);
+                    let result = forward_euler.advance(current.as_slice(), derivative.as_slice(), dt);
+                    black_box(result)
                 })
             },
         );
@@ -96,7 +98,11 @@ fn benchmark_time_integration(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(rk4.advance(&current, &derivative, dt))
+                    let derivative_fn = |_t: f64, state: &[f64]| -> Vec<f64> {
+                        state.iter().map(|&x| x * (-0.1)).collect()
+                    };
+                    let result = rk4.advance_with_function(current.as_slice(), derivative_fn, 0.0, dt);
+                    black_box(result)
                 })
             },
         );
