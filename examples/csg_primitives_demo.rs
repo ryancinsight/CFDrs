@@ -1,134 +1,128 @@
-//! CSG demonstration using csgrs
+//! CSG demonstration using cfd_mesh CSG wrapper
 //!
-//! This example demonstrates basic usage of the csgrs library
+//! This example demonstrates basic usage of the CFD mesh CSG wrapper
 //! for creating and manipulating 3D geometries.
 
+#![allow(missing_docs)]
+
+use cfd_mesh::csg::{CsgOperator, CsgBuilder, CsgError};
+use nalgebra::Vector3;
 use std::fs;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🔧 CSG Demonstration");
-    println!("===================");
+fn main() -> Result<(), CsgError> {
+    println!("🔧 CSG Primitives Demonstration");
+    println!("==============================");
     
     // Create output directory
-    fs::create_dir_all("output/csg_primitives")?;
+    fs::create_dir_all("output/csg_primitives").map_err(|e| {
+        CsgError::ExportError(format!("Failed to create output directory: {}", e))
+    })?;
     
-    // Create basic shapes using csgrs
-    println!("Creating basic shapes...");
+    // Create CSG operator
+    let operator = CsgOperator::<f64>::new();
+    
+    // Create basic shapes
+    println!("\nCreating basic shapes...");
     
     // Create a cube
-    let cube = csgrs::Cube::new(2.0, 2.0, 2.0);
-    let cube_stl = cube.to_stl_ascii("cube");
-    fs::write("output/csg_primitives/cube.stl", cube_stl)?;
+    let cube = operator.create_cube(2.0, 2.0, 2.0)?;
+    let cube_stl = cube.to_stl("cube")?;
+    fs::write("output/csg_primitives/cube.stl", cube_stl)
+        .map_err(|e| CsgError::ExportError(format!("Failed to write cube STL: {}", e)))?;
     println!("✓ Cube created and exported");
     
     // Create a sphere
-    let sphere = csgrs::Sphere::new(1.0, 32, 16);
-    let sphere_stl = sphere.to_stl_ascii("sphere");
-    fs::write("output/csg_primitives/sphere.stl", sphere_stl)?;
+    let sphere = operator.create_sphere(1.0, 32, 16)?;
+    let sphere_stl = sphere.to_stl("sphere")?;
+    fs::write("output/csg_primitives/sphere.stl", sphere_stl)
+        .map_err(|e| CsgError::ExportError(format!("Failed to write sphere STL: {}", e)))?;
     println!("✓ Sphere created and exported");
     
     // Create a cylinder
-    let cylinder = csgrs::Cylinder::new(0.8, 3.0, 24);
-    let cylinder_stl = cylinder.to_stl_ascii("cylinder");
-    fs::write("output/simple_csg/cylinder.stl", cylinder_stl)?;
+    let cylinder = operator.create_cylinder(0.8, 3.0, 24)?;
+    let cylinder_stl = cylinder.to_stl("cylinder")?;
+    fs::write("output/csg_primitives/cylinder.stl", cylinder_stl)
+        .map_err(|e| CsgError::ExportError(format!("Failed to write cylinder STL: {}", e)))?;
     println!("✓ Cylinder created and exported");
+    
+    // Create a frustum (cone)
+    let cone = operator.create_frustum(1.0, 0.2, 2.0, 16)?;
+    let cone_stl = cone.to_stl("cone")?;
+    fs::write("output/csg_primitives/cone.stl", cone_stl)
+        .map_err(|e| CsgError::ExportError(format!("Failed to write cone STL: {}", e)))?;
+    println!("✓ Cone created and exported");
     
     // Perform boolean operations
     println!("\nPerforming boolean operations...");
     
     // Create two cubes for boolean operations
-    let cube1 = csgrs::Cube::new(2.0, 2.0, 2.0);
-    let mut cube2 = csgrs::Cube::new(1.5, 1.5, 1.5);
-    cube2.translate(0.5, 0.5, 0.5);
+    let cube1 = operator.create_cube(2.0, 2.0, 2.0)?;
+    let mut cube2 = operator.create_cube(1.5, 1.5, 1.5)?;
+    cube2.translate(&Vector3::new(0.5, 0.5, 0.5))?;
     
     // Union
     let union_result = cube1.union(&cube2);
-    let union_stl = union_result.to_stl_ascii("union");
-    fs::write("output/simple_csg/union.stl", union_stl)?;
+    let union_stl = union_result.to_stl("union")?;
+    fs::write("output/csg_primitives/union.stl", union_stl)
+        .map_err(|e| CsgError::ExportError(format!("Failed to write union STL: {}", e)))?;
     println!("✓ Union operation completed");
     
+    // Create fresh cubes for difference
+    let cube3 = operator.create_cube(2.0, 2.0, 2.0)?;
+    let mut cube4 = operator.create_cube(1.5, 1.5, 1.5)?;
+    cube4.translate(&Vector3::new(0.5, 0.5, 0.5))?;
+    
     // Difference
-    let cube3 = csgrs::Cube::new(2.0, 2.0, 2.0);
-    let sphere_hole = csgrs::Sphere::new(1.0, 24, 12);
-    let difference_result = cube3.difference(&sphere_hole);
-    let diff_stl = difference_result.to_stl_ascii("cube_with_hole");
-    fs::write("output/simple_csg/cube_with_hole.stl", diff_stl)?;
+    let difference_result = cube3.difference(&cube4);
+    let difference_stl = difference_result.to_stl("difference")?;
+    fs::write("output/csg_primitives/difference.stl", difference_stl)
+        .map_err(|e| CsgError::ExportError(format!("Failed to write difference STL: {}", e)))?;
     println!("✓ Difference operation completed");
     
+    // Create fresh cubes for intersection
+    let cube5 = operator.create_cube(2.0, 2.0, 2.0)?;
+    let mut cube6 = operator.create_cube(1.5, 1.5, 1.5)?;
+    cube6.translate(&Vector3::new(0.5, 0.5, 0.5))?;
+    
     // Intersection
-    let cube4 = csgrs::Cube::new(2.0, 2.0, 2.0);
-    let sphere2 = csgrs::Sphere::new(1.5, 24, 12);
-    let intersection_result = cube4.intersection(&sphere2);
-    let intersect_stl = intersection_result.to_stl_ascii("intersection");
-    fs::write("output/simple_csg/intersection.stl", intersect_stl)?;
+    let intersection_result = cube5.intersection(&cube6);
+    let intersection_stl = intersection_result.to_stl("intersection")?;
+    fs::write("output/csg_primitives/intersection.stl", intersection_stl)
+        .map_err(|e| CsgError::ExportError(format!("Failed to write intersection STL: {}", e)))?;
     println!("✓ Intersection operation completed");
     
-    // Transformations
-    println!("\nApplying transformations...");
+    // Complex example: Create a hollowed sphere
+    println!("\nCreating complex geometry...");
     
-    let mut transformed_cube = csgrs::Cube::new(1.0, 1.0, 1.0);
+    let outer_sphere = operator.create_sphere(1.5, 32, 16)?;
+    let inner_sphere = operator.create_sphere(1.2, 32, 16)?;
+    let hollow_sphere = outer_sphere.difference(&inner_sphere);
     
-    // Translation
-    transformed_cube.translate(2.0, 0.0, 0.0);
-    let translated_stl = transformed_cube.to_stl_ascii("translated_cube");
-    fs::write("output/simple_csg/translated_cube.stl", translated_stl)?;
-    println!("✓ Translation applied");
+    // Add a window by cutting with a cube
+    let mut window_cube = operator.create_cube(1.0, 2.0, 1.0)?;
+    window_cube.translate(&Vector3::new(0.8, 0.0, 0.0))?;
     
-    // Rotation
-    transformed_cube.rotate(0.0, 0.0, 1.0, std::f64::consts::PI / 4.0);
-    let rotated_stl = transformed_cube.to_stl_ascii("rotated_cube");
-    fs::write("output/simple_csg/rotated_cube.stl", rotated_stl)?;
-    println!("✓ Rotation applied");
+    let windowed_sphere = hollow_sphere.difference(&window_cube);
+    let complex_stl = windowed_sphere.to_stl("windowed_hollow_sphere")?;
+    fs::write("output/csg_primitives/windowed_hollow_sphere.stl", complex_stl)
+        .map_err(|e| CsgError::ExportError(format!("Failed to write complex STL: {}", e)))?;
+    println!("✓ Complex geometry created");
     
-    // Scaling
-    transformed_cube.scale(1.5, 1.0, 0.8);
-    let scaled_stl = transformed_cube.to_stl_ascii("scaled_cube");
-    fs::write("output/simple_csg/scaled_cube.stl", scaled_stl)?;
-    println!("✓ Scaling applied");
+    // Using the builder pattern
+    println!("\nUsing builder pattern...");
     
-    // Create a complex CFD-relevant geometry
-    println!("\nCreating CFD-relevant geometry...");
+    let built_geometry = CsgBuilder::<f64>::new()
+        .cube(1.0, 1.0, 1.0)?
+        .translate(Vector3::new(0.0, 0.0, 1.0))?
+        .build()?;
     
-    // Flow domain with obstacle
-    let flow_domain = csgrs::Cube::new(10.0, 4.0, 1.0);
-    let obstacle = csgrs::Cylinder::new(0.5, 1.2, 32);
-    let flow_geometry = flow_domain.difference(&obstacle);
-    let flow_stl = flow_geometry.to_stl_ascii("flow_around_cylinder");
-    fs::write("output/simple_csg/flow_around_cylinder.stl", flow_stl)?;
-    println!("✓ Flow domain with cylindrical obstacle created");
+    let builder_stl = built_geometry.to_stl("builder_result")?;
+    fs::write("output/csg_primitives/builder_result.stl", builder_stl)
+        .map_err(|e| CsgError::ExportError(format!("Failed to write builder STL: {}", e)))?;
+    println!("✓ Builder pattern geometry created");
     
-    // Pipe with elbow
-    let straight_pipe = csgrs::Cylinder::new(0.5, 4.0, 24);
-    let mut elbow_pipe = csgrs::Cylinder::new(0.5, 3.0, 24);
-    elbow_pipe.rotate(0.0, 1.0, 0.0, std::f64::consts::PI / 2.0);
-    elbow_pipe.translate(1.5, 0.0, 2.0);
-    
-    let pipe_system = straight_pipe.union(&elbow_pipe);
-    let pipe_stl = pipe_system.to_stl_ascii("pipe_elbow");
-    fs::write("output/simple_csg/pipe_elbow.stl", pipe_stl)?;
-    println!("✓ Pipe with elbow created");
-    
-    // Heat exchanger fin array
-    let base_plate = csgrs::Cube::new(3.0, 0.1, 2.0);
-    let mut fin_assembly = base_plate;
-    
-    for i in 0..5 {
-        let mut fin = csgrs::Cube::new(0.05, 1.0, 1.8);
-        fin.translate(-1.0 + i as f64 * 0.5, 0.5, 0.0);
-        fin_assembly = fin_assembly.union(&fin);
-    }
-    
-    let fin_stl = fin_assembly.to_stl_ascii("heat_exchanger");
-    fs::write("output/simple_csg/heat_exchanger.stl", fin_stl)?;
-    println!("✓ Heat exchanger fin array created");
-    
-    println!("\n✅ All CSG operations completed successfully!");
-    println!("📁 STL files saved to: output/simple_csg/");
-    println!("\nFiles created:");
-    println!("  - Primitive shapes: cube.stl, sphere.stl, cylinder.stl");
-    println!("  - Boolean operations: union.stl, cube_with_hole.stl, intersection.stl");
-    println!("  - Transformations: translated_cube.stl, rotated_cube.stl, scaled_cube.stl");
-    println!("  - CFD geometries: flow_around_cylinder.stl, pipe_elbow.stl, heat_exchanger.stl");
+    println!("\n✅ All CSG primitives demonstrations completed successfully!");
+    println!("   Check the output/csg_primitives directory for STL files.");
     
     Ok(())
 }
