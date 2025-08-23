@@ -44,13 +44,13 @@ pub mod turbulence {
     /// Wall function constant
     pub const E_WALL: f64 = cfd_core::constants::fluid::WALL_FUNCTION_E;
     
-    /// k-epsilon model constant C_mu
+    /// k-epsilon model constant `C_mu`
     pub const C_MU: f64 = 0.09;
     
-    /// k-epsilon model constant C_1e
+    /// k-epsilon model constant `C_1e`
     pub const C1_EPSILON: f64 = 1.44;
     
-    /// k-epsilon model constant C_2e
+    /// k-epsilon model constant `C_2e`
     pub const C2_EPSILON: f64 = 1.92;
     
     /// Turbulent Prandtl number for k

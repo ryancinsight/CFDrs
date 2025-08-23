@@ -49,7 +49,7 @@ impl VtkCellType {
             9 => Ok(VtkCellType::Quad),
             10 => Ok(VtkCellType::Tetrahedron),
             12 => Ok(VtkCellType::Hexahedron),
-            _ => Err(Error::InvalidInput(format!("Unknown VTK cell type: {}", value))),
+            _ => Err(Error::InvalidInput(format!("Unknown VTK cell type: {value}"))),
         }
     }
 }
@@ -82,7 +82,7 @@ pub struct VtkMesh<T: RealField + Copy> {
 
 impl<T: RealField + Copy> VtkMesh<T> {
     /// Create new VTK mesh
-    pub fn new(points: Vec<T>, cells: Vec<Vec<usize>>, cell_types: Vec<VtkCellType>) -> Self {
+    #[must_use] pub fn new(points: Vec<T>, cells: Vec<Vec<usize>>, cell_types: Vec<VtkCellType>) -> Self {
         Self {
             points,
             cells,
@@ -91,12 +91,12 @@ impl<T: RealField + Copy> VtkMesh<T> {
     }
 
     /// Get number of points
-    pub fn num_points(&self) -> usize {
+    #[must_use] pub fn num_points(&self) -> usize {
         self.points.len() / 3
     }
 
     /// Get number of cells
-    pub fn num_cells(&self) -> usize {
+    #[must_use] pub fn num_cells(&self) -> usize {
         self.cells.len()
     }
 
@@ -114,7 +114,7 @@ impl<T: RealField + Copy> VtkMesh<T> {
     }
 
     /// Get point coordinates by index
-    pub fn point(&self, index: usize) -> Option<[&T; 3]> {
+    #[must_use] pub fn point(&self, index: usize) -> Option<[&T; 3]> {
         if index * 3 + 2 < self.points.len() {
             Some([
                 &self.points[index * 3],
@@ -155,7 +155,7 @@ pub struct VtkWriter<T: RealField + Copy> {
 
 impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
     /// Create a new VTK writer
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
@@ -168,7 +168,7 @@ impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
 
         // Write header
         writeln!(writer, "# vtk DataFile Version 3.0")?;
-        writeln!(writer, "{}", title)?;
+        writeln!(writer, "{title}")?;
         writeln!(writer, "ASCII")?;
         writeln!(writer, "DATASET UNSTRUCTURED_GRID")?;
         writeln!(writer)?;
@@ -190,7 +190,7 @@ impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
         for cell in &mesh.cells {
             write!(writer, "{}", cell.len())?;
             for &vertex_id in cell {
-                write!(writer, " {}", vertex_id)?;
+                write!(writer, " {vertex_id}")?;
             }
             writeln!(writer)?;
         }
@@ -228,7 +228,7 @@ impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
 
         // Write point data
         writeln!(writer, "POINT_DATA {}", mesh.num_points())?;
-        writeln!(writer, "SCALARS {} float 1", field_name)?;
+        writeln!(writer, "SCALARS {field_name} float 1")?;
         writeln!(writer, "LOOKUP_TABLE default")?;
         for value in field_data {
             writeln!(writer, "{}", value.to_f64().unwrap_or(0.0))?;
@@ -260,7 +260,7 @@ impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
 
         // Write point data
         writeln!(writer, "POINT_DATA {}", mesh.num_points())?;
-        writeln!(writer, "VECTORS {} float", field_name)?;
+        writeln!(writer, "VECTORS {field_name} float")?;
         for (x, y, z) in field_data {
             writeln!(writer, "{} {} {}", 
                 x.to_f64().unwrap_or(0.0),
@@ -275,7 +275,7 @@ impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
     fn write_mesh_data(&self, writer: &mut BufWriter<File>, mesh: &VtkMesh<T>, title: &str) -> Result<()> {
         // Write header
         writeln!(writer, "# vtk DataFile Version 3.0")?;
-        writeln!(writer, "{}", title)?;
+        writeln!(writer, "{title}")?;
         writeln!(writer, "ASCII")?;
         writeln!(writer, "DATASET UNSTRUCTURED_GRID")?;
         writeln!(writer)?;
@@ -297,7 +297,7 @@ impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
         for cell in &mesh.cells {
             write!(writer, "{}", cell.len())?;
             for &vertex_id in cell {
-                write!(writer, " {}", vertex_id)?;
+                write!(writer, " {vertex_id}")?;
             }
             writeln!(writer)?;
         }
@@ -327,7 +327,7 @@ pub struct VtkReader<T: RealField + Copy> {
 
 impl<T: RealField + Copy> VtkReader<T> {
     /// Create a new VTK reader
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
@@ -351,7 +351,7 @@ impl<T: RealField + Copy> VtkReader<T> {
         }
     }
 
-    /// Read VTK file header from a BufReader
+    /// Read VTK file header from a `BufReader`
     fn read_header_from_reader(&self, reader: &mut BufReader<File>) -> Result<VtkHeader> {
         let mut lines = reader.lines();
 
@@ -366,7 +366,7 @@ impl<T: RealField + Copy> VtkReader<T> {
         if !version.starts_with("# vtk DataFile Version") {
             return Err(Error::IoError(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                format!("Invalid VTK version line: {}", version),
+                format!("Invalid VTK version line: {version}"),
             )));
         }
         
@@ -399,7 +399,7 @@ impl<T: RealField + Copy> VtkReader<T> {
     fn parse_line<V: FromStr>(&self, line: &str, context: &str) -> Result<Vec<V>> {
         line.split_whitespace()
             .map(|s| s.parse::<V>().map_err(|_| 
-                Error::InvalidInput(format!("Failed to parse '{}' in {}", s, context))
+                Error::InvalidInput(format!("Failed to parse '{s}' in {context}"))
             ))
             .collect()
     }
@@ -426,7 +426,7 @@ impl<T: RealField + Copy> VtkReader<T> {
                 for i in 0..n_points {
                     if let Some(point_line) = lines.next() {
                         let coords: Vec<f64> = self.parse_line(&point_line?, 
-                            &format!("point {} coordinates", i))?;
+                            &format!("point {i} coordinates"))?;
                         
                         if coords.len() < 3 {
                             return Err(Error::InvalidInput(
@@ -449,7 +449,7 @@ impl<T: RealField + Copy> VtkReader<T> {
                             ))?);
                     } else {
                         return Err(Error::InvalidInput(
-                            format!("Missing point data for point {}", i)
+                            format!("Missing point data for point {i}")
                         ));
                     }
                 }
@@ -464,11 +464,11 @@ impl<T: RealField + Copy> VtkReader<T> {
                 for i in 0..n_cells {
                     if let Some(cell_line) = lines.next() {
                         let indices: Vec<usize> = self.parse_line(&cell_line?, 
-                            &format!("cell {} connectivity", i))?;
+                            &format!("cell {i} connectivity"))?;
                         
                         if indices.is_empty() {
                             return Err(Error::InvalidInput(
-                                format!("Cell {} has no connectivity data", i)
+                                format!("Cell {i} has no connectivity data")
                             ));
                         }
                         
@@ -476,7 +476,7 @@ impl<T: RealField + Copy> VtkReader<T> {
                         cells.push(indices.into_iter().skip(1).collect());
                     } else {
                         return Err(Error::InvalidInput(
-                            format!("Missing cell data for cell {}", i)
+                            format!("Missing cell data for cell {i}")
                         ));
                     }
                 }
@@ -491,17 +491,17 @@ impl<T: RealField + Copy> VtkReader<T> {
                 for i in 0..n_types {
                     if let Some(type_line) = lines.next() {
                         let cell_type_val: u8 = self.parse_line(&type_line?, 
-                            &format!("cell type {}", i))?
+                            &format!("cell type {i}"))?
                             .into_iter()
                             .next()
                             .ok_or_else(|| Error::InvalidInput(
-                                format!("Missing cell type value for cell {}", i)
+                                format!("Missing cell type value for cell {i}")
                             ))?;
                         
                         cell_types.push(VtkCellType::from_u8(cell_type_val)?);
                     } else {
                         return Err(Error::InvalidInput(
-                            format!("Missing cell type data for cell {}", i)
+                            format!("Missing cell type data for cell {i}")
                         ));
                     }
                 }
@@ -535,7 +535,7 @@ impl<T: RealField + Copy> VtkReader<T> {
                 for i in 0..n_points {
                     if let Some(point_line) = lines.next() {
                         let coords: Vec<f64> = self.parse_line(&point_line?, 
-                            &format!("point {} coordinates", i))?;
+                            &format!("point {i} coordinates"))?;
                         
                         if coords.len() < 3 {
                             return Err(Error::InvalidInput(
@@ -558,7 +558,7 @@ impl<T: RealField + Copy> VtkReader<T> {
                             ))?);
                     } else {
                         return Err(Error::InvalidInput(
-                            format!("Missing point data for point {}", i)
+                            format!("Missing point data for point {i}")
                         ));
                     }
                 }
@@ -588,7 +588,7 @@ impl<T: RealField + Copy> VtkReader<T> {
             "POLYDATA" => Ok(VtkDatasetType::PolyData),
             "RECTILINEAR_GRID" => Ok(VtkDatasetType::RectilinearGrid),
             unknown => Err(Error::InvalidConfiguration(
-                format!("Unknown dataset type: {}", unknown),
+                format!("Unknown dataset type: {unknown}"),
             )),
         }
     }
@@ -609,7 +609,7 @@ pub struct VtkMeshBuilder<T: RealField + Copy> {
 
 impl<T: RealField + Copy> VtkMeshBuilder<T> {
     /// Create new mesh builder
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             points: Vec::new(),
             cells: Vec::new(),
@@ -645,14 +645,14 @@ impl<T: RealField + Copy> VtkMeshBuilder<T> {
     }
 
     /// Add a cell
-    pub fn add_cell(mut self, connectivity: Vec<usize>, cell_type: VtkCellType) -> Self {
+    #[must_use] pub fn add_cell(mut self, connectivity: Vec<usize>, cell_type: VtkCellType) -> Self {
         self.cells.push(connectivity);
         self.cell_types.push(cell_type);
         self
     }
 
     /// Build the mesh
-    pub fn build(self) -> VtkMesh<T> {
+    #[must_use] pub fn build(self) -> VtkMesh<T> {
         VtkMesh::new(self.points, self.cells, self.cell_types)
     }
 }

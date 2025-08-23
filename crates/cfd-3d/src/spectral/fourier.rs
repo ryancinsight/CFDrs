@@ -54,7 +54,7 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
                 let phase = -two_pi * self.wavenumbers[k] * T::from_usize(j).unwrap_or_else(|| T::zero()) 
                     / T::from_usize(n).unwrap_or_else(|| T::zero());
                 let exp = Complex::new(phase.cos(), phase.sin());
-                sum = sum + exp * u[j];
+                sum += exp * u[j];
             }
             u_hat[k] = sum / T::from_usize(n).unwrap_or_else(|| T::zero());
         }
@@ -77,7 +77,7 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
                 let phase = two_pi * self.wavenumbers[k] * T::from_usize(j).unwrap_or_else(|| T::zero()) 
                     / T::from_usize(n).unwrap_or_else(|| T::zero());
                 let exp = Complex::new(phase.cos(), phase.sin());
-                sum = sum + exp * u_hat[k];
+                sum += exp * u_hat[k];
             }
             u[j] = sum.re;
         }
@@ -86,7 +86,7 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
     }
     
     /// Get wavenumbers
-    pub fn wavenumbers(&self) -> &[T] {
+    #[must_use] pub fn wavenumbers(&self) -> &[T] {
         &self.wavenumbers
     }
 }

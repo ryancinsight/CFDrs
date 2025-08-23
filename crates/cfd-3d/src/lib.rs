@@ -4,7 +4,7 @@
 //! This crate provides various 3D computational fluid dynamics solvers including:
 //! - Finite Element Method (FEM)
 //! - Spectral methods
-//! - Mesh integration with CSGrs via cfd-mesh
+//! - Mesh integration with `CSGrs` via cfd-mesh
 //! - Immersed Boundary Method (IBM)
 //! - Level Set Method
 //! - Volume of Fluid (VOF)

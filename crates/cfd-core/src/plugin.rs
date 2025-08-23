@@ -281,7 +281,7 @@ impl PluginMonitoring {
 
 /// Main plugin registry - single owner of all plugin data
 /// 
-/// To share between threads, wrap the entire registry in Arc<RwLock<PluginRegistry>>
+/// To share between threads, wrap the entire registry in Arc<`RwLock`<PluginRegistry>>
 pub struct PluginRegistry {
     storage: PluginStorage,
     resolver: DependencyResolver,
@@ -290,7 +290,7 @@ pub struct PluginRegistry {
 
 impl PluginRegistry {
     /// Create a new plugin registry
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             storage: PluginStorage::new(),
             resolver: DependencyResolver::new(),
@@ -301,7 +301,7 @@ impl PluginRegistry {
     /// Register a plugin
     pub fn register(&mut self, plugin: Arc<dyn Plugin>) -> Result<()> {
         let name = plugin.name().to_string();
-        let deps: Vec<String> = plugin.dependencies().iter().map(|s| s.to_string()).collect();
+        let deps: Vec<String> = plugin.dependencies().iter().map(|s| (*s).to_string()).collect();
         
         // Validate dependencies exist
         let available: Vec<String> = self.storage.list();
@@ -346,24 +346,24 @@ impl PluginRegistry {
     }
     
     /// Get a plugin by name
-    pub fn get(&self, name: &str) -> Option<&Arc<dyn Plugin>> {
+    #[must_use] pub fn get(&self, name: &str) -> Option<&Arc<dyn Plugin>> {
         self.storage.get(name)
     }
     
 
     
     /// List all registered plugins
-    pub fn list(&self) -> Vec<String> {
+    #[must_use] pub fn list(&self) -> Vec<String> {
         self.storage.list()
     }
     
     /// Get plugins in dependency order
-    pub fn get_load_order(&self) -> &[String] {
+    #[must_use] pub fn get_load_order(&self) -> &[String] {
         self.resolver.get_load_order()
     }
     
     /// Filter plugins by capability
-    pub fn filter_by_capability(&self, capability: &str) -> Vec<String> {
+    #[must_use] pub fn filter_by_capability(&self, capability: &str) -> Vec<String> {
         self.storage
             .plugins
             .iter()
@@ -388,17 +388,17 @@ impl PluginRegistry {
     }
     
     /// Get plugin health status
-    pub fn get_health(&self, plugin_name: &str) -> Option<&PluginHealthStatus> {
+    #[must_use] pub fn get_health(&self, plugin_name: &str) -> Option<&PluginHealthStatus> {
         self.monitoring.get_health(plugin_name)
     }
     
     /// Get plugin metrics
-    pub fn get_metrics(&self, plugin_name: &str) -> Option<&PluginMetrics> {
+    #[must_use] pub fn get_metrics(&self, plugin_name: &str) -> Option<&PluginMetrics> {
         self.monitoring.get_metrics(plugin_name)
     }
     
     /// Get a summary of system health
-    pub fn system_health_summary(&self) -> SystemHealthSummary {
+    #[must_use] pub fn system_health_summary(&self) -> SystemHealthSummary {
         let mut healthy = 0;
         let mut degraded = 0;
         let mut unhealthy = 0;

@@ -186,13 +186,13 @@ where
                 let max_change = self.compute_max_velocity_change(&previous_velocity);
                 
                 if self.config.verbose {
-                    println!("Step {}: max velocity change = {:e}", step, max_change);
+                    println!("Step {step}: max velocity change = {max_change:e}");
                 }
                 
                 if max_change < self.config.tolerance {
                     converged = true;
                     if self.config.verbose {
-                        println!("Converged after {} steps", step);
+                        println!("Converged after {step} steps");
                     }
                     break;
                 }

@@ -17,7 +17,7 @@ pub struct ElementMatrices<T: RealField + Copy> {
 
 impl<T: RealField + FromPrimitive + Copy> ElementMatrices<T> {
     /// Create new element matrices
-    pub fn new(n_dof: usize) -> Self {
+    #[must_use] pub fn new(n_dof: usize) -> Self {
         Self {
             k_e: DMatrix::zeros(n_dof, n_dof),
             m_e: DMatrix::zeros(n_dof, n_dof),
@@ -39,7 +39,7 @@ pub struct FluidElement<T: RealField + Copy> {
 
 impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
     /// Create new fluid element
-    pub fn new(nodes: Vec<usize>) -> Self {
+    #[must_use] pub fn new(nodes: Vec<usize>) -> Self {
         Self {
             nodes,
             volume: T::zero(),

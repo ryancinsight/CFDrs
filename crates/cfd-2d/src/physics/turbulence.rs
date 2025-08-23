@@ -33,7 +33,7 @@ pub mod constants {
     pub const Y_PLUS_LOG_LAW: f64 = cfd_core::constants::fluid::Y_PLUS_LAMINAR;
     /// K-epsilon coefficient for viscous sublayer
     pub const K_VISC_COEFFICIENT: f64 = 11.0;
-    /// SST model constant beta_1
+    /// SST model constant `beta_1`
     pub const SST_BETA_1: f64 = 0.075;
     /// Omega wall coefficient for viscous sublayer
     pub const OMEGA_WALL_COEFFICIENT: f64 = 60.0;
@@ -67,7 +67,7 @@ pub struct KEpsilonModel<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive + Copy> KEpsilonModel<T> {
     /// Create new k-ε model
-    pub fn new(nx: usize, ny: usize, wall_function: WallFunction) -> Self {
+    #[must_use] pub fn new(nx: usize, ny: usize, wall_function: WallFunction) -> Self {
         let k_init = T::from_f64(1e-4).unwrap_or_else(|| T::zero());
         let epsilon_init = T::from_f64(1e-6).unwrap_or_else(|| T::zero());
         
@@ -273,7 +273,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> KEpsilonModel<T> {
                 let df = -u_p / (u_tau * u_tau) - T::one() / (kappa * u_tau);
                 
                 let delta = f / df;
-                u_tau = u_tau - delta;
+                u_tau -= delta;
                 
                 if delta.abs() < tolerance {
                     break;

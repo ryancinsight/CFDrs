@@ -15,7 +15,7 @@ pub struct NetworkState<T: RealField + Copy> {
 
 impl<T: RealField + Copy> NetworkState<T> {
     /// Create a new network state
-    pub fn new(num_nodes: usize, num_edges: usize) -> Self {
+    #[must_use] pub fn new(num_nodes: usize, num_edges: usize) -> Self {
         Self {
             pressures: DVector::zeros(num_nodes),
             flow_rates: DVector::zeros(num_edges),

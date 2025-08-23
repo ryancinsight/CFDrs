@@ -21,8 +21,8 @@ pub trait ErrorMetric<T: RealField + Copy> {
         }
 
         // Extract magnitude for each vector
-        let num_magnitudes: Vec<T> = numerical.iter().map(|v| v.norm()).collect();
-        let ref_magnitudes: Vec<T> = reference.iter().map(|v| v.norm()).collect();
+        let num_magnitudes: Vec<T> = numerical.iter().map(nalgebra::Matrix::norm).collect();
+        let ref_magnitudes: Vec<T> = reference.iter().map(nalgebra::Matrix::norm).collect();
 
         self.compute_error(&num_magnitudes, &ref_magnitudes)
     }
@@ -222,7 +222,7 @@ pub enum NormalizationMethod {
 
 impl NormalizedRMSE {
     /// Create new normalized RMSE metric
-    pub fn new(method: NormalizationMethod) -> Self {
+    #[must_use] pub fn new(method: NormalizationMethod) -> Self {
         Self {
             normalization_method: method,
         }
@@ -346,8 +346,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorStatistics<T> {
         }
 
         // Extract magnitudes
-        let num_magnitudes: Vec<T> = numerical.iter().map(|v| v.norm()).collect();
-        let ref_magnitudes: Vec<T> = reference.iter().map(|v| v.norm()).collect();
+        let num_magnitudes: Vec<T> = numerical.iter().map(nalgebra::Matrix::norm).collect();
+        let ref_magnitudes: Vec<T> = reference.iter().map(nalgebra::Matrix::norm).collect();
 
         Self::compute(&num_magnitudes, &ref_magnitudes)
     }

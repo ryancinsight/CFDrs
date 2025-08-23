@@ -89,7 +89,7 @@ pub struct BenchmarkSuite<T: RealField + Copy> {
 
 impl<T: RealField + Copy> BenchmarkSuite<T> {
     /// Create a new benchmark suite
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             benchmarks: Vec::new(),
         }

@@ -28,9 +28,9 @@ impl<T: RealField + FromPrimitive + Copy> FluidProperties<T> {
         let mut stress = strain_rate * (two * self.mu);
         
         // Add pressure contribution to diagonal
-        stress[(0, 0)] = stress[(0, 0)] - pressure;
-        stress[(1, 1)] = stress[(1, 1)] - pressure;
-        stress[(2, 2)] = stress[(2, 2)] - pressure;
+        stress[(0, 0)] -= pressure;
+        stress[(1, 1)] -= pressure;
+        stress[(2, 2)] -= pressure;
         
         stress
     }

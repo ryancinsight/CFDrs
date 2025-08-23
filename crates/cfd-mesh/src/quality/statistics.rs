@@ -37,7 +37,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityStatistics<T> {
         sorted.sort_by(|a, b| a.partial_cmp(b).expect("NaN in samples"));
         
         let count = samples.len();
-        let sum: T = samples.iter().cloned().sum();
+        let sum: T = samples.iter().copied().sum();
         let mean = sum / T::from_usize(count).unwrap_or_else(|| T::one());
         
         let variance: T = samples.iter()
@@ -92,9 +92,15 @@ pub struct RunningStats<T: RealField + Copy> {
     max: T,
 }
 
+impl<T: RealField + Copy + Float + Sum + FromPrimitive> Default for RunningStats<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy + Float + Sum + FromPrimitive> RunningStats<T> {
     /// Create new running statistics
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             count: 0,
             mean: T::zero(),
@@ -108,9 +114,9 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> RunningStats<T> {
     pub fn push(&mut self, value: T) {
         self.count += 1;
         let delta = value - self.mean;
-        self.mean = self.mean + delta / T::from_usize(self.count).unwrap_or_else(|| T::one());
+        self.mean += delta / T::from_usize(self.count).unwrap_or_else(|| T::one());
         let delta2 = value - self.mean;
-        self.m2 = self.m2 + delta * delta2;
+        self.m2 += delta * delta2;
         
         self.min = Float::min(self.min, value);
         self.max = Float::max(self.max, value);

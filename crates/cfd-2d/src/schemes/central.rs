@@ -9,9 +9,15 @@ pub struct CentralDifference<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+impl<T: RealField + Copy> Default for CentralDifference<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy> CentralDifference<T> {
     /// Create new central difference scheme
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
@@ -38,9 +44,15 @@ pub struct FourthOrderCentral<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+impl<T: RealField + Copy> Default for FourthOrderCentral<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy> FourthOrderCentral<T> {
     /// Create new fourth-order central scheme
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }

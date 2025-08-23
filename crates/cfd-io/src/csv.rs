@@ -18,7 +18,7 @@ pub struct CsvWriter<T: RealField + Copy> {
 
 impl<T: RealField + Copy> CsvWriter<T> {
     /// Create a new CSV writer
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
@@ -45,7 +45,7 @@ impl<T: RealField + Copy> CsvWriter<T> {
         // Write data rows using iterator
         for row in data {
             let string_row: Vec<String> = row.iter()
-                .map(|val| val.to_string())
+                .map(std::string::ToString::to_string)
                 .collect();
             writer.write_record(&string_row)
                 .map_err(|e| Error::CsvError(e.to_string()))?;
@@ -103,7 +103,7 @@ impl StreamWriter {
     /// Write a single row
     pub fn write_row<T: std::fmt::Display>(&mut self, row: &[T]) -> Result<()> {
         let string_row: Vec<String> = row.iter()
-            .map(|val| val.to_string())
+            .map(std::string::ToString::to_string)
             .collect();
         self.writer.write_record(&string_row)
             .map_err(|e| Error::CsvError(e.to_string()))?;
@@ -124,7 +124,7 @@ pub struct CsvReader<T: RealField + Copy> {
 
 impl<T: RealField + Copy> CsvReader<T> {
     /// Create a new CSV reader
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
@@ -144,7 +144,7 @@ impl<T: RealField + Copy> CsvReader<T> {
             .map_err(|e| Error::CsvError(e.to_string()))?
             ;
         let header_vec: Vec<String> = headers.iter()
-            .map(|s| s.to_string())
+            .map(std::string::ToString::to_string)
             .collect();
 
         // Read data using iterator
@@ -155,7 +155,7 @@ impl<T: RealField + Copy> CsvReader<T> {
             let row: Result<Vec<T>> = record.iter()
                 .map(|field| {
                     field.parse::<T>()
-                        .map_err(|e| Error::SerializationError(format!("Parse error: {}", e)))
+                        .map_err(|e| Error::SerializationError(format!("Parse error: {e}")))
                 })
                 .collect();
             data.push(row?);
@@ -209,7 +209,7 @@ impl StreamReader {
     pub fn headers(&mut self) -> Result<Vec<String>> {
         let headers = self.reader.headers()
             .map_err(|e| Error::CsvError(e.to_string()))?;
-        Ok(headers.iter().map(|s| s.to_string()).collect())
+        Ok(headers.iter().map(std::string::ToString::to_string).collect())
     }
 
     /// Iterator over records
@@ -237,17 +237,17 @@ pub struct TimeSeriesData<T> {
 
 impl<T: RealField + Copy> TimeSeriesData<T> {
     /// Get number of rows
-    pub fn num_rows(&self) -> usize {
+    #[must_use] pub fn num_rows(&self) -> usize {
         self.data.len()
     }
 
     /// Get number of columns
-    pub fn num_cols(&self) -> usize {
+    #[must_use] pub fn num_cols(&self) -> usize {
         self.headers.len()
     }
 
     /// Get column by name
-    pub fn get_column(&self, name: &str) -> Option<Vec<T>>
+    #[must_use] pub fn get_column(&self, name: &str) -> Option<Vec<T>>
     where
         T: Clone,
     {
@@ -256,7 +256,7 @@ impl<T: RealField + Copy> TimeSeriesData<T> {
     }
 
     /// Get column by index
-    pub fn get_column_by_index(&self, index: usize) -> Option<Vec<T>>
+    #[must_use] pub fn get_column_by_index(&self, index: usize) -> Option<Vec<T>>
     where
         T: Clone,
     {

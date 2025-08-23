@@ -9,9 +9,15 @@ pub struct FirstOrderUpwind<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for FirstOrderUpwind<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive + Copy> FirstOrderUpwind<T> {
     /// Create new first-order upwind scheme
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
@@ -45,9 +51,15 @@ pub struct SecondOrderUpwind<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for SecondOrderUpwind<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive + Copy> SecondOrderUpwind<T> {
     /// Create new second-order upwind scheme
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }

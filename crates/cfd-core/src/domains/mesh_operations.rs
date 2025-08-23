@@ -161,7 +161,7 @@ pub struct QualityStatistics<T: RealField + Copy> {
 /// Mesh operations using zero-copy iterators
 impl<T: RealField + Copy> Mesh<T> {
     /// Calculate element volumes using iterator combinators
-    pub fn element_volumes(&self) -> Vec<T> {
+    #[must_use] pub fn element_volumes(&self) -> Vec<T> {
         self.elements
             .iter()
             .map(|element| self.calculate_element_volume(element))
@@ -169,7 +169,7 @@ impl<T: RealField + Copy> Mesh<T> {
     }
     
     /// Calculate element aspect ratios
-    pub fn element_aspect_ratios(&self) -> Vec<T> {
+    #[must_use] pub fn element_aspect_ratios(&self) -> Vec<T> {
         self.elements
             .iter()
             .map(|element| self.calculate_aspect_ratio(element))
@@ -177,7 +177,7 @@ impl<T: RealField + Copy> Mesh<T> {
     }
     
     /// Find boundary elements using iterator operations
-    pub fn boundary_elements(&self) -> Vec<&Element> {
+    #[must_use] pub fn boundary_elements(&self) -> Vec<&Element> {
         self.elements
             .iter()
             .filter(|element| self.is_boundary_element(element))
@@ -185,7 +185,7 @@ impl<T: RealField + Copy> Mesh<T> {
     }
     
     /// Calculate mesh quality metrics using parallel iterators
-    pub fn quality_metrics(&self) -> HashMap<String, Vec<T>> {
+    #[must_use] pub fn quality_metrics(&self) -> HashMap<String, Vec<T>> {
         let mut metrics = HashMap::new();
         
         metrics.insert("volume".to_string(), self.element_volumes());
@@ -273,7 +273,7 @@ pub struct MeshOperationsService<T: RealField + Copy> {
 
 impl<T: RealField + Copy> MeshOperationsService<T> {
     /// Create new mesh operations service
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             generators: HashMap::new(),
             refinement_methods: HashMap::new(),
@@ -297,18 +297,18 @@ impl<T: RealField + Copy> MeshOperationsService<T> {
     }
     
     /// Get mesh generator by name
-    pub fn get_generator(&self, name: &str) -> Option<&dyn MeshGeneration<T>> {
-        self.generators.get(name).map(|g| g.as_ref())
+    #[must_use] pub fn get_generator(&self, name: &str) -> Option<&dyn MeshGeneration<T>> {
+        self.generators.get(name).map(std::convert::AsRef::as_ref)
     }
     
     /// Get refinement method by name
-    pub fn get_refinement_method(&self, name: &str) -> Option<&dyn MeshRefinement<T>> {
-        self.refinement_methods.get(name).map(|m| m.as_ref())
+    #[must_use] pub fn get_refinement_method(&self, name: &str) -> Option<&dyn MeshRefinement<T>> {
+        self.refinement_methods.get(name).map(std::convert::AsRef::as_ref)
     }
     
     /// Get quality assessor by name
-    pub fn get_quality_assessor(&self, name: &str) -> Option<&dyn MeshQuality<T>> {
-        self.quality_assessors.get(name).map(|a| a.as_ref())
+    #[must_use] pub fn get_quality_assessor(&self, name: &str) -> Option<&dyn MeshQuality<T>> {
+        self.quality_assessors.get(name).map(std::convert::AsRef::as_ref)
     }
 }
 

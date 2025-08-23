@@ -300,7 +300,7 @@ pub struct ResistanceCalculator<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceCalculator<T> {
     /// Create new resistance calculator
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }

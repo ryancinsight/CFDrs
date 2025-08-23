@@ -84,22 +84,22 @@ impl FlowClassifier {
 
 impl FlowRegime {
     /// Check if flow is viscous-dominated
-    pub fn is_viscous_dominated(&self) -> bool {
+    #[must_use] pub fn is_viscous_dominated(&self) -> bool {
         matches!(self, FlowRegime::Stokes | FlowRegime::Laminar)
     }
     
     /// Check if flow is inertia-dominated
-    pub fn is_inertia_dominated(&self) -> bool {
+    #[must_use] pub fn is_inertia_dominated(&self) -> bool {
         matches!(self, FlowRegime::Turbulent | FlowRegime::Hypersonic)
     }
     
     /// Check if flow requires turbulence modeling
-    pub fn requires_turbulence_model(&self) -> bool {
+    #[must_use] pub fn requires_turbulence_model(&self) -> bool {
         matches!(self, FlowRegime::Transitional | FlowRegime::Turbulent)
     }
     
     /// Get typical CFL number for this regime
-    pub fn typical_cfl(&self) -> f64 {
+    #[must_use] pub fn typical_cfl(&self) -> f64 {
         match self {
             FlowRegime::Stokes => 10.0,  // Can use large time steps
             FlowRegime::Laminar => 1.0,

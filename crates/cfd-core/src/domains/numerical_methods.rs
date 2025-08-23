@@ -21,7 +21,7 @@ pub trait DiscretizationScheme<T: RealField + Copy>: Send + Sync {
 
 /// Finite difference schemes
 pub mod finite_difference {
-    use super::*;
+    use super::{DiscretizationScheme, RealField};
     
     /// Central difference scheme (2nd order)
     #[derive(Debug, Clone)]
@@ -92,7 +92,7 @@ pub trait TimeIntegrationScheme<T: RealField + Copy>: Send + Sync {
 
 /// Time integration schemes
 pub mod time_integration {
-    use super::*;
+    use super::{RealField, TimeIntegrationScheme};
     
     /// Forward Euler scheme (explicit, 1st order)
     #[derive(Debug, Clone)]
@@ -245,7 +245,7 @@ pub trait LinearSystemSolver<T: RealField + Copy>: Send + Sync {
 
 /// Linear system solvers
 pub mod linear_solvers {
-    use super::*;
+    use super::{DMatrix, DVector, LinearSystemSolver, RealField};
     
     /// Conjugate Gradient solver for symmetric positive definite systems
     #[derive(Debug, Clone)]
@@ -292,7 +292,7 @@ pub mod linear_solvers {
                     if r.norm() < self.tolerance {
                         return Ok(x);
                     }
-                    return Err(format!("CG breakdown at iteration {}", iter));
+                    return Err(format!("CG breakdown at iteration {iter}"));
                 }
                 
                 let alpha = rsold / pap;
@@ -354,7 +354,7 @@ pub struct NumericalMethodsService<T: RealField + Copy> {
 
 impl<T: RealField + Copy> NumericalMethodsService<T> {
     /// Create new numerical methods service
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         let mut service = Self {
             discretization_schemes: HashMap::new(),
             time_integration_schemes: HashMap::new(),
@@ -419,18 +419,18 @@ impl<T: RealField + Copy> NumericalMethodsService<T> {
     }
     
     /// Get discretization scheme by name
-    pub fn get_discretization_scheme(&self, name: &str) -> Option<&dyn DiscretizationScheme<T>> {
-        self.discretization_schemes.get(name).map(|s| s.as_ref())
+    #[must_use] pub fn get_discretization_scheme(&self, name: &str) -> Option<&dyn DiscretizationScheme<T>> {
+        self.discretization_schemes.get(name).map(std::convert::AsRef::as_ref)
     }
     
     /// Get time integration scheme by name
-    pub fn get_time_integration_scheme(&self, name: &str) -> Option<&dyn TimeIntegrationScheme<T>> {
-        self.time_integration_schemes.get(name).map(|s| s.as_ref())
+    #[must_use] pub fn get_time_integration_scheme(&self, name: &str) -> Option<&dyn TimeIntegrationScheme<T>> {
+        self.time_integration_schemes.get(name).map(std::convert::AsRef::as_ref)
     }
     
     /// Get linear solver by name
-    pub fn get_linear_solver(&self, name: &str) -> Option<&dyn LinearSystemSolver<T>> {
-        self.linear_solvers.get(name).map(|s| s.as_ref())
+    #[must_use] pub fn get_linear_solver(&self, name: &str) -> Option<&dyn LinearSystemSolver<T>> {
+        self.linear_solvers.get(name).map(std::convert::AsRef::as_ref)
     }
 }
 

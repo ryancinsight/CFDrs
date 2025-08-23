@@ -150,8 +150,8 @@ impl<T: RealField + FromPrimitive + Copy> Default for BackwardEuler<T> {
 }
 
 impl<T: RealField + FromPrimitive + Copy> BackwardEuler<T> {
-    /// Create a new BackwardEuler integrator with default settings
-    pub fn new() -> Self {
+    /// Create a new `BackwardEuler` integrator with default settings
+    #[must_use] pub fn new() -> Self {
         Self::default()
     }
 
@@ -243,8 +243,8 @@ impl<T: RealField + FromPrimitive + Copy> Default for CrankNicolson<T> {
 }
 
 impl<T: RealField + FromPrimitive + Copy> CrankNicolson<T> {
-    /// Create a new CrankNicolson integrator with default settings
-    pub fn new() -> Self {
+    /// Create a new `CrankNicolson` integrator with default settings
+    #[must_use] pub fn new() -> Self {
         Self::default()
     }
 

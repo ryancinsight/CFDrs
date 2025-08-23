@@ -281,7 +281,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
         // Check CFL condition for stability
         let max_velocity = self.velocity.iter()
             .map(|v| v[0].abs().max(v[1].abs()).max(v[2].abs()))
-            .fold(T::zero(), |acc, v| acc.max(v));
+            .fold(T::zero(), nalgebra::RealField::max);
         
         let min_spacing = self.dx.min(self.dy).min(self.dz);
         let cfl = max_velocity * dt / min_spacing;
@@ -443,7 +443,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
             let error = phi_temp.iter()
                 .zip(phi_previous_temp.iter())
                 .map(|(p1, p2)| (*p1 - *p2).abs())
-                .fold(T::zero(), |acc, x| acc.max(x));
+                .fold(T::zero(), nalgebra::RealField::max);
             
             if error < T::from_f64(self.config.tolerance).unwrap_or_else(|| T::zero()) {
                 break;
@@ -546,7 +546,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
         // Compute CFL-limited time step
         let max_vel = self.velocity.iter()
             .map(|v| v[0].abs().max(v[1].abs()).max(v[2].abs()))
-            .fold(T::zero(), |acc, v| acc.max(v));
+            .fold(T::zero(), nalgebra::RealField::max);
         
         let dt_cfl = T::from_f64(self.config.cfl_number).unwrap_or_else(|| T::zero()) 
             * self.dx.min(self.dy).min(self.dz) / (max_vel + T::from_f64(1e-10).unwrap_or_else(|| T::zero()));

@@ -475,7 +475,7 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
                         u_c.x * self.alpha[idx]
                     };
                     
-                    compression_term = compression_term + (flux_right - flux_left) / self.dx;
+                    compression_term += (flux_right - flux_left) / self.dx;
                 }
                 
                 // Y-direction compression flux
@@ -495,7 +495,7 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
                         u_c.y * self.alpha[idx]
                     };
                     
-                    compression_term = compression_term + (flux_up - flux_down) / self.dy;
+                    compression_term += (flux_up - flux_down) / self.dy;
                 }
                 
                 // Z-direction compression flux
@@ -515,11 +515,11 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
                         u_c.z * self.alpha[idx]
                     };
                     
-                    compression_term = compression_term + (flux_top - flux_bottom) / self.dz;
+                    compression_term += (flux_top - flux_bottom) / self.dz;
                 }
                 
                 // Apply compression flux
-                self.alpha[idx] = self.alpha[idx] - dt * compression_term;
+                self.alpha[idx] -= dt * compression_term;
             }
         }
     }
@@ -570,7 +570,7 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
         // Compute CFL-limited time step
         let max_vel = self.velocity.iter()
             .map(|v| v[0].abs().max(v[1].abs()).max(v[2].abs()))
-            .fold(T::zero(), |acc, v| acc.max(v));
+            .fold(T::zero(), nalgebra::RealField::max);
         
         let dt_cfl = T::from_f64(self.config.cfl_number).unwrap_or_else(|| T::zero()) 
             * self.dx.min(self.dy).min(self.dz) 

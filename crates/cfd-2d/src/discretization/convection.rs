@@ -175,7 +175,7 @@ pub struct ConvectionSchemeFactory;
 
 impl ConvectionSchemeFactory {
     /// Create scheme by name
-    pub fn create<T: RealField + Copy + FromPrimitive + Copy>(scheme_name: &str) -> Box<dyn ConvectionScheme<T>> {
+    #[must_use] pub fn create<T: RealField + Copy + FromPrimitive + Copy>(scheme_name: &str) -> Box<dyn ConvectionScheme<T>> {
         match scheme_name.to_lowercase().as_str() {
             "upwind" | "first_order_upwind" => Box::new(FirstOrderUpwind),
             "central" | "central_difference" => Box::new(CentralDifference),
@@ -190,7 +190,7 @@ impl ConvectionSchemeFactory {
     }
     
     /// List available schemes
-    pub fn available_schemes() -> Vec<&'static str> {
+    #[must_use] pub fn available_schemes() -> Vec<&'static str> {
         vec![
             "upwind",
             "central", 

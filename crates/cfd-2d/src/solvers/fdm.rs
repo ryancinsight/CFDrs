@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use crate::grid::{Grid2D, StructuredGrid2D};
 
 /// Finite Difference Method solver configuration
-/// Uses unified SolverConfig as base to follow SSOT principle
+/// Uses unified `SolverConfig` as base to follow SSOT principle
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FdmConfig<T: RealField + Copy> {
     /// Base solver configuration (SSOT)
@@ -26,7 +26,7 @@ pub struct FdmConfig<T: RealField + Copy> {
 /// Shared Gauss-Seidel linear solver implementation
 ///
 /// Solves the linear system Ax = b using Gauss-Seidel iteration with relaxation.
-/// Returns an error if convergence is not achieved within max_iterations.
+/// Returns an error if convergence is not achieved within `max_iterations`.
 fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive + Copy>(
     matrix: &SparseMatrix<T>,
     rhs: &DVector<T>,
@@ -55,7 +55,7 @@ fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive + Copy>(
             // Check for zero diagonal (singular matrix)
             if diagonal.abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
                 return Err(Error::InvalidConfiguration(
-                    format!("{}: Singular matrix detected (zero diagonal)", solver_name)
+                    format!("{solver_name}: Singular matrix detected (zero diagonal)")
                 ));
             }
 
@@ -74,7 +74,7 @@ fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive + Copy>(
         }
 
         if config.verbose() && iteration % 100 == 0 {
-            println!("{} iteration {}: residual = {:?}", solver_name, iteration, max_residual);
+            println!("{solver_name} iteration {iteration}: residual = {max_residual:?}");
         }
 
         if max_residual < config.tolerance() {
@@ -134,7 +134,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
     }
 
     /// Create with default configuration
-    pub fn default() -> Self {
+    #[must_use] pub fn default() -> Self {
         Self::new(FdmConfig::default())
     }
 
@@ -313,8 +313,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
         let dx2 = dx * dx;
         let dy2 = dy * dy;
 
-        let u = velocity_x.get(&(i, j)).cloned().unwrap_or(T::zero());
-        let v = velocity_y.get(&(i, j)).cloned().unwrap_or(T::zero());
+        let u = velocity_x.get(&(i, j)).copied().unwrap_or(T::zero());
+        let v = velocity_y.get(&(i, j)).copied().unwrap_or(T::zero());
 
         // Central coefficient (diffusion part): -2α/dx² - 2α/dy²
         let mut center_coeff = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) * diffusivity / dx2

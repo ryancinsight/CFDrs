@@ -117,7 +117,7 @@ impl<T: RealField + Copy> FluidProperties<T> for CurrenttonianFluid<T> {
 
 /// Non-Currenttonian fluid models
 pub mod non_newtonian {
-    use super::*;
+    use super::{Deserialize, FluidProperties, RealField, SOLID_LIKE_VISCOSITY, Serialize, SolidProperties, YIELD_STRESS_VISCOSITY};
     
     /// Power-law fluid model
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -309,7 +309,7 @@ pub struct MaterialDatabase<T: RealField + Copy> {
 
 impl<T: RealField + Copy> MaterialDatabase<T> {
     /// Create new material database
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             fluids: HashMap::new(),
             solids: HashMap::new(),
@@ -333,33 +333,33 @@ impl<T: RealField + Copy> MaterialDatabase<T> {
     }
     
     /// Get fluid properties by name
-    pub fn get_fluid(&self, name: &str) -> Option<&dyn FluidProperties<T>> {
-        self.fluids.get(name).map(|f| f.as_ref())
+    #[must_use] pub fn get_fluid(&self, name: &str) -> Option<&dyn FluidProperties<T>> {
+        self.fluids.get(name).map(std::convert::AsRef::as_ref)
     }
     
     /// Get solid properties by name
-    pub fn get_solid(&self, name: &str) -> Option<&dyn SolidProperties<T>> {
-        self.solids.get(name).map(|s| s.as_ref())
+    #[must_use] pub fn get_solid(&self, name: &str) -> Option<&dyn SolidProperties<T>> {
+        self.solids.get(name).map(std::convert::AsRef::as_ref)
     }
     
     /// Get interface properties by name
-    pub fn get_interface(&self, name: &str) -> Option<&dyn InterfaceProperties<T>> {
-        self.interfaces.get(name).map(|i| i.as_ref())
+    #[must_use] pub fn get_interface(&self, name: &str) -> Option<&dyn InterfaceProperties<T>> {
+        self.interfaces.get(name).map(std::convert::AsRef::as_ref)
     }
     
     /// List available fluids
-    pub fn list_fluids(&self) -> Vec<&str> {
-        self.fluids.keys().map(|s| s.as_str()).collect()
+    #[must_use] pub fn list_fluids(&self) -> Vec<&str> {
+        self.fluids.keys().map(std::string::String::as_str).collect()
     }
     
     /// List available solids
-    pub fn list_solids(&self) -> Vec<&str> {
-        self.solids.keys().map(|s| s.as_str()).collect()
+    #[must_use] pub fn list_solids(&self) -> Vec<&str> {
+        self.solids.keys().map(std::string::String::as_str).collect()
     }
     
     /// List available interfaces
-    pub fn list_interfaces(&self) -> Vec<&str> {
-        self.interfaces.keys().map(|s| s.as_str()).collect()
+    #[must_use] pub fn list_interfaces(&self) -> Vec<&str> {
+        self.interfaces.keys().map(std::string::String::as_str).collect()
     }
 }
 
@@ -385,7 +385,7 @@ pub trait PropertyCalculator<T: RealField + Copy>: Send + Sync {
 
 impl<T: RealField + Copy> MaterialPropertiesService<T> {
     /// Create new material properties service
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             database: MaterialDatabase::new(),
             calculators: HashMap::new(),
@@ -393,7 +393,7 @@ impl<T: RealField + Copy> MaterialPropertiesService<T> {
     }
     
     /// Get material database
-    pub fn database(&self) -> &MaterialDatabase<T> {
+    #[must_use] pub fn database(&self) -> &MaterialDatabase<T> {
         &self.database
     }
     
@@ -412,7 +412,7 @@ impl<T: RealField + Copy> MaterialPropertiesService<T> {
         if let Some(calculator) = self.calculators.get(calculator_name) {
             calculator.calculate(properties)
         } else {
-            Err(format!("Calculator '{}' not found", calculator_name))
+            Err(format!("Calculator '{calculator_name}' not found"))
         }
     }
 }

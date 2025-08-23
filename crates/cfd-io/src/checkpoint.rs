@@ -15,7 +15,7 @@ pub struct CheckpointManager<T: RealField + Copy> {
 
 impl<T: RealField + Copy> CheckpointManager<T> {
     /// Create a new checkpoint manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }

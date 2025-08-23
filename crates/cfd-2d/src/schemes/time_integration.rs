@@ -29,7 +29,7 @@ pub struct TimeIntegrator<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive + Clone> TimeIntegrator<T> {
     /// Create new time integrator
-    pub fn new(scheme: TimeScheme) -> Self {
+    #[must_use] pub fn new(scheme: TimeScheme) -> Self {
         Self {
             scheme,
             _phantom: std::marker::PhantomData,
@@ -75,7 +75,7 @@ impl<T: RealField + Copy + FromPrimitive + Clone> TimeIntegrator<T> {
     }
     
     /// Get scheme order of accuracy
-    pub fn order(&self) -> usize {
+    #[must_use] pub fn order(&self) -> usize {
         match self.scheme {
             TimeScheme::ForwardEuler | TimeScheme::BackwardEuler => 1,
             TimeScheme::CrankNicolson | TimeScheme::RungeKutta2 | TimeScheme::AdamsBashforth2 => 2,
@@ -84,7 +84,7 @@ impl<T: RealField + Copy + FromPrimitive + Clone> TimeIntegrator<T> {
     }
     
     /// Check if scheme is explicit
-    pub fn is_explicit(&self) -> bool {
+    #[must_use] pub fn is_explicit(&self) -> bool {
         matches!(
             self.scheme,
             TimeScheme::ForwardEuler | TimeScheme::RungeKutta2 | TimeScheme::RungeKutta4 | TimeScheme::AdamsBashforth2

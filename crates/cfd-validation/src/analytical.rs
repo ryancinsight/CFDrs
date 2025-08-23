@@ -24,7 +24,7 @@ pub trait AnalyticalSolution<T: RealField + Copy> {
     /// Get the name of the analytical solution
     fn name(&self) -> &str;
 
-    /// Get the domain bounds [x_min, x_max, y_min, y_max, z_min, z_max]
+    /// Get the domain bounds [`x_min`, `x_max`, `y_min`, `y_max`, `z_min`, `z_max`]
     fn domain_bounds(&self) -> [T; 6];
 
     /// Check if the solution is valid at given coordinates
@@ -44,8 +44,8 @@ pub trait AnalyticalSolution<T: RealField + Copy> {
 /// - Schlichting, H. & Gersten, K. (2017). "Boundary-Layer Theory", 9th Edition
 ///
 /// **Mathematical Formulation:**
-/// - 2D channel: u(y) = u_max * (1 - (y/h)²) where h is half-height
-/// - Pipe flow: u(r) = u_max * (1 - (r/R)²) where R is radius
+/// - 2D channel: u(y) = `u_max` * (1 - (y/h)²) where h is half-height
+/// - Pipe flow: u(r) = `u_max` * (1 - (r/R)²) where R is radius
 pub struct PoiseuilleFlow<T: RealField + Copy> {
     /// Maximum velocity at channel center
     pub u_max: T,

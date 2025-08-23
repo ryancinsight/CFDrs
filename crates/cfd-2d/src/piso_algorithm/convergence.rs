@@ -41,9 +41,15 @@ pub struct ConvergenceMonitor<T: RealField + Copy> {
     pub iteration: usize,
 }
 
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for ConvergenceMonitor<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
     /// Create new convergence monitor
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             velocity_residuals: Vec::new(),
             pressure_residuals: Vec::new(),
@@ -126,7 +132,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
         for i in 1..nx-1 {
             for j in 1..ny-1 {
                 let dp = fields_new.p.at(i, j) - fields_old.p.at(i, j);
-                sum = sum + dp * dp;
+                sum += dp * dp;
                 count += 1;
             }
         }

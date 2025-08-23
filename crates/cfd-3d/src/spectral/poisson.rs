@@ -103,17 +103,17 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
                 
                 // x-derivative contribution
                 if iy == jy && iz == jz {
-                    value = value + d2x[(ix, jx)];
+                    value += d2x[(ix, jx)];
                 }
                 
                 // y-derivative contribution
                 if ix == jx && iz == jz {
-                    value = value + d2y[(iy, jy)];
+                    value += d2y[(iy, jy)];
                 }
                 
                 // z-derivative contribution
                 if ix == jx && iy == jy {
-                    value = value + d2z[(iz, jz)];
+                    value += d2z[(iz, jz)];
                 }
                 
                 laplacian[(i, j)] = value;
@@ -186,13 +186,13 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
                 // Implement Neumann BC using ghost points or modified stencil
                 // This requires modifying the differentiation matrix
                 for &idx in boundary_indices {
-                    rhs[idx] = rhs[idx] + *value;
+                    rhs[idx] += *value;
                 }
             }
             PoissonBoundaryCondition::Robin { alpha, beta, value } => {
                 // Implement Robin BC: αu + β∂u/∂n = g
                 for &idx in boundary_indices {
-                    matrix[(idx, idx)] = matrix[(idx, idx)] + *alpha;
+                    matrix[(idx, idx)] += *alpha;
                     // Note: beta term requires normal derivative discretization
                     // For spectral methods, this involves modal coefficients
                     let _ = beta; // Placeholder for normal derivative term

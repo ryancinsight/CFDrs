@@ -28,7 +28,7 @@ impl BenchmarkRunner {
     }
     
     /// Generate validation report
-    pub fn generate_report<T: RealField + Copy>(
+    #[must_use] pub fn generate_report<T: RealField + Copy>(
         results: &[BenchmarkResult<T>],
     ) -> ValidationReport<T> {
         ValidationReport {
@@ -57,12 +57,12 @@ pub struct ValidationReport<T: RealField + Copy> {
 
 impl<T: RealField + Copy> ValidationReport<T> {
     /// Check if all benchmarks passed
-    pub fn all_passed(&self) -> bool {
+    #[must_use] pub fn all_passed(&self) -> bool {
         !self.benchmarks.is_empty()
     }
     
     /// Get failed benchmarks
-    pub fn failed_benchmarks(&self) -> Vec<&BenchmarkResult<T>> {
+    #[must_use] pub fn failed_benchmarks(&self) -> Vec<&BenchmarkResult<T>> {
         self.benchmarks.iter()
             .filter(|b| !b.errors.is_empty())
             .collect()

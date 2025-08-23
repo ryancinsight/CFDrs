@@ -123,7 +123,7 @@ where
     }
 
     /// Calculate H(u) operator for PISO neighbor correction
-    /// H(u) = -sum(A_nb * u_nb) where A_nb are momentum equation coefficients
+    /// H(u) = -`sum(A_nb` * `u_nb`) where `A_nb` are momentum equation coefficients
     fn calculate_h_operator(&self, fields: &SimulationFields<T>) -> Field2D<Vector2<T>> {
         let mut h_field = Field2D::new(self.nx, self.ny, Vector2::zeros());
         

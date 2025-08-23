@@ -73,23 +73,20 @@ impl FluidDynamicsService {
             Ok(sixty_four / reynolds)
         } else {
             // Turbulent flow: use Colebrook-White or smooth pipe approximation
-            match roughness {
-                Some(eps) => {
-                    // Colebrook-White equation
-                    let relative_roughness = eps / diameter;
-                    Self::colebrook_white_friction_factor(reynolds, relative_roughness)
-                }
-                None => {
-                    // Smooth pipe: Blasius equation for Re < 100,000
-                    let re_turbulent = T::from_f64(100_000.0).unwrap_or_else(|| T::one());
-                    if reynolds < re_turbulent {
-                        let coeff = T::from_f64(0.316).unwrap_or_else(|| T::one());
-                        let exp = T::from_f64(0.25).unwrap_or_else(|| T::one()); // Blasius correlation exponent
-                        Ok(coeff / reynolds.powf(exp))
-                    } else {
-                        // Use Prandtl-Karman equation
-                        Self::prandtl_karman_friction_factor(reynolds)
-                    }
+            if let Some(eps) = roughness {
+                // Colebrook-White equation
+                let relative_roughness = eps / diameter;
+                Self::colebrook_white_friction_factor(reynolds, relative_roughness)
+            } else {
+                // Smooth pipe: Blasius equation for Re < 100,000
+                let re_turbulent = T::from_f64(100_000.0).unwrap_or_else(|| T::one());
+                if reynolds < re_turbulent {
+                    let coeff = T::from_f64(0.316).unwrap_or_else(|| T::one());
+                    let exp = T::from_f64(0.25).unwrap_or_else(|| T::one()); // Blasius correlation exponent
+                    Ok(coeff / reynolds.powf(exp))
+                } else {
+                    // Use Prandtl-Karman equation
+                    Self::prandtl_karman_friction_factor(reynolds)
                 }
             }
         }

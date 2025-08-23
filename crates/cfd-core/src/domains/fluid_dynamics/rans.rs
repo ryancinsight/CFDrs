@@ -79,9 +79,15 @@ impl<T: RealField + Copy + FromPrimitive> KEpsilonConstants<T> {
     }
 }
 
+impl<T: RealField + Copy + FromPrimitive> Default for KEpsilonModel<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive> KEpsilonModel<T> {
     /// Create a new k-epsilon model with standard constants
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             constants: KEpsilonConstants::standard(),
             state: None,
@@ -104,7 +110,7 @@ impl<T: RealField + Copy + FromPrimitive> KEpsilonModel<T> {
         let turbulence_intensity = T::from_f64(0.05).unwrap_or_else(T::one);
         let mut k_field = Vec::with_capacity(n);
         
-        for vel in flow_field.velocity.components.iter() {
+        for vel in &flow_field.velocity.components {
             let u_mag = vel.norm();
             // k = 3/2 * (U * I)^2 where I is turbulence intensity
             let three_half = T::from_f64(1.5).unwrap_or_else(T::one);
@@ -118,7 +124,7 @@ impl<T: RealField + Copy + FromPrimitive> KEpsilonModel<T> {
         let mut epsilon_field = Vec::with_capacity(n);
         
         let c_mu_34 = self.constants.c_mu.powf(T::from_f64(0.75).unwrap_or_else(T::one));
-        for &k in k_field.iter() {
+        for &k in &k_field {
             let epsilon = c_mu_34 * k.powf(T::from_f64(1.5).unwrap_or_else(T::one)) / mixing_length;
             epsilon_field.push(epsilon);
         }

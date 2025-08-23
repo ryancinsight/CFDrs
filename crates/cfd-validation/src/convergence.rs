@@ -191,7 +191,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> RichardsonExtrapolation<
     }
 
     /// Create Richardson extrapolation with second-order accuracy
-    pub fn second_order() -> Self {
+    #[must_use] pub fn second_order() -> Self {
         Self::new(T::from_f64(2.0).unwrap_or_else(|| T::zero()))
     }
 
@@ -291,12 +291,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> GridConvergenceIndex<T> {
     }
 
     /// Create GCI for three or more grids
-    pub fn for_multiple_grids() -> Self {
+    #[must_use] pub fn for_multiple_grids() -> Self {
         Self::new(T::from_f64(1.25).unwrap_or_else(|| T::zero()))
     }
 
     /// Create GCI for two grids
-    pub fn for_two_grids() -> Self {
+    #[must_use] pub fn for_two_grids() -> Self {
         Self::new(T::from_f64(3.0).unwrap_or_else(|| T::zero()))
     }
 
@@ -355,7 +355,7 @@ impl ConvergenceAnalysis {
         let errors = if let Some(reference) = reference_solution {
             // Compute errors against reference solution
             solutions.iter()
-                .map(|sol| metric.compute_error(&[*sol], &reference).unwrap_or(T::zero()))
+                .map(|sol| metric.compute_error(&[*sol], reference).unwrap_or(T::zero()))
                 .collect()
         } else {
             // Use Richardson extrapolation to estimate errors

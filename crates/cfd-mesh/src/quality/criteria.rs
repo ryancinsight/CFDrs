@@ -30,7 +30,7 @@ pub struct QualityThresholds<T: RealField + Copy> {
 
 impl<T: RealField + Copy> QualityCriteria<T> {
     /// Create criteria with default thresholds
-    pub fn default_cfd() -> Self {
+    #[must_use] pub fn default_cfd() -> Self {
         Self {
             thresholds: QualityThresholds::default_cfd(),
             strict: false,
@@ -38,7 +38,7 @@ impl<T: RealField + Copy> QualityCriteria<T> {
     }
     
     /// Create strict criteria for high-accuracy simulations
-    pub fn strict_cfd() -> Self {
+    #[must_use] pub fn strict_cfd() -> Self {
         Self {
             thresholds: QualityThresholds::strict_cfd(),
             strict: true,
@@ -75,7 +75,7 @@ impl<T: RealField + Copy> QualityCriteria<T> {
 
 impl<T: RealField + Copy> QualityThresholds<T> {
     /// Default thresholds for CFD meshes
-    pub fn default_cfd() -> Self {
+    #[must_use] pub fn default_cfd() -> Self {
         Self {
             max_aspect_ratio: T::from_f64(10.0).unwrap_or_else(|| T::one()),
             max_skewness: T::from_f64(0.8).unwrap_or_else(|| T::one()),
@@ -86,7 +86,7 @@ impl<T: RealField + Copy> QualityThresholds<T> {
     }
     
     /// Strict thresholds for high-accuracy simulations
-    pub fn strict_cfd() -> Self {
+    #[must_use] pub fn strict_cfd() -> Self {
         Self {
             max_aspect_ratio: T::from_f64(5.0).unwrap_or_else(|| T::one()),
             max_skewness: T::from_f64(0.5).unwrap_or_else(|| T::one()),

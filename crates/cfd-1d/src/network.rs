@@ -38,7 +38,7 @@ pub struct Node<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> Node<T> {
-    pub fn new(id: String, node_type: NodeType) -> Self {
+    #[must_use] pub fn new(id: String, node_type: NodeType) -> Self {
         Self {
             id,
             node_type,
@@ -143,11 +143,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
 
     pub fn add_edge(&mut self, from: &str, to: &str, properties: ChannelProperties<T>) -> Result<EdgeIndex> {
         let from_idx = self.node_indices.get(from)
-            .ok_or_else(|| Error::InvalidConfiguration(format!("Node {} not found", from)))?;
+            .ok_or_else(|| Error::InvalidConfiguration(format!("Node {from} not found")))?;
         let to_idx = self.node_indices.get(to)
-            .ok_or_else(|| Error::InvalidConfiguration(format!("Node {} not found", to)))?;
+            .ok_or_else(|| Error::InvalidConfiguration(format!("Node {to} not found")))?;
         
-        let edge_id = format!("{}_{}", from, to);
+        let edge_id = format!("{from}_{to}");
         let idx = self.graph.add_edge(*from_idx, *to_idx, properties);
         self.edge_indices.insert(edge_id, idx);
         Ok(idx)
@@ -155,7 +155,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
 
     pub fn set_boundary_condition(&mut self, node: &str, condition: BoundaryCondition<T>) -> Result<()> {
         let idx = self.node_indices.get(node)
-            .ok_or_else(|| Error::InvalidConfiguration(format!("Node {} not found", node)))?;
+            .ok_or_else(|| Error::InvalidConfiguration(format!("Node {node} not found")))?;
         self.boundary_conditions.insert(*idx, condition);
         Ok(())
     }
@@ -241,7 +241,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
         &self.graph
     }
     
-    /// Get iterator over edges (returns EdgeData for solver use)
+    /// Get iterator over edges (returns `EdgeData` for solver use)
     pub fn edges(&self) -> impl Iterator<Item = EdgeData<T>> + '_ {
         self.graph.edge_references()
             .map(|edge| EdgeData {
@@ -279,7 +279,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
         self.node_indices.get(id).map(|idx| idx.index())
     }
     
-    /// Get node index as NodeIndex by ID
+    /// Get node index as `NodeIndex` by ID
     pub fn get_node_index_raw(&self, id: &str) -> Option<NodeIndex> {
         self.node_indices.get(id).copied()
     }
@@ -294,7 +294,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
     /// Get edges connected to a node
     pub fn node_edges(&self, node_id: &str) -> Result<Vec<EdgeData<T>>> {
         let node_idx = self.node_indices.get(node_id)
-            .ok_or_else(|| Error::InvalidConfiguration(format!("Node {} not found", node_id)))?;
+            .ok_or_else(|| Error::InvalidConfiguration(format!("Node {node_id} not found")))?;
         
         Ok(self.graph.edges(*node_idx)
             .map(|edge| EdgeData {

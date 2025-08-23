@@ -10,6 +10,12 @@ pub struct WENO5<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for WENO5<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive + Copy> WENO5<T> {
     /// Create new WENO5 scheme
     pub fn new() -> Self {

@@ -40,12 +40,12 @@ pub struct Edge {
 
 impl Edge {
     /// Create a new edge
-    pub fn new(start: usize, end: usize) -> Self {
+    #[must_use] pub fn new(start: usize, end: usize) -> Self {
         Self { start, end }
     }
     
     /// Check if edge contains vertex
-    pub fn contains(&self, vertex_id: usize) -> bool {
+    #[must_use] pub fn contains(&self, vertex_id: usize) -> bool {
         self.start == vertex_id || self.end == vertex_id
     }
 }
@@ -61,7 +61,7 @@ pub struct Face {
 
 impl Face {
     /// Create a triangular face
-    pub fn triangle(v0: usize, v1: usize, v2: usize) -> Self {
+    #[must_use] pub fn triangle(v0: usize, v1: usize, v2: usize) -> Self {
         Self {
             id: 0,  // ID should be set when adding to mesh
             vertices: vec![v0, v1, v2],
@@ -69,7 +69,7 @@ impl Face {
     }
     
     /// Create a quadrilateral face
-    pub fn quad(v0: usize, v1: usize, v2: usize, v3: usize) -> Self {
+    #[must_use] pub fn quad(v0: usize, v1: usize, v2: usize, v3: usize) -> Self {
         Self {
             id: 0,  // ID should be set when adding to mesh
             vertices: vec![v0, v1, v2, v3],
@@ -77,7 +77,7 @@ impl Face {
     }
     
     /// Number of vertices
-    pub fn vertex_count(&self) -> usize {
+    #[must_use] pub fn vertex_count(&self) -> usize {
         self.vertices.len()
     }
 }
@@ -132,7 +132,7 @@ pub struct Mesh<T: RealField + Copy> {
 
 impl<T: RealField + Copy> Mesh<T> {
     /// Create a new empty mesh
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             vertices: Vec::new(),
             edges: Vec::new(),
@@ -164,22 +164,22 @@ impl<T: RealField + Copy> Mesh<T> {
     }
     
     /// Get vertex count
-    pub fn vertex_count(&self) -> usize {
+    #[must_use] pub fn vertex_count(&self) -> usize {
         self.vertices.len()
     }
     
     /// Get edge count
-    pub fn edge_count(&self) -> usize {
+    #[must_use] pub fn edge_count(&self) -> usize {
         self.edges.len()
     }
     
     /// Get face count
-    pub fn face_count(&self) -> usize {
+    #[must_use] pub fn face_count(&self) -> usize {
         self.faces.len()
     }
     
     /// Get cell count
-    pub fn cell_count(&self) -> usize {
+    #[must_use] pub fn cell_count(&self) -> usize {
         self.cells.len()
     }
     

@@ -12,7 +12,7 @@ pub struct FlowOperations;
 
 impl FlowOperations {
     /// Calculate vorticity field: ω = ∇ × u
-    pub fn vorticity<T: RealField + Copy + FromPrimitive>(
+    #[must_use] pub fn vorticity<T: RealField + Copy + FromPrimitive>(
         velocity: &VelocityField<T>
     ) -> Vec<Vector3<T>> {
         let (nx, ny, nz) = velocity.dimensions;
@@ -117,7 +117,7 @@ impl FlowOperations {
                             velocity.get(i - 1, j, k)
                         ) {
                             let two = T::from_f64(2.0).unwrap_or_else(T::one);
-                            div = div + (u_ip.x - u_im.x) / (two * dx);
+                            div += (u_ip.x - u_im.x) / (two * dx);
                         }
                     }
                     
@@ -128,7 +128,7 @@ impl FlowOperations {
                             velocity.get(i, j - 1, k)
                         ) {
                             let two = T::from_f64(2.0).unwrap_or_else(T::one);
-                            div = div + (v_jp.y - v_jm.y) / (two * dy);
+                            div += (v_jp.y - v_jm.y) / (two * dy);
                         }
                     }
                     
@@ -139,7 +139,7 @@ impl FlowOperations {
                             velocity.get(i, j, k - 1)
                         ) {
                             let two = T::from_f64(2.0).unwrap_or_else(T::one);
-                            div = div + (w_kp.z - w_km.z) / (two * dz);
+                            div += (w_kp.z - w_km.z) / (two * dz);
                         }
                     }
                     

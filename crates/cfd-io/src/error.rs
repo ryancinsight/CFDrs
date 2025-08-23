@@ -49,7 +49,7 @@ impl From<IoError> for cfd_core::error::Error {
 // Re-export the Context trait from core
 pub use cfd_core::error::Context;
 
-/// Extension methods for IoError
+/// Extension methods for `IoError`
 impl IoError {
     /// Create an unsupported format error
     pub fn unsupported_format<S: Into<String>>(format: S) -> Self {

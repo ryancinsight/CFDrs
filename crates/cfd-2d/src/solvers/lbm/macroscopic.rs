@@ -20,7 +20,7 @@ pub struct MacroscopicQuantities<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive> MacroscopicQuantities<T> {
     /// Create new macroscopic quantities container
-    pub fn new(nx: usize, ny: usize) -> Self {
+    #[must_use] pub fn new(nx: usize, ny: usize) -> Self {
         Self {
             density: vec![vec![T::one(); nx]; ny],
             velocity: vec![vec![[T::zero(), T::zero()]; nx]; ny],
@@ -29,7 +29,7 @@ impl<T: RealField + Copy + FromPrimitive> MacroscopicQuantities<T> {
     }
     
     /// Enable pressure computation
-    pub fn with_pressure(mut self) -> Self {
+    #[must_use] pub fn with_pressure(mut self) -> Self {
         let ny = self.density.len();
         let nx = if ny > 0 { self.density[0].len() } else { 0 };
         self.pressure = Some(vec![vec![T::zero(); nx]; ny]);
@@ -62,7 +62,7 @@ impl<T: RealField + Copy + FromPrimitive> MacroscopicQuantities<T> {
 pub fn compute_density<T: RealField + Copy>(f_node: &[T; 9]) -> T {
     let mut rho = T::zero();
     for q in 0..9 {
-        rho = rho + f_node[q];
+        rho += f_node[q];
     }
     rho
 }
@@ -80,8 +80,8 @@ pub fn compute_velocity<T: RealField + Copy + FromPrimitive>(
         let ex_t = T::from_i32(ex).unwrap_or_else(T::zero);
         let ey_t = T::from_i32(ey).unwrap_or_else(T::zero);
         
-        ux = ux + ex_t * f_node[q];
-        uy = uy + ey_t * f_node[q];
+        ux += ex_t * f_node[q];
+        uy += ey_t * f_node[q];
     }
     
     [ux / density, uy / density]
@@ -106,8 +106,8 @@ pub fn compute_momentum<T: RealField + Copy + FromPrimitive>(
         let ex_t = T::from_i32(ex).unwrap_or_else(T::zero);
         let ey_t = T::from_i32(ey).unwrap_or_else(T::zero);
         
-        px = px + ex_t * f_node[q];
-        py = py + ey_t * f_node[q];
+        px += ex_t * f_node[q];
+        py += ey_t * f_node[q];
     }
     
     [px, py]
@@ -127,10 +127,10 @@ pub fn compute_stress_tensor<T: RealField + Copy + FromPrimitive>(
         
         let f_neq = f_node[q] - f_eq[q];
         
-        stress[0][0] = stress[0][0] + ex_t * ex_t * f_neq;
-        stress[0][1] = stress[0][1] + ex_t * ey_t * f_neq;
-        stress[1][0] = stress[1][0] + ey_t * ex_t * f_neq;
-        stress[1][1] = stress[1][1] + ey_t * ey_t * f_neq;
+        stress[0][0] += ex_t * ex_t * f_neq;
+        stress[0][1] += ex_t * ey_t * f_neq;
+        stress[1][0] += ey_t * ex_t * f_neq;
+        stress[1][1] += ey_t * ey_t * f_neq;
     }
     
     stress

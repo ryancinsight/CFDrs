@@ -197,7 +197,7 @@ impl TimeIntegrationValidator {
 
             // Integrate to final time
             for _ in 0..n_steps {
-                integrator.step(&mut y, t, dt, &ode)?;
+                integrator.step(&mut y, t, dt, ode)?;
                 t += dt;
             }
 
@@ -207,7 +207,7 @@ impl TimeIntegrationValidator {
             let result = TimeIntegrationResult {
                 method_name: name.to_string(),
                 test_problem: "Exponential Decay".to_string(),
-                final_time: final_time,
+                final_time,
                 time_step: dt,
                 computed_solution: y,
                 analytical_solution: analytical_final.clone(),
@@ -261,7 +261,7 @@ impl TimeIntegrationValidator {
 
             // Integrate to final time
             for _ in 0..n_steps {
-                integrator.step(&mut y, t, dt, &ode)?;
+                integrator.step(&mut y, t, dt, ode)?;
                 t += dt;
             }
 
@@ -271,7 +271,7 @@ impl TimeIntegrationValidator {
             let result = TimeIntegrationResult {
                 method_name: name.to_string(),
                 test_problem: "Harmonic Oscillator".to_string(),
-                final_time: final_time,
+                final_time,
                 time_step: dt,
                 computed_solution: y,
                 analytical_solution: analytical_final.clone(),

@@ -68,7 +68,7 @@ pub struct MUSCLScheme<T: RealField + Copy> {
 
 impl<T: RealField + Copy> MUSCLScheme<T> {
     /// Create new MUSCL scheme with specified limiter
-    pub fn new(limiter: FluxLimiter) -> Self {
+    #[must_use] pub fn new(limiter: FluxLimiter) -> Self {
         Self {
             limiter,
             _phantom: std::marker::PhantomData,
@@ -81,9 +81,15 @@ pub struct QUICKScheme<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+impl<T: RealField + Copy> Default for QUICKScheme<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy> QUICKScheme<T> {
     /// Create new QUICK scheme
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }

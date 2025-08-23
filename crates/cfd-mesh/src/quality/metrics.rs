@@ -37,7 +37,7 @@ pub struct QualityMetrics<T: RealField + Copy> {
 
 impl<T: RealField + Copy> QualityMetrics<T> {
     /// Create metrics with all values set to ideal
-    pub fn ideal() -> Self {
+    #[must_use] pub fn ideal() -> Self {
         Self {
             aspect_ratio: T::one(),
             skewness: T::zero(),
@@ -78,8 +78,8 @@ impl<T: RealField + Copy> QualityMetrics<T> {
         
         for (metric, weight) in metrics.iter().zip(weights.iter()) {
             if *metric > T::zero() {
-                weighted_sum = weighted_sum + *weight / *metric;
-                weight_total = weight_total + *weight;
+                weighted_sum += *weight / *metric;
+                weight_total += *weight;
             }
         }
         
