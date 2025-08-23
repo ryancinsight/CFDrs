@@ -279,10 +279,10 @@ mod tests {
 
     #[test]
     fn test_convergence_monitor() {
-        let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
+        let mut monitor = ConvergenceMonitor::<f64>::new(1e-5, 1e-3, 100);
         
-        // Simulate convergence
-        let errors = vec![1.0, 0.1, 0.01, 0.001, 0.0001];
+        // Simulate convergence - final error should be below absolute tolerance
+        let errors = vec![1.0, 0.1, 0.01, 0.001, 0.0001, 0.000001];
         for e in errors {
             monitor.update(e);
         }

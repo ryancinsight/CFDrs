@@ -2,7 +2,6 @@
 //!
 //! Implements convergence analysis following Richardson (1911) and Roache (1998) methodologies.
 
-use crate::error_metrics::ErrorAnalysis;
 use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;

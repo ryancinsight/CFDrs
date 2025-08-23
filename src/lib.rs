@@ -52,9 +52,17 @@ pub mod prelude {
     
     // Solver exports
     pub use cfd_1d::prelude::*;
-    // Note: cfd_2d and cfd_3d don't have prelude modules yet
-    // TODO: Add prelude modules to these crates for consistency
+    // 3D CFD functionality
+    pub use cfd_3d::*;
     
-    // Validation tools
-    pub use cfd_validation::prelude::*;
+    // Note: cfd_2d and cfd_3d don't have prelude modules yet
+    
+    // Validation tools - import specific types since prelude was removed
+    pub use cfd_validation::{
+        ConvergenceStudy,
+        RichardsonExtrapolation,
+        GridConvergenceIndex,
+        ErrorMetric,
+        ErrorAnalysis,
+    };
 }
