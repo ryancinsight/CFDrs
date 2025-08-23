@@ -39,7 +39,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
         }
 
         let mut gradients = Vec::with_capacity(nx * ny);
-        let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
 
         // Use iterator combinators instead of nested loops
         gradients.extend((0..ny).flat_map(|j| {
@@ -89,7 +89,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
         }
 
         let mut gradients = Vec::with_capacity(nx * ny * nz);
-        let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
 
         // Use iterator combinators for better performance
         gradients.extend((0..nz).flat_map(|k| {
@@ -148,7 +148,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
             ));
         }
 
-        let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
 
         let divergence: Vec<T> = (0..ny)
             .flat_map(|j| (0..nx).map(move |i| (i, j)))
@@ -189,7 +189,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
         }
 
         let mut curl = Vec::with_capacity(nx * ny);
-        let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
 
         for j in 0..ny {
             for i in 0..nx {

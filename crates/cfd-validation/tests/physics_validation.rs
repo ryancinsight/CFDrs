@@ -231,7 +231,7 @@ mod rhie_chow_interpolation {
         
         // Interpolate face velocity with pressure correction
         let u_face = interpolator.interpolate_u_face(
-            u_p, u_e, p_p, p_e, ap_p, ap_e, dx, dt
+            u_p, u_e, p_p, p_e, ap_p, ap_e, dt
         );
         
         // The interpolated velocity should include pressure gradient correction
@@ -241,7 +241,7 @@ mod rhie_chow_interpolation {
         let d_face = dt / (0.5 * (ap_p + ap_e));
         let expected = u_avg - d_face * pressure_gradient;
         
-        assert!((u_face - expected).abs() < 0.01, 
+        assert!((u_face - expected).abs() < 0.01f64, 
                 "Rhie-Chow interpolation should correct for pressure gradient");
     }
 }

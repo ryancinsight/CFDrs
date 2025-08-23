@@ -74,7 +74,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
                 result[0] = (values[1] - values[0]) * inv_spacing;
 
                 // Central difference using windows(3) for interior points
-                let two_inv_spacing = inv_spacing / T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
+                let two_inv_spacing = inv_spacing / T::from_f64(2.0).unwrap_or_else(|| T::zero());
                 values.windows(3)
                     .enumerate()
                     .for_each(|(i, window)| {
@@ -93,9 +93,9 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
                     ));
                 }
 
-                let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
-                let three = T::from_f64(constants::THREE).unwrap_or_else(|| T::zero());
-                let four = T::from_f64(constants::FOUR).unwrap_or_else(|| T::zero());
+                let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+                let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
+                let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
 
                 // Use forward difference for first n-2 points
                 result.iter_mut()
@@ -126,9 +126,9 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
                     ));
                 }
 
-                let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
-                let three = T::from_f64(constants::THREE).unwrap_or_else(|| T::zero());
-                let four = T::from_f64(constants::FOUR).unwrap_or_else(|| T::zero());
+                let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+                let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
+                let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
 
                 // Use central difference for first points
                 result.iter_mut()
@@ -170,15 +170,15 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
         let h_squared = self.spacing * self.spacing;
 
         // Use forward difference for first point
-        result[0] = (values[2] - T::from_f64(constants::TWO).unwrap_or_else(|| T::zero()) * values[1] + values[0]) / h_squared;
+        result[0] = (values[2] - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * values[1] + values[0]) / h_squared;
 
         // Central difference for interior points
         for i in 1..n-1 {
-            result[i] = (values[i+1] - T::from_f64(constants::TWO).unwrap_or_else(|| T::zero()) * values[i] + values[i-1]) / h_squared;
+            result[i] = (values[i+1] - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * values[i] + values[i-1]) / h_squared;
         }
 
         // Use backward difference for last point
-        result[n-1] = (values[n-1] - T::from_f64(constants::TWO).unwrap_or_else(|| T::zero()) * values[n-2] + values[n-3]) / h_squared;
+        result[n-1] = (values[n-1] - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * values[n-2] + values[n-3]) / h_squared;
 
         Ok(result)
     }

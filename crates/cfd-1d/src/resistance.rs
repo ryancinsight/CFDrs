@@ -74,7 +74,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), T::from_f64(cfd_core::constants::LAMINAR_THRESHOLD).unwrap_or_else(|| T::zero()))
+        (T::zero(), T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER).unwrap_or_else(|| T::zero()))
     }
 }
 
@@ -111,7 +111,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), T::from_f64(cfd_core::constants::LAMINAR_THRESHOLD).unwrap_or_else(|| T::zero()))
+        (T::zero(), T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER).unwrap_or_else(|| T::zero()))
     }
 }
 
@@ -188,7 +188,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::from_f64(cfd_core::constants::TURBULENT_THRESHOLD).unwrap_or_else(|| T::zero()), T::from_f64(1e8).unwrap_or_else(|| T::zero()))
+        (T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_UPPER).unwrap_or_else(|| T::zero()), T::from_f64(1e8).unwrap_or_else(|| T::zero()))
     }
 }
 
@@ -414,7 +414,7 @@ mod tests {
 
         let (re_min, re_max) = model.reynolds_range();
         assert_eq!(re_min, 0.0);
-        assert_eq!(re_max, cfd_core::constants::LAMINAR_THRESHOLD);
+        assert_eq!(re_max, cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER);
     }
 
     #[test]
@@ -482,7 +482,7 @@ mod tests {
         assert!(model.is_applicable(&conditions));
 
         let (re_min, re_max) = model.reynolds_range();
-        assert_eq!(re_min, cfd_core::constants::TURBULENT_THRESHOLD);
+        assert_eq!(re_min, cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_UPPER);
         assert_eq!(re_max, 1e8);
     }
 

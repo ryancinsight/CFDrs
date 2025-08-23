@@ -39,10 +39,10 @@ pub mod relaxation {
 /// Turbulence model constants
 pub mod turbulence {
     /// von Karman constant
-    pub const KAPPA: f64 = cfd_core::constants::VON_KARMAN;
+    pub const KAPPA: f64 = cfd_core::constants::fluid::VON_KARMAN;
     
     /// Wall function constant
-    pub const E_WALL: f64 = cfd_core::constants::E_WALL_FUNCTION;
+    pub const E_WALL: f64 = cfd_core::constants::fluid::WALL_FUNCTION_E;
     
     /// k-epsilon model constant C_mu
     pub const C_MU: f64 = 0.09;

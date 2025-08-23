@@ -111,8 +111,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> AnalyticalSolution<T> for Poise
             // u(y) = 4 * u_max * (y/h) * (1 - y/h)
             let y_norm = y / self.channel_width;
             let u = if y_norm >= T::zero() && y_norm <= T::one() {
-                let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
-                four * self.u_max * y_norm * (T::one() - y_norm)
+                let coeff = T::from_f64(cfd_core::constants::physics::fluid::CHANNEL_FLOW_COEFFICIENT)
+                    .unwrap_or_else(|| T::zero());
+                coeff * self.u_max * y_norm * (T::one() - y_norm)
             } else {
                 T::zero()
             };
@@ -493,14 +494,16 @@ mod tests {
     fn test_poiseuille_flow_2d() {
         let flow = PoiseuilleFlow::channel_2d(1.0, 1.0, 10.0, 0.001);
 
-        // Test centerline velocity
-        let vel_center = flow.velocity(5.0, 0.0, 0.0, 0.0);
+        // Test centerline velocity (at y = h/2 = 0.5)
+        let vel_center = flow.velocity(5.0, 0.5, 0.0, 0.0);
         assert_relative_eq!(vel_center.x, 1.0, epsilon = 1e-10);
         assert_relative_eq!(vel_center.y, 0.0, epsilon = 1e-10);
 
-        // Test wall velocity (should be zero)
-        let vel_wall = flow.velocity(5.0, 1.0, 0.0, 0.0);
-        assert_relative_eq!(vel_wall.x, 0.0, epsilon = 1e-10);
+        // Test wall velocities (should be zero at y=0 and y=1)
+        let vel_wall_bottom = flow.velocity(5.0, 0.0, 0.0, 0.0);
+        assert_relative_eq!(vel_wall_bottom.x, 0.0, epsilon = 1e-10);
+        let vel_wall_top = flow.velocity(5.0, 1.0, 0.0, 0.0);
+        assert_relative_eq!(vel_wall_top.x, 0.0, epsilon = 1e-10);
 
         // Test pressure gradient
         let p1 = flow.pressure(0.0, 0.0, 0.0, 0.0);

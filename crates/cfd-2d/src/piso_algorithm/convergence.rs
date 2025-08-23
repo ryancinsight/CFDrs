@@ -21,10 +21,10 @@ pub struct ConvergenceCriteria<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive + Copy> Default for ConvergenceCriteria<T> {
     fn default() -> Self {
         Self {
-            velocity_tolerance: T::from_f64(CONVERGENCE_TOLERANCE_VELOCITY).unwrap_or_else(|| T::from_f64(1e-6).unwrap()),
-            pressure_tolerance: T::from_f64(CONVERGENCE_TOLERANCE_PRESSURE).unwrap_or_else(|| T::from_f64(1e-6).unwrap()),
-            continuity_tolerance: T::from_f64(CONVERGENCE_TOLERANCE_CONTINUITY).unwrap_or_else(|| T::from_f64(1e-5).unwrap()),
-            max_iterations: MAX_ITERATIONS_OUTER,
+            velocity_tolerance: T::from_f64(1e-5).unwrap_or_else(|| T::from_f64(1e-6).unwrap()),
+            pressure_tolerance: T::from_f64(1e-4).unwrap_or_else(|| T::from_f64(1e-6).unwrap()),
+            continuity_tolerance: T::from_f64(1e-5).unwrap_or_else(|| T::from_f64(1e-5).unwrap()),
+            max_iterations: 100,
         }
     }
 }

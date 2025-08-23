@@ -46,7 +46,7 @@ pub struct CentralDifference;
 
 impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for CentralDifference {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
-        let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         let ae = de - fe / two;
         let aw = dw + fw / two;
         (ae, aw)
@@ -66,7 +66,7 @@ pub struct HybridScheme;
 
 impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for HybridScheme {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
-        let two = T::from_f64(constants::TWO).unwrap_or_else(|| T::zero());
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         
         // Calculate Peclet numbers
         let pe_e = fe.abs() / de;
@@ -111,7 +111,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for PowerLa
         // Power-law function: max(0, (1 - 0.1|Pe|)^5)
         let power_law = |pe: T| -> T {
             let abs_pe = pe.abs();
-            let one_tenth = T::from_f64(constants::ONE_TENTH).unwrap_or_else(|| T::zero());
+            let one_tenth = T::from_f64(0.1).unwrap_or_else(|| T::zero());
             let factor = T::one() - one_tenth * abs_pe;
             if factor > T::zero() {
                 // Approximate (1-x)^5 for small x
@@ -156,7 +156,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for QuickSc
 		let pe_w = fw / dw;
 		let limiter = |pe: T| -> T {
 			let abs_pe = pe.abs();
-			let one_tenth = T::from_f64(constants::ONE_TENTH).unwrap_or_else(|| T::zero());
+			let one_tenth = T::from_f64(0.1).unwrap_or_else(|| T::zero());
 			let factor = T::one() - one_tenth * abs_pe;
 			            if factor > T::zero() { let f = factor; f * f * f * f * f } else { T::zero() }
 		};

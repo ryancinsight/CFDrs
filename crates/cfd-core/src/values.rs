@@ -58,13 +58,13 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
     pub fn is_laminar(&self) -> bool {
         let threshold = match self.geometry {
             FlowGeometry::Pipe | FlowGeometry::Internal => {
-                T::from_f64(2300.0)
+                T::from_f64(crate::constants::physics::dimensionless::reynolds::PIPE_CRITICAL_LOWER)
             }
             FlowGeometry::FlatPlate | FlowGeometry::External => {
-                T::from_f64(5e5)
+                T::from_f64(crate::constants::physics::dimensionless::reynolds::PLATE_CRITICAL)
             }
-            FlowGeometry::Sphere => T::from_f64(2e5),
-            FlowGeometry::Cylinder => T::from_f64(2e5),
+            FlowGeometry::Sphere => T::from_f64(crate::constants::physics::dimensionless::reynolds::SPHERE_CRITICAL),
+            FlowGeometry::Cylinder => T::from_f64(crate::constants::physics::dimensionless::reynolds::CYLINDER_CRITICAL),
         }.unwrap_or_else(|| T::zero());
         
         self.value < threshold
@@ -279,8 +279,7 @@ impl<T: RealField + FromPrimitive + Copy> Temperature<T> {
 
     /// Create temperature in Celsius
     pub fn celsius(value: T) -> Result<Self> {
-        use crate::constants::CELSIUS_TO_KELVIN_OFFSET;
-        let kelvin_value = value + T::from_f64(CELSIUS_TO_KELVIN_OFFSET).unwrap_or_else(|| T::one());
+        let kelvin_value = value + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN).unwrap_or_else(|| T::one());
         Self::kelvin(kelvin_value)
     }
 
@@ -292,13 +291,12 @@ impl<T: RealField + FromPrimitive + Copy> Temperature<T> {
 
     /// Convert to Kelvin
     pub fn to_kelvin(&self) -> T {
-        use crate::constants::CELSIUS_TO_KELVIN_OFFSET;
         match self.unit {
             TemperatureUnit::Kelvin => self.value,
-            TemperatureUnit::Celsius => self.value + T::from_f64(CELSIUS_TO_KELVIN_OFFSET).unwrap_or_else(|| T::zero()),
+            TemperatureUnit::Celsius => self.value + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN).unwrap_or_else(|| T::zero()),
             TemperatureUnit::Fahrenheit => {
                 let celsius = (self.value - T::from_f64(32.0).unwrap_or_else(|| T::zero())) * T::from_f64(5.0).unwrap_or_else(|| T::zero()) / T::from_f64(9.0).unwrap_or_else(|| T::one());
-                celsius + T::from_f64(CELSIUS_TO_KELVIN_OFFSET).unwrap_or_else(|| T::zero())
+                celsius + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN).unwrap_or_else(|| T::zero())
             }
         }
     }

@@ -132,8 +132,8 @@ pub mod les {
             // where |S| = √(2 * Sᵢⱼ * Sᵢⱼ) is the strain rate magnitude
             
             let n = flow_field.velocity.components.len();
-            let grid_size = (n as f64).powf(constants::ONE / constants::THREE) as usize;
-            let delta = T::from_f64(constants::ONE / grid_size as f64).unwrap_or_else(T::one);
+            let grid_size = (n as f64).powf(1.0 / 3.0) as usize;  // Cube root for 3D grid
+            let delta = T::from_f64(1.0 / grid_size as f64).unwrap_or_else(T::one);
             
             flow_field.velocity.components
                 .iter()
@@ -158,7 +158,7 @@ pub mod les {
                         ) {
                             let u_plus = u_plus_vec.x;
                             let u_minus = u_minus_vec.x;
-                            let dudx = (u_plus - u_minus) / (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * delta);
+                            let dudx = (u_plus - u_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * delta); // Central difference
                             strain_rate_squared = strain_rate_squared + dudx * dudx;
                         }
                     }
@@ -172,7 +172,7 @@ pub mod les {
                         ) {
                             let v_plus = v_plus_vec.y;
                             let v_minus = v_minus_vec.y;
-                            let dvdy = (v_plus - v_minus) / (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * delta);
+                            let dvdy = (v_plus - v_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * delta); // Central difference
                             strain_rate_squared = strain_rate_squared + dvdy * dvdy;
                         }
                     }
@@ -186,7 +186,7 @@ pub mod les {
                         ) {
                             let w_plus = w_plus_vec.z;
                             let w_minus = w_minus_vec.z;
-                            let dwdz = (w_plus - w_minus) / (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * delta);
+                            let dwdz = (w_plus - w_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * delta); // Central difference
                             strain_rate_squared = strain_rate_squared + dwdz * dwdz;
                         }
                     }
@@ -199,14 +199,14 @@ pub mod les {
                         let v_i_plus = flow_field.velocity.components[(k * grid_size + j) * grid_size + i + 1].y;
                         let v_i_minus = flow_field.velocity.components[(k * grid_size + j) * grid_size + i - 1].y;
                         
-                        let dudy = (u_j_plus - u_j_minus) / (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * delta);
-                        let dvdx = (v_i_plus - v_i_minus) / (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * delta);
-                        let shear_xy = (dudy + dvdx) / T::from_f64(constants::TWO).unwrap_or_else(|| T::one());
+                        let dudy = (u_j_plus - u_j_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * delta);
+                        let dvdx = (v_i_plus - v_i_minus) / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * delta);
+                        let shear_xy = (dudy + dvdx) / T::from_f64(2.0).unwrap_or_else(|| T::one()); // Mean shear strain
                         strain_rate_squared = strain_rate_squared + shear_xy * shear_xy;
                     }
                     
                     // Strain rate magnitude: |S| = √(2 * Sᵢⱼ * Sᵢⱼ)
-                    let strain_rate_magnitude = (T::from_f64(constants::TWO).unwrap_or_else(|| T::one()) * strain_rate_squared).sqrt();
+                    let strain_rate_magnitude = (T::from_f64(2.0).unwrap_or_else(|| T::one()) * strain_rate_squared).sqrt();
                     
                     // Smagorinsky turbulent viscosity: νₜ = (Cs * Δ)²  * |S|
                     self.cs * self.cs * delta * delta * strain_rate_magnitude
@@ -233,8 +233,8 @@ pub mod les {
                     window.iter()
                         .map(|v| {
                             let fluctuation = v - mean_velocity;
-                            let half = T::from_f64(constants::HALF).unwrap_or_else(|| T::one());
-                            half * fluctuation.dot(&fluctuation)
+                            let half = T::from_f64(0.5).unwrap_or_else(|| T::one());
+                            half * fluctuation.dot(&fluctuation) // Turbulent kinetic energy
                         })
                         .fold(T::zero(), |acc, tke| acc + tke)
                         .scale(T::from_f64(1.0 / window_size as f64).unwrap_or_else(|| T::one()))
@@ -288,7 +288,8 @@ pub mod les {
                     let strain_rate_magnitude = velocity_magnitude_squared.sqrt();
                     
                     // Grid filter width (should be computed from actual grid)
-                    let delta = T::from_f64(constants::ONE_TENTH).unwrap_or_else(T::one);
+                    // Using 0.1 as placeholder - this should come from mesh spacing
+                    let delta = T::from_f64(0.1).unwrap_or_else(T::one);
                     
                     // Local Smagorinsky coefficient (bounded from below)
                     let cs_squared = (self.cs_base * self.cs_base)
@@ -309,8 +310,8 @@ pub mod les {
                     let v = velocity_vector.y;
                     let w = velocity_vector.z;
 
-                    let half = T::from_f64(constants::HALF).unwrap_or_else(|| T::one() / (T::one() + T::one()));
-                    half * (u * u + v * v + w * w)
+                    let half = T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one()));
+                    half * (u * u + v * v + w * w) // Kinetic energy
                 })
                 .collect()
         }
@@ -568,9 +569,9 @@ where
     pub fn classify_flow_regime(&self, reynolds_number: T) -> FlowRegime {
         let re = reynolds_number.to_f64().unwrap_or(0.0);
 
-        if re < crate::constants::LAMINAR_THRESHOLD {
+        if re < crate::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER {
             FlowRegime::Laminar
-        } else if re < crate::constants::TURBULENT_THRESHOLD {
+        } else if re < crate::constants::dimensionless::reynolds::PIPE_CRITICAL_UPPER {
             FlowRegime::Transitional
         } else {
             FlowRegime::Turbulent
