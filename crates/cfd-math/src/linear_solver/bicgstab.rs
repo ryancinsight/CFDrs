@@ -61,7 +61,11 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
         r -= &ax;
         
         let initial_residual_norm = r.norm();
-        let breakdown_tolerance = initial_residual_norm * T::default_epsilon();
+        // Use a more robust breakdown tolerance
+        // The tolerance should be at least sqrt(epsilon) to avoid false positives
+        let epsilon = T::default_epsilon();
+        let sqrt_epsilon = epsilon.sqrt();
+        let breakdown_tolerance = (initial_residual_norm * sqrt_epsilon).max(epsilon);
         
         r0_hat.copy_from(&r); // Shadow residual
         
