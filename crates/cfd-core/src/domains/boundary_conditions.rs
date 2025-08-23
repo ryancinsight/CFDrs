@@ -97,7 +97,7 @@ pub enum BoundaryGeometry<T: RealField + Copy> {
 
 /// Standard boundary condition applicators
 pub mod applicators {
-    use super::*;
+    use super::{BoundaryCondition, BoundaryConditionApplicator, BoundaryConditionSpec, RealField};
     
     /// Dirichlet boundary condition applicator
     #[derive(Debug, Clone)]
@@ -181,7 +181,7 @@ pub struct TimeDependentEvaluator<T: RealField + Copy + num_traits::Float> {
 
 impl<T: RealField + Copy + num_traits::Float> TimeDependentEvaluator<T> {
     /// Create new evaluator
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             functions: HashMap::new(),
         }
@@ -227,7 +227,7 @@ impl<T: RealField + Copy + num_traits::Float> TimeDependentEvaluator<T> {
     pub fn evaluate_spec(&mut self, spec: &TimeDependentSpec<T>, time: T) -> T {
         match spec.function_type {
             TimeFunctionType::Constant => {
-                spec.parameters.first().cloned().unwrap_or_else(T::zero)
+                spec.parameters.first().copied().unwrap_or_else(T::zero)
             }
             TimeFunctionType::Linear => {
                 if spec.parameters.len() >= 2 {
@@ -287,7 +287,7 @@ pub struct BoundaryConditionsService<T: RealField + Copy> {
 
 impl<T: RealField + Copy> BoundaryConditionsService<T> {
     /// Create new boundary conditions service
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         let mut service = Self {
             applicators: HashMap::new(),
             regions: HashMap::new(),
@@ -337,13 +337,13 @@ impl<T: RealField + Copy> BoundaryConditionsService<T> {
     }
     
     /// Get boundary region by ID
-    pub fn get_region(&self, id: &str) -> Option<&BoundaryRegion<T>> {
+    #[must_use] pub fn get_region(&self, id: &str) -> Option<&BoundaryRegion<T>> {
         self.regions.get(id)
     }
     
     /// List all boundary regions
-    pub fn list_regions(&self) -> Vec<&str> {
-        self.regions.keys().map(|s| s.as_str()).collect()
+    #[must_use] pub fn list_regions(&self) -> Vec<&str> {
+        self.regions.keys().map(std::string::String::as_str).collect()
     }
 }
 

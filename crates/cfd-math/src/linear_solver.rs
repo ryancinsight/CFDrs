@@ -1,4 +1,4 @@
-//! Linear solver implementations for CFD applications.
+//! Linear system solvers for CFD applications.
 //!
 //! This module provides iterative linear solvers optimized for sparse matrices
 //! arising from CFD discretizations. It emphasizes the use of well-tested
@@ -19,12 +19,14 @@
 //! - Leveraging nalgebra's optimized BLAS-like operations
 //! - Providing efficient preconditioner APIs
 
-use cfd_core::error::{Error, Result};
-use nalgebra::{DVector, RealField};
+use cfd_core::error::{Error, Result, NumericalErrorKind};
+use nalgebra::{DMatrix, DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
-use num_traits::cast::FromPrimitive;
+use num_traits::{FromPrimitive, Zero};
 use std::fmt::Debug;
 use crate::sparse::SparseMatrixExt;
+use crate::vector_ops::SimdVectorOps;
+use rayon::prelude::*;
 
 // Re-export the unified configuration from cfd-core
 pub use cfd_core::solver::{LinearSolverConfig, SolverConfiguration};
@@ -92,7 +94,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> JacobiPreconditioner<T> {
 
         for (i, val) in diag.iter().enumerate() {
             if val.abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
-                return Err(Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation));
+                return Err(Error::Numerical(NumericalErrorKind::InvalidFpOperation));
             }
             inv_diagonal[i] = T::one() / *val;
         }
@@ -158,7 +160,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> SORPreconditioner<T> {
         let n = a.nrows() as f64;
         let omega_opt = 2.0 / (1.0 + (std::f64::consts::PI / n).sin());
         let omega = T::from_f64(omega_opt).ok_or_else(|| {
-            Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidFpOperation)
+            Error::Numerical(NumericalErrorKind::InvalidFpOperation)
         })?;
         
         Self::new(a, omega)
@@ -312,16 +314,73 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
     }
 }
 
-impl<T: RealField + Debug + Copy> LinearSolver<T> for ConjugateGradient<T> {
-    fn solve(
-        &self,
-        a: &CsrMatrix<T>,
-        b: &DVector<T>,
-        x0: Option<&DVector<T>>,
-    ) -> Result<DVector<T>> {
-        // Use identity preconditioner for unpreconditioned solve
-        let identity = IdentityPreconditioner;
-        self.solve_preconditioned(a, b, &identity, x0)
+impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> LinearSolver<T> for ConjugateGradient<T> {
+    fn solve(&self, a: &CsrMatrix<T>, b: &DVector<T>, x0: Option<&DVector<T>>) -> Result<DVector<T>> {
+        let n = b.len();
+        if a.nrows() != n || a.ncols() != n {
+            return Err(Error::InvalidInput("Matrix dimensions must match vector size".to_string()));
+        }
+
+        let mut x = x0.map(|v| v.clone()).unwrap_or_else(|| DVector::zeros(n));
+        let mut r = b - a * &x;
+        
+        // Use SIMD operations for large vectors
+        let mut r_norm_sq = if n > 1000 {
+            r.simd_norm().powi(2)
+        } else {
+            r.norm_squared()
+        };
+        
+        if r_norm_sq < self.config.tolerance * self.config.tolerance {
+            return Ok(x);
+        }
+
+        let mut p = r.clone();
+        
+        for _ in 0..self.config.max_iterations {
+            let ap = a * &p;
+            
+            // Use SIMD dot product for large vectors
+            let pap = if n > 1000 {
+                p.simd_dot(&ap)
+            } else {
+                p.dot(&ap)
+            };
+            
+            if pap.abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
+                break;
+            }
+            
+            let alpha = r_norm_sq / pap;
+            
+            // Use axpy for in-place updates
+            for i in 0..n {
+                x[i] = x[i] + alpha * p[i];
+                r[i] = r[i] - alpha * ap[i];
+            }
+            
+            // Use SIMD norm for convergence check
+            let r_norm_sq_new = if n > 1000 {
+                r.simd_norm().powi(2)
+            } else {
+                r.norm_squared()
+            };
+            
+            if r_norm_sq_new < self.config.tolerance * self.config.tolerance {
+                return Ok(x);
+            }
+            
+            let beta = r_norm_sq_new / r_norm_sq;
+            
+            // Update p = r + beta * p
+            for i in 0..n {
+                p[i] = r[i] + beta * p[i];
+            }
+            
+            r_norm_sq = r_norm_sq_new;
+        }
+        
+        Ok(x)
     }
 
     fn config(&self) -> &LinearSolverConfig<T> {
@@ -595,7 +654,12 @@ mod tests {
 
     #[test]
     fn test_1d_poisson_validation_rejects_invalid_matrix() {
-        let _a = create_test_matrix(); // This is a 3x3 tridiagonal matrix: should actually pass validation
+        let a = create_test_matrix(); // This is a 3x3 tridiagonal matrix
+        
+        // Verify the matrix has non-zero diagonal elements
+        // For CsrMatrix, we check the structure instead of direct indexing
+        let nnz = a.nnz();
+        assert!(nnz >= 3, "Matrix should have at least 3 non-zero elements");
         
         // The test matrix we created is actually tridiagonal, so let's create a non-tridiagonal matrix
         let mut builder = crate::sparse::SparseMatrixBuilder::new(3, 3);

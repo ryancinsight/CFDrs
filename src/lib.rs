@@ -34,67 +34,25 @@ pub use cfd_validation as validation;
 /// }
 /// ```
 pub mod prelude {
-    // === Core Abstractions ===
-    // Fundamental types used across all CFD simulations
+    //! Common imports for CFD simulations
+    
+    // Core types
     pub use cfd_core::prelude::*;
     
-    // Additional advanced types for solver implementors (not in core prelude)
-    pub use cfd_core::solvers::{Configurable, Validatable, IterativeSolver, DirectSolver};
-
-    // === Mathematical Utilities ===
-    // Essential numerical methods and linear algebra
-    pub use cfd_math::{
-                 SparseMatrix, SparseMatrixBuilder, LinearSolver, ConjugateGradient, BiCGSTAB,
-GaussQuadrature, FiniteDifference, Interpolation, LinearInterpolation, CubicSplineInterpolation,
-        MathIteratorExt, VectorOps, CfdIteratorChain, VectorizedOps, StencilOps
-    };
-    pub use cfd_math::integration::{AdaptiveQuadrature, VariableQuadrature};
-
-    // === I/O Operations ===
-    // File input/output for all supported formats
-    pub use cfd_io::{VtkWriter, CsvWriter, JsonWriter, CheckpointManager, VtkMesh, VtkMeshBuilder};
-    #[cfg(feature = "hdf5")]
-    pub use cfd_io::{Hdf5Writer, Hdf5Reader, DatasetMetadata, DataChunk};
-
-    // === Mesh Operations ===
-    // Geometric operations and mesh handling
-    pub use cfd_mesh::{Mesh, Vertex, Face, Cell, MeshTopology};
-
-    // === 1D CFD Simulations ===
-    // Microfluidic networks and pipe flow
-    pub use cfd_1d::{
-        Network, NetworkBuilder, NetworkSolver, Node, NetworkProblem,
-        NodeType, ChannelProperties,
-        Component, RectangularChannel, CircularChannel, Micropump, Microvalve,
-        NetworkAnalyzer, FlowAnalysis, PressureAnalysis, ResistanceModel
-    };
-
-    // === 2D CFD Simulations ===
-    // Grid-based methods for 2D flows with domain-organized modules
-    pub use cfd_2d::{
-        // Core grid types
-        StructuredGrid2D, Grid2D, BoundaryType,
-        // Numerical solvers
-        PoissonSolver, FvmSolver, LbmSolver, PressureVelocitySolver,
-        FdmConfig, FvmConfig, LbmConfig, PressureVelocityConfig,
-        // Physics models
-        EnergyEquationSolver, MomentumSolver, KEpsilonModel, WallFunction
-    };
-
-    // === 3D CFD Simulations ===
-    // 3D methods with CSGrs integration
-    pub use cfd_3d::{
-        FemSolver, FemConfig, SpectralSolver, SpectralConfig, SpectralBasis,
-        IbmSolver, IbmConfig, LagrangianPoint,
-        LevelSetSolver, LevelSetConfig,
-        VofSolver, VofConfig
-    };
-
-    // === Validation Framework ===
-    // Analytical solutions and error analysis
-    pub use cfd_validation::{
-        AnalyticalSolution, PoiseuilleFlow, CouetteFlow, StokesFlow, TaylorGreenVortex,
-        ErrorMetric, L2Norm, L1Norm, LInfNorm, ErrorStatistics, ErrorAnalysis,
-        ConvergenceAnalysis, ConvergenceStudy, RichardsonExtrapolation
-    };
+    // Math operations
+    pub use cfd_math::prelude::*;
+    
+    // Mesh operations
+    pub use cfd_mesh::prelude::*;
+    
+    // I/O operations - only export what's available
+    pub use cfd_io::{VtkWriter, VtkReader, VtkMesh, VtkMeshBuilder};
+    
+    // Solver exports
+    pub use cfd_1d::prelude::*;
+    // Note: cfd_2d and cfd_3d don't have prelude modules yet
+    // TODO: Add prelude modules to these crates for consistency
+    
+    // Validation tools
+    pub use cfd_validation::prelude::*;
 }

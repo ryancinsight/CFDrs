@@ -67,25 +67,25 @@ impl LinearSolverValidator {
         // Test 1: Standard diagonal system
         match Self::test_diagonal_system::<T>() {
             Ok(test_results) => results.extend(test_results),
-            Err(e) => println!("Diagonal system test failed: {}", e),
+            Err(e) => println!("Diagonal system test failed: {e}"),
         }
 
         // Test 2: Tridiagonal system (1D Poisson)
         match Self::test_tridiagonal_system::<T>() {
             Ok(test_results) => results.extend(test_results),
-            Err(e) => println!("Tridiagonal system test failed: {}", e),
+            Err(e) => println!("Tridiagonal system test failed: {e}"),
         }
 
         // Test 3: 2D Poisson equation
         match Self::test_2d_poisson::<T>() {
             Ok(test_results) => results.extend(test_results),
-            Err(e) => println!("2D Poisson test failed: {}", e),
+            Err(e) => println!("2D Poisson test failed: {e}"),
         }
 
         // Test 4: Ill-conditioned system (expected to have some failures)
         match Self::test_ill_conditioned_system::<T>() {
             Ok(test_results) => results.extend(test_results),
-            Err(e) => println!("Ill-conditioned system test failed (expected): {}", e),
+            Err(e) => println!("Ill-conditioned system test failed (expected): {e}"),
         }
 
         Ok(results)
@@ -129,7 +129,7 @@ impl LinearSolverValidator {
                     results.push(result);
                 },
                 Err(e) => {
-                    println!("Solver {} failed on diagonal system: {}", name, e);
+                    println!("Solver {name} failed on diagonal system: {e}");
 
                     // Create a failed result entry
                     let dummy_solution = DVector::zeros(analytical.len());
@@ -197,7 +197,7 @@ impl LinearSolverValidator {
     }
 
     /// Test 2D Poisson equation
-    /// Literature: LeVeque (2007), "Finite Difference Methods for ODEs and PDEs"
+    /// Literature: `LeVeque` (2007), "Finite Difference Methods for ODEs and PDEs"
     fn test_2d_poisson<T: RealField + Copy + FromPrimitive + Copy + Float>() -> Result<Vec<ValidationResult<T>>> {
         let nx = 32;
         let ny = 32;
@@ -274,7 +274,7 @@ impl LinearSolverValidator {
                 },
                 Err(e) => {
                     // For ill-conditioned systems, solver breakdown is expected for some methods
-                    println!("Solver {} failed on ill-conditioned system (expected): {}", name, e);
+                    println!("Solver {name} failed on ill-conditioned system (expected): {e}");
 
                     // Create a failed result entry
                     let dummy_solution = DVector::zeros(analytical.len());
@@ -311,7 +311,6 @@ impl LinearSolverValidator {
         
         let (row_indices, col_indices, values): (Vec<_>, Vec<_>, Vec<_>) = 
             diagonal_entries.into_iter()
-                .map(|(r, c, v)| (r, c, v))
                 .fold((Vec::new(), Vec::new(), Vec::new()), 
                       |(mut rows, mut cols, mut vals), (r, c, v)| {
                           rows.push(r);
@@ -396,8 +395,8 @@ impl LinearSolverValidator {
             // Convert triplets to CSR format
             let mut row_offsets = vec![0; n + 1];
             let mut sorted_data: Vec<(usize, usize, T)> = row_indices.into_iter()
-                .zip(col_indices.into_iter())
-                .zip(values.into_iter())
+                .zip(col_indices)
+                .zip(values)
                 .map(|((r, c), v)| (r, c, v))
                 .collect();
             
@@ -537,8 +536,8 @@ impl LinearSolverValidator {
             // Convert triplets to CSR format
             let mut row_offsets = vec![0; n + 1];
             let mut sorted_data: Vec<(usize, usize, T)> = row_indices.into_iter()
-                .zip(col_indices.into_iter())
-                .zip(values.into_iter())
+                .zip(col_indices)
+                .zip(values)
                 .map(|((r, c), v)| (r, c, v))
                 .collect();
             
@@ -580,7 +579,7 @@ impl LinearSolverValidator {
     ) -> ErrorMetrics<T> {
         let error = computed - analytical;
         let l2_error = error.norm();
-        let linf_error = error.iter().map(|x| x.abs()).fold(T::zero(), |acc, x| if x > acc { x } else { acc });
+        let linf_error = error.iter().map(num_traits::Signed::abs).fold(T::zero(), |acc, x| if x > acc { x } else { acc });
         
         let analytical_norm = analytical.norm();
         let relative_l2_error = if analytical_norm > T::zero() {

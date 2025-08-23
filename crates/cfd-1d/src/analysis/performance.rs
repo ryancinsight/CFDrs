@@ -21,7 +21,7 @@ pub struct PerformanceMetrics<T: RealField + Copy> {
 
 impl<T: RealField + Copy + Sum> PerformanceMetrics<T> {
     /// Create new performance metrics
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             throughput: T::zero(),
             pressure_efficiency: T::zero(),

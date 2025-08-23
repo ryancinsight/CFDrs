@@ -42,7 +42,7 @@ impl<T: Clone> Field2D<T> {
 
     /// Get value at element (i, j) - returns value for Copy types
     #[inline]
-    pub fn at(&self, i: usize, j: usize) -> T 
+    #[must_use] pub fn at(&self, i: usize, j: usize) -> T 
     where 
         T: Copy
     {
@@ -52,7 +52,7 @@ impl<T: Clone> Field2D<T> {
     
     /// Get immutable reference to element at (i, j)
     #[inline]
-    pub fn at_ref(&self, i: usize, j: usize) -> &T {
+    #[must_use] pub fn at_ref(&self, i: usize, j: usize) -> &T {
         debug_assert!(i < self.nx && j < self.ny, "Index out of bounds");
         &self.data[j * self.nx + i]
     }
@@ -65,12 +65,12 @@ impl<T: Clone> Field2D<T> {
     }
 
     /// Get grid dimensions
-    pub fn dimensions(&self) -> (usize, usize) {
+    #[must_use] pub fn dimensions(&self) -> (usize, usize) {
         (self.nx, self.ny)
     }
 
     /// Get raw data slice for efficient operations
-    pub fn data(&self) -> &[T] {
+    #[must_use] pub fn data(&self) -> &[T] {
         &self.data
     }
 
@@ -171,7 +171,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
     
     /// Get velocity as Vector2 at point (i, j)
     #[inline]
-    pub fn velocity_at(&self, i: usize, j: usize) -> Vector2<T> {
+    #[must_use] pub fn velocity_at(&self, i: usize, j: usize) -> Vector2<T> {
         Vector2::new(
             self.u.at(i, j),
             self.v.at(i, j)
@@ -187,7 +187,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
     
     /// Get predicted velocity as Vector2
     #[inline]
-    pub fn velocity_star_at(&self, i: usize, j: usize) -> Vector2<T> {
+    #[must_use] pub fn velocity_star_at(&self, i: usize, j: usize) -> Vector2<T> {
         Vector2::new(
             self.u_star.at(i, j),
             self.v_star.at(i, j)
@@ -195,7 +195,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
     }
 
     /// Get maximum velocity magnitude for stability analysis using iterators
-    pub fn max_velocity_magnitude(&self) -> T {
+    #[must_use] pub fn max_velocity_magnitude(&self) -> T {
         self.u.data()
             .iter()
             .zip(self.v.data().iter())
@@ -208,7 +208,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
     }
     
     /// Calculate kinematic viscosity field (nu = mu/rho)
-    pub fn kinematic_viscosity(&self) -> Field2D<T> {
+    #[must_use] pub fn kinematic_viscosity(&self) -> Field2D<T> {
         Field2D {
             data: self.viscosity.data()
                 .iter()

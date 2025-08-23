@@ -50,7 +50,7 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
 
         if !missing_bcs.is_empty() {
             return Err(Error::InvalidConfiguration(
-                format!("Missing boundary conditions for nodes: {:?}", missing_bcs)
+                format!("Missing boundary conditions for nodes: {missing_bcs:?}")
             ));
         }
 

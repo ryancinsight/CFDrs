@@ -58,6 +58,12 @@ pub struct NetworkSolver<T: RealField + Copy> {
     convergence: ConvergenceChecker<T>,
 }
 
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for NetworkSolver<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
     /// Create a new network solver with default configuration
     pub fn new() -> Self {

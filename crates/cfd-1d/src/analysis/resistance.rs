@@ -19,7 +19,7 @@ pub struct ResistanceAnalysis<T: RealField + Copy> {
 
 impl<T: RealField + Copy + Sum> ResistanceAnalysis<T> {
     /// Create a new resistance analysis
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             resistances: HashMap::new(),
             total_resistance: T::zero(),
@@ -31,7 +31,7 @@ impl<T: RealField + Copy + Sum> ResistanceAnalysis<T> {
     /// Add resistance data for a component
     pub fn add_resistance(&mut self, id: String, resistance: T) {
         self.resistances.insert(id.clone(), resistance);
-        self.total_resistance = self.total_resistance + resistance;
+        self.total_resistance += resistance;
     }
 
     /// Add resistance by type

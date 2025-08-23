@@ -21,10 +21,10 @@ pub struct ConvergenceCriteria<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive + Copy> Default for ConvergenceCriteria<T> {
     fn default() -> Self {
         Self {
-            velocity_tolerance: T::from_f64(CONVERGENCE_TOLERANCE_VELOCITY).unwrap_or_else(|| T::from_f64(1e-6).unwrap()),
-            pressure_tolerance: T::from_f64(CONVERGENCE_TOLERANCE_PRESSURE).unwrap_or_else(|| T::from_f64(1e-6).unwrap()),
-            continuity_tolerance: T::from_f64(CONVERGENCE_TOLERANCE_CONTINUITY).unwrap_or_else(|| T::from_f64(1e-5).unwrap()),
-            max_iterations: MAX_ITERATIONS_OUTER,
+            velocity_tolerance: T::from_f64(1e-5).unwrap_or_else(|| T::from_f64(1e-6).unwrap()),
+            pressure_tolerance: T::from_f64(1e-4).unwrap_or_else(|| T::from_f64(1e-6).unwrap()),
+            continuity_tolerance: T::from_f64(1e-5).unwrap_or_else(|| T::from_f64(1e-5).unwrap()),
+            max_iterations: 100,
         }
     }
 }
@@ -41,9 +41,15 @@ pub struct ConvergenceMonitor<T: RealField + Copy> {
     pub iteration: usize,
 }
 
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for ConvergenceMonitor<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
     /// Create new convergence monitor
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             velocity_residuals: Vec::new(),
             pressure_residuals: Vec::new(),
@@ -126,7 +132,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
         for i in 1..nx-1 {
             for j in 1..ny-1 {
                 let dp = fields_new.p.at(i, j) - fields_old.p.at(i, j);
-                sum = sum + dp * dp;
+                sum += dp * dp;
                 count += 1;
             }
         }
@@ -145,7 +151,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
         
         for i in 1..nx-1 {
             for j in 1..ny-1 {
-                // Simple continuity check (du/dx + dv/dy = 0)
+                // Continuity equation check (du/dx + dv/dy = 0)
                 let dudx = (fields.u.at(i+1, j) - fields.u.at(i-1, j)) / T::from_f64(2.0).unwrap();
                 let dvdy = (fields.v.at(i, j+1) - fields.v.at(i, j-1)) / T::from_f64(2.0).unwrap();
                 let imbalance = (dudx + dvdy).abs();

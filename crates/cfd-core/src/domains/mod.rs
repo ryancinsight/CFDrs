@@ -14,7 +14,13 @@ pub mod boundary_conditions;
 pub mod material_properties;
 
 // Re-export domain-specific functionality
-pub use fluid_dynamics::{FlowField, VelocityField, PressureField, TurbulenceModel};
+pub use fluid_dynamics::{
+    FlowField, VelocityField, PressureField, ScalarField,
+    TurbulenceModel, SmagorinskyModel, MixingLengthModel,
+    RANSModel, KEpsilonModel, KEpsilonConstants,
+    FlowRegime, FlowClassifier,
+    FlowOperations
+};
 pub use numerical_methods::{DiscretizationScheme, TimeIntegrationScheme, LinearSystemSolver};
 pub use mesh_operations::{MeshGeneration, MeshRefinement, MeshQuality};
 pub use boundary_conditions::BoundaryConditionApplicator;

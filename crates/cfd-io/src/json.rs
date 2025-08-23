@@ -3,9 +3,15 @@
 /// JSON writer
 pub struct JsonWriter;
 
+impl Default for JsonWriter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl JsonWriter {
     /// Create a new JSON writer
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self
     }
 }
@@ -13,9 +19,15 @@ impl JsonWriter {
 /// JSON reader
 pub struct JsonReader;
 
+impl Default for JsonReader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl JsonReader {
     /// Create a new JSON reader
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self
     }
 }

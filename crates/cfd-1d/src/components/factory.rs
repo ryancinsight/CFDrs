@@ -1,6 +1,6 @@
 //! Factory for creating microfluidic components
 
-use super::*;
+use super::{CircularChannel, Component, HashMap, Micropump, Microvalve, RectangularChannel, constants};
 use cfd_core::{Error, Result};
 use nalgebra::RealField;
 use num_traits::{FromPrimitive, Float};
@@ -23,7 +23,7 @@ impl ComponentFactory {
                 let height = params.get("height")
                     .ok_or_else(|| Error::InvalidConfiguration("Missing height parameter".into()))?;
                 let roughness = params.get("roughness")
-                    .cloned()
+                    .copied()
                     .unwrap_or_else(|| T::from_f64(constants::DEFAULT_ROUGHNESS).unwrap_or_else(|| T::zero()));
                 
                 Ok(Box::new(RectangularChannel::new(
@@ -39,7 +39,7 @@ impl ComponentFactory {
                 let diameter = params.get("diameter")
                     .ok_or_else(|| Error::InvalidConfiguration("Missing diameter parameter".into()))?;
                 let roughness = params.get("roughness")
-                    .cloned()
+                    .copied()
                     .unwrap_or_else(|| T::from_f64(constants::DEFAULT_ROUGHNESS).unwrap_or_else(|| T::zero()));
                 
                 Ok(Box::new(CircularChannel::new(
@@ -61,12 +61,12 @@ impl ComponentFactory {
             }
             "Microvalve" => {
                 let cv = params.get("cv")
-                    .cloned()
+                    .copied()
                     .unwrap_or_else(|| T::from_f64(constants::DEFAULT_VALVE_CV).unwrap_or_else(|| T::zero()));
                 
                 Ok(Box::new(Microvalve::new(cv)))
             }
-            _ => Err(Error::InvalidConfiguration(format!("Unknown component type: {}", component_type)))
+            _ => Err(Error::InvalidConfiguration(format!("Unknown component type: {component_type}")))
         }
     }
 }

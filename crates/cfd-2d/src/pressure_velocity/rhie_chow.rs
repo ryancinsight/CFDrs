@@ -13,7 +13,7 @@ pub struct RhieChowInterpolation<T: RealField + Copy> {
     /// Grid dimensions
     nx: usize,
     ny: usize,
-    /// Momentum equation coefficients (A_p from discretized momentum equation)
+    /// Momentum equation coefficients (`A_p` from discretized momentum equation)
     ap_coefficients: Field2D<T>,
 }
 
@@ -28,7 +28,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
     }
     
     /// Update momentum equation coefficients from discretized momentum equation
-    /// A_p is the diagonal coefficient from momentum discretization
+    /// `A_p` is the diagonal coefficient from momentum discretization
     pub fn update_coefficients(&mut self, ap: &Field2D<T>) {
         self.ap_coefficients = ap.clone();
     }
@@ -36,11 +36,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
     /// Compute face velocity with complete Rhie-Chow interpolation
     /// 
     /// The complete formulation according to Rhie & Chow (1983), Eq. 13:
-    /// u_f = ū_f + d_f * [(∇p)_P - (∇p)_f] + dt * (u_f^n - ū_f^n) / 2
+    /// `u_f` = `ū_f` + `d_f` * [(∇p)_P - (∇p)_f] + dt * (`u_f^n` - `ū_f^n`) / 2
     /// 
     /// where:
-    /// - ū_f is the linearly interpolated velocity
-    /// - d_f = (Volume/A_p)_f is the interpolated pressure gradient coefficient
+    /// - `ū_f` is the linearly interpolated velocity
+    /// - `d_f` = (`Volume/A_p`)_f is the interpolated pressure gradient coefficient
     /// - (∇p)_P is the cell-centered pressure gradient (averaged)
     /// - (∇p)_f is the face pressure gradient (direct)
     /// - The last term is the transient correction for unsteady flows

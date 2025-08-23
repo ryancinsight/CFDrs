@@ -5,10 +5,10 @@ use cfd_math::{
     interpolation::{Interpolation, LinearInterpolation, CubicSplineInterpolation},
     integration::{Quadrature, GaussQuadrature},
     differentiation::FiniteDifference,
-    iterators::{MathIteratorExt, VectorOps},
-    vectorization::VectorizedOps,
+    iterators::MathIteratorExt,
+
 };
-use nalgebra::{DMatrix, DVector};
+use nalgebra::DVector;
 
 fn benchmark_linear_solvers(c: &mut Criterion) {
     let mut group = c.benchmark_group("linear_solvers");
@@ -149,7 +149,7 @@ fn benchmark_differentiation(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(finite_diff.derivative(&field).unwrap())
+                    black_box(finite_diff.first_derivative(&field).unwrap())
                 })
             },
         );
@@ -208,7 +208,7 @@ fn benchmark_vectorized_operations(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    let result = vec1.iter().l2_norm();
+                    let result = vec1.iter().copied().l2_norm();
                     black_box(result)
                 })
             },
@@ -258,21 +258,22 @@ fn benchmark_iterator_operations(c: &mut Criterion) {
 }
 
 // Helper functions
-fn create_test_linear_system(size: usize) -> (DMatrix<f64>, DVector<f64>) {
-    let mut matrix = DMatrix::zeros(size, size);
+fn create_test_linear_system(size: usize) -> (SparseMatrix<f64>, DVector<f64>) {
+    let mut builder = SparseMatrixBuilder::new(size, size);
     
     // Create a symmetric positive definite matrix (tridiagonal)
     for i in 0..size {
-        matrix[(i, i)] = 2.0;
+        let _ = builder.add_entry(i, i, 2.0);
         if i > 0 {
-            matrix[(i, i-1)] = -1.0;
+            let _ = builder.add_entry(i, i-1, -1.0);
         }
         if i < size - 1 {
-            matrix[(i, i+1)] = -1.0;
+            let _ = builder.add_entry(i, i+1, -1.0);
         }
     }
     
     let rhs = DVector::from_fn(size, |i, _| (i as f64).sin());
+    let matrix = builder.build().expect("Failed to build sparse matrix");
     
     (matrix, rhs)
 }
@@ -282,22 +283,22 @@ fn create_test_sparse_matrix(size: usize) -> SparseMatrix<f64> {
     
     // Create a 5-point stencil pattern
     for i in 0..size {
-        builder.add_entry(i, i, 4.0);
+        let _ = builder.add_entry(i, i, 4.0);
         if i > 0 {
-            builder.add_entry(i, i-1, -1.0);
+            let _ = builder.add_entry(i, i-1, -1.0);
         }
         if i < size - 1 {
-            builder.add_entry(i, i+1, -1.0);
+            let _ = builder.add_entry(i, i+1, -1.0);
         }
         if i >= 10 {
-            builder.add_entry(i, i-10, -1.0);
+            let _ = builder.add_entry(i, i-10, -1.0);
         }
         if i < size - 10 {
-            builder.add_entry(i, i+10, -1.0);
+            let _ = builder.add_entry(i, i+10, -1.0);
         }
     }
     
-    builder.build()
+    builder.build().expect("Failed to build sparse matrix")
 }
 
 criterion_group!(

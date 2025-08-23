@@ -20,6 +20,12 @@ pub struct LinearSystemSolver<T: RealField + Copy> {
     tolerance: T,
 }
 
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for LinearSystemSolver<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
     /// Create a new linear system solver
     pub fn new() -> Self {

@@ -140,7 +140,7 @@ pub struct ConnectionPath {
     pub channel_type: ChannelPathType,
 }
 
-/// Channel path types based on scheme's ChannelType
+/// Channel path types based on scheme's `ChannelType`
 #[derive(Debug, Clone)]
 pub enum ChannelPathType {
     /// Straight line channel
@@ -234,7 +234,7 @@ pub mod helpers {
 /// Fallback implementations when scheme integration is disabled
 #[cfg(not(feature = "scheme-integration"))]
 pub mod helpers {
-    use super::*;
+    use super::SchemeError;
 
     /// Create a simple bifurcation network schematic (fallback)
     pub fn create_bifurcation_schematic(

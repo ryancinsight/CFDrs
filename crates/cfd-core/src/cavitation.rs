@@ -37,7 +37,7 @@ pub mod constants {
 }
 
 /// Cavitation number (dimensionless)
-/// σ = (p - p_v) / (0.5 * ρ * v²)
+/// σ = (p - `p_v`) / (0.5 * ρ * v²)
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct CavitationNumber<T: RealField + Copy> {
     /// Reference pressure (Pa)
@@ -70,7 +70,7 @@ impl<T: RealField + FromPrimitive + Copy> CavitationNumber<T> {
 }
 
 /// Rayleigh-Plesset equation for bubble dynamics
-/// R*R̈ + (3/2)*Ṙ² = (p_B - p_∞)/ρ
+/// R*R̈ + (3/2)*Ṙ² = (`p_B` - p_∞)/ρ
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RayleighPlesset<T: RealField + Copy> {
     /// Bubble radius (m)
@@ -136,8 +136,8 @@ impl<T: RealField + FromPrimitive + Copy> RayleighPlesset<T> {
         let accel = self.acceleration(ambient_pressure);
         
         // Update velocity and radius using explicit Euler
-        self.velocity = self.velocity + accel * dt;
-        self.radius = self.radius + self.velocity * dt;
+        self.velocity += accel * dt;
+        self.radius += self.velocity * dt;
         
         // Ensure minimum radius for stability
         let min_radius = T::from_f64(constants::MIN_BUBBLE_RADIUS).unwrap_or_else(|| T::one());
@@ -201,10 +201,10 @@ impl<T: RealField + FromPrimitive + Copy> CavitationModel<T> {
                 
                 if pressure_diff < T::zero() {
                     // Vaporization
-                    let rate = *vaporization_coeff * density_vapor * 
+                    
+                    *vaporization_coeff * density_vapor * 
                         (T::one() - void_fraction) * pressure_diff.abs() / 
-                        (T::from_f64(0.5).unwrap_or_else(|| T::one()) * density_liquid);
-                    rate
+                        (T::from_f64(0.5).unwrap_or_else(|| T::one()) * density_liquid)
                 } else {
                     // Condensation
                     let rate = *condensation_coeff * density_vapor * 
@@ -231,11 +231,11 @@ impl<T: RealField + FromPrimitive + Copy> CavitationModel<T> {
                     let pressure_diff = pressure - vapor_pressure;
                     let sign = if pressure_diff < T::zero() { T::one() } else { -T::one() };
                     
-                    let rate = sign * T::from_f64(3.0).unwrap_or_else(|| T::one()) * alpha * (T::one() - alpha) * 
-                        density_vapor * (T::from_f64(2.0/3.0).unwrap_or_else(|| T::one()) * 
-                        pressure_diff.abs() / density_liquid).sqrt() / radius;
                     
-                    rate
+                    
+                    sign * T::from_f64(3.0).unwrap_or_else(|| T::one()) * alpha * (T::one() - alpha) * 
+                        density_vapor * (T::from_f64(2.0/3.0).unwrap_or_else(|| T::one()) * 
+                        pressure_diff.abs() / density_liquid).sqrt() / radius
                 } else {
                     T::zero()
                 }
@@ -247,11 +247,11 @@ impl<T: RealField + FromPrimitive + Copy> CavitationModel<T> {
                 
                 if pressure_diff < T::zero() {
                     // Vaporization
-                    let rate = *f_vap * T::from_f64(3.0).unwrap_or_else(|| T::one()) * 
+                    
+                    *f_vap * T::from_f64(3.0).unwrap_or_else(|| T::one()) * 
                         *nucleation_fraction * (T::one() - void_fraction) * 
                         density_vapor * (T::from_f64(2.0/3.0).unwrap_or_else(|| T::one()) * 
-                        pressure_diff.abs() / density_liquid).sqrt() / r_b;
-                    rate
+                        pressure_diff.abs() / density_liquid).sqrt() / r_b
                 } else {
                     // Condensation
                     let rate = *f_cond * T::from_f64(3.0).unwrap_or_else(|| T::one()) * 
@@ -376,10 +376,10 @@ impl<T: RealField + FromPrimitive + Copy> CavitationDamage<T> {
         
         if self.collapse_pressure > threshold {
             let intensity = (self.collapse_pressure - threshold).powf(T::from_f64(2.0).unwrap_or_else(|| T::one()));
-            let rate = T::from_f64(1e-12).unwrap_or_else(|| T::one()) * intensity * 
+            
+            T::from_f64(1e-12).unwrap_or_else(|| T::one()) * intensity * 
                 self.collapse_frequency * self.affected_area / 
-                self.material_resilience;
-            rate
+                self.material_resilience
         } else {
             T::zero()
         }

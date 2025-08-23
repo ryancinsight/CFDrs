@@ -2,7 +2,7 @@
 
 use cfd_core::fluid::Fluid;
 use cfd_core::error::Result;
-use cfd_core::constants::{LAMINAR_THRESHOLD, TURBULENT_THRESHOLD};
+use cfd_core::constants::dimensionless::reynolds::{PIPE_CRITICAL_LOWER, PIPE_CRITICAL_UPPER};
 use nalgebra::RealField;
 use num_traits::{cast::FromPrimitive, Float};
 use super::geometry::ChannelGeometry;
@@ -192,9 +192,9 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
 
         if re_val < 0.1 {
             FlowRegime::Stokes
-        } else if re_val < LAMINAR_THRESHOLD {
+        } else if re_val < PIPE_CRITICAL_LOWER {
             FlowRegime::Laminar
-        } else if re_val <= TURBULENT_THRESHOLD {
+        } else if re_val <= PIPE_CRITICAL_UPPER {
             FlowRegime::Transitional
         } else {
             FlowRegime::Turbulent

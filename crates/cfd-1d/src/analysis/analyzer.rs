@@ -29,7 +29,7 @@ pub struct NetworkAnalyzer<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> {
     /// Create a new network analyzer
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             solver: crate::solver::NetworkSolver::new(),
         }
@@ -162,7 +162,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> {
         for edge in network.edges_with_properties() {
             if edge.id.contains("inlet") || edge.id.contains("input") {
                 if let Some(flow_rate) = edge.flow_rate {
-                    throughput = throughput + Float::abs(flow_rate);
+                    throughput += Float::abs(flow_rate);
                 }
             }
         }
@@ -193,7 +193,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> {
                 if from_idx < pressure_vec.len() && to_idx < pressure_vec.len() {
                     let pressure_drop = Float::abs(pressure_vec[from_idx] - pressure_vec[to_idx]);
                     let power = Float::abs(flow_rate) * pressure_drop;
-                    total_power = total_power + power;
+                    total_power += power;
                 }
             }
         }

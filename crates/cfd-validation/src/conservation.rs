@@ -68,9 +68,15 @@ pub struct ConservationHistory<T: RealField + Copy> {
     pub satisfied: Vec<bool>,
 }
 
+impl<T: RealField + Copy> Default for ConservationHistory<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy> ConservationHistory<T> {
     /// Create a new conservation history
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             times: Vec::new(),
             errors: Vec::new(),
@@ -86,12 +92,12 @@ impl<T: RealField + Copy> ConservationHistory<T> {
     }
 
     /// Get the maximum error in the history
-    pub fn max_error(&self) -> Option<T> {
-        self.errors.iter().max_by(|a, b| a.partial_cmp(b).expect("CRITICAL: Add proper error handling")).cloned()
+    #[must_use] pub fn max_error(&self) -> Option<T> {
+        self.errors.iter().max_by(|a, b| a.partial_cmp(b).expect("CRITICAL: Add proper error handling")).copied()
     }
 
     /// Get the fraction of time points where conservation was satisfied
-    pub fn satisfaction_rate(&self) -> f64 {
+    #[must_use] pub fn satisfaction_rate(&self) -> f64 {
         if self.satisfied.is_empty() {
             0.0
         } else {
@@ -115,7 +121,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MassConservation<T> {
     }
 
     /// Create with default tolerance
-    pub fn default() -> Self {
+    #[must_use] pub fn default() -> Self {
         Self::new(ConservationTolerance::default())
     }
 }
@@ -173,7 +179,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> EnergyConservation<T> {
     }
 
     /// Create with default tolerance
-    pub fn default() -> Self {
+    #[must_use] pub fn default() -> Self {
         Self::new(ConservationTolerance::default())
     }
 }
@@ -186,7 +192,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConservationChecker<T
 
         // Energy balance check: total energy = kinetic + potential
         let total_energy: T = kinetic.iter().zip(potential.iter()).map(|(k, p)| *k + *p).sum();
-        let total_dissipation: T = dissipation.iter().cloned().sum();
+        let total_dissipation: T = dissipation.iter().copied().sum();
 
         // For steady flow, energy input should equal dissipation
         let energy_imbalance = (total_energy - total_dissipation).abs();
@@ -242,9 +248,15 @@ pub struct GlobalConservationIntegrals<T: RealField + Copy> {
     pub boundary_energy_flux: T,
 }
 
+impl<T: RealField + Copy + FromPrimitive + Copy> Default for GlobalConservationIntegrals<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive + Copy> GlobalConservationIntegrals<T> {
     /// Create new global conservation integrals
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             total_mass: T::zero(),
             total_momentum: [T::zero(), T::zero(), T::zero()],

@@ -317,7 +317,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MomentumSolver<T> {
 
 impl<T: RealField + Copy> MomentumCoefficients<T> {
     /// Create new coefficient structure
-    pub fn new(nx: usize, ny: usize) -> Self 
+    #[must_use] pub fn new(nx: usize, ny: usize) -> Self 
     where T: num_traits::Zero
     {
         Self {

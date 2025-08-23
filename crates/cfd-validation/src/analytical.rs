@@ -24,7 +24,7 @@ pub trait AnalyticalSolution<T: RealField + Copy> {
     /// Get the name of the analytical solution
     fn name(&self) -> &str;
 
-    /// Get the domain bounds [x_min, x_max, y_min, y_max, z_min, z_max]
+    /// Get the domain bounds [`x_min`, `x_max`, `y_min`, `y_max`, `z_min`, `z_max`]
     fn domain_bounds(&self) -> [T; 6];
 
     /// Check if the solution is valid at given coordinates
@@ -44,8 +44,8 @@ pub trait AnalyticalSolution<T: RealField + Copy> {
 /// - Schlichting, H. & Gersten, K. (2017). "Boundary-Layer Theory", 9th Edition
 ///
 /// **Mathematical Formulation:**
-/// - 2D channel: u(y) = u_max * (1 - (y/h)²) where h is half-height
-/// - Pipe flow: u(r) = u_max * (1 - (r/R)²) where R is radius
+/// - 2D channel: u(y) = `u_max` * (1 - (y/h)²) where h is half-height
+/// - Pipe flow: u(r) = `u_max` * (1 - (r/R)²) where R is radius
 pub struct PoiseuilleFlow<T: RealField + Copy> {
     /// Maximum velocity at channel center
     pub u_max: T,
@@ -105,12 +105,22 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoiseuilleFlow<T> {
 impl<T: RealField + Copy + FromPrimitive + Copy> AnalyticalSolution<T> for PoiseuilleFlow<T> {
     fn evaluate(&self, _x: T, y: T, _z: T, _t: T) -> Vector3<T> {
         if self.is_2d_channel {
-            // 2D channel flow: u(y) = u_max * (1 - (y/h)^2)
-            let y_normalized = y / self.channel_width;
-            let u = self.u_max * (T::one() - y_normalized * y_normalized);
+            // Parallel plate channel flow (y from 0 to h)
+            // Exact solution: u(y) = -(1/2μ) * (dp/dx) * y * (h - y)
+            // For normalized form with u_max at center:
+            // u(y) = 4 * u_max * (y/h) * (1 - y/h)
+            let y_norm = y / self.channel_width;
+            let u = if y_norm >= T::zero() && y_norm <= T::one() {
+                let coeff = T::from_f64(cfd_core::constants::physics::fluid::CHANNEL_FLOW_COEFFICIENT)
+                    .unwrap_or_else(|| T::zero());
+                coeff * self.u_max * y_norm * (T::one() - y_norm)
+            } else {
+                T::zero()
+            };
             Vector3::new(u, T::zero(), T::zero())
         } else {
-            // Cylindrical pipe flow: u(r) = u_max * (1 - (r/R)^2)
+            // Hagen-Poiseuille flow in cylindrical pipe
+            // u(r) = u_max * (1 - (r/R)^2)
             let r = (y * y + _z * _z).sqrt();
             let r_normalized = r / self.channel_width;
             let u = if r_normalized <= T::one() {
@@ -484,14 +494,16 @@ mod tests {
     fn test_poiseuille_flow_2d() {
         let flow = PoiseuilleFlow::channel_2d(1.0, 1.0, 10.0, 0.001);
 
-        // Test centerline velocity
-        let vel_center = flow.velocity(5.0, 0.0, 0.0, 0.0);
+        // Test centerline velocity (at y = h/2 = 0.5)
+        let vel_center = flow.velocity(5.0, 0.5, 0.0, 0.0);
         assert_relative_eq!(vel_center.x, 1.0, epsilon = 1e-10);
         assert_relative_eq!(vel_center.y, 0.0, epsilon = 1e-10);
 
-        // Test wall velocity (should be zero)
-        let vel_wall = flow.velocity(5.0, 1.0, 0.0, 0.0);
-        assert_relative_eq!(vel_wall.x, 0.0, epsilon = 1e-10);
+        // Test wall velocities (should be zero at y=0 and y=1)
+        let vel_wall_bottom = flow.velocity(5.0, 0.0, 0.0, 0.0);
+        assert_relative_eq!(vel_wall_bottom.x, 0.0, epsilon = 1e-10);
+        let vel_wall_top = flow.velocity(5.0, 1.0, 0.0, 0.0);
+        assert_relative_eq!(vel_wall_top.x, 0.0, epsilon = 1e-10);
 
         // Test pressure gradient
         let p1 = flow.pressure(0.0, 0.0, 0.0, 0.0);

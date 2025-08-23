@@ -109,7 +109,7 @@ impl<T: RealField + Copy> IncompressibleFlowProblem<T> {
 
         if !missing_bcs.is_empty() {
             return Err(cfd_core::error::Error::InvalidConfiguration(format!(
-                "Missing boundary conditions for cells: {:?}", missing_bcs
+                "Missing boundary conditions for cells: {missing_bcs:?}"
             )));
         }
         
@@ -158,7 +158,7 @@ impl<T: RealField + Copy> IncompressibleFlowSolution<T> {
         self.velocity
             .iter()
             .flat_map(|row| row.iter())
-            .map(|v| v.magnitude())
+            .map(nalgebra::Matrix::magnitude)
             .fold(T::zero(), |acc, mag| if mag > acc { mag } else { acc })
     }
 
@@ -167,7 +167,7 @@ impl<T: RealField + Copy> IncompressibleFlowSolution<T> {
         self.pressure
             .iter()
             .flat_map(|row| row.iter())
-            .cloned()
+            .copied()
             .fold(T::zero(), |acc, p| if p > acc { p } else { acc })
     }
 }

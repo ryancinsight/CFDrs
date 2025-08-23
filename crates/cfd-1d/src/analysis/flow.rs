@@ -22,7 +22,7 @@ pub struct FlowAnalysis<T: RealField + Copy> {
 
 impl<T: RealField + Copy + Sum> FlowAnalysis<T> {
     /// Create a new flow analysis
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             total_flow_rate: T::zero(),
             component_flows: HashMap::new(),
@@ -36,7 +36,7 @@ impl<T: RealField + Copy + Sum> FlowAnalysis<T> {
     pub fn add_component_flow(&mut self, id: String, flow_rate: T) {
         self.component_flows.insert(id, flow_rate);
         if flow_rate > T::zero() {
-            self.total_flow_rate = self.total_flow_rate + flow_rate;
+            self.total_flow_rate += flow_rate;
         }
     }
 

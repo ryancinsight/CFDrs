@@ -21,7 +21,7 @@ pub struct Grid<T: RealField + Copy> {
 
 impl<T: RealField + Copy> Grid<T> {
     /// Create a new grid
-    pub fn new(grid_type: GridType, nx: usize, ny: usize, nz: usize) -> Self {
+    #[must_use] pub fn new(grid_type: GridType, nx: usize, ny: usize, nz: usize) -> Self {
         Self {
             grid_type,
             nx,
@@ -32,7 +32,7 @@ impl<T: RealField + Copy> Grid<T> {
     }
     
     /// Get total number of cells
-    pub fn cell_count(&self) -> usize {
+    #[must_use] pub fn cell_count(&self) -> usize {
         self.nx * self.ny * self.nz
     }
 }

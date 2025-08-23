@@ -154,7 +154,7 @@ pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
     
-    /// JSON serialization error from serde_json
+    /// JSON serialization error from `serde_json`
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
     
@@ -204,22 +204,22 @@ impl Error {
     }
     
     /// Create a numerical division by zero error
-    pub fn division_by_zero() -> Self {
+    #[must_use] pub fn division_by_zero() -> Self {
         Self::Numerical(NumericalErrorKind::DivisionByZero)
     }
     
     /// Create a singular matrix error
-    pub fn singular_matrix() -> Self {
+    #[must_use] pub fn singular_matrix() -> Self {
         Self::Numerical(NumericalErrorKind::SingularMatrix)
     }
     
     /// Create a max iterations exceeded error
-    pub fn max_iterations_exceeded(max: usize) -> Self {
+    #[must_use] pub fn max_iterations_exceeded(max: usize) -> Self {
         Self::Convergence(ConvergenceErrorKind::MaxIterationsExceeded { max })
     }
     
     /// Create a divergence error
-    pub fn divergence(residual: f64) -> Self {
+    #[must_use] pub fn divergence(residual: f64) -> Self {
         Self::Convergence(ConvergenceErrorKind::Divergence { residual })
     }
 }
@@ -272,17 +272,17 @@ impl Error {
     }
     
     /// Check if this is a numerical error
-    pub fn is_numerical(&self) -> bool {
+    #[must_use] pub fn is_numerical(&self) -> bool {
         matches!(self, Self::Numerical(_))
     }
     
     /// Check if this is a convergence error
-    pub fn is_convergence(&self) -> bool {
+    #[must_use] pub fn is_convergence(&self) -> bool {
         matches!(self, Self::Convergence(_))
     }
     
     /// Check if this error is recoverable (e.g., convergence issues that might be fixed with different parameters)
-    pub fn is_recoverable(&self) -> bool {
+    #[must_use] pub fn is_recoverable(&self) -> bool {
         matches!(
             self,
             Self::Convergence(

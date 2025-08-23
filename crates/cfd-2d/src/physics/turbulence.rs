@@ -12,9 +12,9 @@ use num_traits::FromPrimitive;
 /// Turbulence model constants
 pub mod constants {
     /// von Kármán constant
-    pub const KAPPA: f64 = cfd_core::constants::VON_KARMAN;
+    pub const KAPPA: f64 = cfd_core::constants::fluid::VON_KARMAN;
     /// Roughness parameter for smooth walls
-    pub const E_WALL_FUNCTION: f64 = cfd_core::constants::E_WALL_FUNCTION;
+    pub const E_WALL_FUNCTION: f64 = cfd_core::constants::fluid::WALL_FUNCTION_E;
     /// k-ε model constant Cμ
     pub const C_MU: f64 = 0.09;
     /// k-ε model constant C1ε
@@ -30,10 +30,10 @@ pub mod constants {
     /// Y+ threshold for viscous sublayer
     pub const Y_PLUS_VISCOUS_SUBLAYER: f64 = 5.0;
     /// Y+ threshold for log-law region  
-    pub const Y_PLUS_LOG_LAW: f64 = cfd_core::constants::Y_PLUS_LAMINAR;
+    pub const Y_PLUS_LOG_LAW: f64 = cfd_core::constants::fluid::Y_PLUS_LAMINAR;
     /// K-epsilon coefficient for viscous sublayer
     pub const K_VISC_COEFFICIENT: f64 = 11.0;
-    /// SST model constant beta_1
+    /// SST model constant `beta_1`
     pub const SST_BETA_1: f64 = 0.075;
     /// Omega wall coefficient for viscous sublayer
     pub const OMEGA_WALL_COEFFICIENT: f64 = 60.0;
@@ -67,7 +67,7 @@ pub struct KEpsilonModel<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive + Copy> KEpsilonModel<T> {
     /// Create new k-ε model
-    pub fn new(nx: usize, ny: usize, wall_function: WallFunction) -> Self {
+    #[must_use] pub fn new(nx: usize, ny: usize, wall_function: WallFunction) -> Self {
         let k_init = T::from_f64(1e-4).unwrap_or_else(|| T::zero());
         let epsilon_init = T::from_f64(1e-6).unwrap_or_else(|| T::zero());
         
@@ -140,7 +140,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> KEpsilonModel<T> {
             // Calculate y+
             let y_plus = y * u_tau / nu;
             
-            if y_plus > T::from_f64(cfd_core::constants::Y_PLUS_LAMINAR).unwrap_or_else(|| T::zero()) {
+            if y_plus > T::from_f64(cfd_core::constants::fluid::Y_PLUS_LAMINAR).unwrap_or_else(|| T::zero()) {
                 // Log-law region
                 // Set k and ε based on equilibrium assumptions
                 self.k[i][0] = u_tau * u_tau / c_mu.sqrt();
@@ -266,14 +266,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy> KEpsilonModel<T> {
         for _ in 0..max_iter {
             let y_plus = y * u_tau / nu;
             
-            if y_plus > T::from_f64(cfd_core::constants::Y_PLUS_LAMINAR).unwrap_or_else(|| T::zero()) {
+            if y_plus > T::from_f64(cfd_core::constants::fluid::Y_PLUS_LAMINAR).unwrap_or_else(|| T::zero()) {
                 // Log-law
                 let u_plus = u_p / u_tau;
                 let f = u_plus - (y_plus.ln() / kappa + e_wall_function.ln() * kappa);
                 let df = -u_p / (u_tau * u_tau) - T::one() / (kappa * u_tau);
                 
                 let delta = f / df;
-                u_tau = u_tau - delta;
+                u_tau -= delta;
                 
                 if delta.abs() < tolerance {
                     break;

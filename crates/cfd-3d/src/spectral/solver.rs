@@ -93,7 +93,7 @@ pub struct SpectralSolution<T: RealField + Copy> {
 
 impl<T: RealField + Copy> SpectralSolution<T> {
     /// Create new solution
-    pub fn new(nx: usize, ny: usize, nz: usize) -> Self {
+    #[must_use] pub fn new(nx: usize, ny: usize, nz: usize) -> Self {
         Self {
             u: DMatrix::zeros(nx * ny, nz),
             nx,
@@ -103,7 +103,7 @@ impl<T: RealField + Copy> SpectralSolution<T> {
     }
     
     /// Get solution at a point
-    pub fn at(&self, i: usize, j: usize, k: usize) -> T 
+    #[must_use] pub fn at(&self, i: usize, j: usize, k: usize) -> T 
     where
         T: Clone
     {

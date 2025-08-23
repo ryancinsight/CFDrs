@@ -31,12 +31,12 @@ impl<T: RealField + FromPrimitive + Copy> RhieChowInterpolation<T> {
     
     /// Interpolate velocity to face with pressure correction
     /// 
-    /// u_f = ū_f - D_f * (∇p)_f
+    /// `u_f` = `ū_f` - `D_f` * (∇p)_f
     /// 
     /// where:
-    /// - u_f is the face velocity
-    /// - ū_f is the linearly interpolated velocity
-    /// - D_f is the face diffusion coefficient
+    /// - `u_f` is the face velocity
+    /// - `ū_f` is the linearly interpolated velocity
+    /// - `D_f` is the face diffusion coefficient
     /// - (∇p)_f is the pressure gradient at the face
     pub fn interpolate_u_face(
         &self,

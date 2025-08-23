@@ -32,9 +32,15 @@ pub struct BoundaryHandler<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+impl<T: RealField + Copy + FromPrimitive> Default for BoundaryHandler<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
     /// Create new boundary handler
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             boundary_types: HashMap::new(),
             _phantom: std::marker::PhantomData,
@@ -145,7 +151,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
     ) -> T {
         let mut rho = T::zero();
         for q in 0..9 {
-            rho = rho + f[j][i][q];
+            rho += f[j][i][q];
         }
         rho
     }
@@ -159,7 +165,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         let ny = velocity.len();
         let nx = if ny > 0 { velocity[0].len() } else { 0 };
         
-        // Simple first-order extrapolation
+        // First-order extrapolation boundary treatment
         if i == 0 && i + 1 < nx {
             velocity[j][i + 1]
         } else if i == nx - 1 && i > 0 {

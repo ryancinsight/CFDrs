@@ -87,7 +87,7 @@ impl<T: RealField + FromPrimitive + Copy> Default for SolverConfig<T> {
 
 impl<T: RealField + Copy> SolverConfig<T> {
     /// Create a builder for configuration
-    pub fn builder() -> SolverConfigBuilder<T>
+    #[must_use] pub fn builder() -> SolverConfigBuilder<T>
     where
         T: FromPrimitive,
     {
@@ -174,6 +174,12 @@ pub struct NetworkConfig {
 /// Builder for solver configuration
 pub struct SolverConfigBuilder<T: RealField + Copy> {
     config: SolverConfig<T>,
+}
+
+impl<T: RealField + Copy> Default for SolverConfigBuilder<T> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<T: RealField + Copy> SolverConfigBuilder<T> {

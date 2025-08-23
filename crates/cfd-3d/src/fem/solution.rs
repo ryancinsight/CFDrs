@@ -16,7 +16,7 @@ pub struct StokesFlowSolution<T: RealField + Copy> {
 
 impl<T: RealField + Copy> StokesFlowSolution<T> {
     /// Create a new solution
-    pub fn new(velocity: DVector<T>, pressure: DVector<T>, n_nodes: usize) -> Self {
+    #[must_use] pub fn new(velocity: DVector<T>, pressure: DVector<T>, n_nodes: usize) -> Self {
         Self {
             velocity,
             pressure,
@@ -25,7 +25,7 @@ impl<T: RealField + Copy> StokesFlowSolution<T> {
     }
 
     /// Get velocity at node
-    pub fn get_velocity(&self, node_idx: usize) -> Vector3<T> {
+    #[must_use] pub fn get_velocity(&self, node_idx: usize) -> Vector3<T> {
         let base = node_idx * constants::VELOCITY_COMPONENTS;
         Vector3::new(
             self.velocity[base],
@@ -35,7 +35,7 @@ impl<T: RealField + Copy> StokesFlowSolution<T> {
     }
 
     /// Get pressure at node
-    pub fn get_pressure(&self, node_idx: usize) -> T {
+    #[must_use] pub fn get_pressure(&self, node_idx: usize) -> T {
         self.pressure[node_idx]
     }
     

@@ -315,7 +315,7 @@ impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
                             * self.delta_function(dz);
                         
                         let idx = k * self.nx * self.ny + j * self.nx + i;
-                        self.force_field[idx] = self.force_field[idx] + point.force * weight;
+                        self.force_field[idx] += point.force * weight;
                     }
                 }
             }

@@ -64,7 +64,7 @@ pub enum ViscosityModel<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy + FromPrimitive + Float> Fluid<T> {
-    /// Create a new Newtonian fluid
+    /// Create a Newtonian fluid with constant viscosity
     pub fn newtonian(name: impl Into<String>, density: T, viscosity: T) -> Self {
         Self {
             name: name.into(),

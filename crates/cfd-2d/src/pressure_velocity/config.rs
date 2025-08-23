@@ -30,20 +30,20 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureVelocityConfig<T> {
         Ok(Self {
             base: cfd_core::solver::SolverConfig::builder()
                 .max_iterations(100)
-                .tolerance(T::from_f64(constants::DEFAULT_TOLERANCE)
+                .tolerance(T::from_f64(cfd_core::constants::numerical::solver::CONVERGENCE_TOLERANCE)
                     .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                         "Cannot convert tolerance".into()
                     ))?)
                 .build(),
-            dt: T::from_f64(constants::DEFAULT_CFL_NUMBER * constants::DEFAULT_TIME_STEP_FACTOR)
+            dt: T::from_f64(cfd_core::constants::numerical::discretization::CFL_EXPLICIT * cfd_core::constants::numerical::time::SAFETY_FACTOR)
                 .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert time step".into()
                 ))?,
-            alpha_u: T::from_f64(constants::VELOCITY_UNDER_RELAXATION)
+            alpha_u: T::from_f64(cfd_core::constants::numerical::relaxation::VELOCITY)
                 .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert velocity relaxation".into()
                 ))?,
-            alpha_p: T::from_f64(constants::PRESSURE_UNDER_RELAXATION)
+            alpha_p: T::from_f64(cfd_core::constants::numerical::relaxation::PRESSURE)
                 .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert pressure relaxation".into()
                 ))?,

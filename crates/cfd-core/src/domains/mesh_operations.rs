@@ -7,6 +7,82 @@ use nalgebra::{RealField, Point3, Vector3};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Element types - Single Source of Truth
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ElementType {
+    // 1D Elements
+    /// Line element (2 nodes)
+    Line,
+    /// Quadratic line element (3 nodes)
+    Line3,
+    
+    // 2D Elements
+    /// Triangle element (3 nodes)
+    Triangle,
+    /// Quadratic triangle element (6 nodes)
+    Triangle6,
+    /// Quadrilateral element (4 nodes)
+    Quadrilateral,
+    /// Quadratic quadrilateral element (9 nodes)
+    Quadrilateral9,
+    
+    // 3D Elements
+    /// Tetrahedral element (4 nodes)
+    Tetrahedron,
+    /// Quadratic tetrahedral element (10 nodes)
+    Tetrahedron10,
+    /// Hexahedral element (8 nodes)
+    Hexahedron,
+    /// Quadratic hexahedral element (20 nodes)
+    Hexahedron20,
+    /// Pyramid element (5 nodes)
+    Pyramid,
+    /// Prism/Wedge element (6 nodes)
+    Prism,
+}
+
+impl ElementType {
+    /// Get the number of nodes for this element type
+    pub fn num_nodes(&self) -> usize {
+        match self {
+            Self::Line => 2,
+            Self::Line3 => 3,
+            Self::Triangle => 3,
+            Self::Triangle6 => 6,
+            Self::Quadrilateral => 4,
+            Self::Quadrilateral9 => 9,
+            Self::Tetrahedron => 4,
+            Self::Tetrahedron10 => 10,
+            Self::Hexahedron => 8,
+            Self::Hexahedron20 => 20,
+            Self::Pyramid => 5,
+            Self::Prism => 6,
+        }
+    }
+    
+    /// Get the dimension of this element type
+    pub fn dimension(&self) -> usize {
+        match self {
+            Self::Line | Self::Line3 => 1,
+            Self::Triangle | Self::Triangle6 | Self::Quadrilateral | Self::Quadrilateral9 => 2,
+            _ => 3,
+        }
+    }
+    
+    /// Check if this is a linear element
+    pub fn is_linear(&self) -> bool {
+        matches!(self, 
+            Self::Line | Self::Triangle | Self::Quadrilateral | 
+            Self::Tetrahedron | Self::Hexahedron | Self::Pyramid | Self::Prism
+        )
+    }
+    
+    /// Check if this is a quadratic element
+    pub fn is_quadratic(&self) -> bool {
+        !self.is_linear()
+    }
+}
+
 /// Mesh generation strategy abstraction
 pub trait MeshGeneration<T: RealField + Copy>: Send + Sync {
     /// Generate mesh for given geometry
@@ -82,21 +158,6 @@ pub struct Element {
     pub element_type: ElementType,
 }
 
-/// Element types supported
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum ElementType {
-    /// Line element (1D)
-    Line,
-    /// Triangle element (2D)
-    Triangle,
-    /// Quadrilateral element (2D)
-    Quadrilateral,
-    /// Tetrahedron element (3D)
-    Tetrahedron,
-    /// Hexahedron element (3D)
-    Hexahedron,
-}
-
 /// Mesh metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeshMetadata {
@@ -161,7 +222,7 @@ pub struct QualityStatistics<T: RealField + Copy> {
 /// Mesh operations using zero-copy iterators
 impl<T: RealField + Copy> Mesh<T> {
     /// Calculate element volumes using iterator combinators
-    pub fn element_volumes(&self) -> Vec<T> {
+    #[must_use] pub fn element_volumes(&self) -> Vec<T> {
         self.elements
             .iter()
             .map(|element| self.calculate_element_volume(element))
@@ -169,7 +230,7 @@ impl<T: RealField + Copy> Mesh<T> {
     }
     
     /// Calculate element aspect ratios
-    pub fn element_aspect_ratios(&self) -> Vec<T> {
+    #[must_use] pub fn element_aspect_ratios(&self) -> Vec<T> {
         self.elements
             .iter()
             .map(|element| self.calculate_aspect_ratio(element))
@@ -177,7 +238,7 @@ impl<T: RealField + Copy> Mesh<T> {
     }
     
     /// Find boundary elements using iterator operations
-    pub fn boundary_elements(&self) -> Vec<&Element> {
+    #[must_use] pub fn boundary_elements(&self) -> Vec<&Element> {
         self.elements
             .iter()
             .filter(|element| self.is_boundary_element(element))
@@ -185,7 +246,7 @@ impl<T: RealField + Copy> Mesh<T> {
     }
     
     /// Calculate mesh quality metrics using parallel iterators
-    pub fn quality_metrics(&self) -> HashMap<String, Vec<T>> {
+    #[must_use] pub fn quality_metrics(&self) -> HashMap<String, Vec<T>> {
         let mut metrics = HashMap::new();
         
         metrics.insert("volume".to_string(), self.element_volumes());
@@ -273,7 +334,7 @@ pub struct MeshOperationsService<T: RealField + Copy> {
 
 impl<T: RealField + Copy> MeshOperationsService<T> {
     /// Create new mesh operations service
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             generators: HashMap::new(),
             refinement_methods: HashMap::new(),
@@ -297,18 +358,18 @@ impl<T: RealField + Copy> MeshOperationsService<T> {
     }
     
     /// Get mesh generator by name
-    pub fn get_generator(&self, name: &str) -> Option<&dyn MeshGeneration<T>> {
-        self.generators.get(name).map(|g| g.as_ref())
+    #[must_use] pub fn get_generator(&self, name: &str) -> Option<&dyn MeshGeneration<T>> {
+        self.generators.get(name).map(std::convert::AsRef::as_ref)
     }
     
     /// Get refinement method by name
-    pub fn get_refinement_method(&self, name: &str) -> Option<&dyn MeshRefinement<T>> {
-        self.refinement_methods.get(name).map(|m| m.as_ref())
+    #[must_use] pub fn get_refinement_method(&self, name: &str) -> Option<&dyn MeshRefinement<T>> {
+        self.refinement_methods.get(name).map(std::convert::AsRef::as_ref)
     }
     
     /// Get quality assessor by name
-    pub fn get_quality_assessor(&self, name: &str) -> Option<&dyn MeshQuality<T>> {
-        self.quality_assessors.get(name).map(|a| a.as_ref())
+    #[must_use] pub fn get_quality_assessor(&self, name: &str) -> Option<&dyn MeshQuality<T>> {
+        self.quality_assessors.get(name).map(std::convert::AsRef::as_ref)
     }
 }
 

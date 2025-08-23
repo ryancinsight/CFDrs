@@ -1,9 +1,14 @@
 //! FEM solver configuration
 
-use crate::fem::constants;
+use cfd_core::solver::SolverConfig;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
+
+use super::constants;
+
+// Use ElementType from cfd-core as the single source of truth
+pub use cfd_core::domains::mesh_operations::ElementType;
 
 /// FEM configuration for fluid dynamics
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24,29 +29,16 @@ pub struct FemConfig<T: RealField + Copy> {
     pub quadrature_order: usize,
 }
 
-/// Element types supported
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum ElementType {
-    /// Linear tetrahedron (4 nodes)
-    Tet4,
-    /// Quadratic tetrahedron (10 nodes)
-    Tet10,
-    /// Linear hexahedron (8 nodes)
-    Hex8,
-    /// Quadratic hexahedron (20 nodes)
-    Hex20,
-}
-
 impl<T: RealField + FromPrimitive + Copy> Default for FemConfig<T> {
     fn default() -> Self {
         Self {
             base: cfd_core::solver::SolverConfig::default(),
             use_stabilization: true,
             tau: T::from_f64(constants::DEFAULT_STABILIZATION).unwrap_or_else(|| T::zero()),
-            dt: None,
-            reynolds: None,
-            element_type: ElementType::Tet4,
-            quadrature_order: 2,
+            dt: Some(T::from_f64(constants::DEFAULT_TIME_STEP).unwrap_or_else(|| T::zero())),
+            reynolds: Some(T::from_f64(constants::DEFAULT_REYNOLDS).unwrap_or_else(|| T::zero())),
+            element_type: ElementType::Tetrahedron,
+            quadrature_order: constants::DEFAULT_QUADRATURE_ORDER,
         }
     }
 }

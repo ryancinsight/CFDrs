@@ -28,7 +28,7 @@ pub trait Grid2D<T: RealField + Copy> {
     /// Get cell volume/area
     fn cell_area(&self, i: usize, j: usize) -> Result<T>;
 
-    /// Get neighboring cell indices (prefer neighbor_iter for better performance)
+    /// Get neighboring cell indices (prefer `neighbor_iter` for better performance)
     fn neighbors(&self, i: usize, j: usize) -> Vec<(usize, usize)>;
 
     /// Get neighboring cell indices as iterator (more efficient)
@@ -63,7 +63,7 @@ pub struct StructuredGrid2D<T: RealField + Copy> {
     pub nx: usize,
     /// Number of cells in y direction
     pub ny: usize,
-    /// Domain bounds: (x_min, x_max, y_min, y_max)
+    /// Domain bounds: (`x_min`, `x_max`, `y_min`, `y_max`)
     pub bounds: (T, T, T, T),
     /// Cell spacing in x direction
     pub dx: T,
@@ -159,13 +159,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> StructuredGrid2D<T> {
 /// Grid edges for boundary condition setting
 #[derive(Debug, Clone, Copy)]
 pub enum GridEdge {
-    /// Left edge (x = x_min)
+    /// Left edge (x = `x_min`)
     Left,
-    /// Right edge (x = x_max)
+    /// Right edge (x = `x_max`)
     Right,
-    /// Bottom edge (y = y_min)
+    /// Bottom edge (y = `y_min`)
     Bottom,
-    /// Top edge (y = y_max)
+    /// Top edge (y = `y_max`)
     Top,
 }
 

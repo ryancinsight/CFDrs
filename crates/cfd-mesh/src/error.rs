@@ -16,9 +16,9 @@ pub enum MeshError {
 impl fmt::Display for MeshError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MeshError::InvalidMesh(msg) => write!(f, "Invalid mesh: {}", msg),
-            MeshError::RefinementFailed(msg) => write!(f, "Refinement failed: {}", msg),
-            MeshError::GridError(msg) => write!(f, "Grid error: {}", msg),
+            MeshError::InvalidMesh(msg) => write!(f, "Invalid mesh: {msg}"),
+            MeshError::RefinementFailed(msg) => write!(f, "Refinement failed: {msg}"),
+            MeshError::GridError(msg) => write!(f, "Grid error: {msg}"),
         }
     }
 }

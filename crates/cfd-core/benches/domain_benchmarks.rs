@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
 use cfd_core::domains::{
-    fluid_dynamics::{FlowField, VelocityField, PressureField, FluidDynamicsService},
+    fluid_dynamics::{FlowField, VelocityField, PressureField, FlowOperations},
     numerical_methods::{DiscretizationScheme, TimeIntegrationScheme, finite_difference, time_integration},
 };
 use nalgebra::Vector3;
@@ -17,7 +17,7 @@ fn benchmark_flow_field_operations(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(flow_field.divergence())
+                    black_box(FlowOperations::divergence(&flow_field.velocity))
                 })
             },
         );
@@ -27,7 +27,7 @@ fn benchmark_flow_field_operations(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(flow_field.vorticity())
+                    black_box(FlowOperations::vorticity(&flow_field.velocity))
                 })
             },
         );
@@ -93,15 +93,16 @@ fn benchmark_time_integration(c: &mut Criterion) {
             },
         );
         
+        let derivative_fn = |_t: f64, state: &[f64]| -> Vec<f64> {
+            state.iter().map(|&x| x * (-0.1)).collect()
+        };
+        
         group.bench_with_input(
             BenchmarkId::new("runge_kutta_4", size),
             size,
             |b, _| {
                 b.iter(|| {
-                    let derivative_fn = |_t: f64, state: &[f64]| -> Vec<f64> {
-                        state.iter().map(|&x| x * (-0.1)).collect()
-                    };
-                    let result = rk4.advance_with_function(current.as_slice(), derivative_fn, 0.0, dt);
+                    let result = rk4.advance_with_function(current.as_slice(), 0.0, dt, &derivative_fn);
                     black_box(result)
                 })
             },
@@ -115,9 +116,13 @@ fn benchmark_mesh_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("mesh_operations");
 
     for size in [100, 500, 1000].iter() {
-        // Create a simple test mesh for benchmarking
-        let _vertices = create_test_vertices(*size);
-        let _elements = create_test_elements(*size);
+        // Create test mesh for benchmarking
+        let vertices = create_test_vertices(*size);
+        let elements = create_test_elements(*size);
+        
+        // Use the mesh data to prevent optimization
+        criterion::black_box(&vertices);
+        criterion::black_box(&elements);
 
         group.bench_with_input(
             BenchmarkId::new("mesh_vertex_creation", size),
@@ -146,7 +151,7 @@ fn benchmark_mesh_operations(c: &mut Criterion) {
 fn benchmark_reynolds_number_calculation(c: &mut Criterion) {
     let mut group = c.benchmark_group("reynolds_number");
     
-    let service = FluidDynamicsService::<f64>::new();
+    // Service pattern removed - using direct operations
     
     for count in [1000, 10000, 100000].iter() {
         group.bench_with_input(
@@ -158,7 +163,8 @@ fn benchmark_reynolds_number_calculation(c: &mut Criterion) {
                         let velocity = 1.0 + (i as f64) * 0.001;
                         let length = 0.1;
                         let viscosity = 1e-6;
-                        black_box(service.reynolds_number(velocity, length, viscosity));
+                        let _re = velocity * length / viscosity;
+                        black_box(_re);
                     }
                 })
             },

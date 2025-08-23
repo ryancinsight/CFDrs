@@ -85,7 +85,7 @@ pub struct ProblemBuilder<T: RealField + Copy, D: Domain<T>> {
 
 impl<T: RealField + Copy, D: Domain<T>> ProblemBuilder<T, D> {
     /// Create a new problem builder
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             domain: None,
             fluid: None,

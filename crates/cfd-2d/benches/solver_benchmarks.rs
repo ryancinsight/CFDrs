@@ -10,7 +10,7 @@ fn benchmark_lbm_solver(c: &mut Criterion) {
     let mut group = c.benchmark_group("lbm_solver");
     
     for size in [32, 64, 128].iter() {
-        let grid = StructuredGrid2D::new(*size, *size, 1.0 / (*size as f64), 1.0 / (*size as f64));
+        let grid = StructuredGrid2D::new(*size, *size, 0.0, 1.0, 0.0, 1.0).unwrap();
         let config = LbmConfig::default();
         let mut solver = LbmSolver::new(config, &grid);
         
@@ -41,7 +41,7 @@ fn benchmark_grid_creation(c: &mut Criterion) {
             size,
             |b, &size| {
                 b.iter(|| {
-                    black_box(StructuredGrid2D::new(size, size, 1.0 / (size as f64), 1.0 / (size as f64)))
+                    black_box(StructuredGrid2D::new(size, size, 0.0, 1.0, 0.0, 1.0).unwrap())
                 })
             },
         );

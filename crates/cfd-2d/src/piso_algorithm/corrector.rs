@@ -75,8 +75,8 @@ where
     ) -> Result<Field2D<T>> {
         let mut p_prime = Field2D::new(self.nx, self.ny, T::zero());
         let mut residual = T::from_f64(1.0).unwrap();
-        let tolerance = T::from_f64(cfd_core::constants::numerical::DEFAULT_CONVERGENCE_TOLERANCE).unwrap();
-        let max_iter = cfd_core::constants::numerical::DEFAULT_MAX_ITERATIONS;
+        let tolerance = T::from_f64(cfd_core::constants::numerical::solver::CONVERGENCE_TOLERANCE).unwrap();
+        let max_iter = cfd_core::constants::numerical::solver::MAX_ITERATIONS_OUTER;
         let mut iter = 0;
 
         // Calculate H(u) operator for PISO neighbor correction
@@ -123,7 +123,7 @@ where
     }
 
     /// Calculate H(u) operator for PISO neighbor correction
-    /// H(u) = -sum(A_nb * u_nb) where A_nb are momentum equation coefficients
+    /// H(u) = -`sum(A_nb` * `u_nb`) where `A_nb` are momentum equation coefficients
     fn calculate_h_operator(&self, fields: &SimulationFields<T>) -> Field2D<Vector2<T>> {
         let mut h_field = Field2D::new(self.nx, self.ny, Vector2::zeros());
         

@@ -59,17 +59,17 @@ pub enum FieldData<T: RealField + Copy> {
 
 impl<T: RealField + Copy> FieldData<T> {
     /// Create a scalar field with given size
-    pub fn scalar(size: usize) -> Self {
+    #[must_use] pub fn scalar(size: usize) -> Self {
         Self::Scalar(DVector::zeros(size))
     }
 
     /// Create a vector field with given size
-    pub fn vector(size: usize) -> Self {
+    #[must_use] pub fn vector(size: usize) -> Self {
         Self::Vector(vec![Vector3::zeros(); size])
     }
 
     /// Get the size of the field
-    pub fn len(&self) -> usize {
+    #[must_use] pub fn len(&self) -> usize {
         match self {
             Self::Scalar(v) => v.len(),
             Self::Vector(v) => v.len(),
@@ -77,7 +77,7 @@ impl<T: RealField + Copy> FieldData<T> {
     }
 
     /// Check if the field is empty
-    pub fn is_empty(&self) -> bool {
+    #[must_use] pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 }
@@ -97,7 +97,7 @@ pub struct FieldState<T: RealField + Copy> {
 
 impl<T: RealField + FromPrimitive + Copy> FieldState<T> {
     /// Create a new field state
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             time: T::zero(),
             time_step: T::from_f64(1e-3).unwrap_or_else(|| T::one()),
