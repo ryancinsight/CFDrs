@@ -1,7 +1,7 @@
 //! Finite difference operators for numerical differentiation.
 
 use nalgebra::{RealField, DVector};
-use cfd_core::{constants, error::{Error, Result}};
+use cfd_core::error::{Error, Result};
 use num_traits::FromPrimitive;
 use super::schemes::FiniteDifferenceScheme;
 

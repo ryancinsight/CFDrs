@@ -5,7 +5,7 @@
 
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
-use super::fields::{FlowField, VelocityField};
+use super::fields::VelocityField;
 
 /// Flow field operations
 pub struct FlowOperations;

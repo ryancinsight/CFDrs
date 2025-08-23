@@ -4,7 +4,7 @@
 //! and flow characteristics.
 
 use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
 /// Flow regime classification

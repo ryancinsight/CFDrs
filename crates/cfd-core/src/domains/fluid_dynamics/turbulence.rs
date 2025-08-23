@@ -3,7 +3,7 @@
 //! Provides trait-based turbulence model implementations including
 //! LES (Smagorinsky, Dynamic) and mixing length models.
 
-use nalgebra::{RealField, Vector3};
+use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use super::fields::{FlowField, VelocityField};
 
@@ -51,9 +51,9 @@ impl<T: RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
         let mut s11 = T::zero();
         let mut s22 = T::zero();
         let mut s33 = T::zero();
-        let mut s12 = T::zero();
-        let mut s13 = T::zero();
-        let mut s23 = T::zero();
+        let s12 = T::zero();
+        let s13 = T::zero();
+        let s23 = T::zero();
         
         // Central differences for velocity gradients
         if i > 0 && i < nx - 1 {

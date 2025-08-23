@@ -265,11 +265,11 @@ impl<T: RealField + Copy> SolverFactoryRegistry<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solver::SolverConfig;
+    
 
     #[test]
     fn test_factory_registry() {
-        let mut registry = SolverFactoryRegistry::<f64>::new();
+        let registry = SolverFactoryRegistry::<f64>::new();
         
         // Test registration
         let metadata = FactoryMetadata {
@@ -287,7 +287,7 @@ mod tests {
     
     #[test]
     fn test_registry_entry_consolidation() {
-        let mut registry = SolverFactoryRegistry::<f64>::new();
+        let registry = SolverFactoryRegistry::<f64>::new();
         
         // Verify that we can't register the same factory twice
         let metadata = FactoryMetadata {

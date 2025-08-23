@@ -3,7 +3,6 @@
 //! All physical constants used throughout the codebase, organized by domain.
 //! References: NIST, ISO standards, and standard CFD literature.
 
-use std::f64::consts;
 
 /// Fluid mechanics constants
 pub mod fluid {

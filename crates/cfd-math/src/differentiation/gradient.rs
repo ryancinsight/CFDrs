@@ -1,7 +1,7 @@
 //! Gradient computation for multi-dimensional fields.
 
 use nalgebra::{RealField, Vector3};
-use cfd_core::{constants, error::{Error, Result}};
+use cfd_core::error::{Error, Result};
 use num_traits::FromPrimitive;
 
 /// Gradient computation for multi-dimensional fields

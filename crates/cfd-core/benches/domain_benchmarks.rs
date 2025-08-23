@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
 use cfd_core::domains::{
-    fluid_dynamics::{FlowField, VelocityField, PressureField, FluidDynamicsService},
+    fluid_dynamics::{FlowField, VelocityField, PressureField, FlowOperations},
     numerical_methods::{DiscretizationScheme, TimeIntegrationScheme, finite_difference, time_integration},
 };
 use nalgebra::Vector3;
@@ -17,7 +17,7 @@ fn benchmark_flow_field_operations(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(flow_field.divergence())
+                    black_box(FlowOperations::divergence(&flow_field.velocity))
                 })
             },
         );
@@ -27,7 +27,7 @@ fn benchmark_flow_field_operations(c: &mut Criterion) {
             size,
             |b, _| {
                 b.iter(|| {
-                    black_box(flow_field.vorticity())
+                    black_box(FlowOperations::vorticity(&flow_field.velocity))
                 })
             },
         );
@@ -151,7 +151,7 @@ fn benchmark_mesh_operations(c: &mut Criterion) {
 fn benchmark_reynolds_number_calculation(c: &mut Criterion) {
     let mut group = c.benchmark_group("reynolds_number");
     
-    let service = FluidDynamicsService::<f64>::new();
+    // Service pattern removed - using direct operations
     
     for count in [1000, 10000, 100000].iter() {
         group.bench_with_input(
@@ -163,7 +163,8 @@ fn benchmark_reynolds_number_calculation(c: &mut Criterion) {
                         let velocity = 1.0 + (i as f64) * 0.001;
                         let length = 0.1;
                         let viscosity = 1e-6;
-                        black_box(service.reynolds_number(velocity, length, viscosity));
+                        let _re = velocity * length / viscosity;
+                        black_box(_re);
                     }
                 })
             },
