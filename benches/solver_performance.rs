@@ -1,11 +1,9 @@
-//! Performance benchmarks for CFD solvers
-//! 
-//! Following SOLID principles and Rust best practices
+//! Performance benchmarks for solver implementations
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use cfd_suite::prelude::*;
-use cfd_1d::{Node, NodeType};
-use cfd_2d::PoissonSolver;
+use cfd_1d::{NetworkBuilder, Node, NodeType, NetworkSolver, NetworkProblem};
+use cfd_2d::{StructuredGrid2D, FdmConfig, PoissonSolver};
 
 fn benchmark_1d_network_solver(c: &mut Criterion) {
     c.bench_function("1d_network_small", |b| {
