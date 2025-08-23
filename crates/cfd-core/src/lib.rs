@@ -28,7 +28,7 @@ pub mod domains;
 pub mod error;
 pub mod factory;
 pub mod fluid;
-
+pub mod interpolation;
 pub mod plugin;
 pub mod problem;
 pub mod services;

@@ -93,15 +93,16 @@ fn benchmark_time_integration(c: &mut Criterion) {
             },
         );
         
+        let derivative_fn = |_t: f64, state: &[f64]| -> Vec<f64> {
+            state.iter().map(|&x| x * (-0.1)).collect()
+        };
+        
         group.bench_with_input(
             BenchmarkId::new("runge_kutta_4", size),
             size,
             |b, _| {
                 b.iter(|| {
-                    let derivative_fn = |_t: f64, state: &[f64]| -> Vec<f64> {
-                        state.iter().map(|&x| x * (-0.1)).collect()
-                    };
-                    let result = rk4.advance_with_function(current.as_slice(), derivative_fn, 0.0, dt);
+                    let result = rk4.advance_with_function(current.as_slice(), 0.0, dt, &derivative_fn);
                     black_box(result)
                 })
             },

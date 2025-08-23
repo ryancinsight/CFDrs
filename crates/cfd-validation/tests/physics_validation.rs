@@ -160,23 +160,23 @@ mod taylor_green_vortex {
 
 #[cfg(test)]
 mod reynolds_number {
-    use cfd_core::ReynoldsNumber;
+    use cfd_core::prelude::*;
     use cfd_core::constants::{LAMINAR_THRESHOLD, TURBULENT_THRESHOLD};
     
     #[test]
     fn test_flow_regime_classification() {
         // Laminar flow
-        let re_laminar = ReynoldsNumber::new(1000.0);
+        let re_laminar = ReynoldsNumber::new(1000.0).unwrap();
         assert!(re_laminar.is_laminar());
         assert!(!re_laminar.is_turbulent());
         
         // Transitional flow
-        let re_transition = ReynoldsNumber::new(3000.0);
+        let re_transition = ReynoldsNumber::new(3000.0).unwrap();
         assert!(!re_transition.is_laminar());
         assert!(!re_transition.is_turbulent());
         
         // Turbulent flow
-        let re_turbulent = ReynoldsNumber::new(5000.0);
+        let re_turbulent = ReynoldsNumber::new(5000.0).unwrap();
         assert!(!re_turbulent.is_laminar());
         assert!(re_turbulent.is_turbulent());
     }
@@ -184,8 +184,8 @@ mod reynolds_number {
     #[test]
     fn test_reynolds_thresholds() {
         // Test exact thresholds
-        let re_at_laminar = ReynoldsNumber::new(LAMINAR_THRESHOLD);
-        let re_at_turbulent = ReynoldsNumber::new(TURBULENT_THRESHOLD);
+        let re_at_laminar = ReynoldsNumber::new(LAMINAR_THRESHOLD).unwrap();
+        let re_at_turbulent = ReynoldsNumber::new(TURBULENT_THRESHOLD).unwrap();
         
         // At laminar threshold, flow is transitional
         assert!(!re_at_laminar.is_laminar());
@@ -198,7 +198,7 @@ mod reynolds_number {
 
 #[cfg(test)]
 mod rhie_chow_interpolation {
-    use cfd_core::domains::numerical_methods::RhieChowInterpolation;
+    use cfd_core::interpolation::RhieChowInterpolation;
     
     /// Test Rhie-Chow momentum interpolation
     /// Reference: Rhie, C.M. and Chow, W.L. (1983). AIAA Journal, 21(11), 1525-1532.
@@ -254,7 +254,7 @@ mod piso_algorithm {
 
 #[cfg(test)]
 mod turbulence_models {
-    use cfd_core::domains::fluid_dynamics::KEpsilonConstants;
+    use cfd_core::domains::fluid_dynamics::rans::KEpsilonConstants;
     
     #[test]
     fn test_k_epsilon_constants() {

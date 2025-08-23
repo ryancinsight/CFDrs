@@ -106,7 +106,6 @@ impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
             
             // Create element
             let mut element = FluidElement::new(vertex_indices);
-            element.id = elem_idx; // Track element for debugging
             
             // Calculate element properties
             // Convert vertices to Vector3 format
