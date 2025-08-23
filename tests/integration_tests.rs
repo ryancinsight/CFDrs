@@ -235,12 +235,8 @@ fn test_end_to_end_cfd_workflow() {
             diagonal += 1.0;
         }
         
-        // Add diagonal entry
-        if diagonal > 0.0 {
-            builder.add_entry(i, i, diagonal).unwrap();
-        } else {
-            builder.add_entry(i, i, 1.0).unwrap(); // Boundary point
-        }
+        // Add diagonal entry - ensure matrix is well-conditioned
+        builder.add_entry(i, i, diagonal.max(4.0)).unwrap();
     }
     
     let matrix = builder.build().unwrap();

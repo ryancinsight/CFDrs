@@ -3,7 +3,8 @@
 
 use cfd_suite::prelude::*;
 use cfd_suite::core::Result;
-use cfd_1d::solver::NetworkProblem;
+use cfd_suite::d1::{Network, Node, NodeType, ChannelProperties, NetworkSolver, NetworkProblem};
+use cfd_suite::d2::StructuredGrid2D;
 
 #[test]
 fn test_1d_network_integration() -> Result<()> {
