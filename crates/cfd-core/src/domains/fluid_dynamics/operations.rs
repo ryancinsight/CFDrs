@@ -111,7 +111,7 @@ fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
     i: usize, j: usize, k: usize,
     nx: usize, ny: usize, nz: usize
 ) -> Vector3<T> {
-    let idx = k * nx * ny + j * nx + i;
+    let _idx = k * nx * ny + j * nx + i;
     let dx = T::one();
     let dy = T::one();
     let dz = T::one();

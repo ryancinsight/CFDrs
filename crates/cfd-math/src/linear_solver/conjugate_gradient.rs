@@ -5,7 +5,7 @@ use cfd_core::error::{Error, Result, ConvergenceErrorKind};
 use cfd_core::solver::LinearSolverConfig;
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
-use num_traits::{FromPrimitive, Zero};
+use num_traits::FromPrimitive;
 use std::fmt::Debug;
 use crate::vector_ops::SimdVectorOps;
 
