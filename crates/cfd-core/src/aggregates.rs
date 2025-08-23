@@ -84,7 +84,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> Simu
             self.parameters.reference_velocity,
             self.parameters.reference_length,
         );
-        self.parameters.reynolds_number = Some(ReynoldsNumber::new(reynolds_value)?);
+        self.parameters.reynolds_number = Some(ReynoldsNumber::new(reynolds_value, crate::values::FlowGeometry::Pipe)?);
         
         self.metadata.modified_at = chrono::Utc::now().to_rfc3339(); // Update timestamp
         Ok(())

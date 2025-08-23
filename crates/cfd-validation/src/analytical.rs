@@ -105,12 +105,21 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoiseuilleFlow<T> {
 impl<T: RealField + Copy + FromPrimitive + Copy> AnalyticalSolution<T> for PoiseuilleFlow<T> {
     fn evaluate(&self, _x: T, y: T, _z: T, _t: T) -> Vector3<T> {
         if self.is_2d_channel {
-            // 2D channel flow: u(y) = u_max * (1 - (y/h)^2)
-            let y_normalized = y / self.channel_width;
-            let u = self.u_max * (T::one() - y_normalized * y_normalized);
+            // Parallel plate channel flow (y from 0 to h)
+            // Exact solution: u(y) = -(1/2μ) * (dp/dx) * y * (h - y)
+            // For normalized form with u_max at center:
+            // u(y) = 4 * u_max * (y/h) * (1 - y/h)
+            let y_norm = y / self.channel_width;
+            let u = if y_norm >= T::zero() && y_norm <= T::one() {
+                let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
+                four * self.u_max * y_norm * (T::one() - y_norm)
+            } else {
+                T::zero()
+            };
             Vector3::new(u, T::zero(), T::zero())
         } else {
-            // Cylindrical pipe flow: u(r) = u_max * (1 - (r/R)^2)
+            // Hagen-Poiseuille flow in cylindrical pipe
+            // u(r) = u_max * (1 - (r/R)^2)
             let r = (y * y + _z * _z).sqrt();
             let r_normalized = r / self.channel_width;
             let u = if r_normalized <= T::one() {

@@ -1,10 +1,12 @@
 //! Numerical method constants
 
-/// Default convergence tolerance for iterative solvers
+/// Default convergence tolerance for iterative solvers (deprecated)
+#[deprecated(note = "Use CONVERGENCE_TOLERANCE instead")]
 pub const DEFAULT_CONVERGENCE_TOLERANCE: f64 = 1e-6;
 
-/// Maximum iterations for iterative solvers
-pub const DEFAULT_MAX_ITERATIONS: usize = 100;
+/// Maximum iterations for iterative solvers (deprecated)
+#[deprecated(note = "Use MAX_ITERATIONS_DEFAULT instead")]
+pub const DEFAULT_MAX_ITERATIONS: usize = 1000;
 
 /// Relaxation factor for pressure correction
 pub const DEFAULT_PRESSURE_RELAXATION: f64 = 0.7;

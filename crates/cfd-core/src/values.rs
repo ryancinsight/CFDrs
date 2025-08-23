@@ -9,45 +9,122 @@ use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// Reynolds number value object with validation
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct ReynoldsNumber<T: RealField + Copy>(T);
+/// Flow geometry type for Reynolds number interpretation
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub enum FlowGeometry {
+    /// Pipe or channel flow
+    Pipe,
+    /// Flow over flat plate
+    FlatPlate,
+    /// Flow around sphere
+    Sphere,
+    /// Flow around cylinder
+    Cylinder,
+    /// General internal flow
+    Internal,
+    /// General external flow
+    External,
+}
 
-impl<T: RealField + FromPrimitive + Copy> ReynoldsNumber<T> {
-    /// Create a new Reynolds number with validation
-    pub fn new(value: T) -> Result<Self> {
+/// Reynolds number with geometry-aware flow regime detection
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct ReynoldsNumber<T: RealField + Copy> {
+    value: T,
+    geometry: FlowGeometry,
+}
+
+impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
+    /// Create a new Reynolds number with specified geometry
+    pub fn new(value: T, geometry: FlowGeometry) -> crate::error::Result<Self> {
         if value < T::zero() {
-            return Err(Error::InvalidConfiguration(
-                "Reynolds number cannot be negative".to_string()
+            return Err(crate::error::Error::InvalidConfiguration(
+                "Reynolds number must be non-negative".into(),
             ));
         }
-        Ok(Self(value))
+        Ok(Self { value, geometry })
     }
-
+    
+    /// Create Reynolds number for pipe flow (backward compatibility)
+    pub fn new_pipe(value: T) -> crate::error::Result<Self> {
+        Self::new(value, FlowGeometry::Pipe)
+    }
+    
     /// Get the raw value
     pub fn value(&self) -> T {
-        self.0
+        self.value
     }
-
-    /// Check if flow is laminar (Re < 2300 for pipe flow)
+    
+    /// Check if flow is laminar based on geometry
     pub fn is_laminar(&self) -> bool {
-        self.0 < T::from_f64(crate::constants::LAMINAR_THRESHOLD).unwrap_or_else(|| T::zero())
+        let threshold = match self.geometry {
+            FlowGeometry::Pipe | FlowGeometry::Internal => {
+                T::from_f64(2300.0)
+            }
+            FlowGeometry::FlatPlate | FlowGeometry::External => {
+                T::from_f64(5e5)
+            }
+            FlowGeometry::Sphere => T::from_f64(2e5),
+            FlowGeometry::Cylinder => T::from_f64(2e5),
+        }.unwrap_or_else(|| T::zero());
+        
+        self.value < threshold
     }
-
-    /// Check if flow is turbulent (Re >= 4000 for pipe flow)
+    
+    /// Check if flow is turbulent based on geometry
     pub fn is_turbulent(&self) -> bool {
-        self.0 >= T::from_f64(crate::constants::TURBULENT_THRESHOLD).unwrap_or_else(|| T::zero())
+        let threshold = match self.geometry {
+            FlowGeometry::Pipe | FlowGeometry::Internal => {
+                T::from_f64(4000.0)
+            }
+            FlowGeometry::FlatPlate | FlowGeometry::External => {
+                T::from_f64(1e6)
+            }
+            FlowGeometry::Sphere | FlowGeometry::Cylinder => {
+                T::from_f64(3e5)
+            }
+        }.unwrap_or_else(|| T::zero());
+        
+        self.value >= threshold
     }
-
-    /// Check if flow is transitional
+    
+    /// Check if flow is in transition region
     pub fn is_transitional(&self) -> bool {
         !self.is_laminar() && !self.is_turbulent()
     }
+    
+    /// Get transition probability (0 = fully laminar, 1 = fully turbulent)
+    /// Uses smooth transition function
+    pub fn transition_probability(&self) -> T {
+        let (lower, upper) = match self.geometry {
+            FlowGeometry::Pipe | FlowGeometry::Internal => (
+                T::from_f64(2300.0),
+                T::from_f64(4000.0),
+            ),
+            _ => (T::from_f64(5e5), T::from_f64(1e6)),
+        };
+        
+        let lower = lower.unwrap_or_else(|| T::zero());
+        let upper = upper.unwrap_or_else(|| T::one());
+        
+        if self.value <= lower {
+            T::zero()
+        } else if self.value >= upper {
+            T::one()
+        } else {
+            // Smooth transition using tanh function
+            let mid = (lower + upper) / T::from_f64(2.0).unwrap_or_else(|| T::one());
+            let width = upper - lower;
+            let normalized = (self.value - mid) / (width * T::from_f64(0.25).unwrap_or_else(|| T::one()));
+            (T::one() + normalized.tanh()) / T::from_f64(2.0).unwrap_or_else(|| T::one())
+        }
+    }
 }
+
+
 
 impl<T: RealField + Copy + fmt::Display> fmt::Display for ReynoldsNumber<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Re = {}", self.0)
+        write!(f, "Re = {} ({:?})", self.value, self.geometry)
     }
 }
 
@@ -309,17 +386,17 @@ mod tests {
 
     #[test]
     fn test_reynolds_number() {
-        let re = ReynoldsNumber::new(1500.0).expect("CRITICAL: Add proper error handling");
+        let re = ReynoldsNumber::new(1500.0, FlowGeometry::Pipe).expect("Valid Reynolds number");
         assert!(re.is_laminar());
         assert!(!re.is_turbulent());
         assert!(!re.is_transitional());
 
-        let re_turb = ReynoldsNumber::new(5000.0).expect("CRITICAL: Add proper error handling");
+        let re_turb = ReynoldsNumber::new(5000.0, FlowGeometry::Pipe).expect("Valid Reynolds number");
         assert!(!re_turb.is_laminar());
         assert!(re_turb.is_turbulent());
         assert!(!re_turb.is_transitional());
 
-        let re_trans = ReynoldsNumber::new(3000.0).expect("CRITICAL: Add proper error handling");
+        let re_trans = ReynoldsNumber::new(3000.0, FlowGeometry::Pipe).expect("Valid Reynolds number");
         assert!(!re_trans.is_laminar());
         assert!(!re_trans.is_turbulent());
         assert!(re_trans.is_transitional());

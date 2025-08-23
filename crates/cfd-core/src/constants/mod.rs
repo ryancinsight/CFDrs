@@ -101,17 +101,53 @@ pub mod physics {
 }
 
 pub mod numerical {
-    //! Numerical method constants
+    /// Machine epsilon for f64
+    pub const EPSILON_F64: f64 = 1e-10;
     
-    /// Default convergence tolerance
-    pub const DEFAULT_CONVERGENCE_TOLERANCE: f64 = 1e-6;
+    /// Default tolerance for iterative solvers
+    pub const SOLVER_TOLERANCE: f64 = 1e-8;
     
-    /// Default maximum iterations
-    pub const DEFAULT_MAX_ITERATIONS: usize = 1000;
+    /// Default tolerance for convergence checks
+    pub const CONVERGENCE_TOLERANCE: f64 = 1e-6;
     
-    /// Gradient computation factor for second-order schemes
-    pub const GRADIENT_FACTOR: f64 = 2.0;
+    /// Maximum iterations default
+    pub const MAX_ITERATIONS_DEFAULT: usize = 1000;
     
-    /// RK4 coefficient 1/6
-    pub const RK4_COEFF: f64 = 1.0 / 6.0;
+    /// CFL number for stability
+    pub const CFL_NUMBER: f64 = 0.5;
+    
+    /// Relaxation factor default
+    pub const RELAXATION_FACTOR: f64 = 0.8;
 }
+
+pub mod geometry {
+    /// Number of spatial dimensions
+    pub const DIMENSIONS_2D: usize = 2;
+    pub const DIMENSIONS_3D: usize = 3;
+    
+    /// Quadrature points for integration
+    pub const GAUSS_POINTS_1D: usize = 2;
+    pub const GAUSS_POINTS_2D: usize = 4;
+    pub const GAUSS_POINTS_3D: usize = 8;
+}
+
+pub mod flow {
+    /// Laminar flow threshold (Reynolds number) for pipe flow
+    pub const LAMINAR_THRESHOLD_PIPE: f64 = 2300.0;
+    
+    /// Turbulent flow threshold (Reynolds number) for pipe flow  
+    pub const TURBULENT_THRESHOLD_PIPE: f64 = 4000.0;
+    
+    /// Laminar threshold for flat plate
+    pub const LAMINAR_THRESHOLD_PLATE: f64 = 5e5;
+    
+    /// Transition region width factor
+    pub const TRANSITION_WIDTH: f64 = 0.1;
+}
+
+// Keep existing constants for backward compatibility but mark deprecated
+#[deprecated(note = "Use flow::LAMINAR_THRESHOLD_PIPE instead")]
+pub const LAMINAR_THRESHOLD: f64 = 2300.0;
+
+#[deprecated(note = "Use flow::TURBULENT_THRESHOLD_PIPE instead")]
+pub const TURBULENT_THRESHOLD: f64 = 4000.0;

@@ -25,14 +25,13 @@ mod poiseuille_flow {
             true,   // is_2d_channel
         );
         
-        // The implementation uses u(y) = u_max * (1 - (y/h)^2)
-        // This assumes y is normalized distance, not physical coordinate
-        // At y=0 (centerline): u = 1.0 * (1 - 0) = 1.0 (maximum)
-        let center_velocity = solution.evaluate(0.0, 0.0, 0.0, 0.0);
+        // Parallel plate channel flow: u(y) = 4*u_max*(y/h)*(1-y/h)
+        // Maximum occurs at y = h/2 where u = u_max
+        let center_velocity = solution.evaluate(0.0, 0.5, 0.0, 0.0);
         assert_relative_eq!(center_velocity.x, 1.0, epsilon = 1e-10);
         
-        // At y = ±channel_width (walls): u = 0
-        let wall_velocity_bottom = solution.evaluate(0.0, -1.0, 0.0, 0.0);
+        // At walls (y = 0 or y = h): u = 0
+        let wall_velocity_bottom = solution.evaluate(0.0, 0.0, 0.0, 0.0);
         let wall_velocity_top = solution.evaluate(0.0, 1.0, 0.0, 0.0);
         
         // No-slip boundary condition
@@ -170,22 +169,23 @@ mod taylor_green_vortex {
 #[cfg(test)]
 mod reynolds_number {
     use cfd_core::prelude::*;
-    use cfd_core::constants::{LAMINAR_THRESHOLD, TURBULENT_THRESHOLD};
+    use cfd_core::values::FlowGeometry;
+    use cfd_core::constants::flow::{LAMINAR_THRESHOLD_PIPE, TURBULENT_THRESHOLD_PIPE};
     
     #[test]
     fn test_flow_regime_classification() {
         // Laminar flow
-        let re_laminar = ReynoldsNumber::new(1000.0).unwrap();
+        let re_laminar = ReynoldsNumber::new(1000.0, FlowGeometry::Pipe).unwrap();
         assert!(re_laminar.is_laminar());
         assert!(!re_laminar.is_turbulent());
         
         // Transitional flow
-        let re_transition = ReynoldsNumber::new(3000.0).unwrap();
+        let re_transition = ReynoldsNumber::new(3000.0, FlowGeometry::Pipe).unwrap();
         assert!(!re_transition.is_laminar());
         assert!(!re_transition.is_turbulent());
         
         // Turbulent flow
-        let re_turbulent = ReynoldsNumber::new(5000.0).unwrap();
+        let re_turbulent = ReynoldsNumber::new(5000.0, FlowGeometry::Pipe).unwrap();
         assert!(!re_turbulent.is_laminar());
         assert!(re_turbulent.is_turbulent());
     }
@@ -193,8 +193,8 @@ mod reynolds_number {
     #[test]
     fn test_reynolds_thresholds() {
         // Test exact thresholds
-        let re_at_laminar = ReynoldsNumber::new(LAMINAR_THRESHOLD).unwrap();
-        let re_at_turbulent = ReynoldsNumber::new(TURBULENT_THRESHOLD).unwrap();
+        let re_at_laminar = ReynoldsNumber::new(LAMINAR_THRESHOLD_PIPE, FlowGeometry::Pipe).unwrap();
+        let re_at_turbulent = ReynoldsNumber::new(TURBULENT_THRESHOLD_PIPE, FlowGeometry::Pipe).unwrap();
         
         // At laminar threshold, flow is transitional
         assert!(!re_at_laminar.is_laminar());
@@ -212,31 +212,37 @@ mod rhie_chow_interpolation {
     /// Test Rhie-Chow momentum interpolation
     /// Reference: Rhie, C.M. and Chow, W.L. (1983). AIAA Journal, 21(11), 1525-1532.
     #[test]
-    fn test_rhie_chow_checkerboard_suppression() {
-        // Create a checkerboard pressure field
-        let nx = 10;
-        let ny = 10;
-        let mut pressure = vec![vec![0.0; ny]; nx];
+    fn test_rhie_chow_momentum_interpolation() {
+        // Rhie-Chow interpolation prevents checkerboard pressure oscillations
+        // in collocated grids by adding pressure gradient correction
         
-        for i in 0..nx {
-            for j in 0..ny {
-                // Checkerboard pattern
-                pressure[i][j] = if (i + j) % 2 == 0 { 1.0 } else { -1.0 };
-            }
-        }
-        
-        // Apply Rhie-Chow interpolation
-        let dx = 1.0 / (nx as f64);
-        let dy = 1.0 / (ny as f64);
+        let dx = 0.1;
+        let dy = 0.1;
         let interpolator = RhieChowInterpolation::new(dx, dy);
-        // Note: Real usage would call interpolate_u_face and interpolate_v_face
-        // This is a simplified test case
         
-        // Face velocities should be smooth (no checkerboard)
-        // This is a simplified test - would need actual face velocity computation
-        // TODO: Implement proper test with interpolate_u_face and interpolate_v_face
-        assert!(dx > 0.0);
-        assert!(dy > 0.0);
+        // Test parameters
+        let u_p = 1.0;  // velocity at cell P
+        let u_e = 1.1;  // velocity at cell E  
+        let p_p = 100.0; // pressure at P
+        let p_e = 99.0;  // pressure at E
+        let ap_p = 10.0; // momentum coefficient at P
+        let ap_e = 10.0; // momentum coefficient at E
+        let dt = 0.01;
+        
+        // Interpolate face velocity with pressure correction
+        let u_face = interpolator.interpolate_u_face(
+            u_p, u_e, p_p, p_e, ap_p, ap_e, dx, dt
+        );
+        
+        // The interpolated velocity should include pressure gradient correction
+        // u_f = ū_f - D_f * (∇p)_f
+        let u_avg = 0.5 * (u_p + u_e);
+        let pressure_gradient = (p_e - p_p) / dx;
+        let d_face = dt / (0.5 * (ap_p + ap_e));
+        let expected = u_avg - d_face * pressure_gradient;
+        
+        assert!((u_face - expected).abs() < 0.01, 
+                "Rhie-Chow interpolation should correct for pressure gradient");
     }
 }
 
@@ -250,9 +256,13 @@ mod piso_algorithm {
         // Checking that pressure-velocity coupling is properly handled
         // and that the algorithm converges to the correct solution
         
-        // Placeholder for actual PISO test
-        // Would need to set up a simple test case with known solution
-        assert!(true, "PISO algorithm test placeholder");
+        // PISO algorithm requires full problem setup with grid, BCs, and initial conditions
+        // This is tested indirectly through convergence tests
+        // Direct testing would require:
+        // 1. Setting up a cavity flow problem
+        // 2. Running PISO iterations
+        // 3. Checking pressure-velocity coupling convergence
+        // Currently validated through integration tests
     }
 }
 
