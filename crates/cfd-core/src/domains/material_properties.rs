@@ -117,7 +117,7 @@ impl<T: RealField + Copy> FluidProperties<T> for CurrenttonianFluid<T> {
 
 /// Non-Currenttonian fluid models
 pub mod non_newtonian {
-    use super::{Deserialize, FluidProperties, RealField, SOLID_LIKE_VISCOSITY, Serialize, SolidProperties, YIELD_STRESS_VISCOSITY};
+    use super::{Deserialize, FluidProperties, RealField, SOLID_LIKE_VISCOSITY, Serialize, YIELD_STRESS_VISCOSITY};
     
     /// Power-law fluid model
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -427,4 +427,10 @@ impl<T: RealField + Copy> Default for MaterialPropertiesService<T> {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Deserialize, FluidProperties, RealField, SOLID_LIKE_VISCOSITY, Serialize, YIELD_STRESS_VISCOSITY};
+    use approx::assert_relative_eq;
 }

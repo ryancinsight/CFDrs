@@ -1,7 +1,7 @@
 //! Core mesh data structures and operations
 //! Following SOLID principles
 
-use nalgebra::{DMatrix, Point3, RealField, Vector3};
+use nalgebra::{Point3, RealField};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 

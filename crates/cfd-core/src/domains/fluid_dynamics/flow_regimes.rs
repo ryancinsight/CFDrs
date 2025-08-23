@@ -62,9 +62,9 @@ impl FlowClassifier {
     
     /// Classify based on multiple dimensionless numbers
     pub fn classify<T: RealField + Copy + ToPrimitive>(
-        reynolds: Option<T>,
+        reynolds: T,
         mach: Option<T>,
-        froude: Option<T>,
+        _froude: Option<T>,
     ) -> FlowRegime {
         // Priority: Mach number for compressibility, then Reynolds for turbulence
         if let Some(ma) = mach {
@@ -73,12 +73,8 @@ impl FlowClassifier {
             }
         }
         
-        if let Some(re) = reynolds {
-            return Self::classify_by_reynolds(re);
-        }
-        
-        // Default to laminar if no information available
-        FlowRegime::Laminar
+        // Use Reynolds number for flow regime classification
+        Self::classify_by_reynolds(reynolds)
     }
 }
 

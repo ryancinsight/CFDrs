@@ -5,172 +5,170 @@
 
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
+use rayon::prelude::*;
+
 use super::fields::VelocityField;
 
-/// Flow field operations
+/// Operations on flow fields
 pub struct FlowOperations;
 
 impl FlowOperations {
-    /// Calculate vorticity field: ω = ∇ × u
-    #[must_use] pub fn vorticity<T: RealField + Copy + FromPrimitive>(
+    /// Calculate vorticity field (curl of velocity)
+    pub fn vorticity<T: RealField + Copy + FromPrimitive + Send + Sync>(
         velocity: &VelocityField<T>
     ) -> Vec<Vector3<T>> {
         let (nx, ny, nz) = velocity.dimensions;
-        let mut vorticity = Vec::with_capacity(velocity.components.len());
+        let mut vorticity = vec![Vector3::zeros(); nx * ny * nz];
         
-        for k in 0..nz {
-            for j in 0..ny {
-                for i in 0..nx {
-                    let omega = Self::vorticity_at_point(velocity, i, j, k);
-                    vorticity.push(omega);
-                }
-            }
-        }
+        // Use parallel iteration for better performance
+        vorticity.par_iter_mut().enumerate().for_each(|(idx, vort)| {
+            let k = idx / (nx * ny);
+            let j = (idx % (nx * ny)) / nx;
+            let i = idx % nx;
+            
+            *vort = vorticity_at_point(velocity, i, j, k, nx, ny, nz);
+        });
         
         vorticity
     }
     
-    /// Calculate vorticity at a single point
-    fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
-        velocity: &VelocityField<T>,
-        i: usize,
-        j: usize,
-        k: usize,
-    ) -> Vector3<T> {
-        let (nx, ny, nz) = velocity.dimensions;
-        let dx = T::from_f64(1.0 / nx as f64).unwrap_or_else(T::one);
-        let dy = T::from_f64(1.0 / ny as f64).unwrap_or_else(T::one);
-        let dz = T::from_f64(1.0 / nz as f64).unwrap_or_else(T::one);
-        
-        let mut omega_x = T::zero();
-        let mut omega_y = T::zero();
-        let mut omega_z = T::zero();
-        
-        // ω_x = ∂w/∂y - ∂v/∂z
-        if j > 0 && j < ny - 1 && k > 0 && k < nz - 1 {
-            if let (Some(v_kp), Some(v_km), Some(w_jp), Some(w_jm)) = (
-                velocity.get(i, j, k + 1),
-                velocity.get(i, j, k - 1),
-                velocity.get(i, j + 1, k),
-                velocity.get(i, j - 1, k),
-            ) {
-                let two = T::from_f64(2.0).unwrap_or_else(T::one);
-                let dwdy = (w_jp.z - w_jm.z) / (two * dy);
-                let dvdz = (v_kp.y - v_km.y) / (two * dz);
-                omega_x = dwdy - dvdz;
-            }
-        }
-        
-        // ω_y = ∂u/∂z - ∂w/∂x
-        if i > 0 && i < nx - 1 && k > 0 && k < nz - 1 {
-            if let (Some(u_kp), Some(u_km), Some(w_ip), Some(w_im)) = (
-                velocity.get(i, j, k + 1),
-                velocity.get(i, j, k - 1),
-                velocity.get(i + 1, j, k),
-                velocity.get(i - 1, j, k),
-            ) {
-                let two = T::from_f64(2.0).unwrap_or_else(T::one);
-                let dudz = (u_kp.x - u_km.x) / (two * dz);
-                let dwdx = (w_ip.z - w_im.z) / (two * dx);
-                omega_y = dudz - dwdx;
-            }
-        }
-        
-        // ω_z = ∂v/∂x - ∂u/∂y
-        if i > 0 && i < nx - 1 && j > 0 && j < ny - 1 {
-            if let (Some(v_ip), Some(v_im), Some(u_jp), Some(u_jm)) = (
-                velocity.get(i + 1, j, k),
-                velocity.get(i - 1, j, k),
-                velocity.get(i, j + 1, k),
-                velocity.get(i, j - 1, k),
-            ) {
-                let two = T::from_f64(2.0).unwrap_or_else(T::one);
-                let dvdx = (v_ip.y - v_im.y) / (two * dx);
-                let dudy = (u_jp.x - u_jm.x) / (two * dy);
-                omega_z = dvdx - dudy;
-            }
-        }
-        
-        Vector3::new(omega_x, omega_y, omega_z)
-    }
-    
-    /// Calculate divergence field: ∇·u
-    pub fn divergence<T: RealField + Copy + FromPrimitive>(
+    /// Calculate divergence field
+    pub fn divergence<T: RealField + Copy + FromPrimitive + Send + Sync>(
         velocity: &VelocityField<T>
     ) -> Vec<T> {
         let (nx, ny, nz) = velocity.dimensions;
-        let mut divergence = Vec::with_capacity(velocity.components.len());
+        let mut divergence = vec![T::zero(); nx * ny * nz];
         
-        let dx = T::from_f64(1.0 / nx as f64).unwrap_or_else(T::one);
-        let dy = T::from_f64(1.0 / ny as f64).unwrap_or_else(T::one);
-        let dz = T::from_f64(1.0 / nz as f64).unwrap_or_else(T::one);
-        
-        for k in 0..nz {
-            for j in 0..ny {
-                for i in 0..nx {
-                    let mut div = T::zero();
-                    
-                    // ∂u/∂x
-                    if i > 0 && i < nx - 1 {
-                        if let (Some(u_ip), Some(u_im)) = (
-                            velocity.get(i + 1, j, k),
-                            velocity.get(i - 1, j, k)
-                        ) {
-                            let two = T::from_f64(2.0).unwrap_or_else(T::one);
-                            div += (u_ip.x - u_im.x) / (two * dx);
-                        }
-                    }
-                    
-                    // ∂v/∂y
-                    if j > 0 && j < ny - 1 {
-                        if let (Some(v_jp), Some(v_jm)) = (
-                            velocity.get(i, j + 1, k),
-                            velocity.get(i, j - 1, k)
-                        ) {
-                            let two = T::from_f64(2.0).unwrap_or_else(T::one);
-                            div += (v_jp.y - v_jm.y) / (two * dy);
-                        }
-                    }
-                    
-                    // ∂w/∂z
-                    if k > 0 && k < nz - 1 {
-                        if let (Some(w_kp), Some(w_km)) = (
-                            velocity.get(i, j, k + 1),
-                            velocity.get(i, j, k - 1)
-                        ) {
-                            let two = T::from_f64(2.0).unwrap_or_else(T::one);
-                            div += (w_kp.z - w_km.z) / (two * dz);
-                        }
-                    }
-                    
-                    divergence.push(div);
-                }
-            }
-        }
+        // Use parallel iteration for better performance
+        divergence.par_iter_mut().enumerate().for_each(|(idx, div)| {
+            let k = idx / (nx * ny);
+            let j = (idx % (nx * ny)) / nx;
+            let i = idx % nx;
+            
+            let dx = T::one();
+            let dy = T::one();
+            let dz = T::one();
+            
+            // Central differences with boundary handling
+            let dudx = if i > 0 && i < nx - 1 {
+                let idx_plus = k * nx * ny + j * nx + (i + 1);
+                let idx_minus = k * nx * ny + j * nx + (i - 1);
+                (velocity.components[idx_plus].x - velocity.components[idx_minus].x) / (T::from_f64(2.0).unwrap() * dx)
+            } else {
+                T::zero()
+            };
+            
+            let dvdy = if j > 0 && j < ny - 1 {
+                let idx_plus = k * nx * ny + (j + 1) * nx + i;
+                let idx_minus = k * nx * ny + (j - 1) * nx + i;
+                (velocity.components[idx_plus].y - velocity.components[idx_minus].y) / (T::from_f64(2.0).unwrap() * dy)
+            } else {
+                T::zero()
+            };
+            
+            let dwdz = if k > 0 && k < nz - 1 {
+                let idx_plus = (k + 1) * nx * ny + j * nx + i;
+                let idx_minus = (k - 1) * nx * ny + j * nx + i;
+                (velocity.components[idx_plus].z - velocity.components[idx_minus].z) / (T::from_f64(2.0).unwrap() * dz)
+            } else {
+                T::zero()
+            };
+            
+            *div = dudx + dvdy + dwdz;
+        });
         
         divergence
     }
     
-    /// Calculate kinetic energy field: KE = 0.5 * |u|²
-    pub fn kinetic_energy<T: RealField + Copy + FromPrimitive>(
+    /// Calculate kinetic energy field
+    pub fn kinetic_energy<T: RealField + Copy + FromPrimitive + Send + Sync>(
         velocity: &VelocityField<T>
     ) -> Vec<T> {
-        let half = T::from_f64(0.5).unwrap_or_else(T::one);
+        // Use parallel iteration for better performance
         velocity.components
-            .iter()
-            .map(|v| half * v.dot(v))
+            .par_iter()
+            .map(|v| T::from_f64(0.5).unwrap() * v.norm_squared())
             .collect()
     }
     
-    /// Calculate enstrophy: E = 0.5 * |ω|²
-    pub fn enstrophy<T: RealField + Copy + FromPrimitive>(
+    /// Calculate enstrophy field
+    pub fn enstrophy<T: RealField + Copy + FromPrimitive + Send + Sync>(
         velocity: &VelocityField<T>
     ) -> Vec<T> {
         let vorticity = Self::vorticity(velocity);
-        let half = T::from_f64(0.5).unwrap_or_else(T::one);
+        
+        // Use parallel iteration for better performance
         vorticity
-            .iter()
-            .map(|omega| half * omega.dot(omega))
+            .par_iter()
+            .map(|w| T::from_f64(0.5).unwrap() * w.norm_squared())
             .collect()
     }
+}
+
+// Helper function for vorticity calculation at a point
+fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
+    velocity: &VelocityField<T>,
+    i: usize, j: usize, k: usize,
+    nx: usize, ny: usize, nz: usize
+) -> Vector3<T> {
+    let idx = k * nx * ny + j * nx + i;
+    let dx = T::one();
+    let dy = T::one();
+    let dz = T::one();
+    
+    // Calculate velocity gradients using central differences
+    let dvdz = if k > 0 && k < nz - 1 {
+        let idx_plus = (k + 1) * nx * ny + j * nx + i;
+        let idx_minus = (k - 1) * nx * ny + j * nx + i;
+        (velocity.components[idx_plus].y - velocity.components[idx_minus].y) / (T::from_f64(2.0).unwrap() * dz)
+    } else {
+        T::zero()
+    };
+    
+    let dwdy = if j > 0 && j < ny - 1 {
+        let idx_plus = k * nx * ny + (j + 1) * nx + i;
+        let idx_minus = k * nx * ny + (j - 1) * nx + i;
+        (velocity.components[idx_plus].z - velocity.components[idx_minus].z) / (T::from_f64(2.0).unwrap() * dy)
+    } else {
+        T::zero()
+    };
+    
+    let dudz = if k > 0 && k < nz - 1 {
+        let idx_plus = (k + 1) * nx * ny + j * nx + i;
+        let idx_minus = (k - 1) * nx * ny + j * nx + i;
+        (velocity.components[idx_plus].x - velocity.components[idx_minus].x) / (T::from_f64(2.0).unwrap() * dz)
+    } else {
+        T::zero()
+    };
+    
+    let dwdx = if i > 0 && i < nx - 1 {
+        let idx_plus = k * nx * ny + j * nx + (i + 1);
+        let idx_minus = k * nx * ny + j * nx + (i - 1);
+        (velocity.components[idx_plus].z - velocity.components[idx_minus].z) / (T::from_f64(2.0).unwrap() * dx)
+    } else {
+        T::zero()
+    };
+    
+    let dvdx = if i > 0 && i < nx - 1 {
+        let idx_plus = k * nx * ny + j * nx + (i + 1);
+        let idx_minus = k * nx * ny + j * nx + (i - 1);
+        (velocity.components[idx_plus].y - velocity.components[idx_minus].y) / (T::from_f64(2.0).unwrap() * dx)
+    } else {
+        T::zero()
+    };
+    
+    let dudy = if j > 0 && j < ny - 1 {
+        let idx_plus = k * nx * ny + (j + 1) * nx + i;
+        let idx_minus = k * nx * ny + (j - 1) * nx + i;
+        (velocity.components[idx_plus].x - velocity.components[idx_minus].x) / (T::from_f64(2.0).unwrap() * dy)
+    } else {
+        T::zero()
+    };
+    
+    // Vorticity = curl(velocity)
+    Vector3::new(
+        dwdy - dvdz,
+        dudz - dwdx,
+        dvdx - dudy
+    )
 }
