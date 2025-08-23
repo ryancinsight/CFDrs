@@ -116,9 +116,13 @@ fn benchmark_mesh_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("mesh_operations");
 
     for size in [100, 500, 1000].iter() {
-        // Create a simple test mesh for benchmarking
-        let _vertices = create_test_vertices(*size);
-        let _elements = create_test_elements(*size);
+        // Create test mesh for benchmarking
+        let vertices = create_test_vertices(*size);
+        let elements = create_test_elements(*size);
+        
+        // Use the mesh data to prevent optimization
+        criterion::black_box(&vertices);
+        criterion::black_box(&elements);
 
         group.bench_with_input(
             BenchmarkId::new("mesh_vertex_creation", size),

@@ -355,12 +355,20 @@ impl<T: RealField + Copy> VtkReader<T> {
     fn read_header_from_reader(&self, reader: &mut BufReader<File>) -> Result<VtkHeader> {
         let mut lines = reader.lines();
 
-        // Read header lines
-        let _version = lines.next()
+        // Read and validate header lines
+        let version = lines.next()
             .ok_or_else(|| Error::IoError(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "Missing VTK version line",
             )))??;
+            
+        // Validate version format
+        if !version.starts_with("# vtk DataFile Version") {
+            return Err(Error::IoError(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Invalid VTK version line: {}", version),
+            )));
+        }
         
         let title = lines.next()
             .ok_or_else(|| Error::IoError(std::io::Error::new(
