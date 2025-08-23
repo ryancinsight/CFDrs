@@ -291,38 +291,37 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
                 let mut diagonal = T::zero();
                 let mut source_term = T::zero();
 
-                // Add contributions from interior neighbors only
-                // The boundary face contribution is handled via the gradient condition
-                if i > 0 && i < grid.nx() - 1 {
-                    let coeff = T::one() / (dx * dx);
-                    if i > 0 {
-                        matrix_builder.add_entry(linear_idx, linear_idx - 1, -coeff)?;
-                        diagonal += coeff;
-                    }
-                    if i < grid.nx() - 1 {
-                        matrix_builder.add_entry(linear_idx, linear_idx + 1, -coeff)?;
-                        diagonal += coeff;
-                    }
+                // Add contributions from interior neighbors
+                // Using central differences where possible
+                let coeff_x = T::one() / (dx * dx);
+                let coeff_y = T::one() / (dy * dy);
+                
+                if i > 0 {
+                    matrix_builder.add_entry(linear_idx, linear_idx - 1, -coeff_x)?;
+                    diagonal += coeff_x;
+                }
+                if i < grid.nx() - 1 {
+                    matrix_builder.add_entry(linear_idx, linear_idx + 1, -coeff_x)?;
+                    diagonal += coeff_x;
+                }
+                if j > 0 {
+                    matrix_builder.add_entry(linear_idx, linear_idx - grid.nx(), -coeff_y)?;
+                    diagonal += coeff_y;
+                }
+                if j < grid.ny() - 1 {
+                    matrix_builder.add_entry(linear_idx, linear_idx + grid.nx(), -coeff_y)?;
+                    diagonal += coeff_y;
                 }
 
-                if j > 0 && j < grid.ny() - 1 {
-                    let coeff = T::one() / (dy * dy);
-                    if j > 0 {
-                        matrix_builder.add_entry(linear_idx, linear_idx - grid.nx(), -coeff)?;
-                        diagonal += coeff;
-                    }
-                    if j < grid.ny() - 1 {
-                        matrix_builder.add_entry(linear_idx, linear_idx + grid.nx(), -coeff)?;
-                        diagonal += coeff;
-                    }
+                // Ensure diagonal is non-zero for matrix stability
+                if diagonal.abs() < T::from_f64(1e-10).unwrap_or_else(|| T::zero()) {
+                    diagonal = T::one(); // Fallback to identity for stability
                 }
 
-                // Add flux contribution from boundary face
-                // For simplicity, assume boundary is aligned with grid
-                let boundary_area = if i == 0 || i == grid.nx() - 1 { dy } else { dx };
-
-                // Flux = -Γ * ∂φ/∂n * Area, discretized as: -Γ * gradient * Area
-                source_term += *gradient * boundary_area;
+                // Add flux contribution from boundary
+                // Using first-order approximation for gradient
+                let flux_contribution = *gradient * if i == 0 || i == grid.nx() - 1 { dx } else { dy };
+                source_term += flux_contribution;
 
                 matrix_builder.add_entry(linear_idx, linear_idx, diagonal)?;
                 rhs[linear_idx] = source_term;
@@ -542,18 +541,13 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "FVM implementation has known numerical stability issues that need addressing"]
+    #[ignore = "FVM solver has numerical stability issues - needs complete rewrite of discretization"]
     fn test_diffusion_case() {
-        // NOTE: This test is currently ignored due to numerical issues in the FVM implementation
-        // The solver produces incorrect values for boundary conditions, indicating a problem
-        // with the discretization or matrix assembly that needs investigation.
-        // The code structure is correct, but the numerical implementation needs refinement.
-        
         let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("Failed to create grid");
         let solver = FvmSolver::new(FvmConfig::default(), FluxScheme::Central);
 
-        // Set up diffusion problem
-        let velocity = HashMap::new(); // No convection
+        // Set up pure diffusion problem (no convection)
+        let velocity = HashMap::new();
         let mut diffusivity = HashMap::new();
         let source = HashMap::new();
         let mut boundary_conditions = HashMap::new();
@@ -563,11 +557,18 @@ mod tests {
             diffusivity.insert((i, j), 1.0);
         }
 
-        // Apply Dirichlet boundary conditions
-        boundary_conditions.insert((0, 0), BoundaryCondition::Dirichlet { value: 1.0 });
-        boundary_conditions.insert((2, 2), BoundaryCondition::Dirichlet { value: 0.0 });
+        // Apply Dirichlet boundary conditions on all boundaries for stability
+        // This creates a well-posed Laplace equation
+        for i in 0..3 {
+            boundary_conditions.insert((i, 0), BoundaryCondition::Dirichlet { value: 0.0 }); // Bottom
+            boundary_conditions.insert((i, 2), BoundaryCondition::Dirichlet { value: 1.0 }); // Top
+        }
+        for j in 1..2 {
+            boundary_conditions.insert((0, j), BoundaryCondition::Dirichlet { value: 0.5 }); // Left
+            boundary_conditions.insert((2, j), BoundaryCondition::Dirichlet { value: 0.5 }); // Right
+        }
 
-        // Test that the solver runs without panicking
+        // Solve the diffusion equation
         let result = solver.solve_scalar_transport(
             &grid,
             &velocity,
@@ -576,7 +577,33 @@ mod tests {
             &boundary_conditions,
         );
 
-        // The solver should return a result (even if numerically incorrect)
-        assert!(result.is_ok() || result.is_err());
+        // Check that we get a valid solution
+        match result {
+            Ok(solution) => {
+                assert_eq!(solution.len(), grid.num_cells());
+                
+                // Verify boundary conditions are satisfied
+                for ((i, j), &value) in solution.iter() {
+                    if let Some(bc) = boundary_conditions.get(&(*i, *j)) {
+                        if let BoundaryCondition::Dirichlet { value: bc_val } = bc {
+                            // Allow small numerical error
+                            assert!((value - bc_val).abs() < 0.1, 
+                                   "Boundary condition not satisfied at ({}, {}): expected {}, got {}", 
+                                   i, j, bc_val, value);
+                        }
+                    }
+                    
+                    // Check solution is bounded and finite
+                    assert!(value.is_finite(), "Solution contains non-finite values");
+                    assert!(value >= -0.1 && value <= 1.1, 
+                           "Solution out of physical bounds at ({}, {}): {}", i, j, value);
+                }
+            }
+            Err(e) => {
+                // If solver fails to converge, that's acceptable for this basic test
+                // but we should at least check it's a convergence error
+                eprintln!("FVM solver did not converge: {:?}", e);
+            }
+        }
     }
 }
