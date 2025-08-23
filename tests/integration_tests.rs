@@ -215,28 +215,28 @@ fn test_end_to_end_cfd_workflow() {
     
     // Build a simple Laplacian
     for i in 0..n {
-        let mut diagonal = 0.0;
+        let mut diagonal = 0.0f64;
         
         // Add off-diagonal entries
         if i >= grid_size {
-            builder.add_entry(i, i - grid_size, -1.0).unwrap();
-            diagonal += 1.0;
+            builder.add_entry(i, i - grid_size, -1.0f64).unwrap();
+            diagonal += 1.0f64;
         }
         if i < n - grid_size {
-            builder.add_entry(i, i + grid_size, -1.0).unwrap();
-            diagonal += 1.0;
+            builder.add_entry(i, i + grid_size, -1.0f64).unwrap();
+            diagonal += 1.0f64;
         }
         if i % grid_size != 0 {
-            builder.add_entry(i, i - 1, -1.0).unwrap();
-            diagonal += 1.0;
+            builder.add_entry(i, i - 1, -1.0f64).unwrap();
+            diagonal += 1.0f64;
         }
         if i % grid_size != grid_size - 1 {
-            builder.add_entry(i, i + 1, -1.0).unwrap();
-            diagonal += 1.0;
+            builder.add_entry(i, i + 1, -1.0f64).unwrap();
+            diagonal += 1.0f64;
         }
         
         // Add diagonal entry - ensure matrix is well-conditioned
-        builder.add_entry(i, i, diagonal.max(4.0)).unwrap();
+        builder.add_entry(i, i, diagonal.max(4.0f64)).unwrap();
     }
     
     let matrix = builder.build().unwrap();

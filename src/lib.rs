@@ -24,6 +24,8 @@ pub use cfd_validation as validation;
 /// ```rust
 /// use cfd_suite::prelude::*;
 /// use cfd_suite::core::Result;
+/// use cfd_suite::d1::Network;
+/// use cfd_suite::d2::StructuredGrid2D;
 ///
 /// fn main() -> Result<()> {
 ///     // Now you have access to all commonly used CFD functionality
