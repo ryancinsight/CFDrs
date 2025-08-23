@@ -175,7 +175,7 @@ where
         self.initialize(initial_density, initial_velocity)?;
         
         let mut converged = false;
-        let mut old_velocity = self.macroscopic.velocity.clone();
+        let mut previous_velocity = self.macroscopic.velocity.clone();
         
         for step in 0..self.config.max_steps {
             // Perform time step
@@ -183,7 +183,7 @@ where
             
             // Check convergence
             if step % self.config.output_frequency == 0 {
-                let max_change = self.compute_max_velocity_change(&old_velocity);
+                let max_change = self.compute_max_velocity_change(&previous_velocity);
                 
                 if self.config.verbose {
                     println!("Step {}: max velocity change = {:e}", step, max_change);
@@ -197,7 +197,7 @@ where
                     break;
                 }
                 
-                old_velocity = self.macroscopic.velocity.clone();
+                previous_velocity = self.macroscopic.velocity.clone();
             }
         }
         
@@ -209,13 +209,13 @@ where
     }
     
     /// Compute maximum velocity change for convergence check
-    fn compute_max_velocity_change(&self, old_velocity: &Vec<Vec<[T; 2]>>) -> T {
+    fn compute_max_velocity_change(&self, previous_velocity: &Vec<Vec<[T; 2]>>) -> T {
         let mut max_change = T::zero();
         
         for j in 0..self.ny {
             for i in 0..self.nx {
-                let du = (self.macroscopic.velocity[j][i][0] - old_velocity[j][i][0]).abs();
-                let dv = (self.macroscopic.velocity[j][i][1] - old_velocity[j][i][1]).abs();
+                let du = (self.macroscopic.velocity[j][i][0] - previous_velocity[j][i][0]).abs();
+                let dv = (self.macroscopic.velocity[j][i][1] - previous_velocity[j][i][1]).abs();
                 let change = du.max(dv);
                 if change > max_change {
                     max_change = change;

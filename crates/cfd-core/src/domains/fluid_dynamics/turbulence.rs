@@ -5,7 +5,7 @@
 
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
-use super::fields::FlowField;
+use super::fields::{FlowField, VelocityField};
 
 /// Turbulence model abstraction following Strategy pattern
 pub trait TurbulenceModel<T: RealField + Copy>: Send + Sync {
@@ -114,9 +114,20 @@ impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for SmagorinskyMode
     }
     
     fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
-        // For Smagorinsky model, TKE is not directly computed
-        // Return estimate based on velocity fluctuations
-        vec![T::zero(); flow_field.velocity.components.len()]
+        // For Smagorinsky model, estimate TKE from strain rate
+        // k ≈ (Cs * Δ * |S|)²
+        let (nx, _, _) = flow_field.velocity.dimensions;
+        let delta = T::from_f64(1.0 / nx as f64).unwrap_or_else(T::one);
+        
+        flow_field.velocity.components
+            .iter()
+            .enumerate()
+            .map(|(idx, _)| {
+                let strain_rate = self.calculate_strain_rate(flow_field, idx);
+                let cs_delta_s = self.cs * delta * strain_rate;
+                cs_delta_s * cs_delta_s
+            })
+            .collect()
     }
     
     fn name(&self) -> &str {
@@ -143,17 +154,84 @@ impl<T: RealField + Copy + FromPrimitive> MixingLengthModel<T> {
             kappa,
         }
     }
+    
+    /// Calculate velocity gradient magnitude
+    fn calculate_velocity_gradient(&self, velocity: &VelocityField<T>, idx: usize) -> T {
+        let (nx, ny, nz) = velocity.dimensions;
+        let i = idx % nx;
+        let j = (idx / nx) % ny;
+        let k = idx / (nx * ny);
+        
+        let delta = T::from_f64(1.0 / nx as f64).unwrap_or_else(T::one);
+        let two = T::from_f64(2.0).unwrap_or_else(T::one);
+        
+        let mut grad_u_sq = T::zero();
+        
+        // Calculate ∂u/∂y for wall-bounded flows (primary gradient)
+        if j > 0 && j < ny - 1 {
+            if let (Some(u_jp), Some(u_jm)) = (
+                velocity.get(i, j + 1, k),
+                velocity.get(i, j - 1, k)
+            ) {
+                let dudy = (u_jp.x - u_jm.x) / (two * delta);
+                grad_u_sq = dudy * dudy;
+            }
+        }
+        
+        // Add other gradient components for 3D flows
+        if i > 0 && i < nx - 1 {
+            if let (Some(u_ip), Some(u_im)) = (
+                velocity.get(i + 1, j, k),
+                velocity.get(i - 1, j, k)
+            ) {
+                let dudx = (u_ip.x - u_im.x) / (two * delta);
+                let dvdx = (u_ip.y - u_im.y) / (two * delta);
+                let dwdx = (u_ip.z - u_im.z) / (two * delta);
+                grad_u_sq = grad_u_sq + dudx * dudx + dvdx * dvdx + dwdx * dwdx;
+            }
+        }
+        
+        if k > 0 && k < nz - 1 {
+            if let (Some(u_kp), Some(u_km)) = (
+                velocity.get(i, j, k + 1),
+                velocity.get(i, j, k - 1)
+            ) {
+                let dudz = (u_kp.x - u_km.x) / (two * delta);
+                let dvdz = (u_kp.y - u_km.y) / (two * delta);
+                let dwdz = (u_kp.z - u_km.z) / (two * delta);
+                grad_u_sq = grad_u_sq + dudz * dudz + dvdz * dvdz + dwdz * dwdz;
+            }
+        }
+        
+        grad_u_sq.sqrt()
+    }
 }
 
 impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for MixingLengthModel<T> {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
-        // νₜ = l² * |∂u/∂y|
-        // Simplified implementation
-        vec![T::zero(); flow_field.velocity.components.len()]
+        // νₜ = l² * |∂u/∂y| (Prandtl's mixing length hypothesis)
+        flow_field.velocity.components
+            .iter()
+            .enumerate()
+            .map(|(idx, _)| {
+                let grad_u = self.calculate_velocity_gradient(&flow_field.velocity, idx);
+                self.length_scale * self.length_scale * grad_u
+            })
+            .collect()
     }
     
     fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
-        vec![T::zero(); flow_field.velocity.components.len()]
+        // Estimate TKE from mixing length and velocity gradient
+        // k ≈ (l * |∂u/∂y|)²
+        flow_field.velocity.components
+            .iter()
+            .enumerate()
+            .map(|(idx, _)| {
+                let grad_u = self.calculate_velocity_gradient(&flow_field.velocity, idx);
+                let l_grad_u = self.length_scale * grad_u;
+                l_grad_u * l_grad_u
+            })
+            .collect()
     }
     
     fn name(&self) -> &str {

@@ -44,8 +44,8 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
         Ok(Self { value, geometry })
     }
     
-    /// Create Reynolds number for pipe flow (backward compatibility)
-    pub fn new_pipe(value: T) -> crate::error::Result<Self> {
+    /// Create Reynolds number for pipe flow
+    pub fn pipe(value: T) -> crate::error::Result<Self> {
         Self::new(value, FlowGeometry::Pipe)
     }
     
