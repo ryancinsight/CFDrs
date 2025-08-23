@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Test 2: Flow Over Cylinder
     println!("2. Running Flow Over Cylinder Benchmark (Re=40)...");
-    let cylinder = FlowOverCylinder::<f64>::new(0.1, 1.0); // cylinder_diameter, inlet_velocity
+    let cylinder = FlowOverCylinder::<f64>::new(0.1, (2.0, 1.0), 1.0); // diameter, domain, inlet_velocity
     
     println!("   Setting up benchmark...");
     let config = BenchmarkConfig {

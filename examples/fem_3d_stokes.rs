@@ -17,8 +17,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create fluid properties (water at 20°C)
     let fluid = Fluid::<f64>::water()?;
     println!("Fluid: Water at 20°C");
-    println!("Density: {:.1} kg/m³", fluid.density());
-    println!("Viscosity: {:.6} Pa·s", fluid.dynamic_viscosity());
+    println!("Density: {:.1} kg/m³", fluid.density);
+    println!("Viscosity: {:.6} Pa·s", fluid.dynamic_viscosity(1.0)?);
     println!();
     
     // Create a simple tetrahedral mesh
@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         tau: 0.1,
         dt: Some(0.01),
         reynolds: Some(100.0),
-        element_type: ElementType::Tetrahedral,
+                    element_type: ElementType::Tetrahedron,
         quadrature_order: 2,
     };
     

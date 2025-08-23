@@ -17,7 +17,7 @@ use cfd_validation::{
 };
 use cfd_1d::solver::NetworkSolver;
 use cfd_2d::{
-    pressure_velocity::PressureVelocitySolver,
+    PressureVelocitySolver, PressureVelocityConfig,
     solvers::{LbmSolver, LbmConfig},
     grid::{StructuredGrid2D, Grid2D}
 };

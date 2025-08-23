@@ -34,9 +34,9 @@ impl<T: RealField + FromPrimitive + Copy> ReynoldsNumber<T> {
         self.0 < T::from_f64(crate::constants::LAMINAR_THRESHOLD).unwrap_or_else(|| T::zero())
     }
 
-    /// Check if flow is turbulent (Re > 4000 for pipe flow)
+    /// Check if flow is turbulent (Re >= 4000 for pipe flow)
     pub fn is_turbulent(&self) -> bool {
-        self.0 > T::from_f64(crate::constants::TURBULENT_THRESHOLD).unwrap_or_else(|| T::zero())
+        self.0 >= T::from_f64(crate::constants::TURBULENT_THRESHOLD).unwrap_or_else(|| T::zero())
     }
 
     /// Check if flow is transitional
