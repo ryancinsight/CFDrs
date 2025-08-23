@@ -11,8 +11,8 @@ use cfd_mesh::{Mesh, Cell};
 
 /// Finite Element Method solver for 3D incompressible flow
 pub struct FemSolver<T: RealField + Copy> {
-    /// Configuration
-    config: FemConfig<T>,
+    /// Configuration (stored for future use)
+    _config: FemConfig<T>,
     /// Linear solver for the system
     linear_solver: Box<dyn LinearSolver<T>>,
 }
@@ -51,7 +51,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
             Box::new(ConjugateGradient::new(cfd_math::linear_solver::LinearSolverConfig::default()));
         
         Self {
-            config,
+            _config: config,
             linear_solver,
         }
     }
@@ -100,7 +100,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
         let viscosity = problem.fluid.characteristic_viscosity();
         
         // Loop over elements
-        for (elem_idx, cell) in problem.mesh.cells.iter().enumerate() {
+        for (_elem_idx, cell) in problem.mesh.cells.iter().enumerate() {
             // Get vertex indices for this cell
             let vertex_indices = extract_vertex_indices(cell, &problem.mesh);
             
