@@ -16,6 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         tolerance: 1e-6,
         max_iterations: 1000,
         time_step: None,
+        parallel: false,
     };
     
     println!("   Running SIMPLE solver (this may take a moment)...");
@@ -53,6 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         tolerance: 1e-6,
         max_iterations: 2000,
         time_step: None,
+        parallel: false,
     };
     
     println!("   Running SIMPLE solver (this may take a moment)...");

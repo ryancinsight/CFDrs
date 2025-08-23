@@ -112,6 +112,9 @@ cfd-3d.workspace = true
 cfd-validation.workspace = true
 nalgebra.workspace = true
 
+[dev-dependencies]
+criterion.workspace = true
+
 [[example]]
 name = "pipe_flow_1d"
 path = "examples/pipe_flow_1d.rs"
@@ -134,6 +137,7 @@ path = "examples/pipe_flow_1d_validation.rs"
 [[example]]
 name = "venturi_cavitation"
 path = "examples/venturi_cavitation.rs"
+required-features = ["csg"]
 
 [[example]]
 name = "validation_suite"

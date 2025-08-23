@@ -409,6 +409,7 @@ dependencies = [
  "cfd-math",
  "cfd-mesh",
  "cfd-validation",
+ "criterion",
  "nalgebra",
 ]
 

@@ -3,7 +3,8 @@
 //! This example demonstrates the use of the 3D FEM solver for solving
 //! the Stokes equations in a simple tetrahedral domain.
 
-use cfd_3d::fem::{FemSolver, FemConfig, ElementType, StokesFlowProblem};
+use cfd_3d::fem::{FemSolver, FemConfig, StokesFlowProblem};
+use cfd_mesh::ElementType;
 use cfd_core::fluid::Fluid;
 use cfd_mesh::{Mesh, Vertex, Cell};
 use nalgebra::{Point3, Vector3};

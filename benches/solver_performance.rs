@@ -4,13 +4,14 @@
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use cfd_suite::prelude::*;
+use cfd_1d::{Node, NodeType};
 
 fn benchmark_1d_network_solver(c: &mut Criterion) {
     c.bench_function("1d_network_small", |b| {
         let fluid = Fluid::<f64>::water().expect("Failed to create fluid");
         let network = NetworkBuilder::new(fluid)
-            .add_node(Node::new(0, 0.0, 0.0, 0.0))
-            .add_node(Node::new(1, 1.0, 0.0, 0.0))
+            .add_node(Node::new("0".to_string(), NodeType::Junction))
+            .add_node(Node::new("1".to_string(), NodeType::Junction))
             .build()
             .expect("Failed to build network");
         
