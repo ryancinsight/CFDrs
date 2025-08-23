@@ -3,7 +3,7 @@
 
 use nalgebra::{Point3, RealField};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 // Import ElementType from cfd-core as the single source of truth
 pub use cfd_core::domains::mesh_operations::ElementType;

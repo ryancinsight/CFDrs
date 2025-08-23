@@ -1,6 +1,5 @@
 //! FEM solver configuration
 
-use cfd_core::solver::SolverConfig;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};

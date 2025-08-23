@@ -1,6 +1,6 @@
 //! VTK file writer
 
-use super::types::{VtkMesh, VtkCellType};
+use super::types::VtkMesh;
 use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::cast::ToPrimitive;

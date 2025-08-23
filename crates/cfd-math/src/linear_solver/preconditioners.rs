@@ -4,7 +4,7 @@ use super::traits::Preconditioner;
 use cfd_core::error::{Error, Result, NumericalErrorKind};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
-use num_traits::{FromPrimitive, Zero};
+use num_traits::FromPrimitive;
 use crate::sparse::SparseMatrixExt;
 
 /// Identity preconditioner (no preconditioning)
