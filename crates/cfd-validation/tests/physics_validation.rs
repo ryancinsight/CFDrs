@@ -170,7 +170,7 @@ mod taylor_green_vortex {
 mod reynolds_number {
     use cfd_core::prelude::*;
     use cfd_core::values::FlowGeometry;
-    use cfd_core::constants::flow::{LAMINAR_THRESHOLD_PIPE, TURBULENT_THRESHOLD_PIPE};
+    use cfd_core::constants::dimensionless::reynolds::{PIPE_CRITICAL_LOWER, PIPE_CRITICAL_UPPER};
     
     #[test]
     fn test_flow_regime_classification() {
@@ -193,8 +193,8 @@ mod reynolds_number {
     #[test]
     fn test_reynolds_thresholds() {
         // Test exact thresholds
-        let re_at_laminar = ReynoldsNumber::new(LAMINAR_THRESHOLD_PIPE, FlowGeometry::Pipe).unwrap();
-        let re_at_turbulent = ReynoldsNumber::new(TURBULENT_THRESHOLD_PIPE, FlowGeometry::Pipe).unwrap();
+        let re_at_laminar = ReynoldsNumber::new(PIPE_CRITICAL_LOWER, FlowGeometry::Pipe).unwrap();
+        let re_at_turbulent = ReynoldsNumber::new(PIPE_CRITICAL_UPPER, FlowGeometry::Pipe).unwrap();
         
         // At laminar threshold, flow is transitional
         assert!(!re_at_laminar.is_laminar());
@@ -241,7 +241,8 @@ mod rhie_chow_interpolation {
         let d_face = dt / (0.5 * (ap_p + ap_e));
         let expected = u_avg - d_face * pressure_gradient;
         
-        assert!((u_face - expected).abs() < 0.01f64, 
+        let diff = (u_face - expected).abs();
+        assert!(diff < 0.01, 
                 "Rhie-Chow interpolation should correct for pressure gradient");
     }
 }

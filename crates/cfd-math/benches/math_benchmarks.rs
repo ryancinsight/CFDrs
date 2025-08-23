@@ -5,7 +5,7 @@ use cfd_math::{
     interpolation::{Interpolation, LinearInterpolation, CubicSplineInterpolation},
     integration::{Quadrature, GaussQuadrature},
     differentiation::FiniteDifference,
-    iterators::{MathIteratorExt, VectorOps},
+    iterators::MathIteratorExt,
 
 };
 use nalgebra::DVector;
