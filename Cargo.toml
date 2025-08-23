@@ -113,7 +113,9 @@ cfd-validation.workspace = true
 nalgebra.workspace = true
 
 [dev-dependencies]
-criterion.workspace = true
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.0"
+approx = "0.5"
 
 [[example]]
 name = "pipe_flow_1d"
@@ -138,10 +140,6 @@ path = "examples/pipe_flow_1d_validation.rs"
 name = "venturi_cavitation"
 path = "examples/venturi_cavitation.rs"
 required-features = ["csg"]
-
-[[example]]
-name = "validation_suite"
-path = "examples/validation_suite.rs"
 
 # CSG-related examples gated by feature
 [[example]]
@@ -173,3 +171,7 @@ required-features = ["csg"]
 name = "test_csgrs"
 path = "examples/test_csgrs.rs"
 required-features = ["csg"]
+
+[[bench]]
+name = "performance_benchmarks"
+harness = false

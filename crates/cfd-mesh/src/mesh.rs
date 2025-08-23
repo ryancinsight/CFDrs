@@ -1,9 +1,12 @@
 //! Core mesh data structures and operations
 //! Following SOLID principles
 
-use nalgebra::{Point3, RealField};
-use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
+use nalgebra::{DMatrix, Point3, RealField, Vector3};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+
+// Import ElementType from cfd-core as the single source of truth
+pub use cfd_core::domains::mesh_operations::ElementType;
 
 /// Vertex in 3D space
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -89,19 +92,6 @@ pub struct Cell {
     pub element_type: ElementType,
     /// Vertex indices
     pub vertices: Vec<usize>,
-}
-
-/// Element types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ElementType {
-    /// Tetrahedral element (4 vertices)
-    Tetrahedron,
-    /// Hexahedral element (8 vertices)
-    Hexahedron,
-    /// Pyramid element (5 vertices)
-    Pyramid,
-    /// Prism element (6 vertices)
-    Prism,
 }
 
 /// Mesh topology information

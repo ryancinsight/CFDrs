@@ -6,6 +6,15 @@ pub const EPSILON: f64 = 1e-10;
 /// Default stabilization parameter
 pub const DEFAULT_STABILIZATION: f64 = 0.1;
 
+/// Default time step for transient problems
+pub const DEFAULT_TIME_STEP: f64 = 0.01;
+
+/// Default Reynolds number for scaling
+pub const DEFAULT_REYNOLDS: f64 = 100.0;
+
+/// Default quadrature order
+pub const DEFAULT_QUADRATURE_ORDER: usize = 2;
+
 /// Number of velocity components in 3D
 pub const VELOCITY_COMPONENTS: usize = 3;
 

@@ -401,6 +401,7 @@ dependencies = [
 name = "cfd-suite"
 version = "0.1.0"
 dependencies = [
+ "approx 0.5.1",
  "cfd-1d",
  "cfd-2d",
  "cfd-3d",
@@ -411,6 +412,7 @@ dependencies = [
  "cfd-validation",
  "criterion",
  "nalgebra",
+ "proptest",
 ]
 
 [[package]]

@@ -5,7 +5,8 @@
 
 use cfd_3d::fem::{FemSolver, FemConfig};
 use cfd_core::fluid::Fluid;
-use cfd_mesh::{Mesh, Vertex, Cell, ElementType};
+use cfd_core::domains::mesh_operations::ElementType;
+use cfd_mesh::{Mesh, Vertex, Cell};
 use nalgebra::Point3;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -36,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         tau: 0.1,
         dt: Some(0.01),
         reynolds: Some(100.0),
-        element_type: cfd_3d::fem::config::ElementType::Tet4,
+        element_type: ElementType::Tetrahedron,
         quadrature_order: 2,
     };
     
