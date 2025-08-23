@@ -89,12 +89,12 @@ impl<T: RealField + Copy + Send + Sync> SimdVectorOps<T> for DVector<T> {
     }
 }
 
-/// Optimized matrix-vector multiplication
-pub fn optimized_matvec<T: RealField + Copy + Send + Sync>(
+/// Sparse matrix-vector multiplication
+pub fn sparse_matvec<T: RealField + Copy + Send + Sync>(
     matrix: &nalgebra_sparse::CsrMatrix<T>,
     vector: &DVector<T>,
 ) -> DVector<T> {
-    // Use nalgebra's optimized sparse matrix-vector multiplication
+    // Use nalgebra's sparse matrix-vector multiplication
     matrix * vector
 }
 

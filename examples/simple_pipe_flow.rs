@@ -4,6 +4,7 @@
 
 use cfd_suite::prelude::*;
 use cfd_suite::core::{Result, BoundaryCondition};
+use cfd_suite::d1::{Network, Node, NodeType, ChannelProperties, NetworkSolver, NetworkProblem};
 
 fn main() -> Result<()> {
     println!("Simple Pipe Flow Example");
