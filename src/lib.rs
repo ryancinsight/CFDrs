@@ -38,20 +38,34 @@ pub use cfd_validation as validation;
 pub mod prelude {
     //! Common imports for CFD simulations
     
-    // Core types
+    // Core functionality
     pub use cfd_core::prelude::*;
     
     // Math operations
     pub use cfd_math::prelude::*;
     
-    // Mesh operations
-    pub use cfd_mesh::prelude::*;
+    // Mesh operations - exclude Edge to avoid conflict
+    pub use cfd_mesh::prelude::{
+        Connectivity, Geometry, Cell, Face, Mesh, MeshTopology, Vertex
+    };
+    // Re-export mesh Edge with qualifier to avoid ambiguity
+    pub use cfd_mesh::mesh::Edge as MeshEdge;
     
     // I/O operations - only export what's available
     pub use cfd_io::{VtkWriter, VtkReader, VtkMesh, VtkMeshBuilder};
     
-    // Solver exports
-    pub use cfd_1d::prelude::*;
+    // 1D solver exports - exclude Edge to avoid conflict  
+    pub use cfd_1d::prelude::{
+        SchemeConversion, ComponentType, SchematicLayout,
+        Node, NodeType, EdgeType, NodeProperties, EdgeProperties,
+        ComponentFactory, FlowSensor, Micromixer, PumpType, ValveType, SensorType, MixerType,
+        PerformanceMetrics, NetworkAnalysisResult,
+        Channel, ChannelGeometry, ChannelType, CrossSection, SurfaceProperties, FlowState, FlowRegime, Wettability,
+        ResistanceModelFactory, ResistanceCalculator, FlowConditions, DarcyWeisbachModel,
+    };
+    // Re-export 1D Edge with qualifier
+    pub use cfd_1d::network::Edge as NetworkEdge;
+    
     // 3D CFD functionality
     pub use cfd_3d::*;
     
