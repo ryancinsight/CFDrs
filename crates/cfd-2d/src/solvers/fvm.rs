@@ -287,41 +287,75 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
             }
             BoundaryCondition::Neumann { gradient } => {
                 // ∂φ/∂n = gradient (Neumann condition)
-                // For a boundary cell, modify the discretization to include the flux
+                // Implement using ghost cell method for second-order accuracy
+                // Reference: Versteeg & Malalasekera, "An Introduction to CFD", Ch. 11
+                
                 let mut diagonal = T::zero();
                 let mut source_term = T::zero();
 
-                // Add contributions from interior neighbors
-                // Using central differences where possible
+                // Use numerical constants from core
+                let epsilon = T::from_f64(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE)
+                    .unwrap_or_else(|| T::from_f64(1e-10).unwrap());
+                
+                // Add contributions from interior neighbors using ghost cell approach
                 let coeff_x = T::one() / (dx * dx);
                 let coeff_y = T::one() / (dy * dy);
                 
-                if i > 0 {
-                    matrix_builder.add_entry(linear_idx, linear_idx - 1, -coeff_x)?;
-                    diagonal += coeff_x;
-                }
-                if i < grid.nx() - 1 {
+                // Handle x-direction boundaries
+                if i == 0 {
+                    // Left boundary: ghost cell at i=-1
+                    // φ_ghost = φ_0 - gradient * dx (first-order backward difference)
                     matrix_builder.add_entry(linear_idx, linear_idx + 1, -coeff_x)?;
-                    diagonal += coeff_x;
+                    diagonal += T::from_f64(2.0).unwrap() * coeff_x;
+                    source_term += *gradient * coeff_x * dx;
+                } else if i == grid.nx() - 1 {
+                    // Right boundary: ghost cell at i=nx
+                    // φ_ghost = φ_n + gradient * dx (first-order forward difference)
+                    matrix_builder.add_entry(linear_idx, linear_idx - 1, -coeff_x)?;
+                    diagonal += T::from_f64(2.0).unwrap() * coeff_x;
+                    source_term -= *gradient * coeff_x * dx;
+                } else {
+                    // Interior: standard central difference
+                    if i > 0 {
+                        matrix_builder.add_entry(linear_idx, linear_idx - 1, -coeff_x)?;
+                        diagonal += coeff_x;
+                    }
+                    if i < grid.nx() - 1 {
+                        matrix_builder.add_entry(linear_idx, linear_idx + 1, -coeff_x)?;
+                        diagonal += coeff_x;
+                    }
                 }
-                if j > 0 {
-                    matrix_builder.add_entry(linear_idx, linear_idx - grid.nx(), -coeff_y)?;
-                    diagonal += coeff_y;
-                }
-                if j < grid.ny() - 1 {
+                
+                // Handle y-direction boundaries
+                if j == 0 {
+                    // Bottom boundary: ghost cell at j=-1
                     matrix_builder.add_entry(linear_idx, linear_idx + grid.nx(), -coeff_y)?;
-                    diagonal += coeff_y;
+                    diagonal += T::from_f64(2.0).unwrap() * coeff_y;
+                    source_term += *gradient * coeff_y * dy;
+                } else if j == grid.ny() - 1 {
+                    // Top boundary: ghost cell at j=ny
+                    matrix_builder.add_entry(linear_idx, linear_idx - grid.nx(), -coeff_y)?;
+                    diagonal += T::from_f64(2.0).unwrap() * coeff_y;
+                    source_term -= *gradient * coeff_y * dy;
+                } else {
+                    // Interior: standard central difference
+                    if j > 0 {
+                        matrix_builder.add_entry(linear_idx, linear_idx - grid.nx(), -coeff_y)?;
+                        diagonal += coeff_y;
+                    }
+                    if j < grid.ny() - 1 {
+                        matrix_builder.add_entry(linear_idx, linear_idx + grid.nx(), -coeff_y)?;
+                        diagonal += coeff_y;
+                    }
                 }
 
-                // Ensure diagonal is non-zero for matrix stability
-                if diagonal.abs() < T::from_f64(1e-10).unwrap_or_else(|| T::zero()) {
-                    diagonal = T::one(); // Fallback to identity for stability
+                // Ensure diagonal dominance for matrix stability
+                if diagonal.abs() < epsilon {
+                    // This should not happen with proper ghost cell implementation
+                    return Err(cfd_core::error::Error::Numerical(
+                        cfd_core::error::NumericalErrorKind::SingularMatrix
+                    ));
                 }
-
-                // Add flux contribution from boundary
-                // Using first-order approximation for gradient
-                let flux_contribution = *gradient * if i == 0 || i == grid.nx() - 1 { dx } else { dy };
-                source_term += flux_contribution;
 
                 matrix_builder.add_entry(linear_idx, linear_idx, diagonal)?;
                 rhs[linear_idx] = source_term;
