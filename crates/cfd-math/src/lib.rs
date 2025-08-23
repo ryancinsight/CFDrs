@@ -12,6 +12,7 @@ pub mod sparse;
 pub mod differentiation;
 pub mod integration;
 pub mod iterators;
+pub mod vector_ops;
 pub mod vectorization;
 
 pub use interpolation::{Interpolation, LinearInterpolation, CubicSplineInterpolation};
@@ -25,6 +26,7 @@ pub use differentiation::{FiniteDifference, Gradient};
 pub use integration::{Quadrature, GaussQuadrature};
 pub use iterators::{MathIteratorExt, VectorOps, WindowedOps, ParallelOps, CfdIteratorChain, CfdFieldOps};
 pub use vectorization::{VectorizedOps, StencilOps};
+pub use vector_ops::{SimdVectorOps, optimized_matvec};
 
 /// Prelude module for convenient imports
 pub mod prelude {

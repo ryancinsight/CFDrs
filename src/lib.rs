@@ -50,8 +50,8 @@ pub mod prelude {
     
     // Solver exports
     pub use cfd_1d::prelude::*;
-    pub use cfd_2d::prelude::*;
-    pub use cfd_3d::prelude::*;
+    // Note: cfd_2d and cfd_3d don't have prelude modules yet
+    // TODO: Add prelude modules to these crates for consistency
     
     // Validation tools
     pub use cfd_validation::prelude::*;

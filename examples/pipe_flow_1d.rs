@@ -9,6 +9,7 @@
 
 use cfd_suite::prelude::*;
 use cfd_suite::core::{Result, BoundaryCondition};
+use cfd_1d::{Network, NetworkBuilder, NetworkSolver, NetworkProblem, ChannelProperties};
 
 fn main() -> Result<()> {
     println!("Pipe Flow 1D Example - Ergonomic API Design");
