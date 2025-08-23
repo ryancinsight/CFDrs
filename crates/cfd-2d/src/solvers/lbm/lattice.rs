@@ -87,11 +87,16 @@ pub fn equilibrium<T: RealField + Copy>(
     let u_sq = velocity[0] * velocity[0] + velocity[1] * velocity[1];
     let cu = cx * velocity[0] + cy * velocity[1];
     
-    let three = T::from_f64(3.0).unwrap_or_else(T::zero);
-    let nine_half = T::from_f64(4.5).unwrap_or_else(T::zero);
-    let three_half = T::from_f64(1.5).unwrap_or_else(T::zero);
+    // LBM equilibrium distribution constants (Chapman-Enskog expansion coefficients)
+    const VELOCITY_SCALE: f64 = 3.0;      // c_s^2 = 1/3 in lattice units
+    const VELOCITY_SQ_SCALE: f64 = 4.5;   // 9/2 coefficient
+    const KINETIC_SCALE: f64 = 1.5;       // 3/2 coefficient
     
-    weight * density * (T::one() + three * cu + nine_half * cu * cu - three_half * u_sq)
+    let velocity_scale = T::from_f64(VELOCITY_SCALE).unwrap_or_else(T::zero);
+    let velocity_sq_scale = T::from_f64(VELOCITY_SQ_SCALE).unwrap_or_else(T::zero);
+    let kinetic_scale = T::from_f64(KINETIC_SCALE).unwrap_or_else(T::zero);
+    
+    weight * density * (T::one() + velocity_scale * cu + velocity_sq_scale * cu * cu - kinetic_scale * u_sq)
 }
 
 #[cfg(test)]

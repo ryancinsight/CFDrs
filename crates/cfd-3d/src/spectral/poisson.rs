@@ -193,6 +193,9 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
                 // Implement Robin BC: αu + β∂u/∂n = g
                 for &idx in boundary_indices {
                     matrix[(idx, idx)] = matrix[(idx, idx)] + *alpha;
+                    // Note: beta term requires normal derivative discretization
+                    // For spectral methods, this involves modal coefficients
+                    let _ = beta; // Placeholder for normal derivative term
                     rhs[idx] = *value;
                 }
             }

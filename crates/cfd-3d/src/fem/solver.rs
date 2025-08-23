@@ -69,6 +69,11 @@ impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
         // Assemble global system
         let (matrix, rhs) = self.assemble_system(problem)?;
         
+        // Validate system dimensions
+        debug_assert_eq!(matrix.nrows(), n_total_dof, "Matrix row dimension mismatch");
+        debug_assert_eq!(matrix.ncols(), n_total_dof, "Matrix column dimension mismatch");
+        debug_assert_eq!(rhs.len(), n_total_dof, "RHS vector dimension mismatch");
+        
         // Solve linear system
         let solution = self.linear_solver.solve(&matrix, &rhs, None)?;
         
@@ -101,6 +106,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
             
             // Create element
             let mut element = FluidElement::new(vertex_indices);
+            element.id = elem_idx; // Track element for debugging
             
             // Calculate element properties
             // Convert vertices to Vector3 format
@@ -168,7 +174,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
     fn assemble_element(
         &self,
         builder: &mut SparseMatrixBuilder<T>,
-        rhs: &mut DVector<T>,
+        _rhs: &mut DVector<T>, // Will be used when body forces are added
         element: &FluidElement<T>,
         matrices: &ElementMatrices<T>,
     ) {
@@ -176,7 +182,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
         let n_nodes = element.nodes.len();
         let dofs_per_node = constants::VELOCITY_COMPONENTS + 1;
         
-        // Simple assembly - add element stiffness to global matrix
+        // Direct assembly - add element stiffness to global matrix
         for i in 0..n_nodes {
             for j in 0..n_nodes {
                 for k in 0..dofs_per_node {

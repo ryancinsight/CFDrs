@@ -145,7 +145,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
         
         for i in 1..nx-1 {
             for j in 1..ny-1 {
-                // Simple continuity check (du/dx + dv/dy = 0)
+                // Continuity equation check (du/dx + dv/dy = 0)
                 let dudx = (fields.u.at(i+1, j) - fields.u.at(i-1, j)) / T::from_f64(2.0).unwrap();
                 let dvdy = (fields.v.at(i, j+1) - fields.v.at(i, j-1)) / T::from_f64(2.0).unwrap();
                 let imbalance = (dudx + dvdy).abs();

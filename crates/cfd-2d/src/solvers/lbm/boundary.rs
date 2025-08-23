@@ -159,7 +159,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         let ny = velocity.len();
         let nx = if ny > 0 { velocity[0].len() } else { 0 };
         
-        // Simple first-order extrapolation
+        // First-order extrapolation boundary treatment
         if i == 0 && i + 1 < nx {
             velocity[j][i + 1]
         } else if i == nx - 1 && i > 0 {
