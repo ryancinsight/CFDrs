@@ -131,24 +131,28 @@ impl LinearSolverValidator {
                 Err(e) => {
                     println!("Solver {name} failed on diagonal system: {e}");
 
-                    // Report failure properly without creating misleading data
-                    let result = ValidationResult {
+                    // Return error report for solver failure
+                    ValidationResult {
                         algorithm_name: name.to_string(),
                         test_case: "Diagonal System".to_string(),
-                        computed_solution: DVector::from_element(analytical.len(), T::from_f64(f64::NAN).unwrap_or(T::zero())),
+                        passed: false,
+                        computed_solution: DVector::from_element(
+                            analytical.len(), 
+                            T::from_f64(f64::NAN).unwrap_or_else(T::zero)
+                        ),
                         analytical_solution: analytical.clone(),
                         error_metrics: ErrorMetrics {
-                            l2_error: T::from_f64(f64::INFINITY).unwrap_or(T::from_f64(1e10).unwrap()),
-                            linf_error: T::from_f64(f64::INFINITY).unwrap_or(T::from_f64(1e10).unwrap()),
-                            relative_l2_error: T::from_f64(f64::INFINITY).unwrap_or(T::from_f64(1e10).unwrap()),
-                            rmse: T::from_f64(f64::INFINITY).unwrap_or(T::from_f64(1e10).unwrap()),
+                            l2_error: T::from_f64(f64::INFINITY).unwrap_or_else(|| T::from_f64(1e10).unwrap_or_else(T::one)),
+                            linf_error: T::from_f64(f64::INFINITY).unwrap_or_else(|| T::from_f64(1e10).unwrap_or_else(T::one)),
+                            relative_l2_error: T::from_f64(f64::INFINITY).unwrap_or_else(|| T::from_f64(1e10).unwrap_or_else(T::one)),
+                            rmse: T::from_f64(f64::INFINITY).unwrap_or_else(|| T::from_f64(1e10).unwrap_or_else(T::one)),
                         },
                         convergence_info: ConvergenceInfo {
                             iterations: 0,
-                            final_residual: T::from_f64(f64::INFINITY).unwrap_or(T::from_f64(1e10).unwrap()),
+                            final_residual: T::from_f64(f64::INFINITY).unwrap_or_else(|| T::from_f64(1e10).unwrap_or_else(T::one)),
                             convergence_rate: T::zero(),
                         },
-                        passed: false,
+                        literature_reference: "Golub & Van Loan (2013), Matrix Computations, 4th Ed.".to_string(),
                     };
                     results.push(result);
                 }
@@ -578,9 +582,10 @@ impl LinearSolverValidator {
         computed: &DVector<T>,
         analytical: &DVector<T>,
     ) -> ErrorMetrics<T> {
-        let error = computed - analytical;
-        let l2_error = error.norm();
-        let linf_error = error.iter().map(num_traits::Signed::abs).fold(T::zero(), |acc, x| if x > acc { x } else { acc });
+        let diff = computed - analytical;
+        
+        let l2_error = diff.norm();
+        let linf_error = diff.iter().map(|x| x.abs()).fold(T::zero(), T::max);
         
         let analytical_norm = analytical.norm();
         let relative_l2_error = if analytical_norm > T::zero() {
@@ -588,9 +593,14 @@ impl LinearSolverValidator {
         } else {
             l2_error
         };
-
-        let rmse = l2_error / T::from_usize(computed.len()).expect("CRITICAL: Add proper error handling").sqrt();
-
+        
+        let n = T::from_usize(computed.len()).unwrap_or_else(T::one);
+        let rmse = if n > T::zero() {
+            (l2_error * l2_error / n).sqrt()
+        } else {
+            l2_error
+        };
+        
         ErrorMetrics {
             l2_error,
             linf_error,

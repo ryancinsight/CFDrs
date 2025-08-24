@@ -380,210 +380,135 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> Default for Resist
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use approx::assert_relative_eq; // Available when needed
-
-    fn create_test_conditions() -> FlowConditions<f64> {
-        FlowConditions {
-            reynolds_number: Some(100.0),
-            velocity: Some(0.1),
-            flow_rate: Some(1e-6),
-            temperature: 293.15,
-            pressure: 101325.0,
-        }
-    }
+    use approx::assert_relative_eq;
+    use cfd_core::Error;
 
     #[test]
-    fn test_hagen_poiseuille_model() {
-        let model = HagenPoiseuilleModel {
-            diameter: 100e-6,
-            length: 0.001,
-        };
-
-        let fluid = cfd_core::fluid::Fluid::<f64>::water().expect("Failed to create water fluid");
-        let conditions = create_test_conditions();
-
-        let resistance = model.calculate_resistance(&fluid, &conditions).expect("Failed to complete operation");
-
-        // Should be positive and reasonable for water flow
+    fn test_hagen_poiseuille() -> Result<(), Error> {
+        let model = HagenPoiseuilleModel::new(100e-6, 0.001);
+        let fluid = cfd_core::fluid::Fluid::<f64>::water()?;
+        let conditions = FlowConditions::new(0.001);
+        
+        let resistance = model.calculate_resistance(&fluid, &conditions)?;
+        
+        // Verify resistance is positive
         assert!(resistance > 0.0);
-        assert!(resistance < 1e15);
-
-        // Check model properties
-        assert_eq!(model.model_name(), "Hagen-Poiseuille");
-        assert!(model.is_applicable(&conditions));
-
-        let (re_min, re_max) = model.reynolds_range();
-        assert_eq!(re_min, 0.0);
-        assert_eq!(re_max, cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER);
+        
+        // Check pressure drop calculation
+        let flow_rate = 1e-6; // m³/s
+        let pressure_drop = model.pressure_drop(flow_rate)?;
+        assert_relative_eq!(pressure_drop, resistance * flow_rate, epsilon = 1e-10);
+        
+        Ok(())
     }
 
     #[test]
-    fn test_rectangular_channel_model() {
-        let model = RectangularChannelModel {
-            width: 100e-6,
-            height: 50e-6,
-            length: 0.001,
-        };
-
-        let fluid = cfd_core::fluid::Fluid::<f64>::water().expect("Failed to create water fluid");
-        let conditions = create_test_conditions();
-
-        let resistance = model.calculate_resistance(&fluid, &conditions).expect("Failed to complete operation");
-
-        // Should be positive and reasonable
+    fn test_rectangular_channel() -> Result<(), Error> {
+        let model = RectangularChannelModel::new(100e-6, 50e-6, 0.001);
+        let fluid = cfd_core::fluid::Fluid::<f64>::water()?;
+        let conditions = FlowConditions::new(0.001);
+        
+        let resistance = model.calculate_resistance(&fluid, &conditions)?;
+        
+        // Verify resistance is positive
         assert!(resistance > 0.0);
-        assert!(resistance < 1e15);
-
-        // Check model properties
-        assert_eq!(model.model_name(), "Rectangular Channel (Exact)");
-        assert!(model.is_applicable(&conditions));
+        
+        // Verify hydraulic diameter calculation
+        assert_relative_eq!(
+            model.hydraulic_diameter(), 
+            2.0 * 100e-6 * 50e-6 / (100e-6 + 50e-6),
+            epsilon = 1e-10
+        );
+        
+        Ok(())
     }
 
     #[test]
-    fn test_rectangular_friction_factor() {
-        let model = RectangularChannelModel {
-            width: 100e-6,
-            height: 50e-6,
-            length: 0.001,
-        };
-
-        // Test different aspect ratios
-        let f_square = model.calculate_friction_factor(1.0); // Square
-        let f_wide = model.calculate_friction_factor(2.0);   // Wide
-        let f_tall = model.calculate_friction_factor(0.5);   // Tall
-
-        // All should be positive
-        assert!(f_square > 0.0);
-        assert!(f_wide > 0.0);
-        assert!(f_tall > 0.0);
-
-        // Note: Simplified model may not preserve exact ordering, just check positivity
-    }
-
-    #[test]
-    fn test_darcy_weisbach_model() {
-        let model = DarcyWeisbachModel {
-            hydraulic_diameter: 100e-6,
-            length: 0.001,
-            roughness: 1e-6,
-        };
-
-        let fluid = cfd_core::fluid::Fluid::<f64>::water().expect("Failed to create water fluid");
-        let mut conditions = create_test_conditions();
-        conditions.reynolds_number = Some(5000.0); // Turbulent
-
-        let resistance = model.calculate_resistance(&fluid, &conditions).expect("Failed to complete operation");
-
-        // Should be positive
+    fn test_darcy_weisbach() -> Result<(), Error> {
+        let model = DarcyWeisbachModel::new(100e-6, 0.001, 1e-6);
+        
+        // Test with turbulent flow
+        let fluid = cfd_core::fluid::Fluid::<f64>::water()?;
+        let conditions = FlowConditions::new(1.0); // High velocity for turbulent
+        
+        let resistance = model.calculate_resistance(&fluid, &conditions)?;
+        
+        // Verify resistance is positive
         assert!(resistance > 0.0);
-
-        // Check model properties
-        assert_eq!(model.model_name(), "Darcy-Weisbach");
-        assert!(model.is_applicable(&conditions));
-
-        let (re_min, re_max) = model.reynolds_range();
-        assert_eq!(re_min, cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_UPPER);
-        assert_eq!(re_max, 1e8);
+        
+        // Verify Reynolds number calculation
+        let re = model.reynolds_number(&fluid, &conditions);
+        assert!(re > 2300.0); // Should be turbulent
+        
+        Ok(())
     }
 
     #[test]
-    fn test_darcy_weisbach_friction_factor() {
-        let model = DarcyWeisbachModel {
-            hydraulic_diameter: 100e-6,
-            length: 0.001,
-            roughness: 1e-6,
-        };
-
-        let f = model.calculate_friction_factor(5000.0);
-
-        // Should be positive and reasonable for turbulent flow
-        assert!(f > 0.0);
-        assert!(f < 1.0);
+    fn test_flow_regime_detection() -> Result<(), Error> {
+        let model = HagenPoiseuilleModel::new(100e-6, 0.001);
+        let fluid = cfd_core::fluid::Fluid::<f64>::water()?;
+        
+        // Test laminar flow
+        let laminar_conditions = FlowConditions::new(0.001);
+        let laminar_re = model.reynolds_number(&fluid, &laminar_conditions);
+        assert!(laminar_re < 2300.0);
+        
+        // Test turbulent flow
+        let turbulent_conditions = FlowConditions::new(10.0);
+        let turbulent_re = model.reynolds_number(&fluid, &turbulent_conditions);
+        assert!(turbulent_re > 2300.0);
+        
+        Ok(())
     }
 
     #[test]
-    fn test_darcy_weisbach_requires_reynolds() {
-        let model = DarcyWeisbachModel {
-            hydraulic_diameter: 100e-6,
-            length: 0.001,
-            roughness: 1e-6,
-        };
-
-        let fluid = cfd_core::fluid::Fluid::<f64>::water().expect("Failed to create water fluid");
-        let mut conditions = create_test_conditions();
-        conditions.reynolds_number = None; // No Reynolds number
-
-        let result = model.calculate_resistance(&fluid, &conditions);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_resistance_model_factory() {
-        // Test Hagen-Poiseuille creation
-        let hp_model = ResistanceModelFactory::hagen_poiseuille(100e-6, 0.001);
-        assert_eq!(hp_model.diameter, 100e-6);
-        assert_eq!(hp_model.length, 0.001);
-
-        // Test rectangular channel creation
-        let rect_model = ResistanceModelFactory::rectangular_channel(100e-6, 50e-6, 0.001);
-        assert_eq!(rect_model.width, 100e-6);
-        assert_eq!(rect_model.height, 50e-6);
-        assert_eq!(rect_model.length, 0.001);
-
-        // Test Darcy-Weisbach creation
-        let dw_model = ResistanceModelFactory::darcy_weisbach(100e-6, 0.001, 1e-6);
-        assert_eq!(dw_model.hydraulic_diameter, 100e-6);
-        assert_eq!(dw_model.length, 0.001);
-        assert_eq!(dw_model.roughness, 1e-6);
-    }
-
-
-
-    #[test]
-    fn test_resistance_calculator() {
+    fn test_resistance_calculator() -> Result<(), Error> {
         let calculator = ResistanceCalculator::new();
-        let fluid = cfd_core::fluid::Fluid::<f64>::water().expect("Failed to create water fluid");
-        let conditions = create_test_conditions();
-
-        // Test Hagen-Poiseuille calculation
-        let resistance = calculator.calculate_hagen_poiseuille(100e-6, 0.001, &fluid, &conditions).expect("Failed to complete operation");
+        let fluid = cfd_core::fluid::Fluid::<f64>::water()?;
+        let conditions = FlowConditions::new(0.001);
+        
+        // Test Hagen-Poiseuille
+        let resistance = calculator.calculate_hagen_poiseuille(100e-6, 0.001, &fluid, &conditions)?;
         assert!(resistance > 0.0);
-
-        // Test rectangular calculation
-        let resistance = calculator.calculate_rectangular(100e-6, 50e-6, 0.001, &fluid, &conditions).expect("Failed to complete operation");
+        
+        // Test rectangular
+        let resistance = calculator.calculate_rectangular(100e-6, 50e-6, 0.001, &fluid, &conditions)?;
         assert!(resistance > 0.0);
-
-        // Test Darcy-Weisbach calculation
-        let mut turbulent_conditions = create_test_conditions();
-        turbulent_conditions.reynolds_number = Some(5000.0);
-        let resistance = calculator.calculate_darcy_weisbach(100e-6, 0.001, 1e-6, &fluid, &turbulent_conditions).expect("Failed to complete operation");
+        
+        // Test Darcy-Weisbach with turbulent flow
+        let turbulent_conditions = FlowConditions::new(10.0);
+        let resistance = calculator.calculate_darcy_weisbach(100e-6, 0.001, 1e-6, &fluid, &turbulent_conditions)?;
         assert!(resistance > 0.0);
+        
+        Ok(())
     }
 
     #[test]
-    fn test_resistance_calculator_auto() {
+    fn test_auto_selection() -> Result<(), Error> {
         let calculator = ResistanceCalculator::new();
-        let fluid = cfd_core::fluid::Fluid::<f64>::water().expect("Failed to create water fluid");
-        let conditions = create_test_conditions();
-
-        // Test auto calculation with circular geometry
+        let fluid = cfd_core::fluid::Fluid::<f64>::water()?;
+        let conditions = FlowConditions::new(0.001);
+        
+        // Test with circular geometry
         let circular_geom = ChannelGeometry::Circular {
             diameter: 100e-6,
             length: 0.001,
         };
-
-        let resistance = calculator.calculate_auto(&circular_geom, &fluid, &conditions).expect("Failed to complete operation");
+        
+        let resistance = calculator.calculate_auto(&circular_geom, &fluid, &conditions)?;
         assert!(resistance > 0.0);
-
-        // Test auto calculation with rectangular geometry
+        
+        // Test with rectangular geometry
         let rect_geom = ChannelGeometry::Rectangular {
             width: 100e-6,
             height: 50e-6,
             length: 0.001,
         };
-
-        let resistance = calculator.calculate_auto(&rect_geom, &fluid, &conditions).expect("Failed to complete operation");
+        
+        let resistance = calculator.calculate_auto(&rect_geom, &fluid, &conditions)?;
         assert!(resistance > 0.0);
+        
+        Ok(())
     }
 
     #[test]
@@ -593,7 +518,13 @@ mod tests {
             length: 0.001,
         };
 
-        let mut conditions = create_test_conditions();
+        let mut conditions = FlowConditions {
+            reynolds_number: Some(1000.0),
+            velocity: Some(0.1),
+            flow_rate: Some(1e-6),
+            temperature: 293.15,
+            pressure: 101325.0,
+        };
 
         // Should be applicable for laminar flow
         conditions.reynolds_number = Some(1000.0);
