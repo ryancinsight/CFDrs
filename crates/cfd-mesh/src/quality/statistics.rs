@@ -10,13 +10,13 @@ pub struct QualityStatistics<T: RealField + Copy> {
     samples: Vec<T>,
 }
 
-impl<T: RealField + Copy> Default for QualityStatistics<T> {
+impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> Default for QualityStatistics<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> QualityStatistics<T> {
+impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> QualityStatistics<T> {
     /// Create new statistics collector
     pub fn new() -> Self {
         Self {

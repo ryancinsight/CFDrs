@@ -65,7 +65,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
     }
 
     /// Check if converged
-    pub fn is_converged(&self) -> bool {
+    pub fn is_converged(&self, criteria: &ConvergenceCriteria<T>) -> bool {
         if self.velocity_residuals.is_empty() || 
            self.pressure_residuals.is_empty() || 
            self.continuity_residuals.is_empty() {
@@ -76,9 +76,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
         let pres_res = self.pressure_residuals.last().copied().unwrap_or(T::one());
         let cont_res = self.continuity_residuals.last().copied().unwrap_or(T::one());
         
-        vel_res < self.criteria.velocity_tolerance &&
-        pres_res < self.criteria.pressure_tolerance &&
-        cont_res < self.criteria.continuity_tolerance
+        vel_res < criteria.velocity_tolerance &&
+        pres_res < criteria.pressure_tolerance &&
+        cont_res < criteria.continuity_tolerance
     }
 
     /// Update residuals

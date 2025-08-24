@@ -418,7 +418,8 @@ mod tests {
     #[test]
     fn test_prandtl_number() -> Result<()> {
         let water = Fluid::<f64>::water()?;
-        let pr = water.prandtl_number()?;
+        let pr = water.prandtl_number()
+            .ok_or_else(|| Error::InvalidInput("Cannot calculate Prandtl number".into()))?;
         
         // Water at 20°C has Pr ≈ 7
         assert!(pr > 6.0 && pr < 8.0);

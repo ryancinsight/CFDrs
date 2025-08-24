@@ -69,7 +69,7 @@ impl Hdf5Writer {
         #[cfg(feature = "hdf5")]
         {
             let file = File::create(path.as_ref())
-                .map_err(|e| Error::IoError(format!("Failed to create HDF5 file: {}", e)))?;
+                .map_err(|e| Error::InvalidInput(format!("Failed to create HDF5 file: {}", e)))?;
             self.file = Some(file);
             Ok(())
         }
@@ -98,7 +98,7 @@ impl Hdf5Writer {
             // Create group if it doesn't exist
             let group = file.create_group(group_name)
                 .or_else(|_| file.group(group_name))
-                .map_err(|e| Error::IoError(format!("Failed to access group: {}", e)))?;
+                .map_err(|e| Error::InvalidInput(format!("Failed to access group: {}", e)))?;
 
             // Create dataset with chunking
             let dataset = group
@@ -106,7 +106,7 @@ impl Hdf5Writer {
                 .shape([data.len()])
                 .chunk([chunk_size])
                 .create(dataset_name)
-                .map_err(|e| Error::IoError(format!("Failed to create dataset: {}", e)))?;
+                .map_err(|e| Error::InvalidInput(format!("Failed to create dataset: {}", e)))?;
 
             // Write data in chunks using iterator
             data.as_slice()
@@ -115,7 +115,7 @@ impl Hdf5Writer {
                 .try_for_each(|(chunk_idx, chunk)| {
                     let start_idx = chunk_idx * chunk_size;
                     dataset.write_slice(chunk, start_idx..)
-                        .map_err(|e| Error::IoError(format!("Failed to write chunk: {}", e)))
+                        .map_err(|e| Error::InvalidInput(format!("Failed to write chunk: {}", e)))
                 })?;
 
             // Write metadata as attributes
@@ -147,7 +147,7 @@ impl Hdf5Writer {
 
             let group = file.create_group(group_name)
                 .or_else(|_| file.group(group_name))
-                .map_err(|e| Error::IoError(format!("Failed to access group: {}", e)))?;
+                .map_err(|e| Error::InvalidInput(format!("Failed to access group: {}", e)))?;
 
             // Create 2D dataset with chunking
             let dataset = group
@@ -155,12 +155,12 @@ impl Hdf5Writer {
                 .shape([data.nrows(), data.ncols()])
                 .chunk([chunk_dims.0, chunk_dims.1])
                 .create(dataset_name)
-                .map_err(|e| Error::IoError(format!("Failed to create dataset: {}", e)))?;
+                .map_err(|e| Error::InvalidInput(format!("Failed to create dataset: {}", e)))?;
 
             // Write matrix data
             let matrix_data: Vec<T> = data.iter().cloned().collect();
             dataset.write(&matrix_data)
-                .map_err(|e| Error::IoError(format!("Failed to write matrix: {}", e)))?;
+                .map_err(|e| Error::InvalidInput(format!("Failed to write matrix: {}", e)))?;
 
             // Write metadata
             self.write_metadata_attributes(&dataset, metadata)?;
@@ -197,17 +197,17 @@ impl Hdf5Writer {
 
             let group = file.create_group(group_name)
                 .or_else(|_| file.group(group_name))
-                .map_err(|e| Error::IoError(format!("Failed to access group: {}", e)))?;
+                .map_err(|e| Error::InvalidInput(format!("Failed to access group: {}", e)))?;
 
             // Write time steps
             let time_dataset = group
                 .current_dataset::<f64>()
                 .shape([time_steps.len()])
                 .create("time_steps")
-                .map_err(|e| Error::IoError(format!("Failed to create time dataset: {}", e)))?;
+                .map_err(|e| Error::InvalidInput(format!("Failed to create time dataset: {}", e)))?;
             
             time_dataset.write(time_steps)
-                .map_err(|e| Error::IoError(format!("Failed to write time steps: {}", e)))?;
+                .map_err(|e| Error::InvalidInput(format!("Failed to write time steps: {}", e)))?;
 
             // Write data for each time step
             let data_len = data.first().map(|v| v.len()).unwrap_or(0);
@@ -222,10 +222,10 @@ impl Hdf5Writer {
                 .chunk([1, data_len])
                 .deflate(6) // Compression level
                 .create(dataset_name)
-                .map_err(|e| Error::IoError(format!("Failed to create data dataset: {}", e)))?;
+                .map_err(|e| Error::InvalidInput(format!("Failed to create data dataset: {}", e)))?;
 
             data_dataset.write(&flattened_data)
-                .map_err(|e| Error::IoError(format!("Failed to write time series data: {}", e)))?;
+                .map_err(|e| Error::InvalidInput(format!("Failed to write time series data: {}", e)))?;
 
             // Write metadata
             self.write_metadata_attributes(&data_dataset, metadata)?;
@@ -312,7 +312,7 @@ impl Hdf5Reader {
         #[cfg(feature = "hdf5")]
         {
             let file = File::open(path.as_ref())
-                .map_err(|e| Error::IoError(format!("Failed to open HDF5 file: {}", e)))?;
+                .map_err(|e| Error::InvalidInput(format!("Failed to open HDF5 file: {}", e)))?;
             self.file = Some(file);
             Ok(())
         }
@@ -337,10 +337,10 @@ impl Hdf5Reader {
                 .ok_or_else(|| Error::InvalidConfiguration("HDF5 file not opened".to_string()))?;
 
             let group = file.group(group_name)
-                .map_err(|e| Error::IoError(format!("Failed to access group: {}", e)))?;
+                .map_err(|e| Error::InvalidInput(format!("Failed to access group: {}", e)))?;
 
             let dataset = group.dataset(dataset_name)
-                .map_err(|e| Error::IoError(format!("Failed to access dataset: {}", e)))?;
+                .map_err(|e| Error::InvalidInput(format!("Failed to access dataset: {}", e)))?;
 
             let shape = dataset.shape();
             let total_size = shape[0];
@@ -355,7 +355,7 @@ impl Hdf5Reader {
                     let end_idx = (start_idx + chunk_size).min(total_size);
                     let chunk_data: Vec<T> = dataset
                         .read_slice_1d(start_idx..end_idx)
-                        .map_err(|e| Error::IoError(format!("Failed to read chunk: {}", e)))?;
+                        .map_err(|e| Error::InvalidInput(format!("Failed to read chunk: {}", e)))?;
 
                     Ok(DataChunk {
                         data: chunk_data,
@@ -382,17 +382,17 @@ impl Hdf5Reader {
         let name = dataset.attr("name")
             .and_then(|attr| attr.read_scalar::<hdf5::types::VarLenUnicode>())
             .map(|s| s.to_string())
-            .map_err(|e| Error::IoError(format!("Failed to read required 'name' attribute: {}", e)))?;
+            .map_err(|e| Error::InvalidInput(format!("Failed to read required 'name' attribute: {}", e)))?;
 
         let data_type = dataset.attr("data_type")
             .and_then(|attr| attr.read_scalar::<hdf5::types::VarLenUnicode>())
             .map(|s| s.to_string())
-            .map_err(|e| Error::IoError(format!("Failed to read required 'data_type' attribute: {}", e)))?;
+            .map_err(|e| Error::InvalidInput(format!("Failed to read required 'data_type' attribute: {}", e)))?;
 
         let dimensions = dataset.attr("dimensions")
             .and_then(|attr| attr.read::<u64>())
             .map(|dims| dims.into_iter().map(|d| d as usize).collect())
-            .map_err(|e| Error::IoError(format!("Failed to read required 'dimensions' attribute: {}", e)))?;
+            .map_err(|e| Error::InvalidInput(format!("Failed to read required 'dimensions' attribute: {}", e)))?;
 
         // Read optional attributes
         let units = dataset.attr("units")
@@ -409,7 +409,7 @@ impl Hdf5Reader {
 
         // Get all attribute names from the dataset
         let attr_names = dataset.attr_names()
-            .map_err(|e| Error::IoError(format!("Failed to get attribute names: {}", e)))?;
+            .map_err(|e| Error::InvalidInput(format!("Failed to get attribute names: {}", e)))?;
 
         // Skip the standard attributes we've already processed
         let standard_attrs = ["name", "data_type", "dimensions", "units", "time_step"];

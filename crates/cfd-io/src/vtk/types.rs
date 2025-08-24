@@ -42,7 +42,7 @@ impl VtkCellType {
             9 => Ok(VtkCellType::Quad),
             10 => Ok(VtkCellType::Tetrahedron),
             12 => Ok(VtkCellType::Hexahedron),
-            _ => Err(Error::IoError(std::io::Error::new(
+            _ => Err(Error::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 format!("Unknown VTK cell type: {}", value),
             ))),
