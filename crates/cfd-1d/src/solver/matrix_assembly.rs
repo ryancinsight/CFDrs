@@ -82,36 +82,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         Ok((matrix, rhs))
     }
 
-    /// Build the assembled matrix from the COO format
-    pub fn build(self) -> Result<CsrMatrix<T>> {
-        let coo_mutex = Arc::try_unwrap(self.coo_mutex)
-            .map_err(|_| Error::InvalidState("Cannot unwrap Arc - multiple references exist".into()))?;
-        
-        let coo = coo_mutex.into_inner()
-            .map_err(|e| Error::InvalidState(format!("Mutex poisoned: {}", e)))?;
-        
-        Ok(CsrMatrix::from(&coo))
-    }
 
-    /// Add a single entry to the matrix
-    pub fn add_entry(&self, row: usize, col: usize, value: T) -> Result<()> {
-        let mut coo = self.coo_mutex.lock()
-            .map_err(|e| Error::InvalidState(format!("Mutex poisoned: {}", e)))?;
-        coo.push(row, col, value);
-        Ok(())
-    }
 
-    /// Add multiple entries in parallel
-    pub fn add_entries_parallel<I>(&self, entries: I) -> Result<()>
-    where
-        I: IntoParallelIterator<Item = (usize, usize, T)>,
-        I::Iter: ParallelIterator<Item = (usize, usize, T)>,
-    {
-        entries.into_par_iter().try_for_each(|(row, col, value)| {
-            let mut coo = self.coo_mutex.lock()
-                .map_err(|e| Error::InvalidState(format!("Mutex poisoned: {}", e)))?;
-            coo.push(row, col, value);
-            Ok::<(), Error>(())
-        })
-    }
+
 }

@@ -305,11 +305,17 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
         // Use Gershgorin circle theorem for eigenvalue bounds
         let (max_eigen, min_eigen) = (0..self.nrows())
             .map(|i| {
-                let diag = self.get(i, i).unwrap_or_else(T::zero);
-                let radius = self.row(i)
-                    .filter(|(j, _)| *j != i)
-                    .map(|(_, v)| v.abs())
-                    .fold(T::zero(), |acc, v| acc + v);
+                let row = self.row(i);
+                let mut diag = T::zero();
+                let mut radius = T::zero();
+                
+                for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
+                    if *col_idx == i {
+                        diag = *value;
+                    } else {
+                        radius = radius + value.abs();
+                    }
+                }
                 (diag.abs() + radius, (diag.abs() - radius).max(T::zero()))
             })
             .fold((T::zero(), T::from_f64(1e10).unwrap_or_else(|| T::one())),

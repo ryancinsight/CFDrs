@@ -107,7 +107,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
             .map(|m| m.overall_quality_score)
             .collect();
         
-        QualityStatistics::from_samples(&samples)
+        QualityStatistics::from_samples(samples)
     }
 }
 
