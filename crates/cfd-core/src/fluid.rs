@@ -1,7 +1,7 @@
 //! Fluid properties and models.
 //!
 //! This module provides representations for various fluid types including
-//! Currenttonian and non-Currenttonian fluids with different viscosity models.
+//! Newtonian and non-Newtonian fluids with different viscosity models.
 
 use crate::error::{Error, Result};
 use nalgebra::RealField;
@@ -24,11 +24,11 @@ pub struct Fluid<T: RealField + Copy> {
     pub viscosity_model: ViscosityModel<T>,
 }
 
-/// Viscosity models for Currenttonian and non-Currenttonian fluids
+/// Viscosity models for Newtonian and non-Newtonian fluids
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ViscosityModel<T: RealField + Copy> {
-    /// Currenttonian fluid with constant viscosity
-    Currenttonian {
+    /// Newtonian fluid with constant viscosity
+    Newtonian {
         /// Dynamic viscosity [Pa·s]
         viscosity: T,
     },
@@ -71,7 +71,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Fluid<T> {
             density,
             specific_heat: None,
             thermal_conductivity: None,
-            viscosity_model: ViscosityModel::Currenttonian { viscosity },
+            viscosity_model: ViscosityModel::Newtonian { viscosity },
         }
     }
 
@@ -146,11 +146,11 @@ impl<T: RealField + Copy + FromPrimitive + Float> Fluid<T> {
             name: "Water (20°C)".to_string(),
             density: T::from_f64(998.2).ok_or_else(|| 
                 Error::InvalidInput("Cannot convert density value".into()))?,
-            specific_heat: T::from_f64(4182.0).ok_or_else(|| 
-                Error::InvalidInput("Cannot convert specific heat".into()))?,
-            thermal_conductivity: T::from_f64(0.598).ok_or_else(|| 
-                Error::InvalidInput("Cannot convert thermal conductivity".into()))?,
-            viscosity_model: ViscosityModel::Currenttonian {
+            specific_heat: Some(T::from_f64(4182.0).ok_or_else(|| 
+                Error::InvalidInput("Cannot convert specific heat".into()))?),
+            thermal_conductivity: Some(T::from_f64(0.598).ok_or_else(|| 
+                Error::InvalidInput("Cannot convert thermal conductivity".into()))?),
+            viscosity_model: ViscosityModel::Newtonian {
                 viscosity: T::from_f64(1.002e-3).ok_or_else(|| 
                     Error::InvalidInput("Cannot convert viscosity value".into()))?,
             },
@@ -163,11 +163,11 @@ impl<T: RealField + Copy + FromPrimitive + Float> Fluid<T> {
             name: "Air (20°C, 1 atm)".to_string(),
             density: T::from_f64(1.204).ok_or_else(|| 
                 Error::InvalidInput("Cannot convert density value".into()))?,
-            specific_heat: T::from_f64(718.0).ok_or_else(|| 
-                Error::InvalidInput("Cannot convert specific heat cv".into()))?,
-            thermal_conductivity: T::from_f64(0.0257).ok_or_else(|| 
-                Error::InvalidInput("Cannot convert thermal conductivity".into()))?,
-            viscosity_model: ViscosityModel::Currenttonian {
+            specific_heat: Some(T::from_f64(718.0).ok_or_else(|| 
+                Error::InvalidInput("Cannot convert specific heat cv".into()))?),
+            thermal_conductivity: Some(T::from_f64(0.0257).ok_or_else(|| 
+                Error::InvalidInput("Cannot convert thermal conductivity".into()))?),
+            viscosity_model: ViscosityModel::Newtonian {
                 viscosity: T::from_f64(1.825e-5).ok_or_else(|| 
                     Error::InvalidInput("Cannot convert viscosity value".into()))?,
             },
@@ -183,12 +183,12 @@ impl<T: RealField + Copy + FromPrimitive + Float> Fluid<T> {
 
     /// Get the characteristic viscosity for the fluid
     /// 
-    /// For Currenttonian fluids, this is the constant viscosity.
-    /// For non-Currenttonian fluids, this returns the zero-shear viscosity
+    /// For Newtonian fluids, this is the constant viscosity.
+    /// For non-Newtonian fluids, this returns the zero-shear viscosity
     /// or consistency index as appropriate for Reynolds number calculations.
     pub fn characteristic_viscosity(&self) -> T {
         match &self.viscosity_model {
-            ViscosityModel::Currenttonian { viscosity } => *viscosity,
+            ViscosityModel::Newtonian { viscosity } => *viscosity,
             ViscosityModel::PowerLaw { consistency_index, .. } => *consistency_index,
             ViscosityModel::Carreau { mu_zero, .. } => *mu_zero,
             ViscosityModel::Cross { mu_zero, .. } => *mu_zero,
@@ -202,7 +202,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Fluid<T> {
     /// Returns an error if numeric conversions fail during calculation.
     pub fn dynamic_viscosity(&self, shear_rate: T) -> Result<T> {
         match &self.viscosity_model {
-            ViscosityModel::Currenttonian { viscosity } => Ok(*viscosity),
+            ViscosityModel::Newtonian { viscosity } => Ok(*viscosity),
             ViscosityModel::PowerLaw {
                 consistency_index,
                 flow_index,
@@ -236,7 +236,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Fluid<T> {
 
     /// Calculate Reynolds number
     /// 
-    /// Uses the characteristic viscosity for non-Currenttonian fluids.
+    /// Uses the characteristic viscosity for non-Newtonian fluids.
     pub fn reynolds_number(&self, velocity: T, length: T) -> T {
         velocity * length / self.kinematic_viscosity()
     }
@@ -276,8 +276,8 @@ mod tests {
         assert_relative_eq!(water.density, 998.2, epsilon = 0.1);
         
         // Check that viscosity is stored in the model
-        let ViscosityModel::Currenttonian { viscosity } = water.viscosity_model else {
-            return Err(Error::InvalidInput("Water should have Currenttonian viscosity model".into()));
+        let ViscosityModel::Newtonian { viscosity } = water.viscosity_model else {
+            return Err(Error::InvalidInput("Water should have Newtonian viscosity model".into()));
         };
         assert_relative_eq!(viscosity, 1.002e-3, epsilon = 1e-6);
         
@@ -292,8 +292,8 @@ mod tests {
         assert_eq!(air.name, "Air (20°C, 1 atm)");
         assert_relative_eq!(air.density, 1.204, epsilon = 0.001);
         
-        let ViscosityModel::Currenttonian { viscosity } = air.viscosity_model else {
-            return Err(Error::InvalidInput("Air should have Currenttonian viscosity model".into()));
+        let ViscosityModel::Newtonian { viscosity } = air.viscosity_model else {
+            return Err(Error::InvalidInput("Air should have Newtonian viscosity model".into()));
         };
         assert_relative_eq!(viscosity, 1.825e-5, epsilon = 1e-8);
         Ok(())
@@ -388,7 +388,7 @@ mod tests {
         let expected = 1.002e-3 / 998.2;
         assert_relative_eq!(kinematic, expected, epsilon = 1e-9);
         
-        // Test for non-Currenttonian fluid
+        // Test for non-Newtonian fluid
         let power_law = Fluid::<f64>::current_power_law(
             "Test fluid",
             1200.0,

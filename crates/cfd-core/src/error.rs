@@ -21,11 +21,15 @@ pub enum Error {
     
     /// Numerical computation error
     #[error("Numerical error: {0}")]
-    Numerical(String),
+    Numerical(NumericalErrorKind),
     
     /// Convergence failure
     #[error("Convergence failed: {0}")]
     Convergence(ConvergenceErrorKind),
+    
+    /// Plugin-related errors
+    #[error("Plugin error: {0}")]
+    Plugin(PluginErrorKind),
     
     /// Solver-specific errors
     #[error("Solver error: {0}")]
@@ -54,6 +58,90 @@ pub enum Error {
         #[source]
         source: Box<Error>,
     },
+}
+
+/// Plugin error variants
+#[derive(Debug, Clone)]
+pub enum PluginErrorKind {
+    /// Plugin not found
+    NotFound { name: String },
+    /// Plugin already registered
+    AlreadyRegistered { name: String },
+    /// Plugin initialization failed
+    InitializationFailed { name: String, reason: String },
+    /// Plugin execution failed
+    ExecutionFailed { name: String, reason: String },
+    /// Dependency not satisfied
+    DependencyNotSatisfied { plugin: String, dependency: String },
+    /// Circular dependency detected
+    CircularDependency { chain: Vec<String> },
+    /// Invalid plugin configuration
+    InvalidConfiguration { name: String, reason: String },
+}
+
+impl fmt::Display for PluginErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NotFound { name } => 
+                write!(f, "Plugin '{}' not found", name),
+            Self::AlreadyRegistered { name } => 
+                write!(f, "Plugin '{}' already registered", name),
+            Self::InitializationFailed { name, reason } => 
+                write!(f, "Plugin '{}' initialization failed: {}", name, reason),
+            Self::ExecutionFailed { name, reason } => 
+                write!(f, "Plugin '{}' execution failed: {}", name, reason),
+            Self::DependencyNotSatisfied { plugin, dependency } => 
+                write!(f, "Plugin '{}' dependency '{}' not satisfied", plugin, dependency),
+            Self::CircularDependency { chain } => 
+                write!(f, "Circular dependency detected: {}", chain.join(" -> ")),
+            Self::InvalidConfiguration { name, reason } => 
+                write!(f, "Invalid configuration for plugin '{}': {}", name, reason),
+        }
+    }
+}
+
+/// Numerical error variants
+#[derive(Debug, Clone)]
+pub enum NumericalErrorKind {
+    /// Division by zero
+    DivisionByZero,
+    /// Invalid value (NaN or Inf)
+    InvalidValue { value: String },
+    /// Underflow occurred
+    Underflow { value: f64 },
+    /// Overflow occurred
+    Overflow { value: f64 },
+    /// Matrix is singular
+    SingularMatrix,
+    /// Matrix is not positive definite
+    NotPositiveDefinite,
+    /// Invalid tolerance
+    InvalidTolerance { tolerance: f64 },
+    /// Insufficient precision
+    InsufficientPrecision { achieved: f64, required: f64 },
+}
+
+impl fmt::Display for NumericalErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::DivisionByZero => 
+                write!(f, "Division by zero"),
+            Self::InvalidValue { value } => 
+                write!(f, "Invalid numerical value: {}", value),
+            Self::Underflow { value } => 
+                write!(f, "Numerical underflow: {:.2e}", value),
+            Self::Overflow { value } => 
+                write!(f, "Numerical overflow: {:.2e}", value),
+            Self::SingularMatrix => 
+                write!(f, "Matrix is singular"),
+            Self::NotPositiveDefinite => 
+                write!(f, "Matrix is not positive definite"),
+            Self::InvalidTolerance { tolerance } => 
+                write!(f, "Invalid tolerance: {:.2e}", tolerance),
+            Self::InsufficientPrecision { achieved, required } => 
+                write!(f, "Insufficient precision: achieved {:.2e}, required {:.2e}", achieved, required),
+        }
+    }
 }
 
 /// Convergence error variants

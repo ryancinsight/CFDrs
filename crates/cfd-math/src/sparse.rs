@@ -196,6 +196,9 @@ pub trait SparseMatrixExt<T: RealField + Copy> {
 
     /// Check if matrix is symmetric (within tolerance)
     fn is_symmetric(&self, tolerance: T) -> bool;
+    
+    /// Get condition number estimate (ratio of largest to smallest eigenvalue magnitude)
+    fn condition_number_estimate(&self) -> T;
 }
 
 impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
@@ -298,8 +301,7 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
         true
     }
 
-    /// Get condition number estimate (ratio of largest to smallest eigenvalue magnitude)
-    pub fn condition_number_estimate(&self) -> T {
+    fn condition_number_estimate(&self) -> T {
         // Use Gershgorin circle theorem for eigenvalue bounds
         let (max_eigen, min_eigen) = (0..self.nrows())
             .map(|i| {

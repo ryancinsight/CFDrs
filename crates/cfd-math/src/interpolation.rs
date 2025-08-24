@@ -313,7 +313,7 @@ impl<T: RealField + Copy> Interpolation<T> for LagrangeInterpolation<T> {
     }
 
     /// Get the bounds of the interpolation domain
-    pub fn bounds(&self) -> (T, T) {
+    fn bounds(&self) -> (T, T) {
         let min = self.x_data.iter().min_by(|a, b| {
             a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
         });

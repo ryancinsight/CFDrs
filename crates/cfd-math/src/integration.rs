@@ -3,7 +3,7 @@
 //! This module provides various quadrature rules and integration schemes
 //! optimized for CFD simulations with support for adaptive integration.
 
-use cfd_core::error::{Error, Result};
+use cfd_core::error::{Error, Result, NumericalErrorKind};
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 
@@ -88,80 +88,80 @@ impl<T: RealField + Copy + FromPrimitive> GaussQuadrature<T> {
         }
 
         let (points, weights) = match order {
-            1 => {
+            1 => (
                 vec![T::zero()], 
                 vec![T::from_f64(2.0).ok_or_else(|| 
-                    Error::Numerical("Cannot convert weight".into()))?]
-            },
+                    Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert weight 2.0".to_string() }))?]
+            ),
             2 => {
                 let sqrt3_inv = T::from_f64(1.0 / 3.0_f64.sqrt()).ok_or_else(|| 
-                    Error::Numerical("Cannot convert sqrt(1/3)".into()))?;
-                vec![-sqrt3_inv, sqrt3_inv],
-                vec![T::one(), T::one()]
+                    Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert sqrt(1/3)".to_string() }))?;
+                (vec![-sqrt3_inv, sqrt3_inv],
+                vec![T::one(), T::one()])
             },
             3 => {
                 let sqrt15 = T::from_f64(15.0_f64.sqrt()).ok_or_else(|| 
-                    Error::Numerical("Cannot convert sqrt(15)".into()))?;
+                    Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert sqrt(15)".to_string() }))?;
                 let five = T::from_f64(5.0).ok_or_else(|| 
-                    Error::Numerical("Cannot convert 5".into()))?;
+                    Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert 5".to_string() }))?;
                 
-                vec![
+                (vec![
                     -sqrt15 / five,
                     T::zero(),
                     sqrt15 / five,
                 ],
                 vec![
                     five / T::from_f64(9.0).ok_or_else(|| 
-                        Error::Numerical("Cannot convert 9".into()))?,
+                        Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert 9".to_string() }))?,
                     T::from_f64(8.0).ok_or_else(|| 
-                        Error::Numerical("Cannot convert 8".into()))? / T::from_f64(9.0).ok_or_else(|| 
-                        Error::Numerical("Cannot convert 9".into()))?,
+                        Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert 8".to_string() }))? / T::from_f64(9.0).ok_or_else(|| 
+                        Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert 9".to_string() }))?,
                     five / T::from_f64(9.0).ok_or_else(|| 
-                        Error::Numerical("Cannot convert 9".into()))?,
-                ]
+                        Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert 9".to_string() }))?,
+                ])
             },
             4 => {
                 let sqrt6_5 = (6.0 / 5.0_f64).sqrt();
                 let term1 = T::from_f64((3.0 - 2.0 * sqrt6_5) / 7.0).ok_or_else(|| 
-                    Error::Numerical("Cannot convert term1".into()))?.sqrt();
+                    Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert term1".to_string() }))?.sqrt();
                 let term2 = T::from_f64((3.0 + 2.0 * sqrt6_5) / 7.0).ok_or_else(|| 
-                    Error::Numerical("Cannot convert term2".into()))?.sqrt();
+                    Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert term2".to_string() }))?.sqrt();
                 
                 let sqrt30 = 30.0_f64.sqrt();
                 let w1 = T::from_f64((18.0 + sqrt30) / 36.0).ok_or_else(|| 
-                    Error::Numerical("Cannot convert weight1".into()))?;
+                    Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert weight1".to_string() }))?;
                 let w2 = T::from_f64((18.0 - sqrt30) / 36.0).ok_or_else(|| 
-                    Error::Numerical("Cannot convert weight2".into()))?;
+                    Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert weight2".to_string() }))?;
                 
-                vec![-term2, -term1, term1, term2],
-                vec![w2, w1, w1, w2]
+                (vec![-term2, -term1, term1, term2],
+                vec![w2, w1, w1, w2])
             },
             5 => {
                 // 5-point Gauss-Legendre quadrature
                 let sqrt10_7 = T::from_f64((10.0 / 7.0_f64).sqrt()).ok_or_else(|| 
-                    Error::Numerical("Cannot convert sqrt(10/7)".into()))?;
+                    Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert sqrt(10/7)".to_string() }))?;
                 let term = T::from_f64(2.0).ok_or_else(|| 
-                    Error::Numerical("Cannot convert 2".into()))? * sqrt10_7 / T::from_f64(7.0).ok_or_else(|| 
-                    Error::Numerical("Cannot convert 7".into()))?;
+                    Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert 2".to_string() }))? * sqrt10_7 / T::from_f64(7.0).ok_or_else(|| 
+                    Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert 7".to_string() }))?;
                 
                 let x1 = T::from_f64(1.0 / 3.0).ok_or_else(|| 
-                    Error::Numerical("Cannot convert 1/3".into()))? * 
+                    Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert 1/3".to_string() }))? * 
                     (T::from_f64(5.0).ok_or_else(|| 
-                        Error::Numerical("Cannot convert 5".into()))? - term).sqrt();
+                        Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert 5".to_string() }))? - term).sqrt();
                 let x2 = T::from_f64(1.0 / 3.0).ok_or_else(|| 
-                    Error::Numerical("Cannot convert 1/3".into()))? * 
+                    Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert 1/3".to_string() }))? * 
                     (T::from_f64(5.0).ok_or_else(|| 
-                        Error::Numerical("Cannot convert 5".into()))? + term).sqrt();
+                        Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert 5".to_string() }))? + term).sqrt();
                 
                 let w0 = T::from_f64(128.0 / 225.0).ok_or_else(|| 
-                    Error::Numerical("Cannot convert 128/225".into()))?;
+                    Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert 128/225".to_string() }))?;
                 let w1 = T::from_f64((322.0 + 13.0 * 70.0_f64.sqrt()) / 900.0).ok_or_else(|| 
-                    Error::Numerical("Cannot convert weight".into()))?;
+                    Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert weight".to_string() }))?;
                 let w2 = T::from_f64((322.0 - 13.0 * 70.0_f64.sqrt()) / 900.0).ok_or_else(|| 
-                    Error::Numerical("Cannot convert weight".into()))?;
+                    Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert weight".to_string() }))?;
                 
-                vec![-x2, -x1, T::zero(), x1, x2],
-                vec![w2, w1, w0, w1, w2]
+                (vec![-x2, -x1, T::zero(), x1, x2],
+                vec![w2, w1, w0, w1, w2])
             },
             _ => unreachable!("Order checked above"),
         };

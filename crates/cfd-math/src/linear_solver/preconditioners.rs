@@ -39,7 +39,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> JacobiPreconditioner<T> {
 
         for (i, val) in diag.iter().enumerate() {
             if val.abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
-                return Err(Error::Numerical(NumericalErrorKind::InvalidFpOperation));
+                return Err(Error::Numerical(NumericalErrorKind::DivisionByZero));
             }
             inv_diagonal[i] = T::one() / *val;
         }
@@ -105,7 +105,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> SORPreconditioner<T> {
         let n = a.nrows() as f64;
         let omega_opt = 2.0 / (1.0 + (std::f64::consts::PI / n).sin());
         let omega = T::from_f64(omega_opt).ok_or_else(|| {
-            Error::Numerical(NumericalErrorKind::InvalidFpOperation)
+            Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert omega".to_string() })
         })?;
         
         Self::new(a, omega)
