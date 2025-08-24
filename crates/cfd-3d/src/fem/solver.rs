@@ -134,27 +134,65 @@ impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
         -> ElementMatrices<T> 
     {
         let n_nodes = element.nodes.len();
-        let n_dof = n_nodes * (constants::VELOCITY_COMPONENTS + 1); // velocity + pressure
+        let n_velocity_dof = n_nodes * constants::VELOCITY_COMPONENTS;
+        let n_pressure_dof = n_nodes;
+        let n_dof = n_velocity_dof + n_pressure_dof;
         
         let mut matrices = ElementMatrices::new(n_dof);
         
-        // Basic implementation - in production use proper Gauss quadrature
+        // Get element volume
         let volume = self.compute_element_volume(element);
         
-        // Stiffness matrix for viscous term
-        let stiffness_factor = viscosity * volume / T::from_usize(n_nodes).unwrap_or_else(T::one);
-        for i in 0..n_dof {
-            for j in 0..n_dof {
-                if i == j {
-                    matrices.k_e[(i, j)] = stiffness_factor;
+        // For Stokes flow: -∇²u + ∇p = f, ∇·u = 0
+        // We need K (viscous), B (divergence), and B^T (gradient) matrices
+        
+        // Viscous stiffness matrix (K) for velocity DOFs
+        // Using simplified Laplacian operator
+        let visc_factor = viscosity * volume / T::from_usize(n_nodes * n_nodes).unwrap_or_else(T::one);
+        
+        for i in 0..n_nodes {
+            for j in 0..n_nodes {
+                for d in 0..constants::VELOCITY_COMPONENTS {
+                    let row = i * constants::VELOCITY_COMPONENTS + d;
+                    let col = j * constants::VELOCITY_COMPONENTS + d;
+                    
+                    if i == j {
+                        // Diagonal dominance for stability
+                        matrices.k_e[(row, col)] = visc_factor * T::from_f64(2.0).unwrap_or_else(T::one);
+                    } else {
+                        // Off-diagonal coupling
+                        matrices.k_e[(row, col)] = -visc_factor / T::from_usize(n_nodes - 1).unwrap_or_else(T::one);
+                    }
                 }
             }
         }
         
-        // Mass matrix
-        let mass_factor = volume / T::from_usize(n_nodes).unwrap_or_else(T::one);
-        for i in 0..n_dof {
-            matrices.m_e[(i, i)] = mass_factor;
+        // Divergence matrix (B) and gradient matrix (B^T)
+        // These couple velocity and pressure
+        let div_factor = volume / T::from_usize(n_nodes).unwrap_or_else(T::one);
+        
+        for i in 0..n_nodes {
+            for j in 0..n_nodes {
+                if i == j {
+                    // Gradient operator: pressure to velocity
+                    for d in 0..constants::VELOCITY_COMPONENTS {
+                        let vel_idx = i * constants::VELOCITY_COMPONENTS + d;
+                        let pres_idx = n_velocity_dof + j;
+                        
+                        // B^T: gradient (pressure affects velocity)
+                        matrices.k_e[(vel_idx, pres_idx)] = div_factor;
+                        // B: divergence (velocity affects pressure)
+                        matrices.k_e[(pres_idx, vel_idx)] = div_factor;
+                    }
+                }
+            }
+        }
+        
+        // Add small stabilization to pressure block to avoid singular matrix
+        let stab_factor = T::from_f64(1e-8).unwrap_or_else(T::zero) * volume;
+        for i in 0..n_nodes {
+            let pres_idx = n_velocity_dof + i;
+            matrices.k_e[(pres_idx, pres_idx)] = matrices.k_e[(pres_idx, pres_idx)] + stab_factor;
         }
         
         matrices
