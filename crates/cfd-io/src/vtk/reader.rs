@@ -32,7 +32,7 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
         
         // For now, we only support UNSTRUCTURED_GRID
         if !header.dataset_type.contains("UNSTRUCTURED_GRID") {
-            return Err(Error::IoError(std::io::Error::new(
+            return Err(Error::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 format!("Unsupported dataset type: {}", header.dataset_type),
             )));
@@ -49,7 +49,7 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
                 let parts: Vec<&str> = trimmed.split_whitespace().collect();
                 if parts.len() >= 2 {
                     let num_points: usize = parts[1].parse().map_err(|_| {
-                        Error::IoError(std::io::Error::new(
+                        Error::Io(std::io::Error::new(
                             std::io::ErrorKind::InvalidData,
                             "Invalid number of points",
                         ))
@@ -62,19 +62,19 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
                         let coords: Vec<&str> = line.trim().split_whitespace().collect();
                         if coords.len() >= 3 {
                             let x = T::from_str(coords[0]).map_err(|_| {
-                                Error::IoError(std::io::Error::new(
+                                Error::Io(std::io::Error::new(
                                     std::io::ErrorKind::InvalidData,
                                     "Invalid coordinate",
                                 ))
                             })?;
                             let y = T::from_str(coords[1]).map_err(|_| {
-                                Error::IoError(std::io::Error::new(
+                                Error::Io(std::io::Error::new(
                                     std::io::ErrorKind::InvalidData,
                                     "Invalid coordinate",
                                 ))
                             })?;
                             let z = T::from_str(coords[2]).map_err(|_| {
-                                Error::IoError(std::io::Error::new(
+                                Error::Io(std::io::Error::new(
                                     std::io::ErrorKind::InvalidData,
                                     "Invalid coordinate",
                                 ))
@@ -87,7 +87,7 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
                 let parts: Vec<&str> = trimmed.split_whitespace().collect();
                 if parts.len() >= 2 {
                     let num_cells: usize = parts[1].parse().map_err(|_| {
-                        Error::IoError(std::io::Error::new(
+                        Error::Io(std::io::Error::new(
                             std::io::ErrorKind::InvalidData,
                             "Invalid number of cells",
                         ))
@@ -110,7 +110,7 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
                 let parts: Vec<&str> = trimmed.split_whitespace().collect();
                 if parts.len() >= 2 {
                     let num_types: usize = parts[1].parse().map_err(|_| {
-                        Error::IoError(std::io::Error::new(
+                        Error::Io(std::io::Error::new(
                             std::io::ErrorKind::InvalidData,
                             "Invalid number of cell types",
                         ))
@@ -121,7 +121,7 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
                         line.clear();
                         reader.read_line(&mut line)?;
                         let type_id: u8 = line.trim().parse().map_err(|_| {
-                            Error::IoError(std::io::Error::new(
+                            Error::Io(std::io::Error::new(
                                 std::io::ErrorKind::InvalidData,
                                 "Invalid cell type",
                             ))
@@ -142,33 +142,33 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
         
         // Read and validate header lines
         let version = lines.next()
-            .ok_or_else(|| Error::IoError(std::io::Error::new(
+            .ok_or_else(|| Error::Io(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "Missing VTK version line",
             )))??;
         
         // Validate version format
         if !version.starts_with("# vtk DataFile Version") {
-            return Err(Error::IoError(std::io::Error::new(
+            return Err(Error::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 format!("Invalid VTK version line: {}", version),
             )));
         }
         
         let title = lines.next()
-            .ok_or_else(|| Error::IoError(std::io::Error::new(
+            .ok_or_else(|| Error::Io(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "Missing title line",
             )))??;
         
         let format = lines.next()
-            .ok_or_else(|| Error::IoError(std::io::Error::new(
+            .ok_or_else(|| Error::Io(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "Missing format line",
             )))??;
         
         let dataset_type = lines.next()
-            .ok_or_else(|| Error::IoError(std::io::Error::new(
+            .ok_or_else(|| Error::Io(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "Missing dataset type line",
             )))??;

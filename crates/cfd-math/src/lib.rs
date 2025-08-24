@@ -24,7 +24,9 @@ pub use linear_solver::{
 pub use sparse::{SparseMatrix, SparseMatrixBuilder};
 pub use differentiation::{FiniteDifference, Gradient};
 pub use integration::{Quadrature, GaussQuadrature};
-pub use iterators::{MathIteratorExt, VectorOps, WindowedOps, ParallelOps, CfdIteratorChain, CfdFieldOps};
+pub use iterators::{MathIteratorExt, NormIteratorExt, StatisticsIteratorExt, 
+                    WindowIterator, StridedWindowIterator, StencilIterator, StencilPattern,
+                    ParallelIteratorExt};
 pub use vectorization::{VectorizedOps, StencilOps};
 pub use vector_ops::{SimdVectorOps, sparse_matvec};
 

@@ -56,7 +56,7 @@ impl<W: Write> BinaryWriter<W> {
     /// Flush the writer
     pub fn flush(&mut self) -> Result<()> {
         self.writer.flush()
-            .map_err(Error::IoError)
+            .map_err(Error::Io)
     }
 }
 
@@ -64,7 +64,7 @@ impl BinaryWriter<File> {
     /// Create a binary writer for a file
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
         let file = File::create(path)
-            .map_err(Error::IoError)?;
+            .map_err(Error::Io)?;
         Ok(Self::new(file))
     }
 }
@@ -117,7 +117,7 @@ impl BinaryReader<File> {
     /// Create a binary reader for a file
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
         let file = File::open(path)
-            .map_err(Error::IoError)?;
+            .map_err(Error::Io)?;
         Ok(Self::new(file))
     }
 }

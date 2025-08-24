@@ -58,7 +58,7 @@ impl<T: RealField + FromPrimitive + Copy> TimeIntegrator<T> for RungeKutta2 {
         F: Fn(T, &Self::State) -> Self::State,
     {
         let half = T::from_f64(0.5).ok_or_else(|| {
-            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidValue { value: "Failed to convert 0.5 to T".to_string() })
         })?;
 
         let k1 = f(t, state);
@@ -91,13 +91,13 @@ impl<T: RealField + FromPrimitive + Copy> TimeIntegrator<T> for RungeKutta4 {
         F: Fn(T, &Self::State) -> Self::State,
     {
         let two = T::from_f64(2.0).ok_or_else(|| {
-            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidValue { value: "Failed to convert 2.0 to T".to_string() })
         })?;
         let six = T::from_f64(6.0).ok_or_else(|| {
-            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidValue { value: "Failed to convert 6.0 to T".to_string() })
         })?;
         let half = T::from_f64(0.5).ok_or_else(|| {
-            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidValue { value: "Failed to convert 0.5 to T".to_string() })
         })?;
         
         let k1 = f(t, state);
@@ -275,7 +275,7 @@ impl<T: RealField + Copy> TimeIntegrator<T> for CrankNicolson<T> {
         let y_old = state.clone();
         let t_new = t + dt;
         let half = T::from_f64(0.5).ok_or_else(|| {
-            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidFpOperation)
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidValue { value: "Failed to convert 0.5 to T".to_string() })
         })?;
         let half_dt = dt * half;
 

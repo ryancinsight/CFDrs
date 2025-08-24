@@ -3,18 +3,30 @@
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use cfd_core::{Result, Error};
+use cfd_core::error::NumericalErrorKind;
 
 /// Statistical analysis for mesh quality metrics
 pub struct QualityStatistics<T: RealField + Copy> {
     samples: Vec<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> QualityStatistics<T> {
+impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> Default for QualityStatistics<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> QualityStatistics<T> {
     /// Create new statistics collector
     pub fn new() -> Self {
         Self {
             samples: Vec::new(),
         }
+    }
+    
+    /// Create from samples
+    pub fn from_samples(samples: Vec<T>) -> Self {
+        Self { samples }
     }
 
     /// Add a sample to the statistics
@@ -41,17 +53,15 @@ impl<T: RealField + Copy + FromPrimitive> QualityStatistics<T> {
         
         let mut sorted = self.samples.clone();
         sorted.sort_by(|a, b| {
-            a.partial_cmp(b)
-                .ok_or_else(|| Error::Numerical("NaN detected in quality samples".into()))
-                .and_then(|ord| Ok(ord))
-        }).map_err(|_| Error::Numerical("Cannot sort samples with NaN values".into()))?;
+            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+        });
         
         let mid = sorted.len() / 2;
         if sorted.len() % 2 == 0 {
             let a = sorted[mid - 1];
             let b = sorted[mid];
             let two = T::from_f64(2.0).ok_or_else(|| 
-                Error::Numerical("Cannot convert 2.0".into()))?;
+                Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert 2.0".to_string() }))?;
             Ok(Some((a + b) / two))
         } else {
             Ok(Some(sorted[mid]))
@@ -77,7 +87,7 @@ impl<T: RealField + Copy + FromPrimitive> QualityStatistics<T> {
             .sum();
         
         let n = T::from_usize(self.samples.len() - 1).ok_or_else(|| 
-            Error::Numerical("Cannot convert sample count".into()))?;
+            Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert sample count".to_string() }))?;
         Ok(Some((variance / n).sqrt()))
     }
 

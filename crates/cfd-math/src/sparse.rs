@@ -196,6 +196,9 @@ pub trait SparseMatrixExt<T: RealField + Copy> {
 
     /// Check if matrix is symmetric (within tolerance)
     fn is_symmetric(&self, tolerance: T) -> bool;
+    
+    /// Get condition number estimate (ratio of largest to smallest eigenvalue magnitude)
+    fn condition_number_estimate(&self) -> T;
 }
 
 impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
@@ -298,16 +301,21 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
         true
     }
 
-    /// Get condition number estimate (ratio of largest to smallest eigenvalue magnitude)
-    pub fn condition_number_estimate(&self) -> T {
+    fn condition_number_estimate(&self) -> T {
         // Use Gershgorin circle theorem for eigenvalue bounds
         let (max_eigen, min_eigen) = (0..self.nrows())
             .map(|i| {
-                let diag = self.get(i, i).unwrap_or_else(T::zero);
-                let radius = self.row(i)
-                    .filter(|(j, _)| *j != i)
-                    .map(|(_, v)| v.abs())
-                    .fold(T::zero(), |acc, v| acc + v);
+                let row = self.row(i);
+                let mut diag = T::zero();
+                let mut radius = T::zero();
+                
+                for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
+                    if *col_idx == i {
+                        diag = *value;
+                    } else {
+                        radius = radius + value.abs();
+                    }
+                }
                 (diag.abs() + radius, (diag.abs() - radius).max(T::zero()))
             })
             .fold((T::zero(), T::from_f64(1e10).unwrap_or_else(|| T::one())),

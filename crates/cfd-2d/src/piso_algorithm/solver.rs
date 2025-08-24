@@ -32,7 +32,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + std::iter::Sum> PisoSolver<T> 
         let predictor = VelocityPredictor::new(grid, config.velocity_relaxation);
         let corrector = PressureCorrector::new(
             grid,
-            config.num_correctors,
+            config.n_correctors,
             config.pressure_relaxation,
         );
         let monitor = ConvergenceMonitor::new();

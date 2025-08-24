@@ -134,7 +134,7 @@ impl PluginStorage {
     fn insert(&mut self, plugin: Arc<dyn Plugin>) -> Result<()> {
         let name = plugin.name().to_string();
         if self.plugins.contains_key(&name) {
-            return Err(Error::Plugin(PluginErrorKind::AlreadyRegistered(name)));
+            return Err(Error::Plugin(PluginErrorKind::AlreadyRegistered { name }));
         }
         self.plugins.insert(name, plugin);
         Ok(())
@@ -180,7 +180,7 @@ impl DependencyResolver {
     fn validate_dependencies(&self, deps: &[String], available_plugins: &[String]) -> Result<()> {
         for dep in deps {
             if !available_plugins.contains(dep) {
-                return Err(Error::Plugin(PluginErrorKind::MissingDependency {
+                return Err(Error::Plugin(PluginErrorKind::DependencyNotSatisfied {
                     plugin: "unknown".to_string(),
                     dependency: dep.to_string(),
                 }));
@@ -208,9 +208,9 @@ impl DependencyResolver {
         ) -> Result<()> {
             // Check for cycles
             if recursion_stack.contains(plugin) {
-                return Err(Error::Plugin(PluginErrorKind::CircularDependency(
-                    plugin.to_string()
-                )));
+                return Err(Error::Plugin(PluginErrorKind::CircularDependency {
+                    chain: vec![plugin.to_string()]
+                }));
             }
             
             // Already processed
@@ -327,9 +327,9 @@ impl PluginRegistry {
         // Check if other plugins depend on this one
         for (plugin_name, deps) in &self.resolver.dependencies {
             if plugin_name != name && deps.contains(&name.to_string()) {
-                return Err(Error::Plugin(PluginErrorKind::InUse {
-                    plugin: name.to_string(),
-                    used_by: plugin_name.to_string(),
+                return Err(Error::Plugin(PluginErrorKind::DependencyNotSatisfied {
+                    plugin: plugin_name.to_string(),
+                    dependency: name.to_string(),
                 }));
             }
         }

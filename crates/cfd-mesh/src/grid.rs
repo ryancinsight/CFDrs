@@ -6,7 +6,7 @@
 use nalgebra::{Point3, RealField};
 use num_traits::FromPrimitive;
 use crate::mesh::{Mesh, Vertex, Face, Cell};
-use crate::Result;
+use cfd_core::Result;
 use std::collections::HashMap;
 
 /// Grid types
@@ -14,6 +14,21 @@ use std::collections::HashMap;
 pub enum GridType {
     Structured,
     Unstructured,
+}
+
+/// Grid dimensions
+#[derive(Debug, Clone)]
+pub struct GridDimensions<T: RealField + Copy> {
+    /// Grid type
+    pub grid_type: GridType,
+    /// Number of cells in x direction
+    pub nx: usize,
+    /// Number of cells in y direction  
+    pub ny: usize,
+    /// Number of cells in z direction
+    pub nz: usize,
+    /// Domain bounds
+    pub bounds: ((T, T), (T, T), (T, T)),
 }
 
 /// Grid structure for mesh generation
@@ -33,16 +48,21 @@ impl<T: RealField + Copy> Grid<T> {
     /// Create a new grid
     #[must_use] pub fn new(grid_type: GridType, nx: usize, ny: usize, nz: usize) -> Self {
         Self {
-            grid_type,
-            nx,
-            ny,
-            nz,
-            _phantom: std::marker::PhantomData,
+            vertices: Vec::new(),
+            faces: Vec::new(),
+            cells: Vec::new(),
+            dimensions: GridDimensions {
+                grid_type,
+                nx,
+                ny,
+                nz,
+                bounds: ((T::zero(), T::one()), (T::zero(), T::one()), (T::zero(), T::one())),
+            },
         }
     }
     
     /// Get total number of cells
     #[must_use] pub fn cell_count(&self) -> usize {
-        self.nx * self.ny * self.nz
+        self.dimensions.nx * self.dimensions.ny * self.dimensions.nz
     }
 }
