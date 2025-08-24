@@ -268,11 +268,11 @@ mod tests {
         assert_relative_eq!(water.density, 998.2, epsilon = 0.1);
         
         // Check that viscosity is stored in the model
-        if let ViscosityModel::Currenttonian { viscosity } = water.viscosity_model {
-            assert_relative_eq!(viscosity, 1.002e-3, epsilon = 1e-6);
-        } else {
-            panic!("Water should be Currenttonian");
-        }
+        let ViscosityModel::Currenttonian { viscosity } = water.viscosity_model else {
+            assert!(false, "Water should have Currenttonian viscosity model");
+            return;
+        };
+        assert_relative_eq!(viscosity, 1.002e-3, epsilon = 1e-6);
         
         // Check kinematic viscosity calculation
         assert_relative_eq!(water.kinematic_viscosity(), 1.002e-3 / 998.2, epsilon = 1e-9);
@@ -284,11 +284,11 @@ mod tests {
         assert_eq!(air.name.clone(), "Air (20°C, 1 atm)");
         assert_relative_eq!(air.density, 1.204, epsilon = 0.001);
         
-        if let ViscosityModel::Currenttonian { viscosity } = air.viscosity_model {
-            assert_relative_eq!(viscosity, 1.825e-5, epsilon = 1e-8);
-        } else {
-            panic!("Air should be Currenttonian");
-        }
+        let ViscosityModel::Currenttonian { viscosity } = air.viscosity_model else {
+            assert!(false, "Air should have Currenttonian viscosity model");
+            return;
+        };
+        assert_relative_eq!(viscosity, 1.825e-5, epsilon = 1e-8);
     }
 
     #[test]

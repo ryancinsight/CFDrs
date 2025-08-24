@@ -28,8 +28,6 @@ pub enum TimeIntegratorEnum<T: RealField + Copy> {
     RungeKutta2(RungeKutta2),
     /// Fourth-order Runge-Kutta time integrator (explicit method)
     RungeKutta4(RungeKutta4),
-    /// Phantom variant for type parameter (not used in practice)
-    _Phantom(std::marker::PhantomData<T>),
 }
 
 impl<T: RealField + Copy + FromPrimitive + Copy> TimeIntegratorTrait<T> for TimeIntegratorEnum<T> {
@@ -41,7 +39,6 @@ impl<T: RealField + Copy + FromPrimitive + Copy> TimeIntegratorTrait<T> for Time
             TimeIntegratorEnum::ForwardEuler(integrator) => integrator.step(y, t, dt, f),
             TimeIntegratorEnum::RungeKutta2(integrator) => integrator.step(y, t, dt, f),
             TimeIntegratorEnum::RungeKutta4(integrator) => integrator.step(y, t, dt, f),
-            TimeIntegratorEnum::_Phantom(_) => panic!("Internal error: unreachable code"),
         }
     }
 
@@ -50,7 +47,6 @@ impl<T: RealField + Copy + FromPrimitive + Copy> TimeIntegratorTrait<T> for Time
             TimeIntegratorEnum::ForwardEuler(_) => 1,
             TimeIntegratorEnum::RungeKutta2(_) => 2,
             TimeIntegratorEnum::RungeKutta4(_) => 4,
-            TimeIntegratorEnum::_Phantom(_) => panic!("Internal error: unreachable code"),
         }
     }
 }

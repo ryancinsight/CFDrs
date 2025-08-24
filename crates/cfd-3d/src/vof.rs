@@ -225,7 +225,6 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
     }
     
     /// PLIC reconstruction of interface
-    #[allow(dead_code)]
     fn plic_reconstruction(&self, i: usize, j: usize, k: usize) -> (Vector3<T>, T) {
         let idx = self.index(i, j, k);
         let normal = self.normals[idx];
@@ -268,7 +267,6 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
     }
     
     /// Calculate volume of fluid under a plane in a cell using analytical formula
-    #[allow(dead_code)]
     fn calculate_volume_under_plane(&self, normal: &Vector3<T>, d: T, i: usize, j: usize, k: usize) -> T {
         // Normalize the normal vector and adjust d accordingly
         let n_norm = normal.norm();
