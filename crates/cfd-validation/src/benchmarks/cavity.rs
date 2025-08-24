@@ -45,29 +45,84 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for LidDrivenCavit
         let dx = self.size / T::from_usize(n).ok_or_else(|| 
             Error::InvalidConfiguration("Invalid resolution".into()))?;
         
-        // Initialize velocity and pressure fields
-        let mut u = DMatrix::<T>::zeros(n, n);
-        let v = DMatrix::<T>::zeros(n, n);
-        let p = DMatrix::<T>::zeros(n, n);
+        // Initialize stream function and vorticity
+        let mut psi = DMatrix::<T>::zeros(n, n);
+        let mut omega = DMatrix::<T>::zeros(n, n);
+        let mut psi_prev = psi.clone();
         
-        // Set boundary conditions
-        for j in 0..n {
-            u[(n-1, j)] = self.lid_velocity; // Top lid
-        }
+        // Reynolds number calculation
+        let reynolds = self.lid_velocity * self.size / config.viscosity;
         
-        // Simplified solver - in practice would use SIMPLE/PISO
+        // Time stepping parameters
+        let dt = T::from_f64(0.001).unwrap() * dx * dx / config.viscosity;
         let mut convergence = Vec::new();
         let mut iteration = 0;
         
         while iteration < config.max_iterations {
-            // Placeholder for actual solver implementation
-            // This would involve:
-            // 1. Momentum predictor step
-            // 2. Pressure correction
-            // 3. Velocity correction
-            // 4. Check convergence
+            psi_prev.copy_from(&psi);
             
-            let residual = T::from_f64(0.001).unwrap_or_else(|| T::from_f64(0.001).unwrap());
+            // Update vorticity on boundaries using stream function
+            // Top boundary (moving lid): ω = -2(ψ_{i,n-2} - ψ_{i,n-1})/Δy² - 2U/Δy
+            for i in 0..n {
+                omega[(i, n-1)] = -T::from_f64(2.0).unwrap() * (psi[(i, n-2)] - psi[(i, n-1)]) / (dx * dx)
+                                  - T::from_f64(2.0).unwrap() * self.lid_velocity / dx;
+                // Other walls (no-slip): ω = -2(ψ_adjacent)/Δ²
+                if i == 0 {
+                    omega[(0, i)] = -T::from_f64(2.0).unwrap() * psi[(1, i)] / (dx * dx);
+                }
+                if i == n-1 {
+                    omega[(n-1, i)] = -T::from_f64(2.0).unwrap() * psi[(n-2, i)] / (dx * dx);
+                }
+                omega[(i, 0)] = -T::from_f64(2.0).unwrap() * psi[(i, 1)] / (dx * dx);
+            }
+            
+            // Solve vorticity transport equation in interior
+            for i in 1..n-1 {
+                for j in 1..n-1 {
+                    // Advection terms
+                    let dpsi_dx = (psi[(i+1, j)] - psi[(i-1, j)]) / (T::from_f64(2.0).unwrap() * dx);
+                    let dpsi_dy = (psi[(i, j+1)] - psi[(i, j-1)]) / (T::from_f64(2.0).unwrap() * dx);
+                    let domega_dx = (omega[(i+1, j)] - omega[(i-1, j)]) / (T::from_f64(2.0).unwrap() * dx);
+                    let domega_dy = (omega[(i, j+1)] - omega[(i, j-1)]) / (T::from_f64(2.0).unwrap() * dx);
+                    
+                    // Diffusion term
+                    let laplacian = (omega[(i+1, j)] + omega[(i-1, j)] + omega[(i, j+1)] + omega[(i, j-1)] 
+                                    - T::from_f64(4.0).unwrap() * omega[(i, j)]) / (dx * dx);
+                    
+                    // Update vorticity (explicit time stepping)
+                    omega[(i, j)] = omega[(i, j)] + dt * (
+                        -dpsi_dy * domega_dx + dpsi_dx * domega_dy + laplacian / reynolds
+                    );
+                }
+            }
+            
+            // Solve Poisson equation for stream function: ∇²ψ = -ω
+            let omega_sor = T::from_f64(1.5).unwrap(); // SOR relaxation parameter
+            for _ in 0..20 { // Inner iterations for Poisson solver
+                for i in 1..n-1 {
+                    for j in 1..n-1 {
+                        let psi_old = psi[(i, j)];
+                        let psi_new = T::from_f64(0.25).unwrap() * (
+                            psi[(i+1, j)] + psi[(i-1, j)] + psi[(i, j+1)] + psi[(i, j-1)] 
+                            + dx * dx * omega[(i, j)]
+                        );
+                        psi[(i, j)] = psi_old + omega_sor * (psi_new - psi_old);
+                    }
+                }
+            }
+            
+            // Calculate residual
+            let mut max_change = T::zero();
+            for i in 0..n {
+                for j in 0..n {
+                    let change = (psi[(i, j)] - psi_prev[(i, j)]).abs();
+                    if change > max_change {
+                        max_change = change;
+                    }
+                }
+            }
+            
+            let residual = max_change / (dt + T::from_f64(1e-10).unwrap());
             convergence.push(residual);
             
             if residual < config.tolerance {
@@ -75,6 +130,22 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for LidDrivenCavit
             }
             
             iteration += 1;
+        }
+        
+        // Extract velocity field from stream function
+        let mut u = DMatrix::<T>::zeros(n, n);
+        let mut v = DMatrix::<T>::zeros(n, n);
+        
+        for i in 1..n-1 {
+            for j in 1..n-1 {
+                u[(i, j)] = (psi[(i, j+1)] - psi[(i, j-1)]) / (T::from_f64(2.0).unwrap() * dx);
+                v[(i, j)] = -(psi[(i+1, j)] - psi[(i-1, j)]) / (T::from_f64(2.0).unwrap() * dx);
+            }
+        }
+        
+        // Set boundary velocities
+        for i in 0..n {
+            u[(i, n-1)] = self.lid_velocity; // Top lid
         }
         
         // Extract centerline velocities for validation

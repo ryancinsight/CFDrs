@@ -18,6 +18,14 @@ const INTERFACE_THICKNESS: f64 = 1.5;  // Interface thickness in cells
 const VOF_INTERFACE_LOWER: f64 = 0.01;  // Lower bound for interface cells
 const VOF_INTERFACE_UPPER: f64 = 0.99;  // Upper bound for interface cells
 
+/// VOF solver configuration constants
+pub mod constants {
+    /// Maximum iterations for PLIC reconstruction
+    pub const PLIC_MAX_ITERATIONS: usize = 10;
+    /// Tolerance for PLIC convergence
+    pub const PLIC_TOLERANCE: f64 = 1e-6;
+}
+
 /// VOF configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VofConfig {
@@ -245,7 +253,7 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
                 - normal[2].abs() * self.dz;
             let mut d_max = -d_min;
             
-            for _ in 0..10 {  // PLIC iterations hardcoded since not configurable yet
+            for _ in 0..constants::PLIC_MAX_ITERATIONS {
                 d = (d_min + d_max) / T::from_f64(2.0).unwrap_or_else(|| T::zero());
                 
                 // Calculate volume under plane
