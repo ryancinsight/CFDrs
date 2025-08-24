@@ -3,11 +3,8 @@
 //! This module provides grid generation functionality for CFD simulations,
 //! including structured and unstructured grid types.
 
-use nalgebra::{Point3, RealField};
-use num_traits::FromPrimitive;
-use crate::mesh::{Mesh, Vertex, Face, Cell};
-use cfd_core::Result;
-use std::collections::HashMap;
+use nalgebra::RealField;
+use crate::mesh::{Vertex, Face, Cell};
 
 /// Grid types
 #[derive(Debug, Clone, Copy)]

@@ -57,8 +57,9 @@ impl<T: RealField + FromPrimitive + Copy> RhieChowInterpolation<T> {
         // Pressure gradient at face
         let dp_dx = (p_e - p_p) / self.dx;
         
-        // Rhie-Chow correction
-        u_bar - d_f * dp_dx
+        // Rhie-Chow correction with relaxation
+        let correction = d_f * dp_dx;
+        u_bar - self.alpha * correction
     }
     
     /// Interpolate v-velocity to face with pressure correction
@@ -81,7 +82,8 @@ impl<T: RealField + FromPrimitive + Copy> RhieChowInterpolation<T> {
         // Pressure gradient at face
         let dp_dy = (p_n - p_p) / self.dy;
         
-        // Rhie-Chow correction
-        v_bar - d_f * dp_dy
+        // Rhie-Chow correction with relaxation
+        let correction = d_f * dp_dy;
+        v_bar - self.alpha * correction
     }
 }

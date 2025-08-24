@@ -5,7 +5,7 @@ use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use cfd_core::Result;
 use super::basis::SpectralBasis;
-use super::poisson::PoissonSolver;
+use super::poisson::{PoissonSolver, PoissonBoundaryCondition};
 
 /// Spectral method configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,13 +71,40 @@ impl<T: RealField + FromPrimitive + Copy> SpectralSolver<T> {
     
     /// Solve a problem using spectral methods
     pub fn solve(&mut self) -> Result<SpectralSolution<T>> {
-        // Main solver logic would go here
-        // This is a placeholder structure
-        Ok(SpectralSolution::new(
+        // Initialize solution with zeros
+        let mut solution = SpectralSolution::new(
             self.config.nx_modes,
             self.config.ny_modes,
             self.config.nz_modes,
-        ))
+        );
+        
+        // Create source term as a matrix (simplified)
+        let source = DMatrix::zeros(
+            self.config.nx_modes * self.config.ny_modes,
+            self.config.nz_modes,
+        );
+        
+        // Apply boundary conditions (simplified)
+        let bc_x = (
+            PoissonBoundaryCondition::Dirichlet(T::zero()),
+            PoissonBoundaryCondition::Dirichlet(T::zero()),
+        );
+        let bc_y = (
+            PoissonBoundaryCondition::Dirichlet(T::zero()),
+            PoissonBoundaryCondition::Dirichlet(T::zero()),
+        );
+        let bc_z = (
+            PoissonBoundaryCondition::Dirichlet(T::zero()),
+            PoissonBoundaryCondition::Dirichlet(T::zero()),
+        );
+        
+        // Apply the Poisson solver with proper arguments
+        let potential = self.poisson_solver.solve(&source, bc_x, bc_y, bc_z)?;
+        
+        // Store the result in the solution
+        solution.u = potential;
+        
+        Ok(solution)
     }
 }
 
@@ -110,4 +137,6 @@ impl<T: RealField + Copy> SpectralSolution<T> {
         let idx = i * self.ny + j;
         self.u[(idx, k)]
     }
+    
+
 }

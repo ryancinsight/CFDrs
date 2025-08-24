@@ -7,8 +7,6 @@ use num_traits::FromPrimitive;
 use cfd_core::Result;
 use rayon::prelude::*;
 use std::sync::Mutex;
-use std::sync::Arc;
-use cfd_core::Error;
 
 /// Matrix assembler for building the linear system from network equations
 pub struct MatrixAssembler<T: RealField + Copy> {
