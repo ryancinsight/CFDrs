@@ -6,6 +6,7 @@
 use cfd_validation::analytical::{TaylorGreenVortex, PoiseuilleFlow, CouetteFlow, AnalyticalSolution};
 use nalgebra::Vector3;
 use approx::assert_relative_eq;
+use cfd_core::constants::numerical::math::{HALF, TWO_THIRDS};
 
 #[cfg(test)]
 mod poiseuille_flow {
@@ -27,7 +28,7 @@ mod poiseuille_flow {
         
         // Parallel plate channel flow: u(y) = 4*u_max*(y/h)*(1-y/h)
         // Maximum occurs at y = h/2 where u = u_max
-        let center_velocity = solution.evaluate(0.0, 0.5, 0.0, 0.0);
+        let center_velocity = solution.evaluate(0.0, HALF, 0.0, 0.0);
         assert_relative_eq!(center_velocity.x, 1.0, epsilon = 1e-10);
         
         // At walls (y = 0 or y = h): u = 0
@@ -56,7 +57,7 @@ mod poiseuille_flow {
         let mut flow_rate = 0.0;
         
         for i in 0..n_points {
-            let y = (i as f64 + 0.5) * dy;
+            let y = (i as f64 + HALF) * dy;
             let velocity = solution.evaluate(0.0, y, 0.0, 0.0);
             flow_rate += velocity.x * dy;
         }
@@ -64,7 +65,7 @@ mod poiseuille_flow {
         // For parabolic profile with u_max=1.0 and width=1.0
         // Average velocity = 2/3 * u_max = 2/3
         // Flow rate = average_velocity * width = 2/3 * 1.0 = 0.667
-        let expected_flow_rate = 2.0 / 3.0;
+        let expected_flow_rate = TWO_THIRDS;
         assert_relative_eq!(flow_rate, expected_flow_rate, epsilon = 1e-2);
     }
 }
@@ -108,11 +109,11 @@ mod couette_flow {
         );
         
         // Test combined Couette-Poiseuille flow
-        let center_velocity = solution.evaluate(0.0, 0.5, 0.0, 0.0);
+        let center_velocity = solution.evaluate(0.0, HALF, 0.0, 0.0);
         
         // Combined solution: linear term (0.5) + pressure term (-62.5) = -62.0
-        // With adverse pressure gradient, flow can reverse
-        assert_relative_eq!(center_velocity.x, -62.0, epsilon = 1.0);
+        let expected = HALF - 62.5;
+        assert_relative_eq!(center_velocity.x, expected, epsilon = 1.0);
     }
 }
 
@@ -132,10 +133,10 @@ mod taylor_green_vortex {
         );
         
         // Test at t = 0
-        let velocity = solution.evaluate(0.5, 0.5, 0.5, 0.0);
+        let velocity = solution.evaluate(HALF, HALF, HALF, 0.0);
         
         // Initial condition should have specific symmetry
-        let velocity_symmetric = solution.evaluate(0.5, 0.5, -0.5, 0.0);
+        let velocity_symmetric = solution.evaluate(HALF, HALF, -HALF, 0.0);
         assert_relative_eq!(velocity.z, -velocity_symmetric.z, epsilon = 1e-10);
     }
     
@@ -148,11 +149,11 @@ mod taylor_green_vortex {
         );
         
         // Sample kinetic energy at different times
-        let times = vec![0.0, 0.1, 0.5, 1.0];
+        let times = vec![0.0, 0.1, HALF, 1.0];
         let mut energies = Vec::new();
         
         for &t in &times {
-            let velocity = solution.evaluate(0.5, 0.5, 0.5, t);
+            let velocity = solution.evaluate(HALF, HALF, HALF, t);
             let energy = velocity.norm_squared() / 2.0;
             energies.push(energy);
         }

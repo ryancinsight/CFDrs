@@ -383,13 +383,113 @@ pub trait PropertyCalculator<T: RealField + Copy>: Send + Sync {
     fn required_properties(&self) -> Vec<&str>;
 }
 
+/// Kinematic viscosity calculator: ν = μ/ρ
+pub struct KinematicViscosityCalculator;
+
+impl<T: RealField + Copy> PropertyCalculator<T> for KinematicViscosityCalculator {
+    fn calculate(&self, properties: &HashMap<String, T>) -> Result<T, String> {
+        let viscosity = properties.get("dynamic_viscosity")
+            .ok_or_else(|| "Missing dynamic_viscosity".to_string())?;
+        let density = properties.get("density")
+            .ok_or_else(|| "Missing density".to_string())?;
+        
+        if *density <= T::zero() {
+            return Err("Density must be positive".to_string());
+        }
+        
+        Ok(*viscosity / *density)
+    }
+    
+    fn name(&self) -> &str {
+        "kinematic_viscosity"
+    }
+    
+    fn required_properties(&self) -> Vec<&str> {
+        vec!["dynamic_viscosity", "density"]
+    }
+}
+
+/// Reynolds number calculator: Re = ρVL/μ
+pub struct ReynoldsNumberCalculator;
+
+impl<T: RealField + Copy> PropertyCalculator<T> for ReynoldsNumberCalculator {
+    fn calculate(&self, properties: &HashMap<String, T>) -> Result<T, String> {
+        let density = properties.get("density")
+            .ok_or_else(|| "Missing density".to_string())?;
+        let velocity = properties.get("velocity")
+            .ok_or_else(|| "Missing velocity".to_string())?;
+        let length = properties.get("characteristic_length")
+            .ok_or_else(|| "Missing characteristic_length".to_string())?;
+        let viscosity = properties.get("dynamic_viscosity")
+            .ok_or_else(|| "Missing dynamic_viscosity".to_string())?;
+        
+        if *viscosity <= T::zero() {
+            return Err("Viscosity must be positive".to_string());
+        }
+        
+        Ok(*density * *velocity * *length / *viscosity)
+    }
+    
+    fn name(&self) -> &str {
+        "reynolds_number"
+    }
+    
+    fn required_properties(&self) -> Vec<&str> {
+        vec!["density", "velocity", "characteristic_length", "dynamic_viscosity"]
+    }
+}
+
+/// Prandtl number calculator: Pr = μCp/k
+pub struct PrandtlNumberCalculator;
+
+impl<T: RealField + Copy> PropertyCalculator<T> for PrandtlNumberCalculator {
+    fn calculate(&self, properties: &HashMap<String, T>) -> Result<T, String> {
+        let viscosity = properties.get("dynamic_viscosity")
+            .ok_or_else(|| "Missing dynamic_viscosity".to_string())?;
+        let cp = properties.get("specific_heat_cp")
+            .ok_or_else(|| "Missing specific_heat_cp".to_string())?;
+        let conductivity = properties.get("thermal_conductivity")
+            .ok_or_else(|| "Missing thermal_conductivity".to_string())?;
+        
+        if *conductivity <= T::zero() {
+            return Err("Thermal conductivity must be positive".to_string());
+        }
+        
+        Ok(*viscosity * *cp / *conductivity)
+    }
+    
+    fn name(&self) -> &str {
+        "prandtl_number"
+    }
+    
+    fn required_properties(&self) -> Vec<&str> {
+        vec!["dynamic_viscosity", "specific_heat_cp", "thermal_conductivity"]
+    }
+}
+
 impl<T: RealField + Copy> MaterialPropertiesService<T> {
     /// Create new material properties service
     #[must_use] pub fn new() -> Self {
-        Self {
+        let mut service = Self {
             database: MaterialDatabase::new(),
             calculators: HashMap::new(),
-        }
+        };
+        
+        // Register standard calculators
+        service.register_calculator(
+            "kinematic_viscosity".to_string(),
+            Box::new(KinematicViscosityCalculator)
+        );
+        service.register_calculator(
+            "reynolds_number".to_string(),
+            Box::new(ReynoldsNumberCalculator)
+        );
+        service.register_calculator(
+            "prandtl_number".to_string(),
+            Box::new(PrandtlNumberCalculator)
+        );
+        
+        service
     }
     
     /// Get material database

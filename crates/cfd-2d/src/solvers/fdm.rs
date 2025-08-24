@@ -7,13 +7,15 @@
 //! - Navier-Stokes equations
 
 use cfd_core::{Error, Result, SolverConfiguration};
+use cfd_core::solver::{SolverConfig};
+use cfd_core::constants::numerical::math::{TWO, FOUR};
 use cfd_math::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField};
 use num_traits::{FromPrimitive, Zero};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::grid::{Grid2D, StructuredGrid2D};
+use crate::grid::{Grid2D, StructuredGrid2D, GridEdge, BoundaryType};
 
 /// Finite Difference Method solver configuration
 /// Uses unified `SolverConfig` as base to follow SSOT principle
@@ -198,8 +200,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
         let dy2 = dy * dy;
 
         // Central coefficient: -2/dx² - 2/dy²
-        let center_coeff = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) / dx2
-                          - T::from_f64(2.0).unwrap_or_else(|| T::zero()) / dy2;
+        let two = T::from_f64(TWO).unwrap_or_else(|| T::zero());
+        let center_coeff = -two / dx2 - two / dy2;
         matrix_builder.add_entry(linear_idx, linear_idx, center_coeff)?;
 
         // Use iterator for neighbor contributions with zero-copy access
@@ -317,8 +319,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
         let v = velocity_y.get(&(i, j)).copied().unwrap_or(T::zero());
 
         // Central coefficient (diffusion part): -2α/dx² - 2α/dy²
-        let mut center_coeff = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) * diffusivity / dx2
-                              - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * diffusivity / dy2;
+        let mut center_coeff = -T::from_f64(TWO).unwrap_or_else(|| T::zero()) * diffusivity / dx2
+                              - T::from_f64(TWO).unwrap_or_else(|| T::zero()) * diffusivity / dy2;
 
         // Add neighbor contributions
         let neighbors = grid.neighbors(i, j);
