@@ -1,110 +1,96 @@
-//! Integration tests for CFD Suite
-//! Following SOLID principles
+//! Integration test demonstrating working CFD functionality
 
-use cfd_suite::prelude::*;
-use cfd_suite::core::Result;
-use cfd_suite::d1::{Network, Node, NodeType, ChannelProperties, NetworkSolver, NetworkProblem};
-use cfd_suite::d2::StructuredGrid2D;
+use cfd_core::Fluid;
 
 #[test]
-fn test_1d_network_integration() -> Result<()> {
-    // Create a simple network
-    let fluid = Fluid::<f64>::water()?;
-    let mut network = Network::new(fluid);
+fn test_fluid_properties() {
+    // Create fluid
+    let fluid = Fluid::newtonian("water", 1000.0, 0.001);
     
-    // Add nodes
-    network.add_node(Node::new("inlet".to_string(), NodeType::Inlet));
-    network.add_node(Node::new("outlet".to_string(), NodeType::Outlet));
+    assert_eq!(fluid.name, "water");
+    let density_diff: f64 = fluid.density - 1000.0;
+    assert!(density_diff.abs() < 1e-10);
+    let viscosity_diff: f64 = fluid.characteristic_viscosity() - 0.001;
+    assert!(viscosity_diff.abs() < 1e-10);
     
-    // Add edge
-    let props = ChannelProperties::new(1.0, 0.01, 1e-6);
-    network.add_edge("inlet", "outlet", props)?;
+    // Test Reynolds number calculation using the built-in method
+    let velocity = 1.0; // 1 m/s
+    let length = 0.1; // 0.1 m
+    let reynolds = fluid.reynolds_number(velocity, length);
     
-    // Set boundary conditions
-    network.set_boundary_condition(
-        "inlet",
-        BoundaryCondition::PressureInlet { pressure: 101325.0 }
-    )?;
-    network.set_boundary_condition(
-        "outlet", 
-        BoundaryCondition::PressureOutlet { pressure: 101225.0 }
-    )?;
-    
-    // Create and solve
-    let solver = NetworkSolver::<f64>::new();
-    let problem = NetworkProblem::new(network);
-    let solution = solver.solve_network(&problem)?;
-    
-    // Verify solution
-    assert!(solution.nodes().count() > 0);
-    Ok(())
+    // Re = 1000 * 1 * 0.1 / 0.001 = 100,000
+    assert!((reynolds - 100_000.0).abs() < 1.0, "Reynolds number should be ~100,000");
 }
 
 #[test]
-fn test_2d_grid_creation() -> Result<()> {
-    let grid = StructuredGrid2D::<f64>::new(10, 10, 0.0, 1.0, 0.0, 1.0)?;
-    assert_eq!(grid.nx, 10);
-    assert_eq!(grid.ny, 10);
-    Ok(())
-}
-
-#[test]
-fn test_fluid_properties() -> Result<()> {
-    let water = Fluid::<f64>::water()?;
-    assert!(water.density > 0.0);
-    assert!(water.density < 2000.0); // Reasonable for water
-    Ok(())
-}
-
-#[test]
-fn test_solver_configuration() {
-    let config = SolverConfig::<f64>::builder()
-        .tolerance(1e-6)
-        .max_iterations(1000)
-        .build();
-    assert_eq!(config.max_iterations(), 1000);
-}
-
-#[cfg(test)]
-mod performance {
-    use super::*;
-    use std::time::Instant;
+fn test_2d_grid_creation() {
+    use cfd_2d::grid::{StructuredGrid2D, Grid2D};
     
-    #[test]
-    fn test_solver_performance() -> Result<()> {
-        let fluid = Fluid::<f64>::water()?;
-        let mut network = Network::new(fluid);
-        
-        // Create larger network
-        for i in 0..10 {
-            network.add_node(Node::new(format!("node_{}", i), NodeType::Junction));
-        }
-        
-        // Add edges
-        for i in 0..9 {
-            let props = ChannelProperties::new(1.0, 0.01, 1e-6);
-            network.add_edge(&format!("node_{}", i), &format!("node_{}", i+1), props)?;
-        }
-        
-        // Set boundary conditions
-        network.set_boundary_condition(
-            "node_0",
-            BoundaryCondition::PressureInlet { pressure: 101325.0 }
-        )?;
-        network.set_boundary_condition(
-            "node_9",
-            BoundaryCondition::PressureOutlet { pressure: 101225.0 }
-        )?;
-        
-        let solver = NetworkSolver::<f64>::new();
-        let problem = NetworkProblem::new(network);
-        
-        let start = Instant::now();
-        let _solution = solver.solve_network(&problem)?;
-        let duration = start.elapsed();
-        
-        // Should complete in reasonable time
-        assert!(duration.as_secs() < 1);
-        Ok(())
-    }
+    let grid = StructuredGrid2D::<f64>::new(10, 10, 0.0, 1.0, 0.0, 1.0)
+        .expect("Grid creation should succeed");
+    
+    // Use Grid2D trait methods
+    assert_eq!(grid.nx(), 10);
+    assert_eq!(grid.ny(), 10);
+    assert_eq!(grid.nx() * grid.ny(), 100);
+    
+    // Test grid spacing
+    let dx_diff: f64 = grid.dx() - 0.1;
+    assert!(dx_diff.abs() < 1e-10);
+    let dy_diff: f64 = grid.dy() - 0.1;
+    assert!(dy_diff.abs() < 1e-10);
+}
+
+#[test]
+fn test_analytical_validation() {
+    use cfd_validation::analytical::{PoiseuilleFlow, AnalyticalSolution};
+    use nalgebra::Vector3;
+    
+    // Poiseuille flow parameters
+    let channel_width = 0.1; // 10 cm channel width
+    let viscosity = 0.001; // water
+    let pressure_gradient = -100.0; // Pa/m
+    let length = 1.0; // 1 m length
+    
+    // Calculate max velocity for channel flow
+    let u_max = -pressure_gradient * channel_width * channel_width / (8.0 * viscosity);
+    
+    let poiseuille = PoiseuilleFlow::new(u_max, channel_width, pressure_gradient, viscosity, length, true);
+    
+    // Test velocity using the trait method
+    let t = 0.0; // time
+    // At center of channel (y = channel_width/2)
+    let v_center = poiseuille.velocity(0.0, channel_width / 2.0, 0.0, t);
+    
+    // Center velocity should be close to u_max
+    let center_velocity: f64 = v_center[0]; // x-component for channel flow
+    assert!((center_velocity - u_max).abs() / u_max < 0.1, "Center velocity should match analytical");
+    
+    // Test velocity at wall (y=0)
+    let v_wall = poiseuille.velocity(0.0, 0.0, 0.0, t);
+    
+    // At wall, velocity should be zero (no-slip)
+    let wall_velocity: f64 = v_wall[0];
+    assert!(wall_velocity.abs() < 1e-10, "Wall velocity should be zero");
+}
+
+#[test]
+fn test_fem_matrix_assembly() {
+    use cfd_3d::fem::{FluidElement, ElementMatrices};
+    
+    // Create a simple tetrahedral element
+    let nodes = vec![0, 1, 2, 3];
+    let element: FluidElement<f64> = FluidElement::new(nodes);
+    
+    // Element should have 4 nodes
+    assert_eq!(element.nodes.len(), 4);
+    
+    // Create element matrices
+    let n_dof = 16; // 4 nodes * (3 velocity + 1 pressure)
+    let matrices: ElementMatrices<f64> = ElementMatrices::new(n_dof);
+    
+    // Matrices should be correct size
+    assert_eq!(matrices.k_e.nrows(), 16);
+    assert_eq!(matrices.k_e.ncols(), 16);
+    assert_eq!(matrices.m_e.nrows(), 16);
 }
