@@ -416,6 +416,17 @@ mod tests {
     }
 
     #[test]
+    fn test_prandtl_number() -> Result<()> {
+        let water = Fluid::<f64>::water()?;
+        let pr = water.prandtl_number()?;
+        
+        // Water at 20°C has Pr ≈ 7
+        assert!(pr > 6.0 && pr < 8.0);
+        
+        Ok(())
+    }
+
+    #[test]
     fn test_error_handling() {
         // This would fail if we had a type that can't represent these values
         // For f64, it should always succeed

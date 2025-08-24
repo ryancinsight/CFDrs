@@ -18,13 +18,19 @@ pub struct ConvergenceCriteria<T: RealField + Copy> {
     pub max_iterations: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> Default for ConvergenceCriteria<T> {
+impl<T: RealField + Copy + FromPrimitive> Default for ConvergenceCriteria<T> {
     fn default() -> Self {
         Self {
-            velocity_tolerance: T::from_f64(1e-5).unwrap_or_else(|| T::from_f64(1e-6).unwrap()),
-            pressure_tolerance: T::from_f64(1e-4).unwrap_or_else(|| T::from_f64(1e-6).unwrap()),
-            continuity_tolerance: T::from_f64(1e-5).unwrap_or_else(|| T::from_f64(1e-5).unwrap()),
-            max_iterations: 100,
+            max_iterations: 1000,
+            velocity_tolerance: T::from_f64(1e-5).unwrap_or_else(|| {
+                T::from_f64(1e-6).unwrap_or_else(T::zero)
+            }),
+            pressure_tolerance: T::from_f64(1e-4).unwrap_or_else(|| {
+                T::from_f64(1e-5).unwrap_or_else(T::zero)
+            }),
+            continuity_tolerance: T::from_f64(1e-5).unwrap_or_else(|| {
+                T::from_f64(1e-6).unwrap_or_else(T::zero)
+            }),
         }
     }
 }
@@ -59,22 +65,20 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
     }
 
     /// Check if converged
-    pub fn is_converged(&self, criteria: &ConvergenceCriteria<T>) -> bool {
-        if self.iteration >= criteria.max_iterations {
-            return true; // Stop due to max iterations
-        }
-        
-        if self.velocity_residuals.is_empty() {
+    pub fn is_converged(&self) -> bool {
+        if self.velocity_residuals.is_empty() || 
+           self.pressure_residuals.is_empty() || 
+           self.continuity_residuals.is_empty() {
             return false;
         }
         
-        let vel_res = *self.velocity_residuals.last().unwrap();
-        let pres_res = *self.pressure_residuals.last().unwrap();
-        let cont_res = *self.continuity_residuals.last().unwrap();
+        let vel_res = self.velocity_residuals.last().copied().unwrap_or(T::one());
+        let pres_res = self.pressure_residuals.last().copied().unwrap_or(T::one());
+        let cont_res = self.continuity_residuals.last().copied().unwrap_or(T::one());
         
-        vel_res < criteria.velocity_tolerance &&
-        pres_res < criteria.pressure_tolerance &&
-        cont_res < criteria.continuity_tolerance
+        vel_res < self.criteria.velocity_tolerance &&
+        pres_res < self.criteria.pressure_tolerance &&
+        cont_res < self.criteria.continuity_tolerance
     }
 
     /// Update residuals

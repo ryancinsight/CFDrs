@@ -1,144 +1,107 @@
 //! Statistical analysis for mesh quality metrics
 
 use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
-use serde::{Deserialize, Serialize};
-use std::iter::Sum;
+use num_traits::FromPrimitive;
+use cfd_core::{Result, Error};
 
-/// Statistical summary of quality metrics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Statistical analysis for mesh quality metrics
 pub struct QualityStatistics<T: RealField + Copy> {
-    /// Minimum value
-    pub min: T,
-    /// Maximum value  
-    pub max: T,
-    /// Mean value
-    pub mean: T,
-    /// Standard deviation
-    pub std_dev: T,
-    /// Median value
-    pub median: T,
-    /// 25th percentile
-    pub q1: T,
-    /// 75th percentile
-    pub q3: T,
-    /// Number of samples
-    pub count: usize,
+    samples: Vec<T>,
 }
 
-impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityStatistics<T> {
-    /// Create new statistics from samples
-    pub fn from_samples(samples: &[T]) -> Self {
-        if samples.is_empty() {
-            return Self::default();
+impl<T: RealField + Copy + FromPrimitive> QualityStatistics<T> {
+    /// Create new statistics collector
+    pub fn new() -> Self {
+        Self {
+            samples: Vec::new(),
+        }
+    }
+
+    /// Add a sample to the statistics
+    pub fn add_sample(&mut self, value: T) {
+        self.samples.push(value);
+    }
+
+    /// Get the mean of all samples
+    pub fn mean(&self) -> Option<T> {
+        if self.samples.is_empty() {
+            return None;
         }
         
-        let mut sorted = samples.to_vec();
-        sorted.sort_by(|a, b| a.partial_cmp(b).expect("NaN in samples"));
+        let sum: T = self.samples.iter().copied().sum();
+        let count = T::from_usize(self.samples.len())?;
+        Some(sum / count)
+    }
+
+    /// Get the median of all samples
+    pub fn median(&self) -> Result<Option<T>> {
+        if self.samples.is_empty() {
+            return Ok(None);
+        }
         
-        let count = samples.len();
-        let sum: T = samples.iter().copied().sum();
-        let mean = sum / T::from_usize(count).unwrap_or_else(|| T::one());
+        let mut sorted = self.samples.clone();
+        sorted.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .ok_or_else(|| Error::Numerical("NaN detected in quality samples".into()))
+                .and_then(|ord| Ok(ord))
+        }).map_err(|_| Error::Numerical("Cannot sort samples with NaN values".into()))?;
         
-        let variance: T = samples.iter()
-            .map(|x| (*x - mean) * (*x - mean))
-            .sum::<T>() / T::from_usize(count - 1).unwrap_or_else(|| T::one());
-        
-        let std_dev = Float::sqrt(variance);
-        
-        let median = if count % 2 == 0 {
-            (sorted[count / 2 - 1] + sorted[count / 2]) / (T::one() + T::one())
+        let mid = sorted.len() / 2;
+        if sorted.len() % 2 == 0 {
+            let a = sorted[mid - 1];
+            let b = sorted[mid];
+            let two = T::from_f64(2.0).ok_or_else(|| 
+                Error::Numerical("Cannot convert 2.0".into()))?;
+            Ok(Some((a + b) / two))
         } else {
-            sorted[count / 2]
+            Ok(Some(sorted[mid]))
+        }
+    }
+
+    /// Get the standard deviation
+    pub fn std_dev(&self) -> Result<Option<T>> {
+        let mean = match self.mean() {
+            Some(m) => m,
+            None => return Ok(None),
         };
         
-        let q1_idx = count / 4;
-        let q3_idx = 3 * count / 4;
+        if self.samples.len() < 2 {
+            return Ok(None);
+        }
         
-        Self {
-            min: sorted[0],
-            max: sorted[count - 1],
-            mean,
-            std_dev,
-            median,
-            q1: sorted[q1_idx],
-            q3: sorted[q3_idx],
-            count,
-        }
-    }
-}
-
-impl<T: RealField + Copy> Default for QualityStatistics<T> {
-    fn default() -> Self {
-        Self {
-            min: T::zero(),
-            max: T::zero(),
-            mean: T::zero(),
-            std_dev: T::zero(),
-            median: T::zero(),
-            q1: T::zero(),
-            q3: T::zero(),
-            count: 0,
-        }
-    }
-}
-
-/// Running statistics calculator (Welford's algorithm)
-pub struct RunningStats<T: RealField + Copy> {
-    count: usize,
-    mean: T,
-    m2: T,
-    min: T,
-    max: T,
-}
-
-impl<T: RealField + Copy + Float + Sum + FromPrimitive> Default for RunningStats<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T: RealField + Copy + Float + Sum + FromPrimitive> RunningStats<T> {
-    /// Create new running statistics
-    #[must_use] pub fn new() -> Self {
-        Self {
-            count: 0,
-            mean: T::zero(),
-            m2: T::zero(),
-            min: T::infinity(),
-            max: T::neg_infinity(),
-        }
-    }
-    
-    /// Add a sample
-    pub fn push(&mut self, value: T) {
-        self.count += 1;
-        let delta = value - self.mean;
-        self.mean += delta / T::from_usize(self.count).unwrap_or_else(|| T::one());
-        let delta2 = value - self.mean;
-        self.m2 += delta * delta2;
+        let variance: T = self.samples.iter()
+            .map(|&x| {
+                let diff = x - mean;
+                diff * diff
+            })
+            .sum();
         
-        self.min = Float::min(self.min, value);
-        self.max = Float::max(self.max, value);
+        let n = T::from_usize(self.samples.len() - 1).ok_or_else(|| 
+            Error::Numerical("Cannot convert sample count".into()))?;
+        Ok(Some((variance / n).sqrt()))
     }
-    
-    /// Get current statistics
-    pub fn statistics(&self) -> QualityStatistics<T> {
-        let variance = if self.count > 1 {
-            self.m2 / T::from_usize(self.count - 1).unwrap_or_else(|| T::one())
-        } else {
-            T::zero()
-        };
-        
-        QualityStatistics {
-            min: self.min,
-            max: self.max,
-            mean: self.mean,
-            std_dev: Float::sqrt(variance),
-            median: self.mean, // Approximation
-            q1: self.mean - Float::sqrt(variance), // Approximation
-            q3: self.mean + Float::sqrt(variance), // Approximation
-            count: self.count,
-        }
+
+    /// Get minimum value
+    pub fn min(&self) -> Option<T> {
+        self.samples.iter().copied().min_by(|a, b| {
+            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+        })
+    }
+
+    /// Get maximum value
+    pub fn max(&self) -> Option<T> {
+        self.samples.iter().copied().max_by(|a, b| {
+            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+        })
+    }
+
+    /// Get the number of samples
+    pub fn count(&self) -> usize {
+        self.samples.len()
+    }
+
+    /// Clear all samples
+    pub fn clear(&mut self) {
+        self.samples.clear();
     }
 }
