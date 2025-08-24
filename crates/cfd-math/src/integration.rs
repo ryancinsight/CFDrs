@@ -78,53 +78,92 @@ pub struct GaussQuadrature<T: RealField + Copy> {
     order: usize,
 }
 
-impl<T: RealField + From<f64> + FromPrimitive + Copy> GaussQuadrature<T> {
-    /// Create Gauss-Legendre quadrature of given order
+impl<T: RealField + Copy + FromPrimitive> GaussQuadrature<T> {
+    /// Create a new Gauss quadrature rule with specified order
     pub fn new(order: usize) -> Result<Self> {
+        if order == 0 || order > 5 {
+            return Err(Error::InvalidInput(
+                format!("Gauss quadrature order must be between 1 and 5, got {}", order)
+            ));
+        }
+
         let (points, weights) = match order {
             1 => {
-                let points = vec![T::zero()];
-                let weights = vec![T::from_f64(2.0).unwrap_or_else(|| T::zero())];
-                (points, weights)
+                vec![T::zero()], 
+                vec![T::from_f64(2.0).ok_or_else(|| 
+                    Error::Numerical("Cannot convert weight".into()))?]
             },
             2 => {
-                let sqrt3_inv = T::from_f64(1.0 / 3.0_f64.sqrt()).expect("CRITICAL: Add proper error handling");
-                let points = vec![-sqrt3_inv, sqrt3_inv];
-                let weights = vec![T::one(), T::one()];
-                (points, weights)
+                let sqrt3_inv = T::from_f64(1.0 / 3.0_f64.sqrt()).ok_or_else(|| 
+                    Error::Numerical("Cannot convert sqrt(1/3)".into()))?;
+                vec![-sqrt3_inv, sqrt3_inv],
+                vec![T::one(), T::one()]
             },
             3 => {
-                let sqrt15 = T::from_f64(15.0_f64.sqrt()).expect("CRITICAL: Add proper error handling");
-                let sqrt15_5 = sqrt15 / T::from_f64(5.0).unwrap_or_else(|| T::zero());
-                let points = vec![
-                    -sqrt15_5,
+                let sqrt15 = T::from_f64(15.0_f64.sqrt()).ok_or_else(|| 
+                    Error::Numerical("Cannot convert sqrt(15)".into()))?;
+                let five = T::from_f64(5.0).ok_or_else(|| 
+                    Error::Numerical("Cannot convert 5".into()))?;
+                
+                vec![
+                    -sqrt15 / five,
                     T::zero(),
-                    sqrt15_5,
-                ];
-                let weights = vec![
-                    T::from_f64(5.0 / 9.0).unwrap_or_else(|| T::zero()),
-                    T::from_f64(8.0 / 9.0).unwrap_or_else(|| T::zero()),
-                    T::from_f64(5.0 / 9.0).unwrap_or_else(|| T::zero()),
-                ];
-                (points, weights)
+                    sqrt15 / five,
+                ],
+                vec![
+                    five / T::from_f64(9.0).ok_or_else(|| 
+                        Error::Numerical("Cannot convert 9".into()))?,
+                    T::from_f64(8.0).ok_or_else(|| 
+                        Error::Numerical("Cannot convert 8".into()))? / T::from_f64(9.0).ok_or_else(|| 
+                        Error::Numerical("Cannot convert 9".into()))?,
+                    five / T::from_f64(9.0).ok_or_else(|| 
+                        Error::Numerical("Cannot convert 9".into()))?,
+                ]
             },
             4 => {
-                let sqrt6_5 = (6.0_f64 / 5.0).sqrt();
-                let term1 = T::from_f64((3.0 - 2.0 * sqrt6_5) / 7.0).expect("CRITICAL: Add proper error handling").sqrt();
-                let term2 = T::from_f64((3.0 + 2.0 * sqrt6_5) / 7.0).expect("CRITICAL: Add proper error handling").sqrt();
-                let points = vec![-term2, -term1, term1, term2];
-
+                let sqrt6_5 = (6.0 / 5.0_f64).sqrt();
+                let term1 = T::from_f64((3.0 - 2.0 * sqrt6_5) / 7.0).ok_or_else(|| 
+                    Error::Numerical("Cannot convert term1".into()))?.sqrt();
+                let term2 = T::from_f64((3.0 + 2.0 * sqrt6_5) / 7.0).ok_or_else(|| 
+                    Error::Numerical("Cannot convert term2".into()))?.sqrt();
+                
                 let sqrt30 = 30.0_f64.sqrt();
-                let w1 = T::from_f64((18.0 + sqrt30) / 36.0).expect("CRITICAL: Add proper error handling");
-                let w2 = T::from_f64((18.0 - sqrt30) / 36.0).expect("CRITICAL: Add proper error handling");
-                let weights = vec![w2, w1, w1, w2];
-                (points, weights)
+                let w1 = T::from_f64((18.0 + sqrt30) / 36.0).ok_or_else(|| 
+                    Error::Numerical("Cannot convert weight1".into()))?;
+                let w2 = T::from_f64((18.0 - sqrt30) / 36.0).ok_or_else(|| 
+                    Error::Numerical("Cannot convert weight2".into()))?;
+                
+                vec![-term2, -term1, term1, term2],
+                vec![w2, w1, w1, w2]
             },
-            _ => {
-                return Err(Error::InvalidConfiguration(
-                    format!("Gauss quadrature order {} not implemented", order)
-                ));
-            }
+            5 => {
+                // 5-point Gauss-Legendre quadrature
+                let sqrt10_7 = T::from_f64((10.0 / 7.0_f64).sqrt()).ok_or_else(|| 
+                    Error::Numerical("Cannot convert sqrt(10/7)".into()))?;
+                let term = T::from_f64(2.0).ok_or_else(|| 
+                    Error::Numerical("Cannot convert 2".into()))? * sqrt10_7 / T::from_f64(7.0).ok_or_else(|| 
+                    Error::Numerical("Cannot convert 7".into()))?;
+                
+                let x1 = T::from_f64(1.0 / 3.0).ok_or_else(|| 
+                    Error::Numerical("Cannot convert 1/3".into()))? * 
+                    (T::from_f64(5.0).ok_or_else(|| 
+                        Error::Numerical("Cannot convert 5".into()))? - term).sqrt();
+                let x2 = T::from_f64(1.0 / 3.0).ok_or_else(|| 
+                    Error::Numerical("Cannot convert 1/3".into()))? * 
+                    (T::from_f64(5.0).ok_or_else(|| 
+                        Error::Numerical("Cannot convert 5".into()))? + term).sqrt();
+                
+                let w0 = T::from_f64(128.0 / 225.0).ok_or_else(|| 
+                    Error::Numerical("Cannot convert 128/225".into()))?;
+                let w1 = T::from_f64((322.0 + 13.0 * 70.0_f64.sqrt()) / 900.0).ok_or_else(|| 
+                    Error::Numerical("Cannot convert weight".into()))?;
+                let w2 = T::from_f64((322.0 - 13.0 * 70.0_f64.sqrt()) / 900.0).ok_or_else(|| 
+                    Error::Numerical("Cannot convert weight".into()))?;
+                
+                vec![-x2, -x1, T::zero(), x1, x2],
+                vec![w2, w1, w0, w1, w2]
+            },
+            _ => unreachable!("Order checked above"),
         };
 
         Ok(Self {
