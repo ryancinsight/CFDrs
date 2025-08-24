@@ -149,6 +149,16 @@ impl<T: RealField + Copy + FromPrimitive + Copy> StructuredGrid2D<T> {
     pub fn spacing(&self) -> (T, T) {
         (self.dx, self.dy)
     }
+    
+    /// Get x-direction grid spacing
+    pub fn dx(&self) -> T {
+        self.dx
+    }
+    
+    /// Get y-direction grid spacing
+    pub fn dy(&self) -> T {
+        self.dy
+    }
 
     /// Get domain bounds
     pub fn bounds(&self) -> (T, T, T, T) {

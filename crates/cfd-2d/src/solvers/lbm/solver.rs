@@ -107,18 +107,52 @@ where
         }
     }
     
-    /// Initialize the solver with uniform flow
-    pub fn initialize(&mut self, initial_density: T, initial_velocity: Vector2<T>) -> Result<()> {
-        let u_init = [initial_velocity.x, initial_velocity.y];
+    /// Compute equilibrium distribution for given density and velocity
+    pub fn equilibrium_distribution(&self, density: T, velocity: Vector2<T>) -> Vec<T> {
+        let u = [velocity.x, velocity.y];
+        let mut feq = vec![T::zero(); 9];
         
-        // Initialize distribution functions to equilibrium
+        for q in 0..9 {
+            let weight = T::from_f64(D2Q9::WEIGHTS[q]).unwrap_or_else(T::zero);
+            let lattice_vel = &D2Q9::VELOCITIES[q];
+            feq[q] = equilibrium(density, &u, q, weight, lattice_vel);
+        }
+        
+        feq
+    }
+    
+    /// Compute macroscopic density and velocity at a grid point
+    pub fn compute_macroscopic(&self, i: usize, j: usize) -> (T, Vector2<T>) {
+        let density = self.macroscopic.density[j][i];
+        let velocity = Vector2::new(
+            self.macroscopic.velocity[j][i][0],
+            self.macroscopic.velocity[j][i][1]
+        );
+        (density, velocity)
+    }
+    
+    /// Initialize the solver with functions for density and velocity
+    pub fn initialize<F1, F2>(&mut self, density_fn: F1, velocity_fn: F2) -> Result<()> 
+    where
+        F1: Fn(T, T) -> T,
+        F2: Fn(T, T) -> Vector2<T>,
+    {
+        // Initialize using the provided functions
         for j in 0..self.ny {
             for i in 0..self.nx {
+                let x = T::from_usize(i).unwrap_or_else(T::zero) * self.dx;
+                let y = T::from_usize(j).unwrap_or_else(T::zero) * self.dy;
+                
+                let density = density_fn(x, y);
+                let velocity = velocity_fn(x, y);
+                let u_init = [velocity.x, velocity.y];
+                
+                // Initialize distribution functions to equilibrium
                 for q in 0..9 {
                     let weight = T::from_f64(D2Q9::WEIGHTS[q]).unwrap_or_else(T::zero);
                     let lattice_vel = &D2Q9::VELOCITIES[q];
                     self.f[j][i][q] = equilibrium(
-                        initial_density,
+                        density,
                         &u_init,
                         q,
                         weight,
@@ -127,7 +161,7 @@ where
                 }
                 
                 // Set macroscopic quantities
-                self.macroscopic.density[j][i] = initial_density;
+                self.macroscopic.density[j][i] = density;
                 self.macroscopic.velocity[j][i] = u_init;
             }
         }
@@ -171,8 +205,10 @@ where
         initial_density: T,
         initial_velocity: Vector2<T>,
     ) -> Result<()> {
-        // Initialize
-        self.initialize(initial_density, initial_velocity)?;
+        // Initialize with constant functions
+        let density_fn = |_x: T, _y: T| initial_density;
+        let velocity_fn = |_x: T, _y: T| initial_velocity;
+        self.initialize(density_fn, velocity_fn)?;
         
         let mut converged = false;
         let mut previous_velocity = self.macroscopic.velocity.clone();
