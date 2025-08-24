@@ -26,7 +26,7 @@ pub use differentiation::{FiniteDifference, Gradient};
 pub use integration::{Quadrature, GaussQuadrature};
 pub use iterators::{MathIteratorExt, VectorOps, WindowedOps, ParallelOps, CfdIteratorChain, CfdFieldOps};
 pub use vectorization::{VectorizedOps, StencilOps};
-pub use vector_ops::{SimdVectorOps, optimized_matvec};
+pub use vector_ops::{SimdVectorOps, sparse_matvec};
 
 /// Prelude module for convenient imports
 pub mod prelude {

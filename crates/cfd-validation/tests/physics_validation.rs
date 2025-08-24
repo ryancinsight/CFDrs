@@ -216,18 +216,18 @@ mod rhie_chow_interpolation {
         // Rhie-Chow interpolation prevents checkerboard pressure oscillations
         // in collocated grids by adding pressure gradient correction
         
-        let dx = 0.1;
-        let dy = 0.1;
+        let dx = 0.1f64;
+        let dy = 0.1f64;
         let interpolator = RhieChowInterpolation::new(dx, dy);
         
         // Test parameters
-        let u_p = 1.0;  // velocity at cell P
-        let u_e = 1.1;  // velocity at cell E  
-        let p_p = 100.0; // pressure at P
-        let p_e = 99.0;  // pressure at E
-        let ap_p = 10.0; // momentum coefficient at P
-        let ap_e = 10.0; // momentum coefficient at E
-        let dt = 0.01;
+        let u_p = 1.0f64;  // velocity at cell P
+        let u_e = 1.1f64;  // velocity at cell E  
+        let p_p = 100.0f64; // pressure at P
+        let p_e = 99.0f64;  // pressure at E
+        let ap_p = 10.0f64; // momentum coefficient at P
+        let ap_e = 10.0f64; // momentum coefficient at E
+        let dt = 0.01f64;
         
         // Interpolate face velocity with pressure correction
         let u_face = interpolator.interpolate_u_face(
@@ -236,13 +236,13 @@ mod rhie_chow_interpolation {
         
         // The interpolated velocity should include pressure gradient correction
         // u_f = ū_f - D_f * (∇p)_f
-        let u_avg = 0.5 * (u_p + u_e);
+        let u_avg = 0.5f64 * (u_p + u_e);
         let pressure_gradient = (p_e - p_p) / dx;
-        let d_face = dt / (0.5 * (ap_p + ap_e));
+        let d_face = dt / (0.5f64 * (ap_p + ap_e));
         let expected = u_avg - d_face * pressure_gradient;
         
         let diff = (u_face - expected).abs();
-        assert!(diff < 0.01, 
+        assert!(diff < 0.01f64, 
                 "Rhie-Chow interpolation should correct for pressure gradient");
     }
 }

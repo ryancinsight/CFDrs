@@ -255,7 +255,6 @@ impl<T: RealField + Copy + FromPrimitive + Copy> TaylorGreenVortex<T> {
 
     /// Calculate kinetic energy at time t
     pub fn kinetic_energy(&self, t: T) -> T {
-        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
         
         // Decay factor: exp(-4*nu*t) for kinetic energy

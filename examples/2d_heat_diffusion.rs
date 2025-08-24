@@ -4,7 +4,15 @@
 //! We solve: ∇²T = 0 with specified boundary conditions.
 
 use cfd_suite::prelude::*;
-use cfd_2d::{GridEdge, AdvectionDiffusionSolver};
+use cfd_suite::d2::{
+    StructuredGrid2D, 
+    GridEdge, 
+    AdvectionDiffusionSolver,
+    BoundaryType,
+    FdmConfig,
+    PoissonSolver
+};
+use cfd_suite::core::BoundaryCondition;
 use std::collections::HashMap;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -20,7 +28,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         1.5,   // y_max
     )?;
     
-    println!("Created {}x{} grid", grid.nx(), grid.ny());
+    println!("Created {}x{} grid", grid.nx, grid.ny);
     println!("Grid spacing: {:?}", grid.spacing());
     
     // Set boundary conditions for heat diffusion
@@ -36,14 +44,14 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Set boundary values using iterator patterns for zero-copy operations
     let boundary_values: HashMap<(usize, usize), f64> = [
         // Hot left wall - using iterator combinators
-        (0..grid.ny()).map(|j| ((0, j), 100.0)).collect::<Vec<_>>(),
+        (0..grid.ny).map(|j| ((0, j), 100.0)).collect::<Vec<_>>(),
         // Cold right wall - functional approach
-        (0..grid.ny()).map(|j| ((grid.nx() - 1, j), 0.0)).collect::<Vec<_>>(),
+        (0..grid.ny).map(|j| ((grid.nx - 1, j), 0.0)).collect::<Vec<_>>(),
         // Insulated top and bottom walls (simplified as fixed temperature)
         // Note: This demonstrates iterator chaining for boundary condition setup
-        (1..grid.nx()-1).flat_map(|i| [
+        (1..grid.nx-1).flat_map(|i| [
             ((i, 0), 50.0),           // Bottom wall (simplified)
-            ((i, grid.ny() - 1), 50.0) // Top wall (simplified)
+            ((i, grid.ny - 1), 50.0) // Top wall (simplified)
         ]).collect::<Vec<_>>(),
     ].into_iter()
     .flatten()
@@ -89,13 +97,18 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     
     // Print temperature distribution along centerline using iterator patterns
     println!("\n=== Horizontal centerline distribution ===");
-    let center_j = grid.ny() / 2;
+    let center_j = grid.ny / 2;
     println!("Position (x)\tTemperature (°C)");
 
-    (0..grid.nx())
+    let (x_min, x_max, _, _) = grid.bounds();
+    let dx = (x_max - x_min) / grid.nx as f64;
+    (0..grid.nx)
         .filter_map(|i| {
             solution.get(&(i, center_j))
-                .and_then(|&temp| grid.cell_center(i, center_j).ok().map(|center| (center.x, temp)))
+                .map(|&temp| {
+                    let x = x_min + (i as f64 + 0.5) * dx;
+                    (x, temp)
+                })
         })
         .for_each(|(x, temp)| println!("{:.3}\t\t{:.2}", x, temp));
     
@@ -104,7 +117,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let (dx, _dy) = grid.spacing();
     
     // Heat flux at left boundary using iterator combinators for zero-copy calculation
-    let total_heat_flux_left: f64 = (1..grid.ny()-1)
+    let total_heat_flux_left: f64 = (1..grid.ny-1)
         .filter_map(|j| {
             solution.get(&(0, j))
                 .zip(solution.get(&(1, j)))
@@ -153,13 +166,13 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("\n=== Comparison: Pure Diffusion vs Advection-Diffusion ===");
     println!("Position (x)\tDiffusion\tAdv-Diff\tDifference");
     
-    for i in (0..grid.nx()).step_by(4) {
+    for i in (0..grid.nx).step_by(4) {
         if let (Some(&temp_diff), Some(&temp_advdiff)) = 
             (solution.get(&(i, center_j)), advdiff_solution.get(&(i, center_j))) {
-            let center = grid.cell_center(i, center_j)?;
+            let x = x_min + (i as f64 + 0.5) * dx;
             let difference = temp_advdiff - temp_diff;
             println!("{:.3}\t\t{:.2}\t\t{:.2}\t\t{:.2}", 
-                     center.x, temp_diff, temp_advdiff, difference);
+                     x, temp_diff, temp_advdiff, difference);
         }
     }
     
