@@ -132,7 +132,7 @@ impl LinearSolverValidator {
                     println!("Solver {name} failed on diagonal system: {e}");
 
                     // Return error report for solver failure
-                    ValidationResult {
+                    let result = ValidationResult {
                         algorithm_name: name.to_string(),
                         test_case: "Diagonal System".to_string(),
                         passed: false,
@@ -150,7 +150,7 @@ impl LinearSolverValidator {
                         convergence_info: ConvergenceInfo {
                             iterations: 0,
                             final_residual: T::from_f64(f64::INFINITY).unwrap_or_else(|| T::from_f64(1e10).unwrap_or_else(T::one)),
-                            convergence_rate: T::zero(),
+                            convergence_rate: Some(T::zero()),
                         },
                         literature_reference: "Golub & Van Loan (2013), Matrix Computations, 4th Ed.".to_string(),
                     };

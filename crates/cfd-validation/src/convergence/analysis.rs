@@ -8,8 +8,12 @@ use num_traits::FromPrimitive;
 /// Convergence order classification
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConvergenceOrder<T: RealField + Copy> {
+    /// Sub-linear convergence (p < 1)
+    SubLinear,
     /// First-order convergence (p ≈ 1)
     FirstOrder,
+    /// Super-linear convergence (1 < p < 2)
+    SuperLinear,
     /// Second-order convergence (p ≈ 2)
     SecondOrder,
     /// Third-order convergence (p ≈ 3)
@@ -52,6 +56,7 @@ impl<T: RealField + Copy + FromPrimitive> ConvergenceOrder<T> {
             Self::ThirdOrder => T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one()),
             Self::FourthOrder => T::from_f64(4.0).unwrap_or_else(|| T::from_usize(4).unwrap_or_else(T::one)),
             Self::Spectral => T::from_f64(10.0).unwrap_or_else(|| T::from_usize(10).unwrap_or_else(T::one)), // Nominal high value
+            Self::Custom(rate) => *rate,
         }
     }
     

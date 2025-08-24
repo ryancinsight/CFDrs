@@ -8,7 +8,7 @@
 
 use cfd_core::{Error, Result, SolverConfiguration};
 use cfd_core::solver::{SolverConfig};
-use cfd_core::constants::numerical::math::{TWO, FOUR};
+// Mathematical constants - using direct values for clarity
 use cfd_math::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField};
 use num_traits::{FromPrimitive, Zero};
@@ -200,7 +200,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
         let dy2 = dy * dy;
 
         // Central coefficient: -2/dx² - 2/dy²
-        let two = T::from_f64(TWO).unwrap_or_else(|| T::zero());
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         let center_coeff = -two / dx2 - two / dy2;
         matrix_builder.add_entry(linear_idx, linear_idx, center_coeff)?;
 
@@ -327,8 +327,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
         let v = velocity_y.get(&(i, j)).copied().unwrap_or(T::zero());
 
         // Central coefficient (diffusion part): -2α/dx² - 2α/dy²
-        let mut center_coeff = -T::from_f64(TWO).unwrap_or_else(|| T::zero()) * diffusivity / dx2
-                              - T::from_f64(TWO).unwrap_or_else(|| T::zero()) * diffusivity / dy2;
+        let mut center_coeff = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) * diffusivity / dx2
+                              - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * diffusivity / dy2;
 
         // Add neighbor contributions
         let neighbors = grid.neighbors(i, j);
@@ -725,7 +725,7 @@ mod tests {
                     boundary_values.insert((i, j), (PI * x).sin() * (PI * y).sin());
                 } else {
                     // Source term
-                    source.insert((i, j), -TWO * PI * PI * (PI * x).sin() * (PI * y).sin());
+                    source.insert((i, j), -2.0 * PI * PI * (PI * x).sin() * (PI * y).sin());
                 }
             }
             

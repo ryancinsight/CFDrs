@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 //! Core abstractions and plugin system for the CFD simulation suite.
 //!
 //! This crate provides the fundamental traits, types, and plugin infrastructure

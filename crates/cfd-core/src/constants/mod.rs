@@ -5,11 +5,10 @@
 
 pub mod physics;
 pub mod numerical;
+pub mod physical;
 
 // Re-export commonly used constants at module level for convenience
 pub use physics::fluid;
 pub use physics::thermo;
 pub use physics::turbulence;
 pub use physics::dimensionless;
-pub use numerical::solver;
-pub use numerical::discretization;

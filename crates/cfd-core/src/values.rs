@@ -285,7 +285,8 @@ impl<T: RealField + FromPrimitive + Copy> Temperature<T> {
 
     /// Create temperature in Fahrenheit
     pub fn fahrenheit(value: T) -> Result<Self> {
-        let celsius_value = (value - T::from_f64(32.0).unwrap_or_else(|| T::one())) * T::from_f64(5.0).unwrap_or_else(|| T::one()) / T::from_f64(9.0).unwrap_or_else(|| T::one());
+        use crate::constants::physical::temperature::{FAHRENHEIT_TO_CELSIUS_FACTOR, FAHRENHEIT_ZERO_OFFSET};
+        let celsius_value = (value - T::from_f64(FAHRENHEIT_ZERO_OFFSET).unwrap_or_else(|| T::one())) * T::from_f64(FAHRENHEIT_TO_CELSIUS_FACTOR).unwrap_or_else(|| T::one());
         Self::celsius(celsius_value)
     }
 
@@ -295,7 +296,8 @@ impl<T: RealField + FromPrimitive + Copy> Temperature<T> {
             TemperatureUnit::Kelvin => self.value,
             TemperatureUnit::Celsius => self.value + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN).unwrap_or_else(|| T::zero()),
             TemperatureUnit::Fahrenheit => {
-                let celsius = (self.value - T::from_f64(32.0).unwrap_or_else(|| T::zero())) * T::from_f64(5.0).unwrap_or_else(|| T::zero()) / T::from_f64(9.0).unwrap_or_else(|| T::one());
+                use crate::constants::physical::temperature::{FAHRENHEIT_TO_CELSIUS_FACTOR, FAHRENHEIT_ZERO_OFFSET};
+                let celsius = (self.value - T::from_f64(FAHRENHEIT_ZERO_OFFSET).unwrap_or_else(|| T::zero())) * T::from_f64(FAHRENHEIT_TO_CELSIUS_FACTOR).unwrap_or_else(|| T::zero());
                 celsius + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN).unwrap_or_else(|| T::zero())
             }
         }
