@@ -12,6 +12,8 @@ use std::collections::HashMap;
 /// Sparse matrix wrapper with additional CFD-specific operations
 pub type SparseMatrix<T> = nalgebra_sparse::CsrMatrix<T>;
 
+// Extension trait moved below to merge with existing one
+
 /// Entry for sparse matrix assembly
 #[derive(Debug, Clone, Copy)]
 pub struct MatrixEntry<T: RealField + Copy> {
@@ -182,6 +184,9 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
 
 /// Extension trait for sparse matrix operations
 pub trait SparseMatrixExt<T: RealField + Copy> {
+    /// Get element at (row, col), returns None if not present
+    fn get(&self, row: usize, col: usize) -> Option<T>;
+    
     /// Matrix-vector multiplication with zero-copy optimization
     fn matvec_inplace(&self, x: &DVector<T>, y: &mut DVector<T>);
 
@@ -202,6 +207,16 @@ pub trait SparseMatrixExt<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
+    fn get(&self, row: usize, col: usize) -> Option<T> {
+        // Access the triplet iterator to find the element
+        for (r, c, v) in self.triplet_iter() {
+            if r == row && c == col {
+                return Some(*v);
+            }
+        }
+        None
+    }
+    
     fn matvec_inplace(&self, x: &DVector<T>, y: &mut DVector<T>) {
         assert_eq!(self.ncols(), x.len());
         assert_eq!(self.nrows(), y.len());
@@ -426,6 +441,7 @@ mod tests {
     use super::*;
     use approx::assert_relative_eq;
     use nalgebra::{DVector, DMatrix};
+    use crate::sparse::SparseMatrixExt;
 
     // Helper function to convert sparse matrix to dense for testing
     fn sparse_to_dense<T: RealField + Copy>(sparse: &CsrMatrix<T>) -> DMatrix<T> {
@@ -684,7 +700,7 @@ mod tests {
     }
 
     #[test]
-    fn test_diagonal_extraction() -> Result<()> {
+    fn test_diagonal_extraction_csr() -> Result<()> {
         let mut builder = SparseMatrixBuilder::new(3, 3);
         builder.add_triplets(vec![
             (0, 0, 1.0), (0, 1, 2.0),
