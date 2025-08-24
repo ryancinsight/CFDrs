@@ -312,17 +312,19 @@ impl<T: RealField + Copy> Interpolation<T> for LagrangeInterpolation<T> {
             .unwrap_or_else(|| T::zero()))
     }
 
-    fn bounds(&self) -> (T, T) {
-        // Use iterator min/max with partial_cmp for better performance
-        let (min, max) = self.x_data
-            .iter()
-            .fold((None, None), |(min_acc, max_acc), x| {
-                let current_min = min_acc.map_or(Some(x), |m| if x < m { Some(x) } else { Some(m) });
-                let current_max = max_acc.map_or(Some(x), |m| if x > m { Some(x) } else { Some(m) });
-                (current_min, current_max)
-            });
-
-        (*min.expect("x_data is guaranteed to be non-empty by constructor"), *max.expect("x_data is guaranteed to be non-empty by constructor"))
+    /// Get the bounds of the interpolation domain
+    pub fn bounds(&self) -> (T, T) {
+        let min = self.x_data.iter().min_by(|a, b| {
+            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        let max = self.x_data.iter().max_by(|a, b| {
+            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        
+        match (min, max) {
+            (Some(min_val), Some(max_val)) => (*min_val, *max_val),
+            _ => (T::zero(), T::zero()), // Should never happen due to constructor validation
+        }
     }
 }
 
@@ -332,53 +334,57 @@ mod tests {
     use approx::assert_relative_eq;
 
     #[test]
-    fn test_linear_interpolation() {
+    fn test_linear_interpolation() -> Result<()> {
+        let x_data = vec![0.0, 1.0, 2.0];
+        let y_data = vec![0.0, 1.0, 4.0];
+        
+        let interp = LinearInterpolation::new(x_data, y_data)?;
+        
+        // Test exact points
+        assert_eq!(interp.interpolate(0.0)?, 0.0);
+        assert_eq!(interp.interpolate(1.0)?, 1.0);
+        assert_eq!(interp.interpolate(2.0)?, 4.0);
+        
+        // Test interpolation
+        assert_relative_eq!(interp.interpolate(0.5)?, 0.5, epsilon = 1e-10);
+        assert_relative_eq!(interp.interpolate(1.5)?, 2.5, epsilon = 1e-10);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_cubic_spline_interpolation() -> Result<()> {
         let x_data = vec![0.0, 1.0, 2.0, 3.0];
         let y_data = vec![0.0, 1.0, 4.0, 9.0];
         
-        let interp = LinearInterpolation::new(x_data, y_data).expect("CRITICAL: Add proper error handling");
+        let spline = CubicSplineInterpolation::new(x_data, y_data)?;
         
         // Test exact points
-        assert_eq!(interp.interpolate(0.0).expect("CRITICAL: Add proper error handling"), 0.0);
-        assert_eq!(interp.interpolate(1.0).expect("CRITICAL: Add proper error handling"), 1.0);
-        assert_eq!(interp.interpolate(2.0).expect("CRITICAL: Add proper error handling"), 4.0);
+        assert_relative_eq!(spline.interpolate(0.0)?, 0.0, epsilon = 1e-10);
+        assert_relative_eq!(spline.interpolate(2.0)?, 4.0, epsilon = 1e-10);
         
-        // Test interpolation
-        assert_relative_eq!(interp.interpolate(0.5).expect("CRITICAL: Add proper error handling"), 0.5, epsilon = 1e-10);
-        assert_relative_eq!(interp.interpolate(1.5).expect("CRITICAL: Add proper error handling"), 2.5, epsilon = 1e-10);
+        // Test smoothness (approximate for quadratic)
+        assert_relative_eq!(spline.interpolate(1.5)?, 2.25, epsilon = 0.1);
+        assert_relative_eq!(spline.interpolate(2.5)?, 6.25, epsilon = 0.1);
+        
+        Ok(())
     }
 
     #[test]
-    fn test_cubic_spline() {
-        // Test with a known function: y = x^2
-        let x_data = vec![0.0, 1.0, 2.0, 3.0, 4.0];
-        let y_data = vec![0.0, 1.0, 4.0, 9.0, 16.0];
-        
-        let spline = CubicSplineInterpolation::new(x_data, y_data).expect("CRITICAL: Add proper error handling");
-        
-        // Test at data points
-        assert_relative_eq!(spline.interpolate(0.0).expect("CRITICAL: Add proper error handling"), 0.0, epsilon = 1e-10);
-        assert_relative_eq!(spline.interpolate(2.0).expect("CRITICAL: Add proper error handling"), 4.0, epsilon = 1e-10);
-        
-        // Test interpolation (should be close to x^2)
-        assert_relative_eq!(spline.interpolate(1.5).expect("CRITICAL: Add proper error handling"), 2.25, epsilon = 0.1);
-        assert_relative_eq!(spline.interpolate(2.5).expect("CRITICAL: Add proper error handling"), 6.25, epsilon = 0.1);
-    }
-
-    #[test]
-    fn test_lagrange_interpolation() {
-        // Test with a quadratic function
+    fn test_lagrange_interpolation() -> Result<()> {
         let x_data = vec![0.0, 1.0, 2.0];
-        let y_data = vec![1.0, 3.0, 7.0]; // y = x^2 + x + 1
+        let y_data = vec![1.0, 3.0, 7.0];
         
-        let interp = LagrangeInterpolation::new(x_data, y_data).expect("CRITICAL: Add proper error handling");
+        let interp = LagrangeInterpolation::new(x_data, y_data)?;
         
-        // Test exact recovery at nodes
-        assert_relative_eq!(interp.interpolate(0.0).expect("CRITICAL: Add proper error handling"), 1.0, epsilon = 1e-10);
-        assert_relative_eq!(interp.interpolate(1.0).expect("CRITICAL: Add proper error handling"), 3.0, epsilon = 1e-10);
-        assert_relative_eq!(interp.interpolate(2.0).expect("CRITICAL: Add proper error handling"), 7.0, epsilon = 1e-10);
+        // Test exact points
+        assert_relative_eq!(interp.interpolate(0.0)?, 1.0, epsilon = 1e-10);
+        assert_relative_eq!(interp.interpolate(1.0)?, 3.0, epsilon = 1e-10);
+        assert_relative_eq!(interp.interpolate(2.0)?, 7.0, epsilon = 1e-10);
         
-        // Test at intermediate point
-        assert_relative_eq!(interp.interpolate(0.5).expect("CRITICAL: Add proper error handling"), 1.75, epsilon = 1e-10);
+        // Test interpolation (quadratic: y = x^2 + x + 1)
+        assert_relative_eq!(interp.interpolate(0.5)?, 1.75, epsilon = 1e-10);
+        
+        Ok(())
     }
 }

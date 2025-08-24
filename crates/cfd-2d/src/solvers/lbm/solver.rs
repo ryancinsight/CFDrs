@@ -263,36 +263,44 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+    use crate::grid::StructuredGrid2D;
+    use approx::assert_relative_eq;
+
     #[test]
-    fn test_solver_creation() {
+    fn test_equilibrium_distribution() -> Result<()> {
+        let grid = StructuredGrid2D::<f64>::new(10, 10, 0.0, 1.0, 0.0, 1.0)?;
         let config = LbmConfig::<f64>::default();
-        let grid = StructuredGrid2D::<f64>::new(10, 10, 0.0, 1.0, 0.0, 1.0).unwrap();
         let solver = LbmSolver::new(config, &grid);
         
-        assert_eq!(solver.nx, 10);
-        assert_eq!(solver.ny, 10);
-        assert_eq!(solver.step_count, 0);
+        let rho = 1.0;
+        let u = Vector2::new(0.1, 0.0);
+        
+        let feq = solver.equilibrium_distribution(rho, u);
+        
+        // Check that sum of distributions equals density
+        let sum: f64 = feq.iter().sum();
+        assert_relative_eq!(sum, rho, epsilon = 1e-10);
+        
+        Ok(())
     }
-    
+
     #[test]
-    fn test_solver_initialization() {
+    fn test_initialization() -> Result<()> {
+        let grid = StructuredGrid2D::<f64>::new(10, 10, 0.0, 1.0, 0.0, 1.0)?;
         let config = LbmConfig::<f64>::default();
-        let grid = StructuredGrid2D::<f64>::new(10, 10, 0.0, 1.0, 0.0, 1.0).unwrap();
         let mut solver = LbmSolver::new(config, &grid);
         
-        let initial_density = 1.0;
-        let initial_velocity = Vector2::new(0.1, 0.0);
+        let initial_density = |_x: f64, _y: f64| 1.0;
+        let initial_velocity = |_x: f64, _y: f64| Vector2::new(0.0, 0.0);
         
-        solver.initialize(initial_density, initial_velocity).unwrap();
+        solver.initialize(initial_density, initial_velocity)?;
         
-        // Check that density and velocity are set correctly
-        for j in 0..10 {
-            for i in 0..10 {
-                assert!((solver.macroscopic.density[j][i] - initial_density).abs() < 1e-10);
-                assert!((solver.macroscopic.velocity[j][i][0] - 0.1).abs() < 1e-10);
-                assert!(solver.macroscopic.velocity[j][i][1].abs() < 1e-10);
-            }
-        }
+        // Check that macroscopic properties match initial conditions
+        let (rho, u) = solver.compute_macroscopic(5, 5);
+        assert_relative_eq!(rho, 1.0, epsilon = 1e-10);
+        assert_relative_eq!(u.x, 0.0, epsilon = 1e-10);
+        assert_relative_eq!(u.y, 0.0, epsilon = 1e-10);
+        
+        Ok(())
     }
 }

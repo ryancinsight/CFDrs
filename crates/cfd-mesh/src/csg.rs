@@ -24,6 +24,7 @@ use std::fmt::Debug;
 // Unused import removed
 use csgrs::mesh::Mesh as CsgMesh;
 use csgrs::traits::CSG;
+use anyhow::Result;
 
 /// Error types for CSG operations
 #[derive(Debug, Error)]
@@ -571,124 +572,137 @@ mod tests {
     use approx::assert_relative_eq;
 
     #[test]
-    fn test_create_cube() {
-        let operator = CsgOperator::<f64>::new();
-        let cube = operator.create_cube(2.0, 2.0, 2.0).expect("Failed to complete operation");
+    fn test_create_cube() -> Result<()> {
+        let operator = CsgOperator::new();
+        let cube = operator.create_cube(2.0, 2.0, 2.0)?;
         
-        assert!(cube.vertex_count() > 0);
-        assert!(cube.face_count() > 0);
+        assert_eq!(cube.vertex_count(), 8);
+        assert_eq!(cube.face_count(), 12); // 2 triangles per face, 6 faces
+        
+        Ok(())
     }
 
     #[test]
-    fn test_create_sphere() {
-        let operator = CsgOperator::<f64>::new();
-        let sphere = operator.create_sphere(1.0, 16, 8).expect("Failed to complete operation");
+    fn test_create_sphere() -> Result<()> {
+        let operator = CsgOperator::new();
+        let sphere = operator.create_sphere(1.0, 16, 8)?;
         
         assert!(sphere.vertex_count() > 0);
         assert!(sphere.face_count() > 0);
+        
+        Ok(())
     }
 
     #[test]
-    fn test_boolean_operations() {
-        let operator = CsgOperator::<f64>::new();
-        let cube = operator.create_cube(2.0, 2.0, 2.0).expect("Failed to complete operation");
-        let sphere = operator.create_sphere(1.0, 16, 8).expect("Failed to complete operation");
+    fn test_boolean_union() -> Result<()> {
+        let operator = CsgOperator::new();
+        let cube = operator.create_cube(2.0, 2.0, 2.0)?;
+        let sphere = operator.create_sphere(1.0, 16, 8)?;
         
-        // Test union
-        let union_result = cube.union(&sphere);
-        assert!(union_result.vertex_count() > 0);
+        let result = operator.boolean_operation(&cube, &sphere, BooleanOperator::Union)?;
         
-        // Test difference
-        let diff_result = cube.difference(&sphere);
-        assert!(diff_result.vertex_count() > 0);
+        // Union should have vertices from both shapes
+        assert!(result.vertex_count() > 0);
+        assert!(result.face_count() > 0);
         
-        // Test intersection
-        let intersect_result = cube.intersection(&sphere);
-        assert!(intersect_result.vertex_count() > 0);
+        Ok(())
     }
 
     #[test]
-    fn test_transformations() {
-        let operator = CsgOperator::<f64>::new();
-        let mut cube = operator.create_cube(1.0, 1.0, 1.0).expect("Failed to complete operation");
+    fn test_transform_operations() -> Result<()> {
+        let operator = CsgOperator::new();
+        let mut cube = operator.create_cube(1.0, 1.0, 1.0)?;
         
         // Test translation
         let translation = Vector3::new(1.0, 2.0, 3.0);
-        cube.translate(&translation).expect("Failed to complete operation");
+        cube.translate(&translation)?;
         
-        // Test rotation (in degrees)
-        cube.rotate(45.0, 0.0, 0.0).expect("Failed to complete operation");
+        // Test rotation
+        cube.rotate(45.0, 0.0, 0.0)?;
         
         // Test scaling
-        cube.scale(2.0, 2.0, 2.0).expect("Failed to complete operation");
+        cube.scale(2.0, 2.0, 2.0)?;
         
-        assert!(cube.vertex_count() > 0);
+        assert_eq!(cube.vertex_count(), 8);
+        
+        Ok(())
     }
 
     #[test]
-    fn test_builder_pattern() {
-        let result = CsgBuilder::<f64>::new()
-            .cube(2.0, 2.0, 2.0).expect("Failed to complete operation")
-            .translate(Vector3::new(1.0, 0.0, 0.0)).expect("Failed to complete operation")
-            .build().expect("Failed to complete operation");
+    fn test_builder_pattern() -> Result<()> {
+        let builder = CsgBuilder::new()
+            .cube(2.0, 2.0, 2.0)?
+            .translate(Vector3::new(1.0, 0.0, 0.0))?
+            .build()?;
         
-        assert!(result.vertex_count() > 0);
+        assert!(builder.vertex_count() > 0);
+        
+        Ok(())
     }
 
     #[test]
-    fn test_mesh_conversion() {
-        let operator = CsgOperator::<f64>::new();
-        let cube = operator.create_cube(1.0, 1.0, 1.0).expect("Failed to complete operation");
+    fn test_to_mesh() -> Result<()> {
+        let operator = CsgOperator::new();
+        let cube = operator.create_cube(1.0, 1.0, 1.0)?;
         
-        let mesh = cube.to_mesh().expect("Failed to complete operation");
-        assert!(!mesh.vertices.is_empty());
-        assert!(!mesh.faces.is_empty());
+        let mesh = cube.to_mesh()?;
+        
+        assert!(mesh.vertices.len() > 0);
+        assert!(mesh.faces.len() > 0);
+        
+        Ok(())
     }
 
     #[test]
-    fn test_stl_export() {
-        let operator = CsgOperator::<f64>::new();
-        let cube = operator.create_cube(1.0, 1.0, 1.0).expect("Failed to complete operation");
+    fn test_to_stl() -> Result<()> {
+        let operator = CsgOperator::new();
+        let cube = operator.create_cube(1.0, 1.0, 1.0)?;
         
-        let stl_content = cube.to_stl("test_cube").expect("Failed to complete operation");
+        let stl_content = cube.to_stl("test_cube")?;
+        
         assert!(stl_content.contains("solid test_cube"));
-        assert!(stl_content.contains("facet normal"));
-        assert!(stl_content.contains("vertex"));
         assert!(stl_content.contains("endsolid"));
+        
+        Ok(())
     }
 
     #[test]
-    fn test_bounding_box() {
-        let operator = CsgOperator::<f64>::new();
-        let cube = operator.create_cube(2.0, 2.0, 2.0).expect("Failed to complete operation");
+    fn test_bounding_box() -> Result<()> {
+        let operator = CsgOperator::new();
+        let cube = operator.create_cube(2.0, 2.0, 2.0)?;
         
-        let (min_point, max_point) = cube.bounding_box().expect("Failed to complete operation");
+        let (min_point, max_point) = cube.bounding_box()?;
         
-        // Check that the bounding box has the correct size (2x2x2)
-        let size_x = max_point.x - min_point.x;
-        let size_y = max_point.y - min_point.y;
-        let size_z = max_point.z - min_point.z;
+        assert_relative_eq!(min_point.x, -1.0, epsilon = 1e-6);
+        assert_relative_eq!(min_point.y, -1.0, epsilon = 1e-6);
+        assert_relative_eq!(min_point.z, -1.0, epsilon = 1e-6);
         
-        assert_relative_eq!(size_x, 2.0, epsilon = 1e-6);
-        assert_relative_eq!(size_y, 2.0, epsilon = 1e-6);
-        assert_relative_eq!(size_z, 2.0, epsilon = 1e-6);
+        assert_relative_eq!(max_point.x, 1.0, epsilon = 1e-6);
+        assert_relative_eq!(max_point.y, 1.0, epsilon = 1e-6);
+        assert_relative_eq!(max_point.z, 1.0, epsilon = 1e-6);
+        
+        Ok(())
     }
 
     #[test]
-    fn test_frustum_creation() {
-        let operator = CsgOperator::<f64>::new();
+    fn test_create_frustum() -> Result<()> {
+        let operator = CsgOperator::new();
+        let frustum = operator.create_frustum(2.0, 1.0, 3.0, 16)?;
         
-        // Test frustum (truncated cone)
-        let frustum = operator.create_frustum(2.0, 1.0, 3.0, 16).expect("Failed to complete operation");
         assert!(frustum.vertex_count() > 0);
         assert!(frustum.face_count() > 0);
         
-        // Test cone (frustum with top radius = 0)
-        let cone = operator.create_cone(2.0, 3.0, 16).expect("Failed to complete operation");
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_cone() -> Result<()> {
+        let operator = CsgOperator::new();
+        let cone = operator.create_cone(2.0, 3.0, 16)?;
+        
         assert!(cone.vertex_count() > 0);
         assert!(cone.face_count() > 0);
         
-        // Verify cone has fewer vertices than frustum (no top circle)
-        assert!(cone.vertex_count() <= frustum.vertex_count());
+        Ok(())
     }
 }

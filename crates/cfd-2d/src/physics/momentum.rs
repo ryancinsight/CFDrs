@@ -119,10 +119,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MomentumSolver<T> {
                 let v = fields.v.at(i, j);
                 
                 // Face velocities (using linear interpolation)
-                let ue = (fields.u.at(i, j) + fields.u.at(i+1, j)) * T::from_f64(0.5).unwrap();
-                let uw = (fields.u.at(i-1, j) + fields.u.at(i, j)) * T::from_f64(0.5).unwrap();
-                let vn = (fields.v.at(i, j) + fields.v.at(i, j+1)) * T::from_f64(0.5).unwrap();
-                let vs = (fields.v.at(i, j-1) + fields.v.at(i, j)) * T::from_f64(0.5).unwrap();
+                let ue = (fields.u.at(i, j) + fields.u.at(i+1, j)) * T::from_f64(0.5).ok_or_else(|| 
+                    cfd_core::Error::Numerical("Cannot convert 0.5 to target type".into()))?;
+                let uw = (fields.u.at(i-1, j) + fields.u.at(i, j)) * T::from_f64(0.5).ok_or_else(|| 
+                    cfd_core::Error::Numerical("Cannot convert 0.5 to target type".into()))?;
+                let vn = (fields.v.at(i, j) + fields.v.at(i, j+1)) * T::from_f64(0.5).ok_or_else(|| 
+                    cfd_core::Error::Numerical("Cannot convert 0.5 to target type".into()))?;
+                let vs = (fields.v.at(i, j-1) + fields.v.at(i, j)) * T::from_f64(0.5).ok_or_else(|| 
+                    cfd_core::Error::Numerical("Cannot convert 0.5 to target type".into()))?;
                 
                 // Mass fluxes
                 let fe = fields.density.at(i, j) * ue * self.dy;

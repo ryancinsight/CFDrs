@@ -111,3 +111,42 @@ pub mod lbm {
     pub const TAU_MIN: f64 = 0.5;
     pub const TAU_MAX: f64 = 2.0;
 }
+
+/// Common mathematical constants for numerical computations
+pub mod math {
+    /// Half value constant
+    pub const HALF: f64 = 0.5;
+    
+    /// One and a half
+    pub const ONE_AND_HALF: f64 = 1.5;
+    
+    /// Two
+    pub const TWO: f64 = 2.0;
+    
+    /// Three
+    pub const THREE: f64 = 3.0;
+    
+    /// Four
+    pub const FOUR: f64 = 4.0;
+    
+    /// Quarter value
+    pub const QUARTER: f64 = 0.25;
+    
+    /// Three quarters
+    pub const THREE_QUARTERS: f64 = 0.75;
+    
+    /// One and a quarter
+    pub const ONE_AND_QUARTER: f64 = 1.25;
+    
+    /// Two and a half
+    pub const TWO_AND_HALF: f64 = 2.5;
+    
+    /// Two thirds
+    pub const TWO_THIRDS: f64 = 2.0 / 3.0;
+    
+    /// Pi squared
+    pub const PI_SQUARED: f64 = std::f64::consts::PI * std::f64::consts::PI;
+    
+    /// Two Pi
+    pub const TWO_PI: f64 = 2.0 * std::f64::consts::PI;
+}

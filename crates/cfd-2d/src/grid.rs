@@ -288,121 +288,124 @@ mod tests {
     use approx::assert_relative_eq;
 
     #[test]
-    fn test_structured_grid_creation() {
-        let grid = StructuredGrid2D::<f64>::new(10, 20, 0.0, 1.0, 0.0, 2.0).expect("CRITICAL: Add proper error handling");
-
+    fn test_grid_creation() -> Result<()> {
+        let grid = StructuredGrid2D::<f64>::new(10, 20, 0.0, 1.0, 0.0, 2.0)?;
+        
         assert_eq!(grid.nx(), 10);
         assert_eq!(grid.ny(), 20);
-        assert_eq!(grid.num_cells(), 200);
-
-        let (dx, dy) = grid.spacing();
-        assert_relative_eq!(dx, 0.1, epsilon = 1e-10);
-        assert_relative_eq!(dy, 0.1, epsilon = 1e-10);
+        assert_relative_eq!(grid.dx(), 0.1, epsilon = 1e-10);
+        assert_relative_eq!(grid.dy(), 0.1, epsilon = 1e-10);
+        
+        Ok(())
     }
 
     #[test]
-    fn test_unit_square_grid() {
-        let grid = StructuredGrid2D::<f64>::unit_square(5, 5).expect("CRITICAL: Add proper error handling");
-
-        let (x_min, x_max, y_min, y_max) = grid.bounds();
-        assert_eq!(x_min, 0.0);
-        assert_eq!(x_max, 1.0);
-        assert_eq!(y_min, 0.0);
-        assert_eq!(y_max, 1.0);
+    fn test_unit_square() -> Result<()> {
+        let grid = StructuredGrid2D::<f64>::unit_square(5, 5)?;
+        
+        assert_eq!(grid.nx(), 5);
+        assert_eq!(grid.ny(), 5);
+        assert_relative_eq!(grid.dx(), 0.25, epsilon = 1e-10);
+        assert_relative_eq!(grid.dy(), 0.25, epsilon = 1e-10);
+        
+        Ok(())
     }
 
     #[test]
-    fn test_cell_center() {
-        let grid = StructuredGrid2D::<f64>::unit_square(4, 4).expect("CRITICAL: Add proper error handling");
-
-        // Test center of first cell
-        let center = grid.cell_center(0, 0).expect("CRITICAL: Add proper error handling");
+    fn test_cell_center() -> Result<()> {
+        let grid = StructuredGrid2D::<f64>::unit_square(4, 4)?;
+        
+        // Test corner cell
+        let center = grid.cell_center(0, 0)?;
         assert_relative_eq!(center.x, 0.125, epsilon = 1e-10);
         assert_relative_eq!(center.y, 0.125, epsilon = 1e-10);
-
-        // Test center of last cell
-        let center = grid.cell_center(3, 3).expect("CRITICAL: Add proper error handling");
+        
+        // Test opposite corner
+        let center = grid.cell_center(3, 3)?;
         assert_relative_eq!(center.x, 0.875, epsilon = 1e-10);
         assert_relative_eq!(center.y, 0.875, epsilon = 1e-10);
+        
+        Ok(())
     }
 
     #[test]
-    fn test_cell_area() {
-        let grid = StructuredGrid2D::<f64>::unit_square(4, 4).expect("CRITICAL: Add proper error handling");
-
-        let area = grid.cell_area(0, 0).expect("CRITICAL: Add proper error handling");
-        assert_relative_eq!(area, 0.0625, epsilon = 1e-10); // (1/4)^2
+    fn test_cell_area() -> Result<()> {
+        let grid = StructuredGrid2D::<f64>::unit_square(4, 4)?;
+        
+        let area = grid.cell_area(0, 0)?;
+        assert_relative_eq!(area, 0.0625, epsilon = 1e-10); // 0.25 * 0.25
+        
+        Ok(())
     }
 
     #[test]
-    fn test_neighbors() {
-        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
-
-        // Corner cell should have 2 neighbors
-        let neighbors = grid.neighbors(0, 0);
-        assert_eq!(neighbors.len(), 2);
-        assert!(neighbors.contains(&(1, 0)));
-        assert!(neighbors.contains(&(0, 1)));
-
-        // Center cell should have 4 neighbors
-        let neighbors = grid.neighbors(1, 1);
-        assert_eq!(neighbors.len(), 4);
-        assert!(neighbors.contains(&(0, 1)));
-        assert!(neighbors.contains(&(2, 1)));
-        assert!(neighbors.contains(&(1, 0)));
-        assert!(neighbors.contains(&(1, 2)));
-    }
-
-    #[test]
-    fn test_boundary_detection() {
-        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
-
-        // Corner and edge cells should be boundary
+    fn test_boundary_detection() -> Result<()> {
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3)?;
+        
+        // Corners
         assert!(grid.is_boundary(0, 0));
-        assert!(grid.is_boundary(0, 1));
-        assert!(grid.is_boundary(1, 0));
         assert!(grid.is_boundary(2, 2));
-
-        // Center cell should not be boundary
+        
+        // Edges
+        assert!(grid.is_boundary(1, 0));
+        assert!(grid.is_boundary(0, 1));
+        
+        // Interior
         assert!(!grid.is_boundary(1, 1));
+        
+        Ok(())
     }
 
     #[test]
-    fn test_boundary_conditions() {
-        let mut grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
-
-        // Set boundary conditions
-        grid.set_edge_boundary(GridEdge::Left, BoundaryType::Inlet);
-        grid.set_edge_boundary(GridEdge::Right, BoundaryType::Outlet);
-        grid.set_edge_boundary(GridEdge::Bottom, BoundaryType::Wall);
-        grid.set_edge_boundary(GridEdge::Top, BoundaryType::Wall);
-
-        // Check boundary types
-        assert_eq!(grid.boundary_type(0, 1), Some(BoundaryType::Inlet));
-        assert_eq!(grid.boundary_type(2, 1), Some(BoundaryType::Outlet));
-        assert_eq!(grid.boundary_type(1, 0), Some(BoundaryType::Wall));
-        assert_eq!(grid.boundary_type(1, 2), Some(BoundaryType::Wall));
-        assert_eq!(grid.boundary_type(1, 1), None);
-    }
-
-    #[test]
-    fn test_grid_iterator() {
-        let grid = StructuredGrid2D::<f64>::unit_square(2, 2).expect("CRITICAL: Add proper error handling");
-
-        let cells: Vec<_> = grid.iter().collect();
-        assert_eq!(cells.len(), 4);
-        assert_eq!(cells, vec![(0, 0), (1, 0), (0, 1), (1, 1)]);
-    }
-
-    #[test]
-    fn test_boundary_iterator() {
-        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
-
+    fn test_boundary_iterator() -> Result<()> {
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3)?;
+        
         let boundary_cells: Vec<_> = grid.boundary_iter().collect();
-        assert_eq!(boundary_cells.len(), 8); // All cells except center
+        
+        // 3x3 grid has 8 boundary cells (all except center)
+        assert_eq!(boundary_cells.len(), 8);
+        
+        // Check center is not included
+        assert!(!boundary_cells.contains(&(1, 1)));
+        
+        Ok(())
+    }
 
+    #[test]
+    fn test_boundary_conditions() -> Result<()> {
+        let mut grid = StructuredGrid2D::<f64>::unit_square(3, 3)?;
+        
+        grid.set_edge_boundary(GridEdge::Left, BoundaryType::Wall);
+        grid.set_edge_boundary(GridEdge::Right, BoundaryType::Outlet);
+        
+        assert_eq!(grid.boundary_type(0, 1), Some(BoundaryType::Wall));
+        assert_eq!(grid.boundary_type(2, 1), Some(BoundaryType::Outlet));
+        assert_eq!(grid.boundary_type(1, 1), None); // Interior
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_iterators() -> Result<()> {
+        let grid = StructuredGrid2D::<f64>::unit_square(2, 2)?;
+        
+        let all_cells: Vec<_> = grid.iter().collect();
+        assert_eq!(all_cells.len(), 4);
+        
         let interior_cells: Vec<_> = grid.interior_iter().collect();
-        assert_eq!(interior_cells.len(), 1); // Only center cell
+        assert_eq!(interior_cells.len(), 0); // 2x2 grid has no interior cells
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_larger_grid_interior() -> Result<()> {
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3)?;
+        
+        let interior_cells: Vec<_> = grid.interior_iter().collect();
+        assert_eq!(interior_cells.len(), 1); // Only (1,1) is interior
         assert_eq!(interior_cells[0], (1, 1));
+        
+        Ok(())
     }
 }

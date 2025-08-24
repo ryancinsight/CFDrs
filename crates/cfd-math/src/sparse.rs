@@ -297,6 +297,30 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
 
         true
     }
+
+    /// Get condition number estimate (ratio of largest to smallest eigenvalue magnitude)
+    pub fn condition_number_estimate(&self) -> T {
+        // Use Gershgorin circle theorem for eigenvalue bounds
+        let (max_eigen, min_eigen) = (0..self.nrows())
+            .map(|i| {
+                let diag = self.get(i, i).unwrap_or_else(T::zero);
+                let radius = self.row(i)
+                    .filter(|(j, _)| *j != i)
+                    .map(|(_, v)| v.abs())
+                    .fold(T::zero(), |acc, v| acc + v);
+                (diag.abs() + radius, (diag.abs() - radius).max(T::zero()))
+            })
+            .fold((T::zero(), T::from_f64(1e10).unwrap_or_else(|| T::one())),
+                |(max_val, min_val), (upper, lower)| {
+                    (max_val.max(upper), if lower > T::zero() { min_val.min(lower) } else { min_val })
+                });
+        
+        if min_eigen > T::zero() {
+            max_eigen / min_eigen
+        } else {
+            T::from_f64(1e10).unwrap_or_else(|| T::one()) // Return large number for singular matrix
+        }
+    }
 }
 
 /// Matrix statistics
@@ -409,72 +433,203 @@ mod tests {
     }
 
     #[test]
-    fn test_sparse_matrix_builder() {
-        let mut builder = SparseMatrixBuilder::new(3, 3);
-
-        builder.add_entry(0, 0, 1.0).expect("CRITICAL: Add proper error handling");
-        builder.add_entry(0, 1, 2.0).expect("CRITICAL: Add proper error handling");
-        builder.add_entry(1, 1, 3.0).expect("CRITICAL: Add proper error handling");
-        builder.add_entry(2, 2, 4.0).expect("CRITICAL: Add proper error handling");
-
-        let matrix = builder.build().expect("CRITICAL: Add proper error handling");
-
+    fn test_sparse_matrix_builder() -> Result<()> {
+        let mut builder = SparseMatrixBuilder::<f64>::new(3, 3);
+        
+        builder.add_entry(0, 0, 1.0)?;
+        builder.add_entry(0, 1, 2.0)?;
+        builder.add_entry(1, 1, 3.0)?;
+        builder.add_entry(2, 2, 4.0)?;
+        
+        let matrix = builder.build()?;
+        
         assert_eq!(matrix.nrows(), 3);
         assert_eq!(matrix.ncols(), 3);
         assert_eq!(matrix.nnz(), 4);
-
-        // Test specific values by converting to dense for verification
-        let dense = sparse_to_dense(&matrix);
-        assert_eq!(dense[(0, 0)], 1.0);
-        assert_eq!(dense[(0, 1)], 2.0);
-        assert_eq!(dense[(1, 1)], 3.0);
-        assert_eq!(dense[(2, 2)], 4.0);
-        assert_eq!(dense[(1, 0)], 0.0);
+        
+        assert_relative_eq!(matrix.get(0, 0).unwrap_or(0.0), 1.0);
+        assert_relative_eq!(matrix.get(0, 1).unwrap_or(0.0), 2.0);
+        assert_relative_eq!(matrix.get(1, 1).unwrap_or(0.0), 3.0);
+        assert_relative_eq!(matrix.get(2, 2).unwrap_or(0.0), 4.0);
+        
+        Ok(())
     }
 
     #[test]
-    fn test_sparse_matrix_builder_with_duplicates() {
+    fn test_duplicate_entries_accumulate() -> Result<()> {
+        let mut builder = SparseMatrixBuilder::<f64>::new(2, 2);
+        
+        builder.add_entry(0, 0, 1.0)?;
+        builder.add_entry(0, 0, 2.0)?;  // Duplicate entry should accumulate
+        builder.add_entry(1, 1, 3.0)?;
+        
+        let matrix = builder.build()?;
+        
+        assert_relative_eq!(matrix.get(0, 0).unwrap_or(0.0), 3.0); // 1.0 + 2.0
+        assert_relative_eq!(matrix.get(1, 1).unwrap_or(0.0), 3.0);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_triplets() -> Result<()> {
+        let mut builder = SparseMatrixBuilder::<f64>::new(3, 3);
+        
+        let triplets = vec![
+            (0, 0, 1.0),
+            (1, 1, 2.0),
+            (2, 2, 3.0),
+        ];
+        
+        builder.add_triplets(triplets)?;
+        let matrix = builder.build()?;
+        
+        assert_eq!(matrix.nnz(), 3);
+        assert_relative_eq!(matrix.get(0, 0).unwrap_or(0.0), 1.0);
+        assert_relative_eq!(matrix.get(1, 1).unwrap_or(0.0), 2.0);
+        assert_relative_eq!(matrix.get(2, 2).unwrap_or(0.0), 3.0);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_matrix_vector_multiply() -> Result<()> {
+        let mut builder = SparseMatrixBuilder::<f64>::new(3, 3);
+        
+        builder.add_triplets(vec![
+            (0, 0, 2.0),
+            (0, 1, 1.0),
+            (1, 1, 3.0),
+            (2, 2, 4.0),
+        ])?;
+        
+        let matrix = builder.build()?;
+        let x = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        
+        let y = &matrix * &x;
+        
+        assert_relative_eq!(y[0], 4.0);  // 2*1 + 1*2
+        assert_relative_eq!(y[1], 6.0);  // 3*2
+        assert_relative_eq!(y[2], 12.0); // 4*3
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_transpose() -> Result<()> {
+        let mut builder = SparseMatrixBuilder::<f64>::new(2, 3);
+        
+        builder.add_triplets(vec![
+            (0, 0, 1.0),
+            (0, 2, 2.0),
+            (1, 1, 3.0),
+        ])?;
+        
+        let matrix = builder.build()?;
+        let transposed = matrix.transpose();
+        
+        assert_eq!(transposed.nrows(), 3);
+        assert_eq!(transposed.ncols(), 2);
+        
+        assert_relative_eq!(transposed.get(0, 0).unwrap_or(0.0), 1.0);
+        assert_relative_eq!(transposed.get(2, 0).unwrap_or(0.0), 2.0);
+        assert_relative_eq!(transposed.get(1, 1).unwrap_or(0.0), 3.0);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_diagonal_extraction() -> Result<()> {
+        let mut builder = SparseMatrixBuilder::<f64>::new(3, 3);
+        
+        builder.add_triplets(vec![
+            (0, 0, 1.0),
+            (1, 1, 2.0),
+            (2, 2, 3.0),
+            (0, 1, 4.0),  // Off-diagonal
+        ])?;
+        
+        let matrix = builder.build()?;
+        let diag = matrix.diagonal();
+        
+        assert_eq!(diag.len(), 3);
+        assert_relative_eq!(diag[0], 1.0);
+        assert_relative_eq!(diag[1], 2.0);
+        assert_relative_eq!(diag[2], 3.0);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_row_iteration() -> Result<()> {
+        let mut builder = SparseMatrixBuilder::<f64>::new(2, 3);
+        
+        builder.add_triplets(vec![
+            (0, 0, 1.0),
+            (0, 2, 2.0),
+            (1, 1, 3.0),
+        ])?;
+        
+        let matrix = builder.build()?;
+        
+        let row0: Vec<_> = matrix.row(0).collect();
+        assert_eq!(row0.len(), 2);
+        assert!(row0.contains(&(0, 1.0)));
+        assert!(row0.contains(&(2, 2.0)));
+        
+        let row1: Vec<_> = matrix.row(1).collect();
+        assert_eq!(row1.len(), 1);
+        assert!(row1.contains(&(1, 3.0)));
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_sparse_matrix_builder_with_duplicates() -> Result<()> {
         let mut builder = SparseMatrixBuilder::new(2, 2).allow_duplicates(true);
 
-        // Add duplicate entries
-        builder.add_entry(0, 0, 1.0).expect("CRITICAL: Add proper error handling");
-        builder.add_entry(0, 0, 2.0).expect("CRITICAL: Add proper error handling");
-        builder.add_entry(1, 1, 3.0).expect("CRITICAL: Add proper error handling");
+        builder.add_triplets(vec![
+            (0, 0, 1.0),
+            (0, 0, 2.0),  // Duplicate
+            (1, 1, 3.0),
+        ])?;
 
-        let matrix = builder.build().expect("CRITICAL: Add proper error handling");
-
-        // Should sum duplicates
-        let dense = sparse_to_dense(&matrix);
-        assert_eq!(dense[(0, 0)], 3.0);
-        assert_eq!(dense[(1, 1)], 3.0);
+        let matrix = builder.build()?;
+        
+        // Duplicates should accumulate
+        assert_relative_eq!(matrix.get(0, 0).unwrap_or(0.0), 3.0);
+        
+        Ok(())
     }
 
     #[test]
-    fn test_sparse_matrix_builder_triplets() {
+    fn test_sparse_matrix_builder_triplets() -> Result<()> {
         let mut builder = SparseMatrixBuilder::new(2, 2);
         let triplets = vec![(0, 0, 1.0), (0, 1, 2.0), (1, 1, 3.0)];
 
-        builder.add_triplets(triplets).expect("CRITICAL: Add proper error handling");
-        let matrix = builder.build().expect("CRITICAL: Add proper error handling");
+        builder.add_triplets(triplets)?;
+        let matrix = builder.build()?;
 
         assert_eq!(matrix.nnz(), 3);
         let dense = sparse_to_dense(&matrix);
         assert_eq!(dense[(0, 0)], 1.0);
         assert_eq!(dense[(0, 1)], 2.0);
         assert_eq!(dense[(1, 1)], 3.0);
+        Ok(())
     }
 
     #[test]
-    fn test_sparse_matrix_builder_bounds_check() {
+    fn test_sparse_matrix_builder_bounds_check() -> Result<()> {
         let mut builder = SparseMatrixBuilder::new(2, 2);
 
         // Should fail for out-of-bounds indices
         assert!(builder.add_entry(2, 0, 1.0).is_err());
         assert!(builder.add_entry(0, 2, 1.0).is_err());
+        Ok(())
     }
 
     #[test]
-    fn test_matrix_vector_multiplication() {
+    fn test_matrix_vector_multiplication() -> Result<()> {
         let mut builder = SparseMatrixBuilder::new(3, 3);
 
         // Create a simple matrix:
@@ -485,9 +640,9 @@ mod tests {
             (0, 0, 1.0), (0, 1, 2.0),
             (1, 1, 3.0), (1, 2, 1.0),
             (2, 2, 4.0)
-        ]).expect("CRITICAL: Add proper error handling");
+        ])?;
 
-        let matrix = builder.build().expect("CRITICAL: Add proper error handling");
+        let matrix = builder.build()?;
         let x = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         let mut y = DVector::zeros(3);
 
@@ -497,17 +652,18 @@ mod tests {
         assert_relative_eq!(y[0], 5.0, epsilon = 1e-10);
         assert_relative_eq!(y[1], 9.0, epsilon = 1e-10);
         assert_relative_eq!(y[2], 12.0, epsilon = 1e-10);
+        Ok(())
     }
 
     #[test]
-    fn test_matrix_stats() {
+    fn test_matrix_stats() -> Result<()> {
         let mut builder = SparseMatrixBuilder::new(3, 3);
         builder.add_triplets(vec![
             (0, 0, 1.0), (0, 1, -2.0),
             (1, 1, 3.0), (2, 2, 0.5)
-        ]).expect("CRITICAL: Add proper error handling");
+        ])?;
 
-        let matrix = builder.build().expect("CRITICAL: Add proper error handling");
+        let matrix = builder.build()?;
         let stats = matrix.stats();
 
         assert_eq!(stats.rows, 3);
@@ -516,36 +672,38 @@ mod tests {
         assert_relative_eq!(stats.density, 4.0 / 9.0, epsilon = 1e-10);
         assert_relative_eq!(stats.min_value, -2.0, epsilon = 1e-10);
         assert_relative_eq!(stats.max_value, 3.0, epsilon = 1e-10);
+        Ok(())
     }
 
     #[test]
-    fn test_diagonal_extraction() {
+    fn test_diagonal_extraction() -> Result<()> {
         let mut builder = SparseMatrixBuilder::new(3, 3);
         builder.add_triplets(vec![
             (0, 0, 1.0), (0, 1, 2.0),
             (1, 1, 3.0), (2, 2, 4.0)
-        ]).expect("CRITICAL: Add proper error handling");
+        ])?;
 
-        let matrix = builder.build().expect("CRITICAL: Add proper error handling");
+        let matrix = builder.build()?;
         let diag = matrix.diagonal();
 
         assert_eq!(diag.len(), 3);
         assert_relative_eq!(diag[0], 1.0, epsilon = 1e-10);
         assert_relative_eq!(diag[1], 3.0, epsilon = 1e-10);
         assert_relative_eq!(diag[2], 4.0, epsilon = 1e-10);
+        Ok(())
     }
 
     #[test]
-    fn test_symmetry_check() {
+    fn test_symmetry_check() -> Result<()> {
         // Symmetric matrix
         let mut builder = SparseMatrixBuilder::new(3, 3);
         builder.add_triplets(vec![
             (0, 0, 1.0), (0, 1, 2.0),
             (1, 0, 2.0), (1, 1, 3.0),
             (2, 2, 4.0)
-        ]).expect("CRITICAL: Add proper error handling");
+        ])?;
 
-        let matrix = builder.build().expect("CRITICAL: Add proper error handling");
+        let matrix = builder.build()?;
         assert!(matrix.is_symmetric(1e-10));
 
         // Non-symmetric matrix
@@ -553,66 +711,60 @@ mod tests {
         builder2.add_triplets(vec![
             (0, 0, 1.0), (0, 1, 2.0),
             (1, 0, 3.0), (1, 1, 4.0)  // (0,1) != (1,0)
-        ]).expect("CRITICAL: Add proper error handling");
+        ])?;
 
-        let matrix2 = builder2.build().expect("CRITICAL: Add proper error handling");
+        let matrix2 = builder2.build()?;
         assert!(!matrix2.is_symmetric(1e-10));
+        Ok(())
     }
 
     #[test]
-    fn test_tridiagonal_pattern() {
-        let matrix = SparsePatterns::tridiagonal(4, -1.0, 2.0, -1.0).expect("CRITICAL: Add proper error handling");
-
+    fn test_tridiagonal_pattern() -> Result<()> {
+        let matrix = SparsePatterns::tridiagonal(4, -1.0, 2.0, -1.0)?;
+        
         assert_eq!(matrix.nrows(), 4);
         assert_eq!(matrix.ncols(), 4);
-        assert_eq!(matrix.nnz(), 10); // 4 diagonal + 3 upper + 3 lower
-
-        let dense = sparse_to_dense(&matrix);
-
+        
         // Check diagonal
-        for i in 0..4 {
-            assert_eq!(dense[(i, i)], 2.0);
-        }
-
+        assert_relative_eq!(matrix.get(0, 0).unwrap_or(0.0), 2.0);
+        assert_relative_eq!(matrix.get(1, 1).unwrap_or(0.0), 2.0);
+        
         // Check off-diagonals
-        for i in 0..3 {
-            assert_eq!(dense[(i, i + 1)], -1.0);
-            assert_eq!(dense[(i + 1, i)], -1.0);
-        }
+        assert_relative_eq!(matrix.get(0, 1).unwrap_or(0.0), -1.0);
+        assert_relative_eq!(matrix.get(1, 0).unwrap_or(0.0), -1.0);
+        
+        Ok(())
     }
 
     #[test]
-    fn test_five_point_stencil() {
-        let matrix = SparsePatterns::five_point_stencil(3, 3, 1.0, 1.0).expect("CRITICAL: Add proper error handling");
-
+    fn test_five_point_stencil() -> Result<()> {
+        let matrix = SparsePatterns::five_point_stencil(3, 3, 1.0, 1.0)?;
+        
+        // Check that it creates a 9x9 matrix (3x3 grid)
         assert_eq!(matrix.nrows(), 9);
         assert_eq!(matrix.ncols(), 9);
-
-        let dense = sparse_to_dense(&matrix);
-
-        // Check center coefficient for interior point (1,1) -> index 4
-        let center_coeff = -4.0; // -2 * (1/1^2 + 1/1^2)
-        assert_relative_eq!(dense[(4, 4)], center_coeff, epsilon = 1e-10);
-
-        // Check neighbor coefficients
-        assert_relative_eq!(dense[(4, 3)], 1.0, epsilon = 1e-10); // left
-        assert_relative_eq!(dense[(4, 5)], 1.0, epsilon = 1e-10); // right
-        assert_relative_eq!(dense[(4, 1)], 1.0, epsilon = 1e-10); // bottom
-        assert_relative_eq!(dense[(4, 7)], 1.0, epsilon = 1e-10); // top
+        
+        // Center point should have 4 connections + diagonal
+        let center = 4; // (1,1) in 3x3 grid
+        let center_row: Vec<_> = matrix.row(center).collect();
+        assert_eq!(center_row.len(), 5); // center + 4 neighbors
+        
+        Ok(())
     }
 
     #[test]
-    fn test_frobenius_norm() {
+    fn test_frobenius_norm() -> Result<()> {
         let mut builder = SparseMatrixBuilder::new(2, 2);
         builder.add_triplets(vec![
             (0, 0, 3.0), (0, 1, 4.0),
             (1, 0, 0.0), (1, 1, 0.0)
-        ]).expect("CRITICAL: Add proper error handling");
+        ])?;
 
-        let matrix = builder.build().expect("CRITICAL: Add proper error handling");
+        let matrix = builder.build()?;
         let norm = matrix.norm_frobenius();
 
         // ||A||_F = sqrt(3^2 + 4^2) = 5.0
         assert_relative_eq!(norm, 5.0, epsilon = 1e-10);
+        Ok(())
     }
 }

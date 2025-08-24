@@ -23,41 +23,43 @@ pub enum ConvergenceOrder<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> ConvergenceOrder<T> {
-    /// Classify convergence order from computed rate
+    /// Determine convergence order from observed rate
     pub fn from_rate(rate: T) -> Self {
-        let tolerance = T::from_f64(0.1).unwrap();
+        let tolerance = T::from_f64(0.1).unwrap_or_else(|| T::from_usize(1).unwrap_or_else(T::one) / T::from_usize(10).unwrap_or_else(T::one));
         
-        if (rate - T::one()).abs() < tolerance {
-            Self::FirstOrder
-        } else if (rate - T::from_f64(2.0).unwrap()).abs() < tolerance {
+        if rate < T::one() {
+            Self::SubLinear
+        } else if (rate - T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one())).abs() < tolerance {
             Self::SecondOrder
-        } else if (rate - T::from_f64(3.0).unwrap()).abs() < tolerance {
+        } else if (rate - T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one())).abs() < tolerance {
             Self::ThirdOrder
-        } else if (rate - T::from_f64(4.0).unwrap()).abs() < tolerance {
+        } else if (rate - T::from_f64(4.0).unwrap_or_else(|| T::from_usize(4).unwrap_or_else(T::one))).abs() < tolerance {
             Self::FourthOrder
-        } else if rate > T::from_f64(6.0).unwrap() {
+        } else if rate > T::from_f64(6.0).unwrap_or_else(|| T::from_usize(6).unwrap_or_else(T::one)) {
             Self::Spectral
         } else {
-            Self::Custom(rate)
+            Self::SuperLinear
         }
     }
-
-    /// Get numerical value of the order
-    pub fn value(&self) -> T {
+    
+    /// Get expected rate for this order
+    pub fn expected_rate(&self) -> T {
         match self {
+            Self::SubLinear => T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one())),
             Self::FirstOrder => T::one(),
-            Self::SecondOrder => T::from_f64(2.0).unwrap(),
-            Self::ThirdOrder => T::from_f64(3.0).unwrap(),
-            Self::FourthOrder => T::from_f64(4.0).unwrap(),
-            Self::Spectral => T::from_f64(10.0).unwrap(), // Nominal high value
-            Self::Custom(p) => *p,
+            Self::SuperLinear => T::from_f64(1.5).unwrap_or_else(|| (T::one() + T::one() + T::one()) / (T::one() + T::one())),
+            Self::SecondOrder => T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()),
+            Self::ThirdOrder => T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one()),
+            Self::FourthOrder => T::from_f64(4.0).unwrap_or_else(|| T::from_usize(4).unwrap_or_else(T::one)),
+            Self::Spectral => T::from_f64(10.0).unwrap_or_else(|| T::from_usize(10).unwrap_or_else(T::one)), // Nominal high value
         }
     }
-
-    /// Check if order meets expected theoretical value
-    pub fn meets_expectation(&self, expected: T) -> bool {
-        let tolerance = T::from_f64(0.25).unwrap(); // 25% tolerance
-        (self.value() - expected).abs() / expected < tolerance
+    
+    /// Check if observed rate matches expected within tolerance
+    pub fn matches(&self, observed_rate: T) -> bool {
+        let expected = self.expected_rate();
+        let tolerance = T::from_f64(0.25).unwrap_or_else(|| T::one() / T::from_usize(4).unwrap_or_else(T::one)); // 25% tolerance
+        (observed_rate - expected).abs() < expected * tolerance
     }
 }
 
@@ -85,8 +87,8 @@ impl ConvergenceAnalysis {
             return true;
         }
 
-        let mean_ratio = ratios.iter().copied().sum::<T>() / T::from_usize(ratios.len()).unwrap();
-        let tolerance = T::from_f64(0.05).unwrap(); // 5% variation allowed
+        let mean_ratio = ratios.iter().copied().sum::<T>() / T::from_usize(ratios.len()).unwrap_or_else(T::one);
+        let tolerance = T::from_f64(0.05).unwrap_or_else(|| T::one() / T::from_usize(20).unwrap_or_else(T::one)); // 5% variation allowed
 
         ratios.iter().all(|r| ((*r - mean_ratio) / mean_ratio).abs() < tolerance)
     }
