@@ -6,7 +6,7 @@
 //! 3. Validating results against the analytical Hagen-Poiseuille solution
 
 use cfd_mesh::{Mesh, Vertex, Face};
-use cfd_3d::{FemSolver, FemConfig};
+use cfd_3d::FemConfig;
 use cfd_3d::fem::{StokesFlowProblem, StokesFlowSolution};
 use cfd_core::{BoundaryCondition, Fluid};
 use nalgebra::{Point3, Vector3};

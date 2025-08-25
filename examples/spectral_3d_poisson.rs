@@ -115,7 +115,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                     }
                     
                     // Calculate statistics using advanced iterator patterns
-                    use cfd_math::MathIteratorExt;
+                    
 
                     let max_value = values.iter().fold(0.0f64, |a, &b| a.max(b.abs()));
                     let min_value = values.iter().fold(f64::INFINITY, |a, &b| a.min(b));
