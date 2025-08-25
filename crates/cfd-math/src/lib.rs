@@ -22,7 +22,7 @@ pub use linear_solver::{
     SORPreconditioner
 };
 // LinearSolverConfig is re-exported from cfd_core in linear_solver module
-pub use sparse::{SparseMatrix, SparseMatrixBuilder};
+pub use sparse::{SparseMatrix, SparseMatrixBuilder, SparseMatrixExt, SparsePatterns};
 pub use differentiation::{FiniteDifference, Gradient};
 pub use integration::{Quadrature, GaussQuadrature};
 pub use iterators::{MathIteratorExt, NormIteratorExt, StatisticsIteratorExt, 

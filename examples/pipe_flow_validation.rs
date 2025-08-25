@@ -15,7 +15,7 @@ use std::collections::HashMap;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("========================================");
-    println!("Pipe Flow Validation with Simple Mesh");
+    println!("Pipe Flow Validation with Structured Mesh");
     println!("========================================\n");
     
     // Pipe geometry parameters
@@ -48,7 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _fem_config = FemConfig::<f64>::default();
     
     // Create fluid properties
-    let fluid = Fluid::newtonian("water", fluid_density, fluid_viscosity);
+    let fluid = Fluid::constant_viscosity("water", fluid_density, fluid_viscosity);
     
     // Set up boundary conditions
     let mut boundary_conditions = HashMap::new();

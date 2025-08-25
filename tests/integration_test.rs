@@ -5,7 +5,7 @@ use cfd_core::Fluid;
 #[test]
 fn test_fluid_properties() {
     // Create fluid
-    let fluid = Fluid::newtonian("water", 1000.0, 0.001);
+    let fluid = Fluid::constant_viscosity("water", 1000.0, 0.001);
     
     assert_eq!(fluid.name, "water");
     let density_diff: f64 = fluid.density - 1000.0;

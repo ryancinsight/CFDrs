@@ -87,7 +87,7 @@ fn main() -> Result<()> {
         }
     }
 
-    // Simple flow analysis
+    // Flow analysis
     println!("\n=== Flow Analysis ===");
     if pressures.len() >= 2 {
         // Calculate Reynolds number manually

@@ -1,4 +1,4 @@
-//! Simple CFD demonstration example
+//! CFD demonstration example
 //! 
 //! This example shows basic usage of the CFD library components.
 
@@ -7,7 +7,7 @@ use cfd_core::domains::fluid_dynamics::{
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("=== Simple CFD Demonstration ===\n");
+    println!("=== CFD Demonstration ===\n");
     
     // 1. Create a flow field
     println!("1. Creating 3D flow field...");

@@ -1,4 +1,4 @@
-//! Simple pipe flow example demonstrating the 1D CFD solver
+//! Pipe flow example demonstrating the 1D CFD solver
 //! 
 //! This example follows SOLID principles and demonstrates proper error handling
 
@@ -7,7 +7,7 @@ use cfd_suite::core::{Result, BoundaryCondition};
 use cfd_suite::d1::{Network, Node, NodeType, ChannelProperties, NetworkSolver, NetworkProblem};
 
 fn main() -> Result<()> {
-    println!("Simple Pipe Flow Example");
+    println!("Pipe Flow Example");
     println!("========================\n");
 
     // Create fluid with proper error handling

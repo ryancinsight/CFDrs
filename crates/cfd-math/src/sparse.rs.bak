@@ -596,14 +596,24 @@ mod tests {
         
         let matrix = builder.build()?;
         
-        let row0: Vec<_> = matrix.row(0).collect();
-        assert_eq!(row0.len(), 2);
-        assert!(row0.contains(&(0, 1.0)));
-        assert!(row0.contains(&(2, 2.0)));
+        // Check row 0 entries
+        let row0 = matrix.row(0);
+        let row0_entries: Vec<_> = row0.col_indices().iter()
+            .zip(row0.values().iter())
+            .map(|(&col, &val)| (col, val))
+            .collect();
+        assert_eq!(row0_entries.len(), 2);
+        assert!(row0_entries.contains(&(0, 1.0)));
+        assert!(row0_entries.contains(&(2, 2.0)));
         
-        let row1: Vec<_> = matrix.row(1).collect();
-        assert_eq!(row1.len(), 1);
-        assert!(row1.contains(&(1, 3.0)));
+        // Check row 1 entries
+        let row1 = matrix.row(1);
+        let row1_entries: Vec<_> = row1.col_indices().iter()
+            .zip(row1.values().iter())
+            .map(|(&col, &val)| (col, val))
+            .collect();
+        assert_eq!(row1_entries.len(), 1);
+        assert!(row1_entries.contains(&(1, 3.0)));
         
         Ok(())
     }
@@ -770,8 +780,8 @@ mod tests {
         
         // Center point should have 4 connections + diagonal
         let center = 4; // (1,1) in 3x3 grid
-        let center_row: Vec<_> = matrix.row(center).collect();
-        assert_eq!(center_row.len(), 5); // center + 4 neighbors
+        let center_row = matrix.row(center);
+        assert_eq!(center_row.nnz(), 5); // center + 4 neighbors
         
         Ok(())
     }
