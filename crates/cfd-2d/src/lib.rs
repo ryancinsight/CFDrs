@@ -24,35 +24,31 @@ pub mod physics;
 pub mod solvers;
 
 // Algorithm modules
-pub mod pressure_velocity;
 pub mod piso_algorithm;
+pub mod pressure_velocity;
 pub mod schemes;
 
 // Re-export main types from domain modules
 pub use discretization::{
-    ConvectionScheme, ConvectionSchemeFactory,
-    FirstOrderUpwind, CentralDifference,
-    HybridScheme, PowerLawScheme, QuickScheme
+    CentralDifference, ConvectionScheme, ConvectionSchemeFactory, FirstOrderUpwind, HybridScheme,
+    PowerLawScheme, QuickScheme,
 };
 
 pub use physics::{
-    EnergyEquationSolver,
-    MomentumSolver, MomentumComponent, MomentumCoefficients,
-    KEpsilonModel, WallFunction,
-    VorticityStreamSolver
+    EnergyEquationSolver, KEpsilonModel, MomentumCoefficients, MomentumComponent, MomentumSolver,
+    VorticityStreamSolver, WallFunction,
 };
 
 pub use solvers::{
-    PoissonSolver, AdvectionDiffusionSolver, FdmConfig,
-    FvmSolver, FvmConfig, FluxScheme,
-    LbmSolver, LbmConfig, D2Q9
+    AdvectionDiffusionSolver, FdmConfig, FluxScheme, FvmConfig, FvmSolver, LbmConfig, LbmSolver,
+    PoissonSolver, D2Q9,
 };
 
 // Re-export core types
 pub use fields::{Field2D, SimulationFields};
-pub use grid::{Grid2D, StructuredGrid2D, BoundaryType, GridEdge};
-pub use pressure_velocity::{PressureVelocitySolver, PressureVelocityConfig};
+pub use grid::{BoundaryType, Grid2D, GridEdge, StructuredGrid2D};
+pub use pressure_velocity::{PressureVelocityConfig, PressureVelocitySolver};
 pub use problem::{IncompressibleFlowProblem, IncompressibleFlowSolution};
-pub use schemes::{SpatialScheme, FluxLimiter, TimeScheme, Grid2D as SchemeGrid2D};
+pub use schemes::{FluxLimiter, Grid2D as SchemeGrid2D, SpatialScheme, TimeScheme};
 
 // Prelude removed - use cfd_suite::prelude::* for unified SSOT interface

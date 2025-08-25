@@ -1,11 +1,11 @@
 //! Preconditioner implementations for iterative solvers
 
 use super::traits::Preconditioner;
-use cfd_core::error::{Error, Result, NumericalErrorKind};
+use crate::sparse::SparseMatrixExt;
+use cfd_core::error::{Error, NumericalErrorKind, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
-use crate::sparse::SparseMatrixExt;
 
 /// Identity preconditioner (no preconditioning)
 #[derive(Default)]
@@ -29,7 +29,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> JacobiPreconditioner<T> {
         let n = a.nrows();
         if n != a.ncols() {
             return Err(Error::InvalidConfiguration(
-                "Jacobi preconditioner requires square matrix".to_string()
+                "Jacobi preconditioner requires square matrix".to_string(),
             ));
         }
 
@@ -68,7 +68,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> SORPreconditioner<T> {
         let n = a.nrows();
         if n != a.ncols() {
             return Err(Error::InvalidConfiguration(
-                "SOR preconditioner requires square matrix".to_string()
+                "SOR preconditioner requires square matrix".to_string(),
             ));
         }
 
@@ -77,7 +77,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> SORPreconditioner<T> {
         let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         if omega <= zero || omega >= two {
             return Err(Error::InvalidConfiguration(
-                "SOR omega parameter must be in range (0, 2) for stability".to_string()
+                "SOR omega parameter must be in range (0, 2) for stability".to_string(),
             ));
         }
 
@@ -91,7 +91,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> SORPreconditioner<T> {
     pub fn omega(&self) -> T {
         self.omega
     }
-    
+
     /// Create SOR preconditioner with omega optimized for 1D Poisson problems
     ///
     /// ## Warning
@@ -106,39 +106,44 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> SORPreconditioner<T> {
     pub fn with_omega_for_1d_poisson(a: &CsrMatrix<T>) -> Result<Self> {
         // Validate matrix structure for 1D Poisson
         Self::validate_1d_poisson_structure(a)?;
-        
+
         let n = a.nrows() as f64;
         let omega_opt = 2.0 / (1.0 + (std::f64::consts::PI / n).sin());
         let omega = T::from_f64(omega_opt).ok_or_else(|| {
-            Error::Numerical(NumericalErrorKind::InvalidValue { value: "Cannot convert omega".to_string() })
+            Error::Numerical(NumericalErrorKind::InvalidValue {
+                value: "Cannot convert omega".to_string(),
+            })
         })?;
-        
+
         Self::new(a, omega)
     }
 
     /// Validate that matrix has 1D Poisson structure (tridiagonal with specific pattern)
     fn validate_1d_poisson_structure(a: &CsrMatrix<T>) -> Result<()> {
         let n = a.nrows();
-        
+
         // Check basic structure: each row should have at most 3 non-zeros
         for i in 0..n {
             let row = a.row(i);
             if row.nnz() > 3 {
-                return Err(Error::InvalidConfiguration(
-                    format!("Row {} has {} non-zeros; 1D Poisson should have at most 3", i, row.nnz())
-                ));
+                return Err(Error::InvalidConfiguration(format!(
+                    "Row {} has {} non-zeros; 1D Poisson should have at most 3",
+                    i,
+                    row.nnz()
+                )));
             }
-            
+
             // Check that non-zeros are in expected positions (diagonal and adjacent)
             for &j in row.col_indices() {
                 if (j as i32 - i as i32).abs() > 1 {
-                    return Err(Error::InvalidConfiguration(
-                        format!("Non-zero at ({}, {}) violates tridiagonal structure", i, j)
-                    ));
+                    return Err(Error::InvalidConfiguration(format!(
+                        "Non-zero at ({}, {}) violates tridiagonal structure",
+                        i, j
+                    )));
                 }
             }
         }
-        
+
         Ok(())
     }
 }
@@ -147,13 +152,13 @@ impl<T: RealField + Copy> Preconditioner<T> for SORPreconditioner<T> {
     fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
         let n = r.len();
         z.fill(T::zero());
-        
+
         // Forward SOR sweep with in-place operations (standard SOR: (D/ω - L) z = r)
         for i in 0..n {
             let mut sum = T::zero();
             let row = self.matrix.row(i);
             let mut diag = T::one();
-            
+
             // Process row entries
             for (j, val) in row.col_indices().iter().zip(row.values()) {
                 if *j < i {
@@ -163,12 +168,12 @@ impl<T: RealField + Copy> Preconditioner<T> for SORPreconditioner<T> {
                     diag = *val;
                 }
             }
-            
+
             // Standard SOR preconditioner solves (D/ω - L) z = r
             // => (diag/ω) z_i = r_i + (L z)_i
             z[i] = (r[i] + sum) * self.omega / diag;
         }
-        
+
         Ok(())
     }
 }

@@ -7,4 +7,4 @@
 
 pub mod vtk;
 
-pub use vtk::{VtkWriter, VtkReader, VtkMesh, VtkMeshBuilder};
+pub use vtk::{VtkMesh, VtkMeshBuilder, VtkReader, VtkWriter};

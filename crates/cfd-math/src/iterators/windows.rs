@@ -9,7 +9,7 @@ pub struct WindowIterator<I, T> {
     size: usize,
 }
 
-impl<I, T> WindowIterator<I, T> 
+impl<I, T> WindowIterator<I, T>
 where
     I: Iterator<Item = T>,
     T: Clone,
@@ -48,7 +48,7 @@ where
 
         if self.window.len() == self.size {
             let result = self.window.iter().cloned().collect();
-            
+
             // Slide window
             if let Some(next) = self.iter.next() {
                 self.window.pop_front();
@@ -56,7 +56,7 @@ where
             } else {
                 self.window.clear(); // Mark as exhausted
             }
-            
+
             Some(result)
         } else {
             None
@@ -98,7 +98,8 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         // Initial fill
         if self.buffer.is_empty() {
-            self.buffer.extend(self.iter.by_ref().take(self.window_size));
+            self.buffer
+                .extend(self.iter.by_ref().take(self.window_size));
             if self.buffer.len() < self.window_size {
                 return None;
             }

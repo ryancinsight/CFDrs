@@ -1,10 +1,10 @@
 //! Matrix assembly for network flow equations
 
 use crate::network::Network;
-use nalgebra::{RealField, DVector};
-use nalgebra_sparse::{CsrMatrix, coo::CooMatrix};
-use num_traits::FromPrimitive;
 use cfd_core::Result;
+use nalgebra::{DVector, RealField};
+use nalgebra_sparse::{coo::CooMatrix, CsrMatrix};
+use num_traits::FromPrimitive;
 use rayon::prelude::*;
 use std::sync::Mutex;
 
@@ -21,7 +21,8 @@ impl<T: RealField + Copy> Default for MatrixAssembler<T> {
 
 impl<T: RealField + Copy> MatrixAssembler<T> {
     /// Create a new matrix assembler
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
@@ -30,7 +31,7 @@ impl<T: RealField + Copy> MatrixAssembler<T> {
 
 impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAssembler<T> {
     /// Assemble the linear system matrix and right-hand side vector
-    /// 
+    ///
     /// This builds the system Ax = b where:
     /// - A is the conductance matrix
     /// - x is the pressure vector
@@ -44,7 +45,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         network.edges_parallel().for_each(|edge| {
             let (i, j) = edge.nodes;
             let conductance = edge.conductance;
-            
+
             let mut coo = coo_mutex.lock().unwrap();
             // Add conductance terms to matrix
             coo.push(i, i, conductance);
@@ -56,8 +57,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         // Add boundary conditions
         for (node_idx, bc) in network.boundary_conditions() {
             match bc {
-                crate::network::BoundaryCondition::PressureInlet { pressure } |
-                crate::network::BoundaryCondition::PressureOutlet { pressure } => {
+                crate::network::BoundaryCondition::PressureInlet { pressure }
+                | crate::network::BoundaryCondition::PressureOutlet { pressure } => {
                     // Dirichlet boundary condition
                     let mut coo = coo_mutex.lock().unwrap();
                     // Set row to identity
@@ -76,11 +77,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
 
         let coo = coo_mutex.into_inner().unwrap();
         let matrix = CsrMatrix::from(&coo);
-        
+
         Ok((matrix, rhs))
     }
-
-
-
-
 }

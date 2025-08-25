@@ -25,15 +25,8 @@ pub trait Solution<T: RealField + Copy> {
     fn domain_bounds(&self) -> [T; 6];
 }
 
-pub mod poiseuille;
-pub mod couette;
-pub mod taylor_green;
-pub mod stokes;
-
-pub use poiseuille::PoiseuilleFlow;
-pub use couette::CouetteFlow;
-pub use taylor_green::TaylorGreenVortex;
-pub use stokes::StokesFlow;
+// Import from analytical module
+pub use crate::analytical::{CouetteFlow, PoiseuilleFlow, StokesFlow, TaylorGreenVortex};
 
 // Re-export the trait
 pub use self::Solution as AnalyticalSolution;

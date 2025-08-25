@@ -1,8 +1,8 @@
 //! Utility functions for common integration patterns
 
 use super::{
-    CompositeQuadrature, GaussQuadrature, SimpsonsRule, TrapezoidalRule, 
-    VariableQuadrature, Quadrature
+    CompositeQuadrature, GaussQuadrature, Quadrature, SimpsonsRule, TrapezoidalRule,
+    VariableQuadrature,
 };
 use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
@@ -30,7 +30,7 @@ impl IntegrationUtils {
     {
         if n % 2 != 0 {
             return Err(Error::InvalidConfiguration(
-                "Simpson's rule requires even number of intervals".to_string()
+                "Simpson's rule requires even number of intervals".to_string(),
             ));
         }
 

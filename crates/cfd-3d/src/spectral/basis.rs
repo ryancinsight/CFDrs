@@ -18,13 +18,13 @@ pub enum SpectralBasis {
 pub trait BasisFunction<T: RealField + Copy> {
     /// Evaluate basis function at given point
     fn evaluate(&self, x: T, mode: usize) -> T;
-    
+
     /// Compute derivative of basis function
     fn derivative(&self, x: T, mode: usize, order: usize) -> T;
-    
+
     /// Get quadrature weights for integration
     fn quadrature_weights(&self, n: usize) -> Vec<T>;
-    
+
     /// Get collocation points
     fn collocation_points(&self, n: usize) -> Vec<T>;
 }

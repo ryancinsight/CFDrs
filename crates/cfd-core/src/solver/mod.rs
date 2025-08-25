@@ -2,21 +2,20 @@
 //!
 //! This module follows SOLID principles with proper domain separation
 
-pub mod traits;
 pub mod config;
-pub mod iterative;
-pub mod direct;
 pub mod convergence;
+pub mod direct;
+pub mod iterative;
 pub mod monitor;
+pub mod traits;
 
 // Re-export core traits
-pub use traits::{Solver, Configurable, Validatable};
 pub use config::{
-    SolverConfiguration, SolverConfig, SolverConfigBuilder,
-    LinearSolverConfig, NetworkSolverConfig, NetworkConfig,
-    ConvergenceConfig, ExecutionConfig, NumericalConfig
+    ConvergenceConfig, ExecutionConfig, LinearSolverConfig, NetworkConfig, NetworkSolverConfig,
+    NumericalConfig, SolverConfig, SolverConfigBuilder, SolverConfiguration,
 };
-pub use iterative::{IterativeSolver, IterationState, SolverIterator};
+pub use convergence::{AndCriteria, ConvergenceCriteria, OrCriteria, ToleranceCriteria};
 pub use direct::DirectSolver;
-pub use convergence::{ConvergenceCriteria, ToleranceCriteria, AndCriteria, OrCriteria};
-pub use monitor::{SolutionMonitor, MonitoredIterator, NullMonitor};
+pub use iterative::{IterationState, IterativeSolver, SolverIterator};
+pub use monitor::{MonitoredIterator, NullMonitor, SolutionMonitor};
+pub use traits::{Configurable, Solver, Validatable};

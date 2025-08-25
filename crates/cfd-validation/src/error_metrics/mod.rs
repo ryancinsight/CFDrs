@@ -3,19 +3,21 @@
 //! This module provides various error metrics to quantify the difference
 //! between numerical solutions and analytical or reference solutions.
 
-mod norms;
-mod statistics;
 mod analysis;
 mod normalized;
+mod norms;
+mod statistics;
 
 #[cfg(test)]
 mod tests;
 
 // Re-export main components
+pub use analysis::ErrorAnalysis;
+pub use normalized::{
+    MeanAbsoluteError, NormalizationMethod, NormalizedRMSE, RelativeError, RootMeanSquareError,
+};
 pub use norms::{L1Norm, L2Norm, LInfNorm};
 pub use statistics::ErrorStatistics;
-pub use analysis::ErrorAnalysis;
-pub use normalized::{NormalizedRMSE, NormalizationMethod, RelativeError, RootMeanSquareError, MeanAbsoluteError};
 
 use cfd_core::error::Result;
 use nalgebra::{RealField, Vector3};
@@ -26,12 +28,16 @@ pub trait ErrorMetric<T: RealField + Copy> {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T>;
 
     /// Compute the error for vector fields
-    fn compute_vector_error(&self, numerical: &[Vector3<T>], reference: &[Vector3<T>]) -> Result<T> {
+    fn compute_vector_error(
+        &self,
+        numerical: &[Vector3<T>],
+        reference: &[Vector3<T>],
+    ) -> Result<T> {
         use cfd_core::error::Error;
-        
+
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
-                "Numerical and reference solutions must have the same length".to_string()
+                "Numerical and reference solutions must have the same length".to_string(),
             ));
         }
 

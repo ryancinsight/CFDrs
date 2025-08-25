@@ -31,8 +31,10 @@ impl FluidDynamicsService {
 
     /// Determine flow regime based on Reynolds number
     pub fn flow_regime<T: RealField + FromPrimitive + Copy>(reynolds: T) -> FlowRegime {
-        let re_2300 = T::from_f64(crate::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER).unwrap_or_else(|| T::one());
-        let re_4000 = T::from_f64(crate::constants::dimensionless::reynolds::PIPE_CRITICAL_UPPER).unwrap_or_else(|| T::one());
+        let re_2300 = T::from_f64(crate::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER)
+            .unwrap_or_else(|| T::one());
+        let re_4000 = T::from_f64(crate::constants::dimensionless::reynolds::PIPE_CRITICAL_UPPER)
+            .unwrap_or_else(|| T::one());
 
         if reynolds < re_2300 {
             FlowRegime::Laminar
@@ -65,7 +67,8 @@ impl FluidDynamicsService {
         diameter: T,
         roughness: Option<T>,
     ) -> Result<T> {
-        let re_2300 = T::from_f64(crate::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER).unwrap_or_else(|| T::one());
+        let re_2300 = T::from_f64(crate::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER)
+            .unwrap_or_else(|| T::one());
         let sixty_four = T::from_f64(64.0).unwrap_or_else(|| T::one());
 
         if reynolds < re_2300 {
@@ -106,21 +109,25 @@ impl FluidDynamicsService {
             let term2 = T::from_f64(2.51).unwrap_or_else(|| T::one()) / (reynolds * f.sqrt());
             let f_new = T::from_f64(0.25).unwrap_or_else(|| T::one()) / // Colebrook equation coefficient 
                 (T::from_f64(10.0).unwrap_or_else(|| T::one()).ln() * (term1 + term2)).powi(2);
-            
+
             if (f_new - f).abs() < tolerance {
                 return Ok(f_new);
             }
             f = f_new;
         }
 
-        Err(Error::Convergence(crate::error::ConvergenceErrorKind::MaxIterationsExceeded { max: 100 }
+        Err(Error::Convergence(
+            crate::error::ConvergenceErrorKind::MaxIterationsExceeded { max: 100 },
         ))
     }
 
     /// Prandtl-Karman friction factor for smooth pipes
-    fn prandtl_karman_friction_factor<T: RealField + FromPrimitive + Copy>(reynolds: T) -> Result<T> {
+    fn prandtl_karman_friction_factor<T: RealField + FromPrimitive + Copy>(
+        reynolds: T,
+    ) -> Result<T> {
         let log_re = reynolds.ln() / T::from_f64(10.0).unwrap_or_else(|| T::one()).ln();
-        let coeff = T::from_f64(2.0).unwrap_or_else(|| T::one()) * log_re - T::from_f64(0.8).unwrap_or_else(|| T::one()); // Nikuradse correlation
+        let coeff = T::from_f64(2.0).unwrap_or_else(|| T::one()) * log_re
+            - T::from_f64(0.8).unwrap_or_else(|| T::one()); // Nikuradse correlation
         Ok(T::one() / (coeff * coeff))
     }
 }
@@ -150,11 +157,15 @@ impl MeshQualityService {
         let skewness_quality = Self::assess_skewness(skewness_stats);
         let orthogonality_quality = Self::assess_orthogonality(orthogonality_stats);
 
-        let overall_quality = [aspect_ratio_quality, skewness_quality, orthogonality_quality]
-            .iter()
-            .min()
-            .copied()
-            .unwrap_or(QualityLevel::Level1);
+        let overall_quality = [
+            aspect_ratio_quality,
+            skewness_quality,
+            orthogonality_quality,
+        ]
+        .iter()
+        .min()
+        .copied()
+        .unwrap_or(QualityLevel::Level1);
 
         QualityAssessment {
             overall_quality,
@@ -169,7 +180,9 @@ impl MeshQualityService {
         }
     }
 
-    fn assess_aspect_ratio<T: RealField + FromPrimitive + Copy>(stats: &QualityStatistics<T>) -> QualityLevel {
+    fn assess_aspect_ratio<T: RealField + FromPrimitive + Copy>(
+        stats: &QualityStatistics<T>,
+    ) -> QualityLevel {
         let threshprevious_level4 = T::from_f64(2.0).unwrap_or_else(|| T::one());
         let threshprevious_level3 = T::from_f64(5.0).unwrap_or_else(|| T::one());
         let threshprevious_level2 = T::from_f64(10.0).unwrap_or_else(|| T::one());
@@ -185,7 +198,9 @@ impl MeshQualityService {
         }
     }
 
-    fn assess_skewness<T: RealField + FromPrimitive + Copy>(stats: &QualityStatistics<T>) -> QualityLevel {
+    fn assess_skewness<T: RealField + FromPrimitive + Copy>(
+        stats: &QualityStatistics<T>,
+    ) -> QualityLevel {
         let threshprevious_level4 = T::from_f64(0.25).unwrap_or_else(|| T::one());
         let threshprevious_level3 = T::from_f64(0.5).unwrap_or_else(|| T::one());
         let threshprevious_level2 = T::from_f64(0.8).unwrap_or_else(|| T::one());
@@ -201,7 +216,9 @@ impl MeshQualityService {
         }
     }
 
-    fn assess_orthogonality<T: RealField + FromPrimitive + Copy>(stats: &QualityStatistics<T>) -> QualityLevel {
+    fn assess_orthogonality<T: RealField + FromPrimitive + Copy>(
+        stats: &QualityStatistics<T>,
+    ) -> QualityLevel {
         let threshprevious_level4 = T::from_f64(0.95).unwrap_or_else(|| T::one());
         let threshprevious_level3 = T::from_f64(0.85).unwrap_or_else(|| T::one());
         let threshprevious_level2 = T::from_f64(0.7).unwrap_or_else(|| T::one());
@@ -225,7 +242,8 @@ impl MeshQualityService {
         let mut recommendations = Vec::new();
 
         if aspect_ratio == QualityLevel::Level1 {
-            recommendations.push("Consider refining mesh in regions with high aspect ratio cells".to_string());
+            recommendations
+                .push("Consider refining mesh in regions with high aspect ratio cells".to_string());
         }
 
         if skewness == QualityLevel::Level1 {
@@ -233,7 +251,8 @@ impl MeshQualityService {
         }
 
         if orthogonality == QualityLevel::Level1 {
-            recommendations.push("Enhance mesh orthogonality for better numerical accuracy".to_string());
+            recommendations
+                .push("Enhance mesh orthogonality for better numerical accuracy".to_string());
         }
 
         if recommendations.is_empty() {

@@ -25,7 +25,8 @@ pub struct CellCoefficients<T: RealField + Copy> {
 
 impl<T: RealField + Copy> CellCoefficients<T> {
     /// Create zero coefficients
-    #[must_use] pub fn zero() -> Self {
+    #[must_use]
+    pub fn zero() -> Self {
         Self {
             ap: T::zero(),
             ae: T::zero(),
@@ -36,12 +37,12 @@ impl<T: RealField + Copy> CellCoefficients<T> {
             d: T::zero(),
         }
     }
-    
+
     /// Calculate central coefficient from neighbors
     pub fn calculate_ap(&mut self) {
         self.ap = self.ae + self.aw + self.an + self.as_;
     }
-    
+
     /// Apply under-relaxation
     pub fn apply_relaxation(&mut self, alpha: T) {
         let one = T::one();

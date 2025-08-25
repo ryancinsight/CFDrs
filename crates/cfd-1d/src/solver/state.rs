@@ -1,7 +1,7 @@
 //! Network state representation for 1D CFD
 
 use crate::network::Network;
-use nalgebra::{RealField, DVector};
+use nalgebra::{DVector, RealField};
 /// State representation for a 1D network
 #[derive(Debug, Clone)]
 pub struct NetworkState<T: RealField + Copy> {
@@ -15,7 +15,8 @@ pub struct NetworkState<T: RealField + Copy> {
 
 impl<T: RealField + Copy> NetworkState<T> {
     /// Create a new network state
-    #[must_use] pub fn new(num_nodes: usize, num_edges: usize) -> Self {
+    #[must_use]
+    pub fn new(num_nodes: usize, num_edges: usize) -> Self {
         Self {
             pressures: DVector::zeros(num_nodes),
             flow_rates: DVector::zeros(num_edges),
@@ -31,7 +32,7 @@ impl<T: RealField + Copy> NetworkState<T> {
             time: T::zero(),
         }
     }
-    
+
     /// Get time
     pub fn time(&self) -> T {
         self.time

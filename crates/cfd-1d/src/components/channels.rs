@@ -1,9 +1,9 @@
 //! Channel components for microfluidic networks
 
-use super::{Component, constants};
-use cfd_core::{Result, Fluid};
+use super::{constants, Component};
+use cfd_core::{Fluid, Result};
 use nalgebra::RealField;
-use num_traits::{FromPrimitive, Float};
+use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -81,8 +81,10 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for RectangularCh
 
         // Use default temperature of 20°C (293.15 K)
         let temperature = T::from_f64(293.15).unwrap_or_else(T::zero);
-        let kinematic_viscosity = fluid.dynamic_viscosity(temperature)
-            .unwrap_or_else(|_| T::from_f64(0.001).unwrap_or_else(T::one)) / fluid.density;
+        let kinematic_viscosity = fluid
+            .dynamic_viscosity(temperature)
+            .unwrap_or_else(|_| T::from_f64(0.001).unwrap_or_else(T::one))
+            / fluid.density;
         let resistance = f * self.length * kinematic_viscosity / (area * dh * dh);
 
         // Ensure positive resistance
@@ -162,13 +164,13 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for CircularChann
         let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(T::zero);
         let c128 = T::from_f64(128.0).unwrap_or_else(T::zero);
         let temperature = T::from_f64(293.15).unwrap_or_else(T::zero);
-        
-        let viscosity = fluid.dynamic_viscosity(temperature)
+
+        let viscosity = fluid
+            .dynamic_viscosity(temperature)
             .unwrap_or_else(|_| T::from_f64(0.001).unwrap_or_else(T::one));
-        
-        let d4 = self.diameter * self.diameter * 
-                 self.diameter * self.diameter;
-        
+
+        let d4 = self.diameter * self.diameter * self.diameter * self.diameter;
+
         c128 * viscosity * self.length / (pi * d4)
     }
 

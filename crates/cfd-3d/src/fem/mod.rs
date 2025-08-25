@@ -4,8 +4,8 @@
 //! and Navier-Stokes equations with stabilization.
 //!
 //! ## Literature References
-//! - Hughes, T.J.R., Franca, L.P., Balestra, M. (1986). "A new finite element formulation 
-//!   for computational fluid dynamics: V. Circumventing the Babuška-Brezzi condition: 
+//! - Hughes, T.J.R., Franca, L.P., Balestra, M. (1986). "A new finite element formulation
+//!   for computational fluid dynamics: V. Circumventing the Babuška-Brezzi condition:
 //!   A stable Petrov-Galerkin formulation of the Stokes problem accommodating equal-order interpolations"
 //! - Donea, J., Huerta, A. (2003). "Finite Element Methods for Flow Problems"
 

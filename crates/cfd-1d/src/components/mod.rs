@@ -4,26 +4,26 @@
 //! channels, pumps, valves, mixers, and sensors with their characteristic
 //! hydraulic properties and behaviors.
 
-use cfd_core::{Result, Fluid};
+use cfd_core::{Fluid, Result};
 use nalgebra::RealField;
 use std::collections::HashMap;
 
 // Re-export submodules
 pub mod channels;
-pub mod pumps;
-pub mod valves;
-pub mod sensors;
-pub mod mixers;
-pub mod factory;
 pub mod constants;
+pub mod factory;
+pub mod mixers;
+pub mod pumps;
+pub mod sensors;
+pub mod valves;
 
 // Re-export commonly used types
-pub use channels::{RectangularChannel, CircularChannel};
-pub use pumps::{Micropump, PumpType};
-pub use valves::{Microvalve, ValveType};
-pub use sensors::{FlowSensor, SensorType};
-pub use mixers::{Micromixer, MixerType};
+pub use channels::{CircularChannel, RectangularChannel};
 pub use factory::ComponentFactory;
+pub use mixers::{Micromixer, MixerType};
+pub use pumps::{Micropump, PumpType};
+pub use sensors::{FlowSensor, SensorType};
+pub use valves::{Microvalve, ValveType};
 
 /// Trait for all microfluidic components
 pub trait Component<T: RealField + Copy> {

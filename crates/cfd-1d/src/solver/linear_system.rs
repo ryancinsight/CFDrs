@@ -1,9 +1,9 @@
 //! Linear system solver for network equations
 
-use nalgebra::{RealField, DVector};
-use nalgebra_sparse::CsrMatrix;
 use cfd_core::Result;
-use cfd_math::linear_solver::{LinearSolver, ConjugateGradient, BiCGSTAB};
+use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, LinearSolver};
+use nalgebra::{DVector, RealField};
+use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
 
 /// Linear solver method selection
@@ -35,19 +35,19 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
             tolerance: T::from_f64(1e-6).unwrap_or_else(T::one),
         }
     }
-    
+
     /// Update configuration
     pub fn with_method(mut self, method: LinearSolverMethod) -> Self {
         self.method = method;
         self
     }
-    
+
     /// Set tolerance
     pub fn with_tolerance(mut self, tolerance: T) -> Self {
         self.tolerance = tolerance;
         self
     }
-    
+
     /// Solve the linear system Ax = b
     pub fn solve(&self, a: &CsrMatrix<T>, b: &DVector<T>) -> Result<DVector<T>>
     where
@@ -55,7 +55,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
     {
         // Initial guess
         let x0 = DVector::zeros(b.len());
-        
+
         match self.method {
             LinearSolverMethod::ConjugateGradient => {
                 let config = cfd_math::linear_solver::LinearSolverConfig {

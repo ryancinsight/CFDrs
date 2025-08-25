@@ -30,9 +30,12 @@ pub trait AnalyticalSolution<T: RealField + Copy> {
     /// Check if the solution is valid at given coordinates
     fn is_valid_at(&self, x: T, y: T, z: T) -> bool {
         let bounds = self.domain_bounds();
-        x >= bounds[0] && x <= bounds[1] &&
-        y >= bounds[2] && y <= bounds[3] &&
-        z >= bounds[4] && z <= bounds[5]
+        x >= bounds[0]
+            && x <= bounds[1]
+            && y >= bounds[2]
+            && y <= bounds[3]
+            && z >= bounds[4]
+            && z <= bounds[5]
     }
 }
 
@@ -85,18 +88,25 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoiseuilleFlow<T> {
     pub fn channel_2d(u_max: T, half_width: T, length: T, viscosity: T) -> Self {
         // For 2D channel: u_max = -dp/dx * h^2 / (2*mu)
         // So dp/dx = -2*mu*u_max / h^2
-        let pressure_gradient = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) * viscosity * u_max /
-                               (half_width * half_width);
+        let pressure_gradient = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) * viscosity * u_max
+            / (half_width * half_width);
 
-        Self::new(u_max, half_width, pressure_gradient, viscosity, length, true)
+        Self::new(
+            u_max,
+            half_width,
+            pressure_gradient,
+            viscosity,
+            length,
+            true,
+        )
     }
 
     /// Create cylindrical pipe Poiseuille flow
     pub fn pipe_cylindrical(u_max: T, radius: T, length: T, viscosity: T) -> Self {
         // For cylindrical pipe: u_max = -dp/dx * R^2 / (4*mu)
         // So dp/dx = -4*mu*u_max / R^2
-        let pressure_gradient = -T::from_f64(4.0).unwrap_or_else(|| T::zero()) * viscosity * u_max /
-                               (radius * radius);
+        let pressure_gradient =
+            -T::from_f64(4.0).unwrap_or_else(|| T::zero()) * viscosity * u_max / (radius * radius);
 
         Self::new(u_max, radius, pressure_gradient, viscosity, length, false)
     }
@@ -111,8 +121,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> AnalyticalSolution<T> for Poise
             // u(y) = 4 * u_max * (y/h) * (1 - y/h)
             let y_norm = y / self.channel_width;
             let u = if y_norm >= T::zero() && y_norm <= T::one() {
-                let coeff = T::from_f64(cfd_core::constants::physics::fluid::CHANNEL_FLOW_COEFFICIENT)
-                    .unwrap_or_else(|| T::zero());
+                let coeff =
+                    T::from_f64(cfd_core::constants::physics::fluid::CHANNEL_FLOW_COEFFICIENT)
+                        .unwrap_or_else(|| T::zero());
                 coeff * self.u_max * y_norm * (T::one() - y_norm)
             } else {
                 T::zero()
@@ -148,13 +159,23 @@ impl<T: RealField + Copy + FromPrimitive + Copy> AnalyticalSolution<T> for Poise
 
     fn domain_bounds(&self) -> [T; 6] {
         if self.is_2d_channel {
-            [T::zero(), self.length,
-             -self.channel_width, self.channel_width,
-             T::zero(), T::zero()]
+            [
+                T::zero(),
+                self.length,
+                -self.channel_width,
+                self.channel_width,
+                T::zero(),
+                T::zero(),
+            ]
         } else {
-            [T::zero(), self.length,
-             -self.channel_width, self.channel_width,
-             -self.channel_width, self.channel_width]
+            [
+                T::zero(),
+                self.length,
+                -self.channel_width,
+                self.channel_width,
+                -self.channel_width,
+                self.channel_width,
+            ]
         }
     }
 }
@@ -208,8 +229,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> AnalyticalSolution<T> for Couet
 
         let pressure_term = if self.pressure_gradient != T::zero() {
             let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
-            self.pressure_gradient * y * (self.gap - y) /
-            (two * self.viscosity)
+            self.pressure_gradient * y * (self.gap - y) / (two * self.viscosity)
         } else {
             T::zero()
         };
@@ -227,9 +247,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy> AnalyticalSolution<T> for Couet
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        [T::zero(), self.length,
-         T::zero(), self.gap,
-         T::zero(), T::zero()]
+        [
+            T::zero(),
+            self.length,
+            T::zero(),
+            self.gap,
+            T::zero(),
+            T::zero(),
+        ]
     }
 }
 
@@ -256,10 +281,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> TaylorGreenVortex<T> {
     /// Calculate kinetic energy at time t
     pub fn kinetic_energy(&self, t: T) -> T {
         let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
-        
+
         // Decay factor: exp(-4*nu*t) for kinetic energy
         let decay = (-T::from_f64(4.0).unwrap_or_else(|| T::zero()) * self.viscosity * t).exp();
-        
+
         // Kinetic energy = 0.5 * amplitude^2 * exp(-4*nu*t)
         half * self.amplitude * self.amplitude * decay
     }
@@ -306,9 +331,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy> AnalyticalSolution<T> for Taylo
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        [T::zero(), self.domain_size,
-         T::zero(), self.domain_size,
-         T::zero(), T::zero()]
+        [
+            T::zero(),
+            self.domain_size,
+            T::zero(),
+            self.domain_size,
+            T::zero(),
+            T::zero(),
+        ]
     }
 }
 
@@ -363,10 +393,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> AnalyticalSolution<T> for Stoke
         let cos_theta = pos.x / r;
         let sin_theta = (pos.y * pos.y + pos.z * pos.z).sqrt() / r;
 
-        let u_r = self.u_infinity * cos_theta *
-                  (T::one() - three * a_over_r / T::from_f64(2.0).unwrap_or_else(|| T::zero()) + a_over_r_cubed / T::from_f64(2.0).unwrap_or_else(|| T::zero()));
-        let u_theta = -self.u_infinity * sin_theta *
-                      (T::one() - three * a_over_r / four - a_over_r_cubed / four);
+        let u_r = self.u_infinity
+            * cos_theta
+            * (T::one() - three * a_over_r / T::from_f64(2.0).unwrap_or_else(|| T::zero())
+                + a_over_r_cubed / T::from_f64(2.0).unwrap_or_else(|| T::zero()));
+        let u_theta = -self.u_infinity
+            * sin_theta
+            * (T::one() - three * a_over_r / four - a_over_r_cubed / four);
 
         // Convert to Cartesian coordinates
         let u_x = u_r * cos_theta - u_theta * sin_theta;
@@ -399,8 +432,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> AnalyticalSolution<T> for Stoke
 
         // Pressure field
         let cos_theta = pos.x / r;
-        -three * self.viscosity * self.u_infinity * self.radius * cos_theta /
-         (two * r * r)
+        -three * self.viscosity * self.u_infinity * self.radius * cos_theta / (two * r * r)
     }
 
     fn name(&self) -> &str {
@@ -409,9 +441,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy> AnalyticalSolution<T> for Stoke
 
     fn domain_bounds(&self) -> [T; 6] {
         let bound = T::from_f64(10.0).unwrap_or_else(|| T::zero()) * self.radius;
-        [self.center.x - bound, self.center.x + bound,
-         self.center.y - bound, self.center.y + bound,
-         self.center.z - bound, self.center.z + bound]
+        [
+            self.center.x - bound,
+            self.center.x + bound,
+            self.center.y - bound,
+            self.center.y + bound,
+            self.center.z - bound,
+            self.center.z + bound,
+        ]
     }
 }
 
@@ -432,22 +469,28 @@ impl AnalyticalUtils {
             for j in 0..ny {
                 for i in 0..nx {
                     let x = if nx > 1 {
-                        bounds[0] + (bounds[1] - bounds[0]) *
-                        T::from_usize(i).unwrap_or_else(|| T::zero()) / T::from_usize(nx - 1).unwrap_or_else(|| T::zero())
+                        bounds[0]
+                            + (bounds[1] - bounds[0])
+                                * T::from_usize(i).unwrap_or_else(|| T::zero())
+                                / T::from_usize(nx - 1).unwrap_or_else(|| T::zero())
                     } else {
                         (bounds[0] + bounds[1]) / T::from_f64(2.0).unwrap_or_else(|| T::zero())
                     };
 
                     let y = if ny > 1 {
-                        bounds[2] + (bounds[3] - bounds[2]) *
-                        T::from_usize(j).unwrap_or_else(|| T::zero()) / T::from_usize(ny - 1).unwrap_or_else(|| T::zero())
+                        bounds[2]
+                            + (bounds[3] - bounds[2])
+                                * T::from_usize(j).unwrap_or_else(|| T::zero())
+                                / T::from_usize(ny - 1).unwrap_or_else(|| T::zero())
                     } else {
                         (bounds[2] + bounds[3]) / T::from_f64(2.0).unwrap_or_else(|| T::zero())
                     };
 
                     let z = if nz > 1 {
-                        bounds[4] + (bounds[5] - bounds[4]) *
-                        T::from_usize(k).unwrap_or_else(|| T::zero()) / T::from_usize(nz - 1).unwrap_or_else(|| T::zero())
+                        bounds[4]
+                            + (bounds[5] - bounds[4])
+                                * T::from_usize(k).unwrap_or_else(|| T::zero())
+                                / T::from_usize(nz - 1).unwrap_or_else(|| T::zero())
                     } else {
                         (bounds[4] + bounds[5]) / T::from_f64(2.0).unwrap_or_else(|| T::zero())
                     };

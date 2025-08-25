@@ -6,7 +6,6 @@ pub mod convection;
 
 // Re-export main discretization types
 pub use convection::{
-    ConvectionScheme, ConvectionSchemeFactory, 
-    FirstOrderUpwind, CentralDifference, 
-    HybridScheme, PowerLawScheme, QuickScheme
+    CentralDifference, ConvectionScheme, ConvectionSchemeFactory, FirstOrderUpwind, HybridScheme,
+    PowerLawScheme, QuickScheme,
 };

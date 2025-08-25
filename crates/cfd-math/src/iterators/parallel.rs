@@ -1,7 +1,7 @@
 //! Parallel iterator operations for CFD computations
 
-use rayon::prelude::*;
 use nalgebra::RealField;
+use rayon::prelude::*;
 
 /// Extension trait for parallel operations on iterators
 pub trait ParallelIteratorExt: ParallelIterator {
@@ -38,9 +38,7 @@ pub trait ParallelIteratorExt: ParallelIterator {
         Self: ParallelIterator<Item = T> + Sized,
         T: RealField + Copy + Send + Sync,
     {
-        self.map(|x| x * x)
-            .reduce(T::zero, |acc, x| acc + x)
-            .sqrt()
+        self.map(|x| x * x).reduce(T::zero, |acc, x| acc + x).sqrt()
     }
 }
 

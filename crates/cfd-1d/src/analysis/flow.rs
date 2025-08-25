@@ -22,7 +22,8 @@ pub struct FlowAnalysis<T: RealField + Copy> {
 
 impl<T: RealField + Copy + Sum> FlowAnalysis<T> {
     /// Create a new flow analysis
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             total_flow_rate: T::zero(),
             component_flows: HashMap::new(),
@@ -67,16 +68,18 @@ impl<T: RealField + Copy + Sum> FlowAnalysis<T> {
 
     /// Get the maximum flow rate
     pub fn max_flow_rate(&self) -> Option<T> {
-        self.component_flows.values().max_by(|a, b| {
-            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-        }).copied()
+        self.component_flows
+            .values()
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .copied()
     }
 
     /// Get the minimum flow rate
     pub fn min_flow_rate(&self) -> Option<T> {
-        self.component_flows.values().min_by(|a, b| {
-            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-        }).copied()
+        self.component_flows
+            .values()
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .copied()
     }
 }
 

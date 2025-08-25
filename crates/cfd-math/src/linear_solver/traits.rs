@@ -25,12 +25,12 @@ pub trait LinearSolver<T: RealField + Copy>: Send + Sync {
 }
 
 /// Simplified, efficient preconditioner trait
-/// 
+///
 /// This API enforces explicit memory management and avoids hidden allocations
 /// by requiring the user to provide the output vector.
 pub trait Preconditioner<T: RealField + Copy>: Send + Sync {
     /// Apply the preconditioner: M(z) = r
-    /// 
+    ///
     /// Solves the preconditioning system and stores the result in `z`.
     /// This approach makes memory management explicit and avoids hidden allocations.
     fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()>;

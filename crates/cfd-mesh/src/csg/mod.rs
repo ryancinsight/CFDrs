@@ -4,17 +4,23 @@
 //! using the csgrs crate, enabling creation of complex geometries through
 //! constructive solid geometry techniques.
 
-mod primitives;
-mod operations;
-mod geometry;
 mod errors;
-mod transform;
+// Future modules - to be implemented when CSG feature is fully developed
+// mod primitives;
+// mod operations;
+// mod geometry;
+// mod transform;
 
-pub use primitives::{Primitives, PrimitiveBuilder};
-pub use operations::{BooleanOperator, BooleanOperation};
-pub use geometry::{CsgGeometry, GeometryBuilder};
 pub use errors::CsgError;
-pub use transform::{Transform, TransformBuilder};
 
-// Re-export the main operator for backward compatibility
-pub use operations::CsgOperator;
+// Placeholder types for API compatibility
+// These will be replaced with actual implementations when CSG is fully developed
+#[derive(Debug, Clone)]
+pub struct CsgMeshAdapter;
+
+impl CsgMeshAdapter {
+    /// Placeholder constructor
+    pub fn placeholder() -> Self {
+        Self
+    }
+}

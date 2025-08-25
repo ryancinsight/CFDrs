@@ -18,7 +18,7 @@ impl<Q> TensorProductQuadrature<Q> {
             dimension,
         }
     }
-    
+
     /// Get the dimension of the quadrature
     pub fn dimension(&self) -> usize {
         self.dimension

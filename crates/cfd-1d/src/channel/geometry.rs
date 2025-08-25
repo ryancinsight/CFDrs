@@ -1,9 +1,9 @@
 //! Channel geometry definitions for 1D CFD
 
-use nalgebra::RealField;
-use serde::{Deserialize, Serialize};
 use super::cross_section::CrossSection;
 use super::surface::SurfaceProperties;
+use nalgebra::RealField;
+use serde::{Deserialize, Serialize};
 
 /// Extended channel geometry representation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,19 +28,19 @@ pub enum ChannelType {
     /// Curved channel
     Curved {
         /// Radius of curvature in meters
-        radius: f64
+        radius: f64,
     },
     /// Tapered channel
     Tapered,
     /// Serpentine channel
     Serpentine {
         /// Number of turns in the serpentine path
-        turns: usize
+        turns: usize,
     },
     /// Spiral channel
     Spiral {
         /// Number of turns in the spiral (can be fractional)
-        turns: f64
+        turns: f64,
     },
 }
 

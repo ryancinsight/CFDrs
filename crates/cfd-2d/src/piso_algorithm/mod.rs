@@ -4,11 +4,11 @@
 //! equations by operator-splitting", Journal of Computational Physics, 62(1), 40-65
 
 pub mod config;
-pub mod predictor;
-pub mod corrector;
 pub mod convergence;
+pub mod corrector;
+pub mod predictor;
 pub mod solver;
 
 pub use config::PisoConfig;
-pub use solver::PisoSolver;
 pub use convergence::ConvergenceCriteria;
+pub use solver::PisoSolver;

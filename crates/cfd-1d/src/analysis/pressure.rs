@@ -35,7 +35,7 @@ impl<T: RealField + Copy + FromPrimitive + Sum> PressureAnalysis<T> {
     /// Add pressure data for a node
     pub fn add_pressure(&mut self, id: String, pressure: T) {
         self.pressures.insert(id, pressure);
-        
+
         if pressure > self.max_pressure {
             self.max_pressure = pressure;
         }

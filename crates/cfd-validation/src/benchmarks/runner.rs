@@ -1,9 +1,9 @@
 //! Benchmark runner and validation reporting
 
-use nalgebra::RealField;
-use cfd_core::Result;
-use serde::{Deserialize, Serialize};
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
+use cfd_core::Result;
+use nalgebra::RealField;
+use serde::{Deserialize, Serialize};
 
 /// Benchmark runner for executing validation tests
 pub struct BenchmarkRunner;
@@ -16,19 +16,18 @@ impl BenchmarkRunner {
     ) -> Result<BenchmarkResult<T>> {
         benchmark.run(config)
     }
-    
+
     /// Run multiple benchmarks
     pub fn run_suite<T: RealField + Copy>(
         benchmarks: &[Box<dyn Benchmark<T>>],
         config: &BenchmarkConfig<T>,
     ) -> Vec<Result<BenchmarkResult<T>>> {
-        benchmarks.iter()
-            .map(|b| b.run(config))
-            .collect()
+        benchmarks.iter().map(|b| b.run(config)).collect()
     }
-    
+
     /// Generate validation report
-    #[must_use] pub fn generate_report<T: RealField + Copy>(
+    #[must_use]
+    pub fn generate_report<T: RealField + Copy>(
         results: &[BenchmarkResult<T>],
     ) -> ValidationReport<T> {
         ValidationReport {
@@ -37,7 +36,7 @@ impl BenchmarkRunner {
             timestamp: chrono::Utc::now().to_rfc3339(),
         }
     }
-    
+
     /// Generate summary statistics
     fn generate_summary<T: RealField + Copy>(results: &[BenchmarkResult<T>]) -> String {
         format!("Completed {} benchmarks", results.len())
@@ -57,23 +56,25 @@ pub struct ValidationReport<T: RealField + Copy> {
 
 impl<T: RealField + Copy> ValidationReport<T> {
     /// Check if all benchmarks passed
-    #[must_use] pub fn all_passed(&self) -> bool {
+    #[must_use]
+    pub fn all_passed(&self) -> bool {
         !self.benchmarks.is_empty()
     }
-    
+
     /// Get failed benchmarks
-    #[must_use] pub fn failed_benchmarks(&self) -> Vec<&BenchmarkResult<T>> {
-        self.benchmarks.iter()
+    #[must_use]
+    pub fn failed_benchmarks(&self) -> Vec<&BenchmarkResult<T>> {
+        self.benchmarks
+            .iter()
             .filter(|b| !b.errors.is_empty())
             .collect()
     }
-    
+
     /// Export report to JSON
-    pub fn to_json(&self) -> Result<String> 
+    pub fn to_json(&self) -> Result<String>
     where
-        T: Serialize
+        T: Serialize,
     {
-        serde_json::to_string_pretty(self)
-            .map_err(|e| cfd_core::Error::External(e.to_string()))
+        serde_json::to_string_pretty(self).map_err(|e| cfd_core::Error::InvalidInput(e.to_string()))
     }
 }

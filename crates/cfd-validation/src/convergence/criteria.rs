@@ -91,7 +91,7 @@ impl<T: RealField + Copy + FromPrimitive> GridConvergenceIndex<T> {
         let safety_factor = if num_grids >= 3 {
             T::from_f64(1.25).unwrap() // Recommended for systematic studies
         } else {
-            T::from_f64(3.0).unwrap()   // Conservative for limited grids
+            T::from_f64(3.0).unwrap() // Conservative for limited grids
         };
 
         Self {
@@ -105,7 +105,7 @@ impl<T: RealField + Copy + FromPrimitive> GridConvergenceIndex<T> {
     pub fn compute_fine(&self, f_fine: T, f_coarse: T) -> T {
         let epsilon = (f_coarse - f_fine).abs() / f_fine.abs();
         let r_p = self.refinement_ratio.powf(self.order);
-        
+
         self.safety_factor * epsilon / (r_p - T::one())
     }
 
@@ -121,7 +121,7 @@ impl<T: RealField + Copy + FromPrimitive> GridConvergenceIndex<T> {
     pub fn is_asymptotic(&self, gci_fine: T, gci_coarse: T) -> bool {
         let r_p = self.refinement_ratio.powf(self.order);
         let ratio = gci_coarse / (r_p * gci_fine);
-        
+
         // Should be within 3% of unity for asymptotic range
         (ratio - T::one()).abs() < T::from_f64(0.03).unwrap()
     }
@@ -189,7 +189,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
         if iterations > 1 {
             let prev_error = self.history[iterations - 2];
             let rel_change = (current_error - prev_error).abs() / prev_error;
-            
+
             if rel_change < self.rel_tolerance {
                 return ConvergenceStatus::Converged {
                     final_error: current_error,
@@ -212,13 +212,15 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
         if iterations >= self.stall_window {
             let window_start = iterations - self.stall_window;
             let window_errors = &self.history[window_start..];
-            let mean_error = window_errors.iter().copied().sum::<T>() 
+            let mean_error = window_errors.iter().copied().sum::<T>()
                 / T::from_usize(self.stall_window).unwrap();
-            
-            let variance = window_errors.iter()
+
+            let variance = window_errors
+                .iter()
                 .map(|e| (*e - mean_error).powi(2))
-                .sum::<T>() / T::from_usize(self.stall_window).unwrap();
-            
+                .sum::<T>()
+                / T::from_usize(self.stall_window).unwrap();
+
             // Stalled if variance is very small relative to mean
             if variance < (mean_error * self.rel_tolerance).powi(2) {
                 return ConvergenceStatus::Stalled {
@@ -252,7 +254,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
         let start = self.history.len() - window - 1;
         let e_old = self.history[start];
         let e_new = *self.history.last().unwrap();
-        
+
         if e_old <= T::zero() || e_new <= T::zero() {
             return None;
         }
@@ -268,10 +270,10 @@ mod tests {
     #[test]
     fn test_gci_calculation() {
         let gci = GridConvergenceIndex::<f64>::new(3, 2.0, 2.0);
-        
+
         let f_fine = 1.234;
         let f_coarse = 1.256;
-        
+
         let gci_fine = gci.compute_fine(f_fine, f_coarse);
         assert!(gci_fine > 0.0);
         assert!(gci_fine < 0.01); // Should be small for good convergence
@@ -280,13 +282,13 @@ mod tests {
     #[test]
     fn test_convergence_monitor() {
         let mut monitor = ConvergenceMonitor::<f64>::new(1e-5, 1e-3, 100);
-        
+
         // Simulate convergence - final error should be below absolute tolerance
         let errors = vec![1.0, 0.1, 0.01, 0.001, 0.0001, 0.000001];
         for e in errors {
             monitor.update(e);
         }
-        
+
         let status = monitor.check_status();
         assert!(status.is_converged());
     }
@@ -294,12 +296,12 @@ mod tests {
     #[test]
     fn test_divergence_detection() {
         let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
-        
+
         // Simulate divergence
         monitor.update(0.1);
         monitor.update(0.5);
         monitor.update(2.0);
-        
+
         let status = monitor.check_status();
         assert!(matches!(status, ConvergenceStatus::Diverging { .. }));
     }

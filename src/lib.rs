@@ -6,13 +6,13 @@
 #![warn(missing_docs)]
 
 // Re-export all sub-crates
-pub use cfd_core as core;
-pub use cfd_math as math;
-pub use cfd_io as io;
-pub use cfd_mesh as mesh;
 pub use cfd_1d as d1;
 pub use cfd_2d as d2;
 pub use cfd_3d as d3;
+pub use cfd_core as core;
+pub use cfd_io as io;
+pub use cfd_math as math;
+pub use cfd_mesh as mesh;
 pub use cfd_validation as validation;
 
 /// Unified prelude module - Single Source of Truth for all common CFD functionality
@@ -37,46 +37,39 @@ pub use cfd_validation as validation;
 /// ```
 pub mod prelude {
     //! Common imports for CFD simulations
-    
+
     // Core functionality
     pub use cfd_core::prelude::*;
-    
+
     // Math operations
     pub use cfd_math::prelude::*;
-    
+
     // Mesh operations - exclude Edge to avoid conflict
-    pub use cfd_mesh::prelude::{
-        Connectivity, Geometry, Cell, Face, Mesh, MeshTopology, Vertex
-    };
+    pub use cfd_mesh::prelude::{Cell, Connectivity, Face, Geometry, Mesh, MeshTopology, Vertex};
     // Re-export mesh Edge with qualifier to avoid ambiguity
     pub use cfd_mesh::mesh::Edge as MeshEdge;
-    
+
     // I/O operations - only export what's available
-    pub use cfd_io::{VtkWriter, VtkReader, VtkMesh, VtkMeshBuilder};
-    
-    // 1D solver exports - exclude Edge to avoid conflict  
+    pub use cfd_io::{VtkMesh, VtkMeshBuilder, VtkReader, VtkWriter};
+
+    // 1D solver exports - exclude Edge to avoid conflict
     pub use cfd_1d::prelude::{
-        SchemeConversion, ComponentType, SchematicLayout,
-        Node, NodeType, EdgeType, NodeProperties, EdgeProperties,
-        ComponentFactory, FlowSensor, Micromixer, PumpType, ValveType, SensorType, MixerType,
-        PerformanceMetrics, NetworkAnalysisResult,
-        Channel, ChannelGeometry, ChannelType, CrossSection, SurfaceProperties, FlowState, FlowRegime, Wettability,
-        ResistanceModelFactory, ResistanceCalculator, FlowConditions, DarcyWeisbachModel,
+        Channel, ChannelGeometry, ChannelType, ComponentFactory, ComponentType, CrossSection,
+        DarcyWeisbachModel, EdgeProperties, EdgeType, FlowConditions, FlowRegime, FlowSensor,
+        FlowState, Micromixer, MixerType, NetworkAnalysisResult, Node, NodeProperties, NodeType,
+        PerformanceMetrics, PumpType, ResistanceCalculator, ResistanceModelFactory,
+        SchematicLayout, SchemeConversion, SensorType, SurfaceProperties, ValveType, Wettability,
     };
     // Re-export 1D Edge with qualifier
     pub use cfd_1d::network::Edge as NetworkEdge;
-    
+
     // 3D CFD functionality
     pub use cfd_3d::*;
-    
+
     // Note: cfd_2d and cfd_3d don't have prelude modules yet
-    
+
     // Validation tools - import specific types since prelude was removed
     pub use cfd_validation::{
-        ConvergenceStudy,
-        RichardsonExtrapolation,
-        GridConvergenceIndex,
-        ErrorMetric,
-        ErrorAnalysis,
+        ConvergenceStudy, ErrorAnalysis, ErrorMetric, GridConvergenceIndex, RichardsonExtrapolation,
     };
 }

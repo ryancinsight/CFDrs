@@ -37,11 +37,11 @@ impl StencilPattern {
                 T::from_f64(1.5).unwrap_or_else(T::zero),
             ],
             Self::Central5 => vec![
-                T::from_f64(1.0/12.0).unwrap_or_else(T::zero),
-                T::from_f64(-2.0/3.0).unwrap_or_else(T::zero),
+                T::from_f64(1.0 / 12.0).unwrap_or_else(T::zero),
+                T::from_f64(-2.0 / 3.0).unwrap_or_else(T::zero),
                 T::zero(),
-                T::from_f64(2.0/3.0).unwrap_or_else(T::zero),
-                T::from_f64(-1.0/12.0).unwrap_or_else(T::zero),
+                T::from_f64(2.0 / 3.0).unwrap_or_else(T::zero),
+                T::from_f64(-1.0 / 12.0).unwrap_or_else(T::zero),
             ],
             Self::Upwind3 => vec![
                 T::from_f64(-0.5).unwrap_or_else(T::zero),
@@ -60,11 +60,11 @@ impl StencilPattern {
                 T::one(),
             ],
             Self::Central5 => vec![
-                T::from_f64(-1.0/12.0).unwrap_or_else(T::zero),
-                T::from_f64(4.0/3.0).unwrap_or_else(T::zero),
-                T::from_f64(-5.0/2.0).unwrap_or_else(T::zero),
-                T::from_f64(4.0/3.0).unwrap_or_else(T::zero),
-                T::from_f64(-1.0/12.0).unwrap_or_else(T::zero),
+                T::from_f64(-1.0 / 12.0).unwrap_or_else(T::zero),
+                T::from_f64(4.0 / 3.0).unwrap_or_else(T::zero),
+                T::from_f64(-5.0 / 2.0).unwrap_or_else(T::zero),
+                T::from_f64(4.0 / 3.0).unwrap_or_else(T::zero),
+                T::from_f64(-1.0 / 12.0).unwrap_or_else(T::zero),
             ],
             _ => vec![T::zero(); 3], // Not implemented for other patterns
         }
@@ -121,7 +121,9 @@ where
         }
 
         // Apply coefficients
-        let result = self.buffer.iter()
+        let result = self
+            .buffer
+            .iter()
             .zip(coefficients.iter())
             .map(|(val, coeff)| *val * *coeff)
             .fold(T::zero(), |acc, x| acc + x);

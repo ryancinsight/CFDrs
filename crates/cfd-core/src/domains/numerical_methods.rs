@@ -3,7 +3,7 @@
 //! This module encapsulates numerical method knowledge following DDD principles.
 //! It provides abstractions for discretization, time integration, and linear system solving.
 
-use nalgebra::{RealField, DVector, DMatrix};
+use nalgebra::{DMatrix, DVector, RealField};
 // use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -11,10 +11,10 @@ use std::collections::HashMap;
 pub trait DiscretizationScheme<T: RealField + Copy>: Send + Sync {
     /// Apply discretization to a field
     fn discretize(&self, field: &[T], grid_spacing: T) -> Vec<T>;
-    
+
     /// Get scheme name
     fn name(&self) -> &str;
-    
+
     /// Get scheme order of accuracy
     fn order(&self) -> usize;
 }
@@ -22,53 +22,55 @@ pub trait DiscretizationScheme<T: RealField + Copy>: Send + Sync {
 /// Finite difference schemes
 pub mod finite_difference {
     use super::{DiscretizationScheme, RealField};
-    
+
     /// Central difference scheme (2nd order)
     #[derive(Debug, Clone)]
     pub struct CentralDifference;
-    
+
     impl<T: RealField + Copy> DiscretizationScheme<T> for CentralDifference {
         fn discretize(&self, field: &[T], grid_spacing: T) -> Vec<T> {
             if field.len() < 3 {
                 return field.to_vec();
             }
-            
+
             let two = T::one() + T::one();
             let dx = grid_spacing;
 
-            field.windows(3)
-                .map(|window| (window[2] - window[0])/(two * dx))
+            field
+                .windows(3)
+                .map(|window| (window[2] - window[0]) / (two * dx))
                 .collect()
         }
-        
+
         fn name(&self) -> &str {
             "Central Difference"
         }
-        
+
         fn order(&self) -> usize {
             2
         }
     }
-    
+
     /// Upwind difference scheme (1st order)
     #[derive(Debug, Clone)]
     pub struct UpwindDifference;
-    
+
     impl<T: RealField + Copy> DiscretizationScheme<T> for UpwindDifference {
         fn discretize(&self, field: &[T], grid_spacing: T) -> Vec<T> {
             if field.len() < 2 {
                 return field.to_vec();
             }
-            
-            field.windows(2)
-                .map(|window| (window[1] - window[0])/grid_spacing)
+
+            field
+                .windows(2)
+                .map(|window| (window[1] - window[0]) / grid_spacing)
                 .collect()
         }
-        
+
         fn name(&self) -> &str {
             "Upwind Difference"
         }
-        
+
         fn order(&self) -> usize {
             1
         }
@@ -79,13 +81,13 @@ pub mod finite_difference {
 pub trait TimeIntegrationScheme<T: RealField + Copy>: Send + Sync {
     /// Advance solution in time
     fn advance(&self, current: &[T], derivative: &[T], dt: T) -> Vec<T>;
-    
+
     /// Get scheme name
     fn name(&self) -> &str;
-    
+
     /// Get scheme order
     fn order(&self) -> usize;
-    
+
     /// Check if scheme is implicit
     fn is_implicit(&self) -> bool;
 }
@@ -93,34 +95,35 @@ pub trait TimeIntegrationScheme<T: RealField + Copy>: Send + Sync {
 /// Time integration schemes
 pub mod time_integration {
     use super::{RealField, TimeIntegrationScheme};
-    
+
     /// Forward Euler scheme (explicit, 1st order)
     #[derive(Debug, Clone)]
     pub struct ForwardEuler;
-    
+
     impl<T: RealField + Copy> TimeIntegrationScheme<T> for ForwardEuler {
         fn advance(&self, current: &[T], derivative: &[T], dt: T) -> Vec<T> {
-            current.iter()
+            current
+                .iter()
                 .zip(derivative.iter())
                 .map(|(u, dudt)| *u + *dudt * dt)
                 .collect()
         }
-        
+
         fn name(&self) -> &str {
             "Forward Euler"
         }
-        
+
         fn order(&self) -> usize {
             1
         }
-        
+
         fn is_implicit(&self) -> bool {
             false
         }
     }
-    
+
     /// Constant derivative time integration (equivalent to Forward Euler)
-    /// 
+    ///
     /// This scheme assumes the derivative is constant over the time step.
     /// For systems where the derivative changes with state, this reduces to
     /// Forward Euler regardless of the intended higher-order method.
@@ -131,7 +134,8 @@ pub mod time_integration {
         fn advance(&self, current: &[T], derivative: &[T], dt: T) -> Vec<T> {
             // With constant derivative assumption: y_new = *y + *dt *f(y)
             // This is exactly Forward Euler method
-            current.iter()
+            current
+                .iter()
                 .zip(derivative.iter())
                 .map(|(y, d)| *y + *d * dt)
                 .collect()
@@ -142,7 +146,7 @@ pub mod time_integration {
         }
 
         fn order(&self) -> usize {
-            1  // First order accurate
+            1 // First order accurate
         }
 
         fn is_implicit(&self) -> bool {
@@ -169,8 +173,9 @@ pub mod time_integration {
             T: RealField + Copy,
             F: Fn(T, &[T]) -> Vec<T>,
         {
-            let half = T::from_f64(0.5).unwrap_or_else(|| T::one()/(T::one() + T::one()));
-            let one_sixth = T::from_f64(1.0/6.0).unwrap_or_else(|| T::one()/(T::from_usize(6).unwrap_or_else(|| T::one())));
+            let half = T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one()));
+            let one_sixth = T::from_f64(1.0 / 6.0)
+                .unwrap_or_else(|| T::one() / (T::from_usize(6).unwrap_or_else(|| T::one())));
             let two = T::one() + T::one();
 
             // Classical RK4 stages
@@ -181,7 +186,8 @@ pub mod time_integration {
                 .collect();
 
             // y1 = y + k1/2
-            let y1: Vec<T> = current.iter()
+            let y1: Vec<T> = current
+                .iter()
                 .zip(k1.iter())
                 .map(|(y, k)| *y + *k * half)
                 .collect();
@@ -193,7 +199,8 @@ pub mod time_integration {
                 .collect();
 
             // y2 = y + k2/2
-            let y2: Vec<T> = current.iter()
+            let y2: Vec<T> = current
+                .iter()
                 .zip(k2.iter())
                 .map(|(y, k)| *y + *k * half)
                 .collect();
@@ -205,7 +212,8 @@ pub mod time_integration {
                 .collect();
 
             // y3 = y + k3
-            let y3: Vec<T> = current.iter()
+            let y3: Vec<T> = current
+                .iter()
                 .zip(k3.iter())
                 .map(|(y, k)| *y + *k)
                 .collect();
@@ -217,7 +225,8 @@ pub mod time_integration {
                 .collect();
 
             // Final combination: y_new = y + (k1 + 2*k2 + 2*k3 + k4)/6
-            current.iter()
+            current
+                .iter()
                 .zip(k1.iter())
                 .zip(k2.iter())
                 .zip(k3.iter())
@@ -235,10 +244,10 @@ pub mod time_integration {
 pub trait LinearSystemSolver<T: RealField + Copy>: Send + Sync {
     /// Solve linear system Ax = b
     fn solve(&self, matrix: &DMatrix<T>, rhs: &DVector<T>) -> Result<DVector<T>, String>;
-    
+
     /// Get solver name
     fn name(&self) -> &str;
-    
+
     /// Check if solver is iterative
     fn is_iterative(&self) -> bool;
 }
@@ -246,7 +255,7 @@ pub trait LinearSystemSolver<T: RealField + Copy>: Send + Sync {
 /// Linear system solvers
 pub mod linear_solvers {
     use super::{DMatrix, DVector, LinearSystemSolver, RealField};
-    
+
     /// Conjugate Gradient solver for symmetric positive definite systems
     #[derive(Debug, Clone)]
     pub struct ConjugateGradientSolver<T: RealField + Copy> {
@@ -255,37 +264,37 @@ pub mod linear_solvers {
         /// Convergence tolerance
         pub tolerance: T,
     }
-    
+
     impl<T: RealField + Copy> LinearSystemSolver<T> for ConjugateGradientSolver<T> {
         fn solve(&self, matrix: &DMatrix<T>, rhs: &DVector<T>) -> Result<DVector<T>, String> {
             // Conjugate Gradient implementation with preconditioning
             // Reference: Saad, Y. "Iterative Methods for Sparse Linear Systems" (2003)
-            
+
             let n = rhs.len();
             if matrix.nrows() != n || matrix.ncols() != n {
                 return Err("Matrix dimensions must match RHS vector length".to_string());
             }
-            
+
             // Initialize solution vector
             let mut x = DVector::zeros(n);
-            
+
             // Initial residual r = b - Ax
             let mut r = rhs.clone();
             let mut p = r.clone();
             let mut rsold = r.dot(&r);
-            
+
             // Check for zero right-hand side
             if rhs.norm() < self.tolerance {
                 return Ok(x); // Solution is zero vector
             }
-            
+
             for iter in 0..self.max_iterations {
                 // Matrix-vector product: Ap
                 let ap = matrix * p.clone();
-                
+
                 // Step length: α = (r^T * r)/(p^T * Ap)
                 let pap = p.dot(&ap);
-                
+
                 // Check for breakdown
                 if pap.abs() < T::from_f64(1e-14).unwrap_or_else(T::zero) {
                     // Try to return current solution if residual is small enough
@@ -294,43 +303,43 @@ pub mod linear_solvers {
                     }
                     return Err(format!("CG breakdown at iteration {iter}"));
                 }
-                
+
                 let alpha = rsold / pap;
-                
+
                 // Update solution: x = x + α * p
                 x += p.clone() * alpha;
-                
+
                 // Update residual: r = r - α * Ap
                 r = r.clone() - ap.clone() * alpha;
-                
+
                 // Check convergence
                 let rsnew = r.dot(&r);
                 if rsnew.sqrt() < self.tolerance {
                     return Ok(x);
                 }
-                
+
                 // Update search direction
                 let beta = rsnew / rsold;
                 p = r.clone() + p * beta;
                 rsold = rsnew;
             }
-            
+
             // Did not converge within max iterations
             Err(format!(
-                "CG did not converge after {} iterations", 
+                "CG did not converge after {} iterations",
                 self.max_iterations
             ))
         }
-        
+
         fn name(&self) -> &str {
             "Conjugate Gradient"
         }
-        
+
         fn is_iterative(&self) -> bool {
             true
         }
     }
-    
+
     impl<T: RealField + Copy> Default for ConjugateGradientSolver<T> {
         fn default() -> Self {
             // use num_traits::FromPrimitive;
@@ -354,83 +363,89 @@ pub struct NumericalMethodsService<T: RealField + Copy> {
 
 impl<T: RealField + Copy> NumericalMethodsService<T> {
     /// Create new numerical methods service
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         let mut service = Self {
             discretization_schemes: HashMap::new(),
             time_integration_schemes: HashMap::new(),
             linear_solvers: HashMap::new(),
         };
-        
+
         // Register default schemes
         service.register_discretization_scheme(
             "central".to_string(),
-            Box::new(finite_difference::CentralDifference)
+            Box::new(finite_difference::CentralDifference),
         );
         service.register_discretization_scheme(
             "upwind".to_string(),
-            Box::new(finite_difference::UpwindDifference)
+            Box::new(finite_difference::UpwindDifference),
         );
-        
+
         service.register_time_integration_scheme(
             "forward_euler".to_string(),
-            Box::new(time_integration::ForwardEuler)
+            Box::new(time_integration::ForwardEuler),
         );
         // Note: True RK4 requires derivative function evaluation at intermediate points
         // The ConstantDerivative scheme is registered here for compatibility but is only first-order accurate
         service.register_time_integration_scheme(
             "constant_derivative".to_string(),
-            Box::new(time_integration::ConstantDerivative)
+            Box::new(time_integration::ConstantDerivative),
         );
         // For proper RK4, use RungeKutta4::advance_with_function directly
-        
+
         service.register_linear_solver(
             "cg".to_string(),
-            Box::new(linear_solvers::ConjugateGradientSolver::default())
+            Box::new(linear_solvers::ConjugateGradientSolver::default()),
         );
-        
+
         service
     }
-    
+
     /// Register discretization scheme
     pub fn register_discretization_scheme(
         &mut self,
         name: String,
-        scheme: Box<dyn DiscretizationScheme<T>>
+        scheme: Box<dyn DiscretizationScheme<T>>,
     ) {
         self.discretization_schemes.insert(name, scheme);
     }
-    
+
     /// Register time integration scheme
     pub fn register_time_integration_scheme(
         &mut self,
         name: String,
-        scheme: Box<dyn TimeIntegrationScheme<T>>
+        scheme: Box<dyn TimeIntegrationScheme<T>>,
     ) {
         self.time_integration_schemes.insert(name, scheme);
     }
-    
+
     /// Register linear solver
-    pub fn register_linear_solver(
-        &mut self,
-        name: String,
-        solver: Box<dyn LinearSystemSolver<T>>
-    ) {
+    pub fn register_linear_solver(&mut self, name: String, solver: Box<dyn LinearSystemSolver<T>>) {
         self.linear_solvers.insert(name, solver);
     }
-    
+
     /// Get discretization scheme by name
-    #[must_use] pub fn get_discretization_scheme(&self, name: &str) -> Option<&dyn DiscretizationScheme<T>> {
-        self.discretization_schemes.get(name).map(std::convert::AsRef::as_ref)
+    #[must_use]
+    pub fn get_discretization_scheme(&self, name: &str) -> Option<&dyn DiscretizationScheme<T>> {
+        self.discretization_schemes
+            .get(name)
+            .map(std::convert::AsRef::as_ref)
     }
-    
+
     /// Get time integration scheme by name
-    #[must_use] pub fn get_time_integration_scheme(&self, name: &str) -> Option<&dyn TimeIntegrationScheme<T>> {
-        self.time_integration_schemes.get(name).map(std::convert::AsRef::as_ref)
+    #[must_use]
+    pub fn get_time_integration_scheme(&self, name: &str) -> Option<&dyn TimeIntegrationScheme<T>> {
+        self.time_integration_schemes
+            .get(name)
+            .map(std::convert::AsRef::as_ref)
     }
-    
+
     /// Get linear solver by name
-    #[must_use] pub fn get_linear_solver(&self, name: &str) -> Option<&dyn LinearSystemSolver<T>> {
-        self.linear_solvers.get(name).map(std::convert::AsRef::as_ref)
+    #[must_use]
+    pub fn get_linear_solver(&self, name: &str) -> Option<&dyn LinearSystemSolver<T>> {
+        self.linear_solvers
+            .get(name)
+            .map(std::convert::AsRef::as_ref)
     }
 }
 
@@ -461,8 +476,14 @@ mod tests {
         assert_relative_eq!(result[1], 2.5, epsilon = 1e-10);
         assert_relative_eq!(result[2], 3.5, epsilon = 1e-10);
 
-        assert_eq!(<finite_difference::CentralDifference as DiscretizationScheme<f64>>::name(&scheme), "Central Difference");
-        assert_eq!(<finite_difference::CentralDifference as DiscretizationScheme<f64>>::order(&scheme), 2);
+        assert_eq!(
+            <finite_difference::CentralDifference as DiscretizationScheme<f64>>::name(&scheme),
+            "Central Difference"
+        );
+        assert_eq!(
+            <finite_difference::CentralDifference as DiscretizationScheme<f64>>::order(&scheme),
+            2
+        );
     }
 
     #[test]
@@ -480,8 +501,14 @@ mod tests {
         assert_relative_eq!(result[1], 2.0, epsilon = 1e-10);
         assert_relative_eq!(result[2], 3.0, epsilon = 1e-10);
 
-        assert_eq!(<finite_difference::UpwindDifference as DiscretizationScheme<f64>>::name(&scheme), "Upwind Difference");
-        assert_eq!(<finite_difference::UpwindDifference as DiscretizationScheme<f64>>::order(&scheme), 1);
+        assert_eq!(
+            <finite_difference::UpwindDifference as DiscretizationScheme<f64>>::name(&scheme),
+            "Upwind Difference"
+        );
+        assert_eq!(
+            <finite_difference::UpwindDifference as DiscretizationScheme<f64>>::order(&scheme),
+            1
+        );
     }
 
     #[test]
@@ -500,9 +527,17 @@ mod tests {
         assert_relative_eq!(result[1], 1.95, epsilon = 1e-10);
         assert_relative_eq!(result[2], 3.1, epsilon = 1e-10);
 
-        assert_eq!(<time_integration::ForwardEuler as TimeIntegrationScheme<f64>>::name(&scheme), "Forward Euler");
-        assert_eq!(<time_integration::ForwardEuler as TimeIntegrationScheme<f64>>::order(&scheme), 1);
-        assert!(!<time_integration::ForwardEuler as TimeIntegrationScheme<f64>>::is_implicit(&scheme));
+        assert_eq!(
+            <time_integration::ForwardEuler as TimeIntegrationScheme<f64>>::name(&scheme),
+            "Forward Euler"
+        );
+        assert_eq!(
+            <time_integration::ForwardEuler as TimeIntegrationScheme<f64>>::order(&scheme),
+            1
+        );
+        assert!(!<time_integration::ForwardEuler as TimeIntegrationScheme<
+            f64,
+        >>::is_implicit(&scheme));
     }
 
     #[test]
@@ -518,11 +553,21 @@ mod tests {
         assert_eq!(result.len(), 1);
         assert_relative_eq!(result[0], 1.1, epsilon = 1e-10);
 
-        assert_eq!(<time_integration::ConstantDerivative as TimeIntegrationScheme<f64>>::name(&scheme), "Constant Derivative (Euler)");
-        assert_eq!(<time_integration::ConstantDerivative as TimeIntegrationScheme<f64>>::order(&scheme), 1);
-        assert!(!<time_integration::ConstantDerivative as TimeIntegrationScheme<f64>>::is_implicit(&scheme));
+        assert_eq!(
+            <time_integration::ConstantDerivative as TimeIntegrationScheme<f64>>::name(&scheme),
+            "Constant Derivative (Euler)"
+        );
+        assert_eq!(
+            <time_integration::ConstantDerivative as TimeIntegrationScheme<f64>>::order(&scheme),
+            1
+        );
+        assert!(
+            !<time_integration::ConstantDerivative as TimeIntegrationScheme<f64>>::is_implicit(
+                &scheme
+            )
+        );
     }
-    
+
     #[test]
     fn test_runge_kutta_4_proper() {
         // Test proper RK4 with a simple ODE: dy/dt = -y, y(0) = 1
@@ -531,14 +576,13 @@ mod tests {
         let y0 = vec![1.0f64];
         let t0 = 0.0;
         let dt = 0.1;
-        
+
         // Derivative function for dy/dt = -y
-        let derivative_fn = |_t: f64, y: &[f64]| -> Vec<f64> {
-            y.iter().map(|&val| -val).collect()
-        };
-        
+        let derivative_fn =
+            |_t: f64, y: &[f64]| -> Vec<f64> { y.iter().map(|&val| -val).collect() };
+
         let result = rk4.advance_with_function(&y0, t0, dt, derivative_fn);
-        
+
         // Expected value: exp(-0.1) ≈ 0.9048374180359595
         // RK4 should be very accurate for this simple problem
         assert_eq!(result.len(), 1);
@@ -554,7 +598,9 @@ mod tests {
         let matrix = DMatrix::from_row_slice(2, 2, &[2.0, 1.0, 1.0, 2.0]);
         let rhs = DVector::from_vec(vec![3.0, 3.0]);
 
-        let result = solver.solve(&matrix, &rhs).expect("CRITICAL: Add proper error handling");
+        let result = solver
+            .solve(&matrix, &rhs)
+            .expect("CRITICAL: Add proper error handling");
 
         assert_eq!(result.len(), 2);
         assert_relative_eq!(result[0], 1.0, epsilon = 1e-6);
@@ -571,8 +617,12 @@ mod tests {
         // Test that default schemes are registered
         assert!(service.get_discretization_scheme("central").is_some());
         assert!(service.get_discretization_scheme("upwind").is_some());
-        assert!(service.get_time_integration_scheme("forward_euler").is_some());
-        assert!(service.get_time_integration_scheme("constant_derivative").is_some());
+        assert!(service
+            .get_time_integration_scheme("forward_euler")
+            .is_some());
+        assert!(service
+            .get_time_integration_scheme("constant_derivative")
+            .is_some());
         assert!(service.get_linear_solver("cg").is_some());
 
         // Test non-existent schemes
@@ -586,7 +636,7 @@ mod tests {
         // Register a new scheme
         service.register_discretization_scheme(
             "test_scheme".to_string(),
-            Box::new(finite_difference::CentralDifference)
+            Box::new(finite_difference::CentralDifference),
         );
 
         assert!(service.get_discretization_scheme("test_scheme").is_some());

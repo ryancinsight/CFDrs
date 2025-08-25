@@ -9,6 +9,6 @@ pub mod vorticity_stream;
 
 // Re-export main physics types
 pub use energy::EnergyEquationSolver;
-pub use momentum::{MomentumSolver, MomentumComponent, MomentumCoefficients};
+pub use momentum::{MomentumCoefficients, MomentumComponent, MomentumSolver};
 pub use turbulence::{KEpsilonModel, WallFunction};
 pub use vorticity_stream::VorticityStreamSolver;

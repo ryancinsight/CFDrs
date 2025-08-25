@@ -6,38 +6,38 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
-pub mod interpolation;
-pub mod linear_solver;
-pub mod sparse;
 pub mod differentiation;
 pub mod integration;
+pub mod interpolation;
 pub mod iterators;
+pub mod linear_solver;
+pub mod sparse;
 pub mod vector_ops;
 pub mod vectorization;
 
-pub use interpolation::{Interpolation, LinearInterpolation, CubicSplineInterpolation};
+pub use interpolation::{CubicSplineInterpolation, Interpolation, LinearInterpolation};
 pub use linear_solver::{
-    LinearSolver, ConjugateGradient, BiCGSTAB, 
-    Preconditioner, IdentityPreconditioner, JacobiPreconditioner, 
-    SORPreconditioner
+    BiCGSTAB, ConjugateGradient, IdentityPreconditioner, JacobiPreconditioner, LinearSolver,
+    Preconditioner, SORPreconditioner,
 };
 // LinearSolverConfig is re-exported from cfd_core in linear_solver module
-pub use sparse::{SparseMatrix, SparseMatrixBuilder, SparseMatrixExt, SparsePatterns};
 pub use differentiation::{FiniteDifference, Gradient};
-pub use integration::{Quadrature, GaussQuadrature};
-pub use iterators::{MathIteratorExt, NormIteratorExt, StatisticsIteratorExt, 
-                    WindowIterator, StridedWindowIterator, StencilIterator, StencilPattern,
-                    ParallelIteratorExt};
-pub use vectorization::{VectorizedOps, StencilOps};
-pub use vector_ops::{SimdVectorOps, sparse_matvec};
+pub use integration::{GaussQuadrature, Quadrature};
+pub use iterators::{
+    MathIteratorExt, NormIteratorExt, ParallelIteratorExt, StatisticsIteratorExt, StencilIterator,
+    StencilPattern, StridedWindowIterator, WindowIterator,
+};
+pub use sparse::{SparseMatrix, SparseMatrixBuilder, SparseMatrixExt, SparsePatterns};
+pub use vector_ops::{sparse_matvec, SimdVectorOps};
+pub use vectorization::{StencilOps, VectorizedOps};
 
 /// Prelude module for convenient imports
 pub mod prelude {
     pub use crate::{
-        interpolation::{Interpolation, LinearInterpolation},
-        linear_solver::{LinearSolver, ConjugateGradient},
-        sparse::{SparseMatrix, SparseMatrixBuilder},
         differentiation::FiniteDifference,
         integration::Quadrature,
+        interpolation::{Interpolation, LinearInterpolation},
+        linear_solver::{ConjugateGradient, LinearSolver},
+        sparse::{SparseMatrix, SparseMatrixBuilder},
     };
 }

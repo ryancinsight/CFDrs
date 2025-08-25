@@ -1,6 +1,10 @@
 //! Statistical error metrics and comprehensive error analysis
 
-use super::{ErrorMetric, norms::{L1Norm, L2Norm, LInfNorm}, normalized::{MeanAbsoluteError, RootMeanSquareError, RelativeError}};
+use super::{
+    normalized::{MeanAbsoluteError, RelativeError, RootMeanSquareError},
+    norms::{L1Norm, L2Norm, LInfNorm},
+    ErrorMetric,
+};
 use cfd_core::error::{Error, Result};
 use nalgebra::{RealField, Vector3};
 use num_traits::cast::FromPrimitive;
@@ -29,7 +33,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorStatistics<T> {
     pub fn compute(numerical: &[T], reference: &[T]) -> Result<Self> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
-                "Arrays must have the same length".to_string()
+                "Arrays must have the same length".to_string(),
             ));
         }
 
@@ -55,7 +59,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorStatistics<T> {
     pub fn compute_vector(numerical: &[Vector3<T>], reference: &[Vector3<T>]) -> Result<Self> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
-                "Arrays must have the same length".to_string()
+                "Arrays must have the same length".to_string(),
             ));
         }
 

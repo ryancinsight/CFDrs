@@ -3,10 +3,10 @@
 //! This module implements various boundary conditions including
 //! bounce-back, velocity, and pressure boundaries.
 
+use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
+use cfd_core::BoundaryCondition;
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
-use cfd_core::BoundaryCondition;
-use crate::solvers::lbm::lattice::{D2Q9, equilibrium};
 use std::collections::HashMap;
 
 /// Types of LBM boundary conditions
@@ -40,31 +40,28 @@ impl<T: RealField + Copy + FromPrimitive> Default for BoundaryHandler<T> {
 
 impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
     /// Create new boundary handler
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             boundary_types: HashMap::new(),
             _phantom: std::marker::PhantomData,
         }
     }
-    
+
     /// Set boundary type for an edge
     pub fn set_boundary(&mut self, edge: String, boundary_type: BoundaryType) {
         self.boundary_types.insert(edge, boundary_type);
     }
-    
+
     /// Apply bounce-back boundary condition
-    pub fn apply_bounce_back(
-        f: &mut Vec<Vec<[T; 9]>>,
-        i: usize,
-        j: usize,
-    ) {
+    pub fn apply_bounce_back(f: &mut Vec<Vec<[T; 9]>>, i: usize, j: usize) {
         let f_temp = f[j][i];
         for q in 0..9 {
             let q_opp = D2Q9::OPPOSITE[q];
             f[j][i][q] = f_temp[q_opp];
         }
     }
-    
+
     /// Apply velocity boundary condition (Zou-He)
     pub fn apply_velocity_boundary(
         f: &mut Vec<Vec<[T; 9]>>,
@@ -77,11 +74,11 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         // Set velocity
         velocity[j][i][0] = u_boundary.x;
         velocity[j][i][1] = u_boundary.y;
-        
+
         // Compute density from known distributions
         let rho = Self::compute_boundary_density(f, i, j);
         density[j][i] = rho;
-        
+
         // Compute equilibrium distributions
         for q in 0..9 {
             let weight = T::from_f64(D2Q9::WEIGHTS[q]).unwrap_or_else(T::zero);
@@ -90,7 +87,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
             f[j][i][q] = equilibrium(rho, &u_arr, q, weight, lattice_vel);
         }
     }
-    
+
     /// Apply pressure boundary condition
     pub fn apply_pressure_boundary(
         f: &mut Vec<Vec<[T; 9]>>,
@@ -104,11 +101,11 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         let cs2 = T::from_f64(1.0 / 3.0).unwrap_or_else(T::zero);
         let rho = p_boundary / cs2;
         density[j][i] = rho;
-        
+
         // Extrapolate velocity from interior
         let u = Self::extrapolate_velocity(velocity, i, j);
         velocity[j][i] = u;
-        
+
         // Compute equilibrium distributions
         for q in 0..9 {
             let weight = T::from_f64(D2Q9::WEIGHTS[q]).unwrap_or_else(T::zero);
@@ -116,7 +113,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
             f[j][i][q] = equilibrium(rho, &u, q, weight, lattice_vel);
         }
     }
-    
+
     /// Apply all boundary conditions
     pub fn apply_boundaries(
         &self,
@@ -134,37 +131,29 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
                     let u_boundary = Vector2::new(vel[0], vel[1]);
                     Self::apply_velocity_boundary(f, density, velocity, *i, *j, u_boundary);
                 }
-                BoundaryCondition::PressureInlet { pressure } |
-                BoundaryCondition::PressureOutlet { pressure } => {
+                BoundaryCondition::PressureInlet { pressure }
+                | BoundaryCondition::PressureOutlet { pressure } => {
                     Self::apply_pressure_boundary(f, density, velocity, *i, *j, *pressure);
                 }
                 _ => {}
             }
         }
     }
-    
+
     /// Compute density at boundary from known distributions
-    fn compute_boundary_density(
-        f: &Vec<Vec<[T; 9]>>,
-        i: usize,
-        j: usize,
-    ) -> T {
+    fn compute_boundary_density(f: &Vec<Vec<[T; 9]>>, i: usize, j: usize) -> T {
         let mut rho = T::zero();
         for q in 0..9 {
             rho += f[j][i][q];
         }
         rho
     }
-    
+
     /// Extrapolate velocity from interior points
-    fn extrapolate_velocity(
-        velocity: &Vec<Vec<[T; 2]>>,
-        i: usize,
-        j: usize,
-    ) -> [T; 2] {
+    fn extrapolate_velocity(velocity: &Vec<Vec<[T; 2]>>, i: usize, j: usize) -> [T; 2] {
         let ny = velocity.len();
         let nx = if ny > 0 { velocity[0].len() } else { 0 };
-        
+
         // First-order extrapolation boundary treatment
         if i == 0 && i + 1 < nx {
             velocity[j][i + 1]
@@ -183,18 +172,18 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_bounce_back() {
         let mut f = vec![vec![[0.1_f64; 9]; 10]; 10];
-        
+
         // Set specific values
         for q in 0..9 {
             f[5][5][q] = q as f64;
         }
-        
+
         BoundaryHandler::<f64>::apply_bounce_back(&mut f, 5, 5);
-        
+
         // Check that distributions are swapped
         for q in 0..9 {
             let q_opp = D2Q9::OPPOSITE[q];

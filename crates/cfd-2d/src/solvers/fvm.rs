@@ -10,15 +10,15 @@
 //! The FVM approach ensures conservation of mass, momentum, and energy by
 //! integrating governing equations over control volumes.
 
-use cfd_core::{Result, BoundaryCondition, SolverConfiguration};
-use cfd_math::{SparseMatrixBuilder, LinearSolver, ConjugateGradient};
 use cfd_core::solver::LinearSolverConfig;
+use cfd_core::{BoundaryCondition, Result, SolverConfiguration};
+use cfd_math::{ConjugateGradient, LinearSolver, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField, Vector2};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::grid::{Grid2D, StructuredGrid2D, BoundaryType};
+use crate::grid::{BoundaryType, Grid2D, StructuredGrid2D};
 
 /// Finite Volume Method solver configuration
 /// Uses unified `SolverConfig` as base to follow SSOT principle
@@ -84,19 +84,22 @@ impl FluxSchemeFactory {
             "upwind" => Ok(FluxScheme::Upwind),
             "hybrid" => Ok(FluxScheme::Hybrid),
             "quick" => Ok(FluxScheme::Quick),
-            _ => Err(cfd_core::error::Error::InvalidInput(
-                format!("Unknown flux scheme: {name}")
-            )),
+            _ => Err(cfd_core::error::Error::InvalidInput(format!(
+                "Unknown flux scheme: {name}"
+            ))),
         }
     }
 
     /// Get all available flux schemes
-    #[must_use] pub fn available_schemes() -> Vec<&'static str> {
+    #[must_use]
+    pub fn available_schemes() -> Vec<&'static str> {
         vec!["central", "upwind", "hybrid", "quick"]
     }
 
     /// Get recommended scheme for given Peclet number
-    pub fn recommend_for_peclet<T: RealField + Copy + FromPrimitive + Copy>(peclet: T) -> FluxScheme {
+    pub fn recommend_for_peclet<T: RealField + Copy + FromPrimitive + Copy>(
+        peclet: T,
+    ) -> FluxScheme {
         let pe_threshold = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         if peclet.abs() < pe_threshold {
             FluxScheme::Central
@@ -133,11 +136,15 @@ pub struct FvmSolver<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<T> {
     /// Create a new FVM solver
     pub fn new(config: FvmConfig<T>, flux_scheme: FluxScheme) -> Self {
-        Self { config, flux_scheme }
+        Self {
+            config,
+            flux_scheme,
+        }
     }
 
     /// Create a new FVM solver with default configuration
-    #[must_use] pub fn default() -> Self {
+    #[must_use]
+    pub fn default() -> Self {
         Self::new(FvmConfig::default(), FluxScheme::Hybrid)
     }
 
@@ -162,7 +169,15 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
             .enumerate()
             .try_for_each(|(linear_idx, (i, j))| -> Result<()> {
                 if let Some(bc) = boundary_conditions.get(&(i, j)) {
-                    self.apply_boundary_condition(&mut matrix_builder, &mut rhs, linear_idx, bc, grid, i, j)?;
+                    self.apply_boundary_condition(
+                        &mut matrix_builder,
+                        &mut rhs,
+                        linear_idx,
+                        bc,
+                        grid,
+                        i,
+                        j,
+                    )?;
                 } else {
                     self.assemble_cell_equation(
                         &mut matrix_builder,
@@ -196,7 +211,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
         }
 
         // Convert solution vector back to grid format
-        Ok(grid.iter()
+        Ok(grid
+            .iter()
             .enumerate()
             .map(|(linear_idx, (i, j))| ((i, j), solution_vector[linear_idx]))
             .collect())
@@ -218,7 +234,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
                 grid.cell_center(i, j).ok().and_then(|center| {
                     grid.cell_center(i + 1, j).ok().map(|neighbor_center| {
                         let face_center = Vector2::new(
-                            (center.x + neighbor_center.x) / T::from_f64(2.0).unwrap_or_else(|| T::zero()),
+                            (center.x + neighbor_center.x)
+                                / T::from_f64(2.0).unwrap_or_else(|| T::zero()),
                             center.y,
                         );
 
@@ -245,7 +262,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
                     grid.cell_center(i, j + 1).ok().map(|neighbor_center| {
                         let face_center = Vector2::new(
                             center.x,
-                            (center.y + neighbor_center.y) / T::from_f64(2.0).unwrap_or_else(|| T::zero()),
+                            (center.y + neighbor_center.y)
+                                / T::from_f64(2.0).unwrap_or_else(|| T::zero()),
                         );
 
                         Face {
@@ -289,18 +307,19 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
                 // ∂φ/∂n = gradient (Neumann condition)
                 // Implement using ghost cell method for second-order accuracy
                 // Reference: Versteeg & Malalasekera, "An Introduction to CFD", Ch. 11
-                
+
                 let mut diagonal = T::zero();
                 let mut source_term = T::zero();
 
                 // Use numerical constants from core
-                let epsilon = T::from_f64(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE)
-                    .unwrap_or_else(|| T::from_f64(1e-10).unwrap());
-                
+                let epsilon =
+                    T::from_f64(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE)
+                        .unwrap_or_else(|| T::from_f64(1e-10).unwrap());
+
                 // Add contributions from interior neighbors using ghost cell approach
                 let coeff_x = T::one() / (dx * dx);
                 let coeff_y = T::one() / (dy * dy);
-                
+
                 // Handle x-direction boundaries
                 if i == 0 {
                     // Left boundary: ghost cell at i=-1
@@ -325,7 +344,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
                         diagonal += coeff_x;
                     }
                 }
-                
+
                 // Handle y-direction boundaries
                 if j == 0 {
                     // Bottom boundary: ghost cell at j=-1
@@ -353,7 +372,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
                 if diagonal.abs() < epsilon {
                     // This should not happen with proper ghost cell implementation
                     return Err(cfd_core::error::Error::Numerical(
-                        cfd_core::error::NumericalErrorKind::SingularMatrix
+                        cfd_core::error::NumericalErrorKind::SingularMatrix,
                     ));
                 }
 
@@ -454,7 +473,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
         let mut diagonal_coeff = T::zero();
 
         // Get cell properties
-        let vel = velocity.get(&(i, j)).copied().unwrap_or_else(Vector2::zeros);
+        let vel = velocity
+            .get(&(i, j))
+            .copied()
+            .unwrap_or_else(Vector2::zeros);
         let gamma = diffusivity.get(&(i, j)).copied().unwrap_or_else(T::one);
         let source_term = source.get(&(i, j)).copied().unwrap_or_else(T::zero);
 
@@ -485,7 +507,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
                     let diff_coeff = gamma * face.area / distance;
 
                     // Convection coefficient using selected scheme
-                    let conv_coeff = self.calculate_convection_coefficient(face_velocity, diff_coeff);
+                    let conv_coeff =
+                        self.calculate_convection_coefficient(face_velocity, diff_coeff);
 
                     Ok((neighbor, diff_coeff, conv_coeff))
                 })
@@ -541,7 +564,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
                 let peclet = face_velocity / diffusion_coeff;
                 if peclet.abs() <= T::from_f64(2.0).unwrap_or_else(|| T::zero()) {
                     face_velocity / T::from_f64(2.0).unwrap_or_else(|| T::zero())
-                } else if face_velocity > T::zero() { face_velocity } else { T::zero() }
+                } else if face_velocity > T::zero() {
+                    face_velocity
+                } else {
+                    T::zero()
+                }
             }
         }
     }
@@ -550,7 +577,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+
     use cfd_core::boundary::BoundaryCondition;
     use std::collections::HashMap;
 
@@ -564,10 +591,13 @@ mod tests {
 
     #[test]
     fn test_face_building() {
-        let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("CRITICAL: Add proper error handling");
+        let grid = StructuredGrid2D::<f64>::unit_square(3, 3)
+            .expect("CRITICAL: Add proper error handling");
         let solver = FvmSolver::default();
 
-        let faces = solver.build_faces(&grid).expect("CRITICAL: Add proper error handling");
+        let faces = solver
+            .build_faces(&grid)
+            .expect("CRITICAL: Add proper error handling");
 
         // Should have (nx-1)*ny + nx*(ny-1) internal faces
         let expected_faces = (3 - 1) * 3 + 3 * (3 - 1);
@@ -595,11 +625,13 @@ mod tests {
         // This creates a well-posed Laplace equation
         for i in 0..3 {
             boundary_conditions.insert((i, 0), BoundaryCondition::Dirichlet { value: 0.0 }); // Bottom
-            boundary_conditions.insert((i, 2), BoundaryCondition::Dirichlet { value: 1.0 }); // Top
+            boundary_conditions.insert((i, 2), BoundaryCondition::Dirichlet { value: 1.0 });
+            // Top
         }
         for j in 1..2 {
             boundary_conditions.insert((0, j), BoundaryCondition::Dirichlet { value: 0.5 }); // Left
-            boundary_conditions.insert((2, j), BoundaryCondition::Dirichlet { value: 0.5 }); // Right
+            boundary_conditions.insert((2, j), BoundaryCondition::Dirichlet { value: 0.5 });
+            // Right
         }
 
         // Solve the diffusion equation
@@ -615,22 +647,32 @@ mod tests {
         match result {
             Ok(solution) => {
                 assert_eq!(solution.len(), grid.num_cells());
-                
+
                 // Verify boundary conditions are satisfied
                 for ((i, j), &value) in solution.iter() {
                     if let Some(bc) = boundary_conditions.get(&(*i, *j)) {
                         if let BoundaryCondition::Dirichlet { value: bc_val } = bc {
                             // Allow small numerical error
-                            assert!((value - bc_val).abs() < 0.1, 
-                                   "Boundary condition not satisfied at ({}, {}): expected {}, got {}", 
-                                   i, j, bc_val, value);
+                            assert!(
+                                (value - bc_val).abs() < 0.1,
+                                "Boundary condition not satisfied at ({}, {}): expected {}, got {}",
+                                i,
+                                j,
+                                bc_val,
+                                value
+                            );
                         }
                     }
-                    
+
                     // Check solution is bounded and finite
                     assert!(value.is_finite(), "Solution contains non-finite values");
-                    assert!(value >= -0.1 && value <= 1.1, 
-                           "Solution out of physical bounds at ({}, {}): {}", i, j, value);
+                    assert!(
+                        value >= -0.1 && value <= 1.1,
+                        "Solution out of physical bounds at ({}, {}): {}",
+                        i,
+                        j,
+                        value
+                    );
                 }
             }
             Err(e) => {

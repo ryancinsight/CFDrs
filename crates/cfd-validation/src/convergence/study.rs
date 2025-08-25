@@ -35,7 +35,7 @@ impl<T: RealField + Copy + FromPrimitive> ConvergenceStudy<T> {
     pub fn new(grid_sizes: Vec<T>, errors: Vec<T>) -> Result<Self> {
         if grid_sizes.len() != errors.len() || grid_sizes.len() < 2 {
             return Err(Error::InvalidConfiguration(
-                "Need at least 2 grid sizes with corresponding errors".to_string()
+                "Need at least 2 grid sizes with corresponding errors".to_string(),
             ));
         }
 
@@ -43,7 +43,7 @@ impl<T: RealField + Copy + FromPrimitive> ConvergenceStudy<T> {
         for i in 1..grid_sizes.len() {
             if grid_sizes[i] >= grid_sizes[i - 1] {
                 return Err(Error::InvalidConfiguration(
-                    "Grid sizes must be monotonically decreasing".to_string()
+                    "Grid sizes must be monotonically decreasing".to_string(),
                 ));
             }
         }
@@ -52,11 +52,8 @@ impl<T: RealField + Copy + FromPrimitive> ConvergenceStudy<T> {
         let convergence_rate = compute_convergence_rate(&grid_sizes, &errors)?;
 
         // Compute error coefficient and fit quality
-        let (error_coefficient, r_squared) = compute_fit_quality(
-            &grid_sizes,
-            &errors,
-            convergence_rate
-        )?;
+        let (error_coefficient, r_squared) =
+            compute_fit_quality(&grid_sizes, &errors, convergence_rate)?;
 
         Ok(Self {
             grid_sizes,
@@ -86,13 +83,13 @@ impl<T: RealField + Copy + FromPrimitive> ConvergenceStudy<T> {
     pub fn grid_size_for_error(&self, target_error: T) -> Result<T> {
         if self.error_coefficient <= T::zero() {
             return Err(Error::InvalidInput(
-                "Error coefficient must be positive".to_string()
+                "Error coefficient must be positive".to_string(),
             ));
         }
-        
+
         if target_error <= T::zero() {
             return Err(Error::InvalidInput(
-                "Target error must be positive".to_string()
+                "Target error must be positive".to_string(),
             ));
         }
 
@@ -111,43 +108,38 @@ where
         .ok_or_else(|| Error::InvalidInput("Cannot convert size".to_string()))?;
 
     // Compute logarithms for linear regression
-    let (sum_log_h, sum_log_e, sum_log_h2, sum_log_he) = 
-        grid_sizes.iter()
-            .zip(errors.iter())
-            .map(|(h, e)| {
-                let log_h = h.ln();
-                let log_e = e.ln();
-                (log_h, log_e, log_h * log_h, log_h * log_e)
-            })
-            .fold(
-                (T::zero(), T::zero(), T::zero(), T::zero()),
-                |(sh, se, sh2, she), (lh, le, lh2, lhe)| {
-                    (sh + lh, se + le, sh2 + lh2, she + lhe)
-                }
-            );
+    let (sum_log_h, sum_log_e, sum_log_h2, sum_log_he) = grid_sizes
+        .iter()
+        .zip(errors.iter())
+        .map(|(h, e)| {
+            let log_h = h.ln();
+            let log_e = e.ln();
+            (log_h, log_e, log_h * log_h, log_h * log_e)
+        })
+        .fold(
+            (T::zero(), T::zero(), T::zero(), T::zero()),
+            |(sh, se, sh2, she), (lh, le, lh2, lhe)| (sh + lh, se + le, sh2 + lh2, she + lhe),
+        );
 
     // Least squares solution for slope (convergence rate)
     let denominator = n * sum_log_h2 - sum_log_h * sum_log_h;
-    
-    if denominator.abs() < T::from_f64(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE)
-        .unwrap_or_else(|| T::from_f64(1e-10).unwrap()) 
+
+    if denominator.abs()
+        < T::from_f64(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE)
+            .unwrap_or_else(|| T::from_f64(1e-10).unwrap())
     {
         return Err(Error::Numerical(
-            cfd_core::error::NumericalErrorKind::SingularMatrix
+            cfd_core::error::NumericalErrorKind::SingularMatrix,
         ));
     }
 
     let convergence_rate = (n * sum_log_he - sum_log_h * sum_log_e) / denominator;
-    
+
     Ok(convergence_rate)
 }
 
 /// Compute fit quality metrics (error coefficient and R-squared)
-fn compute_fit_quality<T>(
-    grid_sizes: &[T],
-    errors: &[T],
-    convergence_rate: T,
-) -> Result<(T, T)>
+fn compute_fit_quality<T>(grid_sizes: &[T], errors: &[T], convergence_rate: T) -> Result<(T, T)>
 where
     T: RealField + Copy + FromPrimitive,
 {
@@ -155,21 +147,22 @@ where
         .ok_or_else(|| Error::InvalidInput("Cannot convert size".to_string()))?;
 
     // Compute error coefficient from intercept
-    let (sum_log_h, sum_log_e) = grid_sizes.iter()
+    let (sum_log_h, sum_log_e) = grid_sizes
+        .iter()
         .zip(errors.iter())
         .map(|(h, e)| (h.ln(), e.ln()))
-        .fold(
-            (T::zero(), T::zero()),
-            |(sh, se), (lh, le)| (sh + lh, se + le)
-        );
+        .fold((T::zero(), T::zero()), |(sh, se), (lh, le)| {
+            (sh + lh, se + le)
+        });
 
     let log_c = (sum_log_e - convergence_rate * sum_log_h) / n;
     let error_coefficient = log_c.exp();
 
     // Compute R-squared for fit quality
     let mean_log_e = sum_log_e / n;
-    
-    let (ss_tot, ss_res) = errors.iter()
+
+    let (ss_tot, ss_res) = errors
+        .iter()
         .zip(grid_sizes.iter())
         .map(|(e, h)| {
             let log_e = e.ln();
@@ -179,10 +172,9 @@ where
             let residual = log_e - predicted;
             (total_dev * total_dev, residual * residual)
         })
-        .fold(
-            (T::zero(), T::zero()),
-            |(tot, res), (t, r)| (tot + t, res + r)
-        );
+        .fold((T::zero(), T::zero()), |(tot, res), (t, r)| {
+            (tot + t, res + r)
+        });
 
     let r_squared = if ss_tot > T::zero() {
         T::one() - ss_res / ss_tot
@@ -203,9 +195,9 @@ mod tests {
         // Test with known second-order convergence
         let grid_sizes = vec![0.1, 0.05, 0.025];
         let errors = vec![0.01, 0.0025, 0.000625]; // O(h²) behavior
-        
+
         let study = ConvergenceStudy::<f64>::new(grid_sizes, errors).unwrap();
-        
+
         assert_relative_eq!(study.convergence_rate, 2.0, epsilon = 0.01);
         assert!(study.r_squared > 0.99);
         assert!(study.is_asymptotic());
@@ -215,9 +207,9 @@ mod tests {
     fn test_grid_refinement_ratio() {
         let grid_sizes = vec![0.2, 0.1, 0.05];
         let errors = vec![0.04, 0.01, 0.0025];
-        
+
         let study = ConvergenceStudy::<f64>::new(grid_sizes, errors).unwrap();
-        
+
         // Predict error for h=0.025
         let predicted = study.predict_error(0.025);
         assert_relative_eq!(predicted, 0.000625, epsilon = 1e-6);

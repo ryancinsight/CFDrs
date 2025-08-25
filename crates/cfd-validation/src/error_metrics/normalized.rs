@@ -1,6 +1,9 @@
 //! Normalized and relative error metrics
 
-use super::{ErrorMetric, norms::{L1Norm, L2Norm}};
+use super::{
+    norms::{L1Norm, L2Norm},
+    ErrorMetric,
+};
 use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
@@ -29,12 +32,14 @@ where
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
-                "Arrays must have the same length".to_string()
+                "Arrays must have the same length".to_string(),
             ));
         }
 
         let absolute_error = self.base_metric.compute_error(numerical, reference)?;
-        let reference_norm = self.base_metric.compute_error(reference, &vec![T::zero(); reference.len()])?;
+        let reference_norm = self
+            .base_metric
+            .compute_error(reference, &vec![T::zero(); reference.len()])?;
 
         let tolerance_t = T::from_f64(self.tolerance).ok_or_else(|| {
             Error::InvalidConfiguration("Failed to convert tolerance to target type".to_string())
@@ -100,7 +105,8 @@ pub enum NormalizationMethod {
 
 impl NormalizedRMSE {
     /// Create new normalized RMSE metric
-    #[must_use] pub fn new(method: NormalizationMethod) -> Self {
+    #[must_use]
+    pub fn new(method: NormalizationMethod) -> Self {
         Self {
             normalization_method: method,
         }
@@ -111,7 +117,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for NormalizedRM
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
-                "Arrays must have the same length".to_string()
+                "Arrays must have the same length".to_string(),
             ));
         }
 
@@ -126,39 +132,45 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for NormalizedRM
         // Compute normalization factor
         let normalization = match self.normalization_method {
             NormalizationMethod::Range => {
-                let min_val = reference.iter().fold(reference[0], |acc, x| {
-                    if *x < acc { *x } else { acc }
-                });
-                let max_val = reference.iter().fold(reference[0], |acc, x| {
-                    if *x > acc { *x } else { acc }
-                });
+                let min_val = reference
+                    .iter()
+                    .fold(reference[0], |acc, x| if *x < acc { *x } else { acc });
+                let max_val = reference
+                    .iter()
+                    .fold(reference[0], |acc, x| if *x > acc { *x } else { acc });
                 max_val - min_val
-            },
+            }
             NormalizationMethod::Mean => {
                 let sum: T = reference.iter().fold(T::zero(), |acc, x| acc + *x);
                 let n = T::from_usize(reference.len()).ok_or_else(|| {
-                    Error::InvalidConfiguration("Failed to convert array length to target type".to_string())
+                    Error::InvalidConfiguration(
+                        "Failed to convert array length to target type".to_string(),
+                    )
                 })?;
                 sum / n
-            },
+            }
             NormalizationMethod::StandardDeviation => {
                 // Compute mean
                 let sum: T = reference.iter().fold(T::zero(), |acc, x| acc + *x);
                 let n = T::from_usize(reference.len()).ok_or_else(|| {
-                    Error::InvalidConfiguration("Failed to convert array length to target type".to_string())
+                    Error::InvalidConfiguration(
+                        "Failed to convert array length to target type".to_string(),
+                    )
                 })?;
                 let mean = sum / n;
 
                 // Compute variance
-                let variance: T = reference.iter()
+                let variance: T = reference
+                    .iter()
                     .map(|x| {
                         let diff = *x - mean;
                         diff * diff
                     })
-                    .fold(T::zero(), |acc, x| acc + x) / n;
+                    .fold(T::zero(), |acc, x| acc + x)
+                    / n;
 
                 variance.sqrt()
-            },
+            }
         };
 
         if normalization == T::zero() {

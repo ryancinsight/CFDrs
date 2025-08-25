@@ -49,7 +49,8 @@ pub struct ScalarField<T: RealField + Copy> {
 
 impl<T: RealField + Copy> FlowField<T> {
     /// Create a new flow field with specified dimensions
-    #[must_use] pub fn new(nx: usize, ny: usize, nz: usize) -> Self {
+    #[must_use]
+    pub fn new(nx: usize, ny: usize, nz: usize) -> Self {
         let total_points = nx * ny * nz;
         Self {
             velocity: VelocityField {
@@ -75,7 +76,8 @@ impl<T: RealField + Copy> FlowField<T> {
     }
 
     /// Get total number of points
-    #[must_use] pub fn total_points(&self) -> usize {
+    #[must_use]
+    pub fn total_points(&self) -> usize {
         let (nx, ny, nz) = self.velocity.dimensions;
         nx * ny * nz
     }
@@ -83,7 +85,8 @@ impl<T: RealField + Copy> FlowField<T> {
 
 impl<T: RealField + Copy> VelocityField<T> {
     /// Get velocity at a specific grid point
-    #[must_use] pub fn get(&self, i: usize, j: usize, k: usize) -> Option<&Vector3<T>> {
+    #[must_use]
+    pub fn get(&self, i: usize, j: usize, k: usize) -> Option<&Vector3<T>> {
         let (nx, ny, _) = self.dimensions;
         let idx = k * nx * ny + j * nx + i;
         self.components.get(idx)
@@ -97,7 +100,8 @@ impl<T: RealField + Copy> VelocityField<T> {
     }
 
     /// Create a view of the velocity field as a slice
-    #[must_use] pub fn as_slice(&self) -> &[Vector3<T>] {
+    #[must_use]
+    pub fn as_slice(&self) -> &[Vector3<T>] {
         &self.components
     }
 
@@ -109,7 +113,8 @@ impl<T: RealField + Copy> VelocityField<T> {
 
 impl<T: RealField + Copy> PressureField<T> {
     /// Get pressure at a specific grid point
-    #[must_use] pub fn get(&self, i: usize, j: usize, k: usize) -> Option<T> {
+    #[must_use]
+    pub fn get(&self, i: usize, j: usize, k: usize) -> Option<T> {
         let (nx, ny, _) = self.dimensions;
         let idx = k * nx * ny + j * nx + i;
         self.values.get(idx).copied()
@@ -125,7 +130,8 @@ impl<T: RealField + Copy> PressureField<T> {
     }
 
     /// Create a view of the pressure field as a slice
-    #[must_use] pub fn as_slice(&self) -> &[T] {
+    #[must_use]
+    pub fn as_slice(&self) -> &[T] {
         &self.values
     }
 }

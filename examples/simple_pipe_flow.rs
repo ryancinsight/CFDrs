@@ -1,10 +1,10 @@
 //! Pipe flow example demonstrating the 1D CFD solver
-//! 
+//!
 //! This example follows SOLID principles and demonstrates proper error handling
 
+use cfd_suite::core::{BoundaryCondition, Result};
+use cfd_suite::d1::{ChannelProperties, Network, NetworkProblem, NetworkSolver, Node, NodeType};
 use cfd_suite::prelude::*;
-use cfd_suite::core::{Result, BoundaryCondition};
-use cfd_suite::d1::{Network, Node, NodeType, ChannelProperties, NetworkSolver, NetworkProblem};
 
 fn main() -> Result<()> {
     println!("Pipe Flow Example");
@@ -14,14 +14,14 @@ fn main() -> Result<()> {
     let fluid = Fluid::<f64>::water()?;
     println!("Fluid: {}", fluid.name);
     println!("Density: {} kg/m³", fluid.density);
-    
+
     // Build network with fluid
     let mut network = Network::new(fluid.clone());
-    
+
     // Add nodes with proper IDs
     network.add_node(Node::new("inlet".to_string(), NodeType::Inlet));
     network.add_node(Node::new("outlet".to_string(), NodeType::Outlet));
-    
+
     // Add a channel between nodes (1m long, 1mm² cross-section)
     let length = 1.0;
     let area = 1e-6; // 1mm²
@@ -29,29 +29,29 @@ fn main() -> Result<()> {
     let resistance = 8.0 * viscosity * length / (std::f64::consts::PI * area * area);
     let channel_props = ChannelProperties::new(resistance, length, area);
     network.add_edge("inlet", "outlet", channel_props)?;
-    
+
     // Set boundary conditions
     network.set_boundary_condition(
-        "inlet", 
-        BoundaryCondition::PressureInlet { pressure: 101325.0 }
+        "inlet",
+        BoundaryCondition::PressureInlet { pressure: 101325.0 },
     )?;
     network.set_boundary_condition(
         "outlet",
-        BoundaryCondition::PressureOutlet { pressure: 101225.0 }
+        BoundaryCondition::PressureOutlet { pressure: 101225.0 },
     )?;
-    
+
     // Create and configure solver
     let mut solver = NetworkSolver::<f64>::new();
-    
+
     // Create problem and solve
     let problem = NetworkProblem::new(network);
     let solution = solver.solve(&problem)?;
-    
+
     // Display results
     println!("\nResults:");
     println!("--------");
     println!("Network solved with {} nodes", solution.node_count());
-    
+
     // Access pressures from the solution
     let pressures = solution.pressures();
     if pressures.len() > 0 {
@@ -62,7 +62,7 @@ fn main() -> Result<()> {
             println!("Flow rate: {:.6} m³/s", flow_rate);
         }
     }
-    
+
     println!("\nSimulation completed successfully!");
     Ok(())
 }

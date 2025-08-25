@@ -1,11 +1,11 @@
 //! Main spectral solver implementation
 
+use super::basis::SpectralBasis;
+use super::poisson::{PoissonBoundaryCondition, PoissonSolver};
+use cfd_core::Result;
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
-use cfd_core::Result;
-use super::basis::SpectralBasis;
-use super::poisson::{PoissonSolver, PoissonBoundaryCondition};
 
 /// Spectral method configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,10 +31,9 @@ impl<T: RealField + FromPrimitive + Copy> SpectralConfig<T> {
     pub fn new(nx: usize, ny: usize, nz: usize) -> Result<Self> {
         Ok(Self {
             base: cfd_core::solver::SolverConfig::builder()
-                .tolerance(T::from_f64(1e-10)
-                    .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
-                        "Cannot convert tolerance".into()
-                    ))?)
+                .tolerance(T::from_f64(1e-10).ok_or_else(|| {
+                    cfd_core::error::Error::InvalidConfiguration("Cannot convert tolerance".into())
+                })?)
                 .max_iterations(100)
                 .build(),
             nx_modes: nx,
@@ -57,18 +56,14 @@ pub struct SpectralSolver<T: RealField + Copy> {
 impl<T: RealField + FromPrimitive + Copy> SpectralSolver<T> {
     /// Create new spectral solver
     pub fn new(config: SpectralConfig<T>) -> Result<Self> {
-        let poisson_solver = PoissonSolver::new(
-            config.nx_modes,
-            config.ny_modes,
-            config.nz_modes,
-        )?;
-        
+        let poisson_solver = PoissonSolver::new(config.nx_modes, config.ny_modes, config.nz_modes)?;
+
         Ok(Self {
             config,
             poisson_solver,
         })
     }
-    
+
     /// Solve a problem using spectral methods
     pub fn solve(&mut self) -> Result<SpectralSolution<T>> {
         // Initialize solution with zeros
@@ -77,13 +72,13 @@ impl<T: RealField + FromPrimitive + Copy> SpectralSolver<T> {
             self.config.ny_modes,
             self.config.nz_modes,
         );
-        
+
         // Create source term as a matrix (simplified)
         let source = DMatrix::zeros(
             self.config.nx_modes * self.config.ny_modes,
             self.config.nz_modes,
         );
-        
+
         // Apply boundary conditions (simplified)
         let bc_x = (
             PoissonBoundaryCondition::Dirichlet(T::zero()),
@@ -97,13 +92,13 @@ impl<T: RealField + FromPrimitive + Copy> SpectralSolver<T> {
             PoissonBoundaryCondition::Dirichlet(T::zero()),
             PoissonBoundaryCondition::Dirichlet(T::zero()),
         );
-        
+
         // Apply the Poisson solver with proper arguments
         let potential = self.poisson_solver.solve(&source, bc_x, bc_y, bc_z)?;
-        
+
         // Store the result in the solution
         solution.u = potential;
-        
+
         Ok(solution)
     }
 }
@@ -120,7 +115,8 @@ pub struct SpectralSolution<T: RealField + Copy> {
 
 impl<T: RealField + Copy> SpectralSolution<T> {
     /// Create new solution
-    #[must_use] pub fn new(nx: usize, ny: usize, nz: usize) -> Self {
+    #[must_use]
+    pub fn new(nx: usize, ny: usize, nz: usize) -> Self {
         Self {
             u: DMatrix::zeros(nx * ny, nz),
             nx,
@@ -128,15 +124,14 @@ impl<T: RealField + Copy> SpectralSolution<T> {
             nz,
         }
     }
-    
+
     /// Get solution at a point
-    #[must_use] pub fn at(&self, i: usize, j: usize, k: usize) -> T 
+    #[must_use]
+    pub fn at(&self, i: usize, j: usize, k: usize) -> T
     where
-        T: Clone
+        T: Clone,
     {
         let idx = i * self.ny + j;
         self.u[(idx, k)]
     }
-    
-
 }

@@ -43,17 +43,17 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
         }
         Ok(Self { value, geometry })
     }
-    
+
     /// Create Reynolds number for pipe flow
     pub fn pipe(value: T) -> crate::error::Result<Self> {
         Self::new(value, FlowGeometry::Pipe)
     }
-    
+
     /// Get the raw value
     pub fn value(&self) -> T {
         self.value
     }
-    
+
     /// Check if flow is laminar based on geometry
     pub fn is_laminar(&self) -> bool {
         let threshold = match self.geometry {
@@ -63,49 +63,48 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
             FlowGeometry::FlatPlate | FlowGeometry::External => {
                 T::from_f64(crate::constants::physics::dimensionless::reynolds::PLATE_CRITICAL)
             }
-            FlowGeometry::Sphere => T::from_f64(crate::constants::physics::dimensionless::reynolds::SPHERE_CRITICAL),
-            FlowGeometry::Cylinder => T::from_f64(crate::constants::physics::dimensionless::reynolds::CYLINDER_CRITICAL),
-        }.unwrap_or_else(|| T::zero());
-        
+            FlowGeometry::Sphere => {
+                T::from_f64(crate::constants::physics::dimensionless::reynolds::SPHERE_CRITICAL)
+            }
+            FlowGeometry::Cylinder => {
+                T::from_f64(crate::constants::physics::dimensionless::reynolds::CYLINDER_CRITICAL)
+            }
+        }
+        .unwrap_or_else(|| T::zero());
+
         self.value < threshold
     }
-    
+
     /// Check if flow is turbulent based on geometry
     pub fn is_turbulent(&self) -> bool {
         let threshold = match self.geometry {
-            FlowGeometry::Pipe | FlowGeometry::Internal => {
-                T::from_f64(4000.0)
-            }
-            FlowGeometry::FlatPlate | FlowGeometry::External => {
-                T::from_f64(1e6)
-            }
-            FlowGeometry::Sphere | FlowGeometry::Cylinder => {
-                T::from_f64(3e5)
-            }
-        }.unwrap_or_else(|| T::zero());
-        
+            FlowGeometry::Pipe | FlowGeometry::Internal => T::from_f64(4000.0),
+            FlowGeometry::FlatPlate | FlowGeometry::External => T::from_f64(1e6),
+            FlowGeometry::Sphere | FlowGeometry::Cylinder => T::from_f64(3e5),
+        }
+        .unwrap_or_else(|| T::zero());
+
         self.value >= threshold
     }
-    
+
     /// Check if flow is in transition region
     pub fn is_transitional(&self) -> bool {
         !self.is_laminar() && !self.is_turbulent()
     }
-    
+
     /// Get transition probability (0 = fully laminar, 1 = fully turbulent)
     /// Uses smooth transition function
     pub fn transition_probability(&self) -> T {
         let (lower, upper) = match self.geometry {
-            FlowGeometry::Pipe | FlowGeometry::Internal => (
-                T::from_f64(2300.0),
-                T::from_f64(4000.0),
-            ),
+            FlowGeometry::Pipe | FlowGeometry::Internal => {
+                (T::from_f64(2300.0), T::from_f64(4000.0))
+            }
             _ => (T::from_f64(5e5), T::from_f64(1e6)),
         };
-        
+
         let lower = lower.unwrap_or_else(|| T::zero());
         let upper = upper.unwrap_or_else(|| T::one());
-        
+
         if self.value <= lower {
             T::zero()
         } else if self.value >= upper {
@@ -114,13 +113,12 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
             // Smooth transition using tanh function
             let mid = (lower + upper) / T::from_f64(2.0).unwrap_or_else(|| T::one());
             let width = upper - lower;
-            let normalized = (self.value - mid) / (width * T::from_f64(0.25).unwrap_or_else(|| T::one()));
+            let normalized =
+                (self.value - mid) / (width * T::from_f64(0.25).unwrap_or_else(|| T::one()));
             (T::one() + normalized.tanh()) / T::from_f64(2.0).unwrap_or_else(|| T::one())
         }
     }
 }
-
-
 
 impl<T: RealField + Copy + fmt::Display> fmt::Display for ReynoldsNumber<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -164,7 +162,9 @@ impl<T: RealField + FromPrimitive + Copy> Pressure<T> {
     pub fn to_pascals(&self) -> T {
         match self.unit {
             PressureUnit::Pascal => self.value,
-            PressureUnit::Atmosphere => self.value * T::from_f64(101_325.0).unwrap_or_else(|| T::one()),
+            PressureUnit::Atmosphere => {
+                self.value * T::from_f64(101_325.0).unwrap_or_else(|| T::one())
+            }
             PressureUnit::Bar => self.value * T::from_f64(100_000.0).unwrap_or_else(|| T::one()),
         }
     }
@@ -268,7 +268,7 @@ impl<T: RealField + FromPrimitive + Copy> Temperature<T> {
     pub fn kelvin(value: T) -> Result<Self> {
         if value < T::zero() {
             return Err(Error::InvalidConfiguration(
-                "Temperature cannot be below absolute zero".to_string()
+                "Temperature cannot be below absolute zero".to_string(),
             ));
         }
         Ok(Self {
@@ -279,14 +279,19 @@ impl<T: RealField + FromPrimitive + Copy> Temperature<T> {
 
     /// Create temperature in Celsius
     pub fn celsius(value: T) -> Result<Self> {
-        let kelvin_value = value + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN).unwrap_or_else(|| T::one());
+        let kelvin_value = value
+            + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN).unwrap_or_else(|| T::one());
         Self::kelvin(kelvin_value)
     }
 
     /// Create temperature in Fahrenheit
     pub fn fahrenheit(value: T) -> Result<Self> {
-        use crate::constants::physical::temperature::{FAHRENHEIT_TO_CELSIUS_FACTOR, FAHRENHEIT_ZERO_OFFSET};
-        let celsius_value = (value - T::from_f64(FAHRENHEIT_ZERO_OFFSET).unwrap_or_else(|| T::one())) * T::from_f64(FAHRENHEIT_TO_CELSIUS_FACTOR).unwrap_or_else(|| T::one());
+        use crate::constants::physical::temperature::{
+            FAHRENHEIT_TO_CELSIUS_FACTOR, FAHRENHEIT_ZERO_OFFSET,
+        };
+        let celsius_value = (value
+            - T::from_f64(FAHRENHEIT_ZERO_OFFSET).unwrap_or_else(|| T::one()))
+            * T::from_f64(FAHRENHEIT_TO_CELSIUS_FACTOR).unwrap_or_else(|| T::one());
         Self::celsius(celsius_value)
     }
 
@@ -294,11 +299,21 @@ impl<T: RealField + FromPrimitive + Copy> Temperature<T> {
     pub fn to_kelvin(&self) -> T {
         match self.unit {
             TemperatureUnit::Kelvin => self.value,
-            TemperatureUnit::Celsius => self.value + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN).unwrap_or_else(|| T::zero()),
+            TemperatureUnit::Celsius => {
+                self.value
+                    + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN)
+                        .unwrap_or_else(|| T::zero())
+            }
             TemperatureUnit::Fahrenheit => {
-                use crate::constants::physical::temperature::{FAHRENHEIT_TO_CELSIUS_FACTOR, FAHRENHEIT_ZERO_OFFSET};
-                let celsius = (self.value - T::from_f64(FAHRENHEIT_ZERO_OFFSET).unwrap_or_else(|| T::zero())) * T::from_f64(FAHRENHEIT_TO_CELSIUS_FACTOR).unwrap_or_else(|| T::zero());
-                celsius + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN).unwrap_or_else(|| T::zero())
+                use crate::constants::physical::temperature::{
+                    FAHRENHEIT_TO_CELSIUS_FACTOR, FAHRENHEIT_ZERO_OFFSET,
+                };
+                let celsius = (self.value
+                    - T::from_f64(FAHRENHEIT_ZERO_OFFSET).unwrap_or_else(|| T::zero()))
+                    * T::from_f64(FAHRENHEIT_TO_CELSIUS_FACTOR).unwrap_or_else(|| T::zero());
+                celsius
+                    + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN)
+                        .unwrap_or_else(|| T::zero())
             }
         }
     }
@@ -391,12 +406,14 @@ mod tests {
         assert!(!re.is_turbulent());
         assert!(!re.is_transitional());
 
-        let re_turb = ReynoldsNumber::new(5000.0, FlowGeometry::Pipe).expect("Valid Reynolds number");
+        let re_turb =
+            ReynoldsNumber::new(5000.0, FlowGeometry::Pipe).expect("Valid Reynolds number");
         assert!(!re_turb.is_laminar());
         assert!(re_turb.is_turbulent());
         assert!(!re_turb.is_transitional());
 
-        let re_trans = ReynoldsNumber::new(3000.0, FlowGeometry::Pipe).expect("Valid Reynolds number");
+        let re_trans =
+            ReynoldsNumber::new(3000.0, FlowGeometry::Pipe).expect("Valid Reynolds number");
         assert!(!re_trans.is_laminar());
         assert!(!re_trans.is_turbulent());
         assert!(re_trans.is_transitional());

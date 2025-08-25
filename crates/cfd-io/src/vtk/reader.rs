@@ -1,6 +1,6 @@
 //! VTK file reader
 
-use super::types::{VtkMesh, VtkHeader, VtkCellType};
+use super::types::{VtkCellType, VtkHeader, VtkMesh};
 use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
 use std::fs::File;
@@ -26,10 +26,10 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
     pub fn read_mesh(&self, path: &Path) -> Result<VtkMesh<T>> {
         let file = File::open(path)?;
         let mut reader = BufReader::new(file);
-        
+
         // Read header
         let header = self.read_header(&mut reader)?;
-        
+
         // For now, we only support UNSTRUCTURED_GRID
         if !header.dataset_type.contains("UNSTRUCTURED_GRID") {
             return Err(Error::Io(std::io::Error::new(
@@ -37,14 +37,14 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
                 format!("Unsupported dataset type: {}", header.dataset_type),
             )));
         }
-        
+
         let mut mesh = VtkMesh::new();
         let mut line = String::new();
-        
+
         // Read the rest of the file
         while reader.read_line(&mut line)? > 0 {
             let trimmed = line.trim();
-            
+
             if trimmed.starts_with("POINTS") {
                 let parts: Vec<&str> = trimmed.split_whitespace().collect();
                 if parts.len() >= 2 {
@@ -54,7 +54,7 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
                             "Invalid number of points",
                         ))
                     })?;
-                    
+
                     // Read points
                     for _ in 0..num_points {
                         line.clear();
@@ -92,7 +92,7 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
                             "Invalid number of cells",
                         ))
                     })?;
-                    
+
                     // Read cells
                     for _ in 0..num_cells {
                         line.clear();
@@ -115,7 +115,7 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
                             "Invalid number of cell types",
                         ))
                     })?;
-                    
+
                     // Read cell types
                     for _ in 0..num_types {
                         line.clear();
@@ -130,23 +130,24 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
                     }
                 }
             }
-            
+
             line.clear();
         }
-        
+
         Ok(mesh)
     }
-    
+
     fn read_header(&self, reader: &mut BufReader<File>) -> Result<VtkHeader> {
         let mut lines = reader.lines();
-        
+
         // Read and validate header lines
-        let version = lines.next()
-            .ok_or_else(|| Error::Io(std::io::Error::new(
+        let version = lines.next().ok_or_else(|| {
+            Error::Io(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "Missing VTK version line",
-            )))??;
-        
+            ))
+        })??;
+
         // Validate version format
         if !version.starts_with("# vtk DataFile Version") {
             return Err(Error::Io(std::io::Error::new(
@@ -154,25 +155,28 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
                 format!("Invalid VTK version line: {}", version),
             )));
         }
-        
-        let title = lines.next()
-            .ok_or_else(|| Error::Io(std::io::Error::new(
+
+        let title = lines.next().ok_or_else(|| {
+            Error::Io(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "Missing title line",
-            )))??;
-        
-        let format = lines.next()
-            .ok_or_else(|| Error::Io(std::io::Error::new(
+            ))
+        })??;
+
+        let format = lines.next().ok_or_else(|| {
+            Error::Io(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "Missing format line",
-            )))??;
-        
-        let dataset_type = lines.next()
-            .ok_or_else(|| Error::Io(std::io::Error::new(
+            ))
+        })??;
+
+        let dataset_type = lines.next().ok_or_else(|| {
+            Error::Io(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "Missing dataset type line",
-            )))??;
-        
+            ))
+        })??;
+
         Ok(VtkHeader {
             title,
             format,

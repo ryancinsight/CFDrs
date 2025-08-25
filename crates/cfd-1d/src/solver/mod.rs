@@ -3,27 +3,25 @@
 //! This module provides a comprehensive solver for analyzing fluid flow in microfluidic
 //! networks using sparse linear algebra and circuit analogies.
 
+mod convergence;
 mod domain;
+mod linear_system;
+mod matrix_assembly;
 mod problem;
 mod state;
-mod matrix_assembly;
-mod linear_system;
-mod convergence;
 
+pub use convergence::ConvergenceChecker;
 pub use domain::NetworkDomain;
+pub use linear_system::LinearSystemSolver;
+pub use matrix_assembly::MatrixAssembler;
 pub use problem::NetworkProblem;
 pub use state::NetworkState;
-pub use matrix_assembly::MatrixAssembler;
-pub use linear_system::LinearSystemSolver;
-pub use convergence::ConvergenceChecker;
-
-
 
 use crate::network::Network;
-use cfd_core::{Result, Solver, Configurable, Validatable};
+use cfd_core::{Configurable, Result, Solver, Validatable};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,11 +34,11 @@ impl<T: RealField + Copy> cfd_core::solver::SolverConfiguration<T> for SolverCon
     fn max_iterations(&self) -> usize {
         self.max_iterations
     }
-    
+
     fn tolerance(&self) -> T {
         self.tolerance
     }
-    
+
     fn use_preconditioning(&self) -> bool {
         false // No preconditioning for network solver
     }
@@ -78,7 +76,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
             convergence: ConvergenceChecker::new(config.tolerance),
         }
     }
-    
+
     /// Create with specific configuration
     pub fn with_config(config: SolverConfig<T>) -> Self {
         Self {
@@ -93,21 +91,25 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
     pub fn solve_network(&self, problem: &NetworkProblem<T>) -> Result<Network<T>> {
         // Build the linear system
         let (matrix, rhs) = self.assembler.assemble(&problem.network)?;
-        
+
         // Solve the linear system
         let solution = self.linear_solver.solve(&matrix, &rhs)?;
-        
+
         // Check convergence
         self.convergence.check(&solution)?;
-        
+
         // Update network with solution
         let mut network = problem.network.clone();
         self.update_network_solution(&mut network, solution)?;
-        
+
         Ok(network)
     }
 
-    fn update_network_solution(&self, network: &mut Network<T>, solution: nalgebra::DVector<T>) -> Result<()> {
+    fn update_network_solution(
+        &self,
+        network: &mut Network<T>,
+        solution: nalgebra::DVector<T>,
+    ) -> Result<()> {
         // Update network pressures and flows from solution vector
         network.update_from_solution(solution)
     }
@@ -120,7 +122,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Solver<T> for NetworkSolver<T> 
     fn solve(&mut self, problem: &Self::Problem) -> Result<Self::Solution> {
         self.solve_network(problem)
     }
-    
+
     fn name(&self) -> &str {
         "NetworkSolver"
     }
@@ -132,7 +134,7 @@ impl<T: RealField + Copy> Configurable<T> for NetworkSolver<T> {
     fn config(&self) -> &Self::Config {
         &self.config
     }
-    
+
     fn set_config(&mut self, config: Self::Config) {
         self.config = config;
     }
@@ -145,13 +147,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Validatable<T> for NetworkSolve
         // Validate network has nodes
         if problem.network.node_count() == 0 {
             return Err(cfd_core::Error::InvalidConfiguration(
-                "Network has no nodes".to_string()
+                "Network has no nodes".to_string(),
             ));
         }
         // Validate tolerance
         if self.config.tolerance <= T::zero() {
             return Err(cfd_core::Error::InvalidConfiguration(
-                "Tolerance must be positive".to_string()
+                "Tolerance must be positive".to_string(),
             ));
         }
         Ok(())

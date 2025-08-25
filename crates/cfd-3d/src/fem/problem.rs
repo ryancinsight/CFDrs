@@ -1,7 +1,7 @@
 //! Problem definition for FEM
 
+use cfd_core::{BoundaryCondition, Error, Fluid, Result};
 use cfd_mesh::Mesh;
-use cfd_core::{Result, Error, BoundaryCondition, Fluid};
 use nalgebra::{RealField, Vector3};
 use std::collections::HashMap;
 
@@ -49,9 +49,9 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
             .collect();
 
         if !missing_bcs.is_empty() {
-            return Err(Error::InvalidConfiguration(
-                format!("Missing boundary conditions for nodes: {missing_bcs:?}")
-            ));
+            return Err(Error::InvalidConfiguration(format!(
+                "Missing boundary conditions for nodes: {missing_bcs:?}"
+            )));
         }
 
         Ok(())

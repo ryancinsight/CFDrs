@@ -5,8 +5,8 @@
 //! - Automatic conversion from external error types
 //! - Context extension trait for adding error context
 
-use thiserror::Error;
 use std::fmt;
+use thiserror::Error;
 
 /// Core error type for CFD operations
 #[derive(Debug, Error)]
@@ -14,43 +14,43 @@ pub enum Error {
     /// Invalid input parameters
     #[error("Invalid input: {0}")]
     InvalidInput(String),
-    
+
     /// Invalid configuration
     #[error("Invalid configuration: {0}")]
     InvalidConfiguration(String),
-    
+
     /// Numerical computation error
     #[error("Numerical error: {0}")]
     Numerical(NumericalErrorKind),
-    
+
     /// Convergence failure
     #[error("Convergence failed: {0}")]
     Convergence(ConvergenceErrorKind),
-    
+
     /// Plugin-related errors
     #[error("Plugin error: {0}")]
     Plugin(PluginErrorKind),
-    
+
     /// Solver-specific errors
     #[error("Solver error: {0}")]
     Solver(String),
-    
+
     /// I/O errors
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
-    
+
     /// Dimension mismatch
     #[error("Dimension mismatch: expected {expected}, got {actual}")]
     DimensionMismatch { expected: usize, actual: usize },
-    
+
     /// Index out of bounds
     #[error("Index out of bounds: {index} >= {size}")]
     IndexOutOfBounds { index: usize, size: usize },
-    
+
     /// Not implemented
     #[error("Not implemented: {0}")]
     NotImplemented(String),
-    
+
     /// Generic error with context
     #[error("{context}: {source}")]
     WithContext {
@@ -82,20 +82,25 @@ pub enum PluginErrorKind {
 impl fmt::Display for PluginErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::NotFound { name } => 
-                write!(f, "Plugin '{}' not found", name),
-            Self::AlreadyRegistered { name } => 
-                write!(f, "Plugin '{}' already registered", name),
-            Self::InitializationFailed { name, reason } => 
-                write!(f, "Plugin '{}' initialization failed: {}", name, reason),
-            Self::ExecutionFailed { name, reason } => 
-                write!(f, "Plugin '{}' execution failed: {}", name, reason),
-            Self::DependencyNotSatisfied { plugin, dependency } => 
-                write!(f, "Plugin '{}' dependency '{}' not satisfied", plugin, dependency),
-            Self::CircularDependency { chain } => 
-                write!(f, "Circular dependency detected: {}", chain.join(" -> ")),
-            Self::InvalidConfiguration { name, reason } => 
-                write!(f, "Invalid configuration for plugin '{}': {}", name, reason),
+            Self::NotFound { name } => write!(f, "Plugin '{}' not found", name),
+            Self::AlreadyRegistered { name } => write!(f, "Plugin '{}' already registered", name),
+            Self::InitializationFailed { name, reason } => {
+                write!(f, "Plugin '{}' initialization failed: {}", name, reason)
+            }
+            Self::ExecutionFailed { name, reason } => {
+                write!(f, "Plugin '{}' execution failed: {}", name, reason)
+            }
+            Self::DependencyNotSatisfied { plugin, dependency } => write!(
+                f,
+                "Plugin '{}' dependency '{}' not satisfied",
+                plugin, dependency
+            ),
+            Self::CircularDependency { chain } => {
+                write!(f, "Circular dependency detected: {}", chain.join(" -> "))
+            }
+            Self::InvalidConfiguration { name, reason } => {
+                write!(f, "Invalid configuration for plugin '{}': {}", name, reason)
+            }
         }
     }
 }
@@ -124,22 +129,20 @@ pub enum NumericalErrorKind {
 impl fmt::Display for NumericalErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::DivisionByZero => 
-                write!(f, "Division by zero"),
-            Self::InvalidValue { value } => 
-                write!(f, "Invalid numerical value: {}", value),
-            Self::Underflow { value } => 
-                write!(f, "Numerical underflow: {:.2e}", value),
-            Self::Overflow { value } => 
-                write!(f, "Numerical overflow: {:.2e}", value),
-            Self::SingularMatrix => 
-                write!(f, "Matrix is singular"),
-            Self::NotPositiveDefinite => 
-                write!(f, "Matrix is not positive definite"),
-            Self::InvalidTolerance { tolerance } => 
-                write!(f, "Invalid tolerance: {:.2e}", tolerance),
-            Self::InsufficientPrecision { achieved, required } => 
-                write!(f, "Insufficient precision: achieved {:.2e}, required {:.2e}", achieved, required),
+            Self::DivisionByZero => write!(f, "Division by zero"),
+            Self::InvalidValue { value } => write!(f, "Invalid numerical value: {}", value),
+            Self::Underflow { value } => write!(f, "Numerical underflow: {:.2e}", value),
+            Self::Overflow { value } => write!(f, "Numerical overflow: {:.2e}", value),
+            Self::SingularMatrix => write!(f, "Matrix is singular"),
+            Self::NotPositiveDefinite => write!(f, "Matrix is not positive definite"),
+            Self::InvalidTolerance { tolerance } => {
+                write!(f, "Invalid tolerance: {:.2e}", tolerance)
+            }
+            Self::InsufficientPrecision { achieved, required } => write!(
+                f,
+                "Insufficient precision: achieved {:.2e}, required {:.2e}",
+                achieved, required
+            ),
         }
     }
 }
@@ -160,14 +163,14 @@ pub enum ConvergenceErrorKind {
 impl fmt::Display for ConvergenceErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::MaxIterationsExceeded { max } => 
-                write!(f, "Maximum iterations ({}) exceeded", max),
-            Self::StagnatedResidual { residual } => 
-                write!(f, "Residual stagnated at {:.2e}", residual),
-            Self::Diverged { norm } => 
-                write!(f, "Solution diverged with norm {:.2e}", norm),
-            Self::InvalidValue => 
-                write!(f, "Invalid value (NaN or Inf) detected"),
+            Self::MaxIterationsExceeded { max } => {
+                write!(f, "Maximum iterations ({}) exceeded", max)
+            }
+            Self::StagnatedResidual { residual } => {
+                write!(f, "Residual stagnated at {:.2e}", residual)
+            }
+            Self::Diverged { norm } => write!(f, "Solution diverged with norm {:.2e}", norm),
+            Self::InvalidValue => write!(f, "Invalid value (NaN or Inf) detected"),
         }
     }
 }
@@ -179,7 +182,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub trait ErrorContext<T> {
     /// Add context to an error
     fn context(self, msg: impl Into<String>) -> Result<T>;
-    
+
     /// Add context with a closure (lazy evaluation)
     fn with_context<F>(self, f: F) -> Result<T>
     where
@@ -193,7 +196,7 @@ impl<T> ErrorContext<T> for Result<T> {
             source: Box::new(e),
         })
     }
-    
+
     fn with_context<F>(self, f: F) -> Result<T>
     where
         F: FnOnce() -> String,
@@ -213,7 +216,7 @@ pub fn require<T>(opt: Option<T>, msg: impl Into<String>) -> Result<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_error_context() {
         let result: Result<()> = Err(Error::InvalidInput("test".into()));
@@ -222,12 +225,12 @@ mod tests {
         let error_msg = format!("{}", with_context.unwrap_err());
         assert!(error_msg.contains("Additional context"));
     }
-    
+
     #[test]
     fn test_require() {
         let some_value = Some(42);
         assert_eq!(require(some_value, "missing").unwrap(), 42);
-        
+
         let none_value: Option<i32> = None;
         assert!(require(none_value, "missing").is_err());
     }
