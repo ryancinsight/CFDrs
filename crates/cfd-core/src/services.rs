@@ -75,21 +75,25 @@ impl FluidDynamicsService {
             // Laminar flow: f = 64/Re
             Ok(sixty_four / reynolds)
         } else {
-            // Turbulent flow: use Colebrook-White or smooth pipe approximation
+            // Turbulent flow: use Colebrook-White or explicit correlations
             if let Some(eps) = roughness {
                 // Colebrook-White equation
                 let relative_roughness = eps / diameter;
                 Self::colebrook_white_friction_factor(reynolds, relative_roughness)
             } else {
-                // Smooth pipe: Blasius equation for Re < 100,000
-                let re_turbulent = T::from_f64(100_000.0).unwrap_or_else(|| T::one());
-                if reynolds < re_turbulent {
-                    let coeff = T::from_f64(0.316).unwrap_or_else(|| T::one());
-                    let exp = T::from_f64(0.25).unwrap_or_else(|| T::one()); // Blasius correlation exponent
+                // Smooth pipe: Blasius (low Re) or Haaland (general explicit)
+                let blasius_max =
+                    T::from_f64(crate::constants::physics::hydraulics::BLASIUS_MAX_RE)
+                        .unwrap_or_else(|| T::one());
+                if reynolds < blasius_max {
+                    let coeff =
+                        T::from_f64(crate::constants::physics::hydraulics::BLASIUS_COEFFICIENT)
+                            .unwrap_or_else(|| T::one());
+                    let exp = T::from_f64(crate::constants::physics::hydraulics::BLASIUS_EXPONENT)
+                        .unwrap_or_else(|| T::one());
                     Ok(coeff / reynolds.powf(exp))
                 } else {
-                    // Use Prandtl-Karman equation
-                    Self::prandtl_karman_friction_factor(reynolds)
+                    Self::haaland_friction_factor(reynolds, T::zero())
                 }
             }
         }
@@ -100,15 +104,34 @@ impl FluidDynamicsService {
         reynolds: T,
         relative_roughness: T,
     ) -> Result<T> {
-        let mut f = T::from_f64(0.02).unwrap_or_else(|| T::one()); // Initial guess
+        let mut f = T::from_f64(0.02).unwrap_or_else(|| T::one());
         let tolerance = T::from_f64(1e-6).unwrap_or_else(|| T::one());
         let max_iterations = 50;
 
         for _ in 0..max_iterations {
-            let term1 = relative_roughness / T::from_f64(3.7).unwrap_or_else(|| T::one());
-            let term2 = T::from_f64(2.51).unwrap_or_else(|| T::one()) / (reynolds * f.sqrt());
-            let f_new = T::from_f64(0.25).unwrap_or_else(|| T::one()) / // Colebrook equation coefficient 
-                (T::from_f64(10.0).unwrap_or_else(|| T::one()).ln() * (term1 + term2)).powi(2);
+            // 1/sqrt(f) = -2 log10( (ε/D)/3.7 + 2.51/(Re sqrt(f)) )
+            // Use log10(x) = ln(x) / ln(10)
+            let divisor =
+                T::from_f64(crate::constants::physics::hydraulics::COLEBROOK_ROUGHNESS_DIVISOR)
+                    .unwrap_or_else(|| T::one());
+            let num =
+                T::from_f64(crate::constants::physics::hydraulics::COLEBROOK_REYNOLDS_NUMERATOR)
+                    .unwrap_or_else(|| T::one());
+            let ln10 = T::from_f64(10.0).unwrap_or_else(|| T::one()).ln();
+
+            let term1 = relative_roughness / divisor;
+            let term2 = num / (reynolds * f.sqrt());
+            let inside = term1 + term2;
+            // Guard against invalid log argument
+            if inside <= T::zero() {
+                return Err(Error::Numerical(
+                    crate::error::NumericalErrorKind::InvalidValue {
+                        value: "Colebrook-White log argument".to_string(),
+                    },
+                ));
+            }
+            let inv_sqrt_f = -(T::from_f64(2.0).unwrap_or_else(|| T::one())) * (inside.ln() / ln10);
+            let f_new = T::one() / (inv_sqrt_f * inv_sqrt_f);
 
             if (f_new - f).abs() < tolerance {
                 return Ok(f_new);
@@ -121,14 +144,32 @@ impl FluidDynamicsService {
         ))
     }
 
-    /// Prandtl-Karman friction factor for smooth pipes
-    fn prandtl_karman_friction_factor<T: RealField + FromPrimitive + Copy>(
+    /// Haaland explicit friction factor correlation
+    fn haaland_friction_factor<T: RealField + FromPrimitive + Copy>(
         reynolds: T,
+        relative_roughness: T,
     ) -> Result<T> {
-        let log_re = reynolds.ln() / T::from_f64(10.0).unwrap_or_else(|| T::one()).ln();
-        let coeff = T::from_f64(2.0).unwrap_or_else(|| T::one()) * log_re
-            - T::from_f64(0.8).unwrap_or_else(|| T::one()); // Nikuradse correlation
-        Ok(T::one() / (coeff * coeff))
+        let a = T::from_f64(crate::constants::physics::hydraulics::HAALAND_LOG_COEFFICIENT)
+            .unwrap_or_else(|| T::one());
+        let rr_exp = T::from_f64(crate::constants::physics::hydraulics::HAALAND_ROUGHNESS_EXPONENT)
+            .unwrap_or_else(|| T::one());
+        let divisor =
+            T::from_f64(crate::constants::physics::hydraulics::COLEBROOK_ROUGHNESS_DIVISOR)
+                .unwrap_or_else(|| T::one());
+        let ln10 = T::from_f64(10.0).unwrap_or_else(|| T::one()).ln();
+
+        let term_rr = (relative_roughness / divisor).powf(rr_exp);
+        let term_re = T::from_f64(6.9).unwrap_or_else(|| T::one()) / reynolds;
+        let inside = term_rr + term_re;
+        if inside <= T::zero() {
+            return Err(Error::Numerical(
+                crate::error::NumericalErrorKind::InvalidValue {
+                    value: "Haaland log argument".to_string(),
+                },
+            ));
+        }
+        let inv_sqrt_f = a * (inside.ln() / ln10);
+        Ok(T::one() / (inv_sqrt_f * inv_sqrt_f))
     }
 }
 

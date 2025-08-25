@@ -4,8 +4,11 @@
 //! to ensure physics accuracy and numerical correctness.
 
 pub mod chapman_enskog;
-pub mod ghia_1982;
-pub mod issa_1986;
+// The following literature modules are not fully implemented and contained placeholders.
+// They are temporarily excluded from the public API to maintain SSOT and avoid fake validations.
+// Implementations should include end-to-end solver comparisons before re-exporting.
+// pub mod ghia_1982;
+// pub mod issa_1986;
 pub mod patankar_1980;
 
 use cfd_core::Result;

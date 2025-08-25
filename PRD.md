@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## CFD Suite v0.57.2
+## CFD Suite v0.57.3
 
 ### Product Classification
 Research software (not production)
@@ -29,8 +29,8 @@ Research software (not production)
 
 ### Development Roadmap (near term)
 1) Structure
-- Split `cfd-core/time.rs` into `time/integrators.rs`, `time/controllers.rs`
-- Consolidate constants; ban magic numbers; document
+- [x] Split `cfd-core/time.rs` into `time/integrators.rs`, `time/controllers.rs`
+- [x] Consolidate hydraulics constants; ban magic numbers in friction formulas
 
 2) Validation
 - Add MMS for diffusion/advection
@@ -39,6 +39,7 @@ Research software (not production)
 3) Quality
 - Reduce warnings (unused imports/vars)
 - Document public constants and fields
+- Remove placeholder literature modules from public API until validated
 
 4) CI
 - Build/test/fmt/clippy; artifact caching

@@ -127,15 +127,15 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for LidDrivenCavit
                 // Inner iterations for Poisson solver
                 for i in 1..n - 1 {
                     for j in 1..n - 1 {
-                        let psi_old = psi[(i, j)];
-                        let psi_new = T::from_f64(0.25).ok_or_else(|| {
+                        let psi_previous = psi[(i, j)];
+                        let psi_candidate = T::from_f64(0.25).ok_or_else(|| {
                             Error::InvalidInput("Cannot convert 0.25".to_string())
                         })? * (psi[(i + 1, j)]
                             + psi[(i - 1, j)]
                             + psi[(i, j + 1)]
                             + psi[(i, j - 1)]
                             + dx * dx * omega[(i, j)]);
-                        psi[(i, j)] = psi_old + omega_sor * (psi_new - psi_old);
+                        psi[(i, j)] = psi_previous + omega_sor * (psi_candidate - psi_previous);
                     }
                 }
             }

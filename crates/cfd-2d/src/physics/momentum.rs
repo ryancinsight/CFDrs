@@ -205,24 +205,24 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MomentumSolver<T> {
                 let idx = self.linear_index(i - 1, j - 1);
 
                 // Diagonal
-                builder.add_entry(idx, idx, coeffs.ap.at(i, j));
+                let _ = builder.add_entry(idx, idx, coeffs.ap.at(i, j));
 
                 // Off-diagonals
                 if i > 1 {
                     let idx_w = self.linear_index(i - 2, j - 1);
-                    builder.add_entry(idx, idx_w, -coeffs.aw.at(i, j));
+                    let _ = builder.add_entry(idx, idx_w, -coeffs.aw.at(i, j));
                 }
                 if i < self.nx - 2 {
                     let idx_e = self.linear_index(i, j - 1);
-                    builder.add_entry(idx, idx_e, -coeffs.ae.at(i, j));
+                    let _ = builder.add_entry(idx, idx_e, -coeffs.ae.at(i, j));
                 }
                 if j > 1 {
                     let idx_s = self.linear_index(i - 1, j - 2);
-                    builder.add_entry(idx, idx_s, -coeffs.as_.at(i, j));
+                    let _ = builder.add_entry(idx, idx_s, -coeffs.as_.at(i, j));
                 }
                 if j < self.ny - 2 {
                     let idx_n = self.linear_index(i - 1, j);
-                    builder.add_entry(idx, idx_n, -coeffs.an.at(i, j));
+                    let _ = builder.add_entry(idx, idx_n, -coeffs.an.at(i, j));
                 }
 
                 // RHS
