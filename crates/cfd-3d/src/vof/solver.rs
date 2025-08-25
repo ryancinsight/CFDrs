@@ -1,13 +1,13 @@
 //! Core VOF solver implementation
 
 use cfd_core::error::Result;
-use nalgebra::{Vector3, RealField};
+use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 
-use super::config::{VofConfig, INTERFACE_THICKNESS};
-use super::reconstruction::InterfaceReconstruction;
 use super::advection::AdvectionMethod;
+use super::config::VofConfig;
 use super::initialization::Initialization;
+use super::reconstruction::InterfaceReconstruction;
 
 /// VOF solver for multiphase flow
 pub struct VofSolver<T: RealField + FromPrimitive + Copy> {
@@ -128,8 +128,9 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
 
         if max_velocity > T::zero() {
             let dx_min = self.dx.min(self.dy).min(self.dz);
-            T::from_f64(self.config.cfl_number).unwrap_or(T::from_f64(0.3).unwrap_or(T::one())) 
-                * dx_min / max_velocity
+            T::from_f64(self.config.cfl_number).unwrap_or(T::from_f64(0.3).unwrap_or(T::one()))
+                * dx_min
+                / max_velocity
         } else {
             T::from_f64(1e-3).unwrap_or(T::one())
         }

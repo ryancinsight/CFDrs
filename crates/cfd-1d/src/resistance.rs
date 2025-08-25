@@ -487,7 +487,6 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> Default for Resist
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use cfd_core::Error;
 
     #[test]
     fn test_hagen_poiseuille() -> Result<()> {

@@ -577,7 +577,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+
     use cfd_core::boundary::BoundaryCondition;
     use std::collections::HashMap;
 

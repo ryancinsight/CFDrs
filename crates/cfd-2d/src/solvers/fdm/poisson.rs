@@ -2,7 +2,7 @@
 //!
 //! Solves the Poisson equation: ∇²φ = f
 
-use cfd_core::{Error, Result};
+use cfd_core::Result;
 use cfd_math::SparseMatrixBuilder;
 use nalgebra::{DVector, RealField};
 use num_traits::{FromPrimitive, Zero};

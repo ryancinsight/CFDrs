@@ -32,7 +32,6 @@ pub use error_metrics::{ErrorAnalysis, ErrorMetric};
 /// This validates the 1D pipe flow against the analytical solution
 #[cfg(test)]
 mod validation_tests {
-    use super::*;
 
     #[test]
     fn test_poiseuille_validation() {

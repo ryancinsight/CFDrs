@@ -1,7 +1,6 @@
 //! Convergence criteria for PISO algorithm
 
 use crate::fields::SimulationFields;
-use cfd_core::constants::*;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 

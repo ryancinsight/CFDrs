@@ -58,13 +58,14 @@ fn test_analytical_validation() {
     // Calculate max velocity for channel flow
     let u_max = -pressure_gradient * channel_width * channel_width / (8.0 * viscosity);
 
-    let poiseuille = PoiseuilleFlow::new(
+    use cfd_validation::analytical::poiseuille::PoiseuilleGeometry;
+
+    let poiseuille = PoiseuilleFlow::create(
         u_max,
         channel_width,
         pressure_gradient,
         viscosity,
-        length,
-        true,
+        PoiseuilleGeometry::Plates,
     );
 
     // Test velocity using the trait method

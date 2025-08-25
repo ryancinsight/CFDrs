@@ -8,10 +8,10 @@ use crate::solvers::lbm::{
     boundary::BoundaryHandler,
     collision::{BgkCollision, CollisionOperator},
     lattice::{equilibrium, D2Q9},
-    macroscopic::{compute_density, compute_velocity, MacroscopicQuantities},
+    macroscopic::MacroscopicQuantities,
     streaming::StreamingOperator,
 };
-use cfd_core::{BoundaryCondition, Error, Result};
+use cfd_core::{BoundaryCondition, Result};
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};

@@ -3,7 +3,6 @@
 //! This module implements the Strategy pattern for convection schemes,
 //! allowing easy extension and pluggable convection discretization methods.
 
-use cfd_core::constants;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 

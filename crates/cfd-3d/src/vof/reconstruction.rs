@@ -1,9 +1,9 @@
 //! Interface reconstruction methods for VOF
 
-use nalgebra::{Vector3, RealField};
-use num_traits::FromPrimitive;
+use super::config::{constants, VofConfig, VOF_EPSILON, VOF_INTERFACE_LOWER, VOF_INTERFACE_UPPER};
 use super::solver::VofSolver;
-use super::config::{VofConfig, VOF_INTERFACE_LOWER, VOF_INTERFACE_UPPER, VOF_EPSILON, constants};
+use nalgebra::{RealField, Vector3};
+use num_traits::FromPrimitive;
 
 /// Interface reconstruction strategy
 pub struct InterfaceReconstruction {
@@ -22,7 +22,7 @@ impl InterfaceReconstruction {
     pub fn reconstruct<T: RealField + FromPrimitive + Copy>(&self, solver: &mut VofSolver<T>) {
         // Calculate interface normals
         self.calculate_normals(solver);
-        
+
         // Calculate interface curvature
         self.calculate_curvature(solver);
     }
@@ -33,7 +33,7 @@ impl InterfaceReconstruction {
             for j in 1..solver.ny - 1 {
                 for i in 1..solver.nx - 1 {
                     let idx = solver.index(i, j, k);
-                    
+
                     // Only calculate for interface cells
                     let alpha = solver.alpha[idx];
                     if alpha > T::from_f64(VOF_INTERFACE_LOWER).unwrap_or(T::zero())
@@ -64,12 +64,15 @@ impl InterfaceReconstruction {
         k: usize,
     ) -> Vector3<T> {
         let two = T::from_f64(2.0).unwrap_or(T::one() + T::one());
-        
-        let dx = (solver.alpha[solver.index(i + 1, j, k)] - solver.alpha[solver.index(i - 1, j, k)])
+
+        let dx = (solver.alpha[solver.index(i + 1, j, k)]
+            - solver.alpha[solver.index(i - 1, j, k)])
             / (two * solver.dx);
-        let dy = (solver.alpha[solver.index(i, j + 1, k)] - solver.alpha[solver.index(i, j - 1, k)])
+        let dy = (solver.alpha[solver.index(i, j + 1, k)]
+            - solver.alpha[solver.index(i, j - 1, k)])
             / (two * solver.dy);
-        let dz = (solver.alpha[solver.index(i, j, k + 1)] - solver.alpha[solver.index(i, j, k - 1)])
+        let dz = (solver.alpha[solver.index(i, j, k + 1)]
+            - solver.alpha[solver.index(i, j, k - 1)])
             / (two * solver.dz);
 
         Vector3::new(dx, dy, dz)
@@ -96,11 +99,13 @@ impl InterfaceReconstruction {
 
         // Iteratively refine normal and plane constant
         let mut plane_constant = T::zero();
-        let tolerance = T::from_f64(constants::PLIC_TOLERANCE).unwrap_or(T::from_f64(1e-6).unwrap_or(T::zero()));
+        let tolerance = T::from_f64(constants::PLIC_TOLERANCE)
+            .unwrap_or(T::from_f64(1e-6).unwrap_or(T::zero()));
 
         for _ in 0..constants::PLIC_MAX_ITERATIONS {
             // Calculate plane constant for current normal
-            plane_constant = self.find_plane_constant(normal, target_volume, solver.dx, solver.dy, solver.dz);
+            plane_constant =
+                self.find_plane_constant(normal, target_volume, solver.dx, solver.dy, solver.dz);
 
             // Calculate volume under plane
             let calculated_volume = self.calculate_volume_under_plane(
@@ -140,16 +145,17 @@ impl InterfaceReconstruction {
         let mut c_min = T::zero();
         let mut c_max = normal.x.abs() * dx + normal.y.abs() * dy + normal.z.abs() * dz;
 
-        let tolerance = T::from_f64(constants::PLIC_TOLERANCE).unwrap_or(T::from_f64(1e-6).unwrap_or(T::zero()));
+        let tolerance = T::from_f64(constants::PLIC_TOLERANCE)
+            .unwrap_or(T::from_f64(1e-6).unwrap_or(T::zero()));
 
         for _ in 0..20 {
             let c_mid = (c_min + c_max) * T::from_f64(0.5).unwrap_or(T::zero());
             let volume = self.calculate_volume_under_plane(normal, c_mid, dx, dy, dz);
-            
+
             if (volume - target_volume * cell_volume).abs() < tolerance * cell_volume {
                 return c_mid;
             }
-            
+
             if volume < target_volume * cell_volume {
                 c_min = c_mid;
             } else {
@@ -172,8 +178,9 @@ impl InterfaceReconstruction {
         // Simplified calculation - full implementation would use analytical formulas
         // This is a placeholder that assumes the plane cuts the cell diagonally
         let cell_volume = dx * dy * dz;
-        let normalized_constant = plane_constant / (normal.x.abs() * dx + normal.y.abs() * dy + normal.z.abs() * dz);
-        
+        let normalized_constant =
+            plane_constant / (normal.x.abs() * dx + normal.y.abs() * dy + normal.z.abs() * dz);
+
         if normalized_constant <= T::zero() {
             T::zero()
         } else if normalized_constant >= T::one() {
@@ -187,12 +194,12 @@ impl InterfaceReconstruction {
     /// Calculate interface curvature from normals
     fn calculate_curvature<T: RealField + FromPrimitive + Copy>(&self, solver: &mut VofSolver<T>) {
         let two = T::from_f64(2.0).unwrap_or(T::one() + T::one());
-        
+
         for k in 1..solver.nz - 1 {
             for j in 1..solver.ny - 1 {
                 for i in 1..solver.nx - 1 {
                     let idx = solver.index(i, j, k);
-                    
+
                     // Only calculate for interface cells
                     let alpha = solver.alpha[idx];
                     if alpha > T::from_f64(VOF_INTERFACE_LOWER).unwrap_or(T::zero())
@@ -206,9 +213,12 @@ impl InterfaceReconstruction {
                         let idx_zm = solver.index(i, j, k - 1);
                         let idx_zp = solver.index(i, j, k + 1);
 
-                        let dnx_dx = (solver.normals[idx_xp].x - solver.normals[idx_xm].x) / (two * solver.dx);
-                        let dny_dy = (solver.normals[idx_yp].y - solver.normals[idx_ym].y) / (two * solver.dy);
-                        let dnz_dz = (solver.normals[idx_zp].z - solver.normals[idx_zm].z) / (two * solver.dz);
+                        let dnx_dx = (solver.normals[idx_xp].x - solver.normals[idx_xm].x)
+                            / (two * solver.dx);
+                        let dny_dy = (solver.normals[idx_yp].y - solver.normals[idx_ym].y)
+                            / (two * solver.dy);
+                        let dnz_dz = (solver.normals[idx_zp].z - solver.normals[idx_zm].z)
+                            / (two * solver.dz);
 
                         solver.curvature[idx] = -(dnx_dx + dny_dy + dnz_dz);
                     } else {

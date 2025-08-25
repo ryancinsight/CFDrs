@@ -4,9 +4,9 @@
 //! using the csgrs crate, enabling creation of complex geometries through
 //! constructive solid geometry techniques.
 
-mod primitives;
-mod operations;
-mod geometry;
+// mod primitives; // TODO: Implement when needed
+// mod operations; // TODO: Implement when needed
+// mod geometry; // TODO: Implement when needed
 mod errors;
 mod transform;
 

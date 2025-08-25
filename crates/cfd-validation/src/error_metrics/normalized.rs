@@ -132,14 +132,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for NormalizedRM
         // Compute normalization factor
         let normalization = match self.normalization_method {
             NormalizationMethod::Range => {
-                let min_val =
-                    reference
-                        .iter()
-                        .fold(reference[0], |acc, x| if *x < acc { *x } else { acc });
-                let max_val =
-                    reference
-                        .iter()
-                        .fold(reference[0], |acc, x| if *x > acc { *x } else { acc });
+                let min_val = reference
+                    .iter()
+                    .fold(reference[0], |acc, x| if *x < acc { *x } else { acc });
+                let max_val = reference
+                    .iter()
+                    .fold(reference[0], |acc, x| if *x > acc { *x } else { acc });
                 max_val - min_val
             }
             NormalizationMethod::Mean => {

@@ -3,15 +3,15 @@
 //! The VOF method tracks interfaces by advecting volume fractions,
 //! providing excellent mass conservation properties.
 
-mod config;
-mod solver;
-mod reconstruction;
 mod advection;
+mod config;
 mod initialization;
+mod reconstruction;
+mod solver;
 
-pub use config::{VofConfig, constants};
+pub use config::{constants, VofConfig};
 pub use solver::VofSolver;
 
 // Re-export key types for convenience
-pub use reconstruction::InterfaceReconstruction;
 pub use advection::AdvectionMethod;
+pub use reconstruction::InterfaceReconstruction;

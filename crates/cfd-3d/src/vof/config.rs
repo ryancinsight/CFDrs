@@ -6,10 +6,10 @@ use serde::{Deserialize, Serialize};
 const DEFAULT_MAX_ITERATIONS: usize = 100;
 const DEFAULT_TOLERANCE: f64 = 1e-6;
 const DEFAULT_CFL_NUMBER: f64 = 0.3;
-pub const VOF_EPSILON: f64 = 1e-10;  // Small value to avoid division by zero
-pub const INTERFACE_THICKNESS: f64 = 1.5;  // Interface thickness in cells
-pub const VOF_INTERFACE_LOWER: f64 = 0.01;  // Lower bound for interface cells
-pub const VOF_INTERFACE_UPPER: f64 = 0.99;  // Upper bound for interface cells
+pub const VOF_EPSILON: f64 = 1e-10; // Small value to avoid division by zero
+pub const INTERFACE_THICKNESS: f64 = 1.5; // Interface thickness in cells
+pub const VOF_INTERFACE_LOWER: f64 = 0.01; // Lower bound for interface cells
+pub const VOF_INTERFACE_UPPER: f64 = 0.99; // Upper bound for interface cells
 
 /// VOF solver configuration constants
 pub mod constants {

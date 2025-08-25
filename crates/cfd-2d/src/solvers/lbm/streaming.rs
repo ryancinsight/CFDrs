@@ -110,7 +110,7 @@ mod tests {
         let ny = 10;
 
         // Initialize with uniform distribution
-        let mut f_src = vec![vec![[1.0_f64 / 9.0; 9]; nx]; ny];
+        let f_src = vec![vec![[1.0_f64 / 9.0; 9]; nx]; ny];
         let mut f_dst = vec![vec![[0.0_f64; 9]; nx]; ny];
 
         // Compute initial mass
