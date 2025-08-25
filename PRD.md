@@ -1,160 +1,75 @@
 # Product Requirements Document
 
-## CFD Suite v0.57.1
+## CFD Suite v0.57.2
 
 ### Product Classification
-**Research Software** - Not Production Ready
+Research software (not production)
 
 ### Current Capabilities
 
 #### Functional
-- Compiles and runs CFD simulations without errors
-- Implements core algorithms (FVM, FDM, PISO, VOF)
-- Provides type and memory safety via Rust
-- Passes test suite; physics validation added for Couette-Poiseuille and Taylor-Green
+- Workspace compiles and runs
+- Core algorithms (FVM/FDM/PISO/VOF/spectral) present
+- Analytical validations: Couette, Poiseuille (plates), Taylor-Green
+- Test suite covers numerical methods and integrations
 
 #### Non-Functional
-- Clean architecture with trait-based design
-- Modular crate structure
-- Basic error handling with Result types
-- Examples demonstrate usage
+- Trait-based, domain-structured crates
+- Result-based error handling
+- Examples and benches compile
 
-### Current Limitations
+### Limitations
+- Validation coverage limited to selected cases
+- Performance and parallelism deferred
+- Docs incomplete; warnings for missing docs on public items
 
-#### Critical Gaps
-1. **Limited Physics Validation**: Initial validations added; expand coverage
-2. **No Performance Optimization**: Single-threaded, unoptimized
-3. **Limited Test Coverage**: 45% coverage, edge cases untested
-4. **Potential Panics**: 142 unwrap/expect calls that could panic
+### Users
+- Researchers, students, prototype developers
+- Excludes production users and validated publication use
 
-#### Technical Debt
-- Several modules exceed 500 lines (violate SLAP); refactor planned
-- Incomplete API documentation
-- No benchmarks or profiling
-- No CI/CD pipeline
+### Development Roadmap (near term)
+1) Structure
+- Split `cfd-core/time.rs` into `time/integrators.rs`, `time/controllers.rs`
+- Consolidate constants; ban magic numbers; document
 
-### User Segments
+2) Validation
+- Add MMS for diffusion/advection
+- Add Poiseuille pipe benchmarks; expand Couette-Poiseuille
 
-#### Target Users (Current)
-- Researchers exploring CFD algorithms
-- Students learning Rust + CFD
-- Developers prototyping solutions
+3) Quality
+- Reduce warnings (unused imports/vars)
+- Document public constants and fields
 
-#### Non-Target Users (Current)
-- Production environments
-- Commercial applications
-- Published research requiring validated results
-- Performance-critical simulations
-
-### Competitive Analysis
-
-| Aspect | CFD Suite | OpenFOAM | SU2 |
-|--------|-----------|----------|-----|
-| Language | Rust ✅ | C++ | C++ |
-| Memory Safety | Guaranteed ✅ | Manual | Manual |
-| Performance | Slow ❌ | Fast | Fast |
-| Validation | None ❌ | Extensive | Good |
-| Production Ready | No ❌ | Yes | Yes |
-| Learning Curve | Moderate ✅ | Steep | Steep |
-
-### Development Roadmap
-
-#### To Reach TRL 6 (Prototype in Relevant Environment)
-1. **Physics Validation** (4 weeks)
-   - Implement MMS tests
-   - Compare with analytical solutions
-   - Benchmark against OpenFOAM
-
-2. **Performance** (3 weeks)
-   - Profile and identify bottlenecks
-   - Implement parallelization
-   - Optimize critical paths
-
-3. **Testing** (2 weeks)
-   - Achieve 80% coverage
-   - Add integration tests
-   - Implement property-based tests
-
-4. **Documentation** (1 week)
-   - Complete API docs
-   - Add architecture guide
-   - Create user manual
+4) CI
+- Build/test/fmt/clippy; artifact caching
 
 ### Success Metrics
+- Green build/tests across workspace
+- Added validations pass with <1% relative error for analytical baselines
+- Docs coverage for public items >= 80%
 
-#### Current (Research Software)
-- ✅ Builds without errors: Achieved
-- ✅ Core algorithms work: Achieved
-- ✅ Memory safe: Achieved
-- ✅ Examples run: Achieved
+### Risks
+| Risk | Probability | Impact | Plan |
+|------|-------------|--------|------|
+| Physics gaps | Medium | High | Expand validation set |
+| Performance | High | Medium | Profile, parallelize hotspots |
+| Panic points | Low | Medium | Audit unwrap/expect paths |
 
-#### Required for Production
-- ❌ Validated accuracy: Partially achieved (selected cases)
-- ❌ Performance targets: Not defined/achieved
-- ❌ 80% test coverage: Currently 45%
-- ❌ Zero panics: Currently 107 potential
+### Decisions
+- Correctness and clarity prioritized over performance
+- No adjective-based identifiers; domain terms only
+- Prefer traits/enums over factories for composition unless instantiation requires indirection
 
-### Risk Matrix
+### TRL
+- 4 (component validation in lab)
 
-| Risk | Probability | Impact | Status |
-|------|------------|--------|--------|
-| Incorrect physics | High | Critical | Unmitigated |
-| Poor performance | Certain | High | Accepted |
-| Runtime panics | Low | Medium | Identified |
-| Memory issues | Very Low | High | Mitigated by Rust |
+### Acceptance Criteria (Research)
+- [x] Compiles and tests pass
+- [x] Baseline analytical validations
+- [x] Examples/benches compile
 
-### Investment Required
-
-**To Production (TRL 9)**: 10-12 weeks, 2-3 engineers
-
-**ROI Analysis**: 
-- Cost: ~$100-150k
-- Benefit: Competing in established market
-- Recommendation: Only if specific commercial need
-
-### Technical Decisions
-
-#### Accepted Trade-offs
-1. Correctness over performance
-2. Safety over optimization
-3. Clarity over cleverness
-4. Working code over perfect code
-
-#### Deferred Decisions
-1. Parallelization strategy
-2. SIMD implementation
-3. GPU acceleration
-4. Distributed computing
-
-### Quality Attributes
-
-| Attribute | Current | Target | Gap |
-|-----------|---------|--------|-----|
-| Correctness | Unknown | Validated | Critical |
-| Performance | Slow | Fast | Large |
-| Reliability | Moderate | High | Moderate |
-| Maintainability | Good | Good | None |
-| Usability | Moderate | High | Moderate |
-
-### Conclusion
-
-CFD Suite v0.57.1 is research software demonstrating CFD algorithms in Rust. It compiles, tests pass, and selected physics validations are in place. It provides value for education and research but requires additional investment for production quality.
-
-**Recommendation**: Continue as research/educational tool. Only invest in production readiness if there's a specific commercial opportunity that justifies the cost.
-
-### Acceptance Criteria
-
-#### For Research Use (Met)
-- [x] Implements core algorithms
-- [x] Provides learning platform
-- [x] Demonstrates Rust CFD
-
-#### For Production Use (Not Met)
-- [ ] Validated physics
-- [ ] Optimized performance
-- [ ] Comprehensive testing
-- [ ] Production support
-
----
-
-*Technology Readiness Level: 4 (Component validation in laboratory)*
+### Acceptance Criteria (Production)
+- [ ] Broad validation and benchmarks
+- [ ] Performance targets met
+- [ ] Documentation completeness
+- [ ] CI/CD and error budgets

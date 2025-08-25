@@ -78,7 +78,7 @@ fn benchmark_sparse_matrix_operations(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("matvec", size), size, |b, _| {
             b.iter(|| {
                 // Replace custom matvec with standard multiplication
-                y.copy_from(&( &matrix * &x ));
+                y.copy_from(&(&matrix * &x));
                 black_box(&y);
             });
         });

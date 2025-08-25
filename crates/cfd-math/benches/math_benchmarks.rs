@@ -1,3 +1,4 @@
+use cfd_math::NormIteratorExt;
 use cfd_math::{
     differentiation::FiniteDifference,
     integration::{GaussQuadrature, Quadrature},
@@ -8,7 +9,6 @@ use cfd_math::{
 };
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use nalgebra::DVector;
-use cfd_math::NormIteratorExt;
 
 fn benchmark_linear_solvers(c: &mut Criterion) {
     let mut group = c.benchmark_group("linear_solvers");

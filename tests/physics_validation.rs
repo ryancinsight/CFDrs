@@ -52,7 +52,7 @@ fn test_heat_diffusion_1d() {
         1.0 - erf
     }
 
-    let z = position / (2.0_f64 * (thermal_diffusivity * time).sqrt());
+    let z = (position as f64) / (2.0_f64 * ((thermal_diffusivity as f64) * (time as f64)).sqrt());
     let expected_temp_ratio = erfc_approx(z);
 
     assert!(expected_temp_ratio >= 0.0 && expected_temp_ratio <= 1.0);

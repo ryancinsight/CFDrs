@@ -15,7 +15,12 @@ fn benchmark_lbm_solver(c: &mut Criterion) {
         let mut solver = LbmSolver::new(config, &grid);
 
         // Initialize with some density and velocity
-        solver.initialize(1.0, Vector2::new(0.0, 0.0)).unwrap();
+        solver
+            .initialize(
+                |_x: f64, _y: f64| 1.0,
+                |_x: f64, _y: f64| Vector2::new(0.0, 0.0),
+            )
+            .unwrap();
 
         group.bench_with_input(BenchmarkId::new("step", size), size, |b, _| {
             b.iter(|| {
