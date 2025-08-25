@@ -11,7 +11,8 @@ impl Default for Geometry {
 
 impl Geometry {
     /// Create a new geometry operations instance
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self
     }
 }

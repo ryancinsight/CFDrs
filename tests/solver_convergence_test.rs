@@ -122,7 +122,7 @@ fn test_solver_with_diagonal_preconditioner() {
 }
 
 #[test]
-fn test_solver_robustness() {
+fn test_solver_handles_ill_conditioning() {
     // Test with ill-conditioned matrix
     let n = 50;
     let mut builder = SparseMatrixBuilder::new(n, n);

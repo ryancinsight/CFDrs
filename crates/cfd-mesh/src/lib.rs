@@ -8,29 +8,29 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod connectivity;
+#[cfg(feature = "csg")]
+pub mod csg;
 pub mod error;
 pub mod geometry;
 pub mod grid;
 pub mod mesh;
 pub mod quality;
 pub mod refinement;
-#[cfg(feature = "csg")]
-pub mod csg;
 
 // Re-export commonly used types
 pub use connectivity::Connectivity;
-pub use geometry::Geometry;
-pub use mesh::{Cell, Edge, Face, Mesh, MeshTopology, Vertex, ElementType};
 #[cfg(feature = "csg")]
 pub use csg::CsgMeshAdapter;
+pub use geometry::Geometry;
+pub use mesh::{Cell, Edge, ElementType, Face, Mesh, MeshTopology, Vertex};
 
 /// Common mesh types and traits
 pub mod prelude {
+    #[cfg(feature = "csg")]
+    pub use crate::csg::CsgMeshAdapter;
     pub use crate::{
         connectivity::Connectivity,
         geometry::Geometry,
         mesh::{Cell, Edge, Face, Mesh, MeshTopology, Vertex},
     };
-    #[cfg(feature = "csg")]
-    pub use crate::csg::CsgMeshAdapter;
 }

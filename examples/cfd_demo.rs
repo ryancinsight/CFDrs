@@ -1,6 +1,6 @@
 //! CFD demonstration example
 //!
-//! This example shows basic usage of the CFD library components.
+//! This example shows usage of the CFD library components.
 
 use cfd_core::domains::fluid_dynamics::{
     FlowField, FlowOperations, KEpsilonModel, TurbulenceModel,

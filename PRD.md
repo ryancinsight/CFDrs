@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## CFD Suite v0.57.0
+## CFD Suite v0.57.1
 
 ### Product Classification
 **Research Software** - Not Production Ready
@@ -11,7 +11,7 @@
 - Compiles and runs CFD simulations without errors
 - Implements core algorithms (FVM, FDM, PISO, VOF)
 - Provides type and memory safety via Rust
-- Passes comprehensive test suite (209 tests)
+- Passes test suite; physics validation added for Couette-Poiseuille and Taylor-Green
 
 #### Non-Functional
 - Clean architecture with trait-based design
@@ -22,13 +22,13 @@
 ### Current Limitations
 
 #### Critical Gaps
-1. **No Physics Validation**: Results unverified against known solutions
+1. **Limited Physics Validation**: Initial validations added; expand coverage
 2. **No Performance Optimization**: Single-threaded, unoptimized
 3. **Limited Test Coverage**: 45% coverage, edge cases untested
 4. **Potential Panics**: 142 unwrap/expect calls that could panic
 
 #### Technical Debt
-- 5 modules exceed 500 lines (violate SLAP)
+- Several modules exceed 500 lines (violate SLAP); refactor planned
 - Incomplete API documentation
 - No benchmarks or profiling
 - No CI/CD pipeline
@@ -89,7 +89,7 @@
 - ✅ Examples run: Achieved
 
 #### Required for Production
-- ❌ Validated accuracy: Not achieved
+- ❌ Validated accuracy: Partially achieved (selected cases)
 - ❌ Performance targets: Not defined/achieved
 - ❌ 80% test coverage: Currently 45%
 - ❌ Zero panics: Currently 107 potential
@@ -138,7 +138,7 @@
 
 ### Conclusion
 
-CFD Suite v0.57.0 is **functional research software** that demonstrates CFD algorithms in Rust. Recent improvements have resolved all compilation errors and increased test coverage. It provides value for education and research but still requires significant investment to reach production quality.
+CFD Suite v0.57.1 is research software demonstrating CFD algorithms in Rust. It compiles, tests pass, and selected physics validations are in place. It provides value for education and research but requires additional investment for production quality.
 
 **Recommendation**: Continue as research/educational tool. Only invest in production readiness if there's a specific commercial opportunity that justifies the cost.
 

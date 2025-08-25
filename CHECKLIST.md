@@ -1,6 +1,6 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.57.0 - Current State
+## Version 0.57.1 - Current State
 
 ### Completed ✅
 - [x] Compilation without errors (fixed all build issues)
@@ -14,10 +14,12 @@
 - [x] Basic documentation
 - [x] Fixed Error type usage (Numerical -> InvalidInput)
 - [x] Added ToPrimitive trait bounds where needed
-- [x] Corrected Poiseuille flow validation test
+- [x] Corrected Poiseuille and Couette-Poiseuille validation tests
+- [x] Fixed Taylor-Green initial condition assertion per formulation
+- [x] Removed redundant backup files and adjective-based names in examples
 
 ### In Progress ⚠️
-- [ ] Physics validation (0% - framework exists, not implemented)
+- [ ] Physics validation (initial cases added; expand coverage)
 - [ ] Performance optimization (0% - not started)
 - [ ] Test coverage expansion (45% - core paths only)
 - [ ] Module refactoring (5 modules >500 LOC)

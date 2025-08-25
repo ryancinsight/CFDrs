@@ -25,7 +25,7 @@ impl<T: RealField + Copy> Vertex<T> {
             id,
         }
     }
-    
+
     /// Distance to another vertex
     pub fn distance_to(&self, other: &Self) -> T {
         (self.position - other.position).norm()
@@ -43,12 +43,14 @@ pub struct Edge {
 
 impl Edge {
     /// Create a new edge
-    #[must_use] pub fn new(start: usize, end: usize) -> Self {
+    #[must_use]
+    pub fn new(start: usize, end: usize) -> Self {
         Self { start, end }
     }
-    
+
     /// Check if edge contains vertex
-    #[must_use] pub fn contains(&self, vertex_id: usize) -> bool {
+    #[must_use]
+    pub fn contains(&self, vertex_id: usize) -> bool {
         self.start == vertex_id || self.end == vertex_id
     }
 }
@@ -64,23 +66,26 @@ pub struct Face {
 
 impl Face {
     /// Create a triangular face
-    #[must_use] pub fn triangle(v0: usize, v1: usize, v2: usize) -> Self {
+    #[must_use]
+    pub fn triangle(v0: usize, v1: usize, v2: usize) -> Self {
         Self {
-            id: 0,  // ID should be set when adding to mesh
+            id: 0, // ID should be set when adding to mesh
             vertices: vec![v0, v1, v2],
         }
     }
-    
+
     /// Create a quadrilateral face
-    #[must_use] pub fn quad(v0: usize, v1: usize, v2: usize, v3: usize) -> Self {
+    #[must_use]
+    pub fn quad(v0: usize, v1: usize, v2: usize, v3: usize) -> Self {
         Self {
-            id: 0,  // ID should be set when adding to mesh
+            id: 0, // ID should be set when adding to mesh
             vertices: vec![v0, v1, v2, v3],
         }
     }
-    
+
     /// Number of vertices
-    #[must_use] pub fn vertex_count(&self) -> usize {
+    #[must_use]
+    pub fn vertex_count(&self) -> usize {
         self.vertices.len()
     }
 }
@@ -122,7 +127,8 @@ pub struct Mesh<T: RealField + Copy> {
 
 impl<T: RealField + Copy> Mesh<T> {
     /// Create a new empty mesh
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             vertices: Vec::new(),
             edges: Vec::new(),
@@ -131,52 +137,56 @@ impl<T: RealField + Copy> Mesh<T> {
             topology: MeshTopology::default(),
         }
     }
-    
+
     /// Add a vertex
     pub fn add_vertex(&mut self, vertex: Vertex<T>) -> usize {
         let id = self.vertices.len();
         self.vertices.push(vertex);
         id
     }
-    
+
     /// Add an edge
     pub fn add_edge(&mut self, edge: Edge) -> usize {
         let id = self.edges.len();
         self.edges.push(edge);
         id
     }
-    
+
     /// Add a face
     pub fn add_face(&mut self, face: Face) -> usize {
         let id = self.faces.len();
         self.faces.push(face);
         id
     }
-    
+
     /// Get vertex count
-    #[must_use] pub fn vertex_count(&self) -> usize {
+    #[must_use]
+    pub fn vertex_count(&self) -> usize {
         self.vertices.len()
     }
-    
+
     /// Get edge count
-    #[must_use] pub fn edge_count(&self) -> usize {
+    #[must_use]
+    pub fn edge_count(&self) -> usize {
         self.edges.len()
     }
-    
+
     /// Get face count
-    #[must_use] pub fn face_count(&self) -> usize {
+    #[must_use]
+    pub fn face_count(&self) -> usize {
         self.faces.len()
     }
-    
+
     /// Get cell count
-    #[must_use] pub fn cell_count(&self) -> usize {
+    #[must_use]
+    pub fn cell_count(&self) -> usize {
         self.cells.len()
     }
-    
+
     /// Build topology information
     pub fn build_topology(&mut self) {
         self.topology = MeshTopology::default();
-        
+
         // Build vertex to cell connectivity
         for (cell_id, cell) in self.cells.iter().enumerate() {
             for &vertex_id in &cell.vertices {
@@ -187,7 +197,7 @@ impl<T: RealField + Copy> Mesh<T> {
                     .push(cell_id);
             }
         }
-        
+
         // Build edge to face connectivity
         for (face_id, face) in self.faces.iter().enumerate() {
             let n = face.vertices.len();
@@ -213,7 +223,7 @@ impl<T: RealField + Copy> Default for Mesh<T> {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    
+
     #[test]
     fn test_vertex_creation() {
         let v = Vertex::new(0, 1.0, 2.0, 3.0);
@@ -222,14 +232,14 @@ mod tests {
         assert_relative_eq!(v.position.y, 2.0);
         assert_relative_eq!(v.position.z, 3.0);
     }
-    
+
     #[test]
     fn test_vertex_distance() {
         let v1 = Vertex::new(0, 0.0, 0.0, 0.0);
         let v2 = Vertex::new(1, 3.0, 4.0, 0.0);
         assert_relative_eq!(v1.distance_to(&v2), 5.0);
     }
-    
+
     #[test]
     fn test_edge_creation() {
         let edge = Edge::new(0, 1);
@@ -239,66 +249,66 @@ mod tests {
         assert!(edge.contains(1));
         assert!(!edge.contains(2));
     }
-    
+
     #[test]
     fn test_face_creation() {
         let tri = Face::triangle(0, 1, 2);
         assert_eq!(tri.vertex_count(), 3);
-        
+
         let quad = Face::quad(0, 1, 2, 3);
         assert_eq!(quad.vertex_count(), 4);
     }
-    
+
     #[test]
     fn test_mesh_operations() {
         let mut mesh = Mesh::<f64>::new();
-        
+
         // Add vertices
         let v0 = mesh.add_vertex(Vertex::new(0, 0.0, 0.0, 0.0));
         let v1 = mesh.add_vertex(Vertex::new(1, 1.0, 0.0, 0.0));
         let v2 = mesh.add_vertex(Vertex::new(2, 0.0, 1.0, 0.0));
-        
+
         assert_eq!(mesh.vertex_count(), 3);
-        
+
         // Add edge
         mesh.add_edge(Edge::new(v0, v1));
         assert_eq!(mesh.edge_count(), 1);
-        
+
         // Add face
         mesh.add_face(Face::triangle(v0, v1, v2));
         assert_eq!(mesh.face_count(), 1);
     }
-    
+
     #[test]
     fn test_mesh_topology() {
         let mut mesh = Mesh::<f64>::new();
-        
+
         // Create a simple tetrahedron
         mesh.add_vertex(Vertex::new(0, 0.0, 0.0, 0.0));
         mesh.add_vertex(Vertex::new(1, 1.0, 0.0, 0.0));
         mesh.add_vertex(Vertex::new(2, 0.0, 1.0, 0.0));
         mesh.add_vertex(Vertex::new(3, 0.0, 0.0, 1.0));
-        
+
         // Add faces
         mesh.add_face(Face::triangle(0, 1, 2));
         mesh.add_face(Face::triangle(0, 1, 3));
         mesh.add_face(Face::triangle(0, 2, 3));
         mesh.add_face(Face::triangle(1, 2, 3));
-        
+
         // Add cell
         mesh.cells.push(Cell {
             element_type: ElementType::Tetrahedron,
             vertices: vec![0, 1, 2, 3],
         });
-        
+
         // Build topology
         mesh.build_topology();
-        
+
         // Check vertex-cell connectivity
         assert_eq!(mesh.topology.vertex_cells[&0].len(), 1);
         assert_eq!(mesh.topology.vertex_cells[&1].len(), 1);
     }
-    
+
     #[test]
     fn test_element_types() {
         let tet = ElementType::Tetrahedron;
