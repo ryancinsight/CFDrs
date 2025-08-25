@@ -401,17 +401,22 @@ mod tests {
 
     #[test]
     fn test_thermal_properties() -> Result<()> {
-        let mut water = Fluid::<f64>::water()?;
-        assert!(water.prandtl_number().is_none());
+        // Water now includes thermal properties by default
+        let water = Fluid::<f64>::water()?;
         
-        // Add thermal properties
-        water = water
-            .with_specific_heat(4186.0)  // J/(kg·K)
-            .with_thermal_conductivity(0.598);  // W/(m·K)
+        // Check that thermal properties are present
+        assert!(water.specific_heat.is_some());
+        assert!(water.thermal_conductivity.is_some());
         
-        let pr = water.prandtl_number().expect("CRITICAL: Add proper error handling");
-        // Pr = μ·cp/k = 1.002e-3 * 4186 / 0.598 ≈ 7.01
-        assert_relative_eq!(pr, 7.01, epsilon = 0.1);
+        // Calculate Prandtl number
+        let pr = water.prandtl_number().expect("Water should have thermal properties");
+        // Pr = μ·cp/k = 1.002e-3 * 4182 / 0.598 ≈ 7.0
+        assert_relative_eq!(pr, 7.0, epsilon = 0.1);
+        
+        // Test fluid without thermal properties
+        let fluid = Fluid::<f64>::constant_viscosity("Test", 1000.0, 0.001);
+        assert!(fluid.prandtl_number().is_none());
+        
         Ok(())
     }
 

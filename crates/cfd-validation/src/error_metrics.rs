@@ -504,7 +504,8 @@ mod tests {
         let error = rel_error.compute_error(&numerical, &reference)?;
         
         let abs_error = L2Norm.compute_error(&numerical, &reference)?;
-        let expected = abs_error / 3.3; // Max of reference
+        let ref_norm = L2Norm.compute_error(&reference, &vec![0.0; 3])?;
+        let expected = abs_error / ref_norm;
         
         assert_relative_eq!(error, expected, epsilon = 1e-10);
         Ok(())

@@ -464,43 +464,51 @@ mod tests {
 
     #[test]
     fn test_darcy_weisbach() -> Result<()> {
-        let model = DarcyWeisbachModel::new(100e-6, 0.001, 1e-6);
+        let diameter = 10e-3; // 10mm pipe for turbulent flow
+        let model = DarcyWeisbachModel::new(diameter, 0.001, 1e-6);
         
         // Test with turbulent flow
         let fluid = cfd_core::fluid::Fluid::<f64>::water()?;
-        let conditions = FlowConditions::new(1.0); // High velocity for turbulent
+        let velocity = 1.0;
+        let density = 998.2; // Water density at 20°C
+        let viscosity = fluid.dynamic_viscosity(293.15)?;
+        let re = density * velocity * diameter / viscosity;
+        
+        // Create flow conditions with Reynolds number
+        let mut conditions = FlowConditions::new(velocity);
+        conditions.reynolds_number = Some(re);
         
         let resistance = model.calculate_resistance(&fluid, &conditions)?;
         
         // Verify resistance is positive
         assert!(resistance > 0.0);
         
-        // Verify Reynolds number is turbulent for this condition
-        let density = 998.2; // Water density at 20°C
-        let viscosity = fluid.dynamic_viscosity(293.15)?;
-        let re = density * 1.0 * model.hydraulic_diameter / viscosity;
-        assert!(re > 2300.0); // Should be turbulent
+        // Verify Reynolds number is turbulent
+        assert!(re > 2300.0, "Reynolds number {} should be turbulent", re);
         
         Ok(())
     }
 
     #[test]
     fn test_flow_regime_detection() -> Result<()> {
-        let diameter = 100e-6;
-        let model = HagenPoiseuilleModel::new(diameter, 0.001);
         let fluid = cfd_core::fluid::Fluid::<f64>::water()?;
-        
-        // Calculate Reynolds number for laminar flow
-        let laminar_velocity = 0.001;
         let density = 998.2; // Water density at 20°C in kg/m³
         let viscosity = fluid.dynamic_viscosity(293.15)?;
-        let laminar_re = density * laminar_velocity * diameter / viscosity;
-        assert!(laminar_re < 2300.0);
         
-        // Calculate Reynolds number for turbulent flow
-        let turbulent_velocity = 10.0;
-        let turbulent_re = density * turbulent_velocity * diameter / viscosity;
-        assert!(turbulent_re > 2300.0);
+        // Test laminar flow (small diameter, low velocity)
+        let laminar_diameter = 100e-6; // 100 micrometers
+        let laminar_velocity = 0.001;
+        let laminar_model = HagenPoiseuilleModel::new(laminar_diameter, 0.001);
+        let laminar_re = density * laminar_velocity * laminar_diameter / viscosity;
+        assert!(laminar_re < 2300.0, "Expected laminar flow, got Re = {}", laminar_re);
+        
+        // Test turbulent flow (larger diameter, high velocity)
+        // For turbulent: Re = ρ*v*D/μ > 2300
+        // Need: D*v > 2300*μ/ρ = 2300*0.001/998.2 ≈ 0.0023
+        let turbulent_diameter = 10e-3; // 10 mm pipe
+        let turbulent_velocity = 1.0; // 1 m/s
+        let turbulent_re = density * turbulent_velocity * turbulent_diameter / viscosity;
+        assert!(turbulent_re > 2300.0, "Expected turbulent flow, got Re = {}", turbulent_re);
         
         Ok(())
     }
@@ -520,8 +528,16 @@ mod tests {
         assert!(resistance > 0.0);
         
         // Test Darcy-Weisbach with turbulent flow
-        let turbulent_conditions = FlowConditions::new(10.0);
-        let resistance = calculator.calculate_darcy_weisbach(100e-6, 0.001, 1e-6, &fluid, &turbulent_conditions)?;
+        let diameter = 10e-3; // 10mm pipe
+        let velocity = 1.0;
+        let density = 998.2;
+        let viscosity = fluid.dynamic_viscosity(293.15)?;
+        let re = density * velocity * diameter / viscosity;
+        
+        let mut turbulent_conditions = FlowConditions::new(velocity);
+        turbulent_conditions.reynolds_number = Some(re);
+        
+        let resistance = calculator.calculate_darcy_weisbach(diameter, 0.001, 1e-6, &fluid, &turbulent_conditions)?;
         assert!(resistance > 0.0);
         
         Ok(())

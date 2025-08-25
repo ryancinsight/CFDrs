@@ -315,8 +315,9 @@ mod tests {
         
         assert_eq!(grid.nx(), 5);
         assert_eq!(grid.ny(), 5);
-        assert_relative_eq!(grid.dx(), 0.25, epsilon = 1e-10);
-        assert_relative_eq!(grid.dy(), 0.25, epsilon = 1e-10);
+        // For unit square [0,1]x[0,1] with 5 cells: dx = 1/5 = 0.2
+        assert_relative_eq!(grid.dx(), 0.2, epsilon = 1e-10);
+        assert_relative_eq!(grid.dy(), 0.2, epsilon = 1e-10);
         
         Ok(())
     }
@@ -326,6 +327,7 @@ mod tests {
         let grid = StructuredGrid2D::<f64>::unit_square(4, 4)?;
         
         // Test corner cell
+        // With 4 cells and dx = 1/4 = 0.25, center of first cell is at dx/2 = 0.125
         let center = grid.cell_center(0, 0)?;
         assert_relative_eq!(center.x, 0.125, epsilon = 1e-10);
         assert_relative_eq!(center.y, 0.125, epsilon = 1e-10);
