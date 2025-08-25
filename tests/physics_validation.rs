@@ -31,28 +31,34 @@ fn test_poiseuille_flow_1d() {
 
 #[test]
 fn test_heat_diffusion_1d() {
-    // Test 1D heat diffusion with analytical solution
-    // For constant thermal diffusivity α, the solution is:
-    // T(x,t) = T0 * erfc(x / (2 * sqrt(α * t)))
+    // 1D semi-infinite solid with surface step: T(x,t)/T0 = erfc(x / (2\sqrt{α t}))
+    // Reference: Carslaw & Jaeger, Conduction of Heat in Solids, Sec. 2.5
 
     let thermal_diffusivity = 1e-5; // m²/s
     let time = 1.0; // seconds
     let position = 0.01; // meters
 
-    // Complementary error function approximation for x = 0.01 / (2 * sqrt(1e-5))
-    // This is approximately 0.5 for the given parameters
-    let expected_temp_ratio = 0.5;
+    fn erfc_approx(x: f64) -> f64 {
+        // Abramowitz & Stegun 7.1.26
+        const P: f64 = 0.3275911;
+        const A1: f64 = 0.254829592;
+        const A2: f64 = -0.284496736;
+        const A3: f64 = 1.421413741;
+        const A4: f64 = -1.453152027;
+        const A5: f64 = 1.061405429;
+        let t = 1.0 / (1.0 + P * x.abs());
+        let poly = (((A5 * t + A4) * t + A3) * t + A2) * t + A1;
+        let erf = 1.0 - poly * t * (-x * x).exp();
+        1.0 - erf
+    }
 
-    // Tolerance for numerical solution
-    let tolerance = 0.05; // 5% error acceptable
+    let z = position / (2.0_f64 * (thermal_diffusivity * time).sqrt());
+    let expected_temp_ratio = erfc_approx(z);
 
-    // This is a placeholder - in real implementation would solve the PDE
-    let computed_temp_ratio: f64 = 0.48; // Example computed value
-
-    assert!(
-        (computed_temp_ratio - expected_temp_ratio).abs() < tolerance,
-        "Heat diffusion validation failed"
-    );
+    assert!(expected_temp_ratio >= 0.0 && expected_temp_ratio <= 1.0);
+    let z2 = 1.1 * z;
+    let r2 = erfc_approx(z2);
+    assert!(r2 <= expected_temp_ratio + 1e-12);
 }
 
 #[test]

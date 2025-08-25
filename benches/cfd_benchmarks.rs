@@ -77,7 +77,8 @@ fn benchmark_sparse_matrix_operations(c: &mut Criterion) {
         // Benchmark matrix-vector multiplication
         group.bench_with_input(BenchmarkId::new("matvec", size), size, |b, _| {
             b.iter(|| {
-                matrix.matvec_inplace(&x, &mut y);
+                // Replace custom matvec with standard multiplication
+                y.copy_from(&( &matrix * &x ));
                 black_box(&y);
             });
         });
@@ -117,13 +118,12 @@ fn benchmark_analytical_solutions(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("analytical_solutions");
 
-    let poiseuille = PoiseuilleFlow::new(
+    let poiseuille = PoiseuilleFlow::create(
         2.5,    // u_max
-        0.1,    // channel width
+        0.05,   // characteristic length (half-width), was 0.1 width
         -100.0, // pressure gradient
         0.001,  // viscosity
-        1.0,    // length
-        true,   // is_2d_channel
+        cfd_validation::analytical::PoiseuilleGeometry::Plates,
     );
 
     group.bench_function("poiseuille_velocity", |b| {
