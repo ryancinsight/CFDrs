@@ -12,7 +12,6 @@ use cfd_suite::d2::{
     FdmConfig,
     PoissonSolver
 };
-use cfd_suite::core::BoundaryCondition;
 use std::collections::HashMap;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
