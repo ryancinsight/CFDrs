@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 pub trait ConvergenceCriteria<T: RealField + Copy>: Send + Sync {
     /// Check if converged
     fn is_converged(&self, iteration: usize, residual: T, initial_residual: T) -> bool;
-    
+
     /// Get description
     fn description(&self) -> String;
 }
@@ -24,11 +24,11 @@ pub struct ToleranceCriteria<T> {
 
 impl<T: RealField + Copy> ConvergenceCriteria<T> for ToleranceCriteria<T> {
     fn is_converged(&self, iteration: usize, residual: T, initial_residual: T) -> bool {
-        iteration >= self.max_iterations ||
-        residual <= self.absolute_tolerance ||
-        residual <= initial_residual * self.relative_tolerance
+        iteration >= self.max_iterations
+            || residual <= self.absolute_tolerance
+            || residual <= initial_residual * self.relative_tolerance
     }
-    
+
     fn description(&self) -> String {
         format!("Tolerance criteria: max_iter={}", self.max_iterations)
     }
@@ -41,7 +41,7 @@ pub struct AndCriteria<C1, C2, T> {
     _phantom: PhantomData<T>,
 }
 
-impl<C1, C2, T> AndCriteria<C1, C2, T> 
+impl<C1, C2, T> AndCriteria<C1, C2, T>
 where
     C1: ConvergenceCriteria<T>,
     C2: ConvergenceCriteria<T>,
@@ -64,12 +64,19 @@ where
     T: RealField + Copy,
 {
     fn is_converged(&self, iteration: usize, residual: T, initial_residual: T) -> bool {
-        self.criterion1.is_converged(iteration, residual, initial_residual) &&
-        self.criterion2.is_converged(iteration, residual, initial_residual)
+        self.criterion1
+            .is_converged(iteration, residual, initial_residual)
+            && self
+                .criterion2
+                .is_converged(iteration, residual, initial_residual)
     }
-    
+
     fn description(&self) -> String {
-        format!("({}) AND ({})", self.criterion1.description(), self.criterion2.description())
+        format!(
+            "({}) AND ({})",
+            self.criterion1.description(),
+            self.criterion2.description()
+        )
     }
 }
 
@@ -103,11 +110,18 @@ where
     T: RealField + Copy,
 {
     fn is_converged(&self, iteration: usize, residual: T, initial_residual: T) -> bool {
-        self.criterion1.is_converged(iteration, residual, initial_residual) ||
-        self.criterion2.is_converged(iteration, residual, initial_residual)
+        self.criterion1
+            .is_converged(iteration, residual, initial_residual)
+            || self
+                .criterion2
+                .is_converged(iteration, residual, initial_residual)
     }
-    
+
     fn description(&self) -> String {
-        format!("({}) OR ({})", self.criterion1.description(), self.criterion2.description())
+        format!(
+            "({}) OR ({})",
+            self.criterion1.description(),
+            self.criterion2.description()
+        )
     }
 }

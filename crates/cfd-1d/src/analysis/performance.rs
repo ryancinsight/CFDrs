@@ -21,7 +21,8 @@ pub struct PerformanceMetrics<T: RealField + Copy> {
 
 impl<T: RealField + Copy + Sum> PerformanceMetrics<T> {
     /// Create new performance metrics
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             throughput: T::zero(),
             pressure_efficiency: T::zero(),
@@ -79,16 +80,18 @@ impl<T: RealField + Copy + Sum> PerformanceMetrics<T> {
 
     /// Get maximum residence time
     pub fn max_residence_time(&self) -> Option<T> {
-        self.residence_times.values().max_by(|a, b| {
-            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-        }).copied()
+        self.residence_times
+            .values()
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .copied()
     }
 
     /// Get minimum residence time
     pub fn min_residence_time(&self) -> Option<T> {
-        self.residence_times.values().min_by(|a, b| {
-            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-        }).copied()
+        self.residence_times
+            .values()
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .copied()
     }
 
     /// Check if mixing efficiency is calculated

@@ -40,7 +40,9 @@ impl<Q> VariableQuadrature<Q> {
     {
         if depth > self.max_depth {
             return Err(Error::Convergence(
-                cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max: self.max_depth }
+                cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded {
+                    max: self.max_depth,
+                },
             ));
         }
 

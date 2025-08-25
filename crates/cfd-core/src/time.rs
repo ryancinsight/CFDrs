@@ -5,7 +5,6 @@ use nalgebra::{DVector, RealField};
 use num_traits::cast::FromPrimitive;
 use num_traits::Float;
 
-
 /// Trait for time integration schemes
 pub trait TimeIntegrator<T: RealField + Copy>: Send + Sync {
     /// State type
@@ -58,7 +57,9 @@ impl<T: RealField + FromPrimitive + Copy> TimeIntegrator<T> for RungeKutta2 {
         F: Fn(T, &Self::State) -> Self::State,
     {
         let half = T::from_f64(0.5).ok_or_else(|| {
-            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidValue { value: "Failed to convert 0.5 to T".to_string() })
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidValue {
+                value: "Failed to convert 0.5 to T".to_string(),
+            })
         })?;
 
         let k1 = f(t, state);
@@ -91,35 +92,41 @@ impl<T: RealField + FromPrimitive + Copy> TimeIntegrator<T> for RungeKutta4 {
         F: Fn(T, &Self::State) -> Self::State,
     {
         let two = T::from_f64(2.0).ok_or_else(|| {
-            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidValue { value: "Failed to convert 2.0 to T".to_string() })
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidValue {
+                value: "Failed to convert 2.0 to T".to_string(),
+            })
         })?;
         let six = T::from_f64(6.0).ok_or_else(|| {
-            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidValue { value: "Failed to convert 6.0 to T".to_string() })
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidValue {
+                value: "Failed to convert 6.0 to T".to_string(),
+            })
         })?;
         let half = T::from_f64(0.5).ok_or_else(|| {
-            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidValue { value: "Failed to convert 0.5 to T".to_string() })
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidValue {
+                value: "Failed to convert 0.5 to T".to_string(),
+            })
         })?;
-        
+
         let k1 = f(t, state);
-        
+
         let mut temp = state.clone();
         temp.axpy(dt * half, &k1, T::one());
         let k2 = f(t + dt * half, &temp);
-        
+
         temp.clone_from(state);
         temp.axpy(dt * half, &k2, T::one());
         let k3 = f(t + dt * half, &temp);
-        
+
         temp.clone_from(state);
         temp.axpy(dt, &k3, T::one());
         let k4 = f(t + dt, &temp);
-        
+
         // y_{n+1} = y_n + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
         state.axpy(dt / six, &k1, T::one());
         state.axpy(dt * two / six, &k2, T::one());
         state.axpy(dt * two / six, &k3, T::one());
         state.axpy(dt / six, &k4, T::one());
-        
+
         Ok(())
     }
 
@@ -151,7 +158,8 @@ impl<T: RealField + FromPrimitive + Copy> Default for BackwardEuler<T> {
 
 impl<T: RealField + FromPrimitive + Copy> BackwardEuler<T> {
     /// Create a new `BackwardEuler` integrator with default settings
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self::default()
     }
 
@@ -185,7 +193,7 @@ impl<T: RealField + Copy> TimeIntegrator<T> for BackwardEuler<T> {
         // Check for valid iteration count
         if self.max_iterations == 0 {
             return Err(crate::error::Error::InvalidConfiguration(
-                "BackwardEuler requires max_iterations > 0".to_string()
+                "BackwardEuler requires max_iterations > 0".to_string(),
             ));
         }
 
@@ -206,9 +214,9 @@ impl<T: RealField + Copy> TimeIntegrator<T> for BackwardEuler<T> {
             // Prevent infinite loops
             if iteration == self.max_iterations - 1 {
                 return Err(crate::error::Error::Convergence(
-                    crate::error::ConvergenceErrorKind::MaxIterationsExceeded { 
-                        max: self.max_iterations 
-                    }
+                    crate::error::ConvergenceErrorKind::MaxIterationsExceeded {
+                        max: self.max_iterations,
+                    },
                 ));
             }
         }
@@ -244,7 +252,8 @@ impl<T: RealField + FromPrimitive + Copy> Default for CrankNicolson<T> {
 
 impl<T: RealField + FromPrimitive + Copy> CrankNicolson<T> {
     /// Create a new `CrankNicolson` integrator with default settings
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self::default()
     }
 
@@ -275,7 +284,9 @@ impl<T: RealField + Copy> TimeIntegrator<T> for CrankNicolson<T> {
         let y_old = state.clone();
         let t_new = t + dt;
         let half = T::from_f64(0.5).ok_or_else(|| {
-            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidValue { value: "Failed to convert 0.5 to T".to_string() })
+            crate::error::Error::Numerical(crate::error::NumericalErrorKind::InvalidValue {
+                value: "Failed to convert 0.5 to T".to_string(),
+            })
         })?;
         let half_dt = dt * half;
 
@@ -285,7 +296,7 @@ impl<T: RealField + Copy> TimeIntegrator<T> for CrankNicolson<T> {
         // Check for valid iteration count
         if self.max_iterations == 0 {
             return Err(crate::error::Error::InvalidConfiguration(
-                "CrankNicolson requires max_iterations > 0".to_string()
+                "CrankNicolson requires max_iterations > 0".to_string(),
             ));
         }
 
@@ -306,9 +317,9 @@ impl<T: RealField + Copy> TimeIntegrator<T> for CrankNicolson<T> {
             // Prevent infinite loops
             if iteration == self.max_iterations - 1 {
                 return Err(crate::error::Error::Convergence(
-                    crate::error::ConvergenceErrorKind::MaxIterationsExceeded { 
-                        max: self.max_iterations 
-                    }
+                    crate::error::ConvergenceErrorKind::MaxIterationsExceeded {
+                        max: self.max_iterations,
+                    },
                 ));
             }
         }
@@ -352,7 +363,8 @@ impl<T: RealField + FromPrimitive + Copy> Default for AdaptiveTimeStepController
 impl<T: RealField + FromPrimitive + Copy> AdaptiveTimeStepController<T> {
     /// Calculate new time step based on error estimate
     pub fn calculate_dt(&self, current_dt: T, error: T, order: usize) -> T {
-        let factor = (self.target_error / error).powf(T::one() / T::from_usize(order + 1).unwrap_or_else(T::one));
+        let factor = (self.target_error / error)
+            .powf(T::one() / T::from_usize(order + 1).unwrap_or_else(T::one));
         let factor = factor * self.safety_factor;
         let factor = factor.min(self.max_increase).max(self.min_decrease);
         current_dt * factor
@@ -385,13 +397,16 @@ impl<T: RealField + Copy + FromPrimitive + Float> VariableTimeStep<T> {
     /// Calculate new time step based on error estimate
     pub fn calculate_dt(&self, current_dt: T, error: T, order: usize) -> T {
         if error < T::epsilon() {
-            return num_traits::Float::min(self.dt_max, current_dt * T::from_f64(2.0).unwrap_or_else(|| T::one()));
+            return num_traits::Float::min(
+                self.dt_max,
+                current_dt * T::from_f64(2.0).unwrap_or_else(|| T::one()),
+            );
         }
-        
+
         let exponent = T::one() / T::from_f64(order as f64).unwrap_or_else(|| T::one());
-        let factor = self.safety_factor
-            * num_traits::Float::powf(self.target_error / error, exponent);
-        
+        let factor =
+            self.safety_factor * num_traits::Float::powf(self.target_error / error, exponent);
+
         let current_dt = current_dt * factor;
         let max_dt = num_traits::Float::max(current_dt, self.dt_min);
         num_traits::Float::min(max_dt, self.dt_max)
@@ -432,20 +447,20 @@ mod tests {
         use approx::assert_abs_diff_eq;
 
         let integrator = ForwardEuler;
-        
+
         // Test with a simple ODE: dy/dt = -y
         // Solution: y(t) = y0 * exp(-t)
         let mut state = nalgebra::DVector::from_element(1, 1.0);
         let dt = 0.1;
-        
+
         // Define derivative function
-        let derivative = |_t: f64, y: &nalgebra::DVector<f64>| -> nalgebra::DVector<f64> {
-            -y
-        };
-        
+        let derivative = |_t: f64, y: &nalgebra::DVector<f64>| -> nalgebra::DVector<f64> { -y };
+
         // Take one step
-        integrator.step(&mut state, 0.0, dt, derivative).expect("CRITICAL: Add proper error handling");
-        
+        integrator
+            .step(&mut state, 0.0, dt, derivative)
+            .expect("CRITICAL: Add proper error handling");
+
         // After one step: y ≈ y0 * (1 - dt) = 1.0 * (1 - 0.1) = 0.9
         assert_abs_diff_eq!(state[0], 0.9, epsilon = 1e-10);
     }
@@ -453,11 +468,11 @@ mod tests {
     #[test]
     fn test_adaptive_time_step() {
         let controller = AdaptiveTimeStepController::<f64>::default();
-        
+
         // Error is less than target
         let current_dt = controller.calculate_dt(0.01, 1e-8, 2);
         assert!(current_dt > 0.01);
-        
+
         // Error is greater than target
         let current_dt = controller.calculate_dt(0.01, 1e-4, 2);
         assert!(current_dt < 0.01);
@@ -475,7 +490,10 @@ mod tests {
         // Should return an error for zero iterations
         let result = integrator.step(&mut state, t, dt, f);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), crate::error::Error::InvalidConfiguration(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            crate::error::Error::InvalidConfiguration(_)
+        ));
     }
 
     #[test]
@@ -490,6 +508,9 @@ mod tests {
         // Should return an error for zero iterations
         let result = integrator.step(&mut state, t, dt, f);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), crate::error::Error::InvalidConfiguration(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            crate::error::Error::InvalidConfiguration(_)
+        ));
     }
 }

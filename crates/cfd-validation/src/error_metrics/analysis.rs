@@ -15,14 +15,16 @@ impl ErrorAnalysis {
     ) -> Result<T> {
         if grid_sizes.len() != errors.len() || grid_sizes.len() < 2 {
             return Err(Error::InvalidConfiguration(
-                "Need at least 2 grid sizes and corresponding errors".to_string()
+                "Need at least 2 grid sizes and corresponding errors".to_string(),
             ));
         }
 
         // Use least squares fit to log(error) = log(C) + p*log(h)
         // where p is the convergence rate
         let n = T::from_usize(grid_sizes.len()).ok_or_else(|| {
-            Error::InvalidConfiguration("Failed to convert grid size length to target type".to_string())
+            Error::InvalidConfiguration(
+                "Failed to convert grid size length to target type".to_string(),
+            )
         })?;
 
         let log_h: Vec<T> = grid_sizes.iter().map(|h| h.ln()).collect();
@@ -33,11 +35,14 @@ impl ErrorAnalysis {
         let mean_log_e = log_e.iter().fold(T::zero(), |acc, x| acc + *x) / n;
 
         // Compute slope (convergence rate)
-        let numerator: T = log_h.iter().zip(log_e.iter())
+        let numerator: T = log_h
+            .iter()
+            .zip(log_e.iter())
             .map(|(h, e)| (*h - mean_log_h) * (*e - mean_log_e))
             .fold(T::zero(), |acc, x| acc + x);
 
-        let denominator: T = log_h.iter()
+        let denominator: T = log_h
+            .iter()
             .map(|h| {
                 let diff = *h - mean_log_h;
                 diff * diff
@@ -46,7 +51,7 @@ impl ErrorAnalysis {
 
         if denominator == T::zero() {
             return Err(Error::InvalidConfiguration(
-                "Cannot compute convergence rate: grid sizes are identical".to_string()
+                "Cannot compute convergence rate: grid sizes are identical".to_string(),
             ));
         }
 
@@ -61,7 +66,10 @@ impl ErrorAnalysis {
     /// Compute error reduction factor between two measurements
     pub fn error_reduction_factor<T: RealField + Copy>(coarse_error: T, fine_error: T) -> T {
         if fine_error == T::zero() {
-            return T::max_value().unwrap_or_else(|| T::from_f64(1e10).unwrap_or_else(|| T::from_f64(1000000.0).unwrap_or_else(|| T::one())));
+            return T::max_value().unwrap_or_else(|| {
+                T::from_f64(1e10)
+                    .unwrap_or_else(|| T::from_f64(1000000.0).unwrap_or_else(|| T::one()))
+            });
         }
         coarse_error / fine_error
     }

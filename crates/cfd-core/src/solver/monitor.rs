@@ -7,10 +7,10 @@ use std::marker::PhantomData;
 pub trait SolutionMonitor<T: RealField + Copy>: Send + Sync {
     /// Called at each iteration
     fn on_iteration(&mut self, iteration: usize, residual: T);
-    
+
     /// Called when converged
     fn on_convergence(&mut self, iteration: usize, residual: T);
-    
+
     /// Called on error
     fn on_error(&mut self, error: &str);
 }
@@ -40,7 +40,7 @@ where
     T: RealField + Copy,
 {
     type Item = T;
-    
+
     fn next(&mut self) -> Option<Self::Item> {
         match self.iterator.next() {
             Some(value) => {

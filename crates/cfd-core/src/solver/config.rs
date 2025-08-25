@@ -1,17 +1,17 @@
 //! Solver configuration types following SOLID principles
 
 use nalgebra::RealField;
-use serde::{Deserialize, Serialize};
 use num_traits::FromPrimitive;
+use serde::{Deserialize, Serialize};
 
 /// Core solver configuration trait
 pub trait SolverConfiguration<T: RealField + Copy>: Clone + Send + Sync {
     /// Get maximum iterations
     fn max_iterations(&self) -> usize;
-    
+
     /// Get convergence tolerance
     fn tolerance(&self) -> T;
-    
+
     /// Check if preconditioning is enabled
     fn use_preconditioning(&self) -> bool;
 }
@@ -87,13 +87,14 @@ impl<T: RealField + FromPrimitive + Copy> Default for SolverConfig<T> {
 
 impl<T: RealField + Copy> SolverConfig<T> {
     /// Create a builder for configuration
-    #[must_use] pub fn builder() -> SolverConfigBuilder<T>
+    #[must_use]
+    pub fn builder() -> SolverConfigBuilder<T>
     where
         T: FromPrimitive,
     {
         SolverConfigBuilder::new()
     }
-    
+
     /// Get relaxation factor
     pub fn relaxation_factor(&self) -> T
     where
@@ -101,7 +102,7 @@ impl<T: RealField + Copy> SolverConfig<T> {
     {
         self.numerical.relaxation
     }
-    
+
     /// Check if verbose output is enabled
     pub fn verbose(&self) -> bool {
         self.execution.verbose
@@ -112,11 +113,11 @@ impl<T: RealField + Copy> SolverConfiguration<T> for SolverConfig<T> {
     fn max_iterations(&self) -> usize {
         self.convergence.max_iterations
     }
-    
+
     fn tolerance(&self) -> T {
         self.convergence.tolerance
     }
-    
+
     fn use_preconditioning(&self) -> bool {
         false // Default implementation
     }
@@ -151,9 +152,9 @@ impl<T: RealField + Copy> LinearSolverConfig<T> {
     {
         self.tolerance
     }
-    
+
     /// Create a builder for configuration
-    #[must_use] 
+    #[must_use]
     pub fn builder() -> LinearSolverConfigBuilder<T>
     where
         T: FromPrimitive,
@@ -174,25 +175,25 @@ impl<T: RealField + Copy + FromPrimitive> LinearSolverConfigBuilder<T> {
             config: LinearSolverConfig::default(),
         }
     }
-    
+
     /// Set maximum iterations
     pub fn max_iterations(mut self, max_iter: usize) -> Self {
         self.config.max_iterations = max_iter;
         self
     }
-    
+
     /// Set tolerance
     pub fn tolerance(mut self, tol: T) -> Self {
         self.config.tolerance = tol;
         self
     }
-    
+
     /// Enable preconditioning
     pub fn preconditioning(mut self, enable: bool) -> Self {
         self.config.preconditioning = enable;
         self
     }
-    
+
     /// Build the configuration
     pub fn build(self) -> LinearSolverConfig<T> {
         self.config
@@ -252,49 +253,49 @@ impl<T: RealField + Copy> SolverConfigBuilder<T> {
             },
         }
     }
-    
+
     /// Set maximum iterations
     pub fn max_iterations(mut self, max_iter: usize) -> Self {
         self.config.convergence.max_iterations = max_iter;
         self
     }
-    
+
     /// Set tolerance
     pub fn tolerance(mut self, tol: T) -> Self {
         self.config.convergence.tolerance = tol;
         self
     }
-    
+
     /// Set time step
     pub fn time_step(mut self, dt: T) -> Self {
         self.config.numerical.dt = dt;
         self
     }
-    
+
     /// Enable/disable parallel execution
     pub fn parallel(mut self, parallel: bool) -> Self {
         self.config.execution.parallel = parallel;
         self
     }
-    
+
     /// Set relaxation factor
     pub fn relaxation_factor(mut self, factor: T) -> Self {
         self.config.numerical.relaxation = factor;
         self
     }
-    
+
     /// Set CFL number
     pub fn cfl(mut self, cfl: T) -> Self {
         self.config.numerical.cfl = cfl;
         self
     }
-    
+
     /// Enable/disable verbose output
     pub fn verbose(mut self, verbose: bool) -> Self {
         self.config.execution.verbose = verbose;
         self
     }
-    
+
     /// Build the configuration
     pub fn build(self) -> SolverConfig<T> {
         self.config

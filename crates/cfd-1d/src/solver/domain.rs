@@ -1,8 +1,8 @@
 //! Network domain implementation for 1D CFD
 
-use nalgebra::{RealField, Point3};
-use num_traits::FromPrimitive;
 use cfd_core::domain::Domain;
+use nalgebra::{Point3, RealField};
+use num_traits::FromPrimitive;
 
 /// 1D Network domain for the Problem trait
 #[derive(Debug, Clone)]
@@ -37,10 +37,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Domain<T> for NetworkDomain<T> 
         let zero = T::zero();
         let one = T::one();
         // Standard unit box for network domain
-        (
-            Point3::new(zero, zero, zero),
-            Point3::new(one, one, one)
-        )
+        (Point3::new(zero, zero, zero), Point3::new(one, one, one))
     }
 
     fn volume(&self) -> T {

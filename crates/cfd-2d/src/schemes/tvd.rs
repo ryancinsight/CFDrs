@@ -33,29 +33,29 @@ impl FluxLimiter {
                 } else {
                     T::zero()
                 }
-            },
+            }
             FluxLimiter::VanAlbada => {
                 if r > T::zero() {
                     (r * r + r) / (r * r + T::one())
                 } else {
                     T::zero()
                 }
-            },
+            }
             FluxLimiter::Superbee => {
                 let two = T::from_f64(2.0).unwrap_or_else(T::zero);
                 T::zero().max(T::one().min(two * r)).max(two.min(r))
-            },
+            }
             FluxLimiter::MC => {
                 let two = T::from_f64(2.0).unwrap_or_else(T::zero);
                 T::zero().max(((T::one() + r) / two).min(two.min(two * r)))
-            },
+            }
             FluxLimiter::Minmod => {
                 if r > T::zero() {
                     T::one().min(r)
                 } else {
                     T::zero()
                 }
-            },
+            }
         }
     }
 }
@@ -68,7 +68,8 @@ pub struct MUSCLScheme<T: RealField + Copy> {
 
 impl<T: RealField + Copy> MUSCLScheme<T> {
     /// Create new MUSCL scheme with specified limiter
-    #[must_use] pub fn new(limiter: FluxLimiter) -> Self {
+    #[must_use]
+    pub fn new(limiter: FluxLimiter) -> Self {
         Self {
             limiter,
             _phantom: std::marker::PhantomData,
@@ -89,7 +90,8 @@ impl<T: RealField + Copy> Default for QUICKScheme<T> {
 
 impl<T: RealField + Copy> QUICKScheme<T> {
     /// Create new QUICK scheme
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }

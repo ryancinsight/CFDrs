@@ -26,7 +26,7 @@ pub trait Solution<T: RealField + Copy> {
 }
 
 // Import from analytical module
-pub use crate::analytical::{PoiseuilleFlow, CouetteFlow, TaylorGreenVortex, StokesFlow};
+pub use crate::analytical::{CouetteFlow, PoiseuilleFlow, StokesFlow, TaylorGreenVortex};
 
 // Re-export the trait
 pub use self::Solution as AnalyticalSolution;

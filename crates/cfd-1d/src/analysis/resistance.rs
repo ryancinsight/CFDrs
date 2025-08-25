@@ -19,7 +19,8 @@ pub struct ResistanceAnalysis<T: RealField + Copy> {
 
 impl<T: RealField + Copy + Sum> ResistanceAnalysis<T> {
     /// Create a new resistance analysis
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             resistances: HashMap::new(),
             total_resistance: T::zero(),
@@ -36,7 +37,10 @@ impl<T: RealField + Copy + Sum> ResistanceAnalysis<T> {
 
     /// Add resistance by type
     pub fn add_resistance_by_type(&mut self, component_type: String, resistance: T) {
-        *self.resistance_by_type.entry(component_type).or_insert(T::zero()) += resistance;
+        *self
+            .resistance_by_type
+            .entry(component_type)
+            .or_insert(T::zero()) += resistance;
     }
 
     /// Add a critical path
@@ -75,12 +79,13 @@ impl<T: RealField + Copy + Sum> ResistanceAnalysis<T> {
         if self.resistances.is_empty() {
             T::zero()
         } else {
-            let sum_inv: T = self.resistances
+            let sum_inv: T = self
+                .resistances
                 .values()
                 .filter(|&&r| r > T::zero())
                 .map(|&r| T::one() / r)
                 .sum();
-            
+
             if sum_inv > T::zero() {
                 T::one() / sum_inv
             } else {

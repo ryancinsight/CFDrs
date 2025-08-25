@@ -2,8 +2,8 @@
 
 use crate::boundary::BoundaryConditionSet;
 use crate::domain::Domain;
-use crate::fluid::Fluid;
 use crate::error::Result;
+use crate::fluid::Fluid;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use std::sync::Arc;
@@ -85,7 +85,8 @@ pub struct ProblemBuilder<T: RealField + Copy, D: Domain<T>> {
 
 impl<T: RealField + Copy, D: Domain<T>> ProblemBuilder<T, D> {
     /// Create a new problem builder
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             domain: None,
             fluid: None,
@@ -136,13 +137,13 @@ impl<T: RealField + Copy, D: Domain<T>> ProblemBuilder<T, D> {
 
     /// Build the problem configuration
     pub fn build(self) -> Result<ProblemConfig<T, D>> {
-        let domain = self
-            .domain
-            .ok_or_else(|| crate::error::Error::InvalidConfiguration("Domain not set".to_string()))?;
-        
-        let fluid = self
-            .fluid
-            .ok_or_else(|| crate::error::Error::InvalidConfiguration("Fluid not set".to_string()))?;
+        let domain = self.domain.ok_or_else(|| {
+            crate::error::Error::InvalidConfiguration("Domain not set".to_string())
+        })?;
+
+        let fluid = self.fluid.ok_or_else(|| {
+            crate::error::Error::InvalidConfiguration("Fluid not set".to_string())
+        })?;
 
         let config = ProblemConfig {
             domain,
@@ -172,7 +173,10 @@ mod tests {
         let problem = ProblemBuilder::new()
             .domain(Domain2D::new(0.0, 0.0, 1.0, 1.0))
             .fluid(Fluid::water().expect("Failed to create water fluid"))
-            .boundary_condition("inlet", BoundaryCondition::velocity_inlet(vector![1.0, 0.0, 0.0]))
+            .boundary_condition(
+                "inlet",
+                BoundaryCondition::velocity_inlet(vector![1.0, 0.0, 0.0]),
+            )
             .boundary_condition("outlet", BoundaryCondition::pressure_outlet(0.0))
             .boundary_condition("walls", BoundaryCondition::wall_no_slip())
             .reference_pressure(101325.0)

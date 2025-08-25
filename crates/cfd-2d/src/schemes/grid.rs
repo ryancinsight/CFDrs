@@ -21,7 +21,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Grid2D<T> {
     pub fn new(nx: usize, ny: usize, dx: T, dy: T, ghost_cells: usize) -> Self {
         let total_nx = nx + 2 * ghost_cells;
         let total_ny = ny + 2 * ghost_cells;
-        
+
         Self {
             data: DMatrix::zeros(total_nx, total_ny),
             dx,
@@ -29,7 +29,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Grid2D<T> {
             ghost_cells,
         }
     }
-    
+
     /// Get interior dimensions (excluding ghost cells)
     pub fn interior_shape(&self) -> (usize, usize) {
         let (total_nx, total_ny) = self.data.shape();

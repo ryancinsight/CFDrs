@@ -4,7 +4,7 @@
 //! conservation laws such as mass, momentum, and energy conservation.
 
 use cfd_core::error::Result;
-use nalgebra::{RealField, DVector};
+use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -76,7 +76,8 @@ impl<T: RealField + Copy> Default for ConservationHistory<T> {
 
 impl<T: RealField + Copy> ConservationHistory<T> {
     /// Create a new conservation history
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             times: Vec::new(),
             errors: Vec::new(),
@@ -92,12 +93,20 @@ impl<T: RealField + Copy> ConservationHistory<T> {
     }
 
     /// Get the maximum error in the history
-    #[must_use] pub fn max_error(&self) -> Option<T> {
-        self.errors.iter().max_by(|a, b| a.partial_cmp(b).expect("CRITICAL: Add proper error handling")).copied()
+    #[must_use]
+    pub fn max_error(&self) -> Option<T> {
+        self.errors
+            .iter()
+            .max_by(|a, b| {
+                a.partial_cmp(b)
+                    .expect("CRITICAL: Add proper error handling")
+            })
+            .copied()
     }
 
     /// Get the fraction of time points where conservation was satisfied
-    #[must_use] pub fn satisfaction_rate(&self) -> f64 {
+    #[must_use]
+    pub fn satisfaction_rate(&self) -> f64 {
         if self.satisfied.is_empty() {
             0.0
         } else {
@@ -121,7 +130,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MassConservation<T> {
     }
 
     /// Create with default tolerance
-    #[must_use] pub fn default() -> Self {
+    #[must_use]
+    pub fn default() -> Self {
         Self::new(ConservationTolerance::default())
     }
 }
@@ -135,7 +145,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConservationChecker<T> for Mass
         // Check continuity equation: ∂ρ/∂t + ∇·(ρv) = 0
         // For steady incompressible flow: ∇·v = 0
         // For compressible flow: ∇·(ρv) = 0
-        let mass_flux_sum = density.iter()
+        let mass_flux_sum = density
+            .iter()
             .zip(velocity_div.iter())
             .map(|(rho, div_v)| *rho * *div_v)
             .fold(T::zero(), |acc, x| acc + x);
@@ -179,19 +190,26 @@ impl<T: RealField + Copy + FromPrimitive + Copy> EnergyConservation<T> {
     }
 
     /// Create with default tolerance
-    #[must_use] pub fn default() -> Self {
+    #[must_use]
+    pub fn default() -> Self {
         Self::new(ConservationTolerance::default())
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConservationChecker<T> for EnergyConservation<T> {
+impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConservationChecker<T>
+    for EnergyConservation<T>
+{
     type FlowField = (DVector<T>, DVector<T>, DVector<T>); // (kinetic_energy, potential_energy, dissipation)
 
     fn check_conservation(&self, field: &Self::FlowField) -> Result<ConservationReport<T>> {
         let (kinetic, potential, dissipation) = field;
 
         // Energy balance check: total energy = kinetic + potential
-        let total_energy: T = kinetic.iter().zip(potential.iter()).map(|(k, p)| *k + *p).sum();
+        let total_energy: T = kinetic
+            .iter()
+            .zip(potential.iter())
+            .map(|(k, p)| *k + *p)
+            .sum();
         let total_dissipation: T = dissipation.iter().copied().sum();
 
         // For steady flow, energy input should equal dissipation
@@ -256,7 +274,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Default for GlobalConservationI
 
 impl<T: RealField + Copy + FromPrimitive + Copy> GlobalConservationIntegrals<T> {
     /// Create new global conservation integrals
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             total_mass: T::zero(),
             total_momentum: [T::zero(), T::zero(), T::zero()],
@@ -274,47 +293,49 @@ impl<T: RealField + Copy + FromPrimitive + Copy> GlobalConservationIntegrals<T> 
         velocity_x: &[T],
         velocity_y: &[T],
         velocity_z: &[T],
-        cell_volumes: &[T]
+        cell_volumes: &[T],
     ) -> Result<Self> {
-        if density.len() != velocity_x.len() || 
-           density.len() != velocity_y.len() || 
-           density.len() != velocity_z.len() ||
-           density.len() != cell_volumes.len() {
+        if density.len() != velocity_x.len()
+            || density.len() != velocity_y.len()
+            || density.len() != velocity_z.len()
+            || density.len() != cell_volumes.len()
+        {
             return Err(cfd_core::error::Error::InvalidConfiguration(
-                "All field arrays must have the same length".to_string()
+                "All field arrays must have the same length".to_string(),
             ));
         }
 
         let mut integrals = Self::new();
 
         // Use iterator combinators for zero-copy computation
-        let (total_mass, total_momentum, total_kinetic_energy, domain_volume) = 
-            density.iter()
-                .zip(velocity_x.iter())
-                .zip(velocity_y.iter())
-                .zip(velocity_z.iter())
-                .zip(cell_volumes.iter())
-                .fold(
-                    (T::zero(), [T::zero(), T::zero(), T::zero()], T::zero(), T::zero()),
-                    |(mass, [mx, my, mz], ke, vol), ((((rho, u), v), w), dv)| {
-                        let dm = *rho * *dv;
-                        let u_sq = *u * *u;
-                        let v_sq = *v * *v;
-                        let w_sq = *w * *w;
-                        let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
+        let (total_mass, total_momentum, total_kinetic_energy, domain_volume) = density
+            .iter()
+            .zip(velocity_x.iter())
+            .zip(velocity_y.iter())
+            .zip(velocity_z.iter())
+            .zip(cell_volumes.iter())
+            .fold(
+                (
+                    T::zero(),
+                    [T::zero(), T::zero(), T::zero()],
+                    T::zero(),
+                    T::zero(),
+                ),
+                |(mass, [mx, my, mz], ke, vol), ((((rho, u), v), w), dv)| {
+                    let dm = *rho * *dv;
+                    let u_sq = *u * *u;
+                    let v_sq = *v * *v;
+                    let w_sq = *w * *w;
+                    let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
 
-                        (
-                            mass + dm,
-                            [
-                                mx + dm * *u,
-                                my + dm * *v,
-                                mz + dm * *w,
-                            ],
-                            ke + dm * (u_sq + v_sq + w_sq) * half,
-                            vol + *dv,
-                        )
-                    }
-                );
+                    (
+                        mass + dm,
+                        [mx + dm * *u, my + dm * *v, mz + dm * *w],
+                        ke + dm * (u_sq + v_sq + w_sq) * half,
+                        vol + *dv,
+                    )
+                },
+            );
 
         integrals.total_mass = total_mass;
         integrals.total_momentum = total_momentum;
@@ -333,12 +354,15 @@ impl<T: RealField + Copy + FromPrimitive + Copy> GlobalConservationIntegrals<T> 
     /// Check momentum conservation: d(ρu)/dt + ∇·(ρuu) = -∇p + ∇·τ + F
     pub fn momentum_conservation_error(&self, previous: &Self, dt: T) -> [T; 3] {
         [
-            ((self.total_momentum[0] - previous.total_momentum[0]) / dt + 
-             self.boundary_momentum_flux[0]).abs(),
-            ((self.total_momentum[1] - previous.total_momentum[1]) / dt + 
-             self.boundary_momentum_flux[1]).abs(),
-            ((self.total_momentum[2] - previous.total_momentum[2]) / dt + 
-             self.boundary_momentum_flux[2]).abs(),
+            ((self.total_momentum[0] - previous.total_momentum[0]) / dt
+                + self.boundary_momentum_flux[0])
+                .abs(),
+            ((self.total_momentum[1] - previous.total_momentum[1]) / dt
+                + self.boundary_momentum_flux[1])
+                .abs(),
+            ((self.total_momentum[2] - previous.total_momentum[2]) / dt
+                + self.boundary_momentum_flux[2])
+                .abs(),
         ]
     }
 

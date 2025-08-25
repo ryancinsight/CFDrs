@@ -10,9 +10,7 @@ pub trait NormIteratorExt: Iterator {
         Self: Iterator<Item = T> + Sized,
         T: RealField + Copy,
     {
-        self.map(|x| x * x)
-            .fold(T::zero(), |acc, x| acc + x)
-            .sqrt()
+        self.map(|x| x * x).fold(T::zero(), |acc, x| acc + x).sqrt()
     }
 
     /// Compute L1 norm without cloning
@@ -21,8 +19,7 @@ pub trait NormIteratorExt: Iterator {
         Self: Iterator<Item = T> + Sized,
         T: RealField + Copy,
     {
-        self.map(|x| x.abs())
-            .fold(T::zero(), |acc, x| acc + x)
+        self.map(|x| x.abs()).fold(T::zero(), |acc, x| acc + x)
     }
 
     /// Compute L∞ norm without cloning

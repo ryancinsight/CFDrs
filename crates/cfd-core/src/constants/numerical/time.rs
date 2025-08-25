@@ -24,10 +24,10 @@ pub const MAX_TIME_STEP_REDUCTION: f64 = 0.5;
 pub const TIME_STEP_SAFETY: f64 = 0.9;
 
 /// Runge-Kutta 4 weights
-pub const RK4_WEIGHTS: [f64; 4] = [1.0/6.0, 1.0/3.0, 1.0/3.0, 1.0/6.0];
+pub const RK4_WEIGHTS: [f64; 4] = [1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0];
 
 /// Adams-Bashforth 2 coefficients
 pub const AB2_COEFFICIENTS: [f64; 2] = [1.5, -0.5];
 
 /// Adams-Bashforth 3 coefficients
-pub const AB3_COEFFICIENTS: [f64; 3] = [23.0/12.0, -16.0/12.0, 5.0/12.0];
+pub const AB3_COEFFICIENTS: [f64; 3] = [23.0 / 12.0, -16.0 / 12.0, 5.0 / 12.0];

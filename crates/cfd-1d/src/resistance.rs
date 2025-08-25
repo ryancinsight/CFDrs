@@ -4,8 +4,8 @@
 //! microfluidic components and flow conditions, including analytical
 //! solutions and empirical correlations.
 
+use cfd_core::error::{Error, Result};
 use cfd_core::fluid::Fluid;
-use cfd_core::error::{Result, Error};
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -54,8 +54,10 @@ impl<T: RealField + Copy + FromPrimitive> FlowConditions<T> {
             reynolds_number: None,
             velocity: Some(velocity),
             flow_rate: None,
-            temperature: T::from_f64(293.15).unwrap_or_else(|| T::from_f64(20.0).unwrap_or_else(T::one)), // 20°C
-            pressure: T::from_f64(101325.0).unwrap_or_else(|| T::from_f64(1.0).unwrap_or_else(T::one)), // 1 atm
+            temperature: T::from_f64(293.15)
+                .unwrap_or_else(|| T::from_f64(20.0).unwrap_or_else(T::one)), // 20°C
+            pressure: T::from_f64(101325.0)
+                .unwrap_or_else(|| T::from_f64(1.0).unwrap_or_else(T::one)), // 1 atm
         }
     }
 }
@@ -76,14 +78,17 @@ impl<T: RealField + Copy> HagenPoiseuilleModel<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T> for HagenPoiseuilleModel<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
+    for HagenPoiseuilleModel<T>
+{
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
         let viscosity = fluid.dynamic_viscosity(conditions.temperature)?;
         let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
         let onehundredtwentyeight = T::from_f64(128.0).unwrap_or_else(|| T::zero());
 
         // R = (128 * μ * L) / (π * D^4)
-        let d4 = num_traits::Float::powf(self.diameter, T::from_f64(4.0).unwrap_or_else(|| T::zero()));
+        let d4 =
+            num_traits::Float::powf(self.diameter, T::from_f64(4.0).unwrap_or_else(|| T::zero()));
         let resistance = onehundredtwentyeight * viscosity * self.length / (pi * d4);
 
         Ok(resistance)
@@ -94,7 +99,11 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER).unwrap_or_else(|| T::zero()))
+        (
+            T::zero(),
+            T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER)
+                .unwrap_or_else(|| T::zero()),
+        )
     }
 }
 
@@ -112,11 +121,17 @@ pub struct RectangularChannelModel<T: RealField + Copy> {
 impl<T: RealField + Copy> RectangularChannelModel<T> {
     /// Create a new rectangular channel model
     pub fn new(width: T, height: T, length: T) -> Self {
-        Self { width, height, length }
+        Self {
+            width,
+            height,
+            length,
+        }
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T> for RectangularChannelModel<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
+    for RectangularChannelModel<T>
+{
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
         let viscosity = fluid.dynamic_viscosity(conditions.temperature)?;
         let aspect_ratio = self.width / self.height;
@@ -125,8 +140,8 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
         let f_re = self.calculate_friction_factor(aspect_ratio);
 
         let area = self.width * self.height;
-        let dh = T::from_f64(4.0).unwrap_or_else(|| T::zero()) * area /
-                (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (self.width + self.height));
+        let dh = T::from_f64(4.0).unwrap_or_else(|| T::zero()) * area
+            / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (self.width + self.height));
 
         let resistance = f_re * viscosity * self.length / (area * dh * dh);
 
@@ -138,7 +153,11 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER).unwrap_or_else(|| T::zero()))
+        (
+            T::zero(),
+            T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER)
+                .unwrap_or_else(|| T::zero()),
+        )
     }
 }
 
@@ -157,7 +176,11 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> RectangularChannel
     /// - Aspect ratio: 0.1 ≤ α ≤ 10.0 (recommended)
     /// - Relative roughness: ε/Dh < 0.05
     fn calculate_friction_factor(&self, aspect_ratio: T) -> T {
-        let alpha = if aspect_ratio >= T::one() { aspect_ratio } else { T::one() / aspect_ratio };
+        let alpha = if aspect_ratio >= T::one() {
+            aspect_ratio
+        } else {
+            T::one() / aspect_ratio
+        };
 
         // Simplified friction factor calculation to avoid numerical issues
         let twentyfour = T::from_f64(24.0).unwrap_or_else(|| T::zero());
@@ -167,13 +190,15 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> RectangularChannel
             // Wide channel approximation (simplified)
             // Based on Shah & London (1978) with numerical stabilization
             let correction = one - T::from_f64(0.63).unwrap_or_else(|| T::zero()) / alpha;
-            twentyfour * RealField::max(correction, T::from_f64(0.1).unwrap_or_else(|| T::zero())) // Ensure positive
+            twentyfour * RealField::max(correction, T::from_f64(0.1).unwrap_or_else(|| T::zero()))
+        // Ensure positive
         } else {
             // Tall channel approximation (simplified)
             // Derived from reciprocal relationship with stabilization
             let inv_alpha = one / alpha;
             let base = T::from_f64(56.91).unwrap_or_else(|| T::zero());
-            base / RealField::max(inv_alpha, T::from_f64(0.1).unwrap_or_else(|| T::zero())) // Ensure positive denominator
+            base / RealField::max(inv_alpha, T::from_f64(0.1).unwrap_or_else(|| T::zero()))
+            // Ensure positive denominator
         }
     }
 }
@@ -192,27 +217,43 @@ pub struct DarcyWeisbachModel<T: RealField + Copy> {
 impl<T: RealField + Copy> DarcyWeisbachModel<T> {
     /// Create a new Darcy-Weisbach model
     pub fn new(hydraulic_diameter: T, length: T, roughness: T) -> Self {
-        Self { hydraulic_diameter, length, roughness }
+        Self {
+            hydraulic_diameter,
+            length,
+            roughness,
+        }
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T> for DarcyWeisbachModel<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
+    for DarcyWeisbachModel<T>
+{
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
         let reynolds = conditions.reynolds_number.ok_or_else(|| {
-            Error::InvalidConfiguration("Reynolds number required for Darcy-Weisbach model".to_string())
+            Error::InvalidConfiguration(
+                "Reynolds number required for Darcy-Weisbach model".to_string(),
+            )
         })?;
 
         // Calculate friction factor using Colebrook-White equation (approximation)
         let friction_factor = self.calculate_friction_factor(reynolds);
 
-        let area = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero()) *
-                  num_traits::Float::powf(self.hydraulic_diameter, T::from_f64(2.0).unwrap_or_else(|| T::zero())) /
-                  T::from_f64(4.0).unwrap_or_else(|| T::zero());
+        let area = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero())
+            * num_traits::Float::powf(
+                self.hydraulic_diameter,
+                T::from_f64(2.0).unwrap_or_else(|| T::zero()),
+            )
+            / T::from_f64(4.0).unwrap_or_else(|| T::zero());
 
         // Convert Darcy friction factor to hydraulic resistance
         let density = fluid.density;
-        let resistance = friction_factor * self.length * density /
-                        (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * num_traits::Float::powf(self.hydraulic_diameter, T::from_f64(2.0).unwrap_or_else(|| T::zero())));
+        let resistance = friction_factor * self.length * density
+            / (T::from_f64(2.0).unwrap_or_else(|| T::zero())
+                * area
+                * num_traits::Float::powf(
+                    self.hydraulic_diameter,
+                    T::from_f64(2.0).unwrap_or_else(|| T::zero()),
+                ));
 
         Ok(resistance)
     }
@@ -222,7 +263,11 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_UPPER).unwrap_or_else(|| T::zero()), T::from_f64(1e8).unwrap_or_else(|| T::zero()))
+        (
+            T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_UPPER)
+                .unwrap_or_else(|| T::zero()),
+            T::from_f64(1e8).unwrap_or_else(|| T::zero()),
+        )
     }
 }
 
@@ -233,9 +278,11 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> DarcyWeisbachModel
 
         // Swamee-Jain approximation to Colebrook-White equation
         let term1 = relative_roughness / T::from_f64(3.7).unwrap_or_else(|| T::zero());
-        let term2 = T::from_f64(5.74).unwrap_or_else(|| T::zero()) / num_traits::Float::powf(reynolds, T::from_f64(0.9).unwrap_or_else(|| T::zero()));
+        let term2 = T::from_f64(5.74).unwrap_or_else(|| T::zero())
+            / num_traits::Float::powf(reynolds, T::from_f64(0.9).unwrap_or_else(|| T::zero()));
         let log_term = num_traits::Float::ln(term1 + term2);
-        T::from_f64(0.25).unwrap_or_else(|| T::zero()) / num_traits::Float::powf(log_term, T::from_f64(2.0).unwrap_or_else(|| T::zero()))
+        T::from_f64(0.25).unwrap_or_else(|| T::zero())
+            / num_traits::Float::powf(log_term, T::from_f64(2.0).unwrap_or_else(|| T::zero()))
     }
 }
 
@@ -248,8 +295,14 @@ pub struct EntranceEffectsModel<T: RealField + Copy> {
     pub entrance_coefficient: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T> for EntranceEffectsModel<T> {
-    fn calculate_resistance(&self, _fluid: &Fluid<T>, _conditions: &FlowConditions<T>) -> Result<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
+    for EntranceEffectsModel<T>
+{
+    fn calculate_resistance(
+        &self,
+        _fluid: &Fluid<T>,
+        _conditions: &FlowConditions<T>,
+    ) -> Result<T> {
         Ok(self.base_resistance * (T::one() + self.entrance_coefficient))
     }
 
@@ -280,7 +333,7 @@ impl ResistanceModelFactory {
     /// Create Hagen-Poiseuille model for circular channel
     pub fn hagen_poiseuille<T: RealField + Copy + FromPrimitive + Copy>(
         diameter: T,
-        length: T
+        length: T,
     ) -> HagenPoiseuilleModel<T> {
         HagenPoiseuilleModel { diameter, length }
     }
@@ -289,21 +342,27 @@ impl ResistanceModelFactory {
     pub fn rectangular_channel<T: RealField + Copy + FromPrimitive + Copy>(
         width: T,
         height: T,
-        length: T
+        length: T,
     ) -> RectangularChannelModel<T> {
-        RectangularChannelModel { width, height, length }
+        RectangularChannelModel {
+            width,
+            height,
+            length,
+        }
     }
 
     /// Create Darcy-Weisbach model for turbulent flow
     pub fn darcy_weisbach<T: RealField + Copy + FromPrimitive + Copy>(
         hydraulic_diameter: T,
         length: T,
-        roughness: T
+        roughness: T,
     ) -> DarcyWeisbachModel<T> {
-        DarcyWeisbachModel { hydraulic_diameter, length, roughness }
+        DarcyWeisbachModel {
+            hydraulic_diameter,
+            length,
+            roughness,
+        }
     }
-
-
 }
 
 /// Simplified geometry enum for resistance model selection
@@ -314,7 +373,7 @@ pub enum ChannelGeometry<T: RealField + Copy> {
         /// Diameter of the circular channel
         diameter: T,
         /// Length of the channel
-        length: T
+        length: T,
     },
     /// Rectangular channel
     Rectangular {
@@ -323,7 +382,7 @@ pub enum ChannelGeometry<T: RealField + Copy> {
         /// Height of the rectangular channel
         height: T,
         /// Length of the channel
-        length: T
+        length: T,
     },
 }
 
@@ -334,7 +393,8 @@ pub struct ResistanceCalculator<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceCalculator<T> {
     /// Create new resistance calculator
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
@@ -345,7 +405,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceCalculat
         &self,
         geometry: &ChannelGeometry<T>,
         fluid: &Fluid<T>,
-        conditions: &FlowConditions<T>
+        conditions: &FlowConditions<T>,
     ) -> Result<T> {
         match geometry {
             ChannelGeometry::Circular { diameter, length } => {
@@ -354,15 +414,19 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceCalculat
                     length: *length,
                 };
                 model.calculate_resistance(fluid, conditions)
-            },
-            ChannelGeometry::Rectangular { width, height, length } => {
+            }
+            ChannelGeometry::Rectangular {
+                width,
+                height,
+                length,
+            } => {
                 let model = RectangularChannelModel {
                     width: *width,
                     height: *height,
                     length: *length,
                 };
                 model.calculate_resistance(fluid, conditions)
-            },
+            }
         }
     }
 
@@ -372,7 +436,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceCalculat
         diameter: T,
         length: T,
         fluid: &Fluid<T>,
-        conditions: &FlowConditions<T>
+        conditions: &FlowConditions<T>,
     ) -> Result<T> {
         let model = HagenPoiseuilleModel { diameter, length };
         model.calculate_resistance(fluid, conditions)
@@ -385,9 +449,13 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceCalculat
         height: T,
         length: T,
         fluid: &Fluid<T>,
-        conditions: &FlowConditions<T>
+        conditions: &FlowConditions<T>,
     ) -> Result<T> {
-        let model = RectangularChannelModel { width, height, length };
+        let model = RectangularChannelModel {
+            width,
+            height,
+            length,
+        };
         model.calculate_resistance(fluid, conditions)
     }
 
@@ -398,9 +466,13 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceCalculat
         length: T,
         roughness: T,
         fluid: &Fluid<T>,
-        conditions: &FlowConditions<T>
+        conditions: &FlowConditions<T>,
     ) -> Result<T> {
-        let model = DarcyWeisbachModel { hydraulic_diameter, length, roughness };
+        let model = DarcyWeisbachModel {
+            hydraulic_diameter,
+            length,
+            roughness,
+        };
         model.calculate_resistance(fluid, conditions)
     }
 }
@@ -422,19 +494,19 @@ mod tests {
         let model = HagenPoiseuilleModel::new(100e-6, 0.001);
         let fluid = cfd_core::fluid::Fluid::<f64>::water()?;
         let conditions = FlowConditions::new(0.001);
-        
+
         let resistance = model.calculate_resistance(&fluid, &conditions)?;
-        
+
         // Verify resistance is positive
         assert!(resistance > 0.0);
-        
+
         // Check pressure drop calculation
         // For Hagen-Poiseuille flow: ΔP = R * Q
         // where R is resistance and Q is flow rate
         let flow_rate = 1e-6; // m³/s
         let pressure_drop = resistance * flow_rate;
         assert!(pressure_drop > 0.0);
-        
+
         Ok(())
     }
 
@@ -443,22 +515,22 @@ mod tests {
         let model = RectangularChannelModel::new(100e-6, 50e-6, 0.001);
         let fluid = cfd_core::fluid::Fluid::<f64>::water()?;
         let conditions = FlowConditions::new(0.001);
-        
+
         let resistance = model.calculate_resistance(&fluid, &conditions)?;
-        
+
         // Verify resistance is positive
         assert!(resistance > 0.0);
-        
+
         // Verify hydraulic diameter calculation
         // Calculate hydraulic diameter for rectangular channel
         // D_h = 2 * w * h / (w + h)
         let hydraulic_diameter = 2.0 * model.width * model.height / (model.width + model.height);
         assert_relative_eq!(
-            hydraulic_diameter, 
+            hydraulic_diameter,
             2.0 * 100e-6 * 50e-6 / (100e-6 + 50e-6),
             epsilon = 1e-10
         );
-        
+
         Ok(())
     }
 
@@ -466,26 +538,26 @@ mod tests {
     fn test_darcy_weisbach() -> Result<()> {
         let diameter = 10e-3; // 10mm pipe for turbulent flow
         let model = DarcyWeisbachModel::new(diameter, 0.001, 1e-6);
-        
+
         // Test with turbulent flow
         let fluid = cfd_core::fluid::Fluid::<f64>::water()?;
         let velocity = 1.0;
         let density = 998.2; // Water density at 20°C
         let viscosity = fluid.dynamic_viscosity(293.15)?;
         let re = density * velocity * diameter / viscosity;
-        
+
         // Create flow conditions with Reynolds number
         let mut conditions = FlowConditions::new(velocity);
         conditions.reynolds_number = Some(re);
-        
+
         let resistance = model.calculate_resistance(&fluid, &conditions)?;
-        
+
         // Verify resistance is positive
         assert!(resistance > 0.0);
-        
+
         // Verify Reynolds number is turbulent
         assert!(re > 2300.0, "Reynolds number {} should be turbulent", re);
-        
+
         Ok(())
     }
 
@@ -494,22 +566,30 @@ mod tests {
         let fluid = cfd_core::fluid::Fluid::<f64>::water()?;
         let density = 998.2; // Water density at 20°C in kg/m³
         let viscosity = fluid.dynamic_viscosity(293.15)?;
-        
+
         // Test laminar flow (small diameter, low velocity)
         let laminar_diameter = 100e-6; // 100 micrometers
         let laminar_velocity = 0.001;
         let laminar_model = HagenPoiseuilleModel::new(laminar_diameter, 0.001);
         let laminar_re = density * laminar_velocity * laminar_diameter / viscosity;
-        assert!(laminar_re < 2300.0, "Expected laminar flow, got Re = {}", laminar_re);
-        
+        assert!(
+            laminar_re < 2300.0,
+            "Expected laminar flow, got Re = {}",
+            laminar_re
+        );
+
         // Test turbulent flow (larger diameter, high velocity)
         // For turbulent: Re = ρ*v*D/μ > 2300
         // Need: D*v > 2300*μ/ρ = 2300*0.001/998.2 ≈ 0.0023
         let turbulent_diameter = 10e-3; // 10 mm pipe
         let turbulent_velocity = 1.0; // 1 m/s
         let turbulent_re = density * turbulent_velocity * turbulent_diameter / viscosity;
-        assert!(turbulent_re > 2300.0, "Expected turbulent flow, got Re = {}", turbulent_re);
-        
+        assert!(
+            turbulent_re > 2300.0,
+            "Expected turbulent flow, got Re = {}",
+            turbulent_re
+        );
+
         Ok(())
     }
 
@@ -518,28 +598,36 @@ mod tests {
         let calculator = ResistanceCalculator::new();
         let fluid = cfd_core::fluid::Fluid::<f64>::water()?;
         let conditions = FlowConditions::new(0.001);
-        
+
         // Test Hagen-Poiseuille
-        let resistance = calculator.calculate_hagen_poiseuille(100e-6, 0.001, &fluid, &conditions)?;
+        let resistance =
+            calculator.calculate_hagen_poiseuille(100e-6, 0.001, &fluid, &conditions)?;
         assert!(resistance > 0.0);
-        
+
         // Test rectangular
-        let resistance = calculator.calculate_rectangular(100e-6, 50e-6, 0.001, &fluid, &conditions)?;
+        let resistance =
+            calculator.calculate_rectangular(100e-6, 50e-6, 0.001, &fluid, &conditions)?;
         assert!(resistance > 0.0);
-        
+
         // Test Darcy-Weisbach with turbulent flow
         let diameter = 10e-3; // 10mm pipe
         let velocity = 1.0;
         let density = 998.2;
         let viscosity = fluid.dynamic_viscosity(293.15)?;
         let re = density * velocity * diameter / viscosity;
-        
+
         let mut turbulent_conditions = FlowConditions::new(velocity);
         turbulent_conditions.reynolds_number = Some(re);
-        
-        let resistance = calculator.calculate_darcy_weisbach(diameter, 0.001, 1e-6, &fluid, &turbulent_conditions)?;
+
+        let resistance = calculator.calculate_darcy_weisbach(
+            diameter,
+            0.001,
+            1e-6,
+            &fluid,
+            &turbulent_conditions,
+        )?;
         assert!(resistance > 0.0);
-        
+
         Ok(())
     }
 
@@ -548,26 +636,26 @@ mod tests {
         let calculator = ResistanceCalculator::new();
         let fluid = cfd_core::fluid::Fluid::<f64>::water()?;
         let conditions = FlowConditions::new(0.001);
-        
+
         // Test with circular geometry
         let circular_geom = ChannelGeometry::Circular {
             diameter: 100e-6,
             length: 0.001,
         };
-        
+
         let resistance = calculator.calculate_auto(&circular_geom, &fluid, &conditions)?;
         assert!(resistance > 0.0);
-        
+
         // Test with rectangular geometry
         let rect_geom = ChannelGeometry::Rectangular {
             width: 100e-6,
             height: 50e-6,
             length: 0.001,
         };
-        
+
         let resistance = calculator.calculate_auto(&rect_geom, &fluid, &conditions)?;
         assert!(resistance > 0.0);
-        
+
         Ok(())
     }
 

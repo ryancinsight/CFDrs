@@ -6,7 +6,7 @@
 //! # Intended Usage
 //!
 //! This crate is a foundational component of the `cfd-suite`. For the best
-//! experience and a unified API, it is recommended to use the `cfd-suite` 
+//! experience and a unified API, it is recommended to use the `cfd-suite`
 //! crate directly, which provides a curated prelude module.
 //!
 //! If using `cfd-core` as a standalone library, you can either:
@@ -44,18 +44,18 @@ pub mod values;
 /// ```
 pub mod prelude {
     //! Common imports for CFD core functionality
-    
+
     // Essential types that users will directly interact with
     pub use crate::boundary::{BoundaryCondition, WallType};
     pub use crate::domain::Domain;
     pub use crate::error::{Error, Result};
     pub use crate::fluid::Fluid;
     pub use crate::problem::Problem;
-    pub use crate::solver::{Solver, SolverConfiguration, SolverConfig};
+    pub use crate::solver::{Solver, SolverConfig, SolverConfiguration};
     pub use crate::state::SimulationState;
     pub use crate::time::TimeIntegrator;
-    pub use crate::values::{Pressure, Velocity, Temperature, ReynoldsNumber};
-    
+    pub use crate::values::{Pressure, ReynoldsNumber, Temperature, Velocity};
+
     // Plugin system - only expose the main trait
     pub use crate::plugin::{Plugin, SimulationPlugin};
 }
@@ -65,24 +65,21 @@ pub mod prelude {
 
 /// Factory system for dynamic solver creation (advanced usage)
 pub mod factories {
-    pub use crate::factory::{
-        ConcreteSolverFactory, FactoryCapability, SolverFactoryRegistry,
-    };
+    pub use crate::factory::{ConcreteSolverFactory, FactoryCapability, SolverFactoryRegistry};
 }
 
 /// Plugin system internals (for plugin developers)
 pub mod plugins {
     pub use crate::plugin::{
-        PluginRegistry, PluginHealthStatus,
-        PluginMetrics, SystemStatus, SystemHealthSummary
+        PluginHealthStatus, PluginMetrics, PluginRegistry, SystemHealthSummary, SystemStatus,
     };
 }
 
 /// Extended solver traits (for solver implementors)
 pub mod solvers {
     pub use crate::solver::{
-        Configurable, Validatable, IterativeSolver, DirectSolver,
-        LinearSolverConfig, NetworkSolverConfig
+        Configurable, DirectSolver, IterativeSolver, LinearSolverConfig, NetworkSolverConfig,
+        Validatable,
     };
 }
 
@@ -91,31 +88,25 @@ pub mod solvers {
 
 /// Domain-specific abstractions
 pub use domains::{
-    FlowField, VelocityField, PressureField, TurbulenceModel,
-    DiscretizationScheme, TimeIntegrationScheme, LinearSystemSolver,
-    MeshGeneration, MeshRefinement, MeshQuality,
-    BoundaryConditionApplicator,
-    FluidProperties, SolidProperties, InterfaceProperties
+    BoundaryConditionApplicator, DiscretizationScheme, FlowField, FluidProperties,
+    InterfaceProperties, LinearSystemSolver, MeshGeneration, MeshQuality, MeshRefinement,
+    PressureField, SolidProperties, TimeIntegrationScheme, TurbulenceModel, VelocityField,
 };
 
 /// Aggregate types for complex simulations  
-pub use aggregates::{
-    SimulationAggregate, MeshAggregate, 
-    SimulationMetadata, PhysicalParameters
-};
+pub use aggregates::{MeshAggregate, PhysicalParameters, SimulationAggregate, SimulationMetadata};
 
 /// Service layer abstractions
-pub use services::{
-    FluidDynamicsService, MeshQualityService, 
-    FlowRegime, QualityLevel
-};
+pub use services::{FlowRegime, FluidDynamicsService, MeshQualityService, QualityLevel};
 
 // Note: TypeErasedFactory and TypeErasedSolver are internal implementation details
 // and should NOT be exposed in the public API. They remain accessible only through
 // the factory module for those who need to implement custom factories.
 // Re-export commonly used types
+pub use boundary::{BoundaryCondition, WallType};
 pub use error::{Error, Result};
 pub use fluid::Fluid;
-pub use boundary::{BoundaryCondition, WallType};
 pub use problem::Problem;
-pub use solver::{Solver, SolverConfiguration, Configurable, Validatable, NetworkSolverConfig, SolverConfig};
+pub use solver::{
+    Configurable, NetworkSolverConfig, Solver, SolverConfig, SolverConfiguration, Validatable,
+};

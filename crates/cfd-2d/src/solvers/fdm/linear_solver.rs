@@ -40,9 +40,9 @@ pub fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive + Copy>(
 
             // Check for zero diagonal (singular matrix)
             if diagonal.abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
-                return Err(Error::InvalidConfiguration(
-                    format!("{solver_name}: Singular matrix detected (zero diagonal)")
-                ));
+                return Err(Error::InvalidConfiguration(format!(
+                    "{solver_name}: Singular matrix detected (zero diagonal)"
+                )));
             }
 
             // Update solution
@@ -54,9 +54,8 @@ pub fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive + Copy>(
             }
 
             // Apply relaxation
-            solution[row_idx] = solution[row_idx] +
-                              config.relaxation_factor() *
-                              (current_value - solution[row_idx]);
+            solution[row_idx] = solution[row_idx]
+                + config.relaxation_factor() * (current_value - solution[row_idx]);
         }
 
         if config.verbose() && iteration % 100 == 0 {
@@ -72,7 +71,9 @@ pub fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive + Copy>(
     }
 
     // Convergence failure
-    Err(Error::InvalidConfiguration(
-        format!("{}: Failed to converge after {} iterations", solver_name, config.max_iterations())
-    ))
+    Err(Error::InvalidConfiguration(format!(
+        "{}: Failed to converge after {} iterations",
+        solver_name,
+        config.max_iterations()
+    )))
 }

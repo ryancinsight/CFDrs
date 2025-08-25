@@ -4,14 +4,14 @@
 //! Organized into focused submodules adhering to SLAP and SOC.
 
 pub mod fields;
-pub mod turbulence;
-pub mod rans;
 pub mod flow_regimes;
 pub mod operations;
+pub mod rans;
+pub mod turbulence;
 
 // Re-export core types for convenience
-pub use fields::{FlowField, VelocityField, PressureField, ScalarField};
-pub use turbulence::{TurbulenceModel, SmagorinskyModel, MixingLengthModel};
-pub use rans::{RANSModel, KEpsilonModel, KEpsilonConstants};
-pub use flow_regimes::{FlowRegime, FlowClassifier};
+pub use fields::{FlowField, PressureField, ScalarField, VelocityField};
+pub use flow_regimes::{FlowClassifier, FlowRegime};
 pub use operations::FlowOperations;
+pub use rans::{KEpsilonConstants, KEpsilonModel, RANSModel};
+pub use turbulence::{MixingLengthModel, SmagorinskyModel, TurbulenceModel};

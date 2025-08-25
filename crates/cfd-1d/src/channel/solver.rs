@@ -1,13 +1,13 @@
 //! Channel flow solver implementations
 
-use cfd_core::fluid::Fluid;
-use cfd_core::error::Result;
+use super::cross_section::CrossSection;
+use super::flow::{Channel, FlowRegime, FlowState, NumericalParameters};
+use super::geometry::ChannelGeometry;
 use cfd_core::constants::dimensionless::reynolds::{PIPE_CRITICAL_LOWER, PIPE_CRITICAL_UPPER};
+use cfd_core::error::Result;
+use cfd_core::fluid::Fluid;
 use nalgebra::RealField;
 use num_traits::{cast::FromPrimitive, Float};
-use super::geometry::ChannelGeometry;
-use super::cross_section::CrossSection;
-use super::flow::{Channel, FlowState, FlowRegime, NumericalParameters};
 
 impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
     /// Create a rectangular channel geometry
@@ -52,14 +52,22 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
                 let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
                 let radius = *diameter / T::from_f64(2.0).unwrap_or_else(|| T::zero());
                 pi * radius * radius
-            },
-            CrossSection::Elliptical { major_axis, minor_axis } => {
+            }
+            CrossSection::Elliptical {
+                major_axis,
+                minor_axis,
+            } => {
                 let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
                 pi * *major_axis * *minor_axis / T::from_f64(4.0).unwrap_or_else(|| T::zero())
-            },
-            CrossSection::Trapezoidal { top_width, bottom_width, height } => {
-                (*top_width + *bottom_width) * *height / T::from_f64(2.0).unwrap_or_else(|| T::zero())
-            },
+            }
+            CrossSection::Trapezoidal {
+                top_width,
+                bottom_width,
+                height,
+            } => {
+                (*top_width + *bottom_width) * *height
+                    / T::from_f64(2.0).unwrap_or_else(|| T::zero())
+            }
             CrossSection::Custom { area, .. } => *area,
         }
     }
@@ -69,22 +77,32 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
         match &self.cross_section {
             CrossSection::Rectangular { width, height } => {
                 let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
-                four * self.area() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (*width + *height))
-            },
+                four * self.area()
+                    / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (*width + *height))
+            }
             CrossSection::Circular { diameter } => *diameter,
             CrossSection::Elliptical { .. } => {
                 // Use definition Dh = 4 A / P with Ramanujan perimeter
                 let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
                 four * self.area() / self.wetted_perimeter()
-            },
-            CrossSection::Trapezoidal { top_width, bottom_width, height } => {
+            }
+            CrossSection::Trapezoidal {
+                top_width,
+                bottom_width,
+                height,
+            } => {
                 let area = self.area();
-                let hw = (*top_width - *bottom_width) / T::from_f64(2.0).unwrap_or_else(|| T::zero());
+                let hw =
+                    (*top_width - *bottom_width) / T::from_f64(2.0).unwrap_or_else(|| T::zero());
                 let side_length = Float::sqrt(Float::powi(*height, 2) + Float::powi(hw, 2));
-                let perimeter = *top_width + *bottom_width + T::from_f64(2.0).unwrap_or_else(|| T::zero()) * side_length;
+                let perimeter = *top_width
+                    + *bottom_width
+                    + T::from_f64(2.0).unwrap_or_else(|| T::zero()) * side_length;
                 T::from_f64(4.0).unwrap_or_else(|| T::zero()) * area / perimeter
-            },
-            CrossSection::Custom { hydraulic_diameter, .. } => *hydraulic_diameter,
+            }
+            CrossSection::Custom {
+                hydraulic_diameter, ..
+            } => *hydraulic_diameter,
         }
     }
 
@@ -93,28 +111,45 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
         match &self.cross_section {
             CrossSection::Rectangular { width, height } => {
                 T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (*width + *height)
-            },
+            }
             CrossSection::Circular { diameter } => {
                 let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
                 pi * *diameter
-            },
-            CrossSection::Elliptical { major_axis, minor_axis } => {
+            }
+            CrossSection::Elliptical {
+                major_axis,
+                minor_axis,
+            } => {
                 // Ramanujan's approximation for ellipse perimeter
                 let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
                 let a = *major_axis / T::from_f64(2.0).unwrap_or_else(|| T::zero());
                 let b = *minor_axis / T::from_f64(2.0).unwrap_or_else(|| T::zero());
                 let h = Float::powi((a - b) / (a + b), 2);
-                pi * (a + b) * (T::one() + T::from_f64(3.0).unwrap_or_else(|| T::zero()) * h /
-                    (T::from_f64(10.0).unwrap_or_else(|| T::zero()) + Float::sqrt(T::from_f64(4.0).unwrap_or_else(|| T::zero()) - T::from_f64(3.0).unwrap_or_else(|| T::zero()) * h)))
-            },
-            CrossSection::Trapezoidal { top_width, bottom_width, height } => {
-                let hw = (*top_width - *bottom_width) / T::from_f64(2.0).unwrap_or_else(|| T::zero());
+                pi * (a + b)
+                    * (T::one()
+                        + T::from_f64(3.0).unwrap_or_else(|| T::zero()) * h
+                            / (T::from_f64(10.0).unwrap_or_else(|| T::zero())
+                                + Float::sqrt(
+                                    T::from_f64(4.0).unwrap_or_else(|| T::zero())
+                                        - T::from_f64(3.0).unwrap_or_else(|| T::zero()) * h,
+                                )))
+            }
+            CrossSection::Trapezoidal {
+                top_width,
+                bottom_width,
+                height,
+            } => {
+                let hw =
+                    (*top_width - *bottom_width) / T::from_f64(2.0).unwrap_or_else(|| T::zero());
                 let side_length = Float::sqrt(Float::powi(*height, 2) + Float::powi(hw, 2));
-                *top_width + *bottom_width + T::from_f64(2.0).unwrap_or_else(|| T::zero()) * side_length
-            },
-            CrossSection::Custom { area, hydraulic_diameter } => {
-                T::from_f64(4.0).unwrap_or_else(|| T::zero()) * *area / *hydraulic_diameter
-            },
+                *top_width
+                    + *bottom_width
+                    + T::from_f64(2.0).unwrap_or_else(|| T::zero()) * side_length
+            }
+            CrossSection::Custom {
+                area,
+                hydraulic_diameter,
+            } => T::from_f64(4.0).unwrap_or_else(|| T::zero()) * *area / *hydraulic_diameter,
         }
     }
 }
@@ -159,7 +194,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         // Calculate Reynolds number if velocity is known
         if let Some(re) = self.flow_state.reynolds_number {
             self.flow_state.flow_regime = self.classify_flow_regime(re);
-            
+
             // Check for entrance effects
             let dh = self.geometry.hydraulic_diameter();
             // Entrance length correlations:
@@ -172,7 +207,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
                 }
                 FlowRegime::Transitional | FlowRegime::Turbulent => {
                     // Turbulent entrance length
-                    let one_sixth = T::from_f64(1.0/6.0).unwrap_or_else(|| T::zero());
+                    let one_sixth = T::from_f64(1.0 / 6.0).unwrap_or_else(|| T::zero());
                     dh * T::from_f64(4.4).unwrap_or_else(|| T::zero()) * Float::powf(re, one_sixth)
                 }
                 FlowRegime::SlipFlow => {
@@ -203,7 +238,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
 
     // Resistance calculation methods would continue here...
     // Moving only the essential parts for brevity
-    
+
     fn calculate_stokes_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
         let area = self.geometry.area();
         let dh = self.geometry.hydraulic_diameter();
@@ -213,7 +248,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
 
         // Stokes flow resistance with shape factor
         let shape_factor = self.get_shape_factor();
-        let resistance = shape_factor * viscosity * length / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * dh * dh);
+        let resistance = shape_factor * viscosity * length
+            / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * dh * dh);
 
         Ok(resistance)
     }

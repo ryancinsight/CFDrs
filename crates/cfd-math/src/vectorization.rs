@@ -12,16 +12,17 @@ pub struct VectorizedOps;
 impl VectorizedOps {
     /// Vectorized element-wise addition with potential SIMD optimization
     pub fn add_vectorized<T: RealField + Copy + Send + Sync>(
-        a: &[T], 
-        b: &[T], 
-        result: &mut [T]
+        a: &[T],
+        b: &[T],
+        result: &mut [T],
     ) -> Result<(), &'static str> {
         if a.len() != b.len() || a.len() != result.len() {
             return Err("All slices must have the same length");
         }
 
         // Use parallel iterators for automatic vectorization
-        result.par_iter_mut()
+        result
+            .par_iter_mut()
             .zip(a.par_iter().zip(b.par_iter()))
             .for_each(|(r, (a_val, b_val))| {
                 *r = *a_val + *b_val;
@@ -32,15 +33,16 @@ impl VectorizedOps {
 
     /// Vectorized element-wise multiplication
     pub fn mul_vectorized<T: RealField + Copy + Send + Sync>(
-        a: &[T], 
-        b: &[T], 
-        result: &mut [T]
+        a: &[T],
+        b: &[T],
+        result: &mut [T],
     ) -> Result<(), &'static str> {
         if a.len() != b.len() || a.len() != result.len() {
             return Err("All slices must have the same length");
         }
 
-        result.par_iter_mut()
+        result
+            .par_iter_mut()
             .zip(a.par_iter().zip(b.par_iter()))
             .for_each(|(r, (a_val, b_val))| {
                 *r = *a_val * *b_val;
@@ -51,15 +53,16 @@ impl VectorizedOps {
 
     /// Vectorized scalar multiplication with broadcasting
     pub fn scale_vectorized<T: RealField + Copy + Send + Sync>(
-        input: &[T], 
-        scalar: T, 
-        result: &mut [T]
+        input: &[T],
+        scalar: T,
+        result: &mut [T],
     ) -> Result<(), &'static str> {
         if input.len() != result.len() {
             return Err("Input and result slices must have the same length");
         }
 
-        result.par_iter_mut()
+        result
+            .par_iter_mut()
             .zip(input.par_iter())
             .for_each(|(r, val)| {
                 *r = scalar * *val;
@@ -72,7 +75,7 @@ impl VectorizedOps {
     pub fn broadcast_add<T: RealField + Copy + Send + Sync>(
         input: &[T],
         scalar: T,
-        result: &mut [T]
+        result: &mut [T],
     ) -> Result<(), &'static str> {
         if input.len() != result.len() {
             return Err("Input and result slices must have the same length");
@@ -81,14 +84,15 @@ impl VectorizedOps {
         // Use iterator chunks for cache-friendly access patterns
         const CHUNK_SIZE: usize = 64; // Optimize for cache line size
 
-        input.par_chunks(CHUNK_SIZE)
+        input
+            .par_chunks(CHUNK_SIZE)
             .zip(result.par_chunks_mut(CHUNK_SIZE))
             .for_each(|(input_chunk, result_chunk)| {
-                input_chunk.iter()
-                    .zip(result_chunk.iter_mut())
-                    .for_each(|(input_val, result_val)| {
+                input_chunk.iter().zip(result_chunk.iter_mut()).for_each(
+                    |(input_val, result_val)| {
                         *result_val = *input_val + scalar;
-                    });
+                    },
+                );
             });
 
         Ok(())
@@ -96,11 +100,11 @@ impl VectorizedOps {
 
     /// Broadcasting multiplication: multiplies each element by broadcasted vector
     pub fn broadcast_mul_vector<T: RealField + Copy + Send + Sync>(
-        matrix: &[T], 
+        matrix: &[T],
         matrix_rows: usize,
         matrix_cols: usize,
         vector: &[T],
-        result: &mut [T]
+        result: &mut [T],
     ) -> Result<(), &'static str> {
         if matrix.len() != matrix_rows * matrix_cols {
             return Err("Matrix dimensions don't match data length");
@@ -113,10 +117,12 @@ impl VectorizedOps {
         }
 
         // Row-wise broadcasting using parallel iteration
-        result.par_chunks_mut(matrix_cols)
+        result
+            .par_chunks_mut(matrix_cols)
             .zip(matrix.par_chunks(matrix_cols))
             .for_each(|(result_row, matrix_row)| {
-                result_row.iter_mut()
+                result_row
+                    .iter_mut()
                     .zip(matrix_row.iter())
                     .zip(vector.iter())
                     .for_each(|((r, m), v)| {
@@ -128,18 +134,23 @@ impl VectorizedOps {
     }
 
     /// Vectorized dot product with chunked processing for cache efficiency
-    pub fn dot_vectorized<T: RealField + Copy + Send + Sync>(a: &[T], b: &[T]) -> Result<T, &'static str> {
+    pub fn dot_vectorized<T: RealField + Copy + Send + Sync>(
+        a: &[T],
+        b: &[T],
+    ) -> Result<T, &'static str> {
         if a.len() != b.len() {
             return Err("Vectors must have the same length");
         }
 
         // Use chunked parallel processing for better cache locality
         const CHUNK_SIZE: usize = 1024;
-        
-        let result = a.par_chunks(CHUNK_SIZE)
+
+        let result = a
+            .par_chunks(CHUNK_SIZE)
             .zip(b.par_chunks(CHUNK_SIZE))
             .map(|(a_chunk, b_chunk)| {
-                a_chunk.iter()
+                a_chunk
+                    .iter()
                     .zip(b_chunk.iter())
                     .map(|(x, y)| *x * *y)
                     .fold(T::zero(), |acc, val| acc + val)
@@ -152,10 +163,12 @@ impl VectorizedOps {
     /// Vectorized L2 norm computation
     pub fn l2_norm_vectorized<T: RealField + Copy + Send + Sync>(input: &[T]) -> T {
         const CHUNK_SIZE: usize = 1024;
-        
-        let sum_of_squares = input.par_chunks(CHUNK_SIZE)
+
+        let sum_of_squares = input
+            .par_chunks(CHUNK_SIZE)
             .map(|chunk| {
-                chunk.iter()
+                chunk
+                    .iter()
                     .map(|x| *x * *x)
                     .fold(T::zero(), |acc, val| acc + val)
             })
@@ -170,26 +183,24 @@ impl VectorizedOps {
         col_indices: &[usize],
         row_ptr: &[usize],
         x: &[T],
-        y: &mut [T]
+        y: &mut [T],
     ) -> Result<(), &'static str> {
         if row_ptr.len() != y.len() + 1 {
             return Err("Invalid row pointer length");
         }
 
         // Parallel processing of matrix rows
-        y.par_iter_mut()
-            .enumerate()
-            .for_each(|(i, y_i)| {
-                let start = row_ptr[i];
-                let end = row_ptr[i + 1];
-                
-                *y_i = (start..end)
-                    .map(|j| {
-                        let col = col_indices[j];
-                        values[j] * x[col]
-                    })
-                    .fold(T::zero(), |acc, val| acc + val);
-            });
+        y.par_iter_mut().enumerate().for_each(|(i, y_i)| {
+            let start = row_ptr[i];
+            let end = row_ptr[i + 1];
+
+            *y_i = (start..end)
+                .map(|j| {
+                    let col = col_indices[j];
+                    values[j] * x[col]
+                })
+                .fold(T::zero(), |acc, val| acc + val);
+        });
 
         Ok(())
     }
@@ -198,17 +209,15 @@ impl VectorizedOps {
     pub fn finite_diff_vectorized<T: RealField + Copy + Send + Sync>(
         input: &[T],
         spacing: T,
-        result: &mut [T]
+        result: &mut [T],
     ) -> Result<(), &'static str> {
         if input.len() < 2 || result.len() != input.len() - 1 {
             return Err("Invalid input or result length for finite differences");
         }
 
-        result.par_iter_mut()
-            .enumerate()
-            .for_each(|(i, diff)| {
-                *diff = (input[i + 1] - input[i]) / spacing;
-            });
+        result.par_iter_mut().enumerate().for_each(|(i, diff)| {
+            *diff = (input[i + 1] - input[i]) / spacing;
+        });
 
         Ok(())
     }
@@ -217,7 +226,7 @@ impl VectorizedOps {
     pub fn convolution_vectorized<T: RealField + Copy + Send + Sync>(
         signal: &[T],
         kernel: &[T],
-        result: &mut [T]
+        result: &mut [T],
     ) -> Result<(), &'static str> {
         let signal_len = signal.len();
         let kernel_len = kernel.len();
@@ -228,19 +237,17 @@ impl VectorizedOps {
         }
 
         // Parallel convolution computation
-        result.par_iter_mut()
-            .enumerate()
-            .for_each(|(n, output)| {
-                *output = (0..kernel_len)
-                    .filter_map(|k| {
-                        if n >= k && n - k < signal_len {
-                            Some(signal[n - k] * kernel[k])
-                        } else {
-                            None
-                        }
-                    })
-                    .fold(T::zero(), |acc, val| acc + val);
-            });
+        result.par_iter_mut().enumerate().for_each(|(n, output)| {
+            *output = (0..kernel_len)
+                .filter_map(|k| {
+                    if n >= k && n - k < signal_len {
+                        Some(signal[n - k] * kernel[k])
+                    } else {
+                        None
+                    }
+                })
+                .fold(T::zero(), |acc, val| acc + val);
+        });
 
         Ok(())
     }
@@ -253,9 +260,11 @@ impl VectorizedOps {
     {
         const CHUNK_SIZE: usize = 1024;
 
-        input.par_chunks(CHUNK_SIZE)
+        input
+            .par_chunks(CHUNK_SIZE)
             .map(|chunk| {
-                chunk.iter()
+                chunk
+                    .iter()
                     .cloned()
                     .fold(identity.clone(), |a, b| op(a, b))
             })
@@ -265,7 +274,7 @@ impl VectorizedOps {
     /// Vectorized prefix sum (scan) operation
     pub fn prefix_sum_vectorized<T: RealField + Copy + Send + Sync>(
         input: &[T],
-        result: &mut [T]
+        result: &mut [T],
     ) -> Result<(), &'static str> {
         if input.len() != result.len() {
             return Err("Input and result must have the same length");
@@ -296,7 +305,7 @@ impl StencilOps {
         ny: usize,
         dx: T,
         dy: T,
-        result: &mut [T]
+        result: &mut [T],
     ) -> Result<(), &'static str> {
         if field.len() != nx * ny || result.len() != nx * ny {
             return Err("Field and result dimensions must match grid size");
@@ -306,8 +315,8 @@ impl StencilOps {
         let dy2 = dy * dy;
 
         // Process interior points (sequential for now due to mutable access patterns)
-        for j in 1..ny-1 {
-            for i in 1..nx-1 {
+        for j in 1..ny - 1 {
+            for i in 1..nx - 1 {
                 let idx = j * nx + i;
                 let center = field[idx];
                 let left = field[idx - 1];
@@ -315,8 +324,10 @@ impl StencilOps {
                 let bottom = field[idx - nx];
                 let top = field[idx + nx];
 
-                result[idx] = (left - center * T::from_f64(2.0).unwrap_or_else(|| T::zero()) + right) / dx2
-                            + (bottom - center * T::from_f64(2.0).unwrap_or_else(|| T::zero()) + top) / dy2;
+                result[idx] = (left - center * T::from_f64(2.0).unwrap_or_else(|| T::zero())
+                    + right)
+                    / dx2
+                    + (bottom - center * T::from_f64(2.0).unwrap_or_else(|| T::zero()) + top) / dy2;
             }
         }
 
@@ -331,7 +342,7 @@ impl StencilOps {
         dx: T,
         dy: T,
         grad_x: &mut [T],
-        grad_y: &mut [T]
+        grad_y: &mut [T],
     ) -> Result<(), &'static str> {
         if field.len() != nx * ny || grad_x.len() != nx * ny || grad_y.len() != nx * ny {
             return Err("All arrays must match grid size");
@@ -341,8 +352,8 @@ impl StencilOps {
         let dy_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy);
 
         // Gradient computation (sequential for now due to mutable access patterns)
-        for j in 1..ny-1 {
-            for i in 1..nx-1 {
+        for j in 1..ny - 1 {
+            for i in 1..nx - 1 {
                 let idx = j * nx + i;
 
                 // X-gradient
@@ -358,15 +369,22 @@ impl StencilOps {
 
     /// Vectorized divergence computation for 3D vector fields on structured grids
     pub fn divergence_3d<T: RealField + Copy + Send + Sync>(
-        u_field: &[T], v_field: &[T], w_field: &[T],
-        nx: usize, ny: usize, nz: usize,
-        dx: T, dy: T, dz: T,
-        result: &mut [T]
+        u_field: &[T],
+        v_field: &[T],
+        w_field: &[T],
+        nx: usize,
+        ny: usize,
+        nz: usize,
+        dx: T,
+        dy: T,
+        dz: T,
+        result: &mut [T],
     ) -> Result<(), &'static str> {
-        if u_field.len() != nx * ny * nz ||
-           v_field.len() != nx * ny * nz ||
-           w_field.len() != nx * ny * nz ||
-           result.len() != nx * ny * nz {
+        if u_field.len() != nx * ny * nz
+            || v_field.len() != nx * ny * nz
+            || w_field.len() != nx * ny * nz
+            || result.len() != nx * ny * nz
+        {
             return Err("All fields must match grid dimensions");
         }
 
@@ -375,9 +393,9 @@ impl StencilOps {
         let dz_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dz);
 
         // Compute divergence: ∇·v = ∂u/∂x + ∂v/∂y + ∂w/∂z
-        for k in 1..nz-1 {
-            for j in 1..ny-1 {
-                for i in 1..nx-1 {
+        for k in 1..nz - 1 {
+            for j in 1..ny - 1 {
+                for i in 1..nx - 1 {
                     let idx = k * nx * ny + j * nx + i;
 
                     // Central differences
@@ -395,17 +413,26 @@ impl StencilOps {
 
     /// Vectorized curl computation for 3D vector fields
     pub fn curl_3d<T: RealField + Copy + Send + Sync>(
-        u_field: &[T], v_field: &[T], w_field: &[T],
-        nx: usize, ny: usize, nz: usize,
-        dx: T, dy: T, dz: T,
-        curl_x: &mut [T], curl_y: &mut [T], curl_z: &mut [T]
+        u_field: &[T],
+        v_field: &[T],
+        w_field: &[T],
+        nx: usize,
+        ny: usize,
+        nz: usize,
+        dx: T,
+        dy: T,
+        dz: T,
+        curl_x: &mut [T],
+        curl_y: &mut [T],
+        curl_z: &mut [T],
     ) -> Result<(), &'static str> {
-        if u_field.len() != nx * ny * nz ||
-           v_field.len() != nx * ny * nz ||
-           w_field.len() != nx * ny * nz ||
-           curl_x.len() != nx * ny * nz ||
-           curl_y.len() != nx * ny * nz ||
-           curl_z.len() != nx * ny * nz {
+        if u_field.len() != nx * ny * nz
+            || v_field.len() != nx * ny * nz
+            || w_field.len() != nx * ny * nz
+            || curl_x.len() != nx * ny * nz
+            || curl_y.len() != nx * ny * nz
+            || curl_z.len() != nx * ny * nz
+        {
             return Err("All fields must match grid dimensions");
         }
 
@@ -414,9 +441,9 @@ impl StencilOps {
         let dz_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dz);
 
         // Compute curl: ∇×v = (∂w/∂y - ∂v/∂z, ∂u/∂z - ∂w/∂x, ∂v/∂x - ∂u/∂y)
-        for k in 1..nz-1 {
-            for j in 1..ny-1 {
-                for i in 1..nx-1 {
+        for k in 1..nz - 1 {
+            for j in 1..ny - 1 {
+                for i in 1..nx - 1 {
                     let idx = k * nx * ny + j * nx + i;
 
                     // Curl x-component: ∂w/∂y - ∂v/∂z
@@ -451,7 +478,8 @@ mod tests {
         let b = vec![5.0, 6.0, 7.0, 8.0];
         let mut result = vec![0.0; 4];
 
-        VectorizedOps::add_vectorized(&a, &b, &mut result).expect("CRITICAL: Add proper error handling");
+        VectorizedOps::add_vectorized(&a, &b, &mut result)
+            .expect("CRITICAL: Add proper error handling");
         assert_eq!(result, vec![6.0, 8.0, 10.0, 12.0]);
     }
 
@@ -460,7 +488,8 @@ mod tests {
         let a = vec![1.0, 2.0, 3.0];
         let b = vec![4.0, 5.0, 6.0];
 
-        let result = VectorizedOps::dot_vectorized(&a, &b).expect("CRITICAL: Add proper error handling");
+        let result =
+            VectorizedOps::dot_vectorized(&a, &b).expect("CRITICAL: Add proper error handling");
         assert_eq!(result, 32.0); // 1*4 + 2*5 + 3*6 = 32
     }
 

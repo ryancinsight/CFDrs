@@ -293,7 +293,7 @@ mod tests {
         assert_relative_eq!(domain.length(), 1.0);
         assert!(domain.contains(&Point3::new(0.5, 0.0, 0.0)));
         assert!(!domain.contains(&Point3::new(1.5, 0.0, 0.0)));
-        
+
         // Test automatic ordering
         let domain_reversed = Domain1D::new(1.0, 0.0);
         assert_eq!(domain_reversed.start, 0.0);
@@ -310,19 +310,13 @@ mod tests {
         assert!(!domain.contains(&Point3::new(3.0, 1.0, 0.0)));
 
         // Test from_points constructor
-        let domain2 = Domain2D::from_points(
-            Point3::new(0.0, 0.0, 0.0),
-            Point3::new(2.0, 3.0, 0.0),
-        );
+        let domain2 = Domain2D::from_points(Point3::new(0.0, 0.0, 0.0), Point3::new(2.0, 3.0, 0.0));
         assert_relative_eq!(domain2.area(), 6.0);
     }
 
     #[test]
     fn test_domain_3d() {
-        let domain = Domain3D::new(
-            Point3::new(0.0, 0.0, 0.0),
-            Point3::new(2.0, 3.0, 4.0),
-        );
+        let domain = Domain3D::new(Point3::new(0.0, 0.0, 0.0), Point3::new(2.0, 3.0, 4.0));
         assert_eq!(domain.dimension(), 3);
         assert_relative_eq!(domain.volume(), 24.0);
         assert!(domain.contains(&Point3::new(1.0, 1.0, 1.0)));
@@ -339,10 +333,7 @@ mod tests {
         let any_domain: AnyDomain<f64> = domain_2d.into();
         assert_eq!(any_domain.dimension(), 2);
 
-        let domain_3d = Domain3D::new(
-            Point3::new(0.0, 0.0, 0.0),
-            Point3::new(1.0, 1.0, 1.0),
-        );
+        let domain_3d = Domain3D::new(Point3::new(0.0, 0.0, 0.0), Point3::new(1.0, 1.0, 1.0));
         let any_domain: AnyDomain<f64> = domain_3d.into();
         assert_eq!(any_domain.dimension(), 3);
     }

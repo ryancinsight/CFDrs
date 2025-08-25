@@ -1,9 +1,9 @@
 //! Pump components for microfluidic networks
 
-use super::{Component, constants};
-use cfd_core::{Result, Fluid};
+use super::{constants, Component};
+use cfd_core::{Fluid, Result};
 use nalgebra::RealField;
-use num_traits::{FromPrimitive, Float};
+use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

@@ -1,9 +1,9 @@
 //! Performance benchmarks for solver implementations
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use cfd_1d::{NetworkBuilder, NetworkProblem, NetworkSolver, Node, NodeType};
+use cfd_2d::{FdmConfig, PoissonSolver, StructuredGrid2D};
 use cfd_suite::prelude::*;
-use cfd_1d::{NetworkBuilder, Node, NodeType, NetworkSolver, NetworkProblem};
-use cfd_2d::{StructuredGrid2D, FdmConfig, PoissonSolver};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn benchmark_1d_network_solver(c: &mut Criterion) {
     c.bench_function("1d_network_small", |b| {
@@ -12,13 +12,11 @@ fn benchmark_1d_network_solver(c: &mut Criterion) {
             .add_node(Node::new("0".to_string(), NodeType::Junction))
             .add_node(Node::new("1".to_string(), NodeType::Junction))
             .build();
-        
+
         let mut solver = NetworkSolver::<f64>::new();
         let problem = NetworkProblem::new(network);
-        
-        b.iter(|| {
-            solver.solve(black_box(&problem))
-        });
+
+        b.iter(|| solver.solve(black_box(&problem)));
     });
 }
 
@@ -27,7 +25,7 @@ fn benchmark_2d_fdm_solver(c: &mut Criterion) {
         let grid = StructuredGrid2D::<f64>::new(10, 10, 0.0, 1.0, 0.0, 1.0).unwrap();
         let config = FdmConfig::<f64>::default();
         let solver = PoissonSolver::new(config);
-        
+
         b.iter(|| {
             // Benchmark grid operations
             black_box(&grid);
@@ -35,5 +33,9 @@ fn benchmark_2d_fdm_solver(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, benchmark_1d_network_solver, benchmark_2d_fdm_solver);
+criterion_group!(
+    benches,
+    benchmark_1d_network_solver,
+    benchmark_2d_fdm_solver
+);
 criterion_main!(benches);

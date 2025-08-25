@@ -1,6 +1,6 @@
 //! Iterative solver traits and implementations
 
-use super::traits::{Solver, Configurable};
+use super::traits::{Configurable, Solver};
 use crate::error::Result;
 use nalgebra::RealField;
 use std::marker::PhantomData;
@@ -9,13 +9,13 @@ use std::marker::PhantomData;
 pub trait IterativeSolver<T: RealField + Copy>: Solver<T> + Configurable<T> {
     /// Get current iteration count
     fn iteration_count(&self) -> usize;
-    
+
     /// Get current residual
     fn residual(&self) -> T;
-    
+
     /// Check if converged
     fn is_converged(&self) -> bool;
-    
+
     /// Perform single iteration
     fn iterate(&mut self) -> Result<()>;
 }
@@ -24,10 +24,10 @@ pub trait IterativeSolver<T: RealField + Copy>: Solver<T> + Configurable<T> {
 pub trait IterationState<T: RealField + Copy> {
     /// Get iteration number
     fn iteration(&self) -> usize;
-    
+
     /// Get current residual
     fn residual(&self) -> T;
-    
+
     /// Check convergence
     fn converged(&self) -> bool;
 }
@@ -39,7 +39,7 @@ pub struct SolverIterator<S, Solution, T> {
     _phantom: PhantomData<(Solution, T)>,
 }
 
-impl<S, Solution, T> SolverIterator<S, Solution, T> 
+impl<S, Solution, T> SolverIterator<S, Solution, T>
 where
     S: IterativeSolver<T>,
     T: RealField + Copy,
@@ -60,12 +60,12 @@ where
     T: RealField + Copy,
 {
     type Item = Result<T>;
-    
+
     fn next(&mut self) -> Option<Self::Item> {
         if self.converged || self.solver.is_converged() {
             return None;
         }
-        
+
         match self.solver.iterate() {
             Ok(()) => {
                 self.converged = self.solver.is_converged();

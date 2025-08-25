@@ -9,8 +9,8 @@ pub mod fourier;
 pub mod poisson;
 pub mod solver;
 
-pub use basis::{SpectralBasis, BasisFunction};
-pub use chebyshev::{ChebyshevPolynomial, ChebyshevDifferentiation};
+pub use basis::{BasisFunction, SpectralBasis};
+pub use chebyshev::{ChebyshevDifferentiation, ChebyshevPolynomial};
 pub use fourier::{FourierTransform, SpectralDerivative};
-pub use poisson::{PoissonSolver, PoissonBoundaryCondition};
-pub use solver::{SpectralSolver, SpectralConfig, SpectralSolution};
+pub use poisson::{PoissonBoundaryCondition, PoissonSolver};
+pub use solver::{SpectralConfig, SpectralSolution, SpectralSolver};

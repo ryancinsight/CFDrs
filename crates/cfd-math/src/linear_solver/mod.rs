@@ -5,7 +5,7 @@
 //! implementations and efficient memory management.
 //!
 //! ## Design Philosophy
-//! 
+//!
 //! Rather than re-implementing complex numerical algorithms from scratch, this module
 //! focuses on providing efficient wrappers and using robust implementations where
 //! available. This approach reduces maintenance overhead, eliminates numerical bugs,
@@ -19,15 +19,15 @@
 //! - Leveraging nalgebra's optimized BLAS-like operations
 //! - Providing efficient preconditioner APIs
 
-mod traits;
-mod preconditioners;
-mod conjugate_gradient;
 mod bicgstab;
+mod conjugate_gradient;
+mod preconditioners;
+mod traits;
 
-pub use traits::{LinearSolver, Preconditioner};
-pub use preconditioners::{IdentityPreconditioner, JacobiPreconditioner, SORPreconditioner};
-pub use conjugate_gradient::ConjugateGradient;
 pub use bicgstab::BiCGSTAB;
+pub use conjugate_gradient::ConjugateGradient;
+pub use preconditioners::{IdentityPreconditioner, JacobiPreconditioner, SORPreconditioner};
+pub use traits::{LinearSolver, Preconditioner};
 
 // Re-export the unified configuration from cfd-core
 pub use cfd_core::solver::{LinearSolverConfig, SolverConfiguration};

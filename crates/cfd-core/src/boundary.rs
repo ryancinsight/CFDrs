@@ -157,10 +157,7 @@ impl<T: RealField + Copy> BoundaryCondition<T> {
 
     /// Check if this is a Neumann-type boundary condition
     pub const fn is_neumann(&self) -> bool {
-        matches!(
-            self,
-            Self::Neumann { .. } | Self::Outflow | Self::Symmetry
-        )
+        matches!(self, Self::Neumann { .. } | Self::Outflow | Self::Symmetry)
     }
 
     /// Check if this is a wall boundary condition
@@ -169,7 +166,7 @@ impl<T: RealField + Copy> BoundaryCondition<T> {
     }
 
     /// Extract pressure value if this is a pressure boundary condition
-    pub fn pressure_value(&self) -> Option<T> 
+    pub fn pressure_value(&self) -> Option<T>
     where
         T: Copy,
     {
@@ -224,11 +221,7 @@ impl<T: RealField + Copy> BoundaryConditionSet<T> {
     }
 
     /// Add a boundary condition
-    pub fn add(
-        &mut self,
-        name: impl Into<String>,
-        condition: BoundaryCondition<T>,
-    ) -> &mut Self {
+    pub fn add(&mut self, name: impl Into<String>, condition: BoundaryCondition<T>) -> &mut Self {
         self.conditions.insert(name.into(), condition);
         self
     }
@@ -266,7 +259,10 @@ impl<T: RealField + Copy> BoundaryConditionSet<T> {
                 })?;
 
                 // Check partner is also periodic and points back to this boundary
-                if let BoundaryCondition::Periodic { partner: partner_partner } = partner_bc {
+                if let BoundaryCondition::Periodic {
+                    partner: partner_partner,
+                } = partner_bc
+                {
                     if partner_partner != name {
                         return Err(crate::error::Error::InvalidConfiguration(format!(
                             "Periodic boundaries '{name}' and '{partner}' do not reference each other mutually"
@@ -312,7 +308,10 @@ mod tests {
     fn test_boundary_condition_set() {
         let mut bc_set = BoundaryConditionSet::new();
         bc_set
-            .add("inlet", BoundaryCondition::velocity_inlet(vector![1.0, 0.0, 0.0]))
+            .add(
+                "inlet",
+                BoundaryCondition::velocity_inlet(vector![1.0, 0.0, 0.0]),
+            )
             .add("outlet", BoundaryCondition::pressure_outlet(0.0))
             .add("wall", BoundaryCondition::wall_no_slip());
 

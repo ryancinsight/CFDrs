@@ -12,7 +12,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for L2Norm {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
-                "Arrays must have the same length".to_string()
+                "Arrays must have the same length".to_string(),
             ));
         }
 
@@ -47,7 +47,7 @@ impl<T: RealField + Copy> ErrorMetric<T> for LInfNorm {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
-                "Arrays must have the same length".to_string()
+                "Arrays must have the same length".to_string(),
             ));
         }
 
@@ -76,7 +76,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for L1Norm {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
-                "Arrays must have the same length".to_string()
+                "Arrays must have the same length".to_string(),
             ));
         }
 

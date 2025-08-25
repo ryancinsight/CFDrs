@@ -1,7 +1,7 @@
 //! Convergence checking for network solvers
 
-use nalgebra::{RealField, DVector};
 use cfd_core::Result;
+use nalgebra::{DVector, RealField};
 
 /// Convergence checker for iterative solutions
 pub struct ConvergenceChecker<T: RealField + Copy> {
@@ -29,23 +29,23 @@ impl<T: RealField + Copy> ConvergenceChecker<T> {
         // Check for NaN/Inf values indicating divergence
         if solution.iter().any(|x| !x.is_finite()) {
             return Err(cfd_core::Error::Convergence(
-                cfd_core::error::ConvergenceErrorKind::Diverged { norm: 0.0 }
+                cfd_core::error::ConvergenceErrorKind::Diverged { norm: 0.0 },
             ));
         }
-        
+
         // Compute L2 norm of solution for convergence check
         let norm = solution.norm();
-        
+
         // Check if norm is within tolerance bounds
         if norm > T::from_f64(1e10).unwrap_or_else(T::one) {
             return Err(cfd_core::Error::Convergence(
-                cfd_core::error::ConvergenceErrorKind::Diverged { norm: 0.0 }
+                cfd_core::error::ConvergenceErrorKind::Diverged { norm: 0.0 },
             ));
         }
-        
+
         // Additional checks can be added here for specific convergence criteria
         // such as relative residual, absolute residual, or solution change
-        
+
         Ok(())
     }
 

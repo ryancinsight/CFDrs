@@ -9,19 +9,19 @@
 //! - Various boundary conditions (bounce-back, velocity, pressure)
 //! - Parallel processing support
 
-mod lattice;
-mod collision;
-mod streaming;
 mod boundary;
-mod solver;
+mod collision;
+mod lattice;
 mod macroscopic;
+mod solver;
+mod streaming;
 
-pub use lattice::{D2Q9, LatticeModel};
-pub use collision::{CollisionOperator, BgkCollision};
-pub use streaming::StreamingOperator;
 pub use boundary::{BoundaryHandler, BoundaryType};
-pub use solver::{LbmSolver, LbmConfig};
-pub use macroscopic::{MacroscopicQuantities, compute_density, compute_velocity};
+pub use collision::{BgkCollision, CollisionOperator};
+pub use lattice::{LatticeModel, D2Q9};
+pub use macroscopic::{compute_density, compute_velocity, MacroscopicQuantities};
+pub use solver::{LbmConfig, LbmSolver};
+pub use streaming::StreamingOperator;
 
 // Re-export for backward compatibility
 pub use solver::LbmConfig as Config;

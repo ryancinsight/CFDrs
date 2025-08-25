@@ -1,7 +1,7 @@
 //! Gradient computation for multi-dimensional fields.
 
-use nalgebra::{RealField, Vector3};
 use cfd_core::error::{Error, Result};
+use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 
 /// Gradient computation for multi-dimensional fields
@@ -34,7 +34,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
     pub fn gradient_2d(&self, field: &[T], nx: usize, ny: usize) -> Result<Vec<Vector3<T>>> {
         if field.len() != nx * ny {
             return Err(Error::InvalidConfiguration(
-                "Field size doesn't match grid dimensions".to_string()
+                "Field size doesn't match grid dimensions".to_string(),
             ));
         }
 
@@ -81,10 +81,16 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
     }
 
     /// Compute gradient of a 3D field (stored in z-y-x order)
-    pub fn gradient_3d(&self, field: &[T], nx: usize, ny: usize, nz: usize) -> Result<Vec<Vector3<T>>> {
+    pub fn gradient_3d(
+        &self,
+        field: &[T],
+        nx: usize,
+        ny: usize,
+        nz: usize,
+    ) -> Result<Vec<Vector3<T>>> {
         if field.len() != nx * ny * nz {
             return Err(Error::InvalidConfiguration(
-                "Field size doesn't match grid dimensions".to_string()
+                "Field size doesn't match grid dimensions".to_string(),
             ));
         }
 
@@ -144,7 +150,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
     pub fn divergence_2d(&self, field: &[Vector3<T>], nx: usize, ny: usize) -> Result<Vec<T>> {
         if field.len() != nx * ny {
             return Err(Error::InvalidConfiguration(
-                "Field size doesn't match grid dimensions".to_string()
+                "Field size doesn't match grid dimensions".to_string(),
             ));
         }
 
@@ -184,7 +190,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
     pub fn curl_2d(&self, field: &[Vector3<T>], nx: usize, ny: usize) -> Result<Vec<T>> {
         if field.len() != nx * ny {
             return Err(Error::InvalidConfiguration(
-                "Field size doesn't match grid dimensions".to_string()
+                "Field size doesn't match grid dimensions".to_string(),
             ));
         }
 

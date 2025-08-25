@@ -3,12 +3,12 @@
 //! This module provides aggregate roots that encapsulate related entities
 //! and enforce business rules and invariants.
 
-use crate::error::{Error, Result};
-use crate::fluid::Fluid;
 use crate::boundary::BoundaryCondition;
 use crate::domain::Domain;
+use crate::error::{Error, Result};
+use crate::fluid::Fluid;
 use crate::services::FluidDynamicsService;
-use crate::values::{ReynoldsNumber, Pressure, Velocity};
+use crate::values::{Pressure, ReynoldsNumber, Velocity};
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -33,7 +33,9 @@ pub struct SimulationAggregate<T: RealField + Copy, D: Domain<T>> {
     pub state: SimulationState,
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> SimulationAggregate<T, D> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>>
+    SimulationAggregate<T, D>
+{
     /// Create a new simulation aggregate
     pub fn new(id: String, domain: D, fluid: Fluid<T>) -> Self {
         Self {
@@ -77,15 +79,18 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> Simu
         self.parameters.reference_pressure = pressure;
         self.parameters.reference_velocity = velocity.magnitude();
         self.parameters.reference_length = length;
-        
+
         // Calculate Reynolds number
         let reynolds_value = FluidDynamicsService::reynolds_number(
             &self.fluid,
             self.parameters.reference_velocity,
             self.parameters.reference_length,
         );
-        self.parameters.reynolds_number = Some(ReynoldsNumber::new(reynolds_value, crate::values::FlowGeometry::Pipe)?);
-        
+        self.parameters.reynolds_number = Some(ReynoldsNumber::new(
+            reynolds_value,
+            crate::values::FlowGeometry::Pipe,
+        )?);
+
         self.metadata.modified_at = chrono::Utc::now().to_rfc3339(); // Update timestamp
         Ok(())
     }
@@ -97,9 +102,12 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> Simu
 
     /// Check if simulation is ready to run
     pub fn is_ready(&self) -> bool {
-        !self.boundary_conditions.is_empty() && 
-        self.parameters.reynolds_number.is_some() &&
-        matches!(self.state, SimulationState::Initialized | SimulationState::Configured)
+        !self.boundary_conditions.is_empty()
+            && self.parameters.reynolds_number.is_some()
+            && matches!(
+                self.state,
+                SimulationState::Initialized | SimulationState::Configured
+            )
     }
 
     /// Transition to configured state
@@ -109,7 +117,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> Simu
     pub fn configure(&mut self) -> Result<()> {
         if !self.is_ready() {
             return Err(Error::InvalidConfiguration(
-                "Simulation is not properly configured".to_string()
+                "Simulation is not properly configured".to_string(),
             ));
         }
 
@@ -125,7 +133,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> Simu
     pub fn start(&mut self) -> Result<()> {
         if !matches!(self.state, SimulationState::Configured) {
             return Err(Error::InvalidConfiguration(
-                "Simulation must be configured before starting".to_string()
+                "Simulation must be configured before starting".to_string(),
             ));
         }
 
@@ -141,7 +149,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> Simu
     pub fn complete(&mut self) -> Result<()> {
         if !matches!(self.state, SimulationState::Running) {
             return Err(Error::InvalidConfiguration(
-                "Simulation must be running to complete".to_string()
+                "Simulation must be running to complete".to_string(),
             ));
         }
 
@@ -208,11 +216,17 @@ pub struct PhysicalParameters<T: RealField + Copy> {
 impl<T: RealField + FromPrimitive + Copy> Default for PhysicalParameters<T> {
     fn default() -> Self {
         Self {
-            reference_pressure: Pressure::pascals(T::from_f64(101_325.0).unwrap_or_else(|| T::zero())),
+            reference_pressure: Pressure::pascals(
+                T::from_f64(101_325.0).unwrap_or_else(|| T::zero()),
+            ),
             reference_velocity: T::one(),
             reference_length: T::one(),
             reynolds_number: None,
-            gravity: Some(Vector3::new(T::zero(), T::from_f64(-9.81).unwrap_or_else(|| T::zero()), T::zero())),
+            gravity: Some(Vector3::new(
+                T::zero(),
+                T::from_f64(-9.81).unwrap_or_else(|| T::zero()),
+                T::zero(),
+            )),
             time_step: None,
         }
     }
@@ -364,21 +378,24 @@ mod tests {
         // Add boundary condition
         sim.add_boundary_condition(
             "inlet".to_string(),
-            BoundaryCondition::velocity_inlet(Vector3::new(1.0, 0.0, 0.0))
-        ).expect("CRITICAL: Add proper error handling");
+            BoundaryCondition::velocity_inlet(Vector3::new(1.0, 0.0, 0.0)),
+        )
+        .expect("CRITICAL: Add proper error handling");
 
         // Set reference conditions
         sim.set_reference_conditions(
             Pressure::pascals(101_325.0),
             &Velocity::new(1.0, 0.0, 0.0),
-            1.0
-        ).expect("CRITICAL: Add proper error handling");
+            1.0,
+        )
+        .expect("CRITICAL: Add proper error handling");
 
         // Now should be ready
         assert!(sim.is_ready());
 
         // Configure and start
-        sim.configure().expect("CRITICAL: Add proper error handling");
+        sim.configure()
+            .expect("CRITICAL: Add proper error handling");
         assert_eq!(sim.state, SimulationState::Configured);
 
         sim.start().expect("CRITICAL: Add proper error handling");

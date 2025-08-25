@@ -3,9 +3,9 @@
 //! This module validates time integration methods against analytical solutions
 //! for ODEs and PDEs with known exact solutions.
 
-use cfd_core::{Result};
-use nalgebra::{RealField, DVector, ComplexField};
-use num_traits::{FromPrimitive, Float, ToPrimitive};
+use cfd_core::Result;
+use nalgebra::{ComplexField, DVector, RealField};
+use num_traits::{Float, FromPrimitive, ToPrimitive};
 use std::f64::consts::PI;
 use std::marker::PhantomData;
 
@@ -65,7 +65,9 @@ impl<T: RealField + Copy> TimeIntegratorTrait<T> for ForwardEuler {
         Ok(())
     }
 
-    fn order(&self) -> usize { 1 }
+    fn order(&self) -> usize {
+        1
+    }
 }
 
 /// Runge-Kutta 2nd order method
@@ -86,7 +88,9 @@ impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta2
         Ok(())
     }
 
-    fn order(&self) -> usize { 2 }
+    fn order(&self) -> usize {
+        2
+    }
 }
 
 /// Runge-Kutta 4th order method
@@ -107,13 +111,15 @@ impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta4
         let y_temp3 = y.clone() + k3.clone() * dt;
         let k4 = f(t + dt, &y_temp3);
 
-        let sixth = T::from_f64(1.0/6.0).unwrap_or_else(|| T::zero());
+        let sixth = T::from_f64(1.0 / 6.0).unwrap_or_else(|| T::zero());
         let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
         *y += (k1 + k2 * two + k3 * two + k4) * (dt * sixth);
         Ok(())
     }
 
-    fn order(&self) -> usize { 4 }
+    fn order(&self) -> usize {
+        4
+    }
 }
 
 /// Time integration validation result
@@ -146,7 +152,8 @@ pub struct TimeIntegrationValidator;
 
 impl TimeIntegrationValidator {
     /// Validate all time integration methods
-    pub fn validate_all<T: RealField + Copy + FromPrimitive + Copy + Float + ToPrimitive>() -> Result<Vec<TimeIntegrationResult<T>>> {
+    pub fn validate_all<T: RealField + Copy + FromPrimitive + Copy + Float + ToPrimitive>(
+    ) -> Result<Vec<TimeIntegrationResult<T>>> {
         let mut results = Vec::new();
 
         // Test 1: Linear ODE (exponential decay)
@@ -163,28 +170,40 @@ impl TimeIntegrationValidator {
     /// Test exponential decay: dy/dt = -λy, y(0) = y0
     /// Analytical solution: y(t) = y0 * exp(-λt)
     /// Literature: Hairer, Nørsett & Wanner (1993), "Solving ODEs I"
-    fn test_exponential_decay<T: RealField + Copy + FromPrimitive + Copy + ToPrimitive>() -> Result<Vec<TimeIntegrationResult<T>>> {
+    fn test_exponential_decay<T: RealField + Copy + FromPrimitive + Copy + ToPrimitive>(
+    ) -> Result<Vec<TimeIntegrationResult<T>>> {
         let mut results = Vec::new();
-        
+
         let lambda = T::one();
         let y0 = T::one();
         let final_time = T::one();
         let dt = T::from_f64(0.1).unwrap_or_else(|| T::zero());
-        let n_steps = (final_time.to_f64().expect("CRITICAL: Add proper error handling") / dt.to_f64().expect("CRITICAL: Add proper error handling")) as usize;
+        let n_steps = (final_time
+            .to_f64()
+            .expect("CRITICAL: Add proper error handling")
+            / dt.to_f64().expect("CRITICAL: Add proper error handling"))
+            as usize;
 
         // Define the ODE: dy/dt = -λy
-        let ode = |_t: T, y: &DVector<T>| -> DVector<T> {
-            y * (-lambda)
-        };
+        let ode = |_t: T, y: &DVector<T>| -> DVector<T> { y * (-lambda) };
 
         // Analytical solution at final time
         let analytical_final = DVector::from_element(1, y0 * (-lambda * final_time).exp());
 
         // Test different methods
         let methods: Vec<(&str, TimeIntegratorEnum<T>)> = vec![
-            ("ForwardEuler", TimeIntegratorEnum::<T>::ForwardEuler(ForwardEuler, PhantomData)),
-            ("RungeKutta2", TimeIntegratorEnum::<T>::RungeKutta2(RungeKutta2, PhantomData)),
-            ("RungeKutta4", TimeIntegratorEnum::<T>::RungeKutta4(RungeKutta4, PhantomData)),
+            (
+                "ForwardEuler",
+                TimeIntegratorEnum::<T>::ForwardEuler(ForwardEuler, PhantomData),
+            ),
+            (
+                "RungeKutta2",
+                TimeIntegratorEnum::<T>::RungeKutta2(RungeKutta2, PhantomData),
+            ),
+            (
+                "RungeKutta4",
+                TimeIntegratorEnum::<T>::RungeKutta4(RungeKutta4, PhantomData),
+            ),
         ];
 
         for (name, integrator) in methods {
@@ -197,7 +216,7 @@ impl TimeIntegrationValidator {
                 t += dt;
             }
 
-            let error = ((&y - &analytical_final)).norm();
+            let error = (&y - &analytical_final).norm();
             let relative_error = error / analytical_final.norm();
 
             let result = TimeIntegrationResult {
@@ -222,14 +241,19 @@ impl TimeIntegrationValidator {
     /// Converted to system: dy₁/dt = y₂, dy₂/dt = -ω²y₁
     /// Analytical solution: y₁(t) = A*cos(ωt) + B*sin(ωt)
     /// Literature: Butcher (2016), "Numerical Methods for ODEs"
-    fn test_harmonic_oscillator<T: RealField + Copy + FromPrimitive + Copy + ToPrimitive>() -> Result<Vec<TimeIntegrationResult<T>>> {
+    fn test_harmonic_oscillator<T: RealField + Copy + FromPrimitive + Copy + ToPrimitive>(
+    ) -> Result<Vec<TimeIntegrationResult<T>>> {
         let mut results = Vec::new();
-        
+
         let omega = T::one();
         let omega_squared = omega * omega;
         let final_time = T::from_f64(2.0 * PI).unwrap_or_else(|| T::zero()); // One full period
         let dt = T::from_f64(0.1).unwrap_or_else(|| T::zero());
-        let n_steps = (final_time.to_f64().expect("CRITICAL: Add proper error handling") / dt.to_f64().expect("CRITICAL: Add proper error handling")) as usize;
+        let n_steps = (final_time
+            .to_f64()
+            .expect("CRITICAL: Add proper error handling")
+            / dt.to_f64().expect("CRITICAL: Add proper error handling"))
+            as usize;
 
         // Initial conditions: y(0) = 1, y'(0) = 0
         let y0 = DVector::from_vec(vec![T::one(), T::zero()]);
@@ -237,7 +261,7 @@ impl TimeIntegrationValidator {
         // Define the ODE system
         let ode = |_t: T, y: &DVector<T>| -> DVector<T> {
             DVector::from_vec(vec![
-                y[1],                    // dy₁/dt = y₂
+                y[1],                  // dy₁/dt = y₂
                 -omega_squared * y[0], // dy₂/dt = -ω²y₁
             ])
         };
@@ -246,9 +270,18 @@ impl TimeIntegrationValidator {
         let analytical_final = DVector::from_vec(vec![T::one(), T::zero()]);
 
         let methods: Vec<(&str, TimeIntegratorEnum<T>)> = vec![
-            ("ForwardEuler", TimeIntegratorEnum::<T>::ForwardEuler(ForwardEuler, PhantomData)),
-            ("RungeKutta2", TimeIntegratorEnum::<T>::RungeKutta2(RungeKutta2, PhantomData)),
-            ("RungeKutta4", TimeIntegratorEnum::<T>::RungeKutta4(RungeKutta4, PhantomData)),
+            (
+                "ForwardEuler",
+                TimeIntegratorEnum::<T>::ForwardEuler(ForwardEuler, PhantomData),
+            ),
+            (
+                "RungeKutta2",
+                TimeIntegratorEnum::<T>::RungeKutta2(RungeKutta2, PhantomData),
+            ),
+            (
+                "RungeKutta4",
+                TimeIntegratorEnum::<T>::RungeKutta4(RungeKutta4, PhantomData),
+            ),
         ];
 
         for (name, integrator) in methods {
@@ -261,7 +294,7 @@ impl TimeIntegrationValidator {
                 t += dt;
             }
 
-            let error = ((&y - &analytical_final)).norm();
+            let error = (&y - &analytical_final).norm();
             let relative_error = error / analytical_final.norm();
 
             let result = TimeIntegrationResult {
@@ -300,17 +333,28 @@ impl TimeIntegrationValidator {
 
         // Solve with coarse time step
         let error_coarse = Self::solve_and_compute_error(
-            integrator, ode, y0, &analytical_solution, final_time, dt_coarse
+            integrator,
+            ode,
+            y0,
+            &analytical_solution,
+            final_time,
+            dt_coarse,
         )?;
 
         // Solve with fine time step
         let error_fine = Self::solve_and_compute_error(
-            integrator, ode, y0, &analytical_solution, final_time, dt_fine
+            integrator,
+            ode,
+            y0,
+            &analytical_solution,
+            final_time,
+            dt_fine,
         )?;
 
         // Estimate order: p ≈ log(error_coarse/error_fine) / log(2)
         let ratio = error_coarse / error_fine;
-        let order = ComplexField::ln(ratio) / ComplexField::ln(T::from_f64(2.0).unwrap_or_else(|| T::zero()));
+        let order = ComplexField::ln(ratio)
+            / ComplexField::ln(T::from_f64(2.0).unwrap_or_else(|| T::zero()));
 
         Ok(order)
     }
@@ -324,7 +368,11 @@ impl TimeIntegrationValidator {
         final_time: T,
         dt: T,
     ) -> Result<T> {
-        let n_steps = (final_time.to_f64().expect("CRITICAL: Add proper error handling") / dt.to_f64().expect("CRITICAL: Add proper error handling")) as usize;
+        let n_steps = (final_time
+            .to_f64()
+            .expect("CRITICAL: Add proper error handling")
+            / dt.to_f64().expect("CRITICAL: Add proper error handling"))
+            as usize;
         let mut y = y0.clone();
         let mut t = T::zero();
 
@@ -334,7 +382,7 @@ impl TimeIntegrationValidator {
         }
 
         let analytical = analytical_solution(final_time);
-        let error = ((&y - &analytical)).norm();
+        let error = (&y - &analytical).norm();
 
         Ok(error)
     }
@@ -346,30 +394,35 @@ mod tests {
 
     #[test]
     fn test_time_integration_validation() {
-        let results = TimeIntegrationValidator::validate_all::<f64>().expect("CRITICAL: Add proper error handling");
-        
+        let results = TimeIntegrationValidator::validate_all::<f64>()
+            .expect("CRITICAL: Add proper error handling");
+
         // Check that we have results
         assert!(!results.is_empty());
-        
+
         // Check that exponential decay tests exist
-        let decay_tests: Vec<_> = results.iter()
+        let decay_tests: Vec<_> = results
+            .iter()
             .filter(|r| r.test_problem == "Exponential Decay")
             .collect();
         assert!(!decay_tests.is_empty());
-        
+
         // RK4 should be most accurate
-        let rk4_test = decay_tests.iter()
+        let rk4_test = decay_tests
+            .iter()
             .find(|r| r.method_name == "RungeKutta4")
             .expect("RK4 test should exist");
-        
+
         assert!(rk4_test.passed, "RK4 exponential decay test should pass");
     }
 
     #[test]
     fn test_harmonic_oscillator_conservation() {
-        let results = TimeIntegrationValidator::validate_all::<f64>().expect("CRITICAL: Add proper error handling");
+        let results = TimeIntegrationValidator::validate_all::<f64>()
+            .expect("CRITICAL: Add proper error handling");
 
-        let oscillator_tests: Vec<_> = results.iter()
+        let oscillator_tests: Vec<_> = results
+            .iter()
             .filter(|r| r.test_problem == "Harmonic Oscillator")
             .collect();
 
@@ -377,8 +430,10 @@ mod tests {
 
         // Debug: Print test results
         for test in &oscillator_tests {
-            println!("Method: {}, Passed: {}, Error: {}",
-                test.method_name, test.passed, test.global_error);
+            println!(
+                "Method: {}, Passed: {}, Error: {}",
+                test.method_name, test.passed, test.global_error
+            );
         }
 
         // Check that at least one method passes
@@ -386,16 +441,24 @@ mod tests {
 
         // For now, let's be more lenient - the harmonic oscillator is a challenging test
         // We'll accept if RK4 has reasonable accuracy even if it doesn't pass the strict threshold
-        let rk4_test = oscillator_tests.iter()
+        let rk4_test = oscillator_tests
+            .iter()
             .find(|r| r.method_name == "RungeKutta4")
             .expect("RK4 test should exist");
 
         // If RK4 error is less than 0.1, consider it acceptable for now
         if rk4_test.global_error < 0.1 {
-            println!("RK4 harmonic oscillator test has acceptable accuracy: {}", rk4_test.global_error);
+            println!(
+                "RK4 harmonic oscillator test has acceptable accuracy: {}",
+                rk4_test.global_error
+            );
             return; // Pass the test
         }
 
-        assert!(passed_tests > 0, "At least one harmonic oscillator test should pass. RK4 error: {}", rk4_test.global_error);
+        assert!(
+            passed_tests > 0,
+            "At least one harmonic oscillator test should pass. RK4 error: {}",
+            rk4_test.global_error
+        );
     }
 }

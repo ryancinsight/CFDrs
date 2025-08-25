@@ -1,14 +1,14 @@
 //! Demonstration of the spectral solver with Copy trait
-//! 
+//!
 //! This example shows how adding the Copy trait bound eliminates
 //! hundreds of unnecessary .clone() calls in the FFT implementation.
 
 fn main() {
     println!("=== Spectral Solver Copy Trait Optimization ===\n");
-    
+
     println!("The spectral.rs module uses the Copy trait bound for efficiency");
     println!("to eliminate unnecessary .clone() calls in performance-critical code.\n");
-    
+
     println!("Key changes made:");
     println!("1. Added Copy bound to SpectralSolver<T> implementation:");
     println!("   impl<T: RealField + FromPrimitive + Send + Sync + Copy>");
@@ -16,9 +16,9 @@ fn main() {
     println!("2. Added Copy bound to SpectralSolution<T> implementation:");
     println!("   impl<T: RealField + FromPrimitive + Copy>");
     println!();
-    
+
     println!("=== FFT Butterfly Operations ===\n");
-    
+
     println!("BEFORE (with unnecessary clones):");
     println!("```rust");
     println!("let u = spectral[i + j].clone();");
@@ -28,7 +28,7 @@ fn main() {
     println!("w = w * wlen.clone();");
     println!("```");
     println!();
-    
+
     println!("AFTER (clean, efficient code):");
     println!("```rust");
     println!("let u = spectral[i + j];");
@@ -38,9 +38,9 @@ fn main() {
     println!("w = w * wlen;");
     println!("```");
     println!();
-    
+
     println!("=== DFT Implementation ===\n");
-    
+
     println!("BEFORE:");
     println!("```rust");
     println!("sum = sum + Complex::new(");
@@ -49,7 +49,7 @@ fn main() {
     println!(");");
     println!("```");
     println!();
-    
+
     println!("AFTER:");
     println!("```rust");
     println!("sum = sum + Complex::new(");
@@ -58,7 +58,7 @@ fn main() {
     println!(");");
     println!("```");
     println!();
-    
+
     println!("=== Performance Benefits ===\n");
     println!("✓ Eliminated hundreds of .clone() calls throughout the FFT");
     println!("✓ No heap allocations for primitive types (f32, f64)");
@@ -66,7 +66,7 @@ fn main() {
     println!("✓ Compiler can better optimize with Copy semantics");
     println!("✓ Cleaner, more readable code");
     println!();
-    
+
     println!("=== Impact ===\n");
     println!("For a typical 64³ FFT, this optimization removes:");
     println!("- ~1,536 clone() calls in the butterfly operations alone");

@@ -1,8 +1,8 @@
 //! BiCGSTAB solver implementation
 
-use super::traits::{LinearSolver, Preconditioner};
 use super::preconditioners::IdentityPreconditioner;
-use cfd_core::error::{Error, Result, NumericalErrorKind, ConvergenceErrorKind};
+use super::traits::{LinearSolver, Preconditioner};
+use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind, Result};
 use cfd_core::solver::LinearSolverConfig;
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
@@ -59,29 +59,29 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
         let ax = a * &x;
         r.copy_from(b);
         r -= &ax;
-        
+
         let initial_residual_norm = r.norm();
         // Use a more robust breakdown tolerance
         // The tolerance should be at least sqrt(epsilon) to avoid false positives
         let epsilon = T::default_epsilon();
         let sqrt_epsilon = epsilon.sqrt();
         let breakdown_tolerance = (initial_residual_norm * sqrt_epsilon).max(epsilon);
-        
+
         r0_hat.copy_from(&r); // Shadow residual
-        
+
         let mut rho = T::one();
         let mut alpha = T::one();
         let mut omega = T::one();
 
         for iter in 0..self.config.max_iterations {
             let rho_new = r0_hat.dot(&r);
-            
+
             if rho_new.abs() < breakdown_tolerance {
                 return Err(Error::Numerical(NumericalErrorKind::SingularMatrix));
             }
 
             let beta = (rho_new / rho) * (alpha / omega);
-            
+
             // p = r + beta * (p - omega * v) - using in-place operations
             p.axpy(-omega, &v, T::one());
             p *= beta;
@@ -90,13 +90,13 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
             // Solve M*z = p and compute v = A*z
             preconditioner.apply_to(&p, &mut z)?;
             v = a * &z;
-            
+
             alpha = rho_new / r0_hat.dot(&v);
-            
+
             // s = r - alpha * v
             s.copy_from(&r);
             s.axpy(-alpha, &v, T::one());
-            
+
             if self.is_converged(s.norm()) {
                 x.axpy(alpha, &z, T::one());
                 tracing::debug!("BiCGSTAB converged in {} iterations", iter + 1);
@@ -106,22 +106,22 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
             // Solve M*z2 = s and compute t = A*z2
             preconditioner.apply_to(&s, &mut z2)?;
             t = a * &z2;
-            
+
             omega = s.dot(&t) / t.dot(&t);
-            
+
             // Update solution: x = x + alpha*z + omega*z2
             x.axpy(alpha, &z, T::one());
             x.axpy(omega, &z2, T::one());
-            
+
             // Update residual: r = s - omega * t
             r.copy_from(&s);
             r.axpy(-omega, &t, T::one());
-            
+
             if self.is_converged(r.norm()) {
                 tracing::debug!("BiCGSTAB converged in {} iterations", iter + 1);
                 return Ok(x);
             }
-            
+
             if omega.abs() < breakdown_tolerance {
                 return Err(Error::Numerical(NumericalErrorKind::SingularMatrix));
             }
@@ -129,9 +129,11 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
             rho = rho_new;
         }
 
-        Err(Error::Convergence(ConvergenceErrorKind::MaxIterationsExceeded { 
-            max: self.config.max_iterations 
-        }))
+        Err(Error::Convergence(
+            ConvergenceErrorKind::MaxIterationsExceeded {
+                max: self.config.max_iterations,
+            },
+        ))
     }
 
     /// Check if residual satisfies convergence criteria

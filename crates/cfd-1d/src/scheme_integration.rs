@@ -10,14 +10,14 @@
 
 #[cfg(feature = "scheme-integration")]
 use scheme::{
-    geometry::{
-        types::{ChannelSystem, Channel, Node, Point2D, ChannelType},
-        SplitType,
-        generator::create_geometry,
-    },
-    config::{GeometryConfig, ChannelTypeConfig},
-    visualizations::schematic::plot_geometry,
+    config::{ChannelTypeConfig, GeometryConfig},
     error::SchemeError as SchemeLibError,
+    geometry::{
+        generator::create_geometry,
+        types::{Channel, ChannelSystem, ChannelType, Node, Point2D},
+        SplitType,
+    },
+    visualizations::schematic::plot_geometry,
 };
 
 /// Trait for converting between scheme representations and our network model
@@ -26,16 +26,16 @@ pub trait SchemeConversion {
     fn from_scheme(scheme_data: &str) -> Result<Self, SchemeError>
     where
         Self: Sized;
-    
+
     /// Export the network to a scheme representation
     fn to_scheme(&self) -> Result<String, SchemeError>;
-    
+
     #[cfg(feature = "scheme-integration")]
     /// Import from a ChannelSystem
     fn from_channel_system(system: &ChannelSystem) -> Result<Self, SchemeError>
     where
         Self: Sized;
-    
+
     #[cfg(feature = "scheme-integration")]
     /// Export to a ChannelSystem
     fn to_channel_system(&self) -> Result<ChannelSystem, SchemeError>;
@@ -47,20 +47,20 @@ pub enum SchemeError {
     /// Invalid scheme format
     #[error("Invalid scheme format: {0}")]
     InvalidFormat(String),
-    
+
     /// Unsupported component type
     #[error("Unsupported component: {0}")]
     UnsupportedComponent(String),
-    
+
     /// Conversion error
     #[error("Conversion error: {0}")]
     ConversionError(String),
-    
+
     /// Scheme library error
     #[cfg(feature = "scheme-integration")]
     #[error("Scheme library error: {0}")]
     SchemeLibError(#[from] SchemeLibError),
-    
+
     /// JSON serialization error
     #[error("JSON error: {0}")]
     JsonError(#[from] serde_json::Error),
@@ -170,7 +170,7 @@ impl From<&ChannelType> for ChannelPathType {
 #[cfg(feature = "scheme-integration")]
 pub mod helpers {
     use super::*;
-    
+
     /// Create a simple bifurcation network schematic
     pub fn create_bifurcation_schematic(
         width: f64,
@@ -179,7 +179,7 @@ pub mod helpers {
     ) -> Result<ChannelSystem, SchemeError> {
         let config = GeometryConfig::default();
         let splits = vec![SplitType::Bifurcation; levels];
-        
+
         Ok(create_geometry(
             (width, height),
             &splits,
@@ -187,16 +187,13 @@ pub mod helpers {
             &ChannelTypeConfig::AllStraight,
         ))
     }
-    
+
     /// Export a channel system to PNG
-    pub fn export_to_png(
-        system: &ChannelSystem,
-        filename: &str,
-    ) -> Result<(), SchemeError> {
+    pub fn export_to_png(system: &ChannelSystem, filename: &str) -> Result<(), SchemeError> {
         plot_geometry(system, filename)?;
         Ok(())
     }
-    
+
     /// Convert scheme nodes to network nodes
     pub fn convert_nodes(scheme_nodes: &[Node]) -> Vec<(usize, Point2D)> {
         scheme_nodes
@@ -204,7 +201,7 @@ pub mod helpers {
             .map(|node| (node.id.clone(), node.point))
             .collect()
     }
-    
+
     /// Extract channel paths
     pub fn extract_channel_paths(channels: &[Channel]) -> Vec<ConnectionPath> {
         channels
@@ -214,12 +211,12 @@ pub mod helpers {
                     ChannelType::Straight => {
                         vec![channel.start, channel.end]
                     }
-                    ChannelType::SmoothStraight { path } |
-                    ChannelType::Serpentine { path } |
-                    ChannelType::Arc { path } => path,
+                    ChannelType::SmoothStraight { path }
+                    | ChannelType::Serpentine { path }
+                    | ChannelType::Arc { path } => path,
                     ChannelType::Frustum { path, .. } => path,
                 };
-                
+
                 ConnectionPath {
                     source: format!("node_{}", channel.start_node),
                     target: format!("node_{}", channel.end_node),
@@ -243,17 +240,14 @@ pub mod helpers {
         _levels: usize,
     ) -> Result<(), SchemeError> {
         Err(SchemeError::FeatureDisabled(
-            "scheme-integration feature is not enabled".to_string()
+            "scheme-integration feature is not enabled".to_string(),
         ))
     }
 
     /// Export a channel system to PNG (fallback)
-    pub fn export_to_png(
-        _system: &(),
-        _filename: &str,
-    ) -> Result<(), SchemeError> {
+    pub fn export_to_png(_system: &(), _filename: &str) -> Result<(), SchemeError> {
         Err(SchemeError::FeatureDisabled(
-            "scheme-integration feature is not enabled".to_string()
+            "scheme-integration feature is not enabled".to_string(),
         ))
     }
 }
@@ -267,13 +261,13 @@ mod tests {
         let comp_type = ComponentType::Channel;
         assert_eq!(comp_type, ComponentType::Channel);
     }
-    
+
     #[test]
     fn test_junction_type() {
         let junction = JunctionType::Bifurcation;
         assert_eq!(junction, JunctionType::Bifurcation);
     }
-    
+
     #[cfg(feature = "scheme-integration")]
     #[test]
     fn test_split_type_conversion() {

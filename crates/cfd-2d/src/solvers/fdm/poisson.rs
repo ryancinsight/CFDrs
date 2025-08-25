@@ -8,9 +8,9 @@ use nalgebra::{DVector, RealField};
 use num_traits::{FromPrimitive, Zero};
 use std::collections::HashMap;
 
-use crate::grid::{StructuredGrid2D, Grid2D};
 use super::config::FdmConfig;
 use super::linear_solver::solve_gauss_seidel;
+use crate::grid::{Grid2D, StructuredGrid2D};
 
 /// Poisson equation solver
 pub struct PoissonSolver<T: RealField + Copy> {
@@ -24,7 +24,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
     }
 
     /// Create with default configuration
-    #[must_use] 
+    #[must_use]
     pub fn default() -> Self {
         Self::new(FdmConfig::default())
     }
@@ -99,19 +99,19 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
             let neighbor_idx = Self::linear_index(grid, i - 1, j);
             matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dx2)?;
         }
-        
+
         // Right neighbor
         if i < grid.nx() - 1 {
             let neighbor_idx = Self::linear_index(grid, i + 1, j);
             matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dx2)?;
         }
-        
+
         // Bottom neighbor
         if j > 0 {
             let neighbor_idx = Self::linear_index(grid, i, j - 1);
             matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dy2)?;
         }
-        
+
         // Top neighbor
         if j < grid.ny() - 1 {
             let neighbor_idx = Self::linear_index(grid, i, j + 1);

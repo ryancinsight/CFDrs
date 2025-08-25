@@ -29,45 +29,62 @@ pub enum ConvergenceOrder<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive> ConvergenceOrder<T> {
     /// Determine convergence order from observed rate
     pub fn from_rate(rate: T) -> Self {
-        let tolerance = T::from_f64(0.15).unwrap_or_else(|| T::from_usize(1).unwrap_or_else(T::one) / T::from_usize(10).unwrap_or_else(T::one));
-        
+        let tolerance = T::from_f64(0.15).unwrap_or_else(|| {
+            T::from_usize(1).unwrap_or_else(T::one) / T::from_usize(10).unwrap_or_else(T::one)
+        });
+
         if rate < T::from_f64(0.5).unwrap_or_else(T::zero) {
             Self::SubLinear
         } else if (rate - T::one()).abs() < tolerance {
             Self::FirstOrder
-        } else if (rate - T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one())).abs() < tolerance {
+        } else if (rate - T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one())).abs() < tolerance
+        {
             Self::SecondOrder
-        } else if (rate - T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one())).abs() < tolerance {
+        } else if (rate - T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one())).abs()
+            < tolerance
+        {
             Self::ThirdOrder
-        } else if (rate - T::from_f64(4.0).unwrap_or_else(|| T::from_usize(4).unwrap_or_else(T::one))).abs() < tolerance {
+        } else if (rate
+            - T::from_f64(4.0).unwrap_or_else(|| T::from_usize(4).unwrap_or_else(T::one)))
+        .abs()
+            < tolerance
+        {
             Self::FourthOrder
-        } else if rate > T::from_f64(6.0).unwrap_or_else(|| T::from_usize(6).unwrap_or_else(T::one)) {
+        } else if rate > T::from_f64(6.0).unwrap_or_else(|| T::from_usize(6).unwrap_or_else(T::one))
+        {
             Self::Spectral
-        } else if rate > T::one() && rate < T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()) {
+        } else if rate > T::one() && rate < T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one())
+        {
             Self::SuperLinear
         } else {
             Self::Custom(rate)
         }
     }
-    
+
     /// Get expected rate for this order
     pub fn expected_rate(&self) -> T {
         match self {
             Self::SubLinear => T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one())),
             Self::FirstOrder => T::one(),
-            Self::SuperLinear => T::from_f64(1.5).unwrap_or_else(|| (T::one() + T::one() + T::one()) / (T::one() + T::one())),
+            Self::SuperLinear => T::from_f64(1.5)
+                .unwrap_or_else(|| (T::one() + T::one() + T::one()) / (T::one() + T::one())),
             Self::SecondOrder => T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()),
             Self::ThirdOrder => T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one()),
-            Self::FourthOrder => T::from_f64(4.0).unwrap_or_else(|| T::from_usize(4).unwrap_or_else(T::one)),
-            Self::Spectral => T::from_f64(10.0).unwrap_or_else(|| T::from_usize(10).unwrap_or_else(T::one)), // Nominal high value
+            Self::FourthOrder => {
+                T::from_f64(4.0).unwrap_or_else(|| T::from_usize(4).unwrap_or_else(T::one))
+            }
+            Self::Spectral => {
+                T::from_f64(10.0).unwrap_or_else(|| T::from_usize(10).unwrap_or_else(T::one))
+            } // Nominal high value
             Self::Custom(rate) => *rate,
         }
     }
-    
+
     /// Check if observed rate matches expected within tolerance
     pub fn matches(&self, observed_rate: T) -> bool {
         let expected = self.expected_rate();
-        let tolerance = T::from_f64(0.25).unwrap_or_else(|| T::one() / T::from_usize(4).unwrap_or_else(T::one)); // 25% tolerance
+        let tolerance =
+            T::from_f64(0.25).unwrap_or_else(|| T::one() / T::from_usize(4).unwrap_or_else(T::one)); // 25% tolerance
         (observed_rate - expected).abs() < expected * tolerance
     }
 }
@@ -81,9 +98,7 @@ impl ConvergenceAnalysis {
     where
         T: RealField + Copy,
     {
-        grid_sizes.windows(2)
-            .map(|w| w[0] / w[1])
-            .collect()
+        grid_sizes.windows(2).map(|w| w[0] / w[1]).collect()
     }
 
     /// Check if refinement is uniform (constant ratio)
@@ -96,10 +111,14 @@ impl ConvergenceAnalysis {
             return true;
         }
 
-        let mean_ratio = ratios.iter().copied().sum::<T>() / T::from_usize(ratios.len()).unwrap_or_else(T::one);
-        let tolerance = T::from_f64(0.05).unwrap_or_else(|| T::one() / T::from_usize(20).unwrap_or_else(T::one)); // 5% variation allowed
+        let mean_ratio =
+            ratios.iter().copied().sum::<T>() / T::from_usize(ratios.len()).unwrap_or_else(T::one);
+        let tolerance = T::from_f64(0.05)
+            .unwrap_or_else(|| T::one() / T::from_usize(20).unwrap_or_else(T::one)); // 5% variation allowed
 
-        ratios.iter().all(|r| ((*r - mean_ratio) / mean_ratio).abs() < tolerance)
+        ratios
+            .iter()
+            .all(|r| ((*r - mean_ratio) / mean_ratio).abs() < tolerance)
     }
 
     /// Estimate required grid size for target accuracy
@@ -116,12 +135,7 @@ impl ConvergenceAnalysis {
     }
 
     /// Compute effective convergence rate between two solutions
-    pub fn effective_rate<T>(
-        h1: T,
-        h2: T,
-        error1: T,
-        error2: T,
-    ) -> T
+    pub fn effective_rate<T>(h1: T, h2: T, error1: T, error2: T) -> T
     where
         T: RealField + Copy,
     {
@@ -145,7 +159,8 @@ impl ConvergenceAnalysis {
             return vec![];
         }
 
-        errors.windows(3)
+        errors
+            .windows(3)
             .map(|w| (w[2] - w[1]) / (w[1] - w[0]))
             .collect()
     }
@@ -156,7 +171,7 @@ impl ConvergenceAnalysis {
         T: RealField + Copy,
     {
         let ratios = Self::convergence_ratio(errors);
-        
+
         // Check for sign changes in convergence ratio
         ratios.windows(2).any(|w| w[0] * w[1] < T::zero())
     }

@@ -1,9 +1,9 @@
 //! Convergence criteria for PISO algorithm
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
 use crate::fields::SimulationFields;
 use cfd_core::constants::*;
+use nalgebra::RealField;
+use num_traits::FromPrimitive;
 
 /// Convergence criteria for PISO iterations
 #[derive(Debug, Clone)]
@@ -22,15 +22,12 @@ impl<T: RealField + Copy + FromPrimitive> Default for ConvergenceCriteria<T> {
     fn default() -> Self {
         Self {
             max_iterations: 1000,
-            velocity_tolerance: T::from_f64(1e-5).unwrap_or_else(|| {
-                T::from_f64(1e-6).unwrap_or_else(T::zero)
-            }),
-            pressure_tolerance: T::from_f64(1e-4).unwrap_or_else(|| {
-                T::from_f64(1e-5).unwrap_or_else(T::zero)
-            }),
-            continuity_tolerance: T::from_f64(1e-5).unwrap_or_else(|| {
-                T::from_f64(1e-6).unwrap_or_else(T::zero)
-            }),
+            velocity_tolerance: T::from_f64(1e-5)
+                .unwrap_or_else(|| T::from_f64(1e-6).unwrap_or_else(T::zero)),
+            pressure_tolerance: T::from_f64(1e-4)
+                .unwrap_or_else(|| T::from_f64(1e-5).unwrap_or_else(T::zero)),
+            continuity_tolerance: T::from_f64(1e-5)
+                .unwrap_or_else(|| T::from_f64(1e-6).unwrap_or_else(T::zero)),
         }
     }
 }
@@ -55,7 +52,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Default for ConvergenceMonitor<
 
 impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
     /// Create new convergence monitor
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             velocity_residuals: Vec::new(),
             pressure_residuals: Vec::new(),
@@ -66,19 +64,24 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
 
     /// Check if converged
     pub fn is_converged(&self, criteria: &ConvergenceCriteria<T>) -> bool {
-        if self.velocity_residuals.is_empty() || 
-           self.pressure_residuals.is_empty() || 
-           self.continuity_residuals.is_empty() {
+        if self.velocity_residuals.is_empty()
+            || self.pressure_residuals.is_empty()
+            || self.continuity_residuals.is_empty()
+        {
             return false;
         }
-        
+
         let vel_res = self.velocity_residuals.last().copied().unwrap_or(T::one());
         let pres_res = self.pressure_residuals.last().copied().unwrap_or(T::one());
-        let cont_res = self.continuity_residuals.last().copied().unwrap_or(T::one());
-        
-        vel_res < criteria.velocity_tolerance &&
-        pres_res < criteria.pressure_tolerance &&
-        cont_res < criteria.continuity_tolerance
+        let cont_res = self
+            .continuity_residuals
+            .last()
+            .copied()
+            .unwrap_or(T::one());
+
+        vel_res < criteria.velocity_tolerance
+            && pres_res < criteria.pressure_tolerance
+            && cont_res < criteria.continuity_tolerance
     }
 
     /// Update residuals
@@ -92,7 +95,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
         let vel_res = self.calculate_velocity_residual(fields_old, fields_new, nx, ny);
         let pres_res = self.calculate_pressure_residual(fields_old, fields_new, nx, ny);
         let cont_res = self.calculate_continuity_residual(fields_new, nx, ny);
-        
+
         self.velocity_residuals.push(vel_res);
         self.pressure_residuals.push(pres_res);
         self.continuity_residuals.push(cont_res);
@@ -109,16 +112,16 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
     ) -> T {
         let mut sum = T::zero();
         let mut count = 0;
-        
-        for i in 1..nx-1 {
-            for j in 1..ny-1 {
+
+        for i in 1..nx - 1 {
+            for j in 1..ny - 1 {
                 let du = fields_new.u.at(i, j) - fields_old.u.at(i, j);
                 let dv = fields_new.v.at(i, j) - fields_old.v.at(i, j);
                 sum = sum + du * du + dv * dv;
                 count += 2;
             }
         }
-        
+
         (sum / T::from_usize(count).unwrap()).sqrt()
     }
 
@@ -132,15 +135,15 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
     ) -> T {
         let mut sum = T::zero();
         let mut count = 0;
-        
-        for i in 1..nx-1 {
-            for j in 1..ny-1 {
+
+        for i in 1..nx - 1 {
+            for j in 1..ny - 1 {
                 let dp = fields_new.p.at(i, j) - fields_old.p.at(i, j);
                 sum += dp * dp;
                 count += 1;
             }
         }
-        
+
         (sum / T::from_usize(count).unwrap()).sqrt()
     }
 
@@ -152,20 +155,22 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
         ny: usize,
     ) -> T {
         let mut max_imbalance = T::zero();
-        
-        for i in 1..nx-1 {
-            for j in 1..ny-1 {
+
+        for i in 1..nx - 1 {
+            for j in 1..ny - 1 {
                 // Continuity equation check (du/dx + dv/dy = 0)
-                let dudx = (fields.u.at(i+1, j) - fields.u.at(i-1, j)) / T::from_f64(2.0).unwrap();
-                let dvdy = (fields.v.at(i, j+1) - fields.v.at(i, j-1)) / T::from_f64(2.0).unwrap();
+                let dudx =
+                    (fields.u.at(i + 1, j) - fields.u.at(i - 1, j)) / T::from_f64(2.0).unwrap();
+                let dvdy =
+                    (fields.v.at(i, j + 1) - fields.v.at(i, j - 1)) / T::from_f64(2.0).unwrap();
                 let imbalance = (dudx + dvdy).abs();
-                
+
                 if imbalance > max_imbalance {
                     max_imbalance = imbalance;
                 }
             }
         }
-        
+
         max_imbalance
     }
 }

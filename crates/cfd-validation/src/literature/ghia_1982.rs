@@ -1,13 +1,13 @@
 //! Lid-driven cavity validation against Ghia et al. (1982)
 //!
 //! Reference: Ghia, U., Ghia, K.N., Shin, C.T. (1982). "High-Re solutions for incompressible
-//! flow using the Navier-Stokes equations and a multigrid method". 
+//! flow using the Navier-Stokes equations and a multigrid method".
 //! Journal of Computational Physics, 48(3), 387-411.
 
 use super::{LiteratureValidation, ValidationReport};
 use cfd_core::Result;
 use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, ToPrimitive};
 
 /// Ghia lid-driven cavity benchmark
 pub struct GhiaLidDrivenCavity<T: RealField + Copy> {
@@ -18,7 +18,7 @@ pub struct GhiaLidDrivenCavity<T: RealField + Copy> {
     pub ny: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive> GhiaLidDrivenCavity<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive> GhiaLidDrivenCavity<T> {
     /// Create new Ghia benchmark test
     pub fn new(reynolds_number: T, nx: usize, ny: usize) -> Self {
         Self {
@@ -27,12 +27,12 @@ impl<T: RealField + Copy + FromPrimitive> GhiaLidDrivenCavity<T> {
             ny,
         }
     }
-    
+
     /// Get reference u-velocity along vertical centerline
     /// Data from Ghia et al. (1982), Table I
     fn reference_u_centerline(&self) -> Vec<(T, T)> {
         let re = self.reynolds_number.to_f64().unwrap_or(100.0);
-        
+
         // y-coordinate and u-velocity pairs
         let data = if (re - 100.0).abs() < 1.0 {
             // Re = 100
@@ -80,42 +80,50 @@ impl<T: RealField + Copy + FromPrimitive> GhiaLidDrivenCavity<T> {
             // Default to Re = 100 if not in standard set
             vec![(0.5, 0.0)]
         };
-        
+
         data.into_iter()
-            .map(|(y, u)| (
-                T::from_f64(y).unwrap_or_else(T::zero),
-                T::from_f64(u).unwrap_or_else(T::zero)
-            ))
+            .map(|(y, u)| {
+                (
+                    T::from_f64(y).unwrap_or_else(T::zero),
+                    T::from_f64(u).unwrap_or_else(T::zero),
+                )
+            })
             .collect()
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> LiteratureValidation<T> for GhiaLidDrivenCavity<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
+    for GhiaLidDrivenCavity<T>
+{
     fn validate(&self) -> Result<ValidationReport<T>> {
         let reference_data = self.reference_u_centerline();
-        
+
         // Placeholder for actual simulation
         // Would compute u-velocity along centerline and compare
-        
+
         let max_error = T::from_f64(0.01).unwrap_or_else(T::zero);
         let avg_error = T::from_f64(0.005).unwrap_or_else(T::zero);
-        
+
         Ok(ValidationReport {
-            test_name: format!("Ghia Lid-Driven Cavity Re={}", 
-                self.reynolds_number.to_f64().unwrap_or(0.0)),
+            test_name: format!(
+                "Ghia Lid-Driven Cavity Re={}",
+                self.reynolds_number.to_f64().unwrap_or(0.0)
+            ),
             citation: self.citation().to_string(),
             max_error,
             avg_error,
             passed: max_error < T::from_f64(0.05).unwrap_or_else(T::one),
-            details: format!("Centerline velocity validation with {} reference points", 
-                reference_data.len()),
+            details: format!(
+                "Centerline velocity validation with {} reference points",
+                reference_data.len()
+            ),
         })
     }
-    
+
     fn citation(&self) -> &str {
         "Ghia, U., Ghia, K.N., Shin, C.T. (1982). High-Re solutions for incompressible flow using the Navier-Stokes equations and a multigrid method. Journal of Computational Physics, 48(3), 387-411."
     }
-    
+
     fn expected_accuracy(&self) -> T {
         T::from_f64(0.02).unwrap_or_else(T::one) // 2% accuracy expected
     }

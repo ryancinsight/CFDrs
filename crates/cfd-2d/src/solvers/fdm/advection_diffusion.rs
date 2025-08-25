@@ -8,9 +8,9 @@ use nalgebra::{DVector, RealField};
 use num_traits::{FromPrimitive, Zero};
 use std::collections::HashMap;
 
-use crate::grid::{StructuredGrid2D, Grid2D};
 use super::config::FdmConfig;
 use super::linear_solver::solve_gauss_seidel;
+use crate::grid::{Grid2D, StructuredGrid2D};
 
 /// Advection-diffusion equation solver
 pub struct AdvectionDiffusionSolver<T: RealField + Copy> {

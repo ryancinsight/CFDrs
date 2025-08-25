@@ -15,7 +15,7 @@ pub struct VtkWriter<T: RealField + Copy> {
 
 impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
     /// Create a new VTK writer
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
@@ -37,7 +37,9 @@ impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
         // Write points
         writeln!(writer, "POINTS {} float", mesh.num_points())?;
         for point in &mesh.points {
-            writeln!(writer, "{} {} {}", 
+            writeln!(
+                writer,
+                "{} {} {}",
                 point[0].to_f64().unwrap_or(0.0),
                 point[1].to_f64().unwrap_or(0.0),
                 point[2].to_f64().unwrap_or(0.0)
@@ -67,7 +69,7 @@ impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
         if !mesh.point_data.is_empty() {
             writeln!(writer)?;
             writeln!(writer, "POINT_DATA {}", mesh.num_points())?;
-            
+
             for (name, data) in &mesh.point_data {
                 writeln!(writer, "SCALARS {} float 1", name)?;
                 writeln!(writer, "LOOKUP_TABLE default")?;
@@ -81,7 +83,7 @@ impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
         if !mesh.cell_data.is_empty() {
             writeln!(writer)?;
             writeln!(writer, "CELL_DATA {}", mesh.num_cells())?;
-            
+
             for (name, data) in &mesh.cell_data {
                 writeln!(writer, "SCALARS {} float 1", name)?;
                 writeln!(writer, "LOOKUP_TABLE default")?;

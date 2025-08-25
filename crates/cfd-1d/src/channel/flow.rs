@@ -1,7 +1,7 @@
 //! Flow state and channel model definitions
 
-use nalgebra::RealField;
 use super::geometry::ChannelGeometry;
+use nalgebra::RealField;
 
 /// Extended channel flow model
 pub struct Channel<T: RealField + Copy> {

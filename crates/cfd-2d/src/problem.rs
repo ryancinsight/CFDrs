@@ -3,8 +3,8 @@
 //! This module implements the Problem trait from cfd-core for 2D incompressible
 //! Navier-Stokes equations, enabling integration with the framework's solver abstractions.
 
-use crate::grid::{StructuredGrid2D, Grid2D};
-use cfd_core::{Problem, BoundaryCondition, Fluid};
+use crate::grid::{Grid2D, StructuredGrid2D};
+use cfd_core::{BoundaryCondition, Fluid, Problem};
 use nalgebra::{RealField, Vector2};
 use std::collections::HashMap;
 
@@ -36,7 +36,7 @@ impl<T: RealField + Copy> IncompressibleFlowProblem<T> {
     ) -> Self {
         let nx = grid.nx();
         let ny = grid.ny();
-        
+
         Self {
             grid,
             boundary_conditions,
@@ -77,19 +77,19 @@ impl<T: RealField + Copy> IncompressibleFlowProblem<T> {
         // Check grid dimensions match initial fields
         if self.initial_velocity.len() != self.grid.nx() {
             return Err(cfd_core::error::Error::InvalidConfiguration(
-                "Initial velocity field dimensions don't match grid".into()
+                "Initial velocity field dimensions don't match grid".into(),
             ));
         }
-        
+
         if !self.initial_velocity.is_empty() && self.initial_velocity[0].len() != self.grid.ny() {
             return Err(cfd_core::error::Error::InvalidConfiguration(
-                "Initial velocity field dimensions don't match grid".into()
+                "Initial velocity field dimensions don't match grid".into(),
             ));
         }
 
         // Check if boundary conditions are complete for boundary cells
         let mut missing_bcs = Vec::new();
-        
+
         // Check boundary cells
         for i in 0..self.grid.nx() {
             for j in [0, self.grid.ny() - 1] {
@@ -98,7 +98,7 @@ impl<T: RealField + Copy> IncompressibleFlowProblem<T> {
                 }
             }
         }
-        
+
         for j in 0..self.grid.ny() {
             for i in [0, self.grid.nx() - 1] {
                 if !self.boundary_conditions.contains_key(&(i, j)) {
@@ -112,7 +112,7 @@ impl<T: RealField + Copy> IncompressibleFlowProblem<T> {
                 "Missing boundary conditions for cells: {missing_bcs:?}"
             )));
         }
-        
+
         Ok(())
     }
 }

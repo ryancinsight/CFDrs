@@ -1,11 +1,11 @@
 //! Network topology for 1D CFD simulations
 
-use cfd_core::{Error, Result, Fluid};
-use nalgebra::{RealField, DVector};
+use cfd_core::{Error, Fluid, Result};
+use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
-use petgraph::{Graph, Directed};
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
+use petgraph::{Directed, Graph};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -38,7 +38,8 @@ pub struct Node<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> Node<T> {
-    #[must_use] pub fn new(id: String, node_type: NodeType) -> Self {
+    #[must_use]
+    pub fn new(id: String, node_type: NodeType) -> Self {
         Self {
             id,
             node_type,
@@ -66,14 +67,17 @@ pub struct ChannelProperties<T: RealField + Copy> {
 
 impl<T: RealField + Copy> ChannelProperties<T> {
     pub fn new(resistance: T, length: T, area: T) -> Self {
-        Self { resistance, length, area, hydraulic_diameter: None }
+        Self {
+            resistance,
+            length,
+            area,
+            hydraulic_diameter: None,
+        }
     }
 }
 
 /// Node properties (for compatibility)
 pub type NodeProperties<T> = Node<T>;
-
-
 
 /// Network metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,7 +103,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkBuilder<T> {
         self
     }
 
-    pub fn add_edge(mut self, from: &str, to: &str, properties: ChannelProperties<T>) -> Result<Self> {
+    pub fn add_edge(
+        mut self,
+        from: &str,
+        to: &str,
+        properties: ChannelProperties<T>,
+    ) -> Result<Self> {
         self.network.add_edge(from, to, properties)?;
         Ok(self)
     }
@@ -141,20 +150,35 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
         idx
     }
 
-    pub fn add_edge(&mut self, from: &str, to: &str, properties: ChannelProperties<T>) -> Result<EdgeIndex> {
-        let from_idx = self.node_indices.get(from)
+    pub fn add_edge(
+        &mut self,
+        from: &str,
+        to: &str,
+        properties: ChannelProperties<T>,
+    ) -> Result<EdgeIndex> {
+        let from_idx = self
+            .node_indices
+            .get(from)
             .ok_or_else(|| Error::InvalidConfiguration(format!("Node {from} not found")))?;
-        let to_idx = self.node_indices.get(to)
+        let to_idx = self
+            .node_indices
+            .get(to)
             .ok_or_else(|| Error::InvalidConfiguration(format!("Node {to} not found")))?;
-        
+
         let edge_id = format!("{from}_{to}");
         let idx = self.graph.add_edge(*from_idx, *to_idx, properties);
         self.edge_indices.insert(edge_id, idx);
         Ok(idx)
     }
 
-    pub fn set_boundary_condition(&mut self, node: &str, condition: BoundaryCondition<T>) -> Result<()> {
-        let idx = self.node_indices.get(node)
+    pub fn set_boundary_condition(
+        &mut self,
+        node: &str,
+        condition: BoundaryCondition<T>,
+    ) -> Result<()> {
+        let idx = self
+            .node_indices
+            .get(node)
             .ok_or_else(|| Error::InvalidConfiguration(format!("Node {node} not found")))?;
         self.boundary_conditions.insert(*idx, condition);
         Ok(())
@@ -172,7 +196,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
         if self.edge_count() == 0 {
             T::one()
         } else {
-            let total_length: T = self.graph.edge_weights()
+            let total_length: T = self
+                .graph
+                .edge_weights()
                 .map(|e| e.length)
                 .fold(T::zero(), |acc, l| acc + l);
             total_length / T::from_usize(self.edge_count()).unwrap_or_else(T::one)
@@ -194,7 +220,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
     pub fn update_from_solution(&mut self, solution: DVector<T>) -> Result<()> {
         if solution.len() != self.node_count() {
             return Err(Error::InvalidConfiguration(
-                "Solution dimension mismatch".to_string()
+                "Solution dimension mismatch".to_string(),
             ));
         }
         self.pressures = solution;
@@ -204,52 +230,53 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
 
     fn calculate_flow_rates(&mut self) -> Result<()> {
         let mut flows = Vec::with_capacity(self.edge_count());
-        
+
         for edge in self.graph.edge_references() {
             let from_idx = edge.source();
             let to_idx = edge.target();
             let properties = edge.weight();
-            
+
             let p1 = self.pressures[from_idx.index()];
             let p2 = self.pressures[to_idx.index()];
-            
+
             let flow = (p1 - p2) / properties.resistance;
             flows.push(flow);
         }
-        
+
         self.flow_rates = DVector::from_vec(flows);
         Ok(())
     }
 
     pub fn boundary_conditions(&self) -> impl Iterator<Item = (usize, &BoundaryCondition<T>)> {
-        self.boundary_conditions.iter()
+        self.boundary_conditions
+            .iter()
             .map(|(idx, bc)| (idx.index(), bc))
     }
 
     pub fn edges_parallel(&self) -> impl rayon::iter::ParallelIterator<Item = EdgeData<T>> + '_ {
         use rayon::prelude::*;
-        
-        self.graph.edge_references()
+
+        self.graph
+            .edge_references()
             .par_bridge()
             .map(|edge| EdgeData {
                 nodes: (edge.source().index(), edge.target().index()),
                 conductance: T::one() / edge.weight().resistance,
             })
     }
-    
+
     pub fn graph(&self) -> &NetworkGraph<Node<T>, ChannelProperties<T>> {
         &self.graph
     }
-    
+
     /// Get iterator over edges (returns `EdgeData` for solver use)
     pub fn edges(&self) -> impl Iterator<Item = EdgeData<T>> + '_ {
-        self.graph.edge_references()
-            .map(|edge| EdgeData {
-                nodes: (edge.source().index(), edge.target().index()),
-                conductance: T::one() / edge.weight().resistance,
-            })
+        self.graph.edge_references().map(|edge| EdgeData {
+            nodes: (edge.source().index(), edge.target().index()),
+            conductance: T::one() / edge.weight().resistance,
+        })
     }
-    
+
     /// Get iterator over edges with full properties (for analysis)
     pub fn edges_with_properties(&self) -> impl Iterator<Item = EdgeProperties<T>> + '_ {
         self.edge_indices.iter().filter_map(move |(id, &idx)| {
@@ -268,42 +295,47 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
             })
         })
     }
-    
+
     /// Get iterator over nodes
     pub fn nodes(&self) -> impl Iterator<Item = &Node<T>> + '_ {
         self.graph.node_weights()
     }
-    
+
     /// Get node index by ID
     pub fn get_node_index(&self, id: &str) -> Option<usize> {
         self.node_indices.get(id).map(|idx| idx.index())
     }
-    
+
     /// Get node index as `NodeIndex` by ID
     pub fn get_node_index_raw(&self, id: &str) -> Option<NodeIndex> {
         self.node_indices.get(id).copied()
     }
-    
+
     /// Get edge ID by index
     pub fn get_edge_id_by_index(&self, idx: petgraph::graph::EdgeIndex) -> Option<String> {
-        self.edge_indices.iter()
+        self.edge_indices
+            .iter()
             .find(|(_, &edge_idx)| edge_idx == idx)
             .map(|(id, _)| id.clone())
     }
-    
+
     /// Get edges connected to a node
     pub fn node_edges(&self, node_id: &str) -> Result<Vec<EdgeData<T>>> {
-        let node_idx = self.node_indices.get(node_id)
+        let node_idx = self
+            .node_indices
+            .get(node_id)
             .ok_or_else(|| Error::InvalidConfiguration(format!("Node {node_id} not found")))?;
-        
-        Ok(self.graph.edges(*node_idx)
+
+        Ok(self
+            .graph
+            .edges(*node_idx)
             .map(|edge| EdgeData {
                 nodes: (edge.source().index(), edge.target().index()),
                 conductance: T::one() / edge.weight().resistance,
             })
             .collect())
     }
-    
+
     pub fn node_indices(&self) -> &HashMap<String, NodeIndex> {
         &self.node_indices
     }

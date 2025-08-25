@@ -44,7 +44,7 @@ impl<T: RealField + Copy> LinearInterpolation<T> {
                 "x_data and y_data must have the same length".to_string(),
             ));
         }
-        
+
         if x_data.len() < 2 {
             return Err(Error::InvalidConfiguration(
                 "Need at least 2 points for interpolation".to_string(),
@@ -114,10 +114,7 @@ impl<T: RealField + Copy> Interpolation<T> for LinearInterpolation<T> {
     }
 
     fn bounds(&self) -> (T, T) {
-        (
-            self.x_data[0],
-            self.x_data[self.x_data.len() - 1],
-        )
+        (self.x_data[0], self.x_data[self.x_data.len() - 1])
     }
 }
 
@@ -152,7 +149,7 @@ impl<T: RealField + FromPrimitive + Copy> CubicSplineInterpolation<T> {
                 "x_data and y_data must have the same length".to_string(),
             ));
         }
-        
+
         if x_data.len() < 3 {
             return Err(Error::InvalidConfiguration(
                 "Need at least 3 points for cubic spline interpolation".to_string(),
@@ -251,17 +248,13 @@ impl<T: RealField + FromPrimitive + Copy> Interpolation<T> for CubicSplineInterp
         let dx = x - self.x_data[idx];
         let result = self.coefficients.a[idx]
             + dx * (self.coefficients.b[idx]
-                + dx * (self.coefficients.c[idx]
-                    + dx * self.coefficients.d[idx]));
+                + dx * (self.coefficients.c[idx] + dx * self.coefficients.d[idx]));
 
         Ok(result)
     }
 
     fn bounds(&self) -> (T, T) {
-        (
-            self.x_data[0],
-            self.x_data[self.x_data.len() - 1],
-        )
+        (self.x_data[0], self.x_data[self.x_data.len() - 1])
     }
 }
 
@@ -279,7 +272,7 @@ impl<T: RealField + Copy> LagrangeInterpolation<T> {
                 "x_data and y_data must have the same length".to_string(),
             ));
         }
-        
+
         if x_data.is_empty() {
             return Err(Error::InvalidConfiguration(
                 "Need at least 1 point for interpolation".to_string(),
@@ -304,7 +297,8 @@ impl<T: RealField + Copy> LagrangeInterpolation<T> {
 impl<T: RealField + Copy> Interpolation<T> for LagrangeInterpolation<T> {
     fn interpolate(&self, x: T) -> Result<T> {
         // Use iterator combinators with enumerate for zero-copy optimization
-        Ok(self.y_data
+        Ok(self
+            .y_data
             .iter()
             .enumerate()
             .map(|(i, yi)| *yi * self.lagrange_basis(i, &x))
@@ -314,13 +308,15 @@ impl<T: RealField + Copy> Interpolation<T> for LagrangeInterpolation<T> {
 
     /// Get the bounds of the interpolation domain
     fn bounds(&self) -> (T, T) {
-        let min = self.x_data.iter().min_by(|a, b| {
-            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-        });
-        let max = self.x_data.iter().max_by(|a, b| {
-            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-        });
-        
+        let min = self
+            .x_data
+            .iter()
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let max = self
+            .x_data
+            .iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
         match (min, max) {
             (Some(min_val), Some(max_val)) => (*min_val, *max_val),
             _ => (T::zero(), T::zero()), // Should never happen due to constructor validation
@@ -337,18 +333,18 @@ mod tests {
     fn test_linear_interpolation() -> Result<()> {
         let x_data = vec![0.0, 1.0, 2.0];
         let y_data = vec![0.0, 1.0, 4.0];
-        
+
         let interp = LinearInterpolation::new(x_data, y_data)?;
-        
+
         // Test exact points
         assert_eq!(interp.interpolate(0.0)?, 0.0);
         assert_eq!(interp.interpolate(1.0)?, 1.0);
         assert_eq!(interp.interpolate(2.0)?, 4.0);
-        
+
         // Test interpolation
         assert_relative_eq!(interp.interpolate(0.5)?, 0.5, epsilon = 1e-10);
         assert_relative_eq!(interp.interpolate(1.5)?, 2.5, epsilon = 1e-10);
-        
+
         Ok(())
     }
 
@@ -356,17 +352,17 @@ mod tests {
     fn test_cubic_spline_interpolation() -> Result<()> {
         let x_data = vec![0.0, 1.0, 2.0, 3.0];
         let y_data = vec![0.0, 1.0, 4.0, 9.0];
-        
+
         let spline = CubicSplineInterpolation::new(x_data, y_data)?;
-        
+
         // Test exact points
         assert_relative_eq!(spline.interpolate(0.0)?, 0.0, epsilon = 1e-10);
         assert_relative_eq!(spline.interpolate(2.0)?, 4.0, epsilon = 1e-10);
-        
+
         // Test smoothness (approximate for quadratic)
         assert_relative_eq!(spline.interpolate(1.5)?, 2.25, epsilon = 0.1);
         assert_relative_eq!(spline.interpolate(2.5)?, 6.25, epsilon = 0.1);
-        
+
         Ok(())
     }
 
@@ -374,17 +370,17 @@ mod tests {
     fn test_lagrange_interpolation() -> Result<()> {
         let x_data = vec![0.0, 1.0, 2.0];
         let y_data = vec![1.0, 3.0, 7.0];
-        
+
         let interp = LagrangeInterpolation::new(x_data, y_data)?;
-        
+
         // Test exact points
         assert_relative_eq!(interp.interpolate(0.0)?, 1.0, epsilon = 1e-10);
         assert_relative_eq!(interp.interpolate(1.0)?, 3.0, epsilon = 1e-10);
         assert_relative_eq!(interp.interpolate(2.0)?, 7.0, epsilon = 1e-10);
-        
+
         // Test interpolation (quadratic: y = x^2 + x + 1)
         assert_relative_eq!(interp.interpolate(0.5)?, 1.75, epsilon = 1e-10);
-        
+
         Ok(())
     }
 }

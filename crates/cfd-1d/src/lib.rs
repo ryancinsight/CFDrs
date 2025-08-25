@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 //! 1D CFD simulations and microfluidic network solvers.
-//! 
+//!
 //! This crate provides 1D computational fluid dynamics solvers specifically
 //! designed for microfluidic and millifluidic networks. It includes support
 //! for:
@@ -8,9 +8,9 @@
 //! - Electrical circuit analogy solvers
 //! - Pressure-driven flow simulations
 //! - Component-based microfluidic devices
-//! 
+//!
 //! ## 2D Schematic Support
-//! 
+//!
 //! This crate is designed to integrate with the `scheme` library for
 //! 2D schematic representation of 1D microfluidic networks, similar to
 //! how `cfd-3d` integrates with `csgrs` for 3D mesh handling.
@@ -20,12 +20,12 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 
-pub mod network;
+pub mod analysis;
 pub mod channel;
 pub mod components;
-pub mod solver;
+pub mod network;
 pub mod resistance;
-pub mod analysis;
+pub mod solver;
 
 #[cfg(feature = "scheme-integration")]
 pub mod scheme_integration;
@@ -36,41 +36,39 @@ pub mod scheme_integration;
 
 // Export network functionality
 pub use network::{
-    Network, Node, Edge, NetworkBuilder, NetworkGraph, NodeType, EdgeType,
-    BoundaryCondition, NodeProperties, EdgeProperties, NetworkMetadata,
-    ChannelProperties,
+    BoundaryCondition, ChannelProperties, Edge, EdgeProperties, EdgeType, Network, NetworkBuilder,
+    NetworkGraph, NetworkMetadata, Node, NodeProperties, NodeType,
 };
 
 // Export solver functionality
 pub use solver::{
-    NetworkSolver,
-    NetworkProblem, NetworkState, NetworkDomain,
-    MatrixAssembler, LinearSystemSolver, ConvergenceChecker,
+    ConvergenceChecker, LinearSystemSolver, MatrixAssembler, NetworkDomain, NetworkProblem,
+    NetworkSolver, NetworkState,
 };
 
 // Export component functionality
 pub use components::{
-    Component, RectangularChannel, CircularChannel, Micropump, Microvalve,
-    FlowSensor, Micromixer, ComponentFactory, PumpType, ValveType, SensorType, MixerType,
+    CircularChannel, Component, ComponentFactory, FlowSensor, Micromixer, Micropump, Microvalve,
+    MixerType, PumpType, RectangularChannel, SensorType, ValveType,
 };
 
 // Export analysis functionality
 pub use analysis::{
-    NetworkAnalyzer, FlowAnalysis, PressureAnalysis, ResistanceAnalysis,
-    PerformanceMetrics, NetworkAnalysisResult,
+    FlowAnalysis, NetworkAnalysisResult, NetworkAnalyzer, PerformanceMetrics, PressureAnalysis,
+    ResistanceAnalysis,
 };
 
 // Export channel functionality
 pub use channel::{
-    Channel, ChannelGeometry, ChannelType, CrossSection, SurfaceProperties,
-    FlowState, FlowRegime, NumericalParameters, Wettability,
+    Channel, ChannelGeometry, ChannelType, CrossSection, FlowRegime, FlowState,
+    NumericalParameters, SurfaceProperties, Wettability,
 };
 
 // Export resistance functionality
 pub use resistance::{
-    ResistanceModel, FlowConditions, HagenPoiseuilleModel, RectangularChannelModel,
-    DarcyWeisbachModel, ResistanceModelFactory, ResistanceCalculator,
-    ChannelGeometry as ResistanceChannelGeometry, CombinationMethod,
+    ChannelGeometry as ResistanceChannelGeometry, CombinationMethod, DarcyWeisbachModel,
+    FlowConditions, HagenPoiseuilleModel, RectangularChannelModel, ResistanceCalculator,
+    ResistanceModel, ResistanceModelFactory,
 };
 
 /// 1D CFD domain-specific prelude for microfluidic networks
@@ -83,18 +81,25 @@ pub use resistance::{
 pub mod prelude {
     // === Scheme Integration (2D Visualization) ===
     // Tools for converting 1D networks to 2D schematics
-    pub use crate::scheme_integration::{SchemeConversion, ComponentType, SchematicLayout};
+    pub use crate::scheme_integration::{ComponentType, SchematicLayout, SchemeConversion};
 
     #[cfg(feature = "scheme-integration")]
-    pub use crate::scheme_integration::{JunctionType, ChannelPathType, helpers};
+    pub use crate::scheme_integration::{helpers, ChannelPathType, JunctionType};
 
     // === Extended Network Components ===
     // Specialized components not in main prelude
     pub use crate::{
-        network::{Node, Edge, NodeType, EdgeType, NodeProperties, EdgeProperties},
-        components::{ComponentFactory, FlowSensor, Micromixer, PumpType, ValveType, SensorType, MixerType},
-        analysis::{PerformanceMetrics, NetworkAnalysisResult},
-        channel::{Channel, ChannelGeometry, ChannelType, CrossSection, SurfaceProperties, FlowState, FlowRegime, Wettability},
-        resistance::{ResistanceModelFactory, ResistanceCalculator, FlowConditions, DarcyWeisbachModel},
+        analysis::{NetworkAnalysisResult, PerformanceMetrics},
+        channel::{
+            Channel, ChannelGeometry, ChannelType, CrossSection, FlowRegime, FlowState,
+            SurfaceProperties, Wettability,
+        },
+        components::{
+            ComponentFactory, FlowSensor, Micromixer, MixerType, PumpType, SensorType, ValveType,
+        },
+        network::{Edge, EdgeProperties, EdgeType, Node, NodeProperties, NodeType},
+        resistance::{
+            DarcyWeisbachModel, FlowConditions, ResistanceCalculator, ResistanceModelFactory,
+        },
     };
 }

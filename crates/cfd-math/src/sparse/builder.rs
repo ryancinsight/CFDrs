@@ -62,9 +62,10 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     /// Add a single entry
     pub fn add_entry(&mut self, row: usize, col: usize, value: T) -> Result<()> {
         if row >= self.rows || col >= self.cols {
-            return Err(Error::InvalidConfiguration(
-                format!("Entry ({}, {}) out of bounds for {}x{} matrix", row, col, self.rows, self.cols)
-            ));
+            return Err(Error::InvalidConfiguration(format!(
+                "Entry ({}, {}) out of bounds for {}x{} matrix",
+                row, col, self.rows, self.cols
+            )));
         }
         self.entries.push(MatrixEntry::new(row, col, value));
         Ok(())
@@ -112,7 +113,8 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
 
             for entry in &self.entries {
                 let key = (entry.row, entry.col);
-                entry_map.entry(key)
+                entry_map
+                    .entry(key)
                     .and_modify(|v| *v += entry.value)
                     .or_insert(entry.value);
             }
@@ -135,29 +137,20 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
         }
 
         // Zero-copy parallel aggregation using advanced iterator patterns
-        let entry_map: HashMap<(usize, usize), T> = self.entries
+        let entry_map: HashMap<(usize, usize), T> = self
+            .entries
             .par_iter()
             .map(|entry| ((entry.row, entry.col), entry.value))
-            .fold(
-                HashMap::new,
-                |mut acc, (key, value)| {
-                    acc.entry(key)
-                        .and_modify(|v| *v += value)
-                        .or_insert(value);
-                    acc
+            .fold(HashMap::new, |mut acc, (key, value)| {
+                acc.entry(key).and_modify(|v| *v += value).or_insert(value);
+                acc
+            })
+            .reduce(HashMap::new, |mut acc, map| {
+                for (key, value) in map {
+                    acc.entry(key).and_modify(|v| *v += value).or_insert(value);
                 }
-            )
-            .reduce(
-                HashMap::new,
-                |mut acc, map| {
-                    for (key, value) in map {
-                        acc.entry(key)
-                            .and_modify(|v| *v += value)
-                            .or_insert(value);
-                    }
-                    acc
-                }
-            );
+                acc
+            });
 
         // Build COO matrix from aggregated entries
         let mut coo = CooMatrix::new(self.rows, self.cols);

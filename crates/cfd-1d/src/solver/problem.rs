@@ -3,12 +3,12 @@
 use super::domain::NetworkDomain;
 use super::state::NetworkState;
 use crate::network::Network;
+use cfd_core::{boundary::BoundaryConditionSet, fluid::Fluid, Problem, Result};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
-use cfd_core::{Problem, fluid::Fluid, boundary::BoundaryConditionSet, Result};
 
 /// Problem definition for 1D network flow analysis
-/// 
+///
 /// This encapsulates the network state and configuration as a Problem that can be
 /// solved using the core trait system, enabling polymorphism and plugin architecture.
 #[derive(Debug, Clone)]
@@ -28,7 +28,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkProblem<T> {
     pub fn new(network: Network<T>) -> Self {
         let node_count = network.node_count();
         let characteristic_length = network.characteristic_length();
-        
+
         Self {
             domain: NetworkDomain::new(node_count, characteristic_length),
             fluid: network.fluid().clone(),

@@ -25,18 +25,17 @@ pub trait StatisticsIteratorExt: Iterator {
         Self: Iterator<Item = T> + Sized,
         T: RealField + Copy + FromPrimitive,
     {
-        let (count, _mean, m2) = self.fold(
-            (0usize, T::zero(), T::zero()),
-            |(count, mean, m2), x| {
+        let (count, _mean, m2) =
+            self.fold((0usize, T::zero(), T::zero()), |(count, mean, m2), x| {
                 let current_count = count + 1;
                 let delta = x - mean;
-                let current_mean = mean + delta / T::from_usize(current_count).unwrap_or_else(T::zero);
+                let current_mean =
+                    mean + delta / T::from_usize(current_count).unwrap_or_else(T::zero);
                 let delta2 = x - current_mean;
                 let current_m2 = m2 + delta * delta2;
                 (current_count, current_mean, current_m2)
-            }
-        );
-        
+            });
+
         if count > 1 {
             T::from_usize(count - 1).map(|n| m2 / n)
         } else {

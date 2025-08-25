@@ -7,21 +7,19 @@
 //! - Boundary Conditions: Physical constraints and conditions
 //! - Material Properties: Physical properties and constitutive relations
 
-pub mod fluid_dynamics;
-pub mod numerical_methods;
-pub mod mesh_operations;
 pub mod boundary_conditions;
+pub mod fluid_dynamics;
 pub mod material_properties;
+pub mod mesh_operations;
+pub mod numerical_methods;
 
 // Re-export domain-specific functionality
-pub use fluid_dynamics::{
-    FlowField, VelocityField, PressureField, ScalarField,
-    TurbulenceModel, SmagorinskyModel, MixingLengthModel,
-    RANSModel, KEpsilonModel, KEpsilonConstants,
-    FlowRegime, FlowClassifier,
-    FlowOperations
-};
-pub use numerical_methods::{DiscretizationScheme, TimeIntegrationScheme, LinearSystemSolver};
-pub use mesh_operations::{MeshGeneration, MeshRefinement, MeshQuality};
 pub use boundary_conditions::BoundaryConditionApplicator;
-pub use material_properties::{FluidProperties, SolidProperties, InterfaceProperties};
+pub use fluid_dynamics::{
+    FlowClassifier, FlowField, FlowOperations, FlowRegime, KEpsilonConstants, KEpsilonModel,
+    MixingLengthModel, PressureField, RANSModel, ScalarField, SmagorinskyModel, TurbulenceModel,
+    VelocityField,
+};
+pub use material_properties::{FluidProperties, InterfaceProperties, SolidProperties};
+pub use mesh_operations::{MeshGeneration, MeshQuality, MeshRefinement};
+pub use numerical_methods::{DiscretizationScheme, LinearSystemSolver, TimeIntegrationScheme};
