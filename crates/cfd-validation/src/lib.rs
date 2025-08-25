@@ -21,8 +21,8 @@ pub mod time_integration_validation;
 pub use analytical::AnalyticalSolution;
 pub use benchmarks::{Benchmark, BenchmarkResult};
 pub use conservation::ConservationChecker;
-pub use convergence::{ConvergenceCriteria, ConvergenceMonitor};
-pub use error_metrics::{ErrorMetric, ErrorNorm};
+pub use convergence::{ConvergenceCriterion, ConvergenceStatus, ConvergenceStudy, RichardsonExtrapolation, GridConvergenceIndex};
+pub use error_metrics::{ErrorMetric, ErrorAnalysis};
 
 /// Basic validation test for Poiseuille flow
 /// 

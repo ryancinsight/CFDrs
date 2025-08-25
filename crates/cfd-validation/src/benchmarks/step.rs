@@ -53,8 +53,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
         
         // Initialize fields
         let mut u = DMatrix::<T>::zeros(ny, nx);
-        let v = DMatrix::<T>::zeros(ny, nx);
-        let p = DMatrix::<T>::zeros(ny, nx);
+        let mut v = DMatrix::<T>::zeros(ny, nx);
+        let mut p = DMatrix::<T>::zeros(ny, nx);
         
         // Set parabolic inlet profile
         let h_inlet = self.channel_height - self.step_height;

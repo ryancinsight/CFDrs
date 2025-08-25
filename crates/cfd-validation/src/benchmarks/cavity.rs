@@ -50,12 +50,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for LidDrivenCavit
         let mut omega = DMatrix::<T>::zeros(n, n);
         let mut psi_prev = psi.clone();
         
-        // Reynolds number calculation
-        let reynolds = self.lid_velocity * self.size / config.viscosity;
+        // Calculate viscosity from Reynolds number
+        let viscosity = self.lid_velocity * self.size / config.reynolds_number;
         
         // Time stepping parameters
         let dt = T::from_f64(0.001).ok_or_else(|| 
-            Error::Numerical("Cannot convert time step factor".into()))? * dx * dx / config.viscosity;
+            Error::Numerical("Cannot convert time step factor".into()))? * dx * dx / viscosity;
         let mut convergence = Vec::new();
         let mut iteration = 0;
         
