@@ -11,7 +11,7 @@ pub use criteria::*;
 pub trait RefinementStrategy<T: RealField + Copy>: Send + Sync {
     /// Apply refinement to mesh
     fn refine(&self, mesh: &mut crate::mesh::Mesh<T>) -> Result<(), crate::error::MeshError>;
-    
+
     /// Get strategy name
     fn name(&self) -> &str;
 }
@@ -24,7 +24,7 @@ impl<T: RealField + Copy> RefinementStrategy<T> for UniformRefinement {
         // Implementation would go here
         Ok(())
     }
-    
+
     fn name(&self) -> &str {
         "Uniform"
     }
@@ -40,7 +40,7 @@ impl<T: RealField + Copy> RefinementStrategy<T> for AdaptiveRefinement<T> {
         // Implementation would go here
         Ok(())
     }
-    
+
     fn name(&self) -> &str {
         "Adaptive"
     }

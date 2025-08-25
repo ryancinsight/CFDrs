@@ -1,3 +1,4 @@
+use cfd_math::NormIteratorExt;
 use cfd_math::{
     differentiation::FiniteDifference,
     integration::{GaussQuadrature, Quadrature},

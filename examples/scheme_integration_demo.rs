@@ -38,17 +38,17 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     // Create a simple bifurcation network
     println!("\n1. Creating a simple bifurcation network...");
-    let simple_system = helpers::create_bifurcation_schematic(200.0, 100.0, 2)?;
+    let bifurcation_system = helpers::create_bifurcation_schematic(200.0, 100.0, 2)?;
     println!(
         "   Created system with {} nodes and {} channels",
-        simple_system.nodes.len(),
-        simple_system.channels.len()
+        bifurcation_system.nodes.len(),
+        bifurcation_system.channels.len()
     );
 
     // Export to PNG
     println!("\n2. Exporting to PNG...");
-    helpers::export_to_png(&simple_system, "simple_bifurcation.png")?;
-    println!("   Saved to simple_bifurcation.png");
+    helpers::export_to_png(&bifurcation_system, "bifurcation.png")?;
+    println!("   Saved to bifurcation.png");
 
     // Create a more complex system with mixed channel types
     println!("\n3. Creating a complex system with serpentine channels...");

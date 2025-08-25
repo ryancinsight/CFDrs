@@ -70,9 +70,9 @@ mod couette_tests {
     #[test]
     fn test_couette_linear_profile() {
         let solution = CouetteFlow::<f64>::create(
-            1.0,  // wall_velocity
-            1.0,  // gap_height
-            0.0,  // no pressure gradient
+            1.0,   // wall_velocity
+            1.0,   // gap_height
+            0.0,   // no pressure gradient
             0.001, // viscosity
         );
 
@@ -102,7 +102,7 @@ mod couette_tests {
         // Combined Couette-Poiseuille flow has a parabolic component
         // The velocity profile is no longer linear
         let mid_velocity = solution.evaluate(0.0, HALF, 0.0, 0.0);
-        
+
         // With negative pressure gradient, velocity at midpoint increases
         assert!(mid_velocity.x > HALF);
     }
@@ -116,16 +116,17 @@ mod taylor_green_tests {
     #[test]
     fn test_taylor_green_initial_condition() {
         let solution = TaylorGreenVortex::<f64>::create(
-            1.0,    // length_scale
-            1.0,    // velocity_scale
-            0.01,   // viscosity
-            1.0,    // density
-            false,  // 2D version
+            1.0,   // length_scale
+            1.0,   // velocity_scale
+            0.01,  // viscosity
+            1.0,   // density
+            false, // 2D version
         );
 
         // At t=0, check initial velocity field
         let v = solution.evaluate(0.0, 0.0, 0.0, 0.0);
-        assert_relative_eq!(v.x, 1.0, epsilon = 1e-6); // cos(0)*sin(0) = 1*0 = 0, but need to check actual implementation
+        // For 2D TG: u = U cos(kx) sin(ky) exp(-νk²t); at (0,0) this is 0
+        assert_relative_eq!(v.x, 0.0, epsilon = 1e-6);
 
         // Check that it's divergence-free
         // ∇·v = 0 for incompressible flow
@@ -135,11 +136,11 @@ mod taylor_green_tests {
     #[test]
     fn test_taylor_green_energy_decay() {
         let solution = TaylorGreenVortex::<f64>::create(
-            1.0,    // length_scale
-            1.0,    // velocity_scale
-            0.01,   // viscosity
-            1.0,    // density
-            false,  // 2D version
+            1.0,   // length_scale
+            1.0,   // velocity_scale
+            0.01,  // viscosity
+            1.0,   // density
+            false, // 2D version
         );
 
         // Sample kinetic energy at different times

@@ -12,15 +12,3 @@ mod errors;
 // mod transform;
 
 pub use errors::CsgError;
-
-// Placeholder types for API compatibility
-// These will be replaced with actual implementations when CSG is fully developed
-#[derive(Debug, Clone)]
-pub struct CsgMeshAdapter;
-
-impl CsgMeshAdapter {
-    /// Placeholder constructor
-    pub fn placeholder() -> Self {
-        Self
-    }
-}

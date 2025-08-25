@@ -1,88 +1,48 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.57.0 - Current State
+## Version 0.57.2 - Current State
 
 ### Completed ✅
-- [x] Compilation without errors (fixed all build issues)
-- [x] All tests passing (209 tests - increased from 161)
-- [x] Examples executable
-- [x] Memory safety (Rust guaranteed)
-- [x] Type safety implementation
-- [x] Core CFD algorithms implemented
-- [x] Domain-driven architecture
-- [x] Error handling with Result types
-- [x] Basic documentation
-- [x] Fixed Error type usage (Numerical -> InvalidInput)
-- [x] Added ToPrimitive trait bounds where needed
-- [x] Corrected Poiseuille flow validation test
+- [x] Workspace builds without errors
+- [x] All tests pass (workspace)
+- [x] Examples compile and run
+- [x] Memory safety (Rust)
+- [x] Result-based error handling
+- [x] Analytical validations: Couette, Poiseuille (plates), Taylor-Green
+- [x] Removed placeholder CSG constructor
+- [x] Fixed benches: iterator trait import, Poiseuille API, sparse matvec
 
 ### In Progress ⚠️
-- [ ] Physics validation (0% - framework exists, not implemented)
-- [ ] Performance optimization (0% - not started)
-- [ ] Test coverage expansion (45% - core paths only)
-- [ ] Module refactoring (5 modules >500 LOC)
-- [ ] Panic point reduction (142 remain - increased due to better counting)
+- [ ] Module refactoring (files >500 LOC split by domain/feature)
+- [ ] Replace magic numbers with named constants; document constants
+- [ ] Expand physics validation set (MMS, benchmark datasets)
+- [ ] Reduce warnings (unused imports/vars) and add docs for public items
 
-### Not Started ❌
-- [ ] Parallelization
-- [ ] SIMD optimization
-- [ ] Comprehensive benchmarks
-- [ ] Production hardening
-- [ ] API documentation completion
-- [ ] CI/CD pipeline
-- [ ] Fuzz testing
+### Planned ❌
+- [ ] Parallelization and profiling
+- [ ] SIMD/SWAR where safe and portable
+- [ ] CI with lint + test matrix
+- [ ] Property-based/fuzz testing
 
-## Technical Debt Inventory
-
-### High Priority (Blocking Production)
-1. **Physics Validation**: Required for trust in results
-2. **Performance**: Unknown characteristics, likely slow
-3. **Test Coverage**: 45% insufficient for production
-
-### Medium Priority (Quality Issues)
-1. **Large Modules**: 5 files >500 LOC violate SLAP
-2. **Panic Points**: 107 potential panics (mostly safe)
-3. **Documentation**: API docs incomplete
-
-### Low Priority (Nice to Have)
-1. **Clippy Warnings**: 168 style issues
-2. **Code Comments**: Some complex algorithms lack explanation
-3. **Examples**: Could use more variety
+## Principles Enforcement
+- SSOT/SPOT: constants as single source; no duplicated thresholds
+- Naming: no adjectives in identifiers; domain terms only
+- CUPID/SOLID: traits and enums for composition; avoid factory coupling unless needed
+- SLAP/DRY: split mixed-concern modules, deduplicate logic
 
 ## Risk Assessment
-
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| Incorrect physics | High | Critical | Requires validation |
-| Runtime panic | Low | Medium | 107 points identified |
-| Poor performance | Certain | High | Needs optimization |
-| Memory leak | Very Low | Low | Rust prevents |
+| Incorrect physics | Medium | High | Expand validation set |
+| Runtime panic | Low | Medium | Replace unwrap/expect, tests |
+| Performance gaps | High | Medium | Profile, parallelize hot paths |
 
-## Production Readiness: 40%
+## Readiness
+- Research/education/prototyping: Yes
+- Production/published research: Not yet (needs validation scope, performance, docs)
 
-### What Works
-- Core functionality
-- Type/memory safety
-- Basic algorithms
-- Test framework
-
-### What's Missing
-- Validation
-- Optimization  
-- Edge case handling
-- Documentation
-
-## Time to Production: ~10 weeks
-
-1. Validation: 4 weeks
-2. Optimization: 3 weeks
-3. Testing: 2 weeks
-4. Documentation: 1 week
-
-## Recommendation
-
-**Current State**: Research-grade software
-**Suitable For**: Research, education, prototyping
-**Not Suitable For**: Production, commercial use, published research
-
-The code works but lacks the validation and optimization required for production deployment.
+## Next Milestones
+1. Split `cfd-core/time.rs` into `time/integrators.rs` and `time/controllers.rs`
+2. Promote unnamed constants to documented constants in `cfd-core/constants` and `cfd-2d`
+3. Add MMS tests for diffusion/advection; expand Poiseuille pipe case
+4. CI: build + test + fmt + clippy gates

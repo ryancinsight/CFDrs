@@ -3,8 +3,8 @@
 //! This module provides grid generation functionality for CFD simulations,
 //! including structured and unstructured grid types.
 
+use crate::mesh::{Cell, Face, Vertex};
 use nalgebra::RealField;
-use crate::mesh::{Vertex, Face, Cell};
 
 /// Grid types
 #[derive(Debug, Clone, Copy)]
@@ -43,7 +43,8 @@ pub struct Grid<T: RealField + Copy> {
 
 impl<T: RealField + Copy> Grid<T> {
     /// Create a new grid
-    #[must_use] pub fn new(grid_type: GridType, nx: usize, ny: usize, nz: usize) -> Self {
+    #[must_use]
+    pub fn new(grid_type: GridType, nx: usize, ny: usize, nz: usize) -> Self {
         Self {
             vertices: Vec::new(),
             faces: Vec::new(),
@@ -53,13 +54,18 @@ impl<T: RealField + Copy> Grid<T> {
                 nx,
                 ny,
                 nz,
-                bounds: ((T::zero(), T::one()), (T::zero(), T::one()), (T::zero(), T::one())),
+                bounds: (
+                    (T::zero(), T::one()),
+                    (T::zero(), T::one()),
+                    (T::zero(), T::one()),
+                ),
             },
         }
     }
-    
+
     /// Get total number of cells
-    #[must_use] pub fn cell_count(&self) -> usize {
+    #[must_use]
+    pub fn cell_count(&self) -> usize {
         self.dimensions.nx * self.dimensions.ny * self.dimensions.nz
     }
 }
