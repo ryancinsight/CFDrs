@@ -66,7 +66,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
                                           (y - T::from_f64(0.5).unwrap()));
         }
         
-        // Simple iterative solver for demonstration
+        // Iterative solver for demonstration
         let mut convergence = Vec::new();
         let mut max_residual = T::one();
         
@@ -78,7 +78,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
                 for j in 1..ny-1 {
                     let u_old = u[(i, j)];
                     
-                    // Simple Gauss-Seidel update for momentum equation
+                    // Gauss-Seidel update for momentum equation
                     // This is a simplified implementation for benchmarking
                     let u_new = (u[(i+1, j)] + u[(i-1, j)] + u[(i, j+1)] + u[(i, j-1)]) / 
                                T::from_f64(4.0).unwrap_or_else(T::one);
