@@ -87,6 +87,11 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> SORPreconditioner<T> {
         })
     }
 
+    /// Get the relaxation parameter omega
+    pub fn omega(&self) -> T {
+        self.omega
+    }
+    
     /// Create SOR preconditioner with omega optimized for 1D Poisson problems
     ///
     /// ## Warning

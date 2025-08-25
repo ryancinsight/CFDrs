@@ -151,6 +151,52 @@ impl<T: RealField + Copy> LinearSolverConfig<T> {
     {
         self.tolerance
     }
+    
+    /// Create a builder for configuration
+    #[must_use] 
+    pub fn builder() -> LinearSolverConfigBuilder<T>
+    where
+        T: FromPrimitive,
+    {
+        LinearSolverConfigBuilder::new()
+    }
+}
+
+/// Builder for linear solver configuration
+pub struct LinearSolverConfigBuilder<T: RealField + Copy> {
+    config: LinearSolverConfig<T>,
+}
+
+impl<T: RealField + Copy + FromPrimitive> LinearSolverConfigBuilder<T> {
+    /// Create a new builder
+    pub fn new() -> Self {
+        Self {
+            config: LinearSolverConfig::default(),
+        }
+    }
+    
+    /// Set maximum iterations
+    pub fn max_iterations(mut self, max_iter: usize) -> Self {
+        self.config.max_iterations = max_iter;
+        self
+    }
+    
+    /// Set tolerance
+    pub fn tolerance(mut self, tol: T) -> Self {
+        self.config.tolerance = tol;
+        self
+    }
+    
+    /// Enable preconditioning
+    pub fn preconditioning(mut self, enable: bool) -> Self {
+        self.config.preconditioning = enable;
+        self
+    }
+    
+    /// Build the configuration
+    pub fn build(self) -> LinearSolverConfig<T> {
+        self.config
+    }
 }
 
 /// Network solver configuration

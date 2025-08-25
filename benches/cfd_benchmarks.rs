@@ -109,7 +109,7 @@ fn benchmark_fluid_calculations(c: &mut Criterion) {
     
     let mut group = c.benchmark_group("fluid_calculations");
     
-    let fluid = Fluid::newtonian("water", 1000.0, 0.001);
+    let fluid = Fluid::constant_viscosity("water", 1000.0, 0.001);
     
     group.bench_function("reynolds_number", |b| {
         b.iter(|| {

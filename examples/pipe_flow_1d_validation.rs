@@ -33,7 +33,7 @@ fn main() -> Result<()> {
     println!("  Pressure gradient: {} Pa/m", pressure_drop / pipe_length);
     
     // Create fluid with specified properties
-    let fluid = Fluid::newtonian("Test Fluid", fluid_density, fluid_viscosity);
+    let fluid = Fluid::constant_viscosity("Test Fluid", fluid_density, fluid_viscosity);
     
     // Create 1D network
     let mut network = Network::new(fluid);
