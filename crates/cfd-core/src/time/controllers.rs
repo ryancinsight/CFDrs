@@ -72,7 +72,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> VariableTimeStep<T> {
         }
 
         let exponent = T::one() / T::from_usize(order).unwrap_or_else(|| T::one());
-        let factor = self.safety_factor * num_traits::Float::powf(self.target_error / error, exponent);
+        let factor =
+            self.safety_factor * num_traits::Float::powf(self.target_error / error, exponent);
 
         let current_dt = current_dt * factor;
         let max_dt = num_traits::Float::max(current_dt, self.dt_min);
@@ -82,8 +83,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> VariableTimeStep<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::time::integrators::TimeIntegrator;
     use crate::time::integrators::ForwardEuler;
+    use crate::time::integrators::TimeIntegrator;
     use approx::assert_abs_diff_eq;
 
     #[test]
@@ -107,4 +108,3 @@ mod tests {
         assert_abs_diff_eq!(state[0], 0.9, epsilon = 1e-10);
     }
 }
-

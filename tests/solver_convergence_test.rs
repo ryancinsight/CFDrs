@@ -3,7 +3,7 @@
 use cfd_core::solver::LinearSolverConfig;
 use cfd_math::{
     linear_solver::{ConjugateGradient, LinearSolver},
-    sparse::{SparseMatrixBuilder, SparseMatrixExt},
+    sparse::SparseMatrixBuilder,
 };
 use nalgebra::DVector;
 
@@ -80,7 +80,7 @@ fn test_cg_convergence_on_poisson() {
 
 #[test]
 fn test_solver_with_diagonal_preconditioner() {
-    use cfd_math::linear_solver::{JacobiPreconditioner, Preconditioner};
+    use cfd_math::linear_solver::JacobiPreconditioner;
 
     // Create simple SPD system
     let n = 100;

@@ -2,7 +2,6 @@
 //!
 //! These tests verify the correctness of core algorithms against known solutions
 
-use cfd_suite::prelude::*;
 
 #[test]
 fn test_poiseuille_flow_1d() {

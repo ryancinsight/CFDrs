@@ -44,7 +44,7 @@ fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) -> V
     indices
 }
 
-impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
+impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
     /// Create a new FEM solver
     pub fn new(config: FemConfig<T>) -> Self {
         let linear_solver: Box<dyn LinearSolver<T>> = Box::new(ConjugateGradient::new(
@@ -128,7 +128,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
             let elem_matrices = self.calculate_element_matrices(&element, viscosity);
 
             // Assemble into global system
-            self.assemble_element(&mut builder, &mut rhs, &element, &elem_matrices);
+            self.assemble_element(&mut builder, &mut rhs, &element, &elem_matrices)?;
         }
 
         // Apply boundary conditions
@@ -217,7 +217,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
         if element.volume > T::zero() {
             element.volume
         } else {
-            T::one() // Default unit volume
+            T::one()
         }
     }
 
@@ -228,7 +228,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
         _rhs: &mut DVector<T>, // Will be used when body forces are added
         element: &FluidElement<T>,
         matrices: &ElementMatrices<T>,
-    ) {
+    ) -> Result<()> {
         // Map local DOFs to global DOFs
         let n_nodes = element.nodes.len();
         let dofs_per_node = constants::VELOCITY_COMPONENTS + 1;
@@ -243,12 +243,12 @@ impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
                     let global_j = element.nodes[j] * dofs_per_node + k;
 
                     if local_i < matrices.k_e.nrows() && local_j < matrices.k_e.ncols() {
-                        let _ =
-                            builder.add_entry(global_i, global_j, matrices.k_e[(local_i, local_j)]);
+                        builder.add_entry(global_i, global_j, matrices.k_e[(local_i, local_j)])?;
                     }
                 }
             }
         }
+        Ok(())
     }
 
     /// Apply boundary conditions to the system
@@ -269,7 +269,7 @@ impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
                     // Apply penalty method for velocity components
                     for i in 0..constants::VELOCITY_COMPONENTS {
                         let component_dof = dof + i;
-                        let _ = builder.add_entry(component_dof, component_dof, penalty);
+                        builder.add_entry(component_dof, component_dof, penalty)?;
                         if component_dof < rhs.len() {
                             rhs[component_dof] = penalty * velocity[i];
                         }
@@ -279,15 +279,13 @@ impl<T: RealField + FromPrimitive + Copy + Float + Copy> FemSolver<T> {
                     // No-slip wall: zero velocity
                     for i in 0..constants::VELOCITY_COMPONENTS {
                         let component_dof = dof + i;
-                        let _ = builder.add_entry(component_dof, component_dof, penalty);
+                        builder.add_entry(component_dof, component_dof, penalty)?;
                         if component_dof < rhs.len() {
                             rhs[component_dof] = T::zero();
                         }
                     }
                 }
-                _ => {
-                    // Other boundary conditions not implemented yet
-                }
+                _ => { /* Other boundary conditions not implemented yet */ }
             }
         }
 
