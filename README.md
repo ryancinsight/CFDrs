@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 0.57.2** - Research Software
+**Version 0.57.3** - Research Software
 
 ## Status
 
@@ -16,7 +16,7 @@
 - ✅ Result-based error handling
 
 ## Technical Debt (tracked)
-- Modules over 500 LOC to split by feature (e.g., `cfd-core/time.rs`, `cfd-1d/resistance.rs`, `cfd-3d/level_set.rs`)
+- Modules over 500 LOC to split by feature (e.g., `cfd-1d/resistance.rs`, `cfd-3d/level_set.rs`)
 - Missing documentation warnings for constants and fields
 - Validation scope to expand beyond initial cases
 - Parallelization and performance not addressed
@@ -24,7 +24,7 @@
 ## Architecture
 ```
 cfd-suite/
-├── cfd-core/       # Core abstractions, plugin system, time integration
+├── cfd-core/       # Core abstractions, plugin system, time (integrators/, controllers/)
 ├── cfd-math/       # Numerical methods, sparse CSR, solvers
 ├── cfd-mesh/       # Mesh, grid, quality, (CSG gated by feature)
 ├── cfd-1d/         # 1D networks and resistance models
@@ -49,6 +49,7 @@ cargo run --example pipe_flow_1d --release
 ## Validation
 - Analytical: Couette, Poiseuille (plates), Taylor-Green initial/decay
 - Numerical: linear solver convergence tests and criteria
+- Literature placeholder entries removed from public API until validated
 - Add manufactured solutions and benchmark comparisons next
 
 ## Limits (non-exhaustive)

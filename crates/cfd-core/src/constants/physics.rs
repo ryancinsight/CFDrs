@@ -104,6 +104,30 @@ pub mod turbulence {
     pub const SA_SIGMA: f64 = 2.0 / 3.0;
 }
 
+/// Hydraulics and internal flow correlations
+pub mod hydraulics {
+    /// Divisor in the relative roughness term ε/(3.7D) for Colebrook-White
+    pub const COLEBROOK_ROUGHNESS_DIVISOR: f64 = 3.7;
+
+    /// Numerator in the Reynolds term 2.51/(Re sqrt(f)) for Colebrook-White
+    pub const COLEBROOK_REYNOLDS_NUMERATOR: f64 = 2.51;
+
+    /// Blasius correlation coefficient for smooth pipes (Re < 1e5): f = C / Re^n
+    pub const BLASIUS_COEFFICIENT: f64 = 0.316;
+
+    /// Blasius correlation exponent for smooth pipes (Re < 1e5): f = C / Re^n
+    pub const BLASIUS_EXPONENT: f64 = 0.25;
+
+    /// Threshold Reynolds number for Blasius validity
+    pub const BLASIUS_MAX_RE: f64 = 100_000.0;
+
+    /// Haaland explicit correlation factor: 1/sqrt(f) = -1.8 log10( (ε/D/3.7)^1.11 + 6.9/Re )
+    pub const HAALAND_LOG_COEFFICIENT: f64 = -1.8;
+
+    /// Haaland exponent on relative roughness term
+    pub const HAALAND_ROUGHNESS_EXPONENT: f64 = 1.11;
+}
+
 /// Dimensionless numbers thresholds
 pub mod dimensionless {
     /// Critical Reynolds numbers for different geometries

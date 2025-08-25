@@ -1,6 +1,6 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.57.2 - Current State
+## Version 0.57.3 - Current State
 
 ### Completed ✅
 - [x] Workspace builds without errors
@@ -13,8 +13,8 @@
 - [x] Fixed benches: iterator trait import, Poiseuille API, sparse matvec
 
 ### In Progress ⚠️
-- [ ] Module refactoring (files >500 LOC split by domain/feature)
-- [ ] Replace magic numbers with named constants; document constants
+- [ ] Module refactoring (files >500 LOC split by domain/feature) — continuing (`cfd-1d/resistance.rs`, `cfd-3d/level_set.rs`)
+- [x] Replace magic numbers with named constants (hydraulics); document constants
 - [ ] Expand physics validation set (MMS, benchmark datasets)
 - [ ] Reduce warnings (unused imports/vars) and add docs for public items
 
@@ -42,7 +42,7 @@
 - Production/published research: Not yet (needs validation scope, performance, docs)
 
 ## Next Milestones
-1. Split `cfd-core/time.rs` into `time/integrators.rs` and `time/controllers.rs`
+1. Split `cfd-core/time.rs` into `time/integrators.rs` and `time/controllers.rs` (done)
 2. Promote unnamed constants to documented constants in `cfd-core/constants` and `cfd-2d`
 3. Add MMS tests for diffusion/advection; expand Poiseuille pipe case
 4. CI: build + test + fmt + clippy gates

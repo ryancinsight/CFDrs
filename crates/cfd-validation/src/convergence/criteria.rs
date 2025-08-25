@@ -252,14 +252,14 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
         }
 
         let start = self.history.len() - window - 1;
-        let e_old = self.history[start];
-        let e_new = *self.history.last().unwrap();
+        let previous_error = self.history[start];
+        let current_error = *self.history.last().unwrap();
 
-        if e_old <= T::zero() || e_new <= T::zero() {
+        if previous_error <= T::zero() || current_error <= T::zero() {
             return None;
         }
 
-        Some((e_new / e_old).powf(T::one() / T::from_usize(window).unwrap()))
+        Some((current_error / previous_error).powf(T::one() / T::from_usize(window).unwrap()))
     }
 }
 
