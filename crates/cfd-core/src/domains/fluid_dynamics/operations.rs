@@ -53,7 +53,7 @@ impl FlowOperations {
             let dudx = if i > 0 && i < nx - 1 {
                 let idx_plus = k * nx * ny + j * nx + (i + 1);
                 let idx_minus = k * nx * ny + j * nx + (i - 1);
-                (velocity.components[idx_plus].x - velocity.components[idx_minus].x) / (T::from_f64(2.0).unwrap() * dx)
+                (velocity.components[idx_plus].x - velocity.components[idx_minus].x) / (T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()) * dx)
             } else {
                 T::zero()
             };
@@ -61,7 +61,7 @@ impl FlowOperations {
             let dvdy = if j > 0 && j < ny - 1 {
                 let idx_plus = k * nx * ny + (j + 1) * nx + i;
                 let idx_minus = k * nx * ny + (j - 1) * nx + i;
-                (velocity.components[idx_plus].y - velocity.components[idx_minus].y) / (T::from_f64(2.0).unwrap() * dy)
+                (velocity.components[idx_plus].y - velocity.components[idx_minus].y) / (T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()) * dy)
             } else {
                 T::zero()
             };
@@ -69,7 +69,7 @@ impl FlowOperations {
             let dwdz = if k > 0 && k < nz - 1 {
                 let idx_plus = (k + 1) * nx * ny + j * nx + i;
                 let idx_minus = (k - 1) * nx * ny + j * nx + i;
-                (velocity.components[idx_plus].z - velocity.components[idx_minus].z) / (T::from_f64(2.0).unwrap() * dz)
+                (velocity.components[idx_plus].z - velocity.components[idx_minus].z) / (T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()) * dz)
             } else {
                 T::zero()
             };
@@ -87,7 +87,7 @@ impl FlowOperations {
         // Use parallel iteration for better performance
         velocity.components
             .par_iter()
-            .map(|v| T::from_f64(0.5).unwrap() * v.norm_squared())
+            .map(|v| T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one())) * v.norm_squared())
             .collect()
     }
     
@@ -100,7 +100,7 @@ impl FlowOperations {
         // Use parallel iteration for better performance
         vorticity
             .par_iter()
-            .map(|w| T::from_f64(0.5).unwrap() * w.norm_squared())
+            .map(|w| T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one())) * w.norm_squared())
             .collect()
     }
 }
@@ -111,7 +111,6 @@ fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
     i: usize, j: usize, k: usize,
     nx: usize, ny: usize, nz: usize
 ) -> Vector3<T> {
-    let _idx = k * nx * ny + j * nx + i;
     let dx = T::one();
     let dy = T::one();
     let dz = T::one();
@@ -120,7 +119,7 @@ fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
     let dvdz = if k > 0 && k < nz - 1 {
         let idx_plus = (k + 1) * nx * ny + j * nx + i;
         let idx_minus = (k - 1) * nx * ny + j * nx + i;
-        (velocity.components[idx_plus].y - velocity.components[idx_minus].y) / (T::from_f64(2.0).unwrap() * dz)
+        (velocity.components[idx_plus].y - velocity.components[idx_minus].y) / (T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()) * dz)
     } else {
         T::zero()
     };
@@ -128,7 +127,7 @@ fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
     let dwdy = if j > 0 && j < ny - 1 {
         let idx_plus = k * nx * ny + (j + 1) * nx + i;
         let idx_minus = k * nx * ny + (j - 1) * nx + i;
-        (velocity.components[idx_plus].z - velocity.components[idx_minus].z) / (T::from_f64(2.0).unwrap() * dy)
+        (velocity.components[idx_plus].z - velocity.components[idx_minus].z) / (T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()) * dy)
     } else {
         T::zero()
     };
@@ -136,7 +135,7 @@ fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
     let dudz = if k > 0 && k < nz - 1 {
         let idx_plus = (k + 1) * nx * ny + j * nx + i;
         let idx_minus = (k - 1) * nx * ny + j * nx + i;
-        (velocity.components[idx_plus].x - velocity.components[idx_minus].x) / (T::from_f64(2.0).unwrap() * dz)
+        (velocity.components[idx_plus].x - velocity.components[idx_minus].x) / (T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()) * dz)
     } else {
         T::zero()
     };
@@ -144,7 +143,7 @@ fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
     let dwdx = if i > 0 && i < nx - 1 {
         let idx_plus = k * nx * ny + j * nx + (i + 1);
         let idx_minus = k * nx * ny + j * nx + (i - 1);
-        (velocity.components[idx_plus].z - velocity.components[idx_minus].z) / (T::from_f64(2.0).unwrap() * dx)
+        (velocity.components[idx_plus].z - velocity.components[idx_minus].z) / (T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()) * dx)
     } else {
         T::zero()
     };
@@ -152,7 +151,7 @@ fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
     let dvdx = if i > 0 && i < nx - 1 {
         let idx_plus = k * nx * ny + j * nx + (i + 1);
         let idx_minus = k * nx * ny + j * nx + (i - 1);
-        (velocity.components[idx_plus].y - velocity.components[idx_minus].y) / (T::from_f64(2.0).unwrap() * dx)
+        (velocity.components[idx_plus].y - velocity.components[idx_minus].y) / (T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()) * dx)
     } else {
         T::zero()
     };
@@ -160,7 +159,7 @@ fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
     let dudy = if j > 0 && j < ny - 1 {
         let idx_plus = k * nx * ny + (j + 1) * nx + i;
         let idx_minus = k * nx * ny + (j - 1) * nx + i;
-        (velocity.components[idx_plus].x - velocity.components[idx_minus].x) / (T::from_f64(2.0).unwrap() * dy)
+        (velocity.components[idx_plus].x - velocity.components[idx_minus].x) / (T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()) * dy)
     } else {
         T::zero()
     };
