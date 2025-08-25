@@ -101,6 +101,7 @@ pub mod turbulence {
     pub const SA_CW2: f64 = 0.3;
     /// cw3 wall destruction constant
     pub const SA_CW3: f64 = 2.0;
+    /// Spalart-Allmaras model sigma constant
     pub const SA_SIGMA: f64 = 2.0 / 3.0;
 }
 

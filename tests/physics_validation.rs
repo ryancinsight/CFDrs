@@ -15,10 +15,10 @@ fn test_poiseuille_flow_1d() {
     let viscosity = 0.001; // Pa·s (water at 20°C)
     
     // Maximum velocity at centerline
-    let v_max = (pressure_drop * pipe_radius * pipe_radius) / (4.0 * viscosity * pipe_length);
+    let v_max: f64 = (pressure_drop * pipe_radius * pipe_radius) / (4.0 * viscosity * pipe_length);
     
     // Verify against analytical solution
-    let tolerance = 0.01; // 1% error acceptable
+    let tolerance: f64 = 0.01; // 1% error acceptable
     
     // For a parabolic profile, average velocity should be v_max / 2
     let v_avg = v_max / 2.0;
@@ -45,7 +45,7 @@ fn test_heat_diffusion_1d() {
     let tolerance = 0.05; // 5% error acceptable
     
     // This is a placeholder - in real implementation would solve the PDE
-    let computed_temp_ratio = 0.48; // Example computed value
+    let computed_temp_ratio: f64 = 0.48; // Example computed value
     
     assert!((computed_temp_ratio - expected_temp_ratio).abs() < tolerance,
             "Heat diffusion validation failed");
@@ -58,12 +58,12 @@ fn test_mass_conservation() {
     
     let nx = 10;
     let ny = 10;
-    let dx = 0.1;
-    let dy = 0.1;
+    let dx: f64 = 0.1;
+    let dy: f64 = 0.1;
     
     // Create a simple velocity field
-    let mut u = vec![vec![1.0; ny]; nx];
-    let mut v = vec![vec![0.0; ny]; nx];
+    let u = vec![vec![1.0f64; ny]; nx];
+    let v = vec![vec![0.0f64; ny]; nx];
     
     // Compute divergence at interior points
     for i in 1..nx-1 {
@@ -90,7 +90,7 @@ fn test_reynolds_number_calculation() {
     let viscosity = 0.001; // Pa·s
     
     let reynolds = density * velocity * length / viscosity;
-    let expected = 100000.0;
+    let expected: f64 = 100000.0;
     
     assert!((reynolds - expected).abs() < 1.0,
             "Reynolds number calculation incorrect");
