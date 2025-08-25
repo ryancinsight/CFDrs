@@ -7,6 +7,7 @@ use cfd_core::{Result};
 use nalgebra::{RealField, DVector, ComplexField};
 use num_traits::{FromPrimitive, Float, ToPrimitive};
 use std::f64::consts::PI;
+use std::marker::PhantomData;
 
 /// Time integrator trait for validation
 pub trait TimeIntegratorTrait<T: RealField + Copy> {
@@ -20,14 +21,13 @@ pub trait TimeIntegratorTrait<T: RealField + Copy> {
 }
 
 /// Enum wrapper for time integrators to enable trait objects
-#[derive(Debug)]
 pub enum TimeIntegratorEnum<T: RealField + Copy> {
     /// Forward Euler time integrator (first-order explicit method)
-    ForwardEuler(ForwardEuler),
+    ForwardEuler(ForwardEuler, PhantomData<T>),
     /// Second-order Runge-Kutta time integrator (explicit method)
-    RungeKutta2(RungeKutta2),
+    RungeKutta2(RungeKutta2, PhantomData<T>),
     /// Fourth-order Runge-Kutta time integrator (explicit method)
-    RungeKutta4(RungeKutta4),
+    RungeKutta4(RungeKutta4, PhantomData<T>),
 }
 
 impl<T: RealField + Copy + FromPrimitive + Copy> TimeIntegratorTrait<T> for TimeIntegratorEnum<T> {
@@ -36,17 +36,17 @@ impl<T: RealField + Copy + FromPrimitive + Copy> TimeIntegratorTrait<T> for Time
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
         match self {
-            TimeIntegratorEnum::ForwardEuler(integrator) => integrator.step(y, t, dt, f),
-            TimeIntegratorEnum::RungeKutta2(integrator) => integrator.step(y, t, dt, f),
-            TimeIntegratorEnum::RungeKutta4(integrator) => integrator.step(y, t, dt, f),
+            TimeIntegratorEnum::ForwardEuler(integrator, _) => integrator.step(y, t, dt, f),
+            TimeIntegratorEnum::RungeKutta2(integrator, _) => integrator.step(y, t, dt, f),
+            TimeIntegratorEnum::RungeKutta4(integrator, _) => integrator.step(y, t, dt, f),
         }
     }
 
     fn order(&self) -> usize {
         match self {
-            TimeIntegratorEnum::ForwardEuler(_) => 1,
-            TimeIntegratorEnum::RungeKutta2(_) => 2,
-            TimeIntegratorEnum::RungeKutta4(_) => 4,
+            TimeIntegratorEnum::ForwardEuler(_, _) => 1,
+            TimeIntegratorEnum::RungeKutta2(_, _) => 2,
+            TimeIntegratorEnum::RungeKutta4(_, _) => 4,
         }
     }
 }
@@ -182,9 +182,9 @@ impl TimeIntegrationValidator {
 
         // Test different methods
         let methods: Vec<(&str, TimeIntegratorEnum<T>)> = vec![
-            ("ForwardEuler", TimeIntegratorEnum::ForwardEuler(ForwardEuler)),
-            ("RungeKutta2", TimeIntegratorEnum::RungeKutta2(RungeKutta2)),
-            ("RungeKutta4", TimeIntegratorEnum::RungeKutta4(RungeKutta4)),
+            ("ForwardEuler", TimeIntegratorEnum::<T>::ForwardEuler(ForwardEuler, PhantomData)),
+            ("RungeKutta2", TimeIntegratorEnum::<T>::RungeKutta2(RungeKutta2, PhantomData)),
+            ("RungeKutta4", TimeIntegratorEnum::<T>::RungeKutta4(RungeKutta4, PhantomData)),
         ];
 
         for (name, integrator) in methods {
@@ -246,9 +246,9 @@ impl TimeIntegrationValidator {
         let analytical_final = DVector::from_vec(vec![T::one(), T::zero()]);
 
         let methods: Vec<(&str, TimeIntegratorEnum<T>)> = vec![
-            ("ForwardEuler", TimeIntegratorEnum::ForwardEuler(ForwardEuler)),
-            ("RungeKutta2", TimeIntegratorEnum::RungeKutta2(RungeKutta2)),
-            ("RungeKutta4", TimeIntegratorEnum::RungeKutta4(RungeKutta4)),
+            ("ForwardEuler", TimeIntegratorEnum::<T>::ForwardEuler(ForwardEuler, PhantomData)),
+            ("RungeKutta2", TimeIntegratorEnum::<T>::RungeKutta2(RungeKutta2, PhantomData)),
+            ("RungeKutta4", TimeIntegratorEnum::<T>::RungeKutta4(RungeKutta4, PhantomData)),
         ];
 
         for (name, integrator) in methods {

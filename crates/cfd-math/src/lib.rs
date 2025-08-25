@@ -17,10 +17,11 @@ pub mod vectorization;
 
 pub use interpolation::{Interpolation, LinearInterpolation, CubicSplineInterpolation};
 pub use linear_solver::{
-    LinearSolver, LinearSolverConfig, ConjugateGradient, BiCGSTAB, 
+    LinearSolver, ConjugateGradient, BiCGSTAB, 
     Preconditioner, IdentityPreconditioner, JacobiPreconditioner, 
     SORPreconditioner
 };
+// LinearSolverConfig is re-exported from cfd_core in linear_solver module
 pub use sparse::{SparseMatrix, SparseMatrixBuilder};
 pub use differentiation::{FiniteDifference, Gradient};
 pub use integration::{Quadrature, GaussQuadrature};
@@ -34,7 +35,7 @@ pub use vector_ops::{SimdVectorOps, sparse_matvec};
 pub mod prelude {
     pub use crate::{
         interpolation::{Interpolation, LinearInterpolation},
-        linear_solver::{LinearSolver, LinearSolverConfig, ConjugateGradient},
+        linear_solver::{LinearSolver, ConjugateGradient},
         sparse::{SparseMatrix, SparseMatrixBuilder},
         differentiation::FiniteDifference,
         integration::Quadrature,

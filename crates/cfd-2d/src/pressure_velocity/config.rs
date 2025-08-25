@@ -35,15 +35,15 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureVelocityConfig<T> {
                         "Cannot convert tolerance".into()
                     ))?)
                 .build(),
-            dt: T::from_f64(cfd_core::constants::numerical::discretization::CFL_EXPLICIT * cfd_core::constants::numerical::time::SAFETY_FACTOR)
+            dt: T::from_f64(cfd_core::constants::numerical::time::DEFAULT_CFL * cfd_core::constants::numerical::time::TIME_STEP_SAFETY)
                 .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert time step".into()
                 ))?,
-            alpha_u: T::from_f64(cfd_core::constants::numerical::relaxation::VELOCITY)
+            alpha_u: T::from_f64(cfd_core::constants::numerical::relaxation::VELOCITY_RELAXATION)
                 .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert velocity relaxation".into()
                 ))?,
-            alpha_p: T::from_f64(cfd_core::constants::numerical::relaxation::PRESSURE)
+            alpha_p: T::from_f64(cfd_core::constants::numerical::relaxation::PRESSURE_RELAXATION)
                 .ok_or_else(|| cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert pressure relaxation".into()
                 ))?,

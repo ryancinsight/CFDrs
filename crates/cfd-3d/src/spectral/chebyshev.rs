@@ -30,6 +30,11 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
         })
     }
     
+    /// Get the number of collocation points
+    pub fn num_points(&self) -> usize {
+        self.n
+    }
+    
     /// Compute Gauss-Lobatto collocation points
     /// `x_j` = cos(πj/N) for j = 0, 1, ..., N
     fn gauss_lobatto_points(n: usize) -> Result<Vec<T>> {

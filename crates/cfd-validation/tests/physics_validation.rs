@@ -6,7 +6,9 @@
 use cfd_validation::analytical::{TaylorGreenVortex, PoiseuilleFlow, CouetteFlow, AnalyticalSolution};
 use nalgebra::Vector3;
 use approx::assert_relative_eq;
-use cfd_core::constants::numerical::math::{HALF, TWO_THIRDS};
+// Mathematical constants
+const HALF: f64 = 0.5;
+const TWO_THIRDS: f64 = 2.0 / 3.0;
 
 #[cfg(test)]
 mod poiseuille_flow {

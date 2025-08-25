@@ -119,8 +119,14 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
                     let max_value = values.iter().fold(0.0f64, |a, &b| a.max(b.abs()));
                     let min_value = values.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-                    let avg_value = values.iter().cloned().mean().unwrap_or(0.0);
-                    let variance = values.iter().cloned().variance().unwrap_or(0.0);
+                    let avg_value = values.iter().sum::<f64>() / values.len() as f64;
+                    let variance = if values.len() > 1 {
+                        values.iter()
+                            .map(|&x| (x - avg_value).powi(2))
+                            .sum::<f64>() / (values.len() - 1) as f64
+                    } else {
+                        0.0
+                    };
                     let std_dev = variance.sqrt();
                     
                     println!();

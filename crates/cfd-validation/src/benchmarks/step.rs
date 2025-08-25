@@ -66,16 +66,37 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
                                           (y - T::from_f64(0.5).unwrap()));
         }
         
-        // Solver placeholder
+        // Simple iterative solver for demonstration
         let mut convergence = Vec::new();
+        let mut max_residual = T::one();
         
         for iter in 0..config.max_iterations {
-            // Would implement actual CFD solver here
+            let mut local_max_residual = T::zero();
             
-            let residual = T::from_f64(0.001).unwrap_or_else(|| T::from_f64(0.001).unwrap());
-            convergence.push(residual);
+            // Update interior points using finite difference
+            for i in 1..nx-1 {
+                for j in 1..ny-1 {
+                    let u_old = u[(i, j)];
+                    
+                    // Simple Gauss-Seidel update for momentum equation
+                    // This is a simplified implementation for benchmarking
+                    let u_new = (u[(i+1, j)] + u[(i-1, j)] + u[(i, j+1)] + u[(i, j-1)]) / 
+                               T::from_f64(4.0).unwrap_or_else(T::one);
+                    
+                    u[(i, j)] = u_old + T::from_f64(0.7).unwrap_or_else(T::one) * (u_new - u_old);
+                    v[(i, j)] = v[(i, j)] * T::from_f64(0.95).unwrap_or_else(T::one); // Damping
+                    
+                    let residual = (u_new - u_old).abs();
+                    if residual > local_max_residual {
+                        local_max_residual = residual;
+                    }
+                }
+            }
             
-            if residual < config.tolerance {
+            max_residual = local_max_residual;
+            convergence.push(max_residual);
+            
+            if max_residual < config.tolerance {
                 break;
             }
         }
