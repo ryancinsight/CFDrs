@@ -55,7 +55,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Define the source function for Poisson equation: ∇²u = f
     // We'll use f(x,y,z) = -3π²sin(πx)sin(πy)sin(πz)
     // which has the analytical solution u(x,y,z) = sin(πx)sin(πy)sin(πz)
-    let source_function = |point: &nalgebra::Vector3<f64>| -> f64 {
+    let _source_function = |point: &nalgebra::Vector3<f64>| -> f64 {
         let pi = std::f64::consts::PI;
         let x = point.x;
         let y = point.y;

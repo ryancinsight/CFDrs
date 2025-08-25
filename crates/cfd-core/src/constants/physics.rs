@@ -61,27 +61,45 @@ pub mod thermo {
 /// Turbulence model constants
 pub mod turbulence {
     /// k-ε model constants (Launder & Spalding 1974)
+    /// C_μ constant for eddy viscosity calculation
     pub const K_EPSILON_C_MU: f64 = 0.09;
+    /// C₁ε constant for production term
     pub const K_EPSILON_C1: f64 = 1.44;
+    /// C₂ε constant for dissipation term
     pub const K_EPSILON_C2: f64 = 1.92;
+    /// σ_k turbulent Prandtl number for k
     pub const K_EPSILON_SIGMA_K: f64 = 1.0;
+    /// σ_ε turbulent Prandtl number for ε
     pub const K_EPSILON_SIGMA_EPSILON: f64 = 1.3;
     
     /// k-ω SST model constants (Menter 1994)
+    /// α₁ constant for SST limiter
     pub const K_OMEGA_ALPHA1: f64 = 0.31;
+    /// β₁ constant for inner layer
     pub const K_OMEGA_BETA1: f64 = 0.075;
+    /// β₂ constant for outer layer
     pub const K_OMEGA_BETA2: f64 = 0.0828;
+    /// σ_k1 diffusion constant for k (inner)
     pub const K_OMEGA_SIGMA_K1: f64 = 0.85;
+    /// σ_k2 diffusion constant for k (outer)
     pub const K_OMEGA_SIGMA_K2: f64 = 1.0;
+    /// σ_ω1 diffusion constant for ω (inner)
     pub const K_OMEGA_SIGMA_W1: f64 = 0.5;
+    /// σ_ω2 diffusion constant for ω (outer)
     pub const K_OMEGA_SIGMA_W2: f64 = 0.856;
     
     /// Spalart-Allmaras model constants
+    /// cb1 production constant
     pub const SA_CB1: f64 = 0.1355;
+    /// cb2 destruction constant
     pub const SA_CB2: f64 = 0.622;
+    /// cv1 viscosity constant
     pub const SA_CV1: f64 = 7.1;
+    /// cw1 wall destruction constant
     pub const SA_CW1: f64 = 3.24;
+    /// cw2 wall destruction constant
     pub const SA_CW2: f64 = 0.3;
+    /// cw3 wall destruction constant
     pub const SA_CW3: f64 = 2.0;
     pub const SA_SIGMA: f64 = 2.0 / 3.0;
 }

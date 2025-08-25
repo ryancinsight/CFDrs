@@ -29,6 +29,12 @@ impl<T: RealField + FromPrimitive + Copy> RhieChowInterpolation<T> {
         }
     }
     
+    /// Helper to get the constant 2.0 safely
+    #[inline]
+    fn two() -> T {
+        T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one())
+    }
+    
     /// Interpolate velocity to face with pressure correction
     /// 
     /// `u_f` = `ū_f` - `D_f` * (∇p)_f
@@ -49,10 +55,11 @@ impl<T: RealField + FromPrimitive + Copy> RhieChowInterpolation<T> {
         dt: T,       // time step
     ) -> T {
         // Linear interpolation of velocity
-        let u_bar = (u_p + u_e) / T::from_f64(2.0).unwrap();
+        let two = Self::two();
+        let u_bar = (u_p + u_e) / two;
         
         // Face diffusion coefficient (harmonic mean)
-        let d_f = dt * T::from_f64(2.0).unwrap() / (a_p + a_e);
+        let d_f = dt * two / (a_p + a_e);
         
         // Pressure gradient at face
         let dp_dx = (p_e - p_p) / self.dx;
@@ -74,10 +81,11 @@ impl<T: RealField + FromPrimitive + Copy> RhieChowInterpolation<T> {
         dt: T,       // time step
     ) -> T {
         // Linear interpolation of velocity
-        let v_bar = (v_p + v_n) / T::from_f64(2.0).unwrap();
+        let two = Self::two();
+        let v_bar = (v_p + v_n) / two;
         
         // Face diffusion coefficient
-        let d_f = dt * T::from_f64(2.0).unwrap() / (a_p + a_n);
+        let d_f = dt * two / (a_p + a_n);
         
         // Pressure gradient at face
         let dp_dy = (p_n - p_p) / self.dy;
