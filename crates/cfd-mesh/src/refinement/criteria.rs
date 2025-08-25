@@ -20,15 +20,9 @@ pub enum RefinementError {
 /// Refinement criteria for adaptive mesh refinement
 pub enum RefinementCriterion<T: RealField + Copy> {
     /// Refine based on solution gradient
-    Gradient {
-        field: Vec<T>,
-        threshold: T,
-    },
+    Gradient { field: Vec<T>, threshold: T },
     /// Refine based on error estimate
-    Error {
-        error_field: Vec<T>,
-        threshold: T,
-    },
+    Error { error_field: Vec<T>, threshold: T },
     /// Refine based on geometric features
     Geometric {
         curvature_threshold: T,
@@ -41,15 +35,24 @@ pub enum RefinementCriterion<T: RealField + Copy> {
 impl<T: RealField + Copy> std::fmt::Debug for RefinementCriterion<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Gradient { field, threshold } => f.debug_struct("Gradient")
+            Self::Gradient { field, threshold } => f
+                .debug_struct("Gradient")
                 .field("field_len", &field.len())
                 .field("threshold", threshold)
                 .finish(),
-            Self::Error { error_field, threshold } => f.debug_struct("Error")
+            Self::Error {
+                error_field,
+                threshold,
+            } => f
+                .debug_struct("Error")
                 .field("error_field_len", &error_field.len())
                 .field("threshold", threshold)
                 .finish(),
-            Self::Geometric { curvature_threshold, feature_angle } => f.debug_struct("Geometric")
+            Self::Geometric {
+                curvature_threshold,
+                feature_angle,
+            } => f
+                .debug_struct("Geometric")
                 .field("curvature_threshold", curvature_threshold)
                 .field("feature_angle", feature_angle)
                 .finish(),

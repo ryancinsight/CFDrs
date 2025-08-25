@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 0.57.0** - Functional Research Software
+**Version 0.57.1** - Research Software
 
 ## Status: Working Code with Active Development
 
@@ -13,7 +13,7 @@
 - ✅ **Error Handling**: Improved with proper Result types
 
 ### Known Technical Debt
-- ⚠️ **142 potential panic points**: Unwrap/expect calls to be addressed
+- ⚠️ **Potential panic points**: unwrap/expect occurrences tracked; reduction planned
 - ⚠️ **5 modules >500 LOC**: Functional but violate SLAP (to be refactored)
 - ⚠️ **45% test coverage**: Core paths tested, edges not
 - ⚠️ **Unvalidated physics**: Algorithms implemented, accuracy unverified
@@ -34,11 +34,9 @@ cfd-suite/
 ```
 
 ### Large Modules (Technical Debt)
-1. `cfd-3d/src/vof.rs` - 662 lines
-2. `cfd-validation/src/analytical.rs` - 643 lines  
-3. `cfd-2d/src/solvers/fvm.rs` - 643 lines
-4. `cfd-validation/src/numerical_validation.rs` - 636 lines
-5. `cfd-core/src/plugin.rs` - 626 lines
+1. `cfd-2d/src/solvers/fvm.rs` ~686 lines
+2. `cfd-validation/src/numerical_validation.rs` ~722 lines
+3. `cfd-core/src/plugin.rs` ~626 lines
 
 These work correctly but should be refactored when time permits.
 
@@ -85,7 +83,7 @@ Do not use for:
 
 ## Technical Assessment
 
-This is **functional research software** that prioritizes correctness over completeness. It demonstrates good Rust practices and clean architecture but lacks the validation and optimization required for production use.
+This is research software that prioritizes correctness. Validation coverage has been extended for Couette-Poiseuille and Taylor-Green cases. Production suitability still requires performance work and broader validation.
 
 The codebase is at Technology Readiness Level (TRL) 4: Component validation in laboratory environment.
 
