@@ -5,7 +5,7 @@
 
 use approx::assert_relative_eq;
 use cfd_validation::analytical::{
-    AnalyticalSolution, CouetteFlow, PoiseuilleFlow, TaylorGreenVortex,
+    AnalyticalSolution, CouetteFlow, PoiseuilleFlow, PoiseuilleGeometry, TaylorGreenVortex,
 };
 use nalgebra::Vector3;
 // Mathematical constants
@@ -21,7 +21,7 @@ mod poiseuille_flow {
     /// Reference: White, F.M. (2006). Viscous Fluid Flow, 3rd ed.
     #[test]
     fn test_poiseuille_velocity_profile() {
-        let solution = PoiseuilleFlow::<f64>::new(
+        let solution = PoiseuilleFlow::<f64>::create(
             1.0,   // u_max
             1.0,   // channel_width
             -1.0,  // pressure_gradient
@@ -46,7 +46,7 @@ mod poiseuille_flow {
 
     #[test]
     fn test_poiseuille_flow_rate() {
-        let solution = PoiseuilleFlow::<f64>::new(
+        let solution = PoiseuilleFlow::<f64>::create(
             1.0,   // u_max
             1.0,   // channel_width
             -1.0,  // pressure_gradient

@@ -58,8 +58,8 @@ fn test_analytical_validation() {
     // Calculate max velocity for channel flow
     let u_max = -pressure_gradient * channel_width * channel_width / (8.0 * viscosity);
 
-    use cfd_validation::analytical::poiseuille::PoiseuilleGeometry;
-
+        use cfd_validation::analytical::PoiseuilleGeometry;
+    
     let poiseuille = PoiseuilleFlow::create(
         u_max,
         channel_width,
@@ -70,18 +70,18 @@ fn test_analytical_validation() {
 
     // Test velocity using the trait method
     let t = 0.0; // time
-                 // At center of channel (y = channel_width/2)
-    let v_center = poiseuille.velocity(0.0, channel_width / 2.0, 0.0, t);
+                 // At center of channel (y = 0 for symmetric channel)
+    let v_center = poiseuille.velocity(0.0, 0.0, 0.0, t);
 
     // Center velocity should be close to u_max
     let center_velocity: f64 = v_center[0]; // x-component for channel flow
     assert!(
-        (center_velocity - u_max).abs() / u_max < 0.1,
-        "Center velocity should match analytical"
+        (center_velocity - u_max).abs() / u_max < 0.01,
+        "Center velocity should match analytical: got {}, expected {}", center_velocity, u_max
     );
 
-    // Test velocity at wall (y=0)
-    let v_wall = poiseuille.velocity(0.0, 0.0, 0.0, t);
+    // Test velocity at wall (y = channel_width, the boundary)
+    let v_wall = poiseuille.velocity(0.0, channel_width, 0.0, t);
 
     // At wall, velocity should be zero (no-slip)
     let wall_velocity: f64 = v_wall[0];

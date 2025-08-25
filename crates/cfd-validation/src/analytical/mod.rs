@@ -3,17 +3,17 @@
 //! This module provides exact analytical solutions for various fluid flow problems
 //! that can be used to validate numerical CFD solvers.
 
-mod couette;
-mod poiseuille;
-mod stokes;
-mod taylor_green;
-mod utils;
+pub mod couette;
+pub mod poiseuille;
+pub mod stokes;
+pub mod taylor_green;
+pub mod utils;
 
 pub use couette::CouetteFlow;
-pub use poiseuille::PoiseuilleFlow;
+pub use poiseuille::{PoiseuilleFlow, PoiseuilleGeometry};
 pub use stokes::StokesFlow;
 pub use taylor_green::TaylorGreenVortex;
-pub use utils::AnalyticalUtils;
+pub use utils::{AnalyticalUtils, FlowGeometry};
 
 use nalgebra::{RealField, Vector3};
 
