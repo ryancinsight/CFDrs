@@ -1,7 +1,7 @@
 //! Performance benchmarks for critical CFD operations
 
 use cfd_2d::grid::{Grid2D, StructuredGrid2D};
-use cfd_math::sparse::{SparseMatrixBuilder, SparseMatrixExt};
+use cfd_math::sparse::SparseMatrixBuilder;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use nalgebra::DVector;
 

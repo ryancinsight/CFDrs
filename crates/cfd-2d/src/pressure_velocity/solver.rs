@@ -3,7 +3,7 @@
 use super::{PressureCorrectionSolver, PressureVelocityConfig, RhieChowInterpolation};
 use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
-use crate::physics::momentum::{MomentumComponent, MomentumSolver};
+use crate::physics::{MomentumComponent, MomentumSolver};
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 use std::fmt::LowerExp;

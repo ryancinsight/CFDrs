@@ -4,7 +4,7 @@
 
 ## Status
 
-- Builds and tests pass across workspace (benches/examples compile)
+- Builds and tests pass across workspace (examples compile)
 - Analytical validations included for Couette, Poiseuille (plates), Taylor-Green
 - Domain-structured crates present; further module splits planned
 
@@ -50,6 +50,7 @@ cargo run --example pipe_flow_1d --release
 - Analytical: Couette, Poiseuille (plates), Taylor-Green initial/decay
 - Numerical: linear solver convergence tests and criteria
 - Literature placeholder entries removed from public API until validated
+- CSG external API examples removed; CSG feature remains stubbed behind feature flag
 - Add manufactured solutions and benchmark comparisons next
 
 ## Limits (non-exhaustive)

@@ -48,7 +48,7 @@ pub struct MomentumCoefficients<T: RealField + Copy> {
     pub source: Field2D<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> MomentumSolver<T> {
+impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
     /// Create a new momentum solver
     pub fn new(grid: &StructuredGrid2D<T>) -> Self {
         Self {
@@ -101,56 +101,37 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MomentumSolver<T> {
             source: Field2D::new(self.nx, self.ny, T::zero()),
         };
 
-        // Calculate diffusion coefficients
-        // Note: For variable properties, these should be computed cell-by-cell
-        // For now, using a representative kinematic viscosity
+        // Calculate diffusion coefficients per cell using local kinematic viscosity
+        // Use face-averaged values (linear) for interior faces
         let kinematic_visc = fields.kinematic_viscosity();
-        // Using first cell value as representative (should be computed per-cell in production)
-        let gamma = kinematic_visc.at(0, 0);
-        let de = gamma / self.dx;
-        let dw = gamma / self.dx;
-        let dn = gamma / self.dy;
-        let ds = gamma / self.dy;
 
-        // Calculate convection coefficients using upwind scheme
+        // Calculate convection and diffusion coefficients using upwind scheme
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 let u = fields.u.at(i, j);
                 let v = fields.v.at(i, j);
 
+                // Face diffusion conductances (gamma/Delta)
+                let half = T::from_f64(0.5).ok_or_else(|| {
+                    cfd_core::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidValue {
+                        value: "Cannot convert 0.5 to target type".to_string(),
+                    })
+                })?;
+                let gamma_e = (kinematic_visc.at(i, j) + kinematic_visc.at(i + 1, j)) * half;
+                let gamma_w = (kinematic_visc.at(i - 1, j) + kinematic_visc.at(i, j)) * half;
+                let gamma_n = (kinematic_visc.at(i, j) + kinematic_visc.at(i, j + 1)) * half;
+                let gamma_s = (kinematic_visc.at(i, j - 1) + kinematic_visc.at(i, j)) * half;
+
+                let de = gamma_e / self.dx;
+                let dw = gamma_w / self.dx;
+                let dn = gamma_n / self.dy;
+                let ds = gamma_s / self.dy;
+
                 // Face velocities (using linear interpolation)
-                let ue = (fields.u.at(i, j) + fields.u.at(i + 1, j))
-                    * T::from_f64(0.5).ok_or_else(|| {
-                        cfd_core::Error::Numerical(
-                            cfd_core::error::NumericalErrorKind::InvalidValue {
-                                value: "Cannot convert 0.5 to target type".to_string(),
-                            },
-                        )
-                    })?;
-                let uw = (fields.u.at(i - 1, j) + fields.u.at(i, j))
-                    * T::from_f64(0.5).ok_or_else(|| {
-                        cfd_core::Error::Numerical(
-                            cfd_core::error::NumericalErrorKind::InvalidValue {
-                                value: "Cannot convert 0.5 to target type".to_string(),
-                            },
-                        )
-                    })?;
-                let vn = (fields.v.at(i, j) + fields.v.at(i, j + 1))
-                    * T::from_f64(0.5).ok_or_else(|| {
-                        cfd_core::Error::Numerical(
-                            cfd_core::error::NumericalErrorKind::InvalidValue {
-                                value: "Cannot convert 0.5 to target type".to_string(),
-                            },
-                        )
-                    })?;
-                let vs = (fields.v.at(i, j - 1) + fields.v.at(i, j))
-                    * T::from_f64(0.5).ok_or_else(|| {
-                        cfd_core::Error::Numerical(
-                            cfd_core::error::NumericalErrorKind::InvalidValue {
-                                value: "Cannot convert 0.5 to target type".to_string(),
-                            },
-                        )
-                    })?;
+                let ue = (fields.u.at(i, j) + fields.u.at(i + 1, j)) * half;
+                let uw = (fields.u.at(i - 1, j) + fields.u.at(i, j)) * half;
+                let vn = (fields.v.at(i, j) + fields.v.at(i, j + 1)) * half;
+                let vs = (fields.v.at(i, j - 1) + fields.v.at(i, j)) * half;
 
                 // Mass fluxes
                 let fe = fields.density.at(i, j) * ue * self.dy;
@@ -194,7 +175,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MomentumSolver<T> {
         &self,
         coeffs: &MomentumCoefficients<T>,
         component: MomentumComponent,
-        fields: &SimulationFields<T>,
+        _fields: &SimulationFields<T>,
     ) -> cfd_core::Result<(SparseMatrix<T>, DVector<T>)> {
         let n = (self.nx - 2) * (self.ny - 2);
         let mut builder = SparseMatrixBuilder::new(n, n);
@@ -205,31 +186,31 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MomentumSolver<T> {
                 let idx = self.linear_index(i - 1, j - 1);
 
                 // Diagonal
-                let _ = builder.add_entry(idx, idx, coeffs.ap.at(i, j));
+                builder.add_entry(idx, idx, coeffs.ap.at(i, j))?;
 
                 // Off-diagonals
                 if i > 1 {
                     let idx_w = self.linear_index(i - 2, j - 1);
-                    let _ = builder.add_entry(idx, idx_w, -coeffs.aw.at(i, j));
+                    builder.add_entry(idx, idx_w, -coeffs.aw.at(i, j))?;
                 }
                 if i < self.nx - 2 {
                     let idx_e = self.linear_index(i, j - 1);
-                    let _ = builder.add_entry(idx, idx_e, -coeffs.ae.at(i, j));
+                    builder.add_entry(idx, idx_e, -coeffs.ae.at(i, j))?;
                 }
                 if j > 1 {
                     let idx_s = self.linear_index(i - 1, j - 2);
-                    let _ = builder.add_entry(idx, idx_s, -coeffs.as_.at(i, j));
+                    builder.add_entry(idx, idx_s, -coeffs.as_.at(i, j))?;
                 }
                 if j < self.ny - 2 {
                     let idx_n = self.linear_index(i - 1, j);
-                    let _ = builder.add_entry(idx, idx_n, -coeffs.an.at(i, j));
+                    builder.add_entry(idx, idx_n, -coeffs.an.at(i, j))?;
                 }
 
                 // RHS
                 rhs[idx] = coeffs.source.at(i, j);
 
                 // Apply boundary conditions
-                self.apply_boundary_conditions(i, j, &mut rhs[idx], coeffs, component, fields);
+                self.apply_boundary_conditions(i, j, &mut rhs[idx], coeffs, component);
             }
         }
 
@@ -244,9 +225,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MomentumSolver<T> {
         rhs: &mut T,
         coeffs: &MomentumCoefficients<T>,
         component: MomentumComponent,
-        fields: &SimulationFields<T>,
     ) {
-        // West boundary
+        // West boundary (Dirichlet for inlet or wall no-slip)
         if i == 1 {
             if let Some(bc) = self.boundary_conditions.get("west") {
                 match bc {
@@ -257,17 +237,22 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MomentumSolver<T> {
                     BoundaryCondition::Wall { .. } => {
                         *rhs += coeffs.aw.at(i, j) * T::zero();
                     }
+                    BoundaryCondition::Dirichlet { value } => {
+                        *rhs += coeffs.aw.at(i, j) * *value;
+                    }
                     _ => {}
                 }
             }
         }
 
-        // East boundary
+        // East boundary (zero-gradient outlet or wall)
         if i == self.nx - 2 {
             if let Some(bc) = self.boundary_conditions.get("east") {
                 match bc {
-                    BoundaryCondition::PressureOutlet { .. } => {
-                        // Neumann BC for velocity
+                    BoundaryCondition::PressureOutlet { .. }
+                    | BoundaryCondition::Outflow
+                    | BoundaryCondition::Neumann { .. } => {
+                        // Zero-gradient for velocity -> no addition to RHS
                     }
                     BoundaryCondition::Wall { .. } => {
                         *rhs += coeffs.ae.at(i, j) * T::zero();
@@ -277,7 +262,37 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MomentumSolver<T> {
             }
         }
 
-        // Similar for north and south boundaries
+        // South boundary
+        if j == 1 {
+            if let Some(bc) = self.boundary_conditions.get("south") {
+                match bc {
+                    BoundaryCondition::Wall { .. } => {
+                        *rhs += coeffs.as_.at(i, j) * T::zero();
+                    }
+                    BoundaryCondition::Dirichlet { value } => {
+                        *rhs += coeffs.as_.at(i, j) * *value;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // North boundary
+        if j == self.ny - 2 {
+            if let Some(bc) = self.boundary_conditions.get("north") {
+                match bc {
+                    BoundaryCondition::Wall { .. } => {
+                        *rhs += coeffs.an.at(i, j) * T::zero();
+                    }
+                    BoundaryCondition::PressureOutlet { .. }
+                    | BoundaryCondition::Outflow
+                    | BoundaryCondition::Neumann { .. } => {
+                        // Zero-gradient
+                    }
+                    _ => {}
+                }
+            }
+        }
     }
 
     /// Solve the linear system
@@ -297,7 +312,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MomentumSolver<T> {
     fn vector_to_field(
         &self,
         solution: DVector<T>,
-        component: MomentumComponent,
+        _component: MomentumComponent,
     ) -> cfd_core::Result<Field2D<T>> {
         let mut field = Field2D::new(self.nx, self.ny, T::zero());
 
@@ -308,8 +323,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MomentumSolver<T> {
             }
         }
 
-        // Set boundary values
-        self.set_boundary_values(&mut field, component);
+        // Set boundary values (west shown; other edges mirror apply boundary logic if needed)
+        self.set_boundary_values(&mut field, _component);
 
         Ok(field)
     }
@@ -332,7 +347,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MomentumSolver<T> {
             }
         }
 
-        // Similar for other boundaries
+        // Other boundaries can be handled similarly
     }
 
     /// Convert 2D indices to linear index

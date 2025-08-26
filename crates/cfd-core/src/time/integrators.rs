@@ -341,4 +341,3 @@ impl<T: RealField + Copy> TimeIntegrator<T> for CrankNicolson<T> {
         false
     }
 }
-

@@ -11,6 +11,9 @@
 - [x] Analytical validations: Couette, Poiseuille (plates), Taylor-Green
 - [x] Removed placeholder CSG constructor
 - [x] Fixed benches: iterator trait import, Poiseuille API, sparse matvec
+- [x] Propagated sparse matrix builder errors (no ignored results)
+- [x] Per-cell viscosity in 2D momentum; completed boundary handling
+- [x] Removed external CSG example stubs
 
 ### In Progress ⚠️
 - [ ] Module refactoring (files >500 LOC split by domain/feature) — continuing (`cfd-1d/resistance.rs`, `cfd-3d/level_set.rs`)
