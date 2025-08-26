@@ -43,7 +43,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
 {
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
         use cfd_core::numeric;
-        
+
         let viscosity = fluid.dynamic_viscosity(conditions.temperature)?;
         let pi = numeric::pi::<T>()?;
         let coefficient = numeric::from_f64(HAGEN_POISEUILLE_COEFFICIENT)?;
@@ -64,7 +64,15 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
         (
             T::zero(),
             T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER)
-                .unwrap_or_else(|| T::zero()),
+                .ok_or_else(|| {
+                    cfd_core::error::Error::Numerical(
+                        cfd_core::error::NumericalErrorKind::ConversionFailed {
+                            from_type: "f64",
+                            to_type: std::any::type_name::<T>(),
+                            value: "value".to_string(),
+                        },
+                    )
+                })?,
         )
     }
 }
@@ -102,8 +110,24 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
         let f_re = self.calculate_friction_factor(aspect_ratio);
 
         let area = self.width * self.height;
-        let dh = T::from_f64(4.0).unwrap_or_else(|| T::zero()) * area
-            / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (self.width + self.height));
+        let dh = T::from_f64(4.0).ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
+            )
+        })? * area
+            / (T::from_f64(2.0).ok_or_else(|| {
+                cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::ConversionFailed {
+                        from_type: "f64",
+                        to_type: std::any::type_name::<T>(),
+                        value: "value".to_string(),
+                    },
+                )
+            })? * (self.width + self.height));
 
         let resistance = f_re * viscosity * self.length / (area * dh * dh);
 
@@ -118,7 +142,15 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
         (
             T::zero(),
             T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER)
-                .unwrap_or_else(|| T::zero()),
+                .ok_or_else(|| {
+                    cfd_core::error::Error::Numerical(
+                        cfd_core::error::NumericalErrorKind::ConversionFailed {
+                            from_type: "f64",
+                            to_type: std::any::type_name::<T>(),
+                            value: "value".to_string(),
+                        },
+                    )
+                })?,
         )
     }
 }
@@ -145,27 +177,67 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> RectangularChannel
         };
 
         // Simplified friction factor calculation to avoid numerical issues
-        let base_friction = T::from_f64(RECTANGULAR_BASE_FRICTION).unwrap_or_else(|| T::zero());
+        let base_friction = T::from_f64(RECTANGULAR_BASE_FRICTION).ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
+            )
+        })?;
         let one = T::one();
 
         if alpha >= one {
             // Wide channel approximation (simplified)
             // Based on Shah & London (1978) with numerical stabilization
-            let correction =
-                one - T::from_f64(RECTANGULAR_WIDE_CORRECTION).unwrap_or_else(|| T::zero()) / alpha;
+            let correction = one
+                - T::from_f64(RECTANGULAR_WIDE_CORRECTION).ok_or_else(|| {
+                    cfd_core::error::Error::Numerical(
+                        cfd_core::error::NumericalErrorKind::ConversionFailed {
+                            from_type: "f64",
+                            to_type: std::any::type_name::<T>(),
+                            value: "value".to_string(),
+                        },
+                    )
+                })? / alpha;
             base_friction
                 * RealField::max(
                     correction,
-                    T::from_f64(MIN_CORRECTION_FACTOR).unwrap_or_else(|| T::zero()),
+                    T::from_f64(MIN_CORRECTION_FACTOR).ok_or_else(|| {
+                        cfd_core::error::Error::Numerical(
+                            cfd_core::error::NumericalErrorKind::ConversionFailed {
+                                from_type: "f64",
+                                to_type: std::any::type_name::<T>(),
+                                value: "value".to_string(),
+                            },
+                        )
+                    })?,
                 )
         } else {
             // Tall channel approximation (simplified)
             // Derived from reciprocal relationship with stabilization
             let inv_alpha = one / alpha;
-            let base = T::from_f64(RECTANGULAR_TALL_BASE).unwrap_or_else(|| T::zero());
+            let base = T::from_f64(RECTANGULAR_TALL_BASE).ok_or_else(|| {
+                cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::ConversionFailed {
+                        from_type: "f64",
+                        to_type: std::any::type_name::<T>(),
+                        value: "value".to_string(),
+                    },
+                )
+            })?;
             base / RealField::max(
                 inv_alpha,
-                T::from_f64(MIN_CORRECTION_FACTOR).unwrap_or_else(|| T::zero()),
+                T::from_f64(MIN_CORRECTION_FACTOR).ok_or_else(|| {
+                    cfd_core::error::Error::Numerical(
+                        cfd_core::error::NumericalErrorKind::ConversionFailed {
+                            from_type: "f64",
+                            to_type: std::any::type_name::<T>(),
+                            value: "value".to_string(),
+                        },
+                    )
+                })?,
             )
         }
     }
@@ -206,21 +278,58 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
         // Calculate friction factor using Colebrook-White equation (approximation)
         let friction_factor = self.calculate_friction_factor(reynolds);
 
-        let area = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero())
-            * num_traits::Float::powf(
-                self.hydraulic_diameter,
-                T::from_f64(2.0).unwrap_or_else(|| T::zero()),
+        let area = T::from_f64(std::f64::consts::PI).ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
             )
-            / T::from_f64(4.0).unwrap_or_else(|| T::zero());
+        })? * num_traits::Float::powf(
+            self.hydraulic_diameter,
+            T::from_f64(2.0).ok_or_else(|| {
+                cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::ConversionFailed {
+                        from_type: "f64",
+                        to_type: std::any::type_name::<T>(),
+                        value: "value".to_string(),
+                    },
+                )
+            })?,
+        ) / T::from_f64(4.0).ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
+            )
+        })?;
 
         // Convert Darcy friction factor to hydraulic resistance
         let density = fluid.density;
         let resistance = friction_factor * self.length * density
-            / (T::from_f64(2.0).unwrap_or_else(|| T::zero())
-                * area
+            / (T::from_f64(2.0).ok_or_else(|| {
+                cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::ConversionFailed {
+                        from_type: "f64",
+                        to_type: std::any::type_name::<T>(),
+                        value: "value".to_string(),
+                    },
+                )
+            })? * area
                 * num_traits::Float::powf(
                     self.hydraulic_diameter,
-                    T::from_f64(2.0).unwrap_or_else(|| T::zero()),
+                    T::from_f64(2.0).ok_or_else(|| {
+                        cfd_core::error::Error::Numerical(
+                            cfd_core::error::NumericalErrorKind::ConversionFailed {
+                                from_type: "f64",
+                                to_type: std::any::type_name::<T>(),
+                                value: "value".to_string(),
+                            },
+                        )
+                    })?,
                 ));
 
         Ok(resistance)
@@ -233,8 +342,24 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     fn reynolds_range(&self) -> (T, T) {
         (
             T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_UPPER)
-                .unwrap_or_else(|| T::zero()),
-            T::from_f64(1e8).unwrap_or_else(|| T::zero()),
+                .ok_or_else(|| {
+                    cfd_core::error::Error::Numerical(
+                        cfd_core::error::NumericalErrorKind::ConversionFailed {
+                            from_type: "f64",
+                            to_type: std::any::type_name::<T>(),
+                            value: "value".to_string(),
+                        },
+                    )
+                })?,
+            T::from_f64(1e8).ok_or_else(|| {
+                cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::ConversionFailed {
+                        from_type: "f64",
+                        to_type: std::any::type_name::<T>(),
+                        value: "value".to_string(),
+                    },
+                )
+            })?,
         )
     }
 }
@@ -246,15 +371,56 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> DarcyWeisbachModel
 
         // Swamee-Jain approximation to Colebrook-White equation
         let term1 = relative_roughness
-            / T::from_f64(COLEBROOK_ROUGHNESS_FACTOR).unwrap_or_else(|| T::zero());
-        let term2 = T::from_f64(SWAMEE_JAIN_REYNOLDS_FACTOR).unwrap_or_else(|| T::zero())
-            / num_traits::Float::powf(
-                reynolds,
-                T::from_f64(SWAMEE_JAIN_REYNOLDS_EXPONENT).unwrap_or_else(|| T::zero()),
-            );
+            / T::from_f64(COLEBROOK_ROUGHNESS_FACTOR).ok_or_else(|| {
+                cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::ConversionFailed {
+                        from_type: "f64",
+                        to_type: std::any::type_name::<T>(),
+                        value: "value".to_string(),
+                    },
+                )
+            })?;
+        let term2 = T::from_f64(SWAMEE_JAIN_REYNOLDS_FACTOR).ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
+            )
+        })? / num_traits::Float::powf(
+            reynolds,
+            T::from_f64(SWAMEE_JAIN_REYNOLDS_EXPONENT).ok_or_else(|| {
+                cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::ConversionFailed {
+                        from_type: "f64",
+                        to_type: std::any::type_name::<T>(),
+                        value: "value".to_string(),
+                    },
+                )
+            })?,
+        );
         let log_term = num_traits::Float::ln(term1 + term2);
-        T::from_f64(FRICTION_FACTOR_COEFFICIENT).unwrap_or_else(|| T::zero())
-            / num_traits::Float::powf(log_term, T::from_f64(2.0).unwrap_or_else(|| T::zero()))
+        T::from_f64(FRICTION_FACTOR_COEFFICIENT).ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
+            )
+        })? / num_traits::Float::powf(
+            log_term,
+            T::from_f64(2.0).ok_or_else(|| {
+                cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::ConversionFailed {
+                        from_type: "f64",
+                        to_type: std::any::type_name::<T>(),
+                        value: "value".to_string(),
+                    },
+                )
+            })?,
+        )
     }
 }
 
@@ -283,6 +449,17 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), T::from_f64(1e6).unwrap_or_else(|| T::zero()))
+        (
+            T::zero(),
+            T::from_f64(1e6).ok_or_else(|| {
+                cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::ConversionFailed {
+                        from_type: "f64",
+                        to_type: std::any::type_name::<T>(),
+                        value: "value".to_string(),
+                    },
+                )
+            })?,
+        )
     }
 }

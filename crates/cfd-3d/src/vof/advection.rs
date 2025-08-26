@@ -89,7 +89,7 @@ impl AdvectionMethod {
 
         // Get velocity at face (simple average)
         let velocity =
-            (solver.velocity[idx1] + solver.velocity[idx2]) * T::from_f64(0.5).unwrap_or(T::zero());
+            (solver.velocity[idx1] + solver.velocity[idx2]) * T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::ConversionFailed { from_type: "f64", to_type: std::any::type_name::<T>(), value: "value".to_string() }))?;
 
         // Get velocity component normal to face
         let u_normal = match direction {
@@ -180,7 +180,7 @@ impl AdvectionMethod {
 
                     // Only apply compression near interface
                     let alpha = solver.alpha[idx];
-                    if alpha > T::from_f64(VOF_INTERFACE_LOWER).unwrap_or(T::zero())
+                    if alpha > T::from_f64(VOF_INTERFACE_LOWER).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::ConversionFailed { from_type: "f64", to_type: std::any::type_name::<T>(), value: "value".to_string() }))?
                         && alpha < T::from_f64(VOF_INTERFACE_UPPER).unwrap_or(T::one())
                     {
                         // Get interface normal
@@ -188,7 +188,7 @@ impl AdvectionMethod {
 
                         if normal.norm() > T::zero() {
                             // Compression velocity proportional to normal
-                            let compression_factor = T::from_f64(0.5).unwrap_or(T::zero());
+                            let compression_factor = T::from_f64(0.5).ok_or_else(|| cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::ConversionFailed { from_type: "f64", to_type: std::any::type_name::<T>(), value: "value".to_string() }))?;
                             let u_compression = normal * compression_factor;
 
                             // Apply compression flux

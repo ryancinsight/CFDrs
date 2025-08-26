@@ -70,7 +70,15 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
                 T::from_f64(crate::constants::physics::dimensionless::reynolds::CYLINDER_CRITICAL)
             }
         }
-        .unwrap_or_else(|| T::zero());
+        .ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
+            )
+        })?;
 
         self.value < threshold
     }
@@ -82,7 +90,15 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
             FlowGeometry::FlatPlate | FlowGeometry::External => T::from_f64(1e6),
             FlowGeometry::Sphere | FlowGeometry::Cylinder => T::from_f64(3e5),
         }
-        .unwrap_or_else(|| T::zero());
+        .ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
+            )
+        })?;
 
         self.value >= threshold
     }
@@ -102,8 +118,24 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
             _ => (T::from_f64(5e5), T::from_f64(1e6)),
         };
 
-        let lower = lower.unwrap_or_else(|| T::zero());
-        let upper = upper.unwrap_or_else(|| T::one());
+        let lower = lower.ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
+            )
+        })?;
+        let upper = upper.ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "1.0".to_string(),
+                },
+            )
+        })?;
 
         if self.value <= lower {
             T::zero()
@@ -111,11 +143,38 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
             T::one()
         } else {
             // Smooth transition using tanh function
-            let mid = (lower + upper) / T::from_f64(2.0).unwrap_or_else(|| T::one());
+            let mid = (lower + upper)
+                / T::from_f64(2.0).ok_or_else(|| {
+                    cfd_core::error::Error::Numerical(
+                        cfd_core::error::NumericalErrorKind::ConversionFailed {
+                            from_type: "f64",
+                            to_type: std::any::type_name::<T>(),
+                            value: "1.0".to_string(),
+                        },
+                    )
+                })?;
             let width = upper - lower;
-            let normalized =
-                (self.value - mid) / (width * T::from_f64(0.25).unwrap_or_else(|| T::one()));
-            (T::one() + normalized.tanh()) / T::from_f64(2.0).unwrap_or_else(|| T::one())
+            let normalized = (self.value - mid)
+                / (width
+                    * T::from_f64(0.25).ok_or_else(|| {
+                        cfd_core::error::Error::Numerical(
+                            cfd_core::error::NumericalErrorKind::ConversionFailed {
+                                from_type: "f64",
+                                to_type: std::any::type_name::<T>(),
+                                value: "1.0".to_string(),
+                            },
+                        )
+                    })?);
+            (T::one() + normalized.tanh())
+                / T::from_f64(2.0).ok_or_else(|| {
+                    cfd_core::error::Error::Numerical(
+                        cfd_core::error::NumericalErrorKind::ConversionFailed {
+                            from_type: "f64",
+                            to_type: std::any::type_name::<T>(),
+                            value: "1.0".to_string(),
+                        },
+                    )
+                })?
         }
     }
 }
@@ -163,9 +222,29 @@ impl<T: RealField + FromPrimitive + Copy> Pressure<T> {
         match self.unit {
             PressureUnit::Pascal => self.value,
             PressureUnit::Atmosphere => {
-                self.value * T::from_f64(101_325.0).unwrap_or_else(|| T::one())
+                self.value
+                    * T::from_f64(101_325.0).ok_or_else(|| {
+                        cfd_core::error::Error::Numerical(
+                            cfd_core::error::NumericalErrorKind::ConversionFailed {
+                                from_type: "f64",
+                                to_type: std::any::type_name::<T>(),
+                                value: "1.0".to_string(),
+                            },
+                        )
+                    })?
             }
-            PressureUnit::Bar => self.value * T::from_f64(100_000.0).unwrap_or_else(|| T::one()),
+            PressureUnit::Bar => {
+                self.value
+                    * T::from_f64(100_000.0).ok_or_else(|| {
+                        cfd_core::error::Error::Numerical(
+                            cfd_core::error::NumericalErrorKind::ConversionFailed {
+                                from_type: "f64",
+                                to_type: std::any::type_name::<T>(),
+                                value: "1.0".to_string(),
+                            },
+                        )
+                    })?
+            }
         }
     }
 
@@ -280,7 +359,15 @@ impl<T: RealField + FromPrimitive + Copy> Temperature<T> {
     /// Create temperature in Celsius
     pub fn celsius(value: T) -> Result<Self> {
         let kelvin_value = value
-            + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN).unwrap_or_else(|| T::one());
+            + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN).ok_or_else(|| {
+                cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::ConversionFailed {
+                        from_type: "f64",
+                        to_type: std::any::type_name::<T>(),
+                        value: "1.0".to_string(),
+                    },
+                )
+            })?;
         Self::kelvin(kelvin_value)
     }
 
@@ -290,8 +377,24 @@ impl<T: RealField + FromPrimitive + Copy> Temperature<T> {
             FAHRENHEIT_TO_CELSIUS_FACTOR, FAHRENHEIT_ZERO_OFFSET,
         };
         let celsius_value = (value
-            - T::from_f64(FAHRENHEIT_ZERO_OFFSET).unwrap_or_else(|| T::one()))
-            * T::from_f64(FAHRENHEIT_TO_CELSIUS_FACTOR).unwrap_or_else(|| T::one());
+            - T::from_f64(FAHRENHEIT_ZERO_OFFSET).ok_or_else(|| {
+                cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::ConversionFailed {
+                        from_type: "f64",
+                        to_type: std::any::type_name::<T>(),
+                        value: "1.0".to_string(),
+                    },
+                )
+            })?)
+            * T::from_f64(FAHRENHEIT_TO_CELSIUS_FACTOR).ok_or_else(|| {
+                cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::ConversionFailed {
+                        from_type: "f64",
+                        to_type: std::any::type_name::<T>(),
+                        value: "1.0".to_string(),
+                    },
+                )
+            })?;
         Self::celsius(celsius_value)
     }
 
@@ -301,19 +404,49 @@ impl<T: RealField + FromPrimitive + Copy> Temperature<T> {
             TemperatureUnit::Kelvin => self.value,
             TemperatureUnit::Celsius => {
                 self.value
-                    + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN)
-                        .unwrap_or_else(|| T::zero())
+                    + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN).ok_or_else(|| {
+                        cfd_core::error::Error::Numerical(
+                            cfd_core::error::NumericalErrorKind::ConversionFailed {
+                                from_type: "f64",
+                                to_type: std::any::type_name::<T>(),
+                                value: "value".to_string(),
+                            },
+                        )
+                    })?
             }
             TemperatureUnit::Fahrenheit => {
                 use crate::constants::physical::temperature::{
                     FAHRENHEIT_TO_CELSIUS_FACTOR, FAHRENHEIT_ZERO_OFFSET,
                 };
                 let celsius = (self.value
-                    - T::from_f64(FAHRENHEIT_ZERO_OFFSET).unwrap_or_else(|| T::zero()))
-                    * T::from_f64(FAHRENHEIT_TO_CELSIUS_FACTOR).unwrap_or_else(|| T::zero());
+                    - T::from_f64(FAHRENHEIT_ZERO_OFFSET).ok_or_else(|| {
+                        cfd_core::error::Error::Numerical(
+                            cfd_core::error::NumericalErrorKind::ConversionFailed {
+                                from_type: "f64",
+                                to_type: std::any::type_name::<T>(),
+                                value: "value".to_string(),
+                            },
+                        )
+                    })?)
+                    * T::from_f64(FAHRENHEIT_TO_CELSIUS_FACTOR).ok_or_else(|| {
+                        cfd_core::error::Error::Numerical(
+                            cfd_core::error::NumericalErrorKind::ConversionFailed {
+                                from_type: "f64",
+                                to_type: std::any::type_name::<T>(),
+                                value: "value".to_string(),
+                            },
+                        )
+                    })?;
                 celsius
-                    + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN)
-                        .unwrap_or_else(|| T::zero())
+                    + T::from_f64(crate::constants::thermo::CELSIUS_TO_KELVIN).ok_or_else(|| {
+                        cfd_core::error::Error::Numerical(
+                            cfd_core::error::NumericalErrorKind::ConversionFailed {
+                                from_type: "f64",
+                                to_type: std::any::type_name::<T>(),
+                                value: "value".to_string(),
+                            },
+                        )
+                    })?
             }
         }
     }

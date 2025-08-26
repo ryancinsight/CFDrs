@@ -3,12 +3,12 @@
 //! This module provides safe conversions between numeric types that properly
 //! handle errors instead of silently falling back to incorrect values like zero.
 
+use crate::error::{Error, NumericalErrorKind, Result};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
-use crate::error::{Error, Result, NumericalErrorKind};
 
 /// Safe conversion from f64 to generic RealField type
-/// 
+///
 /// # Errors
 /// Returns error if conversion fails instead of using dangerous fallback values
 pub fn from_f64<T: RealField + FromPrimitive>(value: f64) -> Result<T> {

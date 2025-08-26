@@ -59,7 +59,6 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> QualityStatistics<T> 
             let a = sorted[mid - 1];
             let b = sorted[mid];
             let two = T::from_f64(2.0).ok_or_else(|| {
-                Error::Numerical(NumericalErrorKind::InvalidValue {
                     value: "Cannot convert 2.0".to_string(),
                 })
             })?;
@@ -90,7 +89,6 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> QualityStatistics<T> 
             .sum();
 
         let n = T::from_usize(self.samples.len() - 1).ok_or_else(|| {
-            Error::Numerical(NumericalErrorKind::InvalidValue {
                 value: "Cannot convert sample count".to_string(),
             })
         })?;

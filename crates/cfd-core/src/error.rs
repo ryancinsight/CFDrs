@@ -121,7 +121,11 @@ pub enum NumericalErrorKind {
     /// Loss of precision
     PrecisionLoss,
     /// Numeric conversion failed
-    ConversionFailed { from_type: &'static str, to_type: &'static str, value: String },
+    ConversionFailed {
+        from_type: &'static str,
+        to_type: &'static str,
+        value: String,
+    },
 }
 
 impl fmt::Display for NumericalErrorKind {
@@ -133,8 +137,16 @@ impl fmt::Display for NumericalErrorKind {
             Self::Underflow => write!(f, "Numerical underflow"),
             Self::Overflow => write!(f, "Numerical overflow"),
             Self::PrecisionLoss => write!(f, "Loss of numerical precision"),
-            Self::ConversionFailed { from_type, to_type, value } => {
-                write!(f, "Failed to convert {} from {} to {}", value, from_type, to_type)
+            Self::ConversionFailed {
+                from_type,
+                to_type,
+                value,
+            } => {
+                write!(
+                    f,
+                    "Failed to convert {} from {} to {}",
+                    value, from_type, to_type
+                )
             }
         }
     }

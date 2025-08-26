@@ -83,7 +83,15 @@ impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta2
         let y_intermediate = y.clone() + k1.clone() * dt;
         let k2 = f(t + dt, &y_intermediate);
 
-        let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
+        let half = T::from_f64(0.5).ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
+            )
+        })?;
         *y += (k1 + k2) * (dt * half);
         Ok(())
     }
@@ -102,7 +110,15 @@ impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta4
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
-        let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
+        let half = T::from_f64(0.5).ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
+            )
+        })?;
         let k1 = f(t, y);
         let y_k1 = y.clone() + k1.clone() * (dt * half);
         let k2 = f(t + dt * half, &y_k1);
@@ -111,8 +127,24 @@ impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta4
         let y_k3 = y.clone() + k3.clone() * dt;
         let k4 = f(t + dt, &y_k3);
 
-        let sixth = T::from_f64(1.0 / 6.0).unwrap_or_else(|| T::zero());
-        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let sixth = T::from_f64(1.0 / 6.0).ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
+            )
+        })?;
+        let two = T::from_f64(2.0).ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
+            )
+        })?;
         *y += (k1 + k2 * two + k3 * two + k4) * (dt * sixth);
         Ok(())
     }
@@ -177,7 +209,15 @@ impl TimeIntegrationValidator {
         let lambda = T::one();
         let y0 = T::one();
         let final_time = T::one();
-        let dt = T::from_f64(0.1).unwrap_or_else(|| T::zero());
+        let dt = T::from_f64(0.1).ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
+            )
+        })?;
         let n_steps = (final_time
             .to_f64()
             .expect("CRITICAL: Add proper error handling")
@@ -229,7 +269,16 @@ impl TimeIntegrationValidator {
                 global_error: error,
                 observed_order: Self::estimate_order(integrator.order()),
                 literature_reference: "Hairer, Nørsett & Wanner (1993), Solving ODEs I".to_string(),
-                passed: relative_error < T::from_f64(1e-3).unwrap_or_else(|| T::zero()), // Reasonable tolerance
+                passed: relative_error
+                    < T::from_f64(1e-3).ok_or_else(|| {
+                        cfd_core::error::Error::Numerical(
+                            cfd_core::error::NumericalErrorKind::ConversionFailed {
+                                from_type: "f64",
+                                to_type: std::any::type_name::<T>(),
+                                value: "value".to_string(),
+                            },
+                        )
+                    })?, // Reasonable tolerance
             };
             results.push(result);
         }
@@ -247,8 +296,24 @@ impl TimeIntegrationValidator {
 
         let omega = T::one();
         let omega_squared = omega * omega;
-        let final_time = T::from_f64(2.0 * PI).unwrap_or_else(|| T::zero()); // One full period
-        let dt = T::from_f64(0.1).unwrap_or_else(|| T::zero());
+        let final_time = T::from_f64(2.0 * PI).ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
+            )
+        })?; // One full period
+        let dt = T::from_f64(0.1).ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
+            )
+        })?;
         let n_steps = (final_time
             .to_f64()
             .expect("CRITICAL: Add proper error handling")
@@ -307,7 +372,16 @@ impl TimeIntegrationValidator {
                 global_error: error,
                 observed_order: Self::estimate_order(integrator.order()),
                 literature_reference: "Butcher (2016), Numerical Methods for ODEs".to_string(),
-                passed: relative_error < T::from_f64(1e-2).unwrap_or_else(|| T::zero()), // More relaxed for oscillatory
+                passed: relative_error
+                    < T::from_f64(1e-2).ok_or_else(|| {
+                        cfd_core::error::Error::Numerical(
+                            cfd_core::error::NumericalErrorKind::ConversionFailed {
+                                from_type: "f64",
+                                to_type: std::any::type_name::<T>(),
+                                value: "value".to_string(),
+                            },
+                        )
+                    })?, // More relaxed for oscillatory
             };
             results.push(result);
         }
@@ -328,8 +402,25 @@ impl TimeIntegrationValidator {
         analytical_solution: impl Fn(T) -> DVector<T>,
         final_time: T,
     ) -> Result<T> {
-        let dt_coarse = T::from_f64(0.1).unwrap_or_else(|| T::zero());
-        let dt_fine = dt_coarse / T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let dt_coarse = T::from_f64(0.1).ok_or_else(|| {
+            cfd_core::error::Error::Numerical(
+                cfd_core::error::NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "value".to_string(),
+                },
+            )
+        })?;
+        let dt_fine = dt_coarse
+            / T::from_f64(2.0).ok_or_else(|| {
+                cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::ConversionFailed {
+                        from_type: "f64",
+                        to_type: std::any::type_name::<T>(),
+                        value: "value".to_string(),
+                    },
+                )
+            })?;
 
         // Solve with coarse time step
         let error_coarse = Self::solve_and_compute_error(
@@ -354,7 +445,15 @@ impl TimeIntegrationValidator {
         // Estimate order: p ≈ log(error_coarse/error_fine) / log(2)
         let ratio = error_coarse / error_fine;
         let order = ComplexField::ln(ratio)
-            / ComplexField::ln(T::from_f64(2.0).unwrap_or_else(|| T::zero()));
+            / ComplexField::ln(T::from_f64(2.0).ok_or_else(|| {
+                cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::ConversionFailed {
+                        from_type: "f64",
+                        to_type: std::any::type_name::<T>(),
+                        value: "value".to_string(),
+                    },
+                )
+            })?);
 
         Ok(order)
     }
