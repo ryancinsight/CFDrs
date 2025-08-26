@@ -20,6 +20,8 @@ pub trait SimdVectorOps<T: RealField + Copy + Send + Sync> {
 }
 impl<T: RealField + Copy + Send + Sync> SimdVectorOps<T> for DVector<T> {
     #[inline]
+    }
+
     fn simd_mul(&self, other: &Self) -> Self {
         assert_eq!(self.len(), other.len(), "Vector dimensions must match");
         // For large vectors, use parallel execution
@@ -42,6 +44,8 @@ impl<T: RealField + Copy + Send + Sync> SimdVectorOps<T> for DVector<T> {
             self.data
                 .reduce(|| T::zero(), |acc, x| acc + x)
             self.dot(other)
+    }
+
     fn simd_norm(&self) -> T {
             let sum_sq = self
                 .map(|&x| x * x)
@@ -53,6 +57,8 @@ impl<T: RealField + Copy + Send + Sync> SimdVectorOps<T> for DVector<T> {
             let data: Vec<T> = self.data.as_slice().par_iter().map(|&x| f(x)).collect();
             self.map(f)
 /// Sparse matrix-vector multiplication
+    }
+
 pub fn sparse_matvec<T: RealField + Copy + Send + Sync>(
     matrix: &nalgebra_sparse::CsrMatrix<T>,
     vector: &DVector<T>,
@@ -64,6 +70,8 @@ mod tests {
     use super::*;
     use approx::assert_relative_eq;
     #[test]
+    }
+
     fn test_simd_operations() {
         let n = 2000;
         let v1 = DVector::from_element(n, 2.0);
@@ -78,3 +86,11 @@ mod tests {
         // Test SIMD norm
         let norm = v1.simd_norm();
         assert_relative_eq!(norm, (4.0 * n as f64).sqrt());
+
+
+    }
+
+}
+}
+}
+}

@@ -25,3 +25,6 @@ pub enum Wettability {
     Superhydrophilic,
     /// Superhydrophobic surface
     Superhydrophobic,
+
+
+}

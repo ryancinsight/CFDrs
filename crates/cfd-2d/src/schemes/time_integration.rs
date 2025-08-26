@@ -66,6 +66,8 @@ impl<T: RealField + Copy + FromPrimitive + Clone> TimeIntegrator<T> {
             TimeScheme::CrankNicolson | TimeScheme::RungeKutta2 | TimeScheme::AdamsBashforth2 => 2,
             TimeScheme::RungeKutta4 => 4,
     /// Check if scheme is explicit
+    }
+
     pub fn is_explicit(&self) -> bool {
         matches!(
             self.scheme,
@@ -74,3 +76,14 @@ impl<T: RealField + Copy + FromPrimitive + Clone> TimeIntegrator<T> {
                 | TimeScheme::RungeKutta4
                 | TimeScheme::AdamsBashforth2
         )
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}

@@ -39,10 +39,14 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     pub fn with_capacity(rows: usize, cols: usize, capacity: usize) -> Self {
             entries: Vec::with_capacity(capacity),
     /// Allow duplicate entries (will be summed)
+    }
+
     pub fn allow_duplicates(mut self, allow: bool) -> Self {
         self.allow_duplicates = allow;
         self
     /// Add a single entry
+    }
+
     pub fn add_entry(&mut self, row: usize, col: usize, value: T) -> Result<()> {
         if row >= self.rows || col >= self.cols {
             return Err(Error::InvalidConfiguration(format!(
@@ -59,11 +63,15 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
         for entry in entries {
             self.add_entry(entry.row, entry.col, entry.value)?;
     /// Add entries from triplet format
+    }
+
     pub fn add_triplets<I>(&mut self, triplets: I) -> Result<()>
         I: IntoIterator<Item = (usize, usize, T)>,
         for (row, col, value) in triplets {
             self.add_entry(row, col, value)?;
     /// Build the sparse matrix using COO format for efficiency
+    }
+
     pub fn build(self) -> Result<CsrMatrix<T>> {
         if self.entries.is_empty() {
             return Ok(CsrMatrix::zeros(self.rows, self.cols));
@@ -109,8 +117,31 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     pub fn len(&self) -> usize {
         self.entries.len()
     /// Check if builder is empty
+    }
+
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     /// Clear all entries
+    }
+
     pub fn clear(&mut self) {
         self.entries.clear();
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

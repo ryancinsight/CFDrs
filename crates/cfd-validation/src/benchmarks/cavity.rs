@@ -26,10 +26,16 @@ impl<T: RealField + Copy> LidDrivenCavity<T> {
         // complete reference data tables
         None
 impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for LidDrivenCavity<T> {
+    }
+
     fn name(&self) -> &str {
         "Lid-Driven Cavity"
+    }
+
     fn description(&self) -> &str {
         "2D incompressible flow in a square cavity with moving lid"
+    }
+
     fn run(&self, config: &BenchmarkConfig<T>) -> Result<BenchmarkResult<T>> {
         let n = config.resolution;
         let dx = self.size
@@ -148,6 +154,28 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for LidDrivenCavit
             metadata: std::collections::HashMap::new(),
         })
     fn reference_solution(&self) -> Option<BenchmarkResult<T>> {
+    }
+
     fn validate(&self, result: &BenchmarkResult<T>) -> Result<bool> {
         // Compare with Ghia et al. reference data
         Ok(true)
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

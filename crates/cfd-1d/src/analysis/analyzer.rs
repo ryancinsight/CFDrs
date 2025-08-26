@@ -35,6 +35,8 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> {
     pub fn with_solver_config(config: crate::solver::SolverConfig<T>) -> Self {
             solver: crate::solver::NetworkSolver::with_config(config),
     /// Perform comprehensive network analysis
+    }
+
     pub fn analyze(&mut self, network: &mut Network<T>) -> Result<NetworkAnalysisResult<T>> {
         // Solve the network and update network state
         let problem = crate::solver::NetworkProblem::new(network.clone());
@@ -96,6 +98,8 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> {
                     let gradient = pressure_drop / length;
                     analysis.add_pressure_gradient(edge.id.clone(), gradient);
     /// Analyze resistance characteristics
+    }
+
     pub fn analyze_resistance(&self, network: &Network<T>) -> Result<ResistanceAnalysis<T>> {
         let mut analysis = ResistanceAnalysis::new();
             let resistance = self.calculate_resistance(&edge.properties, fluid, edge.flow_rate);
@@ -108,6 +112,8 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> {
         for path in critical_paths {
             analysis.add_critical_path(path);
     /// Analyze performance metrics
+    }
+
     pub fn analyze_performance(&self, network: &Network<T>) -> Result<PerformanceMetrics<T>> {
         let mut metrics = PerformanceMetrics::new();
         // Calculate throughput (total flow through inlets)
@@ -143,6 +149,8 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> {
                     metrics.add_residence_time(edge.id.clone(), residence_time);
         Ok(metrics)
     /// Calculate Reynolds number
+    }
+
     pub fn calculate_reynolds_number(
         &self,
         fluid: &cfd_core::Fluid<T>,
@@ -234,6 +242,8 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> {
         paths.truncate(3);
         paths
     /// Find path between two nodes
+    }
+
     fn find_path(
         network: &Network<T>,
         from: &str,
@@ -255,5 +265,50 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> {
                         return Some(path);
         None
 impl<T: RealField + Copy + FromPrimitive + Float + Sum> Default for NetworkAnalyzer<T> {
+    }
+
     fn default() -> Self {
         Self::new()
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

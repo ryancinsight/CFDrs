@@ -45,10 +45,16 @@ impl StencilPattern {
                 T::from_f64(-5.0 / 2.0).unwrap_or_else(T::zero),
             _ => vec![T::zero(); 3], // Not implemented for other patterns
     /// Get the stencil size
+    }
+
     pub fn size(&self) -> usize {
             Self::Central3 | Self::Forward3 | Self::Backward3 | Self::Upwind3 => 3,
             Self::Central5 => 5,
 /// Iterator for applying stencils to data
+    }
+
+}
+
 pub struct StencilIterator<I, T> {
     iter: I,
     pattern: StencilPattern,
@@ -65,11 +71,17 @@ where
             pattern,
             buffer: Vec::with_capacity(pattern.size()),
     /// Apply stencil for first derivative
+    }
+
     pub fn first_derivative(&mut self) -> Option<T> {
         self.apply_stencil(self.pattern.first_derivative_coefficients())
     /// Apply stencil for second derivative
+    }
+
     pub fn second_derivative(&mut self) -> Option<T> {
         self.apply_stencil(self.pattern.second_derivative_coefficients())
+    }
+
     fn apply_stencil(&mut self, coefficients: Vec<T>) -> Option<T> {
         // Fill buffer if needed
         while self.buffer.len() < self.pattern.size() {
@@ -90,3 +102,13 @@ where
             self.buffer.remove(0);
             self.buffer.push(next);
         Some(result)
+
+
+}
+}
+}
+}
+}
+}
+}
+}

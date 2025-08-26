@@ -38,10 +38,16 @@ pub trait AnalyticalSolution<T: RealField + Copy> {
             && z >= bounds[4]
             && z <= bounds[5]
     /// Get the characteristic length scale
+    }
+
     fn length_scale(&self) -> T;
     /// Get the characteristic velocity scale
     fn velocity_scale(&self) -> T;
     /// Get the characteristic time scale
     fn time_scale(&self) -> T {
         self.length_scale() / self.velocity_scale()
+
+    }
+
+
 }

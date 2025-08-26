@@ -53,6 +53,8 @@ pub struct LagrangianPoint<T: RealField + Copy> {
     /// Reference position (for elastic boundaries)
     pub reference_position: Option<Vector3<T>>,
 /// Immersed Boundary Method solver
+}
+
 pub struct IbmSolver<T: RealField + FromPrimitive + Copy> {
     config: IbmConfig,
     /// Grid dimensions
@@ -84,6 +86,8 @@ impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
             force_field: vec![Vector3::zeros(); grid_size],
             velocity_field: vec![Vector3::zeros(); grid_size],
     /// Add Lagrangian points from a surface mesh
+    }
+
     pub fn add_surface_mesh(&mut self, vertices: &[Vector3<T>], normals: Option<&[Vector3<T>]>) {
         self.lagrangian_points.clear();
         for (i, vertex) in vertices.iter().enumerate() {
@@ -167,6 +171,8 @@ impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
     fn delta_function_static(r: T, h: T) -> T {
             let arg = (one - three * r_norm * r_norm).max(T::zero());
     /// Calculate forces at Lagrangian points
+    }
+
     pub fn calculate_forces(&mut self, target_velocity: Option<&[Vector3<T>]>) {
         if self.config.use_direct_forcing {
             // Direct forcing: F = (u_target - u_interpolated) / dt
@@ -219,9 +225,13 @@ impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
                         let idx = k * self.nx * self.ny + j * self.nx + i;
                         self.force_field[idx] += point.force * weight;
     /// Update Lagrangian point positions (for moving boundaries)
+    }
+
     pub fn update_positions(&mut self, dt: T) {
             point.position += point.velocity * dt;
     /// Main IBM step
+    }
+
     pub fn step(&mut self, velocity_field: &[Vector3<T>], dt: T) -> Result<()> {
         // Update velocity field reference
         self.velocity_field.clear();
@@ -237,12 +247,18 @@ impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
             self.update_positions(dt);
         Ok(())
     /// Get the force field
+    }
+
     pub fn force_field(&self) -> &[Vector3<T>] {
         &self.force_field
     /// Get Lagrangian points
+    }
+
     pub fn lagrangian_points(&self) -> &[LagrangianPoint<T>] {
         &self.lagrangian_points
     /// Compute drag and lift forces on the immersed body
+    }
+
     pub fn compute_forces(&self) -> (T, T, T) {
         let mut drag = T::zero();
         let mut lift = T::zero();
@@ -256,10 +272,14 @@ use nalgebra::ComplexField;
 mod tests {
     use super::*;
     #[test]
+    }
+
     fn test_ibm_creation() {
         let config = IbmConfig::default();
         let solver: IbmSolver<f64> = IbmSolver::new(config, 10, 10, 10, 0.1, 0.1, 0.1);
         assert_eq!(solver.force_field.len(), 1000);
+    }
+
     fn test_delta_function() {
         let solver: IbmSolver<f64> = IbmSolver::new(config, 10, 10, 10, 1.0, 1.0, 1.0);
         // Delta function should be maximum at r=0
@@ -285,3 +305,32 @@ mod tests {
         // Force should be spread to nearby grid points
         let center_idx = 5 * 100 + 5 * 10 + 5;
         assert!(solver.force_field[center_idx][0] > 0.0);
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

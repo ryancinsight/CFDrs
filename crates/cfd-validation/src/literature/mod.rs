@@ -36,3 +36,6 @@ pub struct ValidationReport<T: RealField + Copy> {
     pub passed: bool,
     /// Detailed results
     pub details: String,
+
+    }
+

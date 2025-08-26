@@ -39,10 +39,16 @@ impl<T: RealField + Copy> BackwardFacingStep<T> {
         // Simplified - look for sign change in u-velocity at wall
         T::from_f64(6.0).unwrap_or_else(|| T::from_i32(6).unwrap()) * self.step_height
 impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacingStep<T> {
+    }
+
     fn name(&self) -> &str {
         "Backward Facing Step"
+    }
+
     fn description(&self) -> &str {
         "2D laminar flow over a backward-facing step"
+    }
+
     fn run(&self, config: &BenchmarkConfig<T>) -> Result<BenchmarkResult<T>> {
         let nx = config.grid_size;
         let ny = config.grid_size / 2;
@@ -150,6 +156,26 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
     fn reference_solution(&self) -> Option<BenchmarkResult<T>> {
         // Reference reattachment lengths from literature
         None
+    }
+
     fn validate(&self, _result: &BenchmarkResult<T>) -> Result<bool> {
         // Validate reattachment length
         Ok(true)
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

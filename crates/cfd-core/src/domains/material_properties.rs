@@ -26,8 +26,12 @@ pub trait FluidProperties<T: RealField + Copy>: Send + Sync {
     fn thermal_diffusivity(&self) -> T {
         self.thermal_conductivity() / (self.density() * self.specific_heat())
     /// Get Prandtl number
+    }
+
     fn prandtl_number(&self) -> T {
         self.kinematic_viscosity() / self.thermal_diffusivity()
+    }
+
 }
 /// Solid properties abstraction
 pub trait SolidProperties<T: RealField + Copy>: Send + Sync {
@@ -40,6 +44,8 @@ pub trait SolidProperties<T: RealField + Copy>: Send + Sync {
 /// Interface properties abstraction
 pub trait InterfaceProperties<T: RealField + Copy>: Send + Sync {
     /// Get surface tension
+    }
+
     fn surface_tension(&self) -> T;
     /// Get contact angle
     fn contact_angle(&self) -> T;
@@ -55,6 +61,8 @@ pub struct WettingProperties<T: RealField + Copy> {
     /// Adhesion energy
     pub adhesion_energy: T,
 /// Currenttonian fluid implementation
+    }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CurrenttonianFluid<T: RealField + Copy> {
     /// Fluid density
@@ -68,13 +76,23 @@ pub struct CurrenttonianFluid<T: RealField + Copy> {
 impl<T: RealField + Copy> FluidProperties<T> for CurrenttonianFluid<T> {
     fn density(&self) -> T {
         self.density
+    }
+
     fn dynamic_viscosity(&self) -> T {
         self.viscosity
+    }
+
     fn thermal_conductivity(&self) -> T {
         self.thermal_conductivity
+    }
+
     fn specific_heat(&self) -> T {
         self.specific_heat
 /// Non-Currenttonian fluid models
+    }
+
+}
+
 pub mod non_newtonian {
     use super::{
         Deserialize, FluidProperties, RealField, Serialize, SOLID_LIKE_VISCOSITY,
@@ -102,12 +120,18 @@ pub mod non_newtonian {
             // Actual viscosity depends on shear rate: μ = K * γ^(n-1)
             // This should be calculated with the actual shear rate when available
             self.consistency_index
+    }
+
         fn thermal_conductivity(&self) -> T {
             self.thermal_conductivity
+    }
+
         fn specific_heat(&self) -> T {
             self.specific_heat
     // Extension methods for non-Currenttonian fluids
     impl<T: RealField + Copy> PowerLawFluid<T> {
+    }
+
         pub fn dynamic_viscosity_at_shear_rate(&self, shear_rate: T) -> T {
             // Power-law model: μ = K * γ^(n-1)
             // where K is consistency index, n is flow behavior index, γ is shear rate
@@ -161,11 +185,19 @@ pub struct ElasticSolid<T: RealField + Copy> {
 impl<T: RealField + Copy> SolidProperties<T> for ElasticSolid<T> {
     fn youngs_modulus(&self) -> T {
         self.youngs_modulus
+    }
+
     fn poissons_ratio(&self) -> T {
         self.poissons_ratio
+    }
+
     fn thermal_expansion(&self) -> T {
         self.thermal_expansion
 /// Fluid-solid interface implementation
+    }
+
+}
+
 pub struct FluidSolidInterface<T: RealField + Copy> {
     /// Surface tension
     pub surface_tension: T,
@@ -175,11 +207,19 @@ pub struct FluidSolidInterface<T: RealField + Copy> {
 impl<T: RealField + Copy> InterfaceProperties<T> for FluidSolidInterface<T> {
     fn surface_tension(&self) -> T {
         self.surface_tension
+    }
+
     fn contact_angle(&self) -> T {
         self.contact_angle
+    }
+
     fn wetting_properties(&self) -> WettingProperties<T> {
         self.wetting
 /// Material property database
+    }
+
+}
+
 pub struct MaterialDatabase<T: RealField + Copy> {
     /// Fluid properties database
     fluids: HashMap<String, Box<dyn FluidProperties<T>>>,
@@ -196,42 +236,66 @@ impl<T: RealField + Copy> MaterialDatabase<T> {
             solids: HashMap::new(),
             interfaces: HashMap::new(),
     /// Add fluid to database
+    }
+
     pub fn add_fluid(&mut self, name: String, fluid: Box<dyn FluidProperties<T>>) {
         self.fluids.insert(name, fluid);
     /// Add solid to database
+    }
+
     pub fn add_solid(&mut self, name: String, solid: Box<dyn SolidProperties<T>>) {
         self.solids.insert(name, solid);
     /// Add interface to database
+    }
+
     pub fn add_interface(&mut self, name: String, interface: Box<dyn InterfaceProperties<T>>) {
         self.interfaces.insert(name, interface);
     /// Get fluid properties by name
+    }
+
     pub fn get_fluid(&self, name: &str) -> Option<&dyn FluidProperties<T>> {
         self.fluids.get(name).map(std::convert::AsRef::as_ref)
     /// Get solid properties by name
+    }
+
     pub fn get_solid(&self, name: &str) -> Option<&dyn SolidProperties<T>> {
         self.solids.get(name).map(std::convert::AsRef::as_ref)
     /// Get interface properties by name
+    }
+
     pub fn get_interface(&self, name: &str) -> Option<&dyn InterfaceProperties<T>> {
         self.interfaces.get(name).map(std::convert::AsRef::as_ref)
     /// List available fluids
+    }
+
     pub fn list_fluids(&self) -> Vec<&str> {
         self.fluids
             .keys()
             .map(std::string::String::as_str)
             .collect()
     /// List available solids
+    }
+
     pub fn list_solids(&self) -> Vec<&str> {
         self.solids
     /// List available interfaces
+    }
+
     pub fn list_interfaces(&self) -> Vec<&str> {
         self.interfaces
 /// Material properties service following Domain Service pattern
+    }
+
+}
+
 pub struct MaterialPropertiesService<T: RealField + Copy> {
     /// Material database
     database: MaterialDatabase<T>,
     /// Property calculators
     calculators: HashMap<String, Box<dyn PropertyCalculator<T>>>,
 /// Property calculator abstraction
+}
+
 pub trait PropertyCalculator<T: RealField + Copy>: Send + Sync {
     /// Calculate derived property
     fn calculate(&self, properties: &HashMap<String, T>) -> Result<T, String>;
@@ -242,6 +306,8 @@ pub trait PropertyCalculator<T: RealField + Copy>: Send + Sync {
 /// Kinematic viscosity calculator: ν = μ/ρ
 pub struct KinematicViscosityCalculator;
 impl<T: RealField + Copy> PropertyCalculator<T> for KinematicViscosityCalculator {
+    }
+
     fn calculate(&self, properties: &HashMap<String, T>) -> Result<T, String> {
         let viscosity = properties
             .get("dynamic_viscosity")
@@ -252,11 +318,19 @@ impl<T: RealField + Copy> PropertyCalculator<T> for KinematicViscosityCalculator
         if *density <= T::zero() {
             return Err("Density must be positive".to_string());
         Ok(*viscosity / *density)
+    }
+
     fn name(&self) -> &str {
         "kinematic_viscosity"
+    }
+
     fn required_properties(&self) -> Vec<&str> {
         vec!["dynamic_viscosity", "density"]
 /// Reynolds number calculator: Re = ρVL/μ
+    }
+
+}
+
 pub struct ReynoldsNumberCalculator;
 impl<T: RealField + Copy> PropertyCalculator<T> for ReynoldsNumberCalculator {
         let velocity = properties
@@ -276,6 +350,8 @@ impl<T: RealField + Copy> PropertyCalculator<T> for ReynoldsNumberCalculator {
             "dynamic_viscosity",
         ]
 /// Prandtl number calculator: Pr = μCp/k
+}
+
 pub struct PrandtlNumberCalculator;
 impl<T: RealField + Copy> PropertyCalculator<T> for PrandtlNumberCalculator {
         let cp = properties
@@ -310,15 +386,21 @@ impl<T: RealField + Copy> MaterialPropertiesService<T> {
     pub fn database(&self) -> &MaterialDatabase<T> {
         &self.database
     /// Get mutable material database
+    }
+
     pub fn database_mut(&mut self) -> &mut MaterialDatabase<T> {
         &mut self.database
     /// Register property calculator
+    }
+
     pub fn register_calculator(
         &mut self,
         name: String,
         calculator: Box<dyn PropertyCalculator<T>>,
     ) {
         self.calculators.insert(name, calculator);
+    }
+
     pub fn calculate_property(
         &self,
         calculator_name: &str,
@@ -332,5 +414,36 @@ impl<T: RealField + Copy> Default for MaterialDatabase<T> {
     fn default() -> Self {
         Self::new()
 impl<T: RealField + Copy> Default for MaterialPropertiesService<T> {
+    }
+
+}
+
 #[cfg(test)]
 mod tests {}
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

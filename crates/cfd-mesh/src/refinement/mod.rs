@@ -14,6 +14,8 @@ pub trait RefinementStrategy<T: RealField + Copy>: Send + Sync {
 /// Uniform refinement strategy
 pub struct UniformRefinement;
 impl<T: RealField + Copy> RefinementStrategy<T> for UniformRefinement {
+    }
+
     fn refine(&self, _mesh: &mut crate::mesh::Mesh<T>) -> Result<(), crate::error::MeshError> {
         // Implementation would go here
         Ok(())
@@ -21,7 +23,13 @@ impl<T: RealField + Copy> RefinementStrategy<T> for UniformRefinement {
     fn name(&self) -> &str {
         "Uniform"
 /// Adaptive refinement strategy
+    }
+
 pub struct AdaptiveRefinement<T: RealField + Copy> {
     pub threshold: T,
 impl<T: RealField + Copy> RefinementStrategy<T> for AdaptiveRefinement<T> {
         "Adaptive"
+
+
+}
+}

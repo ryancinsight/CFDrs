@@ -57,6 +57,8 @@ fn initialize_sphere<T: RealField + FromPrimitive + Copy>(
                 let eps = cfd_core::numeric::from_f64(INTERFACE_THICKNESS)? * solver.dx;
                 let arg = (radius - distance) / eps;
                 solver.alpha[idx] = cfd_core::numeric::from_f64(0.5)? * (T::one() + arg.tanh());
+    }
+
 fn initialize_block<T: RealField + FromPrimitive + Copy>(
     min_corner: Vector3<T>,
     max_corner: Vector3<T>,
@@ -79,3 +81,12 @@ fn initialize_plane<T: RealField + FromPrimitive + Copy>(
                 let distance = normal.dot(&(pos - point));
                 // Smooth initialization
                 let arg = distance / eps;
+
+
+}
+}
+}
+}
+}
+}
+}

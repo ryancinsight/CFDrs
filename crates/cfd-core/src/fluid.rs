@@ -78,10 +78,14 @@ impl<T: RealField + Copy + FromPrimitive + Float> Fluid<T> {
                 lambda,
                 n,
     /// Create a new Cross fluid
+    }
+
     pub fn current_cross(
             viscosity_model: ViscosityModel::Cross {
                 m,
     /// Predefined water properties at 20°C, 1 atm
+    }
+
     pub fn water() -> Result<Self> {
         Ok(Self {
             name: "Water (20°C)".to_string(),
@@ -109,12 +113,16 @@ impl<T: RealField + Copy + FromPrimitive + Float> Fluid<T> {
     /// Calculate kinematic viscosity [m²/s]
     ///
     /// For variable viscosity fluids, this uses the characteristic viscosity.
+    }
+
     pub fn kinematic_viscosity(&self) -> T {
         self.characteristic_viscosity() / self.density
     /// Get the characteristic viscosity for the fluid
     /// For constant viscosity fluids, this returns the constant value.
     /// For variable viscosity fluids, this returns the zero-shear viscosity
     /// or consistency index as appropriate for Reynolds number calculations.
+    }
+
     pub fn characteristic_viscosity(&self) -> T {
         match &self.viscosity_model {
             ViscosityModel::Constant { viscosity } => *viscosity,
@@ -148,15 +156,21 @@ impl<T: RealField + Copy + FromPrimitive + Float> Fluid<T> {
         velocity * length / self.kinematic_viscosity()
     /// Calculate Prandtl number
     /// Returns None if thermal properties are not defined.
+    }
+
     pub fn prandtl_number(&self) -> Option<T> {
         match (self.specific_heat, self.thermal_conductivity) {
             (Some(cp), Some(k)) => Some(self.characteristic_viscosity() * cp / k),
             _ => None,
     /// Set specific heat capacity
+    }
+
     pub fn with_specific_heat(mut self, cp: T) -> Self {
         self.specific_heat = Some(cp);
         self
     /// Set thermal conductivity
+    }
+
     pub fn with_thermal_conductivity(mut self, k: T) -> Self {
         self.thermal_conductivity = Some(k);
 #[cfg(test)]
@@ -164,6 +178,8 @@ mod tests {
     use super::*;
     use approx::assert_relative_eq;
     #[test]
+    }
+
     fn test_water_properties() -> Result<()> {
         let water = Fluid::<f64>::water()?;
         assert_eq!(water.name, "Water (20°C)");
@@ -193,6 +209,8 @@ mod tests {
         let re = water.reynolds_number(1.0, 0.1);
         // Re = ρVL/μ = 998.2 * 1.0 * 0.1 / 1.002e-3 ≈ 99,620
         assert_relative_eq!(re, 99_620.76, epsilon = 1.0);
+    }
+
     fn test_power_law_viscosity() -> Result<()> {
         // Example: Ketchup-like fluid
         let fluid = Fluid::<f64>::current_power_law(
@@ -205,6 +223,8 @@ mod tests {
         let expected_viscosity = 0.5 * 100.0_f64.powf(-0.2);
         let calculated = fluid.dynamic_viscosity(shear_rate)?;
         assert_relative_eq!(calculated, expected_viscosity, epsilon = 1e-6);
+    }
+
     fn test_carreau_model() -> Result<()> {
         // Example: Polymer solution
         let fluid = Fluid::<f64>::current_carreau(
@@ -224,6 +244,8 @@ mod tests {
         assert_relative_eq!(visc_high, 0.1, epsilon = 0.01);
         // Test characteristic viscosity (should be mu_zero)
         assert_relative_eq!(fluid.characteristic_viscosity(), 1.0, epsilon = 1e-9);
+    }
+
     fn test_cross_model() -> Result<()> {
         // Example: Polymer melt
         let fluid = Fluid::<f64>::current_cross(
@@ -240,6 +262,8 @@ mod tests {
         // Test intermediate shear rate
         let visc_mid = fluid.dynamic_viscosity(1.0)?;
         assert!(visc_mid > 0.01 && visc_mid < 10.0);
+    }
+
     fn test_kinematic_viscosity_calculation() -> Result<()> {
         // Test that kinematic viscosity is calculated correctly
         let kinematic = water.kinematic_viscosity();
@@ -253,6 +277,8 @@ mod tests {
             0.9,
             power_law.kinematic_viscosity(),
             0.8 / 1200.0,
+    }
+
     fn test_thermal_properties() -> Result<()> {
         // Water now includes thermal properties by default
         // Check that thermal properties are present
@@ -267,29 +293,22 @@ mod tests {
         // Test fluid without thermal properties
         let fluid = Fluid::<f64>::constant_viscosity("Test", 1000.0, 0.001);
         assert!(fluid.prandtl_number().is_none());
+    }
+
     fn test_prandtl_number() -> Result<()> {
             .ok_or_else(|| Error::InvalidInput("Cannot calculate Prandtl number".into()))?;
         // Water at 20°C has Pr ≈ 7
         assert!(pr > 6.0 && pr < 8.0);
+    }
+
     fn test_error_handling() {
         // This would fail if we had a type that can't represent these values
         // For f64, it should always succeed
         assert!(Fluid::<f64>::water().is_ok());
         assert!(Fluid::<f64>::air().is_ok());
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
+
+
+    }
 }
 }
 }

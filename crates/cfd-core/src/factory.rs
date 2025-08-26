@@ -27,12 +27,16 @@ pub trait ConcreteSolverFactory<T: RealField + Copy>: Send + Sync {
 /// Separates capability checking from creation
 pub trait FactoryCapability {
     /// Check if factory supports the given capability
+    }
+
     fn supports_capability(&self, capability: &str) -> bool;
     /// Get all supported capabilities
     fn capabilities(&self) -> Vec<&str>;
 /// Dynamic solver trait for runtime polymorphism
 pub trait DynamicSolver<T: RealField + Copy>: Send + Sync {
     /// Solve the problem
+    }
+
     fn solve(&mut self, problem: &dyn Any) -> Result<Box<dyn Any>>;
     /// Get solver name
 /// Wrapper to convert concrete solvers to dynamic solvers
@@ -48,6 +52,8 @@ impl<T, S> DynamicSolverWrapper<T, S>
     S: Solver<T> + 'static,
     S::Problem: 'static,
     S::Solution: 'static,
+    }
+
     pub fn new(solver: S) -> Self {
         Self {
             solver,
@@ -61,9 +67,15 @@ impl<T, S> DynamicSolver<T> for DynamicSolverWrapper<T, S>
             .ok_or_else(|| Error::InvalidConfiguration("Invalid problem type".into()))?;
         let solution = self.solver.solve(typed_problem)?;
         Ok(Box::new(solution))
+    }
+
     fn name(&self) -> &str {
         self.solver.name()
 /// Dynamic factory for heterogeneous storage
+    }
+
+}
+
 pub trait DynamicFactory<T: RealField + Copy>: Send + Sync {
     /// Create a solver from a configuration
     fn create_solver(&self, config: &dyn Any) -> Result<Box<dyn DynamicSolver<T>>>;
@@ -82,6 +94,8 @@ impl<T, F> DynamicFactoryWrapper<T, F>
     pub fn new(factory: F) -> Self {
             factory,
 impl<T, F> DynamicFactory<T> for DynamicFactoryWrapper<T, F>
+    }
+
     fn create_solver(&self, config: &dyn Any) -> Result<Box<dyn DynamicSolver<T>>> {
         let typed_config = config
             .downcast_ref::<F::Config>()
@@ -89,9 +103,15 @@ impl<T, F> DynamicFactory<T> for DynamicFactoryWrapper<T, F>
         let solver = self.factory.create(typed_config.clone())?;
         Ok(Box::new(DynamicSolverWrapper::new(solver)))
         self.factory.name()
+    }
+
     fn can_handle(&self, problem_type: &str) -> bool {
         self.factory.can_handle(problem_type)
 /// Metadata for registered factories
+    }
+
+}
+
 #[derive(Debug, Clone)]
 pub struct FactoryMetadata {
     pub name: String,
@@ -104,6 +124,8 @@ struct RegistryEntry<T: RealField + Copy> {
     metadata: FactoryMetadata,
 /// Complete factory registry with proper factory pattern implementation
 /// Uses a single `HashMap` for SSOT (Single Source of Truth)
+}
+
 pub struct SolverFactoryRegistry<T: RealField + Copy> {
     registry: HashMap<String, RegistryEntry<T>>,
 impl<T: RealField + Copy> Default for SolverFactoryRegistry<T> {
@@ -112,9 +134,13 @@ impl<T: RealField + Copy> Default for SolverFactoryRegistry<T> {
 impl<T: RealField + Copy> SolverFactoryRegistry<T> {
     /// Create new factory registry
     #[must_use]
+    }
+
     pub fn new() -> Self {
             registry: HashMap::new(),
     /// Register a factory with metadata
+    }
+
     pub fn register_factory(
         &mut self,
         name: String,
@@ -134,15 +160,21 @@ impl<T: RealField + Copy> SolverFactoryRegistry<T> {
     pub fn get_factory(&self, name: &str) -> Option<&dyn DynamicFactory<T>> {
         self.registry.get(name).map(|entry| entry.factory.as_ref())
     /// Get factory metadata
+    }
+
     pub fn get_factory_metadata(&self, name: &str) -> Option<&FactoryMetadata> {
         self.registry.get(name).map(|entry| &entry.metadata)
     /// List available factories
+    }
+
     pub fn list_factories(&self) -> Vec<&str> {
         self.registry
             .keys()
             .map(std::string::String::as_str)
             .collect()
     /// Create a solver using the specified factory with a configuration
+    }
+
     pub fn create_solver<C: Any>(
         &self,
         factory_name: &str,
@@ -158,6 +190,8 @@ impl<T: RealField + Copy> SolverFactoryRegistry<T> {
             .filter(|(_, entry)| entry.metadata.factory_type == factory_type)
             .map(|(name, _)| name.as_str())
     /// Check if a factory supports a specific capability
+    }
+
     pub fn factory_supports(&self, factory_name: &str, capability: &str) -> bool {
         self.registry.get(factory_name).is_some_and(|entry| {
             entry
@@ -173,6 +207,8 @@ impl<T: RealField + Copy> SolverFactoryRegistry<T> {
 mod tests {
     use super::*;
     #[test]
+    }
+
     fn test_factory_registry() {
         let registry = SolverFactoryRegistry::<f64>::new();
         // Test registration
@@ -193,25 +229,8 @@ mod tests {
         // This would fail without a concrete factory, but demonstrates the API
         assert!(registry.get_factory("nonexistent").is_none());
         assert!(registry.get_factory_metadata("nonexistent").is_none());
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
+
+    }
 }
 }
 }

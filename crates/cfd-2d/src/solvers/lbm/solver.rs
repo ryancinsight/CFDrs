@@ -93,6 +93,8 @@ where
             dy,
             step_count: 0,
     /// Compute equilibrium distribution for given density and velocity
+    }
+
     pub fn equilibrium_distribution(&self, density: T, velocity: Vector2<T>) -> Vec<T> {
         let u = [velocity.x, velocity.y];
         let mut feq = vec![T::zero(); 9];
@@ -102,6 +104,8 @@ where
             feq[q] = equilibrium(density, &u, q, weight, lattice_vel);
         feq
     /// Compute macroscopic density and velocity at a grid point
+    }
+
     pub fn compute_macroscopic(&self, i: usize, j: usize) -> (T, Vector2<T>) {
         let density = self.macroscopic.density[j][i];
         let velocity = Vector2::new(
@@ -110,6 +114,8 @@ where
         );
         (density, velocity)
     /// Initialize the solver with functions for density and velocity
+    }
+
     pub fn initialize<F1, F2>(&mut self, density_fn: F1, velocity_fn: F2) -> Result<()>
     where
         F1: Fn(T, T) -> T,
@@ -157,6 +163,8 @@ where
             boundaries,
         self.step_count += 1;
     /// Run the solver until convergence or max steps
+    }
+
     pub fn solve(
         boundaries: HashMap<(usize, usize), BoundaryCondition<T>>,
         initial_density: T,
@@ -197,12 +205,18 @@ where
                     max_change = change;
         max_change
     /// Get velocity field
+    }
+
     pub fn velocity_field(&self) -> &Vec<Vec<[T; 2]>> {
         &self.macroscopic.velocity
     /// Get density field
+    }
+
     pub fn density_field(&self) -> &Vec<Vec<T>> {
         &self.macroscopic.density
     /// Get velocity at a specific point
+    }
+
     pub fn velocity_at(&self, i: usize, j: usize) -> Option<&[T; 2]> {
         if i < self.nx && j < self.ny {
             Some(&self.macroscopic.velocity[j][i])
@@ -212,6 +226,8 @@ where
     pub fn density_at(&self, i: usize, j: usize) -> Option<&T> {
             Some(&self.macroscopic.density[j][i])
     /// Get macroscopic quantities
+    }
+
     pub fn get_macroscopic(&self) -> (&Vec<Vec<[T; 2]>>, &Vec<Vec<T>>) {
         (&self.macroscopic.velocity, &self.macroscopic.density)
 #[cfg(test)]
@@ -220,6 +236,8 @@ mod tests {
     use crate::grid::StructuredGrid2D;
     use approx::assert_relative_eq;
     #[test]
+    }
+
     fn test_equilibrium_distribution() -> Result<()> {
         let grid = StructuredGrid2D::<f64>::new(10, 10, 0.0, 1.0, 0.0, 1.0)?;
         let config = LbmConfig::<f64>::default();
@@ -230,6 +248,8 @@ mod tests {
         // Check that sum of distributions equals density
         let sum: f64 = feq.iter().sum();
         assert_relative_eq!(sum, rho, epsilon = 1e-10);
+    }
+
     fn test_initialization() -> Result<()> {
         let mut solver = LbmSolver::new(config, &grid);
         let initial_density = |_x: f64, _y: f64| 1.0;
@@ -240,3 +260,26 @@ mod tests {
         assert_relative_eq!(rho, 1.0, epsilon = 1e-10);
         assert_relative_eq!(u.x, 0.0, epsilon = 1e-10);
         assert_relative_eq!(u.y, 0.0, epsilon = 1e-10);
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

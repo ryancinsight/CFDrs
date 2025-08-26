@@ -24,6 +24,8 @@ pub struct SmagorinskyModel<T: RealField + Copy> {
     pub cs_base: T,
 impl<T: RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
     /// Create a new Smagorinsky model with standard constant
+    }
+
     pub fn new(cs: T) -> Self {
         Self { cs, cs_base: cs }
     }
@@ -88,9 +90,13 @@ impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for SmagorinskyMode
         // k ≈ (Cs * Δ * |S|)²
                 let cs_delta_s = self.cs * delta * strain_rate;
                 cs_delta_s * cs_delta_s
+    }
+
     fn name(&self) -> &str {
         "Smagorinsky"
 /// Mixing length turbulence model
+    }
+
 pub struct MixingLengthModel<T: RealField + Copy> {
     /// Mixing length scale
     pub length_scale: T,
@@ -105,6 +111,8 @@ impl<T: RealField + Copy + FromPrimitive> MixingLengthModel<T> {
             length_scale,
             kappa,
     /// Calculate velocity gradient magnitude
+    }
+
     fn calculate_velocity_gradient(&self, velocity: &VelocityField<T>, idx: usize) -> T {
         let (nx, ny, nz) = velocity.dimensions;
         let mut grad_u_sq = T::zero();
@@ -134,3 +142,18 @@ impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for MixingLengthMod
                 let l_grad_u = self.length_scale * grad_u;
                 l_grad_u * l_grad_u
         "MixingLength"
+
+
+    }
+}
+}
+}
+}
+}
+}
+}
+}
+}
+
+}
+}

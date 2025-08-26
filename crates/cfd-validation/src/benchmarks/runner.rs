@@ -21,6 +21,8 @@ impl BenchmarkRunner {
         benchmarks.iter().map(|b| b.run(config)).collect()
     /// Generate validation report
     #[must_use]
+    }
+
     pub fn generate_report<T: RealField + Copy>(
         results: &[BenchmarkResult<T>],
     ) -> ValidationReport<T> {
@@ -47,14 +49,27 @@ impl<T: RealField + Copy> ValidationReport<T> {
     pub fn all_passed(&self) -> bool {
         !self.benchmarks.is_empty()
     /// Get failed benchmarks
+    }
+
     pub fn failed_benchmarks(&self) -> Vec<&BenchmarkResult<T>> {
         self.benchmarks
             .iter()
             .filter(|b| !b.errors.is_empty())
             .collect()
     /// Export report to JSON
+    }
+
     pub fn to_json(&self) -> Result<String>
     where
         T: Serialize,
     {
         serde_json::to_string_pretty(self).map_err(|e| cfd_core::Error::InvalidInput(e.to_string()))
+
+    }
+
+
+}
+}
+}
+}
+}

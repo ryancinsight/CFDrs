@@ -34,6 +34,8 @@ fn benchmark_numerical_schemes(c: &mut Criterion) {
         );
         group.bench_with_input(BenchmarkId::new("upwind_difference", size), size, |b, _| {
             b.iter(|| black_box(upwind_scheme.discretize(&field, dx)))
+    }
+
 fn benchmark_time_integration(c: &mut Criterion) {
     use nalgebra::DVector;
     let mut group = c.benchmark_group("time_integration");
@@ -64,6 +66,8 @@ fn benchmark_mesh_operations(c: &mut Criterion) {
             |b, _| b.iter(|| black_box(create_test_vertices(*size))),
             BenchmarkId::new("mesh_element_creation", size),
             |b, _| b.iter(|| black_box(create_test_elements(*size))),
+    }
+
 fn benchmark_reynolds_number_calculation(c: &mut Criterion) {
     let mut group = c.benchmark_group("reynolds_number");
     // Service pattern removed - using direct operations
@@ -116,3 +120,20 @@ criterion_group!(
     benchmark_reynolds_number_calculation
 );
 criterion_main!(benches);
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

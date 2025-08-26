@@ -31,6 +31,8 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
         self.n
     /// Compute Gauss-Lobatto collocation points
     /// `x_j` = cos(πj/N) for j = 0, 1, ..., N
+    }
+
     fn gauss_lobatto_points(n: usize) -> Result<Vec<T>> {
         let mut points = Vec::with_capacity(n);
         let n_f64 = n as f64 - 1.0;
@@ -76,13 +78,19 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
     pub fn differentiate(&self, u: &DVector<T>) -> DVector<T> {
         &self.diff_matrix * u
     /// Get collocation points
+    }
+
     pub fn points(&self) -> &[T] {
         &self.points
     /// Get second derivative matrix (D²)
+    }
+
     pub fn second_derivative_matrix(&self) -> Result<DMatrix<T>> {
         // Second derivative is D * D
         Ok(&self.diff_matrix * &self.diff_matrix)
 /// Chebyshev differentiation operations
+    }
+
 pub struct ChebyshevDifferentiation<T: RealField + Copy> {
     basis: ChebyshevPolynomial<T>,
 impl<T: RealField + FromPrimitive + Copy> ChebyshevDifferentiation<T> {
@@ -91,6 +99,20 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevDifferentiation<T> {
     pub fn first_derivative(&self, u: &DVector<T>) -> DVector<T> {
         self.basis.differentiate(u)
     /// Compute second derivative
+    }
+
     pub fn second_derivative(&self, u: &DVector<T>) -> DVector<T> {
         let du = self.basis.differentiate(u);
         self.basis.differentiate(&du)
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}

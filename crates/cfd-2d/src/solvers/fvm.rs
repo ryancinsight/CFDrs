@@ -38,15 +38,25 @@ impl<T: RealField + Copy> FvmConfig<T> {
     pub fn tolerance(&self) -> T {
         self.base.tolerance()
     /// Get max iterations from base configuration
+    }
+
     pub fn max_iterations(&self) -> usize {
         self.base.max_iterations()
     /// Get under-relaxation factor (same as relaxation factor)
+    }
+
     pub fn under_relaxation(&self) -> T {
         self.base.relaxation_factor()
     /// Check if verbose output is enabled
+    }
+
     pub fn verbose(&self) -> bool {
         self.base.verbose()
 /// Face flux calculation methods
+    }
+
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FluxScheme {
     /// Central differencing (2nd order, may be unstable)
@@ -58,6 +68,8 @@ pub enum FluxScheme {
     /// QUICK scheme (3rd order)
     Quick,
 /// Flux scheme factory following GRASP Creator principle
+}
+
 pub struct FluxSchemeFactory;
 impl FluxSchemeFactory {
     /// Create flux scheme from string name
@@ -76,6 +88,8 @@ impl FluxSchemeFactory {
     pub fn available_schemes() -> Vec<&'static str> {
         vec!["central", "upwind", "hybrid", "quick"]
     /// Get recommended scheme for given Peclet number
+    }
+
     pub fn recommend_for_peclet<T: RealField + Copy + FromPrimitive + Copy>(
         peclet: T,
     ) -> FluxScheme {
@@ -101,6 +115,8 @@ pub struct Face<T: RealField + Copy> {
     pub boundary_type: Option<BoundaryType>,
 /// Finite Volume Method solver for scalar transport equations
 /// Solves: ∂φ/∂t + ∇·(ρuφ) = ∇·(Γ∇φ) + S
+}
+
 pub struct FvmSolver<T: RealField + Copy> {
     config: FvmConfig<T>,
     flux_scheme: FluxScheme,
@@ -111,9 +127,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> FvmSolver<
             config,
             flux_scheme,
     /// Create a new FVM solver with default configuration
+    }
+
     pub fn default() -> Self {
         Self::new(FvmConfig::default(), FluxScheme::Hybrid)
     /// Solve steady-state scalar transport equation
+    }
+
     pub fn solve_scalar_transport(
         &self,
         grid: &StructuredGrid2D<T>,
@@ -378,6 +398,8 @@ mod tests {
         let config = FvmConfig::<f64>::default();
         let solver = FvmSolver::new(config, FluxScheme::Hybrid);
         assert_eq!(solver.flux_scheme, FluxScheme::Hybrid);
+    }
+
     fn test_face_building() {
         let grid = StructuredGrid2D::<f64>::unit_square(3, 3)
             .expect("CRITICAL: Add proper error handling");
@@ -388,6 +410,8 @@ mod tests {
         let expected_faces = (3 - 1) * 3 + 3 * (3 - 1);
         assert_eq!(faces.len(), expected_faces);
     #[ignore = "FVM solver has numerical stability issues - needs complete rewrite of discretization"]
+    }
+
     fn test_diffusion_case() {
         let grid = StructuredGrid2D::<f64>::unit_square(3, 3).expect("Failed to create grid");
         let solver = FvmSolver::new(FvmConfig::default(), FluxScheme::Central);
@@ -445,3 +469,58 @@ mod tests {
                 // If solver fails to converge, that's acceptable for this basic test
                 // but we should at least check it's a convergence error
                 eprintln!("FVM solver did not converge: {:?}", e);
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

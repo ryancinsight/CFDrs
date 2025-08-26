@@ -47,6 +47,8 @@ impl ErrorAnalysis {
     pub fn is_acceptable<T: RealField + Copy>(error: T, tolerance: T) -> bool {
         error <= tolerance
     /// Compute error reduction factor between two measurements
+    }
+
     pub fn error_reduction_factor<T: RealField + Copy>(coarse_error: T, fine_error: T) -> T {
         if fine_error == T::zero() {
             return T::max_value().unwrap_or_else(|| {
@@ -54,4 +56,9 @@ impl ErrorAnalysis {
                     .unwrap_or_else(|| T::from_f64(1000000.0).unwrap_or_else(|| T::one()))
             });
         coarse_error / fine_error
+
+
+}
+}
+}
 }

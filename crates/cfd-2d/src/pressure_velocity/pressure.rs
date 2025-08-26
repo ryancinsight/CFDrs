@@ -102,6 +102,21 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureCorrectionSolver<T> {
                 u_star[i][j].x -= alpha * factor * dp_dx;
                 u_star[i][j].y -= alpha * factor * dp_dy;
     /// Correct pressure field
+    }
+
     pub fn correct_pressure(&self, p: &mut Vec<Vec<T>>, p_correction: &Vec<Vec<T>>, alpha: T) {
             for j in 0..ny {
                 p[i][j] += alpha * p_correction[i][j];
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}

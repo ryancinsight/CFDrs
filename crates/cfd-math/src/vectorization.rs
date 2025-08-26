@@ -40,6 +40,8 @@ impl VectorizedOps {
             .for_each(|(r, val)| {
                 *r = scalar * *val;
     /// Broadcasting addition: adds scalar to each element of vector
+    }
+
     pub fn broadcast_add<T: RealField + Copy + Send + Sync>(
         // Use iterator chunks for cache-friendly access patterns
         const CHUNK_SIZE: usize = 64; // Optimize for cache line size
@@ -101,6 +103,8 @@ impl VectorizedOps {
                     .map(|x| *x * *x)
         sum_of_squares.sqrt()
     /// Vectorized matrix-vector multiplication for sparse patterns
+    }
+
     pub fn matvec_vectorized<T: RealField + Copy + Send + Sync>(
         values: &[T],
         col_indices: &[usize],
@@ -128,6 +132,8 @@ impl VectorizedOps {
         result.par_iter_mut().enumerate().for_each(|(i, diff)| {
             *diff = (input[i + 1] - input[i]) / spacing;
     /// Vectorized convolution for filtering operations
+    }
+
     pub fn convolution_vectorized<T: RealField + Copy + Send + Sync>(
         signal: &[T],
         kernel: &[T],
@@ -155,6 +161,8 @@ impl VectorizedOps {
                     .fold(identity.clone(), |a, b| op(a, b))
             .reduce(|| identity.clone(), |a, b| op(a, b))
     /// Vectorized prefix sum (scan) operation
+    }
+
     pub fn prefix_sum_vectorized<T: RealField + Copy + Send + Sync>(
             return Err("Input and result must have the same length");
         if input.is_empty() {
@@ -163,6 +171,8 @@ impl VectorizedOps {
         result[0] = input[0];
         for i in 1..input.len() {
             result[i] = result[i - 1] + input[i];
+    }
+
 }
 /// Vectorized operations specifically for CFD stencil computations
 pub struct StencilOps;
@@ -206,6 +216,8 @@ impl StencilOps {
                 // Y-gradient
                 grad_y[idx] = (field[idx + nx] - field[idx - nx]) * dy_inv;
     /// Vectorized divergence computation for 3D vector fields on structured grids
+    }
+
     pub fn divergence_3d<T: RealField + Copy + Send + Sync>(
         u_field: &[T],
         v_field: &[T],
@@ -255,6 +267,8 @@ impl StencilOps {
 mod tests {
     use super::*;
     #[test]
+    }
+
     fn test_vectorized_add() {
         let a = vec![1.0, 2.0, 3.0, 4.0];
         let b = vec![5.0, 6.0, 7.0, 8.0];
@@ -262,13 +276,45 @@ mod tests {
         VectorizedOps::add_vectorized(&a, &b, &mut result)
             .expect("CRITICAL: Add proper error handling");
         assert_eq!(result, vec![6.0, 8.0, 10.0, 12.0]);
+    }
+
     fn test_vectorized_dot() {
         let a = vec![1.0, 2.0, 3.0];
         let b = vec![4.0, 5.0, 6.0];
         let result =
             VectorizedOps::dot_vectorized(&a, &b).expect("CRITICAL: Add proper error handling");
         assert_eq!(result, 32.0); // 1*4 + 2*5 + 3*6 = 32
+    }
+
     fn test_l2_norm_vectorized() {
         let input = vec![3.0, 4.0];
         let norm = VectorizedOps::l2_norm_vectorized(&input);
         assert!((norm - 5.0_f64).abs() < 1e-10);
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

@@ -35,6 +35,8 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
         self.body_force = Some(force);
         self
     /// Validate problem setup
+    }
+
     pub fn validate(&self) -> Result<()> {
         // Check that all boundary nodes have boundary conditions
         let boundary_nodes = self.get_boundary_nodes();
@@ -52,3 +54,10 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
         // For now, return empty - boundary detection requires more complex topology
         // In a real implementation, this would analyze face-cell connectivity
         Vec::new()
+
+    }
+
+
+}
+}
+}

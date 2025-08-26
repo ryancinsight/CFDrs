@@ -40,3 +40,7 @@ fn benchmark_grid_creation(c: &mut Criterion) {
         );
 criterion_group!(benches, benchmark_lbm_solver, benchmark_grid_creation);
 criterion_main!(benches);
+
+
+}
+}

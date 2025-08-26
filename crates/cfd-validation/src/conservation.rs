@@ -34,6 +34,10 @@ pub struct ConservationReport<T: RealField + Copy> {
     /// Additional details about the conservation check
     pub details: HashMap<String, T>,
 /// Tolerance settings for conservation checks
+    }
+
+}
+
 pub struct ConservationTolerance<T: RealField + Copy> {
     /// Absolute tolerance
     pub absolute: T,
@@ -64,11 +68,15 @@ impl<T: RealField + Copy> ConservationHistory<T> {
             errors: Vec::new(),
             satisfied: Vec::new(),
     /// Add a new time point to the history
+    }
+
     pub fn add_point(&mut self, time: T, error: T, satisfied: bool) {
         self.times.push(time);
         self.errors.push(error);
         self.satisfied.push(satisfied);
     /// Get the maximum error in the history
+    }
+
     pub fn max_error(&self) -> Option<T> {
         self.errors
             .iter()
@@ -98,6 +106,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> MassConservation<T> {
         Self::new(ConservationTolerance::default())
 impl<T: RealField + Copy + FromPrimitive + Copy> ConservationChecker<T> for MassConservation<T> {
     type FlowField = (DVector<T>, DVector<T>); // (density, velocity_divergence)
+    }
+
     fn check_conservation(&self, field: &Self::FlowField) -> Result<ConservationReport<T>> {
         let (density, velocity_div) = field;
         // Check continuity equation: ∂ρ/∂t + ∇·(ρv) = 0
@@ -121,9 +131,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConservationChecker<T> for Mass
         })
     fn name(&self) -> &str {
         "Mass Conservation"
+    }
+
     fn tolerance(&self) -> T {
         self.tolerance.absolute
 /// Energy conservation checker
+    }
+
 pub struct EnergyConservation<T: RealField + Copy> {
     /// Tolerance for energy conservation
 impl<T: RealField + Copy + FromPrimitive + Copy> EnergyConservation<T> {
@@ -232,6 +246,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> GlobalConservationIntegrals<T> 
         let mass_change = (self.total_mass - previous.total_mass) / dt;
         (mass_change + self.boundary_mass_flux).abs()
     /// Check momentum conservation: d(ρu)/dt + ∇·(ρuu) = -∇p + ∇·τ + F
+    }
+
     pub fn momentum_conservation_error(&self, previous: &Self, dt: T) -> [T; 3] {
         [
             ((self.total_momentum[0] - previous.total_momentum[0]) / dt
@@ -243,6 +259,35 @@ impl<T: RealField + Copy + FromPrimitive + Copy> GlobalConservationIntegrals<T> 
                 + self.boundary_momentum_flux[2])
         ]
     /// Check energy conservation: dE/dt + ∇·(u(E+p)) = ∇·(k∇T) + Φ
+    }
+
     pub fn energy_conservation_error(&self, previous: &Self, dt: T) -> T {
         let energy_change = (self.total_kinetic_energy - previous.total_kinetic_energy) / dt;
         (energy_change + self.boundary_energy_flux).abs()
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

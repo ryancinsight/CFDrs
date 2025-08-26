@@ -75,6 +75,8 @@ impl<T: RealField + Copy + FromPrimitive> ConvergenceOrder<T> {
             T::from_f64(0.25).unwrap_or_else(|| T::one() / T::from_usize(4).unwrap_or_else(T::one)); // 25% tolerance
         (observed_rate - expected).abs() < expected * tolerance
 /// Convergence analysis tools
+    }
+
 pub struct ConvergenceAnalysis;
 impl ConvergenceAnalysis {
     /// Compute refinement ratio between consecutive grids
@@ -84,6 +86,8 @@ impl ConvergenceAnalysis {
     {
         grid_sizes.windows(2).map(|w| w[0] / w[1]).collect()
     /// Check if refinement is uniform (constant ratio)
+    }
+
     pub fn is_uniform_refinement<T>(grid_sizes: &[T]) -> bool
         T: RealField + Copy + FromPrimitive + std::iter::Sum,
         let ratios = Self::refinement_ratio(grid_sizes);
@@ -97,6 +101,8 @@ impl ConvergenceAnalysis {
             .iter()
             .all(|r| ((*r - mean_ratio) / mean_ratio).abs() < tolerance)
     /// Estimate required grid size for target accuracy
+    }
+
     pub fn estimate_grid_for_accuracy<T>(
         current_error: T,
         current_grid: T,
@@ -119,14 +125,20 @@ impl ConvergenceAnalysis {
             .map(|w| (w[2] - w[1]) / (w[1] - w[0]))
             .collect()
     /// Detect oscillatory convergence
+    }
+
     pub fn is_oscillatory<T>(errors: &[T]) -> bool
         let ratios = Self::convergence_ratio(errors);
         // Check for sign changes in convergence ratio
         ratios.windows(2).any(|w| w[0] * w[1] < T::zero())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
+    }
+
     fn test_convergence_order_classification() {
         let order1 = ConvergenceOrder::<f64>::from_rate(0.98);
         assert_eq!(order1, ConvergenceOrder::FirstOrder);
@@ -134,13 +146,23 @@ mod tests {
         assert_eq!(order2, ConvergenceOrder::SecondOrder);
         let order_custom = ConvergenceOrder::<f64>::from_rate(2.5);
         assert!(matches!(order_custom, ConvergenceOrder::Custom(_)));
+    }
+
     fn test_uniform_refinement() {
         let uniform_grids = vec![0.4, 0.2, 0.1, 0.05];
         assert!(ConvergenceAnalysis::is_uniform_refinement(&uniform_grids));
         let non_uniform = vec![0.4, 0.25, 0.1, 0.05];
         assert!(!ConvergenceAnalysis::is_uniform_refinement(&non_uniform));
+    }
+
     fn test_monotonic_convergence() {
         let monotonic = vec![0.1, 0.05, 0.025, 0.01];
         assert!(ConvergenceAnalysis::is_monotonic(&monotonic));
         let oscillatory = vec![0.1, 0.05, 0.06, 0.03];
         assert!(!ConvergenceAnalysis::is_monotonic(&oscillatory));
+
+    }
+
+
+}
+}

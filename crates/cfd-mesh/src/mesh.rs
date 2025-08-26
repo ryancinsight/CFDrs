@@ -27,11 +27,15 @@ impl<T: RealField + Copy> Vertex<T> {
         (self.position - other.position).norm()
 /// Edge connecting two vertices
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    }
+
 pub struct Edge {
     /// Start vertex index
     pub start: usize,
     /// End vertex index
     pub end: usize,
+}
+
 impl Edge {
     /// Create a new edge
     #[must_use]
@@ -42,27 +46,41 @@ impl Edge {
         self.start == vertex_id || self.end == vertex_id
 /// Face defined by vertices
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    }
+
 pub struct Face {
     /// Face ID
     /// Vertex indices
     pub vertices: Vec<usize>,
+}
+
 impl Face {
     /// Create a triangular face
     pub fn triangle(v0: usize, v1: usize, v2: usize) -> Self {
             id: 0, // ID should be set when adding to mesh
             vertices: vec![v0, v1, v2],
     /// Create a quadrilateral face
+    }
+
     pub fn quad(v0: usize, v1: usize, v2: usize, v3: usize) -> Self {
             vertices: vec![v0, v1, v2, v3],
     /// Number of vertices
+    }
+
     pub fn vertex_count(&self) -> usize {
         self.vertices.len()
 /// Cell (3D element)
+    }
+
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Cell {
     /// Cell type
     pub element_type: ElementType,
 /// Mesh topology information
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct MeshTopology {
     /// Vertex to cell connectivity
@@ -72,6 +90,8 @@ pub struct MeshTopology {
     /// Face neighbors
     pub face_neighbors: HashMap<usize, Vec<usize>>,
 /// Main mesh structure
+}
+
 #[derive(Debug, Clone)]
 pub struct Mesh<T: RealField + Copy> {
     /// Vertices
@@ -93,29 +113,43 @@ impl<T: RealField + Copy> Mesh<T> {
             cells: Vec::new(),
             topology: MeshTopology::default(),
     /// Add a vertex
+    }
+
     pub fn add_vertex(&mut self, vertex: Vertex<T>) -> usize {
         let id = self.vertices.len();
         self.vertices.push(vertex);
         id
     /// Add an edge
+    }
+
     pub fn add_edge(&mut self, edge: Edge) -> usize {
         let id = self.edges.len();
         self.edges.push(edge);
     /// Add a face
+    }
+
     pub fn add_face(&mut self, face: Face) -> usize {
         let id = self.faces.len();
         self.faces.push(face);
     /// Get vertex count
     /// Get edge count
+    }
+
     pub fn edge_count(&self) -> usize {
         self.edges.len()
     /// Get face count
+    }
+
     pub fn face_count(&self) -> usize {
         self.faces.len()
     /// Get cell count
+    }
+
     pub fn cell_count(&self) -> usize {
         self.cells.len()
     /// Build topology information
+    }
+
     pub fn build_topology(&mut self) {
         self.topology = MeshTopology::default();
         // Build vertex to cell connectivity
@@ -138,6 +172,10 @@ impl<T: RealField + Copy> Mesh<T> {
 impl<T: RealField + Copy> Default for Mesh<T> {
     fn default() -> Self {
         Self::new()
+    }
+
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -149,10 +187,14 @@ mod tests {
         assert_relative_eq!(v.position.x, 1.0);
         assert_relative_eq!(v.position.y, 2.0);
         assert_relative_eq!(v.position.z, 3.0);
+    }
+
     fn test_vertex_distance() {
         let v1 = Vertex::new(0, 0.0, 0.0, 0.0);
         let v2 = Vertex::new(1, 3.0, 4.0, 0.0);
         assert_relative_eq!(v1.distance_to(&v2), 5.0);
+    }
+
     fn test_edge_creation() {
         let edge = Edge::new(0, 1);
         assert_eq!(edge.start, 0);
@@ -160,11 +202,15 @@ mod tests {
         assert!(edge.contains(0));
         assert!(edge.contains(1));
         assert!(!edge.contains(2));
+    }
+
     fn test_face_creation() {
         let tri = Face::triangle(0, 1, 2);
         assert_eq!(tri.vertex_count(), 3);
         let quad = Face::quad(0, 1, 2, 3);
         assert_eq!(quad.vertex_count(), 4);
+    }
+
     fn test_mesh_operations() {
         let mut mesh = Mesh::<f64>::new();
         // Add vertices
@@ -178,6 +224,8 @@ mod tests {
         // Add face
         mesh.add_face(Face::triangle(v0, v1, v2));
         assert_eq!(mesh.face_count(), 1);
+    }
+
     fn test_mesh_topology() {
         // Create a simple tetrahedron
         mesh.add_vertex(Vertex::new(0, 0.0, 0.0, 0.0));
@@ -203,3 +251,24 @@ mod tests {
         let tet = ElementType::Tetrahedron;
         let hex = ElementType::Hexahedron;
         assert_ne!(tet, hex);
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

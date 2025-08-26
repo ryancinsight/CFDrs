@@ -105,6 +105,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> PatankarLidDrivenCavity<
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
     for PatankarLidDrivenCavity<T>
 {
+    }
+
     fn validate(&self) -> Result<ValidationReport<T>> {
         // Patankar (1980) reference data for lid-driven cavity
         // Stream function values at specific locations for Re=100
@@ -199,5 +201,20 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
         })
     fn citation(&self) -> &str {
         "Patankar, S.V. (1980). Numerical Heat Transfer and Fluid Flow. Hemisphere Publishing."
+    }
+
     fn expected_accuracy(&self) -> T {
         T::from_f64(0.02).unwrap_or_else(T::one) // 2% accuracy expected
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}

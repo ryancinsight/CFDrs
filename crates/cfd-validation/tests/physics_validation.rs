@@ -42,6 +42,8 @@ mod poiseuille_tests {
         let flow_rate = solution.flow_rate();
         let expected = TWO_THIRDS * 1.0 * 1.0; // (2/3) * u_max * h
         assert_relative_eq!(flow_rate, expected, epsilon = 1e-6);
+    }
+
 }
 mod couette_tests {
     /// Test Couette flow with moving upper wall
@@ -60,6 +62,8 @@ mod couette_tests {
         let bottom_velocity = solution.evaluate(0.0, 0.0, 0.0, 0.0);
         assert_relative_eq!(bottom_velocity.x, 0.0, epsilon = 1e-6);
     /// Test Couette flow with pressure gradient (Couette-Poiseuille flow)
+    }
+
     fn test_couette_with_pressure() {
             -1.0,  // pressure gradient
         // Combined Couette-Poiseuille flow has a parabolic component
@@ -68,6 +72,8 @@ mod couette_tests {
         assert!(mid_velocity.x > HALF);
 mod taylor_green_tests {
     /// Test Taylor-Green vortex initial condition
+    }
+
     fn test_taylor_green_initial_condition() {
         let solution = TaylorGreenVortex::<f64>::create(
             1.0,   // length_scale
@@ -82,6 +88,8 @@ mod taylor_green_tests {
         // Check that it's divergence-free
         // ∇·v = 0 for incompressible flow
     /// Test Taylor-Green vortex energy decay
+    }
+
     fn test_taylor_green_energy_decay() {
         // Sample kinetic energy at different times
         let e0 = solution.kinetic_energy(0.0);
@@ -93,3 +101,11 @@ mod taylor_green_tests {
         // Check decay rate
         let decay_rate = solution.decay_rate();
         assert!(decay_rate > 0.0);
+
+
+    }
+
+}
+}
+}
+}

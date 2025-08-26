@@ -18,6 +18,8 @@ pub struct MonitoredIterator<M, I> {
     iteration: usize,
 impl<M, I> MonitoredIterator<M, I> {
     /// Create new monitored iterator
+    }
+
     pub fn new(monitor: M, iterator: I) -> Self {
         Self {
             monitor,
@@ -47,6 +49,18 @@ impl<T: RealField + Copy> Default for NullMonitor<T> {
     fn default() -> Self {
             _phantom: PhantomData,
 impl<T: RealField + Copy> SolutionMonitor<T> for NullMonitor<T> {
+    }
+
     fn on_iteration(&mut self, _: usize, _: T) {}
     fn on_convergence(&mut self, _: usize, _: T) {}
     fn on_error(&mut self, _: &str) {}
+
+
+}
+}
+}
+}
+}
+
+}
+}

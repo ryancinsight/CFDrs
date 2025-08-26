@@ -62,9 +62,13 @@ impl<T: RealField + Copy + FromPrimitive> ConvergenceStudy<T> {
         self.r_squared > T::from_f64(0.99).unwrap_or_else(T::one)
     /// Predict error for a given grid size using the power law model
     /// error = C * h^p where C is error_coefficient and p is convergence_rate
+    }
+
     pub fn predict_error(&self, grid_size: T) -> T {
         self.error_coefficient * grid_size.powf(self.convergence_rate)
     /// Estimate grid size needed to achieve target error
+    }
+
     pub fn grid_size_for_error(&self, target_error: T) -> Result<T> {
         if self.error_coefficient <= T::zero() {
             return Err(Error::InvalidInput(
@@ -75,6 +79,8 @@ impl<T: RealField + Copy + FromPrimitive> ConvergenceStudy<T> {
 /// Compute convergence rate using least squares regression
 ///
 /// Fits log(error) = log(C) + p * log(h) to determine convergence order p
+    }
+
 pub fn compute_convergence_rate<T>(grid_sizes: &[T], errors: &[T]) -> Result<T>
 where
     T: RealField + Copy + FromPrimitive,
@@ -105,6 +111,8 @@ where
     let convergence_rate = (n * sum_log_he - sum_log_h * sum_log_e) / denominator;
     Ok(convergence_rate)
 /// Compute fit quality metrics (error coefficient and R-squared)
+    }
+
 fn compute_fit_quality<T>(grid_sizes: &[T], errors: &[T], convergence_rate: T) -> Result<(T, T)>
     // Compute error coefficient from intercept
     let (sum_log_h, sum_log_e) = grid_sizes
@@ -144,9 +152,27 @@ mod tests {
         assert_relative_eq!(study.convergence_rate, 2.0, epsilon = 0.01);
         assert!(study.r_squared > 0.99);
         assert!(study.is_asymptotic());
+    }
+
     fn test_grid_refinement_ratio() {
         let grid_sizes = vec![0.2, 0.1, 0.05];
         let errors = vec![0.04, 0.01, 0.0025];
         // Predict error for h=0.025
         let predicted = study.predict_error(0.025);
         assert_relative_eq!(predicted, 0.000625, epsilon = 1e-6);
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

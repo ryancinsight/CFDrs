@@ -44,6 +44,8 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
             _config: config,
             linear_solver,
     /// Solve the Stokes flow problem
+    }
+
     pub fn solve(&mut self, problem: &StokesFlowProblem<T>) -> Result<StokesFlowSolution<T>> {
         // Validate problem setup
         problem.validate()?;
@@ -68,6 +70,8 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         let pressure = solution.rows(n_velocity_dof, n_pressure_dof).into();
         Ok(StokesFlowSolution::new(velocity, pressure, n_nodes))
     /// Assemble the global system matrix and RHS
+    }
+
     fn assemble_system(
         &self,
         problem: &StokesFlowProblem<T>,
@@ -101,6 +105,8 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         let matrix = builder.build()?;
         Ok((matrix, rhs))
     /// Calculate element matrices
+    }
+
     fn calculate_element_matrices(
         element: &FluidElement<T>,
         viscosity: T,
@@ -170,6 +176,8 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                         builder.add_entry(global_i, global_j, matrices.k_e[(local_i, local_j)])?;
         Ok(())
     /// Apply boundary conditions to the system
+    }
+
     fn apply_boundary_conditions(
         rhs: &mut DVector<T>,
         // Apply Dirichlet boundary conditions using penalty method
@@ -189,3 +197,27 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                     // No-slip wall: zero velocity
                             rhs[component_dof] = T::zero();
                 _ => { /* Other boundary conditions not implemented yet */ }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

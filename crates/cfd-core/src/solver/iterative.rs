@@ -18,6 +18,8 @@ pub trait IterativeSolver<T: RealField + Copy>: Solver<T> + Configurable<T> {
 /// State for iterative solvers
 pub trait IterationState<T: RealField + Copy> {
     /// Get iteration number
+    }
+
     fn iteration(&self) -> usize;
     /// Check convergence
     fn converged(&self) -> bool;
@@ -32,6 +34,8 @@ where
     T: RealField + Copy,
 {
     /// Create new solver iterator
+    }
+
     pub fn new(solver: S) -> Self {
         Self {
             solver,
@@ -52,3 +56,11 @@ impl<S, Solution, T> Iterator for SolverIterator<S, Solution, T>
             Err(e) => {
                 self.converged = true;
                 Some(Err(e))
+
+
+}
+}
+}
+}
+
+}

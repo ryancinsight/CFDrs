@@ -18,6 +18,8 @@ pub struct ToleranceCriteria<T> {
     /// Maximum iterations
     pub max_iterations: usize,
 impl<T: RealField + Copy> ConvergenceCriteria<T> for ToleranceCriteria<T> {
+    }
+
     fn is_converged(&self, iteration: usize, residual: T, initial_residual: T) -> bool {
         iteration >= self.max_iterations
             || residual <= self.absolute_tolerance
@@ -61,3 +63,12 @@ impl<C1, C2, T> OrCriteria<C1, C2, T>
 impl<C1, C2, T> ConvergenceCriteria<T> for OrCriteria<C1, C2, T>
             || self
             "({}) OR ({})",
+
+
+}
+}
+}
+}
+
+}
+}

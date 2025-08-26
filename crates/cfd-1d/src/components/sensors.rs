@@ -39,10 +39,16 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowSensor<T> {
 impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for FlowSensor<T> {
     fn resistance(&self, _fluid: &Fluid<T>) -> T {
         self.resistance
+    }
+
     fn component_type(&self) -> &str {
         "FlowSensor"
+    }
+
     fn parameters(&self) -> &HashMap<String, T> {
         &self.parameters
+    }
+
     fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
         match key {
             "resistance" => self.resistance = value,
@@ -51,3 +57,11 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for FlowSensor<T>
                 self.parameters.insert(key.to_string(), value);
             }
         Ok(())
+
+
+}
+}
+}
+}
+}
+}

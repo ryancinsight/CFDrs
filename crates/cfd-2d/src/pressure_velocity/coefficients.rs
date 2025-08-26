@@ -39,7 +39,15 @@ impl<T: RealField + Copy> CellCoefficients<T> {
     pub fn calculate_ap(&mut self) {
         self.ap = self.ae + self.aw + self.an + self.as_;
     /// Apply under-relaxation
+    }
+
     pub fn apply_relaxation(&mut self, alpha: T) {
         let one = T::one();
         self.ap /= alpha;
         self.su += ((one - alpha) * self.ap) * self.d;
+
+
+    }
+
+}
+}

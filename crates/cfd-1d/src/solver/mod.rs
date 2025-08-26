@@ -32,9 +32,13 @@ impl<T: RealField + Copy> cfd_core::solver::SolverConfiguration<T> for SolverCon
     }
     fn tolerance(&self) -> T {
         self.tolerance
+    }
+
     fn use_preconditioning(&self) -> bool {
         false // No preconditioning for network solver
 /// Main network solver implementing the core CFD suite trait system
+    }
+
 pub struct NetworkSolver<T: RealField + Copy> {
     /// Solver configuration
     config: SolverConfig<T>,
@@ -49,6 +53,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Default for NetworkSolver<T> {
         Self::new()
 impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
     /// Create a new network solver with default configuration
+    }
+
     pub fn new() -> Self {
         let config = SolverConfig {
             tolerance: T::from_f64(1e-6).unwrap_or_else(T::one),
@@ -64,6 +70,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
     pub fn with_config(config: SolverConfig<T>) -> Self {
             config,
     /// Solve the network flow problem
+    }
+
     pub fn solve_network(&self, problem: &NetworkProblem<T>) -> Result<Network<T>> {
         // Build the linear system
         let (matrix, rhs) = self.assembler.assemble(&problem.network)?;
@@ -75,6 +83,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
         let mut network = problem.network.clone();
         self.update_network_solution(&mut network, solution)?;
         Ok(network)
+    }
+
     fn update_network_solution(
         &self,
         network: &mut Network<T>,
@@ -85,17 +95,27 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
 impl<T: RealField + Copy + FromPrimitive + Copy> Solver<T> for NetworkSolver<T> {
     type Problem = NetworkProblem<T>;
     type Solution = Network<T>;
+    }
+
     fn solve(&mut self, problem: &Self::Problem) -> Result<Self::Solution> {
         self.solve_network(problem)
+    }
+
     fn name(&self) -> &str {
         "NetworkSolver"
 impl<T: RealField + Copy> Configurable<T> for NetworkSolver<T> {
     type Config = SolverConfig<T>;
+    }
+
     fn config(&self) -> &Self::Config {
         &self.config
+    }
+
     fn set_config(&mut self, config: Self::Config) {
         self.config = config;
 impl<T: RealField + Copy + FromPrimitive + Copy> Validatable<T> for NetworkSolver<T> {
+    }
+
     fn validate_problem(&self, problem: &Self::Problem) -> Result<()> {
         // Validate network has nodes
         if problem.network.node_count() == 0 {
@@ -106,5 +126,26 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Validatable<T> for NetworkSolve
         if self.config.tolerance <= T::zero() {
                 "Tolerance must be positive".to_string(),
         Ok(())
+    }
+
     fn can_solve(&self, _problem: &Self::Problem) -> bool {
         true // Can handle any network problem
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

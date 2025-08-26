@@ -57,6 +57,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy + std::iter::Sum> PisoSolver<T> 
         // Check convergence
         Ok(self.monitor.is_converged(&self.criteria))
     /// Run PISO solver until convergence
+    }
+
     pub fn solve(
     ) -> Result<()> {
         self.monitor = ConvergenceMonitor::new();
@@ -72,5 +74,16 @@ impl<T: RealField + Copy + FromPrimitive + Copy + std::iter::Sum> PisoSolver<T> 
     pub fn convergence_history(&self) -> &ConvergenceMonitor<T> {
         &self.monitor
     /// Update configuration
+    }
+
     pub fn set_config(&mut self, config: PisoConfig<T>) {
         self.config = config;
+
+
+    }
+
+}
+}
+}
+}
+}

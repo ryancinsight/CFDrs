@@ -44,8 +44,12 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
         let d4 = num_traits::Float::powf(self.diameter, four);
         let resistance = coefficient * viscosity * self.length / (pi * d4);
         Ok(resistance)
+    }
+
     fn model_name(&self) -> &str {
         "Hagen-Poiseuille"
+    }
+
     fn reynolds_range(&self) -> (T, T) {
         (
             T::zero(),
@@ -212,3 +216,31 @@ pub struct EntranceEffectsModel<T: RealField + Copy> {
         Ok(self.base_resistance * (T::one() + self.entrance_coefficient))
         "Entrance Effects"
             T::from_f64(1e6).ok_or_else(|| {
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

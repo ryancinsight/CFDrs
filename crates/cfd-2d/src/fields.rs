@@ -42,21 +42,33 @@ impl<T: Clone> Field2D<T> {
         debug_assert!(i < self.nx && j < self.ny, "Index out of bounds");
         self.data[j * self.nx + i]
     /// Get immutable reference to element at (i, j)
+    }
+
     pub fn at_ref(&self, i: usize, j: usize) -> &T {
         &self.data[j * self.nx + i]
     /// Get mutable reference to element at (i, j)
+    }
+
     pub fn at_mut(&mut self, i: usize, j: usize) -> &mut T {
         &mut self.data[j * self.nx + i]
     /// Get grid dimensions
+    }
+
     pub fn dimensions(&self) -> (usize, usize) {
         (self.nx, self.ny)
     /// Get raw data slice for efficient operations
+    }
+
     pub fn data(&self) -> &[T] {
         &self.data
     /// Get mutable raw data slice
+    }
+
     pub fn data_mut(&mut self) -> &mut [T] {
         &mut self.data
     /// Apply a function to all elements using iterator
+    }
+
     pub fn map_inplace<F>(&mut self, f: F)
         F: Fn(&mut T),
         self.data.iter_mut().for_each(f);
@@ -72,6 +84,8 @@ impl<T: Clone> Field2D<T> {
 ///
 /// This structure provides both vector and component access to velocity fields,
 /// supporting the requirements of SIMPLE, PISO, and other algorithms.
+    }
+
 pub struct SimulationFields<T: RealField + Copy> {
     /// X-component of velocity field
     pub u: Field2D<T>,
@@ -104,6 +118,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
             density: Field2D::new(nx, ny, T::one()),
             viscosity: Field2D::new(nx, ny, T::from_f64(0.001).unwrap_or_else(T::one)),
     /// Create fields with specified fluid properties
+    }
+
     pub fn with_fluid(nx: usize, ny: usize, fluid: &Fluid<T>) -> Self
         T: Float,
         let mut fields = Self::new(nx, ny);
@@ -123,16 +139,24 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
         self.p.map_inplace(|val| *val = T::zero());
         self.p_prime.map_inplace(|val| *val = T::zero());
     /// Get velocity as Vector2 at point (i, j)
+    }
+
     pub fn velocity_at(&self, i: usize, j: usize) -> Vector2<T> {
         Vector2::new(self.u.at(i, j), self.v.at(i, j))
     /// Set velocity from Vector2 at point (i, j)
+    }
+
     pub fn set_velocity_at(&mut self, i: usize, j: usize, vel: &Vector2<T>) {
         *self.u.at_mut(i, j) = vel.x;
         *self.v.at_mut(i, j) = vel.y;
     /// Get predicted velocity as Vector2
+    }
+
     pub fn velocity_star_at(&self, i: usize, j: usize) -> Vector2<T> {
         Vector2::new(self.u_star.at(i, j), self.v_star.at(i, j))
     /// Get maximum velocity magnitude for stability analysis using iterators
+    }
+
     pub fn max_velocity_magnitude(&self) -> T {
         self.u
             .data()
@@ -154,6 +178,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
                 .map(|(mu, rho)| *mu / *rho)
                 .collect(),
     /// Calculate Reynolds number based on characteristic length and velocity
+    }
+
     pub fn reynolds_number(&self, characteristic_length: T, characteristic_velocity: T) -> T {
         let avg_density = self
             .density
@@ -164,3 +190,18 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
             .fold(T::zero(), |acc, v| acc + *v)
             / T::from_usize(self.viscosity.data.len()).unwrap_or_else(T::one);
         avg_density * characteristic_velocity * characteristic_length / avg_viscosity
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

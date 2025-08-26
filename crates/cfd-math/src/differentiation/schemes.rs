@@ -17,4 +17,8 @@ pub enum FiniteDifferenceScheme {
 impl Default for FiniteDifferenceScheme {
     fn default() -> Self {
         Self::Central
+
     }
+
+
+}

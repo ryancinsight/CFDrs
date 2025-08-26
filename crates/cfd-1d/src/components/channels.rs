@@ -35,16 +35,24 @@ impl<T: RealField + Copy + FromPrimitive + Float> RectangularChannel<T> {
     pub fn square(length: T, side: T, roughness: T) -> Self {
         Self::new(length, side, side, roughness)
     /// Get cross-sectional area
+    }
+
     pub fn area(&self) -> T {
         self.width * self.height
     /// Get hydraulic diameter
+    }
+
     pub fn hydraulic_diameter(&self) -> T {
         let two = T::from_f64(2.0).unwrap_or_else(T::zero);
         two * self.area() / (self.width + self.height)
     /// Get aspect ratio (width/height)
+    }
+
     pub fn aspect_ratio(&self) -> T {
         self.width / self.height
     /// Calculate friction factor for laminar flow
+    }
+
     fn friction_factor_laminar(&self) -> T {
         let alpha = self.aspect_ratio();
         let one = T::one();
@@ -73,10 +81,16 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for RectangularCh
         if resistance > T::zero() {
             resistance
             T::from_f64(1e-12).unwrap_or_else(T::zero)
+    }
+
     fn component_type(&self) -> &str {
         "RectangularChannel"
+    }
+
     fn parameters(&self) -> &HashMap<String, T> {
         &self.parameters
+    }
+
     fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
         match key {
             "length" => self.length = value,
@@ -90,6 +104,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for RectangularCh
     fn volume(&self) -> Option<T> {
         Some(self.length * self.area())
 /// Circular microchannel component
+    }
+
 pub struct CircularChannel<T: RealField + Copy> {
     /// Channel diameter [m]
     pub diameter: T,
@@ -111,3 +127,20 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for CircularChann
         c128 * viscosity * self.length / (pi * d4)
         "CircularChannel"
             "diameter" => self.diameter = value,
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

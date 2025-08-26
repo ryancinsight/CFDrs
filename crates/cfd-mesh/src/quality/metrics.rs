@@ -77,12 +77,28 @@ impl<T: RealField + Copy> QualityMetrics<T> {
     fn aspect_ratio_quality(&self) -> T {
         T::one() / self.aspect_ratio.max(T::one() / self.aspect_ratio)
     /// Convert Jacobian to quality metric (0-1)
+    }
+
     fn jacobian_quality(&self) -> T {
         if self.jacobian > T::zero() {
             (T::one() - (T::one() - self.jacobian).abs()).max(T::zero())
     /// Convert condition number to quality metric (0-1)
+    }
+
     fn condition_quality(&self) -> T {
         T::one() / self.condition_number
     /// Convert size ratio to quality metric (0-1)
+    }
+
     fn size_ratio_quality(&self) -> T {
         (T::one() - (T::one() - self.size_ratio).abs()).max(T::zero())
+
+
+    }
+
+}
+}
+}
+}
+}
+}

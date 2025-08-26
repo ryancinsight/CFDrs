@@ -56,3 +56,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorStatistics<T> {
         let num_magnitudes: Vec<T> = numerical.iter().map(nalgebra::Matrix::norm).collect();
         let ref_magnitudes: Vec<T> = reference.iter().map(nalgebra::Matrix::norm).collect();
         Self::compute(&num_magnitudes, &ref_magnitudes)
+
+    }
+
+
+}

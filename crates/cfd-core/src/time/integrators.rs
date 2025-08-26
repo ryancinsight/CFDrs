@@ -31,9 +31,13 @@ impl<T: RealField + Copy> TimeIntegrator<T> for ForwardEuler {
     }
     fn order(&self) -> usize {
         1
+    }
+
     fn is_explicit(&self) -> bool {
         true
 /// Runge-Kutta 2nd order (RK2) time integration
+    }
+
 pub struct RungeKutta2;
 impl<T: RealField + FromPrimitive + Copy> TimeIntegrator<T> for RungeKutta2 {
         let half = T::from_f64(0.5).ok_or_else(|| {
@@ -85,10 +89,14 @@ impl<T: RealField + FromPrimitive + Copy> BackwardEuler<T> {
     pub fn new() -> Self {
         Self::default()
     /// Set the maximum number of iterations
+    }
+
     pub fn with_max_iterations(mut self, max_iterations: usize) -> Self {
         self.max_iterations = max_iterations;
         self
     /// Set the tolerance
+    }
+
     pub fn with_tolerance(mut self, tolerance: T) -> Self {
         self.tolerance = tolerance;
 impl<T: RealField + Copy> TimeIntegrator<T> for BackwardEuler<T> {
@@ -136,3 +144,24 @@ impl<T: RealField + Copy> TimeIntegrator<T> for CrankNicolson<T> {
         // Fixed-point iteration: y_{n+1}^{k+1} = y_n + dt/2 * (f(t_n, y_n) + f(t_{n+1}, y_{n+1}^k))
             let f_current = f(t_next, &next_candidate);
             let next_state = previous_state.clone() + (f_previous.clone() + f_current) * half_dt;
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+
+}
+}
+}
+}

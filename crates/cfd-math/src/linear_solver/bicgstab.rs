@@ -26,6 +26,8 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
     {
         Self::new(LinearSolverConfig::default())
     /// Solve with preconditioning and optimized memory management
+    }
+
     pub fn solve_preconditioned<P: Preconditioner<T>>(
         &self,
         a: &CsrMatrix<T>,
@@ -106,9 +108,22 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
     fn is_converged(&self, residual_norm: T) -> bool {
         residual_norm < self.config.tolerance
 impl<T: RealField + Debug + Copy> LinearSolver<T> for BiCGSTAB<T> {
+    }
+
     fn solve(
         // Use identity preconditioner for unpreconditioned solve
         let identity = IdentityPreconditioner;
         self.solve_preconditioned(a, b, &identity, x0)
     fn config(&self) -> &LinearSolverConfig<T> {
         &self.config
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}

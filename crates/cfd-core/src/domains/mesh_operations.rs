@@ -61,6 +61,8 @@ impl ElementType {
             Self::Triangle | Self::Triangle6 | Self::Quadrilateral | Self::Quadrilateral9 => 2,
             _ => 3,
     /// Check if this is a linear element
+    }
+
     pub fn is_linear(&self) -> bool {
         matches!(
             self,
@@ -73,11 +75,15 @@ impl ElementType {
                 | Self::Prism
         )
     /// Check if this is a quadratic element
+    }
+
     pub fn is_quadratic(&self) -> bool {
         !self.is_linear()
 /// Mesh generation strategy abstraction
 pub trait MeshGeneration<T: RealField + Copy>: Send + Sync {
     /// Generate mesh for given geometry
+    }
+
     fn generate(&self, geometry: &dyn Geometry<T>) -> Result<Mesh<T>, String>;
     /// Get generator name
     fn name(&self) -> &str;
@@ -86,6 +92,8 @@ pub trait MeshGeneration<T: RealField + Copy>: Send + Sync {
 /// Mesh refinement strategy abstraction
 pub trait MeshRefinement<T: RealField + Copy>: Send + Sync {
     /// Refine mesh based on criteria
+    }
+
     fn refine(&self, mesh: &Mesh<T>, criteria: &RefinementCriteria<T>) -> Result<Mesh<T>, String>;
     /// Get refinement method name
     /// Check if method supports adaptive refinement
@@ -93,6 +101,8 @@ pub trait MeshRefinement<T: RealField + Copy>: Send + Sync {
 /// Mesh quality assessment abstraction
 pub trait MeshQuality<T: RealField + Copy>: Send + Sync {
     /// Assess mesh quality
+    }
+
     fn assess(&self, mesh: &Mesh<T>) -> QualityReport<T>;
     /// Get quality metric name
     /// Get acceptable quality range
@@ -100,6 +110,8 @@ pub trait MeshQuality<T: RealField + Copy>: Send + Sync {
 /// Generic geometry abstraction
 pub trait Geometry<T: RealField + Copy>: Send + Sync {
     /// Get geometry type
+    }
+
     fn geometry_type(&self) -> &str;
     /// Get bounding box
     fn bounding_box(&self) -> (Point3<T>, Point3<T>);
@@ -119,6 +131,8 @@ pub struct Mesh<T: RealField + Copy> {
     /// Mesh metadata
     pub metadata: MeshMetadata,
 /// Mesh element representation
+    }
+
 pub struct Element {
     /// Element ID
     pub id: usize,
@@ -127,6 +141,8 @@ pub struct Element {
     /// Element type
     pub element_type: ElementType,
 /// Mesh metadata
+}
+
 pub struct MeshMetadata {
     /// Mesh name
     pub name: String,
@@ -135,6 +151,8 @@ pub struct MeshMetadata {
     /// Mesh statistics
     pub statistics: MeshStatistics,
 /// Mesh statistics
+}
+
 pub struct MeshStatistics {
     /// Number of vertices
     pub num_vertices: usize,
@@ -143,6 +161,8 @@ pub struct MeshStatistics {
     /// Element type counts
     pub element_counts: HashMap<ElementType, usize>,
 /// Refinement criteria
+}
+
 pub struct RefinementCriteria<T: RealField + Copy> {
     /// Maximum element size
     pub max_element_size: Option<T>,
@@ -153,6 +173,8 @@ pub struct RefinementCriteria<T: RealField + Copy> {
     /// Gradient-based refinement
     pub gradient_threshold: Option<T>,
 /// Quality assessment report
+}
+
 pub struct QualityReport<T: RealField + Copy> {
     /// Overall quality score
     pub overall_score: T,
@@ -163,6 +185,8 @@ pub struct QualityReport<T: RealField + Copy> {
     /// Recommendations
     pub recommendations: Vec<String>,
 /// Quality statistics
+}
+
 pub struct QualityStatistics<T: RealField + Copy> {
     /// Minimum quality
     pub min_quality: T,
@@ -182,18 +206,26 @@ impl<T: RealField + Copy> Mesh<T> {
             .map(|element| self.calculate_element_volume(element))
             .collect()
     /// Calculate element aspect ratios
+    }
+
     pub fn element_aspect_ratios(&self) -> Vec<T> {
             .map(|element| self.calculate_aspect_ratio(element))
     /// Find boundary elements using iterator operations
+    }
+
     pub fn boundary_elements(&self) -> Vec<&Element> {
             .filter(|element| self.is_boundary_element(element))
     /// Calculate mesh quality metrics using parallel iterators
+    }
+
     pub fn quality_metrics(&self) -> HashMap<String, Vec<T>> {
         let mut metrics = HashMap::new();
         metrics.insert("volume".to_string(), self.element_volumes());
         metrics.insert("aspect_ratio".to_string(), self.element_aspect_ratios());
         metrics
     /// Helper method to calculate element volume
+    }
+
     fn calculate_element_volume(&self, element: &Element) -> T {
         match element.element_type {
             ElementType::Triangle => {
@@ -235,6 +267,8 @@ impl<T: RealField + Copy> Mesh<T> {
         // Simplified boundary detection
         true // Would need proper implementation
 /// Mesh operations service following Domain Service pattern
+    }
+
 pub struct MeshOperationsService<T: RealField + Copy> {
     /// Available mesh generators
     generators: HashMap<String, Box<dyn MeshGeneration<T>>>,
@@ -250,25 +284,57 @@ impl<T: RealField + Copy> MeshOperationsService<T> {
             refinement_methods: HashMap::new(),
             quality_assessors: HashMap::new(),
     /// Register mesh generator
+    }
+
     pub fn register_generator(&mut self, name: String, generator: Box<dyn MeshGeneration<T>>) {
         self.generators.insert(name, generator);
     /// Register refinement method
+    }
+
     pub fn register_refinement_method(&mut self, name: String, method: Box<dyn MeshRefinement<T>>) {
         self.refinement_methods.insert(name, method);
     /// Register quality assessor
+    }
+
     pub fn register_quality_assessor(&mut self, name: String, assessor: Box<dyn MeshQuality<T>>) {
         self.quality_assessors.insert(name, assessor);
     /// Get mesh generator by name
+    }
+
     pub fn get_generator(&self, name: &str) -> Option<&dyn MeshGeneration<T>> {
         self.generators.get(name).map(std::convert::AsRef::as_ref)
     /// Get refinement method by name
+    }
+
     pub fn get_refinement_method(&self, name: &str) -> Option<&dyn MeshRefinement<T>> {
         self.refinement_methods
             .get(name)
             .map(std::convert::AsRef::as_ref)
     /// Get quality assessor by name
+    }
+
     pub fn get_quality_assessor(&self, name: &str) -> Option<&dyn MeshQuality<T>> {
         self.quality_assessors
 impl<T: RealField + Copy> Default for MeshOperationsService<T> {
+    }
+
     fn default() -> Self {
         Self::new()
+
+
+    }
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

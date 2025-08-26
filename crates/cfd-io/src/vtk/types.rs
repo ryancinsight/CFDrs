@@ -27,6 +27,8 @@ pub enum VtkCellType {
     Tetrahedron = 10,
     /// Hexahedron (8 points)
     Hexahedron = 12,
+}
+
 impl VtkCellType {
     /// Convert from u8 representation
     pub fn from_u8(value: u8) -> Result<Self> {
@@ -54,6 +56,8 @@ impl VtkCellType {
             VtkCellType::Hexahedron => 8,
 /// VTK mesh data structure
 #[derive(Debug, Clone)]
+    }
+
 pub struct VtkMesh<T: RealField + Copy> {
     /// Points (vertices)
     pub points: Vec<[T; 3]>,
@@ -75,14 +79,20 @@ impl<T: RealField + Copy> VtkMesh<T> {
             point_data: HashMap::new(),
             cell_data: HashMap::new(),
     /// Add a point to the mesh
+    }
+
     pub fn add_point(&mut self, x: T, y: T, z: T) -> usize {
         self.points.push([x, y, z]);
         self.points.len() - 1
     /// Add a cell to the mesh
+    }
+
     pub fn add_cell(&mut self, cell_type: VtkCellType, connectivity: Vec<usize>) {
         self.cells.push(connectivity);
         self.cell_types.push(cell_type);
     /// Add point data
+    }
+
     pub fn add_point_data(&mut self, name: String, data: Vec<T>) -> Result<()> {
         if data.len() != self.points.len() {
             return Err(Error::InvalidInput(format!(
@@ -104,9 +114,15 @@ impl<T: RealField + Copy> VtkMesh<T> {
     pub fn num_cells(&self) -> usize {
         self.cells.len()
 impl<T: RealField + Copy> Default for VtkMesh<T> {
+    }
+
     fn default() -> Self {
         Self::new()
 /// VTK file header information
+    }
+
+}
+
 pub struct VtkHeader {
     /// Title of the dataset
     pub title: String,
@@ -114,3 +130,17 @@ pub struct VtkHeader {
     pub format: String,
     /// Dataset type (STRUCTURED_GRID, UNSTRUCTURED_GRID, etc.)
     pub dataset_type: String,
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

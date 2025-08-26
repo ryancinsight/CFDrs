@@ -52,6 +52,8 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
     pub(crate) fn index(&self, i: usize, j: usize, k: usize) -> usize {
         k * self.ny * self.nx + j * self.nx + i
     /// Set velocity field
+    }
+
     pub fn set_velocity_field(&mut self, velocity: Vec<Vector3<T>>) -> Result<()> {
         if velocity.len() != self.velocity.len() {
             return Err(cfd_core::Error::DimensionMismatch {
@@ -64,12 +66,18 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
     pub fn get_volume_fraction(&self) -> &[T] {
         &self.alpha
     /// Get interface normals
+    }
+
     pub fn get_normals(&self) -> &[Vector3<T>] {
         &self.normals
     /// Get interface curvature
+    }
+
     pub fn get_curvature(&self) -> &[T] {
         &self.curvature
     /// Main time step
+    }
+
     pub fn advance(&mut self, dt: T) -> Result<()> {
         // Store previous values
         self.alpha_previous.copy_from_slice(&self.alpha);
@@ -82,13 +90,19 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
         if self.config.enable_compression {
             advection.apply_compression(self, dt)?;
     /// Reconstruct interface normals and curvature
+    }
+
     pub fn reconstruct_interface(&mut self) {
         let reconstruction = InterfaceReconstruction::create(&self.config);
         reconstruction.reconstruct(self);
     /// Initialize the volume fraction field
+    }
+
     pub fn initialize(&mut self, init: Initialization<T>) {
         init.apply(self);
     /// Calculate time step based on CFL condition
+    }
+
     pub fn calculate_timestep(&self) -> T {
         let mut max_velocity = T::zero();
         for vel in &self.velocity {
@@ -110,3 +124,18 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
         for &alpha in &self.alpha {
             total = total + alpha * cell_volume;
         total
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

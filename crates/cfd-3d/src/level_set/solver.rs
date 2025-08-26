@@ -63,5 +63,15 @@ impl<T: RealField + FromPrimitive> LevelSetSolver<T> {
     pub fn linear_index(&self, i: usize, j: usize, k: usize) -> usize {
         i + j * self.nx + k * self.nx * self.ny
     /// Time step the level set equation
+    }
+
     pub fn step(&mut self, dt: T) -> Result<()> {
         // Actual stepping would be implemented here
+
+
+    }
+
+}
+}
+}
+}

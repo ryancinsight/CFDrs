@@ -40,6 +40,8 @@ pub struct ProblemConfig<T: RealField + Copy, D: Domain<T>> {
     /// Problem parameters
     pub parameters: ProblemParameters<T>,
 /// Common problem parameters
+}
+
 pub struct ProblemParameters<T: RealField + Copy> {
     /// Reference pressure [Pa]
     pub reference_pressure: T,
@@ -75,13 +77,19 @@ impl<T: RealField + Copy, D: Domain<T>> ProblemBuilder<T, D> {
             boundary_conditions: BoundaryConditionSet::new(),
             parameters: ProblemParameters::default(),
     /// Set the domain
+    }
+
     pub fn domain(mut self, domain: D) -> Self {
         self.domain = Some(Arc::new(domain));
         self
     /// Set the fluid
+    }
+
     pub fn fluid(mut self, fluid: Fluid<T>) -> Self {
         self.fluid = Some(fluid);
     /// Add a boundary condition
+    }
+
     pub fn boundary_condition(
         mut self,
         name: impl Into<String>,
@@ -89,15 +97,23 @@ impl<T: RealField + Copy, D: Domain<T>> ProblemBuilder<T, D> {
     ) -> Self {
         self.boundary_conditions.add(name, condition);
     /// Set reference pressure
+    }
+
     pub fn reference_pressure(mut self, pressure: T) -> Self {
         self.parameters.reference_pressure = pressure;
     /// Set gravity
+    }
+
     pub fn gravity(mut self, gravity: nalgebra::Vector3<T>) -> Self {
         self.parameters.gravity = Some(gravity);
     /// Enable transient simulation
+    }
+
     pub fn transient(mut self, transient: bool) -> Self {
         self.parameters.transient = transient;
     /// Build the problem configuration
+    }
+
     pub fn build(self) -> Result<ProblemConfig<T, D>> {
         let domain = self.domain.ok_or_else(|| {
             crate::error::Error::InvalidConfiguration("Domain not set".to_string())
@@ -113,6 +129,8 @@ impl<T: RealField + Copy, D: Domain<T>> ProblemBuilder<T, D> {
         Ok(config)
 impl<T: RealField + Copy, D: Domain<T>> Default for ProblemBuilder<T, D> {
         Self::new()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -136,6 +154,8 @@ mod tests {
         assert_eq!(problem.fluid.name.clone(), "Water (20°C)");
         assert_eq!(problem.boundary_conditions.conditions.len(), 3);
         assert!(problem.parameters.transient);
+
+    }
 }
 }
 }
@@ -143,14 +163,5 @@ mod tests {
 }
 }
 }
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
+
 }

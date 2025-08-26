@@ -38,6 +38,8 @@ impl<T: RealField + FromPrimitive + Copy> RhieChowInterpolation<T> {
     /// - `ū_f` is the linearly interpolated velocity
     /// - `D_f` is the face diffusion coefficient
     /// - (∇p)_f is the pressure gradient at the face
+    }
+
     pub fn interpolate_u_face(
         &self,
         u_p: T, // velocity at cell P
@@ -59,6 +61,8 @@ impl<T: RealField + FromPrimitive + Copy> RhieChowInterpolation<T> {
         let correction = d_f * dp_dx;
         u_bar - self.alpha * correction
     /// Interpolate v-velocity to face with pressure correction
+    }
+
     pub fn interpolate_v_face(
         v_p: T, // velocity at cell P
         v_n: T, // velocity at cell N
@@ -70,3 +74,7 @@ impl<T: RealField + FromPrimitive + Copy> RhieChowInterpolation<T> {
         let dp_dy = (p_n - p_p) / self.dy;
         let correction = d_f * dp_dy;
         v_bar - self.alpha * correction
+
+
+}
+}

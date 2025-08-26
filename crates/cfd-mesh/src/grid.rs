@@ -25,6 +25,8 @@ pub struct GridDimensions<T: RealField + Copy> {
     /// Domain bounds
     pub bounds: ((T, T), (T, T), (T, T)),
 /// Grid structure for mesh generation
+}
+
 pub struct Grid<T: RealField + Copy> {
     /// Grid vertices
     pub vertices: Vec<Vertex<T>>,
@@ -56,3 +58,9 @@ impl<T: RealField + Copy> Grid<T> {
     /// Get total number of cells
     pub fn cell_count(&self) -> usize {
         self.dimensions.nx * self.dimensions.ny * self.dimensions.nz
+
+    }
+
+
+}
+}

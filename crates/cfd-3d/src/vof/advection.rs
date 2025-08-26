@@ -136,5 +136,15 @@ impl AdvectionMethod {
                                 alpha - dt * compression_term * alpha * (T::one() - alpha);
                             // Bound volume fraction
                             alpha_updated[idx] = alpha_updated[idx].max(T::zero()).min(T::one());
-                        }
-                    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

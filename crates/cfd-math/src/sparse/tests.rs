@@ -48,11 +48,15 @@ mod tests {
         let center = 4; // (1,1) in 3x3 grid
         let center_row = matrix.row(center);
         assert_eq!(center_row.nnz(), 5); // center + 4 neighbors
+    }
+
     fn test_frobenius_norm() -> Result<()> {
         let matrix = SparsePatterns::tridiagonal(3, 1.0, 2.0, 1.0)?;
         let norm = matrix.frobenius_norm();
         // Expected: sqrt(2^2 * 3 + 1^2 * 4) = sqrt(12 + 4) = 4.0
         assert_relative_eq!(norm, 4.0, epsilon = 1e-10);
+    }
+
     fn test_diagonal_dominance() -> Result<()> {
         // Create a diagonally dominant matrix
         let dominant = SparsePatterns::tridiagonal(3, 1.0, 4.0, 1.0)?;
@@ -60,4 +64,10 @@ mod tests {
         // Create a non-diagonally dominant matrix
         let non_dominant = SparsePatterns::tridiagonal(3, 2.0, 3.0, 2.0)?;
         assert!(!non_dominant.is_diagonally_dominant());
+
+    }
+
+
+}
+}
 }

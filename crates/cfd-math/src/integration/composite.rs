@@ -39,5 +39,15 @@ where
             .fold(T::zero(), |acc, integral| acc + integral)
     fn order(&self) -> usize {
         self.base_rule.order()
+    }
+
     fn num_points(&self) -> usize {
         self.base_rule.num_points() * self.num_intervals
+
+
+    }
+
+}
+}
+}
+}

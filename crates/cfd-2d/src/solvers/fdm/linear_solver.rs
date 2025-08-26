@@ -60,4 +60,11 @@ pub fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive + Copy>(
         solver_name,
         config.max_iterations()
     )))
+
+
+}
+}
+}
+}
+}
 }

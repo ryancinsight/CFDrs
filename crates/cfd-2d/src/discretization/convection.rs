@@ -18,6 +18,8 @@ pub trait ConvectionScheme<T: RealField + Copy>: Send + Sync {
 /// First-order upwind scheme - stable but diffusive
 pub struct FirstOrderUpwind;
 impl<T: RealField + Copy> ConvectionScheme<T> for FirstOrderUpwind {
+    }
+
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
         // Upwind scheme: always take from upwind direction
         // ae coefficient includes diffusion + convection from east face
@@ -28,9 +30,13 @@ impl<T: RealField + Copy> ConvectionScheme<T> for FirstOrderUpwind {
     }
     fn name(&self) -> &'static str {
         "First-Order Upwind"
+    }
+
     fn is_bounded(&self) -> bool {
         true // Always bounded
 /// Central difference scheme - second-order accurate but can oscillate
+    }
+
 pub struct CentralDifference;
 impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for CentralDifference {
         let two = cfd_core::numeric::from_f64(2.0)?;
@@ -39,6 +45,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for Central
         "Central Difference"
         false // Can produce oscillations for high Peclet numbers
 /// Hybrid scheme - switches between upwind and central difference
+}
+
 pub struct HybridScheme;
 impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for HybridScheme {
         // Calculate Peclet numbers
@@ -96,6 +104,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for QuickSc
         "QUICK"
         true
 /// Factory for creating convection schemes
+}
+
 pub struct ConvectionSchemeFactory;
 impl ConvectionSchemeFactory {
     /// Create scheme by name
@@ -120,6 +130,8 @@ impl ConvectionSchemeFactory {
 mod tests {
     use super::*;
     #[test]
+    }
+
     fn test_first_order_upwind() {
         let scheme = FirstOrderUpwind;
         let (ae, aw) = scheme.coefficients(1.0, -1.0, 0.5, 0.5);
@@ -130,6 +142,8 @@ mod tests {
         assert!(<FirstOrderUpwind as ConvectionScheme<f64>>::is_bounded(
             &scheme
         ));
+    }
+
     fn test_central_difference() {
         let scheme = CentralDifference;
         let (ae, aw) = scheme.coefficients(2.0, -2.0, 1.0, 1.0);
@@ -137,6 +151,8 @@ mod tests {
         assert_eq!(ae, 0.0); // 1.0 - 2.0/2.0
         assert_eq!(aw, 0.0); // 1.0 + (-2.0)/2.0
         assert!(!<CentralDifference as ConvectionScheme<f64>>::is_bounded(
+    }
+
     fn test_scheme_factory() {
         let upwind: Box<dyn ConvectionScheme<f64>> = ConvectionSchemeFactory::create("upwind");
         assert_eq!(upwind.name(), "First-Order Upwind");
@@ -145,3 +161,19 @@ mod tests {
         // Test default fallback
         let unknown: Box<dyn ConvectionScheme<f64>> = ConvectionSchemeFactory::create("unknown");
         assert_eq!(unknown.name(), "First-Order Upwind");
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

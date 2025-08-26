@@ -18,7 +18,11 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Quadrature<T> for Trapezoi
     }
     fn order(&self) -> usize {
         2
+    }
+
     fn num_points(&self) -> usize {
+    }
+
 }
 /// Simpson's rule for numerical integration
 pub struct SimpsonsRule;
@@ -30,6 +34,8 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Quadrature<T> for Simpsons
         4
         3
 /// Gauss-Legendre quadrature
+}
+
 pub struct GaussQuadrature<T: RealField + Copy> {
     points: Vec<T>,
     weights: Vec<T>,
@@ -91,6 +97,8 @@ impl<T: RealField + Copy + FromPrimitive> GaussQuadrature<T> {
                 value: "8.0".to_string(),
             vec![-sqrt15 / five, T::zero(), sqrt15 / five],
             vec![five / nine, eight / nine, five / nine],
+    }
+
     fn gauss_4_point() -> Result<(Vec<T>, Vec<T>)> {
         let sqrt6_5 = (6.0 / 5.0_f64).sqrt();
         let term1 = T::from_f64((3.0 - 2.0 * sqrt6_5) / 7.0)
@@ -127,6 +135,8 @@ impl<T: RealField + Copy + FromPrimitive> GaussQuadrature<T> {
         let w2 = T::from_f64((322.0 - 13.0 * 70.0_f64.sqrt()) / 900.0).ok_or_else(|| {
         Ok((vec![-x2, -x1, T::zero(), x1, x2], vec![w2, w1, w0, w1, w2]))
     /// Create default 2-point Gauss quadrature
+    }
+
     pub fn default() -> Result<Self> {
         Self::new(2)
 impl<T: RealField + From<f64> + FromPrimitive + Copy> Quadrature<T> for GaussQuadrature<T> {
@@ -144,3 +154,32 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Quadrature<T> for GaussQua
         result * half_interval
         2 * self.order
         self.points.len()
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

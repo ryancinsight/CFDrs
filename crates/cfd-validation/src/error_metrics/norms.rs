@@ -30,6 +30,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for L2Norm {
     }
     fn name(&self) -> &str {
         "L2 Norm"
+    }
+
 }
 /// L∞ (maximum) norm error metric
 pub struct LInfNorm;
@@ -45,3 +47,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for L1Norm {
         let sum_abs_diff: T = numerical
         Ok(sum_abs_diff / n)
         "L1 Norm"
+
+
+}
+}
+}

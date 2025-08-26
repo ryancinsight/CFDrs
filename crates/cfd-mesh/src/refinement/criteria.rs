@@ -49,5 +49,10 @@ impl<T: RealField + Copy> std::fmt::Debug for RefinementCriterion<T> {
                 .field("curvature_threshold", curvature_threshold)
                 .field("feature_angle", feature_angle)
             Self::Custom(_) => f.debug_struct("Custom").finish(),
-        }
-    }
+
+
+}
+}
+}
+}
+}

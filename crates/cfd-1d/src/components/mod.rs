@@ -40,6 +40,13 @@ pub trait Component<T: RealField + Copy> {
     fn is_active(&self) -> bool {
         false
     /// Get the volume of the component (for transient analysis)
+    }
+
     fn volume(&self) -> Option<T> {
         None
+
+
+    }
+
+}
 }

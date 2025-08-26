@@ -38,6 +38,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> WENO5<T> {
                 * (three * v[2] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3] + v[4]).powi(2);
         [beta0, beta1, beta2]
     /// Compute WENO weights
+    }
+
     fn weno_weights(&self, beta: &[T; 3]) -> [T; 3] {
         let d0 = T::from_f64(constants::WENO5_WEIGHTS[0]).unwrap_or_else(T::zero);
         let d1 = T::from_f64(constants::WENO5_WEIGHTS[1]).unwrap_or_else(T::zero);
@@ -48,6 +50,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> WENO5<T> {
         let sum = alpha0 + alpha1 + alpha2;
         [alpha0 / sum, alpha1 / sum, alpha2 / sum]
 impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for WENO5<T> {
+    }
+
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         // Extract stencil
         let v = [
@@ -74,7 +78,21 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for WE
             + T::from_f64(5.0).unwrap_or_else(T::zero) * v[3]
             - v[4] / T::from_f64(6.0).unwrap_or_else(T::zero);
         (w[0] * f0 + w[1] * f1 + w[2] * f2) / grid.dx
+    }
+
     fn order(&self) -> usize {
         5
+    }
+
     fn is_conservative(&self) -> bool {
         true
+
+    }
+
+
+}
+}
+}
+}
+}
+}

@@ -46,6 +46,10 @@ pub enum BoundaryType {
     /// Periodic boundary
     Periodic,
 /// 2D structured grid implementation
+    }
+
+}
+
 #[derive(Debug, Clone)]
 pub struct StructuredGrid2D<T: RealField + Copy> {
     /// Number of cells in x direction
@@ -82,9 +86,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> StructuredGrid2D<T> {
     pub fn unit_square(nx: usize, ny: usize) -> Result<Self> {
         Self::new(nx, ny, T::zero(), T::one(), T::zero(), T::one())
     /// Set boundary condition for a cell
+    }
+
     pub fn set_boundary(&mut self, i: usize, j: usize, boundary_type: BoundaryType) {
         self.boundaries.insert((i, j), boundary_type);
     /// Set boundary conditions for entire edges
+    }
+
     pub fn set_edge_boundary(&mut self, edge: GridEdge, boundary_type: BoundaryType) {
         match edge {
             GridEdge::Left => {
@@ -103,16 +111,24 @@ impl<T: RealField + Copy + FromPrimitive + Copy> StructuredGrid2D<T> {
     pub fn spacing(&self) -> (T, T) {
         (self.dx, self.dy)
     /// Get x-direction grid spacing
+    }
+
     pub fn dx(&self) -> T {
         self.dx
     /// Get y-direction grid spacing
+    }
+
     pub fn dy(&self) -> T {
         self.dy
     /// Get domain bounds
+    }
+
     pub fn bounds(&self) -> (T, T, T, T) {
         self.bounds
 /// Grid edges for boundary condition setting
 #[derive(Debug, Clone, Copy)]
+    }
+
 pub enum GridEdge {
     /// Left edge (x = `x_min`)
     Left,
@@ -125,8 +141,12 @@ pub enum GridEdge {
 impl<T: RealField + Copy + FromPrimitive + Copy> Grid2D<T> for StructuredGrid2D<T> {
     fn nx(&self) -> usize {
         self.nx
+    }
+
     fn ny(&self) -> usize {
         self.ny
+    }
+
     fn cell_center(&self, i: usize, j: usize) -> Result<Vector2<T>> {
         if i >= self.nx || j >= self.ny {
                 "Cell indices out of bounds".to_string(),
@@ -134,12 +154,18 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Grid2D<T> for StructuredGrid2D<
         let x = self.bounds.0 + (cfd_core::numeric::from_usize(i)? + half) * self.dx;
         let y = self.bounds.2 + (cfd_core::numeric::from_usize(j)? + half) * self.dy;
         Ok(Vector2::new(x, y))
+    }
+
     fn cell_area(&self, i: usize, j: usize) -> Result<T> {
         Ok(self.dx * self.dy)
+    }
+
     fn neighbors(&self, i: usize, j: usize) -> Vec<(usize, usize)> {
         // For backward compatibility, collect from the efficient iterator
         // Note: prefer neighbor_iter() for better performance
         self.neighbor_iter(i, j).collect()
+    }
+
     fn neighbor_iter(&self, i: usize, j: usize) -> impl Iterator<Item = (usize, usize)> {
         [(0isize, 1isize), (0, -1), (1, 0), (-1, 0)]
             .iter()
@@ -153,25 +179,39 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Grid2D<T> for StructuredGrid2D<
             })
     fn is_boundary(&self, i: usize, j: usize) -> bool {
         i == 0 || i == self.nx - 1 || j == 0 || j == self.ny - 1
+    }
+
     fn boundary_type(&self, i: usize, j: usize) -> Option<BoundaryType> {
         self.boundaries.get(&(i, j)).copied()
 // GridIterator struct removed in favor of standard iterators
     /// Create an iterator over all cells
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
         (0..self.ny).flat_map(move |j| (0..self.nx).map(move |i| (i, j)))
     /// Create an iterator over boundary cells only
+    }
+
     pub fn boundary_iter(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
         self.iter().filter(move |(i, j)| self.is_boundary(*i, *j))
     /// Create an iterator over interior cells only
+    }
+
     pub fn interior_iter(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
         self.iter().filter(move |(i, j)| !self.is_boundary(*i, *j))
     /// Create an iterator over cell rows for efficient processing
+    }
+
     pub fn row_iter(&self) -> impl Iterator<Item = impl Iterator<Item = (usize, usize)> + '_> + '_ {
         (0..self.ny).map(move |j| (0..self.nx).map(move |i| (i, j)))
     /// Create an iterator over cell columns for efficient processing
+    }
+
     pub fn col_iter(&self) -> impl Iterator<Item = impl Iterator<Item = (usize, usize)> + '_> + '_ {
         (0..self.nx).map(move |i| (0..self.ny).map(move |j| (i, j)))
     /// Create windowed iterator for stencil operations (zero-allocation)
+    }
+
     pub fn stencil_iter(
         &self,
         stencil_size: usize,
@@ -201,6 +241,8 @@ mod tests {
         assert_relative_eq!(grid.dx(), 0.1, epsilon = 1e-10);
         assert_relative_eq!(grid.dy(), 0.1, epsilon = 1e-10);
         Ok(())
+    }
+
     fn test_unit_square() -> Result<()> {
         let grid = StructuredGrid2D::<f64>::unit_square(5, 5)?;
         assert_eq!(grid.nx(), 5);
@@ -208,6 +250,8 @@ mod tests {
         // For unit square [0,1]x[0,1] with 5 cells: dx = 1/5 = 0.2
         assert_relative_eq!(grid.dx(), 0.2, epsilon = 1e-10);
         assert_relative_eq!(grid.dy(), 0.2, epsilon = 1e-10);
+    }
+
     fn test_cell_center() -> Result<()> {
         let grid = StructuredGrid2D::<f64>::unit_square(4, 4)?;
         // Test corner cell
@@ -219,9 +263,13 @@ mod tests {
         let center = grid.cell_center(3, 3)?;
         assert_relative_eq!(center.x, 0.875, epsilon = 1e-10);
         assert_relative_eq!(center.y, 0.875, epsilon = 1e-10);
+    }
+
     fn test_cell_area() -> Result<()> {
         let area = grid.cell_area(0, 0)?;
         assert_relative_eq!(area, 0.0625, epsilon = 1e-10); // 0.25 * 0.25
+    }
+
     fn test_boundary_detection() -> Result<()> {
         let grid = StructuredGrid2D::<f64>::unit_square(3, 3)?;
         // Corners
@@ -232,12 +280,16 @@ mod tests {
         assert!(grid.is_boundary(0, 1));
         // Interior
         assert!(!grid.is_boundary(1, 1));
+    }
+
     fn test_boundary_iterator() -> Result<()> {
         let boundary_cells: Vec<_> = grid.boundary_iter().collect();
         // 3x3 grid has 8 boundary cells (all except center)
         assert_eq!(boundary_cells.len(), 8);
         // Check center is not included
         assert!(!boundary_cells.contains(&(1, 1)));
+    }
+
     fn test_boundary_conditions() -> Result<()> {
         let mut grid = StructuredGrid2D::<f64>::unit_square(3, 3)?;
         grid.set_edge_boundary(GridEdge::Left, BoundaryType::Wall);
@@ -245,12 +297,49 @@ mod tests {
         assert_eq!(grid.boundary_type(0, 1), Some(BoundaryType::Wall));
         assert_eq!(grid.boundary_type(2, 1), Some(BoundaryType::Outlet));
         assert_eq!(grid.boundary_type(1, 1), None); // Interior
+    }
+
     fn test_iterators() -> Result<()> {
         let grid = StructuredGrid2D::<f64>::unit_square(2, 2)?;
         let all_cells: Vec<_> = grid.iter().collect();
         assert_eq!(all_cells.len(), 4);
         let interior_cells: Vec<_> = grid.interior_iter().collect();
         assert_eq!(interior_cells.len(), 0); // 2x2 grid has no interior cells
+    }
+
     fn test_larger_grid_interior() -> Result<()> {
         assert_eq!(interior_cells.len(), 1); // Only (1,1) is interior
         assert_eq!(interior_cells[0], (1, 1));
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

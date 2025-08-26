@@ -148,17 +148,25 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
                     break;
             x[i] = sum / diag;
 impl<T: RealField + Copy> Preconditioner<T> for IncompleteCholesky<T> {
+    }
+
     fn apply(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
         let mut y = DVector::zeros(r.len());
         // Solve L*y = r
         self.forward_substitution(r, &mut y)?;
         // Solve L^T*z = y
         self.backward_substitution(&y, z)?;
+    }
+
     fn setup(&mut self, a: &CsrMatrix<T>) -> Result<()> {
         *self = Self::new(a)?;
 /// SSOR (Symmetric Successive Over-Relaxation) preconditioner
 ///
 /// For symmetric matrices, applies forward and backward SOR sweeps
+    }
+
+}
+
 pub struct SSORPreconditioner<T: RealField + Copy> {
     matrix: CsrMatrix<T>,
     omega: T,
@@ -184,6 +192,8 @@ impl<T: RealField + Copy + FromPrimitive> SSORPreconditioner<T> {
             omega,
             diagonal,
     /// Forward SOR sweep
+    }
+
     fn forward_sweep(&self, b: &DVector<T>, x: &mut DVector<T>) {
         let n = self.matrix.nrows();
             let row_start = self.matrix.row_offsets()[i];
@@ -193,6 +203,8 @@ impl<T: RealField + Copy + FromPrimitive> SSORPreconditioner<T> {
                     sum -= self.matrix.values()[k] * x[j];
             x[i] = (T::one() - self.omega) * x[i] + self.omega * sum / self.diagonal[i];
     /// Backward SOR sweep
+    }
+
     fn backward_sweep(&self, b: &DVector<T>, x: &mut DVector<T>) {
 impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for SSORPreconditioner<T> {
         // Initialize z with zeros
@@ -202,6 +214,10 @@ impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for SSORPrecondition
         // Backward sweep
         self.backward_sweep(r, z);
         *self = Self::new(a, self.omega)?;
+    }
+
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -217,13 +233,50 @@ mod tests {
                 triplets.push((i, i+1, -1.0));
         CsrMatrix::try_from_triplets(n, n, triplets).expect("CRITICAL: Add proper error handling")
     #[test]
+    }
+
     fn test_incomplete_cholesky() {
         let a = create_spd_matrix();
         let ic = IncompleteCholesky::new(&a);
         assert!(ic.is_ok());
+    }
+
     fn test_ssor_preconditioner() {
         let ssor = SSORPreconditioner::new(&a, 1.2);
         assert!(ssor.is_ok());
         // Test invalid omega
         let invalid = SSORPreconditioner::new(&a, 2.5);
         assert!(matches!(invalid, Err(LinearSolverError::InvalidOmega { .. })));
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

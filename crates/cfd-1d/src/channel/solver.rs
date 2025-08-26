@@ -107,6 +107,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
                 tolerance: cfd_core::numeric::from_f64(1e-6)?,
                 surface_tension_effects: false,
     /// Calculate hydraulic resistance using advanced models
+    }
+
     pub fn calculate_resistance(&mut self, fluid: &Fluid<T>) -> Result<T> {
         // Update flow state
         self.update_flow_state(fluid)?;
@@ -118,6 +120,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
             FlowRegime::Turbulent => self.calculate_turbulent_resistance(fluid),
             FlowRegime::SlipFlow => self.calculate_slip_flow_resistance(fluid),
     /// Update flow state based on current conditions
+    }
+
     fn update_flow_state(&mut self, _fluid: &Fluid<T>) -> Result<()> {
         // Calculate Reynolds number if velocity is known
         if let Some(re) = self.flow_state.reynolds_number {
@@ -166,15 +170,50 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         let resistance = shape_factor * viscosity * length
             / (cfd_core::numeric::from_f64(2.0)? * area * dh * dh);
         Ok(resistance)
+    }
+
     fn calculate_laminar_resistance(&self, _fluid: &Fluid<T>) -> Result<T> {
         // Implementation would go here
         Ok(T::zero())
+    }
+
     fn calculate_transitional_resistance(&self, _fluid: &Fluid<T>) -> Result<T> {
+    }
+
     fn calculate_turbulent_resistance(&self, _fluid: &Fluid<T>) -> Result<T> {
+    }
+
     fn calculate_slip_flow_resistance(&self, _fluid: &Fluid<T>) -> Result<T> {
+    }
+
     fn get_shape_factor(&self) -> T {
         // Shape factor for different cross-sections
         match &self.geometry.cross_section {
             CrossSection::Circular { .. } => cfd_core::numeric::from_f64(64.0)?,
             CrossSection::Rectangular { .. } => cfd_core::numeric::from_f64(96.0)?,
             _ => cfd_core::numeric::from_f64(80.0)?, // Default approximation
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

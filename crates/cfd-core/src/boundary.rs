@@ -292,5 +292,8 @@ mod tests {
             .add("wall", BoundaryCondition::wall_no_slip());
         assert_eq!(bc_set.conditions.len(), 3);
         assert!(bc_set.get("inlet").is_some());
+
     }
+
+
 }

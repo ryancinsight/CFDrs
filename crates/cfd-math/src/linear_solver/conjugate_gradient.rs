@@ -27,6 +27,8 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
     {
         Self::new(LinearSolverConfig::default())
     /// Solve with preconditioning and optimized memory management
+    }
+
     pub fn solve_preconditioned<P: Preconditioner<T>>(
         &self,
         a: &CsrMatrix<T>,
@@ -87,6 +89,8 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
 impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> LinearSolver<T>
     for ConjugateGradient<T>
 {
+    }
+
     fn solve(
             return Err(Error::InvalidInput(
                 "Matrix dimensions must match vector size".to_string(),
@@ -128,3 +132,17 @@ impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> LinearSolver<T>
         Ok(x)
     fn config(&self) -> &LinearSolverConfig<T> {
         &self.config
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

@@ -18,9 +18,13 @@ impl AnalyticalUtils {
     pub fn peclet_number<T: RealField + Copy>(velocity: T, length: T, diffusivity: T) -> T {
         velocity * length / diffusivity
     /// Calculate Strouhal number
+    }
+
     pub fn strouhal_number<T: RealField + Copy>(frequency: T, length: T, velocity: T) -> T {
         frequency * length / velocity
     /// Calculate Froude number
+    }
+
     pub fn froude_number<T: RealField + Copy + FromPrimitive>(
         gravity: T,
         velocity / (gravity * length).sqrt()
@@ -28,6 +32,8 @@ impl AnalyticalUtils {
     pub fn mach_number<T: RealField + Copy>(velocity: T, sound_speed: T) -> T {
         velocity / sound_speed
     /// Calculate pressure coefficient
+    }
+
     pub fn pressure_coefficient<T: RealField + Copy + FromPrimitive>(
         pressure: T,
         reference_pressure: T,
@@ -77,3 +83,11 @@ pub enum FlowGeometry {
     Sphere,
     /// Flow around cylinder
     Cylinder,
+
+
+}
+}
+}
+}
+}
+}

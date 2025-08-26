@@ -29,6 +29,8 @@ pub enum MomentumComponent {
     U,
     V,
 /// Coefficients for momentum discretization
+}
+
 #[derive(Debug, Clone)]
 pub struct MomentumCoefficients<T: RealField + Copy> {
     /// Central coefficient (aP)
@@ -58,6 +60,8 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
     pub fn set_boundary_conditions(&mut self, bcs: HashMap<String, BoundaryCondition<T>>) {
         self.boundary_conditions = bcs;
     /// Solve momentum equation for specified component
+    }
+
     pub fn solve(
         &self,
         component: MomentumComponent,
@@ -73,6 +77,8 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         // Convert to field
         self.vector_to_field(solution, component)
     /// Calculate discretization coefficients
+    }
+
     fn calculate_coefficients(
     ) -> cfd_core::Result<MomentumCoefficients<T>> {
         let mut coeffs = MomentumCoefficients {
@@ -173,6 +179,8 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
                 self.apply_boundary_conditions(i, j, &mut rhs[idx], coeffs, component);
         Ok((builder.build()?, rhs))
     /// Apply boundary conditions to the linear system
+    }
+
     fn apply_boundary_conditions(
         i: usize,
         j: usize,
@@ -219,6 +227,8 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         let initial_guess = DVector::zeros(rhs.len());
         solver.solve(&matrix, &rhs, Some(&initial_guess))
     /// Convert solution vector to field
+    }
+
     fn vector_to_field(
         solution: DVector<T>,
         _component: MomentumComponent,
@@ -236,11 +246,15 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
                         *field.at_mut(0, j) = T::zero();
         // Other boundaries can be handled similarly
     /// Convert 2D indices to linear index
+    }
+
     fn linear_index(&self, i: usize, j: usize) -> usize {
         j * (self.nx - 2) + i
 impl<T: RealField + Copy> MomentumCoefficients<T> {
     /// Create new coefficient structure
     #[must_use]
+    }
+
     pub fn new(nx: usize, ny: usize) -> Self
     where
         T: num_traits::Zero,
@@ -251,3 +265,33 @@ impl<T: RealField + Copy> MomentumCoefficients<T> {
             an: Field2D::new(nx, ny, T::zero()),
             as_: Field2D::new(nx, ny, T::zero()),
             source: Field2D::new(nx, ny, T::zero()),
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

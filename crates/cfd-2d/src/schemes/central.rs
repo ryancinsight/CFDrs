@@ -22,11 +22,19 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for Ce
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         let two = T::from_f64(2.0).unwrap_or_else(T::zero);
         (grid.data[(i + 1, j)] - grid.data[(i - 1, j)]) / (two * grid.dx)
+    }
+
     fn order(&self) -> usize {
         2
+    }
+
     fn is_conservative(&self) -> bool {
         true
 /// Fourth-order central difference scheme
+    }
+
+}
+
 pub struct FourthOrderCentral<T: RealField + Copy> {
 impl<T: RealField + Copy> Default for FourthOrderCentral<T> {
 impl<T: RealField + Copy> FourthOrderCentral<T> {
@@ -40,3 +48,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T>
             + grid.data[(i - 2, j)])
             / (twelve * grid.dx)
         4
+
+
+}
+}
+}
+}
+}
+}
+}
+}

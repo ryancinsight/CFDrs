@@ -54,4 +54,8 @@ mod validation_tests {
         let re = density * velocity * length / viscosity;
             (re - 100000.0).abs() < 1.0,
             "Reynolds number calculation error"
+
+    }
+
+
 }

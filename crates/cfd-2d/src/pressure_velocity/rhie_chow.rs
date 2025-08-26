@@ -39,6 +39,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
     /// - (∇p)_f is the face pressure gradient (direct)
     /// - The last term is the transient correction for unsteady flows
     /// This prevents pressure-velocity decoupling on colocated grids
+    }
+
     pub fn face_velocity_x(
         &self,
         u: &Field2D<Vector2<T>>,
@@ -88,3 +90,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         let dp_dy_cells = (dp_dy_p + dp_dy_n) / T::from_f64(2.0).unwrap_or_else(T::zero);
         let dp_dy_face = (p.at(i, j + 1) - p.at(i, j)) / dy;
         v_bar + d_face * (dp_dy_cells - dp_dy_face)
+
+    }
+
+
+}
+}
+}
+}

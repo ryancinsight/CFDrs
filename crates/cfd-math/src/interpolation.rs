@@ -33,6 +33,8 @@ pub struct LinearInterpolation<T: RealField + Copy> {
     y_data: Vec<T>,
 impl<T: RealField + Copy> LinearInterpolation<T> {
     /// Create new linear interpolation from data points
+    }
+
     pub fn new(x_data: Vec<T>, y_data: Vec<T>) -> Result<Self> {
         if x_data.len() != y_data.len() {
             return Err(Error::InvalidConfiguration(
@@ -88,6 +90,8 @@ impl<T: RealField + Copy> Interpolation<T> for LinearInterpolation<T> {
 ///
 /// Natural cubic spline with continuous second derivatives.
 /// Reference: Burden & Faires, "Numerical Analysis"
+    }
+
 pub struct CubicSplineInterpolation<T: RealField + Copy> {
     /// Y values
     #[allow(dead_code)]
@@ -157,6 +161,10 @@ impl<T: RealField + FromPrimitive + Copy> Interpolation<T> for CubicSplineInterp
                 + dx * (self.coefficients.c[idx] + dx * self.coefficients.d[idx]));
         Ok(result)
 /// Lagrange polynomial interpolation
+    }
+
+}
+
 pub struct LagrangeInterpolation<T: RealField + Copy> {
 impl<T: RealField + Copy> LagrangeInterpolation<T> {
     /// Create new Lagrange interpolation
@@ -186,6 +194,8 @@ impl<T: RealField + Copy> Interpolation<T> for LagrangeInterpolation<T> {
         match (min, max) {
             (Some(min_val), Some(max_val)) => (*min_val, *max_val),
             _ => (T::zero(), T::zero()), // Should never happen due to constructor validation
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -203,6 +213,8 @@ mod tests {
         assert_relative_eq!(interp.interpolate(0.5)?, 0.5, epsilon = 1e-10);
         assert_relative_eq!(interp.interpolate(1.5)?, 2.5, epsilon = 1e-10);
         Ok(())
+    }
+
     fn test_cubic_spline_interpolation() -> Result<()> {
         let x_data = vec![0.0, 1.0, 2.0, 3.0];
         let y_data = vec![0.0, 1.0, 4.0, 9.0];
@@ -212,6 +224,8 @@ mod tests {
         // Test smoothness (approximate for quadratic)
         assert_relative_eq!(spline.interpolate(1.5)?, 2.25, epsilon = 0.1);
         assert_relative_eq!(spline.interpolate(2.5)?, 6.25, epsilon = 0.1);
+    }
+
     fn test_lagrange_interpolation() -> Result<()> {
         let y_data = vec![1.0, 3.0, 7.0];
         let interp = LagrangeInterpolation::new(x_data, y_data)?;
@@ -220,3 +234,34 @@ mod tests {
         assert_relative_eq!(interp.interpolate(2.0)?, 7.0, epsilon = 1e-10);
         // Test interpolation (quadratic: y = x^2 + x + 1)
         assert_relative_eq!(interp.interpolate(0.5)?, 1.75, epsilon = 1e-10);
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

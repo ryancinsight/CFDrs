@@ -25,6 +25,8 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> QualityStatistics<T> 
     pub fn add_sample(&mut self, value: T) {
         self.samples.push(value);
     /// Get the mean of all samples
+    }
+
     pub fn mean(&self) -> Option<T> {
         if self.samples.is_empty() {
             return None;
@@ -32,6 +34,8 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> QualityStatistics<T> 
         let count = T::from_usize(self.samples.len())?;
         Some(sum / count)
     /// Get the median of all samples
+    }
+
     pub fn median(&self) -> Result<Option<T>> {
             return Ok(None);
         let mut sorted = self.samples.clone();
@@ -78,11 +82,34 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> QualityStatistics<T> 
             .copied()
             .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
     /// Get maximum value
+    }
+
     pub fn max(&self) -> Option<T> {
             .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
     /// Get the number of samples
+    }
+
     pub fn count(&self) -> usize {
         self.samples.len()
     /// Clear all samples
+    }
+
     pub fn clear(&mut self) {
         self.samples.clear();
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

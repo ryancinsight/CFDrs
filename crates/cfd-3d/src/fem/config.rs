@@ -35,5 +35,9 @@ impl<T: RealField + FromPrimitive + Copy> Default for FemConfig<T> {
             reynolds: Some(cfd_core::numeric::from_f64(constants::DEFAULT_REYNOLDS)?),
             element_type: ElementType::Tetrahedron,
             quadrature_order: constants::DEFAULT_QUADRATURE_ORDER,
-        }
+
     }
+
+
+}
+}

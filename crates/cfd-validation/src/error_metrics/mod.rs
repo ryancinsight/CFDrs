@@ -41,4 +41,6 @@ pub trait ErrorMetric<T: RealField + Copy> {
     }
     /// Get the name of the error metric
     fn name(&self) -> &str;
+
+
 }

@@ -64,3 +64,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         let coo = coo_mutex.into_inner().unwrap();
         let matrix = CsrMatrix::from(&coo);
         Ok((matrix, rhs))
+
+
+}
+}
+}
+}
+}
+}
+}
+}

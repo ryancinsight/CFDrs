@@ -38,6 +38,8 @@ impl<T: RealField + Copy> QualityCriteria<T> {
             thresholds: QualityThresholds::strict_cfd(),
             strict: true,
     /// Check if metrics are acceptable
+    }
+
     pub fn is_acceptable(&self, metrics: &QualityMetrics<T>) -> bool {
         let mut acceptable = true;
         if metrics.aspect_ratio > self.thresholds.max_aspect_ratio {
@@ -60,3 +62,16 @@ impl<T: RealField + Copy> QualityThresholds<T> {
             min_orthogonality: cfd_core::numeric::from_f64(0.5)?,
             min_jacobian: cfd_core::numeric::from_f64(0.3)?,
             min_quality_score: cfd_core::numeric::from_f64(0.5)?,
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}

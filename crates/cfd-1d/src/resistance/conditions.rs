@@ -34,8 +34,18 @@ impl<T: RealField + Copy + FromPrimitive> FlowConditions<T> {
         self.reynolds_number = Some(re);
         self
     /// Set flow velocity
+    }
+
     pub fn with_velocity(mut self, velocity: T) -> Self {
         self.velocity = Some(velocity);
     /// Set flow rate
+    }
+
     pub fn with_flow_rate(mut self, flow_rate: T) -> Self {
         self.flow_rate = Some(flow_rate);
+
+    }
+
+
+}
+}

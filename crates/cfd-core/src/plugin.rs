@@ -21,20 +21,34 @@ pub trait Plugin: Send + Sync {
     /// Plugin license (optional)
     fn license(&self) -> Option<&str> {
     /// Plugin dependencies (other plugin names)
+    }
+
     fn dependencies(&self) -> Vec<&str> {
         vec![]
     /// Plugin capabilities
+    }
+
     fn capabilities(&self) -> Vec<&str> {
     /// Check if plugin supports parallel execution
+    }
+
     fn supports_parallel(&self) -> bool {
         false
     /// Check if plugin supports adaptive time stepping
+    }
+
     fn supports_adaptive_timestep(&self) -> bool {
     /// Initialize the plugin (called once when registered)
+    }
+
     fn initialize(&self) -> Result<()> {
         Ok(())
     /// Shutdown the plugin (called when unregistered)
+    }
+
     fn shutdown(&self) -> Result<()> {
+    }
+
 }
 /// Trait for simulation plugins with typed configuration and state
 pub trait SimulationPlugin: Plugin {
@@ -54,10 +68,14 @@ pub trait SimulationPlugin: Plugin {
     fn validate_config(&self, config: &Self::Config) -> Result<()> {
         let _ = config; // Avoid unused parameter warning
     /// Validate plugin state for physics consistency
+    }
+
     fn validate_state(&self, state: &Self::State) -> Result<()> {
         let _ = state; // Avoid unused parameter warning
 /// Plugin health status for monitoring
 #[derive(Debug, Clone)]
+    }
+
 pub enum PluginHealthStatus {
     /// Plugin is functioning normally
     Healthy,
@@ -66,6 +84,8 @@ pub enum PluginHealthStatus {
     /// Plugin is non-functional
     Unhealthy(String),
 /// Plugin metrics for monitoring
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct PluginMetrics {
     /// CPU usage percentage
@@ -81,6 +101,8 @@ pub struct PluginMetrics {
 /// Standard data storage for plugins (no internal locking)
 struct PluginStorage {
     plugins: HashMap<String, Arc<dyn Plugin>>,
+}
+
 impl PluginStorage {
     fn new() -> Self {
         Self {
@@ -93,23 +115,33 @@ impl PluginStorage {
         self.plugins.insert(name, plugin);
     fn get(&self, name: &str) -> Option<&Arc<dyn Plugin>> {
         self.plugins.get(name)
+    }
+
     fn remove(&mut self, name: &str) -> Option<Arc<dyn Plugin>> {
         self.plugins.remove(name)
+    }
+
     fn list(&self) -> Vec<String> {
         self.plugins.keys().cloned().collect()
 /// Standard dependency resolver (no internal locking)
 struct DependencyResolver {
     dependencies: HashMap<String, Vec<String>>,
     load_order: Vec<String>,
+    }
+
 impl DependencyResolver {
             dependencies: HashMap::new(),
             load_order: Vec::new(),
     fn add_plugin(&mut self, name: String, deps: Vec<String>) -> Result<()> {
         self.dependencies.insert(name, deps);
         self.update_load_order()
+    }
+
     fn remove_plugin(&mut self, name: &str) {
         self.dependencies.remove(name);
         let _ = self.update_load_order(); // Ignore errors during removal
+    }
+
     fn validate_dependencies(&self, deps: &[String], available_plugins: &[String]) -> Result<()> {
         for dep in deps {
             if !available_plugins.contains(dep) {
@@ -121,10 +153,14 @@ impl DependencyResolver {
     fn get_load_order(&self) -> &[String] {
         &self.load_order
     /// Update plugin load order using topological sort with cycle detection
+    }
+
     fn update_load_order(&mut self) -> Result<()> {
         let mut visited = HashSet::new();
         let mut recursion_stack = HashSet::new();
         let mut result = Vec::new();
+    }
+
         fn visit(
             plugin: &str,
             deps: &HashMap<String, Vec<String>>,
@@ -174,19 +210,31 @@ impl PluginMonitoring {
         self.health_status.insert(plugin_name.to_string(), status);
         self.last_check
             .insert(plugin_name.to_string(), std::time::Instant::now());
+    }
+
     fn update_metrics(&mut self, plugin_name: &str, metrics: PluginMetrics) {
         self.metrics.insert(plugin_name.to_string(), metrics);
+    }
+
     fn get_health(&self, plugin_name: &str) -> Option<&PluginHealthStatus> {
         self.health_status.get(plugin_name)
+    }
+
     fn get_metrics(&self, plugin_name: &str) -> Option<&PluginMetrics> {
         self.metrics.get(plugin_name)
 /// Main plugin registry - single owner of all plugin data
 ///
 /// To share between threads, wrap the entire registry in Arc<`RwLock`<PluginRegistry>>
+    }
+
+}
+
 pub struct PluginRegistry {
     storage: PluginStorage,
     resolver: DependencyResolver,
     monitoring: PluginMonitoring,
+}
+
 impl PluginRegistry {
     /// Create a new plugin registry
     #[must_use]
@@ -195,6 +243,8 @@ impl PluginRegistry {
             resolver: DependencyResolver::new(),
             monitoring: PluginMonitoring::new(),
     /// Register a plugin
+    }
+
     pub fn register(&mut self, plugin: Arc<dyn Plugin>) -> Result<()> {
         let deps: Vec<String> = plugin
             .dependencies()
@@ -214,6 +264,8 @@ impl PluginRegistry {
         self.monitoring
             .update_health(&name, PluginHealthStatus::Healthy);
     /// Unregister a plugin
+    }
+
     pub fn unregister(&mut self, name: &str) -> Result<()> {
         // Check if other plugins depend on this one
         for (plugin_name, deps) in &self.resolver.dependencies {
@@ -225,15 +277,23 @@ impl PluginRegistry {
             plugin.shutdown()?;
         self.resolver.remove_plugin(name);
     /// Get a plugin by name
+    }
+
     pub fn get(&self, name: &str) -> Option<&Arc<dyn Plugin>> {
         self.storage.get(name)
     /// List all registered plugins
+    }
+
     pub fn list(&self) -> Vec<String> {
         self.storage.list()
     /// Get plugins in dependency order
+    }
+
     pub fn get_load_order(&self) -> &[String] {
         self.resolver.get_load_order()
     /// Filter plugins by capability
+    }
+
     pub fn filter_by_capability(&self, capability: &str) -> Vec<String> {
         self.storage
             .plugins
@@ -248,15 +308,23 @@ impl PluginRegistry {
     pub fn update_health(&mut self, plugin_name: &str, status: PluginHealthStatus) {
         self.monitoring.update_health(plugin_name, status);
     /// Update plugin metrics
+    }
+
     pub fn update_metrics(&mut self, plugin_name: &str, metrics: PluginMetrics) {
         self.monitoring.update_metrics(plugin_name, metrics);
     /// Get plugin health status
+    }
+
     pub fn get_health(&self, plugin_name: &str) -> Option<&PluginHealthStatus> {
         self.monitoring.get_health(plugin_name)
     /// Get plugin metrics
+    }
+
     pub fn get_metrics(&self, plugin_name: &str) -> Option<&PluginMetrics> {
         self.monitoring.get_metrics(plugin_name)
     /// Get a summary of system health
+    }
+
     pub fn system_health_summary(&self) -> SystemHealthSummary {
         let mut healthy = 0;
         let mut degraded = 0;
@@ -284,6 +352,10 @@ impl Default for PluginRegistry {
     fn default() -> Self {
         Self::new()
 /// System health summary
+    }
+
+}
+
 pub struct SystemHealthSummary {
     /// Total number of plugins
     pub total_plugins: usize,
@@ -296,6 +368,8 @@ pub struct SystemHealthSummary {
     /// Overall system status
     pub system_status: SystemStatus,
 /// Overall system status
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum SystemStatus {
     /// All plugins healthy
@@ -303,6 +377,8 @@ pub enum SystemStatus {
     Degraded,
     /// Critical issues requiring attention
     Critical,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -313,13 +389,21 @@ mod tests {
     impl Plugin for TestPlugin {
         fn name(&self) -> &str {
             &self.name
+    }
+
         fn version(&self) -> &str {
             "1.0.0"
+    }
+
         fn description(&self) -> &str {
             "Test plugin"
+    }
+
         fn dependencies(&self) -> Vec<&str> {
             self.dependencies.iter().map(|s| s.as_str()).collect()
     #[test]
+    }
+
     fn test_plugin_registration() {
         let mut registry = PluginRegistry::new();
         let plugin = Arc::new(TestPlugin {
@@ -354,6 +438,8 @@ mod tests {
             .position(|x| x == "C")
         assert!(a_idx < b_idx);
         assert!(b_idx < c_idx);
+    }
+
     fn test_circular_dependency_detection() {
         let mut resolver = DependencyResolver::new();
         // Create circular dependency: A -> B -> C -> A
@@ -364,10 +450,14 @@ mod tests {
             .insert("C".to_string(), vec!["A".to_string()]);
         // Should detect the cycle
         assert!(resolver.update_load_order().is_err());
+    }
+
     fn test_missing_dependency() {
             dependencies: vec!["nonexistent".to_string()],
         // Should fail due to missing dependency
         assert!(registry.register(plugin).is_err());
+    }
+
     fn test_health_monitoring() {
         registry
             .register(plugin)
@@ -386,6 +476,8 @@ mod tests {
         let summary = registry.system_health_summary();
         assert_eq!(summary.degraded_plugins, 1);
         assert_eq!(summary.system_status, SystemStatus::Degraded);
+    }
+
     fn test_plugin_removal() {
             .register(plugin_a)
             .register(plugin_b)
@@ -396,52 +488,8 @@ mod tests {
         // Now can remove A
         assert!(registry.unregister("A").is_ok());
         assert_eq!(registry.list().len(), 0);
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
+
+    }
 }
 }
 }

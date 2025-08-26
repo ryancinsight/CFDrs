@@ -46,3 +46,6 @@ pub trait SpatialDiscretization<T: RealField + Copy> {
     fn order(&self) -> usize;
     /// Check if scheme is conservative
     fn is_conservative(&self) -> bool;
+
+
+}

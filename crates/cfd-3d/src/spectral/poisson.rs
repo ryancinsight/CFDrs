@@ -106,6 +106,8 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
         let ix = idx / (self.ny * self.nz);
         (ix, iy, iz)
     /// Flatten RHS matrix to vector
+    }
+
     fn flatten_rhs(&self, f: &DMatrix<T>) -> DVector<T> {
         let mut rhs = DVector::zeros(n_total);
         for ix in 0..self.nx {
@@ -115,11 +117,15 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
                     rhs[idx] = f[(ix * self.ny + iy, iz)];
         rhs
     /// Unflatten solution vector to matrix
+    }
+
     fn unflatten_solution(&self, solution: &DVector<T>) -> DMatrix<T> {
         let mut result = DMatrix::zeros(self.nx * self.ny, self.nz);
                     result[(ix * self.ny + iy, iz)] = solution[idx];
         result
     /// Apply boundary conditions to the system
+    }
+
     fn apply_boundary_conditions(
         matrix: &mut DMatrix<T>,
         rhs: &mut DVector<T>,
@@ -148,3 +154,22 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
                 // Periodic BCs require special treatment in spectral methods
                 // Typically handled by using Fourier basis instead
         Ok(())
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

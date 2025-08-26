@@ -19,12 +19,16 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
     pub fn uniform(spacing: T) -> Self {
         Self::new(spacing, spacing, spacing)
     /// Compute gradient of a 1D field
+    }
+
     pub fn gradient_1d(&self, field: &[T]) -> Result<Vec<T>> {
         use super::FiniteDifference;
         let fd = FiniteDifference::central(self.dx);
         let grad = fd.first_derivative(field)?;
         Ok(grad.data.as_vec().to_vec())
     /// Compute gradient of a 2D field (stored row-major)
+    }
+
     pub fn gradient_2d(&self, field: &[T], nx: usize, ny: usize) -> Result<Vec<Vector3<T>>> {
         if field.len() != nx * ny {
             return Err(Error::InvalidConfiguration(
@@ -122,6 +126,8 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
             .collect();
         Ok(divergence)
     /// Compute curl of a vector field in 2D (returns z-component only)
+    }
+
     pub fn curl_2d(&self, field: &[Vector3<T>], nx: usize, ny: usize) -> Result<Vec<T>> {
         let mut curl = Vec::with_capacity(nx * ny);
         for j in 0..ny {
@@ -148,6 +154,27 @@ pub fn compute_gradient_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
 ) -> Result<Vec<Vector3<T>>> {
     Gradient::new(dx, dy, T::one()).gradient_2d(field, nx, ny)
 /// Compute gradient of a 3D field using central differences
+    }
+
 pub fn compute_gradient_3d<T: RealField + From<f64> + FromPrimitive + Copy>(
     nz: usize,
     Gradient::new(dx, dy, dz).gradient_3d(field, nx, ny, nz)
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

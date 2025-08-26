@@ -69,3 +69,17 @@ impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
 impl<T: RealField + Copy + ToPrimitive> Default for VtkWriter<T> {
     fn default() -> Self {
         Self::new()
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

@@ -25,6 +25,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
     pub fn default() -> Self {
         Self::new(FdmConfig::default())
     /// Solve Poisson equation on structured grid
+    }
+
     pub fn solve(
         &self,
         grid: &StructuredGrid2D<T>,
@@ -94,5 +96,18 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
         rhs[linear_idx] = source.get(&(i, j)).copied().unwrap_or_else(T::zero);
         Ok(())
     /// Convert 2D grid indices to linear index
+    }
+
     fn linear_index(grid: &StructuredGrid2D<T>, i: usize, j: usize) -> usize {
         j * grid.nx() + i
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}

@@ -34,6 +34,8 @@ impl<W: Write> BinaryWriter<W> {
         vector.iter()
             .try_for_each(|value| self.write(value))
     /// Write matrix data with zero-copy slicing
+    }
+
     pub fn write_matrix<T: RealField + Copy + Serialize>(&mut self, matrix: &DMatrix<T>) -> Result<()> {
         // Write dimensions
         self.write(&(matrix.nrows(), matrix.ncols()))?;
@@ -46,6 +48,8 @@ impl<W: Write> BinaryWriter<W> {
     pub fn flush(&mut self) -> Result<()> {
         self.writer.flush()
             .map_err(Error::Io)
+    }
+
 impl BinaryWriter<File> {
     /// Create a binary writer for a file
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
@@ -53,6 +57,10 @@ impl BinaryWriter<File> {
             .map_err(Error::Io)?;
         Ok(Self::new(file))
 /// Binary reader with streaming capabilities and zero-copy operations
+    }
+
+}
+
 pub struct BinaryReader<R: Read> {
     reader: BufReader<R>,
 impl<R: Read> BinaryReader<R> {
@@ -60,6 +68,8 @@ impl<R: Read> BinaryReader<R> {
     pub fn new(reader: R) -> Self {
             reader: BufReader::new(reader),
     /// Read deserializable data using bincode
+    }
+
     pub fn read<T: for<'de> Deserialize<'de>>(&mut self) -> Result<T> {
         bincode::deserialize_from(&mut self.reader)
             .map_err(|e| Error::SerializationError(format!("Binary read error: {e}")))
@@ -72,11 +82,25 @@ impl<R: Read> BinaryReader<R> {
             .collect();
         Ok(DVector::from_vec(data?))
     /// Read matrix data with efficient allocation
+    }
+
     pub fn read_matrix<T: RealField + Copy + for<'de> Deserialize<'de>>(&mut self) -> Result<DMatrix<T>> {
         let (nrows, ncols): (usize, usize) = self.read()?;
         // Use iterator to collect matrix elements efficiently
         let data: Result<Vec<T>> = (0..nrows * ncols)
         Ok(DMatrix::from_vec(nrows, ncols, data?))
+    }
+
 impl BinaryReader<File> {
     /// Create a binary reader for a file
         let file = File::open(path)
+
+
+}
+}
+}
+}
+}
+}
+}
+}

@@ -55,10 +55,31 @@ impl<T: RealField + Copy> MUSCLScheme<T> {
             limiter,
             _phantom: std::marker::PhantomData,
 /// QUICK (Quadratic Upstream Interpolation for Convective Kinematics)
+    }
+
+}
+
 pub struct QUICKScheme<T: RealField + Copy> {
 impl<T: RealField + Copy> Default for QUICKScheme<T> {
     fn default() -> Self {
         Self::new()
 impl<T: RealField + Copy> QUICKScheme<T> {
     /// Create new QUICK scheme
+    }
+
     pub fn new() -> Self {
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

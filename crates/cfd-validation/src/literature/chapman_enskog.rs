@@ -61,6 +61,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ChapmanEnskogValidation<
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
     for ChapmanEnskogValidation<T>
 {
+    }
+
     fn validate(&self) -> Result<ValidationReport<T>> {
         let theoretical_mu = self.theoretical_viscosity();
         let theoretical_k = self.theoretical_thermal_conductivity();
@@ -83,5 +85,18 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
         })
     fn citation(&self) -> &str {
         "Chapman, S., & Cowling, T.G. (1970). The Mathematical Theory of Non-uniform Gases. Cambridge University Press, 3rd Edition."
+    }
+
     fn expected_accuracy(&self) -> T {
         T::from_f64(0.02).unwrap_or_else(T::one) // 2% accuracy for transport properties
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}

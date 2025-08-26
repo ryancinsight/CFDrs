@@ -273,7 +273,6 @@ impl<T: RealField + FromPrimitive + Copy> CavitationModel<T> {
                 }
             }
         }
-    }
 }
 
 /// Venturi cavitation parameters
@@ -357,7 +356,6 @@ impl<T: RealField + FromPrimitive + Copy> VenturiCavitation<T> {
         } else {
             T::from_f64(1e10).unwrap_or_else(|| T::one()) // No cavitation possible
         }
-    }
 }
 
 /// Cavitation damage model (erosion potential)
@@ -455,5 +453,10 @@ mod tests {
         assert!(p_throat < venturi.inlet_pressure);
         let sigma = venturi.throat_cavitation_number(v_inlet);
         assert!(sigma > 0.0);
-    }
+
+
+}
+}
+
+}
 }

@@ -54,6 +54,8 @@ pub fn compute_density<T: RealField + Copy>(f_node: &[T; 9]) -> T {
         rho += f_node[q];
     rho
 /// Compute velocity from distribution functions
+    }
+
 pub fn compute_velocity<T: RealField + Copy + FromPrimitive>(
     f_node: &[T; 9],
     density: T,
@@ -67,11 +69,15 @@ pub fn compute_velocity<T: RealField + Copy + FromPrimitive>(
         uy += ey_t * f_node[q];
     [ux / density, uy / density]
 /// Compute pressure from density (ideal gas equation of state)
+    }
+
 pub fn compute_pressure<T: RealField + Copy + FromPrimitive>(density: T) -> T {
     // For LBM, pressure = cs^2 * density where cs^2 = 1/3
     let cs2 = T::from_f64(1.0 / 3.0).unwrap_or_else(T::zero);
     cs2 * density
 /// Compute momentum from distribution functions
+    }
+
 pub fn compute_momentum<T: RealField + Copy + FromPrimitive>(f_node: &[T; 9]) -> [T; 2] {
     let mut px = T::zero();
     let mut py = T::zero();
@@ -79,6 +85,8 @@ pub fn compute_momentum<T: RealField + Copy + FromPrimitive>(f_node: &[T; 9]) ->
         py += ey_t * f_node[q];
     [px, py]
 /// Compute stress tensor from non-equilibrium distributions
+    }
+
 pub fn compute_stress_tensor<T: RealField + Copy + FromPrimitive>(
     f_eq: &[T; 9],
 ) -> [[T; 2]; 2] {
@@ -90,10 +98,14 @@ pub fn compute_stress_tensor<T: RealField + Copy + FromPrimitive>(
         stress[1][1] += ey_t * ey_t * f_neq;
     stress
 /// Compute kinetic energy density
+    }
+
 pub fn compute_kinetic_energy<T: RealField + Copy>(density: T, velocity: &[T; 2]) -> T {
     let half = T::from_f64(0.5).unwrap_or_else(T::zero);
     half * density * (velocity[0] * velocity[0] + velocity[1] * velocity[1])
 /// Compute vorticity (2D)
+    }
+
 pub fn compute_vorticity<T: RealField + Copy>(
     velocity: &Vec<Vec<[T; 2]>>,
     dx: T,
@@ -121,6 +133,8 @@ mod tests {
             f_node[q] = 0.1;
         let density = compute_density(&f_node);
         assert!((density - 0.9).abs() < 1e-10);
+    }
+
     fn test_velocity_computation() {
         let mut f_node = [0.1_f64; 9];
         // Add some momentum in x-direction
@@ -131,8 +145,27 @@ mod tests {
         assert!(velocity[0] > 0.0);
         // Should have zero y-velocity (symmetric)
         assert!(velocity[1].abs() < 1e-10);
+    }
+
     fn test_pressure_computation() {
         let density = 1.5_f64;
         let pressure = compute_pressure(density);
         let expected = (1.0 / 3.0) * density;
         assert!((pressure - expected).abs() < 1e-10);
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

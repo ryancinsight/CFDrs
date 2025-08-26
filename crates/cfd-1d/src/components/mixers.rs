@@ -42,10 +42,16 @@ impl<T: RealField + Copy + FromPrimitive + Float> Micromixer<T> {
 impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Micromixer<T> {
     fn resistance(&self, _fluid: &Fluid<T>) -> T {
         self.resistance
+    }
+
     fn component_type(&self) -> &str {
         "Micromixer"
+    }
+
     fn parameters(&self) -> &HashMap<String, T> {
         &self.parameters
+    }
+
     fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
         match key {
             "efficiency" => {
@@ -61,3 +67,12 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Micromixer<T>
             _ => {
                 self.parameters.insert(key.to_string(), value);
         Ok(())
+
+
+}
+}
+}
+}
+}
+}
+}

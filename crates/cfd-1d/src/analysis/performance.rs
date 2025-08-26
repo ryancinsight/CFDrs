@@ -33,18 +33,28 @@ impl<T: RealField + Copy + Sum> PerformanceMetrics<T> {
     pub fn set_throughput(&mut self, throughput: T) {
         self.throughput = throughput;
     /// Set pressure efficiency
+    }
+
     pub fn set_pressure_efficiency(&mut self, efficiency: T) {
         self.pressure_efficiency = efficiency;
     /// Set power consumption
+    }
+
     pub fn set_power_consumption(&mut self, power: T) {
         self.power_consumption = power;
     /// Set mixing efficiency
+    }
+
     pub fn set_mixing_efficiency(&mut self, efficiency: T) {
         self.mixing_efficiency = Some(efficiency);
     /// Add residence time for a component
+    }
+
     pub fn add_residence_time(&mut self, id: String, time: T) {
         self.residence_times.insert(id, time);
     /// Calculate hydraulic efficiency
+    }
+
     pub fn hydraulic_efficiency(&self) -> T {
         if self.power_consumption > T::zero() {
             // Simplified: useful power / total power
@@ -58,17 +68,38 @@ impl<T: RealField + Copy + Sum> PerformanceMetrics<T> {
             let sum: T = self.residence_times.values().copied().sum();
             sum / T::from_usize(self.residence_times.len()).unwrap_or_else(T::one)
     /// Get maximum residence time
+    }
+
     pub fn max_residence_time(&self) -> Option<T> {
         self.residence_times
             .values()
             .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .copied()
     /// Get minimum residence time
+    }
+
     pub fn min_residence_time(&self) -> Option<T> {
             .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
     /// Check if mixing efficiency is calculated
+    }
+
     pub fn has_mixing_data(&self) -> bool {
         self.mixing_efficiency.is_some()
 impl<T: RealField + Copy + Sum> Default for PerformanceMetrics<T> {
+    }
+
     fn default() -> Self {
         Self::new()
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}

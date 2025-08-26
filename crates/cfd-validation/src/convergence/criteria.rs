@@ -61,6 +61,8 @@ pub enum ConvergenceCriterion {
 /// Grid Convergence Index (GCI) calculator
 ///
 /// Implements Roache's GCI method for uncertainty quantification
+}
+
 #[derive(Debug, Clone)]
 pub struct GridConvergenceIndex<T: RealField + Copy> {
     /// Safety factor (1.25 for 3+ grids, 3.0 for 2 grids)
@@ -87,19 +89,27 @@ impl<T: RealField + Copy + FromPrimitive> GridConvergenceIndex<T> {
         let r_p = self.refinement_ratio.powf(self.order);
         self.safety_factor * epsilon / (r_p - T::one())
     /// Compute GCI for coarse grid solution
+    }
+
     pub fn compute_coarse(&self, f_fine: T, f_coarse: T) -> T {
         r_p * self.compute_fine(f_fine, f_coarse)
     /// Check if solutions are in asymptotic range
     ///
     /// Returns true if GCI_coarse / (r^p * GCI_fine) ≈ 1
+    }
+
     pub fn is_asymptotic(&self, gci_fine: T, gci_coarse: T) -> bool {
         let ratio = gci_coarse / (r_p * gci_fine);
         // Should be within 3% of unity for asymptotic range
         (ratio - T::one()).abs() < T::from_f64(0.03).unwrap()
     /// Compute uncertainty band for solution
+    }
+
     pub fn uncertainty_band(&self, f_fine: T, gci: T) -> (T, T) {
         (f_fine - gci, f_fine + gci)
 /// Convergence monitor for tracking solver progress
+    }
+
 pub struct ConvergenceMonitor<T: RealField + Copy> {
     /// History of errors/residuals
     pub history: Vec<T>,
@@ -120,9 +130,13 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
             max_iterations: max_iter,
             stall_window: 10,
     /// Update monitor with new error value
+    }
+
     pub fn update(&mut self, error: T) {
         self.history.push(error);
     /// Check convergence status
+    }
+
     pub fn check_status(&self) -> ConvergenceStatus<T> {
         if self.history.is_empty() {
             return ConvergenceStatus::NotConverged {
@@ -186,6 +200,8 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
 mod tests {
     use super::*;
     #[test]
+    }
+
     fn test_gci_calculation() {
         let gci = GridConvergenceIndex::<f64>::new(3, 2.0, 2.0);
         let f_fine = 1.234;
@@ -193,6 +209,8 @@ mod tests {
         let gci_fine = gci.compute_fine(f_fine, f_coarse);
         assert!(gci_fine > 0.0);
         assert!(gci_fine < 0.01); // Should be small for good convergence
+    }
+
     fn test_convergence_monitor() {
         let mut monitor = ConvergenceMonitor::<f64>::new(1e-5, 1e-3, 100);
         // Simulate convergence - final error should be below absolute tolerance
@@ -201,6 +219,8 @@ mod tests {
             monitor.update(e);
         let status = monitor.check_status();
         assert!(status.is_converged());
+    }
+
     fn test_divergence_detection() {
         let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
         // Simulate divergence
@@ -208,3 +228,37 @@ mod tests {
         monitor.update(0.5);
         monitor.update(2.0);
         assert!(matches!(status, ConvergenceStatus::Diverging { .. }));
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

@@ -27,8 +27,18 @@ impl<T: RealField + Copy> NetworkState<T> {
             pressures: network.pressures().clone(),
             flow_rates: network.flow_rates().clone(),
     /// Get time
+    }
+
     pub fn time(&self) -> T {
         self.time
     /// Set time
+    }
+
     pub fn set_time(&mut self, time: T) {
         self.time = time;
+
+    }
+
+
+}
+}

@@ -42,3 +42,7 @@ pub use pressure_velocity::{PressureVelocityConfig, PressureVelocitySolver};
 pub use problem::{IncompressibleFlowProblem, IncompressibleFlowSolution};
 pub use schemes::{FluxLimiter, Grid2D as SchemeGrid2D, SpatialScheme, TimeScheme};
 // Prelude removed - use cfd_suite::prelude::* for unified SSOT interface
+
+
+}
+}

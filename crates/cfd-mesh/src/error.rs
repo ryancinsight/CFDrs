@@ -22,3 +22,6 @@ impl fmt::Display for MeshError {
 impl std::error::Error for MeshError {}
 /// Result type for mesh operations
 pub type Result<T> = std::result::Result<T, MeshError>;
+
+
+}

@@ -31,6 +31,14 @@ impl<T: RealField + FromPrimitive + Copy> FluidProperties<T> {
         stress
     /// Calculate strain rate tensor from velocity gradient
     /// ε̇ = 0.5 * (∇u + ∇u^T)
+    }
+
     pub fn strain_rate_tensor(&self, velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
         let half = cfd_core::numeric::from_f64(0.5)?;
         (velocity_gradient + velocity_gradient.transpose()) * half
+
+
+    }
+
+}
+}

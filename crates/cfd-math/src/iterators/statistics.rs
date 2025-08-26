@@ -36,3 +36,6 @@ pub trait StatisticsIteratorExt: Iterator {
         self.variance().map(|v| v.sqrt())
 }
 impl<T: Iterator> StatisticsIteratorExt for T {}
+
+
+}

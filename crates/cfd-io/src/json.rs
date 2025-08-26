@@ -12,7 +12,16 @@ impl JsonWriter {
     #[must_use] pub fn new() -> Self {
         Self
 /// JSON reader
+    }
+
+}
+
 pub struct JsonReader;
 impl Default for JsonReader {
+}
+
 impl JsonReader {
     /// Create a new JSON reader
+
+
+}

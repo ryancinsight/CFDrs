@@ -31,3 +31,6 @@ pub trait Preconditioner<T: RealField + Copy>: Send + Sync {
     /// Solves the preconditioning system and stores the result in `z`.
     /// This approach makes memory management explicit and avoids hidden allocations.
     fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()>;
+
+
+}

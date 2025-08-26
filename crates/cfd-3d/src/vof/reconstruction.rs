@@ -23,6 +23,8 @@ impl InterfaceReconstruction {
         // Calculate interface curvature
         self.calculate_curvature(solver);
     /// Calculate interface normal vectors using gradient of volume fraction
+    }
+
     fn calculate_normals<T: RealField + FromPrimitive + Copy>(&self, solver: &mut VofSolver<T>) {
         for k in 1..solver.nz - 1 {
             for j in 1..solver.ny - 1 {
@@ -66,6 +68,8 @@ impl InterfaceReconstruction {
             / (two * solver.dz);
         Vector3::new(dx, dy, dz)
     /// PLIC reconstruction of interface
+    }
+
     fn plic_reconstruction<T: RealField + FromPrimitive + Copy>(
     ) -> (Vector3<T>, T) {
         let idx = solver.index(i, j, k);
@@ -152,3 +156,20 @@ impl InterfaceReconstruction {
                             / (two * solver.dz);
                         solver.curvature[idx] = -(dnx_dx + dny_dy + dnz_dz);
                         solver.curvature[idx] = T::zero();
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

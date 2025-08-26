@@ -38,9 +38,23 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Problem<T> for NetworkProblem<T
     type State = NetworkState<T>;
     fn domain(&self) -> &Self::Domain {
         &self.domain
+    }
+
     fn fluid(&self) -> &Fluid<T> {
         &self.fluid
+    }
+
     fn boundary_conditions(&self) -> &BoundaryConditionSet<T> {
         &self.boundary_conditions
+    }
+
     fn initial_state(&self) -> Result<Self::State> {
         Ok(NetworkState::from_network(&self.network))
+
+
+    }
+
+}
+}
+}
+}

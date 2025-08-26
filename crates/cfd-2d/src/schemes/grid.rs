@@ -33,3 +33,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Grid2D<T> {
             total_nx - 2 * self.ghost_cells,
             total_ny - 2 * self.ghost_cells,
         )
+
+    }
+
+
+}

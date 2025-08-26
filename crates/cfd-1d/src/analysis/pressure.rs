@@ -37,12 +37,18 @@ impl<T: RealField + Copy + FromPrimitive + Sum> PressureAnalysis<T> {
         if pressure < self.min_pressure {
             self.min_pressure = pressure;
     /// Add pressure drop data for a component
+    }
+
     pub fn add_pressure_drop(&mut self, id: String, drop: T) {
         self.pressure_drops.insert(id, drop);
     /// Add pressure gradient data for a component
+    }
+
     pub fn add_pressure_gradient(&mut self, id: String, gradient: T) {
         self.pressure_gradients.insert(id, gradient);
     /// Get the average pressure
+    }
+
     pub fn average_pressure(&self) -> T {
         if self.pressures.is_empty() {
             T::zero()
@@ -53,12 +59,32 @@ impl<T: RealField + Copy + FromPrimitive + Sum> PressureAnalysis<T> {
     pub fn total_pressure_drop(&self) -> T {
         self.pressure_drops.values().copied().sum()
     /// Get the pressure range
+    }
+
     pub fn pressure_range(&self) -> T {
         if self.max_pressure > self.min_pressure {
             self.max_pressure - self.min_pressure
     /// Check if pressures are initialized
+    }
+
     pub fn is_initialized(&self) -> bool {
         !self.pressures.is_empty()
 impl<T: RealField + Copy + FromPrimitive + Sum> Default for PressureAnalysis<T> {
+    }
+
     fn default() -> Self {
         Self::new()
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

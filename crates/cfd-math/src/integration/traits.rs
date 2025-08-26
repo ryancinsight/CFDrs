@@ -12,4 +12,6 @@ pub trait Quadrature<T: RealField + Copy> {
     fn order(&self) -> usize;
     /// Get the number of quadrature points
     fn num_points(&self) -> usize;
+
+
 }

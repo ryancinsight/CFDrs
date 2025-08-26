@@ -69,12 +69,16 @@ mod tests {
         // Should be exactly 2.0 for linear function
         for &deriv in derivatives.iter() {
             assert_relative_eq!(deriv, 2.0, epsilon = 1e-10);
+    }
+
     fn test_finite_difference_backward() {
         let fd = FiniteDifference::backward(1.0);
         // Test on linear function: f(x) = 3x, f'(x) = 3
         let x_values = vec![0.0, 3.0, 6.0, 9.0, 12.0];
         // Should be exactly 3.0 for linear function
             assert_relative_eq!(deriv, 3.0, epsilon = 1e-10);
+    }
+
     fn test_second_derivative() {
         // Test on quadratic function: f(x) = x^2, f''(x) = 2
         let x_values = vec![0.0, 1.0, 4.0, 9.0, 16.0, 25.0]; // x^2 for x = 0,1,2,3,4,5
@@ -83,6 +87,8 @@ mod tests {
         // Should be exactly 2.0 for quadratic function (interior points)
         for i in 1..second_derivatives.len() - 1 {
             assert_relative_eq!(second_derivatives[i], 2.0, epsilon = 1e-10);
+    }
+
     fn test_gradient_2d() {
         let grad = Gradient::uniform(1.0);
         // Test on function f(x,y) = x^2 + y^2
@@ -111,6 +117,8 @@ mod tests {
         // Divergence should be 2.0 everywhere for this field
         for &div in &divergence {
             assert_relative_eq!(div, 2.0, epsilon = 1e-10);
+    }
+
     fn test_curl_2d() {
         // Test on vector field (-y, x, 0) which has curl_z = 2
                 field[j * nx + i] = Vector3::new(-y, x, 0.0);
@@ -118,6 +126,8 @@ mod tests {
             .curl_2d(&field, nx, ny)
         // Curl should be 2.0 everywhere for this field (interior points)
         assert_relative_eq!(curl[1 * nx + 1], 2.0, epsilon = 1e-10); // Center point
+    }
+
     fn test_gradient_3d() {
         // Test on function f(x,y,z) = x^2 + y^2 + z^2
         // ∂f/∂x = 2x, ∂f/∂y = 2y, ∂f/∂z = 2z
@@ -161,4 +171,24 @@ mod tests {
         assert!(grad.gradient_2d(&field_2d, 2, 2).is_err()); // 3 elements for 2x2 grid
         let field_3d = vec![1.0; 8];
         assert!(grad.gradient_3d(&field_3d, 3, 3, 3).is_err()); // 8 elements for 3x3x3 grid
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
 }

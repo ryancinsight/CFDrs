@@ -47,8 +47,12 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Microvalve<T>
             base_resistance / (self.opening * self.opening)
     fn component_type(&self) -> &str {
         "Microvalve"
+    }
+
     fn parameters(&self) -> &HashMap<String, T> {
         &self.parameters
+    }
+
     fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
         match key {
             "cv" => self.cv = value,
@@ -66,3 +70,16 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Microvalve<T>
         Ok(())
     fn is_active(&self) -> bool {
         true
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}

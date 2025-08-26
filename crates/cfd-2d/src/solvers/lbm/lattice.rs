@@ -41,6 +41,10 @@ impl D2Q9 {
         1.0 / 36.0,
     /// Opposite direction indices
     pub const OPPOSITE: [usize; 9] = [0, 3, 4, 1, 2, 7, 8, 5, 6];
+    }
+
+}
+
 impl LatticeModel for D2Q9 {
     const Q: usize = 9;
     fn velocities() -> &'static [(i32, i32)] {
@@ -48,9 +52,13 @@ impl LatticeModel for D2Q9 {
     }
     fn weights() -> &'static [f64] {
         &Self::WEIGHTS
+    }
+
     fn opposite(direction: usize) -> usize {
         Self::OPPOSITE[direction]
 /// Compute equilibrium distribution function
+    }
+
 pub fn equilibrium<T: RealField + Copy>(
     density: T,
     velocity: &[T; 2],
@@ -76,6 +84,8 @@ pub fn equilibrium<T: RealField + Copy>(
 mod tests {
     use super::*;
     #[test]
+    }
+
     fn test_d2q9_properties() {
         assert_eq!(D2Q9::Q, 9);
         assert_eq!(D2Q9::VELOCITIES.len(), 9);
@@ -88,4 +98,11 @@ mod tests {
         for i in 0..9 {
             let opp = D2Q9::opposite(i);
             assert_eq!(D2Q9::opposite(opp), i);
-        }
+
+
+    }
+
+}
+}
+}
+}

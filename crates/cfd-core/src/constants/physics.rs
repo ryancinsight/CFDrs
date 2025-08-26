@@ -162,4 +162,6 @@ pub mod math {
     pub const E: f64 = consts::E;
     /// Golden ratio
     pub const PHI: f64 = 1.618033988749895;
+
+
 }

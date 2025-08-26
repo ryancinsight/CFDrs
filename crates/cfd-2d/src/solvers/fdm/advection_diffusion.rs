@@ -115,3 +115,16 @@ impl<T: RealField + Copy + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
     /// Convert 2D grid indices to linear index
     fn linear_index(grid: &StructuredGrid2D<T>, i: usize, j: usize) -> usize {
         j * grid.nx() + i
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}

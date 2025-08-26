@@ -64,5 +64,18 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceCalculat
             hydraulic_diameter,
             roughness,
 impl<T: RealField + Copy + FromPrimitive + num_traits::Float> Default for ResistanceCalculator<T> {
+    }
+
     fn default() -> Self {
         Self::new()
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}

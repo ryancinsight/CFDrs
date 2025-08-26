@@ -62,6 +62,8 @@ pub struct ComponentMapping {
     /// Component type
     pub component_type: ComponentType,
 /// Types of components that can be mapped
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ComponentType {
     /// Channel or pipe
@@ -77,6 +79,8 @@ pub enum ComponentType {
     /// Inlet/outlet port
     Port,
 /// Types of junctions based on scheme's split types
+}
+
 pub enum JunctionType {
     /// Two-way split
     Bifurcation,
@@ -84,6 +88,8 @@ pub enum JunctionType {
     Trifurcation,
     /// Custom n-way split
     Custom(usize),
+}
+
 impl From<SplitType> for JunctionType {
     fn from(split: SplitType) -> Self {
         match split {
@@ -100,6 +106,8 @@ pub struct SchematicLayout {
     /// Layout bounds
     pub bounds: (f64, f64, f64, f64), // min_x, min_y, max_x, max_y
 /// Path information for a connection
+}
+
 pub struct ConnectionPath {
     /// Source component ID
     pub source: String,
@@ -110,6 +118,8 @@ pub struct ConnectionPath {
     /// Channel type (straight, serpentine, etc.)
     pub channel_type: ChannelPathType,
 /// Channel path types based on scheme's `ChannelType`
+}
+
 #[derive(Debug, Clone)]
 pub enum ChannelPathType {
     /// Straight line channel
@@ -120,6 +130,8 @@ pub enum ChannelPathType {
     Arc,
     /// Tapered channel
     Frustum,
+}
+
 impl From<&ChannelType> for ChannelPathType {
     fn from(channel_type: &ChannelType) -> Self {
         match channel_type {
@@ -146,16 +158,22 @@ pub mod helpers {
             &ChannelTypeConfig::AllStraight,
         ))
     /// Export a channel system to PNG
+    }
+
     pub fn export_to_png(system: &ChannelSystem, filename: &str) -> Result<(), SchemeError> {
         plot_geometry(system, filename)?;
         Ok(())
     /// Convert scheme nodes to network nodes
+    }
+
     pub fn convert_nodes(scheme_nodes: &[Node]) -> Vec<(usize, Point2D)> {
         scheme_nodes
             .iter()
             .map(|node| (node.id.clone(), node.point))
             .collect()
     /// Extract channel paths
+    }
+
     pub fn extract_channel_paths(channels: &[Channel]) -> Vec<ConnectionPath> {
         channels
             .map(|channel| {
@@ -187,15 +205,23 @@ pub mod helpers {
             "scheme-integration feature is not enabled".to_string(),
     /// Export a channel system to PNG (fallback)
     pub fn export_to_png(_system: &(), _filename: &str) -> Result<(), SchemeError> {
+    }
+
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
     fn test_component_type() {
         let comp_type = ComponentType::Channel;
         assert_eq!(comp_type, ComponentType::Channel);
+    }
+
     fn test_junction_type() {
         let junction = JunctionType::Bifurcation;
         assert_eq!(junction, JunctionType::Bifurcation);
+    }
+
     fn test_split_type_conversion() {
         assert_eq!(
             JunctionType::from(SplitType::Bifurcation),
@@ -203,3 +229,19 @@ mod tests {
         );
             JunctionType::from(SplitType::Trifurcation),
             JunctionType::Trifurcation
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

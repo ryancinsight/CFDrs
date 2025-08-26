@@ -59,6 +59,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp> PressureVelocitySolv
         self.p = p_init;
         self.iterations = 0;
     /// Perform one pressure-velocity coupling iteration
+    }
+
     pub fn step(
         &mut self,
         bc: &cfd_core::boundary::BoundaryCondition<T>,
@@ -139,8 +141,25 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp> PressureVelocitySolv
     pub fn velocity(&self) -> &Vec<Vec<Vector2<T>>> {
         &self.u
     /// Get current pressure field
+    }
+
     pub fn pressure(&self) -> &Vec<Vec<T>> {
         &self.p
     /// Get iteration count
+    }
+
     pub fn iterations(&self) -> usize {
         self.iterations
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}

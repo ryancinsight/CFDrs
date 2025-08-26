@@ -24,6 +24,8 @@ pub enum EdgeType {
     Valve,
     Pump,
 /// Node in the network
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node<T: RealField + Copy> {
     pub id: String,
@@ -43,6 +45,8 @@ pub struct Edge<T: RealField + Copy> {
     pub edge_type: EdgeType,
     pub properties: ChannelProperties<T>,
 /// Channel properties
+}
+
 pub struct ChannelProperties<T: RealField + Copy> {
     pub resistance: T,
     pub length: T,
@@ -55,20 +59,34 @@ impl<T: RealField + Copy> ChannelProperties<T> {
             area,
             hydraulic_diameter: None,
 /// Node properties (for compatibility)
+    }
+
+}
+
 pub type NodeProperties<T> = Node<T>;
 /// Network metadata
+    }
+
+}
+
 pub struct NetworkMetadata {
     pub name: String,
     pub description: String,
 /// Network builder
+}
+
 pub struct NetworkBuilder<T: RealField + Copy> {
     network: Network<T>,
 impl<T: RealField + Copy + FromPrimitive + Copy> NetworkBuilder<T> {
     pub fn new(fluid: Fluid<T>) -> Self {
             network: Network::new(fluid),
+    }
+
     pub fn add_node(mut self, node: Node<T>) -> Self {
         self.network.add_node(node);
         self
+    }
+
     pub fn add_edge(
         mut self,
         from: &str,
@@ -77,9 +95,15 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkBuilder<T> {
     ) -> Result<Self> {
         self.network.add_edge(from, to, properties)?;
         Ok(self)
+    }
+
     pub fn build(self) -> Network<T> {
         self.network
 /// Main network structure
+    }
+
+}
+
 #[derive(Debug, Clone)]
 pub struct Network<T: RealField + Copy> {
     graph: NetworkGraph<Node<T>, ChannelProperties<T>>,
@@ -126,8 +150,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
         Ok(())
     pub fn node_count(&self) -> usize {
         self.graph.node_count()
+    }
+
     pub fn edge_count(&self) -> usize {
         self.graph.edge_count()
+    }
+
     pub fn characteristic_length(&self) -> T {
         if self.edge_count() == 0 {
             T::one()
@@ -140,14 +168,24 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
             total_length / T::from_usize(self.edge_count()).unwrap_or_else(T::one)
     pub fn fluid(&self) -> &Fluid<T> {
         &self.fluid
+    }
+
     pub fn pressures(&self) -> &DVector<T> {
         &self.pressures
+    }
+
     pub fn flow_rates(&self) -> &DVector<T> {
         &self.flow_rates
+    }
+
     pub fn update_pressures(&mut self, pressures: &DVector<T>) {
         self.pressures = pressures.clone();
+    }
+
     pub fn update_flow_rates(&mut self, flow_rates: &DVector<T>) {
         self.flow_rates = flow_rates.clone();
+    }
+
     pub fn update_from_solution(&mut self, solution: DVector<T>) -> Result<()> {
         if solution.len() != self.node_count() {
             return Err(Error::InvalidConfiguration(
@@ -155,6 +193,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
             ));
         self.pressures = solution;
         self.calculate_flow_rates()?;
+    }
+
     fn calculate_flow_rates(&mut self) -> Result<()> {
         let mut flows = Vec::with_capacity(self.edge_count());
         for edge in self.graph.edge_references() {
@@ -166,10 +206,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
             let flow = (p1 - p2) / properties.resistance;
             flows.push(flow);
         self.flow_rates = DVector::from_vec(flows);
+    }
+
     pub fn boundary_conditions(&self) -> impl Iterator<Item = (usize, &BoundaryCondition<T>)> {
         self.boundary_conditions
             .iter()
             .map(|(idx, bc)| (idx.index(), bc))
+    }
+
     pub fn edges_parallel(&self) -> impl rayon::iter::ParallelIterator<Item = EdgeData<T>> + '_ {
         use rayon::prelude::*;
         self.graph
@@ -182,6 +226,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
     pub fn graph(&self) -> &NetworkGraph<Node<T>, ChannelProperties<T>> {
         &self.graph
     /// Get iterator over edges (returns `EdgeData` for solver use)
+    }
+
     pub fn edges(&self) -> impl Iterator<Item = EdgeData<T>> + '_ {
         self.graph.edge_references().map(|edge| EdgeData {
             nodes: (edge.source().index(), edge.target().index()),
@@ -206,17 +252,25 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
     pub fn nodes(&self) -> impl Iterator<Item = &Node<T>> + '_ {
         self.graph.node_weights()
     /// Get node index by ID
+    }
+
     pub fn get_node_index(&self, id: &str) -> Option<usize> {
         self.node_indices.get(id).map(|idx| idx.index())
     /// Get node index as `NodeIndex` by ID
+    }
+
     pub fn get_node_index_raw(&self, id: &str) -> Option<NodeIndex> {
         self.node_indices.get(id).copied()
     /// Get edge ID by index
+    }
+
     pub fn get_edge_id_by_index(&self, idx: petgraph::graph::EdgeIndex) -> Option<String> {
         self.edge_indices
             .find(|(_, &edge_idx)| edge_idx == idx)
             .map(|(id, _)| id.clone())
     /// Get edges connected to a node
+    }
+
     pub fn node_edges(&self, node_id: &str) -> Result<Vec<EdgeData<T>>> {
         let node_idx = self
             .get(node_id)
@@ -227,9 +281,44 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
             .collect())
     pub fn node_indices(&self) -> &HashMap<String, NodeIndex> {
         &self.node_indices
+    }
+
 pub struct EdgeData<T: RealField + Copy> {
     pub nodes: (usize, usize),
     pub conductance: T,
 /// Edge with full properties for analysis
+}
+
 pub struct EdgeProperties<T: RealField + Copy> {
     pub flow_rate: Option<T>,
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

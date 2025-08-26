@@ -57,6 +57,8 @@ impl StreamingOperator {
 mod tests {
     use super::*;
     #[test]
+    }
+
     fn test_streaming_preserves_mass() {
         let nx = 10;
         let ny = 10;
@@ -75,3 +77,10 @@ mod tests {
         let final_mass: f64 = f_dst
         // Mass should be conserved
         assert!((initial_mass - final_mass).abs() < 1e-10);
+
+
+    }
+
+}
+}
+}

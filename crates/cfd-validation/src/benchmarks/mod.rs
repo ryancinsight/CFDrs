@@ -43,6 +43,10 @@ pub struct BenchmarkResult<T: RealField + Copy> {
     /// Additional metadata
     pub metadata: std::collections::HashMap<String, String>,
 /// Configuration for running benchmarks
+    }
+
+}
+
 pub struct BenchmarkConfig<T: RealField + Copy> {
     /// Grid resolution
     pub resolution: usize,
@@ -76,10 +80,23 @@ impl<T: RealField + Copy> BenchmarkSuite<T> {
     pub fn new() -> Self {
             benchmarks: Vec::new(),
     /// Add a benchmark to the suite
+    }
+
     pub fn add_benchmark(&mut self, benchmark: Box<dyn Benchmark<T>>) {
         self.benchmarks.push(benchmark);
     /// Run all benchmarks
+    }
+
     pub fn run_all(&self, config: &BenchmarkConfig<T>) -> Vec<Result<BenchmarkResult<T>>> {
         self.benchmarks.iter().map(|b| b.run(config)).collect()
 impl<T: RealField + Copy> Default for BenchmarkSuite<T> {
         Self::new()
+
+    }
+
+
+}
+}
+}
+}
+}

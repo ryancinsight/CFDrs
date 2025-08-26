@@ -17,4 +17,7 @@ pub enum ChannelGeometry<T: RealField + Copy> {
         width: T,
         /// Height of the rectangular channel
         height: T,
+
+
+}
 }

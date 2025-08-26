@@ -21,6 +21,8 @@ pub trait Configurable<T: RealField + Copy> {
     /// Configuration type for this solver
     type Config: super::config::SolverConfiguration<T>;
     /// Get solver configuration
+    }
+
     fn config(&self) -> &Self::Config;
     /// Set solver configuration
     fn set_config(&mut self, config: Self::Config);
@@ -29,6 +31,9 @@ pub trait Configurable<T: RealField + Copy> {
 pub trait Validatable<T: RealField + Copy> {
     /// Problem type to validate
     /// Validate problem before solving
+    }
+
     fn validate_problem(&self, problem: &Self::Problem) -> Result<()>;
     /// Check if solver can handle this problem type
     fn can_solve(&self, problem: &Self::Problem) -> bool;
+

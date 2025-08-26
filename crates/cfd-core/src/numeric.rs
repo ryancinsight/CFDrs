@@ -46,14 +46,20 @@ pub fn from_i32<T: RealField + FromPrimitive>(value: i32) -> Result<T> {
 /// Get mathematical constant PI
 pub fn pi<T: RealField + FromPrimitive>() -> Result<T> {
     from_f64(std::f64::consts::PI)
+    }
+
 }
 
 /// Get mathematical constant E (Euler's number)
 pub fn e<T: RealField + FromPrimitive>() -> Result<T> {
     from_f64(std::f64::consts::E)
+    }
+
 }
 
 /// Get mathematical constant TAU (2*PI)
 pub fn tau<T: RealField + FromPrimitive>() -> Result<T> {
     from_f64(std::f64::consts::TAU)
-}
+
+    }
+

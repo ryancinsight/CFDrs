@@ -54,6 +54,8 @@ impl<T: RealField + FromPrimitive + Copy> SpectralSolver<T> {
             config,
             poisson_solver,
     /// Solve a problem using spectral methods
+    }
+
     pub fn solve(&mut self) -> Result<SpectralSolution<T>> {
         // Initialize solution with zeros
         let mut solution = SpectralSolution::new(
@@ -75,6 +77,10 @@ impl<T: RealField + FromPrimitive + Copy> SpectralSolver<T> {
         solution.u = potential;
         Ok(solution)
 /// Solution from spectral solver
+    }
+
+}
+
 pub struct SpectralSolution<T: RealField + Copy> {
     /// Solution field
     pub u: DMatrix<T>,
@@ -99,3 +105,13 @@ impl<T: RealField + Copy> SpectralSolution<T> {
     {
         let idx = i * self.ny + j;
         self.u[(idx, k)]
+
+    }
+
+
+}
+}
+}
+}
+}
+}

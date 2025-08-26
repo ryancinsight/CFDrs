@@ -41,6 +41,8 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> JacobiPreconditioner<T> {
 impl<T: RealField + Copy> Preconditioner<T> for JacobiPreconditioner<T> {
         z.component_mul_assign(&self.inv_diagonal);
 /// SOR (Successive Over-Relaxation) preconditioner with validation
+}
+
 pub struct SORPreconditioner<T: RealField + Copy> {
     matrix: CsrMatrix<T>,
     pub(crate) omega: T,
@@ -70,6 +72,8 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> SORPreconditioner<T> {
     /// ## Validation
     /// This function validates that the matrix has the expected tridiagonal
     /// structure before computing the optimal omega.
+    }
+
     pub fn with_omega_for_1d_poisson(a: &CsrMatrix<T>) -> Result<Self> {
         // Validate matrix structure for 1D Poisson
         Self::validate_1d_poisson_structure(a)?;
@@ -119,3 +123,21 @@ impl<T: RealField + Copy> Preconditioner<T> for SORPreconditioner<T> {
             // Standard SOR preconditioner solves (D/ω - L) z = r
             // => (diag/ω) z_i = r_i + (L z)_i
             z[i] = (r[i] + sum) * self.omega / diag;
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

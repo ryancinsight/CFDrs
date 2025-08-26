@@ -31,15 +31,21 @@ impl<T: RealField + Copy + Sum> ResistanceAnalysis<T> {
         self.resistances.insert(id.clone(), resistance);
         self.total_resistance += resistance;
     /// Add resistance by type
+    }
+
     pub fn add_resistance_by_type(&mut self, component_type: String, resistance: T) {
         *self
             .resistance_by_type
             .entry(component_type)
             .or_insert(T::zero()) += resistance;
     /// Add a critical path
+    }
+
     pub fn add_critical_path(&mut self, path: Vec<String>) {
         self.critical_paths.push(path);
     /// Get the average resistance
+    }
+
     pub fn average_resistance(&self) -> T {
         if self.resistances.is_empty() {
             T::zero()
@@ -53,9 +59,13 @@ impl<T: RealField + Copy + Sum> ResistanceAnalysis<T> {
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(id, &r)| (id, r))
     /// Get the minimum resistance component
+    }
+
     pub fn min_resistance(&self) -> Option<(&String, T)> {
             .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
     /// Calculate parallel resistance
+    }
+
     pub fn parallel_resistance(&self) -> T {
             let sum_inv: T = self
                 .resistances
@@ -72,5 +82,19 @@ impl<T: RealField + Copy + Sum> ResistanceAnalysis<T> {
     pub fn series_resistance(&self) -> T {
         self.resistances.values().copied().sum()
 impl<T: RealField + Copy + Sum> Default for ResistanceAnalysis<T> {
+    }
+
     fn default() -> Self {
         Self::new()
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}

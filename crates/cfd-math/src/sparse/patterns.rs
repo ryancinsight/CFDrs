@@ -90,6 +90,8 @@ impl SparsePatterns {
                 if i < nx - 1 && j < ny - 1 {
                     builder.add_entry(idx, idx + nx + 1, corner)?;
     /// Create banded matrix pattern
+    }
+
     pub fn banded<T>(n: usize, bandwidth: usize, value: T) -> Result<CsrMatrix<T>>
         if n == 0 || bandwidth == 0 {
                 "Matrix size and bandwidth must be positive".to_string(),
@@ -97,4 +99,22 @@ impl SparsePatterns {
         for i in 0..n {
             for j in i.saturating_sub(bandwidth)..=(i + bandwidth).min(n - 1) {
                 builder.add_entry(i, j, value)?;
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
 }

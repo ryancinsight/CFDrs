@@ -39,4 +39,6 @@ impl IntegrationUtils {
         let gauss = GaussQuadrature::new(3)?; // Use 3-point Gauss rule
         let variable = VariableQuadrature::new(gauss, tolerance, 20);
         variable.integrate_adaptive(f, a, b)
+
+
 }

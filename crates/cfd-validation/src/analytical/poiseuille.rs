@@ -68,12 +68,16 @@ impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
                     .unwrap_or(T::from_f64(1.571).unwrap_or(T::one()));
                 pi_half * self.u_max * self.characteristic_length * self.characteristic_length
     /// Get Reynolds number
+    }
+
     pub fn reynolds_number(&self, density: T) -> T {
         let characteristic_velocity = self.u_max;
         let characteristic_length =
             self.characteristic_length * T::from_f64(2.0).unwrap_or(T::one() + T::one()); // Diameter for pipe, full width for plates
         density * characteristic_velocity * characteristic_length / self.viscosity
 impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for PoiseuilleFlow<T> {
+    }
+
     fn evaluate(&self, x: T, y: T, _z: T, _t: T) -> Vector3<T> {
         let velocity = match self.geometry {
                 // u(y) = u_max * (1 - (y/h)²)
@@ -91,9 +95,13 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for PoiseuilleFl
     fn pressure(&self, x: T, _y: T, _z: T, _t: T) -> T {
         // Linear pressure drop: p(x) = p0 - (dp/dx) * x
         -self.pressure_gradient * x
+    }
+
     fn name(&self) -> &str {
             PoiseuilleGeometry::Plates => "Poiseuille Flow (Parallel Plates)",
             PoiseuilleGeometry::Pipe => "Poiseuille Flow (Pipe)",
+    }
+
     fn domain_bounds(&self) -> [T; 6] {
         const LARGE_DOMAIN_SIZE: f64 = 1000.0;
         let large =
@@ -109,7 +117,26 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for PoiseuilleFl
             PoiseuilleGeometry::Pipe => [
                 self.characteristic_length, // y: [-R, R]
                 self.characteristic_length, // z: [-R, R]
+    }
+
     fn length_scale(&self) -> T {
         self.characteristic_length
+    }
+
     fn velocity_scale(&self) -> T {
         self.u_max
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

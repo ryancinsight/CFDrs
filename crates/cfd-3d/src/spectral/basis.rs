@@ -22,3 +22,6 @@ pub trait BasisFunction<T: RealField + Copy> {
     fn quadrature_weights(&self, n: usize) -> Vec<T>;
     /// Get collocation points
     fn collocation_points(&self, n: usize) -> Vec<T>;
+
+
+}

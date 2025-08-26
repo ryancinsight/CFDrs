@@ -45,6 +45,8 @@ where
     fn name(&self) -> &str {
         "Relative Error"
 /// Root Mean Square Error (RMSE)
+    }
+
 pub struct RootMeanSquareError;
 impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for RootMeanSquareError {
         // RMSE is the same as L2 norm
@@ -52,6 +54,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for RootMeanSqua
         l2.compute_error(numerical, reference)
         "Root Mean Square Error"
 /// Mean Absolute Error (MAE)
+}
+
 pub struct MeanAbsoluteError;
 impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for MeanAbsoluteError {
         // MAE is the same as L1 norm
@@ -59,9 +63,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for MeanAbsolute
         l1.compute_error(numerical, reference)
         "Mean Absolute Error"
 /// Normalized Root Mean Square Error (NRMSE)
+}
+
 pub struct NormalizedRMSE {
     normalization_method: NormalizationMethod,
 /// Methods for normalizing RMSE
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum NormalizationMethod {
     /// Normalize by the range (max - min) of reference values
@@ -70,6 +78,8 @@ pub enum NormalizationMethod {
     Mean,
     /// Normalize by the standard deviation of reference values
     StandardDeviation,
+}
+
 impl NormalizedRMSE {
     /// Create new normalized RMSE metric
     #[must_use]
@@ -116,3 +126,17 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for NormalizedRM
             Ok(rmse_value)
             Ok(rmse_value / normalization)
         "Normalized RMSE"
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

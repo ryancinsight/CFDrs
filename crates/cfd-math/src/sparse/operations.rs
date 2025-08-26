@@ -29,6 +29,8 @@ pub trait SparseMatrixExt<T: RealField + Copy> {
     fn scale_columns(&mut self, scaling: &DVector<T>) -> Result<()>;
 }
 impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
+    }
+
     fn diagonal(&self) -> DVector<T> {
         let mut diag = DVector::zeros(self.nrows().min(self.ncols()));
         for i in 0..diag.len() {
@@ -53,10 +55,14 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
         Err(Error::InvalidConfiguration(
             "Direct diagonal modification not supported for CSR format".to_string(),
         ))
+    }
+
     fn scale(&mut self, factor: T) {
         // Scale all values in the matrix
         for value in self.values_mut() {
             *value *= factor;
+    }
+
     fn add_identity(&mut self, _factor: T) -> Result<()> {
         if self.nrows() != self.ncols() {
                 "Matrix must be square to add identity".to_string(),
@@ -89,6 +95,8 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
             if ratio > max_ratio {
                 max_ratio = ratio;
         Ok(max_ratio)
+    }
+
     fn is_diagonally_dominant(&self) -> bool {
             return false;
             let mut diag_val = T::zero();
@@ -107,6 +115,8 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
         // This requires row-wise access which CSR provides
         // But modification is complex, would need to rebuild
             "Row scaling not directly supported for CSR format".to_string(),
+    }
+
     fn scale_columns(&mut self, scaling: &DVector<T>) -> Result<()> {
         if scaling.len() != self.ncols() {
         // Column scaling in CSR format - need to iterate carefully
@@ -116,3 +126,22 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
             let col = self.col_indices()[idx];
             self.values_mut()[idx] *= scaling[col];
         Ok(())
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

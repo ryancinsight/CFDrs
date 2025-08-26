@@ -47,6 +47,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
             continuity_residuals: Vec::new(),
             iteration: 0,
     /// Check if converged
+    }
+
     pub fn is_converged(&self, criteria: &ConvergenceCriteria<T>) -> bool {
         if self.velocity_residuals.is_empty()
             || self.pressure_residuals.is_empty()
@@ -64,6 +66,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
             && pres_res < criteria.pressure_tolerance
             && cont_res < criteria.continuity_tolerance
     /// Update residuals
+    }
+
     pub fn update(
         &mut self,
         fields_old: &SimulationFields<T>,
@@ -79,6 +83,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
         self.continuity_residuals.push(cont_res);
         self.iteration += 1;
     /// Calculate velocity residual (L2 norm)
+    }
+
     fn calculate_velocity_residual(
         &self,
     ) -> T {
@@ -111,3 +117,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
                     max_imbalance = imbalance;
                 }
         max_imbalance
+
+
+}
+}
+}
+}
+}
+}
+}
+}

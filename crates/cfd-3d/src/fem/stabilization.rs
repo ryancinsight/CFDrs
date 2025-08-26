@@ -56,14 +56,20 @@ impl<T: RealField + FromPrimitive + Copy> StabilizationParameters<T> {
         self.tau_supg()
     /// Calculate element Peclet number
     /// Pe = U*h/(2ν)
+    }
+
     pub fn peclet_number(&self) -> T {
         if self.nu > T::zero() {
             (self.u_mag * self.h) / (T::from_f64(2.0).unwrap_or_else(T::zero) * self.nu)
     /// Calculate element Reynolds number
     /// Re = U*h/ν
+    }
+
     pub fn element_reynolds(&self) -> T {
             (self.u_mag * self.h) / self.nu
     /// Get optimal stabilization based on flow regime
+    }
+
     pub fn optimal_tau(&self) -> T {
         let pe = self.peclet_number();
         let tau_supg = self.tau_supg();
@@ -106,6 +112,8 @@ fn calculate_tetrahedral_size<T: RealField + FromPrimitive + Copy>(
         (max_proj - min_proj).abs()
         // No flow: use characteristic length
 /// Calculate size for hexahedral element
+    }
+
 fn calculate_hexahedral_size<T: RealField + FromPrimitive + Copy>(
     // Similar to tetrahedral but for 8 vertices
     calculate_tetrahedral_size(vertices, velocity_direction)
@@ -117,3 +125,20 @@ fn calculate_min_edge_length<T: RealField + Copy>(vertices: &[Vector3<T>]) -> T 
             let edge_length = (vertices[i] - vertices[j]).norm();
             min_length = min_length.min(edge_length);
     min_length
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

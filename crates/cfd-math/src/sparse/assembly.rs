@@ -71,4 +71,12 @@ impl ParallelAssembly {
                     builder.add_entry(row_offset + i, row_offset + j, row.values()[idx])?;
             row_offset += block.nrows();
         builder.build()
+
+    }
+
+
+}
+}
+}
+}
 }

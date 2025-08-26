@@ -31,6 +31,8 @@ impl<T: RealField + Copy> FlowOverCylinder<T> {
         // CD = 2*FD / (ρ*U²*D)
         forces[0]
     /// Calculate lift coefficient
+    }
+
     fn calculate_lift(&self, forces: &[T]) -> T {
         // Simplified lift calculation
         // CL = 2*FL / (ρ*U²*D)
@@ -43,10 +45,16 @@ impl<T: RealField + Copy> FlowOverCylinder<T> {
         // St = f*D/U
         frequency * self.diameter / self.inlet_velocity
 impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylinder<T> {
+    }
+
     fn name(&self) -> &str {
         "Flow Over Cylinder"
+    }
+
     fn description(&self) -> &str {
         "2D laminar flow around a circular cylinder"
+    }
+
     fn run(&self, config: &BenchmarkConfig<T>) -> Result<BenchmarkResult<T>> {
         let nx = config.resolution * 4; // Longer in x-direction
         let ny = config.resolution;
@@ -87,6 +95,21 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
     fn reference_solution(&self) -> Option<BenchmarkResult<T>> {
         // Reference values from Schäfer & Turek
         None
+    }
+
     fn validate(&self, result: &BenchmarkResult<T>) -> Result<bool> {
         // Validate against reference drag and lift coefficients
         Ok(true)
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}

@@ -38,6 +38,8 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
             volume: T::zero(),
             shape_derivatives: Matrix3::zeros(),
     /// Calculate element volume (for tetrahedron)
+    }
+
     pub fn calculate_volume(&mut self, vertices: &[Vector3<T>]) -> T {
         if self.nodes.len() != constants::TET4_NODES {
             return T::zero();
@@ -54,6 +56,8 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
         self.volume
     /// Calculate shape function derivatives for tetrahedral element
     /// Based on Zienkiewicz & Taylor, "The Finite Element Method", Vol. 1, 6th Ed.
+    }
+
     pub fn calculate_shape_derivatives(&mut self, vertices: &[Vector3<T>]) {
         if vertices.len() != 4 {
             // For non-tetrahedral elements, use identity as fallback
@@ -91,11 +95,15 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
                 (v1.x * (v2.y - v4.y) + v2.x * (v4.y - v1.y) + v4.x * (v1.y - v2.y)) / six_v,
         ]);
     /// Calculate strain rate from velocity gradient
+    }
+
     pub fn strain_rate(&self, velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
         let half = T::from_f64(0.5).unwrap_or_else(T::zero);
         (velocity_gradient + velocity_gradient.transpose()) * half
     /// Calculate element stiffness matrix contribution for Stokes flow
     /// Based on Hughes, "The Finite Element Method", Dover Publications, 2000
+    }
+
     pub fn stiffness_contribution(&self, viscosity: T) -> DMatrix<T> {
         let n_dof = self.nodes.len() * constants::VELOCITY_COMPONENTS;
         let mut k_e = DMatrix::zeros(n_dof, n_dof);
@@ -125,3 +133,15 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
                 }
             }
         k_e
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

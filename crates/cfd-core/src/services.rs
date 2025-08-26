@@ -46,6 +46,8 @@ impl FluidDynamicsService {
         let two = T::one() + T::one();
         Ok(friction_factor * length * fluid.density * velocity * velocity / (two * diameter))
     /// Calculate friction factor using appropriate correlation
+    }
+
     fn friction_factor<T: RealField + FromPrimitive + Copy>(
         reynolds: T,
         let sixty_four = T::from_f64(64.0).unwrap_or_else(|| T::one());
@@ -119,6 +121,8 @@ impl FluidDynamicsService {
             ));
         let inv_sqrt_f = a * (inside.ln() / ln10);
         Ok(T::one() / (inv_sqrt_f * inv_sqrt_f))
+    }
+
 }
 /// Flow regime classification
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -130,6 +134,8 @@ pub enum FlowRegime {
     /// Turbulent flow (Re > 4000)
     Turbulent,
 /// Service for mesh quality assessment
+}
+
 pub struct MeshQualityService;
 impl MeshQualityService {
     /// Assess overall mesh quality and provide recommendations
@@ -157,6 +163,8 @@ impl MeshQualityService {
                 skewness_quality,
                 orthogonality_quality,
             ),
+    }
+
     fn assess_aspect_ratio<T: RealField + FromPrimitive + Copy>(
         stats: &QualityStatistics<T>,
     ) -> QualityLevel {
@@ -199,6 +207,8 @@ impl MeshQualityService {
         recommendations
 /// Quality level enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    }
+
 pub enum QualityLevel {
     /// Level 1 - may cause numerical issues
     Level1,
@@ -209,6 +219,8 @@ pub enum QualityLevel {
     /// Level 4 - suitable for high-accuracy simulations
     Level4,
 /// Quality statistics structure
+}
+
 #[derive(Debug, Clone)]
 pub struct QualityStatistics<T: RealField + Copy> {
     /// Minimum value
@@ -220,6 +232,8 @@ pub struct QualityStatistics<T: RealField + Copy> {
     /// Standard deviation
     pub std_dev: T,
 /// Overall quality assessment
+}
+
 pub struct QualityAssessment {
     /// Overall mesh quality
     pub overall_quality: QualityLevel,
@@ -231,6 +245,8 @@ pub struct QualityAssessment {
     pub orthogonality_quality: QualityLevel,
     /// Improvement recommendations
     pub recommendations: Vec<String>,
+
+
 }
 }
 }
@@ -241,13 +257,7 @@ pub struct QualityAssessment {
 }
 }
 }
-}
-}
-}
-}
-}
-}
-}
+
 }
 }
 }

@@ -46,10 +46,16 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Micropump<T> 
     fn resistance(&self, _fluid: &Fluid<T>) -> T {
         // Pumps provide negative resistance (pressure source)
         -self.max_pressure / self.max_flow_rate
+    }
+
     fn component_type(&self) -> &str {
         "Micropump"
+    }
+
     fn parameters(&self) -> &HashMap<String, T> {
         &self.parameters
+    }
+
     fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
         match key {
             "max_flow_rate" => self.max_flow_rate = value,
@@ -62,3 +68,13 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Micropump<T> 
         Ok(())
     fn is_active(&self) -> bool {
         true
+
+    }
+
+
+}
+}
+}
+}
+}
+}

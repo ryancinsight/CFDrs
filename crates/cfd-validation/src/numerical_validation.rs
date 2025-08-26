@@ -42,6 +42,8 @@ pub struct ErrorMetrics<T: RealField + Copy> {
     /// Root mean square error
     pub rmse: T,
 /// Convergence information
+}
+
 pub struct ConvergenceInfo<T: RealField + Copy> {
     /// Number of iterations
     pub iterations: usize,
@@ -50,6 +52,8 @@ pub struct ConvergenceInfo<T: RealField + Copy> {
     /// Convergence rate
     pub convergence_rate: Option<T>,
 /// Linear solver validation suite
+}
+
 pub struct LinearSolverValidator;
 impl LinearSolverValidator {
     /// Validate linear solvers against analytical solutions
@@ -330,6 +334,8 @@ impl LinearSolverValidator {
         let b = &a * &x_true;
         Ok((a, b, x_true))
     /// Compute error metrics
+    }
+
     fn compute_error_metrics<T: RealField + Copy + FromPrimitive + Copy>(
         computed: &DVector<T>,
         analytical: &DVector<T>,
@@ -371,3 +377,31 @@ mod tests {
         println!(
             "Linear solver validation completed with {} results",
             results.len()
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

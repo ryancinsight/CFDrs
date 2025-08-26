@@ -48,6 +48,8 @@ pub enum WallFunction {
     /// Low-Reynolds number (resolve to wall)
     LowReynolds,
 /// k-ε turbulence model
+}
+
 pub struct KEpsilonModel<T: RealField + Copy> {
     /// Turbulent kinetic energy
     pub k: Vec<Vec<T>>,
@@ -220,6 +222,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> KEpsilonModel<T> {
                 break;
         Ok(u_tau)
     /// Solve k-ε transport equations
+    }
+
     pub fn solve_transport_equations(
         velocity: &[Vec<Vector2<T>>],
         dt: T,
@@ -279,6 +283,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> KEpsilonModel<T> {
         self.epsilon = current_epsilon;
         self.update_turbulent_viscosity();
     /// Calculate diffusion term using central differences
+    }
+
     fn calculate_diffusion(
         &self,
         field: &[Vec<T>],
@@ -294,3 +300,22 @@ impl<T: RealField + Copy + FromPrimitive + Copy> KEpsilonModel<T> {
             + field[i][j - 1])
             / (dy * dy);
         diffusivity * (d2f_dx2 + d2f_dy2)
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

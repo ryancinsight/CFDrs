@@ -40,16 +40,22 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
     /// * `f_coarse` - Solution on coarse grid
     /// # Returns
     /// Extrapolated solution at h→0
+    }
+
     pub fn extrapolate(&self, f_fine: T, f_coarse: T) -> T {
         let r_p = self.refinement_ratio.powf(self.order);
         (r_p * f_fine - f_coarse) / (r_p - T::one())
     /// Compute grid convergence index (GCI) following Roache (1998)
     /// GCI provides an error band for the grid-converged solution
+    }
+
     pub fn grid_convergence_index(&self, f_fine: T, f_coarse: T, safety_factor: T) -> T {
         let epsilon = (f_fine - f_coarse).abs();
         safety_factor * epsilon / (r_p - T::one())
     /// Estimate order of accuracy from three grid solutions
     /// Uses the generalized Richardson extrapolation formula
+    }
+
     pub fn estimate_order(f_coarse: T, f_medium: T, f_fine: T, refinement_ratio: T) -> Result<T>
     where
         T: RealField + Copy + FromPrimitive,
@@ -66,6 +72,8 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
         Ok(order)
     /// Check if solutions are in asymptotic range
     /// Returns true if the convergence ratio is consistent with the expected order
+    }
+
     pub fn is_asymptotic(&self, f_coarse: T, f_medium: T, f_fine: T) -> bool {
         let epsilon_21 = (f_medium - f_fine).abs();
         let epsilon_32 = (f_coarse - f_medium).abs();
@@ -78,6 +86,8 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
         relative_diff < T::from_f64(0.1).unwrap()
 /// Perform Richardson extrapolation with automatic order estimation
 /// Uses three grid levels to estimate order and extrapolate
+    }
+
 pub fn richardson_extrapolate<T>(solutions: &[T], grid_sizes: &[T]) -> Result<(T, T)>
 where
     T: RealField + Copy + FromPrimitive,
@@ -123,6 +133,8 @@ mod tests {
         let f_coarse = 1.0 + 0.04; // h = 0.2
         let extrapolated = extrapolator.extrapolate(f_fine, f_coarse);
         assert_relative_eq!(extrapolated, 1.0, epsilon = 1e-10);
+    }
+
     fn test_order_estimation() {
         // Test order estimation with known convergence
         let f_coarse = 1.16; // h = 0.4, f = 1 + h²
@@ -131,6 +143,8 @@ mod tests {
         let order = RichardsonExtrapolation::<f64>::estimate_order(f_coarse, f_medium, f_fine, 2.0)
             .unwrap();
         assert_relative_eq!(order, 2.0, epsilon = 0.01);
+    }
+
     fn test_gci_calculation() {
         let f_fine = 1.01;
         let f_coarse = 1.04;
@@ -138,3 +152,16 @@ mod tests {
         let gci = extrapolator.grid_convergence_index(f_fine, f_coarse, safety_factor);
         // GCI should be small for well-converged solutions
         assert!(gci < 0.02);
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}

@@ -32,6 +32,10 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveTimeStepController<T> {
         let factor = factor.min(self.max_increase).max(self.min_decrease);
         current_dt * factor
 /// Variable time step controller with min/max constraints
+    }
+
+}
+
 pub struct VariableTimeStep<T: RealField + Copy> {
     /// Minimum allowed time step
     pub dt_min: T,
@@ -55,6 +59,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> VariableTimeStep<T> {
         let current_dt = current_dt * factor;
         let max_dt = num_traits::Float::max(current_dt, self.dt_min);
         num_traits::Float::min(max_dt, self.dt_max)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::time::integrators::ForwardEuler;
@@ -75,3 +81,12 @@ mod tests {
             .expect("CRITICAL: Add proper error handling");
         // After one step: y ≈ y0 * (1 - dt) = 1.0 * (1 - 0.1) = 0.9
         assert_abs_diff_eq!(state[0], 0.9, epsilon = 1e-10);
+
+
+}
+}
+}
+}
+
+}
+}

@@ -50,6 +50,16 @@ impl ComponentFactory {
             _ => Err(Error::InvalidConfiguration(format!(
                 "Unknown component type: {component_type}"
             ))),
-        }
-    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
 }

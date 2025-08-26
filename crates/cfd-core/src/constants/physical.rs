@@ -55,4 +55,6 @@ pub mod universal {
 /// Get a physical constant as a generic RealField type
 pub fn get_constant<T: RealField + FromPrimitive>(value: f64) -> T {
     T::from_f64(value).unwrap_or_else(|| T::one())
-}
+
+    }
+

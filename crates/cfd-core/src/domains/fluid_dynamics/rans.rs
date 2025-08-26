@@ -22,6 +22,8 @@ pub struct KEpsilonState<T: RealField + Copy> {
     /// Dissipation rate
     pub epsilon: Vec<T>,
 /// k-epsilon turbulence model
+    }
+
 pub struct KEpsilonModel<T: RealField + Copy> {
     /// Model constants
     pub constants: KEpsilonConstants<T>,
@@ -38,6 +40,8 @@ pub struct KEpsilonModel<T: RealField + Copy> {
 /// # References
 /// Launder, B.E. and Spalding, D.B. (1974). "The numerical computation of turbulent flows."
 /// Computer Methods in Applied Mechanics and Engineering, 3(2), 269-289.
+}
+
 pub struct KEpsilonConstants<T: RealField + Copy> {
     /// Model constant `C_μ` = 0.09
     pub c_mu: T,
@@ -63,20 +67,25 @@ impl<T: RealField + Copy + FromPrimitive> KEpsilonConstants<T> {
             )
             .unwrap_or_else(T::one),
         }
-    }
 impl<T: RealField + Copy + FromPrimitive> Default for KEpsilonModel<T> {
     fn default() -> Self {
         Self::new()
 impl<T: RealField + Copy + FromPrimitive> KEpsilonModel<T> {
     /// Create a new k-epsilon model with standard constants
     #[must_use]
+    }
+
     pub fn new() -> Self {
             constants: KEpsilonConstants::standard(),
             state: None,
     /// Create with custom constants
+    }
+
     pub fn with_constants(constants: KEpsilonConstants<T>) -> Self {
             constants,
     /// Initialize state with high Reynolds number approximation
+    }
+
     pub fn initialize_state(&mut self, flow_field: &FlowField<T>) {
         let n = flow_field.velocity.components.len();
         // Initialize k based on turbulence intensity (typically 1-5% of mean flow)
@@ -126,10 +135,32 @@ impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for KEpsilonModel<T
     fn turbulent_kinetic_energy(&self, _flow_field: &FlowField<T>) -> Vec<T> {
             Some(state) => state.k.clone(),
             None => Vec::new(),
+    }
+
     fn name(&self) -> &str {
         "k-epsilon"
 impl<T: RealField + Copy + FromPrimitive> RANSModel<T> for KEpsilonModel<T> {
+    }
+
     fn dissipation_rate(&self, _flow_field: &FlowField<T>) -> Vec<T> {
             Some(state) => state.epsilon.clone(),
+    }
+
     fn constants(&self) -> &dyn std::any::Any {
         &self.constants
+
+
+    }
+}
+}
+}
+}
+}
+}
+}
+}
+}
+
+}
+}
+}

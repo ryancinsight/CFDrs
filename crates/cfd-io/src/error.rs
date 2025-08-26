@@ -45,8 +45,19 @@ impl IoError {
     pub fn unsupported_format<S: Into<String>>(format: S) -> Self {
         Self::UnsupportedFormat(format.into())
     /// Create a validation error
+    }
+
     pub fn validation<S: Into<String>>(msg: S) -> Self {
         Self::ValidationError(msg.into())
     /// Create a missing field error
+    }
+
     pub fn missing_field<S: Into<String>>(field: S) -> Self {
         Self::MissingField(field.into())
+
+    }
+
+
+}
+}
+}

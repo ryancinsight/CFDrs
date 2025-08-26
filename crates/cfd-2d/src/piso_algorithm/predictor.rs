@@ -112,6 +112,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
             rho * vs * fields.v.at(i, j - 1)
             rho * vs * fields.v.at(i, j)
     /// Calculate diffusion term for u-velocity
+    }
+
     fn calculate_diffusion_u(&self, fields: &SimulationFields<T>, i: usize, j: usize) -> T {
         let mu = fields.viscosity.at(i, j);
         let d2u_dx2 = (fields.u.at(i + 1, j) - T::from_f64(2.0).unwrap() * fields.u.at(i, j)
@@ -122,9 +124,26 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
             / (self.dy * self.dy);
         mu * (d2u_dx2 + d2u_dy2)
     /// Calculate diffusion term for v-velocity
+    }
+
     fn calculate_diffusion_v(&self, fields: &SimulationFields<T>, i: usize, j: usize) -> T {
         let d2v_dx2 = (fields.v.at(i + 1, j) - T::from_f64(2.0).unwrap() * fields.v.at(i, j)
             + fields.v.at(i - 1, j))
         let d2v_dy2 = (fields.v.at(i, j + 1) - T::from_f64(2.0).unwrap() * fields.v.at(i, j)
             + fields.v.at(i, j - 1))
         mu * (d2v_dx2 + d2v_dy2)
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

@@ -19,12 +19,18 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
     pub fn central(spacing: T) -> Self {
         Self::new(FiniteDifferenceScheme::Central, spacing)
     /// Create forward difference operator
+    }
+
     pub fn forward(spacing: T) -> Self {
         Self::new(FiniteDifferenceScheme::Forward, spacing)
     /// Create backward difference operator
+    }
+
     pub fn backward(spacing: T) -> Self {
         Self::new(FiniteDifferenceScheme::Backward, spacing)
     /// Compute first derivative using iterator combinators and zero-copy operations
+    }
+
     pub fn first_derivative(&self, values: &[T]) -> Result<DVector<T>> {
         if values.len() < 2 {
             return Err(Error::InvalidConfiguration(
@@ -111,20 +117,30 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
             - cfd_core::numeric::from_f64(2.0)? * values[n - 2]
             + values[n - 3])
     /// Get the finite difference scheme
+    }
+
     pub fn scheme(&self) -> FiniteDifferenceScheme {
         self.scheme
     /// Get the grid spacing
+    }
+
     pub fn spacing(&self) -> T {
         self.spacing
 impl<T: RealField + From<f64> + FromPrimitive + Copy> Default for FiniteDifference<T> {
+    }
+
     fn default() -> Self {
         Self::central(T::one())
 /// Compute 1D differentiation using central differences
+    }
+
 pub fn differentiate_1d<T: RealField + From<f64> + FromPrimitive + Copy>(
     values: &[T],
 ) -> Result<DVector<T>> {
     FiniteDifference::central(spacing).first_derivative(values)
 /// Compute 2D differentiation (gradient) using central differences
+    }
+
 pub fn differentiate_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
     field: &[T],
     nx: usize,
@@ -139,6 +155,8 @@ pub fn differentiate_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
     let grad_y: Vec<T> = gradients.iter().map(|g| g.y).collect();
     Ok((grad_x, grad_y))
 /// Compute 2D Laplacian using central differences
+    }
+
 pub fn laplacian_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
 ) -> Result<Vec<T>> {
     if field.len() != nx * ny {
@@ -188,3 +206,31 @@ pub fn laplacian_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
         let d2fdx2 = (field[idx] - T::from_f64(2.0).unwrap_or_else(T::zero) * field[idx - 1]
             + field[idx - 2])
     Ok(laplacian)
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

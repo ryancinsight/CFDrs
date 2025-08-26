@@ -35,6 +35,8 @@ pub mod finite_difference {
         }
         fn name(&self) -> &str {
             "Central Difference"
+    }
+
         fn order(&self) -> usize {
             2
     }
@@ -47,6 +49,8 @@ pub mod finite_difference {
             "Upwind Difference"
             1
 /// Time integration scheme abstraction
+}
+
 pub trait TimeIntegrationScheme<T: RealField + Copy>: Send + Sync {
     /// Advance solution in time
     fn advance(&self, current: &[T], derivative: &[T], dt: T) -> Vec<T>;
@@ -65,6 +69,8 @@ pub mod time_integration {
                 .zip(derivative.iter())
                 .map(|(u, dudt)| *u + *dudt * dt)
             "Forward Euler"
+    }
+
         fn is_implicit(&self) -> bool {
             false
     /// Constant derivative time integration (equivalent to Forward Euler)
@@ -85,6 +91,8 @@ pub mod time_integration {
     impl RungeKutta4 {
         /// Advance with derivative function for proper RK4
         /// Reference: Hairer, E., Nørsett, S.P., Wanner, G. "Solving Ordinary Differential Equations I" (1993)
+    }
+
         pub fn advance_with_function<T, F>(
             &self,
             current: &[T],
@@ -195,12 +203,18 @@ pub mod linear_solvers {
         fn is_iterative(&self) -> bool {
             true
     impl<T: RealField + Copy> Default for ConjugateGradientSolver<T> {
+    }
+
         fn default() -> Self {
             // use num_traits::FromPrimitive;
             Self {
                 max_iterations: 1000,
                 tolerance: T::from_f64(1e-6).unwrap_or_else(|| T::one()),
 /// Numerical methods service following Domain Service pattern
+    }
+
+}
+
 pub struct NumericalMethodsService<T: RealField + Copy> {
     /// Available discretization schemes
     discretization_schemes: HashMap<String, Box<dyn DiscretizationScheme<T>>>,
@@ -244,6 +258,8 @@ impl<T: RealField + Copy> NumericalMethodsService<T> {
     ) {
         self.discretization_schemes.insert(name, scheme);
     /// Register time integration scheme
+    }
+
     pub fn register_time_integration_scheme(
         scheme: Box<dyn TimeIntegrationScheme<T>>,
         self.time_integration_schemes.insert(name, scheme);
@@ -251,19 +267,31 @@ impl<T: RealField + Copy> NumericalMethodsService<T> {
     pub fn register_linear_solver(&mut self, name: String, solver: Box<dyn LinearSystemSolver<T>>) {
         self.linear_solvers.insert(name, solver);
     /// Get discretization scheme by name
+    }
+
     pub fn get_discretization_scheme(&self, name: &str) -> Option<&dyn DiscretizationScheme<T>> {
         self.discretization_schemes
             .get(name)
             .map(std::convert::AsRef::as_ref)
     /// Get time integration scheme by name
+    }
+
     pub fn get_time_integration_scheme(&self, name: &str) -> Option<&dyn TimeIntegrationScheme<T>> {
         self.time_integration_schemes
     /// Get linear solver by name
+    }
+
     pub fn get_linear_solver(&self, name: &str) -> Option<&dyn LinearSystemSolver<T>> {
         self.linear_solvers
 impl<T: RealField + Copy> Default for NumericalMethodsService<T> {
+    }
+
     fn default() -> Self {
         Self::new()
+    }
+
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -284,6 +312,8 @@ mod tests {
         assert_eq!(
             <finite_difference::CentralDifference as DiscretizationScheme<f64>>::name(&scheme),
             <finite_difference::CentralDifference as DiscretizationScheme<f64>>::order(&scheme),
+    }
+
     fn test_upwind_difference_scheme() {
         let scheme = finite_difference::UpwindDifference;
         let field = vec![1.0f64, 2.0, 4.0, 7.0];
@@ -294,6 +324,8 @@ mod tests {
         assert_relative_eq!(result[2], 3.0, epsilon = 1e-10);
             <finite_difference::UpwindDifference as DiscretizationScheme<f64>>::name(&scheme),
             <finite_difference::UpwindDifference as DiscretizationScheme<f64>>::order(&scheme),
+    }
+
     fn test_forward_euler_scheme() {
         let scheme = time_integration::ForwardEuler;
         let current = vec![1.0f64, 2.0, 3.0];
@@ -310,6 +342,8 @@ mod tests {
         assert!(!<time_integration::ForwardEuler as TimeIntegrationScheme<
             f64,
         >>::is_implicit(&scheme));
+    }
+
     fn test_constant_derivative_scheme() {
         let scheme = time_integration::ConstantDerivative;
         let current = vec![1.0f64];
@@ -323,6 +357,8 @@ mod tests {
             !<time_integration::ConstantDerivative as TimeIntegrationScheme<f64>>::is_implicit(
                 &scheme
             )
+    }
+
     fn test_runge_kutta_4_proper() {
         // Test proper RK4 with a simple ODE: dy/dt = -y, y(0) = 1
         // Exact solution: y(t) = exp(-t)
@@ -351,6 +387,8 @@ mod tests {
         assert_relative_eq!(result[1], 1.0, epsilon = 1e-6);
         assert_eq!(solver.name(), "Conjugate Gradient");
         assert!(solver.is_iterative());
+    }
+
     fn test_numerical_methods_service() {
         let service = NumericalMethodsService::<f64>::new();
         // Test that default schemes are registered
@@ -363,8 +401,37 @@ mod tests {
         assert!(service.get_linear_solver("cg").is_some());
         // Test non-existent schemes
         assert!(service.get_discretization_scheme("nonexistent").is_none());
+    }
+
     fn test_service_registration() {
         let mut service = NumericalMethodsService::<f64>::new();
         // Register a new scheme
             "test_scheme".to_string(),
         assert!(service.get_discretization_scheme("test_scheme").is_some());
+
+    }
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+
+}
+}
+}

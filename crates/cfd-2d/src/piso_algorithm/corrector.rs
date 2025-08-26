@@ -112,6 +112,8 @@ where
                 *h_field.at_mut(i, j) = h_u;
         h_field
     /// Calculate mass imbalance including H(u) correction terms
+    }
+
     fn calculate_mass_imbalance_with_h(
         &self,
         fields: &SimulationFields<T>,
@@ -128,6 +130,8 @@ where
             / (T::from_f64(2.0).unwrap() * self.dy);
         mass_imbalance + h_correction_x + h_correction_y
     /// Calculate mass imbalance at a cell
+    }
+
     fn calculate_mass_imbalance(&self, fields: &SimulationFields<T>, i: usize, j: usize) -> T {
         let rho = fields.density.at(i, j);
         // Face mass fluxes
@@ -138,10 +142,14 @@ where
         // Mass imbalance (should be zero for continuity)
         me - mw + mn - ms
     /// Correct pressure field
+    }
+
     fn correct_pressure(&self, fields: &mut SimulationFields<T>, p_prime: &Field2D<T>) {
                 let p_correction = self.pressure_relaxation * p_prime.at(i, j);
                 *fields.p.at_mut(i, j) = fields.p.at(i, j) + p_correction;
     /// Correct velocity field based on pressure correction
+    }
+
     fn correct_velocity(&self, fields: &mut SimulationFields<T>, p_prime: &Field2D<T>, dt: T) {
         // Correct u-velocity
                 let dp_dx = (p_prime.at(i, j) - p_prime.at(i - 1, j)) / self.dx;
@@ -153,6 +161,8 @@ where
                 *fields.v.at_mut(i, j) = fields.v.at(i, j) + v_correction;
     /// Update face fluxes using Rhie-Chow interpolation
     /// Reference: Rhie & Chow (1983), AIAA Journal, 21(11), 1525-1532
+    }
+
     fn update_face_fluxes(&self, fields: &mut SimulationFields<T>) {
         // Rhie-Chow interpolation to prevent pressure-velocity decoupling
         // u_f = ū_f - d_f * (∇p_f - ∇p̄_f)
@@ -178,3 +188,18 @@ where
                 // Update velocity fields
                 *fields.u.at_mut(i, j) = u_corrected;
                 *fields.v.at_mut(i, j) = v_corrected;
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

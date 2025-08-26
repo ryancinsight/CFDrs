@@ -35,4 +35,10 @@ pub enum CrossSection<T: RealField + Copy> {
         area: T,
         /// Hydraulic diameter (4 * area / perimeter)
         hydraulic_diameter: T,
+
+
+}
+}
+}
+}
 }

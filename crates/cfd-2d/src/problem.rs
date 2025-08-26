@@ -49,15 +49,23 @@ impl<T: RealField + Copy> IncompressibleFlowProblem<T> {
         self.initial_velocity = velocity;
         self
     /// Set initial pressure field
+    }
+
     pub fn with_initial_pressure(mut self, pressure: Vec<Vec<T>>) -> Self {
         self.initial_pressure = pressure;
     /// Set time step for transient simulations
+    }
+
     pub fn with_time_step(mut self, dt: T) -> Self {
         self.time_step = Some(dt);
     /// Set simulation end time
+    }
+
     pub fn with_end_time(mut self, t_end: T) -> Self {
         self.end_time = Some(t_end);
     /// Validate problem setup
+    }
+
     pub fn validate(&self) -> cfd_core::error::Result<()> {
         // Check grid dimensions match initial fields
         if self.initial_velocity.len() != self.grid.nx() {
@@ -119,3 +127,19 @@ impl<T: RealField + Copy> IncompressibleFlowSolution<T> {
         self.pressure
             .copied()
             .fold(T::zero(), |acc, p| if p > acc { p } else { acc })
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

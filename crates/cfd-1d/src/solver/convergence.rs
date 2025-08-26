@@ -20,6 +20,8 @@ impl<T: RealField + Copy> ConvergenceChecker<T> {
         self.tolerance = tolerance;
     /// Check if solution has converged using L2 norm of residual
     /// Reference: Saad, Y. (2003). "Iterative Methods for Sparse Linear Systems"
+    }
+
     pub fn check(&self, solution: &DVector<T>) -> Result<()> {
         // Check for NaN/Inf values indicating divergence
         if solution.iter().any(|x| !x.is_finite()) {
@@ -36,3 +38,11 @@ impl<T: RealField + Copy> ConvergenceChecker<T> {
     /// Check residual convergence
     pub fn check_residual(&self, residual: T) -> bool {
         residual < self.tolerance
+
+    }
+
+
+}
+}
+}
+}

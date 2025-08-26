@@ -29,6 +29,8 @@ impl<Q> VariableQuadrature<Q> {
         Q: Quadrature<T>,
     {
         self.integrate_recursive(f, a, b, 0)
+    }
+
     fn integrate_recursive<T, F>(&self, f: F, a: T, b: T, depth: usize) -> Result<T>
         if depth > self.max_depth {
             return Err(Error::Convergence(
@@ -55,3 +57,8 @@ impl<Q> VariableQuadrature<Q> {
             let left_refined = self.integrate_recursive(f, a, mid, depth + 1)?;
             let right_refined = self.integrate_recursive(f, mid, b, depth + 1)?;
             Ok(left_refined + right_refined)
+
+
+}
+}
+}

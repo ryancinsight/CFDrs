@@ -161,5 +161,8 @@ impl<T: RealField + Copy> ScalarField<T> {
     /// Create a mutable view of the scalar field
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         &mut self.values
+
     }
+
+
 }

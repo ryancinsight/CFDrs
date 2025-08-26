@@ -39,8 +39,12 @@ mod tests {
         let ax = &a * &x;
             assert_relative_eq!(ax[i], b[i], epsilon = 1e-8);
         Ok(())
+    }
+
     fn test_bicgstab() -> Result<()> {
         let solver = BiCGSTAB::new(config);
+    }
+
     fn test_jacobi_preconditioner() -> Result<()> {
         let precond = JacobiPreconditioner::new(&a)?;
         let r = DVector::from_element(n, 1.0);
@@ -72,11 +76,17 @@ mod tests {
         // ILU(0) preconditioner not yet implemented
         // let result = ILUPreconditioner::new(&non_tridiag);
         // assert!(result.is_err());
+    }
+
     fn test_preconditioned_cg() -> Result<()> {
         let x = solver.solve_preconditioned(&a, &b, &precond, None)?;
+    }
+
     fn test_gauss_seidel() -> Result<()> {
         // GaussSeidelPreconditioner not yet implemented, using SOR instead
         let precond = SORPreconditioner::new(&a, 1.0)?;
+    }
+
     fn test_convergence_with_different_tolerances() -> Result<()> {
         let n = 10;
         let tolerances = vec![1e-4, 1e-6, 1e-8];
@@ -91,4 +101,15 @@ mod tests {
             let residual = &b - &a * &x;
             let relative_residual = residual.norm() / b.norm();
             assert!(relative_residual < tol * 10.0); // Allow some slack
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
 }

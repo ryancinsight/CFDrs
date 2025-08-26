@@ -31,13 +31,26 @@ impl<T: RealField + Copy> StokesFlowSolution<T> {
             self.velocity[base + 2],
         )
     /// Get pressure at node
+    }
+
     pub fn get_pressure(&self, node_idx: usize) -> T {
         self.pressure[node_idx]
     /// Set velocity at node
+    }
+
     pub fn set_velocity(&mut self, node_idx: usize, vel: &Vector3<T>) {
         self.velocity[base] = vel.x;
         self.velocity[base + 1] = vel.y;
         self.velocity[base + 2] = vel.z;
     /// Set pressure at node
+    }
+
     pub fn set_pressure(&mut self, node_idx: usize, p: T) {
         self.pressure[node_idx] = p;
+
+
+    }
+
+}
+}
+}

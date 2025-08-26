@@ -22,14 +22,28 @@ impl<T: RealField + Copy> NetworkDomain<T> {
 impl<T: RealField + Copy + FromPrimitive + Copy> Domain<T> for NetworkDomain<T> {
     fn dimension(&self) -> usize {
         1 // 1D network
+    }
+
     fn contains(&self, _point: &Point3<T>) -> bool {
         // For network domains, all points are conceptually "inside"
         true
+    }
+
     fn bounding_box(&self) -> (Point3<T>, Point3<T>) {
         let zero = T::zero();
         let one = T::one();
         // Standard unit box for network domain
         (Point3::new(zero, zero, zero), Point3::new(one, one, one))
+    }
+
     fn volume(&self) -> T {
         // For 1D networks, "volume" is the characteristic length
         self.characteristic_length
+
+
+    }
+
+}
+}
+}
+}

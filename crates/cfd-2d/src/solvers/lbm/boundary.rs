@@ -44,12 +44,16 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
     pub fn set_boundary(&mut self, edge: String, boundary_type: BoundaryType) {
         self.boundary_types.insert(edge, boundary_type);
     /// Apply bounce-back boundary condition
+    }
+
     pub fn apply_bounce_back(f: &mut Vec<Vec<[T; 9]>>, i: usize, j: usize) {
         let f_current = f[j][i];
         for q in 0..9 {
             let q_opp = D2Q9::OPPOSITE[q];
             f[j][i][q] = f_current[q_opp];
     /// Apply velocity boundary condition (Zou-He)
+    }
+
     pub fn apply_velocity_boundary(
         f: &mut Vec<Vec<[T; 9]>>,
         density: &mut Vec<Vec<T>>,
@@ -70,6 +74,8 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
             let u_arr = [u_boundary.x, u_boundary.y];
             f[j][i][q] = equilibrium(rho, &u_arr, q, weight, lattice_vel);
     /// Apply pressure boundary condition
+    }
+
     pub fn apply_pressure_boundary(
         p_boundary: T,
         // Convert pressure to density (assuming cs^2 = 1/3)
@@ -102,6 +108,8 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
             rho += f[j][i][q];
         rho
     /// Extrapolate velocity from interior points
+    }
+
     fn extrapolate_velocity(velocity: &Vec<Vec<[T; 2]>>, i: usize, j: usize) -> [T; 2] {
         let ny = velocity.len();
         let nx = if ny > 0 { velocity[0].len() } else { 0 };
@@ -127,3 +135,19 @@ mod tests {
         BoundaryHandler::<f64>::apply_bounce_back(&mut f, 5, 5);
         // Check that distributions are swapped
             assert_eq!(f[5][5][q], q_opp as f64);
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

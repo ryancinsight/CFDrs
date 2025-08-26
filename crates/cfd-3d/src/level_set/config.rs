@@ -48,5 +48,9 @@ impl Default for LevelSetConfig {
             max_iterations: DEFAULT_MAX_ITERATIONS,
             use_narrow_band: false,
             use_weno: true,
-        }
+
     }
+
+
+}
+}

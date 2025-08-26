@@ -71,3 +71,17 @@ impl<I, T> Iterator for StridedWindowIterator<I, T>
                 self.buffer.push(val);
                 self.buffer.remove(0);
         Some(self.buffer.clone())
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

@@ -16,6 +16,8 @@ pub struct Hdf5Writer {
 /// HDF5 reader for large CFD datasets
 pub struct Hdf5Reader {
 /// Metadata for CFD datasets
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatasetMetadata {
     /// Dataset name
@@ -31,6 +33,8 @@ pub struct DatasetMetadata {
     /// Additional attributes
     pub attributes: std::collections::HashMap<String, String>,
 /// Large dataset chunk for streaming I/O
+}
+
 #[derive(Debug, Clone)]
 pub struct DataChunk<T: RealField + Copy> {
     /// Chunk data
@@ -40,6 +44,8 @@ pub struct DataChunk<T: RealField + Copy> {
     /// Chunk dimensions
     /// Metadata
     pub metadata: DatasetMetadata,
+}
+
 impl Hdf5Writer {
     /// Create new HDF5 writer
     pub fn new() -> Self {
@@ -169,8 +175,12 @@ impl Hdf5Writer {
                 .write_scalar(&value.as_str().into())?;
         Ok(())
     /// Close the HDF5 file
+    }
+
     pub fn close(&mut self) -> Result<()> {
             self.file = None;
+    }
+
 impl Hdf5Reader {
     /// Create new HDF5 reader
     /// Open HDF5 file for reading
@@ -252,7 +262,13 @@ impl Hdf5Reader {
 impl Default for Hdf5Writer {
     fn default() -> Self {
         Self::new()
+    }
+
+}
+
 impl Default for Hdf5Reader {
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -261,9 +277,13 @@ mod tests {
     fn test_hdf5_writer_creation() {
         let writer = Hdf5Writer::new();
         assert!(writer.file.is_none());
+    }
+
     fn test_hdf5_reader_creation() {
         let reader = Hdf5Reader::new();
         assert!(reader.file.is_none());
+    }
+
     fn test_metadata_creation() {
         let metadata = DatasetMetadata {
             name: "test_dataset".to_string(),
@@ -275,3 +295,21 @@ mod tests {
         };
         assert_eq!(metadata.name.clone(), "test_dataset");
         assert_eq!(metadata.dimensions, vec![100, 50]);
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

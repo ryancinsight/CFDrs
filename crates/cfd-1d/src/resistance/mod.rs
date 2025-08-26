@@ -35,6 +35,8 @@ pub trait ResistanceModel<T: RealField + Copy> {
             *re >= re_min && *re <= re_max
         } else {
             true // Assume applicable if Re is unknown
-        }
-    }
+
+
+}
+}
 }

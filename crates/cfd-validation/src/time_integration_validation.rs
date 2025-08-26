@@ -40,6 +40,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> TimeIntegratorTrait<T> for Time
             TimeIntegratorEnum::RungeKutta4(_, _) => 4,
 /// Forward Euler method
 #[derive(Debug)]
+    }
+
 pub struct ForwardEuler;
 impl<T: RealField + Copy> TimeIntegratorTrait<T> for ForwardEuler {
         let k1 = f(t, y);
@@ -47,6 +49,8 @@ impl<T: RealField + Copy> TimeIntegratorTrait<T> for ForwardEuler {
         Ok(())
         1
 /// Runge-Kutta 2nd order method
+}
+
 pub struct RungeKutta2;
 impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta2 {
         let y_intermediate = y.clone() + k1.clone() * dt;
@@ -76,6 +80,8 @@ impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta4
         *y += (k1 + k2 * two + k3 * two + k4) * (dt * sixth);
         4
 /// Time integration validation result
+}
+
 #[derive(Debug, Clone)]
 pub struct TimeIntegrationResult<T: RealField + Copy> {
     /// Method name
@@ -99,6 +105,8 @@ pub struct TimeIntegrationResult<T: RealField + Copy> {
     /// Test passed
     pub passed: bool,
 /// Time integration validator
+}
+
 pub struct TimeIntegrationValidator;
 impl TimeIntegrationValidator {
     /// Validate all time integration methods
@@ -114,6 +122,8 @@ impl TimeIntegrationValidator {
     /// Test exponential decay: dy/dt = -λy, y(0) = y0
     /// Analytical solution: y(t) = y0 * exp(-λt)
     /// Literature: Hairer, Nørsett & Wanner (1993), "Solving ODEs I"
+    }
+
     fn test_exponential_decay<T: RealField + Copy + FromPrimitive + Copy + ToPrimitive>(
         let lambda = T::one();
         let y0 = T::one();
@@ -200,6 +210,8 @@ impl TimeIntegrationValidator {
     fn estimate_order<T: RealField + Copy + FromPrimitive + Copy>(order: usize) -> Option<T> {
         T::from_usize(order)
     /// Perform convergence study to determine observed order
+    }
+
     pub fn convergence_study<T: RealField + Copy + FromPrimitive + Copy + Float + ToPrimitive>(
         integrator: &TimeIntegratorEnum<T>,
         ode: impl Fn(T, &DVector<T>) -> DVector<T> + Copy,
@@ -248,6 +260,10 @@ impl TimeIntegrationValidator {
         let analytical = analytical_solution(final_time);
         let error = (&y - &analytical).norm();
         Ok(error)
+    }
+
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -268,6 +284,8 @@ mod tests {
             .find(|r| r.method_name == "RungeKutta4")
             .expect("RK4 test should exist");
         assert!(rk4_test.passed, "RK4 exponential decay test should pass");
+    }
+
     fn test_harmonic_oscillator_conservation() {
         let oscillator_tests: Vec<_> = results
             .filter(|r| r.test_problem == "Harmonic Oscillator")
@@ -293,3 +311,18 @@ mod tests {
             "At least one harmonic oscillator test should pass. RK4 error: {}",
             rk4_test.global_error
         );
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

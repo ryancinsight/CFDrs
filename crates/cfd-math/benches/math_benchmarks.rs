@@ -47,6 +47,8 @@ fn benchmark_sparse_matrix_operations(c: &mut Criterion) {
             |b, _| b.iter(|| black_box(&sparse_matrix * &vector)),
             BenchmarkId::new("matrix_construction", size),
             |b, _| b.iter(|| black_box(create_test_sparse_matrix(*size))),
+    }
+
 fn benchmark_interpolation(c: &mut Criterion) {
     let mut group = c.benchmark_group("interpolation");
     for size in [100, 1000, 10000].iter() {
@@ -75,6 +77,8 @@ fn benchmark_integration(c: &mut Criterion) {
             BenchmarkId::new("gauss_quadrature", order),
             order,
             |b, _| b.iter(|| black_box(gauss_quad.integrate(test_function, 0.0, 1.0))),
+    }
+
 fn benchmark_differentiation(c: &mut Criterion) {
     let mut group = c.benchmark_group("differentiation");
     for size in [1000, 10000, 100000].iter() {
@@ -85,6 +89,8 @@ fn benchmark_differentiation(c: &mut Criterion) {
             |b, _| b.iter(|| black_box(finite_diff.first_derivative(&field).unwrap())),
             BenchmarkId::new("finite_difference_second_derivative", size),
             |b, _| b.iter(|| black_box(finite_diff.second_derivative(&field).unwrap())),
+    }
+
 fn benchmark_vectorized_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("vectorized_operations");
     for size in [10000, 100000, 1000000].iter() {
@@ -97,6 +103,8 @@ fn benchmark_vectorized_operations(c: &mut Criterion) {
                 let result: f64 = vec1.iter().zip(vec2.iter()).map(|(a, b)| a * b).sum();
         group.bench_with_input(BenchmarkId::new("l2_norm", size), size, |b, _| {
                 let result = vec1.iter().copied().l2_norm();
+    }
+
 fn benchmark_iterator_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("iterator_operations");
         let data: Vec<f64> = (0..*size).map(|i| (i as f64).sin()).collect();
@@ -144,3 +152,25 @@ criterion_group!(
     benchmark_iterator_operations
 );
 criterion_main!(benches);
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

@@ -29,9 +29,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for Fi
             (grid.data[(i + 1, j)] - grid.data[(i, j)]) / grid.dx
     fn order(&self) -> usize {
         1
+    }
+
     fn is_conservative(&self) -> bool {
         true
 /// Second-order upwind scheme
+    }
+
 pub struct SecondOrderUpwind<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive + Copy> Default for SecondOrderUpwind<T> {
 impl<T: RealField + Copy + FromPrimitive + Copy> SecondOrderUpwind<T> {
@@ -46,3 +50,16 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for Se
             // Forward-biased for negative velocity
             (-grid.data[(i + 2, j)] + four * grid.data[(i + 1, j)] - three * grid.data[(i, j)])
         2
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

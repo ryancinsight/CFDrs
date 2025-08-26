@@ -42,9 +42,13 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
     pub fn pipe(value: T) -> crate::error::Result<Self> {
         Self::new(value, FlowGeometry::Pipe)
     /// Get the raw value
+    }
+
     pub fn value(&self) -> T {
         self.value
     /// Check if flow is laminar based on geometry
+    }
+
     pub fn is_laminar(&self) -> bool {
         let threshold = match self.geometry {
             FlowGeometry::Pipe | FlowGeometry::Internal => {
@@ -73,10 +77,14 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
             FlowGeometry::Sphere | FlowGeometry::Cylinder => T::from_f64(3e5),
         self.value >= threshold
     /// Check if flow is in transition region
+    }
+
     pub fn is_transitional(&self) -> bool {
         !self.is_laminar() && !self.is_turbulent()
     /// Get transition probability (0 = fully laminar, 1 = fully turbulent)
     /// Uses smooth transition function
+    }
+
     pub fn transition_probability(&self) -> T {
         let (lower, upper) = match self.geometry {
                 (T::from_f64(2300.0), T::from_f64(4000.0))
@@ -129,12 +137,18 @@ impl<T: RealField + FromPrimitive + Copy> Pressure<T> {
             value,
             unit: PressureUnit::Pascal,
     /// Create pressure in atmospheres
+    }
+
     pub fn atmospheres(value: T) -> Self {
             unit: PressureUnit::Atmosphere,
     /// Create pressure in bar
+    }
+
     pub fn bar(value: T) -> Self {
             unit: PressureUnit::Bar,
     /// Convert to Pascals
+    }
+
     pub fn to_pascals(&self) -> T {
         match self.unit {
             PressureUnit::Pascal => self.value,
@@ -150,6 +164,8 @@ impl<T: RealField + FromPrimitive + Copy> Pressure<T> {
         self.unit
 /// Pressure units
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+    }
+
 pub enum PressureUnit {
     /// Pascal (N/m²)
     Pascal,
@@ -157,12 +173,16 @@ pub enum PressureUnit {
     Atmosphere,
     /// Bar
     Bar,
+}
+
 impl fmt::Display for PressureUnit {
         match self {
             Self::Pascal => write!(f, "Pa"),
             Self::Atmosphere => write!(f, "atm"),
             Self::Bar => write!(f, "bar"),
 /// Velocity value object with magnitude and direction
+}
+
 pub struct Velocity<T: RealField + Copy> {
     vector: Vector3<T>,
 impl<T: RealField + Copy> Velocity<T> {
@@ -170,30 +190,44 @@ impl<T: RealField + Copy> Velocity<T> {
     pub fn new(x: T, y: T, z: T) -> Self {
             vector: Vector3::new(x, y, z),
     /// Create velocity from vector
+    }
+
     pub fn from_vector(vector: Vector3<T>) -> Self {
         Self { vector }
     /// Get magnitude
     pub fn magnitude(&self) -> T {
         self.vector.norm()
     /// Get unit vector (direction)
+    }
+
     pub fn direction(&self) -> Vector3<T> {
         let mag = self.magnitude();
         if mag > T::zero() {
             self.vector / mag
             Vector3::zeros()
     /// Get velocity vector
+    }
+
     pub fn vector(&self) -> &Vector3<T> {
         &self.vector
     /// Get x component
+    }
+
     pub fn x(&self) -> T {
         self.vector.x
     /// Get y component
+    }
+
     pub fn y(&self) -> T {
         self.vector.y
     /// Get z component
+    }
+
     pub fn z(&self) -> T {
         self.vector.z
 /// Temperature value object with unit conversion
+    }
+
 pub struct Temperature<T: RealField + Copy> {
     unit: TemperatureUnit,
 impl<T: RealField + FromPrimitive + Copy> Temperature<T> {
@@ -244,6 +278,8 @@ impl<T: RealField + FromPrimitive + Copy> Temperature<T> {
                 celsius
     pub fn unit(&self) -> TemperatureUnit {
 /// Temperature units
+    }
+
 pub enum TemperatureUnit {
     /// Kelvin
     Kelvin,
@@ -251,11 +287,15 @@ pub enum TemperatureUnit {
     Celsius,
     /// Fahrenheit
     Fahrenheit,
+}
+
 impl fmt::Display for TemperatureUnit {
             Self::Kelvin => write!(f, "K"),
             Self::Celsius => write!(f, "°C"),
             Self::Fahrenheit => write!(f, "°F"),
 /// Dimensionless number value object
+}
+
 pub struct DimensionlessNumber<T: RealField + Copy> {
     name: &'static str,
 impl<T: RealField + Copy> DimensionlessNumber<T> {
@@ -266,13 +306,19 @@ impl<T: RealField + Copy> DimensionlessNumber<T> {
     pub fn prandtl(value: T) -> Self {
         Self::new(value, "Prandtl")
     /// Create Nusselt number
+    }
+
     pub fn nusselt(value: T) -> Self {
         Self::new(value, "Nusselt")
     /// Create Grashof number
+    }
+
     pub fn grashof(value: T) -> Self {
         Self::new(value, "Grashof")
     /// Get value
     /// Get name
+    }
+
     pub fn name(&self) -> &'static str {
         self.name
 impl<T: RealField + Copy + fmt::Display> fmt::Display for DimensionlessNumber<T> {
@@ -296,6 +342,8 @@ mod tests {
         assert!(!re_trans.is_laminar());
         assert!(!re_trans.is_turbulent());
         assert!(re_trans.is_transitional());
+    }
+
     fn test_pressure_conversion() {
         let p_atm = Pressure::atmospheres(1.0f64);
         let p_pa = p_atm.to_pascals();
@@ -303,6 +351,8 @@ mod tests {
         let p_bar = Pressure::bar(1.0f64);
         let p_pa_bar = p_bar.to_pascals();
         assert!((p_pa_bar - 100_000.0).abs() < 1e-6);
+    }
+
     fn test_temperature_conversion() {
         let t_c = Temperature::celsius(0.0f64).expect("CRITICAL: Add proper error handling");
         let t_k = t_c.to_kelvin();
@@ -310,12 +360,17 @@ mod tests {
         let t_f = Temperature::fahrenheit(32.0f64).expect("CRITICAL: Add proper error handling");
         let t_k_f = t_f.to_kelvin();
         assert!((t_k_f - 273.15).abs() < 1e-6);
+    }
+
     fn test_velocity() {
         let vel = Velocity::new(3.0f64, 4.0f64, 0.0f64);
         assert!((vel.magnitude() - 5.0).abs() < 1e-10);
         let dir = vel.direction();
         assert!((dir.x - 0.6).abs() < 1e-10);
         assert!((dir.y - 0.8).abs() < 1e-10);
+
+
+    }
 }
 }
 }
@@ -350,33 +405,7 @@ mod tests {
 }
 }
 }
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
+
 }
 }
 }

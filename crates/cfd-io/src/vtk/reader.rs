@@ -116,3 +116,23 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
 impl<T: RealField + Copy + FromStr> Default for VtkReader<T> {
     fn default() -> Self {
         Self::new()
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

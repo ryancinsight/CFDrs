@@ -31,6 +31,8 @@ pub struct VofConfig {
     pub use_geometric_advection: bool,
     /// Enable compression to sharpen interface
     pub enable_compression: bool,
+}
+
 impl Default for VofConfig {
     fn default() -> Self {
         Self {
@@ -40,5 +42,9 @@ impl Default for VofConfig {
             use_plic: true,
             use_geometric_advection: true,
             enable_compression: false,
-        }
+
     }
+
+
+}
+}

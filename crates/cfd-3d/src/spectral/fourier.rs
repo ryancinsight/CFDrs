@@ -62,9 +62,13 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
         Ok(u)
     /// Get wavenumbers
     #[must_use]
+    }
+
     pub fn wavenumbers(&self) -> &[T] {
         &self.wavenumbers
 /// Spectral derivative computation
+    }
+
 pub struct SpectralDerivative<T: RealField + Copy> {
     transform: FourierTransform<T>,
 impl<T: RealField + FromPrimitive + Copy> SpectralDerivative<T> {
@@ -85,3 +89,16 @@ impl<T: RealField + FromPrimitive + Copy> SpectralDerivative<T> {
             du_hat[k_idx] = factor * u_hat[k_idx];
         // Transform back to physical space
         self.transform.inverse(&du_hat)
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}

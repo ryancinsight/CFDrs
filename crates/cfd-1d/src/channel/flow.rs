@@ -23,6 +23,8 @@ pub struct FlowState<T: RealField + Copy> {
     /// Secondary flow effects
     pub secondary_flows: bool,
 /// Flow regime classification
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum FlowRegime {
     /// Stokes flow (Re << 1)
@@ -36,6 +38,8 @@ pub enum FlowRegime {
     /// Slip flow (rarefied gas)
     SlipFlow,
 /// Numerical parameters for advanced modeling
+}
+
 pub struct NumericalParameters<T: RealField + Copy> {
     /// Number of discretization points
     pub discretization_points: usize,
@@ -44,3 +48,6 @@ pub struct NumericalParameters<T: RealField + Copy> {
     /// Include entrance effects
     /// Include surface tension effects
     pub surface_tension_effects: bool,
+
+
+}

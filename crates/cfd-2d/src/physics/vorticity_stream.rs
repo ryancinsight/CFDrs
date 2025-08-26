@@ -88,6 +88,8 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
             dy: grid.dy,
             reynolds,
     /// Initialize with lid-driven cavity conditions
+    }
+
     pub fn initialize_lid_driven_cavity(&mut self, lid_velocity: T) -> Result<()> {
         // Initialize stream function to zero
         for i in 0..self.nx {
@@ -165,6 +167,8 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
                 // v = -∂ψ/∂x
                 self.u[i][j].y = -(self.psi[i + 1][j] - self.psi[i - 1][j]) / two_dx;
     /// Update boundary vorticity using Thom's formula
+    }
+
     fn update_boundary_vorticity(&mut self) {
         let two = cfd_core::numeric::from_f64(GRADIENT_FACTOR)?;
         // Bottom wall (y = 0)
@@ -179,6 +183,8 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
         // Right wall (x = L)
             self.omega[self.nx - 1][j] = -two * self.psi[self.nx - 2][j] / dx2;
     /// Execute one time step
+    }
+
     pub fn step(&mut self) -> Result<()> {
         // Step 1: Update boundary vorticity
         self.update_boundary_vorticity();
@@ -189,6 +195,8 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
         // Step 4: Update velocity field
         self.update_velocity();
     /// Check convergence based on change in stream function
+    }
+
     pub fn check_convergence(&self, psi_old: &Vec<Vec<T>>) -> bool {
         let mut max_change = T::zero();
                 let change = (self.psi[i][j] - psi_old[i][j]).abs();
@@ -196,18 +204,28 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
                     max_change = change;
         max_change < self.config.stream_tolerance
     /// Get stream function field
+    }
+
     pub fn stream_function(&self) -> &Vec<Vec<T>> {
         &self.psi
     /// Get vorticity field
+    }
+
     pub fn vorticity(&self) -> &Vec<Vec<T>> {
         &self.omega
     /// Get velocity field
+    }
+
     pub fn velocity_field(&self) -> &Vec<Vec<Vector2<T>>> {
         &self.u
     /// Calculate stream function at center for validation
+    }
+
     pub fn stream_at_center(&self) -> T {
         self.psi[self.nx / 2][self.ny / 2]
     /// Calculate vorticity at center for validation
+    }
+
     pub fn vorticity_at_center(&self) -> T {
         self.omega[self.nx / 2][self.ny / 2]
 #[cfg(test)]
@@ -215,6 +233,8 @@ mod tests {
     use super::*;
     use approx::assert_relative_eq;
     #[test]
+    }
+
     fn test_vorticity_stream_creation() {
         let grid = StructuredGrid2D::<f64>::unit_square(10, 10)
             .expect("CRITICAL: Add proper error handling");
@@ -223,6 +243,8 @@ mod tests {
         assert_eq!(solver.nx, 10);
         assert_eq!(solver.ny, 10);
         assert_relative_eq!(solver.reynolds, 100.0, epsilon = 1e-10);
+    }
+
     fn test_lid_driven_cavity_initialization() {
         let grid = StructuredGrid2D::<f64>::unit_square(5, 5)
         let mut solver = VorticityStreamSolver::new(config, &grid, 100.0);
@@ -234,3 +256,28 @@ mod tests {
         // Check initial stream function and vorticity
         assert_relative_eq!(solver.psi[2][2], 0.0, epsilon = 1e-10);
         assert_relative_eq!(solver.omega[2][2], 0.0, epsilon = 1e-10);
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

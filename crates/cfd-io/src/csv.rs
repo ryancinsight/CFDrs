@@ -47,12 +47,16 @@ impl<T: RealField + Copy> CsvWriter<T> {
         writer.flush()?;
         Ok(())
     /// Write structured data using serde
+    }
+
     pub fn write_records<I, R>(&self, path: &Path, records: I) -> Result<()>
         I: IntoIterator<Item = R>,
         R: Serialize,
         for record in records {
             writer.serialize(record)
     /// Create a streaming writer for large datasets
+    }
+
     pub fn create_stream_writer(&self, path: &Path) -> Result<StreamWriter> {
         let writer = CsvWriterImpl::from_writer(BufWriter::new(file));
         Ok(StreamWriter { writer })
@@ -60,22 +64,36 @@ impl<T: RealField + Copy> Default for CsvWriter<T> {
     fn default() -> Self {
         Self::new()
 /// Streaming CSV writer for large datasets
+    }
+
+}
+
 pub struct StreamWriter {
     writer: CsvWriterImpl<BufWriter<File>>,
+}
+
 impl StreamWriter {
     /// Write headers
     pub fn write_headers(&mut self, headers: &[&str]) -> Result<()> {
         self.writer.write_record(headers)
     /// Write a single row
+    }
+
     pub fn write_row<T: std::fmt::Display>(&mut self, row: &[T]) -> Result<()> {
         let string_row: Vec<String> = row.iter()
             .map(std::string::ToString::to_string)
             .collect();
         self.writer.write_record(&string_row)
     /// Flush the writer
+    }
+
     pub fn flush(&mut self) -> Result<()> {
         self.writer.flush()?;
 /// CSV reader for simulation data
+    }
+
+}
+
 pub struct CsvReader<T: RealField + Copy> {
 impl<T: RealField + Copy> CsvReader<T> {
     /// Create a new CSV reader
@@ -113,26 +131,38 @@ impl<T: RealField + Copy> CsvReader<T> {
             records.push(record);
         Ok(records)
     /// Create a streaming reader for large datasets
+    }
+
     pub fn create_stream_reader(&self, path: &Path) -> Result<StreamReader> {
         let reader = CsvReaderImpl::from_reader(BufReader::new(file));
         Ok(StreamReader { reader })
 impl<T: RealField + Copy> Default for CsvReader<T> {
 /// Streaming CSV reader for large datasets
+}
+
 pub struct StreamReader {
     reader: CsvReaderImpl<BufReader<File>>,
+}
+
 impl StreamReader {
     /// Get headers
     pub fn headers(&mut self) -> Result<Vec<String>> {
         let headers = self.reader.headers()
         Ok(headers.iter().map(std::string::ToString::to_string).collect())
     /// Iterator over records
+    }
+
     pub fn records(&mut self) -> impl Iterator<Item = Result<csv::StringRecord>> + '_ {
         self.reader.records().map(|r| r.map_err(|e| Error::CsvError(e.to_string())))
     /// Iterator over typed records
+    }
+
     pub fn typed_records<R>(&mut self) -> impl Iterator<Item = Result<R>> + '_
         R: for<'de> Deserialize<'de> + 'static,
         self.reader.deserialize().map(|r| r.map_err(|e| Error::CsvError(e.to_string())))
 /// Time series data structure
+}
+
 #[derive(Debug, Clone)]
 pub struct TimeSeriesData<T> {
     /// Column headers
@@ -156,13 +186,21 @@ impl<T: RealField + Copy> TimeSeriesData<T> {
         if index >= self.num_cols() {
             return None;
     /// Iterator over rows
+    }
+
     pub fn rows(&self) -> impl Iterator<Item = &Vec<T>> {
         self.data.iter()
     /// Iterator over columns
+    }
+
     pub fn columns(&self) -> impl Iterator<Item = Vec<&T>> + '_ {
         (0..self.num_cols()).map(move |i| {
             self.data.iter().map(|row| &row[i]).collect()
 /// CSV configuration for simulation output
+    }
+
+}
+
 pub struct CsvConfig {
     /// Delimiter character
     pub delimiter: u8,
@@ -170,10 +208,14 @@ pub struct CsvConfig {
     pub quote_style: csv::QuoteStyle,
     /// Whether to write headers
     pub has_headers: bool,
+}
+
 impl Default for CsvConfig {
             delimiter: b',',
             quote_style: csv::QuoteStyle::Necessary,
             has_headers: true,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,6 +238,8 @@ mod tests {
         let result = reader.read_time_series(path).expect("CRITICAL: Add proper error handling");
         assert_eq!(result.headers, headers);
         assert_eq!(result.data, data);
+    }
+
     fn test_streaming() {
         // Write using streaming
         let mut stream = writer.create_stream_writer(path).expect("CRITICAL: Add proper error handling");
@@ -209,3 +253,24 @@ mod tests {
         assert_eq!(headers, vec!["x", "y"]);
         let records: Vec<_> = stream.records().collect();
         assert_eq!(records.len(), 2);
+
+
+    }
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

@@ -20,19 +20,29 @@ impl<T: RealField + Copy> VtkMeshBuilder<T> {
         self.mesh.add_point(x, y, z);
         self
     /// Add a cell to the mesh
+    }
+
     pub fn add_cell(&mut self, cell_type: VtkCellType, connectivity: Vec<usize>) -> &mut Self {
         self.mesh.add_cell(cell_type, connectivity);
     /// Add point data
+    }
+
     pub fn add_point_data(&mut self, name: String, data: Vec<T>) -> Result<&mut Self> {
         self.mesh.add_point_data(name, data)?;
         Ok(self)
     /// Add cell data
+    }
+
     pub fn add_cell_data(&mut self, name: String, data: Vec<T>) -> Result<&mut Self> {
         self.mesh.add_cell_data(name, data)?;
     /// Build the mesh
+    }
+
     pub fn build(self) -> VtkMesh<T> {
         self.mesh
     /// Create a simple box mesh
+    }
+
     pub fn create_box(
         &mut self,
         nx: usize,
@@ -71,3 +81,16 @@ impl<T: RealField + Copy> VtkMeshBuilder<T> {
 impl<T: RealField + Copy> Default for VtkMeshBuilder<T> {
     fn default() -> Self {
         Self::new()
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}

@@ -108,3 +108,16 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
         let dt_dy_wall = (self.temperature[0][1] - self.temperature[0][0]) / dy; // Use actual dy
         let h = self.thermal_diffusivity[0][0] * dt_dy_wall / (wall_temp - bulk_temp);
         h * characteristic_length / self.thermal_diffusivity[0][0]
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}

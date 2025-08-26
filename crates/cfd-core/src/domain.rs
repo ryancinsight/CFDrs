@@ -255,7 +255,6 @@ impl<T: RealField + Copy> Domain<T> for AnyDomain<T> {
             Self::D2(d) => d.volume(),
             Self::D3(d) => d.volume(),
         }
-    }
 }
 
 // Ergonomic From implementations for AnyDomain conversions
@@ -333,4 +332,6 @@ mod tests {
         let any_domain: AnyDomain<f64> = domain_3d.into();
         assert_eq!(any_domain.dimension(), 3);
     }
+}
+
 }

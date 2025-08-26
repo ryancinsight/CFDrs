@@ -66,3 +66,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureVelocityConfig<T> {
         if self.dt <= T::zero() {
                 "Time step must be positive".into(),
         Ok(())
+
+
+}
+}
+}
+}
+}

@@ -22,6 +22,8 @@ impl<Q> TensorProductQuadrature<Q> {
     pub fn dimension(&self) -> usize {
         self.dimension
     /// Integrate over 2D rectangle [ax, bx] × [ay, by]
+    }
+
     pub fn integrate_2d<T, F>(&self, f: F, ax: T, bx: T, ay: T, by: T) -> T
     where
         T: RealField + From<f64> + FromPrimitive + Copy + Clone,
@@ -55,3 +57,9 @@ impl<Q> TensorProductQuadrature<Q> {
                 result += weight * f(x, y);
             }
         result * hx * hy / nine
+
+
+}
+}
+}
+}

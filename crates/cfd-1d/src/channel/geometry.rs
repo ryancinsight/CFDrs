@@ -46,3 +46,9 @@ pub struct GeometricVariation<T: RealField + Copy> {
     pub scale_factor: T,
     /// Local roughness modification
     pub roughness_factor: T,
+
+
+}
+}
+}
+}

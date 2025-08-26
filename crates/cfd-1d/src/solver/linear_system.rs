@@ -33,9 +33,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
         self.method = method;
         self
     /// Set tolerance
+    }
+
     pub fn with_tolerance(mut self, tolerance: T) -> Self {
         self.tolerance = tolerance;
     /// Solve the linear system Ax = b
+    }
+
     pub fn solve(&self, a: &CsrMatrix<T>, b: &DVector<T>) -> Result<DVector<T>>
     where
         T: Copy,
@@ -54,3 +58,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
             }
             LinearSolverMethod::BiCGSTAB => {
                 let solver = BiCGSTAB::<T>::new(config);
+
+
+}
+}
+}
+}
+}
+}
+}
+}

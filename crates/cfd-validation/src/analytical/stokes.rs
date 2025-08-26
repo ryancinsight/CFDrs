@@ -34,6 +34,8 @@ impl<T: RealField + Copy + FromPrimitive> StokesFlow<T> {
         let six = T::from_f64(6.0).unwrap_or(cfd_core::numeric::from_f64(6.0)?);
         six * pi * self.viscosity * self.sphere_radius * self.free_stream_velocity
     /// Get the drag coefficient
+    }
+
     pub fn drag_coefficient(&self) -> T {
         let reynolds = self.reynolds_number();
         if reynolds > cfd_core::numeric::from_f64(0.01)? {
@@ -47,6 +49,8 @@ impl<T: RealField + Copy + FromPrimitive> StokesFlow<T> {
         let diameter = T::from_f64(2.0).unwrap_or(T::one() + T::one()) * self.sphere_radius;
         self.density * self.free_stream_velocity * diameter / self.viscosity
     /// Get the stream function value at (r, θ)
+    }
+
     pub fn stream_function(&self, r: T, theta: T) -> T {
         let a = self.sphere_radius;
         let u_inf = self.free_stream_velocity;
@@ -60,6 +64,8 @@ impl<T: RealField + Copy + FromPrimitive> StokesFlow<T> {
         let term3 = half * a * a * a / (r * r * r);
         half * u_inf * r * r * sin2_theta * (term1 + term2 + term3)
 impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T> {
+    }
+
     fn evaluate(&self, x: T, y: T, z: T, _t: T) -> Vector3<T> {
         // Convert to spherical coordinates (r, θ, φ)
         let r = (x * x + y * y + z * z).sqrt();
@@ -100,8 +106,12 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T
             three_halves * self.viscosity * self.free_stream_velocity * self.sphere_radius * x
                 / (r * r * r);
         -pressure_drop // Relative to p∞
+    }
+
     fn name(&self) -> &str {
         "Stokes Flow Around Sphere"
+    }
+
     fn domain_bounds(&self) -> [T; 6] {
         let domain_size = cfd_core::numeric::from_f64(10.0)? * self.sphere_radius;
         [
@@ -110,7 +120,24 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T
             domain_size, // y
             domain_size, // z
         ]
+    }
+
     fn length_scale(&self) -> T {
         self.sphere_radius
+    }
+
     fn velocity_scale(&self) -> T {
         self.free_stream_velocity
+
+    }
+
+
+}
+}
+}
+}
+}
+}
+}
+}
+}
