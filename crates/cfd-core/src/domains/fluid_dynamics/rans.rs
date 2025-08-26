@@ -21,14 +21,15 @@ pub struct KEpsilonState<T: RealField + Copy> {
     pub k: Vec<T>,
     /// Dissipation rate
     pub epsilon: Vec<T>,
-/// k-epsilon turbulence model
-    }
+}
 
 pub struct KEpsilonModel<T: RealField + Copy> {
     /// Model constants
     pub constants: KEpsilonConstants<T>,
     /// Current state (k and epsilon fields)
     pub state: Option<KEpsilonState<T>>,
+}
+
 /// k-epsilon model constants
 ///
 /// Standard constants from Launder & Spalding (1974):
@@ -40,7 +41,6 @@ pub struct KEpsilonModel<T: RealField + Copy> {
 /// # References
 /// Launder, B.E. and Spalding, D.B. (1974). "The numerical computation of turbulent flows."
 /// Computer Methods in Applied Mechanics and Engineering, 3(2), 269-289.
-}
 
 pub struct KEpsilonConstants<T: RealField + Copy> {
     /// Model constant `C_μ` = 0.09
@@ -53,6 +53,8 @@ pub struct KEpsilonConstants<T: RealField + Copy> {
     pub sigma_k: T,
     /// Turbulent Prandtl number for ε, `σ_ε` = 1.3
     pub sigma_epsilon: T,
+}
+
 impl<T: RealField + Copy + FromPrimitive> KEpsilonConstants<T> {
     /// Create standard k-epsilon constants
     pub fn standard() -> Self {
@@ -60,31 +62,45 @@ impl<T: RealField + Copy + FromPrimitive> KEpsilonConstants<T> {
             c_mu: T::from_f64(crate::constants::physics::turbulence::K_EPSILON_C_MU)
                 .unwrap_or_else(T::one),
             c_1: T::from_f64(crate::constants::physics::turbulence::K_EPSILON_C1)
+                .unwrap_or_else(T::one),
             c_2: T::from_f64(crate::constants::physics::turbulence::K_EPSILON_C2)
+                .unwrap_or_else(T::one),
             sigma_k: T::from_f64(crate::constants::physics::turbulence::K_EPSILON_SIGMA_K)
+                .unwrap_or_else(T::one),
             sigma_epsilon: T::from_f64(
                 crate::constants::physics::turbulence::K_EPSILON_SIGMA_EPSILON,
             )
             .unwrap_or_else(T::one),
         }
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive> Default for KEpsilonModel<T> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive> KEpsilonModel<T> {
     /// Create a new k-epsilon model with standard constants
     #[must_use]
-    }
-
     pub fn new() -> Self {
+        Self {
             constants: KEpsilonConstants::standard(),
             state: None,
-    /// Create with custom constants
+        }
     }
+    
+    /// Create with custom constants
 
     pub fn with_constants(constants: KEpsilonConstants<T>) -> Self {
+        Self {
             constants,
-    /// Initialize state with high Reynolds number approximation
+            state: None,
+        }
     }
+    
+    /// Initialize state with high Reynolds number approximation
 
     pub fn initialize_state(&mut self, flow_field: &FlowField<T>) {
         let n = flow_field.velocity.components.len();
@@ -97,6 +113,7 @@ impl<T: RealField + Copy + FromPrimitive> KEpsilonModel<T> {
             let three_half = T::from_f64(1.5).unwrap_or_else(T::one);
             let k = three_half * (u_mag * turbulence_intensity).powi(2);
             k_field.push(k);
+        }
         // Initialize epsilon based on mixing length scale
         // ε = C_μ^(3/4) * k^(3/2) / l
         let mixing_length = T::from_f64(0.1).unwrap_or_else(T::one); // 10% of domain size
@@ -108,10 +125,14 @@ impl<T: RealField + Copy + FromPrimitive> KEpsilonModel<T> {
         for &k in &k_field {
             let epsilon = c_mu_34 * k.powf(T::from_f64(1.5).unwrap_or_else(T::one)) / mixing_length;
             epsilon_field.push(epsilon);
+        }
         self.state = Some(KEpsilonState {
             k: k_field,
             epsilon: epsilon_field,
         });
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for KEpsilonModel<T> {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         // νₜ = C_μ * k² / ε
@@ -132,35 +153,37 @@ impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for KEpsilonModel<T
                 // If not initialized, return zero viscosity
                 vec![T::zero(); flow_field.velocity.components.len()]
             }
+        }
+    }
+    
     fn turbulent_kinetic_energy(&self, _flow_field: &FlowField<T>) -> Vec<T> {
+        match &self.state {
             Some(state) => state.k.clone(),
             None => Vec::new(),
+        }
     }
 
     fn name(&self) -> &str {
         "k-epsilon"
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive> RANSModel<T> for KEpsilonModel<T> {
+    fn turbulent_kinetic_energy(&self, _flow_field: &FlowField<T>) -> Vec<T> {
+        match &self.state {
+            Some(state) => state.k.clone(),
+            None => vec![],
+        }
     }
 
     fn dissipation_rate(&self, _flow_field: &FlowField<T>) -> Vec<T> {
+        match &self.state {
             Some(state) => state.epsilon.clone(),
+            None => vec![],
+        }
     }
 
     fn constants(&self) -> &dyn std::any::Any {
         &self.constants
-
-
     }
-}
-}
-}
-}
-}
-}
-}
-}
-}
-
-}
-}
 }

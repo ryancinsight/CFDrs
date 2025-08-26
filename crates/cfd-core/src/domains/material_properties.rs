@@ -73,6 +73,8 @@ pub struct CurrenttonianFluid<T: RealField + Copy> {
     pub thermal_conductivity: T,
     /// Specific heat capacity
     pub specific_heat: T,
+}
+
 impl<T: RealField + Copy> FluidProperties<T> for CurrenttonianFluid<T> {
     fn density(&self) -> T {
         self.density
@@ -410,40 +412,21 @@ impl<T: RealField + Copy> MaterialPropertiesService<T> {
             calculator.calculate(properties)
         } else {
             Err(format!("Calculator '{calculator_name}' not found"))
+        }
+    }
+}
+
 impl<T: RealField + Copy> Default for MaterialDatabase<T> {
     fn default() -> Self {
         Self::new()
-impl<T: RealField + Copy> Default for MaterialPropertiesService<T> {
     }
+}
 
+impl<T: RealField + Copy> Default for MaterialPropertiesService<T> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
 mod tests {}
-
-
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}
-}

@@ -161,6 +161,7 @@ pub mod applicators {
         fn supports(&self, condition: &BoundaryCondition<T>) -> bool {
             matches!(condition, BoundaryCondition::Neumann { .. })
         }
+    }
 }
 
 /// Time-dependent evaluator for boundary conditions
@@ -254,6 +255,7 @@ impl<T: RealField + Copy + num_traits::Float> TimeDependentEvaluator<T> {
                 self.evaluate(name, time).unwrap_or(T::one())
             }
         }
+    }
 }
 
 impl<T: RealField + Copy + num_traits::Float> Default for TimeDependentEvaluator<T> {
@@ -324,8 +326,4 @@ impl<T: RealField + Copy> Default for BoundaryConditionsService<T> {
     fn default() -> Self {
         Self::new()
     }
-}
-
-
-}
 }

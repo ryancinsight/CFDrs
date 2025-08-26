@@ -162,6 +162,7 @@ impl Default for SimulationMetadata {
             description: String::new(),
             version: "0.1.0".to_string(),
         }
+    }
 }
 
 /// Physical parameters for simulation
@@ -185,6 +186,7 @@ impl<T: RealField + FromPrimitive + Copy> Default for PhysicalParameters<T> {
             reference_length: T::one(),
             reynolds_number: None,
         }
+    }
 }
 
 /// Simulation state
@@ -232,6 +234,7 @@ impl<T: RealField + Copy> MeshAggregate<T> {
             quality: MeshQualityMetrics::default(),
             state: MeshState::Created,
         }
+    }
 }
 
 /// Mesh metadata
@@ -252,6 +255,7 @@ impl Default for MeshMetadata {
             dimension: 3,
             generator: "internal".to_string(),
         }
+    }
 }
 
 /// Mesh type
@@ -289,6 +293,7 @@ impl<T: RealField + Copy> Default for MeshQualityMetrics<T> {
             min_orthogonality: T::zero(),
             max_aspect_ratio: T::one(),
         }
+    }
 }
 
 /// Mesh state
@@ -338,14 +343,7 @@ mod tests {
         
         sim.complete().expect("Failed to complete");
         assert_eq!(sim.state, SimulationState::Completed);
-
     }
-
-
 }
 
-}
-}
-}
-}
-}
+
