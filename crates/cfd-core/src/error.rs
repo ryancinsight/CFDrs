@@ -41,11 +41,21 @@ pub enum Error {
 
     /// Dimension mismatch
     #[error("Dimension mismatch: expected {expected}, got {actual}")]
-    DimensionMismatch { expected: usize, actual: usize },
+    DimensionMismatch {
+        /// Expected dimension
+        expected: usize,
+        /// Actual dimension
+        actual: usize,
+    },
 
     /// Index out of bounds
     #[error("Index out of bounds: {index} >= {size}")]
-    IndexOutOfBounds { index: usize, size: usize },
+    IndexOutOfBounds {
+        /// Index that was accessed
+        index: usize,
+        /// Size of the collection
+        size: usize,
+    },
 
     /// Not implemented
     #[error("Not implemented: {0}")]
@@ -54,7 +64,9 @@ pub enum Error {
     /// Generic error with context
     #[error("{context}: {source}")]
     WithContext {
+        /// Context description
         context: String,
+        /// Underlying error
         #[source]
         source: Box<Error>,
     },
@@ -64,19 +76,48 @@ pub enum Error {
 #[derive(Debug, Clone)]
 pub enum PluginErrorKind {
     /// Plugin not found
-    NotFound { name: String },
+    NotFound {
+        /// Name of the plugin
+        name: String,
+    },
     /// Plugin already registered
-    AlreadyRegistered { name: String },
+    AlreadyRegistered {
+        /// Name of the plugin
+        name: String,
+    },
     /// Plugin initialization failed
-    InitializationFailed { name: String, reason: String },
+    InitializationFailed {
+        /// Name of the plugin
+        name: String,
+        /// Reason for failure
+        reason: String,
+    },
     /// Plugin execution failed
-    ExecutionFailed { name: String, reason: String },
+    ExecutionFailed {
+        /// Name of the plugin
+        name: String,
+        /// Reason for failure
+        reason: String,
+    },
     /// Dependency not satisfied
-    DependencyNotSatisfied { plugin: String, dependency: String },
+    DependencyNotSatisfied {
+        /// Plugin name
+        plugin: String,
+        /// Missing dependency
+        dependency: String,
+    },
     /// Circular dependency detected
-    CircularDependency { chain: Vec<String> },
+    CircularDependency {
+        /// Chain of dependencies forming the cycle
+        chain: Vec<String>,
+    },
     /// Invalid plugin configuration
-    InvalidConfiguration { name: String, reason: String },
+    InvalidConfiguration {
+        /// Name of the plugin
+        name: String,
+        /// Reason for invalid configuration
+        reason: String,
+    },
 }
 
 impl fmt::Display for PluginErrorKind {
@@ -111,19 +152,36 @@ pub enum NumericalErrorKind {
     /// Division by zero
     DivisionByZero,
     /// Invalid value (NaN or Inf)
-    InvalidValue { value: String },
+    InvalidValue {
+        /// String representation of the invalid value
+        value: String,
+    },
     /// Underflow occurred
-    Underflow { value: f64 },
+    Underflow {
+        /// Value that caused underflow
+        value: f64,
+    },
     /// Overflow occurred
-    Overflow { value: f64 },
+    Overflow {
+        /// Value that caused overflow
+        value: f64,
+    },
     /// Matrix is singular
     SingularMatrix,
     /// Matrix is not positive definite
     NotPositiveDefinite,
     /// Invalid tolerance
-    InvalidTolerance { tolerance: f64 },
+    InvalidTolerance {
+        /// The invalid tolerance value
+        tolerance: f64,
+    },
     /// Insufficient precision
-    InsufficientPrecision { achieved: f64, required: f64 },
+    InsufficientPrecision {
+        /// Precision achieved
+        achieved: f64,
+        /// Precision required
+        required: f64,
+    },
 }
 
 impl fmt::Display for NumericalErrorKind {
@@ -151,11 +209,20 @@ impl fmt::Display for NumericalErrorKind {
 #[derive(Debug, Clone)]
 pub enum ConvergenceErrorKind {
     /// Maximum iterations exceeded
-    MaxIterationsExceeded { max: usize },
+    MaxIterationsExceeded {
+        /// Maximum iteration limit
+        max: usize,
+    },
     /// Residual did not decrease
-    StagnatedResidual { residual: f64 },
+    StagnatedResidual {
+        /// Current residual value
+        residual: f64,
+    },
     /// Solution diverged
-    Diverged { norm: f64 },
+    Diverged {
+        /// Norm of the diverging solution
+        norm: f64,
+    },
     /// NaN or Inf detected
     InvalidValue,
 }

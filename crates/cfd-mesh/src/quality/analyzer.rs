@@ -82,26 +82,87 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
 
     /// Compute aspect ratio for element
     fn compute_aspect_ratio(&self, element: &Cell, mesh: &Mesh<T>) -> T {
-        // Implementation based on element type
-        // For now, return ideal value
-        T::one()
+        // Compute aspect ratio as ratio of longest to shortest edge
+        let vertices = mesh.get_element_vertices(element);
+        if vertices.len() < 2 {
+            return T::one();
+        }
+
+        let mut min_edge = T::from_f64(f64::MAX).unwrap_or(T::one());
+        let mut max_edge = T::zero();
+
+        for i in 0..vertices.len() {
+            let j = (i + 1) % vertices.len();
+            let edge_length = (vertices[j] - vertices[i]).norm();
+            min_edge = nalgebra::RealField::min(min_edge, edge_length);
+            max_edge = nalgebra::RealField::max(max_edge, edge_length);
+        }
+
+        if min_edge > T::zero() {
+            max_edge / min_edge
+        } else {
+            T::one()
+        }
     }
 
     /// Compute skewness for element
     fn compute_skewness(&self, element: &Cell, mesh: &Mesh<T>) -> T {
-        // Implementation based on element type
-        T::zero()
+        // Compute skewness as deviation from ideal element shape
+        // For now, use centroid-based metric
+        let vertices = mesh.get_element_vertices(element);
+        if vertices.len() < 3 {
+            return T::zero();
+        }
+
+        // Compute centroid
+        let centroid = vertices
+            .iter()
+            .fold(nalgebra::Point3::origin(), |acc, v| acc + v.coords)
+            / T::from_usize(vertices.len()).unwrap_or(T::one());
+
+        // Measure deviation from uniform distribution
+        let mut max_dist = T::zero();
+        let mut min_dist = T::from_f64(f64::MAX).unwrap_or(T::one());
+
+        for vertex in &vertices {
+            let dist = (vertex - centroid).norm();
+            max_dist = nalgebra::RealField::max(max_dist, dist);
+            min_dist = nalgebra::RealField::min(min_dist, dist);
+        }
+
+        if max_dist > T::zero() {
+            (max_dist - min_dist) / max_dist
+        } else {
+            T::zero()
+        }
     }
 
     /// Compute orthogonality for element
     fn compute_orthogonality(&self, element: &Cell, mesh: &Mesh<T>) -> T {
-        // Implementation based on element type
+        // Compute orthogonality as measure of angle deviation from 90 degrees
+        // For faces, check angle between face normal and edge to neighbor
+        let faces = mesh.get_element_faces(element);
+        if faces.is_empty() {
+            return T::one();
+        }
+
+        // Simplified: return ideal value for now
+        // Full implementation would compute face normals and angles
         T::one()
     }
 
     /// Compute Jacobian determinant for element
     fn compute_jacobian(&self, element: &Cell, mesh: &Mesh<T>) -> T {
-        // Implementation based on element type
+        // Compute Jacobian determinant for element transformation
+        // This measures element distortion from reference element
+        let vertices = mesh.get_element_vertices(element);
+        if vertices.len() < 4 {
+            // 2D or degenerate element
+            return T::one();
+        }
+
+        // Simplified: return positive value indicating valid element
+        // Full implementation would compute actual Jacobian matrix
         T::one()
     }
 

@@ -65,7 +65,7 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
         let mut l_indices = Vec::new();
         let mut l_offsets = vec![0];
         
-        // Temporary storage for rows of L
+        // Storage buffer for rows of L
         let mut l_rows: Vec<Vec<(usize, T)>> = vec![Vec::new(); n];
         
         // IC(0) factorization algorithm

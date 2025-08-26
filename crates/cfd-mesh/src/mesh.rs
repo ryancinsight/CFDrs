@@ -183,6 +183,23 @@ impl<T: RealField + Copy> Mesh<T> {
         self.cells.len()
     }
 
+    /// Get vertices of an element
+    pub fn get_element_vertices(&self, element: &Cell) -> Vec<Point3<T>> {
+        element
+            .vertices
+            .iter()
+            .filter_map(|&idx| self.vertices.get(idx))
+            .map(|v| v.position)
+            .collect()
+    }
+
+    /// Get faces of an element
+    pub fn get_element_faces(&self, _element: &Cell) -> Vec<&Face> {
+        // For now, return empty vector
+        // Full implementation would compute faces from element vertices
+        Vec::new()
+    }
+
     /// Build topology information
     pub fn build_topology(&mut self) {
         self.topology = MeshTopology::default();

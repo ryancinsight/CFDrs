@@ -65,10 +65,10 @@ impl<T: RealField + FromPrimitive + Copy> TimeIntegrator<T> for RungeKutta2 {
         })?;
 
         let k1 = f(t, state);
-        let mut temp = state.clone();
-        temp.axpy(dt * half, &k1, T::one());
+        let mut state_buffer = state.clone();
+        state_buffer.axpy(dt * half, &k1, T::one());
 
-        let k2 = f(t + dt * half, &temp);
+        let k2 = f(t + dt * half, &state_buffer);
         state.axpy(dt, &k2, T::one());
 
         Ok(())
@@ -111,17 +111,17 @@ impl<T: RealField + FromPrimitive + Copy> TimeIntegrator<T> for RungeKutta4 {
 
         let k1 = f(t, state);
 
-        let mut temp = state.clone();
-        temp.axpy(dt * half, &k1, T::one());
-        let k2 = f(t + dt * half, &temp);
+        let mut state_buffer = state.clone();
+        state_buffer.axpy(dt * half, &k1, T::one());
+        let k2 = f(t + dt * half, &state_buffer);
 
-        temp.clone_from(state);
-        temp.axpy(dt * half, &k2, T::one());
-        let k3 = f(t + dt * half, &temp);
+        state_buffer.clone_from(state);
+        state_buffer.axpy(dt * half, &k2, T::one());
+        let k3 = f(t + dt * half, &state_buffer);
 
-        temp.clone_from(state);
-        temp.axpy(dt, &k3, T::one());
-        let k4 = f(t + dt, &temp);
+        state_buffer.clone_from(state);
+        state_buffer.axpy(dt, &k3, T::one());
+        let k4 = f(t + dt, &state_buffer);
 
         // y_{n+1} = y_n + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
         state.axpy(dt / six, &k1, T::one());

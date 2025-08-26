@@ -50,8 +50,8 @@ pub struct LbmSolver<T: RealField + Copy> {
     config: LbmConfig<T>,
     /// Distribution functions
     f: Vec<Vec<[T; 9]>>,
-    /// Temporary distribution functions for streaming
-    f_temp: Vec<Vec<[T; 9]>>,
+    /// Distribution functions buffer for streaming
+    f_buffer: Vec<Vec<[T; 9]>>,
     /// Macroscopic quantities
     macroscopic: MacroscopicQuantities<T>,
     /// Collision operator
@@ -81,7 +81,7 @@ where
 
         // Initialize distribution functions
         let f = vec![vec![[T::zero(); 9]; nx]; ny];
-        let f_temp = vec![vec![[T::zero(); 9]; nx]; ny];
+        let f_buffer = vec![vec![[T::zero(); 9]; nx]; ny];
 
         // Initialize macroscopic quantities
         let macroscopic = MacroscopicQuantities::new(nx, ny);
@@ -95,7 +95,7 @@ where
         Self {
             config,
             f,
-            f_temp,
+            f_buffer,
             macroscopic,
             collision,
             boundary_handler,
@@ -180,8 +180,8 @@ where
         );
 
         // Streaming step
-        StreamingOperator::stream(&self.f, &mut self.f_temp);
-        std::mem::swap(&mut self.f, &mut self.f_temp);
+        StreamingOperator::stream(&self.f, &mut self.f_buffer);
+        std::mem::swap(&mut self.f, &mut self.f_buffer);
 
         // Apply boundary conditions
         self.boundary_handler.apply_boundaries(

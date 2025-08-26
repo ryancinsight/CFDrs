@@ -19,7 +19,10 @@ mod streaming;
 pub use boundary::{BoundaryHandler, BoundaryType};
 pub use collision::{BgkCollision, CollisionOperator};
 pub use lattice::{LatticeModel, D2Q9};
-pub use macroscopic::{compute_density, compute_velocity, MacroscopicQuantities};
+pub use macroscopic::{
+    compute_density, compute_kinetic_energy, compute_momentum, compute_stress_tensor,
+    compute_velocity, compute_vorticity, MacroscopicQuantities,
+};
 pub use solver::{LbmConfig, LbmSolver};
 pub use streaming::StreamingOperator;
 

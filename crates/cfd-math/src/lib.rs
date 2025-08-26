@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 //! Mathematical utilities and numerical methods for CFD simulations.
 
 #![warn(missing_docs)]

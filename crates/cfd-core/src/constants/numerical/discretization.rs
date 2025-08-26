@@ -27,7 +27,11 @@ pub const MUSCL_KAPPA: f64 = 1.0 / 3.0;
 pub const FLUX_LIMITER_EPSILON: f64 = 1e-20;
 
 /// Grid quality thresholds
+/// Minimum acceptable aspect ratio for grid cells
 pub const MIN_ASPECT_RATIO: f64 = 0.1;
+/// Maximum acceptable aspect ratio for grid cells
 pub const MAX_ASPECT_RATIO: f64 = 10.0;
+/// Maximum acceptable skewness for grid cells (0 = perfect, 1 = degenerate)
 pub const MAX_SKEWNESS: f64 = 0.95;
+/// Threshold for orthogonality check (deviation from 90 degrees)
 pub const ORTHOGONALITY_THRESHOLD: f64 = 0.1;

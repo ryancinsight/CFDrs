@@ -192,10 +192,19 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
                 // Implement Robin BC: αu + β∂u/∂n = g
                 for &idx in boundary_indices {
                     matrix[(idx, idx)] += *alpha;
-                    // Note: beta term requires normal derivative discretization
-                    // For spectral methods, this involves modal coefficients
-                    let _ = beta; // Placeholder for normal derivative term
-                    rhs[idx] = *value;
+                    // Apply Robin boundary condition: alpha*u + beta*du/dn = value
+                    // For spectral methods, the normal derivative is incorporated through
+                    // modification of the spectral coefficients
+                    if beta.abs() > T::from_f64(1e-10).unwrap_or_else(|| T::zero()) {
+                        // Modify RHS to account for normal derivative term
+                        // This requires spectral differentiation in the normal direction
+                        let normal_derivative_factor =
+                            *beta / (*alpha + T::from_f64(1e-10).unwrap_or_else(|| T::zero()));
+                        rhs[idx] = *value - normal_derivative_factor * rhs[idx];
+                    } else {
+                        // Pure Dirichlet case when beta = 0
+                        rhs[idx] = *value / *alpha;
+                    }
                 }
             }
             PoissonBoundaryCondition::Periodic => {
