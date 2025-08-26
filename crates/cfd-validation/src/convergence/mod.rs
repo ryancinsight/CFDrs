@@ -7,11 +7,9 @@ mod analysis;
 mod criteria;
 mod richardson;
 mod study;
-
 pub use analysis::{ConvergenceAnalysis, ConvergenceOrder};
 pub use criteria::{ConvergenceCriterion, ConvergenceStatus, GridConvergenceIndex};
 pub use richardson::RichardsonExtrapolation;
 pub use study::ConvergenceStudy;
-
 // Re-export core functionality
 pub use study::compute_convergence_rate;

@@ -1,7 +1,6 @@
 //! Error types for mesh operations
 
 use std::fmt;
-
 /// Mesh operation errors
 #[derive(Debug, Clone)]
 pub enum MeshError {
@@ -12,7 +11,6 @@ pub enum MeshError {
     /// Grid generation error
     GridError(String),
 }
-
 impl fmt::Display for MeshError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -21,9 +19,6 @@ impl fmt::Display for MeshError {
             MeshError::GridError(msg) => write!(f, "Grid error: {msg}"),
         }
     }
-}
-
 impl std::error::Error for MeshError {}
-
 /// Result type for mesh operations
 pub type Result<T> = std::result::Result<T, MeshError>;

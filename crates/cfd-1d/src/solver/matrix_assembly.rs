@@ -7,18 +7,14 @@ use nalgebra_sparse::{coo::CooMatrix, CsrMatrix};
 use num_traits::FromPrimitive;
 use rayon::prelude::*;
 use std::sync::Mutex;
-
 /// Matrix assembler for building the linear system from network equations
 pub struct MatrixAssembler<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
-
 impl<T: RealField + Copy> Default for MatrixAssembler<T> {
     fn default() -> Self {
         Self::new()
     }
-}
-
 impl<T: RealField + Copy> MatrixAssembler<T> {
     /// Create a new matrix assembler
     #[must_use]
@@ -26,9 +22,6 @@ impl<T: RealField + Copy> MatrixAssembler<T> {
         Self {
             _phantom: std::marker::PhantomData,
         }
-    }
-}
-
 impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAssembler<T> {
     /// Assemble the linear system matrix and right-hand side vector
     ///
@@ -40,12 +33,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         let n = network.node_count();
         let coo_mutex = Mutex::new(CooMatrix::new(n, n));
         let mut rhs = DVector::zeros(n);
-
         // Parallel assembly of matrix entries
         network.edges_parallel().for_each(|edge| {
             let (i, j) = edge.nodes;
             let conductance = edge.conductance;
-
             let mut coo = coo_mutex.lock().unwrap();
             // Add conductance terms to matrix
             coo.push(i, i, conductance);
@@ -53,7 +44,6 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
             coo.push(i, j, -conductance);
             coo.push(j, i, -conductance);
         });
-
         // Add boundary conditions
         for (node_idx, bc) in network.boundary_conditions() {
             match bc {
@@ -68,16 +58,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
                 crate::network::BoundaryCondition::VolumeFlowInlet { flow_rate } => {
                     // Neumann boundary condition
                     rhs[node_idx] += *flow_rate;
-                }
                 _ => {
                     // Other boundary conditions not implemented for 1D
-                }
             }
-        }
-
         let coo = coo_mutex.into_inner().unwrap();
         let matrix = CsrMatrix::from(&coo);
-
         Ok((matrix, rhs))
-    }
-}

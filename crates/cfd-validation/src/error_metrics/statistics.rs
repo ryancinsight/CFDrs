@@ -8,7 +8,6 @@ use super::{
 use cfd_core::error::{Error, Result};
 use nalgebra::{RealField, Vector3};
 use num_traits::cast::FromPrimitive;
-
 /// Error statistics for comprehensive analysis
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ErrorStatistics<T: RealField + Copy> {
@@ -27,7 +26,6 @@ pub struct ErrorStatistics<T: RealField + Copy> {
     /// Number of data points
     pub num_points: usize,
 }
-
 impl<T: RealField + Copy + FromPrimitive + Copy> ErrorStatistics<T> {
     /// Compute comprehensive error statistics
     pub fn compute(numerical: &[T], reference: &[T]) -> Result<Self> {
@@ -36,14 +34,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorStatistics<T> {
                 "Arrays must have the same length".to_string(),
             ));
         }
-
         let l1 = L1Norm;
         let l2 = L2Norm;
         let linf = LInfNorm;
         let mae = MeanAbsoluteError;
         let rmse = RootMeanSquareError;
         let rel_l2 = RelativeError::new(L2Norm, 1e-12);
-
         Ok(Self {
             l1_norm: l1.compute_error(numerical, reference)?,
             l2_norm: l2.compute_error(numerical, reference)?,
@@ -54,19 +50,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorStatistics<T> {
             num_points: numerical.len(),
         })
     }
-
     /// Compute error statistics for vector fields
     pub fn compute_vector(numerical: &[Vector3<T>], reference: &[Vector3<T>]) -> Result<Self> {
-        if numerical.len() != reference.len() {
-            return Err(Error::InvalidConfiguration(
-                "Arrays must have the same length".to_string(),
-            ));
-        }
-
         // Extract magnitudes
         let num_magnitudes: Vec<T> = numerical.iter().map(nalgebra::Matrix::norm).collect();
         let ref_magnitudes: Vec<T> = reference.iter().map(nalgebra::Matrix::norm).collect();
-
         Self::compute(&num_magnitudes, &ref_magnitudes)
-    }
-}

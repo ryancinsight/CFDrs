@@ -8,7 +8,6 @@ pub mod chebyshev;
 pub mod fourier;
 pub mod poisson;
 pub mod solver;
-
 pub use basis::{BasisFunction, SpectralBasis};
 pub use chebyshev::{ChebyshevDifferentiation, ChebyshevPolynomial};
 pub use fourier::{FourierTransform, SpectralDerivative};
