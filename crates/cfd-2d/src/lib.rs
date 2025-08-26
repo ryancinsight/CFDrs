@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-#![cfg_attr(not(test), allow(unused))]
 //! 2D CFD simulations with domain-based organization.
 //!
 //! This crate provides 2D computational fluid dynamics functionality organized by domain:

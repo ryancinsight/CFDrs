@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-#![allow(unused_variables)]
 //! Mesh handling and generation.
 
 #![warn(missing_docs)]

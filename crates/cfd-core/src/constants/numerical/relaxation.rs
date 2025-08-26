@@ -27,7 +27,9 @@ pub const EPSILON_RELAXATION: f64 = 0.5;
 pub const SPECIES_RELAXATION: f64 = 0.8;
 
 /// SOR (Successive Over-Relaxation) optimal factor range
+/// Minimum SOR relaxation factor (1.0 = Gauss-Seidel)
 pub const SOR_OPTIMAL_MIN: f64 = 1.0;
+/// Maximum SOR relaxation factor (typically < 2.0 for convergence)
 pub const SOR_OPTIMAL_MAX: f64 = 2.0;
 
 /// Gauss-Seidel relaxation factor
