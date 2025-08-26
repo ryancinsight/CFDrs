@@ -105,44 +105,37 @@ impl fmt::Display for PluginErrorKind {
     }
 }
 
-/// Numerical error variants
-#[derive(Debug, Clone)]
+/// Numerical computation errors
+#[derive(Debug, Clone, PartialEq)]
 pub enum NumericalErrorKind {
     /// Division by zero
     DivisionByZero,
-    /// Invalid value (NaN or Inf)
-    InvalidValue { value: String },
-    /// Underflow occurred
-    Underflow { value: f64 },
-    /// Overflow occurred
-    Overflow { value: f64 },
-    /// Matrix is singular
+    /// Singular matrix
     SingularMatrix,
-    /// Matrix is not positive definite
-    NotPositiveDefinite,
-    /// Invalid tolerance
-    InvalidTolerance { tolerance: f64 },
-    /// Insufficient precision
-    InsufficientPrecision { achieved: f64, required: f64 },
+    /// Invalid operation
+    InvalidOperation,
+    /// Underflow
+    Underflow,
+    /// Overflow  
+    Overflow,
+    /// Loss of precision
+    PrecisionLoss,
+    /// Numeric conversion failed
+    ConversionFailed { from_type: &'static str, to_type: &'static str, value: String },
 }
 
 impl fmt::Display for NumericalErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::DivisionByZero => write!(f, "Division by zero"),
-            Self::InvalidValue { value } => write!(f, "Invalid numerical value: {}", value),
-            Self::Underflow { value } => write!(f, "Numerical underflow: {:.2e}", value),
-            Self::Overflow { value } => write!(f, "Numerical overflow: {:.2e}", value),
             Self::SingularMatrix => write!(f, "Matrix is singular"),
-            Self::NotPositiveDefinite => write!(f, "Matrix is not positive definite"),
-            Self::InvalidTolerance { tolerance } => {
-                write!(f, "Invalid tolerance: {:.2e}", tolerance)
+            Self::InvalidOperation => write!(f, "Invalid numerical operation"),
+            Self::Underflow => write!(f, "Numerical underflow"),
+            Self::Overflow => write!(f, "Numerical overflow"),
+            Self::PrecisionLoss => write!(f, "Loss of numerical precision"),
+            Self::ConversionFailed { from_type, to_type, value } => {
+                write!(f, "Failed to convert {} from {} to {}", value, from_type, to_type)
             }
-            Self::InsufficientPrecision { achieved, required } => write!(
-                f,
-                "Insufficient precision: achieved {:.2e}, required {:.2e}",
-                achieved, required
-            ),
         }
     }
 }

@@ -28,6 +28,7 @@ pub mod error;
 pub mod factory;
 pub mod fluid;
 pub mod interpolation;
+pub mod numeric;
 pub mod plugin;
 pub mod problem;
 pub mod services;

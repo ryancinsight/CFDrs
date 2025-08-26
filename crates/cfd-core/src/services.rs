@@ -125,9 +125,7 @@ impl FluidDynamicsService {
             // Guard against invalid log argument
             if inside <= T::zero() {
                 return Err(Error::Numerical(
-                    crate::error::NumericalErrorKind::InvalidValue {
-                        value: "Colebrook-White log argument".to_string(),
-                    },
+                    crate::error::NumericalErrorKind::InvalidOperation,
                 ));
             }
             let inv_sqrt_f = -(T::from_f64(2.0).unwrap_or_else(|| T::one())) * (inside.ln() / ln10);
@@ -163,9 +161,7 @@ impl FluidDynamicsService {
         let inside = term_rr + term_re;
         if inside <= T::zero() {
             return Err(Error::Numerical(
-                crate::error::NumericalErrorKind::InvalidValue {
-                    value: "Haaland log argument".to_string(),
-                },
+                crate::error::NumericalErrorKind::InvalidOperation,
             ));
         }
         let inv_sqrt_f = a * (inside.ln() / ln10);

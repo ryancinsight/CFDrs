@@ -1,57 +1,72 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.57.4 - Current State
+## Version 0.57.5 - CRITICAL ISSUES FOUND
 
-### Completed ✅
-- [x] Workspace builds without errors
-- [x] All tests pass (workspace)
-- [x] Examples compile and run
-- [x] Memory safety (Rust)
-- [x] Result-based error handling
-- [x] Analytical validations: Couette, Poiseuille (plates), Taylor-Green
-- [x] Removed placeholder CSG constructor
-- [x] Fixed benches: iterator trait import, Poiseuille API, sparse matvec
-- [x] Propagated sparse matrix builder errors (no ignored results)
-- [x] Per-cell viscosity in 2D momentum; completed boundary handling
-- [x] Removed external CSG example stubs
-- [x] Module refactoring: Split `cfd-1d/resistance.rs` (705 LOC) into domain-based submodules
-- [x] Replaced adjective-based variable names (u_old→u_current, _temp→descriptive names)
-- [x] Replaced magic numbers with named constants throughout codebase
-- [x] Added proper setters to Network for state updates
+### ❌ Critical Failures
+- [ ] **124+ dangerous T::zero() fallbacks** causing silent math errors
+- [ ] **Incorrect physics implementations** (Gauss-Seidel is wrong)
+- [ ] **Unphysical damping terms** violating conservation
+- [ ] **Magic numbers remain** (0.7, 0.95, 4.0, 6.0)
+- [ ] **Build errors** from incomplete refactoring
+- [ ] **Module size violations** (2 files > 700 LOC)
 
-### In Progress ⚠️
-- [ ] Module refactoring: `cfd-3d/level_set.rs` (719 LOC), `cfd-validation/numerical_validation.rs` (721 LOC) still need splitting
-- [ ] Documentation for all public constants and fields
-- [ ] Expand physics validation set (MMS, benchmark datasets)
+### ⚠️ Partially Complete
+- [~] Module refactoring started (level_set begun, not finished)
+- [~] Safe numeric conversions (module created, not integrated)
+- [~] Error enum refactoring (breaking changes, incomplete)
+- [~] Physics validation (found major errors)
 
-### Planned ❌
-- [ ] Parallelization and profiling
-- [ ] SIMD/SWAR where safe and portable
-- [ ] CI with lint + test matrix
-- [ ] Property-based/fuzz testing
+### Completed ✅ (From Previous)
+- [x] Workspace structure exists
+- [x] Memory safety (Rust guarantees)
+- [x] Some modules split (resistance.rs)
+- [x] Some variable naming fixed
+
+### Critical TODOs
+1. **URGENT**: Fix all T::zero() fallbacks - causes PI→0 conversion!
+2. **URGENT**: Rewrite step.rs with proper Navier-Stokes solver
+3. **URGENT**: Remove ALL artificial damping/stabilization
+4. Complete error enum migration
+5. Finish module splitting
+6. Replace ALL magic numbers
 
 ## Principles Enforcement
-- SSOT/SPOT: ✅ Constants centralized in `cfd-core/constants`; no duplicated thresholds
-- Naming: ✅ No adjectives in identifiers; domain terms only (fixed all _old/_new/_temp)
-- CUPID/SOLID: ✅ Traits and enums for composition; resistance module properly modularized
-- SLAP/DRY: ✅ Split mixed-concern modules (resistance.rs → 5 focused submodules)
-- Zero-copy: ✅ Using references and slices where possible
-- Magic Numbers: ✅ All replaced with named constants
+- SSOT/SPOT: ❌ VIOLATED by magic numbers and duplicate implementations
+- Physics Accuracy: ❌ FAILED - incorrect equations
+- Error Safety: ❌ FAILED - dangerous fallbacks
+- Clean Architecture: ⚠️ In progress
+- Naming: ⚠️ Partially fixed
 
 ## Risk Assessment
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Incorrect physics | Medium | High | Expand validation set |
-| Runtime panic | Low | Medium | Replace unwrap/expect, tests |
-| Performance gaps | High | Medium | Profile, parallelize hot paths |
+| Risk | Likelihood | Impact | Status |
+|------|-----------|--------|--------|
+| **Incorrect physics** | **CERTAIN** | **CRITICAL** | **ACTIVE BUG** |
+| **Numeric errors** | **CERTAIN** | **HIGH** | **ACTIVE BUG** |
+| Runtime panic | Medium | Medium | Increased by refactor |
+| Silent failures | HIGH | CRITICAL | T::zero() fallbacks |
+
+## Validation Failures
+- ❌ Gauss-Seidel doesn't solve momentum equations
+- ❌ Artificial damping violates physics
+- ❌ Numeric conversions unsafe
+- ❌ Literature validation would fail
 
 ## Readiness
-- Research/education/prototyping: Yes
-- Production/published research: Not yet (needs broader validation, performance optimization, complete docs)
+- **Research use**: ❌ NO - contains critical errors
+- **Education**: ❌ NO - teaches incorrect physics
+- **Production**: ❌ ABSOLUTELY NOT
 
-## Next Milestones
-1. ✅ Split `cfd-1d/resistance.rs` into modular structure
-2. ✅ Replace all adjective-based naming patterns
-3. ✅ Promote magic numbers to documented constants
-4. Add MMS tests for diffusion/advection; expand Poiseuille pipe case
-5. CI: build + test + fmt + clippy gates
+## Next Milestones (PRIORITY ORDER)
+1. 🔴 Fix T::zero() fallbacks immediately
+2. 🔴 Correct physics implementations
+3. 🔴 Remove unphysical terms
+4. 🟡 Complete error refactoring
+5. 🟡 Finish module splitting
+6. 🟡 Add proper constants
+
+## Code Quality Metrics
+- Build Status: ❌ BROKEN
+- Physics Correctness: ❌ FAILED
+- Numeric Safety: ❌ DANGEROUS
+- Architecture: ⚠️ PARTIAL
+- Documentation: ⚠️ MISLEADING (claims correctness)

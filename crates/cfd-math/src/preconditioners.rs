@@ -81,9 +81,7 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
             
             // Check for positive definiteness
             if l_ii <= T::zero() {
-                return Err(LinearSolverError::NotPositiveDefinite {
-                    eigenvalue: l_ii.to_subset().unwrap_or(0.0),
-                });
+                return Err(LinearSolverError::SingularMatrix);
             }
             
             l_ii = l_ii.sqrt();

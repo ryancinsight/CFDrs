@@ -42,13 +42,15 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     for HagenPoiseuilleModel<T>
 {
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
+        use cfd_core::numeric;
+        
         let viscosity = fluid.dynamic_viscosity(conditions.temperature)?;
-        let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
-        let coefficient = T::from_f64(HAGEN_POISEUILLE_COEFFICIENT).unwrap_or_else(|| T::zero());
+        let pi = numeric::pi::<T>()?;
+        let coefficient = numeric::from_f64(HAGEN_POISEUILLE_COEFFICIENT)?;
+        let four = numeric::from_f64(4.0)?;
 
         // R = (128 * μ * L) / (π * D^4)
-        let d4 =
-            num_traits::Float::powf(self.diameter, T::from_f64(4.0).unwrap_or_else(|| T::zero()));
+        let d4 = num_traits::Float::powf(self.diameter, four);
         let resistance = coefficient * viscosity * self.length / (pi * d4);
 
         Ok(resistance)

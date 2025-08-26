@@ -110,8 +110,10 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> SORPreconditioner<T> {
         let n = a.nrows() as f64;
         let omega_opt = 2.0 / (1.0 + (std::f64::consts::PI / n).sin());
         let omega = T::from_f64(omega_opt).ok_or_else(|| {
-            Error::Numerical(NumericalErrorKind::InvalidValue {
-                value: "Cannot convert omega".to_string(),
+            Error::Numerical(NumericalErrorKind::ConversionFailed {
+                from_type: "f64",
+                to_type: std::any::type_name::<T>(),
+                value: omega_opt.to_string(),
             })
         })?;
 
