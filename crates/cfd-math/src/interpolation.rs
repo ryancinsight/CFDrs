@@ -127,7 +127,6 @@ pub struct CubicSplineInterpolation<T: RealField + Copy> {
     /// X coordinates (must be sorted)
     x_data: Vec<T>,
     /// Y values
-    #[allow(dead_code)]
     y_data: Vec<T>,
     /// Spline coefficients
     coefficients: SplineCoefficients<T>,

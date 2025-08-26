@@ -14,7 +14,8 @@ pub mod conservation;
 pub mod convergence;
 pub mod error_metrics;
 pub mod literature;
-pub mod numerical_validation;
+pub mod numerical;
+pub mod numerical_validation; // Kept for backward compatibility, will be deprecated
 pub mod solutions;
 pub mod time_integration_validation;
 

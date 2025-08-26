@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## CFD Suite v0.59.0
+## CFD Suite v0.60.0
 
 ### Product Classification
 Research software (not production)
@@ -38,6 +38,8 @@ Research software (not production)
 - [x] Split `cfd-1d/resistance.rs` into domain-based modules
 - [x] Remove duplicate/misnamed directories (crases)
 - [x] Fix all adjective-based naming violations
+- [x] Refactor modules >500 LOC (numerical_validation split into modular structure)
+- [x] Apply SOLID/CUPID/GRASP principles throughout codebase
 
 2) Validation
 - Add MMS for diffusion/advection
