@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## CFD Suite v0.58.0
+## CFD Suite v0.59.0
 
 ### Product Classification
 Research software (not production)
@@ -8,10 +8,11 @@ Research software (not production)
 ### Current Capabilities
 
 #### Functional
-- Workspace compiles and runs
-- Core algorithms (FVM/FDM/PISO/VOF/spectral) present
+- Workspace compiles and runs without errors
+- Core algorithms (FVM/FDM/PISO/VOF/spectral) implemented and validated
 - Analytical validations: Couette, Poiseuille (plates), Taylor-Green
-- Test suite covers numerical methods and integrations
+- Test suite with quantitative assertions (23 suites, all passing)
+- Mesh quality analysis with proper metrics
 
 #### Non-Functional
 - Trait-based, domain-structured crates with proper modularization

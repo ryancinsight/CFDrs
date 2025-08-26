@@ -114,21 +114,32 @@ mod tests {
 
     #[test]
     fn test_hagen_poiseuille() -> Result<()> {
-        let model = HagenPoiseuilleModel::new(100e-6, 0.001);
+        // Test case: 100 μm diameter, 1 mm length pipe with water
+        let diameter = 100e-6; // 100 μm
+        let length = 0.001; // 1 mm
+        let model = HagenPoiseuilleModel::new(diameter, length);
         let fluid = cfd_core::fluid::Fluid::<f64>::water()?;
         let conditions = FlowConditions::new(0.001);
 
         let resistance = model.calculate_resistance(&fluid, &conditions)?;
 
-        // Verify resistance is positive
-        assert!(resistance > 0.0);
+        // Calculate expected resistance: R = 128μL/(πD⁴)
+        // For water at 20°C: μ ≈ 1.002e-3 Pa·s
+        let viscosity = 1.002e-3;
+        let expected = 128.0 * viscosity * length / (std::f64::consts::PI * diameter.powi(4));
 
-        // Check pressure drop calculation
-        // For Hagen-Poiseuille flow: ΔP = R * Q
-        // where R is resistance and Q is flow rate
-        let flow_rate = 1e-6; // m³/s
+        // Verify within 1% of theoretical value
+        assert_relative_eq!(resistance, expected, epsilon = expected * 0.01);
+
+        // Verify pressure drop for 1 μL/s flow rate
+        let flow_rate = 1e-9; // 1 μL/s = 1e-9 m³/s
         let pressure_drop = resistance * flow_rate;
-        assert!(pressure_drop > 0.0);
+        let expected_pressure = expected * flow_rate;
+        assert_relative_eq!(
+            pressure_drop,
+            expected_pressure,
+            epsilon = expected_pressure * 0.01
+        );
 
         Ok(())
     }

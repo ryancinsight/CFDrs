@@ -152,19 +152,36 @@ pub enum NumericalErrorKind {
     /// Division by zero
     DivisionByZero,
     /// Invalid value (NaN or Inf)
-    InvalidValue { value: String },
+    InvalidValue {
+        /// String representation of the invalid value
+        value: String,
+    },
     /// Underflow occurred
-    Underflow { value: f64 },
+    Underflow {
+        /// Value that caused underflow
+        value: f64,
+    },
     /// Overflow occurred
-    Overflow { value: f64 },
+    Overflow {
+        /// Value that caused overflow
+        value: f64,
+    },
     /// Matrix is singular
     SingularMatrix,
     /// Matrix is not positive definite
     NotPositiveDefinite,
     /// Invalid tolerance
-    InvalidTolerance { tolerance: f64 },
+    InvalidTolerance {
+        /// The invalid tolerance value
+        tolerance: f64,
+    },
     /// Insufficient precision
-    InsufficientPrecision { achieved: f64, required: f64 },
+    InsufficientPrecision {
+        /// Precision achieved
+        achieved: f64,
+        /// Precision required
+        required: f64,
+    },
 }
 
 impl fmt::Display for NumericalErrorKind {
@@ -192,11 +209,20 @@ impl fmt::Display for NumericalErrorKind {
 #[derive(Debug, Clone)]
 pub enum ConvergenceErrorKind {
     /// Maximum iterations exceeded
-    MaxIterationsExceeded { max: usize },
+    MaxIterationsExceeded {
+        /// Maximum iteration limit
+        max: usize,
+    },
     /// Residual did not decrease
-    StagnatedResidual { residual: f64 },
+    StagnatedResidual {
+        /// Current residual value
+        residual: f64,
+    },
     /// Solution diverged
-    Diverged { norm: f64 },
+    Diverged {
+        /// Norm of the diverging solution
+        norm: f64,
+    },
     /// NaN or Inf detected
     InvalidValue,
 }
