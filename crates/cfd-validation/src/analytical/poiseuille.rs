@@ -131,7 +131,9 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for PoiseuilleFl
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let large = T::from_f64(1000.0).unwrap_or(T::from_f64(100.0).unwrap_or(T::one()));
+        const LARGE_DOMAIN_SIZE: f64 = 1000.0;
+        let large =
+            T::from_f64(LARGE_DOMAIN_SIZE).unwrap_or(T::from_f64(100.0).unwrap_or(T::one()));
         match self.geometry {
             PoiseuilleGeometry::Plates => [
                 T::zero(),

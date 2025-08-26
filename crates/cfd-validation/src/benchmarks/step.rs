@@ -7,6 +7,13 @@ use cfd_core::Result;
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
 
+/// Gauss-Seidel relaxation factor for momentum equations
+const GAUSS_SEIDEL_RELAXATION: f64 = 0.7;
+/// Velocity damping factor for stability
+const VELOCITY_DAMPING: f64 = 0.95;
+/// Number of neighbors in 2D stencil
+const STENCIL_SIZE_2D: f64 = 4.0;
+
 /// Backward facing step benchmark
 pub struct BackwardFacingStep<T: RealField + Copy> {
     /// Step height
@@ -75,17 +82,19 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
             // Update interior points using finite difference
             for i in 1..nx - 1 {
                 for j in 1..ny - 1 {
-                    let u_old = u[(i, j)];
+                    let u_current = u[(i, j)];
 
                     // Gauss-Seidel update for momentum equation
                     // This is a simplified implementation for benchmarking
-                    let u_new = (u[(i + 1, j)] + u[(i - 1, j)] + u[(i, j + 1)] + u[(i, j - 1)])
-                        / T::from_f64(4.0).unwrap_or_else(T::one);
+                    let u_updated = (u[(i + 1, j)] + u[(i - 1, j)] + u[(i, j + 1)] + u[(i, j - 1)])
+                        / T::from_f64(STENCIL_SIZE_2D).unwrap_or_else(T::one);
 
-                    u[(i, j)] = u_old + T::from_f64(0.7).unwrap_or_else(T::one) * (u_new - u_old);
-                    v[(i, j)] = v[(i, j)] * T::from_f64(0.95).unwrap_or_else(T::one); // Damping
+                    u[(i, j)] = u_current
+                        + T::from_f64(GAUSS_SEIDEL_RELAXATION).unwrap_or_else(T::one)
+                            * (u_updated - u_current);
+                    v[(i, j)] = v[(i, j)] * T::from_f64(VELOCITY_DAMPING).unwrap_or_else(T::one); // Damping
 
-                    let residual = (u_new - u_old).abs();
+                    let residual = (u_updated - u_current).abs();
                     if residual > local_max_residual {
                         local_max_residual = residual;
                     }

@@ -200,13 +200,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
 
             for i in 1..grid_points - 1 {
                 for j in 1..grid_points - 1 {
-                    let psi_old = psi[(i, j)];
-                    let psi_new =
+                    let psi_current = psi[(i, j)];
+                    let psi_updated =
                         (psi[(i + 1, j)] + psi[(i - 1, j)] + psi[(i, j + 1)] + psi[(i, j - 1)])
                             / T::from_f64(4.0).ok_or_else(|| {
-                                Error::InvalidInput("Cannot calculate psi_new".to_string())
+                                Error::InvalidInput("Cannot calculate psi_updated".to_string())
                             })?;
-                    psi[(i, j)] = psi_old + omega_sor * (psi_new - psi_old);
+                    psi[(i, j)] = psi_current + omega_sor * (psi_updated - psi_current);
                 }
             }
 

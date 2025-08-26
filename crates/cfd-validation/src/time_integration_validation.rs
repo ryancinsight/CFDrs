@@ -80,8 +80,8 @@ impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta2
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
         let k1 = f(t, y);
-        let y_temp = y.clone() + k1.clone() * dt;
-        let k2 = f(t + dt, &y_temp);
+        let y_intermediate = y.clone() + k1.clone() * dt;
+        let k2 = f(t + dt, &y_intermediate);
 
         let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
         *y += (k1 + k2) * (dt * half);
@@ -104,12 +104,12 @@ impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta4
     {
         let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
         let k1 = f(t, y);
-        let y_temp1 = y.clone() + k1.clone() * (dt * half);
-        let k2 = f(t + dt * half, &y_temp1);
-        let y_temp2 = y.clone() + k2.clone() * (dt * half);
-        let k3 = f(t + dt * half, &y_temp2);
-        let y_temp3 = y.clone() + k3.clone() * dt;
-        let k4 = f(t + dt, &y_temp3);
+        let y_k1 = y.clone() + k1.clone() * (dt * half);
+        let k2 = f(t + dt * half, &y_k1);
+        let y_k2 = y.clone() + k2.clone() * (dt * half);
+        let k3 = f(t + dt * half, &y_k2);
+        let y_k3 = y.clone() + k3.clone() * dt;
+        let k4 = f(t + dt, &y_k3);
 
         let sixth = T::from_f64(1.0 / 6.0).unwrap_or_else(|| T::zero());
         let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());

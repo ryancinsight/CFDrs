@@ -45,9 +45,13 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> {
 
     /// Perform comprehensive network analysis
     pub fn analyze(&mut self, network: &mut Network<T>) -> Result<NetworkAnalysisResult<T>> {
-        // Solve the network
+        // Solve the network and update network state
         let problem = crate::solver::NetworkProblem::new(network.clone());
-        let _solution_result = self.solver.solve_network(&problem)?;
+        let solved_network = self.solver.solve_network(&problem)?;
+
+        // Update network with solution from solved network
+        network.update_pressures(solved_network.pressures());
+        network.update_flow_rates(solved_network.flow_rates());
 
         // Perform individual analyses
         let flow_analysis = self.analyze_flow(network)?;

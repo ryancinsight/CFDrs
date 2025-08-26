@@ -38,7 +38,7 @@ impl AdvectionMethod {
         solver: &mut VofSolver<T>,
         dt: T,
     ) -> Result<()> {
-        let mut alpha_temp = solver.alpha.clone();
+        let mut alpha_updated = solver.alpha.clone();
 
         for k in 1..solver.nz - 1 {
             for j in 1..solver.ny - 1 {
@@ -59,15 +59,15 @@ impl AdvectionMethod {
                         + flux_z_plus
                         - flux_z_minus;
 
-                    alpha_temp[idx] = solver.alpha[idx] - net_flux / cell_volume;
+                    alpha_updated[idx] = solver.alpha[idx] - net_flux / cell_volume;
 
                     // Bound volume fraction
-                    alpha_temp[idx] = alpha_temp[idx].max(T::zero()).min(T::one());
+                    alpha_updated[idx] = alpha_updated[idx].max(T::zero()).min(T::one());
                 }
             }
         }
 
-        solver.alpha = alpha_temp;
+        solver.alpha = alpha_updated;
         Ok(())
     }
 
@@ -131,7 +131,7 @@ impl AdvectionMethod {
         solver: &mut VofSolver<T>,
         dt: T,
     ) -> Result<()> {
-        let mut alpha_temp = solver.alpha.clone();
+        let mut alpha_updated = solver.alpha.clone();
         let two = T::from_f64(2.0).unwrap_or(T::one() + T::one());
 
         for k in 1..solver.nz - 1 {
@@ -152,16 +152,16 @@ impl AdvectionMethod {
                         / (two * solver.dz);
 
                     // Advection equation: ∂α/∂t + u·∇α = 0
-                    alpha_temp[idx] = solver.alpha[idx]
+                    alpha_updated[idx] = solver.alpha[idx]
                         - dt * (vel.x * dalpha_dx + vel.y * dalpha_dy + vel.z * dalpha_dz);
 
                     // Bound volume fraction
-                    alpha_temp[idx] = alpha_temp[idx].max(T::zero()).min(T::one());
+                    alpha_updated[idx] = alpha_updated[idx].max(T::zero()).min(T::one());
                 }
             }
         }
 
-        solver.alpha = alpha_temp;
+        solver.alpha = alpha_updated;
         Ok(())
     }
 
@@ -171,7 +171,7 @@ impl AdvectionMethod {
         solver: &mut VofSolver<T>,
         dt: T,
     ) -> Result<()> {
-        let mut alpha_temp = solver.alpha.clone();
+        let mut alpha_updated = solver.alpha.clone();
 
         for k in 1..solver.nz - 1 {
             for j in 1..solver.ny - 1 {
@@ -207,18 +207,18 @@ impl AdvectionMethod {
                                 + u_compression.y * dalpha_dy
                                 + u_compression.z * dalpha_dz;
 
-                            alpha_temp[idx] =
+                            alpha_updated[idx] =
                                 alpha - dt * compression_term * alpha * (T::one() - alpha);
 
                             // Bound volume fraction
-                            alpha_temp[idx] = alpha_temp[idx].max(T::zero()).min(T::one());
+                            alpha_updated[idx] = alpha_updated[idx].max(T::zero()).min(T::one());
                         }
                     }
                 }
             }
         }
 
-        solver.alpha = alpha_temp;
+        solver.alpha = alpha_updated;
         Ok(())
     }
 }

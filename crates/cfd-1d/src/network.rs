@@ -217,6 +217,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Network<T> {
         &self.flow_rates
     }
 
+    pub fn update_pressures(&mut self, pressures: &DVector<T>) {
+        self.pressures = pressures.clone();
+    }
+
+    pub fn update_flow_rates(&mut self, flow_rates: &DVector<T>) {
+        self.flow_rates = flow_rates.clone();
+    }
+
     pub fn update_from_solution(&mut self, solution: DVector<T>) -> Result<()> {
         if solution.len() != self.node_count() {
             return Err(Error::InvalidConfiguration(

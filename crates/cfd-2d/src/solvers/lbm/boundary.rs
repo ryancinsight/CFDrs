@@ -55,10 +55,10 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
 
     /// Apply bounce-back boundary condition
     pub fn apply_bounce_back(f: &mut Vec<Vec<[T; 9]>>, i: usize, j: usize) {
-        let f_temp = f[j][i];
+        let f_current = f[j][i];
         for q in 0..9 {
             let q_opp = D2Q9::OPPOSITE[q];
-            f[j][i][q] = f_temp[q_opp];
+            f[j][i][q] = f_current[q_opp];
         }
     }
 

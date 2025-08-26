@@ -1,6 +1,6 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.57.3 - Current State
+## Version 0.57.4 - Current State
 
 ### Completed ✅
 - [x] Workspace builds without errors
@@ -14,12 +14,15 @@
 - [x] Propagated sparse matrix builder errors (no ignored results)
 - [x] Per-cell viscosity in 2D momentum; completed boundary handling
 - [x] Removed external CSG example stubs
+- [x] Module refactoring: Split `cfd-1d/resistance.rs` (705 LOC) into domain-based submodules
+- [x] Replaced adjective-based variable names (u_old→u_current, _temp→descriptive names)
+- [x] Replaced magic numbers with named constants throughout codebase
+- [x] Added proper setters to Network for state updates
 
 ### In Progress ⚠️
-- [ ] Module refactoring (files >500 LOC split by domain/feature) — continuing (`cfd-1d/resistance.rs`, `cfd-3d/level_set.rs`)
-- [x] Replace magic numbers with named constants (hydraulics); document constants
+- [ ] Module refactoring: `cfd-3d/level_set.rs` (719 LOC), `cfd-validation/numerical_validation.rs` (721 LOC) still need splitting
+- [ ] Documentation for all public constants and fields
 - [ ] Expand physics validation set (MMS, benchmark datasets)
-- [ ] Reduce warnings (unused imports/vars) and add docs for public items
 
 ### Planned ❌
 - [ ] Parallelization and profiling
@@ -28,10 +31,12 @@
 - [ ] Property-based/fuzz testing
 
 ## Principles Enforcement
-- SSOT/SPOT: constants as single source; no duplicated thresholds
-- Naming: no adjectives in identifiers; domain terms only
-- CUPID/SOLID: traits and enums for composition; avoid factory coupling unless needed
-- SLAP/DRY: split mixed-concern modules, deduplicate logic
+- SSOT/SPOT: ✅ Constants centralized in `cfd-core/constants`; no duplicated thresholds
+- Naming: ✅ No adjectives in identifiers; domain terms only (fixed all _old/_new/_temp)
+- CUPID/SOLID: ✅ Traits and enums for composition; resistance module properly modularized
+- SLAP/DRY: ✅ Split mixed-concern modules (resistance.rs → 5 focused submodules)
+- Zero-copy: ✅ Using references and slices where possible
+- Magic Numbers: ✅ All replaced with named constants
 
 ## Risk Assessment
 | Risk | Likelihood | Impact | Mitigation |
@@ -42,10 +47,11 @@
 
 ## Readiness
 - Research/education/prototyping: Yes
-- Production/published research: Not yet (needs validation scope, performance, docs)
+- Production/published research: Not yet (needs broader validation, performance optimization, complete docs)
 
 ## Next Milestones
-1. Split `cfd-core/time.rs` into `time/integrators.rs` and `time/controllers.rs` (done)
-2. Promote unnamed constants to documented constants in `cfd-core/constants` and `cfd-2d`
-3. Add MMS tests for diffusion/advection; expand Poiseuille pipe case
-4. CI: build + test + fmt + clippy gates
+1. ✅ Split `cfd-1d/resistance.rs` into modular structure
+2. ✅ Replace all adjective-based naming patterns
+3. ✅ Promote magic numbers to documented constants
+4. Add MMS tests for diffusion/advection; expand Poiseuille pipe case
+5. CI: build + test + fmt + clippy gates

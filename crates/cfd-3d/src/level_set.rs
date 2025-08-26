@@ -451,7 +451,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
 
     /// Reinitialize to signed distance function
     pub fn reinitialize(&mut self) {
-        let mut phi_temp = self.phi.clone();
+        let mut phi_reinitialized = self.phi.clone();
         let epsilon = T::from_f64(EPSILON_SMOOTHING).unwrap_or_else(|| T::zero()) * self.dx;
         let sign_phi = self
             .phi
@@ -463,7 +463,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
             T::from_f64(0.5).unwrap_or_else(|| T::zero()) * self.dx.min(self.dy).min(self.dz);
 
         for _ in 0..self.config.max_iterations {
-            let phi_previous_temp = phi_temp.clone();
+            let phi_previous = phi_reinitialized.clone();
 
             for k in 1..self.nz - 1 {
                 for j in 1..self.ny - 1 {
@@ -471,24 +471,18 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
                         let idx = self.index(i, j, k);
 
                         // Godunov scheme for |∇φ|
-                        let dphi_dx_plus = (phi_previous_temp[self.index(i + 1, j, k)]
-                            - phi_previous_temp[idx])
-                            / self.dx;
-                        let dphi_dx_minus = (phi_previous_temp[idx]
-                            - phi_previous_temp[self.index(i - 1, j, k)])
-                            / self.dx;
-                        let dphi_dy_plus = (phi_previous_temp[self.index(i, j + 1, k)]
-                            - phi_previous_temp[idx])
-                            / self.dy;
-                        let dphi_dy_minus = (phi_previous_temp[idx]
-                            - phi_previous_temp[self.index(i, j - 1, k)])
-                            / self.dy;
-                        let dphi_dz_plus = (phi_previous_temp[self.index(i, j, k + 1)]
-                            - phi_previous_temp[idx])
-                            / self.dz;
-                        let dphi_dz_minus = (phi_previous_temp[idx]
-                            - phi_previous_temp[self.index(i, j, k - 1)])
-                            / self.dz;
+                        let dphi_dx_plus =
+                            (phi_previous[self.index(i + 1, j, k)] - phi_previous[idx]) / self.dx;
+                        let dphi_dx_minus =
+                            (phi_previous[idx] - phi_previous[self.index(i - 1, j, k)]) / self.dx;
+                        let dphi_dy_plus =
+                            (phi_previous[self.index(i, j + 1, k)] - phi_previous[idx]) / self.dy;
+                        let dphi_dy_minus =
+                            (phi_previous[idx] - phi_previous[self.index(i, j - 1, k)]) / self.dy;
+                        let dphi_dz_plus =
+                            (phi_previous[self.index(i, j, k + 1)] - phi_previous[idx]) / self.dz;
+                        let dphi_dz_minus =
+                            (phi_previous[idx] - phi_previous[self.index(i, j, k - 1)]) / self.dz;
 
                         let a_plus = dphi_dx_plus.max(T::zero());
                         let a_minus = dphi_dx_minus.min(T::zero());
@@ -517,16 +511,16 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
                             )
                         };
 
-                        phi_temp[idx] = phi_previous_temp[idx]
-                            - dtau * sign_phi[idx] * (grad_phi_norm - T::one());
+                        phi_reinitialized[idx] =
+                            phi_previous[idx] - dtau * sign_phi[idx] * (grad_phi_norm - T::one());
                     }
                 }
             }
 
             // Check convergence
-            let error = phi_temp
+            let error = phi_reinitialized
                 .iter()
-                .zip(phi_previous_temp.iter())
+                .zip(phi_previous.iter())
                 .map(|(p1, p2)| (*p1 - *p2).abs())
                 .fold(T::zero(), nalgebra::RealField::max);
 
@@ -535,7 +529,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
             }
         }
 
-        self.phi = phi_temp;
+        self.phi = phi_reinitialized;
 
         if self.config.use_narrow_band {
             self.update_narrow_band();
