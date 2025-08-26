@@ -6,6 +6,7 @@
 use crate::error::{Error, NumericalErrorKind, Result};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
+
 /// Safe conversion from f64 to generic RealField type
 ///
 /// # Errors
@@ -19,27 +20,40 @@ pub fn from_f64<T: RealField + FromPrimitive>(value: f64) -> Result<T> {
         })
     })
 }
+
 /// Safe conversion from usize to generic RealField type
 pub fn from_usize<T: RealField + FromPrimitive>(value: usize) -> Result<T> {
     T::from_usize(value).ok_or_else(|| {
+        Error::Numerical(NumericalErrorKind::ConversionFailed {
             from_type: "usize",
+            to_type: std::any::type_name::<T>(),
+            value: value.to_string(),
+        })
+    })
+}
+
 /// Safe conversion from i32 to generic RealField type  
 pub fn from_i32<T: RealField + FromPrimitive>(value: i32) -> Result<T> {
     T::from_i32(value).ok_or_else(|| {
+        Error::Numerical(NumericalErrorKind::ConversionFailed {
             from_type: "i32",
+            to_type: std::any::type_name::<T>(),
+            value: value.to_string(),
+        })
+    })
+}
+
 /// Get mathematical constant PI
 pub fn pi<T: RealField + FromPrimitive>() -> Result<T> {
     from_f64(std::f64::consts::PI)
+}
+
 /// Get mathematical constant E (Euler's number)
 pub fn e<T: RealField + FromPrimitive>() -> Result<T> {
     from_f64(std::f64::consts::E)
+}
+
 /// Get mathematical constant TAU (2*PI)
 pub fn tau<T: RealField + FromPrimitive>() -> Result<T> {
     from_f64(std::f64::consts::TAU)
-}
-}
-}
-}
-}
-}
 }

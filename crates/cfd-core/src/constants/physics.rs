@@ -24,6 +24,7 @@ pub mod fluid {
     /// Pipe flow shape factor (circular cross-section)
     pub const PIPE_SHAPE_FACTOR: f64 = 2.0;
 }
+
 /// Thermodynamics constants
 pub mod thermo {
     /// Universal gas constant [J/(mol·K)]
@@ -40,6 +41,8 @@ pub mod thermo {
     pub const CELSIUS_TO_KELVIN: f64 = 273.15;
     /// Stefan-Boltzmann constant [W/(m²·K⁴)]
     pub const STEFAN_BOLTZMANN: f64 = 5.670374419e-8;
+}
+
 /// Turbulence model constants
 pub mod turbulence {
     /// k-ε model constants (Launder & Spalding 1974)
@@ -53,6 +56,7 @@ pub mod turbulence {
     pub const K_EPSILON_SIGMA_K: f64 = 1.0;
     /// σ_ε turbulent Prandtl number for ε
     pub const K_EPSILON_SIGMA_EPSILON: f64 = 1.3;
+
     /// k-ω SST model constants (Menter 1994)
     /// α₁ constant for SST limiter
     pub const K_OMEGA_ALPHA1: f64 = 0.31;
@@ -68,6 +72,7 @@ pub mod turbulence {
     pub const K_OMEGA_SIGMA_W1: f64 = 0.5;
     /// σ_ω2 diffusion constant for ω (outer)
     pub const K_OMEGA_SIGMA_W2: f64 = 0.856;
+
     /// Spalart-Allmaras model constants
     /// cb1 production constant
     pub const SA_CB1: f64 = 0.1355;
@@ -83,6 +88,8 @@ pub mod turbulence {
     pub const SA_CW3: f64 = 2.0;
     /// Spalart-Allmaras model sigma constant
     pub const SA_SIGMA: f64 = 2.0 / 3.0;
+}
+
 /// Hydraulics and internal flow correlations
 pub mod hydraulics {
     /// Divisor in the relative roughness term ε/(3.7D) for Colebrook-White
@@ -99,6 +106,8 @@ pub mod hydraulics {
     pub const HAALAND_LOG_COEFFICIENT: f64 = -1.8;
     /// Haaland exponent on relative roughness term
     pub const HAALAND_ROUGHNESS_EXPONENT: f64 = 1.11;
+}
+
 /// Dimensionless numbers thresholds
 pub mod dimensionless {
     /// Critical Reynolds numbers for different geometries
@@ -116,6 +125,7 @@ pub mod dimensionless {
         /// Cylinder drag crisis
         pub const CYLINDER_CRITICAL: f64 = 2e5;
     }
+
     /// Critical Mach numbers
     pub mod mach {
         /// Incompressible flow limit
@@ -126,12 +136,17 @@ pub mod dimensionless {
         pub const TRANSONIC_UPPER: f64 = 1.2;
         /// Hypersonic regime start
         pub const HYPERSONIC: f64 = 5.0;
+    }
+
     /// Critical Froude numbers
     pub mod froude {
         /// Subcritical flow
         pub const SUBCRITICAL: f64 = 1.0;
         /// Hydraulic jump threshold
         pub const JUMP_THRESHOLD: f64 = 1.7;
+    }
+}
+
 /// Mathematical constants used in physics
 pub mod math {
     use std::f64::consts;
@@ -147,3 +162,4 @@ pub mod math {
     pub const E: f64 = consts::E;
     /// Golden ratio
     pub const PHI: f64 = 1.618033988749895;
+}
