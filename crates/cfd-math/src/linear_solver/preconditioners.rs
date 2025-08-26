@@ -1,11 +1,17 @@
 //! Preconditioner implementations for iterative solvers
 
 use super::traits::Preconditioner;
+use cfd_core::error::{Error, NumericalErrorKind};
 use crate::sparse::SparseMatrixExt;
+use cfd_core::error::{Error, NumericalErrorKind};
 use cfd_core::error::{Error, NumericalErrorKind, Result};
+use cfd_core::error::{Error, NumericalErrorKind};
 use nalgebra::{DVector, RealField};
+use cfd_core::error::{Error, NumericalErrorKind};
 use nalgebra_sparse::CsrMatrix;
+use cfd_core::error::{Error, NumericalErrorKind};
 use num_traits::FromPrimitive;
+use cfd_core::error::{Error, NumericalErrorKind};
 
 /// Identity preconditioner (no preconditioning)
 #[derive(Default)]

@@ -1,13 +1,21 @@
 //! BiCGSTAB solver implementation
 
 use super::preconditioners::IdentityPreconditioner;
+use cfd_core::error::{Error, NumericalErrorKind};
 use super::traits::{LinearSolver, Preconditioner};
+use cfd_core::error::{Error, NumericalErrorKind};
 use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind, Result};
+use cfd_core::error::{Error, NumericalErrorKind};
 use cfd_core::solver::LinearSolverConfig;
+use cfd_core::error::{Error, NumericalErrorKind};
 use nalgebra::{DVector, RealField};
+use cfd_core::error::{Error, NumericalErrorKind};
 use nalgebra_sparse::CsrMatrix;
+use cfd_core::error::{Error, NumericalErrorKind};
 use num_traits::FromPrimitive;
+use cfd_core::error::{Error, NumericalErrorKind};
 use std::fmt::Debug;
+use cfd_core::error::{Error, NumericalErrorKind};
 
 /// BiCGSTAB solver with optimized memory management
 pub struct BiCGSTAB<T: RealField + Copy> {

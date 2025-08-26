@@ -1,6 +1,12 @@
 //! Resistance model implementations
 
 use super::{FlowConditions, ResistanceModel};
+use cfd_core::error::{Error, NumericalErrorKind};
+use cfd_core::error::{Error, NumericalErrorKind};
+use cfd_core::error::{Error, NumericalErrorKind};
+use cfd_core::error::{Error, NumericalErrorKind};
+use cfd_core::error::{Error, NumericalErrorKind};
+use cfd_core::error::{Error, NumericalErrorKind};
 use cfd_core::error::{Error, Result};
 use cfd_core::fluid::Fluid;
 use nalgebra::RealField;

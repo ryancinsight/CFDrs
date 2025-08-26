@@ -113,11 +113,13 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
 
                 // Face diffusion conductances (gamma/Delta)
                 let half = T::from_f64(0.5).ok_or_else(|| {
-                    cfd_core::Error::Numerical(cfd_core::error::NumericalErrorKind::ConversionFailed {
-                        from_type: "f64",
-                        to_type: std::any::type_name::<T>(),
-                        value: "0.5".to_string(),
-                    })
+                    cfd_core::Error::Numerical(
+                        cfd_core::error::NumericalErrorKind::ConversionFailed {
+                            from_type: "f64",
+                            to_type: std::any::type_name::<T>(),
+                            value: "0.5".to_string(),
+                        },
+                    )
                 })?;
                 let gamma_e = (kinematic_visc.at(i, j) + kinematic_visc.at(i + 1, j)) * half;
                 let gamma_w = (kinematic_visc.at(i - 1, j) + kinematic_visc.at(i, j)) * half;

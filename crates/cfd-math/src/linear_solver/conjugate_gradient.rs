@@ -1,13 +1,21 @@
 //! Preconditioned Conjugate Gradient solver implementation
 
 use super::traits::{LinearSolver, Preconditioner};
+use cfd_core::error::{Error, NumericalErrorKind};
 use crate::vector_ops::SimdVectorOps;
+use cfd_core::error::{Error, NumericalErrorKind};
 use cfd_core::error::{ConvergenceErrorKind, Error, Result};
+use cfd_core::error::{Error, NumericalErrorKind};
 use cfd_core::solver::LinearSolverConfig;
+use cfd_core::error::{Error, NumericalErrorKind};
 use nalgebra::{DVector, RealField};
+use cfd_core::error::{Error, NumericalErrorKind};
 use nalgebra_sparse::CsrMatrix;
+use cfd_core::error::{Error, NumericalErrorKind};
 use num_traits::FromPrimitive;
+use cfd_core::error::{Error, NumericalErrorKind};
 use std::fmt::Debug;
+use cfd_core::error::{Error, NumericalErrorKind};
 
 /// Preconditioned Conjugate Gradient solver with optimized memory management
 pub struct ConjugateGradient<T: RealField + Copy> {

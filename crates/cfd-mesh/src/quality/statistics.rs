@@ -59,7 +59,10 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> QualityStatistics<T> 
             let a = sorted[mid - 1];
             let b = sorted[mid];
             let two = T::from_f64(2.0).ok_or_else(|| {
-                    value: "Cannot convert 2.0".to_string(),
+                Error::Numerical(NumericalErrorKind::ConversionFailed {
+                    from_type: "f64",
+                    to_type: std::any::type_name::<T>(),
+                    value: "2.0".to_string(),
                 })
             })?;
             Ok(Some((a + b) / two))
@@ -89,7 +92,10 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> QualityStatistics<T> 
             .sum();
 
         let n = T::from_usize(self.samples.len() - 1).ok_or_else(|| {
-                value: "Cannot convert sample count".to_string(),
+            Error::Numerical(NumericalErrorKind::ConversionFailed {
+                from_type: "usize",
+                to_type: std::any::type_name::<T>(),
+                value: (self.samples.len() - 1).to_string(),
             })
         })?;
         Ok(Some((variance / n).sqrt()))

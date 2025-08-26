@@ -1,9 +1,13 @@
 //! Core traits for linear solvers and preconditioners
 
 use cfd_core::error::Result;
+use cfd_core::error::{Error, NumericalErrorKind};
 use cfd_core::solver::LinearSolverConfig;
+use cfd_core::error::{Error, NumericalErrorKind};
 use nalgebra::{DVector, RealField};
+use cfd_core::error::{Error, NumericalErrorKind};
 use nalgebra_sparse::CsrMatrix;
+use cfd_core::error::{Error, NumericalErrorKind};
 
 /// Trait for linear solvers
 pub trait LinearSolver<T: RealField + Copy>: Send + Sync {

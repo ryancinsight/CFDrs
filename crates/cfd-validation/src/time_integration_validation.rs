@@ -3,7 +3,7 @@
 //! This module validates time integration methods against analytical solutions
 //! for ODEs and PDEs with known exact solutions.
 
-use cfd_core::Result;
+use cfd_core::{Result, error::{Error, NumericalErrorKind}};
 use nalgebra::{ComplexField, DVector, RealField};
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 use std::f64::consts::PI;
