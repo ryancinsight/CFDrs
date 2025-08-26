@@ -6,6 +6,7 @@ use crate::network::Network;
 use cfd_core::{boundary::BoundaryConditionSet, fluid::Fluid, Problem, Result};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
+
 /// Problem definition for 1D network flow analysis
 ///
 /// This encapsulates the network state and configuration as a Problem that can be
@@ -21,11 +22,13 @@ pub struct NetworkProblem<T: RealField + Copy> {
     /// Boundary conditions (placeholder for now)
     boundary_conditions: BoundaryConditionSet<T>,
 }
+
 impl<T: RealField + Copy + FromPrimitive + Copy> NetworkProblem<T> {
     /// Create a new network problem
     pub fn new(network: Network<T>) -> Self {
         let node_count = network.node_count();
         let characteristic_length = network.characteristic_length();
+
         Self {
             domain: NetworkDomain::new(node_count, characteristic_length),
             fluid: network.fluid().clone(),
@@ -33,14 +36,25 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkProblem<T> {
             network,
         }
     }
+}
+
 impl<T: RealField + Copy + FromPrimitive + Copy> Problem<T> for NetworkProblem<T> {
     type Domain = NetworkDomain<T>;
     type State = NetworkState<T>;
+
     fn domain(&self) -> &Self::Domain {
         &self.domain
+    }
+
     fn fluid(&self) -> &Fluid<T> {
         &self.fluid
+    }
+
     fn boundary_conditions(&self) -> &BoundaryConditionSet<T> {
         &self.boundary_conditions
+    }
+
     fn initial_state(&self) -> Result<Self::State> {
         Ok(NetworkState::from_network(&self.network))
+    }
+}

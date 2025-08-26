@@ -6,6 +6,7 @@ use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
 /// Pump type enumeration
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum PumpType {
@@ -18,6 +19,7 @@ pub enum PumpType {
     /// Electroosmotic pump
     Electroosmotic,
 }
+
 /// Micropump component
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Micropump<T: RealField + Copy> {
@@ -31,6 +33,8 @@ pub struct Micropump<T: RealField + Copy> {
     pub operating_point: T,
     /// Additional parameters
     pub parameters: HashMap<String, T>,
+}
+
 impl<T: RealField + Copy + FromPrimitive + Float> Micropump<T> {
     /// Create a new micropump
     pub fn new(max_flow_rate: T, max_pressure: T) -> Self {
@@ -42,14 +46,22 @@ impl<T: RealField + Copy + FromPrimitive + Float> Micropump<T> {
             parameters: HashMap::new(),
         }
     }
+}
+
 impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Micropump<T> {
     fn resistance(&self, _fluid: &Fluid<T>) -> T {
         // Pumps provide negative resistance (pressure source)
         -self.max_pressure / self.max_flow_rate
+    }
+
     fn component_type(&self) -> &str {
         "Micropump"
+    }
+
     fn parameters(&self) -> &HashMap<String, T> {
         &self.parameters
+    }
+
     fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
         match key {
             "max_flow_rate" => self.max_flow_rate = value,
@@ -59,6 +71,11 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Micropump<T> 
             _ => {
                 self.parameters.insert(key.to_string(), value);
             }
+        }
         Ok(())
+    }
+
     fn is_active(&self) -> bool {
         true
+    }
+}

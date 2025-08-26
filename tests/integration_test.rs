@@ -47,6 +47,7 @@ fn test_2d_grid_creation() {
 #[test]
 fn test_analytical_validation() {
     use cfd_validation::analytical::{AnalyticalSolution, PoiseuilleFlow};
+    
 
     // Poiseuille flow parameters
     let channel_width = 0.1; // 10 cm channel width

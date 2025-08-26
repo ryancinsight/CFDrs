@@ -5,12 +5,14 @@
 
 use crate::mesh::{Cell, Face, Vertex};
 use nalgebra::RealField;
+
 /// Grid types
 #[derive(Debug, Clone, Copy)]
 pub enum GridType {
     Structured,
     Unstructured,
 }
+
 /// Grid dimensions
 #[derive(Debug, Clone)]
 pub struct GridDimensions<T: RealField + Copy> {
@@ -24,7 +26,10 @@ pub struct GridDimensions<T: RealField + Copy> {
     pub nz: usize,
     /// Domain bounds
     pub bounds: ((T, T), (T, T), (T, T)),
+}
+
 /// Grid structure for mesh generation
+#[derive(Debug, Clone)]
 pub struct Grid<T: RealField + Copy> {
     /// Grid vertices
     pub vertices: Vec<Vertex<T>>,
@@ -34,6 +39,8 @@ pub struct Grid<T: RealField + Copy> {
     pub cells: Vec<Cell>,
     /// Grid dimensions
     pub dimensions: GridDimensions<T>,
+}
+
 impl<T: RealField + Copy> Grid<T> {
     /// Create a new grid
     #[must_use]
@@ -49,10 +56,16 @@ impl<T: RealField + Copy> Grid<T> {
                 nz,
                 bounds: (
                     (T::zero(), T::one()),
+                    (T::zero(), T::one()),
+                    (T::zero(), T::one()),
                 ),
             },
         }
     }
+
     /// Get total number of cells
+    #[must_use]
     pub fn cell_count(&self) -> usize {
         self.dimensions.nx * self.dimensions.ny * self.dimensions.nz
+    }
+}

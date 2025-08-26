@@ -6,6 +6,7 @@ pub mod energy;
 pub mod momentum;
 pub mod turbulence;
 pub mod vorticity_stream;
+
 // Re-export main physics types
 pub use energy::EnergyEquationSolver;
 pub use momentum::{MomentumCoefficients, MomentumComponent, MomentumSolver};
