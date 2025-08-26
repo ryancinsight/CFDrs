@@ -29,3 +29,8 @@ impl NumericConstants {
     /// Get 4.0 in type T
     pub fn four<T: RealField + FromPrimitive>() -> Result<T> {
         from_f64(4.0)
+}
+}
+}
+}
+}

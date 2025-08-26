@@ -136,3 +136,21 @@ mod tests {
         assert_eq!(problem.fluid.name.clone(), "Water (20°C)");
         assert_eq!(problem.boundary_conditions.conditions.len(), 3);
         assert!(problem.parameters.transient);
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

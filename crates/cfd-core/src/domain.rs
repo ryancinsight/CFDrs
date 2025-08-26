@@ -188,3 +188,43 @@ mod tests {
         let domain_3d = Domain3D::new(Point3::new(0.0, 0.0, 0.0), Point3::new(1.0, 1.0, 1.0));
         let any_domain: AnyDomain<f64> = domain_3d.into();
         assert_eq!(any_domain.dimension(), 3);
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

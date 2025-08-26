@@ -146,3 +146,35 @@ mod tests {
         state.increment_iteration();
         assert_eq!(state.time(), 1.0);
         assert_eq!(state.iteration(), 1);
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

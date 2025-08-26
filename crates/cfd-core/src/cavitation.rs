@@ -357,3 +357,43 @@ mod tests {
         assert!(p_throat < venturi.inlet_pressure);
         let sigma = venturi.throat_cavitation_number(v_inlet);
         assert!(sigma > 0.0);
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

@@ -177,3 +177,18 @@ mod tests {
         assert_eq!(require(some_value, "missing").unwrap(), 42);
         let none_value: Option<i32> = None;
         assert!(require(none_value, "missing").is_err());
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

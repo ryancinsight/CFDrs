@@ -231,3 +231,26 @@ pub struct QualityAssessment {
     pub orthogonality_quality: QualityLevel,
     /// Improvement recommendations
     pub recommendations: Vec<String>,
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}
+}

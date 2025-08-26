@@ -36,3 +36,10 @@ pub fn e<T: RealField + FromPrimitive>() -> Result<T> {
 /// Get mathematical constant TAU (2*PI)
 pub fn tau<T: RealField + FromPrimitive>() -> Result<T> {
     from_f64(std::f64::consts::TAU)
+}
+}
+}
+}
+}
+}
+}
