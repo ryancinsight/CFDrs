@@ -6,6 +6,7 @@ use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
 /// Valve type enumeration
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ValveType {
@@ -18,6 +19,7 @@ pub enum ValveType {
     /// Proportional control valve
     Proportional,
 }
+
 /// Microvalve component
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Microvalve<T: RealField + Copy> {
@@ -27,6 +29,8 @@ pub struct Microvalve<T: RealField + Copy> {
     pub opening: T,
     /// Additional parameters
     pub parameters: HashMap<String, T>,
+}
+
 impl<T: RealField + Copy + FromPrimitive + Float> Microvalve<T> {
     /// Create a new microvalve
     pub fn new(cv: T) -> Self {
@@ -36,6 +40,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> Microvalve<T> {
             parameters: HashMap::new(),
         }
     }
+}
+
 impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Microvalve<T> {
     fn resistance(&self, _fluid: &Fluid<T>) -> T {
         if self.opening <= T::zero() {
@@ -45,10 +51,17 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Microvalve<T>
             // Resistance inversely proportional to opening
             let base_resistance = T::one() / (self.cv * self.cv);
             base_resistance / (self.opening * self.opening)
+        }
+    }
+
     fn component_type(&self) -> &str {
         "Microvalve"
+    }
+
     fn parameters(&self) -> &HashMap<String, T> {
         &self.parameters
+    }
+
     fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
         match key {
             "cv" => self.cv = value,
@@ -63,6 +76,12 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Microvalve<T>
             }
             _ => {
                 self.parameters.insert(key.to_string(), value);
+            }
+        }
         Ok(())
+    }
+
     fn is_active(&self) -> bool {
         true
+    }
+}

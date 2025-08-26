@@ -7,6 +7,7 @@ pub mod advection_diffusion;
 pub mod config;
 pub mod linear_solver;
 pub mod poisson;
+
 // Re-export main types
 pub use advection_diffusion::AdvectionDiffusionSolver;
 pub use config::FdmConfig;

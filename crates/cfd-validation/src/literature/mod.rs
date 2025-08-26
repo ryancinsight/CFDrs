@@ -10,17 +10,22 @@ pub mod chapman_enskog;
 // pub mod ghia_1982;
 // pub mod issa_1986;
 pub mod patankar_1980;
+
 use cfd_core::Result;
 use nalgebra::RealField;
+
 /// Literature validation test trait
 pub trait LiteratureValidation<T: RealField + Copy> {
     /// Run validation test
     fn validate(&self) -> Result<ValidationReport<T>>;
+
     /// Get reference citation
     fn citation(&self) -> &str;
+
     /// Get expected accuracy
     fn expected_accuracy(&self) -> T;
 }
+
 /// Validation report
 #[derive(Debug, Clone)]
 pub struct ValidationReport<T: RealField + Copy> {
@@ -36,3 +41,4 @@ pub struct ValidationReport<T: RealField + Copy> {
     pub passed: bool,
     /// Detailed results
     pub details: String,
+}

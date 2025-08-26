@@ -8,6 +8,7 @@ pub mod convergence;
 pub mod corrector;
 pub mod predictor;
 pub mod solver;
+
 pub use config::PisoConfig;
 pub use convergence::ConvergenceCriteria;
 pub use solver::PisoSolver;

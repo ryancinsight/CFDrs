@@ -12,6 +12,7 @@ pub mod fluid_dynamics;
 pub mod material_properties;
 pub mod mesh_operations;
 pub mod numerical_methods;
+
 // Re-export domain-specific functionality
 pub use boundary_conditions::BoundaryConditionApplicator;
 pub use fluid_dynamics::{

@@ -7,11 +7,14 @@ mod assembly;
 mod builder;
 mod operations;
 mod patterns;
+
 pub use assembly::ParallelAssembly;
 pub use builder::{MatrixEntry, SparseMatrixBuilder};
 pub use operations::SparseMatrixExt;
 pub use patterns::SparsePatterns;
+
 // Re-export the core sparse matrix type
 pub use nalgebra_sparse::CsrMatrix as SparseMatrix;
+
 #[cfg(test)]
 mod tests;

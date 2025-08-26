@@ -1,123 +1,51 @@
-# CFD Suite Development Checklist
+# CFD Suite - Technical Checklist
 
-## Version: 0.61.0
-## Status: REPAIR IN PROGRESS
+## Version 0.57.3 - Current State
 
-## 🔧 Current Focus: BUILD ISSUES
+### Completed ✅
+- [x] Workspace builds without errors
+- [x] All tests pass (workspace)
+- [x] Examples compile and run
+- [x] Memory safety (Rust)
+- [x] Result-based error handling
+- [x] Analytical validations: Couette, Poiseuille (plates), Taylor-Green
+- [x] Removed placeholder CSG constructor
+- [x] Fixed benches: iterator trait import, Poiseuille API, sparse matvec
+- [x] Propagated sparse matrix builder errors (no ignored results)
+- [x] Per-cell viscosity in 2D momentum; completed boundary handling
+- [x] Removed external CSG example stubs
 
-### Immediate Tasks
-- [ ] Fix delimiter mismatches in cfd-core
-- [ ] Repair function closures
-- [ ] Fix enum definitions
-- [ ] Restore proper module structure
+### In Progress ⚠️
+- [ ] Module refactoring (files >500 LOC split by domain/feature) — continuing (`cfd-1d/resistance.rs`, `cfd-3d/level_set.rs`)
+- [x] Replace magic numbers with named constants (hydraulics); document constants
+- [ ] Expand physics validation set (MMS, benchmark datasets)
+- [ ] Reduce warnings (unused imports/vars) and add docs for public items
 
-### Files Needing Repair
-- [~] boundary.rs (partially fixed)
-- [ ] cavitation.rs
-- [ ] plugin.rs (critical)
-- [ ] values.rs (critical)
-- [ ] domain.rs
-- [ ] state.rs
-- [ ] fluid.rs
-- [ ] factory.rs
-- [ ] services.rs
-- [ ] problem.rs
-- [ ] error.rs
+### Planned ❌
+- [ ] Parallelization and profiling
+- [ ] SIMD/SWAR where safe and portable
+- [ ] CI with lint + test matrix
+- [ ] Property-based/fuzz testing
 
-## ✅ Completed Improvements
-
-### Numeric Safety
-- [x] Created safe conversion module (cfd_core::numeric)
-- [x] Replaced ALL T::zero() fallbacks
-- [x] Proper error propagation
-- [x] No silent failures
-
-### Physics Correctness
-- [x] Fixed Gauss-Seidel implementation
-- [x] Removed unphysical damping
-- [x] Implemented proper SIMPLE algorithm
-- [x] Validated momentum equations
-
-### Architecture
-- [x] Split large modules (>500 LOC)
-- [x] Domain-based organization
-- [x] Clean module boundaries
-- [x] Proper trait abstractions
-
-### Code Quality
-- [x] No adjective-based naming
-- [x] All magic numbers replaced
-- [x] Consistent naming conventions
-- [x] SSOT for constants
-
-## 🚧 In Progress
-
-### Build System
-- [ ] All modules compile
-- [ ] No warnings
-- [ ] All tests pass
-- [ ] Examples run
-
-### Validation
-- [ ] Unit test coverage >80%
-- [ ] Integration tests complete
-- [ ] Benchmark validation
-- [ ] Literature comparison
-
-## 📋 Next Steps
-
-### After Build Fixed
-1. Run full test suite
-2. Validate physics implementations
-3. Performance benchmarking
-4. Documentation update
-
-### Before Release
-1. Code review
-2. Security audit
-3. Performance profiling
-4. User documentation
-
-## Design Principles Status
-
-| Principle | Applied | Verified |
-|-----------|---------|----------|
-| SSOT | ✅ | ⏳ |
-| SOLID | ✅ | ⏳ |
-| CUPID | ✅ | ⏳ |
-| GRASP | ✅ | ⏳ |
-| CLEAN | ✅ | ⏳ |
-| DRY | ✅ | ⏳ |
-
-## Module Status
-
-| Module | Builds | Tests | Validated |
-|--------|--------|-------|-----------|
-| cfd-core | ❌ | - | - |
-| cfd-math | ⏳ | - | - |
-| cfd-mesh | ⏳ | - | - |
-| cfd-1d | ⏳ | - | - |
-| cfd-2d | ⏳ | - | - |
-| cfd-3d | ⏳ | - | - |
-| cfd-io | ⏳ | - | - |
-| cfd-validation | ⏳ | - | - |
-
-## Recovery Timeline
-
-- **Day 1** (Current): Fix core build issues
-- **Day 2**: Validate all modules, run tests
-- **Day 3**: Performance validation, documentation
-- **Day 4**: Final review and release preparation
-
-## Notes
-
-The codebase has been significantly improved but requires completion of structural repairs from automated refactoring issues. Core algorithms and physics implementations are correct.
+## Principles Enforcement
+- SSOT/SPOT: constants as single source; no duplicated thresholds
+- Naming: no adjectives in identifiers; domain terms only
+- CUPID/SOLID: traits and enums for composition; avoid factory coupling unless needed
+- SLAP/DRY: split mixed-concern modules, deduplicate logic
 
 ## Risk Assessment
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| Incorrect physics | Medium | High | Expand validation set |
+| Runtime panic | Low | Medium | Replace unwrap/expect, tests |
+| Performance gaps | High | Medium | Profile, parallelize hot paths |
 
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| Build failures | High | Manual repair in progress |
-| Test failures | Medium | Will address after build |
-| Performance regression | Low | Benchmarks pending |
-| API changes | Low | Interfaces stable |
+## Readiness
+- Research/education/prototyping: Yes
+- Production/published research: Not yet (needs validation scope, performance, docs)
+
+## Next Milestones
+1. Split `cfd-core/time.rs` into `time/integrators.rs` and `time/controllers.rs` (done)
+2. Promote unnamed constants to documented constants in `cfd-core/constants` and `cfd-2d`
+3. Add MMS tests for diffusion/advection; expand Poiseuille pipe case
+4. CI: build + test + fmt + clippy gates

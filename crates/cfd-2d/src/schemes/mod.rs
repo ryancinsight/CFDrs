@@ -5,6 +5,7 @@
 
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
+
 // Re-export submodules
 pub mod central;
 pub mod constants;
@@ -13,6 +14,7 @@ pub mod time_integration;
 pub mod tvd;
 pub mod upwind;
 pub mod weno;
+
 // Re-export main types
 pub use central::{CentralDifference, FourthOrderCentral};
 pub use grid::Grid2D;
@@ -20,6 +22,7 @@ pub use time_integration::{TimeIntegrator, TimeScheme};
 pub use tvd::{FluxLimiter, MUSCLScheme, QUICKScheme};
 pub use upwind::{FirstOrderUpwind, SecondOrderUpwind};
 pub use weno::WENO5;
+
 /// Spatial discretization scheme
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum SpatialScheme {
@@ -38,11 +41,15 @@ pub enum SpatialScheme {
     /// Fourth-order explicit central difference
     FourthOrderCentral,
 }
+
 /// Trait for spatial discretization schemes
 pub trait SpatialDiscretization<T: RealField + Copy> {
     /// Compute spatial derivative
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T;
+
     /// Get scheme order of accuracy
     fn order(&self) -> usize;
+
     /// Check if scheme is conservative
     fn is_conservative(&self) -> bool;
+}

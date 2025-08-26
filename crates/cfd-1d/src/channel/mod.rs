@@ -8,6 +8,7 @@ mod flow;
 mod geometry;
 mod solver;
 mod surface;
+
 pub use cross_section::CrossSection;
 pub use flow::{Channel, FlowRegime, FlowState, NumericalParameters};
 pub use geometry::{ChannelGeometry, ChannelType, GeometricVariation};
