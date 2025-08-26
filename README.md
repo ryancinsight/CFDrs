@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 0.57.3** - Research Software
+**Version 0.57.4** - Research Software
 
 ## Status
 
@@ -16,8 +16,9 @@
 - ✅ Result-based error handling
 
 ## Technical Debt (tracked)
-- Modules over 500 LOC to split by feature (e.g., `cfd-1d/resistance.rs`, `cfd-3d/level_set.rs`)
-- Missing documentation warnings for constants and fields
+- ✅ RESOLVED: Split `cfd-1d/resistance.rs` into modular components
+- Remaining modules over 500 LOC: `cfd-3d/level_set.rs`, `cfd-validation/numerical_validation.rs`
+- Missing documentation warnings for some constants and fields
 - Validation scope to expand beyond initial cases
 - Parallelization and performance not addressed
 

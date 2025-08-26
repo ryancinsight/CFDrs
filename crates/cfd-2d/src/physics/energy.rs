@@ -14,6 +14,8 @@ pub mod constants {
     pub const DEFAULT_PRANDTL: f64 = 0.71;
     /// Stefan-Boltzmann constant [W/(m²·K⁴)]
     pub const STEFAN_BOLTZMANN: f64 = 5.67e-8;
+    /// Central difference coefficient for second derivatives
+    pub const CENTRAL_DIFF_COEFF: f64 = 2.0;
 }
 
 /// Energy equation solver
@@ -80,13 +82,10 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
                 };
 
                 // Diffusion terms (central difference)
-                let d2t_dx2 = (self.temperature[i + 1][j]
-                    - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * t
-                    + self.temperature[i - 1][j])
+                let coeff = T::from_f64(constants::CENTRAL_DIFF_COEFF).unwrap_or_else(|| T::zero());
+                let d2t_dx2 = (self.temperature[i + 1][j] - coeff * t + self.temperature[i - 1][j])
                     / (dx * dx);
-                let d2t_dy2 = (self.temperature[i][j + 1]
-                    - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * t
-                    + self.temperature[i][j - 1])
+                let d2t_dy2 = (self.temperature[i][j + 1] - coeff * t + self.temperature[i][j - 1])
                     / (dy * dy);
 
                 // Update temperature

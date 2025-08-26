@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## CFD Suite v0.57.3
+## CFD Suite v0.57.4
 
 ### Product Classification
 Research software (not production)
@@ -31,6 +31,9 @@ Research software (not production)
 1) Structure
 - [x] Split `cfd-core/time.rs` into `time/integrators.rs`, `time/controllers.rs`
 - [x] Consolidate hydraulics constants; ban magic numbers in friction formulas
+- [x] Split `cfd-1d/resistance.rs` into domain-based modules
+- [x] Remove duplicate/misnamed directories (crases)
+- [x] Fix all adjective-based naming violations
 
 2) Validation
 - Add MMS for diffusion/advection

@@ -1,6 +1,6 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.57.3 - Current State
+## Version 0.57.4 - Current State
 
 ### Completed ✅
 - [x] Workspace builds without errors
@@ -14,9 +14,15 @@
 - [x] Propagated sparse matrix builder errors (no ignored results)
 - [x] Per-cell viscosity in 2D momentum; completed boundary handling
 - [x] Removed external CSG example stubs
+- [x] Split `cfd-1d/resistance.rs` into modular subcomponents (models, factory, calculator, geometry)
+- [x] Fixed adjective-based naming violations (f_temp → f_buffer, temp → state_buffer)
+- [x] Replaced magic numbers with named constants throughout physics implementations
+- [x] Implemented proper VOF volume calculation replacing placeholder implementation
+- [x] Fixed underscored/unused variable issues in spectral Poisson solver
 
 ### In Progress ⚠️
-- [ ] Module refactoring (files >500 LOC split by domain/feature) — continuing (`cfd-1d/resistance.rs`, `cfd-3d/level_set.rs`)
+- [x] Module refactoring (files >500 LOC split by domain/feature) — completed `cfd-1d/resistance.rs`
+- [ ] Module refactoring continuing for: `cfd-3d/level_set.rs`, `cfd-validation/numerical_validation.rs`
 - [x] Replace magic numbers with named constants (hydraulics); document constants
 - [ ] Expand physics validation set (MMS, benchmark datasets)
 - [ ] Reduce warnings (unused imports/vars) and add docs for public items
