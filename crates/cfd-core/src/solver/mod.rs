@@ -8,7 +8,6 @@ pub mod direct;
 pub mod iterative;
 pub mod monitor;
 pub mod traits;
-
 // Re-export core traits
 pub use config::{
     ConvergenceConfig, ExecutionConfig, LinearSolverConfig, NetworkConfig, NetworkSolverConfig,

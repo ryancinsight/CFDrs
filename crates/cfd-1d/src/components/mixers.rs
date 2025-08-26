@@ -6,7 +6,6 @@ use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
 /// Mixer type enumeration
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum MixerType {
@@ -19,7 +18,6 @@ pub enum MixerType {
     /// Herringbone mixer
     Herringbone,
 }
-
 /// Micromixer component
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Micromixer<T: RealField + Copy> {
@@ -31,8 +29,6 @@ pub struct Micromixer<T: RealField + Copy> {
     pub resistance: T,
     /// Additional parameters
     pub parameters: HashMap<String, T>,
-}
-
 impl<T: RealField + Copy + FromPrimitive + Float> Micromixer<T> {
     /// Create a new micromixer
     pub fn new(n_inlets: usize, resistance: T) -> Self {
@@ -43,21 +39,13 @@ impl<T: RealField + Copy + FromPrimitive + Float> Micromixer<T> {
             parameters: HashMap::new(),
         }
     }
-}
-
 impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Micromixer<T> {
     fn resistance(&self, _fluid: &Fluid<T>) -> T {
         self.resistance
-    }
-
     fn component_type(&self) -> &str {
         "Micromixer"
-    }
-
     fn parameters(&self) -> &HashMap<String, T> {
         &self.parameters
-    }
-
     fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
         match key {
             "efficiency" => {
@@ -72,8 +60,4 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Micromixer<T>
             "resistance" => self.resistance = value,
             _ => {
                 self.parameters.insert(key.to_string(), value);
-            }
-        }
         Ok(())
-    }
-}

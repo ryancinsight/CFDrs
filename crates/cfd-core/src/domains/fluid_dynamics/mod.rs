@@ -8,7 +8,6 @@ pub mod flow_regimes;
 pub mod operations;
 pub mod rans;
 pub mod turbulence;
-
 // Re-export core types for convenience
 pub use fields::{FlowField, PressureField, ScalarField, VelocityField};
 pub use flow_regimes::{FlowClassifier, FlowRegime};

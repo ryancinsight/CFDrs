@@ -1,18 +1,10 @@
-//! Level Set Method for interface tracking in 3D multiphase flows
+//! Level set method for interface tracking
 //!
-//! The Level Set method represents interfaces as the zero level set of a
-//! signed distance function, providing accurate interface tracking.
+//! This module implements the level set method for tracking interfaces
+//! between two fluids or phases.
 
 pub mod config;
 pub mod solver;
-pub mod advection;
-pub mod reinitialization;
-pub mod narrow_band;
-pub mod derivatives;
-
 // Re-export main types
-pub use config::LevelSetConfig;
+pub use config::{LevelSetConfig, EPSILON_DIVISION, HALF_VALUE, POWER_EXPONENT_TWO};
 pub use solver::LevelSetSolver;
-pub use advection::AdvectionScheme;
-pub use reinitialization::ReinitializationMethod;
-pub use narrow_band::NarrowBandTracker;

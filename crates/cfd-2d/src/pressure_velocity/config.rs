@@ -3,7 +3,6 @@
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
-
 /// Pressure-velocity coupling configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PressureVelocityConfig<T: RealField + Copy> {
@@ -22,7 +21,6 @@ pub struct PressureVelocityConfig<T: RealField + Copy> {
     /// Use implicit momentum solver
     pub implicit_momentum: bool,
 }
-
 impl<T: RealField + Copy + FromPrimitive + Copy> PressureVelocityConfig<T> {
     /// Create new configuration with validation
     pub fn new() -> cfd_core::error::Result<Self> {
@@ -49,20 +47,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureVelocityConfig<T> {
                 .ok_or_else(|| {
                 cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert velocity relaxation".into(),
-                )
-            })?,
             alpha_p: T::from_f64(cfd_core::constants::numerical::relaxation::PRESSURE_RELAXATION)
-                .ok_or_else(|| {
-                cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert pressure relaxation".into(),
-                )
-            })?,
             use_rhie_chow: true,
             convection_scheme: crate::schemes::SpatialScheme::SecondOrderUpwind,
             implicit_momentum: true,
         })
     }
-
     /// Validate configuration parameters
     pub fn validate(&self) -> cfd_core::error::Result<()> {
         if self.alpha_u <= T::zero() || self.alpha_u >= T::one() {
@@ -71,15 +62,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureVelocityConfig<T> {
             ));
         }
         if self.alpha_p <= T::zero() || self.alpha_p >= T::one() {
-            return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Pressure relaxation factor must be in (0, 1)".into(),
-            ));
-        }
         if self.dt <= T::zero() {
-            return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Time step must be positive".into(),
-            ));
-        }
         Ok(())
-    }
-}

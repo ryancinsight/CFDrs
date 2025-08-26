@@ -10,5 +10,4 @@ mod errors;
 // mod operations;
 // mod geometry;
 // mod transform;
-
 pub use errors::CsgError;

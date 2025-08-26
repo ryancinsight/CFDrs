@@ -4,7 +4,6 @@ use super::cross_section::CrossSection;
 use super::surface::SurfaceProperties;
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
-
 /// Extended channel geometry representation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelGeometry<T: RealField + Copy> {
@@ -19,7 +18,6 @@ pub struct ChannelGeometry<T: RealField + Copy> {
     /// Geometric variations along length
     pub variations: Vec<GeometricVariation<T>>,
 }
-
 /// Types of channel geometries
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ChannelType {
@@ -36,16 +34,11 @@ pub enum ChannelType {
     Serpentine {
         /// Number of turns in the serpentine path
         turns: usize,
-    },
     /// Spiral channel
     Spiral {
         /// Number of turns in the spiral (can be fractional)
         turns: f64,
-    },
-}
-
 /// Geometric variation along channel length
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeometricVariation<T: RealField + Copy> {
     /// Position along channel [0-1]
     pub position: T,
@@ -53,4 +46,3 @@ pub struct GeometricVariation<T: RealField + Copy> {
     pub scale_factor: T,
     /// Local roughness modification
     pub roughness_factor: T,
-}

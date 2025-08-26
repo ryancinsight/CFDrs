@@ -8,12 +8,10 @@ use std::collections::HashMap;
 
 fn benchmark_lbm_solver(c: &mut Criterion) {
     let mut group = c.benchmark_group("lbm_solver");
-
     for size in [32, 64, 128].iter() {
         let grid = StructuredGrid2D::new(*size, *size, 0.0, 1.0, 0.0, 1.0).unwrap();
         let config = LbmConfig::default();
         let mut solver = LbmSolver::new(config, &grid);
-
         // Initialize with some density and velocity
         solver
             .initialize(
@@ -21,7 +19,6 @@ fn benchmark_lbm_solver(c: &mut Criterion) {
                 |_x: f64, _y: f64| Vector2::new(0.0, 0.0),
             )
             .unwrap();
-
         group.bench_with_input(BenchmarkId::new("step", size), size, |b, _| {
             b.iter(|| {
                 let boundaries = HashMap::new();
@@ -29,13 +26,10 @@ fn benchmark_lbm_solver(c: &mut Criterion) {
             })
         });
     }
-
     group.finish();
 }
-
 fn benchmark_grid_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("grid_creation");
-
     for size in [50, 100, 200].iter() {
         group.bench_with_input(
             BenchmarkId::new("structured_grid", size),
@@ -44,10 +38,5 @@ fn benchmark_grid_creation(c: &mut Criterion) {
                 b.iter(|| black_box(StructuredGrid2D::new(size, size, 0.0, 1.0, 0.0, 1.0).unwrap()))
             },
         );
-    }
-
-    group.finish();
-}
-
 criterion_group!(benches, benchmark_lbm_solver, benchmark_grid_creation);
 criterion_main!(benches);

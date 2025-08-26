@@ -4,7 +4,5 @@
 //! CFD simulation data.
 
 #![warn(missing_docs)]
-
 pub mod vtk;
-
 pub use vtk::{VtkMesh, VtkMeshBuilder, VtkReader, VtkWriter};

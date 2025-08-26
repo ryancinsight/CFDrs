@@ -5,7 +5,6 @@
 pub mod fdm;
 pub mod fvm;
 pub mod lbm;
-
 // Re-export main solver types
 pub use fdm::{AdvectionDiffusionSolver, FdmConfig, PoissonSolver};
 pub use fvm::{FluxScheme, FvmConfig, FvmSolver};

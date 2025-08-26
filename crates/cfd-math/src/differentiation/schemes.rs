@@ -14,9 +14,7 @@ pub enum FiniteDifferenceScheme {
     /// Second-order backward: f'(x) ≈ (f(x-2h) - 4f(x-h) + 3f(x)) / (2h)
     BackwardSecondOrder,
 }
-
 impl Default for FiniteDifferenceScheme {
     fn default() -> Self {
         Self::Central
     }
-}

@@ -1,7 +1,6 @@
 //! Configuration for Level Set method
 
 use serde::{Deserialize, Serialize};
-
 // Named constants for Level Set - NO MAGIC NUMBERS!
 /// Default reinitialization interval in timesteps
 pub const DEFAULT_REINITIALIZATION_INTERVAL: usize = 5;
@@ -21,7 +20,6 @@ pub const POWER_EXPONENT_TWO: f64 = 2.0;
 pub const HALF_VALUE: f64 = 0.5;
 /// Small epsilon for avoiding division by zero
 pub const EPSILON_DIVISION: f64 = 1e-10;
-
 /// Level Set configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelSetConfig {
@@ -40,7 +38,6 @@ pub struct LevelSetConfig {
     /// Use WENO scheme for advection
     pub use_weno: bool,
 }
-
 impl Default for LevelSetConfig {
     fn default() -> Self {
         Self {
@@ -53,4 +50,3 @@ impl Default for LevelSetConfig {
             use_weno: true,
         }
     }
-}

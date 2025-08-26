@@ -6,35 +6,27 @@
 use cfd_core::Result;
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
-
 pub mod cavity;
 pub mod cylinder;
 pub mod runner;
 pub mod step;
-
 pub use cavity::LidDrivenCavity;
 pub use cylinder::FlowOverCylinder;
 pub use runner::{BenchmarkRunner, ValidationReport};
 pub use step::BackwardFacingStep;
-
 /// Trait for CFD benchmark problems
 pub trait Benchmark<T: RealField + Copy> {
     /// Get the name of the benchmark
     fn name(&self) -> &str;
-
     /// Get a description of the benchmark problem
     fn description(&self) -> &str;
-
     /// Run the benchmark and return results
     fn run(&self, config: &BenchmarkConfig<T>) -> Result<BenchmarkResult<T>>;
-
     /// Get the reference solution (if available)
     fn reference_solution(&self) -> Option<BenchmarkResult<T>>;
-
     /// Validate results against reference solution
     fn validate(&self, result: &BenchmarkResult<T>) -> Result<bool>;
 }
-
 /// Results from running a benchmark
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BenchmarkResult<T: RealField + Copy> {
@@ -50,10 +42,7 @@ pub struct BenchmarkResult<T: RealField + Copy> {
     pub execution_time: f64,
     /// Additional metadata
     pub metadata: std::collections::HashMap<String, String>,
-}
-
 /// Configuration for running benchmarks
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BenchmarkConfig<T: RealField + Copy> {
     /// Grid resolution
     pub resolution: usize,
@@ -67,8 +56,6 @@ pub struct BenchmarkConfig<T: RealField + Copy> {
     pub time_step: Option<T>,
     /// Enable parallel execution
     pub parallel: bool,
-}
-
 impl<T: RealField + Copy> Default for BenchmarkConfig<T> {
     fn default() -> Self {
         Self {
@@ -80,35 +67,19 @@ impl<T: RealField + Copy> Default for BenchmarkConfig<T> {
             parallel: true,
         }
     }
-}
-
 /// Benchmark suite for running multiple benchmarks
 pub struct BenchmarkSuite<T: RealField + Copy> {
     benchmarks: Vec<Box<dyn Benchmark<T>>>,
-}
-
 impl<T: RealField + Copy> BenchmarkSuite<T> {
     /// Create a new benchmark suite
     #[must_use]
     pub fn new() -> Self {
-        Self {
             benchmarks: Vec::new(),
-        }
-    }
-
     /// Add a benchmark to the suite
     pub fn add_benchmark(&mut self, benchmark: Box<dyn Benchmark<T>>) {
         self.benchmarks.push(benchmark);
-    }
-
     /// Run all benchmarks
     pub fn run_all(&self, config: &BenchmarkConfig<T>) -> Vec<Result<BenchmarkResult<T>>> {
         self.benchmarks.iter().map(|b| b.run(config)).collect()
-    }
-}
-
 impl<T: RealField + Copy> Default for BenchmarkSuite<T> {
-    fn default() -> Self {
         Self::new()
-    }
-}

@@ -6,7 +6,6 @@
 pub mod numerical;
 pub mod physical;
 pub mod physics;
-
 // Re-export commonly used constants at module level for convenience
 pub use physics::dimensionless;
 pub use physics::fluid;

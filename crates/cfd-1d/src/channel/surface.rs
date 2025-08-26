@@ -2,7 +2,6 @@
 
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
-
 /// Surface properties affecting flow
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SurfaceProperties<T: RealField + Copy> {
@@ -15,7 +14,6 @@ pub struct SurfaceProperties<T: RealField + Copy> {
     /// Hydrophobic/hydrophilic nature
     pub wettability: Wettability,
 }
-
 /// Surface wettability characteristics
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Wettability {
@@ -27,4 +25,3 @@ pub enum Wettability {
     Superhydrophilic,
     /// Superhydrophobic surface
     Superhydrophobic,
-}

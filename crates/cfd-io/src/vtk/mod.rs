@@ -7,7 +7,6 @@ pub mod builder;
 pub mod reader;
 pub mod types;
 pub mod writer;
-
 // Re-export main types for convenience
 pub use builder::VtkMeshBuilder;
 pub use reader::VtkReader;
