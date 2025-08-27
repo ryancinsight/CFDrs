@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 0.60.0** - Research Software
+**Version 0.61.0** - Research Software
 
 ## Status
 
@@ -19,6 +19,15 @@
 - ✅ Algorithm implementations validated with quantitative tests
 - ✅ Mesh quality analyzer with proper implementations
 - ✅ Error types fully documented with field descriptions
+
+## Technical Debt (resolved in v0.61.0)
+- ✅ Removed duplicate numerical_validation.rs (kept modular version)
+- ✅ Refactored level_set module into modular structure
+- ✅ Fixed ALL remaining magic numbers with named constants
+- ✅ Added missing documentation for enum variants
+- ✅ Validated physics implementations against literature
+- ✅ No unimplemented!, todo!, or panic! macros found
+- ✅ All underscore variables are legitimate (test/unused params)
 
 ## Technical Debt (resolved in v0.60.0)
 - ✅ Fixed ALL naming violations (no more temp_, new_, old_ prefixes)

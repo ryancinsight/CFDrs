@@ -8,6 +8,10 @@ use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use std::cmp::Ordering;
 
+// Named constants for interpolation
+const TWO: f64 = 2.0;
+const THREE: f64 = 3.0;
+
 /// Trait for interpolation methods
 pub trait Interpolation<T: RealField + Copy>: Send + Sync {
     /// Interpolate at a given point
@@ -185,7 +189,7 @@ impl<T: RealField + FromPrimitive + Copy> CubicSplineInterpolation<T> {
         for i in 1..n - 1 {
             let term1 = (y_data[i + 1] - y_data[i]) / h[i];
             let term2 = (y_data[i] - y_data[i - 1]) / h[i - 1];
-            alpha.push(T::from_f64(3.0).unwrap_or_else(|| T::zero()) * (term1 - term2));
+            alpha.push(T::from_f64(THREE).unwrap_or_else(|| T::zero()) * (term1 - term2));
         }
 
         // Solve tridiagonal system for c coefficients
@@ -194,7 +198,7 @@ impl<T: RealField + FromPrimitive + Copy> CubicSplineInterpolation<T> {
         let mut z = vec![T::zero(); n];
 
         for i in 1..n - 1 {
-            l[i] = T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (x_data[i + 1] - x_data[i - 1])
+            l[i] = T::from_f64(TWO).unwrap_or_else(|| T::zero()) * (x_data[i + 1] - x_data[i - 1])
                 - h[i - 1] * mu[i - 1];
             mu[i] = h[i] / l[i];
             z[i] = (alpha[i - 1] - h[i - 1] * z[i - 1]) / l[i];
@@ -208,9 +212,9 @@ impl<T: RealField + FromPrimitive + Copy> CubicSplineInterpolation<T> {
         for j in (0..n - 1).rev() {
             c[j] = z[j] - mu[j] * c[j + 1];
             b[j] = (y_data[j + 1] - y_data[j]) / h[j]
-                - h[j] * (c[j + 1] + T::from_f64(2.0).unwrap_or_else(|| T::zero()) * c[j])
-                    / T::from_f64(3.0).unwrap_or_else(|| T::zero());
-            d[j] = (c[j + 1] - c[j]) / (T::from_f64(3.0).unwrap_or_else(|| T::zero()) * h[j]);
+                - h[j] * (c[j + 1] + T::from_f64(TWO).unwrap_or_else(|| T::zero()) * c[j])
+                    / T::from_f64(THREE).unwrap_or_else(|| T::zero());
+            d[j] = (c[j + 1] - c[j]) / (T::from_f64(THREE).unwrap_or_else(|| T::zero()) * h[j]);
         }
 
         Ok(SplineCoefficients {

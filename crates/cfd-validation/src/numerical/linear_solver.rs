@@ -4,7 +4,6 @@ use cfd_core::error::Result;
 use cfd_math::linear_solver::LinearSolverConfig;
 use cfd_math::{BiCGSTAB, ConjugateGradient, LinearSolver};
 use nalgebra::{DVector, RealField};
-use nalgebra_sparse::CsrMatrix;
 use num_traits::{Float, FromPrimitive};
 
 use super::error_metrics::compute_error_metrics;

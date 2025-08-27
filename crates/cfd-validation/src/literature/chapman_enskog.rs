@@ -18,11 +18,16 @@ pub struct ChapmanEnskogValidation<T: RealField + Copy> {
     pub gas_type: GasType,
 }
 
+/// Gas type for Chapman-Enskog viscosity calculations
 #[derive(Debug, Clone, Copy)]
 pub enum GasType {
+    /// Air at standard conditions
     Air,
+    /// Pure nitrogen gas
     Nitrogen,
+    /// Pure oxygen gas
     Oxygen,
+    /// Pure argon gas
     Argon,
 }
 
