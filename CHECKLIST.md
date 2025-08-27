@@ -31,6 +31,16 @@
 - [x] Dead code eliminated and all functions properly exposed
 - [x] Build warnings resolved
 
+### Completed (v0.70.0) ✅
+- [x] Fixed CRITICAL bug: SIMD operations were hardcoded to addition only
+- [x] Implemented proper operation dispatch for SIMD (add, subtract, multiply, divide)
+- [x] Removed all "CRITICAL: Add proper error handling" expect() calls
+- [x] Replaced "simplified" comments with proper descriptions
+- [x] Removed unused EIGHT constant and other dead code
+- [x] Exported richardson_extrapolate function for proper usage
+- [x] Fixed all expect() messages to be descriptive instead of "CRITICAL"
+- [x] All 196 tests passing with corrected SIMD implementations
+
 ### Completed (v0.69.0) ✅
 - [x] Removed ALL adjective-based naming violations in documentation and comments
 - [x] Refactored vectorization.rs (511 LOC) into modular structure (operations.rs, stencil.rs)

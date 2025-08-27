@@ -11,7 +11,6 @@ use num_traits::FromPrimitive;
 const TWO: f64 = 2.0;
 const THREE: f64 = 3.0;
 const FIVE: f64 = 5.0;
-const EIGHT: f64 = 8.0;
 use serde::{Deserialize, Serialize};
 
 // Named constants for IBM

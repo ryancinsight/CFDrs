@@ -12,7 +12,7 @@ mod tests {
         let x_values = vec![0.0, 1.0, 4.0, 9.0, 16.0]; // x^2 for x = 0,1,2,3,4
         let derivatives = fd
             .first_derivative(&x_values)
-            .expect("CRITICAL: Add proper error handling");
+            .expect("Failed to compute finite differences in test");
 
         // Expected derivatives: [1, 2, 4, 6, 7] (approximate due to boundary conditions)
         assert_relative_eq!(derivatives[1], 2.0, epsilon = 1e-10); // Interior point
@@ -33,7 +33,7 @@ mod tests {
         let f_values: Vec<f64> = x_points.iter().map(|&x| x.powi(2)).collect();
         let derivatives = fd
             .first_derivative(&f_values)
-            .expect("CRITICAL: Add proper error handling");
+            .expect("Failed to compute finite differences in test");
 
         // Check interior points (central difference should be exact for linear derivative)
         for i in 1..derivatives.len() - 1 {
@@ -65,7 +65,7 @@ mod tests {
 
             let derivatives = fd
                 .first_derivative(&f_values)
-                .expect("CRITICAL: Add proper error handling");
+                .expect("Failed to compute finite differences in test");
             let computed = derivatives[1]; // Central point
             let expected = test_derivative(x_test);
             let error = (computed - expected).abs();
@@ -92,7 +92,7 @@ mod tests {
         let x_values = vec![0.0, 2.0, 4.0, 6.0, 8.0];
         let derivatives = fd
             .first_derivative(&x_values)
-            .expect("CRITICAL: Add proper error handling");
+            .expect("Failed to compute finite differences in test");
 
         // Should be exactly 2.0 for linear function
         for &deriv in derivatives.iter() {
@@ -108,7 +108,7 @@ mod tests {
         let x_values = vec![0.0, 3.0, 6.0, 9.0, 12.0];
         let derivatives = fd
             .first_derivative(&x_values)
-            .expect("CRITICAL: Add proper error handling");
+            .expect("Failed to compute finite differences in test");
 
         // Should be exactly 3.0 for linear function
         for &deriv in derivatives.iter() {
@@ -124,7 +124,7 @@ mod tests {
         let x_values = vec![0.0, 1.0, 4.0, 9.0, 16.0, 25.0]; // x^2 for x = 0,1,2,3,4,5
         let second_derivatives = fd
             .second_derivative(&x_values)
-            .expect("CRITICAL: Add proper error handling");
+            .expect("Failed to compute finite differences in test");
 
         // Should be exactly 2.0 for quadratic function (interior points)
         for i in 1..second_derivatives.len() - 1 {
@@ -152,7 +152,7 @@ mod tests {
 
         let gradients = grad
             .gradient_2d(&field, nx, ny)
-            .expect("CRITICAL: Add proper error handling");
+            .expect("Failed to compute finite differences in test");
 
         // Check center point (1,1): should have gradient (2, 2, 0)
         let center_grad = &gradients[1 * nx + 1];
@@ -179,7 +179,7 @@ mod tests {
 
         let divergence = grad
             .divergence_2d(&field, nx, ny)
-            .expect("CRITICAL: Add proper error handling");
+            .expect("Failed to compute finite differences in test");
 
         // Divergence should be 2.0 everywhere for this field
         for &div in &divergence {
@@ -206,7 +206,7 @@ mod tests {
 
         let curl = grad
             .curl_2d(&field, nx, ny)
-            .expect("CRITICAL: Add proper error handling");
+            .expect("Failed to compute finite differences in test");
 
         // Curl should be 2.0 everywhere for this field (interior points)
         assert_relative_eq!(curl[1 * nx + 1], 2.0, epsilon = 1e-10); // Center point
@@ -236,7 +236,7 @@ mod tests {
 
         let gradients = grad
             .gradient_3d(&field, nx, ny, nz)
-            .expect("CRITICAL: Add proper error handling");
+            .expect("Failed to compute finite differences in test");
 
         // Check center point (1,1,1): should have gradient (2, 2, 2)
         let center_grad = &gradients[1 * nx * ny + 1 * nx + 1];

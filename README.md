@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 0.69.0** - Research Software with Complete Physics and Numerical Methods
+**Version 0.70.0** - Research Software with Complete Physics and Numerical Methods
 
 ## Status
 
@@ -19,6 +19,15 @@
 - ✅ Algorithm implementations validated with quantitative tests
 - ✅ Mesh quality analyzer with proper implementations
 - ✅ Error types fully documented with field descriptions
+
+## Technical Debt (resolved in v0.70.0)
+- ✅ CRITICAL BUG FIX: SIMD operations were ignoring operation parameter and always adding
+- ✅ Implemented proper SIMD operation dispatch (SimdOperation enum)
+- ✅ Removed all "CRITICAL" expect() calls with proper error messages
+- ✅ Eliminated "simplified" terminology from documentation
+- ✅ Removed unused constants (EIGHT) and exported unused functions
+- ✅ Fixed underscored parameters that indicated incomplete implementations
+- ✅ All SIMD operations now correctly handle add, subtract, multiply, divide
 
 ## Technical Debt (resolved in v0.69.0)
 - ✅ Removed ALL adjective-based naming violations ("optimized", "robust", "simple", etc.)

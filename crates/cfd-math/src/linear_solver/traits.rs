@@ -24,7 +24,7 @@ pub trait LinearSolver<T: RealField + Copy>: Send + Sync {
     }
 }
 
-/// Simplified, efficient preconditioner trait
+/// Preconditioner trait for linear system solvers
 ///
 /// This API enforces explicit memory management and avoids hidden allocations
 /// by requiring the user to provide the output vector.
