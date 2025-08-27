@@ -9,7 +9,7 @@ use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
 use std::fmt::Debug;
 
-/// Preconditioned Conjugate Gradient solver with optimized memory management
+/// Preconditioned Conjugate Gradient solver with memory management
 pub struct ConjugateGradient<T: RealField + Copy> {
     config: LinearSolverConfig<T>,
 }
@@ -29,7 +29,7 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
         Self::new(LinearSolverConfig::default())
     }
 
-    /// Solve with preconditioning and optimized memory management
+    /// Solve with preconditioning and memory management
     pub fn solve_preconditioned<P: Preconditioner<T>>(
         &self,
         a: &CsrMatrix<T>,

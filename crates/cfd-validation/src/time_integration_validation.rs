@@ -180,9 +180,8 @@ impl TimeIntegrationValidator {
         let dt = T::from_f64(0.1).unwrap_or_else(|| T::zero());
         let n_steps = (final_time
             .to_f64()
-            .expect("CRITICAL: Add proper error handling")
-            / dt.to_f64().expect("CRITICAL: Add proper error handling"))
-            as usize;
+            .expect("Failed to convert final_time to f64")
+            / dt.to_f64().expect("Failed to convert dt to f64")) as usize;
 
         // Define the ODE: dy/dt = -λy
         let ode = |_t: T, y: &DVector<T>| -> DVector<T> { y * (-lambda) };
@@ -251,9 +250,8 @@ impl TimeIntegrationValidator {
         let dt = T::from_f64(0.1).unwrap_or_else(|| T::zero());
         let n_steps = (final_time
             .to_f64()
-            .expect("CRITICAL: Add proper error handling")
-            / dt.to_f64().expect("CRITICAL: Add proper error handling"))
-            as usize;
+            .expect("Failed to convert final_time to f64")
+            / dt.to_f64().expect("Failed to convert dt to f64")) as usize;
 
         // Initial conditions: y(0) = 1, y'(0) = 0
         let y0 = DVector::from_vec(vec![T::one(), T::zero()]);
@@ -370,9 +368,8 @@ impl TimeIntegrationValidator {
     ) -> Result<T> {
         let n_steps = (final_time
             .to_f64()
-            .expect("CRITICAL: Add proper error handling")
-            / dt.to_f64().expect("CRITICAL: Add proper error handling"))
-            as usize;
+            .expect("Failed to convert final_time to f64")
+            / dt.to_f64().expect("Failed to convert dt to f64")) as usize;
         let mut y = y0.clone();
         let mut t = T::zero();
 
@@ -394,8 +391,7 @@ mod tests {
 
     #[test]
     fn test_time_integration_validation() {
-        let results = TimeIntegrationValidator::validate_all::<f64>()
-            .expect("CRITICAL: Add proper error handling");
+        let results = TimeIntegrationValidator::validate_all::<f64>().expect("Failed to run time integration validation");
 
         // Check that we have results
         assert!(!results.is_empty());
@@ -418,8 +414,7 @@ mod tests {
 
     #[test]
     fn test_harmonic_oscillator_conservation() {
-        let results = TimeIntegrationValidator::validate_all::<f64>()
-            .expect("CRITICAL: Add proper error handling");
+        let results = TimeIntegrationValidator::validate_all::<f64>().expect("Failed to run time integration validation");
 
         let oscillator_tests: Vec<_> = results
             .iter()

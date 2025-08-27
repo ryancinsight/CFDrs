@@ -1,22 +1,22 @@
 //! Linear system solvers for CFD applications.
 //!
-//! This module provides iterative linear solvers optimized for sparse matrices
-//! arising from CFD discretizations. It emphasizes the use of well-tested
+//! This module provides iterative linear solvers for sparse matrices
+//! arising from CFD discretizations. It emphasizes the use of validated
 //! implementations and efficient memory management.
 //!
 //! ## Design Philosophy
 //!
 //! Rather than re-implementing complex numerical algorithms from scratch, this module
-//! focuses on providing efficient wrappers and using robust implementations where
+//! focuses on providing efficient wrappers and using established implementations where
 //! available. This approach reduces maintenance overhead, eliminates numerical bugs,
-//! and provides better performance through optimized algorithms.
+//! and provides performance through validated algorithms.
 //!
 //! ## Performance Considerations
 //!
 //! All solvers prioritize memory efficiency by:
 //! - Using in-place operations to avoid unnecessary allocations
 //! - Pre-allocating workspace vectors outside iteration loops
-//! - Leveraging nalgebra's optimized BLAS-like operations
+//! - Leveraging nalgebra's BLAS-like operations
 //! - Providing efficient preconditioner APIs
 
 mod bicgstab;

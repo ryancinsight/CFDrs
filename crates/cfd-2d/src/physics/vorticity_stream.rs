@@ -321,7 +321,7 @@ mod tests {
     #[test]
     fn test_vorticity_stream_creation() {
         let grid = StructuredGrid2D::<f64>::unit_square(10, 10)
-            .expect("CRITICAL: Add proper error handling");
+            .expect("Failed to create unit square grid for test");
         let config = VorticityStreamConfig::default();
         let solver = VorticityStreamSolver::new(config, &grid, 100.0);
 
@@ -333,13 +333,13 @@ mod tests {
     #[test]
     fn test_lid_driven_cavity_initialization() {
         let grid = StructuredGrid2D::<f64>::unit_square(5, 5)
-            .expect("CRITICAL: Add proper error handling");
+            .expect("Failed to create unit square grid for test");
         let config = VorticityStreamConfig::default();
         let mut solver = VorticityStreamSolver::new(config, &grid, 100.0);
 
         solver
             .initialize_lid_driven_cavity(1.0)
-            .expect("CRITICAL: Add proper error handling");
+            .expect("Failed to initialize lid driven cavity");
 
         // Check lid velocity
         assert_relative_eq!(solver.u[2][4].x, 1.0, epsilon = 1e-10);

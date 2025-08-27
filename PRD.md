@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## CFD Suite v0.67.0
+## CFD Suite v0.70.0
 
 ### Product Classification
 Research software (not production)
@@ -48,6 +48,8 @@ Research software (not production)
 - [x] Apply SOLID/CUPID/GRASP principles throughout codebase
 - [x] Refactor plugin.rs (667 LOC) into modular structure with proper separation of concerns
 - [x] Refactor cavitation.rs (502 LOC) into domain-based modules
+- [x] Refactor numerical_methods.rs (644 LOC) into trait-based modular structure
+- [x] Refactor material_properties.rs (583 LOC) into domain-based modules
 
 2) Validation
 - Add MMS for diffusion/advection

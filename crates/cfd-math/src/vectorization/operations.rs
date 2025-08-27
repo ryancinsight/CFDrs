@@ -1,11 +1,13 @@
-//! Vectorization utilities for SIMD operations in CFD computations.
-//!
-//! This module provides vectorized operations that can take advantage of SIMD
-//! instructions for improved performance in numerical computations.
+//! Core vectorized operations for CFD computations
 
 use crate::simd::SimdOps;
 use nalgebra::RealField;
 use rayon::prelude::*;
+
+/// Cache-friendly chunk size for vectorized operations
+const CHUNK_SIZE_CACHE: usize = 64;
+/// Larger chunk size for parallel reductions
+const CHUNK_SIZE_PARALLEL: usize = 1024;
 
 /// Vectorized operations for CFD computations
 pub struct VectorizedOps {
@@ -19,6 +21,7 @@ impl VectorizedOps {
             simd_ops: SimdOps::new(),
         }
     }
+
     /// Vectorized element-wise addition with SIMD optimization
     pub fn add_vectorized<T: RealField + Copy + Send + Sync>(
         a: &[T],
@@ -91,11 +94,9 @@ impl VectorizedOps {
         }
 
         // Use iterator chunks for cache-friendly access patterns
-        const CHUNK_SIZE: usize = 64; // Optimize for cache line size
-
         input
-            .par_chunks(CHUNK_SIZE)
-            .zip(result.par_chunks_mut(CHUNK_SIZE))
+            .par_chunks(CHUNK_SIZE_CACHE)
+            .zip(result.par_chunks_mut(CHUNK_SIZE_CACHE))
             .for_each(|(input_chunk, result_chunk)| {
                 input_chunk.iter().zip(result_chunk.iter_mut()).for_each(
                     |(input_val, result_val)| {
@@ -152,11 +153,9 @@ impl VectorizedOps {
         }
 
         // Use chunked parallel processing for better cache locality
-        const CHUNK_SIZE: usize = 1024;
-
         let result = a
-            .par_chunks(CHUNK_SIZE)
-            .zip(b.par_chunks(CHUNK_SIZE))
+            .par_chunks(CHUNK_SIZE_PARALLEL)
+            .zip(b.par_chunks(CHUNK_SIZE_PARALLEL))
             .map(|(a_chunk, b_chunk)| {
                 a_chunk
                     .iter()
@@ -171,10 +170,8 @@ impl VectorizedOps {
 
     /// Vectorized L2 norm computation
     pub fn l2_norm_vectorized<T: RealField + Copy + Send + Sync>(input: &[T]) -> T {
-        const CHUNK_SIZE: usize = 1024;
-
         let sum_of_squares = input
-            .par_chunks(CHUNK_SIZE)
+            .par_chunks(CHUNK_SIZE_PARALLEL)
             .map(|chunk| {
                 chunk
                     .iter()
@@ -267,10 +264,8 @@ impl VectorizedOps {
         T: Clone + Send + Sync,
         F: Fn(T, T) -> T + Sync + Send + Clone,
     {
-        const CHUNK_SIZE: usize = 1024;
-
         input
-            .par_chunks(CHUNK_SIZE)
+            .par_chunks(CHUNK_SIZE_PARALLEL)
             .map(|chunk| {
                 chunk
                     .iter()
@@ -303,209 +298,8 @@ impl VectorizedOps {
     }
 }
 
-/// Vectorized operations specifically for CFD stencil computations
-pub struct StencilOps;
-
-impl StencilOps {
-    /// 5-point stencil for 2D Laplacian (vectorized)
-    pub fn laplacian_5point<T: RealField + Copy + Send + Sync>(
-        field: &[T],
-        nx: usize,
-        ny: usize,
-        dx: T,
-        dy: T,
-        result: &mut [T],
-    ) -> Result<(), &'static str> {
-        if field.len() != nx * ny || result.len() != nx * ny {
-            return Err("Field and result dimensions must match grid size");
-        }
-
-        let dx2 = dx * dx;
-        let dy2 = dy * dy;
-
-        // Process interior points (sequential for now due to mutable access patterns)
-        for j in 1..ny - 1 {
-            for i in 1..nx - 1 {
-                let idx = j * nx + i;
-                let center = field[idx];
-                let left = field[idx - 1];
-                let right = field[idx + 1];
-                let bottom = field[idx - nx];
-                let top = field[idx + nx];
-
-                result[idx] = (left - center * T::from_f64(2.0).unwrap_or_else(|| T::zero())
-                    + right)
-                    / dx2
-                    + (bottom - center * T::from_f64(2.0).unwrap_or_else(|| T::zero()) + top) / dy2;
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Vectorized gradient computation using central differences
-    pub fn gradient_central<T: RealField + Copy + Send + Sync>(
-        field: &[T],
-        nx: usize,
-        ny: usize,
-        dx: T,
-        dy: T,
-        grad_x: &mut [T],
-        grad_y: &mut [T],
-    ) -> Result<(), &'static str> {
-        if field.len() != nx * ny || grad_x.len() != nx * ny || grad_y.len() != nx * ny {
-            return Err("All arrays must match grid size");
-        }
-
-        let dx_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx);
-        let dy_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy);
-
-        // Gradient computation (sequential for now due to mutable access patterns)
-        for j in 1..ny - 1 {
-            for i in 1..nx - 1 {
-                let idx = j * nx + i;
-
-                // X-gradient
-                grad_x[idx] = (field[idx + 1] - field[idx - 1]) * dx_inv;
-
-                // Y-gradient
-                grad_y[idx] = (field[idx + nx] - field[idx - nx]) * dy_inv;
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Vectorized divergence computation for 3D vector fields on structured grids
-    pub fn divergence_3d<T: RealField + Copy + Send + Sync>(
-        u_field: &[T],
-        v_field: &[T],
-        w_field: &[T],
-        nx: usize,
-        ny: usize,
-        nz: usize,
-        dx: T,
-        dy: T,
-        dz: T,
-        result: &mut [T],
-    ) -> Result<(), &'static str> {
-        if u_field.len() != nx * ny * nz
-            || v_field.len() != nx * ny * nz
-            || w_field.len() != nx * ny * nz
-            || result.len() != nx * ny * nz
-        {
-            return Err("All fields must match grid dimensions");
-        }
-
-        let dx_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx);
-        let dy_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy);
-        let dz_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dz);
-
-        // Compute divergence: ∇·v = ∂u/∂x + ∂v/∂y + ∂w/∂z
-        for k in 1..nz - 1 {
-            for j in 1..ny - 1 {
-                for i in 1..nx - 1 {
-                    let idx = k * nx * ny + j * nx + i;
-
-                    // Central differences
-                    let dudx = (u_field[idx + 1] - u_field[idx - 1]) * dx_inv;
-                    let dvdy = (v_field[idx + nx] - v_field[idx - nx]) * dy_inv;
-                    let dwdz = (w_field[idx + nx * ny] - w_field[idx - nx * ny]) * dz_inv;
-
-                    result[idx] = dudx + dvdy + dwdz;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Vectorized curl computation for 3D vector fields
-    pub fn curl_3d<T: RealField + Copy + Send + Sync>(
-        u_field: &[T],
-        v_field: &[T],
-        w_field: &[T],
-        nx: usize,
-        ny: usize,
-        nz: usize,
-        dx: T,
-        dy: T,
-        dz: T,
-        curl_x: &mut [T],
-        curl_y: &mut [T],
-        curl_z: &mut [T],
-    ) -> Result<(), &'static str> {
-        if u_field.len() != nx * ny * nz
-            || v_field.len() != nx * ny * nz
-            || w_field.len() != nx * ny * nz
-            || curl_x.len() != nx * ny * nz
-            || curl_y.len() != nx * ny * nz
-            || curl_z.len() != nx * ny * nz
-        {
-            return Err("All fields must match grid dimensions");
-        }
-
-        let dx_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx);
-        let dy_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy);
-        let dz_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dz);
-
-        // Compute curl: ∇×v = (∂w/∂y - ∂v/∂z, ∂u/∂z - ∂w/∂x, ∂v/∂x - ∂u/∂y)
-        for k in 1..nz - 1 {
-            for j in 1..ny - 1 {
-                for i in 1..nx - 1 {
-                    let idx = k * nx * ny + j * nx + i;
-
-                    // Curl x-component: ∂w/∂y - ∂v/∂z
-                    let dwdy = (w_field[idx + nx] - w_field[idx - nx]) * dy_inv;
-                    let dvdz = (v_field[idx + nx * ny] - v_field[idx - nx * ny]) * dz_inv;
-                    curl_x[idx] = dwdy - dvdz;
-
-                    // Curl y-component: ∂u/∂z - ∂w/∂x
-                    let dudz = (u_field[idx + nx * ny] - u_field[idx - nx * ny]) * dz_inv;
-                    let dwdx = (w_field[idx + 1] - w_field[idx - 1]) * dx_inv;
-                    curl_y[idx] = dudz - dwdx;
-
-                    // Curl z-component: ∂v/∂x - ∂u/∂y
-                    let dvdx = (v_field[idx + 1] - v_field[idx - 1]) * dx_inv;
-                    let dudy = (u_field[idx + nx] - u_field[idx - nx]) * dy_inv;
-                    curl_z[idx] = dvdx - dudy;
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_vectorized_add() {
-        let a = vec![1.0, 2.0, 3.0, 4.0];
-        let b = vec![5.0, 6.0, 7.0, 8.0];
-        let mut result = vec![0.0; 4];
-
-        VectorizedOps::add_vectorized(&a, &b, &mut result)
-            .expect("CRITICAL: Add proper error handling");
-        assert_eq!(result, vec![6.0, 8.0, 10.0, 12.0]);
-    }
-
-    #[test]
-    fn test_vectorized_dot() {
-        let a = vec![1.0, 2.0, 3.0];
-        let b = vec![4.0, 5.0, 6.0];
-
-        let result =
-            VectorizedOps::dot_vectorized(&a, &b).expect("CRITICAL: Add proper error handling");
-        assert_eq!(result, 32.0); // 1*4 + 2*5 + 3*6 = 32
-    }
-
-    #[test]
-    fn test_l2_norm_vectorized() {
-        let input = vec![3.0, 4.0];
-        let norm = VectorizedOps::l2_norm_vectorized(&input);
-        assert!((norm - 5.0_f64).abs() < 1e-10);
+impl Default for VectorizedOps {
+    fn default() -> Self {
+        Self::new()
     }
 }

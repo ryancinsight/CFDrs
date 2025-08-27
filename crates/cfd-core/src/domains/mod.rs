@@ -22,4 +22,7 @@ pub use fluid_dynamics::{
 };
 pub use material_properties::{FluidProperties, InterfaceProperties, SolidProperties};
 pub use mesh_operations::{MeshGeneration, MeshQuality, MeshRefinement};
-pub use numerical_methods::{DiscretizationScheme, LinearSystemSolver, TimeIntegrationScheme};
+pub use numerical_methods::{
+    traits::{DiscretizationScheme, LinearSystemSolver, TimeIntegrationScheme},
+    NumericalMethodsService,
+};

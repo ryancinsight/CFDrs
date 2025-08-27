@@ -375,7 +375,8 @@ mod tests {
             }
         }
         
-        CsrMatrix::try_from_triplets(n, n, triplets).expect("CRITICAL: Add proper error handling")
+        CsrMatrix::try_from_triplets(n, n, triplets)
+            .expect("Failed to create test SPD matrix from valid triplets")
     }
     
     #[test]

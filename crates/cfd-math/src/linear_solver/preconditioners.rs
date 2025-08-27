@@ -18,7 +18,7 @@ impl<T: RealField + Copy> Preconditioner<T> for IdentityPreconditioner {
     }
 }
 
-/// Jacobi (diagonal) preconditioner with optimized memory usage
+/// Jacobi (diagonal) preconditioner with memory management
 pub struct JacobiPreconditioner<T: RealField + Copy> {
     inv_diagonal: DVector<T>,
 }

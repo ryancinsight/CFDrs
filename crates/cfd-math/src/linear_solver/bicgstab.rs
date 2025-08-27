@@ -9,7 +9,7 @@ use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
 use std::fmt::Debug;
 
-/// BiCGSTAB solver with optimized memory management
+/// BiCGSTAB solver with memory management
 pub struct BiCGSTAB<T: RealField + Copy> {
     config: LinearSolverConfig<T>,
 }
@@ -29,7 +29,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
         Self::new(LinearSolverConfig::default())
     }
 
-    /// Solve with preconditioning and optimized memory management
+    /// Solve with preconditioning and memory management
     pub fn solve_preconditioned<P: Preconditioner<T>>(
         &self,
         a: &CsrMatrix<T>,
@@ -61,7 +61,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
         r -= &ax;
 
         let initial_residual_norm = r.norm();
-        // Use a more robust breakdown tolerance
+        // Use a breakdown tolerance for numerical stability
         // The tolerance should be at least sqrt(epsilon) to avoid false positives
         let epsilon = T::default_epsilon();
         let sqrt_epsilon = epsilon.sqrt();
