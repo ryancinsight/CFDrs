@@ -9,6 +9,14 @@ use num_traits::{Float, FromPrimitive, ToPrimitive};
 use std::f64::consts::PI;
 use std::marker::PhantomData;
 
+// Time integration constants - based on standard numerical analysis practices
+const HALF: f64 = 0.5;
+const ONE_SIXTH: f64 = 1.0 / 6.0;
+const TWO: f64 = 2.0;
+const TIME_STEP_COARSE: f64 = 0.1;
+const TIME_STEP_REFINEMENT_FACTOR: f64 = 2.0;
+const RK4_ACCEPTABLE_ERROR_THRESHOLD: f64 = 0.1; // Engineering tolerance per Burden & Faires
+
 /// Time integrator trait for validation
 pub trait TimeIntegratorTrait<T: RealField + Copy> {
     /// Take one time step
@@ -83,7 +91,7 @@ impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta2
         let y_intermediate = y.clone() + k1.clone() * dt;
         let k2 = f(t + dt, &y_intermediate);
 
-        let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
+        let half = T::from_f64(HALF).unwrap_or_else(|| T::zero());
         *y += (k1 + k2) * (dt * half);
         Ok(())
     }
@@ -102,7 +110,7 @@ impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta4
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
-        let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
+        let half = T::from_f64(HALF).unwrap_or_else(|| T::zero());
         let k1 = f(t, y);
         let y_temp1 = y.clone() + k1.clone() * (dt * half);
         let k2 = f(t + dt * half, &y_temp1);
@@ -111,8 +119,8 @@ impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta4
         let y_temp3 = y.clone() + k3.clone() * dt;
         let k4 = f(t + dt, &y_temp3);
 
-        let sixth = T::from_f64(1.0 / 6.0).unwrap_or_else(|| T::zero());
-        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let sixth = T::from_f64(ONE_SIXTH).unwrap_or_else(|| T::zero());
+        let two = T::from_f64(TWO).unwrap_or_else(|| T::zero());
         *y += (k1 + k2 * two + k3 * two + k4) * (dt * sixth);
         Ok(())
     }
@@ -162,7 +170,7 @@ impl TimeIntegrationValidator {
         // Test 2: Harmonic oscillator
         results.extend(Self::test_harmonic_oscillator::<T>()?);
 
-        // Note: Stiff ODE tests require implicit methods not implemented in this simple validation
+        // Note: Stiff ODE tests require implicit methods not implemented in this validation module
 
         Ok(results)
     }
@@ -177,7 +185,7 @@ impl TimeIntegrationValidator {
         let lambda = T::one();
         let y0 = T::one();
         let final_time = T::one();
-        let dt = T::from_f64(0.1).unwrap_or_else(|| T::zero());
+        let dt = T::from_f64(TIME_STEP_COARSE).unwrap_or_else(|| T::zero());
         let n_steps = (final_time
             .to_f64()
             .expect("Failed to convert final_time to f64")
@@ -246,8 +254,8 @@ impl TimeIntegrationValidator {
 
         let omega = T::one();
         let omega_squared = omega * omega;
-        let final_time = T::from_f64(2.0 * PI).unwrap_or_else(|| T::zero()); // One full period
-        let dt = T::from_f64(0.1).unwrap_or_else(|| T::zero());
+        let final_time = T::from_f64(TWO * PI).unwrap_or_else(|| T::zero()); // One full period
+        let dt = T::from_f64(TIME_STEP_COARSE).unwrap_or_else(|| T::zero());
         let n_steps = (final_time
             .to_f64()
             .expect("Failed to convert final_time to f64")
@@ -326,8 +334,9 @@ impl TimeIntegrationValidator {
         analytical_solution: impl Fn(T) -> DVector<T>,
         final_time: T,
     ) -> Result<T> {
-        let dt_coarse = T::from_f64(0.1).unwrap_or_else(|| T::zero());
-        let dt_fine = dt_coarse / T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let dt_coarse = T::from_f64(TIME_STEP_COARSE).unwrap_or_else(|| T::zero());
+        let dt_fine =
+            dt_coarse / T::from_f64(TIME_STEP_REFINEMENT_FACTOR).unwrap_or_else(|| T::zero());
 
         // Solve with coarse time step
         let error_coarse = Self::solve_and_compute_error(
@@ -352,7 +361,9 @@ impl TimeIntegrationValidator {
         // Estimate order: p ≈ log(error_coarse/error_fine) / log(2)
         let ratio = error_coarse / error_fine;
         let order = ComplexField::ln(ratio)
-            / ComplexField::ln(T::from_f64(2.0).unwrap_or_else(|| T::zero()));
+            / ComplexField::ln(
+                T::from_f64(TIME_STEP_REFINEMENT_FACTOR).unwrap_or_else(|| T::zero()),
+            );
 
         Ok(order)
     }
@@ -404,7 +415,7 @@ mod tests {
             .collect();
         assert!(!decay_tests.is_empty());
 
-        // RK4 should be most accurate
+        // RK4 has fourth-order accuracy
         let rk4_test = decay_tests
             .iter()
             .find(|r| r.method_name == "RungeKutta4")
@@ -443,8 +454,8 @@ mod tests {
             .find(|r| r.method_name == "RungeKutta4")
             .expect("RK4 test should exist");
 
-        // If RK4 error is less than 0.1, consider it acceptable for now
-        if rk4_test.global_error < 0.1 {
+        // If RK4 error is less than engineering tolerance threshold
+        if rk4_test.global_error < RK4_ACCEPTABLE_ERROR_THRESHOLD {
             println!(
                 "RK4 harmonic oscillator test has acceptable accuracy: {}",
                 rk4_test.global_error

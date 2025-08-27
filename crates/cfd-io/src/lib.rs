@@ -5,6 +5,8 @@
 
 #![warn(missing_docs)]
 
+pub mod hdf5_module;
 pub mod vtk;
 
+pub use hdf5_module::{ChunkingStrategy, DataChunk, DatasetMetadata, Hdf5Reader, Hdf5Writer};
 pub use vtk::{VtkMesh, VtkMeshBuilder, VtkReader, VtkWriter};

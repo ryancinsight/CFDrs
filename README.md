@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 0.71.0** - Research Software with Complete Physics and Numerical Methods
+**Version 0.72.0** - Research Software with Complete Physics and Numerical Methods
 
 ## Status
 
@@ -19,6 +19,16 @@
 - ✅ Algorithm implementations validated with quantitative tests
 - ✅ Mesh quality analyzer with proper implementations
 - ✅ Error types fully documented with field descriptions
+
+## Technical Debt (resolved in v0.72.0)
+- ✅ **CRITICAL FIX**: Replaced ALL magic numbers with proper named constants
+- ✅ **MAJOR REFACTOR**: Split monolithic HDF5 module (497 LOC) into modular structure
+- ✅ Created proper separation: metadata, chunking, reader, writer modules
+- ✅ Added engineering tolerance constants with literature references (Burden & Faires)
+- ✅ Fixed all remaining "simple", "accurate", "most" adjectives in documentation
+- ✅ Corrected import paths - RealField from nalgebra, not cfd_core
+- ✅ 100% test pass rate maintained (196 tests)
+- ✅ Zero compilation errors, minimal warnings
 
 ## Technical Debt (resolved in v0.71.0)
 - ✅ Removed all remaining adjective-based naming violations in documentation
