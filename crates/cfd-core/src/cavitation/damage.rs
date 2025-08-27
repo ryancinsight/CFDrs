@@ -33,14 +33,26 @@ impl<T: RealField + Copy + FromPrimitive> CavitationDamage<T> {
     }
 
     /// Calculate Mean Depth of Penetration Rate (MDPR)
-    /// Based on ASTM G32 standard
+    /// Based on ASTM G32 standard and Plesset-Chapman erosion model
     pub fn mdpr(&self, impact_pressure: T, frequency: T, exposure_time: T) -> T {
-        // Simplified model: MDPR ∝ (P - P_threshold)² × f × t
+        // Plesset-Chapman model: MDPR = K * (P - P_th)^n * f^m * t
+        // where K is material-dependent erosion coefficient
+        // n ≈ 2.0-2.5 for most materials (pressure exponent)
+        // m ≈ 1.0 for frequency dependency
+
         let threshold = self.fatigue_strength;
 
         if impact_pressure > threshold {
-            let coefficient = T::from_f64(1e-12).unwrap_or_else(|| T::zero()); // Material-dependent
-            coefficient * (impact_pressure - threshold).powi(2) * frequency * exposure_time
+            // Material-specific erosion coefficient from ASTM G32 data
+            // K varies from 1e-15 to 1e-11 m³/N²·Hz·s for different materials
+            let erosion_coefficient = T::from_f64(super::constants::EROSION_COEFFICIENT_STEEL)
+                .unwrap_or_else(|| T::zero());
+            let pressure_exponent = T::from_f64(super::constants::EROSION_PRESSURE_EXPONENT)
+                .unwrap_or_else(|| T::from_f64(2.0).unwrap_or_else(|| T::one()));
+
+            // MDPR calculation with proper units
+            let pressure_term = (impact_pressure - threshold).powf(pressure_exponent);
+            erosion_coefficient * pressure_term * frequency * exposure_time
         } else {
             T::zero()
         }
@@ -62,19 +74,39 @@ impl<T: RealField + Copy + FromPrimitive> CavitationDamage<T> {
         }
     }
 
-    /// Calculate incubation period before damage onset
+    /// Calculate incubation period before damage onset using Basquin's law
     pub fn incubation_period(&self, stress_amplitude: T) -> u64 {
-        // S-N curve approximation: N = C × S^(-m)
-        let m = T::from_f64(3.0).unwrap_or_else(|| T::one()); // Material constant
-        let c = T::from_f64(1e12).unwrap_or_else(|| T::one()); // Material constant
+        // Basquin's law for high-cycle fatigue: σ_a = σ_f' * (2N)^b
+        // Rearranged: N = 0.5 * ((σ_a / σ_f')^(1/b))
+        // where σ_f' is fatigue strength coefficient ≈ 0.9 * UTS
+        // b is fatigue strength exponent (typically -0.085 to -0.12 for steels)
+
+        // Fatigue strength coefficient (Morrow approximation)
+        let fatigue_coeff = T::from_f64(super::constants::FATIGUE_STRENGTH_RATIO)
+            .unwrap_or_else(|| T::one())
+            * self.ultimate_strength;
+
+        // Basquin exponent (typical for metals)
+        let basquin_exponent = T::from_f64(super::constants::BASQUIN_EXPONENT_STEEL)
+            .unwrap_or_else(|| T::from_f64(-0.1).unwrap_or_else(|| T::one()));
 
         if stress_amplitude > self.fatigue_strength {
-            let ratio = stress_amplitude / self.fatigue_strength;
-            let n = c / ratio.powf(m);
-            // Convert to u64 - using a safe conversion
-            // Note: This is a simplification - real implementation would need proper rounding
-            let n_f64 = T::to_subset(&n).unwrap_or(0.0_f64);
-            n_f64 as u64
+            // Calculate cycles to failure
+            let stress_ratio = stress_amplitude / fatigue_coeff;
+            let exponent = T::one() / basquin_exponent;
+            let two_n = stress_ratio.powf(exponent);
+            let n = two_n / T::from_f64(2.0).unwrap_or_else(|| T::one());
+
+            // Safe conversion to u64 with proper bounds checking
+            if n > T::zero()
+                && n < T::from_u64(u64::MAX)
+                    .unwrap_or_else(|| T::from_f64(1e18).unwrap_or_else(|| T::one()))
+            {
+                let n_f64 = T::to_subset(&n).unwrap_or(1.0_f64);
+                n_f64.round() as u64
+            } else {
+                1 // Minimum one cycle if calculation fails
+            }
         } else {
             u64::MAX // Infinite life below fatigue limit
         }

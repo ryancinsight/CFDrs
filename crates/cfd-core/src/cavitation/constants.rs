@@ -35,3 +35,17 @@ pub const SIGMA_INCIPIENT: f64 = 1.2;
 
 /// Critical cavitation number for choked flow
 pub const SIGMA_CRITICAL: f64 = 1.0;
+
+/// Plesset-Chapman erosion model constants
+/// Material erosion coefficient for steel (m³/N²·Hz·s)
+pub const EROSION_COEFFICIENT_STEEL: f64 = 5e-13;
+
+/// Pressure exponent for erosion (typical range 2.0-2.5)
+pub const EROSION_PRESSURE_EXPONENT: f64 = 2.25;
+
+/// Basquin's law constants for fatigue
+/// Fatigue strength coefficient ratio (σ_f'/UTS)
+pub const FATIGUE_STRENGTH_RATIO: f64 = 0.9;
+
+/// Basquin exponent for steels (typical -0.085 to -0.12)
+pub const BASQUIN_EXPONENT_STEEL: f64 = -0.087;

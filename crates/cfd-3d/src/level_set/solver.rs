@@ -130,8 +130,8 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
         for k in 1..nz - 1 {
             for j in 1..ny - 1 {
                 for i in 1..nx - 1 {
-                                        let idx = self.index(i, j, k);
-                    
+                    let idx = self.index(i, j, k);
+
                     // Get velocity at this point
                     let velocity = self.velocity[idx];
                     let u = velocity.x;
@@ -171,8 +171,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
     /// Reinitialize level set to signed distance function
     fn reinitialize(&mut self) -> Result<()> {
         let iterations = 10; // Number of reinitialization iterations
-        let dtau = T::from_f64(0.5).unwrap_or_else(|| T::one())
-            * self.dx.min(self.dy).min(self.dz);
+        let dtau = T::from_f64(0.5).unwrap_or_else(|| T::one()) * self.dx.min(self.dy).min(self.dz);
 
         for _ in 0..iterations {
             let mut phi_new = self.phi.clone();

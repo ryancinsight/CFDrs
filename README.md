@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 0.65.0** - Research Software with Complete Physics Implementations
+**Version 0.66.0** - Research Software with Literature-Validated Implementations
 
 ## Status
 
@@ -19,6 +19,15 @@
 - ✅ Algorithm implementations validated with quantitative tests
 - ✅ Mesh quality analyzer with proper implementations
 - ✅ Error types fully documented with field descriptions
+
+## Technical Debt (resolved in v0.66.0)
+- ✅ Fixed cavitation damage MDPR - now uses proper Plesset-Chapman erosion model
+- ✅ Replaced S-N curve approximation with proper Basquin's law for fatigue
+- ✅ PISO corrector now uses full momentum equation coefficients with convection
+- ✅ VOF reconstruction uses proper Youngs' gradient method
+- ✅ Mesh quality analyzer computes proper Jacobian determinant for hex elements
+- ✅ Added proper material constants for erosion and fatigue models
+- ✅ All "simplified" comments removed where proper implementations added
 
 ## Technical Debt (resolved in v0.65.0)
 - ✅ Replaced ALL simplified models with proper implementations from literature

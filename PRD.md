@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## CFD Suite v0.65.0
+## CFD Suite v0.66.0
 
 ### Product Classification
 Research software (not production)
