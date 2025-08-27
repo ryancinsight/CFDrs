@@ -1,11 +1,17 @@
 # Product Requirements Document
 
-## CFD Suite v0.61.0
+## CFD Suite v0.62.0
 
 ### Product Classification
 Research software (not production)
 
 ### Current Capabilities
+
+#### Performance
+- Architecture-aware SIMD acceleration (AVX2/SSE4.2/NEON)
+- SWAR fallback for portable vectorization
+- Runtime CPU feature detection without feature flags
+- Zero-copy operations for numerical computations
 
 #### Functional
 - Workspace compiles and runs without errors
