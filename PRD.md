@@ -1,11 +1,17 @@
 # Product Requirements Document
 
-## CFD Suite v0.59.0
+## CFD Suite v0.63.0
 
 ### Product Classification
 Research software (not production)
 
 ### Current Capabilities
+
+#### Performance
+- Architecture-aware SIMD acceleration (AVX2/SSE4.2/NEON)
+- SWAR fallback for portable vectorization
+- Runtime CPU feature detection without feature flags
+- Zero-copy operations for numerical computations
 
 #### Functional
 - Workspace compiles and runs without errors
@@ -38,6 +44,8 @@ Research software (not production)
 - [x] Split `cfd-1d/resistance.rs` into domain-based modules
 - [x] Remove duplicate/misnamed directories (crases)
 - [x] Fix all adjective-based naming violations
+- [x] Refactor modules >500 LOC (numerical_validation split into modular structure)
+- [x] Apply SOLID/CUPID/GRASP principles throughout codebase
 
 2) Validation
 - Add MMS for diffusion/advection

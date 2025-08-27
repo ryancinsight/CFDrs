@@ -8,6 +8,10 @@
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 
+// Named constants for stabilization
+const TWO: f64 = 2.0;
+const FOUR: f64 = 4.0;
+
 /// SUPG/PSPG stabilization parameters
 pub struct StabilizationParameters<T: RealField + Copy> {
     /// Element size
@@ -34,8 +38,8 @@ impl<T: RealField + FromPrimitive + Copy> StabilizationParameters<T> {
     ///
     /// For steady-state: τ = [(2U/h)² + (4ν/h²)²]^(-1/2)
     pub fn tau_supg(&self) -> T {
-        let two = T::from_f64(2.0).unwrap_or_else(T::zero);
-        let four = T::from_f64(4.0).unwrap_or_else(T::zero);
+        let two = T::from_f64(TWO).unwrap_or_else(T::zero);
+        let four = T::from_f64(FOUR).unwrap_or_else(T::zero);
 
         // Advection term: (2U/h)²
         let advection_term = if self.u_mag > T::zero() {
@@ -79,7 +83,7 @@ impl<T: RealField + FromPrimitive + Copy> StabilizationParameters<T> {
     /// Pe = U*h/(2ν)
     pub fn peclet_number(&self) -> T {
         if self.nu > T::zero() {
-            (self.u_mag * self.h) / (T::from_f64(2.0).unwrap_or_else(T::zero) * self.nu)
+            (self.u_mag * self.h) / (T::from_f64(TWO).unwrap_or_else(T::zero) * self.nu)
         } else {
             T::zero()
         }

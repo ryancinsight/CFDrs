@@ -307,8 +307,8 @@ mod tests {
 
     #[test]
     fn test_csv_write_read() {
-        let temp_file = NamedTempFile::new().expect("CRITICAL: Add proper error handling");
-        let path = temp_file.path();
+        let test_file = NamedTempFile::new().expect("Failed to create test file");
+        let path = test_file.path();
 
         // Write data
         let writer = CsvWriter::<f64>::new();
@@ -330,8 +330,8 @@ mod tests {
 
     #[test]
     fn test_streaming() {
-        let temp_file = NamedTempFile::new().expect("CRITICAL: Add proper error handling");
-        let path = temp_file.path();
+        let test_file = NamedTempFile::new().expect("Failed to create test file");
+        let path = test_file.path();
 
         // Write using streaming
         let writer = CsvWriter::<f64>::new();

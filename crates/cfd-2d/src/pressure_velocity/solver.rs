@@ -77,21 +77,21 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp> PressureVelocitySolv
         // Step 1: Solve momentum equations for predicted velocity
         // Note: This needs proper integration with SimulationFields
         // For now, creating a fields structure buffer
-        let mut temp_fields = SimulationFields::new(self.grid.nx, self.grid.ny);
+        let mut state_buffer = SimulationFields::new(self.grid.nx, self.grid.ny);
         // Copy current state to fields
         for i in 0..self.grid.nx {
             for j in 0..self.grid.ny {
-                temp_fields.set_velocity_at(i, j, &self.u[i][j]);
-                *temp_fields.p.at_mut(i, j) = self.p[i][j];
+                state_buffer.set_velocity_at(i, j, &self.u[i][j]);
+                *state_buffer.p.at_mut(i, j) = self.p[i][j];
             }
         }
 
         let u_component =
             self.momentum_solver
-                .solve(MomentumComponent::U, &temp_fields, self.config.dt)?;
+                .solve(MomentumComponent::U, &state_buffer, self.config.dt)?;
         let v_component =
             self.momentum_solver
-                .solve(MomentumComponent::V, &temp_fields, self.config.dt)?;
+                .solve(MomentumComponent::V, &state_buffer, self.config.dt)?;
 
         // Combine into velocity field
         let mut u_star = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];

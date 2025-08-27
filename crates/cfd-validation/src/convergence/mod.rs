@@ -9,7 +9,9 @@ mod richardson;
 mod study;
 
 pub use analysis::{ConvergenceAnalysis, ConvergenceOrder};
-pub use criteria::{ConvergenceCriterion, ConvergenceStatus, GridConvergenceIndex};
+pub use criteria::{
+    ConvergenceCriterion, ConvergenceMonitor, ConvergenceStatus, GridConvergenceIndex,
+};
 pub use richardson::RichardsonExtrapolation;
 pub use study::ConvergenceStudy;
 

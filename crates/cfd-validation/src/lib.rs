@@ -14,7 +14,7 @@ pub mod conservation;
 pub mod convergence;
 pub mod error_metrics;
 pub mod literature;
-pub mod numerical_validation;
+pub mod numerical;
 pub mod solutions;
 pub mod time_integration_validation;
 
@@ -22,8 +22,8 @@ pub use analytical::AnalyticalSolution;
 pub use benchmarks::{Benchmark, BenchmarkResult};
 pub use conservation::ConservationChecker;
 pub use convergence::{
-    ConvergenceCriterion, ConvergenceStatus, ConvergenceStudy, GridConvergenceIndex,
-    RichardsonExtrapolation,
+    ConvergenceCriterion, ConvergenceMonitor, ConvergenceStatus, ConvergenceStudy,
+    GridConvergenceIndex, RichardsonExtrapolation,
 };
 pub use error_metrics::{ErrorAnalysis, ErrorMetric};
 

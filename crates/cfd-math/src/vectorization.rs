@@ -3,14 +3,23 @@
 //! This module provides vectorized operations that can take advantage of SIMD
 //! instructions for improved performance in numerical computations.
 
+use crate::simd::SimdOps;
 use nalgebra::RealField;
 use rayon::prelude::*;
 
 /// Vectorized operations for CFD computations
-pub struct VectorizedOps;
+pub struct VectorizedOps {
+    simd_ops: SimdOps,
+}
 
 impl VectorizedOps {
-    /// Vectorized element-wise addition with potential SIMD optimization
+    /// Create a new vectorized operations handler
+    pub fn new() -> Self {
+        Self {
+            simd_ops: SimdOps::new(),
+        }
+    }
+    /// Vectorized element-wise addition with SIMD optimization
     pub fn add_vectorized<T: RealField + Copy + Send + Sync>(
         a: &[T],
         b: &[T],

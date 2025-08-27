@@ -3,6 +3,7 @@
 //! Reference: Rhie, C.M. and Chow, W.L. (1983). "Numerical study of the turbulent
 //! flow past an airfoil with trailing edge separation." AIAA Journal, 21(11), 1525-1532.
 
+use crate::constants::numerical::TWO;
 use crate::fields::Field2D;
 use crate::grid::StructuredGrid2D;
 use nalgebra::{RealField, Vector2};
@@ -57,29 +58,29 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         // East face between cells (i,j) and (i+1,j)
 
         // Linear interpolation of velocity
-        let u_bar = (u.at(i, j).x + u.at(i + 1, j).x) / T::from_f64(2.0).unwrap_or_else(T::zero);
+        let u_bar = (u.at(i, j).x + u.at(i + 1, j).x) / T::from_f64(TWO).unwrap_or_else(T::zero);
 
         // Interpolate pressure gradient coefficient d_f = (Volume/A_p)_f
         let volume = dx * dx; // 2D cell volume (assuming square cells)
         let d_p = volume / self.ap_coefficients.at(i, j);
         let d_e = volume / self.ap_coefficients.at(i + 1, j);
-        let d_face = (d_p + d_e) / T::from_f64(2.0).unwrap_or_else(T::zero);
+        let d_face = (d_p + d_e) / T::from_f64(TWO).unwrap_or_else(T::zero);
 
         // Cell-centered pressure gradients (from momentum equation)
         let dp_dx_p = if i > 0 {
-            (p.at(i + 1, j) - p.at(i - 1, j)) / (T::from_f64(2.0).unwrap_or_else(T::zero) * dx)
+            (p.at(i + 1, j) - p.at(i - 1, j)) / (T::from_f64(TWO).unwrap_or_else(T::zero) * dx)
         } else {
             (p.at(i + 1, j) - p.at(i, j)) / dx
         };
 
         let dp_dx_e = if i + 1 < self.nx - 1 {
-            (p.at(i + 2, j) - p.at(i, j)) / (T::from_f64(2.0).unwrap_or_else(T::zero) * dx)
+            (p.at(i + 2, j) - p.at(i, j)) / (T::from_f64(TWO).unwrap_or_else(T::zero) * dx)
         } else {
             (p.at(i + 1, j) - p.at(i, j)) / dx
         };
 
         // Average cell-centered gradient
-        let dp_dx_cells = (dp_dx_p + dp_dx_e) / T::from_f64(2.0).unwrap_or_else(T::zero);
+        let dp_dx_cells = (dp_dx_p + dp_dx_e) / T::from_f64(TWO).unwrap_or_else(T::zero);
 
         // Face pressure gradient
         let dp_dx_face = (p.at(i + 1, j) - p.at(i, j)) / dx;
@@ -100,29 +101,36 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         // North face between cells (i,j) and (i,j+1)
 
         // Linear interpolation of velocity
-        let v_bar = (v.at(i, j).y + v.at(i, j + 1).y) / T::from_f64(2.0).unwrap_or_else(T::zero);
+        let v_bar = (v.at(i, j).y + v.at(i, j + 1).y) / T::from_f64(TWO).unwrap_or_else(T::zero);
 
         // Interpolate pressure gradient coefficient
         let volume = dy * dy;
         let d_p = volume / self.ap_coefficients.at(i, j);
         let d_n = volume / self.ap_coefficients.at(i, j + 1);
-        let d_face = (d_p + d_n) / T::from_f64(2.0).unwrap_or_else(T::zero);
+        let d_face = (d_p + d_n) / T::from_f64(TWO).unwrap_or_else(T::zero);
 
         // Cell-centered pressure gradients
         let dp_dy_p = if j > 0 {
-            (p.at(i, j + 1) - p.at(i, j - 1)) / (T::from_f64(2.0).unwrap_or_else(T::zero) * dy)
+            (p.at(i, j + 1) - p.at(i, j - 1))
+                / (T::from_f64(crate::constants::physics::CENTRAL_DIFF_COEFF)
+                    .unwrap_or_else(T::zero)
+                    * dy)
         } else {
             (p.at(i, j + 1) - p.at(i, j)) / dy
         };
 
         let dp_dy_n = if j + 1 < self.ny - 1 {
-            (p.at(i, j + 2) - p.at(i, j)) / (T::from_f64(2.0).unwrap_or_else(T::zero) * dy)
+            (p.at(i, j + 2) - p.at(i, j))
+                / (T::from_f64(crate::constants::physics::CENTRAL_DIFF_COEFF)
+                    .unwrap_or_else(T::zero)
+                    * dy)
         } else {
             (p.at(i, j + 1) - p.at(i, j)) / dy
         };
 
         // Average cell-centered gradient
-        let dp_dy_cells = (dp_dy_p + dp_dy_n) / T::from_f64(2.0).unwrap_or_else(T::zero);
+        let dp_dy_cells = (dp_dy_p + dp_dy_n)
+            / T::from_f64(crate::constants::physics::CENTRAL_DIFF_COEFF).unwrap_or_else(T::zero);
 
         // Face pressure gradient
         let dp_dy_face = (p.at(i, j + 1) - p.at(i, j)) / dy;

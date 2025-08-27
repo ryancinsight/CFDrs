@@ -55,10 +55,10 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
 
     /// Apply bounce-back boundary condition
     pub fn apply_bounce_back(f: &mut Vec<Vec<[T; 9]>>, i: usize, j: usize) {
-        let f_temp = f[j][i];
+        let f_buffer = f[j][i];
         for q in 0..9 {
             let q_opp = D2Q9::OPPOSITE[q];
-            f[j][i][q] = f_temp[q_opp];
+            f[j][i][q] = f_buffer[q_opp];
         }
     }
 
@@ -97,8 +97,9 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         j: usize,
         p_boundary: T,
     ) {
-        // Convert pressure to density (assuming cs^2 = 1/3)
-        let cs2 = T::from_f64(1.0 / 3.0).unwrap_or_else(T::zero);
+        // Convert pressure to density using lattice sound speed
+        let cs2 = T::from_f64(crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED)
+            .unwrap_or_else(T::zero);
         let rho = p_boundary / cs2;
         density[j][i] = rho;
 

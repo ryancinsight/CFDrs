@@ -6,6 +6,12 @@
 use cfd_core::error::Result;
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
+
+// Named constants for numerical computations
+const TWO: f64 = 2.0;
+const THREE: f64 = 3.0;
+const FIVE: f64 = 5.0;
+const EIGHT: f64 = 8.0;
 use serde::{Deserialize, Serialize};
 
 // Named constants for IBM
@@ -116,11 +122,11 @@ impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
         let h = self.dx; // Assuming uniform grid
         let r_norm = r.abs() / h;
 
-        if r_norm >= T::from_f64(2.0).unwrap_or_else(|| T::zero()) {
+        if r_norm >= T::from_f64(TWO).unwrap_or_else(|| T::zero()) {
             T::zero()
         } else if r_norm < T::one() {
             let one = T::one();
-            let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
+            let three = T::from_f64(THREE).unwrap_or_else(|| T::zero());
             // Clamp the argument to sqrt to be non-negative
             let r_norm_squared = r_norm * r_norm;
             // Clamp the argument to sqrt to be non-negative
@@ -128,8 +134,8 @@ impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
             (one + ComplexField::sqrt(arg)) / (three * h)
         } else {
             let one = T::one();
-            let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
-            let five = T::from_f64(5.0).unwrap_or_else(|| T::zero());
+            let three = T::from_f64(THREE).unwrap_or_else(|| T::zero());
+            let five = T::from_f64(FIVE).unwrap_or_else(|| T::zero());
             // For 1 <= r_norm < 2, use the correct formula
             let term = (one - r_norm) * (one - r_norm);
             (five - three * r_norm - ComplexField::sqrt(three * term))
@@ -211,18 +217,18 @@ impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
     fn delta_function_static(r: T, h: T) -> T {
         let r_norm = r.abs() / h;
 
-        if r_norm >= T::from_f64(2.0).unwrap_or_else(|| T::zero()) {
+        if r_norm >= T::from_f64(TWO).unwrap_or_else(|| T::zero()) {
             T::zero()
         } else if r_norm < T::one() {
             let one = T::one();
-            let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
+            let three = T::from_f64(THREE).unwrap_or_else(|| T::zero());
             // Clamp the argument to sqrt to be non-negative
             let arg = (one - three * r_norm * r_norm).max(T::zero());
             (one + ComplexField::sqrt(arg)) / (three * h)
         } else {
             let one = T::one();
-            let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
-            let five = T::from_f64(5.0).unwrap_or_else(|| T::zero());
+            let three = T::from_f64(THREE).unwrap_or_else(|| T::zero());
+            let five = T::from_f64(FIVE).unwrap_or_else(|| T::zero());
             // For 1 <= r_norm < 2, use the correct formula
             let term = (one - r_norm) * (one - r_norm);
             (five - three * r_norm - ComplexField::sqrt(three * term))

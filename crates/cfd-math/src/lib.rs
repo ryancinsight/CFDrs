@@ -6,10 +6,12 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod differentiation;
+pub mod error;
 pub mod integration;
 pub mod interpolation;
 pub mod iterators;
 pub mod linear_solver;
+pub mod simd;
 pub mod sparse;
 pub mod vector_ops;
 pub mod vectorization;
