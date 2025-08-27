@@ -118,6 +118,20 @@ pub enum PluginErrorKind {
         /// Reason for invalid configuration
         reason: String,
     },
+    /// Dependency missing
+    DependencyMissing {
+        /// Plugin name
+        plugin: String,
+        /// Missing dependency
+        dependency: String,
+    },
+    /// Plugin has dependents
+    HasDependents {
+        /// Plugin name
+        plugin: String,
+        /// List of dependent plugins
+        dependents: Vec<String>,
+    },
 }
 
 impl fmt::Display for PluginErrorKind {
@@ -141,6 +155,17 @@ impl fmt::Display for PluginErrorKind {
             }
             Self::InvalidConfiguration { name, reason } => {
                 write!(f, "Invalid configuration for plugin '{}': {}", name, reason)
+            }
+            Self::DependencyMissing { plugin, dependency } => {
+                write!(f, "Plugin '{}' missing dependency '{}'", plugin, dependency)
+            }
+            Self::HasDependents { plugin, dependents } => {
+                write!(
+                    f,
+                    "Plugin '{}' has dependents: {}",
+                    plugin,
+                    dependents.join(", ")
+                )
             }
         }
     }

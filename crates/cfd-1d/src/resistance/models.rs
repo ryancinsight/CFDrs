@@ -282,27 +282,69 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
 }
 
 impl<T: RealField + Copy + FromPrimitive + num_traits::Float> DarcyWeisbachModel<T> {
-    /// Calculate friction factor using Swamee-Jain approximation
+    /// Calculate friction factor using iterative Colebrook-White equation
     fn calculate_friction_factor(&self, reynolds: T) -> T {
-        use cfd_core::constants::physics::hydraulics::COLEBROOK_ROUGHNESS_DIVISOR;
+        use crate::components::constants::COLEBROOK_TOLERANCE;
+        use cfd_core::constants::physics::hydraulics::{
+            COLEBROOK_REYNOLDS_NUMERATOR, COLEBROOK_ROUGHNESS_DIVISOR,
+        };
 
         let relative_roughness = self.roughness / self.hydraulic_diameter;
 
-        // Swamee-Jain approximation to Colebrook-White equation
-        const SWAMEE_JAIN_REYNOLDS_COEFFICIENT: f64 = 5.74;
-        const SWAMEE_JAIN_REYNOLDS_EXPONENT: f64 = 0.9;
-        const SWAMEE_JAIN_FACTOR: f64 = 0.25;
+        // Check for laminar flow
+        let re_2000 = T::from_f64(2000.0).unwrap_or_else(|| T::one());
+        if reynolds < re_2000 {
+            // Laminar flow: f = 64/Re
+            return T::from_f64(64.0).unwrap_or_else(|| T::one()) / reynolds;
+        }
 
-        let term1 = relative_roughness
-            / T::from_f64(COLEBROOK_ROUGHNESS_DIVISOR).unwrap_or_else(|| T::zero());
-        let term2 = T::from_f64(SWAMEE_JAIN_REYNOLDS_COEFFICIENT).unwrap_or_else(|| T::zero())
-            / num_traits::Float::powf(
-                reynolds,
-                T::from_f64(SWAMEE_JAIN_REYNOLDS_EXPONENT).unwrap_or_else(|| T::zero()),
-            );
-        let log_term = num_traits::Float::ln(term1 + term2);
-        T::from_f64(SWAMEE_JAIN_FACTOR).unwrap_or_else(|| T::zero())
-            / num_traits::Float::powf(log_term, T::from_f64(2.0).unwrap_or_else(|| T::zero()))
+        // Initial guess using Haaland explicit formula for better convergence
+        let mut f = {
+            let term = relative_roughness / T::from_f64(3.6).unwrap_or_else(|| T::one())
+                + T::from_f64(6.9).unwrap_or_else(|| T::one()) / reynolds;
+            let log_term = num_traits::Float::ln(term)
+                / T::from_f64(10.0_f64.ln()).unwrap_or_else(|| T::one());
+            T::one()
+                / num_traits::Float::powi(
+                    T::from_f64(1.8).unwrap_or_else(|| T::one()) * log_term,
+                    2,
+                )
+        };
+
+        // Iterative solution of Colebrook-White equation
+        // 1/sqrt(f) = -2.0 * log10(ε/(3.7*D) + 2.51/(Re*sqrt(f)))
+        let tolerance = T::from_f64(COLEBROOK_TOLERANCE)
+            .unwrap_or_else(|| T::from_f64(1e-6).unwrap_or_else(|| T::zero()));
+        let max_iter = 50;
+        let ln10 = T::from_f64(10.0_f64.ln()).unwrap_or_else(|| T::one());
+
+        for _ in 0..max_iter {
+            let sqrt_f = num_traits::Float::sqrt(f);
+            let term1 = relative_roughness
+                / T::from_f64(COLEBROOK_ROUGHNESS_DIVISOR).unwrap_or_else(|| T::one());
+            let term2 = T::from_f64(COLEBROOK_REYNOLDS_NUMERATOR).unwrap_or_else(|| T::one())
+                / (reynolds * sqrt_f);
+
+            let log_arg = term1 + term2;
+            if log_arg <= T::zero() {
+                // Fallback to previous value if log argument invalid
+                break;
+            }
+
+            let inv_sqrt_f = -T::from_f64(2.0).unwrap_or_else(|| T::one())
+                * (num_traits::Float::ln(log_arg) / ln10);
+            let f_new = T::one() / (inv_sqrt_f * inv_sqrt_f);
+
+            // Check convergence
+            if num_traits::Float::abs(f_new - f) < tolerance {
+                f = f_new;
+                break;
+            }
+
+            f = f_new;
+        }
+
+        f
     }
 }
 

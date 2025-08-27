@@ -126,12 +126,54 @@ where
                 let u_n = Vector2::new(fields.u.at(i, j + 1), fields.v.at(i, j + 1));
                 let u_s = Vector2::new(fields.u.at(i, j - 1), fields.v.at(i, j - 1));
 
-                // Momentum equation coefficients (simplified for demonstration)
+                // Momentum equation coefficients with proper discretization
+                // Include both diffusion and convection terms
                 let visc = fields.viscosity.at(i, j);
-                let ae = visc * self.dy / self.dx;
-                let aw = visc * self.dy / self.dx;
-                let an = visc * self.dx / self.dy;
-                let as_ = visc * self.dx / self.dy;
+                let density = fields.density.at(i, j);
+
+                // Face velocities (using upwind values)
+                let u_e_face = (fields.u.at(i, j) + fields.u.at(i + 1, j))
+                    / T::from_f64(2.0).unwrap_or_else(|| T::one());
+                let u_w_face = (fields.u.at(i - 1, j) + fields.u.at(i, j))
+                    / T::from_f64(2.0).unwrap_or_else(|| T::one());
+                let v_n_face = (fields.v.at(i, j) + fields.v.at(i, j + 1))
+                    / T::from_f64(2.0).unwrap_or_else(|| T::one());
+                let v_s_face = (fields.v.at(i, j - 1) + fields.v.at(i, j))
+                    / T::from_f64(2.0).unwrap_or_else(|| T::one());
+
+                // Convective fluxes
+                let f_e = density * u_e_face * self.dy;
+                let f_w = density * u_w_face * self.dy;
+                let f_n = density * v_n_face * self.dx;
+                let f_s = density * v_s_face * self.dx;
+
+                // Diffusion conductances
+                let d_e = visc * self.dy / self.dx;
+                let d_w = visc * self.dy / self.dx;
+                let d_n = visc * self.dx / self.dy;
+                let d_s = visc * self.dx / self.dy;
+
+                // Hybrid differencing scheme coefficients
+                let ae =
+                    d_e * T::max(
+                        T::zero(),
+                        T::one() - T::from_f64(0.5).unwrap_or_else(|| T::one()) * f_e.abs() / d_e,
+                    ) + T::max(-f_e, T::zero());
+                let aw =
+                    d_w * T::max(
+                        T::zero(),
+                        T::one() - T::from_f64(0.5).unwrap_or_else(|| T::one()) * f_w.abs() / d_w,
+                    ) + T::max(f_w, T::zero());
+                let an =
+                    d_n * T::max(
+                        T::zero(),
+                        T::one() - T::from_f64(0.5).unwrap_or_else(|| T::one()) * f_n.abs() / d_n,
+                    ) + T::max(-f_n, T::zero());
+                let as_ =
+                    d_s * T::max(
+                        T::zero(),
+                        T::one() - T::from_f64(0.5).unwrap_or_else(|| T::one()) * f_s.abs() / d_s,
+                    ) + T::max(f_s, T::zero());
 
                 // H(u) = -sum(A_nb * u_nb)
                 let h_u = -(u_e * ae + u_w * aw + u_n * an + u_s * as_);

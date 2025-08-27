@@ -48,9 +48,6 @@ impl<T: RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
         let mut s11 = T::zero();
         let mut s22 = T::zero();
         let mut s33 = T::zero();
-        let s12 = T::zero();
-        let s13 = T::zero();
-        let s23 = T::zero();
 
         // Central differences for velocity gradients
         if i > 0 && i < nx - 1 {
@@ -83,8 +80,55 @@ impl<T: RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
             }
         }
 
-        // Off-diagonal components (simplified)
-        // In practice, these would involve cross-derivatives
+        // Off-diagonal components: Sij = 0.5 * (∂ui/∂xj + ∂uj/∂xi)
+        let mut s12 = T::zero();
+        let mut s13 = T::zero();
+        let mut s23 = T::zero();
+
+        // S12 = 0.5 * (∂u/∂y + ∂v/∂x)
+        if i > 0 && i < nx - 1 && j > 0 && j < ny - 1 {
+            if let (Some(u_jp), Some(u_jm), Some(v_ip), Some(v_im)) = (
+                flow_field.velocity.get(i, j + 1, k),
+                flow_field.velocity.get(i, j - 1, k),
+                flow_field.velocity.get(i + 1, j, k),
+                flow_field.velocity.get(i - 1, j, k),
+            ) {
+                let two = T::from_f64(2.0).unwrap_or_else(T::one);
+                let du_dy = (u_jp.x - u_jm.x) / (two * delta);
+                let dv_dx = (v_ip.y - v_im.y) / (two * delta);
+                s12 = (du_dy + dv_dx) / two;
+            }
+        }
+
+        // S13 = 0.5 * (∂u/∂z + ∂w/∂x)
+        if i > 0 && i < nx - 1 && k > 0 && k < nz - 1 {
+            if let (Some(u_kp), Some(u_km), Some(w_ip), Some(w_im)) = (
+                flow_field.velocity.get(i, j, k + 1),
+                flow_field.velocity.get(i, j, k - 1),
+                flow_field.velocity.get(i + 1, j, k),
+                flow_field.velocity.get(i - 1, j, k),
+            ) {
+                let two = T::from_f64(2.0).unwrap_or_else(T::one);
+                let du_dz = (u_kp.x - u_km.x) / (two * delta);
+                let dw_dx = (w_ip.z - w_im.z) / (two * delta);
+                s13 = (du_dz + dw_dx) / two;
+            }
+        }
+
+        // S23 = 0.5 * (∂v/∂z + ∂w/∂y)
+        if j > 0 && j < ny - 1 && k > 0 && k < nz - 1 {
+            if let (Some(v_kp), Some(v_km), Some(w_jp), Some(w_jm)) = (
+                flow_field.velocity.get(i, j, k + 1),
+                flow_field.velocity.get(i, j, k - 1),
+                flow_field.velocity.get(i, j + 1, k),
+                flow_field.velocity.get(i, j - 1, k),
+            ) {
+                let two = T::from_f64(2.0).unwrap_or_else(T::one);
+                let dv_dz = (v_kp.y - v_km.y) / (two * delta);
+                let dw_dy = (w_jp.z - w_jm.z) / (two * delta);
+                s23 = (dv_dz + dw_dy) / two;
+            }
+        }
 
         // Strain rate magnitude: |S| = sqrt(2 * Sij * Sij)
         let two = T::from_f64(2.0).unwrap_or_else(T::one);

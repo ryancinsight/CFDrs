@@ -37,3 +37,15 @@ pub const COLEBROOK_TOLERANCE: f64 = 1e-6;
 
 /// Maximum iterations for iterative solvers
 pub const MAX_ITERATIONS: usize = 100;
+
+/// Laminar flow friction factor coefficient for circular pipes (f = 64/Re)
+pub const LAMINAR_FRICTION_COEFFICIENT: f64 = 64.0;
+
+/// Hydraulic diameter factor for rectangular channels
+pub const HYDRAULIC_DIAMETER_FACTOR: f64 = 4.0;
+
+/// Diameter exponent for Hagen-Poiseuille law
+pub const HAGEN_POISEUILLE_EXPONENT: f64 = 4.0;
+
+/// Factor of 2 for perimeter calculation
+pub const PERIMETER_FACTOR: f64 = 2.0;
