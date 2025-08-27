@@ -62,7 +62,7 @@ pub mod time_schemes {
         }
 
         fn order(&self) -> usize {
-            1 // First order accurate
+            1 // Order of accuracy: 1
         }
 
         fn is_implicit(&self) -> bool {
