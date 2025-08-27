@@ -23,3 +23,15 @@ pub const NUCLEATION_DENSITY_CLEAN: f64 = 1e6;
 
 /// Nucleation site density in technical water (#/m³)
 pub const NUCLEATION_DENSITY_TECHNICAL: f64 = 1e8;
+
+/// Nurick correlation coefficient for cavity length
+pub const NURICK_K_COEFFICIENT: f64 = 0.88;
+
+/// Nurick correlation exponent
+pub const NURICK_EXPONENT: f64 = 0.5;
+
+/// Incipient cavitation number for typical venturi
+pub const SIGMA_INCIPIENT: f64 = 1.2;
+
+/// Critical cavitation number for choked flow
+pub const SIGMA_CRITICAL: f64 = 1.0;

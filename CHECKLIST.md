@@ -1,6 +1,6 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.64.0 - Current State
+## Version 0.65.0 - Current State
 
 ### Completed ✅
 - [x] Workspace builds without errors
@@ -30,6 +30,16 @@
 - [x] All public APIs fully documented
 - [x] Dead code eliminated and all functions properly exposed
 - [x] Build warnings resolved
+
+### Completed (v0.65.0) ✅
+- [x] Replaced ALL simplified/placeholder implementations with proper algorithms
+- [x] Venturi cavity length uses Nurick (1976) correlation with proper constants
+- [x] LBM MRT collision operator fully implemented with orthogonal moment basis
+- [x] Level set solver has complete upwind advection and reinitialization
+- [x] Mesh boundary detection properly identifies boundary elements
+- [x] All "simplified model" comments removed - proper implementations throughout
+- [x] Added cavity closure position (Callenaere 2001) and volume calculations
+- [x] No more placeholders, stubs, or incomplete implementations
 
 ### Completed (v0.64.0) ✅
 - [x] Refactored plugin.rs module into modular structure (plugin/, traits, health, storage, dependency, registry)

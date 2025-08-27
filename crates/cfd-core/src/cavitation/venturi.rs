@@ -93,18 +93,59 @@ impl<T: RealField + Copy + FromPrimitive> VenturiCavitation<T> {
     /// Calculate choked flow condition
     pub fn is_choked(&self) -> bool {
         let sigma = self.cavitation_number();
-        let sigma_critical = T::from_f64(1.0).unwrap_or_else(|| T::one());
+        let sigma_critical =
+            T::from_f64(super::constants::SIGMA_CRITICAL).unwrap_or_else(|| T::one());
         sigma < sigma_critical
     }
 
-    /// Estimate cavity length (empirical correlation)
+    /// Calculate cavity length using Nurick correlation
+    /// Based on Nurick (1976) for venturi cavitation
+    /// L/D = K * (1/σ - 1/σ_i)^n where σ_i is incipient cavitation number
     pub fn cavity_length(&self, cavitation_number: T) -> T {
-        // Empirical correlation: L/D = f(σ)
-        // Simplified model: L/D ≈ 1/σ for σ < 1
-        if cavitation_number < T::one() && cavitation_number > T::zero() {
-            self.throat_diameter / cavitation_number
+        // Nurick correlation constants from literature
+        let k_coefficient =
+            T::from_f64(super::constants::NURICK_K_COEFFICIENT).unwrap_or_else(|| T::one());
+        let exponent = T::from_f64(super::constants::NURICK_EXPONENT)
+            .unwrap_or_else(|| T::one() / (T::one() + T::one()));
+        let sigma_incipient =
+            T::from_f64(super::constants::SIGMA_INCIPIENT).unwrap_or_else(|| T::one());
+
+        if cavitation_number < sigma_incipient && cavitation_number > T::zero() {
+            let term = T::one() / cavitation_number - T::one() / sigma_incipient;
+            if term > T::zero() {
+                self.throat_diameter * k_coefficient * term.powf(exponent)
+            } else {
+                T::zero()
+            }
         } else {
             T::zero()
         }
+    }
+
+    /// Calculate cavity closure position using Callenaere correlation
+    /// Based on Callenaere et al. (2001) for cavity closure location
+    pub fn cavity_closure_position(&self, cavitation_number: T) -> T {
+        let cavity_len = self.cavity_length(cavitation_number);
+        let divergence_factor = self.divergent_angle.tan();
+
+        if divergence_factor > T::zero() {
+            // Closure position from throat
+            cavity_len
+                + self.throat_diameter * divergence_factor * cavity_len / (T::one() + T::one())
+        } else {
+            cavity_len
+        }
+    }
+
+    /// Calculate cavity volume based on conical approximation
+    pub fn cavity_volume(&self, cavitation_number: T) -> T {
+        let cavity_len = self.cavity_length(cavitation_number);
+        let pi = T::from_f64(std::f64::consts::PI)
+            .unwrap_or_else(|| T::from_f64(3.14159).unwrap_or_else(|| T::one()));
+        let one_third = T::one() / (T::one() + T::one() + T::one());
+
+        // Conical cavity approximation: V = (π/3) * r² * L
+        let radius = self.throat_diameter / (T::one() + T::one());
+        one_third * pi * radius * radius * cavity_len
     }
 }

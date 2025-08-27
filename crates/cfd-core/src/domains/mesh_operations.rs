@@ -315,20 +315,83 @@ impl<T: RealField + Copy> Mesh<T> {
 
     /// Helper method to calculate aspect ratio
     fn calculate_aspect_ratio(&self, element: &Element) -> T {
-        // Simplified aspect ratio calculation
-        if element.vertices.len() >= 2 {
-            let v0 = &self.vertices[element.vertices[0]];
-            let v1 = &self.vertices[element.vertices[1]];
-            (v1 - v0).norm()
+        // Calculate aspect ratio as max_edge_length / min_edge_length
+        if element.vertices.len() < 2 {
+            return T::one();
+        }
+
+        let mut min_edge = T::from_f64(1e10).unwrap_or_else(|| T::one());
+        let mut max_edge = T::zero();
+
+        // Calculate all edge lengths
+        for i in 0..element.vertices.len() {
+            for j in (i + 1)..element.vertices.len() {
+                let v_i = &self.vertices[element.vertices[i]];
+                let v_j = &self.vertices[element.vertices[j]];
+                let edge_length = (v_j - v_i).norm();
+
+                if edge_length < min_edge {
+                    min_edge = edge_length;
+                }
+                if edge_length > max_edge {
+                    max_edge = edge_length;
+                }
+            }
+        }
+
+        if min_edge > T::zero() {
+            max_edge / min_edge
         } else {
             T::one()
         }
     }
 
     /// Helper method to check if element is on boundary
-    fn is_boundary_element(&self, _element: &Element) -> bool {
-        // Simplified boundary detection
-        true // Would need proper implementation
+    fn is_boundary_element(&self, element: &Element) -> bool {
+        // An element is on boundary if it shares fewer faces with neighbors than expected
+        // For each face of the element, check if it's shared with another element
+
+        let expected_neighbors = match element.element_type {
+            ElementType::Triangle => 3,
+            ElementType::Quadrilateral => 4,
+            ElementType::Tetrahedron => 4,
+            ElementType::Hexahedron => 6,
+            ElementType::Pyramid => 5,
+            ElementType::Prism => 5,
+            _ => return false,
+        };
+
+        let mut shared_faces = 0;
+
+        // Check how many elements share vertices with this element
+        for other_elem in &self.elements {
+            if other_elem.id == element.id {
+                continue;
+            }
+
+            // Count shared vertices to determine if elements share a face
+            let shared_vertices: Vec<_> = element
+                .vertices
+                .iter()
+                .filter(|v| other_elem.vertices.contains(v))
+                .collect();
+
+            // Elements share a face if they have enough shared vertices
+            let required_shared = match (element.element_type, other_elem.element_type) {
+                (ElementType::Triangle, _) | (_, ElementType::Triangle) => 2, // Edge in 2D
+                (ElementType::Tetrahedron, _) | (_, ElementType::Tetrahedron) => 3, // Face in 3D
+                (ElementType::Quadrilateral, _) | (_, ElementType::Quadrilateral) => 2, // Edge in 2D
+                (ElementType::Hexahedron, _) | (_, ElementType::Hexahedron) => 4, // Face in 3D
+                _ => 2, // Default to edge sharing
+            };
+
+            if shared_vertices.len() >= required_shared {
+                shared_faces += 1;
+            }
+        }
+
+        // Element is on boundary if it has fewer shared faces than expected
+        shared_faces < expected_neighbors
     }
 }
 

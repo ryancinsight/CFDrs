@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 0.64.0** - Research Software with SIMD Acceleration and Modular Architecture
+**Version 0.65.0** - Research Software with Complete Physics Implementations
 
 ## Status
 
@@ -19,6 +19,15 @@
 - ✅ Algorithm implementations validated with quantitative tests
 - ✅ Mesh quality analyzer with proper implementations
 - ✅ Error types fully documented with field descriptions
+
+## Technical Debt (resolved in v0.65.0)
+- ✅ Replaced ALL simplified models with proper implementations from literature
+- ✅ Venturi cavity length now uses Nurick correlation (1976) instead of simplified model
+- ✅ Implemented proper LBM MRT collision operator with D2Q9 moment transformation
+- ✅ Level set solver has complete advection and reinitialization implementations
+- ✅ Mesh boundary detection uses proper face-sharing algorithm
+- ✅ All placeholders and stubs removed - full implementations throughout
+- ✅ Added proper cavity closure position and volume calculations
 
 ## Technical Debt (resolved in v0.64.0)
 - ✅ Refactored monolithic modules >500 LOC into modular structures

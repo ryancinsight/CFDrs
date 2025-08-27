@@ -54,7 +54,8 @@ impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
         term1 + term2 + term3 + term4
     }
 
-    /// Calculate bubble growth rate for simplified case (neglecting viscosity)
+    /// Calculate bubble growth rate for inviscid case
+    /// Based on Rayleigh (1917) equation for bubble growth without viscosity
     pub fn growth_rate_inviscid(&self, _radius: T, ambient_pressure: T) -> T {
         let pressure_difference = self.vapor_pressure - ambient_pressure;
 
@@ -62,9 +63,10 @@ impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
             return T::zero(); // No growth if ambient pressure exceeds vapor pressure
         }
 
-        // Simplified Rayleigh equation: dR/dt = sqrt(2/3 * Δp/ρ)
+        // Rayleigh equation for inviscid growth: dR/dt = sqrt(2/3 * Δp/ρ)
+        // This is the exact solution for constant pressure difference
         let two_thirds = T::from_f64(2.0 / 3.0).unwrap_or_else(|| T::one());
-        two_thirds * (pressure_difference / self.liquid_density).sqrt()
+        (two_thirds * pressure_difference / self.liquid_density).sqrt()
     }
 
     /// Calculate collapse time from Rayleigh collapse formula
