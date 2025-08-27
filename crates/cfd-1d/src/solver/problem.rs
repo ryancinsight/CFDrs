@@ -19,7 +19,7 @@ pub struct NetworkProblem<T: RealField + Copy> {
     pub domain: NetworkDomain<T>,
     /// Fluid properties
     fluid: Fluid<T>,
-    /// Boundary conditions (placeholder for now)
+    /// Boundary conditions for the network
     boundary_conditions: BoundaryConditionSet<T>,
 }
 

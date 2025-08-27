@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## CFD Suite v0.72.0
+## CFD Suite v0.73.0
 
 ### Product Classification
 Research software (not production)
@@ -28,10 +28,12 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Limitations
-- Validation coverage limited to selected cases (expandable)
-- Performance and parallelism deferred (correctness prioritized)
-- Some large modules remain (functional but could be split further)
+### Limitations (HONEST ASSESSMENT)
+- Validation coverage INSUFFICIENT - only 3 basic cases
+- Performance UNTESTED - no benchmarks, no parallelization
+- Test suite runs TOO FAST (0.130s) - likely inadequate coverage
+- 18 compilation warnings - unused code indicates incomplete implementations
+- Several modules still exceed 400 lines - need further splitting
 
 ### Users
 - Researchers, students, prototype developers
