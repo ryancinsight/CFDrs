@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## CFD Suite v0.63.0
+## CFD Suite v0.64.0
 
 ### Product Classification
 Research software (not production)
@@ -46,6 +46,8 @@ Research software (not production)
 - [x] Fix all adjective-based naming violations
 - [x] Refactor modules >500 LOC (numerical_validation split into modular structure)
 - [x] Apply SOLID/CUPID/GRASP principles throughout codebase
+- [x] Refactor plugin.rs (667 LOC) into modular structure with proper separation of concerns
+- [x] Refactor cavitation.rs (502 LOC) into domain-based modules
 
 2) Validation
 - Add MMS for diffusion/advection
