@@ -1,4 +1,4 @@
-//! Basic quadrature rules for numerical integration
+//! Quadrature rules for numerical integration
 
 use crate::integration::traits::Quadrature;
 use cfd_core::error::{Error, NumericalErrorKind, Result};

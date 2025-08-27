@@ -1,7 +1,7 @@
-//! SIMD operations with proper operation dispatch
+//! SIMD operations with operation dispatch
 //!
-//! This module provides SIMD-accelerated operations that properly handle
-//! different operations instead of hardcoding addition.
+//! This module provides SIMD-accelerated operations that handle
+//! different operations through runtime dispatch.
 
 use super::SimdCapability;
 
@@ -16,7 +16,7 @@ pub enum SimdOperation {
     Divide,
 }
 
-/// SIMD operations processor with proper operation dispatch
+/// SIMD operations processor with operation dispatch
 pub struct SimdProcessor {
     capability: SimdCapability,
 }

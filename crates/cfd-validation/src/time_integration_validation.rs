@@ -80,8 +80,8 @@ impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta2
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
         let k1 = f(t, y);
-        let y_temp = y.clone() + k1.clone() * dt;
-        let k2 = f(t + dt, &y_temp);
+        let y_intermediate = y.clone() + k1.clone() * dt;
+        let k2 = f(t + dt, &y_intermediate);
 
         let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
         *y += (k1 + k2) * (dt * half);
@@ -391,7 +391,8 @@ mod tests {
 
     #[test]
     fn test_time_integration_validation() {
-        let results = TimeIntegrationValidator::validate_all::<f64>().expect("Failed to run time integration validation");
+        let results = TimeIntegrationValidator::validate_all::<f64>()
+            .expect("Failed to run time integration validation");
 
         // Check that we have results
         assert!(!results.is_empty());
@@ -414,7 +415,8 @@ mod tests {
 
     #[test]
     fn test_harmonic_oscillator_conservation() {
-        let results = TimeIntegrationValidator::validate_all::<f64>().expect("Failed to run time integration validation");
+        let results = TimeIntegrationValidator::validate_all::<f64>()
+            .expect("Failed to run time integration validation");
 
         let oscillator_tests: Vec<_> = results
             .iter()

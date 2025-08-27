@@ -73,13 +73,13 @@ impl<T: RealField + FromPrimitive + Copy> SpectralSolver<T> {
             self.config.nz_modes,
         );
 
-        // Create source term as a matrix (simplified)
+        // Create source term as a matrix
         let source = DMatrix::zeros(
             self.config.nx_modes * self.config.ny_modes,
             self.config.nz_modes,
         );
 
-        // Apply boundary conditions (simplified)
+        // Apply boundary conditions
         let bc_x = (
             PoissonBoundaryCondition::Dirichlet(T::zero()),
             PoissonBoundaryCondition::Dirichlet(T::zero()),

@@ -361,7 +361,7 @@ mod tests {
     use nalgebra::DMatrix;
     
     fn create_spd_matrix() -> CsrMatrix<f64> {
-        // Create a simple SPD matrix: tridiagonal [-1, 2, -1]
+        // Create an SPD matrix: tridiagonal [-1, 2, -1]
         let n = 5;
         let mut triplets = Vec::new();
         

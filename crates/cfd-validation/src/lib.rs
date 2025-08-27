@@ -27,7 +27,7 @@ pub use convergence::{
 };
 pub use error_metrics::{ErrorAnalysis, ErrorMetric};
 
-/// Basic validation test for Poiseuille flow
+/// Validation test for Poiseuille flow
 ///
 /// This validates the 1D pipe flow against the analytical solution
 #[cfg(test)]

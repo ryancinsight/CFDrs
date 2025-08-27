@@ -247,7 +247,7 @@ impl Hdf5Writer {
         dataset: &Dataset,
         metadata: &DatasetMetadata,
     ) -> Result<()> {
-        // Write basic metadata
+        // Write metadata
         dataset.current_attr::<hdf5::types::VarLenUnicode>()
             .create("name")?
             .write_scalar(&metadata.name.clone().as_str().into())?;
