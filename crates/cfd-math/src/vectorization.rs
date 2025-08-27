@@ -3,7 +3,7 @@
 //! This module provides vectorized operations that can take advantage of SIMD
 //! instructions for improved performance in numerical computations.
 
-use crate::simd::{SimdOps, VectorOps};
+use crate::simd::SimdOps;
 use nalgebra::RealField;
 use rayon::prelude::*;
 

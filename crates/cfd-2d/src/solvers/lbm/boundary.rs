@@ -97,8 +97,9 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         j: usize,
         p_boundary: T,
     ) {
-        // Convert pressure to density (assuming cs^2 = 1/3)
-        let cs2 = T::from_f64(1.0 / 3.0).unwrap_or_else(T::zero);
+        // Convert pressure to density using lattice sound speed
+        let cs2 = T::from_f64(crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED)
+            .unwrap_or_else(T::zero);
         let rho = p_boundary / cs2;
         density[j][i] = rho;
 

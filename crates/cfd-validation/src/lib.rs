@@ -22,8 +22,8 @@ pub use analytical::AnalyticalSolution;
 pub use benchmarks::{Benchmark, BenchmarkResult};
 pub use conservation::ConservationChecker;
 pub use convergence::{
-    ConvergenceCriterion, ConvergenceStatus, ConvergenceStudy, GridConvergenceIndex,
-    RichardsonExtrapolation,
+    ConvergenceCriterion, ConvergenceMonitor, ConvergenceStatus, ConvergenceStudy,
+    GridConvergenceIndex, RichardsonExtrapolation,
 };
 pub use error_metrics::{ErrorAnalysis, ErrorMetric};
 

@@ -111,19 +111,26 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
 
         // Cell-centered pressure gradients
         let dp_dy_p = if j > 0 {
-            (p.at(i, j + 1) - p.at(i, j - 1)) / (T::from_f64(2.0).unwrap_or_else(T::zero) * dy)
+            (p.at(i, j + 1) - p.at(i, j - 1))
+                / (T::from_f64(crate::constants::physics::CENTRAL_DIFF_COEFF)
+                    .unwrap_or_else(T::zero)
+                    * dy)
         } else {
             (p.at(i, j + 1) - p.at(i, j)) / dy
         };
 
         let dp_dy_n = if j + 1 < self.ny - 1 {
-            (p.at(i, j + 2) - p.at(i, j)) / (T::from_f64(2.0).unwrap_or_else(T::zero) * dy)
+            (p.at(i, j + 2) - p.at(i, j))
+                / (T::from_f64(crate::constants::physics::CENTRAL_DIFF_COEFF)
+                    .unwrap_or_else(T::zero)
+                    * dy)
         } else {
             (p.at(i, j + 1) - p.at(i, j)) / dy
         };
 
         // Average cell-centered gradient
-        let dp_dy_cells = (dp_dy_p + dp_dy_n) / T::from_f64(2.0).unwrap_or_else(T::zero);
+        let dp_dy_cells = (dp_dy_p + dp_dy_n)
+            / T::from_f64(crate::constants::physics::CENTRAL_DIFF_COEFF).unwrap_or_else(T::zero);
 
         // Face pressure gradient
         let dp_dy_face = (p.at(i, j + 1) - p.at(i, j)) / dy;

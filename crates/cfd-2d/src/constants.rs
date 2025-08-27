@@ -1,5 +1,7 @@
 //! Physical and numerical constants for 2D CFD calculations
 
+pub mod physics;
+
 /// Numerical constants
 pub mod numerical {
     /// Half value for averaging

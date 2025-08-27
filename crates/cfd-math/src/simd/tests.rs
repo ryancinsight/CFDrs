@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use crate::simd::arch_detect::ArchDetect;
     use approx::assert_relative_eq;
 
     #[test]
