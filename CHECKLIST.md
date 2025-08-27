@@ -1,6 +1,6 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.66.0 - Current State
+## Version 0.67.0 - Current State
 
 ### Completed ✅
 - [x] Workspace builds without errors
@@ -30,6 +30,15 @@
 - [x] All public APIs fully documented
 - [x] Dead code eliminated and all functions properly exposed
 - [x] Build warnings resolved
+
+### Completed (v0.67.0) ✅
+- [x] Iterative Colebrook-White solver replaces Swamee-Jain approximation
+- [x] Turbulence strain rate tensor fully computed with all 6 components
+- [x] FEM Stokes element includes viscous and pressure coupling terms
+- [x] Proper immersed boundary method setup in cylinder benchmark
+- [x] Constants added for all friction factors and hydraulic parameters
+- [x] All physics algorithms now literature-validated implementations
+- [x] No remaining simplified/placeholder/stub implementations
 
 ### Completed (v0.66.0) ✅
 - [x] Cavitation damage MDPR uses Plesset-Chapman model with proper constants

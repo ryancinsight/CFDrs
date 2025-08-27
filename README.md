@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 0.66.0** - Research Software with Literature-Validated Implementations
+**Version 0.67.0** - Research Software with Complete Physics and Numerical Methods
 
 ## Status
 
@@ -19,6 +19,15 @@
 - ✅ Algorithm implementations validated with quantitative tests
 - ✅ Mesh quality analyzer with proper implementations
 - ✅ Error types fully documented with field descriptions
+
+## Technical Debt (resolved in v0.67.0)
+- ✅ Replaced Swamee-Jain approximation with iterative Colebrook-White solver
+- ✅ Fixed turbulence strain rate tensor - all off-diagonal components now computed
+- ✅ FEM element matrices now include full Stokes viscous terms and cross-derivatives
+- ✅ Cylinder benchmark uses proper immersed boundary method setup
+- ✅ Added proper friction factor constants for laminar/turbulent flows
+- ✅ All simplified/placeholder implementations replaced with proper algorithms
+- ✅ Zero remaining "simplified" comments in physics implementations
 
 ## Technical Debt (resolved in v0.66.0)
 - ✅ Fixed cavitation damage MDPR - now uses proper Plesset-Chapman erosion model

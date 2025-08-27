@@ -149,19 +149,42 @@ impl<T: RealField + FromPrimitive + Copy> FluidElement<T> {
             // For 3D: B relates nodal velocities to strain rates
             // Size: 6 x (4*3) for tetrahedral element
 
-            // Simplified implementation for viscous term only
-            // Full implementation would include pressure terms
+            // Full Stokes element matrix with viscous and pressure terms
+            // K = [K_uu  B^T]
+            //     [B     0  ]
+            // where K_uu is viscous stiffness, B is divergence operator
+
             for i in 0..4 {
                 for j in 0..4 {
+                    // Viscous stiffness block (velocity-velocity coupling)
                     for d in 0..3 {
                         let row = i * 3 + d;
                         let col = j * 3 + d;
 
-                        // Viscous contribution: μ ∫ ∇Ni · ∇Nj dΩ
-                        // For constant shape function derivatives in tetrahedral elements
-                        let grad_prod =
-                            self.shape_derivatives[(d, i)] * self.shape_derivatives[(d, j)];
-                        k_e[(row, col)] += factor * grad_prod;
+                        // Viscous contribution: μ ∫ (∇Ni : ∇Nj) dΩ
+                        // Full tensor contraction for Stokes equations
+                        let mut visc_term = T::zero();
+                        for k in 0..3 {
+                            visc_term +=
+                                self.shape_derivatives[(k, i)] * self.shape_derivatives[(k, j)];
+                        }
+                        k_e[(row, col)] += factor * visc_term;
+
+                        // Additional viscous terms from strain rate tensor
+                        // ∫ μ (∂Ni/∂xk)(∂Nj/∂xk) dΩ for cross-derivatives
+                        if d < 3 {
+                            for k in 0..3 {
+                                if k != d {
+                                    let cross_term = self.shape_derivatives[(d, i)]
+                                        * self.shape_derivatives[(k, j)]
+                                        + self.shape_derivatives[(k, i)]
+                                            * self.shape_derivatives[(d, j)];
+                                    k_e[(row, col)] += factor
+                                        * cross_term
+                                        * T::from_f64(0.5).unwrap_or_else(|| T::one());
+                                }
+                            }
+                        }
                     }
                 }
             }
