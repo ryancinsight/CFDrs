@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 0.83.0** - Grid Module Refactoring & Domain Structure
+**Version 0.84.0** - GPU Compute Support via wgpu-rs
 
 ## Status
 

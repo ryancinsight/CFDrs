@@ -1,6 +1,6 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.83.0 - Current State
+## Version 0.84.0 - Current State
 
 ### Completed ✅
 - [x] Workspace builds without errors
@@ -253,6 +253,24 @@
 - [x] **PHYSICS COMPLETE**: SST CDkω, k-ε, wall functions all implemented
 - [x] **NO STUBS**: No Ok(()), unimplemented!, or todo! in production code
 - [x] **CONSTANTS**: All critical magic numbers replaced with named constants
+
+### Completed (v0.84.0) ✅ - GPU COMPUTE SUPPORT
+- [x] **GPU INTEGRATION**: wgpu-rs backend with WebGPU/Vulkan/Metal/DX12 support
+- [x] **COMPUTE TRAITS**: Unified `ComputeKernel` and `ComputeBuffer` abstractions
+- [x] **RUNTIME DISPATCH**: Automatic backend selection based on:
+  - Hardware capabilities (CPU/SIMD/GPU detection)
+  - Problem size thresholds (GPU for >100k, SIMD for >1k)
+  - Kernel support matrix
+- [x] **ARCHITECTURE-AWARE SIMD**: 
+  - x86/x86_64: AVX2, SSE4.1 detection
+  - AArch64: NEON detection
+  - Automatic fallback to scalar
+- [x] **GPU KERNELS**: 
+  - Advection (upwind scheme) in WGSL
+  - Diffusion (central difference) in WGSL
+  - Pressure solver framework
+- [x] **ZERO-COPY BUFFERS**: Efficient data transfer between backends
+- [x] **COMPREHENSIVE TESTS**: All compute backends validated
 
 ### Completed (v0.83.0) ✅ - GRID MODULE REFACTORING
 - [x] **GRID MODULE SPLIT**: 410-line grid.rs refactored into 5 domain modules:
