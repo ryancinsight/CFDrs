@@ -56,11 +56,11 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowAnalyzer<T> {
     fn determine_flow_regime(
         &self,
         network: &Network<T>,
-        edge: &crate::network::EdgeProperties<T>,
+        edge: &crate::network::EdgeWithProperties<T>,
         flow_rate: T,
     ) -> FlowRegime {
         let fluid = network.fluid();
-        let properties = &edge.properties;
+        let properties = edge.properties;
 
         // Calculate Reynolds number
         let area = properties.area;

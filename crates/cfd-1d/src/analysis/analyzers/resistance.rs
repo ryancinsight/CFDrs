@@ -58,7 +58,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T>
 impl<T: RealField + Copy + FromPrimitive + Float> ResistanceAnalyzer<T> {
     fn calculate_resistance(
         &self,
-        properties: &crate::network::ChannelProperties<T>,
+        properties: &crate::network::EdgeProperties<T>,
         fluid: &cfd_core::fluid::Fluid<T>,
         flow_rate: Option<T>,
     ) -> T {

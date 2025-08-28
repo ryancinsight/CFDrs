@@ -63,13 +63,14 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> PerformanceAnalyzer<T> {
 
         // Find max and min pressures
         let max_pressure = pressures
-            .iter()
+            .values()
             .copied()
             .fold(T::zero(), |a, b| if a > b { a } else { b });
-        let min_pressure = pressures
-            .iter()
-            .copied()
-            .fold(max_pressure, |a, b| if a < b { a } else { b });
+        let min_pressure =
+            pressures
+                .values()
+                .copied()
+                .fold(max_pressure, |a, b| if a < b { a } else { b });
 
         max_pressure - min_pressure
     }

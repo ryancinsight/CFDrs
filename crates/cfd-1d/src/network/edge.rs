@@ -40,17 +40,6 @@ impl<T: RealField + Copy> Edge<T> {
     }
 }
 
-/// Properties for edges in the network
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EdgeProperties<T: RealField + Copy> {
-    /// Channel geometry
-    pub geometry: Option<ChannelGeometry<T>>,
-    /// Pressure drop across edge
-    pub pressure_drop: T,
-    /// Additional metadata
-    pub metadata: std::collections::HashMap<String, T>,
-}
-
 /// Channel-specific properties
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelProperties<T: RealField + Copy> {
@@ -60,14 +49,4 @@ pub struct ChannelProperties<T: RealField + Copy> {
     pub diameter: T,
     /// Surface roughness
     pub roughness: T,
-}
-
-impl<T: RealField + Copy> Default for EdgeProperties<T> {
-    fn default() -> Self {
-        Self {
-            geometry: None,
-            pressure_drop: T::zero(),
-            metadata: std::collections::HashMap::new(),
-        }
-    }
 }
