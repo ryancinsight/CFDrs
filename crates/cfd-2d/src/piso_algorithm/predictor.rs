@@ -6,6 +6,10 @@ use cfd_core::Result;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
+// Named constants for numerical operations
+const HALF: f64 = 0.5;
+const TWO: f64 = 2.0;
+
 /// Velocity predictor for PISO algorithm
 pub struct VelocityPredictor<T: RealField + Copy> {
     /// Grid dimensions
@@ -40,15 +44,16 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 // Get velocities at cell faces (linear interpolation)
-                let ue = (fields.u.at(i, j) + fields.u.at(i + 1, j)) * T::from_f64(0.5).unwrap();
-                let uw = (fields.u.at(i - 1, j) + fields.u.at(i, j)) * T::from_f64(0.5).unwrap();
-                let un = (fields.u.at(i, j) + fields.u.at(i, j + 1)) * T::from_f64(0.5).unwrap();
-                let us = (fields.u.at(i, j - 1) + fields.u.at(i, j)) * T::from_f64(0.5).unwrap();
+                let half = T::from_f64(HALF).unwrap_or_else(T::one);
+                let ue = (fields.u.at(i, j) + fields.u.at(i + 1, j)) * half;
+                let uw = (fields.u.at(i - 1, j) + fields.u.at(i, j)) * half;
+                let un = (fields.u.at(i, j) + fields.u.at(i, j + 1)) * half;
+                let us = (fields.u.at(i, j - 1) + fields.u.at(i, j)) * half;
 
-                let ve = (fields.v.at(i, j) + fields.v.at(i + 1, j)) * T::from_f64(0.5).unwrap();
-                let vw = (fields.v.at(i - 1, j) + fields.v.at(i, j)) * T::from_f64(0.5).unwrap();
-                let vn = (fields.v.at(i, j) + fields.v.at(i, j + 1)) * T::from_f64(0.5).unwrap();
-                let vs = (fields.v.at(i, j - 1) + fields.v.at(i, j)) * T::from_f64(0.5).unwrap();
+                let ve = (fields.v.at(i, j) + fields.v.at(i + 1, j)) * half;
+                let vw = (fields.v.at(i - 1, j) + fields.v.at(i, j)) * half;
+                let vn = (fields.v.at(i, j) + fields.v.at(i, j + 1)) * half;
+                let vs = (fields.v.at(i, j - 1) + fields.v.at(i, j)) * half;
 
                 // Convective terms (using upwind scheme)
                 let conv_u = self.calculate_convection_u(fields, i, j, ue, uw, un, us);
@@ -168,12 +173,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
     /// Calculate diffusion term for u-velocity
     fn calculate_diffusion_u(&self, fields: &SimulationFields<T>, i: usize, j: usize) -> T {
         let mu = fields.viscosity.at(i, j);
+        let two = T::from_f64(TWO).unwrap_or_else(|| T::one() + T::one());
 
-        let d2u_dx2 = (fields.u.at(i + 1, j) - T::from_f64(2.0).unwrap() * fields.u.at(i, j)
-            + fields.u.at(i - 1, j))
+        let d2u_dx2 = (fields.u.at(i + 1, j) - two * fields.u.at(i, j) + fields.u.at(i - 1, j))
             / (self.dx * self.dx);
-        let d2u_dy2 = (fields.u.at(i, j + 1) - T::from_f64(2.0).unwrap() * fields.u.at(i, j)
-            + fields.u.at(i, j - 1))
+        let d2u_dy2 = (fields.u.at(i, j + 1) - two * fields.u.at(i, j) + fields.u.at(i, j - 1))
             / (self.dy * self.dy);
 
         mu * (d2u_dx2 + d2u_dy2)
@@ -182,12 +186,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
     /// Calculate diffusion term for v-velocity
     fn calculate_diffusion_v(&self, fields: &SimulationFields<T>, i: usize, j: usize) -> T {
         let mu = fields.viscosity.at(i, j);
-
-        let d2v_dx2 = (fields.v.at(i + 1, j) - T::from_f64(2.0).unwrap() * fields.v.at(i, j)
-            + fields.v.at(i - 1, j))
+        let two = T::from_f64(TWO).unwrap_or_else(|| T::one() + T::one());
+        let d2v_dx2 = (fields.v.at(i + 1, j) - two * fields.v.at(i, j) + fields.v.at(i - 1, j))
             / (self.dx * self.dx);
-        let d2v_dy2 = (fields.v.at(i, j + 1) - T::from_f64(2.0).unwrap() * fields.v.at(i, j)
-            + fields.v.at(i, j - 1))
+        let d2v_dy2 = (fields.v.at(i, j + 1) - two * fields.v.at(i, j) + fields.v.at(i, j - 1))
             / (self.dy * self.dy);
 
         mu * (d2v_dx2 + d2v_dy2)

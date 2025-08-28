@@ -47,6 +47,24 @@ impl<T: RealField + Copy + Sum> PerformanceMetrics<T> {
         self.power_consumption = power;
     }
 
+    /// Set total pressure drop
+    pub fn set_total_pressure_drop(&mut self, pressure_drop: T) {
+        // Store as part of pressure efficiency calculation
+        if pressure_drop > T::zero() && self.throughput > T::zero() {
+            self.pressure_efficiency = self.throughput / pressure_drop;
+        }
+    }
+
+    /// Set total flow rate
+    pub fn set_total_flow_rate(&mut self, flow_rate: T) {
+        self.throughput = flow_rate;
+    }
+
+    /// Set efficiency
+    pub fn set_efficiency(&mut self, efficiency: T) {
+        self.pressure_efficiency = efficiency;
+    }
+
     /// Set mixing efficiency
     pub fn set_mixing_efficiency(&mut self, efficiency: T) {
         self.mixing_efficiency = Some(efficiency);

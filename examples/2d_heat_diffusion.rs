@@ -4,9 +4,8 @@
 //! We solve: ∇²T = 0 with specified boundary conditions.
 
 use cfd_suite::d2::{
-    AdvectionDiffusionSolver, BoundaryType, FdmConfig, GridEdge, PoissonSolver, StructuredGrid2D,
+    AdvectionDiffusionSolver, BoundaryType, FdmConfig, PoissonSolver, StructuredGrid2D,
 };
-use cfd_suite::prelude::*;
 use std::collections::HashMap;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -30,10 +29,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Right wall: T = 0°C (cold)
     // Top and bottom walls: insulated (∂T/∂n = 0, approximated as T = neighbor)
 
-    grid.set_edge_boundary(GridEdge::Left, BoundaryType::Wall);
-    grid.set_edge_boundary(GridEdge::Right, BoundaryType::Wall);
-    grid.set_edge_boundary(GridEdge::Bottom, BoundaryType::Wall);
-    grid.set_edge_boundary(GridEdge::Top, BoundaryType::Wall);
+    // Set boundaries for all edges at once
+    grid.set_edge_boundaries(BoundaryType::Wall);
 
     // Set boundary values using iterator patterns for zero-copy operations
     let boundary_values: HashMap<(usize, usize), f64> = [
@@ -104,7 +101,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let center_j = grid.ny / 2;
     println!("Position (x)\tTemperature (°C)");
 
-    let (x_min, x_max, _, _) = grid.bounds();
+    let (x_min, x_max, _, _) = grid.bounds;
     let dx = (x_max - x_min) / grid.nx as f64;
     (0..grid.nx)
         .filter_map(|i| {

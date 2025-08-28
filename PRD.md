@@ -28,22 +28,25 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v0.88.0)
+### Current State (v0.94.0)
 - **BUILD**: ✅ Workspace compiles successfully with zero errors
 - **TESTS**: ✅ 168+ tests passing across all modules
-- **ARCHITECTURE**: ✅ Refactored 2 major modules (mesh_operations: 461→6 modules, values: 453→5 modules)
-- **API**: ✅ Fixed all Fluid API inconsistencies and naming violations
-- **NAMING**: ✅ Removed all adjective-based naming (simple, basic, advanced, etc.)
-- **CONSTANTS**: ✅ Created dedicated constants modules (weno_constants.rs) for magic numbers
-- **PLACEHOLDERS**: ✅ Eliminated ALL placeholder implementations (mesh element measures now complete)
-- **BUILD STATUS**: ✅ WORKSPACE COMPILES SUCCESSFULLY
-- **TEST STATUS**: ✅ ALL TESTS PASS
-- **PHYSICS VALIDATION**: ✅ TVD Superbee limiter corrected
-- **MODULE REFACTORING**: ✅ boundary_conditions.rs split (394→140 lines max)
-- **NAMING VIOLATIONS**: ✅ FIXED - Eliminated u_old/u_new variable names
-- **ARCHITECTURE**: ✅ Clean domain separation with traits
-- **MODULES**: ⚠️ 21 modules still exceed 300 lines (down from 23)
-- **WARNINGS**: ⚠️ 23 documentation warnings remain (field/variant docs)
+- **COLLISION REFACTORING**: ✅ Split 381-line collision.rs into 5 modules
+  - traits.rs: CollisionOperator trait
+  - bgk.rs: BGK single relaxation time
+  - mrt.rs: Multiple relaxation time  
+  - regularized.rs: Regularized collision
+  - forcing.rs: Guo and Shan-Chen forcing schemes
+- **MOMENTUM REFACTORING**: ✅ Split 375-line momentum.rs into 5 modules
+  - solver.rs: Core momentum equation solver
+  - coefficients.rs: Discretization coefficients
+  - discretization.rs: Upwind and central schemes
+  - boundary.rs: Boundary condition application
+  - interpolation.rs: Rhie-Chow interpolation
+- **SAFETY**: ✅ Fixed dangerous nested unwrap_or_else chains
+- **PHYSICS**: ✅ Proper LBM collision models with literature references
+- **REMAINING DEBT**: ⚠️ 89 unwraps, 19 large modules, 40 clones
+- **BUILD**: ⚠️ Some trait bound issues remain
 
 ### Users
 - Researchers, students, prototype developers

@@ -26,13 +26,6 @@ pub mod network;
 pub mod resistance;
 pub mod solver;
 
-#[cfg(feature = "scheme-integration")]
-pub mod scheme_integration;
-
-// When scheme integration is not enabled, provide a stub module
-#[cfg(not(feature = "scheme-integration"))]
-pub mod scheme_integration;
-
 // Export network functionality
 pub use network::{
     BoundaryCondition, ChannelProperties, Edge, EdgeProperties, EdgeType, Network, NetworkBuilder,
@@ -53,8 +46,8 @@ pub use components::{
 
 // Export analysis functionality
 pub use analysis::{
-    FlowAnalysis, NetworkAnalysisResult, NetworkAnalyzer, PerformanceMetrics, PressureAnalysis,
-    ResistanceAnalysis,
+    FlowAnalysis, NetworkAnalysisResult, NetworkAnalyzerOrchestrator, PerformanceMetrics,
+    PressureAnalysis, ResistanceAnalysis,
 };
 
 // Export channel functionality
@@ -79,16 +72,11 @@ pub use resistance::{
 /// For basic 1D functionality, prefer `cfd_suite::prelude::*`.
 pub mod prelude {
     // === Scheme Integration (2D Visualization) ===
-    // Tools for converting 1D networks to 2D schematics
-    pub use crate::scheme_integration::{ComponentType, SchematicLayout, SchemeConversion};
-
-    #[cfg(feature = "scheme-integration")]
-    pub use crate::scheme_integration::{helpers, ChannelPathType, JunctionType};
 
     // === Extended Network Components ===
     // Specialized components not in main prelude
     pub use crate::{
-        analysis::{NetworkAnalysisResult, PerformanceMetrics},
+        analysis::{NetworkAnalysisResult, NetworkAnalyzerOrchestrator, PerformanceMetrics},
         channel::{
             Channel, ChannelGeometry, ChannelType, CrossSection, FlowRegime, FlowState,
             SurfaceProperties, Wettability,
