@@ -98,8 +98,9 @@ impl<T: RealField + Copy> ConservationHistory<T> {
         self.errors
             .iter()
             .max_by(|a, b| {
-                a.partial_cmp(b)
-                    .expect("CRITICAL: Add proper error handling")
+                // Use partial_cmp with fallback to handle edge cases
+                // For RealField types, NaN comparisons return None
+                a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
             })
             .copied()
     }

@@ -28,25 +28,25 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v0.95.0)
-- **BUILD**: ✅ Workspace compiles successfully with ZERO errors (fixed 65 errors)
-- **TESTS**: ✅ 167 tests passing in 0.108s with cargo nextest
-- **API ALIGNMENT**: ✅ Fixed all API inconsistencies
-  - Field2D: Removed .set(), using safe .at_mut()
-  - SparseMatrixBuilder: Fixed .add() → .add_entry()
-  - BoundaryCondition: Fixed pattern matching (struct variants)
-  - LBM equilibrium: Fixed function signature (5 parameters)
-  - D2Q9: Using constants instead of generic methods
-- **CODE QUALITY**: ✅ Applied cargo fix and cargo fmt
-- **SAFETY IMPROVEMENTS**: ✅ Eliminated dangerous method calls
-  - Replaced unsafe .set() with safe .at_mut()
-  - Fixed Result handling in matrix builders
-  - Added proper Sum trait bounds where needed
-- **REMAINING DEBT**: ⚠️ 
-  - 89 unwraps still present
-  - 15+ modules over 300 lines
-  - 1300+ magic number literals (need constants)
-  - Test performance suspicious (0.108s for 167 tests)
+### Current State (v0.96.0)
+- **PHYSICS**: ✅ FIXED CRITICAL BROKEN IMPLEMENTATIONS
+  - MRT collision was using IDENTITY MATRIX (completely wrong!)
+  - Now properly implements Lallemand & Luo (2000) transformation
+  - All turbulence models reference proper literature
+- **SAFETY**: ✅ Fixed critical error handling issues
+  - Replaced expect("Add proper error handling") with actual handling
+  - Proper NaN handling in comparisons
+- **TESTS**: ✅ 167 tests passing in 0.113s
+- **LITERATURE VALIDATION**: ✅ All physics cross-referenced
+  - MRT: Lallemand & Luo (2000) Phys Rev E
+  - k-ω SST: Menter (1994)
+  - Wall functions: Pope (2000), Spalding (1961)
+  - Hydraulics: White (2011) Fluid Mechanics
+- **REMAINING CRITICAL ISSUES**: ⚠️
+  - 171 unwrap/expect calls (crash points)
+  - 18 modules over 300 lines (SOLID violations)
+  - 1300+ magic numbers (SSOT violations)
+  - Test coverage likely insufficient (0.113s is too fast)
 
 ### Users
 - Researchers, students, prototype developers

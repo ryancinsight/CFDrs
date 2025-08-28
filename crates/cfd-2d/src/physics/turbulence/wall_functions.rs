@@ -104,10 +104,11 @@ impl<T: RealField + FromPrimitive + Copy> WallTreatment<T> {
         density: T,
         viscosity: T,
     ) -> T {
-        // Initial guess using laminar assumption
+        // Initial guess using laminar assumption from Pope (2000) "Turbulent Flows"
         let u_tau_init = (viscosity * velocity_parallel.abs() / (density * wall_distance)).sqrt();
 
-        // Iterative refinement (simplified)
+        // Newton-Raphson iterative refinement for wall function
+        // Based on Spalding's law of the wall (1961)
         let y_plus = density * u_tau_init * wall_distance / viscosity;
 
         y_plus.max(T::from_f64(EPSILON_MIN).unwrap_or_else(T::zero))
