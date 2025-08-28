@@ -19,6 +19,13 @@ pub struct Fluid<T: RealField + Copy> {
     pub thermal_conductivity: Option<T>,
 }
 
+/// Fluid properties structure for easy access
+pub struct FluidProperties<T: RealField + Copy> {
+    pub density: T,
+    pub viscosity: T,
+    pub kinematic_viscosity: T,
+}
+
 impl<T: RealField + Copy> Fluid<T> {
     /// Create a fluid with required properties
     pub fn create(name: String, density: T, viscosity: T) -> Self {
@@ -28,6 +35,15 @@ impl<T: RealField + Copy> Fluid<T> {
             viscosity,
             specific_heat: None,
             thermal_conductivity: None,
+        }
+    }
+
+    /// Get fluid properties
+    pub fn properties(&self) -> FluidProperties<T> {
+        FluidProperties {
+            density: self.density,
+            viscosity: self.viscosity,
+            kinematic_viscosity: self.kinematic_viscosity(),
         }
     }
 

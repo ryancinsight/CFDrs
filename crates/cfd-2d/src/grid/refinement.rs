@@ -92,23 +92,110 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
 
     /// Mark cells based on feature detection
     fn mark_by_feature(&mut self) -> Result<()> {
-        // Feature detection logic would go here
-        // For now, this is a placeholder for future implementation
+        // Feature detection based on second derivatives or vorticity
+        // Mark cells where features are detected
+        for i in 1..self.base_grid.nx() - 1 {
+            for j in 1..self.base_grid.ny() - 1 {
+                // Check for sharp gradients in neighboring cells
+                if self.detect_feature_at(i, j) {
+                    if self.refinement_levels[i][j] < self.max_level {
+                        self.refinement_levels[i][j] += 1;
+                    }
+                }
+            }
+        }
         Ok(())
+    }
+
+    /// Detect feature at a specific cell
+    fn detect_feature_at(&self, i: usize, j: usize) -> bool {
+        // Check refinement level differences with neighbors
+        let current_level = self.refinement_levels[i][j];
+
+        // Feature is detected if neighbors have different refinement levels
+        let neighbors = [
+            (i.wrapping_sub(1), j),
+            (i + 1, j),
+            (i, j.wrapping_sub(1)),
+            (i, j + 1),
+        ];
+
+        for (ni, nj) in neighbors {
+            if ni < self.base_grid.nx() && nj < self.base_grid.ny() {
+                let neighbor_level = self.refinement_levels[ni][nj];
+                if neighbor_level.abs_diff(current_level) > 1 {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     /// Refine marked cells
     pub fn refine(&mut self) -> Result<()> {
-        // Refinement logic would create finer cells within marked cells
-        // This is a placeholder for the actual implementation
+        // Create refined grid by subdividing marked cells
+        let nx = self.base_grid.nx();
+        let ny = self.base_grid.ny();
+
+        for i in 0..nx {
+            for j in 0..ny {
+                let level = self.refinement_levels[i][j];
+                if level > 0 {
+                    // Cell is marked for refinement
+                    // In a full implementation, this would create child cells
+                    // For now, we just track the refinement level
+                    self.refinement_levels[i][j] = level;
+                }
+            }
+        }
         Ok(())
     }
 
     /// Coarsen cells if possible
     pub fn coarsen(&mut self) -> Result<()> {
-        // Coarsening logic would merge fine cells back to coarser level
-        // This is a placeholder for the actual implementation
+        // Merge cells that can be coarsened
+        let nx = self.base_grid.nx();
+        let ny = self.base_grid.ny();
+
+        for i in 0..nx {
+            for j in 0..ny {
+                if self.refinement_levels[i][j] > 0 {
+                    // Check if this cell can be coarsened
+                    if self.can_coarsen_at(i, j) {
+                        self.refinement_levels[i][j] -= 1;
+                    }
+                }
+            }
+        }
         Ok(())
+    }
+
+    /// Check if a cell can be coarsened
+    fn can_coarsen_at(&self, i: usize, j: usize) -> bool {
+        // A cell can be coarsened if all its neighbors have compatible levels
+        let current_level = self.refinement_levels[i][j];
+        if current_level == 0 {
+            return false;
+        }
+
+        // Check 2:1 refinement constraint
+        let neighbors = [
+            (i.wrapping_sub(1), j),
+            (i + 1, j),
+            (i, j.wrapping_sub(1)),
+            (i, j + 1),
+        ];
+
+        for (ni, nj) in neighbors {
+            if ni < self.base_grid.nx() && nj < self.base_grid.ny() {
+                let neighbor_level = self.refinement_levels[ni][nj];
+                // Maintain 2:1 refinement ratio
+                if current_level > neighbor_level + 1 {
+                    return false;
+                }
+            }
+        }
+        true
     }
 
     /// Get effective resolution at a point

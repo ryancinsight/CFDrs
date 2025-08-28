@@ -279,12 +279,7 @@ impl<T: RealField + Copy> Mesh<T> {
 
                 Ok(base_area * height)
             }
-            ElementType::Line3 => {
-                // Use first two nodes for length
-                let p0 = &self.nodes[element.nodes[0]];
-                let p1 = &self.nodes[element.nodes[1]];
-                Ok((p1 - p0).norm())
-            }
+
             ElementType::Triangle6 => {
                 // Use first three nodes for area
                 let p0 = &self.nodes[element.nodes[0]];

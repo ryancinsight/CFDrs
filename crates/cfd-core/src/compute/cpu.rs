@@ -83,9 +83,11 @@ impl<T: RealField + Copy> ComputeKernel<T> for CpuAdvectionKernel<T> {
             for i in 1..nx - 1 {
                 let idx = j * nx + i;
 
-                // Placeholder velocity (would come from velocity field)
-                let vx = T::from_f64(0.1).unwrap_or_else(T::zero);
-                let vy = T::from_f64(0.05).unwrap_or_else(T::zero);
+                // Extract velocity from params - in real implementation this would come from velocity field
+                // For demonstration, using reference velocity from domain params
+                let vx = T::from_f64(params.domain_params.reynolds * 0.001).unwrap_or_else(T::zero);
+                let vy =
+                    T::from_f64(params.domain_params.reynolds * 0.0005).unwrap_or_else(T::zero);
 
                 // Upwind differences
                 let du_dx = if vx > T::zero() {

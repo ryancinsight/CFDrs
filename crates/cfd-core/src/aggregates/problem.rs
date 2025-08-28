@@ -104,14 +104,15 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> Prob
     /// Validate problem setup
     pub fn validate(&self) -> Result<()> {
         // Check domain validity
-        if self.domain.num_cells() == 0 {
+        if self.domain.volume() <= T::zero() {
             return Err(Error::InvalidConfiguration(
-                "Domain has no cells".to_string(),
+                "Domain has zero volume".to_string(),
             ));
         }
 
         // Check fluid properties
-        if self.fluid.density() <= T::zero() {
+        let fluid_props = self.fluid.properties();
+        if fluid_props.density <= T::zero() {
             return Err(Error::InvalidConfiguration(
                 "Fluid density must be positive".to_string(),
             ));

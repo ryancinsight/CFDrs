@@ -2,7 +2,7 @@
 
 use crate::error::Result;
 use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, Zero};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -20,6 +20,11 @@ pub struct Pressure<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> Pressure<T> {
+    /// Create zero pressure
+    pub fn zero() -> Self {
+        Self { pascals: T::zero() }
+    }
+
     /// Create pressure in Pascals
     pub fn from_pascals(value: T) -> Result<Self> {
         Ok(Self { pascals: value })

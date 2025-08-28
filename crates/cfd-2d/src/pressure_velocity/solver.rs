@@ -159,14 +159,18 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp> PressureVelocitySolv
     }
 
     /// Calculate residual between two velocity fields
-    fn calculate_residual(&self, u_old: &Vec<Vec<Vector2<T>>>, u_new: &Vec<Vec<Vector2<T>>>) -> T {
+    fn calculate_residual(
+        &self,
+        previous: &Vec<Vec<Vector2<T>>>,
+        current: &Vec<Vec<Vector2<T>>>,
+    ) -> T {
         let nx = self.grid.nx;
         let ny = self.grid.ny;
 
         let mut max_diff = T::zero();
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
-                let diff = (u_new[i][j] - u_old[i][j]).norm();
+                let diff = (current[i][j] - previous[i][j]).norm();
                 if diff > max_diff {
                     max_diff = diff;
                 }

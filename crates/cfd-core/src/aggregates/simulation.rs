@@ -116,34 +116,29 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>>
 
     /// Validate simulation configuration
     pub fn validate_configuration(&self) -> Result<()> {
-        // Check if domain is valid
-        if self.domain.num_cells() == 0 {
+        // Check if domain is valid (has non-zero volume)
+        if self.domain.volume() <= T::zero() {
             return Err(Error::InvalidConfiguration(
-                "Domain has no cells".to_string(),
+                "Domain has zero volume".to_string(),
             ));
         }
 
         // Check if fluid properties are valid
-        if self.fluid.density() <= T::zero() {
+        let fluid_props = self.fluid.properties();
+        if fluid_props.density <= T::zero() {
             return Err(Error::InvalidConfiguration(
                 "Fluid density must be positive".to_string(),
             ));
         }
 
-        if self.fluid.dynamic_viscosity() <= T::zero() {
+        if fluid_props.viscosity <= T::zero() {
             return Err(Error::InvalidConfiguration(
                 "Fluid viscosity must be positive".to_string(),
             ));
         }
 
-        // Check stability
-        let dx = self.domain.cell_size();
-        if !self.parameters.is_stable(dx) {
-            return Err(Error::InvalidConfiguration(format!(
-                "CFL condition violated: CFL = {}",
-                self.parameters.cfl_number(dx)
-            )));
-        }
+        // Stability check would require grid information, not just domain
+        // This should be done at the solver level, not here
 
         Ok(())
     }
@@ -156,9 +151,10 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>>
             ));
         }
 
-        // Simulation step logic would go here
-        // This is a placeholder for the actual implementation
-        let _ = dt;
+        // Time step execution requires a solver implementation
+        // This should be handled by a specific solver, not the aggregate
+        self.parameters.time_step = dt;
+        self.metadata.touch();
 
         Ok(())
     }

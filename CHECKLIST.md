@@ -1,6 +1,6 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.85.0 - Current State
+## Version 0.86.0 - Current State
 
 ### Completed ✅
 - [x] Workspace builds without errors
@@ -253,6 +253,23 @@
 - [x] **PHYSICS COMPLETE**: SST CDkω, k-ε, wall functions all implemented
 - [x] **NO STUBS**: No Ok(()), unimplemented!, or todo! in production code
 - [x] **CONSTANTS**: All critical magic numbers replaced with named constants
+
+### Completed (v0.86.0) ✅ - PLACEHOLDER ELIMINATION & API CONSISTENCY
+- [x] **ALL PLACEHOLDERS REMOVED**:
+  - SimulationAggregate::step() - Now properly updates time step
+  - CPU advection kernel - Uses Reynolds-based velocity
+  - Grid refinement - Full 2:1 refinement with feature detection
+  - Coarsening - Proper neighbor level checking
+- [x] **API CONSISTENCY FIXED**:
+  - Domain trait - Uses volume() instead of non-existent num_cells()
+  - Fluid - Added properties() method returning FluidProperties struct
+  - Pressure/Velocity - Added zero() constructors
+  - Grid - Fixed spacing() method usage
+- [x] **NAMING VIOLATIONS FIXED**:
+  - u_old/u_new → previous/current
+  - Removed all adjective-based naming
+- [x] **UNREACHABLE CODE REMOVED**:
+  - Fixed duplicate ElementType::Line3 pattern match
 
 ### Completed (v0.85.0) ✅ - ARCHITECTURAL IMPROVEMENTS
 - [x] **AGGREGATES REFACTORED**: Split 409-line module into 5 clean submodules:

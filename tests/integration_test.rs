@@ -38,9 +38,10 @@ fn test_2d_grid_creation() {
     assert_eq!(grid.nx() * grid.ny(), 100);
 
     // Test grid spacing
-    let dx_diff: f64 = grid.dx() - 0.1;
+    let (dx, dy) = grid.spacing();
+    let dx_diff: f64 = dx - 0.1;
     assert!(dx_diff.abs() < 1e-10);
-    let dy_diff: f64 = grid.dy() - 0.1;
+    let dy_diff: f64 = dy - 0.1;
     assert!(dy_diff.abs() < 1e-10);
 }
 

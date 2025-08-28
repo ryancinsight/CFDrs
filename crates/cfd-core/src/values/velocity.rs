@@ -2,7 +2,7 @@
 
 use crate::error::Result;
 use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, Zero};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -20,6 +20,13 @@ pub struct Velocity<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> Velocity<T> {
+    /// Create zero velocity
+    pub fn zero() -> Self {
+        Self {
+            components: Vector3::zeros(),
+        }
+    }
+
     /// Create velocity from components in m/s
     pub fn from_components(x: T, y: T, z: T) -> Self {
         Self {

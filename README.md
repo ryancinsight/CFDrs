@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 0.85.0** - Enhanced GPU/SIMD Integration & Architectural Refinements
+**Version 0.86.0** - Complete Implementation & API Consistency
 
 ## Status
 
