@@ -92,7 +92,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> SORPreconditioner<T> {
         self.omega
     }
 
-    /// Create SOR preconditioner with omega optimized for 1D Poisson problems
+    /// Create SOR preconditioner with omega tuned for 1D Poisson problems
     ///
     /// ## Warning
     /// This function computes an optimal omega value **specifically** for matrices
@@ -122,7 +122,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> SORPreconditioner<T> {
     fn validate_1d_poisson_structure(a: &CsrMatrix<T>) -> Result<()> {
         let n = a.nrows();
 
-        // Check basic structure: each row should have at most 3 non-zeros
+        // Check structure: each row should have at most 3 non-zeros
         for i in 0..n {
             let row = a.row(i);
             if row.nnz() > 3 {

@@ -32,7 +32,7 @@ impl SwarOps {
         let len = a.len();
         let unrolled_len = len & !(UNROLL_FACTOR - 1);
 
-        // Unrolled loop for better instruction-level parallelism
+        // Unrolled loop for instruction-level parallelism
         for i in (0..unrolled_len).step_by(UNROLL_FACTOR) {
             // Manual unrolling for compiler optimization
             unsafe {
@@ -40,7 +40,7 @@ impl SwarOps {
                 let b_ptr = b.as_ptr().add(i);
                 let r_ptr = result.as_mut_ptr().add(i);
 
-                // Process 4 elements at once for better pipelining
+                // Process 4 elements at once for pipelining
                 *r_ptr = *a_ptr + *b_ptr;
                 *r_ptr.add(1) = *a_ptr.add(1) + *b_ptr.add(1);
                 *r_ptr.add(2) = *a_ptr.add(2) + *b_ptr.add(2);
@@ -153,7 +153,7 @@ impl SwarOps {
         Ok(sum)
     }
 
-    /// SWAR-optimized reduction (sum)
+    /// SWAR reduction (sum)
     pub fn sum_f32(&self, input: &[f32]) -> f32 {
         const UNROLL_FACTOR: usize = 8;
 

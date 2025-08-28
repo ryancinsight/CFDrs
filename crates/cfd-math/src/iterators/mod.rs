@@ -1,6 +1,6 @@
 //! Zero-copy iterator utilities for CFD operations
 //!
-//! This module provides efficient iterator combinators optimized for CFD computations,
+//! This module provides efficient iterator combinators for CFD computations,
 //! strictly following zero-copy principles with proper borrowing.
 
 mod norms;

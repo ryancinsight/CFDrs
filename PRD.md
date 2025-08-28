@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## CFD Suite v0.70.0
+## CFD Suite v0.74.0
 
 ### Product Classification
 Research software (not production)
@@ -28,10 +28,15 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Limitations
-- Validation coverage limited to selected cases (expandable)
-- Performance and parallelism deferred (correctness prioritized)
-- Some large modules remain (functional but could be split further)
+### Limitations (BRUTAL TRUTH)
+- **CRITICAL**: Previous refactoring left codebase UNCOMPILABLE
+- **ARCHITECTURAL FAILURE**: 20 modules exceed 300 lines
+- **TESTING**: Tests DON'T EVEN COMPILE currently
+- **TYPOS**: CurrenttonianFluid instead of NewtonianFluid throughout
+- **VALIDATION**: Only 3 trivial test cases - completely inadequate
+- **PERFORMANCE**: Zero benchmarks, no parallelization
+- **WARNINGS**: Dozens of compilation warnings indicate incomplete code
+- **MODULES**: Multiple 400+ line modules violating all design principles
 
 ### Users
 - Researchers, students, prototype developers

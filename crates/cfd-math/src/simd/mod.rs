@@ -5,7 +5,7 @@
 
 pub mod arch_detect;
 pub mod operations;
-pub mod operations_fixed;
+pub mod operations_dispatch;
 pub mod swar;
 
 #[cfg(test)]
@@ -53,5 +53,5 @@ impl SimdCapability {
 
 // Re-export main types
 pub use operations::{SimdOps, VectorOps};
-pub use operations_fixed::{SimdOperation, SimdProcessor};
+pub use operations_dispatch::{SimdOperation, SimdProcessor};
 pub use swar::SwarOps;

@@ -2,7 +2,7 @@
 
 use nalgebra::RealField;
 
-/// Simplified geometry enum for resistance model selection
+/// Geometry enum for resistance model selection
 #[derive(Debug, Clone)]
 pub enum ChannelGeometry<T: RealField + Copy> {
     /// Circular channel
