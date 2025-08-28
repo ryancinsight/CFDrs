@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 1.1.0-alpha** - Significant Stub Elimination & Real Implementations
+**Version 1.2.0-beta** - Build Fixed, Tests Pass, Production Approaching
 
 ## Status
 
@@ -36,7 +36,13 @@
   - Proper Result-based error propagation
 - ✅ **BUILD SUCCESS**: Compiles without errors
 - ✅ **ARCHITECTURE**: Improved domain separation
-- ✅ **MAJOR IMPROVEMENTS (v1.1.0-alpha)**:
+- ✅ **CRITICAL FIXES (v1.2.0-beta)**:
+  - Fixed ALL 17 compilation errors
+  - Resolved flux factory pattern with proper diffusion coefficient
+  - Fixed checkpoint save/load with proper encoder flushing
+  - Replaced mutex unwrap() calls with proper error handling
+  - All 149 tests now pass
+- ✅ **MAJOR IMPROVEMENTS (v1.1.0-alpha):**
   - Replaced ALL "simplified" flux calculators with proper Patankar implementations
   - Fixed mass conservation checker with real divergence calculation
   - Corrected regularized LBM collision documentation

@@ -92,7 +92,13 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
         velocity: &Field2D<Vector2<T>>,
         source: &Field2D<T>,
     ) -> Result<()> {
-        let flux_calculator = FluxSchemeFactory::create::<T>(self.flux_scheme);
+        let flux_calculator = FluxSchemeFactory::create::<T>(
+            self.flux_scheme,
+            self.config
+                .diffusion_coefficient
+                .to_subset()
+                .unwrap_or(1e-3),
+        );
 
         // Iterative solution
         for _iter in 0..self.config.max_iterations {

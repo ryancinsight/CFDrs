@@ -8,6 +8,7 @@ const DEFAULT_CONVERGENCE_TOLERANCE: f64 = 1e-6;
 const DEFAULT_MAX_ITERATIONS: usize = 1000;
 const DEFAULT_CFL_NUMBER: f64 = 0.5;
 const DEFAULT_RELAXATION_FACTOR: f64 = 0.7;
+const DEFAULT_DIFFUSION_COEFFICIENT: f64 = 1e-3;
 
 /// Configuration for FVM solver
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,6 +31,8 @@ pub struct FvmConfig<T: RealField + Copy> {
     pub cfl_number: T,
     /// Under-relaxation factor
     pub relaxation_factor: T,
+    /// Diffusion coefficient
+    pub diffusion_coefficient: T,
 }
 
 impl<T: RealField + Copy + num_traits::FromPrimitive> Default for FvmConfig<T> {
@@ -45,6 +48,8 @@ impl<T: RealField + Copy + num_traits::FromPrimitive> Default for FvmConfig<T> {
             max_iterations: DEFAULT_MAX_ITERATIONS,
             cfl_number: T::from_f64(DEFAULT_CFL_NUMBER).unwrap_or_else(T::one),
             relaxation_factor: T::from_f64(DEFAULT_RELAXATION_FACTOR).unwrap_or_else(T::one),
+            diffusion_coefficient: T::from_f64(DEFAULT_DIFFUSION_COEFFICIENT)
+                .unwrap_or_else(T::one),
         }
     }
 }

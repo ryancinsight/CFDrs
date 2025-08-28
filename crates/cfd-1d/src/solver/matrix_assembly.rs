@@ -62,7 +62,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
             match bc {
                 crate::network::BoundaryCondition::Dirichlet { value: pressure } => {
                     // Dirichlet boundary condition
-                    let mut coo = coo_mutex.lock().unwrap();
+                    let mut coo = coo_mutex.lock().map_err(|_| {
+                        Error::Solver("Mutex poisoned during matrix assembly".to_string())
+                    })?;
                     // Set row to identity
                     coo.push(idx, idx, T::one());
                     rhs[idx] = pressure;
@@ -79,7 +81,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
             }
         }
 
-        let coo = coo_mutex.into_inner().unwrap();
+        let coo = coo_mutex
+            .into_inner()
+            .map_err(|_| Error::Solver("Mutex poisoned during matrix assembly".to_string()))?;
         let matrix = CsrMatrix::from(&coo);
 
         Ok((matrix, rhs))

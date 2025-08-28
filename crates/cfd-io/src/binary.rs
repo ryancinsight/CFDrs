@@ -26,8 +26,12 @@ impl<W: Write> BinaryWriter<W> {
 
     /// Write serializable data using bincode
     pub fn write<T: Serialize>(&mut self, data: &T) -> Result<()> {
-        bincode::serialize_into(&mut self.writer, data)
-            .map_err(|e| Error::SerializationError(format!("Binary write error: {e}")))?;
+        bincode::serialize_into(&mut self.writer, data).map_err(|e| {
+            Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Binary write error: {}", e),
+            ))
+        })?;
         Ok(())
     }
 
@@ -86,8 +90,12 @@ impl<R: Read> BinaryReader<R> {
 
     /// Read deserializable data using bincode
     pub fn read<T: for<'de> Deserialize<'de>>(&mut self) -> Result<T> {
-        bincode::deserialize_from(&mut self.reader)
-            .map_err(|e| Error::SerializationError(format!("Binary read error: {e}")))
+        bincode::deserialize_from(&mut self.reader).map_err(|e| {
+            Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Binary read error: {}", e),
+            ))
+        })
     }
 
     /// Read vector data using iterator-based construction

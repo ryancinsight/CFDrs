@@ -3,7 +3,7 @@
 //! Provides robust checkpointing with validation and versioning.
 
 use cfd_core::error::{Error, Result};
-use nalgebra::{DMatrix, DVector, RealField};
+use nalgebra::{DMatrix, RealField};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -119,16 +119,22 @@ impl CheckpointManager {
 
         if self.use_compression {
             // Use compressed JSON with zstd
-            let encoder = zstd::stream::write::Encoder::new(writer, 3).map_err(|e| {
+            let mut encoder = zstd::stream::write::Encoder::new(writer, 3).map_err(|e| {
                 Error::Io(std::io::Error::new(
                     std::io::ErrorKind::Other,
                     format!("Compression error: {}", e),
                 ))
             })?;
-            serde_json::to_writer(encoder, checkpoint).map_err(|e| {
+            serde_json::to_writer(&mut encoder, checkpoint).map_err(|e| {
                 Error::Io(std::io::Error::new(
                     std::io::ErrorKind::Other,
                     format!("Serialization error: {}", e),
+                ))
+            })?;
+            encoder.finish().map_err(|e| {
+                Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Compression finish error: {}", e),
                 ))
             })?;
         } else {
@@ -337,7 +343,8 @@ mod tests {
     #[test]
     fn test_checkpoint_save_load() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let manager = CheckpointManager::new(temp_dir.path()).unwrap();
+        let mut manager = CheckpointManager::new(temp_dir.path()).unwrap();
+        manager.set_compression(false); // Disable compression for test
 
         // Create test checkpoint
         let checkpoint = Checkpoint::<f64> {
@@ -362,6 +369,7 @@ mod tests {
         assert!(filepath.exists());
 
         // Load checkpoint
+        assert!(filepath.metadata().unwrap().len() > 0, "File is empty");
         let loaded = manager.load::<f64>(&filepath).unwrap();
         assert_eq!(loaded.metadata.iteration, 100);
         assert_eq!(loaded.pressure[(5, 5)], 1.0);

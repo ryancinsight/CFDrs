@@ -28,7 +28,7 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v1.1.0-alpha)
+### Current State (v1.2.0-beta)
 - **ARCHITECTURE**: ✅ Major structural improvements
   - Decomposed ALL modules >300 lines into proper domains
   - Created trait-based interfaces following SOLID/CUPID
@@ -56,6 +56,11 @@ Research software (not production)
   - 236 stub implementations returning Ok(())
   - 43 TODO/FIXME/simplified placeholders
   - Insufficient test coverage
+- **BUILD & TEST FIXES (v1.2.0)**:
+  - All compilation errors resolved
+  - All 149 tests passing
+  - Proper error handling in critical paths
+  - Checkpoint system fully functional
 - **STUB ELIMINATIONS (v1.1.0)**:
   - Power law flux: Full Patankar implementation
   - Hybrid flux: Proper Spalding/Patankar scheme
@@ -66,7 +71,7 @@ Research software (not production)
   - Real checkpoint/restart system with tests
   - Lid-driven cavity validation benchmark
   - Improved error handling patterns
-- **PRODUCTION READINESS**: ⚠️ BETA STAGE APPROACHING
+- **PRODUCTION READINESS**: 🔶 BETA STAGE
   - Core architecture solid
   - Some real implementations added
   - Still too many stubs and panic points

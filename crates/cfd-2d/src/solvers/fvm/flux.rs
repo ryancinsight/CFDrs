@@ -24,13 +24,16 @@ pub struct FluxSchemeFactory;
 
 impl FluxSchemeFactory {
     /// Create a flux calculator based on the scheme
-    pub fn create<T: RealField + Copy>(scheme: FluxScheme) -> Box<dyn FluxCalculator<T>> {
+    pub fn create<T: RealField + Copy + FromPrimitive>(
+        scheme: FluxScheme,
+        diffusion: f64,
+    ) -> Box<dyn FluxCalculator<T>> {
         match scheme {
             FluxScheme::CentralDifference => Box::new(CentralDifferenceFlux),
             FluxScheme::Upwind => Box::new(UpwindFlux),
             FluxScheme::Quick => Box::new(QuickFlux),
-            FluxScheme::PowerLaw => Box::new(PowerLawFlux),
-            FluxScheme::Hybrid => Box::new(HybridFlux),
+            FluxScheme::PowerLaw => Box::new(PowerLawFlux::new(diffusion)),
+            FluxScheme::Hybrid => Box::new(HybridFlux::new(diffusion)),
         }
     }
 }

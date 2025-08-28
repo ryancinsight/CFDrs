@@ -168,7 +168,12 @@ impl<T: RealField + Copy> CsvReader<T> {
         // Read data using iterator
         let mut data = Vec::new();
         for result in reader.records() {
-            let record = result.map_err(|e| Error::CsvError(e.to_string()))?;
+            let record = result.map_err(|e| {
+                Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("CSV error: {}", e),
+                ))
+            })?;
             let row: Result<Vec<T>> = record
                 .iter()
                 .map(|field| {
@@ -196,7 +201,12 @@ impl<T: RealField + Copy> CsvReader<T> {
 
         let mut records = Vec::new();
         for result in reader.deserialize() {
-            let record: R = result.map_err(|e| Error::CsvError(e.to_string()))?;
+            let record: R = result.map_err(|e| {
+                Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("CSV error: {}", e),
+                ))
+            })?;
             records.push(record);
         }
 
@@ -239,9 +249,14 @@ impl StreamReader {
 
     /// Iterator over records
     pub fn records(&mut self) -> impl Iterator<Item = Result<csv::StringRecord>> + '_ {
-        self.reader
-            .records()
-            .map(|r| r.map_err(|e| Error::CsvError(e.to_string())))
+        self.reader.records().map(|r| {
+            r.map_err(|e| {
+                Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("CSV error: {}", e),
+                ))
+            })
+        })
     }
 
     /// Iterator over typed records
@@ -249,9 +264,14 @@ impl StreamReader {
     where
         R: for<'de> Deserialize<'de> + 'static,
     {
-        self.reader
-            .deserialize()
-            .map(|r| r.map_err(|e| Error::CsvError(e.to_string())))
+        self.reader.deserialize().map(|r| {
+            r.map_err(|e| {
+                Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("CSV error: {}", e),
+                ))
+            })
+        })
     }
 }
 
