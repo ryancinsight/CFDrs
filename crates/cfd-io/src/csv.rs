@@ -18,19 +18,15 @@ pub struct CsvWriter<T: RealField + Copy> {
 
 impl<T: RealField + Copy> CsvWriter<T> {
     /// Create a new CSV writer
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
     }
 
     /// Write time series data to CSV
-    pub fn write_time_series<I>(
-        &self,
-        path: &Path,
-        headers: &[&str],
-        data: I,
-    ) -> Result<()>
+    pub fn write_time_series<I>(&self, path: &Path, headers: &[&str], data: I) -> Result<()>
     where
         I: IntoIterator<Item = Vec<T>>,
         T: std::fmt::Display,
@@ -39,15 +35,16 @@ impl<T: RealField + Copy> CsvWriter<T> {
         let mut writer = CsvWriterImpl::from_writer(BufWriter::new(file));
 
         // Write headers
-        writer.write_record(headers)
+        writer
+            .write_record(headers)
             .map_err(|e| Error::CsvError(e.to_string()))?;
 
         // Write data rows using iterator
         for row in data {
-            let string_row: Vec<String> = row.iter()
-                .map(std::string::ToString::to_string)
-                .collect();
-            writer.write_record(&string_row)
+            let string_row: Vec<String> =
+                row.iter().map(std::string::ToString::to_string).collect();
+            writer
+                .write_record(&string_row)
                 .map_err(|e| Error::CsvError(e.to_string()))?;
         }
 
@@ -65,7 +62,8 @@ impl<T: RealField + Copy> CsvWriter<T> {
         let mut writer = CsvWriterImpl::from_writer(BufWriter::new(file));
 
         for record in records {
-            writer.serialize(record)
+            writer
+                .serialize(record)
                 .map_err(|e| Error::CsvError(e.to_string()))?;
         }
 
@@ -95,17 +93,17 @@ pub struct StreamWriter {
 impl StreamWriter {
     /// Write headers
     pub fn write_headers(&mut self, headers: &[&str]) -> Result<()> {
-        self.writer.write_record(headers)
+        self.writer
+            .write_record(headers)
             .map_err(|e| Error::CsvError(e.to_string()))?;
         Ok(())
     }
 
     /// Write a single row
     pub fn write_row<T: std::fmt::Display>(&mut self, row: &[T]) -> Result<()> {
-        let string_row: Vec<String> = row.iter()
-            .map(std::string::ToString::to_string)
-            .collect();
-        self.writer.write_record(&string_row)
+        let string_row: Vec<String> = row.iter().map(std::string::ToString::to_string).collect();
+        self.writer
+            .write_record(&string_row)
             .map_err(|e| Error::CsvError(e.to_string()))?;
         Ok(())
     }
@@ -124,7 +122,8 @@ pub struct CsvReader<T: RealField + Copy> {
 
 impl<T: RealField + Copy> CsvReader<T> {
     /// Create a new CSV reader
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
@@ -140,21 +139,23 @@ impl<T: RealField + Copy> CsvReader<T> {
         let mut reader = CsvReaderImpl::from_reader(BufReader::new(file));
 
         // Read headers
-        let headers = reader.headers()
-            .map_err(|e| Error::CsvError(e.to_string()))?
-            ;
-        let header_vec: Vec<String> = headers.iter()
+        let headers = reader
+            .headers()
+            .map_err(|e| Error::CsvError(e.to_string()))?;
+        let header_vec: Vec<String> = headers
+            .iter()
             .map(std::string::ToString::to_string)
             .collect();
 
         // Read data using iterator
         let mut data = Vec::new();
         for result in reader.records() {
-            let record = result
-                .map_err(|e| Error::CsvError(e.to_string()))?;
-            let row: Result<Vec<T>> = record.iter()
+            let record = result.map_err(|e| Error::CsvError(e.to_string()))?;
+            let row: Result<Vec<T>> = record
+                .iter()
                 .map(|field| {
-                    field.parse::<T>()
+                    field
+                        .parse::<T>()
                         .map_err(|e| Error::SerializationError(format!("Parse error: {e}")))
                 })
                 .collect();
@@ -177,8 +178,7 @@ impl<T: RealField + Copy> CsvReader<T> {
 
         let mut records = Vec::new();
         for result in reader.deserialize() {
-            let record: R = result
-                .map_err(|e| Error::CsvError(e.to_string()))?;
+            let record: R = result.map_err(|e| Error::CsvError(e.to_string()))?;
             records.push(record);
         }
 
@@ -207,14 +207,21 @@ pub struct StreamReader {
 impl StreamReader {
     /// Get headers
     pub fn headers(&mut self) -> Result<Vec<String>> {
-        let headers = self.reader.headers()
+        let headers = self
+            .reader
+            .headers()
             .map_err(|e| Error::CsvError(e.to_string()))?;
-        Ok(headers.iter().map(std::string::ToString::to_string).collect())
+        Ok(headers
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect())
     }
 
     /// Iterator over records
     pub fn records(&mut self) -> impl Iterator<Item = Result<csv::StringRecord>> + '_ {
-        self.reader.records().map(|r| r.map_err(|e| Error::CsvError(e.to_string())))
+        self.reader
+            .records()
+            .map(|r| r.map_err(|e| Error::CsvError(e.to_string())))
     }
 
     /// Iterator over typed records
@@ -222,7 +229,9 @@ impl StreamReader {
     where
         R: for<'de> Deserialize<'de> + 'static,
     {
-        self.reader.deserialize().map(|r| r.map_err(|e| Error::CsvError(e.to_string())))
+        self.reader
+            .deserialize()
+            .map(|r| r.map_err(|e| Error::CsvError(e.to_string())))
     }
 }
 
@@ -237,17 +246,20 @@ pub struct TimeSeriesData<T> {
 
 impl<T: RealField + Copy> TimeSeriesData<T> {
     /// Get number of rows
-    #[must_use] pub fn num_rows(&self) -> usize {
+    #[must_use]
+    pub fn num_rows(&self) -> usize {
         self.data.len()
     }
 
     /// Get number of columns
-    #[must_use] pub fn num_cols(&self) -> usize {
+    #[must_use]
+    pub fn num_cols(&self) -> usize {
         self.headers.len()
     }
 
     /// Get column by name
-    #[must_use] pub fn get_column(&self, name: &str) -> Option<Vec<T>>
+    #[must_use]
+    pub fn get_column(&self, name: &str) -> Option<Vec<T>>
     where
         T: Clone,
     {
@@ -256,7 +268,8 @@ impl<T: RealField + Copy> TimeSeriesData<T> {
     }
 
     /// Get column by index
-    #[must_use] pub fn get_column_by_index(&self, index: usize) -> Option<Vec<T>>
+    #[must_use]
+    pub fn get_column_by_index(&self, index: usize) -> Option<Vec<T>>
     where
         T: Clone,
     {
@@ -273,9 +286,7 @@ impl<T: RealField + Copy> TimeSeriesData<T> {
 
     /// Iterator over columns
     pub fn columns(&self) -> impl Iterator<Item = Vec<&T>> + '_ {
-        (0..self.num_cols()).map(move |i| {
-            self.data.iter().map(|row| &row[i]).collect()
-        })
+        (0..self.num_cols()).map(move |i| self.data.iter().map(|row| &row[i]).collect())
     }
 }
 
@@ -318,12 +329,14 @@ mod tests {
             vec![0.1, 1.1, 2.1],
             vec![0.2, 1.2, 2.2],
         ];
-        writer.write_time_series(path, &headers, data.clone())
+        writer
+            .write_time_series(path, &headers, data.clone())
             .expect("Failed to write time series data");
 
         // Read data
         let reader = CsvReader::<f64>::new();
-        let result = reader.read_time_series(path)
+        let result = reader
+            .read_time_series(path)
             .expect("Failed to read time series data");
 
         assert_eq!(result.headers, headers);
@@ -337,16 +350,28 @@ mod tests {
 
         // Write using streaming
         let writer = CsvWriter::<f64>::new();
-        let mut stream = writer.create_stream_writer(path).expect("CRITICAL: Add proper error handling");
-        stream.write_headers(&["x", "y"]).expect("CRITICAL: Add proper error handling");
-        stream.write_row(&[1.0, 2.0]).expect("CRITICAL: Add proper error handling");
-        stream.write_row(&[3.0, 4.0]).expect("CRITICAL: Add proper error handling");
+        let mut stream = writer
+            .create_stream_writer(path)
+            .expect("CRITICAL: Add proper error handling");
+        stream
+            .write_headers(&["x", "y"])
+            .expect("CRITICAL: Add proper error handling");
+        stream
+            .write_row(&[1.0, 2.0])
+            .expect("CRITICAL: Add proper error handling");
+        stream
+            .write_row(&[3.0, 4.0])
+            .expect("CRITICAL: Add proper error handling");
         stream.flush().expect("CRITICAL: Add proper error handling");
 
         // Read using streaming
         let reader = CsvReader::<f64>::new();
-        let mut stream = reader.create_stream_reader(path).expect("CRITICAL: Add proper error handling");
-        let headers = stream.headers().expect("CRITICAL: Add proper error handling");
+        let mut stream = reader
+            .create_stream_reader(path)
+            .expect("CRITICAL: Add proper error handling");
+        let headers = stream
+            .headers()
+            .expect("CRITICAL: Add proper error handling");
         assert_eq!(headers, vec!["x", "y"]);
 
         let records: Vec<_> = stream.records().collect();

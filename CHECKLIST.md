@@ -1,8 +1,29 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.99.0 - Current State
+## Version 1.0.0-alpha - Current State
 
-### Critical Issues Found (v0.99.0) ⚠️
+### Improvements Made (v1.0.0-alpha) ✅
+- [x] **CFD Physics Constants**: Created comprehensive module
+  - Water/air properties from White (2011)
+  - Reynolds/Prandtl numbers
+  - Turbulence constants (k-ε, k-ω SST)
+  - LBM constants
+- [x] **Checkpoint System**: Full implementation
+  - Save/load with compression
+  - Version compatibility
+  - Validation of data integrity
+  - Automatic cleanup of old checkpoints
+- [x] **Lid-Driven Cavity Test**: Real physics validation
+  - Validates against Ghia et al. (1982)
+  - Tests Re=100 and Re=1000
+  - Checks mass conservation
+  - Verifies steady-state convergence
+- [x] **Network Builder**: Added proper validation
+  - Checks for inlet/outlet
+  - Validates connectivity
+  - Detects disconnected components
+
+### Remaining Critical Issues ⚠️
 - [ ] **844 MAGIC NUMBERS**: Major SSOT violation
   - Created cfd_physics constants module
   - Still hundreds of literals throughout codebase

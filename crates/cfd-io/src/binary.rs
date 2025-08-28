@@ -3,13 +3,13 @@
 //! This module provides efficient binary serialization/deserialization
 //! using iterator-based streaming and zero-copy operations.
 
+use bincode;
 use cfd_core::error::{Error, Result};
-use nalgebra::{RealField, DMatrix, DVector};
+use nalgebra::{DMatrix, DVector, RealField};
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
-use bincode;
-use serde::{Serialize, Deserialize};
 
 /// Binary writer with streaming capabilities and zero-copy operations
 pub struct BinaryWriter<W: Write> {
@@ -32,39 +32,41 @@ impl<W: Write> BinaryWriter<W> {
     }
 
     /// Write vector data using iterator-based streaming
-    pub fn write_vector<T: RealField + Copy + Serialize>(&mut self, vector: &DVector<T>) -> Result<()> {
+    pub fn write_vector<T: RealField + Copy + Serialize>(
+        &mut self,
+        vector: &DVector<T>,
+    ) -> Result<()> {
         // Write length first
         self.write(&vector.len())?;
 
         // Stream vector data using iterator
-        vector.iter()
-            .try_for_each(|value| self.write(value))
+        vector.iter().try_for_each(|value| self.write(value))
     }
 
     /// Write matrix data with zero-copy slicing
-    pub fn write_matrix<T: RealField + Copy + Serialize>(&mut self, matrix: &DMatrix<T>) -> Result<()> {
+    pub fn write_matrix<T: RealField + Copy + Serialize>(
+        &mut self,
+        matrix: &DMatrix<T>,
+    ) -> Result<()> {
         // Write dimensions
         self.write(&(matrix.nrows(), matrix.ncols()))?;
 
         // Stream matrix data row by row using iterators
-        matrix.row_iter()
-            .try_for_each(|row| {
-                row.iter().try_for_each(|value| self.write(value))
-            })
+        matrix
+            .row_iter()
+            .try_for_each(|row| row.iter().try_for_each(|value| self.write(value)))
     }
 
     /// Flush the writer
     pub fn flush(&mut self) -> Result<()> {
-        self.writer.flush()
-            .map_err(Error::Io)
+        self.writer.flush().map_err(Error::Io)
     }
 }
 
 impl BinaryWriter<File> {
     /// Create a binary writer for a file
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let file = File::create(path)
-            .map_err(Error::Io)?;
+        let file = File::create(path).map_err(Error::Io)?;
         Ok(Self::new(file))
     }
 }
@@ -89,25 +91,25 @@ impl<R: Read> BinaryReader<R> {
     }
 
     /// Read vector data using iterator-based construction
-    pub fn read_vector<T: RealField + Copy + for<'de> Deserialize<'de>>(&mut self) -> Result<DVector<T>> {
+    pub fn read_vector<T: RealField + Copy + for<'de> Deserialize<'de>>(
+        &mut self,
+    ) -> Result<DVector<T>> {
         let len: usize = self.read()?;
 
         // Use iterator to collect vector elements efficiently
-        let data: Result<Vec<T>> = (0..len)
-            .map(|_| self.read())
-            .collect();
+        let data: Result<Vec<T>> = (0..len).map(|_| self.read()).collect();
 
         Ok(DVector::from_vec(data?))
     }
 
     /// Read matrix data with efficient allocation
-    pub fn read_matrix<T: RealField + Copy + for<'de> Deserialize<'de>>(&mut self) -> Result<DMatrix<T>> {
+    pub fn read_matrix<T: RealField + Copy + for<'de> Deserialize<'de>>(
+        &mut self,
+    ) -> Result<DMatrix<T>> {
         let (nrows, ncols): (usize, usize) = self.read()?;
 
         // Use iterator to collect matrix elements efficiently
-        let data: Result<Vec<T>> = (0..nrows * ncols)
-            .map(|_| self.read())
-            .collect();
+        let data: Result<Vec<T>> = (0..nrows * ncols).map(|_| self.read()).collect();
 
         Ok(DMatrix::from_vec(nrows, ncols, data?))
     }
@@ -116,8 +118,7 @@ impl<R: Read> BinaryReader<R> {
 impl BinaryReader<File> {
     /// Create a binary reader for a file
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let file = File::open(path)
-            .map_err(Error::Io)?;
+        let file = File::open(path).map_err(Error::Io)?;
         Ok(Self::new(file))
     }
 }

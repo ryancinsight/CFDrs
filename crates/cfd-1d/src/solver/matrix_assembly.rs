@@ -1,11 +1,10 @@
 //! Matrix assembly for network flow equations
 
 use crate::network::Network;
-use cfd_core::Result;
+use cfd_core::{Error, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::{coo::CooMatrix, CsrMatrix};
 use num_traits::FromPrimitive;
-use rayon::prelude::*;
 use std::sync::Mutex;
 
 /// Matrix assembler for building the linear system from network equations
@@ -42,17 +41,20 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         let mut rhs = DVector::zeros(n);
 
         // Parallel assembly of matrix entries
-        network.edges_parallel().for_each(|edge| {
+        // Use try_for_each to handle potential errors
+        for edge in network.edges_parallel() {
             let (i, j) = edge.nodes;
             let conductance = edge.conductance;
 
-            let mut coo = coo_mutex.lock().unwrap();
+            let mut coo = coo_mutex
+                .lock()
+                .map_err(|_| Error::Solver("Failed to acquire matrix assembly lock".to_string()))?;
             // Add conductance terms to matrix
             coo.push(i, i, conductance);
             coo.push(j, j, conductance);
             coo.push(i, j, -conductance);
             coo.push(j, i, -conductance);
-        });
+        }
 
         // Add boundary conditions
         for (node_idx, bc) in network.boundary_conditions() {
