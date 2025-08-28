@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 0.87.0** - Physics Validation & Architectural Excellence
+**Version 0.88.0** - Architectural Excellence & Numerical Validation
 
 ## Status
 
