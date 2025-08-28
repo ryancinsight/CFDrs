@@ -97,7 +97,7 @@ readme.workspace = true
 
 [features]
 default = []
-scheme-integration = ["cfd-1d/scheme-integration"]
+
 hdf5 = ["cfd-io/hdf5"]
 csg = ["cfd-mesh/csg", "cfd-3d/csg"]
 

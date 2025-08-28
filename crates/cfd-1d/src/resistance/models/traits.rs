@@ -22,7 +22,8 @@ pub trait ResistanceModel<T: RealField + Copy> {
         if let Some(re) = &conditions.reynolds_number {
             *re >= re_min && *re <= re_max
         } else {
-            true // Assume applicable if Re is unknown
+            // Cannot determine applicability without Reynolds number
+            false
         }
     }
 }

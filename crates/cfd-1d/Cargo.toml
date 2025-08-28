@@ -25,14 +25,6 @@ approx.workspace = true
 rayon = "1.10"
 tracing = "0.1"
 
-# 2D schematic visualization support
-scheme = { git = "https://github.com/ryancinsight/scheme", optional = true }
-
 [dev-dependencies]
 tracing-subscriber = "0.3"
-
-[features]
-default = []
-# Enable 2D schematic visualization support
-scheme-integration = ["scheme"]
 

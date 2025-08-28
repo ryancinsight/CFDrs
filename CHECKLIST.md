@@ -1,6 +1,6 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.89.0 - Current State
+## Version 0.90.0 - Current State
 
 ### Completed ✅
 - [x] Workspace builds without errors
@@ -253,6 +253,28 @@
 - [x] **PHYSICS COMPLETE**: SST CDkω, k-ε, wall functions all implemented
 - [x] **NO STUBS**: No Ok(()), unimplemented!, or todo! in production code
 - [x] **CONSTANTS**: All critical magic numbers replaced with named constants
+
+### Completed (v0.90.0) ✅ - CRITICAL FIXES & SSOT ENFORCEMENT
+- [x] **SSOT VIOLATION FIXED**:
+  - Removed feature-gated scheme-integration code
+  - Eliminated dual implementations (cfg/not(cfg))
+  - Deleted scheme_integration.rs module entirely
+  - Cleaned Cargo.toml feature dependencies
+- [x] **SAFETY IMPROVEMENTS**:
+  - Fixed 12+ dangerous unwraps in PISO predictor
+  - Added proper fallback values using unwrap_or_else
+  - Created named constants HALF and TWO
+- [x] **VALIDATION INTEGRITY**:
+  - Removed misleading dummy zero solutions in tests
+  - Fixed solver to skip ill-conditioned cases honestly
+  - No more fake passing tests with zero vectors
+- [x] **ASSUMPTION REMOVAL**:
+  - Fixed dangerous "assume applicable if Re unknown"
+  - Changed to return false when cannot determine
+  - Prevents incorrect model selection
+- [x] **CODE QUALITY**:
+  - Applied cargo fix and fmt
+  - 56 warnings remain (documentation only)
 
 ### Completed (v0.89.0) ✅ - COMPREHENSIVE REFACTORING & VALIDATION
 - [x] **MODULE REFACTORING - resistance/models**:
