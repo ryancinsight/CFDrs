@@ -1,6 +1,6 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.86.0 - Current State
+## Version 0.87.0 - Current State
 
 ### Completed ✅
 - [x] Workspace builds without errors
@@ -253,6 +253,27 @@
 - [x] **PHYSICS COMPLETE**: SST CDkω, k-ε, wall functions all implemented
 - [x] **NO STUBS**: No Ok(()), unimplemented!, or todo! in production code
 - [x] **CONSTANTS**: All critical magic numbers replaced with named constants
+
+### Completed (v0.87.0) ✅ - PHYSICS VALIDATION & ARCHITECTURAL REFINEMENT
+- [x] **PHYSICS VALIDATION**:
+  - SST turbulence model constants corrected:
+    - γ₁ = 0.5532 (was incorrectly 5/9 = 0.556)
+    - γ₂ = 0.4403 (correct per Menter 1994)
+  - Added literature references for all constants
+- [x] **MAGIC NUMBERS ELIMINATED**:
+  - SUBSONIC_MACH_LIMIT = 0.8
+  - SUPERSONIC_MACH_LIMIT = 1.2
+  - SYMMETRY_TOLERANCE = 1e-10
+  - DEFAULT_OMEGA = 1.0 (SSOR)
+  - COARSENING_THRESHOLD = 0.25 (AMG)
+- [x] **MODULE REFACTORING - preconditioners**:
+  - Split 398-line module into 4 clean submodules:
+    - cholesky.rs: Incomplete Cholesky (IC(0))
+    - ilu.rs: Incomplete LU (ILU(0))
+    - ssor.rs: Symmetric SOR
+    - multigrid.rs: Algebraic Multigrid (AMG)
+  - Each preconditioner properly isolated
+  - Clean trait implementations
 
 ### Completed (v0.86.0) ✅ - PLACEHOLDER ELIMINATION & API CONSISTENCY
 - [x] **ALL PLACEHOLDERS REMOVED**:

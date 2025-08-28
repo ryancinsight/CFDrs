@@ -12,6 +12,10 @@ const MS_TO_MPH: f64 = 2.23694;
 const MS_TO_KNOT: f64 = 1.94384;
 const MS_TO_FTS: f64 = 3.28084;
 
+// Mach number thresholds
+const SUBSONIC_MACH_LIMIT: f64 = 0.8;
+const SUPERSONIC_MACH_LIMIT: f64 = 1.2;
+
 /// Velocity vector with magnitude and direction
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Velocity<T: RealField + Copy> {
@@ -99,15 +103,15 @@ impl<T: RealField + Copy + FromPrimitive> Velocity<T> {
         self.magnitude() * T::from_f64(MS_TO_FTS).unwrap_or_else(T::zero)
     }
 
-    /// Check if velocity is subsonic (Mach < 0.8)
+    /// Check if velocity is subsonic (Mach < SUBSONIC_MACH_LIMIT)
     pub fn is_subsonic(&self, speed_of_sound: T) -> bool {
-        let mach_limit = T::from_f64(0.8).unwrap_or_else(T::zero);
+        let mach_limit = T::from_f64(SUBSONIC_MACH_LIMIT).unwrap_or_else(T::zero);
         self.magnitude() < mach_limit * speed_of_sound
     }
 
-    /// Check if velocity is supersonic (Mach > 1.2)
+    /// Check if velocity is supersonic (Mach > SUPERSONIC_MACH_LIMIT)
     pub fn is_supersonic(&self, speed_of_sound: T) -> bool {
-        let mach_limit = T::from_f64(1.2).unwrap_or_else(T::zero);
+        let mach_limit = T::from_f64(SUPERSONIC_MACH_LIMIT).unwrap_or_else(T::zero);
         self.magnitude() > mach_limit * speed_of_sound
     }
 

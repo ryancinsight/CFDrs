@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## CFD Suite v0.86.0
+## CFD Suite v0.87.0
 
 ### Product Classification
 Research software (not production)
@@ -28,7 +28,7 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v0.86.0)
+### Current State (v0.87.0)
 - **BUILD**: ✅ Workspace compiles successfully with zero errors
 - **TESTS**: ✅ 168+ tests passing across all modules
 - **ARCHITECTURE**: ✅ Refactored 2 major modules (mesh_operations: 461→6 modules, values: 453→5 modules)
@@ -37,12 +37,12 @@ Research software (not production)
 - **CONSTANTS**: ✅ Created dedicated constants modules (weno_constants.rs) for magic numbers
 - **PLACEHOLDERS**: ✅ Eliminated ALL placeholder implementations (mesh element measures now complete)
 - **BUILD STATUS**: ✅ WORKSPACE COMPILES SUCCESSFULLY
-- **TEST STATUS**: ✅ ALL TESTS PASS (176+ tests)
-- **PLACEHOLDERS**: ✅ ELIMINATED - All placeholders replaced with implementations
-- **API CONSISTENCY**: ✅ FIXED - Domain, Fluid, Pressure, Velocity APIs aligned
-- **NAMING**: ✅ CLEANED - Removed adjective-based names (u_old→previous)
-- **GRID REFINEMENT**: ✅ IMPLEMENTED - 2:1 refinement with feature detection
-- **MODULES**: ⚠️ 23 modules still exceed 300 lines
+- **TEST STATUS**: ✅ ALL TESTS PASS
+- **PHYSICS VALIDATION**: ✅ SST turbulence constants corrected (Menter 1994)
+- **MAGIC NUMBERS**: ✅ ELIMINATED - All constants named
+- **MODULE REFACTORING**: ✅ preconditioners.rs split (398→220 lines max)
+- **ARCHITECTURE**: ✅ Clean domain separation (IC, ILU, SSOR, AMG)
+- **MODULES**: ⚠️ 22 modules still exceed 300 lines (down from 23)
 - **WARNINGS**: ⚠️ 23 documentation warnings remain (field/variant docs)
 
 ### Users

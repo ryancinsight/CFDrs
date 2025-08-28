@@ -13,13 +13,14 @@ pub const C2_EPSILON: f64 = 1.92;
 pub const SIGMA_K: f64 = 1.0;
 pub const SIGMA_EPSILON: f64 = 1.3;
 
-/// SST model constants
+/// SST model constants (Menter 1994)
 pub const SST_ALPHA_1: f64 = 0.31;
 pub const SST_BETA_1: f64 = 0.075;
 pub const SST_BETA_2: f64 = 0.0828;
 pub const SST_BETA_STAR: f64 = 0.09;
-pub const SST_GAMMA_1: f64 = 5.0 / 9.0;
-pub const SST_GAMMA_2: f64 = 0.44;
+/// γ₁ = β₁/β* - σω₁κ²/√β* (Menter 1994 Eq. 11)
+pub const SST_GAMMA_1: f64 = 0.5532; // = 0.075/0.09 - 0.5*0.41²/√0.09
+pub const SST_GAMMA_2: f64 = 0.4403; // = 0.0828/0.09 - 0.856*0.41²/√0.09
 pub const SST_SIGMA_K1: f64 = 0.85;
 pub const SST_SIGMA_K2: f64 = 1.0;
 pub const SST_SIGMA_OMEGA1: f64 = 0.5;
