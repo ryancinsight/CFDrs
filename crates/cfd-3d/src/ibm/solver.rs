@@ -111,9 +111,13 @@ impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
         let j = (position.y / self.dx.y).floor();
         let k = (position.z / self.dx.z).floor();
 
-        let i_start = i.to_subset::<f64>().unwrap_or(0.0) as isize - (stencil as isize / 2);
-        let j_start = j.to_subset::<f64>().unwrap_or(0.0) as isize - (stencil as isize / 2);
-        let k_start = k.to_subset::<f64>().unwrap_or(0.0) as isize - (stencil as isize / 2);
+        let i_int = i.to_subset().unwrap_or(0) as isize;
+        let j_int = j.to_subset().unwrap_or(0) as isize;
+        let k_int = k.to_subset().unwrap_or(0) as isize;
+
+        let i_start = i_int - (stencil as isize / 2);
+        let j_start = j_int - (stencil as isize / 2);
+        let k_start = k_int - (stencil as isize / 2);
 
         for di in 0..stencil {
             for dj in 0..stencil {
@@ -160,9 +164,13 @@ impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
         let j = (point.position.y / self.dx.y).floor();
         let k = (point.position.z / self.dx.z).floor();
 
-        let i_start = i.to_subset::<f64>().unwrap_or(0.0) as isize - (stencil as isize / 2);
-        let j_start = j.to_subset::<f64>().unwrap_or(0.0) as isize - (stencil as isize / 2);
-        let k_start = k.to_subset::<f64>().unwrap_or(0.0) as isize - (stencil as isize / 2);
+        let i_int = i.to_subset().unwrap_or(0) as isize;
+        let j_int = j.to_subset().unwrap_or(0) as isize;
+        let k_int = k.to_subset().unwrap_or(0) as isize;
+
+        let i_start = i_int - (stencil as isize / 2);
+        let j_start = j_int - (stencil as isize / 2);
+        let k_start = k_int - (stencil as isize / 2);
 
         for di in 0..stencil {
             for dj in 0..stencil {

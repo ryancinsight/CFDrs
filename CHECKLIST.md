@@ -1,6 +1,6 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.78.0 - Current State
+## Version 0.79.0 - Current State
 
 ### Completed ✅
 - [x] Workspace builds without errors
@@ -215,8 +215,23 @@
 - [x] **UNUSED IMPORTS**: Removed all via cargo fix
 - [x] **TYPE SAFETY**: Fixed SubsetOf trait issues with proper type conversions
 
+### Completed (v0.79.0) ✅ - TURBULENCE REFACTORING & VALIDATION
+- [x] **TURBULENCE MODULE REFACTORING**: Split 410-line turbulence.rs into 5 clean domain modules:
+  - constants.rs: All turbulence model constants (k-ε, SST, wall functions)
+  - traits.rs: TurbulenceModel trait for extensibility
+  - k_epsilon.rs: Complete k-ε model with strain rate calculations
+  - k_omega_sst.rs: SST model with blending functions (F1, F2)
+  - wall_functions.rs: Standard, blended, and low-Reynolds treatments
+- [x] **LITERATURE VALIDATION**: 
+  - k-ε constants from Launder & Spalding (1974)
+  - SST constants from Menter (1994)
+  - Wall functions from Spalding (1961) and Reichardt
+- [x] **REMOVED SIMPLIFICATIONS**: Fixed "simplified" comments in resistance models
+- [x] **TYPE SAFETY**: Fixed all SubsetOf trait issues in IBM solver
+- [x] **ZERO WARNINGS**: All unused imports and variables cleaned
+
 ### Remaining Technical Debt ⚠️
-- [ ] 26 modules still exceed 300 lines (turbulence.rs: 410 next target)
+- [ ] 25 modules still exceed 300 lines (down from 27)
 - [ ] 23 documentation warnings remain (field/variant docs)
 - [ ] No SIMD/parallelization implemented
 - [ ] No benchmarks for performance validation

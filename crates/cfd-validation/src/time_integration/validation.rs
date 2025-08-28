@@ -1,7 +1,7 @@
 //! Time integration validation tests.
 
 use super::integrators::{
-    ForwardEuler, RungeKutta2, RungeKutta4, TimeIntegratorTrait, HALF, ONE_SIXTH, TWO,
+    ForwardEuler, RungeKutta2, RungeKutta4, TimeIntegratorTrait,
 };
 use super::results::TimeIntegrationResult;
 use cfd_core::Result;

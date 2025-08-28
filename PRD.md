@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## CFD Suite v0.78.0
+## CFD Suite v0.79.0
 
 ### Product Classification
 Research software (not production)
@@ -28,7 +28,7 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v0.78.0)
+### Current State (v0.79.0)
 - **BUILD**: ✅ Workspace compiles successfully with zero errors
 - **TESTS**: ✅ 168+ tests passing across all modules
 - **ARCHITECTURE**: ✅ Refactored 2 major modules (mesh_operations: 461→6 modules, values: 453→5 modules)
@@ -36,8 +36,9 @@ Research software (not production)
 - **NAMING**: ✅ Removed all adjective-based naming (simple, basic, advanced, etc.)
 - **CONSTANTS**: ✅ Created dedicated constants modules (weno_constants.rs) for magic numbers
 - **PLACEHOLDERS**: ✅ Eliminated ALL placeholder implementations (mesh element measures now complete)
-- **IBM MODULE**: ✅ Refactored 439-line monolith into 5 domain submodules
-- **MODULES**: ⚠️ 26 modules still exceed 300 lines (turbulence.rs: 410 next target)
+- **TURBULENCE MODULE**: ✅ Refactored 410-line monolith into 5 domain submodules
+- **IBM MODULE**: ✅ Previously refactored 439-line module into clean domains
+- **MODULES**: ⚠️ 25 modules still exceed 300 lines (significant progress)
 - **WARNINGS**: ⚠️ 23 documentation warnings remain (field/variant docs)
 
 ### Users
