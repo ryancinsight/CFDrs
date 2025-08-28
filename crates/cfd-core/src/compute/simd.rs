@@ -1,5 +1,10 @@
 //! SIMD compute backend with architecture-specific dispatch
 
+#[cfg(target_arch = "aarch64")]
+pub mod aarch64;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+pub mod x86;
+
 use super::traits::{ComputeBackend, ComputeKernel, KernelParams};
 use crate::error::Result;
 use nalgebra::RealField;

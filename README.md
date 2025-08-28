@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 0.84.0** - GPU Compute Support via wgpu-rs
+**Version 0.85.0** - Enhanced GPU/SIMD Integration & Architectural Refinements
 
 ## Status
 

@@ -2,7 +2,6 @@
 
 use crate::error::{Error, Result};
 use std::sync::Arc;
-use wgpu::util::DeviceExt;
 
 pub mod buffer;
 pub mod kernels;

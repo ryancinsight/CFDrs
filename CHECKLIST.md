@@ -1,6 +1,6 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.84.0 - Current State
+## Version 0.85.0 - Current State
 
 ### Completed ✅
 - [x] Workspace builds without errors
@@ -253,6 +253,21 @@
 - [x] **PHYSICS COMPLETE**: SST CDkω, k-ε, wall functions all implemented
 - [x] **NO STUBS**: No Ok(()), unimplemented!, or todo! in production code
 - [x] **CONSTANTS**: All critical magic numbers replaced with named constants
+
+### Completed (v0.85.0) ✅ - ARCHITECTURAL IMPROVEMENTS
+- [x] **AGGREGATES REFACTORED**: Split 409-line module into 5 clean submodules:
+  - state.rs: SimulationState with proper transitions
+  - metadata.rs: SimulationMetadata with timestamps
+  - parameters.rs: PhysicalParameters with CFL checks
+  - simulation.rs: SimulationAggregate root
+  - problem.rs: ProblemAggregate for setup
+- [x] **SIMD KERNELS IMPLEMENTED**:
+  - x86/x86_64: AVX2 (256-bit) and SSE4.1 (128-bit)
+  - AArch64: NEON (128-bit) with vfpv4
+  - Advection (upwind) and diffusion (central) kernels
+  - Automatic scalar fallback for remaining elements
+- [x] **GPU WARNINGS FIXED**: Removed unused imports
+- [x] **API CONSISTENCY**: Fixed Fluid, Domain, and Value types
 
 ### Completed (v0.84.0) ✅ - GPU COMPUTE SUPPORT
 - [x] **GPU INTEGRATION**: wgpu-rs backend with WebGPU/Vulkan/Metal/DX12 support

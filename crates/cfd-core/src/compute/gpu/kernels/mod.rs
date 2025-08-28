@@ -7,7 +7,6 @@ pub mod pressure;
 use crate::compute::traits::{ComputeKernel, KernelParams};
 use crate::error::Result;
 use nalgebra::RealField;
-use std::sync::Arc;
 
 /// Base trait for GPU kernels
 pub trait GpuKernel<T: RealField + Copy>: ComputeKernel<T> {

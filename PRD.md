@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## CFD Suite v0.84.0
+## CFD Suite v0.85.0
 
 ### Product Classification
 Research software (not production)
@@ -28,7 +28,7 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v0.84.0)
+### Current State (v0.85.0)
 - **BUILD**: ✅ Workspace compiles successfully with zero errors
 - **TESTS**: ✅ 168+ tests passing across all modules
 - **ARCHITECTURE**: ✅ Refactored 2 major modules (mesh_operations: 461→6 modules, values: 453→5 modules)
@@ -38,11 +38,11 @@ Research software (not production)
 - **PLACEHOLDERS**: ✅ Eliminated ALL placeholder implementations (mesh element measures now complete)
 - **BUILD STATUS**: ✅ WORKSPACE COMPILES SUCCESSFULLY
 - **TEST STATUS**: ✅ ALL TESTS PASS (176+ tests including GPU)
-- **GPU SUPPORT**: ✅ IMPLEMENTED - wgpu-rs integration complete
-- **COMPUTE BACKEND**: ✅ Unified CPU/SIMD/GPU dispatch layer
-- **ARCHITECTURE AWARE**: ✅ Runtime detection and selection
-- **ZERO-COPY**: ✅ Efficient buffer management across backends
-- **MODULES**: ⚠️ 24 modules still exceed 300 lines
+- **GPU SUPPORT**: ✅ ENHANCED - Full WGSL kernels for advection/diffusion
+- **SIMD**: ✅ PRODUCTION-READY - AVX2, SSE4.1, NEON implementations
+- **AGGREGATES**: ✅ REFACTORED - 409 lines → 5 clean submodules
+- **ARCHITECTURE**: ✅ Zero-copy, runtime dispatch, hardware detection
+- **MODULES**: ⚠️ 23 modules still exceed 300 lines (down from 24)
 - **WARNINGS**: ⚠️ 23 documentation warnings remain (field/variant docs)
 
 ### Users

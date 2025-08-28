@@ -9,7 +9,7 @@ pub mod pressure;
 pub mod temperature;
 pub mod velocity;
 
-pub use dimensionless::DimensionlessNumber;
+pub use dimensionless::{DimensionlessNumber, DimensionlessType};
 pub use flow::{FlowGeometry, ReynoldsNumber};
 pub use pressure::{Pressure, PressureUnit};
 pub use temperature::{Temperature, TemperatureUnit};
