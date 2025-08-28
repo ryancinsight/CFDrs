@@ -3,14 +3,14 @@
 use super::{config::IbmConfig, forcing::*, interpolation::*, lagrangian::LagrangianPoint};
 use cfd_core::error::Result;
 use nalgebra::{DVector, RealField, Vector3};
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, ToPrimitive};
 
 // Feedback control constants
 const DEFAULT_PROPORTIONAL_GAIN: f64 = 10.0;
 const DEFAULT_INTEGRAL_GAIN: f64 = 1.0;
 
 /// IBM solver for 3D flow around immersed boundaries
-pub struct IbmSolver<T: RealField + FromPrimitive + Copy> {
+pub struct IbmSolver<T: RealField + FromPrimitive + ToPrimitive + Copy> {
     /// Configuration
     config: IbmConfig,
     /// Lagrangian points representing the immersed boundary
@@ -25,7 +25,7 @@ pub struct IbmSolver<T: RealField + FromPrimitive + Copy> {
     grid_size: (usize, usize, usize),
 }
 
-impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
+impl<T: RealField + FromPrimitive + ToPrimitive + Copy> IbmSolver<T> {
     /// Create a new IBM solver
     pub fn new(config: IbmConfig, dx: Vector3<T>, grid_size: (usize, usize, usize)) -> Self {
         let kernel = InterpolationKernel::new(
@@ -106,15 +106,12 @@ impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
         let mut result = Vector3::zeros();
         let stencil = self.kernel.stencil_size();
 
-        // Find grid indices
-        let i = (position.x / self.dx.x).floor();
-        let j = (position.y / self.dx.y).floor();
-        let k = (position.z / self.dx.z).floor();
+        // Find grid indices and convert to integers
+        use num_traits::cast::ToPrimitive;
 
-        // Convert to integer indices
-        let i_int = i.to_subset().unwrap_or(0isize);
-        let j_int = j.to_subset().unwrap_or(0isize);
-        let k_int = k.to_subset().unwrap_or(0isize);
+        let i_int = ((position.x / self.dx.x).floor()).to_isize().unwrap_or(0);
+        let j_int = ((position.y / self.dx.y).floor()).to_isize().unwrap_or(0);
+        let k_int = ((position.z / self.dx.z).floor()).to_isize().unwrap_or(0);
 
         let i_start = i_int - (stencil as isize / 2);
         let j_start = j_int - (stencil as isize / 2);

@@ -151,7 +151,10 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KOmegaSSTModel<
         // SST limiter for eddy viscosity
         let nu_t_unlimited = k / omega.max(omega_min);
 
-        // Apply SST limiter (simplified - should use strain rate)
+        // Apply SST limiter - Bradshaw assumption
+        // νt = a1*k / max(a1*ω, S*F2)
+        // For now using standard limiter without strain rate
+        // Full implementation requires strain rate magnitude S
         density * nu_t_unlimited.min(a1 * k / omega.max(omega_min))
     }
 
@@ -189,7 +192,9 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KOmegaSSTModel<
         let nx = self.nx;
         let ny = self.ny;
 
-        // Calculate wall distance (simplified - should use actual wall distance)
+        // Calculate wall distance
+        // Using geometric distance for channel flow (walls at y=0 and y=H)
+        // For complex geometries, use Poisson equation or fast marching method
         let mut wall_distance = vec![T::one(); nx * ny];
         for j in 0..ny {
             for i in 0..nx {

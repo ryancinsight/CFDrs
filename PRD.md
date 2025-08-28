@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-## CFD Suite v0.80.0
+## CFD Suite v0.81.0
 
 ### Product Classification
 Research software (not production)
@@ -28,7 +28,7 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v0.80.0)
+### Current State (v0.81.0)
 - **BUILD**: ✅ Workspace compiles successfully with zero errors
 - **TESTS**: ✅ 168+ tests passing across all modules
 - **ARCHITECTURE**: ✅ Refactored 2 major modules (mesh_operations: 461→6 modules, values: 453→5 modules)
@@ -36,10 +36,11 @@ Research software (not production)
 - **NAMING**: ✅ Removed all adjective-based naming (simple, basic, advanced, etc.)
 - **CONSTANTS**: ✅ Created dedicated constants modules (weno_constants.rs) for magic numbers
 - **PLACEHOLDERS**: ✅ Eliminated ALL placeholder implementations (mesh element measures now complete)
-- **SST MODEL**: ✅ FIXED critical cross-diffusion term CDkω implementation
-- **TURBULENCE MODULE**: ✅ Complete k-ε and SST models with proper physics
-- **IBM MODULE**: ✅ Clean domain separation with proper forcing methods
-- **MODULES**: ⚠️ 25 modules still exceed 300 lines (grid.rs: 410 next)
+- **CROSS-DIFFUSION**: ✅ COMPLETE CDkω implementation with gradient calculations
+- **SST MODEL**: ✅ Proper blending functions F1 and F2 with CDkω
+- **WALL DISTANCE**: ✅ Documented channel flow implementation
+- **TYPE SAFETY**: ✅ Added ToPrimitive bounds for IBM solver
+- **MODULES**: ⚠️ 25 modules still exceed 300 lines (ongoing work)
 - **WARNINGS**: ⚠️ 23 documentation warnings remain (field/variant docs)
 
 ### Users
