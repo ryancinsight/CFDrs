@@ -3,6 +3,7 @@
 //! Comprehensive collection of physical, numerical, and mathematical constants
 //! organized by domain to ensure SSOT (Single Source of Truth).
 
+pub mod cfd_physics;
 pub mod mathematical;
 pub mod numerical;
 pub mod physical;

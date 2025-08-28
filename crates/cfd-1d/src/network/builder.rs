@@ -57,9 +57,45 @@ impl<T: RealField + Copy> NetworkBuilder<T> {
         self.add_edge(from, to, Edge::new(id, EdgeType::Pipe))
     }
 
-    /// Build the final network
+    /// Build the final network with validation
     pub fn build(self) -> Result<NetworkGraph<T>> {
-        // TODO: Add validation logic here
+        // Validate network connectivity
+        if self.graph.node_count() == 0 {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                "Network has no nodes".to_string(),
+            ));
+        }
+
+        // Ensure at least one inlet and outlet
+        let has_inlet = self
+            .graph
+            .node_weights()
+            .any(|n| matches!(n.node_type, NodeType::Inlet));
+        let has_outlet = self
+            .graph
+            .node_weights()
+            .any(|n| matches!(n.node_type, NodeType::Outlet));
+
+        if !has_inlet {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                "Network requires at least one inlet".to_string(),
+            ));
+        }
+
+        if !has_outlet {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                "Network requires at least one outlet".to_string(),
+            ));
+        }
+
+        // Check for disconnected components
+        use petgraph::algo::connected_components;
+        if connected_components(&self.graph) > 1 {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                "Network has disconnected components".to_string(),
+            ));
+        }
+
         Ok(self.graph)
     }
 }
