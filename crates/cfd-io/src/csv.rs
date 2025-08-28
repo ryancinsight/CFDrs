@@ -318,11 +318,13 @@ mod tests {
             vec![0.1, 1.1, 2.1],
             vec![0.2, 1.2, 2.2],
         ];
-        writer.write_time_series(path, &headers, data.clone()).expect("CRITICAL: Add proper error handling");
+        writer.write_time_series(path, &headers, data.clone())
+            .expect("Failed to write time series data");
 
         // Read data
         let reader = CsvReader::<f64>::new();
-        let result = reader.read_time_series(path).expect("CRITICAL: Add proper error handling");
+        let result = reader.read_time_series(path)
+            .expect("Failed to read time series data");
 
         assert_eq!(result.headers, headers);
         assert_eq!(result.data, data);

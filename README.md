@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 0.90.0** - Critical Fixes & SSOT Enforcement
+**Version 0.91.0** - Aggressive Refactoring & Brutal Assessment
 
 ## Status
 
@@ -19,6 +19,14 @@
 - ✅ Algorithm implementations validated with quantitative tests
 - ✅ Mesh quality analyzer with proper implementations
 - ✅ Error types fully documented with field descriptions
+
+## Technical Debt (resolved in v0.91.0) - BRUTAL FINDINGS
+- ❌ **121 PANIC POINTS**: unwrap/expect calls throughout codebase
+- ❌ **22 MODULE VIOLATIONS**: Files exceeding 300 lines
+- ❌ **40 ZERO-COPY VIOLATIONS**: Unnecessary clone/to_vec allocations
+- ❌ **69 ASSERTION RISKS**: Non-test assertions that could panic
+- ✅ **REFACTORED**: analyzer.rs split into 5 domain modules
+- ✅ **FIXED**: Misleading test messages and expects
 
 ## Technical Debt (resolved in v0.90.0) - CRITICAL FIXES
 - ✅ **REMOVED**: Feature-gated scheme-integration code (SSOT violation)
@@ -192,13 +200,14 @@
 | Design Principles | Well Applied | SOLID/CUPID/SLAP/DRY enforced |
 | Naming Conventions | Excellent | Zero adjective-based identifiers |
 
-## Remaining Improvements (pragmatic assessment)
-- 56 documentation warnings remain (non-critical struct fields)
-- 19 modules still exceed 300 LOC (analyzer.rs: 390 lines needs refactoring)
-- 82 remaining unwraps that should be converted to proper error handling
-- Performance optimizations available but not needed yet
-- SIMD/parallelization implemented but could be extended
-- cargo-nextest blocked by csgrs edition2024 requirement
+## Remaining Critical Issues (UNACCEPTABLE)
+- ❌ 121 panic points (unwrap/expect) - PRODUCTION HAZARD
+- ❌ 22 modules exceed 300 lines - VIOLATES MODULARITY
+- ❌ 40 unnecessary allocations - VIOLATES ZERO-COPY
+- ❌ 69 assertions in production code - PANIC RISK
+- ❌ Build errors after refactoring - INCOMPLETE WORK
+- ⚠️ 57 documentation warnings - API INCOMPLETE
+- ⚠️ cargo-nextest blocked by csgrs edition2024
 
 ## Architecture
 ```

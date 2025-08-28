@@ -76,7 +76,7 @@ pub mod prelude {
     // === Extended Network Components ===
     // Specialized components not in main prelude
     pub use crate::{
-        analysis::{NetworkAnalysisResult, PerformanceMetrics},
+        analysis::{NetworkAnalysisResult, NetworkAnalyzerOrchestrator, PerformanceMetrics},
         channel::{
             Channel, ChannelGeometry, ChannelType, CrossSection, FlowRegime, FlowState,
             SurfaceProperties, Wettability,

@@ -173,8 +173,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
     /// Calculate diffusion term for u-velocity
     fn calculate_diffusion_u(&self, fields: &SimulationFields<T>, i: usize, j: usize) -> T {
         let mu = fields.viscosity.at(i, j);
-
         let two = T::from_f64(TWO).unwrap_or_else(|| T::one() + T::one());
+
         let d2u_dx2 = (fields.u.at(i + 1, j) - two * fields.u.at(i, j) + fields.u.at(i - 1, j))
             / (self.dx * self.dx);
         let d2u_dy2 = (fields.u.at(i, j + 1) - two * fields.u.at(i, j) + fields.u.at(i, j - 1))
@@ -186,7 +186,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
     /// Calculate diffusion term for v-velocity
     fn calculate_diffusion_v(&self, fields: &SimulationFields<T>, i: usize, j: usize) -> T {
         let mu = fields.viscosity.at(i, j);
-
+        let two = T::from_f64(TWO).unwrap_or_else(|| T::one() + T::one());
         let d2v_dx2 = (fields.v.at(i + 1, j) - two * fields.v.at(i, j) + fields.v.at(i - 1, j))
             / (self.dx * self.dx);
         let d2v_dy2 = (fields.v.at(i, j + 1) - two * fields.v.at(i, j) + fields.v.at(i, j - 1))
