@@ -41,7 +41,7 @@ impl<T: RealField + Pod + Zeroable + Copy> GpuBuffer<T> {
     }
 
     /// Create buffer with initial data
-    pub fn new_with_data(context: Arc<GpuContext>, data: &[T]) -> Result<Self> {
+    pub fn from_data(context: Arc<GpuContext>, data: &[T]) -> Result<Self> {
         use wgpu::util::DeviceExt;
 
         let buffer = context

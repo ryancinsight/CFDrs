@@ -95,11 +95,11 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 *coeffs.ap.at_mut(i, j) = ap_sum + fields.density.at(i, j) / dt;
 
                 // Source term (including previous time step)
-                let old_vel = match component {
+                let previous_velocity = match component {
                     MomentumComponent::U => fields.u.at(i, j),
                     MomentumComponent::V => fields.v.at(i, j),
                 };
-                *coeffs.source.at_mut(i, j) = fields.density.at(i, j) * old_vel / dt;
+                *coeffs.source.at_mut(i, j) = fields.density.at(i, j) * previous_velocity / dt;
             }
         }
 

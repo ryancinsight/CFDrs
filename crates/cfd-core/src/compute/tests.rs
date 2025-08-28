@@ -103,7 +103,7 @@ mod tests {
         use crate::compute::gpu::GpuContext;
 
         // Try to create GPU context
-        match GpuContext::new() {
+        match GpuContext::create() {
             Ok(context) => {
                 let info = context.adapter_info();
                 println!("GPU Adapter: {:?}", info.name);
@@ -128,7 +128,7 @@ mod tests {
         use std::sync::Arc;
 
         // Skip if GPU not available
-        let context = match GpuContext::new() {
+        let context = match GpuContext::create() {
             Ok(ctx) => Arc::new(ctx),
             Err(_) => return,
         };
@@ -140,7 +140,7 @@ mod tests {
 
         // Test buffer with data
         let data: Vec<f32> = (0..100).map(|i| i as f32).collect();
-        let mut buffer = GpuBuffer::new_with_data(context, &data).unwrap();
+        let mut buffer = GpuBuffer::from_data(context, &data).unwrap();
         assert_eq!(buffer.size(), data.len());
 
         // Test read
@@ -148,9 +148,9 @@ mod tests {
         assert_eq!(read_data, data);
 
         // Test write
-        let new_data: Vec<f32> = (0..100).map(|i| (i * 2) as f32).collect();
-        buffer.write(&new_data).unwrap();
+        let updated_data: Vec<f32> = (0..100).map(|i| (i * 2) as f32).collect();
+        buffer.write(&updated_data).unwrap();
         let read_data = buffer.read().unwrap();
-        assert_eq!(read_data, new_data);
+        assert_eq!(read_data, updated_data);
     }
 }

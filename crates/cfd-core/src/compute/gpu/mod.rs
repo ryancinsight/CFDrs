@@ -24,12 +24,12 @@ pub struct GpuContext {
 
 impl GpuContext {
     /// Create a new GPU context
-    pub fn new() -> Result<Self> {
-        pollster::block_on(Self::new_async())
+    pub fn create() -> Result<Self> {
+        pollster::block_on(Self::create_async())
     }
 
     /// Async initialization
-    async fn new_async() -> Result<Self> {
+    async fn create_async() -> Result<Self> {
         let instance = wgpu::Instance::default();
 
         let adapter = instance

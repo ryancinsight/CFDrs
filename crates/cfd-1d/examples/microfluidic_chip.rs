@@ -97,16 +97,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Edge flow rates
     println!("\n➡️  Flow Rates:");
     let mut total_flow: f64 = 0.0;
-    for (i, _edge) in solved_network.edges().enumerate() {
-        if i < flow_rates.len() {
-            let flow_rate: f64 = flow_rates[i];
-            let flow_ml_min = flow_rate * 1e6 * 60.0; // Convert m³/s to mL/min
-            println!(
-                "   Edge {}: {:.3} mL/min ({:.2e} m³/s)",
-                i, flow_ml_min, flow_rate
-            );
-            total_flow += flow_rate.abs();
-        }
+    for (edge_idx, flow_rate) in flow_rates.iter() {
+        let flow_ml_min = flow_rate * 1e6 * 60.0; // Convert m³/s to mL/min
+        println!(
+            "   Edge {:?}: {:.3} mL/min ({:.2e} m³/s)",
+            edge_idx, flow_ml_min, flow_rate
+        );
+        total_flow += flow_rate.abs();
     }
 
     // Mass conservation check
@@ -116,8 +113,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Calculate Reynolds number for main channel
     let fluid = solved_network.fluid();
     let diameter: f64 = 100e-6; // 100 μm channel
-    let avg_velocity: f64 = if !flow_rates.is_empty() {
-        let flow: f64 = flow_rates[0];
+    let avg_velocity: f64 = if let Some((_edge_idx, flow)) = flow_rates.iter().next() {
         flow.abs() / (std::f64::consts::PI * (diameter / 2.0).powi(2))
     } else {
         0.0

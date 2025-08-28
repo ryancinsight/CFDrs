@@ -19,7 +19,7 @@ impl<T: RealField + Copy> CpuBuffer<T> {
     }
 
     /// Create buffer with initial data
-    pub fn new_with_data(data: Vec<T>) -> Self {
+    pub fn from_data(data: Vec<T>) -> Self {
         Self { data }
     }
 }
