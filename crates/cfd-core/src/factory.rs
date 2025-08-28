@@ -270,7 +270,7 @@ impl<T: RealField + Copy> SolverFactoryRegistry<T> {
         })
     }
 
-    /// Get factory and metadata together (for advanced use cases)
+    /// Get factory and metadata together (for specialized use cases)
     #[must_use]
     pub fn get_entry(&self, name: &str) -> Option<(&dyn DynamicFactory<T>, &FactoryMetadata)> {
         self.registry
@@ -296,7 +296,7 @@ mod tests {
         };
 
         // Would need a concrete factory implementation for a full test
-        // This test verifies the structure compiles and basic operations work
+        // This test verifies the structure compiles and operations work
 
         assert_eq!(registry.list_factories().len(), 0);
     }

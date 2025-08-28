@@ -14,6 +14,7 @@ pub mod time_integration;
 pub mod tvd;
 pub mod upwind;
 pub mod weno;
+pub mod weno_constants;
 
 // Re-export main types
 pub use central::{CentralDifference, FourthOrderCentral};

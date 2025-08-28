@@ -298,7 +298,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> DarcyWeisbachModel
             return T::from_f64(64.0).unwrap_or_else(|| T::one()) / reynolds;
         }
 
-        // Initial guess using Haaland explicit formula for better convergence
+        // Initial guess using Haaland explicit formula for convergence
         let mut f = {
             let term = relative_roughness / T::from_f64(3.6).unwrap_or_else(|| T::one())
                 + T::from_f64(6.9).unwrap_or_else(|| T::one()) / reynolds;
@@ -333,15 +333,15 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> DarcyWeisbachModel
 
             let inv_sqrt_f = -T::from_f64(2.0).unwrap_or_else(|| T::one())
                 * (num_traits::Float::ln(log_arg) / ln10);
-            let f_new = T::one() / (inv_sqrt_f * inv_sqrt_f);
+            let f_next = T::one() / (inv_sqrt_f * inv_sqrt_f);
 
             // Check convergence
-            if num_traits::Float::abs(f_new - f) < tolerance {
-                f = f_new;
+            if num_traits::Float::abs(f_next - f) < tolerance {
+                f = f_next;
                 break;
             }
 
-            f = f_new;
+            f = f_next;
         }
 
         f

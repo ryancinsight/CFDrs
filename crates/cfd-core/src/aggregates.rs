@@ -216,9 +216,10 @@ pub struct PhysicalParameters<T: RealField + Copy> {
 impl<T: RealField + FromPrimitive + Copy> Default for PhysicalParameters<T> {
     fn default() -> Self {
         Self {
-            reference_pressure: Pressure::pascals(
+            reference_pressure: Pressure::from_pascals(
                 T::from_f64(101_325.0).unwrap_or_else(|| T::zero()),
-            ),
+            )
+            .unwrap_or_else(|_| Pressure::from_pascals(T::zero()).unwrap()),
             reference_velocity: T::one(),
             reference_length: T::one(),
             reynolds_number: None,

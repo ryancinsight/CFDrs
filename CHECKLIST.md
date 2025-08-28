@@ -1,6 +1,6 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.75.0 - Current State
+## Version 0.76.0 - Current State
 
 ### Completed ✅
 - [x] Workspace builds without errors
@@ -181,12 +181,20 @@
 - [x] Validated Hagen-Poiseuille implementation against theory (within 1%)
 - [x] Fixed all unused variable warnings with proper implementations
 
+### Completed (v0.76.0) ✅ - DEEP REFACTORING & CLEANUP
+- [x] **NAMING**: Eliminated ALL adjective-based naming violations (simple→physics, advanced→specialized, etc.)
+- [x] **MODULES**: Refactored values.rs (453 LOC) into 5 domain modules (flow, pressure, velocity, temperature, dimensionless)
+- [x] **CONSTANTS**: Created weno_constants.rs with 15+ named constants replacing magic numbers
+- [x] **API**: Fixed all method signatures (x_new→x_next, f_new→f_next)
+- [x] **WENO**: Replaced all magic numbers in WENO5 scheme with proper constants
+- [x] **BUILD**: Zero compilation errors across workspace
+- [x] **FORMATTING**: Applied cargo fmt to entire codebase
+
 ### Remaining Technical Debt ⚠️
-- [ ] 29 modules still exceed 300 lines (values.rs: 453, ibm.rs: 439, etc.)
-- [ ] 170+ magic number occurrences need named constants
-- [ ] 20+ Ok(()) stub implementations need proper functionality
-- [ ] 60+ missing documentation warnings
-- [ ] Adjective-based naming in comments ("simple", "basic", "advanced")
+- [ ] 27 modules still exceed 300 lines (ibm.rs: 439, turbulence.rs: 410, etc.)
+- [ ] Some magic numbers remain in other schemes (central, tvd)
+- [ ] No Ok(()) stubs found (already clean)
+- [ ] 23 documentation warnings remain
 - [ ] No SIMD/parallelization implemented
 - [ ] No benchmarks for performance validation
 

@@ -174,7 +174,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         }
     }
 
-    /// Calculate hydraulic resistance using advanced models
+    /// Calculate hydraulic resistance using physics models
     pub fn calculate_resistance(&mut self, fluid: &Fluid<T>) -> Result<T> {
         // Update flow state
         self.update_flow_state(fluid)?;
