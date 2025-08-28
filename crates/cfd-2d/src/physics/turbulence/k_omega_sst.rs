@@ -28,6 +28,40 @@ impl<T: RealField + FromPrimitive + Copy> KOmegaSSTModel<T> {
         }
     }
 
+    /// Calculate cross-diffusion term CDkω
+    fn calculate_cross_diffusion(&self, k: &[T], omega: &[T], idx: usize, dx: T, dy: T) -> T {
+        let nx = self.nx;
+        let omega_min = T::from_f64(OMEGA_MIN).unwrap_or_else(T::zero);
+
+        // Calculate gradients using central differences
+        let i = idx % nx;
+        let j = idx / nx;
+
+        // Boundary check
+        if i == 0 || i == nx - 1 || j == 0 || j == self.ny - 1 {
+            return omega_min;
+        }
+
+        // ∇k
+        let dk_dx = (k[idx + 1] - k[idx - 1]) / (T::from_f64(2.0).unwrap_or_else(T::one) * dx);
+        let dk_dy = (k[idx + nx] - k[idx - nx]) / (T::from_f64(2.0).unwrap_or_else(T::one) * dy);
+
+        // ∇ω
+        let domega_dx =
+            (omega[idx + 1] - omega[idx - 1]) / (T::from_f64(2.0).unwrap_or_else(T::one) * dx);
+        let domega_dy =
+            (omega[idx + nx] - omega[idx - nx]) / (T::from_f64(2.0).unwrap_or_else(T::one) * dy);
+
+        // Dot product ∇k · ∇ω
+        let grad_dot = dk_dx * domega_dx + dk_dy * domega_dy;
+
+        // CDkω = 2ρσω2 / ω · ∇k · ∇ω
+        let sigma_omega2 = T::from_f64(SST_SIGMA_OMEGA2).unwrap_or_else(T::one);
+        let two = T::from_f64(2.0).unwrap_or_else(T::one);
+
+        (two * sigma_omega2 * grad_dot / omega[idx].max(omega_min)).max(omega_min)
+    }
+
     /// Calculate blending functions F1 and F2
     fn calculate_blending_functions(
         &mut self,
@@ -36,6 +70,8 @@ impl<T: RealField + FromPrimitive + Copy> KOmegaSSTModel<T> {
         wall_distance: &[T],
         molecular_viscosity: T,
         density: T,
+        dx: T,
+        dy: T,
     ) {
         let beta_star = T::from_f64(SST_BETA_STAR).unwrap_or_else(T::one);
         let sigma_omega2 = T::from_f64(SST_SIGMA_OMEGA2).unwrap_or_else(T::one);
@@ -46,11 +82,11 @@ impl<T: RealField + FromPrimitive + Copy> KOmegaSSTModel<T> {
             let k_val = k[idx].max(omega_min);
             let omega_val = omega[idx].max(omega_min);
 
-            // Calculate vorticity magnitude (simplified for 2D)
+            // Calculate vorticity magnitude for 2D
             let nu = molecular_viscosity / density;
 
             // CDkω calculation (cross-diffusion term)
-            let cd_kw = omega_min; // Simplified - should calculate gradient dot product
+            let cd_kw = self.calculate_cross_diffusion(k, omega, idx, dx, dy);
 
             // Argument for F1
             let sqrt_k = k_val.sqrt();
@@ -167,7 +203,15 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KOmegaSSTModel<
         }
 
         // Calculate blending functions
-        self.calculate_blending_functions(k, omega, &wall_distance, molecular_viscosity, density);
+        self.calculate_blending_functions(
+            k,
+            omega,
+            &wall_distance,
+            molecular_viscosity,
+            density,
+            dx,
+            dy,
+        );
 
         // Store old values
         let k_old = k.to_vec();
@@ -229,8 +273,9 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KOmegaSSTModel<
                     / (dy * dy);
                 let diff_omega = nu_eff_omega * (diff_omega_x + diff_omega_y);
 
-                // Cross-diffusion term (simplified)
-                let cd_term = T::zero(); // Should calculate (1-F1) * CDkω
+                // Cross-diffusion term
+                let cd_kw = self.calculate_cross_diffusion(&k_old, &omega_old, idx, dx, dy);
+                let cd_term = (T::one() - self.f1[idx]) * cd_kw;
 
                 // Update k
                 let beta_star = T::from_f64(SST_BETA_STAR).unwrap_or_else(T::one);

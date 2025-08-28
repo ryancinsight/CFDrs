@@ -1,8 +1,6 @@
 //! Time integration validation tests.
 
-use super::integrators::{
-    ForwardEuler, RungeKutta2, RungeKutta4, TimeIntegratorTrait,
-};
+use super::integrators::{ForwardEuler, RungeKutta2, RungeKutta4, TimeIntegratorTrait};
 use super::results::TimeIntegrationResult;
 use cfd_core::Result;
 use nalgebra::{DVector, RealField};

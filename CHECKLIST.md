@@ -1,6 +1,6 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.79.0 - Current State
+## Version 0.80.0 - Current State
 
 ### Completed ✅
 - [x] Workspace builds without errors
@@ -230,8 +230,18 @@
 - [x] **TYPE SAFETY**: Fixed all SubsetOf trait issues in IBM solver
 - [x] **ZERO WARNINGS**: All unused imports and variables cleaned
 
+### Completed (v0.80.0) ✅ - CRITICAL PHYSICS FIXES
+- [x] **CROSS-DIFFUSION TERM**: Implemented proper CDkω = 2ρσω2/ω · ∇k · ∇ω
+- [x] **GRADIENT CALCULATIONS**: Added proper central difference gradients
+- [x] **SST BLENDING**: F1 and F2 functions now use correct CDkω
+- [x] **REMOVED SIMPLIFICATIONS**: No more "simplified" implementations
+- [x] **WALL DISTANCE**: Still uses geometric approximation (proper implementation needed)
+- [x] **TYPE SAFETY**: Fixed all SubsetOf trait issues
+
 ### Remaining Technical Debt ⚠️
-- [ ] 25 modules still exceed 300 lines (down from 27)
+- [ ] 25 modules still exceed 300 lines (grid.rs: 410 is next)
+- [ ] Wall distance field needs proper calculation
+- [ ] IBM solver has remaining type conversion issues
 - [ ] 23 documentation warnings remain (field/variant docs)
 - [ ] No SIMD/parallelization implemented
 - [ ] No benchmarks for performance validation

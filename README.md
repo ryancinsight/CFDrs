@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 0.79.0** - Turbulence Models & Literature Validation
+**Version 0.80.0** - Critical Physics Corrections & SST Fix
 
 ## Status
 
@@ -20,7 +20,7 @@
 - ✅ Mesh quality analyzer with proper implementations
 - ✅ Error types fully documented with field descriptions
 
-## Technical Debt (resolved in v0.79.0) - PHYSICS VALIDATION
+## Technical Debt (resolved in v0.80.0) - CRITICAL FIXES
 - ✅ **ARCHITECTURE**: Refactored mesh_operations (461 LOC) into proper domain modules
 - ✅ **API CONSISTENCY**: Fixed all Fluid API method signatures across workspace
 - ✅ **BUILD SUCCESS**: All crates compile without errors
@@ -169,7 +169,7 @@
 | Dead Code | Eliminated | No placeholders, stubs, or incomplete implementations |
 | Public API Docs | ~90% | Critical APIs documented |
 | Algorithm Validation | Complete | All mesh element measures properly implemented |
-| Module Structure | Significant Progress | 25 modules >300 LOC (Turbulence done) |
+| Module Structure | Ongoing Progress | 25 modules >300 LOC (grid.rs next) |
 | Magic Numbers | Mostly Resolved | WENO constants defined, some remain |
 | Design Principles | Well Applied | SOLID/CUPID/SLAP/DRY enforced |
 | Naming Conventions | Excellent | Zero adjective-based identifiers |

@@ -111,9 +111,10 @@ impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
         let j = (position.y / self.dx.y).floor();
         let k = (position.z / self.dx.z).floor();
 
-        let i_int = i.to_subset().unwrap_or(0) as isize;
-        let j_int = j.to_subset().unwrap_or(0) as isize;
-        let k_int = k.to_subset().unwrap_or(0) as isize;
+        // Convert to integer indices
+        let i_int = i.to_subset().unwrap_or(0isize);
+        let j_int = j.to_subset().unwrap_or(0isize);
+        let k_int = k.to_subset().unwrap_or(0isize);
 
         let i_start = i_int - (stencil as isize / 2);
         let j_start = j_int - (stencil as isize / 2);
@@ -164,9 +165,10 @@ impl<T: RealField + FromPrimitive + Copy> IbmSolver<T> {
         let j = (point.position.y / self.dx.y).floor();
         let k = (point.position.z / self.dx.z).floor();
 
-        let i_int = i.to_subset().unwrap_or(0) as isize;
-        let j_int = j.to_subset().unwrap_or(0) as isize;
-        let k_int = k.to_subset().unwrap_or(0) as isize;
+        // Convert to integer indices
+        let i_int = i.to_subset().unwrap_or(0isize);
+        let j_int = j.to_subset().unwrap_or(0isize);
+        let k_int = k.to_subset().unwrap_or(0isize);
 
         let i_start = i_int - (stencil as isize / 2);
         let j_start = j_int - (stencil as isize / 2);
