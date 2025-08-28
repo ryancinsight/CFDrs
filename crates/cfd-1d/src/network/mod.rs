@@ -14,7 +14,7 @@ pub use edge::{ChannelProperties, Edge, EdgeType};
 pub use graph::NetworkGraph;
 pub use metadata::NetworkMetadata;
 pub use node::{Node, NodeProperties, NodeType};
-pub use wrapper::{EdgeProperties, EdgeWithProperties, Network};
+pub use wrapper::{EdgeProperties, EdgeWithProperties, Network, ParallelEdge};
 
 // Re-export boundary conditions from core
 pub use cfd_core::boundary::BoundaryCondition;

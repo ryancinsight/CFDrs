@@ -7,6 +7,7 @@ use crate::network::Network;
 use cfd_core::Result;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
+use petgraph::visit::EdgeRef;
 use std::iter::Sum;
 
 /// Flow analyzer for network components
@@ -31,7 +32,8 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> for F
 
         // Analyze flow in each edge
         for edge in network.edges_with_properties() {
-            if let Some(flow_rate) = edge.flow_rate {
+            let flow_rate = edge.flow_rate;
+            if flow_rate != T::zero() {
                 analysis.add_component_flow(edge.id.clone(), flow_rate);
 
                 // Determine flow regime
@@ -77,11 +79,17 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowAnalyzer<T> {
 
     fn calculate_total_flow(&self, network: &Network<T>) -> T {
         // Sum outflow from all outlet nodes
+        use petgraph::graph::NodeIndex;
         let mut total = T::zero();
         for (idx, node) in network.nodes().enumerate() {
             if matches!(node.node_type, crate::network::NodeType::Outlet) {
-                if let Some(flow) = network.flow_rates().get(idx) {
-                    total = total + flow.abs();
+                // Sum flow rates of edges connected to this outlet node
+                let node_idx = NodeIndex::new(idx);
+                for edge_ref in network.graph.edges(node_idx) {
+                    let edge_idx = edge_ref.id();
+                    if let Some(&flow) = network.flow_rates().get(&edge_idx) {
+                        total = total + Float::abs(flow);
+                    }
                 }
             }
         }

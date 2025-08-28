@@ -32,7 +32,12 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T>
         let fluid = network.fluid();
 
         for edge in network.edges_with_properties() {
-            let resistance = self.calculate_resistance(&edge.properties, fluid, edge.flow_rate);
+            let flow_rate = if edge.flow_rate == T::zero() {
+                None
+            } else {
+                Some(edge.flow_rate)
+            };
+            let resistance = self.calculate_resistance(edge.properties, fluid, flow_rate);
 
             analysis.add_resistance(edge.id.clone(), resistance);
 

@@ -1,6 +1,5 @@
 //! Network edge definitions
 
-use crate::channel::ChannelGeometry;
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
 

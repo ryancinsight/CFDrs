@@ -56,18 +56,20 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
 
         // Add boundary conditions
         for (node_idx, bc) in network.boundary_conditions() {
+            let idx = node_idx.index();
             match bc {
-                crate::network::BoundaryCondition::PressureInlet { pressure }
-                | crate::network::BoundaryCondition::PressureOutlet { pressure } => {
+                crate::network::BoundaryCondition::Dirichlet { value: pressure } => {
                     // Dirichlet boundary condition
                     let mut coo = coo_mutex.lock().unwrap();
                     // Set row to identity
-                    coo.push(node_idx, node_idx, T::one());
-                    rhs[node_idx] = *pressure;
+                    coo.push(idx, idx, T::one());
+                    rhs[idx] = pressure;
                 }
-                crate::network::BoundaryCondition::VolumeFlowInlet { flow_rate } => {
+                crate::network::BoundaryCondition::Neumann {
+                    gradient: flow_rate,
+                } => {
                     // Neumann boundary condition
-                    rhs[node_idx] += *flow_rate;
+                    rhs[idx] = rhs[idx] + flow_rate;
                 }
                 _ => {
                     // Other boundary conditions not implemented for 1D

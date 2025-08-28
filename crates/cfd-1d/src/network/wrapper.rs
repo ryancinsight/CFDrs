@@ -1,14 +1,16 @@
 //! Network wrapper with convenience methods
 
-use super::{Edge, NetworkGraph, Node};
+use super::{NetworkGraph, Node};
 use crate::channel::ChannelGeometry;
 use cfd_core::fluid::Fluid;
-use nalgebra::RealField;
+use nalgebra::{DVector, RealField};
+use num_traits::FromPrimitive;
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
 use std::collections::HashMap;
 
 /// Extended network with fluid properties and convenience methods
+#[derive(Clone, Debug)]
 pub struct Network<T: RealField + Copy> {
     /// The underlying graph
     pub graph: NetworkGraph<T>,
@@ -53,7 +55,15 @@ pub struct EdgeWithProperties<'a, T: RealField + Copy> {
     pub properties: &'a EdgeProperties<T>,
 }
 
-impl<T: RealField + Copy> Network<T> {
+/// Edge for parallel processing
+pub struct ParallelEdge<T: RealField + Copy> {
+    /// Node indices (from, to) as usize
+    pub nodes: (usize, usize),
+    /// Conductance (1/resistance)
+    pub conductance: T,
+}
+
+impl<T: RealField + Copy + FromPrimitive> Network<T> {
     /// Create a new network
     pub fn new(graph: NetworkGraph<T>, fluid: Fluid<T>) -> Self {
         Self {
@@ -118,5 +128,60 @@ impl<T: RealField + Copy> Network<T> {
     /// Add properties for an edge
     pub fn add_edge_properties(&mut self, edge: EdgeIndex, properties: EdgeProperties<T>) {
         self.properties.insert(edge, properties);
+    }
+
+    /// Get the number of nodes in the network
+    pub fn node_count(&self) -> usize {
+        self.graph.node_count()
+    }
+
+    /// Get the number of edges in the network
+    pub fn edge_count(&self) -> usize {
+        self.graph.edge_count()
+    }
+
+    /// Get characteristic length of the network
+    pub fn characteristic_length(&self) -> T {
+        // Calculate based on average edge length
+        if self.properties.is_empty() {
+            T::one()
+        } else {
+            let total_length: T = self
+                .properties
+                .values()
+                .map(|p| p.length)
+                .fold(T::zero(), |a, b| a + b);
+            total_length / T::from_usize(self.properties.len()).unwrap_or(T::one())
+        }
+    }
+
+    /// Update network state from solution vector
+    pub fn update_from_solution(&mut self, solution: &DVector<T>) {
+        for (idx, &value) in solution.iter().enumerate() {
+            let node_idx = NodeIndex::new(idx);
+            self.pressures.insert(node_idx, value);
+        }
+    }
+
+    /// Get boundary conditions for the network
+    pub fn boundary_conditions(
+        &self,
+    ) -> HashMap<NodeIndex, cfd_core::boundary::BoundaryCondition<T>> {
+        // Placeholder - should be stored in the network
+        HashMap::new()
+    }
+
+    /// Process edges in parallel
+    pub fn edges_parallel(&self) -> impl Iterator<Item = ParallelEdge<T>> + '_ {
+        self.graph.edge_references().map(move |edge_ref| {
+            let edge_idx = edge_ref.id();
+            let (from, to) = (edge_ref.source(), edge_ref.target());
+            let edge_data = edge_ref.weight();
+
+            ParallelEdge {
+                nodes: (from.index(), to.index()),
+                conductance: edge_data.resistance.recip(), // conductance = 1/resistance
+            }
+        })
     }
 }
