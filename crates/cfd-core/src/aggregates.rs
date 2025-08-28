@@ -385,8 +385,8 @@ mod tests {
 
         // Set reference conditions
         sim.set_reference_conditions(
-            Pressure::pascals(101_325.0),
-            &Velocity::new(1.0, 0.0, 0.0),
+            Pressure::from_pascals(101_325.0).unwrap(),
+            &Velocity::from_components(1.0, 0.0, 0.0),
             1.0,
         )
         .expect("CRITICAL: Add proper error handling");

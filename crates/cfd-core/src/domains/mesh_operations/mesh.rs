@@ -62,6 +62,14 @@ const MIN_ELEMENT_VOLUME: f64 = 1e-12;
 const MAX_ASPECT_RATIO: f64 = 100.0;
 
 impl<T: RealField + Copy> Mesh<T> {
+    /// Helper function to calculate tetrahedron volume
+    fn tet_volume(p0: &Point3<T>, p1: &Point3<T>, p2: &Point3<T>, p3: &Point3<T>) -> T {
+        let v1 = p1 - p0;
+        let v2 = p2 - p0;
+        let v3 = p3 - p0;
+        v1.dot(&v2.cross(&v3)).abs() / T::from_f64(6.0).unwrap_or_else(T::one)
+    }
+
     /// Create a new mesh
     pub fn new(name: String, dimension: usize) -> Self {
         Self {
@@ -196,10 +204,131 @@ impl<T: RealField + Copy> Mesh<T> {
                 let v3 = p3 - p0;
                 Ok(v1.dot(&v2.cross(&v3)).abs() / T::from_f64(6.0).unwrap_or_else(T::one))
             }
-            _ => {
-                // For other element types, return a placeholder
-                // This should be implemented properly for each element type
-                Ok(T::one())
+            ElementType::Quadrilateral => {
+                // Quadrilateral area using shoelace formula
+                let p0 = &self.nodes[element.nodes[0]];
+                let p1 = &self.nodes[element.nodes[1]];
+                let p2 = &self.nodes[element.nodes[2]];
+                let p3 = &self.nodes[element.nodes[3]];
+                // Split into two triangles and sum areas
+                let v1 = p1 - p0;
+                let v2 = p2 - p0;
+                let area1 = v1.cross(&v2).norm() / T::from_f64(2.0).unwrap_or_else(T::one);
+                let v3 = p3 - p0;
+                let area2 = v2.cross(&v3).norm() / T::from_f64(2.0).unwrap_or_else(T::one);
+                Ok(area1 + area2)
+            }
+            ElementType::Hexahedron => {
+                // Hexahedron volume using decomposition into tetrahedra
+                let nodes: Vec<_> = element.nodes.iter().map(|&i| &self.nodes[i]).collect();
+                // Decompose into 6 tetrahedra and sum volumes
+                let mut volume = T::zero();
+                // Tetrahedron 1: 0-1-3-4
+                volume += Self::tet_volume(nodes[0], nodes[1], nodes[3], nodes[4]);
+                // Tetrahedron 2: 1-2-3-6
+                volume += Self::tet_volume(nodes[1], nodes[2], nodes[3], nodes[6]);
+                // Tetrahedron 3: 1-3-4-6
+                volume += Self::tet_volume(nodes[1], nodes[3], nodes[4], nodes[6]);
+                // Tetrahedron 4: 3-4-6-7
+                volume += Self::tet_volume(nodes[3], nodes[4], nodes[6], nodes[7]);
+                // Tetrahedron 5: 1-4-5-6
+                volume += Self::tet_volume(nodes[1], nodes[4], nodes[5], nodes[6]);
+                // Tetrahedron 6: 4-5-6-7
+                volume += Self::tet_volume(nodes[4], nodes[5], nodes[6], nodes[7]);
+                Ok(volume)
+            }
+            ElementType::Pyramid => {
+                // Pyramid volume = (1/3) * base_area * height
+                let p0 = &self.nodes[element.nodes[0]];
+                let p1 = &self.nodes[element.nodes[1]];
+                let p2 = &self.nodes[element.nodes[2]];
+                let p3 = &self.nodes[element.nodes[3]];
+                let apex = &self.nodes[element.nodes[4]];
+
+                // Calculate base area (quadrilateral)
+                let v1 = p1 - p0;
+                let v2 = p2 - p0;
+                let area1 = v1.cross(&v2).norm() / T::from_f64(2.0).unwrap_or_else(T::one);
+                let v3 = p3 - p0;
+                let area2 = v2.cross(&v3).norm() / T::from_f64(2.0).unwrap_or_else(T::one);
+                let base_area = area1 + area2;
+
+                // Calculate height (perpendicular distance from apex to base)
+                let base_normal = v1.cross(&v2).normalize();
+                let height_vec = apex - p0;
+                let height = height_vec.dot(&base_normal).abs();
+
+                Ok(base_area * height / T::from_f64(3.0).unwrap_or_else(T::one))
+            }
+            ElementType::Prism => {
+                // Prism/Wedge volume = base_area * height
+                let p0 = &self.nodes[element.nodes[0]];
+                let p1 = &self.nodes[element.nodes[1]];
+                let p2 = &self.nodes[element.nodes[2]];
+                let p3 = &self.nodes[element.nodes[3]];
+
+                // Calculate triangular base area
+                let v1 = p1 - p0;
+                let v2 = p2 - p0;
+                let base_area = v1.cross(&v2).norm() / T::from_f64(2.0).unwrap_or_else(T::one);
+
+                // Calculate height (distance between triangular faces)
+                let height_vec = p3 - p0;
+                let base_normal = v1.cross(&v2).normalize();
+                let height = height_vec.dot(&base_normal).abs();
+
+                Ok(base_area * height)
+            }
+            ElementType::Line3 => {
+                // Use first two nodes for length
+                let p0 = &self.nodes[element.nodes[0]];
+                let p1 = &self.nodes[element.nodes[1]];
+                Ok((p1 - p0).norm())
+            }
+            ElementType::Triangle6 => {
+                // Use first three nodes for area
+                let p0 = &self.nodes[element.nodes[0]];
+                let p1 = &self.nodes[element.nodes[1]];
+                let p2 = &self.nodes[element.nodes[2]];
+                let v1 = p1 - p0;
+                let v2 = p2 - p0;
+                Ok(v1.cross(&v2).norm() / T::from_f64(2.0).unwrap_or_else(T::one))
+            }
+            ElementType::Quadrilateral9 => {
+                // Use first four nodes for area
+                let p0 = &self.nodes[element.nodes[0]];
+                let p1 = &self.nodes[element.nodes[1]];
+                let p2 = &self.nodes[element.nodes[2]];
+                let p3 = &self.nodes[element.nodes[3]];
+                let v1 = p1 - p0;
+                let v2 = p2 - p0;
+                let area1 = v1.cross(&v2).norm() / T::from_f64(2.0).unwrap_or_else(T::one);
+                let v3 = p3 - p0;
+                let area2 = v2.cross(&v3).norm() / T::from_f64(2.0).unwrap_or_else(T::one);
+                Ok(area1 + area2)
+            }
+            ElementType::Tetrahedron10 => {
+                // Use first four nodes for volume
+                let p0 = &self.nodes[element.nodes[0]];
+                let p1 = &self.nodes[element.nodes[1]];
+                let p2 = &self.nodes[element.nodes[2]];
+                let p3 = &self.nodes[element.nodes[3]];
+                let v1 = p1 - p0;
+                let v2 = p2 - p0;
+                let v3 = p3 - p0;
+                Ok(v1.dot(&v2.cross(&v3)).abs() / T::from_f64(6.0).unwrap_or_else(T::one))
+            }
+            ElementType::Hexahedron20 => {
+                // Use first eight nodes for volume
+                let nodes: Vec<_> = element.nodes[..8].iter().map(|&i| &self.nodes[i]).collect();
+                let mut volume = T::zero();
+                volume += Self::tet_volume(nodes[0], nodes[1], nodes[3], nodes[4]);
+                volume += Self::tet_volume(nodes[1], nodes[2], nodes[3], nodes[6]);
+                volume += Self::tet_volume(nodes[1], nodes[3], nodes[4], nodes[6]);
+                volume += Self::tet_volume(nodes[3], nodes[4], nodes[6], nodes[7]);
+                volume += Self::tet_volume(nodes[1], nodes[4], nodes[5], nodes[6]);
+                volume += Self::tet_volume(nodes[4], nodes[5], nodes[6], nodes[7]);
+                Ok(volume)
             }
         }
     }
