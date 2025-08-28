@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// Newtonian fluid with constant properties
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CurrenttonianFluid<T: RealField + Copy> {
+pub struct NewtonianFluid<T: RealField + Copy> {
     /// Fluid density
     pub density: T,
     /// Dynamic viscosity
@@ -17,7 +17,7 @@ pub struct CurrenttonianFluid<T: RealField + Copy> {
     pub specific_heat: T,
 }
 
-impl<T: RealField + Copy> FluidProperties<T> for CurrenttonianFluid<T> {
+impl<T: RealField + Copy> FluidProperties<T> for NewtonianFluid<T> {
     fn density(&self) -> T {
         self.density
     }
@@ -35,7 +35,7 @@ impl<T: RealField + Copy> FluidProperties<T> for CurrenttonianFluid<T> {
     }
 }
 
-impl<T: RealField + Copy> CurrenttonianFluid<T> {
+impl<T: RealField + Copy> NewtonianFluid<T> {
     /// Create water properties at 20°C
     pub fn water() -> Self
     where

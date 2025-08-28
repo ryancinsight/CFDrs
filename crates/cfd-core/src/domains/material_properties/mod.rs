@@ -13,7 +13,7 @@ pub mod traits;
 
 // Re-export main types
 pub use database::MaterialDatabase;
-pub use fluids::CurrenttonianFluid;
+pub use fluids::NewtonianFluid;
 pub use interfaces::{FluidSolidInterface, WettingProperties};
 pub use non_newtonian::{BinghamFluid, PowerLawFluid};
 pub use property_calculators::{

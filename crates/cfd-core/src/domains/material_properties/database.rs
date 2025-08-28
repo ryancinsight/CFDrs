@@ -84,13 +84,13 @@ impl<T: RealField + Copy> MaterialDatabase<T> {
         let mut db = Self::new();
 
         // Add common fluids
-        use super::fluids::CurrenttonianFluid;
+        use super::fluids::NewtonianFluid;
         db.add_fluid(
             "water".to_string(),
-            Box::new(CurrenttonianFluid::<T>::water()),
+            Box::new(NewtonianFluid::<T>::water()),
         );
-        db.add_fluid("air".to_string(), Box::new(CurrenttonianFluid::<T>::air()));
-        db.add_fluid("oil".to_string(), Box::new(CurrenttonianFluid::<T>::oil()));
+        db.add_fluid("air".to_string(), Box::new(NewtonianFluid::<T>::air()));
+        db.add_fluid("oil".to_string(), Box::new(NewtonianFluid::<T>::oil()));
 
         // Add common solids
         use super::solids::ElasticSolid;
