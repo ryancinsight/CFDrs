@@ -1,7 +1,6 @@
 //! Mesh operations and transformations
 
 use super::types::Mesh;
-use crate::Result;
 use nalgebra::{Matrix3, Point3, RealField, Vector3};
 use num_traits::FromPrimitive;
 

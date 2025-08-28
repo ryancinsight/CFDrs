@@ -3,7 +3,7 @@
 use super::types::{Element, Mesh};
 use crate::domains::mesh_operations::element::ElementType;
 use crate::Result;
-use nalgebra::{RealField, Vector3};
+use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};
 

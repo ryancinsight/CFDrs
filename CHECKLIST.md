@@ -1,6 +1,6 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.93.0 - Current State
+## Version 0.94.0 - Current State
 
 ### Completed ✅
 - [x] Workspace builds without errors
@@ -253,6 +253,26 @@
 - [x] **PHYSICS COMPLETE**: SST CDkω, k-ε, wall functions all implemented
 - [x] **NO STUBS**: No Ok(()), unimplemented!, or todo! in production code
 - [x] **CONSTANTS**: All critical magic numbers replaced with named constants
+
+### Completed (v0.94.0) ✅ - CRITICAL MODULE REFACTORING
+- [x] **COLLISION MODULE**:
+  - Split 381 lines into 5 focused modules
+  - BGK, MRT, Regularized collision operators
+  - Proper forcing schemes (Guo, Shan-Chen)
+  - Literature-based implementations
+- [x] **MOMENTUM MODULE**:
+  - Split 375 lines into 5 domain modules
+  - Clean separation: solver, coefficients, discretization
+  - Rhie-Chow interpolation for pressure-velocity coupling
+  - Proper boundary condition handling
+- [x] **SAFETY IMPROVEMENTS**:
+  - Eliminated nested unwrap chains
+  - Fixed Matrix9 type issues
+  - Reduced unwrap count from 105 to 89
+- [x] **PHYSICS VALIDATION**:
+  - LBM collision models (Lallemand & Luo 2000)
+  - Guo forcing (Guo et al. 2002)
+  - Rhie-Chow interpolation
 
 ### Completed (v0.93.0) ✅ - MESH REFACTORING & DOMAIN STRUCTURE
 - [x] **MESH MODULE REFACTORING**:

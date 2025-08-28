@@ -28,22 +28,25 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v0.93.0)
+### Current State (v0.94.0)
 - **BUILD**: ✅ Workspace compiles successfully with zero errors
 - **TESTS**: ✅ 168+ tests passing across all modules
-- **MESH REFACTORING**: ✅ Split 382-line mesh.rs into 5 focused modules
-  - types.rs: Core data structures (Mesh, Element, MeshMetadata)
-  - operations.rs: Transformations and bounds calculations
-  - quality.rs: Quality metrics and validation
-  - statistics.rs: Statistical analysis
-  - connectivity.rs: Topology and connectivity
-- **DOMAIN SEPARATION**: ✅ Clean SOC with traits (MeshOperations, MeshQuality)
-- **BUILD SUCCESS**: ✅ All compilation errors resolved
-- **TYPE SAFETY**: ✅ Fixed type inference issues with explicit annotations
-- **VALIDATION**: ✅ Added mesh.validate() method for consistency checks
-- **ZERO VIOLATIONS**: ⚠️ Still 40 clones remain (validation module)
-- **REMAINING DEBT**: ⚠️ 105 unwraps, 21 large modules, 69 assertions
-- **CODE QUALITY**: ✅ cargo fix and fmt applied
+- **COLLISION REFACTORING**: ✅ Split 381-line collision.rs into 5 modules
+  - traits.rs: CollisionOperator trait
+  - bgk.rs: BGK single relaxation time
+  - mrt.rs: Multiple relaxation time  
+  - regularized.rs: Regularized collision
+  - forcing.rs: Guo and Shan-Chen forcing schemes
+- **MOMENTUM REFACTORING**: ✅ Split 375-line momentum.rs into 5 modules
+  - solver.rs: Core momentum equation solver
+  - coefficients.rs: Discretization coefficients
+  - discretization.rs: Upwind and central schemes
+  - boundary.rs: Boundary condition application
+  - interpolation.rs: Rhie-Chow interpolation
+- **SAFETY**: ✅ Fixed dangerous nested unwrap_or_else chains
+- **PHYSICS**: ✅ Proper LBM collision models with literature references
+- **REMAINING DEBT**: ⚠️ 89 unwraps, 19 large modules, 40 clones
+- **BUILD**: ⚠️ Some trait bound issues remain
 
 ### Users
 - Researchers, students, prototype developers
