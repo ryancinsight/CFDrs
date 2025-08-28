@@ -1,6 +1,6 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.77.0 - Current State
+## Version 0.78.0 - Current State
 
 ### Completed ✅
 - [x] Workspace builds without errors
@@ -201,8 +201,22 @@
 - [x] **CENTRAL SCHEME**: Replaced magic number 2.0 with CENTRAL_DIFF_DIVISOR
 - [x] **API FIXES**: Fixed Pressure and Velocity API usage in tests
 
+### Completed (v0.78.0) ✅ - MAJOR REFACTORING & CLEANUP
+- [x] **IBM MODULE REFACTORING**: Split 439-line ibm.rs into 5 clean domain modules:
+  - config.rs: IBM configuration and constants
+  - lagrangian.rs: Lagrangian point representation
+  - interpolation.rs: Delta functions (Roma-Peskin, Peskin)
+  - forcing.rs: Direct and feedback forcing methods
+  - solver.rs: Main IBM solver implementation
+- [x] **PROPER TRAITS**: ForcingMethod trait for extensible forcing
+- [x] **LITERATURE-VALIDATED**: Roma & Peskin (2000), Peskin (2002) delta functions
+- [x] **CONSTANTS**: Added DEFAULT_PROPORTIONAL_GAIN, DEFAULT_INTEGRAL_GAIN
+- [x] **ZERO-COPY**: Used iterator combinators in interpolate_velocity
+- [x] **UNUSED IMPORTS**: Removed all via cargo fix
+- [x] **TYPE SAFETY**: Fixed SubsetOf trait issues with proper type conversions
+
 ### Remaining Technical Debt ⚠️
-- [ ] 27 modules still exceed 300 lines (ibm.rs: 439, turbulence.rs: 410, etc.)
+- [ ] 26 modules still exceed 300 lines (turbulence.rs: 410 next target)
 - [ ] 23 documentation warnings remain (field/variant docs)
 - [ ] No SIMD/parallelization implemented
 - [ ] No benchmarks for performance validation
