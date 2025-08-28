@@ -86,18 +86,17 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp> PressureVelocitySolv
             }
         }
 
-        let u_component =
-            self.momentum_solver
-                .solve(MomentumComponent::U, &state_buffer, self.config.dt)?;
-        let v_component =
-            self.momentum_solver
-                .solve(MomentumComponent::V, &state_buffer, self.config.dt)?;
+        // Solve momentum equations (modifies state_buffer in place)
+        self.momentum_solver
+            .solve(MomentumComponent::U, &mut state_buffer, self.config.dt)?;
+        self.momentum_solver
+            .solve(MomentumComponent::V, &mut state_buffer, self.config.dt)?;
 
-        // Combine into velocity field
+        // Extract predicted velocity field
         let mut u_star = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
         for i in 0..self.grid.nx {
             for j in 0..self.grid.ny {
-                u_star[i][j] = Vector2::new(u_component.at(i, j), v_component.at(i, j));
+                u_star[i][j] = Vector2::new(state_buffer.u.at(i, j), state_buffer.v.at(i, j));
             }
         }
 

@@ -11,8 +11,7 @@ pub fn rhie_chow_interpolation<T: RealField + Copy>(
     dy: T,
     dt: T,
 ) -> (Vec<Vec<T>>, Vec<Vec<T>>) {
-    let ny = fields.u.rows();
-    let nx = fields.u.cols();
+    let (nx, ny) = fields.u.dimensions();
 
     // Face velocities
     let mut u_face = vec![vec![T::zero(); nx + 1]; ny];

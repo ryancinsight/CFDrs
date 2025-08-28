@@ -31,8 +31,12 @@ impl<T: RealField + Copy + FromPrimitive> ForcingScheme<T> for GuoForcing<T> {
             T::from_f64(1.0 / 3.0).unwrap_or_else(|| T::one() / (T::one() + T::one() + T::one()));
 
         for q in 0..9 {
-            let c = D2Q9::velocity_vector::<T>(q);
-            let w = D2Q9::weight::<T>(q);
+            let lattice_vel = D2Q9::VELOCITIES[q];
+            let c = [
+                T::from_i32(lattice_vel.0).unwrap_or_else(T::zero),
+                T::from_i32(lattice_vel.1).unwrap_or_else(T::zero),
+            ];
+            let w = T::from_f64(D2Q9::WEIGHTS[q]).unwrap_or_else(T::zero);
 
             // Guo forcing term
             let cu = c[0] * velocity[0] + c[1] * velocity[1];
@@ -66,8 +70,12 @@ impl<T: RealField + Copy + FromPrimitive> ForcingScheme<T> for ShanChenForcing<T
 
         // Shan-Chen forcing implementation
         for q in 0..9 {
-            let c = D2Q9::velocity_vector::<T>(q);
-            let w = D2Q9::weight::<T>(q);
+            let lattice_vel = D2Q9::VELOCITIES[q];
+            let c = [
+                T::from_i32(lattice_vel.0).unwrap_or_else(T::zero),
+                T::from_i32(lattice_vel.1).unwrap_or_else(T::zero),
+            ];
+            let w = T::from_f64(D2Q9::WEIGHTS[q]).unwrap_or_else(T::zero);
 
             // Interaction force
             let cf = c[0] * force[0] + c[1] * force[1];

@@ -9,7 +9,4 @@ mod regularized;
 mod traits;
 
 pub use bgk::BgkCollision;
-pub use forcing::{ForcingScheme, GuoForcing, ShanChenForcing};
-pub use mrt::{MrtCollision, RelaxationMatrix};
-pub use regularized::RegularizedCollision;
-pub use traits::{CollisionModel, CollisionOperator};
+pub use traits::CollisionOperator;

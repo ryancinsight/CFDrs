@@ -54,11 +54,11 @@ pub mod prelude {
 
     // 1D solver exports - exclude Edge to avoid conflict
     pub use cfd_1d::prelude::{
-        Channel, ChannelGeometry, ChannelType, ComponentFactory, ComponentType, CrossSection,
-        DarcyWeisbachModel, EdgeProperties, EdgeType, FlowConditions, FlowRegime, FlowSensor,
-        FlowState, Micromixer, MixerType, NetworkAnalysisResult, Node, NodeProperties, NodeType,
-        PerformanceMetrics, PumpType, ResistanceCalculator, ResistanceModelFactory,
-        SchematicLayout, SchemeConversion, SensorType, SurfaceProperties, ValveType, Wettability,
+        Channel, ChannelGeometry, ChannelType, ComponentFactory, CrossSection, DarcyWeisbachModel,
+        EdgeProperties, EdgeType, FlowConditions, FlowRegime, FlowSensor, FlowState, Micromixer,
+        MixerType, NetworkAnalysisResult, Node, NodeProperties, NodeType, PerformanceMetrics,
+        PumpType, ResistanceCalculator, ResistanceModelFactory, SensorType, SurfaceProperties,
+        ValveType, Wettability,
     };
     // Re-export 1D Edge with qualifier
     pub use cfd_1d::network::Edge as NetworkEdge;

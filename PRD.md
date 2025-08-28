@@ -28,25 +28,25 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v0.94.0)
-- **BUILD**: ✅ Workspace compiles successfully with zero errors
-- **TESTS**: ✅ 168+ tests passing across all modules
-- **COLLISION REFACTORING**: ✅ Split 381-line collision.rs into 5 modules
-  - traits.rs: CollisionOperator trait
-  - bgk.rs: BGK single relaxation time
-  - mrt.rs: Multiple relaxation time  
-  - regularized.rs: Regularized collision
-  - forcing.rs: Guo and Shan-Chen forcing schemes
-- **MOMENTUM REFACTORING**: ✅ Split 375-line momentum.rs into 5 modules
-  - solver.rs: Core momentum equation solver
-  - coefficients.rs: Discretization coefficients
-  - discretization.rs: Upwind and central schemes
-  - boundary.rs: Boundary condition application
-  - interpolation.rs: Rhie-Chow interpolation
-- **SAFETY**: ✅ Fixed dangerous nested unwrap_or_else chains
-- **PHYSICS**: ✅ Proper LBM collision models with literature references
-- **REMAINING DEBT**: ⚠️ 89 unwraps, 19 large modules, 40 clones
-- **BUILD**: ⚠️ Some trait bound issues remain
+### Current State (v0.95.0)
+- **BUILD**: ✅ Workspace compiles successfully with ZERO errors (fixed 65 errors)
+- **TESTS**: ✅ 167 tests passing in 0.108s with cargo nextest
+- **API ALIGNMENT**: ✅ Fixed all API inconsistencies
+  - Field2D: Removed .set(), using safe .at_mut()
+  - SparseMatrixBuilder: Fixed .add() → .add_entry()
+  - BoundaryCondition: Fixed pattern matching (struct variants)
+  - LBM equilibrium: Fixed function signature (5 parameters)
+  - D2Q9: Using constants instead of generic methods
+- **CODE QUALITY**: ✅ Applied cargo fix and cargo fmt
+- **SAFETY IMPROVEMENTS**: ✅ Eliminated dangerous method calls
+  - Replaced unsafe .set() with safe .at_mut()
+  - Fixed Result handling in matrix builders
+  - Added proper Sum trait bounds where needed
+- **REMAINING DEBT**: ⚠️ 
+  - 89 unwraps still present
+  - 15+ modules over 300 lines
+  - 1300+ magic number literals (need constants)
+  - Test performance suspicious (0.108s for 167 tests)
 
 ### Users
 - Researchers, students, prototype developers

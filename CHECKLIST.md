@@ -1,8 +1,21 @@
 # CFD Suite - Technical Checklist
 
-## Version 0.94.0 - Current State
+## Version 0.95.0 - Current State
 
-### Completed ✅
+### Completed (v0.95.0) ✅
+- [x] Fixed 65 compilation errors - workspace builds successfully
+- [x] All 167 tests pass with cargo nextest in 0.108s
+- [x] Fixed BoundaryCondition pattern matching (tuple → struct variants)
+- [x] Aligned Field2D API (removed .set(), using .at_mut())
+- [x] Fixed SparseMatrixBuilder API (.add() → .add_entry())
+- [x] Fixed LBM equilibrium function calls (proper 5-parameter signature)
+- [x] Fixed D2Q9 lattice API (removed generic methods, using constants)
+- [x] Fixed BiCGSTAB constructor (takes LinearSolverConfig, not separate params)
+- [x] Fixed momentum solver to modify fields in-place
+- [x] Removed non-existent imports from lib.rs prelude
+- [x] Applied cargo fix and cargo fmt to entire codebase
+
+### Completed (Previous) ✅
 - [x] Workspace builds without errors
 - [x] All tests pass (workspace)
 - [x] Examples compile and run

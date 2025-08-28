@@ -1,7 +1,7 @@
 //! Core momentum equation solver
 
 use super::coefficients::MomentumCoefficients;
-use crate::fields::{Field2D, SimulationFields};
+use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
 use cfd_core::boundary::BoundaryCondition;
 use cfd_core::solver::LinearSolverConfig;
@@ -35,10 +35,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
     /// Create new momentum solver
     pub fn new(grid: &StructuredGrid2D<T>) -> Self {
         let config = LinearSolverConfig::default();
-        let linear_solver = BiCGSTAB::new(
-            config.max_iterations,
-            T::from_f64(config.tolerance).unwrap_or_else(T::zero),
-        );
+        let linear_solver = BiCGSTAB::new(config);
 
         Self {
             nx: grid.nx,
@@ -101,20 +98,20 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
                 let idx = j * self.nx + i;
 
                 // Central coefficient
-                builder.add(idx, idx, coeffs.ap.at(i, j));
+                builder.add_entry(idx, idx, coeffs.ap.at(i, j))?;
 
                 // Neighbor coefficients
                 if i > 0 {
-                    builder.add(idx, idx - 1, -coeffs.aw.at(i, j));
+                    builder.add_entry(idx, idx - 1, -coeffs.aw.at(i, j))?;
                 }
                 if i < self.nx - 1 {
-                    builder.add(idx, idx + 1, -coeffs.ae.at(i, j));
+                    builder.add_entry(idx, idx + 1, -coeffs.ae.at(i, j))?;
                 }
                 if j > 0 {
-                    builder.add(idx, idx - self.nx, -coeffs.as_.at(i, j));
+                    builder.add_entry(idx, idx - self.nx, -coeffs.as_.at(i, j))?;
                 }
                 if j < self.ny - 1 {
-                    builder.add(idx, idx + self.nx, -coeffs.an.at(i, j));
+                    builder.add_entry(idx, idx + self.nx, -coeffs.an.at(i, j))?;
                 }
 
                 // Source term including pressure gradient
@@ -132,7 +129,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
             self.ny,
         )?;
 
-        Ok((builder.build(), rhs))
+        Ok((builder.build()?, rhs))
     }
 
     fn update_velocity(
@@ -145,8 +142,8 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
             for i in 0..self.nx {
                 let idx = j * self.nx + i;
                 match component {
-                    MomentumComponent::U => fields.u.set(i, j, solution[idx]),
-                    MomentumComponent::V => fields.v.set(i, j, solution[idx]),
+                    MomentumComponent::U => *fields.u.at_mut(i, j) = solution[idx],
+                    MomentumComponent::V => *fields.v.at_mut(i, j) = solution[idx],
                 }
             }
         }

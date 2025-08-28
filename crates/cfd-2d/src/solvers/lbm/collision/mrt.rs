@@ -102,7 +102,7 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for MrtCollision<
                 // Compute equilibrium moments
                 let rho = density[j][i];
                 let u = velocity[j][i];
-                let mut m_eq = Self::equilibrium_moments(rho, u);
+                let m_eq = Self::equilibrium_moments(rho, u);
 
                 // Apply relaxation
                 for p in 0..9 {

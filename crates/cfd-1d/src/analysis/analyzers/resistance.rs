@@ -6,6 +6,7 @@ use crate::network::Network;
 use cfd_core::Result;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
+use std::iter::Sum;
 
 /// Resistance analyzer for network components
 pub struct ResistanceAnalyzer<T: RealField + Copy> {
@@ -21,7 +22,9 @@ impl<T: RealField + Copy> ResistanceAnalyzer<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Float> NetworkAnalyzer<T> for ResistanceAnalyzer<T> {
+impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T>
+    for ResistanceAnalyzer<T>
+{
     type Result = ResistanceAnalysis<T>;
 
     fn analyze(&mut self, network: &Network<T>) -> Result<ResistanceAnalysis<T>> {
