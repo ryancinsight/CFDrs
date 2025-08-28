@@ -117,7 +117,7 @@ impl<T: RealField + Copy> LinearSystemSolver<T> for Jacobi<T> {
         }
 
         let mut x = DVector::zeros(n);
-        let mut x_new = DVector::zeros(n);
+        let mut x_next = DVector::zeros(n);
 
         for _iter in 0..self.max_iterations {
             for i in 0..n {
@@ -131,16 +131,16 @@ impl<T: RealField + Copy> LinearSystemSolver<T> for Jacobi<T> {
                 if diag.abs() < T::from_f64(BREAKDOWN_TOLERANCE).unwrap_or_else(T::zero) {
                     return None; // Zero diagonal element
                 }
-                x_new[i] = (rhs[i] - sum) / diag;
+                x_next[i] = (rhs[i] - sum) / diag;
             }
 
             // Check convergence
-            let residual = matrix * &x_new - rhs;
+            let residual = matrix * &x_next - rhs;
             if residual.norm() < self.tolerance {
-                return Some(x_new);
+                return Some(x_next);
             }
 
-            x = x_new.clone();
+            x = x_next.clone();
         }
 
         None

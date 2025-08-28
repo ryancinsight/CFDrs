@@ -174,7 +174,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         }
     }
 
-    /// Calculate hydraulic resistance using advanced models
+    /// Calculate hydraulic resistance using physics models
     pub fn calculate_resistance(&mut self, fluid: &Fluid<T>) -> Result<T> {
         // Update flow state
         self.update_flow_state(fluid)?;
@@ -243,8 +243,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         let area = self.geometry.area();
         let dh = self.geometry.hydraulic_diameter();
         let length = self.geometry.length;
-        let temperature = T::from_f64(293.15).unwrap_or_else(|| T::zero()); // Default to 20°C if not specified
-        let viscosity = fluid.dynamic_viscosity(temperature)?;
+        let viscosity = fluid.dynamic_viscosity();
 
         // Stokes flow resistance with shape factor
         let shape_factor = self.get_shape_factor();

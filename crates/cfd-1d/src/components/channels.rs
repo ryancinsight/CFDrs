@@ -81,10 +81,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for RectangularCh
 
         // Use default temperature of 20°C (293.15 K)
         let temperature = T::from_f64(293.15).unwrap_or_else(T::zero);
-        let kinematic_viscosity = fluid
-            .dynamic_viscosity(temperature)
-            .unwrap_or_else(|_| T::from_f64(0.001).unwrap_or_else(T::one))
-            / fluid.density;
+        let kinematic_viscosity = fluid.dynamic_viscosity() / fluid.density;
         let resistance = f * self.length * kinematic_viscosity / (area * dh * dh);
 
         // Ensure positive resistance
@@ -165,9 +162,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for CircularChann
         let c128 = T::from_f64(128.0).unwrap_or_else(T::zero);
         let temperature = T::from_f64(293.15).unwrap_or_else(T::zero);
 
-        let viscosity = fluid
-            .dynamic_viscosity(temperature)
-            .unwrap_or_else(|_| T::from_f64(0.001).unwrap_or_else(T::one));
+        let viscosity = fluid.dynamic_viscosity();
 
         let d4 = self.diameter * self.diameter * self.diameter * self.diameter;
 

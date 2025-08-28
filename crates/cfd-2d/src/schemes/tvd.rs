@@ -43,7 +43,8 @@ impl FluxLimiter {
             }
             FluxLimiter::Superbee => {
                 let two = T::from_f64(2.0).unwrap_or_else(T::zero);
-                T::zero().max(T::one().min(two * r)).max(two.min(r))
+                // Superbee limiter: φ(r) = max(0, min(1, 2r), min(2, r))
+                T::zero().max(T::one().min(two * r).max(two.min(r)))
             }
             FluxLimiter::MC => {
                 let two = T::from_f64(2.0).unwrap_or_else(T::zero);

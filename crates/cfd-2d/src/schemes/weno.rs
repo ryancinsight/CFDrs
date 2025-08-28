@@ -1,6 +1,6 @@
 //! Weighted Essentially Non-Oscillatory (WENO) schemes
 
-use super::{constants, Grid2D, SpatialDiscretization};
+use super::{constants, weno_constants, Grid2D, SpatialDiscretization};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
@@ -27,25 +27,25 @@ impl<T: RealField + Copy + FromPrimitive + Copy> WENO5<T> {
 
     /// Compute smoothness indicators
     fn smoothness_indicators(&self, v: &[T; 5]) -> [T; 3] {
-        let thirteen = T::from_f64(13.0).unwrap_or_else(T::zero);
-        let three = T::from_f64(3.0).unwrap_or_else(T::zero);
+        let coeff_13_12 =
+            T::from_f64(weno_constants::WENO5_BETA_COEFF_13_12).unwrap_or_else(T::zero);
+        let coeff_quarter =
+            T::from_f64(weno_constants::WENO5_BETA_COEFF_QUARTER).unwrap_or_else(T::zero);
+        let two = T::from_f64(weno_constants::TWO).unwrap_or_else(T::zero);
+        let three = T::from_f64(weno_constants::THREE).unwrap_or_else(T::zero);
+        let four = T::from_f64(weno_constants::FOUR).unwrap_or_else(T::zero);
 
         // Beta_0
-        let beta0 = thirteen / T::from_f64(12.0).unwrap_or_else(T::zero)
-            * (v[0] - T::from_f64(2.0).unwrap_or_else(T::zero) * v[1] + v[2]).powi(2)
-            + T::from_f64(0.25).unwrap_or_else(T::zero)
-                * (v[0] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[1] + three * v[2]).powi(2);
+        let beta0 = coeff_13_12 * (v[0] - two * v[1] + v[2]).powi(2)
+            + coeff_quarter * (v[0] - four * v[1] + three * v[2]).powi(2);
 
         // Beta_1
-        let beta1 = thirteen / T::from_f64(12.0).unwrap_or_else(T::zero)
-            * (v[1] - T::from_f64(2.0).unwrap_or_else(T::zero) * v[2] + v[3]).powi(2)
-            + T::from_f64(0.25).unwrap_or_else(T::zero) * (v[1] - v[3]).powi(2);
+        let beta1 = coeff_13_12 * (v[1] - two * v[2] + v[3]).powi(2)
+            + coeff_quarter * (v[1] - v[3]).powi(2);
 
         // Beta_2
-        let beta2 = thirteen / T::from_f64(12.0).unwrap_or_else(T::zero)
-            * (v[2] - T::from_f64(2.0).unwrap_or_else(T::zero) * v[3] + v[4]).powi(2)
-            + T::from_f64(0.25).unwrap_or_else(T::zero)
-                * (three * v[2] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3] + v[4]).powi(2);
+        let beta2 = coeff_13_12 * (v[2] - two * v[3] + v[4]).powi(2)
+            + coeff_quarter * (three * v[2] - four * v[3] + v[4]).powi(2);
 
         [beta0, beta1, beta2]
     }

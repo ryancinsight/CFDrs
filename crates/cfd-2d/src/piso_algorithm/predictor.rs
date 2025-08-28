@@ -59,24 +59,24 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
                 let diff_v = self.calculate_diffusion_v(fields, i, j);
 
                 // Time integration (explicit Euler for now)
-                let u_old = fields.u.at(i, j);
-                let v_old = fields.v.at(i, j);
+                let u_current = fields.u.at(i, j);
+                let v_current = fields.v.at(i, j);
 
-                *u_star.at_mut(i, j) = u_old + dt * (diff_u - conv_u) / fields.density.at(i, j);
-                *v_star.at_mut(i, j) = v_old + dt * (diff_v - conv_v) / fields.density.at(i, j);
+                *u_star.at_mut(i, j) = u_current + dt * (diff_u - conv_u) / fields.density.at(i, j);
+                *v_star.at_mut(i, j) = v_current + dt * (diff_v - conv_v) / fields.density.at(i, j);
             }
         }
 
         // Apply under-relaxation
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
-                let u_new = self.relaxation_factor * u_star.at(i, j)
+                let u_relaxed = self.relaxation_factor * u_star.at(i, j)
                     + (T::one() - self.relaxation_factor) * fields.u.at(i, j);
-                let v_new = self.relaxation_factor * v_star.at(i, j)
+                let v_relaxed = self.relaxation_factor * v_star.at(i, j)
                     + (T::one() - self.relaxation_factor) * fields.v.at(i, j);
 
-                *fields.u.at_mut(i, j) = u_new;
-                *fields.v.at_mut(i, j) = v_new;
+                *fields.u.at_mut(i, j) = u_relaxed;
+                *fields.v.at_mut(i, j) = v_relaxed;
             }
         }
 

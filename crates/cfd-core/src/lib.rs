@@ -21,6 +21,7 @@
 pub mod aggregates;
 pub mod boundary;
 pub mod cavitation;
+pub mod compute;
 pub mod constants;
 pub mod domain;
 pub mod domains;
@@ -94,7 +95,9 @@ pub use domains::{
 };
 
 /// Aggregate types for complex simulations  
-pub use aggregates::{MeshAggregate, PhysicalParameters, SimulationAggregate, SimulationMetadata};
+pub use aggregates::{
+    PhysicalParameters, ProblemAggregate, SimulationAggregate, SimulationMetadata,
+};
 
 /// Service layer abstractions
 pub use services::{FlowRegime, FluidDynamicsService, MeshQualityService, QualityLevel};

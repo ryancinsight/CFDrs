@@ -9,7 +9,7 @@ mod tests {
     };
     use crate::sparse::{SparseMatrix, SparseMatrixBuilder};
     use approx::assert_relative_eq;
-    use cfd_core::solver::{LinearSolverConfig, SolverConfiguration};
+    use cfd_core::solver::LinearSolverConfig;
     use cfd_core::Result;
     use nalgebra::DVector;
 
@@ -126,7 +126,7 @@ mod tests {
         builder.add_entry(0, 2, 1.0)?; // Non-adjacent entry
         builder.add_entry(1, 1, 2.0)?;
         builder.add_entry(2, 2, 2.0)?;
-        let non_tridiag = builder.build()?;
+        let _non_tridiag = builder.build()?;
 
         // ILU(0) preconditioner not yet implemented
         // let result = ILUPreconditioner::new(&non_tridiag);

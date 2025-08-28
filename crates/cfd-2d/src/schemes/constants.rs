@@ -23,3 +23,16 @@ pub const COURANT_LIMIT_EXPLICIT: f64 = 1.0;
 
 /// Courant number limit for implicit schemes
 pub const COURANT_LIMIT_IMPLICIT: f64 = 10.0;
+
+// Numerical coefficients for schemes
+/// Central difference divisor
+pub const CENTRAL_DIFF_DIVISOR: f64 = 2.0;
+
+/// Fourth-order central coefficient
+pub const FOURTH_ORDER_COEFF_8: f64 = 8.0;
+
+/// Fourth-order central divisor
+pub const FOURTH_ORDER_DIVISOR: f64 = 12.0;
+
+/// TVD coefficient two
+pub const TVD_TWO: f64 = 2.0;
