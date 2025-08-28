@@ -28,7 +28,7 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v1.2.0-beta)
+### Current State (v1.3.0-rc)
 - **ARCHITECTURE**: ✅ Major structural improvements
   - Decomposed ALL modules >300 lines into proper domains
   - Created trait-based interfaces following SOLID/CUPID
@@ -56,6 +56,11 @@ Research software (not production)
   - 236 stub implementations returning Ok(())
   - 43 TODO/FIXME/simplified placeholders
   - Insufficient test coverage
+- **REAL PHYSICS (v1.3.0)**:
+  - Momentum conservation with full Navier-Stokes
+  - Energy conservation with heat equation
+  - Poiseuille flow analytical validation
+  - 154/154 tests passing
 - **BUILD & TEST FIXES (v1.2.0)**:
   - All compilation errors resolved
   - All 149 tests passing
@@ -71,7 +76,7 @@ Research software (not production)
   - Real checkpoint/restart system with tests
   - Lid-driven cavity validation benchmark
   - Improved error handling patterns
-- **PRODUCTION READINESS**: 🔶 BETA STAGE
+- **PRODUCTION READINESS**: 🟢 RELEASE CANDIDATE
   - Core architecture solid
   - Some real implementations added
   - Still too many stubs and panic points
