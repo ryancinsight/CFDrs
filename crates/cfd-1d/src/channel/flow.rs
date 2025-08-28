@@ -41,6 +41,29 @@ pub enum FlowRegime {
     SlipFlow,
 }
 
+impl FlowRegime {
+    /// Determine flow regime from Reynolds number
+    pub fn from_reynolds_number<T: RealField + Copy + num_traits::FromPrimitive>(re: T) -> Self {
+        use num_traits::FromPrimitive;
+
+        let re_1 = T::from_f64(1.0).unwrap_or_else(T::one);
+        let re_2300 =
+            T::from_f64(2300.0).unwrap_or_else(|| T::from_usize(2300).unwrap_or_else(T::one));
+        let re_4000 =
+            T::from_f64(4000.0).unwrap_or_else(|| T::from_usize(4000).unwrap_or_else(T::one));
+
+        if re < re_1 {
+            FlowRegime::Stokes
+        } else if re < re_2300 {
+            FlowRegime::Laminar
+        } else if re < re_4000 {
+            FlowRegime::Transitional
+        } else {
+            FlowRegime::Turbulent
+        }
+    }
+}
+
 /// Numerical parameters for advanced modeling
 #[derive(Debug, Clone)]
 pub struct NumericalParameters<T: RealField + Copy> {

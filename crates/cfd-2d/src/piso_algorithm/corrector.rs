@@ -6,6 +6,11 @@ use cfd_core::Result;
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 
+// Named constants
+const ONE: f64 = 1.0;
+const TWO: f64 = 2.0;
+const FOUR: f64 = 4.0;
+
 /// Pressure corrector for PISO algorithm
 pub struct PressureCorrector<T: RealField + Copy> {
     /// Grid dimensions
@@ -62,9 +67,9 @@ where
     /// Journal of Computational Physics, 62(1), 40-65.
     fn solve_pressure_correction(&self, fields: &SimulationFields<T>, dt: T) -> Result<Field2D<T>> {
         let mut p_prime = Field2D::new(self.nx, self.ny, T::zero());
-        let mut residual = T::from_f64(1.0).unwrap();
-        let tolerance =
-            T::from_f64(cfd_core::constants::numerical::solver::CONVERGENCE_TOLERANCE).unwrap();
+        let mut residual = T::from_f64(ONE).unwrap_or_else(T::one);
+        let tolerance = T::from_f64(cfd_core::constants::numerical::solver::CONVERGENCE_TOLERANCE)
+            .unwrap_or_else(|| T::from_f64(1e-6).unwrap_or_else(T::zero));
         let max_iter = cfd_core::constants::numerical::solver::MAX_ITERATIONS_OUTER;
         let mut iter = 0;
 
@@ -197,10 +202,11 @@ where
         let mass_imbalance = self.calculate_mass_imbalance(fields, i, j);
 
         // Add H(u) correction terms
-        let h_correction_x = (h_operator.at(i + 1, j).x - h_operator.at(i - 1, j).x)
-            / (T::from_f64(2.0).unwrap() * self.dx);
-        let h_correction_y = (h_operator.at(i, j + 1).y - h_operator.at(i, j - 1).y)
-            / (T::from_f64(2.0).unwrap() * self.dy);
+        let two_t = T::from_f64(TWO).unwrap_or_else(|| T::one() + T::one());
+        let h_correction_x =
+            (h_operator.at(i + 1, j).x - h_operator.at(i - 1, j).x) / (two_t * self.dx);
+        let h_correction_y =
+            (h_operator.at(i, j + 1).y - h_operator.at(i, j - 1).y) / (two_t * self.dy);
 
         mass_imbalance + h_correction_x + h_correction_y
     }
@@ -265,19 +271,20 @@ where
                 let v_jp1 = fields.v.at(i, j + 1);
 
                 // East face velocity
-                let u_e = (u_ij + u_ip1) / (T::from_f64(2.0).unwrap());
+                let two_t = T::from_f64(TWO).unwrap_or_else(|| T::one() + T::one());
+                let u_e = (u_ij + u_ip1) / two_t;
                 let p_grad_e = (fields.p.at(i + 1, j) - fields.p.at(i, j)) / self.dx;
-                let d_e =
-                    self.dx * self.dx / (fields.viscosity.at(i, j) * T::from_f64(4.0).unwrap());
+                let four_t =
+                    T::from_f64(FOUR).unwrap_or_else(|| T::from_f64(4.0).unwrap_or_else(T::one));
+                let d_e = self.dx * self.dx / (fields.viscosity.at(i, j) * four_t);
 
                 // Apply Rhie-Chow correction for u component
                 let u_corrected = u_e - d_e * p_grad_e;
 
                 // North face velocity
-                let v_n = (v_ij + v_jp1) / (T::from_f64(2.0).unwrap());
+                let v_n = (v_ij + v_jp1) / two_t;
                 let p_grad_n = (fields.p.at(i, j + 1) - fields.p.at(i, j)) / self.dy;
-                let d_n =
-                    self.dy * self.dy / (fields.viscosity.at(i, j) * T::from_f64(4.0).unwrap());
+                let d_n = self.dy * self.dy / (fields.viscosity.at(i, j) * four_t);
 
                 // Apply Rhie-Chow correction for v component
                 let v_corrected = v_n - d_n * p_grad_n;

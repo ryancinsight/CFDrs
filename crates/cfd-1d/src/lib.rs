@@ -46,8 +46,8 @@ pub use components::{
 
 // Export analysis functionality
 pub use analysis::{
-    FlowAnalysis, NetworkAnalysisResult, NetworkAnalyzer, PerformanceMetrics, PressureAnalysis,
-    ResistanceAnalysis,
+    FlowAnalysis, NetworkAnalysisResult, NetworkAnalyzerOrchestrator, PerformanceMetrics,
+    PressureAnalysis, ResistanceAnalysis,
 };
 
 // Export channel functionality

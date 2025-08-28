@@ -82,7 +82,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> PerformanceAnalyzer<T> {
         for (idx, node) in network.nodes().enumerate() {
             if matches!(node.node_type, crate::network::NodeType::Outlet) {
                 if idx < flow_rates.len() {
-                    total = total + flow_rates[idx].abs();
+                    total = total + Float::abs(flow_rates[idx]);
                 }
             }
         }
@@ -118,8 +118,8 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> PerformanceAnalyzer<T> {
                 let pressures = network.pressures();
 
                 if from_idx < pressures.len() && to_idx < pressures.len() {
-                    let pressure_drop = (pressures[from_idx] - pressures[to_idx]).abs();
-                    total_power = total_power + pressure_drop * flow_rate.abs();
+                    let pressure_drop = Float::abs(pressures[from_idx] - pressures[to_idx]);
+                    total_power = total_power + pressure_drop * Float::abs(flow_rate);
                 }
             }
         }

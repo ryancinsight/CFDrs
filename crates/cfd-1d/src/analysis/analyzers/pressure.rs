@@ -6,6 +6,7 @@ use crate::network::Network;
 use cfd_core::Result;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
+use std::iter::Sum;
 
 /// Pressure analyzer for network components
 pub struct PressureAnalyzer<T: RealField + Copy> {
@@ -21,7 +22,7 @@ impl<T: RealField + Copy> PressureAnalyzer<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> NetworkAnalyzer<T> for PressureAnalyzer<T> {
+impl<T: RealField + Copy + FromPrimitive + Sum> NetworkAnalyzer<T> for PressureAnalyzer<T> {
     type Result = PressureAnalysis<T>;
 
     fn analyze(&mut self, network: &Network<T>) -> Result<PressureAnalysis<T>> {

@@ -4,6 +4,9 @@ use crate::fields::SimulationFields;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
+// Named constants
+const TWO: f64 = 2.0;
+
 /// Convergence criteria for PISO iterations
 #[derive(Debug, Clone)]
 pub struct ConvergenceCriteria<T: RealField + Copy> {
@@ -121,7 +124,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
             }
         }
 
-        (sum / T::from_usize(count).unwrap()).sqrt()
+        let count_t = T::from_usize(count).unwrap_or_else(T::one);
+        (sum / count_t).sqrt()
     }
 
     /// Calculate pressure residual (L2 norm)
@@ -143,7 +147,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
             }
         }
 
-        (sum / T::from_usize(count).unwrap()).sqrt()
+        let count_t = T::from_usize(count).unwrap_or_else(T::one);
+        (sum / count_t).sqrt()
     }
 
     /// Calculate continuity residual (mass imbalance)
@@ -158,10 +163,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
                 // Continuity equation check (du/dx + dv/dy = 0)
-                let dudx =
-                    (fields.u.at(i + 1, j) - fields.u.at(i - 1, j)) / T::from_f64(2.0).unwrap();
-                let dvdy =
-                    (fields.v.at(i, j + 1) - fields.v.at(i, j - 1)) / T::from_f64(2.0).unwrap();
+                let two_t = T::from_f64(TWO).unwrap_or_else(|| T::one() + T::one());
+                let dudx = (fields.u.at(i + 1, j) - fields.u.at(i - 1, j)) / two_t;
+                let dvdy = (fields.v.at(i, j + 1) - fields.v.at(i, j - 1)) / two_t;
                 let imbalance = (dudx + dvdy).abs();
 
                 if imbalance > max_imbalance {

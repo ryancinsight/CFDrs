@@ -109,4 +109,9 @@ impl<T: RealField + Copy> Fluid<T> {
             thermal_conductivity: Some(T::from_f64(0.0257).unwrap_or_else(T::zero)),
         }
     }
+
+    /// Calculate Reynolds number
+    pub fn reynolds_number(&self, velocity: T, characteristic_length: T) -> T {
+        (self.density * velocity * characteristic_length) / self.viscosity
+    }
 }

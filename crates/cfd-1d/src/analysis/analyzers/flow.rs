@@ -66,7 +66,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowAnalyzer<T> {
         let area = properties.area;
         let hydraulic_diameter = properties.hydraulic_diameter.unwrap_or_else(|| {
             T::from_f64(4.0).unwrap_or_else(T::one) * area
-                / (T::from_f64(std::f64::consts::PI).unwrap_or_else(T::one) * area.sqrt())
+                / (T::from_f64(std::f64::consts::PI).unwrap_or_else(T::one) * Float::sqrt(area))
         });
 
         let velocity = flow_rate / area;

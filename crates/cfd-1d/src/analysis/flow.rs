@@ -56,6 +56,11 @@ impl<T: RealField + Copy + Sum> FlowAnalysis<T> {
         self.flow_regimes.insert(id, regime);
     }
 
+    /// Set total flow rate
+    pub fn set_total_flow(&mut self, total_flow: T) {
+        self.total_flow_rate = total_flow;
+    }
+
     /// Get the average flow rate
     pub fn average_flow_rate(&self) -> T {
         if self.component_flows.is_empty() {
