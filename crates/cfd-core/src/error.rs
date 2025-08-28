@@ -35,6 +35,10 @@ pub enum Error {
     #[error("Solver error: {0}")]
     Solver(String),
 
+    /// Numeric conversion error
+    #[error("Conversion error: {0}")]
+    ConversionError(String),
+
     /// I/O errors
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),

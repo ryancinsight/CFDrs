@@ -23,6 +23,7 @@ pub mod boundary;
 pub mod cavitation;
 pub mod compute;
 pub mod constants;
+pub mod conversion;
 pub mod domain;
 pub mod domains;
 pub mod error;
