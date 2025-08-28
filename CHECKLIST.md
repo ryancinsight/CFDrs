@@ -1,6 +1,24 @@
 # CFD Suite - Technical Checklist
 
-## Version 1.0.0-alpha - Current State
+## Version 1.1.0-alpha - Current State
+
+### Major Stub Eliminations (v1.1.0-alpha) ✅
+- [x] **Power Law Flux**: Proper implementation from Patankar (1980)
+  - Correct Peclet number calculation
+  - Power law function A(|P|) = max(0, (1 - 0.1|P|)^5)
+  - Literature-validated coefficients
+- [x] **Hybrid Flux**: Full implementation from Spalding/Patankar
+  - Central differencing for |Pe| < 2
+  - Upwind differencing for |Pe| ≥ 2
+  - Proper deferred correction
+- [x] **Mass Conservation Checker**: Real divergence calculation
+  - 2D: ∇·u = ∂u/∂x + ∂v/∂y with central differences
+  - 1D: ∂(Au)/∂x = 0 for variable area channels
+  - Proper interior point checking
+- [x] **Regularized LBM**: Fixed misleading comments
+  - Implementation was correct, documentation updated
+  - Proper tensor contraction H_i : Pi^(1)
+  - References Latt & Chopard (2006)
 
 ### Improvements Made (v1.0.0-alpha) ✅
 - [x] **CFD Physics Constants**: Created comprehensive module

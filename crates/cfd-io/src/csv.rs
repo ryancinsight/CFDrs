@@ -35,17 +35,23 @@ impl<T: RealField + Copy> CsvWriter<T> {
         let mut writer = CsvWriterImpl::from_writer(BufWriter::new(file));
 
         // Write headers
-        writer
-            .write_record(headers)
-            .map_err(|e| Error::CsvError(e.to_string()))?;
+        writer.write_record(headers).map_err(|e| {
+            Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("CSV error: {}", e),
+            ))
+        })?;
 
         // Write data rows using iterator
         for row in data {
             let string_row: Vec<String> =
                 row.iter().map(std::string::ToString::to_string).collect();
-            writer
-                .write_record(&string_row)
-                .map_err(|e| Error::CsvError(e.to_string()))?;
+            writer.write_record(&string_row).map_err(|e| {
+                Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("CSV error: {}", e),
+                ))
+            })?;
         }
 
         writer.flush()?;
@@ -62,9 +68,12 @@ impl<T: RealField + Copy> CsvWriter<T> {
         let mut writer = CsvWriterImpl::from_writer(BufWriter::new(file));
 
         for record in records {
-            writer
-                .serialize(record)
-                .map_err(|e| Error::CsvError(e.to_string()))?;
+            writer.serialize(record).map_err(|e| {
+                Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("CSV error: {}", e),
+                ))
+            })?;
         }
 
         writer.flush()?;
@@ -93,18 +102,24 @@ pub struct StreamWriter {
 impl StreamWriter {
     /// Write headers
     pub fn write_headers(&mut self, headers: &[&str]) -> Result<()> {
-        self.writer
-            .write_record(headers)
-            .map_err(|e| Error::CsvError(e.to_string()))?;
+        self.writer.write_record(headers).map_err(|e| {
+            Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("CSV error: {}", e),
+            ))
+        })?;
         Ok(())
     }
 
     /// Write a single row
     pub fn write_row<T: std::fmt::Display>(&mut self, row: &[T]) -> Result<()> {
         let string_row: Vec<String> = row.iter().map(std::string::ToString::to_string).collect();
-        self.writer
-            .write_record(&string_row)
-            .map_err(|e| Error::CsvError(e.to_string()))?;
+        self.writer.write_record(&string_row).map_err(|e| {
+            Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("CSV error: {}", e),
+            ))
+        })?;
         Ok(())
     }
 
@@ -139,9 +154,12 @@ impl<T: RealField + Copy> CsvReader<T> {
         let mut reader = CsvReaderImpl::from_reader(BufReader::new(file));
 
         // Read headers
-        let headers = reader
-            .headers()
-            .map_err(|e| Error::CsvError(e.to_string()))?;
+        let headers = reader.headers().map_err(|e| {
+            Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("CSV error: {}", e),
+            ))
+        })?;
         let header_vec: Vec<String> = headers
             .iter()
             .map(std::string::ToString::to_string)
@@ -156,7 +174,7 @@ impl<T: RealField + Copy> CsvReader<T> {
                 .map(|field| {
                     field
                         .parse::<T>()
-                        .map_err(|e| Error::SerializationError(format!("Parse error: {e}")))
+                        .map_err(|e| Error::InvalidConfiguration(format!("Parse error: {e}")))
                 })
                 .collect();
             data.push(row?);
@@ -207,10 +225,12 @@ pub struct StreamReader {
 impl StreamReader {
     /// Get headers
     pub fn headers(&mut self) -> Result<Vec<String>> {
-        let headers = self
-            .reader
-            .headers()
-            .map_err(|e| Error::CsvError(e.to_string()))?;
+        let headers = self.reader.headers().map_err(|e| {
+            Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("CSV error: {}", e),
+            ))
+        })?;
         Ok(headers
             .iter()
             .map(std::string::ToString::to_string)

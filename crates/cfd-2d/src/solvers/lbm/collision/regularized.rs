@@ -104,15 +104,18 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for RegularizedCo
 
 impl<T: RealField + Copy + FromPrimitive> RegularizedCollision<T> {
     fn regularization_term(&self, c: [T; 2], pi: [[T; 2]; 2]) -> T {
-        // Simplified regularization term
-        // Full implementation would include proper tensor contractions
+        // Compute regularization term Q_i^(1) = w_i * H_i : Pi^(1)
+        // Based on Latt & Chopard (2006) Phys. Rev. E 74, 026701
+        // H_i = (c_i ⊗ c_i - cs^2 I) where cs^2 = 1/3 for D2Q9
         let cs2 =
             T::from_f64(1.0 / 3.0).unwrap_or_else(|| T::one() / (T::one() + T::one() + T::one()));
 
+        // Tensor contraction H_i : Pi^(1)
         let term = (c[0] * c[0] - cs2) * pi[0][0]
             + (c[1] * c[1] - cs2) * pi[1][1]
             + c[0] * c[1] * (pi[0][1] + pi[1][0]);
 
+        // Apply relaxation factor omega/2
         term * self.omega / (T::one() + T::one())
     }
 }

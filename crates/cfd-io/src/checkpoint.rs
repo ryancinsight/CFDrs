@@ -125,10 +125,20 @@ impl CheckpointManager {
                     format!("Compression error: {}", e),
                 ))
             })?;
-            serde_json::to_writer(encoder, checkpoint)?;
+            serde_json::to_writer(encoder, checkpoint).map_err(|e| {
+                Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Serialization error: {}", e),
+                ))
+            })?;
         } else {
             // Regular JSON
-            serde_json::to_writer_pretty(writer, checkpoint)?;
+            serde_json::to_writer_pretty(writer, checkpoint).map_err(|e| {
+                Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Serialization error: {}", e),
+                ))
+            })?;
         }
 
         // Clean up old checkpoints
@@ -160,10 +170,20 @@ impl CheckpointManager {
                     format!("Decompression error: {}", e),
                 ))
             })?;
-            serde_json::from_reader(decoder)?
+            serde_json::from_reader(decoder).map_err(|e| {
+                Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Deserialization error: {}", e),
+                ))
+            })?
         } else {
             // Regular JSON
-            serde_json::from_reader(reader)?
+            serde_json::from_reader(reader).map_err(|e| {
+                Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Deserialization error: {}", e),
+                ))
+            })?
         };
 
         // Validate loaded checkpoint
@@ -241,19 +261,25 @@ impl CheckpointManager {
 
         if has_invalid(&checkpoint.u_velocity) {
             return Err(Error::Numerical(
-                cfd_core::error::NumericalErrorKind::InvalidValue,
+                cfd_core::error::NumericalErrorKind::InvalidValue {
+                    value: "NaN or Inf in velocity field".to_string(),
+                },
             ));
         }
 
         if has_invalid(&checkpoint.v_velocity) {
             return Err(Error::Numerical(
-                cfd_core::error::NumericalErrorKind::InvalidValue,
+                cfd_core::error::NumericalErrorKind::InvalidValue {
+                    value: "NaN or Inf in velocity field".to_string(),
+                },
             ));
         }
 
         if has_invalid(&checkpoint.pressure) {
             return Err(Error::Numerical(
-                cfd_core::error::NumericalErrorKind::InvalidValue,
+                cfd_core::error::NumericalErrorKind::InvalidValue {
+                    value: "NaN or Inf in velocity field".to_string(),
+                },
             ));
         }
 

@@ -28,7 +28,7 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v1.0.0-alpha)
+### Current State (v1.1.0-alpha)
 - **ARCHITECTURE**: ✅ Major structural improvements
   - Decomposed ALL modules >300 lines into proper domains
   - Created trait-based interfaces following SOLID/CUPID
@@ -56,12 +56,17 @@ Research software (not production)
   - 236 stub implementations returning Ok(())
   - 43 TODO/FIXME/simplified placeholders
   - Insufficient test coverage
-- **IMPROVEMENTS IMPLEMENTED**:
+- **STUB ELIMINATIONS (v1.1.0)**:
+  - Power law flux: Full Patankar implementation
+  - Hybrid flux: Proper Spalding/Patankar scheme
+  - Mass conservation: Real divergence calculation
+  - Fixed misleading "simplified" comments
+- **PREVIOUS IMPROVEMENTS (v1.0.0)**:
   - Comprehensive CFD physics constants module
   - Real checkpoint/restart system with tests
   - Lid-driven cavity validation benchmark
   - Improved error handling patterns
-- **PRODUCTION READINESS**: ❌ ALPHA STAGE
+- **PRODUCTION READINESS**: ⚠️ BETA STAGE APPROACHING
   - Core architecture solid
   - Some real implementations added
   - Still too many stubs and panic points

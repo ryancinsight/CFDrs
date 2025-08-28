@@ -1,7 +1,8 @@
 //! Flux schemes for FVM
 
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
+use num_traits::FromPrimitive;
 
 /// Flux scheme for convection terms
 #[derive(Debug, Clone, Copy)]
@@ -83,44 +84,108 @@ impl<T: RealField + Copy> FluxCalculator<T> for QuickFlux {
 }
 
 /// Power law flux calculator
-struct PowerLawFlux;
+/// Based on Patankar (1980) "Numerical Heat Transfer and Fluid Flow"
+struct PowerLawFlux {
+    /// Diffusion coefficient
+    diffusion: f64,
+}
 
-impl<T: RealField + Copy> FluxCalculator<T> for PowerLawFlux {
+impl PowerLawFlux {
+    fn new(diffusion: f64) -> Self {
+        Self { diffusion }
+    }
+}
+
+impl<T: RealField + Copy + FromPrimitive> FluxCalculator<T> for PowerLawFlux {
     fn calculate_flux(&self, phi_p: T, phi_e: T, phi_w: T, u: T, dx: T) -> Result<T> {
-        // Simplified power law implementation
-        let peclet = u * dx; // Simplified, should include diffusion
+        // Power law scheme from Patankar (1980) Section 5.2.4
+        let gamma = T::from_f64(self.diffusion).ok_or(Error::InvalidConfiguration(
+            "Invalid diffusion coefficient".to_string(),
+        ))?;
 
-        if peclet.abs() < T::from_f64(10.0).unwrap_or_else(T::zero) {
-            // Use central difference for low Peclet
-            Ok(u * (phi_e - phi_w) / (T::from_f64(2.0).unwrap_or_else(T::zero) * dx))
+        // Peclet number Pe = ρu∆x/Γ
+        let peclet = u * dx / gamma;
+        let abs_pe = peclet.abs();
+
+        // Power law function A(|P|) = max(0, (1 - 0.1|P|)^5)
+        let a_func = if abs_pe < T::from_f64(10.0).unwrap_or_else(T::zero) {
+            let one = T::one();
+            let point_one = T::from_f64(0.1).unwrap_or_else(T::zero);
+            let term = one - point_one * abs_pe;
+            let five = T::from_f64(5.0).unwrap_or_else(T::zero);
+            term.powf(five).max(T::zero())
         } else {
-            // Use upwind for high Peclet
-            if u > T::zero() {
-                Ok(u * (phi_p - phi_w) / dx)
-            } else {
-                Ok(u * (phi_e - phi_p) / dx)
-            }
-        }
+            T::zero()
+        };
+
+        // Coefficients for power law scheme
+        let d = gamma / dx;
+        let f = u;
+
+        // Face values using power law interpolation
+        let a_e = d * a_func + (-f).max(T::zero());
+        let a_w = d * a_func + f.max(T::zero());
+
+        // Calculate flux
+        let flux = a_w * phi_w - (a_w + a_e - f) * phi_p + a_e * phi_e;
+
+        Ok(flux)
     }
 }
 
 /// Hybrid flux calculator
-struct HybridFlux;
+/// Based on Spalding (1972) and Patankar (1980)
+struct HybridFlux {
+    /// Diffusion coefficient
+    diffusion: f64,
+}
 
-impl<T: RealField + Copy> FluxCalculator<T> for HybridFlux {
+impl HybridFlux {
+    fn new(diffusion: f64) -> Self {
+        Self { diffusion }
+    }
+}
+
+impl<T: RealField + Copy + FromPrimitive> FluxCalculator<T> for HybridFlux {
     fn calculate_flux(&self, phi_p: T, phi_e: T, phi_w: T, u: T, dx: T) -> Result<T> {
-        let peclet = u * dx; // Simplified
+        // Hybrid scheme from Patankar (1980) Section 5.2.3
+        let gamma = T::from_f64(self.diffusion).ok_or(Error::InvalidConfiguration(
+            "Invalid diffusion coefficient".to_string(),
+        ))?;
 
-        if peclet.abs() < T::from_f64(2.0).unwrap_or_else(T::zero) {
-            // Central difference
-            Ok(u * (phi_e - phi_w) / (T::from_f64(2.0).unwrap_or_else(T::zero) * dx))
+        // Peclet number Pe = ρu∆x/Γ
+        let peclet = u * dx / gamma;
+        let abs_pe = peclet.abs();
+
+        // Diffusion conductance
+        let d = gamma / dx;
+        // Convection mass flow rate
+        let f = u;
+
+        // Hybrid scheme coefficients
+        // For |Pe| < 2: use central differencing
+        // For |Pe| >= 2: use upwind differencing
+        let two = T::from_f64(2.0).unwrap_or_else(T::zero);
+
+        let (a_w, a_e) = if abs_pe < two {
+            // Central differencing with deferred correction
+            let a_w = d + f / two;
+            let a_e = d - f / two;
+            (a_w.max(T::zero()), a_e.max(T::zero()))
         } else {
-            // Upwind
-            if u > T::zero() {
-                Ok(u * (phi_p - phi_w) / dx)
+            // Pure upwind
+            if peclet > T::zero() {
+                // Flow from west to east
+                (d + f, d)
             } else {
-                Ok(u * (phi_e - phi_p) / dx)
+                // Flow from east to west
+                (d, d - f)
             }
-        }
+        };
+
+        // Calculate flux using hybrid coefficients
+        let flux = a_w * phi_w - (a_w + a_e - f) * phi_p + a_e * phi_e;
+
+        Ok(flux)
     }
 }
