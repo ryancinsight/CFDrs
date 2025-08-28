@@ -1,4 +1,9 @@
 //! k-ε turbulence model implementation
+//!
+//! Based on Launder & Spalding (1974) "The numerical computation of turbulent flows"
+//! Computer Methods in Applied Mechanics and Engineering, 3(2), 269-289
+//!
+//! Standard k-ε model with wall functions for industrial CFD applications
 
 use super::constants::*;
 use super::traits::TurbulenceModel;

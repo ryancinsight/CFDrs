@@ -3,9 +3,12 @@
 //! Tests the accuracy of the CFD solver against the exact analytical solution
 //! for laminar flow between parallel plates.
 
-use cfd_suite::cfd_2d::fields::SimulationFields;
-use cfd_suite::cfd_2d::physics::momentum::{Component, MomentumConfig, MomentumSolver};
-use cfd_suite::cfd_core::boundary::BoundaryCondition;
+extern crate cfd_2d;
+extern crate cfd_core;
+
+use cfd_2d::fields::SimulationFields;
+use cfd_2d::physics::momentum::{Component, MomentumConfig, MomentumSolver};
+use cfd_core::boundary::BoundaryCondition;
 use nalgebra::{DMatrix, Vector2};
 use std::time::Instant;
 
