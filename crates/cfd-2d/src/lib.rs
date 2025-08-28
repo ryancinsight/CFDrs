@@ -44,7 +44,7 @@ pub use solvers::{
 
 // Re-export core types
 pub use fields::{Field2D, SimulationFields};
-pub use grid::{BoundaryType, Grid2D, GridEdge, StructuredGrid2D};
+pub use grid::{BoundaryType, Grid2D, StructuredGrid2D};
 pub use pressure_velocity::{PressureVelocityConfig, PressureVelocitySolver};
 pub use problem::{IncompressibleFlowProblem, IncompressibleFlowSolution};
 pub use schemes::{FluxLimiter, Grid2D as SchemeGrid2D, SpatialScheme, TimeScheme};
