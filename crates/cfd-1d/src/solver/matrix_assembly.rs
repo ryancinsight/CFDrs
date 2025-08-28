@@ -1,11 +1,10 @@
 //! Matrix assembly for network flow equations
 
 use crate::network::Network;
-use cfd_core::Result;
+use cfd_core::{Error, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::{coo::CooMatrix, CsrMatrix};
 use num_traits::FromPrimitive;
-use rayon::prelude::*;
 use std::sync::Mutex;
 
 /// Matrix assembler for building the linear system from network equations
@@ -42,32 +41,39 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         let mut rhs = DVector::zeros(n);
 
         // Parallel assembly of matrix entries
-        network.edges_parallel().for_each(|edge| {
+        // Use try_for_each to handle potential errors
+        for edge in network.edges_parallel() {
             let (i, j) = edge.nodes;
             let conductance = edge.conductance;
 
-            let mut coo = coo_mutex.lock().unwrap();
+            let mut coo = coo_mutex
+                .lock()
+                .map_err(|_| Error::Solver("Failed to acquire matrix assembly lock".to_string()))?;
             // Add conductance terms to matrix
             coo.push(i, i, conductance);
             coo.push(j, j, conductance);
             coo.push(i, j, -conductance);
             coo.push(j, i, -conductance);
-        });
+        }
 
         // Add boundary conditions
         for (node_idx, bc) in network.boundary_conditions() {
+            let idx = node_idx.index();
             match bc {
-                crate::network::BoundaryCondition::PressureInlet { pressure }
-                | crate::network::BoundaryCondition::PressureOutlet { pressure } => {
+                crate::network::BoundaryCondition::Dirichlet { value: pressure } => {
                     // Dirichlet boundary condition
-                    let mut coo = coo_mutex.lock().unwrap();
+                    let mut coo = coo_mutex.lock().map_err(|_| {
+                        Error::Solver("Mutex poisoned during matrix assembly".to_string())
+                    })?;
                     // Set row to identity
-                    coo.push(node_idx, node_idx, T::one());
-                    rhs[node_idx] = *pressure;
+                    coo.push(idx, idx, T::one());
+                    rhs[idx] = pressure;
                 }
-                crate::network::BoundaryCondition::VolumeFlowInlet { flow_rate } => {
+                crate::network::BoundaryCondition::Neumann {
+                    gradient: flow_rate,
+                } => {
                     // Neumann boundary condition
-                    rhs[node_idx] += *flow_rate;
+                    rhs[idx] = rhs[idx] + flow_rate;
                 }
                 _ => {
                     // Other boundary conditions not implemented for 1D
@@ -75,7 +81,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
             }
         }
 
-        let coo = coo_mutex.into_inner().unwrap();
+        let coo = coo_mutex
+            .into_inner()
+            .map_err(|_| Error::Solver("Mutex poisoned during matrix assembly".to_string()))?;
         let matrix = CsrMatrix::from(&coo);
 
         Ok((matrix, rhs))

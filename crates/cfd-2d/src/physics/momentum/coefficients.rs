@@ -51,10 +51,10 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 let mu = fields.viscosity.at(i, j);
 
                 // Diffusion coefficients
-                coeffs.ae.set(i, j, mu / dx2);
-                coeffs.aw.set(i, j, mu / dx2);
-                coeffs.an.set(i, j, mu / dy2);
-                coeffs.as_.set(i, j, mu / dy2);
+                *coeffs.ae.at_mut(i, j) = mu / dx2;
+                *coeffs.aw.at_mut(i, j) = mu / dx2;
+                *coeffs.an.at_mut(i, j) = mu / dy2;
+                *coeffs.as_.at_mut(i, j) = mu / dy2;
 
                 // Convection coefficients (using upwind)
                 let (u, v) = match component {
@@ -72,19 +72,19 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
 
                 // Add convection to coefficients (upwind scheme)
                 if u > T::zero() {
-                    coeffs.ae.set(i, j, coeffs.ae.at(i, j) + u / dx);
-                    coeffs.ap.set(i, j, coeffs.ap.at(i, j) + u / dx);
+                    *coeffs.ae.at_mut(i, j) = coeffs.ae.at(i, j) + u / dx;
+                    *coeffs.ap.at_mut(i, j) = coeffs.ap.at(i, j) + u / dx;
                 } else {
-                    coeffs.aw.set(i, j, coeffs.aw.at(i, j) - u / dx);
-                    coeffs.ap.set(i, j, coeffs.ap.at(i, j) - u / dx);
+                    *coeffs.aw.at_mut(i, j) = coeffs.aw.at(i, j) - u / dx;
+                    *coeffs.ap.at_mut(i, j) = coeffs.ap.at(i, j) - u / dx;
                 }
 
                 if v > T::zero() {
-                    coeffs.an.set(i, j, coeffs.an.at(i, j) + v / dy);
-                    coeffs.ap.set(i, j, coeffs.ap.at(i, j) + v / dy);
+                    *coeffs.an.at_mut(i, j) = coeffs.an.at(i, j) + v / dy;
+                    *coeffs.ap.at_mut(i, j) = coeffs.ap.at(i, j) + v / dy;
                 } else {
-                    coeffs.as_.set(i, j, coeffs.as_.at(i, j) - v / dy);
-                    coeffs.ap.set(i, j, coeffs.ap.at(i, j) - v / dy);
+                    *coeffs.as_.at_mut(i, j) = coeffs.as_.at(i, j) - v / dy;
+                    *coeffs.ap.at_mut(i, j) = coeffs.ap.at(i, j) - v / dy;
                 }
 
                 // Central coefficient (including time term)
@@ -92,16 +92,14 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                     + coeffs.aw.at(i, j)
                     + coeffs.an.at(i, j)
                     + coeffs.as_.at(i, j);
-                coeffs.ap.set(i, j, ap_sum + fields.density.at(i, j) / dt);
+                *coeffs.ap.at_mut(i, j) = ap_sum + fields.density.at(i, j) / dt;
 
                 // Source term (including previous time step)
                 let old_vel = match component {
                     MomentumComponent::U => fields.u.at(i, j),
                     MomentumComponent::V => fields.v.at(i, j),
                 };
-                coeffs
-                    .source
-                    .set(i, j, fields.density.at(i, j) * old_vel / dt);
+                *coeffs.source.at_mut(i, j) = fields.density.at(i, j) * old_vel / dt;
             }
         }
 

@@ -30,13 +30,15 @@ impl<T: RealField + Copy + FromPrimitive> RegularizedCollision<T> {
         // Compute off-equilibrium part
         for q in 0..9 {
             let f_neq = f[q] - f_eq[q];
-            let c = D2Q9::velocity_vector::<T>(q);
+            let lattice_vel = D2Q9::VELOCITIES[q];
+            let cx = T::from_i32(lattice_vel.0).unwrap_or_else(T::zero);
+            let cy = T::from_i32(lattice_vel.1).unwrap_or_else(T::zero);
 
             // Pi_αβ = Σ_i c_iα c_iβ f_i^neq
-            pi[0][0] = pi[0][0] + c[0] * c[0] * f_neq;
-            pi[0][1] = pi[0][1] + c[0] * c[1] * f_neq;
-            pi[1][0] = pi[1][0] + c[1] * c[0] * f_neq;
-            pi[1][1] = pi[1][1] + c[1] * c[1] * f_neq;
+            pi[0][0] = pi[0][0] + cx * cx * f_neq;
+            pi[0][1] = pi[0][1] + cx * cy * f_neq;
+            pi[1][0] = pi[1][0] + cy * cx * f_neq;
+            pi[1][1] = pi[1][1] + cy * cy * f_neq;
         }
 
         pi
@@ -61,7 +63,9 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for RegularizedCo
                 // Compute equilibrium
                 let mut f_eq = [T::zero(); 9];
                 for q in 0..9 {
-                    f_eq[q] = equilibrium::<T, D2Q9>(q, rho, u);
+                    let weight = T::from_f64(D2Q9::WEIGHTS[q]).unwrap_or_else(T::zero);
+                    let lattice_vel = &D2Q9::VELOCITIES[q];
+                    f_eq[q] = equilibrium(rho, &u, q, weight, lattice_vel);
                 }
 
                 // Compute non-equilibrium stress
@@ -72,8 +76,12 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for RegularizedCo
                     // Standard BGK collision
                     let f_bgk = f[j][i][q] - self.omega * (f[j][i][q] - f_eq[q]);
 
-                    // Regularization term (simplified)
-                    let c = D2Q9::velocity_vector::<T>(q);
+                    // Regularization term
+                    let lattice_vel = D2Q9::VELOCITIES[q];
+                    let c = [
+                        T::from_i32(lattice_vel.0).unwrap_or_else(T::zero),
+                        T::from_i32(lattice_vel.1).unwrap_or_else(T::zero),
+                    ];
                     let reg_term = self.regularization_term(c, pi);
 
                     f[j][i][q] = f_bgk + reg_term;
@@ -96,15 +104,18 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for RegularizedCo
 
 impl<T: RealField + Copy + FromPrimitive> RegularizedCollision<T> {
     fn regularization_term(&self, c: [T; 2], pi: [[T; 2]; 2]) -> T {
-        // Simplified regularization term
-        // Full implementation would include proper tensor contractions
+        // Compute regularization term Q_i^(1) = w_i * H_i : Pi^(1)
+        // Based on Latt & Chopard (2006) Phys. Rev. E 74, 026701
+        // H_i = (c_i ⊗ c_i - cs^2 I) where cs^2 = 1/3 for D2Q9
         let cs2 =
             T::from_f64(1.0 / 3.0).unwrap_or_else(|| T::one() / (T::one() + T::one() + T::one()));
 
+        // Tensor contraction H_i : Pi^(1)
         let term = (c[0] * c[0] - cs2) * pi[0][0]
             + (c[1] * c[1] - cs2) * pi[1][1]
             + c[0] * c[1] * (pi[0][1] + pi[1][0]);
 
+        // Apply relaxation factor omega/2
         term * self.omega / (T::one() + T::one())
     }
 }

@@ -29,10 +29,11 @@ impl<T: RealField + Copy + FromPrimitive + Sum> NetworkAnalyzer<T> for PressureA
         let mut analysis = PressureAnalysis::new();
 
         // Collect node pressures
-        let pressure_vec = network.pressures();
+        use petgraph::graph::NodeIndex;
+        let pressures = network.pressures();
         for (idx, node) in network.nodes().enumerate() {
-            if idx < pressure_vec.len() {
-                let pressure = pressure_vec[idx];
+            let node_idx = NodeIndex::new(idx);
+            if let Some(&pressure) = pressures.get(&node_idx) {
                 analysis.add_pressure(node.id.clone(), pressure);
             }
         }
@@ -40,8 +41,9 @@ impl<T: RealField + Copy + FromPrimitive + Sum> NetworkAnalyzer<T> for PressureA
         // Collect pressure drops and gradients
         for edge in network.edges_with_properties() {
             let (from_idx, to_idx) = edge.nodes;
-            if from_idx < pressure_vec.len() && to_idx < pressure_vec.len() {
-                let pressure_drop = pressure_vec[from_idx] - pressure_vec[to_idx];
+            if let (Some(&p_from), Some(&p_to)) = (pressures.get(&from_idx), pressures.get(&to_idx))
+            {
+                let pressure_drop = p_from - p_to;
                 analysis.add_pressure_drop(edge.id.clone(), pressure_drop);
 
                 // Calculate pressure gradient

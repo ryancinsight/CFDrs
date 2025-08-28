@@ -1,41 +1,85 @@
 //! Safe numeric conversion utilities
 //!
-//! Provides safe conversion functions that return proper errors instead of panicking.
+//! Provides safe conversion between numeric types without panics
 
-use crate::error::{Error, Result};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
-/// Safe conversion from f64 to generic type T
-pub fn from_f64<T: RealField + FromPrimitive>(value: f64) -> Result<T> {
-    T::from_f64(value).ok_or_else(|| {
-        Error::InvalidInput(format!("Cannot convert f64 value {} to target type", value))
-    })
-}
-
-/// Safe conversion from usize to generic type T  
-pub fn from_usize<T: RealField + FromPrimitive>(value: usize) -> Result<T> {
-    T::from_usize(value).ok_or_else(|| {
-        Error::InvalidInput(format!("Cannot convert usize value {} to target type", value))
-    })
-}
-
-/// Common numerical constants with safe conversion
-pub struct NumericConstants;
-
-impl NumericConstants {
-    /// Get 0.5 in type T
-    pub fn half<T: RealField + FromPrimitive>() -> Result<T> {
-        from_f64(0.5)
+/// Safe conversion from f64 to generic RealField types
+pub trait SafeFromF64: RealField + FromPrimitive {
+    /// Convert from f64 with fallback value
+    #[inline]
+    fn from_f64_or(value: f64, fallback: Self) -> Self {
+        Self::from_f64(value).unwrap_or(fallback)
     }
-    
-    /// Get 2.0 in type T
-    pub fn two<T: RealField + FromPrimitive>() -> Result<T> {
-        from_f64(2.0)
+
+    /// Convert from f64 with zero fallback
+    #[inline]
+    fn from_f64_or_zero(value: f64) -> Self {
+        Self::from_f64(value).unwrap_or_else(Self::zero)
     }
-    
-    /// Get 4.0 in type T
-    pub fn four<T: RealField + FromPrimitive>() -> Result<T> {
-        from_f64(4.0)
+
+    /// Convert from f64 with one fallback
+    #[inline]
+    fn from_f64_or_one(value: f64) -> Self {
+        Self::from_f64(value).unwrap_or_else(Self::one)
+    }
+
+    /// Try to convert from f64, returning Result
+    #[inline]
+    fn try_from_f64(value: f64) -> crate::error::Result<Self> {
+        Self::from_f64(value).ok_or_else(|| {
+            crate::error::Error::ConversionError(format!(
+                "Failed to convert f64 value {} to target type",
+                value
+            ))
+        })
     }
 }
+
+// Implement for all types that satisfy the bounds
+impl<T> SafeFromF64 for T where T: RealField + FromPrimitive {}
+
+/// Safe conversion from i32 to generic RealField types  
+pub trait SafeFromI32: RealField + FromPrimitive {
+    /// Convert from i32 with zero fallback
+    #[inline]
+    fn from_i32_or_zero(value: i32) -> Self {
+        Self::from_i32(value).unwrap_or_else(Self::zero)
+    }
+
+    /// Try to convert from i32, returning Result
+    #[inline]
+    fn try_from_i32(value: i32) -> crate::error::Result<Self> {
+        Self::from_i32(value).ok_or_else(|| {
+            crate::error::Error::ConversionError(format!(
+                "Failed to convert i32 value {} to target type",
+                value
+            ))
+        })
+    }
+}
+
+impl<T> SafeFromI32 for T where T: RealField + FromPrimitive {}
+
+/// Safe conversion from usize to generic RealField types
+pub trait SafeFromUsize: RealField + FromPrimitive {
+    /// Convert from usize with one fallback
+    #[inline]
+    fn from_usize_or_one(value: usize) -> Self {
+        Self::from_usize(value).unwrap_or_else(Self::one)
+    }
+
+    /// Try to convert from usize, returning Result
+    #[inline]
+    fn try_from_usize(value: usize) -> crate::error::Result<Self> {
+        Self::from_usize(value).ok_or_else(|| {
+            crate::error::Error::ConversionError(format!(
+                "Failed to convert usize value {} to target type",
+                value
+            ))
+        })
+    }
+}
+
+impl<T> SafeFromUsize for T where T: RealField + FromPrimitive {}

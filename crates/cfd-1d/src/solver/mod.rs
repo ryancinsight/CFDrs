@@ -111,7 +111,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
         solution: nalgebra::DVector<T>,
     ) -> Result<()> {
         // Update network pressures and flows from solution vector
-        network.update_from_solution(solution)
+        network.update_from_solution(&solution);
+        Ok(())
     }
 }
 

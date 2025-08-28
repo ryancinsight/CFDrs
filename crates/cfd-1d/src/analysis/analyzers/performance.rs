@@ -6,6 +6,7 @@ use crate::network::Network;
 use cfd_core::Result;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
+use petgraph::visit::EdgeRef;
 use std::iter::Sum;
 
 /// Performance analyzer for network components
@@ -63,26 +64,30 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> PerformanceAnalyzer<T> {
 
         // Find max and min pressures
         let max_pressure = pressures
-            .iter()
+            .values()
             .copied()
             .fold(T::zero(), |a, b| if a > b { a } else { b });
-        let min_pressure = pressures
-            .iter()
-            .copied()
-            .fold(max_pressure, |a, b| if a < b { a } else { b });
+        let min_pressure =
+            pressures
+                .values()
+                .copied()
+                .fold(max_pressure, |a, b| if a < b { a } else { b });
 
         max_pressure - min_pressure
     }
 
     fn calculate_total_flow_rate(&self, network: &Network<T>) -> T {
-        let flow_rates = network.flow_rates();
-
         // Sum absolute flow rates at outlets
+        use petgraph::graph::NodeIndex;
         let mut total = T::zero();
         for (idx, node) in network.nodes().enumerate() {
             if matches!(node.node_type, crate::network::NodeType::Outlet) {
-                if idx < flow_rates.len() {
-                    total = total + Float::abs(flow_rates[idx]);
+                let node_idx = NodeIndex::new(idx);
+                for edge_ref in network.graph.edges(node_idx) {
+                    let edge_idx = edge_ref.id();
+                    if let Some(&flow) = network.flow_rates().get(&edge_idx) {
+                        total = total + Float::abs(flow);
+                    }
                 }
             }
         }
@@ -113,12 +118,15 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> PerformanceAnalyzer<T> {
         let mut total_power = T::zero();
 
         for edge in network.edges_with_properties() {
-            if let Some(flow_rate) = edge.flow_rate {
+            let flow_rate = edge.flow_rate;
+            if flow_rate != T::zero() {
                 let (from_idx, to_idx) = edge.nodes;
                 let pressures = network.pressures();
 
-                if from_idx < pressures.len() && to_idx < pressures.len() {
-                    let pressure_drop = Float::abs(pressures[from_idx] - pressures[to_idx]);
+                if let (Some(&p_from), Some(&p_to)) =
+                    (pressures.get(&from_idx), pressures.get(&to_idx))
+                {
+                    let pressure_drop = Float::abs(p_from - p_to);
                     total_power = total_power + pressure_drop * Float::abs(flow_rate);
                 }
             }

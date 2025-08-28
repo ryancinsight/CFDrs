@@ -4,6 +4,8 @@ use super::cross_section::CrossSection;
 use super::flow::{Channel, FlowRegime, FlowState, NumericalParameters};
 use super::geometry::ChannelGeometry;
 use cfd_core::constants::dimensionless::reynolds::{PIPE_CRITICAL_LOWER, PIPE_CRITICAL_UPPER};
+use cfd_core::constants::mathematical::{numeric, PI};
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::fluid::Fluid;
 use nalgebra::RealField;
@@ -49,16 +51,18 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
         match &self.cross_section {
             CrossSection::Rectangular { width, height } => *width * *height,
             CrossSection::Circular { diameter } => {
-                let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
-                let radius = *diameter / T::from_f64(2.0).unwrap_or_else(|| T::zero());
+                let pi = T::from_f64_or_zero(PI);
+                let two = T::from_f64_or_zero(numeric::TWO);
+                let radius = *diameter / two;
                 pi * radius * radius
             }
             CrossSection::Elliptical {
                 major_axis,
                 minor_axis,
             } => {
-                let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
-                pi * *major_axis * *minor_axis / T::from_f64(4.0).unwrap_or_else(|| T::zero())
+                let pi = T::from_f64_or_zero(PI);
+                let four = T::from_f64_or_zero(numeric::FOUR);
+                pi * *major_axis * *minor_axis / four
             }
             CrossSection::Trapezoidal {
                 top_width,

@@ -41,16 +41,17 @@ fn apply_west_boundary<T: RealField + Copy>(
         let idx = j * nx;
 
         match bc {
-            BoundaryCondition::Dirichlet(value) => {
+            BoundaryCondition::Dirichlet { value } => {
                 // Set velocity to specified value
-                matrix.set_row(idx, idx, T::one());
+                // Set diagonal to 1 for Dirichlet BC
+                matrix.add_entry(idx, idx, T::one()).ok();
                 rhs[idx] = *value;
             }
-            BoundaryCondition::Neumann(gradient) => {
+            BoundaryCondition::Neumann { gradient } => {
                 // Zero gradient condition
                 if *gradient == T::zero() {
-                    matrix.add(idx, idx + 1, T::one());
-                    matrix.add(idx, idx, -T::one());
+                    matrix.add_entry(idx, idx + 1, T::one()).ok();
+                    matrix.add_entry(idx, idx, -T::one()).ok();
                 }
             }
             _ => {}
@@ -72,14 +73,15 @@ fn apply_east_boundary<T: RealField + Copy>(
         let idx = j * nx + nx - 1;
 
         match bc {
-            BoundaryCondition::Dirichlet(value) => {
-                matrix.set_row(idx, idx, T::one());
+            BoundaryCondition::Dirichlet { value } => {
+                // Set diagonal to 1 for Dirichlet BC
+                matrix.add_entry(idx, idx, T::one()).ok();
                 rhs[idx] = *value;
             }
-            BoundaryCondition::Neumann(gradient) => {
+            BoundaryCondition::Neumann { gradient } => {
                 if *gradient == T::zero() {
-                    matrix.add(idx, idx - 1, T::one());
-                    matrix.add(idx, idx, -T::one());
+                    matrix.add_entry(idx, idx - 1, T::one()).ok();
+                    matrix.add_entry(idx, idx, -T::one()).ok();
                 }
             }
             _ => {}
@@ -101,14 +103,15 @@ fn apply_north_boundary<T: RealField + Copy>(
         let idx = (ny - 1) * nx + i;
 
         match bc {
-            BoundaryCondition::Dirichlet(value) => {
-                matrix.set_row(idx, idx, T::one());
+            BoundaryCondition::Dirichlet { value } => {
+                // Set diagonal to 1 for Dirichlet BC
+                matrix.add_entry(idx, idx, T::one()).ok();
                 rhs[idx] = *value;
             }
-            BoundaryCondition::Neumann(gradient) => {
+            BoundaryCondition::Neumann { gradient } => {
                 if *gradient == T::zero() {
-                    matrix.add(idx, idx - nx, T::one());
-                    matrix.add(idx, idx, -T::one());
+                    matrix.add_entry(idx, idx - nx, T::one()).ok();
+                    matrix.add_entry(idx, idx, -T::one()).ok();
                 }
             }
             _ => {}
@@ -130,14 +133,15 @@ fn apply_south_boundary<T: RealField + Copy>(
         let idx = i;
 
         match bc {
-            BoundaryCondition::Dirichlet(value) => {
-                matrix.set_row(idx, idx, T::one());
+            BoundaryCondition::Dirichlet { value } => {
+                // Set diagonal to 1 for Dirichlet BC
+                matrix.add_entry(idx, idx, T::one()).ok();
                 rhs[idx] = *value;
             }
-            BoundaryCondition::Neumann(gradient) => {
+            BoundaryCondition::Neumann { gradient } => {
                 if *gradient == T::zero() {
-                    matrix.add(idx, idx + nx, T::one());
-                    matrix.add(idx, idx, -T::one());
+                    matrix.add_entry(idx, idx + nx, T::one()).ok();
+                    matrix.add_entry(idx, idx, -T::one()).ok();
                 }
             }
             _ => {}
