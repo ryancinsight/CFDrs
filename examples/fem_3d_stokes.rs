@@ -14,10 +14,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("==========================");
 
     // Create fluid properties (water at 20°C)
-    let fluid = Fluid::<f64>::water()?;
+    let fluid = Fluid::<f64>::water_20c();
     println!("Fluid: Water at 20°C");
     println!("Density: {:.1} kg/m³", fluid.density);
-    println!("Viscosity: {:.6} Pa·s", fluid.dynamic_viscosity(1.0)?);
+    println!("Viscosity: {:.6} Pa·s", fluid.dynamic_viscosity());
     println!();
 
     // Create a simple tetrahedral mesh

@@ -172,7 +172,7 @@ mod tests {
     fn test_problem_builder() {
         let problem = ProblemBuilder::new()
             .domain(Domain2D::new(0.0, 0.0, 1.0, 1.0))
-            .fluid(Fluid::water().expect("Failed to create water fluid"))
+            .fluid(Fluid::water_20c())
             .boundary_condition(
                 "inlet",
                 BoundaryCondition::velocity_inlet(vector![1.0, 0.0, 0.0]),
@@ -184,7 +184,7 @@ mod tests {
             .build()
             .expect("CRITICAL: Add proper error handling");
 
-        assert_eq!(problem.fluid.name.clone(), "Water (20°C)");
+        assert_eq!(problem.fluid.name.clone(), "Water at 20°C");
         assert_eq!(problem.boundary_conditions.conditions.len(), 3);
         assert!(problem.parameters.transient);
     }

@@ -156,10 +156,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
     {
         let mut fields = Self::new(nx, ny);
         fields.density.map_inplace(|d| *d = fluid.density);
-        // For initialization, use zero shear rate (Newtonian behavior)
-        let viscosity = fluid
-            .dynamic_viscosity(T::zero())
-            .unwrap_or_else(|_| fluid.characteristic_viscosity());
+        // For initialization, use the fluid's dynamic viscosity
+        let viscosity = fluid.dynamic_viscosity();
         fields.viscosity.map_inplace(|v| *v = viscosity);
         fields
     }

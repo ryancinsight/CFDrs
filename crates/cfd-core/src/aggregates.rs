@@ -369,7 +369,7 @@ mod tests {
     #[test]
     fn test_simulation_aggregate_lifecycle() {
         let domain = Domain1D::new(0.0, 1.0);
-        let fluid = Fluid::water().expect("Failed to create water fluid");
+        let fluid = Fluid::water_20c();
         let mut sim = SimulationAggregate::new("test-sim".to_string(), domain, fluid);
 
         // Initially not ready

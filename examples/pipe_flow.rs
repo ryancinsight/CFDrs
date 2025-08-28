@@ -11,7 +11,7 @@ fn main() -> Result<()> {
     println!("========================\n");
 
     // Create fluid with proper error handling
-    let fluid = Fluid::<f64>::water()?;
+    let fluid = Fluid::<f64>::water_20c();
     println!("Fluid: {}", fluid.name);
     println!("Density: {} kg/m³", fluid.density);
 
@@ -25,7 +25,7 @@ fn main() -> Result<()> {
     // Add a channel between nodes (1m long, 1mm² cross-section)
     let length = 1.0;
     let area = 1e-6; // 1mm²
-    let viscosity = fluid.dynamic_viscosity(1.0)?; // Get viscosity (shear rate doesn't matter for Newtonian)
+    let viscosity = fluid.dynamic_viscosity(); // Get viscosity for Newtonian fluid
     let resistance = 8.0 * viscosity * length / (std::f64::consts::PI * area * area);
     let channel_props = ChannelProperties::new(resistance, length, area);
     network.add_edge("inlet", "outlet", channel_props)?;

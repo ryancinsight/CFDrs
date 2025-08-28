@@ -1,6 +1,5 @@
 //! Fluid properties and models.
 
-use crate::error::{Error, Result};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};

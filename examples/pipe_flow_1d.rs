@@ -16,11 +16,11 @@ fn main() -> Result<()> {
     println!("===========================================");
 
     // Demonstrate unified prelude and composition-based configuration
-    let water = Fluid::<f64>::water()?;
+    let water = Fluid::<f64>::water_20c();
     println!("Fluid Properties:");
     println!("  Name: {}", water.name);
     println!("  Density: {} kg/m³", water.density);
-    let viscosity = water.dynamic_viscosity(1.0)?;
+    let viscosity = water.dynamic_viscosity();
     println!("  Viscosity: {} Pa·s", viscosity);
 
     // Create 1D network

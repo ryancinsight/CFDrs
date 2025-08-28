@@ -288,7 +288,7 @@ mod tests {
         let registry = SolverFactoryRegistry::<f64>::new();
 
         // Test registration
-        let metadata = FactoryMetadata {
+        let _metadata = FactoryMetadata {
             name: "test_factory".to_string(),
             factory_type: "iterative".to_string(),
             version: "1.0.0".to_string(),
@@ -306,7 +306,7 @@ mod tests {
         let registry = SolverFactoryRegistry::<f64>::new();
 
         // Verify that we can't register the same factory twice
-        let metadata = FactoryMetadata {
+        let _metadata = FactoryMetadata {
             name: "test".to_string(),
             factory_type: "test".to_string(),
             version: "1.0.0".to_string(),

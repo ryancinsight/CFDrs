@@ -16,7 +16,7 @@ pub mod error_metrics;
 pub mod literature;
 pub mod numerical;
 pub mod solutions;
-pub mod time_integration_validation;
+pub mod time_integration;
 
 pub use analytical::AnalyticalSolution;
 pub use benchmarks::{Benchmark, BenchmarkResult};

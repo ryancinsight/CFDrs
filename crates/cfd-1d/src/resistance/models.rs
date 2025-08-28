@@ -78,7 +78,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     for HagenPoiseuilleModel<T>
 {
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
-        let viscosity = fluid.dynamic_viscosity(conditions.temperature)?;
+        let viscosity = fluid.dynamic_viscosity();
         let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
 
         // Named constant for Hagen-Poiseuille coefficient
@@ -132,7 +132,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     for RectangularChannelModel<T>
 {
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
-        let viscosity = fluid.dynamic_viscosity(conditions.temperature)?;
+        let viscosity = fluid.dynamic_viscosity();
         let aspect_ratio = self.width / self.height;
 
         // Calculate friction factor using exact series solution

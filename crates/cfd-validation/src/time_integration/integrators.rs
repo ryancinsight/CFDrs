@@ -115,9 +115,9 @@ impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for TimeIntegra
 
     fn order(&self) -> usize {
         match self {
-            TimeIntegratorEnum::ForwardEuler(integrator, _) => integrator.order(),
-            TimeIntegratorEnum::RungeKutta2(integrator, _) => integrator.order(),
-            TimeIntegratorEnum::RungeKutta4(integrator, _) => integrator.order(),
+            TimeIntegratorEnum::ForwardEuler(_, _) => 1,
+            TimeIntegratorEnum::RungeKutta2(_, _) => 2,
+            TimeIntegratorEnum::RungeKutta4(_, _) => 4,
         }
     }
 }

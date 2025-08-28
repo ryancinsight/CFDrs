@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("================================");
 
     // Create a microfluidic network
-    let fluid = Fluid::<f64>::water()?;
+    let fluid = Fluid::<f64>::water_20c();
     let network = NetworkBuilder::new(fluid)
         // Standard T-junction network
         .add_node(Node::new("inlet".to_string(), NodeType::Inlet))
@@ -123,10 +123,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         0.0
     };
 
-    let reynolds = if let Ok(viscosity) = fluid.dynamic_viscosity(20.0) {
+    let reynolds = {
+        let viscosity = fluid.dynamic_viscosity();
         fluid.density * avg_velocity * diameter / viscosity
-    } else {
-        0.0
     };
 
     println!("\n📈 Flow Characteristics:");

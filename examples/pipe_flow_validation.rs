@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _fem_config = FemConfig::<f64>::default();
 
     // Create fluid properties
-    let fluid = Fluid::constant_viscosity("water", fluid_density, fluid_viscosity);
+    let fluid = Fluid::create("water".to_string(), fluid_density, fluid_viscosity);
 
     // Set up boundary conditions
     let mut boundary_conditions = HashMap::new();
