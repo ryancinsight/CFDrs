@@ -1,6 +1,5 @@
 //! Core vectorized operations for CFD computations
 
-use crate::simd::SimdOps;
 use nalgebra::RealField;
 use rayon::prelude::*;
 
@@ -10,16 +9,12 @@ const CHUNK_SIZE_CACHE: usize = 64;
 const CHUNK_SIZE_PARALLEL: usize = 1024;
 
 /// Vectorized operations for CFD computations
-pub struct VectorizedOps {
-    simd_ops: SimdOps,
-}
+pub struct VectorizedOps;
 
 impl VectorizedOps {
     /// Create a new vectorized operations handler
     pub fn new() -> Self {
-        Self {
-            simd_ops: SimdOps::new(),
-        }
+        Self
     }
 
     /// Vectorized element-wise addition with SIMD optimization

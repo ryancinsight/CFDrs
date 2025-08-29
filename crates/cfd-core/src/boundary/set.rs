@@ -31,6 +31,16 @@ impl<T: RealField + Copy> BoundaryConditionSet<T> {
         self.conditions.get(name)
     }
 
+    /// Get number of boundary conditions
+    pub fn len(&self) -> usize {
+        self.conditions.len()
+    }
+
+    /// Check if set is empty
+    pub fn is_empty(&self) -> bool {
+        self.conditions.is_empty()
+    }
+
     /// Get mutable boundary condition
     pub fn get_mut(&mut self, name: &str) -> Option<&mut BoundaryCondition<T>> {
         self.conditions.get_mut(name)
@@ -44,16 +54,6 @@ impl<T: RealField + Copy> BoundaryConditionSet<T> {
     /// Check if set contains boundary
     pub fn contains(&self, name: &str) -> bool {
         self.conditions.contains_key(name)
-    }
-
-    /// Get number of boundaries
-    pub fn len(&self) -> usize {
-        self.conditions.len()
-    }
-
-    /// Check if empty
-    pub fn is_empty(&self) -> bool {
-        self.conditions.is_empty()
     }
 
     /// Iterate over boundaries

@@ -68,6 +68,30 @@ pub enum BoundaryCondition<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> BoundaryCondition<T> {
+    /// Create velocity inlet boundary condition
+    pub fn velocity_inlet(velocity: Vector3<T>) -> Self {
+        Self::VelocityInlet { velocity }
+    }
+
+    /// Create pressure outlet boundary condition
+    pub fn pressure_outlet(pressure: T) -> Self {
+        Self::PressureOutlet { pressure }
+    }
+
+    /// Create no-slip wall boundary condition
+    pub fn wall_no_slip() -> Self {
+        Self::Wall {
+            wall_type: super::WallType::NoSlip,
+        }
+    }
+
+    /// Create slip wall boundary condition
+    pub fn wall_slip() -> Self {
+        Self::Wall {
+            wall_type: super::WallType::Slip,
+        }
+    }
+
     /// Get fundamental type classification
     pub const fn fundamental_type(&self) -> FundamentalBCType {
         match self {
