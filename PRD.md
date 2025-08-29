@@ -28,7 +28,7 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v1.20.0-PRODUCTION-OPTIMIZED)
+### Current State (v1.21.0-PRODUCTION-EXTENSIBLE)
 - **ARCHITECTURE**: ✅ Clean domain-driven design
   - All modules properly sized (largest: 420 lines)
   - Trait-based interfaces following SOLID/CUPID/GRASP
@@ -170,6 +170,13 @@ Research software (not production)
   - Robust breakdown detection aligned with literature
   - Efficient API enabling buffer reuse
   - Orders of magnitude performance gain
+- **FLUID MODELS (v1.21.0)**: ✅ EXTENSIBLE PHYSICS
+  - Trait-based FluidModel design
+  - Temperature/pressure-dependent properties
+  - Multiple models: constant, ideal gas
+  - Safe physical constants with .expect()
+  - Clean API without redundancy
+  - Full backward compatibility
 
 ### Users
 - Researchers, students, prototype developers

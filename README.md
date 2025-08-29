@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 1.20.0-PRODUCTION-OPTIMIZED** - Zero-Allocation Linear Solvers
+**Version 1.21.0-PRODUCTION-EXTENSIBLE** - Trait-Based Fluid Models
 
 ## Status
 

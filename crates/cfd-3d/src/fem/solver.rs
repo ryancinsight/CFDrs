@@ -103,7 +103,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         let mut rhs = DVector::zeros(n_total_dof);
 
         // Get fluid properties
-        let viscosity = problem.fluid.characteristic_viscosity();
+        let viscosity = problem.fluid.viscosity;
 
         // Loop over elements
         for (_elem_idx, cell) in problem.mesh.cells.iter().enumerate() {
