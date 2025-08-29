@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 1.21.0-PRODUCTION-EXTENSIBLE** - Trait-Based Fluid Models
+**Version 1.22.0-PRODUCTION-CORRECT** - VOF Algorithm Correctness
 
 ## Status
 

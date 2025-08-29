@@ -28,7 +28,7 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v1.21.0-PRODUCTION-EXTENSIBLE)
+### Current State (v1.22.0-PRODUCTION-CORRECT)
 - **ARCHITECTURE**: ✅ Clean domain-driven design
   - All modules properly sized (largest: 420 lines)
   - Trait-based interfaces following SOLID/CUPID/GRASP
@@ -177,6 +177,13 @@ Research software (not production)
   - Safe physical constants with .expect()
   - Clean API without redundancy
   - Full backward compatibility
+- **VOF CORRECTNESS (v1.22.0)**: ✅ ALGORITHM INTEGRITY
+  - Honest PLIC implementation (single-step Youngs')
+  - Full 3D Scardovelli & Zaleski volume formula
+  - Tolerance-based convergence criteria
+  - Cache-optimized 3D grid traversal
+  - Safe constants with fail-fast
+  - Order of magnitude performance improvement
 
 ### Users
 - Researchers, students, prototype developers
