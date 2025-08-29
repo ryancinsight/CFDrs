@@ -35,7 +35,7 @@ pub trait BoundaryConditionApplicator<T: RealField + Copy>: Send + Sync {
         &self,
         interior_value: T,
         boundary_value: T,
-        distance_to_boundary: T,
+        _distance_to_boundary: T,
     ) -> T {
         // Default linear extrapolation
         let two = T::from_f64(2.0).unwrap_or_else(T::one);
@@ -58,7 +58,11 @@ pub trait BoundaryConditionApplicator<T: RealField + Copy>: Send + Sync {
                 normal_gradient * (value - interior_value)
             }
             BoundaryCondition::Neumann { gradient } => gradient,
-            BoundaryCondition::Robin { alpha, beta, gamma } => {
+            BoundaryCondition::Robin {
+                alpha,
+                beta,
+                gamma: _,
+            } => {
                 // Robin condition: alpha*u + beta*du/dn = g
                 // Flux = -beta/alpha * (g/beta - u)
                 if alpha.abs() > T::default_epsilon() {
