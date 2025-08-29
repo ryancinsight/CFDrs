@@ -29,6 +29,9 @@ pub mod fluid {
     /// Parabolic velocity profile coefficient for channel flow
     pub const CHANNEL_FLOW_COEFFICIENT: f64 = 4.0;
 
+    /// Standard atmospheric pressure at sea level [Pa]
+    pub const ATMOSPHERIC_PRESSURE: f64 = 101325.0;
+
     /// Pipe flow shape factor (circular cross-section)
     pub const PIPE_SHAPE_FACTOR: f64 = 2.0;
 }

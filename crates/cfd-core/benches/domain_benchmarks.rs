@@ -1,9 +1,8 @@
 use cfd_core::domains::{
     fluid_dynamics::{FlowField, FlowOperations, PressureField, VelocityField},
-    numerical_methods::{
-        finite_difference, time_integration, DiscretizationScheme, TimeIntegrationScheme,
-    },
+    numerical_methods::{finite_difference, time_integration, DiscretizationScheme},
 };
+use cfd_core::TimeIntegrationScheme;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use nalgebra::Vector3;
 use std::collections::HashMap;
@@ -58,8 +57,8 @@ fn benchmark_time_integration(c: &mut Criterion) {
         let current = DVector::from_element(*size, 1.0);
         let dt = 0.001;
 
-        let forward_euler = time_integration::ForwardEuler;
-        let rk4 = time_integration::RungeKutta4;
+        let forward_euler = time_integration::time_schemes::ForwardEuler;
+        let rk4 = time_integration::time_schemes::RungeKutta4;
 
         group.bench_with_input(BenchmarkId::new("forward_euler", size), size, |b, _| {
             b.iter(|| {

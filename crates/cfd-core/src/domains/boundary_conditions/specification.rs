@@ -4,6 +4,7 @@ use super::time_dependent::TimeDependentSpec;
 use crate::boundary::BoundaryCondition;
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 /// Boundary condition specification
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,12 +34,17 @@ impl<T: RealField + Copy> BoundaryConditionSpec<T> {
     }
 
     /// Evaluate the boundary condition at a given time
-    pub fn evaluate_at_time(&self, time: T) -> BoundaryCondition<T> {
+    pub fn evaluate_at_time(&self, time: T) -> Cow<'_, BoundaryCondition<T>> {
         if let Some(ref time_spec) = self.time_dependent {
-            time_spec.apply_to_condition(&self.condition, time)
+            Cow::Owned(time_spec.apply_to_condition(&self.condition, time))
         } else {
-            self.condition.clone()
+            Cow::Borrowed(&self.condition)
         }
+    }
+
+    /// Get the boundary condition (returns reference when not time-dependent)
+    pub fn get_condition(&self) -> &BoundaryCondition<T> {
+        &self.condition
     }
 
     /// Check if this specification is time-dependent

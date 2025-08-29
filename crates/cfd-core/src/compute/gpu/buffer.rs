@@ -11,7 +11,7 @@ use std::sync::Arc;
 /// GPU buffer wrapper
 pub struct GpuBuffer<T: RealField + Pod + Zeroable> {
     /// Underlying wgpu buffer
-    buffer: wgpu::Buffer,
+    pub buffer: wgpu::Buffer,
     /// Buffer size in elements
     size: usize,
     /// GPU context
@@ -41,7 +41,7 @@ impl<T: RealField + Pod + Zeroable + Copy> GpuBuffer<T> {
     }
 
     /// Create buffer with initial data
-    pub fn new_with_data(context: Arc<GpuContext>, data: &[T]) -> Result<Self> {
+    pub fn from_data(context: Arc<GpuContext>, data: &[T]) -> Result<Self> {
         use wgpu::util::DeviceExt;
 
         let buffer = context
@@ -105,7 +105,8 @@ impl<T: RealField + Pod + Zeroable + Copy> ComputeBuffer<T> for GpuBuffer<T> {
         let (tx, rx) = std::sync::mpsc::channel();
 
         buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-            tx.send(result).unwrap();
+            // Ignore send error as receiver might have been dropped
+            let _ = tx.send(result);
         });
 
         self.context.device.poll(wgpu::Maintain::Wait);

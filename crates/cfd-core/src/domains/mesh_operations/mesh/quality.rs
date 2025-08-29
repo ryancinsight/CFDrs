@@ -95,7 +95,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> MeshQuality<T> for Mesh<T> {
             skewness: SkewnessStats {
                 min: T::zero(),
                 max: T::one(),
-                avg: T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one())),
+                avg: T::from_f64(0.5).unwrap_or_else(|| {
+                    T::one() / T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one())
+                }),
             },
         })
     }
@@ -127,7 +129,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> MeshQuality<T> for Mesh<T> {
         }
     }
 
-    fn element_aspect_ratio(&self, element: &Element) -> T {
+    fn element_aspect_ratio(&self, _element: &Element) -> T {
         // Simplified aspect ratio calculation
         T::one()
     }
@@ -147,11 +149,13 @@ impl<T: RealField + Copy + Float + FromPrimitive> Mesh<T> {
         let b = (p2 - p1).norm();
         let c = (p0 - p2).norm();
 
-        let s = (a + b + c) / T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one());
+        let two = T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one());
+        let four = T::from_f64(4.0).unwrap_or_else(|| two + two);
+        let s = (a + b + c) / two;
         let area = Float::sqrt(s * (s - a) * (s - b) * (s - c));
 
         if area > T::zero() {
-            let radius_ratio = area / (a * b * c / T::from_f64(4.0).unwrap_or_else(T::one));
+            let radius_ratio = area / (a * b * c / four);
             Float::min(radius_ratio, T::one())
         } else {
             T::zero()

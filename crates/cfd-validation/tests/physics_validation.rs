@@ -7,7 +7,6 @@ use approx::assert_relative_eq;
 use cfd_validation::analytical::{
     AnalyticalSolution, CouetteFlow, PoiseuilleFlow, PoiseuilleGeometry, TaylorGreenVortex,
 };
-use nalgebra::Vector3;
 
 // Mathematical constants
 const HALF: f64 = 0.5;

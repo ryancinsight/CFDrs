@@ -2,7 +2,7 @@
 
 use crate::error::Result;
 use nalgebra::{RealField, Vector3};
-use num_traits::{FromPrimitive, Zero};
+use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
