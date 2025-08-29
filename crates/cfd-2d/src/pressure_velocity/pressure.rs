@@ -19,7 +19,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureCorrectionSolver<T> {
     pub fn new(grid: StructuredGrid2D<T>) -> cfd_core::error::Result<Self> {
         let config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: 1000,
-            tolerance: T::from_f64(1e-8).unwrap_or_else(|| T::zero()),
+            tolerance: T::from_f64(1e-8).expect("Failed to convert pressure solver tolerance"),
             use_preconditioner: true,
         };
 
