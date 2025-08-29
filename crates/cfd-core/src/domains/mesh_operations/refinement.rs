@@ -1,7 +1,7 @@
 //! Mesh refinement operations and criteria
 
 use super::mesh::Mesh;
-use crate::Result;
+use crate::error::Result;
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
 

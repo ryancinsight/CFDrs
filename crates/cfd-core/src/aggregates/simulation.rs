@@ -6,7 +6,7 @@ use super::state::SimulationState;
 use crate::boundary::BoundaryCondition;
 use crate::domain::Domain;
 use crate::error::{Error, Result};
-use crate::fluid::Fluid;
+use crate::fluid::ConstantPropertyFluid;
 // FluidDynamicsService trait removed - using domain services directly
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -23,7 +23,7 @@ pub struct SimulationAggregate<T: RealField + Copy, D: Domain<T>> {
     /// Computational domain
     pub domain: D,
     /// Fluid properties
-    pub fluid: Fluid<T>,
+    pub fluid: ConstantPropertyFluid<T>,
     /// Boundary conditions
     pub boundary_conditions: HashMap<String, BoundaryCondition<T>>,
     /// Physical parameters
@@ -36,7 +36,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>>
     SimulationAggregate<T, D>
 {
     /// Create a new simulation aggregate
-    pub fn new(id: String, domain: D, fluid: Fluid<T>) -> Self {
+    pub fn new(id: String, domain: D, fluid: ConstantPropertyFluid<T>) -> Self {
         Self {
             id,
             metadata: SimulationMetadata::default(),
@@ -124,13 +124,13 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>>
         }
 
         // Check if fluid properties are valid
-        if self.fluid.density <= T::zero() {
+        if self.fluid.density() <= T::zero() {
             return Err(Error::InvalidConfiguration(
                 "Fluid density must be positive".to_string(),
             ));
         }
 
-        if self.fluid.viscosity <= T::zero() {
+        if self.fluid.viscosity() <= T::zero() {
             return Err(Error::InvalidConfiguration(
                 "Fluid viscosity must be positive".to_string(),
             ));

@@ -71,9 +71,13 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
         for i in 0..n {
             for j in 0..n {
                 if i != j {
-                    let num = c[i]
-                        * T::from_i32(if (i + j) % 2 == 0 { 1 } else { -1 })
-                            .expect("CRITICAL: Add proper error handling");
+                    let sign_factor = T::from_i32(if (i + j) % 2 == 0 { 1 } else { -1 })
+                        .ok_or_else(|| {
+                            cfd_core::error::Error::InvalidConfiguration(
+                                "Cannot convert sign factor (1 or -1) to numeric type T".into(),
+                            )
+                        })?;
+                    let num = c[i] * sign_factor;
                     let den = c[j] * (points[i] - points[j]);
                     d[(i, j)] = num / den;
                 }
@@ -113,28 +117,5 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
     }
 }
 
-/// Chebyshev differentiation operations
-pub struct ChebyshevDifferentiation<T: RealField + Copy> {
-    basis: ChebyshevPolynomial<T>,
-}
-
-impl<T: RealField + FromPrimitive + Copy> ChebyshevDifferentiation<T> {
-    pub fn new(n: usize) -> Result<Self> {
-        Ok(Self {
-            basis: ChebyshevPolynomial::new(n)?,
-        })
-    }
-
-    /// Compute first derivative
-    #[must_use]
-    pub fn first_derivative(&self, u: &DVector<T>) -> DVector<T> {
-        self.basis.differentiate(u)
-    }
-
-    /// Compute second derivative
-    #[must_use]
-    pub fn second_derivative(&self, u: &DVector<T>) -> DVector<T> {
-        let du = self.basis.differentiate(u);
-        self.basis.differentiate(&du)
-    }
-}
+// ChebyshevDifferentiation struct removed as it was redundant.
+// Users can call differentiate() directly on ChebyshevPolynomial instances.

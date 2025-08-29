@@ -45,7 +45,7 @@ pub enum SpatialScheme {
 
 /// Trait for spatial discretization schemes
 pub trait SpatialDiscretization<T: RealField + Copy> {
-    /// Compute spatial derivative
+    /// Compute spatial derivative (for backward compatibility)
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T;
 
     /// Get scheme order of accuracy
@@ -53,4 +53,28 @@ pub trait SpatialDiscretization<T: RealField + Copy> {
 
     /// Check if scheme is conservative
     fn is_conservative(&self) -> bool;
+}
+
+/// Trait for face reconstruction schemes used in finite volume methods
+pub trait FaceReconstruction<T: RealField + Copy> {
+    /// Reconstruct scalar value at x-face (between cells i and i+1)
+    fn reconstruct_face_value_x(
+        &self,
+        phi: &Grid2D<T>,     // The scalar field being transported
+        velocity_at_face: T, // The velocity normal to the face
+        i: usize,            // Index of the "left" cell
+        j: usize,
+    ) -> T;
+
+    /// Reconstruct scalar value at y-face (between cells j and j+1)
+    fn reconstruct_face_value_y(
+        &self,
+        phi: &Grid2D<T>,     // The scalar field being transported
+        velocity_at_face: T, // The velocity normal to the face
+        i: usize,
+        j: usize, // Index of the "bottom" cell
+    ) -> T;
+
+    /// Get scheme order of accuracy
+    fn order(&self) -> usize;
 }

@@ -44,6 +44,7 @@ fn main() -> Result<()> {
 
     let edge_props = EdgeProperties {
         id: "pipe1".to_string(),
+        component_type: cfd_suite::prelude::ComponentType::Pipe,
         resistance,
         length: PIPE_LENGTH,
         area: PIPE_AREA,

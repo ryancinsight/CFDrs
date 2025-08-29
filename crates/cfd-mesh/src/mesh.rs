@@ -5,7 +5,8 @@ use nalgebra::{Point3, RealField};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-// Import ElementType from cfd-core as the single source of truth
+// For now, import ElementType from cfd-core
+// TODO: Move ElementType to cfd-mesh in a future refactoring
 pub use cfd_core::domains::mesh_operations::ElementType;
 
 /// Vertex in 3D space
@@ -13,16 +14,18 @@ pub use cfd_core::domains::mesh_operations::ElementType;
 pub struct Vertex<T: RealField + Copy> {
     /// Position in 3D space
     pub position: Point3<T>,
-    /// Vertex ID
-    pub id: usize,
 }
 
 impl<T: RealField + Copy> Vertex<T> {
-    /// Create a new vertex
-    pub fn new(id: usize, x: T, y: T, z: T) -> Self {
+    /// Create a new vertex at the given position
+    pub fn new(position: Point3<T>) -> Self {
+        Self { position }
+    }
+
+    /// Create a new vertex from coordinates
+    pub fn from_coords(x: T, y: T, z: T) -> Self {
         Self {
             position: Point3::new(x, y, z),
-            id,
         }
     }
 
@@ -42,10 +45,15 @@ pub struct Edge {
 }
 
 impl Edge {
-    /// Create a new edge
+    /// Create a new edge with canonical vertex ordering
     #[must_use]
-    pub fn new(start: usize, end: usize) -> Self {
-        Self { start, end }
+    pub fn new(v1: usize, v2: usize) -> Self {
+        // Always order vertices to ensure canonical representation
+        if v1 < v2 {
+            Self { start: v1, end: v2 }
+        } else {
+            Self { start: v2, end: v1 }
+        }
     }
 
     /// Check if edge contains vertex
@@ -58,9 +66,7 @@ impl Edge {
 /// Face defined by vertices
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Face {
-    /// Face ID
-    pub id: usize,
-    /// Vertex indices
+    /// Vertex indices defining the face
     pub vertices: Vec<usize>,
 }
 
@@ -69,7 +75,6 @@ impl Face {
     #[must_use]
     pub fn triangle(v0: usize, v1: usize, v2: usize) -> Self {
         Self {
-            id: 0, // ID should be set when adding to mesh
             vertices: vec![v0, v1, v2],
         }
     }
@@ -78,7 +83,6 @@ impl Face {
     #[must_use]
     pub fn quad(v0: usize, v1: usize, v2: usize, v3: usize) -> Self {
         Self {
-            id: 0, // ID should be set when adding to mesh
             vertices: vec![v0, v1, v2, v3],
         }
     }
@@ -97,6 +101,48 @@ pub struct Cell {
     pub element_type: ElementType,
     /// Vertex indices
     pub vertices: Vec<usize>,
+}
+
+impl Cell {
+    /// Create a tetrahedral cell
+    #[must_use]
+    pub fn tetrahedron(vertices: Vec<usize>) -> Self {
+        assert_eq!(vertices.len(), 4, "Tetrahedron requires 4 vertices");
+        Self {
+            element_type: ElementType::Tetrahedron,
+            vertices,
+        }
+    }
+
+    /// Create a hexahedral cell
+    #[must_use]
+    pub fn hexahedron(vertices: Vec<usize>) -> Self {
+        assert_eq!(vertices.len(), 8, "Hexahedron requires 8 vertices");
+        Self {
+            element_type: ElementType::Hexahedron,
+            vertices,
+        }
+    }
+
+    /// Create a prismatic cell
+    #[must_use]
+    pub fn prism(vertices: Vec<usize>) -> Self {
+        assert_eq!(vertices.len(), 6, "Prism requires 6 vertices");
+        Self {
+            element_type: ElementType::Prism,
+            vertices,
+        }
+    }
+
+    /// Create a pyramid cell
+    #[must_use]
+    pub fn pyramid(vertices: Vec<usize>) -> Self {
+        assert_eq!(vertices.len(), 5, "Pyramid requires 5 vertices");
+        Self {
+            element_type: ElementType::Pyramid,
+            vertices,
+        }
+    }
 }
 
 /// Mesh topology information
@@ -159,6 +205,13 @@ impl<T: RealField + Copy> Mesh<T> {
         id
     }
 
+    /// Add a cell
+    pub fn add_cell(&mut self, cell: Cell) -> usize {
+        let id = self.cells.len();
+        self.cells.push(cell);
+        id
+    }
+
     /// Get vertex count
     #[must_use]
     pub fn vertex_count(&self) -> usize {
@@ -194,10 +247,55 @@ impl<T: RealField + Copy> Mesh<T> {
     }
 
     /// Get faces of an element
-    pub fn get_element_faces(&self, _element: &Cell) -> Vec<&Face> {
-        // For now, return empty vector
-        // Full implementation would compute faces from element vertices
-        Vec::new()
+    pub fn get_element_faces(&self, element: &Cell) -> Vec<Face> {
+        match element.element_type {
+            ElementType::Tetrahedron | ElementType::Tetrahedron10 => {
+                // Tetrahedron has 4 triangular faces
+                let v = &element.vertices;
+                vec![
+                    Face::triangle(v[0], v[1], v[2]), // Face 0
+                    Face::triangle(v[0], v[1], v[3]), // Face 1
+                    Face::triangle(v[0], v[2], v[3]), // Face 2
+                    Face::triangle(v[1], v[2], v[3]), // Face 3
+                ]
+            }
+            ElementType::Hexahedron | ElementType::Hexahedron20 => {
+                // Hexahedron has 6 quadrilateral faces
+                let v = &element.vertices;
+                vec![
+                    Face::quad(v[0], v[1], v[2], v[3]), // Bottom face
+                    Face::quad(v[4], v[5], v[6], v[7]), // Top face
+                    Face::quad(v[0], v[1], v[5], v[4]), // Front face
+                    Face::quad(v[2], v[3], v[7], v[6]), // Back face
+                    Face::quad(v[0], v[3], v[7], v[4]), // Left face
+                    Face::quad(v[1], v[2], v[6], v[5]), // Right face
+                ]
+            }
+            ElementType::Prism => {
+                // Prism has 2 triangular faces and 3 quadrilateral faces
+                let v = &element.vertices;
+                vec![
+                    Face::triangle(v[0], v[1], v[2]),   // Bottom triangular face
+                    Face::triangle(v[3], v[4], v[5]),   // Top triangular face
+                    Face::quad(v[0], v[1], v[4], v[3]), // Side face 1
+                    Face::quad(v[1], v[2], v[5], v[4]), // Side face 2
+                    Face::quad(v[2], v[0], v[3], v[5]), // Side face 3
+                ]
+            }
+            ElementType::Pyramid => {
+                // Pyramid has 1 quadrilateral base and 4 triangular faces
+                let v = &element.vertices;
+                vec![
+                    Face::quad(v[0], v[1], v[2], v[3]), // Base
+                    Face::triangle(v[0], v[1], v[4]),   // Side face 1
+                    Face::triangle(v[1], v[2], v[4]),   // Side face 2
+                    Face::triangle(v[2], v[3], v[4]),   // Side face 3
+                    Face::triangle(v[3], v[0], v[4]),   // Side face 4
+                ]
+            }
+            // 2D and 1D elements don't have 3D faces
+            _ => Vec::new(),
+        }
     }
 
     /// Build topology information
@@ -227,6 +325,28 @@ impl<T: RealField + Copy> Mesh<T> {
                     .push(face_id);
             }
         }
+
+        // Build face neighbors (faces that share an edge)
+        // This is crucial for finite volume methods
+        for (edge, face_ids) in &self.topology.edge_faces {
+            if face_ids.len() == 2 {
+                // Interior edge shared by exactly two faces
+                let face1 = face_ids[0];
+                let face2 = face_ids[1];
+
+                self.topology
+                    .face_neighbors
+                    .entry(face1)
+                    .or_default()
+                    .push(face2);
+
+                self.topology
+                    .face_neighbors
+                    .entry(face2)
+                    .or_default()
+                    .push(face1);
+            }
+        }
     }
 }
 
@@ -243,8 +363,7 @@ mod tests {
 
     #[test]
     fn test_vertex_creation() {
-        let v = Vertex::new(0, 1.0, 2.0, 3.0);
-        assert_eq!(v.id, 0);
+        let v = Vertex::from_coords(1.0, 2.0, 3.0);
         assert_relative_eq!(v.position.x, 1.0);
         assert_relative_eq!(v.position.y, 2.0);
         assert_relative_eq!(v.position.z, 3.0);
@@ -252,19 +371,27 @@ mod tests {
 
     #[test]
     fn test_vertex_distance() {
-        let v1 = Vertex::new(0, 0.0, 0.0, 0.0);
-        let v2 = Vertex::new(1, 3.0, 4.0, 0.0);
+        let v1 = Vertex::from_coords(0.0, 0.0, 0.0);
+        let v2 = Vertex::from_coords(3.0, 4.0, 0.0);
         assert_relative_eq!(v1.distance_to(&v2), 5.0);
     }
 
     #[test]
     fn test_edge_creation() {
-        let edge = Edge::new(0, 1);
-        assert_eq!(edge.start, 0);
-        assert_eq!(edge.end, 1);
-        assert!(edge.contains(0));
-        assert!(edge.contains(1));
-        assert!(!edge.contains(2));
+        // Test canonical ordering
+        let edge1 = Edge::new(0, 1);
+        assert_eq!(edge1.start, 0);
+        assert_eq!(edge1.end, 1);
+
+        // Test reverse ordering produces same edge
+        let edge2 = Edge::new(1, 0);
+        assert_eq!(edge2.start, 0);
+        assert_eq!(edge2.end, 1);
+        assert_eq!(edge1, edge2);
+
+        assert!(edge1.contains(0));
+        assert!(edge1.contains(1));
+        assert!(!edge1.contains(2));
     }
 
     #[test]

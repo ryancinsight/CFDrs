@@ -3,7 +3,7 @@
 use super::traits::NetworkAnalyzer;
 use crate::analysis::PerformanceMetrics;
 use crate::network::Network;
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use petgraph::visit::EdgeRef;

@@ -2,8 +2,8 @@
 //!
 //! Solves the Poisson equation: ∇²φ = f
 
-use cfd_core::Result;
-use cfd_math::SparseMatrixBuilder;
+use cfd_core::error::Result;
+use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::{DVector, RealField};
 use num_traits::{FromPrimitive, Zero};
 use std::collections::HashMap;

@@ -18,7 +18,8 @@ pub use problem::NetworkProblem;
 pub use state::NetworkState;
 
 use crate::network::Network;
-use cfd_core::{Configurable, Result, Solver, Validatable};
+use cfd_core::error::Result;
+use cfd_core::solver::{Configurable, Solver, Validatable};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -65,8 +66,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Default for NetworkSolver<T> {
 impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
     /// Create a new network solver with default configuration
     pub fn new() -> Self {
+        let tolerance = T::from_f64(1e-6).expect(
+            "Failed to represent the default tolerance value (1e-6) in the target numeric type T",
+        );
         let config = SolverConfig {
-            tolerance: T::from_f64(1e-6).unwrap_or_else(T::one),
+            tolerance,
             max_iterations: 1000,
         };
         Self {
@@ -87,22 +91,47 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
         }
     }
 
-    /// Solve the network flow problem
+    /// Solve the network flow problem iteratively for non-linear systems
     pub fn solve_network(&self, problem: &NetworkProblem<T>) -> Result<Network<T>> {
-        // Build the linear system
-        let (matrix, rhs) = self.assembler.assemble(&problem.network)?;
-
-        // Solve the linear system
-        let solution = self.linear_solver.solve(&matrix, &rhs)?;
-
-        // Check convergence
-        self.convergence.check(&solution)?;
-
-        // Update network with solution
         let mut network = problem.network.clone();
-        self.update_network_solution(&mut network, solution)?;
+        let n = network.node_count();
 
-        Ok(network)
+        // Initialize solution vectors for convergence checking
+        let mut last_solution = nalgebra::DVector::zeros(n);
+
+        // Main iteration loop for non-linear problems
+        for _iter in 0..self.config.max_iterations {
+            // 1. Assemble the system based on the CURRENT network state
+            //    This is the linearization step for non-linear problems
+            let (matrix, rhs) = self.assembler.assemble(&network)?;
+
+            // 2. Solve the linearized system
+            let solution = self.linear_solver.solve(&matrix, &rhs)?;
+
+            // 3. Check for convergence by comparing solutions
+            let change = (&solution - &last_solution).norm();
+
+            // Check if solution has converged
+            if change < self.config.tolerance {
+                // Apply final solution and return
+                self.update_network_solution(&mut network, solution)?;
+                return Ok(network);
+            }
+
+            // 4. Update network state for next iteration
+            self.update_network_solution(&mut network, solution.clone())?;
+            last_solution = solution;
+
+            // Optional: Add logging for iteration progress
+            // log::debug!("Iteration {}: change = {}", iter + 1, change);
+        }
+
+        // Failed to converge within max iterations
+        Err(cfd_core::error::Error::Convergence(
+            cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded {
+                max: self.config.max_iterations,
+            },
+        ))
     }
 
     fn update_network_solution(
@@ -147,13 +176,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Validatable<T> for NetworkSolve
     fn validate_problem(&self, problem: &Self::Problem) -> Result<()> {
         // Validate network has nodes
         if problem.network.node_count() == 0 {
-            return Err(cfd_core::Error::InvalidConfiguration(
+            return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Network has no nodes".to_string(),
             ));
         }
         // Validate tolerance
         if self.config.tolerance <= T::zero() {
-            return Err(cfd_core::Error::InvalidConfiguration(
+            return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Tolerance must be positive".to_string(),
             ));
         }

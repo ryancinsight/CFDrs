@@ -26,27 +26,14 @@ pub mod piso_algorithm;
 pub mod pressure_velocity;
 pub mod schemes;
 
-// Re-export main types from domain modules
-pub use discretization::{
-    CentralDifference, ConvectionScheme, ConvectionSchemeFactory, FirstOrderUpwind, HybridScheme,
-    PowerLawScheme, QuickScheme,
-};
-
-pub use physics::{
-    EnergyEquationSolver, KEpsilonModel, MomentumCoefficients, MomentumComponent, MomentumSolver,
-    VorticityStreamSolver, WallFunction,
-};
-
-pub use solvers::{
-    AdvectionDiffusionSolver, FdmConfig, FluxScheme, FvmConfig, FvmSolver, LbmConfig, LbmSolver,
-    PoissonSolver, D2Q9,
-};
-
-// Re-export core types
-pub use fields::{Field2D, SimulationFields};
-pub use grid::{BoundaryType, Grid2D, StructuredGrid2D};
-pub use pressure_velocity::{PressureVelocityConfig, PressureVelocitySolver};
-pub use problem::{IncompressibleFlowProblem, IncompressibleFlowSolution};
-pub use schemes::{FluxLimiter, Grid2D as SchemeGrid2D, SpatialScheme, TimeScheme};
+// The crate's public API is its module hierarchy.
+// Users should access types with clear, logical paths:
+//   use cfd_2d::solvers::fvm::FvmSolver;
+//   use cfd_2d::physics::turbulence::KEpsilonModel;
+//   use cfd_2d::discretization::ConvectionScheme;
+//   use cfd_2d::fields::SimulationFields;
+//   use cfd_2d::grid::StructuredGrid2D;
+//
+// This hierarchical structure is self-documenting and aligns with Rust best practices.
 
 // Prelude removed - use cfd_suite::prelude::* for unified SSOT interface

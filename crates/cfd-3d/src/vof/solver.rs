@@ -60,7 +60,7 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
     /// Set velocity field
     pub fn set_velocity_field(&mut self, velocity: Vec<Vector3<T>>) -> Result<()> {
         if velocity.len() != self.velocity.len() {
-            return Err(cfd_core::Error::DimensionMismatch {
+            return Err(cfd_core::error::Error::DimensionMismatch {
                 expected: self.velocity.len(),
                 actual: velocity.len(),
             });

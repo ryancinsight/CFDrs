@@ -2,10 +2,23 @@
 
 use super::basis::SpectralBasis;
 use super::poisson::{PoissonBoundaryCondition, PoissonSolver};
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
+
+/// Problem definition for Poisson equation
+#[derive(Debug, Clone)]
+pub struct PoissonProblem<T: RealField + Copy> {
+    /// Source term field (right-hand side of Poisson equation)
+    pub source_term: DMatrix<T>,
+    /// Boundary conditions in x-direction (min, max)
+    pub bc_x: (PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
+    /// Boundary conditions in y-direction (min, max)
+    pub bc_y: (PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
+    /// Boundary conditions in z-direction (min, max)
+    pub bc_z: (PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
+}
 
 /// Spectral method configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,7 +69,11 @@ pub struct SpectralSolver<T: RealField + Copy> {
 impl<T: RealField + FromPrimitive + Copy> SpectralSolver<T> {
     /// Create new spectral solver
     pub fn new(config: SpectralConfig<T>) -> Result<Self> {
-        let poisson_solver = PoissonSolver::new(config.nx_modes, config.ny_modes, config.nz_modes)?;
+        // Pass the full configuration details to the sub-solver
+        let poisson_solver = PoissonSolver::new_with_basis(
+            (config.nx_modes, config.ny_modes, config.nz_modes),
+            (config.basis_x, config.basis_y, config.basis_z),
+        )?;
 
         Ok(Self {
             config,
@@ -65,36 +82,21 @@ impl<T: RealField + FromPrimitive + Copy> SpectralSolver<T> {
     }
 
     /// Solve a problem using spectral methods
-    pub fn solve(&mut self) -> Result<SpectralSolution<T>> {
-        // Initialize solution with zeros
+    pub fn solve(&mut self, problem: &PoissonProblem<T>) -> Result<SpectralSolution<T>> {
+        // Initialize solution with proper dimensions
         let mut solution = SpectralSolution::new(
             self.config.nx_modes,
             self.config.ny_modes,
             self.config.nz_modes,
         );
 
-        // Create source term as a matrix
-        let source = DMatrix::zeros(
-            self.config.nx_modes * self.config.ny_modes,
-            self.config.nz_modes,
-        );
-
-        // Apply boundary conditions
-        let bc_x = (
-            PoissonBoundaryCondition::Dirichlet(T::zero()),
-            PoissonBoundaryCondition::Dirichlet(T::zero()),
-        );
-        let bc_y = (
-            PoissonBoundaryCondition::Dirichlet(T::zero()),
-            PoissonBoundaryCondition::Dirichlet(T::zero()),
-        );
-        let bc_z = (
-            PoissonBoundaryCondition::Dirichlet(T::zero()),
-            PoissonBoundaryCondition::Dirichlet(T::zero()),
-        );
-
-        // Apply the Poisson solver with proper arguments
-        let potential = self.poisson_solver.solve(&source, bc_x, bc_y, bc_z)?;
+        // Use the source and BCs from the user-provided problem definition
+        let potential = self.poisson_solver.solve(
+            &problem.source_term,
+            problem.bc_x.clone(),
+            problem.bc_y.clone(),
+            problem.bc_z.clone(),
+        )?;
 
         // Store the result in the solution
         solution.u = potential;

@@ -1,11 +1,10 @@
 //! Matrix assembly for network flow equations
 
 use crate::network::Network;
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::{coo::CooMatrix, CsrMatrix};
 use num_traits::FromPrimitive;
-use std::sync::Mutex;
 
 /// Matrix assembler for building the linear system from network equations
 pub struct MatrixAssembler<T: RealField + Copy> {
@@ -37,18 +36,15 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
     /// - b is the source/sink vector
     pub fn assemble(&self, network: &Network<T>) -> Result<(CsrMatrix<T>, DVector<T>)> {
         let n = network.node_count();
-        let coo_mutex = Mutex::new(CooMatrix::new(n, n));
+        let mut coo = CooMatrix::new(n, n);
         let mut rhs = DVector::zeros(n);
 
-        // Parallel assembly of matrix entries
-        // Use try_for_each to handle potential errors
+        // Use a simple, sequential loop for better performance and clarity
+        // The mutex-protected parallel version was actually slower due to lock contention
         for edge in network.edges_parallel() {
             let (i, j) = edge.nodes;
             let conductance = edge.conductance;
 
-            let mut coo = coo_mutex
-                .lock()
-                .map_err(|_| Error::Solver("Failed to acquire matrix assembly lock".to_string()))?;
             // Add conductance terms to matrix
             coo.push(i, i, conductance);
             coo.push(j, j, conductance);
@@ -61,13 +57,15 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
             let idx = node_idx.index();
             match bc {
                 crate::network::BoundaryCondition::Dirichlet { value: pressure } => {
-                    // Dirichlet boundary condition
-                    let mut coo = coo_mutex.lock().map_err(|_| {
-                        Error::Solver("Mutex poisoned during matrix assembly".to_string())
-                    })?;
-                    // Set row to identity
-                    coo.push(idx, idx, T::one());
-                    rhs[idx] = pressure;
+                    // Dirichlet boundary condition using the "big number" method
+                    // This enforces P_i = pressure by making the diagonal term dominate
+                    let large_number = T::from_f64(1.0e20)
+                        .expect("Failed to represent large number for Dirichlet BC");
+
+                    // Note: In COO format, we're adding to existing diagonal entries
+                    // The large number will dominate the conductance terms
+                    coo.push(idx, idx, large_number);
+                    rhs[idx] = pressure * large_number;
                 }
                 crate::network::BoundaryCondition::Neumann {
                     gradient: flow_rate,
@@ -76,14 +74,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
                     rhs[idx] = rhs[idx] + flow_rate;
                 }
                 _ => {
-                    // Other boundary conditions not implemented for 1D
+                    return Err(Error::Solver(format!(
+                        "Unsupported boundary condition type encountered at node {}: {:?}",
+                        idx, bc
+                    )));
                 }
             }
         }
 
-        let coo = coo_mutex
-            .into_inner()
-            .map_err(|_| Error::Solver("Mutex poisoned during matrix assembly".to_string()))?;
         let matrix = CsrMatrix::from(&coo);
 
         Ok((matrix, rhs))

@@ -49,8 +49,8 @@ pub mod prelude {
     // Re-export mesh Edge with qualifier to avoid ambiguity
     pub use cfd_mesh::mesh::Edge as MeshEdge;
 
-    // I/O operations - only export what's available
-    pub use cfd_io::{VtkMesh, VtkMeshBuilder, VtkReader, VtkWriter};
+    // I/O operations - use proper module paths
+    pub use cfd_io::vtk::{VtkMesh, VtkMeshBuilder, VtkReader, VtkWriter};
 
     // 1D solver exports - exclude Edge to avoid conflict
     pub use cfd_1d::prelude::{
@@ -68,8 +68,9 @@ pub mod prelude {
 
     // Note: cfd_2d and cfd_3d don't have prelude modules yet
 
-    // Validation tools - import specific types since prelude was removed
-    pub use cfd_validation::{
-        ConvergenceStudy, ErrorAnalysis, ErrorMetric, GridConvergenceIndex, RichardsonExtrapolation,
+    // Validation tools - use proper module paths
+    pub use cfd_validation::convergence::{
+        ConvergenceStudy, GridConvergenceIndex, RichardsonExtrapolation,
     };
+    pub use cfd_validation::error_metrics::{ErrorAnalysis, ErrorMetric};
 }

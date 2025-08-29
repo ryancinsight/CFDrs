@@ -1,7 +1,7 @@
 //! Mesh operations service for coordinating mesh-related operations
 
 use super::{Geometry, Mesh, MeshGeneration, MeshQuality, MeshRefinement};
-use crate::Result;
+use crate::error::Result;
 use nalgebra::RealField;
 use std::sync::Arc;
 

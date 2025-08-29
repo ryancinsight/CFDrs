@@ -1,7 +1,7 @@
 //! Statistical analysis for mesh quality metrics
 
 use cfd_core::error::NumericalErrorKind;
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 

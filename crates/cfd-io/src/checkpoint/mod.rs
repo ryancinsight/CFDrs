@@ -14,5 +14,5 @@ pub use manager::CheckpointManager;
 pub use metadata::{CheckpointMetadata, CHECKPOINT_VERSION};
 pub use validator::CheckpointValidator;
 
-// Re-export main functions for convenience
-pub use manager::{load_checkpoint, save_checkpoint};
+// Convenience functions removed - users must explicitly create CheckpointManager
+// to ensure proper configuration for compression handling

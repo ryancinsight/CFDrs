@@ -19,6 +19,9 @@ pub struct PisoConfig<T: RealField + Copy> {
     /// Under-relaxation factors
     pub velocity_relaxation: T,
     pub pressure_relaxation: T,
+
+    /// Logging frequency (None disables logging, Some(n) logs every n steps)
+    pub log_frequency: Option<usize>,
 }
 
 impl<T: RealField + Copy + FromPrimitive> Default for PisoConfig<T> {
@@ -26,18 +29,13 @@ impl<T: RealField + Copy + FromPrimitive> Default for PisoConfig<T> {
         Self {
             n_correctors: 2,
             n_non_orthogonal_correctors: 1,
-            time_step: T::from_f64(0.01).unwrap_or_else(|| {
-                T::from_f64(1e-2).unwrap_or_else(|| {
-                    T::from_usize(1).unwrap_or_else(T::one)
-                        / T::from_usize(100).unwrap_or_else(T::one)
-                })
-            }),
-            velocity_relaxation: T::from_f64(0.7).unwrap_or_else(|| {
-                T::from_usize(7).unwrap_or_else(T::one) / T::from_usize(10).unwrap_or_else(T::one)
-            }),
-            pressure_relaxation: T::from_f64(0.3).unwrap_or_else(|| {
-                T::from_usize(3).unwrap_or_else(T::one) / T::from_usize(10).unwrap_or_else(T::one)
-            }),
+            time_step: T::from_f64(0.01)
+                .expect("Failed to represent default time step (0.01) in numeric type T"),
+            velocity_relaxation: T::from_f64(0.7)
+                .expect("Failed to represent velocity relaxation factor (0.7) in numeric type T"),
+            pressure_relaxation: T::from_f64(0.3)
+                .expect("Failed to represent pressure relaxation factor (0.3) in numeric type T"),
+            log_frequency: Some(100), // Default to logging every 100 steps
         }
     }
 }

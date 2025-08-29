@@ -4,7 +4,7 @@
 //! Cambridge University Press, 3rd Edition.
 
 use super::{LiteratureValidation, ValidationReport};
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
 

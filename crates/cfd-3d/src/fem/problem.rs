@@ -1,7 +1,9 @@
 //! Problem definition for FEM
 
-use cfd_core::{BoundaryCondition, Error, Fluid, Result};
-use cfd_mesh::Mesh;
+use cfd_core::boundary::BoundaryCondition;
+use cfd_core::error::{Error, Result};
+use cfd_core::fluid::ConstantPropertyFluid;
+use cfd_mesh::mesh::Mesh;
 use nalgebra::{RealField, Vector3};
 use std::collections::HashMap;
 
@@ -11,7 +13,7 @@ pub struct StokesFlowProblem<T: RealField + Copy> {
     /// Computational mesh
     pub mesh: Mesh<T>,
     /// Fluid properties
-    pub fluid: Fluid<T>,
+    pub fluid: ConstantPropertyFluid<T>,
     /// Boundary conditions mapped by node index
     pub boundary_conditions: HashMap<usize, BoundaryCondition<T>>,
     /// Body force (e.g., gravity)
@@ -22,7 +24,7 @@ impl<T: RealField + Copy> StokesFlowProblem<T> {
     /// Create a new Stokes flow problem
     pub fn new(
         mesh: Mesh<T>,
-        fluid: Fluid<T>,
+        fluid: ConstantPropertyFluid<T>,
         boundary_conditions: HashMap<usize, BoundaryCondition<T>>,
     ) -> Self {
         Self {

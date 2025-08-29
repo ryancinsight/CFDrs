@@ -2,7 +2,7 @@
 
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 

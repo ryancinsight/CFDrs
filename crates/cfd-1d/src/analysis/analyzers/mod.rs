@@ -13,7 +13,7 @@ pub use resistance::ResistanceAnalyzer;
 pub use traits::NetworkAnalyzer;
 
 use super::{FlowAnalysis, PerformanceMetrics, PressureAnalysis, ResistanceAnalysis};
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use std::iter::Sum;

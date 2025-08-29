@@ -8,6 +8,7 @@ pub mod mathematical;
 pub mod numerical;
 pub mod physical;
 pub mod physics;
+pub mod physics_validated;
 
 // Re-export commonly used constants at module level for convenience
 pub use physics::dimensionless;

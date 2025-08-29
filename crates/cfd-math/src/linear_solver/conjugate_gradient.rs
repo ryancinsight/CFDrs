@@ -1,9 +1,9 @@
 //! Preconditioned Conjugate Gradient solver implementation
 
+use super::config::IterativeSolverConfig;
 use super::traits::{LinearSolver, Preconditioner};
 use crate::vector_ops::SimdVectorOps;
 use cfd_core::error::{ConvergenceErrorKind, Error, Result};
-use cfd_core::solver::LinearSolverConfig;
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
@@ -11,12 +11,12 @@ use std::fmt::Debug;
 
 /// Preconditioned Conjugate Gradient solver with memory management
 pub struct ConjugateGradient<T: RealField + Copy> {
-    config: LinearSolverConfig<T>,
+    config: IterativeSolverConfig<T>,
 }
 
 impl<T: RealField + Copy> ConjugateGradient<T> {
     /// Create new CG solver
-    pub const fn new(config: LinearSolverConfig<T>) -> Self {
+    pub const fn new(config: IterativeSolverConfig<T>) -> Self {
         Self { config }
     }
 
@@ -26,7 +26,7 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
     where
         T: FromPrimitive,
     {
-        Self::new(LinearSolverConfig::default())
+        Self::new(IterativeSolverConfig::default())
     }
 
     /// Solve with preconditioning and memory management
@@ -185,7 +185,7 @@ impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> LinearSolver<T>
         Ok(x)
     }
 
-    fn config(&self) -> &LinearSolverConfig<T> {
+    fn config(&self) -> &IterativeSolverConfig<T> {
         &self.config
     }
 }

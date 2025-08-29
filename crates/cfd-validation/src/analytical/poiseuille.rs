@@ -23,7 +23,8 @@ pub struct PoiseuilleFlow<T: RealField + Copy> {
     pub u_max: T,
     /// Channel half-width (plates) or pipe radius
     pub characteristic_length: T,
-    /// Pressure gradient (dp/dx)
+    /// Pressure gradient magnitude (positive value representing pressure drop per unit length)
+    /// For flow in positive x direction, the actual dp/dx is negative
     pub pressure_gradient: T,
     /// Dynamic viscosity
     pub viscosity: T,
@@ -57,9 +58,11 @@ impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
         geometry: PoiseuilleGeometry,
     ) -> T {
         let factor = match geometry {
-            PoiseuilleGeometry::Plates => T::from_f64(2.0).unwrap_or(T::one() + T::one()),
+            PoiseuilleGeometry::Plates => {
+                T::from_f64(2.0).expect("Failed to represent 2.0 in numeric type T")
+            }
             PoiseuilleGeometry::Pipe => {
-                T::from_f64(4.0).unwrap_or((T::one() + T::one()) * (T::one() + T::one()))
+                T::from_f64(4.0).expect("Failed to represent 4.0 in numeric type T")
             }
         };
 
@@ -73,13 +76,13 @@ impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
             PoiseuilleGeometry::Plates => {
                 // Q = (2/3) * u_max * h
                 let two_thirds =
-                    T::from_f64(2.0 / 3.0).unwrap_or(T::from_f64(0.667).unwrap_or(T::one()));
+                    T::from_f64(2.0 / 3.0).expect("Failed to represent 2.0/3.0 in numeric type T");
                 two_thirds * self.u_max * self.characteristic_length
             }
             PoiseuilleGeometry::Pipe => {
                 // Q = (π/2) * u_max * R²
                 let pi_half = T::from_f64(std::f64::consts::PI / 2.0)
-                    .unwrap_or(T::from_f64(1.571).unwrap_or(T::one()));
+                    .expect("Failed to represent PI/2 in numeric type T");
                 pi_half * self.u_max * self.characteristic_length * self.characteristic_length
             }
         }
@@ -88,8 +91,8 @@ impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
     /// Get Reynolds number
     pub fn reynolds_number(&self, density: T) -> T {
         let characteristic_velocity = self.u_max;
-        let characteristic_length =
-            self.characteristic_length * T::from_f64(2.0).unwrap_or(T::one() + T::one()); // Diameter for pipe, full width for plates
+        let two = T::from_f64(2.0).expect("Failed to represent 2.0 in numeric type T");
+        let characteristic_length = self.characteristic_length * two; // Diameter for pipe, full width for plates
 
         density * characteristic_velocity * characteristic_length / self.viscosity
     }
@@ -131,7 +134,7 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for PoiseuilleFl
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let large = T::from_f64(1000.0).unwrap_or(T::from_f64(100.0).unwrap_or(T::one()));
+        let large = T::from_f64(1000.0).expect("Failed to represent 1000.0 in numeric type T");
         match self.geometry {
             PoiseuilleGeometry::Plates => [
                 T::zero(),

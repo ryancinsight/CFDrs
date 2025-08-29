@@ -40,7 +40,10 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
 
     /// Create with standard second-order accuracy
     pub fn second_order(refinement_ratio: T) -> Result<Self> {
-        Self::with_order(T::from_f64(2.0).unwrap(), refinement_ratio)
+        let two = T::from_f64(2.0).ok_or_else(|| {
+            Error::InvalidInput("Cannot represent 2.0 in numeric type T".to_string())
+        })?;
+        Self::with_order(two, refinement_ratio)
     }
 
     /// Extrapolate to zero grid spacing using two solutions
@@ -76,10 +79,14 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
         let epsilon_21 = f_medium - f_fine;
         let epsilon_32 = f_coarse - f_medium;
 
-        if epsilon_21.abs()
-            < T::from_f64(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE)
-                .unwrap_or_else(|| T::from_f64(1e-10).unwrap())
-        {
+        let epsilon_tolerance = T::from_f64(
+            cfd_core::constants::numerical::solver::EPSILON_TOLERANCE,
+        )
+        .ok_or_else(|| {
+            Error::InvalidInput("Cannot represent EPSILON_TOLERANCE in numeric type T".to_string())
+        })?;
+
+        if epsilon_21.abs() < epsilon_tolerance {
             return Err(Error::InvalidInput(
                 "Solutions too close to estimate order".to_string(),
             ));
@@ -98,10 +105,12 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
         let epsilon_21 = (f_medium - f_fine).abs();
         let epsilon_32 = (f_coarse - f_medium).abs();
 
-        if epsilon_21
-            < T::from_f64(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE)
-                .unwrap_or_else(|| T::from_f64(1e-10).unwrap())
-        {
+        let epsilon_tolerance =
+            T::from_f64(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE).unwrap_or_else(
+                || T::from_f64(1e-10).expect("Failed to represent 1e-10 in numeric type T"),
+            );
+
+        if epsilon_21 < epsilon_tolerance {
             return false;
         }
 
@@ -110,7 +119,8 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
 
         // Check if within 10% of expected ratio
         let relative_diff = ((observed_ratio - expected_ratio) / expected_ratio).abs();
-        relative_diff < T::from_f64(0.1).unwrap()
+        let ten_percent = T::from_f64(0.1).expect("Failed to represent 0.1 in numeric type T");
+        relative_diff < ten_percent
     }
 }
 
@@ -140,19 +150,38 @@ where
     let h_fine = paired[0].0;
     let h_coarse = paired[1].0;
 
-    let refinement_ratio = h_coarse / h_fine;
+    let r21 = h_coarse / h_fine; // Refinement ratio between fine and medium grids
 
     // Estimate order if we have 3 or more solutions
     let order = if solutions.len() >= 3 {
-        let f_medium = f_coarse;
-        let f_coarse = paired[2].1;
-        RichardsonExtrapolation::estimate_order(f_coarse, f_medium, f_fine, refinement_ratio)?
+        let h_medium = paired[1].0;
+        let h_coarse_actual = paired[2].0;
+        let r32 = h_coarse_actual / h_medium; // Refinement ratio between medium and coarse
+
+        // Check if refinement ratios are uniform (within 1% tolerance)
+        let one_percent = T::from_f64(0.01).ok_or_else(|| {
+            Error::InvalidInput("Cannot represent 0.01 in numeric type T".to_string())
+        })?;
+
+        if ((r21 - r32).abs() / r21) > one_percent {
+            return Err(Error::InvalidInput(format!(
+                "Non-uniform grid refinement ratios ({:?} and {:?}) detected. \
+                 Richardson extrapolation requires constant refinement ratio.",
+                r21, r32
+            )));
+        }
+
+        let f_medium = paired[1].1;
+        let f_coarse_actual = paired[2].1;
+        RichardsonExtrapolation::estimate_order(f_coarse_actual, f_medium, f_fine, r21)?
     } else {
         // Assume second order if not enough data
-        T::from_f64(2.0).unwrap()
+        T::from_f64(2.0).ok_or_else(|| {
+            Error::InvalidInput("Cannot represent 2.0 in numeric type T".to_string())
+        })?
     };
 
-    let extrapolator = RichardsonExtrapolation::with_order(order, refinement_ratio)?;
+    let extrapolator = RichardsonExtrapolation::with_order(order, r21)?;
     let extrapolated = extrapolator.extrapolate(f_fine, f_coarse);
 
     Ok((extrapolated, order))

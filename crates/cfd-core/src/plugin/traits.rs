@@ -1,5 +1,7 @@
 //! Core plugin traits for CFD solvers.
 
+use crate::error::Result;
+
 /// Core plugin trait - the single abstraction for all plugin functionality
 pub trait Plugin: Send + Sync {
     /// Plugin name (must be unique)
@@ -55,29 +57,29 @@ pub trait Plugin: Send + Sync {
 /// Extended trait for simulation plugins
 pub trait SimulationPlugin: Plugin {
     /// Initialize the plugin with given configuration
-    fn initialize(&mut self, config: &str) -> crate::Result<()>;
+    fn initialize(&mut self, config: &str) -> Result<()>;
 
     /// Execute the plugin's main functionality
-    fn execute(&mut self, timestep: f64) -> crate::Result<()>;
+    fn execute(&mut self, timestep: f64) -> Result<()>;
 
     /// Clean up resources
-    fn cleanup(&mut self) -> crate::Result<()>;
+    fn cleanup(&mut self) -> Result<()>;
 
     /// Get current state for checkpointing
-    fn get_state(&self) -> crate::Result<String>;
+    fn get_state(&self) -> Result<String>;
 
     /// Restore from checkpoint
-    fn set_state(&mut self, state: &str) -> crate::Result<()>;
+    fn set_state(&mut self, state: &str) -> Result<()>;
 
     /// Validate plugin configuration
-    fn validate_config(&self, config: &str) -> crate::Result<()> {
+    fn validate_config(&self, config: &str) -> Result<()> {
         // Default implementation: accept any config
         let _ = config;
         Ok(())
     }
 
     /// Get performance metrics
-    fn get_metrics(&self) -> crate::Result<String> {
+    fn get_metrics(&self) -> Result<String> {
         Ok(String::new())
     }
 }

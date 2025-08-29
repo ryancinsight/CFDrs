@@ -10,7 +10,7 @@ fn test_fluid_properties() {
     assert_eq!(fluid.name, "water");
     let density_diff: f64 = fluid.density - 1000.0;
     assert!(density_diff.abs() < 1e-10);
-    let viscosity_diff: f64 = fluid.characteristic_viscosity() - 0.001;
+    let viscosity_diff: f64 = fluid.kinematic_viscosity() - 0.001;
     assert!(viscosity_diff.abs() < 1e-10);
 
     // Test Reynolds number calculation using the built-in method
@@ -53,7 +53,7 @@ fn test_analytical_validation() {
     let channel_width = 0.1; // 10 cm channel width
     let viscosity = 0.001; // water
     let pressure_gradient = -100.0; // Pa/m
-    let length = 1.0; // 1 m length
+    let _length = 1.0; // 1 m length
 
     // Calculate max velocity for channel flow
     let u_max = -pressure_gradient * channel_width * channel_width / (8.0 * viscosity);

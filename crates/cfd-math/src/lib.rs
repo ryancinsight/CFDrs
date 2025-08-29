@@ -16,21 +16,20 @@ pub mod sparse;
 pub mod vector_ops;
 pub mod vectorization;
 
-pub use interpolation::{CubicSplineInterpolation, Interpolation, LinearInterpolation};
-pub use linear_solver::{
-    BiCGSTAB, ConjugateGradient, IdentityPreconditioner, JacobiPreconditioner, LinearSolver,
-    Preconditioner, SORPreconditioner,
-};
-// LinearSolverConfig is re-exported from cfd_core in linear_solver module
-pub use differentiation::{FiniteDifference, Gradient};
-pub use integration::{GaussQuadrature, Quadrature};
-pub use iterators::{
-    MathIteratorExt, NormIteratorExt, ParallelIteratorExt, StatisticsIteratorExt, StencilIterator,
-    StencilPattern, StridedWindowIterator, WindowIterator,
-};
-pub use sparse::{SparseMatrix, SparseMatrixBuilder, SparseMatrixExt, SparsePatterns};
-pub use vector_ops::{sparse_matvec, SimdVectorOps};
-pub use vectorization::{StencilOps, VectorizedOps};
+// --- Curated Top-Level API ---
+// Only expose a very small number of absolutely fundamental traits or structs.
+// Users should interact with the module hierarchy for most types.
+
+pub use self::interpolation::Interpolation;
+pub use self::linear_solver::LinearSolver;
+pub use self::sparse::SparseMatrix;
+
+// The primary API is through the public modules themselves.
+// This creates a hierarchical, self-documenting structure.
+// Example usage:
+//   use cfd_math::linear_solver::BiCGSTAB;
+//   use cfd_math::interpolation::CubicSplineInterpolation;
+//   use cfd_math::integration::GaussQuadrature;
 
 /// Prelude module for convenient imports
 pub mod prelude {

@@ -4,7 +4,8 @@
 //! ∂T/∂t + (u·∇)T = α∇²T + Q/(ρCp)
 //! where α = k/(ρCp) is thermal diffusivity
 
-use cfd_core::{BoundaryCondition, Result};
+use cfd_core::boundary::BoundaryCondition;
+use cfd_core::error::Result;
 use nalgebra::RealField;
 use std::collections::HashMap;
 

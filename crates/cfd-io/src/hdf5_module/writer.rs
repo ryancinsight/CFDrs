@@ -4,7 +4,7 @@
 use hdf5::{Dataset, File, Group, H5Type};
 
 use crate::hdf5_module::metadata::DatasetMetadata;
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
 use nalgebra::{DMatrix, DVector};
 use std::path::Path;

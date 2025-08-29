@@ -3,7 +3,7 @@
 //! This module implements efficient field storage using flattened vectors
 //! for better cache locality and performance, following SSOT and zero-copy principles.
 
-use cfd_core::Fluid;
+use cfd_core::fluid::ConstantPropertyFluid;
 use nalgebra::{RealField, Vector2};
 use num_traits::{Float, FromPrimitive};
 

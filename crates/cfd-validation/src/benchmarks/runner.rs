@@ -1,7 +1,7 @@
 //! Benchmark runner and validation reporting
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
 
@@ -75,6 +75,7 @@ impl<T: RealField + Copy> ValidationReport<T> {
     where
         T: Serialize,
     {
-        serde_json::to_string_pretty(self).map_err(|e| cfd_core::Error::InvalidInput(e.to_string()))
+        serde_json::to_string_pretty(self)
+            .map_err(|e| cfd_core::error::Error::InvalidInput(e.to_string()))
     }
 }

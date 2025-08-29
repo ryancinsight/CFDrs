@@ -3,7 +3,7 @@
 //! Reference: Gartling (1990) "A test problem for outflow boundary conditions"
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
 

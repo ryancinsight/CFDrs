@@ -2,7 +2,7 @@
 
 use super::types::{Element, Mesh};
 use crate::domains::mesh_operations::element::ElementType;
-use crate::Result;
+use crate::error::{Error, Result};
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};
@@ -56,7 +56,7 @@ pub trait MeshQuality<T: RealField + Copy> {
 impl<T: RealField + Copy + Float + FromPrimitive> MeshQuality<T> for Mesh<T> {
     fn compute_quality(&self) -> Result<QualityMetrics<T>> {
         if self.elements.is_empty() {
-            return Err(crate::Error::InvalidInput("Mesh has no elements".into()));
+            return Err(Error::InvalidInput("Mesh has no elements".into()));
         }
 
         let mut qualities = Vec::with_capacity(self.elements.len());

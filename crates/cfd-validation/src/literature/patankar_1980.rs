@@ -3,8 +3,8 @@
 //! Reference: Patankar, S.V. (1980). "Numerical Heat Transfer and Fluid Flow"
 
 use super::{LiteratureValidation, ValidationReport};
-use cfd_core::Error;
-use cfd_core::Result;
+use cfd_core::error::Error;
+use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
 

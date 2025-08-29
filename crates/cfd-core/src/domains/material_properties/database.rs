@@ -1,6 +1,7 @@
 //! Material database for storing and retrieving material properties
 
 use super::traits::{FluidProperties, InterfaceProperties, SolidProperties};
+use crate::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
 use std::collections::HashMap;
 
@@ -84,10 +85,14 @@ impl<T: RealField + Copy> MaterialDatabase<T> {
         let mut db = Self::new();
 
         // Add common fluids
-        use super::fluids::NewtonianFluid;
-        db.add_fluid("water".to_string(), Box::new(NewtonianFluid::<T>::water()));
-        db.add_fluid("air".to_string(), Box::new(NewtonianFluid::<T>::air()));
-        db.add_fluid("oil".to_string(), Box::new(NewtonianFluid::<T>::oil()));
+
+        // Note: These methods return Result, need to handle errors
+        if let Ok(water) = ConstantPropertyFluid::<T>::water_20c() {
+            db.add_fluid("water".to_string(), Box::new(water));
+        }
+        if let Ok(air) = ConstantPropertyFluid::<T>::air_20c() {
+            db.add_fluid("air".to_string(), Box::new(air));
+        }
 
         // Add common solids
         use super::solids::ElasticSolid;

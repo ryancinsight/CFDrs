@@ -3,7 +3,7 @@
 use crate::boundary::BoundaryConditionSet;
 use crate::domain::Domain;
 use crate::error::Result;
-use crate::fluid::Fluid;
+use crate::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use std::sync::Arc;
@@ -19,7 +19,7 @@ pub trait Problem<T: RealField + Copy>: Send + Sync {
     fn domain(&self) -> &Self::Domain;
 
     /// Get the fluid properties
-    fn fluid(&self) -> &Fluid<T>;
+    fn fluid(&self) -> &ConstantPropertyFluid<T>;
 
     /// Get the boundary conditions
     fn boundary_conditions(&self) -> &BoundaryConditionSet<T>;
@@ -41,7 +41,7 @@ pub struct ProblemConfig<T: RealField + Copy, D: Domain<T>> {
     /// Computational domain
     pub domain: Arc<D>,
     /// Fluid properties
-    pub fluid: Fluid<T>,
+    pub fluid: ConstantPropertyFluid<T>,
     /// Boundary conditions
     pub boundary_conditions: BoundaryConditionSet<T>,
     /// Problem parameters
@@ -78,7 +78,7 @@ impl<T: RealField + FromPrimitive + Copy> Default for ProblemParameters<T> {
 /// Problem builder for convenient construction
 pub struct ProblemBuilder<T: RealField + Copy, D: Domain<T>> {
     domain: Option<Arc<D>>,
-    fluid: Option<Fluid<T>>,
+    fluid: Option<ConstantPropertyFluid<T>>,
     boundary_conditions: BoundaryConditionSet<T>,
     parameters: ProblemParameters<T>,
 }
@@ -102,7 +102,7 @@ impl<T: RealField + Copy, D: Domain<T>> ProblemBuilder<T, D> {
     }
 
     /// Set the fluid
-    pub fn fluid(mut self, fluid: Fluid<T>) -> Self {
+    pub fn fluid(mut self, fluid: ConstantPropertyFluid<T>) -> Self {
         self.fluid = Some(fluid);
         self
     }
@@ -171,8 +171,8 @@ mod tests {
     #[test]
     fn test_problem_builder() {
         let problem = ProblemBuilder::new()
-            .domain(Domain2D::new(0.0, 0.0, 1.0, 1.0))
-            .fluid(Fluid::water_20c())
+            .domain(Domain2D::from_scalars(0.0, 0.0, 1.0, 1.0))
+            .fluid(ConstantPropertyFluid::water_20c())
             .boundary_condition(
                 "inlet",
                 BoundaryCondition::velocity_inlet(vector![1.0, 0.0, 0.0]),

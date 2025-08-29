@@ -16,6 +16,8 @@ pub struct RhieChowInterpolation<T: RealField + Copy> {
     ny: usize,
     /// Momentum equation coefficients (`A_p` from discretized momentum equation)
     ap_coefficients: Field2D<T>,
+    /// Previous time step velocity field (for transient term)
+    u_old: Option<Field2D<Vector2<T>>>,
 }
 
 impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
@@ -25,7 +27,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
             nx: grid.nx,
             ny: grid.ny,
             ap_coefficients: Field2D::new(grid.nx, grid.ny, T::one()),
+            u_old: None,
         }
+    }
+
+    /// Update previous velocity field for transient term
+    pub fn update_old_velocity(&mut self, u_old: &Field2D<Vector2<T>>) {
+        self.u_old = Some(u_old.clone());
     }
 
     /// Update momentum equation coefficients from discretized momentum equation
@@ -52,41 +60,53 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         u: &Field2D<Vector2<T>>,
         p: &Field2D<T>,
         dx: T,
+        dy: T,
+        dt: Option<T>,
         i: usize,
         j: usize,
     ) -> T {
         // East face between cells (i,j) and (i+1,j)
 
         // Linear interpolation of velocity
-        let u_bar = (u.at(i, j).x + u.at(i + 1, j).x) / T::from_f64(TWO).unwrap_or_else(T::zero);
+        let two = T::from_f64(TWO).expect("Failed to represent 2.0 in numeric type T");
+        let u_bar = (u.at(i, j).x + u.at(i + 1, j).x) / two;
 
         // Interpolate pressure gradient coefficient d_f = (Volume/A_p)_f
-        let volume = dx * dx; // 2D cell volume (assuming square cells)
+        let volume = dx * dy; // Correct 2D cell area for rectangular cells
         let d_p = volume / self.ap_coefficients.at(i, j);
         let d_e = volume / self.ap_coefficients.at(i + 1, j);
-        let d_face = (d_p + d_e) / T::from_f64(TWO).unwrap_or_else(T::zero);
+        let d_face = (d_p + d_e) / two;
 
         // Cell-centered pressure gradients (from momentum equation)
         let dp_dx_p = if i > 0 {
-            (p.at(i + 1, j) - p.at(i - 1, j)) / (T::from_f64(TWO).unwrap_or_else(T::zero) * dx)
+            (p.at(i + 1, j) - p.at(i - 1, j)) / (two * dx)
         } else {
             (p.at(i + 1, j) - p.at(i, j)) / dx
         };
 
         let dp_dx_e = if i + 1 < self.nx - 1 {
-            (p.at(i + 2, j) - p.at(i, j)) / (T::from_f64(TWO).unwrap_or_else(T::zero) * dx)
+            (p.at(i + 2, j) - p.at(i, j)) / (two * dx)
         } else {
             (p.at(i + 1, j) - p.at(i, j)) / dx
         };
 
         // Average cell-centered gradient
-        let dp_dx_cells = (dp_dx_p + dp_dx_e) / T::from_f64(TWO).unwrap_or_else(T::zero);
+        let dp_dx_cells = (dp_dx_p + dp_dx_e) / two;
 
         // Face pressure gradient
         let dp_dx_face = (p.at(i + 1, j) - p.at(i, j)) / dx;
 
-        // Complete Rhie-Chow interpolation
-        u_bar + d_face * (dp_dx_cells - dp_dx_face)
+        // Base Rhie-Chow interpolation
+        let mut u_f = u_bar + d_face * (dp_dx_cells - dp_dx_face);
+
+        // Add transient term if time step and old velocity are provided
+        if let (Some(dt), Some(ref u_old)) = (dt, &self.u_old) {
+            let u_bar_old = (u_old.at(i, j).x + u_old.at(i + 1, j).x) / two;
+            let transient_factor = dt / two; // Simplified transient correction
+            u_f = u_f + transient_factor * (u_bar - u_bar_old);
+        }
+
+        u_f
     }
 
     /// Compute face velocity in y-direction
@@ -94,48 +114,53 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         &self,
         v: &Field2D<Vector2<T>>,
         p: &Field2D<T>,
+        dx: T,
         dy: T,
+        dt: Option<T>,
         i: usize,
         j: usize,
     ) -> T {
         // North face between cells (i,j) and (i,j+1)
 
         // Linear interpolation of velocity
-        let v_bar = (v.at(i, j).y + v.at(i, j + 1).y) / T::from_f64(TWO).unwrap_or_else(T::zero);
+        let two = T::from_f64(TWO).expect("Failed to represent 2.0 in numeric type T");
+        let v_bar = (v.at(i, j).y + v.at(i, j + 1).y) / two;
 
         // Interpolate pressure gradient coefficient
-        let volume = dy * dy;
+        let volume = dx * dy; // Correct 2D cell area for rectangular cells
         let d_p = volume / self.ap_coefficients.at(i, j);
         let d_n = volume / self.ap_coefficients.at(i, j + 1);
-        let d_face = (d_p + d_n) / T::from_f64(TWO).unwrap_or_else(T::zero);
+        let d_face = (d_p + d_n) / two;
 
         // Cell-centered pressure gradients
         let dp_dy_p = if j > 0 {
-            (p.at(i, j + 1) - p.at(i, j - 1))
-                / (T::from_f64(crate::constants::physics::CENTRAL_DIFF_COEFF)
-                    .unwrap_or_else(T::zero)
-                    * dy)
+            (p.at(i, j + 1) - p.at(i, j - 1)) / (two * dy)
         } else {
             (p.at(i, j + 1) - p.at(i, j)) / dy
         };
 
         let dp_dy_n = if j + 1 < self.ny - 1 {
-            (p.at(i, j + 2) - p.at(i, j))
-                / (T::from_f64(crate::constants::physics::CENTRAL_DIFF_COEFF)
-                    .unwrap_or_else(T::zero)
-                    * dy)
+            (p.at(i, j + 2) - p.at(i, j)) / (two * dy)
         } else {
             (p.at(i, j + 1) - p.at(i, j)) / dy
         };
 
         // Average cell-centered gradient
-        let dp_dy_cells = (dp_dy_p + dp_dy_n)
-            / T::from_f64(crate::constants::physics::CENTRAL_DIFF_COEFF).unwrap_or_else(T::zero);
+        let dp_dy_cells = (dp_dy_p + dp_dy_n) / two;
 
         // Face pressure gradient
         let dp_dy_face = (p.at(i, j + 1) - p.at(i, j)) / dy;
 
-        // Complete Rhie-Chow interpolation
-        v_bar + d_face * (dp_dy_cells - dp_dy_face)
+        // Base Rhie-Chow interpolation
+        let mut v_f = v_bar + d_face * (dp_dy_cells - dp_dy_face);
+
+        // Add transient term if time step and old velocity are provided
+        if let (Some(dt), Some(ref u_old)) = (dt, &self.u_old) {
+            let v_bar_old = (u_old.at(i, j).y + u_old.at(i, j + 1).y) / two;
+            let transient_factor = dt / two; // Simplified transient correction
+            v_f = v_f + transient_factor * (v_bar - v_bar_old);
+        }
+
+        v_f
     }
 }

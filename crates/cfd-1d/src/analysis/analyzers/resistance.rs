@@ -4,7 +4,7 @@ use super::traits::NetworkAnalyzer;
 use crate::analysis::error::ResistanceCalculationError;
 use crate::analysis::ResistanceAnalysis;
 use crate::network::Network;
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use std::iter::Sum;

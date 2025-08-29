@@ -2,7 +2,7 @@
 
 use super::{NetworkGraph, Node};
 use crate::channel::ChannelGeometry;
-use cfd_core::fluid::Fluid;
+use cfd_core::fluid::ConstantPropertyFluid;
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
 use petgraph::graph::{EdgeIndex, NodeIndex};
@@ -15,7 +15,7 @@ pub struct Network<T: RealField + Copy> {
     /// The underlying graph
     pub graph: NetworkGraph<T>,
     /// Fluid properties for the network
-    pub fluid: Fluid<T>,
+    pub fluid: ConstantPropertyFluid<T>,
     /// Node pressures
     pub pressures: HashMap<NodeIndex, T>,
     /// Edge flow rates
@@ -67,7 +67,7 @@ pub struct ParallelEdge<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive> Network<T> {
     /// Create a new network
-    pub fn new(graph: NetworkGraph<T>, fluid: Fluid<T>) -> Self {
+    pub fn new(graph: NetworkGraph<T>, fluid: ConstantPropertyFluid<T>) -> Self {
         Self {
             graph,
             fluid,

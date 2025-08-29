@@ -52,7 +52,7 @@ pub mod prelude {
     pub use crate::boundary::{BoundaryCondition, WallType};
     pub use crate::domain::Domain;
     pub use crate::error::{Error, Result};
-    pub use crate::fluid::Fluid;
+    pub use crate::fluid::ConstantPropertyFluid;
     pub use crate::problem::Problem;
     pub use crate::solver::{Solver, SolverConfig, SolverConfiguration};
     pub use crate::state::SimulationState;
@@ -80,38 +80,40 @@ pub mod plugins {
 
 /// Extended solver traits (for solver implementors)
 pub mod solvers {
-    pub use crate::solver::{
-        Configurable, DirectSolver, IterativeSolver, LinearSolverConfig, NetworkSolverConfig,
-        Validatable,
+    pub use crate::solver::configuration::{LinearSolverConfig, NetworkSolverConfig};
+    pub use crate::solver::{Configurable, DirectSolver, IterativeSolver, Validatable};
+}
+
+// Extended API - Advanced types in organized namespaces
+// These are intentionally not in the prelude to avoid cluttering the namespace
+
+/// Domain-specific abstractions, traits, and types.
+///
+/// This module provides a curated set of traits that define the
+/// core physics and numerical behaviors for CFD simulations.
+pub mod domain_traits {
+    pub use crate::domains::{
+        BoundaryConditionApplicator, DiscretizationScheme, FlowField, FluidProperties,
+        InterfaceProperties, LinearSystemSolver, MeshGeneration, MeshQuality, MeshRefinement,
+        PressureField, SolidProperties, TimeIntegrationScheme, TurbulenceModel, VelocityField,
     };
 }
 
-// Re-export advanced types in organized namespaces
-// These use different names to avoid conflicts with the actual modules
-
-/// Domain-specific abstractions
-pub use domains::{
-    BoundaryConditionApplicator, DiscretizationScheme, FlowField, FluidProperties,
-    InterfaceProperties, LinearSystemSolver, MeshGeneration, MeshQuality, MeshRefinement,
-    PressureField, SolidProperties, TimeIntegrationScheme, TurbulenceModel, VelocityField,
-};
-
-/// Aggregate types for complex simulations  
-pub use aggregates::{
-    PhysicalParameters, ProblemAggregate, SimulationAggregate, SimulationMetadata,
-};
+/// Aggregate types for complex simulations
+pub mod aggregates_api {
+    pub use crate::aggregates::{
+        PhysicalParameters, ProblemAggregate, SimulationAggregate, SimulationMetadata,
+    };
+}
 
 /// Service layer abstractions
-pub use services::{FlowRegime, FluidDynamicsService, MeshQualityService, QualityLevel};
+pub mod services_api {
+    pub use crate::services::{FlowRegime, FluidDynamicsService, MeshQualityService, QualityLevel};
+}
 
 // Note: TypeErasedFactory and TypeErasedSolver are internal implementation details
 // and should NOT be exposed in the public API. They remain accessible only through
 // the factory module for those who need to implement custom factories.
-// Re-export commonly used types
-pub use boundary::{BoundaryCondition, WallType};
-pub use error::{Error, Result};
-pub use fluid::Fluid;
-pub use problem::Problem;
-pub use solver::{
-    Configurable, NetworkSolverConfig, Solver, SolverConfig, SolverConfiguration, Validatable,
-};
+
+// IMPORTANT: Core types should be imported via the prelude module or their full paths.
+// Direct re-exports at the crate root have been removed to enforce a single, clear import path.

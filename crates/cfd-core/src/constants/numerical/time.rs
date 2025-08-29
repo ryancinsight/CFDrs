@@ -11,6 +11,9 @@ pub const MAX_CFL: f64 = 1.0;
 /// CFL number for implicit schemes
 pub const IMPLICIT_CFL: f64 = 5.0;
 
+/// Default time step size for simulations
+pub const DEFAULT_TIME_STEP: f64 = 0.001;
+
 /// Minimum time step size
 pub const MIN_TIME_STEP: f64 = 1e-12;
 
