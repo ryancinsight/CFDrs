@@ -59,20 +59,20 @@ pub trait BoundaryConditionApplicator<T: RealField + Copy>: Send + Sync {
     ) -> T {
         let condition = boundary_spec.evaluate_at_time(time);
 
-        match condition {
+        match condition.as_ref() {
             BoundaryCondition::Dirichlet { value } => {
                 // Flux based on gradient to boundary value
-                normal_gradient * (value - interior_value)
+                normal_gradient * (*value - interior_value)
             }
-            BoundaryCondition::Neumann { gradient } => gradient,
+            BoundaryCondition::Neumann { gradient } => *gradient,
             BoundaryCondition::Robin { alpha, beta, gamma } => {
                 // Robin condition: alpha*u + beta*du/dn = gamma
                 // Solving for du/dn: du/dn = (gamma - alpha*u)/beta
                 if beta.abs() > T::default_epsilon() {
-                    (gamma - alpha * interior_value) / beta
+                    (*gamma - *alpha * interior_value) / *beta
                 } else if alpha.abs() > T::default_epsilon() {
                     // If beta is zero, we have a Dirichlet-like condition: u = gamma/alpha
-                    normal_gradient * (gamma / alpha - interior_value)
+                    normal_gradient * (*gamma / *alpha - interior_value)
                 } else {
                     T::zero()
                 }

@@ -28,34 +28,34 @@ impl<T: RealField + Copy> BoundaryConditionApplicator<T> for DirichletApplicator
     ) -> Result<(), String> {
         let condition = boundary_spec.evaluate_at_time(time);
 
-        if let BoundaryCondition::Dirichlet { value } = condition {
+        if let BoundaryCondition::Dirichlet { value } = condition.as_ref() {
             // Apply Dirichlet value based on region ID
             // For structured grids, interpret region_id as boundary location
             match boundary_spec.region_id.as_str() {
                 "west" | "left" => {
                     // Apply to first element (1D) or first column (2D/3D)
                     if !field.is_empty() {
-                        field[0] = value;
+                        field[0] = *value;
                     }
                 }
                 "east" | "right" => {
                     // Apply to last element
                     if let Some(last) = field.last_mut() {
-                        *last = value;
+                        *last = *value;
                     }
                 }
                 "all" => {
                     // Apply to entire boundary (for testing)
                     for field_value in field.iter_mut() {
-                        *field_value = value;
+                        *field_value = *value;
                     }
                 }
                 _ => {
                     // For unrecognized regions, apply to boundaries (first and last)
                     if !field.is_empty() {
-                        field[0] = value;
+                        field[0] = *value;
                         if let Some(last) = field.last_mut() {
-                            *last = value;
+                            *last = *value;
                         }
                     }
                 }
@@ -98,7 +98,7 @@ impl<T: RealField + Copy> BoundaryConditionApplicator<T> for NeumannApplicator<T
     ) -> Result<(), String> {
         let condition = boundary_spec.evaluate_at_time(time);
 
-        if let BoundaryCondition::Neumann { gradient } = condition {
+        if let BoundaryCondition::Neumann { gradient } = condition.as_ref() {
             // Apply Neumann gradient condition using one-sided differences
             // For a gradient g at boundary: u_boundary = u_interior + dx * g
             match boundary_spec.region_id.as_str() {
@@ -106,7 +106,7 @@ impl<T: RealField + Copy> BoundaryConditionApplicator<T> for NeumannApplicator<T
                     // Apply at first element using forward difference
                     if field.len() >= 2 {
                         // u[0] = u[1] - dx * gradient (assuming unit spacing)
-                        field[0] = field[1] - gradient;
+                        field[0] = field[1] - *gradient;
                     }
                 }
                 "east" | "right" => {
@@ -114,15 +114,15 @@ impl<T: RealField + Copy> BoundaryConditionApplicator<T> for NeumannApplicator<T
                     let n = field.len();
                     if n >= 2 {
                         // u[n-1] = u[n-2] + dx * gradient
-                        field[n - 1] = field[n - 2] + gradient;
+                        field[n - 1] = field[n - 2] + *gradient;
                     }
                 }
                 _ => {
                     // Apply to both boundaries
                     if field.len() >= 2 {
-                        field[0] = field[1] - gradient;
+                        field[0] = field[1] - *gradient;
                         let n = field.len();
-                        field[n - 1] = field[n - 2] + gradient;
+                        field[n - 1] = field[n - 2] + *gradient;
                     }
                 }
             }
@@ -168,7 +168,7 @@ impl<T: RealField + Copy> BoundaryConditionApplicator<T> for RobinApplicator<T> 
     ) -> Result<(), String> {
         let condition = boundary_spec.evaluate_at_time(time);
 
-        if let BoundaryCondition::Robin { alpha, beta, gamma } = condition {
+        if let BoundaryCondition::Robin { alpha, beta, gamma } = condition.as_ref() {
             // Apply Robin condition: alpha*u + beta*du/dn = gamma
             // Solving for u: u = (gamma - beta*du/dn) / alpha
             // Using finite difference: du/dn ≈ (u_boundary - u_interior) / dx
@@ -178,24 +178,24 @@ impl<T: RealField + Copy> BoundaryConditionApplicator<T> for RobinApplicator<T> 
 
             match boundary_spec.region_id.as_str() {
                 "west" | "left" => {
-                    if field.len() >= 2 && alpha != T::zero() {
+                    if field.len() >= 2 && *alpha != T::zero() {
                         // u[0] = (gamma + beta*u[1]/dx) / (alpha + beta/dx)
-                        field[0] = (gamma + beta * field[1] / dx) / (alpha + beta / dx);
+                        field[0] = (*gamma + *beta * field[1] / dx) / (*alpha + *beta / dx);
                     }
                 }
                 "east" | "right" => {
                     let n = field.len();
-                    if n >= 2 && alpha != T::zero() {
+                    if n >= 2 && *alpha != T::zero() {
                         // u[n-1] = (gamma + beta*u[n-2]/dx) / (alpha + beta/dx)
-                        field[n - 1] = (gamma + beta * field[n - 2] / dx) / (alpha + beta / dx);
+                        field[n - 1] = (*gamma + *beta * field[n - 2] / dx) / (*alpha + *beta / dx);
                     }
                 }
                 _ => {
                     // Apply to both boundaries
-                    if field.len() >= 2 && alpha != T::zero() {
-                        field[0] = (gamma + beta * field[1] / dx) / (alpha + beta / dx);
+                    if field.len() >= 2 && *alpha != T::zero() {
+                        field[0] = (*gamma + *beta * field[1] / dx) / (*alpha + *beta / dx);
                         let n = field.len();
-                        field[n - 1] = (gamma + beta * field[n - 2] / dx) / (alpha + beta / dx);
+                        field[n - 1] = (*gamma + *beta * field[n - 2] / dx) / (*alpha + *beta / dx);
                     }
                 }
             }

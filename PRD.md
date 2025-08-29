@@ -28,7 +28,7 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v1.13.0-BOUNDARIES-IMPLEMENTED)
+### Current State (v1.14.0-COW-BROADCASTING)
 - **ARCHITECTURE**: ✅ Clean domain-driven design
   - All modules properly sized (largest: 420 lines)
   - Trait-based interfaces following SOLID/CUPID/GRASP
@@ -78,6 +78,13 @@ Research software (not production)
   - Fixed atmospheric pressure magic number (now constant)
   - All 157 tests pass (including 3 new boundary tests)
   - Test performance: 0.117s for entire suite
+- **COW & BROADCASTING IMPLEMENTED (v1.14.0)**: ✅ Zero-copy optimizations
+  - Implemented Copy-on-Write for boundary conditions (avoids clones)
+  - Added comprehensive broadcasting module with zero-copy views
+  - Broadcasting supports scalar broadcast and element-wise operations
+  - BroadcastView provides multi-dimensional broadcasting
+  - All 160 tests pass (3 new broadcast tests)
+  - Test performance: 0.120s for entire suite
 - **IMPROVEMENTS MADE**:
   - Complete wgpu GPU compute integration
   - Implemented WGSL kernels: advection, diffusion, pressure, velocity

@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 1.13.0-BOUNDARIES-IMPLEMENTED** - Complete Boundary Conditions, GPU-Accelerated
+**Version 1.14.0-COW-BROADCASTING** - Zero-Copy Optimizations, Complete Boundaries, GPU-Accelerated
 
 ## Status
 
@@ -45,7 +45,7 @@
   - Proper Result-based error propagation
 - ✅ **BUILD SUCCESS**: Compiles without errors
 - ✅ **ARCHITECTURE**: Improved domain separation
-- ✅ **BOUNDARIES-IMPLEMENTED (v1.13.0)**:
+- ✅ **COW-BROADCASTING (v1.14.0)**:
   - ALL 154 library tests pass (100% success)
   - Complete wgpu GPU compute integration
   - WGSL kernels: advection, diffusion, pressure (Jacobi), velocity (SIMPLE)
@@ -65,7 +65,10 @@
   - Resolved ALL boundary condition stub implementations
   - Dirichlet, Neumann, and Robin conditions fully functional
   - Added tests verifying actual field modifications
-  - 157 total tests pass (3 new boundary tests)
+  - 160 total tests pass (3 boundary + 3 broadcast tests)
+  - Copy-on-Write (COW) for boundary conditions
+  - Broadcasting module with zero-copy views
+  - Multi-dimensional broadcast operations
 - ✅ **PHYSICS VALIDATION (v1.3.0-rc):**
   - Implemented REAL momentum conservation checker with proper Navier-Stokes
   - Implemented REAL energy conservation with heat equation validation
