@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 1.19.0-PRODUCTION-PERFORMANCE** - Critical Performance and Algorithm Correctness
+**Version 1.20.0-PRODUCTION-OPTIMIZED** - Zero-Allocation Linear Solvers
 
 ## Status
 
