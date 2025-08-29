@@ -10,14 +10,14 @@
 
 use cfd_1d::solver::SolverConfig;
 use cfd_1d::{EdgeProperties, Network, NetworkBuilder, NetworkProblem, NetworkSolver};
-use cfd_core::fluid::Fluid;
+use cfd_core::fluid::ConstantPropertyFluid;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Microfluidic Chip Simulation");
     println!("================================");
 
     // Create a microfluidic network
-    let fluid = Fluid::<f64>::water_20c();
+    let fluid = ConstantPropertyFluid::<f64>::water_20c();
 
     // Build network using NetworkBuilder
     let mut builder = NetworkBuilder::new();

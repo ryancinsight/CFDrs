@@ -5,7 +5,7 @@ use super::state::NetworkState;
 use crate::network::Network;
 use cfd_core::boundary::BoundaryConditionSet;
 use cfd_core::error::Result;
-use cfd_core::fluid::Fluid;
+use cfd_core::fluid::ConstantPropertyFluid;
 use cfd_core::problem::Problem;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -21,7 +21,7 @@ pub struct NetworkProblem<T: RealField + Copy> {
     /// Computational domain information
     pub domain: NetworkDomain<T>,
     /// Fluid properties
-    fluid: Fluid<T>,
+    fluid: ConstantPropertyFluid<T>,
     /// Boundary conditions for the network
     boundary_conditions: BoundaryConditionSet<T>,
 }

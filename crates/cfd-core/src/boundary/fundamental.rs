@@ -52,7 +52,7 @@ pub enum BoundaryCondition<T: RealField + Copy> {
     VolumeFlowInlet { volume_flow_rate: T },
     
     /// Wall boundary
-    Wall { wall_type: crate::boundary::WallType<T> },
+    Wall { wall_type: super::WallType<T> },
     
     /// Symmetry plane
     Symmetry,

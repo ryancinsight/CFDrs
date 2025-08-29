@@ -85,9 +85,9 @@ impl<T: RealField + Copy> MaterialDatabase<T> {
 
         // Add common fluids
         use super::fluids::NewtonianFluid;
-        db.add_fluid("water".to_string(), Box::new(NewtonianFluid::<T>::water()));
-        db.add_fluid("air".to_string(), Box::new(NewtonianFluid::<T>::air()));
-        db.add_fluid("oil".to_string(), Box::new(NewtonianFluid::<T>::oil()));
+        db.add_fluid("water".to_string(), Box::new(NewtonianConstantPropertyFluid::<T>::water()));
+        db.add_fluid("air".to_string(), Box::new(NewtonianConstantPropertyFluid::<T>::air()));
+        db.add_fluid("oil".to_string(), Box::new(NewtonianConstantPropertyFluid::<T>::oil()));
 
         // Add common solids
         use super::solids::ElasticSolid;

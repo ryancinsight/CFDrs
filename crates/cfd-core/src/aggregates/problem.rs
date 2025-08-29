@@ -3,7 +3,7 @@
 use crate::boundary::BoundaryCondition;
 use crate::domain::Domain;
 use crate::error::{Error, Result};
-use crate::fluid::Fluid;
+use crate::fluid::{FluidModel, ConstantPropertyFluid};
 use crate::values::{Pressure, Velocity};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -19,8 +19,8 @@ pub struct ProblemAggregate<T: RealField + Copy, D: Domain<T>> {
     pub description: String,
     /// Computational domain
     pub domain: D,
-    /// Fluid properties
-    pub fluid: Fluid<T>,
+    /// Fluid properties (constant property model)
+    pub fluid: ConstantPropertyFluid<T>,
     /// Initial conditions
     pub initial_conditions: InitialConditions<T>,
     /// Boundary conditions
@@ -55,7 +55,7 @@ pub enum ProblemType {
 
 impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> ProblemAggregate<T, D> {
     /// Create a new problem aggregate
-    pub fn new(name: String, domain: D, fluid: Fluid<T>) -> Self {
+    pub fn new(name: String, domain: D, fluid: ConstantPropertyFluid<T>) -> Self {
         Self {
             name,
             description: String::new(),

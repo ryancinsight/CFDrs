@@ -4,7 +4,7 @@
 //! and coordinate between different domain entities following DDD principles.
 
 use crate::error::{Error, Result};
-use crate::fluid::Fluid;
+use crate::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 

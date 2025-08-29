@@ -2,7 +2,7 @@
 
 use super::{constants, Component};
 use cfd_core::error::Result;
-use cfd_core::fluid::Fluid;
+use cfd_core::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};

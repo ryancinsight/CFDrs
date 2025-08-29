@@ -5,7 +5,7 @@
 
 use crate::grid::{Grid2D, StructuredGrid2D};
 use cfd_core::boundary::BoundaryCondition;
-use cfd_core::fluid::Fluid;
+use cfd_core::fluid::ConstantPropertyFluid;
 use cfd_core::problem::Problem;
 use nalgebra::{RealField, Vector2};
 use std::collections::HashMap;
@@ -18,7 +18,7 @@ pub struct IncompressibleFlowProblem<T: RealField + Copy> {
     /// Boundary conditions at specific grid points
     pub boundary_conditions: HashMap<(usize, usize), BoundaryCondition<T>>,
     /// Fluid properties
-    pub fluid: Fluid<T>,
+    pub fluid: ConstantPropertyFluid<T>,
     /// Initial velocity field
     pub initial_velocity: Vec<Vec<Vector2<T>>>,
     /// Initial pressure field
@@ -34,7 +34,7 @@ impl<T: RealField + Copy> IncompressibleFlowProblem<T> {
     pub fn new(
         grid: StructuredGrid2D<T>,
         boundary_conditions: HashMap<(usize, usize), BoundaryCondition<T>>,
-        fluid: Fluid<T>,
+        fluid: ConstantPropertyFluid<T>,
     ) -> Self {
         let nx = grid.nx();
         let ny = grid.ny();
