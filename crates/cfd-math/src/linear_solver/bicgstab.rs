@@ -3,7 +3,7 @@
 use super::preconditioners::IdentityPreconditioner;
 use super::traits::{LinearSolver, Preconditioner};
 use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind, Result};
-use cfd_core::solver::LinearSolverConfig;
+use cfd_core::solvers::LinearSolverConfig;
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;

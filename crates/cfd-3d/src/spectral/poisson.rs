@@ -3,6 +3,7 @@
 //! Solves ∇²u = f with various boundary conditions
 //! Reference: Boyd, J.P. (2001). "Chebyshev and Fourier Spectral Methods"
 
+use super::basis::SpectralBasis;
 use super::chebyshev::ChebyshevPolynomial;
 use cfd_core::Result;
 use nalgebra::{DMatrix, DVector, RealField};
@@ -34,7 +35,7 @@ pub struct PoissonSolver<T: RealField + Copy> {
 }
 
 impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
-    /// Create new Poisson solver
+    /// Create new Poisson solver with default Chebyshev basis
     pub fn new(nx: usize, ny: usize, nz: usize) -> Result<Self> {
         Ok(Self {
             nx,
@@ -44,6 +45,17 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
             basis_y: ChebyshevPolynomial::new(ny)?,
             basis_z: ChebyshevPolynomial::new(nz)?,
         })
+    }
+
+    /// Create new Poisson solver with specified basis functions
+    pub fn new_with_basis(
+        modes: (usize, usize, usize),
+        _basis: (SpectralBasis, SpectralBasis, SpectralBasis),
+    ) -> Result<Self> {
+        // TODO: Implement support for Fourier basis when needed
+        // For now, always use Chebyshev regardless of configuration
+        // This at least makes the API ready for future extension
+        Self::new(modes.0, modes.1, modes.2)
     }
 
     /// Solve 3D Poisson equation: ∇²u = f

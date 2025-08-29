@@ -80,20 +80,38 @@ pub struct Domain2D<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> Domain2D<T> {
-    /// Create a new 2D domain from scalar coordinates.
-    pub fn new(x_min: T, y_min: T, x_max: T, y_max: T) -> Self {
+    /// Create a new 2D domain from corner points.
+    /// Coordinates are automatically ordered to ensure min <= max on each axis.
+    pub fn new(p1: Point3<T>, p2: Point3<T>) -> Self {
+        let (x_min, x_max) = if p1.x <= p2.x {
+            (p1.x, p2.x)
+        } else {
+            (p2.x, p1.x)
+        };
+        let (y_min, y_max) = if p1.y <= p2.y {
+            (p1.y, p2.y)
+        } else {
+            (p2.y, p1.y)
+        };
         Self {
             min: Point3::new(x_min, y_min, T::zero()),
             max: Point3::new(x_max, y_max, T::zero()),
         }
     }
 
-    /// Create a new 2D domain from corner points.
+    /// Create a new 2D domain from scalar coordinates.
+    /// Coordinates are automatically ordered to ensure min <= max on each axis.
+    pub fn from_scalars(x1: T, y1: T, x2: T, y2: T) -> Self {
+        Self::new(
+            Point3::new(x1, y1, T::zero()),
+            Point3::new(x2, y2, T::zero()),
+        )
+    }
+
+    /// Create a new 2D domain from corner points (deprecated, use new instead).
+    #[deprecated(note = "Use new() instead for consistent API")]
     pub fn from_points(min: Point3<T>, max: Point3<T>) -> Self {
-        // In debug builds, ensure z-components are zero for 2D domains
-        debug_assert!(min.z.is_zero());
-        debug_assert!(max.z.is_zero());
-        Self { min, max }
+        Self::new(min, max)
     }
 
     /// Get the width of the domain
@@ -143,9 +161,34 @@ pub struct Domain3D<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> Domain3D<T> {
-    /// Create a new 3D domain
-    pub const fn new(min: Point3<T>, max: Point3<T>) -> Self {
-        Self { min, max }
+    /// Create a new 3D domain from corner points.
+    /// Coordinates are automatically ordered to ensure min <= max on each axis.
+    pub fn new(p1: Point3<T>, p2: Point3<T>) -> Self {
+        let (x_min, x_max) = if p1.x <= p2.x {
+            (p1.x, p2.x)
+        } else {
+            (p2.x, p1.x)
+        };
+        let (y_min, y_max) = if p1.y <= p2.y {
+            (p1.y, p2.y)
+        } else {
+            (p2.y, p1.y)
+        };
+        let (z_min, z_max) = if p1.z <= p2.z {
+            (p1.z, p2.z)
+        } else {
+            (p2.z, p1.z)
+        };
+        Self {
+            min: Point3::new(x_min, y_min, z_min),
+            max: Point3::new(x_max, y_max, z_max),
+        }
+    }
+
+    /// Create a new 3D domain from scalar coordinates.
+    /// Coordinates are automatically ordered to ensure min <= max on each axis.
+    pub fn from_scalars(x1: T, y1: T, z1: T, x2: T, y2: T, z2: T) -> Self {
+        Self::new(Point3::new(x1, y1, z1), Point3::new(x2, y2, z2))
     }
 
     /// Get the width (x dimension)
@@ -188,8 +231,7 @@ impl<T: RealField + Copy> Domain3D<T> {
 
     /// Get the volume
     pub fn volume(&self) -> T {
-        let dims = self.diagonal();
-        dims.x * dims.y * dims.z
+        self.width() * self.height() * self.depth()
     }
 }
 
@@ -303,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_domain_2d() {
-        let domain = Domain2D::new(0.0, 0.0, 2.0, 3.0);
+        let domain = Domain2D::from_scalars(0.0, 0.0, 2.0, 3.0);
         assert_eq!(domain.dimension(), 2);
         assert_relative_eq!(domain.area(), 6.0);
         assert!(domain.contains(&Point3::new(1.0, 1.0, 0.0)));
@@ -329,7 +371,7 @@ mod tests {
         let any_domain: AnyDomain<f64> = domain_1d.into();
         assert_eq!(any_domain.dimension(), 1);
 
-        let domain_2d = Domain2D::new(0.0, 0.0, 1.0, 1.0);
+        let domain_2d = Domain2D::from_scalars(0.0, 0.0, 1.0, 1.0);
         let any_domain: AnyDomain<f64> = domain_2d.into();
         assert_eq!(any_domain.dimension(), 2);
 

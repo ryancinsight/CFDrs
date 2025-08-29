@@ -1,7 +1,7 @@
 //! Core traits for linear solvers and preconditioners
 
 use cfd_core::error::Result;
-use cfd_core::solver::LinearSolverConfig;
+use cfd_core::solvers::LinearSolverConfig;
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 

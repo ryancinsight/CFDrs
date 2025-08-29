@@ -1,5 +1,7 @@
 //! Core mesh types and data structures
 
+use crate::error::{Error, Result};
+
 use crate::domains::mesh_operations::element::ElementType;
 use nalgebra::{Point3, RealField};
 use serde::{Deserialize, Serialize};
@@ -80,17 +82,17 @@ impl<T: RealField + Copy> Mesh<T> {
     }
 
     /// Validate mesh consistency
-    pub fn validate(&self) -> crate::Result<()> {
+    pub fn validate(&self) -> Result<()> {
         // Check for empty mesh
         if self.nodes.is_empty() {
-            return Err(crate::Error::InvalidInput("Mesh has no nodes".into()));
+            return Err(Error::InvalidInput("Mesh has no nodes".into()));
         }
 
         // Check element node indices
         for element in &self.elements {
             for &node_idx in &element.nodes {
                 if node_idx >= self.nodes.len() {
-                    return Err(crate::Error::InvalidInput(format!(
+                    return Err(Error::InvalidInput(format!(
                         "Element references invalid node index: {}",
                         node_idx
                     )));

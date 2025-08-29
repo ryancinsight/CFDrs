@@ -9,13 +9,36 @@ pub mod iterative;
 pub mod monitor;
 pub mod traits;
 
-// Re-export core traits
-pub use config::{
-    ConvergenceConfig, ExecutionConfig, LinearSolverConfig, NetworkConfig, NetworkSolverConfig,
-    NumericalConfig, SolverConfig, SolverConfigBuilder, SolverConfiguration,
-};
-pub use convergence::{AndCriteria, ConvergenceCriteria, OrCriteria, ToleranceCriteria};
-pub use direct::DirectSolver;
-pub use iterative::{IterationState, IterativeSolver, SolverIterator};
-pub use monitor::{MonitoredIterator, NullMonitor, SolutionMonitor};
-pub use traits::{Configurable, Solver, Validatable};
+// Curated Re-exports: Only expose the most important, high-level types.
+pub use self::config::{SolverConfig, SolverConfiguration};
+pub use self::traits::{Configurable, Solver, Validatable};
+
+/// A trait for solvers that compute a solution in a single step (e.g., via matrix inversion).
+pub use self::direct::DirectSolver;
+/// A trait for solvers that approach a solution through successive approximations.
+pub use self::iterative::IterativeSolver;
+
+// Public Sub-modules: Expose specialized functionality in organized namespaces.
+
+/// Solver configuration types.
+pub mod configuration {
+    pub use super::config::{
+        ConvergenceConfig, ExecutionConfig, LinearSolverConfig, NetworkConfig, NetworkSolverConfig,
+        NumericalConfig, SolverConfigBuilder,
+    };
+}
+
+/// Convergence criteria for iterative solvers.
+pub mod convergence_criteria {
+    pub use super::convergence::{AndCriteria, ConvergenceCriteria, OrCriteria, ToleranceCriteria};
+}
+
+/// Solution monitoring tools.
+pub mod monitoring {
+    pub use super::monitor::{MonitoredIterator, NullMonitor, SolutionMonitor};
+}
+
+/// Iteration state management.
+pub mod iteration {
+    pub use super::iterative::{IterationState, SolverIterator};
+}

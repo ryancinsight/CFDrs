@@ -171,7 +171,7 @@ mod tests {
     #[test]
     fn test_problem_builder() {
         let problem = ProblemBuilder::new()
-            .domain(Domain2D::new(0.0, 0.0, 1.0, 1.0))
+            .domain(Domain2D::from_scalars(0.0, 0.0, 1.0, 1.0))
             .fluid(Fluid::water_20c())
             .boundary_condition(
                 "inlet",

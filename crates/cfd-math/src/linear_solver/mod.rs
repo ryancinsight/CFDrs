@@ -30,7 +30,8 @@ pub use preconditioners::{IdentityPreconditioner, JacobiPreconditioner, SORPreco
 pub use traits::{LinearSolver, Preconditioner};
 
 // Re-export the unified configuration from cfd-core
-pub use cfd_core::solver::{LinearSolverConfig, SolverConfiguration};
+pub use cfd_core::solver::SolverConfiguration;
+pub use cfd_core::solvers::LinearSolverConfig;
 
 #[cfg(test)]
 mod tests;

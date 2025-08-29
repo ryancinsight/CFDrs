@@ -9,7 +9,7 @@ mod tests {
     };
     use crate::sparse::{SparseMatrix, SparseMatrixBuilder};
     use approx::assert_relative_eq;
-    use cfd_core::solver::LinearSolverConfig;
+    use cfd_core::solvers::LinearSolverConfig;
     use cfd_core::Result;
     use nalgebra::DVector;
 

@@ -5,75 +5,104 @@ use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
-/// Trait defining the interface for fluid models
-///
-/// This trait allows for different fluid models to be implemented
-/// while providing a consistent interface to the solvers.
-pub trait FluidModel<T: RealField>: Send + Sync {
-    /// Get fluid density [kg/m³] at given conditions
-    fn density(&self, temperature: T, pressure: T) -> Result<T, Error>;
+/// A block of computed fluid properties at a single state point.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct FluidProperties<T: RealField + Copy> {
+    /// Density [kg/m³]
+    pub density: T,
+    /// Dynamic viscosity [Pa·s]
+    pub dynamic_viscosity: T,
+    /// Specific heat capacity [J/(kg·K)]
+    pub specific_heat: T,
+    /// Thermal conductivity [W/(m·K)]
+    pub thermal_conductivity: T,
+}
 
-    /// Get dynamic viscosity [Pa·s] at given conditions
-    fn dynamic_viscosity(&self, temperature: T, pressure: T) -> Result<T, Error>;
-
-    /// Get kinematic viscosity [m²/s] at given conditions
-    fn kinematic_viscosity(&self, temperature: T, pressure: T) -> Result<T, Error>
-    where
-        T: Copy,
-    {
-        let rho = self.density(temperature, pressure)?;
-        let mu = self.dynamic_viscosity(temperature, pressure)?;
-        if rho <= T::zero() {
+impl<T: RealField + Copy> FluidProperties<T> {
+    /// Calculate kinematic viscosity [m²/s] from base properties.
+    pub fn kinematic_viscosity(&self) -> Result<T, Error> {
+        if self.density <= T::zero() {
             return Err(Error::InvalidInput("Density must be positive".to_string()));
         }
-        Ok(mu / rho)
+        Ok(self.dynamic_viscosity / self.density)
     }
 
-    /// Get specific heat capacity [J/(kg·K)] at given conditions
-    fn specific_heat(&self, temperature: T, pressure: T) -> Result<T, Error>;
-
-    /// Get thermal conductivity [W/(m·K)] at given conditions
-    fn thermal_conductivity(&self, temperature: T, pressure: T) -> Result<T, Error>;
-
-    /// Get Prandtl number (dimensionless) at given conditions
-    fn prandtl_number(&self, temperature: T, pressure: T) -> Result<T, Error>
-    where
-        T: Copy,
-    {
-        let cp = self.specific_heat(temperature, pressure)?;
-        let mu = self.dynamic_viscosity(temperature, pressure)?;
-        let k = self.thermal_conductivity(temperature, pressure)?;
-        if k <= T::zero() {
+    /// Calculate Prandtl number from base properties.
+    pub fn prandtl_number(&self) -> Result<T, Error> {
+        if self.thermal_conductivity <= T::zero() {
             return Err(Error::InvalidInput(
                 "Thermal conductivity must be positive".to_string(),
             ));
         }
-        Ok(mu * cp / k)
+        Ok(self.dynamic_viscosity * self.specific_heat / self.thermal_conductivity)
     }
 
-    /// Calculate Reynolds number for given flow conditions
+    /// Calculate Reynolds number for given flow conditions.
+    pub fn reynolds_number(&self, velocity: T, characteristic_length: T) -> Result<T, Error> {
+        if self.dynamic_viscosity <= T::zero() {
+            return Err(Error::InvalidInput(
+                "Viscosity must be positive".to_string(),
+            ));
+        }
+        Ok(self.density * velocity * characteristic_length / self.dynamic_viscosity)
+    }
+}
+
+/// Trait defining the interface for fluid models
+///
+/// This trait allows for different fluid models to be implemented
+/// while providing a consistent interface to the solvers.
+pub trait FluidModel<T: RealField + Copy>: Send + Sync {
+    /// Calculate a block of all fluid properties at the given conditions.
+    fn properties(&self, temperature: T, pressure: T) -> Result<FluidProperties<T>, Error>;
+
+    /// Get a descriptive name for this fluid model.
+    fn name(&self) -> &str;
+
+    // Convenience methods that delegate to properties() for backward compatibility
+
+    /// Get fluid density [kg/m³] at given conditions (backward compatibility)
+    fn density(&self, temperature: T, pressure: T) -> Result<T, Error> {
+        Ok(self.properties(temperature, pressure)?.density)
+    }
+
+    /// Get dynamic viscosity [Pa·s] at given conditions (backward compatibility)
+    fn dynamic_viscosity(&self, temperature: T, pressure: T) -> Result<T, Error> {
+        Ok(self.properties(temperature, pressure)?.dynamic_viscosity)
+    }
+
+    /// Get kinematic viscosity [m²/s] at given conditions (backward compatibility)
+    fn kinematic_viscosity(&self, temperature: T, pressure: T) -> Result<T, Error> {
+        self.properties(temperature, pressure)?
+            .kinematic_viscosity()
+    }
+
+    /// Get specific heat capacity [J/(kg·K)] at given conditions (backward compatibility)
+    fn specific_heat(&self, temperature: T, pressure: T) -> Result<T, Error> {
+        Ok(self.properties(temperature, pressure)?.specific_heat)
+    }
+
+    /// Get thermal conductivity [W/(m·K)] at given conditions (backward compatibility)
+    fn thermal_conductivity(&self, temperature: T, pressure: T) -> Result<T, Error> {
+        Ok(self.properties(temperature, pressure)?.thermal_conductivity)
+    }
+
+    /// Get Prandtl number (dimensionless) at given conditions (backward compatibility)
+    fn prandtl_number(&self, temperature: T, pressure: T) -> Result<T, Error> {
+        self.properties(temperature, pressure)?.prandtl_number()
+    }
+
+    /// Calculate Reynolds number for given flow conditions (backward compatibility)
     fn reynolds_number(
         &self,
         velocity: T,
         characteristic_length: T,
         temperature: T,
         pressure: T,
-    ) -> Result<T, Error>
-    where
-        T: Copy,
-    {
-        let rho = self.density(temperature, pressure)?;
-        let mu = self.dynamic_viscosity(temperature, pressure)?;
-        if mu <= T::zero() {
-            return Err(Error::InvalidInput(
-                "Viscosity must be positive".to_string(),
-            ));
-        }
-        Ok(rho * velocity * characteristic_length / mu)
+    ) -> Result<T, Error> {
+        self.properties(temperature, pressure)?
+            .reynolds_number(velocity, characteristic_length)
     }
-
-    /// Get a descriptive name for this fluid model
-    fn name(&self) -> &str;
 }
 
 /// Constant property fluid model (incompressible, Newtonian)
@@ -113,75 +142,101 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     }
 
     /// Create water at 20°C and 1 atm
-    pub fn water_20c() -> Self
+    pub fn water_20c() -> Result<Self, Error>
     where
         T: FromPrimitive,
     {
-        Self {
+        let density = T::from_f64(998.2).ok_or_else(|| {
+            Error::InvalidInput(
+                "Cannot represent water density (998.2 kg/m³) in target type T".to_string(),
+            )
+        })?;
+        let viscosity = T::from_f64(1.002e-3).ok_or_else(|| {
+            Error::InvalidInput(
+                "Cannot represent water viscosity (1.002e-3 Pa·s) in target type T".to_string(),
+            )
+        })?;
+        let specific_heat = T::from_f64(4182.0).ok_or_else(|| {
+            Error::InvalidInput(
+                "Cannot represent water specific heat (4182 J/(kg·K)) in target type T".to_string(),
+            )
+        })?;
+        let thermal_conductivity = T::from_f64(0.598).ok_or_else(|| {
+            Error::InvalidInput(
+                "Cannot represent water thermal conductivity (0.598 W/(m·K)) in target type T"
+                    .to_string(),
+            )
+        })?;
+
+        Ok(Self {
             name: "Water at 20°C, 1 atm".to_string(),
-            density: T::from_f64(998.2)
-                .expect("Failed to represent water density (998.2 kg/m³) in numeric type T"),
-            viscosity: T::from_f64(1.002e-3)
-                .expect("Failed to represent water viscosity (1.002e-3 Pa·s) in numeric type T"),
-            specific_heat: T::from_f64(4182.0).expect(
-                "Failed to represent water specific heat (4182 J/(kg·K)) in numeric type T",
-            ),
-            thermal_conductivity: T::from_f64(0.598).expect(
-                "Failed to represent water thermal conductivity (0.598 W/(m·K)) in numeric type T",
-            ),
-        }
+            density,
+            viscosity,
+            specific_heat,
+            thermal_conductivity,
+        })
     }
 
     /// Create air at 20°C and 1 atm
-    pub fn air_20c() -> Self
+    pub fn air_20c() -> Result<Self, Error>
     where
         T: FromPrimitive,
     {
-        Self {
+        let density = T::from_f64(1.204).ok_or_else(|| {
+            Error::InvalidInput(
+                "Cannot represent air density (1.204 kg/m³) in target type T".to_string(),
+            )
+        })?;
+        let viscosity = T::from_f64(1.82e-5).ok_or_else(|| {
+            Error::InvalidInput(
+                "Cannot represent air viscosity (1.82e-5 Pa·s) in target type T".to_string(),
+            )
+        })?;
+        let specific_heat = T::from_f64(1005.0).ok_or_else(|| {
+            Error::InvalidInput(
+                "Cannot represent air specific heat (1005 J/(kg·K)) in target type T".to_string(),
+            )
+        })?;
+        let thermal_conductivity = T::from_f64(0.0257).ok_or_else(|| {
+            Error::InvalidInput(
+                "Cannot represent air thermal conductivity (0.0257 W/(m·K)) in target type T"
+                    .to_string(),
+            )
+        })?;
+
+        Ok(Self {
             name: "Air at 20°C, 1 atm".to_string(),
-            density: T::from_f64(1.204)
-                .expect("Failed to represent air density (1.204 kg/m³) in numeric type T"),
-            viscosity: T::from_f64(1.82e-5)
-                .expect("Failed to represent air viscosity (1.82e-5 Pa·s) in numeric type T"),
-            specific_heat: T::from_f64(1005.0)
-                .expect("Failed to represent air specific heat (1005 J/(kg·K)) in numeric type T"),
-            thermal_conductivity: T::from_f64(0.0257).expect(
-                "Failed to represent air thermal conductivity (0.0257 W/(m·K)) in numeric type T",
-            ),
-        }
+            density,
+            viscosity,
+            specific_heat,
+            thermal_conductivity,
+        })
     }
 
-    /// Get the constant density value
-    pub fn density(&self) -> T {
+    /// Get the base constant density value
+    pub fn const_density(&self) -> T {
         self.density
     }
 
-    /// Get the constant dynamic viscosity value
-    pub fn dynamic_viscosity(&self) -> T {
+    /// Get the base constant dynamic viscosity value
+    pub fn const_dynamic_viscosity(&self) -> T {
         self.viscosity
     }
 
-    /// Get the kinematic viscosity
-    pub fn kinematic_viscosity(&self) -> T {
+    /// Get the base constant kinematic viscosity
+    pub fn const_kinematic_viscosity(&self) -> T {
         self.viscosity / self.density
     }
 }
 
 impl<T: RealField + Copy> FluidModel<T> for ConstantPropertyFluid<T> {
-    fn density(&self, _temperature: T, _pressure: T) -> Result<T, Error> {
-        Ok(self.density)
-    }
-
-    fn dynamic_viscosity(&self, _temperature: T, _pressure: T) -> Result<T, Error> {
-        Ok(self.viscosity)
-    }
-
-    fn specific_heat(&self, _temperature: T, _pressure: T) -> Result<T, Error> {
-        Ok(self.specific_heat)
-    }
-
-    fn thermal_conductivity(&self, _temperature: T, _pressure: T) -> Result<T, Error> {
-        Ok(self.thermal_conductivity)
+    fn properties(&self, _temperature: T, _pressure: T) -> Result<FluidProperties<T>, Error> {
+        Ok(FluidProperties {
+            density: self.density,
+            dynamic_viscosity: self.viscosity,
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+        })
     }
 
     fn name(&self) -> &str {
@@ -263,47 +318,37 @@ impl<T: RealField + Copy + FromPrimitive> IdealGas<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> FluidModel<T> for IdealGas<T> {
-    fn density(&self, temperature: T, pressure: T) -> Result<T, Error> {
+    fn properties(&self, temperature: T, pressure: T) -> Result<FluidProperties<T>, Error> {
         if temperature <= T::zero() {
             return Err(Error::InvalidInput(
                 "Temperature must be positive".to_string(),
             ));
         }
-        let r_universal =
-            T::from_f64(Self::R_UNIVERSAL).expect("Failed to represent universal gas constant");
-        let r_specific = r_universal / self.molar_mass;
-        Ok(pressure / (r_specific * temperature))
-    }
 
-    fn dynamic_viscosity(&self, temperature: T, _pressure: T) -> Result<T, Error> {
-        if temperature <= T::zero() {
-            return Err(Error::InvalidInput(
-                "Temperature must be positive".to_string(),
-            ));
-        }
-        // Sutherland's formula for viscosity
+        // Calculate density using ideal gas law
+        let r_universal = T::from_f64(Self::R_UNIVERSAL).ok_or_else(|| {
+            Error::InvalidInput(
+                "Cannot represent universal gas constant in target type T".to_string(),
+            )
+        })?;
+        let r_specific = r_universal / self.molar_mass;
+        let density = pressure / (r_specific * temperature);
+
+        // Calculate viscosity using Sutherland's formula
         let t_ratio = temperature / self.temperature_ref;
-        let t_ratio_3_2 = t_ratio.powf(T::from_f64(1.5).expect("Failed to represent 1.5"));
+        let t_ratio_3_2 = t_ratio.powf(T::from_f64(1.5).ok_or_else(|| {
+            Error::InvalidInput("Cannot represent 1.5 in target type T".to_string())
+        })?);
         let numerator = self.temperature_ref + self.sutherland_constant;
         let denominator = temperature + self.sutherland_constant;
-        Ok(self.viscosity_ref * t_ratio_3_2 * numerator / denominator)
-    }
+        let dynamic_viscosity = self.viscosity_ref * t_ratio_3_2 * numerator / denominator;
 
-    fn specific_heat(&self, _temperature: T, _pressure: T) -> Result<T, Error> {
-        // For ideal gas, Cp is constant
-        Ok(self.specific_heat_cp)
-    }
-
-    fn thermal_conductivity(&self, temperature: T, _pressure: T) -> Result<T, Error> {
-        if temperature <= T::zero() {
-            return Err(Error::InvalidInput(
-                "Temperature must be positive".to_string(),
-            ));
-        }
-        // Simple temperature-dependent model
-        let t_ratio = temperature / self.temperature_ref;
-        let t_ratio_sqrt = t_ratio.sqrt();
-        Ok(self.thermal_conductivity_coeff * t_ratio_sqrt)
+        Ok(FluidProperties {
+            density,
+            dynamic_viscosity,
+            specific_heat: self.specific_heat_cp,
+            thermal_conductivity: self.thermal_conductivity_coeff * temperature.sqrt(),
+        })
     }
 
     fn name(&self) -> &str {
