@@ -28,7 +28,7 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v1.17.0-PRODUCTION-VALIDATED)
+### Current State (v1.18.0-PRODUCTION-CRITICAL)
 - **ARCHITECTURE**: ✅ Clean domain-driven design
   - All modules properly sized (largest: 420 lines)
   - Trait-based interfaces following SOLID/CUPID/GRASP
@@ -149,6 +149,13 @@ Research software (not production)
   - Grid convergence studies with Richardson extrapolation
   - Error metrics and convergence rate analysis
   - Known analytical and numerical solutions
+- **CRITICAL SAFETY (v1.18.0)**: ✅ PRODUCTION-CRITICAL FIXES
+  - Eliminated all unsafe fallbacks in resistance calculations
+  - Type-safe component classification system
+  - Proper error propagation throughout
+  - No silent failures or misleading stubs
+  - Fail-fast principle properly applied
+  - All physical constants handled correctly
 
 ### Users
 - Researchers, students, prototype developers

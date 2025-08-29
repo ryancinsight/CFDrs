@@ -1,6 +1,6 @@
 //! Checkpoint management and I/O operations
 
-use crate::checkpoint::{Checkpoint, CheckpointMetadata, CompressionStrategy};
+use crate::checkpoint::{Checkpoint, CompressionStrategy};
 use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};

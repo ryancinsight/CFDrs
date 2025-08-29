@@ -4,6 +4,7 @@
 //! organized into domain-specific submodules.
 
 pub mod analyzers;
+pub mod error;
 pub mod flow;
 pub mod performance;
 pub mod pressure;

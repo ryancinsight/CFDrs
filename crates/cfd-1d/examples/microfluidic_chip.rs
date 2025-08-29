@@ -62,6 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ] {
         let props = EdgeProperties {
             id: id.to_string(),
+            component_type: cfd_1d::network::ComponentType::Pipe,
             resistance,
             length: CHANNEL_LENGTH,
             area,

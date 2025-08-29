@@ -5,7 +5,7 @@
 //! ∇·u = 0
 
 use super::ManufacturedSolution;
-use nalgebra::{RealField, Vector2, Vector3};
+use nalgebra::{RealField, Vector2};
 use num_traits::Float;
 use std::f64::consts::PI;
 

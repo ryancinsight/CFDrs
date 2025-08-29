@@ -3,7 +3,7 @@
 //! Solves: ∂u/∂t + v·∇u = S(x,y,t)
 //! where S is the manufactured source term
 
-use super::{ManufacturedFunctions, ManufacturedSolution};
+use super::ManufacturedSolution;
 use nalgebra::RealField;
 use num_traits::Float;
 use std::f64::consts::PI;

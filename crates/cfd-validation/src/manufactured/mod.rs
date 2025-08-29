@@ -7,7 +7,7 @@
 //! - Roache, P.J. (2002) "Code Verification by the Method of Manufactured Solutions"
 //! - Salari, K. & Knupp, P. (2000) "Code Verification by the Method of Manufactured Solutions"
 
-use nalgebra::{RealField, Vector3};
+use nalgebra::RealField;
 use num_traits::Float;
 
 pub mod advection;

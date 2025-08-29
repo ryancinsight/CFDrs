@@ -3,6 +3,7 @@
 //! Provides graph-based representation of fluid networks
 
 mod builder;
+mod component_type;
 mod edge;
 mod graph;
 mod metadata;
@@ -10,6 +11,7 @@ mod node;
 mod wrapper;
 
 pub use builder::NetworkBuilder;
+pub use component_type::ComponentType;
 pub use edge::{ChannelProperties, Edge, EdgeType};
 pub use graph::NetworkGraph;
 pub use metadata::NetworkMetadata;

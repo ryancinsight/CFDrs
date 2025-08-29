@@ -29,6 +29,8 @@ pub struct Network<T: RealField + Copy> {
 pub struct EdgeProperties<T: RealField + Copy> {
     /// Edge identifier
     pub id: String,
+    /// Physical component type
+    pub component_type: super::ComponentType,
     /// Length of the channel
     pub length: T,
     /// Cross-sectional area

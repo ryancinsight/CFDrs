@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 1.17.0-PRODUCTION-VALIDATED** - Enhanced Validation Suite with Manufactured Solutions
+**Version 1.18.0-PRODUCTION-CRITICAL** - Critical Safety and Correctness Fixes
 
 ## Status
 

@@ -1,6 +1,7 @@
 //! Resistance analysis for network components
 
 use super::traits::NetworkAnalyzer;
+use crate::analysis::error::ResistanceCalculationError;
 use crate::analysis::ResistanceAnalysis;
 use crate::network::Network;
 use cfd_core::Result;
@@ -37,20 +38,28 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T>
             } else {
                 Some(edge.flow_rate)
             };
-            let resistance = self.calculate_resistance(edge.properties, fluid, flow_rate);
+
+            // Calculate resistance with proper error handling
+            let resistance = self
+                .calculate_resistance(edge.properties, fluid, flow_rate)
+                .map_err(|e| {
+                    // Enhance error context before propagating
+                    cfd_core::error::Error::InvalidInput(format!(
+                        "Failed to analyze resistance for edge '{}': {}",
+                        edge.id, e
+                    ))
+                })?;
 
             analysis.add_resistance(edge.id.clone(), resistance);
 
-            // Add resistance by component type
-            let component_type = self.classify_component_type(&edge.id);
-            analysis.add_resistance_by_type(component_type, resistance);
+            // Add resistance by component type (now type-safe)
+            let component_type = edge.properties.component_type;
+            analysis.add_resistance_by_type(component_type.as_str().to_string(), resistance);
         }
 
-        // Find critical paths with highest resistance
-        let critical_paths = self.find_critical_paths(network);
-        for path in critical_paths {
-            analysis.add_critical_path(path);
-        }
+        // Note: Critical path analysis removed as it was unimplemented
+        // This feature should be added as a separate, properly implemented method
+        // when the algorithm is ready
 
         Ok(analysis)
     }
@@ -66,48 +75,35 @@ impl<T: RealField + Copy + FromPrimitive + Float> ResistanceAnalyzer<T> {
         properties: &crate::network::EdgeProperties<T>,
         fluid: &cfd_core::fluid::Fluid<T>,
         flow_rate: Option<T>,
-    ) -> T {
+    ) -> std::result::Result<T, ResistanceCalculationError> {
         use crate::resistance::{FlowConditions, HagenPoiseuilleModel, ResistanceModel};
 
-        // Use appropriate resistance model based on geometry
-        let model = HagenPoiseuilleModel::new(
-            properties.hydraulic_diameter.unwrap_or_else(T::one),
-            properties.length,
-        );
+        // Require hydraulic diameter - no silent fallbacks
+        let hydraulic_diameter = properties
+            .hydraulic_diameter
+            .ok_or(ResistanceCalculationError::MissingHydraulicDiameter)?;
 
+        // Create resistance model with validated parameters
+        let model = HagenPoiseuilleModel::new(hydraulic_diameter, properties.length);
+
+        // Build flow conditions with proper constants
         let conditions = FlowConditions {
             reynolds_number: flow_rate.map(|q| {
                 let velocity = q / properties.area;
-                let dh = properties.hydraulic_diameter.unwrap_or_else(T::one);
-                fluid.reynolds_number(velocity, dh)
+                fluid.reynolds_number(velocity, hydraulic_diameter)
             }),
             velocity: flow_rate.map(|q| q / properties.area),
             flow_rate,
-            temperature: T::from_f64(293.15).unwrap_or_else(T::one),
-            pressure: T::from_f64(101325.0).unwrap_or_else(T::one),
+            // Use expect with clear messages for constants that must succeed
+            temperature: T::from_f64(293.15)
+                .expect("Standard temperature (293.15K) must be representable in type T"),
+            pressure: T::from_f64(101325.0)
+                .expect("Standard pressure (101325.0 Pa) must be representable in type T"),
         };
 
+        // Calculate resistance and propagate any errors
         model
             .calculate_resistance(fluid, &conditions)
-            .unwrap_or_else(|_| properties.resistance)
-    }
-
-    fn classify_component_type(&self, edge_id: &str) -> String {
-        // Classification based on edge naming convention
-        if edge_id.contains("valve") {
-            "valve".to_string()
-        } else if edge_id.contains("pump") {
-            "pump".to_string()
-        } else if edge_id.contains("junction") {
-            "junction".to_string()
-        } else {
-            "pipe".to_string()
-        }
-    }
-
-    fn find_critical_paths(&self, network: &Network<T>) -> Vec<Vec<String>> {
-        // Simplified: return paths with highest total resistance
-        // In production, use graph algorithms to find actual critical paths
-        Vec::new()
+            .map_err(|e| ResistanceCalculationError::ModelError(e.to_string()))
     }
 }

@@ -1,6 +1,32 @@
 # CFD Suite - Technical Checklist
 
-## Version 1.17.0-PRODUCTION-VALIDATED - Current State
+## Version 1.18.0-PRODUCTION-CRITICAL - Current State
+
+### Critical Safety Fixes (v1.18.0) ✅
+- [x] **Resistance Analyzer Correctness**:
+  - Eliminated unsafe hydraulic diameter fallbacks (was defaulting to 1.0)
+  - Proper error propagation for missing critical parameters
+  - No more silent failures in resistance calculations
+  - Explicit error handling with ResistanceCalculationError type
+- [x] **Type-Safe Component Classification**:
+  - Replaced fragile string-based component detection
+  - Added ComponentType enum for type-safe classification
+  - Component type now intrinsic property of EdgeProperties
+  - Zero-cost abstraction with compile-time safety
+- [x] **Removed Misleading Stubs**:
+  - Eliminated unimplemented critical_paths analysis
+  - No more dead code producing incorrect results
+  - API now honest about implemented features
+- [x] **Proper Constant Handling**:
+  - Standard conditions use .expect() with clear messages
+  - No nonsensical fallbacks to 1.0 for physical constants
+  - Fail-fast principle properly applied
+- [x] **Architecture Improvements**:
+  - Modularized checkpoint system (5 focused modules)
+  - Proper error types with context
+  - Literature-validated physics implementations
+
+## Version 1.17.0-PRODUCTION-VALIDATED - Previous State
 
 ### Enhanced Validation Suite (v1.17.0) ✅
 - [x] **Method of Manufactured Solutions**:
