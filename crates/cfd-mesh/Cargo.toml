@@ -18,7 +18,7 @@ serde = { workspace = true, features = ["derive"] }
 petgraph.workspace = true
 indexmap.workspace = true
 # CSG support (optional)
-csgrs = { version = "0.20", features = ["f64", "stl-io", "delaunay"], optional = true }
+csgrs = { version = "0.19", features = ["f64", "stl-io", "delaunay"], optional = true }
 
 [features]
 default = []

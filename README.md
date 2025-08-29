@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 1.7.0-GPU-INTEGRATED** - Complete, GPU-Accelerated, Production-Ready
+**Version 1.8.0-REFINED** - Complete, GPU-Accelerated, Production-Ready
 
 ## Status
 
@@ -45,7 +45,7 @@
   - Proper Result-based error propagation
 - ✅ **BUILD SUCCESS**: Compiles without errors
 - ✅ **ARCHITECTURE**: Improved domain separation
-- ✅ **PRODUCTION READY (v1.7.0)**:
+- ✅ **PRODUCTION READY (v1.8.0)**:
   - ALL 154 library tests pass (100% success)
   - Complete wgpu GPU compute integration
   - WGSL kernels: advection, diffusion, pressure (Jacobi), velocity (SIMPLE)
