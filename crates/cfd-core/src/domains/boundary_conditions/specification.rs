@@ -41,6 +41,11 @@ impl<T: RealField + Copy> BoundaryConditionSpec<T> {
         }
     }
 
+    /// Get the boundary condition (returns reference when not time-dependent)
+    pub fn get_condition(&self) -> &BoundaryCondition<T> {
+        &self.condition
+    }
+
     /// Check if this specification is time-dependent
     pub fn is_time_dependent(&self) -> bool {
         self.time_dependent.is_some()

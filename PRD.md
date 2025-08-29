@@ -28,7 +28,7 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v1.9.0-PRODUCTION)
+### Current State (v1.10.0-ZERO-COPY)
 - **ARCHITECTURE**: ✅ Clean domain-driven design
   - All modules properly sized (largest: 420 lines)
   - Trait-based interfaces following SOLID/CUPID/GRASP
@@ -55,6 +55,12 @@ Research software (not production)
   - 154 library tests with physics validation
   - Literature-validated: Patankar, Launder & Spalding, Menter, Pope
   - Conservation laws verified (mass, momentum, energy)
+- **ZERO-COPY OPTIMIZATIONS**: ✅ Reduced unnecessary cloning
+  - Removed 1 unnecessary clone in test assertion
+  - Added zero-copy accessor method to BoundarySpecification
+  - Optimized FlowField scalar field addition
+  - All compute buffers have map()/map_mut() for zero-copy access
+  - Remaining 40 clones are algorithmically necessary
 - **IMPROVEMENTS MADE**:
   - Complete wgpu GPU compute integration
   - Implemented WGSL kernels: advection, diffusion, pressure, velocity

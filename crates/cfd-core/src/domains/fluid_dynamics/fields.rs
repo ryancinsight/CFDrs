@@ -66,13 +66,14 @@ impl<T: RealField + Copy> FlowField<T> {
     }
 
     /// Add a scalar field
-    pub fn add_scalar(&mut self, name: String, values: Vec<T>) {
+    pub fn add_scalar(&mut self, name: impl Into<String>, values: Vec<T>) {
+        let name_str = name.into();
         let scalar = ScalarField {
             values,
             dimensions: self.velocity.dimensions,
-            name: name.clone(),
+            name: name_str.clone(),
         };
-        self.scalars.insert(name, scalar);
+        self.scalars.insert(name_str, scalar);
     }
 
     /// Get total number of points

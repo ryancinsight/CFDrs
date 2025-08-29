@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 1.9.0-PRODUCTION** - Complete, GPU-Accelerated, Production-Ready
+**Version 1.10.0-ZERO-COPY** - Complete, GPU-Accelerated, Zero-Copy Optimized
 
 ## Status
 
@@ -45,12 +45,15 @@
   - Proper Result-based error propagation
 - ✅ **BUILD SUCCESS**: Compiles without errors
 - ✅ **ARCHITECTURE**: Improved domain separation
-- ✅ **PRODUCTION READY (v1.9.0)**:
+- ✅ **ZERO-COPY OPTIMIZED (v1.10.0)**:
   - ALL 154 library tests pass (100% success)
   - Complete wgpu GPU compute integration
   - WGSL kernels: advection, diffusion, pressure (Jacobi), velocity (SIMPLE)
   - Literature validation: Patankar (1980) SIMPLE algorithm
   - GPU pipeline manager with resource management
+  - Reduced clones from 41 to 40 (remaining are algorithmically necessary)
+  - Zero-copy accessors: map()/map_mut() on all compute buffers
+  - Optimized boundary conditions and flow field operations
   - Zero-copy GPU buffer operations
   - Production-grade error handling
   - Comprehensive constants architecture with SSOT
