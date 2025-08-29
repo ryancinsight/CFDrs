@@ -34,16 +34,28 @@ impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
         writeln!(writer, "DATASET UNSTRUCTURED_GRID")?;
         writeln!(writer)?;
 
-        // Write points
-        writeln!(writer, "POINTS {} float", mesh.num_points())?;
+        // Write points (using double precision since we convert to f64)
+        writeln!(writer, "POINTS {} double", mesh.num_points())?;
         for point in &mesh.points {
-            writeln!(
-                writer,
-                "{} {} {}",
-                point[0].to_f64().unwrap_or(0.0),
-                point[1].to_f64().unwrap_or(0.0),
-                point[2].to_f64().unwrap_or(0.0)
-            )?;
+            let x = point[0].to_f64().ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Failed to convert X coordinate to f64 for VTK output",
+                )
+            })?;
+            let y = point[1].to_f64().ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Failed to convert Y coordinate to f64 for VTK output",
+                )
+            })?;
+            let z = point[2].to_f64().ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Failed to convert Z coordinate to f64 for VTK output",
+                )
+            })?;
+            writeln!(writer, "{} {} {}", x, y, z)?;
         }
         writeln!(writer)?;
 
@@ -71,10 +83,16 @@ impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
             writeln!(writer, "POINT_DATA {}", mesh.num_points())?;
 
             for (name, data) in &mesh.point_data {
-                writeln!(writer, "SCALARS {} float 1", name)?;
+                writeln!(writer, "SCALARS {} double 1", name)?;
                 writeln!(writer, "LOOKUP_TABLE default")?;
                 for value in data {
-                    writeln!(writer, "{}", value.to_f64().unwrap_or(0.0))?;
+                    let v = value.to_f64().ok_or_else(|| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!("Failed to convert scalar '{}' to f64 for VTK output", name),
+                        )
+                    })?;
+                    writeln!(writer, "{}", v)?;
                 }
             }
         }
@@ -85,10 +103,19 @@ impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
             writeln!(writer, "CELL_DATA {}", mesh.num_cells())?;
 
             for (name, data) in &mesh.cell_data {
-                writeln!(writer, "SCALARS {} float 1", name)?;
+                writeln!(writer, "SCALARS {} double 1", name)?;
                 writeln!(writer, "LOOKUP_TABLE default")?;
                 for value in data {
-                    writeln!(writer, "{}", value.to_f64().unwrap_or(0.0))?;
+                    let v = value.to_f64().ok_or_else(|| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!(
+                                "Failed to convert cell scalar '{}' to f64 for VTK output",
+                                name
+                            ),
+                        )
+                    })?;
+                    writeln!(writer, "{}", v)?;
                 }
             }
         }

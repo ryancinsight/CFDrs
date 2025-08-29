@@ -20,18 +20,19 @@
 //! - Providing efficient preconditioner APIs
 
 mod bicgstab;
+mod config;
 mod conjugate_gradient;
-mod preconditioners;
+pub mod preconditioners;
 mod traits;
 
 pub use bicgstab::BiCGSTAB;
+pub use config::IterativeSolverConfig;
 pub use conjugate_gradient::ConjugateGradient;
-pub use preconditioners::{IdentityPreconditioner, JacobiPreconditioner, SORPreconditioner};
 pub use traits::{LinearSolver, Preconditioner};
 
-// Re-export the unified configuration from cfd-core
-pub use cfd_core::solver::SolverConfiguration;
-pub use cfd_core::solvers::LinearSolverConfig;
+// REMOVED: Dependencies on cfd-core break the dependency hierarchy.
+// cfd-math should be a foundational library that doesn't depend on application code.
+// Linear solvers should define their own configuration types.
 
 #[cfg(test)]
 mod tests;

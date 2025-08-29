@@ -4,16 +4,17 @@
 mod tests {
 
     use crate::linear_solver::{
-        BiCGSTAB, ConjugateGradient, JacobiPreconditioner, LinearSolver, Preconditioner,
-        SORPreconditioner,
+        BiCGSTAB, ConjugateGradient, LinearSolver, Preconditioner,
+    };
+    use crate::linear_solver::preconditioners::{
+        JacobiPreconditioner, SORPreconditioner,
     };
     use crate::sparse::{SparseMatrix, SparseMatrixBuilder};
     use approx::assert_relative_eq;
-    use cfd_core::solvers::LinearSolverConfig;
-    use cfd_core::Result;
+    use crate::linear_solver::IterativeSolverConfig;
     use nalgebra::DVector;
 
-    fn create_tridiagonal_matrix(n: usize) -> Result<SparseMatrix<f64>> {
+    fn create_tridiagonal_matrix(n: usize) -> std::result::Result<SparseMatrix<f64>, Box<dyn std::error::Error>> {
         let mut builder = SparseMatrixBuilder::new(n, n);
 
         for i in 0..n {
@@ -36,7 +37,7 @@ mod tests {
         let a = create_tridiagonal_matrix(n)?;
         let b = DVector::from_element(n, 1.0);
 
-        let config = LinearSolverConfig::<f64>::builder()
+        let config = IterativeSolverConfig::new(1e-10)
             .tolerance(1e-10)
             .max_iterations(100)
             .build();
@@ -58,7 +59,7 @@ mod tests {
         let a = create_tridiagonal_matrix(n)?;
         let b = DVector::from_element(n, 1.0);
 
-        let config = LinearSolverConfig::<f64>::builder()
+        let config = IterativeSolverConfig::new(1e-10)
             .tolerance(1e-10)
             .max_iterations(100)
             .build();
@@ -141,7 +142,7 @@ mod tests {
         let b = DVector::from_element(n, 1.0);
         let precond = JacobiPreconditioner::new(&a)?;
 
-        let config = LinearSolverConfig::<f64>::builder()
+        let config = IterativeSolverConfig::new(1e-10)
             .tolerance(1e-10)
             .max_iterations(100)
             .build();
@@ -182,7 +183,7 @@ mod tests {
         let tolerances = vec![1e-4, 1e-6, 1e-8];
 
         for tol in tolerances {
-            let config = LinearSolverConfig::<f64>::builder()
+            let config = IterativeSolverConfig::new(1e-10)
                 .tolerance(tol)
                 .max_iterations(1000)
                 .build();

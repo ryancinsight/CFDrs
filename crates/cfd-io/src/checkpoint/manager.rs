@@ -5,8 +5,15 @@ use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
-use std::io::{BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
+
+/// Magic number for checkpoint files
+const CHECKPOINT_MAGIC: &[u8; 8] = b"CFDCHKPT";
+
+/// Compression type identifiers
+const COMPRESSION_NONE: u8 = 0;
+const COMPRESSION_ZSTD: u8 = 1;
 
 /// Checkpoint manager for handling save/load operations
 pub struct CheckpointManager {
@@ -43,7 +50,7 @@ impl CheckpointManager {
         self.max_checkpoints = Some(max);
     }
 
-    /// Save a checkpoint
+    /// Save a checkpoint with self-describing file format
     pub fn save<T>(&self, checkpoint: &Checkpoint<T>) -> Result<PathBuf>
     where
         T: RealField + Copy + Serialize,
@@ -56,8 +63,17 @@ impl CheckpointManager {
         let path = self.base_dir.join(filename);
 
         let file = File::create(&path)?;
-        let writer = BufWriter::new(file);
+        let mut writer = BufWriter::new(file);
 
+        // Write self-describing header
+        writer.write_all(CHECKPOINT_MAGIC)?;
+        let compression_type = match self.compression {
+            CompressionStrategy::None => COMPRESSION_NONE,
+            CompressionStrategy::Zstd(_) => COMPRESSION_ZSTD,
+        };
+        writer.write_all(&[compression_type])?;
+
+        // Write checkpoint data with appropriate compression
         match self.compression {
             CompressionStrategy::None => {
                 bincode::serialize_into(writer, checkpoint).map_err(|e| {
@@ -92,22 +108,37 @@ impl CheckpointManager {
         Ok(path)
     }
 
-    /// Load a checkpoint
+    /// Load a checkpoint from self-describing file format
     pub fn load<T>(&self, path: impl AsRef<Path>) -> Result<Checkpoint<T>>
     where
         T: RealField + Copy + for<'de> Deserialize<'de>,
     {
         let file = File::open(path)?;
-        let reader = BufReader::new(file);
+        let mut reader = BufReader::new(file);
 
-        let checkpoint = match self.compression {
-            CompressionStrategy::None => bincode::deserialize_from(reader).map_err(|e| {
+        // Read and verify magic number
+        let mut magic = [0u8; 8];
+        reader.read_exact(&mut magic)?;
+        if &magic != CHECKPOINT_MAGIC {
+            return Err(Error::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Not a valid checkpoint file: incorrect magic number",
+            )));
+        }
+
+        // Read compression type
+        let mut compression_type = [0u8; 1];
+        reader.read_exact(&mut compression_type)?;
+
+        // Load checkpoint based on stored compression type
+        let checkpoint = match compression_type[0] {
+            COMPRESSION_NONE => bincode::deserialize_from(reader).map_err(|e| {
                 Error::Io(std::io::Error::new(
                     std::io::ErrorKind::Other,
                     format!("Deserialization error: {}", e),
                 ))
             })?,
-            CompressionStrategy::Zstd(_) => {
+            COMPRESSION_ZSTD => {
                 let decoder = zstd::stream::Decoder::new(reader).map_err(|e| {
                     Error::Io(std::io::Error::new(
                         std::io::ErrorKind::Other,
@@ -121,6 +152,12 @@ impl CheckpointManager {
                         format!("Deserialization error: {}", e),
                     ))
                 })?
+            }
+            _ => {
+                return Err(Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("Unsupported compression type: {}", compression_type[0]),
+                )));
             }
         };
 
@@ -177,22 +214,7 @@ impl CheckpointManager {
     }
 }
 
-/// Convenience function to save a checkpoint
-pub fn save_checkpoint<T>(path: impl AsRef<Path>, checkpoint: &Checkpoint<T>) -> Result<()>
-where
-    T: RealField + Copy + Serialize,
-    for<'de> T: Deserialize<'de>,
-{
-    let manager = CheckpointManager::new(path.as_ref().parent().unwrap_or(Path::new(".")))?;
-    manager.save(checkpoint)?;
-    Ok(())
-}
-
-/// Convenience function to load a checkpoint
-pub fn load_checkpoint<T>(path: impl AsRef<Path>) -> Result<Checkpoint<T>>
-where
-    T: RealField + Copy + for<'de> Deserialize<'de>,
-{
-    let manager = CheckpointManager::new(path.as_ref().parent().unwrap_or(Path::new(".")))?;
-    manager.load(path)
-}
+// REMOVED: These convenience functions were unsafe and misleading.
+// They created a default CheckpointManager with no compression,
+// which would fail to load compressed checkpoints.
+// Users must explicitly create and configure a CheckpointManager.
