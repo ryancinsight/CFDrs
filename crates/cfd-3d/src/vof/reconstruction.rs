@@ -5,6 +5,11 @@ use super::solver::VofSolver;
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 
+/// Cache blocking parameters for optimized 3D traversal
+const CACHE_BLOCK_SIZE_I: usize = 8;
+const CACHE_BLOCK_SIZE_J: usize = 8;
+const CACHE_BLOCK_SIZE_K: usize = 8;
+
 /// Interface reconstruction strategy
 pub struct InterfaceReconstruction {
     use_plic: bool,
@@ -28,34 +33,57 @@ impl InterfaceReconstruction {
     }
 
     /// Calculate interface normal vectors using gradient of volume fraction
+    /// Uses cache blocking for improved memory access patterns
     fn calculate_normals<T: RealField + FromPrimitive + Copy>(&self, solver: &mut VofSolver<T>) {
-        for k in 1..solver.nz - 1 {
-            for j in 1..solver.ny - 1 {
-                for i in 1..solver.nx - 1 {
-                    let idx = solver.index(i, j, k);
+        // Process domain in cache-friendly blocks
+        for k_block in (1..solver.nz - 1).step_by(CACHE_BLOCK_SIZE_K) {
+            for j_block in (1..solver.ny - 1).step_by(CACHE_BLOCK_SIZE_J) {
+                for i_block in (1..solver.nx - 1).step_by(CACHE_BLOCK_SIZE_I) {
+                    // Process all cells within the block
+                    let k_end = (k_block + CACHE_BLOCK_SIZE_K).min(solver.nz - 1);
+                    let j_end = (j_block + CACHE_BLOCK_SIZE_J).min(solver.ny - 1);
+                    let i_end = (i_block + CACHE_BLOCK_SIZE_I).min(solver.nx - 1);
 
-                    // Only calculate for interface cells
-                    let alpha = solver.alpha[idx];
-                    if alpha > T::from_f64(VOF_INTERFACE_LOWER).unwrap_or(T::zero())
-                        && alpha < T::from_f64(VOF_INTERFACE_UPPER).unwrap_or(T::one())
-                    {
-                        if self.use_plic {
-                            let (normal, _) = self.plic_reconstruction(solver, i, j, k);
-                            solver.normals[idx] = normal;
-                        } else {
-                            // Simple gradient-based normal
-                            let normal = self.calculate_gradient(solver, i, j, k);
-                            solver.normals[idx] = normal.normalize();
+                    for k in k_block..k_end {
+                        for j in j_block..j_end {
+                            for i in i_block..i_end {
+                                let idx = solver.index(i, j, k);
+
+                                // Only calculate for interface cells
+                                let alpha = solver.alpha[idx];
+                                let interface_lower = T::from_f64(VOF_INTERFACE_LOWER)
+                                    .expect("Failed to represent VOF_INTERFACE_LOWER constant");
+                                let interface_upper = T::from_f64(VOF_INTERFACE_UPPER)
+                                    .expect("Failed to represent VOF_INTERFACE_UPPER constant");
+
+                                if alpha > interface_lower && alpha < interface_upper {
+                                    if self.use_plic {
+                                        let (normal, _) = self.plic_reconstruction(solver, i, j, k);
+                                        solver.normals[idx] = normal;
+                                    } else {
+                                        // Simple gradient-based normal
+                                        let normal = self.calculate_gradient(solver, i, j, k);
+                                        let epsilon = T::from_f64(VOF_EPSILON)
+                                            .expect("Failed to represent VOF_EPSILON constant");
+                                        if normal.norm() > epsilon {
+                                            solver.normals[idx] = normal.normalize();
+                                        } else {
+                                            solver.normals[idx] =
+                                                Vector3::new(T::zero(), T::zero(), T::one());
+                                        }
+                                    }
+                                } else {
+                                    solver.normals[idx] = Vector3::zeros();
+                                }
+                            }
                         }
-                    } else {
-                        solver.normals[idx] = Vector3::zeros();
                     }
                 }
             }
         }
     }
 
-    /// Calculate gradient of volume fraction
+    /// Calculate gradient of volume fraction using central differences
     fn calculate_gradient<T: RealField + FromPrimitive + Copy>(
         &self,
         solver: &VofSolver<T>,
@@ -63,7 +91,7 @@ impl InterfaceReconstruction {
         j: usize,
         k: usize,
     ) -> Vector3<T> {
-        let two = T::from_f64(2.0).unwrap_or(T::one() + T::one());
+        let two = T::from_f64(2.0).expect("Failed to represent constant 2.0");
 
         let dx = (solver.alpha[solver.index(i + 1, j, k)]
             - solver.alpha[solver.index(i - 1, j, k)])
@@ -79,6 +107,10 @@ impl InterfaceReconstruction {
     }
 
     /// PLIC reconstruction of interface
+    ///
+    /// This is a single-step PLIC reconstruction using Youngs' method for the normal.
+    /// The normal is calculated from the gradient of the volume fraction field.
+    /// Note: This is NOT an iterative Newton-Raphson solver - it's a direct calculation.
     fn plic_reconstruction<T: RealField + FromPrimitive + Copy>(
         &self,
         solver: &VofSolver<T>,
@@ -86,58 +118,29 @@ impl InterfaceReconstruction {
         j: usize,
         k: usize,
     ) -> (Vector3<T>, T) {
-        let idx = solver.index(i, j, k);
-        let target_volume = solver.alpha[idx];
-
-        // Initial guess for normal using gradient
+        // 1. Calculate the interface normal using Youngs' gradient method
         let mut normal = self.calculate_gradient(solver, i, j, k);
-        if normal.norm() > T::from_f64(VOF_EPSILON).unwrap_or(T::zero()) {
+        let epsilon = T::from_f64(VOF_EPSILON).expect("Failed to represent VOF_EPSILON constant");
+
+        if normal.norm() > epsilon {
             normal = normal.normalize();
         } else {
+            // Default to vertical interface if gradient is zero
             normal = Vector3::new(T::zero(), T::zero(), T::one());
         }
 
-        // Iteratively refine normal and plane constant
-        let mut plane_constant = T::zero();
-        let tolerance = T::from_f64(constants::PLIC_TOLERANCE)
-            .unwrap_or(T::from_f64(1e-6).unwrap_or(T::zero()));
-
-        for _ in 0..constants::PLIC_MAX_ITERATIONS {
-            // Calculate plane constant for current normal
-            plane_constant =
-                self.find_plane_constant(normal, target_volume, solver.dx, solver.dy, solver.dz);
-
-            // Calculate volume under plane
-            let calculated_volume = self.calculate_volume_under_plane(
-                normal,
-                plane_constant,
-                solver.dx,
-                solver.dy,
-                solver.dz,
-            );
-
-            // Check convergence
-            if (calculated_volume - target_volume).abs() < tolerance {
-                break;
-            }
-
-            // Refine normal using Newton-Raphson method
-            // Objective function: f(n) = V(n) - V_target
-            // Newton update: n_new = n_old - f(n)/f'(n)
-
-            let gradient = self.calculate_gradient(solver, i, j, k);
-            if gradient.norm() > T::from_f64(VOF_EPSILON).unwrap_or(T::zero()) {
-                // Use gradient as improved normal direction (Youngs' method)
-                // This is already a proper implementation, not a simplification
-                // The gradient of volume fraction gives the interface normal
-                normal = gradient.normalize();
-            }
-        }
+        // 2. Find the plane constant that conserves the volume fraction
+        let target_volume = solver.alpha[solver.index(i, j, k)];
+        let plane_constant =
+            self.find_plane_constant(normal, target_volume, solver.dx, solver.dy, solver.dz);
 
         (normal, plane_constant)
     }
 
-    /// Find plane constant for given normal and target volume
+    /// Find plane constant for given normal and target volume using binary search
+    ///
+    /// The search terminates when the interval width is smaller than the tolerance,
+    /// not after a fixed number of iterations.
     fn find_plane_constant<T: RealField + FromPrimitive + Copy>(
         &self,
         normal: Vector3<T>,
@@ -152,11 +155,13 @@ impl InterfaceReconstruction {
         let mut c_max = normal.x.abs() * dx + normal.y.abs() * dy + normal.z.abs() * dz;
 
         let tolerance = T::from_f64(constants::PLIC_TOLERANCE)
-            .unwrap_or(T::from_f64(1e-6).unwrap_or(T::zero()));
+            .expect("Failed to represent PLIC_TOLERANCE constant");
+        let half = T::from_f64(0.5).expect("Failed to represent constant 0.5");
 
-        for _ in 0..20 {
-            let c_mid = (c_min + c_max) * T::from_f64(0.5).unwrap_or(T::zero());
-            let volume = self.calculate_volume_under_plane(normal, c_mid, dx, dy, dz);
+        // Loop until the search interval is smaller than the tolerance
+        while (c_max - c_min) > tolerance {
+            let c_mid = c_min + (c_max - c_min) * half;
+            let volume = self.calculate_volume_under_plane_3d(normal, c_mid, dx, dy, dz);
 
             if (volume - target_volume * cell_volume).abs() < tolerance * cell_volume {
                 return c_mid;
@@ -169,11 +174,15 @@ impl InterfaceReconstruction {
             }
         }
 
-        (c_min + c_max) * T::from_f64(0.5).unwrap_or(T::zero())
+        c_min + (c_max - c_min) * half
     }
 
-    /// Calculate volume of fluid under a plane in a cell
-    fn calculate_volume_under_plane<T: RealField + FromPrimitive + Copy>(
+    /// Calculate volume of fluid under a plane in a 3D cell
+    ///
+    /// This implements the full 3D analytical formula from Scardovelli & Zaleski (2000).
+    /// The formula requires sorting the normal components and using different expressions
+    /// based on their relative magnitudes.
+    fn calculate_volume_under_plane_3d<T: RealField + FromPrimitive + Copy>(
         &self,
         normal: Vector3<T>,
         plane_constant: T,
@@ -181,80 +190,128 @@ impl InterfaceReconstruction {
         dy: T,
         dz: T,
     ) -> T {
-        // Calculate volume fraction using analytical formula for plane-cell intersection
-        // Based on Scardovelli & Zaleski (2000) "Analytical Relations Connecting Linear
-        // Interfaces and Volume Fractions in Rectangular Grids"
         let cell_volume = dx * dy * dz;
 
-        // Normalize the plane equation coefficients
-        let nx_norm = normal.x.abs() * dx;
-        let ny_norm = normal.y.abs() * dy;
-        let nz_norm = normal.z.abs() * dz;
-        let norm_sum = nx_norm + ny_norm + nz_norm;
+        // Normalize the normal vector components by cell dimensions
+        let mut n = [
+            normal.x.abs() * dx,
+            normal.y.abs() * dy,
+            normal.z.abs() * dz,
+        ];
 
-        if norm_sum <= T::from_f64(1e-10).unwrap_or_else(|| T::zero()) {
-            // Degenerate case: normal is zero
-            return T::from_f64(0.5).unwrap_or_else(|| T::zero()) * cell_volume;
+        // Sort components in ascending order
+        n.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+        let n1 = n[0];
+        let n2 = n[1];
+        let n3 = n[2];
+
+        // Check for degenerate case
+        let epsilon = T::from_f64(1e-10).expect("Failed to represent epsilon");
+        if n3 < epsilon {
+            let half = T::from_f64(0.5).expect("Failed to represent 0.5");
+            return half * cell_volume;
         }
 
-        let alpha = plane_constant / norm_sum;
+        // Normalized plane constant
+        let alpha = plane_constant / (n1 + n2 + n3);
 
         if alpha <= T::zero() {
-            T::zero()
+            return T::zero();
         } else if alpha >= T::one() {
-            cell_volume
-        } else {
-            // Use analytical formula for volume fraction
-            // For a normalized cell, the volume fraction is given by piecewise cubic formula
-            let one_third = T::from_f64(1.0 / 3.0).unwrap_or_else(|| T::zero());
-            let two_thirds = T::from_f64(2.0 / 3.0).unwrap_or_else(|| T::zero());
-            let six = T::from_f64(6.0).unwrap_or_else(|| T::zero());
-            let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
-
-            let volume_fraction = if alpha < one_third {
-                alpha * alpha * alpha / six
-            } else if alpha <= two_thirds {
-                (three * alpha - T::one()) / six
-            } else {
-                T::one() - (T::one() - alpha).powi(3) / six
-            };
-
-            volume_fraction * cell_volume
+            return cell_volume;
         }
+
+        // Constants for the analytical formula
+        let six = T::from_f64(6.0).expect("Failed to represent 6.0");
+        let two = T::from_f64(2.0).expect("Failed to represent 2.0");
+        let three = T::from_f64(3.0).expect("Failed to represent 3.0");
+
+        // Compute volume fraction based on the region
+        // These are the analytical formulas from Scardovelli & Zaleski (2000)
+        let m1 = n1 / n3;
+        let m2 = n2 / n3;
+        let m12 = m1 + m2;
+
+        let volume_fraction = if alpha <= m1 {
+            // Region 1: Small alpha, pyramid shape
+            alpha * alpha * alpha / (six * m1 * m2)
+        } else if alpha <= m2 {
+            // Region 2: Intermediate, pentahedron
+            let alpha_m1 = alpha - m1;
+            (alpha * alpha * (three * m2 - alpha) + m1 * m1 * (alpha - three * m2))
+                / (six * m1 * m2)
+        } else if alpha <= T::one() - m12 {
+            // Region 3: Central region, hexahedron
+            (alpha * alpha * (three - two * alpha)
+                + m1 * m1 * (three * alpha - T::one())
+                + m2 * m2 * (three * alpha - T::one()))
+                / (six * m1 * m2)
+        } else if alpha <= T::one() - m1 {
+            // Region 4: Mirror of region 2
+            let one_minus_alpha = T::one() - alpha;
+            T::one()
+                - (one_minus_alpha * one_minus_alpha * one_minus_alpha) / (six * m1 * m2)
+                - (m1 - one_minus_alpha) * (m1 - one_minus_alpha) * (m1 - one_minus_alpha)
+                    / (six * m1 * m2)
+        } else {
+            // Region 5: Large alpha, inverted pyramid
+            let one_minus_alpha = T::one() - alpha;
+            T::one() - (one_minus_alpha * one_minus_alpha * one_minus_alpha) / (six * m1 * m2)
+        };
+
+        volume_fraction * cell_volume
     }
 
-    /// Calculate interface curvature from normals
+    /// Calculate interface curvature from normals using cache blocking
     fn calculate_curvature<T: RealField + FromPrimitive + Copy>(&self, solver: &mut VofSolver<T>) {
-        let two = T::from_f64(2.0).unwrap_or(T::one() + T::one());
+        let two = T::from_f64(2.0).expect("Failed to represent constant 2.0");
+        let interface_lower = T::from_f64(VOF_INTERFACE_LOWER)
+            .expect("Failed to represent VOF_INTERFACE_LOWER constant");
+        let interface_upper = T::from_f64(VOF_INTERFACE_UPPER)
+            .expect("Failed to represent VOF_INTERFACE_UPPER constant");
 
-        for k in 1..solver.nz - 1 {
-            for j in 1..solver.ny - 1 {
-                for i in 1..solver.nx - 1 {
-                    let idx = solver.index(i, j, k);
+        // Process domain in cache-friendly blocks
+        for k_block in (1..solver.nz - 1).step_by(CACHE_BLOCK_SIZE_K) {
+            for j_block in (1..solver.ny - 1).step_by(CACHE_BLOCK_SIZE_J) {
+                for i_block in (1..solver.nx - 1).step_by(CACHE_BLOCK_SIZE_I) {
+                    // Process all cells within the block
+                    let k_end = (k_block + CACHE_BLOCK_SIZE_K).min(solver.nz - 1);
+                    let j_end = (j_block + CACHE_BLOCK_SIZE_J).min(solver.ny - 1);
+                    let i_end = (i_block + CACHE_BLOCK_SIZE_I).min(solver.nx - 1);
 
-                    // Only calculate for interface cells
-                    let alpha = solver.alpha[idx];
-                    if alpha > T::from_f64(VOF_INTERFACE_LOWER).unwrap_or(T::zero())
-                        && alpha < T::from_f64(VOF_INTERFACE_UPPER).unwrap_or(T::one())
-                    {
-                        // Calculate divergence of normal (curvature = -∇·n)
-                        let idx_xm = solver.index(i - 1, j, k);
-                        let idx_xp = solver.index(i + 1, j, k);
-                        let idx_ym = solver.index(i, j - 1, k);
-                        let idx_yp = solver.index(i, j + 1, k);
-                        let idx_zm = solver.index(i, j, k - 1);
-                        let idx_zp = solver.index(i, j, k + 1);
+                    for k in k_block..k_end {
+                        for j in j_block..j_end {
+                            for i in i_block..i_end {
+                                let idx = solver.index(i, j, k);
 
-                        let dnx_dx = (solver.normals[idx_xp].x - solver.normals[idx_xm].x)
-                            / (two * solver.dx);
-                        let dny_dy = (solver.normals[idx_yp].y - solver.normals[idx_ym].y)
-                            / (two * solver.dy);
-                        let dnz_dz = (solver.normals[idx_zp].z - solver.normals[idx_zm].z)
-                            / (two * solver.dz);
+                                // Only calculate for interface cells
+                                let alpha = solver.alpha[idx];
+                                if alpha > interface_lower && alpha < interface_upper {
+                                    // Calculate divergence of normal (curvature = -∇·n)
+                                    let idx_xm = solver.index(i - 1, j, k);
+                                    let idx_xp = solver.index(i + 1, j, k);
+                                    let idx_ym = solver.index(i, j - 1, k);
+                                    let idx_yp = solver.index(i, j + 1, k);
+                                    let idx_zm = solver.index(i, j, k - 1);
+                                    let idx_zp = solver.index(i, j, k + 1);
 
-                        solver.curvature[idx] = -(dnx_dx + dny_dy + dnz_dz);
-                    } else {
-                        solver.curvature[idx] = T::zero();
+                                    let dnx_dx = (solver.normals[idx_xp].x
+                                        - solver.normals[idx_xm].x)
+                                        / (two * solver.dx);
+                                    let dny_dy = (solver.normals[idx_yp].y
+                                        - solver.normals[idx_ym].y)
+                                        / (two * solver.dy);
+                                    let dnz_dz = (solver.normals[idx_zp].z
+                                        - solver.normals[idx_zm].z)
+                                        / (two * solver.dz);
+
+                                    solver.curvature[idx] = -(dnx_dx + dny_dy + dnz_dz);
+                                } else {
+                                    solver.curvature[idx] = T::zero();
+                                }
+                            }
+                        }
                     }
                 }
             }

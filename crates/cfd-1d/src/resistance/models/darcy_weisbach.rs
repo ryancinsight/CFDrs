@@ -54,7 +54,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
             )
         })?;
 
-        // Calculate friction factor using Colebrook-White equation (approximation)
+        // Calculate friction factor using Colebrook-White equation iteratively
         let friction_factor = self.calculate_friction_factor(reynolds);
 
         let area = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero())

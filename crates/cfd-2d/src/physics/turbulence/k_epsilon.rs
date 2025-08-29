@@ -46,7 +46,7 @@ impl<T: RealField + FromPrimitive + Copy> KEpsilonModel<T> {
         for i in 0..2 {
             for j in 0..2 {
                 s_ij[i][j] = (velocity_gradient[i][j] + velocity_gradient[j][i])
-                    * T::from_f64(0.5).unwrap_or_else(T::one);
+                    * T::from_f64(super::constants::HALF).unwrap_or_else(T::one);
             }
         }
 
@@ -58,7 +58,7 @@ impl<T: RealField + FromPrimitive + Copy> KEpsilonModel<T> {
             }
         }
 
-        (T::from_f64(2.0).unwrap_or_else(T::one) * s_squared).sqrt()
+        (T::from_f64(super::constants::TWO).unwrap_or_else(T::one) * s_squared).sqrt()
     }
 
     /// Apply boundary conditions
@@ -93,7 +93,7 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KEpsilonModel<T
 
     fn production_term(&self, velocity_gradient: &[[T; 2]; 2], turbulent_viscosity: T) -> T {
         let strain = self.strain_rate(velocity_gradient);
-        let two = T::from_f64(2.0).unwrap_or_else(T::one);
+        let two = T::from_f64(super::constants::TWO).unwrap_or_else(T::one);
         turbulent_viscosity * strain * strain * two
     }
 
@@ -126,13 +126,13 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KEpsilonModel<T
 
                 // Calculate velocity gradients
                 let du_dx = (velocity[idx + 1].x - velocity[idx - 1].x)
-                    / (T::from_f64(2.0).unwrap_or_else(T::one) * dx);
+                    / (T::from_f64(super::constants::TWO).unwrap_or_else(T::one) * dx);
                 let du_dy = (velocity[idx + nx].x - velocity[idx - nx].x)
-                    / (T::from_f64(2.0).unwrap_or_else(T::one) * dy);
+                    / (T::from_f64(super::constants::TWO).unwrap_or_else(T::one) * dy);
                 let dv_dx = (velocity[idx + 1].y - velocity[idx - 1].y)
-                    / (T::from_f64(2.0).unwrap_or_else(T::one) * dx);
+                    / (T::from_f64(super::constants::TWO).unwrap_or_else(T::one) * dx);
                 let dv_dy = (velocity[idx + nx].y - velocity[idx - nx].y)
-                    / (T::from_f64(2.0).unwrap_or_else(T::one) * dy);
+                    / (T::from_f64(super::constants::TWO).unwrap_or_else(T::one) * dy);
 
                 let grad = [[du_dx, du_dy], [dv_dx, dv_dy]];
 

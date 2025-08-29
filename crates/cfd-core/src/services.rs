@@ -24,7 +24,7 @@ impl FluidDynamicsService {
     /// Calculate Prandtl number if thermal properties are available
     pub fn prandtl_number<T: RealField + Copy + num_traits::Float>(fluid: &Fluid<T>) -> Option<T> {
         match (fluid.specific_heat, fluid.thermal_conductivity) {
-            (Some(cp), Some(k)) => Some(fluid.characteristic_viscosity() * cp / k),
+            (Some(cp), Some(k)) => Some(fluid.viscosity * cp / k),
             _ => None,
         }
     }

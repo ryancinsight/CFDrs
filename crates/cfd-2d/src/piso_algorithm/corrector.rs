@@ -94,18 +94,18 @@ where
                     let ap = ae + aw + an + as_;
 
                     // Update pressure correction
-                    let p_old = p_prime.at(i, j);
-                    let p_new = (ae * p_prime.at(i + 1, j)
+                    let p_current = p_prime.at(i, j);
+                    let p_updated = (ae * p_prime.at(i + 1, j)
                         + aw * p_prime.at(i - 1, j)
                         + an * p_prime.at(i, j + 1)
                         + as_ * p_prime.at(i, j - 1)
                         - mass_imbalance)
                         / ap;
 
-                    *p_prime.at_mut(i, j) = p_new;
+                    *p_prime.at_mut(i, j) = p_updated;
 
                     // Calculate residual
-                    let diff = (p_new - p_old).abs();
+                    let diff = (p_updated - p_current).abs();
                     if diff > residual {
                         residual = diff;
                     }

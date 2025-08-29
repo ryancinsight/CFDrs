@@ -25,7 +25,7 @@ pub mod constants {
 /// Efficient 2D field storage using flattened vector for cache locality
 #[derive(Debug, Clone)]
 pub struct Field2D<T> {
-    data: Vec<T>,
+    pub(crate) data: Vec<T>,
     nx: usize,
     ny: usize,
 }
@@ -170,6 +170,24 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
         self.v_star.map_inplace(|val| *val = T::zero());
         self.p.map_inplace(|val| *val = T::zero());
         self.p_prime.map_inplace(|val| *val = T::zero());
+    }
+
+    /// Efficiently copy data from another SimulationFields instance
+    /// This is much more efficient than cloning when reusing buffers
+    pub fn copy_from(&mut self, other: &SimulationFields<T>) {
+        // Ensure dimensions match
+        assert_eq!(self.nx, other.nx, "Grid dimensions must match");
+        assert_eq!(self.ny, other.ny, "Grid dimensions must match");
+
+        // Copy field data using slices (efficient memcpy)
+        self.u.data.copy_from_slice(&other.u.data);
+        self.v.data.copy_from_slice(&other.v.data);
+        self.u_star.data.copy_from_slice(&other.u_star.data);
+        self.v_star.data.copy_from_slice(&other.v_star.data);
+        self.p.data.copy_from_slice(&other.p.data);
+        self.p_prime.data.copy_from_slice(&other.p_prime.data);
+        self.density.data.copy_from_slice(&other.density.data);
+        self.viscosity.data.copy_from_slice(&other.viscosity.data);
     }
 
     /// Get velocity as Vector2 at point (i, j)

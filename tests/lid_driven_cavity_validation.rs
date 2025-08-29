@@ -346,7 +346,7 @@ fn test_lid_driven_cavity_re100() {
     assert!(rmse < 0.05, "RMSE {} exceeds tolerance", rmse);
 
     // Check mass conservation (divergence should be near zero)
-    let mut max_div = 0.0;
+    let mut max_div: f64 = 0.0;
     for i in 1..cavity.n - 1 {
         for j in 1..cavity.n - 1 {
             let div = (u[(i, j + 1)] - u[(i, j - 1)]) / (2.0 * cavity.dx)
