@@ -62,8 +62,14 @@ fn main() -> Result<()> {
 
     // Access solution data
     let pressures = solution.pressures();
-    if pressures.len() >= 2 {
-        let dp = pressures[0] - pressures[1];
+
+    // Convert HashMap to Vec for ordered processing
+    let mut pressure_entries: Vec<_> = pressures.iter().collect();
+    pressure_entries.sort_by_key(|&(idx, _)| idx.index());
+    let pressure_values: Vec<f64> = pressure_entries.iter().map(|(_, &p)| p).collect();
+
+    if pressure_values.len() >= 2 {
+        let dp = pressure_values[0] - pressure_values[1];
         println!("Pressure drop: {:.2} Pa", dp);
 
         // Calculate flow rate using Hagen-Poiseuille equation
@@ -73,7 +79,7 @@ fn main() -> Result<()> {
 
     // Demonstrate standard library usage with windows() for gradient calculation
     println!("\n=== Gradient Analysis (using std::windows()) ===");
-    let pressure_data: Vec<f64> = pressures.iter().copied().collect();
+    let pressure_data: Vec<f64> = pressure_values.clone();
 
     if pressure_data.len() >= 2 {
         let gradients: Vec<f64> = pressure_data
@@ -89,10 +95,10 @@ fn main() -> Result<()> {
 
     // Flow analysis
     println!("\n=== Flow Analysis ===");
-    if pressures.len() >= 2 {
+    if pressure_values.len() >= 2 {
         // Calculate Reynolds number manually
         let diameter = (4.0 * 1e-6 / std::f64::consts::PI).sqrt();
-        let velocity = (pressures[0] - pressures[1]) / (100.0 * 1e-6); // flow_rate / area
+        let velocity = (pressure_values[0] - pressure_values[1]) / (100.0 * 1e-6); // flow_rate / area
         let reynolds = water.density * velocity * diameter / viscosity;
 
         println!("Reynolds number: {:.2}", reynolds);
@@ -120,7 +126,7 @@ fn main() -> Result<()> {
     println!("\n=== Iterator Combinators Demo ===");
 
     // Chain operations for efficient processing
-    let processed_pressures: Vec<f64> = pressures
+    let processed_pressures: Vec<f64> = pressure_values
         .iter()
         .copied()
         .map(|p| p - 101225.0) // Relative to outlet

@@ -77,9 +77,15 @@ fn main() -> Result<()> {
 
     // Extract pressures
     let pressures = solution.pressures();
-    if pressures.len() >= 2 {
-        let inlet_pressure = pressures[0];
-        let outlet_pressure = pressures[1];
+
+    // Convert HashMap to Vec for ordered processing
+    let mut pressure_entries: Vec<_> = pressures.iter().collect();
+    pressure_entries.sort_by_key(|&(idx, _)| idx.index());
+    let pressure_values: Vec<f64> = pressure_entries.iter().map(|(_, &p)| p).collect();
+
+    if pressure_values.len() >= 2 {
+        let inlet_pressure = pressure_values[0];
+        let outlet_pressure = pressure_values[1];
         let calculated_pressure_drop = inlet_pressure - outlet_pressure;
 
         println!("Inlet pressure: {:.2} Pa", inlet_pressure);

@@ -14,6 +14,7 @@ pub mod conservation;
 pub mod convergence;
 pub mod error_metrics;
 pub mod literature;
+pub mod manufactured;
 pub mod numerical;
 pub mod solutions;
 pub mod time_integration;
