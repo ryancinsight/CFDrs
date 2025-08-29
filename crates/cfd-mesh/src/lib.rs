@@ -15,12 +15,12 @@ pub mod mesh;
 pub mod quality;
 pub mod refinement;
 
-// Re-export commonly used types
-pub use connectivity::Connectivity;
-#[cfg(feature = "csg")]
-pub use csg::CsgMeshAdapter;
-pub use geometry::Geometry;
-pub use mesh::{Cell, Edge, ElementType, Face, Mesh, MeshTopology, Vertex};
+// The public modules are the primary API.
+// Users should access types through the module hierarchy:
+//   use cfd_mesh::mesh::Mesh;
+//   use cfd_mesh::grid::StructuredGridBuilder;
+//   use cfd_mesh::quality::aspect_ratio;
+// The prelude provides convenient shortcuts for common types.
 
 /// Common mesh types and traits
 pub mod prelude {

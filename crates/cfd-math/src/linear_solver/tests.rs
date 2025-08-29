@@ -3,18 +3,16 @@
 #[cfg(test)]
 mod tests {
 
-    use crate::linear_solver::{
-        BiCGSTAB, ConjugateGradient, LinearSolver, Preconditioner,
-    };
-    use crate::linear_solver::preconditioners::{
-        JacobiPreconditioner, SORPreconditioner,
-    };
+    use crate::linear_solver::preconditioners::{JacobiPreconditioner, SORPreconditioner};
+    use crate::linear_solver::IterativeSolverConfig;
+    use crate::linear_solver::{BiCGSTAB, ConjugateGradient, LinearSolver, Preconditioner};
     use crate::sparse::{SparseMatrix, SparseMatrixBuilder};
     use approx::assert_relative_eq;
-    use crate::linear_solver::IterativeSolverConfig;
     use nalgebra::DVector;
 
-    fn create_tridiagonal_matrix(n: usize) -> std::result::Result<SparseMatrix<f64>, Box<dyn std::error::Error>> {
+    fn create_tridiagonal_matrix(
+        n: usize,
+    ) -> std::result::Result<SparseMatrix<f64>, Box<dyn std::error::Error>> {
         let mut builder = SparseMatrixBuilder::new(n, n);
 
         for i in 0..n {
