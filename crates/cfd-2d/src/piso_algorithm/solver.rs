@@ -91,28 +91,46 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSol
         Ok(())
     }
 
-    /// Run transient simulation for specified number of time steps
+    /// Run transient simulation for specified number of time steps with callback
+    pub fn solve_transient_with_callback<F>(
+        &mut self,
+        fields: &mut SimulationFields<T>,
+        grid: &StructuredGrid2D<T>,
+        num_steps: usize,
+        mut on_step_complete: F,
+    ) -> Result<()>
+    where
+        F: FnMut(usize, &SimulationFields<T>) -> Result<()>,
+    {
+        for step in 0..num_steps {
+            self.advance_one_step(fields, grid)?;
+
+            // Optional: Log progress based on configuration
+            if let Some(freq) = self.config.log_frequency {
+                if freq > 0 && step % freq == 0 && step > 0 {
+                    if let Some(vel_res) = self.monitor.velocity_residuals.last() {
+                        // Convert to f64 for display since T might not implement LowerExp
+                        if let Some(vel_res_f64) = vel_res.to_f64() {
+                            tracing::info!("Step {}: velocity residual = {:e}", step, vel_res_f64);
+                        }
+                    }
+                }
+            }
+
+            // Call user-provided callback
+            on_step_complete(step, fields)?
+        }
+        Ok(())
+    }
+
+    /// Run transient simulation for specified number of time steps (backward compatible)
     pub fn solve_transient(
         &mut self,
         fields: &mut SimulationFields<T>,
         grid: &StructuredGrid2D<T>,
         num_steps: usize,
     ) -> Result<()> {
-        for step in 0..num_steps {
-            self.advance_one_step(fields, grid)?;
-
-            // Optional: Log progress every N steps
-            if step % 100 == 0 && step > 0 {
-                if let Some(vel_res) = self.monitor.velocity_residuals.last() {
-                    // This is just for monitoring, not for convergence control
-                    // Convert to f64 for display since T might not implement LowerExp
-                    if let Some(vel_res_f64) = vel_res.to_f64() {
-                        eprintln!("Step {}: velocity residual = {:e}", step, vel_res_f64);
-                    }
-                }
-            }
-        }
-        Ok(())
+        self.solve_transient_with_callback(fields, grid, num_steps, |_, _| Ok(()))
     }
 
     /// Run transient simulation for specified physical duration
@@ -135,7 +153,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSol
             };
 
             // Skip if time step becomes too small
-            if dt <= T::from_f64(1e-10).unwrap_or_else(T::zero) {
+            let min_dt_threshold = T::from_f64(1e-10)
+                .expect("Failed to represent minimum dt threshold (1e-10) in numeric type T");
+            if dt <= min_dt_threshold {
                 break;
             }
 
@@ -144,18 +164,22 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSol
             current_time = current_time + dt;
             step += 1;
 
-            // Optional: Log progress
-            if step % 100 == 0 {
-                let progress =
-                    current_time / total_duration * T::from_f64(100.0).unwrap_or_else(T::one);
-                // Convert to f64 for display
-                if let (Some(progress_f64), Some(time_f64)) =
-                    (progress.to_f64(), current_time.to_f64())
-                {
-                    eprintln!(
-                        "Simulation progress: {:.1}% (t = {:.3})",
-                        progress_f64, time_f64
-                    );
+            // Optional: Log progress based on configuration
+            if let Some(freq) = self.config.log_frequency {
+                if freq > 0 && step % freq == 0 {
+                    let percent_factor = T::from_f64(100.0)
+                        .expect("Failed to represent percentage factor (100.0) in numeric type T");
+                    let progress = current_time / total_duration * percent_factor;
+                    // Convert to f64 for display
+                    if let (Some(progress_f64), Some(time_f64)) =
+                        (progress.to_f64(), current_time.to_f64())
+                    {
+                        tracing::info!(
+                            "Simulation progress: {:.1}% (t = {:.3})",
+                            progress_f64,
+                            time_f64
+                        );
+                    }
                 }
             }
         }
@@ -178,12 +202,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSol
             // Check if solution has reached steady state
             // (residuals below tolerance)
             if self.monitor.is_converged(&self.criteria) {
-                eprintln!("Reached steady state at step {}", step);
+                tracing::info!("Reached steady state at step {}", step);
                 return Ok(true);
             }
         }
 
-        eprintln!("Max steps {} reached without steady state", max_steps);
+        tracing::warn!("Max steps {} reached without steady state", max_steps);
         Ok(false)
     }
 
