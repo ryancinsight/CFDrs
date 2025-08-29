@@ -9,6 +9,7 @@
 #![warn(missing_docs)]
 
 pub mod analytical;
+pub mod analytical_benchmarks;
 pub mod benchmarks;
 pub mod conservation;
 pub mod convergence;

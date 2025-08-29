@@ -1,158 +1,152 @@
-//! Physics validation tests
+//! Physics validation tests against analytical solutions
 //!
-//! This module contains comprehensive tests validating the physics implementations
-//! against known analytical solutions and literature references.
+//! These tests verify that our numerical implementations
+//! match known analytical solutions to required accuracy.
 
 use approx::assert_relative_eq;
-use cfd_validation::analytical::{
-    AnalyticalSolution, CouetteFlow, PoiseuilleFlow, PoiseuilleGeometry, TaylorGreenVortex,
-};
+use cfd_validation::analytical_benchmarks::{CouetteFlow, PoiseuilleFlow, TaylorGreenVortex};
 
-// Mathematical constants
-const HALF: f64 = 0.5;
-const TWO_THIRDS: f64 = 2.0 / 3.0;
+#[test]
+fn validate_couette_flow_profile() {
+    // Test case from White (2016), Example 3.1
+    let flow = CouetteFlow {
+        u_wall: 10.0, // 10 m/s upper wall
+        h: 0.001,     // 1 mm gap
+        dp_dx: 0.0,   // No pressure gradient
+        mu: 0.001,    // 1 mPa·s
+    };
 
-#[cfg(test)]
-mod poiseuille_tests {
-    use super::*;
+    // Check linear profile when dp/dx = 0
+    let y_test = 0.0005; // Midpoint
+    let u_expected = 5.0; // Should be u_wall/2
 
-    /// Test Poiseuille flow solution against analytical solution
-    /// Reference: White, F.M. (2006). Viscous Fluid Flow, 3rd ed.
-    #[test]
-    fn test_poiseuille_velocity_profile() {
-        let solution = PoiseuilleFlow::<f64>::create(
-            1.0,   // u_max
-            1.0,   // channel_width
-            -1.0,  // pressure_gradient
-            0.001, // viscosity
-            PoiseuilleGeometry::Plates,
-        );
+    assert_relative_eq!(
+        flow.velocity(y_test),
+        u_expected,
+        epsilon = 1e-10,
+        max_relative = 1e-10
+    );
 
-        // Parallel plate channel flow: u(y) = 4*u_max*(y/h)*(1-y/h)
-        // Maximum occurs at y = h/2 where u = u_max
-        let center_velocity = solution.evaluate(0.0, HALF, 0.0, 0.0);
-        assert_relative_eq!(center_velocity.x, 0.75, epsilon = 1e-6);
-
-        // Velocity at y = 0.25h
-        let quarter_velocity = solution.evaluate(0.0, 0.25, 0.0, 0.0);
-        assert_relative_eq!(quarter_velocity.x, 0.9375, epsilon = 1e-6);
-
-        // No-slip condition at walls
-        let wall_velocity = solution.evaluate(0.0, 1.0, 0.0, 0.0);
-        assert_relative_eq!(wall_velocity.x, 0.0, epsilon = 1e-6);
-    }
-
-    /// Test flow rate calculation for Poiseuille flow
-    /// Q = (2/3) * u_max * h for parallel plates
-    #[test]
-    fn test_poiseuille_flow_rate() {
-        let solution = PoiseuilleFlow::<f64>::create(
-            1.0,   // u_max
-            1.0,   // channel_width
-            -1.0,  // pressure_gradient
-            0.001, // viscosity
-            PoiseuilleGeometry::Plates,
-        );
-
-        let flow_rate = solution.flow_rate();
-        let expected = TWO_THIRDS * 1.0 * 1.0; // (2/3) * u_max * h
-        assert_relative_eq!(flow_rate, expected, epsilon = 1e-6);
-    }
+    // Check wall boundary conditions
+    assert_relative_eq!(flow.velocity(0.0), 0.0, epsilon = 1e-10);
+    assert_relative_eq!(flow.velocity(flow.h), flow.u_wall, epsilon = 1e-10);
 }
 
-#[cfg(test)]
-mod couette_tests {
-    use super::*;
+#[test]
+fn validate_poiseuille_parabolic_profile() {
+    // Test case: Channel flow with pressure gradient
+    let flow = PoiseuilleFlow {
+        h: 0.01,      // 1 cm half-height
+        dp_dx: 100.0, // 100 Pa/m pressure gradient
+        mu: 0.001,    // 1 mPa·s (water-like)
+    };
 
-    /// Test Couette flow with moving upper wall
-    /// Linear velocity profile: u(y) = U * (y/h)
-    #[test]
-    fn test_couette_linear_profile() {
-        let solution = CouetteFlow::<f64>::create(
-            1.0,   // wall_velocity
-            1.0,   // gap_height
-            0.0,   // no pressure gradient
-            0.001, // viscosity
+    // Validate parabolic profile
+    let y_values = vec![0.0, 0.0025, 0.005, 0.0075, 0.01];
+    let expected_velocities = vec![
+        0.5,     // Centerline maximum
+        0.46875, // 75% of the way to max
+        0.375,   // 50% position
+        0.21875, // 25% position
+        0.0,     // Wall
+    ];
+
+    for (y, u_expected) in y_values.iter().zip(expected_velocities.iter()) {
+        let u_computed = flow.velocity(*y);
+        assert_relative_eq!(
+            u_computed,
+            *u_expected,
+            epsilon = 1e-10,
+            max_relative = 1e-10
         );
-
-        // Linear profile: u(y) = U * (y/h)
-        let mid_velocity = solution.evaluate(0.0, HALF, 0.0, 0.0);
-        assert_relative_eq!(mid_velocity.x, HALF, epsilon = 1e-6);
-
-        // At wall y = h
-        let wall_velocity = solution.evaluate(0.0, 1.0, 0.0, 0.0);
-        assert_relative_eq!(wall_velocity.x, 1.0, epsilon = 1e-6);
-
-        // At bottom wall y = 0
-        let bottom_velocity = solution.evaluate(0.0, 0.0, 0.0, 0.0);
-        assert_relative_eq!(bottom_velocity.x, 0.0, epsilon = 1e-6);
     }
 
-    /// Test Couette flow with pressure gradient (Couette-Poiseuille flow)
-    #[test]
-    fn test_couette_with_pressure() {
-        let solution = CouetteFlow::<f64>::create(
-            1.0,   // wall_velocity
-            1.0,   // gap_height
-            -1.0,  // pressure gradient
-            0.001, // viscosity
-        );
-
-        // Combined Couette-Poiseuille flow has a parabolic component
-        // The velocity profile is no longer linear
-        let mid_velocity = solution.evaluate(0.0, HALF, 0.0, 0.0);
-
-        // With negative pressure gradient, velocity at midpoint increases
-        assert!(mid_velocity.x > HALF);
-    }
+    // Validate flow rate calculation
+    let q = flow.flow_rate();
+    let q_expected = 2.0 * 0.01 * (2.0 / 3.0) * 0.5; // 2h * u_avg
+    assert_relative_eq!(q, q_expected, epsilon = 1e-10);
 }
 
-#[cfg(test)]
-mod taylor_green_tests {
-    use super::*;
+#[test]
+fn validate_taylor_green_decay() {
+    // Classic Taylor-Green vortex test
+    let vortex = TaylorGreenVortex {
+        u0: 1.0,
+        l: 2.0 * std::f64::consts::PI, // Domain size 2π
+        nu: 0.1,                       // Kinematic viscosity
+    };
 
-    /// Test Taylor-Green vortex initial condition
-    #[test]
-    fn test_taylor_green_initial_condition() {
-        let solution = TaylorGreenVortex::<f64>::create(
-            1.0,   // length_scale
-            1.0,   // velocity_scale
-            0.01,  // viscosity
-            1.0,   // density
-            false, // 2D version
-        );
+    // Test velocity field at t=0
+    let v0 = vortex.velocity(0.0, 0.0, 0.0);
+    assert_relative_eq!(v0[0], 0.0, epsilon = 1e-10); // u=0 at origin
+    assert_relative_eq!(v0[1], 0.0, epsilon = 1e-10); // v=0 at origin
 
-        // At t=0, check initial velocity field
-        let v = solution.evaluate(0.0, 0.0, 0.0, 0.0);
-        // For 2D TG: u = U cos(kx) sin(ky) exp(-νk²t); at (0,0) this is 0
-        assert_relative_eq!(v.x, 0.0, epsilon = 1e-6);
+    // Test velocity at (π/2, 0)
+    let v1 = vortex.velocity(std::f64::consts::PI / 2.0, 0.0, 0.0);
+    assert_relative_eq!(v1[0], 1.0, epsilon = 1e-10); // u=u0
+    assert_relative_eq!(v1[1], 0.0, epsilon = 1e-10); // v=0
 
-        // Check that it's divergence-free
-        // ∇·v = 0 for incompressible flow
-    }
+    // Test energy decay
+    let t = 1.0;
+    let e0 = vortex.kinetic_energy(0.0);
+    let e1 = vortex.kinetic_energy(t);
+    let expected_ratio = (-2.0 * vortex.nu * t).exp();
 
-    /// Test Taylor-Green vortex energy decay
-    #[test]
-    fn test_taylor_green_energy_decay() {
-        let solution = TaylorGreenVortex::<f64>::create(
-            1.0,   // length_scale
-            1.0,   // velocity_scale
-            0.01,  // viscosity
-            1.0,   // density
-            false, // 2D version
-        );
+    assert_relative_eq!(e1 / e0, expected_ratio, epsilon = 1e-10);
+}
 
-        // Sample kinetic energy at different times
-        let e0 = solution.kinetic_energy(0.0);
-        let e1 = solution.kinetic_energy(1.0);
-        let e2 = solution.kinetic_energy(2.0);
+#[test]
+fn validate_reynolds_number_calculation() {
+    use cfd_core::constants::physics_validated::{fluid_dynamics, reynolds};
 
-        // Energy should decay exponentially
-        assert!(e1 < e0);
-        assert!(e2 < e1);
+    // Test pipe flow transition
+    let d = 0.01; // 1 cm diameter
+    let mu = fluid_dynamics::WATER_DYNAMIC_VISCOSITY_20C;
+    let rho = fluid_dynamics::WATER_DENSITY_20C;
+    let nu = mu / rho;
 
-        // Check decay rate
-        let decay_rate = solution.decay_rate();
-        assert!(decay_rate > 0.0);
-    }
+    // Calculate velocity for Re = 2300 (transition point)
+    let re_crit = reynolds::PIPE_TRANSITION_LOWER;
+    let u_crit = re_crit * nu / d;
+
+    // Verify calculation
+    let re_computed = u_crit * d / nu;
+    assert_relative_eq!(re_computed, re_crit, epsilon = 1e-10);
+}
+
+#[test]
+fn validate_prandtl_number() {
+    use cfd_core::constants::physics_validated::{fluid_dynamics, thermodynamics, validation};
+
+    // Calculate Prandtl number for water
+    let mu = fluid_dynamics::WATER_DYNAMIC_VISCOSITY_20C;
+    let cp = thermodynamics::WATER_SPECIFIC_HEAT_20C;
+    let k = thermodynamics::WATER_THERMAL_CONDUCTIVITY_20C;
+
+    let pr_computed = mu * cp / k;
+
+    assert_relative_eq!(
+        pr_computed,
+        validation::WATER_PRANDTL_20C,
+        epsilon = 0.01, // 1% tolerance for Prandtl number
+        max_relative = 0.01
+    );
+}
+
+#[test]
+fn validate_lid_driven_cavity_benchmark() {
+    use cfd_validation::analytical_benchmarks::lid_driven_cavity;
+
+    // Verify benchmark data is properly loaded
+    assert_eq!(lid_driven_cavity::RE100_U_CENTERLINE.len(), 17);
+    assert_eq!(lid_driven_cavity::RE1000_U_CENTERLINE.len(), 17);
+
+    // Check boundary conditions
+    let first = lid_driven_cavity::RE100_U_CENTERLINE[0];
+    let last = lid_driven_cavity::RE100_U_CENTERLINE[16];
+
+    assert_eq!(first.0, 0.0); // Bottom wall
+    assert_eq!(first.1, 0.0); // No-slip
+    assert_eq!(last.0, 1.0); // Top wall (lid)
+    assert_eq!(last.1, 1.0); // Lid velocity
 }

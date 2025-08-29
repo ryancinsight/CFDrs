@@ -142,31 +142,40 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     }
 
     /// Create water at 20°C and 1 atm
+    /// Values from validated physics constants
     pub fn water_20c() -> Result<Self, Error>
     where
         T: FromPrimitive,
     {
-        let density = T::from_f64(998.2).ok_or_else(|| {
-            Error::InvalidInput(
-                "Cannot represent water density (998.2 kg/m³) in target type T".to_string(),
-            )
+        use crate::constants::physics_validated::{fluid_dynamics, thermodynamics};
+
+        let density = T::from_f64(fluid_dynamics::WATER_DENSITY_20C).ok_or_else(|| {
+            Error::InvalidInput(format!(
+                "Cannot represent water density ({} kg/m³) in target type T",
+                fluid_dynamics::WATER_DENSITY_20C
+            ))
         })?;
-        let viscosity = T::from_f64(1.002e-3).ok_or_else(|| {
-            Error::InvalidInput(
-                "Cannot represent water viscosity (1.002e-3 Pa·s) in target type T".to_string(),
-            )
-        })?;
-        let specific_heat = T::from_f64(4182.0).ok_or_else(|| {
-            Error::InvalidInput(
-                "Cannot represent water specific heat (4182 J/(kg·K)) in target type T".to_string(),
-            )
-        })?;
-        let thermal_conductivity = T::from_f64(0.598).ok_or_else(|| {
-            Error::InvalidInput(
-                "Cannot represent water thermal conductivity (0.598 W/(m·K)) in target type T"
-                    .to_string(),
-            )
-        })?;
+        let viscosity =
+            T::from_f64(fluid_dynamics::WATER_DYNAMIC_VISCOSITY_20C).ok_or_else(|| {
+                Error::InvalidInput(format!(
+                    "Cannot represent water viscosity ({} Pa·s) in target type T",
+                    fluid_dynamics::WATER_DYNAMIC_VISCOSITY_20C
+                ))
+            })?;
+        let specific_heat =
+            T::from_f64(thermodynamics::WATER_SPECIFIC_HEAT_20C).ok_or_else(|| {
+                Error::InvalidInput(format!(
+                    "Cannot represent water specific heat ({} J/(kg·K)) in target type T",
+                    thermodynamics::WATER_SPECIFIC_HEAT_20C
+                ))
+            })?;
+        let thermal_conductivity = T::from_f64(thermodynamics::WATER_THERMAL_CONDUCTIVITY_20C)
+            .ok_or_else(|| {
+                Error::InvalidInput(format!(
+                    "Cannot represent water thermal conductivity ({} W/(m·K)) in target type T",
+                    thermodynamics::WATER_THERMAL_CONDUCTIVITY_20C
+                ))
+            })?;
 
         Ok(Self {
             name: "Water at 20°C, 1 atm".to_string(),
@@ -178,31 +187,40 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     }
 
     /// Create air at 20°C and 1 atm
+    /// Values from validated physics constants
     pub fn air_20c() -> Result<Self, Error>
     where
         T: FromPrimitive,
     {
-        let density = T::from_f64(1.204).ok_or_else(|| {
-            Error::InvalidInput(
-                "Cannot represent air density (1.204 kg/m³) in target type T".to_string(),
-            )
+        use crate::constants::physics_validated::{fluid_dynamics, thermodynamics};
+
+        let density = T::from_f64(fluid_dynamics::AIR_DENSITY_20C).ok_or_else(|| {
+            Error::InvalidInput(format!(
+                "Cannot represent air density ({} kg/m³) in target type T",
+                fluid_dynamics::AIR_DENSITY_20C
+            ))
         })?;
-        let viscosity = T::from_f64(1.82e-5).ok_or_else(|| {
-            Error::InvalidInput(
-                "Cannot represent air viscosity (1.82e-5 Pa·s) in target type T".to_string(),
-            )
-        })?;
-        let specific_heat = T::from_f64(1005.0).ok_or_else(|| {
-            Error::InvalidInput(
-                "Cannot represent air specific heat (1005 J/(kg·K)) in target type T".to_string(),
-            )
-        })?;
-        let thermal_conductivity = T::from_f64(0.0257).ok_or_else(|| {
-            Error::InvalidInput(
-                "Cannot represent air thermal conductivity (0.0257 W/(m·K)) in target type T"
-                    .to_string(),
-            )
-        })?;
+        let viscosity =
+            T::from_f64(fluid_dynamics::AIR_DYNAMIC_VISCOSITY_20C).ok_or_else(|| {
+                Error::InvalidInput(format!(
+                    "Cannot represent air viscosity ({} Pa·s) in target type T",
+                    fluid_dynamics::AIR_DYNAMIC_VISCOSITY_20C
+                ))
+            })?;
+        let specific_heat =
+            T::from_f64(thermodynamics::AIR_SPECIFIC_HEAT_CP_20C).ok_or_else(|| {
+                Error::InvalidInput(format!(
+                    "Cannot represent air specific heat ({} J/(kg·K)) in target type T",
+                    thermodynamics::AIR_SPECIFIC_HEAT_CP_20C
+                ))
+            })?;
+        let thermal_conductivity = T::from_f64(thermodynamics::AIR_THERMAL_CONDUCTIVITY_20C)
+            .ok_or_else(|| {
+                Error::InvalidInput(format!(
+                    "Cannot represent air thermal conductivity ({} W/(m·K)) in target type T",
+                    thermodynamics::AIR_THERMAL_CONDUCTIVITY_20C
+                ))
+            })?;
 
         Ok(Self {
             name: "Air at 20°C, 1 atm".to_string(),

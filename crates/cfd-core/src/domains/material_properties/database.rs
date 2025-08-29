@@ -85,7 +85,7 @@ impl<T: RealField + Copy> MaterialDatabase<T> {
         let mut db = Self::new();
 
         // Add common fluids
-        
+
         // Note: These methods return Result, need to handle errors
         if let Ok(water) = ConstantPropertyFluid::<T>::water_20c() {
             db.add_fluid("water".to_string(), Box::new(water));
