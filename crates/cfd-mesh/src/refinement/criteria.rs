@@ -1,6 +1,7 @@
 //! Refinement criteria definitions
 
-use crate::mesh::{Cell, Vertex};
+use crate::mesh::Mesh;
+use crate::topology::{Cell, Vertex};
 use nalgebra::RealField;
 use thiserror::Error;
 

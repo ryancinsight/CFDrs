@@ -1,7 +1,8 @@
 //! Mesh quality analysis and validation
 
 use super::{QualityCriteria, QualityMetrics, QualityStatistics};
-use crate::mesh::{Cell, Mesh};
+use crate::mesh::Mesh;
+use crate::topology::Cell;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use std::iter::Sum;
@@ -28,7 +29,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
         let mut metrics = Vec::new();
         let mut failed_elements = Vec::new();
 
-        for (idx, element) in mesh.cells.iter().enumerate() {
+        for (idx, element) in mesh.cells().iter().enumerate() {
             let quality = self.compute_element_quality(element, mesh);
 
             if !self.criteria.is_acceptable(&quality) {
@@ -49,7 +50,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
         MeshQualityReport {
             statistics,
             failed_elements,
-            total_elements: mesh.cells.len(),
+            total_elements: mesh.cells().len(),
             detailed_metrics: if self.store_detailed {
                 Some(metrics)
             } else {
@@ -93,7 +94,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
 
         for i in 0..vertices.len() {
             let j = (i + 1) % vertices.len();
-            let edge_length = (vertices[j] - vertices[i]).norm();
+            let edge_length = (vertices[j].position - vertices[i].position).norm();
             min_edge = nalgebra::RealField::min(min_edge, edge_length);
             max_edge = nalgebra::RealField::max(max_edge, edge_length);
         }
@@ -117,7 +118,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
         // Compute centroid
         let centroid = vertices
             .iter()
-            .fold(nalgebra::Point3::origin(), |acc, v| acc + v.coords)
+            .fold(nalgebra::Point3::origin(), |acc, v| acc + v.position.coords)
             / T::from_usize(vertices.len()).unwrap_or(T::one());
 
         // Measure deviation from uniform distribution
@@ -125,7 +126,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
         let mut min_dist = T::from_f64(f64::MAX).unwrap_or(T::one());
 
         for vertex in &vertices {
-            let dist = (vertex - centroid).norm();
+            let dist = (vertex.position - centroid).norm();
             max_dist = nalgebra::RealField::max(max_dist, dist);
             min_dist = nalgebra::RealField::min(min_dist, dist);
         }
@@ -167,7 +168,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
 
         // Get vertices in proper order (assuming hexahedral ordering)
         let v = &vertices;
-        if v.len() != 8 {
+        if v.len() != 8usize {
             // For non-hexahedral, use simplified metric
             return T::one();
         }
@@ -179,28 +180,67 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
         let eighth = T::one() / T::from_f64(8.0).unwrap_or_else(|| T::one());
 
         // ∂x/∂ξ
-        let dx_dxi =
-            eighth * (-v[0].x + v[1].x + v[2].x - v[3].x - v[4].x + v[5].x + v[6].x - v[7].x);
-        let dy_dxi =
-            eighth * (-v[0].y + v[1].y + v[2].y - v[3].y - v[4].y + v[5].y + v[6].y - v[7].y);
-        let dz_dxi =
-            eighth * (-v[0].z + v[1].z + v[2].z - v[3].z - v[4].z + v[5].z + v[6].z - v[7].z);
+        let dx_dxi = eighth
+            * (-v[0].position[0] + v[1].position[0] + v[2].position[0]
+                - v[3].position[0]
+                - v[4].position[0]
+                + v[5].position[0]
+                + v[6].position[0]
+                - v[7].position[0]);
+        let dy_dxi = eighth
+            * (-v[0].position[1] + v[1].position[1] + v[2].position[1]
+                - v[3].position[1]
+                - v[4].position[1]
+                + v[5].position[1]
+                + v[6].position[1]
+                - v[7].position[1]);
+        let dz_dxi = eighth
+            * (-v[0].position[2] + v[1].position[2] + v[2].position[2]
+                - v[3].position[2]
+                - v[4].position[2]
+                + v[5].position[2]
+                + v[6].position[2]
+                - v[7].position[2]);
 
         // ∂x/∂η
-        let dx_deta =
-            eighth * (-v[0].x - v[1].x + v[2].x + v[3].x - v[4].x - v[5].x + v[6].x + v[7].x);
-        let dy_deta =
-            eighth * (-v[0].y - v[1].y + v[2].y + v[3].y - v[4].y - v[5].y + v[6].y + v[7].y);
-        let dz_deta =
-            eighth * (-v[0].z - v[1].z + v[2].z + v[3].z - v[4].z - v[5].z + v[6].z + v[7].z);
+        let dx_deta = eighth
+            * (-v[0].position[0] - v[1].position[0] + v[2].position[0] + v[3].position[0]
+                - v[4].position[0]
+                - v[5].position[0]
+                + v[6].position[0]
+                + v[7].position[0]);
+        let dy_deta = eighth
+            * (-v[0].position[1] - v[1].position[1] + v[2].position[1] + v[3].position[1]
+                - v[4].position[1]
+                - v[5].position[1]
+                + v[6].position[1]
+                + v[7].position[1]);
+        let dz_deta = eighth
+            * (-v[0].position[2] - v[1].position[2] + v[2].position[2] + v[3].position[2]
+                - v[4].position[2]
+                - v[5].position[2]
+                + v[6].position[2]
+                + v[7].position[2]);
 
         // ∂x/∂ζ
-        let dx_dzeta =
-            eighth * (-v[0].x - v[1].x - v[2].x - v[3].x + v[4].x + v[5].x + v[6].x + v[7].x);
-        let dy_dzeta =
-            eighth * (-v[0].y - v[1].y - v[2].y - v[3].y + v[4].y + v[5].y + v[6].y + v[7].y);
-        let dz_dzeta =
-            eighth * (-v[0].z - v[1].z - v[2].z - v[3].z + v[4].z + v[5].z + v[6].z + v[7].z);
+        let dx_dzeta = eighth
+            * (-v[0].position[0] - v[1].position[0] - v[2].position[0] - v[3].position[0]
+                + v[4].position[0]
+                + v[5].position[0]
+                + v[6].position[0]
+                + v[7].position[0]);
+        let dy_dzeta = eighth
+            * (-v[0].position[1] - v[1].position[1] - v[2].position[1] - v[3].position[1]
+                + v[4].position[1]
+                + v[5].position[1]
+                + v[6].position[1]
+                + v[7].position[1]);
+        let dz_dzeta = eighth
+            * (-v[0].position[2] - v[1].position[2] - v[2].position[2] - v[3].position[2]
+                + v[4].position[2]
+                + v[5].position[2]
+                + v[6].position[2]
+                + v[7].position[2]);
 
         // Compute determinant: det(J) = |∂x/∂ξ × ∂x/∂η · ∂x/∂ζ|
         let det = dx_dxi * (dy_deta * dz_dzeta - dz_deta * dy_dzeta)

@@ -115,6 +115,61 @@ impl<T: RealField + Copy> Mesh<T> {
         self.boundary_markers.get(&face_idx).map(String::as_str)
     }
 
+    /// Get all cells
+    pub fn cells(&self) -> &[Cell] {
+        &self.cells
+    }
+
+    /// Get all vertices  
+    pub fn vertices(&self) -> &[Vertex<T>] {
+        &self.vertices
+    }
+
+    /// Get all edges
+    pub fn edges(&self) -> &[Edge] {
+        &self.edges
+    }
+
+    /// Get all faces
+    pub fn faces(&self) -> &[Face] {
+        &self.faces
+    }
+
+    /// Get faces of a cell
+    pub fn get_element_faces(&self, cell: &Cell) -> Vec<&Face> {
+        let mut faces = Vec::new();
+        for &face_idx in &cell.faces {
+            if let Some(face) = self.face(face_idx) {
+                faces.push(face);
+            }
+        }
+        faces
+    }
+
+    /// Get vertices of a cell
+    pub fn get_element_vertices(&self, cell: &Cell) -> Vec<&Vertex<T>> {
+        let mut vertices = Vec::new();
+        let mut vertex_indices = std::collections::HashSet::new();
+
+        // Collect unique vertex indices from all faces of the cell
+        for &face_idx in &cell.faces {
+            if let Some(face) = self.face(face_idx) {
+                for &vertex_idx in &face.vertices {
+                    vertex_indices.insert(vertex_idx);
+                }
+            }
+        }
+
+        // Get the actual vertices
+        for idx in vertex_indices {
+            if let Some(vertex) = self.vertex(idx) {
+                vertices.push(vertex);
+            }
+        }
+
+        vertices
+    }
+
     /// Check mesh validity
     pub fn validate(&self) -> Result<(), String> {
         // Check vertex indices in edges
