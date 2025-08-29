@@ -60,7 +60,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureCorrectionSolver<T> {
                 let idx = (i - 1) * (ny - 2) + (j - 1);
 
                 // Laplacian stencil
-                let ap = -T::from_f64(2.0).unwrap_or_else(|| T::zero()) * (dx2_inv + dy2_inv);
+                let two = T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one());
+                let ap = -two * (dx2_inv + dy2_inv);
                 builder.add_entry(idx, idx, ap)?;
 
                 // Neighbors

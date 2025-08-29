@@ -9,9 +9,8 @@
 //! Run with: cargo run --example microfluidic_chip
 
 use cfd_1d::solver::SolverConfig;
-use cfd_1d::{ChannelProperties, NetworkBuilder, NetworkProblem, NetworkSolver, Node, NodeType};
+use cfd_1d::{EdgeProperties, Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 use cfd_core::fluid::Fluid;
-use cfd_core::BoundaryCondition;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Microfluidic Chip Simulation");
@@ -19,54 +18,77 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create a microfluidic network
     let fluid = Fluid::<f64>::water_20c();
-    let network = NetworkBuilder::new(fluid)
-        // Standard T-junction network
-        .add_node(Node::new("inlet".to_string(), NodeType::Inlet))
-        .add_node(Node::new("junction".to_string(), NodeType::Junction))
-        .add_node(Node::new("outlet_1".to_string(), NodeType::Outlet))
-        .add_node(Node::new("outlet_2".to_string(), NodeType::Outlet))
-        // Channels connecting the network
-        .add_edge(
-            "inlet",
-            "junction",
-            ChannelProperties::new(100.0, 0.001, 100e-6),
-        )?
-        .add_edge(
-            "junction",
-            "outlet_1",
-            ChannelProperties::new(200.0, 0.001, 100e-6),
-        )?
-        .add_edge(
-            "junction",
-            "outlet_2",
-            ChannelProperties::new(200.0, 0.001, 100e-6),
-        )?
-        .build();
+
+    // Build network using NetworkBuilder
+    let mut builder = NetworkBuilder::new();
+
+    // Add nodes
+    let inlet = builder.add_inlet("inlet".to_string());
+    let junction = builder.add_junction("junction".to_string());
+    let outlet_1 = builder.add_outlet("outlet_1".to_string());
+    let outlet_2 = builder.add_outlet("outlet_2".to_string());
+
+    // Connect nodes with pipes
+    let edge1 = builder.connect_with_pipe(inlet, junction, "channel_1".to_string());
+    let edge2 = builder.connect_with_pipe(junction, outlet_1, "channel_2".to_string());
+    let edge3 = builder.connect_with_pipe(junction, outlet_2, "channel_3".to_string());
+
+    // Build the graph
+    let graph = builder.build()?;
+
+    // Create network with fluid
+    let mut network = Network::new(graph, fluid.clone());
+
+    // Add edge properties (microfluidic channels)
+    const CHANNEL_LENGTH: f64 = 0.001; // 1mm
+    const CHANNEL_WIDTH: f64 = 100e-6; // 100μm
+    const CHANNEL_HEIGHT: f64 = 50e-6; // 50μm
+    const INLET_PRESSURE: f64 = 2000.0; // Pa
+    const OUTLET_PRESSURE: f64 = 0.0; // Pa
+
+    let area = CHANNEL_WIDTH * CHANNEL_HEIGHT;
+    let hydraulic_diameter = 2.0 * area / (CHANNEL_WIDTH + CHANNEL_HEIGHT);
+    let viscosity = fluid.dynamic_viscosity();
+
+    // Resistance for rectangular microchannels
+    let resistance_1 = 12.0 * viscosity * CHANNEL_LENGTH / (CHANNEL_WIDTH * CHANNEL_HEIGHT.powi(3));
+    let resistance_2 = resistance_1 * 2.0; // Double resistance for outlet channels
+
+    // Add properties for each edge
+    for (edge_idx, resistance, id) in [
+        (edge1, resistance_1, "channel_1"),
+        (edge2, resistance_2, "channel_2"),
+        (edge3, resistance_2, "channel_3"),
+    ] {
+        let props = EdgeProperties {
+            id: id.to_string(),
+            resistance,
+            length: CHANNEL_LENGTH,
+            area,
+            hydraulic_diameter: Some(hydraulic_diameter),
+            geometry: None,
+            properties: std::collections::HashMap::new(),
+        };
+        network.add_edge_properties(edge_idx, props);
+    }
 
     println!("✅ Network created successfully!");
     println!("   - Nodes: {}", network.node_count());
     println!("   - Edges: {}", network.edge_count());
     println!("   - Fluid: {}", network.fluid().name);
 
-    // Set boundary conditions
-    let mut network = network;
-    network.set_boundary_condition(
-        "inlet",
-        BoundaryCondition::PressureInlet { pressure: 2000.0 },
-    )?;
-    network.set_boundary_condition(
-        "outlet_1",
-        BoundaryCondition::PressureOutlet { pressure: 0.0 },
-    )?;
-    network.set_boundary_condition(
-        "outlet_2",
-        BoundaryCondition::PressureOutlet { pressure: 0.0 },
-    )?;
+    // Set boundary pressures
+    network.set_pressure(inlet, INLET_PRESSURE);
+    network.set_pressure(outlet_1, OUTLET_PRESSURE);
+    network.set_pressure(outlet_2, OUTLET_PRESSURE);
 
     // Create solver with configuration
+    const SOLVER_TOLERANCE: f64 = 1e-6;
+    const MAX_ITERATIONS: usize = 1000;
+
     let solver_config = SolverConfig::<f64> {
-        tolerance: 1e-6,
-        max_iterations: 1000,
+        tolerance: SOLVER_TOLERANCE,
+        max_iterations: MAX_ITERATIONS,
     };
 
     let solver = NetworkSolver::with_config(solver_config);
@@ -88,9 +110,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Node pressures
     println!("\n🔘 Node Pressures:");
-    for (i, node) in solved_network.nodes().enumerate() {
-        if i < pressures.len() {
-            println!("   {}: {:.1} Pa", node.id, pressures[i]);
+    let node_indices = vec![inlet, junction, outlet_1, outlet_2];
+    let node_names = vec!["inlet", "junction", "outlet_1", "outlet_2"];
+    for (idx, name) in node_indices.iter().zip(node_names.iter()) {
+        if let Some(&pressure) = pressures.get(idx) {
+            println!("   {}: {:.1} Pa", name, pressure);
         }
     }
 
@@ -112,9 +136,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Calculate Reynolds number for main channel
     let fluid = solved_network.fluid();
-    let diameter: f64 = 100e-6; // 100 μm channel
+    let diameter = hydraulic_diameter;
     let avg_velocity: f64 = if let Some((_edge_idx, flow)) = flow_rates.iter().next() {
-        flow.abs() / (std::f64::consts::PI * (diameter / 2.0).powi(2))
+        flow.abs() / area
     } else {
         0.0
     };

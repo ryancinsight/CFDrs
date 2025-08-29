@@ -41,12 +41,12 @@ impl<T: RealField + Copy> Broadcast<T> for [T] {
                     .map(|(&a, &b)| op(a, b))
                     .collect()
             }
-            (n, 1) => {
+            (_n, 1) => {
                 // Broadcast single element
                 let b = other[0];
                 self.iter().map(|&a| op(a, b)).collect()
             }
-            (1, m) => {
+            (1, _m) => {
                 // Broadcast self
                 let a = self[0];
                 other.iter().map(|&b| op(a, b)).collect()

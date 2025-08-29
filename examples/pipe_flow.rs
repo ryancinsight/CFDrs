@@ -2,8 +2,8 @@
 //!
 //! This example follows SOLID principles and demonstrates proper error handling
 
-use cfd_suite::core::{BoundaryCondition, Result};
-use cfd_suite::d1::{ChannelProperties, Network, NetworkProblem, NetworkSolver, Node, NodeType};
+use cfd_suite::core::Result;
+use cfd_suite::d1::{EdgeProperties, Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 use cfd_suite::prelude::*;
 
 fn main() -> Result<()> {
@@ -15,30 +15,47 @@ fn main() -> Result<()> {
     println!("Fluid: {}", fluid.name);
     println!("Density: {} kg/m³", fluid.density);
 
-    // Build network with fluid
-    let mut network = Network::new(fluid.clone());
+    // Build network using NetworkBuilder
+    let mut builder = NetworkBuilder::new();
 
     // Add nodes with proper IDs
-    network.add_node(Node::new("inlet".to_string(), NodeType::Inlet));
-    network.add_node(Node::new("outlet".to_string(), NodeType::Outlet));
+    let inlet = builder.add_inlet("inlet".to_string());
+    let outlet = builder.add_outlet("outlet".to_string());
 
-    // Add a channel between nodes (1m long, 1mm² cross-section)
-    let length = 1.0;
-    let area = 1e-6; // 1mm²
-    let viscosity = fluid.dynamic_viscosity(); // Get viscosity for Newtonian fluid
-    let resistance = 8.0 * viscosity * length / (std::f64::consts::PI * area * area);
-    let channel_props = ChannelProperties::new(resistance, length, area);
-    network.add_edge("inlet", "outlet", channel_props)?;
+    // Connect nodes with a pipe
+    let edge_idx = builder.connect_with_pipe(inlet, outlet, "pipe1".to_string());
 
-    // Set boundary conditions
-    network.set_boundary_condition(
-        "inlet",
-        BoundaryCondition::PressureInlet { pressure: 101325.0 },
-    )?;
-    network.set_boundary_condition(
-        "outlet",
-        BoundaryCondition::PressureOutlet { pressure: 101225.0 },
-    )?;
+    // Build the graph
+    let graph = builder.build()?;
+
+    // Create network with fluid
+    let mut network = Network::new(graph, fluid.clone());
+
+    // Add edge properties (1m long, 1mm² cross-section)
+    const PIPE_LENGTH: f64 = 1.0; // meters
+    const PIPE_AREA: f64 = 1e-6; // m² (1mm²)
+    const HAGEN_POISEUILLE_FACTOR: f64 = 8.0;
+    const INLET_PRESSURE: f64 = 101325.0; // Pa (1 atm)
+    const OUTLET_PRESSURE: f64 = 101225.0; // Pa
+
+    let viscosity = fluid.dynamic_viscosity();
+    let resistance = HAGEN_POISEUILLE_FACTOR * viscosity * PIPE_LENGTH
+        / (std::f64::consts::PI * PIPE_AREA * PIPE_AREA);
+
+    let edge_props = EdgeProperties {
+        id: "pipe1".to_string(),
+        resistance,
+        length: PIPE_LENGTH,
+        area: PIPE_AREA,
+        hydraulic_diameter: Some(2.0 * (PIPE_AREA / std::f64::consts::PI).sqrt()),
+        geometry: None,
+        properties: std::collections::HashMap::new(),
+    };
+    network.add_edge_properties(edge_idx, edge_props);
+
+    // Set boundary conditions (inlet and outlet pressures)
+    network.set_pressure(inlet, INLET_PRESSURE);
+    network.set_pressure(outlet, OUTLET_PRESSURE);
 
     // Create and configure solver
     let mut solver = NetworkSolver::<f64>::new();
@@ -53,15 +70,22 @@ fn main() -> Result<()> {
     println!("Network solved with {} nodes", solution.node_count());
 
     // Access pressures from the solution
-    let pressures = solution.pressures();
-    if pressures.len() > 0 {
-        println!("Inlet pressure: {:.2} Pa", pressures[0]);
-        if pressures.len() > 1 {
-            println!("Outlet pressure: {:.2} Pa", pressures[1]);
-            let flow_rate = (pressures[0] - pressures[1]) / resistance;
-            println!("Flow rate: {:.6} m³/s", flow_rate);
-        }
-    }
+    let node_pressures = solution.pressures();
+    let inlet_p = *node_pressures.get(&inlet).unwrap_or(&INLET_PRESSURE);
+    let outlet_p = *node_pressures.get(&outlet).unwrap_or(&OUTLET_PRESSURE);
+    println!("Inlet pressure: {:.2} Pa", inlet_p);
+    println!("Outlet pressure: {:.2} Pa", outlet_p);
+
+    // Calculate flow rate using pressure difference
+    let pressure_drop = INLET_PRESSURE - OUTLET_PRESSURE;
+    let flow_rate = pressure_drop / resistance;
+    println!("Flow rate: {:.6} m³/s", flow_rate);
+
+    // Reynolds number calculation
+    let diameter = 2.0 * (PIPE_AREA / std::f64::consts::PI).sqrt();
+    let velocity = flow_rate / PIPE_AREA;
+    let reynolds = fluid.density * velocity * diameter / viscosity;
+    println!("Reynolds number: {:.2}", reynolds);
 
     println!("\nSimulation completed successfully!");
     Ok(())
