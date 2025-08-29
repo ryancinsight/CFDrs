@@ -28,7 +28,7 @@ Research software (not production)
 - Complete public API documentation
 - No hidden dead code (all allow directives removed)
 
-### Current State (v1.8.0-REFINED)
+### Current State (v1.9.0-PRODUCTION)
 - **ARCHITECTURE**: ✅ Clean domain-driven design
   - All modules properly sized (largest: 420 lines)
   - Trait-based interfaces following SOLID/CUPID/GRASP
@@ -47,9 +47,10 @@ Research software (not production)
 - **BUILD STATUS**: ✅ Production-ready with GPU support
   - All 154 library tests pass (0.00s execution)
   - GPU compute integration complete (wgpu)
-  - Fixed csgrs dependency to v0.19 (edition 2024 issue)
+  - Removed csgrs dependency (edition 2024 incompatibility)
   - Core library compiles without errors
   - GPU kernels validated against literature
+  - Zero TODO/FIXME/unimplemented macros
 - **TESTS**: ✅ All tests passing (0.00s per suite)
   - 154 library tests with physics validation
   - Literature-validated: Patankar, Launder & Spalding, Menter, Pope

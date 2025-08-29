@@ -3,7 +3,6 @@ use cfd_math::{
     differentiation::FiniteDifference,
     integration::{GaussQuadrature, Quadrature},
     interpolation::{CubicSplineInterpolation, Interpolation, LinearInterpolation},
-    iterators::MathIteratorExt,
     linear_solver::{BiCGSTAB, ConjugateGradient, LinearSolver},
     sparse::{SparseMatrix, SparseMatrixBuilder},
 };
