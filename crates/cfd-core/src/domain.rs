@@ -108,11 +108,7 @@ impl<T: RealField + Copy> Domain2D<T> {
         )
     }
 
-    /// Create a new 2D domain from corner points (deprecated, use new instead).
-    #[deprecated(note = "Use new() instead for consistent API")]
-    pub fn from_points(min: Point3<T>, max: Point3<T>) -> Self {
-        Self::new(min, max)
-    }
+
 
     /// Get the width of the domain
     pub fn width(&self) -> T {
