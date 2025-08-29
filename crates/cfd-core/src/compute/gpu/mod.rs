@@ -4,7 +4,9 @@ use crate::error::{Error, Result};
 use std::sync::Arc;
 
 pub mod buffer;
+pub mod constants;
 pub mod kernels;
+pub mod pipeline;
 
 pub use buffer::GpuBuffer;
 

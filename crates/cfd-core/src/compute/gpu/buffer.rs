@@ -11,7 +11,7 @@ use std::sync::Arc;
 /// GPU buffer wrapper
 pub struct GpuBuffer<T: RealField + Pod + Zeroable> {
     /// Underlying wgpu buffer
-    buffer: wgpu::Buffer,
+    pub buffer: wgpu::Buffer,
     /// Buffer size in elements
     size: usize,
     /// GPU context

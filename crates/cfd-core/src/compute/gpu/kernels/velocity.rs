@@ -1,4 +1,4 @@
-//! GPU pressure solver kernel implementation
+//! GPU velocity correction kernel implementation
 
 use super::GpuKernel;
 use crate::compute::traits::{ComputeBackend, ComputeKernel, KernelParams};
@@ -6,15 +6,15 @@ use crate::error::Result;
 use nalgebra::RealField;
 use std::marker::PhantomData;
 
-/// GPU pressure Poisson solver kernel
-pub struct GpuPressureKernel<T: RealField + Copy> {
+/// GPU velocity correction kernel for SIMPLE algorithm
+pub struct GpuVelocityKernel<T: RealField + Copy> {
     shader_module: Option<wgpu::ShaderModule>,
     _phantom: PhantomData<T>,
 }
 
-impl<T: RealField + Copy> GpuPressureKernel<T> {
+impl<T: RealField + Copy> GpuVelocityKernel<T> {
     /// Shader source code
-    const SHADER_SOURCE: &'static str = include_str!("pressure.wgsl");
+    const SHADER_SOURCE: &'static str = include_str!("velocity.wgsl");
 
     pub fn new() -> Self {
         Self {
@@ -24,9 +24,9 @@ impl<T: RealField + Copy> GpuPressureKernel<T> {
     }
 }
 
-impl<T: RealField + Copy> ComputeKernel<T> for GpuPressureKernel<T> {
+impl<T: RealField + Copy> ComputeKernel<T> for GpuVelocityKernel<T> {
     fn name(&self) -> &str {
-        "GPU Pressure Poisson Solver"
+        "GPU Velocity Correction (SIMPLE)"
     }
 
     fn execute(&self, _input: &[T], _output: &mut [T], _params: KernelParams) -> Result<()> {
@@ -36,7 +36,7 @@ impl<T: RealField + Copy> ComputeKernel<T> for GpuPressureKernel<T> {
 
     fn complexity(&self, size: usize) -> usize {
         use crate::compute::gpu::constants::complexity;
-        size * complexity::PRESSURE_JACOBI
+        size * complexity::VELOCITY_UPDATE
     }
 
     fn supports_backend(&self, backend: &ComputeBackend) -> bool {
@@ -44,28 +44,28 @@ impl<T: RealField + Copy> ComputeKernel<T> for GpuPressureKernel<T> {
     }
 }
 
-impl<T: RealField + Copy> GpuKernel<T> for GpuPressureKernel<T> {
+impl<T: RealField + Copy> GpuKernel<T> for GpuVelocityKernel<T> {
     fn shader_code(&self) -> &str {
         Self::SHADER_SOURCE
     }
 
     fn create_pipeline(&self, device: &wgpu::Device) -> Result<wgpu::ComputePipeline> {
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Pressure Shader"),
+            label: Some("Velocity Shader"),
             source: wgpu::ShaderSource::Wgsl(self.shader_code().into()),
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Pressure Pipeline Layout"),
+            label: Some("Velocity Pipeline Layout"),
             bind_group_layouts: &[],
             push_constant_ranges: &[],
         });
 
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Pressure Pipeline"),
+            label: Some("Velocity Pipeline"),
             layout: Some(&pipeline_layout),
             module: &shader_module,
-            entry_point: "pressure_solve",
+            entry_point: "velocity_correction",
         });
 
         Ok(pipeline)
@@ -81,7 +81,7 @@ impl<T: RealField + Copy> GpuKernel<T> for GpuPressureKernel<T> {
         let dispatch_z = (nz + work_group_size - 1) / work_group_size;
 
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-            label: Some("Pressure Pass"),
+            label: Some("Velocity Pass"),
             timestamp_writes: None,
         });
 
@@ -89,8 +89,8 @@ impl<T: RealField + Copy> GpuKernel<T> for GpuPressureKernel<T> {
     }
 }
 
-impl<T: RealField + Copy> std::fmt::Debug for GpuPressureKernel<T> {
+impl<T: RealField + Copy> std::fmt::Debug for GpuVelocityKernel<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GpuPressureKernel").finish()
+        f.debug_struct("GpuVelocityKernel").finish()
     }
 }

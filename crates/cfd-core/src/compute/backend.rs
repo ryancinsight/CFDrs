@@ -108,7 +108,7 @@ impl BackendContext {
             capabilities,
             #[cfg(feature = "gpu")]
             gpu_context: if backend == ComputeBackend::Gpu || backend == ComputeBackend::Hybrid {
-                Some(Arc::new(super::gpu::GpuContext::new()?))
+                Some(Arc::new(super::gpu::GpuContext::create()?))
             } else {
                 None
             },
@@ -130,7 +130,7 @@ impl BackendContext {
         if (backend == ComputeBackend::Gpu || backend == ComputeBackend::Hybrid)
             && self.gpu_context.is_none()
         {
-            self.gpu_context = Some(Arc::new(super::gpu::GpuContext::new()?));
+            self.gpu_context = Some(Arc::new(super::gpu::GpuContext::create()?));
         }
 
         Ok(())

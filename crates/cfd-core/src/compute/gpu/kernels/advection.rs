@@ -35,8 +35,8 @@ impl<T: RealField + Copy> ComputeKernel<T> for GpuAdvectionKernel<T> {
     }
 
     fn complexity(&self, size: usize) -> usize {
-        // Approximately 10 FLOPs per grid point
-        size * 10
+        use crate::compute::gpu::constants::complexity;
+        size * complexity::ADVECTION_UPWIND
     }
 
     fn supports_backend(&self, backend: &ComputeBackend) -> bool {
