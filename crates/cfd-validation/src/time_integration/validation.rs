@@ -2,7 +2,7 @@
 
 use super::integrators::{ForwardEuler, RungeKutta2, RungeKutta4, TimeIntegratorTrait};
 use super::results::TimeIntegrationResult;
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::{DVector, RealField};
 use num_traits::{FromPrimitive, ToPrimitive};
 use std::f64::consts::PI;

@@ -36,7 +36,7 @@ fn test_calculate_reynolds_number() {
     let viscosity = 0.001_f64; // Pa·s
 
     let re = density * velocity * length / viscosity;
-    
+
     assert!(
         (re - 100000.0).abs() < 1.0,
         "Reynolds number calculation: expected 100000, got {}",

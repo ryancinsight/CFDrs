@@ -4,7 +4,7 @@
 //! bounce-back, velocity, and pressure boundaries.
 
 use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
-use cfd_core::BoundaryCondition;
+use cfd_core::boundary::BoundaryCondition;
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 use std::collections::HashMap;

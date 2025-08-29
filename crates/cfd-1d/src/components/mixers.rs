@@ -1,7 +1,8 @@
 //! Mixer components for microfluidic networks
 
 use super::{constants, Component};
-use cfd_core::{Fluid, Result};
+use cfd_core::error::Result;
+use cfd_core::fluid::Fluid;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};

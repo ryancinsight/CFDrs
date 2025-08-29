@@ -32,7 +32,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
         dt: T,
         component: MomentumComponent,
         fields: &SimulationFields<T>,
-    ) -> cfd_core::Result<Self> {
+    ) -> cfd_core::error::Result<Self> {
         let mut coeffs = Self {
             ap: Field2D::new(nx, ny, T::zero()),
             ae: Field2D::new(nx, ny, T::zero()),

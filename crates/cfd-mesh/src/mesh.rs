@@ -204,7 +204,7 @@ impl<T: RealField + Copy> Mesh<T> {
         self.faces.push(face);
         id
     }
-    
+
     /// Add a cell
     pub fn add_cell(&mut self, cell: Cell) -> usize {
         let id = self.cells.len();

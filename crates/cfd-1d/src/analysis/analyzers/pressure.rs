@@ -3,7 +3,7 @@
 use super::traits::NetworkAnalyzer;
 use crate::analysis::PressureAnalysis;
 use crate::network::Network;
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use std::iter::Sum;

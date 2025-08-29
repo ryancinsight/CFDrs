@@ -1,7 +1,9 @@
 //! Problem definition for FEM
 
-use cfd_core::{BoundaryCondition, Error, Fluid, Result};
-use cfd_mesh::Mesh;
+use cfd_core::boundary::BoundaryCondition;
+use cfd_core::error::{Error, Result};
+use cfd_core::fluid::Fluid;
+use cfd_mesh::mesh::Mesh;
 use nalgebra::{RealField, Vector3};
 use std::collections::HashMap;
 

@@ -97,7 +97,7 @@ impl AdvectionMethod {
             1 => velocity.y,
             2 => velocity.z,
             _ => {
-                return Err(cfd_core::Error::InvalidInput(
+                return Err(cfd_core::error::Error::InvalidInput(
                     "Invalid direction".to_string(),
                 ))
             }
@@ -116,7 +116,7 @@ impl AdvectionMethod {
             1 => solver.dx * solver.dz,
             2 => solver.dx * solver.dy,
             _ => {
-                return Err(cfd_core::Error::InvalidInput(
+                return Err(cfd_core::error::Error::InvalidInput(
                     "Invalid direction".to_string(),
                 ))
             }

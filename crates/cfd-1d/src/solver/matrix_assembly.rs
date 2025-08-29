@@ -1,7 +1,7 @@
 //! Matrix assembly for network flow equations
 
 use crate::network::Network;
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::{coo::CooMatrix, CsrMatrix};
 use num_traits::FromPrimitive;

@@ -4,7 +4,7 @@
 //! around a cylinder"
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
 

@@ -6,7 +6,7 @@
 pub mod chapman_enskog;
 pub mod patankar_1980;
 
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::RealField;
 
 /// Literature validation test trait

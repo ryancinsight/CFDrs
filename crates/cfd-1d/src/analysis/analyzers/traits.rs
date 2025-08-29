@@ -1,6 +1,6 @@
 //! Core traits for network analysis
 
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::RealField;
 
 /// Trait for domain-specific network analyzers

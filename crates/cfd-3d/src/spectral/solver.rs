@@ -2,7 +2,7 @@
 
 use super::basis::SpectralBasis;
 use super::poisson::{PoissonBoundaryCondition, PoissonSolver};
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};

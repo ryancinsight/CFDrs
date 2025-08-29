@@ -1,7 +1,8 @@
 //! Pressure correction solver for STANDARD algorithm
 
 use crate::grid::StructuredGrid2D;
-use cfd_math::{ConjugateGradient, LinearSolver, SparseMatrixBuilder};
+use cfd_math::linear_solver::{ConjugateGradient, LinearSolver};
+use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::{DVector, RealField, Vector2};
 use num_traits::FromPrimitive;
 
@@ -16,10 +17,10 @@ pub struct PressureCorrectionSolver<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive + Copy> PressureCorrectionSolver<T> {
     /// Create new pressure correction solver
     pub fn new(grid: StructuredGrid2D<T>) -> cfd_core::error::Result<Self> {
-        let config = cfd_core::solver::LinearSolverConfig {
+        let config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: 1000,
             tolerance: T::from_f64(1e-8).unwrap_or_else(|| T::zero()),
-            preconditioning: true,
+            use_preconditioner: true,
         };
 
         Ok(Self {

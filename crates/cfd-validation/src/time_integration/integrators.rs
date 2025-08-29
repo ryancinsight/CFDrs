@@ -1,6 +1,6 @@
 //! Time integration methods for validation.
 
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
 use std::marker::PhantomData;

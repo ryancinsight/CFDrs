@@ -3,7 +3,7 @@
 //! This module provides standard CFD benchmark problems for validating
 //! solver implementations against known solutions.
 
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
 

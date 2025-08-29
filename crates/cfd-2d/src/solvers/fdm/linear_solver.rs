@@ -2,7 +2,7 @@
 //!
 //! Provides iterative solvers for the linear systems arising from FDM discretization.
 
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use cfd_math::SparseMatrix;
 use nalgebra::{DVector, RealField};
 use num_traits::{FromPrimitive, Zero};

@@ -4,7 +4,7 @@
 //! using the Navier-Stokes equations and a multigrid method"
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
 

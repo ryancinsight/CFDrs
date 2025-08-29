@@ -1,7 +1,7 @@
 //! Linear solver validation against analytical solutions
 
 use cfd_core::error::Result;
-use cfd_math::linear_solver::LinearSolverConfig;
+use cfd_math::linear_solver::IterativeSolverConfig;
 use cfd_math::{BiCGSTAB, ConjugateGradient, LinearSolver};
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
@@ -63,11 +63,11 @@ impl LinearSolverValidator {
         let solvers: Vec<(&str, Box<dyn LinearSolver<T>>)> = vec![
             (
                 "ConjugateGradient",
-                Box::new(ConjugateGradient::new(LinearSolverConfig::default())),
+                Box::new(ConjugateGradient::new(IterativeSolverConfig::default())),
             ),
             (
                 "BiCGSTAB",
-                Box::new(BiCGSTAB::new(LinearSolverConfig::default())),
+                Box::new(BiCGSTAB::new(IterativeSolverConfig::default())),
             ),
         ];
 
@@ -116,11 +116,11 @@ impl LinearSolverValidator {
         let solvers: Vec<(&str, Box<dyn LinearSolver<T>>)> = vec![
             (
                 "ConjugateGradient",
-                Box::new(ConjugateGradient::new(LinearSolverConfig::default())),
+                Box::new(ConjugateGradient::new(IterativeSolverConfig::default())),
             ),
             (
                 "BiCGSTAB",
-                Box::new(BiCGSTAB::new(LinearSolverConfig::default())),
+                Box::new(BiCGSTAB::new(IterativeSolverConfig::default())),
             ),
         ];
 
@@ -164,11 +164,11 @@ impl LinearSolverValidator {
         let solvers: Vec<(&str, Box<dyn LinearSolver<T>>)> = vec![
             (
                 "ConjugateGradient",
-                Box::new(ConjugateGradient::new(LinearSolverConfig::default())),
+                Box::new(ConjugateGradient::new(IterativeSolverConfig::default())),
             ),
             (
                 "BiCGSTAB",
-                Box::new(BiCGSTAB::new(LinearSolverConfig::default())),
+                Box::new(BiCGSTAB::new(IterativeSolverConfig::default())),
             ),
         ];
 
@@ -210,7 +210,7 @@ impl LinearSolverValidator {
         // Only test robust solvers for ill-conditioned systems
         let solvers: Vec<(&str, Box<dyn LinearSolver<T>>)> = vec![(
             "BiCGSTAB",
-            Box::new(BiCGSTAB::new(LinearSolverConfig::default())),
+            Box::new(BiCGSTAB::new(IterativeSolverConfig::default())),
         )];
 
         for (name, solver) in solvers {

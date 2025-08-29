@@ -18,7 +18,8 @@ pub use problem::NetworkProblem;
 pub use state::NetworkState;
 
 use crate::network::Network;
-use cfd_core::{Configurable, Result, Solver, Validatable};
+use cfd_core::error::Result;
+use cfd_core::solver::{Configurable, Solver, Validatable};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -126,7 +127,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
         }
 
         // Failed to converge within max iterations
-        Err(cfd_core::Error::Convergence(
+        Err(cfd_core::error::Error::Convergence(
             cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded {
                 max: self.config.max_iterations,
             },
@@ -175,13 +176,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Validatable<T> for NetworkSolve
     fn validate_problem(&self, problem: &Self::Problem) -> Result<()> {
         // Validate network has nodes
         if problem.network.node_count() == 0 {
-            return Err(cfd_core::Error::InvalidConfiguration(
+            return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Network has no nodes".to_string(),
             ));
         }
         // Validate tolerance
         if self.config.tolerance <= T::zero() {
-            return Err(cfd_core::Error::InvalidConfiguration(
+            return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Tolerance must be positive".to_string(),
             ));
         }

@@ -79,11 +79,13 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
         let epsilon_21 = f_medium - f_fine;
         let epsilon_32 = f_coarse - f_medium;
 
-        let epsilon_tolerance = T::from_f64(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE)
-            .ok_or_else(|| Error::InvalidInput(
-                "Cannot represent EPSILON_TOLERANCE in numeric type T".to_string()
-            ))?;
-        
+        let epsilon_tolerance = T::from_f64(
+            cfd_core::constants::numerical::solver::EPSILON_TOLERANCE,
+        )
+        .ok_or_else(|| {
+            Error::InvalidInput("Cannot represent EPSILON_TOLERANCE in numeric type T".to_string())
+        })?;
+
         if epsilon_21.abs() < epsilon_tolerance {
             return Err(Error::InvalidInput(
                 "Solutions too close to estimate order".to_string(),
@@ -103,9 +105,11 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
         let epsilon_21 = (f_medium - f_fine).abs();
         let epsilon_32 = (f_coarse - f_medium).abs();
 
-        let epsilon_tolerance = T::from_f64(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE)
-            .unwrap_or_else(|| T::from_f64(1e-10).expect("Failed to represent 1e-10 in numeric type T"));
-        
+        let epsilon_tolerance =
+            T::from_f64(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE).unwrap_or_else(
+                || T::from_f64(1e-10).expect("Failed to represent 1e-10 in numeric type T"),
+            );
+
         if epsilon_21 < epsilon_tolerance {
             return false;
         }
@@ -146,18 +150,19 @@ where
     let h_fine = paired[0].0;
     let h_coarse = paired[1].0;
 
-    let r21 = h_coarse / h_fine;  // Refinement ratio between fine and medium grids
+    let r21 = h_coarse / h_fine; // Refinement ratio between fine and medium grids
 
     // Estimate order if we have 3 or more solutions
     let order = if solutions.len() >= 3 {
         let h_medium = paired[1].0;
         let h_coarse_actual = paired[2].0;
-        let r32 = h_coarse_actual / h_medium;  // Refinement ratio between medium and coarse
-        
+        let r32 = h_coarse_actual / h_medium; // Refinement ratio between medium and coarse
+
         // Check if refinement ratios are uniform (within 1% tolerance)
-        let one_percent = T::from_f64(0.01)
-            .ok_or_else(|| Error::InvalidInput("Cannot represent 0.01 in numeric type T".to_string()))?;
-        
+        let one_percent = T::from_f64(0.01).ok_or_else(|| {
+            Error::InvalidInput("Cannot represent 0.01 in numeric type T".to_string())
+        })?;
+
         if ((r21 - r32).abs() / r21) > one_percent {
             return Err(Error::InvalidInput(format!(
                 "Non-uniform grid refinement ratios ({:?} and {:?}) detected. \
@@ -165,15 +170,15 @@ where
                 r21, r32
             )));
         }
-        
+
         let f_medium = paired[1].1;
         let f_coarse_actual = paired[2].1;
         RichardsonExtrapolation::estimate_order(f_coarse_actual, f_medium, f_fine, r21)?
     } else {
         // Assume second order if not enough data
-        T::from_f64(2.0).ok_or_else(|| 
+        T::from_f64(2.0).ok_or_else(|| {
             Error::InvalidInput("Cannot represent 2.0 in numeric type T".to_string())
-        )?
+        })?
     };
 
     let extrapolator = RichardsonExtrapolation::with_order(order, r21)?;

@@ -2,7 +2,7 @@
 
 use super::solver::MomentumComponent;
 use cfd_core::boundary::BoundaryCondition;
-use cfd_math::SparseMatrixBuilder;
+use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::{DVector, RealField};
 use std::collections::HashMap;
 
@@ -14,7 +14,7 @@ pub fn apply_momentum_boundaries<T: RealField + Copy>(
     boundaries: &HashMap<String, BoundaryCondition<T>>,
     nx: usize,
     ny: usize,
-) -> cfd_core::Result<()> {
+) -> cfd_core::error::Result<()> {
     // Apply boundary conditions based on location
     for (name, bc) in boundaries {
         match name.as_str() {
@@ -36,7 +36,7 @@ fn apply_west_boundary<T: RealField + Copy>(
     _component: MomentumComponent,
     nx: usize,
     ny: usize,
-) -> cfd_core::Result<()> {
+) -> cfd_core::error::Result<()> {
     for j in 0..ny {
         let idx = j * nx;
 
@@ -68,7 +68,7 @@ fn apply_east_boundary<T: RealField + Copy>(
     _component: MomentumComponent,
     nx: usize,
     ny: usize,
-) -> cfd_core::Result<()> {
+) -> cfd_core::error::Result<()> {
     for j in 0..ny {
         let idx = j * nx + nx - 1;
 
@@ -98,7 +98,7 @@ fn apply_north_boundary<T: RealField + Copy>(
     _component: MomentumComponent,
     nx: usize,
     ny: usize,
-) -> cfd_core::Result<()> {
+) -> cfd_core::error::Result<()> {
     for i in 0..nx {
         let idx = (ny - 1) * nx + i;
 
@@ -128,7 +128,7 @@ fn apply_south_boundary<T: RealField + Copy>(
     _component: MomentumComponent,
     nx: usize,
     _ny: usize,
-) -> cfd_core::Result<()> {
+) -> cfd_core::error::Result<()> {
     for i in 0..nx {
         let idx = i;
 

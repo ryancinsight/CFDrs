@@ -11,7 +11,8 @@ use crate::solvers::lbm::{
     macroscopic::MacroscopicQuantities,
     streaming::StreamingOperator,
 };
-use cfd_core::{BoundaryCondition, Result};
+use cfd_core::boundary::BoundaryCondition;
+use cfd_core::error::Result;
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};

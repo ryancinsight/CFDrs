@@ -4,8 +4,9 @@ use super::coefficients::MomentumCoefficients;
 use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
 use cfd_core::boundary::BoundaryCondition;
-use cfd_core::solver::LinearSolverConfig;
-use cfd_math::{BiCGSTAB, LinearSolver, SparseMatrix, SparseMatrixBuilder};
+use cfd_math::linear_solver::IterativeSolverConfig;
+use cfd_math::linear_solver::{BiCGSTAB, LinearSolver};
+use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
 use std::collections::HashMap;
@@ -34,7 +35,7 @@ pub struct MomentumSolver<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
     /// Create new momentum solver
     pub fn new(grid: &StructuredGrid2D<T>) -> Self {
-        let config = LinearSolverConfig::default();
+        let config = IterativeSolverConfig::default();
         let linear_solver = BiCGSTAB::new(config);
 
         Self {
@@ -58,7 +59,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         component: MomentumComponent,
         fields: &mut SimulationFields<T>,
         dt: T,
-    ) -> cfd_core::Result<()> {
+    ) -> cfd_core::error::Result<()> {
         // Compute coefficients
         let coeffs = self.compute_coefficients(component, fields, dt)?;
 
@@ -79,7 +80,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         component: MomentumComponent,
         fields: &SimulationFields<T>,
         dt: T,
-    ) -> cfd_core::Result<MomentumCoefficients<T>> {
+    ) -> cfd_core::error::Result<MomentumCoefficients<T>> {
         MomentumCoefficients::compute(self.nx, self.ny, self.dx, self.dy, dt, component, fields)
     }
 
@@ -88,7 +89,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         coeffs: &MomentumCoefficients<T>,
         component: MomentumComponent,
         fields: &SimulationFields<T>,
-    ) -> cfd_core::Result<(SparseMatrix<T>, DVector<T>)> {
+    ) -> cfd_core::error::Result<(SparseMatrix<T>, DVector<T>)> {
         let n = self.nx * self.ny;
         let mut builder = SparseMatrixBuilder::new(n, n);
         let mut rhs = DVector::zeros(n);

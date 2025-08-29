@@ -8,7 +8,7 @@ use super::{
 };
 use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
 

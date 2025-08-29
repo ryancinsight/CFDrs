@@ -3,6 +3,7 @@
 //! These are self-contained within cfd-math to avoid dependency inversion.
 
 use nalgebra::RealField;
+use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
 /// Configuration for iterative linear solvers
@@ -36,5 +37,15 @@ impl<T: RealField + Copy> IterativeSolverConfig<T> {
     pub fn with_preconditioner(mut self) -> Self {
         self.use_preconditioner = true;
         self
+    }
+}
+
+impl<T: RealField + Copy + FromPrimitive> Default for IterativeSolverConfig<T> {
+    fn default() -> Self {
+        Self {
+            max_iterations: 1000,
+            tolerance: T::from_f64(1e-6).expect("Failed to convert default tolerance"),
+            use_preconditioner: false,
+        }
     }
 }

@@ -3,7 +3,7 @@
 use super::{
     constants, CircularChannel, Component, HashMap, Micropump, Microvalve, RectangularChannel,
 };
-use cfd_core::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 

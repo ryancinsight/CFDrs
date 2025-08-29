@@ -1,7 +1,7 @@
 //! Core traits for linear solvers and preconditioners
 
+use super::config::IterativeSolverConfig;
 use cfd_core::error::Result;
-use cfd_core::solvers::LinearSolverConfig;
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 
@@ -16,7 +16,7 @@ pub trait LinearSolver<T: RealField + Copy>: Send + Sync {
     ) -> Result<DVector<T>>;
 
     /// Get solver configuration
-    fn config(&self) -> &LinearSolverConfig<T>;
+    fn config(&self) -> &IterativeSolverConfig<T>;
 
     /// Check if residual satisfies convergence criteria
     fn is_converged(&self, residual_norm: T) -> bool {

@@ -1,13 +1,14 @@
 //! FEM solver implementation
 
-use cfd_core::{BoundaryCondition, Result};
+use cfd_core::boundary::BoundaryCondition;
+use cfd_core::error::Result;
 use cfd_math::{ConjugateGradient, LinearSolver, SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField, Vector3};
 use num_traits::{Float, FromPrimitive};
 
 use crate::fem::constants;
 use crate::fem::{ElementMatrices, FemConfig, FluidElement, StokesFlowProblem, StokesFlowSolution};
-use cfd_mesh::{Cell, Mesh};
+use cfd_mesh::mesh::{Cell, Mesh};
 
 /// Finite Element Method solver for 3D incompressible flow
 pub struct FemSolver<T: RealField + Copy> {
@@ -48,7 +49,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
     /// Create a new FEM solver
     pub fn new(config: FemConfig<T>) -> Self {
         let linear_solver: Box<dyn LinearSolver<T>> = Box::new(ConjugateGradient::new(
-            cfd_math::linear_solver::LinearSolverConfig::default(),
+            cfd_math::linear_solver::IterativeSolverConfig::default(),
         ));
 
         Self {

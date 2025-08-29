@@ -1,6 +1,6 @@
 //! Linear system solver for network equations
 
-use cfd_core::Result;
+use cfd_core::error::Result;
 use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, LinearSolver};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
@@ -58,7 +58,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
 
         match self.method {
             LinearSolverMethod::ConjugateGradient => {
-                let config = cfd_math::linear_solver::LinearSolverConfig {
+                let config = cfd_math::linear_solver::IterativeSolverConfig {
                     max_iterations: self.max_iterations,
                     tolerance: self.tolerance,
                     preconditioning: false,
@@ -67,7 +67,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
                 solver.solve(a, b, Some(&x0))
             }
             LinearSolverMethod::BiCGSTAB => {
-                let config = cfd_math::linear_solver::LinearSolverConfig {
+                let config = cfd_math::linear_solver::IterativeSolverConfig {
                     max_iterations: self.max_iterations,
                     tolerance: self.tolerance,
                     preconditioning: false,

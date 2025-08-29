@@ -1,9 +1,9 @@
 //! BiCGSTAB solver implementation
 
+use super::config::IterativeSolverConfig;
 use super::preconditioners::IdentityPreconditioner;
 use super::traits::{LinearSolver, Preconditioner};
 use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind, Result};
-use cfd_core::solvers::LinearSolverConfig;
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
@@ -11,12 +11,12 @@ use std::fmt::Debug;
 
 /// BiCGSTAB solver with efficient memory management
 pub struct BiCGSTAB<T: RealField + Copy> {
-    config: LinearSolverConfig<T>,
+    config: IterativeSolverConfig<T>,
 }
 
 impl<T: RealField + Copy> BiCGSTAB<T> {
     /// Create new BiCGSTAB solver
-    pub const fn new(config: LinearSolverConfig<T>) -> Self {
+    pub const fn new(config: IterativeSolverConfig<T>) -> Self {
         Self { config }
     }
 
@@ -26,7 +26,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
     where
         T: FromPrimitive,
     {
-        Self::new(LinearSolverConfig::default())
+        Self::new(IterativeSolverConfig::default())
     }
 
     /// Efficient sparse matrix-vector multiplication into pre-allocated buffer
@@ -230,7 +230,7 @@ impl<T: RealField + Debug + Copy> LinearSolver<T> for BiCGSTAB<T> {
         Ok(x)
     }
 
-    fn config(&self) -> &LinearSolverConfig<T> {
+    fn config(&self) -> &IterativeSolverConfig<T> {
         &self.config
     }
 }

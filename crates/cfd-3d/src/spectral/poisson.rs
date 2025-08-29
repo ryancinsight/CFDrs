@@ -5,7 +5,7 @@
 
 use super::basis::SpectralBasis;
 use super::chebyshev::ChebyshevPolynomial;
-use cfd_core::Result;
+use cfd_core::error::Result;
 use nalgebra::{DMatrix, DVector, RealField};
 use num_traits::FromPrimitive;
 

@@ -75,8 +75,8 @@ impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
         match self.geometry {
             PoiseuilleGeometry::Plates => {
                 // Q = (2/3) * u_max * h
-                let two_thirds = T::from_f64(2.0 / 3.0)
-                    .expect("Failed to represent 2.0/3.0 in numeric type T");
+                let two_thirds =
+                    T::from_f64(2.0 / 3.0).expect("Failed to represent 2.0/3.0 in numeric type T");
                 two_thirds * self.u_max * self.characteristic_length
             }
             PoiseuilleGeometry::Pipe => {
@@ -134,8 +134,7 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for PoiseuilleFl
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let large = T::from_f64(1000.0)
-            .expect("Failed to represent 1000.0 in numeric type T");
+        let large = T::from_f64(1000.0).expect("Failed to represent 1000.0 in numeric type T");
         match self.geometry {
             PoiseuilleGeometry::Plates => [
                 T::zero(),
