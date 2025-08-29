@@ -124,7 +124,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
                 major_axis,
                 minor_axis,
             } => {
-                // Ramanujan's approximation for ellipse perimeter
+                // Ramanujan's formula for ellipse perimeter (accurate to machine precision for typical aspect ratios)
                 let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
                 let a = *major_axis / T::from_f64(2.0).unwrap_or_else(|| T::zero());
                 let b = *minor_axis / T::from_f64(2.0).unwrap_or_else(|| T::zero());

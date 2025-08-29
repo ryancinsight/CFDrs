@@ -65,7 +65,7 @@ pub struct ManufacturedFunctions;
 impl ManufacturedFunctions {
     /// Sinusoidal solution: sin(kx * x) * sin(ky * y) * exp(-t)
     pub fn sinusoidal<T: RealField + Float>(x: T, y: T, t: T, kx: T, ky: T) -> T {
-        (kx * x).sin() * (ky * y).sin() * (-t).exp()
+        Float::sin(kx * x) * Float::sin(ky * y) * Float::exp(-t)
     }
 
     /// Polynomial solution: x^2 + y^2 + t
@@ -75,11 +75,11 @@ impl ManufacturedFunctions {
 
     /// Exponential solution: exp(x + y - t)
     pub fn exponential<T: RealField + Float>(x: T, y: T, t: T) -> T {
-        (x + y - t).exp()
+        Float::exp(x + y - t)
     }
 
     /// Trigonometric-exponential: cos(x) * sin(y) * exp(-2t)
     pub fn trig_exp<T: RealField + Float>(x: T, y: T, t: T) -> T {
-        x.cos() * y.sin() * (T::from(-2.0).unwrap() * t).exp()
+        Float::cos(x) * Float::sin(y) * Float::exp(T::from(-2.0).unwrap() * t)
     }
 }
