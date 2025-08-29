@@ -3,7 +3,10 @@
 use super::domain::NetworkDomain;
 use super::state::NetworkState;
 use crate::network::Network;
-use cfd_core::{boundary::BoundaryConditionSet, fluid::Fluid, Problem, Result};
+use cfd_core::boundary::BoundaryConditionSet;
+use cfd_core::error::Result;
+use cfd_core::fluid::Fluid;
+use cfd_core::problem::Problem;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 

@@ -2,7 +2,7 @@
 
 use cfd_core::error::Result;
 use cfd_math::linear_solver::IterativeSolverConfig;
-use cfd_math::{BiCGSTAB, ConjugateGradient, LinearSolver};
+use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, LinearSolver};
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 

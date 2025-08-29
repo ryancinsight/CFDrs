@@ -61,7 +61,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
                 let config = cfd_math::linear_solver::IterativeSolverConfig {
                     max_iterations: self.max_iterations,
                     tolerance: self.tolerance,
-                    preconditioning: false,
+                    use_preconditioner: false,
                 };
                 let solver = ConjugateGradient::<T>::new(config);
                 solver.solve(a, b, Some(&x0))
@@ -70,7 +70,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
                 let config = cfd_math::linear_solver::IterativeSolverConfig {
                     max_iterations: self.max_iterations,
                     tolerance: self.tolerance,
-                    preconditioning: false,
+                    use_preconditioner: false,
                 };
                 let solver = BiCGSTAB::<T>::new(config);
                 solver.solve(a, b, Some(&x0))

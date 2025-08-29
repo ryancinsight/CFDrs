@@ -93,9 +93,9 @@ impl<T: RealField + FromPrimitive + Copy> SpectralSolver<T> {
         // Use the source and BCs from the user-provided problem definition
         let potential = self.poisson_solver.solve(
             &problem.source_term,
-            problem.bc_x,
-            problem.bc_y,
-            problem.bc_z,
+            problem.bc_x.clone(),
+            problem.bc_y.clone(),
+            problem.bc_z.clone(),
         )?;
 
         // Store the result in the solution
