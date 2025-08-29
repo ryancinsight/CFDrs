@@ -30,7 +30,7 @@ mod tests {
     }
 
     #[test]
-    fn test_conjugate_gradient() -> Result<()> {
+    fn test_conjugate_gradient() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let n = 5;
         let a = create_tridiagonal_matrix(n)?;
         let b = DVector::from_element(n, 1.0);
@@ -52,7 +52,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bicgstab() -> Result<()> {
+    fn test_bicgstab() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let n = 5;
         let a = create_tridiagonal_matrix(n)?;
         let b = DVector::from_element(n, 1.0);
@@ -74,7 +74,7 @@ mod tests {
     }
 
     #[test]
-    fn test_jacobi_preconditioner() -> Result<()> {
+    fn test_jacobi_preconditioner() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let n = 5;
         let a = create_tridiagonal_matrix(n)?;
         let precond = JacobiPreconditioner::new(&a)?;
@@ -91,7 +91,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sor_preconditioner() -> Result<()> {
+    fn test_sor_preconditioner() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let n = 5;
         let a = create_tridiagonal_matrix(n)?;
 
@@ -117,7 +117,8 @@ mod tests {
     }
 
     #[test]
-    fn test_ilu_preconditioner_fails_on_non_tridiagonal() -> Result<()> {
+    fn test_ilu_preconditioner_fails_on_non_tridiagonal(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
         let n = 3;
         let mut builder = SparseMatrixBuilder::new(n, n);
 
@@ -134,7 +135,7 @@ mod tests {
     }
 
     #[test]
-    fn test_preconditioned_cg() -> Result<()> {
+    fn test_preconditioned_cg() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let n = 5;
         let a = create_tridiagonal_matrix(n)?;
         let b = DVector::from_element(n, 1.0);
@@ -157,7 +158,7 @@ mod tests {
     }
 
     #[test]
-    fn test_gauss_seidel() -> Result<()> {
+    fn test_gauss_seidel() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let n = 5;
         let a = create_tridiagonal_matrix(n)?;
         // GaussSeidelPreconditioner not yet implemented, using SOR instead
@@ -173,7 +174,8 @@ mod tests {
     }
 
     #[test]
-    fn test_convergence_with_different_tolerances() -> Result<()> {
+    fn test_convergence_with_different_tolerances(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
         let n = 10;
         let a = create_tridiagonal_matrix(n)?;
         let b = DVector::from_element(n, 1.0);

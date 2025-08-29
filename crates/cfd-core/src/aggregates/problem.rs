@@ -3,7 +3,7 @@
 use crate::boundary::BoundaryCondition;
 use crate::domain::Domain;
 use crate::error::{Error, Result};
-use crate::fluid::{ConstantPropertyFluid, FluidModel};
+use crate::fluid::ConstantPropertyFluid;
 use crate::values::{Pressure, Velocity};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;

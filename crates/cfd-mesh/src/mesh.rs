@@ -144,7 +144,7 @@ impl<T: RealField + Copy> Mesh<T> {
 
     /// Get faces of a cell (allocating version for compatibility)
     #[deprecated(note = "Use element_faces() iterator for zero-copy access")]
-    pub fn get_element_faces(&self, cell: &Cell) -> Vec<&Face> {
+    pub fn get_element_faces<'a>(&'a self, cell: &'a Cell) -> Vec<&'a Face> {
         self.element_faces(cell).collect()
     }
 
@@ -171,7 +171,7 @@ impl<T: RealField + Copy> Mesh<T> {
 
     /// Get vertices of a cell (allocating version for compatibility)
     #[deprecated(note = "Use element_vertices() iterator for zero-copy access")]
-    pub fn get_element_vertices(&self, cell: &Cell) -> Vec<&Vertex<T>> {
+    pub fn get_element_vertices<'a>(&'a self, cell: &'a Cell) -> Vec<&'a Vertex<T>> {
         self.element_vertices(cell).collect()
     }
 
