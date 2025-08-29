@@ -53,4 +53,20 @@ impl<T: RealField + Copy> ConvergenceChecker<T> {
     pub fn check_residual(&self, residual: T) -> bool {
         residual < self.tolerance
     }
+
+    /// Check if solution has converged by comparing two solution vectors
+    pub fn has_converged(&self, current: &DVector<T>, previous: &DVector<T>) -> Result<bool> {
+        // Check for NaN/Inf values indicating divergence
+        if current.iter().any(|x| !x.is_finite()) {
+            return Err(cfd_core::Error::Convergence(
+                cfd_core::error::ConvergenceErrorKind::Diverged { norm: 0.0 },
+            ));
+        }
+
+        // Compute the L2 norm of the change
+        let change = (current - previous).norm();
+
+        // Check if change is within tolerance
+        Ok(change < self.tolerance)
+    }
 }
