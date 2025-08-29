@@ -78,6 +78,28 @@ impl<T: Clone> Field2D<T> {
         &self.data
     }
 
+    /// Iterate over rows as slices (zero-copy)
+    pub fn rows(&self) -> impl Iterator<Item = &[T]> + '_ {
+        (0..self.ny).map(move |j| {
+            let start = j * self.nx;
+            &self.data[start..start + self.nx]
+        })
+    }
+
+    /// Iterate over columns (requires allocation for non-contiguous access)
+    pub fn column_iter(&self, col: usize) -> impl Iterator<Item = &T> + '_ {
+        debug_assert!(col < self.nx, "Column index out of bounds");
+        (0..self.ny).map(move |row| &self.data[row * self.nx + col])
+    }
+
+    /// Get row as slice
+    #[inline]
+    pub fn row(&self, j: usize) -> &[T] {
+        debug_assert!(j < self.ny, "Row index out of bounds");
+        let start = j * self.nx;
+        &self.data[start..start + self.nx]
+    }
+
     /// Get mutable raw data slice
     pub fn data_mut(&mut self) -> &mut [T] {
         &mut self.data

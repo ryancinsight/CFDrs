@@ -3,6 +3,7 @@
 //! This module contains various discretization schemes for convection and diffusion terms.
 
 pub mod convection;
+pub mod extended_stencil;
 
 // Re-export main discretization types
 pub use convection::{

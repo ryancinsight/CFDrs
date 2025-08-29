@@ -135,39 +135,44 @@ impl<T: RealField + Copy> Mesh<T> {
         &self.faces
     }
 
-    /// Get faces of a cell
-    pub fn get_element_faces(&self, cell: &Cell) -> Vec<&Face> {
-        let mut faces = Vec::new();
-        for &face_idx in &cell.faces {
-            if let Some(face) = self.face(face_idx) {
-                faces.push(face);
-            }
-        }
-        faces
+    /// Get faces of a cell as an iterator
+    pub fn element_faces<'a>(&'a self, cell: &'a Cell) -> impl Iterator<Item = &'a Face> + 'a {
+        cell.faces
+            .iter()
+            .filter_map(move |&face_idx| self.face(face_idx))
     }
 
-    /// Get vertices of a cell
-    pub fn get_element_vertices(&self, cell: &Cell) -> Vec<&Vertex<T>> {
-        let mut vertices = Vec::new();
-        let mut vertex_indices = std::collections::HashSet::new();
+    /// Get faces of a cell (allocating version for compatibility)
+    #[deprecated(note = "Use element_faces() iterator for zero-copy access")]
+    pub fn get_element_faces(&self, cell: &Cell) -> Vec<&Face> {
+        self.element_faces(cell).collect()
+    }
 
-        // Collect unique vertex indices from all faces of the cell
+    /// Get vertices of a cell as an iterator (zero-copy)
+    pub fn element_vertices<'a>(
+        &'a self,
+        cell: &'a Cell,
+    ) -> impl Iterator<Item = &'a Vertex<T>> + 'a {
+        use std::collections::HashSet;
+
+        // Collect unique indices first (necessary for deduplication)
+        let mut vertex_indices = HashSet::new();
         for &face_idx in &cell.faces {
             if let Some(face) = self.face(face_idx) {
-                for &vertex_idx in &face.vertices {
-                    vertex_indices.insert(vertex_idx);
-                }
+                vertex_indices.extend(&face.vertices);
             }
         }
 
-        // Get the actual vertices
-        for idx in vertex_indices {
-            if let Some(vertex) = self.vertex(idx) {
-                vertices.push(vertex);
-            }
-        }
+        // Return iterator over vertices
+        vertex_indices
+            .into_iter()
+            .filter_map(move |idx| self.vertex(idx))
+    }
 
-        vertices
+    /// Get vertices of a cell (allocating version for compatibility)
+    #[deprecated(note = "Use element_vertices() iterator for zero-copy access")]
+    pub fn get_element_vertices(&self, cell: &Cell) -> Vec<&Vertex<T>> {
+        self.element_vertices(cell).collect()
     }
 
     /// Check mesh validity
