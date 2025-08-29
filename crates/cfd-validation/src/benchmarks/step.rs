@@ -69,10 +69,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
         let dx = self.channel_length / T::from_usize(nx).unwrap_or_else(T::one);
         let dy = self.channel_height / T::from_usize(ny).unwrap_or_else(T::one);
         // Calculate Reynolds number based on step height and inlet velocity
-        let reynolds = self.inlet_velocity * self.step_height / T::from_f64(0.01).unwrap_or_else(T::one); // Assuming nu = 0.01
+        let reynolds =
+            self.inlet_velocity * self.step_height / T::from_f64(0.01).unwrap_or_else(T::one); // Assuming nu = 0.01
         let nu = self.inlet_velocity * self.step_height / reynolds; // Kinematic viscosity
         let dt = T::from_f64(0.01).unwrap_or_else(T::one) * dx.min(dy) * dx.min(dy) / nu; // CFL condition
-        
+
         // Iterative solver for demonstration
         let mut convergence = Vec::new();
         let mut max_residual = T::one();

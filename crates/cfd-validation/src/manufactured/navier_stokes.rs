@@ -122,7 +122,7 @@ impl<T: RealField + Float> KovasznayFlow<T> {
     pub fn new(re: T) -> Self {
         let half_re = re / T::from(2.0).unwrap();
         let pi_val = T::from(PI).unwrap();
-        let discriminant = (half_re * half_re + T::from(4.0).unwrap() * pi_val * pi_val).sqrt();
+        let discriminant = Float::sqrt(half_re * half_re + T::from(4.0).unwrap() * pi_val * pi_val);
         let lambda = half_re - discriminant;
         Self { re, lambda }
     }

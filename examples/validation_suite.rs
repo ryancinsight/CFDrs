@@ -346,7 +346,7 @@ fn validate_grid_convergence() -> Result<(), Box<dyn std::error::Error>> {
         let f2 = results[1].1;
         let f3 = results[2].1;
 
-        let r = 2.0; // Grid refinement ratio
+        let r: f64 = 2.0; // Grid refinement ratio
         let p = ((f3 - f2) / (f2 - f1)).ln() / r.ln();
 
         println!("\n   Order of Accuracy: {:.2}", p);

@@ -46,7 +46,7 @@ pub trait ManufacturedSolution<T: RealField + Float> {
             sum = sum + diff * diff;
         }
 
-        (sum / n).sqrt()
+        Float::sqrt(sum / n)
     }
 
     /// Calculate the maximum error between numerical and exact solutions
@@ -54,7 +54,7 @@ pub trait ManufacturedSolution<T: RealField + Float> {
         numerical
             .iter()
             .zip(exact.iter())
-            .map(|(num, ex)| (*num - *ex).abs())
+            .map(|(num, ex)| Float::abs(*num - *ex))
             .fold(T::zero(), |max, val| if val > max { val } else { max })
     }
 }
