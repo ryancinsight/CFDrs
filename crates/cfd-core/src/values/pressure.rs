@@ -85,7 +85,8 @@ impl<T: RealField + Copy + FromPrimitive> Pressure<T> {
 
     /// Check if pressure is gauge (relative to atmospheric)
     pub fn is_gauge(&self) -> bool {
-        self.pascals < T::from_f64(101325.0).unwrap_or_else(T::zero)
+        use crate::constants::physics::fluid::ATMOSPHERIC_PRESSURE;
+        self.pascals < T::from_f64(ATMOSPHERIC_PRESSURE).unwrap_or_else(T::zero)
     }
 }
 
