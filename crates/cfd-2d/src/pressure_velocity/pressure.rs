@@ -60,7 +60,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureCorrectionSolver<T> {
                 let idx = (i - 1) * (ny - 2) + (j - 1);
 
                 // Laplacian stencil
-                let two = T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one());
+                let two = T::from_f64(cfd_core::constants::numerical::common::TWO)
+                    .unwrap_or_else(|| T::one() + T::one());
                 let ap = -two * (dx2_inv + dy2_inv);
                 builder.add_entry(idx, idx, ap)?;
 
@@ -80,9 +81,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureCorrectionSolver<T> {
 
                 // Divergence of predicted velocity
                 let div_u = (u_star[i + 1][j].x - u_star[i - 1][j].x)
-                    / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx)
+                    / (T::from_f64(cfd_core::constants::numerical::common::TWO)
+                        .unwrap_or_else(|| T::zero())
+                        * dx)
                     + (u_star[i][j + 1].y - u_star[i][j - 1].y)
-                        / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy);
+                        / (T::from_f64(cfd_core::constants::numerical::common::TWO)
+                            .unwrap_or_else(|| T::zero())
+                            * dy);
 
                 rhs[idx] = coeff * div_u;
             }
@@ -134,9 +139,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureCorrectionSolver<T> {
             for j in 1..ny - 1 {
                 // Velocity correction from pressure gradient
                 let dp_dx = (p_correction[i + 1][j] - p_correction[i - 1][j])
-                    / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dx);
+                    / (T::from_f64(cfd_core::constants::numerical::common::TWO)
+                        .unwrap_or_else(|| T::zero())
+                        * dx);
                 let dp_dy = (p_correction[i][j + 1] - p_correction[i][j - 1])
-                    / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dy);
+                    / (T::from_f64(cfd_core::constants::numerical::common::TWO)
+                        .unwrap_or_else(|| T::zero())
+                        * dy);
 
                 // Apply velocity correction with relaxation
                 u_star[i][j].x -= alpha * factor * dp_dx;
