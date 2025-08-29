@@ -10,16 +10,16 @@ use serde::{Deserialize, Serialize};
 pub enum WallType<T: RealField + Copy> {
     /// No-slip wall (u = 0)
     NoSlip,
-    
+
     /// Slip wall (u·n = 0)
     Slip,
-    
+
     /// Moving wall with prescribed velocity
     Moving {
         /// Wall velocity vector
         velocity: Vector3<T>,
     },
-    
+
     /// Rotating wall
     Rotating {
         /// Angular velocity vector [rad/s]
@@ -34,17 +34,17 @@ impl<T: RealField + Copy> WallType<T> {
     pub const fn no_slip() -> Self {
         Self::NoSlip
     }
-    
+
     /// Create slip wall
     pub const fn slip() -> Self {
         Self::Slip
     }
-    
+
     /// Create moving wall
     pub fn moving(velocity: Vector3<T>) -> Self {
         Self::Moving { velocity }
     }
-    
+
     /// Create rotating wall
     pub fn rotating(omega: Vector3<T>, center: Vector3<T>) -> Self {
         Self::Rotating { omega, center }

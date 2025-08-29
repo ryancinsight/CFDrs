@@ -227,6 +227,51 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     pub fn const_kinematic_viscosity(&self) -> T {
         self.viscosity / self.density
     }
+
+    /// Get density (alias for const_density)
+    pub fn density(&self) -> T {
+        self.density
+    }
+
+    /// Get viscosity (alias for const_dynamic_viscosity)
+    pub fn viscosity(&self) -> T {
+        self.viscosity
+    }
+
+    /// Get kinematic viscosity (alias for const_kinematic_viscosity)
+    pub fn kinematic_viscosity(&self) -> T {
+        self.viscosity / self.density
+    }
+
+    /// Get specific heat
+    pub fn specific_heat(&self) -> T {
+        self.specific_heat
+    }
+
+    /// Get thermal conductivity
+    pub fn thermal_conductivity(&self) -> T {
+        self.thermal_conductivity
+    }
+}
+
+impl<T: RealField + Copy> crate::domains::material_properties::traits::FluidProperties<T>
+    for ConstantPropertyFluid<T>
+{
+    fn density(&self) -> T {
+        self.density
+    }
+
+    fn dynamic_viscosity(&self) -> T {
+        self.viscosity
+    }
+
+    fn thermal_conductivity(&self) -> T {
+        self.thermal_conductivity
+    }
+
+    fn specific_heat(&self) -> T {
+        self.specific_heat
+    }
 }
 
 impl<T: RealField + Copy> FluidModel<T> for ConstantPropertyFluid<T> {

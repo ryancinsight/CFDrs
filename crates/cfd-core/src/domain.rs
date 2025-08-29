@@ -108,8 +108,6 @@ impl<T: RealField + Copy> Domain2D<T> {
         )
     }
 
-
-
     /// Get the width of the domain
     pub fn width(&self) -> T {
         self.max.x - self.min.x

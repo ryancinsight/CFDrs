@@ -13,7 +13,7 @@ pub enum InletCondition<T: RealField + Copy> {
         /// Velocity vector [m/s]
         velocity: Vector3<T>,
     },
-    
+
     /// Pressure inlet with total pressure
     Pressure {
         /// Total pressure [Pa]
@@ -21,7 +21,7 @@ pub enum InletCondition<T: RealField + Copy> {
         /// Optional velocity direction (normalized)
         direction: Option<Vector3<T>>,
     },
-    
+
     /// Mass flow inlet
     MassFlow {
         /// Mass flow rate [kg/s]
@@ -29,7 +29,7 @@ pub enum InletCondition<T: RealField + Copy> {
         /// Optional temperature [K]
         temperature: Option<T>,
     },
-    
+
     /// Volume flow inlet
     VolumeFlow {
         /// Volume flow rate [m³/s]
@@ -45,7 +45,7 @@ pub enum OutletCondition<T: RealField + Copy> {
         /// Static pressure [Pa]
         pressure: T,
     },
-    
+
     /// Outflow with zero gradient
     Outflow,
 }
@@ -55,17 +55,20 @@ impl<T: RealField + Copy> InletCondition<T> {
     pub fn velocity(velocity: Vector3<T>) -> Self {
         Self::Velocity { velocity }
     }
-    
+
     /// Create pressure inlet
     pub fn pressure(pressure: T, direction: Option<Vector3<T>>) -> Self {
-        Self::Pressure { pressure, direction }
+        Self::Pressure {
+            pressure,
+            direction,
+        }
     }
-    
+
     /// Create mass flow inlet
     pub fn mass_flow(rate: T, temperature: Option<T>) -> Self {
         Self::MassFlow { rate, temperature }
     }
-    
+
     /// Create volume flow inlet
     pub fn volume_flow(rate: T) -> Self {
         Self::VolumeFlow { rate }
@@ -77,7 +80,7 @@ impl<T: RealField + Copy> OutletCondition<T> {
     pub fn pressure(pressure: T) -> Self {
         Self::Pressure { pressure }
     }
-    
+
     /// Create outflow boundary
     pub const fn outflow() -> Self {
         Self::Outflow

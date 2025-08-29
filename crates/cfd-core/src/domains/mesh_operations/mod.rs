@@ -3,7 +3,7 @@
 //! This module encapsulates mesh-related knowledge following DDD principles.
 //! It provides abstractions for mesh generation, refinement, and quality assessment.
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 
 pub mod element;
 pub mod geometry;

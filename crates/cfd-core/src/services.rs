@@ -14,19 +14,21 @@ pub struct FluidDynamicsService;
 impl FluidDynamicsService {
     /// Calculate Reynolds number for a given flow configuration
     pub fn reynolds_number<T: RealField + Copy + num_traits::Float>(
-        fluid: &Fluid<T>,
+        fluid: &ConstantPropertyFluid<T>,
         velocity: T,
         characteristic_length: T,
     ) -> T {
         velocity * characteristic_length / fluid.kinematic_viscosity()
     }
 
-    /// Calculate Prandtl number if thermal properties are available
-    pub fn prandtl_number<T: RealField + Copy + num_traits::Float>(fluid: &Fluid<T>) -> Option<T> {
-        match (fluid.specific_heat, fluid.thermal_conductivity) {
-            (Some(cp), Some(k)) => Some(fluid.viscosity * cp / k),
-            _ => None,
-        }
+    /// Calculate Prandtl number for constant property fluid
+    pub fn prandtl_number<T: RealField + Copy + num_traits::Float>(
+        fluid: &ConstantPropertyFluid<T>,
+    ) -> T {
+        let cp = fluid.specific_heat();
+        let k = fluid.thermal_conductivity();
+        let mu = fluid.viscosity();
+        mu * cp / k
     }
 
     /// Determine flow regime based on Reynolds number
@@ -47,7 +49,7 @@ impl FluidDynamicsService {
 
     /// Calculate pressure drop for pipe flow
     pub fn pipe_pressure_drop<T: RealField + FromPrimitive + Copy + num_traits::Float>(
-        fluid: &Fluid<T>,
+        fluid: &ConstantPropertyFluid<T>,
         velocity: T,
         length: T,
         diameter: T,
@@ -58,7 +60,7 @@ impl FluidDynamicsService {
 
         let two = T::one() + T::one();
 
-        Ok(friction_factor * length * fluid.density * velocity * velocity / (two * diameter))
+        Ok(friction_factor * length * fluid.density() * velocity * velocity / (two * diameter))
     }
 
     /// Calculate friction factor using appropriate correlation

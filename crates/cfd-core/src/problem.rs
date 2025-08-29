@@ -19,7 +19,7 @@ pub trait Problem<T: RealField + Copy>: Send + Sync {
     fn domain(&self) -> &Self::Domain;
 
     /// Get the fluid properties
-    fn fluid(&self) -> &Fluid<T>;
+    fn fluid(&self) -> &ConstantPropertyFluid<T>;
 
     /// Get the boundary conditions
     fn boundary_conditions(&self) -> &BoundaryConditionSet<T>;
@@ -78,7 +78,7 @@ impl<T: RealField + FromPrimitive + Copy> Default for ProblemParameters<T> {
 /// Problem builder for convenient construction
 pub struct ProblemBuilder<T: RealField + Copy, D: Domain<T>> {
     domain: Option<Arc<D>>,
-    fluid: Option<Fluid<T>>,
+    fluid: Option<ConstantPropertyFluid<T>>,
     boundary_conditions: BoundaryConditionSet<T>,
     parameters: ProblemParameters<T>,
 }

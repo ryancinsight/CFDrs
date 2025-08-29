@@ -3,7 +3,7 @@
 use crate::boundary::BoundaryCondition;
 use crate::domain::Domain;
 use crate::error::{Error, Result};
-use crate::fluid::{FluidModel, ConstantPropertyFluid};
+use crate::fluid::{ConstantPropertyFluid, FluidModel};
 use crate::values::{Pressure, Velocity};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -111,7 +111,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> Prob
         }
 
         // Check fluid properties
-        if self.fluid.density <= T::zero() {
+        if self.fluid.density() <= T::zero() {
             return Err(Error::InvalidConfiguration(
                 "Fluid density must be positive".to_string(),
             ));
