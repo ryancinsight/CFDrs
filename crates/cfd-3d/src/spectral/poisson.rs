@@ -83,42 +83,23 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
 
     /// Build the discrete Laplacian matrix using Kronecker products
     fn build_laplacian_matrix(&self) -> Result<DMatrix<T>> {
-        let n_total = self.nx * self.ny * self.nz;
-        let mut laplacian = DMatrix::zeros(n_total, n_total);
-
-        // Build 1D second derivative matrices
+        // Get the 1D second-derivative operators from the basis functions
         let d2x = self.basis_x.second_derivative_matrix()?;
         let d2y = self.basis_y.second_derivative_matrix()?;
         let d2z = self.basis_z.second_derivative_matrix()?;
 
-        // Form 3D Laplacian using Kronecker products
+        // Get identity matrices of the appropriate sizes
+        let ix = DMatrix::<T>::identity(self.nx, self.nx);
+        let iy = DMatrix::<T>::identity(self.ny, self.ny);
+        let iz = DMatrix::<T>::identity(self.nz, self.nz);
+
+        // Build the 3D operator by summing the Kronecker products
         // L = D2x ⊗ Iy ⊗ Iz + Ix ⊗ D2y ⊗ Iz + Ix ⊗ Iy ⊗ D2z
-        for i in 0..n_total {
-            for j in 0..n_total {
-                let (ix, iy, iz) = self.linear_to_3d_index(i);
-                let (jx, jy, jz) = self.linear_to_3d_index(j);
+        let term_x = d2x.kronecker(&iy).kronecker(&iz);
+        let term_y = ix.kronecker(&d2y).kronecker(&iz);
+        let term_z = ix.kronecker(&iy).kronecker(&d2z);
 
-                let mut value = T::zero();
-
-                // x-derivative contribution
-                if iy == jy && iz == jz {
-                    value += d2x[(ix, jx)];
-                }
-
-                // y-derivative contribution
-                if ix == jx && iz == jz {
-                    value += d2y[(iy, jy)];
-                }
-
-                // z-derivative contribution
-                if ix == jx && iy == jy {
-                    value += d2z[(iz, jz)];
-                }
-
-                laplacian[(i, j)] = value;
-            }
-        }
-
+        let laplacian = term_x + term_y + term_z;
         Ok(laplacian)
     }
 
@@ -132,35 +113,14 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
 
     /// Flatten RHS matrix to vector
     fn flatten_rhs(&self, f: &DMatrix<T>) -> DVector<T> {
-        let n_total = self.nx * self.ny * self.nz;
-        let mut rhs = DVector::zeros(n_total);
-
-        for ix in 0..self.nx {
-            for iy in 0..self.ny {
-                for iz in 0..self.nz {
-                    let idx = ix * self.ny * self.nz + iy * self.nz + iz;
-                    rhs[idx] = f[(ix * self.ny + iy, iz)];
-                }
-            }
-        }
-
-        rhs
+        // Use nalgebra's iterators to perform the copy efficiently
+        DVector::from_iterator(f.len(), f.iter().cloned())
     }
 
     /// Unflatten solution vector to matrix
     fn unflatten_solution(&self, solution: &DVector<T>) -> DMatrix<T> {
-        let mut result = DMatrix::zeros(self.nx * self.ny, self.nz);
-
-        for ix in 0..self.nx {
-            for iy in 0..self.ny {
-                for iz in 0..self.nz {
-                    let idx = ix * self.ny * self.nz + iy * self.nz + iz;
-                    result[(ix * self.ny + iy, iz)] = solution[idx];
-                }
-            }
-        }
-
-        result
+        // Reconstruct the matrix directly from the solution vector's iterator
+        DMatrix::from_iterator(self.nx * self.ny, self.nz, solution.iter().cloned())
     }
 
     /// Apply boundary conditions to the system
