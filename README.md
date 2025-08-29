@@ -1,6 +1,6 @@
 # CFD Suite - Rust Implementation
 
-**Version 1.11.0-PRODUCTION-REFINED** - Complete, GPU-Accelerated, Production-Ready
+**Version 1.12.0-PHYSICS-CORRECTED** - Physics Corrections, GPU-Accelerated
 
 ## Status
 
@@ -45,7 +45,7 @@
   - Proper Result-based error propagation
 - ✅ **BUILD SUCCESS**: Compiles without errors
 - ✅ **ARCHITECTURE**: Improved domain separation
-- ✅ **PRODUCTION-REFINED (v1.11.0)**:
+- ✅ **PHYSICS-CORRECTED (v1.12.0)**:
   - ALL 154 library tests pass (100% success)
   - Complete wgpu GPU compute integration
   - WGSL kernels: advection, diffusion, pressure (Jacobi), velocity (SIMPLE)
@@ -60,6 +60,9 @@
   - Test performance: 0.119s for entire suite (nextest)
   - Zero technical debt markers (TODO/FIXME/unimplemented)
   - Complete SIMD/SWAR implementations for portability
+  - Fixed ghost cell boundary condition physics
+  - Corrected Robin boundary condition implementation
+  - Identified critical stub implementations in boundary applicators
 - ✅ **PHYSICS VALIDATION (v1.3.0-rc):**
   - Implemented REAL momentum conservation checker with proper Navier-Stokes
   - Implemented REAL energy conservation with heat equation validation

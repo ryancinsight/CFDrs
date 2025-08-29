@@ -35,11 +35,18 @@ pub trait BoundaryConditionApplicator<T: RealField + Copy>: Send + Sync {
         &self,
         interior_value: T,
         boundary_value: T,
-        _distance_to_boundary: T,
+        distance_to_boundary: T,
     ) -> T {
-        // Default linear extrapolation
+        // Linear extrapolation accounting for distance
+        // Ghost value = boundary_value + (boundary_value - interior_value) * (distance_ghost / distance_interior)
+        // For uniform grid where distance_to_boundary is normalized to cell size:
         let two = T::from_f64(2.0).unwrap_or_else(T::one);
-        two * boundary_value - interior_value
+        if distance_to_boundary > T::default_epsilon() {
+            boundary_value + (boundary_value - interior_value) * distance_to_boundary
+        } else {
+            // Fallback to standard ghost cell when distance is zero (cell-centered)
+            two * boundary_value - interior_value
+        }
     }
 
     /// Compute boundary flux (for finite volume methods)
@@ -58,15 +65,14 @@ pub trait BoundaryConditionApplicator<T: RealField + Copy>: Send + Sync {
                 normal_gradient * (value - interior_value)
             }
             BoundaryCondition::Neumann { gradient } => gradient,
-            BoundaryCondition::Robin {
-                alpha,
-                beta,
-                gamma: _,
-            } => {
-                // Robin condition: alpha*u + beta*du/dn = g
-                // Flux = -beta/alpha * (g/beta - u)
-                if alpha.abs() > T::default_epsilon() {
-                    -beta / alpha * interior_value
+            BoundaryCondition::Robin { alpha, beta, gamma } => {
+                // Robin condition: alpha*u + beta*du/dn = gamma
+                // Solving for du/dn: du/dn = (gamma - alpha*u)/beta
+                if beta.abs() > T::default_epsilon() {
+                    (gamma - alpha * interior_value) / beta
+                } else if alpha.abs() > T::default_epsilon() {
+                    // If beta is zero, we have a Dirichlet-like condition: u = gamma/alpha
+                    normal_gradient * (gamma / alpha - interior_value)
                 } else {
                     T::zero()
                 }
