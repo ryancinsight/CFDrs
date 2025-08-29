@@ -3,6 +3,19 @@
 use nalgebra::{RealField, Vector3};
 use serde::{Deserialize, Serialize};
 
+/// Defines the fundamental physical type of a boundary condition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FundamentalBCType {
+    /// Fixed value boundary condition
+    Dirichlet,
+    /// Fixed gradient boundary condition
+    Neumann,
+    /// Mixed boundary condition
+    Robin,
+    /// Other specialized boundary conditions
+    Other,
+}
+
 /// Boundary condition types for CFD simulations
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BoundaryCondition<T: RealField + Copy> {
@@ -27,7 +40,7 @@ pub enum BoundaryCondition<T: RealField + Copy> {
     },
     /// Periodic boundary condition
     Periodic {
-        /// Name of the paired boundary (can also store indices as string)
+        /// The unique name of the corresponding partner boundary.
         partner: String,
     },
     /// Inlet boundary with specified velocity
@@ -144,20 +157,34 @@ impl<T: RealField + Copy> BoundaryCondition<T> {
         Self::Outflow
     }
 
-    /// Check if this is a Dirichlet-type boundary condition
-    pub const fn is_dirichlet(&self) -> bool {
-        matches!(
-            self,
+    /// Returns the fundamental physical type of the boundary condition.
+    pub const fn fundamental_type(&self) -> FundamentalBCType {
+        match self {
             Self::Dirichlet { .. }
-                | Self::VelocityInlet { .. }
-                | Self::PressureInlet { .. }
-                | Self::Wall { .. }
-        )
+            | Self::VelocityInlet { .. }
+            | Self::PressureInlet { .. }
+            | Self::Wall { .. } => FundamentalBCType::Dirichlet,
+
+            Self::Neumann { .. } | Self::Outflow | Self::Symmetry => FundamentalBCType::Neumann,
+
+            Self::Robin { .. } => FundamentalBCType::Robin,
+
+            // Ensure all other types are explicitly handled
+            Self::Periodic { .. }
+            | Self::PressureOutlet { .. }
+            | Self::MassFlowInlet { .. }
+            | Self::VolumeFlowInlet { .. } => FundamentalBCType::Other,
+        }
     }
 
-    /// Check if this is a Neumann-type boundary condition
+    /// Check if this is a Dirichlet-type boundary condition.
+    pub const fn is_dirichlet(&self) -> bool {
+        matches!(self.fundamental_type(), FundamentalBCType::Dirichlet)
+    }
+
+    /// Check if this is a Neumann-type boundary condition.
     pub const fn is_neumann(&self) -> bool {
-        matches!(self, Self::Neumann { .. } | Self::Outflow | Self::Symmetry)
+        matches!(self.fundamental_type(), FundamentalBCType::Neumann)
     }
 
     /// Check if this is a wall boundary condition
@@ -305,6 +332,73 @@ mod tests {
     }
 
     #[test]
+    fn test_fundamental_type_classification() {
+        // Test Dirichlet types
+        assert_eq!(
+            BoundaryCondition::<f64>::Dirichlet { value: 1.0 }.fundamental_type(),
+            FundamentalBCType::Dirichlet
+        );
+        assert_eq!(
+            BoundaryCondition::velocity_inlet(vector![1.0, 0.0, 0.0]).fundamental_type(),
+            FundamentalBCType::Dirichlet
+        );
+        assert_eq!(
+            BoundaryCondition::pressure_inlet(101325.0).fundamental_type(),
+            FundamentalBCType::Dirichlet
+        );
+        assert_eq!(
+            BoundaryCondition::<f64>::wall_no_slip().fundamental_type(),
+            FundamentalBCType::Dirichlet
+        );
+
+        // Test Neumann types
+        assert_eq!(
+            BoundaryCondition::<f64>::Neumann { gradient: 0.0 }.fundamental_type(),
+            FundamentalBCType::Neumann
+        );
+        assert_eq!(
+            BoundaryCondition::<f64>::Outflow.fundamental_type(),
+            FundamentalBCType::Neumann
+        );
+        assert_eq!(
+            BoundaryCondition::<f64>::Symmetry.fundamental_type(),
+            FundamentalBCType::Neumann
+        );
+
+        // Test Robin type
+        assert_eq!(
+            BoundaryCondition::<f64>::Robin {
+                alpha: 1.0,
+                beta: 1.0,
+                gamma: 0.0
+            }
+            .fundamental_type(),
+            FundamentalBCType::Robin
+        );
+
+        // Test Other types
+        assert_eq!(
+            BoundaryCondition::<f64>::Periodic {
+                partner: "test".to_string()
+            }
+            .fundamental_type(),
+            FundamentalBCType::Other
+        );
+        assert_eq!(
+            BoundaryCondition::pressure_outlet(0.0).fundamental_type(),
+            FundamentalBCType::Other
+        );
+        assert_eq!(
+            BoundaryCondition::<f64>::MassFlowInlet { mass_flow: 1.0 }.fundamental_type(),
+            FundamentalBCType::Other
+        );
+        assert_eq!(
+            BoundaryCondition::<f64>::VolumeFlowInlet { flow_rate: 1.0 }.fundamental_type(),
+            FundamentalBCType::Other
+        );
+    }
+
+    #[test]
     fn test_boundary_condition_set() {
         let mut bc_set = BoundaryConditionSet::new();
         bc_set
@@ -317,5 +411,81 @@ mod tests {
 
         assert_eq!(bc_set.conditions.len(), 3);
         assert!(bc_set.get("inlet").is_some());
+    }
+
+    #[test]
+    fn validate_periodic_success() {
+        let mut bcs = BoundaryConditionSet::<f64>::new();
+        bcs.add(
+            "left",
+            BoundaryCondition::Periodic {
+                partner: "right".to_string(),
+            },
+        );
+        bcs.add(
+            "right",
+            BoundaryCondition::Periodic {
+                partner: "left".to_string(),
+            },
+        );
+        assert!(bcs.validate_periodic().is_ok());
+    }
+
+    #[test]
+    fn validate_periodic_fails_on_missing_partner() {
+        let mut bcs = BoundaryConditionSet::<f64>::new();
+        bcs.add(
+            "left",
+            BoundaryCondition::Periodic {
+                partner: "right".to_string(),
+            },
+        );
+        let result = bcs.validate_periodic();
+        assert!(result.is_err());
+        if let Err(e) = result {
+            let msg = e.to_string();
+            assert!(msg.contains("non-existent partner"));
+        }
+    }
+
+    #[test]
+    fn validate_periodic_fails_on_mismatched_partner_reference() {
+        let mut bcs = BoundaryConditionSet::<f64>::new();
+        bcs.add(
+            "left",
+            BoundaryCondition::Periodic {
+                partner: "right".to_string(),
+            },
+        );
+        bcs.add(
+            "right",
+            BoundaryCondition::Periodic {
+                partner: "wrong_partner".to_string(),
+            },
+        );
+        let result = bcs.validate_periodic();
+        assert!(result.is_err());
+        if let Err(e) = result {
+            let msg = e.to_string();
+            assert!(msg.contains("do not reference each other mutually"));
+        }
+    }
+
+    #[test]
+    fn validate_periodic_fails_on_non_periodic_partner() {
+        let mut bcs = BoundaryConditionSet::<f64>::new();
+        bcs.add(
+            "left",
+            BoundaryCondition::Periodic {
+                partner: "right".to_string(),
+            },
+        );
+        bcs.add("right", BoundaryCondition::wall_no_slip());
+        let result = bcs.validate_periodic();
+        assert!(result.is_err());
+        if let Err(e) = result {
+            let msg = e.to_string();
+            assert!(msg.contains("which is not periodic"));
+        }
     }
 }
