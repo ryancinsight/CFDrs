@@ -408,9 +408,9 @@ mod tests {
         let mut mesh = Mesh::<f64>::new();
 
         // Add vertices
-        let v0 = mesh.add_vertex(Vertex::new(0, 0.0, 0.0, 0.0));
-        let v1 = mesh.add_vertex(Vertex::new(1, 1.0, 0.0, 0.0));
-        let v2 = mesh.add_vertex(Vertex::new(2, 0.0, 1.0, 0.0));
+        let v0 = mesh.add_vertex(Vertex::from_coords(0.0, 0.0, 0.0));
+        let v1 = mesh.add_vertex(Vertex::from_coords(1.0, 0.0, 0.0));
+        let v2 = mesh.add_vertex(Vertex::from_coords(0.0, 1.0, 0.0));
 
         assert_eq!(mesh.vertex_count(), 3);
 
@@ -428,10 +428,10 @@ mod tests {
         let mut mesh = Mesh::<f64>::new();
 
         // Create a simple tetrahedron
-        mesh.add_vertex(Vertex::new(0, 0.0, 0.0, 0.0));
-        mesh.add_vertex(Vertex::new(1, 1.0, 0.0, 0.0));
-        mesh.add_vertex(Vertex::new(2, 0.0, 1.0, 0.0));
-        mesh.add_vertex(Vertex::new(3, 0.0, 0.0, 1.0));
+        mesh.add_vertex(Vertex::from_coords(0.0, 0.0, 0.0));
+        mesh.add_vertex(Vertex::from_coords(1.0, 0.0, 0.0));
+        mesh.add_vertex(Vertex::from_coords(0.0, 1.0, 0.0));
+        mesh.add_vertex(Vertex::from_coords(0.0, 0.0, 1.0));
 
         // Add faces
         mesh.add_face(Face::triangle(0, 1, 2));

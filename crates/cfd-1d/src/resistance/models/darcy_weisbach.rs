@@ -2,7 +2,7 @@
 
 use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
-use cfd_core::fluid::ConstantPropertyFluid;
+use cfd_core::fluid::{ConstantPropertyFluid, Fluid};
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use serde::{Deserialize, Serialize};

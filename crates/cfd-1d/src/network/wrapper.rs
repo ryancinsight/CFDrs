@@ -2,7 +2,7 @@
 
 use super::{NetworkGraph, Node};
 use crate::channel::ChannelGeometry;
-use cfd_core::fluid::ConstantPropertyFluid;
+use cfd_core::fluid::{ConstantPropertyFluid, Fluid};
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
 use petgraph::graph::{EdgeIndex, NodeIndex};

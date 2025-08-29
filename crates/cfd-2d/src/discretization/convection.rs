@@ -143,10 +143,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for PowerLa
     }
 }
 
-/// QUICK scheme - third-order upwind-biased
-pub struct QuickScheme;
+/// Quadratic Upstream Interpolation for Convective Kinematics (QUICK) - third-order upwind-biased
+/// Reference: Leonard, B.P. (1979). "A stable and accurate convective modelling procedure based on quadratic upstream interpolation"
+pub struct QuadraticUpstreamInterpolationScheme;
 
-impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for QuickScheme {
+impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T>
+    for QuadraticUpstreamInterpolationScheme
+{
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
         // The QUICK stencil needs two upstream and one downstream cell values.
         // This coefficient-only API cannot represent that stencil faithfully.
@@ -192,7 +195,7 @@ impl ConvectionSchemeFactory {
             "central" | "central_difference" => Box::new(CentralDifference),
             "hybrid" => Box::new(HybridScheme),
             "power_law" => Box::new(PowerLawScheme),
-            "quick" => Box::new(QuickScheme),
+            "quick" => Box::new(QuadraticUpstreamInterpolationScheme),
             _ => {
                 // Default to stable first-order upwind
                 Box::new(FirstOrderUpwind)

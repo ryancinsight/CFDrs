@@ -79,3 +79,15 @@ pub mod cfl {
     /// Safety factor for adaptive time stepping
     pub const SAFETY_FACTOR: f64 = 0.9;
 }
+
+/// Solver configuration constants
+pub mod solver {
+    /// Default maximum iterations for iterative solvers
+    pub const DEFAULT_MAX_ITERATIONS: usize = 1000;
+
+    /// Default convergence tolerance
+    pub const DEFAULT_TOLERANCE: f64 = 1e-8;
+
+    /// Default iteration logging interval
+    pub const LOG_INTERVAL: usize = 100;
+}

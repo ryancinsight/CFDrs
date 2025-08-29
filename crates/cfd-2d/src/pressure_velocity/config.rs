@@ -28,7 +28,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureVelocityConfig<T> {
     pub fn new() -> cfd_core::error::Result<Self> {
         Ok(Self {
             base: cfd_core::solver::SolverConfig::builder()
-                .max_iterations(100)
+                .max_iterations(crate::constants::solver::LOG_INTERVAL)
                 .tolerance(
                     T::from_f64(cfd_core::constants::numerical::solver::CONVERGENCE_TOLERANCE)
                         .ok_or_else(|| {

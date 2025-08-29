@@ -52,9 +52,9 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
         modes: (usize, usize, usize),
         _basis: (SpectralBasis, SpectralBasis, SpectralBasis),
     ) -> Result<Self> {
-        // TODO: Implement support for Fourier basis when needed
-        // For now, always use Chebyshev regardless of configuration
-        // This at least makes the API ready for future extension
+        // Currently only Chebyshev basis is implemented
+        // Fourier basis support can be added based on the _basis parameter
+        // when required for periodic boundary conditions
         Self::new(modes.0, modes.1, modes.2)
     }
 
