@@ -6,7 +6,6 @@
 use crate::grid::{Grid2D, StructuredGrid2D};
 use cfd_core::boundary::BoundaryCondition;
 use cfd_core::fluid::ConstantPropertyFluid;
-use cfd_core::problem::Problem;
 use nalgebra::{RealField, Vector2};
 use std::collections::HashMap;
 

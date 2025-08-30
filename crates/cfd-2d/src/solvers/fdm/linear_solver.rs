@@ -5,7 +5,7 @@
 use cfd_core::error::{Error, Result};
 use cfd_math::SparseMatrix;
 use nalgebra::{DVector, RealField};
-use num_traits::{FromPrimitive, Zero};
+use num_traits::FromPrimitive;
 
 use super::config::FdmConfig;
 

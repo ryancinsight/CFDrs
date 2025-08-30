@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 const DEFAULT_MAX_ITERATIONS: usize = 1000;
 const DEFAULT_TOLERANCE: f64 = 1e-6;
 const GRADIENT_FACTOR: f64 = 2.0;
-const _LAPLACIAN_FACTOR: f64 = 4.0;
 const SOR_OPTIMAL_FACTOR: f64 = 1.85; // Optimal for Poisson on square grid
 
 /// Vorticity-Stream function solver configuration

@@ -9,7 +9,8 @@ use num_traits::{Float, FromPrimitive};
 
 use crate::fem::constants;
 use crate::fem::{ElementMatrices, FemConfig, FluidElement, StokesFlowProblem, StokesFlowSolution};
-use cfd_mesh::mesh::{Cell, Mesh};
+use cfd_mesh::mesh::Mesh;
+use cfd_mesh::topology::Cell;
 
 /// Finite Element Method solver for 3D incompressible flow
 pub struct FemSolver<T: RealField + Copy> {
@@ -25,8 +26,8 @@ fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) -> V
     let mut indices = Vec::with_capacity(4);
     let mut seen = std::collections::HashSet::new();
 
-    for &face_idx in &cell.vertices {
-        if let Some(face) = mesh.faces.get(face_idx) {
+    for &face_idx in &cell.faces {
+        if let Some(face) = mesh.face(face_idx) {
             for &vertex_idx in &face.vertices {
                 if seen.insert(vertex_idx) && indices.len() < 4 {
                     indices.push(vertex_idx);
@@ -64,7 +65,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         // Validate problem setup
         problem.validate()?;
 
-        let n_nodes = problem.mesh.vertices.len();
+        let n_nodes = problem.mesh.vertex_count();
         let n_velocity_dof = n_nodes * constants::VELOCITY_COMPONENTS;
         let n_pressure_dof = n_nodes;
         let n_total_dof = n_velocity_dof + n_pressure_dof;
@@ -96,7 +97,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         &self,
         problem: &StokesFlowProblem<T>,
     ) -> Result<(SparseMatrix<T>, DVector<T>)> {
-        let n_nodes = problem.mesh.vertices.len();
+        let n_nodes = problem.mesh.vertex_count();
         let n_velocity_dof = n_nodes * constants::VELOCITY_COMPONENTS;
         let n_pressure_dof = n_nodes;
         let n_total_dof = n_velocity_dof + n_pressure_dof;
@@ -108,7 +109,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         let viscosity = problem.fluid.viscosity;
 
         // Loop over elements
-        for (_elem_idx, cell) in problem.mesh.cells.iter().enumerate() {
+        for (_elem_idx, cell) in problem.mesh.cells().iter().enumerate() {
             // Get vertex indices for this cell
             let vertex_indices = extract_vertex_indices(cell, &problem.mesh);
 
@@ -119,7 +120,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
             // Convert vertices to Vector3 format
             let vertex_positions: Vec<Vector3<T>> = problem
                 .mesh
-                .vertices
+                .vertices()
                 .iter()
                 .map(|v| v.position.coords)
                 .collect();
