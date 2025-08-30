@@ -8,12 +8,9 @@ fn test_fluid_properties() {
     let fluid = ConstantPropertyFluid {
         name: "water".to_string(),
         density: 1000.0,
-        dynamic_viscosity: 0.001,
+        viscosity: 0.001,
+        specific_heat: 4186.0,
         thermal_conductivity: 0.6,
-        specific_heat_capacity: 4186.0,
-        bulk_modulus: 2.2e9,
-        surface_tension: 0.072,
-        reference_temperature: 293.15,
     };
 
     assert_eq!(fluid.name, "water");

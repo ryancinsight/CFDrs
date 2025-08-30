@@ -6,9 +6,9 @@
 //! - Maintain zero-cost abstractions
 //! - Support both f32 and f64 operations
 
-use super::{SimdCapability, SwarOps};
+use super::swar_enhanced::SwarOps;
+use super::SimdCapability;
 use crate::error::Result;
-use std::ops::{Add, Mul};
 
 /// SIMD operation types
 #[derive(Debug, Clone, Copy)]
