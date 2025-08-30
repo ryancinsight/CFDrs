@@ -79,6 +79,13 @@ impl<T: Clone> Field2D<T> {
         &mut self.data[j * self.nx + i]
     }
 
+    /// Set value at element (i, j)
+    #[inline]
+    pub fn set(&mut self, i: usize, j: usize, value: T) {
+        debug_assert!(i < self.nx && j < self.ny, "Index out of bounds");
+        self.data[j * self.nx + i] = value;
+    }
+
     /// Get grid dimensions
     #[must_use]
     pub fn dimensions(&self) -> (usize, usize) {
