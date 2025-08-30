@@ -115,7 +115,9 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
                     let phi_new = phi_old * (T::one() - self.config.relaxation_factor)
                         + source.at(i, j) * self.config.relaxation_factor;
 
-                    *phi.at_mut(i, j) = phi_new;
+                    if let Some(p) = phi.at_mut(i, j) {
+                        *p = phi_new;
+                    }
 
                     residual = residual.max((phi_new - phi_old).abs());
                 }

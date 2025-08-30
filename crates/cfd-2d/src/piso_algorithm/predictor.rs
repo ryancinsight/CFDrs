@@ -67,8 +67,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
                 let u_current = fields.u.at(i, j);
                 let v_current = fields.v.at(i, j);
 
-                *u_star.at_mut(i, j) = u_current + dt * (diff_u - conv_u) / fields.density.at(i, j);
-                *v_star.at_mut(i, j) = v_current + dt * (diff_v - conv_v) / fields.density.at(i, j);
+                if let Some(u) = u_star.at_mut(i, j) {
+                    *u = u_current + dt * (diff_u - conv_u) / fields.density.at(i, j);
+                }
+                if let Some(v) = v_star.at_mut(i, j) {
+                    *v = v_current + dt * (diff_v - conv_v) / fields.density.at(i, j);
+                }
             }
         }
 
@@ -80,8 +84,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
                 let v_relaxed = self.relaxation_factor * v_star.at(i, j)
                     + (T::one() - self.relaxation_factor) * fields.v.at(i, j);
 
-                *fields.u.at_mut(i, j) = u_relaxed;
-                *fields.v.at_mut(i, j) = v_relaxed;
+                if let Some(u) = fields.u.at_mut(i, j) {
+                    *u = u_relaxed;
+                }
+                if let Some(v) = fields.v.at_mut(i, j) {
+                    *v = v_relaxed;
+                }
             }
         }
 

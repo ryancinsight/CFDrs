@@ -149,24 +149,24 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KEpsilonModel<T
                 let nu_eff_eps = molecular_viscosity + nu_t / self.sigma_epsilon;
 
                 // k equation diffusion
-                let diff_k_x = (k_old[idx + 1]
+                let diff_k_x = (k_previous[idx + 1]
                     - T::from_f64(2.0).unwrap_or_else(T::one) * k_previous[idx]
-                    + k_old[idx - 1])
+                    + k_previous[idx - 1])
                     / (dx * dx);
-                let diff_k_y = (k_old[idx + nx]
+                let diff_k_y = (k_previous[idx + nx]
                     - T::from_f64(2.0).unwrap_or_else(T::one) * k_previous[idx]
-                    + k_old[idx - nx])
+                    + k_previous[idx - nx])
                     / (dy * dy);
                 let diff_k = nu_eff_k * (diff_k_x + diff_k_y);
 
                 // epsilon equation diffusion
-                let diff_eps_x = (epsilon_old[idx + 1]
+                let diff_eps_x = (epsilon_previous[idx + 1]
                     - T::from_f64(2.0).unwrap_or_else(T::one) * epsilon_previous[idx]
-                    + epsilon_old[idx - 1])
+                    + epsilon_previous[idx - 1])
                     / (dx * dx);
-                let diff_eps_y = (epsilon_old[idx + nx]
+                let diff_eps_y = (epsilon_previous[idx + nx]
                     - T::from_f64(2.0).unwrap_or_else(T::one) * epsilon_previous[idx]
-                    + epsilon_old[idx - nx])
+                    + epsilon_previous[idx - nx])
                     / (dy * dy);
                 let diff_eps = nu_eff_eps * (diff_eps_x + diff_eps_y);
 

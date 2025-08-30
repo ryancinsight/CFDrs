@@ -264,29 +264,30 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KOmegaSSTModel<
                 let nu_eff_omega = molecular_viscosity + nu_t * sigma_omega;
 
                 // k equation
-                let diff_k_x = (k_old[idx + 1]
+                let diff_k_x = (k_previous[idx + 1]
                     - T::from_f64(2.0).unwrap_or_else(T::one) * k_previous[idx]
-                    + k_old[idx - 1])
+                    + k_previous[idx - 1])
                     / (dx * dx);
-                let diff_k_y = (k_old[idx + nx]
+                let diff_k_y = (k_previous[idx + nx]
                     - T::from_f64(2.0).unwrap_or_else(T::one) * k_previous[idx]
-                    + k_old[idx - nx])
+                    + k_previous[idx - nx])
                     / (dy * dy);
                 let diff_k = nu_eff_k * (diff_k_x + diff_k_y);
 
                 // omega equation
-                let diff_omega_x = (omega_old[idx + 1]
+                let diff_omega_x = (omega_previous[idx + 1]
                     - T::from_f64(2.0).unwrap_or_else(T::one) * omega_previous[idx]
-                    + omega_old[idx - 1])
+                    + omega_previous[idx - 1])
                     / (dx * dx);
-                let diff_omega_y = (omega_old[idx + nx]
+                let diff_omega_y = (omega_previous[idx + nx]
                     - T::from_f64(2.0).unwrap_or_else(T::one) * omega_previous[idx]
-                    + omega_old[idx - nx])
+                    + omega_previous[idx - nx])
                     / (dy * dy);
                 let diff_omega = nu_eff_omega * (diff_omega_x + diff_omega_y);
 
                 // Cross-diffusion term
-                let cd_kw = self.calculate_cross_diffusion(&k_old, &omega_old, idx, dx, dy);
+                let cd_kw =
+                    self.calculate_cross_diffusion(&k_previous, &omega_previous, idx, dx, dy);
                 let cd_term = (T::one() - self.f1[idx]) * cd_kw;
 
                 // Update k

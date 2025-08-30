@@ -98,7 +98,7 @@ fn test_linear_solver_integration() {
 #[test]
 fn test_mesh_element_types() {
     use cfd_core::domains::mesh_operations::ElementType;
-    use cfd_mesh::{Cell, Mesh, Vertex};
+    use cfd_mesh::prelude::{Cell, Mesh, Vertex};
     use nalgebra::Point3;
 
     // Create vertices for a tetrahedron

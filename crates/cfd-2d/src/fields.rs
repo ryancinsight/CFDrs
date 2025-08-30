@@ -53,18 +53,21 @@ impl<T: Clone> Field2D<T> {
         }
     }
 
-    /// Get value at element (i, j) - returns value for Copy types
+    /// Get value at element (i, j) - panics if out of bounds
     #[inline]
     #[must_use]
     pub fn at(&self, i: usize, j: usize) -> T
     where
         T: Copy,
     {
-        if i >= self.nx || j >= self.ny {
-            // Return boundary value or zero for out-of-bounds access
-            // This prevents panics and allows ghost cell implementations
-            return T::zero();
-        }
+        assert!(
+            i < self.nx && j < self.ny,
+            "Index out of bounds: ({}, {}) for grid {}x{}",
+            i,
+            j,
+            self.nx,
+            self.ny
+        );
         self.data[j * self.nx + i]
     }
 
@@ -281,8 +284,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
     /// Set velocity from Vector2 at point (i, j)
     #[inline]
     pub fn set_velocity_at(&mut self, i: usize, j: usize, vel: &Vector2<T>) {
-        *self.u.at_mut(i, j) = vel.x;
-        *self.v.at_mut(i, j) = vel.y;
+        if let Some(u) = self.u.at_mut(i, j) {
+            *u = vel.x;
+        }
+        if let Some(v) = self.v.at_mut(i, j) {
+            *v = vel.y;
+        }
     }
 
     /// Get predicted velocity as Vector2

@@ -102,7 +102,9 @@ where
                         - mass_imbalance)
                         / ap;
 
-                    *p_prime.at_mut(i, j) = p_updated;
+                    if let Some(p) = p_prime.at_mut(i, j) {
+                        *p = p_updated;
+                    }
 
                     // Calculate residual
                     let diff = (p_updated - p_current).abs();
@@ -183,7 +185,9 @@ where
                 // H(u) = -sum(A_nb * u_nb)
                 let h_u = -(u_e * ae + u_w * aw + u_n * an + u_s * as_);
 
-                *h_field.at_mut(i, j) = h_u;
+                if let Some(h) = h_field.at_mut(i, j) {
+                    *h = h_u;
+                }
             }
         }
 
@@ -230,7 +234,10 @@ where
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 let p_correction = self.pressure_relaxation * p_prime.at(i, j);
-                *fields.p.at_mut(i, j) = fields.p.at(i, j) + p_correction;
+                let p_val = fields.p.at(i, j);
+                if let Some(p) = fields.p.at_mut(i, j) {
+                    *p = p_val + p_correction;
+                }
             }
         }
     }
@@ -242,7 +249,10 @@ where
             for j in 1..self.ny - 1 {
                 let dp_dx = (p_prime.at(i, j) - p_prime.at(i - 1, j)) / self.dx;
                 let u_correction = -dt * dp_dx / fields.density.at(i, j);
-                *fields.u.at_mut(i, j) = fields.u.at(i, j) + u_correction;
+                let u_val = fields.u.at(i, j);
+                if let Some(u) = fields.u.at_mut(i, j) {
+                    *u = u_val + u_correction;
+                }
             }
         }
 
@@ -251,7 +261,10 @@ where
             for j in 1..self.ny - 1 {
                 let dp_dy = (p_prime.at(i, j) - p_prime.at(i, j - 1)) / self.dy;
                 let v_correction = -dt * dp_dy / fields.density.at(i, j);
-                *fields.v.at_mut(i, j) = fields.v.at(i, j) + v_correction;
+                let v_val = fields.v.at(i, j);
+                if let Some(v) = fields.v.at_mut(i, j) {
+                    *v = v_val + v_correction;
+                }
             }
         }
     }
@@ -290,8 +303,12 @@ where
                 let v_corrected = v_n - d_n * p_grad_n;
 
                 // Update velocity fields
-                *fields.u.at_mut(i, j) = u_corrected;
-                *fields.v.at_mut(i, j) = v_corrected;
+                if let Some(u) = fields.u.at_mut(i, j) {
+                    *u = u_corrected;
+                }
+                if let Some(v) = fields.v.at_mut(i, j) {
+                    *v = v_corrected;
+                }
             }
         }
     }

@@ -51,10 +51,18 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 let mu = fields.viscosity.at(i, j);
 
                 // Diffusion coefficients
-                *coeffs.ae.at_mut(i, j) = mu / dx2;
-                *coeffs.aw.at_mut(i, j) = mu / dx2;
-                *coeffs.an.at_mut(i, j) = mu / dy2;
-                *coeffs.as_.at_mut(i, j) = mu / dy2;
+                if let Some(ae) = coeffs.ae.at_mut(i, j) {
+                    *ae = mu / dx2;
+                }
+                if let Some(aw) = coeffs.aw.at_mut(i, j) {
+                    *aw = mu / dx2;
+                }
+                if let Some(an) = coeffs.an.at_mut(i, j) {
+                    *an = mu / dy2;
+                }
+                if let Some(as_) = coeffs.as_.at_mut(i, j) {
+                    *as_ = mu / dy2;
+                }
 
                 // Convection coefficients (using upwind)
                 let (u, v) = match component {
@@ -72,19 +80,43 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
 
                 // Add convection to coefficients (upwind scheme)
                 if u > T::zero() {
-                    *coeffs.ae.at_mut(i, j) = coeffs.ae.at(i, j) + u / dx;
-                    *coeffs.ap.at_mut(i, j) = coeffs.ap.at(i, j) + u / dx;
+                    let ae_val = coeffs.ae.at(i, j);
+                    let ap_val = coeffs.ap.at(i, j);
+                    if let Some(ae) = coeffs.ae.at_mut(i, j) {
+                        *ae = ae_val + u / dx;
+                    }
+                    if let Some(ap) = coeffs.ap.at_mut(i, j) {
+                        *ap = ap_val + u / dx;
+                    }
                 } else {
-                    *coeffs.aw.at_mut(i, j) = coeffs.aw.at(i, j) - u / dx;
-                    *coeffs.ap.at_mut(i, j) = coeffs.ap.at(i, j) - u / dx;
+                    let aw_val = coeffs.aw.at(i, j);
+                    let ap_val = coeffs.ap.at(i, j);
+                    if let Some(aw) = coeffs.aw.at_mut(i, j) {
+                        *aw = aw_val - u / dx;
+                    }
+                    if let Some(ap) = coeffs.ap.at_mut(i, j) {
+                        *ap = ap_val - u / dx;
+                    }
                 }
 
                 if v > T::zero() {
-                    *coeffs.an.at_mut(i, j) = coeffs.an.at(i, j) + v / dy;
-                    *coeffs.ap.at_mut(i, j) = coeffs.ap.at(i, j) + v / dy;
+                    let an_val = coeffs.an.at(i, j);
+                    let ap_val = coeffs.ap.at(i, j);
+                    if let Some(an) = coeffs.an.at_mut(i, j) {
+                        *an = an_val + v / dy;
+                    }
+                    if let Some(ap) = coeffs.ap.at_mut(i, j) {
+                        *ap = ap_val + v / dy;
+                    }
                 } else {
-                    *coeffs.as_.at_mut(i, j) = coeffs.as_.at(i, j) - v / dy;
-                    *coeffs.ap.at_mut(i, j) = coeffs.ap.at(i, j) - v / dy;
+                    let as_val = coeffs.as_.at(i, j);
+                    let ap_val = coeffs.ap.at(i, j);
+                    if let Some(as_) = coeffs.as_.at_mut(i, j) {
+                        *as_ = as_val - v / dy;
+                    }
+                    if let Some(ap) = coeffs.ap.at_mut(i, j) {
+                        *ap = ap_val - v / dy;
+                    }
                 }
 
                 // Central coefficient (including time term)
@@ -92,14 +124,18 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                     + coeffs.aw.at(i, j)
                     + coeffs.an.at(i, j)
                     + coeffs.as_.at(i, j);
-                *coeffs.ap.at_mut(i, j) = ap_sum + fields.density.at(i, j) / dt;
+                if let Some(ap) = coeffs.ap.at_mut(i, j) {
+                    *ap = ap_sum + fields.density.at(i, j) / dt;
+                }
 
                 // Source term (including previous time step)
                 let previous_velocity = match component {
                     MomentumComponent::U => fields.u.at(i, j),
                     MomentumComponent::V => fields.v.at(i, j),
                 };
-                *coeffs.source.at_mut(i, j) = fields.density.at(i, j) * previous_velocity / dt;
+                if let Some(source) = coeffs.source.at_mut(i, j) {
+                    *source = fields.density.at(i, j) * previous_velocity / dt;
+                }
             }
         }
 
