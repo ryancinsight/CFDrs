@@ -92,11 +92,12 @@ impl GpuContext {
             })
     }
 
-    /// Create compute pipeline
-    pub fn create_compute_pipeline(
+    /// Create compute pipeline with explicit bind group layout
+    pub fn create_compute_pipeline_with_layout(
         &self,
         shader_source: &str,
         entry_point: &str,
+        bind_group_layout: &wgpu::BindGroupLayout,
     ) -> wgpu::ComputePipeline {
         let shader = self
             .device
@@ -109,7 +110,7 @@ impl GpuContext {
             .device
             .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Compute Pipeline Layout"),
-                bind_group_layouts: &[],
+                bind_group_layouts: &[bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -120,5 +121,18 @@ impl GpuContext {
                 module: &shader,
                 entry_point,
             })
+    }
+
+    /// Create compute pipeline (deprecated - use create_compute_pipeline_with_layout)
+    pub fn create_compute_pipeline(
+        &self,
+        shader_source: &str,
+        entry_point: &str,
+    ) -> wgpu::ComputePipeline {
+        // This is broken and should not be used
+        // Keeping for backward compatibility temporarily
+        panic!(
+            "create_compute_pipeline is broken - use create_compute_pipeline_with_layout instead"
+        );
     }
 }

@@ -9,6 +9,9 @@ pub mod compute;
 pub mod field_ops;
 
 #[cfg(feature = "gpu")]
+pub mod validation_tests;
+
+#[cfg(feature = "gpu")]
 pub use compute::GpuContext;
 
 #[cfg(not(feature = "gpu"))]
