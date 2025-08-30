@@ -238,7 +238,7 @@ fn validate_pipe_flow(
                 let v_z = if i * 3 + 2 < solution.velocity.len() {
                     solution.velocity[i * 3 + 2] // z-component of velocity
                 } else {
-                    0.0
+                    0.0_f64
                 };
                 centerline_velocities.push((vertex.position.z, v_z));
                 if v_z.abs() > max_velocity_numerical {

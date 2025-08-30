@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 const DEFAULT_MAX_ITERATIONS: usize = 1000;
 const DEFAULT_TOLERANCE: f64 = 1e-6;
 const GRADIENT_FACTOR: f64 = 2.0;
-const _LAPLACIAN_FACTOR: f64 = 4.0;
 const SOR_OPTIMAL_FACTOR: f64 = 1.85; // Optimal for Poisson on square grid
 
 /// Vorticity-Stream function solver configuration
@@ -72,6 +71,8 @@ pub struct VorticityStreamSolver<T: RealField + Copy> {
     psi: Vec<Vec<T>>,
     /// Vorticity field [nx][ny]
     omega: Vec<Vec<T>>,
+    /// Previous vorticity field for time stepping (avoids clone)
+    omega_old: Vec<Vec<T>>,
     /// Velocity field (derived from stream function)
     u: Vec<Vec<Vector2<T>>>,
     /// Grid dimensions
@@ -94,6 +95,7 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
             config,
             psi: vec![vec![T::zero(); ny]; nx],
             omega: vec![vec![T::zero(); ny]; nx],
+            omega_old: vec![vec![T::zero(); ny]; nx],
             u: vec![vec![Vector2::zeros(); ny]; nx],
             nx,
             ny,
@@ -168,8 +170,8 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
         let dx2 = self.dx * self.dx;
         let dy2 = self.dy * self.dy;
 
-        // Store old vorticity
-        let omega_old = self.omega.clone();
+        // Swap buffers for zero-copy time stepping
+        std::mem::swap(&mut self.omega, &mut self.omega_old);
 
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
@@ -192,19 +194,21 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
                 let convection = u * dwdx + v * dwdy;
 
                 // Diffusion term (central differencing)
-                let d2wdx2 = (omega_old[i + 1][j]
-                    - T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * omega_old[i][j]
-                    + omega_old[i - 1][j])
+                let d2wdx2 = (self.omega_old[i + 1][j]
+                    - T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero())
+                        * self.omega_old[i][j]
+                    + self.omega_old[i - 1][j])
                     / dx2;
-                let d2wdy2 = (omega_old[i][j + 1]
-                    - T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * omega_old[i][j]
-                    + omega_old[i][j - 1])
+                let d2wdy2 = (self.omega_old[i][j + 1]
+                    - T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero())
+                        * self.omega_old[i][j]
+                    + self.omega_old[i][j - 1])
                     / dy2;
 
                 let diffusion = (d2wdx2 + d2wdy2) / self.reynolds;
 
                 // Time integration (explicit Euler)
-                self.omega[i][j] = omega_old[i][j] + dt * (diffusion - convection);
+                self.omega[i][j] = self.omega_old[i][j] + dt * (diffusion - convection);
             }
         }
 

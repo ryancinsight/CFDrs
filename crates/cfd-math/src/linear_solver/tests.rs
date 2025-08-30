@@ -26,7 +26,7 @@ mod tests {
             }
         }
 
-        builder.build()
+        Ok(builder.build()?)
     }
 
     #[test]
@@ -35,10 +35,7 @@ mod tests {
         let a = create_tridiagonal_matrix(n)?;
         let b = DVector::from_element(n, 1.0);
 
-        let config = IterativeSolverConfig::new(1e-10)
-            .tolerance(1e-10)
-            .max_iterations(100)
-            .build();
+        let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
 
         let solver = ConjugateGradient::new(config);
         let x = solver.solve(&a, &b, None)?;
@@ -57,10 +54,7 @@ mod tests {
         let a = create_tridiagonal_matrix(n)?;
         let b = DVector::from_element(n, 1.0);
 
-        let config = IterativeSolverConfig::new(1e-10)
-            .tolerance(1e-10)
-            .max_iterations(100)
-            .build();
+        let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
 
         let solver = BiCGSTAB::new(config);
         let x = solver.solve(&a, &b, None)?;
@@ -141,10 +135,7 @@ mod tests {
         let b = DVector::from_element(n, 1.0);
         let precond = JacobiPreconditioner::new(&a)?;
 
-        let config = IterativeSolverConfig::new(1e-10)
-            .tolerance(1e-10)
-            .max_iterations(100)
-            .build();
+        let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
 
         let solver = ConjugateGradient::new(config);
         let x = solver.solve_preconditioned(&a, &b, &precond, None)?;
@@ -183,10 +174,7 @@ mod tests {
         let tolerances = vec![1e-4, 1e-6, 1e-8];
 
         for tol in tolerances {
-            let config = IterativeSolverConfig::new(1e-10)
-                .tolerance(tol)
-                .max_iterations(1000)
-                .build();
+            let config = IterativeSolverConfig::new(tol).with_max_iterations(1000);
 
             let solver = ConjugateGradient::new(config);
             let x = solver.solve(&a, &b, None)?;

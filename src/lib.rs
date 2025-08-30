@@ -15,6 +15,8 @@ pub use cfd_math as math;
 pub use cfd_mesh as mesh;
 pub use cfd_validation as validation;
 
+pub mod compute_unified;
+
 /// Unified prelude module - Single Source of Truth for all common CFD functionality
 ///
 /// This module provides a comprehensive set of imports for CFD simulations across all dimensions.
@@ -45,9 +47,9 @@ pub mod prelude {
     pub use cfd_math::prelude::*;
 
     // Mesh operations - exclude Edge to avoid conflict
-    pub use cfd_mesh::prelude::{Cell, Connectivity, Face, Geometry, Mesh, MeshTopology, Vertex};
+    pub use cfd_mesh::prelude::{Cell, Connectivity, Face, Geometry, Mesh, Vertex};
     // Re-export mesh Edge with qualifier to avoid ambiguity
-    pub use cfd_mesh::mesh::Edge as MeshEdge;
+    pub use cfd_mesh::topology::Edge as MeshEdge;
 
     // I/O operations - use proper module paths
     pub use cfd_io::vtk::{VtkMesh, VtkMeshBuilder, VtkReader, VtkWriter};

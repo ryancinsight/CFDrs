@@ -30,10 +30,14 @@ impl GpuContext {
         pollster::block_on(Self::create_async())
     }
 
-    /// Async initialization
+    /// Async initialization with support for integrated graphics
     async fn create_async() -> Result<Self> {
-        let instance = wgpu::Instance::default();
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::all(),
+            ..Default::default()
+        });
 
+        // Try high performance first (discrete GPU if available)
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
@@ -41,9 +45,36 @@ impl GpuContext {
                 compatible_surface: None,
             })
             .await
+            // Fall back to low power (integrated graphics)
+            .or_else(|| {
+                pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::LowPower,
+                    force_fallback_adapter: false,
+                    compatible_surface: None,
+                }))
+            })
+            // Last resort: software fallback
+            .or_else(|| {
+                pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::LowPower,
+                    force_fallback_adapter: true,
+                    compatible_surface: None,
+                }))
+            })
             .ok_or_else(|| {
-                Error::InvalidConfiguration("No suitable GPU adapter found".to_string())
+                Error::InvalidConfiguration(
+                    "No GPU adapter found (tried discrete, integrated, and software)".to_string(),
+                )
             })?;
+
+        // Log adapter info
+        let info = adapter.get_info();
+        tracing::info!(
+            "GPU adapter selected: {} ({:?}) - Backend: {:?}",
+            info.name,
+            info.device_type,
+            info.backend
+        );
 
         let (device, queue) = adapter
             .request_device(

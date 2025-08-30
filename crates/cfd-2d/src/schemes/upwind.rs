@@ -36,13 +36,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> FaceReconstruction<T> for First
         i: usize,
         j: usize,
     ) -> T {
-        // Check boundaries to prevent panics
+        // Check boundaries - return boundary value
         let nx = phi.data.ncols();
         if i >= nx - 1 {
-            panic!(
-                "Cannot apply upwind scheme at domain boundary i={}, nx={}",
-                i, nx
-            );
+            // At boundary, return the last cell value
+            return phi.data[(nx - 1, j)];
         }
 
         if velocity_at_face > T::zero() {
@@ -63,13 +61,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> FaceReconstruction<T> for First
         i: usize,
         j: usize,
     ) -> T {
-        // Check boundaries to prevent panics
+        // Check boundaries - return boundary value
         let ny = phi.data.nrows();
         if j >= ny - 1 {
-            panic!(
-                "Cannot apply upwind scheme at domain boundary j={}, ny={}",
-                j, ny
-            );
+            // At boundary, return the last cell value
+            return phi.data[(i, ny - 1)];
         }
 
         if velocity_at_face > T::zero() {

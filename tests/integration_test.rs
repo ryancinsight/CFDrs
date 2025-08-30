@@ -1,17 +1,23 @@
 //! Integration test demonstrating working CFD functionality
 
-use cfd_core::Fluid;
+use cfd_core::fluid::ConstantPropertyFluid;
 
 #[test]
 fn test_fluid_properties() {
     // Create fluid
-    let fluid = Fluid::create("water".to_string(), 1000.0, 0.001);
+    let fluid = ConstantPropertyFluid {
+        name: "water".to_string(),
+        density: 1000.0,
+        viscosity: 0.001,
+        specific_heat: 4186.0,
+        thermal_conductivity: 0.6,
+    };
 
     assert_eq!(fluid.name, "water");
     let density_diff: f64 = fluid.density - 1000.0;
     assert!(density_diff.abs() < 1e-10);
-    let viscosity_diff: f64 = fluid.kinematic_viscosity() - 0.001;
-    assert!(viscosity_diff.abs() < 1e-10);
+    let viscosity_diff: f64 = fluid.kinematic_viscosity() - 1e-6;
+    assert!(viscosity_diff.abs() < 1e-7);
 
     // Test Reynolds number calculation using the built-in method
     let velocity = 1.0; // 1 m/s

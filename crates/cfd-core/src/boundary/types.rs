@@ -30,7 +30,7 @@ pub enum FundamentalBCType {
 /// These are the fundamental mathematical boundary conditions that can be
 /// applied to partial differential equations.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum BasicBoundaryCondition<T: RealField + Copy> {
+pub enum MathematicalBoundaryCondition<T: RealField + Copy> {
     /// Dirichlet: u = g on boundary
     Dirichlet { value: T },
     
@@ -44,7 +44,7 @@ pub enum BasicBoundaryCondition<T: RealField + Copy> {
     Periodic { partner: String },
 }
 
-impl<T: RealField + Copy> BasicBoundaryCondition<T> {
+impl<T: RealField + Copy> MathematicalBoundaryCondition<T> {
     /// Returns the fundamental type classification
     pub const fn fundamental_type(&self) -> FundamentalBCType {
         match self {

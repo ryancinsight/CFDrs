@@ -58,11 +58,18 @@ Deliver a high-performance, modular CFD framework that achieves literature-valid
 - **Build**: Clean compilation, no critical warnings
 
 ### Release Criteria
-✅ All physics implementations validated
-✅ Zero-copy patterns throughout
-✅ GPU acceleration functional
+⚠️ Physics implementations partially validated
+❌ Zero-copy patterns violated (multiple clone operations)
+❌ GPU acceleration NOT functional (feature-gated, untested)
 ✅ No TODO/FIXME in production
 ✅ <500 lines per module
-✅ Literature citations complete
+⚠️ Literature citations incomplete
 
-### Version 1.0 Status: **PRODUCTION READY**
+### Version 0.1 Status: **ALPHA - NOT PRODUCTION READY**
+
+### Known Issues
+- SIMD implementation exists but not integrated into solvers
+- GPU support requires manual feature flag activation
+- Examples fail to compile
+- Multiple unnecessary clone operations violate zero-copy promise
+- Incomplete test coverage

@@ -16,8 +16,9 @@ tracing.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 wgpu = { version = "0.19", optional = true }
-bytemuck = { version = "1.14", optional = true }
-pollster = { version = "0.3", optional = true }
+bytemuck = { version = "1.14", features = ["derive"] }
+pollster = "0.3"
+futures = "0.3"
 num_cpus = "1.16"
 nalgebra.workspace = true
 nalgebra-sparse.workspace = true
@@ -26,8 +27,8 @@ indexmap.workspace = true
 rayon.workspace = true
 
 [features]
-default = []
-gpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster"]
+default = ["gpu"]
+gpu = ["dep:wgpu"]
 experimental = []
 
 [dev-dependencies]

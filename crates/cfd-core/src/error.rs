@@ -309,6 +309,18 @@ pub fn require<T>(opt: Option<T>, msg: impl Into<String>) -> Result<T> {
     opt.ok_or_else(|| Error::InvalidInput(msg.into()))
 }
 
+impl From<&str> for Error {
+    fn from(msg: &str) -> Self {
+        Error::InvalidInput(msg.to_string())
+    }
+}
+
+impl From<String> for Error {
+    fn from(msg: String) -> Self {
+        Error::InvalidInput(msg)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
