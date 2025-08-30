@@ -1,9 +1,9 @@
 //! k-ω SST turbulence model implementation
 
 use super::constants::{
-    EPSILON_MIN, OMEGA_MIN, OMEGA_WALL_COEFFICIENT, SST_ALPHA_1, SST_BETA_1, SST_BETA_2,
+    OMEGA_MIN, OMEGA_WALL_COEFFICIENT, SST_ALPHA_1, SST_BETA_1, SST_BETA_2,
     SST_BETA_STAR, SST_GAMMA_1, SST_GAMMA_2, SST_SIGMA_K1, SST_SIGMA_K2, SST_SIGMA_OMEGA1,
-    SST_SIGMA_OMEGA2, TWO,
+    SST_SIGMA_OMEGA2,
 };
 use super::traits::TurbulenceModel;
 use cfd_core::error::Result;
