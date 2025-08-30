@@ -1,6 +1,10 @@
 //! Wall function implementations for turbulence models
 
-use super::constants::*;
+use super::constants::{
+    BLENDING_FACTOR, C_MU, E_WALL_FUNCTION, KAPPA, K_VISC_COEFFICIENT,
+    OMEGA_WALL_COEFFICIENT, Y_PLUS_BUFFER_END, Y_PLUS_BUFFER_START,
+    Y_PLUS_LOG_LAW, Y_PLUS_VISCOUS_SUBLAYER,
+};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 

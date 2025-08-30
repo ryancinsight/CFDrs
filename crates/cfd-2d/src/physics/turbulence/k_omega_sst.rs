@@ -1,6 +1,10 @@
 //! k-ω SST turbulence model implementation
 
-use super::constants::*;
+use super::constants::{
+    OMEGA_MIN, SST_ALPHA_1, SST_BETA_1, SST_BETA_2, SST_BETA_STAR,
+    SST_GAMMA_1, SST_GAMMA_2, SST_SIGMA_K1, SST_SIGMA_K2,
+    SST_SIGMA_OMEGA1, SST_SIGMA_OMEGA2, TWO,
+};
 use super::traits::TurbulenceModel;
 use cfd_core::error::Result;
 use nalgebra::{RealField, Vector2};
