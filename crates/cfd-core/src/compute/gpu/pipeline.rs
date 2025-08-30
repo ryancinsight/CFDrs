@@ -145,6 +145,7 @@ impl GpuPipelineManager {
         let uniform_buffer =
             self.context
                 .device
+                .as_ref()
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Uniform Buffer"),
                     contents: bytemuck::cast_slice(&uniform_data),

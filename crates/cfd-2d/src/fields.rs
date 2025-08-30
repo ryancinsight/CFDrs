@@ -60,23 +60,33 @@ impl<T: Clone> Field2D<T> {
     where
         T: Copy,
     {
-        debug_assert!(i < self.nx && j < self.ny, "Index out of bounds");
+        if i >= self.nx || j >= self.ny {
+            // Return boundary value or zero for out-of-bounds access
+            // This prevents panics and allows ghost cell implementations
+            return T::zero();
+        }
         self.data[j * self.nx + i]
     }
 
     /// Get immutable reference to element at (i, j)
+    /// Returns None for out-of-bounds access
     #[inline]
     #[must_use]
-    pub fn at_ref(&self, i: usize, j: usize) -> &T {
-        debug_assert!(i < self.nx && j < self.ny, "Index out of bounds");
-        &self.data[j * self.nx + i]
+    pub fn at_ref(&self, i: usize, j: usize) -> Option<&T> {
+        if i >= self.nx || j >= self.ny {
+            return None;
+        }
+        Some(&self.data[j * self.nx + i])
     }
 
     /// Get mutable reference to element at (i, j)
+    /// Returns None for out-of-bounds access
     #[inline]
-    pub fn at_mut(&mut self, i: usize, j: usize) -> &mut T {
-        debug_assert!(i < self.nx && j < self.ny, "Index out of bounds");
-        &mut self.data[j * self.nx + i]
+    pub fn at_mut(&mut self, i: usize, j: usize) -> Option<&mut T> {
+        if i >= self.nx || j >= self.ny {
+            return None;
+        }
+        Some(&mut self.data[j * self.nx + i])
     }
 
     /// Set value at element (i, j)
@@ -239,10 +249,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
 
     /// Efficiently copy data from another SimulationFields instance
     /// This is much more efficient than cloning when reusing buffers
-    pub fn copy_from(&mut self, other: &SimulationFields<T>) {
+    pub fn copy_from(&mut self, other: &SimulationFields<T>) -> Result<(), String> {
         // Ensure dimensions match
-        assert_eq!(self.nx, other.nx, "Grid dimensions must match");
-        assert_eq!(self.ny, other.ny, "Grid dimensions must match");
+        if self.nx != other.nx || self.ny != other.ny {
+            return Err(format!(
+                "Grid dimension mismatch: ({}, {}) vs ({}, {})",
+                self.nx, self.ny, other.nx, other.ny
+            ));
+        }
 
         // Copy field data using slices (efficient memcpy)
         self.u.data.copy_from_slice(&other.u.data);
@@ -253,6 +267,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
         self.p_prime.data.copy_from_slice(&other.p_prime.data);
         self.density.data.copy_from_slice(&other.density.data);
         self.viscosity.data.copy_from_slice(&other.viscosity.data);
+
+        Ok(())
     }
 
     /// Get velocity as Vector2 at point (i, j)

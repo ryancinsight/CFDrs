@@ -6,6 +6,12 @@
 pub mod field_ops;
 
 #[cfg(feature = "gpu")]
+pub mod kernels;
+
+#[cfg(feature = "gpu")]
+pub mod shaders;
+
+#[cfg(feature = "gpu")]
 pub mod validation_tests;
 
 // Re-export GpuContext from compute module

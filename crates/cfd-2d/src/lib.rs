@@ -26,6 +26,7 @@ pub mod solvers;
 pub mod piso_algorithm;
 pub mod pressure_velocity;
 pub mod schemes;
+pub mod stability;
 
 // The crate's public API is its module hierarchy.
 // Users should access types with clear, logical paths:

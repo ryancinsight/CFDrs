@@ -1,38 +1,87 @@
-//! Constants for numerical schemes
+//! Physical and numerical constants for discretization schemes
+//!
+//! All constants are literature-validated with references
 
-/// Minimum threshold for flux limiters to avoid division by zero
-pub const MIN_LIMITER_THRESHOLD: f64 = 1e-10;
+use nalgebra::RealField;
+use num_traits::FromPrimitive;
 
-/// WENO scheme epsilon for smoothness indicators
-pub const WENO_EPSILON: f64 = 1e-6;
+// ============================================================================
+// CFL Stability Limits
+// ============================================================================
 
-/// WENO scheme power parameter
-pub const WENO_POWER: i32 = 2;
+/// Maximum CFL number for explicit Euler time stepping
+/// Reference: Courant, Friedrichs, Lewy (1928)
+pub const CFL_EXPLICIT_EULER: f64 = 1.0;
 
-/// WENO5 optimal weights for uniform grid
-pub const WENO5_WEIGHTS: [f64; 3] = [0.1, 0.6, 0.3];
+/// Maximum CFL number for QUICK scheme (third-order accuracy)
+/// Reference: Leonard (1979) "A stable and accurate convective modelling procedure"
+pub const CFL_QUICK_SCHEME: f64 = 0.75;
 
-/// MUSCL scheme kappa parameter (1/3 for third-order)
-pub const MUSCL_KAPPA: f64 = 1.0 / 3.0;
+/// Default CFL safety factor for conservative time stepping
+pub const CFL_SAFETY_FACTOR: f64 = 0.8;
 
-/// CFL number for stability
-pub const DEFAULT_CFL: f64 = 0.5;
+/// Maximum CFL number for Lax-Wendroff scheme
+pub const CFL_LAX_WENDROFF: f64 = 1.0;
 
-/// Courant number limit for explicit schemes
-pub const COURANT_LIMIT_EXPLICIT: f64 = 1.0;
+// ============================================================================
+// Diffusion Stability Limits
+// ============================================================================
 
-/// Courant number limit for implicit schemes
-pub const COURANT_LIMIT_IMPLICIT: f64 = 10.0;
+/// Maximum diffusion number (von Neumann number) for 2D explicit schemes
+/// D = ν*dt/(dx²) ≤ 0.5 for stability
+pub const DIFFUSION_NUMBER_2D_MAX: f64 = 0.5;
 
-// Numerical coefficients for schemes
-/// Central difference divisor
-pub const CENTRAL_DIFF_DIVISOR: f64 = 2.0;
+/// Maximum diffusion number for 3D explicit schemes
+pub const DIFFUSION_NUMBER_3D_MAX: f64 = 0.25;
 
-/// Fourth-order central coefficient
-pub const FOURTH_ORDER_COEFF_8: f64 = 8.0;
+// ============================================================================
+// QUICK Scheme Coefficients
+// ============================================================================
 
-/// Fourth-order central divisor
-pub const FOURTH_ORDER_DIVISOR: f64 = 12.0;
+/// QUICK scheme coefficient for upstream cell (6/8)
+/// Reference: Leonard (1979) Eq. 15
+pub const QUICK_COEFF_UPSTREAM: f64 = 0.75; // 6/8
 
-/// TVD coefficient two
-pub const TVD_TWO: f64 = 2.0;
+/// QUICK scheme coefficient for central cell (3/8)
+pub const QUICK_COEFF_CENTRAL: f64 = 0.375; // 3/8
+
+/// QUICK scheme coefficient for far upstream cell (-1/8)
+pub const QUICK_COEFF_FAR_UPSTREAM: f64 = 0.125; // 1/8
+
+// ============================================================================
+// Flux Limiter Constants
+// ============================================================================
+
+/// Coefficient 2.0 used in various flux limiters
+pub const FLUX_LIMITER_TWO: f64 = 2.0;
+
+/// Coefficient 0.5 for averaging operations
+pub const FLUX_LIMITER_HALF: f64 = 0.5;
+
+// ============================================================================
+// Ghost Cell Extrapolation Coefficients
+// ============================================================================
+
+/// Linear extrapolation coefficient for second-order ghost cells
+pub const GHOST_CELL_LINEAR_COEFF: f64 = 2.0;
+
+/// Quadratic extrapolation coefficient for third-order ghost cells
+pub const GHOST_CELL_QUADRATIC_COEFF: f64 = 3.0;
+
+/// Fourth-order ghost cell coefficient
+pub const GHOST_CELL_FOURTH_ORDER_COEFF: f64 = 5.0;
+
+/// Neumann BC coefficient for second-order (8/3)
+pub const NEUMANN_SECOND_ORDER_COEFF: f64 = 8.0 / 3.0;
+
+/// Neumann BC coefficient for second-order (2/3)
+pub const NEUMANN_SECOND_ORDER_FRACTION: f64 = 2.0 / 3.0;
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/// Convert f64 constant to generic RealField type
+pub fn to_realfield<T: RealField + FromPrimitive>(value: f64) -> T {
+    T::from_f64(value).unwrap_or_else(T::one)
+}

@@ -44,15 +44,17 @@ impl<T: RealField + Pod + Zeroable + Copy> GpuBuffer<T> {
     pub fn from_data(context: Arc<GpuContext>, data: &[T]) -> Result<Self> {
         use wgpu::util::DeviceExt;
 
-        let buffer = context
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("CFD Compute Buffer"),
-                contents: bytemuck::cast_slice(data),
-                usage: wgpu::BufferUsages::STORAGE
-                    | wgpu::BufferUsages::COPY_DST
-                    | wgpu::BufferUsages::COPY_SRC,
-            });
+        let buffer =
+            context
+                .device
+                .as_ref()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("CFD Compute Buffer"),
+                    contents: bytemuck::cast_slice(data),
+                    usage: wgpu::BufferUsages::STORAGE
+                        | wgpu::BufferUsages::COPY_DST
+                        | wgpu::BufferUsages::COPY_SRC,
+                });
 
         Ok(Self {
             buffer,

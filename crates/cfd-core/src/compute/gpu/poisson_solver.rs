@@ -134,11 +134,13 @@ impl GpuPoissonSolver {
             omega: 1.0, // Default relaxation parameter
         };
 
-        let params_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Poisson Params"),
-            contents: bytemuck::cast_slice(&[params]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
+        let params_buffer = device
+            .as_ref()
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Poisson Params"),
+                contents: bytemuck::cast_slice(&[params]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            });
 
         Ok(Self {
             device,
@@ -174,33 +176,36 @@ impl GpuPoissonSolver {
             .write_buffer(&self.params_buffer, 0, bytemuck::cast_slice(&[params]));
 
         // Create GPU buffers
-        let phi_buffer_a = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Phi A"),
-                contents: bytemuck::cast_slice(phi),
-                usage: wgpu::BufferUsages::STORAGE
-                    | wgpu::BufferUsages::COPY_SRC
-                    | wgpu::BufferUsages::COPY_DST,
-            });
+        let phi_buffer_a =
+            self.device
+                .as_ref()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Phi A"),
+                    contents: bytemuck::cast_slice(phi),
+                    usage: wgpu::BufferUsages::STORAGE
+                        | wgpu::BufferUsages::COPY_SRC
+                        | wgpu::BufferUsages::COPY_DST,
+                });
 
-        let phi_buffer_b = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Phi B"),
-                contents: bytemuck::cast_slice(phi),
-                usage: wgpu::BufferUsages::STORAGE
-                    | wgpu::BufferUsages::COPY_SRC
-                    | wgpu::BufferUsages::COPY_DST,
-            });
+        let phi_buffer_b =
+            self.device
+                .as_ref()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Phi B"),
+                    contents: bytemuck::cast_slice(phi),
+                    usage: wgpu::BufferUsages::STORAGE
+                        | wgpu::BufferUsages::COPY_SRC
+                        | wgpu::BufferUsages::COPY_DST,
+                });
 
-        let source_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Source"),
-                contents: bytemuck::cast_slice(source),
-                usage: wgpu::BufferUsages::STORAGE,
-            });
+        let source_buffer =
+            self.device
+                .as_ref()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Source"),
+                    contents: bytemuck::cast_slice(source),
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
 
         // Perform iterations
         for iter in 0..iterations {
