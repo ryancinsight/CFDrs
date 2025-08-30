@@ -169,8 +169,25 @@ impl GpuFieldOps {
         let size = a.len() as u32;
 
         // Create GPU buffers
-        let buffer_a = self.context.create_buffer_init(a);
-        let buffer_b = self.context.create_buffer_init(b);
+        use wgpu::util::DeviceExt;
+        let buffer_a =
+            self.context
+                .device
+                .as_ref()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Buffer A"),
+                    contents: bytemuck::cast_slice(a),
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
+        let buffer_b =
+            self.context
+                .device
+                .as_ref()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Buffer B"),
+                    contents: bytemuck::cast_slice(b),
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
         let buffer_result = self.context.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Result Buffer"),
             size: (size * 4) as u64,
@@ -316,8 +333,25 @@ impl GpuFieldOps {
             dy_inv2: 1.0 / (dy * dy),
         };
 
-        let uniforms_buffer = self.context.create_buffer_init(&[uniforms]);
-        let field_buffer = self.context.create_buffer_init(field);
+        use wgpu::util::DeviceExt;
+        let uniforms_buffer =
+            self.context
+                .device
+                .as_ref()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Uniforms Buffer"),
+                    contents: bytemuck::cast_slice(&[uniforms]),
+                    usage: wgpu::BufferUsages::UNIFORM,
+                });
+        let field_buffer =
+            self.context
+                .device
+                .as_ref()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Field Buffer"),
+                    contents: bytemuck::cast_slice(field),
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
         let result_buffer = self.context.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Laplacian Result"),
             size: (field.len() * 4) as u64,

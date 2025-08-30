@@ -43,6 +43,10 @@ pub enum Error {
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 
+    /// Unsupported operation
+    #[error("Unsupported operation: {0}")]
+    UnsupportedOperation(String),
+
     /// Dimension mismatch
     #[error("Dimension mismatch: expected {expected}, got {actual}")]
     DimensionMismatch {
