@@ -100,9 +100,19 @@ impl ComputeDispatcher {
         #[cfg(feature = "gpu")]
         {
             if let Some(ref gpu_context) = self.context.gpu_context {
-                // GPU execution would go here
-                // For now, fall back to CPU
-                self.execute_cpu(kernel, input, output, params)
+                // Check if kernel supports GPU execution
+                if !kernel.supports_backend(&ComputeBackend::Gpu) {
+                    return self.execute_cpu(kernel, input, output, params);
+                }
+
+                // Attempt GPU execution
+                match kernel.execute_gpu(gpu_context, input, output, params) {
+                    Ok(result) => Ok(result),
+                    Err(e) => {
+                        tracing::warn!("GPU execution failed: {}, falling back to CPU", e);
+                        self.execute_cpu(kernel, input, output, params)
+                    }
+                }
             } else {
                 self.execute_cpu(kernel, input, output, params)
             }

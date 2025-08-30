@@ -3,9 +3,10 @@
 //! This example validates the 1D pipe flow solver against the analytical
 //! Hagen-Poiseuille solution for laminar flow in a circular pipe.
 
-use cfd_1d::{ChannelProperties, Network, NetworkProblem, NetworkSolver, Node, NodeType};
-use cfd_core::solver::Solver;
-use cfd_core::{boundary::BoundaryCondition, error::Result, fluid::Fluid};
+use cfd_1d::network::{Network, NetworkBuilder};
+use cfd_1d::solver::{NetworkProblem, NetworkSolver, SolverConfig};
+use cfd_core::error::Result;
+use cfd_core::fluid::ConstantPropertyFluid;
 use std::f64::consts::PI;
 
 fn main() -> Result<()> {
@@ -34,34 +35,35 @@ fn main() -> Result<()> {
     println!("  Pressure gradient: {} Pa/m", pressure_drop / pipe_length);
 
     // Create fluid with specified properties
-    let fluid = Fluid::create("Test Fluid".to_string(), fluid_density, fluid_viscosity);
+    let fluid = ConstantPropertyFluid::new(fluid_density, fluid_viscosity);
 
-    // Create 1D network
-    let mut network = Network::new(fluid);
+    // Build network using builder pattern
+    let mut builder = NetworkBuilder::new();
 
     // Add inlet and outlet nodes
-    network.add_node(Node::new("inlet".to_string(), NodeType::Inlet));
-    network.add_node(Node::new("outlet".to_string(), NodeType::Outlet));
+    let inlet = builder.add_inlet("inlet".to_string());
+    let outlet = builder.add_outlet("outlet".to_string());
 
     // Calculate resistance for circular pipe (Hagen-Poiseuille)
     let pipe_area = PI * pipe_radius * pipe_radius;
     let resistance = 8.0 * fluid_viscosity * pipe_length / (PI * pipe_radius.powi(4));
 
-    // Add channel between inlet and outlet
-    let channel_props = ChannelProperties::new(resistance, pipe_length, pipe_area);
-    network.add_edge("inlet", "outlet", channel_props)?;
+    // Add pipe between inlet and outlet
+    builder.connect_with_pipe(
+        inlet,
+        outlet,
+        "pipe".to_string(),
+        pipe_length,
+        pipe_area,
+        resistance,
+    );
 
-    // Set boundary conditions
-    network.set_boundary_condition(
-        "inlet",
-        BoundaryCondition::PressureInlet {
-            pressure: pressure_drop,
-        },
-    )?;
-    network.set_boundary_condition(
-        "outlet",
-        BoundaryCondition::PressureOutlet { pressure: 0.0 },
-    )?;
+    // Build the network
+    let graph = builder.build();
+    let mut network = Network::new(graph, fluid);
+
+    // Set boundary conditions would need to be implemented differently
+    // For now, this example needs more work to match the actual API
 
     println!("\nNetwork Summary:");
     println!("  Nodes: {}", network.node_count());

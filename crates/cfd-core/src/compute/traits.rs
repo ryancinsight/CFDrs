@@ -12,6 +12,20 @@ pub trait ComputeKernel<T: RealField + Copy>: Debug + Send + Sync {
     /// Execute the kernel with given input and output buffers
     fn execute(&self, input: &[T], output: &mut [T], params: KernelParams) -> Result<()>;
 
+    /// Execute kernel on GPU if implemented
+    #[cfg(feature = "gpu")]
+    fn execute_gpu(
+        &self,
+        _gpu_context: &std::sync::Arc<crate::compute::gpu::GpuContext>,
+        _input: &[T],
+        _output: &mut [T],
+        _params: KernelParams,
+    ) -> Result<()> {
+        Err(crate::error::Error::UnsupportedOperation(
+            "GPU execution not implemented for this kernel".to_string(),
+        ))
+    }
+
     /// Estimate computational complexity (FLOPs)
     fn complexity(&self, size: usize) -> usize;
 

@@ -8,7 +8,8 @@ use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 use std::fmt::LowerExp;
 
-/// STANDARD (Semi-Implicit Method for Pressure-Linked Equations) solver
+/// SIMPLE (Semi-Implicit Method for Pressure-Linked Equations) solver
+/// Implementation follows Patankar (1980) "Numerical Heat Transfer and Fluid Flow"
 pub struct PressureVelocitySolver<T: RealField + Copy> {
     /// Configuration
     config: PressureVelocityConfig<T>,

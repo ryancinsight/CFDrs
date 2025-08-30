@@ -3,20 +3,14 @@
 //! Supports both integrated and discrete GPUs
 
 #[cfg(feature = "gpu")]
-pub mod compute;
-
-#[cfg(feature = "gpu")]
 pub mod field_ops;
 
 #[cfg(feature = "gpu")]
-pub use compute::GpuContext;
+pub mod validation_tests;
+
+// Re-export GpuContext from compute module
+#[cfg(feature = "gpu")]
+pub use crate::compute::gpu::GpuContext;
 
 #[cfg(not(feature = "gpu"))]
-pub struct GpuContext;
-
-#[cfg(not(feature = "gpu"))]
-impl GpuContext {
-    pub fn new() -> Option<Self> {
-        None
-    }
-}
+pub use crate::compute::gpu::GpuContext;

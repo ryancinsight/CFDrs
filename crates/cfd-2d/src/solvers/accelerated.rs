@@ -78,13 +78,13 @@ impl AcceleratedPoissonSolver {
             Backend::Gpu => {
                 if let Some(ref gpu_solver) = self.gpu_solver {
                     // Use GPU solver
-                    gpu_solver.solve_jacobi(
+                    let residual = gpu_solver.solve_jacobi(
                         phi.as_mut_slice(),
                         source.as_slice(),
                         iterations,
                         omega,
                     )?;
-                    Ok(0.0) // TODO: Return actual residual
+                    Ok(residual)
                 } else {
                     self.solve_simd(phi, source, iterations, omega)
                 }
@@ -92,7 +92,11 @@ impl AcceleratedPoissonSolver {
             Backend::Simd => self.solve_simd(phi, source, iterations, omega),
             Backend::Cpu => self.solve_cpu(phi, source, iterations, omega),
             #[cfg(not(feature = "gpu"))]
-            Backend::Gpu => unreachable!(),
+            Backend::Gpu => {
+                // GPU not available, fall back to CPU
+                tracing::warn!("GPU backend requested but not available, using CPU");
+                self.solve_cpu(phi, source, iterations, omega)
+            }
         }
     }
 
@@ -108,8 +112,6 @@ impl AcceleratedPoissonSolver {
         let ny = phi.ny();
         let dx = 1.0 / (nx as f32 - 1.0);
         let dy = 1.0 / (ny as f32 - 1.0);
-
-        let mut phi_new = phi.clone(); // TODO: Eliminate this clone
 
         for _ in 0..iterations {
             super::simd_kernels::gauss_seidel_simd(
@@ -223,8 +225,12 @@ impl AcceleratedNavierStokesSolver {
         divergence: &Field2D<f32>,
         iterations: usize,
     ) -> Result<f32> {
-        self.poisson_solver
-            .solve(pressure, divergence, iterations, 1.8)
+        self.poisson_solver.solve(
+            pressure,
+            divergence,
+            iterations,
+            cfd_core::constants::numerical::relaxation::SOR_OMEGA_DEFAULT as f32,
+        )
     }
 
     /// Calculate velocity divergence with acceleration
