@@ -99,7 +99,7 @@ impl ComputeDispatcher {
     ) -> Result<()> {
         #[cfg(feature = "gpu")]
         {
-            if let Some(ref gpu_context) = self.context.gpu_context {
+            if let Some(ref _gpu_context) = self.context.gpu_context {
                 // GPU execution would go here
                 // For now, fall back to CPU
                 self.execute_cpu(kernel, input, output, params)

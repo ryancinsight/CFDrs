@@ -8,6 +8,7 @@
 pub mod binary;
 pub mod checkpoint;
 pub mod csv;
+#[cfg(feature = "hdf5")]
 pub mod hdf5_module;
 pub mod vtk;
 

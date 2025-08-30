@@ -4,14 +4,14 @@
 //! Follows SSOT principle with single implementation per operation.
 
 mod arch_detect;
-mod operations;
+mod ops;
 mod swar;
 
 #[cfg(test)]
 mod tests;
 
 pub use arch_detect::ArchDetect;
-pub use operations::{SimdOperation, SimdOps, VectorOps};
+pub use ops::{SimdOperation, SimdOps, VectorOps};
 pub use swar::SwarOps;
 
 /// SIMD capability levels
