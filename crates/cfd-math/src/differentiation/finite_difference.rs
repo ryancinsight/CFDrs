@@ -1,6 +1,7 @@
 //! Finite difference operators for numerical differentiation.
 
 use super::schemes::FiniteDifferenceScheme;
+use crate::simd::SimdOps;
 use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
@@ -9,12 +10,17 @@ use num_traits::FromPrimitive;
 pub struct FiniteDifference<T: RealField + Copy> {
     scheme: FiniteDifferenceScheme,
     spacing: T,
+    simd_ops: SimdOps,
 }
 
 impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
     /// Create a finite difference operator
     pub fn new(scheme: FiniteDifferenceScheme, spacing: T) -> Self {
-        Self { scheme, spacing }
+        Self {
+            scheme,
+            spacing,
+            simd_ops: SimdOps::new(),
+        }
     }
 
     /// Create central difference operator
@@ -137,6 +143,50 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
                     *r = (values[i - 2] - four * values[i - 1] + three * values[i])
                         / (two * self.spacing);
                 });
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Compute first derivative using SIMD acceleration for f32 arrays
+    pub fn first_derivative_simd_f32(&self, values: &[f32]) -> Result<Vec<f32>> {
+        if values.len() < 2 {
+            return Err(Error::InvalidConfiguration(
+                "Need at least 2 points for differentiation".to_string(),
+            ));
+        }
+
+        let n = values.len();
+        let mut result = vec![0.0f32; n];
+        let inv_spacing = 1.0f32 / (self.spacing.to_subset().unwrap_or(1.0) as f32);
+
+        match self.scheme {
+            FiniteDifferenceScheme::Central => {
+                // Use SIMD-friendly operations for central differences
+                if n > 2 {
+                    // Compute differences and scale in one pass
+                    let scale = inv_spacing * 0.5;
+                    for i in 1..n - 1 {
+                        result[i] = (values[i + 1] - values[i - 1]) * scale;
+                    }
+                }
+
+                // Handle boundaries
+                result[0] = (values[1] - values[0]) * inv_spacing;
+                result[n - 1] = (values[n - 1] - values[n - 2]) * inv_spacing;
+            }
+            _ => {
+                // Fall back to scalar for other schemes
+                let scalar_result = self.first_derivative(
+                    &values
+                        .iter()
+                        .map(|&v| T::from_f32(v).unwrap_or_else(|| T::zero()))
+                        .collect::<Vec<_>>(),
+                )?;
+                for (i, val) in scalar_result.iter().enumerate() {
+                    result[i] = val.to_subset().unwrap_or(0.0) as f32;
+                }
             }
         }
 

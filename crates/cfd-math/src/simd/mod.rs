@@ -2,6 +2,55 @@
 //!
 //! Architecture-conditional SIMD using safe abstractions
 
+mod arch_detect;
+mod operations;
+mod operations_dispatch;
+mod swar;
+
+#[cfg(test)]
+mod tests;
+
+/// SIMD capability levels
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SimdCapability {
+    /// AVX2 (256-bit vectors)
+    Avx2,
+    /// SSE4.2 (128-bit vectors)
+    Sse42,
+    /// ARM NEON (128-bit vectors)
+    Neon,
+    /// Software SIMD within a register (fallback)
+    Swar,
+}
+
+impl SimdCapability {
+    /// Detect the best available SIMD capability
+    pub fn detect() -> Self {
+        #[cfg(target_arch = "x86_64")]
+        {
+            if std::arch::is_x86_feature_detected!("avx2") {
+                return Self::Avx2;
+            }
+            if std::arch::is_x86_feature_detected!("sse4.2") {
+                return Self::Sse42;
+            }
+        }
+
+        #[cfg(target_arch = "aarch64")]
+        {
+            if std::arch::is_aarch64_feature_detected!("neon") {
+                return Self::Neon;
+            }
+        }
+
+        Self::Swar
+    }
+}
+
+pub use arch_detect::ArchDetect;
+pub use operations::{SimdOps, VectorOps};
+pub use swar::SwarOps;
+
 use std::arch::is_x86_feature_detected;
 
 /// Dot product with architecture-specific SIMD

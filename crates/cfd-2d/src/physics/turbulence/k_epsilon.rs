@@ -5,9 +5,7 @@
 //!
 //! Standard k-ε model with wall functions for industrial CFD applications
 
-use super::constants::{
-    C1_EPSILON, C2_EPSILON, C_MU, EPSILON_MIN, SIGMA_EPSILON, SIGMA_K,
-};
+use super::constants::{C1_EPSILON, C2_EPSILON, C_MU, EPSILON_MIN, SIGMA_EPSILON, SIGMA_K};
 use super::traits::TurbulenceModel;
 use cfd_core::error::Result;
 use nalgebra::{RealField, Vector2};
