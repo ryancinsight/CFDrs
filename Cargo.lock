@@ -365,6 +365,7 @@ dependencies = [
  "cfd-validation",
  "criterion",
  "nalgebra",
+ "num-traits",
  "proptest",
 ]
 
