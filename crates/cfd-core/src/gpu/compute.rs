@@ -122,17 +122,4 @@ impl GpuContext {
                 entry_point,
             })
     }
-
-    /// Create compute pipeline (deprecated - use create_compute_pipeline_with_layout)
-    pub fn create_compute_pipeline(
-        &self,
-        shader_source: &str,
-        entry_point: &str,
-    ) -> wgpu::ComputePipeline {
-        // This is broken and should not be used
-        // Keeping for backward compatibility temporarily
-        panic!(
-            "create_compute_pipeline is broken - use create_compute_pipeline_with_layout instead"
-        );
-    }
 }

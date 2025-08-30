@@ -1,6 +1,5 @@
 //! x86/x86_64 SIMD implementations (SSE, AVX2)
 
-use crate::error::Result;
 
 // AVX2 implementations for f32
 #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]

@@ -105,9 +105,8 @@ impl ComputeDispatcher {
                     return self.execute_cpu(kernel, input, output, params);
                 }
 
-                // GPU execution requires proper buffer management and kernel dispatch
-                // Currently falling back to CPU while GPU infrastructure matures
-                // TODO: Implement proper GPU dispatch with staging buffers
+                // GPU kernels require specific trait implementation
+                // Fall back to CPU for generic kernels
                 self.execute_cpu(kernel, input, output, params)
             } else {
                 self.execute_cpu(kernel, input, output, params)

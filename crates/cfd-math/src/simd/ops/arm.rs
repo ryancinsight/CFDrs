@@ -1,6 +1,5 @@
 //! ARM NEON SIMD implementations
 
-use crate::error::Result;
 
 // NEON implementations for f32
 #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]

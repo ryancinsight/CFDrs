@@ -1,36 +1,18 @@
-//! Solver-related numerical constants
+//! Solver convergence and iteration constants
 //!
-//! Convergence tolerances, iteration limits, and solver parameters.
+//! Reference: Ferziger, J.H. & Perić, M. (2002). Computational Methods for Fluid Dynamics
 
-/// Default convergence tolerance for iterative solvers
+/// Convergence tolerance for iterative solvers
 pub const CONVERGENCE_TOLERANCE: f64 = 1e-6;
 
-/// Stricter convergence tolerance for high-accuracy simulations
-pub const CONVERGENCE_TOLERANCE_STRICT: f64 = 1e-10;
+/// Machine epsilon tolerance for numerical comparisons
+pub const EPSILON_TOLERANCE: f64 = 1e-10;
 
-/// Machine epsilon safety factor
-pub const EPSILON_TOLERANCE: f64 = 1e-14;
+/// Maximum outer iterations for pressure-velocity coupling
+pub const MAX_ITERATIONS_OUTER: usize = 100;
 
-/// Maximum iterations for outer loops
-pub const MAX_ITERATIONS_OUTER: usize = 1000;
+/// Maximum inner iterations for linear solvers
+pub const MAX_ITERATIONS_INNER: usize = 1000;
 
-/// Maximum iterations for inner loops
-pub const MAX_ITERATIONS_INNER: usize = 100;
-
-/// Minimum iterations before convergence check
-pub const MIN_ITERATIONS: usize = 3;
-
-/// Default relaxation factor for iterative solvers
-pub const DEFAULT_RELAXATION: f64 = 1.0;
-
-/// Under-relaxation factor for pressure
-pub const PRESSURE_RELAXATION: f64 = 0.3;
-
-/// Under-relaxation factor for velocity
-pub const VELOCITY_RELAXATION: f64 = 0.7;
-
-/// Stagnation detection window size
-pub const STAGNATION_WINDOW: usize = 10;
-
-/// Stagnation tolerance ratio
-pub const STAGNATION_TOLERANCE: f64 = 1e-3;
+/// Logging interval for convergence monitoring
+pub const LOG_INTERVAL: usize = 10;
