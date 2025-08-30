@@ -142,42 +142,39 @@ mod tests {
         assert_relative_eq!(dot, 20.0, epsilon = 1e-6);
     }
 
-    // TODO: Implement sum_f32 in SwarOps
-    // #[test]
-    // fn test_swar_sum_f32() {
-    //     let swar = SwarOps::new();
-    //     let input = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0];
+    #[test]
+    fn test_swar_sum_f32() {
+        let swar = SwarOps::new();
+        let input = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0];
 
-    //     let sum = swar.sum_f32(&input);
+        let sum = swar.sum_f32(&input);
 
-    //     assert_relative_eq!(sum, 45.0, epsilon = 1e-6);
-    // }
+        assert_relative_eq!(sum, 45.0, epsilon = 1e-6);
+    }
 
-    // TODO: Implement max_f32 in SwarOps
-    // #[test]
-    // fn test_swar_max_f32() {
-    //     let swar = SwarOps::new();
-    //     let input = vec![3.0f32, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0, 6.0];
+    #[test]
+    fn test_swar_max_f32() {
+        let swar = SwarOps::new();
+        let input = vec![3.0f32, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0, 6.0];
 
-    //     let max = swar.max_f32(&input).unwrap();
+        let max = swar.max_f32(&input).unwrap();
 
-    //     assert_relative_eq!(max, 9.0, epsilon = 1e-6);
-    // }
+        assert_relative_eq!(max, 9.0, epsilon = 1e-6);
+    }
 
-    // TODO: Implement add_u32 in SwarOps for integer operations
-    // #[test]
-    // fn test_swar_add_u32() {
-    //     let swar = SwarOps::new();
-    //     let a = vec![1u32, 2, 3, 4, 5];
-    //     let b = vec![5u32, 4, 3, 2, 1];
-    //     let mut result = vec![0u32; 5];
+    #[test]
+    fn test_swar_add_u32() {
+        let swar = SwarOps::new();
+        let a = vec![1u32, 2, 3, 4, 5];
+        let b = vec![5u32, 4, 3, 2, 1];
+        let mut result = vec![0u32; 5];
 
-    //     swar.add_u32(&a, &b, &mut result).unwrap();
+        swar.add_u32(&a, &b, &mut result).unwrap();
 
-    //     for i in 0..5 {
-    //         assert_eq!(result[i], 6);
-    //     }
-    // }
+        for i in 0..5 {
+            assert_eq!(result[i], 6);
+        }
+    }
 
     #[test]
     fn test_dimension_mismatch() {

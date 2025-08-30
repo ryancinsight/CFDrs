@@ -99,9 +99,15 @@ impl ComputeDispatcher {
     ) -> Result<()> {
         #[cfg(feature = "gpu")]
         {
-            if let Some(ref _gpu_context) = self.context.gpu_context {
-                // GPU execution would go here
-                // For now, fall back to CPU
+            if let Some(ref gpu_context) = self.context.gpu_context {
+                // Check if kernel supports GPU execution
+                if !kernel.supports_backend(&ComputeBackend::Gpu) {
+                    return self.execute_cpu(kernel, input, output, params);
+                }
+
+                // GPU execution requires proper buffer management and kernel dispatch
+                // Currently falling back to CPU while GPU infrastructure matures
+                // TODO: Implement proper GPU dispatch with staging buffers
                 self.execute_cpu(kernel, input, output, params)
             } else {
                 self.execute_cpu(kernel, input, output, params)
