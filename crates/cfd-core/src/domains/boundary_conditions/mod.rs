@@ -5,6 +5,7 @@
 
 pub mod applicator;
 pub mod geometry;
+pub mod ghost_cells;
 pub mod manager;
 pub mod specification;
 pub mod time_dependent;
