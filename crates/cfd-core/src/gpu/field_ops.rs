@@ -1,6 +1,6 @@
 //! GPU-accelerated field operations
 
-use super::GpuContext;
+use crate::compute::gpu::GpuContext;
 use bytemuck::{Pod, Zeroable};
 use std::sync::Arc;
 
@@ -20,7 +20,7 @@ impl GpuFieldOps {
         // Create bind group layout for add operation (3 storage buffers)
         let add_bind_group_layout =
             context
-                .device()
+                .device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: Some("Add Bind Group Layout"),
                     entries: &[
@@ -60,7 +60,7 @@ impl GpuFieldOps {
         // Create bind group layout for multiply operation (1 storage, 1 uniform, 1 storage)
         let mul_bind_group_layout =
             context
-                .device()
+                .device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: Some("Multiply Bind Group Layout"),
                     entries: &[
@@ -100,7 +100,7 @@ impl GpuFieldOps {
         // Create bind group layout for laplacian (1 uniform, 1 storage, 1 storage)
         let laplacian_bind_group_layout =
             context
-                .device()
+                .device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: Some("Laplacian Bind Group Layout"),
                     entries: &[
@@ -171,20 +171,17 @@ impl GpuFieldOps {
         // Create GPU buffers
         let buffer_a = self.context.create_buffer_init(a);
         let buffer_b = self.context.create_buffer_init(b);
-        let buffer_result = self
-            .context
-            .device()
-            .create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Result Buffer"),
-                size: (size * 4) as u64,
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-                mapped_at_creation: false,
-            });
+        let buffer_result = self.context.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Result Buffer"),
+            size: (size * 4) as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
 
         // Create bind group
         let bind_group_layout =
             self.context
-                .device()
+                .device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: Some("Add Bind Group Layout"),
                     entries: &[
@@ -223,7 +220,7 @@ impl GpuFieldOps {
 
         let bind_group = self
             .context
-            .device()
+            .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Add Bind Group"),
                 layout: &bind_group_layout,
@@ -246,7 +243,7 @@ impl GpuFieldOps {
         // Dispatch compute
         let mut encoder =
             self.context
-                .device()
+                .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("Add Encoder"),
                 });
@@ -262,26 +259,23 @@ impl GpuFieldOps {
         }
 
         // Copy result back
-        let staging_buffer = self
-            .context
-            .device()
-            .create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Staging Buffer"),
-                size: (size * 4) as u64,
-                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
+        let staging_buffer = self.context.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Staging Buffer"),
+            size: (size * 4) as u64,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
 
         encoder.copy_buffer_to_buffer(&buffer_result, 0, &staging_buffer, 0, (size * 4) as u64);
 
-        self.context.queue().submit(Some(encoder.finish()));
+        self.context.queue.submit(Some(encoder.finish()));
 
         // Read back result
         let buffer_slice = staging_buffer.slice(..);
         let (tx, rx) = std::sync::mpsc::channel();
         buffer_slice.map_async(wgpu::MapMode::Read, move |r| tx.send(r).unwrap());
 
-        self.context.device().poll(wgpu::Maintain::Wait);
+        self.context.device.poll(wgpu::Maintain::Wait);
         rx.recv().unwrap().unwrap();
 
         {
@@ -324,20 +318,17 @@ impl GpuFieldOps {
 
         let uniforms_buffer = self.context.create_buffer_init(&[uniforms]);
         let field_buffer = self.context.create_buffer_init(field);
-        let result_buffer = self
-            .context
-            .device()
-            .create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Laplacian Result"),
-                size: (field.len() * 4) as u64,
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-                mapped_at_creation: false,
-            });
+        let result_buffer = self.context.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Laplacian Result"),
+            size: (field.len() * 4) as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
 
         // Create bind group matching the laplacian pipeline layout
         let bind_group = self
             .context
-            .device()
+            .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Laplacian Bind Group"),
                 layout: &self.laplacian_pipeline.get_bind_group_layout(0),
@@ -360,7 +351,7 @@ impl GpuFieldOps {
         // Dispatch compute shader
         let mut encoder =
             self.context
-                .device()
+                .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("Laplacian Encoder"),
                 });
@@ -376,15 +367,12 @@ impl GpuFieldOps {
         }
 
         // Copy result to staging buffer and read back
-        let staging_buffer = self
-            .context
-            .device()
-            .create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Staging Buffer"),
-                size: (field.len() * 4) as u64,
-                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
+        let staging_buffer = self.context.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Staging Buffer"),
+            size: (field.len() * 4) as u64,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
 
         encoder.copy_buffer_to_buffer(
             &result_buffer,
@@ -394,15 +382,13 @@ impl GpuFieldOps {
             (field.len() * 4) as u64,
         );
 
-        self.context
-            .queue()
-            .submit(std::iter::once(encoder.finish()));
+        self.context.queue.submit(std::iter::once(encoder.finish()));
 
         // Read back results
         let buffer_slice = staging_buffer.slice(..);
         let (tx, rx) = std::sync::mpsc::channel();
         buffer_slice.map_async(wgpu::MapMode::Read, move |r| tx.send(r).unwrap());
-        self.context.device().poll(wgpu::Maintain::Wait);
+        self.context.device.poll(wgpu::Maintain::Wait);
         rx.recv().unwrap().unwrap();
 
         {

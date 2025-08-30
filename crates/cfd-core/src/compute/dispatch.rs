@@ -105,9 +105,14 @@ impl ComputeDispatcher {
                     return self.execute_cpu(kernel, input, output, params);
                 }
 
-                // GPU kernels require specific trait implementation
-                // Fall back to CPU for generic kernels
-                self.execute_cpu(kernel, input, output, params)
+                // Attempt GPU execution
+                match kernel.execute_gpu(gpu_context, input, output, params) {
+                    Ok(result) => Ok(result),
+                    Err(e) => {
+                        tracing::warn!("GPU execution failed: {}, falling back to CPU", e);
+                        self.execute_cpu(kernel, input, output, params)
+                    }
+                }
             } else {
                 self.execute_cpu(kernel, input, output, params)
             }

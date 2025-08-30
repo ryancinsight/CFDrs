@@ -92,7 +92,11 @@ impl AcceleratedPoissonSolver {
             Backend::Simd => self.solve_simd(phi, source, iterations, omega),
             Backend::Cpu => self.solve_cpu(phi, source, iterations, omega),
             #[cfg(not(feature = "gpu"))]
-            Backend::Gpu => unreachable!(),
+            Backend::Gpu => {
+                // GPU not available, fall back to CPU
+                tracing::warn!("GPU backend requested but not available, using CPU");
+                self.solve_cpu(phi, source, iterations, omega)
+            }
         }
     }
 
@@ -221,8 +225,12 @@ impl AcceleratedNavierStokesSolver {
         divergence: &Field2D<f32>,
         iterations: usize,
     ) -> Result<f32> {
-        self.poisson_solver
-            .solve(pressure, divergence, iterations, 1.8)
+        self.poisson_solver.solve(
+            pressure,
+            divergence,
+            iterations,
+            cfd_core::constants::numerical::relaxation::SOR_OMEGA_DEFAULT as f32,
+        )
     }
 
     /// Calculate velocity divergence with acceleration

@@ -173,7 +173,7 @@ mod tests {
         let broadcast = arr.broadcast_scalar(5.0);
         match broadcast {
             Cow::Owned(v) => assert_eq!(v, vec![5.0, 5.0, 5.0]),
-            _ => assert!(false, "Expected owned vector for scalar broadcast"),
+            Cow::Borrowed(_) => panic!("Expected owned vector for scalar broadcast, got borrowed"),
         }
     }
 

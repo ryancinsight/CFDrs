@@ -31,6 +31,8 @@ pub const SPECIES_RELAXATION: f64 = 0.8;
 pub const SOR_OPTIMAL_MIN: f64 = 1.0;
 /// Maximum SOR relaxation factor (typically < 2.0 for convergence)
 pub const SOR_OPTIMAL_MAX: f64 = 2.0;
+/// Default SOR relaxation factor for Poisson equation
+pub const SOR_OMEGA_DEFAULT: f64 = 1.8;
 
 /// Gauss-Seidel relaxation factor
 pub const GAUSS_SEIDEL_RELAXATION: f64 = 1.0;
