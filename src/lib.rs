@@ -15,6 +15,8 @@ pub use cfd_math as math;
 pub use cfd_mesh as mesh;
 pub use cfd_validation as validation;
 
+pub mod compute_unified;
+
 /// Unified prelude module - Single Source of Truth for all common CFD functionality
 ///
 /// This module provides a comprehensive set of imports for CFD simulations across all dimensions.
