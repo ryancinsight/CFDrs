@@ -4,7 +4,7 @@
 //! - Bird, R.B., Armstrong, R.C., Hassager, O. (1987) "Dynamics of Polymeric Liquids"
 //! - Chhabra, R.P., Richardson, J.F. (2008) "Non-Newtonian Flow and Applied Rheology"
 
-use super::{FluidModel, FluidProperties};
+use super::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
 use crate::error::Error;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -86,21 +86,27 @@ impl<T: RealField + FromPrimitive + Copy> PowerLawFluid<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidModel<T> for PowerLawFluid<T> {
-    fn properties(&self, _temperature: T, _pressure: T) -> Result<FluidProperties<T>, Error> {
+impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for PowerLawFluid<T> {
+    fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         // Use reference shear rate for property calculation
         let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
 
-        Ok(FluidProperties::new(
-            self.density,
-            apparent_viscosity,
-            self.specific_heat,
-            self.thermal_conductivity,
-        ))
+        Ok(FluidState {
+            density: self.density,
+            dynamic_viscosity: apparent_viscosity,
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+        })
     }
 
     fn name(&self) -> &str {
         &self.name
+    }
+}
+
+impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for PowerLawFluid<T> {
+    fn apparent_viscosity(&self, shear_rate: T) -> T {
+        PowerLawFluid::apparent_viscosity(self, shear_rate)
     }
 }
 
@@ -165,21 +171,35 @@ impl<T: RealField + FromPrimitive + Copy> BinghamPlastic<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidModel<T> for BinghamPlastic<T> {
-    fn properties(&self, _temperature: T, _pressure: T) -> Result<FluidProperties<T>, Error> {
+impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for BinghamPlastic<T> {
+    fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         // Use reference shear rate for property calculation
         let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
 
-        Ok(FluidProperties::new(
-            self.density,
-            apparent_viscosity,
-            self.specific_heat,
-            self.thermal_conductivity,
-        ))
+        Ok(FluidState {
+            density: self.density,
+            dynamic_viscosity: apparent_viscosity,
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+        })
     }
 
     fn name(&self) -> &str {
         &self.name
+    }
+}
+
+impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for BinghamPlastic<T> {
+    fn apparent_viscosity(&self, shear_rate: T) -> T {
+        BinghamPlastic::apparent_viscosity(self, shear_rate)
+    }
+
+    fn has_yield_stress(&self) -> bool {
+        true
+    }
+
+    fn yield_stress(&self) -> Option<T> {
+        Some(self.yield_stress)
     }
 }
 
@@ -220,19 +240,33 @@ impl<T: RealField + FromPrimitive + Copy> HerschelBulkley<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidModel<T> for HerschelBulkley<T> {
-    fn properties(&self, _temperature: T, _pressure: T) -> Result<FluidProperties<T>, Error> {
+impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for HerschelBulkley<T> {
+    fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
 
-        Ok(FluidProperties::new(
-            self.density,
-            apparent_viscosity,
-            self.specific_heat,
-            self.thermal_conductivity,
-        ))
+        Ok(FluidState {
+            density: self.density,
+            dynamic_viscosity: apparent_viscosity,
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+        })
     }
 
     fn name(&self) -> &str {
         &self.name
+    }
+}
+
+impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for HerschelBulkley<T> {
+    fn apparent_viscosity(&self, shear_rate: T) -> T {
+        HerschelBulkley::apparent_viscosity(self, shear_rate)
+    }
+
+    fn has_yield_stress(&self) -> bool {
+        true
+    }
+
+    fn yield_stress(&self) -> Option<T> {
+        Some(self.yield_stress)
     }
 }

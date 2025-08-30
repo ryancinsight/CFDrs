@@ -90,7 +90,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> ResistanceAnalyzer<T> {
         let conditions = FlowConditions {
             reynolds_number: flow_rate.map(|q| {
                 let velocity = q / properties.area;
-                fluid.reynolds_number(velocity, hydraulic_diameter)
+                fluid.density * velocity * hydraulic_diameter / fluid.viscosity
             }),
             velocity: flow_rate.map(|q| q / properties.area),
             flow_rate,

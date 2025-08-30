@@ -1,6 +1,6 @@
 //! Temperature-dependent fluid models
 
-use super::{FluidModel, FluidProperties};
+use super::traits::{Fluid as FluidTrait, FluidState};
 use crate::error::Error;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;

@@ -179,7 +179,7 @@ mod tests {
         let fluid = cfd_core::fluid::database::water_20c::<f64>()?;
         let velocity = 1.0;
         let density = WATER_DENSITY_STD;
-        let viscosity = fluid.dynamic_viscosity();
+        let viscosity = fluid.viscosity;
         let re = density * velocity * diameter / viscosity;
 
         // Create flow conditions with Reynolds number

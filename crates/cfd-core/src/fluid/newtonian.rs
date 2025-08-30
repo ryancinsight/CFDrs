@@ -1,6 +1,7 @@
 //! Newtonian fluid models with constant and variable properties
 
-use super::{FluidModel, FluidProperties};
+use super::properties::FluidProperties;
+use super::traits::{ConstantFluid, Fluid as FluidTrait, FluidState};
 use crate::error::Error;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -66,14 +67,14 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     }
 }
 
-impl<T: RealField + Copy> FluidModel<T> for ConstantPropertyFluid<T> {
-    fn properties(&self, _temperature: T, _pressure: T) -> Result<FluidProperties<T>, Error> {
-        Ok(FluidProperties::new(
-            self.density,
-            self.viscosity,
-            self.specific_heat,
-            self.thermal_conductivity,
-        ))
+impl<T: RealField + Copy> FluidTrait<T> for ConstantPropertyFluid<T> {
+    fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
+        Ok(FluidState {
+            density: self.density,
+            dynamic_viscosity: self.viscosity,
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+        })
     }
 
     fn name(&self) -> &str {
@@ -81,7 +82,25 @@ impl<T: RealField + Copy> FluidModel<T> for ConstantPropertyFluid<T> {
     }
 }
 
-// Implement the domains module trait for compatibility
+impl<T: RealField + Copy> ConstantFluid<T> for ConstantPropertyFluid<T> {
+    fn density(&self) -> T {
+        self.density
+    }
+
+    fn dynamic_viscosity(&self) -> T {
+        self.viscosity
+    }
+
+    fn specific_heat(&self) -> T {
+        self.specific_heat
+    }
+
+    fn thermal_conductivity(&self) -> T {
+        self.thermal_conductivity
+    }
+}
+
+// Explicit implementation for domains module compatibility
 impl<T: RealField + Copy> crate::domains::material_properties::traits::FluidProperties<T>
     for ConstantPropertyFluid<T>
 {
@@ -169,8 +188,8 @@ impl<T: RealField + FromPrimitive + Copy> IdealGas<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidModel<T> for IdealGas<T> {
-    fn properties(&self, temperature: T, pressure: T) -> Result<FluidProperties<T>, Error> {
+impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for IdealGas<T> {
+    fn properties_at(&self, temperature: T, pressure: T) -> Result<FluidState<T>, Error> {
         if temperature <= T::zero() {
             return Err(Error::InvalidInput(
                 "Temperature must be positive".to_string(),
@@ -184,15 +203,23 @@ impl<T: RealField + FromPrimitive + Copy> FluidModel<T> for IdealGas<T> {
         let viscosity = self.calculate_viscosity(temperature);
         let thermal_conductivity = self.calculate_thermal_conductivity(viscosity);
 
-        Ok(FluidProperties::new(
+        Ok(FluidState {
             density,
-            viscosity,
-            self.cp,
+            dynamic_viscosity: viscosity,
+            specific_heat: self.cp,
             thermal_conductivity,
-        ))
+        })
     }
 
     fn name(&self) -> &str {
         &self.name
+    }
+
+    fn is_temperature_dependent(&self) -> bool {
+        true
+    }
+
+    fn is_pressure_dependent(&self) -> bool {
+        true
     }
 }
