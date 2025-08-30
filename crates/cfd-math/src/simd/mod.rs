@@ -54,7 +54,7 @@ impl SimdCapability {
 /// Unified SIMD processor with automatic dispatch
 pub struct SimdProcessor {
     capability: SimdCapability,
-    ops: SimdOps,
+    pub ops: SimdOps,
 }
 
 impl SimdProcessor {

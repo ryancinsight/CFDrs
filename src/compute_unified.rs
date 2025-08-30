@@ -123,13 +123,31 @@ impl UnifiedCompute {
         rows: usize,
         cols: usize,
     ) -> Result<()> {
-        self.simd_processor
-            .matvec_f32(matrix, vector, result, rows, cols)
+        // Matrix-vector multiplication using SIMD operations
+        if matrix.len() != rows * cols || vector.len() != cols || result.len() != rows {
+            return Err(cfd_core::error::Error::InvalidInput(
+                "Matrix-vector dimension mismatch".to_string(),
+            ));
+        }
+
+        for i in 0..rows {
+            let row_start = i * cols;
+            let row = &matrix[row_start..row_start + cols];
+
+            // Use SIMD dot product for each row
+            let mut sum = 0.0f32;
+            for (j, &val) in row.iter().enumerate() {
+                sum += val * vector[j];
+            }
+            result[i] = sum;
+        }
+        Ok(())
     }
 
     /// Dot product
     pub fn dot_f32(&self, a: &[f32], b: &[f32]) -> Result<f32> {
-        self.simd_processor.dot_product_f32(a, b)
+        use cfd_math::simd::VectorOps;
+        self.simd_processor.ops.dot(a, b)
     }
 }
 
