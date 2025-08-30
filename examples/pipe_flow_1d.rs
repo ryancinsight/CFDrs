@@ -7,8 +7,8 @@
 //! - Standard library usage (windows() instead of custom windowed_operation)
 //! - Cohesive workflow connecting simulation results to analysis
 
-use cfd_1d::{ChannelProperties, Network, NetworkProblem, NetworkSolver};
-use cfd_suite::core::{BoundaryCondition, Result};
+use cfd_suite::core::Result;
+use cfd_suite::d1::{Network, NetworkSolver};
 use cfd_suite::prelude::*;
 
 fn main() -> Result<()> {
@@ -16,15 +16,13 @@ fn main() -> Result<()> {
     println!("===========================================");
 
     // Demonstrate unified prelude and composition-based configuration
-    let water = Fluid::<f64>::water_20c();
+    let water = Fluid::<f64>::water_20c()?;
     println!("Fluid Properties:");
-    println!("  Name: {}", water.name);
-    println!("  Density: {} kg/m³", water.density);
-    let viscosity = water.dynamic_viscosity();
-    println!("  Viscosity: {} Pa·s", viscosity);
+    println!("  Density: {} kg/m³", water.density());
+    println!("  Viscosity: {} Pa·s", water.dynamic_viscosity());
 
     // Create 1D network
-    let mut network = Network::new(water.clone());
+    let mut network = Network::new(water);
 
     // Add nodes
     network.add_node(Node::new("inlet".to_string(), NodeType::Inlet));

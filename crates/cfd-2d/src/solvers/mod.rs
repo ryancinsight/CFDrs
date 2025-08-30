@@ -2,9 +2,11 @@
 //!
 //! This module contains various numerical methods for solving 2D flow problems.
 
+pub mod accelerated;
 pub mod fdm;
 pub mod fvm;
 pub mod lbm;
+pub mod simd_kernels;
 
 // Re-export main solver types
 pub use fdm::{AdvectionDiffusionSolver, FdmConfig, PoissonSolver};

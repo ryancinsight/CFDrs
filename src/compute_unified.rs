@@ -4,7 +4,7 @@
 //! at the top level where all dependencies are available.
 
 use cfd_core::error::Result;
-use cfd_math::simd::{SimdCapability, SimdOp, SimdProcessor};
+use cfd_math::simd::{SimdCapability, SimdOperation, SimdProcessor};
 use nalgebra::RealField;
 use std::sync::Arc;
 
@@ -92,22 +92,26 @@ impl UnifiedCompute {
                 #[cfg(feature = "gpu")]
                 {
                     // GPU implementation
-                    self.simd_processor.process_f32(a, b, result, SimdOp::Add)
+                    self.simd_processor
+                        .process_f32(a, b, result, SimdOperation::Add)
                 }
                 #[cfg(not(feature = "gpu"))]
                 {
-                    self.simd_processor.process_f32(a, b, result, SimdOp::Add)
+                    self.simd_processor
+                        .process_f32(a, b, result, SimdOperation::Add)
                 }
             }
             Backend::Simd | Backend::Swar => {
-                self.simd_processor.process_f32(a, b, result, SimdOp::Add)
+                self.simd_processor
+                    .process_f32(a, b, result, SimdOperation::Add)
             }
         }
     }
 
     /// Vector multiplication
     pub fn vector_mul_f32(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
-        self.simd_processor.process_f32(a, b, result, SimdOp::Mul)
+        self.simd_processor
+            .process_f32(a, b, result, SimdOperation::Mul)
     }
 
     /// Matrix-vector multiplication
@@ -119,13 +123,31 @@ impl UnifiedCompute {
         rows: usize,
         cols: usize,
     ) -> Result<()> {
-        self.simd_processor
-            .matvec_f32(matrix, vector, result, rows, cols)
+        // Matrix-vector multiplication using SIMD operations
+        if matrix.len() != rows * cols || vector.len() != cols || result.len() != rows {
+            return Err(cfd_core::error::Error::InvalidInput(
+                "Matrix-vector dimension mismatch".to_string(),
+            ));
+        }
+
+        for i in 0..rows {
+            let row_start = i * cols;
+            let row = &matrix[row_start..row_start + cols];
+
+            // Use SIMD dot product for each row
+            let mut sum = 0.0f32;
+            for (j, &val) in row.iter().enumerate() {
+                sum += val * vector[j];
+            }
+            result[i] = sum;
+        }
+        Ok(())
     }
 
     /// Dot product
     pub fn dot_f32(&self, a: &[f32], b: &[f32]) -> Result<f32> {
-        self.simd_processor.dot_product_f32(a, b)
+        use cfd_math::simd::VectorOps;
+        self.simd_processor.ops.dot(a, b)
     }
 }
 

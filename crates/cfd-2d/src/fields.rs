@@ -6,6 +6,7 @@
 use cfd_core::fluid::Fluid;
 use nalgebra::{RealField, Vector2};
 use num_traits::{Float, FromPrimitive};
+use std::ops::{Index, IndexMut};
 
 /// Constants for field operations
 pub mod constants {
@@ -35,6 +36,18 @@ impl<T: Clone> Field2D<T> {
     pub fn new(nx: usize, ny: usize, default_value: T) -> Self {
         Self {
             data: vec![default_value; nx * ny],
+            nx,
+            ny,
+        }
+    }
+
+    /// Create field filled with zeros
+    pub fn zeros(nx: usize, ny: usize) -> Self
+    where
+        T: num_traits::Zero,
+    {
+        Self {
+            data: vec![T::zero(); nx * ny],
             nx,
             ny,
         }
@@ -76,6 +89,29 @@ impl<T: Clone> Field2D<T> {
     #[must_use]
     pub fn data(&self) -> &[T] {
         &self.data
+    }
+
+    /// Get raw data as slice (zero-copy)
+    #[must_use]
+    pub fn as_slice(&self) -> &[T] {
+        &self.data
+    }
+
+    /// Get mutable raw data as slice (zero-copy)
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        &mut self.data
+    }
+
+    /// Get nx dimension
+    #[must_use]
+    pub fn nx(&self) -> usize {
+        self.nx
+    }
+
+    /// Get ny dimension
+    #[must_use]
+    pub fn ny(&self) -> usize {
+        self.ny
     }
 
     /// Iterate over rows as slices (zero-copy)
@@ -281,5 +317,24 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
             / T::from_usize(self.viscosity.data.len()).unwrap_or_else(T::one);
 
         avg_density * characteristic_velocity * characteristic_length / avg_viscosity
+    }
+}
+
+// Implement indexing for convenient access
+impl<T> Index<(usize, usize)> for Field2D<T> {
+    type Output = T;
+
+    #[inline]
+    fn index(&self, (i, j): (usize, usize)) -> &Self::Output {
+        debug_assert!(i < self.nx && j < self.ny, "Index out of bounds");
+        &self.data[j * self.nx + i]
+    }
+}
+
+impl<T> IndexMut<(usize, usize)> for Field2D<T> {
+    #[inline]
+    fn index_mut(&mut self, (i, j): (usize, usize)) -> &mut Self::Output {
+        debug_assert!(i < self.nx && j < self.ny, "Index out of bounds");
+        &mut self.data[j * self.nx + i]
     }
 }

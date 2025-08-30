@@ -1,230 +1,325 @@
-//! SWAR (SIMD Within A Register) implementations for portable vectorization
+//! SWAR (SIMD Within A Register) operations
 //!
-//! SWAR provides portable bit-level parallelism within standard integer registers
-//! as a fallback when hardware SIMD is not available.
+//! Portable SIMD-like operations using standard arithmetic
+//! for platforms without hardware SIMD support.
 
 use crate::error::Result;
 
+const UNROLL_FACTOR: usize = 4;
+
 /// SWAR operations for portable vectorization
-pub struct SwarOps;
+pub struct SwarOps {
+    unroll_factor: usize,
+}
 
 impl SwarOps {
-    /// Create a new SWAR operations handler
+    /// Create new SWAR operations handler
     pub fn new() -> Self {
-        Self
+        Self {
+            unroll_factor: UNROLL_FACTOR,
+        }
     }
 
-    /// Process binary operations on f32 arrays using SWAR techniques
-    pub fn process_binary_f32<F>(
-        &self,
-        a: &[f32],
-        b: &[f32],
-        result: &mut [f32],
-        _op: F,
-    ) -> Result<()>
-    where
-        F: Fn(&[f32], &[f32], &mut [f32]),
-    {
-        // SWAR optimization: process multiple elements using bit manipulation
-        // For f32, we can pack operations efficiently
-        const UNROLL_FACTOR: usize = 4;
-
+    /// Add f32 arrays with loop unrolling
+    #[inline]
+    pub fn add_f32(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
         let len = a.len();
-        let unrolled_len = len & !(UNROLL_FACTOR - 1);
+        let chunks = len / self.unroll_factor;
+        let remainder = len % self.unroll_factor;
 
-        // Unrolled loop for instruction-level parallelism
-        for i in (0..unrolled_len).step_by(UNROLL_FACTOR) {
-            // Manual unrolling for compiler optimization
-            unsafe {
-                let a_ptr = a.as_ptr().add(i);
-                let b_ptr = b.as_ptr().add(i);
-                let r_ptr = result.as_mut_ptr().add(i);
-
-                // Process 4 elements at once for pipelining
-                *r_ptr = *a_ptr + *b_ptr;
-                *r_ptr.add(1) = *a_ptr.add(1) + *b_ptr.add(1);
-                *r_ptr.add(2) = *a_ptr.add(2) + *b_ptr.add(2);
-                *r_ptr.add(3) = *a_ptr.add(3) + *b_ptr.add(3);
-            }
+        // Unrolled loop for main portion
+        for i in 0..chunks {
+            let idx = i * self.unroll_factor;
+            result[idx] = a[idx] + b[idx];
+            result[idx + 1] = a[idx + 1] + b[idx + 1];
+            result[idx + 2] = a[idx + 2] + b[idx + 2];
+            result[idx + 3] = a[idx + 3] + b[idx + 3];
         }
 
-        // Handle remaining elements
-        for i in unrolled_len..len {
+        // Handle remainder
+        let start = chunks * self.unroll_factor;
+        for i in start..len {
             result[i] = a[i] + b[i];
         }
 
         Ok(())
     }
 
-    /// Multiply f32 arrays using SWAR
-    pub fn mul_f32(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
-        const UNROLL_FACTOR: usize = 4;
-
+    /// Subtract f32 arrays with loop unrolling
+    #[inline]
+    pub fn sub_f32(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
         let len = a.len();
-        let unrolled_len = len & !(UNROLL_FACTOR - 1);
+        let chunks = len / self.unroll_factor;
 
-        for i in (0..unrolled_len).step_by(UNROLL_FACTOR) {
-            unsafe {
-                let a_ptr = a.as_ptr().add(i);
-                let b_ptr = b.as_ptr().add(i);
-                let r_ptr = result.as_mut_ptr().add(i);
-
-                *r_ptr = *a_ptr * *b_ptr;
-                *r_ptr.add(1) = *a_ptr.add(1) * *b_ptr.add(1);
-                *r_ptr.add(2) = *a_ptr.add(2) * *b_ptr.add(2);
-                *r_ptr.add(3) = *a_ptr.add(3) * *b_ptr.add(3);
-            }
+        for i in 0..chunks {
+            let idx = i * self.unroll_factor;
+            result[idx] = a[idx] - b[idx];
+            result[idx + 1] = a[idx + 1] - b[idx + 1];
+            result[idx + 2] = a[idx + 2] - b[idx + 2];
+            result[idx + 3] = a[idx + 3] - b[idx + 3];
         }
 
-        for i in unrolled_len..len {
+        let start = chunks * self.unroll_factor;
+        for i in start..len {
+            result[i] = a[i] - b[i];
+        }
+
+        Ok(())
+    }
+
+    /// Multiply f32 arrays with loop unrolling
+    #[inline]
+    pub fn mul_f32(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
+        let len = a.len();
+        let chunks = len / self.unroll_factor;
+
+        for i in 0..chunks {
+            let idx = i * self.unroll_factor;
+            result[idx] = a[idx] * b[idx];
+            result[idx + 1] = a[idx + 1] * b[idx + 1];
+            result[idx + 2] = a[idx + 2] * b[idx + 2];
+            result[idx + 3] = a[idx + 3] * b[idx + 3];
+        }
+
+        let start = chunks * self.unroll_factor;
+        for i in start..len {
             result[i] = a[i] * b[i];
         }
 
         Ok(())
     }
 
-    /// SWAR implementation for integer operations (useful for indices)
-    pub fn add_u32(&self, a: &[u32], b: &[u32], result: &mut [u32]) -> Result<()> {
-        // SWAR for u32: pack two 16-bit values in a 32-bit register
-        // This allows parallel processing of multiple values
+    /// Divide f32 arrays
+    #[inline]
+    pub fn div_f32(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
+        for i in 0..a.len() {
+            result[i] = a[i] / b[i];
+        }
+        Ok(())
+    }
 
+    /// Fused multiply-add for f32
+    #[inline]
+    pub fn fma_f32(&self, a: &[f32], b: &[f32], c: &[f32], result: &mut [f32]) -> Result<()> {
         let len = a.len();
-        let pairs = len / 2;
+        let chunks = len / self.unroll_factor;
 
-        for i in 0..pairs {
-            let idx = i * 2;
-            // Pack two values
-            let packed_a = (a[idx] as u64) | ((a[idx + 1] as u64) << 32);
-            let packed_b = (b[idx] as u64) | ((b[idx + 1] as u64) << 32);
-
-            // Parallel add with overflow detection
-            let sum = packed_a.wrapping_add(packed_b);
-
-            // Unpack results
-            result[idx] = sum as u32;
-            result[idx + 1] = (sum >> 32) as u32;
+        for i in 0..chunks {
+            let idx = i * self.unroll_factor;
+            result[idx] = a[idx].mul_add(b[idx], c[idx]);
+            result[idx + 1] = a[idx + 1].mul_add(b[idx + 1], c[idx + 1]);
+            result[idx + 2] = a[idx + 2].mul_add(b[idx + 2], c[idx + 2]);
+            result[idx + 3] = a[idx + 3].mul_add(b[idx + 3], c[idx + 3]);
         }
 
-        // Handle odd length
-        if len % 2 != 0 {
-            result[len - 1] = a[len - 1] + b[len - 1];
+        let start = chunks * self.unroll_factor;
+        for i in start..len {
+            result[i] = a[i].mul_add(b[i], c[i]);
         }
 
         Ok(())
     }
 
-    /// SWAR dot product for f32
-    pub fn dot_f32(&self, a: &[f32], b: &[f32]) -> Result<f32> {
-        const UNROLL_FACTOR: usize = 8;
+    /// Scale f32 array by scalar
+    #[inline]
+    pub fn scale_f32(&self, input: &[f32], scalar: f32, result: &mut [f32]) -> Result<()> {
+        let len = input.len();
+        let chunks = len / self.unroll_factor;
 
-        let len = a.len();
-        let unrolled_len = len & !(UNROLL_FACTOR - 1);
-
-        // Use multiple accumulators to avoid dependency chains
-        let mut acc0 = 0.0f32;
-        let mut acc1 = 0.0f32;
-        let mut acc2 = 0.0f32;
-        let mut acc3 = 0.0f32;
-
-        for i in (0..unrolled_len).step_by(UNROLL_FACTOR) {
-            unsafe {
-                let a_ptr = a.as_ptr().add(i);
-                let b_ptr = b.as_ptr().add(i);
-
-                acc0 += *a_ptr * *b_ptr;
-                acc1 += *a_ptr.add(1) * *b_ptr.add(1);
-                acc2 += *a_ptr.add(2) * *b_ptr.add(2);
-                acc3 += *a_ptr.add(3) * *b_ptr.add(3);
-                acc0 += *a_ptr.add(4) * *b_ptr.add(4);
-                acc1 += *a_ptr.add(5) * *b_ptr.add(5);
-                acc2 += *a_ptr.add(6) * *b_ptr.add(6);
-                acc3 += *a_ptr.add(7) * *b_ptr.add(7);
-            }
+        for i in 0..chunks {
+            let idx = i * self.unroll_factor;
+            result[idx] = input[idx] * scalar;
+            result[idx + 1] = input[idx + 1] * scalar;
+            result[idx + 2] = input[idx + 2] * scalar;
+            result[idx + 3] = input[idx + 3] * scalar;
         }
 
-        // Combine accumulators
-        let mut sum = acc0 + acc1 + acc2 + acc3;
+        let start = chunks * self.unroll_factor;
+        for i in start..len {
+            result[i] = input[i] * scalar;
+        }
 
-        // Handle remaining elements
-        for i in unrolled_len..len {
+        Ok(())
+    }
+
+    /// Dot product for f32
+    #[inline]
+    pub fn dot_f32(&self, a: &[f32], b: &[f32]) -> Result<f32> {
+        let len = a.len();
+        let chunks = len / self.unroll_factor;
+        let mut sum = 0.0;
+
+        for i in 0..chunks {
+            let idx = i * self.unroll_factor;
+            sum += a[idx] * b[idx]
+                + a[idx + 1] * b[idx + 1]
+                + a[idx + 2] * b[idx + 2]
+                + a[idx + 3] * b[idx + 3];
+        }
+
+        let start = chunks * self.unroll_factor;
+        for i in start..len {
             sum += a[i] * b[i];
         }
 
         Ok(sum)
     }
 
-    /// SWAR reduction (sum)
-    pub fn sum_f32(&self, input: &[f32]) -> f32 {
-        const UNROLL_FACTOR: usize = 8;
+    /// Add f64 arrays with loop unrolling
+    #[inline]
+    pub fn add_f64(&self, a: &[f64], b: &[f64], result: &mut [f64]) -> Result<()> {
+        let len = a.len();
+        let chunks = len / self.unroll_factor;
 
-        let len = input.len();
-        let unrolled_len = len & !(UNROLL_FACTOR - 1);
-
-        // Multiple accumulators for instruction-level parallelism
-        let mut acc0 = 0.0f32;
-        let mut acc1 = 0.0f32;
-        let mut acc2 = 0.0f32;
-        let mut acc3 = 0.0f32;
-
-        for i in (0..unrolled_len).step_by(UNROLL_FACTOR) {
-            unsafe {
-                let ptr = input.as_ptr().add(i);
-
-                acc0 += *ptr;
-                acc1 += *ptr.add(1);
-                acc2 += *ptr.add(2);
-                acc3 += *ptr.add(3);
-                acc0 += *ptr.add(4);
-                acc1 += *ptr.add(5);
-                acc2 += *ptr.add(6);
-                acc3 += *ptr.add(7);
-            }
+        for i in 0..chunks {
+            let idx = i * self.unroll_factor;
+            result[idx] = a[idx] + b[idx];
+            result[idx + 1] = a[idx + 1] + b[idx + 1];
+            result[idx + 2] = a[idx + 2] + b[idx + 2];
+            result[idx + 3] = a[idx + 3] + b[idx + 3];
         }
 
-        let mut sum = acc0 + acc1 + acc2 + acc3;
-
-        for i in unrolled_len..len {
-            sum += input[i];
+        let start = chunks * self.unroll_factor;
+        for i in start..len {
+            result[i] = a[i] + b[i];
         }
 
-        sum
+        Ok(())
     }
 
-    /// SWAR maximum element
-    pub fn max_f32(&self, input: &[f32]) -> Option<f32> {
-        if input.is_empty() {
-            return None;
+    /// Subtract f64 arrays with loop unrolling
+    #[inline]
+    pub fn sub_f64(&self, a: &[f64], b: &[f64], result: &mut [f64]) -> Result<()> {
+        let len = a.len();
+        let chunks = len / self.unroll_factor;
+
+        for i in 0..chunks {
+            let idx = i * self.unroll_factor;
+            result[idx] = a[idx] - b[idx];
+            result[idx + 1] = a[idx + 1] - b[idx + 1];
+            result[idx + 2] = a[idx + 2] - b[idx + 2];
+            result[idx + 3] = a[idx + 3] - b[idx + 3];
         }
 
-        const UNROLL_FACTOR: usize = 4;
+        let start = chunks * self.unroll_factor;
+        for i in start..len {
+            result[i] = a[i] - b[i];
+        }
+
+        Ok(())
+    }
+
+    /// Multiply f64 arrays with loop unrolling
+    #[inline]
+    pub fn mul_f64(&self, a: &[f64], b: &[f64], result: &mut [f64]) -> Result<()> {
+        let len = a.len();
+        let chunks = len / self.unroll_factor;
+
+        for i in 0..chunks {
+            let idx = i * self.unroll_factor;
+            result[idx] = a[idx] * b[idx];
+            result[idx + 1] = a[idx + 1] * b[idx + 1];
+            result[idx + 2] = a[idx + 2] * b[idx + 2];
+            result[idx + 3] = a[idx + 3] * b[idx + 3];
+        }
+
+        let start = chunks * self.unroll_factor;
+        for i in start..len {
+            result[i] = a[i] * b[i];
+        }
+
+        Ok(())
+    }
+
+    /// Divide f64 arrays
+    #[inline]
+    pub fn div_f64(&self, a: &[f64], b: &[f64], result: &mut [f64]) -> Result<()> {
+        for i in 0..a.len() {
+            result[i] = a[i] / b[i];
+        }
+        Ok(())
+    }
+
+    /// Fused multiply-add for f64
+    #[inline]
+    pub fn fma_f64(&self, a: &[f64], b: &[f64], c: &[f64], result: &mut [f64]) -> Result<()> {
+        let len = a.len();
+        let chunks = len / self.unroll_factor;
+
+        for i in 0..chunks {
+            let idx = i * self.unroll_factor;
+            result[idx] = a[idx].mul_add(b[idx], c[idx]);
+            result[idx + 1] = a[idx + 1].mul_add(b[idx + 1], c[idx + 1]);
+            result[idx + 2] = a[idx + 2].mul_add(b[idx + 2], c[idx + 2]);
+            result[idx + 3] = a[idx + 3].mul_add(b[idx + 3], c[idx + 3]);
+        }
+
+        let start = chunks * self.unroll_factor;
+        for i in start..len {
+            result[i] = a[i].mul_add(b[i], c[i]);
+        }
+
+        Ok(())
+    }
+
+    /// Scale f64 array by scalar
+    #[inline]
+    pub fn scale_f64(&self, input: &[f64], scalar: f64, result: &mut [f64]) -> Result<()> {
         let len = input.len();
-        let unrolled_len = len & !(UNROLL_FACTOR - 1);
+        let chunks = len / self.unroll_factor;
 
-        let mut max_val = input[0];
-
-        for i in (0..unrolled_len).step_by(UNROLL_FACTOR) {
-            unsafe {
-                let ptr = input.as_ptr().add(i);
-
-                let v0 = *ptr;
-                let v1 = *ptr.add(1);
-                let v2 = *ptr.add(2);
-                let v3 = *ptr.add(3);
-
-                // Tree reduction for maximum
-                let max01 = v0.max(v1);
-                let max23 = v2.max(v3);
-                let chunk_max = max01.max(max23);
-
-                max_val = max_val.max(chunk_max);
-            }
+        for i in 0..chunks {
+            let idx = i * self.unroll_factor;
+            result[idx] = input[idx] * scalar;
+            result[idx + 1] = input[idx + 1] * scalar;
+            result[idx + 2] = input[idx + 2] * scalar;
+            result[idx + 3] = input[idx + 3] * scalar;
         }
 
-        for i in unrolled_len..len {
-            max_val = max_val.max(input[i]);
+        let start = chunks * self.unroll_factor;
+        for i in start..len {
+            result[i] = input[i] * scalar;
         }
 
-        Some(max_val)
+        Ok(())
+    }
+
+    /// Dot product for f64
+    #[inline]
+    pub fn dot_f64(&self, a: &[f64], b: &[f64]) -> Result<f64> {
+        let len = a.len();
+        let chunks = len / self.unroll_factor;
+        let mut sum = 0.0;
+
+        for i in 0..chunks {
+            let idx = i * self.unroll_factor;
+            sum += a[idx] * b[idx]
+                + a[idx + 1] * b[idx + 1]
+                + a[idx + 2] * b[idx + 2]
+                + a[idx + 3] * b[idx + 3];
+        }
+
+        let start = chunks * self.unroll_factor;
+        for i in start..len {
+            sum += a[i] * b[i];
+        }
+
+        Ok(sum)
+    }
+
+    /// Process binary operation on f32 arrays
+    pub fn process_binary_f32<F>(
+        &self,
+        a: &[f32],
+        b: &[f32],
+        result: &mut [f32],
+        op: F,
+    ) -> Result<()>
+    where
+        F: Fn(&[f32], &[f32], &mut [f32]),
+    {
+        op(a, b, result);
+        Ok(())
     }
 }
 
