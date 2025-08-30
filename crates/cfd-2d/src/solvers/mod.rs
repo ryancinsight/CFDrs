@@ -2,6 +2,7 @@
 //!
 //! This module contains various numerical methods for solving 2D flow problems.
 
+pub mod accelerated;
 pub mod fdm;
 pub mod fvm;
 pub mod lbm;
