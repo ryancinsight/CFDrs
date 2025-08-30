@@ -225,9 +225,9 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KOmegaSSTModel<
             dy,
         );
 
-        // Store old values
-        let k_old = k.to_vec();
-        let omega_old = omega.to_vec();
+        // Store previous timestep values for explicit time stepping
+        let k_previous = k.to_vec();
+        let omega_previous = omega.to_vec();
 
         // Update interior points
         for j in 1..ny - 1 {
@@ -254,7 +254,7 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KOmegaSSTModel<
                 let grad = [[du_dx, du_dy], [dv_dx, dv_dy]];
 
                 // Calculate turbulent viscosity
-                let nu_t = self.turbulent_viscosity(k_old[idx], omega_old[idx], density);
+                let nu_t = self.turbulent_viscosity(k_previous[idx], omega_previous[idx], density);
 
                 // Production term
                 let p_k = self.production_term(&grad, nu_t);
@@ -265,22 +265,22 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KOmegaSSTModel<
 
                 // k equation
                 let diff_k_x = (k_old[idx + 1]
-                    - T::from_f64(2.0).unwrap_or_else(T::one) * k_old[idx]
+                    - T::from_f64(2.0).unwrap_or_else(T::one) * k_previous[idx]
                     + k_old[idx - 1])
                     / (dx * dx);
                 let diff_k_y = (k_old[idx + nx]
-                    - T::from_f64(2.0).unwrap_or_else(T::one) * k_old[idx]
+                    - T::from_f64(2.0).unwrap_or_else(T::one) * k_previous[idx]
                     + k_old[idx - nx])
                     / (dy * dy);
                 let diff_k = nu_eff_k * (diff_k_x + diff_k_y);
 
                 // omega equation
                 let diff_omega_x = (omega_old[idx + 1]
-                    - T::from_f64(2.0).unwrap_or_else(T::one) * omega_old[idx]
+                    - T::from_f64(2.0).unwrap_or_else(T::one) * omega_previous[idx]
                     + omega_old[idx - 1])
                     / (dx * dx);
                 let diff_omega_y = (omega_old[idx + nx]
-                    - T::from_f64(2.0).unwrap_or_else(T::one) * omega_old[idx]
+                    - T::from_f64(2.0).unwrap_or_else(T::one) * omega_previous[idx]
                     + omega_old[idx - nx])
                     / (dy * dy);
                 let diff_omega = nu_eff_omega * (diff_omega_x + diff_omega_y);
@@ -291,14 +291,15 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KOmegaSSTModel<
 
                 // Update k
                 let beta_star = T::from_f64(SST_BETA_STAR).unwrap_or_else(T::one);
-                k[idx] = k_old[idx] + dt * (p_k - beta_star * k_old[idx] * omega_old[idx] + diff_k);
+                k[idx] = k_previous[idx]
+                    + dt * (p_k - beta_star * k_previous[idx] * omega_previous[idx] + diff_k);
 
                 // Update omega
                 let omega_source = gamma * density * p_k
                     / nu_t.max(T::from_f64(OMEGA_MIN).unwrap_or_else(T::zero));
-                let omega_sink = beta * density * omega_old[idx] * omega_old[idx];
+                let omega_sink = beta * density * omega_previous[idx] * omega_previous[idx];
                 omega[idx] =
-                    omega_old[idx] + dt * (omega_source - omega_sink + diff_omega + cd_term);
+                    omega_previous[idx] + dt * (omega_source - omega_sink + diff_omega + cd_term);
             }
         }
 

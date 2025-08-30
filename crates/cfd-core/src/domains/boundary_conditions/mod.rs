@@ -4,6 +4,7 @@
 //! It provides abstractions for different boundary condition types and their application.
 
 pub mod applicator;
+pub mod error;
 pub mod geometry;
 pub mod ghost_cells;
 pub mod manager;

@@ -28,7 +28,8 @@ impl FluxLimiter {
             FluxLimiter::None => T::one(),
             FluxLimiter::VanLeer => {
                 if r > T::zero() {
-                    let two = T::from_f64(2.0).unwrap_or_else(T::zero);
+                    let two =
+                        super::constants::to_realfield::<T>(super::constants::FLUX_LIMITER_TWO);
                     (r + r.abs()) / (T::one() + r.abs())
                 } else {
                     T::zero()
@@ -42,12 +43,12 @@ impl FluxLimiter {
                 }
             }
             FluxLimiter::Superbee => {
-                let two = T::from_f64(2.0).unwrap_or_else(T::zero);
+                let two = super::constants::to_realfield::<T>(super::constants::FLUX_LIMITER_TWO);
                 // Superbee limiter: φ(r) = max(0, min(1, 2r), min(2, r))
                 T::zero().max(T::one().min(two * r).max(two.min(r)))
             }
             FluxLimiter::MC => {
-                let two = T::from_f64(2.0).unwrap_or_else(T::zero);
+                let two = super::constants::to_realfield::<T>(super::constants::FLUX_LIMITER_TWO);
                 T::zero().max(((T::one() + r) / two).min(two.min(two * r)))
             }
             FluxLimiter::Minmod => {
@@ -99,7 +100,7 @@ impl<T: RealField + Copy> QUICKScheme<T> {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            courant_max: T::from_f64(0.8).unwrap_or_else(T::one),
+            courant_max: super::constants::to_realfield::<T>(super::constants::CFL_QUICK_SCHEME),
         }
     }
 

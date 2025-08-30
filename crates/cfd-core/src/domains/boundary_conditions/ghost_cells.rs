@@ -4,8 +4,9 @@
 //! - Blazek (2015) "Computational Fluid Dynamics: Principles and Applications"
 //! - Morinishi et al. (1998) "Fully Conservative Higher Order Finite Difference Schemes"
 
+use super::error::BoundaryError;
 use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, ToPrimitive};
 
 /// Ghost cell calculator for maintaining high-order accuracy at boundaries
 pub struct GhostCellCalculator<T: RealField + Copy> {
@@ -17,7 +18,7 @@ pub struct GhostCellCalculator<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> GhostCellCalculator<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive> GhostCellCalculator<T> {
     /// Create ghost cell calculator for given stencil order
     pub fn new(order: usize) -> Self {
         // Number of ghost cells = (order + 1) / 2 for centered schemes
@@ -41,11 +42,12 @@ impl<T: RealField + Copy + FromPrimitive> GhostCellCalculator<T> {
         boundary_value: T,
         interior_values: &[T],
         ghost_values: &mut [T],
-    ) -> Result<(), String> {
+    ) -> Result<(), BoundaryError> {
         if interior_values.len() < self.order {
-            return Err(format!(
-                "Need at least {} interior values for order {} scheme",
-                self.order, self.order
+            return Err(BoundaryError::insufficient_stencil(
+                self.order,
+                self.order,
+                interior_values.len(),
             ));
         }
 
@@ -81,7 +83,7 @@ impl<T: RealField + Copy + FromPrimitive> GhostCellCalculator<T> {
                 }
             }
             _ => {
-                return Err(format!("Order {} not implemented", self.order));
+                return Err(BoundaryError::unsupported_order(self.order));
             }
         }
 
@@ -99,11 +101,12 @@ impl<T: RealField + Copy + FromPrimitive> GhostCellCalculator<T> {
         dx: T,
         interior_values: &[T],
         ghost_values: &mut [T],
-    ) -> Result<(), String> {
+    ) -> Result<(), BoundaryError> {
         if interior_values.len() < self.order {
-            return Err(format!(
-                "Need at least {} interior values for order {} scheme",
-                self.order, self.order
+            return Err(BoundaryError::insufficient_stencil(
+                self.order,
+                self.order,
+                interior_values.len(),
             ));
         }
 
@@ -123,7 +126,7 @@ impl<T: RealField + Copy + FromPrimitive> GhostCellCalculator<T> {
                     + two_thirds * interior_values[1];
             }
             _ => {
-                return Err(format!("Order {} not implemented", self.order));
+                return Err(BoundaryError::unsupported_order(self.order));
             }
         }
 
@@ -140,7 +143,7 @@ impl<T: RealField + Copy + FromPrimitive> GhostCellCalculator<T> {
         dx: T,
         interior_values: &[T],
         ghost_values: &mut [T],
-    ) -> Result<(), String> {
+    ) -> Result<(), BoundaryError> {
         if alpha == T::zero() {
             // Pure Neumann
             let gradient = gamma / beta;
@@ -157,7 +160,9 @@ impl<T: RealField + Copy + FromPrimitive> GhostCellCalculator<T> {
             let denominator = beta + alpha * dx;
 
             if denominator.abs() < T::from_f64(1e-10).unwrap_or_else(T::zero) {
-                return Err("Robin condition denominator near zero".to_string());
+                return Err(BoundaryError::robin_singularity(
+                    denominator.to_f64().unwrap_or(0.0),
+                ));
             }
 
             ghost_values[0] = numerator / denominator;
