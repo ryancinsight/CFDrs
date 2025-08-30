@@ -18,16 +18,17 @@ impl FluidDynamicsService {
         velocity: T,
         characteristic_length: T,
     ) -> T {
-        velocity * characteristic_length / fluid.kinematic_viscosity()
+        let kinematic_viscosity = fluid.viscosity / fluid.density;
+        velocity * characteristic_length / kinematic_viscosity
     }
 
     /// Calculate Prandtl number for constant property fluid
     pub fn prandtl_number<T: RealField + Copy + num_traits::Float>(
         fluid: &ConstantPropertyFluid<T>,
     ) -> T {
-        let cp = fluid.specific_heat();
-        let k = fluid.thermal_conductivity();
-        let mu = fluid.viscosity();
+        let cp = fluid.specific_heat;
+        let k = fluid.thermal_conductivity;
+        let mu = fluid.viscosity;
         mu * cp / k
     }
 
@@ -60,7 +61,7 @@ impl FluidDynamicsService {
 
         let two = T::one() + T::one();
 
-        Ok(friction_factor * length * fluid.density() * velocity * velocity / (two * diameter))
+        Ok(friction_factor * length * fluid.density * velocity * velocity / (two * diameter))
     }
 
     /// Calculate friction factor using appropriate correlation

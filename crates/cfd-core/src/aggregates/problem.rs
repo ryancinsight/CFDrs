@@ -111,7 +111,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> Prob
         }
 
         // Check fluid properties
-        if self.fluid.density() <= T::zero() {
+        if self.fluid.density <= T::zero() {
             return Err(Error::InvalidConfiguration(
                 "Fluid density must be positive".to_string(),
             ));

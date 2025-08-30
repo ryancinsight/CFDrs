@@ -235,8 +235,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
         let mut fields = Self::new(nx, ny);
         fields.density.map_inplace(|d| *d = fluid.density);
         // For initialization, use the fluid's dynamic viscosity
-        let viscosity = fluid.dynamic_viscosity();
-        fields.viscosity.map_inplace(|v| *v = viscosity);
+        fields.viscosity.map_inplace(|v| *v = fluid.viscosity);
         fields
     }
 

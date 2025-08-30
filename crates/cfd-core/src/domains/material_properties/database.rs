@@ -87,10 +87,10 @@ impl<T: RealField + Copy> MaterialDatabase<T> {
         // Add common fluids
 
         // Note: These methods return Result, need to handle errors
-        if let Ok(water) = ConstantPropertyFluid::<T>::water_20c() {
+        if let Ok(water) = crate::fluid::database::water_20c::<T>() {
             db.add_fluid("water".to_string(), Box::new(water));
         }
-        if let Ok(air) = ConstantPropertyFluid::<T>::air_20c() {
+        if let Ok(air) = crate::fluid::database::air_20c::<T>() {
             db.add_fluid("air".to_string(), Box::new(air));
         }
 
