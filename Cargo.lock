@@ -382,6 +382,7 @@ dependencies = [
  "nalgebra",
  "num-traits",
  "proptest",
+ "wgpu",
 ]
 
 [[package]]

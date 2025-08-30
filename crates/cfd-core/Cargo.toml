@@ -27,7 +27,7 @@ indexmap.workspace = true
 rayon.workspace = true
 
 [features]
-default = []
+default = ["gpu"]
 gpu = ["dep:wgpu"]
 experimental = []
 

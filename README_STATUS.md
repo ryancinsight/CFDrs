@@ -15,7 +15,14 @@
    - RMS error: 5.36%
    - Example: `cargo run --release --example cavity_validation`
 
-2. **SIMD Operations**
+2. **GPU Acceleration (NEW - Enabled by Default)**
+   - Supports discrete GPUs (NVIDIA, AMD)
+   - Supports integrated GPUs (Intel HD/Iris, AMD APU)
+   - Automatic fallback to software rendering if no GPU
+   - wgpu-based for cross-platform compatibility
+   - Example: `cargo run --example gpu_detection`
+
+3. **SIMD Operations**
    - AVX2, SSE4.2, NEON support with automatic detection
    - SWAR fallback for unsupported architectures
    - Zero-copy operations throughout

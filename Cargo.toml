@@ -96,8 +96,8 @@ categories.workspace = true
 readme.workspace = true
 
 [features]
-default = []
-
+default = ["gpu"]
+gpu = ["cfd-core/gpu", "dep:wgpu"]
 hdf5 = ["cfd-io/hdf5"]
 csg = ["cfd-mesh/csg", "cfd-3d/csg"]
 
@@ -112,6 +112,7 @@ cfd-3d.workspace = true
 cfd-validation.workspace = true
 nalgebra.workspace = true
 num-traits.workspace = true
+wgpu = { version = "0.19", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

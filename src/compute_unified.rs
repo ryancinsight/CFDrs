@@ -29,27 +29,48 @@ pub struct UnifiedCompute {
 
 impl UnifiedCompute {
     /// Create with automatic backend selection
+    /// Tries GPU first (supports discrete, integrated, and software rendering)
     pub fn new() -> Result<Self> {
         let simd_processor = SimdProcessor::new();
 
-        // Detect best backend
-        let capability = SimdCapability::detect();
-        let backend = match capability {
-            SimdCapability::Avx2 | SimdCapability::Sse42 | SimdCapability::Neon => Backend::Simd,
-            _ => Backend::Swar,
-        };
-
-        // Try GPU if feature enabled
+        // Try GPU first - now enabled by default
         #[cfg(feature = "gpu")]
         {
-            if let Ok(gpu) = Self::init_gpu() {
-                return Ok(Self {
-                    backend: Backend::Gpu,
-                    gpu_context: Some(Arc::new(gpu)),
-                    simd_processor,
-                });
+            match cfd_core::compute::gpu::GpuContext::create() {
+                Ok(gpu) => {
+                    println!("GPU acceleration enabled");
+                    return Ok(Self {
+                        backend: Backend::Gpu,
+                        gpu_context: Some(gpu.device.clone()),
+                        simd_processor,
+                    });
+                }
+                Err(e) => {
+                    println!("GPU not available: {}, falling back to SIMD", e);
+                }
             }
         }
+
+        // Fall back to CPU SIMD
+        let capability = SimdCapability::detect();
+        let backend = match capability {
+            SimdCapability::Avx2 => {
+                println!("Using AVX2 SIMD acceleration");
+                Backend::Simd
+            }
+            SimdCapability::Sse42 => {
+                println!("Using SSE4.2 SIMD acceleration");
+                Backend::Simd
+            }
+            SimdCapability::Neon => {
+                println!("Using NEON SIMD acceleration");
+                Backend::Simd
+            }
+            _ => {
+                println!("Using SWAR (software SIMD) fallback");
+                Backend::Swar
+            }
+        };
 
         Ok(Self {
             backend,
@@ -57,12 +78,6 @@ impl UnifiedCompute {
             gpu_context: None,
             simd_processor,
         })
-    }
-
-    #[cfg(feature = "gpu")]
-    fn init_gpu() -> Result<wgpu::Device> {
-        // GPU initialization would go here
-        Err("GPU not available".into())
     }
 
     /// Get active backend
