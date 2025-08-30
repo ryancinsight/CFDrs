@@ -105,6 +105,10 @@ pub trait FluidModel<T: RealField + Copy>: Send + Sync {
     }
 }
 
+/// Type alias for simplified naming when using constant property fluids
+/// This provides a shorter name for the most common fluid model in simulations
+pub type Fluid<T> = ConstantPropertyFluid<T>;
+
 /// Constant property fluid model (incompressible, Newtonian)
 ///
 /// This model assumes fluid properties are independent of temperature and pressure.
@@ -112,15 +116,15 @@ pub trait FluidModel<T: RealField + Copy>: Send + Sync {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ConstantPropertyFluid<T: RealField + Copy> {
     /// Descriptive name of the fluid
-    name: String,
+    pub name: String,
     /// Constant density [kg/m³]
-    density: T,
+    pub density: T,
     /// Constant dynamic viscosity [Pa·s]
-    viscosity: T,
+    pub viscosity: T,
     /// Constant specific heat capacity [J/(kg·K)]
-    specific_heat: T,
+    pub specific_heat: T,
     /// Constant thermal conductivity [W/(m·K)]
-    thermal_conductivity: T,
+    pub thermal_conductivity: T,
 }
 
 impl<T: RealField + Copy> ConstantPropertyFluid<T> {
@@ -269,6 +273,16 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     /// Get thermal conductivity
     pub fn thermal_conductivity(&self) -> T {
         self.thermal_conductivity
+    }
+
+    /// Get dynamic viscosity (compatibility method)
+    pub fn dynamic_viscosity(&self) -> T {
+        self.viscosity
+    }
+
+    /// Calculate Reynolds number for given flow conditions
+    pub fn reynolds_number(&self, velocity: T, characteristic_length: T) -> T {
+        self.density * velocity * characteristic_length / self.viscosity
     }
 }
 

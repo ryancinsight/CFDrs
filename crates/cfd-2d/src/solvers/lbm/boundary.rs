@@ -132,7 +132,10 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
                     let u_boundary = Vector2::new(vel[0], vel[1]);
                     Self::apply_velocity_boundary(f, density, velocity, *i, *j, u_boundary);
                 }
-                BoundaryCondition::PressureInlet { pressure }
+                BoundaryCondition::PressureInlet {
+                    pressure,
+                    velocity_direction: _,
+                }
                 | BoundaryCondition::PressureOutlet { pressure } => {
                     Self::apply_pressure_boundary(f, density, velocity, *i, *j, *pressure);
                 }

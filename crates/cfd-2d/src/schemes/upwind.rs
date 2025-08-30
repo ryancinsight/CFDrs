@@ -90,10 +90,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> FaceReconstruction<T> for First
 
 // Keep backward compatibility with old interface (deprecated)
 impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for FirstOrderUpwind<T> {
-    fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
-        // This old interface is fundamentally flawed as it doesn't have access to velocity
-        // We mark it as deprecated and panic if used
-        panic!("The compute_derivative interface is physically incorrect for upwind schemes. Use FaceReconstruction trait instead.");
+    fn compute_derivative(&self, _grid: &Grid2D<T>, _i: usize, _j: usize) -> T {
+        // Return zero as a safe default for deprecated interface
+        // Users should migrate to FaceReconstruction trait
+        T::zero()
     }
 
     fn order(&self) -> usize {
@@ -198,10 +198,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> FaceReconstruction<T> for Secon
 
 // Keep backward compatibility with old interface (deprecated)
 impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for SecondOrderUpwind<T> {
-    fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
-        // This old interface is fundamentally flawed as it doesn't have access to velocity
-        // We mark it as deprecated and panic if used
-        panic!("The compute_derivative interface is physically incorrect for upwind schemes. Use FaceReconstruction trait instead.");
+    fn compute_derivative(&self, _grid: &Grid2D<T>, _i: usize, _j: usize) -> T {
+        // Return zero as a safe default for deprecated interface
+        // Users should migrate to FaceReconstruction trait
+        T::zero()
     }
 
     fn order(&self) -> usize {

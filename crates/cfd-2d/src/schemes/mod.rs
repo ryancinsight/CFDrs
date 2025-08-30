@@ -33,8 +33,8 @@ pub enum SpatialScheme {
     CentralDifference,
     /// Second-order upwind
     SecondOrderUpwind,
-    /// QUICK (Quadratic Upstream Interpolation)
-    Quick,
+    /// Quadratic Upstream Interpolation for Convective Kinematics
+    QuadraticUpstreamInterpolation,
     /// Third-order MUSCL
     Muscl,
     /// Fifth-order WENO

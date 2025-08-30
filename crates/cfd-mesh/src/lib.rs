@@ -14,6 +14,7 @@ pub mod grid;
 pub mod mesh;
 pub mod quality;
 pub mod refinement;
+pub mod topology;
 
 // The public modules are the primary API.
 // Users should access types through the module hierarchy:
@@ -29,6 +30,7 @@ pub mod prelude {
     pub use crate::{
         connectivity::Connectivity,
         geometry::Geometry,
-        mesh::{Cell, Edge, Face, Mesh, MeshTopology, Vertex},
+        mesh::{Mesh, MeshStatistics},
+        topology::{Cell, Edge, Face, Vertex},
     };
 }

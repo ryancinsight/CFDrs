@@ -108,6 +108,11 @@ impl<T: RealField + Copy> Domain2D<T> {
         )
     }
 
+    /// Create from two points (alias for new)
+    pub fn from_points(p1: Point3<T>, p2: Point3<T>) -> Self {
+        Self::new(p1, p2)
+    }
+
     /// Get the width of the domain
     pub fn width(&self) -> T {
         self.max.x - self.min.x

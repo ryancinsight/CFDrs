@@ -310,7 +310,7 @@ impl LidDrivenCavity {
         } else if (self.reynolds - 1000.0).abs() < 1.0 {
             (GHIA_RE1000_Y, GHIA_RE1000_U)
         } else {
-            panic!("No reference data for Re = {}", self.reynolds);
+            return Err(format!("No reference data for Re = {}", self.reynolds).into());
         };
 
         // Interpolate simulation results to reference y-locations

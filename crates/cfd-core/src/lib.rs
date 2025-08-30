@@ -30,6 +30,7 @@ pub mod domains;
 pub mod error;
 pub mod factory;
 pub mod fluid;
+pub mod gpu;
 pub mod interpolation;
 pub mod plugin;
 pub mod problem;
@@ -52,7 +53,7 @@ pub mod prelude {
     pub use crate::boundary::{BoundaryCondition, WallType};
     pub use crate::domain::Domain;
     pub use crate::error::{Error, Result};
-    pub use crate::fluid::ConstantPropertyFluid;
+    pub use crate::fluid::{ConstantPropertyFluid, Fluid};
     pub use crate::problem::Problem;
     pub use crate::solver::{Solver, SolverConfig, SolverConfiguration};
     pub use crate::state::SimulationState;

@@ -6,7 +6,7 @@ use super::models::{
     ResistanceModel,
 };
 use cfd_core::error::Result;
-use cfd_core::fluid::ConstantPropertyFluid;
+use cfd_core::fluid::Fluid;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 
@@ -118,7 +118,7 @@ mod tests {
         let diameter = 100e-6; // 100 μm
         let length = 0.001; // 1 mm
         let model = HagenPoiseuilleModel::new(diameter, length);
-        let fluid = cfd_core::fluid::ConstantPropertyFluid::<f64>::water_20c();
+        let fluid = cfd_core::fluid::ConstantPropertyFluid::<f64>::water_20c()?;
         let conditions = FlowConditions::new(0.001);
 
         let resistance = model.calculate_resistance(&fluid, &conditions)?;
@@ -126,7 +126,7 @@ mod tests {
         // Calculate expected resistance: R = 128μL/(πD⁴)
         // For water at 20°C: μ ≈ 1.002e-3 Pa·s
         let viscosity = 1.002e-3;
-        let expected = 128.0 * viscosity * length / (std::f64::consts::PI * diameter.powi(4));
+        let expected = 128.0_f64 * viscosity * length / (std::f64::consts::PI * diameter.powi(4));
 
         // Verify within 1% of theoretical value
         assert_relative_eq!(resistance, expected, epsilon = expected * 0.01);
@@ -147,7 +147,7 @@ mod tests {
     #[test]
     fn test_rectangular_channel() -> Result<()> {
         let model = RectangularChannelModel::new(100e-6, 50e-6, 0.001);
-        let fluid = cfd_core::fluid::ConstantPropertyFluid::<f64>::water_20c();
+        let fluid = cfd_core::fluid::ConstantPropertyFluid::<f64>::water_20c()?;
         let conditions = FlowConditions::new(0.001);
 
         let resistance = model.calculate_resistance(&fluid, &conditions)?;
@@ -176,7 +176,7 @@ mod tests {
         let model = DarcyWeisbachModel::new(diameter, 0.001, 1e-6);
 
         // Test with turbulent flow
-        let fluid = cfd_core::fluid::ConstantPropertyFluid::<f64>::water_20c();
+        let fluid = cfd_core::fluid::ConstantPropertyFluid::<f64>::water_20c()?;
         let velocity = 1.0;
         let density = WATER_DENSITY_STD;
         let viscosity = fluid.dynamic_viscosity();
@@ -224,7 +224,7 @@ mod tests {
     #[test]
     fn test_calculator_auto_selection() -> Result<()> {
         let calculator = ResistanceCalculator::<f64>::new();
-        let fluid = cfd_core::fluid::ConstantPropertyFluid::<f64>::water_20c();
+        let fluid = cfd_core::fluid::ConstantPropertyFluid::<f64>::water_20c()?;
         let conditions = FlowConditions::new(0.001);
 
         // Test circular geometry

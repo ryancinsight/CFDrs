@@ -5,7 +5,7 @@
 pub mod database;
 pub mod fluids;
 pub mod interfaces;
-pub mod non_newtonian;
+
 pub mod property_calculators;
 pub mod service;
 pub mod solids;
@@ -15,7 +15,7 @@ pub mod traits;
 pub use database::MaterialDatabase;
 pub use fluids::NewtonianFluid;
 pub use interfaces::{FluidSolidInterface, WettingProperties};
-pub use non_newtonian::{BinghamFluid, PowerLawFluid};
+
 pub use property_calculators::{
     KinematicViscosityCalculator, PrandtlNumberCalculator, PropertyCalculator,
     ReynoldsNumberCalculator,

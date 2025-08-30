@@ -58,7 +58,7 @@ pub fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive + Copy>(
                 + config.relaxation_factor() * (current_value - solution[row_idx]);
         }
 
-        if config.verbose() && iteration % 100 == 0 {
+        if config.verbose() && iteration % crate::constants::solver::LOG_INTERVAL == 0 {
             println!("{solver_name} iteration {iteration}: residual = {max_residual:?}");
         }
 

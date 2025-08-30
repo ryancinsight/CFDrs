@@ -3,7 +3,8 @@
 //! This module provides structured grid generation functionality for CFD simulations.
 //! The grid builder creates mesh objects with proper connectivity.
 
-use crate::mesh::{Cell, Mesh, Vertex};
+use crate::mesh::Mesh;
+use crate::topology::{Cell, Vertex};
 use nalgebra::{Point3, RealField};
 use num_traits::FromPrimitive;
 
