@@ -88,12 +88,12 @@ mod tests {
 
         // Test positive velocity
         let result = scheme.face_value(&values, 1.0, None);
-        let expected = 6.0 / 8.0 * 3.0 + 3.0 / 8.0 * 4.0 - 1.0 / 8.0 * 2.0;
-        assert!((result - expected).abs() < 1e-10);
+        let expected: f64 = 6.0 / 8.0 * 3.0 + 3.0 / 8.0 * 4.0 - 1.0 / 8.0 * 2.0;
+        assert!((result - expected).abs() < 1e-10f64);
 
         // Test negative velocity
         let result = scheme.face_value(&values, -1.0, None);
-        let expected = 6.0 / 8.0 * 3.0 + 3.0 / 8.0 * 2.0 - 1.0 / 8.0 * 4.0;
-        assert!((result - expected).abs() < 1e-10);
+        let expected: f64 = 6.0 / 8.0 * 3.0 + 3.0 / 8.0 * 2.0 - 1.0 / 8.0 * 4.0;
+        assert!((result - expected).abs() < 1e-10f64);
     }
 }

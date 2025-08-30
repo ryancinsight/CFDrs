@@ -196,25 +196,4 @@ unsafe fn vector_add_avx2(a: &[f64], b: &[f64], result: &mut [f64]) {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_dot_product() {
-        let a = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let b = vec![2.0, 3.0, 4.0, 5.0, 6.0];
-        let result = dot_product(&a, &b);
-        let expected = 1.0 * 2.0 + 2.0 * 3.0 + 3.0 * 4.0 + 4.0 * 5.0 + 5.0 * 6.0;
-        assert!((result - expected).abs() < 1e-10);
-    }
-
-    #[test]
-    fn test_vector_add() {
-        let a = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let b = vec![2.0, 3.0, 4.0, 5.0, 6.0];
-        let mut result = vec![0.0; 5];
-        vector_add(&a, &b, &mut result);
-        assert_eq!(result, vec![3.0, 5.0, 7.0, 9.0, 11.0]);
-    }
-}
+// Tests are in the separate tests.rs file
