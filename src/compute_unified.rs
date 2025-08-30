@@ -4,7 +4,7 @@
 //! at the top level where all dependencies are available.
 
 use cfd_core::error::Result;
-use cfd_math::simd::{SimdCapability, SimdOp, SimdProcessor};
+use cfd_math::simd::{SimdCapability, SimdOperation, SimdProcessor};
 use nalgebra::RealField;
 use std::sync::Arc;
 
@@ -92,22 +92,26 @@ impl UnifiedCompute {
                 #[cfg(feature = "gpu")]
                 {
                     // GPU implementation
-                    self.simd_processor.process_f32(a, b, result, SimdOp::Add)
+                    self.simd_processor
+                        .process_f32(a, b, result, SimdOperation::Add)
                 }
                 #[cfg(not(feature = "gpu"))]
                 {
-                    self.simd_processor.process_f32(a, b, result, SimdOp::Add)
+                    self.simd_processor
+                        .process_f32(a, b, result, SimdOperation::Add)
                 }
             }
             Backend::Simd | Backend::Swar => {
-                self.simd_processor.process_f32(a, b, result, SimdOp::Add)
+                self.simd_processor
+                    .process_f32(a, b, result, SimdOperation::Add)
             }
         }
     }
 
     /// Vector multiplication
     pub fn vector_mul_f32(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
-        self.simd_processor.process_f32(a, b, result, SimdOp::Mul)
+        self.simd_processor
+            .process_f32(a, b, result, SimdOperation::Mul)
     }
 
     /// Matrix-vector multiplication

@@ -26,7 +26,7 @@ pub mod topology;
 /// Common mesh types and traits
 pub mod prelude {
     #[cfg(feature = "csg")]
-    pub use crate::csg::CsgMeshAdapter;
+    pub use crate::csg::CsgError;
     pub use crate::{
         connectivity::Connectivity,
         geometry::Geometry,
