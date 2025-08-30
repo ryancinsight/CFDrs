@@ -2,14 +2,11 @@
 //!
 //! This example demonstrates validation of numerical methods against known solutions.
 
-use cfd_suite::d2::{Field2D, StructuredGrid2D};
+use cfd_suite::d2::fields::Field2D;
+use cfd_suite::d2::grid::StructuredGrid2D;
 use cfd_suite::math::differentiation::FiniteDifference;
-use cfd_suite::validation::{
-    analytical::{CouetteFlow, PoiseuilleFlow, TaylorGreenVortex},
-    convergence::{GridConvergenceIndex, RichardsonExtrapolation},
-    error_metrics::ErrorMetric,
-    manufactured::{ManufacturedAdvection, ManufacturedDiffusion, ManufacturedNavierStokes},
-};
+use cfd_suite::validation::convergence::{GridConvergenceIndex, RichardsonExtrapolation};
+use cfd_suite::validation::error_metrics::ErrorMetric;
 use nalgebra::DMatrix;
 use std::f64::consts::PI;
 

@@ -7,8 +7,10 @@ pub mod buffer;
 pub mod constants;
 pub mod kernels;
 pub mod pipeline;
+pub mod poisson_solver;
 
 pub use buffer::GpuBuffer;
+pub use poisson_solver::{GpuPoissonSolver, PoissonParams};
 
 /// GPU context for managing device and queue
 pub struct GpuContext {
