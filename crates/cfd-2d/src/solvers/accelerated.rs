@@ -78,13 +78,13 @@ impl AcceleratedPoissonSolver {
             Backend::Gpu => {
                 if let Some(ref gpu_solver) = self.gpu_solver {
                     // Use GPU solver
-                    gpu_solver.solve_jacobi(
+                    let residual = gpu_solver.solve_jacobi(
                         phi.as_mut_slice(),
                         source.as_slice(),
                         iterations,
                         omega,
                     )?;
-                    Ok(0.0) // TODO: Return actual residual
+                    Ok(residual)
                 } else {
                     self.solve_simd(phi, source, iterations, omega)
                 }
@@ -108,8 +108,6 @@ impl AcceleratedPoissonSolver {
         let ny = phi.ny();
         let dx = 1.0 / (nx as f32 - 1.0);
         let dy = 1.0 / (ny as f32 - 1.0);
-
-        let mut phi_new = phi.clone(); // TODO: Eliminate this clone
 
         for _ in 0..iterations {
             super::simd_kernels::gauss_seidel_simd(
