@@ -5,7 +5,9 @@
 mod arch_detect;
 mod operations;
 mod operations_dispatch;
+mod operations_improved;
 mod swar;
+mod swar_enhanced;
 
 #[cfg(test)]
 mod tests;
@@ -49,7 +51,9 @@ impl SimdCapability {
 
 pub use arch_detect::ArchDetect;
 pub use operations::{SimdOps, VectorOps};
+pub use operations_improved::{SimdOp, SimdProcessor};
 pub use swar::SwarOps;
+pub use swar_enhanced::SwarOps as EnhancedSwarOps;
 
 use std::arch::is_x86_feature_detected;
 
