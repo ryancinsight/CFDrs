@@ -1,7 +1,7 @@
 //! Traits and common types for resistance models.
 
 use cfd_core::error::Result;
-use cfd_core::fluid::{ConstantPropertyFluid, Fluid};
+use cfd_core::fluid::Fluid;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 

@@ -5,7 +5,7 @@
 //! hydraulic properties and behaviors.
 
 use cfd_core::error::Result;
-use cfd_core::fluid::{ConstantPropertyFluid, Fluid};
+use cfd_core::fluid::Fluid;
 use nalgebra::RealField;
 use std::collections::HashMap;
 

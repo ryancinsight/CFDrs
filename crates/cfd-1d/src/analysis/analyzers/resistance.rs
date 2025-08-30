@@ -5,7 +5,6 @@ use crate::analysis::error::ResistanceCalculationError;
 use crate::analysis::ResistanceAnalysis;
 use crate::network::Network;
 use cfd_core::error::Result;
-use cfd_core::fluid::Fluid;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use std::iter::Sum;
