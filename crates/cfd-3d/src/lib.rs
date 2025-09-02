@@ -27,5 +27,6 @@ pub use level_set::{LevelSetConfig, LevelSetSolver};
 pub use vof::{VofConfig, VofSolver};
 
 // Use CSGrs integration from cfd-mesh
-#[cfg(feature = "csg")]
-pub use cfd_mesh::csg::CsgMeshAdapter;
+// TODO: Implement CsgMeshAdapter when CSG feature is complete
+// #[cfg(feature = "csg")]
+// pub use cfd_mesh::csg::CsgMeshAdapter;

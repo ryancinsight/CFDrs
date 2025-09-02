@@ -7,7 +7,7 @@ use cfd_core::constants::dimensionless::reynolds::{PIPE_CRITICAL_LOWER, PIPE_CRI
 use cfd_core::constants::mathematical::{numeric, PI};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
-use cfd_core::fluid::Fluid;
+use cfd_core::fluid::{ConstantFluid, Fluid};
 use nalgebra::RealField;
 use num_traits::{cast::FromPrimitive, Float};
 

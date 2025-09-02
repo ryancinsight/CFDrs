@@ -55,4 +55,13 @@ pub trait VectorOps {
 
     /// Dot product for f64
     fn dot_f64(&self, a: &[f64], b: &[f64]) -> Result<f64>;
+    
+    /// Sum all elements in f32 array
+    fn sum_f32(&self, input: &[f32]) -> Result<f32>;
+    
+    /// Find maximum element in f32 array
+    fn max_f32(&self, input: &[f32]) -> Result<f32>;
+    
+    /// Add two u32 arrays element-wise
+    fn add_u32(&self, a: &[u32], b: &[u32], result: &mut [u32]) -> Result<()>;
 }

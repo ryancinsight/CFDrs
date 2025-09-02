@@ -1,7 +1,7 @@
 //! Material database for storing and retrieving material properties
 
 use super::traits::{FluidProperties, InterfaceProperties, SolidProperties};
-use crate::fluid::ConstantPropertyFluid;
+
 use nalgebra::RealField;
 use std::collections::HashMap;
 

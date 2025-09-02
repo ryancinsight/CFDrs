@@ -3,10 +3,6 @@
 //! This module provides a comprehensive framework for fluid modeling in CFD simulations,
 //! supporting Newtonian, non-Newtonian, and temperature-dependent fluid behaviors.
 
-use crate::error::Error;
-use nalgebra::RealField;
-use serde::{Deserialize, Serialize};
-
 pub mod database;
 pub mod newtonian;
 pub mod non_newtonian;
