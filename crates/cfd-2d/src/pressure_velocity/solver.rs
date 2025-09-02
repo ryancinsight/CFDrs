@@ -83,7 +83,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp> PressureVelocitySolv
         for i in 0..self.grid.nx {
             for j in 0..self.grid.ny {
                 state_buffer.set_velocity_at(i, j, &self.u[i][j]);
-                *state_buffer.p.at_mut(i, j) = self.p[i][j];
+                if let Some(p) = state_buffer.p.at_mut(i, j) {
+                    *p = self.p[i][j];
+                }
             }
         }
 

@@ -34,6 +34,33 @@ pub mod fluid {
 
     /// Pipe flow shape factor (circular cross-section)
     pub const PIPE_SHAPE_FACTOR: f64 = 2.0;
+
+    // Standard fluid properties at 20°C and 1 atm
+    // Source: NIST Chemistry WebBook
+
+    /// Water density at 20°C [kg/m³]
+    pub const WATER_DENSITY_20C: f64 = 998.2;
+
+    /// Water dynamic viscosity at 20°C [Pa·s]
+    pub const WATER_VISCOSITY_20C: f64 = 1.002e-3;
+
+    /// Water specific heat at 20°C [J/(kg·K)]
+    pub const WATER_SPECIFIC_HEAT_20C: f64 = 4182.0;
+
+    /// Water thermal conductivity at 20°C [W/(m·K)]
+    pub const WATER_THERMAL_CONDUCTIVITY_20C: f64 = 0.598;
+
+    /// Air density at 20°C, 1 atm [kg/m³]
+    pub const AIR_DENSITY_20C: f64 = 1.204;
+
+    /// Air dynamic viscosity at 20°C [Pa·s]
+    pub const AIR_VISCOSITY_20C: f64 = 1.825e-5;
+
+    /// Air specific heat at 20°C [J/(kg·K)]
+    pub const AIR_SPECIFIC_HEAT_20C: f64 = 1005.0;
+
+    /// Air thermal conductivity at 20°C [W/(m·K)]
+    pub const AIR_THERMAL_CONDUCTIVITY_20C: f64 = 0.0257;
 }
 
 /// Thermodynamics constants

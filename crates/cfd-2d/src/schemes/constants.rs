@@ -78,6 +78,26 @@ pub const NEUMANN_SECOND_ORDER_COEFF: f64 = 8.0 / 3.0;
 pub const NEUMANN_SECOND_ORDER_FRACTION: f64 = 2.0 / 3.0;
 
 // ============================================================================
+// Numerical Scheme Constants
+// ============================================================================
+
+/// Central difference divisor for second-order accuracy
+/// Used in (f[i+1] - f[i-1]) / (2*dx) formulation
+pub const CENTRAL_DIFF_DIVISOR: f64 = 2.0;
+
+/// Small epsilon value for WENO scheme to avoid division by zero
+/// Reference: Shu (1998) "Essentially Non-oscillatory and Weighted ENO Schemes"
+pub const WENO_EPSILON: f64 = 1e-6;
+
+/// WENO5 optimal weights for smooth solutions
+/// Reference: Jiang & Shu (1996) "Efficient Implementation of Weighted ENO Schemes"
+/// d0 = 1/10, d1 = 6/10, d2 = 3/10 for upwind-biased stencil
+pub const WENO5_WEIGHTS: [f64; 3] = [0.1, 0.6, 0.3];
+
+/// General-purpose TWO constant for various schemes
+pub const TWO: f64 = 2.0;
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 

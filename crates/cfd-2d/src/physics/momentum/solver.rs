@@ -143,8 +143,16 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
             for i in 0..self.nx {
                 let idx = j * self.nx + i;
                 match component {
-                    MomentumComponent::U => *fields.u.at_mut(i, j) = solution[idx],
-                    MomentumComponent::V => *fields.v.at_mut(i, j) = solution[idx],
+                    MomentumComponent::U => {
+                        if let Some(u) = fields.u.at_mut(i, j) {
+                            *u = solution[idx];
+                        }
+                    }
+                    MomentumComponent::V => {
+                        if let Some(v) = fields.v.at_mut(i, j) {
+                            *v = solution[idx];
+                        }
+                    }
                 }
             }
         }

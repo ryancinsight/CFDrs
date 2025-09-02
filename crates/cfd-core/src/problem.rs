@@ -172,7 +172,7 @@ mod tests {
     fn test_problem_builder() {
         let problem = ProblemBuilder::new()
             .domain(Domain2D::from_scalars(0.0, 0.0, 1.0, 1.0))
-            .fluid(ConstantPropertyFluid::water_20c().expect("Failed to create water fluid"))
+            .fluid(crate::fluid::database::water_20c().expect("Failed to create water fluid"))
             .boundary_condition(
                 "inlet",
                 BoundaryCondition::velocity_inlet(vector![1.0, 0.0, 0.0]),

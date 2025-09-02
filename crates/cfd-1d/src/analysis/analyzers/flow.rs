@@ -72,7 +72,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowAnalyzer<T> {
         });
 
         let velocity = flow_rate / area;
-        let reynolds = fluid.reynolds_number(velocity, hydraulic_diameter);
+        let reynolds = fluid.density * velocity * hydraulic_diameter / fluid.viscosity;
 
         FlowRegime::from_reynolds_number(reynolds)
     }
