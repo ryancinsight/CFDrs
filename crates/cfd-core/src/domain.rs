@@ -1,21 +1,36 @@
 //! Computational domain representations.
 
-use nalgebra::{Point3, RealField, Vector3};
+use nalgebra::{Point1, Point2, Point3, RealField, Vector3};
 use serde::{Deserialize, Serialize};
+
+/// Helper function to order two values
+#[inline]
+fn order<T: RealField>(v1: T, v2: T) -> (T, T) {
+    if v1 <= v2 { (v1, v2) } else { (v2, v1) }
+}
 
 /// Trait for computational domains
 pub trait Domain<T: RealField + Copy>: Send + Sync {
     /// Get the dimensionality of the domain (1, 2, or 3)
     fn dimension(&self) -> usize;
 
-    /// Check if a point is inside the domain
-    fn contains(&self, point: &Point3<T>) -> bool;
-
-    /// Get the bounding box of the domain
-    fn bounding_box(&self) -> (Point3<T>, Point3<T>);
-
     /// Get the volume (or area/length) of the domain
     fn volume(&self) -> T;
+    
+    /// Check if a point is inside the domain (dimension-specific)
+    fn contains_1d(&self, _point: &Point1<T>) -> bool {
+        panic!("contains_1d called on non-1D domain")
+    }
+    
+    /// Check if a point is inside the domain (dimension-specific)
+    fn contains_2d(&self, _point: &Point2<T>) -> bool {
+        panic!("contains_2d called on non-2D domain")
+    }
+    
+    /// Check if a point is inside the domain (dimension-specific)
+    fn contains_3d(&self, _point: &Point3<T>) -> bool {
+        panic!("contains_3d called on non-3D domain")
+    }
 }
 
 /// 1D domain (line segment)
@@ -52,21 +67,12 @@ impl<T: RealField + Copy> Domain<T> for Domain1D<T> {
         1
     }
 
-    fn contains(&self, point: &Point3<T>) -> bool {
-        // Since we enforce start <= end in the constructor, we can simplify this
-        point.x >= self.start && point.x <= self.end
-    }
-
-    fn bounding_box(&self) -> (Point3<T>, Point3<T>) {
-        // Since we enforce start <= end in the constructor, we can simplify this
-        (
-            Point3::new(self.start, T::zero(), T::zero()),
-            Point3::new(self.end, T::zero(), T::zero()),
-        )
-    }
-
     fn volume(&self) -> T {
         self.length()
+    }
+    
+    fn contains_1d(&self, point: &Point1<T>) -> bool {
+        point.x >= self.start && point.x <= self.end
     }
 }
 
@@ -74,42 +80,43 @@ impl<T: RealField + Copy> Domain<T> for Domain1D<T> {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Domain2D<T: RealField + Copy> {
     /// Minimum corner
-    pub min: Point3<T>,
+    pub min: Point2<T>,
     /// Maximum corner
-    pub max: Point3<T>,
+    pub max: Point2<T>,
 }
 
 impl<T: RealField + Copy> Domain2D<T> {
     /// Create a new 2D domain from corner points.
     /// Coordinates are automatically ordered to ensure min <= max on each axis.
-    pub fn new(p1: Point3<T>, p2: Point3<T>) -> Self {
-        let (x_min, x_max) = if p1.x <= p2.x {
-            (p1.x, p2.x)
-        } else {
-            (p2.x, p1.x)
-        };
-        let (y_min, y_max) = if p1.y <= p2.y {
-            (p1.y, p2.y)
-        } else {
-            (p2.y, p1.y)
-        };
+    pub fn new(p1: Point2<T>, p2: Point2<T>) -> Self {
+        let (x_min, x_max) = order(p1.x, p2.x);
+        let (y_min, y_max) = order(p1.y, p2.y);
         Self {
-            min: Point3::new(x_min, y_min, T::zero()),
-            max: Point3::new(x_max, y_max, T::zero()),
+            min: Point2::new(x_min, y_min),
+            max: Point2::new(x_max, y_max),
         }
+    }
+    
+    /// Get the center of the domain
+    pub fn center(&self) -> Point2<T> {
+        let two = T::one() + T::one();
+        Point2::new(
+            (self.min.x + self.max.x) / two,
+            (self.min.y + self.max.y) / two,
+        )
     }
 
     /// Create a new 2D domain from scalar coordinates.
     /// Coordinates are automatically ordered to ensure min <= max on each axis.
     pub fn from_scalars(x1: T, y1: T, x2: T, y2: T) -> Self {
         Self::new(
-            Point3::new(x1, y1, T::zero()),
-            Point3::new(x2, y2, T::zero()),
+            Point2::new(x1, y1),
+            Point2::new(x2, y2),
         )
     }
 
     /// Create from two points (alias for new)
-    pub fn from_points(p1: Point3<T>, p2: Point3<T>) -> Self {
+    pub fn from_points(p1: Point2<T>, p2: Point2<T>) -> Self {
         Self::new(p1, p2)
     }
 
@@ -134,19 +141,15 @@ impl<T: RealField + Copy> Domain<T> for Domain2D<T> {
         2
     }
 
-    fn contains(&self, point: &Point3<T>) -> bool {
+    fn volume(&self) -> T {
+        self.area()
+    }
+    
+    fn contains_2d(&self, point: &Point2<T>) -> bool {
         point.x >= self.min.x
             && point.x <= self.max.x
             && point.y >= self.min.y
             && point.y <= self.max.y
-    }
-
-    fn bounding_box(&self) -> (Point3<T>, Point3<T>) {
-        (self.min, self.max)
-    }
-
-    fn volume(&self) -> T {
-        self.area()
     }
 }
 
@@ -163,21 +166,9 @@ impl<T: RealField + Copy> Domain3D<T> {
     /// Create a new 3D domain from corner points.
     /// Coordinates are automatically ordered to ensure min <= max on each axis.
     pub fn new(p1: Point3<T>, p2: Point3<T>) -> Self {
-        let (x_min, x_max) = if p1.x <= p2.x {
-            (p1.x, p2.x)
-        } else {
-            (p2.x, p1.x)
-        };
-        let (y_min, y_max) = if p1.y <= p2.y {
-            (p1.y, p2.y)
-        } else {
-            (p2.y, p1.y)
-        };
-        let (z_min, z_max) = if p1.z <= p2.z {
-            (p1.z, p2.z)
-        } else {
-            (p2.z, p1.z)
-        };
+        let (x_min, x_max) = order(p1.x, p2.x);
+        let (y_min, y_max) = order(p1.y, p2.y);
+        let (z_min, z_max) = order(p1.z, p2.z);
         Self {
             min: Point3::new(x_min, y_min, z_min),
             max: Point3::new(x_max, y_max, z_max),
@@ -239,22 +230,17 @@ impl<T: RealField + Copy> Domain<T> for Domain3D<T> {
         3
     }
 
-    fn contains(&self, point: &Point3<T>) -> bool {
+    fn volume(&self) -> T {
+        self.width() * self.height() * self.depth()
+    }
+    
+    fn contains_3d(&self, point: &Point3<T>) -> bool {
         point.x >= self.min.x
             && point.x <= self.max.x
             && point.y >= self.min.y
             && point.y <= self.max.y
             && point.z >= self.min.z
             && point.z <= self.max.z
-    }
-
-    fn bounding_box(&self) -> (Point3<T>, Point3<T>) {
-        (self.min, self.max)
-    }
-
-    fn volume(&self) -> T {
-        // Delegate to the inherent volume method to avoid code duplication
-        Domain3D::volume(self)
     }
 }
 
@@ -278,19 +264,24 @@ impl<T: RealField + Copy> Domain<T> for AnyDomain<T> {
         }
     }
 
-    fn contains(&self, point: &Point3<T>) -> bool {
+    fn contains_1d(&self, point: &Point1<T>) -> bool {
         match self {
-            Self::D1(d) => d.contains(point),
-            Self::D2(d) => d.contains(point),
-            Self::D3(d) => d.contains(point),
+            Self::D1(d) => d.contains_1d(point),
+            _ => false,
         }
     }
-
-    fn bounding_box(&self) -> (Point3<T>, Point3<T>) {
+    
+    fn contains_2d(&self, point: &Point2<T>) -> bool {
         match self {
-            Self::D1(d) => d.bounding_box(),
-            Self::D2(d) => d.bounding_box(),
-            Self::D3(d) => d.bounding_box(),
+            Self::D2(d) => d.contains_2d(point),
+            _ => false,
+        }
+    }
+    
+    fn contains_3d(&self, point: &Point3<T>) -> bool {
+        match self {
+            Self::D3(d) => d.contains_3d(point),
+            _ => false,
         }
     }
 

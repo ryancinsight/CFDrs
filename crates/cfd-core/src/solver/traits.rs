@@ -6,14 +6,15 @@ use nalgebra::RealField;
 
 /// Core solver trait following Single Responsibility Principle
 /// Focused solely on solving problems
-pub trait Solver<T: RealField + Copy>: Send + Sync {
+pub trait Solver<T: RealField + Copy>: Send + Sync + Configurable<T> {
     /// Problem type this solver can handle
     type Problem: Problem<T>;
     /// Solution type produced by this solver
     type Solution;
 
     /// Solve the given problem
-    fn solve(&mut self, problem: &Self::Problem) -> Result<Self::Solution>;
+    /// Takes &self to enable concurrent execution
+    fn solve(&self, problem: &Self::Problem) -> Result<Self::Solution>;
 
     /// Get solver name for identification
     fn name(&self) -> &str;
@@ -40,7 +41,4 @@ pub trait Validatable<T: RealField + Copy> {
 
     /// Validate problem before solving
     fn validate_problem(&self, problem: &Self::Problem) -> Result<()>;
-
-    /// Check if solver can handle this problem type
-    fn can_solve(&self, problem: &Self::Problem) -> bool;
 }

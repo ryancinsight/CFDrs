@@ -7,16 +7,16 @@ use nalgebra::{DVector, RealField, Vector2};
 use num_traits::FromPrimitive;
 
 /// Pressure correction solver
-pub struct PressureCorrectionSolver<T: RealField + Copy> {
-    /// Grid
-    grid: StructuredGrid2D<T>,
+pub struct PressureCorrectionSolver<'a, T: RealField + Copy> {
+    /// Grid reference
+    grid: &'a StructuredGrid2D<T>,
     /// Linear solver for pressure Poisson equation
     linear_solver: ConjugateGradient<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> PressureCorrectionSolver<T> {
+impl<'a, T: RealField + Copy + FromPrimitive + Copy> PressureCorrectionSolver<'a, T> {
     /// Create new pressure correction solver
-    pub fn new(grid: StructuredGrid2D<T>) -> cfd_core::error::Result<Self> {
+    pub fn new(grid: &'a StructuredGrid2D<T>) -> cfd_core::error::Result<Self> {
         let config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: crate::constants::solver::DEFAULT_MAX_ITERATIONS,
             tolerance: T::from_f64(crate::constants::solver::DEFAULT_TOLERANCE)

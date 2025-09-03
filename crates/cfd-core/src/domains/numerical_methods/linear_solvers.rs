@@ -3,11 +3,11 @@
 use super::traits::LinearSystemSolver;
 use nalgebra::{DMatrix, DVector, RealField};
 
-/// Tolerance for detecting breakdown in iterative solvers
+/// Tolerance for detecting breakdown in iterative solvers (machine epsilon level)
 const BREAKDOWN_TOLERANCE: f64 = 1e-14;
 /// Default maximum iterations for iterative solvers
 const DEFAULT_MAX_ITERATIONS: usize = 1000;
-/// Default convergence tolerance
+/// Default convergence tolerance for iterative methods
 const DEFAULT_TOLERANCE: f64 = 1e-6;
 
 /// Conjugate Gradient solver for symmetric positive definite systems
@@ -44,7 +44,7 @@ impl<T: RealField + Copy> LinearSystemSolver<T> for ConjugateGradient<T> {
 
         for _iter in 0..self.max_iterations {
             // Matrix-vector product: Ap
-            let ap = matrix * p.clone();
+            let ap = matrix * &p;
 
             // Step length: α = (r^T * r)/(p^T * Ap)
             let pap = p.dot(&ap);
@@ -61,10 +61,10 @@ impl<T: RealField + Copy> LinearSystemSolver<T> for ConjugateGradient<T> {
             let alpha = rsold / pap;
 
             // Update solution: x = x + α * p
-            x += p.clone() * alpha;
+            x += &p * alpha;
 
             // Update residual: r = r - α * Ap
-            r = r.clone() - ap.clone() * alpha;
+            r = &r - &ap * alpha;
 
             // Check convergence
             let rsnew = r.dot(&r);
@@ -74,7 +74,7 @@ impl<T: RealField + Copy> LinearSystemSolver<T> for ConjugateGradient<T> {
 
             // Update search direction
             let beta = rsnew / rsold;
-            p = r.clone() + p * beta;
+            p = &r + &p * beta;
             rsold = rsnew;
         }
 
@@ -140,7 +140,7 @@ impl<T: RealField + Copy> LinearSystemSolver<T> for Jacobi<T> {
                 return Some(x_next);
             }
 
-            x = x_next.clone();
+            std::mem::swap(&mut x, &mut x_next);
         }
 
         None
@@ -183,7 +183,8 @@ impl<T: RealField + Copy> LinearSystemSolver<T> for GaussSeidel<T> {
         let mut x = DVector::zeros(n);
 
         for _iter in 0..self.max_iterations {
-            let x_old = x.clone();
+            // Store previous iteration for convergence check
+            let mut converged = true;
 
             for i in 0..n {
                 let mut sum = T::zero();
@@ -203,12 +204,6 @@ impl<T: RealField + Copy> LinearSystemSolver<T> for GaussSeidel<T> {
             // Check convergence
             let residual = matrix * &x - rhs;
             if residual.norm() < self.tolerance {
-                return Some(x);
-            }
-
-            // Alternative convergence check: solution change
-            let diff = &x - &x_old;
-            if diff.norm() < self.tolerance {
                 return Some(x);
             }
         }

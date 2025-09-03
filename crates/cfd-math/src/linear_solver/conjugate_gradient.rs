@@ -107,15 +107,24 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
     }
 }
 
-impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> LinearSolver<T>
+impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> Configurable<T> for ConjugateGradient<T> {
+    type Config = IterativeSolverConfig<T>;
+    
+    fn config(&self) -> &Self::Config {
+        &self.config
+    }
+}
+
+impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> IterativeLinearSolver<T>
     for ConjugateGradient<T>
 {
-    fn solve(
+    fn solve<P: Preconditioner<T>>(
         &self,
         a: &CsrMatrix<T>,
         b: &DVector<T>,
-        x0: Option<&DVector<T>>,
-    ) -> Result<DVector<T>> {
+        x: &mut DVector<T>,
+        preconditioner: Option<&P>,
+    ) -> Result<()> {
         let n = b.len();
         if a.nrows() != n || a.ncols() != n {
             return Err(Error::InvalidInput(
@@ -123,8 +132,12 @@ impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> LinearSolver<T>
             ));
         }
 
-        let mut x = x0.map(|v| v.clone()).unwrap_or_else(|| DVector::zeros(n));
-        let mut r = b - a * &x;
+        // Initialize x to zero if not already set
+        if x.len() != n {
+            *x = DVector::zeros(n);
+        }
+        
+        let mut r = b - a * &*x;
 
         // Use SIMD operations for large vectors
         let mut r_norm_sq = if n > 1000 {
@@ -134,7 +147,7 @@ impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> LinearSolver<T>
         };
 
         if r_norm_sq < self.config.tolerance * self.config.tolerance {
-            return Ok(x);
+            return Ok(());
         }
 
         let mut p = r.clone();
@@ -169,7 +182,7 @@ impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> LinearSolver<T>
             };
 
             if r_norm_sq_new < self.config.tolerance * self.config.tolerance {
-                return Ok(x);
+                return Ok(());
             }
 
             let beta = r_norm_sq_new / r_norm_sq;
@@ -182,10 +195,6 @@ impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> LinearSolver<T>
             r_norm_sq = r_norm_sq_new;
         }
 
-        Ok(x)
-    }
-
-    fn config(&self) -> &IterativeSolverConfig<T> {
-        &self.config
+        Ok(())
     }
 }

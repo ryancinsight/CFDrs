@@ -67,8 +67,8 @@ impl<T: RealField + FromPrimitive + Copy> Default for SolverConfig<T> {
         Self {
             convergence: ConvergenceConfig {
                 max_iterations: 1000,
-                tolerance: T::from_f64(1e-6).unwrap_or_else(T::zero),
-                relative_tolerance: T::from_f64(1e-4).unwrap_or_else(T::zero),
+                tolerance: T::from_f64(1e-6).unwrap(),
+                relative_tolerance: T::from_f64(1e-4).unwrap(),
             },
             execution: ExecutionConfig {
                 parallel: true,
@@ -77,8 +77,8 @@ impl<T: RealField + FromPrimitive + Copy> Default for SolverConfig<T> {
                 save_intermediate: false,
             },
             numerical: NumericalConfig {
-                dt: T::from_f64(0.01).unwrap_or_else(T::zero),
-                cfl: T::from_f64(0.5).unwrap_or_else(T::zero),
+                dt: T::from_f64(0.01).unwrap(),
+                cfl: T::from_f64(0.5).unwrap(),
                 relaxation: T::one(),
             },
         }
@@ -138,21 +138,13 @@ impl<T: RealField + Copy + num_traits::FromPrimitive> Default for LinearSolverCo
     fn default() -> Self {
         Self {
             max_iterations: 1000,
-            tolerance: T::from_f64(1e-6).unwrap_or_else(T::zero),
+            tolerance: T::from_f64(1e-6).unwrap(),
             preconditioning: false,
         }
     }
 }
 
 impl<T: RealField + Copy> LinearSolverConfig<T> {
-    /// Get tolerance
-    pub fn tolerance(&self) -> T
-    where
-        T: Copy,
-    {
-        self.tolerance
-    }
-
     /// Create a builder for configuration
     #[must_use]
     pub fn builder() -> LinearSolverConfigBuilder<T>
@@ -223,21 +215,21 @@ pub struct SolverConfigBuilder<T: RealField + Copy> {
     config: SolverConfig<T>,
 }
 
-impl<T: RealField + Copy> Default for SolverConfigBuilder<T> {
+impl<T: RealField + Copy + FromPrimitive> Default for SolverConfigBuilder<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy> SolverConfigBuilder<T> {
+impl<T: RealField + Copy + FromPrimitive> SolverConfigBuilder<T> {
     /// Create new builder with defaults
     pub fn new() -> Self {
         Self {
             config: SolverConfig {
                 convergence: ConvergenceConfig {
                     max_iterations: 1000,
-                    tolerance: T::from_f64(1e-6).unwrap_or_else(T::zero),
-                    relative_tolerance: T::from_f64(1e-4).unwrap_or_else(T::zero),
+                    tolerance: T::from_f64(1e-6).unwrap(),
+                    relative_tolerance: T::from_f64(1e-4).unwrap(),
                 },
                 execution: ExecutionConfig {
                     parallel: true,
@@ -246,8 +238,8 @@ impl<T: RealField + Copy> SolverConfigBuilder<T> {
                     save_intermediate: false,
                 },
                 numerical: NumericalConfig {
-                    dt: T::from_f64(0.01).unwrap_or_else(T::zero),
-                    cfl: T::from_f64(0.5).unwrap_or_else(T::zero),
+                    dt: T::from_f64(0.01).unwrap(),
+                    cfl: T::from_f64(0.5).unwrap(),
                     relaxation: T::one(),
                 },
             },

@@ -10,7 +10,7 @@ use std::fmt::LowerExp;
 
 /// SIMPLE (Semi-Implicit Method for Pressure-Linked Equations) solver
 /// Implementation follows Patankar (1980) "Numerical Heat Transfer and Fluid Flow"
-pub struct PressureVelocitySolver<T: RealField + Copy> {
+pub struct PressureVelocitySolver<'a, T: RealField + Copy> {
     /// Configuration
     config: PressureVelocityConfig<T>,
     /// Grid
@@ -18,7 +18,7 @@ pub struct PressureVelocitySolver<T: RealField + Copy> {
     /// Momentum solver
     momentum_solver: MomentumSolver<T>,
     /// Pressure correction solver
-    pressure_solver: PressureCorrectionSolver<T>,
+    pressure_solver: PressureCorrectionSolver<'a, T>,
     /// Rhie-Chow interpolation (optional)
     rhie_chow: Option<RhieChowInterpolation<T>>,
     /// Current velocity field
@@ -29,7 +29,7 @@ pub struct PressureVelocitySolver<T: RealField + Copy> {
     iterations: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp> PressureVelocitySolver<T> {
+impl<'a, T: RealField + Copy + FromPrimitive + Copy + LowerExp> PressureVelocitySolver<'a, T> {
     /// Create new pressure-velocity coupling solver
     pub fn new(
         grid: StructuredGrid2D<T>,
@@ -41,7 +41,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp> PressureVelocitySolv
         let ny = grid.ny;
 
         let momentum_solver = MomentumSolver::new(&grid);
-        let pressure_solver = PressureCorrectionSolver::new(grid.clone())?;
+        let pressure_solver = PressureCorrectionSolver::new(&grid)?;
 
         let rhie_chow = if config.use_rhie_chow {
             Some(RhieChowInterpolation::new(&grid))

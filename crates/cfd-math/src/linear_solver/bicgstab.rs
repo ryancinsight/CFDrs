@@ -216,21 +216,26 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
     }
 }
 
-impl<T: RealField + Debug + Copy> LinearSolver<T> for BiCGSTAB<T> {
-    fn solve(
+impl<T: RealField + Debug + Copy> Configurable<T> for BiCGSTAB<T> {
+    type Config = IterativeSolverConfig<T>;
+    
+    fn config(&self) -> &Self::Config {
+        &self.config
+    }
+}
+
+impl<T: RealField + Debug + Copy> IterativeLinearSolver<T> for BiCGSTAB<T> {
+    fn solve<P: Preconditioner<T>>(
         &self,
         a: &CsrMatrix<T>,
         b: &DVector<T>,
-        x0: Option<&DVector<T>>,
-    ) -> Result<DVector<T>> {
-        // For backward compatibility with the trait, we need to allocate here
-        // Users should prefer the more efficient solve_preconditioned API
-        let mut x = x0.map_or_else(|| DVector::zeros(b.len()), DVector::clone);
-        self.solve_unpreconditioned(a, b, &mut x)?;
-        Ok(x)
-    }
-
-    fn config(&self) -> &IterativeSolverConfig<T> {
-        &self.config
+        x: &mut DVector<T>,
+        preconditioner: Option<&P>,
+    ) -> Result<()> {
+        if let Some(p) = preconditioner {
+            self.solve_preconditioned(a, b, x, p)
+        } else {
+            self.solve_unpreconditioned(a, b, x)
+        }
     }
 }
