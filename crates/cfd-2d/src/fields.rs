@@ -10,17 +10,28 @@ use std::ops::{Index, IndexMut};
 
 /// Constants for field operations
 pub mod constants {
+    use nalgebra::RealField;
+    use num_traits::FromPrimitive;
+    
     /// Default Reynolds number for laminar flow
-    pub const DEFAULT_REYNOLDS: f64 = 100.0;
+    pub fn default_reynolds<T: RealField + FromPrimitive>() -> T {
+        T::from_f64(100.0).unwrap_or_else(|| T::from_i32(100).unwrap())
+    }
 
     /// Minimum allowed time step for stability
-    pub const MIN_TIME_STEP: f64 = 1e-6;
+    pub fn min_time_step<T: RealField + FromPrimitive>() -> T {
+        T::from_f64(1e-6).unwrap_or_else(T::default_epsilon)
+    }
 
     /// Maximum allowed time step
-    pub const MAX_TIME_STEP: f64 = 1.0;
+    pub fn max_time_step<T: RealField + FromPrimitive>() -> T {
+        T::one()
+    }
 
     /// Convergence tolerance for iterative methods
-    pub const CONVERGENCE_TOLERANCE: f64 = 1e-6;
+    pub fn convergence_tolerance<T: RealField + FromPrimitive>() -> T {
+        T::from_f64(1e-6).unwrap_or_else(T::default_epsilon)
+    }
 }
 
 /// Efficient 2D field storage using flattened vector for cache locality

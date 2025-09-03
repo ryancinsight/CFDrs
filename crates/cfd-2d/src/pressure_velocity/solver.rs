@@ -41,7 +41,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp> PressureVelocitySolv
         let ny = grid.ny;
 
         let momentum_solver = MomentumSolver::new(&grid);
-        let pressure_solver = PressureCorrectionSolver::new(grid.clone())?;
+        let pressure_solver = PressureCorrectionSolver::new(&grid)?;
 
         let rhie_chow = if config.use_rhie_chow {
             Some(RhieChowInterpolation::new(&grid))

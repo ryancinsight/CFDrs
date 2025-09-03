@@ -3,11 +3,11 @@
 use super::traits::LinearSystemSolver;
 use nalgebra::{DMatrix, DVector, RealField};
 
-/// Tolerance for detecting breakdown in iterative solvers
+/// Tolerance for detecting breakdown in iterative solvers (machine epsilon level)
 const BREAKDOWN_TOLERANCE: f64 = 1e-14;
 /// Default maximum iterations for iterative solvers
 const DEFAULT_MAX_ITERATIONS: usize = 1000;
-/// Default convergence tolerance
+/// Default convergence tolerance for iterative methods
 const DEFAULT_TOLERANCE: f64 = 1e-6;
 
 /// Conjugate Gradient solver for symmetric positive definite systems
