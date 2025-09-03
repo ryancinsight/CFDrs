@@ -48,8 +48,8 @@ impl<T: RealField + FromPrimitive + Copy> PolynomialViscosity<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidModel<T> for PolynomialViscosity<T> {
-    fn properties(&self, temperature: T, _pressure: T) -> Result<FluidProperties<T>, Error> {
+impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for PolynomialViscosity<T> {
+    fn properties_at(&self, temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         if temperature <= T::zero() {
             return Err(Error::InvalidInput(
                 "Temperature must be positive".to_string(),
@@ -59,16 +59,24 @@ impl<T: RealField + FromPrimitive + Copy> FluidModel<T> for PolynomialViscosity<
         let density = self.calculate_density(temperature);
         let viscosity = self.calculate_viscosity(temperature);
 
-        Ok(FluidProperties::new(
+        Ok(FluidState {
             density,
-            viscosity,
-            self.specific_heat,
-            self.thermal_conductivity,
-        ))
+            dynamic_viscosity: viscosity,
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+        })
     }
 
     fn name(&self) -> &str {
         &self.name
+    }
+
+    fn is_temperature_dependent(&self) -> bool {
+        true
+    }
+
+    fn reference_temperature(&self) -> Option<T> {
+        Some(self.t_ref)
     }
 }
 
@@ -99,8 +107,8 @@ impl<T: RealField + FromPrimitive + Copy> ArrheniusViscosity<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidModel<T> for ArrheniusViscosity<T> {
-    fn properties(&self, temperature: T, _pressure: T) -> Result<FluidProperties<T>, Error> {
+impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for ArrheniusViscosity<T> {
+    fn properties_at(&self, temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         if temperature <= T::zero() {
             return Err(Error::InvalidInput(
                 "Temperature must be positive".to_string(),
@@ -109,16 +117,20 @@ impl<T: RealField + FromPrimitive + Copy> FluidModel<T> for ArrheniusViscosity<T
 
         let viscosity = self.calculate_viscosity(temperature);
 
-        Ok(FluidProperties::new(
-            self.density,
-            viscosity,
-            self.specific_heat,
-            self.thermal_conductivity,
-        ))
+        Ok(FluidState {
+            density: self.density,
+            dynamic_viscosity: viscosity,
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+        })
     }
 
     fn name(&self) -> &str {
         &self.name
+    }
+
+    fn is_temperature_dependent(&self) -> bool {
+        true
     }
 }
 
@@ -159,19 +171,23 @@ impl<T: RealField + FromPrimitive + Copy> AndradeViscosity<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidModel<T> for AndradeViscosity<T> {
-    fn properties(&self, temperature: T, _pressure: T) -> Result<FluidProperties<T>, Error> {
+impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for AndradeViscosity<T> {
+    fn properties_at(&self, temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         let viscosity = self.calculate_viscosity(temperature)?;
 
-        Ok(FluidProperties::new(
-            self.density,
-            viscosity,
-            self.specific_heat,
-            self.thermal_conductivity,
-        ))
+        Ok(FluidState {
+            density: self.density,
+            dynamic_viscosity: viscosity,
+            specific_heat: self.specific_heat,
+            thermal_conductivity: self.thermal_conductivity,
+        })
     }
 
     fn name(&self) -> &str {
         &self.name
+    }
+
+    fn is_temperature_dependent(&self) -> bool {
+        true
     }
 }

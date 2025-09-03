@@ -1,6 +1,5 @@
 //! Newtonian fluid models with constant and variable properties
 
-use super::properties::FluidProperties;
 use super::traits::{ConstantFluid, Fluid as FluidTrait, FluidState};
 use crate::error::Error;
 use nalgebra::RealField;

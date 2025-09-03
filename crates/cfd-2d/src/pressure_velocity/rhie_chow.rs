@@ -16,8 +16,10 @@ pub struct RhieChowInterpolation<T: RealField + Copy> {
     ny: usize,
     /// Momentum equation coefficients (`A_p` from discretized momentum equation)
     ap_coefficients: Field2D<T>,
-    /// Previous time step velocity field (for transient term)
-    u_old: Option<Field2D<Vector2<T>>>,
+    /// Previous time step velocity field (for transient term) - stored as buffer
+    u_old_buffer: Field2D<Vector2<T>>,
+    /// Flag indicating if old velocity is valid
+    has_old_velocity: bool,
 }
 
 impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
@@ -27,19 +29,23 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
             nx: grid.nx,
             ny: grid.ny,
             ap_coefficients: Field2D::new(grid.nx, grid.ny, T::one()),
-            u_old: None,
+            u_old_buffer: Field2D::new(grid.nx, grid.ny, Vector2::zeros()),
+            has_old_velocity: false,
         }
     }
 
-    /// Update previous velocity field for transient term
+    /// Update previous velocity field for transient term (zero-copy)
     pub fn update_old_velocity(&mut self, u_old: &Field2D<Vector2<T>>) {
-        self.u_old = Some(u_old.clone());
+        // Copy data efficiently without cloning the entire structure
+        self.u_old_buffer.data.copy_from_slice(&u_old.data);
+        self.has_old_velocity = true;
     }
 
-    /// Update momentum equation coefficients from discretized momentum equation
+    /// Update momentum equation coefficients from discretized momentum equation (zero-copy)
     /// `A_p` is the diagonal coefficient from momentum discretization
     pub fn update_coefficients(&mut self, ap: &Field2D<T>) {
-        self.ap_coefficients = ap.clone();
+        // Copy data efficiently without cloning the entire structure
+        self.ap_coefficients.data.copy_from_slice(&ap.data);
     }
 
     /// Compute face velocity with complete Rhie-Chow interpolation
@@ -100,10 +106,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         let mut u_f = u_bar + d_face * (dp_dx_cells - dp_dx_face);
 
         // Add transient term if time step and old velocity are provided
-        if let (Some(dt), Some(ref u_old)) = (dt, &self.u_old) {
-            let u_bar_old = (u_old.at(i, j).x + u_old.at(i + 1, j).x) / two;
-            let transient_factor = dt / two; // Simplified transient correction
-            u_f = u_f + transient_factor * (u_bar - u_bar_old);
+        if let Some(dt) = dt {
+            if self.has_old_velocity {
+                let u_bar_old = (self.u_old_buffer.at(i, j).x + self.u_old_buffer.at(i + 1, j).x) / two;
+                let transient_factor = dt / two; // Simplified transient correction
+                u_f = u_f + transient_factor * (u_bar - u_bar_old);
+            }
         }
 
         u_f
@@ -155,10 +163,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         let mut v_f = v_bar + d_face * (dp_dy_cells - dp_dy_face);
 
         // Add transient term if time step and old velocity are provided
-        if let (Some(dt), Some(ref u_old)) = (dt, &self.u_old) {
-            let v_bar_old = (u_old.at(i, j).y + u_old.at(i, j + 1).y) / two;
-            let transient_factor = dt / two; // Simplified transient correction
-            v_f = v_f + transient_factor * (v_bar - v_bar_old);
+        if let Some(dt) = dt {
+            if self.has_old_velocity {
+                let v_bar_old = (self.u_old_buffer.at(i, j).y + self.u_old_buffer.at(i, j + 1).y) / two;
+                let transient_factor = dt / two; // Simplified transient correction
+                v_f = v_f + transient_factor * (v_bar - v_bar_old);
+            }
         }
 
         v_f
