@@ -264,19 +264,24 @@ impl<T: RealField + Copy> Domain<T> for AnyDomain<T> {
         }
     }
 
-    fn contains(&self, point: &Point3<T>) -> bool {
+    fn contains_1d(&self, point: &Point1<T>) -> bool {
         match self {
-            Self::D1(d) => d.contains(point),
-            Self::D2(d) => d.contains(point),
-            Self::D3(d) => d.contains(point),
+            Self::D1(d) => d.contains_1d(point),
+            _ => false,
         }
     }
-
-    fn bounding_box(&self) -> (Point3<T>, Point3<T>) {
+    
+    fn contains_2d(&self, point: &Point2<T>) -> bool {
         match self {
-            Self::D1(d) => d.bounding_box(),
-            Self::D2(d) => d.bounding_box(),
-            Self::D3(d) => d.bounding_box(),
+            Self::D2(d) => d.contains_2d(point),
+            _ => false,
+        }
+    }
+    
+    fn contains_3d(&self, point: &Point3<T>) -> bool {
+        match self {
+            Self::D3(d) => d.contains_3d(point),
+            _ => false,
         }
     }
 

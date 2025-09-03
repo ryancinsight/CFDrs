@@ -138,19 +138,21 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSol
 
     /// Run transient simulation for specified number of time steps (backward compatible)
     pub fn solve_transient(
-        &mut self,
+        &self,
         fields: &mut SimulationFields<T>,
         grid: &StructuredGrid2D<T>,
+        state: &mut PisoState<T>,
         num_steps: usize,
     ) -> Result<()> {
-        self.solve_transient_with_callback(fields, grid, num_steps, |_, _| Ok(()))
+        self.solve_transient_with_callback(fields, grid, state, num_steps, |_, _| Ok(()))
     }
 
     /// Run transient simulation for specified physical duration
     pub fn solve_for_duration(
-        &mut self,
+        &self,
         fields: &mut SimulationFields<T>,
         grid: &StructuredGrid2D<T>,
+        state: &mut PisoState<T>,
         total_duration: T,
     ) -> Result<()> {
         let mut current_time = T::zero();
@@ -173,7 +175,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSol
             }
 
             // Advance by the calculated time step
-            self.advance_with_dt(fields, grid, dt)?;
+            self.advance_with_dt(fields, grid, state, dt)?;
             current_time = current_time + dt;
             step += 1;
 
@@ -204,17 +206,18 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSol
     /// Note: PISO is primarily for transient problems, but this can be useful
     /// for finding steady-state solutions of certain problems
     pub fn solve_to_steady_state(
-        &mut self,
+        &self,
         fields: &mut SimulationFields<T>,
         grid: &StructuredGrid2D<T>,
+        state: &mut PisoState<T>,
         max_steps: usize,
     ) -> Result<bool> {
         for step in 0..max_steps {
-            self.advance_one_step(fields, grid)?;
+            self.advance_one_step(fields, grid, state)?;
 
             // Check if solution has reached steady state
             // (residuals below tolerance)
-            if self.monitor.is_converged(&self.criteria) {
+            if state.monitor.is_converged(&self.criteria) {
                 tracing::info!("Reached steady state at step {}", step);
                 return Ok(true);
             }

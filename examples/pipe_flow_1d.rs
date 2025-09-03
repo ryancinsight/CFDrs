@@ -51,7 +51,7 @@ fn main() -> Result<()> {
     println!("✓ Boundary conditions set");
 
     // Create solver
-    let mut solver = NetworkSolver::<f64>::new();
+    let solver = NetworkSolver::<f64>::new();
     let problem = NetworkProblem::new(network);
     let solution = solver.solve(&problem)?;
 
@@ -97,7 +97,7 @@ fn main() -> Result<()> {
         // Calculate Reynolds number manually
         let diameter = (4.0 * 1e-6 / std::f64::consts::PI).sqrt();
         let velocity = (pressure_values[0] - pressure_values[1]) / (100.0 * 1e-6); // flow_rate / area
-        let reynolds = water.density * velocity * diameter / viscosity;
+        let reynolds = water.density() * velocity * diameter / water.dynamic_viscosity();
 
         println!("Reynolds number: {:.2}", reynolds);
         let flow_regime = if reynolds < 2300.0 {

@@ -149,7 +149,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Solver<T> for NetworkSolver<T> 
     type Problem = NetworkProblem<T>;
     type Solution = Network<T>;
 
-    fn solve(&mut self, problem: &Self::Problem) -> Result<Self::Solution> {
+    fn solve(&self, problem: &Self::Problem) -> Result<Self::Solution> {
         self.solve_network(problem)
     }
 
@@ -187,9 +187,5 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Validatable<T> for NetworkSolve
             ));
         }
         Ok(())
-    }
-
-    fn can_solve(&self, _problem: &Self::Problem) -> bool {
-        true // Can handle any network problem
     }
 }
