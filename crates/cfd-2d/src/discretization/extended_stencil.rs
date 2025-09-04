@@ -83,7 +83,7 @@ mod tests {
 
     #[test]
     fn test_quick_scheme() {
-        let scheme = QuickScheme;
+        let scheme = QuadraticUpwindScheme;
         let values = [1.0, 2.0, 3.0, 4.0, 5.0];
 
         // Test positive velocity

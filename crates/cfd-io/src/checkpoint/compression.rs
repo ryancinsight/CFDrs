@@ -2,6 +2,20 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Compression ratio constants for different compression levels
+mod compression_ratios {
+    /// No compression ratio
+    pub const NONE: f64 = 1.0;
+    /// Low compression level ratio (levels 1-3)
+    pub const LOW_LEVELS: f64 = 0.7;
+    /// Balanced compression ratio (levels 4-9)
+    pub const BALANCED: f64 = 0.5;
+    /// High compression ratio (levels 10-15)
+    pub const HIGH: f64 = 0.4;
+    /// Maximum compression ratio (levels 16+)
+    pub const MAXIMUM: f64 = 0.3;
+}
+
 /// Compression strategy for checkpoints
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum CompressionStrategy {
@@ -32,14 +46,14 @@ impl CompressionStrategy {
     /// Get compression ratio estimate
     pub fn estimated_ratio(&self) -> f64 {
         match self {
-            Self::None => 1.0,
+            Self::None => compression_ratios::NONE,
             Self::Zstd(level) => {
                 // Rough estimates based on typical CFD data
                 match level {
-                    1..=3 => 0.7,   // Fast compression
-                    4..=9 => 0.5,   // Balanced
-                    10..=15 => 0.4, // High compression
-                    _ => 0.3,       // Maximum compression
+                    1..=3 => compression_ratios::LOW_LEVELS,   // Low compression levels
+                    4..=9 => compression_ratios::BALANCED,   // Balanced
+                    10..=15 => compression_ratios::HIGH, // High compression
+                    _ => compression_ratios::MAXIMUM,       // Maximum compression
                 }
             }
         }

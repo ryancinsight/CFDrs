@@ -11,8 +11,8 @@ pub enum FluxScheme {
     CentralDifference,
     /// First-order upwind scheme
     Upwind,
-    /// QUICK scheme
-    Quick,
+    /// QUICK (Quadratic Upstream Interpolation for Convective Kinematics) scheme
+    QuadraticUpwind,
     /// Power law scheme
     PowerLaw,
     /// Hybrid scheme
@@ -31,7 +31,7 @@ impl FluxSchemeFactory {
         match scheme {
             FluxScheme::CentralDifference => Box::new(CentralDifferenceFlux),
             FluxScheme::Upwind => Box::new(UpwindFlux),
-            FluxScheme::Quick => Box::new(QuickFlux),
+            FluxScheme::QuadraticUpwind => Box::new(QuadraticUpwindFlux),
             FluxScheme::PowerLaw => Box::new(PowerLawFlux::new(diffusion)),
             FluxScheme::Hybrid => Box::new(HybridFlux::new(diffusion)),
         }
@@ -67,9 +67,9 @@ impl<T: RealField + Copy> FluxCalculator<T> for UpwindFlux {
 }
 
 /// QUICK flux calculator
-struct QuickFlux;
+struct QuadraticUpwindFlux;
 
-impl<T: RealField + Copy> FluxCalculator<T> for QuickFlux {
+impl<T: RealField + Copy> FluxCalculator<T> for QuadraticUpwindFlux {
     fn calculate_flux(&self, phi_p: T, phi_e: T, phi_w: T, u: T, dx: T) -> Result<T> {
         // Quadratic upstream interpolation
         let three_eighths = T::from_f64(3.0 / 8.0).unwrap_or_else(T::zero);
