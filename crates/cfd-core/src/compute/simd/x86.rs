@@ -20,9 +20,9 @@ pub unsafe fn advection_avx2(
     dt: f32,
 ) {
     // Process 8 elements at a time with AVX2
-    let dx_vec = _mm256_set1_ps(dx);
-    let dy_vec = _mm256_set1_ps(dy);
-    let dt_vec = _mm256_set1_ps(dt);
+    let spacing_x_vec = _mm256_set1_ps(dx);
+    let spacing_y_vec = _mm256_set1_ps(dy);
+    let time_step_vec = _mm256_set1_ps(dt);
     let zero = _mm256_setzero_ps();
 
     for j in 1..ny - 1 {
@@ -43,10 +43,10 @@ pub unsafe fn advection_avx2(
 
             // vx > 0 ? (u - u_left) : (u_right - u)
             let mask_x = _mm256_cmp_ps(vx, zero, _CMP_GT_OQ);
-            let du_dx_pos = _mm256_sub_ps(u, u_left);
-            let du_dx_neg = _mm256_sub_ps(u_right, u);
-            let du_dx = _mm256_blendv_ps(du_dx_neg, du_dx_pos, mask_x);
-            let du_dx = _mm256_div_ps(du_dx, dx_vec);
+            let gradient_x_pos = _mm256_sub_ps(u, u_left);
+            let gradient_x_neg = _mm256_sub_ps(u_right, u);
+            let gradient_x = _mm256_blendv_ps(gradient_x_neg, gradient_x_pos, mask_x);
+            let gradient_x = _mm256_div_ps(gradient_x, spacing_x_vec);
 
             // Compute upwind differences for y-direction
             let u_bottom = _mm256_loadu_ps(&input[idx - nx]);
@@ -54,16 +54,16 @@ pub unsafe fn advection_avx2(
 
             // vy > 0 ? (u - u_bottom) : (u_top - u)
             let mask_y = _mm256_cmp_ps(vy, zero, _CMP_GT_OQ);
-            let du_dy_pos = _mm256_sub_ps(u, u_bottom);
-            let du_dy_neg = _mm256_sub_ps(u_top, u);
-            let du_dy = _mm256_blendv_ps(du_dy_neg, du_dy_pos, mask_y);
-            let du_dy = _mm256_div_ps(du_dy, dy_vec);
+            let gradient_y_pos = _mm256_sub_ps(u, u_bottom);
+            let gradient_y_neg = _mm256_sub_ps(u_top, u);
+            let gradient_y = _mm256_blendv_ps(gradient_y_neg, gradient_y_pos, mask_y);
+            let gradient_y = _mm256_div_ps(gradient_y, spacing_y_vec);
 
-            // Compute advection term: u - dt * (vx * du_dx + vy * du_dy)
-            let advection_x = _mm256_mul_ps(vx, du_dx);
-            let advection_y = _mm256_mul_ps(vy, du_dy);
+            // Compute advection term: u - dt * (vx * gradient_x + vy * gradient_y)
+            let advection_x = _mm256_mul_ps(vx, gradient_x);
+            let advection_y = _mm256_mul_ps(vy, gradient_y);
             let advection = _mm256_add_ps(advection_x, advection_y);
-            let advection = _mm256_mul_ps(advection, dt_vec);
+            let advection = _mm256_mul_ps(advection, time_step_vec);
             let result = _mm256_sub_ps(u, advection);
 
             // Store result
@@ -111,9 +111,9 @@ pub unsafe fn advection_sse41(
     dt: f32,
 ) {
     // Process 4 elements at a time with SSE4.1
-    let dx_vec = _mm_set1_ps(dx);
-    let dy_vec = _mm_set1_ps(dy);
-    let dt_vec = _mm_set1_ps(dt);
+    let spacing_x_vec = _mm_set1_ps(dx);
+    let spacing_y_vec = _mm_set1_ps(dy);
+    let time_step_vec = _mm_set1_ps(dt);
     let zero = _mm_setzero_ps();
 
     for j in 1..ny - 1 {
@@ -134,10 +134,10 @@ pub unsafe fn advection_sse41(
 
             // vx > 0 ? (u - u_left) : (u_right - u)
             let mask_x = _mm_cmpgt_ps(vx, zero);
-            let du_dx_pos = _mm_sub_ps(u, u_left);
-            let du_dx_neg = _mm_sub_ps(u_right, u);
-            let du_dx = _mm_blendv_ps(du_dx_neg, du_dx_pos, mask_x);
-            let du_dx = _mm_div_ps(du_dx, dx_vec);
+            let gradient_x_pos = _mm_sub_ps(u, u_left);
+            let gradient_x_neg = _mm_sub_ps(u_right, u);
+            let gradient_x = _mm_blendv_ps(gradient_x_neg, gradient_x_pos, mask_x);
+            let gradient_x = _mm_div_ps(gradient_x, spacing_x_vec);
 
             // Compute upwind differences for y-direction
             let u_bottom = _mm_loadu_ps(&input[idx - nx]);
@@ -145,16 +145,16 @@ pub unsafe fn advection_sse41(
 
             // vy > 0 ? (u - u_bottom) : (u_top - u)
             let mask_y = _mm_cmpgt_ps(vy, zero);
-            let du_dy_pos = _mm_sub_ps(u, u_bottom);
-            let du_dy_neg = _mm_sub_ps(u_top, u);
-            let du_dy = _mm_blendv_ps(du_dy_neg, du_dy_pos, mask_y);
-            let du_dy = _mm_div_ps(du_dy, dy_vec);
+            let gradient_y_pos = _mm_sub_ps(u, u_bottom);
+            let gradient_y_neg = _mm_sub_ps(u_top, u);
+            let gradient_y = _mm_blendv_ps(gradient_y_neg, gradient_y_pos, mask_y);
+            let gradient_y = _mm_div_ps(gradient_y, spacing_y_vec);
 
             // Compute advection term
-            let advection_x = _mm_mul_ps(vx, du_dx);
-            let advection_y = _mm_mul_ps(vy, du_dy);
+            let advection_x = _mm_mul_ps(vx, gradient_x);
+            let advection_y = _mm_mul_ps(vy, gradient_y);
             let advection = _mm_add_ps(advection_x, advection_y);
-            let advection = _mm_mul_ps(advection, dt_vec);
+            let advection = _mm_mul_ps(advection, time_step_vec);
             let result = _mm_sub_ps(u, advection);
 
             // Store result

@@ -41,7 +41,7 @@ impl<T: RealField + Float> ManufacturedSolution<T> for ManufacturedAdvection<T> 
     /// Source term: S = ∂u/∂t + v·∇u
     /// For pure advection with no source, this should be zero
     /// We add a manufactured source to test the solver
-    fn source_term(&self, x: T, y: T, _z: T, t: T) -> T {
+    fn source_term(&self, _x: T, _y: T, _z: T, _t: T) -> T {
         // For pure advection, the source term is zero
         // But we can add a manufactured source for testing
         T::zero()

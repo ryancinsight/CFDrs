@@ -6,10 +6,15 @@ use num_traits::FromPrimitive;
 use std::marker::PhantomData;
 
 // Integration constants from numerical analysis literature
+/// One half constant for improved numerical stability
 pub const HALF: f64 = 0.5;
+/// One third constant for Runge-Kutta calculations
 pub const ONE_THIRD: f64 = 1.0 / 3.0;
+/// One sixth constant for Simpson's rule and RK4
 pub const ONE_SIXTH: f64 = 1.0 / 6.0;
+/// Two constant for numerical calculations
 pub const TWO: f64 = 2.0;
+/// Four constant for fourth-order methods
 pub const FOUR: f64 = 4.0;
 
 /// Time integrator trait for validation
