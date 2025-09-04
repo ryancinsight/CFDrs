@@ -16,11 +16,29 @@ impl<T: RealField + Copy> GpuDiffusionKernel<T> {
     /// Shader source code
     const SHADER_SOURCE: &'static str = include_str!("diffusion.wgsl");
 
+    /// Creates a new GPU diffusion kernel
     pub fn new() -> Self {
         Self {
             shader_module: None,
             _phantom: PhantomData,
         }
+    }
+
+    /// Initialize the shader module with the given device
+    pub fn initialize(&mut self, device: &wgpu::Device) {
+        if self.shader_module.is_none() {
+            let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("Diffusion Shader"),
+                source: wgpu::ShaderSource::Wgsl(Self::SHADER_SOURCE.into()),
+            });
+            self.shader_module = Some(module);
+        }
+    }
+
+    /// Get the shader module, initializing if necessary
+    pub fn get_shader_module(&mut self, device: &wgpu::Device) -> &wgpu::ShaderModule {
+        self.initialize(device);
+        self.shader_module.as_ref().expect("Shader module should be initialized")
     }
 }
 

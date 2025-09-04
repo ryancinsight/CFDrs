@@ -2,9 +2,7 @@
 
 use super::traits::{ComputeBackend, ComputeBuffer, ComputeKernel, KernelParams};
 use crate::error::Result;
-use crate::field::Field2D;
 use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
 use std::marker::PhantomData;
 
 /// Safe conversion from f64 with fallback
@@ -68,6 +66,7 @@ pub struct CpuAdvectionKernel<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> CpuAdvectionKernel<T> {
+    /// Creates a new CPU advection kernel
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
