@@ -1,7 +1,8 @@
 //! Linear system solver for network equations
 
 use cfd_core::error::Result;
-use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, LinearSolver};
+use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver};
+use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
@@ -64,7 +65,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
                     use_preconditioner: false,
                 };
                 let solver = ConjugateGradient::<T>::new(config);
-                solver.solve(a, b, Some(&x0))
+                let mut x = x0.clone();
+                solver.solve(a, b, &mut x, None::<&IdentityPreconditioner>)?;
+                Ok(x)
             }
             LinearSolverMethod::BiCGSTAB => {
                 let config = cfd_math::linear_solver::IterativeSolverConfig {
@@ -73,7 +76,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
                     use_preconditioner: false,
                 };
                 let solver = BiCGSTAB::<T>::new(config);
-                solver.solve(a, b, Some(&x0))
+                let mut x = x0.clone();
+                solver.solve(a, b, &mut x, None::<&IdentityPreconditioner>)?;
+                Ok(x)
             }
         }
     }

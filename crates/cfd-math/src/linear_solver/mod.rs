@@ -28,7 +28,7 @@ mod traits;
 pub use bicgstab::BiCGSTAB;
 pub use config::IterativeSolverConfig;
 pub use conjugate_gradient::ConjugateGradient;
-pub use traits::{Configurable, IterativeLinearSolver, Preconditioner};
+pub use traits::{Configurable, IterativeLinearSolver, LinearSolver, Preconditioner};
 
 // REMOVED: Dependencies on cfd-core break the dependency hierarchy.
 // cfd-math should be a foundational library that doesn't depend on application code.

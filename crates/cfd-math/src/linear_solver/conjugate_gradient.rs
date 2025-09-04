@@ -198,3 +198,22 @@ impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> IterativeLinearS
         Ok(())
     }
 }
+
+// Implement object-safe LinearSolver trait for trait objects
+impl<T: RealField + Copy + num_traits::FromPrimitive + Send + Sync> super::traits::LinearSolver<T> for ConjugateGradient<T> {
+    fn solve_system(
+        &self,
+        a: &nalgebra_sparse::CsrMatrix<T>,
+        b: &nalgebra::DVector<T>,
+        x0: Option<&nalgebra::DVector<T>>,
+    ) -> cfd_core::error::Result<nalgebra::DVector<T>> {
+        let mut x = if let Some(initial) = x0 {
+            initial.clone()
+        } else {
+            nalgebra::DVector::zeros(b.len())
+        };
+        
+        self.solve(a, b, &mut x, None::<&super::preconditioners::IdentityPreconditioner>)?;
+        Ok(x)
+    }
+}

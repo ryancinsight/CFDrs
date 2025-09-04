@@ -228,20 +228,18 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSol
     }
 
     /// Reset convergence history
-    pub fn reset_history(&mut self) {
-        self.monitor = ConvergenceMonitor::new();
+    pub fn reset_history(&mut self, state: &mut PisoState<T>) {
+        state.monitor = ConvergenceMonitor::new();
     }
 
     /// Get convergence history
-    pub fn convergence_history(&self) -> &ConvergenceMonitor<T> {
-        &self.monitor
+    pub fn convergence_history<'a>(&self, state: &'a PisoState<T>) -> &'a ConvergenceMonitor<T> {
+        &state.monitor
     }
 
-    /// Update configuration
+    /// Update configuration and clear buffer if needed
     pub fn set_config(&mut self, config: PisoConfig<T>) {
         self.config = config;
-        // Clear buffer if grid size might have changed
-        self.fields_buffer = None;
     }
 
     /// Get current configuration

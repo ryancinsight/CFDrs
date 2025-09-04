@@ -14,6 +14,17 @@ pub trait Configurable<T: RealField + Copy> {
     fn config(&self) -> &Self::Config;
 }
 
+/// Object-safe trait for linear solvers used with trait objects
+pub trait LinearSolver<T: RealField + Copy>: Send + Sync {
+    /// Solve Ax = b, returning the solution vector
+    fn solve_system(
+        &self,
+        a: &CsrMatrix<T>,
+        b: &DVector<T>,
+        x0: Option<&DVector<T>>,
+    ) -> Result<DVector<T>>;
+}
+
 /// Trait for iterative linear solvers
 /// Operates on pre-allocated vectors to avoid repeated allocations
 pub trait IterativeLinearSolver<T: RealField + Copy>: Send + Sync + Configurable<T, Config = IterativeSolverConfig<T>> {

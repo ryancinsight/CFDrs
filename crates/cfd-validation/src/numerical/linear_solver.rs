@@ -2,7 +2,7 @@
 
 use cfd_core::error::Result;
 use cfd_math::linear_solver::IterativeSolverConfig;
-use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, LinearSolver};
+use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver, LinearSolver};
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 
@@ -72,7 +72,7 @@ impl LinearSolverValidator {
         ];
 
         for (name, solver) in solvers {
-            match solver.solve(&a, &b, None) {
+            match solver.solve_system(&a, &b, None) {
                 Ok(computed) => {
                     let error_metrics = compute_error_metrics(&computed, &analytical);
 
@@ -125,7 +125,7 @@ impl LinearSolverValidator {
         ];
 
         for (name, solver) in solvers {
-            let computed = solver.solve(&a, &b, None)?;
+            let computed = solver.solve_system(&a, &b, None)?;
             let error_metrics = compute_error_metrics(&computed, &analytical);
 
             let result = ValidationResult {
@@ -173,7 +173,7 @@ impl LinearSolverValidator {
         ];
 
         for (name, solver) in solvers {
-            let computed = solver.solve(&a, &b, None)?;
+            let computed = solver.solve_system(&a, &b, None)?;
             let error_metrics = compute_error_metrics(&computed, &analytical);
 
             let result = ValidationResult {
@@ -215,7 +215,7 @@ impl LinearSolverValidator {
 
         for (name, solver) in solvers {
             // Handle potential solver breakdown gracefully
-            match solver.solve(&a, &b, None) {
+            match solver.solve_system(&a, &b, None) {
                 Ok(computed) => {
                     let error_metrics = compute_error_metrics(&computed, &analytical);
 
