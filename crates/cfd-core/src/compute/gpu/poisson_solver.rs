@@ -317,13 +317,6 @@ impl GpuPoissonSolver {
 
     /// Update relaxation parameter
     pub fn set_omega(&mut self, omega: f32) {
-        let params = PoissonParams {
-            nx: 0, // Will be updated in solve
-            ny: 0,
-            dx: 0.0,
-            dy: 0.0,
-            omega,
-        };
         self.queue
             .write_buffer(&self.params_buffer, 16, bytemuck::cast_slice(&[omega]));
     }

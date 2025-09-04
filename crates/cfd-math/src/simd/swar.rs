@@ -25,7 +25,6 @@ impl SwarOps {
     pub fn add_f32(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
         let len = a.len();
         let chunks = len / self.unroll_factor;
-        let remainder = len % self.unroll_factor;
 
         // Unrolled loop for main portion
         for i in 0..chunks {

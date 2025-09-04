@@ -183,9 +183,6 @@ impl<T: RealField + Copy> LinearSystemSolver<T> for GaussSeidel<T> {
         let mut x = DVector::zeros(n);
 
         for _iter in 0..self.max_iterations {
-            // Store previous iteration for convergence check
-            let mut converged = true;
-
             for i in 0..n {
                 let mut sum = T::zero();
                 for j in 0..i {

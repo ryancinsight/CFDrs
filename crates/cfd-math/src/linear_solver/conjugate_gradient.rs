@@ -1,7 +1,7 @@
 //! Preconditioned Conjugate Gradient solver implementation
 
 use super::config::IterativeSolverConfig;
-use super::traits::{LinearSolver, Preconditioner};
+use super::traits::{Configurable, IterativeLinearSolver, Preconditioner};
 use crate::vector_ops::SimdVectorOps;
 use cfd_core::error::{ConvergenceErrorKind, Error, Result};
 use nalgebra::{DVector, RealField};
@@ -123,7 +123,7 @@ impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> IterativeLinearS
         a: &CsrMatrix<T>,
         b: &DVector<T>,
         x: &mut DVector<T>,
-        preconditioner: Option<&P>,
+        _preconditioner: Option<&P>,
     ) -> Result<()> {
         let n = b.len();
         if a.nrows() != n || a.ncols() != n {

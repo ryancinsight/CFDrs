@@ -21,7 +21,6 @@ pub mod vectorization;
 // Users should interact with the module hierarchy for most types.
 
 pub use self::interpolation::Interpolation;
-pub use self::linear_solver::LinearSolver;
 pub use self::sparse::SparseMatrix;
 
 // The primary API is through the public modules themselves.
@@ -37,7 +36,7 @@ pub mod prelude {
         differentiation::FiniteDifference,
         integration::Quadrature,
         interpolation::{Interpolation, LinearInterpolation},
-        linear_solver::{ConjugateGradient, LinearSolver},
+        linear_solver::ConjugateGradient,
         sparse::{SparseMatrix, SparseMatrixBuilder},
     };
 }

@@ -2,7 +2,7 @@
 
 use super::config::IterativeSolverConfig;
 use super::preconditioners::IdentityPreconditioner;
-use super::traits::{LinearSolver, Preconditioner};
+use super::traits::{Configurable, IterativeLinearSolver, Preconditioner};
 use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
@@ -233,7 +233,7 @@ impl<T: RealField + Debug + Copy> IterativeLinearSolver<T> for BiCGSTAB<T> {
         preconditioner: Option<&P>,
     ) -> Result<()> {
         if let Some(p) = preconditioner {
-            self.solve_preconditioned(a, b, x, p)
+            self.solve_preconditioned(a, b, p, x)
         } else {
             self.solve_unpreconditioned(a, b, x)
         }
