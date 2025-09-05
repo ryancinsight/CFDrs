@@ -1,8 +1,7 @@
 //! Test numerical solver convergence
 
-use cfd_core::solver::LinearSolverConfig;
 use cfd_math::{
-    linear_solver::{ConjugateGradient, LinearSolver},
+    linear_solver::{ConjugateGradient, IterativeLinearSolver, IterativeSolverConfig},
     sparse::SparseMatrixBuilder,
 };
 use nalgebra::DVector;
@@ -48,11 +47,7 @@ fn test_cg_convergence_on_poisson() {
     let b = DVector::from_element(n_total, 1.0);
 
     // Configure solver with reasonable tolerance
-    let config = LinearSolverConfig {
-        tolerance: 1e-6,
-        max_iterations: 1000,
-        ..Default::default()
-    };
+    let config = IterativeSolverConfig::new(1e-6).with_max_iterations(1000);
 
     let solver = ConjugateGradient::new(config);
 
@@ -60,7 +55,10 @@ fn test_cg_convergence_on_poisson() {
     let x = solver.solve(&a, &b, None).expect("Solver should converge");
 
     // Verify solution by checking residual
-    let residual = &b - &a * &x;
+    use nalgebra_sparse::ops::serial::spmv_csr_dense;
+    let mut ax = DVector::zeros(x.len());
+    spmv_csr_dense(1.0, &a, &x, 0.0, &mut ax);
+    let residual = &b - ax;
     let residual_norm = residual.norm();
 
     assert!(
@@ -80,7 +78,7 @@ fn test_cg_convergence_on_poisson() {
 
 #[test]
 fn test_solver_with_diagonal_preconditioner() {
-    use cfd_math::linear_solver::JacobiPreconditioner;
+    use cfd_math::linear_solver::preconditioners::JacobiPreconditioner;
 
     // Create simple SPD system
     let n = 100;
@@ -103,21 +101,20 @@ fn test_solver_with_diagonal_preconditioner() {
     // Create Jacobi preconditioner
     let precond = JacobiPreconditioner::new(&a).expect("Should create preconditioner");
 
-    let config = LinearSolverConfig {
-        tolerance: 1e-8,
-        max_iterations: 500,
-        ..Default::default()
-    };
+    let config = IterativeSolverConfig::new(1e-8).with_max_iterations(500);
 
     let solver = ConjugateGradient::new(config);
 
     // Solve with preconditioning
     let x = solver
-        .solve_preconditioned(&a, &b, &precond, None)
+        .solve(&a, &b, Some(&precond))
         .expect("Preconditioned solver should converge");
 
     // Check residual
-    let residual = &b - &a * &x;
+    let mut ax = DVector::zeros(x.len());
+    use nalgebra_sparse::ops::serial::spmv_csr_dense;
+    spmv_csr_dense(1.0, &a, &x, 0.0, &mut ax);
+    let residual = &b - ax;
     assert!(residual.norm() < 1e-7, "Preconditioned residual too large");
 }
 
@@ -147,11 +144,7 @@ fn test_solver_handles_ill_conditioning() {
         ((i as f64) * std::f64::consts::PI / (n as f64)).sin()
     });
 
-    let config = LinearSolverConfig {
-        tolerance: 1e-5,
-        max_iterations: 2000, // More iterations for ill-conditioned system
-        ..Default::default()
-    };
+    let config = IterativeSolverConfig::new(1e-5).with_max_iterations(2000);
 
     let solver = ConjugateGradient::new(config);
 
@@ -163,7 +156,10 @@ fn test_solver_handles_ill_conditioning() {
     );
 
     if let Ok(x) = result {
-        let residual = &b - &a * &x;
+        let mut ax = DVector::zeros(x.len());
+        use nalgebra_sparse::ops::serial::spmv_csr_dense;
+        spmv_csr_dense(1.0, &a, &x, 0.0, &mut ax);
+        let residual = &b - ax;
         assert!(
             residual.norm() < 1e-4,
             "Residual acceptable for ill-conditioned system"

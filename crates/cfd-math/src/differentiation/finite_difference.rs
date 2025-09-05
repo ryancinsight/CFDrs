@@ -1,7 +1,6 @@
 //! Finite difference operators for numerical differentiation.
 
 use super::schemes::FiniteDifferenceScheme;
-use crate::simd::SimdOps;
 use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
@@ -10,7 +9,6 @@ use num_traits::FromPrimitive;
 pub struct FiniteDifference<T: RealField + Copy> {
     scheme: FiniteDifferenceScheme,
     spacing: T,
-    simd_ops: SimdOps,
 }
 
 impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
@@ -19,7 +17,6 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
         Self {
             scheme,
             spacing,
-            simd_ops: SimdOps::new(),
         }
     }
 

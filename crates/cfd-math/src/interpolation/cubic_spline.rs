@@ -17,8 +17,6 @@ const THREE: f64 = 3.0;
 pub struct CubicSplineInterpolation<T: RealField + Copy> {
     /// X coordinates (must be sorted)
     x_data: Vec<T>,
-    /// Y values
-    y_data: Vec<T>,
     /// Spline coefficients
     coefficients: SplineCoefficients<T>,
 }
@@ -57,7 +55,6 @@ impl<T: RealField + FromPrimitive + Copy> CubicSplineInterpolation<T> {
 
         Ok(Self {
             x_data,
-            y_data,
             coefficients,
         })
     }
