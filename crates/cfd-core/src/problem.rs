@@ -184,7 +184,7 @@ mod tests {
             .build()
             .expect("CRITICAL: Add proper error handling");
 
-        assert_eq!(problem.fluid.name, "Water at 20°C, 1 atm");
+        assert_eq!(problem.fluid.name, "Water (20°C)");
         assert_eq!(problem.boundary_conditions.len(), 3);
         assert!(problem.parameters.transient);
     }
