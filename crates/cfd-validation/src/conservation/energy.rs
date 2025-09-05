@@ -244,7 +244,7 @@ mod tests {
                 0.1,
                 None,
             )
-            .unwrap();
+            .expect("Energy conservation check should succeed with valid inputs");
 
         // For uniform steady temperature, residual should be zero
         assert!(report.error < 1e-10);
@@ -280,7 +280,7 @@ mod tests {
                 0.1,
                 None,
             )
-            .unwrap();
+            .expect("Linear temperature profile energy check should succeed");
 
         // For steady linear profile with no flow, should be conserved
         assert!(report.error < 1e-10);
@@ -300,7 +300,7 @@ mod tests {
         // Check kinetic energy conservation (steady state)
         let report = checker
             .check_kinetic_energy(&u, &v, &u, &v, 0.1, 0.1)
-            .unwrap();
+            .expect("Kinetic energy conservation check should succeed");
 
         // For steady flow, kinetic energy should be conserved
         assert!(report.error < 1e-10);
