@@ -69,7 +69,7 @@ mod tests {
             .collect();
 
         let mut gpu_result = vec![0.0; field.len()];
-        gpu_ops.laplacian_2d(&field, nx, ny, dx, dy, &mut gpu_result);
+        gpu_ops.laplacian_2d(&field, nx as usize, ny as usize, dx, dy, &mut gpu_result);
 
         // Interior points should have Laplacian ≈ 4
         // Boundary handling may differ, so only check interior

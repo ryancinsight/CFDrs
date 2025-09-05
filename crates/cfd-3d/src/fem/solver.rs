@@ -2,7 +2,7 @@
 
 use cfd_core::boundary::BoundaryCondition;
 use cfd_core::error::Result;
-use cfd_math::linear_solver::{ConjugateGradient, LinearSolver};
+use cfd_math::linear_solver::{ConjugateGradient, IterativeLinearSolver, LinearSolver};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField, Vector3};
 use num_traits::{Float, FromPrimitive};
@@ -83,7 +83,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         debug_assert_eq!(rhs.len(), n_total_dof, "RHS vector dimension mismatch");
 
         // Solve linear system
-        let solution = self.linear_solver.solve(&matrix, &rhs, None)?;
+        let solution = self.linear_solver.solve_system(&matrix, &rhs, None)?;
 
         // Extract velocity and pressure
         let velocity = solution.rows(0, n_velocity_dof).into();

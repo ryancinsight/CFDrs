@@ -64,6 +64,7 @@ where
     S::Problem: 'static,
     S::Solution: 'static,
 {
+    /// Creates a new solver factory with the given solver implementation
     pub fn new(solver: S) -> Self {
         Self {
             solver,
@@ -124,6 +125,7 @@ where
     <F::Solver as Solver<T>>::Problem: 'static,
     <F::Solver as Solver<T>>::Solution: 'static,
 {
+    /// Creates a new factory registry with the given factory
     pub fn new(factory: F) -> Self {
         Self {
             factory,
@@ -162,9 +164,13 @@ where
 /// Metadata for registered factories
 #[derive(Debug, Clone)]
 pub struct FactoryMetadata {
+    /// Human-readable name of the factory
     pub name: String,
+    /// Type identifier for the factory
     pub factory_type: String,
+    /// Version string of the factory implementation
     pub version: String,
+    /// List of capabilities provided by this factory
     pub capabilities: Vec<String>,
 }
 

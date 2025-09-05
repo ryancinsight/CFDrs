@@ -5,6 +5,11 @@ use crate::error::Result;
 use nalgebra::RealField;
 use std::marker::PhantomData;
 
+/// Safe conversion from f64 with fallback
+fn safe_f64_to_t<T: RealField + Copy>(value: f64, fallback: T) -> T {
+    T::from_f64(value).unwrap_or(fallback)
+}
+
 /// CPU buffer implementation
 pub struct CpuBuffer<T: RealField + Copy> {
     data: Vec<T>,
@@ -61,6 +66,7 @@ pub struct CpuAdvectionKernel<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> CpuAdvectionKernel<T> {
+    /// Creates a new CPU advection kernel
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -85,26 +91,25 @@ impl<T: RealField + Copy> ComputeKernel<T> for CpuAdvectionKernel<T> {
 
                 // Extract velocity from params - in real implementation this would come from velocity field
                 // For demonstration, using reference velocity from domain params
-                let vx = T::from_f64(params.domain_params.reynolds * 0.001).unwrap_or_else(T::zero);
-                let vy =
-                    T::from_f64(params.domain_params.reynolds * 0.0005).unwrap_or_else(T::zero);
+                let vx = safe_f64_to_t(params.domain_params.reynolds * 0.001, T::zero());
+                let vy = safe_f64_to_t(params.domain_params.reynolds * 0.0005, T::zero());
 
                 // Upwind differences
-                let du_dx = if vx > T::zero() {
-                    (input[idx] - input[idx - 1]) / T::from_f64(dx).unwrap_or_else(T::one)
+                let gradient_x = if vx > T::zero() {
+                    (input[idx] - input[idx - 1]) / safe_f64_to_t(dx, T::one())
                 } else {
-                    (input[idx + 1] - input[idx]) / T::from_f64(dx).unwrap_or_else(T::one)
+                    (input[idx + 1] - input[idx]) / safe_f64_to_t(dx, T::one())
                 };
 
-                let du_dy = if vy > T::zero() {
-                    (input[idx] - input[idx - nx]) / T::from_f64(dy).unwrap_or_else(T::one)
+                let gradient_y = if vy > T::zero() {
+                    (input[idx] - input[idx - nx]) / safe_f64_to_t(dy, T::one())
                 } else {
-                    (input[idx + nx] - input[idx]) / T::from_f64(dy).unwrap_or_else(T::one)
+                    (input[idx + nx] - input[idx]) / safe_f64_to_t(dy, T::one())
                 };
 
                 // Update
                 output[idx] =
-                    input[idx] - T::from_f64(dt).unwrap_or_else(T::one) * (vx * du_dx + vy * du_dy);
+                    input[idx] - safe_f64_to_t(dt, T::one()) * (vx * gradient_x + vy * gradient_y);
             }
         }
 

@@ -60,8 +60,8 @@ impl<T: RealField + Copy + FromPrimitive> MomentumConservationChecker<T> {
                 let dvdt = self.density * (v[(i, j)] - v_prev[(i, j)]) / dt;
 
                 // Convective term: ∇·(ρuu) using central differences
-                let u_center = u[(i, j)];
-                let v_center = v[(i, j)];
+                let _u_center = u[(i, j)];
+                let _v_center = v[(i, j)];
 
                 // x-momentum convection
                 let conv_x = self.density

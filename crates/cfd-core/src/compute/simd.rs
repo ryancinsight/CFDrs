@@ -16,6 +16,7 @@ pub struct SimdKernel<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> SimdKernel<T> {
+    /// Creates a new SIMD advection kernel
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,

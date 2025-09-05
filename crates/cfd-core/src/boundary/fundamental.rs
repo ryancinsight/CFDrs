@@ -25,40 +25,72 @@ pub enum FundamentalBCType {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum BoundaryCondition<T: RealField + Copy> {
     /// Dirichlet: u = g
-    Dirichlet { value: T },
+    Dirichlet { 
+        /// The fixed value to apply at the boundary
+        value: T 
+    },
 
     /// Neumann: ∂u/∂n = g
-    Neumann { gradient: T },
+    Neumann { 
+        /// The gradient normal to the boundary
+        gradient: T 
+    },
 
     /// Robin: αu + β∂u/∂n = γ
-    Robin { alpha: T, beta: T, gamma: T },
+    Robin { 
+        /// Coefficient for the value term
+        alpha: T, 
+        /// Coefficient for the gradient term
+        beta: T, 
+        /// Right-hand side constant
+        gamma: T 
+    },
 
     /// Periodic boundary
-    Periodic { partner: String },
+    Periodic { 
+        /// Name of the partner boundary for periodicity
+        partner: String 
+    },
 
     /// Velocity inlet
-    VelocityInlet { velocity: Vector3<T> },
+    VelocityInlet { 
+        /// Velocity vector at the inlet
+        velocity: Vector3<T> 
+    },
 
     /// Pressure inlet
     PressureInlet {
+        /// Pressure at the inlet
         pressure: T,
+        /// Optional velocity direction vector
         velocity_direction: Option<Vector3<T>>,
     },
 
     /// Pressure outlet
-    PressureOutlet { pressure: T },
+    PressureOutlet { 
+        /// Pressure at the outlet
+        pressure: T 
+    },
 
     /// Mass flow inlet
     MassFlowInlet {
+        /// Mass flow rate at the inlet
         mass_flow_rate: T,
+        /// Optional temperature specification
         temperature: Option<T>,
     },
 
     /// Volume flow inlet
-    VolumeFlowInlet { volume_flow_rate: T },
+    VolumeFlowInlet { 
+        /// Volume flow rate at the inlet
+        volume_flow_rate: T 
+    },
 
     /// Wall boundary
-    Wall { wall_type: super::WallType<T> },
+    Wall { 
+        /// Type of wall (no-slip, slip, etc.)
+        wall_type: super::WallType<T> 
+    },
 
     /// Symmetry plane
     Symmetry,

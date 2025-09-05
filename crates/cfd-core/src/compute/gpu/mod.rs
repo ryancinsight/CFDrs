@@ -103,6 +103,16 @@ impl GpuContext {
         })
     }
 
+    /// Get the wgpu instance for surface creation
+    pub fn instance(&self) -> &wgpu::Instance {
+        &self.instance
+    }
+
+    /// Get the GPU adapter information
+    pub fn adapter(&self) -> &wgpu::Adapter {
+        &self.adapter
+    }
+
     /// Get adapter info
     pub fn adapter_info(&self) -> wgpu::AdapterInfo {
         self.adapter.get_info()

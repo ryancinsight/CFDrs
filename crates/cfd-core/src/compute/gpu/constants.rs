@@ -34,6 +34,7 @@ pub mod numerical {
 
     /// Optimal SOR relaxation factor range
     pub const SOR_OMEGA_MIN: f32 = 1.0;
+    /// Maximum omega value for SOR (Successive Over-Relaxation) iteration
     pub const SOR_OMEGA_MAX: f32 = 1.95;
 
     /// Default convergence tolerance

@@ -1,22 +1,23 @@
 //! Pressure correction solver for STANDARD algorithm
 
 use crate::grid::StructuredGrid2D;
-use cfd_math::linear_solver::{ConjugateGradient, LinearSolver};
+use cfd_math::linear_solver::{ConjugateGradient, IterativeLinearSolver};
+use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
 use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::{DVector, RealField, Vector2};
 use num_traits::FromPrimitive;
 
 /// Pressure correction solver
-pub struct PressureCorrectionSolver<'a, T: RealField + Copy> {
-    /// Grid reference
-    grid: &'a StructuredGrid2D<T>,
+pub struct PressureCorrectionSolver<T: RealField + Copy> {
+    /// Grid
+    grid: StructuredGrid2D<T>,
     /// Linear solver for pressure Poisson equation
     linear_solver: ConjugateGradient<T>,
 }
 
-impl<'a, T: RealField + Copy + FromPrimitive + Copy> PressureCorrectionSolver<'a, T> {
+impl<T: RealField + Copy + FromPrimitive + Copy> PressureCorrectionSolver<T> {
     /// Create new pressure correction solver
-    pub fn new(grid: &'a StructuredGrid2D<T>) -> cfd_core::error::Result<Self> {
+    pub fn new(grid: StructuredGrid2D<T>) -> cfd_core::error::Result<Self> {
         let config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: crate::constants::solver::DEFAULT_MAX_ITERATIONS,
             tolerance: T::from_f64(crate::constants::solver::DEFAULT_TOLERANCE)
@@ -97,7 +98,8 @@ impl<'a, T: RealField + Copy + FromPrimitive + Copy> PressureCorrectionSolver<'a
 
         // Solve the linear system
         let matrix = builder.build()?;
-        let p_correction_vec = self.linear_solver.solve(&matrix, &rhs, None)?;
+        let mut p_correction_vec = DVector::zeros(matrix.nrows());
+        self.linear_solver.solve(&matrix, &rhs, &mut p_correction_vec, None::<&IdentityPreconditioner>)?;
 
         // Convert back to 2D grid
         let mut p_correction = vec![vec![T::zero(); ny]; nx];

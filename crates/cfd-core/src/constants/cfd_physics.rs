@@ -61,6 +61,7 @@ pub mod air {
 // DIMENSIONLESS NUMBERS
 // ============================================================================
 
+/// Reynolds number ranges for different flow regimes
 pub mod reynolds {
     /// Laminar flow upper limit for pipes - White (2011)
     pub const PIPE_LAMINAR_MAX: f64 = 2300.0;
@@ -75,6 +76,7 @@ pub mod reynolds {
     pub const FLAT_PLATE_CRITICAL: f64 = 5e5;
 }
 
+/// Prandtl number values for common fluids
 pub mod prandtl {
     /// Water at 20°C
     pub const WATER: f64 = 7.0;
@@ -90,6 +92,7 @@ pub mod prandtl {
 // TURBULENCE CONSTANTS
 // ============================================================================
 
+/// Turbulence modeling constants from fluid mechanics literature
 pub mod turbulence {
     /// von Kármán constant - Pope (2000)
     pub const VON_KARMAN: f64 = 0.41;
@@ -115,26 +118,41 @@ pub mod turbulence {
         pub const FIRST_CELL_TARGET: f64 = 1.0;
     }
 
-    /// k-ε model constants - Launder & Spalding (1974)
+    /// k-ε turbulence model constants from Launder & Spalding (1974)
     pub mod k_epsilon {
+        /// Model constant Cμ in turbulent viscosity calculation
         pub const C_MU: f64 = 0.09;
+        /// Model constant C₁ε in ε transport equation
         pub const C_1E: f64 = 1.44;
+        /// Model constant C₂ε in ε transport equation  
         pub const C_2E: f64 = 1.92;
+        /// Turbulent Prandtl number for k equation
         pub const SIGMA_K: f64 = 1.0;
+        /// Turbulent Prandtl number for ε equation
         pub const SIGMA_E: f64 = 1.3;
     }
 
-    /// k-ω SST model constants - Menter (1994)
+    /// k-ω SST turbulence model constants from Menter (1994)
     pub mod k_omega_sst {
+        /// Model constant β* in specific dissipation rate calculation
         pub const BETA_STAR: f64 = 0.09;
+        /// Turbulent Prandtl number for k equation (inner region)
         pub const SIGMA_K1: f64 = 0.85;
+        /// Turbulent Prandtl number for k equation (outer region)
         pub const SIGMA_K2: f64 = 1.0;
+        /// Turbulent Prandtl number for ω equation (inner region)
         pub const SIGMA_W1: f64 = 0.5;
+        /// Turbulent Prandtl number for ω equation (outer region)
         pub const SIGMA_W2: f64 = 0.856;
+        /// Model constant β₁ for inner region
         pub const BETA_1: f64 = 0.075;
+        /// Model constant β₂ for outer region
         pub const BETA_2: f64 = 0.0828;
+        /// Model constant α₁ for transition
         pub const ALPHA_1: f64 = 0.31;
+        /// Model constant γ₁ for production term
         pub const GAMMA_1: f64 = 0.553;
+        /// Model constant γ₂ for production term
         pub const GAMMA_2: f64 = 0.440;
     }
 }
@@ -143,6 +161,7 @@ pub mod turbulence {
 // NUMERICAL CONSTANTS
 // ============================================================================
 
+/// Numerical constants for computational methods
 pub mod numerical {
     /// CFL number limits
     pub mod cfl {
@@ -188,6 +207,7 @@ pub mod numerical {
 // LATTICE BOLTZMANN CONSTANTS
 // ============================================================================
 
+/// Lattice Boltzmann method constants
 pub mod lattice_boltzmann {
     /// D2Q9 lattice sound speed squared (cs²)
     pub const LATTICE_SOUND_SPEED_SQUARED: f64 = 1.0 / 3.0;
@@ -206,6 +226,7 @@ pub mod lattice_boltzmann {
 // CAVITATION CONSTANTS
 // ============================================================================
 
+/// Cavitation modeling constants
 pub mod cavitation {
     /// Vapor pressure of water at 20°C [Pa]
     pub const WATER_VAPOR_PRESSURE: f64 = 2339.0;
@@ -246,6 +267,7 @@ pub mod universal {
 // GEOMETRIC CONSTANTS
 // ============================================================================
 
+/// Geometric constants for CFD calculations
 pub mod geometry {
     use super::consts;
 

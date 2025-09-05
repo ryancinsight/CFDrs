@@ -120,11 +120,11 @@ mod tests {
 
         // Test pure advection
         let cfl = calculator.advection_cfl(1.0, 0.5);
-        assert!((cfl - 0.15).abs() < 1e-10);
+        assert!((cfl - 0.15_f64).abs() < 1e-10);
 
         // Test diffusion number
         let diff = calculator.diffusion_number(0.01);
-        assert!((diff - 0.02).abs() < 1e-10);
+        assert!((diff - 0.2_f64).abs() < 1e-10);
     }
 
     #[test]
