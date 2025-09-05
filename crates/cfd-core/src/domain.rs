@@ -60,6 +60,11 @@ impl<T: RealField + Copy> Domain1D<T> {
         let two = T::one() + T::one();
         (self.start + self.end) / two
     }
+
+    /// Check if a point (taking only x-coordinate) is within the domain
+    pub fn contains(&self, point: &Point3<T>) -> bool {
+        point.x >= self.start && point.x <= self.end
+    }
 }
 
 impl<T: RealField + Copy> Domain<T> for Domain1D<T> {
@@ -133,6 +138,14 @@ impl<T: RealField + Copy> Domain2D<T> {
     /// Get the area of the domain
     pub fn area(&self) -> T {
         self.width() * self.height()
+    }
+
+    /// Check if a point (using x,y coordinates) is within the domain
+    pub fn contains(&self, point: &Point3<T>) -> bool {
+        point.x >= self.min.x
+            && point.x <= self.max.x
+            && point.y >= self.min.y
+            && point.y <= self.max.y
     }
 }
 
@@ -222,6 +235,16 @@ impl<T: RealField + Copy> Domain3D<T> {
     /// Get the volume
     pub fn volume(&self) -> T {
         self.width() * self.height() * self.depth()
+    }
+
+    /// Check if a point is within the domain
+    pub fn contains(&self, point: &Point3<T>) -> bool {
+        point.x >= self.min.x
+            && point.x <= self.max.x
+            && point.y >= self.min.y
+            && point.y <= self.max.y
+            && point.z >= self.min.z
+            && point.z <= self.max.z
     }
 }
 
@@ -342,7 +365,7 @@ mod tests {
         assert!(!domain.contains(&Point3::new(3.0, 1.0, 0.0)));
 
         // Test from_points constructor
-        let domain2 = Domain2D::from_points(Point3::new(0.0, 0.0, 0.0), Point3::new(2.0, 3.0, 0.0));
+        let domain2 = Domain2D::from_points(Point2::new(0.0, 0.0), Point2::new(2.0, 3.0));
         assert_relative_eq!(domain2.area(), 6.0);
     }
 
