@@ -7,16 +7,13 @@ use num_traits::cast::FromPrimitive;
 
 // Quadrature constants
 const TWO: f64 = 2.0;
-const THREE: f64 = 3.0;
 const FOUR: f64 = 4.0;
 const FIVE: f64 = 5.0;
 const SIX: f64 = 6.0;
 const SEVEN: f64 = 7.0;
 const EIGHT: f64 = 8.0;
 const NINE: f64 = 9.0;
-const ONE_THIRD: f64 = 1.0 / 3.0;
 const SQRT_THREE_INV: f64 = 0.577_350_269_189_626; // 1/sqrt(3)
-const SQRT_SIX_FIFTHS: f64 = 1.095_445_115_010_332; // sqrt(6/5)
 
 /// Trapezoidal rule for numerical integration
 pub struct TrapezoidalRule;

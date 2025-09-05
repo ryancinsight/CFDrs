@@ -1,6 +1,7 @@
 //! Weighted Essentially Non-Oscillatory (WENO) schemes
 
 use super::{constants, weno_constants, Grid2D, SpatialDiscretization};
+use cfd_core::constants::mathematical::numeric::{THREE, TWO};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
@@ -31,8 +32,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> WENO5<T> {
             T::from_f64(weno_constants::WENO5_BETA_COEFF_13_12).unwrap_or_else(T::zero);
         let coeff_quarter =
             T::from_f64(weno_constants::WENO5_BETA_COEFF_QUARTER).unwrap_or_else(T::zero);
-        let two = T::from_f64(weno_constants::TWO).unwrap_or_else(T::zero);
-        let three = T::from_f64(weno_constants::THREE).unwrap_or_else(T::zero);
+        let two = T::from_f64(TWO).unwrap_or_else(T::zero);
+        let three = T::from_f64(THREE).unwrap_or_else(T::zero);
         let four = T::from_f64(weno_constants::FOUR).unwrap_or_else(T::zero);
 
         // Beta_0

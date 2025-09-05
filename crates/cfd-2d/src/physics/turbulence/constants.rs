@@ -40,10 +40,3 @@ pub const Y_PLUS_BUFFER_END: f64 = 30.0;
 pub const K_VISC_COEFFICIENT: f64 = 11.0;
 pub const OMEGA_WALL_COEFFICIENT: f64 = 60.0;
 pub const BLENDING_FACTOR: f64 = 0.01;
-
-/// Common numerical constants
-pub const HALF: f64 = 0.5;
-pub const TWO: f64 = 2.0;
-pub const THREE: f64 = 3.0;
-pub const FOUR: f64 = 4.0;
-pub const FIVE: f64 = 5.0;

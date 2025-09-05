@@ -3,7 +3,6 @@
 //! Organized following SSOT and modular architecture principles.
 
 mod arm;
-mod fallback;
 mod traits;
 mod x86;
 

@@ -44,11 +44,6 @@ pub trait IterativeLinearSolver<T: RealField + Copy>: Send + Sync + Configurable
     ) -> Result<()>;
 }
 
-/// Helper function for convergence checking
-pub fn has_converged<T: RealField>(residual_norm: T, tolerance: T) -> bool {
-    residual_norm < tolerance
-}
-
 /// Preconditioner trait for linear system solvers
 ///
 /// This API enforces explicit memory management and avoids hidden allocations
