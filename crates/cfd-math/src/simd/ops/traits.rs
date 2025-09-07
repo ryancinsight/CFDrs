@@ -5,10 +5,15 @@ use crate::error::Result;
 /// SIMD operation types
 #[derive(Debug, Clone, Copy)]
 pub enum SimdOperation {
+    /// Vector addition
     Add,
+    /// Vector multiplication
     Mul,
+    /// Vector subtraction
     Sub,
+    /// Vector division
     Div,
+    /// Fused multiply-add
     FusedMulAdd,
 }
 

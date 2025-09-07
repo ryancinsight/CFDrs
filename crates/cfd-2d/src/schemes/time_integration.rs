@@ -1,5 +1,6 @@
 //! Time integration schemes
 
+use cfd_core::constants::mathematical::numeric::{ONE_HALF, SIX, TWO};
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -46,17 +47,17 @@ impl<T: RealField + Copy + FromPrimitive + Clone> TimeIntegrator<T> {
             TimeScheme::ForwardEuler => y + f(t, y) * dt,
             TimeScheme::RungeKutta2 => {
                 let k1 = f(t, y);
-                let half_dt = dt / T::from_f64(2.0).unwrap_or_else(T::zero);
+                let half_dt = dt * T::from_f64(ONE_HALF).unwrap_or_else(T::zero);
                 let y_mid = y + &k1 * half_dt;
                 let k2 = f(t + half_dt, &y_mid);
                 y + k2 * dt
             }
             TimeScheme::RungeKutta4 => {
-                let two = T::from_f64(2.0).unwrap_or_else(T::zero);
-                let six = T::from_f64(6.0).unwrap_or_else(T::zero);
+                let two = T::from_f64(TWO).unwrap_or_else(T::zero);
+                let six = T::from_f64(SIX).unwrap_or_else(T::zero);
 
                 let k1 = f(t, y);
-                let half_dt = dt / two;
+                let half_dt = dt * T::from_f64(ONE_HALF).unwrap_or_else(T::zero);
                 let y2 = y + &k1 * half_dt;
                 let k2 = f(t + half_dt, &y2);
                 let y3 = y + &k2 * half_dt;
