@@ -96,9 +96,13 @@ impl CheckpointValidator {
         for i in 1..ny - 1 {
             for j in 1..nx - 1 {
                 let dudx = (checkpoint.u_velocity[(i, j + 1)] - checkpoint.u_velocity[(i, j - 1)])
-                    / (T::from_f64(numerical_constants::CENTRAL_DIFFERENCE_FACTOR).unwrap_or_else(T::one) * dx);
+                    / (T::from_f64(numerical_constants::CENTRAL_DIFFERENCE_FACTOR)
+                        .unwrap_or_else(T::one)
+                        * dx);
                 let dvdy = (checkpoint.v_velocity[(i + 1, j)] - checkpoint.v_velocity[(i - 1, j)])
-                    / (T::from_f64(numerical_constants::CENTRAL_DIFFERENCE_FACTOR).unwrap_or_else(T::one) * dy);
+                    / (T::from_f64(numerical_constants::CENTRAL_DIFFERENCE_FACTOR)
+                        .unwrap_or_else(T::one)
+                        * dy);
 
                 let divergence = (dudx + dvdy).abs();
                 if divergence > max_divergence {

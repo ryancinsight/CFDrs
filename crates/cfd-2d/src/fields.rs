@@ -12,7 +12,7 @@ use std::ops::{Index, IndexMut};
 pub mod constants {
     use nalgebra::RealField;
     use num_traits::FromPrimitive;
-    
+
     /// Default Reynolds number for laminar flow
     pub fn default_reynolds<T: RealField + FromPrimitive>() -> T {
         T::from_f64(100.0).unwrap_or_else(|| T::from_i32(100).unwrap())

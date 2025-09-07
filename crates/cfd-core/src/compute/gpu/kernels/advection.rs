@@ -38,7 +38,9 @@ impl<T: RealField + Copy> GpuAdvectionKernel<T> {
     /// Get the shader module, initializing if necessary
     pub fn get_shader_module(&mut self, device: &wgpu::Device) -> &wgpu::ShaderModule {
         self.initialize(device);
-        self.shader_module.as_ref().expect("Shader module should be initialized")
+        self.shader_module
+            .as_ref()
+            .expect("Shader module should be initialized")
     }
 }
 

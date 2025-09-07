@@ -5,7 +5,6 @@
 
 use cfd_core::error::Result;
 use cfd_math::simd::{SimdCapability, SimdOperation, SimdProcessor};
-use nalgebra::RealField;
 use std::sync::Arc;
 
 /// Unified compute backend selection

@@ -107,9 +107,11 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
     }
 }
 
-impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> Configurable<T> for ConjugateGradient<T> {
+impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> Configurable<T>
+    for ConjugateGradient<T>
+{
     type Config = IterativeSolverConfig<T>;
-    
+
     fn config(&self) -> &Self::Config {
         &self.config
     }
@@ -136,7 +138,7 @@ impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> IterativeLinearS
         if x.len() != n {
             *x = DVector::zeros(n);
         }
-        
+
         let mut r = b - a * &*x;
 
         // Use SIMD operations for large vectors
@@ -200,7 +202,9 @@ impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> IterativeLinearS
 }
 
 // Implement object-safe LinearSolver trait for trait objects
-impl<T: RealField + Copy + num_traits::FromPrimitive + Send + Sync> super::traits::LinearSolver<T> for ConjugateGradient<T> {
+impl<T: RealField + Copy + num_traits::FromPrimitive + Send + Sync> super::traits::LinearSolver<T>
+    for ConjugateGradient<T>
+{
     fn solve_system(
         &self,
         a: &nalgebra_sparse::CsrMatrix<T>,
@@ -212,8 +216,13 @@ impl<T: RealField + Copy + num_traits::FromPrimitive + Send + Sync> super::trait
         } else {
             nalgebra::DVector::zeros(b.len())
         };
-        
-        self.solve(a, b, &mut x, None::<&super::preconditioners::IdentityPreconditioner>)?;
+
+        self.solve(
+            a,
+            b,
+            &mut x,
+            None::<&super::preconditioners::IdentityPreconditioner>,
+        )?;
         Ok(x)
     }
 }

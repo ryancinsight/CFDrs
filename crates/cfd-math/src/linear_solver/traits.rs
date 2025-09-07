@@ -9,7 +9,7 @@ use nalgebra_sparse::CsrMatrix;
 pub trait Configurable<T: RealField + Copy> {
     /// Configuration type
     type Config;
-    
+
     /// Get solver configuration
     fn config(&self) -> &Self::Config;
 }
@@ -27,9 +27,11 @@ pub trait LinearSolver<T: RealField + Copy>: Send + Sync {
 
 /// Trait for iterative linear solvers
 /// Operates on pre-allocated vectors to avoid repeated allocations
-pub trait IterativeLinearSolver<T: RealField + Copy>: Send + Sync + Configurable<T, Config = IterativeSolverConfig<T>> {
+pub trait IterativeLinearSolver<T: RealField + Copy>:
+    Send + Sync + Configurable<T, Config = IterativeSolverConfig<T>>
+{
     /// Solve Ax = b in-place
-    /// 
+    ///
     /// # Arguments
     /// * `a` - System matrix
     /// * `b` - Right-hand side vector

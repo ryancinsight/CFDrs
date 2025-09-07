@@ -267,52 +267,64 @@ impl FieldMulKernel {
     /// Execute scalar multiplication: result = field * scalar
     pub fn execute(&self, field: &[f32], scalar: f32, result: &mut [f32]) {
         assert_eq!(field.len(), result.len());
-        
+
         // Create buffers for GPU computation
-        let field_buffer = self.context.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Field Buffer"),
-            contents: bytemuck::cast_slice(field),
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        });
-        
+        let field_buffer =
+            self.context
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Field Buffer"),
+                    contents: bytemuck::cast_slice(field),
+                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                });
+
         let result_buffer = self.context.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Result Buffer"),
             size: (result.len() * std::mem::size_of::<f32>()) as u64,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
-        
-        let scalar_buffer = self.context.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Scalar Buffer"),
-            contents: bytemuck::cast_slice(&[scalar]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-        
+
+        let scalar_buffer =
+            self.context
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Scalar Buffer"),
+                    contents: bytemuck::cast_slice(&[scalar]),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
+
         // Create bind group
-        let bind_group = self.context.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Multiply Bind Group"),
-            layout: &self.pipeline.get_bind_group_layout(0),
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: field_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: result_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: scalar_buffer.as_entire_binding(),
-                },
-            ],
-        });
-        
+        let bind_group = self
+            .context
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Multiply Bind Group"),
+                layout: &self.pipeline.get_bind_group_layout(0),
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: field_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: result_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: scalar_buffer.as_entire_binding(),
+                    },
+                ],
+            });
+
         // Dispatch computation
-        let mut encoder = self.context.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Multiply Encoder"),
-        });
-        
+        let mut encoder =
+            self.context
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Multiply Encoder"),
+                });
+
         {
             let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("Multiply Pass"),
@@ -322,7 +334,7 @@ impl FieldMulKernel {
             compute_pass.set_bind_group(0, &bind_group, &[]);
             compute_pass.dispatch_workgroups((field.len() as u32 + 255) / 256, 1, 1);
         }
-        
+
         // Read back results
         let staging_buffer = self.context.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Staging Buffer"),
@@ -330,15 +342,15 @@ impl FieldMulKernel {
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        
+
         encoder.copy_buffer_to_buffer(&result_buffer, 0, &staging_buffer, 0, staging_buffer.size());
         self.context.queue.submit(std::iter::once(encoder.finish()));
-        
+
         // Map and read results
         let buffer_slice = staging_buffer.slice(..);
         let (sender, receiver) = futures::channel::oneshot::channel();
         buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
-        
+
         self.context.device.poll(wgpu::Maintain::Wait);
         if let Ok(Ok(())) = pollster::block_on(receiver) {
             let data = buffer_slice.get_mapped_range();

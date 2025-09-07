@@ -6,7 +6,6 @@ use crate::error::{Error, Result};
 use crate::fields::Field2D;
 use crate::grid::StructuredGrid2D;
 use nalgebra::RealField;
-use std::sync::Arc;
 
 /// Acceleration backend selection
 #[derive(Debug, Clone, Copy, PartialEq)]

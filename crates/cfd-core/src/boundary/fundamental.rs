@@ -25,37 +25,37 @@ pub enum FundamentalBCType {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum BoundaryCondition<T: RealField + Copy> {
     /// Dirichlet: u = g
-    Dirichlet { 
+    Dirichlet {
         /// The fixed value to apply at the boundary
-        value: T 
+        value: T,
     },
 
     /// Neumann: ∂u/∂n = g
-    Neumann { 
+    Neumann {
         /// The gradient normal to the boundary
-        gradient: T 
+        gradient: T,
     },
 
     /// Robin: αu + β∂u/∂n = γ
-    Robin { 
+    Robin {
         /// Coefficient for the value term
-        alpha: T, 
+        alpha: T,
         /// Coefficient for the gradient term
-        beta: T, 
+        beta: T,
         /// Right-hand side constant
-        gamma: T 
+        gamma: T,
     },
 
     /// Periodic boundary
-    Periodic { 
+    Periodic {
         /// Name of the partner boundary for periodicity
-        partner: String 
+        partner: String,
     },
 
     /// Velocity inlet
-    VelocityInlet { 
+    VelocityInlet {
         /// Velocity vector at the inlet
-        velocity: Vector3<T> 
+        velocity: Vector3<T>,
     },
 
     /// Pressure inlet
@@ -67,9 +67,9 @@ pub enum BoundaryCondition<T: RealField + Copy> {
     },
 
     /// Pressure outlet
-    PressureOutlet { 
+    PressureOutlet {
         /// Pressure at the outlet
-        pressure: T 
+        pressure: T,
     },
 
     /// Mass flow inlet
@@ -81,15 +81,15 @@ pub enum BoundaryCondition<T: RealField + Copy> {
     },
 
     /// Volume flow inlet
-    VolumeFlowInlet { 
+    VolumeFlowInlet {
         /// Volume flow rate at the inlet
-        volume_flow_rate: T 
+        volume_flow_rate: T,
     },
 
     /// Wall boundary
-    Wall { 
+    Wall {
         /// Type of wall (no-slip, slip, etc.)
-        wall_type: super::WallType<T> 
+        wall_type: super::WallType<T>,
     },
 
     /// Symmetry plane

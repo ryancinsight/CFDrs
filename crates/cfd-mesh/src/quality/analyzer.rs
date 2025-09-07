@@ -84,7 +84,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     /// Compute aspect ratio for element
     fn compute_aspect_ratio(&self, element: &Cell, mesh: &Mesh<T>) -> T {
         // Compute aspect ratio as ratio of longest to shortest edge
-        let vertices = mesh.get_element_vertices(element);
+        let vertices: Vec<_> = mesh.element_vertices(element).collect();
         if vertices.len() < 2 {
             return T::one();
         }
@@ -110,7 +110,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     fn compute_skewness(&self, element: &Cell, mesh: &Mesh<T>) -> T {
         // Compute skewness as deviation from ideal element shape
         // For now, use centroid-based metric
-        let vertices = mesh.get_element_vertices(element);
+        let vertices: Vec<_> = mesh.element_vertices(element).collect();
         if vertices.len() < 3 {
             return T::zero();
         }
@@ -142,7 +142,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     fn compute_orthogonality(&self, element: &Cell, mesh: &Mesh<T>) -> T {
         // Compute orthogonality as measure of angle deviation from 90 degrees
         // For faces, check angle between face normal and edge to neighbor
-        let faces = mesh.get_element_faces(element);
+        let faces: Vec<_> = mesh.element_faces(element).collect();
         if faces.is_empty() {
             return T::one();
         }
@@ -157,7 +157,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     fn compute_jacobian(&self, element: &Cell, mesh: &Mesh<T>) -> T {
         // Compute Jacobian determinant for element transformation
         // This measures element distortion from reference element
-        let vertices = mesh.get_element_vertices(element);
+        let vertices: Vec<_> = mesh.element_vertices(element).collect();
         if vertices.len() < 4 {
             // 2D or degenerate element
             return T::one();

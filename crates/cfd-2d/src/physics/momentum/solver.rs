@@ -4,9 +4,9 @@ use super::coefficients::MomentumCoefficients;
 use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
 use cfd_core::boundary::BoundaryCondition;
+use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
 use cfd_math::linear_solver::IterativeSolverConfig;
 use cfd_math::linear_solver::{BiCGSTAB, IterativeLinearSolver};
-use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
@@ -69,7 +69,12 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
 
         // Solve linear system
         let mut solution = DVector::zeros(matrix.nrows());
-        self.linear_solver.solve(&matrix, &rhs, &mut solution, None::<&IdentityPreconditioner>)?;
+        self.linear_solver.solve(
+            &matrix,
+            &rhs,
+            &mut solution,
+            None::<&IdentityPreconditioner>,
+        )?;
 
         // Update velocity field
         self.update_velocity(component, fields, &solution);

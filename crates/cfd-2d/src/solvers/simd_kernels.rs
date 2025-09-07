@@ -3,7 +3,7 @@
 //! Provides optimized numerical kernels using SIMD operations
 
 use cfd_core::error::Result;
-use cfd_math::simd::{SimdOperation, SimdProcessor, VectorOps};
+use cfd_math::simd::{SimdProcessor, VectorOps};
 use nalgebra::RealField;
 use std::sync::OnceLock;
 
@@ -130,7 +130,7 @@ pub fn interpolate_velocity_simd(
         // Average: face = 0.5 * (left + right)
         processor.ops.add(left, right, face)?;
         // Scale in-place by creating temporary
-        let mut temp = face.to_vec();
+        let temp = face.to_vec();
         processor.ops.scale(&temp, 0.5, face)?;
     }
 

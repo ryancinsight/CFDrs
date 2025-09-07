@@ -2,7 +2,7 @@
 
 use cfd_core::boundary::BoundaryCondition;
 use cfd_core::error::Result;
-use cfd_math::linear_solver::{ConjugateGradient, IterativeLinearSolver, LinearSolver};
+use cfd_math::linear_solver::{ConjugateGradient, LinearSolver};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField, Vector3};
 use num_traits::{Float, FromPrimitive};
