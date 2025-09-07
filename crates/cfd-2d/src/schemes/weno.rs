@@ -34,7 +34,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> WENO5<T> {
             T::from_f64(weno_constants::WENO5_BETA_COEFF_QUARTER).unwrap_or_else(T::zero);
         let two = T::from_f64(TWO).unwrap_or_else(T::zero);
         let three = T::from_f64(THREE).unwrap_or_else(T::zero);
-        let four = T::from_f64(weno_constants::FOUR).unwrap_or_else(T::zero);
+        let four = T::from_f64(weno_constants::WENO5_BETA_COEFF_FOUR).unwrap_or_else(T::zero);
 
         // Beta_0
         let beta0 = coeff_13_12 * (v[0] - two * v[1] + v[2]).powi(2)
