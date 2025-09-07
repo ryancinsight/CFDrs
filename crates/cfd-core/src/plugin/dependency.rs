@@ -36,7 +36,7 @@ impl DependencyResolver {
             if !available_plugins.contains(dep) {
                 return Err(Error::Plugin(PluginErrorKind::DependencyMissing {
                     plugin: String::new(),
-                    dependency: dep.clone(),
+                    dependency: dep.to_string(),
                 }));
             }
         }
@@ -105,11 +105,11 @@ impl DependencyResolver {
         while let Some(deps) = self.dependencies.get(current) {
             for dep in deps {
                 if dep == start {
-                    chain.push(dep.clone());
+                    chain.push(dep.to_string());
                     return chain;
                 }
                 if !chain.contains(dep) {
-                    chain.push(dep.clone());
+                    chain.push(dep.to_string());
                     current = dep;
                     break;
                 }
@@ -124,13 +124,13 @@ impl DependencyResolver {
 
         // Initialize in-degree and adjacency list
         for (plugin, deps) in &self.dependencies {
-            in_degree.entry(plugin.clone()).or_insert(0);
+            in_degree.entry(plugin.to_string()).or_insert(0);
             for dep in deps {
-                in_degree.entry(dep.clone()).or_insert(0);
+                in_degree.entry(dep.to_string()).or_insert(0);
                 adj_list
-                    .entry(dep.clone())
+                    .entry(dep.to_string())
                     .or_default()
-                    .push(plugin.clone());
+                    .push(plugin.to_string());
                 *in_degree.get_mut(plugin).unwrap() += 1;
             }
         }
@@ -138,24 +138,23 @@ impl DependencyResolver {
         // Find all nodes with in-degree 0
         let mut queue: Vec<String> = in_degree
             .iter()
-            .filter_map(|(k, &v)| if v == 0 { Some(k.clone()) } else { None })
+            .filter_map(|(k, &v)| if v == 0 { Some(k.to_string()) } else { None })
             .collect();
 
         let mut result = Vec::new();
 
         while let Some(node) = queue.pop() {
-            result.push(node.clone());
-
             if let Some(neighbors) = adj_list.get(&node) {
                 for neighbor in neighbors {
                     if let Some(degree) = in_degree.get_mut(neighbor) {
                         *degree -= 1;
                         if *degree == 0 {
-                            queue.push(neighbor.clone());
+                            queue.push(neighbor.to_string());
                         }
                     }
                 }
             }
+            result.push(node); // Move node instead of cloning
         }
 
         if result.len() != in_degree.len() {

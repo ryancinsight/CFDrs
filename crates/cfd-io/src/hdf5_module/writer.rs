@@ -164,18 +164,18 @@ impl Hdf5Writer {
         dataset
             .current_attr::<VarLenUnicode>()
             .create("name")?
-            .write_scalar(&metadata.name.clone().as_str().into())?;
+            .write_scalar(&metadata.name.as_str().into())?;
 
         dataset
             .current_attr::<VarLenUnicode>()
             .create("data_type")?
-            .write_scalar(&metadata.data_type.clone().as_str().into())?;
+            .write_scalar(&metadata.data_type.as_str().into())?;
 
         if let Some(ref units) = metadata.units {
             dataset
                 .current_attr::<VarLenUnicode>()
                 .create("units")?
-                .write_scalar(&units.clone().as_str().into())?;
+                .write_scalar(&units.as_str().into())?;
         }
 
         if let Some(time_step) = metadata.time_step {

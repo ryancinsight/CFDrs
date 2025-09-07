@@ -95,7 +95,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         &self,
         coeffs: &MomentumCoefficients<T>,
         component: MomentumComponent,
-        fields: &SimulationFields<T>,
+        _fields: &SimulationFields<T>,
     ) -> cfd_core::error::Result<(SparseMatrix<T>, DVector<T>)> {
         let n = self.nx * self.ny;
         let mut builder = SparseMatrixBuilder::new(n, n);
