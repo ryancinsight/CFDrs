@@ -3,6 +3,8 @@
 //! These are exact solutions to the Navier-Stokes equations
 //! used to validate numerical implementations.
 
+use cfd_core::constants::mathematical::{numeric::{ONE_HALF, TWO, TWO_THIRDS}, TWO_PI};
+use cfd_core::conversion::SafeFromF64;
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 
@@ -27,7 +29,8 @@ impl<T: RealField + Copy + FromPrimitive> CouetteFlow<T> {
     pub fn velocity(&self, y: T) -> T {
         let y_norm = y / self.h;
         let linear_term = self.u_wall * y_norm;
-        let pressure_term = (self.h * self.h / (T::from_f64(2.0).unwrap() * self.mu))
+        let two = T::from_f64_or_one(TWO);
+        let pressure_term = (self.h * self.h / (two * self.mu))
             * self.dp_dx
             * y_norm
             * (T::one() - y_norm);
@@ -36,7 +39,8 @@ impl<T: RealField + Copy + FromPrimitive> CouetteFlow<T> {
 
     /// Wall shear stress
     pub fn wall_shear(&self) -> T {
-        self.mu * self.u_wall / self.h - self.h * self.dp_dx / T::from_f64(2.0).unwrap()
+        let two = T::from_f64_or_one(TWO);
+        self.mu * self.u_wall / self.h - self.h * self.dp_dx / two
     }
 }
 
@@ -57,7 +61,8 @@ impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
     ///
     /// Source: White (2016), Eq. 3.36
     pub fn velocity(&self, y: T) -> T {
-        let factor = T::from_f64(0.5).unwrap() / self.mu;
+        let half = T::from_f64_or_one(ONE_HALF);
+        let factor = half / self.mu;
         factor * self.dp_dx * (self.h * self.h - y * y)
     }
 
@@ -68,12 +73,14 @@ impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
 
     /// Average velocity: u_avg = (2/3) * u_max
     pub fn average_velocity(&self) -> T {
-        T::from_f64(2.0 / 3.0).unwrap() * self.max_velocity()
+        let two_thirds = T::from_f64_or_one(TWO_THIRDS);
+        two_thirds * self.max_velocity()
     }
 
     /// Volume flow rate per unit width
     pub fn flow_rate(&self) -> T {
-        T::from_f64(2.0).unwrap() * self.h * self.average_velocity()
+        let two = T::from_f64_or_one(TWO);
+        two * self.h * self.average_velocity()
     }
 }
 
@@ -92,7 +99,7 @@ pub struct TaylorGreenVortex<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive> TaylorGreenVortex<T> {
     /// Exact velocity field at time t
     pub fn velocity(&self, x: T, y: T, t: T) -> Vector3<T> {
-        let k = T::from_f64(2.0 * std::f64::consts::PI).unwrap() / self.l;
+        let k = T::from_f64_or_one(TWO_PI) / self.l;
         let decay = (-k * k * self.nu * t).exp();
 
         let u = self.u0 * (k * x).sin() * (k * y).cos() * decay;
@@ -103,25 +110,26 @@ impl<T: RealField + Copy + FromPrimitive> TaylorGreenVortex<T> {
 
     /// Exact pressure field
     pub fn pressure(&self, x: T, y: T, t: T, rho: T) -> T {
-        let k = T::from_f64(2.0 * std::f64::consts::PI).unwrap() / self.l;
-        let decay = (-T::from_f64(2.0).unwrap() * k * k * self.nu * t).exp();
+        let k = T::from_f64_or_one(TWO_PI) / self.l;
+        let two = T::from_f64_or_one(TWO);
+        let decay = (-two * k * k * self.nu * t).exp();
 
-        let quarter = T::from_f64(0.25).unwrap();
+        let quarter = T::from_f64_or_zero(0.25);
         -quarter
             * rho
             * self.u0
             * self.u0
-            * ((T::from_f64(2.0).unwrap() * k * x).cos()
-                + (T::from_f64(2.0).unwrap() * k * y).cos())
+            * ((two * k * x).cos() + (two * k * y).cos())
             * decay
     }
 
     /// Kinetic energy decay rate
     pub fn kinetic_energy(&self, t: T) -> T {
-        let k = T::from_f64(2.0 * std::f64::consts::PI).unwrap() / self.l;
-        let decay = (-T::from_f64(2.0).unwrap() * k * k * self.nu * t).exp();
+        let k = T::from_f64_or_one(TWO_PI) / self.l;
+        let two = T::from_f64_or_one(TWO);
+        let decay = (-two * k * k * self.nu * t).exp();
 
-        let half = T::from_f64(0.5).unwrap();
+        let half = T::from_f64_or_one(ONE_HALF);
         half * self.u0 * self.u0 * decay
     }
 }

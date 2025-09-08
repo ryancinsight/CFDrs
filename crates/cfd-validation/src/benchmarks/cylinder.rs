@@ -4,6 +4,7 @@
 //! around a cylinder"
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
@@ -81,8 +82,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
         let mut forces = Vec::new();
 
         // Set up computational domain and mesh
-        let domain_width = T::from_f64(10.0).unwrap_or_else(|| T::one()) * self.diameter;
-        let domain_height = T::from_f64(5.0).unwrap_or_else(|| T::one()) * self.diameter;
+        let domain_width = T::from_f64_or_one(10.0) * self.diameter;
+        let domain_height = T::from_f64_or_one(5.0) * self.diameter;
 
         for iter in 0..config.max_iterations {
             // Immersed boundary method iteration
