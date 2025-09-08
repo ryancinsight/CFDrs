@@ -118,7 +118,7 @@ impl<T: RealField + FromPrimitive + Copy> WallTreatment<T> {
     }
 
     /// Calculate turbulent kinetic energy at wall-adjacent cell
-    pub fn wall_k(&self, u_tau: T, c_mu: T) -> T {
+    pub fn wall_k(&self, u_tau: T, _c_mu: T) -> T {
         let c_mu_val = T::from_f64(C_MU).unwrap_or_else(T::one);
         u_tau * u_tau / c_mu_val.sqrt()
     }

@@ -5,8 +5,8 @@
 
 use cfd_3d::fem::{FemConfig, FemSolver};
 use cfd_core::domains::mesh_operations::ElementType;
-use cfd_core::fluid::Fluid;
-use cfd_mesh::{Cell, Mesh, Vertex};
+use cfd_core::fluid::ConstantPropertyFluid;
+use cfd_mesh::prelude::{Cell, Mesh, Vertex};
 use nalgebra::Point3;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -14,9 +14,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("==========================");
 
     // Create fluid properties (water at 20°C)
-    let fluid = Fluid::<f64>::water_20c();
+    let fluid = ConstantPropertyFluid::<f64>::water_20c()?;
     println!("Fluid: Water at 20°C");
-    println!("Density: {:.1} kg/m³", fluid.density);
+    println!("Density: {:.1} kg/m³", fluid.density());
     println!("Viscosity: {:.6} Pa·s", fluid.dynamic_viscosity());
     println!();
 
@@ -137,15 +137,19 @@ fn create_unit_cube_mesh() -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
     ];
 
     // Create faces (not strictly necessary for FEM, but good for completeness)
-    let faces = vec![];
+    let _faces = vec![];
 
-    let topology = cfd_mesh::MeshTopology::default();
+    let mut mesh = Mesh::new();
+    
+    // Add vertices to mesh
+    for vertex in vertices {
+        mesh.add_vertex(vertex);
+    }
+    
+    // Add cells to mesh  
+    for cell in cells {
+        mesh.add_cell(cell);
+    }
 
-    Ok(Mesh {
-        vertices,
-        edges: vec![],
-        faces,
-        cells,
-        topology,
-    })
+    Ok(mesh)
 }
