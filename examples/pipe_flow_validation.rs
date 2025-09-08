@@ -7,8 +7,8 @@
 
 use cfd_3d::fem::{StokesFlowProblem, StokesFlowSolution};
 use cfd_3d::FemConfig;
-use cfd_core::{BoundaryCondition, Fluid};
-use cfd_mesh::{Face, Mesh, Vertex};
+use cfd_core::prelude::{BoundaryCondition, Fluid, WallType};
+use cfd_mesh::prelude::{Face, Mesh, Vertex};
 use nalgebra::{Point3, Vector3};
 use std::collections::HashMap;
 use std::f64::consts::PI;
@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             boundary_conditions.insert(
                 i,
                 BoundaryCondition::Wall {
-                    wall_type: cfd_core::WallType::NoSlip,
+                    wall_type: WallType::NoSlip,
                 },
             );
         }
@@ -96,12 +96,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // For now, create an analytical solution directly since FEM solver needs more work
     println!("  Using analytical Hagen-Poiseuille solution for validation...");
 
-    let n_nodes = problem.mesh.vertices.len();
+    let n_nodes = problem.mesh.vertices().len();
     let mut velocity = nalgebra::DVector::zeros(n_nodes * 3);
     let mut pressure = nalgebra::DVector::zeros(n_nodes);
 
     // Apply analytical Hagen-Poiseuille solution
-    for (i, vertex) in problem.mesh.vertices.iter().enumerate() {
+    for (i, vertex) in problem.mesh.vertices().iter().enumerate() {
         let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
         let z = vertex.position.z;
 

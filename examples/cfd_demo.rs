@@ -5,6 +5,7 @@
 use cfd_core::domains::fluid_dynamics::{
     FlowField, FlowOperations, KEpsilonModel, TurbulenceModel,
 };
+use cfd_math::linear_solver::IterativeLinearSolver;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== CFD Demonstration ===\n");
@@ -82,11 +83,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use nalgebra::DVector;
 
     let b = DVector::from_vec(vec![1.0, 0.0, 1.0]);
-    use cfd_math::linear_solver::{ConjugateGradient, LinearSolver};
+    use cfd_math::linear_solver::{ConjugateGradient};
     let solver = ConjugateGradient::<f64>::default();
-    let x = solver.solve(&matrix, &b, None)?;
+    let mut x = DVector::zeros(3);
+    let result = solver.solve(&matrix, &b, &mut x, None)?;
     println!("   ✓ Solved Ax = b using Conjugate Gradient");
     println!("   Solution norm: {:.6}", x.norm());
+    println!("   Solver converged in {} iterations", result.iterations);
 
     // 7. Summary
     println!("\n=== Summary ===");
