@@ -73,10 +73,10 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     {
         let fluid = Self::new(
             "Water (20°C)".to_string(),
-            T::from_f64(998.2).unwrap(), // density [kg/m³]
+            T::from_f64(998.2).unwrap(),    // density [kg/m³]
             T::from_f64(0.001002).unwrap(), // viscosity [Pa·s]
-            T::from_f64(4186.0).unwrap(), // specific heat [J/(kg·K)]
-            T::from_f64(0.599).unwrap(), // thermal conductivity [W/(m·K)]
+            T::from_f64(4186.0).unwrap(),   // specific heat [J/(kg·K)]
+            T::from_f64(0.599).unwrap(),    // thermal conductivity [W/(m·K)]
         );
         fluid.validate()?;
         Ok(fluid)
@@ -90,10 +90,10 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     {
         let fluid = Self::new(
             "Air (20°C)".to_string(),
-            T::from_f64(1.204).unwrap(), // density [kg/m³]
+            T::from_f64(1.204).unwrap(),    // density [kg/m³]
             T::from_f64(1.825e-5).unwrap(), // viscosity [Pa·s]
-            T::from_f64(1005.0).unwrap(), // specific heat [J/(kg·K)]
-            T::from_f64(0.02538).unwrap(), // thermal conductivity [W/(m·K)]
+            T::from_f64(1005.0).unwrap(),   // specific heat [J/(kg·K)]
+            T::from_f64(0.02538).unwrap(),  // thermal conductivity [W/(m·K)]
         );
         fluid.validate()?;
         Ok(fluid)

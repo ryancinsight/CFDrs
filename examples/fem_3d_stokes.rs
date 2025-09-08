@@ -140,13 +140,13 @@ fn create_unit_cube_mesh() -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
     let _faces = vec![];
 
     let mut mesh = Mesh::new();
-    
+
     // Add vertices to mesh
     for vertex in vertices {
         mesh.add_vertex(vertex);
     }
-    
-    // Add cells to mesh  
+
+    // Add cells to mesh
     for cell in cells {
         mesh.add_cell(cell);
     }

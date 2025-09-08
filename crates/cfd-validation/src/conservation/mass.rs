@@ -201,19 +201,30 @@ mod tests {
         }
 
         let report = checker.check_divergence_2d(&u, &v, 0.1, 0.1).unwrap();
-        
+
         // For radial outflow u = x/r, v = y/r, the analytical divergence is 1/r
         // At the center (r ≈ 0), we expect high divergence
         // At r = 1 grid spacing, expected divergence ≈ 1/1 = 1.0
         // The numerical approximation should be close to this theoretical value
         let expected_divergence_order = 1.0; // Order of magnitude: 1/r where r ~ 1
-        
+
         // Verify the error is of the expected magnitude (not just > 0)
-        assert!(report.error > 0.1, "Divergence should be significant for radial outflow: got {}", report.error);
-        assert!(report.error < 50.0, "Divergence should be bounded for well-behaved field: got {}", report.error);
-        
+        assert!(
+            report.error > 0.1,
+            "Divergence should be significant for radial outflow: got {}",
+            report.error
+        );
+        assert!(
+            report.error < 50.0,
+            "Divergence should be bounded for well-behaved field: got {}",
+            report.error
+        );
+
         // Should correctly detect this as non-conserved
-        assert!(!report.is_conserved, "Radial outflow should not be mass-conserved");
+        assert!(
+            !report.is_conserved,
+            "Radial outflow should not be mass-conserved"
+        );
     }
 
     #[test]
