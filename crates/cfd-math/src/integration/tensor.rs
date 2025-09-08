@@ -33,10 +33,8 @@ impl<Q> TensorProductQuadrature<Q> {
     {
         // Use the base quadrature rule for each dimension
         // Integrate first over y, then over x using the base rule
-        let integral_over_y = |x: T| -> T {
-            self.base_rule.integrate(|y| f(x, y), ay, by)
-        };
-        
+        let integral_over_y = |x: T| -> T { self.base_rule.integrate(|y| f(x, y), ay, by) };
+
         self.base_rule.integrate(integral_over_y, ax, bx)
     }
 }

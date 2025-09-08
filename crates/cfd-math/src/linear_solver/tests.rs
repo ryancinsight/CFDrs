@@ -3,7 +3,9 @@
 #[cfg(test)]
 mod tests {
 
-    use crate::linear_solver::preconditioners::{IdentityPreconditioner, JacobiPreconditioner, SORPreconditioner};
+    use crate::linear_solver::preconditioners::{
+        IdentityPreconditioner, JacobiPreconditioner, SORPreconditioner,
+    };
     use crate::linear_solver::traits::IterativeLinearSolver;
     use crate::linear_solver::IterativeSolverConfig;
     use crate::linear_solver::{BiCGSTAB, ConjugateGradient, Preconditioner};
@@ -39,12 +41,12 @@ mod tests {
         let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
 
         let solver = ConjugateGradient::new(config);
-        let mut x = DVector::zeros(n);  // Initial guess
+        let mut x = DVector::zeros(n); // Initial guess
         let identity_precond = IdentityPreconditioner;
         solver.solve(&a, &b, &mut x, Some(&identity_precond))?;
 
         // Check that Ax = b using nalgebra_sparse API
-        let ax = &a * &x;  // Try direct multiplication
+        let ax = &a * &x; // Try direct multiplication
         for i in 0..n {
             assert_relative_eq!(ax[i], b[i], epsilon = 1e-8);
         }
@@ -60,7 +62,7 @@ mod tests {
         let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
 
         let solver = BiCGSTAB::new(config);
-        let mut x = DVector::zeros(n);  // Initial guess  
+        let mut x = DVector::zeros(n); // Initial guess
         let identity_precond = IdentityPreconditioner;
         solver.solve(&a, &b, &mut x, Some(&identity_precond))?;
 
@@ -143,7 +145,7 @@ mod tests {
         let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
 
         let solver = ConjugateGradient::new(config);
-        let mut x = DVector::zeros(n);  // Initial guess
+        let mut x = DVector::zeros(n); // Initial guess
         solver.solve(&a, &b, &mut x, Some(&precond))?;
 
         // Check that Ax = b
@@ -183,7 +185,7 @@ mod tests {
             let config = IterativeSolverConfig::new(tol).with_max_iterations(1000);
 
             let solver = ConjugateGradient::new(config);
-            let mut x = DVector::zeros(n);  // Initial guess
+            let mut x = DVector::zeros(n); // Initial guess
             let identity_precond = IdentityPreconditioner;
             solver.solve(&a, &b, &mut x, Some(&identity_precond))?;
 

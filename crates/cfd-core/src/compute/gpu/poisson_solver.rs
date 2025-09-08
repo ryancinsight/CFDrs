@@ -331,7 +331,7 @@ impl GpuPoissonSolver {
         // Use the red_black_pipeline for improved performance
         // For demonstration that the pipeline is used
         let _pipeline = &self.red_black_pipeline;
-        
+
         // Implementation would use red-black ordering
         // For now, delegate to Jacobi method as a working implementation
         self.solve_jacobi(phi, source, iterations, omega)
@@ -341,7 +341,7 @@ impl GpuPoissonSolver {
     pub fn calculate_residual(&self, _phi: &[f32], _source: &[f32]) -> Result<f32> {
         // Use the residual_pipeline for residual calculation
         let _pipeline = &self.residual_pipeline;
-        
+
         // Implementation would calculate ||Ax - b||
         // For now, return placeholder
         Ok(0.0)

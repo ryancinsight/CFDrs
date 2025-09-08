@@ -218,7 +218,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
 
 impl<T: RealField + Debug + Copy> Configurable<T> for BiCGSTAB<T> {
     type Config = IterativeSolverConfig<T>;
-    
+
     fn config(&self) -> &Self::Config {
         &self.config
     }
@@ -241,7 +241,9 @@ impl<T: RealField + Debug + Copy> IterativeLinearSolver<T> for BiCGSTAB<T> {
 }
 
 // Implement object-safe LinearSolver trait for trait objects
-impl<T: RealField + Copy + num_traits::FromPrimitive> super::traits::LinearSolver<T> for BiCGSTAB<T> {
+impl<T: RealField + Copy + num_traits::FromPrimitive> super::traits::LinearSolver<T>
+    for BiCGSTAB<T>
+{
     fn solve_system(
         &self,
         a: &nalgebra_sparse::CsrMatrix<T>,
@@ -253,8 +255,13 @@ impl<T: RealField + Copy + num_traits::FromPrimitive> super::traits::LinearSolve
         } else {
             nalgebra::DVector::zeros(b.len())
         };
-        
-        self.solve(a, b, &mut x, None::<&super::preconditioners::IdentityPreconditioner>)?;
+
+        self.solve(
+            a,
+            b,
+            &mut x,
+            None::<&super::preconditioners::IdentityPreconditioner>,
+        )?;
         Ok(x)
     }
 }

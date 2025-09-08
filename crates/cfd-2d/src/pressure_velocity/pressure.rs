@@ -1,8 +1,8 @@
 //! Pressure correction solver for STANDARD algorithm
 
 use crate::grid::StructuredGrid2D;
-use cfd_math::linear_solver::{ConjugateGradient, IterativeLinearSolver};
 use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
+use cfd_math::linear_solver::{ConjugateGradient, IterativeLinearSolver};
 use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::{DVector, RealField, Vector2};
 use num_traits::FromPrimitive;
@@ -99,7 +99,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureCorrectionSolver<T> {
         // Solve the linear system
         let matrix = builder.build()?;
         let mut p_correction_vec = DVector::zeros(matrix.nrows());
-        self.linear_solver.solve(&matrix, &rhs, &mut p_correction_vec, None::<&IdentityPreconditioner>)?;
+        self.linear_solver.solve(
+            &matrix,
+            &rhs,
+            &mut p_correction_vec,
+            None::<&IdentityPreconditioner>,
+        )?;
 
         // Convert back to 2D grid
         let mut p_correction = vec![vec![T::zero(); ny]; nx];

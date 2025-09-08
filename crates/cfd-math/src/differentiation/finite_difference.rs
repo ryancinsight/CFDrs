@@ -14,10 +14,7 @@ pub struct FiniteDifference<T: RealField + Copy> {
 impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
     /// Create a finite difference operator
     pub fn new(scheme: FiniteDifferenceScheme, spacing: T) -> Self {
-        Self {
-            scheme,
-            spacing,
-        }
+        Self { scheme, spacing }
     }
 
     /// Create central difference operator

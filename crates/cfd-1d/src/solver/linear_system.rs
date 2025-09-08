@@ -1,8 +1,8 @@
 //! Linear system solver for network equations
 
 use cfd_core::error::Result;
-use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver};
 use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
+use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;

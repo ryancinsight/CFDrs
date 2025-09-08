@@ -50,10 +50,10 @@ impl CompressionStrategy {
             Self::Zstd(level) => {
                 // Rough estimates based on typical CFD data
                 match level {
-                    1..=3 => compression_ratios::LOW_LEVELS,   // Low compression levels
+                    1..=3 => compression_ratios::LOW_LEVELS, // Low compression levels
                     4..=9 => compression_ratios::BALANCED,   // Balanced
-                    10..=15 => compression_ratios::HIGH, // High compression
-                    _ => compression_ratios::MAXIMUM,       // Maximum compression
+                    10..=15 => compression_ratios::HIGH,     // High compression
+                    _ => compression_ratios::MAXIMUM,        // Maximum compression
                 }
             }
         }

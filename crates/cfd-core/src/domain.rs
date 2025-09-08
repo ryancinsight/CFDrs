@@ -6,7 +6,11 @@ use serde::{Deserialize, Serialize};
 /// Helper function to order two values
 #[inline]
 fn order<T: RealField>(v1: T, v2: T) -> (T, T) {
-    if v1 <= v2 { (v1, v2) } else { (v2, v1) }
+    if v1 <= v2 {
+        (v1, v2)
+    } else {
+        (v2, v1)
+    }
 }
 
 /// Trait for computational domains
@@ -16,17 +20,17 @@ pub trait Domain<T: RealField + Copy>: Send + Sync {
 
     /// Get the volume (or area/length) of the domain
     fn volume(&self) -> T;
-    
+
     /// Check if a point is inside the domain (dimension-specific)
     fn contains_1d(&self, _point: &Point1<T>) -> bool {
         panic!("contains_1d called on non-1D domain")
     }
-    
+
     /// Check if a point is inside the domain (dimension-specific)
     fn contains_2d(&self, _point: &Point2<T>) -> bool {
         panic!("contains_2d called on non-2D domain")
     }
-    
+
     /// Check if a point is inside the domain (dimension-specific)
     fn contains_3d(&self, _point: &Point3<T>) -> bool {
         panic!("contains_3d called on non-3D domain")
@@ -75,7 +79,7 @@ impl<T: RealField + Copy> Domain<T> for Domain1D<T> {
     fn volume(&self) -> T {
         self.length()
     }
-    
+
     fn contains_1d(&self, point: &Point1<T>) -> bool {
         point.x >= self.start && point.x <= self.end
     }
@@ -101,7 +105,7 @@ impl<T: RealField + Copy> Domain2D<T> {
             max: Point2::new(x_max, y_max),
         }
     }
-    
+
     /// Get the center of the domain
     pub fn center(&self) -> Point2<T> {
         let two = T::one() + T::one();
@@ -114,10 +118,7 @@ impl<T: RealField + Copy> Domain2D<T> {
     /// Create a new 2D domain from scalar coordinates.
     /// Coordinates are automatically ordered to ensure min <= max on each axis.
     pub fn from_scalars(x1: T, y1: T, x2: T, y2: T) -> Self {
-        Self::new(
-            Point2::new(x1, y1),
-            Point2::new(x2, y2),
-        )
+        Self::new(Point2::new(x1, y1), Point2::new(x2, y2))
     }
 
     /// Create from two points (alias for new)
@@ -157,7 +158,7 @@ impl<T: RealField + Copy> Domain<T> for Domain2D<T> {
     fn volume(&self) -> T {
         self.area()
     }
-    
+
     fn contains_2d(&self, point: &Point2<T>) -> bool {
         point.x >= self.min.x
             && point.x <= self.max.x
@@ -256,7 +257,7 @@ impl<T: RealField + Copy> Domain<T> for Domain3D<T> {
     fn volume(&self) -> T {
         self.width() * self.height() * self.depth()
     }
-    
+
     fn contains_3d(&self, point: &Point3<T>) -> bool {
         point.x >= self.min.x
             && point.x <= self.max.x
@@ -293,14 +294,14 @@ impl<T: RealField + Copy> Domain<T> for AnyDomain<T> {
             _ => false,
         }
     }
-    
+
     fn contains_2d(&self, point: &Point2<T>) -> bool {
         match self {
             Self::D2(d) => d.contains_2d(point),
             _ => false,
         }
     }
-    
+
     fn contains_3d(&self, point: &Point3<T>) -> bool {
         match self {
             Self::D3(d) => d.contains_3d(point),

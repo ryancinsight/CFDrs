@@ -97,7 +97,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSol
 
         // Step 3: Update convergence monitor for diagnostics
         // Note: This is for monitoring within-timestep convergence, not steady-state
-        state.monitor.update(&state.fields_buffer, fields, grid.nx, grid.ny);
+        state
+            .monitor
+            .update(&state.fields_buffer, fields, grid.nx, grid.ny);
         state.monitor.iteration += 1;
 
         Ok(())

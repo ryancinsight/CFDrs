@@ -4,7 +4,7 @@ use cfd_core::error::{Error, Result};
 use csv::{Reader as CsvReaderImpl, Writer as CsvWriterImpl};
 use nalgebra::RealField;
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Write};
+use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use std::str::FromStr;
 

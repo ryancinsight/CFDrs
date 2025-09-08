@@ -22,6 +22,9 @@ rayon.workspace = true
 num-traits.workspace = true
 tracing.workspace = true
 
+[features]
+gpu = ["cfd-core/gpu"]
+
 [dev-dependencies]
 proptest.workspace = true
 approx.workspace = true

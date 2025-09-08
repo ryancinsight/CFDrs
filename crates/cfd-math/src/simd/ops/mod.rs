@@ -241,19 +241,19 @@ impl VectorOps for SimdOps {
             _ => self.swar.dot_f64(a, b),
         }
     }
-    
+
     #[inline]
     fn sum_f32(&self, input: &[f32]) -> Result<f32> {
         // Sum is inherently sequential, use SWAR implementation
         Ok(self.swar.sum_f32(input))
     }
-    
+
     #[inline]
     fn max_f32(&self, input: &[f32]) -> Result<f32> {
         // Max operation can benefit from SIMD in future but use SWAR for now
         self.swar.max_f32(input)
     }
-    
+
     #[inline]
     fn add_u32(&self, a: &[u32], b: &[u32], result: &mut [u32]) -> Result<()> {
         // Integer operations use SWAR implementation
