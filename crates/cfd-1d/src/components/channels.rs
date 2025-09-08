@@ -81,7 +81,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for RectangularCh
         let f = self.friction_factor_laminar();
 
         // Use default temperature of 20°C (293.15 K)
-        let temperature = T::from_f64(293.15).unwrap_or_else(T::zero);
+        let _temperature = T::from_f64(293.15).unwrap_or_else(T::zero);
         let kinematic_viscosity = fluid.dynamic_viscosity() / fluid.density;
         let resistance = f * self.length * kinematic_viscosity / (area * dh * dh);
 
@@ -161,7 +161,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for CircularChann
         // R = 128 * μ * L / (π * D^4)
         let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(T::zero);
         let c128 = T::from_f64(128.0).unwrap_or_else(T::zero);
-        let temperature = T::from_f64(293.15).unwrap_or_else(T::zero);
+        let _temperature = T::from_f64(293.15).unwrap_or_else(T::zero);
 
         let viscosity = fluid.dynamic_viscosity();
 

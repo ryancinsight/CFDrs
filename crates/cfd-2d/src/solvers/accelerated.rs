@@ -5,7 +5,6 @@
 use crate::error::{Error, Result};
 use crate::fields::Field2D;
 use crate::grid::StructuredGrid2D;
-use nalgebra::RealField;
 
 /// Acceleration backend selection
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -27,7 +26,7 @@ pub struct AcceleratedPoissonSolver {
 
 impl AcceleratedPoissonSolver {
     /// Create solver with automatic backend selection
-    pub fn new(nx: usize, ny: usize, dx: f32, dy: f32) -> Result<Self> {
+    pub fn new(_nx: usize, _ny: usize, _dx: f32, _dy: f32) -> Result<Self> {
         // Try GPU first if feature enabled
         #[cfg(feature = "gpu")]
         {
@@ -35,10 +34,10 @@ impl AcceleratedPoissonSolver {
                 if let Ok(gpu_solver) = cfd_core::compute::gpu::GpuPoissonSolver::new(
                     gpu_context.device.clone(),
                     gpu_context.queue.clone(),
-                    nx,
-                    ny,
-                    dx,
-                    dy,
+                    _nx,
+                    _ny,
+                    _dx,
+                    _dy,
                 ) {
                     return Ok(Self {
                         backend: Backend::Gpu,

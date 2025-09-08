@@ -2,12 +2,11 @@
 //!
 //! This example demonstrates validation of numerical methods against known solutions.
 
-use cfd_suite::d2::fields::Field2D;
-use cfd_suite::d2::grid::StructuredGrid2D;
-use cfd_suite::math::differentiation::FiniteDifference;
-use cfd_suite::validation::convergence::{GridConvergenceIndex, RichardsonExtrapolation};
-use cfd_suite::validation::error_metrics::ErrorMetric;
-use nalgebra::DMatrix;
+use cfd_validation::manufactured::{ManufacturedDiffusion, ManufacturedAdvection, ManufacturedSolution};
+use cfd_validation::analytical_benchmarks::{TaylorGreenVortex, PoiseuilleFlow};
+use cfd_2d::fields::Field2D;
+use cfd_2d::grid::StructuredGrid2D;
+// Remove unused imports
 use std::f64::consts::PI;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -87,7 +86,7 @@ fn validate_diffusion() -> Result<(), Box<dyn std::error::Error>> {
 
         // Calculate error
         let mut l2_error = 0.0;
-        let mut max_error = 0.0;
+        let mut max_error: f64 = 0.0;
 
         for i in 0..*n {
             for j in 0..*n {
@@ -133,8 +132,8 @@ fn validate_advection() -> Result<(), Box<dyn std::error::Error>> {
     println!("   Method: Manufactured Solution");
     println!("   --------------------------------");
 
-    let vx = 1.0;
-    let vy = 0.5;
+    let vx: f64 = 1.0;
+    let vy: f64 = 0.5;
     let solution = ManufacturedAdvection::new(vx, vy);
 
     let n = 64;
@@ -217,7 +216,11 @@ fn validate_taylor_green() -> Result<(), Box<dyn std::error::Error>> {
     println!("   --------------------------------");
 
     let nu = 0.01;
-    let tg = TaylorGreenVortex::new(nu, 1.0, 1.0);
+    let tg = TaylorGreenVortex {
+        u0: 1.0,
+        l: 1.0,
+        nu,
+    };
 
     // Check kinetic energy decay
     let times = vec![0.0, 0.5, 1.0];
@@ -233,15 +236,15 @@ fn validate_taylor_green() -> Result<(), Box<dyn std::error::Error>> {
     let y = 0.5;
     let t = 1.0;
 
-    let velocity = tg.evaluate(x, y, 0.0, t);
+    let velocity = tg.velocity(x, y, t);
     println!(
         "\n   Velocity at ({}, {}, t={}): [{:.6}, {:.6}, {:.6}]",
         x, y, t, velocity.x, velocity.y, velocity.z
     );
 
     // Check that solution decays as expected
-    let v0 = tg.evaluate(x, y, 0.0, 0.0);
-    let v1 = tg.evaluate(x, y, 0.0, 1.0);
+    let v0 = tg.velocity(x, y, 0.0);
+    let v1 = tg.velocity(x, y, 1.0);
     let decay_ratio = v1.norm() / v0.norm();
     let expected_decay = (-2.0 * nu * PI * PI).exp();
 
@@ -266,7 +269,7 @@ fn validate_poiseuille() -> Result<(), Box<dyn std::error::Error>> {
     let dp_dx = -1.0; // Pressure gradient
     let mu = 0.01; // Dynamic viscosity
 
-    let poiseuille = PoiseuilleFlow::new(h, dp_dx, mu);
+    let poiseuille = PoiseuilleFlow { h, dp_dx, mu };
 
     // Sample velocity profile at different heights
     let n_points = 11;
@@ -274,23 +277,23 @@ fn validate_poiseuille() -> Result<(), Box<dyn std::error::Error>> {
 
     for i in 0..n_points {
         let y = -h + 2.0 * h * (i as f64) / ((n_points - 1) as f64);
-        let velocity = poiseuille.evaluate(0.0, y, 0.0, 0.0);
+        let velocity = poiseuille.velocity(y);
         let u_exact = -dp_dx / (2.0 * mu) * (h * h - y * y);
 
         println!(
             "   y = {:5.2}: u = {:.6} (exact: {:.6})",
-            y, velocity.x, u_exact
+            y, velocity, u_exact
         );
 
         assert!(
-            (velocity.x - u_exact).abs() < 1e-10,
+            (velocity - u_exact).abs() < 1e-10,
             "Velocity mismatch at y = {}",
             y
         );
     }
 
     // Check maximum velocity at centerline
-    let u_max = poiseuille.evaluate(0.0, 0.0, 0.0, 0.0).x;
+    let u_max = poiseuille.max_velocity();
     let u_max_exact = -dp_dx * h * h / (2.0 * mu);
 
     println!("\n   Maximum Velocity: {:.6}", u_max);

@@ -3,9 +3,10 @@
 //! This example demonstrates solving the 2D heat equation using finite differences.
 //! We solve: ∇²T = 0 with specified boundary conditions.
 
-use cfd_suite::d2::{
-    AdvectionDiffusionSolver, BoundaryType, FdmConfig, PoissonSolver, StructuredGrid2D,
-};
+// Correct imports from specific modules
+use cfd_2d::grid::{BoundaryType, StructuredGrid2D};
+use cfd_2d::solvers::fdm::{AdvectionDiffusionSolver, FdmConfig, PoissonSolver};
+use cfd_core::prelude::SolverConfig;
 use std::collections::HashMap;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -59,7 +60,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let source = HashMap::new();
 
     // Configure the Poisson solver using builder pattern
-    let base = cfd_core::SolverConfig::<f64>::builder()
+    let base = SolverConfig::<f64>::builder()
         .tolerance(1e-8)
         .max_iterations(2000)
         .relaxation_factor(1.0)
@@ -150,7 +151,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Solve advection-diffusion equation
     let diffusivity = 0.1; // Thermal diffusivity
 
-    let advdiff_base = cfd_core::SolverConfig::<f64>::builder()
+    let advdiff_base = SolverConfig::<f64>::builder()
         .tolerance(1e-6)
         .max_iterations(1000)
         .relaxation_factor(0.8)

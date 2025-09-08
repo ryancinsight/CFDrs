@@ -26,7 +26,9 @@ pub const DEFAULT_MIXING_EFFICIENCY: f64 = 0.95;
 
 /// Friction factor constants for rectangular channels
 pub const RECT_CHANNEL_C1: f64 = 24.0;
+/// Rectangular channel friction factor coefficient C2
 pub const RECT_CHANNEL_C2: f64 = 64.0;
+/// Rectangular channel friction factor coefficient C3
 pub const RECT_CHANNEL_C3: f64 = 96.0;
 
 /// Friction factor for circular channels (laminar)

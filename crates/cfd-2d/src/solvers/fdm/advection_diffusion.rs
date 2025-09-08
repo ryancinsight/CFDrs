@@ -5,7 +5,7 @@
 use cfd_core::error::Result;
 use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::{DVector, RealField};
-use num_traits::{FromPrimitive, Zero};
+use num_traits::FromPrimitive;
 use std::collections::HashMap;
 
 use super::config::FdmConfig;

@@ -100,7 +100,7 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KEpsilonModel<T
         turbulent_viscosity * strain * strain * two
     }
 
-    fn dissipation_term(&self, k: T, epsilon: T) -> T {
+    fn dissipation_term(&self, _k: T, epsilon: T) -> T {
         epsilon
     }
 

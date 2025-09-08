@@ -160,6 +160,7 @@ pub mod kernels {
     }
 
     impl PressureSolver {
+        /// Create a new pressure solver with the given compute context
         pub fn new(compute: Arc<UnifiedCompute>) -> Self {
             Self { compute }
         }
@@ -216,6 +217,7 @@ pub mod kernels {
     }
 
     impl AdvectionSolver {
+        /// Create a new advection solver with the given compute context
         pub fn new(compute: Arc<UnifiedCompute>) -> Self {
             Self { compute }
         }

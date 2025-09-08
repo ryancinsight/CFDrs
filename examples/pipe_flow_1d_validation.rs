@@ -3,8 +3,9 @@
 //! This example validates the 1D pipe flow solver against the analytical
 //! Hagen-Poiseuille solution for laminar flow in a circular pipe.
 
+use cfd_core::solver::Solver;
 use cfd_1d::network::{Network, NetworkBuilder};
-use cfd_1d::solver::{NetworkProblem, NetworkSolver, SolverConfig};
+use cfd_1d::solver::{NetworkProblem, NetworkSolver};
 use cfd_core::error::Result;
 use cfd_core::fluid::ConstantPropertyFluid;
 use std::f64::consts::PI;
@@ -35,7 +36,14 @@ fn main() -> Result<()> {
     println!("  Pressure gradient: {} Pa/m", pressure_drop / pipe_length);
 
     // Create fluid with specified properties
-    let fluid = ConstantPropertyFluid::new(fluid_density, fluid_viscosity);
+    // Create fluid with all required parameters
+    let fluid = ConstantPropertyFluid::new(
+        "Water".to_string(),
+        fluid_viscosity,
+        fluid_density,
+        4186.0, // Specific heat (J/kg·K)
+        0.6,    // Thermal conductivity (W/m·K)
+    );
 
     // Build network using builder pattern
     let mut builder = NetworkBuilder::new();
@@ -53,13 +61,11 @@ fn main() -> Result<()> {
         inlet,
         outlet,
         "pipe".to_string(),
-        pipe_length,
-        pipe_area,
-        resistance,
     );
 
     // Build the network
-    let graph = builder.build();
+    // Build the network
+    let graph = builder.build()?;
     let mut network = Network::new(graph, fluid);
 
     // Set boundary conditions would need to be implemented differently

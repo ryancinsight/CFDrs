@@ -4,7 +4,6 @@
 
 use cfd_core::error::Result;
 use cfd_math::simd::{SimdProcessor, VectorOps};
-use nalgebra::RealField;
 use std::sync::OnceLock;
 
 // Global SIMD processor instance (initialized once)
