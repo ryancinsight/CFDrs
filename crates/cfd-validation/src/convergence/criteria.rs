@@ -176,10 +176,12 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
 
         let current_error = match self.history.last() {
             Some(&error) => error,
-            None => return ConvergenceStatus::NotConverged {
-                current_error: T::from_f64_or_zero(f64::INFINITY),
-                iterations: 0,
-            },
+            None => {
+                return ConvergenceStatus::NotConverged {
+                    current_error: T::from_f64_or_zero(f64::INFINITY),
+                    iterations: 0,
+                }
+            }
         };
         let iterations = self.history.len();
 

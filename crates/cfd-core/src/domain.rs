@@ -22,18 +22,24 @@ pub trait Domain<T: RealField + Copy>: Send + Sync {
     fn volume(&self) -> T;
 
     /// Check if a point is inside the domain (dimension-specific)
-    fn contains_1d(&self, _point: &Point1<T>) -> bool {
-        panic!("contains_1d called on non-1D domain")
+    /// Returns Some(true) if contained, Some(false) if not contained,
+    /// None if called on an incompatible dimension
+    fn contains_1d(&self, _point: &Point1<T>) -> Option<bool> {
+        None // Default: not supported for this dimension
     }
 
     /// Check if a point is inside the domain (dimension-specific)
-    fn contains_2d(&self, _point: &Point2<T>) -> bool {
-        panic!("contains_2d called on non-2D domain")
+    /// Returns Some(true) if contained, Some(false) if not contained,
+    /// None if called on an incompatible dimension
+    fn contains_2d(&self, _point: &Point2<T>) -> Option<bool> {
+        None // Default: not supported for this dimension
     }
 
     /// Check if a point is inside the domain (dimension-specific)
-    fn contains_3d(&self, _point: &Point3<T>) -> bool {
-        panic!("contains_3d called on non-3D domain")
+    /// Returns Some(true) if contained, Some(false) if not contained,
+    /// None if called on an incompatible dimension
+    fn contains_3d(&self, _point: &Point3<T>) -> Option<bool> {
+        None // Default: not supported for this dimension
     }
 }
 
@@ -65,8 +71,8 @@ impl<T: RealField + Copy> Domain1D<T> {
         (self.start + self.end) / two
     }
 
-    /// Check if a point (taking only x-coordinate) is within the domain
-    pub fn contains(&self, point: &Point3<T>) -> bool {
+    /// Check if a point is within the domain
+    pub fn contains(&self, point: &Point1<T>) -> bool {
         point.x >= self.start && point.x <= self.end
     }
 }
@@ -80,8 +86,8 @@ impl<T: RealField + Copy> Domain<T> for Domain1D<T> {
         self.length()
     }
 
-    fn contains_1d(&self, point: &Point1<T>) -> bool {
-        point.x >= self.start && point.x <= self.end
+    fn contains_1d(&self, point: &Point1<T>) -> Option<bool> {
+        Some(point.x >= self.start && point.x <= self.end)
     }
 }
 
@@ -141,8 +147,8 @@ impl<T: RealField + Copy> Domain2D<T> {
         self.width() * self.height()
     }
 
-    /// Check if a point (using x,y coordinates) is within the domain
-    pub fn contains(&self, point: &Point3<T>) -> bool {
+    /// Check if a point is within the domain
+    pub fn contains(&self, point: &Point2<T>) -> bool {
         point.x >= self.min.x
             && point.x <= self.max.x
             && point.y >= self.min.y
@@ -159,11 +165,13 @@ impl<T: RealField + Copy> Domain<T> for Domain2D<T> {
         self.area()
     }
 
-    fn contains_2d(&self, point: &Point2<T>) -> bool {
-        point.x >= self.min.x
-            && point.x <= self.max.x
-            && point.y >= self.min.y
-            && point.y <= self.max.y
+    fn contains_2d(&self, point: &Point2<T>) -> Option<bool> {
+        Some(
+            point.x >= self.min.x
+                && point.x <= self.max.x
+                && point.y >= self.min.y
+                && point.y <= self.max.y,
+        )
     }
 }
 
@@ -258,13 +266,15 @@ impl<T: RealField + Copy> Domain<T> for Domain3D<T> {
         self.width() * self.height() * self.depth()
     }
 
-    fn contains_3d(&self, point: &Point3<T>) -> bool {
-        point.x >= self.min.x
-            && point.x <= self.max.x
-            && point.y >= self.min.y
-            && point.y <= self.max.y
-            && point.z >= self.min.z
-            && point.z <= self.max.z
+    fn contains_3d(&self, point: &Point3<T>) -> Option<bool> {
+        Some(
+            point.x >= self.min.x
+                && point.x <= self.max.x
+                && point.y >= self.min.y
+                && point.y <= self.max.y
+                && point.z >= self.min.z
+                && point.z <= self.max.z,
+        )
     }
 }
 
@@ -288,24 +298,24 @@ impl<T: RealField + Copy> Domain<T> for AnyDomain<T> {
         }
     }
 
-    fn contains_1d(&self, point: &Point1<T>) -> bool {
+    fn contains_1d(&self, point: &Point1<T>) -> Option<bool> {
         match self {
             Self::D1(d) => d.contains_1d(point),
-            _ => false,
+            _ => None,
         }
     }
 
-    fn contains_2d(&self, point: &Point2<T>) -> bool {
+    fn contains_2d(&self, point: &Point2<T>) -> Option<bool> {
         match self {
             Self::D2(d) => d.contains_2d(point),
-            _ => false,
+            _ => None,
         }
     }
 
-    fn contains_3d(&self, point: &Point3<T>) -> bool {
+    fn contains_3d(&self, point: &Point3<T>) -> Option<bool> {
         match self {
             Self::D3(d) => d.contains_3d(point),
-            _ => false,
+            _ => None,
         }
     }
 
@@ -347,8 +357,8 @@ mod tests {
         let domain = Domain1D::new(0.0, 1.0);
         assert_eq!(domain.dimension(), 1);
         assert_relative_eq!(domain.length(), 1.0);
-        assert!(domain.contains(&Point3::new(0.5, 0.0, 0.0)));
-        assert!(!domain.contains(&Point3::new(1.5, 0.0, 0.0)));
+        assert!(domain.contains(&Point1::new(0.5)));
+        assert!(!domain.contains(&Point1::new(1.5)));
 
         // Test automatic ordering
         let domain_reversed = Domain1D::new(1.0, 0.0);
@@ -362,8 +372,8 @@ mod tests {
         let domain = Domain2D::from_scalars(0.0, 0.0, 2.0, 3.0);
         assert_eq!(domain.dimension(), 2);
         assert_relative_eq!(domain.area(), 6.0);
-        assert!(domain.contains(&Point3::new(1.0, 1.0, 0.0)));
-        assert!(!domain.contains(&Point3::new(3.0, 1.0, 0.0)));
+        assert!(domain.contains(&Point2::new(1.0, 1.0)));
+        assert!(!domain.contains(&Point2::new(3.0, 1.0)));
 
         // Test from_points constructor
         let domain2 = Domain2D::from_points(Point2::new(0.0, 0.0), Point2::new(2.0, 3.0));
@@ -392,5 +402,57 @@ mod tests {
         let domain_3d = Domain3D::new(Point3::new(0.0, 0.0, 0.0), Point3::new(1.0, 1.0, 1.0));
         let any_domain: AnyDomain<f64> = domain_3d.into();
         assert_eq!(any_domain.dimension(), 3);
+    }
+
+    #[test]
+    fn test_dimension_specific_contains_methods() {
+        let domain_1d = Domain1D::new(0.0, 1.0);
+        let domain_2d = Domain2D::from_scalars(0.0, 0.0, 1.0, 1.0);
+        let domain_3d = Domain3D::new(Point3::new(0.0, 0.0, 0.0), Point3::new(1.0, 1.0, 1.0));
+
+        // Test 1D domain
+        assert_eq!(domain_1d.contains_1d(&Point1::new(0.5)), Some(true));
+        assert_eq!(domain_1d.contains_1d(&Point1::new(1.5)), Some(false));
+        assert_eq!(domain_1d.contains_2d(&Point2::new(0.5, 0.5)), None);
+        assert_eq!(domain_1d.contains_3d(&Point3::new(0.5, 0.5, 0.5)), None);
+
+        // Test 2D domain
+        assert_eq!(domain_2d.contains_1d(&Point1::new(0.5)), None);
+        assert_eq!(domain_2d.contains_2d(&Point2::new(0.5, 0.5)), Some(true));
+        assert_eq!(domain_2d.contains_2d(&Point2::new(1.5, 0.5)), Some(false));
+        assert_eq!(domain_2d.contains_3d(&Point3::new(0.5, 0.5, 0.5)), None);
+
+        // Test 3D domain
+        assert_eq!(domain_3d.contains_1d(&Point1::new(0.5)), None);
+        assert_eq!(domain_3d.contains_2d(&Point2::new(0.5, 0.5)), None);
+        assert_eq!(
+            domain_3d.contains_3d(&Point3::new(0.5, 0.5, 0.5)),
+            Some(true)
+        );
+        assert_eq!(
+            domain_3d.contains_3d(&Point3::new(1.5, 0.5, 0.5)),
+            Some(false)
+        );
+    }
+
+    #[test]
+    fn test_any_domain_dimension_specific_contains() {
+        let any_1d: AnyDomain<f64> = Domain1D::new(0.0, 1.0).into();
+        let any_2d: AnyDomain<f64> = Domain2D::from_scalars(0.0, 0.0, 1.0, 1.0).into();
+        let any_3d: AnyDomain<f64> =
+            Domain3D::new(Point3::new(0.0, 0.0, 0.0), Point3::new(1.0, 1.0, 1.0)).into();
+
+        // Test proper dimension matches
+        assert_eq!(any_1d.contains_1d(&Point1::new(0.5)), Some(true));
+        assert_eq!(any_2d.contains_2d(&Point2::new(0.5, 0.5)), Some(true));
+        assert_eq!(any_3d.contains_3d(&Point3::new(0.5, 0.5, 0.5)), Some(true));
+
+        // Test dimension mismatches return None
+        assert_eq!(any_1d.contains_2d(&Point2::new(0.5, 0.5)), None);
+        assert_eq!(any_1d.contains_3d(&Point3::new(0.5, 0.5, 0.5)), None);
+        assert_eq!(any_2d.contains_1d(&Point1::new(0.5)), None);
+        assert_eq!(any_2d.contains_3d(&Point3::new(0.5, 0.5, 0.5)), None);
+        assert_eq!(any_3d.contains_1d(&Point1::new(0.5)), None);
+        assert_eq!(any_3d.contains_2d(&Point2::new(0.5, 0.5)), None);
     }
 }

@@ -3,7 +3,10 @@
 //! These are exact solutions to the Navier-Stokes equations
 //! used to validate numerical implementations.
 
-use cfd_core::constants::mathematical::{numeric::{ONE_HALF, TWO, TWO_THIRDS}, TWO_PI};
+use cfd_core::constants::mathematical::{
+    numeric::{ONE_HALF, TWO, TWO_THIRDS},
+    TWO_PI,
+};
 use cfd_core::conversion::SafeFromF64;
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
@@ -30,10 +33,8 @@ impl<T: RealField + Copy + FromPrimitive> CouetteFlow<T> {
         let y_norm = y / self.h;
         let linear_term = self.u_wall * y_norm;
         let two = T::from_f64_or_one(TWO);
-        let pressure_term = (self.h * self.h / (two * self.mu))
-            * self.dp_dx
-            * y_norm
-            * (T::one() - y_norm);
+        let pressure_term =
+            (self.h * self.h / (two * self.mu)) * self.dp_dx * y_norm * (T::one() - y_norm);
         linear_term + pressure_term
     }
 
@@ -115,12 +116,7 @@ impl<T: RealField + Copy + FromPrimitive> TaylorGreenVortex<T> {
         let decay = (-two * k * k * self.nu * t).exp();
 
         let quarter = T::from_f64_or_zero(0.25);
-        -quarter
-            * rho
-            * self.u0
-            * self.u0
-            * ((two * k * x).cos() + (two * k * y).cos())
-            * decay
+        -quarter * rho * self.u0 * self.u0 * ((two * k * x).cos() + (two * k * y).cos()) * decay
     }
 
     /// Kinetic energy decay rate
