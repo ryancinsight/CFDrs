@@ -245,7 +245,7 @@ impl VectorOps for SimdOps {
     #[inline]
     fn sum_f32(&self, input: &[f32]) -> Result<f32> {
         // Sum is inherently sequential, use SWAR implementation
-        Ok(self.swar.sum_f32(input))
+        self.swar.sum_f32(input)
     }
 
     #[inline]

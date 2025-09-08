@@ -324,7 +324,7 @@ impl SwarOps {
 
     /// Sum all elements in f32 array
     #[inline]
-    pub fn sum_f32(&self, input: &[f32]) -> f32 {
+    pub fn sum_f32(&self, input: &[f32]) -> Result<f32> {
         let len = input.len();
         let chunks = len / self.unroll_factor;
         let mut sum = 0.0f32;
@@ -339,7 +339,7 @@ impl SwarOps {
             sum += input[i];
         }
 
-        sum
+        Ok(sum)
     }
 
     /// Find maximum element in f32 array
@@ -476,7 +476,7 @@ impl VectorOps for SwarOps {
 
     #[inline]
     fn sum_f32(&self, input: &[f32]) -> Result<f32> {
-        Ok(self.sum_f32(input))
+        self.sum_f32(input)
     }
 
     #[inline]

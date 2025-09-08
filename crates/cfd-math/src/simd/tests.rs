@@ -147,7 +147,7 @@ mod tests {
         let swar = SwarOps::new();
         let input = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0];
 
-        let sum = swar.sum_f32(&input);
+        let sum = swar.sum_f32(&input).unwrap();
 
         assert_relative_eq!(sum, 45.0, epsilon = 1e-6);
     }

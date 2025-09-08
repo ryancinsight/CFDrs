@@ -2,6 +2,8 @@
 //!
 //! This example demonstrates validation of numerical methods against known solutions.
 
+use cfd_validation::manufactured::{ManufacturedDiffusion, ManufacturedAdvection, ManufacturedSolution};
+use cfd_validation::analytical_benchmarks::{TaylorGreenVortex, PoiseuilleFlow};
 use cfd_suite::d2::fields::Field2D;
 use cfd_suite::d2::grid::StructuredGrid2D;
 use cfd_suite::math::differentiation::FiniteDifference;
@@ -87,7 +89,7 @@ fn validate_diffusion() -> Result<(), Box<dyn std::error::Error>> {
 
         // Calculate error
         let mut l2_error = 0.0;
-        let mut max_error = 0.0;
+        let mut max_error: f64 = 0.0;
 
         for i in 0..*n {
             for j in 0..*n {
@@ -133,8 +135,8 @@ fn validate_advection() -> Result<(), Box<dyn std::error::Error>> {
     println!("   Method: Manufactured Solution");
     println!("   --------------------------------");
 
-    let vx = 1.0;
-    let vy = 0.5;
+    let vx: f64 = 1.0;
+    let vy: f64 = 0.5;
     let solution = ManufacturedAdvection::new(vx, vy);
 
     let n = 64;
@@ -217,7 +219,7 @@ fn validate_taylor_green() -> Result<(), Box<dyn std::error::Error>> {
     println!("   --------------------------------");
 
     let nu = 0.01;
-    let tg = TaylorGreenVortex::new(nu, 1.0, 1.0);
+    let tg = TaylorGreenVortex::create_2d(1.0, 1.0, nu);
 
     // Check kinetic energy decay
     let times = vec![0.0, 0.5, 1.0];
@@ -266,7 +268,7 @@ fn validate_poiseuille() -> Result<(), Box<dyn std::error::Error>> {
     let dp_dx = -1.0; // Pressure gradient
     let mu = 0.01; // Dynamic viscosity
 
-    let poiseuille = PoiseuilleFlow::new(h, dp_dx, mu);
+    let poiseuille = PoiseuilleFlow { h, dp_dx, mu };
 
     // Sample velocity profile at different heights
     let n_points = 11;
