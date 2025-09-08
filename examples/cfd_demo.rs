@@ -83,13 +83,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use nalgebra::DVector;
 
     let b = DVector::from_vec(vec![1.0, 0.0, 1.0]);
-    use cfd_math::linear_solver::{ConjugateGradient};
+    use cfd_math::linear_solver::{ConjugateGradient, IdentityPreconditioner};
     let solver = ConjugateGradient::<f64>::default();
     let mut x = DVector::zeros(3);
-    let result = solver.solve(&matrix, &b, &mut x, None)?;
+    let preconditioner: Option<&IdentityPreconditioner> = None;
+    solver.solve(&matrix, &b, &mut x, preconditioner)?;
     println!("   ✓ Solved Ax = b using Conjugate Gradient");
     println!("   Solution norm: {:.6}", x.norm());
-    println!("   Solver converged in {} iterations", result.iterations);
 
     // 7. Summary
     println!("\n=== Summary ===");

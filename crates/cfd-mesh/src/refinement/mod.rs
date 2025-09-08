@@ -32,6 +32,7 @@ impl<T: RealField + Copy> RefinementStrategy<T> for UniformRefinement {
 
 /// Adaptive refinement strategy
 pub struct AdaptiveRefinement<T: RealField + Copy> {
+    /// Threshold value for refinement criteria
     pub threshold: T,
 }
 

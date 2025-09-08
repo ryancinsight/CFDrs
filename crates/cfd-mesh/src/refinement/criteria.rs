@@ -7,12 +7,16 @@ use thiserror::Error;
 /// Refinement errors
 #[derive(Debug, Error)]
 pub enum RefinementError {
+    /// Invalid mesh structure provided
     #[error("Invalid mesh: {0}")]
     InvalidMesh(String),
+    /// Maximum refinement level reached
     #[error("Refinement limit reached: level {0}")]
     MaxLevelReached(usize),
+    /// Minimum cell size reached
     #[error("Cell too small: size {0}")]
     MinSizeReached(f64),
+    /// Invalid refinement criteria specified
     #[error("Invalid refinement criteria: {0}")]
     InvalidCriteria(String),
 }
@@ -20,12 +24,24 @@ pub enum RefinementError {
 /// Refinement criteria for adaptive mesh refinement
 pub enum RefinementCriterion<T: RealField + Copy> {
     /// Refine based on solution gradient
-    Gradient { field: Vec<T>, threshold: T },
+    Gradient { 
+        /// Solution field values
+        field: Vec<T>, 
+        /// Gradient threshold for refinement
+        threshold: T 
+    },
     /// Refine based on error estimate
-    Error { error_field: Vec<T>, threshold: T },
+    Error { 
+        /// Error field values
+        error_field: Vec<T>, 
+        /// Error threshold for refinement
+        threshold: T 
+    },
     /// Refine based on geometric features
     Geometric {
+        /// Curvature threshold for geometric refinement
         curvature_threshold: T,
+        /// Feature angle threshold in radians
         feature_angle: T,
     },
     /// Custom refinement function
