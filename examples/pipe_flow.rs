@@ -2,7 +2,9 @@
 //!
 //! This example follows SOLID principles and demonstrates proper error handling
 
-use cfd_suite::core::Result;
+use cfd_core::error::Result;
+use cfd_core::fluid::ConstantPropertyFluid;
+use cfd_1d::network::{ComponentType, EdgeProperties};
 use cfd_suite::d1::{EdgeProperties, Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 use cfd_suite::prelude::*;
 
@@ -10,10 +12,17 @@ fn main() -> Result<()> {
     println!("Pipe Flow Example");
     println!("========================\n");
 
-    // Create fluid with proper error handling
-    let fluid = Fluid::<f64>::water_20c();
-    println!("Fluid: {}", fluid.name);
-    println!("Density: {} kg/m³", fluid.density);
+    // Create fluid with proper error handling  
+    let fluid = ConstantPropertyFluid::new(
+        "Water".to_string(),
+        1e-3,   // Viscosity (Pa·s)
+        1000.0, // Density (kg/m³)
+        4186.0, // Specific heat (J/kg·K)
+        0.6,    // Thermal conductivity (W/m·K)
+    );
+    println!("Fluid: {}", fluid.name());
+    println!("Density: {} kg/m³", fluid.density());
+    println!("Viscosity: {} Pa·s", fluid.viscosity());
 
     // Build network using NetworkBuilder
     let mut builder = NetworkBuilder::new();
@@ -44,7 +53,7 @@ fn main() -> Result<()> {
 
     let edge_props = EdgeProperties {
         id: "pipe1".to_string(),
-        component_type: cfd_suite::prelude::ComponentType::Pipe,
+        component_type: ComponentType::Pipe,
         resistance,
         length: PIPE_LENGTH,
         area: PIPE_AREA,
