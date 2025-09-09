@@ -44,8 +44,6 @@ pub enum FlowRegime {
 impl FlowRegime {
     /// Determine flow regime from Reynolds number
     pub fn from_reynolds_number<T: RealField + Copy + num_traits::FromPrimitive>(re: T) -> Self {
-        use num_traits::FromPrimitive;
-
         let re_1 = T::from_f64(1.0).unwrap_or_else(T::one);
         let re_2300 =
             T::from_f64(2300.0).unwrap_or_else(|| T::from_usize(2300).unwrap_or_else(T::one));

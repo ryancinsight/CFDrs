@@ -83,7 +83,7 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
     }
 
     /// Get edges with their properties
-    pub fn edges_with_properties(&self) -> Vec<EdgeWithProperties<T>> {
+    pub fn edges_with_properties(&self) -> Vec<EdgeWithProperties<'_, T>> {
         self.graph
             .edge_references()
             .filter_map(|edge_ref| {

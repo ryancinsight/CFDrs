@@ -85,7 +85,7 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
         faces
     }
 
-    /// Solve the system
+    /// Solve the system using proper FVM discretization
     pub fn solve(
         &mut self,
         phi: &mut Field2D<T>,
@@ -100,26 +100,55 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
                 .unwrap_or(1e-3),
         );
 
-        // Iterative solution
+        let dx = T::from_f64(1.0 / self.config.nx as f64).unwrap_or_else(T::one);
+        let dy = T::from_f64(1.0 / self.config.ny as f64).unwrap_or_else(T::one);
+
+        // Iterative solution using proper FVM discretization
         for _iter in 0..self.config.max_iterations {
             let mut residual = T::zero();
 
-            // Update each cell
-            for j in 0..self.config.ny {
-                for i in 0..self.config.nx {
-                    // Calculate fluxes and update
-                    // This is a simplified implementation
-                    let phi_old = phi.at(i, j);
+            // Update each interior cell using FVM discretization
+            for j in 1..self.config.ny-1 {
+                for i in 1..self.config.nx-1 {
+                    let phi_p = phi.at(i, j);
+                    let phi_e = phi.at(i + 1, j);
+                    let phi_w = phi.at(i - 1, j);
+                    let phi_n = phi.at(i, j + 1);
+                    let phi_s = phi.at(i, j - 1);
 
-                    // Apply relaxation
-                    let phi_new = phi_old * (T::one() - self.config.relaxation_factor)
-                        + source.at(i, j) * self.config.relaxation_factor;
+                    // Get velocity components
+                    let vel = velocity.at(i, j);
+                    let u = vel.x;
+                    let v = vel.y;
+
+                    // Calculate convective fluxes using proper discretization
+                    let flux_e = flux_calculator.calculate_flux(phi_p, phi_e, phi_p, u, dx)?;
+                    let flux_w = flux_calculator.calculate_flux(phi_w, phi_p, phi_w, u, dx)?;
+                    let flux_n = flux_calculator.calculate_flux(phi_p, phi_n, phi_p, v, dy)?;
+                    let flux_s = flux_calculator.calculate_flux(phi_s, phi_p, phi_s, v, dy)?;
+
+                    // Diffusive terms (central difference)
+                    let diff_coeff = T::from_f64(
+                        self.config.diffusion_coefficient.to_subset().unwrap_or(1e-3)
+                    ).unwrap_or_else(T::zero);
+                    let diff_e = diff_coeff * (phi_e - phi_p) / (dx * dx);
+                    let diff_w = diff_coeff * (phi_p - phi_w) / (dx * dx);
+                    let diff_n = diff_coeff * (phi_n - phi_p) / (dy * dy);
+                    let diff_s = diff_coeff * (phi_p - phi_s) / (dy * dy);
+
+                    // Net flux (convection + diffusion)
+                    let net_flux = -(flux_e - flux_w) / dx - (flux_n - flux_s) / dy 
+                                   + (diff_e - diff_w) + (diff_n - diff_s);
+
+                    // Update with source term and relaxation
+                    let phi_new = phi_p + self.config.relaxation_factor * 
+                                  (net_flux + source.at(i, j));
 
                     if let Some(p) = phi.at_mut(i, j) {
                         *p = phi_new;
                     }
 
-                    residual = residual.max((phi_new - phi_old).abs());
+                    residual = residual.max((phi_new - phi_p).abs());
                 }
             }
 

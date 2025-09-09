@@ -13,7 +13,7 @@ mod wrapper;
 pub use builder::NetworkBuilder;
 pub use component_type::ComponentType;
 pub use edge::{ChannelProperties, Edge, EdgeType};
-pub use graph::NetworkGraph;
+pub use graph::{NetworkGraph, NetworkGraphExt};
 pub use metadata::NetworkMetadata;
 pub use node::{Node, NodeProperties, NodeType};
 pub use wrapper::{EdgeProperties, EdgeWithProperties, Network, ParallelEdge};
