@@ -23,6 +23,11 @@ impl<T: RealField + Copy> ConvergenceChecker<T> {
         self.tolerance = tolerance;
     }
 
+    /// Check if maximum iterations reached
+    pub fn max_iterations_reached(&self, current_iteration: usize) -> bool {
+        current_iteration >= self.max_iterations
+    }
+
     /// Check if solution has converged using L2 norm of residual
     /// Reference: Saad, Y. (2003). "Iterative Methods for Sparse Linear Systems"
     pub fn check(&self, solution: &DVector<T>) -> Result<()> {

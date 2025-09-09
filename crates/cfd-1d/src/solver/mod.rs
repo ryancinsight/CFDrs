@@ -27,7 +27,9 @@ use serde::{Deserialize, Serialize};
 /// Solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SolverConfig<T: RealField + Copy> {
+    /// Convergence tolerance for solution accuracy
     pub tolerance: T,
+    /// Maximum number of solver iterations before termination
     pub max_iterations: usize,
 }
 
@@ -108,11 +110,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
             // 2. Solve the linearized system
             let solution = self.linear_solver.solve(&matrix, &rhs)?;
 
-            // 3. Check for convergence by comparing solutions
-            let change = (&solution - &last_solution).norm();
+            // 3. Check for convergence using the convergence checker
+            let converged = self.convergence.has_converged(&solution, &last_solution)?;
 
             // Check if solution has converged
-            if change < self.config.tolerance {
+            if converged {
                 // Apply final solution and return
                 self.update_network_solution(&mut network, solution)?;
                 return Ok(network);

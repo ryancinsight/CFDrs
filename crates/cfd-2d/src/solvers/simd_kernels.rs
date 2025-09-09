@@ -30,7 +30,7 @@ pub fn jacobi_iteration_simd(
     let dy2 = dy * dy;
     let factor = 0.5 / (1.0 / dx2 + 1.0 / dy2);
 
-    let processor = simd_processor();
+    let _processor = simd_processor(); // TODO: Integrate SIMD operations for vectorized computation
 
     // Process interior points
     for i in 1..nx - 1 {
@@ -198,7 +198,7 @@ pub fn calculate_gradient_simd(
     dx: f32,
     dy: f32,
 ) -> Result<()> {
-    let processor = simd_processor();
+    let _processor = simd_processor(); // TODO: Integrate SIMD operations for vectorized computation
     let inv_dx = 0.5 / dx;
     let inv_dy = 0.5 / dy;
 
@@ -231,7 +231,7 @@ pub fn calculate_residual_simd(
     dx: f32,
     dy: f32,
 ) -> Result<f32> {
-    let processor = simd_processor();
+    let _processor = simd_processor(); // TODO: Integrate SIMD operations for vectorized computation
     let dx2 = dx * dx;
     let dy2 = dy * dy;
     let inv_dx2 = 1.0 / dx2;
