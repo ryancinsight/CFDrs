@@ -34,8 +34,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pipe_mesh = create_pipe_mesh(pipe_radius, pipe_length, n_circumferential, n_axial)?;
     println!(
         "  Generated {} vertices, {} faces",
-        pipe_mesh.vertices.len(),
-        pipe_mesh.faces.len()
+        pipe_mesh.vertices().len(),
+        pipe_mesh.faces().len()
     );
 
     // Set up flow parameters
@@ -51,8 +51,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // FEM solver configuration (not used in analytical solution)
     let _fem_config = FemConfig::<f64>::default();
 
-    // Create fluid properties
-    let fluid = Fluid::create("water".to_string(), fluid_density, fluid_viscosity);
+    // Create fluid properties - water at 20°C
+    let fluid = Fluid::new(
+        "water".to_string(),
+        fluid_density,
+        fluid_viscosity,
+        4184.0, // specific heat of water (J/kg·K)
+        0.6     // thermal conductivity of water (W/m·K)
+    );
 
     // Set up boundary conditions
     let mut boundary_conditions = HashMap::new();
@@ -61,7 +67,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let max_velocity = -pressure_gradient * pipe_radius * pipe_radius / (4.0 * fluid_viscosity);
 
     // Apply boundary conditions to all nodes based on position
-    for (i, vertex) in pipe_mesh.vertices.iter().enumerate() {
+    for (i, vertex) in pipe_mesh.vertices().iter().enumerate() {
         let z = vertex.position.z;
         let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
 
@@ -161,14 +167,12 @@ fn create_pipe_mesh(
 
             vertices.push(Vertex {
                 position: Point3::new(x, y, z),
-                id: vertices.len(),
             });
         }
 
         // Add center vertex for each cross-section
         vertices.push(Vertex {
             position: Point3::new(0.0, 0.0, z),
-            id: vertices.len(),
         });
     }
 
@@ -186,15 +190,21 @@ fn create_pipe_mesh(
             // Create triangular face
             faces.push(Face {
                 vertices: vec![current, next_j, current_next_level],
-                id: faces.len(),
             });
         }
     }
 
     let mut mesh = Mesh::new();
-    mesh.vertices = vertices;
-    mesh.faces = faces;
-    mesh.build_topology();
+    
+    // Add vertices to mesh
+    for vertex in vertices {
+        mesh.add_vertex(vertex);
+    }
+    
+    // Add faces to mesh  
+    for face in faces {
+        mesh.add_face(face);
+    }
 
     Ok(mesh)
 }
@@ -229,7 +239,7 @@ fn validate_pipe_flow(
     let mut max_velocity_numerical = 0.0;
     let mut centerline_velocities = Vec::new();
 
-    for (i, vertex) in mesh.vertices.iter().enumerate() {
+    for (i, vertex) in mesh.vertices().iter().enumerate() {
         let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
 
         // Check if point is near centerline (r ≈ 0)
@@ -281,12 +291,12 @@ fn validate_pipe_flow(
 
     // Integrate velocity over cross-section at mid-length
     let mid_z = length / 2.0;
-    for vertex in &mesh.vertices {
+    for (vertex_id, vertex) in mesh.vertices().iter().enumerate() {
         if (vertex.position.z - mid_z).abs() < length / (2.0 * n_axial as f64) {
             let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
             if r <= radius {
-                if vertex.id * 3 + 2 < solution.velocity.len() {
-                    let v_z = solution.velocity[vertex.id * 3 + 2];
+                if vertex_id * 3 + 2 < solution.velocity.len() {
+                    let v_z = solution.velocity[vertex_id * 3 + 2];
                     flow_rate_numerical += v_z * r * dr * dtheta; // Cylindrical integration
                 }
             }
@@ -307,12 +317,12 @@ fn validate_pipe_flow(
     let mut profile_points = Vec::new();
 
     // Sample radial positions at mid-length
-    for vertex in &mesh.vertices {
+    for (vertex_id, vertex) in mesh.vertices().iter().enumerate() {
         if (vertex.position.z - mid_z).abs() < length / (2.0 * n_axial as f64) {
             let r = (vertex.position.x.powi(2) + vertex.position.y.powi(2)).sqrt();
             if r <= radius {
-                if vertex.id * 3 + 2 < solution.velocity.len() {
-                    let v_z = solution.velocity[vertex.id * 3 + 2];
+                if vertex_id * 3 + 2 < solution.velocity.len() {
+                    let v_z = solution.velocity[vertex_id * 3 + 2];
                     let v_analytical = max_velocity_analytical * (1.0 - (r / radius).powi(2));
                     profile_points.push((r / radius, v_z, v_analytical));
                 }
@@ -345,12 +355,12 @@ fn validate_pipe_flow(
 
 /// Output the flow field results for visualization
 fn output_flow_field(solution: &StokesFlowSolution<f64>, mesh: &Mesh<f64>) {
-    println!("  Total vertices: {}", mesh.vertices.len());
-    println!("  Total faces: {}", mesh.faces.len());
+    println!("  Total vertices: {}", mesh.vertices().len());
+    println!("  Total faces: {}", mesh.faces().len());
 
     // Example: Print velocity at a few points
     println!("\nVelocity at selected points:");
-    for (i, vertex) in mesh.vertices.iter().enumerate().take(5) {
+    for (i, vertex) in mesh.vertices().iter().enumerate().take(5) {
         if i * 3 + 2 < solution.velocity.len() {
             let vx = solution.velocity[i * 3];
             let vy = solution.velocity[i * 3 + 1];
