@@ -154,32 +154,32 @@ fn test_error_statistics() -> Result<()> {
     let stats = ErrorStatistics::compute(&numerical, &reference)?;
 
     assert_eq!(stats.num_points, 5);
-    
+
     // Calculate expected error metrics analytically
     // Errors: [0.1, 0.1, 0.2, 0.2, 0.3]
     let errors = vec![0.1, 0.1, 0.2, 0.2, 0.3];
-    
+
     // L1 norm (MAE): (0.1 + 0.1 + 0.2 + 0.2 + 0.3) / 5 = 0.9 / 5 = 0.18
     let expected_l1 = 0.18;
     assert_relative_eq!(stats.l1_norm, expected_l1, epsilon = 1e-10);
     assert_relative_eq!(stats.mae, expected_l1, epsilon = 1e-10);
-    
+
     // L2 norm (RMSE): sqrt((0.01 + 0.01 + 0.04 + 0.04 + 0.09) / 5) = sqrt(0.19 / 5) = sqrt(0.038)
     let expected_l2 = (0.19f64 / 5.0).sqrt();
     assert_relative_eq!(stats.l2_norm, expected_l2, epsilon = 1e-10);
     assert_relative_eq!(stats.rmse, expected_l2, epsilon = 1e-10);
-    
+
     // L∞ norm: max absolute error = 0.3
     let expected_linf = 0.3;
     assert_relative_eq!(stats.linf_norm, expected_linf, epsilon = 1e-10);
-    
-    // Relative L2: L2 / ||reference||_2  
+
+    // Relative L2: L2 / ||reference||_2
     // Reference norm is L2 norm of reference against zeros
-    let reference_norm_squared = 1.1f64*1.1 + 1.9*1.9 + 3.2*3.2 + 3.8*3.8 + 5.3*5.3;
+    let reference_norm_squared = 1.1f64 * 1.1 + 1.9 * 1.9 + 3.2 * 3.2 + 3.8 * 3.8 + 5.3 * 5.3;
     let reference_norm = (reference_norm_squared / 5.0).sqrt();
     let expected_rel_l2 = expected_l2 / reference_norm;
     assert_relative_eq!(stats.relative_l2, expected_rel_l2, epsilon = 1e-10);
-    
+
     Ok(())
 }
 

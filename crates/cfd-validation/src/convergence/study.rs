@@ -2,6 +2,7 @@
 //!
 //! Implements convergence analysis following Richardson (1911) and Roache (1998) methodologies.
 
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -125,8 +126,8 @@ where
     let denominator = n * sum_log_h2 - sum_log_h * sum_log_h;
 
     if denominator.abs()
-        < T::from_f64(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE)
-            .unwrap_or_else(|| T::from_f64(1e-10).unwrap())
+        < T::try_from_f64(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE)
+            .unwrap_or_else(|_| T::from_f64_or_zero(1e-10))
     {
         return Err(Error::Numerical(
             cfd_core::error::NumericalErrorKind::SingularMatrix,

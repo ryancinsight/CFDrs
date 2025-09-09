@@ -3,11 +3,11 @@
 //! This example validates the 1D pipe flow solver against the analytical
 //! Hagen-Poiseuille solution for laminar flow in a circular pipe.
 
-use cfd_core::solver::Solver;
 use cfd_1d::network::{Network, NetworkBuilder};
 use cfd_1d::solver::{NetworkProblem, NetworkSolver};
 use cfd_core::error::Result;
 use cfd_core::fluid::ConstantPropertyFluid;
+use cfd_core::solver::Solver;
 use std::f64::consts::PI;
 
 fn main() -> Result<()> {
@@ -57,11 +57,7 @@ fn main() -> Result<()> {
     let resistance = 8.0 * fluid_viscosity * pipe_length / (PI * pipe_radius.powi(4));
 
     // Add pipe between inlet and outlet
-    builder.connect_with_pipe(
-        inlet,
-        outlet,
-        "pipe".to_string(),
-    );
+    builder.connect_with_pipe(inlet, outlet, "pipe".to_string());
 
     // Build the network
     // Build the network

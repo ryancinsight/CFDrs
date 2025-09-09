@@ -24,18 +24,18 @@ pub enum RefinementError {
 /// Refinement criteria for adaptive mesh refinement
 pub enum RefinementCriterion<T: RealField + Copy> {
     /// Refine based on solution gradient
-    Gradient { 
+    Gradient {
         /// Solution field values
-        field: Vec<T>, 
+        field: Vec<T>,
         /// Gradient threshold for refinement
-        threshold: T 
+        threshold: T,
     },
     /// Refine based on error estimate
-    Error { 
+    Error {
         /// Error field values
-        error_field: Vec<T>, 
+        error_field: Vec<T>,
         /// Error threshold for refinement
-        threshold: T 
+        threshold: T,
     },
     /// Refine based on geometric features
     Geometric {

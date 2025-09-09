@@ -28,9 +28,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Domain<T> for NetworkDomain<T> 
         1 // 1D network
     }
 
-    fn contains_1d(&self, _point: &Point1<T>) -> bool {
+    fn contains_1d(&self, _point: &Point1<T>) -> Option<bool> {
         // For network domains, all points are conceptually "inside"
-        true
+        Some(true)
     }
 
     fn volume(&self) -> T {

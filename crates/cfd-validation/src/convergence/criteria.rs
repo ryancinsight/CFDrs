@@ -2,6 +2,7 @@
 //!
 //! Implements convergence assessment following CFD best practices.
 
+use cfd_core::conversion::SafeFromF64;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
@@ -89,9 +90,9 @@ impl<T: RealField + Copy + FromPrimitive> GridConvergenceIndex<T> {
     /// Create GCI calculator with recommended safety factor
     pub fn new(num_grids: usize, order: T, refinement_ratio: T) -> Self {
         let safety_factor = if num_grids >= 3 {
-            T::from_f64(1.25).unwrap() // Recommended for systematic studies
+            T::from_f64_or_one(1.25) // Recommended for systematic studies
         } else {
-            T::from_f64(3.0).unwrap() // Conservative for limited grids
+            T::from_f64_or_one(3.0) // Conservative for limited grids
         };
 
         Self {
@@ -123,7 +124,7 @@ impl<T: RealField + Copy + FromPrimitive> GridConvergenceIndex<T> {
         let ratio = gci_coarse / (r_p * gci_fine);
 
         // Should be within 3% of unity for asymptotic range
-        (ratio - T::one()).abs() < T::from_f64(0.03).unwrap()
+        (ratio - T::one()).abs() < T::from_f64_or_zero(0.03)
     }
 
     /// Compute uncertainty band for solution
@@ -168,12 +169,20 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
     pub fn check_status(&self) -> ConvergenceStatus<T> {
         if self.history.is_empty() {
             return ConvergenceStatus::NotConverged {
-                current_error: T::from_f64(f64::INFINITY).unwrap_or_else(T::zero),
+                current_error: T::from_f64_or_zero(f64::INFINITY),
                 iterations: 0,
             };
         }
 
-        let current_error = *self.history.last().unwrap();
+        let current_error = match self.history.last() {
+            Some(&error) => error,
+            None => {
+                return ConvergenceStatus::NotConverged {
+                    current_error: T::from_f64_or_zero(f64::INFINITY),
+                    iterations: 0,
+                }
+            }
+        };
         let iterations = self.history.len();
 
         // Check absolute convergence

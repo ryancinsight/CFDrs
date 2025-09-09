@@ -83,7 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use nalgebra::DVector;
 
     let b = DVector::from_vec(vec![1.0, 0.0, 1.0]);
-    use cfd_math::linear_solver::{ConjugateGradient, preconditioners::IdentityPreconditioner};
+    use cfd_math::linear_solver::{preconditioners::IdentityPreconditioner, ConjugateGradient};
     let solver = ConjugateGradient::<f64>::default();
     let mut x = DVector::zeros(3);
     let preconditioner: Option<&IdentityPreconditioner> = None;

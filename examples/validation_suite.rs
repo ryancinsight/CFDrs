@@ -2,10 +2,12 @@
 //!
 //! This example demonstrates validation of numerical methods against known solutions.
 
-use cfd_validation::manufactured::{ManufacturedDiffusion, ManufacturedAdvection, ManufacturedSolution};
-use cfd_validation::analytical_benchmarks::{TaylorGreenVortex, PoiseuilleFlow};
 use cfd_2d::fields::Field2D;
 use cfd_2d::grid::StructuredGrid2D;
+use cfd_validation::analytical_benchmarks::{PoiseuilleFlow, TaylorGreenVortex};
+use cfd_validation::manufactured::{
+    ManufacturedAdvection, ManufacturedDiffusion, ManufacturedSolution,
+};
 // Remove unused imports
 use std::f64::consts::PI;
 
