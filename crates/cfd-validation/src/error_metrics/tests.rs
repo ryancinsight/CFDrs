@@ -191,8 +191,22 @@ fn test_error_statistics_vector() -> Result<()> {
 
     let stats = ErrorStatistics::compute_vector(&numerical, &reference)?;
 
-    assert!(stats.num_points == 2);
-    assert!(stats.l2_norm > 0.0);
+    assert_eq!(stats.num_points, 2);
+    
+    // Calculate expected error metrics analytically for vector case
+    // Vector magnitudes: numerical = [sqrt(1+4+9), sqrt(9+16+25)] = [sqrt(14), sqrt(50)]
+    //                    reference = [sqrt(1.21+3.61+10.24), sqrt(10.24+14.44+28.09)] = [sqrt(15.06), sqrt(52.77)]
+    // Errors in magnitudes: [sqrt(15.06) - sqrt(14), sqrt(52.77) - sqrt(50)]
+    let num_mag1 = (1.0_f64 + 4.0 + 9.0).sqrt(); // sqrt(14)
+    let num_mag2 = (9.0_f64 + 16.0 + 25.0).sqrt(); // sqrt(50)
+    let ref_mag1 = (1.1_f64 * 1.1 + 1.9 * 1.9 + 3.2 * 3.2).sqrt(); // sqrt(15.06)
+    let ref_mag2 = (3.2_f64 * 3.2 + 3.8 * 3.8 + 5.3 * 5.3).sqrt(); // sqrt(52.77)
+    
+    let error1 = (ref_mag1 - num_mag1).abs();
+    let error2 = (ref_mag2 - num_mag2).abs();
+    let expected_l2 = ((error1 * error1 + error2 * error2) / 2.0).sqrt();
+    
+    assert_relative_eq!(stats.l2_norm, expected_l2, epsilon = 1e-10);
     Ok(())
 }
 

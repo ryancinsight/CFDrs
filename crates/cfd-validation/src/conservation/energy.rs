@@ -4,6 +4,7 @@
 
 use super::report::ConservationReport;
 use super::traits::ConservationChecker;
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
@@ -75,17 +76,17 @@ impl<T: RealField + Copy + FromPrimitive> EnergyConservationChecker<T> {
                 let conv = self.density
                     * self.specific_heat
                     * (u[(i, j)] * (temperature[(i + 1, j)] - temperature[(i - 1, j)])
-                        / (T::from_f64(2.0).unwrap_or(T::one()) * dx)
+                        / (T::from_f64_or_one(2.0) * dx)
                         + v[(i, j)] * (temperature[(i, j + 1)] - temperature[(i, j - 1)])
-                            / (T::from_f64(2.0).unwrap_or(T::one()) * dy));
+                            / (T::from_f64_or_one(2.0) * dy));
 
                 // Diffusive term: ∇·(k∇T) using central differences
                 let diff = thermal_conductivity
-                    * ((temperature[(i + 1, j)] - T::from_f64(2.0).unwrap_or(T::one()) * t_center
+                    * ((temperature[(i + 1, j)] - T::from_f64_or_one(2.0) * t_center
                         + temperature[(i - 1, j)])
                         / (dx * dx)
                         + (temperature[(i, j + 1)]
-                            - T::from_f64(2.0).unwrap_or(T::one()) * t_center
+                            - T::from_f64_or_one(2.0) * t_center
                             + temperature[(i, j - 1)])
                             / (dy * dy));
 
@@ -186,7 +187,6 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for EnergyConse
     fn check_conservation(&self, field: &Self::FlowField) -> Result<ConservationReport<T>> {
         // For generic check, assume steady state temperature field
         let temperature = field;
-        let temperature_prev = field.clone();
         let u = DMatrix::zeros(self.nx, self.ny);
         let v = DMatrix::zeros(self.nx, self.ny);
         let thermal_conductivity = T::from_f64(0.025).unwrap_or(T::one());
@@ -196,7 +196,7 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for EnergyConse
 
         self.check_energy_2d(
             temperature,
-            &temperature_prev,
+            temperature, // Use same field for steady state
             &u,
             &v,
             thermal_conductivity,
