@@ -21,9 +21,9 @@ pub struct Temperature<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive> Temperature<T> {
     /// Create temperature in Kelvin
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if the input value is not finite or is outside valid range.
     pub fn from_kelvin(value: T) -> Result<Self> {
         if value < T::zero() {
@@ -35,9 +35,9 @@ impl<T: RealField + Copy + FromPrimitive> Temperature<T> {
     }
 
     /// Create temperature in Celsius
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if the input value is not finite or is outside valid range.
     pub fn from_celsius(value: T) -> Result<Self> {
         let offset = T::from_f64(KELVIN_TO_CELSIUS_OFFSET).unwrap_or_else(T::zero);
@@ -51,9 +51,9 @@ impl<T: RealField + Copy + FromPrimitive> Temperature<T> {
     }
 
     /// Create temperature in Fahrenheit
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if the input value is not finite or is outside valid range.
     pub fn from_fahrenheit(value: T) -> Result<Self> {
         let scale = T::from_f64(FAHRENHEIT_SCALE_FACTOR).unwrap_or_else(T::one);

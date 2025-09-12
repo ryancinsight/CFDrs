@@ -117,9 +117,9 @@ impl<T: RealField + Copy + FromPrimitive> Velocity<T> {
     }
 
     /// Calculate Mach number
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if the input value is not finite or is outside valid range.
     pub fn mach_number(&self, speed_of_sound: T) -> Result<T> {
         if speed_of_sound <= T::zero() {

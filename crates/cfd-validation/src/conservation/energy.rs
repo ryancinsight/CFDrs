@@ -85,8 +85,7 @@ impl<T: RealField + Copy + FromPrimitive> EnergyConservationChecker<T> {
                     * ((temperature[(i + 1, j)] - T::from_f64_or_one(2.0) * t_center
                         + temperature[(i - 1, j)])
                         / (dx * dx)
-                        + (temperature[(i, j + 1)]
-                            - T::from_f64_or_one(2.0) * t_center
+                        + (temperature[(i, j + 1)] - T::from_f64_or_one(2.0) * t_center
                             + temperature[(i, j - 1)])
                             / (dy * dy));
 

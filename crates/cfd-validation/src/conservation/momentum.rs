@@ -79,26 +79,22 @@ impl<T: RealField + Copy + FromPrimitive> MomentumConservationChecker<T> {
                             / (T::from_f64_or_one(2.0) * dy));
 
                 // Pressure gradient: -∇p
-                let dpdx = -(pressure[(i + 1, j)] - pressure[(i - 1, j)])
-                    / (T::from_f64_or_one(2.0) * dx);
-                let dpdy = -(pressure[(i, j + 1)] - pressure[(i, j - 1)])
-                    / (T::from_f64_or_one(2.0) * dy);
+                let dpdx =
+                    -(pressure[(i + 1, j)] - pressure[(i - 1, j)]) / (T::from_f64_or_one(2.0) * dx);
+                let dpdy =
+                    -(pressure[(i, j + 1)] - pressure[(i, j - 1)]) / (T::from_f64_or_one(2.0) * dy);
 
                 // Viscous term: μ∇²u (using central differences)
                 let visc_x = viscosity
-                    * ((u[(i + 1, j)] - T::from_f64_or_one(2.0) * u[(i, j)]
-                        + u[(i - 1, j)])
+                    * ((u[(i + 1, j)] - T::from_f64_or_one(2.0) * u[(i, j)] + u[(i - 1, j)])
                         / (dx * dx)
-                        + (u[(i, j + 1)] - T::from_f64_or_one(2.0) * u[(i, j)]
-                            + u[(i, j - 1)])
+                        + (u[(i, j + 1)] - T::from_f64_or_one(2.0) * u[(i, j)] + u[(i, j - 1)])
                             / (dy * dy));
 
                 let visc_y = viscosity
-                    * ((v[(i + 1, j)] - T::from_f64_or_one(2.0) * v[(i, j)]
-                        + v[(i - 1, j)])
+                    * ((v[(i + 1, j)] - T::from_f64_or_one(2.0) * v[(i, j)] + v[(i - 1, j)])
                         / (dx * dx)
-                        + (v[(i, j + 1)] - T::from_f64_or_one(2.0) * v[(i, j)]
-                            + v[(i, j - 1)])
+                        + (v[(i, j + 1)] - T::from_f64_or_one(2.0) * v[(i, j)] + v[(i, j - 1)])
                             / (dy * dy));
 
                 // Body force: ρg
@@ -159,9 +155,7 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T>
         let dy = T::one();
         let gravity = Vector2::zeros();
 
-        self.check_momentum_2d(
-            u, v, u, v, &pressure, viscosity, dt, dx, dy, gravity,
-        )
+        self.check_momentum_2d(u, v, u, v, &pressure, viscosity, dt, dx, dy, gravity)
     }
 
     fn name(&self) -> &str {

@@ -57,7 +57,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         fluid_density,
         fluid_viscosity,
         4184.0, // specific heat of water (J/kg·K)
-        0.6     // thermal conductivity of water (W/m·K)
+        0.6,    // thermal conductivity of water (W/m·K)
     );
 
     // Set up boundary conditions
@@ -195,13 +195,13 @@ fn create_pipe_mesh(
     }
 
     let mut mesh = Mesh::new();
-    
+
     // Add vertices to mesh
     for vertex in vertices {
         mesh.add_vertex(vertex);
     }
-    
-    // Add faces to mesh  
+
+    // Add faces to mesh
     for face in faces {
         mesh.add_face(face);
     }

@@ -286,7 +286,7 @@ mod tests {
     #[test]
     fn test_direct_solver() {
         // Test system with known exact solution:
-        // 2x + y + z = 5  
+        // 2x + y + z = 5
         // x + 3y + 2z = 8
         // x + 2y + 3z = 9
         // Solution: x = 1, y = 1, z = 2 (verified by substitution)
@@ -298,12 +298,31 @@ mod tests {
 
         // Validate exact analytical solution (not just residual)
         let expected = DVector::from_vec(vec![1.0_f64, 1.0_f64, 2.0_f64]);
-        assert!((solution[0] - expected[0]).abs() < 1e-14_f64, "x: expected {}, got {}", expected[0], solution[0]);
-        assert!((solution[1] - expected[1]).abs() < 1e-14_f64, "y: expected {}, got {}", expected[1], solution[1]);
-        assert!((solution[2] - expected[2]).abs() < 1e-14_f64, "z: expected {}, got {}", expected[2], solution[2]);
+        assert!(
+            (solution[0] - expected[0]).abs() < 1e-14_f64,
+            "x: expected {}, got {}",
+            expected[0],
+            solution[0]
+        );
+        assert!(
+            (solution[1] - expected[1]).abs() < 1e-14_f64,
+            "y: expected {}, got {}",
+            expected[1],
+            solution[1]
+        );
+        assert!(
+            (solution[2] - expected[2]).abs() < 1e-14_f64,
+            "z: expected {}, got {}",
+            expected[2],
+            solution[2]
+        );
 
         // Also verify residual is near machine precision
         let residual = &matrix * &solution - &rhs;
-        assert!(residual.norm() < 1e-14_f64, "Residual norm {} should be near machine precision", residual.norm());
+        assert!(
+            residual.norm() < 1e-14_f64,
+            "Residual norm {} should be near machine precision",
+            residual.norm()
+        );
     }
 }

@@ -51,9 +51,9 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
     }
 
     /// Create Reynolds number for flat plate flow
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if the value is not finite or is negative.
     pub fn flat_plate(value: T) -> Result<Self> {
         Self::new(value, FlowGeometry::FlatPlate)
@@ -101,9 +101,9 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
     }
 
     /// Calculate from flow parameters
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if any parameter is not finite or if density, velocity, length, or viscosity are negative or zero.
     pub fn from_flow_parameters(
         density: T,
