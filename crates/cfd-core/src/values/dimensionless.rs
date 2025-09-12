@@ -50,6 +50,10 @@ pub struct DimensionlessNumber<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
     /// Create a new dimensionless number
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the input value is not finite or is outside valid range.
     pub fn new(value: T, number_type: DimensionlessType) -> Result<Self> {
         // Some dimensionless numbers must be non-negative
         match number_type {
@@ -80,6 +84,10 @@ impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
     }
 
     /// Create Reynolds number
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the input value is not finite or is outside valid range.
     pub fn reynolds(density: T, velocity: T, length: T, viscosity: T) -> Result<Self> {
         if viscosity <= T::zero() {
             return Err(crate::error::Error::InvalidConfiguration(
@@ -91,6 +99,10 @@ impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
     }
 
     /// Create Prandtl number
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the input value is not finite or is outside valid range.
     pub fn prandtl(viscosity: T, specific_heat: T, thermal_conductivity: T) -> Result<Self> {
         if thermal_conductivity <= T::zero() {
             return Err(crate::error::Error::InvalidConfiguration(
@@ -102,6 +114,10 @@ impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
     }
 
     /// Create Nusselt number
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the input value is not finite or is outside valid range.
     pub fn nusselt(heat_transfer_coeff: T, length: T, thermal_conductivity: T) -> Result<Self> {
         if thermal_conductivity <= T::zero() {
             return Err(crate::error::Error::InvalidConfiguration(
@@ -113,6 +129,10 @@ impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
     }
 
     /// Create Mach number
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the input value is not finite or is outside valid range.
     pub fn mach(velocity: T, speed_of_sound: T) -> Result<Self> {
         if speed_of_sound <= T::zero() {
             return Err(crate::error::Error::InvalidConfiguration(
@@ -124,6 +144,10 @@ impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
     }
 
     /// Create Froude number
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the input value is not finite or is outside valid range.
     pub fn froude(velocity: T, gravity: T, length: T) -> Result<Self> {
         if gravity <= T::zero() || length <= T::zero() {
             return Err(crate::error::Error::InvalidConfiguration(
@@ -135,6 +159,10 @@ impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
     }
 
     /// Create Weber number
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the input value is not finite or is outside valid range.
     pub fn weber(density: T, velocity: T, length: T, surface_tension: T) -> Result<Self> {
         if surface_tension <= T::zero() {
             return Err(crate::error::Error::InvalidConfiguration(

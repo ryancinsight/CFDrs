@@ -19,4 +19,4 @@ pub mod validation_tests;
 pub use crate::compute::gpu::GpuContext;
 
 #[cfg(not(feature = "gpu"))]
-pub use crate::compute::gpu::GpuContext;
+pub struct GpuContext;

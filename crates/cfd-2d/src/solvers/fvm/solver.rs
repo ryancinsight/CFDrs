@@ -108,8 +108,8 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
             let mut residual = T::zero();
 
             // Update each interior cell using FVM discretization
-            for j in 1..self.config.ny-1 {
-                for i in 1..self.config.nx-1 {
+            for j in 1..self.config.ny - 1 {
+                for i in 1..self.config.nx - 1 {
                     let phi_p = phi.at(i, j);
                     let phi_e = phi.at(i + 1, j);
                     let phi_w = phi.at(i - 1, j);
@@ -129,20 +129,25 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
 
                     // Diffusive terms (central difference)
                     let diff_coeff = T::from_f64(
-                        self.config.diffusion_coefficient.to_subset().unwrap_or(1e-3)
-                    ).unwrap_or_else(T::zero);
+                        self.config
+                            .diffusion_coefficient
+                            .to_subset()
+                            .unwrap_or(1e-3),
+                    )
+                    .unwrap_or_else(T::zero);
                     let diff_e = diff_coeff * (phi_e - phi_p) / (dx * dx);
                     let diff_w = diff_coeff * (phi_p - phi_w) / (dx * dx);
                     let diff_n = diff_coeff * (phi_n - phi_p) / (dy * dy);
                     let diff_s = diff_coeff * (phi_p - phi_s) / (dy * dy);
 
                     // Net flux (convection + diffusion)
-                    let net_flux = -(flux_e - flux_w) / dx - (flux_n - flux_s) / dy 
-                                   + (diff_e - diff_w) + (diff_n - diff_s);
+                    let net_flux = -(flux_e - flux_w) / dx - (flux_n - flux_s) / dy
+                        + (diff_e - diff_w)
+                        + (diff_n - diff_s);
 
                     // Update with source term and relaxation
-                    let phi_new = phi_p + self.config.relaxation_factor * 
-                                  (net_flux + source.at(i, j));
+                    let phi_new =
+                        phi_p + self.config.relaxation_factor * (net_flux + source.at(i, j));
 
                     if let Some(p) = phi.at_mut(i, j) {
                         *p = phi_new;

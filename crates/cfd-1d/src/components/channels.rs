@@ -82,7 +82,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for RectangularCh
 
         // Use default temperature of 20°C (293.15 K)
         let _temperature = T::from_f64(293.15).unwrap_or_else(T::zero);
-        let kinematic_viscosity = fluid.dynamic_viscosity() / fluid.density;
+        let kinematic_viscosity = fluid.dynamic_viscosity() / fluid.density();
         let resistance = f * self.length * kinematic_viscosity / (area * dh * dh);
 
         // Ensure positive resistance
