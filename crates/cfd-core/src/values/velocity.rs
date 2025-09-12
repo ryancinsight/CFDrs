@@ -25,6 +25,7 @@ pub struct Velocity<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive> Velocity<T> {
     /// Create zero velocity
+    #[must_use]
     pub fn zero() -> Self {
         Self {
             components: Vector3::zeros(),
@@ -103,19 +104,23 @@ impl<T: RealField + Copy + FromPrimitive> Velocity<T> {
         self.magnitude() * T::from_f64(MS_TO_FTS).unwrap_or_else(T::zero)
     }
 
-    /// Check if velocity is subsonic (Mach < SUBSONIC_MACH_LIMIT)
+    /// Check if velocity is subsonic (Mach < `SUBSONIC_MACH_LIMIT`)
     pub fn is_subsonic(&self, speed_of_sound: T) -> bool {
         let mach_limit = T::from_f64(SUBSONIC_MACH_LIMIT).unwrap_or_else(T::zero);
         self.magnitude() < mach_limit * speed_of_sound
     }
 
-    /// Check if velocity is supersonic (Mach > SUPERSONIC_MACH_LIMIT)
+    /// Check if velocity is supersonic (Mach > `SUPERSONIC_MACH_LIMIT`)
     pub fn is_supersonic(&self, speed_of_sound: T) -> bool {
         let mach_limit = T::from_f64(SUPERSONIC_MACH_LIMIT).unwrap_or_else(T::zero);
         self.magnitude() > mach_limit * speed_of_sound
     }
 
     /// Calculate Mach number
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the input value is not finite or is outside valid range.
     pub fn mach_number(&self, speed_of_sound: T) -> Result<T> {
         if speed_of_sound <= T::zero() {
             return Err(crate::error::Error::InvalidConfiguration(

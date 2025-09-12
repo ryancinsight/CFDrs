@@ -297,7 +297,7 @@ mod tests {
         let solution = solver.solve(&matrix, &rhs).unwrap();
 
         // Validate exact analytical solution (not just residual)
-        let expected = DVector::from_vec(vec![1.0, 1.0, 2.0]);
+        let expected = DVector::from_vec(vec![1.0_f64, 1.0_f64, 2.0_f64]);
         assert!((solution[0] - expected[0]).abs() < 1e-14_f64, "x: expected {}, got {}", expected[0], solution[0]);
         assert!((solution[1] - expected[1]).abs() < 1e-14_f64, "y: expected {}, got {}", expected[1], solution[1]);
         assert!((solution[2] - expected[2]).abs() < 1e-14_f64, "z: expected {}, got {}", expected[2], solution[2]);
