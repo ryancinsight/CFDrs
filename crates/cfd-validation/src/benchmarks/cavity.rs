@@ -79,10 +79,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for LidDrivenCavit
             / T::from_usize(n)
                 .ok_or_else(|| Error::InvalidConfiguration("Invalid resolution".into()))?;
 
-        // Initialize stream function and vorticity
+        // Initialize stream function and vorticity with proper double-buffering
         let mut psi = DMatrix::<T>::zeros(n, n);
         let mut omega = DMatrix::<T>::zeros(n, n);
-        let mut psi_prev = psi.clone();
+        let mut psi_prev = DMatrix::<T>::zeros(n, n); // Zero-copy initialization
 
         // Calculate viscosity from Reynolds number
         let viscosity = self.lid_velocity * self.size / config.reynolds_number;
