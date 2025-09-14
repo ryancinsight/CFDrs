@@ -213,7 +213,7 @@ pub mod lattice_boltzmann {
     pub const LATTICE_SOUND_SPEED_SQUARED: f64 = 1.0 / 3.0;
 
     /// D2Q9 lattice sound speed
-    pub const LATTICE_SOUND_SPEED: f64 = 0.577350269; // 1/√3
+    pub const LATTICE_SOUND_SPEED: f64 = 0.577_350_269; // 1/√3
 
     /// BGK relaxation time offset
     pub const RELAXATION_TIME_OFFSET: f64 = 0.5;
@@ -254,7 +254,7 @@ pub mod universal {
     pub const GRAVITY: f64 = 9.80665;
 
     /// Standard atmospheric pressure [Pa]
-    pub const ATMOSPHERIC_PRESSURE: f64 = 101325.0;
+    pub const ATMOSPHERIC_PRESSURE: f64 = 101_325.0;
 
     /// Universal gas constant [J/(mol·K)]
     pub const GAS_CONSTANT: f64 = 8.314462618;

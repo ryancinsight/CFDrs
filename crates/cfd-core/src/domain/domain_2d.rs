@@ -1,8 +1,8 @@
 //! 2D domain implementation
 
+use super::common::{order, Domain};
 use nalgebra::{Point2, RealField};
 use serde::{Deserialize, Serialize};
-use super::common::{Domain, order};
 
 /// 2D rectangular domain
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

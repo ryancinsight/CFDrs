@@ -77,7 +77,7 @@ impl LatticeModel for D2Q9 {
 pub fn equilibrium<T: RealField + Copy>(
     density: T,
     velocity: &[T; 2],
-    direction: usize,
+    _direction: usize,
     weight: T,
     lattice_velocity: &(i32, i32),
 ) -> T {

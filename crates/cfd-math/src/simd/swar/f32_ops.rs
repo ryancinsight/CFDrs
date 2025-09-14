@@ -1,7 +1,7 @@
 //! f32 SWAR operations
 
-use crate::error::Result;
 use super::SwarOps;
+use crate::error::Result;
 
 impl SwarOps {
     /// Add f32 arrays with loop unrolling
@@ -83,7 +83,13 @@ impl SwarOps {
 
     /// Fused multiply-add for f32
     #[inline]
-    pub fn fma_f32_arrays(&self, a: &[f32], b: &[f32], c: &[f32], result: &mut [f32]) -> Result<()> {
+    pub fn fma_f32_arrays(
+        &self,
+        a: &[f32],
+        b: &[f32],
+        c: &[f32],
+        result: &mut [f32],
+    ) -> Result<()> {
         let len = a.len();
         let chunks = len / self.unroll_factor;
 

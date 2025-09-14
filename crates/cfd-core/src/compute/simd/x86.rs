@@ -249,7 +249,8 @@ pub unsafe fn diffusion_avx2(
             let idx = j * nx + i;
 
             let laplacian_x = (input[idx - 1] - 2.0 * input[idx] + input[idx + 1]) * x_inv_squared;
-            let laplacian_y = (input[idx - nx] - 2.0 * input[idx] + input[idx + nx]) * y_inv_squared;
+            let laplacian_y =
+                (input[idx - nx] - 2.0 * input[idx] + input[idx + nx]) * y_inv_squared;
             let laplacian = laplacian_x + laplacian_y;
 
             output[idx] = input[idx] + time_viscosity * laplacian;

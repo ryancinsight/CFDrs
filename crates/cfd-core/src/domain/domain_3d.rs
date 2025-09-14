@@ -1,8 +1,8 @@
 //! 3D domain implementation
 
+use super::common::{order, Domain};
 use nalgebra::{Point3, RealField, Vector3};
 use serde::{Deserialize, Serialize};
-use super::common::{Domain, order};
 
 /// 3D box domain
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

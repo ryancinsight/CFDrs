@@ -1,11 +1,11 @@
 //! AnyDomain enum and conversions
 
-use nalgebra::{Point1, Point2, Point3, RealField};
-use serde::{Deserialize, Serialize};
 use super::common::Domain;
 use super::domain_1d::Domain1D;
 use super::domain_2d::Domain2D;
 use super::domain_3d::Domain3D;
+use nalgebra::{Point1, Point2, Point3, RealField};
+use serde::{Deserialize, Serialize};
 
 /// Generic domain that can be 1D, 2D, or 3D
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

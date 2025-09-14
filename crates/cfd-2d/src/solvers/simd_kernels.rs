@@ -216,7 +216,7 @@ pub fn calculate_gradient_simd(
             // ∂φ/∂x using neighboring cells in x-direction
             grad_x[idx] = (phi[(i + 1) * ny + j] - phi[(i - 1) * ny + j]) * inv_dx;
 
-            // ∂φ/∂y using neighboring cells in y-direction  
+            // ∂φ/∂y using neighboring cells in y-direction
             grad_y[idx] = (phi[i * ny + j + 1] - phi[i * ny + j - 1]) * inv_dy;
         }
     }
@@ -248,8 +248,10 @@ pub fn calculate_residual_simd(
             let idx = i * ny + j;
 
             // 5-point discrete Laplacian operator
-            let laplacian_x = (phi[(i - 1) * ny + j] - 2.0 * phi[idx] + phi[(i + 1) * ny + j]) * inv_dx2;
-            let laplacian_y = (phi[i * ny + j - 1] - 2.0 * phi[idx] + phi[i * ny + j + 1]) * inv_dy2;
+            let laplacian_x =
+                (phi[(i - 1) * ny + j] - 2.0 * phi[idx] + phi[(i + 1) * ny + j]) * inv_dx2;
+            let laplacian_y =
+                (phi[i * ny + j - 1] - 2.0 * phi[idx] + phi[i * ny + j + 1]) * inv_dy2;
             let laplacian = laplacian_x + laplacian_y;
 
             // Residual calculation with maximum tracking for convergence monitoring

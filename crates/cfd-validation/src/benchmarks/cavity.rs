@@ -26,36 +26,60 @@ impl<T: RealField + Copy> LidDrivenCavity<T> {
     fn ghia_reference_data(&self, reynolds: T) -> Option<(Vec<T>, Vec<T>)> {
         // Literature-validated reference data for lid-driven cavity from Ghia et al. (1982)
         // Reynolds numbers: 100, 400, 1000, 3200, 5000, 7500, 10000
-        
+
         let re_100 = T::from_f64(100.0)?;
         let re_1000 = T::from_f64(1000.0)?;
-        
+
         if (reynolds - re_100).abs() < T::from_f64(0.1)? {
             // Reference data for Re=100 (centerline velocities)
             Some((
                 vec![
-                    T::from_f64(0.0)?, T::from_f64(0.0625)?, T::from_f64(0.0703)?,
-                    T::from_f64(0.0781)?, T::from_f64(0.0938)?, T::from_f64(0.1563)?,
-                    T::from_f64(0.2266)?, T::from_f64(0.2344)?, T::from_f64(0.5000)?,
+                    T::from_f64(0.0)?,
+                    T::from_f64(0.0625)?,
+                    T::from_f64(0.0703)?,
+                    T::from_f64(0.0781)?,
+                    T::from_f64(0.0938)?,
+                    T::from_f64(0.1563)?,
+                    T::from_f64(0.2266)?,
+                    T::from_f64(0.2344)?,
+                    T::from_f64(0.5000)?,
                 ],
                 vec![
-                    T::from_f64(0.84123)?, T::from_f64(0.78871)?, T::from_f64(0.73722)?,
-                    T::from_f64(0.68717)?, T::from_f64(0.23151)?, T::from_f64(0.00332)?,
-                    T::from_f64(-0.13641)?, T::from_f64(-0.20581)?, T::from_f64(-0.21090)?,
+                    T::from_f64(0.84123)?,
+                    T::from_f64(0.78871)?,
+                    T::from_f64(0.73722)?,
+                    T::from_f64(0.68717)?,
+                    T::from_f64(0.23151)?,
+                    T::from_f64(0.00332)?,
+                    T::from_f64(-0.13641)?,
+                    T::from_f64(-0.20581)?,
+                    T::from_f64(-0.21090)?,
                 ],
             ))
         } else if (reynolds - re_1000).abs() < T::from_f64(0.1)? {
             // Reference data for Re=1000 (centerline velocities)
             Some((
                 vec![
-                    T::from_f64(0.0)?, T::from_f64(0.0625)?, T::from_f64(0.0703)?,
-                    T::from_f64(0.0781)?, T::from_f64(0.0938)?, T::from_f64(0.1563)?,
-                    T::from_f64(0.2266)?, T::from_f64(0.2344)?, T::from_f64(0.5000)?,
+                    T::from_f64(0.0)?,
+                    T::from_f64(0.0625)?,
+                    T::from_f64(0.0703)?,
+                    T::from_f64(0.0781)?,
+                    T::from_f64(0.0938)?,
+                    T::from_f64(0.1563)?,
+                    T::from_f64(0.2266)?,
+                    T::from_f64(0.2344)?,
+                    T::from_f64(0.5000)?,
                 ],
                 vec![
-                    T::from_f64(0.65928)?, T::from_f64(0.57492)?, T::from_f64(0.51117)?,
-                    T::from_f64(0.46604)?, T::from_f64(0.33304)?, T::from_f64(0.18719)?,
-                    T::from_f64(0.05702)?, T::from_f64(0.02135)?, T::from_f64(-0.21388)?,
+                    T::from_f64(0.65928)?,
+                    T::from_f64(0.57492)?,
+                    T::from_f64(0.51117)?,
+                    T::from_f64(0.46604)?,
+                    T::from_f64(0.33304)?,
+                    T::from_f64(0.18719)?,
+                    T::from_f64(0.05702)?,
+                    T::from_f64(0.02135)?,
+                    T::from_f64(-0.21388)?,
                 ],
             ))
         } else {

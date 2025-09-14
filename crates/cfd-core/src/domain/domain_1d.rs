@@ -1,8 +1,8 @@
 //! 1D domain implementation
 
+use super::common::Domain;
 use nalgebra::{Point1, RealField};
 use serde::{Deserialize, Serialize};
-use super::common::Domain;
 
 /// 1D domain (line segment)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

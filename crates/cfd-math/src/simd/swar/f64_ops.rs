@@ -1,7 +1,7 @@
 //! f64 SWAR operations
 
-use crate::error::Result;
 use super::SwarOps;
+use crate::error::Result;
 
 impl SwarOps {
     /// Add f64 arrays with loop unrolling
@@ -81,7 +81,13 @@ impl SwarOps {
 
     /// Fused multiply-add for f64
     #[inline]
-    pub fn fma_f64_arrays(&self, a: &[f64], b: &[f64], c: &[f64], result: &mut [f64]) -> Result<()> {
+    pub fn fma_f64_arrays(
+        &self,
+        a: &[f64],
+        b: &[f64],
+        c: &[f64],
+        result: &mut [f64],
+    ) -> Result<()> {
         let len = a.len();
         let chunks = len / self.unroll_factor;
 

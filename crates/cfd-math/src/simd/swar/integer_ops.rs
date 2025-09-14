@@ -1,7 +1,7 @@
 //! Integer operations for SWAR
 
-use crate::error::Result;
 use super::SwarOps;
+use crate::error::Result;
 
 impl SwarOps {
     /// Add two u32 arrays element-wise

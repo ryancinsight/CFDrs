@@ -1,22 +1,22 @@
 //! Computational domain representations.
 
+mod any_domain;
 mod common;
 mod domain_1d;
 mod domain_2d;
 mod domain_3d;
-mod any_domain;
 
-pub use common::{Domain, order};
+pub use any_domain::AnyDomain;
+pub use common::{order, Domain};
 pub use domain_1d::Domain1D;
 pub use domain_2d::Domain2D;
 pub use domain_3d::Domain3D;
-pub use any_domain::AnyDomain;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::{Point1, Point2, Point3};
     use approx::assert_relative_eq;
+    use nalgebra::{Point1, Point2, Point3};
 
     #[test]
     fn test_domain_1d() {

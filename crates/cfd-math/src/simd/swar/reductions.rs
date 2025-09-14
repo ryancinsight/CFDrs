@@ -1,7 +1,7 @@
 //! Reduction operations for SWAR
 
-use crate::error::Result;
 use super::SwarOps;
+use crate::error::Result;
 
 impl SwarOps {
     /// Process binary operation on f32 arrays
