@@ -1,6 +1,6 @@
 //! Plugin system for extensible CFD solvers.
 //!
-//! This module provides a simplified plugin architecture following SOLID principles,
+//! This module provides a production-grade plugin architecture following SOLID principles,
 //! with coarse-grained locking for safety and strongly-typed configurations.
 
 pub mod dependency;

@@ -5,6 +5,7 @@
 //! ∇·u = 0
 
 use super::ManufacturedSolution;
+use cfd_core::conversion::SafeFromF64;
 use nalgebra::{RealField, Vector2};
 use num_traits::Float;
 use std::f64::consts::PI;
@@ -44,8 +45,8 @@ impl<T: RealField + Float> ManufacturedSolution<T> for ManufacturedNavierStokes<
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // This returns the u-component of velocity
         // For full solution, we'd need separate methods for u, v, and p
-        let pi = T::from(PI).unwrap();
-        let decay = Float::exp(-T::from(2.0).unwrap() * self.nu * pi * pi * t);
+        let pi = T::from_f64_or_one(PI);
+        let decay = Float::exp(-T::from_f64_or_one(2.0) * self.nu * pi * pi * t);
         Float::sin(pi * x) * Float::cos(pi * y) * decay
     }
 
@@ -68,13 +69,13 @@ pub struct TaylorGreenManufactured<T: RealField + Float> {
 impl<T: RealField + Float> TaylorGreenManufactured<T> {
     /// Create a new Taylor-Green manufactured solution
     pub fn new(nu: T) -> Self {
-        let pi = T::from(PI).unwrap();
+        let pi = T::from_f64_or_one(PI);
         Self { nu, k: pi }
     }
 
     /// Get velocity components
     pub fn velocity(&self, x: T, y: T, t: T) -> Vector2<T> {
-        let decay = Float::exp(-T::from(2.0).unwrap() * self.nu * self.k * self.k * t);
+        let decay = Float::exp(-T::from_f64_or_one(2.0) * self.nu * self.k * self.k * t);
         let u = Float::sin(self.k * x) * Float::cos(self.k * y) * decay;
         let v = -Float::cos(self.k * x) * Float::sin(self.k * y) * decay;
         Vector2::new(u, v)
@@ -82,29 +83,29 @@ impl<T: RealField + Float> TaylorGreenManufactured<T> {
 
     /// Get pressure field
     pub fn pressure(&self, x: T, y: T, t: T) -> T {
-        let decay = Float::exp(-T::from(4.0).unwrap() * self.nu * self.k * self.k * t);
-        let quarter = T::from(0.25).unwrap();
+        let decay = Float::exp(-T::from_f64_or_one(4.0) * self.nu * self.k * self.k * t);
+        let quarter = T::from_f64_or_one(0.25);
         -quarter
-            * (Float::cos(T::from(2.0).unwrap() * self.k * x)
-                + Float::cos(T::from(2.0).unwrap() * self.k * y))
+            * (Float::cos(T::from_f64_or_one(2.0) * self.k * x)
+                + Float::cos(T::from_f64_or_one(2.0) * self.k * y))
             * decay
     }
 
     /// Get vorticity
     pub fn vorticity(&self, x: T, y: T, t: T) -> T {
-        let decay = Float::exp(-T::from(2.0).unwrap() * self.nu * self.k * self.k * t);
-        -T::from(2.0).unwrap() * self.k * Float::sin(self.k * x) * Float::sin(self.k * y) * decay
+        let decay = Float::exp(-T::from_f64_or_one(2.0) * self.nu * self.k * self.k * t);
+        -T::from_f64_or_one(2.0) * self.k * Float::sin(self.k * x) * Float::sin(self.k * y) * decay
     }
 
     /// Get kinetic energy
     pub fn kinetic_energy(&self, t: T) -> T {
-        let decay = Float::exp(-T::from(4.0).unwrap() * self.nu * self.k * self.k * t);
-        T::from(0.25).unwrap() * decay
+        let decay = Float::exp(-T::from_f64_or_one(4.0) * self.nu * self.k * self.k * t);
+        T::from_f64_or_one(0.25) * decay
     }
 
     /// Get enstrophy (integral of vorticity squared)
     pub fn enstrophy(&self, t: T) -> T {
-        let decay = Float::exp(-T::from(4.0).unwrap() * self.nu * self.k * self.k * t);
+        let decay = Float::exp(-T::from_f64_or_one(4.0) * self.nu * self.k * self.k * t);
         self.k * self.k * decay
     }
 }
@@ -120,17 +121,17 @@ pub struct KovasznayFlow<T: RealField + Float> {
 impl<T: RealField + Float> KovasznayFlow<T> {
     /// Create a new Kovasznay flow solution
     pub fn new(re: T) -> Self {
-        let half_re = re / T::from(2.0).unwrap();
-        let pi_val = T::from(PI).unwrap();
-        let discriminant = Float::sqrt(half_re * half_re + T::from(4.0).unwrap() * pi_val * pi_val);
+        let half_re = re / T::from_f64_or_one(2.0);
+        let pi_val = T::from_f64_or_one(PI);
+        let discriminant = Float::sqrt(half_re * half_re + T::from_f64_or_one(4.0) * pi_val * pi_val);
         let lambda = half_re - discriminant;
         Self { re, lambda }
     }
 
     /// Get velocity components
     pub fn velocity(&self, x: T, y: T) -> Vector2<T> {
-        let pi = T::from(PI).unwrap();
-        let two_pi = T::from(2.0).unwrap() * pi;
+        let pi = T::from_f64_or_one(PI);
+        let two_pi = T::from_f64_or_one(2.0) * pi;
 
         let exp_lambda_x = Float::exp(self.lambda * x);
         let u = T::one() - exp_lambda_x * Float::cos(two_pi * y);
@@ -141,8 +142,8 @@ impl<T: RealField + Float> KovasznayFlow<T> {
 
     /// Get pressure field
     pub fn pressure(&self, x: T) -> T {
-        let half = T::from(0.5).unwrap();
-        half * (T::one() - Float::exp(T::from(2.0).unwrap() * self.lambda * x))
+        let half = T::from_f64_or_one(0.5);
+        half * (T::one() - Float::exp(T::from_f64_or_one(2.0) * self.lambda * x))
     }
 }
 

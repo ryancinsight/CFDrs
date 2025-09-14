@@ -26,10 +26,9 @@ pub use level_set::{LevelSetConfig, LevelSetSolver};
 // Export VOF functionality
 pub use vof::{VofConfig, VofSolver};
 
-// Use CSGrs integration from cfd-mesh
-// TODO: Implement CsgMeshAdapter when CSG feature is complete
-// #[cfg(feature = "csg")]
-// pub use cfd_mesh::csg::CsgMeshAdapter;
+// CSG integration from cfd-mesh - feature-gated for optional dependency
+#[cfg(feature = "csg")]
+pub use cfd_mesh::csg::CsgMeshAdapter;
 
 #[cfg(test)]
 mod tests {
@@ -37,10 +36,10 @@ mod tests {
     use nalgebra::{ComplexField, RealField};
     use num_traits::FromPrimitive;
 
-    /// Test basic module imports and functionality
+    /// Test module imports and configuration instantiation
     #[test]
     fn test_module_imports() {
-        // Verify we can create basic configurations for each solver type
+        // Verify we can create configurations for each solver type
 
         // FEM configuration test
         let fem_config: FemConfig<f64> = FemConfig::default();
