@@ -4,6 +4,7 @@
 
 use super::report::ConservationReport;
 use super::traits::ConservationChecker;
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use nalgebra::{DMatrix, RealField, Vector2};
 use num_traits::FromPrimitive;
@@ -66,38 +67,34 @@ impl<T: RealField + Copy + FromPrimitive> MomentumConservationChecker<T> {
                 // x-momentum convection
                 let conv_x = self.density
                     * ((u[(i + 1, j)].powi(2) - u[(i - 1, j)].powi(2))
-                        / (T::from_f64(2.0).unwrap_or(T::one()) * dx)
+                        / (T::from_f64_or_one(2.0) * dx)
                         + (u[(i, j + 1)] * v[(i, j + 1)] - u[(i, j - 1)] * v[(i, j - 1)])
-                            / (T::from_f64(2.0).unwrap_or(T::one()) * dy));
+                            / (T::from_f64_or_one(2.0) * dy));
 
                 // y-momentum convection
                 let conv_y = self.density
                     * ((u[(i + 1, j)] * v[(i + 1, j)] - u[(i - 1, j)] * v[(i - 1, j)])
-                        / (T::from_f64(2.0).unwrap_or(T::one()) * dx)
+                        / (T::from_f64_or_one(2.0) * dx)
                         + (v[(i, j + 1)].powi(2) - v[(i, j - 1)].powi(2))
-                            / (T::from_f64(2.0).unwrap_or(T::one()) * dy));
+                            / (T::from_f64_or_one(2.0) * dy));
 
                 // Pressure gradient: -∇p
-                let dpdx = -(pressure[(i + 1, j)] - pressure[(i - 1, j)])
-                    / (T::from_f64(2.0).unwrap_or(T::one()) * dx);
-                let dpdy = -(pressure[(i, j + 1)] - pressure[(i, j - 1)])
-                    / (T::from_f64(2.0).unwrap_or(T::one()) * dy);
+                let dpdx =
+                    -(pressure[(i + 1, j)] - pressure[(i - 1, j)]) / (T::from_f64_or_one(2.0) * dx);
+                let dpdy =
+                    -(pressure[(i, j + 1)] - pressure[(i, j - 1)]) / (T::from_f64_or_one(2.0) * dy);
 
                 // Viscous term: μ∇²u (using central differences)
                 let visc_x = viscosity
-                    * ((u[(i + 1, j)] - T::from_f64(2.0).unwrap_or(T::one()) * u[(i, j)]
-                        + u[(i - 1, j)])
+                    * ((u[(i + 1, j)] - T::from_f64_or_one(2.0) * u[(i, j)] + u[(i - 1, j)])
                         / (dx * dx)
-                        + (u[(i, j + 1)] - T::from_f64(2.0).unwrap_or(T::one()) * u[(i, j)]
-                            + u[(i, j - 1)])
+                        + (u[(i, j + 1)] - T::from_f64_or_one(2.0) * u[(i, j)] + u[(i, j - 1)])
                             / (dy * dy));
 
                 let visc_y = viscosity
-                    * ((v[(i + 1, j)] - T::from_f64(2.0).unwrap_or(T::one()) * v[(i, j)]
-                        + v[(i - 1, j)])
+                    * ((v[(i + 1, j)] - T::from_f64_or_one(2.0) * v[(i, j)] + v[(i - 1, j)])
                         / (dx * dx)
-                        + (v[(i, j + 1)] - T::from_f64(2.0).unwrap_or(T::one()) * v[(i, j)]
-                            + v[(i, j - 1)])
+                        + (v[(i, j + 1)] - T::from_f64_or_one(2.0) * v[(i, j)] + v[(i, j - 1)])
                             / (dy * dy));
 
                 // Body force: ρg
@@ -151,18 +148,14 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T>
 
         // For generic check, assume steady state (u_prev = u), no pressure gradient,
         // and check if viscous forces balance
-        let u_prev = u.clone();
-        let v_prev = v.clone();
         let pressure = DMatrix::zeros(self.nx, self.ny);
-        let viscosity = T::from_f64(1e-3).unwrap_or(T::one());
-        let dt = T::from_f64(1e-3).unwrap_or(T::one());
+        let viscosity = T::from_f64_or_one(1e-3);
+        let dt = T::from_f64_or_one(1e-3);
         let dx = T::one();
         let dy = T::one();
         let gravity = Vector2::zeros();
 
-        self.check_momentum_2d(
-            u, v, &u_prev, &v_prev, &pressure, viscosity, dt, dx, dy, gravity,
-        )
+        self.check_momentum_2d(u, v, u, v, &pressure, viscosity, dt, dx, dy, gravity)
     }
 
     fn name(&self) -> &str {

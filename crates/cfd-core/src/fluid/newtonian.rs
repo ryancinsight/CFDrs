@@ -215,7 +215,7 @@ impl<T: RealField + FromPrimitive + Copy> IdealGas<T> {
             / denominator
     }
 
-    /// Calculate thermal conductivity (simplified model)
+    /// Calculate thermal conductivity using kinetic theory
     fn calculate_thermal_conductivity(&self, viscosity: T) -> T {
         viscosity * self.k_coeff
     }

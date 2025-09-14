@@ -519,7 +519,7 @@ mod tests {
         assert!(result.is_ok());
 
         let mesh = result.unwrap();
-        assert!(mesh.vertices.len() > 0);
+        assert!(mesh.vertices().len() > 0);
         assert!(mesh.faces.len() > 0);
     }
 

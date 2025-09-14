@@ -186,6 +186,7 @@ impl StencilOps {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_relative_eq;
 
     #[test]
     fn test_laplacian_5point() {
@@ -204,8 +205,25 @@ mod tests {
         StencilOps::laplacian_5point(&field, nx, ny, dx, dy, &mut result)
             .expect("Laplacian computation failed");
 
-        // Check that Laplacian is computed correctly
-        assert!(result[12].abs() > 0.0);
+        // Exact analytical validation: For 5-point Laplacian ∇²f = (f_i+1 + f_i-1 + f_j+1 + f_j-1 - 4f_ij)/(dx²)
+        // With field[12] = 1.0 and all neighbors = 0.0 on 5x5 grid, center is at (2,2)
+        // Expected: ∇²f_12 = (0 + 0 + 0 + 0 - 4*1.0)/(1.0²) = -4.0
+        let expected_laplacian = -4.0;
+        assert_relative_eq!(result[12], expected_laplacian, epsilon = 1e-10);
+        
+        // Test that boundary points have zero Laplacian (should be skipped by implementation)
+        assert_eq!(result[0], 0.0, "Boundary point should not be computed");
+        assert_eq!(result[4], 0.0, "Boundary point should not be computed");
+        assert_eq!(result[20], 0.0, "Boundary point should not be computed");
+        assert_eq!(result[24], 0.0, "Boundary point should not be computed");
+        
+        // Test neighbors of center point: they should have positive Laplacian due to central point influence
+        // For field[12] = 1.0, the neighbors at field[7], field[11], field[13], field[17] should get:
+        // ∇²f = (1 + 0 + 0 + 0 - 4*0)/(1²) = 1.0 (since center contributes 1, others 0)
+        assert_relative_eq!(result[7], 1.0, epsilon = 1e-10);
+        assert_relative_eq!(result[11], 1.0, epsilon = 1e-10);
+        assert_relative_eq!(result[13], 1.0, epsilon = 1e-10);
+        assert_relative_eq!(result[17], 1.0, epsilon = 1e-10);
     }
 
     #[test]

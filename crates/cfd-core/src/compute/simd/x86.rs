@@ -20,8 +20,8 @@ pub unsafe fn advection_avx2(
     dt: f32,
 ) {
     // Process 8 elements at a time with AVX2
-    let spacing_x_vec = _mm256_set1_ps(dx);
-    let spacing_y_vec = _mm256_set1_ps(dy);
+    let x_spacing_vec = _mm256_set1_ps(dx);
+    let y_spacing_vec = _mm256_set1_ps(dy);
     let time_step_vec = _mm256_set1_ps(dt);
     let zero = _mm256_setzero_ps();
 
@@ -43,10 +43,10 @@ pub unsafe fn advection_avx2(
 
             // vx > 0 ? (u - u_left) : (u_right - u)
             let mask_x = _mm256_cmp_ps(vx, zero, _CMP_GT_OQ);
-            let gradient_x_pos = _mm256_sub_ps(u, u_left);
-            let gradient_x_neg = _mm256_sub_ps(u_right, u);
-            let gradient_x = _mm256_blendv_ps(gradient_x_neg, gradient_x_pos, mask_x);
-            let gradient_x = _mm256_div_ps(gradient_x, spacing_x_vec);
+            let x_gradient_forward = _mm256_sub_ps(u, u_left);
+            let x_gradient_backward = _mm256_sub_ps(u_right, u);
+            let gradient_x = _mm256_blendv_ps(x_gradient_backward, x_gradient_forward, mask_x);
+            let gradient_x = _mm256_div_ps(gradient_x, x_spacing_vec);
 
             // Compute upwind differences for y-direction
             let u_bottom = _mm256_loadu_ps(&input[idx - nx]);
@@ -54,17 +54,17 @@ pub unsafe fn advection_avx2(
 
             // vy > 0 ? (u - u_bottom) : (u_top - u)
             let mask_y = _mm256_cmp_ps(vy, zero, _CMP_GT_OQ);
-            let gradient_y_pos = _mm256_sub_ps(u, u_bottom);
-            let gradient_y_neg = _mm256_sub_ps(u_top, u);
-            let gradient_y = _mm256_blendv_ps(gradient_y_neg, gradient_y_pos, mask_y);
-            let gradient_y = _mm256_div_ps(gradient_y, spacing_y_vec);
+            let y_gradient_forward = _mm256_sub_ps(u, u_bottom);
+            let y_gradient_backward = _mm256_sub_ps(u_top, u);
+            let gradient_y = _mm256_blendv_ps(y_gradient_backward, y_gradient_forward, mask_y);
+            let gradient_y = _mm256_div_ps(gradient_y, y_spacing_vec);
 
             // Compute advection term: u - dt * (vx * gradient_x + vy * gradient_y)
             let advection_x = _mm256_mul_ps(vx, gradient_x);
             let advection_y = _mm256_mul_ps(vy, gradient_y);
             let advection = _mm256_add_ps(advection_x, advection_y);
-            let advection = _mm256_mul_ps(advection, time_step_vec);
-            let result = _mm256_sub_ps(u, advection);
+            let dt_advection = _mm256_mul_ps(time_step_vec, advection);
+            let result = _mm256_sub_ps(u, dt_advection);
 
             // Store result
             _mm256_storeu_ps(&mut output[idx], result);
@@ -78,19 +78,19 @@ pub unsafe fn advection_avx2(
             let vx = velocity_x[idx];
             let vy = velocity_y[idx];
 
-            let du_dx = if vx > 0.0 {
+            let grad_x = if vx > 0.0 {
                 (input[idx] - input[idx - 1]) / dx
             } else {
                 (input[idx + 1] - input[idx]) / dx
             };
 
-            let du_dy = if vy > 0.0 {
+            let grad_y = if vy > 0.0 {
                 (input[idx] - input[idx - nx]) / dy
             } else {
                 (input[idx + nx] - input[idx]) / dy
             };
 
-            output[idx] = input[idx] - dt * (vx * du_dx + vy * du_dy);
+            output[idx] = input[idx] - dt * (vx * grad_x + vy * grad_y);
             i += 1;
         }
     }
@@ -111,8 +111,8 @@ pub unsafe fn advection_sse41(
     dt: f32,
 ) {
     // Process 4 elements at a time with SSE4.1
-    let spacing_x_vec = _mm_set1_ps(dx);
-    let spacing_y_vec = _mm_set1_ps(dy);
+    let x_spacing_vec = _mm_set1_ps(dx);
+    let y_spacing_vec = _mm_set1_ps(dy);
     let time_step_vec = _mm_set1_ps(dt);
     let zero = _mm_setzero_ps();
 
@@ -134,10 +134,10 @@ pub unsafe fn advection_sse41(
 
             // vx > 0 ? (u - u_left) : (u_right - u)
             let mask_x = _mm_cmpgt_ps(vx, zero);
-            let gradient_x_pos = _mm_sub_ps(u, u_left);
-            let gradient_x_neg = _mm_sub_ps(u_right, u);
-            let gradient_x = _mm_blendv_ps(gradient_x_neg, gradient_x_pos, mask_x);
-            let gradient_x = _mm_div_ps(gradient_x, spacing_x_vec);
+            let x_gradient_forward = _mm_sub_ps(u, u_left);
+            let x_gradient_backward = _mm_sub_ps(u_right, u);
+            let gradient_x = _mm_blendv_ps(x_gradient_backward, x_gradient_forward, mask_x);
+            let gradient_x = _mm_div_ps(gradient_x, x_spacing_vec);
 
             // Compute upwind differences for y-direction
             let u_bottom = _mm_loadu_ps(&input[idx - nx]);
@@ -145,17 +145,17 @@ pub unsafe fn advection_sse41(
 
             // vy > 0 ? (u - u_bottom) : (u_top - u)
             let mask_y = _mm_cmpgt_ps(vy, zero);
-            let gradient_y_pos = _mm_sub_ps(u, u_bottom);
-            let gradient_y_neg = _mm_sub_ps(u_top, u);
-            let gradient_y = _mm_blendv_ps(gradient_y_neg, gradient_y_pos, mask_y);
-            let gradient_y = _mm_div_ps(gradient_y, spacing_y_vec);
+            let y_gradient_forward = _mm_sub_ps(u, u_bottom);
+            let y_gradient_backward = _mm_sub_ps(u_top, u);
+            let gradient_y = _mm_blendv_ps(y_gradient_backward, y_gradient_forward, mask_y);
+            let gradient_y = _mm_div_ps(gradient_y, y_spacing_vec);
 
             // Compute advection term
             let advection_x = _mm_mul_ps(vx, gradient_x);
             let advection_y = _mm_mul_ps(vy, gradient_y);
             let advection = _mm_add_ps(advection_x, advection_y);
-            let advection = _mm_mul_ps(advection, time_step_vec);
-            let result = _mm_sub_ps(u, advection);
+            let dt_advection = _mm_mul_ps(time_step_vec, advection);
+            let result = _mm_sub_ps(u, dt_advection);
 
             // Store result
             _mm_storeu_ps(&mut output[idx], result);
@@ -169,19 +169,19 @@ pub unsafe fn advection_sse41(
             let vx = velocity_x[idx];
             let vy = velocity_y[idx];
 
-            let du_dx = if vx > 0.0 {
+            let grad_x = if vx > 0.0 {
                 (input[idx] - input[idx - 1]) / dx
             } else {
                 (input[idx + 1] - input[idx]) / dx
             };
 
-            let du_dy = if vy > 0.0 {
+            let grad_y = if vy > 0.0 {
                 (input[idx] - input[idx - nx]) / dy
             } else {
                 (input[idx + nx] - input[idx]) / dy
             };
 
-            output[idx] = input[idx] - dt * (vx * du_dx + vy * du_dy);
+            output[idx] = input[idx] - dt * (vx * grad_x + vy * grad_y);
             i += 1;
         }
     }
@@ -200,13 +200,13 @@ pub unsafe fn diffusion_avx2(
     dt: f32,
     nu: f32, // Kinematic viscosity
 ) {
-    let dx2_inv = 1.0 / (dx * dx);
-    let dy2_inv = 1.0 / (dy * dy);
-    let dt_nu = dt * nu;
+    let x_inv_squared = 1.0 / (dx * dx);
+    let y_inv_squared = 1.0 / (dy * dy);
+    let time_viscosity = dt * nu;
 
-    let dx2_inv_vec = _mm256_set1_ps(dx2_inv);
-    let dy2_inv_vec = _mm256_set1_ps(dy2_inv);
-    let dt_nu_vec = _mm256_set1_ps(dt_nu);
+    let x_inv_sq_vec = _mm256_set1_ps(x_inv_squared);
+    let y_inv_sq_vec = _mm256_set1_ps(y_inv_squared);
+    let time_visc_vec = _mm256_set1_ps(time_viscosity);
     let two = _mm256_set1_ps(2.0);
 
     for j in 1..ny - 1 {
@@ -224,18 +224,18 @@ pub unsafe fn diffusion_avx2(
             let u_top = _mm256_loadu_ps(&input[idx + nx]);
 
             // Compute Laplacian: (u_left - 2*u + u_right)/dx^2 + (u_bottom - 2*u + u_top)/dy^2
-            let d2u_dx2 = _mm256_sub_ps(u_left, _mm256_mul_ps(two, u_center));
-            let d2u_dx2 = _mm256_add_ps(d2u_dx2, u_right);
-            let d2u_dx2 = _mm256_mul_ps(d2u_dx2, dx2_inv_vec);
+            let laplacian_x = _mm256_sub_ps(u_left, _mm256_mul_ps(two, u_center));
+            let laplacian_x = _mm256_add_ps(laplacian_x, u_right);
+            let laplacian_x = _mm256_mul_ps(laplacian_x, x_inv_sq_vec);
 
-            let d2u_dy2 = _mm256_sub_ps(u_bottom, _mm256_mul_ps(two, u_center));
-            let d2u_dy2 = _mm256_add_ps(d2u_dy2, u_top);
-            let d2u_dy2 = _mm256_mul_ps(d2u_dy2, dy2_inv_vec);
+            let laplacian_y = _mm256_sub_ps(u_bottom, _mm256_mul_ps(two, u_center));
+            let laplacian_y = _mm256_add_ps(laplacian_y, u_top);
+            let laplacian_y = _mm256_mul_ps(laplacian_y, y_inv_sq_vec);
 
-            let laplacian = _mm256_add_ps(d2u_dx2, d2u_dy2);
+            let laplacian = _mm256_add_ps(laplacian_x, laplacian_y);
 
             // Update: u + dt * nu * laplacian
-            let update = _mm256_mul_ps(laplacian, dt_nu_vec);
+            let update = _mm256_mul_ps(laplacian, time_visc_vec);
             let result = _mm256_add_ps(u_center, update);
 
             // Store result
@@ -248,11 +248,11 @@ pub unsafe fn diffusion_avx2(
         while i < nx - 1 {
             let idx = j * nx + i;
 
-            let d2u_dx2 = (input[idx - 1] - 2.0 * input[idx] + input[idx + 1]) * dx2_inv;
-            let d2u_dy2 = (input[idx - nx] - 2.0 * input[idx] + input[idx + nx]) * dy2_inv;
-            let laplacian = d2u_dx2 + d2u_dy2;
+            let laplacian_x = (input[idx - 1] - 2.0 * input[idx] + input[idx + 1]) * x_inv_squared;
+            let laplacian_y = (input[idx - nx] - 2.0 * input[idx] + input[idx + nx]) * y_inv_squared;
+            let laplacian = laplacian_x + laplacian_y;
 
-            output[idx] = input[idx] + dt_nu * laplacian;
+            output[idx] = input[idx] + time_viscosity * laplacian;
             i += 1;
         }
     }

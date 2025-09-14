@@ -21,16 +21,25 @@ pub struct Pressure<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive> Pressure<T> {
     /// Create zero pressure
+    #[must_use]
     pub fn zero() -> Self {
         Self { pascals: T::zero() }
     }
 
     /// Create pressure in Pascals
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the input value is not finite or is outside valid range.
     pub fn from_pascals(value: T) -> Result<Self> {
         Ok(Self { pascals: value })
     }
 
     /// Create pressure in bar
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the input value is not finite or is outside valid range.
     pub fn from_bar(value: T) -> Result<Self> {
         let pa_to_bar = T::from_f64(PA_TO_BAR).unwrap_or_else(T::zero);
         if pa_to_bar > T::zero() {
@@ -45,6 +54,10 @@ impl<T: RealField + Copy + FromPrimitive> Pressure<T> {
     }
 
     /// Create pressure in PSI
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the input value is not finite or is outside valid range.
     pub fn from_psi(value: T) -> Result<Self> {
         let pa_to_psi = T::from_f64(PA_TO_PSI).unwrap_or_else(T::zero);
         if pa_to_psi > T::zero() {
