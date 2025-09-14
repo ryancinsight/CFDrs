@@ -149,8 +149,8 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T>
         // For generic check, assume steady state (u_prev = u), no pressure gradient,
         // and check if viscous forces balance
         let pressure = DMatrix::zeros(self.nx, self.ny);
-        let viscosity = T::from_f64(1e-3).unwrap_or(T::one());
-        let dt = T::from_f64(1e-3).unwrap_or(T::one());
+        let viscosity = T::from_f64_or_one(1e-3);
+        let dt = T::from_f64_or_one(1e-3);
         let dx = T::one();
         let dy = T::one();
         let gravity = Vector2::zeros();

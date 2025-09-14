@@ -1,5 +1,6 @@
 //! Time integration methods for validation.
 
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
@@ -49,16 +50,21 @@ impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for ForwardEule
 /// Second-order Runge-Kutta time integrator (Heun's method)
 pub struct RungeKutta2;
 
-impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta2 {
+impl<T: RealField + Copy + FromPrimitive + SafeFromF64> TimeIntegratorTrait<T> for RungeKutta2 {
     fn step<F>(&self, y: &mut DVector<T>, t: T, dt: T, f: F) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
         let k1 = f(t, y);
-        let y_intermediate = y.clone() + k1.clone() * dt;
+        
+        // Zero-copy: Reuse k1 vector for y_intermediate calculation
+        let mut y_intermediate = k1.clone(); // Clone only k1, not y
+        y_intermediate *= dt;
+        y_intermediate += &*y;
+        
         let k2 = f(t + dt, &y_intermediate);
 
-        let half = T::from_f64(HALF).unwrap_or_else(|| T::zero());
+        let half = T::from_f64_or_zero(HALF);
         *y += (k1 + k2) * (dt * half);
         Ok(())
     }
@@ -71,22 +77,38 @@ impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta2
 /// Fourth-order Runge-Kutta time integrator (RK4)
 pub struct RungeKutta4;
 
-impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for RungeKutta4 {
+impl<T: RealField + Copy + FromPrimitive + SafeFromF64> TimeIntegratorTrait<T> for RungeKutta4 {
     fn step<F>(&self, y: &mut DVector<T>, t: T, dt: T, f: F) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
-        let half = T::from_f64(HALF).unwrap_or_else(|| T::zero());
+        let half = T::from_f64_or_zero(HALF);
+        
         let k1 = f(t, y);
-        let y_k1 = y.clone() + k1.clone() * (dt * half);
+        
+        // Zero-copy: Reuse k1 for y_k1 calculation
+        let mut y_k1 = k1.clone(); // Clone k1, not y
+        y_k1 *= dt * half;
+        y_k1 += &*y;
+        
         let k2 = f(t + dt * half, &y_k1);
-        let y_k2 = y.clone() + k2.clone() * (dt * half);
+        
+        // Zero-copy: Reuse k2 for y_k2 calculation
+        let mut y_k2 = k2.clone(); // Clone k2, not y
+        y_k2 *= dt * half;
+        y_k2 += &*y;
+        
         let k3 = f(t + dt * half, &y_k2);
-        let y_k3 = y.clone() + k3.clone() * dt;
+        
+        // Zero-copy: Reuse k3 for y_k3 calculation
+        let mut y_k3 = k3.clone(); // Clone k3, not y
+        y_k3 *= dt;
+        y_k3 += &*y;
+        
         let k4 = f(t + dt, &y_k3);
 
-        let sixth = T::from_f64(ONE_SIXTH).unwrap_or_else(|| T::zero());
-        let two = T::from_f64(TWO).unwrap_or_else(|| T::zero());
+        let sixth = T::from_f64_or_zero(ONE_SIXTH);
+        let two = T::from_f64_or_zero(TWO);
         *y += (k1 + k2 * two + k3 * two + k4) * (dt * sixth);
         Ok(())
     }

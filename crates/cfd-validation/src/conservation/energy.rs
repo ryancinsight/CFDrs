@@ -147,7 +147,7 @@ impl<T: RealField + Copy + FromPrimitive> EnergyConservationChecker<T> {
         let mut ke_current = T::zero();
         let mut ke_prev = T::zero();
 
-        let half = T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()));
+        let half = T::from_f64_or(0.5, T::one() / (T::one() + T::one()));
 
         for i in 0..self.nx {
             for j in 0..self.ny {
@@ -188,8 +188,8 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for EnergyConse
         let temperature = field;
         let u = DMatrix::zeros(self.nx, self.ny);
         let v = DMatrix::zeros(self.nx, self.ny);
-        let thermal_conductivity = T::from_f64(0.025).unwrap_or(T::one());
-        let dt = T::from_f64(1e-3).unwrap_or(T::one());
+        let thermal_conductivity = T::from_f64_or_one(0.025);
+        let dt = T::from_f64_or_one(1e-3);
         let dx = T::one();
         let dy = T::one();
 
