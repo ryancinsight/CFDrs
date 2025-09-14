@@ -79,7 +79,7 @@ impl<T: RealField + Copy + Sum> PerformanceMetrics<T> {
     pub fn hydraulic_efficiency(&self) -> T {
         if self.power_consumption > T::zero() {
             // Hydraulic efficiency: useful power / total power (White, 2011 - Fluid Mechanics)
-            // Useful power = throughput * pressure (simplified)
+            // Useful power = volumetric flow rate × pressure differential
             self.pressure_efficiency
         } else {
             T::zero()

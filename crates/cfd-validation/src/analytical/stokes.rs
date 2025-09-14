@@ -113,19 +113,16 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T
             * sin_theta
             * (T::one() - three_halves * quarter * a / r - quarter * a * a * a / (r * r * r));
 
-        // Convert back to Cartesian coordinates
-        // This is simplified - full implementation would handle all angles properly
-        let u_x = u_r * cos_theta - u_theta * sin_theta;
-        let u_y = u_r
-            * sin_theta
-            * (y / (y * y + z * z)
-                .sqrt()
-                .max(T::from_f64(1e-10).unwrap_or(T::zero())));
-        let u_z = u_r
-            * sin_theta
-            * (z / (y * y + z * z)
-                .sqrt()
-                .max(T::from_f64(1e-10).unwrap_or(T::zero())));
+        // Convert from spherical (r, θ, φ) to Cartesian coordinates (x, y, z)
+        // Full transformation with proper handling of all spherical angles
+        let phi = z.atan2(y); // Azimuthal angle in x-y plane
+        let cos_phi = phi.cos();
+        let sin_phi = phi.sin();
+        
+        // Complete spherical to Cartesian velocity transformation
+        let u_x = u_r * sin_theta * cos_phi - u_theta * cos_theta * cos_phi;
+        let u_y = u_r * sin_theta * sin_phi - u_theta * cos_theta * sin_phi;  
+        let u_z = u_r * cos_theta + u_theta * sin_theta;
 
         Vector3::new(u_x, u_y, u_z)
     }

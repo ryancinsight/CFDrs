@@ -46,7 +46,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ChapmanEnskogValidation<
     fn theoretical_viscosity(&self) -> T {
         let t = self.temperature.to_f64().unwrap_or(300.0);
 
-        // Constants for different gases (simplified)
+        // Molecular constants for different gases (Chapman & Enskog, 1970)
+        // Values: (molecular mass [kg], collision diameter [m], collision integral)
         let (m, sigma, omega) = match self.gas_type {
             GasType::Air => (4.81e-26, 3.617e-10, 1.16), // kg, m, dimensionless
             GasType::Nitrogen => (4.65e-26, 3.681e-10, 1.16),
