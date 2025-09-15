@@ -8,9 +8,9 @@ use std::fmt;
 
 // Pressure conversion constants
 const PA_TO_BAR: f64 = 1e-5;
-const PA_TO_PSI: f64 = 0.000145038;
+const PA_TO_PSI: f64 = 0.000_145_038;
 const PA_TO_ATM: f64 = 9.86923e-6;
-const PA_TO_MMHG: f64 = 0.00750062;
+const PA_TO_MMHG: f64 = 0.007_500_62;
 
 /// Pressure value with unit conversions
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]

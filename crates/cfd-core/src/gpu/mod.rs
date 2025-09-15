@@ -19,4 +19,8 @@ pub mod validation_tests;
 pub use crate::compute::gpu::GpuContext;
 
 #[cfg(not(feature = "gpu"))]
+/// GPU computation context placeholder.
+/// 
+/// This struct provides a placeholder for GPU-based computations.
+/// Currently serves as a marker type for future GPU implementation.
 pub struct GpuContext;

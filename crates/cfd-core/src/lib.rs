@@ -46,8 +46,8 @@ pub mod values;
 /// ```rust
 /// use cfd_core::prelude::*;
 /// ```
+/// Common imports for CFD core functionality
 pub mod prelude {
-    //! Common imports for CFD core functionality
 
     // Essential types that users will directly interact with
     pub use crate::boundary::{BoundaryCondition, WallType};

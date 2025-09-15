@@ -259,30 +259,35 @@ impl<T: RealField + Copy + FromPrimitive> SolverConfigBuilder<T> {
     }
 
     /// Set time step
+    #[must_use]
     pub fn time_step(mut self, dt: T) -> Self {
         self.config.numerical.dt = dt;
         self
     }
 
     /// Enable/disable parallel execution
+    #[must_use]
     pub fn parallel(mut self, parallel: bool) -> Self {
         self.config.execution.parallel = parallel;
         self
     }
 
     /// Set relaxation factor
+    #[must_use]
     pub fn relaxation_factor(mut self, factor: T) -> Self {
         self.config.numerical.relaxation = factor;
         self
     }
 
     /// Set CFL number
+    #[must_use]
     pub fn cfl(mut self, cfl: T) -> Self {
         self.config.numerical.cfl = cfl;
         self
     }
 
     /// Enable/disable verbose output
+    #[must_use]
     pub fn verbose(mut self, verbose: bool) -> Self {
         self.config.execution.verbose = verbose;
         self

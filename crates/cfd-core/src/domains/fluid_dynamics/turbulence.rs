@@ -225,20 +225,26 @@ impl<T: RealField + Copy + FromPrimitive> MixingLengthModel<T> {
         if i > 0 && i < nx - 1 {
             if let (Some(u_ip), Some(u_im)) = (velocity.get(i + 1, j, k), velocity.get(i - 1, j, k))
             {
-                let dudx = (u_ip.x - u_im.x) / (two * delta);
-                let dvdx = (u_ip.y - u_im.y) / (two * delta);
-                let dwdx = (u_ip.z - u_im.z) / (two * delta);
-                grad_u_sq = grad_u_sq + dudx * dudx + dvdx * dvdx + dwdx * dwdx;
+                #[allow(clippy::similar_names)] // CFD derivatives use standard notation
+                {
+                    let dudx = (u_ip.x - u_im.x) / (two * delta);
+                    let dvdx = (u_ip.y - u_im.y) / (two * delta);
+                    let dwdx = (u_ip.z - u_im.z) / (two * delta);
+                    grad_u_sq = grad_u_sq + dudx * dudx + dvdx * dvdx + dwdx * dwdx;
+                }
             }
         }
 
         if k > 0 && k < nz - 1 {
             if let (Some(u_kp), Some(u_km)) = (velocity.get(i, j, k + 1), velocity.get(i, j, k - 1))
             {
-                let dudz = (u_kp.x - u_km.x) / (two * delta);
-                let dvdz = (u_kp.y - u_km.y) / (two * delta);
-                let dwdz = (u_kp.z - u_km.z) / (two * delta);
-                grad_u_sq = grad_u_sq + dudz * dudz + dvdz * dvdz + dwdz * dwdz;
+                #[allow(clippy::similar_names)] // CFD derivatives use standard notation  
+                {
+                    let dudz = (u_kp.x - u_km.x) / (two * delta);
+                    let dvdz = (u_kp.y - u_km.y) / (two * delta);
+                    let dwdz = (u_kp.z - u_km.z) / (two * delta);
+                    grad_u_sq = grad_u_sq + dudz * dudz + dvdz * dvdz + dwdz * dwdz;
+                }
             }
         }
 

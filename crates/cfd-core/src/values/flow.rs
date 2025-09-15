@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 // Physical constants
 const REYNOLDS_LAMINAR_LIMIT_PIPE: f64 = 2300.0;
 const REYNOLDS_TURBULENT_ONSET_PIPE: f64 = 4000.0;
-const REYNOLDS_LAMINAR_LIMIT_PLATE: f64 = 500000.0;
+const REYNOLDS_LAMINAR_LIMIT_PLATE: f64 = 500_000.0;
 
 /// Flow geometry type for Reynolds number interpretation
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
@@ -36,6 +36,9 @@ pub struct ReynoldsNumber<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
     /// Create a new Reynolds number with specified geometry
+    ///
+    /// # Errors
+    /// Returns an error if the value is negative
     pub fn new(value: T, geometry: FlowGeometry) -> Result<Self> {
         if value < T::zero() {
             return Err(crate::error::Error::InvalidConfiguration(
@@ -46,6 +49,9 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
     }
 
     /// Create Reynolds number for pipe flow
+    ///
+    /// # Errors
+    /// Returns an error if the value is negative
     pub fn pipe(value: T) -> Result<Self> {
         Self::new(value, FlowGeometry::Pipe)
     }

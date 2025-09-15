@@ -162,8 +162,8 @@ impl FluidDynamicsService {
         let ln10 = T::from_f64(10.0).unwrap_or_else(|| T::one()).ln();
 
         let term_rr = (relative_roughness / divisor).powf(rr_exp);
-        let term_re = T::from_f64(6.9).unwrap_or_else(|| T::one()) / reynolds;
-        let inside = term_rr + term_re;
+        let reynolds_term = T::from_f64(6.9).unwrap_or_else(|| T::one()) / reynolds;
+        let inside = term_rr + reynolds_term;
         if inside <= T::zero() {
             return Err(Error::Numerical(
                 crate::error::NumericalErrorKind::InvalidValue {

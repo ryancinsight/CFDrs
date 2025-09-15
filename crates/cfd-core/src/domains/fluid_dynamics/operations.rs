@@ -122,6 +122,7 @@ impl FlowOperations {
 }
 
 // Helper function for vorticity calculation at a point
+#[allow(clippy::similar_names)] // CFD derivatives use standard notation: dudx, dvdy, etc.
 fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
     velocity: &VelocityField<T>,
     i: usize,

@@ -2,7 +2,7 @@ use cfd_core::domains::{
     fluid_dynamics::{FlowField, FlowOperations, PressureField, VelocityField},
     numerical_methods::{finite_difference, time_integration, DiscretizationScheme},
 };
-use cfd_core::TimeIntegrationScheme;
+use cfd_core::domains::numerical_methods::traits::TimeIntegrationScheme;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use nalgebra::Vector3;
 use std::collections::HashMap;
@@ -28,7 +28,7 @@ fn benchmark_flow_field_operations(c: &mut Criterion) {
 fn benchmark_numerical_schemes(c: &mut Criterion) {
     let mut group = c.benchmark_group("numerical_schemes");
 
-    for size in [1000, 10000, 100000].iter() {
+    for size in [1000, 10_000, 100_000].iter() {
         let field: Vec<f64> = (0..*size).map(|i| (i as f64).sin()).collect();
         let dx = 0.01;
 
@@ -115,7 +115,7 @@ fn benchmark_reynolds_number_calculation(c: &mut Criterion) {
 
     // Service pattern removed - using direct operations
 
-    for count in [1000, 10000, 100000].iter() {
+    for count in [1000, 10_000, 100_000].iter() {
         group.bench_with_input(
             BenchmarkId::new("reynolds_calculation", count),
             count,
@@ -142,7 +142,7 @@ fn create_test_flow_field(size: usize) -> FlowField<f64> {
         .map(|i| Vector3::new((i as f64).sin(), (i as f64).cos(), 0.0))
         .collect();
 
-    let pressure_values: Vec<f64> = (0..size).map(|i| 101325.0 + (i as f64) * 10.0).collect();
+    let pressure_values: Vec<f64> = (0..size).map(|i| 101_325.0 + (i as f64) * 10.0).collect();
 
     FlowField {
         velocity: VelocityField {

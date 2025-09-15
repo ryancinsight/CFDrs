@@ -124,7 +124,7 @@ pub fn validate_prandtl<T: RealField + Copy>(prandtl: T) -> Result<(), Error> {
 
     // Typical range: 0.001 (liquid metals) to 100000 (heavy oils)
     let pr_min = T::from_f64(0.001).unwrap_or_else(T::zero);
-    let pr_max = T::from_f64(100000.0).unwrap_or_else(T::one);
+    let pr_max = T::from_f64(100_000.0).unwrap_or_else(T::one);
 
     if prandtl < pr_min || prandtl > pr_max {
         return Err(Error::InvalidInput(format!(

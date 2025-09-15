@@ -64,7 +64,7 @@ pub mod thermodynamics {
 pub mod universal {
     /// Universal gas constant [J/(mol·K)]
     /// Source: CODATA 2018, NIST SP 961
-    pub const GAS_CONSTANT: f64 = 8.314462618;
+    pub const GAS_CONSTANT: f64 = 8.314_462_618;
 
     /// Standard acceleration due to gravity [m/s²]
     /// Source: ISO 80000-3:2019
@@ -72,7 +72,7 @@ pub mod universal {
 
     /// Stefan-Boltzmann constant [W/(m²·K⁴)]
     /// Source: CODATA 2018, NIST SP 961
-    pub const STEFAN_BOLTZMANN: f64 = 5.670374419e-8;
+    pub const STEFAN_BOLTZMANN: f64 = 5.670_374_419e-8;
 }
 
 /// Dimensionless numbers for validation
