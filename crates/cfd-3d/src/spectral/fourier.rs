@@ -97,6 +97,13 @@ pub struct SpectralDerivative<T: RealField + Copy> {
 }
 
 impl<T: RealField + FromPrimitive + Copy> SpectralDerivative<T> {
+    /// Create a new spectral derivative calculator
+    ///
+    /// # Arguments
+    /// * `n` - Number of grid points for spectral transform
+    ///
+    /// # Returns
+    /// * `Result<Self>` - New spectral derivative instance or error
     pub fn new(n: usize) -> Result<Self> {
         Ok(Self {
             transform: FourierTransform::new(n)?,

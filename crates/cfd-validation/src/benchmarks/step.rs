@@ -54,10 +54,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
         // Initialize fields
         let mut u = DMatrix::<T>::zeros(ny, nx);
         let mut v = DMatrix::<T>::zeros(ny, nx);
-        let p = DMatrix::<T>::zeros(ny, nx);
+        let _p = DMatrix::<T>::zeros(ny, nx); // TODO: Implement pressure field usage
 
         // Set parabolic inlet profile
-        let h_inlet = self.channel_height - self.step_height;
+        let _h_inlet = self.channel_height - self.step_height; // TODO: Use in inlet profile calculation
         for j in 0..ny / 2 {
             let y = T::from_usize(j).unwrap_or_else(|| T::zero())
                 / T::from_usize(ny / 2).unwrap_or_else(|| T::one());

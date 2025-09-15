@@ -174,7 +174,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
 
         // Run simulation with specified grid size
         let grid_points = self.grid_size;
-        let dx = T::one()
+        let _dx = T::one() // TODO: Use dx in numerical discretization
             / T::from_usize(grid_points - 1)
                 .ok_or_else(|| Error::InvalidInput("Cannot calculate dx".to_string()))?;
 

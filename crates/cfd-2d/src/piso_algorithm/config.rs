@@ -18,6 +18,7 @@ pub struct PisoConfig<T: RealField + Copy> {
 
     /// Under-relaxation factors
     pub velocity_relaxation: T,
+    /// Under-relaxation factor for pressure correction
     pub pressure_relaxation: T,
 
     /// Logging frequency (None disables logging, Some(n) logs every n steps)
