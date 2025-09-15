@@ -62,24 +62,28 @@ impl<T: RealField + Copy + FromPrimitive> PhysicalParameters<T> {
     }
 
     /// Set reference velocity
+    #[must_use]
     pub fn with_velocity(mut self, velocity: Velocity<T>) -> Self {
         self.reference_velocity = velocity;
         self
     }
 
     /// Set reference pressure
+    #[must_use]
     pub fn with_pressure(mut self, pressure: Pressure<T>) -> Self {
         self.reference_pressure = pressure;
         self
     }
 
     /// Set gravity vector
+    #[must_use]
     pub fn with_gravity(mut self, gravity: Vector3<T>) -> Self {
         self.gravity = gravity;
         self
     }
 
     /// Set time parameters
+    #[must_use]
     pub fn with_time(mut self, dt: T, max_time: T) -> Self {
         self.time_step = dt;
         self.max_time = max_time;

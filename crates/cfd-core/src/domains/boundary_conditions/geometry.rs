@@ -162,6 +162,7 @@ impl<T: RealField + Copy> BoundaryRegion<T> {
     }
 
     /// Attach a boundary condition to this region
+    #[must_use]
     pub fn with_condition(mut self, condition: BoundaryConditionSpec<T>) -> Self {
         self.condition = Some(condition);
         self

@@ -201,6 +201,7 @@ impl<T: RealField + Copy + FromPrimitive> MixingLengthModel<T> {
     }
 
     /// Calculate velocity gradient magnitude
+    #[allow(clippy::similar_names)] // CFD derivatives use standard notation
     fn calculate_velocity_gradient(&self, velocity: &VelocityField<T>, idx: usize) -> T {
         let (nx, ny, nz) = velocity.dimensions;
         let i = idx % nx;

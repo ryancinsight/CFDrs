@@ -68,18 +68,24 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> Prob
     }
 
     /// Set problem description
+    #[must_use]
     pub fn with_description(mut self, description: String) -> Self {
         self.description = description;
         self
     }
 
     /// Set initial conditions
+    #[must_use]
     pub fn with_initial_conditions(mut self, conditions: InitialConditions<T>) -> Self {
         self.initial_conditions = conditions;
         self
     }
 
     /// Add boundary condition
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - A boundary condition with the same name already exists
     pub fn add_boundary_condition(
         &mut self,
         name: String,
@@ -96,12 +102,21 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> Prob
     }
 
     /// Set problem type
+    #[must_use]
     pub fn with_type(mut self, problem_type: ProblemType) -> Self {
         self.problem_type = problem_type;
         self
     }
 
     /// Validate problem setup
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Domain has zero or negative volume
+    /// - Fluid density is zero or negative
+    /// - Fluid viscosity is zero or negative
+    /// - No boundary conditions are defined
+    /// - Initial conditions are invalid
     pub fn validate(&self) -> Result<()> {
         // Check domain validity
         if self.domain.volume() <= T::zero() {
@@ -166,6 +181,7 @@ impl<T: RealField + Copy + FromPrimitive> InitialConditions<T> {
     }
 
     /// Set temperature
+    #[must_use]
     pub fn with_temperature(mut self, temperature: T) -> Self {
         self.temperature = Some(temperature);
         self
