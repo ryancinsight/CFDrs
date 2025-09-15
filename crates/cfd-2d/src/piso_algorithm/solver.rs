@@ -86,7 +86,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSol
     ) -> Result<()> {
         // Copy current state to buffer for residual calculation
         // This is much cheaper than cloning in every iteration
-        state.fields_buffer.copy_from(fields);
+        state.fields_buffer.copy_from(fields)?;
 
         // Step 1: Velocity predictor
         self.predictor.predict(fields, dt)?;
