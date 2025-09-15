@@ -159,7 +159,8 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
                     };
 
                     // Level set advection equation: ∂φ/∂t + u·∇φ = 0
-                    self.phi[idx] = self.phi_previous[idx] - dt * (u * dphi_dx + v * dphi_dy + w * dphi_dz);
+                    self.phi[idx] =
+                        self.phi_previous[idx] - dt * (u * dphi_dx + v * dphi_dy + w * dphi_dz);
                 }
             }
         }
@@ -191,7 +192,8 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
                                 + T::from_f64(1e-6).unwrap_or_else(|| T::zero()));
 
                         // Reinitialization equation: ∂φ/∂τ + S(φ₀)(|∇φ| - 1) = 0
-                        self.phi[idx] = self.phi_previous[idx] - dtau * sign_phi * (grad - T::one());
+                        self.phi[idx] =
+                            self.phi_previous[idx] - dtau * sign_phi * (grad - T::one());
                     }
                 }
             }
@@ -224,11 +226,14 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
         let dz = self.dz;
 
         // Central differences for gradient using phi_previous
-        let dphi_dx = (self.phi_previous[self.index(i + 1, j, k)] - self.phi_previous[self.index(i - 1, j, k)])
+        let dphi_dx = (self.phi_previous[self.index(i + 1, j, k)]
+            - self.phi_previous[self.index(i - 1, j, k)])
             / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dx);
-        let dphi_dy = (self.phi_previous[self.index(i, j + 1, k)] - self.phi_previous[self.index(i, j - 1, k)])
+        let dphi_dy = (self.phi_previous[self.index(i, j + 1, k)]
+            - self.phi_previous[self.index(i, j - 1, k)])
             / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dy);
-        let dphi_dz = (self.phi_previous[self.index(i, j, k + 1)] - self.phi_previous[self.index(i, j, k - 1)])
+        let dphi_dz = (self.phi_previous[self.index(i, j, k + 1)]
+            - self.phi_previous[self.index(i, j, k - 1)])
             / (T::from_f64(2.0).unwrap_or_else(|| T::one()) * dz);
 
         (dphi_dx * dphi_dx + dphi_dy * dphi_dy + dphi_dz * dphi_dz).sqrt()

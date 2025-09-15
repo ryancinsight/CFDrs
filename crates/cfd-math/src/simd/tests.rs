@@ -123,7 +123,7 @@ mod tests {
         let b = vec![2.0f32, 2.0, 2.0, 2.0];
         let mut result = vec![0.0f32; 4];
 
-        swar.mul_f32(&a, &b, &mut result).unwrap();
+        swar.mul(&a, &b, &mut result).unwrap();
 
         assert_relative_eq!(result[0], 2.0, epsilon = 1e-6);
         assert_relative_eq!(result[1], 4.0, epsilon = 1e-6);
@@ -137,7 +137,7 @@ mod tests {
         let a = vec![1.0f32, 2.0, 3.0, 4.0];
         let b = vec![4.0f32, 3.0, 2.0, 1.0];
 
-        let dot = swar.dot_f32(&a, &b).unwrap();
+        let dot = swar.dot(&a, &b).unwrap();
 
         assert_relative_eq!(dot, 20.0, epsilon = 1e-6);
     }

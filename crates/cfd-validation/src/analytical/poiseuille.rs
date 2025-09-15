@@ -99,7 +99,7 @@ impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for PoiseuilleFlow<T> {
-    fn evaluate(&self, x: T, y: T, _z: T, _t: T) -> Vector3<T> {
+    fn evaluate(&self, _x: T, y: T, _z: T, _t: T) -> Vector3<T> {
         let velocity = match self.geometry {
             PoiseuilleGeometry::Plates => {
                 // u(y) = u_max * (1 - (y/h)²)

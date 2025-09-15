@@ -163,7 +163,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         // Viscous stiffness matrix (K) for velocity DOFs
         // Literature-based finite element formulation using proper Galerkin method
         let visc_factor = viscosity * volume;
-        
+
         // For tetrahedral linear elements, use consistent element matrices
         // Based on Hughes et al. (1986) finite element formulation
         for i in 0..n_nodes {
@@ -176,7 +176,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                     // Off-diagonal coupling based on element connectivity
                     visc_factor * T::from_f64(-0.125).unwrap_or_else(T::zero)
                 };
-                
+
                 // Apply to each velocity component (x, y, z)
                 for d in 0..constants::VELOCITY_COMPONENTS {
                     let row = i * constants::VELOCITY_COMPONENTS + d;

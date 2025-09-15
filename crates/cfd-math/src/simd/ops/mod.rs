@@ -57,7 +57,7 @@ impl VectorOps for SimdOps {
             #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
             SimdCapability::Neon => unsafe { arm::add_neon_f32(a, b, result) },
 
-            _ => self.swar.add_f32(a, b, result),
+            _ => self.swar.add(a, b, result),
         }
     }
 
@@ -77,7 +77,7 @@ impl VectorOps for SimdOps {
             #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
             SimdCapability::Neon => unsafe { arm::sub_neon_f32(a, b, result) },
 
-            _ => self.swar.sub_f32(a, b, result),
+            _ => self.swar.sub(a, b, result),
         }
     }
 
@@ -97,7 +97,7 @@ impl VectorOps for SimdOps {
             #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
             SimdCapability::Neon => unsafe { arm::mul_neon_f32(a, b, result) },
 
-            _ => self.swar.mul_f32(a, b, result),
+            _ => self.swar.mul(a, b, result),
         }
     }
 
@@ -108,7 +108,7 @@ impl VectorOps for SimdOps {
         }
 
         // Division is typically not SIMD-optimized, use SWAR
-        self.swar.div_f32(a, b, result)
+        self.swar.div(a, b, result)
     }
 
     #[inline]
@@ -121,7 +121,7 @@ impl VectorOps for SimdOps {
             #[cfg(all(target_arch = "x86_64", target_feature = "fma"))]
             SimdCapability::Avx2 => unsafe { x86::fma_avx2_f32(a, b, c, result) },
 
-            _ => self.swar.fma_f32(a, b, c, result),
+            _ => self.swar.fma(a, b, c, result),
         }
     }
 
@@ -135,7 +135,7 @@ impl VectorOps for SimdOps {
             #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
             SimdCapability::Avx2 => unsafe { x86::scale_avx2_f32(input, scalar, result) },
 
-            _ => self.swar.scale_f32(input, scalar, result),
+            _ => self.swar.scale(input, scalar, result),
         }
     }
 
@@ -149,7 +149,7 @@ impl VectorOps for SimdOps {
             #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
             SimdCapability::Avx2 => Ok(unsafe { x86::dot_avx2_f32(a, b) }),
 
-            _ => self.swar.dot_f32(a, b),
+            _ => self.swar.dot(a, b),
         }
     }
 

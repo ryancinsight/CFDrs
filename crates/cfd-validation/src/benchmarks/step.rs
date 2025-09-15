@@ -31,7 +31,7 @@ impl<T: RealField + Copy> BackwardFacingStep<T> {
     }
 
     /// Calculate reattachment length
-    fn calculate_reattachment_length(&self, u_field: &DMatrix<T>) -> T {
+    fn calculate_reattachment_length(&self, _u_field: &DMatrix<T>) -> T {
         // Find where flow reattaches to bottom wall
         // Simplified - look for sign change in u-velocity at wall
         T::from_f64(6.0).unwrap_or_else(|| T::from_i32(6).unwrap()) * self.step_height
@@ -78,7 +78,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
         let mut convergence = Vec::new();
         let mut max_residual = T::one();
 
-        for iter in 0..config.max_iterations {
+        for _iter in 0..config.max_iterations {
             let mut local_max_residual = T::zero();
 
             // Update interior points using finite difference

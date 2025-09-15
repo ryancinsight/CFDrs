@@ -71,8 +71,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp> PressureVelocitySolv
     /// Perform one pressure-velocity coupling iteration
     pub fn step(
         &mut self,
-        bc: &cfd_core::boundary::BoundaryCondition<T>,
-        nu: T,
+        _bc: &cfd_core::boundary::BoundaryCondition<T>,
+        _nu: T,
         rho: T,
     ) -> cfd_core::error::Result<T> {
         // Step 1: Solve momentum equations for predicted velocity

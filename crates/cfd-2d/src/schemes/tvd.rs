@@ -28,7 +28,7 @@ impl FluxLimiter {
             FluxLimiter::None => T::one(),
             FluxLimiter::VanLeer => {
                 if r > T::zero() {
-                    let two =
+                    let _two =
                         super::constants::to_realfield::<T>(super::constants::FLUX_LIMITER_TWO);
                     (r + r.abs()) / (T::one() + r.abs())
                 } else {

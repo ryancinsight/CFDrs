@@ -210,13 +210,13 @@ mod tests {
         // Expected: ∇²f_12 = (0 + 0 + 0 + 0 - 4*1.0)/(1.0²) = -4.0
         let expected_laplacian = -4.0;
         assert_relative_eq!(result[12], expected_laplacian, epsilon = 1e-10);
-        
+
         // Test that boundary points have zero Laplacian (should be skipped by implementation)
         assert_eq!(result[0], 0.0, "Boundary point should not be computed");
         assert_eq!(result[4], 0.0, "Boundary point should not be computed");
         assert_eq!(result[20], 0.0, "Boundary point should not be computed");
         assert_eq!(result[24], 0.0, "Boundary point should not be computed");
-        
+
         // Test neighbors of center point: they should have positive Laplacian due to central point influence
         // For field[12] = 1.0, the neighbors at field[7], field[11], field[13], field[17] should get:
         // ∇²f = (1 + 0 + 0 + 0 - 4*0)/(1²) = 1.0 (since center contributes 1, others 0)

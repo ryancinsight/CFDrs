@@ -118,10 +118,10 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T
         let phi = z.atan2(y); // Azimuthal angle in x-y plane
         let cos_phi = phi.cos();
         let sin_phi = phi.sin();
-        
+
         // Complete spherical to Cartesian velocity transformation
         let u_x = u_r * sin_theta * cos_phi - u_theta * cos_theta * cos_phi;
-        let u_y = u_r * sin_theta * sin_phi - u_theta * cos_theta * sin_phi;  
+        let u_y = u_r * sin_theta * sin_phi - u_theta * cos_theta * sin_phi;
         let u_z = u_r * cos_theta + u_theta * sin_theta;
 
         Vector3::new(u_x, u_y, u_z)

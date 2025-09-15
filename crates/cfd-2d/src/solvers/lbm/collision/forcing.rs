@@ -65,7 +65,7 @@ impl<T: RealField + Copy> ShanChenForcing<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> ForcingScheme<T> for ShanChenForcing<T> {
-    fn apply_force(&self, f: &mut [T; 9], force: [T; 2], velocity: [T; 2], density: T, dt: T) {
+    fn apply_force(&self, f: &mut [T; 9], force: [T; 2], _velocity: [T; 2], _density: T, dt: T) {
         use crate::solvers::lbm::lattice::D2Q9;
 
         // Shan-Chen forcing implementation

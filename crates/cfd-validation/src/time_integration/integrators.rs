@@ -26,7 +26,14 @@ pub trait TimeIntegratorTrait<T: RealField + Copy> {
         F: Fn(T, &DVector<T>) -> DVector<T>;
 
     /// Take one time step with pre-allocated workspace for zero-copy performance
-    fn step_with_workspace<F>(&self, y: &mut DVector<T>, workspace: &mut [DVector<T>], t: T, dt: T, f: F) -> Result<()>
+    fn step_with_workspace<F>(
+        &self,
+        y: &mut DVector<T>,
+        workspace: &mut [DVector<T>],
+        t: T,
+        dt: T,
+        f: F,
+    ) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>;
 
@@ -50,7 +57,14 @@ impl<T: RealField + Copy + FromPrimitive> TimeIntegratorTrait<T> for ForwardEule
         Ok(())
     }
 
-    fn step_with_workspace<F>(&self, y: &mut DVector<T>, _workspace: &mut [DVector<T>], t: T, dt: T, f: F) -> Result<()>
+    fn step_with_workspace<F>(
+        &self,
+        y: &mut DVector<T>,
+        _workspace: &mut [DVector<T>],
+        t: T,
+        dt: T,
+        f: F,
+    ) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
@@ -76,26 +90,36 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64> TimeIntegratorTrait<T> f
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
         // Default implementation using internal workspace allocation
-        let mut workspace = vec![DVector::zeros(y.len()); <Self as TimeIntegratorTrait<T>>::workspace_size(self)];
+        let mut workspace =
+            vec![DVector::zeros(y.len()); <Self as TimeIntegratorTrait<T>>::workspace_size(self)];
         self.step_with_workspace(y, &mut workspace, t, dt, f)
     }
 
-    fn step_with_workspace<F>(&self, y: &mut DVector<T>, workspace: &mut [DVector<T>], t: T, dt: T, f: F) -> Result<()>
+    fn step_with_workspace<F>(
+        &self,
+        y: &mut DVector<T>,
+        workspace: &mut [DVector<T>],
+        t: T,
+        dt: T,
+        f: F,
+    ) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
         if workspace.len() < <Self as TimeIntegratorTrait<T>>::workspace_size(self) {
-            return Err(cfd_core::error::Error::InvalidInput("Insufficient workspace size".to_string()));
+            return Err(cfd_core::error::Error::InvalidInput(
+                "Insufficient workspace size".to_string(),
+            ));
         }
 
         let k1 = f(t, y);
-        
+
         // True zero-copy: Use pre-allocated workspace buffer
         let y_intermediate = &mut workspace[0];
         y_intermediate.copy_from(&k1);
         *y_intermediate *= dt;
         *y_intermediate += &*y;
-        
+
         let k2 = f(t + dt, y_intermediate);
 
         let half = T::from_f64_or_zero(HALF);
@@ -121,42 +145,52 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64> TimeIntegratorTrait<T> f
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
         // Default implementation using internal workspace allocation
-        let mut workspace = vec![DVector::zeros(y.len()); <Self as TimeIntegratorTrait<T>>::workspace_size(self)];
+        let mut workspace =
+            vec![DVector::zeros(y.len()); <Self as TimeIntegratorTrait<T>>::workspace_size(self)];
         self.step_with_workspace(y, &mut workspace, t, dt, f)
     }
 
-    fn step_with_workspace<F>(&self, y: &mut DVector<T>, workspace: &mut [DVector<T>], t: T, dt: T, f: F) -> Result<()>
+    fn step_with_workspace<F>(
+        &self,
+        y: &mut DVector<T>,
+        workspace: &mut [DVector<T>],
+        t: T,
+        dt: T,
+        f: F,
+    ) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
         if workspace.len() < <Self as TimeIntegratorTrait<T>>::workspace_size(self) {
-            return Err(cfd_core::error::Error::InvalidInput("Insufficient workspace size".to_string()));
+            return Err(cfd_core::error::Error::InvalidInput(
+                "Insufficient workspace size".to_string(),
+            ));
         }
 
         let half = T::from_f64_or_zero(HALF);
-        
+
         let k1 = f(t, y);
-        
+
         // True zero-copy: Use pre-allocated workspace buffers
         let y_k1 = &mut workspace[0];
         y_k1.copy_from(&k1);
         *y_k1 *= dt * half;
         *y_k1 += &*y;
-        
+
         let k2 = f(t + dt * half, y_k1);
-        
+
         let y_k2 = &mut workspace[1];
         y_k2.copy_from(&k2);
         *y_k2 *= dt * half;
         *y_k2 += &*y;
-        
+
         let k3 = f(t + dt * half, y_k2);
-        
+
         let y_k3 = &mut workspace[2];
         y_k3.copy_from(&k3);
         *y_k3 *= dt;
         *y_k3 += &*y;
-        
+
         let k4 = f(t + dt, y_k3);
 
         let sixth = T::from_f64_or_zero(ONE_SIXTH);
@@ -184,7 +218,9 @@ pub enum TimeIntegratorEnum<T: RealField + Copy> {
     RungeKutta4(RungeKutta4, PhantomData<T>),
 }
 
-impl<T: RealField + Copy + FromPrimitive + SafeFromF64> TimeIntegratorTrait<T> for TimeIntegratorEnum<T> {
+impl<T: RealField + Copy + FromPrimitive + SafeFromF64> TimeIntegratorTrait<T>
+    for TimeIntegratorEnum<T>
+{
     fn step<F>(&self, y: &mut DVector<T>, t: T, dt: T, f: F) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
@@ -196,14 +232,27 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64> TimeIntegratorTrait<T> f
         }
     }
 
-    fn step_with_workspace<F>(&self, y: &mut DVector<T>, workspace: &mut [DVector<T>], t: T, dt: T, f: F) -> Result<()>
+    fn step_with_workspace<F>(
+        &self,
+        y: &mut DVector<T>,
+        workspace: &mut [DVector<T>],
+        t: T,
+        dt: T,
+        f: F,
+    ) -> Result<()>
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
         match self {
-            TimeIntegratorEnum::ForwardEuler(integrator, _) => integrator.step_with_workspace(y, workspace, t, dt, f),
-            TimeIntegratorEnum::RungeKutta2(integrator, _) => integrator.step_with_workspace(y, workspace, t, dt, f),
-            TimeIntegratorEnum::RungeKutta4(integrator, _) => integrator.step_with_workspace(y, workspace, t, dt, f),
+            TimeIntegratorEnum::ForwardEuler(integrator, _) => {
+                integrator.step_with_workspace(y, workspace, t, dt, f)
+            }
+            TimeIntegratorEnum::RungeKutta2(integrator, _) => {
+                integrator.step_with_workspace(y, workspace, t, dt, f)
+            }
+            TimeIntegratorEnum::RungeKutta4(integrator, _) => {
+                integrator.step_with_workspace(y, workspace, t, dt, f)
+            }
         }
     }
 
@@ -217,9 +266,15 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64> TimeIntegratorTrait<T> f
 
     fn workspace_size(&self) -> usize {
         match self {
-            TimeIntegratorEnum::ForwardEuler(integrator, _) => <ForwardEuler as TimeIntegratorTrait<T>>::workspace_size(integrator),
-            TimeIntegratorEnum::RungeKutta2(integrator, _) => <RungeKutta2 as TimeIntegratorTrait<T>>::workspace_size(integrator),
-            TimeIntegratorEnum::RungeKutta4(integrator, _) => <RungeKutta4 as TimeIntegratorTrait<T>>::workspace_size(integrator),
+            TimeIntegratorEnum::ForwardEuler(integrator, _) => {
+                <ForwardEuler as TimeIntegratorTrait<T>>::workspace_size(integrator)
+            }
+            TimeIntegratorEnum::RungeKutta2(integrator, _) => {
+                <RungeKutta2 as TimeIntegratorTrait<T>>::workspace_size(integrator)
+            }
+            TimeIntegratorEnum::RungeKutta4(integrator, _) => {
+                <RungeKutta4 as TimeIntegratorTrait<T>>::workspace_size(integrator)
+            }
         }
     }
 }
