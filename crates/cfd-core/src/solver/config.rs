@@ -162,6 +162,7 @@ pub struct LinearSolverConfigBuilder<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive> LinearSolverConfigBuilder<T> {
     /// Create a new builder
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: LinearSolverConfig::default(),
@@ -169,18 +170,21 @@ impl<T: RealField + Copy + FromPrimitive> LinearSolverConfigBuilder<T> {
     }
 
     /// Set maximum iterations
+    #[must_use]
     pub fn max_iterations(mut self, max_iter: usize) -> Self {
         self.config.max_iterations = max_iter;
         self
     }
 
     /// Set tolerance
+    #[must_use]
     pub fn tolerance(mut self, tol: T) -> Self {
         self.config.tolerance = tol;
         self
     }
 
     /// Enable preconditioning
+    #[must_use]
     pub fn preconditioning(mut self, enable: bool) -> Self {
         self.config.preconditioning = enable;
         self
@@ -189,6 +193,12 @@ impl<T: RealField + Copy + FromPrimitive> LinearSolverConfigBuilder<T> {
     /// Build the configuration
     pub fn build(self) -> LinearSolverConfig<T> {
         self.config
+    }
+}
+
+impl<T: RealField + Copy + FromPrimitive> Default for LinearSolverConfigBuilder<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -223,6 +233,10 @@ impl<T: RealField + Copy + FromPrimitive> Default for SolverConfigBuilder<T> {
 
 impl<T: RealField + Copy + FromPrimitive> SolverConfigBuilder<T> {
     /// Create new builder with defaults
+    ///
+    /// # Panics
+    /// Panics if default tolerance value cannot be converted from f64
+    #[must_use]
     pub fn new() -> Self {
         Self {
             config: SolverConfig {
@@ -247,12 +261,14 @@ impl<T: RealField + Copy + FromPrimitive> SolverConfigBuilder<T> {
     }
 
     /// Set maximum iterations
+    #[must_use]
     pub fn max_iterations(mut self, max_iter: usize) -> Self {
         self.config.convergence.max_iterations = max_iter;
         self
     }
 
     /// Set tolerance
+    #[must_use]
     pub fn tolerance(mut self, tol: T) -> Self {
         self.config.convergence.tolerance = tol;
         self
