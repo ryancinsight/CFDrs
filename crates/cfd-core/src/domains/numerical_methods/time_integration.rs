@@ -256,6 +256,6 @@ mod tests {
         // Analytical solution: y(t) = e^(-t)
         // y(0.1) = e^(-0.1) ≈ 0.9048374
         assert_eq!(result.len(), 1);
-        assert_relative_eq!(result[0], 0.9048374, epsilon = 1e-6);
+        assert_relative_eq!(result[0], 0.904_837_4, epsilon = 1e-6);
     }
 }

@@ -35,6 +35,10 @@ impl SimulationState {
     }
 
     /// Transition to running state
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Current state is not Initialized or Paused
     pub fn start(&mut self) -> Result<(), &'static str> {
         match self {
             Self::Initialized | Self::Paused => {
