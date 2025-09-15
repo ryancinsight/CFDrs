@@ -17,13 +17,13 @@ pub enum PoissonBoundaryCondition<T: RealField + Copy> {
     /// Neumann: ∂u/∂n = g on boundary
     Neumann(T),
     /// Robin: αu + β∂u/∂n = g on boundary
-    Robin { 
+    Robin {
         /// Coefficient α for Robin boundary condition
-        alpha: T, 
+        alpha: T,
         /// Coefficient β for Robin boundary condition
-        beta: T, 
+        beta: T,
         /// Boundary value g for Robin boundary condition
-        value: T 
+        value: T,
     },
     /// Periodic boundary conditions
     Periodic,

@@ -56,21 +56,46 @@ pub fn jacobi_iteration_simd(
 
     // SIMD operations for Laplacian computation
     use cfd_math::simd::SimdOperation;
-    
+
     // Compute x-direction Laplacian: (left + right) / dx²
-    processor.process_f32(&left_vals, &right_vals, &mut laplacian_x, SimdOperation::Add)?;
+    processor.process_f32(
+        &left_vals,
+        &right_vals,
+        &mut laplacian_x,
+        SimdOperation::Add,
+    )?;
     let dx2_vec = vec![dx2; laplacian_x.len()];
     let mut temp_laplacian_x = vec![0.0f32; laplacian_x.len()];
-    processor.process_f32(&laplacian_x, &dx2_vec, &mut temp_laplacian_x, SimdOperation::Div)?;
+    processor.process_f32(
+        &laplacian_x,
+        &dx2_vec,
+        &mut temp_laplacian_x,
+        SimdOperation::Div,
+    )?;
 
     // Compute y-direction Laplacian: (bottom + top) / dy²
-    processor.process_f32(&bottom_vals, &top_vals, &mut laplacian_y, SimdOperation::Add)?;
+    processor.process_f32(
+        &bottom_vals,
+        &top_vals,
+        &mut laplacian_y,
+        SimdOperation::Add,
+    )?;
     let dy2_vec = vec![dy2; laplacian_y.len()];
     let mut temp_laplacian_y = vec![0.0f32; laplacian_y.len()];
-    processor.process_f32(&laplacian_y, &dy2_vec, &mut temp_laplacian_y, SimdOperation::Div)?;
+    processor.process_f32(
+        &laplacian_y,
+        &dy2_vec,
+        &mut temp_laplacian_y,
+        SimdOperation::Div,
+    )?;
 
     // Combine Laplacians: laplacian_x + laplacian_y
-    processor.process_f32(&temp_laplacian_x, &temp_laplacian_y, &mut stencil_result, SimdOperation::Add)?;
+    processor.process_f32(
+        &temp_laplacian_x,
+        &temp_laplacian_y,
+        &mut stencil_result,
+        SimdOperation::Add,
+    )?;
 
     // Subtract source term and multiply by factor
     let mut source_interior = vec![0.0f32; (nx - 2) * (ny - 2)];
@@ -81,11 +106,21 @@ pub fn jacobi_iteration_simd(
             gather_idx += 1;
         }
     }
-    
+
     let mut temp_stencil = vec![0.0f32; stencil_result.len()];
-    processor.process_f32(&stencil_result, &source_interior, &mut temp_stencil, SimdOperation::Sub)?;
+    processor.process_f32(
+        &stencil_result,
+        &source_interior,
+        &mut temp_stencil,
+        SimdOperation::Sub,
+    )?;
     let factor_vec = vec![factor; stencil_result.len()];
-    processor.process_f32(&temp_stencil, &factor_vec, &mut stencil_result, SimdOperation::Mul)?;
+    processor.process_f32(
+        &temp_stencil,
+        &factor_vec,
+        &mut stencil_result,
+        SimdOperation::Mul,
+    )?;
 
     // Scatter results back to phi_new
     gather_idx = 0;

@@ -107,7 +107,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> IbmSolver<T> {
         let stencil = self.kernel.stencil_size();
 
         // Find grid indices and convert to integers
-        
+
         let i_int = ((position.x / self.dx.x).floor()).to_isize().unwrap_or(0);
         let j_int = ((position.y / self.dx.y).floor()).to_isize().unwrap_or(0);
         let k_int = ((position.z / self.dx.z).floor()).to_isize().unwrap_or(0);
@@ -157,7 +157,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> IbmSolver<T> {
         let stencil = self.kernel.stencil_size();
 
         // Find grid indices and convert to integers
-        
+
         let i_int = ((point.position.x / self.dx.x).floor())
             .to_isize()
             .unwrap_or(0);

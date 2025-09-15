@@ -1,6 +1,6 @@
 //! Integration test demonstrating working CFD functionality
 
-use cfd_core::fluid::{ConstantPropertyFluid, ConstantFluid};
+use cfd_core::fluid::{ConstantFluid, ConstantPropertyFluid};
 
 #[test]
 fn test_fluid_properties() {
@@ -22,7 +22,7 @@ fn test_fluid_properties() {
     // Test Reynolds number calculation using the fluid properties
     let velocity = 1.0; // 1 m/s
     let length = 0.1; // 0.1 m
-    // Reynolds number = density * velocity * length / dynamic_viscosity
+                      // Reynolds number = density * velocity * length / dynamic_viscosity
     let reynolds = fluid.density() * velocity * length / fluid.dynamic_viscosity();
 
     // Re = 1000 * 1 * 0.1 / 0.001 = 100,000

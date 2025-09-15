@@ -98,7 +98,7 @@ pub struct SpectralDerivative<T: RealField + Copy> {
 
 impl<T: RealField + FromPrimitive + Copy> SpectralDerivative<T> {
     /// Create a new spectral derivative calculator
-    /// 
+    ///
     /// # Arguments
     /// * `n` - Number of grid points for spectral transform
     ///
