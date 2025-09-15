@@ -136,7 +136,7 @@ fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
     let dz = T::one();
 
     // Calculate velocity gradients using central differences
-    let dvdz = if k > 0 && k < nz - 1 {
+    let v_gradient_z = if k > 0 && k < nz - 1 {
         let idx_plus = (k + 1) * nx * ny + j * nx + i;
         let idx_minus = (k - 1) * nx * ny + j * nx + i;
         (velocity.components[idx_plus].y - velocity.components[idx_minus].y)
@@ -145,7 +145,7 @@ fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
         T::zero()
     };
 
-    let dwdy = if j > 0 && j < ny - 1 {
+    let w_gradient_y = if j > 0 && j < ny - 1 {
         let idx_plus = k * nx * ny + (j + 1) * nx + i;
         let idx_minus = k * nx * ny + (j - 1) * nx + i;
         (velocity.components[idx_plus].z - velocity.components[idx_minus].z)
@@ -154,7 +154,7 @@ fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
         T::zero()
     };
 
-    let dudz = if k > 0 && k < nz - 1 {
+    let u_gradient_z = if k > 0 && k < nz - 1 {
         let idx_plus = (k + 1) * nx * ny + j * nx + i;
         let idx_minus = (k - 1) * nx * ny + j * nx + i;
         (velocity.components[idx_plus].x - velocity.components[idx_minus].x)
@@ -163,7 +163,7 @@ fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
         T::zero()
     };
 
-    let dwdx = if i > 0 && i < nx - 1 {
+    let w_gradient_x = if i > 0 && i < nx - 1 {
         let idx_plus = k * nx * ny + j * nx + (i + 1);
         let idx_minus = k * nx * ny + j * nx + (i - 1);
         (velocity.components[idx_plus].z - velocity.components[idx_minus].z)
@@ -172,7 +172,7 @@ fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
         T::zero()
     };
 
-    let dvdx = if i > 0 && i < nx - 1 {
+    let v_gradient_x = if i > 0 && i < nx - 1 {
         let idx_plus = k * nx * ny + j * nx + (i + 1);
         let idx_minus = k * nx * ny + j * nx + (i - 1);
         (velocity.components[idx_plus].y - velocity.components[idx_minus].y)
@@ -181,7 +181,7 @@ fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
         T::zero()
     };
 
-    let dudy = if j > 0 && j < ny - 1 {
+    let u_gradient_y = if j > 0 && j < ny - 1 {
         let idx_plus = k * nx * ny + (j + 1) * nx + i;
         let idx_minus = k * nx * ny + (j - 1) * nx + i;
         (velocity.components[idx_plus].x - velocity.components[idx_minus].x)
@@ -191,5 +191,5 @@ fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
     };
 
     // Vorticity = curl(velocity)
-    Vector3::new(dwdy - dvdz, dudz - dwdx, dvdx - dudy)
+    Vector3::new(w_gradient_y - v_gradient_z, u_gradient_z - w_gradient_x, v_gradient_x - u_gradient_y)
 }

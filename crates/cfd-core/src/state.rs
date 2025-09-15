@@ -226,7 +226,7 @@ mod tests {
 
         state.set_time(1.0);
         state.increment_iteration();
-        assert_eq!(state.time(), 1.0);
+        assert!((state.time() - 1.0).abs() < f64::EPSILON);
         assert_eq!(state.iteration(), 1);
     }
 }

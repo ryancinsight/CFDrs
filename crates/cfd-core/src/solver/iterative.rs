@@ -17,6 +17,9 @@ pub trait IterativeSolver<T: RealField + Copy>: Solver<T> + Configurable<T> {
     fn is_converged(&self) -> bool;
 
     /// Perform single iteration
+    ///
+    /// # Errors
+    /// Returns error if iteration fails due to numerical issues or other computation problems
     fn iterate(&mut self) -> Result<()>;
 }
 

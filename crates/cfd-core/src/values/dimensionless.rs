@@ -63,8 +63,7 @@ impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
             | DimensionlessType::Lewis => {
                 if value < T::zero() {
                     return Err(crate::error::Error::InvalidConfiguration(format!(
-                        "{:?} must be non-negative",
-                        number_type
+                        "{number_type:?} must be non-negative"
                     )));
                 }
             }

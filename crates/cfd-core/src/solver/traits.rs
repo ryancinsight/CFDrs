@@ -14,6 +14,10 @@ pub trait Solver<T: RealField + Copy>: Send + Sync + Configurable<T> {
 
     /// Solve the given problem
     /// Takes &self to enable concurrent execution
+    ///
+    /// # Errors
+    /// Returns error if problem cannot be solved due to convergence failure, 
+    /// numerical instability, or invalid problem specification
     fn solve(&self, problem: &Self::Problem) -> Result<Self::Solution>;
 
     /// Get solver name for identification
@@ -40,5 +44,9 @@ pub trait Validatable<T: RealField + Copy> {
     type Problem: Problem<T>;
 
     /// Validate problem before solving
+    ///
+    /// # Errors
+    /// Returns error if problem specification is invalid, has incompatible boundary 
+    /// conditions, or contains physically impossible configurations
     fn validate_problem(&self, problem: &Self::Problem) -> Result<()>;
 }

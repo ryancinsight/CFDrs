@@ -36,6 +36,9 @@ pub struct ReynoldsNumber<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
     /// Create a new Reynolds number with specified geometry
+    ///
+    /// # Errors
+    /// Returns error if the Reynolds number is negative, which is physically invalid
     pub fn new(value: T, geometry: FlowGeometry) -> Result<Self> {
         if value < T::zero() {
             return Err(crate::error::Error::InvalidConfiguration(
@@ -46,6 +49,9 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
     }
 
     /// Create Reynolds number for pipe flow
+    ///
+    /// # Errors
+    /// Returns error if the Reynolds number is negative, which is physically invalid
     pub fn pipe(value: T) -> Result<Self> {
         Self::new(value, FlowGeometry::Pipe)
     }

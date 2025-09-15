@@ -257,10 +257,10 @@ pub mod universal {
     pub const ATMOSPHERIC_PRESSURE: f64 = 101_325.0;
 
     /// Universal gas constant [J/(mol·K)]
-    pub const GAS_CONSTANT: f64 = 8.314462618;
+    pub const GAS_CONSTANT: f64 = 8.314_462_618;
 
     /// Stefan-Boltzmann constant [W/(m²·K⁴)]
-    pub const STEFAN_BOLTZMANN: f64 = 5.670374419e-8;
+    pub const STEFAN_BOLTZMANN: f64 = 5.670_374_419e-8;
 }
 
 // ============================================================================

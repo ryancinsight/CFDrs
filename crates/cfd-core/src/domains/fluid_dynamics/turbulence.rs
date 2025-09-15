@@ -225,20 +225,20 @@ impl<T: RealField + Copy + FromPrimitive> MixingLengthModel<T> {
         if i > 0 && i < nx - 1 {
             if let (Some(u_ip), Some(u_im)) = (velocity.get(i + 1, j, k), velocity.get(i - 1, j, k))
             {
-                let dudx = (u_ip.x - u_im.x) / (two * delta);
-                let dvdx = (u_ip.y - u_im.y) / (two * delta);
-                let dwdx = (u_ip.z - u_im.z) / (two * delta);
-                grad_u_sq = grad_u_sq + dudx * dudx + dvdx * dvdx + dwdx * dwdx;
+                let u_gradient_x = (u_ip.x - u_im.x) / (two * delta);
+                let v_gradient_x = (u_ip.y - u_im.y) / (two * delta);
+                let w_gradient_x = (u_ip.z - u_im.z) / (two * delta);
+                grad_u_sq = grad_u_sq + u_gradient_x * u_gradient_x + v_gradient_x * v_gradient_x + w_gradient_x * w_gradient_x;
             }
         }
 
         if k > 0 && k < nz - 1 {
             if let (Some(u_kp), Some(u_km)) = (velocity.get(i, j, k + 1), velocity.get(i, j, k - 1))
             {
-                let dudz = (u_kp.x - u_km.x) / (two * delta);
-                let dvdz = (u_kp.y - u_km.y) / (two * delta);
-                let dwdz = (u_kp.z - u_km.z) / (two * delta);
-                grad_u_sq = grad_u_sq + dudz * dudz + dvdz * dvdz + dwdz * dwdz;
+                let u_gradient_z = (u_kp.x - u_km.x) / (two * delta);
+                let v_gradient_z = (u_kp.y - u_km.y) / (two * delta);
+                let w_gradient_z = (u_kp.z - u_km.z) / (two * delta);
+                grad_u_sq = grad_u_sq + u_gradient_z * u_gradient_z + v_gradient_z * v_gradient_z + w_gradient_z * w_gradient_z;
             }
         }
 
