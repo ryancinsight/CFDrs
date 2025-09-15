@@ -12,6 +12,7 @@ const DEFAULT_INTEGRAL_GAIN: f64 = 1.0;
 /// IBM solver for 3D flow around immersed boundaries
 pub struct IbmSolver<T: RealField + FromPrimitive + ToPrimitive + Copy> {
     /// Configuration
+    #[allow(dead_code)]
     config: IbmConfig,
     /// Lagrangian points representing the immersed boundary
     lagrangian_points: Vec<LagrangianPoint<T>>,

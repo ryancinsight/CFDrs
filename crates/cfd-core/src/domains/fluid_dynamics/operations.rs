@@ -105,6 +105,7 @@ impl FlowOperations {
     }
 
     /// Calculate enstrophy field
+    #[must_use]
     pub fn enstrophy<T: RealField + Copy + FromPrimitive + Send + Sync>(
         velocity: &VelocityField<T>,
     ) -> Vec<T> {

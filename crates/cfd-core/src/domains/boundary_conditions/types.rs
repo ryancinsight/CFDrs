@@ -152,6 +152,7 @@ pub struct RobinApplicator<T: RealField + Copy> {
 
 impl<T: RealField + Copy> RobinApplicator<T> {
     /// Create a new Robin applicator
+    #[must_use]
     pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,

@@ -116,6 +116,7 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
     }
 
     /// Convert linear index to 3D indices
+    #[allow(dead_code)]
     fn linear_to_3d_index(&self, idx: usize) -> (usize, usize, usize) {
         let iz = idx % self.nz;
         let iy = (idx / self.nz) % self.ny;

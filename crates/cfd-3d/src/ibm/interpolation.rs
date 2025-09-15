@@ -23,6 +23,7 @@ pub enum DeltaFunction {
 /// Interpolation kernel for transferring between Eulerian and Lagrangian grids
 pub struct InterpolationKernel<T: RealField + Copy> {
     delta_type: DeltaFunction,
+    #[allow(dead_code)]
     width: T,
 }
 

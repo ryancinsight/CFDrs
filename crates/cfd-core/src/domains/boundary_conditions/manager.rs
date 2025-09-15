@@ -99,21 +99,25 @@ impl<T: RealField + Copy> BoundaryConditionManager<T> {
     }
 
     /// Get the number of registered regions
+    #[must_use]
     pub fn num_regions(&self) -> usize {
         self.regions.len()
     }
 
     /// Get the number of registered applicators
+    #[must_use]
     pub fn num_applicators(&self) -> usize {
         self.applicators.len()
     }
 
     /// Check if all regions have assigned conditions
+    #[must_use]
     pub fn all_regions_have_conditions(&self) -> bool {
         self.regions.values().all(|r| r.has_condition())
     }
 
     /// Get regions without conditions
+    #[must_use]
     pub fn regions_without_conditions(&self) -> Vec<&str> {
         self.regions
             .values()

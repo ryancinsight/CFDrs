@@ -103,6 +103,7 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for RegularizedCo
 }
 
 impl<T: RealField + Copy + FromPrimitive> RegularizedCollision<T> {
+    #[allow(dead_code)]
     fn regularization_term(&self, c: [T; 2], pi: [[T; 2]; 2]) -> T {
         // Compute regularization term Q_i^(1) = w_i * H_i : Pi^(1)
         // Based on Latt & Chopard (2006) Phys. Rev. E 74, 026701
