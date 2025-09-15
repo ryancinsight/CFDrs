@@ -1,6 +1,8 @@
 //! Integration test demonstrating working CFD functionality
 
 use cfd_core::fluid::ConstantPropertyFluid;
+use cfd_core::domains::material_properties::traits::FluidProperties;
+use cfd_core::services::FluidDynamicsService;
 
 #[test]
 fn test_fluid_properties() {
@@ -22,7 +24,7 @@ fn test_fluid_properties() {
     // Test Reynolds number calculation using the built-in method
     let velocity = 1.0; // 1 m/s
     let length = 0.1; // 0.1 m
-    let reynolds = fluid.reynolds_number(velocity, length);
+    let reynolds = FluidDynamicsService::reynolds_number(&fluid, velocity, length);
 
     // Re = 1000 * 1 * 0.1 / 0.001 = 100,000
     assert!(
