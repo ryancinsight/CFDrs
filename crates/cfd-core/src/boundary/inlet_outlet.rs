@@ -82,6 +82,7 @@ impl<T: RealField + Copy> OutletCondition<T> {
     }
 
     /// Create outflow boundary
+    #[must_use]
     pub const fn outflow() -> Self {
         Self::Outflow
     }

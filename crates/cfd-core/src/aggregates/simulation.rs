@@ -172,6 +172,12 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>>
     }
 
     /// Execute a simulation step
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Simulation is not in running state
+    /// - Time step is invalid (zero or negative)
+    /// - Solver encounters numerical instability
     pub fn step(&mut self, dt: T) -> Result<()> {
         if self.state != SimulationState::Running {
             return Err(Error::InvalidConfiguration(

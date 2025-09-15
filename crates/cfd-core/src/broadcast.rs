@@ -102,6 +102,7 @@ impl<'a, T: RealField + Copy> BroadcastView<'a, T> {
     }
 
     /// Get element at multi-dimensional index
+    #[must_use]
     pub fn get(&self, indices: &[usize]) -> Option<T> {
         if indices.len() != self.shape.len() {
             return None;

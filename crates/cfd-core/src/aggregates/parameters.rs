@@ -51,6 +51,9 @@ impl<T: RealField + Copy + FromPrimitive> Default for PhysicalParameters<T> {
 
 impl<T: RealField + Copy + FromPrimitive> PhysicalParameters<T> {
     /// Create parameters with Reynolds number
+    ///
+    /// # Panics
+    /// May panic if the default Reynolds number creation fails due to invalid numeric type conversion
     pub fn with_reynolds(reynolds: T) -> Self {
         Self {
             reynolds_number: DimensionlessNumber::new(reynolds, DimensionlessType::Reynolds)

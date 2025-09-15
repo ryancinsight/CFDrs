@@ -143,6 +143,7 @@ impl ComputeDispatcher {
     }
 
     /// Get current backend
+    #[must_use]
     pub fn current_backend(&self) -> ComputeBackend {
         self.context.backend
     }
@@ -153,6 +154,7 @@ impl ComputeDispatcher {
     }
 
     /// Get system capabilities
+    #[must_use]
     pub fn capabilities(&self) -> &ComputeCapability {
         &self.capabilities
     }

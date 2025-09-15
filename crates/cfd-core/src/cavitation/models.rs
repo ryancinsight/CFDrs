@@ -196,6 +196,7 @@ impl<T: RealField + FromPrimitive + Copy> CavitationModel<T> {
     }
 
     /// Get default parameters for each model type
+    #[must_use]
     pub fn default_parameters(model_type: &str) -> Option<Self> {
         match model_type {
             "kunz" => Some(CavitationModel::Kunz {

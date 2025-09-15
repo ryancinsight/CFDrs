@@ -104,31 +104,37 @@ impl GpuContext {
     }
 
     /// Get the wgpu instance for surface creation
+    #[must_use]
     pub fn instance(&self) -> &wgpu::Instance {
         &self.instance
     }
 
     /// Get the GPU adapter information
+    #[must_use]
     pub fn adapter(&self) -> &wgpu::Adapter {
         &self.adapter
     }
 
     /// Get adapter info
+    #[must_use]
     pub fn adapter_info(&self) -> wgpu::AdapterInfo {
         self.adapter.get_info()
     }
 
     /// Check if GPU supports required features
+    #[must_use]
     pub fn supports_features(&self, features: wgpu::Features) -> bool {
         self.adapter.features().contains(features)
     }
 
     /// Get maximum work group size
+    #[must_use]
     pub fn max_work_group_size(&self) -> usize {
         self.limits.max_compute_invocations_per_workgroup as usize
     }
 
     /// Get maximum buffer size
+    #[must_use]
     pub fn max_buffer_size(&self) -> usize {
         self.limits.max_buffer_size as usize
     }
