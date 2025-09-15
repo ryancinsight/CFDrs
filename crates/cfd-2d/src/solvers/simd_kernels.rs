@@ -32,25 +32,71 @@ pub fn jacobi_iteration_simd(
 
     let processor = simd_processor();
 
-    // Process interior points with SIMD-optimized stencil operations
+    // For proper SIMD optimization, we need to process multiple points simultaneously
+    // Allocate temporary arrays for vectorized operations
+    let mut left_vals = vec![0.0f32; (nx - 2) * (ny - 2)];
+    let mut right_vals = vec![0.0f32; (nx - 2) * (ny - 2)];
+    let mut bottom_vals = vec![0.0f32; (nx - 2) * (ny - 2)];
+    let mut top_vals = vec![0.0f32; (nx - 2) * (ny - 2)];
+    let mut laplacian_x = vec![0.0f32; (nx - 2) * (ny - 2)];
+    let mut laplacian_y = vec![0.0f32; (nx - 2) * (ny - 2)];
+    let mut stencil_result = vec![0.0f32; (nx - 2) * (ny - 2)];
+
+    // Gather neighbor values for interior points
+    let mut gather_idx = 0;
     for i in 1..nx - 1 {
         for j in 1..ny - 1 {
-            let idx = i * ny + j;
-
-            // Gather neighbor values for 5-point stencil
-            let left = phi[(i - 1) * ny + j];
-            let right = phi[(i + 1) * ny + j];
-            let bottom = phi[i * ny + j - 1];
-            let top = phi[i * ny + j + 1];
-
-            // Apply Jacobi stencil with optimized arithmetic operations
-            let laplacian_x = (left + right) / dx2;
-            let laplacian_y = (bottom + top) / dy2;
-            phi_new[idx] = factor * (laplacian_x + laplacian_y - source[idx]);
+            left_vals[gather_idx] = phi[(i - 1) * ny + j];
+            right_vals[gather_idx] = phi[(i + 1) * ny + j];
+            bottom_vals[gather_idx] = phi[i * ny + j - 1];
+            top_vals[gather_idx] = phi[i * ny + j + 1];
+            gather_idx += 1;
         }
     }
 
-    // Copy boundaries
+    // SIMD operations for Laplacian computation
+    use cfd_math::simd::SimdOperation;
+    
+    // Compute x-direction Laplacian: (left + right) / dx²
+    processor.process_f32(&left_vals, &right_vals, &mut laplacian_x, SimdOperation::Add)?;
+    let dx2_vec = vec![dx2; laplacian_x.len()];
+    let mut temp_laplacian_x = vec![0.0f32; laplacian_x.len()];
+    processor.process_f32(&laplacian_x, &dx2_vec, &mut temp_laplacian_x, SimdOperation::Div)?;
+
+    // Compute y-direction Laplacian: (bottom + top) / dy²
+    processor.process_f32(&bottom_vals, &top_vals, &mut laplacian_y, SimdOperation::Add)?;
+    let dy2_vec = vec![dy2; laplacian_y.len()];
+    let mut temp_laplacian_y = vec![0.0f32; laplacian_y.len()];
+    processor.process_f32(&laplacian_y, &dy2_vec, &mut temp_laplacian_y, SimdOperation::Div)?;
+
+    // Combine Laplacians: laplacian_x + laplacian_y
+    processor.process_f32(&temp_laplacian_x, &temp_laplacian_y, &mut stencil_result, SimdOperation::Add)?;
+
+    // Subtract source term and multiply by factor
+    let mut source_interior = vec![0.0f32; (nx - 2) * (ny - 2)];
+    gather_idx = 0;
+    for i in 1..nx - 1 {
+        for j in 1..ny - 1 {
+            source_interior[gather_idx] = source[i * ny + j];
+            gather_idx += 1;
+        }
+    }
+    
+    let mut temp_stencil = vec![0.0f32; stencil_result.len()];
+    processor.process_f32(&stencil_result, &source_interior, &mut temp_stencil, SimdOperation::Sub)?;
+    let factor_vec = vec![factor; stencil_result.len()];
+    processor.process_f32(&temp_stencil, &factor_vec, &mut stencil_result, SimdOperation::Mul)?;
+
+    // Scatter results back to phi_new
+    gather_idx = 0;
+    for i in 1..nx - 1 {
+        for j in 1..ny - 1 {
+            phi_new[i * ny + j] = stencil_result[gather_idx];
+            gather_idx += 1;
+        }
+    }
+
+    // Copy boundaries (unchanged)
     for i in 0..nx {
         phi_new[i * ny] = phi[i * ny];
         phi_new[i * ny + ny - 1] = phi[i * ny + ny - 1];
@@ -200,7 +246,7 @@ pub fn calculate_gradient_simd(
     dx: f32,
     dy: f32,
 ) -> Result<()> {
-    let processor = simd_processor();
+    let _processor = simd_processor(); // TODO: Implement SIMD gradient calculation
     let inv_dx = 0.5 / dx;
     let inv_dy = 0.5 / dy;
 
@@ -234,7 +280,7 @@ pub fn calculate_residual_simd(
     dx: f32,
     dy: f32,
 ) -> Result<f32> {
-    let processor = simd_processor();
+    let _processor = simd_processor(); // TODO: Implement SIMD residual calculation
     let dx2 = dx * dx;
     let dy2 = dy * dy;
     let inv_dx2 = 1.0 / dx2;

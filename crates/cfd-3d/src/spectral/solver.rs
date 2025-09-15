@@ -33,7 +33,9 @@ pub struct SpectralConfig<T: RealField + Copy> {
     pub nz_modes: usize,
     /// Basis type for each direction
     pub basis_x: SpectralBasis,
+    /// Y-direction spectral basis (Fourier/Chebyshev)
     pub basis_y: SpectralBasis,
+    /// Z-direction spectral basis (Fourier/Chebyshev)
     pub basis_z: SpectralBasis,
     /// Time step for time-dependent problems
     pub dt: Option<T>,
@@ -111,7 +113,9 @@ pub struct SpectralSolution<T: RealField + Copy> {
     pub u: DMatrix<T>,
     /// Grid dimensions
     pub nx: usize,
+    /// Number of grid points in y-direction
     pub ny: usize,
+    /// Number of grid points in z-direction
     pub nz: usize,
 }
 

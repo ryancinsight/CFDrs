@@ -76,7 +76,7 @@ impl<T: RealField + FromPrimitive + Copy> ForcingMethod<T> for FeedbackForcing<T
         &self,
         desired_velocity: &Vector3<T>,
         current_velocity: &Vector3<T>,
-        dt: T,
+        _dt: T, // TODO: Use dt for integral term updates
     ) -> Vector3<T> {
         let error = desired_velocity - current_velocity;
 

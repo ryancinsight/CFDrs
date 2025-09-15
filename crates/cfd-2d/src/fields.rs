@@ -218,6 +218,7 @@ pub struct SimulationFields<T: RealField + Copy> {
     pub viscosity: Field2D<T>,
     /// Grid dimensions
     pub nx: usize,
+    /// Grid points in y-direction
     pub ny: usize,
 }
 

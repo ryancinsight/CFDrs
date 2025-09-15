@@ -271,7 +271,8 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64> Benchmark<T> for LidDriv
         // Compare with Ghia et al. reference data for exact validation
         let ghia_data = self.ghia_reference_data(T::from_f64_or_one(100.0)); // Default Re=100
         
-        if let Some((y_positions, u_velocities)) = ghia_data {
+        if let Some((_y_positions, _u_velocities)) = ghia_data {
+            // TODO: Implement exact validation against Ghia et al. (1982) data
             // Compare with computed values in result
             if !result.values.is_empty() {
                 // Check that we have reasonable velocity values
