@@ -116,6 +116,12 @@ impl BackendContext {
     }
 
     /// Switch to a different backend
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The requested backend is not available on this system
+    /// - Backend initialization fails
+    /// - Hardware capabilities are insufficient
     pub fn switch_backend(&mut self, backend: ComputeBackend) -> crate::error::Result<()> {
         if !self.capabilities.backends.contains(&backend) {
             return Err(crate::error::Error::InvalidConfiguration(format!(

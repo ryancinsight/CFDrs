@@ -124,6 +124,13 @@ impl GpuPipelineManager {
     }
 
     /// Execute a compute pipeline
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The specified pipeline name is not found
+    /// - Buffer sizes are incompatible
+    /// - GPU execution fails
+    /// - Command submission fails
     pub fn execute<T: RealField + Copy + bytemuck::Pod>(
         &self,
         pipeline_name: &str,

@@ -149,6 +149,9 @@ impl ComputeDispatcher {
     }
 
     /// Switch to a different backend
+    ///
+    /// # Errors
+    /// Returns an error if backend switching fails due to hardware incompatibility or initialization errors
     pub fn switch_backend(&mut self, backend: ComputeBackend) -> Result<()> {
         self.context.switch_backend(backend)
     }

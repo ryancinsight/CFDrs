@@ -135,6 +135,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> GhostCellCalculator<T> {
 
     /// Apply Robin (mixed) boundary condition
     /// α*u + β*∂u/∂n = γ at boundary
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Interior or ghost values arrays are insufficient for the boundary order
+    /// - Coefficient α is zero when β is also zero (degenerate case)
+    /// - Numerical conditioning issues with mixed boundary condition
     pub fn apply_robin(
         &self,
         alpha: T,
