@@ -228,7 +228,10 @@ impl<T: RealField + Copy + FromPrimitive> MixingLengthModel<T> {
                 let u_gradient_x = (u_ip.x - u_im.x) / (two * delta);
                 let v_gradient_x = (u_ip.y - u_im.y) / (two * delta);
                 let w_gradient_x = (u_ip.z - u_im.z) / (two * delta);
-                grad_u_sq = grad_u_sq + u_gradient_x * u_gradient_x + v_gradient_x * v_gradient_x + w_gradient_x * w_gradient_x;
+                grad_u_sq = grad_u_sq
+                    + u_gradient_x * u_gradient_x
+                    + v_gradient_x * v_gradient_x
+                    + w_gradient_x * w_gradient_x;
             }
         }
 
@@ -238,7 +241,10 @@ impl<T: RealField + Copy + FromPrimitive> MixingLengthModel<T> {
                 let u_gradient_z = (u_kp.x - u_km.x) / (two * delta);
                 let v_gradient_z = (u_kp.y - u_km.y) / (two * delta);
                 let w_gradient_z = (u_kp.z - u_km.z) / (two * delta);
-                grad_u_sq = grad_u_sq + u_gradient_z * u_gradient_z + v_gradient_z * v_gradient_z + w_gradient_z * w_gradient_z;
+                grad_u_sq = grad_u_sq
+                    + u_gradient_z * u_gradient_z
+                    + v_gradient_z * v_gradient_z
+                    + w_gradient_z * w_gradient_z;
             }
         }
 

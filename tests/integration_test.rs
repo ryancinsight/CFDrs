@@ -1,7 +1,7 @@
 //! Integration test demonstrating working CFD functionality
 
-use cfd_core::fluid::ConstantPropertyFluid;
 use cfd_core::domains::material_properties::traits::FluidProperties;
+use cfd_core::fluid::ConstantPropertyFluid;
 use cfd_core::services::FluidDynamicsService;
 
 #[test]

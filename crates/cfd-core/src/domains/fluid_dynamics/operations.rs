@@ -191,5 +191,9 @@ fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
     };
 
     // Vorticity = curl(velocity)
-    Vector3::new(w_gradient_y - v_gradient_z, u_gradient_z - w_gradient_x, v_gradient_x - u_gradient_y)
+    Vector3::new(
+        w_gradient_y - v_gradient_z,
+        u_gradient_z - w_gradient_x,
+        v_gradient_x - u_gradient_y,
+    )
 }
