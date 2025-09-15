@@ -93,8 +93,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> Prob
     ) -> Result<()> {
         if self.boundary_conditions.contains_key(&name) {
             return Err(Error::InvalidConfiguration(format!(
-                "Boundary condition '{}' already exists",
-                name
+                "Boundary condition '{name}' already exists"
             )));
         }
         self.boundary_conditions.insert(name, condition);

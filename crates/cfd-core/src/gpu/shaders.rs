@@ -1,7 +1,7 @@
 //! GPU shader definitions for field operations
 
 /// WGSL shader for field addition
-pub const FIELD_ADD_SHADER: &str = r#"
+pub const FIELD_ADD_SHADER: &str = r"
 @group(0) @binding(0) var<storage, read> a: array<f32>;
 @group(0) @binding(1) var<storage, read> b: array<f32>;
 @group(0) @binding(2) var<storage, read_write> result: array<f32>;
@@ -14,10 +14,10 @@ fn add_fields(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
     result[index] = a[index] + b[index];
 }
-"#;
+";
 
 /// WGSL shader for scalar multiplication
-pub const FIELD_MUL_SHADER: &str = r#"
+pub const FIELD_MUL_SHADER: &str = r"
 @group(0) @binding(0) var<storage, read> field: array<f32>;
 @group(0) @binding(1) var<uniform> scalar: f32;
 @group(0) @binding(2) var<storage, read_write> result: array<f32>;
@@ -30,10 +30,10 @@ fn multiply_field(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
     result[index] = field[index] * scalar;
 }
-"#;
+";
 
 /// WGSL shader for 2D Laplacian
-pub const LAPLACIAN_2D_SHADER: &str = r#"
+pub const LAPLACIAN_2D_SHADER: &str = r"
 struct Uniforms {
     nx: u32,
     ny: u32,
@@ -75,4 +75,4 @@ fn laplacian_2d(@builtin(global_invocation_id) global_id: vec3<u32>) {
     
     result[idx] = laplacian;
 }
-"#;
+";

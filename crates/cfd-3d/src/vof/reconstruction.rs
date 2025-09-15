@@ -238,7 +238,7 @@ impl InterfaceReconstruction {
             alpha * alpha * alpha / (six * m1 * m2)
         } else if alpha <= m2 {
             // Region 2: Intermediate, pentahedron
-            let alpha_m1 = alpha - m1;
+            let _alpha_m1 = alpha - m1;
             (alpha * alpha * (three * m2 - alpha) + m1 * m1 * (alpha - three * m2))
                 / (six * m1 * m2)
         } else if alpha <= T::one() - m12 {
