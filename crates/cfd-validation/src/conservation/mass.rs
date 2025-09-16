@@ -206,7 +206,7 @@ mod tests {
         // At the center (r ≈ 0), we expect high divergence
         // At r = 1 grid spacing, expected divergence ≈ 1/1 = 1.0
         // The numerical approximation should be close to this theoretical value
-        let expected_divergence_order = 1.0; // Order of magnitude: 1/r where r ~ 1
+        let _expected_divergence_order = 1.0; // Order of magnitude: 1/r where r ~ 1
 
         // Verify the error is of the expected magnitude (not just > 0)
         assert!(

@@ -54,10 +54,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
         // Initialize fields
         let mut u = DMatrix::<T>::zeros(ny, nx);
         let mut v = DMatrix::<T>::zeros(ny, nx);
-        let p = DMatrix::<T>::zeros(ny, nx);
+        let _p = DMatrix::<T>::zeros(ny, nx); // Pressure field for future solver integration
 
         // Set parabolic inlet profile
-        let h_inlet = self.channel_height - self.step_height;
+        let _h_inlet = self.channel_height - self.step_height; // Height parameter for inlet calculations
         for j in 0..ny / 2 {
             let y = T::from_usize(j).unwrap_or_else(|| T::zero())
                 / T::from_usize(ny / 2).unwrap_or_else(|| T::one());
@@ -76,7 +76,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
 
         // Iterative solver for demonstration
         let mut convergence = Vec::new();
-        let mut max_residual = T::one();
+        let mut max_residual = T::one(); // Global residual tracking for convergence
 
         for _iter in 0..config.max_iterations {
             let mut local_max_residual = T::zero();
