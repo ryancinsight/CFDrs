@@ -30,7 +30,7 @@ pub fn jacobi_iteration_simd(
     let dy2 = dy * dy;
     let factor = 0.5 / (1.0 / dx2 + 1.0 / dy2);
 
-    let processor = simd_processor();
+    let _processor = simd_processor(); // Reserved for future SIMD optimization
 
     // Process interior points with SIMD-optimized stencil operations
     for i in 1..nx - 1 {
