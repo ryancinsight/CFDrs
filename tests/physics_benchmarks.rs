@@ -5,9 +5,7 @@
 //! - Lid-driven cavity (Ghia et al. 1982)
 //! - Taylor-Green vortex (Taylor & Green 1937)
 
-use cfd_2d::fields::Field2D;
 use cfd_2d::grid::StructuredGrid2D;
-use nalgebra::Vector2;
 use std::f64::consts::PI;
 
 /// Poiseuille flow between parallel plates
@@ -40,7 +38,7 @@ fn test_poiseuille_flow() {
     println!("  Max velocity: {:.4} m/s", u_max);
 
     // Calculate error
-    let mut max_error = 0.0;
+    let mut max_error: f64 = 0.0;
     for j in 0..ny {
         let y = j as f64 * height / (ny - 1) as f64;
         let u_analytical = analytical_velocity(y);
@@ -70,7 +68,7 @@ fn test_lid_driven_cavity() {
     ];
     let ghia_u = vec![
         0.0000, -0.03717, -0.04192, -0.04775, -0.06434, -0.10150, -0.15662, -0.21090, -0.20581,
-        -0.13641, 0.00332, 0.23151, 0.68717, 0.73722, 0.78871, 0.84123, 1.0000,
+        -0.13641, 0.00332, 0.23151, 0.68717, 0.73722, 0.78871, 0.84123, 0.88928, 1.0000,
     ];
 
     println!("Lid-Driven Cavity Validation (Re=100):");
@@ -81,7 +79,7 @@ fn test_lid_driven_cavity() {
         let u_benchmark = ghia_u[i];
         let u_computed = u_benchmark; // Placeholder - would use actual solver
 
-        let error = (u_computed - u_benchmark).abs();
+        let error = (u_computed - u_benchmark as f64).abs();
         total_error += error * error;
     }
 
@@ -109,15 +107,15 @@ fn test_taylor_green_vortex() {
     let t = 1.0; // Time
 
     // Analytical solution
-    let decay_factor = (-2.0 * nu * k * k * t).exp();
+    let decay_factor = (-2.0_f64 * nu * k * k * t).exp();
 
     println!("Taylor-Green Vortex Validation:");
     println!("  Viscosity: {}", nu);
     println!("  Time: {}", t);
     println!("  Decay factor: {:.4}", decay_factor);
 
-    let mut max_error_u = 0.0;
-    let mut max_error_v = 0.0;
+    let mut max_error_u: f64 = 0.0;
+    let mut max_error_v: f64 = 0.0;
 
     for i in 0..n {
         for j in 0..n {
@@ -162,7 +160,7 @@ fn test_couette_flow() {
     println!("Couette Flow Validation:");
     println!("  Wall velocity: {} m/s", u_wall);
 
-    let mut max_error = 0.0;
+    let mut max_error: f64 = 0.0;
     for j in 0..ny {
         let y = j as f64 * height / (ny - 1) as f64;
         let u_analytical = u_wall * y / height;
@@ -194,7 +192,7 @@ fn test_heat_diffusion() {
     let decay = (-alpha * k * k * t_final).exp();
     println!("  Decay factor: {:.4}", decay);
 
-    let mut max_error = 0.0;
+    let mut max_error: f64 = 0.0;
     for i in 0..nx {
         let x = i as f64 * length / (nx - 1) as f64;
         let t_analytical = (k * x).sin() * decay;
@@ -219,7 +217,7 @@ fn test_mass_conservation() {
     // ψ = sin(πx) * sin(πy)
     // u = ∂ψ/∂y, v = -∂ψ/∂x
 
-    let mut max_divergence = 0.0;
+    let mut max_divergence: f64 = 0.0;
     let dx = 1.0 / (nx - 1) as f64;
     let dy = 1.0 / (ny - 1) as f64;
 
