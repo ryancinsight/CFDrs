@@ -11,6 +11,7 @@ use num_traits::{FromPrimitive, ToPrimitive};
 /// Patankar's lid-driven cavity test case
 pub struct PatankarLidDrivenCavity<T: RealField + Copy> {
     /// Reynolds number
+    #[allow(dead_code)]
     reynolds: T,
     /// Grid size
     grid_size: usize,

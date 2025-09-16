@@ -68,8 +68,7 @@ impl<T: RealField + Copy> BoundaryConditionSet<T> {
                 // Check partner exists
                 let partner_bc = self.conditions.get(partner).ok_or_else(|| {
                     Error::InvalidConfiguration(format!(
-                        "Periodic boundary '{}' references non-existent partner '{}'",
-                        name, partner
+                        "Periodic boundary '{name}' references non-existent partner '{partner}'"
                     ))
                 })?;
 
@@ -81,14 +80,12 @@ impl<T: RealField + Copy> BoundaryConditionSet<T> {
                     // Check mutual reference
                     if partner_ref != name {
                         return Err(Error::InvalidConfiguration(format!(
-                            "Periodic boundaries '{}' and '{}' do not reference each other",
-                            name, partner
+                            "Periodic boundaries '{name}' and '{partner}' do not reference each other"
                         )));
                     }
                 } else {
                     return Err(Error::InvalidConfiguration(format!(
-                        "Periodic boundary '{}' partner '{}' is not periodic",
-                        name, partner
+                        "Periodic boundary '{name}' partner '{partner}' is not periodic"
                     )));
                 }
             }

@@ -265,6 +265,7 @@ pub fn differentiate_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
 }
 
 /// Compute 2D Laplacian using central differences
+#[allow(clippy::similar_names)] // Mathematical derivatives use standard notation
 pub fn laplacian_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
     field: &[T],
     nx: usize,

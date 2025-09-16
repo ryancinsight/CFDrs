@@ -64,6 +64,7 @@ impl FluxLimiter {
 
 /// MUSCL (Monotonic Upstream-centered Scheme for Conservation Laws)
 pub struct MUSCLScheme<T: RealField + Copy> {
+    #[allow(dead_code)]
     limiter: FluxLimiter,
     _phantom: std::marker::PhantomData<T>,
 }

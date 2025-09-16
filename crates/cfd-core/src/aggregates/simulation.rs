@@ -49,6 +49,10 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>>
     }
 
     /// Add a boundary condition
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The simulation is currently active
     pub fn add_boundary_condition(
         &mut self,
         name: String,
@@ -66,6 +70,11 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>>
     }
 
     /// Update physical parameters
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The simulation is currently active
+    /// - Parameters fail validation
     pub fn update_parameters(&mut self, parameters: PhysicalParameters<T>) -> Result<()> {
         if self.state.is_active() {
             return Err(Error::InvalidConfiguration(
@@ -79,6 +88,11 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>>
     }
 
     /// Start the simulation
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Configuration validation fails
+    /// - Simulation state transition is invalid
     pub fn start(&mut self) -> Result<()> {
         // Validate configuration
         self.validate_configuration()?;
@@ -91,6 +105,10 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>>
     }
 
     /// Pause the simulation
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Simulation state transition is invalid (e.g., not currently running)
     pub fn pause(&mut self) -> Result<()> {
         self.state
             .pause()
@@ -100,6 +118,10 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>>
     }
 
     /// Complete the simulation
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Simulation state transition is invalid (e.g., not running or paused)
     pub fn complete(&mut self) -> Result<()> {
         self.state
             .complete()
@@ -115,6 +137,13 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>>
     }
 
     /// Validate simulation configuration
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Domain has zero or negative volume
+    /// - No boundary conditions are defined
+    /// - Fluid properties are invalid (zero density or viscosity)
+    /// - Physical parameters are inconsistent
     pub fn validate_configuration(&self) -> Result<()> {
         // Check if domain is valid (has non-zero volume)
         if self.domain.volume() <= T::zero() {
@@ -143,6 +172,12 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>>
     }
 
     /// Execute a simulation step
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Simulation is not in running state
+    /// - Time step is invalid (zero or negative)
+    /// - Solver encounters numerical instability
     pub fn step(&mut self, dt: T) -> Result<()> {
         if self.state != SimulationState::Running {
             return Err(Error::InvalidConfiguration(

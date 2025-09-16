@@ -201,15 +201,15 @@ mod tests {
             velocity: Some(0.001),
             flow_rate: None,
             temperature: 293.15,
-            pressure: 101325.0,
+            pressure: 101_325.0,
         };
 
         let conditions_turbulent = FlowConditions {
-            reynolds_number: Some(10000.0),
+            reynolds_number: Some(10_000.0),
             velocity: Some(1.0),
             flow_rate: None,
             temperature: 293.15,
-            pressure: 101325.0,
+            pressure: 101_325.0,
         };
 
         let hp_model = HagenPoiseuilleModel::new(0.001f64, 0.01);

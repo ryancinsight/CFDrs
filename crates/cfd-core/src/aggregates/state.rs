@@ -25,16 +25,22 @@ impl Default for SimulationState {
 
 impl SimulationState {
     /// Check if simulation is active
+    #[must_use]
     pub fn is_active(&self) -> bool {
         matches!(self, Self::Running | Self::Paused)
     }
 
     /// Check if simulation has finished
+    #[must_use]
     pub fn is_finished(&self) -> bool {
         matches!(self, Self::Completed | Self::Failed)
     }
 
     /// Transition to running state
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Current state is not Initialized or Paused
     pub fn start(&mut self) -> Result<(), &'static str> {
         match self {
             Self::Initialized | Self::Paused => {
@@ -46,6 +52,9 @@ impl SimulationState {
     }
 
     /// Transition to paused state
+    ///
+    /// # Errors
+    /// Returns an error if simulation is not currently running
     pub fn pause(&mut self) -> Result<(), &'static str> {
         match self {
             Self::Running => {
@@ -57,6 +66,9 @@ impl SimulationState {
     }
 
     /// Transition to completed state
+    ///
+    /// # Errors
+    /// Returns an error if simulation is not currently running
     pub fn complete(&mut self) -> Result<(), &'static str> {
         match self {
             Self::Running => {

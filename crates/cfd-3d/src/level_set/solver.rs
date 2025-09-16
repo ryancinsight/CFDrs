@@ -203,6 +203,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
     }
 
     /// Calculate gradient magnitude at a grid point
+    #[allow(dead_code)]
     fn calculate_gradient_magnitude(&self, i: usize, j: usize, k: usize) -> T {
         let dx = self.dx;
         let dy = self.dy;

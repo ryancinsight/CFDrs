@@ -28,6 +28,7 @@ impl<T: RealField + Copy> BoundaryConditionSpec<T> {
     }
 
     /// Add time-dependent behavior
+    #[must_use]
     pub fn with_time_dependence(mut self, spec: TimeDependentSpec<T>) -> Self {
         self.time_dependent = Some(spec);
         self

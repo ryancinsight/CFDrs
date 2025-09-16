@@ -111,6 +111,7 @@ impl<T: RealField + Copy> BoundaryCondition<T> {
     }
 
     /// Create no-slip wall boundary condition
+    #[must_use]
     pub fn wall_no_slip() -> Self {
         Self::Wall {
             wall_type: super::WallType::NoSlip,
@@ -118,6 +119,7 @@ impl<T: RealField + Copy> BoundaryCondition<T> {
     }
 
     /// Create slip wall boundary condition
+    #[must_use]
     pub fn wall_slip() -> Self {
         Self::Wall {
             wall_type: super::WallType::Slip,

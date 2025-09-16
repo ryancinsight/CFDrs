@@ -29,24 +29,28 @@ impl<T: RealField + Copy> MeshOperationsService<T> {
     }
 
     /// Set the mesh generator
+    #[must_use]
     pub fn with_generator(mut self, generator: Arc<dyn MeshGeneration<T>>) -> Self {
         self.generator = Some(generator);
         self
     }
 
     /// Set the mesh refiner
+    #[must_use]
     pub fn with_refiner(mut self, refiner: Arc<dyn MeshRefinement<T>>) -> Self {
         self.refiner = Some(refiner);
         self
     }
 
     /// Set the quality assessor
+    #[must_use]
     pub fn with_quality_assessor(mut self, assessor: Arc<dyn MeshQuality<T>>) -> Self {
         self.quality_assessor = Some(assessor);
         self
     }
 
     /// Set the geometry handler
+    #[must_use]
     pub fn with_geometry(mut self, geometry: Arc<dyn Geometry<T>>) -> Self {
         self.geometry = Some(geometry);
         self

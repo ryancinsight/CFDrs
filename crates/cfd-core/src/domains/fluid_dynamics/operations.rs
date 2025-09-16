@@ -105,6 +105,7 @@ impl FlowOperations {
     }
 
     /// Calculate enstrophy field
+    #[must_use]
     pub fn enstrophy<T: RealField + Copy + FromPrimitive + Send + Sync>(
         velocity: &VelocityField<T>,
     ) -> Vec<T> {
@@ -122,6 +123,7 @@ impl FlowOperations {
 }
 
 // Helper function for vorticity calculation at a point
+#[allow(clippy::similar_names)] // CFD derivatives use standard notation: dudx, dvdy, etc.
 fn vorticity_at_point<T: RealField + Copy + FromPrimitive>(
     velocity: &VelocityField<T>,
     i: usize,

@@ -97,8 +97,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> ResistanceAnalyzer<T> {
             // Use expect with clear messages for constants that must succeed
             temperature: T::from_f64(293.15)
                 .expect("Standard temperature (293.15K) must be representable in type T"),
-            pressure: T::from_f64(101325.0)
-                .expect("Standard pressure (101325.0 Pa) must be representable in type T"),
+            pressure: T::from_f64(101_325.0)
+                .expect("Standard pressure (101_325.0 Pa) must be representable in type T"),
         };
 
         // Calculate resistance and propagate any errors

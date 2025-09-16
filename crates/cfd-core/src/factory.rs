@@ -97,6 +97,12 @@ where
 /// Dynamic factory for heterogeneous storage
 pub trait DynamicFactory<T: RealField + Copy>: Send + Sync {
     /// Create a solver from a configuration
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Configuration is invalid or incompatible with this solver type
+    /// - Required parameters are missing
+    /// - Solver initialization fails
     fn create_solver(&self, config: &dyn Any) -> Result<Box<dyn DynamicSolver<T>>>;
 
     /// Get factory name
@@ -202,6 +208,11 @@ impl<T: RealField + Copy> SolverFactoryRegistry<T> {
     }
 
     /// Register a factory with metadata
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - A factory with the same name is already registered
+    /// - Factory registration fails due to invalid metadata
     pub fn register_factory(
         &mut self,
         name: String,
@@ -243,6 +254,12 @@ impl<T: RealField + Copy> SolverFactoryRegistry<T> {
     }
 
     /// Create a solver using the specified factory with a configuration
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The specified factory name is not registered
+    /// - Configuration is invalid for the selected factory
+    /// - Solver creation fails due to insufficient resources or invalid parameters
     pub fn create_solver<C: Any>(
         &self,
         factory_name: &str,

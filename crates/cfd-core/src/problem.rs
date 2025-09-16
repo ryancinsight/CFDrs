@@ -179,7 +179,7 @@ mod tests {
             )
             .boundary_condition("outlet", BoundaryCondition::pressure_outlet(0.0))
             .boundary_condition("walls", BoundaryCondition::wall_no_slip())
-            .reference_pressure(101325.0)
+            .reference_pressure(101_325.0)
             .transient(true)
             .build()
             .expect("CRITICAL: Add proper error handling");

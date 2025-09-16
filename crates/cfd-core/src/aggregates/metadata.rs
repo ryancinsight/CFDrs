@@ -47,6 +47,7 @@ impl SimulationMetadata {
     }
 
     /// Set description
+    #[must_use]
     pub fn with_description(mut self, description: impl Into<String>) -> Self {
         self.description = description.into();
         self.modified_at = Utc::now();
@@ -54,6 +55,7 @@ impl SimulationMetadata {
     }
 
     /// Set author
+    #[must_use]
     pub fn with_author(mut self, author: impl Into<String>) -> Self {
         self.author = author.into();
         self.modified_at = Utc::now();

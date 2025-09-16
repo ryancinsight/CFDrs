@@ -36,6 +36,9 @@ impl<T: RealField + Copy> GpuDiffusionKernel<T> {
     }
 
     /// Get the shader module, initializing if necessary
+    ///
+    /// # Panics
+    /// Panics if shader compilation fails or if initialization has not been called
     pub fn get_shader_module(&mut self, device: &wgpu::Device) -> &wgpu::ShaderModule {
         self.initialize(device);
         self.shader_module

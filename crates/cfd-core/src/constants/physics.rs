@@ -30,7 +30,7 @@ pub mod fluid {
     pub const CHANNEL_FLOW_COEFFICIENT: f64 = 4.0;
 
     /// Standard atmospheric pressure at sea level [Pa]
-    pub const ATMOSPHERIC_PRESSURE: f64 = 101325.0;
+    pub const ATMOSPHERIC_PRESSURE: f64 = 101_325.0;
 
     /// Pipe flow shape factor (circular cross-section)
     pub const PIPE_SHAPE_FACTOR: f64 = 2.0;
@@ -66,16 +66,16 @@ pub mod fluid {
 /// Thermodynamics constants
 pub mod thermo {
     /// Universal gas constant [J/(mol·K)]
-    pub const R_UNIVERSAL: f64 = 8.314462618;
+    pub const R_UNIVERSAL: f64 = 8.314_462_618;
 
     /// Specific gas constant for air [J/(kg·K)]
-    pub const R_AIR: f64 = 287.052874;
+    pub const R_AIR: f64 = 287.052_874;
 
     /// Ratio of specific heats for air (γ)
     pub const GAMMA_AIR: f64 = 1.4;
 
     /// Standard atmospheric pressure [Pa]
-    pub const P_ATM: f64 = 101325.0;
+    pub const P_ATM: f64 = 101_325.0;
 
     /// Standard temperature [K]
     pub const T_STANDARD: f64 = 288.15;
@@ -84,7 +84,7 @@ pub mod thermo {
     pub const CELSIUS_TO_KELVIN: f64 = 273.15;
 
     /// Stefan-Boltzmann constant [W/(m²·K⁴)]
-    pub const STEFAN_BOLTZMANN: f64 = 5.670374419e-8;
+    pub const STEFAN_BOLTZMANN: f64 = 5.670_374_419e-8;
 }
 
 /// Turbulence model constants
@@ -226,5 +226,5 @@ pub mod math {
     pub const E: f64 = consts::E;
 
     /// Golden ratio
-    pub const PHI: f64 = 1.618033988749895;
+    pub const PHI: f64 = 1.618_033_988_749_895;
 }

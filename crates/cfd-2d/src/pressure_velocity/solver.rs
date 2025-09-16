@@ -20,6 +20,7 @@ pub struct PressureVelocitySolver<T: RealField + Copy> {
     /// Pressure correction solver
     pressure_solver: PressureCorrectionSolver<T>,
     /// Rhie-Chow interpolation (optional)
+    #[allow(dead_code)]
     rhie_chow: Option<RhieChowInterpolation<T>>,
     /// Current velocity field
     u: Vec<Vec<Vector2<T>>>,
