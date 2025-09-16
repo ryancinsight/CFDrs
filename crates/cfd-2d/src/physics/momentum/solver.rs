@@ -15,7 +15,9 @@ use std::collections::HashMap;
 /// Component of momentum equation (U or V)
 #[derive(Debug, Clone, Copy)]
 pub enum MomentumComponent {
+    /// U-component (x-direction velocity)
     U,
+    /// V-component (y-direction velocity)
     V,
 }
 

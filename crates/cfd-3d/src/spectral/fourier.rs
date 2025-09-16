@@ -97,6 +97,13 @@ pub struct SpectralDerivative<T: RealField + Copy> {
 }
 
 impl<T: RealField + FromPrimitive + Copy> SpectralDerivative<T> {
+    /// Create a new spectral derivative operator for the given grid size
+    /// 
+    /// # Arguments
+    /// * `n` - Number of grid points (must be power of 2 for optimal FFT performance)
+    /// 
+    /// # Returns
+    /// * `Result<Self>` - New spectral derivative operator or error if invalid size
     pub fn new(n: usize) -> Result<Self> {
         Ok(Self {
             transform: FourierTransform::new(n)?,

@@ -33,8 +33,7 @@ pub use cfd_mesh::csg::CsgMeshAdapter;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::{ComplexField, RealField};
-    use num_traits::FromPrimitive;
+    use nalgebra::ComplexField;
 
     /// Test module imports and configuration instantiation
     #[test]
