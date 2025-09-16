@@ -1,20 +1,30 @@
-//! Physics validation benchmarks against analytical solutions
+//! Physics validation benchmarks - PLACEHOLDER IMPLEMENTATION
 //!
-//! Validates numerical methods against known analytical solutions from literature:
-//! - Poiseuille flow (Patankar 1980, p. 124)
-//! - Lid-driven cavity (Ghia et al. 1982)
-//! - Taylor-Green vortex (Taylor & Green 1937)
+//! WARNING: These tests currently use placeholder implementations that do NOT
+//! validate actual CFD physics. They serve only as data structure tests.
+//!
+//! TODO: Integrate actual solver implementations:
+//! - Replace placeholder patterns with real SIMPLE/PISO solver calls
+//! - Implement Method of Manufactured Solutions (MMS) validation  
+//! - Add grid convergence studies with Richardson extrapolation
+//! - Validate against literature benchmarks with actual numerical computation
+//!
+//! Current state: Tests validate data structures and analytical formulas only
+//! Production readiness: NOT SUITABLE - requires actual solver integration
 
 use cfd_2d::grid::StructuredGrid2D;
 use std::f64::consts::PI;
 
-/// Poiseuille flow between parallel plates
+/// Poiseuille flow analytical validation - PLACEHOLDER TEST
 /// Reference: Patankar (1980) "Numerical Heat Transfer and Fluid Flow", p. 124
+///
+/// WARNING: This test currently validates the analytical formula only.
+/// TODO: Replace with actual solver integration and MMS validation.
 ///
 /// Analytical solution: u(y) = (1/2μ) * (dp/dx) * y * (H - y)
 /// where H is channel height, dp/dx is pressure gradient
 #[test]
-fn test_poiseuille_flow() {
+fn test_poiseuille_flow_placeholder() {
     let nx = 10;
     let ny = 50;
     let height = 1.0;
@@ -42,22 +52,26 @@ fn test_poiseuille_flow() {
     for j in 0..ny {
         let y = j as f64 * height / (ny - 1) as f64;
         let u_analytical = analytical_velocity(y);
-        let u_numerical = u_analytical; // Placeholder - would use actual solver
+        let u_numerical = u_analytical; // PLACEHOLDER: No actual solver integration
+        println!("  WARNING: Using placeholder implementation - no actual physics validation");
 
         let error = (u_numerical - u_analytical).abs();
         max_error = max_error.max(error);
     }
 
-    println!("  Max error: {:.6}", max_error);
-    assert!(max_error < 1e-10, "Poiseuille flow validation failed");
+    println!("  Max error: {:.6} (meaningless - placeholder only)", max_error);
+    assert!(max_error < 1e-10, "Placeholder test - always passes, no physics validation");
 }
 
-/// Lid-driven cavity benchmark
+/// Lid-driven cavity benchmark - PLACEHOLDER TEST
 /// Reference: Ghia, U., Ghia, K. N., & Shin, C. T. (1982).
 /// "High-Re solutions for incompressible flow using the Navier-Stokes equations and a multigrid method."
 /// Journal of Computational Physics, 48(3), 387-411.
+///
+/// WARNING: This test validates benchmark data structure only, not actual solver.
+/// TODO: Integrate SIMPLE/PISO solver with actual lid-driven cavity boundary conditions.
 #[test]
-fn test_lid_driven_cavity() {
+fn test_lid_driven_cavity_placeholder() {
     let n = 129; // Standard grid size from Ghia et al.
     let grid = StructuredGrid2D::<f64>::new(n, n, 0.0, 1.0, 0.0, 1.0).unwrap();
 
@@ -71,34 +85,38 @@ fn test_lid_driven_cavity() {
         -0.13641, 0.00332, 0.23151, 0.68717, 0.73722, 0.78871, 0.84123, 0.88928, 1.0000,
     ];
 
-    println!("Lid-Driven Cavity Validation (Re=100):");
+    println!("Lid-Driven Cavity Validation (Re=100) - PLACEHOLDER TEST:");
+    println!("  WARNING: No actual solver integration - testing data structure only");
 
     // This would compare with actual solver results
     let mut total_error = 0.0;
-    for (i, &y) in ghia_y.iter().enumerate() {
+    for (i, &_y) in ghia_y.iter().enumerate() {
         let u_benchmark = ghia_u[i];
-        let u_computed = u_benchmark; // Placeholder - would use actual solver
+        let u_computed = u_benchmark; // PLACEHOLDER: No actual solver
 
         let error = (u_computed - u_benchmark as f64).abs();
         total_error += error * error;
     }
 
     let rms_error = (total_error / ghia_y.len() as f64).sqrt();
-    println!("  RMS error: {:.6}", rms_error);
+    println!("  RMS error: {:.6} (meaningless - placeholder only)", rms_error);
 
-    assert!(rms_error < 1e-10, "Lid-driven cavity validation failed");
+    assert!(rms_error < 1e-10, "Placeholder test - always passes, no physics validation");
 }
 
-/// Taylor-Green vortex decay
+/// Taylor-Green vortex decay - PLACEHOLDER TEST
 /// Reference: Taylor, G. I., & Green, A. E. (1937).
 /// "Mechanism of the production of small eddies from large ones."
 /// Proceedings of the Royal Society of London A, 158(895), 499-521.
+///
+/// WARNING: This test validates analytical formula only, not actual solver.
+/// TODO: Integrate Navier-Stokes solver with Taylor-Green initial conditions.
 ///
 /// Analytical solution for 2D incompressible flow:
 /// u = -cos(kx) * sin(ky) * exp(-2νk²t)
 /// v = sin(kx) * cos(ky) * exp(-2νk²t)
 #[test]
-fn test_taylor_green_vortex() {
+fn test_taylor_green_vortex_placeholder() {
     let n = 64;
     let grid = StructuredGrid2D::<f64>::new(n, n, 0.0, 2.0 * PI, 0.0, 2.0 * PI).unwrap();
 
@@ -109,7 +127,8 @@ fn test_taylor_green_vortex() {
     // Analytical solution
     let decay_factor = (-2.0_f64 * nu * k * k * t).exp();
 
-    println!("Taylor-Green Vortex Validation:");
+    println!("Taylor-Green Vortex Validation - PLACEHOLDER TEST:");
+    println!("  WARNING: No actual solver integration - testing formula only");
     println!("  Viscosity: {}", nu);
     println!("  Time: {}", t);
     println!("  Decay factor: {:.4}", decay_factor);
@@ -126,7 +145,7 @@ fn test_taylor_green_vortex() {
             let u_analytical = -(k * x).cos() * (k * y).sin() * decay_factor;
             let v_analytical = (k * x).sin() * (k * y).cos() * decay_factor;
 
-            // Placeholder for numerical solution
+            // PLACEHOLDER: No actual solver integration
             let u_numerical = u_analytical;
             let v_numerical = v_analytical;
 
@@ -135,57 +154,63 @@ fn test_taylor_green_vortex() {
         }
     }
 
-    println!("  Max error u: {:.6}", max_error_u);
-    println!("  Max error v: {:.6}", max_error_v);
+    println!("  Max error u: {:.6} (meaningless - placeholder only)", max_error_u);
+    println!("  Max error v: {:.6} (meaningless - placeholder only)", max_error_v);
 
     assert!(
         max_error_u < 1e-10,
-        "Taylor-Green u-velocity validation failed"
+        "Placeholder test - always passes, no physics validation"
     );
     assert!(
         max_error_v < 1e-10,
-        "Taylor-Green v-velocity validation failed"
+        "Placeholder test - always passes, no physics validation"
     );
 }
 
-/// Couette flow between moving plates
+/// Couette flow between moving plates - PLACEHOLDER TEST
+/// WARNING: This test validates analytical formula only, not actual solver.
+/// TODO: Integrate shear flow solver with moving boundary conditions.
 /// Analytical solution: u(y) = U * y/H
 /// where U is the top plate velocity, H is the gap height
 #[test]
-fn test_couette_flow() {
+fn test_couette_flow_placeholder() {
     let ny = 50;
     let height = 1.0;
     let u_wall = 1.0; // Top wall velocity
 
-    println!("Couette Flow Validation:");
+    println!("Couette Flow Validation - PLACEHOLDER TEST:");
+    println!("  WARNING: No actual solver integration - testing formula only");
     println!("  Wall velocity: {} m/s", u_wall);
 
     let mut max_error: f64 = 0.0;
     for j in 0..ny {
         let y = j as f64 * height / (ny - 1) as f64;
         let u_analytical = u_wall * y / height;
-        let u_numerical = u_analytical; // Placeholder
+        let u_numerical = u_analytical; // PLACEHOLDER: No actual solver
 
         let error = (u_numerical - u_analytical).abs();
         max_error = max_error.max(error);
     }
 
-    println!("  Max error: {:.6}", max_error);
-    assert!(max_error < 1e-10, "Couette flow validation failed");
+    println!("  Max error: {:.6} (meaningless - placeholder only)", max_error);
+    assert!(max_error < 1e-10, "Placeholder test - always passes, no physics validation");
 }
 
-/// Heat diffusion with analytical solution
+/// Heat diffusion with analytical solution - PLACEHOLDER TEST
+/// WARNING: This test validates analytical formula only, not actual solver.
+/// TODO: Integrate heat diffusion solver with manufactured solutions.
 /// Solution: T(x,t) = T0 * exp(-α*k²*t) * sin(kx)
 /// where α is thermal diffusivity, k is wave number
 #[test]
-fn test_heat_diffusion() {
+fn test_heat_diffusion_placeholder() {
     let nx = 100;
     let length = 1.0;
     let alpha = 0.01; // Thermal diffusivity
     let k = PI; // Wave number for first mode
     let t_final = 0.1;
 
-    println!("Heat Diffusion Validation:");
+    println!("Heat Diffusion Validation - PLACEHOLDER TEST:");
+    println!("  WARNING: No actual solver integration - testing formula only");
     println!("  Thermal diffusivity: {}", alpha);
     println!("  Final time: {}", t_final);
 
@@ -196,19 +221,21 @@ fn test_heat_diffusion() {
     for i in 0..nx {
         let x = i as f64 * length / (nx - 1) as f64;
         let t_analytical = (k * x).sin() * decay;
-        let t_numerical = t_analytical; // Placeholder
+        let t_numerical = t_analytical; // PLACEHOLDER: No actual solver
 
         let error = (t_numerical - t_analytical).abs();
         max_error = max_error.max(error);
     }
 
-    println!("  Max error: {:.6}", max_error);
-    assert!(max_error < 1e-10, "Heat diffusion validation failed");
+    println!("  Max error: {:.6} (meaningless - placeholder only)", max_error);
+    assert!(max_error < 1e-10, "Placeholder test - always passes, no physics validation");
 }
 
-/// Verify conservation properties
+/// Verify conservation properties - PLACEHOLDER TEST
+/// WARNING: This test validates divergence-free analytical field only.
+/// TODO: Integrate actual SIMPLE/PISO solver with mass conservation verification.
 #[test]
-fn test_mass_conservation() {
+fn test_mass_conservation_placeholder() {
     let nx = 50;
     let ny = 50;
     let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
@@ -246,8 +273,9 @@ fn test_mass_conservation() {
         }
     }
 
-    println!("Mass Conservation Test:");
-    println!("  Max divergence: {:.6e}", max_divergence);
+    println!("Mass Conservation Test - PLACEHOLDER:");
+    println!("  WARNING: Testing analytical divergence-free field only, not actual solver");
+    println!("  Max divergence: {:.6e} (analytical field only)", max_divergence);
 
-    assert!(max_divergence < 1e-10, "Mass conservation violated");
+    assert!(max_divergence < 1e-10, "Placeholder test - analytical field always divergence-free");
 }
