@@ -1,5 +1,7 @@
 //! Core traits for collision operators
 
+#![allow(dead_code)]
+
 use nalgebra::RealField;
 
 /// Trait for collision operators in LBM

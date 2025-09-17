@@ -76,7 +76,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
 
         // Iterative solver for demonstration
         let mut convergence = Vec::new();
-        let mut max_residual = T::one(); // Global residual tracking for convergence
+        let mut max_residual; // Global residual tracking for convergence
 
         for _iter in 0..config.max_iterations {
             let mut local_max_residual = T::zero();

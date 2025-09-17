@@ -1,5 +1,7 @@
 //! Regularized collision operator for improved stability
 
+#![allow(dead_code)]
+
 use super::traits::CollisionOperator;
 use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
 use nalgebra::RealField;

@@ -7,188 +7,82 @@
 //! - Advanced iterator combinators for numerical analysis
 //! - Literature-validated spectral methods
 
-use cfd_3d::{SpectralBasis, SpectralConfig, SpectralSolver};
-use cfd_core::BoundaryCondition;
-use cfd_suite::prelude::*;
-use std::collections::HashMap;
+use cfd_3d::spectral::{PoissonSolver, PoissonBoundaryCondition};
+use nalgebra::DMatrix;
+use std::f64::consts::PI;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("3D Spectral Poisson Solver Example");
     println!("===================================");
 
-    // Create spectral solver configuration with smaller grid for demonstration
-    let base = cfd_core::SolverConfig::<f64>::builder()
-        .tolerance(1e-8)
-        .max_iterations(100)
-        .verbose(true)
-        .build();
+    // Create 3D Poisson solver with small grid for demonstration  
+    let nx = 8;
+    let ny = 8; 
+    let nz = 8;
+    
+    println!("Creating Poisson solver with {}×{}×{} grid points", nx, ny, nz);
+    let solver = PoissonSolver::new(nx, ny, nz)?;
 
-    let config = SpectralConfig {
-        base: base.clone(),
-        nx_modes: 8,
-        ny_modes: 8,
-        nz_modes: 8,
-        basis_x: SpectralBasis::Chebyshev,
-        basis_y: SpectralBasis::Chebyshev,
-        basis_z: SpectralBasis::Chebyshev,
-        dt: None,
-    };
+    // Define right-hand side function f(x,y,z) = sin(πx)sin(πy)sin(πz)
+    // This has exact solution u(x,y,z) = -sin(πx)sin(πy)sin(πz)/(3π²)
+    let mut rhs = DMatrix::zeros(nx * ny, nz);
+    
+    for i in 0..nx {
+        for j in 0..ny {
+            for k in 0..nz {
+                let x = -1.0 + 2.0 * i as f64 / (nx - 1) as f64;
+                let y = -1.0 + 2.0 * j as f64 / (ny - 1) as f64;
+                let z = -1.0 + 2.0 * k as f64 / (nz - 1) as f64;
+                
+                let value = (PI * x).sin() * (PI * y).sin() * (PI * z).sin();
+                rhs[(i * ny + j, k)] = value;
+            }
+        }
+    }
 
-    println!("Spectral configuration:");
-    println!(
-        "  Grid: {}×{}×{} modes",
-        config.nx_modes, config.ny_modes, config.nz_modes
-    );
-    println!("  Tolerance: {:.0e}", base.convergence.tolerance);
-    println!("  Basis: Chebyshev polynomials");
-    println!();
-
-    // Define domain bounds (unit cube)
-    let domain_bounds = (
-        nalgebra::Vector3::new(-1.0, -1.0, -1.0),
-        nalgebra::Vector3::new(1.0, 1.0, 1.0),
-    );
-
-    println!(
-        "Domain: [{:.1}, {:.1}]³",
-        domain_bounds.0.x, domain_bounds.1.x
-    );
-
-    // Create spectral solver
-    let mut solver = SpectralSolver::new(config).expect("Failed to create spectral solver");
-
-    // Define the source function for Poisson equation: ∇²u = f
-    // We'll use f(x,y,z) = -3π²sin(πx)sin(πy)sin(πz)
-    // which has the analytical solution u(x,y,z) = sin(πx)sin(πy)sin(πz)
-    let _source_function = |point: &nalgebra::Vector3<f64>| -> f64 {
-        let pi = std::f64::consts::PI;
-        let x = point.x;
-        let y = point.y;
-        let z = point.z;
-
-        -3.0 * pi * pi * (pi * x).sin() * (pi * y).sin() * (pi * z).sin()
-    };
-
-    println!("Source function: f(x,y,z) = -3π²sin(πx)sin(πy)sin(πz)");
-    println!("Analytical solution: u(x,y,z) = sin(πx)sin(πy)sin(πz)");
+    println!("Right-hand side: f(x,y,z) = sin(πx)sin(πy)sin(πz)");
     println!();
 
     // Define boundary conditions (Dirichlet: u = 0 on all boundaries)
-    let mut boundary_conditions = HashMap::new();
-    boundary_conditions.insert(
-        "x_min".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
-    );
-    boundary_conditions.insert(
-        "x_max".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
-    );
-    boundary_conditions.insert(
-        "y_min".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
-    );
-    boundary_conditions.insert(
-        "y_max".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
-    );
-    boundary_conditions.insert(
-        "z_min".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
-    );
-    boundary_conditions.insert(
-        "z_max".to_string(),
-        BoundaryCondition::Dirichlet { value: 0.0 },
-    );
+    let bc_x = (PoissonBoundaryCondition::Dirichlet(0.0), PoissonBoundaryCondition::Dirichlet(0.0));
+    let bc_y = (PoissonBoundaryCondition::Dirichlet(0.0), PoissonBoundaryCondition::Dirichlet(0.0));
+    let bc_z = (PoissonBoundaryCondition::Dirichlet(0.0), PoissonBoundaryCondition::Dirichlet(0.0));
 
     println!("Boundary conditions: u = 0 on all faces");
     println!();
 
-    // Solve using spectral method (simplified demonstration)
-    println!("Solving 3D problem using spectral methods...");
-    match solver.solve() {
+    // Solve using spectral method
+    println!("Solving 3D Poisson equation ∇²u = f...");
+    match solver.solve(&rhs, bc_x, bc_y, bc_z) {
         Ok(solution) => {
             println!("Spectral solution converged successfully!");
+            println!("Solution matrix dimensions: {}×{}", solution.nrows(), solution.ncols());
             println!();
 
-            // Display solution information
-            println!("Solution information:");
-
-            {
-                let values = &solution.u;
-                println!("Solution values (sample):");
-
-                // Show a few sample values
-                let step = values.len() / 8; // Show ~8 values
-                for (i, &value) in values.iter().enumerate().step_by(step.max(1)).take(8) {
-                    let k = i / (solution.nx * solution.ny);
-                    let j = (i % (solution.nx * solution.ny)) / solution.nx;
-                    let i_local = i % solution.nx;
-
-                    // Map grid indices to physical coordinates
-                    let x = -1.0 + 2.0 * i_local as f64 / (solution.nx - 1).max(1) as f64;
-                    let y = -1.0 + 2.0 * j as f64 / (solution.ny - 1).max(1) as f64;
-                    let z = -1.0 + 2.0 * k as f64 / (solution.nz - 1).max(1) as f64;
-
-                    // Calculate analytical solution for comparison
-                    let pi = std::f64::consts::PI;
-                    let analytical = (pi * x).sin() * (pi * y).sin() * (pi * z).sin();
-
-                    println!(
-                        "  ({:.2}, {:.2}, {:.2}): u = {:.6} (analytical: {:.6})",
-                        x, y, z, value, analytical
-                    );
-                }
-
-                // Calculate statistics using advanced iterator patterns
-
-                let max_value = values.iter().fold(0.0f64, |a, &b| a.max(b.abs()));
-                let min_value = values.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-                let avg_value = values.iter().sum::<f64>() / values.len() as f64;
-                let variance = if values.len() > 1 {
-                    values.iter().map(|&x| (x - avg_value).powi(2)).sum::<f64>()
-                        / (values.len() - 1) as f64
-                } else {
-                    0.0
-                };
-                let std_dev = variance.sqrt();
-
-                println!();
-                println!("Solution statistics (using advanced iterator patterns):");
-                println!("  Maximum |u|: {:.6}", max_value);
-                println!("  Minimum u: {:.6}", min_value);
-                println!("  Average u: {:.6}", avg_value);
-                println!("  Standard deviation: {:.6}", std_dev);
-
-                // For the analytical solution sin(πx)sin(πy)sin(πz),
-                // the maximum should be around 1.0 at the center
-                println!("  Expected maximum: ~1.0 (at center of domain)");
-
-                if max_value > 0.5 && max_value < 1.5 {
-                    println!("  ✓ Solution magnitude is reasonable");
-                } else {
-                    println!("  ⚠ Solution magnitude may be incorrect");
+            // Display some sample values
+            println!("Sample solution values:");
+            for i in 0..3.min(solution.nrows()) {
+                for j in 0..3.min(solution.ncols()) {
+                    println!("  u[{},{}] = {:.6}", i, j, solution[(i, j)]);
                 }
             }
-
+            
+            // Compute and display some basic statistics
+            let max_val = solution.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+            let min_val = solution.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+            let mean_val = solution.iter().sum::<f64>() / solution.len() as f64;
+            
             println!();
-            println!("Spectral solution properties:");
-            println!(
-                "  Grid dimensions: {}×{}×{}",
-                solution.nx, solution.ny, solution.nz
-            );
-            println!("  Solution size: {} elements", solution.u.len());
-
-            // Spectral methods provide exponential convergence for smooth solutions
-            println!();
-            println!("Note: Spectral methods achieve exponential convergence");
-            println!("for smooth solutions like this trigonometric function.");
+            println!("Solution statistics:");
+            println!("  Maximum value: {:.6}", max_val);
+            println!("  Minimum value: {:.6}", min_val);
+            println!("  Mean value: {:.6}", mean_val);
         }
         Err(e) => {
-            println!("Spectral solution failed: {}", e);
-            return Err(e.into());
+            eprintln!("Failed to solve Poisson equation: {}", e);
+            return Err(Box::new(e));
         }
     }
-
     println!();
     println!("3D spectral Poisson solver demonstration completed!");
 
