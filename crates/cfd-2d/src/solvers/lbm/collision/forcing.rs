@@ -4,6 +4,7 @@ use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
 /// Forcing scheme trait
+#[allow(dead_code)]
 pub trait ForcingScheme<T: RealField + Copy> {
     /// Apply forcing to distribution functions
     fn apply_force(&self, f: &mut [T; 9], force: [T; 2], velocity: [T; 2], density: T, dt: T);
@@ -11,11 +12,13 @@ pub trait ForcingScheme<T: RealField + Copy> {
 
 /// Guo forcing scheme
 /// Based on Guo et al. (2002)
+#[allow(dead_code)]
 pub struct GuoForcing<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
 impl<T: RealField + Copy> GuoForcing<T> {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
@@ -51,12 +54,14 @@ impl<T: RealField + Copy + FromPrimitive> ForcingScheme<T> for GuoForcing<T> {
 
 /// Shan-Chen forcing scheme
 /// For multiphase flows
+#[allow(dead_code)]
 pub struct ShanChenForcing<T: RealField + Copy> {
     /// Interaction strength
     g: T,
 }
 
 impl<T: RealField + Copy> ShanChenForcing<T> {
+    #[allow(dead_code)]
     pub fn new(interaction_strength: T) -> Self {
         Self {
             g: interaction_strength,

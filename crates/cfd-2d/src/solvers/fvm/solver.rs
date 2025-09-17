@@ -12,7 +12,9 @@ use num_traits::FromPrimitive;
 /// Finite Volume Method solver for 2D problems
 pub struct FvmSolver<T: RealField + Copy> {
     config: FvmConfig<T>,
+    #[allow(dead_code)]
     grid: StructuredGrid2D<T>,
+    #[allow(dead_code)]
     faces: Vec<Face<T>>,
     flux_scheme: FluxScheme,
 }

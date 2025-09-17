@@ -22,6 +22,7 @@ pub enum Backend {
 pub struct UnifiedCompute {
     backend: Backend,
     #[cfg(feature = "gpu")]
+    #[allow(dead_code)]
     gpu_context: Option<Arc<wgpu::Device>>,
     simd_processor: SimdProcessor,
 }
@@ -156,6 +157,7 @@ pub mod kernels {
 
     /// Accelerated pressure Poisson solver
     pub struct PressureSolver {
+        #[allow(dead_code)]
         compute: Arc<UnifiedCompute>,
     }
 
@@ -213,6 +215,7 @@ pub mod kernels {
 
     /// Accelerated advection solver
     pub struct AdvectionSolver {
+        #[allow(dead_code)]
         compute: Arc<UnifiedCompute>,
     }
 
