@@ -27,10 +27,7 @@ impl<W: Write> BinaryWriter<W> {
     /// Write serializable data using bincode
     pub fn write<T: Serialize>(&mut self, data: &T) -> Result<()> {
         bincode::serialize_into(&mut self.writer, data).map_err(|e| {
-            Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Binary write error: {}", e),
-            ))
+            Error::Io(std::io::Error::other(format!("Binary write error: {e}")))
         })?;
         Ok(())
     }

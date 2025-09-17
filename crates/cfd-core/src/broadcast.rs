@@ -1,6 +1,6 @@
 //! Broadcasting operations for efficient array manipulation
 //!
-//! Provides zero-copy broadcasting operations similar to NumPy broadcasting,
+//! Provides zero-copy broadcasting operations similar to `NumPy` broadcasting,
 //! enabling efficient element-wise operations on arrays of different shapes.
 
 use nalgebra::RealField;
@@ -83,7 +83,7 @@ impl<'a, T: RealField + Copy> BroadcastView<'a, T> {
     }
 
     /// Create from owned data
-    pub fn from_owned(data: Vec<T>, shape: Vec<usize>) -> Self {
+    #[must_use] pub fn from_owned(data: Vec<T>, shape: Vec<usize>) -> Self {
         let strides = Self::compute_strides(&shape);
         Self {
             data: Cow::Owned(data),

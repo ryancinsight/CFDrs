@@ -24,7 +24,7 @@ pub struct Laplacian2DKernel {
 
 impl Laplacian2DKernel {
     /// Create new 2D Laplacian kernel
-    pub fn new(context: Arc<GpuContext>) -> Self {
+    #[must_use] pub fn new(context: Arc<GpuContext>) -> Self {
         let shader_module = context
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -217,7 +217,7 @@ impl Laplacian2DKernel {
             });
             compute_pass.set_pipeline(&self.pipeline);
             compute_pass.set_bind_group(0, &bind_group, &[]);
-            compute_pass.dispatch_workgroups((nx as u32 + 7) / 8, (ny as u32 + 7) / 8, 1);
+            compute_pass.dispatch_workgroups((nx as u32).div_ceil(8), (ny as u32).div_ceil(8), 1);
         }
 
         // Copy results to staging buffer

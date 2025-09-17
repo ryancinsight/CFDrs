@@ -38,7 +38,7 @@ pub enum ElementType {
 
 impl ElementType {
     /// Get the number of nodes for this element type
-    pub fn num_nodes(&self) -> usize {
+    #[must_use] pub fn num_nodes(&self) -> usize {
         match self {
             Self::Line => 2,
             Self::Line3 => 3,
@@ -56,7 +56,7 @@ impl ElementType {
     }
 
     /// Get the dimension of this element type
-    pub fn dimension(&self) -> usize {
+    #[must_use] pub fn dimension(&self) -> usize {
         match self {
             Self::Line | Self::Line3 => 1,
             Self::Triangle | Self::Triangle6 | Self::Quadrilateral | Self::Quadrilateral9 => 2,
@@ -70,7 +70,7 @@ impl ElementType {
     }
 
     /// Check if this is a linear element type
-    pub fn is_linear(&self) -> bool {
+    #[must_use] pub fn is_linear(&self) -> bool {
         matches!(
             self,
             Self::Line
@@ -84,7 +84,7 @@ impl ElementType {
     }
 
     /// Check if this is a quadratic element type
-    pub fn is_quadratic(&self) -> bool {
+    #[must_use] pub fn is_quadratic(&self) -> bool {
         matches!(
             self,
             Self::Line3

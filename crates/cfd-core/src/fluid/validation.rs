@@ -106,8 +106,7 @@ pub fn validate_reynolds<T: RealField + Copy>(reynolds: T) -> Result<(), Error> 
     let re_max = T::from_f64(1e8).unwrap_or_else(T::one);
     if reynolds > re_max {
         return Err(Error::InvalidInput(format!(
-            "Reynolds number {} exceeds typical range (may indicate error)",
-            reynolds
+            "Reynolds number {reynolds} exceeds typical range (may indicate error)"
         )));
     }
 
@@ -128,8 +127,7 @@ pub fn validate_prandtl<T: RealField + Copy>(prandtl: T) -> Result<(), Error> {
 
     if prandtl < pr_min || prandtl > pr_max {
         return Err(Error::InvalidInput(format!(
-            "Prandtl number {} is outside typical range [{}, {}]",
-            prandtl, pr_min, pr_max
+            "Prandtl number {prandtl} is outside typical range [{pr_min}, {pr_max}]"
         )));
     }
 
@@ -149,8 +147,7 @@ pub fn validate_temperature<T: RealField + Copy>(temperature: T) -> Result<(), E
 
     if temperature > t_max {
         return Err(Error::InvalidInput(format!(
-            "Temperature {} K exceeds reasonable range",
-            temperature
+            "Temperature {temperature} K exceeds reasonable range"
         )));
     }
 
@@ -167,8 +164,7 @@ pub fn validate_pressure<T: RealField + Copy>(pressure: T) -> Result<(), Error> 
     let p_max = T::from_f64(1e9).unwrap_or_else(T::one);
     if pressure > p_max {
         return Err(Error::InvalidInput(format!(
-            "Pressure {} Pa exceeds typical range",
-            pressure
+            "Pressure {pressure} Pa exceeds typical range"
         )));
     }
 

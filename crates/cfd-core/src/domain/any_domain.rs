@@ -1,4 +1,4 @@
-//! AnyDomain enum and conversions
+//! `AnyDomain` enum and conversions
 
 use super::common::Domain;
 use super::domain_1d::Domain1D;

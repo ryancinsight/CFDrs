@@ -260,8 +260,8 @@ impl GpuPoissonSolver {
                 compute_pass.set_pipeline(&self.jacobi_pipeline);
                 compute_pass.set_bind_group(0, &bind_group, &[]);
 
-                let workgroups_x = (params.nx + 7) / 8;
-                let workgroups_y = (params.ny + 7) / 8;
+                let workgroups_x = params.nx.div_ceil(8);
+                let workgroups_y = params.ny.div_ceil(8);
                 compute_pass.dispatch_workgroups(workgroups_x, workgroups_y, 1);
             }
 
@@ -277,7 +277,7 @@ impl GpuPoissonSolver {
 
         let staging_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Staging Buffer"),
-            size: (n * std::mem::size_of::<f32>()) as u64,
+            size: std::mem::size_of_val(phi) as u64,
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -293,7 +293,7 @@ impl GpuPoissonSolver {
             0,
             &staging_buffer,
             0,
-            (n * std::mem::size_of::<f32>()) as u64,
+            std::mem::size_of_val(phi) as u64,
         );
 
         self.queue.submit(Some(encoder.finish()));

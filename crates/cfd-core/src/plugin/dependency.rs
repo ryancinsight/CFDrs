@@ -62,13 +62,12 @@ impl DependencyResolver {
         let mut rec_stack = HashSet::new();
 
         for plugin in self.dependencies.keys() {
-            if !visited.contains(plugin) {
-                if self.has_cycle(plugin, &mut visited, &mut rec_stack)? {
+            if !visited.contains(plugin)
+                && self.has_cycle(plugin, &mut visited, &mut rec_stack)? {
                     return Err(Error::Plugin(PluginErrorKind::CircularDependency {
                         chain: self.find_cycle_chain(plugin),
                     }));
                 }
-            }
         }
         Ok(())
     }

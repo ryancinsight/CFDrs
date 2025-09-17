@@ -14,7 +14,7 @@ pub struct FlowOperations;
 
 impl FlowOperations {
     /// Calculate vorticity field (curl of velocity)
-    pub fn vorticity<T: RealField + Copy + FromPrimitive + Send + Sync>(
+    #[must_use] pub fn vorticity<T: RealField + Copy + FromPrimitive + Send + Sync>(
         velocity: &VelocityField<T>,
     ) -> Vec<Vector3<T>> {
         let (nx, ny, nz) = velocity.dimensions;
@@ -36,7 +36,7 @@ impl FlowOperations {
     }
 
     /// Calculate divergence field
-    pub fn divergence<T: RealField + Copy + FromPrimitive + Send + Sync>(
+    #[must_use] pub fn divergence<T: RealField + Copy + FromPrimitive + Send + Sync>(
         velocity: &VelocityField<T>,
     ) -> Vec<T> {
         let (nx, ny, nz) = velocity.dimensions;
@@ -90,7 +90,7 @@ impl FlowOperations {
     }
 
     /// Calculate kinetic energy field
-    pub fn kinetic_energy<T: RealField + Copy + FromPrimitive + Send + Sync>(
+    #[must_use] pub fn kinetic_energy<T: RealField + Copy + FromPrimitive + Send + Sync>(
         velocity: &VelocityField<T>,
     ) -> Vec<T> {
         // Use parallel iteration for better performance

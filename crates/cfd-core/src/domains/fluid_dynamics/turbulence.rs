@@ -175,7 +175,7 @@ impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for SmagorinskyMode
             .collect()
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Smagorinsky"
     }
 }
@@ -284,7 +284,7 @@ impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for MixingLengthMod
             .collect()
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "MixingLength"
     }
 }

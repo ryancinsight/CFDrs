@@ -46,7 +46,7 @@ pub struct MeshMetadata {
 
 impl<T: RealField + Copy> Mesh<T> {
     /// Create a new empty mesh
-    pub fn new(name: String, dimension: usize) -> Self {
+    #[must_use] pub fn new(name: String, dimension: usize) -> Self {
         Self {
             nodes: Vec::new(),
             elements: Vec::new(),
@@ -72,12 +72,12 @@ impl<T: RealField + Copy> Mesh<T> {
     }
 
     /// Get number of nodes
-    pub fn num_nodes(&self) -> usize {
+    #[must_use] pub fn num_nodes(&self) -> usize {
         self.nodes.len()
     }
 
     /// Get number of elements
-    pub fn num_elements(&self) -> usize {
+    #[must_use] pub fn num_elements(&self) -> usize {
         self.elements.len()
     }
 
@@ -93,8 +93,7 @@ impl<T: RealField + Copy> Mesh<T> {
             for &node_idx in &element.nodes {
                 if node_idx >= self.nodes.len() {
                     return Err(Error::InvalidInput(format!(
-                        "Element references invalid node index: {}",
-                        node_idx
+                        "Element references invalid node index: {node_idx}"
                     )));
                 }
             }

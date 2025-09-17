@@ -34,7 +34,7 @@ impl<T: RealField + Copy> PropertyCalculator<T> for KinematicViscosityCalculator
         vec!["density".to_string(), "dynamic_viscosity".to_string()]
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Kinematic Viscosity"
     }
 }
@@ -65,7 +65,7 @@ impl<T: RealField + Copy> PropertyCalculator<T> for ReynoldsNumberCalculator {
         ]
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Reynolds Number"
     }
 }
@@ -94,7 +94,7 @@ impl<T: RealField + Copy> PropertyCalculator<T> for PrandtlNumberCalculator {
         ]
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Prandtl Number"
     }
 }

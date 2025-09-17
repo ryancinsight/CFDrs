@@ -25,7 +25,7 @@ pub mod time_schemes {
                 .collect()
         }
 
-        fn name(&self) -> &str {
+        fn name(&self) -> &'static str {
             "Forward Euler"
         }
 
@@ -57,7 +57,7 @@ pub mod time_schemes {
                 .collect()
         }
 
-        fn name(&self) -> &str {
+        fn name(&self) -> &'static str {
             "Constant Derivative (Euler)"
         }
 
@@ -167,7 +167,7 @@ pub mod time_schemes {
                 .collect()
         }
 
-        fn name(&self) -> &str {
+        fn name(&self) -> &'static str {
             "Runge-Kutta 4"
         }
 

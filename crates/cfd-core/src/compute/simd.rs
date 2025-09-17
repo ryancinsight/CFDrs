@@ -15,9 +15,15 @@ pub struct SimdKernel<T: RealField + Copy> {
     _phantom: PhantomData<T>,
 }
 
+impl<T: RealField + Copy> Default for SimdKernel<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy> SimdKernel<T> {
     /// Creates a new SIMD advection kernel
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
         }
@@ -25,7 +31,7 @@ impl<T: RealField + Copy> SimdKernel<T> {
 }
 
 impl<T: RealField + Copy> ComputeKernel<T> for SimdKernel<T> {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "SIMD Kernel"
     }
 

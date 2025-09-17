@@ -13,7 +13,7 @@ pub struct FieldAddKernel {
 
 impl FieldAddKernel {
     /// Create new field addition kernel
-    pub fn new(context: Arc<GpuContext>) -> Self {
+    #[must_use] pub fn new(context: Arc<GpuContext>) -> Self {
         let shader_module = context
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -109,7 +109,7 @@ impl FieldAddKernel {
                 });
         let buffer_result = self.context.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Result Buffer"),
-            size: (size * 4) as u64,
+            size: u64::from(size * 4),
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
@@ -191,18 +191,18 @@ impl FieldAddKernel {
             });
             compute_pass.set_pipeline(&self.pipeline);
             compute_pass.set_bind_group(0, &bind_group, &[]);
-            compute_pass.dispatch_workgroups((size + 63) / 64, 1, 1);
+            compute_pass.dispatch_workgroups(size.div_ceil(64), 1, 1);
         }
 
         // Create staging buffer for readback
         let staging_buffer = self.context.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Staging Buffer"),
-            size: (size * 4) as u64,
+            size: u64::from(size * 4),
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
-        encoder.copy_buffer_to_buffer(&buffer_result, 0, &staging_buffer, 0, (size * 4) as u64);
+        encoder.copy_buffer_to_buffer(&buffer_result, 0, &staging_buffer, 0, u64::from(size * 4));
         self.context.queue.submit(std::iter::once(encoder.finish()));
 
         // Read back results
@@ -241,7 +241,7 @@ pub struct FieldMulKernel {
 
 impl FieldMulKernel {
     /// Create new field multiplication kernel
-    pub fn new(context: Arc<GpuContext>) -> Self {
+    #[must_use] pub fn new(context: Arc<GpuContext>) -> Self {
         let shader_module = context
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -280,7 +280,7 @@ impl FieldMulKernel {
 
         let result_buffer = self.context.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Result Buffer"),
-            size: (result.len() * std::mem::size_of::<f32>()) as u64,
+            size: std::mem::size_of_val(result) as u64,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
@@ -332,13 +332,13 @@ impl FieldMulKernel {
             });
             compute_pass.set_pipeline(&self.pipeline);
             compute_pass.set_bind_group(0, &bind_group, &[]);
-            compute_pass.dispatch_workgroups((field.len() as u32 + 255) / 256, 1, 1);
+            compute_pass.dispatch_workgroups((field.len() as u32).div_ceil(256), 1, 1);
         }
 
         // Read back results
         let staging_buffer = self.context.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Staging Buffer"),
-            size: (result.len() * std::mem::size_of::<f32>()) as u64,
+            size: std::mem::size_of_val(result) as u64,
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });

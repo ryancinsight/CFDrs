@@ -38,7 +38,7 @@ impl<T: RealField + Copy> InterfaceProperties<T> for FluidSolidInterface<T> {
 
 impl<T: RealField + Copy> FluidSolidInterface<T> {
     /// Create water-air interface at 20°C
-    pub fn water_air() -> Self
+    #[must_use] pub fn water_air() -> Self
     where
         T: From<f64>,
     {
@@ -55,7 +55,7 @@ impl<T: RealField + Copy> FluidSolidInterface<T> {
     }
 
     /// Create oil-water interface
-    pub fn oil_water() -> Self
+    #[must_use] pub fn oil_water() -> Self
     where
         T: From<f64>,
     {

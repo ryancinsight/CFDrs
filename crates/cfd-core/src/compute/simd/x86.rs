@@ -1,9 +1,9 @@
-//! x86/x86_64 SIMD implementations using AVX2 and SSE4.1
+//! `x86/x86_64` SIMD implementations using AVX2 and SSE4.1
 
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
+use std::arch::x86_64::{_mm256_set1_ps, _mm256_setzero_ps, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_GT_OQ, _mm256_sub_ps, _mm256_blendv_ps, _mm256_div_ps, _mm256_mul_ps, _mm256_add_ps, _mm256_storeu_ps, _mm_set1_ps, _mm_setzero_ps, _mm_loadu_ps, _mm_cmpgt_ps, _mm_sub_ps, _mm_blendv_ps, _mm_div_ps, _mm_mul_ps, _mm_add_ps, _mm_storeu_ps};
 
 /// AVX2 implementation for advection kernel (256-bit vectors, 8 floats)
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -33,13 +33,13 @@ pub unsafe fn advection_avx2(
             let idx = j * nx + i;
 
             // Load current values
-            let u = _mm256_loadu_ps(&input[idx]);
-            let vx = _mm256_loadu_ps(&velocity_x[idx]);
-            let vy = _mm256_loadu_ps(&velocity_y[idx]);
+            let u = _mm256_loadu_ps(&raw const input[idx]);
+            let vx = _mm256_loadu_ps(&raw const velocity_x[idx]);
+            let vy = _mm256_loadu_ps(&raw const velocity_y[idx]);
 
             // Compute upwind differences for x-direction
-            let u_left = _mm256_loadu_ps(&input[idx - 1]);
-            let u_right = _mm256_loadu_ps(&input[idx + 1]);
+            let u_left = _mm256_loadu_ps(&raw const input[idx - 1]);
+            let u_right = _mm256_loadu_ps(&raw const input[idx + 1]);
 
             // vx > 0 ? (u - u_left) : (u_right - u)
             let mask_x = _mm256_cmp_ps(vx, zero, _CMP_GT_OQ);
@@ -49,8 +49,8 @@ pub unsafe fn advection_avx2(
             let gradient_x = _mm256_div_ps(gradient_x, x_spacing_vec);
 
             // Compute upwind differences for y-direction
-            let u_bottom = _mm256_loadu_ps(&input[idx - nx]);
-            let u_top = _mm256_loadu_ps(&input[idx + nx]);
+            let u_bottom = _mm256_loadu_ps(&raw const input[idx - nx]);
+            let u_top = _mm256_loadu_ps(&raw const input[idx + nx]);
 
             // vy > 0 ? (u - u_bottom) : (u_top - u)
             let mask_y = _mm256_cmp_ps(vy, zero, _CMP_GT_OQ);
@@ -67,7 +67,7 @@ pub unsafe fn advection_avx2(
             let result = _mm256_sub_ps(u, dt_advection);
 
             // Store result
-            _mm256_storeu_ps(&mut output[idx], result);
+            _mm256_storeu_ps(&raw mut output[idx], result);
 
             i += 8;
         }
@@ -124,13 +124,13 @@ pub unsafe fn advection_sse41(
             let idx = j * nx + i;
 
             // Load current values
-            let u = _mm_loadu_ps(&input[idx]);
-            let vx = _mm_loadu_ps(&velocity_x[idx]);
-            let vy = _mm_loadu_ps(&velocity_y[idx]);
+            let u = _mm_loadu_ps(&raw const input[idx]);
+            let vx = _mm_loadu_ps(&raw const velocity_x[idx]);
+            let vy = _mm_loadu_ps(&raw const velocity_y[idx]);
 
             // Compute upwind differences for x-direction
-            let u_left = _mm_loadu_ps(&input[idx - 1]);
-            let u_right = _mm_loadu_ps(&input[idx + 1]);
+            let u_left = _mm_loadu_ps(&raw const input[idx - 1]);
+            let u_right = _mm_loadu_ps(&raw const input[idx + 1]);
 
             // vx > 0 ? (u - u_left) : (u_right - u)
             let mask_x = _mm_cmpgt_ps(vx, zero);
@@ -140,8 +140,8 @@ pub unsafe fn advection_sse41(
             let gradient_x = _mm_div_ps(gradient_x, x_spacing_vec);
 
             // Compute upwind differences for y-direction
-            let u_bottom = _mm_loadu_ps(&input[idx - nx]);
-            let u_top = _mm_loadu_ps(&input[idx + nx]);
+            let u_bottom = _mm_loadu_ps(&raw const input[idx - nx]);
+            let u_top = _mm_loadu_ps(&raw const input[idx + nx]);
 
             // vy > 0 ? (u - u_bottom) : (u_top - u)
             let mask_y = _mm_cmpgt_ps(vy, zero);
@@ -158,7 +158,7 @@ pub unsafe fn advection_sse41(
             let result = _mm_sub_ps(u, dt_advection);
 
             // Store result
-            _mm_storeu_ps(&mut output[idx], result);
+            _mm_storeu_ps(&raw mut output[idx], result);
 
             i += 4;
         }
@@ -217,11 +217,11 @@ pub unsafe fn diffusion_avx2(
             let idx = j * nx + i;
 
             // Load stencil values
-            let u_center = _mm256_loadu_ps(&input[idx]);
-            let u_left = _mm256_loadu_ps(&input[idx - 1]);
-            let u_right = _mm256_loadu_ps(&input[idx + 1]);
-            let u_bottom = _mm256_loadu_ps(&input[idx - nx]);
-            let u_top = _mm256_loadu_ps(&input[idx + nx]);
+            let u_center = _mm256_loadu_ps(&raw const input[idx]);
+            let u_left = _mm256_loadu_ps(&raw const input[idx - 1]);
+            let u_right = _mm256_loadu_ps(&raw const input[idx + 1]);
+            let u_bottom = _mm256_loadu_ps(&raw const input[idx - nx]);
+            let u_top = _mm256_loadu_ps(&raw const input[idx + nx]);
 
             // Compute Laplacian: (u_left - 2*u + u_right)/dx^2 + (u_bottom - 2*u + u_top)/dy^2
             let laplacian_x = _mm256_sub_ps(u_left, _mm256_mul_ps(two, u_center));
@@ -239,7 +239,7 @@ pub unsafe fn diffusion_avx2(
             let result = _mm256_add_ps(u_center, update);
 
             // Store result
-            _mm256_storeu_ps(&mut output[idx], result);
+            _mm256_storeu_ps(&raw mut output[idx], result);
 
             i += 8;
         }

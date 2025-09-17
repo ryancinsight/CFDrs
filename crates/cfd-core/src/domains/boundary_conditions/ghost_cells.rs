@@ -20,10 +20,10 @@ pub struct GhostCellCalculator<T: RealField + Copy> {
 
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive> GhostCellCalculator<T> {
     /// Create ghost cell calculator for given stencil order
-    pub fn new(order: usize) -> Self {
+    #[must_use] pub fn new(order: usize) -> Self {
         // Number of ghost cells = (order + 1) / 2 for centered schemes
         // For upwind schemes, may need more on upwind side
-        let n_ghost = (order + 1) / 2;
+        let n_ghost = order.div_ceil(2);
         Self {
             order,
             n_ghost,
@@ -177,7 +177,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> GhostCellCalculator<T> {
     }
 
     /// Get required number of ghost cells for this order
-    pub fn ghost_cells_required(&self) -> usize {
+    #[must_use] pub fn ghost_cells_required(&self) -> usize {
         self.n_ghost
     }
 }

@@ -44,7 +44,7 @@ pub const EROSION_COEFFICIENT_STEEL: f64 = 5e-13;
 pub const EROSION_PRESSURE_EXPONENT: f64 = 2.25;
 
 /// Basquin's law constants for fatigue
-/// Fatigue strength coefficient ratio (σ_f'/UTS)
+/// Fatigue strength coefficient ratio (`σ_f`'/UTS)
 pub const FATIGUE_STRENGTH_RATIO: f64 = 0.9;
 
 /// Basquin exponent for steels (typical -0.085 to -0.12)

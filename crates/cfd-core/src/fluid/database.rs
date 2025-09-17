@@ -1,7 +1,7 @@
 //! Database of common fluids with validated properties
 //!
 //! All fluid properties are sourced from:
-//! - NIST Chemistry WebBook
+//! - NIST Chemistry `WebBook`
 //! - Perry's Chemical Engineers' Handbook
 //! - CRC Handbook of Chemistry and Physics
 
@@ -13,7 +13,7 @@ use num_traits::FromPrimitive;
 
 /// Create water at 20°C and 1 atm
 ///
-/// Properties from NIST Chemistry WebBook
+/// Properties from NIST Chemistry `WebBook`
 pub fn water_20c<T: RealField + FromPrimitive + Copy>() -> Result<ConstantPropertyFluid<T>, Error> {
     Ok(ConstantPropertyFluid::new(
         "Water (20°C)".to_string(),
@@ -33,7 +33,7 @@ pub fn water_20c<T: RealField + FromPrimitive + Copy>() -> Result<ConstantProper
 
 /// Create air at 20°C and 1 atm
 ///
-/// Properties from NIST Chemistry WebBook
+/// Properties from NIST Chemistry `WebBook`
 pub fn air_20c<T: RealField + FromPrimitive + Copy>() -> Result<ConstantPropertyFluid<T>, Error> {
     Ok(ConstantPropertyFluid::new(
         "Air (20°C, 1 atm)".to_string(),

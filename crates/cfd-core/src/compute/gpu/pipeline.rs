@@ -17,7 +17,7 @@ pub struct GpuPipelineManager {
 
 impl GpuPipelineManager {
     /// Create a new pipeline manager
-    pub fn new(context: Arc<GpuContext>) -> Self {
+    #[must_use] pub fn new(context: Arc<GpuContext>) -> Self {
         Self {
             context,
             pipelines: HashMap::new(),
@@ -37,7 +37,7 @@ impl GpuPipelineManager {
             self.context
                 .device
                 .create_shader_module(wgpu::ShaderModuleDescriptor {
-                    label: Some(&format!("{} Shader", name)),
+                    label: Some(&format!("{name} Shader")),
                     source: wgpu::ShaderSource::Wgsl(shader_source.into()),
                 });
 
@@ -46,7 +46,7 @@ impl GpuPipelineManager {
             self.context
                 .device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some(&format!("{} Bind Group Layout", name)),
+                    label: Some(&format!("{name} Bind Group Layout")),
                     entries: &[
                         // Uniform buffer for grid parameters
                         wgpu::BindGroupLayoutEntry {
@@ -100,7 +100,7 @@ impl GpuPipelineManager {
             self.context
                 .device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some(&format!("{} Pipeline Layout", name)),
+                    label: Some(&format!("{name} Pipeline Layout")),
                     bind_group_layouts: &[&bind_group_layout],
                     push_constant_ranges: &[],
                 });
@@ -110,7 +110,7 @@ impl GpuPipelineManager {
             self.context
                 .device
                 .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                    label: Some(&format!("{} Pipeline", name)),
+                    label: Some(&format!("{name} Pipeline")),
                     layout: Some(&pipeline_layout),
                     module: &shader_module,
                     entry_point,
@@ -141,10 +141,10 @@ impl GpuPipelineManager {
         let pipeline = self
             .pipelines
             .get(pipeline_name)
-            .ok_or_else(|| Error::InvalidInput(format!("Pipeline {} not found", pipeline_name)))?;
+            .ok_or_else(|| Error::InvalidInput(format!("Pipeline {pipeline_name} not found")))?;
 
         let bind_group_layout = self.bind_group_layouts.get(pipeline_name).ok_or_else(|| {
-            Error::InvalidInput(format!("Bind group layout {} not found", pipeline_name))
+            Error::InvalidInput(format!("Bind group layout {pipeline_name} not found"))
         })?;
 
         // Create uniform buffer for parameters
@@ -209,9 +209,9 @@ impl GpuPipelineManager {
             let (nx, ny, nz) = params.domain_params.grid_dims;
             let workgroup_size = params.work_group_size as u32;
 
-            let dispatch_x = (nx as u32 + workgroup_size - 1) / workgroup_size;
-            let dispatch_y = (ny as u32 + workgroup_size - 1) / workgroup_size;
-            let dispatch_z = (nz as u32 + workgroup_size - 1) / workgroup_size;
+            let dispatch_x = (nx as u32).div_ceil(workgroup_size);
+            let dispatch_y = (ny as u32).div_ceil(workgroup_size);
+            let dispatch_z = (nz as u32).div_ceil(workgroup_size);
 
             compute_pass.dispatch_workgroups(dispatch_x, dispatch_y, dispatch_z);
         }
@@ -223,7 +223,7 @@ impl GpuPipelineManager {
     }
 
     /// Get GPU context
-    pub fn context(&self) -> &Arc<GpuContext> {
+    #[must_use] pub fn context(&self) -> &Arc<GpuContext> {
         &self.context
     }
 }
@@ -235,9 +235,9 @@ fn create_uniform_data(params: &KernelParams) -> Vec<f32> {
 
     vec![
         // Safe casting avoiding precision loss for grid dimensions
-        (nx as f64).min(f32::MAX as f64) as f32,
-        (ny as f64).min(f32::MAX as f64) as f32,
-        (nz as f64).min(f32::MAX as f64) as f32,
+        (nx as f64).min(f64::from(f32::MAX)) as f32,
+        (ny as f64).min(f64::from(f32::MAX)) as f32,
+        (nz as f64).min(f64::from(f32::MAX)) as f32,
         0.0, // padding for alignment
         dx as f32,
         dy as f32,

@@ -82,7 +82,7 @@ impl<T: RealField + Copy> LinearSystemSolver<T> for ConjugateGradient<T> {
         None
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Conjugate Gradient"
     }
 
@@ -146,7 +146,7 @@ impl<T: RealField + Copy> LinearSystemSolver<T> for Jacobi<T> {
         None
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Jacobi"
     }
 
@@ -208,7 +208,7 @@ impl<T: RealField + Copy> LinearSystemSolver<T> for GaussSeidel<T> {
         None
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Gauss-Seidel"
     }
 
@@ -241,7 +241,7 @@ impl<T: RealField + Copy> LinearSystemSolver<T> for DirectSolver {
         matrix.clone().lu().solve(rhs)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Direct (LU)"
     }
 

@@ -12,12 +12,18 @@ pub struct GpuDiffusionKernel<T: RealField + Copy> {
     _phantom: PhantomData<T>,
 }
 
+impl<T: RealField + Copy> Default for GpuDiffusionKernel<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy> GpuDiffusionKernel<T> {
     /// Shader source code
     const SHADER_SOURCE: &'static str = include_str!("diffusion.wgsl");
 
     /// Creates a new GPU diffusion kernel
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             shader_module: None,
             _phantom: PhantomData,
@@ -48,7 +54,7 @@ impl<T: RealField + Copy> GpuDiffusionKernel<T> {
 }
 
 impl<T: RealField + Copy> ComputeKernel<T> for GpuDiffusionKernel<T> {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "GPU Diffusion (Central Difference)"
     }
 
@@ -99,9 +105,9 @@ impl<T: RealField + Copy> GpuKernel<T> for GpuDiffusionKernel<T> {
         let work_group_size = params.work_group_size;
 
         // Calculate dispatch dimensions
-        let dispatch_x = (nx + work_group_size - 1) / work_group_size;
-        let dispatch_y = (ny + work_group_size - 1) / work_group_size;
-        let dispatch_z = (nz + work_group_size - 1) / work_group_size;
+        let dispatch_x = nx.div_ceil(work_group_size);
+        let dispatch_y = ny.div_ceil(work_group_size);
+        let dispatch_z = nz.div_ceil(work_group_size);
 
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Diffusion Pass"),

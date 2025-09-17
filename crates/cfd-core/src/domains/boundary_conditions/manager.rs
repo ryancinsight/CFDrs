@@ -16,7 +16,7 @@ pub struct BoundaryConditionManager<T: RealField + Copy> {
 
 impl<T: RealField + Copy> BoundaryConditionManager<T> {
     /// Create a new boundary condition manager
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             regions: HashMap::new(),
             applicators: Vec::new(),
@@ -70,7 +70,7 @@ impl<T: RealField + Copy> BoundaryConditionManager<T> {
     }
 
     /// Get a boundary region by ID
-    pub fn get_region(&self, id: &str) -> Option<&BoundaryRegion<T>> {
+    #[must_use] pub fn get_region(&self, id: &str) -> Option<&BoundaryRegion<T>> {
         self.regions.get(id)
     }
 
@@ -85,7 +85,7 @@ impl<T: RealField + Copy> BoundaryConditionManager<T> {
                 region.condition = Some(condition);
                 Ok(())
             }
-            None => Err(format!("Region '{}' not found", region_id)),
+            None => Err(format!("Region '{region_id}' not found")),
         }
     }
 
@@ -94,7 +94,7 @@ impl<T: RealField + Copy> BoundaryConditionManager<T> {
         if self.regions.remove(id).is_some() {
             Ok(())
         } else {
-            Err(format!("Region '{}' not found", id))
+            Err(format!("Region '{id}' not found"))
         }
     }
 
@@ -113,7 +113,7 @@ impl<T: RealField + Copy> BoundaryConditionManager<T> {
     /// Check if all regions have assigned conditions
     #[must_use]
     pub fn all_regions_have_conditions(&self) -> bool {
-        self.regions.values().all(|r| r.has_condition())
+        self.regions.values().all(super::geometry::BoundaryRegion::has_condition)
     }
 
     /// Get regions without conditions

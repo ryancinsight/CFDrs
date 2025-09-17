@@ -56,7 +56,7 @@ impl<T: RealField + Copy> BoundaryConditionSet<T> {
     }
 
     /// Check if set contains boundary
-    pub fn contains(&self, name: &str) -> bool {
+    #[must_use] pub fn contains(&self, name: &str) -> bool {
         self.conditions.contains_key(name)
     }
 

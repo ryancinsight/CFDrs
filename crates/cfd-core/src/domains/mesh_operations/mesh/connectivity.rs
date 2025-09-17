@@ -57,7 +57,7 @@ pub struct FaceConnectivity {
 
 impl<T: RealField + Copy> Mesh<T> {
     /// Build connectivity information
-    pub fn build_connectivity(&self) -> Connectivity {
+    #[must_use] pub fn build_connectivity(&self) -> Connectivity {
         let mut node_to_elements: HashMap<usize, Vec<usize>> = HashMap::new();
         let mut element_neighbors: HashMap<usize, Vec<usize>> = HashMap::new();
         let boundary_faces = Vec::new();
@@ -67,7 +67,7 @@ impl<T: RealField + Copy> Mesh<T> {
             for &node_idx in &element.nodes {
                 node_to_elements
                     .entry(node_idx)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(elem_idx);
             }
         }

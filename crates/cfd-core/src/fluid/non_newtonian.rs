@@ -112,9 +112,9 @@ impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for PowerLawFluid
 
 /// Bingham plastic fluid model
 ///
-/// τ = τ₀ + μ_p * γ̇  for τ > τ₀
+/// τ = τ₀ + `μ_p` * γ̇  for τ > τ₀
 /// γ̇ = 0            for τ ≤ τ₀
-/// where τ₀ is yield stress, μ_p is plastic viscosity
+/// where τ₀ is yield stress, `μ_p` is plastic viscosity
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BinghamPlastic<T: RealField + Copy> {
     /// Fluid name
@@ -123,7 +123,7 @@ pub struct BinghamPlastic<T: RealField + Copy> {
     pub density: T,
     /// Yield stress τ₀ [Pa]
     pub yield_stress: T,
-    /// Plastic viscosity μ_p [Pa·s]
+    /// Plastic viscosity `μ_p` [Pa·s]
     pub plastic_viscosity: T,
     /// Specific heat capacity [J/(kg·K)]
     pub specific_heat: T,
