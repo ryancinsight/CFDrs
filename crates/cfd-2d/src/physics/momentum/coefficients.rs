@@ -128,13 +128,34 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                     *ap = ap_sum + fields.density.at(i, j) / dt;
                 }
 
-                // Source term (including previous time step)
+                // Source term (including previous time step and pressure gradient)
                 let previous_velocity = match component {
                     MomentumComponent::U => fields.u.at(i, j),
                     MomentumComponent::V => fields.v.at(i, j),
                 };
+                
+                // Calculate pressure gradient
+                let pressure_gradient = match component {
+                    MomentumComponent::U => {
+                        // -∂p/∂x using central difference
+                        if i > 0 && i < nx - 1 {
+                            -(fields.p.at(i + 1, j) - fields.p.at(i - 1, j)) / (T::one() + T::one()) / dx
+                        } else {
+                            T::zero()
+                        }
+                    },
+                    MomentumComponent::V => {
+                        // -∂p/∂y using central difference
+                        if j > 0 && j < ny - 1 {
+                            -(fields.p.at(i, j + 1) - fields.p.at(i, j - 1)) / (T::one() + T::one()) / dy
+                        } else {
+                            T::zero()
+                        }
+                    },
+                };
+                
                 if let Some(source) = coeffs.source.at_mut(i, j) {
-                    *source = fields.density.at(i, j) * previous_velocity / dt;
+                    *source = fields.density.at(i, j) * previous_velocity / dt + pressure_gradient;
                 }
             }
         }
