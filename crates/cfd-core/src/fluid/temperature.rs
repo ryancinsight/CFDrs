@@ -34,8 +34,8 @@ impl<T: RealField + FromPrimitive + Copy> PolynomialViscosity<T> {
         let mut t_power = T::one();
 
         for coeff in &self.viscosity_coeffs {
-            viscosity = viscosity + *coeff * t_power;
-            t_power = t_power * temperature;
+            viscosity += *coeff * t_power;
+            t_power *= temperature;
         }
 
         viscosity

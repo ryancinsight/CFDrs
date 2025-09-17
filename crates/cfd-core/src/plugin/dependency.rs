@@ -29,8 +29,8 @@ impl DependencyResolver {
 
     pub fn validate_dependencies(
         &self,
-        deps: &Vec<String>,
-        available_plugins: &Vec<String>,
+        deps: &[String],
+        available_plugins: &[String],
     ) -> Result<()> {
         for dep in deps {
             if !available_plugins.contains(dep) {

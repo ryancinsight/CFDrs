@@ -93,6 +93,9 @@ pub struct BackendContext {
 
 impl BackendContext {
     /// Create a new backend context
+    ///
+    /// # Errors
+    /// Returns error if the specified backend is not available on this system
     pub fn new(backend: ComputeBackend) -> crate::error::Result<Self> {
         let capabilities = Arc::new(ComputeCapability::detect());
 

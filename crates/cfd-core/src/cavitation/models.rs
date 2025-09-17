@@ -48,7 +48,7 @@ impl<T: RealField + FromPrimitive + Copy> CavitationModel<T> {
             CavitationModel::Kunz {
                 vaporization_coeff,
                 condensation_coeff,
-            } => self.kunz_model(
+            } => Self::kunz_model(
                 pressure,
                 vapor_pressure,
                 void_fraction,
@@ -61,7 +61,7 @@ impl<T: RealField + FromPrimitive + Copy> CavitationModel<T> {
             CavitationModel::SchnerrSauer {
                 bubble_density,
                 initial_radius: _,
-            } => self.schnerr_sauer_model(
+            } => Self::schnerr_sauer_model(
                 pressure,
                 vapor_pressure,
                 void_fraction,
@@ -75,7 +75,7 @@ impl<T: RealField + FromPrimitive + Copy> CavitationModel<T> {
                 bubble_radius,
                 f_vap,
                 f_cond,
-            } => self.zgb_model(
+            } => Self::zgb_model(
                 pressure,
                 vapor_pressure,
                 void_fraction,
@@ -90,7 +90,6 @@ impl<T: RealField + FromPrimitive + Copy> CavitationModel<T> {
     }
 
     fn kunz_model(
-        &self,
         pressure: T,
         vapor_pressure: T,
         void_fraction: T,
@@ -115,7 +114,6 @@ impl<T: RealField + FromPrimitive + Copy> CavitationModel<T> {
     }
 
     fn schnerr_sauer_model(
-        &self,
         pressure: T,
         vapor_pressure: T,
         void_fraction: T,
@@ -159,7 +157,6 @@ impl<T: RealField + FromPrimitive + Copy> CavitationModel<T> {
     }
 
     fn zgb_model(
-        &self,
         pressure: T,
         vapor_pressure: T,
         void_fraction: T,

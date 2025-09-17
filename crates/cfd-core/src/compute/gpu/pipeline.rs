@@ -234,9 +234,10 @@ fn create_uniform_data(params: &KernelParams) -> Vec<f32> {
     let (dx, dy, dz) = params.domain_params.grid_spacing;
 
     vec![
-        nx as f32,
-        ny as f32,
-        nz as f32,
+        // Safe casting avoiding precision loss for grid dimensions
+        (nx as f64).min(f32::MAX as f64) as f32,
+        (ny as f64).min(f32::MAX as f64) as f32,
+        (nz as f64).min(f32::MAX as f64) as f32,
         0.0, // padding for alignment
         dx as f32,
         dy as f32,

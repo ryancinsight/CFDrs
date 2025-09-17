@@ -32,7 +32,7 @@ impl PluginRegistry {
     /// Register a plugin with the registry
     pub fn register(&mut self, plugin: Arc<dyn Plugin>) -> Result<()> {
         let name = plugin.name().to_string();
-        let deps = plugin
+        let deps: Vec<String> = plugin
             .dependencies()
             .iter()
             .map(|s| s.to_string())

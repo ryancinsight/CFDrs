@@ -277,7 +277,7 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
     }
 
     /// Check convergence based on change in stream function
-    pub fn check_convergence(&self, psi_old: &Vec<Vec<T>>) -> bool {
+    pub fn check_convergence(&self, psi_old: &[Vec<T>]) -> bool {
         let mut max_change = T::zero();
 
         for i in 0..self.nx {
