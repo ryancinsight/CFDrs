@@ -83,7 +83,8 @@ impl<'a, T: RealField + Copy> BroadcastView<'a, T> {
     }
 
     /// Create from owned data
-    #[must_use] pub fn from_owned(data: Vec<T>, shape: Vec<usize>) -> Self {
+    #[must_use]
+    pub fn from_owned(data: Vec<T>, shape: Vec<usize>) -> Self {
         let strides = Self::compute_strides(&shape);
         Self {
             data: Cow::Owned(data),

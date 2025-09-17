@@ -22,7 +22,8 @@ pub struct ComputeCapability {
 
 impl ComputeCapability {
     /// Detect system compute capabilities
-    #[must_use] pub fn detect() -> Self {
+    #[must_use]
+    pub fn detect() -> Self {
         let mut backends = vec![ComputeBackend::Cpu];
 
         if ComputeBackend::Simd.is_available() {
@@ -66,7 +67,8 @@ impl ComputeCapability {
     }
 
     /// Select best backend for given problem size
-    #[must_use] pub fn select_backend(&self, problem_size: usize) -> ComputeBackend {
+    #[must_use]
+    pub fn select_backend(&self, problem_size: usize) -> ComputeBackend {
         const GPU_THRESHOLD: usize = 100_000; // Minimum size for GPU efficiency
         const SIMD_THRESHOLD: usize = 1_000; // Minimum size for SIMD efficiency
 

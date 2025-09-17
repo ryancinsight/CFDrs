@@ -23,7 +23,8 @@ pub struct MeshStatistics {
 
 impl<T: RealField + Copy> Mesh<T> {
     /// Compute mesh statistics
-    #[must_use] pub fn compute_statistics(&self) -> MeshStatistics {
+    #[must_use]
+    pub fn compute_statistics(&self) -> MeshStatistics {
         let mut element_types = HashMap::new();
         let mut material_distribution = HashMap::new();
 

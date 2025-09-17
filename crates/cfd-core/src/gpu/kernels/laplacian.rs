@@ -24,7 +24,8 @@ pub struct Laplacian2DKernel {
 
 impl Laplacian2DKernel {
     /// Create new 2D Laplacian kernel
-    #[must_use] pub fn new(context: Arc<GpuContext>) -> Self {
+    #[must_use]
+    pub fn new(context: Arc<GpuContext>) -> Self {
         let shader_module = context
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {

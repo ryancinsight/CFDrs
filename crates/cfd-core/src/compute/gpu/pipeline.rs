@@ -17,7 +17,8 @@ pub struct GpuPipelineManager {
 
 impl GpuPipelineManager {
     /// Create a new pipeline manager
-    #[must_use] pub fn new(context: Arc<GpuContext>) -> Self {
+    #[must_use]
+    pub fn new(context: Arc<GpuContext>) -> Self {
         Self {
             context,
             pipelines: HashMap::new(),
@@ -223,7 +224,8 @@ impl GpuPipelineManager {
     }
 
     /// Get GPU context
-    #[must_use] pub fn context(&self) -> &Arc<GpuContext> {
+    #[must_use]
+    pub fn context(&self) -> &Arc<GpuContext> {
         &self.context
     }
 }

@@ -13,7 +13,8 @@ pub struct FieldAddKernel {
 
 impl FieldAddKernel {
     /// Create new field addition kernel
-    #[must_use] pub fn new(context: Arc<GpuContext>) -> Self {
+    #[must_use]
+    pub fn new(context: Arc<GpuContext>) -> Self {
         let shader_module = context
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -241,7 +242,8 @@ pub struct FieldMulKernel {
 
 impl FieldMulKernel {
     /// Create new field multiplication kernel
-    #[must_use] pub fn new(context: Arc<GpuContext>) -> Self {
+    #[must_use]
+    pub fn new(context: Arc<GpuContext>) -> Self {
         let shader_module = context
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {

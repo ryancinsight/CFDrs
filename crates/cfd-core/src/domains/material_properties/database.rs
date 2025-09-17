@@ -78,7 +78,8 @@ impl<T: RealField + Copy> MaterialDatabase<T> {
     }
 
     /// Initialize with common materials
-    #[must_use] pub fn with_common_materials() -> Self
+    #[must_use]
+    pub fn with_common_materials() -> Self
     where
         T: From<f64>,
     {

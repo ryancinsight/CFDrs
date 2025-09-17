@@ -47,7 +47,8 @@ pub enum BoundaryError {
 
 impl BoundaryError {
     /// Create insufficient stencil error
-    #[must_use] pub fn insufficient_stencil(required: usize, order: usize, actual: usize) -> Self {
+    #[must_use]
+    pub fn insufficient_stencil(required: usize, order: usize, actual: usize) -> Self {
         Self::InsufficientStencil {
             required,
             order,
@@ -56,12 +57,14 @@ impl BoundaryError {
     }
 
     /// Create unsupported order error
-    #[must_use] pub fn unsupported_order(order: usize) -> Self {
+    #[must_use]
+    pub fn unsupported_order(order: usize) -> Self {
         Self::UnsupportedOrder(order)
     }
 
     /// Create Robin singularity error
-    #[must_use] pub fn robin_singularity(value: f64) -> Self {
+    #[must_use]
+    pub fn robin_singularity(value: f64) -> Self {
         Self::RobinSingularity { value }
     }
 }

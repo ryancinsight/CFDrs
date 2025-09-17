@@ -16,7 +16,8 @@ pub struct GpuFieldOps {
 
 impl GpuFieldOps {
     /// Create new GPU field operations handler
-    #[must_use] pub fn new(context: Arc<GpuContext>) -> Self {
+    #[must_use]
+    pub fn new(context: Arc<GpuContext>) -> Self {
         Self {
             add_kernel: FieldAddKernel::new(context.clone()),
             mul_kernel: FieldMulKernel::new(context.clone()),

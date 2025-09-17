@@ -49,7 +49,8 @@ impl<T: RealField + Copy> SolidProperties<T> for ElasticSolid<T> {
 
 impl<T: RealField + Copy> ElasticSolid<T> {
     /// Create steel properties
-    #[must_use] pub fn steel() -> Self
+    #[must_use]
+    pub fn steel() -> Self
     where
         T: From<f64>,
     {
@@ -64,7 +65,8 @@ impl<T: RealField + Copy> ElasticSolid<T> {
     }
 
     /// Create aluminum properties
-    #[must_use] pub fn aluminum() -> Self
+    #[must_use]
+    pub fn aluminum() -> Self
     where
         T: From<f64>,
     {
@@ -79,7 +81,8 @@ impl<T: RealField + Copy> ElasticSolid<T> {
     }
 
     /// Create concrete properties
-    #[must_use] pub fn concrete() -> Self
+    #[must_use]
+    pub fn concrete() -> Self
     where
         T: From<f64>,
     {

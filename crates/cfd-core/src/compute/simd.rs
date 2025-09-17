@@ -23,7 +23,8 @@ impl<T: RealField + Copy> Default for SimdKernel<T> {
 
 impl<T: RealField + Copy> SimdKernel<T> {
     /// Creates a new SIMD advection kernel
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
         }

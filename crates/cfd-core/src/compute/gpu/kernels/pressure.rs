@@ -23,7 +23,8 @@ impl<T: RealField + Copy> GpuPressureKernel<T> {
     const SHADER_SOURCE: &'static str = include_str!("pressure.wgsl");
 
     /// Creates a new GPU pressure kernel
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             shader_module: None,
             _phantom: PhantomData,
@@ -114,7 +115,12 @@ impl<T: RealField + Copy> GpuKernel<T> for GpuPressureKernel<T> {
             timestamp_writes: None,
         });
 
-        compute_pass.dispatch_workgroups(dispatch_x as u32, dispatch_y as u32, dispatch_z as u32);
+        // Safe casting with bounds checking for GPU dispatch
+        let dispatch_x = std::cmp::min(dispatch_x, u32::MAX as usize) as u32;
+        let dispatch_y = std::cmp::min(dispatch_y, u32::MAX as usize) as u32;
+        let dispatch_z = std::cmp::min(dispatch_z, u32::MAX as usize) as u32;
+
+        compute_pass.dispatch_workgroups(dispatch_x, dispatch_y, dispatch_z);
     }
 }
 

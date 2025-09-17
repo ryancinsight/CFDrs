@@ -1,8 +1,8 @@
+use cfd_core::domains::numerical_methods::traits::TimeIntegrationScheme;
 use cfd_core::domains::{
     fluid_dynamics::{FlowField, FlowOperations, PressureField, VelocityField},
     numerical_methods::{finite_difference, time_integration, DiscretizationScheme},
 };
-use cfd_core::domains::numerical_methods::traits::TimeIntegrationScheme;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use nalgebra::Vector3;
 use std::collections::HashMap;

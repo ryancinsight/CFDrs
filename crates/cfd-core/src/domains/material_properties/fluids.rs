@@ -37,7 +37,8 @@ impl<T: RealField + Copy> FluidProperties<T> for NewtonianFluid<T> {
 
 impl<T: RealField + Copy> NewtonianFluid<T> {
     /// Create water properties at 20°C
-    #[must_use] pub fn water() -> Self
+    #[must_use]
+    pub fn water() -> Self
     where
         T: From<f64>,
     {
@@ -50,7 +51,8 @@ impl<T: RealField + Copy> NewtonianFluid<T> {
     }
 
     /// Create air properties at 20°C, 1 atm
-    #[must_use] pub fn air() -> Self
+    #[must_use]
+    pub fn air() -> Self
     where
         T: From<f64>,
     {
@@ -63,7 +65,8 @@ impl<T: RealField + Copy> NewtonianFluid<T> {
     }
 
     /// Create oil properties (typical engine oil)
-    #[must_use] pub fn oil() -> Self
+    #[must_use]
+    pub fn oil() -> Self
     where
         T: From<f64>,
     {

@@ -80,17 +80,20 @@ impl PluginRegistry {
     }
 
     /// Get a plugin by name
-    #[must_use] pub fn get(&self, name: &str) -> Option<Arc<dyn Plugin>> {
+    #[must_use]
+    pub fn get(&self, name: &str) -> Option<Arc<dyn Plugin>> {
         self.storage.get(name).cloned()
     }
 
     /// List all registered plugins
-    #[must_use] pub fn list(&self) -> Vec<String> {
+    #[must_use]
+    pub fn list(&self) -> Vec<String> {
         self.storage.list()
     }
 
     /// Get plugin load order based on dependencies
-    #[must_use] pub fn get_load_order(&self) -> Vec<String> {
+    #[must_use]
+    pub fn get_load_order(&self) -> Vec<String> {
         self.resolver.get_load_order().to_vec()
     }
 
@@ -105,33 +108,39 @@ impl PluginRegistry {
     }
 
     /// Get health status for a plugin
-    #[must_use] pub fn get_health(&self, plugin_name: &str) -> Option<PluginHealthStatus> {
+    #[must_use]
+    pub fn get_health(&self, plugin_name: &str) -> Option<PluginHealthStatus> {
         self.monitoring.get_health(plugin_name).cloned()
     }
 
     /// Get metrics for a plugin
-    #[must_use] pub fn get_metrics(&self, plugin_name: &str) -> Option<PluginMetrics> {
+    #[must_use]
+    pub fn get_metrics(&self, plugin_name: &str) -> Option<PluginMetrics> {
         self.monitoring.get_metrics(plugin_name).cloned()
     }
 
     /// Get overall system health
-    #[must_use] pub fn get_system_health(&self) -> SystemHealthSummary {
+    #[must_use]
+    pub fn get_system_health(&self) -> SystemHealthSummary {
         let plugin_names = self.storage.list();
         self.monitoring.get_system_health(&plugin_names)
     }
 
     /// Check if a plugin is registered
-    #[must_use] pub fn contains(&self, name: &str) -> bool {
+    #[must_use]
+    pub fn contains(&self, name: &str) -> bool {
         self.storage.contains(name)
     }
 
     /// Get the number of registered plugins
-    #[must_use] pub fn len(&self) -> usize {
+    #[must_use]
+    pub fn len(&self) -> usize {
         self.storage.len()
     }
 
     /// Check if the registry is empty
-    #[must_use] pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
         self.storage.is_empty()
     }
 

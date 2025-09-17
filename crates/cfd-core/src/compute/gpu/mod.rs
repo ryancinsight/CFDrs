@@ -140,7 +140,8 @@ impl GpuContext {
     }
 
     /// Create compute pipeline with explicit bind group layout
-    #[must_use] pub fn create_compute_pipeline_with_layout(
+    #[must_use]
+    pub fn create_compute_pipeline_with_layout(
         &self,
         shader_source: &str,
         entry_point: &str,

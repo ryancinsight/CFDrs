@@ -3,7 +3,12 @@
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::{_mm256_set1_ps, _mm256_setzero_ps, _mm256_loadu_ps, _mm256_cmp_ps, _CMP_GT_OQ, _mm256_sub_ps, _mm256_blendv_ps, _mm256_div_ps, _mm256_mul_ps, _mm256_add_ps, _mm256_storeu_ps, _mm_set1_ps, _mm_setzero_ps, _mm_loadu_ps, _mm_cmpgt_ps, _mm_sub_ps, _mm_blendv_ps, _mm_div_ps, _mm_mul_ps, _mm_add_ps, _mm_storeu_ps};
+use std::arch::x86_64::{
+    _mm256_add_ps, _mm256_blendv_ps, _mm256_cmp_ps, _mm256_div_ps, _mm256_loadu_ps, _mm256_mul_ps,
+    _mm256_set1_ps, _mm256_setzero_ps, _mm256_storeu_ps, _mm256_sub_ps, _mm_add_ps, _mm_blendv_ps,
+    _mm_cmpgt_ps, _mm_div_ps, _mm_loadu_ps, _mm_mul_ps, _mm_set1_ps, _mm_setzero_ps, _mm_storeu_ps,
+    _mm_sub_ps, _CMP_GT_OQ,
+};
 
 /// AVX2 implementation for advection kernel (256-bit vectors, 8 floats)
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]

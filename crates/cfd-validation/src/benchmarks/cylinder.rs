@@ -131,25 +131,33 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
             // For Schäfer & Turek benchmark, expected Cd ≈ 5.57 for Re=20
             let _expected_cd = T::from_f64_or_one(5.57);
             let tolerance = T::from_f64_or_one(0.05); // 5% tolerance
-            
+
             // Check that solution has reasonable values (pressure/velocity components)
-            let max_value = result.values.iter().fold(T::zero(), |acc, &x| if x.abs() > acc { x.abs() } else { acc });
-            let min_value = result.values.iter().fold(T::zero(), |acc, &x| if x.abs() < acc { x.abs() } else { acc });
-            
+            let max_value =
+                result.values.iter().fold(
+                    T::zero(),
+                    |acc, &x| if x.abs() > acc { x.abs() } else { acc },
+                );
+            let min_value =
+                result.values.iter().fold(
+                    T::zero(),
+                    |acc, &x| if x.abs() < acc { x.abs() } else { acc },
+                );
+
             // Sanity checks: values should be reasonable for flow around cylinder
             let values_reasonable = max_value > T::zero() && max_value < T::from_f64_or_one(100.0);
             let solution_varies = (max_value - min_value) > T::from_f64_or_one(0.01); // Solution should vary spatially
-            
+
             // Check convergence
             let converged = if let Some(last_residual) = result.convergence.last() {
                 last_residual.abs() < tolerance
             } else {
                 false
             };
-            
+
             return Ok(values_reasonable && solution_varies && converged);
         }
-        
+
         // If fields are missing, validation fails
         Ok(false)
     }

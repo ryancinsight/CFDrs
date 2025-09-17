@@ -90,7 +90,8 @@ pub enum ComputeBackend {
 
 impl ComputeBackend {
     /// Check if backend is available on current system
-    #[must_use] pub fn is_available(&self) -> bool {
+    #[must_use]
+    pub fn is_available(&self) -> bool {
         match self {
             Self::Cpu => true,
             Self::Simd => Self::detect_simd_support(),

@@ -23,7 +23,8 @@ impl<T: RealField + Copy> GpuAdvectionKernel<T> {
     const SHADER_SOURCE: &'static str = include_str!("advection.wgsl");
 
     /// Creates a new GPU advection kernel
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             shader_module: None,
             _phantom: PhantomData,

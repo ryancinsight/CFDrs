@@ -18,7 +18,8 @@ impl<T: RealField + Copy> Default for DirichletApplicator<T> {
 
 impl<T: RealField + Copy> DirichletApplicator<T> {
     /// Create a new Dirichlet applicator
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
@@ -94,7 +95,8 @@ impl<T: RealField + Copy> Default for NeumannApplicator<T> {
 
 impl<T: RealField + Copy> NeumannApplicator<T> {
     /// Create a new Neumann applicator
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
