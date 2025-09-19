@@ -279,6 +279,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Extension trait for adding context to errors
 pub trait ErrorContext<T> {
     /// Add context to an error
+    ///
+    /// # Errors
+    /// Returns the original error with added context
     fn context(self, msg: impl Into<String>) -> Result<T>;
 
     /// Add context with a closure (lazy evaluation)
@@ -307,6 +310,9 @@ impl<T> ErrorContext<T> for Result<T> {
 }
 
 /// Helper function to convert Option to Result
+///
+/// # Errors
+/// Returns `Error::InvalidInput` if the option is None
 pub fn require<T>(opt: Option<T>, msg: impl Into<String>) -> Result<T> {
     opt.ok_or_else(|| Error::InvalidInput(msg.into()))
 }

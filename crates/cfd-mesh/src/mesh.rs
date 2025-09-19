@@ -101,6 +101,7 @@ impl<T: RealField + Copy> Mesh<T> {
     }
 
     /// Number of cells
+    #[must_use]
     pub fn cell_count(&self) -> usize {
         self.cells.len()
     }

@@ -4,6 +4,29 @@ use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
+/// Parameters for ZGB cavitation model calculation
+#[derive(Debug, Clone, Copy)]
+pub struct ZgbParams<T: RealField + Copy> {
+    /// Pressure field value
+    pub pressure: T,
+    /// Vapor pressure
+    pub vapor_pressure: T,
+    /// Void fraction
+    pub void_fraction: T,
+    /// Liquid density
+    pub density_liquid: T,
+    /// Vapor density
+    pub density_vapor: T,
+    /// Nucleation site volume fraction
+    pub nucleation_fraction: T,
+    /// Bubble radius
+    pub bubble_radius: T,
+    /// Vaporization coefficient
+    pub f_vap: T,
+    /// Condensation coefficient
+    pub f_cond: T,
+}
+
 /// Cavitation model types
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CavitationModel<T: RealField + Copy> {
@@ -75,17 +98,17 @@ impl<T: RealField + FromPrimitive + Copy> CavitationModel<T> {
                 bubble_radius,
                 f_vap,
                 f_cond,
-            } => Self::zgb_model(
+            } => Self::zgb_model(ZgbParams {
                 pressure,
                 vapor_pressure,
                 void_fraction,
                 density_liquid,
                 density_vapor,
-                *nucleation_fraction,
-                *bubble_radius,
-                *f_vap,
-                *f_cond,
-            ),
+                nucleation_fraction: *nucleation_fraction,
+                bubble_radius: *bubble_radius,
+                f_vap: *f_vap,
+                f_cond: *f_cond,
+            }),
         }
     }
 
@@ -156,38 +179,28 @@ impl<T: RealField + FromPrimitive + Copy> CavitationModel<T> {
         }
     }
 
-    fn zgb_model(
-        pressure: T,
-        vapor_pressure: T,
-        void_fraction: T,
-        density_liquid: T,
-        density_vapor: T,
-        nucleation_fraction: T,
-        bubble_radius: T,
-        f_vap: T,
-        f_cond: T,
-    ) -> T {
-        let pressure_diff = pressure - vapor_pressure;
+    fn zgb_model(params: ZgbParams<T>) -> T {
+        let pressure_diff = params.pressure - params.vapor_pressure;
         let three = T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one());
         let two_thirds = T::from_f64(2.0 / 3.0).unwrap_or_else(|| T::one());
 
         if pressure_diff < T::zero() {
             // Vaporization
-            f_vap
+            params.f_vap
                 * three
-                * nucleation_fraction
-                * (T::one() - void_fraction)
-                * density_vapor
-                * (two_thirds * pressure_diff.abs() / density_liquid).sqrt()
-                / bubble_radius
+                * params.nucleation_fraction
+                * (T::one() - params.void_fraction)
+                * params.density_vapor
+                * (two_thirds * pressure_diff.abs() / params.density_liquid).sqrt()
+                / params.bubble_radius
         } else {
             // Condensation
-            let rate = f_cond
+            let rate = params.f_cond
                 * three
-                * void_fraction
-                * density_vapor
-                * (two_thirds * pressure_diff / density_liquid).sqrt()
-                / bubble_radius;
+                * params.void_fraction
+                * params.density_vapor
+                * (two_thirds * pressure_diff / params.density_liquid).sqrt()
+                / params.bubble_radius;
             -rate
         }
     }

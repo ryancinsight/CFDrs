@@ -64,7 +64,7 @@ impl ComputeDispatcher {
         };
 
         match backend {
-            ComputeBackend::Cpu => self.execute_cpu(kernel, input, output, params),
+            ComputeBackend::Cpu => Self::execute_cpu(kernel, input, output, params),
             ComputeBackend::Simd => self.execute_simd(kernel, input, output, params),
             ComputeBackend::Gpu => self.execute_gpu(kernel, input, output, params),
             ComputeBackend::Hybrid => self.execute_hybrid(kernel, input, output, params),
@@ -73,7 +73,6 @@ impl ComputeDispatcher {
 
     /// Execute on CPU backend
     fn execute_cpu<T: RealField + Copy>(
-        &self,
         kernel: &dyn ComputeKernel<T>,
         input: &[T],
         output: &mut [T],
@@ -94,7 +93,7 @@ impl ComputeDispatcher {
         if ComputeBackend::Simd.is_available() {
             kernel.execute(input, output, params)
         } else {
-            self.execute_cpu(kernel, input, output, params)
+            Self::execute_cpu(kernel, input, output, params)
         }
     }
 
@@ -111,7 +110,7 @@ impl ComputeDispatcher {
             if let Some(ref gpu_context) = self.context.gpu_context {
                 // Check if kernel supports GPU execution
                 if !kernel.supports_backend(&ComputeBackend::Gpu) {
-                    return self.execute_cpu(kernel, input, output, params);
+                    return Self::execute_cpu(kernel, input, output, params);
                 }
 
                 // Attempt GPU execution
@@ -119,16 +118,16 @@ impl ComputeDispatcher {
                     Ok(result) => Ok(result),
                     Err(e) => {
                         tracing::warn!("GPU execution failed: {}, falling back to CPU", e);
-                        self.execute_cpu(kernel, input, output, params)
+                        Self::execute_cpu(kernel, input, output, params)
                     }
                 }
             } else {
-                self.execute_cpu(kernel, input, output, params)
+                Self::execute_cpu(kernel, input, output, params)
             }
         }
         #[cfg(not(feature = "gpu"))]
         {
-            self.execute_cpu(kernel, input, output, params)
+            Self::execute_cpu(kernel, input, output, params)
         }
     }
 
@@ -147,7 +146,7 @@ impl ComputeDispatcher {
         } else if ComputeBackend::Simd.is_available() {
             self.execute_simd(kernel, input, output, params)
         } else {
-            self.execute_cpu(kernel, input, output, params)
+            Self::execute_cpu(kernel, input, output, params)
         }
     }
 

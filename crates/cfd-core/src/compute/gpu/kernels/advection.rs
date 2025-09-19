@@ -116,8 +116,11 @@ impl<T: RealField + Copy> GpuKernel<T> for GpuAdvectionKernel<T> {
         });
 
         // Safe casting with bounds checking for GPU dispatch
+        #[allow(clippy::cast_possible_truncation)]
         let dispatch_x = std::cmp::min(dispatch_x, u32::MAX as usize) as u32;
+        #[allow(clippy::cast_possible_truncation)]
         let dispatch_y = std::cmp::min(dispatch_y, u32::MAX as usize) as u32;
+        #[allow(clippy::cast_possible_truncation)]
         let dispatch_z = std::cmp::min(dispatch_z, u32::MAX as usize) as u32;
 
         compute_pass.dispatch_workgroups(dispatch_x, dispatch_y, dispatch_z);
