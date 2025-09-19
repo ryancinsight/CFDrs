@@ -141,7 +141,7 @@ impl<T: RealField + Copy + FromPrimitive> VenturiCavitation<T> {
     pub fn cavity_volume(&self, cavitation_number: T) -> T {
         let cavity_len = self.cavity_length(cavitation_number);
         let pi = T::from_f64(std::f64::consts::PI)
-            .unwrap_or_else(|| T::from_f64(3.14159).unwrap_or_else(|| T::one()));
+            .unwrap_or_else(|| T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::one()));
         let one_third = T::one() / (T::one() + T::one() + T::one());
 
         // Conical cavity approximation: V = (π/3) * r² * L

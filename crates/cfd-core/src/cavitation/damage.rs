@@ -98,14 +98,18 @@ impl<T: RealField + Copy + FromPrimitive> CavitationDamage<T> {
             let n = two_n / T::from_f64(2.0).unwrap_or_else(|| T::one());
 
             // Safe conversion to u64 with proper bounds checking
+            // Maximum safe f64 value that can be precisely represented as u64
+            const MAX_SAFE_F64: f64 = 9_007_199_254_740_992.0; // 2^53
+            
             if n > T::zero()
                 && n < T::from_u64(u64::MAX)
                     .unwrap_or_else(|| T::from_f64(1e18).unwrap_or_else(|| T::one()))
             {
                 let n_f64 = T::to_subset(&n).unwrap_or(1.0_f64);
-                // Use safe conversion avoiding precision loss
-                const MAX_SAFE_F64: f64 = (1u64 << 53) as f64; // 2^53 - safe f64 precision limit
-                n_f64.round().max(0.0).min(MAX_SAFE_F64) as u64
+                // Use clamp for safe conversion avoiding precision loss
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                let result = n_f64.round().clamp(0.0, MAX_SAFE_F64) as u64;
+                result
             } else {
                 1 // Minimum one cycle if calculation fails
             }
