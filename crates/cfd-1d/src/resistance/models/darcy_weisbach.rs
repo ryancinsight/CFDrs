@@ -77,7 +77,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
         Ok(resistance)
     }
 
-    fn model_name(&self) -> &str {
+    fn model_name(&self) -> &'static str {
         "Darcy-Weisbach"
     }
 

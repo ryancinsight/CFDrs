@@ -109,7 +109,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         let viscosity = problem.fluid.viscosity;
 
         // Loop over elements
-        for (_elem_idx, cell) in problem.mesh.cells().iter().enumerate() {
+        for cell in problem.mesh.cells().iter() {
             // Get vertex indices for this cell
             let vertex_indices = extract_vertex_indices(cell, &problem.mesh);
 
@@ -211,7 +211,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         let stab_factor = T::from_f64(1e-8).unwrap_or_else(T::zero) * volume;
         for i in 0..n_nodes {
             let pres_idx = n_velocity_dof + i;
-            matrices.k_e[(pres_idx, pres_idx)] = matrices.k_e[(pres_idx, pres_idx)] + stab_factor;
+            matrices.k_e[(pres_idx, pres_idx)] += stab_factor;
         }
 
         matrices

@@ -51,7 +51,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Micromixer<T>
         self.resistance
     }
 
-    fn component_type(&self) -> &str {
+    fn component_type(&self) -> &'static str {
         "Micromixer"
     }
 

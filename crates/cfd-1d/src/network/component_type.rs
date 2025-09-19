@@ -25,7 +25,7 @@ pub enum ComponentType {
 
 impl ComponentType {
     /// Get string representation for display
-    pub fn as_str(&self) -> &'static str {
+    #[must_use] pub fn as_str(&self) -> &'static str {
         match self {
             Self::Pipe => "pipe",
             Self::Valve => "valve",

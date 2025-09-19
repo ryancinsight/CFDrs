@@ -29,7 +29,7 @@ impl<T: RealField + Copy + FromPrimitive> CFLCalculator<T> {
     /// Stability limits:
     /// - Explicit Euler: CFL ≤ 1.0
     /// - Lax-Wendroff: CFL ≤ 1.0
-    /// - MacCormack: CFL ≤ 1.0
+    /// - `MacCormack`: CFL ≤ 1.0
     /// - QUICK: CFL ≤ 0.75 (for third-order accuracy)
     pub fn advection_cfl(&self, u: T, v: T) -> T {
         u.abs() * self.dt / self.dx + v.abs() * self.dt / self.dy
@@ -48,8 +48,8 @@ impl<T: RealField + Copy + FromPrimitive> CFLCalculator<T> {
     /// Calculate combined CFL for advection-diffusion problems
     ///
     /// For explicit schemes, both conditions must be satisfied:
-    /// - CFL ≤ CFL_max (advection stability)
-    /// - D ≤ D_max (diffusion stability)
+    /// - CFL ≤ `CFL_max` (advection stability)
+    /// - D ≤ `D_max` (diffusion stability)
     ///
     /// The Peclet number Pe = u*dx/ν determines relative importance
     pub fn combined_stability(&self, u: T, v: T, nu: T) -> (T, T, T) {

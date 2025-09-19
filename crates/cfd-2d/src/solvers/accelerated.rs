@@ -134,7 +134,7 @@ impl AcceleratedPoissonSolver {
             dx,
             dy,
         )
-        .map_err(|e| Error::from(format!("Failed to calculate residual: {:?}", e)))
+        .map_err(|e| Error::from(format!("Failed to calculate residual: {e:?}")))
     }
 
     /// Standard CPU solver (fallback)
@@ -189,7 +189,7 @@ impl AcceleratedPoissonSolver {
     }
 
     /// Get active backend
-    pub fn backend(&self) -> Backend {
+    #[must_use] pub fn backend(&self) -> Backend {
         self.backend
     }
 }
@@ -243,33 +243,30 @@ impl AcceleratedNavierStokesSolver {
         let dx = 1.0 / (nx as f32 - 1.0);
         let dy = 1.0 / (ny as f32 - 1.0);
 
-        match self.backend {
-            Backend::Simd => super::simd_kernels::calculate_divergence_simd(
-                u.as_slice(),
-                v.as_slice(),
-                divergence.as_mut_slice(),
-                nx,
-                ny,
-                dx,
-                dy,
-            )
-            .map_err(|e| Error::from(format!("Failed to calculate divergence: {:?}", e))),
-            _ => {
-                // CPU fallback
-                for i in 1..nx - 1 {
-                    for j in 1..ny - 1 {
-                        let dudx = (u[(i + 1, j)] - u[(i - 1, j)]) / (2.0 * dx);
-                        let dvdy = (v[(i, j + 1)] - v[(i, j - 1)]) / (2.0 * dy);
-                        divergence[(i, j)] = dudx + dvdy;
-                    }
+        if self.backend == Backend::Simd { super::simd_kernels::calculate_divergence_simd(
+            u.as_slice(),
+            v.as_slice(),
+            divergence.as_mut_slice(),
+            nx,
+            ny,
+            dx,
+            dy,
+        )
+        .map_err(|e| Error::from(format!("Failed to calculate divergence: {e:?}"))) } else {
+            // CPU fallback
+            for i in 1..nx - 1 {
+                for j in 1..ny - 1 {
+                    let dudx = (u[(i + 1, j)] - u[(i - 1, j)]) / (2.0 * dx);
+                    let dvdy = (v[(i, j + 1)] - v[(i, j - 1)]) / (2.0 * dy);
+                    divergence[(i, j)] = dudx + dvdy;
                 }
-                Ok(())
             }
+            Ok(())
         }
     }
 
     /// Get active backend
-    pub fn backend(&self) -> Backend {
+    #[must_use] pub fn backend(&self) -> Backend {
         self.backend
     }
 }

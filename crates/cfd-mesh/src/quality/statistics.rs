@@ -18,14 +18,14 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> Default for QualitySt
 
 impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> QualityStatistics<T> {
     /// Create new statistics collector
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             samples: Vec::new(),
         }
     }
 
     /// Create from samples
-    pub fn from_samples(samples: Vec<T>) -> Self {
+    #[must_use] pub fn from_samples(samples: Vec<T>) -> Self {
         Self { samples }
     }
 
@@ -35,7 +35,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> QualityStatistics<T> 
     }
 
     /// Get the mean of all samples
-    pub fn mean(&self) -> Option<T> {
+    #[must_use] pub fn mean(&self) -> Option<T> {
         if self.samples.is_empty() {
             return None;
         }
@@ -98,7 +98,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> QualityStatistics<T> 
     }
 
     /// Get minimum value
-    pub fn min(&self) -> Option<T> {
+    #[must_use] pub fn min(&self) -> Option<T> {
         self.samples
             .iter()
             .copied()
@@ -106,7 +106,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> QualityStatistics<T> 
     }
 
     /// Get maximum value
-    pub fn max(&self) -> Option<T> {
+    #[must_use] pub fn max(&self) -> Option<T> {
         self.samples
             .iter()
             .copied()
@@ -114,7 +114,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> QualityStatistics<T> 
     }
 
     /// Get the number of samples
-    pub fn count(&self) -> usize {
+    #[must_use] pub fn count(&self) -> usize {
         self.samples.len()
     }
 

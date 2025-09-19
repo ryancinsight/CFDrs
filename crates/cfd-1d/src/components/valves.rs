@@ -55,7 +55,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Microvalve<T>
         }
     }
 
-    fn component_type(&self) -> &str {
+    fn component_type(&self) -> &'static str {
         "Microvalve"
     }
 

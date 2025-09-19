@@ -36,8 +36,7 @@ impl<T: RealField + Copy> CsvReader<T> {
         let headers = reader
             .headers()
             .map_err(|e| {
-                Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                Error::Io(std::io::Error::other(
                     format!("CSV error: {}", e),
                 ))
             })?
@@ -49,8 +48,7 @@ impl<T: RealField + Copy> CsvReader<T> {
         let mut data = Vec::new();
         for result in reader.records() {
             let record = result.map_err(|e| {
-                Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                Error::Io(std::io::Error::other(
                     format!("CSV error: {}", e),
                 ))
             })?;
@@ -140,8 +138,7 @@ impl<'a, R: for<'de> Deserialize<'de>> Iterator for CsvIterator<'a, R> {
     fn next(&mut self) -> Option<Self::Item> {
         self.reader.deserialize().next().map(|result| {
             result.map_err(|e| {
-                Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                Error::Io(std::io::Error::other(
                     format!("CSV deserialization error: {}", e),
                 ))
             })

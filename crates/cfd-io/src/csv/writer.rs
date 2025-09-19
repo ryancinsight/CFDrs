@@ -32,8 +32,7 @@ impl<T: RealField + Copy> CsvWriter<T> {
 
         // Write headers
         writer.write_record(headers).map_err(|e| {
-            Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            Error::Io(std::io::Error::other(
                 format!("CSV error: {}", e),
             ))
         })?;
@@ -43,16 +42,14 @@ impl<T: RealField + Copy> CsvWriter<T> {
             let string_row: Vec<String> =
                 row.iter().map(std::string::ToString::to_string).collect();
             writer.write_record(&string_row).map_err(|e| {
-                Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                Error::Io(std::io::Error::other(
                     format!("CSV error: {}", e),
                 ))
             })?;
         }
 
         writer.flush().map_err(|e| {
-            Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            Error::Io(std::io::Error::other(
                 format!("CSV flush error: {}", e),
             ))
         })?;
@@ -89,16 +86,14 @@ impl<T: RealField + Copy> CsvWriter<T> {
         let mut writer = CsvWriterImpl::from_writer(BufWriter::new(file));
 
         writer.write_record(&headers).map_err(|e| {
-            Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            Error::Io(std::io::Error::other(
                 format!("CSV error: {}", e),
             ))
         })?;
 
         for row in data {
             writer.write_record(&row).map_err(|e| {
-                Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                Error::Io(std::io::Error::other(
                     format!("CSV error: {}", e),
                 ))
             })?;

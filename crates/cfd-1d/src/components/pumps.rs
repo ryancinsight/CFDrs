@@ -55,7 +55,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Micropump<T> 
         -self.max_pressure / self.max_flow_rate
     }
 
-    fn component_type(&self) -> &str {
+    fn component_type(&self) -> &'static str {
         "Micropump"
     }
 

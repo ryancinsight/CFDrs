@@ -30,7 +30,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
         Ok(self.base_resistance * (T::one() + self.entrance_coefficient))
     }
 
-    fn model_name(&self) -> &str {
+    fn model_name(&self) -> &'static str {
         "Entrance Effects"
     }
 

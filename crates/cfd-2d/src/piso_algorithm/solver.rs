@@ -28,7 +28,7 @@ pub struct PisoState<T: RealField + Copy> {
 
 impl<T: RealField + Copy> PisoState<T> {
     /// Create new state with initialized fields
-    pub fn new(fields: &SimulationFields<T>) -> Self {
+    #[must_use] pub fn new(fields: &SimulationFields<T>) -> Self {
         Self {
             monitor: ConvergenceMonitor::new(),
             fields_buffer: fields.clone(),
@@ -133,7 +133,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSol
             }
 
             // Call user-provided callback
-            on_step_complete(step, fields)?
+            on_step_complete(step, fields)?;
         }
         Ok(())
     }
@@ -178,7 +178,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSol
 
             // Advance by the calculated time step
             self.advance_with_dt(fields, grid, state, dt)?;
-            current_time = current_time + dt;
+            current_time += dt;
             step += 1;
 
             // Optional: Log progress based on configuration

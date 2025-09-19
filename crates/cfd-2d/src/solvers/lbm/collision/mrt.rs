@@ -178,7 +178,7 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for MrtCollision<
                 let mut moments = [T::zero(); 9];
                 for q in 0..9 {
                     for p in 0..9 {
-                        moments[p] = moments[p] + self.m[p][q] * f[j][i][q];
+                        moments[p] += self.m[p][q] * f[j][i][q];
                     }
                 }
 
@@ -196,7 +196,7 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for MrtCollision<
                 for q in 0..9 {
                     f[j][i][q] = T::zero();
                     for p in 0..9 {
-                        f[j][i][q] = f[j][i][q] + self.m_inv[q][p] * moments[p];
+                        f[j][i][q] += self.m_inv[q][p] * moments[p];
                     }
                 }
             }

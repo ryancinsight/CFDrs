@@ -55,7 +55,7 @@ impl<T: RealField + Copy + FromPrimitive> MassConservationChecker<T> {
                 let div = dudx + dvdy;
 
                 max_divergence = max_divergence.max(div.abs());
-                total_divergence = total_divergence + div.abs();
+                total_divergence += div.abs();
                 count += 1;
             }
         }
@@ -105,7 +105,7 @@ impl<T: RealField + Copy + FromPrimitive> MassConservationChecker<T> {
             let div = (flux_plus - flux_minus) / (T::from_f64(2.0).unwrap_or(T::one()) * dx);
 
             max_divergence = max_divergence.max(div.abs());
-            total_divergence = total_divergence + div.abs();
+            total_divergence += div.abs();
             count += 1;
         }
 

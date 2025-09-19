@@ -59,7 +59,7 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
                     for _ in 0..num_points {
                         line.clear();
                         reader.read_line(&mut line)?;
-                        let coords: Vec<&str> = line.trim().split_whitespace().collect();
+                        let coords: Vec<&str> = line.split_whitespace().collect();
                         if coords.len() >= 3 {
                             let x = T::from_str(coords[0]).map_err(|_| {
                                 Error::Io(std::io::Error::new(
@@ -98,7 +98,6 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
                         line.clear();
                         reader.read_line(&mut line)?;
                         let indices: Vec<usize> = line
-                            .trim()
                             .split_whitespace()
                             .skip(1) // First number is the count
                             .filter_map(|s| s.parse().ok())

@@ -254,8 +254,8 @@ pub mod kernels {
                     let i0 = i0.min(nx - 1);
                     let j0 = j0.min(ny - 1);
 
-                    let s = ((x / dx) - i0 as f32).max(0.0).min(1.0);
-                    let t = ((y / dy) - j0 as f32).max(0.0).min(1.0);
+                    let s = ((x / dx) - i0 as f32).clamp(0.0, 1.0);
+                    let t = ((y / dy) - j0 as f32).clamp(0.0, 1.0);
 
                     field_new[idx] = field[i0 * ny + j0] * (1.0 - s) * (1.0 - t)
                         + field[i1 * ny + j0] * s * (1.0 - t)

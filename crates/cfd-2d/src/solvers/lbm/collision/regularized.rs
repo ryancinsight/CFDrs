@@ -37,10 +37,10 @@ impl<T: RealField + Copy + FromPrimitive> RegularizedCollision<T> {
             let cy = T::from_i32(lattice_vel.1).unwrap_or_else(T::zero);
 
             // Pi_αβ = Σ_i c_iα c_iβ f_i^neq
-            pi[0][0] = pi[0][0] + cx * cx * f_neq;
-            pi[0][1] = pi[0][1] + cx * cy * f_neq;
-            pi[1][0] = pi[1][0] + cy * cx * f_neq;
-            pi[1][1] = pi[1][1] + cy * cy * f_neq;
+            pi[0][0] += cx * cx * f_neq;
+            pi[0][1] += cx * cy * f_neq;
+            pi[1][0] += cy * cx * f_neq;
+            pi[1][1] += cy * cy * f_neq;
         }
 
         pi

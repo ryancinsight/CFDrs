@@ -81,7 +81,7 @@ impl<T: RealField + FromPrimitive + Copy> ForcingMethod<T> for FeedbackForcing<T
         let error = desired_velocity - current_velocity;
 
         // PI control
-        error * self.kp + &self.integral * self.ki
+        error * self.kp + self.integral * self.ki
     }
 
     fn update(&mut self, error: &Vector3<T>) {

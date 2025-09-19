@@ -15,9 +15,15 @@ pub struct FlowAnalyzer<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+impl<T: RealField + Copy> Default for FlowAnalyzer<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy> FlowAnalyzer<T> {
     /// Create new flow analyzer
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
@@ -49,7 +55,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> for F
         Ok(analysis)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "FlowAnalyzer"
     }
 }
@@ -88,7 +94,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowAnalyzer<T> {
                 for edge_ref in network.graph.edges(node_idx) {
                     let edge_idx = edge_ref.id();
                     if let Some(&flow) = network.flow_rates().get(&edge_idx) {
-                        total = total + Float::abs(flow);
+                        total += Float::abs(flow);
                     }
                 }
             }
