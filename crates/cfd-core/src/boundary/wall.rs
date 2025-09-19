@@ -31,11 +31,13 @@ pub enum WallType<T: RealField + Copy> {
 
 impl<T: RealField + Copy> WallType<T> {
     /// Create no-slip wall
+    #[must_use]
     pub const fn no_slip() -> Self {
         Self::NoSlip
     }
 
     /// Create slip wall
+    #[must_use]
     pub const fn slip() -> Self {
         Self::Slip
     }

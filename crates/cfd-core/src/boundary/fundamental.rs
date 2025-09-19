@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// Fundamental physical type of a boundary condition
 ///
-/// Reference: LeVeque (2002). Finite Volume Methods for Hyperbolic Problems
+/// Reference: `LeVeque` (2002). Finite Volume Methods for Hyperbolic Problems
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FundamentalBCType {
     /// Fixed value (first type)

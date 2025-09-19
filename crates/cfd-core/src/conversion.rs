@@ -5,7 +5,7 @@
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
-/// Safe conversion from f64 to generic RealField types
+/// Safe conversion from f64 to generic `RealField` types
 pub trait SafeFromF64: RealField + FromPrimitive {
     /// Convert from f64 with fallback value
     #[inline]
@@ -30,8 +30,7 @@ pub trait SafeFromF64: RealField + FromPrimitive {
     fn try_from_f64(value: f64) -> crate::error::Result<Self> {
         Self::from_f64(value).ok_or_else(|| {
             crate::error::Error::ConversionError(format!(
-                "Failed to convert f64 value {} to target type",
-                value
+                "Failed to convert f64 value {value} to target type"
             ))
         })
     }
@@ -40,7 +39,7 @@ pub trait SafeFromF64: RealField + FromPrimitive {
 // Implement for all types that satisfy the bounds
 impl<T> SafeFromF64 for T where T: RealField + FromPrimitive {}
 
-/// Safe conversion from i32 to generic RealField types  
+/// Safe conversion from i32 to generic `RealField` types  
 pub trait SafeFromI32: RealField + FromPrimitive {
     /// Convert from i32 with zero fallback
     #[inline]
@@ -53,8 +52,7 @@ pub trait SafeFromI32: RealField + FromPrimitive {
     fn try_from_i32(value: i32) -> crate::error::Result<Self> {
         Self::from_i32(value).ok_or_else(|| {
             crate::error::Error::ConversionError(format!(
-                "Failed to convert i32 value {} to target type",
-                value
+                "Failed to convert i32 value {value} to target type"
             ))
         })
     }
@@ -62,7 +60,7 @@ pub trait SafeFromI32: RealField + FromPrimitive {
 
 impl<T> SafeFromI32 for T where T: RealField + FromPrimitive {}
 
-/// Safe conversion from usize to generic RealField types
+/// Safe conversion from usize to generic `RealField` types
 pub trait SafeFromUsize: RealField + FromPrimitive {
     /// Convert from usize with one fallback
     #[inline]
@@ -75,8 +73,7 @@ pub trait SafeFromUsize: RealField + FromPrimitive {
     fn try_from_usize(value: usize) -> crate::error::Result<Self> {
         Self::from_usize(value).ok_or_else(|| {
             crate::error::Error::ConversionError(format!(
-                "Failed to convert usize value {} to target type",
-                value
+                "Failed to convert usize value {value} to target type"
             ))
         })
     }

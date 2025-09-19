@@ -12,11 +12,18 @@ pub struct GpuDiffusionKernel<T: RealField + Copy> {
     _phantom: PhantomData<T>,
 }
 
+impl<T: RealField + Copy> Default for GpuDiffusionKernel<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy> GpuDiffusionKernel<T> {
     /// Shader source code
     const SHADER_SOURCE: &'static str = include_str!("diffusion.wgsl");
 
     /// Creates a new GPU diffusion kernel
+    #[must_use]
     pub fn new() -> Self {
         Self {
             shader_module: None,
@@ -48,7 +55,7 @@ impl<T: RealField + Copy> GpuDiffusionKernel<T> {
 }
 
 impl<T: RealField + Copy> ComputeKernel<T> for GpuDiffusionKernel<T> {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "GPU Diffusion (Central Difference)"
     }
 
@@ -99,16 +106,21 @@ impl<T: RealField + Copy> GpuKernel<T> for GpuDiffusionKernel<T> {
         let work_group_size = params.work_group_size;
 
         // Calculate dispatch dimensions
-        let dispatch_x = (nx + work_group_size - 1) / work_group_size;
-        let dispatch_y = (ny + work_group_size - 1) / work_group_size;
-        let dispatch_z = (nz + work_group_size - 1) / work_group_size;
+        let dispatch_x = nx.div_ceil(work_group_size);
+        let dispatch_y = ny.div_ceil(work_group_size);
+        let dispatch_z = nz.div_ceil(work_group_size);
 
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Diffusion Pass"),
             timestamp_writes: None,
         });
 
-        compute_pass.dispatch_workgroups(dispatch_x as u32, dispatch_y as u32, dispatch_z as u32);
+        // Safe casting with bounds checking for GPU dispatch
+        let dispatch_x = std::cmp::min(dispatch_x, u32::MAX as usize) as u32;
+        let dispatch_y = std::cmp::min(dispatch_y, u32::MAX as usize) as u32;
+        let dispatch_z = std::cmp::min(dispatch_z, u32::MAX as usize) as u32;
+
+        compute_pass.dispatch_workgroups(dispatch_x, dispatch_y, dispatch_z);
     }
 }
 

@@ -26,7 +26,7 @@ pub mod finite_difference {
                 .collect()
         }
 
-        fn name(&self) -> &str {
+        fn name(&self) -> &'static str {
             "Central Difference"
         }
 
@@ -53,7 +53,7 @@ pub mod finite_difference {
                 .collect()
         }
 
-        fn name(&self) -> &str {
+        fn name(&self) -> &'static str {
             "Upwind Difference"
         }
 
@@ -81,7 +81,7 @@ pub mod finite_difference {
                 .collect()
         }
 
-        fn name(&self) -> &str {
+        fn name(&self) -> &'static str {
             "Downwind Difference"
         }
 

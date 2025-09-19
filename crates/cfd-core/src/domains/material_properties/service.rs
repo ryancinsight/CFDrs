@@ -53,6 +53,7 @@ impl<T: RealField + Copy> MaterialPropertiesService<T> {
     }
 
     /// Calculate property using named calculator
+    #[must_use]
     pub fn calculate_property(
         &self,
         calculator_name: &str,

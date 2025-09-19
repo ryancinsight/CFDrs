@@ -13,7 +13,7 @@ pub trait RefinementStrategy<T: RealField + Copy>: Send + Sync {
     fn refine(&self, mesh: &mut crate::mesh::Mesh<T>) -> Result<(), crate::error::MeshError>;
 
     /// Get strategy name
-    fn name(&self) -> &str;
+    fn name(&self) -> &'static str;
 }
 
 /// Uniform refinement strategy
@@ -25,7 +25,7 @@ impl<T: RealField + Copy> RefinementStrategy<T> for UniformRefinement {
         Ok(())
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Uniform"
     }
 }
@@ -42,7 +42,7 @@ impl<T: RealField + Copy> RefinementStrategy<T> for AdaptiveRefinement<T> {
         Ok(())
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Adaptive"
     }
 }

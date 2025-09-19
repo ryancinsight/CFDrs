@@ -100,7 +100,7 @@ impl<T: RealField + Copy + FromPrimitive> VenturiCavitation<T> {
 
     /// Calculate cavity length using Nurick correlation
     /// Based on Nurick (1976) for venturi cavitation
-    /// L/D = K * (1/σ - 1/σ_i)^n where σ_i is incipient cavitation number
+    /// L/D = K * (1/σ - `1/σ_i)^n` where `σ_i` is incipient cavitation number
     pub fn cavity_length(&self, cavitation_number: T) -> T {
         // Nurick correlation constants from literature
         let k_coefficient =

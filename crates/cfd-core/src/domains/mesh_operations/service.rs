@@ -19,6 +19,7 @@ pub struct MeshOperationsService<T: RealField + Copy> {
 
 impl<T: RealField + Copy> MeshOperationsService<T> {
     /// Create a new mesh operations service
+    #[must_use]
     pub fn new() -> Self {
         Self {
             generator: None,

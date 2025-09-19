@@ -142,7 +142,7 @@ fn test_poiseuille_flow_convergence() {
     println!("\nERROR: Solver is not functional!");
     println!("Max error: {:.2e} (indicates broken solver)", max_error);
     println!("L2 error: {:.2e} (indicates broken solver)", l2_error);
-    
+
     // Document the broken state for future developers
     // This test will fail until the momentum solver is properly implemented
     if max_error > 50.0 {
@@ -151,7 +151,7 @@ fn test_poiseuille_flow_convergence() {
         // Don't assert - this documents the known broken state
         return;
     }
-    
+
     // Future assertions for when solver is fixed:
     // assert!(max_error < 1e-3, "Max error too large: {}", max_error);
     // assert!(l2_error < 1e-4, "L2 error too large: {}", l2_error);
@@ -161,7 +161,10 @@ fn test_poiseuille_flow_convergence() {
 
     // Document that immediate completion indicates broken solver
     if elapsed.as_secs_f64() < 0.1 {
-        println!("CRITICAL: Test completed too quickly ({:.3}s) - solver not performing computation", elapsed.as_secs_f64());
+        println!(
+            "CRITICAL: Test completed too quickly ({:.3}s) - solver not performing computation",
+            elapsed.as_secs_f64()
+        );
         println!("This confirms the momentum solver is producing immediate false convergence");
     }
 }
@@ -181,7 +184,9 @@ fn test_poiseuille_mass_conservation() {
         for j in 0..ny {
             let y = j as f64 * dy;
             let height = (ny - 1) as f64 * dy;
-            fields.u.set(i, j, poiseuille_analytical(y, height, -1.0, 1e-3));
+            fields
+                .u
+                .set(i, j, poiseuille_analytical(y, height, -1.0, 1e-3));
             fields.v.set(i, j, 0.0); // No vertical velocity
         }
     }

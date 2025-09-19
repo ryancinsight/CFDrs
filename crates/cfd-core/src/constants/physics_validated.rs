@@ -10,7 +10,7 @@ pub mod fluid_dynamics {
     pub const WATER_KINEMATIC_VISCOSITY_20C: f64 = 1.004e-6;
 
     /// Density of water at 20°C, 1 atm [kg/m³]
-    /// Source: NIST Chemistry WebBook, SRD 69
+    /// Source: NIST Chemistry `WebBook`, SRD 69
     pub const WATER_DENSITY_20C: f64 = 998.2071;
 
     /// Dynamic viscosity of water at 20°C [Pa·s]
@@ -44,7 +44,7 @@ pub mod reynolds {
 /// Thermodynamic properties
 pub mod thermodynamics {
     /// Specific heat of water at 20°C [J/(kg·K)]
-    /// Source: NIST Chemistry WebBook, SRD 69
+    /// Source: NIST Chemistry `WebBook`, SRD 69
     pub const WATER_SPECIFIC_HEAT_20C: f64 = 4181.3;
 
     /// Thermal conductivity of water at 20°C [W/(m·K)]

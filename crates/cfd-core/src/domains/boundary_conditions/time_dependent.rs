@@ -36,6 +36,7 @@ pub enum TimeFunctionType {
 
 impl<T: RealField + Copy + FromPrimitive> TimeDependentSpec<T> {
     /// Create a constant time function
+    #[must_use]
     pub fn constant() -> Self {
         Self {
             function_type: TimeFunctionType::Constant,
@@ -68,6 +69,7 @@ impl<T: RealField + Copy + FromPrimitive> TimeDependentSpec<T> {
     }
 
     /// Create a polynomial function
+    #[must_use]
     pub fn polynomial(coefficients: Vec<T>) -> Self {
         Self {
             function_type: TimeFunctionType::Polynomial,

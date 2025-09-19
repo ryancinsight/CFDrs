@@ -145,27 +145,26 @@ pub enum PluginErrorKind {
 impl fmt::Display for PluginErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::NotFound { name } => write!(f, "Plugin '{}' not found", name),
-            Self::AlreadyRegistered { name } => write!(f, "Plugin '{}' already registered", name),
+            Self::NotFound { name } => write!(f, "Plugin '{name}' not found"),
+            Self::AlreadyRegistered { name } => write!(f, "Plugin '{name}' already registered"),
             Self::InitializationFailed { name, reason } => {
-                write!(f, "Plugin '{}' initialization failed: {}", name, reason)
+                write!(f, "Plugin '{name}' initialization failed: {reason}")
             }
             Self::ExecutionFailed { name, reason } => {
-                write!(f, "Plugin '{}' execution failed: {}", name, reason)
+                write!(f, "Plugin '{name}' execution failed: {reason}")
             }
             Self::DependencyNotSatisfied { plugin, dependency } => write!(
                 f,
-                "Plugin '{}' dependency '{}' not satisfied",
-                plugin, dependency
+                "Plugin '{plugin}' dependency '{dependency}' not satisfied"
             ),
             Self::CircularDependency { chain } => {
                 write!(f, "Circular dependency detected: {}", chain.join(" -> "))
             }
             Self::InvalidConfiguration { name, reason } => {
-                write!(f, "Invalid configuration for plugin '{}': {}", name, reason)
+                write!(f, "Invalid configuration for plugin '{name}': {reason}")
             }
             Self::DependencyMissing { plugin, dependency } => {
-                write!(f, "Plugin '{}' missing dependency '{}'", plugin, dependency)
+                write!(f, "Plugin '{plugin}' missing dependency '{dependency}'")
             }
             Self::HasDependents { plugin, dependents } => {
                 write!(
@@ -221,18 +220,17 @@ impl fmt::Display for NumericalErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::DivisionByZero => write!(f, "Division by zero"),
-            Self::InvalidValue { value } => write!(f, "Invalid numerical value: {}", value),
-            Self::Underflow { value } => write!(f, "Numerical underflow: {:.2e}", value),
-            Self::Overflow { value } => write!(f, "Numerical overflow: {:.2e}", value),
+            Self::InvalidValue { value } => write!(f, "Invalid numerical value: {value}"),
+            Self::Underflow { value } => write!(f, "Numerical underflow: {value:.2e}"),
+            Self::Overflow { value } => write!(f, "Numerical overflow: {value:.2e}"),
             Self::SingularMatrix => write!(f, "Matrix is singular"),
             Self::NotPositiveDefinite => write!(f, "Matrix is not positive definite"),
             Self::InvalidTolerance { tolerance } => {
-                write!(f, "Invalid tolerance: {:.2e}", tolerance)
+                write!(f, "Invalid tolerance: {tolerance:.2e}")
             }
             Self::InsufficientPrecision { achieved, required } => write!(
                 f,
-                "Insufficient precision: achieved {:.2e}, required {:.2e}",
-                achieved, required
+                "Insufficient precision: achieved {achieved:.2e}, required {required:.2e}"
             ),
         }
     }
@@ -264,12 +262,12 @@ impl fmt::Display for ConvergenceErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::MaxIterationsExceeded { max } => {
-                write!(f, "Maximum iterations ({}) exceeded", max)
+                write!(f, "Maximum iterations ({max}) exceeded")
             }
             Self::StagnatedResidual { residual } => {
-                write!(f, "Residual stagnated at {:.2e}", residual)
+                write!(f, "Residual stagnated at {residual:.2e}")
             }
-            Self::Diverged { norm } => write!(f, "Solution diverged with norm {:.2e}", norm),
+            Self::Diverged { norm } => write!(f, "Solution diverged with norm {norm:.2e}"),
             Self::InvalidValue => write!(f, "Invalid value (NaN or Inf) detected"),
         }
     }

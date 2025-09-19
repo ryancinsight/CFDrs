@@ -14,6 +14,7 @@ pub struct BoundaryConditionSet<T: RealField + Copy> {
 
 impl<T: RealField + Copy> BoundaryConditionSet<T> {
     /// Create empty set
+    #[must_use]
     pub fn new() -> Self {
         Self {
             conditions: HashMap::new(),
@@ -27,16 +28,19 @@ impl<T: RealField + Copy> BoundaryConditionSet<T> {
     }
 
     /// Get boundary condition by name
+    #[must_use]
     pub fn get(&self, name: &str) -> Option<&BoundaryCondition<T>> {
         self.conditions.get(name)
     }
 
     /// Get number of boundary conditions
+    #[must_use]
     pub fn len(&self) -> usize {
         self.conditions.len()
     }
 
     /// Check if set is empty
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.conditions.is_empty()
     }
@@ -52,6 +56,7 @@ impl<T: RealField + Copy> BoundaryConditionSet<T> {
     }
 
     /// Check if set contains boundary
+    #[must_use]
     pub fn contains(&self, name: &str) -> bool {
         self.conditions.contains_key(name)
     }
@@ -62,6 +67,10 @@ impl<T: RealField + Copy> BoundaryConditionSet<T> {
     }
 
     /// Validate periodic boundary pairs
+    ///
+    /// # Errors
+    /// Returns error if periodic boundary references non-existent partner
+    /// or if partner boundary is not also periodic
     pub fn validate_periodic(&self) -> Result<()> {
         for (name, bc) in &self.conditions {
             if let BoundaryCondition::Periodic { partner } = bc {

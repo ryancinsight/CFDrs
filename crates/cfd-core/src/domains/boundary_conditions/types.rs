@@ -10,8 +10,15 @@ pub struct DirichletApplicator<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+impl<T: RealField + Copy> Default for DirichletApplicator<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy> DirichletApplicator<T> {
     /// Create a new Dirichlet applicator
+    #[must_use]
     pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
@@ -66,7 +73,7 @@ impl<T: RealField + Copy> BoundaryConditionApplicator<T> for DirichletApplicator
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Dirichlet"
     }
 
@@ -80,8 +87,15 @@ pub struct NeumannApplicator<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+impl<T: RealField + Copy> Default for NeumannApplicator<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy> NeumannApplicator<T> {
     /// Create a new Neumann applicator
+    #[must_use]
     pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
@@ -132,7 +146,7 @@ impl<T: RealField + Copy> BoundaryConditionApplicator<T> for NeumannApplicator<T
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Neumann"
     }
 
@@ -148,6 +162,12 @@ impl<T: RealField + Copy> BoundaryConditionApplicator<T> for NeumannApplicator<T
 /// Robin boundary condition applicator
 pub struct RobinApplicator<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T: RealField + Copy> Default for RobinApplicator<T> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<T: RealField + Copy> RobinApplicator<T> {
@@ -206,7 +226,7 @@ impl<T: RealField + Copy> BoundaryConditionApplicator<T> for RobinApplicator<T> 
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Robin"
     }
 

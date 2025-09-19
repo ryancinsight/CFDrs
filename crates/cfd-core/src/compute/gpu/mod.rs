@@ -89,7 +89,7 @@ impl GpuContext {
             )
             .await
             .map_err(|e| {
-                Error::InvalidConfiguration(format!("Failed to create GPU device: {}", e))
+                Error::InvalidConfiguration(format!("Failed to create GPU device: {e}"))
             })?;
 
         let limits = device.limits();
@@ -140,6 +140,7 @@ impl GpuContext {
     }
 
     /// Create compute pipeline with explicit bind group layout
+    #[must_use]
     pub fn create_compute_pipeline_with_layout(
         &self,
         shader_source: &str,
@@ -156,14 +157,14 @@ impl GpuContext {
         let pipeline_layout = self
             .device
             .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some(&format!("{} Pipeline Layout", entry_point)),
+                label: Some(&format!("{entry_point} Pipeline Layout")),
                 bind_group_layouts: &[bind_group_layout],
                 push_constant_ranges: &[],
             });
 
         self.device
             .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some(&format!("{} Pipeline", entry_point)),
+                label: Some(&format!("{entry_point} Pipeline")),
                 layout: Some(&pipeline_layout),
                 module: &shader,
                 entry_point,

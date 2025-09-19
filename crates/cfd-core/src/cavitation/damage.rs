@@ -103,7 +103,9 @@ impl<T: RealField + Copy + FromPrimitive> CavitationDamage<T> {
                     .unwrap_or_else(|| T::from_f64(1e18).unwrap_or_else(|| T::one()))
             {
                 let n_f64 = T::to_subset(&n).unwrap_or(1.0_f64);
-                n_f64.round() as u64
+                // Use safe conversion avoiding precision loss
+                const MAX_SAFE_F64: f64 = (1u64 << 53) as f64; // 2^53 - safe f64 precision limit
+                n_f64.round().max(0.0).min(MAX_SAFE_F64) as u64
             } else {
                 1 // Minimum one cycle if calculation fails
             }
@@ -119,9 +121,8 @@ impl<T: RealField + Copy + FromPrimitive> CavitationDamage<T> {
         for &(stress, cycles) in stress_levels {
             let life_cycles = self.incubation_period(stress);
             if life_cycles < u64::MAX {
-                damage = damage
-                    + T::from_u64(cycles).unwrap_or_else(|| T::zero())
-                        / T::from_u64(life_cycles).unwrap_or_else(|| T::one());
+                damage += T::from_u64(cycles).unwrap_or_else(|| T::zero())
+                    / T::from_u64(life_cycles).unwrap_or_else(|| T::one());
             }
         }
 

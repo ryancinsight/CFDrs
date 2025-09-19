@@ -175,7 +175,7 @@ impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for SmagorinskyMode
             .collect()
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Smagorinsky"
     }
 }
@@ -239,7 +239,7 @@ impl<T: RealField + Copy + FromPrimitive> MixingLengthModel<T> {
         if k > 0 && k < nz - 1 {
             if let (Some(u_kp), Some(u_km)) = (velocity.get(i, j, k + 1), velocity.get(i, j, k - 1))
             {
-                #[allow(clippy::similar_names)] // CFD derivatives use standard notation  
+                #[allow(clippy::similar_names)] // CFD derivatives use standard notation
                 {
                     let dudz = (u_kp.x - u_km.x) / (two * delta);
                     let dvdz = (u_kp.y - u_km.y) / (two * delta);
@@ -284,7 +284,7 @@ impl<T: RealField + Copy + FromPrimitive> TurbulenceModel<T> for MixingLengthMod
             .collect()
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "MixingLength"
     }
 }

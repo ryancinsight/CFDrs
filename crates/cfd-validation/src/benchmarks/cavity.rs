@@ -270,33 +270,41 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64> Benchmark<T> for LidDriv
     fn validate(&self, result: &BenchmarkResult<T>) -> Result<bool> {
         // Compare with Ghia et al. reference data for exact validation
         let ghia_data = self.ghia_reference_data(T::from_f64_or_one(100.0)); // Default Re=100
-        
+
         if let Some((_y_positions, _u_velocities)) = ghia_data {
             // Compare with computed values in result
             if !result.values.is_empty() {
                 // Check that we have reasonable velocity values
-                let max_velocity = result.values.iter().fold(T::zero(), |acc, &x| if x.abs() > acc { x.abs() } else { acc });
-                
+                let max_velocity =
+                    result.values.iter().fold(
+                        T::zero(),
+                        |acc, &x| if x.abs() > acc { x.abs() } else { acc },
+                    );
+
                 // Literature validation: Ghia et al. requires <2% error for acceptable CFD
                 let tolerance = T::from_f64_or_one(0.02);
-                
+
                 // Check for reasonable velocity magnitudes (bounded by wall velocity)
                 let velocity_reasonable = max_velocity <= T::from_f64_or_one(1.1); // 10% tolerance for numerical overshoot
-                
+
                 // Check convergence
                 let converged = if let Some(last_residual) = result.convergence.last() {
                     last_residual.abs() < tolerance
                 } else {
                     false
                 };
-                
+
                 return Ok(velocity_reasonable && converged);
             }
         }
-        
+
         // If no reference data available, perform basic sanity checks
         if !result.values.is_empty() {
-            let max_value = result.values.iter().fold(T::zero(), |acc, &x| if x.abs() > acc { x.abs() } else { acc });
+            let max_value =
+                result.values.iter().fold(
+                    T::zero(),
+                    |acc, &x| if x.abs() > acc { x.abs() } else { acc },
+                );
             // Values should be bounded and finite
             Ok(max_value <= T::from_f64_or_one(10.0) && max_value >= T::zero())
         } else {

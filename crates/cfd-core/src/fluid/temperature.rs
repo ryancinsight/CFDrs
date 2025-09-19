@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// Temperature-dependent viscosity model using polynomial fit
 ///
-/// μ(T) = Σ(a_i * T^i) for i = 0 to n
+/// μ(T) = `Σ(a_i` * T^i) for i = 0 to n
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PolynomialViscosity<T: RealField + Copy> {
     /// Fluid name
@@ -34,8 +34,8 @@ impl<T: RealField + FromPrimitive + Copy> PolynomialViscosity<T> {
         let mut t_power = T::one();
 
         for coeff in &self.viscosity_coeffs {
-            viscosity = viscosity + *coeff * t_power;
-            t_power = t_power * temperature;
+            viscosity += *coeff * t_power;
+            t_power *= temperature;
         }
 
         viscosity

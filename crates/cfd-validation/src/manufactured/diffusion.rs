@@ -111,7 +111,7 @@ mod tests {
     #[test]
     fn test_diffusion_solution() {
         let _solution = ManufacturedDiffusion::new(0.1); // Validation framework for diffusion MMS
-        
+
         // Test exact solution validation
         let solution = ManufacturedDiffusion::new(0.1);
 

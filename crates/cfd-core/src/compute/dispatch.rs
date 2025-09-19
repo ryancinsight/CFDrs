@@ -16,6 +16,9 @@ pub struct ComputeDispatcher {
 
 impl ComputeDispatcher {
     /// Create a new dispatcher with automatic backend selection
+    ///
+    /// # Errors
+    /// Returns error if no suitable compute backend is available on this system
     pub fn new() -> Result<Self> {
         let capabilities = Arc::new(ComputeCapability::detect());
         let backend = capabilities.preferred_backend;
@@ -28,6 +31,9 @@ impl ComputeDispatcher {
     }
 
     /// Create dispatcher with specific backend
+    ///
+    /// # Errors
+    /// Returns error if the specified backend is not available on this system
     pub fn with_backend(backend: ComputeBackend) -> Result<Self> {
         let capabilities = Arc::new(ComputeCapability::detect());
         let context = BackendContext::new(backend)?;
@@ -39,6 +45,9 @@ impl ComputeDispatcher {
     }
 
     /// Execute a kernel with automatic backend selection
+    ///
+    /// # Errors
+    /// Returns error if kernel execution fails or if input/output buffers are invalid
     pub fn execute<T: RealField + Copy>(
         &self,
         kernel: &dyn ComputeKernel<T>,

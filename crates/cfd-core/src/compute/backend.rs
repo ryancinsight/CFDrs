@@ -22,6 +22,7 @@ pub struct ComputeCapability {
 
 impl ComputeCapability {
     /// Detect system compute capabilities
+    #[must_use]
     pub fn detect() -> Self {
         let mut backends = vec![ComputeBackend::Cpu];
 
@@ -66,6 +67,7 @@ impl ComputeCapability {
     }
 
     /// Select best backend for given problem size
+    #[must_use]
     pub fn select_backend(&self, problem_size: usize) -> ComputeBackend {
         const GPU_THRESHOLD: usize = 100_000; // Minimum size for GPU efficiency
         const SIMD_THRESHOLD: usize = 1_000; // Minimum size for SIMD efficiency
@@ -93,13 +95,15 @@ pub struct BackendContext {
 
 impl BackendContext {
     /// Create a new backend context
+    ///
+    /// # Errors
+    /// Returns error if the specified backend is not available on this system
     pub fn new(backend: ComputeBackend) -> crate::error::Result<Self> {
         let capabilities = Arc::new(ComputeCapability::detect());
 
         if !capabilities.backends.contains(&backend) {
             return Err(crate::error::Error::InvalidConfiguration(format!(
-                "Backend {:?} not available on this system",
-                backend
+                "Backend {backend:?} not available on this system"
             )));
         }
 
@@ -125,8 +129,7 @@ impl BackendContext {
     pub fn switch_backend(&mut self, backend: ComputeBackend) -> crate::error::Result<()> {
         if !self.capabilities.backends.contains(&backend) {
             return Err(crate::error::Error::InvalidConfiguration(format!(
-                "Backend {:?} not available on this system",
-                backend
+                "Backend {backend:?} not available on this system"
             )));
         }
 

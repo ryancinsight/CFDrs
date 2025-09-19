@@ -17,6 +17,7 @@ pub struct CpuBuffer<T: RealField + Copy> {
 
 impl<T: RealField + Copy> CpuBuffer<T> {
     /// Create a new CPU buffer
+    #[must_use]
     pub fn new(size: usize) -> Self {
         Self {
             data: vec![T::zero(); size],
@@ -24,6 +25,7 @@ impl<T: RealField + Copy> CpuBuffer<T> {
     }
 
     /// Create buffer with initial data
+    #[must_use]
     pub fn from_data(data: Vec<T>) -> Self {
         Self { data }
     }
@@ -65,8 +67,15 @@ pub struct CpuAdvectionKernel<T: RealField + Copy> {
     _phantom: PhantomData<T>,
 }
 
+impl<T: RealField + Copy> Default for CpuAdvectionKernel<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy> CpuAdvectionKernel<T> {
     /// Creates a new CPU advection kernel
+    #[must_use]
     pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -75,7 +84,7 @@ impl<T: RealField + Copy> CpuAdvectionKernel<T> {
 }
 
 impl<T: RealField + Copy> ComputeKernel<T> for CpuAdvectionKernel<T> {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "CPU Advection (Upwind)"
     }
 
