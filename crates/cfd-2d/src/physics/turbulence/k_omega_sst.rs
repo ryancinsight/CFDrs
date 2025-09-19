@@ -21,7 +21,7 @@ pub struct KOmegaSSTModel<T: RealField + Copy> {
 
 impl<T: RealField + FromPrimitive + Copy> KOmegaSSTModel<T> {
     /// Create a new k-ω SST model
-    pub fn new(nx: usize, ny: usize) -> Self {
+    #[must_use] pub fn new(nx: usize, ny: usize) -> Self {
         let size = nx * ny;
         Self {
             nx,
@@ -31,7 +31,7 @@ impl<T: RealField + FromPrimitive + Copy> KOmegaSSTModel<T> {
         }
     }
 
-    /// Calculate cross-diffusion term CDkω
+    /// Calculate cross-diffusion term `CDkω`
     fn calculate_cross_diffusion(&self, k: &[T], omega: &[T], idx: usize, dx: T, dy: T) -> T {
         let nx = self.nx;
         let omega_min = T::from_f64(OMEGA_MIN).unwrap_or_else(T::zero);
@@ -310,7 +310,7 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KOmegaSSTModel<
         Ok(())
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "k-omega-SST"
     }
 

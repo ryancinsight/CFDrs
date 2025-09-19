@@ -155,6 +155,50 @@ impl UnifiedCompute {
 pub mod kernels {
     use super::*;
 
+    /// Configuration for pressure Poisson solver
+    #[derive(Debug, Clone, Copy)]
+    pub struct PoissonConfig {
+        /// Grid points in x-direction
+        pub nx: usize,
+        /// Grid points in y-direction
+        pub ny: usize,
+        /// Grid spacing in x-direction
+        pub dx: f32,
+        /// Grid spacing in y-direction
+        pub dy: f32,
+        /// Maximum iterations
+        pub iterations: usize,
+    }
+
+    impl PoissonConfig {
+        /// Create new Poisson solver configuration
+        pub fn new(nx: usize, ny: usize, dx: f32, dy: f32, iterations: usize) -> Self {
+            Self { nx, ny, dx, dy, iterations }
+        }
+    }
+
+    /// Configuration for advection solver
+    #[derive(Debug, Clone, Copy)]
+    pub struct AdvectionConfig {
+        /// Grid points in x-direction
+        pub nx: usize,
+        /// Grid points in y-direction
+        pub ny: usize,
+        /// Time step
+        pub dt: f32,
+        /// Grid spacing in x-direction
+        pub dx: f32,
+        /// Grid spacing in y-direction
+        pub dy: f32,
+    }
+
+    impl AdvectionConfig {
+        /// Create new advection solver configuration
+        pub fn new(nx: usize, ny: usize, dt: f32, dx: f32, dy: f32) -> Self {
+            Self { nx, ny, dt, dx, dy }
+        }
+    }
+
     /// Accelerated pressure Poisson solver
     pub struct PressureSolver {
         #[allow(dead_code)]
@@ -172,38 +216,34 @@ pub mod kernels {
             &self,
             divergence: &[f32],
             pressure: &mut [f32],
-            nx: usize,
-            ny: usize,
-            dx: f32,
-            dy: f32,
-            iterations: usize,
+            config: PoissonConfig,
         ) -> Result<()> {
-            let dx2 = dx * dx;
-            let dy2 = dy * dy;
+            let dx2 = config.dx * config.dx;
+            let dy2 = config.dy * config.dy;
             let factor = 0.5 / (1.0 / dx2 + 1.0 / dy2);
 
             let mut pressure_new = vec![0.0f32; pressure.len()];
 
-            for _ in 0..iterations {
+            for _ in 0..config.iterations {
                 // Jacobi iteration
-                for i in 1..nx - 1 {
-                    for j in 1..ny - 1 {
-                        let idx = i * ny + j;
+                for i in 1..config.nx - 1 {
+                    for j in 1..config.ny - 1 {
+                        let idx = i * config.ny + j;
                         pressure_new[idx] = factor
-                            * ((pressure[(i - 1) * ny + j] + pressure[(i + 1) * ny + j]) / dx2
-                                + (pressure[i * ny + j - 1] + pressure[i * ny + j + 1]) / dy2
+                            * ((pressure[(i - 1) * config.ny + j] + pressure[(i + 1) * config.ny + j]) / dx2
+                                + (pressure[i * config.ny + j - 1] + pressure[i * config.ny + j + 1]) / dy2
                                 - divergence[idx]);
                     }
                 }
 
                 // Boundary conditions
-                for i in 0..nx {
-                    pressure_new[i * ny] = pressure_new[i * ny + 1];
-                    pressure_new[i * ny + ny - 1] = pressure_new[i * ny + ny - 2];
+                for i in 0..config.nx {
+                    pressure_new[i * config.ny] = pressure_new[i * config.ny + 1];
+                    pressure_new[i * config.ny + config.ny - 1] = pressure_new[i * config.ny + config.ny - 2];
                 }
-                for j in 0..ny {
-                    pressure_new[j] = pressure_new[ny + j];
-                    pressure_new[(nx - 1) * ny + j] = pressure_new[(nx - 2) * ny + j];
+                for j in 0..config.ny {
+                    pressure_new[j] = pressure_new[config.ny + j];
+                    pressure_new[(config.nx - 1) * config.ny + j] = pressure_new[(config.nx - 2) * config.ny + j];
                 }
 
                 pressure.copy_from_slice(&pressure_new);
@@ -232,35 +272,31 @@ pub mod kernels {
             velocity_u: &[f32],
             velocity_v: &[f32],
             field_new: &mut [f32],
-            nx: usize,
-            ny: usize,
-            dt: f32,
-            dx: f32,
-            dy: f32,
+            config: AdvectionConfig,
         ) -> Result<()> {
-            for i in 0..nx {
-                for j in 0..ny {
-                    let idx = i * ny + j;
+            for i in 0..config.nx {
+                for j in 0..config.ny {
+                    let idx = i * config.ny + j;
 
                     // Trace back
-                    let x = i as f32 * dx - velocity_u[idx] * dt;
-                    let y = j as f32 * dy - velocity_v[idx] * dt;
+                    let x = i as f32 * config.dx - velocity_u[idx] * config.dt;
+                    let y = j as f32 * config.dy - velocity_v[idx] * config.dt;
 
                     // Bilinear interpolation
-                    let i0 = (x / dx).floor() as usize;
-                    let j0 = (y / dy).floor() as usize;
-                    let i1 = (i0 + 1).min(nx - 1);
-                    let j1 = (j0 + 1).min(ny - 1);
-                    let i0 = i0.min(nx - 1);
-                    let j0 = j0.min(ny - 1);
+                    let i0 = (x / config.dx).floor() as usize;
+                    let j0 = (y / config.dy).floor() as usize;
+                    let i1 = (i0 + 1).min(config.nx - 1);
+                    let j1 = (j0 + 1).min(config.ny - 1);
+                    let i0 = i0.min(config.nx - 1);
+                    let j0 = j0.min(config.ny - 1);
 
-                    let s = ((x / dx) - i0 as f32).max(0.0).min(1.0);
-                    let t = ((y / dy) - j0 as f32).max(0.0).min(1.0);
+                    let s = ((x / config.dx) - i0 as f32).clamp(0.0, 1.0);
+                    let t = ((y / config.dy) - j0 as f32).clamp(0.0, 1.0);
 
-                    field_new[idx] = field[i0 * ny + j0] * (1.0 - s) * (1.0 - t)
-                        + field[i1 * ny + j0] * s * (1.0 - t)
-                        + field[i0 * ny + j1] * (1.0 - s) * t
-                        + field[i1 * ny + j1] * s * t;
+                    field_new[idx] = field[i0 * config.ny + j0] * (1.0 - s) * (1.0 - t)
+                        + field[i1 * config.ny + j0] * s * (1.0 - t)
+                        + field[i0 * config.ny + j1] * (1.0 - s) * t
+                        + field[i1 * config.ny + j1] * s * t;
                 }
             }
 
@@ -296,11 +332,12 @@ mod tests {
 
         let nx = 10;
         let ny = 10;
+        let config = kernels::PoissonConfig::new(nx, ny, 0.1, 0.1, 10);
         let divergence = vec![0.1f32; nx * ny];
         let mut pressure = vec![0.0f32; nx * ny];
 
         solver
-            .solve(&divergence, &mut pressure, nx, ny, 0.1, 0.1, 10)
+            .solve(&divergence, &mut pressure, config)
             .unwrap();
 
         // Should produce non-zero pressure

@@ -131,25 +131,22 @@ impl<T: RealField + FromPrimitive + Copy> WallTreatment<T> {
 
     /// Calculate omega at wall
     pub fn wall_omega(&self, wall_distance: T, viscosity: T, density: T) -> T {
-        match self.wall_function {
-            WallFunction::LowReynolds => {
-                // Menter's omega wall BC
+        if let WallFunction::LowReynolds = self.wall_function {
+            // Menter's omega wall BC
+            let coeff = T::from_f64(OMEGA_WALL_COEFFICIENT).unwrap_or_else(T::one);
+            let nu = viscosity / density;
+            coeff * nu / (wall_distance * wall_distance)
+        } else {
+            // Wilcox omega wall BC for y+ > 5
+            let u_tau = (viscosity / (density * wall_distance)).sqrt();
+            let y_plus = density * u_tau * wall_distance / viscosity;
+
+            if y_plus < T::from_f64(Y_PLUS_VISCOUS_SUBLAYER).unwrap_or_else(T::one) {
                 let coeff = T::from_f64(OMEGA_WALL_COEFFICIENT).unwrap_or_else(T::one);
                 let nu = viscosity / density;
                 coeff * nu / (wall_distance * wall_distance)
-            }
-            _ => {
-                // Wilcox omega wall BC for y+ > 5
-                let u_tau = (viscosity / (density * wall_distance)).sqrt();
-                let y_plus = density * u_tau * wall_distance / viscosity;
-
-                if y_plus < T::from_f64(Y_PLUS_VISCOUS_SUBLAYER).unwrap_or_else(T::one) {
-                    let coeff = T::from_f64(OMEGA_WALL_COEFFICIENT).unwrap_or_else(T::one);
-                    let nu = viscosity / density;
-                    coeff * nu / (wall_distance * wall_distance)
-                } else {
-                    u_tau / (self.kappa * wall_distance)
-                }
+            } else {
+                u_tau / (self.kappa * wall_distance)
             }
         }
     }

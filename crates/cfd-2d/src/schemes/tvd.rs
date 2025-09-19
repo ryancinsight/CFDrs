@@ -108,7 +108,7 @@ impl<T: RealField + Copy> QUICKScheme<T> {
     /// Compute face value using QUICK interpolation
     ///
     /// For uniform grid with flow from left to right:
-    /// φ_face = 6/8 * φ_U + 3/8 * φ_C - 1/8 * φ_UU
+    /// `φ_face` = 6/8 * `φ_U` + 3/8 * `φ_C` - 1/8 * `φ_UU`
     /// where U = upstream, C = central, UU = far upstream
     pub fn interpolate_face(
         &self,

@@ -101,7 +101,7 @@ pub const TWO: f64 = 2.0;
 // Helper Functions
 // ============================================================================
 
-/// Convert f64 constant to generic RealField type
+/// Convert f64 constant to generic `RealField` type
 pub fn to_realfield<T: RealField + FromPrimitive>(value: f64) -> T {
     T::from_f64(value).unwrap_or_else(T::one)
 }

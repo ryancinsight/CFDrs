@@ -41,10 +41,10 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
             }
         }
 
-        let statistics = if !metrics.is_empty() {
-            self.compute_statistics(&metrics)
-        } else {
+        let statistics = if metrics.is_empty() {
             QualityStatistics::default()
+        } else {
+            self.compute_statistics(&metrics)
         };
 
         MeshQualityReport {
@@ -289,12 +289,12 @@ pub struct MeshQualityReport<T: RealField + Copy> {
 
 impl<T: RealField + FromPrimitive + Copy> MeshQualityReport<T> {
     /// Check if mesh quality is acceptable
-    pub fn is_acceptable(&self) -> bool {
+    #[must_use] pub fn is_acceptable(&self) -> bool {
         self.failed_elements.is_empty()
     }
 
     /// Get failure rate
-    pub fn failure_rate(&self) -> T {
+    #[must_use] pub fn failure_rate(&self) -> T {
         T::from_usize(self.failed_elements.len()).unwrap_or_else(|| T::zero())
             / T::from_usize(self.total_elements).unwrap_or_else(|| T::one())
     }

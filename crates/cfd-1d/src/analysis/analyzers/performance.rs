@@ -14,9 +14,15 @@ pub struct PerformanceAnalyzer<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+impl<T: RealField + Copy> Default for PerformanceAnalyzer<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy> PerformanceAnalyzer<T> {
     /// Create new performance analyzer
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
@@ -50,7 +56,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T>
         Ok(metrics)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "PerformanceAnalyzer"
     }
 }
@@ -86,7 +92,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> PerformanceAnalyzer<T> {
                 for edge_ref in network.graph.edges(node_idx) {
                     let edge_idx = edge_ref.id();
                     if let Some(&flow) = network.flow_rates().get(&edge_idx) {
-                        total = total + Float::abs(flow);
+                        total += Float::abs(flow);
                     }
                 }
             }
@@ -127,7 +133,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> PerformanceAnalyzer<T> {
                     (pressures.get(&from_idx), pressures.get(&to_idx))
                 {
                     let pressure_drop = Float::abs(p_from - p_to);
-                    total_power = total_power + pressure_drop * Float::abs(flow_rate);
+                    total_power += pressure_drop * Float::abs(flow_rate);
                 }
             }
         }

@@ -5,7 +5,7 @@
 
 use cfd_3d::fem::{FemConfig, FemSolver};
 use cfd_core::domains::mesh_operations::ElementType;
-use cfd_core::fluid::ConstantPropertyFluid;
+use cfd_core::fluid::{ConstantPropertyFluid, ConstantFluid};
 use cfd_mesh::prelude::{Cell, Mesh, Vertex};
 use nalgebra::Point3;
 
@@ -24,8 +24,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mesh = create_unit_cube_mesh()?;
     println!(
         "Created tetrahedral mesh with {} vertices and {} cells",
-        mesh.vertices.len(),
-        mesh.cells.len()
+        mesh.vertices().len(),
+        mesh.cells().len()
     );
 
     // Create FEM solver configuration
@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Create FEM solver
-    let solver = FemSolver::new(config);
+    let _solver = FemSolver::new(config);
 
     println!("FEM solver configured with:");
     println!("  - Element type: Linear tetrahedron (Tet4)");
@@ -67,77 +67,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn create_unit_cube_mesh() -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
     // Create 8 vertices of a unit cube
     let vertices = vec![
-        Vertex {
-            position: Point3::new(0.0, 0.0, 0.0),
-            id: 0,
-        }, // 0
-        Vertex {
-            position: Point3::new(1.0, 0.0, 0.0),
-            id: 1,
-        }, // 1
-        Vertex {
-            position: Point3::new(1.0, 1.0, 0.0),
-            id: 2,
-        }, // 2
-        Vertex {
-            position: Point3::new(0.0, 1.0, 0.0),
-            id: 3,
-        }, // 3
-        Vertex {
-            position: Point3::new(0.0, 0.0, 1.0),
-            id: 4,
-        }, // 4
-        Vertex {
-            position: Point3::new(1.0, 0.0, 1.0),
-            id: 5,
-        }, // 5
-        Vertex {
-            position: Point3::new(1.0, 1.0, 1.0),
-            id: 6,
-        }, // 6
-        Vertex {
-            position: Point3::new(0.0, 1.0, 1.0),
-            id: 7,
-        }, // 7
+        Vertex::new(Point3::new(0.0, 0.0, 0.0)), // 0
+        Vertex::new(Point3::new(1.0, 0.0, 0.0)), // 1
+        Vertex::new(Point3::new(1.0, 1.0, 0.0)), // 2
+        Vertex::new(Point3::new(0.0, 1.0, 0.0)), // 3
+        Vertex::new(Point3::new(0.0, 0.0, 1.0)), // 4
+        Vertex::new(Point3::new(1.0, 0.0, 1.0)), // 5
+        Vertex::new(Point3::new(1.0, 1.0, 1.0)), // 6
+        Vertex::new(Point3::new(0.0, 1.0, 1.0)), // 7
     ];
 
     // Create tetrahedra by subdividing the cube
     // A cube can be divided into 5 or 6 tetrahedra
     let cells = vec![
         // Tetrahedron 1
-        Cell {
-            vertices: vec![0, 1, 2, 4],
-            element_type: ElementType::Tetrahedron,
-        },
-        // Tetrahedron 2
-        Cell {
-            vertices: vec![1, 2, 4, 5],
-            element_type: ElementType::Tetrahedron,
-        },
-        // Tetrahedron 3
-        Cell {
-            vertices: vec![2, 4, 5, 6],
-            element_type: ElementType::Tetrahedron,
-        },
-        // Tetrahedron 4
-        Cell {
-            vertices: vec![0, 2, 3, 4],
-            element_type: ElementType::Tetrahedron,
-        },
-        // Tetrahedron 5
-        Cell {
-            vertices: vec![2, 3, 4, 7],
-            element_type: ElementType::Tetrahedron,
-        },
-        // Tetrahedron 6
-        Cell {
-            vertices: vec![2, 4, 6, 7],
-            element_type: ElementType::Tetrahedron,
-        },
+        Cell::tetrahedron(0, 1, 2, 3),   // Tetrahedron with faces 0,1,2,3
+        Cell::tetrahedron(4, 5, 6, 7),   // Tetrahedron with faces 4,5,6,7
+        Cell::tetrahedron(8, 9, 10, 11), // Tetrahedron with faces 8,9,10,11
+        Cell::tetrahedron(12, 13, 14, 15), // Tetrahedron with faces 12,13,14,15
+        Cell::tetrahedron(16, 17, 18, 19), // Tetrahedron with faces 16,17,18,19
+        Cell::tetrahedron(20, 21, 22, 23), // Tetrahedron with faces 20,21,22,23
     ];
 
     // Create faces (not strictly necessary for FEM, but good for completeness)
-    let _faces = vec![];
+    let _faces: Vec<u8> = vec![];
 
     let mut mesh = Mesh::new();
 

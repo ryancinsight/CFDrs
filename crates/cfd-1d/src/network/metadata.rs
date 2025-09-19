@@ -36,7 +36,7 @@ impl<T: RealField + Copy> Default for NetworkMetadata<T> {
 
 impl<T: RealField + Copy> NetworkMetadata<T> {
     /// Create new metadata with a name
-    pub fn new(name: String) -> Self {
+    #[must_use] pub fn new(name: String) -> Self {
         Self {
             name,
             ..Default::default()

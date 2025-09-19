@@ -40,6 +40,12 @@ pub struct NetworkAnalyzerOrchestrator<T: RealField + Copy> {
     solver: crate::solver::NetworkSolver<T>,
 }
 
+impl<T: RealField + Copy + FromPrimitive + Float + Sum> Default for NetworkAnalyzerOrchestrator<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzerOrchestrator<T> {
     /// Create a new network analyzer
     #[must_use]

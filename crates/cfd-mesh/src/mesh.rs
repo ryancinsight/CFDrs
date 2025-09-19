@@ -22,7 +22,7 @@ pub struct Mesh<T: RealField + Copy> {
 
 impl<T: RealField + Copy> Mesh<T> {
     /// Create an empty mesh
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             vertices: Vec::new(),
             edges: Vec::new(),
@@ -66,37 +66,37 @@ impl<T: RealField + Copy> Mesh<T> {
     }
 
     /// Get vertex by index
-    pub fn vertex(&self, idx: usize) -> Option<&Vertex<T>> {
+    #[must_use] pub fn vertex(&self, idx: usize) -> Option<&Vertex<T>> {
         self.vertices.get(idx)
     }
 
     /// Get edge by index
-    pub fn edge(&self, idx: usize) -> Option<&Edge> {
+    #[must_use] pub fn edge(&self, idx: usize) -> Option<&Edge> {
         self.edges.get(idx)
     }
 
     /// Get face by index
-    pub fn face(&self, idx: usize) -> Option<&Face> {
+    #[must_use] pub fn face(&self, idx: usize) -> Option<&Face> {
         self.faces.get(idx)
     }
 
     /// Get cell by index
-    pub fn cell(&self, idx: usize) -> Option<&Cell> {
+    #[must_use] pub fn cell(&self, idx: usize) -> Option<&Cell> {
         self.cells.get(idx)
     }
 
     /// Number of vertices
-    pub fn vertex_count(&self) -> usize {
+    #[must_use] pub fn vertex_count(&self) -> usize {
         self.vertices.len()
     }
 
     /// Number of edges
-    pub fn edge_count(&self) -> usize {
+    #[must_use] pub fn edge_count(&self) -> usize {
         self.edges.len()
     }
 
     /// Number of faces
-    pub fn face_count(&self) -> usize {
+    #[must_use] pub fn face_count(&self) -> usize {
         self.faces.len()
     }
 
@@ -107,7 +107,7 @@ impl<T: RealField + Copy> Mesh<T> {
     }
 
     /// Get all boundary face indices
-    pub fn boundary_faces(&self) -> Vec<usize> {
+    #[must_use] pub fn boundary_faces(&self) -> Vec<usize> {
         self.boundary_markers.keys().copied().collect()
     }
 
@@ -117,22 +117,22 @@ impl<T: RealField + Copy> Mesh<T> {
     }
 
     /// Get all cells
-    pub fn cells(&self) -> &[Cell] {
+    #[must_use] pub fn cells(&self) -> &[Cell] {
         &self.cells
     }
 
     /// Get all vertices  
-    pub fn vertices(&self) -> &[Vertex<T>] {
+    #[must_use] pub fn vertices(&self) -> &[Vertex<T>] {
         &self.vertices
     }
 
     /// Get all edges
-    pub fn edges(&self) -> &[Edge] {
+    #[must_use] pub fn edges(&self) -> &[Edge] {
         &self.edges
     }
 
     /// Get all faces
-    pub fn faces(&self) -> &[Face] {
+    #[must_use] pub fn faces(&self) -> &[Face] {
         &self.faces
     }
 
@@ -145,7 +145,7 @@ impl<T: RealField + Copy> Mesh<T> {
 
     /// Get faces of a cell (allocating version for compatibility)
     #[deprecated(note = "Use element_faces() iterator for zero-copy access")]
-    pub fn get_element_faces<'a>(&'a self, cell: &'a Cell) -> Vec<&'a Face> {
+    #[must_use] pub fn get_element_faces<'a>(&'a self, cell: &'a Cell) -> Vec<&'a Face> {
         self.element_faces(cell).collect()
     }
 
@@ -172,7 +172,7 @@ impl<T: RealField + Copy> Mesh<T> {
 
     /// Get vertices of a cell (allocating version for compatibility)
     #[deprecated(note = "Use element_vertices() iterator for zero-copy access")]
-    pub fn get_element_vertices<'a>(&'a self, cell: &'a Cell) -> Vec<&'a Vertex<T>> {
+    #[must_use] pub fn get_element_vertices<'a>(&'a self, cell: &'a Cell) -> Vec<&'a Vertex<T>> {
         self.element_vertices(cell).collect()
     }
 
@@ -181,7 +181,7 @@ impl<T: RealField + Copy> Mesh<T> {
         // Check vertex indices in edges
         for edge in &self.edges {
             if edge.start >= self.vertices.len() || edge.end >= self.vertices.len() {
-                return Err(format!("Edge references invalid vertex: {:?}", edge));
+                return Err(format!("Edge references invalid vertex: {edge:?}"));
             }
         }
 
@@ -189,7 +189,7 @@ impl<T: RealField + Copy> Mesh<T> {
         for face in &self.faces {
             for &v in &face.vertices {
                 if v >= self.vertices.len() {
-                    return Err(format!("Face references invalid vertex: {}", v));
+                    return Err(format!("Face references invalid vertex: {v}"));
                 }
             }
         }
@@ -198,7 +198,7 @@ impl<T: RealField + Copy> Mesh<T> {
         for cell in &self.cells {
             for &f in &cell.faces {
                 if f >= self.faces.len() {
-                    return Err(format!("Cell references invalid face: {}", f));
+                    return Err(format!("Cell references invalid face: {f}"));
                 }
             }
         }
@@ -207,7 +207,7 @@ impl<T: RealField + Copy> Mesh<T> {
     }
 
     /// Compute mesh statistics
-    pub fn statistics(&self) -> MeshStatistics {
+    #[must_use] pub fn statistics(&self) -> MeshStatistics {
         let mut stats = MeshStatistics::default();
         stats.vertex_count = self.vertices.len();
         stats.edge_count = self.edges.len();

@@ -13,9 +13,15 @@ pub struct PressureAnalyzer<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+impl<T: RealField + Copy> Default for PressureAnalyzer<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy> PressureAnalyzer<T> {
     /// Create new pressure analyzer
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
@@ -58,7 +64,7 @@ impl<T: RealField + Copy + FromPrimitive + Sum> NetworkAnalyzer<T> for PressureA
         Ok(analysis)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "PressureAnalyzer"
     }
 }

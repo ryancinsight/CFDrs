@@ -21,10 +21,10 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidDimensions(msg) => write!(f, "Invalid dimensions: {}", msg),
-            Self::ConvergenceFailure(msg) => write!(f, "Convergence failure: {}", msg),
-            Self::InvalidConfiguration(msg) => write!(f, "Invalid configuration: {}", msg),
-            Self::CoreError(e) => write!(f, "Core error: {}", e),
+            Self::InvalidDimensions(msg) => write!(f, "Invalid dimensions: {msg}"),
+            Self::ConvergenceFailure(msg) => write!(f, "Convergence failure: {msg}"),
+            Self::InvalidConfiguration(msg) => write!(f, "Invalid configuration: {msg}"),
+            Self::CoreError(e) => write!(f, "Core error: {e}"),
         }
     }
 }

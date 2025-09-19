@@ -14,9 +14,15 @@ pub struct ResistanceAnalyzer<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+impl<T: RealField + Copy> Default for ResistanceAnalyzer<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy> ResistanceAnalyzer<T> {
     /// Create new resistance analyzer
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
@@ -64,7 +70,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T>
         Ok(analysis)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "ResistanceAnalyzer"
     }
 }

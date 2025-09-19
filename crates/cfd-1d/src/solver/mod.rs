@@ -67,7 +67,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Default for NetworkSolver<T> {
 
 impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
     /// Create a new network solver with default configuration
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         let tolerance = T::from_f64(1e-6).expect(
             "Failed to represent the default tolerance value (1e-6) in the target numeric type T",
         );
@@ -155,7 +155,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Solver<T> for NetworkSolver<T> 
         self.solve_network(problem)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "NetworkSolver"
     }
 }

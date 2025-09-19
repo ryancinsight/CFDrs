@@ -23,7 +23,7 @@ impl<T: RealField + Copy> DiscretizationScheme<T> for Upwind {
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Upwind"
     }
 }
@@ -37,7 +37,7 @@ impl<T: RealField + Copy> DiscretizationScheme<T> for CentralDifference {
         velocity * (phi_c + phi_u) * half
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "CentralDifference"
     }
 }
