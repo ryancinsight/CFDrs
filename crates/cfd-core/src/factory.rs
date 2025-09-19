@@ -215,13 +215,13 @@ impl<T: RealField + Copy> SolverFactoryRegistry<T> {
     /// - Factory registration fails due to invalid metadata
     pub fn register_factory(
         &mut self,
-        name: String,
+        name: &str,
         factory: Arc<dyn DynamicFactory<T>>,
         metadata: FactoryMetadata,
     ) -> Result<()> {
         use std::collections::hash_map::Entry;
 
-        match self.registry.entry(name.clone()) {
+        match self.registry.entry(name.to_string()) {
             Entry::Occupied(_) => Err(Error::InvalidInput(format!(
                 "Factory '{name}' already registered"
             ))),

@@ -162,11 +162,13 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     }
 
     /// Get the number of entries
+    #[must_use]
     pub fn len(&self) -> usize {
         self.entries.len()
     }
 
     /// Check if builder is empty
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }

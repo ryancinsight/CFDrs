@@ -338,6 +338,9 @@ impl GpuPoissonSolver {
     }
 
     /// Calculate residual for convergence checking
+    ///
+    /// # Errors
+    /// Returns error if GPU compute pipeline execution fails
     pub fn calculate_residual(&self, _phi: &[f32], _source: &[f32]) -> Result<f32> {
         // Use the residual_pipeline for residual calculation
         let _pipeline = &self.residual_pipeline;
