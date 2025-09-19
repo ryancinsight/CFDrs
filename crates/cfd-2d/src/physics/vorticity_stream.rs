@@ -125,7 +125,7 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
     }
 
     /// Solve stream function Poisson equation: ∇²ψ = -ω
-    fn solve_stream_function(&mut self) -> Result<()> {
+    fn solve_stream_function(&mut self) {
         let omega_sor = self.config.sor_omega;
         let dx2 = self.dx * self.dx;
         let dy2 = self.dy * self.dy;
@@ -160,12 +160,10 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
                 break;
             }
         }
-
-        Ok(())
     }
 
     /// Solve vorticity transport equation
-    fn solve_vorticity_transport(&mut self) -> Result<()> {
+    fn solve_vorticity_transport(&mut self) {
         let dt = self.config.time_step;
         let dx2 = self.dx * self.dx;
         let dy2 = self.dy * self.dy;
@@ -211,8 +209,6 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
                 self.omega[i][j] = self.omega_old[i][j] + dt * (diffusion - convection);
             }
         }
-
-        Ok(())
     }
 
     /// Update velocity field from stream function
@@ -265,10 +261,10 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
         self.update_boundary_vorticity();
 
         // Step 2: Solve vorticity transport equation
-        self.solve_vorticity_transport()?;
+        self.solve_vorticity_transport();
 
         // Step 3: Solve stream function Poisson equation
-        self.solve_stream_function()?;
+        self.solve_stream_function();
 
         // Step 4: Update velocity field
         self.update_velocity();
