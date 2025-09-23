@@ -15,6 +15,11 @@ pub trait GpuKernel<T: RealField + Copy>: ComputeKernel<T> {
     fn shader_code(&self) -> &str;
 
     /// Create compute pipeline
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the compute pipeline creation fails due to shader
+    /// compilation issues, device limitations, or invalid pipeline configuration.
     fn create_pipeline(&self, device: &wgpu::Device) -> Result<wgpu::ComputePipeline>;
 
     /// Dispatch compute operation

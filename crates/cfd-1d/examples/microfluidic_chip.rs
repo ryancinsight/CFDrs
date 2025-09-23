@@ -10,7 +10,6 @@
 
 use cfd_1d::solver::SolverConfig;
 use cfd_1d::{EdgeProperties, Network, NetworkBuilder, NetworkProblem, NetworkSolver};
-use cfd_core::fluid::ConstantPropertyFluid;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Microfluidic Chip Simulation");
