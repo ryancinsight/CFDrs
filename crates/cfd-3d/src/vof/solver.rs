@@ -141,7 +141,7 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
         let mut total = T::zero();
         let cell_volume = self.dx * self.dy * self.dz;
         for &alpha in &self.alpha {
-            total = total + alpha * cell_volume;
+            total += alpha * cell_volume;
         }
         total
     }

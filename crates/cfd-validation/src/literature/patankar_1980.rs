@@ -250,7 +250,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
                 .ok_or_else(|| Error::InvalidInput("Cannot convert j to usize".to_string()))?;
             let error = (psi[(i, j)] - psi_ref).abs();
             max_error = max_error.max(error);
-            sum_error = sum_error + error;
+            sum_error += error;
             count += 1;
         }
 

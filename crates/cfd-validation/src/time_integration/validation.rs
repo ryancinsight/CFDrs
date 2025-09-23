@@ -51,7 +51,7 @@ impl TimeIntegrationValidator {
         let mut y = y0.clone();
         let euler = ForwardEuler;
         for _ in 0..n_steps {
-            euler.step(&mut y, T::zero(), dt, &f)?;
+            euler.step(&mut y, T::zero(), dt, f)?;
         }
         let exact = (-lambda * final_time).exp();
         let error = (y[0] - exact).abs();
@@ -71,7 +71,7 @@ impl TimeIntegrationValidator {
         let mut y = y0.clone();
         let rk2 = RungeKutta2;
         for _ in 0..n_steps {
-            rk2.step(&mut y, T::zero(), dt, &f)?;
+            rk2.step(&mut y, T::zero(), dt, f)?;
         }
         let error = (y[0] - exact).abs();
 
@@ -90,7 +90,7 @@ impl TimeIntegrationValidator {
         let mut y = y0.clone();
         let rk4 = RungeKutta4;
         for _ in 0..n_steps {
-            rk4.step(&mut y, T::zero(), dt, &f)?;
+            rk4.step(&mut y, T::zero(), dt, f)?;
         }
         let error = (y[0] - exact).abs();
 
@@ -130,15 +130,15 @@ impl TimeIntegrationValidator {
         let integrators: Vec<(&str, Box<dyn Fn(&mut DVector<T>, T, T) -> Result<()>>)> = vec![
             (
                 "ForwardEuler",
-                Box::new(|y: &mut DVector<T>, t, dt| ForwardEuler.step(y, t, dt, &f)),
+                Box::new(|y: &mut DVector<T>, t, dt| ForwardEuler.step(y, t, dt, f)),
             ),
             (
                 "RungeKutta2",
-                Box::new(|y: &mut DVector<T>, t, dt| RungeKutta2.step(y, t, dt, &f)),
+                Box::new(|y: &mut DVector<T>, t, dt| RungeKutta2.step(y, t, dt, f)),
             ),
             (
                 "RungeKutta4",
-                Box::new(|y: &mut DVector<T>, t, dt| RungeKutta4.step(y, t, dt, &f)),
+                Box::new(|y: &mut DVector<T>, t, dt| RungeKutta4.step(y, t, dt, f)),
             ),
         ];
 
@@ -148,7 +148,7 @@ impl TimeIntegrationValidator {
 
             for _ in 0..n_steps {
                 integrator_fn(&mut y, t, dt)?;
-                t = t + dt;
+                t += dt;
             }
 
             // Exact solution: y(t) = cos(ωt)

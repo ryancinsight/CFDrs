@@ -97,11 +97,10 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
         for i in 1..self.base_grid.nx() - 1 {
             for j in 1..self.base_grid.ny() - 1 {
                 // Check for sharp gradients in neighboring cells
-                if self.detect_feature_at(i, j) {
-                    if self.refinement_levels[i][j] < self.max_level {
+                if self.detect_feature_at(i, j)
+                    && self.refinement_levels[i][j] < self.max_level {
                         self.refinement_levels[i][j] += 1;
                     }
-                }
             }
         }
         Ok(())

@@ -20,7 +20,7 @@ pub struct StructuredGridBuilder<T: RealField + Copy> {
     ny: usize,
     /// Number of cells in z direction
     nz: usize,
-    /// Domain bounds: ((x_min, x_max), (y_min, y_max), (z_min, z_max))
+    /// Domain bounds: ((`x_min`, `x_max`), (`y_min`, `y_max`), (`z_min`, `z_max`))
     bounds: ((T, T), (T, T), (T, T)),
 }
 
@@ -132,7 +132,7 @@ pub struct StructuredGrid2DBuilder<T: RealField + Copy> {
     nx: usize,
     /// Number of cells in y direction
     ny: usize,
-    /// Domain bounds: ((x_min, x_max), (y_min, y_max))
+    /// Domain bounds: ((`x_min`, `x_max`), (`y_min`, `y_max`))
     bounds: ((T, T), (T, T)),
 }
 

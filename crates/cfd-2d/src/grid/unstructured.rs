@@ -118,8 +118,7 @@ impl<T: RealField + Copy> Grid2D<T> for UnstructuredGrid2D<T> {
         let nx = self.nx;
 
         self.connectivity
-            .get(id)
-            .map(|v| v.clone())
+            .get(id).cloned()
             .unwrap_or_default()
             .into_iter()
             .map(move |neighbor_id| {

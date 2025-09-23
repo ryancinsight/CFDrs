@@ -93,7 +93,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for RectangularCh
         }
     }
 
-    fn component_type(&self) -> &str {
+    fn component_type(&self) -> &'static str {
         "RectangularChannel"
     }
 
@@ -170,7 +170,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for CircularChann
         c128 * viscosity * self.length / (pi * d4)
     }
 
-    fn component_type(&self) -> &str {
+    fn component_type(&self) -> &'static str {
         "CircularChannel"
     }
 

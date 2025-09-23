@@ -10,7 +10,7 @@ pub trait ExtendedStencilScheme<T: RealField + Copy> {
     /// Compute face value using extended stencil
     ///
     /// # Arguments
-    /// * `values` - Array of cell values [φ_UU, φ_U, φ_C, φ_D, φ_DD]
+    /// * `values` - Array of cell values [`φ_UU`, `φ_U`, `φ_C`, `φ_D`, `φ_DD`]
     /// * `velocity` - Face velocity (for upwind determination)
     /// * `positions` - Cell positions for non-uniform grids
     fn face_value(&self, values: &[T; 5], velocity: T, positions: Option<&[T; 5]>) -> T;

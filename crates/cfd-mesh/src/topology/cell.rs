@@ -14,7 +14,7 @@ pub struct Cell {
 
 impl Cell {
     /// Create a tetrahedral cell
-    pub fn tetrahedron(f0: usize, f1: usize, f2: usize, f3: usize) -> Self {
+    #[must_use] pub fn tetrahedron(f0: usize, f1: usize, f2: usize, f3: usize) -> Self {
         Self {
             faces: vec![f0, f1, f2, f3],
             element_type: ElementType::Tetrahedron,
@@ -22,7 +22,7 @@ impl Cell {
     }
 
     /// Create a hexahedral cell
-    pub fn hexahedron(faces: Vec<usize>) -> Self {
+    #[must_use] pub fn hexahedron(faces: Vec<usize>) -> Self {
         assert_eq!(faces.len(), 6, "Hexahedron must have 6 faces");
         Self {
             faces,
@@ -31,7 +31,7 @@ impl Cell {
     }
 
     /// Create a pyramidal cell
-    pub fn pyramid(faces: Vec<usize>) -> Self {
+    #[must_use] pub fn pyramid(faces: Vec<usize>) -> Self {
         assert_eq!(faces.len(), 5, "Pyramid must have 5 faces");
         Self {
             faces,
@@ -40,7 +40,7 @@ impl Cell {
     }
 
     /// Create a prism cell
-    pub fn prism(faces: Vec<usize>) -> Self {
+    #[must_use] pub fn prism(faces: Vec<usize>) -> Self {
         assert_eq!(faces.len(), 5, "Prism must have 5 faces");
         Self {
             faces,
@@ -49,12 +49,12 @@ impl Cell {
     }
 
     /// Number of faces in the cell
-    pub fn face_count(&self) -> usize {
+    #[must_use] pub fn face_count(&self) -> usize {
         self.faces.len()
     }
 
     /// Check if cell contains a face
-    pub fn contains_face(&self, face: usize) -> bool {
+    #[must_use] pub fn contains_face(&self, face: usize) -> bool {
         self.faces.contains(&face)
     }
 }

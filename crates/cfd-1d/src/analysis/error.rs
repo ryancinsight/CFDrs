@@ -22,9 +22,9 @@ impl fmt::Display for ResistanceCalculationError {
             Self::MissingHydraulicDiameter => {
                 write!(f, "Hydraulic diameter is missing for component")
             }
-            Self::ModelError(msg) => write!(f, "Resistance model calculation failed: {}", msg),
-            Self::InvalidFlowConditions(msg) => write!(f, "Invalid flow conditions: {}", msg),
-            Self::NumericalError(msg) => write!(f, "Numerical computation error: {}", msg),
+            Self::ModelError(msg) => write!(f, "Resistance model calculation failed: {msg}"),
+            Self::InvalidFlowConditions(msg) => write!(f, "Invalid flow conditions: {msg}"),
+            Self::NumericalError(msg) => write!(f, "Numerical computation error: {msg}"),
         }
     }
 }

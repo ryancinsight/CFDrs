@@ -64,10 +64,8 @@ impl<T: RealField + Copy + FromPrimitive> EnergyConservationChecker<T> {
                 let t_prev = temperature_prev[(i, j)];
 
                 // Accumulate total energy
-                total_energy =
-                    total_energy + self.density * self.specific_heat * t_center * dx * dy;
-                total_energy_prev =
-                    total_energy_prev + self.density * self.specific_heat * t_prev * dx * dy;
+                total_energy += self.density * self.specific_heat * t_center * dx * dy;
+                total_energy_prev += self.density * self.specific_heat * t_prev * dx * dy;
 
                 // Time derivative: ∂(ρcₚT)/∂t
                 let dtdt = self.density * self.specific_heat * (t_center - t_prev) / dt;
@@ -96,7 +94,7 @@ impl<T: RealField + Copy + FromPrimitive> EnergyConservationChecker<T> {
                 let residual = dtdt + conv - diff - q;
 
                 max_residual = max_residual.max(residual.abs());
-                total_residual = total_residual + residual.abs();
+                total_residual += residual.abs();
                 count += 1;
             }
         }
@@ -154,8 +152,8 @@ impl<T: RealField + Copy + FromPrimitive> EnergyConservationChecker<T> {
                 let u2 = u[(i, j)].powi(2) + v[(i, j)].powi(2);
                 let u2_prev = u_prev[(i, j)].powi(2) + v_prev[(i, j)].powi(2);
 
-                ke_current = ke_current + half * self.density * u2 * dx * dy;
-                ke_prev = ke_prev + half * self.density * u2_prev * dx * dy;
+                ke_current += half * self.density * u2 * dx * dy;
+                ke_prev += half * self.density * u2_prev * dx * dy;
             }
         }
 

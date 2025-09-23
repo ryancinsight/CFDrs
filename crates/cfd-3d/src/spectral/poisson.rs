@@ -92,7 +92,7 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
 
         // Solve the linear system using LU decomposition
         let lu = laplacian.lu();
-        let solution = lu.solve(&rhs).ok_or_else(|| {
+        let solution = lu.solve(&rhs).ok_or({
             cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::SingularMatrix)
         })?;
 

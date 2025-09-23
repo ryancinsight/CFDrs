@@ -92,7 +92,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> IbmSolver<T> {
         let mut eulerian_forces = vec![Vector3::zeros(); total_points];
 
         for point in &self.lagrangian_points {
-            self.spread_from_point(&point, &mut eulerian_forces)?;
+            self.spread_from_point(point, &mut eulerian_forces)?;
         }
 
         Ok(eulerian_forces)

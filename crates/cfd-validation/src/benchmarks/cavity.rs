@@ -174,8 +174,7 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64> Benchmark<T> for LidDriv
                         / (dx * dx);
 
                     // Update vorticity (explicit time stepping)
-                    omega[(i, j)] = omega[(i, j)]
-                        + dt * (-dpsi_dy * domega_dx + dpsi_dx * domega_dy + viscosity * laplacian);
+                    omega[(i, j)] += dt * (-dpsi_dy * domega_dx + dpsi_dx * domega_dy + viscosity * laplacian);
                 }
             }
 

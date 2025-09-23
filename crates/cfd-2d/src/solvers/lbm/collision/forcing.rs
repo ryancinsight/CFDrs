@@ -47,7 +47,7 @@ impl<T: RealField + Copy + FromPrimitive> ForcingScheme<T> for GuoForcing<T> {
 
             let forcing_term = w * density * dt * (cf / cs2 + (cu * cf) / (cs2 * cs2));
 
-            f[q] = f[q] + forcing_term;
+            f[q] += forcing_term;
         }
     }
 }
@@ -86,7 +86,7 @@ impl<T: RealField + Copy + FromPrimitive> ForcingScheme<T> for ShanChenForcing<T
             let cf = c[0] * force[0] + c[1] * force[1];
             let forcing_term = self.g * w * cf * dt;
 
-            f[q] = f[q] + forcing_term;
+            f[q] += forcing_term;
         }
     }
 }

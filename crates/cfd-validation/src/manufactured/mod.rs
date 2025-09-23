@@ -43,7 +43,7 @@ pub trait ManufacturedSolution<T: RealField + Float> {
 
         for (num, ex) in numerical.iter().zip(exact.iter()) {
             let diff = *num - *ex;
-            sum = sum + diff * diff;
+            sum += diff * diff;
         }
 
         Float::sqrt(sum / n)

@@ -87,8 +87,7 @@ impl<R: Read> BinaryReader<R> {
     /// Read deserializable data using bincode
     pub fn read<T: for<'de> Deserialize<'de>>(&mut self) -> Result<T> {
         bincode::deserialize_from(&mut self.reader).map_err(|e| {
-            Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            Error::Io(std::io::Error::other(
                 format!("Binary read error: {}", e),
             ))
         })

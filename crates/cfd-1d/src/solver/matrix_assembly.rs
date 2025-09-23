@@ -71,12 +71,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
                     gradient: flow_rate,
                 } => {
                     // Neumann boundary condition
-                    rhs[idx] = rhs[idx] + flow_rate;
+                    rhs[idx] += flow_rate;
                 }
                 _ => {
                     return Err(Error::Solver(format!(
-                        "Unsupported boundary condition type encountered at node {}: {:?}",
-                        idx, bc
+                        "Unsupported boundary condition type encountered at node {idx}: {bc:?}"
                     )));
                 }
             }

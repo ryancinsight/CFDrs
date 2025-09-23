@@ -14,7 +14,7 @@ pub mod constants {
     use num_traits::FromPrimitive;
 
     /// Default Reynolds number for laminar flow
-    pub fn default_reynolds<T: RealField + FromPrimitive>() -> T {
+    #[must_use] pub fn default_reynolds<T: RealField + FromPrimitive>() -> T {
         T::from_f64(100.0).unwrap_or_else(|| T::from_i32(100).unwrap())
     }
 
@@ -24,7 +24,7 @@ pub mod constants {
     }
 
     /// Maximum allowed time step
-    pub fn max_time_step<T: RealField + FromPrimitive>() -> T {
+    #[must_use] pub fn max_time_step<T: RealField + FromPrimitive>() -> T {
         T::one()
     }
 
@@ -53,7 +53,7 @@ impl<T: Clone> Field2D<T> {
     }
 
     /// Create field filled with zeros
-    pub fn zeros(nx: usize, ny: usize) -> Self
+    #[must_use] pub fn zeros(nx: usize, ny: usize) -> Self
     where
         T: num_traits::Zero,
     {
@@ -161,7 +161,7 @@ impl<T: Clone> Field2D<T> {
 
     /// Get row as slice
     #[inline]
-    pub fn row(&self, j: usize) -> &[T] {
+    #[must_use] pub fn row(&self, j: usize) -> &[T] {
         debug_assert!(j < self.ny, "Row index out of bounds");
         let start = j * self.nx;
         &self.data[start..start + self.nx]
@@ -261,7 +261,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
         self.p_prime.map_inplace(|val| *val = T::zero());
     }
 
-    /// Efficiently copy data from another SimulationFields instance
+    /// Efficiently copy data from another `SimulationFields` instance
     /// This is much more efficient than cloning when reusing buffers
     pub fn copy_from(&mut self, other: &SimulationFields<T>) -> Result<(), String> {
         // Ensure dimensions match

@@ -74,8 +74,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ChapmanEnskogValidation<
         };
         let k_b = 1.380649e-23;
 
-        let k_thermal = T::from_f64(15.0 / 4.0 * k_b / m).unwrap_or_else(T::zero) * mu;
-        k_thermal
+        
+        T::from_f64(15.0 / 4.0 * k_b / m).unwrap_or_else(T::zero) * mu
     }
 }
 

@@ -192,7 +192,7 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KEpsilonModel<T
         Ok(())
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "k-epsilon"
     }
 

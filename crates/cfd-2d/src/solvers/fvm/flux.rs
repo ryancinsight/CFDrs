@@ -24,7 +24,7 @@ pub struct FluxSchemeFactory;
 
 impl FluxSchemeFactory {
     /// Create a flux calculator based on the scheme
-    pub fn create<T: RealField + Copy + FromPrimitive>(
+    #[must_use] pub fn create<T: RealField + Copy + FromPrimitive>(
         scheme: FluxScheme,
         diffusion: f64,
     ) -> Box<dyn FluxCalculator<T>> {
