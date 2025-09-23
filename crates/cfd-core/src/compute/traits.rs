@@ -10,9 +10,19 @@ pub trait ComputeKernel<T: RealField + Copy>: Debug + Send + Sync {
     fn name(&self) -> &str;
 
     /// Execute the kernel with given input and output buffers
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the kernel execution fails due to invalid parameters,
+    /// insufficient buffer sizes, or underlying computation errors.
     fn execute(&self, input: &[T], output: &mut [T], params: KernelParams) -> Result<()>;
 
     /// Execute kernel on GPU if implemented
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if GPU execution is not implemented for this kernel,
+    /// GPU context is invalid, or GPU computation fails.
     #[cfg(feature = "gpu")]
     fn execute_gpu(
         &self,
@@ -63,9 +73,19 @@ pub trait ComputeBuffer<T: RealField + Copy>: Debug + Send + Sync {
     fn size(&self) -> usize;
 
     /// Read data from buffer
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the buffer cannot be read due to access restrictions,
+    /// memory allocation failures, or underlying backend errors.
     fn read(&self) -> Result<Vec<T>>;
 
     /// Write data to buffer
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if the buffer cannot be written due to size mismatches,
+    /// access restrictions, or underlying backend errors.
     fn write(&mut self, data: &[T]) -> Result<()>;
 
     /// Map buffer for direct access (if supported)

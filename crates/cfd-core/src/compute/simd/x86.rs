@@ -11,6 +11,12 @@ use std::arch::x86_64::{
 };
 
 /// AVX2 implementation for advection kernel (256-bit vectors, 8 floats)
+/// 
+/// # Safety
+/// 
+/// This function requires AVX2 instruction set support. Caller must ensure
+/// the target hardware supports AVX2 and all slice inputs have compatible lengths
+/// for the given grid dimensions (nx, ny).
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
 pub unsafe fn advection_avx2(

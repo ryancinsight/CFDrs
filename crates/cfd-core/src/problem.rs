@@ -96,12 +96,14 @@ impl<T: RealField + Copy, D: Domain<T>> ProblemBuilder<T, D> {
     }
 
     /// Set the domain
+    #[must_use]
     pub fn domain(mut self, domain: D) -> Self {
         self.domain = Some(Arc::new(domain));
         self
     }
 
     /// Set the fluid
+    #[must_use]
     pub fn fluid(mut self, fluid: ConstantPropertyFluid<T>) -> Self {
         self.fluid = Some(fluid);
         self
@@ -118,18 +120,21 @@ impl<T: RealField + Copy, D: Domain<T>> ProblemBuilder<T, D> {
     }
 
     /// Set reference pressure
+    #[must_use]
     pub fn reference_pressure(mut self, pressure: T) -> Self {
         self.parameters.reference_pressure = pressure;
         self
     }
 
     /// Set gravity
+    #[must_use]
     pub fn gravity(mut self, gravity: nalgebra::Vector3<T>) -> Self {
         self.parameters.gravity = Some(gravity);
         self
     }
 
     /// Enable transient simulation
+    #[must_use]
     pub fn transient(mut self, transient: bool) -> Self {
         self.parameters.transient = transient;
         self

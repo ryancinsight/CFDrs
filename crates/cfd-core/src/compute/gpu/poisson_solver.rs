@@ -159,6 +159,11 @@ impl GpuPoissonSolver {
     }
 
     /// Solve Poisson equation using Jacobi iteration
+    /// 
+    /// # Panics
+    /// 
+    /// May panic if GPU buffer operations fail unexpectedly or if communication
+    /// channels between GPU and CPU operations are corrupted.
     pub fn solve_jacobi(
         &self,
         phi: &mut [f32],

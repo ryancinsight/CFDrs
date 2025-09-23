@@ -65,7 +65,7 @@ impl ComputeDispatcher {
 
         match backend {
             ComputeBackend::Cpu => Self::execute_cpu(kernel, input, output, params),
-            ComputeBackend::Simd => self.execute_simd(kernel, input, output, params),
+            ComputeBackend::Simd => Self::execute_simd(kernel, input, output, params),
             ComputeBackend::Gpu => self.execute_gpu(kernel, input, output, params),
             ComputeBackend::Hybrid => self.execute_hybrid(kernel, input, output, params),
         }
@@ -83,7 +83,6 @@ impl ComputeDispatcher {
 
     /// Execute on SIMD backend
     fn execute_simd<T: RealField + Copy>(
-        &self,
         kernel: &dyn ComputeKernel<T>,
         input: &[T],
         output: &mut [T],
@@ -144,7 +143,7 @@ impl ComputeDispatcher {
         if ComputeBackend::Gpu.is_available() {
             self.execute_gpu(kernel, input, output, params)
         } else if ComputeBackend::Simd.is_available() {
-            self.execute_simd(kernel, input, output, params)
+            Self::execute_simd(kernel, input, output, params)
         } else {
             Self::execute_cpu(kernel, input, output, params)
         }

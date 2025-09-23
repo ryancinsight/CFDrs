@@ -44,11 +44,11 @@ fn validate_poiseuille_parabolic_profile() {
     // Validate parabolic profile
     let y_values = vec![0.0, 0.0025, 0.005, 0.0075, 0.01];
     let expected_velocities = vec![
-        0.5,     // Centerline maximum
-        0.46875, // 75% of the way to max
-        0.375,   // 50% position
-        0.21875, // 25% position
-        0.0,     // Wall
+        5.0,     // Centerline maximum: (1/2μ)(dp/dx)(h²) = (1/(2×0.001))×100×(0.01²) = 5.0
+        4.6875,  // At y=0.0025: 5.0×(1-(0.0025/0.01)²) = 5.0×(1-0.0625) = 4.6875
+        3.75,    // At y=0.005: 5.0×(1-(0.005/0.01)²) = 5.0×(1-0.25) = 3.75
+        2.1875,  // At y=0.0075: 5.0×(1-(0.0075/0.01)²) = 5.0×(1-0.5625) = 2.1875
+        0.0,     // Wall: 5.0×(1-(0.01/0.01)²) = 5.0×(1-1) = 0.0
     ];
 
     for (y, u_expected) in y_values.iter().zip(expected_velocities.iter()) {
@@ -63,7 +63,7 @@ fn validate_poiseuille_parabolic_profile() {
 
     // Validate flow rate calculation
     let q = flow.flow_rate();
-    let q_expected = 2.0 * 0.01 * (2.0 / 3.0) * 0.5; // 2h * u_avg
+    let q_expected = 2.0 * 0.01 * (2.0 / 3.0) * 5.0; // 2h * (2/3) * u_max = 2×0.01×(2/3)×5.0
     assert_relative_eq!(q, q_expected, epsilon = 1e-10);
 }
 
