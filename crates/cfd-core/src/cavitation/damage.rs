@@ -76,6 +76,9 @@ impl<T: RealField + Copy + FromPrimitive> CavitationDamage<T> {
 
     /// Calculate incubation period before damage onset using Basquin's law
     pub fn incubation_period(&self, stress_amplitude: T) -> u64 {
+        // Maximum safe f64 value that can be precisely represented as u64
+        const MAX_SAFE_F64: f64 = 9_007_199_254_740_992.0; // 2^53
+        
         // Basquin's law for high-cycle fatigue: σ_a = σ_f' * (2N)^b
         // Rearranged: N = 0.5 * ((σ_a / σ_f')^(1/b))
         // where σ_f' is fatigue strength coefficient ≈ 0.9 * UTS
@@ -98,9 +101,6 @@ impl<T: RealField + Copy + FromPrimitive> CavitationDamage<T> {
             let n = two_n / T::from_f64(2.0).unwrap_or_else(|| T::one());
 
             // Safe conversion to u64 with proper bounds checking
-            // Maximum safe f64 value that can be precisely represented as u64
-            const MAX_SAFE_F64: f64 = 9_007_199_254_740_992.0; // 2^53
-            
             if n > T::zero()
                 && n < T::from_u64(u64::MAX)
                     .unwrap_or_else(|| T::from_f64(1e18).unwrap_or_else(|| T::one()))
