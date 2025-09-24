@@ -37,6 +37,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> GhostCellCalculator<T> {
     /// For second-order accuracy at boundary:
     ///   - Linear extrapolation: g₁ = 2*b - i₁
     ///   - Quadratic extrapolation: g₁ = 3*b - 3*i₁ + i₂
+    ///
     /// where g = ghost, b = boundary value, i = interior values
     /// 
     /// # Errors

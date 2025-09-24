@@ -42,12 +42,10 @@ impl ElementType {
     pub fn num_nodes(&self) -> usize {
         match self {
             Self::Line => 2,
-            Self::Line3 => 3,
-            Self::Triangle => 3,
+            Self::Line3 | Self::Triangle => 3,
             Self::Triangle6 => 6,
-            Self::Quadrilateral => 4,
+            Self::Quadrilateral | Self::Tetrahedron => 4,
             Self::Quadrilateral9 => 9,
-            Self::Tetrahedron => 4,
             Self::Tetrahedron10 => 10,
             Self::Hexahedron => 8,
             Self::Hexahedron20 => 20,

@@ -83,10 +83,12 @@ impl<T: RealField + Copy> MaterialDatabase<T> {
     where
         T: From<f64>,
     {
+        use super::interfaces::FluidSolidInterface;
+        use super::solids::ElasticSolid;
+        
         let mut db = Self::new();
 
         // Add common fluids
-
         // Note: These methods return Result, need to handle errors
         if let Ok(water) = crate::fluid::database::water_20c::<T>() {
             db.add_fluid("water".to_string(), Box::new(water));
@@ -96,7 +98,6 @@ impl<T: RealField + Copy> MaterialDatabase<T> {
         }
 
         // Add common solids
-        use super::solids::ElasticSolid;
         db.add_solid("steel".to_string(), Box::new(ElasticSolid::<T>::steel()));
         db.add_solid(
             "aluminum".to_string(),
@@ -108,7 +109,6 @@ impl<T: RealField + Copy> MaterialDatabase<T> {
         );
 
         // Add common interfaces
-        use super::interfaces::FluidSolidInterface;
         db.add_interface(
             "water_air".to_string(),
             Box::new(FluidSolidInterface::<T>::water_air()),

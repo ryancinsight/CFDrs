@@ -85,6 +85,9 @@ impl<T: RealField + Copy> Mesh<T> {
     }
 
     /// Validate mesh consistency
+    /// 
+    /// # Errors
+    /// Returns error if mesh has invalid topology or degenerate elements
     pub fn validate(&self) -> Result<()> {
         // Check for empty mesh
         if self.nodes.is_empty() {

@@ -27,7 +27,9 @@ pub struct GpuPoissonSolver {
     device: Arc<wgpu::Device>,
     queue: Arc<wgpu::Queue>,
     jacobi_pipeline: wgpu::ComputePipeline,
+    #[allow(dead_code)] // Reserved for Red-Black Gauss-Seidel implementation
     red_black_pipeline: wgpu::ComputePipeline,
+    #[allow(dead_code)] // Reserved for convergence residual computation
     residual_pipeline: wgpu::ComputePipeline,
     params_buffer: wgpu::Buffer,
     bind_group_layout: wgpu::BindGroupLayout,
@@ -182,9 +184,10 @@ impl GpuPoissonSolver {
 
         // Update parameters
         let sqrt_n = (n as f32).sqrt().max(1.0);
+        let grid_size = sqrt_n.round().max(1.0) as u32;
         let params = PoissonParams {
-            nx: sqrt_n.round() as u32,
-            ny: sqrt_n.round() as u32,
+            nx: grid_size,
+            ny: grid_size,
             dx: 1.0 / sqrt_n,
             dy: 1.0 / sqrt_n,
             omega,

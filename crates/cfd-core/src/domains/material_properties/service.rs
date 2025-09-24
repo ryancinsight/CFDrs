@@ -17,16 +17,16 @@ impl<T: RealField + Copy> MaterialPropertiesService<T> {
     /// Create new material properties service
     #[must_use]
     pub fn new() -> Self {
+        use super::property_calculators::{
+            KinematicViscosityCalculator, PrandtlNumberCalculator, ReynoldsNumberCalculator,
+        };
+        
         let mut service = Self {
             database: MaterialDatabase::new(),
             calculators: HashMap::new(),
         };
 
         // Register default calculators
-        use super::property_calculators::{
-            KinematicViscosityCalculator, PrandtlNumberCalculator, ReynoldsNumberCalculator,
-        };
-
         service.register_calculator(
             "kinematic_viscosity".to_string(),
             Box::new(KinematicViscosityCalculator),
