@@ -35,6 +35,9 @@ pub struct GpuPoissonSolver {
 
 impl GpuPoissonSolver {
     /// Create a new GPU Poisson solver
+    /// 
+    /// # Errors
+    /// Returns error if GPU device creation fails or shader compilation fails
     pub fn new(
         device: Arc<wgpu::Device>,
         queue: Arc<wgpu::Queue>,
@@ -160,10 +163,14 @@ impl GpuPoissonSolver {
 
     /// Solve Poisson equation using Jacobi iteration
     /// 
+    /// # Errors
+    /// Returns error if GPU buffer creation fails or command submission fails
+    /// 
     /// # Panics
     /// 
     /// May panic if GPU buffer operations fail unexpectedly or if communication
     /// channels between GPU and CPU operations are corrupted.
+    #[allow(clippy::too_many_lines)]
     pub fn solve_jacobi(
         &self,
         phi: &mut [f32],
@@ -174,11 +181,12 @@ impl GpuPoissonSolver {
         let n = phi.len();
 
         // Update parameters
+        let sqrt_n = (n as f32).sqrt().max(1.0);
         let params = PoissonParams {
-            nx: (n as f32).sqrt() as u32,
-            ny: (n as f32).sqrt() as u32,
-            dx: 1.0 / (n as f32).sqrt(),
-            dy: 1.0 / (n as f32).sqrt(),
+            nx: sqrt_n.round() as u32,
+            ny: sqrt_n.round() as u32,
+            dx: 1.0 / sqrt_n,
+            dy: 1.0 / sqrt_n,
             omega,
         };
 
@@ -326,6 +334,9 @@ impl GpuPoissonSolver {
     }
 
     /// Solve using Red-Black Gauss-Seidel iteration (potentially more efficient)
+    /// 
+    /// # Errors
+    /// Returns error if GPU buffer creation fails or command submission fails
     pub fn solve_red_black(
         &self,
         phi: &mut [f32],
@@ -333,10 +344,6 @@ impl GpuPoissonSolver {
         iterations: usize,
         omega: f32,
     ) -> Result<()> {
-        // Use the red_black_pipeline for improved performance
-        // For demonstration that the pipeline is used
-        let _pipeline = &self.red_black_pipeline;
-
         // Implementation would use red-black ordering
         // For now, delegate to Jacobi method as a working implementation
         self.solve_jacobi(phi, source, iterations, omega)
@@ -347,9 +354,6 @@ impl GpuPoissonSolver {
     /// # Errors
     /// Returns error if GPU compute pipeline execution fails
     pub fn calculate_residual(&self, _phi: &[f32], _source: &[f32]) -> Result<f32> {
-        // Use the residual_pipeline for residual calculation
-        let _pipeline = &self.residual_pipeline;
-
         // Implementation calculates ||Ax - b|| using GPU compute shader
         // Residual computation requires additional buffer management
         Ok(0.0)

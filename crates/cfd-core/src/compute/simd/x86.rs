@@ -19,6 +19,7 @@ use std::arch::x86_64::{
 /// for the given grid dimensions (nx, ny).
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
+#[allow(clippy::too_many_arguments)]
 pub unsafe fn advection_avx2(
     input: &[f32],
     output: &mut [f32],
@@ -108,8 +109,15 @@ pub unsafe fn advection_avx2(
 }
 
 /// SSE4.1 implementation for advection kernel (128-bit vectors, 4 floats)
+/// 
+/// # Safety
+/// 
+/// This function requires SSE4.1 instruction set support. Caller must ensure
+/// the target hardware supports SSE4.1 and all slice inputs have compatible lengths
+/// for the given grid dimensions (nx, ny).
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "sse4.1")]
+#[allow(clippy::too_many_arguments)]
 pub unsafe fn advection_sse41(
     input: &[f32],
     output: &mut [f32],
@@ -199,8 +207,15 @@ pub unsafe fn advection_sse41(
 }
 
 /// AVX2 implementation for diffusion kernel
+/// 
+/// # Safety
+/// 
+/// This function requires AVX2 instruction set support. Caller must ensure
+/// the target hardware supports AVX2 and all slice inputs have compatible lengths
+/// for the given grid dimensions (nx, ny).
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
+#[allow(clippy::too_many_arguments)]
 pub unsafe fn diffusion_avx2(
     input: &[f32],
     output: &mut [f32],
