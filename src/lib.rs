@@ -25,15 +25,17 @@ pub mod compute_unified;
 /// # Usage
 /// ```rust
 /// use cfd_suite::prelude::*;
-/// use cfd_suite::core::Result;
+/// use cfd_suite::core::error::Result;
 /// use cfd_suite::d1::Network;
-/// use cfd_suite::d2::StructuredGrid2D;
+/// use cfd_suite::d2::grid::StructuredGrid2D;
 ///
 /// fn main() -> Result<()> {
-///     // Now you have access to all commonly used CFD functionality
-///     let fluid = Fluid::<f64>::water()?;
-///     let mut network = Network::new(fluid);
-///     let grid = StructuredGrid2D::<f64>::new(10, 10, 0.0, 1.0, 0.0, 1.0)?;
+///     // Create fluid properties using proper API
+///     let fluid = ConstantPropertyFluid::<f64>::water_20c()?;
+///     // Create network graph first, then network with fluid
+///     let graph = cfd_suite::d1::network::NetworkGraph::new();
+///     let mut network = Network::new(graph, fluid.clone());
+///     let grid = StructuredGrid2D::<f64>::new(10, 10, 0.0, 1.0, 0.0, 1.0);
 ///     Ok(())
 /// }
 /// ```

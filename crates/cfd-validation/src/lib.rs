@@ -7,6 +7,13 @@
 //! - Method of manufactured solutions
 
 #![warn(missing_docs)]
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::module_name_repetitions)]
+// CFD validation allows
+#![allow(clippy::similar_names)]           // Test variables often similar (u1,u2; err1,err2)
+#![allow(clippy::cast_precision_loss)]     // Acceptable in validation calculations  
+#![allow(clippy::must_use_candidate)]      // Validation utilities often used in expressions
 
 pub mod analytical;
 pub mod analytical_benchmarks;

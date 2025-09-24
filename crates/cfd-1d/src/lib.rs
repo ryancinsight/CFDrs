@@ -18,6 +18,12 @@
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
+// 1D CFD network simulation allows
+#![allow(clippy::similar_names)]           // Network variables (p1,p2; q1,q2) often similar  
+#![allow(clippy::cast_precision_loss)]     // Acceptable in flow calculations
+#![allow(clippy::cast_possible_truncation)] // Network sizes typically small
+#![allow(clippy::unused_self)]             // Analyzer trait consistency
+#![allow(clippy::must_use_candidate)]      // Network analysis utilities
 
 pub mod analysis;
 pub mod channel;

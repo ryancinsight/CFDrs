@@ -4,6 +4,12 @@
 //! CFD simulation data.
 
 #![warn(missing_docs)]
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::module_name_repetitions)]
+// I/O and file format allows
+#![allow(clippy::similar_names)]           // File format variables often similar
+#![allow(clippy::must_use_candidate)]      // I/O utilities typically return values that are used
 
 pub mod binary;
 pub mod checkpoint;
