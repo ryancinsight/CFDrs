@@ -9,6 +9,7 @@
 #![allow(clippy::cast_precision_loss)]     // Precision loss acceptable for performance in numerical code
 #![allow(clippy::cast_possible_truncation)] // Array indices and loop counters are typically small
 #![allow(clippy::unused_self)]             // Trait methods maintain interface consistency
+#![allow(clippy::must_use_candidate)]      // Mathematical utilities often used in larger expressions
 
 pub mod differentiation;
 pub mod error;

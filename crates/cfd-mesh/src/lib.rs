@@ -4,6 +4,10 @@
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
+// Mesh generation and geometry allows
+#![allow(clippy::similar_names)]           // Geometric variables (x,y,z; i,j,k) naturally similar
+#![allow(clippy::cast_precision_loss)]     // Acceptable in geometric calculations
+#![allow(clippy::must_use_candidate)]      // Geometric utilities often used in expressions
 
 pub mod connectivity;
 #[cfg(feature = "csg")]

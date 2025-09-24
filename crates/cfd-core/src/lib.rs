@@ -22,6 +22,7 @@
 #![allow(clippy::cast_precision_loss)]     // Precision loss acceptable in CFD for performance
 #![allow(clippy::cast_possible_truncation)] // GPU buffer sizes and indices are typically small
 #![allow(clippy::unused_self)]             // Trait methods may not use self but maintain interface consistency
+#![allow(clippy::must_use_candidate)]      // CFD functions often have side effects or are utilities
 
 pub mod aggregates;
 pub mod boundary;

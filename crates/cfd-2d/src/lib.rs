@@ -14,6 +14,7 @@
 #![allow(clippy::cast_precision_loss)]     // Performance-critical numerical loops
 #![allow(clippy::cast_possible_truncation)] // Grid indices and array sizes typically small
 #![allow(clippy::unused_self)]             // Solver trait methods maintain consistent interfaces
+#![allow(clippy::must_use_candidate)]      // Solver utilities and getters used in computational contexts
 
 // Core modules
 pub mod constants;
