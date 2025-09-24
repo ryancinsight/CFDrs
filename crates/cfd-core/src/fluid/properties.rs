@@ -52,6 +52,9 @@ impl<T: RealField + Copy> FluidProperties<T> {
     }
 
     /// Calculate Reynolds number for given flow conditions
+    ///
+    /// # Errors
+    /// Returns an error if the dynamic viscosity is zero or negative
     pub fn reynolds_number(&self, velocity: T, characteristic_length: T) -> Result<T, Error> {
         if self.dynamic_viscosity <= T::zero() {
             return Err(Error::InvalidInput(
@@ -62,6 +65,9 @@ impl<T: RealField + Copy> FluidProperties<T> {
     }
 
     /// Calculate Peclet number for given flow conditions
+    ///
+    /// # Errors
+    /// Returns an error if viscosity, thermal conductivity, density, or specific heat are invalid
     pub fn peclet_number(&self, velocity: T, characteristic_length: T) -> Result<T, Error> {
         let re = self.reynolds_number(velocity, characteristic_length)?;
         let pr = self.prandtl_number()?;

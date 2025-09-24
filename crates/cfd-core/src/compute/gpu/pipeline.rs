@@ -27,6 +27,9 @@ impl GpuPipelineManager {
     }
 
     /// Register a compute pipeline
+    ///
+    /// # Errors
+    /// Returns an error if the shader compilation fails or the pipeline creation fails
     pub fn register_pipeline(
         &mut self,
         name: &str,
@@ -169,6 +172,7 @@ impl GpuPipelineManager {
         // Add input buffers
         for (i, buffer) in input_buffers.iter().enumerate() {
             entries.push(wgpu::BindGroupEntry {
+                #[allow(clippy::cast_possible_truncation)] // GPU buffer binding IDs are typically small
                 binding: (i + 1) as u32,
                 resource: buffer.buffer.as_entire_binding(),
             });
@@ -176,6 +180,7 @@ impl GpuPipelineManager {
 
         // Add output buffer
         entries.push(wgpu::BindGroupEntry {
+            #[allow(clippy::cast_possible_truncation)] // GPU buffer binding IDs are typically small
             binding: (input_buffers.len() + 1) as u32,
             resource: output_buffer.buffer.as_entire_binding(),
         });

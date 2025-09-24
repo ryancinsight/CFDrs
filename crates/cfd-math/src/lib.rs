@@ -4,6 +4,11 @@
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
+// CFD numerical computation allows
+#![allow(clippy::similar_names)]           // Mathematical variables often have similar names (x,y,z; i,j,k)
+#![allow(clippy::cast_precision_loss)]     // Precision loss acceptable for performance in numerical code
+#![allow(clippy::cast_possible_truncation)] // Array indices and loop counters are typically small
+#![allow(clippy::unused_self)]             // Trait methods maintain interface consistency
 
 pub mod differentiation;
 pub mod error;
