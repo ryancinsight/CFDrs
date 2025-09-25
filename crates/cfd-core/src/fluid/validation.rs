@@ -95,6 +95,9 @@ pub fn validate_properties<T: RealField + Copy>(
 }
 
 /// Check dimensionless number validity
+///
+/// # Errors
+/// Returns error if Reynolds number is negative or exceeds typical physical range
 pub fn validate_reynolds<T: RealField + Copy>(reynolds: T) -> Result<(), Error> {
     if reynolds < T::zero() {
         return Err(Error::InvalidInput(
@@ -114,6 +117,9 @@ pub fn validate_reynolds<T: RealField + Copy>(reynolds: T) -> Result<(), Error> 
 }
 
 /// Check Prandtl number validity
+///
+/// # Errors  
+/// Returns error if Prandtl number is zero, negative, or exceeds typical physical range
 pub fn validate_prandtl<T: RealField + Copy>(prandtl: T) -> Result<(), Error> {
     if prandtl <= T::zero() {
         return Err(Error::InvalidInput(
@@ -135,6 +141,9 @@ pub fn validate_prandtl<T: RealField + Copy>(prandtl: T) -> Result<(), Error> {
 }
 
 /// Validate temperature for physical reasonableness
+///
+/// # Errors
+/// Returns error if temperature is below absolute zero or exceeds reasonable limits
 pub fn validate_temperature<T: RealField + Copy>(temperature: T) -> Result<(), Error> {
     let t_min = T::zero(); // Absolute zero
     let t_max = T::from_f64(10000.0).unwrap_or_else(T::one); // Reasonable upper limit

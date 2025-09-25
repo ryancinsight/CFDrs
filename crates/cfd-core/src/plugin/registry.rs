@@ -60,6 +60,9 @@ impl PluginRegistry {
     }
 
     /// Unregister a plugin from the registry
+    ///
+    /// # Errors
+    /// Returns error if plugin has dependents and cannot be safely unregistered
     pub fn unregister(&mut self, name: &str) -> Result<()> {
         // Check if other plugins depend on this one
         for (plugin_name, plugin) in self.storage.iter() {
@@ -152,6 +155,9 @@ impl PluginRegistry {
     }
 
     /// Validate plugin configuration
+    ///
+    /// # Errors
+    /// Returns error if any plugin has missing dependencies or configuration issues
     pub fn validate_all(&self) -> Result<()> {
         for name in self.storage.list() {
             if let Some(plugin) = self.storage.get(&name) {

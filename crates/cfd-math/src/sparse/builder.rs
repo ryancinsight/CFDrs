@@ -60,6 +60,9 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     }
 
     /// Add a single entry
+    ///
+    /// # Errors
+    /// Returns error if row or column indices are out of bounds
     pub fn add_entry(&mut self, row: usize, col: usize, value: T) -> Result<()> {
         if row >= self.rows || col >= self.cols {
             return Err(Error::InvalidConfiguration(format!(
@@ -72,6 +75,9 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     }
 
     /// Add multiple entries using iterator
+    ///
+    /// # Errors
+    /// Returns error if any entry has indices out of bounds
     pub fn add_entries<I>(&mut self, entries: I) -> Result<()>
     where
         I: IntoIterator<Item = MatrixEntry<T>>,
@@ -83,6 +89,9 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     }
 
     /// Add entries from triplet format
+    ///
+    /// # Errors
+    /// Returns error if any triplet has indices out of bounds
     pub fn add_triplets<I>(&mut self, triplets: I) -> Result<()>
     where
         I: IntoIterator<Item = (usize, usize, T)>,
@@ -94,6 +103,9 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     }
 
     /// Build the sparse matrix using COO format for efficiency
+    ///
+    /// # Errors
+    /// Returns error if matrix construction fails or indices are invalid
     pub fn build(self) -> Result<CsrMatrix<T>> {
         if self.entries.is_empty() {
             return Ok(CsrMatrix::zeros(self.rows, self.cols));
