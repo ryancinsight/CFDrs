@@ -9,12 +9,21 @@ use std::collections::HashMap;
 /// Mesh quality assessment trait
 pub trait MeshQuality<T: RealField + Copy>: Send + Sync {
     /// Compute aspect ratio for an element
+    /// 
+    /// # Errors
+    /// Returns an error if the element index is out of bounds or the element geometry is invalid
     fn aspect_ratio(&self, mesh: &Mesh<T>, element_idx: usize) -> Result<T>;
 
     /// Compute skewness for an element
+    /// 
+    /// # Errors
+    /// Returns an error if the element index is out of bounds or the element geometry is invalid
     fn skewness(&self, mesh: &Mesh<T>, element_idx: usize) -> Result<T>;
 
     /// Generate quality report for the mesh
+    /// 
+    /// # Errors
+    /// Returns an error if mesh analysis fails due to invalid geometry or computation errors
     fn quality_report(&self, mesh: &Mesh<T>) -> Result<QualityReport<T>>;
 }
 

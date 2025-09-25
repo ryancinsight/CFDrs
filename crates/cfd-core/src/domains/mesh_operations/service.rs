@@ -58,6 +58,9 @@ impl<T: RealField + Copy> MeshOperationsService<T> {
     }
 
     /// Generate and validate a mesh
+    /// 
+    /// # Errors
+    /// Returns an error if no mesh generator is set, mesh generation fails, or validation fails
     pub fn generate_validated_mesh(&self, nx: usize, ny: usize, nz: usize) -> Result<Mesh<T>> {
         let generator = self.generator.as_ref().ok_or_else(|| {
             crate::error::Error::InvalidConfiguration("No mesh generator set".into())

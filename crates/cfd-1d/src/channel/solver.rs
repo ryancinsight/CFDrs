@@ -179,6 +179,9 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     }
 
     /// Calculate hydraulic resistance using physics models
+    /// 
+    /// # Errors
+    /// Returns an error if flow state calculation or resistance computation fails
     pub fn calculate_resistance(&mut self, fluid: &Fluid<T>) -> Result<T> {
         // Update flow state
         self.update_flow_state(fluid)?;
@@ -243,6 +246,10 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     // Resistance calculation methods would continue here...
     // Moving only the essential parts for brevity
 
+    /// Calculate Stokes flow resistance
+    /// 
+    /// # Errors
+    /// Returns an error if geometric calculations fail
     fn calculate_stokes_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
         let area = self.geometry.area();
         let dh = self.geometry.hydraulic_diameter();
@@ -257,21 +264,37 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         Ok(resistance)
     }
 
+    /// Calculate laminar flow resistance
+    /// 
+    /// # Errors
+    /// Returns an error if resistance calculation fails
     fn calculate_laminar_resistance(&self, _fluid: &Fluid<T>) -> Result<T> {
         // Implementation would go here
         Ok(T::zero())
     }
 
+    /// Calculate transitional flow resistance
+    /// 
+    /// # Errors
+    /// Returns an error if resistance calculation fails
     fn calculate_transitional_resistance(&self, _fluid: &Fluid<T>) -> Result<T> {
         // Implementation would go here
         Ok(T::zero())
     }
 
+    /// Calculate turbulent flow resistance
+    /// 
+    /// # Errors
+    /// Returns an error if resistance calculation fails
     fn calculate_turbulent_resistance(&self, _fluid: &Fluid<T>) -> Result<T> {
         // Implementation would go here
         Ok(T::zero())
     }
 
+    /// Calculate slip flow resistance
+    /// 
+    /// # Errors
+    /// Returns an error if resistance calculation fails
     fn calculate_slip_flow_resistance(&self, _fluid: &Fluid<T>) -> Result<T> {
         // Implementation would go here
         Ok(T::zero())

@@ -43,6 +43,9 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
     }
 
     /// Mark cells for refinement based on criterion
+    /// 
+    /// # Errors
+    /// Returns an error if criterion evaluation fails or refinement marking encounters invalid state
     pub fn mark_for_refinement<F>(
         &mut self,
         criterion: RefinementCriterion<T>,
@@ -66,6 +69,9 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
     }
 
     /// Mark cells based on gradient threshold
+    /// 
+    /// # Errors
+    /// Returns an error if gradient evaluation fails
     fn mark_by_gradient<F>(&mut self, threshold: T, evaluate: F) -> Result<()>
     where
         F: Fn(usize, usize) -> T,
@@ -82,6 +88,9 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
     }
 
     /// Mark cells based on error estimate
+    /// 
+    /// # Errors
+    /// Returns an error if error evaluation fails
     fn mark_by_error<F>(&mut self, threshold: T, evaluate: F) -> Result<()>
     where
         F: Fn(usize, usize) -> T,
@@ -91,6 +100,9 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
     }
 
     /// Mark cells based on feature detection
+    /// 
+    /// # Errors
+    /// Returns an error if feature detection fails
     fn mark_by_feature(&mut self) -> Result<()> {
         // Feature detection based on second derivatives or vorticity
         // Mark cells where features are detected
@@ -131,6 +143,9 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
     }
 
     /// Refine marked cells
+    /// 
+    /// # Errors
+    /// Returns an error if grid refinement fails due to invalid configuration or memory constraints
     pub fn refine(&mut self) -> Result<()> {
         // Create refined grid by subdividing marked cells
         let nx = self.base_grid.nx();

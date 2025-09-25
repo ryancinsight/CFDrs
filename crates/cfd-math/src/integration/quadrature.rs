@@ -73,8 +73,7 @@ impl<T: RealField + Copy + FromPrimitive> GaussQuadrature<T> {
     pub fn new(order: usize) -> Result<Self> {
         if order == 0 || order > 5 {
             return Err(Error::InvalidInput(format!(
-                "Gauss quadrature order must be between 1 and 5, got {}",
-                order
+                "Gauss quadrature order must be between 1 and 5, got {order}"
             )));
         }
 
@@ -96,8 +95,7 @@ impl<T: RealField + Copy + FromPrimitive> GaussQuadrature<T> {
             4 => Self::gauss_4_point(),
             5 => Self::gauss_5_point(),
             _ => Err(Error::InvalidInput(format!(
-                "Unsupported Gauss quadrature order: {}",
-                order
+                "Unsupported Gauss quadrature order: {order}"
             ))),
         }
     }

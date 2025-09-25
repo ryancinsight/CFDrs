@@ -22,7 +22,7 @@ impl fmt::Display for MathError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             MathError::DimensionMismatch => write!(f, "Dimension mismatch"),
-            MathError::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
+            MathError::InvalidInput(msg) => write!(f, "Invalid input: {msg}"),
             MathError::Overflow => write!(f, "Numerical overflow"),
             MathError::Underflow => write!(f, "Numerical underflow"),
             MathError::ConvergenceFailed => write!(f, "Convergence failed"),
