@@ -30,6 +30,12 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
     }
 
     /// Solve with preconditioning and memory management
+    ///
+    /// # Errors
+    /// Returns error if:
+    /// - Matrix dimensions are incompatible
+    /// - Preconditioning fails
+    /// - Solver fails to converge within maximum iterations
     pub fn solve_preconditioned<P: Preconditioner<T>>(
         &self,
         a: &CsrMatrix<T>,

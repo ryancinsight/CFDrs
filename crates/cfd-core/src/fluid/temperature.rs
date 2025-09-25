@@ -158,6 +158,9 @@ pub struct AndradeViscosity<T: RealField + Copy> {
 
 impl<T: RealField + FromPrimitive + Copy> AndradeViscosity<T> {
     /// Calculate viscosity using Andrade model
+    ///
+    /// # Errors
+    /// Returns error if temperature is too low (less than or equal to c_factor)
     pub fn calculate_viscosity(&self, temperature: T) -> Result<T, Error> {
         let denominator = temperature - self.c_factor;
         if denominator <= T::zero() {

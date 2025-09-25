@@ -17,6 +17,12 @@ pub trait Configurable<T: RealField + Copy> {
 /// Object-safe trait for linear solvers used with trait objects
 pub trait LinearSolver<T: RealField + Copy>: Send + Sync {
     /// Solve Ax = b, returning the solution vector
+    ///
+    /// # Errors
+    /// Returns error if:
+    /// - Matrix dimensions are incompatible
+    /// - Solver fails to converge  
+    /// - System is singular or ill-conditioned
     fn solve_system(
         &self,
         a: &CsrMatrix<T>,

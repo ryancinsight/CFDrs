@@ -73,6 +73,9 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     /// 
     /// # Errors
     /// Returns an error if numeric conversion from f64 fails for the target type T
+    ///
+    /// # Panics
+    /// Panics if the target type T cannot represent standard water properties at 20°C
     pub fn water_20c() -> Result<Self, Error>
     where
         T: FromPrimitive,
@@ -93,6 +96,9 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     /// 
     /// # Errors
     /// Returns an error if numeric conversion from f64 fails for the target type T
+    ///
+    /// # Panics
+    /// Panics if the target type T cannot represent standard air properties at 20°C
     pub fn air_20c() -> Result<Self, Error>
     where
         T: FromPrimitive,

@@ -57,6 +57,11 @@ impl<T: RealField + Copy> FluidState<T> {
 /// eliminating the dual-trait hierarchy that violated SSOT.
 pub trait Fluid<T: RealField + Copy>: Send + Sync {
     /// Get fluid properties at given conditions
+    ///
+    /// # Errors
+    /// Returns error if:
+    /// - Temperature or pressure is outside valid range
+    /// - Calculation fails due to numerical issues
     fn properties_at(&self, temperature: T, pressure: T) -> Result<FluidState<T>, Error>;
 
     /// Get descriptive name
