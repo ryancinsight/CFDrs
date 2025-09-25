@@ -71,6 +71,9 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzerOrchestra
     }
 
     /// Perform comprehensive network analysis
+    /// 
+    /// # Errors
+    /// Returns an error if network solving or analysis fails
     pub fn analyze(
         &mut self,
         network: &mut crate::network::Network<T>,

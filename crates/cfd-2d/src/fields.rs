@@ -263,6 +263,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
 
     /// Efficiently copy data from another `SimulationFields` instance
     /// This is much more efficient than cloning when reusing buffers
+    /// 
+    /// # Errors
+    /// Returns an error if grid dimensions don't match
     pub fn copy_from(&mut self, other: &SimulationFields<T>) -> Result<(), String> {
         // Ensure dimensions match
         if self.nx != other.nx || self.ny != other.ny {

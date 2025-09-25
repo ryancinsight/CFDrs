@@ -23,14 +23,20 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
     }
 
     /// Compute gradient of a 1D field
+    /// 
+    /// # Errors
+    /// Returns an error if differentiation fails or field has insufficient points
     pub fn gradient_1d(&self, field: &[T]) -> Result<Vec<T>> {
         use super::FiniteDifference;
         let fd = FiniteDifference::central(self.dx);
         let grad = fd.first_derivative(field)?;
-        Ok(grad.data.as_vec().to_vec())
+        Ok(grad.data.as_vec().clone())
     }
 
     /// Compute gradient of a 2D field (stored row-major)
+    /// 
+    /// # Errors
+    /// Returns an error if field dimensions don't match grid size or differentiation fails
     pub fn gradient_2d(&self, field: &[T], nx: usize, ny: usize) -> Result<Vec<Vector3<T>>> {
         if field.len() != nx * ny {
             return Err(Error::InvalidConfiguration(
@@ -43,7 +49,6 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
 
         // Use iterator combinators instead of nested loops
         gradients.extend((0..ny).flat_map(|j| {
-            let two = two;
             let dx = self.dx;
             let dy = self.dy;
             (0..nx).map(move |i| {
