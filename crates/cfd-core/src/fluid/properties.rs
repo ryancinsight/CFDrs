@@ -34,6 +34,9 @@ impl<T: RealField + Copy> FluidProperties<T> {
     }
 
     /// Calculate kinematic viscosity [m²/s] from base properties
+    /// 
+    /// # Errors
+    /// Returns an error if density is non-positive
     pub fn kinematic_viscosity(&self) -> Result<T, Error> {
         if self.density <= T::zero() {
             return Err(Error::InvalidInput("Density must be positive".to_string()));
@@ -42,6 +45,9 @@ impl<T: RealField + Copy> FluidProperties<T> {
     }
 
     /// Calculate Prandtl number from base properties
+    /// 
+    /// # Errors
+    /// Returns an error if thermal conductivity is non-positive
     pub fn prandtl_number(&self) -> Result<T, Error> {
         if self.thermal_conductivity <= T::zero() {
             return Err(Error::InvalidInput(
@@ -75,6 +81,9 @@ impl<T: RealField + Copy> FluidProperties<T> {
     }
 
     /// Calculate thermal diffusivity [m²/s]
+    /// 
+    /// # Errors
+    /// Returns an error if density or specific heat are non-positive
     pub fn thermal_diffusivity(&self) -> Result<T, Error> {
         if self.density <= T::zero() || self.specific_heat <= T::zero() {
             return Err(Error::InvalidInput(
@@ -86,6 +95,9 @@ impl<T: RealField + Copy> FluidProperties<T> {
 
     /// Calculate speed of sound for ideal gas [m/s]
     /// Requires ratio of specific heats (gamma) as parameter
+    /// 
+    /// # Errors
+    /// Returns an error if any input parameter is non-positive
     pub fn speed_of_sound(&self, gamma: T, temperature: T, gas_constant: T) -> Result<T, Error> {
         if temperature <= T::zero() {
             return Err(Error::InvalidInput(

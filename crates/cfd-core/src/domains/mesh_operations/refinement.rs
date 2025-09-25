@@ -8,12 +8,21 @@ use serde::{Deserialize, Serialize};
 /// Mesh refinement trait
 pub trait MeshRefinement<T: RealField + Copy>: Send + Sync {
     /// Refine mesh based on criteria
+    /// 
+    /// # Errors
+    /// Returns an error if refinement fails due to invalid criteria or mesh topology constraints
     fn refine(&self, mesh: &mut Mesh<T>, criteria: &RefinementCriteria<T>) -> Result<()>;
 
     /// Coarsen mesh based on criteria
+    /// 
+    /// # Errors
+    /// Returns an error if coarsening fails due to invalid criteria or mesh quality constraints
     fn coarsen(&self, mesh: &mut Mesh<T>, criteria: &RefinementCriteria<T>) -> Result<()>;
 
     /// Adapt mesh based on solution
+    /// 
+    /// # Errors
+    /// Returns an error if adaptation fails due to solution incompatibility or refinement constraints
     fn adapt(&self, mesh: &mut Mesh<T>, solution: &[T]) -> Result<()>;
 }
 

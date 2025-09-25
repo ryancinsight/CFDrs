@@ -22,11 +22,20 @@ pub use service::MeshOperationsService;
 /// Mesh generation trait for creating meshes
 pub trait MeshGeneration<T: nalgebra::RealField + Copy>: Send + Sync {
     /// Generate a structured mesh
+    /// 
+    /// # Errors
+    /// Returns an error if mesh generation fails due to invalid dimensions or memory constraints
     fn generate_structured(&self, nx: usize, ny: usize, nz: usize) -> Result<Mesh<T>>;
 
     /// Generate an unstructured mesh
+    /// 
+    /// # Errors
+    /// Returns an error if mesh generation fails due to invalid target size or algorithmic constraints
     fn generate_unstructured(&self, target_size: T) -> Result<Mesh<T>>;
 
     /// Generate a hybrid mesh
+    /// 
+    /// # Errors
+    /// Returns an error if hybrid mesh generation fails due to incompatible mesh types
     fn generate_hybrid(&self) -> Result<Mesh<T>>;
 }

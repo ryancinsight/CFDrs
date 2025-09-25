@@ -285,6 +285,9 @@ pub trait ErrorContext<T> {
     fn context(self, msg: impl Into<String>) -> Result<T>;
 
     /// Add context with a closure (lazy evaluation)
+    /// 
+    /// # Errors
+    /// Returns the original error with context added via the closure
     fn with_context<F>(self, f: F) -> Result<T>
     where
         F: FnOnce() -> String;
