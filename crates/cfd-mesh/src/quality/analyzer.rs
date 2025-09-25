@@ -64,10 +64,10 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
         let mut metrics = QualityMetrics::ideal();
 
         // Compute aspect ratio
-        metrics.aspect_ratio = self.compute_aspect_ratio(element, mesh);
+        metrics.aspect_ratio = Self::compute_aspect_ratio(element, mesh);
 
         // Compute skewness
-        metrics.skewness = self.compute_skewness(element, mesh);
+        metrics.skewness = Self::compute_skewness(element, mesh);
 
         // Compute orthogonality
         metrics.orthogonality = self.compute_orthogonality(element, mesh);
@@ -82,7 +82,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     }
 
     /// Compute aspect ratio for element
-    fn compute_aspect_ratio(&self, element: &Cell, mesh: &Mesh<T>) -> T {
+    fn compute_aspect_ratio(element: &Cell, mesh: &Mesh<T>) -> T {
         // Compute aspect ratio as ratio of longest to shortest edge
         let vertices: Vec<_> = mesh.element_vertices(element).collect();
         if vertices.len() < 2 {
@@ -107,7 +107,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     }
 
     /// Compute skewness for element
-    fn compute_skewness(&self, element: &Cell, mesh: &Mesh<T>) -> T {
+    fn compute_skewness(element: &Cell, mesh: &Mesh<T>) -> T {
         // Compute skewness as deviation from ideal element shape
         // For now, use centroid-based metric
         let vertices: Vec<_> = mesh.element_vertices(element).collect();

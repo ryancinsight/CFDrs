@@ -151,7 +151,7 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
         if !version.starts_with("# vtk DataFile Version") {
             return Err(Error::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                format!("Invalid VTK version line: {}", version),
+                format!("Invalid VTK version line: {version}"),
             )));
         }
 
