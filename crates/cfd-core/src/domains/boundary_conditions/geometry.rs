@@ -130,7 +130,10 @@ impl<T: RealField + Copy> BoundaryGeometry<T> {
     /// Calculate the measure (length/area/volume) of the geometry
     pub fn measure(&self) -> T {
         match self {
-            Self::Point(_) => T::zero(),
+            Self::Point(_) | Self::Surface { .. } | Self::Volume { .. } | Self::Plane { .. } => {
+                // Point has zero measure, complex geometries need specialized calculations
+                T::zero()
+            }
 
             Self::Line { start, end } => (end - start).norm(),
 
@@ -145,8 +148,6 @@ impl<T: RealField + Copy> BoundaryGeometry<T> {
                 let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(T::one);
                 pi * radius.powi(2) * *height
             }
-
-            _ => T::zero(), // Complex geometries need specialized calculations
         }
     }
 }

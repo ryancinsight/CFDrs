@@ -28,6 +28,9 @@ pub struct GpuContext {
 
 impl GpuContext {
     /// Create a new GPU context
+    /// 
+    /// # Errors
+    /// Returns error if GPU device initialization fails or no suitable adapter found
     pub fn create() -> Result<Self> {
         pollster::block_on(Self::create_async())
     }

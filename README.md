@@ -34,11 +34,10 @@ The suite is organized into 8 specialized crates:
 - **Examples**: Several examples have API mismatches needing fixes
 
 ### ❌ Known Issues
-- **Test Failures**: Multiple test compilation errors in examples
-- **Missing Methods**: Field2D missing `set` method causing example failures
-- **SWAR Operations**: sum_f32, max_f32, add_u32 not implemented
-- **Documentation**: Missing docs for many public APIs
+- **Documentation**: Missing docs for many public APIs (670 clippy warnings remaining)
 - **Validation**: Literature benchmarks not fully validated
+- **Performance**: Some unnecessary clones remain in critical paths
+- **GPU Integration**: WGSL shaders present but dispatch not fully connected
 
 ## Performance Status
 

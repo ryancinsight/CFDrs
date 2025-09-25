@@ -37,6 +37,9 @@ pub trait IterativeLinearSolver<T: RealField + Copy>:
     /// * `b` - Right-hand side vector
     /// * `x` - Solution vector (also serves as initial guess)
     /// * `preconditioner` - Optional preconditioner
+    /// 
+    /// # Errors
+    /// Returns error if solver fails to converge or encounters numerical issues
     fn solve<P: Preconditioner<T>>(
         &self,
         a: &CsrMatrix<T>,
@@ -55,5 +58,8 @@ pub trait Preconditioner<T: RealField + Copy>: Send + Sync {
     ///
     /// Solves the preconditioning system and stores the result in `z`.
     /// This approach makes memory management explicit and avoids hidden allocations.
+    /// 
+    /// # Errors
+    /// Returns error if preconditioning fails or matrices are incompatible
     fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()>;
 }

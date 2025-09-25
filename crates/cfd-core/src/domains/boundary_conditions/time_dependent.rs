@@ -80,7 +80,7 @@ impl<T: RealField + Copy + FromPrimitive> TimeDependentSpec<T> {
     /// Evaluate the time function at a given time
     pub fn evaluate(&self, time: T) -> T {
         match self.function_type {
-            TimeFunctionType::Constant => T::one(),
+            TimeFunctionType::Constant | TimeFunctionType::Custom(_) => T::one(),
 
             TimeFunctionType::Linear => {
                 if self.parameters.len() >= 2 {
@@ -120,8 +120,6 @@ impl<T: RealField + Copy + FromPrimitive> TimeDependentSpec<T> {
                 }
                 result
             }
-
-            TimeFunctionType::Custom(_) => T::one(),
         }
     }
 

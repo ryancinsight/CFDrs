@@ -41,6 +41,9 @@ pub struct SkewnessStats<T: RealField + Copy> {
 /// Trait for mesh quality analysis
 pub trait MeshQuality<T: RealField + Copy> {
     /// Compute quality metrics
+    /// 
+    /// # Errors
+    /// Returns error if quality computation fails due to degenerate elements
     fn compute_quality(&self) -> Result<QualityMetrics<T>>;
 
     /// Check element quality

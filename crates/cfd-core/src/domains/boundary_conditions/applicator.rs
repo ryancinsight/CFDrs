@@ -7,6 +7,9 @@ use nalgebra::RealField;
 /// Boundary condition applicator abstraction
 pub trait BoundaryConditionApplicator<T: RealField + Copy>: Send + Sync {
     /// Apply boundary condition to field
+    /// 
+    /// # Errors
+    /// Returns error if boundary condition application fails or field is incompatible
     fn apply(
         &self,
         field: &mut [T],

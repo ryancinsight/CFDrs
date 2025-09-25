@@ -35,9 +35,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> GhostCellCalculator<T> {
     /// Apply Dirichlet boundary condition with ghost cells
     ///
     /// For second-order accuracy at boundary:
-    /// - Linear extrapolation: g₁ = 2*b - i₁
-    /// - Quadratic extrapolation: g₁ = 3*b - 3*i₁ + i₂
+    ///   - Linear extrapolation: g₁ = 2*b - i₁
+    ///   - Quadratic extrapolation: g₁ = 3*b - 3*i₁ + i₂
+    ///
     /// where g = ghost, b = boundary value, i = interior values
+    /// 
+    /// # Errors
+    /// Returns `BoundaryError` if insufficient interior values for specified order
     pub fn apply_dirichlet(
         &self,
         boundary_value: T,
@@ -94,8 +98,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> GhostCellCalculator<T> {
     /// Apply Neumann boundary condition with ghost cells
     ///
     /// For prescribed gradient ∂u/∂n = g at boundary:
-    /// - Second-order: g₀ = i₀ - 2*Δx*gradient
-    /// - Fourth-order: g₀ = i₀ - (8/3)*Δx*gradient + (2/3)*i₁
+    ///   - Second-order: g₀ = i₀ - 2*Δx*gradient
+    ///   - Fourth-order: g₀ = i₀ - (8/3)*Δx*gradient + (2/3)*i₁
+    /// 
+    /// # Errors
+    /// Returns `BoundaryError` if insufficient interior values for specified order
     pub fn apply_neumann(
         &self,
         gradient: T,

@@ -26,6 +26,9 @@ pub trait SafeFromF64: RealField + FromPrimitive {
     }
 
     /// Try to convert from f64, returning Result
+    /// 
+    /// # Errors
+    /// Returns `ConversionError` if the f64 value cannot be represented in the target type
     #[inline]
     fn try_from_f64(value: f64) -> crate::error::Result<Self> {
         Self::from_f64(value).ok_or_else(|| {
@@ -48,6 +51,9 @@ pub trait SafeFromI32: RealField + FromPrimitive {
     }
 
     /// Try to convert from i32, returning Result
+    /// 
+    /// # Errors
+    /// Returns `ConversionError` if the i32 value cannot be represented in the target type
     #[inline]
     fn try_from_i32(value: i32) -> crate::error::Result<Self> {
         Self::from_i32(value).ok_or_else(|| {
@@ -69,6 +75,9 @@ pub trait SafeFromUsize: RealField + FromPrimitive {
     }
 
     /// Try to convert from usize, returning Result
+    /// 
+    /// # Errors
+    /// Returns `ConversionError` if the usize value cannot be represented in the target type
     #[inline]
     fn try_from_usize(value: usize) -> crate::error::Result<Self> {
         Self::from_usize(value).ok_or_else(|| {

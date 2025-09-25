@@ -70,6 +70,7 @@ impl<T: RealField + Copy> ComputeKernel<T> for SimdKernel<T> {
 
 impl<T: RealField + Copy> SimdKernel<T> {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[allow(clippy::unnecessary_wraps, clippy::used_underscore_binding)]
     fn execute_avx2(_input: &[T], output: &mut [T], _params: KernelParams) -> Result<()> {
         // AVX2 implementation would go here
         // For now, just copy input to output
@@ -78,6 +79,7 @@ impl<T: RealField + Copy> SimdKernel<T> {
     }
 
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[allow(clippy::unnecessary_wraps, clippy::used_underscore_binding)]
     fn execute_sse41(_input: &[T], output: &mut [T], _params: KernelParams) -> Result<()> {
         // SSE4.1 implementation would go here
         output.copy_from_slice(_input);
@@ -85,12 +87,14 @@ impl<T: RealField + Copy> SimdKernel<T> {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[allow(clippy::unnecessary_wraps, clippy::used_underscore_binding)]
     fn execute_neon(_input: &[T], output: &mut [T], _params: KernelParams) -> Result<()> {
         // NEON implementation would go here
         output.copy_from_slice(_input);
         Ok(())
     }
 
+    #[allow(clippy::unnecessary_wraps, clippy::used_underscore_binding)]
     fn execute_scalar(_input: &[T], output: &mut [T], _params: KernelParams) -> Result<()> {
         // Scalar fallback
         output.copy_from_slice(_input);

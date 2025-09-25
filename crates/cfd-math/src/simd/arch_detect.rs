@@ -45,8 +45,7 @@ impl ArchDetect {
     pub fn vector_width_f32(&self) -> usize {
         match self.capability {
             SimdCapability::Avx2 => 8,  // 256-bit / 32-bit
-            SimdCapability::Sse42 => 4, // 128-bit / 32-bit
-            SimdCapability::Neon => 4,  // 128-bit / 32-bit
+            SimdCapability::Sse42 | SimdCapability::Neon => 4, // 128-bit / 32-bit
             SimdCapability::Swar => 1,  // Scalar fallback
         }
     }
@@ -55,8 +54,7 @@ impl ArchDetect {
     pub fn vector_width_f64(&self) -> usize {
         match self.capability {
             SimdCapability::Avx2 => 4,  // 256-bit / 64-bit
-            SimdCapability::Sse42 => 2, // 128-bit / 64-bit
-            SimdCapability::Neon => 2,  // 128-bit / 64-bit
+            SimdCapability::Sse42 | SimdCapability::Neon => 2, // 128-bit / 64-bit
             SimdCapability::Swar => 1,  // Scalar fallback
         }
     }
