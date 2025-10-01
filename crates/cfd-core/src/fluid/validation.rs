@@ -47,6 +47,10 @@ impl<T: RealField + FromPrimitive + Copy> Default for PropertyBounds<T> {
 }
 
 /// Validate fluid properties against physical bounds
+///
+/// # Errors
+///
+/// Returns `Error::InvalidInput` if any property is outside the specified bounds.
 pub fn validate_properties<T: RealField + Copy>(
     properties: &FluidProperties<T>,
     bounds: &PropertyBounds<T>,
@@ -95,6 +99,10 @@ pub fn validate_properties<T: RealField + Copy>(
 }
 
 /// Check dimensionless number validity
+///
+/// # Errors
+///
+/// Returns `Error::InvalidInput` if Reynolds number is negative or exceeds typical range (>1e8).
 pub fn validate_reynolds<T: RealField + Copy>(reynolds: T) -> Result<(), Error> {
     if reynolds < T::zero() {
         return Err(Error::InvalidInput(
@@ -114,6 +122,10 @@ pub fn validate_reynolds<T: RealField + Copy>(reynolds: T) -> Result<(), Error> 
 }
 
 /// Check Prandtl number validity
+///
+/// # Errors
+///
+/// Returns `Error::InvalidInput` if Prandtl number is non-positive or outside typical range (0.001-100000).
 pub fn validate_prandtl<T: RealField + Copy>(prandtl: T) -> Result<(), Error> {
     if prandtl <= T::zero() {
         return Err(Error::InvalidInput(
@@ -135,6 +147,10 @@ pub fn validate_prandtl<T: RealField + Copy>(prandtl: T) -> Result<(), Error> {
 }
 
 /// Validate temperature for physical reasonableness
+///
+/// # Errors
+///
+/// Returns `Error::InvalidInput` if temperature is non-positive (at/below absolute zero) or exceeds 10000 K.
 pub fn validate_temperature<T: RealField + Copy>(temperature: T) -> Result<(), Error> {
     let t_min = T::zero(); // Absolute zero
     let t_max = T::from_f64(10000.0).unwrap_or_else(T::one); // Reasonable upper limit
@@ -155,6 +171,10 @@ pub fn validate_temperature<T: RealField + Copy>(temperature: T) -> Result<(), E
 }
 
 /// Validate pressure for physical reasonableness
+///
+/// # Errors
+///
+/// Returns `Error::InvalidInput` if pressure is non-positive or exceeds 1 GPa.
 pub fn validate_pressure<T: RealField + Copy>(pressure: T) -> Result<(), Error> {
     if pressure <= T::zero() {
         return Err(Error::InvalidInput("Pressure must be positive".to_string()));

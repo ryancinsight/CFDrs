@@ -54,7 +54,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
     }
 
     /// Apply bounce-back boundary condition
-    pub fn apply_bounce_back(f: &mut Vec<Vec<[T; 9]>>, i: usize, j: usize) {
+    pub fn apply_bounce_back(f: &mut [Vec<[T; 9]>], i: usize, j: usize) {
         let f_buffer = f[j][i];
         for q in 0..9 {
             let q_opp = D2Q9::OPPOSITE[q];
@@ -64,9 +64,9 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
 
     /// Apply velocity boundary condition (Zou-He)
     pub fn apply_velocity_boundary(
-        f: &mut Vec<Vec<[T; 9]>>,
-        density: &mut Vec<Vec<T>>,
-        velocity: &mut Vec<Vec<[T; 2]>>,
+        f: &mut [Vec<[T; 9]>],
+        density: &mut [Vec<T>],
+        velocity: &mut [Vec<[T; 2]>],
         i: usize,
         j: usize,
         u_boundary: Vector2<T>,
@@ -90,9 +90,9 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
 
     /// Apply pressure boundary condition
     pub fn apply_pressure_boundary(
-        f: &mut Vec<Vec<[T; 9]>>,
-        density: &mut Vec<Vec<T>>,
-        velocity: &mut Vec<Vec<[T; 2]>>,
+        f: &mut [Vec<[T; 9]>],
+        density: &mut [Vec<T>],
+        velocity: &mut [Vec<[T; 2]>],
         i: usize,
         j: usize,
         p_boundary: T,
@@ -145,7 +145,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
     }
 
     /// Compute density at boundary from known distributions
-    fn compute_boundary_density(f: &Vec<Vec<[T; 9]>>, i: usize, j: usize) -> T {
+    fn compute_boundary_density(f: &[Vec<[T; 9]>], i: usize, j: usize) -> T {
         let mut rho = T::zero();
         for q in 0..9 {
             rho += f[j][i][q];
@@ -154,7 +154,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
     }
 
     /// Extrapolate velocity from interior points
-    fn extrapolate_velocity(velocity: &Vec<Vec<[T; 2]>>, i: usize, j: usize) -> [T; 2] {
+    fn extrapolate_velocity(velocity: &[Vec<[T; 2]>], i: usize, j: usize) -> [T; 2] {
         let ny = velocity.len();
         let nx = if ny > 0 { velocity[0].len() } else { 0 };
 

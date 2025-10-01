@@ -39,7 +39,7 @@ impl<T: RealField + Copy + FromPrimitive> MacroscopicQuantities<T> {
     }
 
     /// Update all macroscopic quantities from distribution functions
-    pub fn update_from_distributions(&mut self, f: &Vec<Vec<[T; 9]>>) {
+    pub fn update_from_distributions(&mut self, f: &[Vec<[T; 9]>]) {
         let ny = f.len();
         let nx = if ny > 0 { f[0].len() } else { 0 };
 

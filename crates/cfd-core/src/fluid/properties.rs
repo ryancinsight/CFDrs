@@ -108,6 +108,10 @@ impl<T: RealField + Copy> FluidProperties<T> {
     }
 
     /// Calculate Mach number for given flow velocity
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::InvalidInput` if sound speed is non-positive.
     pub fn mach_number(&self, velocity: T, sound_speed: T) -> Result<T, Error> {
         if sound_speed <= T::zero() {
             return Err(Error::InvalidInput(
