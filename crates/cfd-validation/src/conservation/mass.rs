@@ -144,7 +144,7 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for MassConserv
         self.check_divergence_2d(u, v, dx, dy)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Mass Conservation"
     }
 

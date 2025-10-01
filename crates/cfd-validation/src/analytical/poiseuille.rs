@@ -16,8 +16,8 @@ pub enum PoiseuilleGeometry {
 /// Poiseuille flow analytical solution
 ///
 /// Represents laminar flow driven by a pressure gradient in a channel or pipe.
-/// For parallel plates: u(y) = (u_max)(1 - (y/h)²)
-/// For circular pipe: u(r) = (u_max)(1 - (r/R)²)
+/// For parallel plates: u(y) = (`u_max)(1` - (y/h)²)
+/// For circular pipe: u(r) = (`u_max)(1` - (r/R)²)
 pub struct PoiseuilleFlow<T: RealField + Copy> {
     /// Maximum velocity at centerline
     pub u_max: T,

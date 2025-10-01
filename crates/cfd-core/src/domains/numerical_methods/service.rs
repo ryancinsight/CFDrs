@@ -173,7 +173,7 @@ mod tests {
             fn discretize(&self, field: &[f64], _grid_spacing: f64) -> Vec<f64> {
                 field.to_vec()
             }
-            fn name(&self) -> &str {
+            fn name(&self) -> &'static str {
                 "Custom"
             }
             fn order(&self) -> usize {

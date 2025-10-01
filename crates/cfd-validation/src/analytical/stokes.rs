@@ -144,7 +144,7 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T
         -pressure_drop // Relative to p∞
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Stokes Flow Around Sphere"
     }
 

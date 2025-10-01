@@ -91,11 +91,11 @@ impl<T: RealField + Copy> LidDrivenCavity<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive + SafeFromF64> Benchmark<T> for LidDrivenCavity<T> {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Lid-Driven Cavity"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "2D incompressible flow in a square cavity with moving lid"
     }
 
@@ -298,7 +298,9 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64> Benchmark<T> for LidDriv
         }
 
         // If no reference data available, perform basic sanity checks
-        if !result.values.is_empty() {
+        if result.values.is_empty() {
+            Ok(false) // No data to validate
+        } else {
             let max_value =
                 result.values.iter().fold(
                     T::zero(),
@@ -306,8 +308,6 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64> Benchmark<T> for LidDriv
                 );
             // Values should be bounded and finite
             Ok(max_value <= T::from_f64_or_one(10.0) && max_value >= T::zero())
-        } else {
-            Ok(false) // No data to validate
         }
     }
 }

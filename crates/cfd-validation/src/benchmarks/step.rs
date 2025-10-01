@@ -39,11 +39,11 @@ impl<T: RealField + Copy> BackwardFacingStep<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacingStep<T> {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Backward Facing Step"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "2D laminar flow over a backward-facing step"
     }
 

@@ -42,7 +42,7 @@ fn validate_poiseuille_parabolic_profile() {
     };
 
     // Validate parabolic profile
-    let y_values = vec![0.0, 0.0025, 0.005, 0.0075, 0.01];
+    let y_values = [0.0, 0.0025, 0.005, 0.0075, 0.01];
     let expected_velocities = vec![
         5.0,     // Centerline maximum: (1/2μ)(dp/dx)(h²) = (1/(2×0.001))×100×(0.01²) = 5.0
         4.6875,  // At y=0.0025: 5.0×(1-(0.0025/0.01)²) = 5.0×(1-0.0625) = 4.6875

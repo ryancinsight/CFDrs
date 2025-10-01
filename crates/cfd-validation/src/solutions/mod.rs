@@ -21,7 +21,7 @@ pub trait Solution<T: RealField + Copy> {
     /// Get the name of the solution
     fn name(&self) -> &str;
 
-    /// Get the domain bounds [x_min, x_max, y_min, y_max, z_min, z_max]
+    /// Get the domain bounds [`x_min`, `x_max`, `y_min`, `y_max`, `z_min`, `z_max`]
     fn domain_bounds(&self) -> [T; 6];
 }
 

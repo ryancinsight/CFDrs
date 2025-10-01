@@ -52,7 +52,7 @@ where
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Relative Error"
     }
 }
@@ -67,7 +67,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for RootMeanSqua
         l2.compute_error(numerical, reference)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Root Mean Square Error"
     }
 }
@@ -82,7 +82,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for MeanAbsolute
         l1.compute_error(numerical, reference)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Mean Absolute Error"
     }
 }
@@ -180,7 +180,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for NormalizedRM
         }
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Normalized RMSE"
     }
 }

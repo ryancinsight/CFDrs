@@ -117,14 +117,13 @@ mod tests {
 
         // Test at origin and t=0: sin(π*0)*sin(π*0)*exp(-1*0) = 0*0*1 = 0
         let u0 = solution.exact_solution(0.0, 0.0, 0.0, 0.0);
-        assert!((u0 - 0.0).abs() < 1e-14, "Expected 0.0, got {}", u0);
+        assert!((u0 - 0.0).abs() < 1e-14, "Expected 0.0, got {u0}");
 
         // CORRECTED: Test at (1/2, 1/2, 0, 0): sin(π*0.5)*sin(π*0.5)*exp(0) = sin(π/2)*sin(π/2)*1 = 1*1 = 1
         let u1 = solution.exact_solution(0.5, 0.5, 0.0, 0.0);
         assert!(
             (u1 - 1.0).abs() < 1e-14,
-            "Expected 1.0, got {} at (0.5,0.5,0,0)",
-            u1
+            "Expected 1.0, got {u1} at (0.5,0.5,0,0)"
         );
 
         // Test time evolution: at (0.5, 0.5, 0, 1): sin(π/2)*sin(π/2)*exp(-1) = 1*1*exp(-1) = e^(-1)
@@ -132,18 +131,14 @@ mod tests {
         let expected_decay = (-1.0f64).exp(); // ≈ 0.3679
         assert!(
             (u_t1 - expected_decay).abs() < 1e-14,
-            "Expected {}, got {} at t=1",
-            expected_decay,
-            u_t1
+            "Expected {expected_decay}, got {u_t1} at t=1"
         );
 
         // Verify decay property: u(t=1) < u(t=0)
         let u_t0 = solution.exact_solution(0.5, 0.5, 0.0, 0.0);
         assert!(
             u_t1 < u_t0,
-            "Solution should decay over time: u(t=1)={} should be < u(t=0)={}",
-            u_t1,
-            u_t0
+            "Solution should decay over time: u(t=1)={u_t1} should be < u(t=0)={u_t0}"
         );
     }
 

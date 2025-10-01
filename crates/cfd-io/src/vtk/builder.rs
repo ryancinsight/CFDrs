@@ -64,20 +64,17 @@ impl<T: RealField + Copy> VtkMeshBuilder<T> {
                 for i in 0..=nx {
                     let x = T::from_usize(i).ok_or_else(|| {
                         cfd_core::error::Error::InvalidConfiguration(format!(
-                            "Cannot convert index {} to floating point",
-                            i
+                            "Cannot convert index {i} to floating point"
                         ))
                     })? * dx;
                     let y = T::from_usize(j).ok_or_else(|| {
                         cfd_core::error::Error::InvalidConfiguration(format!(
-                            "Cannot convert index {} to floating point",
-                            j
+                            "Cannot convert index {j} to floating point"
                         ))
                     })? * dy;
                     let z = T::from_usize(k).ok_or_else(|| {
                         cfd_core::error::Error::InvalidConfiguration(format!(
-                            "Cannot convert index {} to floating point",
-                            k
+                            "Cannot convert index {k} to floating point"
                         ))
                     })? * dz;
                     self.add_point(x, y, z);

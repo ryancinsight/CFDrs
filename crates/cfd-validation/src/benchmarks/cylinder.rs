@@ -56,11 +56,11 @@ impl<T: RealField + Copy> FlowOverCylinder<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylinder<T> {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Flow Over Cylinder"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "2D laminar flow around a circular cylinder"
     }
 
