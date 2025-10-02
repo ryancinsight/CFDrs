@@ -81,7 +81,7 @@ impl UnifiedCompute {
     }
 
     /// Get active backend
-    pub fn backend(&self) -> Backend {
+    #[must_use] pub fn backend(&self) -> Backend {
         self.backend
     }
 
@@ -153,7 +153,7 @@ impl UnifiedCompute {
 
 /// CFD-specific accelerated kernels
 pub mod kernels {
-    use super::*;
+    use super::{Arc, UnifiedCompute, Result};
 
     /// Configuration for pressure Poisson solver
     #[derive(Debug, Clone, Copy)]
@@ -172,7 +172,7 @@ pub mod kernels {
 
     impl PoissonConfig {
         /// Create new Poisson solver configuration
-        pub fn new(nx: usize, ny: usize, dx: f32, dy: f32, iterations: usize) -> Self {
+        #[must_use] pub fn new(nx: usize, ny: usize, dx: f32, dy: f32, iterations: usize) -> Self {
             Self { nx, ny, dx, dy, iterations }
         }
     }
@@ -194,7 +194,7 @@ pub mod kernels {
 
     impl AdvectionConfig {
         /// Create new advection solver configuration
-        pub fn new(nx: usize, ny: usize, dt: f32, dx: f32, dy: f32) -> Self {
+        #[must_use] pub fn new(nx: usize, ny: usize, dt: f32, dx: f32, dy: f32) -> Self {
             Self { nx, ny, dt, dx, dy }
         }
     }
@@ -207,7 +207,7 @@ pub mod kernels {
 
     impl PressureSolver {
         /// Create a new pressure solver with the given compute context
-        pub fn new(compute: Arc<UnifiedCompute>) -> Self {
+        #[must_use] pub fn new(compute: Arc<UnifiedCompute>) -> Self {
             Self { compute }
         }
 
@@ -261,7 +261,7 @@ pub mod kernels {
 
     impl AdvectionSolver {
         /// Create a new advection solver with the given compute context
-        pub fn new(compute: Arc<UnifiedCompute>) -> Self {
+        #[must_use] pub fn new(compute: Arc<UnifiedCompute>) -> Self {
             Self { compute }
         }
 

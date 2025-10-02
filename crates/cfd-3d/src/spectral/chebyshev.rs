@@ -31,7 +31,7 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
     }
 
     /// Get the number of collocation points
-    pub fn num_points(&self) -> usize {
+    #[must_use] pub fn num_points(&self) -> usize {
         self.n
     }
 

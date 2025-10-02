@@ -134,13 +134,13 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
     /// Flatten RHS matrix to vector
     fn flatten_rhs(&self, f: &DMatrix<T>) -> DVector<T> {
         // Use nalgebra's iterators to perform the copy efficiently
-        DVector::from_iterator(f.len(), f.iter().cloned())
+        DVector::from_iterator(f.len(), f.iter().copied())
     }
 
     /// Unflatten solution vector to matrix
     fn unflatten_solution(&self, solution: &DVector<T>) -> DMatrix<T> {
         // Reconstruct the matrix directly from the solution vector's iterator
-        DMatrix::from_iterator(self.nx * self.ny, self.nz, solution.iter().cloned())
+        DMatrix::from_iterator(self.nx * self.ny, self.nz, solution.iter().copied())
     }
 
     /// Apply boundary conditions to the system

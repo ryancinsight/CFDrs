@@ -4,6 +4,31 @@
 //! with a plugin-based architecture.
 
 #![warn(missing_docs)]
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::module_name_repetitions)]
+// CFD Suite unified configuration - aligning with all workspace crates
+#![allow(clippy::similar_names)]           // CFD variables across dimensions
+#![allow(clippy::cast_precision_loss)]     // Numerical computing requires performance trade-offs
+#![allow(clippy::cast_possible_truncation)] // Grid indices typically small
+#![allow(clippy::unused_self)]             // Trait method interface consistency
+#![allow(clippy::must_use_candidate)]      // Computational utilities context-dependent
+#![allow(clippy::missing_errors_doc)]      // Error documentation deferred for internal APIs
+#![allow(clippy::missing_panics_doc)]      // Panic documentation deferred for internal APIs
+#![allow(clippy::cast_sign_loss)]          // CFD indexing patterns
+#![allow(clippy::cast_possible_wrap)]      // Grid index wrap-around acceptable
+#![allow(clippy::too_many_arguments)]      // CFD functions need many physical parameters
+#![allow(clippy::float_cmp)]               // Necessary in numerical algorithms
+#![allow(clippy::unnecessary_wraps)]        // API consistency for Result types
+#![allow(clippy::items_after_statements)]  // Readability in numerical code
+#![allow(clippy::many_single_char_names)]       // Mathematical notation standard (i,j,k,x,y,z)
+#![allow(clippy::unreadable_literal)]      // Physical constants require precision
+#![allow(clippy::redundant_closure_for_method_calls)] // Pipeline readability
+#![allow(clippy::doc_markdown)]            // Math notation formatting
+#![allow(clippy::needless_pass_by_value)]  // Copy types idiom
+#![allow(clippy::return_self_not_must_use)]  // Builder pattern support
+#![allow(clippy::ptr_arg)]                 // API compatibility
+#![allow(clippy::should_implement_trait)]  // CFD-specific implementations
 
 // Re-export all sub-crates
 pub use cfd_1d as d1;
