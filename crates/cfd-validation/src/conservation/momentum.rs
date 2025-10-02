@@ -158,7 +158,7 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T>
         self.check_momentum_2d(u, v, u, v, &pressure, viscosity, dt, dx, dy, gravity)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Momentum Conservation"
     }
 

@@ -13,7 +13,7 @@ use num_traits::FromPrimitive;
 pub struct RichardsonExtrapolation<T: RealField + Copy> {
     /// Assumed or computed order of accuracy
     pub order: T,
-    /// Grid refinement ratio (r = h_coarse / h_fine)
+    /// Grid refinement ratio (r = `h_coarse` / `h_fine`)
     pub refinement_ratio: T,
 }
 
@@ -165,9 +165,8 @@ where
 
         if ((r21 - r32).abs() / r21) > one_percent {
             return Err(Error::InvalidInput(format!(
-                "Non-uniform grid refinement ratios ({:?} and {:?}) detected. \
-                 Richardson extrapolation requires constant refinement ratio.",
-                r21, r32
+                "Non-uniform grid refinement ratios ({r21:?} and {r32:?}) detected. \
+                 Richardson extrapolation requires constant refinement ratio."
             )));
         }
 

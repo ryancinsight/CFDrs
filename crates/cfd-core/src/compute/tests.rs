@@ -115,7 +115,7 @@ mod tests {
                 );
             }
             Err(e) => {
-                println!("GPU not available: {}", e);
+                println!("GPU not available: {e}");
             }
         }
     }

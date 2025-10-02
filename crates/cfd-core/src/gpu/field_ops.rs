@@ -66,7 +66,7 @@ mod tests {
 
             ops.add_fields(&a, &b, &mut result);
 
-            for val in result.iter() {
+            for val in &result {
                 assert!((val - 3.0).abs() < 1e-6, "Field addition failed");
             }
 
@@ -76,7 +76,7 @@ mod tests {
 
             ops.multiply_field(&field, 3.0, &mut result);
 
-            for val in result.iter() {
+            for val in &result {
                 assert!((val - 6.0).abs() < 1e-6, "Scalar multiplication failed");
             }
         }

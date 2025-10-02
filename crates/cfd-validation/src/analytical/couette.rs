@@ -67,14 +67,14 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for CouetteFlow<
         // Couette-Poiseuille flow: u(y) = U*y/h + (1/2μ)(dp/dx)(y)(y-h)
         let couette_part = self.wall_velocity * eta;
 
-        let poiseuille_part = if self.pressure_gradient != T::zero() {
+        let poiseuille_part = if self.pressure_gradient == T::zero() {
+            T::zero()
+        } else {
             // Plane Poiseuille contribution (Versteeg & Malalasekera):
             // u_p(y) = -(1/(2μ)) (dp/dx) y (h - y)
             let two = T::from_f64(2.0).unwrap_or(T::one() + T::one());
             let factor = -self.pressure_gradient / (two * self.viscosity);
             factor * y * (self.gap_height - y)
-        } else {
-            T::zero()
         };
 
         let u = couette_part + poiseuille_part;

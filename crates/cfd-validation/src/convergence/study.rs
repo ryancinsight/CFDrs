@@ -75,7 +75,7 @@ impl<T: RealField + Copy + FromPrimitive> ConvergenceStudy<T> {
 
     /// Predict error for a given grid size using the power law model
     ///
-    /// error = C * h^p where C is error_coefficient and p is convergence_rate
+    /// error = C * h^p where C is `error_coefficient` and p is `convergence_rate`
     pub fn predict_error(&self, grid_size: T) -> T {
         self.error_coefficient * grid_size.powf(self.convergence_rate)
     }

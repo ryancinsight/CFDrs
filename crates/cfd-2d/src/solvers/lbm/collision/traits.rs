@@ -7,7 +7,7 @@ use nalgebra::RealField;
 /// Trait for collision operators in LBM
 pub trait CollisionOperator<T: RealField + Copy> {
     /// Apply collision step to distribution functions
-    fn collide(&self, f: &mut Vec<Vec<[T; 9]>>, density: &Vec<Vec<T>>, velocity: &Vec<Vec<[T; 2]>>);
+    fn collide(&self, f: &mut Vec<Vec<[T; 9]>>, density: &[Vec<T>], velocity: &[Vec<[T; 2]>]);
 
     /// Get relaxation time
     fn tau(&self) -> T;

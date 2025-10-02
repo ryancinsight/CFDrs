@@ -272,7 +272,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
         })
     }
 
-    fn citation(&self) -> &str {
+    fn citation(&self) -> &'static str {
         "Patankar, S.V. (1980). Numerical Heat Transfer and Fluid Flow. Hemisphere Publishing."
     }
 

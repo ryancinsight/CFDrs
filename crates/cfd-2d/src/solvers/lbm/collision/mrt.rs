@@ -166,8 +166,8 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for MrtCollision<
     fn collide(
         &self,
         f: &mut Vec<Vec<[T; 9]>>,
-        density: &Vec<Vec<T>>,
-        velocity: &Vec<Vec<[T; 2]>>,
+        density: &[Vec<T>],
+        velocity: &[Vec<[T; 2]>],
     ) {
         let ny = f.len();
         let nx = if ny > 0 { f[0].len() } else { 0 };

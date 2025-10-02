@@ -118,7 +118,7 @@ impl<T: RealField + Copy + FromPrimitive> GridConvergenceIndex<T> {
 
     /// Check if solutions are in asymptotic range
     ///
-    /// Returns true if GCI_coarse / (r^p * GCI_fine) ≈ 1
+    /// Returns true if `GCI_coarse` / (r^p * `GCI_fine`) ≈ 1
     pub fn is_asymptotic(&self, gci_fine: T, gci_coarse: T) -> bool {
         let r_p = self.refinement_ratio.powf(self.order);
         let ratio = gci_coarse / (r_p * gci_fine);

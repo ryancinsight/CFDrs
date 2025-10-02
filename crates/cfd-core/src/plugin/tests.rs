@@ -14,16 +14,16 @@ impl Plugin for TestPlugin {
         &self.name
     }
 
-    fn version(&self) -> &str {
+    fn version(&self) -> &'static str {
         "1.0.0"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Test plugin"
     }
 
     fn dependencies(&self) -> Vec<&str> {
-        self.dependencies.iter().map(|s| s.as_str()).collect()
+        self.dependencies.iter().map(std::string::String::as_str).collect()
     }
 }
 

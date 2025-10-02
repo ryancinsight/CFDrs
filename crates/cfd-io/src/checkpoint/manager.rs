@@ -78,20 +78,20 @@ impl CheckpointManager {
             CompressionStrategy::None => {
                 bincode::serialize_into(writer, checkpoint).map_err(|e| {
                     Error::Io(std::io::Error::other(
-                        format!("Serialization error: {}", e),
+                        format!("Serialization error: {e}"),
                     ))
                 })?;
             }
             CompressionStrategy::Zstd(level) => {
-                let encoder = zstd::stream::Encoder::new(writer, level as i32).map_err(|e| {
+                let encoder = zstd::stream::Encoder::new(writer, i32::from(level)).map_err(|e| {
                     Error::Io(std::io::Error::other(
-                        format!("Compression error: {}", e),
+                        format!("Compression error: {e}"),
                     ))
                 })?;
 
                 bincode::serialize_into(encoder.auto_finish(), checkpoint).map_err(|e| {
                     Error::Io(std::io::Error::other(
-                        format!("Serialization error: {}", e),
+                        format!("Serialization error: {e}"),
                     ))
                 })?;
             }
@@ -131,19 +131,19 @@ impl CheckpointManager {
         let checkpoint = match compression_type[0] {
             COMPRESSION_NONE => bincode::deserialize_from(reader).map_err(|e| {
                 Error::Io(std::io::Error::other(
-                    format!("Deserialization error: {}", e),
+                    format!("Deserialization error: {e}"),
                 ))
             })?,
             COMPRESSION_ZSTD => {
                 let decoder = zstd::stream::Decoder::new(reader).map_err(|e| {
                     Error::Io(std::io::Error::other(
-                        format!("Decompression error: {}", e),
+                        format!("Decompression error: {e}"),
                     ))
                 })?;
 
                 bincode::deserialize_from(decoder).map_err(|e| {
                     Error::Io(std::io::Error::other(
-                        format!("Deserialization error: {}", e),
+                        format!("Deserialization error: {e}"),
                     ))
                 })?
             }

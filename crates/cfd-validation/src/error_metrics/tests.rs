@@ -66,7 +66,7 @@ fn test_relative_l2_error() -> Result<()> {
     let error = rel_error.compute_error(&numerical, &reference)?;
 
     let abs_error = L2Norm.compute_error(&numerical, &reference)?;
-    let ref_norm = L2Norm.compute_error(&reference, &vec![0.0; 3])?;
+    let ref_norm = L2Norm.compute_error(&reference, &[0.0; 3])?;
     let expected = abs_error / ref_norm;
 
     assert_relative_eq!(error, expected, epsilon = 1e-10);
@@ -82,7 +82,7 @@ fn test_relative_error_normalization() -> Result<()> {
     let error = rel_error.compute_error(&numerical, &reference)?;
 
     let abs_error = L2Norm.compute_error(&numerical, &reference)?;
-    let ref_norm = L2Norm.compute_error(&reference, &vec![0.0; 3])?;
+    let ref_norm = L2Norm.compute_error(&reference, &[0.0; 3])?;
     let expected = abs_error / ref_norm;
 
     assert_relative_eq!(error, expected, epsilon = 1e-10);
@@ -157,7 +157,7 @@ fn test_error_statistics() -> Result<()> {
 
     // Calculate expected error metrics analytically
     // Errors: [0.1, 0.1, 0.2, 0.2, 0.3]
-    let _errors = vec![0.1, 0.1, 0.2, 0.2, 0.3]; // Reference for analytical validation
+    let _errors = [0.1, 0.1, 0.2, 0.2, 0.3]; // Reference for analytical validation
 
     // L1 norm (MAE): (0.1 + 0.1 + 0.2 + 0.2 + 0.3) / 5 = 0.9 / 5 = 0.18
     let expected_l1 = 0.18;
@@ -204,7 +204,7 @@ fn test_error_statistics_vector() -> Result<()> {
 
     let error1 = (ref_mag1 - num_mag1).abs();
     let error2 = (ref_mag2 - num_mag2).abs();
-    let expected_l2 = ((error1 * error1 + error2 * error2) / 2.0).sqrt();
+    let expected_l2 = f64::midpoint(error1 * error1, error2 * error2).sqrt();
 
     assert_relative_eq!(stats.l2_norm, expected_l2, epsilon = 1e-10);
     Ok(())

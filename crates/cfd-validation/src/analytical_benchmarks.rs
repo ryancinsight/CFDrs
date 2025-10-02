@@ -72,7 +72,7 @@ impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
         self.velocity(T::zero())
     }
 
-    /// Average velocity: u_avg = (2/3) * u_max
+    /// Average velocity: `u_avg` = (2/3) * `u_max`
     pub fn average_velocity(&self) -> T {
         let two_thirds = T::from_f64_or_one(TWO_THIRDS);
         two_thirds * self.max_velocity()

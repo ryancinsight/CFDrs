@@ -151,7 +151,7 @@ impl LinearSolverValidator {
     }
 
     /// Test 2D Poisson equation
-    /// Literature: LeVeque (2007), "Finite Difference Methods for ODEs and PDEs"
+    /// Literature: `LeVeque` (2007), "Finite Difference Methods for ODEs and PDEs"
     fn test_2d_poisson<T: RealField + Copy + FromPrimitive + Float>(
     ) -> Result<Vec<ValidationResult<T>>> {
         let nx = 32;

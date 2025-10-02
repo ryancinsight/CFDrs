@@ -110,8 +110,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Node pressures
     println!("\n🔘 Node Pressures:");
-    let node_indices = vec![inlet, junction, outlet_1, outlet_2];
-    let node_names = vec!["inlet", "junction", "outlet_1", "outlet_2"];
+    let node_indices = [inlet, junction, outlet_1, outlet_2];
+    let node_names = ["inlet", "junction", "outlet_1", "outlet_2"];
     for (idx, name) in node_indices.iter().zip(node_names.iter()) {
         if let Some(&pressure) = pressures.get(idx) {
             println!("   {}: {:.1} Pa", name, pressure);

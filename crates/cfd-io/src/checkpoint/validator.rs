@@ -5,7 +5,7 @@ use nalgebra::RealField;
 
 /// Numerical constants for finite difference calculations
 mod numerical_constants {
-    /// Central difference denominator factor (h_forward - h_backward = 2h)
+    /// Central difference denominator factor (`h_forward` - `h_backward` = 2h)
     pub const CENTRAL_DIFFERENCE_FACTOR: f64 = 2.0;
 }
 
@@ -76,7 +76,7 @@ impl CheckpointValidator {
 
     /// Check if all values in a matrix are finite
     fn is_field_finite<T: RealField>(field: &nalgebra::DMatrix<T>) -> bool {
-        field.iter().all(|v| v.is_finite())
+        field.iter().all(nalgebra::ComplexField::is_finite)
     }
 
     /// Check mass conservation (divergence-free condition)

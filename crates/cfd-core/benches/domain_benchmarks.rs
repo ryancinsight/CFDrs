@@ -73,7 +73,7 @@ fn benchmark_time_integration(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("runge_kutta_4", size), size, |b, _| {
             b.iter(|| {
-                let result = rk4.advance_with_function(current.as_slice(), 0.0, dt, &derivative_fn);
+                let result = rk4.advance_with_function(current.as_slice(), 0.0, dt, derivative_fn);
                 black_box(result)
             })
         });

@@ -35,7 +35,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for L2Norm {
         Ok((sum_squared_diff / n).sqrt())
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "L2 Norm"
     }
 }
@@ -64,7 +64,7 @@ impl<T: RealField + Copy> ErrorMetric<T> for LInfNorm {
         Ok(max_diff)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "L∞ Norm"
     }
 }
@@ -96,7 +96,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for L1Norm {
         Ok(sum_abs_diff / n)
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "L1 Norm"
     }
 }

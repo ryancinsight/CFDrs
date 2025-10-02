@@ -44,7 +44,7 @@ impl VtkCellType {
             12 => Ok(VtkCellType::Hexahedron),
             _ => Err(Error::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                format!("Unknown VTK cell type: {}", value),
+                format!("Unknown VTK cell type: {value}"),
             ))),
         }
     }
@@ -151,6 +151,6 @@ pub struct VtkHeader {
     pub title: String,
     /// Data format (ASCII or BINARY)
     pub format: String,
-    /// Dataset type (STRUCTURED_GRID, UNSTRUCTURED_GRID, etc.)
+    /// Dataset type (`STRUCTURED_GRID`, `UNSTRUCTURED_GRID`, etc.)
     pub dataset_type: String,
 }

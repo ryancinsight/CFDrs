@@ -63,7 +63,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ChapmanEnskogValidation<
     }
 
     /// Calculate thermal conductivity using Chapman-Enskog theory
-    /// k = 15/4 * k_B/m * μ
+    /// k = 15/4 * `k_B/m` * μ
     fn theoretical_thermal_conductivity(&self) -> T {
         let mu = self.theoretical_viscosity();
         let m = match self.gas_type {
@@ -107,7 +107,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
         })
     }
 
-    fn citation(&self) -> &str {
+    fn citation(&self) -> &'static str {
         "Chapman, S., & Cowling, T.G. (1970). The Mathematical Theory of Non-uniform Gases. Cambridge University Press, 3rd Edition."
     }
 

@@ -88,7 +88,7 @@ impl<T: RealField + Copy + FromPrimitive> EnergyConservationChecker<T> {
                             / (dy * dy));
 
                 // Source term
-                let q = source.map(|s| s[(i, j)]).unwrap_or(T::zero());
+                let q = source.map_or(T::zero(), |s| s[(i, j)]);
 
                 // Energy residual
                 let residual = dtdt + conv - diff - q;
@@ -107,10 +107,10 @@ impl<T: RealField + Copy + FromPrimitive> EnergyConservationChecker<T> {
 
         // Global energy change
         let energy_change = (total_energy - total_energy_prev).abs();
-        let relative_change = if total_energy_prev != T::zero() {
-            energy_change / total_energy_prev.abs()
-        } else {
+        let relative_change = if total_energy_prev == T::zero() {
             T::zero()
+        } else {
+            energy_change / total_energy_prev.abs()
         };
 
         let mut report = ConservationReport::new(
@@ -158,10 +158,10 @@ impl<T: RealField + Copy + FromPrimitive> EnergyConservationChecker<T> {
         }
 
         let ke_change = (ke_current - ke_prev).abs();
-        let relative_change = if ke_prev != T::zero() {
-            ke_change / ke_prev.abs()
-        } else {
+        let relative_change = if ke_prev == T::zero() {
             T::zero()
+        } else {
+            ke_change / ke_prev.abs()
         };
 
         let mut report = ConservationReport::new(
@@ -204,7 +204,7 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for EnergyConse
         )
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Energy Conservation"
     }
 
