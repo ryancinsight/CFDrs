@@ -34,7 +34,7 @@ fn test_poiseuille_flow_convergence() {
     let ny = 21;
     let dx = channel_length / (nx - 1) as f64;
     let dy = channel_height / (ny - 1) as f64;
-    let dt = 1.0; // Large time step for steady-state problem
+    let dt = 1e10; // Effectively steady-state (ρ/dt → 0)
 
     // Initialize fields
     let mut fields = SimulationFields::new(nx, ny);
@@ -110,7 +110,8 @@ fn test_poiseuille_flow_convergence() {
         }
 
         if step % 100 == 0 {
-            println!("Step {}: max change = {:.2e}", step, max_change);
+            let u_center = fields.u.at(nx / 2, ny / 2);
+            println!("Step {}: max change = {:.2e}, u_center = {:.6}", step, max_change, u_center);
         }
     }
 
