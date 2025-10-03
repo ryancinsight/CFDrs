@@ -34,7 +34,7 @@ fn test_poiseuille_flow_convergence() {
     let ny = 21;
     let dx = channel_length / (nx - 1) as f64;
     let dy = channel_height / (ny - 1) as f64;
-    let dt = 1e-4;
+    let dt = 1.0; // Large time step for steady-state problem
 
     // Initialize fields
     let mut fields = SimulationFields::new(nx, ny);
@@ -63,6 +63,17 @@ fn test_poiseuille_flow_convergence() {
     let grid = StructuredGrid2D::new(nx, ny, 0.0, channel_length, 0.0, channel_height)
         .expect("Failed to create grid");
     let mut solver = MomentumSolver::new(&grid);
+
+    // Register boundary conditions for no-slip walls
+    use cfd_core::boundary::BoundaryCondition;
+    solver.set_boundary(
+        "south".to_string(),
+        BoundaryCondition::Dirichlet { value: 0.0 },
+    );
+    solver.set_boundary(
+        "north".to_string(),
+        BoundaryCondition::Dirichlet { value: 0.0 },
+    );
 
     // Time integration to steady state
     let max_time_steps = 10000;
