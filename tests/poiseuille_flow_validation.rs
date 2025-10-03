@@ -136,37 +136,36 @@ fn test_poiseuille_flow_convergence() {
     println!("Max error: {:.2e}", max_error);
     println!("L2 error: {:.2e}", l2_error);
 
-    // CRITICAL: Current solver produces immediate false convergence
-    // This test documents the broken state rather than masking it
-    // The high error values expose the non-functional momentum solver
-    println!("\nERROR: Solver is not functional!");
-    println!("Max error: {:.2e} (indicates broken solver)", max_error);
-    println!("L2 error: {:.2e} (indicates broken solver)", l2_error);
+    // STRICT VALIDATION: Solver must produce physically meaningful results
+    // A functional solver should achieve <1% error vs analytical solution
+    let max_acceptable_error = 1.25; // 1% of max velocity (125 m/s)
+    
+    assert!(
+        max_error < max_acceptable_error,
+        "SOLVER FAILURE: Max error {:.2e} exceeds acceptable limit {:.2e}. \
+        Numerical velocities near zero ({:.6} m/s) vs analytical ~125 m/s indicates \
+        broken solver (immediate false convergence). This test must FAIL until solver is fixed.",
+        max_error, max_acceptable_error, fields.u.at(x_center, ny/2)
+    );
 
-    // Document the broken state for future developers
-    // This test will fail until the momentum solver is properly implemented
-    if max_error > 50.0 {
-        println!("EXPECTED FAILURE: Momentum solver requires proper implementation");
-        println!("Current solver produces immediate false convergence without computation");
-        // Don't assert - this documents the known broken state
-        return;
-    }
-
-    // Future assertions for when solver is fixed:
-    // assert!(max_error < 1e-3, "Max error too large: {}", max_error);
-    // assert!(l2_error < 1e-4, "L2 error too large: {}", l2_error);
+    let l2_acceptable_error = 0.5; // Strict L2 norm requirement
+    assert!(
+        l2_error < l2_acceptable_error,
+        "SOLVER FAILURE: L2 error {:.2e} exceeds acceptable limit {:.2e}",
+        l2_error, l2_acceptable_error
+    );
 
     let elapsed = start.elapsed();
     println!("\nTest completed in {:.2} seconds", elapsed.as_secs_f64());
 
-    // Document that immediate completion indicates broken solver
-    if elapsed.as_secs_f64() < 0.1 {
-        println!(
-            "CRITICAL: Test completed too quickly ({:.3}s) - solver not performing computation",
-            elapsed.as_secs_f64()
-        );
-        println!("This confirms the momentum solver is producing immediate false convergence");
-    }
+    // Solver should take significant time for convergence (not immediate)
+    assert!(
+        elapsed.as_secs_f64() > 0.1,
+        "SOLVER FAILURE: Test completed too quickly ({:.3}s). \
+        A functional iterative solver should take >0.1s for 10,000 max iterations. \
+        Immediate completion indicates false convergence.",
+        elapsed.as_secs_f64()
+    );
 }
 
 #[test]
