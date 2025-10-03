@@ -220,7 +220,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
         (dphi_dx * dphi_dx + dphi_dy * dphi_dy + dphi_dz * dphi_dz).sqrt()
     }
 
-    /// Calculate gradient magnitude using phi_previous buffer (for zero-copy reinitialization)
+    /// Calculate gradient magnitude using `phi_previous` buffer (for zero-copy reinitialization)
     fn calculate_gradient_magnitude_previous(&self, i: usize, j: usize, k: usize) -> T {
         let dx = self.dx;
         let dy = self.dy;

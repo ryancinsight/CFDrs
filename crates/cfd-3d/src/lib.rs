@@ -1,6 +1,31 @@
 //! 3D CFD simulations.
 
 #![warn(missing_docs)]
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::module_name_repetitions)]
+// 3D CFD simulation allows - strategic configuration for numerical computing
+#![allow(clippy::similar_names)]           // 3D variables (u,v,w,p; nx,ny,nz; dx,dy,dz; i,j,k) often similar
+#![allow(clippy::cast_precision_loss)]     // Performance-critical numerical loops in 3D solvers
+#![allow(clippy::cast_possible_truncation)] // Grid indices and array sizes typically small
+#![allow(clippy::unused_self)]             // Solver trait methods maintain consistent interfaces
+#![allow(clippy::must_use_candidate)]      // Solver utilities and getters used in computational contexts
+#![allow(clippy::missing_errors_doc)]      // Error documentation deferred for internal APIs
+#![allow(clippy::missing_panics_doc)]      // Panic documentation deferred for internal APIs
+#![allow(clippy::cast_sign_loss)]          // Signed to unsigned casts common in 3D CFD indexing
+#![allow(clippy::cast_possible_wrap)]      // Wrap-around acceptable for grid indices
+#![allow(clippy::too_many_arguments)]      // 3D CFD functions often need many physical parameters
+#![allow(clippy::float_cmp)]               // Float comparisons necessary in numerical algorithms
+#![allow(clippy::unnecessary_wraps)]        // Result types maintained for API consistency
+#![allow(clippy::items_after_statements)]  // Helper functions after statements improve readability
+#![allow(clippy::many_single_char_names)]       // Mathematical notation (i,j,k,x,y,z) is standard
+#![allow(clippy::unreadable_literal)]      // Long literals used for precise physical constants
+#![allow(clippy::redundant_closure_for_method_calls)] // Closures improve readability in numerical pipelines
+#![allow(clippy::doc_markdown)]            // Math notation doesn't need backticks
+#![allow(clippy::needless_pass_by_value)]  // Pass by value for Copy types is idiomatic
+#![allow(clippy::return_self_not_must_use)]  // Builder patterns used internally
+#![allow(clippy::ptr_arg)]                 // &Vec used for API compatibility
+#![allow(clippy::should_implement_trait)]  // CFD-specific trait implementations
 
 pub mod fem;
 pub mod ibm;

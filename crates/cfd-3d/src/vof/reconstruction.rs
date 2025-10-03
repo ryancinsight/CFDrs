@@ -17,7 +17,7 @@ pub struct InterfaceReconstruction {
 
 impl InterfaceReconstruction {
     /// Create reconstruction method based on configuration
-    pub fn create(config: &VofConfig) -> Self {
+    #[must_use] pub fn create(config: &VofConfig) -> Self {
         Self {
             use_plic: config.use_plic,
         }

@@ -109,7 +109,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         let viscosity = problem.fluid.viscosity;
 
         // Loop over elements
-        for cell in problem.mesh.cells().iter() {
+        for cell in problem.mesh.cells() {
             // Get vertex indices for this cell
             let vertex_indices = extract_vertex_indices(cell, &problem.mesh);
 

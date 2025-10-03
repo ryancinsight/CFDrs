@@ -1,6 +1,6 @@
 //! IBM solver implementation
 
-use super::{config::IbmConfig, forcing::*, interpolation::*, lagrangian::LagrangianPoint};
+use super::{config::IbmConfig, forcing::{ForcingMethod, DirectForcing, FeedbackForcing}, interpolation::{InterpolationKernel, DeltaFunction}, lagrangian::LagrangianPoint};
 use cfd_core::error::Result;
 use nalgebra::{RealField, Vector3};
 use num_traits::{FromPrimitive, ToPrimitive};

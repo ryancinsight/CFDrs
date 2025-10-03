@@ -13,7 +13,7 @@ pub struct AdvectionMethod {
 
 impl AdvectionMethod {
     /// Create advection method based on configuration
-    pub fn create(config: &VofConfig) -> Self {
+    #[must_use] pub fn create(config: &VofConfig) -> Self {
         Self {
             use_geometric: config.use_geometric_advection,
         }
