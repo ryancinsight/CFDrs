@@ -66,8 +66,43 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         // Compute coefficients
         let coeffs = self.compute_coefficients(component, fields, dt)?;
 
+        // Diagnostic: Check if coefficients are non-zero (helps debug false convergence)
+        #[cfg(debug_assertions)]
+        {
+            let mut nonzero_count = 0;
+            for j in 0..self.ny {
+                for i in 0..self.nx {
+                    if coeffs.ap.at(i, j).abs() > T::default_epsilon() {
+                        nonzero_count += 1;
+                    }
+                }
+            }
+            tracing::debug!(
+                "Momentum coefficients: {}/{} non-zero entries",
+                nonzero_count,
+                self.nx * self.ny
+            );
+        }
+
         // Assemble linear system
         let (matrix, rhs) = self.assemble_system(&coeffs, component, fields)?;
+
+        // Diagnostic: Check matrix and RHS statistics (helps debug false convergence)
+        #[cfg(debug_assertions)]
+        {
+            let matrix_nnz = matrix.nnz();
+            
+            tracing::debug!(
+                "Linear system: matrix {}x{}, {} nnz",
+                matrix.nrows(),
+                matrix.ncols(),
+                matrix_nnz,
+            );
+            
+            if matrix_nnz == 0 {
+                tracing::error!("CRITICAL: Matrix has ZERO non-zero entries - system is empty!");
+            }
+        }
 
         // Solve linear system
         let mut solution = DVector::zeros(matrix.nrows());

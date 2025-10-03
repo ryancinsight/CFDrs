@@ -1,6 +1,27 @@
 # CFD Suite - Technical Backlog (SSOT)
 
-## Sprint 1.30.0-PRODUCTION-EXCELLENCE - CURRENT
+## Sprint 1.31.0-SOLVER-INVESTIGATION - CRITICAL PRIORITY
+
+### 🚨 Critical Priority (P0) - SOLVER NON-FUNCTIONAL
+- [ ] **INVESTIGATE-SOLVER**: Momentum solver immediate false convergence ❌ BLOCKING
+  - **Evidence**: Poiseuille flow test shows 0 iterations, 100,000% error (125 m/s expected, 0.0001 actual)
+  - **Impact**: ALL physics validation blocked, documentation integrity compromised
+  - **Root Cause Options**:
+    1. Matrix assembly producing all-zero entries (coefficients not computed)
+    2. RHS vector all zeros (source term computation failure)
+    3. Boundary conditions wiping out system
+    4. Initial residual artificially small (BiCGSTAB early exit line 106-109)
+  - **Investigation Steps**:
+    1. Add debug instrumentation to coefficient computation
+    2. Verify matrix/RHS have non-zero entries after assembly
+    3. Check boundary condition application
+    4. Compare with working 1D solver implementation
+  - **ETA**: 2-4h (EXCEEDS micro-sprint, but BLOCKS all other work)
+
+- [ ] **UPDATE-TESTS**: Fix tests that pass despite broken solver
+  - **Impact**: Tests currently accept 100,000% error as "expected failure"  
+  - **Action**: Make tests fail loudly when solver broken, pass when fixed
+  - **ETA**: 30min (AFTER solver fix)
 
 ### Critical Priority (P0) - COMPLETED ✅
 - [x] **ACCURACY-AUDIT**: Reconcile documentation vs reality ✅ COMPLETED

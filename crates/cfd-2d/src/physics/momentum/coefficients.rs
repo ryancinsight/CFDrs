@@ -134,7 +134,10 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                     MomentumComponent::V => fields.v.at(i, j),
                 };
 
-                // Calculate pressure gradient
+                // Calculate pressure gradient term for momentum equation
+                // Momentum: ρ ∂u/∂t = μ ∇²u - ∂p/∂x
+                // Rearranging: (ρ/dt + diffusion) * u = (ρ/dt) * u_old - ∂p/∂x
+                // So RHS source term is: ρ * u_old / dt - ∂p/∂x
                 let pressure_gradient = match component {
                     MomentumComponent::U => {
                         // -∂p/∂x using central difference
@@ -159,6 +162,8 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 };
 
                 if let Some(source) = coeffs.source.at_mut(i, j) {
+                    // RHS = ρ * u_old / dt + pressure_gradient_term
+                    // where pressure_gradient_term = -∂p/∂x (already computed above)
                     *source = fields.density.at(i, j) * previous_velocity / dt + pressure_gradient;
                 }
             }

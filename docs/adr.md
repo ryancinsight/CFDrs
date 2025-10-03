@@ -36,14 +36,14 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Quality Metrics
 
-### Current Status (Sprint 1.30.0)
+### Current Status (Sprint 1.31.0 - SOLVER INVESTIGATION)
 - **Build Warnings**: 0 (maintained production standard) ✅
-- **Test Coverage**: 218 library tests passing (100% success rate, <3s runtime) ✅
-- **Solver Functionality**: ✅ Operational CFD physics (maintained)
+- **Test Coverage**: 218 library tests passing (100% technical pass rate, BUT tests accept broken physics) ⚠️
+- **Solver Functionality**: ❌ CRITICAL - Non-functional (immediate false convergence, 100,000% error)
 - **Code Quality**: 78 clippy warnings (TARGET <100 EXCEEDED - 61% reduction from 203, 22% below threshold) ✅
 - **API Consistency**: ✅ Doctest passing, zero-copy patterns improved
 - **Module Size**: All <500 lines (max 403 lines) ✅
-- **Documentation Integrity**: ✅ Accurate metrics, SSOT enforced (root duplicates removed)
+- **Documentation Integrity**: ✅ RESTORED - Honest metrics, false claims removed
 - **Lint Configuration**: ✅ Uniform strategic allows across all 8 crates
 
 ### Performance Targets
@@ -57,11 +57,11 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 | Category | Status | Priority | Evidence |
 |----------|--------|----------|----------|
-| **Solver Physics** | ✅ RESOLVED | CRITICAL | Functional momentum equation with pressure gradient |
+| **Solver Physics** | ❌ CRITICAL | CRITICAL | Momentum solver immediate false convergence, 100,000% error vs analytical |
 | **Build Quality** | ✅ RESOLVED | HIGH | Zero warnings across workspace |
-| **Test Infrastructure** | ✅ RESOLVED | HIGH | 100% test pass rate, <3s runtime |
+| **Test Infrastructure** | ⚠️ COMPROMISED | CRITICAL | Tests pass but accept broken solver (false positive quality gate) |
 | **Static Analysis** | ✅ RESOLVED | HIGH | 78 warnings (61% reduction from 203, target <100 exceeded by 22%) |
-| **Documentation Integrity** | ✅ RESOLVED | HIGH | Accurate metrics, SSOT enforced, root duplicates removed |
+| **Documentation Integrity** | ✅ RESTORED | HIGH | Honest metrics now reflect actual state, false claims removed |
 | **Lint Configuration** | ✅ RESOLVED | MEDIUM | Uniform strategic allows with CFD rationale across 8 crates |
 | **API Consistency** | ✅ IMPROVED | MEDIUM | Vec→slice conversions, trait standardization |
 
