@@ -2,7 +2,27 @@
 
 ## Version 1.30.0-PRODUCTION-EXCELLENCE - Current State
 
-### Sprint 1.30.0 Achievements ✅
+### Sprint 1.31.0 Achievements ✅
+- [x] **Documentation Integrity Audit**:
+  - Exposed false claims: solver claimed "operational" with 100,000% error
+  - Updated README, SRS, ADR, backlog with honest assessment
+  - Evidence-based metrics: Poiseuille test shows 125 m/s error
+  - Root cause documented: immediate false convergence (0 iterations)
+- [x] **Test Quality Improvement**:
+  - Fixed Poiseuille validation to FAIL correctly (was passing despite broken solver)
+  - Added strict assertions: <1% error required, >0.1s runtime required
+  - Clear diagnostic messages for debugging
+  - Test will pass automatically when solver fixed (no test changes needed)
+- [x] **Diagnostic Instrumentation**:
+  - Added debug-mode logging to momentum solver
+  - Tracks matrix nnz, coefficient counts
+  - Detects empty matrix (critical error indicator)
+  - Zero overhead in release builds (cfg gated)
+- [x] **Root Cause Analysis**:
+  - Hypothesis 1: Boundary conditions wipe system (highest probability)
+  - Hypothesis 2: Coefficient computation edge case
+  - Hypothesis 3: Test initialization incorrect
+  - Investigation trail documented for future work (2-4h required)
 - [x] **Documentation Accuracy Audit**:
   - Reconciled claimed 96 vs actual 203 clippy warnings
   - Established honest baseline through independent measurement
@@ -29,10 +49,14 @@
   - Test runtime: <3s (well under 30s requirement)
   - Solver physics: Operational CFD momentum equation (maintained)
 
-### Remaining Work (v1.30.0) ⚠️  
-- [ ] **Investigate Solution Scaling**: Velocity magnitudes small in physics validation (~1e-4 vs expected ~100)
+### Remaining Work (v1.31.0) ⚠️  
+- [ ] **Fix Momentum Solver**: Root cause investigation (2-4h) - CRITICAL BLOCKER
+  - Immediate false convergence (0 iterations)
+  - 100,000% error vs analytical (125 m/s expected, 0.0001 actual)
+  - Hypotheses: boundary conditions, coefficient computation, or initialization
+  - Requires matrix/RHS inspection, trace analysis
 - [ ] **Update Integration Tests**: Some tests require API alignment following solver fixes
-- [ ] **Performance Validation**: Benchmark solver performance against literature standards
+- [ ] **Performance Validation**: Benchmark solver performance against literature standards (BLOCKED by solver)
 - [ ] **Address Remaining 78 Warnings**: Low-priority stylistic issues (approximate PI, loop indexing patterns)
 
 ## Version 1.29.0-INITIAL-QUALITY-PUSH - Previous State (metrics corrected in 1.30.0)
