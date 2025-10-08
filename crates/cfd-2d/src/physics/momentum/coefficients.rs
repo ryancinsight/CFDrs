@@ -189,16 +189,6 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         // Source correction = α * (QUICK_flux - upwind_flux)
                         if let Some(source) = coeffs.source.at_mut(i, j) {
                             let correction = alpha * (quick_correction_x + quick_correction_y);
-                            
-                            // Debug logging for first interior cell
-                            #[cfg(debug_assertions)]
-                            if i == 2 && j == ny / 2 {
-                                tracing::debug!(
-                                    "Deferred correction at center: x_corr={:.3e}, y_corr={:.3e}, total={:.3e}, alpha={:.3}",
-                                    quick_correction_x, quick_correction_y, correction, alpha
-                                );
-                            }
-                            
                             *source = *source + correction;
                         }
                     }

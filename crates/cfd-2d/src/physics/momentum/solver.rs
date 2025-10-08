@@ -35,6 +35,9 @@ pub struct MomentumSolver<T: RealField + Copy> {
     linear_solver: BiCGSTAB<T>,
     /// Convection discretization scheme
     convection_scheme: ConvectionScheme,
+    /// Velocity under-relaxation factor (0 < α ≤ 1, default 0.7)
+    /// u_new = α * u_computed + (1-α) * u_old
+    velocity_relaxation: T,
 }
 
 impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
@@ -51,6 +54,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
             boundary_conditions: HashMap::new(),
             linear_solver,
             convection_scheme: ConvectionScheme::default(),
+            velocity_relaxation: T::from_f64(0.7).unwrap_or_else(T::one),
         }
     }
 
@@ -67,12 +71,27 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
             boundary_conditions: HashMap::new(),
             linear_solver,
             convection_scheme: scheme,
+            velocity_relaxation: T::from_f64(0.7).unwrap_or_else(T::one),
         }
     }
 
     /// Set convection scheme
     pub fn set_convection_scheme(&mut self, scheme: ConvectionScheme) {
         self.convection_scheme = scheme;
+    }
+
+    /// Set velocity under-relaxation factor
+    ///
+    /// # Arguments
+    /// * `alpha` - Relaxation factor (0 < α ≤ 1)
+    ///   - α = 1.0: No relaxation (fastest but may oscillate)
+    ///   - α = 0.7: Recommended for most cases
+    ///   - α = 0.5: Very stable but slow convergence
+    ///
+    /// # References
+    /// * Patankar (1980) "Numerical Heat Transfer and Fluid Flow" §6.7
+    pub fn set_velocity_relaxation(&mut self, alpha: T) {
+        self.velocity_relaxation = alpha;
     }
 
     /// Set boundary condition
@@ -216,18 +235,27 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         fields: &mut SimulationFields<T>,
         solution: &DVector<T>,
     ) {
+        let alpha = self.velocity_relaxation;
+        let one_minus_alpha = T::one() - alpha;
+
         for j in 0..self.ny {
             for i in 0..self.nx {
                 let idx = j * self.nx + i;
+                let computed_value = solution[idx];
+
                 match component {
                     MomentumComponent::U => {
                         if let Some(u) = fields.u.at_mut(i, j) {
-                            *u = solution[idx];
+                            let old_value = *u;
+                            // Under-relaxation: u_new = α * u_computed + (1-α) * u_old
+                            *u = alpha * computed_value + one_minus_alpha * old_value;
                         }
                     }
                     MomentumComponent::V => {
                         if let Some(v) = fields.v.at_mut(i, j) {
-                            *v = solution[idx];
+                            let old_value = *v;
+                            // Under-relaxation: v_new = α * v_computed + (1-α) * v_old
+                            *v = alpha * computed_value + one_minus_alpha * old_value;
                         }
                     }
                 }
