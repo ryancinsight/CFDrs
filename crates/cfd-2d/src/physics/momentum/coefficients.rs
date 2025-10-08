@@ -42,26 +42,30 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
             source: Field2D::new(nx, ny, T::zero()),
         };
 
-        // Compute diffusion coefficients
-        let dx2 = dx * dx;
-        let dy2 = dy * dy;
+        // Compute diffusion coefficients with proper finite volume scaling
+        // For east/west faces: coefficient = μ * (face_area) / (distance) = μ * dy / dx
+        // For north/south faces: coefficient = μ * (face_area) / (distance) = μ * dx / dy
+        let diff_coeff_ew = dy / dx;  // East-West diffusion scaling
+        let diff_coeff_ns = dx / dy;  // North-South diffusion scaling
 
         for j in 1..ny - 1 {
             for i in 1..nx - 1 {
                 let mu = fields.viscosity.at(i, j);
 
-                // Diffusion coefficients
+                // Diffusion coefficients with finite volume scaling
+                // East/West: μ * (dy / dx)
+                // North/South: μ * (dx / dy)
                 if let Some(ae) = coeffs.ae.at_mut(i, j) {
-                    *ae = mu / dx2;
+                    *ae = mu * diff_coeff_ew;
                 }
                 if let Some(aw) = coeffs.aw.at_mut(i, j) {
-                    *aw = mu / dx2;
+                    *aw = mu * diff_coeff_ew;
                 }
                 if let Some(an) = coeffs.an.at_mut(i, j) {
-                    *an = mu / dy2;
+                    *an = mu * diff_coeff_ns;
                 }
                 if let Some(as_) = coeffs.as_.at_mut(i, j) {
-                    *as_ = mu / dy2;
+                    *as_ = mu * diff_coeff_ns;
                 }
 
                 // Convection coefficients (using upwind)
