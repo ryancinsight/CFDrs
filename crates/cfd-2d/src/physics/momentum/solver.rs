@@ -1,6 +1,6 @@
 //! Core momentum equation solver
 
-use super::coefficients::MomentumCoefficients;
+use super::coefficients::{ConvectionScheme, MomentumCoefficients};
 use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
 use cfd_core::boundary::BoundaryCondition;
@@ -33,10 +33,12 @@ pub struct MomentumSolver<T: RealField + Copy> {
     boundary_conditions: HashMap<String, BoundaryCondition<T>>,
     /// Linear solver
     linear_solver: BiCGSTAB<T>,
+    /// Convection discretization scheme
+    convection_scheme: ConvectionScheme,
 }
 
 impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
-    /// Create new momentum solver
+    /// Create new momentum solver with default deferred correction scheme
     pub fn new(grid: &StructuredGrid2D<T>) -> Self {
         let config = IterativeSolverConfig::default();
         let linear_solver = BiCGSTAB::new(config);
@@ -48,7 +50,29 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
             dy: grid.dy,
             boundary_conditions: HashMap::new(),
             linear_solver,
+            convection_scheme: ConvectionScheme::default(),
         }
+    }
+
+    /// Create new momentum solver with specified convection scheme
+    pub fn with_convection_scheme(grid: &StructuredGrid2D<T>, scheme: ConvectionScheme) -> Self {
+        let config = IterativeSolverConfig::default();
+        let linear_solver = BiCGSTAB::new(config);
+
+        Self {
+            nx: grid.nx,
+            ny: grid.ny,
+            dx: grid.dx,
+            dy: grid.dy,
+            boundary_conditions: HashMap::new(),
+            linear_solver,
+            convection_scheme: scheme,
+        }
+    }
+
+    /// Set convection scheme
+    pub fn set_convection_scheme(&mut self, scheme: ConvectionScheme) {
+        self.convection_scheme = scheme;
     }
 
     /// Set boundary condition
@@ -125,7 +149,16 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         fields: &SimulationFields<T>,
         dt: T,
     ) -> cfd_core::error::Result<MomentumCoefficients<T>> {
-        MomentumCoefficients::compute(self.nx, self.ny, self.dx, self.dy, dt, component, fields)
+        MomentumCoefficients::compute(
+            self.nx,
+            self.ny,
+            self.dx,
+            self.dy,
+            dt,
+            component,
+            fields,
+            self.convection_scheme,
+        )
     }
 
     fn assemble_system(

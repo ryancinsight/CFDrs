@@ -7,7 +7,7 @@ mod interpolation;
 mod solver;
 
 pub use boundary::apply_momentum_boundaries;
-pub use coefficients::MomentumCoefficients;
+pub use coefficients::{ConvectionScheme, MomentumCoefficients};
 pub use discretization::{CentralDifference, DiscretizationScheme, Upwind};
 pub use interpolation::rhie_chow_interpolation;
 pub use solver::{MomentumComponent, MomentumSolver};

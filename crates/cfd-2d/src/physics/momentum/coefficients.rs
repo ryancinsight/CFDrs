@@ -1,6 +1,7 @@
 //! Momentum equation coefficients
 
 use super::solver::MomentumComponent;
+use crate::discretization::extended_stencil::{ExtendedStencilScheme, QuickScheme};
 use crate::fields::{Field2D, SimulationFields};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -22,8 +23,36 @@ pub struct MomentumCoefficients<T: RealField + Copy> {
     pub source: Field2D<T>,
 }
 
+/// Convection discretization strategy for momentum equations
+#[derive(Debug, Clone, Copy)]
+pub enum ConvectionScheme {
+    /// First-order upwind (stable, dissipative)
+    Upwind,
+    /// Deferred correction with QUICK explicit part (Patankar 1980 §5.4.3)
+    /// Combines stability of upwind with accuracy of QUICK
+    DeferredCorrectionQuick {
+        /// Under-relaxation factor (0.5-0.8 recommended, default 0.7)
+        relaxation_factor: f64,
+    },
+}
+
+impl Default for ConvectionScheme {
+    fn default() -> Self {
+        Self::DeferredCorrectionQuick {
+            relaxation_factor: 0.7,
+        }
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
-    /// Compute momentum equation coefficients
+    /// Compute momentum equation coefficients with advanced convection scheme
+    ///
+    /// # Arguments
+    /// * `scheme` - Convection discretization scheme (upwind or deferred correction)
+    ///
+    /// # References
+    /// * Patankar (1980) "Numerical Heat Transfer and Fluid Flow" §5.4.3
+    /// * Leonard (1979) "A stable and accurate convective modelling procedure"
     pub fn compute(
         nx: usize,
         ny: usize,
@@ -32,6 +61,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
         dt: T,
         component: MomentumComponent,
         fields: &SimulationFields<T>,
+        scheme: ConvectionScheme,
     ) -> cfd_core::error::Result<Self> {
         let mut coeffs = Self {
             ap: Field2D::new(nx, ny, T::zero()),
@@ -74,13 +104,14 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 // The nonlinear convective term is: ρ * (u * ∂φ/∂x + v * ∂φ/∂y)
                 // where φ is the velocity component being solved (u or v)
                 // 
+                // Deferred correction approach (Patankar 1980 §5.4.3):
+                // - Implicit part: Use first-order upwind for unconditional stability
+                // - Explicit part: Add QUICK correction to source term for accuracy
+                // - Combined: Stable iteration with high-order accuracy
+                //
                 // Face velocity (for determining flow direction) vs transported quantity:
                 // - Face velocity determines upwind direction
-                // - Transported quantity (φ) is taken from upwind side
-                //
-                // For u-momentum: convective flux through east face = ρ * u_e * φ_e * A_e
-                //   where u_e is velocity at east face, φ is u-velocity being transported
-                // For v-momentum: similar but with appropriate velocity components
+                // - Transported quantity (φ) is taken from upwind side or QUICK interpolation
 
                 let (u, v) = match component {
                     MomentumComponent::U => {
@@ -95,45 +126,81 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                     }
                 };
 
-                // Add convection to coefficients (upwind scheme)
-                // Using Patankar's formulation: a_W = D_w + max(F_w, 0)
-                // where F_w = ρ * u_w * A_w is the mass flow rate through west face
-                // and D_w = μ * A_w / δx is the diffusion conductance
                 let rho = fields.density.at(i, j);
-                
-                // X-direction convection
-                // Mass flux through face = ρ * u * A = ρ * u * dy
+
+                // Implicit part: Always use upwind for stability (added to coefficients)
                 let mass_flux_x = rho * u * dy;
+                let mass_flux_y = rho * v * dx;
                 
                 if u > T::zero() {
-                    // Flow to right (W→P): add mass_flux to a_W
                     let aw_val = coeffs.aw.at(i, j);
                     if let Some(aw) = coeffs.aw.at_mut(i, j) {
                         *aw = aw_val + mass_flux_x;
                     }
                 } else {
-                    // Flow to left (E→P): add |mass_flux| to a_E
                     let ae_val = coeffs.ae.at(i, j);
                     if let Some(ae) = coeffs.ae.at_mut(i, j) {
-                        *ae = ae_val - mass_flux_x;  // mass_flux_x is negative
+                        *ae = ae_val - mass_flux_x;
                     }
                 }
 
-                // Y-direction convection  
-                // Mass flux through face = ρ * v * A = ρ * v * dx
-                let mass_flux_y = rho * v * dx;
-                
                 if v > T::zero() {
-                    // Flow up (S→P): add mass_flux to a_S
                     let as_val = coeffs.as_.at(i, j);
                     if let Some(as_) = coeffs.as_.at_mut(i, j) {
                         *as_ = as_val + mass_flux_y;
                     }
                 } else {
-                    // Flow down (N→P): add |mass_flux| to a_N
                     let an_val = coeffs.an.at(i, j);
                     if let Some(an) = coeffs.an.at_mut(i, j) {
-                        *an = an_val - mass_flux_y;  // mass_flux_y is negative
+                        *an = an_val - mass_flux_y;
+                    }
+                }
+
+                // Explicit part: Deferred correction with QUICK scheme
+                // This is added to the source term after upwind is applied implicitly
+                match scheme {
+                    ConvectionScheme::Upwind => {
+                        // Pure upwind - no correction needed
+                    }
+                    ConvectionScheme::DeferredCorrectionQuick { relaxation_factor } => {
+                        let alpha = T::from_f64(relaxation_factor).unwrap_or_else(|| {
+                            T::from_f64(0.7).unwrap_or_else(T::one)
+                        });
+
+                        // Compute QUICK-upwind correction for X-direction
+                        let quick_correction_x = if i >= 2 && i < nx - 2 {
+                            Self::compute_quick_correction_x(
+                                i, j, u, rho, dy, &fields, component,
+                            )
+                        } else {
+                            T::zero()
+                        };
+
+                        // Compute QUICK-upwind correction for Y-direction
+                        let quick_correction_y = if j >= 2 && j < ny - 2 {
+                            Self::compute_quick_correction_y(
+                                i, j, v, rho, dx, &fields, component,
+                            )
+                        } else {
+                            T::zero()
+                        };
+
+                        // Add deferred correction to source with under-relaxation
+                        // Source correction = α * (QUICK_flux - upwind_flux)
+                        if let Some(source) = coeffs.source.at_mut(i, j) {
+                            let correction = alpha * (quick_correction_x + quick_correction_y);
+                            
+                            // Debug logging for first interior cell
+                            #[cfg(debug_assertions)]
+                            if i == 2 && j == ny / 2 {
+                                tracing::debug!(
+                                    "Deferred correction at center: x_corr={:.3e}, y_corr={:.3e}, total={:.3e}, alpha={:.3}",
+                                    quick_correction_x, quick_correction_y, correction, alpha
+                                );
+                            }
+                            
+                            *source = *source + correction;
+                        }
                     }
                 }
 
@@ -196,5 +263,101 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
         }
 
         Ok(coeffs)
+    }
+
+    /// Compute QUICK correction for X-direction convection
+    ///
+    /// Returns the difference between QUICK flux and upwind flux
+    /// Reference: Leonard (1979), Patankar (1980) §5.4.3
+    fn compute_quick_correction_x(
+        i: usize,
+        j: usize,
+        u: T,
+        rho: T,
+        dy: T,
+        fields: &SimulationFields<T>,
+        component: MomentumComponent,
+    ) -> T {
+        let quick = QuickScheme;
+
+        // Get velocity values for 5-point stencil [i-2, i-1, i, i+1, i+2]
+        let phi_values: [T; 5] = match component {
+            MomentumComponent::U => [
+                fields.u.at(i - 2, j),
+                fields.u.at(i - 1, j),
+                fields.u.at(i, j),
+                fields.u.at(i + 1, j),
+                fields.u.at(i + 2, j),
+            ],
+            MomentumComponent::V => [
+                fields.v.at(i - 2, j),
+                fields.v.at(i - 1, j),
+                fields.v.at(i, j),
+                fields.v.at(i + 1, j),
+                fields.v.at(i + 2, j),
+            ],
+        };
+
+        // QUICK face value at east face (between i and i+1)
+        let phi_e_quick = quick.face_value(&phi_values, u, None);
+
+        // Upwind face value at east face
+        let phi_e_upwind = if u > T::zero() {
+            phi_values[2] // From cell i (current)
+        } else {
+            phi_values[3] // From cell i+1 (downstream)
+        };
+
+        // Flux correction = mass_flux * (φ_QUICK - φ_upwind)
+        let mass_flux = rho * u * dy;
+        mass_flux * (phi_e_quick - phi_e_upwind)
+    }
+
+    /// Compute QUICK correction for Y-direction convection
+    ///
+    /// Returns the difference between QUICK flux and upwind flux
+    /// Reference: Leonard (1979), Patankar (1980) §5.4.3
+    fn compute_quick_correction_y(
+        i: usize,
+        j: usize,
+        v: T,
+        rho: T,
+        dx: T,
+        fields: &SimulationFields<T>,
+        component: MomentumComponent,
+    ) -> T {
+        let quick = QuickScheme;
+
+        // Get velocity values for 5-point stencil [j-2, j-1, j, j+1, j+2]
+        let phi_values: [T; 5] = match component {
+            MomentumComponent::U => [
+                fields.u.at(i, j - 2),
+                fields.u.at(i, j - 1),
+                fields.u.at(i, j),
+                fields.u.at(i, j + 1),
+                fields.u.at(i, j + 2),
+            ],
+            MomentumComponent::V => [
+                fields.v.at(i, j - 2),
+                fields.v.at(i, j - 1),
+                fields.v.at(i, j),
+                fields.v.at(i, j + 1),
+                fields.v.at(i, j + 2),
+            ],
+        };
+
+        // QUICK face value at north face (between j and j+1)
+        let phi_n_quick = quick.face_value(&phi_values, v, None);
+
+        // Upwind face value at north face
+        let phi_n_upwind = if v > T::zero() {
+            phi_values[2] // From cell j (current)
+        } else {
+            phi_values[3] // From cell j+1 (downstream)
+        };
+
+        // Flux correction = mass_flux * (φ_QUICK - φ_upwind)
+        let mass_flux = rho * v * dx;
+        mass_flux * (phi_n_quick - phi_n_upwind)
     }
 }
