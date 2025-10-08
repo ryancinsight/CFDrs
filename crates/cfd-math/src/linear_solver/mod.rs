@@ -22,12 +22,14 @@
 mod bicgstab;
 mod config;
 mod conjugate_gradient;
+pub mod gmres;
 pub mod preconditioners;
 mod traits;
 
 pub use bicgstab::BiCGSTAB;
 pub use config::IterativeSolverConfig;
 pub use conjugate_gradient::ConjugateGradient;
+pub use gmres::GMRES;
 pub use traits::{Configurable, IterativeLinearSolver, LinearSolver, Preconditioner};
 
 // REMOVED: Dependencies on cfd-core break the dependency hierarchy.
