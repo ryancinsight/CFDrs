@@ -28,7 +28,7 @@ impl IntegrationUtils {
         T: RealField + From<f64> + FromPrimitive + Copy,
         F: Fn(T) -> T,
     {
-        if n % 2 != 0 {
+        if !n.is_multiple_of(2) {
             return Err(Error::InvalidConfiguration(
                 "Simpson's rule requires even number of intervals".to_string(),
             ));

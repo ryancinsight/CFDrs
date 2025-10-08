@@ -58,3 +58,33 @@ pub const K_VISC_COEFFICIENT: f64 = 11.0;
 pub const OMEGA_WALL_COEFFICIENT: f64 = 60.0;
 /// Blending factor for SST model near-wall treatment (Menter 1994)
 pub const BLENDING_FACTOR: f64 = 0.01;
+
+/// Spalart-Allmaras model constants (Spalart & Allmaras 1994)
+pub const SA_CB1: f64 = 0.1355;
+/// Production coefficient for turbulent kinetic energy (Spalart & Allmaras 1994)
+pub const SA_CB2: f64 = 0.622;
+/// Trip function coefficient (Spalart & Allmaras 1994)
+pub const SA_CW1: f64 = 3.239;
+/// Destruction coefficient = CB1/κ² + (1+CB2)/σ (Spalart & Allmaras 1994)
+pub const SA_CW2: f64 = 0.3;
+/// Wall destruction modification coefficient (Spalart & Allmaras 1994)
+pub const SA_CW3: f64 = 2.0;
+/// Eddy viscosity coefficient (Spalart & Allmaras 1994)
+pub const SA_CV1: f64 = 7.1;
+/// Modified vorticity coefficient (Spalart & Allmaras 1994)
+pub const SA_CV2: f64 = 0.7;
+/// Trip function coefficient (Spalart & Allmaras 1994)
+pub const SA_CT1: f64 = 1.0;
+/// Trip function coefficient (Spalart & Allmaras 1994)
+pub const SA_CT2: f64 = 2.0;
+/// Trip function coefficient (Spalart & Allmaras 1994)
+pub const SA_CT3: f64 = 1.2;
+/// Trip function coefficient (Spalart & Allmaras 1994)
+pub const SA_CT4: f64 = 0.5;
+/// Diffusion Schmidt number (Spalart & Allmaras 1994)
+pub const SA_SIGMA: f64 = 2.0 / 3.0;
+/// Empirical constant for destruction term (Spalart & Allmaras 1994)
+pub const SA_CW1_COMPUTED: f64 = 3.239; // CB1/κ² + (1+CB2)/σ
+/// von Kármán constant squared for SA model
+pub const SA_KAPPA_SQ: f64 = cfd_core::constants::fluid::VON_KARMAN
+    * cfd_core::constants::fluid::VON_KARMAN;

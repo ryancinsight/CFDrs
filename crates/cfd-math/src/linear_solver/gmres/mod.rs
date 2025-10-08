@@ -22,6 +22,8 @@
 //! - Saad, Y. (2003). Iterative Methods for Sparse Linear Systems (2nd ed.).
 //!   SIAM, Philadelphia, §6.5.
 
+mod arnoldi;
+mod givens;
 mod solver;
 
 pub use solver::GMRES;

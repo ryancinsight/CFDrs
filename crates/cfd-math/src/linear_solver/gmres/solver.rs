@@ -2,7 +2,8 @@
 
 use super::super::config::IterativeSolverConfig;
 use super::super::traits::{Configurable, IterativeLinearSolver, Preconditioner};
-use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind, Result};
+use super::{arnoldi, givens};
+use cfd_core::error::{ConvergenceErrorKind, Error, Result};
 use nalgebra::{DMatrix, DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
@@ -51,151 +52,6 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
     #[must_use]
     pub fn default() -> Self {
         Self::new(IterativeSolverConfig::default(), 30)
-    }
-
-    /// Efficient sparse matrix-vector multiplication into pre-allocated buffer
-    #[inline]
-    fn spmv(a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVector<T>) {
-        y.fill(T::zero());
-
-        for i in 0..a.nrows() {
-            let row_start = a.row_offsets()[i];
-            let row_end = a.row_offsets()[i + 1];
-
-            let mut sum = T::zero();
-            for j in row_start..row_end {
-                let col_idx = a.col_indices()[j];
-                let val = a.values()[j];
-                sum += val * x[col_idx];
-            }
-            y[i] = sum;
-        }
-    }
-
-    /// Apply Givens rotation to eliminate H[i+1, i]
-    ///
-    /// # Arguments
-    ///
-    /// * `h` - Upper Hessenberg matrix H
-    /// * `cs` - Cosine values of previous Givens rotations
-    /// * `sn` - Sine values of previous Givens rotations
-    /// * `g` - Right-hand side vector for least-squares problem
-    /// * `i` - Current column index
-    ///
-    /// Updates H to upper triangular form and propagates rotation to g
-    fn apply_givens_rotation(
-        h: &mut DMatrix<T>,
-        cs: &mut [T],
-        sn: &mut [T],
-        g: &mut DVector<T>,
-        i: usize,
-    ) {
-        // Apply previous Givens rotations to column i
-        for k in 0..i {
-            let temp = cs[k] * h[(k, i)] + sn[k] * h[(k + 1, i)];
-            h[(k + 1, i)] = -sn[k] * h[(k, i)] + cs[k] * h[(k + 1, i)];
-            h[(k, i)] = temp;
-        }
-
-        // Compute new Givens rotation to eliminate H[i+1, i]
-        let h_ii = h[(i, i)];
-        let h_ip1_i = h[(i + 1, i)];
-        let hypotenuse = (h_ii * h_ii + h_ip1_i * h_ip1_i).sqrt();
-
-        if hypotenuse > T::zero() {
-            cs[i] = h_ii / hypotenuse;
-            sn[i] = h_ip1_i / hypotenuse;
-        } else {
-            // Degenerate case: both entries are zero
-            cs[i] = T::one();
-            sn[i] = T::zero();
-        }
-
-        // Apply rotation to H
-        h[(i, i)] = cs[i] * h_ii + sn[i] * h_ip1_i;
-        h[(i + 1, i)] = T::zero();
-
-        // Apply rotation to RHS vector
-        let temp = cs[i] * g[i] + sn[i] * g[i + 1];
-        g[i + 1] = -sn[i] * g[i] + cs[i] * g[i + 1];
-        g[i] = temp;
-    }
-
-    /// Arnoldi process with Modified Gram-Schmidt orthogonalization
-    ///
-    /// # Arguments
-    ///
-    /// * `a` - System matrix
-    /// * `v` - Orthonormal basis vectors (n × (m+1))
-    /// * `h` - Upper Hessenberg matrix ((m+1) × m)
-    /// * `k` - Current iteration index
-    /// * `work` - Workspace vector for matrix-vector product
-    ///
-    /// # Returns
-    ///
-    /// Norm of the newly orthogonalized vector, or error if breakdown occurs
-    fn arnoldi_iteration(
-        a: &CsrMatrix<T>,
-        v: &mut DMatrix<T>,
-        h: &mut DMatrix<T>,
-        k: usize,
-        work: &mut DVector<T>,
-    ) -> Result<T> {
-        let n = a.nrows();
-
-        // Extract k-th basis vector
-        let v_k = v.column(k).clone_owned();
-
-        // Compute w = A * v_k
-        Self::spmv(a, &v_k, work);
-
-        // Modified Gram-Schmidt orthogonalization
-        for j in 0..=k {
-            let v_j = v.column(j);
-            let h_jk = work.dot(&v_j);
-            h[(j, k)] = h_jk;
-
-            // w = w - h_jk * v_j
-            for i in 0..n {
-                work[i] -= h_jk * v_j[i];
-            }
-        }
-
-        // Compute norm and normalize
-        let norm = work.norm();
-        if norm < T::from_f64(1e-14).unwrap_or(T::zero()) {
-            // Breakdown: residual is in Krylov subspace (happy breakdown or singular matrix)
-            return Err(Error::Numerical(NumericalErrorKind::SingularMatrix));
-        }
-
-        h[(k + 1, k)] = norm;
-
-        // Store normalized vector as (k+1)-th basis
-        let inv_norm = T::one() / norm;
-        for i in 0..n {
-            v[(i, k + 1)] = work[i] * inv_norm;
-        }
-
-        Ok(norm)
-    }
-
-    /// Back-substitution to solve upper triangular system H*y = g
-    ///
-    /// # Arguments
-    ///
-    /// * `h` - Upper triangular Hessenberg matrix (after Givens rotations)
-    /// * `g` - Right-hand side vector
-    /// * `y` - Solution vector (output)
-    /// * `k` - Dimension of the system
-    fn back_substitution(h: &DMatrix<T>, g: &DVector<T>, y: &mut DVector<T>, k: usize) {
-        // Solve R*y = g where R = H[0:k, 0:k] is upper triangular
-        for i in (0..k).rev() {
-            let mut sum = g[i];
-            for j in (i + 1)..k {
-                sum -= h[(i, j)] * y[j];
-            }
-            y[i] = sum / h[(i, i)];
-        }
     }
 
     /// Solve with preconditioning using GMRES(m) algorithm
@@ -258,7 +114,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
         // GMRES(m) restart loop
         while total_iterations < self.config.max_iterations {
             // Compute initial residual: r = b - A*x
-            Self::spmv(a, x, &mut work);
+            arnoldi::spmv(a, x, &mut work);
             r.copy_from(b);
             r -= &work;
 
@@ -290,17 +146,17 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
             let mut k = 0;
             while k < m && total_iterations < self.config.max_iterations {
                 // Arnoldi step: generate next Krylov basis vector
-                match Self::arnoldi_iteration(a, &mut v, &mut h, k, &mut work) {
+                match arnoldi::arnoldi_iteration(a, &mut v, &mut h, k, &mut work) {
                     Ok(_norm) => {
                         // Apply Givens rotations to transform H to upper triangular
-                        Self::apply_givens_rotation(&mut h, &mut cs, &mut sn, &mut g, k);
+                        givens::apply_givens_rotation(&mut h, &mut cs, &mut sn, &mut g, k);
 
                         // Current residual estimate: |g[k+1]|
                         let current_residual = g[k + 1].abs();
 
                         if self.is_converged(current_residual) {
                             // Converged within this cycle
-                            Self::back_substitution(&h, &g, &mut y, k + 1);
+                            givens::back_substitution(&h, &g, &mut y, k + 1);
 
                             // Update solution: x = x + V * y
                             for i in 0..n {
@@ -326,7 +182,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
                         // Arnoldi breakdown (happy breakdown): residual in Krylov subspace
                         // Compute solution and return
                         if k > 0 {
-                            Self::back_substitution(&h, &g, &mut y, k);
+                            givens::back_substitution(&h, &g, &mut y, k);
 
                             for i in 0..n {
                                 let mut correction = T::zero();
@@ -348,7 +204,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
             }
 
             // End of restart cycle: update solution with partial result
-            Self::back_substitution(&h, &g, &mut y, k);
+            givens::back_substitution(&h, &g, &mut y, k);
 
             for i in 0..n {
                 let mut correction = T::zero();
@@ -396,7 +252,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> IterativeLinearSolver<T> for G
             None => {
                 // Use identity preconditioner
                 use super::super::preconditioners::IdentityPreconditioner;
-                let identity = IdentityPreconditioner::default();
+                let identity = IdentityPreconditioner;
                 self.solve_preconditioned(a, b, &identity, x)
             }
         }
