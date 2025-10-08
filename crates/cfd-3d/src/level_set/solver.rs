@@ -104,7 +104,7 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
 
         // Check for reinitialization
         self.time_step += 1;
-        if self.time_step % self.config.reinitialization_interval == 0 {
+        if self.time_step.is_multiple_of(self.config.reinitialization_interval) {
             self.reinitialize()?;
         }
 

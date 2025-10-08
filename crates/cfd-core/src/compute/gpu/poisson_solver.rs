@@ -285,7 +285,7 @@ impl GpuPoissonSolver {
         }
 
         // Copy result back to CPU
-        let final_buffer = if iterations % 2 == 0 {
+        let final_buffer = if iterations.is_multiple_of(2) {
             &phi_buffer_a
         } else {
             &phi_buffer_b

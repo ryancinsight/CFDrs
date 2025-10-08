@@ -252,7 +252,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> IterativeLinearSolver<T> for G
             None => {
                 // Use identity preconditioner
                 use super::super::preconditioners::IdentityPreconditioner;
-                let identity = IdentityPreconditioner::default();
+                let identity = IdentityPreconditioner;
                 self.solve_preconditioned(a, b, &identity, x)
             }
         }

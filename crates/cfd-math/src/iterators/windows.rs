@@ -39,9 +39,8 @@ where
                 None => {
                     if self.window.is_empty() {
                         return None;
-                    } else {
-                        break;
                     }
+                    break;
                 }
             }
         }
