@@ -43,8 +43,10 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
         };
 
         // Compute diffusion coefficients with proper finite volume scaling
-        // For east/west faces: coefficient = μ * (face_area) / (distance) = μ * dy / dx
-        // For north/south faces: coefficient = μ * (face_area) / (distance) = μ * dx / dy
+        // Diffusion flux through a face = -μ * A * ∂φ/∂n / Δn
+        // For a control volume, coefficient in discretized equation:
+        // coeff_e = μ * A_e / Δx_e = μ * dy / dx (for east/west faces)
+        // coeff_n = μ * A_n / Δy_n = μ * dx / dy (for north/south faces)
         let diff_coeff_ew = dy / dx;  // East-West diffusion scaling
         let diff_coeff_ns = dx / dy;  // North-South diffusion scaling
 
@@ -68,7 +70,18 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                     *as_ = mu * diff_coeff_ns;
                 }
 
-                // Convection coefficients (using upwind)
+                // Convection coefficients for momentum equation
+                // The nonlinear convective term is: ρ * (u * ∂φ/∂x + v * ∂φ/∂y)
+                // where φ is the velocity component being solved (u or v)
+                // 
+                // Face velocity (for determining flow direction) vs transported quantity:
+                // - Face velocity determines upwind direction
+                // - Transported quantity (φ) is taken from upwind side
+                //
+                // For u-momentum: convective flux through east face = ρ * u_e * φ_e * A_e
+                //   where u_e is velocity at east face, φ is u-velocity being transported
+                // For v-momentum: similar but with appropriate velocity components
+
                 let (u, v) = match component {
                     MomentumComponent::U => {
                         let u = fields.u.at(i, j);
@@ -83,53 +96,59 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 };
 
                 // Add convection to coefficients (upwind scheme)
+                // Using Patankar's formulation: a_W = D_w + max(F_w, 0)
+                // where F_w = ρ * u_w * A_w is the mass flow rate through west face
+                // and D_w = μ * A_w / δx is the diffusion conductance
+                let rho = fields.density.at(i, j);
+                
+                // X-direction convection
+                // Mass flux through face = ρ * u * A = ρ * u * dy
+                let mass_flux_x = rho * u * dy;
+                
                 if u > T::zero() {
-                    let ae_val = coeffs.ae.at(i, j);
-                    let ap_val = coeffs.ap.at(i, j);
-                    if let Some(ae) = coeffs.ae.at_mut(i, j) {
-                        *ae = ae_val + u / dx;
-                    }
-                    if let Some(ap) = coeffs.ap.at_mut(i, j) {
-                        *ap = ap_val + u / dx;
+                    // Flow to right (W→P): add mass_flux to a_W
+                    let aw_val = coeffs.aw.at(i, j);
+                    if let Some(aw) = coeffs.aw.at_mut(i, j) {
+                        *aw = aw_val + mass_flux_x;
                     }
                 } else {
-                    let aw_val = coeffs.aw.at(i, j);
-                    let ap_val = coeffs.ap.at(i, j);
-                    if let Some(aw) = coeffs.aw.at_mut(i, j) {
-                        *aw = aw_val - u / dx;
-                    }
-                    if let Some(ap) = coeffs.ap.at_mut(i, j) {
-                        *ap = ap_val - u / dx;
+                    // Flow to left (E→P): add |mass_flux| to a_E
+                    let ae_val = coeffs.ae.at(i, j);
+                    if let Some(ae) = coeffs.ae.at_mut(i, j) {
+                        *ae = ae_val - mass_flux_x;  // mass_flux_x is negative
                     }
                 }
 
+                // Y-direction convection  
+                // Mass flux through face = ρ * v * A = ρ * v * dx
+                let mass_flux_y = rho * v * dx;
+                
                 if v > T::zero() {
-                    let an_val = coeffs.an.at(i, j);
-                    let ap_val = coeffs.ap.at(i, j);
-                    if let Some(an) = coeffs.an.at_mut(i, j) {
-                        *an = an_val + v / dy;
-                    }
-                    if let Some(ap) = coeffs.ap.at_mut(i, j) {
-                        *ap = ap_val + v / dy;
+                    // Flow up (S→P): add mass_flux to a_S
+                    let as_val = coeffs.as_.at(i, j);
+                    if let Some(as_) = coeffs.as_.at_mut(i, j) {
+                        *as_ = as_val + mass_flux_y;
                     }
                 } else {
-                    let as_val = coeffs.as_.at(i, j);
-                    let ap_val = coeffs.ap.at(i, j);
-                    if let Some(as_) = coeffs.as_.at_mut(i, j) {
-                        *as_ = as_val - v / dy;
-                    }
-                    if let Some(ap) = coeffs.ap.at_mut(i, j) {
-                        *ap = ap_val - v / dy;
+                    // Flow down (N→P): add |mass_flux| to a_N
+                    let an_val = coeffs.an.at(i, j);
+                    if let Some(an) = coeffs.an.at_mut(i, j) {
+                        *an = an_val - mass_flux_y;  // mass_flux_y is negative
                     }
                 }
 
                 // Central coefficient (including time term)
+                // a_P = sum of neighbor coefficients + ρ * V / dt
+                // For incompressible flow, ΔF = 0, so no additional convection term needed
+                let volume = dx * dy;
+                let rho = fields.density.at(i, j);
+                
                 let ap_sum = coeffs.ae.at(i, j)
                     + coeffs.aw.at(i, j)
                     + coeffs.an.at(i, j)
                     + coeffs.as_.at(i, j);
                 if let Some(ap) = coeffs.ap.at_mut(i, j) {
-                    *ap = ap_sum + fields.density.at(i, j) / dt;
+                    *ap = ap_sum + rho * volume / dt;
                 }
 
                 // Source term (including previous time step and pressure gradient)
@@ -166,9 +185,12 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 };
 
                 if let Some(source) = coeffs.source.at_mut(i, j) {
-                    // RHS = ρ * u_old / dt + pressure_gradient_term
-                    // where pressure_gradient_term = -∂p/∂x (already computed above)
-                    *source = fields.density.at(i, j) * previous_velocity / dt + pressure_gradient;
+                    // RHS = ρ * V * u_old / dt + pressure_force
+                    // where pressure_force = -∂p/∂x * V (total force on control volume)
+                    // and V = dx * dy (cell volume in 2D, per unit depth)
+                    let volume = dx * dy;
+                    *source = fields.density.at(i, j) * volume * previous_velocity / dt 
+                            + pressure_gradient * volume;
                 }
             }
         }
