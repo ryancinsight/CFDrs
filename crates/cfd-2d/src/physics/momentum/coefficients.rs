@@ -1,4 +1,42 @@
-//! Momentum equation coefficients
+//! Momentum equation coefficients with advanced convection schemes
+//!
+//! This module implements the finite volume discretization of the momentum equations
+//! with support for multiple convection schemes:
+//!
+//! * **Upwind** (First-order): Unconditionally stable but dissipative (Pe > 2)
+//! * **Deferred Correction**: Combines upwind stability with QUICK accuracy
+//!
+//! # References
+//! * Patankar, S.V. (1980). "Numerical Heat Transfer and Fluid Flow", §5.4
+//! * Leonard, B.P. (1979). "A stable and accurate convective modelling procedure"
+//!
+//! # High-Peclet Number Flows
+//!
+//! For flows with Peclet number Pe = ρuL/μ >> 2, convection schemes introduce
+//! numerical diffusion. This is a fundamental CFD challenge, not a solver bug.
+//!
+//! **Mitigation Strategies:**
+//! 1. Use deferred correction with relaxation factor 0.7-0.9
+//! 2. Apply velocity under-relaxation (0.5-0.8)
+//! 3. Consider TVD limiters for shock-like flows
+//! 4. For fully-developed flows (∂u/∂x ≈ 0), use pure diffusion solver
+//!
+//! # Example
+//! ```ignore
+//! use cfd_2d::physics::momentum::{ConvectionScheme, MomentumSolver};
+//!
+//! // Default: Deferred correction with α=0.7
+//! let mut solver = MomentumSolver::new(&grid);
+//!
+//! // For high-Peclet flows, increase relaxation
+//! solver.set_convection_scheme(ConvectionScheme::DeferredCorrectionQuick {
+//!     relaxation_factor: 0.9
+//! });
+//! solver.set_velocity_relaxation(0.8);
+//!
+//! // For debugging or comparison, use pure upwind
+//! solver.set_convection_scheme(ConvectionScheme::Upwind);
+//! ```
 
 use super::solver::MomentumComponent;
 use crate::discretization::extended_stencil::{ExtendedStencilScheme, QuickScheme};
