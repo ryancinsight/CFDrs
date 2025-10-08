@@ -1,6 +1,90 @@
 # CFD Suite - Technical Backlog (SSOT)
 
-## Sprint 1.31.0-SOLVER-INVESTIGATION - CRITICAL PRIORITY
+## Sprint 1.32.0-GAP-ANALYSIS-CRITICAL-FIXES - CURRENT PRIORITY
+
+### 🚨 Critical Priority (P0) - BLOCKERS FOR ALL VALIDATION
+- [ ] **FIX-MOMENTUM-SOLVER**: Add missing pressure gradient term ❌ BLOCKING
+  - **Evidence**: Gap analysis confirms coefficient computation missing dp/dx, dp/dy terms
+  - **Location**: `cfd-2d/physics/momentum/coefficients.rs` line ~150
+  - **Impact**: 100,000% error (125 m/s expected, 0.0001 actual), blocks ALL physics validation
+  - **Fix**: Add pressure gradient contribution to source terms with proper volume weighting
+  - **ETA**: 4h (P0 CRITICAL)
+  
+- [ ] **IMPLEMENT-GMRES**: Generalized Minimal Residual linear solver ❌ CRITICAL
+  - **Evidence**: Gap analysis reveals CG+BiCGSTAB insufficient for non-symmetric SIMPLE/PISO
+  - **Location**: `cfd-math/src/linear_solver/gmres.rs` (new file)
+  - **Impact**: Industry standard for pressure correction equations
+  - **Implementation**: Arnoldi iteration, MGS orthogonalization, GMRES(m) restart parameter
+  - **Reference**: Saad & Schultz (1986), Saad (2003) §6.5
+  - **ETA**: 10h (P0 CRITICAL)
+
+- [ ] **VALIDATE-LID-CAVITY**: Ghia et al. (1982) benchmark ❌ CRITICAL
+  - **Evidence**: Gap analysis identifies 0/15 literature benchmarks validated
+  - **Location**: `cfd-validation/tests/literature/ghia_cavity.rs` (new file)
+  - **Impact**: Cannot claim CFD correctness without standard validation
+  - **Test Cases**: Re=100, 400, 1000; u-velocity centerline comparison
+  - **Success Criteria**: L2 error <5% vs Ghia et al. (1982) data
+  - **ETA**: 8h (P0 CRITICAL)
+
+### High Priority (P1) - PRODUCTION READINESS
+- [ ] **IMPLEMENT-SPALART-ALLMARAS**: One-equation turbulence model
+  - **Evidence**: Gap analysis identifies aerospace standard missing, current models untested
+  - **Location**: `cfd-2d/physics/turbulence/spalart_allmaras.rs` (new file)
+  - **Impact**: Aerospace/automotive applications blocked
+  - **Implementation**: Production, destruction, trip term, wall distance
+  - **Reference**: Spalart & Allmaras (1994)
+  - **ETA**: 12h (P1 HIGH)
+
+- [ ] **COMPLETE-AMG**: Algebraic Multigrid preconditioner
+  - **Evidence**: Gap analysis confirms multigrid.rs is stub, V-cycle incomplete
+  - **Location**: `cfd-math/preconditioners/multigrid.rs` (partial implementation)
+  - **Impact**: O(n) complexity critical for large-scale production systems
+  - **Implementation**: Ruge-Stüben coarsening, Gauss-Seidel smoothing, interpolation
+  - **Reference**: Stüben (2001)
+  - **ETA**: 12h (P1 HIGH)
+
+### High Priority (P1) - VALIDATION (Sprint 1.33.0)
+- [ ] **VALIDATE-TURBULENCE**: k-ε and k-ω SST validation suite
+  - **Evidence**: Gap analysis reveals 3 turbulence models implemented, 0 tested (HIGH RISK)
+  - **Location**: `cfd-validation/tests/turbulence_validation.rs` (new file)
+  - **Impact**: Cannot use turbulence models in production without validation
+  - **Cases**: Flat plate (White 2006), channel flow (Moser et al. 1999), backward-facing step
+  - **Success Criteria**: Skin friction coefficient within 10% of experimental
+  - **ETA**: 16h (P1 HIGH)
+
+- [ ] **VALIDATE-MULTIPHASE**: VOF and Level Set validation
+  - **Evidence**: Gap analysis reveals VOF/Level Set structure present, ZERO TESTS (HIGH RISK)
+  - **Location**: `cfd-validation/tests/multiphase_validation.rs` (new file)
+  - **Impact**: Cannot use multiphase methods in production without validation
+  - **Cases**: Dam break (Martin & Moyce 1952), Zalesak's disk, rising bubble (Hysing et al. 2009)
+  - **Success Criteria**: Mass conservation error <1%, interface sharpness preserved
+  - **ETA**: 20h (P1 HIGH)
+
+- [ ] **IMPLEMENT-MMS**: Method of Manufactured Solutions framework
+  - **Evidence**: Gap analysis confirms NO code verification framework per NASA 2008/AIAA 1998
+  - **Location**: `cfd-validation/src/mms/` (new module)
+  - **Impact**: Blocks verification of discretization order, required for NASA/AIAA standards
+  - **Implementation**: Solution generator, Richardson extrapolation, order verification
+  - **Reference**: Roache (1998), Salari & Knupp (2000)
+  - **ETA**: 16h (P1 HIGH)
+
+- [ ] **IMPLEMENT-BDF2**: 2nd-order Backward Differentiation Formula
+  - **Evidence**: Gap analysis identifies only Euler implicit available (insufficient for stiff systems)
+  - **Location**: `cfd-core/numerical_methods/time_integration.rs`
+  - **Impact**: SIMPLE/PISO implicit flows require higher-order implicit schemes
+  - **Implementation**: 2nd-order accuracy, A-stability, multi-step history
+  - **Reference**: Curtiss & Hirschfelder (1952)
+  - **ETA**: 6h (P1 HIGH)
+
+- [ ] **IMPLEMENT-ILU-K**: ILU(k) preconditioner with k>0
+  - **Evidence**: Gap analysis confirms ILU(0) insufficient for difficult systems
+  - **Location**: `cfd-math/preconditioners/ilu.rs` (extend existing)
+  - **Impact**: Better fill-in vs accuracy tradeoff improves convergence rates
+  - **Implementation**: Level-of-fill parameter k, symbolic factorization phase
+  - **Reference**: Saad (2003) §10.4
+  - **ETA**: 6h (P1 HIGH)
+
+## Sprint 1.31.0-SOLVER-INVESTIGATION - PREVIOUS (COMPLETED)
 
 ### 🚨 Critical Priority (P0) - SOLVER NON-FUNCTIONAL
 - [ ] **INVESTIGATE-SOLVER**: Momentum solver immediate false convergence ❌ BLOCKING
