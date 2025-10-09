@@ -121,44 +121,91 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
     }
 
     fn reference_solution(&self) -> Option<BenchmarkResult<T>> {
-        // Reference values from Schäfer & Turek
-        None
+        // Reference values from Schäfer & Turek (1996)
+        // "Benchmark computations of laminar flow around a cylinder"
+        //
+        // Benchmark 2D-1 (steady flow, Re=20):
+        // - Drag coefficient Cd: 5.57 ± 0.01
+        // - Lift coefficient Cl: 0.0106 ± 0.0001 (asymmetry effects)
+        // - Pressure difference: 0.117 ± 0.001
+        //
+        // Benchmark 2D-2 (unsteady flow, Re=100):
+        // - Drag coefficient Cd: 3.22 ± 0.05 (mean)
+        // - Lift coefficient Cl: ±1.0 ± 0.05 (amplitude)
+        // - Strouhal number St: 0.295 ± 0.005
+        //
+        // For general implementation, we provide Re=20 steady reference
+        // as the baseline validation case
+        
+        let reference_cd = T::from_f64_or_one(5.57);
+        let reference_cl = T::from_f64_or_one(0.0106);
+        
+        Some(BenchmarkResult {
+            name: "Flow Over Cylinder (Schäfer & Turek 1996, Re=20)".to_string(),
+            values: vec![reference_cd, reference_cl],
+            errors: vec![
+                T::from_f64_or_one(0.01),  // Cd uncertainty
+                T::from_f64_or_one(0.0001), // Cl uncertainty
+            ],
+            convergence: vec![],
+            execution_time: 0.0,
+            metadata: std::collections::HashMap::new(),
+        })
     }
 
     fn validate(&self, result: &BenchmarkResult<T>) -> Result<bool> {
         // Validate against Schäfer & Turek reference drag and lift coefficients
-        if !result.values.is_empty() {
-            // For Schäfer & Turek benchmark, expected Cd ≈ 5.57 for Re=20
-            let _expected_cd = T::from_f64_or_one(5.57);
-            let tolerance = T::from_f64_or_one(0.05); // 5% tolerance
-
-            // Check that solution has reasonable values (pressure/velocity components)
-            let max_value =
-                result.values.iter().fold(
-                    T::zero(),
-                    |acc, &x| if x.abs() > acc { x.abs() } else { acc },
-                );
-            let min_value =
-                result.values.iter().fold(
-                    T::zero(),
-                    |acc, &x| if x.abs() < acc { x.abs() } else { acc },
-                );
-
-            // Sanity checks: values should be reasonable for flow around cylinder
-            let values_reasonable = max_value > T::zero() && max_value < T::from_f64_or_one(100.0);
-            let solution_varies = (max_value - min_value) > T::from_f64_or_one(0.01); // Solution should vary spatially
-
-            // Check convergence
+        if result.values.len() < 2 {
+            return Ok(false);
+        }
+        
+        let computed_cd = result.values[0];
+        let computed_cl = result.values[1];
+        
+        // Get reference solution
+        if let Some(reference) = self.reference_solution() {
+            let reference_cd = reference.values[0];
+            let _reference_cl = reference.values[1]; // Near-zero for Re=20, used for context
+            
+            // Validation criteria based on Schäfer & Turek benchmark tolerances
+            // Allow 5% error for drag coefficient (robust for different numerical schemes)
+            let cd_tolerance = T::from_f64_or_one(0.05); // 5% relative error
+            let cd_relative_error = ((computed_cd - reference_cd).abs()) / reference_cd;
+            let cd_valid = cd_relative_error <= cd_tolerance;
+            
+            // For lift coefficient at Re=20, expect near-zero with absolute tolerance
+            // (symmetry breaking is minimal at low Re)
+            let cl_tolerance = T::from_f64_or_one(0.1); // Absolute tolerance for near-zero value
+            let cl_valid = computed_cl.abs() < cl_tolerance;
+            
+            // Additional sanity checks
+            let cd_physically_reasonable = computed_cd > T::zero() 
+                && computed_cd < T::from_f64_or_one(20.0);
+            let cl_physically_reasonable = computed_cl.abs() < T::from_f64_or_one(5.0);
+            
+            // Check convergence occurred
             let converged = if let Some(last_residual) = result.convergence.last() {
-                last_residual.abs() < tolerance
+                last_residual.abs() < T::from_f64_or_one(1e-4)
             } else {
                 false
             };
-
-            return Ok(values_reasonable && solution_varies && converged);
+            
+            return Ok(cd_valid && cl_valid && cd_physically_reasonable 
+                     && cl_physically_reasonable && converged);
         }
-
-        // If fields are missing, validation fails
-        Ok(false)
+        
+        // Fallback: basic sanity checks without reference
+        let cd_physically_reasonable = computed_cd > T::zero() 
+            && computed_cd < T::from_f64_or_one(20.0);
+        let cl_physically_reasonable = computed_cl.abs() < T::from_f64_or_one(5.0);
+        
+        // Check convergence
+        let converged = if let Some(last_residual) = result.convergence.last() {
+            last_residual.abs() < T::from_f64_or_one(1e-4)
+        } else {
+            false
+        };
+        
+        Ok(cd_physically_reasonable && cl_physically_reasonable && converged)
     }
 }
