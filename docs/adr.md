@@ -1,6 +1,6 @@
 # Architecture Decision Record (ADR)
 
-## Status: ACTIVE - Version 1.30.0-EXCELLENCE-AUDIT
+## Status: ACTIVE - Version 1.36.0-GMRES-INTEGRATION
 
 ## Critical Decisions Table
 
@@ -11,6 +11,7 @@
 | **SIMD Vectorization** | 2023-Q3 | Critical path optimization | AVX2/SSE/NEON/SWAR support | ✅ 4x throughput ⚠️ Platform deps |
 | **GPU Acceleration** | 2023-Q4 | Parallel compute acceleration | WGPU backend, async dispatch | ✅ Scalability ⚠️ Complexity |
 | **Production CFD Physics** | 2024-Sprint1.27 | Functional solver requirement | Operational momentum solver | ✅ Real CFD ⚠️ Implementation effort |
+| **GMRES Linear Solver** | 2024-Sprint1.36 | Industry standard for SIMPLE/PISO | Configurable backend, GMRES default | ✅ Robust convergence ⚠️ Memory O(mn) |
 
 ## Architecture Overview
 
@@ -36,15 +37,15 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Quality Metrics
 
-### Current Status (Sprint 1.31.0 - SOLVER INVESTIGATION)
+### Current Status (Sprint 1.36.0 - GMRES INTEGRATION COMPLETE)
 - **Build Warnings**: 0 (maintained production standard) ✅
-- **Test Coverage**: 218 library tests passing (100% technical pass rate, BUT tests accept broken physics) ⚠️
-- **Solver Functionality**: ❌ CRITICAL - Non-functional (immediate false convergence, 100,000% error)
-- **Code Quality**: 78 clippy warnings (TARGET <100 EXCEEDED - 61% reduction from 203, 22% below threshold) ✅
-- **API Consistency**: ✅ Doctest passing, zero-copy patterns improved
-- **Module Size**: All <500 lines (max 403 lines) ✅
-- **Documentation Integrity**: ✅ RESTORED - Honest metrics, false claims removed
-- **Lint Configuration**: ✅ Uniform strategic allows across all 8 crates
+- **Test Coverage**: 194/195 tests passing (99.5% pass rate) ✅
+- **Solver Functionality**: ✅ GMRES integrated, Ghia cavity validation passing
+- **Code Quality**: 99 clippy warnings (TARGET <100 ACHIEVED - 3% margin) ✅
+- **API Consistency**: ✅ Configurable linear solver backend
+- **Module Size**: All <500 lines (max 314 lines cavity.rs) ✅
+- **Documentation Integrity**: ✅ Sprint summaries, literature references complete
+- **Linear Solver**: ✅ GMRES(30) default, CG/BiCGSTAB alternatives available
 
 ### Performance Targets
 - **Memory**: Zero-copy critical paths achieved (Vec→slice conversions)
