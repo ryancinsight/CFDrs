@@ -48,15 +48,15 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Debug> PressureCorrectionSolve
         };
 
         let gmres_solver = match solver_type {
-            PressureLinearSolver::GMRES { restart_dim } => Some(GMRES::new(config.clone(), restart_dim)),
+            PressureLinearSolver::GMRES { restart_dim } => Some(GMRES::new(config, restart_dim)),
             _ => None,
         };
 
         Ok(Self {
             grid,
             solver_type,
-            cg_solver: ConjugateGradient::new(config.clone()),
-            bicgstab_solver: BiCGSTAB::new(config.clone()),
+            cg_solver: ConjugateGradient::new(config),
+            bicgstab_solver: BiCGSTAB::new(config),
             gmres_solver,
         })
     }
