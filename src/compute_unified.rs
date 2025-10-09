@@ -66,7 +66,7 @@ impl UnifiedCompute {
                 println!("Using NEON SIMD acceleration");
                 Backend::Simd
             }
-            _ => {
+            SimdCapability::Swar => {
                 println!("Using SWAR (software SIMD) fallback");
                 Backend::Swar
             }
@@ -130,7 +130,7 @@ impl UnifiedCompute {
             ));
         }
 
-        for i in 0..rows {
+        for (i, result_item) in result.iter_mut().enumerate().take(rows) {
             let row_start = i * cols;
             let row = &matrix[row_start..row_start + cols];
 
@@ -139,7 +139,7 @@ impl UnifiedCompute {
             for (j, &val) in row.iter().enumerate() {
                 sum += val * vector[j];
             }
-            result[i] = sum;
+            *result_item = sum;
         }
         Ok(())
     }

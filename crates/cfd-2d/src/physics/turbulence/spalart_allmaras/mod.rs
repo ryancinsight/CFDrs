@@ -31,6 +31,7 @@ use tracing::instrument;
 /// - S̃ = modified vorticity magnitude
 /// - d = distance to nearest wall
 /// - fw = wall destruction function
+#[allow(dead_code)]
 pub struct SpalartAllmaras<T: RealField + Copy> {
     /// Grid dimensions
     nx: usize,
