@@ -39,6 +39,7 @@
 //! ```
 
 use super::solver::MomentumComponent;
+use super::tvd_limiters::{Minmod, Superbee, TvdLimiter, VanLeer};
 use crate::discretization::extended_stencil::{ExtendedStencilScheme, QuickScheme};
 use crate::fields::{Field2D, SimulationFields};
 use nalgebra::RealField;
@@ -70,6 +71,40 @@ pub enum ConvectionScheme {
     /// Combines stability of upwind with accuracy of QUICK
     DeferredCorrectionQuick {
         /// Under-relaxation factor (0.5-0.8 recommended, default 0.7)
+        relaxation_factor: f64,
+    },
+    /// TVD scheme with Superbee limiter (Roe 1986)
+    /// 
+    /// Excellent for high-Peclet flows with shock-like features.
+    /// Most compressive limiter, best shock resolution.
+    ///
+    /// # References
+    /// * Roe, P.L. (1986). "Characteristic-Based Schemes for the Euler Equations"
+    /// * Sweby, P.K. (1984). "High Resolution Schemes Using Flux Limiters"
+    TvdSuperbee {
+        /// Under-relaxation factor (0.7-0.9 recommended for high-Pe flows)
+        relaxation_factor: f64,
+    },
+    /// TVD scheme with Van Leer limiter (Van Leer 1974)
+    ///
+    /// Smooth limiter, good balance of accuracy and stability.
+    /// Recommended for general high-Peclet flows.
+    ///
+    /// # Reference
+    /// Van Leer, B. (1974). "Towards the Ultimate Conservative Difference Scheme"
+    TvdVanLeer {
+        /// Under-relaxation factor (0.7-0.9 recommended for high-Pe flows)
+        relaxation_factor: f64,
+    },
+    /// TVD scheme with Minmod limiter (Roe 1986)
+    ///
+    /// Most diffusive TVD limiter, extremely stable.
+    /// Use for very difficult high-Peclet flows.
+    ///
+    /// # Reference
+    /// Roe, P.L. (1986). "Characteristic-Based Schemes for the Euler Equations"
+    TvdMinmod {
+        /// Under-relaxation factor (0.7-0.9 recommended for high-Pe flows)
         relaxation_factor: f64,
     },
 }
@@ -230,6 +265,87 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                             *source = *source + correction;
                         }
                     }
+                    ConvectionScheme::TvdSuperbee { relaxation_factor } => {
+                        let alpha = T::from_f64(relaxation_factor).unwrap_or_else(|| {
+                            T::from_f64(0.8).unwrap_or_else(T::one)
+                        });
+                        let limiter = Superbee;
+                        
+                        let tvd_correction_x = if i >= 1 && i < nx - 1 {
+                            Self::compute_tvd_correction_x(
+                                i, j, u, rho, dy, &fields, component, &limiter,
+                            )
+                        } else {
+                            T::zero()
+                        };
+
+                        let tvd_correction_y = if j >= 1 && j < ny - 1 {
+                            Self::compute_tvd_correction_y(
+                                i, j, v, rho, dx, &fields, component, &limiter,
+                            )
+                        } else {
+                            T::zero()
+                        };
+
+                        if let Some(source) = coeffs.source.at_mut(i, j) {
+                            let correction = alpha * (tvd_correction_x + tvd_correction_y);
+                            *source = *source + correction;
+                        }
+                    }
+                    ConvectionScheme::TvdVanLeer { relaxation_factor } => {
+                        let alpha = T::from_f64(relaxation_factor).unwrap_or_else(|| {
+                            T::from_f64(0.8).unwrap_or_else(T::one)
+                        });
+                        let limiter = VanLeer;
+                        
+                        let tvd_correction_x = if i >= 1 && i < nx - 1 {
+                            Self::compute_tvd_correction_x(
+                                i, j, u, rho, dy, &fields, component, &limiter,
+                            )
+                        } else {
+                            T::zero()
+                        };
+
+                        let tvd_correction_y = if j >= 1 && j < ny - 1 {
+                            Self::compute_tvd_correction_y(
+                                i, j, v, rho, dx, &fields, component, &limiter,
+                            )
+                        } else {
+                            T::zero()
+                        };
+
+                        if let Some(source) = coeffs.source.at_mut(i, j) {
+                            let correction = alpha * (tvd_correction_x + tvd_correction_y);
+                            *source = *source + correction;
+                        }
+                    }
+                    ConvectionScheme::TvdMinmod { relaxation_factor } => {
+                        let alpha = T::from_f64(relaxation_factor).unwrap_or_else(|| {
+                            T::from_f64(0.8).unwrap_or_else(T::one)
+                        });
+                        let limiter = Minmod;
+                        
+                        let tvd_correction_x = if i >= 1 && i < nx - 1 {
+                            Self::compute_tvd_correction_x(
+                                i, j, u, rho, dy, &fields, component, &limiter,
+                            )
+                        } else {
+                            T::zero()
+                        };
+
+                        let tvd_correction_y = if j >= 1 && j < ny - 1 {
+                            Self::compute_tvd_correction_y(
+                                i, j, v, rho, dx, &fields, component, &limiter,
+                            )
+                        } else {
+                            T::zero()
+                        };
+
+                        if let Some(source) = coeffs.source.at_mut(i, j) {
+                            let correction = alpha * (tvd_correction_x + tvd_correction_y);
+                            *source = *source + correction;
+                        }
+                    }
                 }
 
                 // Central coefficient (including time term)
@@ -387,5 +503,125 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
         // Flux correction = mass_flux * (φ_QUICK - φ_upwind)
         let mass_flux = rho * v * dx;
         mass_flux * (phi_n_quick - phi_n_upwind)
+    }
+
+    /// Compute TVD correction for X-direction convection
+    ///
+    /// Returns the difference between TVD-limited flux and upwind flux.
+    /// Uses 3-point stencil: upwind, central, downwind.
+    ///
+    /// # References
+    /// * Sweby, P.K. (1984). "High Resolution Schemes Using Flux Limiters"
+    /// * Roe, P.L. (1986). "Characteristic-Based Schemes for the Euler Equations"
+    fn compute_tvd_correction_x<L: TvdLimiter<T>>(
+        i: usize,
+        j: usize,
+        u: T,
+        rho: T,
+        dy: T,
+        fields: &SimulationFields<T>,
+        component: MomentumComponent,
+        limiter: &L,
+    ) -> T {
+        // Get velocity values for 3-point stencil
+        let (phi_u, phi_c, phi_d) = if u > T::zero() {
+            // Positive velocity: upwind is i-1, central is i, downwind is i+1
+            match component {
+                MomentumComponent::U => (
+                    fields.u.at(i - 1, j),
+                    fields.u.at(i, j),
+                    fields.u.at(i + 1, j),
+                ),
+                MomentumComponent::V => (
+                    fields.v.at(i - 1, j),
+                    fields.v.at(i, j),
+                    fields.v.at(i + 1, j),
+                ),
+            }
+        } else {
+            // Negative velocity: upwind is i+1, central is i, downwind is i-1
+            match component {
+                MomentumComponent::U => (
+                    fields.u.at(i + 1, j),
+                    fields.u.at(i, j),
+                    fields.u.at(i - 1, j),
+                ),
+                MomentumComponent::V => (
+                    fields.v.at(i + 1, j),
+                    fields.v.at(i, j),
+                    fields.v.at(i - 1, j),
+                ),
+            }
+        };
+
+        // TVD-limited face value
+        let phi_e_tvd = limiter.interpolate_face(phi_u, phi_c, phi_d);
+
+        // Upwind face value
+        let phi_e_upwind = phi_c;
+
+        // Flux correction = mass_flux * (φ_TVD - φ_upwind)
+        let mass_flux = rho * u * dy;
+        mass_flux * (phi_e_tvd - phi_e_upwind)
+    }
+
+    /// Compute TVD correction for Y-direction convection
+    ///
+    /// Returns the difference between TVD-limited flux and upwind flux.
+    /// Uses 3-point stencil: upwind, central, downwind.
+    ///
+    /// # References
+    /// * Sweby, P.K. (1984). "High Resolution Schemes Using Flux Limiters"
+    /// * Roe, P.L. (1986). "Characteristic-Based Schemes for the Euler Equations"
+    fn compute_tvd_correction_y<L: TvdLimiter<T>>(
+        i: usize,
+        j: usize,
+        v: T,
+        rho: T,
+        dx: T,
+        fields: &SimulationFields<T>,
+        component: MomentumComponent,
+        limiter: &L,
+    ) -> T {
+        // Get velocity values for 3-point stencil
+        let (phi_u, phi_c, phi_d) = if v > T::zero() {
+            // Positive velocity: upwind is j-1, central is j, downwind is j+1
+            match component {
+                MomentumComponent::U => (
+                    fields.u.at(i, j - 1),
+                    fields.u.at(i, j),
+                    fields.u.at(i, j + 1),
+                ),
+                MomentumComponent::V => (
+                    fields.v.at(i, j - 1),
+                    fields.v.at(i, j),
+                    fields.v.at(i, j + 1),
+                ),
+            }
+        } else {
+            // Negative velocity: upwind is j+1, central is j, downwind is j-1
+            match component {
+                MomentumComponent::U => (
+                    fields.u.at(i, j + 1),
+                    fields.u.at(i, j),
+                    fields.u.at(i, j - 1),
+                ),
+                MomentumComponent::V => (
+                    fields.v.at(i, j + 1),
+                    fields.v.at(i, j),
+                    fields.v.at(i, j - 1),
+                ),
+            }
+        };
+
+        // TVD-limited face value
+        let phi_n_tvd = limiter.interpolate_face(phi_u, phi_c, phi_d);
+
+        // Upwind face value
+        let phi_n_upwind = phi_c;
+
+        // Flux correction = mass_flux * (φ_TVD - φ_upwind)
+        let mass_flux = rho * v * dx;
+        mass_flux * (phi_n_tvd - phi_n_upwind)
     }
 }
