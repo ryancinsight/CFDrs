@@ -4,6 +4,29 @@ use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
+/// Linear solver choice for pressure Poisson equation
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PressureLinearSolver {
+    /// Conjugate Gradient (symmetric matrices only)
+    ConjugateGradient,
+    /// BiCGSTAB (general non-symmetric matrices)
+    BiCGSTAB,
+    /// GMRES(m) with restart (industry standard for SIMPLE/PISO)
+    /// Reference: Saad & Schultz (1986), Saad (2003) §6.5
+    GMRES { 
+        /// Restart dimension (typically 20-50 for CFD, default 30)
+        restart_dim: usize 
+    },
+}
+
+impl Default for PressureLinearSolver {
+    fn default() -> Self {
+        // GMRES is the industry standard for pressure correction equations
+        // restart_dim=30 is standard for CFD applications
+        Self::GMRES { restart_dim: 30 }
+    }
+}
+
 /// Pressure-velocity coupling configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PressureVelocityConfig<T: RealField + Copy> {
@@ -21,6 +44,9 @@ pub struct PressureVelocityConfig<T: RealField + Copy> {
     pub convection_scheme: crate::schemes::SpatialScheme,
     /// Use implicit momentum solver
     pub implicit_momentum: bool,
+    /// Linear solver for pressure Poisson equation
+    #[serde(default)]
+    pub pressure_linear_solver: PressureLinearSolver,
 }
 
 impl<T: RealField + Copy + FromPrimitive + Copy> PressureVelocityConfig<T> {
@@ -60,6 +86,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureVelocityConfig<T> {
             use_rhie_chow: true,
             convection_scheme: crate::schemes::SpatialScheme::SecondOrderUpwind,
             implicit_momentum: true,
+            pressure_linear_solver: PressureLinearSolver::default(),
         })
     }
 
