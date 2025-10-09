@@ -38,9 +38,12 @@
 //! solver.set_convection_scheme(ConvectionScheme::Upwind);
 //! ```
 
+use super::coefficient_corrections::{
+    compute_quick_correction_x, compute_quick_correction_y, compute_tvd_correction_x,
+    compute_tvd_correction_y,
+};
 use super::solver::MomentumComponent;
-use super::tvd_limiters::{Minmod, Superbee, TvdLimiter, VanLeer};
-use crate::discretization::extended_stencil::{ExtendedStencilScheme, QuickScheme};
+use super::tvd_limiters::{Minmod, Superbee, VanLeer};
 use crate::fields::{Field2D, SimulationFields};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -242,18 +245,14 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
 
                         // Compute QUICK-upwind correction for X-direction
                         let quick_correction_x = if i >= 2 && i < nx - 2 {
-                            Self::compute_quick_correction_x(
-                                i, j, u, rho, dy, &fields, component,
-                            )
+                            compute_quick_correction_x(i, j, u, rho, dy, &fields, component)
                         } else {
                             T::zero()
                         };
 
                         // Compute QUICK-upwind correction for Y-direction
                         let quick_correction_y = if j >= 2 && j < ny - 2 {
-                            Self::compute_quick_correction_y(
-                                i, j, v, rho, dx, &fields, component,
-                            )
+                            compute_quick_correction_y(i, j, v, rho, dx, &fields, component)
                         } else {
                             T::zero()
                         };
@@ -272,17 +271,13 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         let limiter = Superbee;
                         
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
-                            Self::compute_tvd_correction_x(
-                                i, j, u, rho, dy, &fields, component, &limiter,
-                            )
+                            compute_tvd_correction_x(i, j, u, rho, dy, &fields, component, &limiter)
                         } else {
                             T::zero()
                         };
 
                         let tvd_correction_y = if j >= 1 && j < ny - 1 {
-                            Self::compute_tvd_correction_y(
-                                i, j, v, rho, dx, &fields, component, &limiter,
-                            )
+                            compute_tvd_correction_y(i, j, v, rho, dx, &fields, component, &limiter)
                         } else {
                             T::zero()
                         };
@@ -299,17 +294,13 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         let limiter = VanLeer;
                         
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
-                            Self::compute_tvd_correction_x(
-                                i, j, u, rho, dy, &fields, component, &limiter,
-                            )
+                            compute_tvd_correction_x(i, j, u, rho, dy, &fields, component, &limiter)
                         } else {
                             T::zero()
                         };
 
                         let tvd_correction_y = if j >= 1 && j < ny - 1 {
-                            Self::compute_tvd_correction_y(
-                                i, j, v, rho, dx, &fields, component, &limiter,
-                            )
+                            compute_tvd_correction_y(i, j, v, rho, dx, &fields, component, &limiter)
                         } else {
                             T::zero()
                         };
@@ -326,17 +317,13 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         let limiter = Minmod;
                         
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
-                            Self::compute_tvd_correction_x(
-                                i, j, u, rho, dy, &fields, component, &limiter,
-                            )
+                            compute_tvd_correction_x(i, j, u, rho, dy, &fields, component, &limiter)
                         } else {
                             T::zero()
                         };
 
                         let tvd_correction_y = if j >= 1 && j < ny - 1 {
-                            Self::compute_tvd_correction_y(
-                                i, j, v, rho, dx, &fields, component, &limiter,
-                            )
+                            compute_tvd_correction_y(i, j, v, rho, dx, &fields, component, &limiter)
                         } else {
                             T::zero()
                         };
@@ -407,221 +394,5 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
         }
 
         Ok(coeffs)
-    }
-
-    /// Compute QUICK correction for X-direction convection
-    ///
-    /// Returns the difference between QUICK flux and upwind flux
-    /// Reference: Leonard (1979), Patankar (1980) §5.4.3
-    fn compute_quick_correction_x(
-        i: usize,
-        j: usize,
-        u: T,
-        rho: T,
-        dy: T,
-        fields: &SimulationFields<T>,
-        component: MomentumComponent,
-    ) -> T {
-        let quick = QuickScheme;
-
-        // Get velocity values for 5-point stencil [i-2, i-1, i, i+1, i+2]
-        let phi_values: [T; 5] = match component {
-            MomentumComponent::U => [
-                fields.u.at(i - 2, j),
-                fields.u.at(i - 1, j),
-                fields.u.at(i, j),
-                fields.u.at(i + 1, j),
-                fields.u.at(i + 2, j),
-            ],
-            MomentumComponent::V => [
-                fields.v.at(i - 2, j),
-                fields.v.at(i - 1, j),
-                fields.v.at(i, j),
-                fields.v.at(i + 1, j),
-                fields.v.at(i + 2, j),
-            ],
-        };
-
-        // QUICK face value at east face (between i and i+1)
-        let phi_e_quick = quick.face_value(&phi_values, u, None);
-
-        // Upwind face value at east face
-        let phi_e_upwind = if u > T::zero() {
-            phi_values[2] // From cell i (current)
-        } else {
-            phi_values[3] // From cell i+1 (downstream)
-        };
-
-        // Flux correction = mass_flux * (φ_QUICK - φ_upwind)
-        let mass_flux = rho * u * dy;
-        mass_flux * (phi_e_quick - phi_e_upwind)
-    }
-
-    /// Compute QUICK correction for Y-direction convection
-    ///
-    /// Returns the difference between QUICK flux and upwind flux
-    /// Reference: Leonard (1979), Patankar (1980) §5.4.3
-    fn compute_quick_correction_y(
-        i: usize,
-        j: usize,
-        v: T,
-        rho: T,
-        dx: T,
-        fields: &SimulationFields<T>,
-        component: MomentumComponent,
-    ) -> T {
-        let quick = QuickScheme;
-
-        // Get velocity values for 5-point stencil [j-2, j-1, j, j+1, j+2]
-        let phi_values: [T; 5] = match component {
-            MomentumComponent::U => [
-                fields.u.at(i, j - 2),
-                fields.u.at(i, j - 1),
-                fields.u.at(i, j),
-                fields.u.at(i, j + 1),
-                fields.u.at(i, j + 2),
-            ],
-            MomentumComponent::V => [
-                fields.v.at(i, j - 2),
-                fields.v.at(i, j - 1),
-                fields.v.at(i, j),
-                fields.v.at(i, j + 1),
-                fields.v.at(i, j + 2),
-            ],
-        };
-
-        // QUICK face value at north face (between j and j+1)
-        let phi_n_quick = quick.face_value(&phi_values, v, None);
-
-        // Upwind face value at north face
-        let phi_n_upwind = if v > T::zero() {
-            phi_values[2] // From cell j (current)
-        } else {
-            phi_values[3] // From cell j+1 (downstream)
-        };
-
-        // Flux correction = mass_flux * (φ_QUICK - φ_upwind)
-        let mass_flux = rho * v * dx;
-        mass_flux * (phi_n_quick - phi_n_upwind)
-    }
-
-    /// Compute TVD correction for X-direction convection
-    ///
-    /// Returns the difference between TVD-limited flux and upwind flux.
-    /// Uses 3-point stencil: upwind, central, downwind.
-    ///
-    /// # References
-    /// * Sweby, P.K. (1984). "High Resolution Schemes Using Flux Limiters"
-    /// * Roe, P.L. (1986). "Characteristic-Based Schemes for the Euler Equations"
-    fn compute_tvd_correction_x<L: TvdLimiter<T>>(
-        i: usize,
-        j: usize,
-        u: T,
-        rho: T,
-        dy: T,
-        fields: &SimulationFields<T>,
-        component: MomentumComponent,
-        limiter: &L,
-    ) -> T {
-        // Get velocity values for 3-point stencil
-        let (phi_u, phi_c, phi_d) = if u > T::zero() {
-            // Positive velocity: upwind is i-1, central is i, downwind is i+1
-            match component {
-                MomentumComponent::U => (
-                    fields.u.at(i - 1, j),
-                    fields.u.at(i, j),
-                    fields.u.at(i + 1, j),
-                ),
-                MomentumComponent::V => (
-                    fields.v.at(i - 1, j),
-                    fields.v.at(i, j),
-                    fields.v.at(i + 1, j),
-                ),
-            }
-        } else {
-            // Negative velocity: upwind is i+1, central is i, downwind is i-1
-            match component {
-                MomentumComponent::U => (
-                    fields.u.at(i + 1, j),
-                    fields.u.at(i, j),
-                    fields.u.at(i - 1, j),
-                ),
-                MomentumComponent::V => (
-                    fields.v.at(i + 1, j),
-                    fields.v.at(i, j),
-                    fields.v.at(i - 1, j),
-                ),
-            }
-        };
-
-        // TVD-limited face value
-        let phi_e_tvd = limiter.interpolate_face(phi_u, phi_c, phi_d);
-
-        // Upwind face value
-        let phi_e_upwind = phi_c;
-
-        // Flux correction = mass_flux * (φ_TVD - φ_upwind)
-        let mass_flux = rho * u * dy;
-        mass_flux * (phi_e_tvd - phi_e_upwind)
-    }
-
-    /// Compute TVD correction for Y-direction convection
-    ///
-    /// Returns the difference between TVD-limited flux and upwind flux.
-    /// Uses 3-point stencil: upwind, central, downwind.
-    ///
-    /// # References
-    /// * Sweby, P.K. (1984). "High Resolution Schemes Using Flux Limiters"
-    /// * Roe, P.L. (1986). "Characteristic-Based Schemes for the Euler Equations"
-    fn compute_tvd_correction_y<L: TvdLimiter<T>>(
-        i: usize,
-        j: usize,
-        v: T,
-        rho: T,
-        dx: T,
-        fields: &SimulationFields<T>,
-        component: MomentumComponent,
-        limiter: &L,
-    ) -> T {
-        // Get velocity values for 3-point stencil
-        let (phi_u, phi_c, phi_d) = if v > T::zero() {
-            // Positive velocity: upwind is j-1, central is j, downwind is j+1
-            match component {
-                MomentumComponent::U => (
-                    fields.u.at(i, j - 1),
-                    fields.u.at(i, j),
-                    fields.u.at(i, j + 1),
-                ),
-                MomentumComponent::V => (
-                    fields.v.at(i, j - 1),
-                    fields.v.at(i, j),
-                    fields.v.at(i, j + 1),
-                ),
-            }
-        } else {
-            // Negative velocity: upwind is j+1, central is j, downwind is j-1
-            match component {
-                MomentumComponent::U => (
-                    fields.u.at(i, j + 1),
-                    fields.u.at(i, j),
-                    fields.u.at(i, j - 1),
-                ),
-                MomentumComponent::V => (
-                    fields.v.at(i, j + 1),
-                    fields.v.at(i, j),
-                    fields.v.at(i, j - 1),
-                ),
-            }
-        };
-
-        // TVD-limited face value
-        let phi_n_tvd = limiter.interpolate_face(phi_u, phi_c, phi_d);
-
-        // Upwind face value
-        let phi_n_upwind = phi_c;
-
-        // Flux correction = mass_flux * (φ_TVD - φ_upwind)
-        let mass_flux = rho * v * dx;
-        mass_flux * (phi_n_tvd - phi_n_upwind)
     }
 }

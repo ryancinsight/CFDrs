@@ -1,6 +1,7 @@
 //! Momentum equation solver with clean domain separation
 
 mod boundary;
+mod coefficient_corrections;
 mod coefficients;
 mod discretization;
 mod interpolation;
