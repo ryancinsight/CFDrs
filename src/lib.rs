@@ -65,7 +65,6 @@ pub mod compute_unified;
 /// }
 /// ```
 pub mod prelude {
-    //! Common imports for CFD simulations
 
     // Core functionality
     pub use cfd_core::prelude::*;
