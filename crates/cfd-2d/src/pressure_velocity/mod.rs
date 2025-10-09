@@ -10,7 +10,7 @@ pub mod rhie_chow;
 pub mod solver;
 
 pub use coefficients::CellCoefficients;
-pub use config::PressureVelocityConfig;
+pub use config::{PressureLinearSolver, PressureVelocityConfig};
 pub use pressure::PressureCorrectionSolver;
 pub use rhie_chow::RhieChowInterpolation;
 pub use solver::PressureVelocitySolver;

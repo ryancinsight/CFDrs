@@ -1,23 +1,45 @@
 //! Pressure correction solver for STANDARD algorithm
 
+use super::config::PressureLinearSolver;
 use crate::grid::StructuredGrid2D;
 use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
-use cfd_math::linear_solver::{ConjugateGradient, IterativeLinearSolver};
+use cfd_math::linear_solver::{ConjugateGradient, IterativeLinearSolver, BiCGSTAB, GMRES};
 use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::{DVector, RealField, Vector2};
 use num_traits::FromPrimitive;
+use std::fmt::Debug;
 
-/// Pressure correction solver
+/// Pressure correction solver supporting multiple linear solver backends
 pub struct PressureCorrectionSolver<T: RealField + Copy> {
     /// Grid
     grid: StructuredGrid2D<T>,
-    /// Linear solver for pressure Poisson equation
-    linear_solver: ConjugateGradient<T>,
+    /// Linear solver choice
+    solver_type: PressureLinearSolver,
+    /// Conjugate Gradient solver (for symmetric systems)
+    cg_solver: ConjugateGradient<T>,
+    /// BiCGSTAB solver (for non-symmetric systems)
+    bicgstab_solver: BiCGSTAB<T>,
+    /// GMRES solver (industry standard for SIMPLE/PISO)
+    gmres_solver: Option<GMRES<T>>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> PressureCorrectionSolver<T> {
-    /// Create new pressure correction solver
-    pub fn new(grid: StructuredGrid2D<T>) -> cfd_core::error::Result<Self> {
+impl<T: RealField + Copy + FromPrimitive + Copy + Debug> PressureCorrectionSolver<T> {
+    /// Create new pressure correction solver with specified linear solver
+    ///
+    /// # Arguments
+    ///
+    /// * `grid` - Computational grid
+    /// * `solver_type` - Linear solver selection (CG, BiCGSTAB, or GMRES)
+    ///
+    /// # Recommended Solver Selection
+    ///
+    /// - **GMRES**: Industry standard for SIMPLE/PISO (default)
+    ///   - Reference: Saad (2003), Patankar (1980)
+    ///   - Best for non-symmetric pressure Poisson equations
+    ///   - restart_dim=30 optimal for most CFD applications
+    /// - **BiCGSTAB**: Good alternative for non-symmetric systems
+    /// - **CG**: Only for symmetric systems (not typical in CFD)
+    pub fn new(grid: StructuredGrid2D<T>, solver_type: PressureLinearSolver) -> cfd_core::error::Result<Self> {
         let config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: crate::constants::solver::DEFAULT_MAX_ITERATIONS,
             tolerance: T::from_f64(crate::constants::solver::DEFAULT_TOLERANCE)
@@ -25,9 +47,17 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureCorrectionSolver<T> {
             use_preconditioner: true,
         };
 
+        let gmres_solver = match solver_type {
+            PressureLinearSolver::GMRES { restart_dim } => Some(GMRES::new(config.clone(), restart_dim)),
+            _ => None,
+        };
+
         Ok(Self {
             grid,
-            linear_solver: ConjugateGradient::new(config),
+            solver_type,
+            cg_solver: ConjugateGradient::new(config.clone()),
+            bicgstab_solver: BiCGSTAB::new(config.clone()),
+            gmres_solver,
         })
     }
 
@@ -96,15 +126,42 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureCorrectionSolver<T> {
             }
         }
 
-        // Solve the linear system
+        // Solve the linear system using selected solver
         let matrix = builder.build()?;
         let mut p_correction_vec = DVector::zeros(matrix.nrows());
-        self.linear_solver.solve(
-            &matrix,
-            &rhs,
-            &mut p_correction_vec,
-            None::<&IdentityPreconditioner>,
-        )?;
+        
+        match self.solver_type {
+            PressureLinearSolver::ConjugateGradient => {
+                self.cg_solver.solve(
+                    &matrix,
+                    &rhs,
+                    &mut p_correction_vec,
+                    None::<&IdentityPreconditioner>,
+                )?;
+            }
+            PressureLinearSolver::BiCGSTAB => {
+                self.bicgstab_solver.solve(
+                    &matrix,
+                    &rhs,
+                    &mut p_correction_vec,
+                    None::<&IdentityPreconditioner>,
+                )?;
+            }
+            PressureLinearSolver::GMRES { .. } => {
+                if let Some(ref solver) = self.gmres_solver {
+                    solver.solve(
+                        &matrix,
+                        &rhs,
+                        &mut p_correction_vec,
+                        None::<&IdentityPreconditioner>,
+                    )?;
+                } else {
+                    return Err(cfd_core::error::Error::InvalidConfiguration(
+                        "GMRES solver not initialized".to_string(),
+                    ));
+                }
+            }
+        }
 
         // Convert back to 2D grid
         let mut p_correction = vec![vec![T::zero(); ny]; nx];
