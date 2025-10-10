@@ -31,6 +31,10 @@
 #![allow(clippy::return_self_not_must_use)]  // Builder patterns used internally
 #![allow(clippy::ptr_arg)]                 // &Vec used for API compatibility
 #![allow(clippy::should_implement_trait)]  // CFD-specific trait implementations
+#![allow(clippy::too_many_lines)]           // Complex solver implementations require detailed methods
+#![allow(clippy::needless_range_loop)]      // Explicit indexing clearer for multi-dimensional CFD arrays
+#![allow(clippy::struct_field_names)]       // Field names like field_* common in computational contexts
+#![allow(clippy::used_underscore_binding)]  // Underscore prefixed bindings used for intentional partial use
 
 // Core modules
 pub mod constants;
