@@ -30,6 +30,10 @@
 #![allow(clippy::return_self_not_must_use)]  // Builder patterns used internally
 #![allow(clippy::ptr_arg)]                 // &Vec used for API compatibility
 #![allow(clippy::should_implement_trait)]  // CFD-specific trait implementations
+#![allow(clippy::approx_constant)]          // Fallback constants for generic numerical types
+#![allow(clippy::too_many_lines)]           // Complex validation/benchmark functions need detailed implementation
+#![allow(clippy::needless_range_loop)]      // Explicit indexing clearer for multi-dimensional CFD arrays
+#![allow(clippy::used_underscore_binding)]  // Underscore prefixed bindings used for intentional partial use
 
 pub mod analytical;
 pub mod analytical_benchmarks;

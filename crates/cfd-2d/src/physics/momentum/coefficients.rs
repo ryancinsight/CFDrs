@@ -245,14 +245,14 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
 
                         // Compute QUICK-upwind correction for X-direction
                         let quick_correction_x = if i >= 2 && i < nx - 2 {
-                            compute_quick_correction_x(i, j, u, rho, dy, &fields, component)
+                            compute_quick_correction_x(i, j, u, rho, dy, fields, component)
                         } else {
                             T::zero()
                         };
 
                         // Compute QUICK-upwind correction for Y-direction
                         let quick_correction_y = if j >= 2 && j < ny - 2 {
-                            compute_quick_correction_y(i, j, v, rho, dx, &fields, component)
+                            compute_quick_correction_y(i, j, v, rho, dx, fields, component)
                         } else {
                             T::zero()
                         };
@@ -261,7 +261,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         // Source correction = α * (QUICK_flux - upwind_flux)
                         if let Some(source) = coeffs.source.at_mut(i, j) {
                             let correction = alpha * (quick_correction_x + quick_correction_y);
-                            *source = *source + correction;
+                            *source += correction;
                         }
                     }
                     ConvectionScheme::TvdSuperbee { relaxation_factor } => {
@@ -271,20 +271,20 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         let limiter = Superbee;
                         
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
-                            compute_tvd_correction_x(i, j, u, rho, dy, &fields, component, &limiter)
+                            compute_tvd_correction_x(i, j, u, rho, dy, fields, component, &limiter)
                         } else {
                             T::zero()
                         };
 
                         let tvd_correction_y = if j >= 1 && j < ny - 1 {
-                            compute_tvd_correction_y(i, j, v, rho, dx, &fields, component, &limiter)
+                            compute_tvd_correction_y(i, j, v, rho, dx, fields, component, &limiter)
                         } else {
                             T::zero()
                         };
 
                         if let Some(source) = coeffs.source.at_mut(i, j) {
                             let correction = alpha * (tvd_correction_x + tvd_correction_y);
-                            *source = *source + correction;
+                            *source += correction;
                         }
                     }
                     ConvectionScheme::TvdVanLeer { relaxation_factor } => {
@@ -294,20 +294,20 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         let limiter = VanLeer;
                         
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
-                            compute_tvd_correction_x(i, j, u, rho, dy, &fields, component, &limiter)
+                            compute_tvd_correction_x(i, j, u, rho, dy, fields, component, &limiter)
                         } else {
                             T::zero()
                         };
 
                         let tvd_correction_y = if j >= 1 && j < ny - 1 {
-                            compute_tvd_correction_y(i, j, v, rho, dx, &fields, component, &limiter)
+                            compute_tvd_correction_y(i, j, v, rho, dx, fields, component, &limiter)
                         } else {
                             T::zero()
                         };
 
                         if let Some(source) = coeffs.source.at_mut(i, j) {
                             let correction = alpha * (tvd_correction_x + tvd_correction_y);
-                            *source = *source + correction;
+                            *source += correction;
                         }
                     }
                     ConvectionScheme::TvdMinmod { relaxation_factor } => {
@@ -317,20 +317,20 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         let limiter = Minmod;
                         
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
-                            compute_tvd_correction_x(i, j, u, rho, dy, &fields, component, &limiter)
+                            compute_tvd_correction_x(i, j, u, rho, dy, fields, component, &limiter)
                         } else {
                             T::zero()
                         };
 
                         let tvd_correction_y = if j >= 1 && j < ny - 1 {
-                            compute_tvd_correction_y(i, j, v, rho, dx, &fields, component, &limiter)
+                            compute_tvd_correction_y(i, j, v, rho, dx, fields, component, &limiter)
                         } else {
                             T::zero()
                         };
 
                         if let Some(source) = coeffs.source.at_mut(i, j) {
                             let correction = alpha * (tvd_correction_x + tvd_correction_y);
-                            *source = *source + correction;
+                            *source += correction;
                         }
                     }
                 }

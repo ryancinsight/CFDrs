@@ -17,6 +17,8 @@
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
+#![allow(clippy::too_many_lines)]           // GPU kernel implementations require detailed logic
+#![allow(clippy::struct_field_names)]       // Field names like field_* common in kernel contexts
 // CFD-specific allows for production numerical code
 #![allow(clippy::similar_names)]           // Mathematical variables often have similar names (u,v,w; p,q,r)
 #![allow(clippy::cast_precision_loss)]     // Precision loss acceptable in CFD for performance
