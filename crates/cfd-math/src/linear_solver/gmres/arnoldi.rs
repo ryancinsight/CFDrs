@@ -2,6 +2,7 @@
 //!
 //! Modified Gram-Schmidt orthogonalization to build Krylov subspace basis
 
+use crate::sparse::spmv;
 use cfd_core::error::{Error, NumericalErrorKind, Result};
 use nalgebra::{DMatrix, DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
@@ -73,25 +74,6 @@ pub fn arnoldi_iteration<T: RealField + Copy + FromPrimitive>(
     }
 
     Ok(norm)
-}
-
-/// Efficient sparse matrix-vector multiplication into pre-allocated buffer
-#[inline]
-pub fn spmv<T: RealField + Copy>(a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVector<T>) {
-    y.fill(T::zero());
-
-    for i in 0..a.nrows() {
-        let row_start = a.row_offsets()[i];
-        let row_end = a.row_offsets()[i + 1];
-
-        let mut sum = T::zero();
-        for j in row_start..row_end {
-            let col_idx = a.col_indices()[j];
-            let val = a.values()[j];
-            sum += val * x[col_idx];
-        }
-        y[i] = sum;
-    }
 }
 
 #[cfg(test)]

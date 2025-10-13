@@ -183,16 +183,16 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
     /// Check if a node is on a boundary with Dirichlet BC
     fn is_dirichlet_boundary(&self, i: usize, j: usize) -> bool {
         // Check if node is on any boundary with Dirichlet BC
-        if i == 0 && self.boundary_conditions.get("west").map_or(false, |bc| matches!(bc, BoundaryCondition::Dirichlet { .. })) {
+        if i == 0 && self.boundary_conditions.get("west").is_some_and(|bc| matches!(bc, BoundaryCondition::Dirichlet { .. })) {
             return true;
         }
-        if i == self.nx - 1 && self.boundary_conditions.get("east").map_or(false, |bc| matches!(bc, BoundaryCondition::Dirichlet { .. })) {
+        if i == self.nx - 1 && self.boundary_conditions.get("east").is_some_and(|bc| matches!(bc, BoundaryCondition::Dirichlet { .. })) {
             return true;
         }
-        if j == 0 && self.boundary_conditions.get("south").map_or(false, |bc| matches!(bc, BoundaryCondition::Dirichlet { .. })) {
+        if j == 0 && self.boundary_conditions.get("south").is_some_and(|bc| matches!(bc, BoundaryCondition::Dirichlet { .. })) {
             return true;
         }
-        if j == self.ny - 1 && self.boundary_conditions.get("north").map_or(false, |bc| matches!(bc, BoundaryCondition::Dirichlet { .. })) {
+        if j == self.ny - 1 && self.boundary_conditions.get("north").is_some_and(|bc| matches!(bc, BoundaryCondition::Dirichlet { .. })) {
             return true;
         }
         false
