@@ -180,6 +180,24 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         )
     }
 
+    /// Check if a node is on a boundary with Dirichlet BC
+    fn is_dirichlet_boundary(&self, i: usize, j: usize) -> bool {
+        // Check if node is on any boundary with Dirichlet BC
+        if i == 0 && self.boundary_conditions.get("west").map_or(false, |bc| matches!(bc, BoundaryCondition::Dirichlet { .. })) {
+            return true;
+        }
+        if i == self.nx - 1 && self.boundary_conditions.get("east").map_or(false, |bc| matches!(bc, BoundaryCondition::Dirichlet { .. })) {
+            return true;
+        }
+        if j == 0 && self.boundary_conditions.get("south").map_or(false, |bc| matches!(bc, BoundaryCondition::Dirichlet { .. })) {
+            return true;
+        }
+        if j == self.ny - 1 && self.boundary_conditions.get("north").map_or(false, |bc| matches!(bc, BoundaryCondition::Dirichlet { .. })) {
+            return true;
+        }
+        false
+    }
+
     fn assemble_system(
         &self,
         coeffs: &MomentumCoefficients<T>,
@@ -194,6 +212,16 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
             for i in 0..self.nx {
                 let idx = j * self.nx + i;
 
+                // Check if this is a Dirichlet boundary node
+                if self.is_dirichlet_boundary(i, j) {
+                    // For Dirichlet BC: assemble identity equation φ = bc_value
+                    // This is handled in apply_momentum_boundaries, so skip coefficient assembly
+                    builder.add_entry(idx, idx, T::one())?;
+                    // RHS will be set by boundary condition handler
+                    continue;
+                }
+
+                // Interior/Neumann nodes: assemble full PDE coefficients
                 // Central coefficient
                 builder.add_entry(idx, idx, coeffs.ap.at(i, j))?;
 
@@ -216,7 +244,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
             }
         }
 
-        // Apply boundary conditions
+        // Apply boundary conditions (sets RHS values for Dirichlet, modifies equations for Neumann)
         super::boundary::apply_momentum_boundaries(
             &mut builder,
             &mut rhs,

@@ -43,11 +43,9 @@ fn apply_west_boundary<T: RealField + Copy + FromPrimitive>(
 
         match bc {
             BoundaryCondition::Dirichlet { value } => {
-                // For Dirichlet BC: use penalty method with moderate multiplier
-                // Typical interior diagonal ~1e-3 to 1e-1, so 1e6 is sufficient
-                let penalty = T::from_f64(1e6).unwrap_or(T::from_f64(1000.0).unwrap_or(T::one()));
-                matrix.add_entry(idx, idx, penalty)?;
-                rhs[idx] = *value * penalty;
+                // For Dirichlet BC: diagonal is already 1 (set in assemble_system)
+                // Just set RHS to boundary value
+                rhs[idx] = *value;
             }
             BoundaryCondition::Neumann { gradient } => {
                 // Zero gradient condition: u_i - u_{i+1} = 0
@@ -77,10 +75,9 @@ fn apply_east_boundary<T: RealField + Copy + FromPrimitive>(
 
         match bc {
             BoundaryCondition::Dirichlet { value } => {
-                // For Dirichlet BC: use penalty method
-                let penalty = T::from_f64(1e6).unwrap_or(T::from_f64(1000.0).unwrap_or(T::one()));
-                matrix.add_entry(idx, idx, penalty)?;
-                rhs[idx] = *value * penalty;
+                // For Dirichlet BC: diagonal is already 1 (set in assemble_system)
+                // Just set RHS to boundary value
+                rhs[idx] = *value;
             }
             BoundaryCondition::Neumann { gradient } => {
                 if *gradient == T::zero() {
@@ -109,10 +106,9 @@ fn apply_north_boundary<T: RealField + Copy + FromPrimitive>(
 
         match bc {
             BoundaryCondition::Dirichlet { value } => {
-                // For Dirichlet BC: use penalty method
-                let penalty = T::from_f64(1e6).unwrap_or(T::from_f64(1000.0).unwrap_or(T::one()));
-                matrix.add_entry(idx, idx, penalty)?;
-                rhs[idx] = *value * penalty;
+                // For Dirichlet BC: diagonal is already 1 (set in assemble_system)
+                // Just set RHS to boundary value
+                rhs[idx] = *value;
             }
             BoundaryCondition::Neumann { gradient } => {
                 if *gradient == T::zero() {
@@ -141,10 +137,9 @@ fn apply_south_boundary<T: RealField + Copy + FromPrimitive>(
 
         match bc {
             BoundaryCondition::Dirichlet { value } => {
-                // For Dirichlet BC: use penalty method
-                let penalty = T::from_f64(1e6).unwrap_or(T::from_f64(1000.0).unwrap_or(T::one()));
-                matrix.add_entry(idx, idx, penalty)?;
-                rhs[idx] = *value * penalty;
+                // For Dirichlet BC: diagonal is already 1 (set in assemble_system)
+                // Just set RHS to boundary value
+                rhs[idx] = *value;
             }
             BoundaryCondition::Neumann { gradient } => {
                 if *gradient == T::zero() {
