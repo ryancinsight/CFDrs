@@ -51,20 +51,23 @@ impl<T: RealField + Copy + FromPrimitive> CouetteFlow<T> {
 pub struct PoiseuilleFlow<T: RealField + Copy> {
     /// Channel half-height [m]
     pub h: T,
-    /// Pressure gradient magnitude |dp/dx| [Pa/m]
+    /// Pressure gradient dp/dx [Pa/m] (negative for flow in +x direction)
     pub dp_dx: T,
     /// Dynamic viscosity [Pa·s]
     pub mu: T,
 }
 
 impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
-    /// Exact velocity profile: u(y) = (1/2μ)(dp/dx)(h² - y²)
+    /// Exact velocity profile: u(y) = -(1/2μ)(dp/dx)(h² - y²)
+    ///
+    /// The negative sign ensures positive velocity when pressure decreases
+    /// in the flow direction (dp/dx < 0).
     ///
     /// Source: White (2016), Eq. 3.36
     pub fn velocity(&self, y: T) -> T {
         let half = T::from_f64_or_one(ONE_HALF);
         let factor = half / self.mu;
-        factor * self.dp_dx * (self.h * self.h - y * y)
+        -factor * self.dp_dx * (self.h * self.h - y * y)
     }
 
     /// Maximum velocity (at centerline)
