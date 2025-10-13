@@ -174,8 +174,8 @@ impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> IterativeLinearS
 
             // Use axpy for in-place updates
             for i in 0..n {
-                x[i] = x[i] + alpha * p[i];
-                r[i] = r[i] - alpha * ap[i];
+                x[i] += alpha * p[i];
+                r[i] -= alpha * ap[i];
             }
 
             // Use SIMD norm for convergence check

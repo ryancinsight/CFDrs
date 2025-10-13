@@ -163,7 +163,7 @@ impl<T: RealField + Copy> Preconditioner<T> for SORPreconditioner<T> {
             for (j, val) in row.col_indices().iter().zip(row.values()) {
                 if *j < i {
                     // Accumulate strictly lower part L z
-                    sum = sum + *val * z[*j];
+                    sum += *val * z[*j];
                 } else if *j == i {
                     diag = *val;
                 }
