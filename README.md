@@ -15,28 +15,25 @@ The suite is organized into 8 specialized crates:
 - **cfd-3d**: 3D FEM, spectral methods, multiphase foundations
 - **cfd-validation**: Convergence studies, error metrics, benchmarks
 
-## Current State: ALPHA - Sprint 1.42.0 (Code Quality & Refinement)
+## Current State: ALPHA - Sprint 1.43.0 (Performance Benchmarking Complete)
 
-### ✅ Production-Grade Quality - Continuous Quality Enhancement
+### ✅ Production-Grade Quality - Evidence-Based Performance Validation
 - **Build Quality**: Zero compilation warnings across workspace ✅
-- **Static Analysis**: 38 clippy warnings (target <100, 62% below threshold) ✅ **IMPROVED from 46**
+- **Static Analysis**: 38 clippy warnings (target <100, 62% below threshold) ✅
 - **Test Coverage**: 216/216 library tests passing (100% pass rate) ✅
 - **Module Size**: All modules <500 lines (max 461 lines) ✅
 - **Clone Operations**: 73 total (maintained from Sprint 1.39.0) ✅
 - **Memory Efficiency**: ~1.6MB savings per typical simulation ✅
-- **Documentation**: Comprehensive with zero-copy patterns codified ✅
+- **Documentation**: Comprehensive with performance benchmarks ✅
+- **Benchmarking**: 10 criterion benchmarks operational ✅
 
-### 🎯 Sprint 1.42.0 Achievements
-- **Code Quality**: 17.4% clippy warning reduction (46 → 38 warnings)
-- **SIMD Optimization**: AVX2/SSE4.1 SpMV implementation validated with comprehensive tests
-- **Idiomatic Improvements**: 
-  - Explicit SIMD intrinsic imports (better IDE support)
-  - Compound assignment operators (more idiomatic)
-  - If/if-let patterns over match (simpler control flow)
-  - Default trait implementation for SimdOps
-  - Removed redundant variable bindings
+### 🎯 Sprint 1.43.0 Critical Findings
+- **SIMD Performance**: Sprint 1.41.0 SIMD optimization is **23-48% SLOWER** than scalar ⚠️
+- **Root Cause**: Irregular CSR memory access pattern prevents SIMD gains
+- **Benchmark Infrastructure**: 10 comprehensive criterion benchmarks operational
+- **Evidence-Based Planning**: Sprint 1.44.0 redirected to parallel SpMV (5-20x expected gain)
 - **Zero Regressions**: All 216 library tests passing, zero build warnings maintained
-- **Strategic Focus**: Building on Sprint 1.41.0 SIMD foundation with quality refinement
+- **Strategic Pivot**: "Failed" SIMD provides valuable negative result, prevents cascading debt
 
 ### 🎯 Sprint 1.39.0 Achievements (Previous)
 - **Zero-Copy Refinement**: 5 clones eliminated (spectral solver, CG init, gradients)
@@ -92,15 +89,21 @@ The suite is organized into 8 specialized crates:
 - **Clone Operations**: 73 (reduced from 80 Sprint 1.38.0, -8.75% total reduction)
 - **Documentation Integrity**: ✅ Accurate, evidence-based with technical references
 
-## Performance Status
+### Performance Status
 
-### SIMD Optimization
-- **x86_64**: AVX2 (256-bit) and SSE4.1 (128-bit) paths implemented with optimized SpMV (Sprint 1.41.0)
-- **ARM**: NEON (128-bit) support for AArch64
+### SIMD Optimization - REGRESSION IDENTIFIED ⚠️
+- **x86_64**: AVX2 (256-bit) and SSE4.1 (128-bit) paths implemented (Sprint 1.41.0)
+- **Benchmark Results**: SIMD **1.23-1.48x SLOWER** than scalar (Sprint 1.43.0)
+  - Small matrices: 37% slower
+  - Medium matrices: 30% slower  
+  - Large matrices: 30% slower
+  - Pentadiagonal: 47-48% slower
+- **Root Cause**: Irregular CSR memory access pattern (`x[col_indices[j]]`) prevents SIMD gains
+- **Recommendation**: Sprint 1.44.0 to implement parallel SpMV (rayon) for 5-20x speedup
+- **ARM**: NEON (128-bit) support for AArch64 (not benchmarked)
 - **Fallback**: SWAR (Software SIMD) for unsupported architectures
 - **Zero-copy**: Reference-based APIs, buffer reuse patterns (Sprints 1.38.0-1.39.0)
 - **Memory**: 73 clones remaining (82% necessary, 18% potential future optimization)
-- **Expected Performance**: 2-4x speedup on AVX2, 1.5-2x on SSE4.1 for dense matrices
 
 ### GPU Acceleration
 - **Backend**: WGPU for cross-platform support (Vulkan/Metal/DX12)
@@ -215,11 +218,11 @@ cargo build --release --no-default-features
 
 ## Documentation
 
-- **Sprint Summaries**: `SPRINT_1.42.0_SUMMARY.md` (latest - in progress), `SPRINT_1.41.0_SUMMARY.md`, `SPRINT_1.39.0_SUMMARY.md`, `SPRINT_1.38.0_SUMMARY.md`, `SPRINT_1.37.0_SUMMARY.md`, `SPRINT_1.36.0_SUMMARY.md`
-- **Architecture Decisions**: `docs/adr.md` (version 1.39.0, update pending for 1.42.0)
+- **Sprint Summaries**: `SPRINT_1.43.0_SUMMARY.md` (latest - performance benchmarking), `SPRINT_1.42.0_SUMMARY.md`, `SPRINT_1.41.0_SUMMARY.md`, `SPRINT_1.39.0_SUMMARY.md`, `SPRINT_1.38.0_SUMMARY.md`
+- **Architecture Decisions**: `docs/adr.md` (version 1.42.0, Sprint 1.43.0 update pending)
 - **Requirements**: `docs/srs.md` (verification status current)
-- **Backlog**: `docs/backlog.md` (Sprint 1.36.0 complete, update pending)
-- **Checklist**: `docs/checklist.md` (production excellence achieved)
+- **Backlog**: `docs/backlog.md` (Sprint 1.43.0 complete)
+- **Checklist**: `docs/checklist.md` (Sprint 1.43.0 in progress)
 
 ## License
 
@@ -237,9 +240,9 @@ This codebase has undergone systematic refactoring and quality improvement acros
 
 ## Project Status
 
-**Current Sprint**: 1.42.0 - Code Quality & Refinement ⚙️ IN PROGRESS (Phase 2 of 3 complete)  
-**Quality Gates**: All passed (build: 0 warnings, test: 216/216, clippy: 38 warnings)  
-**Readiness**: Research/education/prototyping ready, literature validation in progress  
-**Next Sprint**: 1.43.0 - Performance Benchmarking & Documentation (RECOMMENDED)
+**Current Sprint**: 1.43.0 - Performance Benchmarking & Documentation ✅ COMPLETE  
+**Quality Gates**: All passed (build: 0 warnings, test: 216/216, clippy: 38 warnings, benchmarks: 10 operational)  
+**Readiness**: Research/education/prototyping ready, performance validation complete  
+**Next Sprint**: 1.44.0 - Parallel SpMV Implementation (RECOMMENDED)
 
-See `SPRINT_1.42.0_SUMMARY.md` (in progress), `SPRINT_1.41.0_SUMMARY.md`, and `SPRINT_1.39.0_SUMMARY.md` for detailed metrics and strategic recommendations.
+See `SPRINT_1.43.0_SUMMARY.md` (latest - complete with critical SIMD findings), `SPRINT_1.42.0_SUMMARY.md`, and `SPRINT_1.41.0_SUMMARY.md` for detailed metrics and strategic recommendations.
