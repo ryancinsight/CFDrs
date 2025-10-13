@@ -380,6 +380,7 @@ dependencies = [
  "cfd-validation",
  "criterion",
  "nalgebra",
+ "nalgebra-sparse",
  "num-traits",
  "proptest",
  "wgpu",

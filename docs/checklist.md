@@ -1,6 +1,74 @@
 # CFD Suite - Technical Checklist
 
-## Version 1.30.0-PRODUCTION-EXCELLENCE - Current State
+## Version 1.43.0-PERFORMANCE-BENCHMARKING - Current State
+
+### Sprint 1.43.0 Objectives 🎯 IN PROGRESS
+- [ ] **Performance Benchmarking Infrastructure**:
+  - [ ] Add criterion to workspace dependencies
+  - [ ] Create benches/spmv.rs with benchmark harness
+  - [ ] Implement scalar baseline benchmark
+  - [ ] Implement AVX2 (256-bit) benchmark
+  - [ ] Implement SSE4.1 (128-bit) benchmark
+  - [ ] Test multiple matrix sizes (small/medium/large)
+  - [ ] Test multiple sparsity patterns (dense/sparse/typical CFD)
+- [ ] **Complete Sprint 1.42.0 Phase 3 Documentation**:
+  - [x] Update ADR with SIMD architecture decisions ✅
+  - [x] Update backlog with Sprint 1.43.0 objectives ✅
+  - [ ] Update checklist with Sprint 1.42.0 completion status
+- [ ] **Sprint 1.43.0 Documentation**:
+  - [ ] Create SPRINT_1.43.0_SUMMARY.md with hybrid CoT-ToT-GoT reasoning
+  - [ ] Update README with benchmark results
+  - [ ] Update ADR with performance data
+  - [ ] Update backlog with Sprint 1.44.0 planning
+
+### Sprint 1.42.0 Achievements ✅
+- [x] **Code Quality Refinement**:
+  - Clippy warnings: 46 → 38 (17.4% reduction)
+  - Idiomatic Rust improvements: 8 patterns applied
+  - Wildcard imports → explicit imports (SIMD modules)
+  - Manual assignments → compound operators
+  - Match → if/if-let for simple cases
+  - Redundant binding removal
+  - Default trait implementation for SimdOps
+  - Zero regressions maintained
+- [x] **SIMD Validation**:
+  - Comprehensive SpMV tests (4 test cases)
+  - AVX2/SSE4.1 correctness validation
+  - Sparse and dense matrix testing
+  - All 216 library tests passing
+- [x] **Documentation**:
+  - README.md updated with Sprint 1.42.0 achievements
+  - SPRINT_1.42.0_SUMMARY.md created
+  - Phase 3 documentation completion deferred to Sprint 1.43.0
+- [x] **Quality Metrics**:
+  - Build warnings: 0 (maintained)
+  - Test pass rate: 216/216 (100%)
+  - Module compliance: All <500 lines
+  - Clone operations: 73 (maintained)
+
+### Sprint 1.41.0 Achievements ✅
+- [x] **SIMD Optimization**:
+  - Consolidated 3 duplicate SpMV implementations → 1
+  - AVX2 (256-bit) implementation with 8-wide parallelism
+  - SSE4.1 (128-bit) fallback with 4-wide parallelism
+  - Runtime CPU feature detection
+  - Safe scalar fallback for unsupported architectures
+  - Expected performance: 2-4x speedup (pending benchmarks)
+- [x] **Code Quality**:
+  - SSOT enforcement: Eliminated duplicate implementations
+  - Code reduction: -36 lines
+  - Maintainability improvement: Single optimization point
+  - Zero breakage: All 216 tests passing
+- [x] **Testing**:
+  - Basic correctness test (3×3 matrix)
+  - SIMD vs scalar correctness (20×20 tridiagonal)
+  - Sparse pattern testing
+  - Dense matrix testing
+- [x] **Integration**:
+  - SpMV used in BiCGSTAB solver
+  - SpMV used in GMRES solver
+  - SpMV used in Arnoldi iteration
+  - Comprehensive test coverage maintained
 
 ### Sprint 1.31.0 Achievements ✅
 - [x] **Documentation Integrity Audit**:

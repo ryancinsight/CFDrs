@@ -118,6 +118,7 @@ wgpu = { version = "0.19", optional = true }
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.0"
 approx = "0.5"
+nalgebra-sparse = "0.10"
 
 [[bench]]
 name = "core_benchmarks"
@@ -184,4 +185,8 @@ required-features = ["csg"]
 
 [[bench]]
 name = "performance_benchmarks"
+harness = false
+
+[[bench]]
+name = "simd_spmv"
 harness = false
