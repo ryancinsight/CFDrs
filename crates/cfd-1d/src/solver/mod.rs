@@ -116,12 +116,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
             // Check if solution has converged
             if converged {
                 // Apply final solution and return
-                self.update_network_solution(&mut network, solution)?;
+                self.update_network_solution(&mut network, &solution)?;
                 return Ok(network);
             }
 
-            // 4. Update network state for next iteration
-            self.update_network_solution(&mut network, solution.clone())?;
+            // 4. Update network state for next iteration (zero-copy: swap instead of clone)
+            self.update_network_solution(&mut network, &solution)?;
             last_solution = solution;
 
             // Optional: Add logging for iteration progress
@@ -139,10 +139,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
     fn update_network_solution(
         &self,
         network: &mut Network<T>,
-        solution: nalgebra::DVector<T>,
+        solution: &nalgebra::DVector<T>,
     ) -> Result<()> {
         // Update network pressures and flows from solution vector
-        network.update_from_solution(&solution);
+        network.update_from_solution(solution);
         Ok(())
     }
 }

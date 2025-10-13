@@ -38,7 +38,8 @@ impl AdvectionMethod {
         solver: &mut VofSolver<T>,
         dt: T,
     ) -> Result<()> {
-        let mut alpha_temp = solver.alpha.clone();
+        // Use alpha_previous as temporary buffer (zero-copy optimization)
+        solver.alpha_previous.copy_from_slice(&solver.alpha);
 
         for k in 1..solver.nz - 1 {
             for j in 1..solver.ny - 1 {
@@ -59,15 +60,16 @@ impl AdvectionMethod {
                         + flux_z_plus
                         - flux_z_minus;
 
-                    alpha_temp[idx] = solver.alpha[idx] - net_flux / cell_volume;
+                    solver.alpha_previous[idx] = solver.alpha[idx] - net_flux / cell_volume;
 
                     // Bound volume fraction
-                    alpha_temp[idx] = alpha_temp[idx].max(T::zero()).min(T::one());
+                    solver.alpha_previous[idx] = solver.alpha_previous[idx].max(T::zero()).min(T::one());
                 }
             }
         }
 
-        solver.alpha = alpha_temp;
+        // Swap buffers (zero-copy optimization)
+        std::mem::swap(&mut solver.alpha, &mut solver.alpha_previous);
         Ok(())
     }
 
@@ -131,7 +133,8 @@ impl AdvectionMethod {
         solver: &mut VofSolver<T>,
         dt: T,
     ) -> Result<()> {
-        let mut alpha_temp = solver.alpha.clone();
+        // Use alpha_previous as temporary buffer (zero-copy optimization)
+        solver.alpha_previous.copy_from_slice(&solver.alpha);
         let two = T::from_f64(2.0).unwrap_or(T::one() + T::one());
 
         for k in 1..solver.nz - 1 {
@@ -152,16 +155,17 @@ impl AdvectionMethod {
                         / (two * solver.dz);
 
                     // Advection equation: ∂α/∂t + u·∇α = 0
-                    alpha_temp[idx] = solver.alpha[idx]
+                    solver.alpha_previous[idx] = solver.alpha[idx]
                         - dt * (vel.x * dalpha_dx + vel.y * dalpha_dy + vel.z * dalpha_dz);
 
                     // Bound volume fraction
-                    alpha_temp[idx] = alpha_temp[idx].max(T::zero()).min(T::one());
+                    solver.alpha_previous[idx] = solver.alpha_previous[idx].max(T::zero()).min(T::one());
                 }
             }
         }
 
-        solver.alpha = alpha_temp;
+        // Swap buffers (zero-copy optimization)
+        std::mem::swap(&mut solver.alpha, &mut solver.alpha_previous);
         Ok(())
     }
 
@@ -171,7 +175,8 @@ impl AdvectionMethod {
         solver: &mut VofSolver<T>,
         dt: T,
     ) -> Result<()> {
-        let mut alpha_temp = solver.alpha.clone();
+        // Use alpha_previous as temporary buffer (zero-copy optimization)
+        solver.alpha_previous.copy_from_slice(&solver.alpha);
 
         for k in 1..solver.nz - 1 {
             for j in 1..solver.ny - 1 {
@@ -207,18 +212,19 @@ impl AdvectionMethod {
                                 + u_compression.y * dalpha_dy
                                 + u_compression.z * dalpha_dz;
 
-                            alpha_temp[idx] =
+                            solver.alpha_previous[idx] =
                                 alpha - dt * compression_term * alpha * (T::one() - alpha);
 
                             // Bound volume fraction
-                            alpha_temp[idx] = alpha_temp[idx].max(T::zero()).min(T::one());
+                            solver.alpha_previous[idx] = solver.alpha_previous[idx].max(T::zero()).min(T::one());
                         }
                     }
                 }
             }
         }
 
-        solver.alpha = alpha_temp;
+        // Swap buffers (zero-copy optimization)
+        std::mem::swap(&mut solver.alpha, &mut solver.alpha_previous);
         Ok(())
     }
 }
