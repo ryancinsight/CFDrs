@@ -31,7 +31,7 @@ impl<T: RealField + Copy + Sum> ResistanceAnalysis<T> {
 
     /// Add resistance data for a component
     pub fn add_resistance(&mut self, id: String, resistance: T) {
-        self.resistances.insert(id.clone(), resistance);
+        self.resistances.insert(id, resistance);
         self.total_resistance += resistance;
     }
 
