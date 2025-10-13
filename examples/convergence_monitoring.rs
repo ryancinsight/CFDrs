@@ -7,7 +7,6 @@ use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::physics::momentum::{MomentumComponent, MomentumSolver};
 use cfd_core::boundary::BoundaryCondition;
 use cfd_validation::convergence::{ConvergenceMonitor, ConvergenceStatus};
-use std::f64::consts::PI;
 
 /// Analytical solution for Poiseuille flow
 /// u(y) = (1/2μ) * (dp/dx) * y * (H - y)
@@ -54,7 +53,7 @@ fn test_simple_diffusion() -> Result<(), Box<dyn std::error::Error>> {
 
     for iteration in 0..1000 {
         let mut temp_new = temperature.clone();
-        let mut max_change = 0.0;
+        let mut max_change: f64 = 0.0;
 
         // Apply explicit diffusion
         for i in 1..nx - 1 {
@@ -97,9 +96,9 @@ fn test_simple_diffusion() -> Result<(), Box<dyn std::error::Error>> {
             }
             ConvergenceStatus::Stalled {
                 stall_error,
-                iterations,
+                stall_iterations,
             } => {
-                println!("\n   ⚠ Convergence stalled at iteration {}", iterations);
+                println!("\n   ⚠ Convergence stalled at iteration {}", stall_iterations);
                 println!("     Stall error: {:.2e}", stall_error);
                 break;
             }
@@ -160,8 +159,8 @@ fn test_poiseuille_with_monitoring() -> Result<(), Box<dyn std::error::Error>> {
         solver.solve(MomentumComponent::U, &mut fields, dt)?;
 
         // Calculate velocity change and residual
-        let mut max_change = 0.0;
-        let mut residual = 0.0;
+        let mut max_change: f64 = 0.0;
+        let mut residual: f64 = 0.0;
         let mut count = 0;
 
         for i in 1..nx - 1 {
@@ -195,7 +194,7 @@ fn test_poiseuille_with_monitoring() -> Result<(), Box<dyn std::error::Error>> {
             
             // Validate against analytical solution
             let dy = channel_height / (ny - 1) as f64;
-            let mut max_error = 0.0;
+            let mut max_error: f64 = 0.0;
             
             for j in 0..ny {
                 let y = j as f64 * dy;
@@ -254,9 +253,9 @@ fn test_oscillating_solution() -> Result<(), Box<dyn std::error::Error>> {
         match monitor.check_status() {
             ConvergenceStatus::Stalled {
                 stall_error,
-                iterations,
+                stall_iterations,
             } => {
-                println!("\n   ⚠ Stall detected at iteration {}", iterations);
+                println!("\n   ⚠ Stall detected at iteration {}", stall_iterations);
                 println!("     Stall error: {:.2e}", stall_error);
                 println!("     Recommendation: Reduce time step or adjust relaxation");
                 break;
