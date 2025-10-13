@@ -105,12 +105,10 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
 
         // Use iterator combinators for better performance
         gradients.extend((0..nz).flat_map(|k| {
-            let two = two;
             let dx = self.dx;
             let dy = self.dy;
             let dz = self.dz;
             (0..ny).flat_map(move |j| {
-                let two = two;
                 let dx = dx;
                 let dy = dy;
                 let dz = dz;

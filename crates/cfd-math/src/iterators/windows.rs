@@ -34,14 +34,12 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         // Fill initial window
         while self.window.len() < self.size {
-            match self.iter.next() {
-                Some(val) => self.window.push_back(val),
-                None => {
-                    if self.window.is_empty() {
-                        return None;
-                    }
-                    break;
-                }
+            if let Some(val) = self.iter.next() {
+                self.window.push_back(val);
+            } else if self.window.is_empty() {
+                return None;
+            } else {
+                break;
             }
         }
 

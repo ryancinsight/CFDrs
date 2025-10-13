@@ -248,14 +248,13 @@ impl<T: RealField + Copy + FromPrimitive + Debug> IterativeLinearSolver<T> for G
         x: &mut DVector<T>,
         preconditioner: Option<&P>,
     ) -> Result<()> {
-        match preconditioner {
-            Some(p) => self.solve_preconditioned(a, b, p, x),
-            None => {
-                // Use identity preconditioner
-                use super::super::preconditioners::IdentityPreconditioner;
-                let identity = IdentityPreconditioner;
-                self.solve_preconditioned(a, b, &identity, x)
-            }
+        if let Some(p) = preconditioner {
+            self.solve_preconditioned(a, b, p, x)
+        } else {
+            // Use identity preconditioner
+            use super::super::preconditioners::IdentityPreconditioner;
+            let identity = IdentityPreconditioner;
+            self.solve_preconditioned(a, b, &identity, x)
         }
     }
 }
