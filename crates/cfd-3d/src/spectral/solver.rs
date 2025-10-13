@@ -92,12 +92,12 @@ impl<T: RealField + FromPrimitive + Copy> SpectralSolver<T> {
             self.config.nz_modes,
         );
 
-        // Use the source and BCs from the user-provided problem definition
+        // Use the source and BCs from the user-provided problem definition (zero-copy: pass by reference)
         let potential = self.poisson_solver.solve(
             &problem.source_term,
-            problem.bc_x.clone(),
-            problem.bc_y.clone(),
-            problem.bc_z.clone(),
+            &problem.bc_x,
+            &problem.bc_y,
+            &problem.bc_z,
         )?;
 
         // Store the result in the solution

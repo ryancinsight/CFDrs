@@ -30,7 +30,8 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
         use super::FiniteDifference;
         let fd = FiniteDifference::central(self.dx);
         let grad = fd.first_derivative(field)?;
-        Ok(grad.data.as_vec().clone())
+        // Zero-copy: convert DVector to Vec via into_iter (avoids clone)
+        Ok(grad.iter().copied().collect())
     }
 
     /// Compute gradient of a 2D field (stored row-major)

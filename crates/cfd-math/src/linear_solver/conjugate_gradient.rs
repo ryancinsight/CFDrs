@@ -152,7 +152,9 @@ impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> IterativeLinearS
             return Ok(());
         }
 
-        let mut p = r.clone();
+        // Zero-copy: initialize p directly instead of cloning r
+        let mut p = DVector::zeros(n);
+        p.copy_from(&r);
 
         for _ in 0..self.config.max_iterations {
             let ap = a * &p;
