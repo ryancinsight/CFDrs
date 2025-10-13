@@ -65,7 +65,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     // Solve using spectral method
     println!("Solving 3D Poisson equation ∇²u = f...");
-    match solver.solve(&rhs, bc_x, bc_y, bc_z) {
+    match solver.solve(&rhs, &bc_x, &bc_y, &bc_z) {
         Ok(solution) => {
             println!("Spectral solution converged successfully!");
             println!(
