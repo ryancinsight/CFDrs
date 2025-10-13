@@ -5,6 +5,45 @@ use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::{Float, FromPrimitive, Signed};
 
+/// Sparse matrix-vector multiplication (SpMV): y = A * x
+///
+/// This is the standard CSR (Compressed Sparse Row) SpMV algorithm,
+/// optimized for cache locality and zero-copy operations.
+///
+/// # Arguments
+/// * `a` - Sparse matrix in CSR format
+/// * `x` - Input vector (must have length = a.ncols())
+/// * `y` - Output vector (must have length = a.nrows(), will be overwritten)
+///
+/// # Performance
+/// - Time complexity: O(nnz) where nnz is number of non-zero elements
+/// - Space complexity: O(1) auxiliary space (zero-copy, in-place output)
+/// - Cache-friendly: Sequential access to row offsets and values
+///
+/// # Panics
+/// Panics if vector dimensions don't match matrix dimensions
+pub fn spmv<T: RealField + Copy>(a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVector<T>) {
+    assert_eq!(x.len(), a.ncols(), "Input vector dimension mismatch");
+    assert_eq!(y.len(), a.nrows(), "Output vector dimension mismatch");
+
+    // Zero out the output vector (required for accumulation)
+    y.fill(T::zero());
+
+    // Standard CSR SpMV: y[i] = sum(A[i,j] * x[j]) for j in row i
+    for i in 0..a.nrows() {
+        let row_start = a.row_offsets()[i];
+        let row_end = a.row_offsets()[i + 1];
+
+        let mut sum = T::zero();
+        for j in row_start..row_end {
+            let col_idx = a.col_indices()[j];
+            let val = a.values()[j];
+            sum += val * x[col_idx];
+        }
+        y[i] = sum;
+    }
+}
+
 /// Extension trait for sparse matrix operations
 pub trait SparseMatrixExt<T: RealField + Copy> {
     /// Extract diagonal elements

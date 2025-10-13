@@ -3,6 +3,7 @@
 use super::super::config::IterativeSolverConfig;
 use super::super::traits::{Configurable, IterativeLinearSolver, Preconditioner};
 use super::{arnoldi, givens};
+use crate::sparse::spmv;
 use cfd_core::error::{ConvergenceErrorKind, Error, Result};
 use nalgebra::{DMatrix, DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
@@ -114,7 +115,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
         // GMRES(m) restart loop
         while total_iterations < self.config.max_iterations {
             // Compute initial residual: r = b - A*x
-            arnoldi::spmv(a, x, &mut work);
+            spmv(a, x, &mut work);
             r.copy_from(b);
             r -= &work;
 

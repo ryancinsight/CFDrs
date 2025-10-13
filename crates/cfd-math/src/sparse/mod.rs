@@ -10,7 +10,7 @@ mod patterns;
 
 pub use assembly::ParallelAssembly;
 pub use builder::{MatrixEntry, SparseMatrixBuilder};
-pub use operations::SparseMatrixExt;
+pub use operations::{spmv, SparseMatrixExt};
 pub use patterns::SparsePatterns;
 
 // Re-export the core sparse matrix type

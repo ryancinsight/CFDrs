@@ -3,6 +3,7 @@
 use super::config::IterativeSolverConfig;
 use super::preconditioners::IdentityPreconditioner;
 use super::traits::{Configurable, IterativeLinearSolver, Preconditioner};
+use crate::sparse::spmv;
 use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
@@ -27,29 +28,6 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
         T: FromPrimitive,
     {
         Self::new(IterativeSolverConfig::default())
-    }
-
-    /// Efficient sparse matrix-vector multiplication into pre-allocated buffer
-    /// This avoids allocation by reusing the output buffer
-    #[inline]
-    fn spmv(a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVector<T>) {
-        // Zero out the output vector
-        y.fill(T::zero());
-
-        // Perform sparse matrix-vector multiplication manually
-        // This is the standard CSR SpMV algorithm
-        for i in 0..a.nrows() {
-            let row_start = a.row_offsets()[i];
-            let row_end = a.row_offsets()[i + 1];
-
-            let mut sum = T::zero();
-            for j in row_start..row_end {
-                let col_idx = a.col_indices()[j];
-                let val = a.values()[j];
-                sum += val * x[col_idx];
-            }
-            y[i] = sum;
-        }
     }
 
     /// Solve with preconditioning using efficient memory management
@@ -96,7 +74,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
         let mut ax = DVector::zeros(n); // Pre-allocated for initial residual
 
         // Compute initial residual: r = b - A*x
-        Self::spmv(a, x, &mut ax); // Allocation-free multiplication
+        spmv(a, x, &mut ax); // Allocation-free multiplication
         r.copy_from(b);
         r -= &ax;
 
@@ -135,7 +113,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
 
             // Solve M*z = p and compute v = A*z
             preconditioner.apply_to(&p, &mut z)?;
-            Self::spmv(a, &z, &mut v); // Allocation-free multiplication
+            spmv(a, &z, &mut v); // Allocation-free multiplication
 
             alpha = rho_new / r0_hat.dot(&v);
 
@@ -148,7 +126,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
 
             // Solve M*z2 = s and compute t = A*z2
             preconditioner.apply_to(&s, &mut z2)?;
-            Self::spmv(a, &z2, &mut t); // Allocation-free multiplication
+            spmv(a, &z2, &mut t); // Allocation-free multiplication
 
             let t_dot_t = t.dot(&t);
             if t_dot_t.abs() < breakdown_tolerance {
@@ -156,7 +134,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
                 // But we can still update x with what we have
                 x.axpy(alpha, &z, T::one());
                 // Check if this partial update achieved convergence
-                Self::spmv(a, x, &mut ax);
+                spmv(a, x, &mut ax);
                 r.copy_from(b);
                 r -= &ax;
                 if self.is_converged(r.norm()) {
