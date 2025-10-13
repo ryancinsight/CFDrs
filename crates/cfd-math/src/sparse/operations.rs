@@ -79,7 +79,10 @@ pub fn spmv_f32_simd(a: &CsrMatrix<f32>, x: &DVector<f32>, y: &mut DVector<f32>)
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 unsafe fn spmv_f32_avx2(a: &CsrMatrix<f32>, x: &DVector<f32>, y: &mut DVector<f32>) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{
+        _mm256_add_ps, _mm256_castps256_ps128, _mm256_extractf128_ps, _mm256_loadu_ps,
+        _mm256_mul_ps, _mm256_setzero_ps, _mm_add_ps, _mm_cvtss_f32, _mm_hadd_ps,
+    };
 
     y.fill(0.0);
 
@@ -146,7 +149,9 @@ unsafe fn spmv_f32_avx2(a: &CsrMatrix<f32>, x: &DVector<f32>, y: &mut DVector<f3
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "sse4.1")]
 unsafe fn spmv_f32_sse41(a: &CsrMatrix<f32>, x: &DVector<f32>, y: &mut DVector<f32>) {
-    use std::arch::x86_64::*;
+    use std::arch::x86_64::{
+        _mm_add_ps, _mm_cvtss_f32, _mm_hadd_ps, _mm_loadu_ps, _mm_mul_ps, _mm_setzero_ps,
+    };
 
     y.fill(0.0);
 

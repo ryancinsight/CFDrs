@@ -161,32 +161,29 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
         let mut result = vec![0.0f32; n];
         let inv_spacing = 1.0f32 / (self.spacing.to_subset().unwrap_or(1.0) as f32);
 
-        match self.scheme {
-            FiniteDifferenceScheme::Central => {
-                // Use SIMD-friendly operations for central differences
-                if n > 2 {
-                    // Compute differences and scale in one pass
-                    let scale = inv_spacing * 0.5;
-                    for i in 1..n - 1 {
-                        result[i] = (values[i + 1] - values[i - 1]) * scale;
-                    }
+        if self.scheme == FiniteDifferenceScheme::Central {
+            // Use SIMD-friendly operations for central differences
+            if n > 2 {
+                // Compute differences and scale in one pass
+                let scale = inv_spacing * 0.5;
+                for i in 1..n - 1 {
+                    result[i] = (values[i + 1] - values[i - 1]) * scale;
                 }
-
-                // Handle boundaries
-                result[0] = (values[1] - values[0]) * inv_spacing;
-                result[n - 1] = (values[n - 1] - values[n - 2]) * inv_spacing;
             }
-            _ => {
-                // Fall back to scalar for other schemes
-                let scalar_result = self.first_derivative(
-                    &values
-                        .iter()
-                        .map(|&v| T::from_f32(v).unwrap_or_else(|| T::zero()))
-                        .collect::<Vec<_>>(),
-                )?;
-                for (i, val) in scalar_result.iter().enumerate() {
-                    result[i] = val.to_subset().unwrap_or(0.0) as f32;
-                }
+
+            // Handle boundaries
+            result[0] = (values[1] - values[0]) * inv_spacing;
+            result[n - 1] = (values[n - 1] - values[n - 2]) * inv_spacing;
+        } else {
+            // Fall back to scalar for other schemes
+            let scalar_result = self.first_derivative(
+                &values
+                    .iter()
+                    .map(|&v| T::from_f32(v).unwrap_or_else(|| T::zero()))
+                    .collect::<Vec<_>>(),
+            )?;
+            for (i, val) in scalar_result.iter().enumerate() {
+                result[i] = val.to_subset().unwrap_or(0.0) as f32;
             }
         }
 

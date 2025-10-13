@@ -40,6 +40,12 @@ impl SimdOps {
     }
 }
 
+impl Default for SimdOps {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VectorOps for SimdOps {
     #[inline]
     fn add(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
