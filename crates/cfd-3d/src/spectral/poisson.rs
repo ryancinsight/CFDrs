@@ -70,9 +70,9 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
     pub fn solve(
         &self,
         f: &DMatrix<T>,
-        bc_x: (PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
-        bc_y: (PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
-        bc_z: (PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
+        bc_x: &(PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
+        bc_y: &(PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
+        bc_z: &(PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
     ) -> Result<DMatrix<T>> {
         // Build the discrete Laplacian operator
         let mut laplacian = self.build_laplacian_matrix()?;
