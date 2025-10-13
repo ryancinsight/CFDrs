@@ -95,4 +95,129 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_spmv_basic() {
+        use nalgebra::DVector;
+        use nalgebra_sparse::CsrMatrix;
+        use crate::sparse::spmv;
+
+        // Create a simple 3x3 matrix:
+        // [2  0  1]
+        // [0  3  0]
+        // [1  0  2]
+        let row_offsets = vec![0, 2, 3, 5];
+        let col_indices = vec![0, 2, 1, 0, 2];
+        let values = vec![2.0f64, 1.0, 3.0, 1.0, 2.0];
+        let a = CsrMatrix::try_from_csr_data(3, 3, row_offsets, col_indices, values).unwrap();
+
+        // Test with x = [1, 2, 3]
+        let x = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        let mut y = DVector::zeros(3);
+
+        spmv(&a, &x, &mut y);
+
+        // Expected: [2*1 + 1*3, 3*2, 1*1 + 2*3] = [5, 6, 7]
+        assert_relative_eq!(y[0], 5.0, epsilon = 1e-10);
+        assert_relative_eq!(y[1], 6.0, epsilon = 1e-10);
+        assert_relative_eq!(y[2], 7.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_spmv_f32_simd_correctness() {
+        use nalgebra::DVector;
+        use nalgebra_sparse::CsrMatrix;
+        use crate::sparse::{spmv, spmv_f32_simd};
+
+        // Create a larger matrix to test SIMD (20x20)
+        let n = 20;
+        let mut builder = SparseMatrixBuilder::new(n, n);
+        
+        // Create a tridiagonal matrix with some extra entries
+        for i in 0..n {
+            builder.add_triplets(vec![(i, i, 4.0f32)]).unwrap();
+            if i > 0 {
+                builder.add_triplets(vec![(i, i - 1, -1.0f32)]).unwrap();
+            }
+            if i < n - 1 {
+                builder.add_triplets(vec![(i, i + 1, -1.0f32)]).unwrap();
+            }
+        }
+        let a = builder.build().unwrap();
+
+        // Test vector
+        let x = DVector::from_fn(n, |i, _| (i + 1) as f32);
+        
+        // Compute with scalar version
+        let mut y_scalar = DVector::zeros(n);
+        spmv(&a, &x, &mut y_scalar);
+
+        // Compute with SIMD version
+        let mut y_simd = DVector::zeros(n);
+        spmv_f32_simd(&a, &x, &mut y_simd);
+
+        // Compare results
+        for i in 0..n {
+            assert_relative_eq!(y_simd[i], y_scalar[i], epsilon = 1e-5);
+        }
+    }
+
+    #[test]
+    fn test_spmv_f32_simd_sparse_rows() {
+        use nalgebra::DVector;
+        use crate::sparse::{spmv, spmv_f32_simd};
+
+        // Test with very sparse rows (< 4 non-zeros per row)
+        let mut builder = SparseMatrixBuilder::new(10, 10);
+        for i in 0..10 {
+            builder.add_triplets(vec![(i, i, 1.0f32)]).unwrap();
+            if i < 5 {
+                builder.add_triplets(vec![(i, i + 5, 0.5f32)]).unwrap();
+            }
+        }
+        let a = builder.build().unwrap();
+
+        let x = DVector::from_element(10, 1.0f32);
+        
+        let mut y_scalar = DVector::zeros(10);
+        spmv(&a, &x, &mut y_scalar);
+
+        let mut y_simd = DVector::zeros(10);
+        spmv_f32_simd(&a, &x, &mut y_simd);
+
+        for i in 0..10 {
+            assert_relative_eq!(y_simd[i], y_scalar[i], epsilon = 1e-5);
+        }
+    }
+
+    #[test]
+    fn test_spmv_f32_simd_dense_rows() {
+        use nalgebra::DVector;
+        use crate::sparse::{spmv, spmv_f32_simd};
+
+        // Test with dense rows (many non-zeros, good for SIMD)
+        let n = 16;
+        let mut builder = SparseMatrixBuilder::new(n, n);
+        for i in 0..n {
+            for j in 0..n {
+                if (i as i32 - j as i32).abs() <= 3 {
+                    let val = 1.0f32 / ((i as i32 - j as i32).abs() + 1) as f32;
+                    builder.add_triplets(vec![(i, j, val)]).unwrap();
+                }
+            }
+        }
+        let a = builder.build().unwrap();
+
+        let x = DVector::from_fn(n, |i, _| (i % 3) as f32 + 0.5);
+        
+        let mut y_scalar = DVector::zeros(n);
+        spmv(&a, &x, &mut y_scalar);
+
+        let mut y_simd = DVector::zeros(n);
+        spmv_f32_simd(&a, &x, &mut y_simd);
+
+        for i in 0..n {
+            assert_relative_eq!(y_simd[i], y_scalar[i], epsilon = 1e-4);
+        }
+    }
 }
