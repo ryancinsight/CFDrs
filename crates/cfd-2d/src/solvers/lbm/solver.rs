@@ -67,6 +67,8 @@ pub struct LbmSolver<T: RealField + Copy> {
     dy: T,
     /// Current step count
     step_count: usize,
+    /// Buffer for convergence checking (zero-copy optimization)
+    previous_velocity: Vec<Vec<[T; 2]>>,
 }
 
 impl<T: RealField + Copy + FromPrimitive> LbmSolver<T>
@@ -93,6 +95,9 @@ where
         // Create boundary handler
         let boundary_handler = BoundaryHandler::new();
 
+        // Preallocate convergence buffer (zero-copy optimization)
+        let previous_velocity = vec![vec![[T::zero(), T::zero()]; nx]; ny];
+
         Self {
             config,
             f,
@@ -105,6 +110,7 @@ where
             dx,
             dy,
             step_count: 0,
+            previous_velocity,
         }
     }
 
@@ -209,7 +215,8 @@ where
         self.initialize(density_fn, velocity_fn)?;
 
         let mut converged = false;
-        let mut previous_velocity = self.macroscopic.velocity.clone();
+        // Copy initial velocity to previous_velocity buffer (zero-copy: single allocation)
+        self.copy_velocity_to_buffer();
 
         for step in 0..self.config.max_steps {
             // Perform time step
@@ -217,7 +224,7 @@ where
 
             // Check convergence
             if step % self.config.output_frequency == 0 {
-                let max_change = self.compute_max_velocity_change(&previous_velocity);
+                let max_change = self.compute_max_velocity_change();
 
                 if self.config.verbose {
                     println!("Step {step}: max velocity change = {max_change:e}");
@@ -231,7 +238,8 @@ where
                     break;
                 }
 
-                previous_velocity = self.macroscopic.velocity.clone();
+                // Update buffer for next comparison (zero-copy: reuse allocation)
+                self.copy_velocity_to_buffer();
             }
         }
 
@@ -245,14 +253,23 @@ where
         Ok(())
     }
 
-    /// Compute maximum velocity change for convergence check
-    fn compute_max_velocity_change(&self, previous_velocity: &Vec<Vec<[T; 2]>>) -> T {
+    /// Copy current velocity to buffer for convergence checking (zero-copy optimization)
+    fn copy_velocity_to_buffer(&mut self) {
+        for j in 0..self.ny {
+            for i in 0..self.nx {
+                self.previous_velocity[j][i] = self.macroscopic.velocity[j][i];
+            }
+        }
+    }
+
+    /// Compute maximum velocity change for convergence check (zero-copy optimization)
+    fn compute_max_velocity_change(&self) -> T {
         let mut max_change = T::zero();
 
         for j in 0..self.ny {
             for i in 0..self.nx {
-                let du = (self.macroscopic.velocity[j][i][0] - previous_velocity[j][i][0]).abs();
-                let dv = (self.macroscopic.velocity[j][i][1] - previous_velocity[j][i][1]).abs();
+                let du = (self.macroscopic.velocity[j][i][0] - self.previous_velocity[j][i][0]).abs();
+                let dv = (self.macroscopic.velocity[j][i][1] - self.previous_velocity[j][i][1]).abs();
                 let change = du.max(dv);
                 if change > max_change {
                     max_change = change;
