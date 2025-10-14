@@ -27,3 +27,7 @@ chrono = "0.4"
 [dev-dependencies]
 proptest.workspace = true
 criterion.workspace = true
+
+[[bench]]
+name = "convergence_benchmarks"
+harness = false
