@@ -17,7 +17,10 @@ proptest! {
         let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
         
         let mut error = base_error;
-        for _ in 0..20 {
+        // Run enough iterations to ensure we reach absolute tolerance
+        // For worst case (base=10, rate=0.9), we need: 10 * 0.9^n < 1e-6
+        // => n > log(1e-7) / log(0.9) ≈ 152 iterations
+        for _ in 0..200 {
             monitor.update(error);
             error *= reduction_rate;
         }
@@ -25,7 +28,7 @@ proptest! {
         let status = monitor.check_status();
         prop_assert!(
             status.is_converged(),
-            "Monotonically decreasing sequence should converge"
+            "Monotonically decreasing sequence should converge after sufficient iterations"
         );
     }
 
@@ -98,13 +101,19 @@ proptest! {
         scale in 0.01f64..1000.0,
         reduction_rate in 0.1f64..0.9
     ) {
-        let mut monitor1 = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
-        let mut monitor2 = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
+        // Use scale-dependent absolute tolerance to ensure scale invariance
+        let abs_tol_1 = 1e-6;
+        let abs_tol_2 = 1e-6 * scale;
+        let rel_tol = 1e-3;
+        
+        let mut monitor1 = ConvergenceMonitor::<f64>::new(abs_tol_1, rel_tol, 100);
+        let mut monitor2 = ConvergenceMonitor::<f64>::new(abs_tol_2, rel_tol, 100);
         
         let mut error1 = 1.0;
         let mut error2 = scale;
         
-        for _ in 0..15 {
+        // Run enough iterations to reach convergence
+        for _ in 0..200 {
             monitor1.update(error1);
             monitor2.update(error2);
             error1 *= reduction_rate;
@@ -117,7 +126,7 @@ proptest! {
         prop_assert_eq!(
             status1.is_converged(),
             status2.is_converged(),
-            "Relative convergence should be scale-invariant"
+            "Relative convergence should be scale-invariant with scale-dependent tolerances"
         );
     }
 
@@ -154,20 +163,36 @@ proptest! {
 fn test_gci_asymptotic_range() {
     let gci = GridConvergenceIndex::<f64>::new(3, 2.0, 2.0);
     
-    // Perfect second-order convergence
-    let f1 = 1.0;
-    let f2 = 1.0 + 0.04; // Error proportional to h²
-    let f3 = 1.0 + 0.16; // Error proportional to (2h)² = 4h²
+    // For true asymptotic second-order convergence, we need:
+    // f(h) = f_exact + C*h²
+    // But GCI uses relative error: epsilon = |f_coarse - f_fine| / |f_fine|
+    // 
+    // Let's use a large enough base value to minimize relative error effects
+    let f_exact = 100.0;
+    let c = 1.0;
+    let h1 = 0.1;
+    let h2 = 0.2;
+    let h3 = 0.4;
     
-    let gci12 = gci.compute_fine(f1, f2);
-    let gci23 = gci.compute_fine(f2, f3);
+    let f1 = f_exact + c * h1 * h1; // 100.01
+    let f2 = f_exact + c * h2 * h2; // 100.04
+    let f3 = f_exact + c * h3 * h3; // 100.16
     
-    let ratio = gci23 / (gci12 * 2.0f64.powi(2));
+    // Compute GCI between grids 1-2 (fine grid GCI)
+    let gci_fine_12 = gci.compute_fine(f1, f2);
+    // Compute GCI between grids 2-3 (fine grid GCI for coarser pair)
+    let gci_fine_23 = gci.compute_fine(f2, f3);
+    
+    // According to Roache (1998), for asymptotic convergence:
+    // GCI_23 / (r^p * GCI_12) ≈ 1
+    let r_p = 2.0f64.powi(2); // refinement_ratio^order = 2^2 = 4
+    let ratio = gci_fine_23 / (r_p * gci_fine_12);
     
     // In asymptotic range, this ratio should be close to 1
+    // With larger base values, relative error effects are minimized
     assert!(
-        (ratio - 1.0).abs() < 0.1,
-        "GCI ratio indicates asymptotic convergence: {}",
+        (ratio - 1.0).abs() < 0.02,
+        "GCI ratio indicates asymptotic convergence: {} (expected ~1.0)",
         ratio
     );
 }
