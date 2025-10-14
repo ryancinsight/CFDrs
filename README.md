@@ -232,11 +232,11 @@ cargo build --release --no-default-features
 
 ## Documentation
 
-- **Sprint Summaries**: `SPRINT_VALIDATION_SUMMARY.md` (latest - validation & convergence), `SPRINT_1.43.0_SUMMARY.md`, `SPRINT_1.42.0_SUMMARY.md`, `SPRINT_1.41.0_SUMMARY.md`, `SPRINT_1.39.0_SUMMARY.md`, `SPRINT_1.38.0_SUMMARY.md`
-- **Architecture Decisions**: `docs/adr.md` (version 1.42.0, Sprint 1.43.0 update pending)
-- **Requirements**: `docs/srs.md` (verification status current)
-- **Backlog**: `docs/backlog.md` (Sprint 1.43.0 complete)
-- **Checklist**: `docs/checklist.md` (Sprint 1.43.0 in progress)
+- **Architecture Decisions**: `docs/adr.md` (architectural decisions and rationale)
+- **Requirements**: `docs/srs.md` (system requirements specification)
+- **Product Requirements**: `docs/prd.md` (product requirements document)
+- **Backlog**: `docs/backlog.md` (prioritized development backlog)
+- **Checklist**: `docs/checklist.md` (current sprint tasks and progress)
 
 ## License
 
@@ -260,4 +260,4 @@ This codebase has undergone systematic refactoring and quality improvement acros
 **Validation**: MMS verified diffusion ✅, Identified advection issues ⚠️  
 **Next Sprint**: 1.45.0 - Fix convergence monitoring and advection scheme (RECOMMENDED)
 
-See `SPRINT_VALIDATION_SUMMARY.md` for detailed findings and `SPRINT_1.43.0_SUMMARY.md` for performance benchmarking results.
+See `docs/checklist.md` for current sprint progress and `docs/backlog.md` for planned work.
