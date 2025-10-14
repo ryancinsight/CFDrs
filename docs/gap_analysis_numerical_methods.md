@@ -11,9 +11,20 @@
 
 This document provides a surgical, evidence-based gap analysis of the CFD simulation suite's physics models and numerical methods, comparing current implementation against industry standards (Patankar 1980, Versteeg & Malalasekera 2007, Ferziger & Perić 2019, Pope 2000). Analysis reveals **83% completeness** in numerical methods infrastructure with **17 critical gaps** requiring immediate attention per IEEE 29148 risk assessment.
 
+**Sprint 1.46.0 Update**: Convergence monitoring infrastructure validated with property-based tests. MMS verification reveals advection scheme correctness issue requiring investigation.
+
 ### Critical Findings
 
-**BLOCKER (Severity: CRITICAL)**
+**RESOLVED (Sprint 1.46.0)** ✅
+- ✅ **Convergence Monitoring**: Property-based tests (8/8 passing) validate scale-invariant stall detection using coefficient of variation
+- ✅ **Grid Convergence Index**: Asymptotic range detection corrected per Roache (1998)
+
+**NEW CRITICAL ISSUE (Sprint 1.46.0)** ⚠️
+- ⚠️ **Advection Discretization**: MMS verification shows ZERO convergence order (observed -0.00, expected 1.0, R²=0.007)
+  - Error constant at ~1.87e-2 across grid refinements (32x32, 64x64, 128x128)
+  - Upwind scheme implementation requires investigation
+
+**EXISTING BLOCKER (Severity: CRITICAL)**
 - ❌ **Momentum Solver Non-Functional**: 2D momentum equation exhibits immediate false convergence (0 iterations) with 100,000% error vs. analytical solutions (Poiseuille flow: expected 125 m/s, actual ~0.0001 m/s). ROOT CAUSE IDENTIFIED: Missing pressure gradient term implementation in momentum solver coefficients.
 
 **HIGH PRIORITY GAPS (Severity: HIGH)**  
