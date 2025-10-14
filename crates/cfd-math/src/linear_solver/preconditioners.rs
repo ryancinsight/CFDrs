@@ -137,8 +137,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> SORPreconditioner<T> {
             for &j in row.col_indices() {
                 if (j as i32 - i as i32).abs() > 1 {
                     return Err(Error::InvalidConfiguration(format!(
-                        "Non-zero at ({}, {}) violates tridiagonal structure",
-                        i, j
+                        "Non-zero at ({i}, {j}) violates tridiagonal structure"
                     )));
                 }
             }
