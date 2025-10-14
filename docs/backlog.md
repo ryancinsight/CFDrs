@@ -1,6 +1,37 @@
 # CFD Suite - Technical Backlog (SSOT)
 
-## Sprint 1.45.0-PRODUCTION-EXCELLENCE - CURRENT STATUS
+## Sprint 1.46.0-CONVERGENCE-VALIDATION - CURRENT STATUS
+
+### ✅ Completed Priority (P0) - Sprint 1.46.0 COMPLETE
+- [x] **FIX-CONVERGENCE-MONITORING**: Address property test failures ✅ COMPLETE
+  - **Evidence**: 8/8 proptest cases now passing (up from 4/8)
+  - **Location**: `cfd-validation/src/convergence/criteria.rs`
+  - **Fixes**: Stall detection ordering, CV-based scale-invariant detection, GCI formula
+  - **Impact**: Convergence monitoring validated for production CFD simulations
+  - **Reference**: Roache (1998), ASME V&V 20-2009
+  - **Sprint**: 1.46.0 (6h, COMPLETE)
+
+- [x] **INVESTIGATE-ADVECTION-MMS**: Identify MMS advection convergence issues ✅ COMPLETE
+  - **Evidence**: MMS verification shows advection order -0.00 (expected 1.0, R²=0.007)
+  - **Location**: `examples/mms_verification.rs`, upwind discretization
+  - **Finding**: Error constant at ~1.87e-2 across all grid refinements
+  - **Comparison**: Diffusion validates correctly (order 2.28, R²=0.993) ✅
+  - **Impact**: Advection discretization correctness requires fix
+  - **Sprint**: 1.46.0 (2h, COMPLETE)
+
+### 🎯 High Priority (P0) - Sprint 1.47.0 PLANNED
+- [ ] **FIX-ADVECTION-DISCRETIZATION**: Correct upwind scheme implementation ⏳ NEXT
+  - **Evidence**: Sprint 1.46.0 MMS reveals zero convergence order
+  - **Location**: `examples/mms_verification.rs` lines 180-211 (upwind scheme)
+  - **Root Causes to Investigate**:
+    1. Source term calculation (line 202)
+    2. Boundary condition handling (lines 185-186)
+    3. Time integration accuracy (lines 164-168, CFL condition)
+    4. Upwind derivative implementation (lines 188-198)
+  - **Validation**: MMS should show 1st order convergence (R² > 0.95)
+  - **ETA**: 8h (P0 CRITICAL)
+
+## Sprint 1.45.0-PRODUCTION-EXCELLENCE - PREVIOUS STATUS
 
 ### ✅ Completed Priority (P0) - Sprint 1.45.0 CURRENT
 - [x] **AUDIT-PRODUCTION-READINESS**: Comprehensive codebase audit ✅ COMPLETE

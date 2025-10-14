@@ -185,58 +185,72 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
         };
         let iterations = self.history.len();
 
-        // Check absolute convergence
-        if current_error < self.abs_tolerance {
-            return ConvergenceStatus::Converged {
-                final_error: current_error,
-                iterations,
-                criterion: ConvergenceCriterion::Absolute,
-            };
-        }
-
-        // Check relative convergence
-        if iterations > 1 {
-            let prev_error = self.history[iterations - 2];
-            let rel_change = (current_error - prev_error).abs() / prev_error;
-
-            if rel_change < self.rel_tolerance {
-                return ConvergenceStatus::Converged {
-                    final_error: current_error,
-                    iterations,
-                    criterion: ConvergenceCriterion::Relative,
-                };
-            }
-
-            // Check for divergence
-            if current_error > prev_error * T::from_f64(1.1).unwrap() {
-                let growth_rate = current_error / prev_error;
-                return ConvergenceStatus::Diverging {
-                    growth_rate,
-                    iterations,
-                };
-            }
-        }
-
-        // Check for stalled convergence
+        // Check for stalled convergence FIRST using coefficient of variation
+        // This must be checked before relative convergence to distinguish stalling from convergence
         if iterations >= self.stall_window {
             let window_start = iterations - self.stall_window;
             let window_errors = &self.history[window_start..];
             let mean_error = window_errors.iter().copied().sum::<T>()
                 / T::from_usize(self.stall_window).unwrap();
 
-            let variance = window_errors
-                .iter()
-                .map(|e| (*e - mean_error).powi(2))
-                .sum::<T>()
-                / T::from_usize(self.stall_window).unwrap();
+            // Avoid division by zero
+            if mean_error > T::zero() {
+                let variance = window_errors
+                    .iter()
+                    .map(|e| (*e - mean_error).powi(2))
+                    .sum::<T>()
+                    / T::from_usize(self.stall_window).unwrap();
 
-            // Stalled if variance is very small relative to mean
-            if variance < (mean_error * self.rel_tolerance).powi(2) {
-                return ConvergenceStatus::Stalled {
-                    stall_error: current_error,
-                    stall_iterations: self.stall_window,
-                };
+                let std_dev = variance.sqrt();
+                // Use coefficient of variation (CV) for scale-invariant stall detection
+                let cv = std_dev / mean_error;
+
+                // Stalled if CV is very small (< 1% of relative tolerance)
+                // AND error is still above absolute tolerance (otherwise it's converged)
+                if cv < self.rel_tolerance * T::from_f64(0.01).unwrap() 
+                   && current_error > self.abs_tolerance {
+                    return ConvergenceStatus::Stalled {
+                        stall_error: current_error,
+                        stall_iterations: self.stall_window,
+                    };
+                }
             }
+        }
+
+        // Check relative convergence
+        if iterations > 1 {
+            let prev_error = self.history[iterations - 2];
+            
+            // Avoid division by zero
+            if prev_error > T::zero() {
+                let rel_change = (current_error - prev_error).abs() / prev_error;
+
+                if rel_change < self.rel_tolerance {
+                    return ConvergenceStatus::Converged {
+                        final_error: current_error,
+                        iterations,
+                        criterion: ConvergenceCriterion::Relative,
+                    };
+                }
+
+                // Check for divergence (error growing by more than 10%)
+                if current_error > prev_error * T::from_f64(1.1).unwrap() {
+                    let growth_rate = current_error / prev_error;
+                    return ConvergenceStatus::Diverging {
+                        growth_rate,
+                        iterations,
+                    };
+                }
+            }
+        }
+
+        // Check absolute convergence only if error is small
+        if current_error < self.abs_tolerance {
+            return ConvergenceStatus::Converged {
+                final_error: current_error,
+                iterations,
+                criterion: ConvergenceCriterion::Absolute,
+            };
         }
 
         // Check max iterations
