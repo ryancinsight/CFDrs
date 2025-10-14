@@ -178,10 +178,13 @@ fn mms_advection_order_verification() -> Result<(), Box<dyn std::error::Error>> 
         }
 
         // Time integration with upwind scheme
+        // Note: Boundaries must be updated to exact solution at each timestep
+        // to avoid accumulating errors from stale boundary values
         let mut t = 0.0;
         for _ in 0..n_steps {
             let mut field_new = field.clone();
 
+            // Update interior points with upwind discretization
             for i in 1..n - 1 {
                 for j in 1..n - 1 {
                     // Upwind derivatives
@@ -206,8 +209,28 @@ fn mms_advection_order_verification() -> Result<(), Box<dyn std::error::Error>> 
                 }
             }
 
-            field = field_new;
+            // Update boundary conditions to exact solution at new time
             t += dt;
+            for i in 0..n {
+                let x = i as f64 * dx;
+                // South boundary (j=0)
+                let y = 0.0;
+                field_new.set(i, 0, solution.exact_solution(x, y, 0.0, t));
+                // North boundary (j=n-1)
+                let y = (n - 1) as f64 * dx;
+                field_new.set(i, n - 1, solution.exact_solution(x, y, 0.0, t));
+            }
+            for j in 0..n {
+                let y = j as f64 * dx;
+                // West boundary (i=0)
+                let x = 0.0;
+                field_new.set(0, j, solution.exact_solution(x, y, 0.0, t));
+                // East boundary (i=n-1)
+                let x = (n - 1) as f64 * dx;
+                field_new.set(n - 1, j, solution.exact_solution(x, y, 0.0, t));
+            }
+
+            field = field_new;
         }
 
         // Compute L2 error
