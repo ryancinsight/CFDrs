@@ -1,9 +1,9 @@
 //! Incomplete Cholesky factorization preconditioner
 
-use crate::linear_solver::{LinearSolverError, Preconditioner, Result};
+use crate::linear_solver::Preconditioner;
+use cfd_core::error::{Error, NumericalErrorKind, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
-use num_traits::FromPrimitive;
 
 // Tolerance for symmetry checking
 const SYMMETRY_TOLERANCE: f64 = 1e-10;
@@ -24,10 +24,11 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
     pub fn new(a: &CsrMatrix<T>) -> Result<Self> {
         // Validate matrix is square
         if a.nrows() != a.ncols() {
-            return Err(LinearSolverError::NonSquareMatrix {
-                rows: a.nrows(),
-                cols: a.ncols(),
-            });
+            return Err(Error::InvalidInput(format!(
+                "Matrix must be square, got {}x{}",
+                a.nrows(),
+                a.ncols()
+            )));
         }
 
         let n = a.nrows();
@@ -52,10 +53,18 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
         let mut max_i = 0;
         let mut max_j = 0;
 
+        // Helper to get value from sparse entry
+        let get_value = |i: usize, j: usize| -> T {
+            match a.get_entry(i, j) {
+                Some(entry) => entry.into_value(),
+                None => T::zero(),
+            }
+        };
+
         for i in 0..n {
             for j in i + 1..n {
-                let a_ij = a.get_entry(i, j).unwrap_or(T::zero());
-                let a_ji = a.get_entry(j, i).unwrap_or(T::zero());
+                let a_ij = get_value(i, j);
+                let a_ji = get_value(j, i);
                 let diff = (a_ij - a_ji).abs();
 
                 if diff > max_asymmetry {
@@ -67,11 +76,12 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
         }
 
         if max_asymmetry > tol {
-            return Err(LinearSolverError::NonSymmetric {
-                max_diff: max_asymmetry.to_subset().unwrap_or(0.0),
-                i: max_i,
-                j: max_j,
-            });
+            return Err(Error::InvalidInput(format!(
+                "Matrix is not symmetric: max asymmetry {:.2e} at ({}, {})",
+                max_asymmetry.to_subset().unwrap_or(0.0),
+                max_i,
+                max_j
+            )));
         }
 
         Ok(())
@@ -87,9 +97,17 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
         // Storage buffer for rows of L
         let mut l_rows: Vec<Vec<(usize, T)>> = vec![Vec::new(); n];
 
+        // Helper to get value from sparse entry
+        let get_value = |i: usize, j: usize| -> T {
+            match a.get_entry(i, j) {
+                Some(entry) => entry.into_value(),
+                None => T::zero(),
+            }
+        };
+
         // IC(0) factorization algorithm
         for i in 0..n {
-            let mut l_ii = a.get_entry(i, i).unwrap_or(T::zero());
+            let mut l_ii = get_value(i, i);
 
             // Subtract contributions from previous columns
             for &(k, l_ik) in &l_rows[i] {
@@ -100,9 +118,7 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
 
             // Check for positive definiteness
             if l_ii <= T::zero() {
-                return Err(LinearSolverError::NotPositiveDefinite {
-                    eigenvalue: l_ii.to_subset().unwrap_or(0.0),
-                });
+                return Err(Error::Numerical(NumericalErrorKind::NotPositiveDefinite));
             }
 
             l_ii = l_ii.sqrt();
@@ -116,7 +132,7 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
                 let j = a.col_indices()[idx];
                 if j > i {
                     // Only process lower triangular part
-                    let mut l_ji = a.get_entry(j, i).unwrap_or(T::zero());
+                    let mut l_ji = get_value(j, i);
 
                     // Subtract contributions from previous columns
                     for &(k, l_ik) in &l_rows[i] {
@@ -147,7 +163,7 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
         }
 
         CsrMatrix::try_from_csr_data(n, n, l_offsets, l_indices, l_vals)
-            .map_err(|_| LinearSolverError::InvalidMatrix)
+            .map_err(|_| Error::InvalidInput("Failed to create CSR matrix from IC(0) factorization".to_string()))
     }
 
     /// Forward substitution: solve L*y = b
@@ -209,19 +225,16 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
 }
 
 impl<T: RealField + Copy> Preconditioner<T> for IncompleteCholesky<T> {
-    fn apply(&mut self, b: &DVector<T>) -> DVector<T> {
-        let n = b.len();
+    fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
+        let n = r.len();
+        
+        // Use workspace for intermediate result
         let mut y = DVector::zeros(n);
-        let mut x = DVector::zeros(n);
 
-        // Solve L*L^T*x = b via forward and backward substitution
-        self.forward_substitution(b, &mut y);
-        self.backward_substitution(&y, &mut x);
+        // Solve L*L^T*z = r via forward and backward substitution
+        self.forward_substitution(r, &mut y);
+        self.backward_substitution(&y, z);
 
-        x
-    }
-
-    fn name(&self) -> &str {
-        "Incomplete Cholesky (IC(0))"
+        Ok(())
     }
 }

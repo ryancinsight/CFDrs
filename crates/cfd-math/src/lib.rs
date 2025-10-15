@@ -58,6 +58,7 @@ pub mod integration;
 pub mod interpolation;
 pub mod iterators;
 pub mod linear_solver;
+pub mod preconditioners;
 pub mod simd;
 pub mod sparse;
 pub mod vector_ops;

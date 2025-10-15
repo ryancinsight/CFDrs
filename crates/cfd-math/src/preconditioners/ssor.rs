@@ -1,6 +1,7 @@
 //! Symmetric Successive Over-Relaxation preconditioner
 
-use crate::linear_solver::{Preconditioner, Result};
+use crate::linear_solver::Preconditioner;
+use cfd_core::error::Result;
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
@@ -94,20 +95,16 @@ impl<T: RealField + Copy + FromPrimitive> SSOR<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for SSOR<T> {
-    fn apply(&mut self, b: &DVector<T>) -> DVector<T> {
-        let n = b.len();
-        let mut x = DVector::zeros(n);
+    fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
+        // Initialize z to zero for the first sweep
+        z.fill(T::zero());
 
-        // Forward sweep
-        self.forward_sweep(b, &mut x);
+        // Forward sweep: solve (D + ωL)z = ωr
+        self.forward_sweep(r, z);
         
-        // Backward sweep
-        self.backward_sweep(b, &mut x);
+        // Backward sweep: solve (D + ωU)z = ωr using result from forward sweep
+        self.backward_sweep(r, z);
 
-        x
-    }
-
-    fn name(&self) -> &str {
-        "Symmetric SOR (SSOR)"
+        Ok(())
     }
 }

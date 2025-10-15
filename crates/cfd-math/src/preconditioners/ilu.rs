@@ -1,6 +1,7 @@
 //! Incomplete LU factorization preconditioner
 
-use crate::linear_solver::{LinearSolverError, Preconditioner, Result};
+use crate::linear_solver::Preconditioner;
+use cfd_core::error::{Error, NumericalErrorKind, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use std::collections::HashMap;
@@ -45,10 +46,11 @@ impl<T: RealField + Copy> IncompleteLU<T> {
     /// ```
     pub fn with_fill_level(a: &CsrMatrix<T>, k: usize) -> Result<Self> {
         if a.nrows() != a.ncols() {
-            return Err(LinearSolverError::NonSquareMatrix {
-                rows: a.nrows(),
-                cols: a.ncols(),
-            });
+            return Err(Error::InvalidInput(format!(
+                "Matrix must be square, got {}x{}",
+                a.nrows(),
+                a.ncols()
+            )));
         }
 
         let n = a.nrows();
@@ -80,7 +82,7 @@ impl<T: RealField + Copy> IncompleteLU<T> {
             let a_kk = lu_vals[diag_idx];
 
             if a_kk.abs() <= T::default_epsilon() {
-                return Err(LinearSolverError::SingularMatrix { pivot_row: k });
+                return Err(Error::Numerical(NumericalErrorKind::SingularMatrix));
             }
 
             // Process rows below k
@@ -112,7 +114,8 @@ impl<T: RealField + Copy> IncompleteLU<T> {
 
                             for k_idx in k_row_start..k_row_end {
                                 if lu_indices[k_idx] == j {
-                                    lu_vals[j_idx] -= mult * lu_vals[k_idx];
+                                    let k_val = lu_vals[k_idx];
+                                    lu_vals[j_idx] -= mult * k_val;
                                     break;
                                 }
                             }
@@ -123,7 +126,7 @@ impl<T: RealField + Copy> IncompleteLU<T> {
         }
 
         CsrMatrix::try_from_csr_data(n, n, lu_offsets, lu_indices, lu_vals)
-            .map_err(|_| LinearSolverError::InvalidMatrix)
+            .map_err(|_| Error::InvalidInput("Failed to create CSR matrix from ILU(0) factorization".to_string()))
     }
 
     /// Perform ILU(k) factorization with level-k fill
@@ -237,7 +240,7 @@ impl<T: RealField + Copy> IncompleteLU<T> {
             let a_kk = lu_vals[diag_idx];
             
             if a_kk.abs() <= T::default_epsilon() {
-                return Err(LinearSolverError::SingularMatrix { pivot_row: k_idx });
+                return Err(Error::Numerical(NumericalErrorKind::SingularMatrix));
             }
             
             // Process rows below k
@@ -269,7 +272,8 @@ impl<T: RealField + Copy> IncompleteLU<T> {
                             
                             for k_idx_inner in k_row_start..k_row_end {
                                 if lu_indices[k_idx_inner] == j {
-                                    lu_vals[j_idx] -= mult * lu_vals[k_idx_inner];
+                                    let k_val = lu_vals[k_idx_inner];
+                                    lu_vals[j_idx] -= mult * k_val;
                                     break;
                                 }
                             }
@@ -280,7 +284,7 @@ impl<T: RealField + Copy> IncompleteLU<T> {
         }
         
         CsrMatrix::try_from_csr_data(n, n, lu_offsets, lu_indices, lu_vals)
-            .map_err(|_| LinearSolverError::InvalidMatrix)
+            .map_err(|_| Error::InvalidInput("Failed to create CSR matrix from ILU(k) factorization".to_string()))
     }
 
     /// Find index of diagonal element in row
@@ -294,7 +298,7 @@ impl<T: RealField + Copy> IncompleteLU<T> {
             }
         }
 
-        Err(LinearSolverError::InvalidMatrix)
+        Err(Error::InvalidInput("Diagonal element not found in matrix row".to_string()))
     }
 
     /// Forward substitution with L (unit diagonal)
@@ -345,25 +349,17 @@ impl<T: RealField + Copy> IncompleteLU<T> {
 }
 
 impl<T: RealField + Copy> Preconditioner<T> for IncompleteLU<T> {
-    fn apply(&mut self, b: &DVector<T>) -> DVector<T> {
-        let n = b.len();
+    fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
+        let n = r.len();
+        
+        // Use workspace for intermediate result
         let mut y = DVector::zeros(n);
-        let mut x = DVector::zeros(n);
 
-        self.forward_substitution(b, &mut y);
-        self.backward_substitution(&y, &mut x);
+        // Solve LU*z = r via forward and backward substitution
+        self.forward_substitution(r, &mut y);
+        self.backward_substitution(&y, z);
 
-        x
-    }
-
-    fn name(&self) -> &str {
-        if self.fill_level == 0 {
-            "Incomplete LU (ILU(0))"
-        } else {
-            // Note: This returns a static string, so we can't format with k
-            // In practice, callers should use fill_level() method for exact level
-            "Incomplete LU (ILU(k))"
-        }
+        Ok(())
     }
 }
 
@@ -406,7 +402,7 @@ mod tests {
 
     /// Create a 5x5 sparse matrix with more complex structure
     fn create_sparse_matrix() -> CsrMatrix<f64> {
-        let row_offsets = vec![0, 3, 6, 9, 12, 14];
+        let row_offsets = vec![0, 3, 6, 9, 13, 15];
         let col_indices = vec![
             0, 1, 3,       // row 0: connections to 1, 3
             0, 1, 2,       // row 1: connections to 0, 2
@@ -449,17 +445,18 @@ mod tests {
     #[test]
     fn test_ilu0_apply() {
         let matrix = create_tridiagonal_matrix();
-        let mut ilu = IncompleteLU::new(&matrix).expect("ILU(0) construction");
+        let ilu = IncompleteLU::new(&matrix).expect("ILU(0) construction");
         
         // Test with a simple vector
         let b = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0]);
-        let x = ilu.apply(&b);
+        let mut z = DVector::zeros(4);
+        ilu.apply_to(&b, &mut z).expect("Apply preconditioner");
         
         // Solution should be positive and bounded
-        assert!(x[0] > 0.0 && x[0] < 10.0);
-        assert!(x[1] > 0.0 && x[1] < 10.0);
-        assert!(x[2] > 0.0 && x[2] < 10.0);
-        assert!(x[3] > 0.0 && x[3] < 10.0);
+        assert!(z[0] > 0.0 && z[0] < 10.0);
+        assert!(z[1] > 0.0 && z[1] < 10.0);
+        assert!(z[2] > 0.0 && z[2] < 10.0);
+        assert!(z[3] > 0.0 && z[3] < 10.0);
     }
 
     #[test]
@@ -482,18 +479,19 @@ mod tests {
     fn test_ilu0_preconditioner_quality() {
         // Test that ILU(0) actually improves conditioning
         let matrix = create_tridiagonal_matrix();
-        let mut ilu = IncompleteLU::new(&matrix).expect("ILU(0) construction");
+        let ilu = IncompleteLU::new(&matrix).expect("ILU(0) construction");
         
         // Test with identity-like vector
         let b = DVector::from_vec(vec![1.0, 1.0, 1.0, 1.0]);
-        let x = ilu.apply(&b);
+        let mut z = DVector::zeros(4);
+        ilu.apply_to(&b, &mut z).expect("Apply preconditioner");
         
         // For a diagonally dominant matrix, preconditioner should give reasonable approximation
         // to A^{-1} * b, which for this matrix and b is approximately [0.36, 0.43, 0.43, 0.36]
-        assert_relative_eq!(x[0], 0.36, epsilon = 0.15);
-        assert_relative_eq!(x[1], 0.43, epsilon = 0.15);
-        assert_relative_eq!(x[2], 0.43, epsilon = 0.15);
-        assert_relative_eq!(x[3], 0.36, epsilon = 0.15);
+        assert_relative_eq!(z[0], 0.36, epsilon = 0.15);
+        assert_relative_eq!(z[1], 0.43, epsilon = 0.15);
+        assert_relative_eq!(z[2], 0.43, epsilon = 0.15);
+        assert_relative_eq!(z[3], 0.36, epsilon = 0.15);
     }
 
     #[test]
@@ -501,23 +499,25 @@ mod tests {
         // Test that ILU(k) for k>0 improves approximation quality
         let matrix = create_sparse_matrix();
         
-        let mut ilu0 = IncompleteLU::new(&matrix).expect("ILU(0) construction");
-        let mut ilu1 = IncompleteLU::with_fill_level(&matrix, 1).expect("ILU(1) construction");
+        let ilu0 = IncompleteLU::new(&matrix).expect("ILU(0) construction");
+        let ilu1 = IncompleteLU::with_fill_level(&matrix, 1).expect("ILU(1) construction");
         
         let b = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
         
-        let x0 = ilu0.apply(&b);
-        let x1 = ilu1.apply(&b);
+        let mut z0 = DVector::zeros(5);
+        let mut z1 = DVector::zeros(5);
+        ilu0.apply_to(&b, &mut z0).expect("Apply ILU(0)");
+        ilu1.apply_to(&b, &mut z1).expect("Apply ILU(1)");
         
         // Both should give bounded results
         for i in 0..5 {
-            assert!(x0[i].abs() < 100.0, "ILU(0) result unbounded");
-            assert!(x1[i].abs() < 100.0, "ILU(1) result unbounded");
+            assert!(z0[i].abs() < 100.0, "ILU(0) result unbounded");
+            assert!(z1[i].abs() < 100.0, "ILU(1) result unbounded");
         }
         
         // ILU(1) should generally give different (hopefully better) results
         // We don't test for "better" directly, just that fill improves approximation
-        let diff = (&x0 - &x1).norm();
+        let diff = (&z0 - &z1).norm();
         assert!(diff > 0.0, "ILU(1) should differ from ILU(0)");
     }
 
@@ -534,23 +534,18 @@ mod tests {
         let ilu = IncompleteLU::new(&matrix);
         assert!(ilu.is_err());
         
-        if let Err(LinearSolverError::NonSquareMatrix { rows, cols }) = ilu {
-            assert_eq!(rows, 2);
-            assert_eq!(cols, 3);
-        } else {
-            panic!("Expected NonSquareMatrix error");
-        }
+        // Verify error is InvalidInput for non-square matrix
+        assert!(matches!(ilu, Err(Error::InvalidInput(_))));
     }
 
     #[test]
-    fn test_ilu_name() {
+    fn test_ilu_fill_levels() {
         let matrix = create_tridiagonal_matrix();
         
         let ilu0 = IncompleteLU::new(&matrix).expect("ILU(0) construction");
-        assert_eq!(ilu0.name(), "Incomplete LU (ILU(0))");
+        assert_eq!(ilu0.fill_level(), 0);
         
         let ilu2 = IncompleteLU::with_fill_level(&matrix, 2).expect("ILU(2) construction");
-        assert_eq!(ilu2.name(), "Incomplete LU (ILU(k))");
         assert_eq!(ilu2.fill_level(), 2);
     }
 

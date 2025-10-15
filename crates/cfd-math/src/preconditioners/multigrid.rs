@@ -1,6 +1,7 @@
 //! Algebraic multigrid preconditioner
 
-use crate::linear_solver::{LinearSolverError, Preconditioner, Result};
+use crate::linear_solver::Preconditioner;
+use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
@@ -52,7 +53,7 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
         let mut levels = Vec::new();
         let mut current_matrix = matrix;
         
-        for level in 0..MAX_LEVELS {
+        for _level in 0..MAX_LEVELS {
             let n = current_matrix.nrows();
             
             // Stop if matrix is small enough
@@ -85,7 +86,7 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
         }
         
         if levels.is_empty() {
-            return Err(LinearSolverError::InvalidMatrix);
+            return Err(Error::InvalidInput("Failed to build multigrid hierarchy".to_string()));
         }
         
         Ok(levels)
@@ -138,7 +139,7 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
         }
         
         let prolongation = CsrMatrix::try_from_csr_data(n, coarse_count, p_offsets, p_indices, p_vals)
-            .map_err(|_| LinearSolverError::InvalidMatrix)?;
+            .map_err(|_| Error::InvalidInput("Failed to create prolongation matrix".to_string()))?;
         
         // Restriction is transpose of prolongation (for simplicity)
         let restriction = prolongation.transpose();
@@ -206,7 +207,7 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
     }
 
     /// V-cycle recursive implementation
-    fn v_cycle(&mut self, level: usize, b: &DVector<T>, x: &mut DVector<T>) {
+    fn v_cycle(&self, level: usize, b: &DVector<T>, x: &mut DVector<T>) {
         if level == self.levels.len() - 1 {
             // Coarsest level - solve directly
             self.smooth(level, b, x, 10);
@@ -216,7 +217,7 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
             
             // Compute residual
             let matrix = &self.levels[level].matrix;
-            let residual = b - matrix * x;
+            let residual = b - matrix * &*x;
             
             // Restrict residual to coarse grid
             let restriction = self.levels[level].restriction.as_ref().unwrap();
@@ -240,17 +241,13 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for AlgebraicMultigrid<T> {
-    fn apply(&mut self, b: &DVector<T>) -> DVector<T> {
-        let n = b.len();
-        let mut x = DVector::zeros(n);
+    fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
+        // Initialize z to zero
+        z.fill(T::zero());
         
         // Apply one V-cycle
-        self.v_cycle(0, b, &mut x);
+        self.v_cycle(0, r, z);
         
-        x
-    }
-
-    fn name(&self) -> &str {
-        "Algebraic Multigrid (AMG)"
+        Ok(())
     }
 }
