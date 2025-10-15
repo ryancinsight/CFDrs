@@ -48,12 +48,13 @@ impl<T: RealField + Copy + FromPrimitive> SSOR<T> {
                 let j = self.matrix.col_indices()[idx];
                 let val = self.matrix.values()[idx];
 
-                if j < i {
-                    sum -= val * x[j];
-                } else if j == i {
-                    diag = val;
-                } else {
-                    sum -= val * x[j];
+                match j.cmp(&i) {
+                    std::cmp::Ordering::Less | std::cmp::Ordering::Greater => {
+                        sum -= val * x[j];
+                    }
+                    std::cmp::Ordering::Equal => {
+                        diag = val;
+                    }
                 }
             }
 
@@ -76,12 +77,13 @@ impl<T: RealField + Copy + FromPrimitive> SSOR<T> {
                 let j = self.matrix.col_indices()[idx];
                 let val = self.matrix.values()[idx];
 
-                if j < i {
-                    sum -= val * x[j];
-                } else if j == i {
-                    diag = val;
-                } else {
-                    sum -= val * x[j];
+                match j.cmp(&i) {
+                    std::cmp::Ordering::Less | std::cmp::Ordering::Greater => {
+                        sum -= val * x[j];
+                    }
+                    std::cmp::Ordering::Equal => {
+                        diag = val;
+                    }
                 }
             }
 
