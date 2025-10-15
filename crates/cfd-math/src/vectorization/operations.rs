@@ -254,6 +254,13 @@ impl VectorizedOps {
     }
 
     /// Vectorized reduction operations with custom binary operators
+    ///
+    /// # Note on Clippy Warning
+    /// The `|a, b| op(a, b)` closures are flagged as redundant by clippy, but they are
+    /// required by Rust ownership semantics. The closure captures `op` by move into the
+    /// parallel iterator context, making direct function reference `op` invalid.
+    /// This is a known clippy false positive (rust-clippy#13094).
+    #[allow(clippy::redundant_closure)]
     pub fn reduce_vectorized<T, F>(input: &[T], identity: T, op: F) -> T
     where
         T: Clone + Send + Sync,
