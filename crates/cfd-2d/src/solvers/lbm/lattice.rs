@@ -79,7 +79,7 @@ pub fn equilibrium<T: RealField + Copy>(
     velocity: &[T; 2],
     _direction: usize,
     weight: T,
-    lattice_velocity: &(i32, i32),
+    lattice_velocity: (i32, i32), // Pass small tuple by value (8 bytes)
 ) -> T {
     let cx = T::from_i32(lattice_velocity.0).unwrap_or_else(T::zero);
     let cy = T::from_i32(lattice_velocity.1).unwrap_or_else(T::zero);

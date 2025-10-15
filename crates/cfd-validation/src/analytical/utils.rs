@@ -89,6 +89,7 @@ impl AnalyticalUtils {
     }
 
     /// Check if flow is laminar based on Reynolds number
+    #[allow(clippy::match_same_arms)] // Same critical Re for Sphere/Cylinder per fluid mechanics
     pub fn is_laminar<T: RealField + Copy + FromPrimitive>(
         reynolds: T,
         geometry: FlowGeometry,

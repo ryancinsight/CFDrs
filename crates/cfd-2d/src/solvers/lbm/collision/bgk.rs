@@ -55,7 +55,7 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for BgkCollision<
                 // Compute equilibrium distributions
                 for q in 0..9 {
                     let weight = T::from_f64(D2Q9::WEIGHTS[q]).unwrap_or_else(T::zero);
-                    let lattice_vel = &D2Q9::VELOCITIES[q];
+                    let lattice_vel = D2Q9::VELOCITIES[q];
                     let f_eq = equilibrium(rho, &u, q, weight, lattice_vel);
                     // BGK collision: f = f - omega * (f - f_eq)
                     f[j][i][q] = f[j][i][q] - self.omega * (f[j][i][q] - f_eq);

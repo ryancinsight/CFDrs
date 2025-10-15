@@ -82,7 +82,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         // Compute equilibrium distributions
         for q in 0..9 {
             let weight = T::from_f64(D2Q9::WEIGHTS[q]).unwrap_or_else(T::zero);
-            let lattice_vel = &D2Q9::VELOCITIES[q];
+            let lattice_vel = D2Q9::VELOCITIES[q];
             let u_arr = [u_boundary.x, u_boundary.y];
             f[j][i][q] = equilibrium(rho, &u_arr, q, weight, lattice_vel);
         }
@@ -110,7 +110,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         // Compute equilibrium distributions
         for q in 0..9 {
             let weight = T::from_f64(D2Q9::WEIGHTS[q]).unwrap_or_else(T::zero);
-            let lattice_vel = &D2Q9::VELOCITIES[q];
+            let lattice_vel = D2Q9::VELOCITIES[q];
             f[j][i][q] = equilibrium(rho, &u, q, weight, lattice_vel);
         }
     }

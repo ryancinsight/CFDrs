@@ -42,6 +42,7 @@ impl TimeIntegrationValidator {
         
         // Safe conversion with bounds checking: clamp to reasonable range [1, 1M]
         let n_steps_f64: f64 = (final_time / dt).to_subset().unwrap_or(100.0);
+        #[allow(clippy::cast_possible_truncation)] // Clamped to [1, 1M], rounded - safe for usize
         let n_steps = n_steps_f64.clamp(1.0, 1_000_000.0).round() as usize;
 
         // Initial condition
@@ -122,6 +123,7 @@ impl TimeIntegrationValidator {
         
         // Safe conversion with bounds checking: clamp to reasonable range [1, 1M]
         let n_steps_f64: f64 = (final_time / dt).to_subset().unwrap_or(628.0);
+        #[allow(clippy::cast_possible_truncation)] // Clamped to [1, 1M], rounded - safe for usize
         let n_steps = n_steps_f64.clamp(1.0, 1_000_000.0).round() as usize;
 
         // Initial conditions: y(0) = 1, y'(0) = 0

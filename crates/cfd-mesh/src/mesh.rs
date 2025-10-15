@@ -207,7 +207,9 @@ impl<T: RealField + Copy> Mesh<T> {
     }
 
     /// Compute mesh statistics
-    #[must_use] pub fn statistics(&self) -> MeshStatistics {
+    #[must_use] 
+    #[allow(clippy::field_reassign_with_default)] // Clear, sequential initialization pattern
+    pub fn statistics(&self) -> MeshStatistics {
         let mut stats = MeshStatistics::default();
         stats.vertex_count = self.vertices.len();
         stats.edge_count = self.edges.len();

@@ -39,6 +39,7 @@ pub enum ElementType {
 impl ElementType {
     /// Get the number of nodes for this element type
     #[must_use]
+    #[allow(clippy::match_same_arms)] // Different element types may have same node count
     pub fn num_nodes(&self) -> usize {
         match self {
             Self::Line => 2,
