@@ -53,7 +53,7 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
         let mut levels = Vec::new();
         let mut current_matrix = matrix;
         
-        for level in 0..MAX_LEVELS {
+        for _level in 0..MAX_LEVELS {
             let n = current_matrix.nrows();
             
             // Stop if matrix is small enough

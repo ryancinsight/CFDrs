@@ -4,7 +4,6 @@ use crate::linear_solver::Preconditioner;
 use cfd_core::error::{Error, NumericalErrorKind, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
-use num_traits::FromPrimitive;
 
 // Tolerance for symmetry checking
 const SYMMETRY_TOLERANCE: f64 = 1e-10;
