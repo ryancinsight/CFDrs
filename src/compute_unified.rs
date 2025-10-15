@@ -46,7 +46,7 @@ impl UnifiedCompute {
                     });
                 }
                 Err(e) => {
-                    println!("GPU not available: {}, falling back to SIMD", e);
+                    println!("GPU not available: {e}, falling back to SIMD");
                 }
             }
         }
