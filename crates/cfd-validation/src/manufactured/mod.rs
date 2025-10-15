@@ -11,10 +11,14 @@ use nalgebra::RealField;
 use num_traits::Float;
 
 pub mod advection;
+pub mod advection_diffusion;
+pub mod burgers;
 pub mod diffusion;
 pub mod navier_stokes;
 
 pub use advection::ManufacturedAdvection;
+pub use advection_diffusion::ManufacturedAdvectionDiffusion;
+pub use burgers::ManufacturedBurgers;
 pub use diffusion::ManufacturedDiffusion;
 pub use navier_stokes::ManufacturedNavierStokes;
 

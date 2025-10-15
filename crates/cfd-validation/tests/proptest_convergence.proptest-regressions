@@ -6,3 +6,5 @@
 # everyone who runs the test benefits from these saved cases.
 cc 707a6d1cc5b8369a4ef3bb71780606c67facb5bd12af95d26c23ef78397f358c # shrinks to base_error = 7.452157480099696, reduction_rate = 0.4620257647950228
 cc 968e886db35b6bccc109c2ba759aa320e7b8833491cce48ab1a9c06dbbc8cf7d # shrinks to scale = 949.4134210950318, reduction_rate = 0.3215724524893466
+cc 226f40ccf19af0346d8f4629a245a7c9437699ee74b9c0f00696b4080378b8f3 # shrinks to base_error = 0.1, damping_rate = 0.921519444813185, oscillation_freq = 2.610539515621957
+cc 3c1ccb72e8b94cdfa0d01b16fcfe7259cf97380a0ced35bc04a8b83795f13d25 # shrinks to base_error = 0.1, damping_rate = 0.8284916027447798, oscillation_freq = 2.1747332144490503
