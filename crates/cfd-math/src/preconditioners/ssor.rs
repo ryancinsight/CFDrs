@@ -17,8 +17,6 @@ pub struct SSOR<T: RealField + Copy> {
     matrix: CsrMatrix<T>,
     /// Relaxation parameter (0 < ω < 2)
     omega: T,
-    /// Workspace
-    workspace: Vec<T>,
 }
 
 impl<T: RealField + Copy + FromPrimitive> SSOR<T> {
@@ -29,11 +27,9 @@ impl<T: RealField + Copy + FromPrimitive> SSOR<T> {
 
     /// Create SSOR preconditioner with specified relaxation parameter
     pub fn with_omega(matrix: CsrMatrix<T>, omega: T) -> Result<Self> {
-        let n = matrix.nrows();
         Ok(Self {
             matrix,
             omega,
-            workspace: vec![T::zero(); n],
         })
     }
 

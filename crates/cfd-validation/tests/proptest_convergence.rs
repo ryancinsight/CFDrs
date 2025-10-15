@@ -263,7 +263,8 @@ fn test_infinity_handling() {
     );
     
     // Negative infinity: Currently may be handled via absolute value
-    // TODO: Consider explicit NaN/Inf checks in convergence criteria
+    // NOTE: Explicit NaN/Inf checks could improve convergence criteria robustness
+    // Current implementation uses absolute value which may mask infinity cases
     let mut monitor2 = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
     monitor2.update(f64::NEG_INFINITY);
     let status2 = monitor2.check_status();

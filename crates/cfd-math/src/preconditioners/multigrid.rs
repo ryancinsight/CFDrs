@@ -31,9 +31,6 @@ struct MultigridLevel<T: RealField + Copy> {
     restriction: Option<CsrMatrix<T>>,
     /// Prolongation operator (coarse to fine)
     prolongation: Option<CsrMatrix<T>>,
-    /// Workspace vectors
-    residual: DVector<T>,
-    solution: DVector<T>,
 }
 
 impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
@@ -62,8 +59,6 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
                     matrix: current_matrix,
                     restriction: None,
                     prolongation: None,
-                    residual: DVector::zeros(n),
-                    solution: DVector::zeros(n),
                 });
                 break;
             }
@@ -78,8 +73,6 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
                 matrix: current_matrix,
                 restriction: Some(restriction.clone()),
                 prolongation: Some(prolongation.clone()),
-                residual: DVector::zeros(n),
-                solution: DVector::zeros(n),
             });
             
             current_matrix = coarse_matrix;
@@ -194,10 +187,10 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
                     let j = matrix.col_indices()[idx];
                     let val = matrix.values()[idx];
                     
-                    if j != i {
-                        sum -= val * x_old[j];
-                    } else {
+                    if j == i {
                         diag = val;
+                    } else {
+                        sum -= val * x_old[j];
                     }
                 }
                 
