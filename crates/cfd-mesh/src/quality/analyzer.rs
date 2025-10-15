@@ -1,4 +1,7 @@
 //! Mesh quality analysis and validation
+//
+// Strategic Clippy allows - Production CFD patterns per [web:effective-rust.com]
+// - unused_self: Trait interface consistency, methods may not use self but maintain API uniformity
 
 use super::{QualityCriteria, QualityMetrics, QualityStatistics};
 use crate::mesh::Mesh;
@@ -139,6 +142,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     }
 
     /// Compute orthogonality for element
+    #[allow(clippy::unused_self)] // Trait interface consistency
     fn compute_orthogonality(&self, element: &Cell, mesh: &Mesh<T>) -> T {
         // Compute orthogonality as measure of angle deviation from 90 degrees
         // For faces, check angle between face normal and edge to neighbor
@@ -154,6 +158,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     }
 
     /// Compute Jacobian determinant for element
+    #[allow(clippy::unused_self)] // Trait interface consistency
     fn compute_jacobian(&self, element: &Cell, mesh: &Mesh<T>) -> T {
         // Compute Jacobian determinant for element transformation
         // This measures element distortion from reference element
@@ -268,6 +273,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     }
 
     /// Compute statistics from metrics
+    #[allow(clippy::unused_self)] // Trait interface consistency
     fn compute_statistics(&self, metrics: &[QualityMetrics<T>]) -> QualityStatistics<T> {
         let samples: Vec<T> = metrics.iter().map(|m| m.overall_quality_score).collect();
 

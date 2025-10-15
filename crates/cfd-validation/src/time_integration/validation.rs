@@ -40,9 +40,9 @@ impl TimeIntegrationValidator {
         let dt = T::from_f64(TIME_STEP_VALIDATION).unwrap_or_else(T::zero);
         let final_time = T::one();
         
-        // Safe conversion with bounds checking: clamp to reasonable range
+        // Safe conversion with bounds checking: clamp to reasonable range [1, 1M]
         let n_steps_f64: f64 = (final_time / dt).to_subset().unwrap_or(100.0);
-        let n_steps = n_steps_f64.max(1.0).min(1_000_000.0).round() as usize;
+        let n_steps = n_steps_f64.clamp(1.0, 1_000_000.0).round() as usize;
 
         // Initial condition
         let y0 = DVector::from_element(1, T::one());
@@ -122,7 +122,7 @@ impl TimeIntegrationValidator {
         
         // Safe conversion with bounds checking: clamp to reasonable range [1, 1M]
         let n_steps_f64: f64 = (final_time / dt).to_subset().unwrap_or(628.0);
-        let n_steps = n_steps_f64.max(1.0).min(1_000_000.0).round() as usize;
+        let n_steps = n_steps_f64.clamp(1.0, 1_000_000.0).round() as usize;
 
         // Initial conditions: y(0) = 1, y'(0) = 0
         let y0 = DVector::from_vec(vec![T::one(), T::zero()]);

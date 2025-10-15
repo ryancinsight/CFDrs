@@ -47,6 +47,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
         "2D laminar flow over a backward-facing step"
     }
 
+    #[allow(clippy::no_effect_underscore_binding)] // Context variables documented inline
     fn run(&self, config: &BenchmarkConfig<T>) -> Result<BenchmarkResult<T>> {
         let nx = config.resolution * 3; // Longer domain
         let ny = config.resolution;

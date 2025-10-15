@@ -71,9 +71,8 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> QualityStatistics<T> 
 
     /// Get the standard deviation
     pub fn std_dev(&self) -> Result<Option<T>> {
-        let mean = match self.mean() {
-            Some(m) => m,
-            None => return Ok(None),
+        let Some(mean) = self.mean() else {
+            return Ok(None);
         };
 
         if self.samples.len() < 2 {
