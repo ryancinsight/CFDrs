@@ -16,8 +16,6 @@ use std::collections::HashMap;
 pub struct IncompleteLU<T: RealField + Copy> {
     /// Combined LU factors (L has unit diagonal)
     lu_factor: CsrMatrix<T>,
-    /// Workspace for forward/backward substitution
-    workspace: Vec<T>,
     /// Fill level k (0 means no fill beyond original sparsity)
     fill_level: usize,
 }
@@ -53,7 +51,6 @@ impl<T: RealField + Copy> IncompleteLU<T> {
             )));
         }
 
-        let n = a.nrows();
         let lu_factor = if k == 0 {
             Self::factorize_ilu0(a)?
         } else {
@@ -62,7 +59,6 @@ impl<T: RealField + Copy> IncompleteLU<T> {
 
         Ok(Self {
             lu_factor,
-            workspace: vec![T::zero(); n],
             fill_level: k,
         })
     }

@@ -15,8 +15,6 @@ const SYMMETRY_TOLERANCE: f64 = 1e-10;
 pub struct IncompleteCholesky<T: RealField + Copy> {
     /// Lower triangular factor stored in CSR format
     l_factor: CsrMatrix<T>,
-    /// Workspace for forward/backward substitution
-    workspace: Vec<T>,
 }
 
 impl<T: RealField + Copy> IncompleteCholesky<T> {
@@ -31,8 +29,6 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
             )));
         }
 
-        let n = a.nrows();
-
         // Check symmetry
         Self::check_symmetry(a)?;
 
@@ -41,7 +37,6 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
 
         Ok(Self {
             l_factor,
-            workspace: vec![T::zero(); n],
         })
     }
 
@@ -144,7 +139,7 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
                         }
                     }
 
-                    l_ji = l_ji / l_ii;
+                    l_ji /= l_ii;
                     l_rows[j].push((i, l_ji));
                 }
             }
@@ -181,7 +176,7 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
                 if j < i {
                     sum -= self.l_factor.values()[idx] * y[j];
                 } else if j == i {
-                    sum = sum / self.l_factor.values()[idx];
+                    sum /= self.l_factor.values()[idx];
                     break;
                 }
             }
@@ -228,7 +223,8 @@ impl<T: RealField + Copy> Preconditioner<T> for IncompleteCholesky<T> {
     fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
         let n = r.len();
         
-        // Use workspace for intermediate result
+        // Allocate intermediate result for two-stage solve
+        // NOTE: Cannot use pre-allocated workspace with immutable &self API
         let mut y = DVector::zeros(n);
 
         // Solve L*L^T*z = r via forward and backward substitution
