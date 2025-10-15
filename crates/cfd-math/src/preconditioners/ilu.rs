@@ -402,7 +402,7 @@ mod tests {
 
     /// Create a 5x5 sparse matrix with more complex structure
     fn create_sparse_matrix() -> CsrMatrix<f64> {
-        let row_offsets = vec![0, 3, 6, 9, 12, 14];
+        let row_offsets = vec![0, 3, 6, 9, 13, 15];
         let col_indices = vec![
             0, 1, 3,       // row 0: connections to 1, 3
             0, 1, 2,       // row 1: connections to 0, 2
