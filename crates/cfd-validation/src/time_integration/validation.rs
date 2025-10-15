@@ -39,7 +39,10 @@ impl TimeIntegrationValidator {
         let lambda = T::from_f64(DECAY_LAMBDA).unwrap_or_else(T::zero);
         let dt = T::from_f64(TIME_STEP_VALIDATION).unwrap_or_else(T::zero);
         let final_time = T::one();
-        let n_steps = (final_time / dt).to_subset().unwrap_or(100.0) as usize;
+        
+        // Safe conversion with bounds checking: clamp to reasonable range
+        let n_steps_f64: f64 = (final_time / dt).to_subset().unwrap_or(100.0);
+        let n_steps = n_steps_f64.max(1.0).min(1_000_000.0).round() as usize;
 
         // Initial condition
         let y0 = DVector::from_element(1, T::one());
@@ -116,7 +119,10 @@ impl TimeIntegrationValidator {
         let omega = T::from_f64(OSCILLATOR_OMEGA).unwrap_or_else(T::zero);
         let dt = T::from_f64(TIME_STEP_VALIDATION).unwrap_or_else(T::zero);
         let final_time = T::from_f64(2.0 * PI).unwrap_or_else(T::zero); // One period
-        let n_steps = (final_time / dt).to_subset().unwrap_or(628.0) as usize;
+        
+        // Safe conversion with bounds checking: clamp to reasonable range [1, 1M]
+        let n_steps_f64: f64 = (final_time / dt).to_subset().unwrap_or(628.0);
+        let n_steps = n_steps_f64.max(1.0).min(1_000_000.0).round() as usize;
 
         // Initial conditions: y(0) = 1, y'(0) = 0
         let y0 = DVector::from_vec(vec![T::one(), T::zero()]);
@@ -127,6 +133,7 @@ impl TimeIntegrationValidator {
         };
 
         // Test each integrator
+        #[allow(clippy::type_complexity)] // Complex type needed for test framework
         let integrators: Vec<(&str, Box<dyn Fn(&mut DVector<T>, T, T) -> Result<()>>)> = vec![
             (
                 "ForwardEuler",

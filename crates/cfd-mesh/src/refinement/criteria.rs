@@ -4,6 +4,11 @@ use crate::topology::{Cell, Vertex};
 use nalgebra::RealField;
 use thiserror::Error;
 
+/// Type alias for custom refinement function to reduce complexity
+/// 
+/// Takes a cell and its vertices, returns true if refinement is needed
+pub type CustomRefinementFn<T> = Box<dyn Fn(&Cell, &[Vertex<T>]) -> bool + Send + Sync>;
+
 /// Refinement errors
 #[derive(Debug, Error)]
 pub enum RefinementError {
@@ -45,7 +50,7 @@ pub enum RefinementCriterion<T: RealField + Copy> {
         feature_angle: T,
     },
     /// Custom refinement function
-    Custom(Box<dyn Fn(&Cell, &[Vertex<T>]) -> bool + Send + Sync>),
+    Custom(CustomRefinementFn<T>),
 }
 
 impl<T: RealField + Copy> std::fmt::Debug for RefinementCriterion<T> {

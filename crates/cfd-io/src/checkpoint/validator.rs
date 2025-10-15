@@ -2,6 +2,7 @@
 
 use crate::checkpoint::Checkpoint;
 use nalgebra::RealField;
+use num_traits::ToPrimitive;
 
 /// Numerical constants for finite difference calculations
 mod numerical_constants {
@@ -87,8 +88,14 @@ impl CheckpointValidator {
         let (ny, nx) = checkpoint.dimensions();
         let (domain_x, domain_y) = checkpoint.metadata.domain_size;
 
-        let dx = T::from_f64(domain_x / (nx as f64)).unwrap_or_else(T::one);
-        let dy = T::from_f64(domain_y / (ny as f64)).unwrap_or_else(T::one);
+        // Use ToPrimitive for safer casting with bounds checking
+        // For mesh sizes < 2^52, this is exact; for larger meshes, this represents
+        // a physical limitation (4 petabytes of memory for f64 arrays)
+        let nx_f64 = nx.to_f64().unwrap_or(1.0);
+        let ny_f64 = ny.to_f64().unwrap_or(1.0);
+        
+        let dx = T::from_f64(domain_x / nx_f64).unwrap_or_else(T::one);
+        let dy = T::from_f64(domain_y / ny_f64).unwrap_or_else(T::one);
 
         let mut max_divergence = T::zero();
 
