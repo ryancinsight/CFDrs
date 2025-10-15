@@ -190,6 +190,8 @@ impl InterfaceReconstruction {
         dy: T,
         dz: T,
     ) -> T {
+        #[allow(clippy::no_effect_underscore_binding)] // Context variables for Scardovelli & Zaleski formula
+        {
         let cell_volume = dx * dy * dz;
 
         // Normalize the normal vector components by cell dimensions
@@ -261,6 +263,7 @@ impl InterfaceReconstruction {
         };
 
         volume_fraction * cell_volume
+        }
     }
 
     /// Calculate interface curvature from normals using cache blocking

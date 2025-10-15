@@ -30,6 +30,7 @@ impl<T: RealField + Copy> FlowOverCylinder<T> {
     }
 
     /// Calculate drag coefficient
+    #[allow(clippy::unused_self)] // Trait interface consistency for benchmark suite
     fn calculate_drag(&self, forces: &[T]) -> T {
         // Simplified drag calculation
         // CD = 2*FD / (ρ*U²*D)
@@ -37,6 +38,7 @@ impl<T: RealField + Copy> FlowOverCylinder<T> {
     }
 
     /// Calculate lift coefficient
+    #[allow(clippy::unused_self)] // Trait interface consistency for benchmark suite
     fn calculate_lift(&self, forces: &[T]) -> T {
         // Simplified lift calculation
         // CL = 2*FL / (ρ*U²*D)
@@ -153,6 +155,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
         })
     }
 
+    #[allow(clippy::no_effect_underscore_binding)] // Context variables documented inline
     fn validate(&self, result: &BenchmarkResult<T>) -> Result<bool> {
         // Validate against Schäfer & Turek reference drag and lift coefficients
         if result.values.len() < 2 {

@@ -300,10 +300,8 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
             }
         }
 
-        // Update field
-        for idx in 0..nu_tilde.len() {
-            nu_tilde[idx] = nu_new[idx];
-        }
+        // Update field with efficient slice copy
+        nu_tilde.copy_from_slice(&nu_new);
 
         // Apply boundary conditions
         self.apply_boundary_conditions(nu_tilde);

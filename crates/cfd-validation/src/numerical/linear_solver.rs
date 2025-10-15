@@ -243,7 +243,6 @@ impl LinearSolverValidator {
                     eprintln!("Solver {name} failed on ill-conditioned system: {e}");
                     // Do not create misleading results with zero solutions
                     // Skip this test case for solvers that cannot handle ill-conditioned systems
-                    continue;
                 }
             }
         }

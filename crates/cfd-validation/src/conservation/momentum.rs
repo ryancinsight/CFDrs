@@ -45,6 +45,8 @@ impl<T: RealField + Copy + FromPrimitive> MomentumConservationChecker<T> {
         dy: T,
         gravity: Vector2<T>,
     ) -> Result<ConservationReport<T>> {
+        #[allow(clippy::no_effect_underscore_binding)] // Context variables documented inline
+        {
         assert_eq!(u.nrows(), self.nx);
         assert_eq!(u.ncols(), self.ny);
 
@@ -135,6 +137,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumConservationChecker<T> {
         );
 
         Ok(report)
+        }
     }
 }
 

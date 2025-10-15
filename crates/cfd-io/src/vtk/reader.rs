@@ -136,6 +136,7 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
         Ok(mesh)
     }
 
+    #[allow(clippy::unused_self)] // Method maintains API consistency for future extension
     fn read_header(&self, reader: &mut BufReader<File>) -> Result<VtkHeader> {
         let mut lines = reader.lines();
 

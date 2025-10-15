@@ -50,6 +50,7 @@ impl VtkCellType {
     }
 
     /// Get the number of points for this cell type
+    #[allow(clippy::match_same_arms)] // Quad and Tetrahedron both have 4 points but are different topologies
     pub fn num_points(&self) -> usize {
         match self {
             VtkCellType::Vertex => 1,

@@ -121,7 +121,7 @@ where
 
         for q in 0..9 {
             let weight = T::from_f64(D2Q9::WEIGHTS[q]).unwrap_or_else(T::zero);
-            let lattice_vel = &D2Q9::VELOCITIES[q];
+            let lattice_vel = D2Q9::VELOCITIES[q];
             feq[q] = equilibrium(density, &u, q, weight, lattice_vel);
         }
 
@@ -157,7 +157,7 @@ where
                 // Initialize distribution functions to equilibrium
                 for q in 0..9 {
                     let weight = T::from_f64(D2Q9::WEIGHTS[q]).unwrap_or_else(T::zero);
-                    let lattice_vel = &D2Q9::VELOCITIES[q];
+                    let lattice_vel = D2Q9::VELOCITIES[q];
                     self.f[j][i][q] = equilibrium(density, &u_init, q, weight, lattice_vel);
                 }
 

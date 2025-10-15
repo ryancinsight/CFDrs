@@ -6,16 +6,21 @@ use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use std::collections::HashMap;
+use std::hash::BuildHasher;
 
 /// Apply boundary conditions to momentum equation system
-pub fn apply_momentum_boundaries<T: RealField + Copy + FromPrimitive>(
+pub fn apply_momentum_boundaries<T, S>(
     matrix: &mut SparseMatrixBuilder<T>,
     rhs: &mut nalgebra::DVector<T>,
     component: MomentumComponent,
-    boundaries: &HashMap<String, BoundaryCondition<T>>,
+    boundaries: &HashMap<String, BoundaryCondition<T>, S>,
     nx: usize,
     ny: usize,
-) -> cfd_core::error::Result<()> {
+) -> cfd_core::error::Result<()>
+where
+    T: RealField + Copy + FromPrimitive,
+    S: BuildHasher,
+{
     // Apply boundary conditions based on location
     for (name, bc) in boundaries {
         match name.as_str() {
