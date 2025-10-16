@@ -63,9 +63,18 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T>
             analysis.add_resistance_by_type(component_type.as_str().to_string(), resistance);
         }
 
-        // Note: Critical path analysis removed as it was unimplemented
-        // This feature should be added as a separate, properly implemented method
-        // when the algorithm is ready
+        // NOTE: Critical path analysis is not currently implemented
+        // The ResistanceAnalysis struct has a critical_paths field and add_critical_path method,
+        // but the algorithm to identify critical paths in the network is not yet implemented.
+        // 
+        // A complete implementation would require:
+        // 1. Graph traversal to identify all flow paths from sources to sinks
+        // 2. Calculation of total resistance for each path
+        // 3. Identification of the path(s) with highest resistance
+        // 4. Consideration of parallel vs series resistance configurations
+        //
+        // Reference: Fluid Network Analysis (e.g., Hardy Cross method, linear system solvers)
+        // When implemented, use: analysis.add_critical_path(vec![...]);
 
         Ok(analysis)
     }
