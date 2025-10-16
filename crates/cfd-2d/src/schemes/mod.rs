@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 pub mod central;
 pub mod constants;
 pub mod grid;
-pub mod time_integration;
+pub mod time;
 pub mod tvd;
 pub mod upwind;
 pub mod weno;
@@ -19,7 +19,7 @@ pub mod weno_constants;
 // Re-export main types
 pub use central::{CentralDifference, FourthOrderCentral};
 pub use grid::Grid2D;
-pub use time_integration::{TimeIntegrator, TimeScheme};
+pub use time::{TimeIntegrator, TimeScheme};
 pub use tvd::{FluxLimiter, MUSCLScheme, QUICKScheme};
 pub use upwind::{FirstOrderUpwind, SecondOrderUpwind};
 pub use weno::WENO5;
