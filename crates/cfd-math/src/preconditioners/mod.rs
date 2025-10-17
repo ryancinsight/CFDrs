@@ -12,3 +12,7 @@ pub use cholesky::IncompleteCholesky;
 pub use ilu::IncompleteLU;
 pub use multigrid::AlgebraicMultigrid;
 pub use ssor::SSOR;
+
+// Edge case tests module for comprehensive coverage
+#[cfg(test)]
+mod edge_case_tests;
