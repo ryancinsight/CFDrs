@@ -428,3 +428,138 @@ fn test_mms_periodic_consistency() {
         );
     }
 }
+
+/// Test MMS at domain corners (edge case: x,y = 0 and x,y = 1)
+///
+/// Corners often reveal implementation errors in finite difference/volume codes
+/// due to stencil boundary handling.
+///
+/// Reference: Roache (2002) - Code Verification by MMS, §4.2
+#[test]
+fn test_mms_domain_corners() {
+    use std::f64::consts::PI;
+    
+    let mms = ManufacturedAdvectionDiffusion::new(
+        2.0 * PI,  // kx
+        2.0 * PI,  // ky
+        0.01,      // alpha
+        1.0,       // vx
+        1.0        // vy
+    );
+    
+    let t = 0.1;
+    
+    // Test all four corners of unit domain
+    let corners = vec![
+        (0.0, 0.0), // bottom-left
+        (1.0, 0.0), // bottom-right
+        (0.0, 1.0), // top-left
+        (1.0, 1.0), // top-right
+    ];
+    
+    for &(x, y) in &corners {
+        let solution = mms.exact_solution(x, y, 0.0, t);
+        let source = mms.source_term(x, y, 0.0, t);
+        
+        assert!(
+            solution.is_finite() && solution.abs() < 1e10,
+            "Corner solution at ({}, {}) must be finite and bounded", x, y
+        );
+        assert!(
+            source.is_finite() && source.abs() < 1e10,
+            "Corner source term at ({}, {}) must be finite and bounded", x, y
+        );
+    }
+}
+
+/// Test MMS temporal evolution (edge case: very small and large time values)
+///
+/// Tests numerical stability at extreme temporal scales.
+///
+/// Reference: ASME V&V 20-2009, §3.4 - Temporal discretization verification
+#[test]
+fn test_mms_temporal_extremes() {
+    use std::f64::consts::PI;
+    
+    let burgers = ManufacturedBurgers::new(1.0, 0.5, 2.0 * PI, 1.0, 0.01);
+    
+    let x = 0.5;
+    let y = 0.5;
+    
+    // Test very small time (near initial condition)
+    let t_small = 1e-8;
+    let u_small = burgers.exact_solution(x, y, 0.0, t_small);
+    let u_initial = burgers.exact_solution(x, y, 0.0, 0.0);
+    
+    assert!(
+        (u_small - u_initial).abs() < 0.1,
+        "Solution at t={} should be close to initial condition", t_small
+    );
+    
+    // Test moderate time
+    let t_moderate = 1.0;
+    let u_moderate = burgers.exact_solution(x, y, 0.0, t_moderate);
+    
+    assert!(
+        u_moderate.is_finite(),
+        "Solution at t={} must remain finite", t_moderate
+    );
+    
+    // Test larger time (ensure no exponential blowup for stable schemes)
+    let t_large = 10.0;
+    let u_large = burgers.exact_solution(x, y, 0.0, t_large);
+    
+    assert!(
+        u_large.is_finite() && u_large.abs() < 1e6,
+        "Solution at t={} must remain bounded for stable scheme", t_large
+    );
+}
+
+/// Test MMS with zero velocity (pure diffusion limit)
+///
+/// Edge case where advection-diffusion reduces to pure diffusion equation.
+/// Tests implementation doesn't have division-by-zero or similar issues.
+///
+/// Reference: Ferziger & Perić (2019) - §5.2, Pure diffusion
+#[test]
+fn test_mms_zero_velocity_diffusion() {
+    use std::f64::consts::PI;
+    
+    let mms = ManufacturedAdvectionDiffusion::new(
+        2.0 * PI,  // kx
+        2.0 * PI,  // ky
+        0.1,       // alpha (diffusivity)
+        0.0,       // vx = 0 (no advection)
+        0.0        // vy = 0 (no advection)
+    );
+    
+    let test_points = vec![
+        (0.25, 0.25),
+        (0.5, 0.5),
+        (0.75, 0.75),
+    ];
+    
+    let t = 0.1;
+    
+    for &(x, y) in &test_points {
+        let solution = mms.exact_solution(x, y, 0.0, t);
+        let source = mms.source_term(x, y, 0.0, t);
+        
+        // Pure diffusion with zero velocity should still work
+        assert!(
+            solution.is_finite(),
+            "Pure diffusion solution at ({}, {}) must be finite", x, y
+        );
+        assert!(
+            source.is_finite(),
+            "Pure diffusion source at ({}, {}) must be finite", x, y
+        );
+        
+        // Solution should decay over time for diffusion (no advection to transport)
+        // This is a sanity check on the physics
+        assert!(
+            solution.abs() < 10.0,
+            "Pure diffusion should not amplify unboundedly"
+        );
+    }
+}
