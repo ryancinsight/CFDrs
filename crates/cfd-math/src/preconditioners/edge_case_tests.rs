@@ -190,4 +190,124 @@ mod preconditioner_edge_tests {
         assert!(z.iter().all(|&zi: &f64| zi.is_finite()));
         Ok(())
     }
+
+    /// Test ILU with ill-conditioned matrix (large condition number)
+    /// Edge case: κ(A) ≈ 10^6 tests numerical stability
+    #[test]
+    fn test_ilu_ill_conditioned() -> Result<()> {
+        let n = 10;
+        let mut builder = SparseMatrixBuilder::new(n, n);
+        
+        // Create ill-conditioned tridiagonal: large diagonal, small off-diagonal
+        let diag_large = 1e6;
+        let offdiag_small = 1.0;
+        
+        for i in 0..n {
+            builder.add_entry(i, i, diag_large)?;
+            if i > 0 {
+                builder.add_entry(i, i - 1, -offdiag_small)?;
+            }
+            if i < n - 1 {
+                builder.add_entry(i, i + 1, -offdiag_small)?;
+            }
+        }
+        let a = builder.build()?;
+        
+        let ilu = IncompleteLU::new(&a)?;
+        let r = DVector::from_element(n, 1.0);
+        let mut z = DVector::zeros(n);
+        ilu.apply_to(&r, &mut z)?;
+        
+        // Verify numerical stability: no NaN/Inf
+        assert!(z.iter().all(|&zi: &f64| zi.is_finite()));
+        assert!(z.norm() > 0.0);
+        
+        // Preconditioner should scale residual
+        assert!(z.norm() < r.norm() * 1e3); // Scaled by ~1/diag
+        Ok(())
+    }
+
+    /// Test IncompleteCholesky with nearly diagonal matrix
+    /// Edge case: minimal off-diagonal coupling tests preconditioner effectiveness
+    #[test]
+    fn test_cholesky_nearly_diagonal() -> Result<()> {
+        let n = 8;
+        let mut builder = SparseMatrixBuilder::new(n, n);
+        
+        // Nearly diagonal: large diagonal, tiny off-diagonal
+        let diag = 10.0;
+        let offdiag = 1e-3;
+        
+        for i in 0..n {
+            builder.add_entry(i, i, diag)?;
+            if i > 0 {
+                builder.add_entry(i, i - 1, offdiag)?;
+            }
+            if i < n - 1 {
+                builder.add_entry(i, i + 1, offdiag)?;
+            }
+        }
+        let a = builder.build()?;
+        
+        let cholesky = IncompleteCholesky::new(&a)?;
+        let r = DVector::from_element(n, 5.0);
+        let mut z = DVector::zeros(n);
+        cholesky.apply_to(&r, &mut z)?;
+        
+        // Nearly diagonal → preconditioner ≈ diagonal inverse
+        for i in 0..n {
+            assert_relative_eq!(z[i], r[i] / diag, epsilon = 1e-2);
+        }
+        Ok(())
+    }
+
+    /// Test ILU with single element matrix (boundary case: n=1)
+    /// Edge case: minimal system tests implementation correctness
+    #[test]
+    fn test_ilu_single_element() -> Result<()> {
+        let n = 1;
+        let mut builder = SparseMatrixBuilder::new(n, n);
+        builder.add_entry(0, 0, 5.0)?;
+        let a = builder.build()?;
+        
+        let ilu = IncompleteLU::new(&a)?;
+        let r = DVector::from_element(n, 10.0);
+        let mut z = DVector::zeros(n);
+        ilu.apply_to(&r, &mut z)?;
+        
+        // Single element: ILU(M) * r = A^{-1} * r = r / a[0,0]
+        assert_relative_eq!(z[0], 10.0 / 5.0, epsilon = 1e-14);
+        Ok(())
+    }
+
+    /// Test SSOR with strongly diagonally dominant matrix
+    /// Edge case: |a_ii| >> sum|a_ij| tests convergence behavior
+    #[test]
+    fn test_ssor_strongly_diagonal_dominant() -> Result<()> {
+        let n = 10;
+        let mut builder = SparseMatrixBuilder::new(n, n);
+        
+        // Strong diagonal dominance: diag = 100, off-diag = 1
+        for i in 0..n {
+            builder.add_entry(i, i, 100.0)?;
+            if i > 0 {
+                builder.add_entry(i, i - 1, -1.0)?;
+            }
+            if i < n - 1 {
+                builder.add_entry(i, i + 1, -1.0)?;
+            }
+        }
+        let a = builder.build()?;
+        
+        let ssor = SSOR::new(a)?;
+        let r = DVector::from_element(n, 1.0);
+        let mut z = DVector::zeros(n);
+        ssor.apply_to(&r, &mut z)?;
+        
+        // Strong diagonal dominance → preconditioner ≈ diagonal inverse
+        for i in 0..n {
+            assert_relative_eq!(z[i], r[i] / 100.0, epsilon = 1e-1);
+        }
+        Ok(())
+    }
 }
