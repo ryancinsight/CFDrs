@@ -9,3 +9,7 @@ pub use integrators::{
 };
 pub use results::TimeIntegrationResult;
 pub use validation::TimeIntegrationValidator;
+
+// Edge case tests
+#[cfg(test)]
+mod edge_case_tests;

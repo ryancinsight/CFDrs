@@ -38,3 +38,7 @@ pub use traits::{Configurable, IterativeLinearSolver, LinearSolver, Precondition
 
 #[cfg(test)]
 mod tests;
+
+// Edge case tests module for comprehensive coverage
+#[cfg(test)]
+mod edge_case_tests;
