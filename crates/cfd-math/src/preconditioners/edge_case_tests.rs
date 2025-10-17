@@ -27,7 +27,7 @@ mod preconditioner_edge_tests {
                 builder.add_entry(i, i + 1, -1.0)?;
             }
         }
-        Ok(builder.build()?)
+        builder.build()
     }
 
     /// Test ILU with zero vector input (boundary case)
@@ -76,8 +76,8 @@ mod preconditioner_edge_tests {
             ssor.apply_to(&r, &mut z)?;
             
             // Verify convergence properties
-            assert!(z.iter().all(|&zi: &f64| zi.is_finite()), "omega={}: NaN detected", omega);
-            assert!(z.norm() > 0.0, "omega={}: Zero output", omega);
+            assert!(z.iter().all(|&zi: &f64| zi.is_finite()), "omega={omega}: NaN detected");
+            assert!(z.norm() > 0.0, "omega={omega}: Zero output");
         }
         Ok(())
     }

@@ -280,14 +280,14 @@ mod tests {
 
         let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
         let solver = GMRES::new(config, 10);
-        let precond = IdentityPreconditioner::default();
+        let precond = IdentityPreconditioner;
 
         solver.solve_preconditioned(&a, &b, &precond, &mut x).unwrap();
 
         // Expected solution: x = [1, 2, 3, 4]
         let expected = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0]);
         let error = (&x - &expected).norm();
-        assert!(error < 1e-9, "Solution error: {}", error);
+        assert!(error < 1e-9, "Solution error: {error}");
     }
 
     #[test]
@@ -309,14 +309,14 @@ mod tests {
 
         let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
         let solver = GMRES::new(config, 10);
-        let precond = IdentityPreconditioner::default();
+        let precond = IdentityPreconditioner;
 
         solver.solve_preconditioned(&a, &b, &precond, &mut x).unwrap();
 
         // Verify Ax = b
         let ax = &a * &x;
         let residual = (&ax - &b).norm();
-        assert!(residual < 1e-9, "Residual: {}", residual);
+        assert!(residual < 1e-9, "Residual: {residual}");
     }
 
     #[test]
@@ -333,7 +333,7 @@ mod tests {
 
         let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
         let solver = GMRES::new(config, 10);
-        let precond = IdentityPreconditioner::default();
+        let precond = IdentityPreconditioner;
 
         solver.solve_preconditioned(&a, &b, &precond, &mut x).unwrap();
 

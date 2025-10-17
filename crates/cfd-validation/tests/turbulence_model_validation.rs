@@ -5,7 +5,7 @@
 //!
 //! References:
 //! - Moser, R.D., Kim, J., & Mansour, N.N. (1999). "Direct numerical simulation of
-//!   turbulent channel flow up to Re_τ=590". Physics of Fluids, 11(4), 943-945.
+//!   turbulent channel flow up to `Re_τ=590`". Physics of Fluids, 11(4), 943-945.
 //! - White, F.M. (2006). "Viscous Fluid Flow" (3rd ed.). McGraw-Hill.
 //! - Wilcox, D.C. (2006). "Turbulence Modeling for CFD" (3rd ed.). DCW Industries.
 //! - Menter, F.R. (1994). "Two-equation eddy-viscosity turbulence models for
@@ -17,7 +17,7 @@ use cfd_2d::physics::turbulence::{k_epsilon::KEpsilonModel, traits::TurbulenceMo
 /// Flat plate boundary layer test case per White (2006)
 ///
 /// Validates turbulent viscosity prediction for zero-pressure-gradient boundary layer
-/// at Re_x = 10^6. Expected skin friction coefficient C_f ≈ 0.00296 (White correlation).
+/// at `Re_x` = 10^6. Expected skin friction coefficient `C_f` ≈ 0.00296 (White correlation).
 #[test]
 fn test_k_epsilon_flat_plate_boundary_layer() {
     // Problem setup: Flat plate at Re_x = 1e6
@@ -63,22 +63,20 @@ fn test_k_epsilon_flat_plate_boundary_layer() {
     // Assert turbulent viscosity is significantly higher than laminar (factor > 10)
     assert!(
         nu_t_ratio > 10.0,
-        "Turbulent viscosity ratio {:.1} should be > 10 for Re_x = 1e6",
-        nu_t_ratio
+        "Turbulent viscosity ratio {nu_t_ratio:.1} should be > 10 for Re_x = 1e6"
     );
 
     // Verify order of magnitude for skin friction
     // Note: Full CFD simulation needed for exact C_f, this validates turbulent viscosity formula
     assert!(
         cf_white > 0.002 && cf_white < 0.004,
-        "Expected C_f ≈ 0.00296, got {:.5} (literature validation)",
-        cf_white
+        "Expected C_f ≈ 0.00296, got {cf_white:.5} (literature validation)"
     );
 }
 
 /// Channel flow DNS validation per Moser et al. (1999)
 ///
-/// Validates turbulence statistics against DNS data for channel flow at Re_τ = 180.
+/// Validates turbulence statistics against DNS data for channel flow at `Re_τ` = 180.
 /// Tests k-ε model production term against strain rate tensor calculations.
 #[test]
 fn test_k_epsilon_channel_flow_production() {
@@ -180,8 +178,8 @@ fn test_wall_distance_calculation() {
     // Cell at known distance from wall
     let _i = 50; // Mid-domain in x
     let j = 10; // 10 cells from bottom wall
-    let dy = ly / (ny as f64);
-    let y_wall = j as f64 * dy; // Distance from wall
+    let dy = ly / f64::from(ny);
+    let y_wall = f64::from(j) * dy; // Distance from wall
 
     // Calculate wall distance (simplified for test)
     // In production: use eikonal equation solver
@@ -191,26 +189,22 @@ fn test_wall_distance_calculation() {
     assert!(d_wall > 0.0, "Wall distance must be positive");
     assert!(
         d_wall <= ly,
-        "Wall distance cannot exceed domain height: d={:.4}, ly={:.4}",
-        d_wall,
-        ly
+        "Wall distance cannot exceed domain height: d={d_wall:.4}, ly={ly:.4}"
     );
 
     // Verify wall distance increases monotonically from wall
     let j2 = 20;
-    let y_wall2 = j2 as f64 * dy;
+    let y_wall2 = f64::from(j2) * dy;
     assert!(
         y_wall2 > y_wall,
-        "Distance should increase away from wall: y2={:.4} > y1={:.4}",
-        y_wall2,
-        y_wall
+        "Distance should increase away from wall: y2={y_wall2:.4} > y1={y_wall:.4}"
     );
 }
 
 /// Turbulent viscosity ratio test
 ///
 /// Validates that all models produce physically reasonable turbulent viscosity ratios
-/// (ν_t/ν typically 10-10,000 for engineering flows).
+/// (`ν_t/ν` typically 10-10,000 for engineering flows).
 #[test]
 fn test_turbulent_viscosity_ratio_bounds() {
     let rho = 1.225_f64;
@@ -226,13 +220,11 @@ fn test_turbulent_viscosity_ratio_bounds() {
 
         assert!(
             ratio >= 1.0,
-            "Turbulent viscosity should exceed laminar: ratio={:.1}",
-            ratio
+            "Turbulent viscosity should exceed laminar: ratio={ratio:.1}"
         );
         assert!(
             ratio <= 1e6,
-            "Turbulent viscosity ratio should be < 1e6: ratio={:.1e}",
-            ratio
+            "Turbulent viscosity ratio should be < 1e6: ratio={ratio:.1e}"
         );
     }
 }

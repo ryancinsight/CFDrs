@@ -12,12 +12,9 @@ mod gpu_tests {
     #[test]
     fn test_gpu_context_creation() {
         // Skip test if no GPU available
-        let context = match GpuContext::create() {
-            Ok(ctx) => Arc::new(ctx),
-            Err(_) => {
-                println!("Skipping GPU test - no GPU available");
-                return;
-            }
+        let context = if let Ok(ctx) = GpuContext::create() { Arc::new(ctx) } else {
+            println!("Skipping GPU test - no GPU available");
+            return;
         };
 
         let info = context.adapter_info();
@@ -90,7 +87,7 @@ mod gpu_tests {
 
         // Should succeed or fail gracefully
         if let Err(e) = result {
-            println!("Pipeline registration failed (expected on CI): {}", e);
+            println!("Pipeline registration failed (expected on CI): {e}");
         }
     }
 

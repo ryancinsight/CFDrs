@@ -115,7 +115,7 @@ mod tests {
         // Exact analytical validation: SOR preconditioner mathematical properties
         // Test 1: Result should be positive since r > 0 and matrix is M-matrix
         for i in 0..n {
-            assert!(z[i] > 0.0, "SOR result component {} should be positive", i);
+            assert!(z[i] > 0.0, "SOR result component {i} should be positive");
         }
 
         // Test 2: Check magnitude bounds based on matrix properties
@@ -211,8 +211,7 @@ mod tests {
         for i in 0..n {
             assert!(
                 z[i] > 0.0,
-                "Gauss-Seidel result component {} should be positive",
-                i
+                "Gauss-Seidel result component {i} should be positive"
             );
         }
 
