@@ -19,3 +19,7 @@ pub use k_omega_sst::KOmegaSSTModel;
 pub use spalart_allmaras::SpalartAllmaras;
 pub use traits::TurbulenceModel;
 pub use wall_functions::{WallFunction, WallTreatment};
+
+// Literature-based validation tests
+#[cfg(test)]
+mod literature_validation_tests;
