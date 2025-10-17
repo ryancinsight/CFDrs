@@ -126,7 +126,6 @@ mod tests {
     #[test]
     fn test_spmv_f32_simd_correctness() {
         use nalgebra::DVector;
-        use nalgebra_sparse::CsrMatrix;
         use crate::sparse::{spmv, spmv_f32_simd};
 
         // Create a larger matrix to test SIMD (20x20)
@@ -218,6 +217,173 @@ mod tests {
 
         for i in 0..n {
             assert_relative_eq!(y_simd[i], y_scalar[i], epsilon = 1e-4);
+        }
+    }
+
+    #[test]
+    fn test_spmv_parallel_correctness() {
+        use nalgebra::DVector;
+        use nalgebra_sparse::CsrMatrix;
+        use crate::sparse::{spmv, spmv_parallel};
+
+        // Create a simple 3x3 matrix:
+        // [2  0  1]
+        // [0  3  0]
+        // [1  0  2]
+        let row_offsets = vec![0, 2, 3, 5];
+        let col_indices = vec![0, 2, 1, 0, 2];
+        let values = vec![2.0f64, 1.0, 3.0, 1.0, 2.0];
+        let a = CsrMatrix::try_from_csr_data(3, 3, row_offsets, col_indices, values).unwrap();
+
+        // Test with x = [1, 2, 3]
+        let x = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        
+        // Compute with scalar version
+        let mut y_scalar = DVector::zeros(3);
+        spmv(&a, &x, &mut y_scalar);
+
+        // Compute with parallel version
+        let mut y_parallel = DVector::zeros(3);
+        spmv_parallel(&a, &x, &mut y_parallel);
+
+        // Expected: [2*1 + 1*3, 3*2, 1*1 + 2*3] = [5, 6, 7]
+        for i in 0..3 {
+            assert_relative_eq!(y_parallel[i], y_scalar[i], epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_spmv_parallel_large_matrix() {
+        use nalgebra::DVector;
+        use crate::sparse::{spmv, spmv_parallel};
+
+        // Create a larger matrix to benefit from parallelization (1000x1000)
+        let n = 1000;
+        let mut builder = SparseMatrixBuilder::new(n, n);
+        
+        // Create a tridiagonal matrix
+        for i in 0..n {
+            builder.add_triplets(vec![(i, i, 4.0f64)]).unwrap();
+            if i > 0 {
+                builder.add_triplets(vec![(i, i - 1, -1.0f64)]).unwrap();
+            }
+            if i < n - 1 {
+                builder.add_triplets(vec![(i, i + 1, -1.0f64)]).unwrap();
+            }
+        }
+        let a = builder.build().unwrap();
+
+        // Test vector
+        let x = DVector::from_fn(n, |i, _| (i + 1) as f64);
+        
+        // Compute with scalar version
+        let mut y_scalar = DVector::zeros(n);
+        spmv(&a, &x, &mut y_scalar);
+
+        // Compute with parallel version
+        let mut y_parallel = DVector::zeros(n);
+        spmv_parallel(&a, &x, &mut y_parallel);
+
+        // Compare results
+        for i in 0..n {
+            assert_relative_eq!(y_parallel[i], y_scalar[i], epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_spmv_parallel_five_point_stencil() {
+        use nalgebra::DVector;
+        use crate::sparse::{spmv, spmv_parallel};
+
+        // Create a 50x50 five-point stencil (2500x2500 matrix, ~12k non-zeros)
+        let nx = 50;
+        let ny = 50;
+        let matrix = SparsePatterns::five_point_stencil(nx, ny, 1.0, 1.0).unwrap();
+
+        // Test vector with varying values
+        let n = nx * ny;
+        let x = DVector::from_fn(n, |i, _| ((i % 10) as f64) * 0.1 + 1.0);
+        
+        // Compute with scalar version
+        let mut y_scalar = DVector::zeros(n);
+        spmv(&matrix, &x, &mut y_scalar);
+
+        // Compute with parallel version
+        let mut y_parallel = DVector::zeros(n);
+        spmv_parallel(&matrix, &x, &mut y_parallel);
+
+        // Compare results
+        for i in 0..n {
+            assert_relative_eq!(y_parallel[i], y_scalar[i], epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_spmv_parallel_sparse_pattern() {
+        use nalgebra::DVector;
+        use crate::sparse::{spmv, spmv_parallel};
+
+        // Test with very sparse rows (edge case for parallel overhead)
+        let mut builder = SparseMatrixBuilder::new(100, 100);
+        for i in 0..100 {
+            builder.add_triplets(vec![(i, i, 1.0f64)]).unwrap();
+            // Add one off-diagonal entry every 5 rows
+            if i % 5 == 0 && i < 95 {
+                builder.add_triplets(vec![(i, i + 5, 0.5f64)]).unwrap();
+            }
+        }
+        let a = builder.build().unwrap();
+
+        let x = DVector::from_element(100, 2.0f64);
+        
+        let mut y_scalar = DVector::zeros(100);
+        spmv(&a, &x, &mut y_scalar);
+
+        let mut y_parallel = DVector::zeros(100);
+        spmv_parallel(&a, &x, &mut y_parallel);
+
+        for i in 0..100 {
+            assert_relative_eq!(y_parallel[i], y_scalar[i], epsilon = 1e-10);
+        }
+    }
+
+    #[test]
+    fn test_spmv_parallel_dense_block() {
+        use nalgebra::DVector;
+        use crate::sparse::{spmv, spmv_parallel};
+
+        // Test with denser structure (pentadiagonal-like pattern)
+        let n = 500;
+        let mut builder = SparseMatrixBuilder::new(n, n);
+        for i in 0..n {
+            // Main diagonal
+            builder.add_triplets(vec![(i, i, 4.0f64)]).unwrap();
+            // Off-diagonals (bandwidth = 2)
+            if i > 0 {
+                builder.add_triplets(vec![(i, i - 1, -1.0f64)]).unwrap();
+            }
+            if i > 1 {
+                builder.add_triplets(vec![(i, i - 2, -0.5f64)]).unwrap();
+            }
+            if i < n - 1 {
+                builder.add_triplets(vec![(i, i + 1, -1.0f64)]).unwrap();
+            }
+            if i < n - 2 {
+                builder.add_triplets(vec![(i, i + 2, -0.5f64)]).unwrap();
+            }
+        }
+        let a = builder.build().unwrap();
+
+        let x = DVector::from_fn(n, |i, _| (i as f64).sin());
+        
+        let mut y_scalar = DVector::zeros(n);
+        spmv(&a, &x, &mut y_scalar);
+
+        let mut y_parallel = DVector::zeros(n);
+        spmv_parallel(&a, &x, &mut y_parallel);
+
+        for i in 0..n {
+            assert_relative_eq!(y_parallel[i], y_scalar[i], epsilon = 1e-10);
         }
     }
 }
