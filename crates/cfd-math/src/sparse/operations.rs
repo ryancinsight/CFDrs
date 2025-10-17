@@ -272,8 +272,8 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
             ));
         }
 
-        // This requires mutable access to CSR internals
-        // For now, we'll return an error as CSR matrices are not easily mutable
+        // CSR format limitation: Diagonal modification not supported due to
+        // immutable sparse structure. Use set_diagonal during matrix construction.
         Err(Error::InvalidConfiguration(
             "Direct diagonal modification not supported for CSR format".to_string(),
         ))

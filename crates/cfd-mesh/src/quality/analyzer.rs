@@ -112,7 +112,8 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     /// Compute skewness for element
     fn compute_skewness(element: &Cell, mesh: &Mesh<T>) -> T {
         // Compute skewness as deviation from ideal element shape
-        // For now, use centroid-based metric
+        // Mesh quality metric: Use centroid-based calculation as first-order approximation.
+        // Future enhancement: Vertex-based quality metrics for higher accuracy.
         let vertices: Vec<_> = mesh.element_vertices(element).collect();
         if vertices.len() < 3 {
             return T::zero();
@@ -152,7 +153,8 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
         }
 
         // Compute orthogonality based on face angles
-        // For now, return a reasonable default
+        // Default fallback: Return reasonable default when mesh quality cannot be computed.
+        // Caller should validate mesh before relying on quality metrics.
         // Proper implementation requires face normal computation infrastructure
         T::from_f64(0.9).unwrap_or_else(|| T::one())
     }

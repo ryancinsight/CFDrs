@@ -30,7 +30,8 @@ impl<T: RealField + Copy + FromStr> VtkReader<T> {
         // Read header
         let header = self.read_header(&mut reader)?;
 
-        // For now, we only support UNSTRUCTURED_GRID
+        // VTK format scope: Currently supports UNSTRUCTURED_GRID only.
+        // Future enhancement: STRUCTURED_GRID, RECTILINEAR_GRID, POLYDATA.
         if !header.dataset_type.contains("UNSTRUCTURED_GRID") {
             return Err(Error::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,

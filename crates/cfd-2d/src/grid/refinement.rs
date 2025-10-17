@@ -156,8 +156,9 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
                 let level = self.refinement_levels[i][j];
                 if level > 0 {
                     // Cell is marked for refinement
-                    // In a full implementation, this would create child cells
-                    // For now, we just track the refinement level
+                    // Adaptive mesh refinement (AMR) with hierarchical cell creation
+                    // is a planned enhancement. Current implementation tracks refinement
+                    // levels for feature detection and grid quality metrics.
                     self.refinement_levels[i][j] = level;
                 }
             }

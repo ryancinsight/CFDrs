@@ -256,7 +256,8 @@ impl VectorOps for SimdOps {
 
     #[inline]
     fn max_f32(&self, input: &[f32]) -> Result<f32> {
-        // Max operation can benefit from SIMD in future but use SWAR for now
+        // Max operation: Use SWAR (SIMD Within A Register) as portable fallback.
+        // Future enhancement: SIMD intrinsics for supported architectures.
         self.swar.max_f32(input)
     }
 

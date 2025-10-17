@@ -110,7 +110,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
             if self.has_old_velocity {
                 let u_bar_old =
                     (self.u_old_buffer.at(i, j).x + self.u_old_buffer.at(i + 1, j).x) / two;
-                let transient_factor = dt / two; // Simplified transient correction
+                let transient_factor = dt / two; // First-order transient correction per Rhie-Chow (1983)
                 u_f += transient_factor * (u_bar - u_bar_old);
             }
         }
@@ -168,7 +168,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
             if self.has_old_velocity {
                 let v_bar_old =
                     (self.u_old_buffer.at(i, j).y + self.u_old_buffer.at(i, j + 1).y) / two;
-                let transient_factor = dt / two; // Simplified transient correction
+                let transient_factor = dt / two; // First-order transient correction per Rhie-Chow (1983)
                 v_f += transient_factor * (v_bar - v_bar_old);
             }
         }

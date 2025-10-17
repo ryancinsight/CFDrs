@@ -133,10 +133,10 @@ fn test_k_epsilon_channel_flow_production() {
     );
 }
 
-/// SST model validation placeholder
+/// SST model constants validation
 ///
-/// Validates SST blending function formulation (implementation deferred).
-/// Note: KOmegaSSTModel not currently exposed in public API.
+/// Validates SST constant values against Menter (1994) literature.
+/// Note: Full SST model validation deferred until API exposure.
 #[test]
 fn test_sst_constants_validation() {
     // Verify SST constants are in expected range per Menter (1994)

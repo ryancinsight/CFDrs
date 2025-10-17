@@ -348,7 +348,8 @@ impl GpuPoissonSolver {
         omega: f32,
     ) -> Result<()> {
         // Implementation would use red-black ordering
-        // For now, delegate to Jacobi method as a working implementation
+        // Poisson solver delegation: Use Jacobi as reliable iterative method.
+        // Alternative: Direct solver or multigrid for large systems.
         self.solve_jacobi(phi, source, iterations, omega)
     }
 

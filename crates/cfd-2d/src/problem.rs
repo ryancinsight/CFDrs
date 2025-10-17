@@ -118,8 +118,9 @@ impl<T: RealField + Copy> IncompressibleFlowProblem<T> {
     }
 }
 
-// Note: Problem trait implementation postponed for now to focus on architectural refactoring
-// Problem trait integration implemented through IncompressibleFlowProblem
+// Note: Problem trait from cfd-core not yet integrated - IncompressibleFlowProblem
+// provides similar functionality with domain-specific API. Full trait integration
+// deferred pending stabilization of solver abstractions.
 
 /// Solution structure for incompressible flow
 #[derive(Debug, Clone)]
