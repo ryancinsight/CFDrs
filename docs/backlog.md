@@ -1,6 +1,45 @@
 # CFD Suite - Technical Backlog (SSOT)
 
-## Sprint 1.58.0-PRODUCTION-MAINTENANCE-STRATEGIC-ENHANCEMENTS - CURRENT STATUS (IN PROGRESS)
+## Sprint 1.59.0-STRATEGIC-ENHANCEMENTS-TEST-COVERAGE - CURRENT STATUS (IN PROGRESS)
+
+### 🎯 Sprint 1.59.0 Objectives - Strategic Enhancement Focus
+
+Based on Sprint 1.58.0 comprehensive audit confirming production excellence with zero critical gaps, Sprint 1.59.0 focuses on strategic enhancements per industry standards and Rust 2025 best practices:
+
+**Priority (P1) - High-Impact Strategic Enhancements**:
+- [ ] **TEST-COVERAGE-EXPANSION**: Increase from 8.3% to 10-20% industry standard (6-8h)
+  - **Current**: 5,113/61,310 LOC (8.3%) below industry 10-20% for numerical codes
+  - **Target**: Add 2-12 percentage points (1,226-7,332 LOC test coverage)
+  - **Approach**: Comprehensive edge case testing for uncovered numerical methods
+  - **Focus**: Critical path coverage (linear solvers, preconditioners, time integration)
+  - **Validation**: All new tests must have SRS-derived assertions (pos/neg/zero/edges)
+  - **Runtime**: Maintain <30s via granular cargo nextest parallel execution
+  - **Sprint**: 1.59.0 (HIGH PRIORITY - industry standards compliance)
+
+- [ ] **GAT-ITERATOR-REFACTORING**: Zero-allocation lending iterators (8-10h)
+  - **Evidence**: 43 files contain .clone() operations (Sprint 1.58.0 audit)
+  - **Target**: Eliminate unnecessary clones in computational hot paths
+  - **Approach**: Implement GAT-based lending iterator patterns per Rust 2025
+  - **Focus**: Field operations, boundary conditions, solver iterations
+  - **Validation**: Performance regression tests (maintain <1s test runtime)
+  - **Sprint**: 1.59.0 (HIGH PRIORITY - zero-cost abstraction optimization)
+
+- [ ] **TURBULENCE-VALIDATION-COMPLETION**: k-ω SST + Spalart-Allmaras tests (4-6h)
+  - **Evidence**: k-ε validated (+7 tests Sprint 1.54.0), SST/SA need validation
+  - **Target**: Complete RANS model validation suite per literature
+  - **Approach**: Literature benchmarks (White 2006, Moser et al. 1999)
+  - **Validation**: Skin friction coefficient within 10% of experimental
+  - **Sprint**: 1.59.0 (HIGH PRIORITY - production confidence)
+
+**Sprint 1.59.0 Success Criteria** (≥90% CHECKLIST coverage required):
+- Test coverage ≥10% (minimum industry standard)
+- Clone count reduced by ≥30% (43 files → ≤30 files)
+- All turbulence models validated (k-ε, k-ω SST, Spalart-Allmaras)
+- Zero regressions (maintain 242/243 test pass rate)
+- All tests <30s runtime (cargo nextest parallel execution)
+- Documentation turnover (backlog, checklist, ADR, SRS updates)
+
+## Sprint 1.58.0-PRODUCTION-MAINTENANCE-STRATEGIC-ENHANCEMENTS - PREVIOUS STATUS (COMPLETE ✅)
 
 ### ✅ Completed Priority (P0) - Sprint 1.58.0 AUDIT COMPLETE
 - [x] **COMPREHENSIVE-PRODUCTION-AUDIT**: Full 535-file codebase validation ✅ COMPLETE
