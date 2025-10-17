@@ -166,11 +166,24 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
     }
 
     /// Get boundary conditions for the network
+    ///
+    /// Returns boundary conditions based on node pressures.
+    /// For 1D network flow, boundary conditions are typically pressure specifications
+    /// at inlet/outlet nodes represented as Dirichlet conditions.
     pub fn boundary_conditions(
         &self,
     ) -> HashMap<NodeIndex, cfd_core::boundary::BoundaryCondition<T>> {
-        // Placeholder - should be stored in the network
-        HashMap::new()
+        // Generate boundary conditions from node pressures
+        // Nodes with specified pressures become Dirichlet boundary conditions
+        self.pressures
+            .iter()
+            .map(|(&node, &pressure)| {
+                (
+                    node,
+                    cfd_core::boundary::BoundaryCondition::Dirichlet { value: pressure },
+                )
+            })
+            .collect()
     }
 
     /// Process edges in parallel
