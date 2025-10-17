@@ -66,6 +66,46 @@ fn benchmark_sparse_matrix_operations(c: &mut Criterion) {
     group.finish();
 }
 
+fn benchmark_spmv_comparison(c: &mut Criterion) {
+    use cfd_math::sparse::{spmv, spmv_parallel};
+    
+    let mut group = c.benchmark_group("spmv_comparison");
+    
+    // Test various matrix sizes to show scaling behavior
+    for size in [1000, 5000, 10000, 20000].iter() {
+        let sparse_matrix = create_test_sparse_matrix(*size);
+        let x = DVector::from_fn(*size, |i, _| (i as f64).sin());
+        
+        // Scalar SpMV baseline
+        group.bench_with_input(
+            BenchmarkId::new("scalar", size),
+            size,
+            |b, _| {
+                let mut y = DVector::zeros(*size);
+                b.iter(|| {
+                    spmv(&sparse_matrix, &x, &mut y);
+                    black_box(&y);
+                })
+            },
+        );
+        
+        // Parallel SpMV with rayon
+        group.bench_with_input(
+            BenchmarkId::new("parallel", size),
+            size,
+            |b, _| {
+                let mut y = DVector::zeros(*size);
+                b.iter(|| {
+                    spmv_parallel(&sparse_matrix, &x, &mut y);
+                    black_box(&y);
+                })
+            },
+        );
+    }
+    
+    group.finish();
+}
+
 fn benchmark_interpolation(c: &mut Criterion) {
     let mut group = c.benchmark_group("interpolation");
 
@@ -265,6 +305,7 @@ criterion_group!(
     benches,
     benchmark_linear_solvers,
     benchmark_sparse_matrix_operations,
+    benchmark_spmv_comparison,
     benchmark_interpolation,
     benchmark_integration,
     benchmark_differentiation,
