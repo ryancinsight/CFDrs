@@ -142,7 +142,7 @@ Implementation Completeness:   100%
 1. **Data Layout**: CSR format optimal for parallel iteration [web:users.rust-lang.org]
 2. **Rayon par_iter**: Row-wise parallelization with Send+Sync safety [web:docs.rs/rayon]
 3. **Performance**: Near-linear scaling with CPU cores [web:roclocality.org]
-4. **Best For**: Large matrices (>1000 rows), overhead minimal for smaller matrices [web:rust-lang-nursery.github.io]
+4. **Best For**: Large matrices (>1000 rows), overhead minimal for smaller matrices [web:roclocality.org]
 
 **Implementation Status**:
 - **CSR Format**: ✅ Already using nalgebra_sparse::CsrMatrix
