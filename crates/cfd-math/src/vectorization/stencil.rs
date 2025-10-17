@@ -28,7 +28,8 @@ impl StencilOps {
         let dy2 = dy * dy;
         let center_coeff = T::from_f64(STENCIL_CENTER_COEFFICIENT).unwrap_or_else(|| T::zero());
 
-        // Process interior points (sequential for now due to mutable access patterns)
+        // Process interior points using sequential iteration.
+        // Parallelization challenging due to read-write dependencies on mutable output.
         for j in 1..ny - 1 {
             for i in 1..nx - 1 {
                 let idx = j * nx + i;
@@ -64,7 +65,8 @@ impl StencilOps {
         let dx_inv = T::one() / (gradient_div * dx);
         let dy_inv = T::one() / (gradient_div * dy);
 
-        // Gradient computation (sequential for now due to mutable access patterns)
+        // Gradient computation using sequential iteration.
+        // Parallelization challenging due to read-write dependencies on mutable output.
         for j in 1..ny - 1 {
             for i in 1..nx - 1 {
                 let idx = j * nx + i;

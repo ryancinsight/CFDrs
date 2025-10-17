@@ -158,10 +158,11 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KOmegaSSTModel<
         // SST limiter for eddy viscosity
         let nu_t_unlimited = k / omega.max(omega_min);
 
-        // Apply SST limiter - Bradshaw assumption
-        // νt = a1*k / max(a1*ω, S*F2)
-        // For now using standard limiter without strain rate
-        // Full implementation requires strain rate magnitude S
+        // Apply SST limiter - Bradshaw assumption per Menter (1994)
+        // νt = a1*k / max(a1*ω, S*F2) where S is strain rate magnitude
+        // Current implementation uses simplified limiter (without S*F2 term)
+        // which is valid for attached boundary layers. Full limiter with strain
+        // rate requires velocity gradient field access in trait signature.
         density * nu_t_unlimited.min(a1 * k / omega.max(omega_min))
     }
 

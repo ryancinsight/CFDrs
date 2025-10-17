@@ -138,8 +138,8 @@ impl ComputeDispatcher {
         output: &mut [T],
         params: KernelParams,
     ) -> Result<()> {
-        // For large problems, split between GPU and CPU
-        // For now, just use the best available backend
+        // Backend dispatch: Select best available compute backend.
+        // Priority: GPU > SIMD > CPU (future: hybrid GPU+CPU for large problems)
         if ComputeBackend::Gpu.is_available() {
             self.execute_gpu(kernel, input, output, params)
         } else if ComputeBackend::Simd.is_available() {

@@ -63,7 +63,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
                 let diff_u = self.calculate_diffusion_u(fields, i, j);
                 let diff_v = self.calculate_diffusion_v(fields, i, j);
 
-                // Time integration (explicit Euler for now)
+                // Time integration: Explicit Euler (first-order) for predictor step.
+                // Higher-order schemes (RK4, BDF2) can be added as solver enhancements.
                 let u_current = fields.u.at(i, j);
                 let v_current = fields.v.at(i, j);
 

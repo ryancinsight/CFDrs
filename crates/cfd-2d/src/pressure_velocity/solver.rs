@@ -78,7 +78,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp> PressureVelocitySolv
     ) -> cfd_core::error::Result<T> {
         // Step 1: Solve momentum equations for predicted velocity
         // Note: This needs proper integration with SimulationFields
-        // For now, creating a fields structure buffer
+        // Benchmark framework: Computational solver integration pending.
+        // Current implementation creates fields structure for future solver hookup.
         let mut state_buffer = SimulationFields::new(self.grid.nx, self.grid.ny);
         // Copy current state to fields
         for i in 0..self.grid.nx {
