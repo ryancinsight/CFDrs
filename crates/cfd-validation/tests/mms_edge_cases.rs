@@ -228,12 +228,12 @@ proptest! {
         let mut errors = Vec::new();
         
         for &n in &resolutions {
-            let dx = 1.0 / n as f64;
+            let dx = 1.0 / f64::from(n);
             let mut max_error: f64 = 0.0;
             
             // Sample solution at grid points
             for i in 0..n {
-                let x = i as f64 * dx;
+                let x = f64::from(i) * dx;
                 let y = 0.5;
                 
                 let exact = mms.exact_solution(x, y, 0.0, t);
@@ -293,7 +293,7 @@ proptest! {
         let n_steps = 10;
         
         for i in 0..n_steps {
-            let t = i as f64 * dt;
+            let t = f64::from(i) * dt;
             
             let solution = mms.exact_solution(x, y, 0.0, t);
             let source = mms.source_term(x, y, 0.0, t);
@@ -387,7 +387,7 @@ fn test_mms_boundary_values() {
         
         assert!(
             solution.is_finite(),
-            "Boundary solution must be finite at ({}, {})", x, y
+            "Boundary solution must be finite at ({x}, {y})"
         );
         assert_eq!(
             solution, boundary,
@@ -424,7 +424,7 @@ fn test_mms_periodic_consistency() {
         
         assert!(
             diff < 1e-10,
-            "Periodic MMS solution should repeat: diff = {} at x = {}", diff, x
+            "Periodic MMS solution should repeat: diff = {diff} at x = {x}"
         );
     }
 }
@@ -463,11 +463,11 @@ fn test_mms_domain_corners() {
         
         assert!(
             solution.is_finite() && solution.abs() < 1e10,
-            "Corner solution at ({}, {}) must be finite and bounded", x, y
+            "Corner solution at ({x}, {y}) must be finite and bounded"
         );
         assert!(
             source.is_finite() && source.abs() < 1e10,
-            "Corner source term at ({}, {}) must be finite and bounded", x, y
+            "Corner source term at ({x}, {y}) must be finite and bounded"
         );
     }
 }
@@ -493,7 +493,7 @@ fn test_mms_temporal_extremes() {
     
     assert!(
         (u_small - u_initial).abs() < 0.1,
-        "Solution at t={} should be close to initial condition", t_small
+        "Solution at t={t_small} should be close to initial condition"
     );
     
     // Test moderate time
@@ -502,7 +502,7 @@ fn test_mms_temporal_extremes() {
     
     assert!(
         u_moderate.is_finite(),
-        "Solution at t={} must remain finite", t_moderate
+        "Solution at t={t_moderate} must remain finite"
     );
     
     // Test larger time (ensure no exponential blowup for stable schemes)
@@ -511,7 +511,7 @@ fn test_mms_temporal_extremes() {
     
     assert!(
         u_large.is_finite() && u_large.abs() < 1e6,
-        "Solution at t={} must remain bounded for stable scheme", t_large
+        "Solution at t={t_large} must remain bounded for stable scheme"
     );
 }
 
@@ -548,11 +548,11 @@ fn test_mms_zero_velocity_diffusion() {
         // Pure diffusion with zero velocity should still work
         assert!(
             solution.is_finite(),
-            "Pure diffusion solution at ({}, {}) must be finite", x, y
+            "Pure diffusion solution at ({x}, {y}) must be finite"
         );
         assert!(
             source.is_finite(),
-            "Pure diffusion source at ({}, {}) must be finite", x, y
+            "Pure diffusion source at ({x}, {y}) must be finite"
         );
         
         // Solution should decay over time for diffusion (no advection to transport)

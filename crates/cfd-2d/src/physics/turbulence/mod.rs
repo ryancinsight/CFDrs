@@ -23,3 +23,8 @@ pub use wall_functions::{WallFunction, WallTreatment};
 // Literature-based validation tests
 #[cfg(test)]
 mod literature_validation_tests;
+
+// Comprehensive k-ω SST tests
+#[cfg(test)]
+#[path = "k_omega_sst_tests.rs"]
+mod k_omega_sst_tests;

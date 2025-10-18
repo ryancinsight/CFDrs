@@ -210,7 +210,7 @@ mod edge_case_tests {
             sor.apply_to(&r, &mut z)?;
             
             // Verify convergence properties (relaxation should stabilize)
-            assert!(z.iter().all(|&x: &f64| x.is_finite()), "omega={}: NaN detected", omega);
+            assert!(z.iter().all(|&x: &f64| x.is_finite()), "omega={omega}: NaN detected");
         }
         Ok(())
     }

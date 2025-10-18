@@ -119,7 +119,7 @@ mod tests {
 
         // Test that collocation points are in [-1, 1] (Gauss-Lobatto property)
         for &point in poly.points() {
-            assert!(point >= -1.0 && point <= 1.0);
+            assert!((-1.0..=1.0).contains(&point));
         }
 
         // Test differentiation matrix is square

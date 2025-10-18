@@ -58,7 +58,7 @@ fn test_ghia_cavity_re100_with_gmres() {
         count += 1;
     }
 
-    l2_error = (l2_error / (count as f64)).sqrt();
+    l2_error = (l2_error / f64::from(count)).sqrt();
 
     // Validation criterion: L2 error < 60% for coarse grid
     // Note: This is a stream function/vorticity formulation test,
@@ -70,8 +70,7 @@ fn test_ghia_cavity_re100_with_gmres() {
     // For production validation, use finer grids and more iterations.
     assert!(
         l2_error < 0.6,
-        "L2 error {:.3} exceeds 60% threshold for Re=100 cavity flow (coarse grid)",
-        l2_error
+        "L2 error {l2_error:.3} exceeds 60% threshold for Re=100 cavity flow (coarse grid)"
     );
 
     // Verify convergence
@@ -83,14 +82,13 @@ fn test_ghia_cavity_re100_with_gmres() {
     let final_residual = result.convergence.last().expect("Should have residual");
     assert!(
         *final_residual < 0.2,
-        "Final residual {:.2e} should show reasonable convergence (coarse grid)",
-        final_residual
+        "Final residual {final_residual:.2e} should show reasonable convergence (coarse grid)"
     );
 
     println!("✓ Ghia cavity Re=100 validation passed");
-    println!("  L2 error: {:.4}", l2_error);
+    println!("  L2 error: {l2_error:.4}");
     println!("  Iterations: {}", result.convergence.len());
-    println!("  Final residual: {:.2e}", final_residual);
+    println!("  Final residual: {final_residual:.2e}");
 }
 
 /// Test cavity with different linear solvers
@@ -123,12 +121,11 @@ fn test_cavity_linear_solver_comparison() {
     
     assert!(
         max_velocity <= 1.1,
-        "Maximum velocity {:.3} should be bounded by lid velocity",
-        max_velocity
+        "Maximum velocity {max_velocity:.3} should be bounded by lid velocity"
     );
 
     println!("✓ Cavity linear solver comparison passed");
-    println!("  Max velocity: {:.4}", max_velocity);
+    println!("  Max velocity: {max_velocity:.4}");
 }
 
 /// Integration test for GMRES configuration
@@ -191,6 +188,6 @@ fn test_cavity_reynolds_scaling() {
     );
 
     println!("✓ Reynolds number scaling test passed");
-    println!("  Re=100 max velocity: {:.4}", max_u_low);
+    println!("  Re=100 max velocity: {max_u_low:.4}");
     println!("  Iterations: {}", result_low.convergence.len());
 }

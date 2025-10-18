@@ -76,7 +76,7 @@ fn run_poiseuille_with_scheme(
     };
 
     let pe = analytical.peclet_number(rho);
-    println!("Peclet number: {:.1e}", pe);
+    println!("Peclet number: {pe:.1e}");
 
     // Create grid
     let grid = StructuredGrid2D::new(nx, ny, 0.0, length, 0.0, height)
@@ -148,14 +148,13 @@ fn run_poiseuille_with_scheme(
         iteration = iter + 1;
 
         if max_change < convergence_tolerance {
-            println!("Converged after {} iterations", iteration);
+            println!("Converged after {iteration} iterations");
             break;
         }
 
         if iter == max_iterations - 1 {
             println!(
-                "Warning: Did not converge after {} iterations (max change: {:.2e})",
-                max_iterations, max_change
+                "Warning: Did not converge after {max_iterations} iterations (max change: {max_change:.2e})"
             );
         }
     }
@@ -180,8 +179,8 @@ fn run_poiseuille_with_scheme(
     }
     l2_error = (l2_error / ny as f64).sqrt();
 
-    println!("Max error: {:.2e}", max_error);
-    println!("L2 error: {:.2e}", l2_error);
+    println!("Max error: {max_error:.2e}");
+    println!("L2 error: {l2_error:.2e}");
     println!("Center velocity: {:.6} m/s", fields.u.at(centerline_i, ny / 2));
     println!(
         "Analytical center: {:.6} m/s\n",
@@ -242,7 +241,7 @@ fn test_tvd_schemes_comparison() {
     let mut results = Vec::new();
 
     for (name, scheme, vel_relax) in schemes {
-        println!("Testing: {}", name);
+        println!("Testing: {name}");
         println!("-------------------------------------------------");
         let (velocities, iterations, l2_error) =
             run_poiseuille_with_scheme(scheme, vel_relax);
@@ -256,7 +255,7 @@ fn test_tvd_schemes_comparison() {
     println!("{:<30} {:>12} {:>12}", "Scheme", "Iterations", "L2 Error");
     println!("-------------------------------------------------");
     for (name, _, iterations, l2_error) in &results {
-        println!("{:<30} {:>12} {:>12.2e}", name, iterations, l2_error);
+        println!("{name:<30} {iterations:>12} {l2_error:>12.2e}");
     }
     println!("=================================================\n");
 
@@ -273,8 +272,7 @@ fn test_tvd_schemes_comparison() {
         };
 
         println!(
-            "  {} - {} iterations (baseline: {}) - {}",
-            name, iterations, baseline_iterations, iter_status
+            "  {name} - {iterations} iterations (baseline: {baseline_iterations}) - {iter_status}"
         );
     }
 
@@ -299,11 +297,11 @@ fn test_tvd_superbee_high_relaxation() {
 
     let (_velocities, iterations, l2_error) = run_poiseuille_with_scheme(scheme, 0.9);
 
-    println!("Result: {} iterations, L2 error: {:.2e}", iterations, l2_error);
+    println!("Result: {iterations} iterations, L2 error: {l2_error:.2e}");
 
     // Should demonstrate stable behavior even with aggressive relaxation
     println!("✓ Superbee handles aggressive relaxation successfully");
-    println!("✓ {} iterations completed without instability\n", iterations);
+    println!("✓ {iterations} iterations completed without instability\n");
 }
 
 #[test]
@@ -319,9 +317,9 @@ fn test_tvd_minmod_stability() {
 
     let (_velocities, iterations, l2_error) = run_poiseuille_with_scheme(scheme, 0.7);
 
-    println!("Result: {} iterations, L2 error: {:.2e}", iterations, l2_error);
+    println!("Result: {iterations} iterations, L2 error: {l2_error:.2e}");
 
     // Minmod should demonstrate stable behavior (most stable TVD limiter)
     println!("✓ Minmod demonstrates maximum stability");
-    println!("✓ {} iterations completed as most diffusive limiter\n", iterations);
+    println!("✓ {iterations} iterations completed as most diffusive limiter\n");
 }

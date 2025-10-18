@@ -168,10 +168,10 @@ mod tests {
         // Solution should remain bounded: a-b <= u <= a+b
         // For a=1, b=0.5: 0.5 <= u <= 1.5
         for i in 0..100 {
-            let x = (i as f64) * 0.01;
+            let x = f64::from(i) * 0.01;
             let t = 0.5;
             let u = burgers.exact_solution(x, 0.0, 0.0, t);
-            assert!(u >= 0.5 - 1e-10 && u <= 1.5 + 1e-10, "u={} out of bounds", u);
+            assert!((0.5 - 1e-10..=1.5 + 1e-10).contains(&u), "u={u} out of bounds");
         }
     }
 }

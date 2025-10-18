@@ -191,7 +191,7 @@ mod tests {
         let u2 = coupled.exact_solution(x, y, 0.0, t2);
 
         // Solution should decay over time (diffusion)
-        assert!(u1.abs() > u2.abs(), "Solution should decay: {} > {}", u1, u2);
+        assert!(u1.abs() > u2.abs(), "Solution should decay: {u1} > {u2}");
     }
 
     #[test]
@@ -203,7 +203,7 @@ mod tests {
 
         // For vx=1, vy=0.5: |v| = sqrt(1.25) ≈ 1.118
         // Pe = |v|*h/α = 1.118*0.01/0.01 ≈ 1.118
-        assert!(pe > 1.0, "Advection-dominated should have Pe > 1: {}", pe);
+        assert!(pe > 1.0, "Advection-dominated should have Pe > 1: {pe}");
     }
 
     #[test]
@@ -217,8 +217,7 @@ mod tests {
         // Source should be near zero (within numerical precision)
         assert!(
             source.abs() < 1e-8,
-            "Source term should be near zero for exact solution: {}",
-            source
+            "Source term should be near zero for exact solution: {source}"
         );
     }
 

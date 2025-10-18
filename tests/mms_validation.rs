@@ -26,7 +26,7 @@ fn test_diffusion_mms_validation() {
     let manufactured = ManufacturedDiffusion::new(alpha);
 
     println!("MMS Diffusion Validation - PRODUCTION STANDARD:");
-    println!("  Thermal diffusivity: {}", alpha);
+    println!("  Thermal diffusivity: {alpha}");
 
     // Test multiple grid resolutions for order verification
     let grid_sizes = vec![16, 32, 64];
@@ -39,7 +39,7 @@ fn test_diffusion_mms_validation() {
         let dt = 0.25 * dx * dx / alpha; // CFL stability condition
         let t_final = 0.1;
 
-        println!("  Grid: {}x{}, dt: {:.6}", n, n, dt);
+        println!("  Grid: {n}x{n}, dt: {dt:.6}");
 
         // Initialize solution grid
         let mut numerical_solution = vec![vec![0.0f64; n]; n];
@@ -73,8 +73,8 @@ fn test_diffusion_mms_validation() {
         l2_errors.push(l2_error);
         linf_errors.push(max_linf_error);
 
-        println!("    L2 error:   {:.6e}", l2_error);
-        println!("    L∞ error:   {:.6e}", max_linf_error);
+        println!("    L2 error:   {l2_error:.6e}");
+        println!("    L∞ error:   {max_linf_error:.6e}");
     }
 
     // Verify order of accuracy (should be O(h²) for central differences)
@@ -83,7 +83,7 @@ fn test_diffusion_mms_validation() {
         let h2 = 1.0 / (grid_sizes[1] - 1) as f64;
         let observed_order = (l2_errors[0] / l2_errors[1]).log2() / (h1 / h2).log2();
 
-        println!("  Observed order of accuracy: {:.2}", observed_order);
+        println!("  Observed order of accuracy: {observed_order:.2}");
 
         // For a real solver, we would expect:
         // assert!(observed_order > 1.8, "Order of accuracy verification failed: expected ~2.0, got {}", observed_order);
@@ -119,9 +119,9 @@ fn test_mms_integration_pattern() {
     let dy = ly / (ny - 1) as f64;
     let t_final = 0.1;
 
-    println!("  Domain: [0,{}] x [0,{}]", lx, ly);
-    println!("  Grid: {}x{}", nx, ny);
-    println!("  Final time: {}", t_final);
+    println!("  Domain: [0,{lx}] x [0,{ly}]");
+    println!("  Grid: {nx}x{ny}");
+    println!("  Final time: {t_final}");
 
     // Step 3: Generate source term and boundary conditions
     let mut source_terms = vec![vec![0.0f64; ny]; nx];
@@ -167,8 +167,8 @@ fn test_mms_integration_pattern() {
     let l2_error = compute_l2_error(&numerical_solution, &exact_solution);
     let linf_error = compute_linf_error(&numerical_solution, &exact_solution);
 
-    println!("  L2 error:   {:.6e}", l2_error);
-    println!("  L∞ error:   {:.6e}", linf_error);
+    println!("  L2 error:   {l2_error:.6e}");
+    println!("  L∞ error:   {linf_error:.6e}");
 
     // Step 6: Validation criteria
     println!("  MMS integration pattern demonstrated");
@@ -192,7 +192,7 @@ fn compute_l2_error(numerical: &[Vec<f64>], exact: &[Vec<f64>]) -> f64 {
         }
     }
 
-    (sum_sq_error / count as f64).sqrt()
+    (sum_sq_error / f64::from(count)).sqrt()
 }
 
 /// Helper function to compute L∞ error between numerical and exact solutions

@@ -336,7 +336,7 @@ mod tests {
         
         for limiter in limiters {
             for r_int in 0..100 {
-                let r = r_int as f64 / 10.0; // Test r from 0 to 10
+                let r = f64::from(r_int) / 10.0; // Test r from 0 to 10
                 let psi = limiter.limit(r);
                 
                 // TVD constraint: 0 ≤ ψ(r) ≤ 2

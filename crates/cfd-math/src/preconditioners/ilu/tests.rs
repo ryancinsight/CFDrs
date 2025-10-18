@@ -102,9 +102,7 @@ fn test_iluk_vs_ilu0_sparsity() {
 
     assert!(
         nnz_ilu1 >= nnz_ilu0,
-        "ILU(1) should have >= nonzeros than ILU(0): {} vs {}",
-        nnz_ilu1,
-        nnz_ilu0
+        "ILU(1) should have >= nonzeros than ILU(0): {nnz_ilu1} vs {nnz_ilu0}"
     );
 }
 
@@ -190,7 +188,7 @@ fn test_ilu_multiple_fill_levels() {
 
     for k in 0..=3 {
         let ilu = IncompleteLU::with_fill_level(&matrix, k);
-        assert!(ilu.is_ok(), "ILU({}) construction failed", k);
+        assert!(ilu.is_ok(), "ILU({k}) construction failed");
 
         let ilu = ilu.unwrap();
         assert_eq!(ilu.fill_level(), k);

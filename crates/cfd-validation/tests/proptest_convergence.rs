@@ -148,7 +148,7 @@ proptest! {
         let mut error = base_error;
         for i in 0..30 {
             // Add oscillating noise to convergence
-            let noise = noise_amplitude * (i as f64 * 0.5).sin();
+            let noise = noise_amplitude * (f64::from(i) * 0.5).sin();
             let noisy_error = error * (1.0 + noise);
             monitor.update(noisy_error);
             error *= reduction_rate;
@@ -198,8 +198,7 @@ fn test_gci_asymptotic_range() {
     // With larger base values, relative error effects are minimized
     assert!(
         (ratio - 1.0).abs() < 0.02,
-        "GCI ratio indicates asymptotic convergence: {} (expected ~1.0)",
-        ratio
+        "GCI ratio indicates asymptotic convergence: {ratio} (expected ~1.0)"
     );
 }
 
@@ -247,7 +246,7 @@ fn test_nan_handling() {
 /// Test that infinity values are handled gracefully
 /// Per proptest best practices: test overflow/unbounded scenarios
 ///
-/// Note: Current behavior may treat absolute values, so NEG_INFINITY
+/// Note: Current behavior may treat absolute values, so `NEG_INFINITY`
 /// could be interpreted as a large value rather than divergence.
 /// This test documents the current behavior for future improvement.
 #[test]
@@ -297,7 +296,7 @@ fn test_extreme_values() {
     
     // Should be able to detect progress even from extreme starting point
     assert!(
-        monitor.history.len() > 0,
+        !monitor.history.is_empty(),
         "Monitor should track extreme values"
     );
 }
@@ -325,8 +324,7 @@ fn test_underflow_handling() {
     let status = monitor.check_status();
     assert!(
         status.is_converged() || !matches!(status, ConvergenceStatus::Diverging { .. }),
-        "Near-zero values should indicate convergence or at least not divergence: {:?}",
-        status
+        "Near-zero values should indicate convergence or at least not divergence: {status:?}"
     );
 }
 
@@ -376,7 +374,7 @@ proptest! {
         let mut error = base_error;
         for i in 0..100 {
             // Damped oscillation: error * damping^i * |sin(freq*i)|
-            let oscillating_error = error * (1.0 + 0.3 * (oscillation_freq * i as f64).sin()).abs();
+            let oscillating_error = error * (1.0 + 0.3 * (oscillation_freq * f64::from(i)).sin()).abs();
             monitor.update(oscillating_error);
             error *= damping_rate;
         }
@@ -403,7 +401,7 @@ proptest! {
         
         // Undamped oscillation around base_error
         for i in 0..25 {
-            let oscillating_error = base_error * (1.0 + 0.2 * (oscillation_freq * i as f64).sin()).abs();
+            let oscillating_error = base_error * (1.0 + 0.2 * (oscillation_freq * f64::from(i)).sin()).abs();
             monitor.update(oscillating_error);
         }
         

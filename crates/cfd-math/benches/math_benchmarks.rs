@@ -1,9 +1,9 @@
-use cfd_math::NormIteratorExt;
+use cfd_math::iterators::NormIteratorExt;
 use cfd_math::{
     differentiation::FiniteDifference,
     integration::{GaussQuadrature, Quadrature},
     interpolation::{CubicSplineInterpolation, Interpolation, LinearInterpolation},
-    linear_solver::{BiCGSTAB, ConjugateGradient, LinearSolver},
+    linear_solver::{preconditioners::IdentityPreconditioner, BiCGSTAB, ConjugateGradient, IterativeLinearSolver},
     sparse::{SparseMatrix, SparseMatrixBuilder},
 };
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
@@ -17,25 +17,27 @@ fn benchmark_linear_solvers(c: &mut Criterion) {
 
         let cg_solver = ConjugateGradient::default();
         let bicgstab_solver = BiCGSTAB::default();
+        let identity_precond = IdentityPreconditioner;
 
         group.bench_with_input(
             BenchmarkId::new("conjugate_gradient", size),
             size,
-            |b, _| b.iter(|| black_box(cg_solver.solve(&matrix, &rhs, None).unwrap())),
+            |b, _| {
+                b.iter(|| {
+                    let mut x = DVector::zeros(rhs.len());
+                    cg_solver.solve(&matrix, &rhs, &mut x, Some(&identity_precond)).unwrap();
+                    black_box(x)
+                })
+            },
         );
 
         group.bench_with_input(BenchmarkId::new("bicgstab", size), size, |b, _| {
             b.iter(|| {
+                let mut x = DVector::zeros(rhs.len());
                 // BiCGSTAB can be more sensitive to matrix conditioning
                 // Handle potential failures gracefully in benchmarks
-                match bicgstab_solver.solve(&matrix, &rhs, None) {
-                    Ok(solution) => black_box(solution),
-                    Err(_) => {
-                        // Fall back to a zero vector if solver fails
-                        // This allows benchmark to continue
-                        black_box(DVector::zeros(rhs.len()))
-                    }
-                }
+                let _ = bicgstab_solver.solve(&matrix, &rhs, &mut x, Some(&identity_precond));
+                black_box(x)
             })
         });
     }
@@ -169,7 +171,7 @@ fn benchmark_integration(c: &mut Criterion) {
 fn benchmark_differentiation(c: &mut Criterion) {
     let mut group = c.benchmark_group("differentiation");
 
-    for size in [1000, 10000, 100000].iter() {
+    for size in [1000, 10_000, 100_000].iter() {
         let field: Vec<f64> = (0..*size).map(|i| (i as f64 * 0.01).sin()).collect();
         let dx = 0.01;
 
@@ -194,7 +196,7 @@ fn benchmark_differentiation(c: &mut Criterion) {
 fn benchmark_vectorized_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("vectorized_operations");
 
-    for size in [10000, 100000, 1000000].iter() {
+    for size in [10_000, 100_000, 1_000_000].iter() {
         let vec1: Vec<f64> = (0..*size).map(|i| i as f64).collect();
         let vec2: Vec<f64> = (0..*size).map(|i| (i as f64).sin()).collect();
 
@@ -226,7 +228,7 @@ fn benchmark_vectorized_operations(c: &mut Criterion) {
 fn benchmark_iterator_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("iterator_operations");
 
-    for size in [10000, 100000, 1000000].iter() {
+    for size in [10_000, 100_000, 1_000_000].iter() {
         let data: Vec<f64> = (0..*size).map(|i| (i as f64).sin()).collect();
 
         group.bench_with_input(
