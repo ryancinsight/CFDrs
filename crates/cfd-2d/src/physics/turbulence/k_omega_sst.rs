@@ -155,15 +155,36 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KOmegaSSTModel<
         let omega_min = T::from_f64(OMEGA_MIN).unwrap_or_else(T::zero);
         let a1 = T::from_f64(SST_ALPHA_1).unwrap_or_else(T::one);
 
-        // SST limiter for eddy viscosity
+        // Simplified limiter without strain rate (used when strain rate not available)
+        // Valid for attached boundary layers per Menter (1994)
         let nu_t_unlimited = k / omega.max(omega_min);
-
-        // Apply SST limiter - Bradshaw assumption per Menter (1994)
-        // νt = a1*k / max(a1*ω, S*F2) where S is strain rate magnitude
-        // Current implementation uses simplified limiter (without S*F2 term)
-        // which is valid for attached boundary layers. Full limiter with strain
-        // rate requires velocity gradient field access in trait signature.
         density * nu_t_unlimited.min(a1 * k / omega.max(omega_min))
+    }
+
+    fn turbulent_viscosity_with_limiter(
+        &self,
+        k: T,
+        omega: T,
+        density: T,
+        strain_rate_magnitude: T,
+        f2: T,
+    ) -> T {
+        let omega_min = T::from_f64(OMEGA_MIN).unwrap_or_else(T::zero);
+        let a1 = T::from_f64(SST_ALPHA_1).unwrap_or_else(T::one);
+
+        // Full SST limiter - Bradshaw assumption per Menter (1994)
+        // νt = a1*k / max(a1*ω, S*F2)
+        // where S is strain rate magnitude and F2 is blending function
+        // 
+        // This ensures that the turbulent viscosity satisfies the Bradshaw
+        // assumption: τ = ρ*a1*k in the logarithmic layer and wake region
+        // 
+        // Reference: Menter, F.R. (1994). "Two-equation eddy-viscosity turbulence 
+        // models for engineering applications." AIAA Journal, 32(8), 1598-1605.
+        let denominator = (a1 * omega).max(strain_rate_magnitude * f2);
+        let nu_t = a1 * k / denominator.max(omega_min);
+        
+        density * nu_t
     }
 
     fn production_term(&self, velocity_gradient: &[[T; 2]; 2], turbulent_viscosity: T) -> T {
