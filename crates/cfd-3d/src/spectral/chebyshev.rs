@@ -110,12 +110,77 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
         &self.points
     }
 
+    /// Get collocation points (alias for compatibility)
+    #[must_use]
+    pub fn collocation_points(&self) -> &[T] {
+        &self.points
+    }
+
+    /// Get differentiation matrix reference
+    #[must_use]
+    pub fn diff_matrix(&self) -> &DMatrix<T> {
+        &self.diff_matrix
+    }
+
     /// Get second derivative matrix (D²)
     pub fn second_derivative_matrix(&self) -> Result<DMatrix<T>> {
         // Second derivative is D * D
         Ok(&self.diff_matrix * &self.diff_matrix)
     }
+
+    /// Interpolate function values to arbitrary point
+    /// 
+    /// Uses barycentric Lagrange interpolation for stability
+    /// Reference: Berrut & Trefethen (2004). "Barycentric Lagrange Interpolation"
+    pub fn interpolate(&self, values: &[T], x: T) -> Result<T> {
+        if values.len() != self.n {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                format!("Expected {} values, got {}", self.n, values.len()),
+            ));
+        }
+
+        let two = T::from_f64(2.0).ok_or_else(|| {
+            cfd_core::error::Error::InvalidConfiguration("Cannot convert constant".into())
+        })?;
+
+        // Barycentric weights for Chebyshev points
+        let mut weights = vec![T::one(); self.n];
+        weights[0] = T::one() / two;
+        weights[self.n - 1] = T::from_i32(if (self.n - 1) % 2 == 0 { 1 } else { -1 })
+            .ok_or_else(|| {
+                cfd_core::error::Error::InvalidConfiguration("Cannot convert sign".into())
+            })? / two;
+
+        for j in 1..self.n - 1 {
+            weights[j] = T::from_i32(if j % 2 == 0 { 1 } else { -1 }).ok_or_else(|| {
+                cfd_core::error::Error::InvalidConfiguration("Cannot convert sign".into())
+            })?;
+        }
+
+        // Check if x matches a grid point
+        for (j, &x_j) in self.points.iter().enumerate() {
+            if (x - x_j).abs() < T::from_f64(1e-14).unwrap_or_else(T::zero) {
+                return Ok(values[j]);
+            }
+        }
+
+        // Barycentric interpolation
+        let mut numer = T::zero();
+        let mut denom = T::zero();
+
+        for j in 0..self.n {
+            let term = weights[j] / (x - self.points[j]);
+            numer += term * values[j];
+            denom += term;
+        }
+
+        Ok(numer / denom)
+    }
 }
 
 // ChebyshevDifferentiation struct removed as it was redundant.
 // Users can call differentiate() directly on ChebyshevPolynomial instances.
+
+#[cfg(test)]
+#[path = "chebyshev_tests.rs"]
+mod chebyshev_tests;
