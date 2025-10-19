@@ -14,8 +14,8 @@ mod literature_validation_tests {
     use crate::physics::turbulence::k_omega_sst::KOmegaSSTModel;
     use crate::physics::turbulence::spalart_allmaras::SpalartAllmaras;
     use approx::assert_relative_eq;
-    use nalgebra::RealField;
-    use num_traits::FromPrimitive;
+    
+    
 
     /// Test k-ω SST model initialization with literature-based parameters
     /// Reference: Menter (1994) - Standard model coefficients
@@ -117,10 +117,10 @@ mod literature_validation_tests {
             let nu_t = model.eddy_viscosity(nu_tilde, molecular_visc);
             
             // Physical realizability: νt ≥ 0
-            assert!(nu_t >= 0.0, "Eddy viscosity must be non-negative for scale {}", scale);
+            assert!(nu_t >= 0.0, "Eddy viscosity must be non-negative for scale {scale}");
             
             // Eddy viscosity should be finite
-            assert!(nu_t.is_finite(), "Eddy viscosity must be finite for scale {}", scale);
+            assert!(nu_t.is_finite(), "Eddy viscosity must be finite for scale {scale}");
         }
     }
 
@@ -148,7 +148,7 @@ mod literature_validation_tests {
             let model: KOmegaSSTModel<f64> = KOmegaSSTModel::new(nx, ny);
             
             // Model should initialize correctly for all resolutions
-            assert!(nx * ny > 0, "Grid resolution {}x{} valid", nx, ny);
+            assert!(nx * ny > 0, "Grid resolution {nx}x{ny} valid");
         }
     }
 

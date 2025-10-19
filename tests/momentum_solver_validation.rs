@@ -113,13 +113,12 @@ fn test_momentum_solver_pure_diffusion() {
 
     let error_percent = ((u_numerical - u_analytical) / u_analytical * 100.0).abs();
 
-    println!("Center velocity: numerical = {:.3} m/s, analytical = {:.3} m/s, error = {:.1}%",
-             u_numerical, u_analytical, error_percent);
+    println!("Center velocity: numerical = {u_numerical:.3} m/s, analytical = {u_analytical:.3} m/s, error = {error_percent:.1}%");
 
     // With upwind convection on high-Peclet flow, expect significant error
     // This documents the known limitation
     assert!(error_percent < 100.0, 
-            "Error should be high but not completely broken: {}%", error_percent);
+            "Error should be high but not completely broken: {error_percent}%");
 }
 
 #[test]
@@ -199,7 +198,7 @@ fn test_momentum_solver_deferred_correction() {
 
         if max_change < convergence_tolerance {
             converged_steps = step + 1;
-            println!("Deferred correction converged in {} iterations", converged_steps);
+            println!("Deferred correction converged in {converged_steps} iterations");
             break;
         }
     }
@@ -218,8 +217,7 @@ fn test_momentum_solver_deferred_correction() {
 
     let error_percent = ((u_numerical - u_analytical) / u_analytical * 100.0).abs();
 
-    println!("Deferred correction: numerical = {:.3} m/s, analytical = {:.3} m/s, error = {:.1}%",
-             u_numerical, u_analytical, error_percent);
+    println!("Deferred correction: numerical = {u_numerical:.3} m/s, analytical = {u_analytical:.3} m/s, error = {error_percent:.1}%");
 
     // Deferred correction improves convergence rate but doesn't fully solve high-Peclet issue
     // This is a known limitation documented in Sprint 1.33.0/1.34.0

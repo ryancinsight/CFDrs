@@ -112,8 +112,8 @@ mod tests {
         let ratio2 = errors[1] / errors[2];
         
         // Allow some tolerance due to fixed-point iteration convergence
-        assert!(ratio1 > 2.5, "Convergence ratio 1: {} should be > 2.5", ratio1);
-        assert!(ratio2 > 2.5, "Convergence ratio 2: {} should be > 2.5", ratio2);
+        assert!(ratio1 > 2.5, "Convergence ratio 1: {ratio1} should be > 2.5");
+        assert!(ratio2 > 2.5, "Convergence ratio 2: {ratio2} should be > 2.5");
         
         // Verify errors are decreasing
         assert!(errors[1] < errors[0]);
@@ -230,8 +230,8 @@ mod tests {
         let ratio2 = errors[1] / errors[2];
         
         // Allow some tolerance due to fixed-point iteration convergence
-        assert!(ratio1 > 4.0, "Convergence ratio 1: {} should be > 4.0 for BDF3", ratio1);
-        assert!(ratio2 > 4.0, "Convergence ratio 2: {} should be > 4.0 for BDF3", ratio2);
+        assert!(ratio1 > 4.0, "Convergence ratio 1: {ratio1} should be > 4.0 for BDF3");
+        assert!(ratio2 > 4.0, "Convergence ratio 2: {ratio2} should be > 4.0 for BDF3");
         
         // Verify errors are decreasing
         assert!(errors[1] < errors[0]);
@@ -289,7 +289,7 @@ mod tests {
         // Take several steps
         let mut y = y0;
         for step in 0..10 {
-            let t = (step as f64) * dt;
+            let t = f64::from(step) * dt;
             y = integrator.step(f, &y, t, dt);
         }
         
@@ -335,8 +335,8 @@ mod tests {
         let ratio2 = errors[1] / errors[2];
         
         // Allow some tolerance due to fixed-point iteration convergence
-        assert!(ratio1 > 1.5, "Convergence ratio 1: {} should be > 1.5", ratio1);
-        assert!(ratio2 > 1.5, "Convergence ratio 2: {} should be > 1.5", ratio2);
+        assert!(ratio1 > 1.5, "Convergence ratio 1: {ratio1} should be > 1.5");
+        assert!(ratio2 > 1.5, "Convergence ratio 2: {ratio2} should be > 1.5");
         
         // Verify errors are decreasing
         assert!(errors[1] < errors[0]);
@@ -437,8 +437,8 @@ mod tests {
         let ratio2 = errors[1] / errors[2];
         
         // Allow some tolerance due to fixed-point iteration convergence
-        assert!(ratio1 > 2.5, "Convergence ratio 1: {} should be > 2.5", ratio1);
-        assert!(ratio2 > 2.5, "Convergence ratio 2: {} should be > 2.5", ratio2);
+        assert!(ratio1 > 2.5, "Convergence ratio 1: {ratio1} should be > 2.5");
+        assert!(ratio2 > 2.5, "Convergence ratio 2: {ratio2} should be > 2.5");
         
         // Verify errors are decreasing
         assert!(errors[1] < errors[0]);
@@ -541,8 +541,8 @@ mod tests {
         let ratio2 = errors[1] / errors[2];
         
         // AB2 is explicit, may have slightly lower ratios than implicit methods
-        assert!(ratio1 > 2.0, "Convergence ratio 1: {} should be > 2.0 for AB2", ratio1);
-        assert!(ratio2 > 2.0, "Convergence ratio 2: {} should be > 2.0 for AB2", ratio2);
+        assert!(ratio1 > 2.0, "Convergence ratio 1: {ratio1} should be > 2.0 for AB2");
+        assert!(ratio2 > 2.0, "Convergence ratio 2: {ratio2} should be > 2.0 for AB2");
         
         // Verify errors are decreasing
         assert!(errors[1] < errors[0]);

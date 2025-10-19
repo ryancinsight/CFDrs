@@ -22,8 +22,7 @@ fn test_calculate_poiseuille_avg_velocity() {
     // Verify the calculation produces expected result
     assert!(
         (v_avg - 1.25).abs() < 1e-6,
-        "Poiseuille average velocity calculation: expected 1.25, got {}",
-        v_avg
+        "Poiseuille average velocity calculation: expected 1.25, got {v_avg}"
     );
 }
 
@@ -39,7 +38,6 @@ fn test_calculate_reynolds_number() {
 
     assert!(
         (re - 100000.0).abs() < 1.0,
-        "Reynolds number calculation: expected 100000, got {}",
-        re
+        "Reynolds number calculation: expected 100000, got {re}"
     );
 }

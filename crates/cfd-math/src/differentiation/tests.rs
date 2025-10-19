@@ -29,7 +29,7 @@ mod tests {
         let fd = FiniteDifference::central(h);
 
         // Test on quadratic polynomial: f(x) = x², f'(x) = 2x
-        let x_points: Vec<f64> = (0..11).map(|i| i as f64 * h).collect();
+        let x_points: Vec<f64> = (0..11).map(|i| f64::from(i) * h).collect();
         let f_values: Vec<f64> = x_points.iter().map(|&x| x.powi(2)).collect();
         let derivatives = fd
             .first_derivative(&f_values)
@@ -60,7 +60,7 @@ mod tests {
             let fd = FiniteDifference::central(h);
 
             // Create local grid around test point
-            let x_values = vec![x_test - h, x_test, x_test + h];
+            let x_values = [x_test - h, x_test, x_test + h];
             let f_values: Vec<f64> = x_values.iter().map(|&x| test_function(x)).collect();
 
             let derivatives = fd
@@ -78,8 +78,7 @@ mod tests {
             // Should be approximately 4 (since h is halved each time, error should decrease by factor of 4)
             assert!(
                 ratio > 3.5 && ratio < 4.5,
-                "Convergence rate not quadratic: ratio = {}",
-                ratio
+                "Convergence rate not quadratic: ratio = {ratio}"
             );
         }
     }
@@ -155,7 +154,7 @@ mod tests {
             .expect("Failed to compute finite differences in test");
 
         // Check center point (1,1): should have gradient (2, 2, 0)
-        let center_grad = &gradients[1 * nx + 1];
+        let center_grad = &gradients[nx + 1];
         assert_relative_eq!(center_grad.x, 2.0, epsilon = 1e-10);
         assert_relative_eq!(center_grad.y, 2.0, epsilon = 1e-10);
     }
@@ -209,7 +208,7 @@ mod tests {
             .expect("Failed to compute finite differences in test");
 
         // Curl should be 2.0 everywhere for this field (interior points)
-        assert_relative_eq!(curl[1 * nx + 1], 2.0, epsilon = 1e-10); // Center point
+        assert_relative_eq!(curl[nx + 1], 2.0, epsilon = 1e-10); // Center point
     }
 
     #[test]
@@ -239,7 +238,7 @@ mod tests {
             .expect("Failed to compute finite differences in test");
 
         // Check center point (1,1,1): should have gradient (2, 2, 2)
-        let center_grad = &gradients[1 * nx * ny + 1 * nx + 1];
+        let center_grad = &gradients[nx * ny + nx + 1];
         assert_relative_eq!(center_grad.x, 2.0, epsilon = 1e-10);
         assert_relative_eq!(center_grad.y, 2.0, epsilon = 1e-10);
         assert_relative_eq!(center_grad.z, 2.0, epsilon = 1e-10);
@@ -262,7 +261,7 @@ mod tests {
         for scheme in &schemes {
             let fd = FiniteDifference::new(*scheme, spacing);
             let result = fd.first_derivative(&values);
-            assert!(result.is_ok(), "Scheme {:?} failed", scheme);
+            assert!(result.is_ok(), "Scheme {scheme:?} failed");
         }
     }
 

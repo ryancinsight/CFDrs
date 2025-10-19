@@ -104,14 +104,14 @@ fn test_poiseuille_flow_convergence() {
         }
 
         if max_change < convergence_tolerance {
-            println!("Converged after {} iterations", step);
+            println!("Converged after {step} iterations");
             converged = true;
             break;
         }
 
         if step % 100 == 0 {
             let u_center = fields.u.at(nx / 2, ny / 2);
-            println!("Step {}: max change = {:.2e}, u_center = {:.6}", step, max_change, u_center);
+            println!("Step {step}: max change = {max_change:.2e}, u_center = {u_center:.6}");
         }
     }
 
@@ -136,8 +136,7 @@ fn test_poiseuille_flow_convergence() {
 
         if j % 5 == 0 {
             println!(
-                "{:.3}\t\t{:.6}\t{:.6}\t{:.2e}",
-                y, u_numerical, u_analytical, error
+                "{y:.3}\t\t{u_numerical:.6}\t{u_analytical:.6}\t{error:.2e}"
             );
         }
     }
@@ -145,8 +144,8 @@ fn test_poiseuille_flow_convergence() {
     l2_error = l2_error.sqrt();
 
     println!("\nError metrics:");
-    println!("Max error: {:.2e}", max_error);
-    println!("L2 error: {:.2e}", l2_error);
+    println!("Max error: {max_error:.2e}");
+    println!("L2 error: {l2_error:.2e}");
 
     // STRICT VALIDATION: Solver must produce physically meaningful results
     // A functional solver should achieve <1% error vs analytical solution
@@ -163,8 +162,7 @@ fn test_poiseuille_flow_convergence() {
     let l2_acceptable_error = 0.5; // Strict L2 norm requirement
     assert!(
         l2_error < l2_acceptable_error,
-        "SOLVER FAILURE: L2 error {:.2e} exceeds acceptable limit {:.2e}",
-        l2_error, l2_acceptable_error
+        "SOLVER FAILURE: L2 error {l2_error:.2e} exceeds acceptable limit {l2_acceptable_error:.2e}"
     );
 
     let elapsed = start.elapsed();
@@ -216,8 +214,7 @@ fn test_poiseuille_mass_conservation() {
     }
 
     println!(
-        "Maximum divergence in Poiseuille flow: {:.2e}",
-        max_divergence
+        "Maximum divergence in Poiseuille flow: {max_divergence:.2e}"
     );
     assert!(max_divergence < 1e-10, "Flow is not divergence-free");
 
@@ -232,8 +229,7 @@ fn test_poiseuille_mass_conservation() {
 
     let flux_error = (inlet_flux - outlet_flux).abs();
     println!(
-        "Inlet flux: {:.6}, Outlet flux: {:.6}, Error: {:.2e}",
-        inlet_flux, outlet_flux, flux_error
+        "Inlet flux: {inlet_flux:.6}, Outlet flux: {outlet_flux:.6}, Error: {flux_error:.2e}"
     );
 
     assert!(flux_error < 1e-10, "Mass flux not conserved");
