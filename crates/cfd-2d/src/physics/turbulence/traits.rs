@@ -29,10 +29,12 @@ pub trait TurbulenceModel<T: RealField + Copy> {
         k: T,
         omega: T,
         density: T,
-        _strain_rate_magnitude: T,
-        _f2: T,
+        strain_rate_magnitude: T,
+        f2: T,
     ) -> T {
         // Default implementation without limiter (for k-ε and SA models)
+        // Parameters intentionally unused in default implementation
+        let _ = (strain_rate_magnitude, f2);
         self.turbulent_viscosity(k, omega, density)
     }
 
