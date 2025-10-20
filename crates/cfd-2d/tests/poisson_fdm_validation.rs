@@ -28,6 +28,7 @@ fn test_poisson_2d_sinusoidal_solution() {
     let mut config = FdmConfig::default();
     config.base.convergence.max_iterations = 10000;
     config.base.convergence.tolerance = 1e-8;
+    config.base.execution.verbose = true; // Enable verbose output
     let solver = PoissonSolver::new(config);
 
     // Manufactured solution: φ = sin(πx)sin(πy)
@@ -71,6 +72,63 @@ fn test_poisson_2d_sinusoidal_solution() {
     assert!(max_error < 0.02, "Max error {} too large", max_error);
 }
 
+/// Debug test with small 5x5 grid to understand accuracy issues
+#[test]
+fn test_poisson_debug_5x5() {
+    let nx = 5;
+    let ny = 5;
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
+
+    let mut config = FdmConfig::default();
+    config.base.convergence.max_iterations = 10000;
+    config.base.convergence.tolerance = 1e-8;
+    config.base.execution.verbose = true;
+    let solver = PoissonSolver::new(config);
+
+    // Manufactured solution: φ = sin(πx)sin(πy)
+    let mut source = HashMap::new();
+    for (i, j) in grid.iter() {
+        let x = i as f64 / (nx - 1) as f64;
+        let y = j as f64 / (ny - 1) as f64;
+        let f = -2.0 * PI * PI * (PI * x).sin() * (PI * y).sin();
+        source.insert((i, j), f);
+    }
+
+    // Homogeneous Dirichlet BC
+    let mut boundary_values = HashMap::new();
+    for (i, j) in grid.iter() {
+        if i == 0 || i == nx - 1 || j == 0 || j == ny - 1 {
+            boundary_values.insert((i, j), 0.0);
+        }
+    }
+
+    let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
+
+    // Check center point (2, 2) at (0.5, 0.5)
+    let x = 0.5;
+    let y = 0.5;
+    let analytical = (PI * x).sin() * (PI * y).sin();
+    let computed = solution[&(2, 2)];
+    
+    println!("Center point (2,2) at (0.5, 0.5):");
+    println!("  Analytical: {}", analytical);
+    println!("  Computed: {}", computed);
+    println!("  Error: {}", (computed - analytical).abs());
+    println!("  Relative error: {}%", 100.0 * (computed - analytical).abs() / analytical);
+    
+    // Check all interior points
+    for i in 1..nx-1 {
+        for j in 1..ny-1 {
+            let x = i as f64 / (nx - 1) as f64;
+            let y = j as f64 / (ny - 1) as f64;
+            let analytical = (PI * x).sin() * (PI * y).sin();
+            let computed = solution[&(i, j)];
+            println!("({},{}) at ({:.2},{:.2}): analytical={:.4}, computed={:.4}, error={:.4}",
+                     i, j, x, y, analytical, computed, (computed - analytical).abs());
+        }
+    }
+}
+
 /// Test Laplace equation (f=0) with non-homogeneous Dirichlet BC
 /// Validates steady-state heat conduction
 #[test]
@@ -79,7 +137,9 @@ fn test_poisson_2d_laplace_equation() {
     let ny = 11;
     let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
 
-    let config = FdmConfig::default();
+    let mut config = FdmConfig::default();
+    config.base.convergence.tolerance = 1e-10;
+    config.base.convergence.max_iterations = 10000;
     let solver = PoissonSolver::new(config);
 
     // Zero source: Laplace equation ∇²φ = 0
@@ -102,6 +162,10 @@ fn test_poisson_2d_laplace_equation() {
         for j in 1..ny - 2 {
             let phi_j = solution[&(i, j)];
             let phi_jp1 = solution[&(i, j + 1)];
+            if phi_jp1 < phi_j {
+                println!("Non-monotonic at ({}, {}): phi[{}]={:.10}, phi[{}]={:.10}, diff={:.2e}",
+                         i, j, j, phi_j, j+1, phi_jp1, phi_j - phi_jp1);
+            }
             assert!(phi_jp1 >= phi_j, "Solution not monotonic at ({}, {})", i, j);
         }
     }

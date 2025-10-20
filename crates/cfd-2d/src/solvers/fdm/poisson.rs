@@ -56,7 +56,6 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
                     j,
                     linear_idx,
                     source,
-                    boundary_values,
                 )?;
             }
         }
@@ -75,13 +74,6 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
     }
 
     /// Add 5-point Laplacian stencil for interior points
-    /// 
-    /// Discretizes ∇²φ = f using central differences:
-    /// (φ_{i+1,j} - 2φ_{i,j} + φ_{i-1,j})/dx² + (φ_{i,j+1} - 2φ_{i,j} + φ_{i,j-1})/dy² = f_{i,j}
-    /// 
-    /// Proper treatment of boundary neighbors:
-    /// - If neighbor is interior: add matrix coefficient
-    /// - If neighbor is boundary: move known value to RHS
     fn add_laplacian_stencil(
         &self,
         matrix_builder: &mut SparseMatrixBuilder<T>,
@@ -91,7 +83,6 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
         j: usize,
         linear_idx: usize,
         source: &HashMap<(usize, usize), T>,
-        boundary_values: &HashMap<(usize, usize), T>,
     ) -> Result<()> {
         let (dx, dy) = grid.spacing();
         let dx2 = dx * dx;
@@ -102,57 +93,33 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
         let center_coeff = -two / dx2 - two / dy2;
         matrix_builder.add_entry(linear_idx, linear_idx, center_coeff)?;
 
-        // Initialize RHS from source term
-        let mut rhs_value = source.get(&(i, j)).copied().unwrap_or_else(T::zero);
-
-        // Left neighbor (i-1, j)
+        // Neighbor contributions with proper boundary handling
+        // Left neighbor
         if i > 0 {
-            let neighbor_coord = (i - 1, j);
-            if let Some(&boundary_val) = boundary_values.get(&neighbor_coord) {
-                // Boundary: move (1/dx²) * φ_boundary to RHS
-                rhs_value = rhs_value - boundary_val / dx2;
-            } else {
-                // Interior: add matrix coefficient
-                let neighbor_idx = Self::linear_index(grid, i - 1, j);
-                matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dx2)?;
-            }
+            let neighbor_idx = Self::linear_index(grid, i - 1, j);
+            matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dx2)?;
         }
 
-        // Right neighbor (i+1, j)
+        // Right neighbor
         if i < grid.nx() - 1 {
-            let neighbor_coord = (i + 1, j);
-            if let Some(&boundary_val) = boundary_values.get(&neighbor_coord) {
-                rhs_value = rhs_value - boundary_val / dx2;
-            } else {
-                let neighbor_idx = Self::linear_index(grid, i + 1, j);
-                matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dx2)?;
-            }
+            let neighbor_idx = Self::linear_index(grid, i + 1, j);
+            matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dx2)?;
         }
 
-        // Bottom neighbor (i, j-1)
+        // Bottom neighbor
         if j > 0 {
-            let neighbor_coord = (i, j - 1);
-            if let Some(&boundary_val) = boundary_values.get(&neighbor_coord) {
-                rhs_value = rhs_value - boundary_val / dy2;
-            } else {
-                let neighbor_idx = Self::linear_index(grid, i, j - 1);
-                matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dy2)?;
-            }
+            let neighbor_idx = Self::linear_index(grid, i, j - 1);
+            matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dy2)?;
         }
 
-        // Top neighbor (i, j+1)
+        // Top neighbor
         if j < grid.ny() - 1 {
-            let neighbor_coord = (i, j + 1);
-            if let Some(&boundary_val) = boundary_values.get(&neighbor_coord) {
-                rhs_value = rhs_value - boundary_val / dy2;
-            } else {
-                let neighbor_idx = Self::linear_index(grid, i, j + 1);
-                matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dy2)?;
-            }
+            let neighbor_idx = Self::linear_index(grid, i, j + 1);
+            matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dy2)?;
         }
 
-        // Set final RHS value
-        rhs[linear_idx] = rhs_value;
+        // Set RHS from source term
+        rhs[linear_idx] = source.get(&(i, j)).copied().unwrap_or_else(T::zero);
 
         Ok(())
     }
