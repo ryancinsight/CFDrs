@@ -32,9 +32,17 @@ impl<T: RealField + FromPrimitive + Copy> StructuredGrid2D<T> {
                 "Grid dimensions must be positive".to_string(),
             ));
         }
+        
+        if nx == 1 || ny == 1 {
+            return Err(Error::InvalidConfiguration(
+                "Grid must have at least 2 points in each direction".to_string(),
+            ));
+        }
 
-        let dx = (x_max - x_min) / T::from_usize(nx).unwrap_or_else(|| T::zero());
-        let dy = (y_max - y_min) / T::from_usize(ny).unwrap_or_else(|| T::zero());
+        // Grid spacing: For n points, there are (n-1) intervals
+        // This is the standard finite difference discretization
+        let dx = (x_max - x_min) / T::from_usize(nx - 1).unwrap_or_else(|| T::one());
+        let dy = (y_max - y_min) / T::from_usize(ny - 1).unwrap_or_else(|| T::one());
 
         Ok(Self {
             nx,
