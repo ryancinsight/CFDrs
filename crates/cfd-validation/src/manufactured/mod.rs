@@ -20,7 +20,7 @@ pub use advection::ManufacturedAdvection;
 pub use advection_diffusion::ManufacturedAdvectionDiffusion;
 pub use burgers::ManufacturedBurgers;
 pub use diffusion::ManufacturedDiffusion;
-pub use navier_stokes::ManufacturedNavierStokes;
+pub use navier_stokes::{ManufacturedNavierStokes, TaylorGreenManufactured};
 
 /// Trait for manufactured solutions
 pub trait ManufacturedSolution<T: RealField + Float> {
