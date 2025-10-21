@@ -118,6 +118,32 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
                             new_temperature[*i][self.ny - 2] + *gradient * dy;
                     }
                 }
+                BoundaryCondition::Periodic { partner: _ } => {
+                    // Periodic BC: T(boundary) = T(partner_boundary)
+                    if *i == 0 {
+                        new_temperature[0][*j] = new_temperature[self.nx - 1][*j];
+                    } else if *i == self.nx - 1 {
+                        new_temperature[self.nx - 1][*j] = new_temperature[0][*j];
+                    }
+                    if *j == 0 {
+                        new_temperature[*i][0] = new_temperature[*i][self.ny - 1];
+                    } else if *j == self.ny - 1 {
+                        new_temperature[*i][self.ny - 1] = new_temperature[*i][0];
+                    }
+                }
+                BoundaryCondition::Symmetry => {
+                    // Symmetry BC: zero normal gradient
+                    if *i == 0 {
+                        new_temperature[0][*j] = new_temperature[1][*j];
+                    } else if *i == self.nx - 1 {
+                        new_temperature[self.nx - 1][*j] = new_temperature[self.nx - 2][*j];
+                    }
+                    if *j == 0 {
+                        new_temperature[*i][0] = new_temperature[*i][1];
+                    } else if *j == self.ny - 1 {
+                        new_temperature[*i][self.ny - 1] = new_temperature[*i][self.ny - 2];
+                    }
+                }
                 _ => {}
             }
         }
