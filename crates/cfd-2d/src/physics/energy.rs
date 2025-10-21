@@ -54,7 +54,7 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
         dy: T,
         boundary_conditions: &HashMap<(usize, usize), BoundaryCondition<T>>,
     ) -> Result<()> {
-        let mut new_temperature = vec![vec![T::zero(); self.ny]; self.nx];
+        let mut new_temperature = self.temperature.clone();
 
         // Interior points
         for i in 1..self.nx - 1 {
@@ -104,13 +104,14 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
                     new_temperature[*i][*j] = *value;
                 }
                 BoundaryCondition::Neumann { gradient } => {
-                    // Apply gradient boundary condition
+                    // Apply gradient boundary condition using interior points
                     if *i == 0 {
                         new_temperature[0][*j] = new_temperature[1][*j] - *gradient * dx;
                     } else if *i == self.nx - 1 {
                         new_temperature[self.nx - 1][*j] =
                             new_temperature[self.nx - 2][*j] + *gradient * dx;
-                    } else if *j == 0 {
+                    }
+                    if *j == 0 {
                         new_temperature[*i][0] = new_temperature[*i][1] - *gradient * dy;
                     } else if *j == self.ny - 1 {
                         new_temperature[*i][self.ny - 1] =

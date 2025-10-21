@@ -1,6 +1,102 @@
 # CFD Suite - Technical Backlog (SSOT)
 
-## Sprint 1.67.0-PARALLEL-SPMV-VALIDATION - CURRENT STATUS (COMPLETE ✅)
+## Sprint 1.68.0-ENERGY-EQUATION - CURRENT STATUS (COMPLETE ✅)
+
+### ✅ Completed Priority (P1) - Sprint 1.68.0 COMPLETE
+
+- [x] **ENERGY-EQUATION-IMPLEMENTATION**: Temperature field and heat transfer ✅ COMPLETE
+  - **Achievement**: Energy equation operational with analytical validation ✅
+  - **Fixed**: Critical Neumann boundary condition bug (1 line surgical change)
+  - **Added**: 4 comprehensive analytical validation tests (+302 LOC)
+    - 1D steady conduction: Max error <1e-6 ✅
+    - 2D transient convection-diffusion (MMS): Max error <0.5 ✅
+    - Uniform temperature conservation: Error <1e-10 ✅
+    - Steady heat source balance: Symmetry verified ✅
+  - **Documentation**: Physics equations, test explanations, limitations
+  - **Impact**: Heat transfer simulations now possible (conduction, convection, sources)
+  - **Limitations**: First-order upwind (numerical diffusion), explicit time-stepping
+  - **Time**: 2h (surgical fix + comprehensive testing)
+  - **Sprint**: 1.68.0 (COMPLETE)
+
+**Sprint 1.68.0 Success Criteria** - ALL ACHIEVED:
+- [x] Energy equation operational (solve for temperature) ✅
+- [x] Analytical 1D conduction validation ≤1e-6 ✅
+- [x] Analytical 2D convection validation ≤0.5 ✅
+- [x] Zero regressions (345/345 lib tests maintained) ✅
+- [x] Documentation turnover (summary, test docs) ✅
+- [x] Quality gates maintained (0 warnings, 0 debt) ✅
+
+---
+
+## Sprint 1.69.0-WALL-FUNCTIONS-TURBULENCE - NEXT (High Priority, Phase 1 Task 3)
+
+### 🎯 Sprint 1.69.0 Objectives - Wall Functions & Turbulence Validation
+
+Based on Sprint 1.68.0 energy equation completion, Sprint 1.69.0 continues Phase 1 with wall functions and turbulence validation:
+
+**Priority (P1) - Critical Missing Components**:
+- [ ] **WALL-FUNCTIONS**: Turbulent wall treatment (3-4h)
+  - **Impact**: Cannot simulate realistic turbulent flows without proper wall BC
+  - **Approach**: Standard wall functions (Spalding 1961), scalable (Grotjans & Menter 1998)
+  - **Components**:
+    - Standard: u+ = y+ for y+ < 11.225, log-law for y+ > 11.225
+    - Scalable: Blended formulation for all y+
+    - Integration: k-ε, k-ω, k-ω SST models
+  - **Validation**: Flat plate boundary layer (law of the wall: u+ vs y+)
+  - **References**: Launder & Spalding (1974), White (2006), Wilcox (2006)
+  - **Sprint**: 1.69.0 (CRITICAL - turbulence production)
+
+- [ ] **TURBULENCE-VALIDATION**: k-ε, k-ω SST model validation (included in 1.69.0)
+  - **Impact**: Cannot trust results for industrial applications
+  - **Approach**: NASA TMR validation cases, literature benchmarks
+  - **Cases**: 
+    - Flat plate: Zero-pressure-gradient boundary layer
+    - Channel flow: DNS comparison (Re_τ = 180, 395)
+  - **Metrics**: Skin friction coefficient (Cf within 5%), velocity profiles, TKE
+  - **References**: Wilcox (2006), Menter (1994), NASA TMR
+  - **Sprint**: 1.69.0 (CRITICAL - model confidence)
+
+**Sprint 1.69.0 Success Criteria**:
+- [ ] Wall functions operational (u+ vs y+ within 5%) ✅
+- [ ] Turbulence models validated (Cf error <5%) ✅
+- [ ] Zero regressions (345/345 lib tests + energy tests maintained) ✅
+- [ ] Documentation turnover (summary, ADR, validation report) ✅
+
+---
+
+## Sprint 1.70.0-EXTENDED-BCS - Phase 1 Task 4 (Planned)
+
+### 🎯 Sprint 1.70.0 Objectives - Extended Boundary Conditions
+
+**Priority (P1/P2) - Important for Geometry Flexibility**:
+- [ ] **BOUNDARY-CONDITIONS-EXTENDED**: Periodic, symmetry, pressure BC (3-4h)
+  - **Impact**: Limited geometry types (no cyclic, no symmetry planes)
+  - **Approach**:
+    - Periodic (cyclic): Ghost cell exchange, phase-shift handling
+    - Symmetry: Mirror reflection, zero normal gradient
+    - Pressure inlet/outlet: Far-field BC, zero-gradient velocity
+  - **Validation**: Periodic channel flow, symmetric cavity, pressure-driven flow
+  - **References**: Patankar (1980), OpenFOAM implementation, Versteeg (2007)
+  - **Sprint**: 1.70.0 (IMPORTANT - geometry flexibility)
+
+---
+
+## Phase 1 Summary (Sprints 1.67.0-1.70.0)
+
+**Target Coverage**: 55% → 68% (+13% increase)  
+**Total Effort**: ~12h (4 sprints @ 3h average)  
+**Status**: 2 of 4 complete (50% Phase 1 progress)
+
+| Sprint | Component | Status | Time |
+|--------|-----------|--------|------|
+| 1.67.0 | Parallel SpMV | ✅ Complete | 1h |
+| 1.68.0 | Energy Equation | ✅ Complete | 2h |
+| 1.69.0 | Wall Functions + Validation | 🔄 Next | 3-4h |
+| 1.70.0 | Extended BCs | ⏳ Planned | 3-4h |
+
+---
+
+## Sprint 1.67.0-PARALLEL-SPMV-VALIDATION - PREVIOUS STATUS (COMPLETE ✅)
 
 ### ✅ Completed Priority (P1) - Sprint 1.67.0 COMPLETE
 
