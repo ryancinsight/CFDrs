@@ -1,6 +1,192 @@
 # CFD Suite - Technical Backlog (SSOT)
 
-## Sprint 1.65.0-PERSONA-COMPLIANCE-VALIDATION - CURRENT STATUS (COMPLETE ✅)
+## Sprint 1.66.0-GAP-ANALYSIS-COMPONENT-INTEGRATION - CURRENT STATUS (IN PROGRESS 🔄)
+
+### ✅ Completed Priority (P1) - Sprint 1.66.0 PARTIAL COMPLETE
+
+- [x] **GAP-ANALYSIS-CFD-SUITES**: Comprehensive capability assessment ✅ COMPLETE
+  - **Achievement**: Identified 90+ components across 14 categories vs leading CFD suites ✅
+  - **Analyzed**: OpenFOAM, SU2, Code_Saturne, MFEM, deal.II
+  - **Assessment**: Current 55% capability coverage, target 88% by Sprint 1.92.0
+  - **Priorities**: 🔴 Critical (13), 🟠 Important (21), 🟢 Nice-to-have (15)
+  - **Document**: docs/GAP_ANALYSIS_CFD_SUITES.md (comprehensive 400+ line analysis)
+  - **Roadmap**: 27-sprint plan (1.66.0-1.92.0, ~81h total)
+  - **Critical Path**: Wall functions → Energy equation → MPI parallelization
+  - **Time**: 4h (efficient evidence-based methodology)
+  - **Sprint**: 1.66.0 (COMPLETE)
+
+- [ ] **GAT-ITERATOR-REFACTORING**: Zero-allocation lending iterators (2-3h) ⚠️ IN PROGRESS
+  - **Evidence**: 75 clone operations identified (Sprint 1.61.0 audit, maintained in 1.65.0)
+  - **Target**: Eliminate unnecessary clones in computational hot paths (75 → ≤30, 60% reduction)
+  - **Approach**: Implement GAT-based lending iterator patterns per Rust 2025
+  - **Focus**: Time integrators, field operations, solver iterations
+  - **Validation**: Property-based tests (proptest), benchmark regression (criterion)
+  - **Sprint**: 1.66.0 (IN PROGRESS)
+
+**Sprint 1.66.0 Success Criteria**:
+- [x] Gap analysis complete (vs 5 major CFD suites) ✅
+- [x] Implementation roadmap defined (27 sprints, ~81h) ✅
+- [x] Priority matrix established (🔴/🟠/🟢) ✅
+- [ ] GAT refactoring complete (75 → ≤30 clones)
+- [ ] Zero regressions (345/345 tests maintained)
+- [ ] Documentation turnover (backlog, checklist, gap analysis)
+
+---
+
+## Sprint 1.67.0-1.70.0 - PHASE 1: PERFORMANCE & FOUNDATION (Next, ~12h)
+
+### 🎯 Critical Components for Production Readiness
+
+Based on gap analysis, these components are essential for production CFD applications:
+
+### 🔴 Priority 1: Critical Missing Components (Sprint 1.67.0-1.70.0)
+
+- [ ] **PARALLEL-SPMV-RAYON**: Parallel sparse matrix-vector multiplication (3-4h)
+  - **Evidence**: SIMD showed 27-32% regression (Sprint 1.55.0 benchmark validation)
+  - **Target**: 5-20x speedup via rayon parallelization
+  - **Approach**: Thread pool for CSR sparse matrix operations
+  - **Validation**: Criterion benchmarks, correctness tests, scaling studies
+  - **Sprint**: 1.67.0 (HIGH PRIORITY - replaces failed SIMD)
+
+- [ ] **ENERGY-EQUATION**: Temperature field and heat transfer (3-4h)
+  - **Impact**: Cannot simulate heat transfer problems (conjugate heat transfer, natural convection)
+  - **Approach**: Convection-diffusion equation for temperature
+  - **Coupling**: With momentum solver via Boussinesq (later sprint)
+  - **Validation**: Analytical heat transfer solutions (1D conduction, 2D convection)
+  - **References**: Patankar (1980), Versteeg (2007)
+  - **Sprint**: 1.68.0 (CRITICAL - foundational physics)
+
+- [ ] **WALL-FUNCTIONS**: Turbulent wall treatment (3-4h)
+  - **Impact**: Cannot simulate realistic turbulent flows without proper wall BC
+  - **Approach**: Standard wall functions (Spalding 1961), scalable (Grotjans & Menter 1998)
+  - **Integration**: k-ε, k-ω SST models
+  - **Validation**: Flat plate boundary layer, channel flow
+  - **References**: Launder & Spalding (1974), White (2006)
+  - **Sprint**: 1.69.0 (CRITICAL - turbulence production)
+
+- [ ] **TURBULENCE-VALIDATION**: k-ε, k-ω SST model validation (included in 1.69.0)
+  - **Impact**: Cannot trust results for industrial applications
+  - **Approach**: NASA TMR validation cases, literature benchmarks
+  - **Validation**: Skin friction, velocity profiles, turbulent kinetic energy
+  - **References**: Wilcox (2006), Menter (1994)
+  - **Sprint**: 1.69.0 (CRITICAL - model confidence)
+
+- [ ] **BOUNDARY-CONDITIONS-EXTENDED**: Periodic, symmetry, pressure BC (3-4h)
+  - **Impact**: Limited geometry types (no cyclic, no symmetry planes)
+  - **Approach**: Periodic (ghost cell exchange), symmetry (mirror reflection)
+  - **Validation**: Periodic channel, symmetric cavity
+  - **References**: Patankar (1980), OpenFOAM implementation
+  - **Sprint**: 1.70.0 (IMPORTANT - geometry flexibility)
+
+**Phase 1 Success Criteria** (Sprint 1.70.0 completion):
+- [ ] Parallel SpMV achieves ≥5x speedup ✅
+- [ ] Energy equation validated (analytical solutions) ✅
+- [ ] Wall functions operational (k-ε, k-ω SST) ✅
+- [ ] Turbulence models validated (NASA TMR) ✅
+- [ ] Extended BCs operational (periodic, symmetry) ✅
+- [ ] Zero regressions maintained ✅
+- [ ] Overall capability: 55% → 68% (+13% increase) ✅
+
+---
+
+## Sprint 1.71.0-1.75.0 - PHASE 2: ADVANCED DISCRETIZATION (Planned, ~15h)
+
+### 🟠 Priority 2: Important for Broad Applicability
+
+- [ ] **TVD-MUSCL-SCHEMES**: Higher-order convection schemes (6-8h)
+  - **Impact**: Reduced numerical diffusion, better accuracy
+  - **Approach**: Superbee, van Leer, minmod limiters; MUSCL reconstruction
+  - **Validation**: Shock tube, advection tests, cavity flow
+  - **References**: van Leer (1979), Barth & Jespersen (1989)
+  - **Sprint**: 1.71.0-1.72.0 (IMPORTANT - accuracy improvement)
+
+- [ ] **SIMPLEC-PIMPLE-ALGORITHMS**: Coupled pressure-velocity (6-8h)
+  - **Impact**: Better convergence for transient flows, reduced under-relaxation
+  - **Approach**: SIMPLEC (Van Doormaal 1984), PIMPLE (merged PISO-SIMPLE)
+  - **Validation**: Cavity flow, vortex shedding, unsteady benchmarks
+  - **References**: Van Doormaal & Raithby (1984), OpenFOAM user guide
+  - **Sprint**: 1.73.0-1.74.0 (IMPORTANT - convergence improvement)
+
+- [ ] **ADAPTIVE-TIME-STEPPING**: CFL-based and error-based adaptation (3-4h)
+  - **Impact**: Efficiency for transient simulations, stability control
+  - **Approach**: CFL condition, local truncation error estimation
+  - **Validation**: Stiff ODEs, transient benchmarks
+  - **References**: Hairer & Wanner (1996)
+  - **Sprint**: 1.75.0 (IMPORTANT - efficiency)
+
+**Phase 2 Success Criteria** (Sprint 1.75.0 completion):
+- [ ] TVD/MUSCL schemes operational ✅
+- [ ] SIMPLEC/PIMPLE converge faster than SIMPLE/PISO ✅
+- [ ] Adaptive time stepping reduces timesteps by 30-50% ✅
+- [ ] Zero regressions maintained ✅
+- [ ] Overall capability: 68% → 75% (+7% increase) ✅
+
+---
+
+## Sprint 1.76.0-1.82.0 - PHASE 3: PARALLELIZATION (Planned, ~21h)
+
+### 🔴 Priority 1: Critical for Scalability
+
+- [ ] **MPI-DOMAIN-DECOMPOSITION**: Distributed memory parallelization (9-12h)
+  - **Impact**: Cannot scale to large problems (>10M cells)
+  - **Approach**: MPI rank initialization, METIS partitioning, ghost cells
+  - **Validation**: Strong scaling, weak scaling, communication overhead
+  - **References**: METIS, ParMETIS, PETSc patterns
+  - **Sprint**: 1.76.0-1.78.0 (CRITICAL - scalability)
+
+- [ ] **PARALLEL-SOLVERS-IO**: Distributed linear algebra and I/O (6-8h)
+  - **Approach**: Distributed sparse matrices, parallel preconditioners
+  - **Integration**: Parallel VTK/HDF5 output, collective I/O
+  - **Validation**: Load balance, communication patterns
+  - **Sprint**: 1.79.0-1.80.0 (CRITICAL - distributed operations)
+
+- [ ] **LOAD-BALANCING**: Dynamic partitioning and repartitioning (6-8h)
+  - **Approach**: Zoltan patterns, dynamic load balancing
+  - **Integration**: Adaptivity, unbalanced workloads
+  - **Validation**: Imbalance metrics, repartitioning overhead
+  - **Sprint**: 1.81.0-1.82.0 (IMPORTANT - efficiency)
+
+**Phase 3 Success Criteria** (Sprint 1.82.0 completion):
+- [ ] Strong scaling: >80% efficiency up to 64 cores ✅
+- [ ] Weak scaling: >90% efficiency up to 256 cores ✅
+- [ ] MPI communication <10% total runtime ✅
+- [ ] Zero regressions maintained ✅
+- [ ] Overall capability: 75% → 82% (+7% increase) ✅
+
+---
+
+## Sprint 1.83.0-1.92.0 - PHASES 4-5: ADVANCED SOLVERS & PHYSICS (Planned, ~30h)
+
+### 🟠 Priority 2: Advanced Features
+
+- [ ] **AMG-MULTIGRID**: Algebraic multigrid solver (9-12h)
+  - **Impact**: Faster convergence for large systems (10x-100x speedup potential)
+  - **Approach**: Classical AMG (Ruge & Stüben 1987), coarsening strategies
+  - **Sprint**: 1.83.0-1.85.0
+
+- [ ] **UNSTRUCTURED-MESH-COMPLETE**: Full unstructured capability (6-8h)
+  - **Impact**: Complex geometry capability (CAD import, arbitrary shapes)
+  - **Sprint**: 1.86.0-1.87.0
+
+- [ ] **BUOYANCY-CONJUGATE-HT**: Natural convection and CHT (12-16h)
+  - **Impact**: Heat transfer applications (electronics, HVAC)
+  - **Sprint**: 1.88.0-1.91.0
+
+- [ ] **LES-TURBULENCE**: Large eddy simulation (3-4h)
+  - **Impact**: Time-dependent turbulence (vortex shedding, separation)
+  - **Sprint**: 1.92.0
+
+**Phases 4-5 Success Criteria** (Sprint 1.92.0 completion):
+- [ ] AMG solver operational (V/W/F cycles) ✅
+- [ ] Unstructured mesh support (triangle, quad, tet, hex) ✅
+- [ ] Conjugate heat transfer validated ✅
+- [ ] LES Smagorinsky model operational ✅
+- [ ] Zero regressions maintained ✅
+- [ ] **Overall capability: 82% → 88% (+6% increase)** ✅
+
+---
+
+## Sprint 1.65.0-PERSONA-COMPLIANCE-VALIDATION - PREVIOUS STATUS (COMPLETE ✅)
 
 ### ✅ Completed Priority (P1) - Sprint 1.65.0 COMPLETE
 
