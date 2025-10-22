@@ -146,13 +146,13 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
         // Barycentric weights for Chebyshev points
         let mut weights = vec![T::one(); self.n];
         weights[0] = T::one() / two;
-        weights[self.n - 1] = T::from_i32(if (self.n - 1) % 2 == 0 { 1 } else { -1 })
+        weights[self.n - 1] = T::from_i32(if (self.n - 1).is_multiple_of(2) { 1 } else { -1 })
             .ok_or_else(|| {
                 cfd_core::error::Error::InvalidConfiguration("Cannot convert sign".into())
             })? / two;
 
-        for j in 1..self.n - 1 {
-            weights[j] = T::from_i32(if j % 2 == 0 { 1 } else { -1 }).ok_or_else(|| {
+        for (j, weight) in weights.iter_mut().enumerate().take(self.n - 1).skip(1) {
+            *weight = T::from_i32(if j % 2 == 0 { 1 } else { -1 }).ok_or_else(|| {
                 cfd_core::error::Error::InvalidConfiguration("Cannot convert sign".into())
             })?;
         }

@@ -60,6 +60,31 @@ fn apply_west_boundary<T: RealField + Copy + FromPrimitive>(
                     rhs[idx] = T::zero();
                 }
             }
+            BoundaryCondition::Periodic { partner: _ } => {
+                // Periodic BC: u(0,j) = u(nx-1,j)
+                // Implemented as: u[idx] - u[idx + nx - 1] = 0
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx + nx - 1, -T::one())?;
+                rhs[idx] = T::zero();
+            }
+            BoundaryCondition::Symmetry => {
+                // Symmetry BC: zero normal gradient
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx + 1, -T::one())?;
+                rhs[idx] = T::zero();
+            }
+            BoundaryCondition::PressureInlet { .. } | BoundaryCondition::PressureOutlet { .. } => {
+                // Pressure BC: zero gradient velocity (extrapolate from interior)
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx + 1, -T::one())?;
+                rhs[idx] = T::zero();
+            }
+            BoundaryCondition::Outflow => {
+                // Outflow BC: zero gradient
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx + 1, -T::one())?;
+                rhs[idx] = T::zero();
+            }
             _ => {}
         }
     }
@@ -90,6 +115,31 @@ fn apply_east_boundary<T: RealField + Copy + FromPrimitive>(
                     matrix.add_entry(idx, idx - 1, -T::one())?;
                     rhs[idx] = T::zero();
                 }
+            }
+            BoundaryCondition::Periodic { partner: _ } => {
+                // Periodic BC: u(nx-1,j) = u(0,j)
+                // Implemented as: u[idx] - u[j * nx] = 0
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, j * nx, -T::one())?;
+                rhs[idx] = T::zero();
+            }
+            BoundaryCondition::Symmetry => {
+                // Symmetry BC: zero normal gradient
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx - 1, -T::one())?;
+                rhs[idx] = T::zero();
+            }
+            BoundaryCondition::PressureInlet { .. } | BoundaryCondition::PressureOutlet { .. } => {
+                // Pressure BC: zero gradient velocity (extrapolate from interior)
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx - 1, -T::one())?;
+                rhs[idx] = T::zero();
+            }
+            BoundaryCondition::Outflow => {
+                // Outflow BC: zero gradient
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx - 1, -T::one())?;
+                rhs[idx] = T::zero();
             }
             _ => {}
         }
@@ -122,6 +172,31 @@ fn apply_north_boundary<T: RealField + Copy + FromPrimitive>(
                     rhs[idx] = T::zero();
                 }
             }
+            BoundaryCondition::Periodic { partner: _ } => {
+                // Periodic BC: u(i,ny-1) = u(i,0)
+                // Implemented as: u[idx] - u[i] = 0
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, i, -T::one())?;
+                rhs[idx] = T::zero();
+            }
+            BoundaryCondition::Symmetry => {
+                // Symmetry BC: zero normal gradient
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx - nx, -T::one())?;
+                rhs[idx] = T::zero();
+            }
+            BoundaryCondition::PressureInlet { .. } | BoundaryCondition::PressureOutlet { .. } => {
+                // Pressure BC: zero gradient velocity (extrapolate from interior)
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx - nx, -T::one())?;
+                rhs[idx] = T::zero();
+            }
+            BoundaryCondition::Outflow => {
+                // Outflow BC: zero gradient
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx - nx, -T::one())?;
+                rhs[idx] = T::zero();
+            }
             _ => {}
         }
     }
@@ -135,7 +210,7 @@ fn apply_south_boundary<T: RealField + Copy + FromPrimitive>(
     bc: &BoundaryCondition<T>,
     _component: MomentumComponent,
     nx: usize,
-    _ny: usize,
+    ny: usize,
 ) -> cfd_core::error::Result<()> {
     for i in 0..nx {
         let idx = i;
@@ -152,6 +227,32 @@ fn apply_south_boundary<T: RealField + Copy + FromPrimitive>(
                     matrix.add_entry(idx, idx + nx, -T::one())?;
                     rhs[idx] = T::zero();
                 }
+            }
+            BoundaryCondition::Periodic { partner: _ } => {
+                // Periodic BC: u(i,0) = u(i,ny-1)
+                // Implemented as: u[idx] - u[(ny-1)*nx + i] = 0
+                let partner_idx = (ny - 1) * nx + i; // Calculate partner index
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, partner_idx, -T::one())?;
+                rhs[idx] = T::zero();
+            }
+            BoundaryCondition::Symmetry => {
+                // Symmetry BC: zero normal gradient
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx + nx, -T::one())?;
+                rhs[idx] = T::zero();
+            }
+            BoundaryCondition::PressureInlet { .. } | BoundaryCondition::PressureOutlet { .. } => {
+                // Pressure BC: zero gradient velocity (extrapolate from interior)
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx + nx, -T::one())?;
+                rhs[idx] = T::zero();
+            }
+            BoundaryCondition::Outflow => {
+                // Outflow BC: zero gradient
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx + nx, -T::one())?;
+                rhs[idx] = T::zero();
             }
             _ => {}
         }

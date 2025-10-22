@@ -1,22 +1,22 @@
-///! Example backend abstraction pattern following Rust best practices.
-///!
-///! This module demonstrates zero-cost abstractions with backend selection,
-///! following the persona configuration principles:
-///! - Backend abstraction over wgpu-rs (prefer explicit backend trait)
-///! - Zero-cost generics with trait bounds
-///! - Feature-gated compilation for GPU support
-///! - Iterator-based zero-copy operations
-///!
-///! # Example
-///!
-///! ```
-///! use cfd_core::compute::backend_example::{select_backend, compute_squares};
-///!
-///! let backend = select_backend();
-///! let storage = vec![1.0, 2.0, 3.0];
-///! let result = compute_squares(&backend, &storage);
-///! assert_eq!(result, vec![1.0, 4.0, 9.0]);
-///! ```
+//! Example backend abstraction pattern following Rust best practices.
+//!
+//! This module demonstrates zero-cost abstractions with backend selection,
+//! following the persona configuration principles:
+//! - Backend abstraction over wgpu-rs (prefer explicit backend trait)
+//! - Zero-cost generics with trait bounds
+//! - Feature-gated compilation for GPU support
+//! - Iterator-based zero-copy operations
+//!
+//! # Example
+//!
+//! ```
+//! use cfd_core::compute::backend_example::{select_backend, compute_squares};
+//!
+//! let backend = select_backend();
+//! let storage = vec![1.0, 2.0, 3.0];
+//! let result = compute_squares(&backend, &storage);
+//! assert_eq!(result, vec![1.0, 4.0, 9.0]);
+//! ```
 
 use std::ops::Mul;
 
