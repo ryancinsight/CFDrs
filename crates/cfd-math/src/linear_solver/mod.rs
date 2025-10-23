@@ -42,3 +42,7 @@ mod tests;
 // Edge case tests module for comprehensive coverage
 #[cfg(test)]
 mod edge_case_tests;
+
+// Extended edge case tests with property-based testing
+#[cfg(test)]
+mod extended_edge_case_tests;
