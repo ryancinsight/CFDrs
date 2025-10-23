@@ -23,7 +23,7 @@ mod literature_validation_tests {
     fn test_k_omega_sst_initialization() {
         let nx = 10;
         let ny = 10;
-        let model: KOmegaSSTModel<f64> = KOmegaSSTModel::new(nx, ny);
+        let _model: KOmegaSSTModel<f64> = KOmegaSSTModel::new(nx, ny);
         
         // Verify model is properly initialized with correct grid dimensions
         // This validates the basic model construction per Menter (1994)
@@ -36,7 +36,7 @@ mod literature_validation_tests {
     fn test_spalart_allmaras_initialization() {
         let nx = 10;
         let ny = 10;
-        let model: SpalartAllmaras<f64> = SpalartAllmaras::new(nx, ny);
+        let _model: SpalartAllmaras<f64> = SpalartAllmaras::new(nx, ny);
         
         // Verify SA model coefficients match literature values
         // Standard coefficients from Spalart & Allmaras (1994)
@@ -97,7 +97,7 @@ mod literature_validation_tests {
     fn test_k_omega_sst_grid_consistency() {
         let nx = 20;
         let ny = 20;
-        let model: KOmegaSSTModel<f64> = KOmegaSSTModel::new(nx, ny);
+        let _model: KOmegaSSTModel<f64> = KOmegaSSTModel::new(nx, ny);
         
         // Verify grid dimensions are properly stored
         // This ensures blending function calculations will have correct indexing
@@ -145,7 +145,7 @@ mod literature_validation_tests {
     fn test_k_omega_sst_grid_resolution() {
         // Test various grid resolutions
         for (nx, ny) in [(5, 5), (10, 10), (20, 20), (50, 50)] {
-            let model: KOmegaSSTModel<f64> = KOmegaSSTModel::new(nx, ny);
+            let _model: KOmegaSSTModel<f64> = KOmegaSSTModel::new(nx, ny);
             
             // Model should initialize correctly for all resolutions
             assert!(nx * ny > 0, "Grid resolution {nx}x{ny} valid");

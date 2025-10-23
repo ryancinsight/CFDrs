@@ -8,6 +8,9 @@ mod interpolation;
 mod solver;
 pub mod tvd_limiters;
 
+#[cfg(test)]
+mod tvd_limiter_edge_cases;
+
 pub use boundary::apply_momentum_boundaries;
 pub use coefficients::{ConvectionScheme, MomentumCoefficients};
 pub use discretization::{CentralDifference, DiscretizationScheme, Upwind};

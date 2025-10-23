@@ -12,6 +12,9 @@ pub mod specification;
 pub mod time_dependent;
 pub mod types;
 
+#[cfg(test)]
+mod edge_case_tests;
+
 pub use applicator::BoundaryConditionApplicator;
 pub use geometry::{BoundaryGeometry, BoundaryRegion};
 pub use manager::BoundaryConditionManager;
