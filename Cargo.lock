@@ -230,6 +230,7 @@ dependencies = [
  "nalgebra-sparse",
  "num-traits",
  "petgraph",
+ "proptest",
  "rand 0.8.5",
  "rayon",
  "serde",
