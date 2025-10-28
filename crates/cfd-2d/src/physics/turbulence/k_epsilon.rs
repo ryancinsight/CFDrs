@@ -201,3 +201,237 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KEpsilonModel<T
         reynolds > T::from_f64(1e4).unwrap_or_else(T::one)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn test_new_model_initialization() {
+        let model = KEpsilonModel::<f64>::new(10, 10);
+        assert_eq!(model.nx, 10);
+        assert_eq!(model.ny, 10);
+        assert_relative_eq!(model.c_mu, C_MU, epsilon = 1e-10);
+        assert_relative_eq!(model.c1_epsilon, C1_EPSILON, epsilon = 1e-10);
+        assert_relative_eq!(model.c2_epsilon, C2_EPSILON, epsilon = 1e-10);
+        assert_relative_eq!(model.sigma_k, SIGMA_K, epsilon = 1e-10);
+        assert_relative_eq!(model.sigma_epsilon, SIGMA_EPSILON, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_turbulent_viscosity_positive() {
+        let model = KEpsilonModel::<f64>::new(10, 10);
+        let k = 1.0;
+        let epsilon = 1.0;
+        let density = 1.0;
+        let nu_t = model.turbulent_viscosity(k, epsilon, density);
+        assert!(nu_t > 0.0);
+        assert_relative_eq!(nu_t, density * C_MU * k * k / epsilon, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_turbulent_viscosity_zero_epsilon() {
+        let model = KEpsilonModel::<f64>::new(10, 10);
+        let k = 1.0;
+        let epsilon = 0.0;
+        let density = 1.0;
+        let nu_t = model.turbulent_viscosity(k, epsilon, density);
+        // Should use EPSILON_MIN to prevent division by zero
+        assert!(nu_t > 0.0);
+        assert!(nu_t.is_finite());
+    }
+
+    #[test]
+    fn test_strain_rate_pure_shear() {
+        let model = KEpsilonModel::<f64>::new(10, 10);
+        // Pure shear flow: du/dy = 1, all other gradients zero
+        let grad = [[0.0, 1.0], [0.0, 0.0]];
+        let strain = model.strain_rate(&grad);
+        // S_12 = S_21 = 0.5 * (0 + 1) = 0.5
+        // |S| = sqrt(2 * (S_12^2 + S_21^2)) = sqrt(2 * (0.25 + 0.25)) = sqrt(1.0) = 1.0
+        assert_relative_eq!(strain, 1.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_strain_rate_pure_extension() {
+        let model = KEpsilonModel::<f64>::new(10, 10);
+        // Pure extension: du/dx = 1, dv/dy = -1 (incompressible)
+        let grad = [[1.0, 0.0], [0.0, -1.0]];
+        let strain = model.strain_rate(&grad);
+        // S_11 = 1.0, S_22 = -1.0
+        // |S| = sqrt(2 * (1^2 + 1^2)) = sqrt(4) = 2.0
+        assert_relative_eq!(strain, 2.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_strain_rate_zero_velocity_gradient() {
+        let model = KEpsilonModel::<f64>::new(10, 10);
+        let grad = [[0.0, 0.0], [0.0, 0.0]];
+        let strain = model.strain_rate(&grad);
+        assert_relative_eq!(strain, 0.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_production_term_positive() {
+        let model = KEpsilonModel::<f64>::new(10, 10);
+        let grad = [[1.0, 0.0], [0.0, 1.0]];
+        let nu_t = 0.1;
+        let p_k = model.production_term(&grad, nu_t);
+        assert!(p_k > 0.0);
+    }
+
+    #[test]
+    fn test_production_term_zero_strain() {
+        let model = KEpsilonModel::<f64>::new(10, 10);
+        let grad = [[0.0, 0.0], [0.0, 0.0]];
+        let nu_t = 0.1;
+        let p_k = model.production_term(&grad, nu_t);
+        assert_relative_eq!(p_k, 0.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_dissipation_term() {
+        let model = KEpsilonModel::<f64>::new(10, 10);
+        let k = 1.0;
+        let epsilon = 2.5;
+        let dissipation = model.dissipation_term(k, epsilon);
+        assert_relative_eq!(dissipation, epsilon, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_apply_boundary_conditions_enforces_positivity() {
+        let model = KEpsilonModel::<f64>::new(5, 5);
+        let mut k = vec![-1.0; 25]; // Negative values
+        let mut epsilon = vec![-2.0; 25];
+        
+        model.apply_boundary_conditions(&mut k, &mut epsilon);
+        
+        // All values should be non-negative
+        for &val in &k {
+            assert!(val >= 0.0);
+        }
+        for &val in &epsilon {
+            assert!(val >= EPSILON_MIN);
+        }
+    }
+
+    #[test]
+    fn test_apply_boundary_conditions_wall_values() {
+        let model = KEpsilonModel::<f64>::new(5, 5);
+        let mut k = vec![1.0; 25];
+        let mut epsilon = vec![1.0; 25];
+        
+        model.apply_boundary_conditions(&mut k, &mut epsilon);
+        
+        // Bottom wall (j=0)
+        for i in 0..5 {
+            assert_relative_eq!(k[i], 0.0, epsilon = 1e-10);
+            assert!(epsilon[i] >= EPSILON_MIN);
+        }
+        
+        // Top wall (j=4)
+        for i in 0..5 {
+            let idx = i + 4 * 5;
+            assert_relative_eq!(k[idx], 0.0, epsilon = 1e-10);
+            assert!(epsilon[idx] >= EPSILON_MIN);
+        }
+    }
+
+    #[test]
+    fn test_update_maintains_positivity() {
+        let mut model = KEpsilonModel::<f64>::new(5, 5);
+        let mut k = vec![0.1; 25];
+        let mut epsilon = vec![0.1; 25];
+        let velocity = vec![Vector2::new(0.0, 0.0); 25];
+        let density = 1.0;
+        let molecular_viscosity = 1e-5;
+        let dt = 0.001;
+        let dx = 0.1;
+        let dy = 0.1;
+        
+        let result = model.update(&mut k, &mut epsilon, &velocity, density, 
+                                  molecular_viscosity, dt, dx, dy);
+        
+        assert!(result.is_ok());
+        
+        // All values should remain non-negative
+        for &val in &k {
+            assert!(val >= 0.0);
+        }
+        for &val in &epsilon {
+            assert!(val >= 0.0);
+        }
+    }
+
+    #[test]
+    fn test_model_name() {
+        let model = KEpsilonModel::<f64>::new(10, 10);
+        assert_eq!(model.name(), "k-epsilon");
+    }
+
+    #[test]
+    fn test_is_valid_for_high_reynolds() {
+        let model = KEpsilonModel::<f64>::new(10, 10);
+        assert!(model.is_valid_for_reynolds(1e5));
+        assert!(model.is_valid_for_reynolds(1e6));
+    }
+
+    #[test]
+    fn test_is_not_valid_for_low_reynolds() {
+        let model = KEpsilonModel::<f64>::new(10, 10);
+        assert!(!model.is_valid_for_reynolds(1e3));
+        assert!(!model.is_valid_for_reynolds(1e2));
+    }
+
+    #[test]
+    fn test_reynolds_threshold() {
+        let model = KEpsilonModel::<f64>::new(10, 10);
+        assert!(!model.is_valid_for_reynolds(1e4)); // Exactly at threshold
+        assert!(model.is_valid_for_reynolds(1e4 + 1.0)); // Just above threshold
+    }
+
+    #[test]
+    fn test_update_with_uniform_flow() {
+        let mut model = KEpsilonModel::<f64>::new(5, 5);
+        let mut k = vec![1.0; 25];
+        let mut epsilon = vec![1.0; 25];
+        // Uniform flow (no velocity gradients)
+        let velocity = vec![Vector2::new(1.0, 0.0); 25];
+        let density = 1.0;
+        let molecular_viscosity = 1e-5;
+        let dt = 0.001;
+        let dx = 0.1;
+        let dy = 0.1;
+        
+        let result = model.update(&mut k, &mut epsilon, &velocity, density, 
+                                  molecular_viscosity, dt, dx, dy);
+        
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_turbulent_viscosity_scales_with_k_squared() {
+        let model = KEpsilonModel::<f64>::new(10, 10);
+        let epsilon = 1.0;
+        let density = 1.0;
+        
+        let nu_t_1 = model.turbulent_viscosity(1.0, epsilon, density);
+        let nu_t_2 = model.turbulent_viscosity(2.0, epsilon, density);
+        
+        // nu_t ~ k^2, so doubling k should quadruple nu_t
+        assert_relative_eq!(nu_t_2 / nu_t_1, 4.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_production_term_scales_with_turbulent_viscosity() {
+        let model = KEpsilonModel::<f64>::new(10, 10);
+        let grad = [[1.0, 0.0], [0.0, 1.0]];
+        
+        let p_k_1 = model.production_term(&grad, 0.1);
+        let p_k_2 = model.production_term(&grad, 0.2);
+        
+        // P_k ~ nu_t, so doubling nu_t should double P_k
+        assert_relative_eq!(p_k_2 / p_k_1, 2.0, epsilon = 1e-10);
+    }
+}
