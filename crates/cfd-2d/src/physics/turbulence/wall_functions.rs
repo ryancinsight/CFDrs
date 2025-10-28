@@ -156,3 +156,263 @@ impl<T: RealField + FromPrimitive + Copy> WallTreatment<T> {
         self.wall_function
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn test_new_standard_wall_treatment() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Standard);
+        assert_relative_eq!(treatment.kappa, KAPPA, epsilon = 1e-10);
+        assert_relative_eq!(treatment.e_wall, E_WALL_FUNCTION, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_new_blended_wall_treatment() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Blended);
+        assert_relative_eq!(treatment.kappa, KAPPA, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_low_reynolds_u_plus() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::LowReynolds);
+        // Low Reynolds: u+ = y+ (linear in viscous sublayer)
+        assert_relative_eq!(treatment.u_plus(1.0), 1.0, epsilon = 1e-10);
+        assert_relative_eq!(treatment.u_plus(5.0), 5.0, epsilon = 1e-10);
+        assert_relative_eq!(treatment.u_plus(10.0), 10.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_standard_wall_function_viscous_sublayer() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Standard);
+        // For y+ < 5: u+ ≈ y+ (viscous sublayer)
+        let y_plus = 3.0;
+        let u_plus = treatment.u_plus(y_plus);
+        assert_relative_eq!(u_plus, y_plus, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_standard_wall_function_log_law() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Standard);
+        // For y+ > 30: u+ = ln(y+)/κ + B (log-law region)
+        let y_plus = 100.0;
+        let u_plus = treatment.u_plus(y_plus);
+        let expected = (y_plus.ln() / KAPPA) + 5.5;
+        assert_relative_eq!(u_plus, expected, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_standard_wall_function_buffer_layer() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Standard);
+        // Buffer layer (5 < y+ < 30): linear interpolation
+        let y_plus = 15.0;
+        let u_plus = treatment.u_plus(y_plus);
+        // Should be between viscous and log-law values
+        assert!(u_plus > 5.0);
+        assert!(u_plus < (30.0_f64.ln() / KAPPA) + 5.5);
+    }
+
+    #[test]
+    fn test_blended_wall_function_smooth() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Blended);
+        // Blended function should be smooth across all y+
+        let y_plus_values = vec![1.0, 5.0, 10.0, 30.0, 100.0, 1000.0];
+        
+        for &y_plus in &y_plus_values {
+            let u_plus = treatment.u_plus(y_plus);
+            // Should be positive and reasonable
+            assert!(u_plus > 0.0);
+            assert!(u_plus < y_plus * 2.0); // Sanity check
+        }
+    }
+
+    #[test]
+    fn test_blended_wall_function_asymptotic_behavior() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Blended);
+        
+        // At low y+, should be close to linear
+        let y_plus_low = 1.0;
+        let u_plus_low = treatment.u_plus(y_plus_low);
+        assert_relative_eq!(u_plus_low, y_plus_low, epsilon = 0.1);
+        
+        // At high y+, should approach log-law
+        let y_plus_high = 1000.0;
+        let u_plus_high = treatment.u_plus(y_plus_high);
+        let expected_high = (y_plus_high.ln() / KAPPA) + 5.5;
+        assert_relative_eq!(u_plus_high, expected_high, epsilon = 1.0);
+    }
+
+    #[test]
+    fn test_calculate_y_plus_positive() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Standard);
+        let wall_distance = 0.001; // 1mm
+        let velocity = 10.0;       // 10 m/s
+        let density = 1.0;         // 1 kg/m³
+        let viscosity = 1e-5;      // ~air
+        
+        let y_plus = treatment.calculate_y_plus(wall_distance, velocity, density, viscosity);
+        assert!(y_plus > 0.0);
+        assert!(y_plus.is_finite());
+    }
+
+    #[test]
+    fn test_calculate_y_plus_scales_with_velocity() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Standard);
+        let wall_distance = 0.001;
+        let density = 1.0;
+        let viscosity = 1e-5;
+        
+        let y_plus_1 = treatment.calculate_y_plus(wall_distance, 10.0, density, viscosity);
+        let y_plus_2 = treatment.calculate_y_plus(wall_distance, 20.0, density, viscosity);
+        
+        // Higher velocity should give higher y+
+        assert!(y_plus_2 > y_plus_1);
+    }
+
+    #[test]
+    fn test_wall_shear_stress_positive() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Standard);
+        let velocity = 10.0;
+        let wall_distance = 0.001;
+        let density = 1.0;
+        let viscosity = 1e-5;
+        
+        let tau_w = treatment.wall_shear_stress(velocity, wall_distance, density, viscosity);
+        assert!(tau_w > 0.0);
+        assert!(tau_w.is_finite());
+    }
+
+    #[test]
+    fn test_wall_shear_stress_scales_with_velocity() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Standard);
+        let wall_distance = 0.001;
+        let density = 1.0;
+        let viscosity = 1e-5;
+        
+        let tau_1 = treatment.wall_shear_stress(10.0, wall_distance, density, viscosity);
+        let tau_2 = treatment.wall_shear_stress(20.0, wall_distance, density, viscosity);
+        
+        // Shear stress should increase with velocity
+        assert!(tau_2 > tau_1);
+    }
+
+    #[test]
+    fn test_wall_k_positive() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Standard);
+        let u_tau = 0.5;
+        let c_mu = C_MU;
+        
+        let k = treatment.wall_k(u_tau, c_mu);
+        assert!(k > 0.0);
+        assert!(k.is_finite());
+    }
+
+    #[test]
+    fn test_wall_k_scales_with_u_tau_squared() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Standard);
+        let c_mu = C_MU;
+        
+        let k_1 = treatment.wall_k(1.0, c_mu);
+        let k_2 = treatment.wall_k(2.0, c_mu);
+        
+        // k ~ u_tau^2, so doubling u_tau should quadruple k
+        assert_relative_eq!(k_2 / k_1, 4.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_wall_epsilon_positive() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Standard);
+        let u_tau = 0.5;
+        let wall_distance = 0.001;
+        
+        let epsilon = treatment.wall_epsilon(u_tau, wall_distance);
+        assert!(epsilon > 0.0);
+        assert!(epsilon.is_finite());
+    }
+
+    #[test]
+    fn test_wall_epsilon_scales_with_u_tau_cubed() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Standard);
+        let wall_distance = 0.001;
+        
+        let eps_1 = treatment.wall_epsilon(1.0, wall_distance);
+        let eps_2 = treatment.wall_epsilon(2.0, wall_distance);
+        
+        // ε ~ u_tau^3, so doubling u_tau should give 8x epsilon
+        assert_relative_eq!(eps_2 / eps_1, 8.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_wall_omega_low_reynolds() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::LowReynolds);
+        let wall_distance = 0.001;
+        let viscosity = 1e-5;
+        let density = 1.0;
+        
+        let omega = treatment.wall_omega(wall_distance, viscosity, density);
+        assert!(omega > 0.0);
+        assert!(omega.is_finite());
+    }
+
+    #[test]
+    fn test_wall_omega_standard() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Standard);
+        let wall_distance = 0.001;
+        let viscosity = 1e-5;
+        let density = 1.0;
+        
+        let omega = treatment.wall_omega(wall_distance, viscosity, density);
+        assert!(omega > 0.0);
+        assert!(omega.is_finite());
+    }
+
+    #[test]
+    fn test_wall_function_type_standard() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Standard);
+        matches!(treatment.wall_function_type(), WallFunction::Standard);
+    }
+
+    #[test]
+    fn test_wall_function_type_blended() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Blended);
+        matches!(treatment.wall_function_type(), WallFunction::Blended);
+    }
+
+    #[test]
+    fn test_wall_function_type_low_reynolds() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::LowReynolds);
+        matches!(treatment.wall_function_type(), WallFunction::LowReynolds);
+    }
+
+    #[test]
+    fn test_standard_wall_function_continuity() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Standard);
+        
+        // Check continuity at transition points
+        let y_trans_1 = Y_PLUS_VISCOUS_SUBLAYER - 0.1;
+        let y_trans_2 = Y_PLUS_VISCOUS_SUBLAYER + 0.1;
+        
+        let u_1 = treatment.u_plus(y_trans_1);
+        let u_2 = treatment.u_plus(y_trans_2);
+        
+        // Should be reasonably close (continuous)
+        assert!((u_2 - u_1).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_u_plus_monotonically_increasing() {
+        let treatment = WallTreatment::<f64>::new(WallFunction::Standard);
+        
+        // u+ should increase monotonically with y+
+        let y_plus_values = vec![1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0];
+        let mut prev_u_plus = 0.0;
+        
+        for &y_plus in &y_plus_values {
+            let u_plus = treatment.u_plus(y_plus);
+            assert!(u_plus > prev_u_plus);
+            prev_u_plus = u_plus;
+        }
+    }
+}
