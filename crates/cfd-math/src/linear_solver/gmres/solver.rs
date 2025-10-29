@@ -339,4 +339,167 @@ mod tests {
 
         assert!(x.norm() < 1e-14, "Solution should be zero for zero RHS");
     }
+
+    #[test]
+    fn test_gmres_restart_dimension() {
+        let n = 5;
+        let mut coo = CooMatrix::new(n, n);
+        // Tridiagonal matrix
+        for i in 0..n {
+            coo.push(i, i, 4.0);
+            if i > 0 {
+                coo.push(i, i - 1, 1.0);
+            }
+            if i < n - 1 {
+                coo.push(i, i + 1, 1.0);
+            }
+        }
+        let a = CsrMatrix::from(&coo);
+
+        let b = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+        let mut x = DVector::zeros(n);
+
+        let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
+        let solver = GMRES::new(config, 3); // Small restart dimension
+        let precond = IdentityPreconditioner;
+
+        solver.solve_preconditioned(&a, &b, &precond, &mut x).unwrap();
+
+        // Verify solution
+        let ax = &a * &x;
+        let residual = (&ax - &b).norm();
+        assert!(residual < 1e-9, "Residual: {residual}");
+    }
+
+    #[test]
+    fn test_gmres_with_initial_guess() {
+        let n = 4;
+        let mut coo = CooMatrix::new(n, n);
+        for i in 0..n {
+            coo.push(i, i, (i + 1) as f64);
+        }
+        let a = CsrMatrix::from(&coo);
+
+        let b = DVector::from_vec(vec![1.0, 4.0, 9.0, 16.0]);
+        let mut x = DVector::from_vec(vec![0.5, 1.5, 2.5, 3.5]); // Good initial guess
+
+        let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
+        let solver = GMRES::new(config, 10);
+        let precond = IdentityPreconditioner;
+
+        solver.solve_preconditioned(&a, &b, &precond, &mut x).unwrap();
+
+        // Expected solution: x = [1, 2, 3, 4]
+        let expected = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0]);
+        let error = (&x - &expected).norm();
+        assert!(error < 1e-9, "Solution error: {error}");
+    }
+
+    #[test]
+    fn test_gmres_larger_nonsymmetric() {
+        // 5x5 nonsymmetric matrix
+        let n = 5;
+        let mut coo = CooMatrix::new(n, n);
+        for i in 0..n {
+            coo.push(i, i, 5.0);
+            if i > 0 {
+                coo.push(i, i - 1, 2.0);
+            }
+            if i < n - 1 {
+                coo.push(i, i + 1, 1.0);
+            }
+        }
+        let a = CsrMatrix::from(&coo);
+
+        let b = DVector::from_vec(vec![6.0, 11.0, 11.0, 11.0, 8.0]);
+        let mut x = DVector::zeros(n);
+
+        let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
+        let solver = GMRES::new(config, 10);
+        let precond = IdentityPreconditioner;
+
+        solver.solve_preconditioned(&a, &b, &precond, &mut x).unwrap();
+
+        // Verify solution
+        let ax = &a * &x;
+        let residual = (&ax - &b).norm();
+        assert!(residual < 1e-9, "Residual: {residual}");
+    }
+
+    #[test]
+    fn test_gmres_convergence_tight_tolerance() {
+        let n = 4;
+        let mut coo = CooMatrix::new(n, n);
+        for i in 0..n {
+            coo.push(i, i, (i + 1) as f64);
+        }
+        let a = CsrMatrix::from(&coo);
+
+        let b = DVector::from_vec(vec![1.0, 4.0, 9.0, 16.0]);
+        let mut x = DVector::zeros(n);
+
+        let config = IterativeSolverConfig::new(1e-14).with_max_iterations(100); // Very tight tolerance
+        let solver = GMRES::new(config, 10);
+        let precond = IdentityPreconditioner;
+
+        let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_gmres_max_iterations_exceeded() {
+        let n = 4;
+        let mut coo = CooMatrix::new(n, n);
+        for i in 0..n {
+            coo.push(i, i, (i + 1) as f64);
+        }
+        let a = CsrMatrix::from(&coo);
+
+        let b = DVector::from_vec(vec![1.0, 4.0, 9.0, 16.0]);
+        let mut x = DVector::zeros(n);
+
+        let config = IterativeSolverConfig::new(1e-14).with_max_iterations(1); // Too few iterations
+        let solver = GMRES::new(config, 1);
+        let precond = IdentityPreconditioner;
+
+        let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
+        assert!(result.is_err()); // Should fail to converge
+    }
+
+    #[test]
+    fn test_gmres_dimension_mismatch() {
+        let n = 4;
+        let mut coo = CooMatrix::new(n, n);
+        for i in 0..n {
+            coo.push(i, i, (i + 1) as f64);
+        }
+        let a = CsrMatrix::from(&coo);
+
+        let b = DVector::from_vec(vec![1.0, 4.0]); // Wrong size!
+        let mut x = DVector::zeros(2);
+
+        let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
+        let solver = GMRES::new(config, 10);
+        let precond = IdentityPreconditioner;
+
+        let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_gmres_configurable_trait() {
+        let config = IterativeSolverConfig::new(1e-8).with_max_iterations(200);
+        let solver = GMRES::<f64>::new(config, 20);
+        
+        let retrieved = solver.config();
+        assert!((retrieved.tolerance - 1e-8).abs() < 1e-10);
+        assert_eq!(retrieved.max_iterations, 200);
+    }
+
+    #[test]
+    #[should_panic(expected = "GMRES restart dimension must be positive")]
+    fn test_gmres_zero_restart_dim_panics() {
+        let config = IterativeSolverConfig::default();
+        let _solver = GMRES::<f64>::new(config, 0); // Should panic
+    }
 }
