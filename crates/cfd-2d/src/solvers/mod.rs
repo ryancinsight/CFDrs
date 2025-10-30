@@ -9,6 +9,6 @@ pub mod lbm;
 pub mod simd_kernels;
 
 // Re-export main solver types
-pub use fdm::{AdvectionDiffusionSolver, FdmConfig, PoissonSolver};
+pub use fdm::{AdvectionDiffusionSolver, DiffusionSolver, FdmConfig, PoissonSolver};
 pub use fvm::{FluxScheme, FvmConfig, FvmSolver};
 pub use lbm::{LbmConfig, LbmSolver, D2Q9};

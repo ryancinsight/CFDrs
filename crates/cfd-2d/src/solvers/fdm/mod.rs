@@ -5,11 +5,13 @@
 
 pub mod advection_diffusion;
 pub mod config;
+pub mod diffusion;
 pub mod linear_solver;
 pub mod poisson;
 
 // Re-export main types
 pub use advection_diffusion::AdvectionDiffusionSolver;
 pub use config::FdmConfig;
+pub use diffusion::DiffusionSolver;
 pub use linear_solver::solve_gauss_seidel;
 pub use poisson::PoissonSolver;
