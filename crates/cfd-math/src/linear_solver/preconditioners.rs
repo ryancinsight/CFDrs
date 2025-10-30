@@ -62,6 +62,8 @@ pub struct SORPreconditioner<T: RealField + Copy> {
     pub(crate) omega: T,
 }
 
+
+
 impl<T: RealField + From<f64> + FromPrimitive + Copy> SORPreconditioner<T> {
     /// Create SOR preconditioner with specified relaxation parameter
     pub fn new(a: &CsrMatrix<T>, omega: T) -> Result<Self> {

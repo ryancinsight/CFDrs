@@ -88,37 +88,40 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
         let dx2 = dx * dx;
         let dy2 = dy * dy;
 
-        // Central coefficient: -2/dx² - 2/dy²
+        // Laplacian can include non-uniform spacing
         let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+
+        // Correct 5-point stencil for ∇²φ = f:
+        // Center: φ_i,j coefficient = -(2/dx² + 2/dy²)
         let center_coeff = -two / dx2 - two / dy2;
         matrix_builder.add_entry(linear_idx, linear_idx, center_coeff)?;
 
-        // Neighbor contributions with proper boundary handling
-        // Left neighbor
+        // Neighbor contributions: +1/dx² and +1/dy²
+        // Left neighbor (i-1)
         if i > 0 {
             let neighbor_idx = Self::linear_index(grid, i - 1, j);
             matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dx2)?;
         }
 
-        // Right neighbor
+        // Right neighbor (i+1)
         if i < grid.nx() - 1 {
             let neighbor_idx = Self::linear_index(grid, i + 1, j);
             matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dx2)?;
         }
 
-        // Bottom neighbor
+        // Bottom neighbor (j-1)
         if j > 0 {
             let neighbor_idx = Self::linear_index(grid, i, j - 1);
             matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dy2)?;
         }
 
-        // Top neighbor
+        // Top neighbor (j+1)
         if j < grid.ny() - 1 {
             let neighbor_idx = Self::linear_index(grid, i, j + 1);
             matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dy2)?;
         }
 
-        // Set RHS from source term
+        // Set RHS: source term f
         rhs[linear_idx] = source.get(&(i, j)).copied().unwrap_or_else(T::zero);
 
         Ok(())

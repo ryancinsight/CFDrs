@@ -257,6 +257,7 @@ dependencies = [
  "nalgebra-sparse",
  "num-traits",
  "proptest",
+ "rand 0.8.5",
  "rayon",
  "serde",
  "thiserror",
@@ -384,6 +385,7 @@ dependencies = [
  "nalgebra-sparse",
  "num-traits",
  "proptest",
+ "rand 0.8.5",
  "wgpu",
 ]
 
