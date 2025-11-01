@@ -45,6 +45,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Debug> PressureCorrectionSolve
             tolerance: T::from_f64(crate::constants::solver::DEFAULT_TOLERANCE)
                 .expect("Failed to convert pressure solver tolerance"),
             use_preconditioner: true,
+            use_parallel_spmv: false,
         };
 
         let gmres_solver = match solver_type {

@@ -325,6 +325,75 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
     }
 }
 
+// Implement TurbulenceModel trait for Spalart-Allmaras
+impl<T: RealField + FromPrimitive + Copy> crate::physics::turbulence::TurbulenceModel<T> for SpalartAllmaras<T> {
+    fn turbulent_viscosity(&self, _k: T, epsilon_or_omega: T, density: T) -> T {
+        // For SA model, k is not used, epsilon_or_omega represents ν̃ (modified viscosity)
+        let nu_tilde = epsilon_or_omega;
+        let molecular_viscosity = T::from_f64(1e-5).unwrap_or_else(T::one); // Typical air viscosity
+        density * self.eddy_viscosity(nu_tilde, molecular_viscosity)
+    }
+
+    fn production_term(&self, velocity_gradient: &[[T; 2]; 2], turbulent_viscosity: T) -> T {
+        // For SA model, production is calculated differently
+        // P = Cb1 * S̃ * ν̃ where S̃ is modified vorticity
+        // This is a simplified implementation
+        let vorticity = self.vorticity_magnitude(velocity_gradient);
+        let nu_tilde_estimate = turbulent_viscosity; // Approximation
+        let molecular_viscosity = T::from_f64(1e-5).unwrap_or_else(T::one);
+        let wall_distance_estimate = T::from_f64(0.01).unwrap_or_else(T::one); // Approximation
+
+        let s_tilde = self.modified_vorticity(
+            vorticity,
+            nu_tilde_estimate,
+            molecular_viscosity,
+            wall_distance_estimate,
+        );
+
+        self.cb1 * s_tilde * nu_tilde_estimate
+    }
+
+    fn dissipation_term(&self, _nu_tilde: T, epsilon_or_omega: T) -> T {
+        // For SA model, dissipation is handled in the transport equation
+        // Return a simplified approximation
+        let _ = epsilon_or_omega; // SA uses modified viscosity transport, not k-ε form
+        T::zero() // Not directly applicable
+    }
+
+    fn update(
+        &mut self,
+        k: &mut [T],
+        epsilon_or_omega: &mut [T],
+        velocity: &[Vector2<T>],
+        _density: T,
+        molecular_viscosity: T,
+        dt: T,
+        dx: T,
+        dy: T,
+    ) -> Result<()> {
+        // For SA model, k is not used, epsilon_or_omega represents ν̃ (modified viscosity)
+        // Update the SA transport equation
+        SpalartAllmaras::update(self, epsilon_or_omega, velocity, molecular_viscosity, dx, dy, dt)?;
+
+        // k is not updated in SA model (single equation model)
+        // Set k to zero or some reference value if needed
+        for k_val in k.iter_mut() {
+            *k_val = T::zero();
+        }
+
+        Ok(())
+    }
+
+    fn name(&self) -> &str {
+        "Spalart-Allmaras"
+    }
+
+    fn is_valid_for_reynolds(&self, reynolds: T) -> bool {
+        // SA model is valid for moderate to high Reynolds numbers
+        reynolds > T::from_f64(1e4).unwrap_or_else(T::one)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

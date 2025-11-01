@@ -5,6 +5,7 @@ mod coefficient_corrections;
 mod coefficients;
 mod discretization;
 mod interpolation;
+pub mod muscl;
 mod solver;
 pub mod tvd_limiters;
 
@@ -16,7 +17,8 @@ mod algorithm_validation_tests;
 
 pub use boundary::apply_momentum_boundaries;
 pub use coefficients::{ConvectionScheme, MomentumCoefficients};
-pub use discretization::{CentralDifference, DiscretizationScheme, Upwind};
+pub use discretization::{CentralDifference, DiscretizationScheme, MusclDiscretization, Upwind};
 pub use interpolation::rhie_chow_interpolation;
+pub use muscl::{MusclOrder, MusclReconstruction, MusclScheme, schemes};
 pub use solver::{MomentumComponent, MomentumSolver};
 pub use tvd_limiters::{Minmod, MonotonizedCentral, Superbee, TvdLimiter, VanLeer};

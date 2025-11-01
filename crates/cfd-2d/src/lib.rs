@@ -51,6 +51,8 @@ pub mod solvers;
 // Algorithm modules
 pub mod piso_algorithm;
 pub mod pressure_velocity;
+pub mod simplec_pimple;
+
 pub mod schemes;
 pub mod stability;
 

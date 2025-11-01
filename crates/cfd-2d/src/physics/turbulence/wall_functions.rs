@@ -19,6 +19,7 @@ pub enum WallFunction {
 }
 
 /// Wall treatment for turbulence models
+#[derive(Debug, Clone)]
 pub struct WallTreatment<T: RealField + Copy> {
     wall_function: WallFunction,
     kappa: T,

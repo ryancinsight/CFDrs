@@ -9,6 +9,7 @@
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
 
+mod adaptive;
 mod explicit;
 mod implicit;
 mod multistep;
@@ -16,6 +17,7 @@ mod multistep;
 mod tests;
 mod types;
 
+pub use adaptive::{AdaptiveController, AdaptiveTimeIntegrator, AdaptationStrategy};
 pub use types::TimeScheme;
 
 /// Time integrator for ODEs

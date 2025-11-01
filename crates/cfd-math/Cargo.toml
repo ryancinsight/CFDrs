@@ -18,13 +18,19 @@ approx.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 serde = { workspace = true, features = ["derive"] }
+bytemuck.workspace = true
+wgpu = { workspace = true, optional = true }
 
 [dev-dependencies]
 proptest.workspace = true
 criterion.workspace = true
 approx.workspace = true
+tokio = { version = "1.0", features = ["rt", "macros"] }
+
+[features]
+default = []
+gpu = []
 
 [[bench]]
 name = "math_benchmarks"
 harness = false
-

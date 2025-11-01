@@ -108,19 +108,20 @@ where
         });
 }
 
-/// SIMD-optimized sparse matrix-vector multiplication for f32
-///
-/// Uses architecture-specific SIMD instructions when available for improved performance.
-/// Falls back to scalar implementation on unsupported architectures.
-///
-/// # Performance
-/// - Expected speedup: 2-4x on AVX2, 1.5-2x on SSE4.1, 1.5-2x on NEON
-/// - Best for matrices with dense rows (>8 non-zeros per row on average)
-/// - Overhead minimal for sparse rows due to automatic scalar fallback
-///
-/// # Panics
-/// Panics if vector dimensions don't match matrix dimensions
+// Legacy SIMD SpMV implementation (deprecated - use vector operations instead)
+//
+// This implementation suffered 27-32% performance regression vs scalar due to
+// irregular memory access patterns in CSR format. SIMD vectorization is now
+// applied to dense CFD kernels instead of sparse matrix operations.
 #[cfg(target_arch = "x86_64")]
+#[deprecated(
+    since = "Sprint 1.82.0",
+    note = "Use dense vector operations from cfd_math::simd instead. CSR SpMV has irregular access that defeats SIMD benefits."
+)]
+/// # Deprecated
+///
+/// This function is deprecated. Use dense vector operations from cfd_math::simd instead.
+/// CSR SpMV has irregular access that defeats SIMD benefits.
 pub fn spmv_f32_simd(a: &CsrMatrix<f32>, x: &DVector<f32>, y: &mut DVector<f32>) {
     assert_eq!(x.len(), a.ncols(), "Input vector dimension mismatch");
     assert_eq!(y.len(), a.nrows(), "Output vector dimension mismatch");
@@ -267,6 +268,11 @@ unsafe fn spmv_f32_sse41(a: &CsrMatrix<f32>, x: &DVector<f32>, y: &mut DVector<f
     }
 }
 
+/// # Deprecated
+///
+/// This function is deprecated. Use dense vector operations from cfd_math::simd instead.
+/// CSR SpMV has irregular access that defeats SIMD benefits.
+///
 /// SIMD-optimized SpMV for f32 on non-x86_64 architectures
 ///
 /// Falls back to scalar implementation on architectures without SIMD support.

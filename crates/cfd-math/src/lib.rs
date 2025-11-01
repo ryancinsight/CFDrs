@@ -54,6 +54,7 @@
 
 pub mod differentiation;
 pub mod error;
+// pub mod high_order; // Temporarily disabled - needs implementation
 pub mod integration;
 pub mod interpolation;
 pub mod iterators;
@@ -63,6 +64,7 @@ pub mod simd;
 pub mod sparse;
 pub mod vector_ops;
 pub mod vectorization;
+pub mod cfd_simd;
 
 // --- Curated Top-Level API ---
 // Only expose a very small number of absolutely fundamental traits or structs.

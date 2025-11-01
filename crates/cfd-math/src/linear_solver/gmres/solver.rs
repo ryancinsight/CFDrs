@@ -55,6 +55,34 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
         Self::new(IterativeSolverConfig::default(), 30)
     }
 
+    /// Solve without preconditioning using GMRES(m) algorithm
+    ///
+    /// Uses identity preconditioner (M = I), equivalent to solving A*x = b directly
+    ///
+    /// # Arguments
+    ///
+    /// * `a` - System matrix (n × n sparse CSR)
+    /// * `b` - Right-hand side vector (n)
+    /// * `x` - Initial guess on entry, solution on exit (n)
+    ///
+    /// # Errors
+    ///
+    /// Returns error if:
+    /// - Matrix dimensions are incompatible
+    /// - Maximum iterations exceeded without convergence
+    /// - Numerical breakdown occurs (rare with MGS)
+    pub fn solve_unpreconditioned(
+        &self,
+        a: &CsrMatrix<T>,
+        b: &DVector<T>,
+        x: &mut DVector<T>,
+    ) -> Result<()> {
+        // Use identity preconditioner
+        use super::super::preconditioners::IdentityPreconditioner;
+        let identity = IdentityPreconditioner;
+        self.solve_preconditioned(a, b, &identity, x)
+    }
+
     /// Solve with preconditioning using GMRES(m) algorithm
     ///
     /// # Arguments
@@ -251,10 +279,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> IterativeLinearSolver<T> for G
         if let Some(p) = preconditioner {
             self.solve_preconditioned(a, b, p, x)
         } else {
-            // Use identity preconditioner
-            use super::super::preconditioners::IdentityPreconditioner;
-            let identity = IdentityPreconditioner;
-            self.solve_preconditioned(a, b, &identity, x)
+            self.solve_unpreconditioned(a, b, x)
         }
     }
 }

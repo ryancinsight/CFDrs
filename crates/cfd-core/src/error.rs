@@ -256,6 +256,8 @@ pub enum ConvergenceErrorKind {
     },
     /// NaN or Inf detected
     InvalidValue,
+    /// Algorithm breakdown (e.g., zero inner product in Krylov methods)
+    Breakdown,
 }
 
 impl fmt::Display for ConvergenceErrorKind {
@@ -269,6 +271,7 @@ impl fmt::Display for ConvergenceErrorKind {
             }
             Self::Diverged { norm } => write!(f, "Solution diverged with norm {norm:.2e}"),
             Self::InvalidValue => write!(f, "Invalid value (NaN or Inf) detected"),
+            Self::Breakdown => write!(f, "Algorithm breakdown (zero inner product)"),
         }
     }
 }

@@ -15,6 +15,8 @@ pub struct IterativeSolverConfig<T: RealField + Copy> {
     pub tolerance: T,
     /// Whether to use preconditioning
     pub use_preconditioner: bool,
+    /// Whether to use parallel SpMV operations (rayon-based)
+    pub use_parallel_spmv: bool,
 }
 
 impl<T: RealField + Copy> IterativeSolverConfig<T> {
@@ -24,6 +26,7 @@ impl<T: RealField + Copy> IterativeSolverConfig<T> {
             max_iterations: 1000,
             tolerance,
             use_preconditioner: false,
+            use_parallel_spmv: false,
         }
     }
 
@@ -38,6 +41,12 @@ impl<T: RealField + Copy> IterativeSolverConfig<T> {
         self.use_preconditioner = true;
         self
     }
+
+    /// Enable parallel SpMV operations
+    pub fn with_parallel_spmv(mut self) -> Self {
+        self.use_parallel_spmv = true;
+        self
+    }
 }
 
 impl<T: RealField + Copy + FromPrimitive> Default for IterativeSolverConfig<T> {
@@ -46,6 +55,7 @@ impl<T: RealField + Copy + FromPrimitive> Default for IterativeSolverConfig<T> {
             max_iterations: 1000,
             tolerance: T::from_f64(1e-6).expect("Failed to convert default tolerance"),
             use_preconditioner: false,
+            use_parallel_spmv: false,
         }
     }
 }

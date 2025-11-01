@@ -3,7 +3,7 @@
 use super::config::IterativeSolverConfig;
 use super::preconditioners::IdentityPreconditioner;
 use super::traits::{Configurable, IterativeLinearSolver, Preconditioner};
-use crate::sparse::spmv;
+use crate::sparse::{spmv, spmv_parallel};
 use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
@@ -16,6 +16,17 @@ pub struct BiCGSTAB<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> BiCGSTAB<T> {
+    /// Perform matrix-vector multiplication, choosing serial or parallel based on config
+    fn spmv(&self, a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVector<T>)
+    where
+        T: Send + Sync,
+    {
+        if self.config.use_parallel_spmv {
+            spmv_parallel(a, x, y);
+        } else {
+            spmv(a, x, y);
+        }
+    }
     /// Create new BiCGSTAB solver
     pub const fn new(config: IterativeSolverConfig<T>) -> Self {
         Self { config }
@@ -74,7 +85,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
         let mut ax = DVector::zeros(n); // Pre-allocated for initial residual
 
         // Compute initial residual: r = b - A*x
-        spmv(a, x, &mut ax); // Allocation-free multiplication
+        self.spmv(a, x, &mut ax); // Allocation-free multiplication
         r.copy_from(b);
         r -= &ax;
 
@@ -113,7 +124,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
 
             // Solve M*z = p and compute v = A*z
             preconditioner.apply_to(&p, &mut z)?;
-            spmv(a, &z, &mut v); // Allocation-free multiplication
+            self.spmv(a, &z, &mut v); // Allocation-free multiplication
 
             alpha = rho_new / r0_hat.dot(&v);
 
@@ -126,7 +137,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
 
             // Solve M*z2 = s and compute t = A*z2
             preconditioner.apply_to(&s, &mut z2)?;
-            spmv(a, &z2, &mut t); // Allocation-free multiplication
+            self.spmv(a, &z2, &mut t); // Allocation-free multiplication
 
             let t_dot_t = t.dot(&t);
             if t_dot_t.abs() < breakdown_tolerance {
@@ -134,7 +145,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
                 // But we can still update x with what we have
                 x.axpy(alpha, &z, T::one());
                 // Check if this partial update achieved convergence
-                spmv(a, x, &mut ax);
+                self.spmv(a, x, &mut ax);
                 r.copy_from(b);
                 r -= &ax;
                 if self.is_converged(r.norm()) {

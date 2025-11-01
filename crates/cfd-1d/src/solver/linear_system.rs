@@ -63,6 +63,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
                     max_iterations: self.max_iterations,
                     tolerance: self.tolerance,
                     use_preconditioner: false,
+                    use_parallel_spmv: false,
                 };
                 let solver = ConjugateGradient::<T>::new(config);
                 let mut x = x0.clone();
@@ -74,6 +75,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
                     max_iterations: self.max_iterations,
                     tolerance: self.tolerance,
                     use_preconditioner: false,
+                    use_parallel_spmv: false,
                 };
                 let solver = BiCGSTAB::<T>::new(config);
                 let mut x = x0.clone();

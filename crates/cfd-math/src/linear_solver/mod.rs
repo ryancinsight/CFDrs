@@ -23,6 +23,7 @@ mod bicgstab;
 mod config;
 mod conjugate_gradient;
 pub mod gmres;
+pub mod matrix_free;
 pub mod preconditioners;
 mod traits;
 
@@ -30,6 +31,7 @@ pub use bicgstab::BiCGSTAB;
 pub use config::IterativeSolverConfig;
 pub use conjugate_gradient::ConjugateGradient;
 pub use gmres::GMRES;
+pub use matrix_free::{LinearOperator, MatrixFreeCG, MatrixFreeGMRES, MatrixFreeBiCGSTAB, LaplacianOperator2D, MomentumOperator1D, PoissonOperator3D, MomentumOperator2D, EnergyOperator2D};
 pub use traits::{Configurable, IterativeLinearSolver, LinearSolver, Preconditioner};
 
 // REMOVED: Dependencies on cfd-core break the dependency hierarchy.
