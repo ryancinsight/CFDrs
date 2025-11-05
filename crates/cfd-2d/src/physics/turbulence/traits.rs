@@ -1,9 +1,8 @@
 //! Turbulence model trait definitions
 
-use cfd_core::error::Result;
-use nalgebra::{RealField, Vector2};
+use nalgebra::{DMatrix, RealField, Vector2};
 
-/// Trait for turbulence models
+/// Trait for RANS turbulence models (k-ε, k-ω, SA)
 pub trait TurbulenceModel<T: RealField + Copy> {
     /// Calculate turbulent viscosity
     /// 
@@ -55,11 +54,60 @@ pub trait TurbulenceModel<T: RealField + Copy> {
         dt: T,
         dx: T,
         dy: T,
-    ) -> Result<()>;
+    ) -> cfd_core::error::Result<()>;
 
     /// Get model name
     fn name(&self) -> &str;
 
     /// Check if model is valid for given Reynolds number
     fn is_valid_for_reynolds(&self, reynolds: T) -> bool;
+}
+
+/// Trait for LES/DES turbulence models (Smagorinsky LES, Detached Eddy Simulation)
+pub trait LESTurbulenceModel {
+    /// Update turbulence model with flow field data
+    ///
+    /// # Arguments
+    /// * `velocity_u` - x-velocity field
+    /// * `velocity_v` - y-velocity field
+    /// * `pressure` - pressure field
+    /// * `density` - fluid density
+    /// * `viscosity` - molecular viscosity
+    /// * `dt` - time step
+    /// * `dx`, `dy` - grid spacing
+    fn update(
+        &mut self,
+        velocity_u: &DMatrix<f64>,
+        velocity_v: &DMatrix<f64>,
+        pressure: &DMatrix<f64>,
+        density: f64,
+        viscosity: f64,
+        dt: f64,
+        dx: f64,
+        dy: f64,
+    ) -> cfd_core::error::Result<()>;
+
+    /// Get total viscosity (molecular + turbulent) at a grid point
+    fn get_viscosity(&self, i: usize, j: usize) -> f64;
+
+    /// Get turbulent viscosity field
+    fn get_turbulent_viscosity_field(&self) -> &DMatrix<f64>;
+
+    /// Get turbulent kinetic energy at a grid point (may return 0 for LES)
+    fn get_turbulent_kinetic_energy(&self, i: usize, j: usize) -> f64;
+
+    /// Get dissipation rate at a grid point
+    fn get_dissipation_rate(&self, i: usize, j: usize) -> f64;
+
+    /// Update boundary conditions
+    fn boundary_condition_update(
+        &mut self,
+        boundary_manager: &super::boundary_conditions::TurbulenceBoundaryManager<f64>,
+    ) -> cfd_core::error::Result<()>;
+
+    /// Get model name
+    fn get_model_name(&self) -> &str;
+
+    /// Get model constants as (name, value) pairs
+    fn get_model_constants(&self) -> Vec<(&str, f64)>;
 }

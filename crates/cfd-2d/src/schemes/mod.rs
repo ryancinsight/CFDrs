@@ -53,6 +53,22 @@ pub trait SpatialDiscretization<T: RealField + Copy> {
 
     /// Check if scheme is conservative
     fn is_conservative(&self) -> bool;
+
+    /// Compute CFL condition for advection: c*dt/dx
+    /// Returns the maximum CFL number for stability
+    fn cfl_limit(&self) -> f64;
+
+    /// Check if scheme is stable for given CFL number
+    fn is_stable(&self, cfl: f64) -> bool {
+        cfl <= self.cfl_limit()
+    }
+
+    /// Compute von Neumann amplification factor for given wavenumber and CFL
+    /// For 1D advection: G(k) = 1 - i * CFL * sin(k*dx)
+    fn amplification_factor(&self, k: f64, cfl: f64) -> num_complex::Complex<f64> {
+        let sin_kdx = (k * std::f64::consts::PI).sin(); // Assuming dx=1 for normalized analysis
+        num_complex::Complex::new(1.0, 0.0) - num_complex::Complex::new(0.0, cfl * sin_kdx)
+    }
 }
 
 /// Trait for face reconstruction schemes used in finite volume methods

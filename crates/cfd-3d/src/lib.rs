@@ -1,4 +1,80 @@
-//! 3D CFD simulations.
+//! # 3D Computational Fluid Dynamics (CFD) Suite
+//!
+//! This crate provides high-performance, mathematically rigorous implementations
+//! of advanced CFD methods for three-dimensional flow simulations.
+//!
+//! ## Core Methods Implemented
+//!
+//! ### Finite Element Method (FEM)
+//! - **Galerkin Method**: Weak form discretization of Navier-Stokes equations
+//! - **SUPG/PSPG Stabilization**: Streamline-Upwind Petrov-Galerkin and Pressure-Stabilizing Petrov-Galerkin
+//! - **Mixed Elements**: Velocity-pressure coupling for incompressible flows
+//!
+//! ### Immersed Boundary Method (IBM)
+//! - **Direct Forcing**: Momentum forcing at immersed boundaries
+//! - **Feedback Forcing**: PID-based boundary condition enforcement
+//! - **Discrete Delta Functions**: Smooth interpolation kernels
+//!
+//! ### Level Set Method
+//! - **Signed Distance Function**: Accurate interface representation
+//! - **Reinitialization**: Sussman redistancing algorithm
+//! - **Narrow Band**: Efficient computation near interfaces
+//!
+//! ### Volume of Fluid (VOF)
+//! - **PLIC Reconstruction**: Piecewise Linear Interface Construction
+//! - **Geometric Advection**: Volume-preserving interface transport
+//! - **Surface Tension**: Continuum Surface Force (CSF) model
+//!
+//! ### Spectral Methods
+//! - **Fourier Spectral**: Efficient FFT-based spatial discretization
+//! - **Chebyshev Spectral**: High-accuracy boundary treatment
+//! - **Collocation Methods**: Pseudospectral accuracy
+//!
+//! ## Governing Equations
+//!
+//! ### Navier-Stokes Equations (Incompressible)
+//! ```math
+//! ∂u/∂t + (u·∇)u = -∇p/ρ + ν∇²u + f    (Momentum)
+//! ∇·u = 0                                      (Continuity)
+//! ```
+//!
+//! ### Turbulence Modeling (Optional)
+//! - **LES**: Large Eddy Simulation with dynamic Smagorinsky
+//! - **DES**: Detached Eddy Simulation
+//! - **RANS**: Reynolds-Averaged Navier-Stokes
+//!
+//! ## Numerical Foundations
+//!
+//! ### Finite Element Theory
+//! **Theorem (Lax-Milgram)**: For coercive, continuous bilinear forms,
+//! the Galerkin method converges optimally.
+//!
+//! **SUPG Stabilization** (Brooks & Hughes, 1982):
+//! ```math
+//! τ = [(2/Δt)² + (2|u|·h)² + (4ν/h²)²]^(-1/2)
+//! ```
+//!
+//! ### Spectral Accuracy
+//! **Theorem (Collocation Convergence)**: For smooth solutions,
+//! spectral methods achieve exponential convergence O(e^(-cN)).
+//!
+//! ### Interface Methods
+//! **VOF Conservation**: Geometric advection preserves volume to machine precision.
+//!
+//! ## Implementation Highlights
+//!
+//! - **Performance**: SIMD kernels, cache-blocked algorithms, FFT acceleration
+//! - **Accuracy**: High-order methods, exact conservation properties
+//! - **Robustness**: Advanced stabilization, adaptive algorithms
+//! - **Scalability**: Parallel decomposition, memory-efficient data structures
+//!
+//! ## References
+//!
+//! - **FEM**: Hughes, T.J.R. (2000). *The Finite Element Method: Linear Static and Dynamic Finite Element Analysis*
+//! - **Spectral**: Boyd, J.P. (2001). *Chebyshev and Fourier Spectral Methods*
+//! - **IBM**: Mittal, R. & Iaccarino, G. (2005). *Immersed Boundary Methods*
+//! - **VOF**: Scardovelli, R. & Zaleski, S. (1999). *Direct Numerical Simulation of Free-Surface and Interfacial Flow*
+//! - **Level Set**: Osher, S. & Fedkiw, R. (2003). *Level Set Methods and Dynamic Implicit Surfaces*
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
@@ -167,7 +243,7 @@ mod tests {
         let expected_magnitude = 1.0;
         assert!((dc_magnitude - expected_magnitude).abs() < 1e-12);
 
-        // All other components should be essentially zero (relaxed tolerance for naive DFT)
+        // All other components should be essentially zero (using efficient FFT)
         for i in 1..n {
             assert!(spectrum[i].modulus() < 1e-10);
         }

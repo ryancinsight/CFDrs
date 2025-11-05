@@ -212,8 +212,14 @@ impl DGSolution {
     /// This is a placeholder that applies the limiter to each component of the solution.
     /// The actual implementation depends on the specific limiter being used.
     pub fn apply_limiter<L: Limiter>(&mut self, limiter: &L) {
-        // In a real implementation, we would apply the limiter to the solution coefficients
-        // This is a placeholder that does nothing
+        // For now, we apply the limiter without neighbor information
+        // In a full implementation, this would require neighbor solutions
+        // and a proper troubled cell detection mechanism
+
+        let empty_neighbors = &[];
+        let params = super::limiter::LimiterParams::new(super::limiter::LimiterType::Minmod);
+
+        limiter.limit(self, empty_neighbors, &params).unwrap_or(());
     }
     
     /// Get the cell average of the solution

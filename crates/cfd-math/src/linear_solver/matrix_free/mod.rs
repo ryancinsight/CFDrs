@@ -54,6 +54,8 @@ mod bicgstab;
 mod cfd_operators;
 mod traits;
 mod gpu_compute;
+#[cfg(feature = "mpi")]
+mod parallel_solvers;
 
 // GPU modules are conditionally compiled only when the 'gpu' feature is enabled
 #[cfg(feature = "gpu")]
@@ -75,6 +77,18 @@ pub use gpu_solvers::{GpuMatrixFreeGMRES, GpuMatrixFreeBiCGSTAB};
 pub use operator::GpuLinearOperator;
 #[cfg(feature = "gpu")]
 pub use gpu_operators::{GpuLaplacianOperator2D, GpuPoissonOperator3D, GpuMomentumOperator2D};
+
+// Conditionally re-export MPI-related types when the 'mpi' feature is enabled
+#[cfg(feature = "mpi")]
+pub use parallel_solvers::{
+    ParallelMatrixFreeBiCGSTAB,
+    ParallelLoadBalancer,
+    CommunicationOptimizer,
+    CommunicationOverlap,
+    LoadBalancingStrategy,
+    LoadBalancingRecommendations,
+    CommunicationOptimization,
+};
 
 #[cfg(test)]
 mod tests;

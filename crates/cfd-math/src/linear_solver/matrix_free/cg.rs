@@ -105,12 +105,12 @@ impl<T: RealField + Copy + FromPrimitive> MatrixFreeSolver<T> for MatrixFreeCG<T
 
             // Update solution: x = x + alpha*p
             for i in 0..n {
-                x[i] = x[i] + alpha * p[i];
+                x[i] += alpha * p[i];
             }
 
             // Update residual: r = r - alpha*A*p
             for i in 0..n {
-                r[i] = r[i] - alpha * ap[i];
+                r[i] -= alpha * ap[i];
             }
 
             // Identity preconditioning for now
@@ -155,7 +155,7 @@ impl<T: RealField + Copy> MatrixFreeCG<T> {
         debug_assert_eq!(a.len(), b.len());
         let mut sum = T::zero();
         for i in 0..a.len() {
-            sum = sum + a[i] * b[i];
+            sum += a[i] * b[i];
         }
         sum
     }

@@ -36,7 +36,7 @@ impl DependencyResolver {
             if !available_plugins.contains(dep) {
                 return Err(Error::Plugin(PluginErrorKind::DependencyMissing {
                     plugin: String::new(),
-                    dependency: dep.to_string(),
+                    dependency: dep.clone(),
                 }));
             }
         }
@@ -103,11 +103,11 @@ impl DependencyResolver {
         while let Some(deps) = self.dependencies.get(current) {
             for dep in deps {
                 if dep == start {
-                    chain.push(dep.to_string());
+                    chain.push(dep.clone());
                     return chain;
                 }
                 if !chain.contains(dep) {
-                    chain.push(dep.to_string());
+                    chain.push(dep.clone());
                     current = dep;
                     break;
                 }
@@ -122,13 +122,13 @@ impl DependencyResolver {
 
         // Initialize in-degree and adjacency list
         for (plugin, deps) in &self.dependencies {
-            in_degree.entry(plugin.to_string()).or_insert(0);
+            in_degree.entry(plugin.clone()).or_insert(0);
             for dep in deps {
-                in_degree.entry(dep.to_string()).or_insert(0);
+                in_degree.entry(dep.clone()).or_insert(0);
                 adj_list
-                    .entry(dep.to_string())
+                    .entry(dep.clone())
                     .or_default()
-                    .push(plugin.to_string());
+                    .push(plugin.clone());
                 *in_degree.get_mut(plugin).unwrap() += 1;
             }
         }
@@ -136,7 +136,7 @@ impl DependencyResolver {
         // Find all nodes with in-degree 0
         let mut queue: Vec<String> = in_degree
             .iter()
-            .filter_map(|(k, &v)| if v == 0 { Some(k.to_string()) } else { None })
+            .filter_map(|(k, &v)| if v == 0 { Some(k.clone()) } else { None })
             .collect();
 
         let mut result = Vec::new();
@@ -147,7 +147,7 @@ impl DependencyResolver {
                     if let Some(degree) = in_degree.get_mut(neighbor) {
                         *degree -= 1;
                         if *degree == 0 {
-                            queue.push(neighbor.to_string());
+                            queue.push(neighbor.clone());
                         }
                     }
                 }

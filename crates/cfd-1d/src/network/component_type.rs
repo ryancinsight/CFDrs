@@ -4,8 +4,10 @@ use serde::{Deserialize, Serialize};
 
 /// Physical component type for network edges
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum ComponentType {
     /// Standard pipe segment
+    #[default]
     Pipe,
     /// Flow control valve
     Valve,
@@ -39,8 +41,3 @@ impl ComponentType {
     }
 }
 
-impl Default for ComponentType {
-    fn default() -> Self {
-        Self::Pipe
-    }
-}

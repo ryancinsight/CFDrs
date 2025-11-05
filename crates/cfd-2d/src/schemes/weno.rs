@@ -1,4 +1,63 @@
 //! Weighted Essentially Non-Oscillatory (WENO) schemes
+//!
+//! ## Mathematical Foundation
+//!
+//! WENO schemes provide high-order accuracy in smooth regions while maintaining
+//! non-oscillatory behavior near discontinuities through nonlinear weighting.
+//!
+//! ### WENO Reconstruction
+//!
+//! For a 5-point stencil, WENO5 reconstructs the interface value using three
+//! candidate stencils, each providing third-order accuracy:
+//!
+//! **Stencil 1**: {u_{j-2}, u_{j-1}, u_j} → q₁ = (2u_{j-2} - 7u_{j-1} + 11u_j)/6
+//! **Stencil 2**: {u_{j-1}, u_j, u_{j+1}} → q₂ = (-u_{j-1} + 5u_j + 2u_{j+1})/6
+//! **Stencil 3**: {u_j, u_{j+1}, u_{j+2}} → q₃ = (2u_j + 5u_{j+1} - u_{j+2})/6
+//!
+//! The final reconstruction is: u_{j+1/2} = ∑ ω_k q_k
+//!
+//! ## Local Truncation Error (LTE) Bounds
+//!
+//! ### WENO5 Scheme
+//!
+//! **Smooth regions**: LTE = O(Δx⁵) (fifth-order accuracy)
+//!
+//! **Near discontinuities**: LTE = O(Δx²) (second-order, oscillation-free)
+//!
+//! **LTE bound**: |τ| ≤ C Δx^p where p = 5 for smooth flows, p = 2 near shocks
+//!
+//! ## Stability Analysis
+//!
+//! ### Von Neumann Stability
+//!
+//! WENO schemes maintain stability similar to their underlying schemes:
+//!
+//! **Stability region**: CFL ≤ 1/10 for WENO5 (very restrictive)
+//!
+//! The nonlinear weighting provides robustness but requires small time steps.
+//!
+//! ### TVD Property
+//!
+//! WENO schemes are not strictly TVD but maintain boundedness through:
+//! - Nonlinear weighting that downweights oscillatory stencils
+//! - Essentially non-oscillatory behavior near discontinuities
+//!
+//! ## CFL Conditions
+//!
+//! ### WENO5: CFL ≤ 1/10 (explicit schemes)
+//!
+//! The restrictive CFL condition is due to:
+//! - High-order accuracy requirements
+//! - Nonlinear stability constraints
+//! - Need to resolve small-scale features
+//!
+//! ## References
+//!
+//! - Jiang, G. S., & Shu, C. W. (1996). Efficient implementation of weighted ENO schemes.
+//!   *Journal of Computational Physics*, 126(1), 202-228.
+//! - Shu, C. W. (1997). Essentially non-oscillatory and weighted essentially non-oscillatory
+//!   schemes for hyperbolic conservation laws. In *Advanced numerical approximation of
+//!   nonlinear hyperbolic equations* (pp. 325-432). Springer.
 
 use super::{constants, weno_constants, Grid2D, SpatialDiscretization};
 use cfd_core::constants::mathematical::numeric::{THREE, TWO};
@@ -110,5 +169,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for WE
 
     fn is_conservative(&self) -> bool {
         true
+    }
+
+    /// CFL limit for WENO5 scheme: CFL ≤ 1/10
+    /// WENO schemes are very dissipative and require small time steps
+    fn cfl_limit(&self) -> f64 {
+        0.1 // Very restrictive for stability
     }
 }

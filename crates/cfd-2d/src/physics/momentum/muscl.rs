@@ -186,8 +186,8 @@ where
 
 /// Convenience constructors for common MUSCL schemes
 pub mod schemes {
-    use super::*;
-    use crate::physics::momentum::tvd_limiters::*;
+    use super::MusclScheme;
+    use crate::physics::momentum::tvd_limiters::{Superbee, VanLeer, Minmod};
 
     /// MUSCL2 with Superbee limiter (most accurate for shocks)
     pub type Muscl2Superbee<T> = MusclScheme<T, Superbee>;

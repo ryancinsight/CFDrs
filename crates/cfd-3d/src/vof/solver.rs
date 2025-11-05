@@ -1,4 +1,88 @@
-//! Core VOF solver implementation
+//! # Volume of Fluid (VOF) Method for 3D Multiphase Flows
+//!
+//! This module implements the Volume of Fluid method for accurate tracking
+//! of interfaces in multiphase flows with guaranteed volume conservation.
+//!
+//! ## Mathematical Foundation
+//!
+//! ### VOF Equation
+//! The volume fraction α satisfies:
+//!
+//! ```math
+//! ∂α/∂t + ∇·(α u) = 0
+//! ```
+//!
+//! where α = 1 in fluid 1, α = 0 in fluid 2, and 0 < α < 1 at interfaces.
+//!
+//! ### Interface Reconstruction
+//! **PLIC (Piecewise Linear Interface Construction)**:
+//! - Reconstructs linear interface within each cell
+//! - Ensures exact volume conservation
+//! - Maintains interface sharpness
+//!
+//! ### Geometric Advection
+//! **Theorem (Volume Conservation)**: Geometric advection preserves
+//! the total volume of each phase to machine precision:
+//!
+//! ```math
+//! ∫_{Ω} α dΩ = constant  (for each phase)
+//! ```
+//!
+//! ## Algorithm Overview
+//!
+//! 1. **Interface Reconstruction**: PLIC method to reconstruct interface geometry
+//! 2. **Geometric Advection**: Flux calculation through cell faces
+//! 3. **Volume Update**: Conservative volume fraction update
+//! 4. **Surface Tension**: Continuum Surface Force (CSF) model
+//! 5. **Compression**: Interface compression to prevent smearing
+//!
+//! ## Interface Reconstruction
+//!
+//! ### PLIC Algorithm (Youngs, 1982)
+//! 1. **Normal Calculation**: ∇α / |∇α| using mixed Youngs-centered scheme
+//! 2. **Plane Equation**: Find linear interface that matches volume fraction
+//! 3. **Root Finding**: Solve nonlinear equation for interface position
+//!
+//! ### Geometric Flux Calculation
+//! For each cell face, compute the volume flux using polygon clipping:
+//! - **Face Geometry**: Compute intersection of interface plane with cell face
+//! - **Flux Volume**: Calculate volume of intersected polygon
+//! - **Conservation**: Exact volume conservation per time step
+//!
+//! ## Surface Tension Implementation
+//!
+//! ### Continuum Surface Force (CSF) Model (Brackbill et al., 1992)
+//! ```math
+//! F_σ = σ κ ∇α
+//! ```
+//!
+//! where κ is the interface curvature computed from the divergence of the normal:
+//! ```math
+//! κ = ∇·(∇α / |∇α|)
+//! ```
+//!
+//! ## Accuracy and Conservation
+//!
+//! **Theorem (VOF Conservation)**: The geometric VOF method is exactly
+//! conservative for incompressible flows and preserves phase volumes
+//! to machine precision, independent of time step size.
+//!
+//! **Interface Sharpness**: PLIC reconstruction maintains sub-cell
+//! interface resolution without artificial smearing.
+//!
+//! ## Implementation Features
+//!
+//! - **PLIC Reconstruction**: Exact volume matching with Newton iteration
+//! - **Geometric Advection**: Polygon clipping for exact conservation
+//! - **Cache Blocking**: Optimized memory access patterns for 3D grids
+//! - **SIMD Operations**: Vectorized normal and curvature calculations
+//!
+//! ## References
+//!
+//! - Hirt, C.W. & Nichols, B.D. (1981). "Volume of fluid (VOF) method for the dynamics of free boundaries"
+//! - Youngs, D.L. (1982). "Time-dependent multi-material flow with large fluid distortion"
+//! - Brackbill, J.U. et al. (1992). "A continuum method for modeling surface tension"
+//! - Scardovelli, R. & Zaleski, S. (1999). *Direct Numerical Simulation of Free-Surface and Interfacial Flow*
 
 use cfd_core::error::Result;
 use nalgebra::{RealField, Vector3};

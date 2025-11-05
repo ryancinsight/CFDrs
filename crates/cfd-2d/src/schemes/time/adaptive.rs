@@ -186,9 +186,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
             // Step rejected - reduce time step
             self.steps_rejected += 1;
 
-            if self.steps_rejected > self.max_rejections {
-                panic!("Too many step rejections in adaptive time stepping");
-            }
+            assert!(self.steps_rejected <= self.max_rejections, "Too many step rejections in adaptive time stepping");
 
             let factor = T::from_f64(safety_factor).unwrap_or_else(T::one)
                 * (error_tolerance_t / error_estimate).powf(T::from_f64(1.0 / 3.0).unwrap_or_else(T::one));
@@ -314,9 +312,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveTimeIntegrator<T
 
         loop {
             attempts += 1;
-            if attempts > max_attempts {
-                panic!("Failed to converge in adaptive time stepping after {} attempts", max_attempts);
-            }
+            assert!(attempts <= max_attempts, "Failed to converge in adaptive time stepping after {max_attempts} attempts");
 
             let dt_current = self.controller.dt_current;
 
@@ -338,10 +334,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveTimeIntegrator<T
                 // Step accepted
                 self.y_prev = Some(y.clone());
                 return (y_full, t + dt_current, new_dt, true);
-            } else {
-                // Step rejected - try again with smaller step
-                continue;
             }
+            // Step rejected - try again with smaller step
+            continue;
         }
     }
 

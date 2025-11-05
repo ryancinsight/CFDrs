@@ -14,7 +14,7 @@
 //! - Pentadiagonal (typical 2D Laplacian, 5 nnz/row)
 //! - Large matrices (>1000 rows) for parallel benefit
 
-use cfd_math::sparse::{spmv, spmv_f32_simd, spmv_parallel, SparseMatrixBuilder};
+use cfd_math::sparse::{spmv, spmv_parallel, SparseMatrixBuilder};
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use nalgebra::DVector;
 use nalgebra_sparse::CsrMatrix;
@@ -143,47 +143,6 @@ fn bench_scalar_spmv(c: &mut Criterion) {
     group.bench_function("tridiagonal_2000", |b| {
         b.iter(|| {
             spmv(black_box(&matrix), black_box(&x), black_box(&mut y));
-        });
-    });
-    
-    group.finish();
-}
-
-/// Benchmark SIMD SpMV (AVX2/SSE4.1 with runtime dispatch)
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-fn bench_simd_spmv(c: &mut Criterion) {
-    let mut group = c.benchmark_group("spmv_simd_f32");
-    
-    // Small: 100x100 tridiagonal
-    let matrix = create_tridiagonal_csr_f32(100);
-    let x = DVector::from_element(100, 1.0f32);
-    let mut y = DVector::zeros(100);
-    group.throughput(Throughput::Elements(matrix.nnz() as u64));
-    group.bench_function("tridiagonal_100", |b| {
-        b.iter(|| {
-            spmv_f32_simd(black_box(&matrix), black_box(&x), black_box(&mut y));
-        });
-    });
-    
-    // Medium: 500x500 tridiagonal
-    let matrix = create_tridiagonal_csr_f32(500);
-    let x = DVector::from_element(500, 1.0f32);
-    let mut y = DVector::zeros(500);
-    group.throughput(Throughput::Elements(matrix.nnz() as u64));
-    group.bench_function("tridiagonal_500", |b| {
-        b.iter(|| {
-            spmv_f32_simd(black_box(&matrix), black_box(&x), black_box(&mut y));
-        });
-    });
-    
-    // Large: 2000x2000 tridiagonal
-    let matrix = create_tridiagonal_csr_f32(2000);
-    let x = DVector::from_element(2000, 1.0f32);
-    let mut y = DVector::zeros(2000);
-    group.throughput(Throughput::Elements(matrix.nnz() as u64));
-    group.bench_function("tridiagonal_2000", |b| {
-        b.iter(|| {
-            spmv_f32_simd(black_box(&matrix), black_box(&x), black_box(&mut y));
         });
     });
     
@@ -362,7 +321,6 @@ fn bench_parallel_pentadiagonal(c: &mut Criterion) {
 criterion_group!(
     benches,
     bench_scalar_spmv,
-    bench_simd_spmv,
     bench_pentadiagonal,
     bench_parallel_spmv,
     bench_parallel_pentadiagonal

@@ -124,7 +124,7 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
         }
 
         // Apply remaining boundary conditions (non-periodic)
-        for ((i, j), bc) in boundary_conditions.iter() {
+        for ((i, j), bc) in boundary_conditions {
             match bc {
                 BoundaryCondition::Dirichlet { value } => {
                     new_temperature[*i][*j] = *value;

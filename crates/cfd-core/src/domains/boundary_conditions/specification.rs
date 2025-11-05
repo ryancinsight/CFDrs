@@ -68,6 +68,8 @@ impl<T: RealField + Copy> BoundaryConditionSpec<T> {
             BoundaryCondition::VolumeFlowInlet { .. } => "VolumeFlowInlet",
             BoundaryCondition::Wall { .. } => "Wall",
             BoundaryCondition::Symmetry => "Symmetry",
+            BoundaryCondition::CharacteristicInlet { .. } => "CharacteristicInlet",
+            BoundaryCondition::CharacteristicOutlet { .. } => "CharacteristicOutlet",
         }
     }
 }

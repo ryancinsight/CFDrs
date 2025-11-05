@@ -14,7 +14,7 @@
 
 use approx::assert_relative_eq;
 use cfd_1d::resistance::{
-    DarcyWeisbachModel, FlowConditions, HagenPoiseuilleModel, 
+    DarcyWeisbachModel, EntranceEffectsModel, FlowConditions, HagenPoiseuilleModel,
     RectangularChannelModel, ResistanceModel,
 };
 use cfd_core::error::Result;
@@ -173,13 +173,7 @@ fn test_darcy_weisbach_rough_pipe() -> Result<()> {
 ///
 /// Validates against Shah & London (1978), Table 1.1:
 /// For rectangular ducts, Poiseuille number Po = f*Re varies with aspect ratio
-///
-/// **Note**: This test is currently ignored because the implementation uses a different
-/// correlation than Shah & London's Poiseuille number approach. The implementation
-/// gives results that differ by orders of magnitude, suggesting a fundamentally
-/// different resistance calculation method is used. Further investigation needed.
 #[test]
-#[ignore = "Implementation uses different correlation than Shah & London"]
 fn test_rectangular_channel_analytical() -> Result<()> {
     // Square channel (α = 1.0): Po = 56.91
     let width: f64 = 1e-3; // 1 mm
@@ -310,6 +304,185 @@ fn test_resistance_scaling_laws() -> Result<()> {
     // Verify R ∝ D^(-4) (fourth-power inverse scaling with diameter)
     let expected_diameter_scaling = scale_factor.powi(4);
     assert_relative_eq!(r_base / r_scaled_diameter, expected_diameter_scaling, epsilon = 1e-4);
+
+    Ok(())
+}
+
+/// Test entrance effects for sudden contraction (sharp-edged inlet).
+///
+/// Validates against Idelchik (1994) Handbook of Hydraulic Resistance:
+/// K_entry = (1 - A₁/A₂)² * (1 + 0.1/Re) for sudden contraction
+#[test]
+fn test_entrance_effects_sudden_contraction() -> Result<()> {
+    // Test case: contraction from 4 mm² to 1 mm² (area ratio = 4)
+    let upstream_area: f64 = 4e-6; // 4 mm²
+    let downstream_area: f64 = 1e-6; // 1 mm²
+    let area_ratio = upstream_area / downstream_area; // 4.0
+
+    let model = EntranceEffectsModel::sudden_contraction(upstream_area, downstream_area);
+    let fluid = fluid::database::water_20c::<f64>()?;
+
+    // Test at different Reynolds numbers
+    let reynolds_values = [100.0, 1000.0, 10000.0];
+
+    for &re in &reynolds_values {
+        let mut conditions = FlowConditions::new(0.1);
+        conditions.reynolds_number = Some(re);
+
+        let resistance = model.calculate_resistance(&fluid, &conditions)?;
+
+        // Calculate expected loss coefficient
+        let contraction_ratio = 1.0 - 1.0 / area_ratio; // 1 - 1/4 = 0.75
+        let k_base = contraction_ratio * contraction_ratio; // 0.75² = 0.5625
+        let re_correction = 0.1 / re;
+        let k_expected = k_base * (1.0 + re_correction);
+
+        // Convert to resistance: R = K / (2 * A²)
+        let expected_resistance = k_expected / (2.0 * downstream_area * downstream_area);
+
+        assert_relative_eq!(resistance, expected_resistance, epsilon = 1e-6);
+    }
+
+    Ok(())
+}
+
+/// Test entrance effects for smooth contraction (well-rounded inlet).
+///
+/// Validates against Blevins (1984) Applied Fluid Dynamics Handbook:
+/// K_entry = 0.05 + 0.19 * (A₁/A₂) for turbulent flow
+#[test]
+fn test_entrance_effects_smooth_contraction() -> Result<()> {
+    // Test case: smooth contraction with area ratio = 2
+    let upstream_area: f64 = 2e-6; // 2 mm²
+    let downstream_area: f64 = 1e-6; // 1 mm²
+    let area_ratio = upstream_area / downstream_area; // 2.0
+
+    let model = EntranceEffectsModel::smooth_contraction(upstream_area, downstream_area);
+    let fluid = fluid::database::water_20c::<f64>()?;
+
+    // Test in turbulent regime (Re > 10^4)
+    let mut conditions = FlowConditions::new(0.1);
+    conditions.reynolds_number = Some(50000.0); // Turbulent
+
+    let resistance = model.calculate_resistance(&fluid, &conditions)?;
+
+    // Expected: K = 0.05 + 0.19 * 2.0 = 0.43
+    let k_expected = 0.05 + 0.19 * area_ratio;
+    let expected_resistance = k_expected / (2.0 * downstream_area * downstream_area);
+
+    assert_relative_eq!(resistance, expected_resistance, epsilon = 1e-6);
+
+    Ok(())
+}
+
+/// Test Reynolds number dependence of entrance loss coefficient.
+///
+/// Validates that entrance effects decrease with increasing Reynolds number
+/// for sudden contraction, following the 1/Re correction term.
+#[test]
+fn test_entrance_effects_reynolds_dependence() -> Result<()> {
+    let upstream_area: f64 = 4e-6;
+    let downstream_area: f64 = 1e-6;
+
+    let model = EntranceEffectsModel::sudden_contraction(upstream_area, downstream_area);
+    let fluid = fluid::database::water_20c::<f64>()?;
+
+    let re_low = 100.0;
+    let re_high = 1000.0;
+
+    let mut conditions_low = FlowConditions::new(0.1);
+    conditions_low.reynolds_number = Some(re_low);
+
+    let mut conditions_high = FlowConditions::new(0.1);
+    conditions_high.reynolds_number = Some(re_high);
+
+    let resistance_low = model.calculate_resistance(&fluid, &conditions_low)?;
+    let resistance_high = model.calculate_resistance(&fluid, &conditions_high)?;
+
+    // Higher Reynolds number should give lower resistance (less entrance effects)
+    assert!(resistance_high < resistance_low,
+        "Entrance resistance should decrease with increasing Re: {} vs {}",
+        resistance_high, resistance_low);
+
+    // Verify the ratio matches theoretical expectation
+    let area_ratio = upstream_area / downstream_area;
+    let contraction_ratio = 1.0 - 1.0 / area_ratio;
+    let k_base = contraction_ratio * contraction_ratio;
+
+    let k_low = k_base * (1.0 + 0.1 / re_low);
+    let k_high = k_base * (1.0 + 0.1 / re_high);
+
+    let ratio_expected = k_high / k_low;
+    let ratio_actual = resistance_high / resistance_low;
+
+    assert_relative_eq!(ratio_actual, ratio_expected, epsilon = 1e-6);
+
+    Ok(())
+}
+
+/// Test area ratio dependence of entrance loss coefficient.
+///
+/// Validates that larger contractions produce higher entrance losses
+/// following the (1 - A₁/A₂)² relationship.
+#[test]
+fn test_entrance_effects_area_ratio_dependence() -> Result<()> {
+    let downstream_area: f64 = 1e-6;
+    let fluid = fluid::database::water_20c::<f64>()?;
+
+    let mut conditions = FlowConditions::new(0.1);
+    conditions.reynolds_number = Some(1000.0);
+
+    // Test different area ratios
+    let area_ratios = [1.5, 2.0, 4.0];
+
+    let mut previous_resistance = 0.0;
+
+    for &ratio in &area_ratios {
+        let upstream_area = ratio * downstream_area;
+        let model = EntranceEffectsModel::sudden_contraction(upstream_area, downstream_area);
+
+        let resistance = model.calculate_resistance(&fluid, &conditions)?;
+
+        // Larger area ratio should give higher resistance
+        if previous_resistance > 0.0 {
+            assert!(resistance > previous_resistance,
+                "Entrance resistance should increase with area ratio: {} vs previous",
+                resistance);
+        }
+
+        previous_resistance = resistance;
+    }
+
+    Ok(())
+}
+
+/// Test dimensional analysis and scaling laws for entrance effects.
+///
+/// Validates that entrance resistance scales correctly with geometric parameters.
+#[test]
+fn test_entrance_effects_dimensional_analysis() -> Result<()> {
+    let base_upstream: f64 = 4e-6;
+    let base_downstream: f64 = 1e-6;
+    let scale_factor: f64 = 2.0;
+
+    let model_base = EntranceEffectsModel::sudden_contraction(base_upstream, base_downstream);
+    let model_scaled = EntranceEffectsModel::sudden_contraction(
+        base_upstream * scale_factor * scale_factor, // Area scales with L²
+        base_downstream * scale_factor * scale_factor,
+    );
+
+    let fluid = fluid::database::water_20c::<f64>()?;
+    let mut conditions = FlowConditions::new(0.1);
+    conditions.reynolds_number = Some(1000.0);
+
+    let resistance_base = model_base.calculate_resistance(&fluid, &conditions)?;
+    let resistance_scaled = model_scaled.calculate_resistance(&fluid, &conditions)?;
+
+    // Entrance resistance should scale with 1/A² where A is downstream area
+    let expected_ratio = 1.0 / (scale_factor * scale_factor).powi(2);
+    let actual_ratio = resistance_scaled / resistance_base;
+
+    assert_relative_eq!(actual_ratio, expected_ratio, epsilon = 1e-6);
 
     Ok(())
 }

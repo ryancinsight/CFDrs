@@ -11,6 +11,51 @@ use num_traits::FromPrimitive;
 use std::fmt::Debug;
 
 /// BiCGSTAB solver with efficient memory management
+///
+/// # Convergence Theory
+///
+/// ## Acceleration over BiCG
+///
+/// BiCGSTAB (BiConjugate Gradient Stabilized) addresses instability issues in the
+/// standard BiCG method by introducing additional stabilization terms. The algorithm
+/// combines BiCG with GMRES-like stabilization to prevent divergence.
+///
+/// Unlike BiCG, which may exhibit erratic convergence or breakdown, BiCGSTAB
+/// provides smoother convergence behavior and better numerical stability.
+///
+/// ## Convergence Properties
+///
+/// BiCGSTAB converges for non-symmetric matrices where the field of values
+/// lies in the right half-plane. The convergence rate depends on:
+/// - Condition number of the system matrix
+/// - Effectiveness of preconditioning
+/// - Initial residual smoothness
+///
+/// ## Breakdown Prevention
+///
+/// BiCGSTAB handles two types of breakdown:
+/// 1. **Primary breakdown**: ρ_new = 0 (division by zero)
+/// 2. **Secondary breakdown**: α = 0 or ω = 0 (stagnation)
+///
+/// Robust implementations include checks for near-breakdown conditions.
+///
+/// # References
+///
+/// - Van der Vorst, H. A. (1992). Bi-CGSTAB: A fast and smoothly converging variant
+///   of Bi-CG for the solution of nonsymmetric linear systems. *SIAM Journal on
+///   Scientific and Statistical Computing*, 13(2), 631-644.
+///   See Algorithm 1 and convergence analysis in Section 3.
+/// - Sleijpen, G. L. G., & Fokkema, D. R. (1993). BiCGstab(l) and other hybrid
+///   Bi-CG methods. *Numerical Algorithms*, 7(1), 75-109.
+///   See Section 2.1 for BiCGSTAB algorithm derivation.
+/// - Saad, Y. (2003). *Iterative methods for sparse linear systems* (2nd ed.).
+///   SIAM. Section 7.3: BiCG and Variants, including BiCGSTAB.
+/// - Sonneveld, P. (1989). CGS, a fast Lanczos-type solver for nonsymmetric linear systems.
+///   *SIAM Journal on Scientific and Statistical Computing*, 10(1), 36-52.
+///   Original CGS method, precursor to BiCGSTAB.
+/// - Fletcher, R. (1976). Conjugate gradient methods for indefinite systems.
+///   In *Numerical Analysis* (pp. 73-89). Springer.
+///   BiCG foundation and convergence theory.
 pub struct BiCGSTAB<T: RealField + Copy> {
     config: IterativeSolverConfig<T>,
 }

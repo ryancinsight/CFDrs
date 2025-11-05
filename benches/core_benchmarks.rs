@@ -65,11 +65,18 @@ fn benchmark_simd_operations(c: &mut Criterion) {
     group.finish();
 }
 
+#[cfg(feature = "simd")]
 criterion_group!(
     benches,
     benchmark_finite_difference,
     benchmark_domain_operations,
-    #[cfg(feature = "simd")]
     benchmark_simd_operations
+);
+
+#[cfg(not(feature = "simd"))]
+criterion_group!(
+    benches,
+    benchmark_finite_difference,
+    benchmark_domain_operations
 );
 criterion_main!(benches);

@@ -8,9 +8,11 @@ pub mod constants;
 pub mod kernels;
 pub mod pipeline;
 pub mod poisson_solver;
+pub mod turbulence_compute;
 
 pub use buffer::GpuBuffer;
 pub use poisson_solver::{GpuPoissonSolver, PoissonParams};
+pub use turbulence_compute::{GpuTurbulenceCompute, TurbulencePerformanceInfo};
 
 /// GPU context for managing device and queue
 pub struct GpuContext {

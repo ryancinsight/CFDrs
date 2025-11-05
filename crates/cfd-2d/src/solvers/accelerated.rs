@@ -5,6 +5,7 @@
 use crate::error::{Error, Result};
 use crate::fields::Field2D;
 use crate::grid::StructuredGrid2D;
+use std::sync::Arc;
 
 /// Acceleration backend selection
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -69,32 +70,25 @@ impl AcceleratedPoissonSolver {
         &self,
         phi: &mut Field2D<f32>,
         source: &Field2D<f32>,
-        iterations: usize,
+        max_iterations: usize,
         omega: f32,
     ) -> Result<f32> {
         match self.backend {
             #[cfg(feature = "gpu")]
             Backend::Gpu => {
                 if let Some(ref gpu_solver) = self.gpu_solver {
-                    // Use GPU solver
-                    let residual = gpu_solver.solve_jacobi(
-                        phi.as_mut_slice(),
-                        source.as_slice(),
-                        iterations,
-                        omega,
-                    )?;
-                    Ok(residual)
+                    self.solve_gpu_with_convergence(phi, source, max_iterations, omega, 1e-6)
                 } else {
-                    self.solve_simd(phi, source, iterations, omega)
+                    self.solve_simd(phi, source, max_iterations, omega)
                 }
             }
-            Backend::Simd => self.solve_simd(phi, source, iterations, omega),
-            Backend::Cpu => self.solve_cpu(phi, source, iterations, omega),
+            Backend::Simd => self.solve_simd(phi, source, max_iterations, omega),
+            Backend::Cpu => self.solve_cpu(phi, source, max_iterations, omega),
             #[cfg(not(feature = "gpu"))]
             Backend::Gpu => {
                 // GPU not available, fall back to CPU
                 tracing::warn!("GPU backend requested but not available, using CPU");
-                self.solve_cpu(phi, source, iterations, omega)
+                self.solve_cpu(phi, source, max_iterations, omega)
             }
         }
     }
@@ -187,6 +181,55 @@ impl AcceleratedPoissonSolver {
         }
 
         Ok(max_residual)
+    }
+
+    /// GPU solver with convergence monitoring
+    #[cfg(feature = "gpu")]
+    fn solve_gpu_with_convergence(
+        &self,
+        phi: &mut Field2D<f32>,
+        source: &Field2D<f32>,
+        max_iterations: usize,
+        omega: f32,
+        tolerance: f32,
+    ) -> Result<f32> {
+        if let Some(ref gpu_solver) = self.gpu_solver {
+            let mut iterations_per_step = 10; // Start with 10 iterations per convergence check
+
+            for iteration_block in 0..(max_iterations / iterations_per_step).max(1) {
+                // Perform iterations_per_step iterations
+                let remaining_iterations = max_iterations.saturating_sub(iteration_block * iterations_per_step);
+                let iterations_this_block = iterations_per_step.min(remaining_iterations);
+
+                gpu_solver.solve_jacobi(
+                    phi.as_mut_slice(),
+                    source.as_slice(),
+                    iterations_this_block,
+                    omega,
+                )?;
+
+                // Check convergence
+                let residual = gpu_solver.calculate_residual(phi.as_slice(), source.as_slice())?;
+
+                if residual < tolerance {
+                    tracing::debug!("GPU solver converged in {} iterations, residual: {}", 
+                        (iteration_block + 1) * iterations_per_step, residual);
+                    return Ok(residual);
+                }
+
+                // Adaptive iteration block size - reduce if converging slowly
+                if iteration_block > 0 && iterations_per_step > 1 {
+                    iterations_per_step = (iterations_per_step * 3) / 4; // Reduce by 25%
+                }
+            }
+
+            // Final residual check
+            let final_residual = gpu_solver.calculate_residual(phi.as_slice(), source.as_slice())?;
+            tracing::debug!("GPU solver reached max iterations, final residual: {}", final_residual);
+            Ok(final_residual)
+        } else {
+            Err(Error::InvalidConfiguration("GPU solver not available".to_string()))
+        }
     }
 
     /// Get active backend

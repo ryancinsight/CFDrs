@@ -1,8 +1,12 @@
 //! Manufactured solutions for the Navier-Stokes equations
 //!
-//! Solves the incompressible Navier-Stokes equations:
+//! Provides complete MMS (Method of Manufactured Solutions) for incompressible Navier-Stokes:
 //! ∂u/∂t + (u·∇)u = -∇p/ρ + ν∇²u + f
 //! ∇·u = 0
+//!
+//! References:
+//! - Roache, P.J. (2002) "Code Verification by the Method of Manufactured Solutions"
+//! - Salari, K. & Knupp, P. (2000) "Code Verification by the Method of Manufactured Solutions"
 
 use super::ManufacturedSolution;
 use cfd_core::conversion::SafeFromF64;
@@ -10,51 +14,193 @@ use nalgebra::{RealField, Vector2};
 use num_traits::Float;
 use std::f64::consts::PI;
 
-/// Manufactured solution for 2D incompressible Navier-Stokes
-pub struct ManufacturedNavierStokes<T: RealField + Float> {
+/// Complete manufactured solution for 2D incompressible Navier-Stokes equations
+pub trait NavierStokesManufacturedSolution<T: RealField + Float> {
+    /// Exact velocity solution at (x,y,t)
+    fn exact_velocity(&self, x: T, y: T, t: T) -> Vector2<T>;
+
+    /// Exact pressure solution at (x,y,t)
+    fn exact_pressure(&self, x: T, y: T, t: T) -> T;
+
+    /// Source term for u-momentum equation
+    fn momentum_source_u(&self, x: T, y: T, t: T) -> T;
+
+    /// Source term for v-momentum equation
+    fn momentum_source_v(&self, x: T, y: T, t: T) -> T;
+
+    /// Verify continuity equation (∇·u = 0) is satisfied
+    fn verify_continuity(&self, x: T, y: T, t: T) -> T {
+        let vel = self.exact_velocity(x, y, t);
+        let du_dx = self.velocity_derivative_x(x, y, t);
+        let dv_dy = self.velocity_derivative_y(x, y, t);
+        du_dx + dv_dy
+    }
+
+    /// Velocity derivatives (needed for source term computation)
+    fn velocity_derivative_x(&self, x: T, y: T, t: T) -> T;
+    fn velocity_derivative_y(&self, x: T, y: T, t: T) -> T;
+    fn velocity_derivative_t(&self, x: T, y: T, t: T) -> Vector2<T>;
+
+    /// Laplacian of velocity field
+    fn velocity_laplacian(&self, x: T, y: T, t: T) -> Vector2<T>;
+}
+
+/// Manufactured solution for 2D incompressible Navier-Stokes using polynomial functions
+/// This provides a complete MMS with analytical source terms
+pub struct PolynomialNavierStokesMMS<T: RealField + Float> {
     /// Kinematic viscosity
     pub nu: T,
     /// Density
     pub rho: T,
-    /// Characteristic length
-    pub length: T,
-    /// Characteristic velocity
-    pub velocity: T,
+    /// Amplitude coefficients for velocity
+    pub u_amp: T,
+    pub v_amp: T,
+    /// Amplitude coefficient for pressure
+    pub p_amp: T,
 }
 
-impl<T: RealField + Float> ManufacturedNavierStokes<T> {
-    /// Create a new manufactured Navier-Stokes solution
-    pub fn new(nu: T, rho: T) -> Self {
-        Self {
-            nu,
-            rho,
-            length: T::one(),
-            velocity: T::one(),
-        }
+impl<T: RealField + Float> PolynomialNavierStokesMMS<T> {
+    /// Create new polynomial MMS with specified parameters
+    pub fn new(nu: T, rho: T, u_amp: T, v_amp: T, p_amp: T) -> Self {
+        Self { nu, rho, u_amp, v_amp, p_amp }
     }
 
-    /// Get the Reynolds number
-    pub fn reynolds_number(&self) -> T {
-        self.velocity * self.length / self.nu
+    /// Create with default amplitudes for standard verification
+    pub fn default(nu: T, rho: T) -> Self {
+        Self::new(
+            nu, rho,
+            T::from_f64(1.0).unwrap(),
+            T::from_f64(0.5).unwrap(),
+            T::from_f64(0.1).unwrap()
+        )
     }
 }
 
-impl<T: RealField + Float> ManufacturedSolution<T> for ManufacturedNavierStokes<T> {
-    /// Exact solution for velocity and pressure
-    /// Using the Taylor-Green vortex as manufactured solution
-    fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
-        // This returns the u-component of velocity
-        // For full solution, we'd need separate methods for u, v, and p
-        let pi = T::from_f64_or_one(PI);
-        let decay = Float::exp(-T::from_f64_or_one(2.0) * self.nu * pi * pi * t);
-        Float::sin(pi * x) * Float::cos(pi * y) * decay
+impl<T: RealField + Float> NavierStokesManufacturedSolution<T> for PolynomialNavierStokesMMS<T> {
+    /// Exact velocity solution: u = A*sin(πx)*cos(πy)*exp(-2νπ²t)
+    ///                       v = B*cos(πx)*sin(πy)*exp(-2νπ²t)
+    fn exact_velocity(&self, x: T, y: T, t: T) -> Vector2<T> {
+        let pi = T::from_f64(PI).unwrap();
+        let decay = Float::exp(-T::from_f64(2.0).unwrap() * self.nu * pi * pi * t);
+
+        let u = self.u_amp * Float::sin(pi * x) * Float::cos(pi * y) * decay;
+        let v = self.v_amp * Float::cos(pi * x) * Float::sin(pi * y) * decay;
+
+        Vector2::new(u, v)
     }
 
-    /// Source term for the momentum equation
-    fn source_term(&self, _x: T, _y: T, _z: T, _t: T) -> T {
-        // For Taylor-Green vortex, the source term is zero
-        // as it's an exact solution to the Navier-Stokes equations
-        T::zero()
+    /// Exact pressure solution: p = C*sin(2πx)*cos(2πy)*exp(-4νπ²t)
+    fn exact_pressure(&self, x: T, y: T, t: T) -> T {
+        let pi = T::from_f64(PI).unwrap();
+        let decay = Float::exp(-T::from_f64(4.0).unwrap() * self.nu * pi * pi * t);
+
+        self.p_amp * Float::sin(T::from_f64(2.0).unwrap() * pi * x)
+                 * Float::cos(T::from_f64(2.0).unwrap() * pi * y) * decay
+    }
+
+    /// Source term for u-momentum equation: ∂u/∂t + u·∇u = -∇p/ρ + ν∇²u + f_u
+    fn momentum_source_u(&self, x: T, y: T, t: T) -> T {
+        let pi = T::from_f64(PI).unwrap();
+        let two = T::from_f64(2.0).unwrap();
+        let four = T::from_f64(4.0).unwrap();
+
+        let decay = Float::exp(-two * self.nu * pi * pi * t);
+        let decay_4nu = Float::exp(-four * self.nu * pi * pi * t);
+
+        // ∂u/∂t
+        let du_dt = -two * self.nu * pi * pi * self.u_amp * Float::sin(pi * x) * Float::cos(pi * y) * decay;
+
+        // u·∇u = u*∂u/∂x + v*∂u/∂y
+        let u = self.u_amp * Float::sin(pi * x) * Float::cos(pi * y) * decay;
+        let v = self.v_amp * Float::cos(pi * x) * Float::sin(pi * y) * decay;
+
+        let du_dx = self.u_amp * pi * Float::cos(pi * x) * Float::cos(pi * y) * decay;
+        let du_dy = -self.u_amp * pi * Float::sin(pi * x) * Float::sin(pi * y) * decay;
+
+        let convection = u * du_dx + v * du_dy;
+
+        // -∇p/ρ (pressure gradient contribution to u-momentum)
+        let dp_dx = two * pi * self.p_amp * Float::cos(two * pi * x) * Float::cos(two * pi * y) * decay_4nu;
+        let pressure_term = -dp_dx / self.rho;
+
+        // ν∇²u
+        let d2u_dx2 = -pi * pi * self.u_amp * Float::sin(pi * x) * Float::cos(pi * y) * decay;
+        let d2u_dy2 = -pi * pi * self.u_amp * Float::sin(pi * x) * Float::cos(pi * y) * decay;
+        let diffusion = self.nu * (d2u_dx2 + d2u_dy2);
+
+        // Source term: f_u = ∂u/∂t + u·∇u + ∇p/ρ - ν∇²u
+        du_dt + convection + pressure_term - diffusion
+    }
+
+    /// Source term for v-momentum equation
+    fn momentum_source_v(&self, x: T, y: T, t: T) -> T {
+        let pi = T::from_f64(PI).unwrap();
+        let two = T::from_f64(2.0).unwrap();
+        let four = T::from_f64(4.0).unwrap();
+
+        let decay = Float::exp(-two * self.nu * pi * pi * t);
+        let decay_4nu = Float::exp(-four * self.nu * pi * pi * t);
+
+        // ∂v/∂t
+        let dv_dt = -two * self.nu * pi * pi * self.v_amp * Float::cos(pi * x) * Float::sin(pi * y) * decay;
+
+        // u·∇v = u*∂v/∂x + v*∂v/∂y
+        let u = self.u_amp * Float::sin(pi * x) * Float::cos(pi * y) * decay;
+        let v = self.v_amp * Float::cos(pi * x) * Float::sin(pi * y) * decay;
+
+        let dv_dx = -self.v_amp * pi * Float::sin(pi * x) * Float::sin(pi * y) * decay;
+        let dv_dy = self.v_amp * pi * Float::cos(pi * x) * Float::cos(pi * y) * decay;
+
+        let convection = u * dv_dx + v * dv_dy;
+
+        // -∇p/ρ (pressure gradient contribution to v-momentum)
+        let dp_dy = -two * pi * self.p_amp * Float::sin(two * pi * x) * Float::sin(two * pi * y) * decay_4nu;
+        let pressure_term = -dp_dy / self.rho;
+
+        // ν∇²v
+        let d2v_dx2 = -pi * pi * self.v_amp * Float::cos(pi * x) * Float::sin(pi * y) * decay;
+        let d2v_dy2 = -pi * pi * self.v_amp * Float::cos(pi * x) * Float::sin(pi * y) * decay;
+        let diffusion = self.nu * (d2v_dx2 + d2v_dy2);
+
+        // Source term: f_v = ∂v/∂t + u·∇v + ∇p/ρ - ν∇²v
+        dv_dt + convection + pressure_term - diffusion
+    }
+
+    fn velocity_derivative_x(&self, x: T, y: T, t: T) -> T {
+        let pi = T::from_f64(PI).unwrap();
+        let decay = Float::exp(-T::from_f64(2.0).unwrap() * self.nu * pi * pi * t);
+        self.u_amp * pi * Float::cos(pi * x) * Float::cos(pi * y) * decay
+    }
+
+    fn velocity_derivative_y(&self, x: T, y: T, t: T) -> T {
+        let pi = T::from_f64(PI).unwrap();
+        let decay = Float::exp(-T::from_f64(2.0).unwrap() * self.nu * pi * pi * t);
+        -self.u_amp * pi * Float::sin(pi * x) * Float::sin(pi * y) * decay
+    }
+
+    fn velocity_derivative_t(&self, x: T, y: T, t: T) -> Vector2<T> {
+        let pi = T::from_f64(PI).unwrap();
+        let decay_factor = -T::from_f64(2.0).unwrap() * self.nu * pi * pi;
+        let decay = Float::exp(-T::from_f64(2.0).unwrap() * self.nu * pi * pi * t);
+
+        let du_dt = self.u_amp * Float::sin(pi * x) * Float::cos(pi * y) * decay * decay_factor;
+        let dv_dt = self.v_amp * Float::cos(pi * x) * Float::sin(pi * y) * decay * decay_factor;
+
+        Vector2::new(du_dt, dv_dt)
+    }
+
+    fn velocity_laplacian(&self, x: T, y: T, t: T) -> Vector2<T> {
+        let pi = T::from_f64(PI).unwrap();
+        let pi_sq = pi * pi;
+        let decay = Float::exp(-T::from_f64(2.0).unwrap() * self.nu * pi * pi * t);
+
+        // ∇²u = ∂²u/∂x² + ∂²u/∂y² = -π²u_amp*sin(πx)cos(πy)*decay (twice)
+        let lapl_u = -T::from_f64(2.0).unwrap() * pi_sq * self.u_amp * Float::sin(pi * x) * Float::cos(pi * y) * decay;
+
+        // ∇²v = ∂²v/∂x² + ∂²v/∂y² = -π²v_amp*cos(πx)sin(πy)*decay (twice)
+        let lapl_v = -T::from_f64(2.0).unwrap() * pi_sq * self.v_amp * Float::cos(pi * x) * Float::sin(pi * y) * decay;
+
+        Vector2::new(lapl_u, lapl_v)
     }
 }
 
@@ -102,6 +248,7 @@ impl<T: RealField + Float> TaylorGreenManufactured<T> {
         let decay = Float::exp(-T::from_f64_or_one(4.0) * self.nu * self.k * self.k * t);
         T::from_f64_or_one(0.25) * decay
     }
+
 
     /// Get enstrophy (integral of vorticity squared)
     pub fn enstrophy(&self, t: T) -> T {
@@ -196,4 +343,4 @@ mod tests {
 
         assert!(divergence.abs() < 1e-6);
     }
-}
+    }

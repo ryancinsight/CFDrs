@@ -22,6 +22,45 @@ use std::fmt::Debug;
 /// 3. Givens rotations: Solve least-squares problem incrementally
 /// 4. Restart: If not converged after m iterations, restart with updated solution
 ///
+/// # Convergence Theory
+///
+/// ## Field of Values Convergence Bound (Saad & Schultz, 1986)
+///
+/// GMRES convergence is governed by the field of values (numerical range) of the matrix A.
+/// The residual norm satisfies:
+/// ||r_k|| ≤ κ(V_k) * inf_{p∈Π_k} max_{z∈W(A)} |p(z)| / min_{z∈W(A)} |p(z)|
+///
+/// where:
+/// - Π_k is the set of polynomials of degree ≤ k
+/// - W(A) is the field of values of A
+/// - κ(V_k) is the condition number of the Vandermonde matrix
+///
+/// **Theorem (Saad & Schultz, 1986)**: For any matrix A, the GMRES residual satisfies:
+/// ||r_m|| / ||r0|| ≤ inf_{p∈Π_m, p(0)=1} max_{λ∈σ(A)} |p(λ)|
+///
+/// where σ(A) is the spectrum of A. For normal matrices, W(A) = σ(A).
+///
+/// For symmetric positive definite matrices, convergence is guaranteed in at most n steps.
+///
+/// ## Optimal Polynomial Approximation
+///
+/// GMRES finds the vector in K_m(A,r0) that minimizes the residual norm:
+/// x_m = x0 + argmin_{y∈K_m} ||r0 - A*y||
+///
+/// This corresponds to finding the polynomial p_m(z) = 1 - z * q_{m-1}(z) where q_{m-1}
+/// minimizes the maximum of |p_m(z)| over the field of values W(A).
+///
+/// The convergence factor satisfies:
+/// ||r_m|| / ||r0|| ≤ inf_{p∈Π_m, p(0)=1} max_{z∈W(A)} |p(z)|
+///
+/// ## Restart Parameter Justification
+///
+/// The restart dimension m=30 is chosen as a practical compromise:
+/// - Memory usage: O(n*m) for basis vectors, O(m²) for Hessenberg matrix
+/// - For CFD applications, m=20-50 typically provides good convergence
+/// - Larger m reduces restart overhead but increases memory usage
+/// - m=30 balances computational efficiency with convergence speed
+///
 /// # Type Parameters
 ///
 /// * `T` - Scalar type (f32 or f64) with real field operations

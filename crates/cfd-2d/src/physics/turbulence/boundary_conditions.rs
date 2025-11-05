@@ -5,7 +5,7 @@
 //! - Inlet/outlet boundary conditions for turbulence quantities
 //! - Wall distance calculation for wall functions
 
-use super::constants::*;
+use super::constants::{EPSILON_MIN, OMEGA_MIN, SST_BETA_1, C_MU};
 use super::wall_functions::WallTreatment;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;

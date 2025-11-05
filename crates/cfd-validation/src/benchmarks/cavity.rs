@@ -90,7 +90,7 @@ impl<T: RealField + Copy> LidDrivenCavity<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + SafeFromF64> Benchmark<T> for LidDrivenCavity<T> {
+impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive> Benchmark<T> for LidDrivenCavity<T> {
     fn name(&self) -> &'static str {
         "Lid-Driven Cavity"
     }
@@ -267,33 +267,52 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64> Benchmark<T> for LidDriv
     }
 
     fn validate(&self, result: &BenchmarkResult<T>) -> Result<bool> {
-        // Compare with Ghia et al. reference data for exact validation
+        // Compare with Ghia et al. reference data for exact L2 error validation
         let ghia_data = self.ghia_reference_data(T::from_f64_or_one(100.0)); // Default Re=100
 
-        if let Some((_y_positions, _u_velocities)) = ghia_data {
+        if let Some((y_positions, u_velocities)) = ghia_data {
             // Compare with computed values in result
             if !result.values.is_empty() {
-                // Check that we have reasonable velocity values
-                let max_velocity =
-                    result.values.iter().fold(
-                        T::zero(),
-                        |acc, &x| if x.abs() > acc { x.abs() } else { acc },
-                    );
+                // Compute L2 error against Ghia reference data
+                let mut l2_error_sq = T::zero();
+                let mut num_points = 0;
 
-                // Literature validation: Ghia et al. requires <2% error for acceptable CFD
-                let tolerance = T::from_f64_or_one(0.02);
+                // Interpolate computed values to Ghia reference y-positions
+                for (&y_ref, &u_ref) in y_positions.iter().zip(u_velocities.iter()) {
+                    // Find closest grid point (simplified - assumes regular grid)
+                    let grid_size_float = self.size.to_f64().unwrap_or(0.0);
+                    let y_ref_f64 = y_ref.to_f64().unwrap_or(0.0);
+                    let grid_idx = ((y_ref_f64 * (grid_size_float - 1.0)) as usize).min(result.values.len() - 1);
 
-                // Check for reasonable velocity magnitudes (bounded by wall velocity)
-                let velocity_reasonable = max_velocity <= T::from_f64_or_one(1.1); // 10% tolerance for numerical overshoot
+                    if grid_idx < result.values.len() {
+                        let u_computed = result.values[grid_idx];
+                        let error = u_computed - u_ref;
+                        l2_error_sq = l2_error_sq + error * error;
+                        num_points += 1;
+                    }
+                }
 
-                // Check convergence
-                let converged = if let Some(last_residual) = result.convergence.last() {
-                    last_residual.abs() < tolerance
-                } else {
-                    false
-                };
+                if num_points > 0 {
+                    let l2_error = (l2_error_sq / T::from_f64_or_one(num_points as f64)).sqrt();
 
-                return Ok(velocity_reasonable && converged);
+                    // Ghia et al. (1982) requires <5% L2 error for accurate CFD solutions
+                    let ghia_tolerance = T::from_f64_or_one(0.05);
+
+                    // Check convergence
+                    let converged = if let Some(last_residual) = result.convergence.last() {
+                        last_residual.abs() < T::from_f64_or_one(1e-6)
+                    } else {
+                        false
+                    };
+
+                    // Log validation results
+                    let l2_error_pct = l2_error.to_f64().unwrap_or(0.0) * 100.0;
+                    let target_pct = ghia_tolerance.to_f64().unwrap_or(0.05) * 100.0;
+                    println!("Ghia et al. validation - L2 error: {:.6}%, Target: <{:.1}%, Converged: {}",
+                             l2_error_pct, target_pct, converged);
+
+                    return Ok(l2_error < ghia_tolerance && converged);
+                }
             }
         }
 

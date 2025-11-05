@@ -337,4 +337,117 @@ let mmap = unsafe {
 };
 ```
 
+## Advanced Benchmarking Features
+
+### Performance Visualization and Reporting
+
+The CFD Suite includes comprehensive visualization tools for benchmark results:
+
+```rust
+use cfd_validation::benchmarking::visualization::{PerformanceDashboard, ExportFormat};
+
+// Generate HTML performance dashboard
+let dashboard = PerformanceDashboard::new();
+dashboard.generate_dashboard(
+    &results,
+    Some(&scaling_results),
+    Some(&alerts),
+    "performance_report.html"
+)?;
+
+// Export results in multiple formats
+BenchmarkExporter::export_results(
+    &results,
+    ExportFormat::Json,
+    "benchmark_results.json"
+)?;
+```
+
+#### Interactive HTML Reports
+
+The HTML reports include:
+- **Performance Overview Charts**: Line charts showing execution time vs problem size
+- **Scaling Analysis**: Parallel efficiency charts across different core counts
+- **Regression Alerts**: Color-coded alerts with severity levels
+- **Detailed Results Table**: Comprehensive tabular data with status indicators
+- **Recommendations**: AI-generated suggestions for performance improvements
+
+### Production Validation Suite
+
+For production environments, use the comprehensive validation suite:
+
+```rust
+use cfd_validation::benchmarking::production::{ProductionValidationSuite, create_default_production_suite};
+
+// Create and run production validation
+let mut suite = create_default_production_suite();
+let result = suite.run_suite()?;
+
+println!("Production validation: {}%", result.success_rate());
+```
+
+#### Production Test Cases
+
+- **Large-scale CFD Tests**: 10k+ grid point simulations with convergence validation
+- **Memory Stress Tests**: Large matrix operations with memory limit enforcement
+- **Parallel Scaling Tests**: Multi-core efficiency validation
+- **Regression Detection**: Automated performance baseline comparison
+
+### Automated CI/CD Integration
+
+The suite includes GitHub Actions workflows for continuous performance monitoring:
+
+#### Key Features:
+- **Multi-platform Testing**: Ubuntu, macOS, and Windows CI runs
+- **Regression Detection**: Automatic performance baseline updates
+- **Alert Notifications**: Slack and email alerts for critical regressions
+- **Historical Tracking**: GitHub Pages deployment of performance dashboards
+- **Scheduled Runs**: Weekly comprehensive benchmarking
+
+#### Configuration:
+```yaml
+# .github/workflows/performance-benchmarking.yml
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly benchmarks
+```
+
+### Performance Alerting System
+
+#### Alert Severity Levels:
+- **Low**: Minor performance changes (< 10% deviation)
+- **Medium**: Moderate changes (10-25% deviation)
+- **High**: Significant changes (25-50% deviation)
+- **Critical**: Major regressions (> 50% deviation)
+
+#### Notification Channels:
+- **GitHub Issues**: Automatic issue creation for critical regressions
+- **Slack Integration**: Real-time alerts with performance metrics
+- **Email Notifications**: SMTP-based alerts for team members
+- **PR Comments**: Performance summaries on pull requests
+
+### Baseline Management
+
+Performance baselines are automatically managed:
+
+```rust
+use cfd_validation::benchmarking::regression_detection::RegressionDetector;
+
+// Load and update baselines
+let mut detector = RegressionDetector::new(config);
+detector.analyze_performance(&current_results);
+
+// Check for regressions
+if let Some(alert) = detector.detect_regression("operation_name", current_time) {
+    match alert.severity {
+        AlertSeverity::Critical => notify_team(&alert),
+        _ => log_warning(&alert),
+    }
+}
+```
+
 This guide provides the foundation for achieving optimal performance with the CFD Suite. Regular benchmarking and profiling are essential for maintaining and improving performance over time.

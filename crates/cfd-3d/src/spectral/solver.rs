@@ -1,4 +1,78 @@
-//! Main spectral solver implementation
+//! # Spectral Method Solver for 3D PDEs
+//!
+//! This module implements high-accuracy spectral methods using Fourier and
+//! Chebyshev expansions for solving partial differential equations.
+//!
+//! ## Mathematical Foundation
+//!
+//! ### Spectral Expansion
+//! Solutions are represented as truncated series:
+//!
+//! ```math
+//! u(x,y,z) ≈ ∑_{k=0}^N ∑_{m=0}^M ∑_{n=0}^P û_{kmn} φ_k(x) ψ_m(y) χ_n(z)
+//! ```
+//!
+//! ### Fourier Spectral Method
+//! - **Basis Functions**: φ_k(x) = e^{i k x} (periodic domains)
+//! - **Transform**: FFT provides O(N log N) evaluation
+//! - **Accuracy**: Exponential convergence for smooth, periodic functions
+//!
+//! ### Chebyshev Spectral Method
+//! - **Basis Functions**: φ_k(x) = T_k(x) Chebyshev polynomials
+//! - **Collocation**: Solutions evaluated at Gauss-Lobatto points
+//! - **Accuracy**: Exponential convergence for smooth functions with boundaries
+//!
+//! ## Convergence Theory
+//!
+//! **Theorem (Spectral Convergence)**: For analytic solutions,
+//! spectral methods achieve exponential convergence:
+//!
+//! ```math
+//! ||u - u_N|| ≤ C e^{-c N}
+//! ```
+//!
+//! where N is the number of modes and c depends on solution regularity.
+//!
+//! **Theorem (Aliasing Error)**: For nonlinear terms, dealiasing is required
+//! to maintain spectral accuracy. The 3/2-rule ensures aliasing-free computation.
+//!
+//! ## Algorithm Implementation
+//!
+//! ### Fourier Transform Acceleration
+//! - **Cooley-Tukey FFT**: O(N log N) complexity
+//! - **Bit-reversal Permutation**: Optimal memory access pattern
+//! - **Butterfly Operations**: Danielson-Lanczos lemma
+//!
+//! ### Boundary Conditions
+//! - **Fourier**: Periodic boundaries only
+//! - **Chebyshev**: Non-periodic boundaries via basis recombination
+//! - **Mixed**: Fourier in periodic directions, Chebyshev in bounded directions
+//!
+//! ### Nonlinear Terms
+//! - **Convolution Sum**: Direct evaluation (expensive)
+//! - **Transform Method**: FFT-based convolution (efficient)
+//! - **Dealiasing**: 3/2-rule to prevent aliasing errors
+//!
+//! ## Applications
+//!
+//! - **Direct Numerical Simulation (DNS)**: Turbulent flow simulation
+//! - **Boundary Layer Flows**: High accuracy near walls
+//! - **Wave Propagation**: Exact dispersion relation preservation
+//! - **Stability Analysis**: Linear eigenvalue problems
+//!
+//! ## Performance Characteristics
+//!
+//! - **Memory**: O(N³) for 3D transforms (N modes per direction)
+//! - **Time**: O(N³ log N) for nonlinear terms with FFT
+//! - **Accuracy**: Machine precision for smooth solutions
+//! - **Scalability**: Excellent parallel efficiency
+//!
+//! ## References
+//!
+//! - Boyd, J.P. (2001). *Chebyshev and Fourier Spectral Methods*
+//! - Canuto, C. et al. (2006). *Spectral Methods: Fundamentals in Single Domains*
+//! - Trefethen, L.N. (2000). *Spectral Methods in MATLAB*
+//! - Cooley, J.W. & Tukey, J.W. (1965). "An algorithm for the machine calculation of complex Fourier series"
 
 use super::basis::SpectralBasis;
 use super::poisson::{PoissonBoundaryCondition, PoissonSolver};

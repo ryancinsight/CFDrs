@@ -169,7 +169,7 @@ impl<'a, T, Op> ScaledOperator<'a, T, Op> {
     }
 }
 
-impl<'a, T, Op> LinearOperator<T> for ScaledOperator<'a, T, Op>
+impl<T, Op> LinearOperator<T> for ScaledOperator<'_, T, Op>
 where
     T: RealField + Copy,
     Op: LinearOperator<T>,
@@ -180,7 +180,7 @@ where
 
         // Then scale the result
         for yi in y.iter_mut() {
-            *yi = *yi * self.scale;
+            *yi *= self.scale;
         }
 
         Ok(())
@@ -198,7 +198,7 @@ where
         // For scaled operators, transpose is scale * transpose(op)
         self.operator.apply_transpose(x, y)?;
         for yi in y.iter_mut() {
-            *yi = *yi * self.scale;
+            *yi *= self.scale;
         }
         Ok(())
     }

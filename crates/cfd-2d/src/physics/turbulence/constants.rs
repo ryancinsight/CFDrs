@@ -38,9 +38,12 @@ pub const SST_SIGMA_OMEGA1: f64 = 0.5;
 /// Specific turbulent dissipation rate diffusion coefficient for outer region (Menter 1994)
 pub const SST_SIGMA_OMEGA2: f64 = 0.856;
 
-/// Numerical stability
-pub const EPSILON_MIN: f64 = 1e-10;
-/// Minimum allowable specific turbulent dissipation rate for numerical stability
+/// Numerical stability and realizability constraints
+/// Minimum turbulent kinetic energy for realizability: k ≥ K_MIN (Pope 2000)
+pub const K_MIN: f64 = 1e-12;
+/// Minimum allowable dissipation rate for numerical stability and realizability: ε ≥ ε_MIN
+pub const EPSILON_MIN: f64 = 1e-12;
+/// Minimum allowable specific turbulent dissipation rate for numerical stability: ω ≥ ω_MIN (Wilcox 2008)
 pub const OMEGA_MIN: f64 = 1e-10;
 
 /// Wall treatment thresholds

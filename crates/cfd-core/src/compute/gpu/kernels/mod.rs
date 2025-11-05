@@ -3,6 +3,7 @@
 pub mod advection;
 pub mod diffusion;
 pub mod pressure;
+pub mod turbulence;
 pub mod velocity;
 
 use crate::compute::traits::{ComputeKernel, KernelParams};

@@ -23,6 +23,7 @@ serde_json.workspace = true
 approx.workspace = true
 tracing.workspace = true
 chrono = "0.4"
+num_cpus = "1.16"
 
 [dev-dependencies]
 proptest.workspace = true

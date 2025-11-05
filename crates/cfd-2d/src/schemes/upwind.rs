@@ -1,7 +1,71 @@
-//! Upwind discretization schemes
+//! Upwind discretization schemes with stability analysis
 //!
 //! These schemes implement proper upwind discretization based on the velocity field,
 //! not the scalar field being transported. This is critical for physical correctness.
+//!
+//! ## Von Neumann Stability Analysis
+//!
+//! ### First-Order Upwind Scheme
+//!
+//! For the 1D advection equation: ∂u/∂t + c ∂u/∂x = 0
+//!
+//! The upwind scheme: u_j^{n+1} = u_j^n - (cΔt/Δx) (u_j^n - u_{j-1}^n) for c > 0
+//!
+//! **Amplification factor**: G(k) = 1 - CFL * (1 - e^{-ikΔx})
+//!
+//! **Stability condition**: |G(k)| ≤ 1 for all k
+//!
+//! The scheme is unconditionally stable for CFL ≤ 1.
+//!
+//! ### Second-Order Upwind Scheme
+//!
+//! Uses linear interpolation with upwind bias: φ_face = φ_upwind + (1/2) * limiter * (φ_downwind - φ_upwind)
+//!
+//! **Stability**: CFL ≤ 1 for explicit schemes, unconditionally stable for implicit.
+//!
+//! ## Local Truncation Error (LTE) Bounds
+//!
+//! ### First-Order Upwind Scheme
+//!
+//! For ∂u/∂t + c ∂u/∂x = 0, the LTE is:
+//!
+//! τ = (c Δx / 2) (1 - CFL) ∂²u/∂x² + O(Δx²)
+//!
+//! **LTE bound**: |τ| ≤ (c Δx / 2) ||∂²u/∂x²||_∞ + O(Δx²)
+//!
+//! ### Second-Order Upwind Scheme
+//!
+//! LTE = - (c Δx² / 6) (1 - CFL/2) ∂³u/∂x³ + O(Δx³)
+//!
+//! **LTE bound**: |τ| ≤ (c Δx² / 6) ||∂³u/∂x³||_∞ + O(Δx³)
+//!
+//! ## Stability Regions
+//!
+//! ### First-Order Upwind
+//!
+//! **Stability region**: Entire left half-plane for CFL ≤ 1
+//!
+//! G(ξ) = 1 - CFL + CFL e^{-iξ} where ξ = k Δx
+//!
+//! |G(ξ)|² = 1 + CFL² - 2 CFL cos(ξ) ≤ 1 ⇒ CFL ≤ 1
+//!
+//! ### Second-Order Upwind
+//!
+//! Stability depends on the limiter used. With TVD limiters, maintains
+//! CFL ≤ 1 stability but with improved accuracy.
+//!
+//! ## CFL Conditions for Upwind Schemes
+//!
+//! ### First-order upwind: CFL ≤ 1 (stable for all CFL ≤ 1)
+//! ### Second-order upwind: CFL ≤ 1 (with appropriate limiters)
+//! ### Higher-order upwind: CFL ≤ 1 (with TVD limiters for stability)
+//!
+//! ## References
+//!
+//! - Hirsch, C. (1990). *Numerical Computation of Internal and External Flows*.
+//!   Wiley. Chapter 8: Upwind Schemes.
+//! - LeVeque, R. J. (2002). *Finite Volume Methods for Hyperbolic Problems*.
+//!   Cambridge University Press. Chapter 6: High-Resolution Methods.
 
 use super::{FaceReconstruction, Grid2D, SpatialDiscretization};
 use nalgebra::RealField;
@@ -98,6 +162,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for Fi
 
     fn is_conservative(&self) -> bool {
         true
+    }
+
+    /// CFL limit for first-order upwind: CFL ≤ 1
+    /// The scheme is stable for all CFL ≤ 1
+    fn cfl_limit(&self) -> f64 {
+        1.0
     }
 }
 
@@ -206,5 +276,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for Se
 
     fn is_conservative(&self) -> bool {
         true
+    }
+
+    /// CFL limit for second-order upwind: CFL ≤ 1
+    /// With proper limiters, the scheme maintains stability up to CFL = 1
+    fn cfl_limit(&self) -> f64 {
+        1.0
     }
 }

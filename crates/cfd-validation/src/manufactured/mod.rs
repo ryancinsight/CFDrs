@@ -10,17 +10,27 @@
 use nalgebra::RealField;
 use num_traits::Float;
 
+pub mod advanced_physics;
 pub mod advection;
 pub mod advection_diffusion;
 pub mod burgers;
 pub mod diffusion;
+pub mod multi_physics;
 pub mod navier_stokes;
+pub mod reynolds_stress_mms;
+pub mod richardson_integration;
+pub mod turbulent;
 
+pub use advanced_physics::{ManufacturedCompressibleEuler, ManufacturedHypersonic, ManufacturedShockCapturing, ManufacturedTCI};
 pub use advection::ManufacturedAdvection;
 pub use advection_diffusion::ManufacturedAdvectionDiffusion;
 pub use burgers::ManufacturedBurgers;
 pub use diffusion::ManufacturedDiffusion;
-pub use navier_stokes::{ManufacturedNavierStokes, TaylorGreenManufactured};
+pub use multi_physics::{ManufacturedConjugateHeatTransfer, ManufacturedMHD, ManufacturedMultiphase, ManufacturedSpeciesTransport};
+pub use navier_stokes::{TaylorGreenManufactured, NavierStokesManufacturedSolution, PolynomialNavierStokesMMS};
+pub use reynolds_stress_mms::{ManufacturedReynoldsStressMMS, PressureStrainModelMMS, ReynoldsStressConvergenceStudy};
+pub use richardson_integration::{MmsRichardsonStudy, RichardsonMmsResult};
+pub use turbulent::{ManufacturedKEpsilon, ManufacturedKOmega, ManufacturedReynoldsStress, ManufacturedSpalartAllmaras};
 
 /// Trait for manufactured solutions
 pub trait ManufacturedSolution<T: RealField + Float> {

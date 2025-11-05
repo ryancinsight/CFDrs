@@ -171,7 +171,7 @@ impl<T: RealField + Copy + FromPrimitive> MatrixFreeGMRES<T> {
 
                 // w = w - h_ij * v_i
                 for k in 0..n {
-                    w[k] = w[k] - h_ij * vi_col[k];
+                    w[k] -= h_ij * vi_col[k];
                 }
             }
 
@@ -224,7 +224,7 @@ impl<T: RealField + Copy + FromPrimitive> MatrixFreeGMRES<T> {
         for i in (0..j).rev() {
             let mut sum = T::zero();
             for k in (i + 1)..j {
-                sum = sum + h[(i, k)] * y[k];
+                sum += h[(i, k)] * y[k];
             }
             y[i] = (g[i] - sum) / h[(i, i)];
         }
@@ -233,9 +233,9 @@ impl<T: RealField + Copy + FromPrimitive> MatrixFreeGMRES<T> {
         for i in 0..n {
             let mut update = T::zero();
             for k in 0..j {
-                update = update + v[(i, k)] * y[k];
+                update += v[(i, k)] * y[k];
             }
-            x[i] = x[i] + update;
+            x[i] += update;
         }
 
         let final_residual = g[j].abs();
@@ -257,7 +257,7 @@ impl<T: RealField + Copy + FromPrimitive> MatrixFreeGMRES<T> {
         debug_assert_eq!(a.len(), b.len());
         let mut sum = T::zero();
         for i in 0..a.len() {
-            sum = sum + a[i] * b[i];
+            sum += a[i] * b[i];
         }
         sum
     }

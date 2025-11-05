@@ -1,4 +1,83 @@
 //! Darcy-Weisbach resistance model for turbulent flow.
+//!
+//! ## Darcy-Weisbach Theorem
+//!
+//! **Theorem**: For steady, fully developed, incompressible flow in a straight pipe,
+//! the pressure drop ΔP over a length L is given by:
+//!
+//! ΔP = f * (L/D) * (ρ V²/2)
+//!
+//! where:
+//! - f is the Darcy friction factor (dimensionless)
+//! - L is the pipe length [m]
+//! - D is the pipe diameter [m]
+//! - ρ is the fluid density [kg/m³]
+//! - V is the average velocity [m/s]
+//!
+//! **Hydraulic Resistance Form**: R = ΔP / Q = (f ρ L) / (2 A D)
+//!
+//! where:
+//! - Q is the volumetric flow rate [m³/s]
+//! - A is the pipe cross-sectional area [m²]
+//!
+//! ### Derivation
+//!
+//! Starting from momentum balance on a pipe element:
+//!
+//! τ_w * π D L = ΔP * π D²/4
+//!
+//! where τ_w is the wall shear stress.
+//!
+//! Wall shear stress: τ_w = (f ρ V²)/8
+//!
+//! Substituting: (f ρ V²/8) * π D L = ΔP * π D²/4
+//!
+//! Solving for ΔP: ΔP = f * (L/D) * (ρ V²/2)
+//!
+//! ### Colebrook-White Theorem
+//!
+//! **Theorem**: The Darcy friction factor f for rough pipes is given by the
+//! implicit equation:
+//!
+//! 1/√f = -2.0 log₁₀(ε/(3.7 D) + 2.51/(Re √f))
+//!
+//! where:
+//! - ε is the surface roughness [m]
+//! - Re is the Reynolds number (ρ V D / μ)
+//!
+//! **Validity Conditions**:
+//! - Turbulent flow: Re > 4000 (typically Re > 2300 for safety)
+//! - Roughness ratio: 0 < ε/D < 0.05
+//! - Fully developed flow: L/D > 10
+//!
+//! ### Special Cases
+//!
+//! **Laminar Flow (Blasius)**: f = 64/Re for Re < 2300
+//!
+//! **Smooth Pipes (Prandtl-von Kármán)**: 1/√f ≈ 2.0 log₁₀(Re √f) - 0.8
+//!
+//! **Fully Rough Pipes (Nikuradse)**: 1/√f ≈ 2.0 log₁₀(3.7 D/ε)
+//!
+//! ### Haaland Explicit Approximation
+//!
+//! For practical calculations, Haaland (1983) provides an explicit approximation:
+//!
+//! 1/√f ≈ -1.8 log₁₀[(ε/(3.7 D))¹.¹ + (6.9/Re)¹.¹]¹/¹.¹
+//!
+//! **Accuracy**: Within 2% of Colebrook-White for 4000 < Re < 10⁸ and 10⁻⁶ < ε/D < 10⁻²
+//!
+//! ### References
+//!
+//! - Darcy, H. (1857). "Recherches expérimentales relatives au mouvement de l'eau
+//!   dans les tuyaux." *Mémoires de l'Académie des Sciences*, 15, 141-168.
+//! - Weisbach, J. (1845). *Lehrbuch der Ingenieur- und Maschinen-Mechanik*.
+//! - Colebrook, C. F. (1939). "Turbulent flow in pipes with particular reference
+//!   to the transition region between smooth and rough pipe laws."
+//!   *Journal of the Institution of Civil Engineers*, 11(4), 133-156.
+//! - Moody, L. F. (1944). "Friction factors for pipe flow."
+//!   *Transactions of the ASME*, 66(8), 671-684.
+//! - Haaland, S. E. (1983). "Simple and explicit formulas for the friction factor
+//!   in turbulent pipe flow." *Journal of Fluids Engineering*, 105(1), 89-90.
 
 use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};

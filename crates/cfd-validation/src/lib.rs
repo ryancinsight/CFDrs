@@ -37,13 +37,16 @@
 
 pub mod analytical;
 pub mod analytical_benchmarks;
+pub mod benchmarking;
 pub mod benchmarks;
 pub mod conservation;
 pub mod convergence;
 pub mod error_metrics;
+pub mod geometry;
 pub mod literature;
 pub mod manufactured;
 pub mod numerical;
+pub mod reporting;
 pub mod solutions;
 pub mod time_integration;
 

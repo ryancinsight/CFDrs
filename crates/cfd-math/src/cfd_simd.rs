@@ -330,7 +330,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> CfdFieldOps<T> {
             // Sequential norm computation
             let mut sum_sq = T::zero();
             for &x in field {
-                sum_sq = sum_sq + x * x;
+                sum_sq += x * x;
             }
             Ok(sum_sq.sqrt())
         }

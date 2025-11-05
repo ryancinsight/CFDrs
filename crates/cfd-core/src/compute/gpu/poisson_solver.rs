@@ -132,7 +132,7 @@ impl GpuPoissonSolver {
             label: Some("Residual Pipeline"),
             layout: Some(&pipeline_layout),
             module: &shader_module,
-            entry_point: "calculate_residual",
+            entry_point: "pressure_residual",
         });
 
         // Create parameters buffer
@@ -355,12 +355,115 @@ impl GpuPoissonSolver {
 
     /// Calculate residual for convergence checking
     ///
+    /// Computes L2 norm of residual: ||∇²φ - f||
+    ///
     /// # Errors
     /// Returns error if GPU compute pipeline execution fails
-    pub fn calculate_residual(&self, _phi: &[f32], _source: &[f32]) -> Result<f32> {
-        // Implementation calculates ||Ax - b|| using GPU compute shader
-        // Residual computation requires additional buffer management
-        Ok(0.0)
+    pub fn calculate_residual(&self, phi: &[f32], source: &[f32]) -> Result<f32> {
+        // Create staging buffer for phi and source
+        let phi_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Phi Staging Buffer"),
+            contents: bytemuck::cast_slice(phi),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let source_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Source Staging Buffer"),
+            contents: bytemuck::cast_slice(source),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        });
+
+        // Create residual buffer (output)
+        let residual_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Residual Buffer"),
+            size: (phi.len() * std::mem::size_of::<f32>()) as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+
+        // Create staging buffer for reading back residual
+        let staging_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Residual Staging Buffer"),
+            size: (phi.len() * std::mem::size_of::<f32>()) as u64,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        // Create bind group for residual computation
+        let residual_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Residual Bind Group"),
+            layout: &self.bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: self.params_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: phi_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: source_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: residual_buffer.as_entire_binding(),
+                },
+            ],
+        });
+
+        // Execute residual computation
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Residual Encoder"),
+        });
+
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("Residual Pass"),
+                timestamp_writes: None,
+            });
+            compute_pass.set_pipeline(&self.residual_pipeline);
+            compute_pass.set_bind_group(0, &residual_bind_group, &[]);
+            compute_pass.dispatch_workgroups((phi.len() as u32 + 255) / 256, 1, 1);
+        }
+
+        // Copy residual buffer to staging buffer for CPU readback
+        encoder.copy_buffer_to_buffer(
+            &residual_buffer,
+            0,
+            &staging_buffer,
+            0,
+            (phi.len() * std::mem::size_of::<f32>()) as u64,
+        );
+
+        self.queue.submit(Some(encoder.finish()));
+
+        // Read back residual data and compute L2 norm
+        let buffer_slice = staging_buffer.slice(..);
+        let (sender, receiver) = futures::channel::oneshot::channel();
+        buffer_slice.map_async(wgpu::MapMode::Read, move |v| {
+            let _ = sender.send(v);
+        });
+
+        self.device.poll(wgpu::Maintain::Wait);
+
+        match pollster::block_on(receiver) {
+            Ok(Ok(())) => {
+                let data = buffer_slice.get_mapped_range();
+                let residuals: &[f32] = bytemuck::cast_slice(&data);
+
+                // Compute L2 norm of residual vector
+                let l2_norm_squared: f32 = residuals.iter().map(|&r| r * r).sum();
+                let l2_norm = l2_norm_squared.sqrt();
+
+                drop(data);
+                staging_buffer.unmap();
+
+                Ok(l2_norm)
+            }
+            _ => Err(crate::error::Error::GpuCompute("Failed to map residual buffer".to_string()))
+        }
     }
 
     /// Update relaxation parameter

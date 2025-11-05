@@ -4,8 +4,10 @@ use serde::{Deserialize, Serialize};
 
 /// Simulation state enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum SimulationState {
     /// Initial state
+    #[default]
     Initialized,
     /// Simulation is running
     Running,
@@ -17,11 +19,6 @@ pub enum SimulationState {
     Failed,
 }
 
-impl Default for SimulationState {
-    fn default() -> Self {
-        Self::Initialized
-    }
-}
 
 impl SimulationState {
     /// Check if simulation is active

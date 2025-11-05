@@ -278,7 +278,6 @@ pub struct MomentumOperator2D<T: RealField + Copy> {
     dx: T,
     dy: T,
     viscosity: T,
-    density: T,
     /// Velocity field for nonlinear convection (nx*ny vector)
     velocity_u: Vec<T>,
     velocity_v: Vec<T>,
@@ -292,14 +291,13 @@ impl<T: RealField + Copy> MomentumOperator2D<T> {
         dx: T,
         dy: T,
         viscosity: T,
-        density: T,
         velocity_u: Vec<T>,
         velocity_v: Vec<T>,
     ) -> Self {
         assert_eq!(velocity_u.len(), nx * ny);
         assert_eq!(velocity_v.len(), nx * ny);
         Self {
-            nx, ny, dx, dy, viscosity, density,
+            nx, ny, dx, dy, viscosity,
             velocity_u, velocity_v
         }
     }

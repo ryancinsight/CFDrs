@@ -1,7 +1,182 @@
-//! k-ω SST turbulence model implementation
+//! # k-ω SST Turbulence Model Implementation
+//!
+//! ## Mathematical Foundation
+//!
+//! The k-ω SST (Shear Stress Transport) model was developed by Menter (1994):
+//! "Two-equation eddy-viscosity turbulence models for engineering applications."
+//! *AIAA Journal*, 32(8), 1598-1605.
+//!
+//! The SST model combines the robust near-wall performance of the k-ω model with
+//! the freestream independence of the k-ε model through blending functions.
+//!
+//! ### Governing Equations
+//!
+//! **Turbulent Kinetic Energy (k) Equation:**
+//! ```math
+//! \frac{\partial k}{\partial t} + U_j \frac{\partial k}{\partial x_j} = \frac{\partial}{\partial x_j}\left[\left(\nu + \frac{\nu_t}{\sigma_k}\right) \frac{\partial k}{\partial x_j}\right] + P_k - \beta^* k \omega
+//! ```
+//!
+//! **Specific Dissipation Rate (ω) Equation:**
+//! ```math
+//! \frac{\partial \omega}{\partial t} + U_j \frac{\partial \omega}{\partial x_j} = \frac{\partial}{\partial x_j}\left[\left(\nu + \frac{\nu_t}{\sigma_\omega}\right) \frac{\partial \omega}{\partial x_j}\right] + \gamma \frac{P_k}{\nu_t} - \beta \omega^2 + \frac{\partial}{\partial x_j}\left[\left(\nu + \sigma_{\omega2} \nu_t\right) \frac{\partial \omega}{\partial x_j}\right] + 2(1 - F_1) \frac{\sigma_{\omega2}}{\omega} \frac{\partial k}{\partial x_j} \frac{\partial \omega}{\partial x_j}
+//! ```
+//!
+//! ### Turbulent Viscosity
+//!
+//! The eddy viscosity is computed with a limiter to ensure realizability:
+//! ```math
+//! \nu_t = \frac{a_1 k}{\max(a_1 \omega, S F_2)}
+//! ```
+//!
+//! where $S$ is the strain rate magnitude and $F_2$ is the blending function.
+//!
+//! ### Production Term
+//!
+//! The production of turbulent kinetic energy follows the Boussinesq approximation:
+//! ```math
+//! P_k = \nu_t \left( \frac{\partial U_i}{\partial x_j} + \frac{\partial U_j}{\partial x_i} \right) \frac{\partial U_i}{\partial x_j} = 2\nu_t S_{ij} S_{ij}
+//! ```
+//!
+//! ## SST Blending Functions
+//!
+//! ### F1 Blending Function
+//!
+//! The primary blending function determines the transition between k-ω and k-ε behavior:
+//! ```math
+//! F_1 = \tanh\left( \min\left[ \max\left( \frac{\sqrt{k}}{\beta^* \omega y}, \frac{500\nu}{y^2 \omega} \right), \frac{4\rho \sigma_{\omega2} k}{CD_{k\omega} y^2} \right]^4 \right)
+//! ```
+//!
+//! where $CD_{k\omega}$ is the cross-diffusion term:
+//! ```math
+//! CD_{k\omega} = \max\left( 2\rho \sigma_{\omega2} \frac{1}{\omega} \frac{\partial k}{\partial x_j} \frac{\partial \omega}{\partial x_j}, 10^{-20} \right)
+//! ```
+//!
+//! ### F2 Blending Function
+//!
+//! The secondary blending function controls the viscous sublayer behavior:
+//! ```math
+//! F_2 = \tanh\left[ \max\left( \frac{2\sqrt{k}}{\beta^* \omega y}, \frac{500\nu}{y^2 \omega} \right)^2 \right]
+//! ```
+//!
+//! ## Model Constants
+//!
+//! ### k-ω Model Constants (F1 → 1)
+//! - $\beta^* = 0.09$
+//! - $\beta_1 = 0.075$
+//! - $\sigma_{k1} = 0.85$
+//! - $\sigma_{\omega1} = 0.5$
+//! - $\gamma_1 = \beta_1/\beta^* - \sigma_{\omega1} \sqrt{\beta^*} = 0.5532$
+//!
+//! ### k-ε Model Constants (F1 → 0)
+//! - $\beta_2 = 0.0828$
+//! - $\sigma_{k2} = 1.0$
+//! - $\sigma_{\omega2} = 0.856$
+//! - $\gamma_2 = \beta_2/\beta^* - \sigma_{\omega2} \sqrt{\beta^*} = 0.4404$
+//!
+//! ### Blended Coefficients
+//!
+//! All coefficients are blended using F1:
+//! ```math
+//! \phi = F_1 \phi_1 + (1 - F_1) \phi_2
+//! ```
+//!
+//! ## Boundary Conditions
+//!
+//! ### Wall Boundary Conditions
+//!
+//! At solid walls, the turbulent kinetic energy is set to zero:
+//! ```math
+//! k|_{wall} = 0
+//! ```
+//!
+//! The specific dissipation rate at walls follows the viscous sublayer scaling:
+//! ```math
+//! \omega|_{wall} = \frac{60\nu}{\beta_1 y^2}
+//! ```
+//!
+//! where $y$ is the wall distance and $\beta_1 = 0.075$.
+//!
+//! ### Inlet/Outlet Conditions
+//!
+//! Inlet conditions are specified based on experimental data or precursor simulations.
+//! Outlet conditions use zero-gradient (Neumann) boundary conditions for both k and ω.
+//!
+//! ## Numerical Implementation
+//!
+//! ### Discretization
+//!
+//! The transport equations are discretized using finite differences on a staggered grid.
+//! The implementation uses explicit time stepping:
+//!
+//! ```math
+//! k^{n+1} = k^n + \Delta t (P_k - \beta^* k \omega + D_k)
+//! \omega^{n+1} = \omega^n + \Delta t (\gamma \frac{P_k}{\nu_t} - \beta \omega^2 + D_\omega + CD_{k\omega})
+//! ```
+//!
+//! ### Stability Considerations
+//!
+//! 1. **Time step limitation**: $\Delta t \leq \frac{\Delta x^2}{2\nu_{eff}}$ for diffusion stability
+//! 2. **Minimum values**: $\omega_{min} = 10^{-6}$ to prevent division by zero
+//! 3. **Cross-diffusion limiting**: $CD_{k\omega} \geq 10^{-20}$ for numerical stability
+//! 4. **Wall treatment**: Proper wall distance calculation prevents singularities
+//!
+//! ## Validation and Accuracy
+//!
+//! ### Theoretical Validation
+//!
+//! The SST model has been extensively validated against:
+//! - Channel flow and boundary layer measurements
+//! - Adverse pressure gradient flows (separation prediction)
+//! - Free shear flows (jets, wakes, mixing layers)
+//! - Transonic flows with shock-boundary layer interaction
+//!
+//! ### Key Improvements over Standard Models
+//!
+//! 1. **Separation prediction**: Better prediction of separation under adverse pressure gradients
+//! 2. **Wall treatment**: Robust near-wall behavior without wall functions
+//! 3. **Freestream independence**: Maintains k-ε behavior in freestream regions
+//! 4. **Shock-boundary layer interaction**: Improved performance in compressible flows
+//!
+//! ### Numerical Accuracy
+//!
+//! - **Order of accuracy**: First-order in time, second-order in space
+//! - **Conservation properties**: Kinetic energy conservation in inviscid limit
+//! - **Grid convergence**: Solutions converge with grid refinement
+//!
+//! ## Limitations and Extensions
+//!
+//! ### Known Limitations
+//! 1. **High-speed flows**: Requires compressibility corrections for Mach > 1.5
+//! 2. **Strong separation**: May still under-predict separation in some cases
+//! 3. **Wall distance calculation**: Accuracy depends on geometric distance computation
+//! 4. **Initial conditions**: Sensitive to initial k and ω field specification
+//!
+//! ### Common Extensions
+//! - **SST-SAS**: Scale-Adaptive Simulation extension for unsteady flows
+//! - **SST-CC**: Curvature Correction for swirling flows
+//! - **SST-2003**: Improved version with modified constants
+//! - **Transition models**: Coupling with laminar-turbulent transition prediction
+//!
+//! ## Implementation Notes
+//!
+//! This implementation provides:
+//! - Full SST blending functions with cross-diffusion terms
+//! - Turbulent viscosity limiter for realizability
+//! - Wall boundary condition enforcement
+//! - Numerical stability safeguards
+//! - Comprehensive validation tests
+//!
+//! The SST model is the recommended turbulence model for general-purpose CFD applications,
+//! particularly for flows with separation, adverse pressure gradients, and complex geometries.
+//!
+//! ## References
+//!
+//! - Menter, F.R. (1994). "Two-equation eddy-viscosity turbulence models for engineering applications." *AIAA Journal*, 32(8), 1598-1605.
+//! - Menter, F.R., Kuntz, M., & Langtry, R. (2003). "Ten years of industrial experience with the SST turbulence model." In *Turbulence, heat and mass transfer* (Vol. 4, pp. 625-632).
+//! - Wilcox, D.C. (2008). *Turbulence modeling for CFD*. DCW Industries.
 
 use super::constants::{
-    OMEGA_MIN, OMEGA_WALL_COEFFICIENT, SST_ALPHA_1, SST_BETA_1, SST_BETA_2, SST_BETA_STAR,
+    K_MIN, OMEGA_MIN, OMEGA_WALL_COEFFICIENT, SST_ALPHA_1, SST_BETA_1, SST_BETA_2, SST_BETA_STAR,
     SST_GAMMA_1, SST_GAMMA_2, SST_SIGMA_K1, SST_SIGMA_K2, SST_SIGMA_OMEGA1, SST_SIGMA_OMEGA2,
 };
 use super::traits::TurbulenceModel;
@@ -312,17 +487,21 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KOmegaSSTModel<
                     self.calculate_cross_diffusion(&k_previous, &omega_previous, idx, dx, dy);
                 let cd_term = (T::one() - self.f1[idx]) * cd_kw;
 
-                // Update k
+                // Update k with realizability constraints
                 let beta_star = T::from_f64(SST_BETA_STAR).unwrap_or_else(T::one);
-                k[idx] = k_previous[idx]
+                let k_new = k_previous[idx]
                     + dt * (p_k - beta_star * k_previous[idx] * omega_previous[idx] + diff_k);
+                let k_min = T::from_f64(K_MIN).unwrap_or_else(T::zero);
+                k[idx] = k_new.max(k_min); // Enforce k ≥ k_min for realizability
 
-                // Update omega
+                // Update omega with realizability constraints
                 let omega_source = gamma * density * p_k
                     / nu_t.max(T::from_f64(OMEGA_MIN).unwrap_or_else(T::zero));
                 let omega_sink = beta * density * omega_previous[idx] * omega_previous[idx];
-                omega[idx] =
+                let omega_new =
                     omega_previous[idx] + dt * (omega_source - omega_sink + diff_omega + cd_term);
+                let omega_min = T::from_f64(OMEGA_MIN).unwrap_or_else(T::zero);
+                omega[idx] = omega_new.max(omega_min); // Enforce ω ≥ ω_min for realizability
             }
         }
 

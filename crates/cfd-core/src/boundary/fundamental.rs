@@ -97,6 +97,28 @@ pub enum BoundaryCondition<T: RealField + Copy> {
 
     /// Outflow (zero gradient)
     Outflow,
+
+    /// Characteristic-based inlet (Riemann invariants)
+    CharacteristicInlet {
+        /// Riemann invariant R1 = u - 2c/(γ-1) for compressible flow
+        riemann_invariant_r1: Option<T>,
+        /// Riemann invariant R2 = u + 2c/(γ-1) for compressible flow
+        riemann_invariant_r2: Option<T>,
+        /// Entropy for compressible flow
+        entropy: Option<T>,
+        /// For incompressible: velocity components
+        velocity: Option<Vector3<T>>,
+        /// Pressure specification
+        pressure: Option<T>,
+    },
+
+    /// Characteristic-based outlet
+    CharacteristicOutlet {
+        /// Pressure specification for outgoing acoustic waves
+        pressure: T,
+        /// Allow velocity extrapolation (true) or specify (false)
+        extrapolate_velocity: bool,
+    },
 }
 
 impl<T: RealField + Copy> BoundaryCondition<T> {
@@ -126,15 +148,38 @@ impl<T: RealField + Copy> BoundaryCondition<T> {
         }
     }
 
+    /// Create characteristic-based inlet boundary condition
+    pub fn characteristic_inlet(velocity: Vector3<T>, pressure: T) -> Self {
+        Self::CharacteristicInlet {
+            riemann_invariant_r1: None, // For incompressible flow
+            riemann_invariant_r2: None, // For incompressible flow
+            entropy: None,              // For incompressible flow
+            velocity: Some(velocity),
+            pressure: Some(pressure),
+        }
+    }
+
+    /// Create characteristic-based outlet boundary condition
+    pub fn characteristic_outlet(pressure: T, extrapolate_velocity: bool) -> Self {
+        Self::CharacteristicOutlet {
+            pressure,
+            extrapolate_velocity,
+        }
+    }
+
     /// Get fundamental type classification
     pub const fn fundamental_type(&self) -> FundamentalBCType {
         match self {
             Self::Dirichlet { .. }
             | Self::VelocityInlet { .. }
             | Self::PressureInlet { .. }
-            | Self::Wall { .. } => FundamentalBCType::Dirichlet,
+            | Self::Wall { .. }
+            | Self::CharacteristicInlet { .. } => FundamentalBCType::Dirichlet,
 
-            Self::Neumann { .. } | Self::Outflow | Self::Symmetry => FundamentalBCType::Neumann,
+            Self::Neumann { .. }
+            | Self::Outflow
+            | Self::Symmetry
+            | Self::CharacteristicOutlet { .. } => FundamentalBCType::Neumann,
 
             Self::Robin { .. } => FundamentalBCType::Robin,
 

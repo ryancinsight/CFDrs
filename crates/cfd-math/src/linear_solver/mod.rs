@@ -24,6 +24,7 @@ mod config;
 mod conjugate_gradient;
 pub mod gmres;
 pub mod matrix_free;
+pub mod multigrid;
 pub mod preconditioners;
 mod traits;
 
@@ -32,6 +33,11 @@ pub use config::IterativeSolverConfig;
 pub use conjugate_gradient::ConjugateGradient;
 pub use gmres::GMRES;
 pub use matrix_free::{LinearOperator, MatrixFreeCG, MatrixFreeGMRES, MatrixFreeBiCGSTAB, LaplacianOperator2D, MomentumOperator1D, PoissonOperator3D, MomentumOperator2D, EnergyOperator2D};
+#[cfg(feature = "mpi")]
+pub use matrix_free::{ParallelMatrixFreeBiCGSTAB, ParallelLoadBalancer, CommunicationOptimizer, CommunicationOverlap, LoadBalancingStrategy, LoadBalancingRecommendations, CommunicationOptimization};
+pub use preconditioners::{IdentityPreconditioner, JacobiPreconditioner, SORPreconditioner, IncompleteLU, AlgebraicMultigrid, AMGConfig, MultigridCycle, CoarseningStrategy};
+#[cfg(feature = "mpi")]
+pub use preconditioners::{ParallelBlockJacobiPreconditioner, AdditiveSchwarzPreconditioner, ParallelAMGPreconditioner, CoarseningStrategy};
 pub use traits::{Configurable, IterativeLinearSolver, LinearSolver, Preconditioner};
 
 // REMOVED: Dependencies on cfd-core break the dependency hierarchy.

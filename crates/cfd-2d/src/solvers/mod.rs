@@ -6,9 +6,11 @@ pub mod accelerated;
 pub mod fdm;
 pub mod fvm;
 pub mod lbm;
+pub mod simple;
 pub mod simd_kernels;
 
 // Re-export main solver types
 pub use fdm::{AdvectionDiffusionSolver, DiffusionSolver, FdmConfig, PoissonSolver};
 pub use fvm::{FluxScheme, FvmConfig, FvmSolver};
 pub use lbm::{LbmConfig, LbmSolver, D2Q9};
+pub use simple::SimpleAlgorithm;

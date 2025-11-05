@@ -23,6 +23,10 @@ pub enum Error {
     #[error("Numerical error: {0}")]
     Numerical(NumericalErrorKind),
 
+    /// GPU compute error
+    #[error("GPU compute error: {0}")]
+    GpuCompute(String),
+
     /// Convergence failure
     #[error("Convergence failed: {0}")]
     Convergence(ConvergenceErrorKind),

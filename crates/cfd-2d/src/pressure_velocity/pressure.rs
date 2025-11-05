@@ -2,7 +2,7 @@
 
 use super::config::PressureLinearSolver;
 use crate::grid::StructuredGrid2D;
-use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
+use cfd_math::linear_solver::preconditioners::{AlgebraicMultigrid, AMGConfig, IdentityPreconditioner, MultigridCycle, CoarseningStrategy};
 use cfd_math::linear_solver::{ConjugateGradient, IterativeLinearSolver, BiCGSTAB, GMRES};
 use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::{DVector, RealField, Vector2};
@@ -89,28 +89,52 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Debug> PressureCorrectionSolve
         let coeff = rho / dt;
 
         // Build system for interior points
+        let reference_idx = 0; // Bottom-left corner (i=1, j=1)
+
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
                 let idx = (i - 1) * (ny - 2) + (j - 1);
 
-                // Laplacian stencil
+                // Laplacian stencil - diagonal is negative sum of neighbor coefficients
                 let two = T::from_f64(cfd_core::constants::numerical::common::TWO)
                     .unwrap_or_else(|| T::one() + T::one());
                 let ap = -two * (dx2_inv + dy2_inv);
+
+                // For reference point, set p = 0 constraint
+                if idx == reference_idx {
+                    // Set diagonal to 1, off-diagonals to 0, rhs to 0
+                    builder.add_entry(idx, idx, T::one())?;
+                    rhs[idx] = T::zero();
+                    // Skip adding Laplacian and neighbor entries for reference point
+                    continue;
+                }
+
                 builder.add_entry(idx, idx, ap)?;
 
                 // Neighbors
                 if i > 1 {
-                    builder.add_entry(idx, idx - (ny - 2), dx2_inv)?;
+                    let neighbor_idx = idx - (ny - 2);
+                    if neighbor_idx != reference_idx {
+                        builder.add_entry(idx, neighbor_idx, dx2_inv)?;
+                    }
                 }
                 if i < nx - 2 {
-                    builder.add_entry(idx, idx + (ny - 2), dx2_inv)?;
+                    let neighbor_idx = idx + (ny - 2);
+                    if neighbor_idx != reference_idx {
+                        builder.add_entry(idx, neighbor_idx, dx2_inv)?;
+                    }
                 }
                 if j > 1 {
-                    builder.add_entry(idx, idx - 1, dy2_inv)?;
+                    let neighbor_idx = idx - 1;
+                    if neighbor_idx != reference_idx {
+                        builder.add_entry(idx, neighbor_idx, dy2_inv)?;
+                    }
                 }
                 if j < ny - 2 {
-                    builder.add_entry(idx, idx + 1, dy2_inv)?;
+                    let neighbor_idx = idx + 1;
+                    if neighbor_idx != reference_idx {
+                        builder.add_entry(idx, neighbor_idx, dy2_inv)?;
+                    }
                 }
 
                 // Divergence of predicted velocity
@@ -130,32 +154,81 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Debug> PressureCorrectionSolve
         // Solve the linear system using selected solver
         let matrix = builder.build()?;
         let mut p_correction_vec = DVector::zeros(matrix.nrows());
-        
+
+        // Create AMG preconditioner for this solve
+        // AMG is particularly effective for the pressure Poisson equation
+        let amg_config = AMGConfig {
+            cycle_type: MultigridCycle::V,
+            nu1: 2,
+            nu2: 2,
+            max_levels: 5,
+            min_coarse_size: 10,
+            coarsening: CoarseningStrategy::RugeStueben,
+        };
+
+        let amg_preconditioner = match AlgebraicMultigrid::with_config(&matrix, amg_config) {
+            Ok(amg) => Some(amg),
+            Err(_) => {
+                tracing::debug!("AMG preconditioner construction failed, using identity");
+                None
+            }
+        };
+
         match self.solver_type {
             PressureLinearSolver::ConjugateGradient => {
-                self.cg_solver.solve(
-                    &matrix,
-                    &rhs,
-                    &mut p_correction_vec,
-                    None::<&IdentityPreconditioner>,
-                )?;
-            }
-            PressureLinearSolver::BiCGSTAB => {
-                self.bicgstab_solver.solve(
-                    &matrix,
-                    &rhs,
-                    &mut p_correction_vec,
-                    None::<&IdentityPreconditioner>,
-                )?;
-            }
-            PressureLinearSolver::GMRES { .. } => {
-                if let Some(ref solver) = self.gmres_solver {
-                    solver.solve(
+                // Use AMG preconditioner if available, otherwise identity
+                if let Some(ref amg) = amg_preconditioner {
+                    self.cg_solver.solve(
+                        &matrix,
+                        &rhs,
+                        &mut p_correction_vec,
+                        Some(amg),
+                    )?;
+                } else {
+                    self.cg_solver.solve(
                         &matrix,
                         &rhs,
                         &mut p_correction_vec,
                         None::<&IdentityPreconditioner>,
                     )?;
+                }
+            }
+            PressureLinearSolver::BiCGSTAB => {
+                // Use AMG preconditioner if available, otherwise identity
+                if let Some(ref amg) = amg_preconditioner {
+                    self.bicgstab_solver.solve(
+                        &matrix,
+                        &rhs,
+                        &mut p_correction_vec,
+                        Some(amg),
+                    )?;
+                } else {
+                    self.bicgstab_solver.solve(
+                        &matrix,
+                        &rhs,
+                        &mut p_correction_vec,
+                        None::<&IdentityPreconditioner>,
+                    )?;
+                }
+            }
+            PressureLinearSolver::GMRES { .. } => {
+                if let Some(ref solver) = self.gmres_solver {
+                    // Use AMG preconditioner if available, otherwise identity
+                    if let Some(ref amg) = amg_preconditioner {
+                        solver.solve(
+                            &matrix,
+                            &rhs,
+                            &mut p_correction_vec,
+                            Some(amg),
+                        )?;
+                    } else {
+                        solver.solve(
+                            &matrix,
+                            &rhs,
+                            &mut p_correction_vec,
+                            None::<&IdentityPreconditioner>,
+                        )?;
+                    }
                 } else {
                     return Err(cfd_core::error::Error::InvalidConfiguration(
                         "GMRES solver not initialized".to_string(),

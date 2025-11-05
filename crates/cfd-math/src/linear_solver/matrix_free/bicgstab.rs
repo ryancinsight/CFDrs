@@ -207,7 +207,7 @@ where
         debug_assert_eq!(a.len(), b.len());
         let mut sum = T::zero();
         for i in 0..a.len() {
-            sum = sum + a[i] * b[i];
+            sum += a[i] * b[i];
         }
         sum
     }

@@ -27,6 +27,7 @@ tempfile = "3.8"
 [features]
 default = []
 hdf5 = ["dep:hdf5"]
+mpi = ["cfd-core/mpi"]
 
 [dev-dependencies]
 tempfile = "3.8"

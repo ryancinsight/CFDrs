@@ -20,6 +20,7 @@ anyhow.workspace = true
 serde = { workspace = true, features = ["derive"] }
 rayon.workspace = true
 num-traits.workspace = true
+num-complex.workspace = true
 tracing.workspace = true
 
 [features]
