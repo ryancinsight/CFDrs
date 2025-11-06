@@ -206,14 +206,14 @@ pub struct ReynoldsStressModel<T: RealField + Copy + FromPrimitive + ToPrimitive
     wall_distance: Option<Vec<T>>,
     /// Model constants
     c_mu: T,
-    c1: T,      // Pressure-strain constant
+    pub c1: T,      // Pressure-strain constant
     c2: T,      // Dissipation constant
     c1_star: T, // Quadratic pressure-strain constant
     c2_star: T, // Quadratic pressure-strain constant
     c3: T,      // Wall-reflection constant
     c3_star: T, // Wall-reflection constant
     /// Pressure-strain model type
-    pressure_strain_model: PressureStrainModel,
+    pub pressure_strain_model: PressureStrainModel,
     /// Wall-reflection correction
     wall_reflection: bool,
     /// Curvature correction
@@ -1350,7 +1350,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     }
 
     /// Apply wall boundary conditions
-    fn apply_wall_boundary_conditions(
+    pub fn apply_wall_boundary_conditions(
         &self,
         xx: &mut DMatrix<T>,
         xy: &mut DMatrix<T>,

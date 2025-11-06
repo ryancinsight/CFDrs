@@ -30,12 +30,12 @@
 
 use super::ManufacturedSolution;
 use nalgebra::{DMatrix, RealField};
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use num_traits::{FromPrimitive, ToPrimitive};
 use std::f64::consts::PI;
 
 /// Comprehensive manufactured solution for Reynolds stress transport equations
 #[derive(Debug, Clone)]
-pub struct ManufacturedReynoldsStressMMS<T: RealField + Float + Copy + FromPrimitive + ToPrimitive> {
+pub struct ManufacturedReynoldsStressMMS<T: RealField + Copy + FromPrimitive + ToPrimitive> {
     /// Wave numbers for spatial variation
     pub kx: T,
     pub ky: T,
@@ -70,7 +70,7 @@ pub enum PressureStrainModelMMS {
     SSG,
 }
 
-impl<T: RealField + Float + Copy + FromPrimitive + ToPrimitive> ManufacturedReynoldsStressMMS<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ManufacturedReynoldsStressMMS<T> {
     /// Create a new manufactured solution for Reynolds stress validation
     pub fn new(
         kx: T, ky: T, alpha: T,
@@ -111,11 +111,11 @@ impl<T: RealField + Float + Copy + FromPrimitive + ToPrimitive> ManufacturedReyn
 
     /// Evaluate the exact Reynolds stress component ⟨u_i'u_j'⟩
     pub fn exact_reynolds_stress(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
-        let sin_kx_x = Float::sin(self.kx * x);
-        let sin_ky_y = Float::sin(self.ky * y);
-        let cos_kx_x = Float::cos(self.kx * x);
-        let cos_ky_y = Float::cos(self.ky * y);
-        let exp_decay = Float::exp(-self.alpha * t);
+        let sin_kx_x = nalgebra::ComplexField::sin(self.kx * x);
+        let sin_ky_y = nalgebra::ComplexField::sin(self.ky * y);
+        let cos_kx_x = nalgebra::ComplexField::cos(self.kx * x);
+        let cos_ky_y = nalgebra::ComplexField::cos(self.ky * y);
+        let exp_decay = nalgebra::ComplexField::exp(-self.alpha * t);
 
         let isotropic_part = self.k_amp * T::from_f64(2.0/3.0).unwrap() * exp_decay;
 
@@ -135,9 +135,9 @@ impl<T: RealField + Float + Copy + FromPrimitive + ToPrimitive> ManufacturedReyn
 
     /// Evaluate the exact mean velocity component U_i
     pub fn exact_mean_velocity(&self, i: usize, x: T, y: T, t: T) -> T {
-        let sin_kx_x = Float::sin(self.kx * x);
-        let sin_ky_y = Float::sin(self.ky * y);
-        let exp_decay = Float::exp(-self.alpha * t);
+        let sin_kx_x = nalgebra::ComplexField::sin(self.kx * x);
+        let sin_ky_y = nalgebra::ComplexField::sin(self.ky * y);
+        let exp_decay = nalgebra::ComplexField::exp(-self.alpha * t);
 
         match i {
             0 => self.u0_amp * sin_kx_x * sin_ky_y * exp_decay, // U
@@ -148,9 +148,9 @@ impl<T: RealField + Float + Copy + FromPrimitive + ToPrimitive> ManufacturedReyn
 
     /// Evaluate the exact turbulent kinetic energy k
     pub fn exact_tke(&self, x: T, y: T, t: T) -> T {
-        let sin_kx_x = Float::sin(self.kx * x);
-        let sin_ky_y = Float::sin(self.ky * y);
-        let exp_decay = Float::exp(-self.alpha * t);
+        let sin_kx_x = nalgebra::ComplexField::sin(self.kx * x);
+        let sin_ky_y = nalgebra::ComplexField::sin(self.ky * y);
+        let exp_decay = nalgebra::ComplexField::exp(-self.alpha * t);
 
         self.k_amp * sin_kx_x * sin_ky_y * exp_decay
     }
@@ -187,11 +187,11 @@ impl<T: RealField + Float + Copy + FromPrimitive + ToPrimitive> ManufacturedReyn
 
     /// Compute velocity gradient ∂U_i/∂x_j
     fn velocity_gradient(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
-        let sin_kx_x = Float::sin(self.kx * x);
-        let cos_kx_x = Float::cos(self.kx * x);
-        let sin_ky_y = Float::sin(self.ky * y);
-        let cos_ky_y = Float::cos(self.ky * y);
-        let exp_decay = Float::exp(-self.alpha * t);
+        let sin_kx_x = nalgebra::ComplexField::sin(self.kx * x);
+        let cos_kx_x = nalgebra::ComplexField::cos(self.kx * x);
+        let sin_ky_y = nalgebra::ComplexField::sin(self.ky * y);
+        let cos_ky_y = nalgebra::ComplexField::cos(self.ky * y);
+        let exp_decay = nalgebra::ComplexField::exp(-self.alpha * t);
 
         match (i, j) {
             (0, 0) => self.u0_amp * self.kx * cos_kx_x * sin_ky_y * exp_decay, // ∂U/∂x
@@ -358,11 +358,11 @@ impl<T: RealField + Float + Copy + FromPrimitive + ToPrimitive> ManufacturedReyn
 
     /// Compute gradient of Reynolds stress component ∂⟨u_i'u_j'⟩/∂x_k
     fn reynolds_stress_gradient(&self, i: usize, j: usize, x: T, y: T, t: T) -> [T; 2] {
-        let sin_kx_x = Float::sin(self.kx * x);
-        let cos_kx_x = Float::cos(self.kx * x);
-        let sin_ky_y = Float::sin(self.ky * y);
-        let cos_ky_y = Float::cos(self.ky * y);
-        let exp_decay = Float::exp(-self.alpha * t);
+        let sin_kx_x = nalgebra::ComplexField::sin(self.kx * x);
+        let cos_kx_x = nalgebra::ComplexField::cos(self.kx * x);
+        let sin_ky_y = nalgebra::ComplexField::sin(self.ky * y);
+        let cos_ky_y = nalgebra::ComplexField::cos(self.ky * y);
+        let exp_decay = nalgebra::ComplexField::exp(-self.alpha * t);
 
         let isotropic_part_grad_x = self.k_amp * T::from_f64(2.0/3.0).unwrap() * self.kx * cos_kx_x * sin_ky_y * exp_decay;
         let isotropic_part_grad_y = self.k_amp * T::from_f64(2.0/3.0).unwrap() * self.ky * sin_kx_x * cos_ky_y * exp_decay;
@@ -398,11 +398,11 @@ impl<T: RealField + Float + Copy + FromPrimitive + ToPrimitive> ManufacturedReyn
 
     /// Compute Laplacian of Reynolds stress component ∇²⟨u_i'u_j'⟩
     fn reynolds_stress_laplacian(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
-        let sin_kx_x = Float::sin(self.kx * x);
-        let cos_kx_x = Float::cos(self.kx * x);
-        let sin_ky_y = Float::sin(self.ky * y);
-        let cos_ky_y = Float::cos(self.ky * y);
-        let exp_decay = Float::exp(-self.alpha * t);
+        let sin_kx_x = nalgebra::ComplexField::sin(self.kx * x);
+        let cos_kx_x = nalgebra::ComplexField::cos(self.kx * x);
+        let sin_ky_y = nalgebra::ComplexField::sin(self.ky * y);
+        let cos_ky_y = nalgebra::ComplexField::cos(self.ky * y);
+        let exp_decay = nalgebra::ComplexField::exp(-self.alpha * t);
 
         let kx_sq = self.kx * self.kx;
         let ky_sq = self.ky * self.ky;
@@ -450,7 +450,7 @@ impl<T: RealField + Float + Copy + FromPrimitive + ToPrimitive> ManufacturedReyn
     }
 }
 
-impl<T: RealField + Float + Copy + FromPrimitive + ToPrimitive> ManufacturedSolution<T> for ManufacturedReynoldsStressMMS<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ManufacturedSolution<T> for ManufacturedReynoldsStressMMS<T> {
     /// Return the Reynolds shear stress ⟨u'v'⟩ as the primary solution for trait compatibility
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         self.exact_reynolds_stress(0, 1, x, y, t)
@@ -476,11 +476,11 @@ impl<T: RealField + Float + Copy + FromPrimitive + ToPrimitive> ManufacturedSolu
 }
 
 /// Convergence study utilities for Reynolds stress MMS validation
-pub struct ReynoldsStressConvergenceStudy<T: RealField + Float + Copy + FromPrimitive + ToPrimitive> {
+pub struct ReynoldsStressConvergenceStudy<T: RealField + Copy + FromPrimitive + ToPrimitive> {
     pub mms: ManufacturedReynoldsStressMMS<T>,
 }
 
-impl<T: RealField + Float + Copy + FromPrimitive + ToPrimitive> ReynoldsStressConvergenceStudy<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressConvergenceStudy<T> {
     pub fn new(mms: ManufacturedReynoldsStressMMS<T>) -> Self {
         Self { mms }
     }
@@ -514,9 +514,9 @@ impl<T: RealField + Float + Copy + FromPrimitive + ToPrimitive> ReynoldsStressCo
 
         // Take square root for L2 norm
         [
-            Float::sqrt(errors[0]),
-            Float::sqrt(errors[1]),
-            Float::sqrt(errors[2]),
+            nalgebra::ComplexField::sqrt(errors[0]),
+            nalgebra::ComplexField::sqrt(errors[1]),
+            nalgebra::ComplexField::sqrt(errors[2]),
         ]
     }
 
@@ -528,7 +528,7 @@ impl<T: RealField + Float + Copy + FromPrimitive + ToPrimitive> ReynoldsStressCo
 
         for i in 0..3 {
             if errors_coarse[i] > T::zero() && errors_fine[i] > T::zero() {
-                rates[i] = Float::ln(errors_coarse[i] / errors_fine[i]) / Float::ln(ratio_sq);
+                rates[i] = nalgebra::ComplexField::ln(errors_coarse[i] / errors_fine[i]) / nalgebra::ComplexField::ln(ratio_sq);
             }
         }
 

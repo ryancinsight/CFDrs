@@ -7,8 +7,7 @@
 //! - Roache, P.J. (2002) "Code Verification by the Method of Manufactured Solutions"
 //! - Salari, K. & Knupp, P. (2000) "Code Verification by the Method of Manufactured Solutions"
 
-use nalgebra::RealField;
-use num_traits::Float;
+use nalgebra::{RealField, ComplexField};
 
 pub mod advanced_physics;
 pub mod advection;
@@ -33,7 +32,7 @@ pub use richardson_integration::{MmsRichardsonStudy, RichardsonMmsResult};
 pub use turbulent::{ManufacturedKEpsilon, ManufacturedKOmega, ManufacturedReynoldsStress, ManufacturedSpalartAllmaras};
 
 /// Trait for manufactured solutions
-pub trait ManufacturedSolution<T: RealField + Float> {
+pub trait ManufacturedSolution<T: RealField + Copy> {
     /// Evaluate the exact solution at given point and time
     fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T;
 
@@ -53,14 +52,14 @@ pub trait ManufacturedSolution<T: RealField + Float> {
     /// Calculate the L2 error norm between numerical and exact solutions
     fn calculate_error_norm(&self, numerical: &[T], exact: &[T]) -> T {
         let mut sum = T::zero();
-        let n = T::from(numerical.len()).unwrap();
+        let n = T::from_f64(numerical.len() as f64).unwrap();
 
         for (num, ex) in numerical.iter().zip(exact.iter()) {
             let diff = *num - *ex;
             sum += diff * diff;
         }
 
-        Float::sqrt(sum / n)
+        ComplexField::sqrt(sum / n)
     }
 
     /// Calculate the maximum error between numerical and exact solutions
@@ -68,9 +67,9 @@ pub trait ManufacturedSolution<T: RealField + Float> {
         numerical
             .iter()
             .zip(exact.iter())
-            .map(|(num, ex)| Float::abs(*num - *ex))
+            .map(|(num, ex)| ComplexField::abs(*num - *ex))
             .fold(T::zero(), |max, val| if val > max { val } else { max })
-    }
+}
 }
 
 /// Common manufactured solution functions

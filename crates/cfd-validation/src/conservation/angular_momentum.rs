@@ -92,12 +92,15 @@ impl<T: RealField + Copy + FromPrimitive> AngularMomentumChecker<T> {
 
         let is_conserved = max_error < self.tolerance;
 
+        let mut details = std::collections::HashMap::new();
+        details.insert("rms_error".to_string(), rms_error);
+
         Ok(ConservationReport {
             check_name: "Angular Momentum Conservation".to_string(),
             error: max_error,
-            rms_error,
             is_conserved,
             tolerance: self.tolerance,
+            details,
         })
     }
 
@@ -170,44 +173,42 @@ impl<T: RealField + Copy + FromPrimitive> AngularMomentumChecker<T> {
 
         let is_conserved = max_error < self.tolerance;
 
+        let mut details = std::collections::HashMap::new();
+        details.insert("rms_error".to_string(), rms_error);
+
         Ok(ConservationReport {
             check_name: "Axisymmetric Angular Momentum Conservation".to_string(),
             error: max_error,
-            rms_error,
             is_conserved,
             tolerance: self.tolerance,
+            details,
         })
     }
 }
 
 impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for AngularMomentumChecker<T> {
-    fn check_conservation(&self, fields: &[&DMatrix<T>]) -> Result<Vec<ConservationReport<T>>> {
-        if fields.len() < 2 {
+    type FlowField = Vec<DMatrix<T>>;
+
+    fn check_conservation(&self, field: &Self::FlowField) -> Result<ConservationReport<T>> {
+        if field.len() < 2 {
             return Err(cfd_core::error::Error::InvalidInput(
                 "Angular momentum check requires at least u,v velocity fields".to_string()
             ));
         }
 
-        let u = &fields[0];
-        let v = &fields[1];
+        let u = &field[0];
+        let v = &field[1];
 
-        let dx = T::from_f64(1.0).unwrap(); // Default grid spacing
-        let dy = T::from_f64(1.0).unwrap();
-
-        let mut reports = Vec::new();
-
-        // Check 2D angular momentum conservation
-        reports.push(self.check_angular_momentum_2d(u, v, dx, dy)?);
-
-        Ok(reports)
+        // Use 2D check as primary result
+        self.check_angular_momentum_2d(u, v, T::from_f64(1.0).unwrap(), T::from_f64(1.0).unwrap())
     }
 
     fn tolerance(&self) -> T {
         self.tolerance
     }
 
-    fn set_tolerance(&mut self, tolerance: T) {
-        self.tolerance = tolerance;
+    fn name(&self) -> &str {
+        "Angular Momentum Conservation Checker"
     }
 }
 

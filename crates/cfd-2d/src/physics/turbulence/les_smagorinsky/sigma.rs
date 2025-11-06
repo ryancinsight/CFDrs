@@ -81,7 +81,7 @@ impl<T: RealField + Copy + FromPrimitive> Default for SigmaConfig<T> {
 /// Sigma Subgrid-Scale model implementation
 #[derive(Debug, Clone)]
 pub struct SigmaModel<T: RealField + Copy> {
-    config: SigmaConfig<T>,
+    pub config: SigmaConfig<T>,
 }
 
 impl<T: RealField + Copy + FromPrimitive> SigmaModel<T> {

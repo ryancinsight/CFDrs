@@ -18,7 +18,7 @@ fn test_comprehensive_mms_validation() {
     println!("Running Comprehensive MMS Validation Suite...");
 
     // Test diffusion equation MMS
-    let diffusion_mms = ManufacturedDiffusion::new(1.0, 1.0, 1.0);
+    let diffusion_mms = ManufacturedDiffusion::new(1.0);
     validate_mms_solution(&diffusion_mms, "Diffusion_2D");
 
     // Test Navier-Stokes MMS
@@ -43,8 +43,8 @@ fn test_richardson_extrapolation_validation() {
 
     // Test with different manufactured solutions
     let test_cases = vec![
-        ("Diffusion", ManufacturedDiffusion::new(1.0, 1.0, 1.0)),
-        ("TaylorGreen", TaylorGreenManufactured::new(1.0, 1.0, 1.0)),
+        ("Diffusion", ManufacturedDiffusion::new(1.0)),
+        ("TaylorGreen", TaylorGreenManufactured::new(1.0)),
         ("NavierStokes", ManufacturedNavierStokes::new(1.0, 1.0, 1.0, 0.01)),
     ];
 
@@ -162,7 +162,7 @@ fn test_cross_validation_methods() {
     println!("Running Cross-Validation Methods Test...");
 
     // Use the same manufactured solution with different validation approaches
-    let mms = ManufacturedDiffusion::new(1.0, 1.0, 1.0);
+    let mms = ManufacturedDiffusion::new(1.0);
 
     // Method 1: Direct MMS validation
     validate_mms_solution(&mms, "CrossVal_Direct");
@@ -286,7 +286,7 @@ fn test_integrated_validation_pipeline() {
     println!("Running Integrated Validation Pipeline...");
 
     // Step 1: MMS validation
-    let mms = ManufacturedDiffusion::new(2.0, 1.5, 1.0);
+    let mms = ManufacturedDiffusion::new(2.0);
     validate_mms_solution(&mms, "Integrated_Diffusion");
 
     // Step 2: Richardson convergence study
@@ -302,7 +302,7 @@ fn test_integrated_validation_pipeline() {
     validate_convergence_study(&convergence_result, "Integrated_Convergence");
 
     // Step 3: Performance assessment
-    let perf_time = benchmark_mms_evaluation(&ManufacturedDiffusion::new(2.0, 1.5, 1.0));
+    let perf_time = benchmark_mms_evaluation(&ManufacturedDiffusion::new(2.0));
 
     // Step 4: Validation report
     println!("Integrated Validation Report:");
@@ -334,7 +334,7 @@ mod property_tests {
             amplitude in 0.1f64..2.0,
             nu in 1e-5f64..0.1
         ) {
-            let mms = ManufacturedDiffusion::new(kx, ky, amplitude);
+            let mms = ManufacturedDiffusion::new(kx);
             let x = 0.5;
             let y = 0.5;
             let t = 1.0;
@@ -354,7 +354,7 @@ mod property_tests {
             eval_time in 0.1f64..2.0,
             levels in 2usize..5
         ) {
-            let mms = ManufacturedDiffusion::new(1.0, 1.0, 1.0);
+            let mms = ManufacturedDiffusion::new(1.0);
             let geometry = cfd_validation::geometry::RectangularDomain::new(0.0, 1.0, 0.0, 1.0);
 
             let study = MmsRichardsonStudy::with_geometric_refinement(

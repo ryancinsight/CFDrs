@@ -4,6 +4,7 @@
 //! in CFD algorithms and data structures.
 
 use super::utils::{BenchmarkStats, BenchmarkTimer};
+use crate::manufactured::navier_stokes::NavierStokesManufacturedSolution;
 use cfd_core::error::{Error, Result};
 use nalgebra::{RealField, Scalar};
 use nalgebra_sparse::CsrMatrix;
@@ -568,8 +569,8 @@ impl CfdPerformanceBenchmarks {
         if let Some(ms_complexity) = registry.iter().find(|c| c.name == "ManufacturedSolutions") {
             println!("\nBenchmarking Manufactured Solutions Evaluation...");
 
-            use crate::manufactured::ManufacturedNavierStokes;
-            let mms = ManufacturedNavierStokes::new(1.0, 1.0, 1.0, 1.0);
+            use crate::manufactured::PolynomialNavierStokesMMS;
+            let mms = PolynomialNavierStokesMMS::default(1.0, 1.0);
 
             let grid_points = 10000; // 100x100 grid
             let data_size = grid_points * 8 * 3; // 3 fields * 8 bytes
@@ -582,8 +583,8 @@ impl CfdPerformanceBenchmarks {
                             let x = i as f64 * 0.01;
                             let y = j as f64 * 0.01;
                             let t = 0.0;
-                            let _velocity = mms.velocity(x, y, t);
-                            let _pressure = mms.pressure(x, y, t);
+                            let _velocity = mms.exact_velocity(x, y, t);
+                            let _pressure = mms.exact_pressure(x, y, t);
                         }
                     }
                 },

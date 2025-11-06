@@ -80,7 +80,7 @@ impl<T: RealField + Copy + FromPrimitive> Default for VremanConfig<T> {
 /// Vreman Subgrid-Scale model implementation
 #[derive(Debug, Clone)]
 pub struct VremanModel<T: RealField + Copy> {
-    config: VremanConfig<T>,
+    pub config: VremanConfig<T>,
 }
 
 impl<T: RealField + Copy + FromPrimitive> VremanModel<T> {

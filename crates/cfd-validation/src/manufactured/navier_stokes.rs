@@ -11,11 +11,10 @@
 use super::ManufacturedSolution;
 use cfd_core::conversion::SafeFromF64;
 use nalgebra::{RealField, Vector2};
-use num_traits::Float;
 use std::f64::consts::PI;
 
 /// Complete manufactured solution for 2D incompressible Navier-Stokes equations
-pub trait NavierStokesManufacturedSolution<T: RealField + Float> {
+pub trait NavierStokesManufacturedSolution<T: RealField + Copy> {
     /// Exact velocity solution at (x,y,t)
     fn exact_velocity(&self, x: T, y: T, t: T) -> Vector2<T>;
 
@@ -47,7 +46,7 @@ pub trait NavierStokesManufacturedSolution<T: RealField + Float> {
 
 /// Manufactured solution for 2D incompressible Navier-Stokes using polynomial functions
 /// This provides a complete MMS with analytical source terms
-pub struct PolynomialNavierStokesMMS<T: RealField + Float> {
+pub struct PolynomialNavierStokesMMS<T: RealField + Copy> {
     /// Kinematic viscosity
     pub nu: T,
     /// Density
@@ -59,7 +58,7 @@ pub struct PolynomialNavierStokesMMS<T: RealField + Float> {
     pub p_amp: T,
 }
 
-impl<T: RealField + Float> PolynomialNavierStokesMMS<T> {
+impl<T: RealField + Copy> PolynomialNavierStokesMMS<T> {
     /// Create new polynomial MMS with specified parameters
     pub fn new(nu: T, rho: T, u_amp: T, v_amp: T, p_amp: T) -> Self {
         Self { nu, rho, u_amp, v_amp, p_amp }
@@ -76,15 +75,15 @@ impl<T: RealField + Float> PolynomialNavierStokesMMS<T> {
     }
 }
 
-impl<T: RealField + Float> NavierStokesManufacturedSolution<T> for PolynomialNavierStokesMMS<T> {
+impl<T: RealField + Copy> NavierStokesManufacturedSolution<T> for PolynomialNavierStokesMMS<T> {
     /// Exact velocity solution: u = A*sin(πx)*cos(πy)*exp(-2νπ²t)
     ///                       v = B*cos(πx)*sin(πy)*exp(-2νπ²t)
     fn exact_velocity(&self, x: T, y: T, t: T) -> Vector2<T> {
         let pi = T::from_f64(PI).unwrap();
-        let decay = Float::exp(-T::from_f64(2.0).unwrap() * self.nu * pi * pi * t);
+        let decay = nalgebra::ComplexField::exp(-T::from_f64(2.0).unwrap() * self.nu * pi * pi * t);
 
-        let u = self.u_amp * Float::sin(pi * x) * Float::cos(pi * y) * decay;
-        let v = self.v_amp * Float::cos(pi * x) * Float::sin(pi * y) * decay;
+        let u = self.u_amp * nalgebra::ComplexField::sin(pi * x) * nalgebra::ComplexField::cos(pi * y) * decay;
+        let v = self.v_amp * nalgebra::ComplexField::cos(pi * x) * nalgebra::ComplexField::sin(pi * y) * decay;
 
         Vector2::new(u, v)
     }
@@ -92,10 +91,10 @@ impl<T: RealField + Float> NavierStokesManufacturedSolution<T> for PolynomialNav
     /// Exact pressure solution: p = C*sin(2πx)*cos(2πy)*exp(-4νπ²t)
     fn exact_pressure(&self, x: T, y: T, t: T) -> T {
         let pi = T::from_f64(PI).unwrap();
-        let decay = Float::exp(-T::from_f64(4.0).unwrap() * self.nu * pi * pi * t);
+        let decay = nalgebra::ComplexField::exp(-T::from_f64(4.0).unwrap() * self.nu * pi * pi * t);
 
-        self.p_amp * Float::sin(T::from_f64(2.0).unwrap() * pi * x)
-                 * Float::cos(T::from_f64(2.0).unwrap() * pi * y) * decay
+        self.p_amp * nalgebra::ComplexField::sin(T::from_f64(2.0).unwrap() * pi * x)
+                 * nalgebra::ComplexField::cos(T::from_f64(2.0).unwrap() * pi * y) * decay
     }
 
     /// Source term for u-momentum equation: ∂u/∂t + u·∇u = -∇p/ρ + ν∇²u + f_u
@@ -104,28 +103,28 @@ impl<T: RealField + Float> NavierStokesManufacturedSolution<T> for PolynomialNav
         let two = T::from_f64(2.0).unwrap();
         let four = T::from_f64(4.0).unwrap();
 
-        let decay = Float::exp(-two * self.nu * pi * pi * t);
-        let decay_4nu = Float::exp(-four * self.nu * pi * pi * t);
+        let decay = nalgebra::ComplexField::exp(-two * self.nu * pi * pi * t);
+        let decay_4nu = nalgebra::ComplexField::exp(-four * self.nu * pi * pi * t);
 
         // ∂u/∂t
-        let du_dt = -two * self.nu * pi * pi * self.u_amp * Float::sin(pi * x) * Float::cos(pi * y) * decay;
+        let du_dt = -two * self.nu * pi * pi * self.u_amp * nalgebra::ComplexField::sin(pi * x) * nalgebra::ComplexField::cos(pi * y) * decay;
 
         // u·∇u = u*∂u/∂x + v*∂u/∂y
-        let u = self.u_amp * Float::sin(pi * x) * Float::cos(pi * y) * decay;
-        let v = self.v_amp * Float::cos(pi * x) * Float::sin(pi * y) * decay;
+        let u = self.u_amp * nalgebra::ComplexField::sin(pi * x) * nalgebra::ComplexField::cos(pi * y) * decay;
+        let v = self.v_amp * nalgebra::ComplexField::cos(pi * x) * nalgebra::ComplexField::sin(pi * y) * decay;
 
-        let du_dx = self.u_amp * pi * Float::cos(pi * x) * Float::cos(pi * y) * decay;
-        let du_dy = -self.u_amp * pi * Float::sin(pi * x) * Float::sin(pi * y) * decay;
+        let du_dx = self.u_amp * pi * nalgebra::ComplexField::cos(pi * x) * nalgebra::ComplexField::cos(pi * y) * decay;
+        let du_dy = -self.u_amp * pi * nalgebra::ComplexField::sin(pi * x) * nalgebra::ComplexField::sin(pi * y) * decay;
 
         let convection = u * du_dx + v * du_dy;
 
         // -∇p/ρ (pressure gradient contribution to u-momentum)
-        let dp_dx = two * pi * self.p_amp * Float::cos(two * pi * x) * Float::cos(two * pi * y) * decay_4nu;
+        let dp_dx = two * pi * self.p_amp * nalgebra::ComplexField::cos(two * pi * x) * nalgebra::ComplexField::cos(two * pi * y) * decay_4nu;
         let pressure_term = -dp_dx / self.rho;
 
         // ν∇²u
-        let d2u_dx2 = -pi * pi * self.u_amp * Float::sin(pi * x) * Float::cos(pi * y) * decay;
-        let d2u_dy2 = -pi * pi * self.u_amp * Float::sin(pi * x) * Float::cos(pi * y) * decay;
+        let d2u_dx2 = -pi * pi * self.u_amp * nalgebra::ComplexField::sin(pi * x) * nalgebra::ComplexField::cos(pi * y) * decay;
+        let d2u_dy2 = -pi * pi * self.u_amp * nalgebra::ComplexField::sin(pi * x) * nalgebra::ComplexField::cos(pi * y) * decay;
         let diffusion = self.nu * (d2u_dx2 + d2u_dy2);
 
         // Source term: f_u = ∂u/∂t + u·∇u + ∇p/ρ - ν∇²u
@@ -138,23 +137,23 @@ impl<T: RealField + Float> NavierStokesManufacturedSolution<T> for PolynomialNav
         let two = T::from_f64(2.0).unwrap();
         let four = T::from_f64(4.0).unwrap();
 
-        let decay = Float::exp(-two * self.nu * pi * pi * t);
-        let decay_4nu = Float::exp(-four * self.nu * pi * pi * t);
+        let decay = nalgebra::ComplexField::exp(-two * self.nu * pi * pi * t);
+        let decay_4nu = nalgebra::ComplexField::exp(-four * self.nu * pi * pi * t);
 
         // ∂v/∂t
-        let dv_dt = -two * self.nu * pi * pi * self.v_amp * Float::cos(pi * x) * Float::sin(pi * y) * decay;
+        let dv_dt = -two * self.nu * pi * pi * self.v_amp * nalgebra::ComplexField::cos(pi * x) * nalgebra::ComplexField::sin(pi * y) * decay;
 
         // u·∇v = u*∂v/∂x + v*∂v/∂y
-        let u = self.u_amp * Float::sin(pi * x) * Float::cos(pi * y) * decay;
-        let v = self.v_amp * Float::cos(pi * x) * Float::sin(pi * y) * decay;
+        let u = self.u_amp * nalgebra::ComplexField::sin(pi * x) * nalgebra::ComplexField::cos(pi * y) * decay;
+        let v = self.v_amp * nalgebra::ComplexField::cos(pi * x) * nalgebra::ComplexField::sin(pi * y) * decay;
 
-        let dv_dx = -self.v_amp * pi * Float::sin(pi * x) * Float::sin(pi * y) * decay;
-        let dv_dy = self.v_amp * pi * Float::cos(pi * x) * Float::cos(pi * y) * decay;
+        let dv_dx = -self.v_amp * pi * nalgebra::ComplexField::sin(pi * x) * nalgebra::ComplexField::sin(pi * y) * decay;
+        let dv_dy = self.v_amp * pi * nalgebra::ComplexField::cos(pi * x) * nalgebra::ComplexField::cos(pi * y) * decay;
 
         let convection = u * dv_dx + v * dv_dy;
 
         // -∇p/ρ (pressure gradient contribution to v-momentum)
-        let dp_dy = -two * pi * self.p_amp * Float::sin(two * pi * x) * Float::sin(two * pi * y) * decay_4nu;
+        let dp_dy = -two * pi * self.p_amp * nalgebra::ComplexField::sin(two * pi * x) * nalgebra::ComplexField::sin(two * pi * y) * decay_4nu;
         let pressure_term = -dp_dy / self.rho;
 
         // ν∇²v
@@ -168,23 +167,23 @@ impl<T: RealField + Float> NavierStokesManufacturedSolution<T> for PolynomialNav
 
     fn velocity_derivative_x(&self, x: T, y: T, t: T) -> T {
         let pi = T::from_f64(PI).unwrap();
-        let decay = Float::exp(-T::from_f64(2.0).unwrap() * self.nu * pi * pi * t);
-        self.u_amp * pi * Float::cos(pi * x) * Float::cos(pi * y) * decay
+        let decay = nalgebra::ComplexField::exp(-T::from_f64(2.0).unwrap() * self.nu * pi * pi * t);
+        self.u_amp * pi * nalgebra::ComplexField::cos(pi * x) * nalgebra::ComplexField::cos(pi * y) * decay
     }
 
     fn velocity_derivative_y(&self, x: T, y: T, t: T) -> T {
         let pi = T::from_f64(PI).unwrap();
-        let decay = Float::exp(-T::from_f64(2.0).unwrap() * self.nu * pi * pi * t);
-        -self.u_amp * pi * Float::sin(pi * x) * Float::sin(pi * y) * decay
+        let decay = nalgebra::ComplexField::exp(-T::from_f64(2.0).unwrap() * self.nu * pi * pi * t);
+        -self.u_amp * pi * nalgebra::ComplexField::sin(pi * x) * nalgebra::ComplexField::sin(pi * y) * decay
     }
 
     fn velocity_derivative_t(&self, x: T, y: T, t: T) -> Vector2<T> {
         let pi = T::from_f64(PI).unwrap();
         let decay_factor = -T::from_f64(2.0).unwrap() * self.nu * pi * pi;
-        let decay = Float::exp(-T::from_f64(2.0).unwrap() * self.nu * pi * pi * t);
+        let decay = nalgebra::ComplexField::exp(-T::from_f64(2.0).unwrap() * self.nu * pi * pi * t);
 
-        let du_dt = self.u_amp * Float::sin(pi * x) * Float::cos(pi * y) * decay * decay_factor;
-        let dv_dt = self.v_amp * Float::cos(pi * x) * Float::sin(pi * y) * decay * decay_factor;
+        let du_dt = self.u_amp * nalgebra::ComplexField::sin(pi * x) * nalgebra::ComplexField::cos(pi * y) * decay * decay_factor;
+        let dv_dt = self.v_amp * nalgebra::ComplexField::cos(pi * x) * nalgebra::ComplexField::sin(pi * y) * decay * decay_factor;
 
         Vector2::new(du_dt, dv_dt)
     }
@@ -192,27 +191,27 @@ impl<T: RealField + Float> NavierStokesManufacturedSolution<T> for PolynomialNav
     fn velocity_laplacian(&self, x: T, y: T, t: T) -> Vector2<T> {
         let pi = T::from_f64(PI).unwrap();
         let pi_sq = pi * pi;
-        let decay = Float::exp(-T::from_f64(2.0).unwrap() * self.nu * pi * pi * t);
+        let decay = nalgebra::ComplexField::exp(-T::from_f64(2.0).unwrap() * self.nu * pi * pi * t);
 
         // ∇²u = ∂²u/∂x² + ∂²u/∂y² = -π²u_amp*sin(πx)cos(πy)*decay (twice)
-        let lapl_u = -T::from_f64(2.0).unwrap() * pi_sq * self.u_amp * Float::sin(pi * x) * Float::cos(pi * y) * decay;
+        let lapl_u = -T::from_f64(2.0).unwrap() * pi_sq * self.u_amp * nalgebra::ComplexField::sin(pi * x) * nalgebra::ComplexField::cos(pi * y) * decay;
 
         // ∇²v = ∂²v/∂x² + ∂²v/∂y² = -π²v_amp*cos(πx)sin(πy)*decay (twice)
-        let lapl_v = -T::from_f64(2.0).unwrap() * pi_sq * self.v_amp * Float::cos(pi * x) * Float::sin(pi * y) * decay;
+        let lapl_v = -T::from_f64(2.0).unwrap() * pi_sq * self.v_amp * nalgebra::ComplexField::cos(pi * x) * nalgebra::ComplexField::sin(pi * y) * decay;
 
         Vector2::new(lapl_u, lapl_v)
     }
 }
 
 /// Taylor-Green vortex solution for 2D Navier-Stokes
-pub struct TaylorGreenManufactured<T: RealField + Float> {
+pub struct TaylorGreenManufactured<T: RealField + Copy> {
     /// Kinematic viscosity
     pub nu: T,
     /// Wave number
     pub k: T,
 }
 
-impl<T: RealField + Float> TaylorGreenManufactured<T> {
+impl<T: RealField + Copy> TaylorGreenManufactured<T> {
     /// Create a new Taylor-Green manufactured solution
     pub fn new(nu: T) -> Self {
         let pi = T::from_f64_or_one(PI);
@@ -221,57 +220,57 @@ impl<T: RealField + Float> TaylorGreenManufactured<T> {
 
     /// Get velocity components
     pub fn velocity(&self, x: T, y: T, t: T) -> Vector2<T> {
-        let decay = Float::exp(-T::from_f64_or_one(2.0) * self.nu * self.k * self.k * t);
-        let u = Float::sin(self.k * x) * Float::cos(self.k * y) * decay;
-        let v = -Float::cos(self.k * x) * Float::sin(self.k * y) * decay;
+        let decay = nalgebra::ComplexField::exp(-T::from_f64_or_one(2.0) * self.nu * self.k * self.k * t);
+        let u = nalgebra::ComplexField::sin(self.k * x) * nalgebra::ComplexField::cos(self.k * y) * decay;
+        let v = -nalgebra::ComplexField::cos(self.k * x) * nalgebra::ComplexField::sin(self.k * y) * decay;
         Vector2::new(u, v)
     }
 
     /// Get pressure field
     pub fn pressure(&self, x: T, y: T, t: T) -> T {
-        let decay = Float::exp(-T::from_f64_or_one(4.0) * self.nu * self.k * self.k * t);
+        let decay = nalgebra::ComplexField::exp(-T::from_f64_or_one(4.0) * self.nu * self.k * self.k * t);
         let quarter = T::from_f64_or_one(0.25);
         -quarter
-            * (Float::cos(T::from_f64_or_one(2.0) * self.k * x)
-                + Float::cos(T::from_f64_or_one(2.0) * self.k * y))
+            * (nalgebra::ComplexField::cos(T::from_f64_or_one(2.0) * self.k * x)
+                + nalgebra::ComplexField::cos(T::from_f64_or_one(2.0) * self.k * y))
             * decay
     }
 
     /// Get vorticity
     pub fn vorticity(&self, x: T, y: T, t: T) -> T {
-        let decay = Float::exp(-T::from_f64_or_one(2.0) * self.nu * self.k * self.k * t);
-        -T::from_f64_or_one(2.0) * self.k * Float::sin(self.k * x) * Float::sin(self.k * y) * decay
+        let decay = nalgebra::ComplexField::exp(-T::from_f64_or_one(2.0) * self.nu * self.k * self.k * t);
+        -T::from_f64_or_one(2.0) * self.k * nalgebra::ComplexField::sin(self.k * x) * nalgebra::ComplexField::sin(self.k * y) * decay
     }
 
     /// Get kinetic energy
     pub fn kinetic_energy(&self, t: T) -> T {
-        let decay = Float::exp(-T::from_f64_or_one(4.0) * self.nu * self.k * self.k * t);
+        let decay = nalgebra::ComplexField::exp(-T::from_f64_or_one(4.0) * self.nu * self.k * self.k * t);
         T::from_f64_or_one(0.25) * decay
     }
 
 
     /// Get enstrophy (integral of vorticity squared)
     pub fn enstrophy(&self, t: T) -> T {
-        let decay = Float::exp(-T::from_f64_or_one(4.0) * self.nu * self.k * self.k * t);
+        let decay = nalgebra::ComplexField::exp(-T::from_f64_or_one(4.0) * self.nu * self.k * self.k * t);
         self.k * self.k * decay
     }
 }
 
 /// Kovasznay flow - exact solution for 2D steady Navier-Stokes
-pub struct KovasznayFlow<T: RealField + Float> {
+pub struct KovasznayFlow<T: RealField + Copy> {
     /// Reynolds number
     pub re: T,
     /// Lambda parameter
     pub lambda: T,
 }
 
-impl<T: RealField + Float> KovasznayFlow<T> {
+impl<T: RealField + Copy> KovasznayFlow<T> {
     /// Create a new Kovasznay flow solution
     pub fn new(re: T) -> Self {
         let half_re = re / T::from_f64_or_one(2.0);
         let pi_val = T::from_f64_or_one(PI);
         let discriminant =
-            Float::sqrt(half_re * half_re + T::from_f64_or_one(4.0) * pi_val * pi_val);
+            nalgebra::ComplexField::sqrt(half_re * half_re + T::from_f64_or_one(4.0) * pi_val * pi_val);
         let lambda = half_re - discriminant;
         Self { re, lambda }
     }
@@ -281,9 +280,9 @@ impl<T: RealField + Float> KovasznayFlow<T> {
         let pi = T::from_f64_or_one(PI);
         let two_pi = T::from_f64_or_one(2.0) * pi;
 
-        let exp_lambda_x = Float::exp(self.lambda * x);
-        let u = T::one() - exp_lambda_x * Float::cos(two_pi * y);
-        let v = self.lambda / two_pi * exp_lambda_x * Float::sin(two_pi * y);
+        let exp_lambda_x = nalgebra::ComplexField::exp(self.lambda * x);
+        let u = T::one() - exp_lambda_x * nalgebra::ComplexField::cos(two_pi * y);
+        let v = self.lambda / two_pi * exp_lambda_x * nalgebra::ComplexField::sin(two_pi * y);
 
         Vector2::new(u, v)
     }
@@ -291,7 +290,7 @@ impl<T: RealField + Float> KovasznayFlow<T> {
     /// Get pressure field
     pub fn pressure(&self, x: T) -> T {
         let half = T::from_f64_or_one(0.5);
-        half * (T::one() - Float::exp(T::from_f64_or_one(2.0) * self.lambda * x))
+        half * (T::one() - nalgebra::ComplexField::exp(T::from_f64_or_one(2.0) * self.lambda * x))
     }
 }
 
@@ -309,7 +308,7 @@ mod tests {
         assert!(ke1 < ke0);
 
         // Check decay rate
-        let expected_ratio = Float::exp(-4.0 * 0.01 * PI * PI);
+        let expected_ratio = (-4.0f64 * 0.01 * PI * PI).exp();
         assert!((ke1 / ke0 - expected_ratio).abs() < 1e-10);
     }
 

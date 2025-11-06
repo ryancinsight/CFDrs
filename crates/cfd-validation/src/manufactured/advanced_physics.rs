@@ -9,14 +9,13 @@
 
 use super::{ManufacturedSolution, ManufacturedFunctions};
 use nalgebra::RealField;
-use num_traits::Float;
 
 /// Manufactured solution for compressible Euler equations
 ///
 /// Provides analytical solutions for inviscid compressible flow
 /// including shocks, expansions, and smooth flows.
 #[derive(Debug, Clone)]
-pub struct ManufacturedCompressibleEuler<T: RealField + Float + Copy> {
+pub struct ManufacturedCompressibleEuler<T: RealField + Copy> {
     /// Mach number
     pub mach_number: T,
     /// Ratio of specific heats (γ)
@@ -30,7 +29,7 @@ pub struct ManufacturedCompressibleEuler<T: RealField + Float + Copy> {
     pub ky: T,
 }
 
-impl<T: RealField + Float + Copy> ManufacturedCompressibleEuler<T> {
+impl<T: RealField + Copy> ManufacturedCompressibleEuler<T> {
     pub fn new(mach_number: T, gamma: T, flow_angle: T, amplitude: T, kx: T, ky: T) -> Self {
         Self {
             mach_number,
@@ -43,18 +42,18 @@ impl<T: RealField + Float + Copy> ManufacturedCompressibleEuler<T> {
     }
 
     /// Reference state density
-    fn rho_0(&self) -> T {
+    pub fn rho_0(&self) -> T {
         T::one()
     }
 
     /// Reference state pressure
-    fn p_0(&self) -> T {
+    pub fn p_0(&self) -> T {
         T::one() / self.gamma
     }
 
     /// Reference state velocity magnitude
-    fn u_0(&self) -> T {
-        self.mach_number * Float::sqrt(self.gamma * self.p_0() / self.rho_0())
+    pub fn u_0(&self) -> T {
+        self.mach_number * nalgebra::ComplexField::sqrt(self.gamma * self.p_0() / self.rho_0())
     }
 
     /// Perturbation function for density
@@ -68,7 +67,7 @@ impl<T: RealField + Float + Copy> ManufacturedCompressibleEuler<T> {
     }
 }
 
-impl<T: RealField + Float + Copy> ManufacturedSolution<T> for ManufacturedCompressibleEuler<T> {
+impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedCompressibleEuler<T> {
     fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
         // Return density as the primary solution
         // In practice, this should return a vector of conserved variables
@@ -109,11 +108,11 @@ impl<T: RealField + Float + Copy> ManufacturedSolution<T> for ManufacturedCompre
         let ky = self.ky;
         let omega = T::from_f64(0.5).unwrap(); // Decay rate
 
-        let cos_kx_x = Float::cos(kx * x);
-        let cos_ky_y = Float::cos(ky * y);
-        let sin_kx_x = Float::sin(kx * x);
-        let sin_ky_y = Float::sin(ky * y);
-        let exp_omega_t = Float::exp(-omega * t);
+        let cos_kx_x = nalgebra::ComplexField::cos(kx * x);
+        let cos_ky_y = nalgebra::ComplexField::cos(ky * y);
+        let sin_kx_x = nalgebra::ComplexField::sin(kx * x);
+        let sin_ky_y = nalgebra::ComplexField::sin(ky * y);
+        let exp_omega_t = nalgebra::ComplexField::exp(-omega * t);
 
         // ∂ρ/∂t
         let drho_dt = -omega * rho_prime;
@@ -157,7 +156,7 @@ impl<T: RealField + Float + Copy> ManufacturedSolution<T> for ManufacturedCompre
 /// Couples turbulent mixing with chemical reactions for combustion modeling
 /// validation.
 #[derive(Debug, Clone)]
-pub struct ManufacturedTCI<T: RealField + Float + Copy> {
+pub struct ManufacturedTCI<T: RealField + Copy> {
     /// Turbulent Schmidt number
     pub schmidt_t: T,
     /// Damkohler number (reaction rate / mixing rate)
@@ -173,7 +172,7 @@ pub struct ManufacturedTCI<T: RealField + Float + Copy> {
     pub ky: T,
 }
 
-impl<T: RealField + Float + Copy> ManufacturedTCI<T> {
+impl<T: RealField + Copy> ManufacturedTCI<T> {
     pub fn new(schmidt_t: T, damkohler: T, reaction_rate: T, diffusivity_t: T, amplitude: T, kx: T, ky: T) -> Self {
         Self {
             schmidt_t,
@@ -187,14 +186,14 @@ impl<T: RealField + Float + Copy> ManufacturedTCI<T> {
     }
 }
 
-impl<T: RealField + Float + Copy> ManufacturedSolution<T> for ManufacturedTCI<T> {
+impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedTCI<T> {
     fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
         // Mixture fraction Z
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
         let z = T::from(0.5).unwrap() + self.amplitude * base;
 
         // Clamp to [0,1] for physical validity
-        num_traits::Float::min(num_traits::Float::max(z, T::zero()), T::one())
+        z.max(T::zero()).min(T::one())
     }
 
     fn source_term(&self, x: T, y: T, z: T, t: T) -> T {
@@ -223,7 +222,7 @@ impl<T: RealField + Float + Copy> ManufacturedSolution<T> for ManufacturedTCI<T>
 /// Validates numerical schemes for high-speed compressible flows
 /// with strong shocks and viscous effects.
 #[derive(Debug, Clone)]
-pub struct ManufacturedHypersonic<T: RealField + Float + Copy> {
+pub struct ManufacturedHypersonic<T: RealField + Copy> {
     /// Free-stream Mach number
     pub mach_inf: T,
     /// Reynolds number
@@ -241,7 +240,7 @@ pub struct ManufacturedHypersonic<T: RealField + Float + Copy> {
     pub ky: T,
 }
 
-impl<T: RealField + Float + Copy> ManufacturedHypersonic<T> {
+impl<T: RealField + Copy> ManufacturedHypersonic<T> {
     pub fn new(mach_inf: T, reynolds: T, prandtl: T, gamma: T, twall_ratio: T, amplitude: T, kx: T, ky: T) -> Self {
         Self {
             mach_inf,
@@ -256,7 +255,7 @@ impl<T: RealField + Float + Copy> ManufacturedHypersonic<T> {
     }
 }
 
-impl<T: RealField + Float + Copy> ManufacturedSolution<T> for ManufacturedHypersonic<T> {
+impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedHypersonic<T> {
     fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
         // Return temperature field (simplified)
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
@@ -285,7 +284,7 @@ impl<T: RealField + Float + Copy> ManufacturedSolution<T> for ManufacturedHypers
 /// Tests numerical schemes' ability to capture discontinuities
 /// while maintaining accuracy in smooth regions.
 #[derive(Debug, Clone)]
-pub struct ManufacturedShockCapturing<T: RealField + Float + Copy> {
+pub struct ManufacturedShockCapturing<T: RealField + Copy> {
     /// Shock strength (density ratio across shock)
     pub shock_strength: T,
     /// Shock speed
@@ -299,7 +298,7 @@ pub struct ManufacturedShockCapturing<T: RealField + Float + Copy> {
     pub ky: T,
 }
 
-impl<T: RealField + Float + Copy> ManufacturedShockCapturing<T> {
+impl<T: RealField + Copy> ManufacturedShockCapturing<T> {
     pub fn new(shock_strength: T, shock_speed: T, shock_x0: T, amplitude: T, kx: T, ky: T) -> Self {
         Self {
             shock_strength,
@@ -312,7 +311,7 @@ impl<T: RealField + Float + Copy> ManufacturedShockCapturing<T> {
     }
 
     /// Shock position at time t
-    fn shock_position(&self, t: T) -> T {
+    pub fn shock_position(&self, t: T) -> T {
         self.shock_x0 + self.shock_speed * t
     }
 
@@ -327,7 +326,7 @@ impl<T: RealField + Float + Copy> ManufacturedShockCapturing<T> {
     }
 }
 
-impl<T: RealField + Float + Copy> ManufacturedSolution<T> for ManufacturedShockCapturing<T> {
+impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedShockCapturing<T> {
     fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
         let shock_x = self.shock_position(t);
 

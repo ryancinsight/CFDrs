@@ -85,9 +85,9 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
         Ok(ConservationReport {
             check_name: "Vorticity Transport Conservation".to_string(),
             error: max_error,
-            rms_error,
             is_conserved,
             tolerance: self.tolerance,
+            details: [("rms_error".to_string(), rms_error)].iter().cloned().collect(),
         })
     }
 
@@ -140,12 +140,15 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
         let error = circulation.abs();
         let is_conserved = error < self.tolerance * T::from_f64(100.0).unwrap(); // More lenient check
 
+        let mut details = std::collections::HashMap::new();
+        details.insert("rms_error".to_string(), error);
+
         Ok(ConservationReport {
             check_name: "Kelvin Circulation Conservation".to_string(),
             error,
-            rms_error: error, // Single value
             is_conserved,
             tolerance: self.tolerance,
+            details,
         })
     }
 
@@ -186,45 +189,44 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
         // For potential flow, vorticity should be exactly zero
         let is_conserved = max_vorticity < self.tolerance;
 
+        let mut details = std::collections::HashMap::new();
+        details.insert("rms_error".to_string(), rms_vorticity);
+
         Ok(ConservationReport {
             check_name: "Potential Flow Vorticity Conservation".to_string(),
             error: max_vorticity,
-            rms_error: rms_vorticity,
             is_conserved,
             tolerance: self.tolerance,
+            details,
         })
     }
 }
 
 impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for VorticityChecker<T> {
-    fn check_conservation(&self, fields: &[&DMatrix<T>]) -> Result<Vec<ConservationReport<T>>> {
-        if fields.len() < 2 {
+    type FlowField = Vec<DMatrix<T>>;
+
+    fn name(&self) -> &str {
+        "Vorticity Conservation Checker"
+    }
+
+    fn check_conservation(&self, field: &Self::FlowField) -> Result<ConservationReport<T>> {
+        if field.len() < 2 {
             return Err(cfd_core::error::Error::InvalidInput(
                 "Vorticity check requires at least u,v velocity fields".to_string()
             ));
         }
 
-        let u = &fields[0];
-        let v = &fields[1];
+        let u = &field[0];
+        let v = &field[1];
 
-        let dx = T::from_f64(1.0).unwrap(); // Default grid spacing
-        let dy = T::from_f64(1.0).unwrap();
-        let viscosity = T::from_f64(1e-3).unwrap(); // Default viscosity
-
-        let mut reports = Vec::new();
-
-        // Check vorticity transport equation
-        reports.push(self.check_vorticity_transport_2d(u, v, viscosity, dx, dy)?);
-
-        Ok(reports)
+        // Use Kelvin circulation as the primary vorticity conservation check
+        // Define a simple closed curve for circulation check
+        let curve_points = vec![(0, 0), (u.ncols()-1, 0), (u.ncols()-1, u.nrows()-1), (0, u.nrows()-1)];
+        self.check_kelvin_circulation(u, v, &curve_points, T::one(), T::one())
     }
 
     fn tolerance(&self) -> T {
         self.tolerance
-    }
-
-    fn set_tolerance(&mut self, tolerance: T) {
-        self.tolerance = tolerance;
     }
 }
 

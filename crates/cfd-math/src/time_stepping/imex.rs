@@ -255,12 +255,13 @@ mod tests {
         // Simple test: du/dt = -u (explicit) + 0 (implicit)
         let f_explicit = |t: f64, u: &DVector<f64>| Ok(-u.clone());
         let f_implicit = |t: f64, u: &DVector<f64>| Ok(DVector::zeros(u.len()));
+        let jacobian_zero = |_t: f64, _u: &DVector<f64>| Ok(DMatrix::identity(u.len(), u.len()));
 
         let u0 = DVector::from_vec(vec![1.0]);
         let dt = 0.1;
         let t = 0.0;
 
-        let u1 = imex.imex_step(f_explicit, f_implicit, t, &u0, dt).unwrap();
+        let u1 = imex.imex_step(f_explicit, f_implicit, jacobian_zero, t, &u0, dt).unwrap();
 
         // Should produce reasonable result for exponential decay
         assert!(u1[0] > 0.0 && u1[0] < 1.0);

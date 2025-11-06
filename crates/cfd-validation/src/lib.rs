@@ -116,7 +116,7 @@ pub fn run_performance_profiling() -> cfd_core::error::Result<benchmarking::prod
 pub fn run_stability_analysis() -> cfd_core::error::Result<time_integration::stability_analysis::StabilityAnalysisReport<f64>> {
     use time_integration::stability_analysis::StabilityAnalysisRunner;
 
-    let analyzer = StabilityAnalysisRunner::new();
+    let analyzer = StabilityAnalysisRunner::<f64>::new();
     analyzer.run_comprehensive_stability_analysis()
 }
 
@@ -162,7 +162,7 @@ pub fn get_algorithm_complexity_registry() -> algorithm_complexity::AlgorithmCom
 ///     println!("Warning: {} critical failures detected!", report.overall_assessment.critical_failures);
 /// }
 /// ```
-pub fn run_edge_case_testing() -> cfd_core::error::Result<edge_case_testing::EdgeCaseReport<f64>> {
+pub fn run_edge_case_testing() -> cfd_core::error::Result<edge_case_testing::EdgeCaseReport> {
     use edge_case_testing::EdgeCaseTestSuite;
 
     let mut test_suite: EdgeCaseTestSuite<f64> = EdgeCaseTestSuite::new();

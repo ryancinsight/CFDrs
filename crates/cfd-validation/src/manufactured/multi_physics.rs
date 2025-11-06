@@ -9,14 +9,13 @@
 
 use super::{ManufacturedSolution, ManufacturedFunctions};
 use nalgebra::RealField;
-use num_traits::Float;
 
 /// Manufactured solution for conjugate heat transfer
 ///
 /// Provides analytical solutions for coupled fluid-solid thermal problems
 /// where temperature satisfies different equations in different domains.
 #[derive(Debug, Clone)]
-pub struct ManufacturedConjugateHeatTransfer<T: RealField + Float + Copy> {
+pub struct ManufacturedConjugateHeatTransfer<T: RealField + Copy> {
     /// Thermal conductivity ratio (solid/fluid)
     pub conductivity_ratio: T,
     /// Heat capacity ratio (solid/fluid)
@@ -29,7 +28,7 @@ pub struct ManufacturedConjugateHeatTransfer<T: RealField + Float + Copy> {
     pub frequency: T,
 }
 
-impl<T: RealField + Float + Copy> ManufacturedConjugateHeatTransfer<T> {
+impl<T: RealField + Copy> ManufacturedConjugateHeatTransfer<T> {
     pub fn new(conductivity_ratio: T, capacity_ratio: T, interface_x: T, amplitude: T, frequency: T) -> Self {
         Self {
             conductivity_ratio,
@@ -54,7 +53,7 @@ impl<T: RealField + Float + Copy> ManufacturedConjugateHeatTransfer<T> {
     }
 }
 
-impl<T: RealField + Float + Copy> ManufacturedSolution<T> for ManufacturedConjugateHeatTransfer<T> {
+impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedConjugateHeatTransfer<T> {
     fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
         if x < self.interface_x {
             self.fluid_temperature(x, y, t)
@@ -110,7 +109,7 @@ impl<T: RealField + Float + Copy> ManufacturedConjugateHeatTransfer<T> {
 
 /// Manufactured solution for species transport with reaction
 #[derive(Debug, Clone)]
-pub struct ManufacturedSpeciesTransport<T: RealField + Float + Copy> {
+pub struct ManufacturedSpeciesTransport<T: RealField + Copy> {
     /// Diffusion coefficient
     pub diffusivity: T,
     /// Reaction rate constant
@@ -122,7 +121,7 @@ pub struct ManufacturedSpeciesTransport<T: RealField + Float + Copy> {
     pub ky: T,
 }
 
-impl<T: RealField + Float + Copy> ManufacturedSpeciesTransport<T> {
+impl<T: RealField + Copy> ManufacturedSpeciesTransport<T> {
     pub fn new(diffusivity: T, reaction_rate: T, amplitude: T, kx: T, ky: T) -> Self {
         Self {
             diffusivity,
@@ -134,12 +133,12 @@ impl<T: RealField + Float + Copy> ManufacturedSpeciesTransport<T> {
     }
 }
 
-impl<T: RealField + Float + Copy> ManufacturedSolution<T> for ManufacturedSpeciesTransport<T> {
+impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedSpeciesTransport<T> {
     fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
         // C = A * sin(kx*x) * sin(ky*y) * exp(-t) * exp(-k²t)
         let spatial = ManufacturedFunctions::sinusoidal(x, y, T::zero(), self.kx, self.ky);
         let temporal_decay = T::from(-1.0).unwrap() - (self.kx * self.kx + self.ky * self.ky) * self.diffusivity;
-        let temporal = Float::exp(temporal_decay * t);
+        let temporal = nalgebra::ComplexField::exp(temporal_decay * t);
         self.amplitude * spatial * temporal
     }
 
@@ -167,7 +166,7 @@ impl<T: RealField + Float + Copy> ManufacturedSolution<T> for ManufacturedSpecie
 
 /// Manufactured solution for magnetohydrodynamics (MHD)
 #[derive(Debug, Clone)]
-pub struct ManufacturedMHD<T: RealField + Float + Copy> {
+pub struct ManufacturedMHD<T: RealField + Copy> {
     /// Magnetic permeability
     pub mu_0: T,
     /// Electrical conductivity
@@ -181,7 +180,7 @@ pub struct ManufacturedMHD<T: RealField + Float + Copy> {
     pub ky: T,
 }
 
-impl<T: RealField + Float + Copy> ManufacturedMHD<T> {
+impl<T: RealField + Copy> ManufacturedMHD<T> {
     pub fn new(mu_0: T, sigma: T, velocity_amp: T, magnetic_amp: T, kx: T, ky: T) -> Self {
         Self {
             mu_0,
@@ -194,11 +193,11 @@ impl<T: RealField + Float + Copy> ManufacturedMHD<T> {
     }
 }
 
-impl<T: RealField + Float + Copy> ManufacturedSolution<T> for ManufacturedMHD<T> {
+impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedMHD<T> {
     fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
         // Return velocity magnitude (simplified - in practice would need vector components)
         let spatial = ManufacturedFunctions::sinusoidal(x, y, T::zero(), self.kx, self.ky);
-        self.velocity_amp * spatial * Float::exp(-t)
+        self.velocity_amp * spatial * nalgebra::ComplexField::exp(-t)
     }
 
     fn source_term(&self, x: T, y: T, z: T, t: T) -> T {
@@ -217,7 +216,7 @@ impl<T: RealField + Float + Copy> ManufacturedSolution<T> for ManufacturedMHD<T>
 
 /// Manufactured solution for multi-phase flows (simplified)
 #[derive(Debug, Clone)]
-pub struct ManufacturedMultiphase<T: RealField + Float + Copy> {
+pub struct ManufacturedMultiphase<T: RealField + Copy> {
     /// Density ratio (phase 2 / phase 1)
     pub density_ratio: T,
     /// Viscosity ratio (phase 2 / phase 1)
@@ -231,7 +230,7 @@ pub struct ManufacturedMultiphase<T: RealField + Float + Copy> {
     pub ky: T,
 }
 
-impl<T: RealField + Float + Copy> ManufacturedMultiphase<T> {
+impl<T: RealField + Copy> ManufacturedMultiphase<T> {
     pub fn new(density_ratio: T, viscosity_ratio: T, interface_y: T, amplitude: T, kx: T, ky: T) -> Self {
         Self {
             density_ratio,
@@ -244,7 +243,7 @@ impl<T: RealField + Float + Copy> ManufacturedMultiphase<T> {
     }
 }
 
-impl<T: RealField + Float + Copy> ManufacturedSolution<T> for ManufacturedMultiphase<T> {
+impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedMultiphase<T> {
     fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
         // Phase indicator function (simplified)
         let spatial = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
