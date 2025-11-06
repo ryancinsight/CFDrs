@@ -325,7 +325,7 @@ impl<T: RealField + FromPrimitive + Copy> KOmegaSSTModel<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> TurbulenceModel<T> for KOmegaSSTModel<T> {
+impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceModel<T> for KOmegaSSTModel<T> {
     fn turbulent_viscosity(&self, k: T, omega: T, density: T) -> T {
         let omega_min = T::from_f64(OMEGA_MIN).unwrap_or_else(T::zero);
         let a1 = T::from_f64(SST_ALPHA_1).unwrap_or_else(T::one);

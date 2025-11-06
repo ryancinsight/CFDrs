@@ -360,3 +360,4 @@ fn test_advanced_physics_integration() {
 
     println!("✅ Advanced physics integration test passed");
 }
+

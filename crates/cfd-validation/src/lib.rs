@@ -35,12 +35,14 @@
 #![allow(clippy::needless_range_loop)]      // Explicit indexing clearer for multi-dimensional CFD arrays
 #![allow(clippy::used_underscore_binding)]  // Underscore prefixed bindings used for intentional partial use
 
+pub mod algorithm_complexity;
 pub mod analytical;
 pub mod analytical_benchmarks;
 pub mod benchmarking;
 pub mod benchmarks;
 pub mod conservation;
 pub mod convergence;
+pub mod edge_case_testing;
 pub mod error_metrics;
 pub mod geometry;
 pub mod literature;
@@ -67,3 +69,102 @@ pub mod time_integration;
 // - numerical: Numerical analysis tools
 // - solutions: Solution comparison utilities
 // - time_integration: Temporal accuracy analysis
+
+/// Run comprehensive performance profiling for CFD algorithms
+///
+/// This function performs detailed performance analysis including:
+/// - Algorithm complexity documentation (Big-O analysis)
+/// - Memory bandwidth and cache efficiency measurements
+/// - Performance recommendations based on empirical data
+/// - Literature-backed complexity analysis
+///
+/// # Returns
+/// Performance profiling report with detailed metrics and recommendations
+///
+/// # Examples
+/// ```rust,no_run
+/// use cfd_validation::run_performance_profiling;
+///
+/// let report = run_performance_profiling().expect("Performance profiling failed");
+/// println!("Total performance: {:.2} GFLOPS", report.summary.total_gflops);
+/// ```
+pub fn run_performance_profiling() -> cfd_core::error::Result<benchmarking::production::PerformanceReport> {
+    use benchmarking::production::PerformanceProfiler;
+
+    let profiler = PerformanceProfiler::new();
+    profiler.run_comprehensive_profiling()
+}
+
+/// Run comprehensive stability analysis for CFD time-stepping schemes
+///
+/// This function performs detailed stability analysis including:
+/// - Stability region computation for Runge-Kutta methods
+/// - CFL condition verification for various flow regimes
+/// - Von Neumann stability analysis for linear PDEs
+/// - Stability recommendations based on literature standards
+///
+/// # Returns
+/// Stability analysis report with detailed stability metrics and recommendations
+///
+/// # Examples
+/// ```rust,no_run
+/// use cfd_validation::run_stability_analysis;
+///
+/// let report = run_stability_analysis().expect("Stability analysis failed");
+/// println!("Overall stability score: {:.1}%", report.overall_assessment.overall_score * 100.0);
+/// ```
+pub fn run_stability_analysis() -> cfd_core::error::Result<time_integration::stability_analysis::StabilityAnalysisReport<f64>> {
+    use time_integration::stability_analysis::StabilityAnalysisRunner;
+
+    let analyzer = StabilityAnalysisRunner::new();
+    analyzer.run_comprehensive_stability_analysis()
+}
+
+/// Get the comprehensive CFD algorithm complexity registry
+///
+/// This function provides access to detailed Big-O complexity analysis for all
+/// major CFD algorithms implemented in the codebase, including time/space complexity,
+/// memory access patterns, cache efficiency, and parallel scalability metrics.
+///
+/// # Returns
+/// Algorithm complexity registry with detailed performance analysis
+///
+/// # Examples
+/// ```rust
+/// use cfd_validation::get_algorithm_complexity_registry;
+///
+/// let registry = get_algorithm_complexity_registry();
+/// if let Some(cg_info) = registry.get("ConjugateGradient") {
+///     println!("CG Time Complexity: {}", cg_info.time_complexity);
+///     println!("Cache Efficiency: {:.1}%", cg_info.cache_efficiency * 100.0);
+/// }
+/// ```
+pub fn get_algorithm_complexity_registry() -> algorithm_complexity::AlgorithmComplexityRegistry {
+    algorithm_complexity::AlgorithmComplexityRegistry::new()
+}
+
+/// Run comprehensive edge case testing for CFD algorithms
+///
+/// This function performs thorough validation of boundary conditions, numerical stability,
+/// convergence algorithms, physical constraints, and implementation edge cases that
+/// can cause failures in CFD simulations.
+///
+/// # Returns
+/// Edge case test report with detailed validation results and recommendations
+///
+/// # Examples
+/// ```rust,no_run
+/// use cfd_validation::run_edge_case_testing;
+///
+/// let report = run_edge_case_testing().expect("Edge case testing failed");
+/// println!("Overall pass rate: {:.1}%", report.overall_assessment.pass_rate * 100.0);
+/// if report.overall_assessment.critical_failures > 0 {
+///     println!("Warning: {} critical failures detected!", report.overall_assessment.critical_failures);
+/// }
+/// ```
+pub fn run_edge_case_testing() -> cfd_core::error::Result<edge_case_testing::EdgeCaseReport<f64>> {
+    use edge_case_testing::EdgeCaseTestSuite;
+
+    let mut test_suite: EdgeCaseTestSuite<f64> = EdgeCaseTestSuite::new();
+    test_suite.run_comprehensive_edge_case_tests()
+}

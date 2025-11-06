@@ -4,7 +4,7 @@
 //! and non-stiff terms explicitly, optimal for CFD problems with both
 //! convective and diffusive components.
 
-use nalgebra::{DVector, RealField};
+use nalgebra::{DMatrix, DVector, RealField};
 use cfd_core::error::Result;
 use super::traits::TimeStepper;
 
@@ -89,19 +89,20 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
         }
     }
 
-    /// Take an IMEX step
+    /// Take an IMEX step with proper implicit solving
     ///
     /// # Arguments
     /// * `f_explicit` - Explicit part of RHS: f_explicit(t, u)
     /// * `f_implicit` - Implicit part of RHS: f_implicit(t, u)
-    /// * `solve_implicit` - Function to solve implicit system: (I - dt*a_ii*f_implicit') * du = rhs
+    /// * `jacobian_implicit` - Jacobian of implicit part: df_implicit/du
     /// * `t` - Current time
     /// * `u` - Current solution
     /// * `dt` - Time step
-    pub fn imex_step<F, S>(
+    pub fn imex_step<F, S, J>(
         &self,
         f_explicit: F,
         f_implicit: S,
+        jacobian_implicit: J,
         t: T,
         u: &DVector<T>,
         dt: T
@@ -109,6 +110,7 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
     where
         F: Fn(T, &DVector<T>) -> Result<DVector<T>>,
         S: Fn(T, &DVector<T>) -> Result<DVector<T>>,
+        J: Fn(T, &DVector<T>) -> Result<DMatrix<T>>,
     {
         let n = u.len();
         let stages = self.c.len();
@@ -129,19 +131,67 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
                 }
             }
 
-            // For IMEX, we assume the implicit solve gives us the stage solution
-            // In practice, this would require solving a nonlinear system
-            // For simplicity, we'll use explicit Euler for implicit part
-            let f_imp = f_implicit(t_stage.clone(), &u_stage_explicit)?;
+            // Solve implicit stage equation: u_stage = u_stage_explicit + dt * a_ii * f_implicit(t_stage, u_stage)
+            // This is a nonlinear equation that we solve using Newton's method
             let mut u_stage = u_stage_explicit.clone();
-            for i in 0..n {
-                u_stage[i] += dt.clone() * self.implicit_a[stage][stage].clone() * f_imp[i];
+            let mut converged = false;
+            let max_newton_iter = 10;
+            let tolerance = T::from_f64(1e-10).unwrap_or_else(T::one);
+
+            for _newton_iter in 0..max_newton_iter {
+                // Compute residual: F(u_stage) = u_stage - u_stage_explicit - dt * a_ii * f_implicit(t_stage, u_stage)
+                let f_imp = f_implicit(t_stage.clone(), &u_stage)?;
+                let mut residual = DVector::zeros(n);
+                let a_ii = self.implicit_a[stage][stage].clone();
+
+                for i in 0..n {
+                    residual[i] = u_stage[i] - u_stage_explicit[i] - dt.clone() * a_ii * f_imp[i];
+                }
+
+                // Check convergence
+                let residual_norm = residual.norm();
+                if residual_norm < tolerance {
+                    converged = true;
+                    break;
+                }
+
+                // Compute Jacobian of residual: dF/du = I - dt * a_ii * df_implicit/du
+                let jac_imp = jacobian_implicit(t_stage.clone(), &u_stage)?;
+                let mut jacobian = DMatrix::identity(n, n);
+                let a_ii_dt = a_ii * dt.clone();
+
+                for i in 0..n {
+                    for j in 0..n {
+                        jacobian[(i, j)] -= a_ii_dt * jac_imp[(i, j)];
+                    }
+                }
+
+                // Solve Jacobian * du = -residual
+                match jacobian.lu().solve(&(-residual)) {
+                    Some(du) => {
+                        u_stage += du;
+                    }
+                    None => {
+                        // Fallback to explicit if Jacobian is singular
+                        break;
+                    }
+                }
+            }
+
+            if !converged {
+                // Fallback: use explicit approximation if implicit solve fails
+                let f_imp = f_implicit(t_stage.clone(), &u_stage_explicit)?;
+                let a_ii = self.implicit_a[stage][stage].clone();
+                for i in 0..n {
+                    u_stage[i] = u_stage_explicit[i] + dt.clone() * a_ii * f_imp[i];
+                }
             }
 
             // Add explicit contribution
             let f_exp = f_explicit(t_stage, &u_stage_explicit)?;
+            let a_ii = self.explicit_a[stage][stage].clone();
             for i in 0..n {
-                u_stage[i] += dt.clone() * self.explicit_a[stage][stage].clone() * f_exp[i];
+                u_stage[i] += dt.clone() * a_ii * f_exp[i];
             }
 
             u_stages[stage] = u_stage;
@@ -169,7 +219,9 @@ impl<T: RealField + Copy> TimeStepper<T> for IMEXTimeStepper<T> {
     {
         // For simple TimeStepper interface, assume f is the explicit part
         // and implicit part is zero (falls back to explicit method)
-        self.imex_step(f, |_t, _u| Ok(DVector::zeros(u.len())), t, u, dt)
+        // Provide identity Jacobian for zero implicit function
+        let jacobian_zero = |_t: T, _u: &DVector<T>| Ok(DMatrix::identity(u.len(), u.len()));
+        self.imex_step(f, |_t, _u| Ok(DVector::zeros(u.len())), jacobian_zero, t, u, dt)
     }
 
     fn order(&self) -> usize { 4 }

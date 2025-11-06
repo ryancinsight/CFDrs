@@ -45,53 +45,57 @@ impl<T: RealField + Float + Copy> ManufacturedSolution<T> for ManufacturedKEpsil
     }
 
     fn source_term(&self, x: T, y: T, z: T, t: T) -> T {
-        // Source term for k-equation: P_k - ε + ∇·(ν_t ∇k) - ∂k/∂t
-        let k = self.exact_solution(x, y, z, t);
+        // Exact analytical source term for k-ε MMS validation
+        // k-equation: ∂k/∂t + U_j ∂k/∂x_j = P_k - ε + ∇·(ν_t ∇k)
 
-        // Time derivative: ∂k/∂t (exact from manufactured solution)
-        let dk_dt = -k; // Since k ∝ exp(-t)
+        // Manufactured solution: k = A * sin(kx*x) * sin(ky*y) * exp(-t)
+        let sin_kx_x = Float::sin(self.kx * x);
+        let sin_ky_y = Float::sin(self.ky * y);
+        let exp_t = Float::exp(-t);
 
-        // Diffusion term: ∇·(ν_t ∇k) (exact Laplacian)
-        let kx_sq = self.kx * self.kx;
-        let ky_sq = self.ky * self.ky;
-        let laplacian_coeff = self.nu_t * (kx_sq + ky_sq);
-        let diffusion = laplacian_coeff * k;
+        let k = self.amplitude * sin_kx_x * sin_ky_y * exp_t;
 
-        // Exact production term: P_k = -⟨u_i'u_j'⟩ ∂U_i/∂x_j
-        // For MMS, we need the exact strain rate tensor from the manufactured velocity field
-        let arg = self.kx * x + self.ky * y + self.omega * t;
+        // Time derivative: ∂k/∂t = -k (exact)
+        let dk_dt = -k;
 
-        // Velocity gradients (exact derivatives of manufactured solution)
-        let du_dx = self.kx * T::cos(arg);
-        let du_dy = -self.kx * T::sin(arg);
-        let dv_dx = self.ky * T::cos(arg);
-        let dv_dy = -self.ky * T::sin(arg);
+        // Convection term: U_j ∂k/∂x_j
+        // Using manufactured velocity field: u = sin(kx*x)*cos(ky*y)*exp(-t), v = cos(kx*x)*sin(ky*y)*exp(-t)
+        let u = sin_kx_x * Float::cos(self.ky * y) * exp_t;
+        let v = Float::cos(self.kx * x) * sin_ky_y * exp_t;
 
-        // Strain rate tensor components: S_ij = (1/2)(∂U_i/∂x_j + ∂U_j/∂x_i)
+        let dk_dx = self.amplitude * self.kx * Float::cos(self.kx * x) * sin_ky_y * exp_t;
+        let dk_dy = self.amplitude * sin_kx_x * self.ky * Float::cos(self.ky * y) * exp_t;
+
+        let convection = u * dk_dx + v * dk_dy;
+
+        // Diffusion term: ∇·(ν_t ∇k) = ν_t * ∇²k
+        let d2k_dx2 = -self.amplitude * self.kx * self.kx * sin_kx_x * sin_ky_y * exp_t;
+        let d2k_dy2 = -self.amplitude * self.ky * self.ky * sin_kx_x * sin_ky_y * exp_t;
+        let diffusion = self.nu_t * (d2k_dx2 + d2k_dy2);
+
+        // Exact production term: P_k = 2ν_t * S_ij * S_ij
+        // Strain rate tensor from manufactured velocity field
+        let du_dx = self.kx * Float::cos(self.kx * x) * Float::cos(self.ky * y) * exp_t;
+        let du_dy = -self.kx * sin_kx_x * Float::sin(self.ky * y) * exp_t;
+        let dv_dx = -self.ky * Float::sin(self.kx * x) * sin_ky_y * exp_t;
+        let dv_dy = self.ky * Float::cos(self.kx * x) * Float::cos(self.ky * y) * exp_t;
+
         let s_xx = du_dx;
         let s_xy = T::from_f64(0.5).unwrap() * (du_dy + dv_dx);
         let s_yy = dv_dy;
 
-        // Production term: P_k = 2ν_t * S_ij * S_ij (trace of S·S)
         let strain_rate_magnitude_sq = s_xx * s_xx + T::from_f64(2.0).unwrap() * s_xy * s_xy + s_yy * s_yy;
         let production = T::from_f64(2.0).unwrap() * self.nu_t * strain_rate_magnitude_sq;
 
-        // Exact dissipation rate from k-ε model equilibrium
-        // In equilibrium: ε = P_k * C_ε2 / (C_ε1 - 1 + C_ε2)
-        // But for MMS validation, we need to compute exact ε
-        let c_mu = T::from_f64(0.09).unwrap();
-        let c_eps1 = T::from_f64(1.44).unwrap();
-        let c_eps2 = T::from_f64(1.92).unwrap();
-
-        // For manufactured solution, ε should satisfy the exact transport equation
-        // ε = P_k - ∇·(ν_t ∇k) + ∂k/∂t (from rearranging k-equation)
-        let epsilon = production - diffusion + dk_dt;
+        // Exact dissipation rate from manufactured solution
+        // For MMS, ε must satisfy: ε = P_k - ∇·(ν_t ∇k) + ∂k/∂t + convection
+        let epsilon = production - diffusion + dk_dt + convection;
 
         // Ensure ε is positive and physically reasonable
-        let epsilon = epsilon.max(T::from_f64(1e-10).unwrap());
+        let epsilon = RealField::max(epsilon, T::from_f64(1e-10).unwrap());
 
-        // Source = P_k - ε + ∇·(ν_t ∇k) - ∂k/∂t
-        production - epsilon + diffusion - dk_dt
+        // Source term: P_k - ε + ∇·(ν_t ∇k) - ∂k/∂t - U_j ∂k/∂x_j
+        production - epsilon + diffusion - dk_dt - convection
     }
 }
 
@@ -129,27 +133,56 @@ impl<T: RealField + Float + Copy> ManufacturedSolution<T> for ManufacturedKOmega
     }
 
     fn source_term(&self, x: T, y: T, z: T, t: T) -> T {
-        // Source term for k-equation in k-ω model
-        let k = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky) * self.k_amplitude;
-        let omega = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky) * self.omega_amplitude;
+        // Exact analytical source term for k-ω MMS validation
+        // k-equation: ∂k/∂t + U_j ∂k/∂x_j = P_k - β* k ω + ∇·(ν_t ∇k)
 
-        // Time derivative
+        // Manufactured solutions: k = A_k * sin(kx*x) * sin(ky*y) * exp(-t)
+        //                       ω = A_ω * sin(kx*x) * sin(ky*y) * exp(-t)
+        let sin_kx_x = Float::sin(self.kx * x);
+        let sin_ky_y = Float::sin(self.ky * y);
+        let exp_t = Float::exp(-t);
+
+        let k = self.k_amplitude * sin_kx_x * sin_ky_y * exp_t;
+        let omega = self.omega_amplitude * sin_kx_x * sin_ky_y * exp_t;
+
+        // Time derivative: ∂k/∂t = -k (exact)
         let dk_dt = -k;
 
-        // Production: P_k = ν_t |∇U|²
-        let strain_rate_sq = self.kx * self.kx + self.ky * self.ky;
-        let production = self.nu_t * strain_rate_sq * T::from(0.1).unwrap();
+        // Convection term: U_j ∂k/∂x_j
+        // Using manufactured velocity field: u = sin(kx*x)*cos(ky*y)*exp(-t), v = cos(kx*x)*sin(ky*y)*exp(-t)
+        let u = sin_kx_x * Float::cos(self.ky * y) * exp_t;
+        let v = Float::cos(self.kx * x) * sin_ky_y * exp_t;
 
-        // Dissipation: β* k ω
-        let beta = T::from(0.09).unwrap(); // Standard k-ω constant
+        let dk_dx = self.k_amplitude * self.kx * Float::cos(self.kx * x) * sin_ky_y * exp_t;
+        let dk_dy = self.k_amplitude * sin_kx_x * self.ky * Float::cos(self.ky * y) * exp_t;
+
+        let convection = u * dk_dx + v * dk_dy;
+
+        // Diffusion term: ∇·(ν_t ∇k) = ν_t * ∇²k
+        let d2k_dx2 = -self.k_amplitude * self.kx * self.kx * sin_kx_x * sin_ky_y * exp_t;
+        let d2k_dy2 = -self.k_amplitude * self.ky * self.ky * sin_kx_x * sin_ky_y * exp_t;
+        let diffusion = self.nu_t * (d2k_dx2 + d2k_dy2);
+
+        // Exact production term: P_k = 2ν_t * S_ij * S_ij
+        // Strain rate tensor from manufactured velocity field
+        let du_dx = self.kx * Float::cos(self.kx * x) * Float::cos(self.ky * y) * exp_t;
+        let du_dy = -self.kx * sin_kx_x * Float::sin(self.ky * y) * exp_t;
+        let dv_dx = -self.ky * Float::sin(self.kx * x) * sin_ky_y * exp_t;
+        let dv_dy = self.ky * Float::cos(self.kx * x) * Float::cos(self.ky * y) * exp_t;
+
+        let s_xx = du_dx;
+        let s_xy = T::from_f64(0.5).unwrap() * (du_dy + dv_dx);
+        let s_yy = dv_dy;
+
+        let strain_rate_magnitude_sq = s_xx * s_xx + T::from_f64(2.0).unwrap() * s_xy * s_xy + s_yy * s_yy;
+        let production = T::from_f64(2.0).unwrap() * self.nu_t * strain_rate_magnitude_sq;
+
+        // Exact dissipation term: β* k ω (standard k-ω model)
+        let beta = T::from_f64(0.09).unwrap(); // Standard k-ω constant
         let dissipation = beta * k * omega;
 
-        // Diffusion: ∇·(ν_t ∇k)
-        let kx_sq = self.kx * self.kx;
-        let ky_sq = self.ky * self.ky;
-        let diffusion = self.nu_t * (kx_sq + ky_sq) * k;
-
-        production - dissipation + diffusion - dk_dt
+        // Source term: P_k - β* k ω + ∇·(ν_t ∇k) - ∂k/∂t - U_j ∂k/∂x_j
+        production - dissipation + diffusion - dk_dt - convection
     }
 }
 

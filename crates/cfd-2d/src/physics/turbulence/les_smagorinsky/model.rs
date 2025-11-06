@@ -1,4 +1,4 @@
-//! # Smagorinsky Large Eddy Simulation (LES) Model
+//! # Large Eddy Simulation (LES) Models
 //!
 //! ## Mathematical Foundation
 //!
@@ -40,6 +40,28 @@
 //! ```
 //!
 //! where $|\bar{S}| = \sqrt{2 \bar{S}_{ij} \bar{S}_{ij}}$ is the strain rate magnitude.
+//!
+//! ### Wall-Adapting Local Eddy-viscosity (WALE) Model (Nicoud & Ducros, 1999)
+//!
+//! **WALE SGS Stress Tensor:**
+//! ```math
+//! \tau_{ij} - \frac{1}{3} \tau_{kk} \delta_{ij} = -2\nu_{sgs} \bar{S}_{ij}^d
+//! ```
+//!
+//! where $\bar{S}_{ij}^d$ is the traceless symmetric part of the square of the velocity gradient tensor:
+//!
+//! ```math
+//! \bar{S}_{ij}^d = \frac{1}{2} \left( \bar{g}_{ik} \bar{g}_{jk} - \frac{1}{3} \bar{g}_{kk}^2 \delta_{ij} \right)
+//! ```
+//!
+//! with $\bar{g}_{ij} = \frac{\partial \bar{u}_i}{\partial x_j}$ being the velocity gradient tensor.
+//!
+//! **WALE SGS Viscosity:**
+//! ```math
+//! \nu_{sgs} = (C_w \Delta)^2 \frac{(\bar{S}_{ij}^d \bar{S}_{ij}^d)^{3/2}}{(\bar{S}_{ij} \bar{S}_{ij})^{5/2} + (\bar{S}_{ij}^d \bar{S}_{ij}^d)^{5/4}}
+//! ```
+//!
+//! where $C_w = 0.325$ is the WALE constant.
 //!
 //! ### Dynamic Smagorinsky Model (Germano et al., 1991)
 //!
@@ -166,18 +188,19 @@
 //! 1. **Dynamic procedure**: Locally computes $C_s$ from resolved scales
 //! 2. **Scale-similarity models**: Use resolved scales to model SGS stresses
 //! 3. **Mixed models**: Combine Smagorinsky with scale-similarity
-//! 4. **Wall-adapting models**: Adjust $C_s$ near walls
+//! 4. **Wall-adapting models**: Adjust $C_s$ near walls (WALE model)
 //!
 //! ## Implementation Notes
 //!
 //! This implementation provides:
 //! - Standard and dynamic Smagorinsky models
+//! - Wall-Adapting Local Eddy-viscosity (WALE) model
 //! - CPU and GPU acceleration support
 //! - Wall damping for near-wall regions
 //! - Comprehensive validation tests
 //! - Efficient matrix-based computations
 //!
-//! The Smagorinsky LES model is suitable for:
+//! The LES models are suitable for:
 //! - High-Reynolds number flows with complex geometries
 //! - Flows requiring accurate prediction of large-scale structures
 //! - Industrial applications where DNS is computationally prohibitive
@@ -186,6 +209,7 @@
 //! ## References
 //!
 //! - **Smagorinsky, J. (1963)**. "General circulation experiments with the primitive equations." *Monthly Weather Review*, 91(3), 99-164.
+//! - **Nicoud, F., & Ducros, F. (1999)**. "Subgrid-scale stress modelling based on the square of the velocity gradient tensor." *Flow, Turbulence and Combustion*, 62(3), 183-200.
 //! - **Germano, M., Piomelli, U., Moin, P., & Cabot, W. H. (1991)**. "A dynamic subgrid-scale eddy viscosity model." *Physics of Fluids A*, 3(7), 1760-1765.
 //! - **Pope, S. B. (2000)**. *Turbulent Flows*. Cambridge University Press.
 //! - **Sagaut, P. (2006)**. *Large Eddy Simulation for Incompressible Flows*. Springer.

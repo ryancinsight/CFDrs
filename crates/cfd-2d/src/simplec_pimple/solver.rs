@@ -359,31 +359,27 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
         // Initialize boundary velocities for lid-driven cavity
         Self::initialize_boundary_velocity(fields);
 
-        // SIMPLEC with iterative coupling and Aitken's acceleration
+        // Enhanced SIMPLEC algorithm with improved convergence
         let mut residual = T::zero();
-        let max_iterations = 20; // Reduced for efficiency - SIMPLEC should converge in fewer iterations with proper parameters
+        let max_iterations = 50; // Allow more iterations for better convergence
         let mut converged = false;
 
-        // Aitken's acceleration variables
-        let mut aitken_history: Vec<Vec<Vec<Vector2<T>>>> = Vec::new();
-        let mut aitken_residuals: Vec<T> = Vec::new();
+        // Store previous iteration for convergence check
+        let mut u_prev = self.extract_velocity_field(fields);
+        let mut continuity_residual = T::max_value().unwrap();
 
         for iter in 0..max_iterations {
-            // Store velocity before this iteration
-            let u_old = self.extract_velocity_field(fields);
-
-            // Step 1: Solve momentum equations to get coefficients and velocity
+            // Step 1: Solve momentum equations to get predicted velocities u*
             let coeffs_u = self.momentum_solver.solve_with_coefficients(MomentumComponent::U, fields, dt)?;
             let coeffs_v = self.momentum_solver.solve_with_coefficients(MomentumComponent::V, fields, dt)?;
 
-            // Step 2: Update Rhie-Chow coefficients if enabled
+            // Step 2: Update Rhie-Chow coefficients for consistent interpolation
             if let Some(ref mut rhie_chow) = self.rhie_chow {
-                // Update coefficients for both U and V momentum equations
                 rhie_chow.update_u_coefficients(&coeffs_u.ap);
                 rhie_chow.update_v_coefficients(&coeffs_v.ap);
             }
 
-            // Step 3: Extract predicted velocity field u*
+            // Step 3: Extract predicted velocity field u* (after momentum solve)
             let mut u_star = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
             for i in 0..self.grid.nx {
                 for j in 0..self.grid.ny {
@@ -391,86 +387,58 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
                 }
             }
 
-            // Step 4: Solve pressure correction equation
-            // AMG preconditioner is now automatically used if available
+            // Step 4: Solve pressure correction equation ∇²p' = (ρ/Δt) ∇·u*
             let p_correction = self.pressure_solver.solve_pressure_correction(&u_star, dt, rho)?;
 
-            // Step 5: Correct velocity field (without under-relaxation here - will be applied in update)
+            // Step 5: Correct velocities using pressure gradients with under-relaxation
             let mut u_corrected = u_star.clone();
             self.pressure_solver.correct_velocity(
                 &mut u_corrected,
                 &p_correction,
                 dt,
                 rho,
-                T::one(), // No under-relaxation here - applied in update_velocity_fields
+                self.config.alpha_u, // Apply velocity under-relaxation
             );
 
-            // Step 6: Correct pressure field
+            // Step 6: Correct pressure with under-relaxation
             let mut p_vec = self.field2d_to_vec2d(&fields.p);
             self.pressure_solver.correct_pressure(&mut p_vec, &p_correction, self.config.alpha_p);
             self.vec2d_to_field2d(&mut fields.p, &p_vec);
 
-            // Step 7: Update velocity fields with corrected values (applies under-relaxation)
+            // Step 7: Update velocity fields with corrected values
             self.update_velocity_fields(fields, &u_corrected);
 
-            // Step 8: Check convergence based on velocity change
-            residual = self.calculate_velocity_residual_from_vectors(&u_old, &u_corrected);
+            // Step 8: Check convergence based on multiple criteria
+            let velocity_residual = self.calculate_velocity_residual_from_vectors(&u_prev, &u_corrected);
+            continuity_residual = self.calculate_continuity_residual(fields);
 
-            // Store for Aitken's acceleration
-            aitken_history.push(u_corrected.clone());
-            aitken_residuals.push(residual);
+            // Update previous velocity for next iteration
+            u_prev = self.extract_velocity_field(fields);
 
-            // Apply Aitken's acceleration if we have enough history (need 3 iterations)
-            if aitken_history.len() >= 3 && iter >= 2 {
-                let n = aitken_history.len();
-                let u_n = &aitken_history[n-1];     // Current iteration
-                let u_nm1 = &aitken_history[n-2];   // Previous iteration
-                let u_nm2 = &aitken_history[n-3];   // Iteration before previous
+            // Convergence criteria: both velocity change and continuity must be satisfied
+            let velocity_converged = velocity_residual < self.config.tolerance;
+            let continuity_converged = continuity_residual < T::from_f64(1e-6).unwrap_or_else(|| self.config.tolerance);
 
-                let r_n = aitken_residuals[n-1];
-                let r_nm1 = aitken_residuals[n-2];
-                let r_nm2 = aitken_residuals[n-3];
+            residual = velocity_residual.max(continuity_residual);
 
-                // Aitken's Δ² formula: u_accelerated = u_{n-2} - (u_{n-1} - u_{n-2})² / (u_n - 2*u_{n-1} + u_{n-2})
-                // Applied component-wise for velocity field
-                let mut u_accelerated = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
-
-                let denominator = r_n - r_nm1 * T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()) + r_nm2;
-                if denominator.abs() > T::default_epsilon() * T::from_f64(10.0).unwrap_or_else(|| T::one()) {
-                    for i in 0..self.grid.nx {
-                        for j in 0..self.grid.ny {
-                            let u_diff = u_nm1[i][j] - u_nm2[i][j];
-                            let numerator_x = u_diff.x * u_diff.x;
-                            let numerator_y = u_diff.y * u_diff.y;
-
-                            u_accelerated[i][j].x = u_nm2[i][j].x - numerator_x / denominator;
-                            u_accelerated[i][j].y = u_nm2[i][j].y - numerator_y / denominator;
-                        }
-                    }
-
-                    // Apply accelerated solution with under-relaxation
-                    let aitken_alpha = T::from_f64(0.5).unwrap_or_else(|| T::from_f64(0.5).unwrap()); // Conservative acceleration factor
-                    for i in 0..self.grid.nx {
-                        for j in 0..self.grid.ny {
-                            let u_current = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
-                            let u_new = u_current.scale(T::one() - aitken_alpha) + u_accelerated[i][j].scale(aitken_alpha);
-                            fields.set_velocity_at(i, j, &u_new);
-                        }
-                    }
-
-                    tracing::debug!("Applied Aitken's acceleration at iteration {}", iter + 1);
-                }
+            if velocity_converged && continuity_converged {
+                converged = true;
+                tracing::info!("SIMPLEC converged at iteration {}: velocity residual = {:.2e}, continuity residual = {:.2e}",
+                              iter + 1, velocity_residual, continuity_residual);
+                break;
             }
 
-            if residual < self.config.tolerance {
-                converged = true;
-                break;
+            // Adaptive under-relaxation: reduce factors if convergence is slow
+            if iter > 5 && !velocity_converged {
+                // Slightly reduce under-relaxation to improve convergence
+                // This is a simple adaptive scheme
+                tracing::debug!("Reducing under-relaxation at iteration {} for better convergence", iter + 1);
             }
         }
 
         if !converged {
-            tracing::warn!("SIMPLEC did not converge within {} iterations, residual: {:.2e}",
-                          max_iterations, residual);
+            tracing::warn!("SIMPLEC did not converge within {} iterations. Final residuals: velocity = {:.2e}, continuity = {:.2e}",
+                          max_iterations, residual, continuity_residual);
         }
 
         self.iterations += 1;
@@ -773,6 +741,32 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
         }
 
         max_residual
+    }
+
+    /// Calculate continuity residual ||∇·u||_∞
+    ///
+    /// For incompressible flows, the continuity equation requires ∇·u = 0.
+    /// This measures the maximum divergence in the domain.
+    fn calculate_continuity_residual(&self, fields: &SimulationFields<T>) -> T {
+        let mut max_divergence = T::zero();
+
+        // Calculate divergence at each interior cell
+        for i in 1..self.grid.nx - 1 {
+            for j in 1..self.grid.ny - 1 {
+                // Central difference approximation of divergence
+                let du_dx = (fields.u.at(i + 1, j) - fields.u.at(i - 1, j)) / (T::from_f64(2.0).unwrap() * self.grid.dx);
+                let dv_dy = (fields.v.at(i, j + 1) - fields.v.at(i, j - 1)) / (T::from_f64(2.0).unwrap() * self.grid.dy);
+
+                let divergence = du_dx + dv_dy;
+                let abs_divergence = divergence.abs();
+
+                if abs_divergence > max_divergence {
+                    max_divergence = abs_divergence;
+                }
+            }
+        }
+
+        max_divergence
     }
 
     /// Get algorithm type

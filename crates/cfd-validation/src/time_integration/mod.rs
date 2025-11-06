@@ -2,12 +2,14 @@
 
 pub mod integrators;
 pub mod results;
+pub mod stability_analysis;
 pub mod validation;
 
 pub use integrators::{
     ForwardEuler, RungeKutta2, RungeKutta4, TimeIntegratorEnum, TimeIntegratorTrait,
 };
 pub use results::TimeIntegrationResult;
+pub use stability_analysis::{StabilityAnalysisRunner, StabilityAnalysisReport};
 pub use validation::TimeIntegrationValidator;
 
 // Edge case tests

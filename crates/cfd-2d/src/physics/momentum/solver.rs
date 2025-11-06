@@ -24,12 +24,8 @@ pub enum MomentumComponent {
 
 /// Momentum equation solver for 2D incompressible flow
 pub struct MomentumSolver<T: RealField + Copy> {
-    /// Grid dimensions
-    nx: usize,
-    ny: usize,
-    /// Grid spacing
-    dx: T,
-    dy: T,
+    /// Grid reference for boundary condition calculations
+    grid: StructuredGrid2D<T>,
     /// Boundary conditions
     boundary_conditions: HashMap<String, BoundaryCondition<T>>,
     /// Linear solver
@@ -43,7 +39,7 @@ pub struct MomentumSolver<T: RealField + Copy> {
     turbulence_model: Option<Box<dyn TurbulenceModel<T>>>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolver<T> {
     /// Create new momentum solver with default deferred correction scheme
     pub fn new(grid: &StructuredGrid2D<T>) -> Self {
         // Use relaxed tolerance for momentum equations in SIMPLE algorithms
@@ -57,10 +53,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         let linear_solver = BiCGSTAB::new(config);
 
         Self {
-            nx: grid.nx,
-            ny: grid.ny,
-            dx: grid.dx,
-            dy: grid.dy,
+            grid: grid.clone(),
             boundary_conditions: HashMap::new(),
             linear_solver,
             convection_scheme: ConvectionScheme::default(),
@@ -75,10 +68,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         let linear_solver = BiCGSTAB::new(config);
 
         Self {
-            nx: grid.nx,
-            ny: grid.ny,
-            dx: grid.dx,
-            dy: grid.dy,
+            grid: grid.clone(),
             boundary_conditions: HashMap::new(),
             linear_solver,
             convection_scheme: scheme,
@@ -104,10 +94,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         let linear_solver = BiCGSTAB::new(config);
 
         Self {
-            nx: grid.nx,
-            ny: grid.ny,
-            dx: grid.dx,
-            dy: grid.dy,
+            grid: grid.clone(),
             boundary_conditions: HashMap::new(),
             linear_solver,
             convection_scheme: ConvectionScheme::default(),
@@ -181,28 +168,28 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         // Store original molecular viscosity for restoration
         let original_viscosity = fields.viscosity.clone();
 
-        for j in 0..self.ny {
-            for i in 0..self.nx {
+        for j in 0..self.grid.ny {
+            for i in 0..self.grid.nx {
                 // Estimate turbulence quantities based on local flow physics
                 // This is a significant improvement over hardcoded placeholders
 
                 // Estimate turbulent kinetic energy based on local velocity gradients
                 // k ≈ (1/2) * (du/dx * l)^2 where l is turbulent length scale
-                let du_dx = if i > 0 && i < self.nx - 1 {
-                    (fields.u[(i + 1, j)] - fields.u[(i - 1, j)]) / (self.dx + self.dx)
+                let du_dx = if i > 0 && i < self.grid.nx - 1 {
+                    (fields.u[(i + 1, j)] - fields.u[(i - 1, j)]) / (self.grid.dx + self.grid.dx)
                 } else {
                     T::zero()
                 };
 
-                let dv_dy = if j > 0 && j < self.ny - 1 {
-                    (fields.v[(i, j + 1)] - fields.v[(i, j - 1)]) / (self.dy + self.dy)
+                let dv_dy = if j > 0 && j < self.grid.ny - 1 {
+                    (fields.v[(i, j + 1)] - fields.v[(i, j - 1)]) / (self.grid.dy + self.grid.dy)
                 } else {
                     T::zero()
                 };
 
                 // Turbulent length scale estimate: l ≈ 0.1 * min(grid spacing, distance to wall)
                 // For now, use grid-based estimate
-                let length_scale = (self.dx.min(self.dy)) * T::from_f64(0.1).unwrap_or(T::one());
+                let length_scale = (self.grid.dx.min(self.grid.dy)) * T::from_f64(0.1).unwrap_or(T::one());
 
                 // Estimate k from velocity gradients: k ≈ (l * |∇u|)^2 / 2
                 let strain_rate = (du_dx * du_dx + dv_dy * dv_dy).sqrt();
@@ -287,8 +274,8 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         #[cfg(debug_assertions)]
         {
             let mut nonzero_count = 0;
-            for j in 0..self.ny {
-                for i in 0..self.nx {
+            for j in 0..self.grid.ny {
+                for i in 0..self.grid.nx {
                     if coeffs.ap.at(i, j).abs() > T::default_epsilon() {
                         nonzero_count += 1;
                     }
@@ -297,7 +284,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
             tracing::debug!(
                 "Momentum coefficients: {}/{} non-zero entries",
                 nonzero_count,
-                self.nx * self.ny
+                self.grid.nx * self.grid.ny
             );
         }
 
@@ -348,10 +335,10 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         dt: T,
     ) -> cfd_core::error::Result<MomentumCoefficients<T>> {
         MomentumCoefficients::compute(
-            self.nx,
-            self.ny,
-            self.dx,
-            self.dy,
+            self.grid.nx,
+            self.grid.ny,
+            self.grid.dx,
+            self.grid.dy,
             dt,
             component,
             fields,
@@ -366,7 +353,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
             matches!(bc, BoundaryCondition::Dirichlet { .. } | BoundaryCondition::Wall { .. })) {
             return true;
         }
-        if i == self.nx - 1 && self.boundary_conditions.get("east").is_some_and(|bc|
+        if i == self.grid.nx - 1 && self.boundary_conditions.get("east").is_some_and(|bc|
             matches!(bc, BoundaryCondition::Dirichlet { .. } | BoundaryCondition::Wall { .. })) {
             return true;
         }
@@ -374,7 +361,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
             matches!(bc, BoundaryCondition::Dirichlet { .. } | BoundaryCondition::Wall { .. })) {
             return true;
         }
-        if j == self.ny - 1 && self.boundary_conditions.get("north").is_some_and(|bc|
+        if j == self.grid.ny - 1 && self.boundary_conditions.get("north").is_some_and(|bc|
             matches!(bc, BoundaryCondition::Dirichlet { .. } | BoundaryCondition::Wall { .. })) {
             return true;
         }
@@ -387,13 +374,13 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         component: MomentumComponent,
         _fields: &SimulationFields<T>,
     ) -> cfd_core::error::Result<(SparseMatrix<T>, DVector<T>)> {
-        let n = self.nx * self.ny;
+        let n = self.grid.nx * self.grid.ny;
         let mut builder = SparseMatrixBuilder::new(n, n);
         let mut rhs = DVector::zeros(n);
 
-        for j in 0..self.ny {
-            for i in 0..self.nx {
-                let idx = j * self.nx + i;
+        for j in 0..self.grid.ny {
+            for i in 0..self.grid.nx {
+                let idx = j * self.grid.nx + i;
 
                 // Check if this is a Dirichlet boundary node
                 if self.is_dirichlet_boundary(i, j) {
@@ -412,14 +399,14 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
                 if i > 0 {
                     builder.add_entry(idx, idx - 1, -coeffs.aw.at(i, j))?;
                 }
-                if i < self.nx - 1 {
+                if i < self.grid.nx - 1 {
                     builder.add_entry(idx, idx + 1, -coeffs.ae.at(i, j))?;
                 }
                 if j > 0 {
-                    builder.add_entry(idx, idx - self.nx, -coeffs.as_.at(i, j))?;
+                    builder.add_entry(idx, idx - self.grid.nx, -coeffs.as_.at(i, j))?;
                 }
-                if j < self.ny - 1 {
-                    builder.add_entry(idx, idx + self.nx, -coeffs.an.at(i, j))?;
+                if j < self.grid.ny - 1 {
+                    builder.add_entry(idx, idx + self.grid.nx, -coeffs.an.at(i, j))?;
                 }
 
                 // Source term including pressure gradient
@@ -434,8 +421,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
             &mut rhs,
             component,
             &self.boundary_conditions,
-            self.nx,
-            self.ny,
+            &self.grid,
         )?;
 
         // Apply standard boundary conditions (sets RHS values for Dirichlet, modifies equations for Neumann)
@@ -444,8 +430,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
             &mut rhs,
             component,
             &self.boundary_conditions,
-            self.nx,
-            self.ny,
+            &self.grid,
         )?;
 
         Ok((builder.build()?, rhs))
@@ -460,9 +445,9 @@ impl<T: RealField + Copy + FromPrimitive> MomentumSolver<T> {
         let alpha = self.velocity_relaxation;
         let one_minus_alpha = T::one() - alpha;
 
-        for j in 0..self.ny {
-            for i in 0..self.nx {
-                let idx = j * self.nx + i;
+        for j in 0..self.grid.ny {
+            for i in 0..self.grid.nx {
+                let idx = j * self.grid.nx + i;
                 let computed_value = solution[idx];
 
                 match component {

@@ -27,15 +27,40 @@
 //! - Smagorinsky, J. (1963). General circulation experiments with the primitive equations.
 //! - Germano, M., et al. (1991). A dynamic subgrid-scale eddy viscosity model.
 //! - Lilly, D. K. (1992). A proposed modification of the Germano subgrid-scale closure method.
+//!
+//! ## WALE Model
+//!
+//! The Wall-Adapting Local Eddy-viscosity (WALE) model provides better near-wall
+//! behavior than the Smagorinsky model by using a different invariant of the
+//! velocity gradient tensor.
+//!
+//! **SGS Viscosity (WALE):**
+//! ```math
+//! \nu_{sgs} = (C_w \Delta)^2 \frac{(S_{ij}^d S_{ij}^d)^{3/2}}{(\bar{S}_{ij} \bar{S}_{ij})^{5/2} + (S_{ij}^d S_{ij}^d)^{5/4}}
+//! ```
+//!
+//! where $S_{ij}^d$ is the traceless symmetric part of the square of the velocity gradient tensor.
+//!
+//! **References:**
+//! - Nicoud, F. & Ducros, F. (1999). Subgrid-scale stress modelling based on the square of the velocity gradient tensor.
+//! - Ducros, F., et al. (1998). Wall-adapting local eddy-viscosity model.
 
 pub mod config;
 pub mod strain;
 pub mod viscosity;
 pub mod dynamic;
+pub mod miles;
+pub mod sigma;
+pub mod wale;
+pub mod vreman;
 pub mod gpu;
 pub mod model;
 
 // Re-export main types
 pub use config::SmagorinskyConfig;
+pub use miles::MilesLES;
+pub use sigma::SigmaModel;
+pub use wale::WaleModel;
+pub use vreman::VremanModel;
 pub use model::SmagorinskyLES;
 

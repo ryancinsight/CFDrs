@@ -103,6 +103,7 @@ pub struct StandardController<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> StandardController<T> {
+    /// Create a new PI controller for adaptive time stepping
     pub fn new() -> Self {
         Self {
             kp: T::from_f64(0.075).unwrap(),
@@ -147,6 +148,7 @@ impl<T: RealField> Default for DormandPrince54<T> {
 }
 
 impl<T: RealField> DormandPrince54<T> {
+    /// Create a new Dormand-Prince 5(4) adaptive Runge-Kutta integrator
     pub fn new() -> Self {
         Self::default()
     }

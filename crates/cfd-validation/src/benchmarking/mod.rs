@@ -17,7 +17,7 @@ pub mod visualization;
 
 pub use analysis::{AlertSeverity, PerformanceAnalyzer, PerformanceReport, PerformanceTrend, RegressionAlert, RegressionConfig, TrendType};
 pub use memory::{MemoryProfiler, MemoryStats};
-pub use performance::{PerformanceBenchmark, TimingResult};
+pub use performance::{AlgorithmComplexity, CfdPerformanceBenchmarks, PerformanceBenchmark, PerformanceProfile, TimingResult};
 pub use scaling::{ScalingAnalysis, ScalingResult};
 pub use suite::{BenchmarkConfig, BenchmarkSuite, BenchmarkResult, BenchmarkStatus};
 

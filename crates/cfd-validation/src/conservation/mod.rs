@@ -6,6 +6,7 @@
 use nalgebra::{DMatrix, RealField};
 use num_traits::{FromPrimitive, ToPrimitive};
 
+mod angular_momentum;
 mod energy;
 mod geometric;
 mod history;
@@ -14,7 +15,9 @@ mod momentum;
 mod report;
 mod tolerance;
 mod traits;
+mod vorticity;
 
+pub use angular_momentum::AngularMomentumChecker;
 pub use energy::EnergyConservationChecker;
 pub use geometric::GeometricConservationChecker;
 pub use history::ConservationHistory;
@@ -23,14 +26,15 @@ pub use momentum::MomentumConservationChecker;
 pub use report::ConservationReport;
 pub use tolerance::ConservationTolerance;
 pub use traits::ConservationChecker;
+pub use vorticity::VorticityChecker;
 
 /// Run comprehensive conservation verification suite
-/// Implements MINOR-003: Conservation Property Verification
+/// Implements MINOR-011: Complete Conservation Property Verification
 pub fn run_comprehensive_conservation_verification<T: RealField + Copy + FromPrimitive + ToPrimitive>() {
     println!("🧪 Comprehensive Conservation Property Verification Suite");
     println!("======================================================");
-    println!("MINOR-003: Verifying conservation of mass, momentum, energy");
-    println!("References: LeVeque (2002), Thomas & Lombard (1979)");
+    println!("MINOR-011: Verifying conservation of mass, momentum, energy, angular momentum, vorticity");
+    println!("References: LeVeque (2002), Thomas & Lombard (1979), Batchelor (1967)");
     println!();
 
     // Mass conservation test
@@ -89,8 +93,38 @@ pub fn run_comprehensive_conservation_verification<T: RealField + Copy + FromPri
         Err(e) => println!("  ❌ Energy conservation test failed: {}", e),
     }
 
+    // Angular momentum conservation test
+    println!("\nTest 4: Angular Momentum Conservation (2D Cartesian)");
+    let am_checker = AngularMomentumChecker::<T>::new_centered(T::from_f64(1e-6).unwrap(), 32, 32);
+
+    match am_checker.check_angular_momentum_2d(
+        &velocity_u, &velocity_v, T::from_f64(0.1).unwrap(), T::from_f64(0.1).unwrap()
+    ) {
+        Ok(report) => {
+            println!("  ✅ {}: Error = {:.2e}, Conserved: {}",
+                     report.check_name, report.error.to_f64().unwrap_or(0.0), report.is_conserved);
+        }
+        Err(e) => println!("  ❌ Angular momentum conservation test failed: {}", e),
+    }
+
+    // Vorticity conservation test
+    println!("\nTest 5: Vorticity Transport Conservation");
+    let vorticity_checker = VorticityChecker::<T>::new(T::from_f64(1e-6).unwrap(), 32, 32);
+
+    match vorticity_checker.check_vorticity_transport_2d(
+        &velocity_u, &velocity_v,
+        T::from_f64(1.5e-5).unwrap(), // viscosity
+        T::from_f64(0.1).unwrap(), T::from_f64(0.1).unwrap()
+    ) {
+        Ok(report) => {
+            println!("  ✅ {}: Error = {:.2e}, Conserved: {}",
+                     report.check_name, report.error.to_f64().unwrap_or(0.0), report.is_conserved);
+        }
+        Err(e) => println!("  ❌ Vorticity conservation test failed: {}", e),
+    }
+
     // Geometric conservation law test
-    println!("\nTest 4: Geometric Conservation Law");
+    println!("\nTest 6: Geometric Conservation Law");
     let gcl_checker = GeometricConservationChecker::<T>::new(T::from_f64(1e-14).unwrap(), 32, 32);
 
     match gcl_checker.run_comprehensive_gcl_tests() {
@@ -106,6 +140,12 @@ pub fn run_comprehensive_conservation_verification<T: RealField + Copy + FromPri
         Err(e) => println!("  ❌ GCL test failed: {}", e),
     }
 
-    println!("\n✅ Conservation property verification completed!");
-    println!("   All fundamental conservation laws have been tested.");
+    println!("\n✅ Complete conservation property verification completed!");
+    println!("   All fundamental conservation laws have been tested:");
+    println!("   - Mass conservation (continuity equation)");
+    println!("   - Momentum conservation (Navier-Stokes)");
+    println!("   - Energy conservation (thermal transport)");
+    println!("   - Angular momentum conservation (rotation)");
+    println!("   - Vorticity conservation (flow rotation)");
+    println!("   - Geometric conservation law (numerical consistency)");
 }

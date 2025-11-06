@@ -11,6 +11,7 @@
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
+use std::collections::HashMap;
 
 use super::traits::Preconditioner;
 use crate::sparse::SparseMatrixExt;
@@ -187,6 +188,7 @@ impl<T: RealField + Copy> Preconditioner<T> for SORPreconditioner<T> {
 }
 
 /// Reference: Saad, Y. (2003). Iterative Methods for Sparse Linear Systems (2nd ed.). SIAM, §10.4.
+#[derive(Debug, Clone)]
 pub struct IncompleteLU<T: RealField + Copy> {
     /// Combined LU factors (L has unit diagonal)
     lu_factor: CsrMatrix<T>,
@@ -340,14 +342,14 @@ impl<T: RealField + Copy + FromPrimitive> IncompleteLU<T> {
             }
         }
 
-        let mut lu = builder.build()?;
+        let lu = builder.build()?;
 
         // Now perform the numerical ILU(k) factorization
         // This follows the standard ILU(k) algorithm with level-of-fill
 
         // Extract mutable references for factorization
         let row_offsets = lu.row_offsets().to_vec();
-        let mut col_indices = lu.col_indices().to_vec();
+        let col_indices = lu.col_indices().to_vec();
         let mut values = lu.values().to_vec();
 
         // ILU(k) factorization
@@ -415,7 +417,7 @@ impl<T: RealField + Copy + FromPrimitive> IncompleteLU<T> {
     ///
     /// # Returns
     /// True if element should be included in factorization
-    fn should_include_fill(levels: &[Vec<Option<usize>>], i: usize, j: usize, current_level: usize, k: usize) -> bool {
+    fn should_include_fill(_levels: &[Vec<Option<usize>>], _i: usize, _j: usize, current_level: usize, k: usize) -> bool {
         current_level <= k
     }
 
@@ -1326,27 +1328,28 @@ impl<T: RealField + Copy + FromPrimitive> ILUPreconditioner<T> {
             l_indptr,
             l_indices,
             l_data
-        ).map_err(|_| Error::Numerical(NumericalErrorKind::MatrixFactorizationFailed))?;
+        ).map_err(|_| Error::Numerical(NumericalErrorKind::SingularMatrix))?;
 
         let u_factor = CsrMatrix::try_from_csr_data(
             n, n,
             u_indptr,
             u_indices,
             u_data
-        ).map_err(|_| Error::Numerical(NumericalErrorKind::MatrixFactorizationFailed))?;
+        ).map_err(|_| Error::Numerical(NumericalErrorKind::SingularMatrix))?;
 
         Ok((l_factor, u_factor))
     }
 }
 
 impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for ILUPreconditioner<T> {
-    fn apply(&self, residual: &DVector<T>) -> Result<DVector<T>> {
-        let n = residual.len();
+    fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
+        let n = r.len();
+        assert_eq!(z.len(), n, "Output vector must have same size as input");
 
-        // Forward substitution: L * y = residual
-        let mut y = DVector::zeros(n);
+        // Forward substitution: L * y = r
+        let mut y = vec![T::zero(); n];
         for i in 0..n {
-            let mut sum = residual[i];
+            let mut sum = r[i];
             let l_row = self.l_factor.row(i);
             for (&col_idx, &val) in l_row.col_indices().iter().zip(l_row.values()) {
                 if col_idx < i {
@@ -1356,14 +1359,13 @@ impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for ILUPreconditione
             y[i] = sum; // L[i,i] = 1 (unit diagonal)
         }
 
-        // Backward substitution: U * x = y
-        let mut x = DVector::zeros(n);
+        // Backward substitution: U * z = y
         for i in (0..n).rev() {
             let mut sum = y[i];
             let u_row = self.u_factor.row(i);
             for (&col_idx, &val) in u_row.col_indices().iter().zip(u_row.values()) {
                 if col_idx > i {
-                    sum = sum - val * x[col_idx];
+                    sum = sum - val * z[col_idx];
                 }
             }
             let diag_idx = u_row.col_indices().iter().position(|&idx| idx == i)
@@ -1372,35 +1374,32 @@ impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for ILUPreconditione
             if diag_val.abs() < T::from_f64(1e-14).unwrap_or(T::zero()) {
                 return Err(Error::Numerical(NumericalErrorKind::DivisionByZero));
             }
-            x[i] = sum / diag_val;
+            z[i] = sum / diag_val;
         }
 
-        Ok(x)
-    }
-
-    fn size(&self) -> usize {
-        self.l_factor.nrows()
+        Ok(())
     }
 }
 
     #[test]
     fn test_ilu_preconditioner() {
-        // Create a simple 3x3 test matrix
-        let mut matrix = CsrMatrix::zeros(3, 3);
-        matrix.insert(0, 0, 4.0);
-        matrix.insert(0, 1, 1.0);
-        matrix.insert(1, 0, 1.0);
-        matrix.insert(1, 1, 4.0);
-        matrix.insert(1, 2, 1.0);
-        matrix.insert(2, 1, 1.0);
-        matrix.insert(2, 2, 4.0);
+        // Create a simple 3x3 test matrix using SparseMatrixBuilder
+        let mut builder = crate::sparse::SparseMatrixBuilder::new(3, 3);
+        builder.add_entry(0, 0, 4.0).unwrap();
+        builder.add_entry(0, 1, 1.0).unwrap();
+        builder.add_entry(1, 0, 1.0).unwrap();
+        builder.add_entry(1, 1, 4.0).unwrap();
+        builder.add_entry(1, 2, 1.0).unwrap();
+        builder.add_entry(2, 1, 1.0).unwrap();
+        builder.add_entry(2, 2, 4.0).unwrap();
+        let matrix = builder.build().unwrap();
 
         let ilu = ILUPreconditioner::new(&matrix, 0).unwrap();
-        assert_eq!(ilu.size(), 3);
 
-        // Test preconditioner application
+        // Test preconditioner application using apply_to
         let residual = DVector::from_vec(vec![1.0, 2.0, 3.0]);
-        let result = ilu.apply(&residual).unwrap();
+        let mut result = DVector::zeros(3);
+        ilu.apply_to(&residual, &mut result).unwrap();
         assert_eq!(result.len(), 3);
 
         // Result should be non-zero and reasonable
@@ -1434,5 +1433,480 @@ impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for ILUPreconditione
         assert_eq!(amg.cycle_type, MultigridCycle::W);
         assert_eq!(amg.nu1, 3);
         assert_eq!(amg.nu2, 3);
+    }
+}
+
+/// # Domain Decomposition Preconditioners
+///
+/// Domain decomposition methods split the computational domain into smaller subdomains
+/// and solve local problems on each subdomain, exchanging boundary information.
+///
+/// ## Mathematical Foundation
+///
+/// The Schwarz alternating method solves:
+/// ```math
+/// -Δu = f  in Ω
+/// u = g  on ∂Ω
+/// ```
+///
+/// by decomposing Ω into overlapping subdomains Ω₁, Ω₂, ..., Ωₚ and solving:
+/// ```math
+/// -Δu⁽ⁿ⁺¹⁾ = f  in Ωᵢ
+/// u⁽ⁿ⁺¹⁾ = u⁽ⁿ⁾  on ∂Ωᵢ ∩ ∂Ω
+/// u⁽ⁿ⁺¹⁾ = u⁽ⁿ⁾  on ∂Ωᵢ ∩ Γ
+/// ```
+///
+/// ## Literature Compliance
+///
+/// - Lions (1988): Schwarz methods for domain decomposition
+/// - Dryja & Widlund (1987): An additive variant of Schwarz alternating method
+/// - Smith et al. (1996): Domain Decomposition: Parallel Multilevel Methods for Elliptic PDEs
+
+/// Overlapping Schwarz domain decomposition preconditioner
+#[derive(Debug)]
+pub struct SchwarzPreconditioner<T: RealField + Copy> {
+    /// Local subdomain solvers (one per subdomain)
+    local_solvers: Vec<IncompleteLU<T>>,
+    /// Subdomain boundaries and mappings
+    subdomain_map: Vec<Vec<usize>>,
+    /// Overlap size between subdomains
+    overlap: usize,
+}
+
+impl<T: RealField + Copy + FromPrimitive> SchwarzPreconditioner<T> {
+    /// Create overlapping Schwarz preconditioner
+    ///
+    /// # Arguments
+    ///
+    /// * `matrix` - Global sparse matrix
+    /// * `num_subdomains` - Number of subdomains to decompose domain into
+    /// * `overlap` - Number of overlapping layers between subdomains
+    ///
+    /// # Returns
+    ///
+    /// Schwarz preconditioner with overlapping subdomains
+    pub fn new(matrix: &CsrMatrix<T>, num_subdomains: usize, overlap: usize) -> Result<Self> {
+        if num_subdomains < 2 {
+            return Err(Error::InvalidConfiguration(
+                "Need at least 2 subdomains for domain decomposition".to_string()
+            ));
+        }
+
+        let n = matrix.nrows();
+        if n < num_subdomains {
+            return Err(Error::InvalidConfiguration(
+                format!("Matrix size {} too small for {} subdomains", n, num_subdomains)
+            ));
+        }
+
+        // Create subdomain partitioning (simple 1D decomposition for now)
+        let subdomain_map = Self::create_subdomain_partitioning(n, num_subdomains, overlap);
+
+        // Create local solvers for each subdomain
+        let mut local_solvers = Vec::with_capacity(num_subdomains);
+
+        for subdomain_indices in &subdomain_map {
+            // Extract local subdomain matrix
+            let local_matrix = Self::extract_subdomain_matrix(matrix, subdomain_indices)?;
+
+            // Create ILU preconditioner for local subdomain
+            let local_solver = IncompleteLU::new(&local_matrix)?;
+            local_solvers.push(local_solver);
+        }
+
+        Ok(Self {
+            local_solvers,
+            subdomain_map,
+            overlap,
+        })
+    }
+
+    /// Create subdomain partitioning with overlap
+    fn create_subdomain_partitioning(n: usize, num_subdomains: usize, overlap: usize) -> Vec<Vec<usize>> {
+        let mut subdomain_map = Vec::with_capacity(num_subdomains);
+
+        // Simple 1D domain decomposition
+        let base_size = n / num_subdomains;
+        let remainder = n % num_subdomains;
+
+        let mut start_idx = 0;
+
+        for i in 0..num_subdomains {
+            let mut end_idx = start_idx + base_size;
+            if i < remainder {
+                end_idx += 1;
+            }
+
+            // Add overlap to the left (except for first subdomain)
+            let actual_start = if i > 0 {
+                start_idx.saturating_sub(overlap)
+            } else {
+                start_idx
+            };
+
+            // Add overlap to the right (except for last subdomain)
+            let actual_end = if i < num_subdomains - 1 {
+                (end_idx + overlap).min(n)
+            } else {
+                end_idx.min(n)
+            };
+
+            let subdomain_indices: Vec<usize> = (actual_start..actual_end).collect();
+            subdomain_map.push(subdomain_indices);
+
+            start_idx = end_idx;
+        }
+
+        subdomain_map
+    }
+
+    /// Extract subdomain matrix from global matrix
+    fn extract_subdomain_matrix(matrix: &CsrMatrix<T>, indices: &[usize]) -> Result<CsrMatrix<T>> {
+        let subdomain_size = indices.len();
+
+        // Create index mapping from global to local
+        let mut global_to_local: HashMap<usize, usize> = HashMap::new();
+        for (local_idx, &global_idx) in indices.iter().enumerate() {
+            global_to_local.insert(global_idx, local_idx);
+        }
+
+        // Build local matrix
+        let mut builder = crate::sparse::SparseMatrixBuilder::new(subdomain_size, subdomain_size);
+
+        // Extract relevant entries from global matrix
+        for (local_row, &global_row) in indices.iter().enumerate() {
+            let row_start = matrix.row_offsets()[global_row];
+            let row_end = matrix.row_offsets()[global_row + 1];
+
+            for pos in row_start..row_end {
+                let global_col = matrix.col_indices()[pos];
+                let value = matrix.values()[pos];
+
+                // Check if this column is in our subdomain
+                if let Some(&local_col) = global_to_local.get(&global_col) {
+                    builder.add_entry(local_row, local_col, value)?;
+                }
+            }
+        }
+
+        builder.build()
+    }
+
+    /// Apply Schwarz preconditioner (additive version)
+    ///
+    /// This implements the additive Schwarz method where all local solutions
+    /// are computed independently and then summed.
+    pub fn apply_additive(&self, r: &DVector<T>) -> Result<DVector<T>> {
+        let mut result = DVector::zeros(r.len());
+
+        // Apply each local subdomain solver
+        for (subdomain_idx, local_solver) in self.local_solvers.iter().enumerate() {
+            let subdomain_indices = &self.subdomain_map[subdomain_idx];
+
+            // Extract local right-hand side
+            let mut local_rhs = DVector::zeros(subdomain_indices.len());
+            for (local_idx, &global_idx) in subdomain_indices.iter().enumerate() {
+                local_rhs[local_idx] = r[global_idx];
+            }
+
+            // Solve local problem using preconditioner
+            let mut local_solution = DVector::zeros(local_rhs.len());
+            local_solver.apply_to(&local_rhs, &mut local_solution)?;
+
+            // Add local solution to global result
+            for (local_idx, &global_idx) in subdomain_indices.iter().enumerate() {
+                result[global_idx] += local_solution[local_idx];
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Apply Schwarz preconditioner (multiplicative version)
+    ///
+    /// This implements the multiplicative Schwarz method where subdomains
+    /// are solved sequentially, updating the right-hand side.
+    pub fn apply_multiplicative(&self, r: &DVector<T>) -> Result<DVector<T>> {
+        let mut current_rhs = r.clone();
+        let mut result = DVector::zeros(r.len());
+
+        // Solve subdomains sequentially
+        for (subdomain_idx, local_solver) in self.local_solvers.iter().enumerate() {
+            let subdomain_indices = &self.subdomain_map[subdomain_idx];
+
+            // Extract current local right-hand side
+            let mut local_rhs = DVector::zeros(subdomain_indices.len());
+            for (local_idx, &global_idx) in subdomain_indices.iter().enumerate() {
+                local_rhs[local_idx] = current_rhs[global_idx];
+            }
+
+            // Solve local problem using preconditioner
+            let mut local_solution = DVector::zeros(local_rhs.len());
+            local_solver.apply_to(&local_rhs, &mut local_solution)?;
+
+            // Update global solution and right-hand side for next subdomain
+            for (local_idx, &global_idx) in subdomain_indices.iter().enumerate() {
+                result[global_idx] += local_solution[local_idx];
+                // Update RHS for overlapping regions (simple update)
+                current_rhs[global_idx] -= local_solution[local_idx];
+            }
+        }
+
+        Ok(result)
+    }
+}
+
+impl<T: RealField + Copy> Preconditioner<T> for SchwarzPreconditioner<T> {
+    fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
+        // Use additive Schwarz by default (more parallelizable)
+        let result = self.apply_additive(r)?;
+        z.copy_from(&result);
+        Ok(())
+    }
+}
+
+/// # Deflation Preconditioner
+///
+/// Deflation techniques improve convergence for eigenvalue problems by removing
+/// known eigenvectors from the spectrum, forcing the iterative solver to focus
+/// on the remaining eigenvalues.
+///
+/// ## Mathematical Foundation
+///
+/// For a known eigenvector φ with eigenvalue λ, the deflated operator is:
+/// ```math
+/// A_deflated = A - λ φ φ^T
+/// ```
+///
+/// This removes λ from the spectrum, improving convergence for the remaining modes.
+///
+/// ## Literature Compliance
+///
+/// - Saad (2003): Deflation techniques for eigenvalue problems
+/// - Morgan (1995): GMRES with deflated restarting
+/// - Stewart (2001): Matrix algorithms, Volume II: Eigensystems
+
+/// Deflation preconditioner for eigenvalue problems
+pub struct DeflationPreconditioner<T: RealField + Copy> {
+    /// Base preconditioner (e.g., ILU, Jacobi)
+    base_preconditioner: Box<dyn Preconditioner<T>>,
+    /// Known eigenvectors to deflate
+    eigenvectors: Vec<DVector<T>>,
+    /// Corresponding eigenvalues
+    eigenvalues: Vec<T>,
+}
+
+impl<T: RealField + Copy> DeflationPreconditioner<T> {
+    /// Create deflation preconditioner
+    ///
+    /// # Arguments
+    ///
+    /// * `base_preconditioner` - Underlying preconditioner
+    /// * `eigenvectors` - Known eigenvectors to deflate
+    /// * `eigenvalues` - Corresponding eigenvalues
+    ///
+    /// # Returns
+    ///
+    /// Deflation preconditioner that removes known eigenmodes
+    pub fn new(
+        base_preconditioner: Box<dyn Preconditioner<T>>,
+        eigenvectors: Vec<DVector<T>>,
+        eigenvalues: Vec<T>,
+    ) -> Result<Self> {
+        if eigenvectors.len() != eigenvalues.len() {
+            return Err(Error::InvalidConfiguration(
+                "Number of eigenvectors must match number of eigenvalues".to_string()
+            ));
+        }
+
+        // Check eigenvector dimensions
+        if let Some(first_vec) = eigenvectors.first() {
+            let n = first_vec.len();
+            for (i, vec) in eigenvectors.iter().enumerate() {
+                if vec.len() != n {
+                    return Err(Error::InvalidConfiguration(
+                        format!("Eigenvector {} has wrong dimension: expected {}, got {}",
+                               i, n, vec.len())
+                    ));
+                }
+            }
+        }
+
+        Ok(Self {
+            base_preconditioner,
+            eigenvectors,
+            eigenvalues,
+        })
+    }
+
+    /// Add a new eigenpair to deflate
+    pub fn add_eigenpair(&mut self, eigenvector: DVector<T>, eigenvalue: T) -> Result<()> {
+        // Check dimension against first eigenvector if available
+        if let Some(first_vec) = self.eigenvectors.first() {
+            if eigenvector.len() != first_vec.len() {
+                return Err(Error::InvalidConfiguration(
+                    format!("Eigenvector dimension mismatch: expected {}, got {}",
+                           first_vec.len(), eigenvector.len())
+                ));
+            }
+        }
+
+        self.eigenvectors.push(eigenvector);
+        self.eigenvalues.push(eigenvalue);
+        Ok(())
+    }
+}
+
+impl<T: RealField + Copy> Preconditioner<T> for DeflationPreconditioner<T> {
+    fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
+        // First apply base preconditioner
+        self.base_preconditioner.apply_to(r, z)?;
+
+        // Apply deflation correction
+        // z_deflated = z - sum_i (φ_i^T * z) * φ_i / λ_i
+        for (eigenvec, &eigenval) in self.eigenvectors.iter().zip(&self.eigenvalues) {
+            let coeff = eigenvec.dot(z) / eigenval;
+            // Simple deflation: subtract projection onto eigenvector
+            for i in 0..z.len() {
+                z[i] = z[i] - coeff * eigenvec[i];
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod deflation_tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn test_deflation_preconditioner_creation() {
+        let base = Box::new(IdentityPreconditioner);
+        let eigenvectors = vec![
+            DVector::from_vec(vec![1.0, 0.0, 0.0]),
+            DVector::from_vec(vec![0.0, 1.0, 0.0]),
+        ];
+        let eigenvalues = vec![1.0, 2.0];
+
+        let deflation = DeflationPreconditioner::new(base, eigenvectors, eigenvalues);
+        assert!(deflation.is_ok(), "Deflation preconditioner creation should succeed");
+
+        let deflation = deflation.unwrap();
+        assert_eq!(deflation.eigenvectors.len(), 2, "Should have 2 eigenvectors");
+        assert_eq!(deflation.eigenvalues.len(), 2, "Should have 2 eigenvalues");
+    }
+
+    #[test]
+    fn test_deflation_preconditioner_wrong_dimensions() {
+        let base = Box::new(IdentityPreconditioner);
+        let eigenvectors = vec![
+            DVector::from_vec(vec![1.0, 0.0]), // Wrong dimension
+        ];
+        let eigenvalues = vec![1.0];
+
+        let deflation = DeflationPreconditioner::new(base, eigenvectors, eigenvalues);
+        assert!(deflation.is_err(), "Should fail with wrong eigenvector dimension");
+    }
+
+    #[test]
+    fn test_deflation_preconditioner_mismatched_counts() {
+        let base = Box::new(IdentityPreconditioner);
+        let eigenvectors = vec![DVector::from_vec(vec![1.0, 0.0, 0.0])];
+        let eigenvalues = vec![1.0, 2.0]; // Mismatched count
+
+        let deflation = DeflationPreconditioner::new(base, eigenvectors, eigenvalues);
+        assert!(deflation.is_err(), "Should fail with mismatched eigenvector/eigenvalue counts");
+    }
+
+    #[test]
+    fn test_deflation_preconditioner_application() {
+        let base = Box::new(IdentityPreconditioner);
+        // Deflate the first basis vector
+        let eigenvectors = vec![DVector::from_vec(vec![1.0, 0.0, 0.0])];
+        let eigenvalues = vec![1.0];
+
+        let deflation = DeflationPreconditioner::new(base, eigenvectors, eigenvalues).unwrap();
+
+        let r = DVector::from_vec(vec![1.0, 0.0, 0.0]);
+        let mut z = DVector::zeros(3);
+        deflation.apply_to(&r, &mut z).unwrap();
+
+        // For identity base preconditioner, deflation should give z = r - projection
+        // Since r is the eigenvector, z should be zero
+        assert_relative_eq!(z[0], 0.0, epsilon = 1e-10);
+        assert_relative_eq!(z[1], 0.0, epsilon = 1e-10);
+        assert_relative_eq!(z[2], 0.0, epsilon = 1e-10);
+    }
+}
+
+#[cfg(test)]
+mod schwarz_tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    fn create_test_matrix() -> CsrMatrix<f64> {
+        // Create a simple 2D Laplacian-like matrix for testing
+        let n = 16; // 4x4 grid
+        let mut builder = crate::sparse::SparseMatrixBuilder::new(n, n);
+
+        for i in 0..n {
+            // Diagonal element
+            builder.add_entry(i, i, 4.0).unwrap();
+
+            // Off-diagonal elements (5-point stencil)
+            if i > 3 { builder.add_entry(i, i-4, -1.0).unwrap(); } // North
+            if i < 12 { builder.add_entry(i, i+4, -1.0).unwrap(); } // South
+            if i % 4 != 0 { builder.add_entry(i, i-1, -1.0).unwrap(); } // West
+            if i % 4 != 3 { builder.add_entry(i, i+1, -1.0).unwrap(); } // East
+        }
+
+        builder.build().unwrap()
+    }
+
+    #[test]
+    fn test_schwarz_preconditioner_creation() {
+        let matrix = create_test_matrix();
+        let schwarz = SchwarzPreconditioner::new(&matrix, 4, 1);
+
+        assert!(schwarz.is_ok(), "Schwarz preconditioner creation should succeed");
+        let schwarz = schwarz.unwrap();
+
+        assert_eq!(schwarz.local_solvers.len(), 4, "Should have 4 local solvers");
+        assert_eq!(schwarz.overlap, 1, "Overlap should be 1");
+    }
+
+    #[test]
+    fn test_schwarz_subdomain_partitioning() {
+        let subdomain_map = SchwarzPreconditioner::<f64>::create_subdomain_partitioning(16, 4, 1);
+
+        assert_eq!(subdomain_map.len(), 4, "Should have 4 subdomains");
+
+        // Check subdomain sizes (should be roughly equal with overlap)
+        assert!(subdomain_map[0].len() >= 4, "First subdomain should have at least 4 elements");
+        assert!(subdomain_map[3].len() >= 4, "Last subdomain should have at least 4 elements");
+
+        // Check overlap - adjacent subdomains should share elements
+        let last_of_first = *subdomain_map[0].last().unwrap();
+        let first_of_second = *subdomain_map[1].first().unwrap();
+        assert!(last_of_first >= first_of_second.saturating_sub(1),
+                "Adjacent subdomains should overlap");
+    }
+
+    #[test]
+    fn test_schwarz_additive_application() {
+        let matrix = create_test_matrix();
+        let schwarz = SchwarzPreconditioner::new(&matrix, 4, 1).unwrap();
+
+        let r = DVector::from_element(16, 1.0);
+        let result = schwarz.apply_additive(&r);
+
+        assert!(result.is_ok(), "Additive Schwarz application should succeed");
+        let result = result.unwrap();
+
+        assert_eq!(result.len(), 16, "Result should have correct size");
+        // Result should be non-zero (actual preconditioning effectiveness tested elsewhere)
+        assert!(result.iter().any(|&x| x != 0.0), "Result should be non-zero");
     }
 }

@@ -4,6 +4,7 @@
 //! providing excellent mass conservation properties.
 
 mod advection;
+mod cavitation_solver;
 mod config;
 mod initialization;
 mod reconstruction;
@@ -11,6 +12,7 @@ mod solver;
 
 pub use config::{constants, VofConfig};
 pub use solver::VofSolver;
+pub use cavitation_solver::{CavitationVofSolver, CavitationVofConfig, CavitationStatistics, BubbleDynamicsConfig};
 
 // Re-export key types for convenience
 pub use advection::AdvectionMethod;

@@ -77,6 +77,7 @@
 //!   Chapter 7: Wall Boundary Conditions.
 
 use super::solver::MomentumComponent;
+use crate::grid::traits::Grid2D;
 use cfd_core::boundary::BoundaryCondition;
 use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::RealField;
@@ -84,26 +85,60 @@ use num_traits::FromPrimitive;
 use std::collections::HashMap;
 use std::hash::BuildHasher;
 
+/// Apply rotating wall boundary condition: u_wall = ω × r
+/// where r is the position vector from center of rotation
+fn apply_rotating_wall_bc<T: RealField + Copy + FromPrimitive>(
+    component: MomentumComponent,
+    omega: &nalgebra::Vector3<T>,
+    center: &nalgebra::Vector3<T>,
+    grid: &crate::grid::StructuredGrid2D<T>,
+    idx: usize,
+) -> T {
+    // Convert linear index to 2D coordinates (row-major order: idx = j * nx + i)
+    let nx = grid.nx;
+    let i = idx % nx;
+    let j = idx / nx;
+
+    // Get cell center position using grid coordinate methods
+    let cell_center = grid.cell_center(i, j).unwrap();
+    let x = cell_center.x;
+    let y = cell_center.y;
+
+    // Position vector from center of rotation (2D: only x,y components)
+    let r_x = x - center.x;
+    let r_y = y - center.y;
+
+    // Angular velocity vector (2D: only z-component)
+    let omega_z = omega.z;
+
+    // Velocity = ω × r = ω_z * (-r_y, r_x) for 2D rotation
+    match component {
+        MomentumComponent::U => -omega_z * r_y,  // u = -ω_z * r_y
+        MomentumComponent::V => omega_z * r_x,   // v = ω_z * r_x
+    }
+}
+
 /// Apply boundary conditions to momentum equation system
 pub fn apply_momentum_boundaries<T, S>(
     matrix: &mut SparseMatrixBuilder<T>,
     rhs: &mut nalgebra::DVector<T>,
     component: MomentumComponent,
     boundaries: &HashMap<String, BoundaryCondition<T>, S>,
-    nx: usize,
-    ny: usize,
+    grid: &crate::grid::StructuredGrid2D<T>,
 ) -> cfd_core::error::Result<()>
 where
     T: RealField + Copy + FromPrimitive,
     S: BuildHasher,
 {
+    let nx = grid.nx;
+    let ny = grid.ny;
     // Apply boundary conditions based on location
     for (name, bc) in boundaries {
         match name.as_str() {
-            "west" => apply_west_boundary(matrix, rhs, bc, component, nx, ny)?,
-            "east" => apply_east_boundary(matrix, rhs, bc, component, nx, ny)?,
-            "north" => apply_north_boundary(matrix, rhs, bc, component, nx, ny)?,
-            "south" => apply_south_boundary(matrix, rhs, bc, component, nx, ny)?,
+            "west" => apply_west_boundary(matrix, rhs, bc, component, grid, nx, ny)?,
+            "east" => apply_east_boundary(matrix, rhs, bc, component, grid, nx, ny)?,
+            "north" => apply_north_boundary(matrix, rhs, bc, component, grid, nx, ny)?,
+            "south" => apply_south_boundary(matrix, rhs, bc, component, grid, nx, ny)?,
             _ => {}
         }
     }
@@ -118,23 +153,25 @@ pub fn apply_higher_order_wall_boundaries<T, S>(
     rhs: &mut nalgebra::DVector<T>,
     component: MomentumComponent,
     boundaries: &HashMap<String, BoundaryCondition<T>, S>,
-    nx: usize,
-    ny: usize,
+    grid: &crate::grid::StructuredGrid2D<T>,
 ) -> cfd_core::error::Result<()>
 where
     T: RealField + Copy + FromPrimitive,
     S: BuildHasher,
 {
+    let nx = grid.nx;
+    let ny = grid.ny;
+
     // Apply higher-order boundary conditions for walls to improve near-wall gradients
     for (name, bc) in boundaries {
         if let BoundaryCondition::Wall { wall_type } = bc {
             match wall_type {
                 cfd_core::boundary::WallType::NoSlip => {
                     match name.as_str() {
-                        "west" => apply_higher_order_west_wall(matrix, rhs, component, nx, ny)?,
-                        "east" => apply_higher_order_east_wall(matrix, rhs, component, nx, ny)?,
-                        "north" => apply_higher_order_north_wall(matrix, rhs, component, nx, ny)?,
-                        "south" => apply_higher_order_south_wall(matrix, rhs, component, nx, ny)?,
+                        "west" => apply_higher_order_west_wall(matrix, rhs, component, grid, nx, ny)?,
+                        "east" => apply_higher_order_east_wall(matrix, rhs, component, grid, nx, ny)?,
+                        "north" => apply_higher_order_north_wall(matrix, rhs, component, grid, nx, ny)?,
+                        "south" => apply_higher_order_south_wall(matrix, rhs, component, grid, nx, ny)?,
                         _ => {}
                     }
                 }
@@ -156,6 +193,7 @@ fn apply_higher_order_west_wall<T: RealField + Copy + FromPrimitive>(
     matrix: &mut SparseMatrixBuilder<T>,
     rhs: &mut nalgebra::DVector<T>,
     _component: MomentumComponent,
+    _grid: &crate::grid::StructuredGrid2D<T>,
     nx: usize,
     ny: usize,
 ) -> cfd_core::error::Result<()> {
@@ -183,6 +221,7 @@ fn apply_higher_order_east_wall<T: RealField + Copy + FromPrimitive>(
     matrix: &mut SparseMatrixBuilder<T>,
     rhs: &mut nalgebra::DVector<T>,
     _component: MomentumComponent,
+    _grid: &crate::grid::StructuredGrid2D<T>,
     nx: usize,
     ny: usize,
 ) -> cfd_core::error::Result<()> {
@@ -209,6 +248,7 @@ fn apply_higher_order_north_wall<T: RealField + Copy + FromPrimitive>(
     matrix: &mut SparseMatrixBuilder<T>,
     rhs: &mut nalgebra::DVector<T>,
     _component: MomentumComponent,
+    _grid: &crate::grid::StructuredGrid2D<T>,
     nx: usize,
     ny: usize,
 ) -> cfd_core::error::Result<()> {
@@ -235,6 +275,7 @@ fn apply_higher_order_south_wall<T: RealField + Copy + FromPrimitive>(
     matrix: &mut SparseMatrixBuilder<T>,
     rhs: &mut nalgebra::DVector<T>,
     _component: MomentumComponent,
+    _grid: &crate::grid::StructuredGrid2D<T>,
     nx: usize,
     _ny: usize,
 ) -> cfd_core::error::Result<()> {
@@ -261,6 +302,7 @@ fn apply_west_boundary<T: RealField + Copy + FromPrimitive>(
     rhs: &mut nalgebra::DVector<T>,
     bc: &BoundaryCondition<T>,
     component: MomentumComponent,
+    grid: &crate::grid::StructuredGrid2D<T>,
     nx: usize,
     ny: usize,
 ) -> cfd_core::error::Result<()> {
@@ -299,9 +341,8 @@ fn apply_west_boundary<T: RealField + Copy + FromPrimitive>(
                         };
                         rhs[idx] = velocity[component_idx];
                     }
-                    cfd_core::boundary::WallType::Rotating { .. } => {
-                        // Rotating walls not implemented yet
-                        rhs[idx] = T::zero();
+                    cfd_core::boundary::WallType::Rotating { omega, center } => {
+                        rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                     }
                 }
             }
@@ -378,6 +419,7 @@ fn apply_east_boundary<T: RealField + Copy + FromPrimitive>(
     rhs: &mut nalgebra::DVector<T>,
     bc: &BoundaryCondition<T>,
     component: MomentumComponent,
+    grid: &crate::grid::StructuredGrid2D<T>,
     nx: usize,
     ny: usize,
 ) -> cfd_core::error::Result<()> {
@@ -416,9 +458,8 @@ fn apply_east_boundary<T: RealField + Copy + FromPrimitive>(
                         };
                         rhs[idx] = velocity[component_idx];
                     }
-                    cfd_core::boundary::WallType::Rotating { .. } => {
-                        // Rotating walls not implemented yet
-                        rhs[idx] = T::zero();
+                    cfd_core::boundary::WallType::Rotating { omega, center } => {
+                        rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                     }
                 }
             }
@@ -466,6 +507,7 @@ fn apply_north_boundary<T: RealField + Copy + FromPrimitive>(
     rhs: &mut nalgebra::DVector<T>,
     bc: &BoundaryCondition<T>,
     component: MomentumComponent,
+    grid: &crate::grid::StructuredGrid2D<T>,
     nx: usize,
     ny: usize,
 ) -> cfd_core::error::Result<()> {
@@ -504,9 +546,8 @@ fn apply_north_boundary<T: RealField + Copy + FromPrimitive>(
                         };
                         rhs[idx] = velocity[component_idx];
                     }
-                    cfd_core::boundary::WallType::Rotating { .. } => {
-                        // Rotating walls not implemented yet
-                        rhs[idx] = T::zero();
+                    cfd_core::boundary::WallType::Rotating { omega, center } => {
+                        rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                     }
                 }
             }
@@ -554,6 +595,7 @@ fn apply_south_boundary<T: RealField + Copy + FromPrimitive>(
     rhs: &mut nalgebra::DVector<T>,
     bc: &BoundaryCondition<T>,
     component: MomentumComponent,
+    grid: &crate::grid::StructuredGrid2D<T>,
     nx: usize,
     ny: usize,
 ) -> cfd_core::error::Result<()> {
@@ -592,9 +634,8 @@ fn apply_south_boundary<T: RealField + Copy + FromPrimitive>(
                         };
                         rhs[idx] = velocity[component_idx];
                     }
-                    cfd_core::boundary::WallType::Rotating { .. } => {
-                        // Rotating walls not implemented yet
-                        rhs[idx] = T::zero();
+                    cfd_core::boundary::WallType::Rotating { omega, center } => {
+                        rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                     }
                 }
             }

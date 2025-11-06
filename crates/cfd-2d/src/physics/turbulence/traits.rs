@@ -1,9 +1,10 @@
 //! Turbulence model trait definitions
 
 use nalgebra::{DMatrix, RealField, Vector2};
+use num_traits::ToPrimitive;
 
 /// Trait for RANS turbulence models (k-ε, k-ω, SA)
-pub trait TurbulenceModel<T: RealField + Copy> {
+pub trait TurbulenceModel<T: RealField + Copy + ToPrimitive> {
     /// Calculate turbulent viscosity
     /// 
     /// # Arguments

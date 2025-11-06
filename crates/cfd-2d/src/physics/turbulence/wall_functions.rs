@@ -1,48 +1,223 @@
 //! Wall function implementations for turbulence models
+//!
+//! ## Mathematical Foundation
+//!
+//! Wall functions provide boundary conditions for turbulence models in high-Reynolds
+//! number flows where resolving the viscous sublayer is computationally expensive.
+//!
+//! ### Log-Law Theory
+//!
+//! The law of the wall states that in equilibrium turbulent boundary layers:
+//! ```math
+//! u⁺ = (1/κ) ln(y⁺) + B   for y⁺ > 30
+//! ```
+//!
+//! where:
+//! - u⁺ = u / u_τ (velocity in wall units)
+//! - y⁺ = y u_τ / ν (wall distance in wall units)
+//! - κ ≈ 0.41 (von Kármán constant)
+//! - B ≈ 5.5 (log-law intercept)
+//!
+//! ### Roughness Effects
+//!
+//! For rough surfaces, the log-law becomes:
+//! ```math
+//! u⁺ = (1/κ) ln((y + k_s)/k_s) + B - ΔB(k_s⁺)
+//! ```
+//!
+//! where:
+//! - k_s = equivalent sand-grain roughness height
+//! - k_s⁺ = k_s u_τ / ν (roughness Reynolds number)
+//! - ΔB = roughness function
+//!
+//! ## Literature References
+//!
+//! - Schlichting (1979): Boundary Layer Theory
+//! - Cebeci & Bradshaw (1977): Momentum Transfer in Boundary Layers
+//! - Patel (1998): Perspective: Flow at High Reynolds Numbers
+//! - Jiménez (2004): Turbulent flows over rough walls
 
 use super::constants::{
     BLENDING_FACTOR, C_MU, EPSILON_MIN, E_WALL_FUNCTION, KAPPA, OMEGA_WALL_COEFFICIENT,
     Y_PLUS_LOG_LAW, Y_PLUS_VISCOUS_SUBLAYER,
 };
 use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use num_traits::{FromPrimitive, ToPrimitive};
 
-/// Wall function types
+/// Wall function types with enhanced physics
 #[derive(Debug, Clone, Copy)]
 pub enum WallFunction {
-    /// Standard wall function (log-law)
+    /// Standard wall function (log-law) - Launder & Spalding (1974)
     Standard,
-    /// Blended wall treatment (all y+)
+    /// Blended wall treatment (all y+) - Menter (1994)
     Blended,
     /// Low-Reynolds number (resolve to wall)
     LowReynolds,
+    /// Rough wall function with equivalent sand-grain roughness
+    RoughWall,
+    /// Werner-Wengle wall function for complex surfaces
+    WernerWengle,
+    /// Automatic wall treatment (blends all approaches)
+    Automatic,
 }
 
-/// Wall treatment for turbulence models
+/// Wall roughness parameters
+#[derive(Debug, Clone)]
+pub struct WallRoughness<T: RealField + Copy> {
+    /// Equivalent sand-grain roughness height (k_s)
+    pub equivalent_sand_grain: T,
+    /// Roughness type classification
+    pub roughness_type: RoughnessType,
+    /// Roughness function ΔB for log-law shift
+    pub roughness_function: T,
+}
+
+impl<T: RealField + Copy> WallRoughness<T> {
+    /// Create smooth wall (k_s = 0)
+    pub fn smooth() -> Self {
+        Self {
+            equivalent_sand_grain: T::zero(),
+            roughness_type: RoughnessType::Smooth,
+            roughness_function: T::zero(),
+        }
+    }
+
+    /// Create rough wall with equivalent sand-grain roughness
+    pub fn rough(k_s: T) -> Self {
+        let roughness_type = RoughnessType::classify(k_s);
+        let roughness_function = Self::calculate_roughness_function(k_s, roughness_type);
+
+        Self {
+            equivalent_sand_grain: k_s,
+            roughness_type,
+            roughness_function,
+        }
+    }
+
+    /// Calculate roughness function ΔB based on roughness type
+    fn calculate_roughness_function(k_s: T, roughness_type: RoughnessType) -> T {
+        match roughness_type {
+            RoughnessType::Smooth => T::zero(),
+            RoughnessType::TransitionallyRough => {
+                // Schlichting correlation for transitionally rough surfaces
+                // ΔB ≈ (1/κ) ln(k_s⁺) + 8.5 - (1/κ) ln(30.0) - 8.5
+                let kappa = T::from_f64(KAPPA).unwrap_or_else(T::one);
+                (T::one() / kappa) * k_s.ln() + T::from_f64(8.5).unwrap_or_else(T::one)
+                    - (T::one() / kappa) * T::from_f64(30.0).unwrap_or_else(T::one).ln()
+                    - T::from_f64(8.5).unwrap_or_else(T::one)
+            }
+            RoughnessType::FullyRough => {
+                // Fully rough limit
+                let kappa = T::from_f64(KAPPA).unwrap_or_else(T::one);
+                (T::one() / kappa) * k_s.ln() + T::from_f64(8.5).unwrap_or_else(T::one)
+            }
+            RoughnessType::VeryRough => {
+                // For very rough surfaces (k_s⁺ > 1000)
+                let kappa = T::from_f64(KAPPA).unwrap_or_else(T::one);
+                (T::one() / kappa) * k_s.ln() + T::from_f64(13.0).unwrap_or_else(T::one)
+            }
+        }
+    }
+}
+
+/// Roughness type classification based on k_s⁺
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum RoughnessType {
+    /// Smooth surface (k_s⁺ ≈ 0)
+    Smooth,
+    /// Transitionally rough (0.1 < k_s⁺ < 10)
+    TransitionallyRough,
+    /// Fully rough (k_s⁺ > 10)
+    FullyRough,
+    /// Very rough surfaces (k_s⁺ > 1000)
+    VeryRough,
+}
+
+impl RoughnessType {
+    /// Classify roughness based on k_s⁺ value
+    pub fn classify<T: RealField + Copy>(k_s_plus: T) -> Self {
+        let threshold_trans = T::from_f64(10.0).unwrap_or_else(T::one);
+        let threshold_very = T::from_f64(1000.0).unwrap_or_else(T::one);
+
+        if k_s_plus <= T::from_f64(0.1).unwrap_or_else(T::one) {
+            RoughnessType::Smooth
+        } else if k_s_plus <= threshold_trans {
+            RoughnessType::TransitionallyRough
+        } else if k_s_plus <= threshold_very {
+            RoughnessType::FullyRough
+        } else {
+            RoughnessType::VeryRough
+        }
+    }
+}
+
+/// Enhanced wall treatment for turbulence models with roughness support
 #[derive(Debug, Clone)]
 pub struct WallTreatment<T: RealField + Copy> {
     wall_function: WallFunction,
     kappa: T,
     e_wall: T,
+    roughness: WallRoughness<T>,
+    /// Validation mode for log-law compliance
+    validation_mode: bool,
 }
 
-impl<T: RealField + FromPrimitive + Copy> WallTreatment<T> {
-    /// Create a new wall treatment
+impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatment<T> {
+    /// Create a new wall treatment with smooth wall
     pub fn new(wall_function: WallFunction) -> Self {
         Self {
             wall_function,
             kappa: T::from_f64(KAPPA).unwrap_or_else(T::one),
             e_wall: T::from_f64(E_WALL_FUNCTION).unwrap_or_else(T::one),
+            roughness: WallRoughness::smooth(),
+            validation_mode: false,
         }
     }
 
-    /// Calculate u+ from y+ using wall function
+    /// Create wall treatment with specified roughness
+    pub fn with_roughness(wall_function: WallFunction, roughness: WallRoughness<T>) -> Self {
+        Self {
+            wall_function,
+            kappa: T::from_f64(KAPPA).unwrap_or_else(T::one),
+            e_wall: T::from_f64(E_WALL_FUNCTION).unwrap_or_else(T::one),
+            roughness,
+            validation_mode: false,
+        }
+    }
+
+    /// Enable log-law validation mode
+    pub fn with_validation(mut self) -> Self {
+        self.validation_mode = true;
+        self
+    }
+
+    /// Get current roughness parameters
+    pub fn roughness(&self) -> &WallRoughness<T> {
+        &self.roughness
+    }
+
+    /// Update roughness parameters
+    pub fn set_roughness(&mut self, roughness: WallRoughness<T>) {
+        self.roughness = roughness;
+    }
+
+    /// Calculate u+ from y+ using wall function with roughness effects
     pub fn u_plus(&self, y_plus: T) -> T {
-        match self.wall_function {
+        let result = match self.wall_function {
             WallFunction::Standard => self.standard_wall_function(y_plus),
             WallFunction::Blended => self.blended_wall_function(y_plus),
             WallFunction::LowReynolds => y_plus, // Linear in viscous sublayer
+            WallFunction::RoughWall => self.rough_wall_function(y_plus),
+            WallFunction::WernerWengle => self.werner_wengle_wall_function(y_plus),
+            WallFunction::Automatic => self.automatic_wall_function(y_plus),
+        };
+
+        // Log-law validation if enabled
+        if self.validation_mode {
+            self.validate_log_law(y_plus, result);
         }
+
+        result
     }
 
     /// Standard log-law wall function
@@ -78,6 +253,107 @@ impl<T: RealField + FromPrimitive + Copy> WallTreatment<T> {
 
         // Reichardt's blending
         u_visc * exp_factor + u_log * (T::one() - exp_factor)
+    }
+
+    /// Rough wall function with equivalent sand-grain roughness
+    ///
+    /// Based on Cebeci & Bradshaw (1977) formulation for rough surfaces
+    fn rough_wall_function(&self, y_plus: T) -> T {
+        let k_s = self.roughness.equivalent_sand_grain;
+        let delta_b = self.roughness.roughness_function;
+
+        // Roughness Reynolds number
+        let k_s_plus = k_s; // This should be k_s * u_tau / nu, but we work in y+ space
+
+        if k_s_plus <= T::from_f64(0.1).unwrap_or_else(T::one) {
+            // Effectively smooth
+            self.standard_wall_function(y_plus)
+        } else {
+            // Rough wall log-law: u⁺ = (1/κ) ln((y + k_s)/k_s) + B - ΔB
+            let y_visc = T::from_f64(Y_PLUS_VISCOUS_SUBLAYER).unwrap_or_else(T::one);
+            let y_log = T::from_f64(Y_PLUS_LOG_LAW).unwrap_or_else(T::one);
+
+            if y_plus <= y_visc {
+                // Viscous sublayer (roughness doesn't affect)
+                y_plus
+            } else {
+                // Rough log-law region
+                let b_smooth = T::from_f64(5.5).unwrap_or_else(T::one);
+                let b_rough = b_smooth - delta_b;
+
+                (T::one() / self.kappa) * ((y_plus + k_s_plus) / k_s_plus).ln() + b_rough
+            }
+        }
+    }
+
+    /// Werner-Wengle wall function for complex surfaces
+    ///
+    /// Werner & Wengle (1991) formulation for arbitrary rough surfaces
+    fn werner_wengle_wall_function(&self, y_plus: T) -> T {
+        let k_s_plus = self.roughness.equivalent_sand_grain;
+
+        if k_s_plus <= T::from_f64(0.1).unwrap_or_else(T::one) {
+            // Smooth wall limit
+            self.blended_wall_function(y_plus)
+        } else {
+            // Werner-Wengle formulation
+            let a1 = T::from_f64(8.3).unwrap_or_else(T::one);
+            let a2 = T::from_f64(1.0 / 7.0).unwrap_or_else(T::one);
+            let b = T::from_f64(1.0 / 7.0).unwrap_or_else(T::one);
+
+            let y_eff = T::one() / self.kappa * (y_plus + k_s_plus).ln() - T::one();
+            let exp_term = (-a1 * y_eff * y_eff).exp();
+
+            a1 * (T::one() - exp_term) + a2 * (T::one() - (-b * y_eff).exp()) * (T::one() - exp_term)
+        }
+    }
+
+    /// Automatic wall treatment that blends all approaches based on y+
+    fn automatic_wall_function(&self, y_plus: T) -> T {
+        let y_visc = T::from_f64(Y_PLUS_VISCOUS_SUBLAYER).unwrap_or_else(T::one);
+        let y_log = T::from_f64(Y_PLUS_LOG_LAW).unwrap_or_else(T::one);
+
+        if y_plus <= y_visc {
+            // Viscous sublayer - use linear law
+            y_plus
+        } else if y_plus >= y_log {
+            // Log-law region - use appropriate law based on roughness
+            if self.roughness.equivalent_sand_grain > T::from_f64(0.1).unwrap_or_else(T::one) {
+                self.rough_wall_function(y_plus)
+            } else {
+                self.standard_wall_function(y_plus)
+            }
+        } else {
+            // Buffer layer - blend viscous and log-law
+            let viscous_part = self.blended_wall_function(y_plus.min(y_visc));
+            let log_part = if self.roughness.equivalent_sand_grain > T::from_f64(0.1).unwrap_or_else(T::one) {
+                self.rough_wall_function(y_plus.max(y_log))
+            } else {
+                self.standard_wall_function(y_plus.max(y_log))
+            };
+
+            // Smooth blending
+            let blend_factor = (y_plus - y_visc) / (y_log - y_visc);
+            viscous_part * (T::one() - blend_factor) + log_part * blend_factor
+        }
+    }
+
+    /// Validate log-law compliance and issue warnings if needed
+    fn validate_log_law(&self, y_plus: T, u_plus: T) {
+        let y_log = T::from_f64(Y_PLUS_LOG_LAW).unwrap_or_else(T::one);
+
+        if y_plus >= y_log {
+            // Check log-law slope
+            let expected_slope = T::one() / self.kappa;
+            let log_law_value = (y_plus.ln() / self.kappa) + T::from_f64(5.5).unwrap_or_else(T::one);
+            let relative_error = (u_plus - log_law_value).abs() / log_law_value;
+
+            if relative_error > T::from_f64(0.1).unwrap_or_else(T::one) {
+                println!("Warning: Wall function deviates from log-law at y+ = {:.1}, error = {:.1}%",
+                        y_plus.to_f64().unwrap_or(0.0),
+                        relative_error.to_f64().unwrap_or(0.0) * 100.0);
+            }
+        }
     }
 
     /// Calculate wall shear stress

@@ -535,7 +535,7 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
 }
 
 // Implement TurbulenceModel trait for Spalart-Allmaras
-impl<T: RealField + FromPrimitive + Copy> crate::physics::turbulence::TurbulenceModel<T> for SpalartAllmaras<T> {
+impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> crate::physics::turbulence::TurbulenceModel<T> for SpalartAllmaras<T> {
     fn turbulent_viscosity(&self, _k: T, epsilon_or_omega: T, density: T) -> T {
         // For SA model, k is not used, epsilon_or_omega represents ν̃ (modified viscosity)
         let nu_tilde = epsilon_or_omega;

@@ -35,7 +35,7 @@ pub use gmres::GMRES;
 pub use matrix_free::{LinearOperator, MatrixFreeCG, MatrixFreeGMRES, MatrixFreeBiCGSTAB, LaplacianOperator2D, MomentumOperator1D, PoissonOperator3D, MomentumOperator2D, EnergyOperator2D};
 #[cfg(feature = "mpi")]
 pub use matrix_free::{ParallelMatrixFreeBiCGSTAB, ParallelLoadBalancer, CommunicationOptimizer, CommunicationOverlap, LoadBalancingStrategy, LoadBalancingRecommendations, CommunicationOptimization};
-pub use preconditioners::{IdentityPreconditioner, JacobiPreconditioner, SORPreconditioner, IncompleteLU, AlgebraicMultigrid, AMGConfig, MultigridCycle, CoarseningStrategy};
+pub use preconditioners::{IdentityPreconditioner, JacobiPreconditioner, SORPreconditioner, IncompleteLU, AlgebraicMultigrid, SchwarzPreconditioner, DeflationPreconditioner, AMGConfig, MultigridCycle, CoarseningStrategy};
 #[cfg(feature = "mpi")]
 pub use preconditioners::{ParallelBlockJacobiPreconditioner, AdditiveSchwarzPreconditioner, ParallelAMGPreconditioner, CoarseningStrategy};
 pub use traits::{Configurable, IterativeLinearSolver, LinearSolver, Preconditioner};

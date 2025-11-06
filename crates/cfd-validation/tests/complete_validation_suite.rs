@@ -498,3 +498,4 @@ fn test_performance_regression_monitoring() {
 
     println!("✅ Performance regression monitoring test passed");
 }
+

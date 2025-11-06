@@ -122,11 +122,17 @@
 //! - Trottenberg, U., Oosterlee, C., & Schüller, A. (2001). *Multigrid*.
 //!   Academic Press. Section 9.4: Algebraic Multigrid.
 //! - Stüben, K. (2001). A review of algebraic multigrid. *Journal of Computational and Applied Mathematics*,
+//!
+//! ## Geometric Multigrid (GMG)
+//!
+//! For structured grids, geometric multigrid provides superior efficiency through
+//! explicit grid hierarchies and optimized transfer operators.
 //!   128(1-2), 281-309.
 
 mod amg;
 mod coarsening;
 mod cycles;
+mod gmg;
 mod interpolation;
 mod restriction;
 mod smoothers;
@@ -134,6 +140,7 @@ mod smoothers;
 pub use amg::*;
 pub use coarsening::*;
 pub use cycles::*;
+pub use gmg::*;
 pub use interpolation::*;
 pub use restriction::*;
 pub use smoothers::*;

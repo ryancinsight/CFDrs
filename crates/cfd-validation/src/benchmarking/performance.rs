@@ -181,6 +181,170 @@ impl Default for PerformanceBenchmark {
     }
 }
 
+/// Algorithm complexity analysis for CFD operations
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct AlgorithmComplexity {
+    /// Algorithm name
+    pub name: String,
+    /// Time complexity (Big-O notation)
+    pub time_complexity: String,
+    /// Space complexity (Big-O notation)
+    pub space_complexity: String,
+    /// Memory access pattern description
+    pub memory_pattern: String,
+    /// Cache efficiency rating (0.0 to 1.0)
+    pub cache_efficiency: f64,
+    /// Parallel scalability factor
+    pub scalability: f64,
+    /// Literature references for complexity analysis
+    pub references: Vec<String>,
+}
+
+impl AlgorithmComplexity {
+    /// Create new complexity analysis
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            time_complexity: "O(?)".to_string(),
+            space_complexity: "O(?)".to_string(),
+            memory_pattern: "Unknown".to_string(),
+            cache_efficiency: 0.5, // Default neutral rating
+            scalability: 0.5, // Default neutral rating
+            references: Vec::new(),
+        }
+    }
+
+    /// Set time complexity
+    pub fn with_time_complexity(mut self, complexity: &str) -> Self {
+        self.time_complexity = complexity.to_string();
+        self
+    }
+
+    /// Set space complexity
+    pub fn with_space_complexity(mut self, complexity: &str) -> Self {
+        self.space_complexity = complexity.to_string();
+        self
+    }
+
+    /// Set memory access pattern
+    pub fn with_memory_pattern(mut self, pattern: &str) -> Self {
+        self.memory_pattern = pattern.to_string();
+        self
+    }
+
+    /// Set cache efficiency (0.0 = poor, 1.0 = excellent)
+    pub fn with_cache_efficiency(mut self, efficiency: f64) -> Self {
+        self.cache_efficiency = efficiency.max(0.0).min(1.0);
+        self
+    }
+
+    /// Set parallel scalability (0.0 = no speedup, 1.0 = perfect scaling)
+    pub fn with_scalability(mut self, scalability: f64) -> Self {
+        self.scalability = scalability.max(0.0).min(1.0);
+        self
+    }
+
+    /// Add literature reference
+    pub fn with_reference(mut self, reference: &str) -> Self {
+        self.references.push(reference.to_string());
+        self
+    }
+}
+
+/// Performance profile including complexity analysis
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct PerformanceProfile {
+    /// Timing results
+    pub timing: TimingResult,
+    /// Algorithm complexity analysis
+    pub complexity: AlgorithmComplexity,
+    /// Memory bandwidth utilization (GB/s)
+    pub memory_bandwidth: f64,
+    /// Cache miss rate (0.0 to 1.0)
+    pub cache_miss_rate: f64,
+    /// Floating point operations per second (GFLOPS)
+    pub gflops: f64,
+    /// Memory operations per second (GB/s)
+    pub memory_ops_per_sec: f64,
+    /// Performance recommendations
+    pub recommendations: Vec<String>,
+}
+
+impl PerformanceProfile {
+    /// Create new performance profile
+    pub fn new(timing: TimingResult, complexity: AlgorithmComplexity) -> Self {
+        Self {
+            timing,
+            complexity,
+            memory_bandwidth: 0.0,
+            cache_miss_rate: 0.0,
+            gflops: 0.0,
+            memory_ops_per_sec: 0.0,
+            recommendations: Vec::new(),
+        }
+    }
+
+    /// Estimate memory bandwidth based on operation characteristics
+    pub fn estimate_memory_bandwidth(&mut self, data_size_bytes: usize, matrix_density: f64) {
+        let total_time = self.timing.stats.mean;
+        let data_transferred = data_size_bytes as f64 * matrix_density; // Effective data touched
+        self.memory_bandwidth = data_transferred / total_time / 1e9; // GB/s
+    }
+
+    /// Estimate cache efficiency based on algorithm characteristics
+    pub fn estimate_cache_efficiency(&mut self, problem_size: usize, cache_size_kb: usize) {
+        let cache_size_elements = (cache_size_kb * 1024) / 8; // Assuming double precision
+        let working_set = problem_size * problem_size; // Rough estimate for dense operations
+
+        if working_set <= cache_size_elements {
+            self.cache_miss_rate = 0.01; // Low miss rate for cache-fitting problems
+        } else {
+            let miss_rate = (working_set as f64 / cache_size_elements as f64).ln() / 10.0;
+            self.cache_miss_rate = miss_rate.min(0.9); // Cap at 90% miss rate
+        }
+    }
+
+    /// Estimate GFLOPS based on operation type and timing
+    pub fn estimate_gflops(&mut self, operations_per_point: usize, grid_points: usize) {
+        let total_operations = operations_per_point * grid_points;
+        let total_time = self.timing.stats.mean;
+        self.gflops = total_operations as f64 / total_time / 1e9;
+    }
+
+    /// Generate performance recommendations
+    pub fn generate_recommendations(&mut self) {
+        self.recommendations.clear();
+
+        // Time complexity recommendations
+        match self.complexity.time_complexity.as_str() {
+            "O(N)" => self.recommendations.push("Excellent scalability - suitable for large problems".to_string()),
+            "O(N log N)" => self.recommendations.push("Good scalability - efficient for most CFD applications".to_string()),
+            "O(N²)" => self.recommendations.push("Poor scalability - consider fast algorithms for large problems".to_string()),
+            "O(N³)" => self.recommendations.push("Very poor scalability - use only for small problems".to_string()),
+            _ => self.recommendations.push("Unknown time complexity - requires further analysis".to_string()),
+        }
+
+        // Memory bandwidth recommendations
+        if self.memory_bandwidth < 10.0 {
+            self.recommendations.push("Low memory bandwidth utilization - check data layout and access patterns".to_string());
+        } else if self.memory_bandwidth > 50.0 {
+            self.recommendations.push("Excellent memory bandwidth - algorithm is memory-efficient".to_string());
+        }
+
+        // Cache efficiency recommendations
+        if self.cache_miss_rate > 0.1 {
+            self.recommendations.push("High cache miss rate - consider cache-blocking or data restructuring".to_string());
+        }
+
+        // Scalability recommendations
+        if self.complexity.scalability < 0.3 {
+            self.recommendations.push("Poor parallel scalability - algorithm may not benefit from multi-core systems".to_string());
+        } else if self.complexity.scalability > 0.8 {
+            self.recommendations.push("Excellent parallel scalability - well-suited for distributed computing".to_string());
+        }
+    }
+}
+
 /// CFD-specific performance benchmarks
 pub struct CfdPerformanceBenchmarks {
     benchmark: PerformanceBenchmark,
@@ -195,6 +359,253 @@ impl CfdPerformanceBenchmarks {
                 .with_min_time(0.01) // 10ms minimum for CFD operations
                 .with_stability_threshold(0.10), // 10% CV for CFD (more variable)
         }
+    }
+
+    /// Create comprehensive performance profile with complexity analysis
+    pub fn create_performance_profile<F>(
+        &self,
+        algorithm_name: &str,
+        operation: F,
+        complexity: AlgorithmComplexity,
+        data_size_bytes: usize,
+        matrix_density: f64,
+        operations_per_point: usize,
+        grid_points: usize,
+        cache_size_kb: usize,
+    ) -> Result<PerformanceProfile>
+    where
+        F: FnMut(),
+    {
+        // Run timing benchmark
+        let timing = self.benchmark.benchmark_simple(algorithm_name, operation)?;
+
+        // Create performance profile
+        let mut profile = PerformanceProfile::new(timing, complexity);
+
+        // Estimate performance metrics
+        profile.estimate_memory_bandwidth(data_size_bytes, matrix_density);
+        profile.estimate_cache_efficiency((grid_points as f64).sqrt() as usize, cache_size_kb);
+        profile.estimate_gflops(operations_per_point, grid_points);
+        profile.generate_recommendations();
+
+        Ok(profile)
+    }
+
+    /// Generate algorithm complexity registry for common CFD operations
+    pub fn create_algorithm_registry() -> Vec<AlgorithmComplexity> {
+        let mut registry = Vec::new();
+
+        // Conjugate Gradient solver
+        registry.push(
+            AlgorithmComplexity::new("ConjugateGradient")
+                .with_time_complexity("O(N^{3/2})")
+                .with_space_complexity("O(N²)")
+                .with_memory_pattern("Sparse matrix-vector products with irregular access")
+                .with_cache_efficiency(0.7)
+                .with_scalability(0.8)
+                .with_reference("Saad (2003): Iterative Methods for Sparse Linear Systems")
+                .with_reference("Barrett et al. (1994): Templates for the Solution of Linear Systems")
+        );
+
+        // Sparse Matrix-Vector Multiplication (SPMV)
+        registry.push(
+            AlgorithmComplexity::new("SPMV")
+                .with_time_complexity("O(nnz)")
+                .with_space_complexity("O(nnz)")
+                .with_memory_pattern("Compressed sparse row format with gather operations")
+                .with_cache_efficiency(0.6)
+                .with_scalability(0.9)
+                .with_reference("Williams et al. (2009): Optimization of sparse matrix-vector multiplication on emerging multicore platforms")
+        );
+
+        // Fast Fourier Transform (FFT)
+        registry.push(
+            AlgorithmComplexity::new("FFT")
+                .with_time_complexity("O(N log N)")
+                .with_space_complexity("O(N)")
+                .with_memory_pattern("Bit-reversal permutation with regular access patterns")
+                .with_cache_efficiency(0.8)
+                .with_scalability(0.85)
+                .with_reference("Frigo & Johnson (2005): The design and implementation of FFTW3")
+        );
+
+        // Multigrid solver
+        registry.push(
+            AlgorithmComplexity::new("Multigrid")
+                .with_time_complexity("O(N)")
+                .with_space_complexity("O(N)")
+                .with_memory_pattern("Hierarchical grid operations with smoothing and restriction")
+                .with_cache_efficiency(0.75)
+                .with_scalability(0.7)
+                .with_reference("Trottenberg et al. (2001): Multigrid methods")
+                .with_reference("Briggs et al. (2000): A multigrid tutorial")
+        );
+
+        // Turbulence model evaluation (k-epsilon)
+        registry.push(
+            AlgorithmComplexity::new("KEpsilon")
+                .with_time_complexity("O(N)")
+                .with_space_complexity("O(N)")
+                .with_memory_pattern("Point-wise operations on turbulence variables")
+                .with_cache_efficiency(0.9)
+                .with_scalability(0.95)
+                .with_reference("Launder & Spalding (1974): The numerical computation of turbulent flows")
+        );
+
+        // Navier-Stokes time integration
+        registry.push(
+            AlgorithmComplexity::new("NavierStokesIntegration")
+                .with_time_complexity("O(N)")
+                .with_space_complexity("O(N)")
+                .with_memory_pattern("Stencil operations with spatial derivatives")
+                .with_cache_efficiency(0.85)
+                .with_scalability(0.9)
+                .with_reference("Hirsch (2007): Numerical computation of internal and external flows")
+        );
+
+        // Richardson extrapolation
+        registry.push(
+            AlgorithmComplexity::new("RichardsonExtrapolation")
+                .with_time_complexity("O(N * M)")
+                .with_space_complexity("O(N)")
+                .with_memory_pattern("Multiple grid evaluations with convergence analysis")
+                .with_cache_efficiency(0.7)
+                .with_scalability(0.8)
+                .with_reference("Roache (1998): Verification and Validation in Computational Science and Engineering")
+        );
+
+        // Manufactured solutions evaluation
+        registry.push(
+            AlgorithmComplexity::new("ManufacturedSolutions")
+                .with_time_complexity("O(N)")
+                .with_space_complexity("O(1)")
+                .with_memory_pattern("Analytical function evaluation at grid points")
+                .with_cache_efficiency(0.95)
+                .with_scalability(0.99)
+                .with_reference("Salari & Knupp (2000): Code verification by the method of manufactured solutions")
+        );
+
+        registry
+    }
+
+    /// Benchmark CFD algorithms with comprehensive profiling
+    pub fn benchmark_cfd_algorithms(&self) -> Result<Vec<PerformanceProfile>> {
+        println!("🧪 Comprehensive CFD Algorithm Performance Profiling");
+        println!("==================================================");
+
+        let mut profiles = Vec::new();
+        let registry = Self::create_algorithm_registry();
+
+        // Benchmark SPMV operation
+        if let Some(spmv_complexity) = registry.iter().find(|c| c.name == "SPMV") {
+            println!("\nBenchmarking Sparse Matrix-Vector Multiplication...");
+
+            // Create test matrix (64x64 Poisson system)
+            let n = 64;
+            let matrix_size = n * n;
+            let mut builder = cfd_math::sparse::SparseMatrixBuilder::new(matrix_size, matrix_size);
+
+            // Build 5-point stencil matrix
+            for i in 0..n {
+                for j in 0..n {
+                    let idx = i * n + j;
+                    let mut diagonal = 4.0;
+
+                    if i > 0 {
+                        builder.add_entry(idx, idx - n, -1.0)?;
+                        diagonal -= 0.0; // Already counted
+                    }
+                    if i < n - 1 {
+                        builder.add_entry(idx, idx + n, -1.0)?;
+                        diagonal -= 0.0;
+                    }
+                    if j > 0 {
+                        builder.add_entry(idx, idx - 1, -1.0)?;
+                        diagonal -= 0.0;
+                    }
+                    if j < n - 1 {
+                        builder.add_entry(idx, idx + 1, -1.0)?;
+                        diagonal -= 0.0;
+                    }
+
+                    builder.add_entry(idx, idx, diagonal)?;
+                }
+            }
+
+            let matrix = builder.build()?;
+            let vector = vec![1.0; matrix_size];
+            let mut result = vec![0.0; matrix_size];
+
+            let data_size = matrix.nnz() * 8 * 2; // nnz * 8 bytes * 2 (indices + values)
+            let matrix_density = matrix.nnz() as f64 / (matrix_size * matrix_size) as f64;
+
+            let profile = self.create_performance_profile(
+                "SPMV_Poisson_64x64",
+                || {
+                    let vector_dv = nalgebra::DVector::from_vec(vector.clone());
+                    let mut result_dv = nalgebra::DVector::from_vec(result.clone());
+                    cfd_math::sparse::spmv(&matrix, &vector_dv, &mut result_dv);
+                },
+                spmv_complexity.clone(),
+                data_size,
+                matrix_density,
+                2, // operations per point (multiply-add)
+                matrix_size,
+                32768, // 32MB L3 cache
+            )?;
+
+            println!("  Performance: {:.2} GFLOPS, {:.2} GB/s memory bandwidth",
+                    profile.gflops, profile.memory_bandwidth);
+            println!("  Cache miss rate: {:.1}%", profile.cache_miss_rate * 100.0);
+            for rec in &profile.recommendations {
+                println!("  💡 {}", rec);
+            }
+
+            profiles.push(profile);
+        }
+
+        // Benchmark manufactured solutions evaluation
+        if let Some(ms_complexity) = registry.iter().find(|c| c.name == "ManufacturedSolutions") {
+            println!("\nBenchmarking Manufactured Solutions Evaluation...");
+
+            use crate::manufactured::ManufacturedNavierStokes;
+            let mms = ManufacturedNavierStokes::new(1.0, 1.0, 1.0, 1.0);
+
+            let grid_points = 10000; // 100x100 grid
+            let data_size = grid_points * 8 * 3; // 3 fields * 8 bytes
+
+            let profile = self.create_performance_profile(
+                "ManufacturedSolutions_100x100",
+                || {
+                    for i in 0..100 {
+                        for j in 0..100 {
+                            let x = i as f64 * 0.01;
+                            let y = j as f64 * 0.01;
+                            let t = 0.0;
+                            let _velocity = mms.velocity(x, y, t);
+                            let _pressure = mms.pressure(x, y, t);
+                        }
+                    }
+                },
+                ms_complexity.clone(),
+                data_size,
+                1.0, // Dense evaluation
+                10, // operations per point (trig functions, etc.)
+                grid_points,
+                32768,
+            )?;
+
+            println!("  Performance: {:.2} GFLOPS, {:.2} GB/s memory bandwidth",
+                    profile.gflops, profile.memory_bandwidth);
+            println!("  Cache miss rate: {:.1}%", profile.cache_miss_rate * 100.0);
+
+            profiles.push(profile);
+        }
+
+        println!("\n✅ Algorithm performance profiling completed!");
+        println!("   Analyzed {} algorithms with complexity and performance metrics", profiles.len());
+
+        Ok(profiles)
     }
 
     /// Benchmark matrix-vector multiplication (key CFD operation)
