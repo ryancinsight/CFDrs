@@ -10,6 +10,7 @@
 use super::report::ConservationReport;
 use super::traits::ConservationChecker;
 use cfd_core::error::Result;
+use cfd_core::conversion::SafeFromF64;
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
 
@@ -38,7 +39,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
         let u = DMatrix::from_element(self.nx, self.ny, constant_value);
 
         // Simulate multiple Euler time steps
-        let dt = T::from_f64(0.01).unwrap_or(T::one());
+        let dt = <T as SafeFromF64>::from_f64_or_one(0.01);
         let mut u_current = u.clone();
 
         for _step in 0..10 {
@@ -92,7 +93,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
         let u = DMatrix::from_element(self.nx, self.ny, constant_value);
 
         // Simulate RK time integration (simplified)
-        let dt = T::from_f64(0.01).unwrap_or(T::one());
+        let dt = <T as SafeFromF64>::from_f64_or_one(0.01);
         let mut u_current = u.clone();
 
         for _step in 0..5 {
@@ -144,21 +145,21 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
         let u = DMatrix::from_element(self.nx, self.ny, constant_value);
 
         // Test spatial derivative operators on constant field
-        let dx = T::from_f64(0.1).unwrap_or(T::one());
-        let dy = T::from_f64(0.1).unwrap_or(T::one());
+        let dx = <T as SafeFromF64>::from_f64_or_one(0.1);
+        let dy = <T as SafeFromF64>::from_f64_or_one(0.1);
 
         // Compute spatial derivatives (should be zero for constant field)
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 // Central difference ∂u/∂x
-                let dudx = (u[(i+1, j)] - u[(i-1, j)]) / (T::from_f64(2.0).unwrap_or(T::one()) * dx);
+                let dudx = (u[(i+1, j)] - u[(i-1, j)]) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
 
                 // Central difference ∂u/∂y
-                let dudy = (u[(i, j+1)] - u[(i, j-1)]) / (T::from_f64(2.0).unwrap_or(T::one()) * dy);
+                let dudy = (u[(i, j+1)] - u[(i, j-1)]) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
 
                 // Laplacian ∇²u
-                let laplacian = (u[(i+1, j)] - T::from_f64(2.0).unwrap_or(T::one()) * u[(i, j)] + u[(i-1, j)]) / (dx * dx)
-                              + (u[(i, j+1)] - T::from_f64(2.0).unwrap_or(T::one()) * u[(i, j)] + u[(i, j-1)]) / (dy * dy);
+                let laplacian = (u[(i+1, j)] - <T as SafeFromF64>::from_f64_or_one(2.0) * u[(i, j)] + u[(i-1, j)]) / (dx * dx)
+                              + (u[(i, j+1)] - <T as SafeFromF64>::from_f64_or_one(2.0) * u[(i, j)] + u[(i, j-1)]) / (dy * dy);
 
                 // All derivatives should be zero for constant field
                 let error = dudx.abs() + dudy.abs() + laplacian.abs();
@@ -203,8 +204,8 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
         let test_values = vec![
             T::zero(),
             T::one(),
-            T::from_f64(1.5).unwrap_or(T::one()),
-            T::from_f64(-1.0).unwrap_or(-T::one()),
+            <T as SafeFromF64>::from_f64_or_one(1.5),
+            <T as SafeFromF64>::from_f64_or(-1.0, -T::one()),
         ];
 
         for &value in &test_values {

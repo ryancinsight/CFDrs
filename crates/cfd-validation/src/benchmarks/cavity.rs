@@ -4,7 +4,7 @@
 //! using the Navier-Stokes equations and a multigrid method"
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
-use cfd_core::conversion::SafeFromF64;
+use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::{Error, Result};
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
@@ -29,59 +29,59 @@ impl<T: RealField + Copy> LidDrivenCavity<T> {
         // Literature-validated reference data for lid-driven cavity from Ghia et al. (1982)
         // Reynolds numbers: 100, 400, 1000, 3200, 5000, 7500, 10000
 
-        let re_100 = T::from_f64(100.0)?;
-        let re_1000 = T::from_f64(1000.0)?;
+        let re_100 = <T as SafeFromF64>::try_from_f64(100.0).ok()?;
+        let re_1000 = <T as SafeFromF64>::try_from_f64(1000.0).ok()?;
 
-        if (reynolds - re_100).abs() < T::from_f64(0.1)? {
+        if (reynolds - re_100).abs() < <T as SafeFromF64>::try_from_f64(0.1).ok()? {
             // Reference data for Re=100 (centerline velocities)
             Some((
                 vec![
-                    T::from_f64(0.0)?,
-                    T::from_f64(0.0625)?,
-                    T::from_f64(0.0703)?,
-                    T::from_f64(0.0781)?,
-                    T::from_f64(0.0938)?,
-                    T::from_f64(0.1563)?,
-                    T::from_f64(0.2266)?,
-                    T::from_f64(0.2344)?,
-                    T::from_f64(0.5000)?,
+                    <T as SafeFromF64>::try_from_f64(0.0).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.0625).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.0703).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.0781).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.0938).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.1563).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.2266).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.2344).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.5000).ok()?,
                 ],
                 vec![
-                    T::from_f64(0.84123)?,
-                    T::from_f64(0.78871)?,
-                    T::from_f64(0.73722)?,
-                    T::from_f64(0.68717)?,
-                    T::from_f64(0.23151)?,
-                    T::from_f64(0.00332)?,
-                    T::from_f64(-0.13641)?,
-                    T::from_f64(-0.20581)?,
-                    T::from_f64(-0.21090)?,
+                    <T as SafeFromF64>::try_from_f64(0.84123).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.78871).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.73722).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.68717).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.23151).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.00332).ok()?,
+                    <T as SafeFromF64>::try_from_f64(-0.13641).ok()?,
+                    <T as SafeFromF64>::try_from_f64(-0.20581).ok()?,
+                    <T as SafeFromF64>::try_from_f64(-0.21090).ok()?,
                 ],
             ))
-        } else if (reynolds - re_1000).abs() < T::from_f64(0.1)? {
+        } else if (reynolds - re_1000).abs() < <T as SafeFromF64>::try_from_f64(0.1).ok()? {
             // Reference data for Re=1000 (centerline velocities)
             Some((
                 vec![
-                    T::from_f64(0.0)?,
-                    T::from_f64(0.0625)?,
-                    T::from_f64(0.0703)?,
-                    T::from_f64(0.0781)?,
-                    T::from_f64(0.0938)?,
-                    T::from_f64(0.1563)?,
-                    T::from_f64(0.2266)?,
-                    T::from_f64(0.2344)?,
-                    T::from_f64(0.5000)?,
+                    <T as SafeFromF64>::try_from_f64(0.0).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.0625).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.0703).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.0781).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.0938).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.1563).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.2266).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.2344).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.5000).ok()?,
                 ],
                 vec![
-                    T::from_f64(0.65928)?,
-                    T::from_f64(0.57492)?,
-                    T::from_f64(0.51117)?,
-                    T::from_f64(0.46604)?,
-                    T::from_f64(0.33304)?,
-                    T::from_f64(0.18719)?,
-                    T::from_f64(0.05702)?,
-                    T::from_f64(0.02135)?,
-                    T::from_f64(-0.21388)?,
+                    <T as SafeFromF64>::try_from_f64(0.65928).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.57492).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.51117).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.46604).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.33304).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.18719).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.05702).ok()?,
+                    <T as SafeFromF64>::try_from_f64(0.02135).ok()?,
+                    <T as SafeFromF64>::try_from_f64(-0.21388).ok()?,
                 ],
             ))
         } else {
@@ -101,9 +101,7 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
 
     fn run(&self, config: &BenchmarkConfig<T>) -> Result<BenchmarkResult<T>> {
         let n = config.resolution;
-        let dx = self.size
-            / T::from_usize(n)
-                .ok_or_else(|| Error::InvalidConfiguration("Invalid resolution".into()))?;
+        let dx = self.size / <T as SafeFromUsize>::try_from_usize(n)?;
 
         // Initialize stream function and vorticity with proper double-buffering
         let mut psi = DMatrix::<T>::zeros(n, n);
@@ -114,11 +112,7 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
         let viscosity = self.lid_velocity * self.size / config.reynolds_number;
 
         // Time stepping parameters
-        let dt = T::from_f64(0.001)
-            .ok_or_else(|| Error::InvalidInput("Cannot convert time step factor".to_string()))?
-            * dx
-            * dx
-            / viscosity;
+        let dt = <T as SafeFromF64>::try_from_f64(0.001)? * dx * dx / viscosity;
         let mut convergence = Vec::new();
         let mut iteration = 0;
 
@@ -128,8 +122,7 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
             // Update vorticity on boundaries using stream function
             // Top boundary (moving lid): ω = -2(ψ_{i,n-2} - ψ_{i,n-1})/Δy² - 2U/Δy
             for i in 0..n {
-                let two = T::from_f64(2.0)
-                    .ok_or_else(|| Error::InvalidInput("Cannot convert 2.0".to_string()))?;
+                let two = T::from_f64_or_one(2.0);
                 omega[(i, n - 1)] = -two * (psi[(i, n - 2)] - psi[(i, n - 1)]) / (dx * dx)
                     - two * self.lid_velocity / dx;
                 // Other walls (no-slip): ω = -2(ψ_adjacent)/Δ²
@@ -147,30 +140,20 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
                 for j in 1..n - 1 {
                     // Advection terms
                     let dpsi_dx = (psi[(i + 1, j)] - psi[(i - 1, j)])
-                        / (T::from_f64(2.0).ok_or_else(|| {
-                            Error::InvalidInput("Cannot convert 2.0".to_string())
-                        })? * dx);
+                        / (T::from_f64_or_one(2.0) * dx);
                     let dpsi_dy = (psi[(i, j + 1)] - psi[(i, j - 1)])
-                        / (T::from_f64(2.0).ok_or_else(|| {
-                            Error::InvalidInput("Cannot convert 2.0".to_string())
-                        })? * dx);
+                        / (T::from_f64_or_one(2.0) * dx);
                     let domega_dx = (omega[(i + 1, j)] - omega[(i - 1, j)])
-                        / (T::from_f64(2.0).ok_or_else(|| {
-                            Error::InvalidInput("Cannot convert 2.0".to_string())
-                        })? * dx);
+                        / (T::from_f64_or_one(2.0) * dx);
                     let domega_dy = (omega[(i, j + 1)] - omega[(i, j - 1)])
-                        / (T::from_f64(2.0).ok_or_else(|| {
-                            Error::InvalidInput("Cannot convert 2.0".to_string())
-                        })? * dx);
+                        / (T::from_f64_or_one(2.0) * dx);
 
                     // Diffusion term
                     let laplacian = (omega[(i + 1, j)]
                         + omega[(i - 1, j)]
                         + omega[(i, j + 1)]
                         + omega[(i, j - 1)]
-                        - T::from_f64(4.0).ok_or_else(|| {
-                            Error::InvalidInput("Cannot convert 4.0".to_string())
-                        })? * omega[(i, j)])
+                        - T::from_f64_or_one(4.0) * omega[(i, j)])
                         / (dx * dx);
 
                     // Update vorticity (explicit time stepping)
@@ -179,16 +162,14 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
             }
 
             // Solve Poisson equation for stream function: ∇²ψ = -ω
-            let omega_sor = T::from_f64(1.5)
-                .ok_or_else(|| Error::InvalidInput("Cannot convert SOR parameter".to_string()))?;
+            let omega_sor = <T as SafeFromF64>::try_from_f64(1.5)?;
             for _ in 0..20 {
                 // Inner iterations for Poisson solver
                 for i in 1..n - 1 {
                     for j in 1..n - 1 {
                         let psi_previous = psi[(i, j)];
-                        let psi_candidate = T::from_f64(0.25).ok_or_else(|| {
-                            Error::InvalidInput("Cannot convert 0.25".to_string())
-                        })? * (psi[(i + 1, j)]
+                        let psi_candidate = <T as SafeFromF64>::try_from_f64(0.25)?
+                            * (psi[(i + 1, j)]
                             + psi[(i - 1, j)]
                             + psi[(i, j + 1)]
                             + psi[(i, j - 1)]
@@ -209,11 +190,7 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
                 }
             }
 
-            let residual = max_change
-                / (dt
-                    + T::from_f64(1e-10).ok_or_else(|| {
-                        Error::InvalidInput("Cannot convert epsilon".to_string())
-                    })?);
+            let residual = max_change / (dt + <T as SafeFromF64>::try_from_f64(1e-10)?);
             convergence.push(residual);
 
             if residual < config.tolerance {
@@ -229,14 +206,8 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
 
         for i in 1..n - 1 {
             for j in 1..n - 1 {
-                u[(i, j)] = (psi[(i, j + 1)] - psi[(i, j - 1)])
-                    / (T::from_f64(2.0)
-                        .ok_or_else(|| Error::InvalidInput("Cannot convert 2.0".to_string()))?
-                        * dx);
-                v[(i, j)] = -(psi[(i + 1, j)] - psi[(i - 1, j)])
-                    / (T::from_f64(2.0)
-                        .ok_or_else(|| Error::InvalidInput("Cannot convert 2.0".to_string()))?
-                        * dx);
+                u[(i, j)] = (psi[(i, j + 1)] - psi[(i, j - 1)]) / (T::from_f64_or_one(2.0) * dx);
+                v[(i, j)] = -(psi[(i + 1, j)] - psi[(i - 1, j)]) / (T::from_f64_or_one(2.0) * dx);
             }
         }
 

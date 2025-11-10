@@ -25,8 +25,6 @@
 //!    ICMF, New Orleans.
 //!    - Void fraction model for multiphase cavitation
 
-use cfd_validation::analytical::{AnalyticalSolution, PoiseuilleFlow, PoiseuilleGeometry};
-use std::f64::consts::PI;
 
 fn main() {
     println!("{}", "=".repeat(80));

@@ -5,7 +5,7 @@
 
 use cfd_core::cavitation::{
     venturi::VenturiCavitation,
-    models::{CavitationModel, ZgbParams},
+    models::CavitationModel,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "─".repeat(80));
 
     for &inlet_velocity in &inlet_velocities {
-        let mut venturi_case = venturi;
+        let mut venturi_case = venturi.clone();
         venturi_case.inlet_velocity = inlet_velocity;
 
         let throat_velocity = venturi_case.throat_velocity();

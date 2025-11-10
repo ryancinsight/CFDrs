@@ -136,8 +136,10 @@ impl<T: RealField + Copy> ConvergenceMonitor<T> {
 
     /// Check if convergence is within theoretical expectations
     pub fn validate_convergence(&self) -> cfd_core::error::Result<()> {
+        use cfd_core::conversion::SafeFromF64;
         if let (Some(factor), Some(theoretical)) = (self.convergence_factor(), self.theoretical_bound) {
-            if factor > theoretical * T::from_f64(1.5).unwrap_or_else(|| T::one() + T::one()) {
+            let safety_multiplier = T::from_f64_or(1.5, T::one() + T::one());
+            if factor > theoretical * safety_multiplier {
                 return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                     "Convergence factor exceeds theoretical bound"
                 )));

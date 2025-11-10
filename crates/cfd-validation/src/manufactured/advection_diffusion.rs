@@ -11,15 +11,15 @@
 //! - Roache, P.J. (2002) "Code Verification by the Method of Manufactured Solutions"
 
 use super::ManufacturedSolution;
-use nalgebra::RealField;
-use num_traits::Float;
+use nalgebra::{ComplexField, RealField};
+use num_traits::FromPrimitive;
 use std::f64::consts::PI;
 
 /// Manufactured solution for coupled advection-diffusion
 ///
 /// Solution form: u(x,y,t) = exp(-αλ²t) * sin(kx*x) * sin(ky*y)
 /// where λ² = kx² + ky² and velocity field v = (vx, vy) is constant
-pub struct ManufacturedAdvectionDiffusion<T: RealField + Float> {
+pub struct ManufacturedAdvectionDiffusion<T: RealField + Copy> {
     /// Wave number in x-direction
     kx: T,
     /// Wave number in y-direction
@@ -32,7 +32,7 @@ pub struct ManufacturedAdvectionDiffusion<T: RealField + Float> {
     vy: T,
 }
 
-impl<T: RealField + Float> ManufacturedAdvectionDiffusion<T> {
+impl<T: RealField + Copy + FromPrimitive> ManufacturedAdvectionDiffusion<T> {
     /// Create new manufactured advection-diffusion solution
     ///
     /// # Arguments
@@ -63,40 +63,40 @@ impl<T: RealField + Float> ManufacturedAdvectionDiffusion<T> {
 
     /// Create default solution with Pe ≈ 10 (advection-dominated)
     pub fn default_advection_dominated() -> Self {
-        let pi = T::from(PI).unwrap();
-        let two = T::from(2.0).unwrap();
+        let pi = <T as FromPrimitive>::from_f64(PI).unwrap();
+        let two = <T as FromPrimitive>::from_f64(2.0).unwrap();
         Self::new(
             two * pi,                    // kx = 2π
             two * pi,                    // ky = 2π
-            T::from(0.01).unwrap(),      // α = 0.01
+            <T as FromPrimitive>::from_f64(0.01).unwrap(),  // α = 0.01
             T::one(),                    // vx = 1
-            T::from(0.5).unwrap(),       // vy = 0.5
+            <T as FromPrimitive>::from_f64(0.5).unwrap(),   // vy = 0.5
         )
     }
 
     /// Create solution with Pe ≈ 1 (balanced)
     pub fn default_balanced() -> Self {
-        let pi = T::from(PI).unwrap();
-        let two = T::from(2.0).unwrap();
+        let pi = <T as FromPrimitive>::from_f64(PI).unwrap();
+        let two = <T as FromPrimitive>::from_f64(2.0).unwrap();
         Self::new(
             two * pi,                    // kx = 2π
             two * pi,                    // ky = 2π
-            T::from(0.1).unwrap(),       // α = 0.1
+            <T as FromPrimitive>::from_f64(0.1).unwrap(),   // α = 0.1
             T::one(),                    // vx = 1
-            T::from(0.5).unwrap(),       // vy = 0.5
+            <T as FromPrimitive>::from_f64(0.5).unwrap(),   // vy = 0.5
         )
     }
 
     /// Create solution with Pe << 1 (diffusion-dominated)
     pub fn default_diffusion_dominated() -> Self {
-        let pi = T::from(PI).unwrap();
-        let two = T::from(2.0).unwrap();
+        let pi = <T as FromPrimitive>::from_f64(PI).unwrap();
+        let two = <T as FromPrimitive>::from_f64(2.0).unwrap();
         Self::new(
             two * pi,                    // kx = 2π
             two * pi,                    // ky = 2π
             T::one(),                    // α = 1.0
             T::one(),                    // vx = 1
-            T::from(0.5).unwrap(),       // vy = 0.5
+            <T as FromPrimitive>::from_f64(0.5).unwrap(),   // vy = 0.5
         )
     }
 
@@ -106,18 +106,18 @@ impl<T: RealField + Float> ManufacturedAdvectionDiffusion<T> {
     ///
     /// * `h` - Characteristic length scale (grid spacing)
     pub fn peclet_number(&self, h: T) -> T {
-        let v_magnitude = Float::sqrt(self.vx * self.vx + self.vy * self.vy);
+        let v_magnitude = ComplexField::sqrt(self.vx * self.vx + self.vy * self.vy);
         v_magnitude * h / self.alpha
     }
 }
 
-impl<T: RealField + Float> ManufacturedSolution<T> for ManufacturedAdvectionDiffusion<T> {
+impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedAdvectionDiffusion<T> {
     /// Exact solution: u(x,y,t) = exp(-αλ²t) * sin(kx*x) * sin(ky*y)
     /// where λ² = kx² + ky²
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         let lambda_sq = self.kx * self.kx + self.ky * self.ky;
-        let decay = Float::exp(-self.alpha * lambda_sq * t);
-        decay * Float::sin(self.kx * x) * Float::sin(self.ky * y)
+        let decay = ComplexField::exp(-self.alpha * lambda_sq * t);
+        decay * ComplexField::sin(self.kx * x) * ComplexField::sin(self.ky * y)
     }
 
     /// Source term required to satisfy advection-diffusion equation
@@ -138,11 +138,11 @@ impl<T: RealField + Float> ManufacturedSolution<T> for ManufacturedAdvectionDiff
     /// term to test solver with non-homogeneous equation
     fn source_term(&self, x: T, y: T, _z: T, t: T) -> T {
         let lambda_sq = self.kx * self.kx + self.ky * self.ky;
-        let decay = Float::exp(-self.alpha * lambda_sq * t);
-        let sin_x = Float::sin(self.kx * x);
-        let cos_x = Float::cos(self.kx * x);
-        let sin_y = Float::sin(self.ky * y);
-        let cos_y = Float::cos(self.ky * y);
+        let decay = ComplexField::exp(-self.alpha * lambda_sq * t);
+        let sin_x = ComplexField::sin(self.kx * x);
+        let cos_x = ComplexField::cos(self.kx * x);
+        let sin_y = ComplexField::sin(self.ky * y);
+        let cos_y = ComplexField::cos(self.ky * y);
 
         // Temporal derivative
         let du_dt = -self.alpha * lambda_sq * decay * sin_x * sin_y;

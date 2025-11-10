@@ -2,6 +2,7 @@
 
 use super::AnalyticalSolution;
 use nalgebra::{RealField, Vector3};
+use cfd_core::conversion::SafeFromF64;
 use num_traits::FromPrimitive;
 use std::f64::consts::PI;
 
@@ -32,8 +33,9 @@ impl<T: RealField + Copy + FromPrimitive> StokesFlow<T> {
 
     /// Get the drag force on the sphere (Stokes' law)
     pub fn drag_force(&self) -> T {
-        let pi = T::from_f64(PI).unwrap_or(T::from_f64(3.14159).unwrap_or(T::one()));
-        let six = T::from_f64(6.0).unwrap_or(T::from_f64(6.0).unwrap_or(T::one()));
+        let pi = <T as SafeFromF64>::try_from_f64(PI)
+            .unwrap_or(<T as SafeFromF64>::from_f64_or_one(3.14159));
+        let six = <T as SafeFromF64>::from_f64_or_one(6.0);
 
         six * pi * self.viscosity * self.sphere_radius * self.free_stream_velocity
     }
@@ -41,18 +43,18 @@ impl<T: RealField + Copy + FromPrimitive> StokesFlow<T> {
     /// Get the drag coefficient
     pub fn drag_coefficient(&self) -> T {
         let reynolds = self.reynolds_number();
-        if reynolds > T::from_f64(0.01).unwrap_or(T::zero()) {
+        if reynolds > <T as SafeFromF64>::from_f64_or_zero(0.01) {
             // Stokes drag coefficient: CD = 24/Re
-            T::from_f64(24.0).unwrap_or(T::one()) / reynolds
+            <T as SafeFromF64>::from_f64_or_one(24.0) / reynolds
         } else {
             // Avoid division by very small number
-            T::from_f64(2400.0).unwrap_or(T::one())
+            <T as SafeFromF64>::from_f64_or_one(2400.0)
         }
     }
 
     /// Get Reynolds number based on sphere diameter
     pub fn reynolds_number(&self) -> T {
-        let diameter = T::from_f64(2.0).unwrap_or(T::one() + T::one()) * self.sphere_radius;
+        let diameter = <T as SafeFromF64>::from_f64_or_one(2.0) * self.sphere_radius;
         self.density * self.free_stream_velocity * diameter / self.viscosity
     }
 
@@ -65,8 +67,8 @@ impl<T: RealField + Copy + FromPrimitive> StokesFlow<T> {
         let sin_theta = theta.sin();
         let sin2_theta = sin_theta * sin_theta;
 
-        let half = T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()));
-        let three_halves = T::from_f64(1.5).unwrap_or(T::from_f64(1.5).unwrap_or(T::one()));
+        let half = <T as SafeFromF64>::from_f64_or_zero(0.5);
+        let three_halves = <T as SafeFromF64>::from_f64_or_zero(1.5);
 
         let term1 = T::one();
         let term2 = -three_halves * a / r;
@@ -100,9 +102,9 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T
             T::zero()
         };
 
-        let three_halves = T::from_f64(1.5).unwrap_or(T::from_f64(1.5).unwrap_or(T::one()));
-        let half = T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()));
-        let quarter = T::from_f64(0.25).unwrap_or(half * half);
+        let three_halves = <T as SafeFromF64>::from_f64_or_zero(1.5);
+        let half = <T as SafeFromF64>::from_f64_or_zero(0.5);
+        let quarter = <T as SafeFromF64>::from_f64_or_zero(0.25);
 
         // Radial velocity component
         let u_r =
@@ -136,7 +138,7 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T
         }
 
         // p = p∞ - (3μU∞a/2) * (x/r³)
-        let three_halves = T::from_f64(1.5).unwrap_or(T::from_f64(1.5).unwrap_or(T::one()));
+        let three_halves = <T as SafeFromF64>::from_f64_or_zero(1.5);
         let pressure_drop =
             three_halves * self.viscosity * self.free_stream_velocity * self.sphere_radius * x
                 / (r * r * r);
@@ -149,7 +151,7 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let domain_size = T::from_f64(10.0).unwrap_or(T::one()) * self.sphere_radius;
+        let domain_size = <T as SafeFromF64>::from_f64_or_one(10.0) * self.sphere_radius;
         [
             -domain_size,
             domain_size, // x

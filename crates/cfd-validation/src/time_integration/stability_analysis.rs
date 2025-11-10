@@ -15,6 +15,7 @@ use cfd_core::error::{Error, Result};
 use cfd_math::time_stepping::{StabilityAnalyzer, NumericalScheme};
 use nalgebra::{DMatrix, DVector, RealField};
 use num_traits::ToPrimitive;
+use cfd_core::conversion::SafeFromF64;
 
 /// Comprehensive stability analysis report
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -179,7 +180,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         let region = self.analyzer.compute_rk_stability_region(&a, &b, &c)?;
 
         // For Forward Euler, stability region is |1 + z| <= 1, so |z| <= 2
-        let stability_limit = T::from_f64(2.0).unwrap();
+        let stability_limit = <T as SafeFromF64>::try_from_f64(2.0)?;
 
         Ok(RKStabilityResult {
             method_name: "Forward Euler (RK1)".to_string(),
@@ -195,20 +196,24 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
     /// Analyze RK3 stability region
     fn analyze_rk3_stability(&self) -> Result<RKStabilityResult<T>> {
         // Heun's method (RK3): A = [[0,0,0],[1/3,0,0],[0,2/3,0]], b = [1/4,0,3/4], c = [0,1/3,2/3]
+        let one_third = <T as SafeFromF64>::try_from_f64(1.0/3.0)?;
+        let two_thirds = <T as SafeFromF64>::try_from_f64(2.0/3.0)?;
         let a = DMatrix::from_row_slice(3, 3, &[
             T::zero(), T::zero(), T::zero(),
-            T::from_f64(1.0/3.0).unwrap(), T::zero(), T::zero(),
-            T::zero(), T::from_f64(2.0/3.0).unwrap(), T::zero(),
+            one_third, T::zero(), T::zero(),
+            T::zero(), two_thirds, T::zero(),
         ]);
+        let one_quarter = <T as SafeFromF64>::try_from_f64(0.25)?;
+        let three_quarters = <T as SafeFromF64>::try_from_f64(0.75)?;
         let b = DVector::from_vec(vec![
-            T::from_f64(0.25).unwrap(),
+            one_quarter,
             T::zero(),
-            T::from_f64(0.75).unwrap(),
+            three_quarters,
         ]);
         let c = DVector::from_vec(vec![
             T::zero(),
-            T::from_f64(1.0/3.0).unwrap(),
-            T::from_f64(2.0/3.0).unwrap(),
+            one_third,
+            two_thirds,
         ]);
 
         let region = self.analyzer.compute_rk_stability_region(&a, &b, &c)?;
@@ -228,22 +233,25 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
     /// Analyze classic RK4 stability region
     fn analyze_rk4_stability(&self) -> Result<RKStabilityResult<T>> {
         // Classic RK4
+        let one_half = <T as SafeFromF64>::try_from_f64(0.5)?;
         let a = DMatrix::from_row_slice(4, 4, &[
             T::zero(), T::zero(), T::zero(), T::zero(),
-            T::from_f64(0.5).unwrap(), T::zero(), T::zero(), T::zero(),
-            T::zero(), T::from_f64(0.5).unwrap(), T::zero(), T::zero(),
+            one_half, T::zero(), T::zero(), T::zero(),
+            T::zero(), one_half, T::zero(), T::zero(),
             T::zero(), T::zero(), T::one(), T::zero(),
         ]);
+        let one_sixth = <T as SafeFromF64>::try_from_f64(1.0/6.0)?;
+        let one_third = <T as SafeFromF64>::try_from_f64(1.0/3.0)?;
         let b = DVector::from_vec(vec![
-            T::from_f64(1.0/6.0).unwrap(),
-            T::from_f64(1.0/3.0).unwrap(),
-            T::from_f64(1.0/3.0).unwrap(),
-            T::from_f64(1.0/6.0).unwrap(),
+            one_sixth,
+            one_third,
+            one_third,
+            one_sixth,
         ]);
         let c = DVector::from_vec(vec![
             T::zero(),
-            T::from_f64(0.5).unwrap(),
-            T::from_f64(0.5).unwrap(),
+            one_half,
+            one_half,
             T::one(),
         ]);
 
@@ -264,7 +272,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
     /// Estimate stability limit (simplified implementation)
     fn estimate_stability_limit(&self) -> T {
         // Return a reasonable default stability limit
-        T::from_f64(2.0).unwrap_or(T::one())
+        <T as SafeFromF64>::from_f64_or_one(2.0)
     }
 
     /// Validate CFL conditions for various test cases
@@ -272,31 +280,40 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         println!("\n🌊 CFL Condition Validation");
 
         // Test case 1: Low-speed laminar flow
+        let vel_laminar = <T as SafeFromF64>::try_from_f64(0.1)?;  // velocity
+        let dt_laminar = <T as SafeFromF64>::try_from_f64(0.001)?; // dt
+        let dx_laminar = <T as SafeFromF64>::try_from_f64(0.01)?;  // dx
         let laminar_result = self.validate_single_cfl_case(
             "Laminar Channel Flow",
-            T::from_f64(0.1).unwrap(),  // velocity
-            T::from_f64(0.001).unwrap(), // dt
-            T::from_f64(0.01).unwrap(),  // dx
+            vel_laminar,
+            dt_laminar,
+            dx_laminar,
             NumericalScheme::RK4,
         );
         report.cfl_analyses.push(laminar_result);
 
         // Test case 2: High-speed compressible flow
+        let vel_comp = <T as SafeFromF64>::try_from_f64(300.0)?;    // velocity (Mach ~1)
+        let dt_comp = <T as SafeFromF64>::try_from_f64(1e-6)?;      // dt
+        let dx_comp = <T as SafeFromF64>::try_from_f64(0.001)?;     // dx
         let compressible_result = self.validate_single_cfl_case(
             "Compressible Flow",
-            T::from_f64(300.0).unwrap(), // velocity (Mach ~1)
-            T::from_f64(1e-6).unwrap(),   // dt
-            T::from_f64(0.001).unwrap(), // dx
+            vel_comp,
+            dt_comp,
+            dx_comp,
             NumericalScheme::RK4,
         );
         report.cfl_analyses.push(compressible_result);
 
         // Test case 3: Turbulent boundary layer
+        let vel_turb = <T as SafeFromF64>::try_from_f64(10.0)?;   // velocity
+        let dt_turb = <T as SafeFromF64>::try_from_f64(1e-5)?;    // dt
+        let dx_turb = <T as SafeFromF64>::try_from_f64(1e-4)?;    // dx (near wall)
         let turbulent_result = self.validate_single_cfl_case(
             "Turbulent Boundary Layer",
-            T::from_f64(10.0).unwrap(),  // velocity
-            T::from_f64(1e-5).unwrap(),   // dt
-            T::from_f64(1e-4).unwrap(),   // dx (near wall)
+            vel_turb,
+            dt_turb,
+            dx_turb,
             NumericalScheme::RK3,
         );
         report.cfl_analyses.push(turbulent_result);
@@ -353,16 +370,19 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
 
     /// Analyze advection equation stability
     fn analyze_advection_equation(&self) -> Result<VonNeumannResult<T>> {
-        let dt = T::from_f64(0.01).unwrap();
+        let dt = <T as SafeFromF64>::try_from_f64(0.01)?;
         let a = T::one(); // Advection speed
 
         // Test range of wave numbers
-        let k_min = T::from_f64(0.0).unwrap();
-        let k_max = T::from_f64(10.0).unwrap();
+        let k_min = <T as SafeFromF64>::try_from_f64(0.0)?;
+        let k_max = <T as SafeFromF64>::try_from_f64(10.0)?;
         let num_k = 50;
 
         let wave_numbers: Vec<T> = (0..num_k)
-            .map(|i| k_min + (k_max - k_min) * T::from_f64(i as f64 / (num_k - 1) as f64).unwrap())
+            .map(|i| {
+                let ratio = i as f64 / (num_k - 1) as f64;
+                k_min + (k_max - k_min) * <T as SafeFromF64>::from_f64_or_zero(ratio)
+            })
             .collect();
 
         // Upwind discretization: ∂u/∂x ≈ (u_j - u_{j-1}) / Δx
@@ -387,16 +407,19 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
 
     /// Analyze diffusion equation stability
     fn analyze_diffusion_equation(&self) -> Result<VonNeumannResult<T>> {
-        let dt = T::from_f64(0.01).unwrap();
-        let nu = T::from_f64(0.1).unwrap(); // Viscosity
+        let dt = <T as SafeFromF64>::try_from_f64(0.01)?;
+        let nu = <T as SafeFromF64>::try_from_f64(0.1)?; // Viscosity
 
         // Test range of wave numbers
-        let k_min = T::from_f64(0.0).unwrap();
-        let k_max = T::from_f64(20.0).unwrap();
+        let k_min = <T as SafeFromF64>::try_from_f64(0.0)?;
+        let k_max = <T as SafeFromF64>::try_from_f64(20.0)?;
         let num_k = 50;
 
         let wave_numbers: Vec<T> = (0..num_k)
-            .map(|i| k_min + (k_max - k_min) * T::from_f64(i as f64 / (num_k - 1) as f64).unwrap())
+            .map(|i| {
+                let ratio = i as f64 / (num_k - 1) as f64;
+                k_min + (k_max - k_min) * <T as SafeFromF64>::from_f64_or_zero(ratio)
+            })
             .collect();
 
         // Central difference: ∂²u/∂x² ≈ (u_{j+1} - 2u_j + u_{j-1}) / Δx²
@@ -422,17 +445,20 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
 
     /// Analyze Burgers' equation stability
     fn analyze_burgers_equation(&self) -> Result<VonNeumannResult<T>> {
-        let dt = T::from_f64(0.001).unwrap();
-        let nu = T::from_f64(0.01).unwrap(); // Viscosity
-        let u0 = T::from_f64(1.0).unwrap();  // Base velocity
+        let dt = <T as SafeFromF64>::try_from_f64(0.001)?;
+        let nu = <T as SafeFromF64>::try_from_f64(0.01)?; // Viscosity
+        let u0 = <T as SafeFromF64>::try_from_f64(1.0)?;  // Base velocity
 
         // Test range of wave numbers
-        let k_min = T::from_f64(0.0).unwrap();
-        let k_max = T::from_f64(15.0).unwrap();
+        let k_min = <T as SafeFromF64>::try_from_f64(0.0)?;
+        let k_max = <T as SafeFromF64>::try_from_f64(15.0)?;
         let num_k = 50;
 
         let wave_numbers: Vec<T> = (0..num_k)
-            .map(|i| k_min + (k_max - k_min) * T::from_f64(i as f64 / (num_k - 1) as f64).unwrap())
+            .map(|i| {
+                let ratio = i as f64 / (num_k - 1) as f64;
+                k_min + (k_max - k_min) * <T as SafeFromF64>::from_f64_or_zero(ratio)
+            })
             .collect();
 
         // Simplified analysis: treat as advection + diffusion

@@ -6,6 +6,7 @@
 use super::report::ConservationReport;
 use super::traits::ConservationChecker;
 use cfd_core::error::Result;
+use cfd_core::conversion::SafeFromF64;
 use nalgebra::{DMatrix, RealField, Vector2};
 use num_traits::FromPrimitive;
 
@@ -64,12 +65,12 @@ impl<T: RealField + Copy + FromPrimitive> AngularMomentumChecker<T> {
                     // ∂(r_y * v)/∂x using central difference
                     let rv_right = y * v[(i + 1, j)];
                     let rv_left = y * v[(i - 1, j)];
-                    let drv_dx = (rv_right - rv_left) / (T::from_f64(2.0).unwrap() * dx);
+                    let drv_dx = (rv_right - rv_left) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
 
                     // ∂(-r_x * u)/∂y using central difference
                     let minus_ru_top = -x * u[(i, j + 1)];
                     let minus_ru_bottom = -x * u[(i, j - 1)];
-                    let d_minus_ru_dy = (minus_ru_top - minus_ru_bottom) / (T::from_f64(2.0).unwrap() * dy);
+                    let d_minus_ru_dy = (minus_ru_top - minus_ru_bottom) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
 
                     // Total divergence
                     let divergence = drv_dx + d_minus_ru_dy;
@@ -141,15 +142,15 @@ impl<T: RealField + Copy + FromPrimitive> AngularMomentumChecker<T> {
                     let r2_omega = r * r * omega[(i, j)];
                     let conv_r_right = r2_omega * u_r[(i + 1, j)];
                     let conv_r_left = r2_omega * u_r[(i - 1, j)];
-                    let d_conv_r_dr = (conv_r_right - conv_r_left) / (T::from_f64(2.0).unwrap() * dr);
+                    let d_conv_r_dr = (conv_r_right - conv_r_left) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dr);
 
                     // ∂(r²ω u_z)/∂z term
                     let conv_z_top = r2_omega * u_z[(i, j + 1)];
                     let conv_z_bottom = r2_omega * u_z[(i, j - 1)];
-                    let d_conv_z_dz = (conv_z_top - conv_z_bottom) / (T::from_f64(2.0).unwrap() * dz);
+                    let d_conv_z_dz = (conv_z_top - conv_z_bottom) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dz);
 
                     // Viscous diffusion: ∇·(μ r² ∂ω/∂z) ≈ μ r² ∂²ω/∂z²
-                    let d2omega_dz2 = (omega[(i, j + 1)] - T::from_f64(2.0).unwrap() * omega[(i, j)] + omega[(i, j - 1)]) / (dz * dz);
+                    let d2omega_dz2 = (omega[(i, j + 1)] - <T as SafeFromF64>::from_f64_or_one(2.0) * omega[(i, j)] + omega[(i, j - 1)]) / (dz * dz);
                     let viscous = viscosity * r * r * d2omega_dz2;
 
                     // Angular momentum equation residual
@@ -200,7 +201,7 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for AngularMome
         let v = &field[1];
 
         // Use 2D check as primary result
-        self.check_angular_momentum_2d(u, v, T::from_f64(1.0).unwrap(), T::from_f64(1.0).unwrap())
+        self.check_angular_momentum_2d(u, v, <T as SafeFromF64>::from_f64_or_one(1.0), <T as SafeFromF64>::from_f64_or_one(1.0))
     }
 
     fn tolerance(&self) -> T {

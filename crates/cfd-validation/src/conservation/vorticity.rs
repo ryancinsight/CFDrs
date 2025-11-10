@@ -6,6 +6,7 @@
 use super::report::ConservationReport;
 use super::traits::ConservationChecker;
 use cfd_core::error::Result;
+use cfd_core::conversion::SafeFromF64;
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
 
@@ -47,8 +48,8 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 // Compute vorticity ω = ∂v/∂x - ∂u/∂y
-                let dv_dx = (v[(i + 1, j)] - v[(i - 1, j)]) / (T::from_f64(2.0).unwrap() * dx);
-                let du_dy = (u[(i, j + 1)] - u[(i, j - 1)]) / (T::from_f64(2.0).unwrap() * dy);
+                let dv_dx = (v[(i + 1, j)] - v[(i - 1, j)]) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
+                let du_dy = (u[(i, j + 1)] - u[(i, j - 1)]) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
                 let omega = dv_dx - du_dy;
 
                 // Convective term: u·∇ω
@@ -57,8 +58,8 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
                 let u_dot_grad_omega = u[(i, j)] * domega_dx + v[(i, j)] * domega_dy;
 
                 // Viscous diffusion: ν∇²ω
-                let d2omega_dx2 = (omega - T::from_f64(2.0).unwrap() * omega + omega) / (dx * dx); // Placeholder
-                let d2omega_dy2 = (omega - T::from_f64(2.0).unwrap() * omega + omega) / (dy * dy); // Placeholder
+                let d2omega_dx2 = (omega - <T as SafeFromF64>::from_f64_or_one(2.0) * omega + omega) / (dx * dx); // Placeholder
+                let d2omega_dy2 = (omega - <T as SafeFromF64>::from_f64_or_one(2.0) * omega + omega) / (dy * dy); // Placeholder
                 let viscous_diffusion = viscosity * (d2omega_dx2 + d2omega_dy2);
 
                 // Vorticity transport equation residual: ∂ω/∂t + u·∇ω - ν∇²ω
@@ -138,7 +139,7 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
         // For inviscid flow, circulation should be conserved (constant)
         // Here we just check it's finite and reasonable
         let error = circulation.abs();
-        let is_conserved = error < self.tolerance * T::from_f64(100.0).unwrap(); // More lenient check
+        let is_conserved = error < self.tolerance * <T as SafeFromF64>::try_from_f64(100.0)?; // More lenient check
 
         let mut details = std::collections::HashMap::new();
         details.insert("rms_error".to_string(), error);
@@ -167,8 +168,8 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
         // Compute vorticity at all points
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
-                let dv_dx = (v[(i + 1, j)] - v[(i - 1, j)]) / (T::from_f64(2.0).unwrap() * dx);
-                let du_dy = (u[(i, j + 1)] - u[(i, j - 1)]) / (T::from_f64(2.0).unwrap() * dy);
+                let dv_dx = (v[(i + 1, j)] - v[(i - 1, j)]) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
+                let du_dy = (u[(i, j + 1)] - u[(i, j - 1)]) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
                 let vorticity = dv_dx - du_dy;
 
                 let abs_vorticity = vorticity.abs();

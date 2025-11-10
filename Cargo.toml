@@ -38,6 +38,7 @@ num-complex = "0.4"
 approx = "0.5"
 bytemuck = "1.14"
 rand = "0.8"
+simba = "0.9"
 
 # Data structures
 indexmap = "2.0"
@@ -120,6 +121,7 @@ cfd-3d.workspace = true
 cfd-validation.workspace = true
 nalgebra.workspace = true
 num-traits.workspace = true
+simba.workspace = true
 wgpu = { version = "0.19", optional = true }
 mpi = { version = "0.8", optional = true }
 rand.workspace = true

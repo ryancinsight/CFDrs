@@ -61,7 +61,7 @@
 //! 3. **Computational Simplicity**: No additional PDEs to solve
 //! 4. **Robustness**: Less sensitive to numerical implementation details
 
-use nalgebra::{DMatrix, RealField, Vector2};
+use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
 
 /// MILES configuration parameters

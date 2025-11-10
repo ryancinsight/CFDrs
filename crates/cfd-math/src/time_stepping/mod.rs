@@ -8,6 +8,7 @@ pub mod runge_kutta;
 pub mod adaptive;
 pub mod imex;
 pub mod rk_chebyshev;
+pub mod exponential;
 pub mod stability;
 pub mod traits;
 
@@ -16,6 +17,7 @@ pub use runge_kutta::{RungeKutta4, RungeKutta3, LowStorageRK4};
 pub use adaptive::AdaptiveTimeStepper;
 pub use imex::IMEXTimeStepper;
 pub use rk_chebyshev::{RungeKuttaChebyshev, RkcConfig, RhsFunction};
+pub use exponential::{ExponentialTimeDifferencing, ExponentialRungeKutta4, ExponentialConfig};
 pub use stability::{StabilityAnalyzer, CFLAnalysis, VonNeumannAnalysis, NumericalScheme, StabilityStatus};
 pub use traits::{TimeStepper, TimeStepController};
 

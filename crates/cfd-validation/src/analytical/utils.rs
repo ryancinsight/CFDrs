@@ -1,6 +1,7 @@
 //! Utility functions for analytical solutions
 
 use nalgebra::RealField;
+use cfd_core::conversion::SafeFromF64;
 use num_traits::FromPrimitive;
 
 /// Analytical utilities for common calculations
@@ -48,7 +49,7 @@ impl AnalyticalUtils {
         density: T,
         reference_velocity: T,
     ) -> T {
-        let half = T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()));
+        let half = T::try_from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()));
         let dynamic_pressure = half * density * reference_velocity * reference_velocity;
         (pressure - reference_pressure) / dynamic_pressure
     }
@@ -59,7 +60,7 @@ impl AnalyticalUtils {
         density: T,
         reference_velocity: T,
     ) -> T {
-        let half = T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()));
+        let half = T::try_from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()));
         let dynamic_pressure = half * density * reference_velocity * reference_velocity;
         wall_shear_stress / dynamic_pressure
     }
@@ -71,7 +72,7 @@ impl AnalyticalUtils {
         velocity: T,
         reference_area: T,
     ) -> T {
-        let half = T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()));
+        let half = T::try_from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()));
         let dynamic_pressure = half * density * velocity * velocity;
         drag_force / (dynamic_pressure * reference_area)
     }
@@ -83,7 +84,7 @@ impl AnalyticalUtils {
         velocity: T,
         reference_area: T,
     ) -> T {
-        let half = T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()));
+        let half = T::try_from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()));
         let dynamic_pressure = half * density * velocity * velocity;
         lift_force / (dynamic_pressure * reference_area)
     }
@@ -95,18 +96,14 @@ impl AnalyticalUtils {
         geometry: FlowGeometry,
     ) -> bool {
         let critical_re = match geometry {
-            FlowGeometry::Pipe => {
-                T::from_f64(2300.0).unwrap_or(T::from_f64(2000.0).unwrap_or(T::one()))
-            }
-            FlowGeometry::FlatPlate => {
-                T::from_f64(500000.0).unwrap_or(T::from_f64(100000.0).unwrap_or(T::one()))
-            }
-            FlowGeometry::Sphere => {
-                T::from_f64(200000.0).unwrap_or(T::from_f64(100000.0).unwrap_or(T::one()))
-            }
-            FlowGeometry::Cylinder => {
-                T::from_f64(200000.0).unwrap_or(T::from_f64(100000.0).unwrap_or(T::one()))
-            }
+            FlowGeometry::Pipe => T::try_from_f64(2300.0)
+                .unwrap_or(T::from_f64_or_one(2000.0)),
+            FlowGeometry::FlatPlate => T::try_from_f64(500_000.0)
+                .unwrap_or(T::from_f64_or_one(100_000.0)),
+            FlowGeometry::Sphere => T::try_from_f64(200_000.0)
+                .unwrap_or(T::from_f64_or_one(100_000.0)),
+            FlowGeometry::Cylinder => T::try_from_f64(200_000.0)
+                .unwrap_or(T::from_f64_or_one(100_000.0)),
         };
         reynolds < critical_re
     }

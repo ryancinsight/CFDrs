@@ -9,6 +9,7 @@
 
 use super::{ManufacturedSolution, ManufacturedFunctions};
 use nalgebra::RealField;
+use cfd_core::conversion::SafeFromF64;
 
 /// Manufactured solution for compressible Euler equations
 ///
@@ -63,7 +64,7 @@ impl<T: RealField + Copy> ManufacturedCompressibleEuler<T> {
 
     /// Perturbation function for velocity
     fn velocity_perturbation(&self, x: T, y: T, t: T) -> T {
-        self.amplitude * T::from(0.1).unwrap() * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky)
+        self.amplitude * T::from_f64_or_one(0.1) * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky)
     }
 }
 
@@ -96,7 +97,7 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedCompressibleEu
 
         // Internal energy and total energy
         let e_internal = p / ((self.gamma - T::one()) * rho);
-        let e_total = e_internal + T::from_f64(0.5).unwrap() * (u * u + v * v);
+        let e_total = e_internal + T::from_f64_or_one(0.5) * (u * u + v * v);
 
         // Conserved variables
         let rho_u = rho * u;
@@ -106,7 +107,7 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedCompressibleEu
         // Time derivatives (exact analytical)
         let kx = self.kx;
         let ky = self.ky;
-        let omega = T::from_f64(0.5).unwrap(); // Decay rate
+        let omega = T::from_f64_or_one(0.5); // Decay rate
 
         let cos_kx_x = nalgebra::ComplexField::cos(kx * x);
         let cos_ky_y = nalgebra::ComplexField::cos(ky * y);
@@ -128,22 +129,22 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedCompressibleEu
 
         // Spatial derivatives for flux divergence
         // ∇·F where F = [ρu, ρu² + p, ρuv, u(ρE + p)]
-        let dF1_dx = rho_u * kx * cos_kx_x * sin_ky_y * exp_omega_t * u_0; // ∂(ρu)/∂x
-        let dF2_dx = (rho_u * u + p) * kx * cos_kx_x * sin_ky_y * exp_omega_t * u_0; // ∂(ρu² + p)/∂x
-        let dF3_dx = rho_u * v * kx * cos_kx_x * sin_ky_y * exp_omega_t * u_0; // ∂(ρuv)/∂x
-        let dF4_dx = u * (rho_e + p) * kx * cos_kx_x * sin_ky_y * exp_omega_t * u_0; // ∂(u(ρE + p))/∂x
+        let d_f1_dx = rho_u * kx * cos_kx_x * sin_ky_y * exp_omega_t * u_0; // ∂(ρu)/∂x
+        let d_f2_dx = (rho_u * u + p) * kx * cos_kx_x * sin_ky_y * exp_omega_t * u_0; // ∂(ρu² + p)/∂x
+        let d_f3_dx = rho_u * v * kx * cos_kx_x * sin_ky_y * exp_omega_t * u_0; // ∂(ρuv)/∂x
+        let d_f4_dx = u * (rho_e + p) * kx * cos_kx_x * sin_ky_y * exp_omega_t * u_0; // ∂(u(ρE + p))/∂x
 
         // ∇·G where G = [ρv, ρuv, ρv² + p, v(ρE + p)]
-        let dG1_dy = rho_v * ky * sin_kx_x * cos_ky_y * exp_omega_t * u_0; // ∂(ρv)/∂y
-        let dG2_dy = rho_u * v * ky * sin_kx_x * cos_ky_y * exp_omega_t * u_0; // ∂(ρuv)/∂y
-        let dG3_dy = (rho_v * v + p) * ky * sin_kx_x * cos_ky_y * exp_omega_t * u_0; // ∂(ρv² + p)/∂y
-        let dG4_dy = v * (rho_e + p) * ky * sin_kx_x * cos_ky_y * exp_omega_t * u_0; // ∂(v(ρE + p))/∂y
+        let d_g1_dy = rho_v * ky * sin_kx_x * cos_ky_y * exp_omega_t * u_0; // ∂(ρv)/∂y
+        let d_g2_dy = rho_u * v * ky * sin_kx_x * cos_ky_y * exp_omega_t * u_0; // ∂(ρuv)/∂y
+        let d_g3_dy = (rho_v * v + p) * ky * sin_kx_x * cos_ky_y * exp_omega_t * u_0; // ∂(ρv² + p)/∂y
+        let d_g4_dy = v * (rho_e + p) * ky * sin_kx_x * cos_ky_y * exp_omega_t * u_0; // ∂(v(ρE + p))/∂y
 
         // Source terms for each conserved equation
-        let s_rho = drho_dt + dF1_dx + dG1_dy;
-        let s_rho_u = d_rho_u_dt + dF2_dx + dG2_dy;
-        let s_rho_v = d_rho_v_dt + dF3_dx + dG3_dy;
-        let s_rho_e = d_rho_e_dt + dF4_dx + dG4_dy;
+        let s_rho = drho_dt + d_f1_dx + d_g1_dy;
+        let s_rho_u = d_rho_u_dt + d_f2_dx + d_g2_dy;
+        let s_rho_v = d_rho_v_dt + d_f3_dx + d_g3_dy;
+        let s_rho_e = d_rho_e_dt + d_f4_dx + d_g4_dy;
 
         // Return the mass equation source term as representative
         // In practice, this should return a vector of all source terms
@@ -190,7 +191,7 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedTCI<T> {
     fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
         // Mixture fraction Z
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
-        let z = T::from(0.5).unwrap() + self.amplitude * base;
+        let z = T::from_f64(0.5).unwrap() + self.amplitude * base;
 
         // Clamp to [0,1] for physical validity
         z.max(T::zero()).min(T::one())

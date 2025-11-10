@@ -78,11 +78,12 @@ mod gpu_tests {
 
         let mut manager = GpuPipelineManager::new(context);
 
-        // Register advection pipeline
-        let result = manager.register_pipeline(
+        // Register advection pipeline - needs 3 input buffers (u_in, velocity_x, velocity_y)
+        let result = manager.register_pipeline_with_bindings(
             "advection",
             include_str!("../src/compute/gpu/kernels/advection.wgsl"),
             "advection_upwind",
+            3, // 3 input buffers: u_in, velocity_x, velocity_y
         );
 
         // Should succeed or fail gracefully
@@ -101,6 +102,8 @@ mod gpu_tests {
                 grid_spacing: (0.01, 0.01, 0.01),
                 dt: 0.001,
                 reynolds: 100.0,
+                velocity: (1.0, 0.0, 0.0),
+                boundary: cfd_core::compute::traits::BoundaryCondition2D::Periodic,
             },
         };
 

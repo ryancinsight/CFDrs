@@ -1,5 +1,6 @@
 //! Test case generation for numerical validation
 
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
@@ -51,7 +52,7 @@ pub fn create_tridiagonal_system<T: RealField + Copy + FromPrimitive>(
     let h_squared = h * h;
 
     // Create tridiagonal matrix for -u'' using iterators
-    let diagonal_value = T::from_f64(TWO).unwrap_or_else(T::zero) / h_squared;
+    let diagonal_value = T::from_f64_or_one(TWO) / h_squared;
     let off_diagonal_value = -T::one() / h_squared;
 
     let (row_indices, col_indices, values): (Vec<_>, Vec<_>, Vec<_>) = (0..n)
@@ -68,7 +69,7 @@ pub fn create_tridiagonal_system<T: RealField + Copy + FromPrimitive>(
             entries
         })
         .fold(
-            (Vec::new(), Vec::new(), Vec::new()),
+            (Vec::<usize>::new(), Vec::<usize>::new(), Vec::<T>::new()),
             |(mut rows, mut cols, mut vals), (r, c, v)| {
                 rows.push(r);
                 cols.push(c);
@@ -84,7 +85,7 @@ pub fn create_tridiagonal_system<T: RealField + Copy + FromPrimitive>(
         n,
         (1..=n).map(|_| {
             // For the manufactured solution u(x) = x(1-x), the Laplacian is -2
-            T::from_f64(TWO).unwrap_or_else(T::zero)
+            T::from_f64_or_one(TWO)
         }),
     );
 
@@ -157,7 +158,8 @@ pub fn create_2d_poisson_system<T: RealField + Copy + FromPrimitive>(
         .map_err(|_| Error::InvalidConfiguration("Matrix construction failed".into()))?;
 
     // Create RHS with manufactured solution u(x,y) = sin(πx)sin(πy)
-    let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(T::zero);
+    let pi = <T as SafeFromF64>::try_from_f64(std::f64::consts::PI)
+        .unwrap_or(T::from_f64_or_one(3.14159));
     let mut b = DVector::zeros(n);
     let mut analytical = DVector::zeros(n);
 
@@ -172,7 +174,7 @@ pub fn create_2d_poisson_system<T: RealField + Copy + FromPrimitive>(
             analytical[idx] = T::zero();
         } else {
             // f = 2π²sin(πx)sin(πy)
-            b[idx] = T::from_f64(TWO).unwrap_or_else(T::zero)
+            b[idx] = T::from_f64_or_one(TWO)
                 * pi
                 * pi
                 * (pi * x).sin()

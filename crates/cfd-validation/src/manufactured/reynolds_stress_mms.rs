@@ -30,12 +30,12 @@
 
 use super::ManufacturedSolution;
 use nalgebra::{DMatrix, RealField};
-use num_traits::{FromPrimitive, ToPrimitive};
+use num_traits::FromPrimitive;
 use std::f64::consts::PI;
 
 /// Comprehensive manufactured solution for Reynolds stress transport equations
 #[derive(Debug, Clone)]
-pub struct ManufacturedReynoldsStressMMS<T: RealField + Copy + FromPrimitive + ToPrimitive> {
+pub struct ManufacturedReynoldsStressMMS<T: RealField + Copy + FromPrimitive> {
     /// Wave numbers for spatial variation
     pub kx: T,
     pub ky: T,
@@ -70,7 +70,7 @@ pub enum PressureStrainModelMMS {
     SSG,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ManufacturedReynoldsStressMMS<T> {
+impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
     /// Create a new manufactured solution for Reynolds stress validation
     pub fn new(
         kx: T, ky: T, alpha: T,
@@ -157,9 +157,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ManufacturedReynoldsStre
 
     /// Evaluate the exact dissipation rate ε
     pub fn exact_dissipation(&self, x: T, y: T, t: T) -> T {
-        let sin_kx_x = Float::sin(self.kx * x);
-        let sin_ky_y = Float::sin(self.ky * y);
-        let exp_decay = Float::exp(-self.alpha * t);
+        let sin_kx_x = nalgebra::ComplexField::sin(self.kx * x);
+        let sin_ky_y = nalgebra::ComplexField::sin(self.ky * y);
+        let exp_decay = nalgebra::ComplexField::exp(-self.alpha * t);
 
         self.eps_amp * sin_kx_x * sin_ky_y * exp_decay
     }
@@ -450,7 +450,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ManufacturedReynoldsStre
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ManufacturedSolution<T> for ManufacturedReynoldsStressMMS<T> {
+impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T> for ManufacturedReynoldsStressMMS<T> {
     /// Return the Reynolds shear stress ⟨u'v'⟩ as the primary solution for trait compatibility
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         self.exact_reynolds_stress(0, 1, x, y, t)
@@ -476,11 +476,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ManufacturedSolution<T> 
 }
 
 /// Convergence study utilities for Reynolds stress MMS validation
-pub struct ReynoldsStressConvergenceStudy<T: RealField + Copy + FromPrimitive + ToPrimitive> {
+pub struct ReynoldsStressConvergenceStudy<T: RealField + Copy + FromPrimitive> {
     pub mms: ManufacturedReynoldsStressMMS<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressConvergenceStudy<T> {
+impl<T: RealField + Copy + FromPrimitive> ReynoldsStressConvergenceStudy<T> {
     pub fn new(mms: ManufacturedReynoldsStressMMS<T>) -> Self {
         Self { mms }
     }

@@ -392,17 +392,18 @@ impl ImmersedBoundaryMethod {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use num_traits::ToPrimitive;
 
     #[test]
     fn test_immersed_boundary_creation() {
-        let ibm = ImmersedBoundaryMethod::<f64>::new((64, 64), (1.0, 1.0));
+        let ibm = ImmersedBoundaryMethod::new((64, 64), (1.0, 1.0));
         assert_eq!(ibm.grid_size, (64, 64));
         assert_eq!(ibm.boundary_points.len(), 0);
     }
 
     #[test]
     fn test_circle_boundary_creation() {
-        let mut ibm = ImmersedBoundaryMethod::<f64>::new((64, 64), (1.0, 1.0));
+        let mut ibm = ImmersedBoundaryMethod::new((64, 64), (1.0, 1.0));
 
         let center = Vector2::new(0.5, 0.5);
         let velocity = Vector2::new(1.0, 0.0);
@@ -423,7 +424,7 @@ mod tests {
 
     #[test]
     fn test_discrete_delta_function() {
-        let ibm = ImmersedBoundaryMethod::<f64>::new((64, 64), (1.0, 1.0));
+        let ibm = ImmersedBoundaryMethod::new((64, 64), (1.0, 1.0));
 
         // Test delta function properties
         assert_eq!(ibm.discrete_delta(0.0), 1.0); // δ(0) = 1
@@ -441,7 +442,7 @@ mod tests {
 
     #[test]
     fn test_force_spreading() {
-        let mut ibm = ImmersedBoundaryMethod::<f64>::new((16, 16), (1.0, 1.0));
+        let mut ibm = ImmersedBoundaryMethod::new((16, 16), (1.0, 1.0));
 
         // Add a single boundary point
         let point = BoundaryPoint {
@@ -463,7 +464,7 @@ mod tests {
 
     #[test]
     fn test_velocity_interpolation() {
-        let mut ibm = ImmersedBoundaryMethod::<f64>::new((16, 16), (1.0, 1.0));
+        let mut ibm = ImmersedBoundaryMethod::new((16, 16), (1.0, 1.0));
 
         // Add boundary point at center
         let point = BoundaryPoint {
@@ -497,7 +498,7 @@ mod tests {
 
     #[test]
     fn test_force_update() {
-        let mut ibm = ImmersedBoundaryMethod::<f64>::new((16, 16), (1.0, 1.0));
+        let mut ibm = ImmersedBoundaryMethod::new((16, 16), (1.0, 1.0));
 
         let point = BoundaryPoint {
             position: Vector2::new(0.5, 0.5),

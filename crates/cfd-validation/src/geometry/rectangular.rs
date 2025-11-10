@@ -1,8 +1,8 @@
 //! Rectangular domain geometry implementation
 
 use super::{BoundaryCondition, BoundaryFace, Geometry, Point2D};
+use cfd_core::conversion::SafeFromF64;
 use nalgebra::RealField;
-use num_traits::Float;
 
 /// Rectangular domain geometry
 #[derive(Debug, Clone)]
@@ -37,7 +37,7 @@ impl<T: RealField> RectangularDomain<T> {
     }
 }
 
-impl<T: RealField + Float> Geometry<T> for RectangularDomain<T> {
+impl<T: RealField + Copy> Geometry<T> for RectangularDomain<T> {
     fn contains(&self, point: &Point2D<T>) -> bool {
         point.x >= self.x_min
             && point.x <= self.x_max
@@ -51,21 +51,21 @@ impl<T: RealField + Float> Geometry<T> for RectangularDomain<T> {
         let dy_bottom = point.y - self.y_min;
         let dy_top = self.y_max - point.y;
 
-        let min_x = RealField::min(dx_left, dx_right);
-        let min_y = RealField::min(dy_bottom, dy_top);
-        RealField::min(min_x, min_y)
+        let min_x = if dx_left < dx_right { dx_left } else { dx_right };
+        let min_y = if dy_bottom < dy_top { dy_bottom } else { dy_top };
+        if min_x < min_y { min_x } else { min_y }
     }
 
     fn boundary_normal(&self, point: &Point2D<T>) -> Option<Point2D<T>> {
-        let tol = T::from_f64(1e-10).unwrap_or(T::zero());
+        let tol = T::from_f64_or_zero(1e-10);
 
-        if Float::abs(point.x - self.x_min) < tol {
+        if (point.x - self.x_min).abs() < tol {
             Some(Point2D { x: -T::one(), y: T::zero() }) // Left boundary
-        } else if Float::abs(point.x - self.x_max) < tol {
+        } else if (point.x - self.x_max).abs() < tol {
             Some(Point2D { x: T::one(), y: T::zero() }) // Right boundary
-        } else if Float::abs(point.y - self.y_min) < tol {
+        } else if (point.y - self.y_min).abs() < tol {
             Some(Point2D { x: T::zero(), y: -T::one() }) // Bottom boundary
-        } else if Float::abs(point.y - self.y_max) < tol {
+        } else if (point.y - self.y_max).abs() < tol {
             Some(Point2D { x: T::zero(), y: T::one() }) // Top boundary
         } else {
             None
@@ -94,31 +94,31 @@ impl<T: RealField + Float> Geometry<T> for RectangularDomain<T> {
     }
 
     fn boundary_parameter(&self, face: BoundaryFace, point: &Point2D<T>) -> Option<T> {
-        let tol = T::from_f64(1e-10).unwrap_or(T::zero());
+        let tol = T::from_f64_or_zero(1e-10);
         match face {
             BoundaryFace::Bottom => {
-                if Float::abs(point.y - self.y_min) < tol {
+                if (point.y - self.y_min).abs() < tol {
                     Some((point.x - self.x_min) / (self.x_max - self.x_min))
                 } else {
                     None
                 }
             }
             BoundaryFace::Top => {
-                if Float::abs(point.y - self.y_max) < tol {
+                if (point.y - self.y_max).abs() < tol {
                     Some((point.x - self.x_min) / (self.x_max - self.x_min))
                 } else {
                     None
                 }
             }
             BoundaryFace::Left => {
-                if Float::abs(point.x - self.x_min) < tol {
+                if (point.x - self.x_min).abs() < tol {
                     Some((point.y - self.y_min) / (self.y_max - self.y_min))
                 } else {
                     None
                 }
             }
             BoundaryFace::Right => {
-                if Float::abs(point.x - self.x_max) < tol {
+                if (point.x - self.x_max).abs() < tol {
                     Some((point.y - self.y_min) / (self.y_max - self.y_min))
                 } else {
                     None
@@ -130,10 +130,10 @@ impl<T: RealField + Float> Geometry<T> for RectangularDomain<T> {
 
     fn on_boundary(&self, point: &Point2D<T>, face: BoundaryFace, tolerance: T) -> bool {
         match face {
-            BoundaryFace::Bottom => Float::abs(point.y - self.y_min) < tolerance,
-            BoundaryFace::Top => Float::abs(point.y - self.y_max) < tolerance,
-            BoundaryFace::Left => Float::abs(point.x - self.x_min) < tolerance,
-            BoundaryFace::Right => Float::abs(point.x - self.x_max) < tolerance,
+            BoundaryFace::Bottom => (point.y - self.y_min).abs() < tolerance,
+            BoundaryFace::Top => (point.y - self.y_max).abs() < tolerance,
+            BoundaryFace::Left => (point.x - self.x_min).abs() < tolerance,
+            BoundaryFace::Right => (point.x - self.x_max).abs() < tolerance,
             _ => false,
         }
     }

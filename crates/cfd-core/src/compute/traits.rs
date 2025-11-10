@@ -65,6 +65,22 @@ pub struct DomainParams {
     pub dt: f64,
     /// Reynolds number
     pub reynolds: f64,
+    /// Constant advection velocity (u, v, w) in physical units
+    ///
+    /// Used by advection kernels requiring a velocity field. For constant-velocity
+    /// linear advection, this enables analytical validation and CFL checks.
+    pub velocity: (f64, f64, f64),
+    /// Boundary condition for 2D advection problems
+    pub boundary: BoundaryCondition2D,
+}
+
+/// Boundary condition types for 2D advection kernels
+#[derive(Debug, Clone, Copy)]
+pub enum BoundaryCondition2D {
+    /// Periodic boundary in both x and y directions
+    Periodic,
+    /// Dirichlet boundary with zero value outside domain
+    DirichletZero,
 }
 
 /// Trait for compute buffers that can be shared between backends

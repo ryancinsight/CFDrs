@@ -7,8 +7,6 @@
 //! - Roache, P.J. (2002) "Code Verification by the Method of Manufactured Solutions"
 
 use nalgebra::RealField;
-use num_traits::Float;
-use cfd_core::conversion::SafeFromF64;
 
 // Submodules
 pub mod annular;
@@ -73,7 +71,7 @@ pub enum BoundaryFace {
 }
 
 /// Geometry trait for computational domains used in MMS
-pub trait Geometry<T: RealField + Float> {
+pub trait Geometry<T: RealField + Copy> {
     /// Check if a point is inside the computational domain
     fn contains(&self, point: &Point2D<T>) -> bool;
 
@@ -84,9 +82,7 @@ pub trait Geometry<T: RealField + Float> {
     fn boundary_normal(&self, point: &Point2D<T>) -> Option<Point2D<T>>;
 
     /// Get boundary condition for a specific boundary face
-    fn boundary_condition(&self, face: BoundaryFace, s: T) -> BoundaryCondition<T>
-    where
-        T: Copy;
+    fn boundary_condition(&self, face: BoundaryFace, s: T) -> BoundaryCondition<T>;
 
     /// Get domain bounds
     fn bounds(&self) -> (Point2D<T>, Point2D<T>);

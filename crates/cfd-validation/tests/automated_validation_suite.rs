@@ -8,7 +8,7 @@
 
 use cfd_validation::benchmarking::{BenchmarkSuite, BenchmarkConfig, ExportFormat};
 use cfd_validation::manufactured::{ManufacturedDiffusion, ManufacturedNavierStokes, ManufacturedKEpsilon, TaylorGreenManufactured};
-use cfd_validation::manufactured::richardson_integration::{MmsRichardsonStudy, RichardsonMmsResult};
+use cfd_validation::manufactured::richardson::{MmsRichardsonStudy, RichardsonMmsResult};
 use cfd_validation::manufactured::ManufacturedSolution;
 use std::collections::HashMap;
 
@@ -26,7 +26,7 @@ fn test_comprehensive_mms_validation() {
     validate_mms_solution(&ns_mms, "NavierStokes_2D");
 
     // Test Taylor-Green vortex MMS
-    let tg_mms = TaylorGreenManufactured::new(1.0, 1.0, 1.0);
+    let tg_mms = TaylorGreenManufactured::new(1.0);
     validate_mms_solution(&tg_mms, "TaylorGreen_2D");
 
     // Test k-ε turbulence MMS
@@ -90,7 +90,7 @@ fn test_performance_benchmarking_validation() {
         ..Default::default()
     };
 
-    let suite = BenchmarkSuite::with_config(config);
+    let suite = BenchmarkSuite::new(config);
 
     // Run benchmark suite
     let results = suite.run_full_suite().unwrap();
@@ -136,7 +136,7 @@ fn test_regression_detection_validation() {
         ..Default::default()
     };
 
-    let suite = BenchmarkSuite::with_config(config);
+    let suite = BenchmarkSuite::new(config);
 
     // Run performance benchmarks only
     let results = suite.run_performance_benchmarks().unwrap();

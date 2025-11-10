@@ -7,7 +7,6 @@ use cfd_validation::manufactured::advanced_physics::{
     ManufacturedCompressibleEuler, ManufacturedHypersonic, ManufacturedShockCapturing, ManufacturedTCI,
 };
 use cfd_validation::manufactured::ManufacturedSolution;
-use num_traits::Float;
 
 /// Test compressible Euler equations validation
 #[test]
@@ -29,7 +28,7 @@ fn test_compressible_euler_validation() {
     assert!(euler.u_0() > 0.0, "Reference velocity must be positive");
 
     // Test Mach number relationships
-    let sonic_speed = Float::sqrt(euler.gamma * euler.p_0() / euler.rho_0());
+    let sonic_speed = f64::sqrt(euler.gamma * euler.p_0() / euler.rho_0());
     let expected_u0 = euler.mach_number * sonic_speed;
     assert!((euler.u_0() - expected_u0).abs() < 1e-10, "Mach number relation violated");
 
@@ -361,4 +360,6 @@ fn test_advanced_physics_integration() {
 
     println!("✅ Advanced physics integration test passed");
 }
+
+
 

@@ -58,7 +58,7 @@ fn main() -> Result<()> {
     network.set_pressure(outlet, OUTLET_PRESSURE);
 
     // Create and configure solver
-    let mut solver = NetworkSolver::<f64>::new();
+    let solver = NetworkSolver::<f64>::new();
 
     // Create problem and solve
     let problem = NetworkProblem::new(network);

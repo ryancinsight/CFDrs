@@ -1403,7 +1403,7 @@ impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for ILUPreconditione
         assert_eq!(result.len(), 3);
 
         // Result should be non-zero and reasonable
-        assert!(result.iter().any(|&x| x.abs() > 0.0));
+        assert!(result.iter().any(|&x: &f64| x.abs() > 0.0));
     }
 
     fn test_amg_config() {

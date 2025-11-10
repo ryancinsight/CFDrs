@@ -367,7 +367,7 @@ mod tests {
 
     impl<T: RealField + Copy + FromPrimitive> RhsFunction<T> for ExponentialDecay<T> {
         fn evaluate(&self, _t: T, y: &DVector<T>) -> Result<DVector<T>> {
-            Ok(-self.lambda * y)
+            Ok(y.scale(-self.lambda))
         }
     }
 
@@ -476,7 +476,7 @@ mod tests {
             let y_final = rkc.step(&rhs, t0, &y0, dt).unwrap();
 
             // Should converge to analytical solution
-            let analytical = (-lambda * dt).exp();
+            let analytical = (-lambda * dt as f64).exp();
             assert_relative_eq!(y_final[0], analytical, epsilon = 1e-4);
         }
     }

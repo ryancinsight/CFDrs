@@ -9,6 +9,7 @@
 
 use super::{ManufacturedSolution, ManufacturedFunctions};
 use nalgebra::RealField;
+use num_traits::FromPrimitive;
 
 /// Manufactured solution for conjugate heat transfer
 ///
@@ -28,7 +29,7 @@ pub struct ManufacturedConjugateHeatTransfer<T: RealField + Copy> {
     pub frequency: T,
 }
 
-impl<T: RealField + Copy> ManufacturedConjugateHeatTransfer<T> {
+impl<T: RealField + Copy + FromPrimitive> ManufacturedConjugateHeatTransfer<T> {
     pub fn new(conductivity_ratio: T, capacity_ratio: T, interface_x: T, amplitude: T, frequency: T) -> Self {
         Self {
             conductivity_ratio,
@@ -40,13 +41,13 @@ impl<T: RealField + Copy> ManufacturedConjugateHeatTransfer<T> {
     }
 
     /// Evaluate temperature in fluid domain (x < interface_x)
-    fn fluid_temperature(&self, x: T, y: T, t: T) -> T {
+    pub fn fluid_temperature(&self, x: T, y: T, t: T) -> T {
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.frequency, self.frequency);
         self.amplitude * base
     }
 
     /// Evaluate temperature in solid domain (x > interface_x)
-    fn solid_temperature(&self, x: T, y: T, t: T) -> T {
+    pub fn solid_temperature(&self, x: T, y: T, t: T) -> T {
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.frequency, self.frequency);
         // Account for different thermal properties
         self.amplitude * self.conductivity_ratio * base
@@ -73,10 +74,10 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedConjugateHeatT
     }
 }
 
-impl<T: RealField + Float + Copy> ManufacturedConjugateHeatTransfer<T> {
+impl<T: RealField + Copy + FromPrimitive> ManufacturedConjugateHeatTransfer<T> {
     fn fluid_heat_source(&self, x: T, y: T, t: T) -> T {
         let t_exact = self.fluid_temperature(x, y, t);
-        let alpha = T::from(0.01).unwrap(); // Thermal diffusivity
+        let alpha = <T as FromPrimitive>::from_f64(0.01f64).unwrap(); // Thermal diffusivity
 
         // Time derivative
         let dt_dt = -t_exact; // ∂T/∂t from exp(-t) factor
@@ -92,7 +93,7 @@ impl<T: RealField + Float + Copy> ManufacturedConjugateHeatTransfer<T> {
 
     fn solid_heat_source(&self, x: T, y: T, t: T) -> T {
         let t_exact = self.solid_temperature(x, y, t);
-        let alpha_s = T::from(0.01).unwrap() / self.capacity_ratio; // Solid thermal diffusivity
+        let alpha_s = <T as FromPrimitive>::from_f64(0.01f64).unwrap() / self.capacity_ratio; // Solid thermal diffusivity
 
         // Time derivative
         let dt_dt = -t_exact;
@@ -133,11 +134,11 @@ impl<T: RealField + Copy> ManufacturedSpeciesTransport<T> {
     }
 }
 
-impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedSpeciesTransport<T> {
+impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T> for ManufacturedSpeciesTransport<T> {
     fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
         // C = A * sin(kx*x) * sin(ky*y) * exp(-t) * exp(-k²t)
         let spatial = ManufacturedFunctions::sinusoidal(x, y, T::zero(), self.kx, self.ky);
-        let temporal_decay = T::from(-1.0).unwrap() - (self.kx * self.kx + self.ky * self.ky) * self.diffusivity;
+        let temporal_decay = <T as FromPrimitive>::from_f64(-1.0).unwrap() - (self.kx * self.kx + self.ky * self.ky) * self.diffusivity;
         let temporal = nalgebra::ComplexField::exp(temporal_decay * t);
         self.amplitude * spatial * temporal
     }
@@ -149,7 +150,7 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedSpeciesTranspo
         // We want S such that the MMS satisfies this equation
 
         // Time derivative
-        let k_total = T::from(-1.0).unwrap() - (self.kx * self.kx + self.ky * self.ky) * self.diffusivity;
+        let k_total = <T as FromPrimitive>::from_f64(-1.0).unwrap() - (self.kx * self.kx + self.ky * self.ky) * self.diffusivity;
         let dc_dt = k_total * c;
 
         // Diffusion term

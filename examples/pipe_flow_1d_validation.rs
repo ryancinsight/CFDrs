@@ -62,7 +62,7 @@ fn main() -> Result<()> {
     // Build the network
     // Build the network
     let graph = builder.build()?;
-    let mut network = Network::new(graph, fluid);
+    let network = Network::new(graph, fluid);
 
     // Set boundary conditions would need to be implemented differently
     // For now, this example needs more work to match the actual API
@@ -72,7 +72,7 @@ fn main() -> Result<()> {
     println!("  Edges: {}", network.edge_count());
 
     // Create and run solver
-    let mut solver = NetworkSolver::new();
+    let solver = NetworkSolver::new();
     let problem = NetworkProblem::new(network);
     let solution = solver.solve(&problem)?;
 

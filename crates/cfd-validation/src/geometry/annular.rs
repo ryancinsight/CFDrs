@@ -2,8 +2,7 @@
 
 use super::{BoundaryCondition, BoundaryFace, Geometry, Point2D};
 use cfd_core::conversion::SafeFromF64;
-use nalgebra::RealField;
-use num_traits::Float;
+use nalgebra::{ComplexField, RealField};
 
 /// Annular domain geometry (ring between two concentric circles)
 #[derive(Debug, Clone)]
@@ -18,7 +17,7 @@ pub struct AnnularDomain<T: RealField> {
     outer_radius: T,
 }
 
-impl<T: RealField + Float> AnnularDomain<T> {
+impl<T: RealField + Copy> AnnularDomain<T> {
     /// Create a new annular domain
     pub fn new(center_x: T, center_y: T, inner_radius: T, outer_radius: T) -> Self {
         assert!(inner_radius < outer_radius, "Inner radius must be less than outer radius");
@@ -38,7 +37,7 @@ impl<T: RealField + Float> AnnularDomain<T> {
         Self::new(
             T::zero(),
             T::zero(),
-            SafeFromF64::from_f64_or_zero(0.5),
+            T::from_f64_or_zero(0.5),
             T::one()
         )
     }
@@ -47,7 +46,7 @@ impl<T: RealField + Float> AnnularDomain<T> {
     fn distance_from_center(&self, point: &Point2D<T>) -> T {
         let dx = point.x.clone() - self.center_x.clone();
         let dy = point.y.clone() - self.center_y.clone();
-        Float::sqrt(dx.clone() * dx + dy.clone() * dy)
+        ComplexField::sqrt(dx.clone() * dx + dy.clone() * dy)
     }
 
     /// Get the angle (in radians) from center to a point
@@ -58,7 +57,7 @@ impl<T: RealField + Float> AnnularDomain<T> {
     }
 }
 
-impl<T: RealField + Float + SafeFromF64> Geometry<T> for AnnularDomain<T> {
+impl<T: RealField + Copy + SafeFromF64> Geometry<T> for AnnularDomain<T> {
     fn contains(&self, point: &Point2D<T>) -> bool {
         let distance = self.distance_from_center(point);
         distance >= self.inner_radius && distance <= self.outer_radius
@@ -77,19 +76,19 @@ impl<T: RealField + Float + SafeFromF64> Geometry<T> for AnnularDomain<T> {
             // Between inner and outer, distance to nearest boundary
             let to_inner = distance_from_center - self.inner_radius;
             let to_outer = self.outer_radius - distance_from_center;
-            RealField::min(to_inner, to_outer)
+            if to_inner < to_outer { to_inner } else { to_outer }
         }
     }
 
     fn boundary_normal(&self, point: &Point2D<T>) -> Option<Point2D<T>> {
         let distance = self.distance_from_center(point);
-        let tol = SafeFromF64::from_f64_or_zero(1e-10);
+        let tol = T::from_f64_or_zero(1e-10);
 
-        if Float::abs(distance - self.inner_radius) < tol {
+        if (distance - self.inner_radius).abs() < tol {
             // Point is on inner boundary, inward normal (towards center)
             let dx = self.center_x.clone() - point.x.clone();
             let dy = self.center_y.clone() - point.y.clone();
-            let norm = Float::sqrt(dx.clone() * dx + dy.clone() * dy);
+            let norm = ComplexField::sqrt(dx.clone() * dx + dy.clone() * dy);
 
             if norm > T::zero() {
                 Some(Point2D {
@@ -100,11 +99,11 @@ impl<T: RealField + Float + SafeFromF64> Geometry<T> for AnnularDomain<T> {
                 // Point is at center, return arbitrary normal
                 Some(Point2D { x: -T::one(), y: T::zero() })
             }
-        } else if Float::abs(distance - self.outer_radius) < tol {
+        } else if (distance - self.outer_radius).abs() < tol {
             // Point is on outer boundary, outward normal (away from center)
             let dx = point.x.clone() - self.center_x.clone();
             let dy = point.y.clone() - self.center_y.clone();
-            let norm = Float::sqrt(dx.clone() * dx + dy.clone() * dy);
+            let norm = ComplexField::sqrt(dx.clone() * dx + dy.clone() * dy);
 
             if norm > T::zero() {
                 Some(Point2D {
@@ -155,9 +154,9 @@ impl<T: RealField + Float + SafeFromF64> Geometry<T> for AnnularDomain<T> {
         match face {
             BoundaryFace::Inner => {
                 let distance = self.distance_from_center(point);
-                let tol = SafeFromF64::from_f64_or_zero(1e-10);
+                let tol = T::from_f64_or_zero(1e-10);
 
-                if Float::abs(distance - self.inner_radius) < tol {
+                if (distance - self.inner_radius).abs() < tol {
                     // Point is on inner boundary, return angular parameter [0, 2π)
                     let angle = self.angle_from_center(point);
                     // Normalize to [0, 2π)
@@ -169,9 +168,9 @@ impl<T: RealField + Float + SafeFromF64> Geometry<T> for AnnularDomain<T> {
             }
             BoundaryFace::Outer => {
                 let distance = self.distance_from_center(point);
-                let tol = SafeFromF64::from_f64_or_zero(1e-10);
+                let tol = T::from_f64_or_zero(1e-10);
 
-                if Float::abs(distance - self.outer_radius) < tol {
+                if (distance - self.outer_radius).abs() < tol {
                     // Point is on outer boundary, return angular parameter [0, 2π)
                     let angle = self.angle_from_center(point);
                     // Normalize to [0, 2π)
@@ -190,10 +189,10 @@ impl<T: RealField + Float + SafeFromF64> Geometry<T> for AnnularDomain<T> {
 
         match face {
             BoundaryFace::Inner => {
-                Float::abs(distance - self.inner_radius) < tolerance
+                (distance - self.inner_radius).abs() < tolerance
             }
             BoundaryFace::Outer => {
-                Float::abs(distance - self.outer_radius) < tolerance
+                (distance - self.outer_radius).abs() < tolerance
             }
             _ => false,
         }

@@ -8,10 +8,11 @@
 //! 5. Regression detection and quality assessment
 
 use cfd_validation::benchmarking::{BenchmarkSuite, BenchmarkConfig};
-use cfd_validation::manufactured::{
+use cfd_validation::reporting::Reporter;
+use cfd_validation::manufactured::{ManufacturedSolution,
     ManufacturedDiffusion, ManufacturedNavierStokes, ManufacturedKEpsilon,
     ManufacturedConjugateHeatTransfer, ManufacturedSpeciesTransport,
-    richardson_integration::MmsRichardsonStudy,
+    richardson::MmsRichardsonStudy,
 };
 use cfd_validation::reporting::{AutomatedReporter, MarkdownReporter, ValidationReport, ValidationSummary};
 use std::collections::HashMap;
@@ -72,7 +73,7 @@ fn run_mms_validation_suite() -> Vec<bool> {
 
     // Single-physics MMS validations
     let test_cases = vec![
-        ("Diffusion", ManufacturedDiffusion::new(1.0, 1.0, 1.0)),
+        ("Diffusion", ManufacturedDiffusion::new(1.0)),
         ("Navier-Stokes", ManufacturedNavierStokes::new(1.0, 1.0, 1.0, 0.01)),
         ("k-ε Turbulence", ManufacturedKEpsilon::<f64>::new(1.0, 1.0, 1.0, 0.01)),
     ];
@@ -108,7 +109,7 @@ fn run_convergence_studies() -> Vec<bool> {
     for (geom_name, geometry) in geometries {
         // Test different physics with Richardson extrapolation
         let test_cases = vec![
-            ("Diffusion", ManufacturedDiffusion::new(1.0, 1.0, 1.0)),
+            ("Diffusion", ManufacturedDiffusion::new(1.0)),
             ("Navier-Stokes", ManufacturedNavierStokes::new(1.0, 1.0, 1.0, 0.01)),
         ];
 
@@ -157,7 +158,7 @@ fn run_performance_benchmarks() -> Option<ValidationReport> {
         ..Default::default()
     };
 
-    let suite = BenchmarkSuite::with_config(config);
+    let suite = BenchmarkSuite::new(config);
 
     match suite.run_full_suite() {
         Ok(results) => {
@@ -389,7 +390,7 @@ fn validate_species_transport(species: &ManufacturedSpeciesTransport<f64>) -> bo
 }
 
 fn validate_convergence_result(
-    result: &cfd_validation::manufactured::richardson_integration::RichardsonMmsResult<f64>,
+    result: &cfd_validation::manufactured::richardson::RichardsonMmsResult<f64>,
     physics_name: &str,
     geom_name: &str
 ) -> bool {
@@ -445,7 +446,7 @@ mod property_tests {
             eval_time in 0.1f64..2.0,
             levels in 3usize..5
         ) {
-            let mms = ManufacturedDiffusion::new(1.0, 1.0, 1.0);
+            let mms = ManufacturedDiffusion::new(1.0);
             let geometry = cfd_validation::geometry::RectangularDomain::new(0.0, 1.0, 0.0, 1.0);
 
             let study = MmsRichardsonStudy::with_geometric_refinement(

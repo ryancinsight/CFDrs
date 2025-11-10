@@ -2,6 +2,7 @@
 
 use super::AnalyticalSolution;
 use nalgebra::{RealField, Vector3};
+use cfd_core::conversion::SafeFromF64;
 use num_traits::FromPrimitive;
 
 /// Couette flow analytical solution
@@ -49,7 +50,7 @@ impl<T: RealField + Copy + FromPrimitive> CouetteFlow<T> {
     pub fn wall_shear_stress(&self) -> T {
         let base_shear = self.viscosity * self.wall_velocity / self.gap_height;
         let pressure_contribution = self.pressure_gradient * self.gap_height
-            / T::from_f64(2.0).unwrap_or(T::one() + T::one());
+            / T::from_f64_or_one(2.0);
         base_shear + pressure_contribution
     }
 
@@ -72,7 +73,7 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for CouetteFlow<
         } else {
             // Plane Poiseuille contribution (Versteeg & Malalasekera):
             // u_p(y) = -(1/(2μ)) (dp/dx) y (h - y)
-            let two = T::from_f64(2.0).unwrap_or(T::one() + T::one());
+            let two = T::from_f64_or_one(2.0);
             let factor = -self.pressure_gradient / (two * self.viscosity);
             factor * y * (self.gap_height - y)
         };
@@ -96,7 +97,7 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for CouetteFlow<
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let large = T::from_f64(1000.0).unwrap_or(T::from_f64(100.0).unwrap_or(T::one()));
+        let large = T::from_f64_or_one(1000.0);
         [
             T::zero(),
             large, // x: [0, L]

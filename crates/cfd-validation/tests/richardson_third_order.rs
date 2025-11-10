@@ -1,4 +1,4 @@
-use cfd_validation::manufactured::richardson_integration::MmsRichardsonStudy;
+use cfd_validation::manufactured::richardson::MmsRichardsonStudy;
 use cfd_validation::geometry::RectangularDomain;
 use cfd_validation::manufactured::ManufacturedDiffusion;
 use nalgebra::RealField;

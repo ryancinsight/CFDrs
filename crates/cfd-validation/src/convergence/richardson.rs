@@ -3,6 +3,7 @@
 //! Implements Richardson extrapolation following ASME V&V 20-2009 guidelines.
 
 use cfd_core::error::{Error, Result};
+use cfd_core::conversion::SafeFromF64;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
@@ -40,9 +41,7 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
 
     /// Create with standard second-order accuracy
     pub fn second_order(refinement_ratio: T) -> Result<Self> {
-        let two = T::from_f64(2.0).ok_or_else(|| {
-            Error::InvalidInput("Cannot represent 2.0 in numeric type T".to_string())
-        })?;
+        let two = T::from_f64_or_one(2.0);
         Self::with_order(two, refinement_ratio)
     }
 
@@ -79,12 +78,9 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
         let epsilon_21 = f_medium - f_fine;
         let epsilon_32 = f_coarse - f_medium;
 
-        let epsilon_tolerance = T::from_f64(
+        let epsilon_tolerance = T::from_f64_or_zero(
             cfd_core::constants::numerical::solver::EPSILON_TOLERANCE,
-        )
-        .ok_or_else(|| {
-            Error::InvalidInput("Cannot represent EPSILON_TOLERANCE in numeric type T".to_string())
-        })?;
+        );
 
         if epsilon_21.abs() < epsilon_tolerance {
             return Err(Error::InvalidInput(
@@ -105,10 +101,9 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
         let epsilon_21 = (f_medium - f_fine).abs();
         let epsilon_32 = (f_coarse - f_medium).abs();
 
-        let epsilon_tolerance =
-            T::from_f64(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE).unwrap_or_else(
-                || T::from_f64(1e-10).expect("Failed to represent 1e-10 in numeric type T"),
-            );
+        let epsilon_tolerance = T::from_f64_or_zero(
+            cfd_core::constants::numerical::solver::EPSILON_TOLERANCE,
+        );
 
         if epsilon_21 < epsilon_tolerance {
             return false;
@@ -119,7 +114,7 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
 
         // Check if within 10% of expected ratio
         let relative_diff = ((observed_ratio - expected_ratio) / expected_ratio).abs();
-        let ten_percent = T::from_f64(0.1).expect("Failed to represent 0.1 in numeric type T");
+        let ten_percent = T::from_f64_or_one(0.1);
         relative_diff < ten_percent
     }
 }
@@ -159,9 +154,7 @@ where
         let r32 = h_coarse_actual / h_medium; // Refinement ratio between medium and coarse
 
         // Check if refinement ratios are uniform (within 1% tolerance)
-        let one_percent = T::from_f64(0.01).ok_or_else(|| {
-            Error::InvalidInput("Cannot represent 0.01 in numeric type T".to_string())
-        })?;
+        let one_percent = T::from_f64_or_one(0.01);
 
         if ((r21 - r32).abs() / r21) > one_percent {
             return Err(Error::InvalidInput(format!(
@@ -175,9 +168,7 @@ where
         RichardsonExtrapolation::estimate_order(f_coarse_actual, f_medium, f_fine, r21)?
     } else {
         // Assume second order if not enough data
-        T::from_f64(2.0).ok_or_else(|| {
-            Error::InvalidInput("Cannot represent 2.0 in numeric type T".to_string())
-        })?
+        T::from_f64_or_one(2.0)
     };
 
     let extrapolator = RichardsonExtrapolation::with_order(order, r21)?;

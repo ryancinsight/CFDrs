@@ -4,19 +4,20 @@
 //! where S is the manufactured source term
 
 use super::ManufacturedSolution;
-use nalgebra::RealField;
-use num_traits::Float;
+use nalgebra::{ComplexField, RealField};
+use num_traits::FromPrimitive;
 use std::f64::consts::PI;
 
 /// Manufactured solution for 2D linear advection
-pub struct ManufacturedAdvection<T: RealField + Float> {
+#[derive(Clone, Copy)]
+pub struct ManufacturedAdvection<T: RealField + Copy> {
     /// Velocity in x-direction
     pub vx: T,
     /// Velocity in y-direction
     pub vy: T,
 }
 
-impl<T: RealField + Float> ManufacturedAdvection<T> {
+impl<T: RealField + Copy> ManufacturedAdvection<T> {
     /// Create a new manufactured advection solution
     pub fn new(vx: T, vy: T) -> Self {
         Self { vx, vy }
@@ -31,11 +32,11 @@ impl<T: RealField + Float> ManufacturedAdvection<T> {
     }
 }
 
-impl<T: RealField + Float> ManufacturedSolution<T> for ManufacturedAdvection<T> {
+impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedAdvection<T> {
     /// Exact solution: u(x,y,t) = sin(x - vx*t) * cos(y - vy*t)
     /// This represents a wave propagating with velocity (vx, vy)
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
-        Float::sin(x - self.vx * t) * Float::cos(y - self.vy * t)
+        ComplexField::sin(x - self.vx * t) * ComplexField::cos(y - self.vy * t)
     }
 
     /// Source term: S = ∂u/∂t + v·∇u
@@ -49,7 +50,7 @@ impl<T: RealField + Float> ManufacturedSolution<T> for ManufacturedAdvection<T> 
 }
 
 /// Manufactured solution for rotating advection (solid body rotation)
-pub struct RotatingAdvection<T: RealField + Float> {
+pub struct RotatingAdvection<T: RealField + Copy> {
     /// Angular velocity
     pub omega: T,
     /// Center of rotation x-coordinate
@@ -58,13 +59,13 @@ pub struct RotatingAdvection<T: RealField + Float> {
     pub cy: T,
 }
 
-impl<T: RealField + Float> RotatingAdvection<T> {
+impl<T: RealField + Copy + FromPrimitive> RotatingAdvection<T> {
     /// Create a new rotating advection solution
     pub fn new(omega: T) -> Self {
         Self {
             omega,
-            cx: T::from(0.5).unwrap(),
-            cy: T::from(0.5).unwrap(),
+            cx: <T as FromPrimitive>::from_f64(0.5).unwrap(),
+            cy: <T as FromPrimitive>::from_f64(0.5).unwrap(),
         }
     }
 
@@ -78,13 +79,13 @@ impl<T: RealField + Float> RotatingAdvection<T> {
     }
 }
 
-impl<T: RealField + Float> ManufacturedSolution<T> for RotatingAdvection<T> {
+impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T> for RotatingAdvection<T> {
     /// Exact solution: Gaussian bump rotating around center
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Rotate the coordinates backward in time
         let theta = -self.omega * t;
-        let cos_theta = Float::cos(theta);
-        let sin_theta = Float::sin(theta);
+        let cos_theta = ComplexField::cos(theta);
+        let sin_theta = ComplexField::sin(theta);
 
         // Transform to rotated coordinates
         let dx = x - self.cx;
@@ -93,9 +94,9 @@ impl<T: RealField + Float> ManufacturedSolution<T> for RotatingAdvection<T> {
         let y_rot = dx * sin_theta + dy * cos_theta;
 
         // Gaussian bump at rotated position
-        let sigma = T::from(0.1).unwrap();
+        let sigma = <T as FromPrimitive>::from_f64(0.1).unwrap();
         let r_squared = x_rot * x_rot + y_rot * y_rot;
-        Float::exp(-r_squared / (T::from(2.0).unwrap() * sigma * sigma))
+        ComplexField::exp(-r_squared / (<T as FromPrimitive>::from_f64(2.0).unwrap() * sigma * sigma))
     }
 
     /// Source term for rotating advection
@@ -106,26 +107,26 @@ impl<T: RealField + Float> ManufacturedSolution<T> for RotatingAdvection<T> {
 }
 
 /// Manufactured solution for Burgers' equation
-pub struct ManufacturedBurgers<T: RealField + Float> {
+pub struct ManufacturedBurgers<T: RealField + Copy> {
     /// Viscosity coefficient
     pub nu: T,
 }
 
-impl<T: RealField + Float> ManufacturedBurgers<T> {
+impl<T: RealField + Copy> ManufacturedBurgers<T> {
     /// Create a new manufactured Burgers solution
     pub fn new(nu: T) -> Self {
         Self { nu }
     }
 }
 
-impl<T: RealField + Float> ManufacturedSolution<T> for ManufacturedBurgers<T> {
+impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T> for ManufacturedBurgers<T> {
     /// Exact solution: u(x,t) = 2*nu*π*sin(π*x)*exp(-nu*π²*t) / (2 + cos(π*x)*exp(-nu*π²*t))
     /// This is the Cole-Hopf solution for Burgers' equation
     fn exact_solution(&self, x: T, _y: T, _z: T, t: T) -> T {
-        let pi = T::from(PI).unwrap();
-        let exp_term = Float::exp(-self.nu * pi * pi * t);
-        let numerator = T::from(2.0).unwrap() * self.nu * pi * Float::sin(pi * x) * exp_term;
-        let denominator = T::from(2.0).unwrap() + Float::cos(pi * x) * exp_term;
+        let pi = <T as FromPrimitive>::from_f64(PI).unwrap();
+        let exp_term = ComplexField::exp(-self.nu * pi * pi * t);
+        let numerator = <T as FromPrimitive>::from_f64(2.0).unwrap() * self.nu * pi * ComplexField::sin(pi * x) * exp_term;
+        let denominator = <T as FromPrimitive>::from_f64(2.0).unwrap() + ComplexField::cos(pi * x) * exp_term;
         numerator / denominator
     }
 

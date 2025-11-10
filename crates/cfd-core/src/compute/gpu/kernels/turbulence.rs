@@ -5,6 +5,8 @@ use crate::compute::traits::{ComputeBackend, ComputeKernel, KernelParams};
 use crate::error::Result;
 use nalgebra::RealField;
 use std::marker::PhantomData;
+use wgpu::util::DeviceExt;
+
 
 /// GPU Smagorinsky LES kernel
 #[derive(Debug)]
@@ -82,6 +84,16 @@ impl<T: RealField + Copy> GpuSmagorinskyKernel<T> {
     ) -> Result<()> {
         let pipeline = self.create_pipeline(device)?;
 
+        // Create uniform buffer with turbulence parameters
+        let params_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Turbulence Params"),
+            contents: bytemuck::cast_slice(&[
+                nx, ny, 0, 0, // nx, ny, padding to 16 bytes
+                dx.to_bits(), dy.to_bits(), c_s.to_bits(), ((dx * dy).sqrt()).to_bits(), // dx, dy, c_s, delta (filter width)
+            ]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
         let bind_group_layout = pipeline.get_bind_group_layout(0);
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -90,14 +102,18 @@ impl<T: RealField + Copy> GpuSmagorinskyKernel<T> {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: velocity_u.as_entire_binding(),
+                    resource: params_buffer.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: velocity_v.as_entire_binding(),
+                    resource: velocity_u.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
+                    resource: velocity_v.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
                     resource: sgs_viscosity.as_entire_binding(),
                 },
             ],
@@ -115,10 +131,6 @@ impl<T: RealField + Copy> GpuSmagorinskyKernel<T> {
 
             compute_pass.set_pipeline(&pipeline);
             compute_pass.set_bind_group(0, &bind_group, &[]);
-
-            // Push constants for grid parameters
-            compute_pass.set_push_constants(0, bytemuck::cast_slice(&[nx, ny]));
-            compute_pass.set_push_constants(8, bytemuck::cast_slice(&[dx, dy, c_s, 0.0]));
 
             let workgroups_x = nx.div_ceil(8);
             let workgroups_y = ny.div_ceil(8);
@@ -216,6 +228,16 @@ impl<T: RealField + Copy> GpuDesKernel<T> {
     ) -> Result<()> {
         let pipeline = self.create_pipeline(device)?;
 
+        // Create uniform buffer with turbulence parameters
+        let params_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Turbulence Params"),
+            contents: bytemuck::cast_slice(&[
+                nx, ny, 0, 0, // nx, ny, padding to 16 bytes
+                dx.to_bits(), dy.to_bits(), des_constant.to_bits(), ((dx * dy).sqrt()).to_bits(), // dx, dy, des_constant, delta (filter width)
+            ]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
         let bind_group_layout = pipeline.get_bind_group_layout(0);
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -224,14 +246,18 @@ impl<T: RealField + Copy> GpuDesKernel<T> {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: velocity_u.as_entire_binding(),
+                    resource: params_buffer.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: velocity_v.as_entire_binding(),
+                    resource: velocity_u.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
+                    resource: velocity_v.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
                     resource: des_length_scale.as_entire_binding(),
                 },
             ],
@@ -249,10 +275,6 @@ impl<T: RealField + Copy> GpuDesKernel<T> {
 
             compute_pass.set_pipeline(&pipeline);
             compute_pass.set_bind_group(0, &bind_group, &[]);
-
-            // Push constants for grid parameters
-            compute_pass.set_push_constants(0, bytemuck::cast_slice(&[nx, ny]));
-            compute_pass.set_push_constants(8, bytemuck::cast_slice(&[dx, dy, des_constant, 0.0]));
 
             let workgroups_x = nx.div_ceil(8);
             let workgroups_y = ny.div_ceil(8);

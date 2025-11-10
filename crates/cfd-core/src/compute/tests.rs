@@ -4,7 +4,7 @@
 mod tests {
     use super::super::*;
     use crate::compute::cpu::CpuAdvectionKernel;
-    use crate::compute::traits::{ComputeBackend, DomainParams, KernelParams};
+    use crate::compute::traits::{BoundaryCondition2D, ComputeBackend, DomainParams, KernelParams};
 
     #[test]
     fn test_backend_detection() {
@@ -51,32 +51,58 @@ mod tests {
     }
 
     #[test]
-    fn test_cpu_advection_kernel() {
+    fn test_cpu_advection_kernel_linear_exactness() {
         let kernel = CpuAdvectionKernel::<f64>::new();
 
-        // Create test data
-        let nx = 10;
-        let ny = 10;
+        // Grid and parameters
+        let nx = 16;
+        let ny = 12;
         let size = nx * ny;
-        let input = vec![1.0; size];
-        let mut output = vec![0.0; size];
+        let dx = 0.1;
+        let dy = 0.2;
+        let dt = 0.01;
+        let u = 1.5; // constant velocity x
+        let v = -0.7; // constant velocity y
+        let a = 2.0; // linear coefficient in x
+        let b = -1.0; // linear coefficient in y
+
+        // Construct linear field: phi(i,j) = a * (i*dx) + b * (j*dy)
+        let mut input = vec![0.0f64; size];
+        for j in 0..ny {
+            for i in 0..nx {
+                input[j * nx + i] = a * (i as f64 * dx) + b * (j as f64 * dy);
+            }
+        }
+        let mut output = vec![0.0f64; size];
 
         let params = KernelParams {
             size,
             work_group_size: 8,
             domain_params: DomainParams {
                 grid_dims: (nx, ny, 1),
-                grid_spacing: (0.1, 0.1, 0.1),
-                dt: 0.01,
+                grid_spacing: (dx, dy, 1.0),
+                dt,
                 reynolds: 100.0,
+                velocity: (u, v, 0.0),
+                boundary: BoundaryCondition2D::DirichletZero,
             },
         };
 
-        // Execute kernel
+        // Execute one step
         kernel.execute(&input, &mut output, params).unwrap();
 
-        // Check that output has been modified
-        assert!(output.iter().any(|&v| v != 0.0));
+        // Analytic update for linear field under constant velocity
+        // phi_new = phi_old - dt * (u*a + v*b)
+        let shift = dt * (u * a + v * b);
+
+        // Validate exactness for interior points (away from boundaries)
+        for j in 1..ny-1 {
+            for i in 1..nx-1 {
+                let idx = j * nx + i;
+                let expected = input[idx] - shift;
+                assert!((output[idx] - expected).abs() < 1e-12);
+            }
+        }
 
         // Check complexity calculation
         let complexity = kernel.complexity(size);

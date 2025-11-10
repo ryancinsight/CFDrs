@@ -16,7 +16,7 @@ use cfd_validation::manufactured::{
     ManufacturedConjugateHeatTransfer, ManufacturedSpeciesTransport,
     ManufacturedCompressibleEuler, ManufacturedHypersonic, ManufacturedShockCapturing,
     ManufacturedTaylorGreen, ManufacturedBurgers,
-    richardson_integration::MmsRichardsonStudy,
+    richardson::MmsRichardsonStudy,
 };
 use cfd_validation::reporting::{AutomatedReporter, MarkdownReporter, ValidationSummary};
 use cfd_validation::geometry::{RectangularDomain, CircularDomain};
@@ -396,7 +396,7 @@ fn validate_manufactured_solution<T: cfd_validation::manufactured::ManufacturedS
 }
 
 fn validate_convergence_study(
-    result: &cfd_validation::manufactured::richardson_integration::RichardsonMmsResult<f64>,
+    result: &cfd_validation::manufactured::richardson::RichardsonMmsResult<f64>,
     physics_name: &str,
     geom_name: &str
 ) -> bool {

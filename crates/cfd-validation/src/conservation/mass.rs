@@ -5,6 +5,7 @@
 use super::report::ConservationReport;
 use super::traits::ConservationChecker;
 use cfd_core::error::Result;
+use cfd_core::conversion::SafeFromF64;
 use nalgebra::{DMatrix, DVector, RealField};
 use num_traits::FromPrimitive;
 
@@ -45,11 +46,11 @@ impl<T: RealField + Copy + FromPrimitive> MassConservationChecker<T> {
             for j in 1..self.ny - 1 {
                 // ∂u/∂x using central difference
                 let dudx =
-                    (u[(i + 1, j)] - u[(i - 1, j)]) / (T::from_f64(2.0).unwrap_or(T::one()) * dx);
+                    (u[(i + 1, j)] - u[(i - 1, j)]) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
 
                 // ∂v/∂y using central difference
                 let dvdy =
-                    (v[(i, j + 1)] - v[(i, j - 1)]) / (T::from_f64(2.0).unwrap_or(T::one()) * dy);
+                    (v[(i, j + 1)] - v[(i, j - 1)]) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
 
                 // Divergence = ∂u/∂x + ∂v/∂y
                 let div = dudx + dvdy;
@@ -102,7 +103,7 @@ impl<T: RealField + Copy + FromPrimitive> MassConservationChecker<T> {
             // Mass flux gradient using central difference
             let flux_plus = area[i + 1] * u[i + 1];
             let flux_minus = area[i - 1] * u[i - 1];
-            let div = (flux_plus - flux_minus) / (T::from_f64(2.0).unwrap_or(T::one()) * dx);
+            let div = (flux_plus - flux_minus) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
 
             max_divergence = max_divergence.max(div.abs());
             total_divergence += div.abs();

@@ -5,8 +5,6 @@
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::physics::vorticity_stream::{VorticityStreamConfig, VorticityStreamSolver};
 use cfd_core::error::Result;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
 
 /// Ghia et al. (1982) benchmark data for Re=100
 /// Vertical centerline u-velocity at selected points

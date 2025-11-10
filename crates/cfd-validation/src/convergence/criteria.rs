@@ -52,7 +52,7 @@ impl<T: RealField + Copy> ConvergenceStatus<T> {
         match self {
             Self::Converged { final_error, .. } => *final_error,
             Self::NotConverged { current_error, .. } => *current_error,
-            Self::Diverging { .. } => T::from_f64(f64::INFINITY).unwrap_or_else(T::zero),
+            Self::Diverging { .. } => <T as SafeFromF64>::from_f64_or_zero(f64::INFINITY),
             Self::Stalled { stall_error, .. } => *stall_error,
         }
     }
@@ -124,7 +124,7 @@ impl<T: RealField + Copy + FromPrimitive> GridConvergenceIndex<T> {
         let ratio = gci_coarse / (r_p * gci_fine);
 
         // Should be within 3% of unity for asymptotic range
-        (ratio - T::one()).abs() < T::from_f64_or_zero(0.03)
+        (ratio - T::one()).abs() < <T as SafeFromF64>::from_f64_or_zero(0.03)
     }
 
     /// Compute uncertainty band for solution
@@ -169,14 +169,14 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
     pub fn check_status(&self) -> ConvergenceStatus<T> {
         if self.history.is_empty() {
             return ConvergenceStatus::NotConverged {
-                current_error: T::from_f64_or_zero(f64::INFINITY),
+                current_error: <T as SafeFromF64>::from_f64_or_zero(f64::INFINITY),
                 iterations: 0,
             };
         }
 
         let Some(&current_error) = self.history.last() else {
             return ConvergenceStatus::NotConverged {
-                current_error: T::from_f64_or_zero(f64::INFINITY),
+                current_error: <T as SafeFromF64>::from_f64_or_zero(f64::INFINITY),
                 iterations: 0,
             }
         };
@@ -204,7 +204,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
 
                 // Stalled if CV is very small (< 1% of relative tolerance)
                 // AND error is still above absolute tolerance (otherwise it's converged)
-                if cv < self.rel_tolerance * T::from_f64(0.01).unwrap() 
+                if cv < self.rel_tolerance * <T as SafeFromF64>::from_f64_or_zero(0.01) 
                    && current_error > self.abs_tolerance {
                     return ConvergenceStatus::Stalled {
                         stall_error: current_error,
@@ -231,7 +231,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
                 }
 
                 // Check for divergence (error growing by more than 10%)
-                if current_error > prev_error * T::from_f64(1.1).unwrap() {
+                if current_error > prev_error * <T as SafeFromF64>::from_f64_or_one(1.1) {
                     let growth_rate = current_error / prev_error;
                     return ConvergenceStatus::Diverging {
                         growth_rate,

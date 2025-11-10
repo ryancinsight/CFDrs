@@ -26,7 +26,7 @@ impl GpuPipelineManager {
         }
     }
 
-    /// Register a compute pipeline
+    /// Register a compute pipeline with flexible binding layout
     ///
     /// # Errors
     /// Returns an error if the shader compilation fails or the pipeline creation fails
@@ -35,6 +35,20 @@ impl GpuPipelineManager {
         name: &str,
         shader_source: &str,
         entry_point: &str,
+    ) -> Result<()> {
+        self.register_pipeline_with_bindings(name, shader_source, entry_point, 2)
+    }
+
+    /// Register a compute pipeline with specified number of input buffers
+    ///
+    /// # Errors
+    /// Returns an error if the shader compilation fails or the pipeline creation fails
+    pub fn register_pipeline_with_bindings(
+        &mut self,
+        name: &str,
+        shader_source: &str,
+        entry_point: &str,
+        num_input_buffers: usize,
     ) -> Result<()> {
         // Create shader module
         let shader_module =
@@ -45,58 +59,54 @@ impl GpuPipelineManager {
                     source: wgpu::ShaderSource::Wgsl(shader_source.into()),
                 });
 
-        // Create bind group layout for standard CFD operations
+        // Create bind group layout entries dynamically
+        let mut entries = vec![
+            // Uniform buffer for grid parameters (binding 0)
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+        ];
+
+        // Add input storage buffers (bindings 1..num_input_buffers)
+        for i in 0..num_input_buffers {
+            entries.push(wgpu::BindGroupLayoutEntry {
+                binding: (i + 1) as u32,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            });
+        }
+
+        // Add output storage buffer (binding num_input_buffers + 1)
+        entries.push(wgpu::BindGroupLayoutEntry {
+            binding: (num_input_buffers + 1) as u32,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Storage { read_only: false },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        });
+
+        // Create bind group layout
         let bind_group_layout =
             self.context
                 .device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: Some(&format!("{name} Bind Group Layout")),
-                    entries: &[
-                        // Uniform buffer for grid parameters
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: wgpu::ShaderStages::COMPUTE,
-                            ty: wgpu::BindingType::Buffer {
-                                ty: wgpu::BufferBindingType::Uniform,
-                                has_dynamic_offset: false,
-                                min_binding_size: None,
-                            },
-                            count: None,
-                        },
-                        // Input storage buffers
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 1,
-                            visibility: wgpu::ShaderStages::COMPUTE,
-                            ty: wgpu::BindingType::Buffer {
-                                ty: wgpu::BufferBindingType::Storage { read_only: true },
-                                has_dynamic_offset: false,
-                                min_binding_size: None,
-                            },
-                            count: None,
-                        },
-                        // Additional input buffers (velocity, divergence, etc.)
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 2,
-                            visibility: wgpu::ShaderStages::COMPUTE,
-                            ty: wgpu::BindingType::Buffer {
-                                ty: wgpu::BufferBindingType::Storage { read_only: true },
-                                has_dynamic_offset: false,
-                                min_binding_size: None,
-                            },
-                            count: None,
-                        },
-                        // Output storage buffer
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 3,
-                            visibility: wgpu::ShaderStages::COMPUTE,
-                            ty: wgpu::BindingType::Buffer {
-                                ty: wgpu::BufferBindingType::Storage { read_only: false },
-                                has_dynamic_offset: false,
-                                min_binding_size: None,
-                            },
-                            count: None,
-                        },
-                    ],
+                    entries: &entries,
                 });
 
         // Create pipeline layout

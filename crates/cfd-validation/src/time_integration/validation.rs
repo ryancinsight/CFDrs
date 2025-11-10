@@ -2,6 +2,7 @@
 
 use super::integrators::{ForwardEuler, RungeKutta2, RungeKutta4, TimeIntegratorTrait};
 use super::results::TimeIntegrationResult;
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use nalgebra::{DVector, RealField};
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -36,8 +37,8 @@ impl TimeIntegrationValidator {
     ) -> Result<Vec<TimeIntegrationResult<T>>> {
         let mut results = Vec::new();
 
-        let lambda = T::from_f64(DECAY_LAMBDA).unwrap_or_else(T::zero);
-        let dt = T::from_f64(TIME_STEP_VALIDATION).unwrap_or_else(T::zero);
+        let lambda = T::from_f64_or_zero(DECAY_LAMBDA);
+        let dt = T::from_f64_or_zero(TIME_STEP_VALIDATION);
         let final_time = T::one();
         
         // Safe conversion with bounds checking: clamp to reasonable range [1, 1M]
@@ -67,7 +68,7 @@ impl TimeIntegrationValidator {
             final_time,
             n_steps,
             error,
-            error < T::from_f64(ERROR_THRESHOLD).unwrap_or_else(T::zero),
+            error < T::from_f64_or_zero(ERROR_THRESHOLD),
             1,
         ));
 
@@ -86,7 +87,7 @@ impl TimeIntegrationValidator {
             final_time,
             n_steps,
             error,
-            error < T::from_f64(ERROR_THRESHOLD).unwrap_or_else(T::zero),
+            error < T::from_f64_or_zero(ERROR_THRESHOLD),
             2,
         ));
 
@@ -105,7 +106,7 @@ impl TimeIntegrationValidator {
             final_time,
             n_steps,
             error,
-            error < T::from_f64(ERROR_THRESHOLD).unwrap_or_else(T::zero),
+            error < T::from_f64_or_zero(ERROR_THRESHOLD),
             4,
         ));
 
@@ -117,9 +118,10 @@ impl TimeIntegrationValidator {
     ) -> Result<Vec<TimeIntegrationResult<T>>> {
         let mut results = Vec::new();
 
-        let omega = T::from_f64(OSCILLATOR_OMEGA).unwrap_or_else(T::zero);
-        let dt = T::from_f64(TIME_STEP_VALIDATION).unwrap_or_else(T::zero);
-        let final_time = T::from_f64(2.0 * PI).unwrap_or_else(T::zero); // One period
+        let omega = T::from_f64_or_zero(OSCILLATOR_OMEGA);
+        let dt = T::from_f64_or_zero(TIME_STEP_VALIDATION);
+        let final_time = <T as SafeFromF64>::try_from_f64(2.0 * PI)
+            .unwrap_or(T::from_f64_or_one(6.28318)); // One period
         
         // Safe conversion with bounds checking: clamp to reasonable range [1, 1M]
         let n_steps_f64: f64 = (final_time / dt).to_subset().unwrap_or(628.0);
@@ -171,7 +173,7 @@ impl TimeIntegrationValidator {
                 final_time,
                 n_steps,
                 error,
-                error < T::from_f64(ERROR_THRESHOLD).unwrap_or_else(T::zero),
+                error < T::from_f64_or_zero(ERROR_THRESHOLD),
                 match name {
                     "ForwardEuler" => 1,
                     "RungeKutta2" => 2,

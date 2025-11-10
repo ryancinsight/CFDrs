@@ -135,12 +135,12 @@ impl BubbleDynamicsSolver {
     /// Update bubble dynamics for a specific cell
     pub fn update_bubble(
         &mut self,
-        i: usize,
-        j: usize,
-        k: usize,
-        pressure: f64,
-        velocity: Vector3<f64>,
-        density: f64,
+        _i: usize,
+        _j: usize,
+        _k: usize,
+        _pressure: f64,
+        _velocity: Vector3<f64>,
+        _density: f64,
     ) -> Result<f64> {
         // Simplified: return initial radius (bubble dynamics not implemented)
         Ok(1e-6)

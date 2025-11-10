@@ -54,17 +54,57 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_field_add_kernel() {
+        // Test only runs if GPU is available
+        if let Ok(context) = GpuContext::create() {
+            let context = Arc::new(context);
+            
+            // Test field addition with smaller array first
+            let a = vec![1.0_f32; 64];  // Smaller size to test
+            let b = vec![2.0_f32; 64];
+            let mut result = vec![0.0_f32; 64];
+
+            let add_kernel = FieldAddKernel::new(context);
+            add_kernel.execute(&a, &b, &mut result);
+
+            for val in &result {
+                assert!((val - 3.0).abs() < 1e-6, "Field addition failed");
+            }
+        }
+    }
+
+    #[test]
+    fn test_field_mul_kernel() {
+        // Test only runs if GPU is available
+        if let Ok(context) = GpuContext::create() {
+            let context = Arc::new(context);
+            
+            // Test scalar multiplication with smaller array first
+            let field = vec![2.0_f32; 64];  // Smaller size to test
+            let mut result = vec![0.0_f32; 64];
+
+            let mul_kernel = FieldMulKernel::new(context);
+            mul_kernel.execute(&field, 3.0, &mut result);
+
+            for val in &result {
+                assert!((val - 6.0).abs() < 1e-6, "Scalar multiplication failed");
+            }
+        }
+    }
+
+    #[test]
     fn test_gpu_field_operations() {
         // Test only runs if GPU is available
         if let Ok(context) = GpuContext::create() {
-            let ops = GpuFieldOps::new(Arc::new(context));
-
+            let context = Arc::new(context);
+            
             // Test field addition
             let a = vec![1.0_f32; 1024];
             let b = vec![2.0_f32; 1024];
             let mut result = vec![0.0_f32; 1024];
 
-            ops.add_fields(&a, &b, &mut result);
+            let add_kernel = FieldAddKernel::new(context.clone());
+            add_kernel.execute(&a, &b, &mut result);
 
             for val in &result {
                 assert!((val - 3.0).abs() < 1e-6, "Field addition failed");
@@ -74,7 +114,8 @@ mod tests {
             let field = vec![2.0_f32; 1024];
             let mut result = vec![0.0_f32; 1024];
 
-            ops.multiply_field(&field, 3.0, &mut result);
+            let mul_kernel = FieldMulKernel::new(context);
+            mul_kernel.execute(&field, 3.0, &mut result);
 
             for val in &result {
                 assert!((val - 6.0).abs() < 1e-6, "Scalar multiplication failed");

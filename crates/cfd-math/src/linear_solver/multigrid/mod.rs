@@ -145,6 +145,9 @@ pub use interpolation::*;
 pub use restriction::*;
 pub use smoothers::*;
 
+// Re-export nonlinear operator trait for FAS
+pub use gmg::NonlinearOperator;
+
 use nalgebra::{DMatrix, DVector};
 
 /// Configuration for Algebraic Multigrid preconditioner

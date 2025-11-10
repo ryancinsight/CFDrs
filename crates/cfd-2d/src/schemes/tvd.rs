@@ -593,8 +593,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
         i: usize,
         j: usize,
     ) -> T {
-        let nx = phi.data.ncols();
-        let _ny = phi.data.nrows();
+        let nx = phi.data.nrows(); // Number of cells in x-direction
+        let _ny = phi.data.ncols(); // Number of cells in y-direction
 
         // Handle boundary cases with one-sided reconstruction
         if i == 0 {

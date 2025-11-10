@@ -306,7 +306,7 @@ fn test_performance_analysis_pipeline() {
         ..Default::default()
     };
 
-    let suite = BenchmarkSuite::with_config(benchmark_config);
+    let suite = BenchmarkSuite::new(benchmark_config);
     if let Ok(results) = suite.run_full_suite() {
         let reports = analyzer.generate_report(&results).unwrap();
 

@@ -605,7 +605,7 @@ mod tests {
 
     #[test]
     fn test_edge_case_test_suite() {
-        let suite = EdgeCaseTestSuite::<f64>::new();
+        let mut suite = EdgeCaseTestSuite::<f64>::new();
         let report = suite.run_comprehensive_edge_case_tests();
 
         assert!(report.is_ok());

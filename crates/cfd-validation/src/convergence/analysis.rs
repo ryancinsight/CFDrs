@@ -3,6 +3,7 @@
 //! Provides tools for analyzing and classifying convergence behavior.
 
 use nalgebra::RealField;
+use cfd_core::conversion::SafeFromF64;
 use num_traits::FromPrimitive;
 
 /// Convergence order classification
@@ -29,31 +30,27 @@ pub enum ConvergenceOrder<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive> ConvergenceOrder<T> {
     /// Determine convergence order from observed rate
     pub fn from_rate(rate: T) -> Self {
-        let tolerance = T::from_f64(0.15).unwrap_or_else(|| {
-            T::from_usize(1).unwrap_or_else(T::one) / T::from_usize(10).unwrap_or_else(T::one)
-        });
+        let tolerance = T::from_f64_or_one(0.15);
 
         if rate < T::from_f64(0.5).unwrap_or_else(T::zero) {
             Self::SubLinear
         } else if (rate - T::one()).abs() < tolerance {
             Self::FirstOrder
-        } else if (rate - T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one())).abs() < tolerance
+        } else if (rate - T::from_f64_or_one(2.0)).abs() < tolerance
         {
             Self::SecondOrder
-        } else if (rate - T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one())).abs()
+        } else if (rate - T::from_f64_or_one(3.0)).abs()
             < tolerance
         {
             Self::ThirdOrder
-        } else if (rate
-            - T::from_f64(4.0).unwrap_or_else(|| T::from_usize(4).unwrap_or_else(T::one)))
-        .abs()
+        } else if (rate - T::from_f64_or_one(4.0)).abs()
             < tolerance
         {
             Self::FourthOrder
-        } else if rate > T::from_f64(6.0).unwrap_or_else(|| T::from_usize(6).unwrap_or_else(T::one))
+        } else if rate > T::from_f64_or_one(6.0)
         {
             Self::Spectral
-        } else if rate > T::one() && rate < T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one())
+        } else if rate > T::one() && rate < T::from_f64_or_one(2.0)
         {
             Self::SuperLinear
         } else {
@@ -64,18 +61,13 @@ impl<T: RealField + Copy + FromPrimitive> ConvergenceOrder<T> {
     /// Get expected rate for this order
     pub fn expected_rate(&self) -> T {
         match self {
-            Self::SubLinear => T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one())),
+            Self::SubLinear => T::from_f64_or_one(0.5),
             Self::FirstOrder => T::one(),
-            Self::SuperLinear => T::from_f64(1.5)
-                .unwrap_or_else(|| (T::one() + T::one() + T::one()) / (T::one() + T::one())),
-            Self::SecondOrder => T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()),
-            Self::ThirdOrder => T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one()),
-            Self::FourthOrder => {
-                T::from_f64(4.0).unwrap_or_else(|| T::from_usize(4).unwrap_or_else(T::one))
-            }
-            Self::Spectral => {
-                T::from_f64(10.0).unwrap_or_else(|| T::from_usize(10).unwrap_or_else(T::one))
-            } // Nominal high value
+            Self::SuperLinear => T::from_f64_or_one(1.5),
+            Self::SecondOrder => T::from_f64_or_one(2.0),
+            Self::ThirdOrder => T::from_f64_or_one(3.0),
+            Self::FourthOrder => T::from_f64_or_one(4.0),
+            Self::Spectral => T::from_f64_or_one(10.0),
             Self::Custom(rate) => *rate,
         }
     }
@@ -83,8 +75,7 @@ impl<T: RealField + Copy + FromPrimitive> ConvergenceOrder<T> {
     /// Check if observed rate matches expected within tolerance
     pub fn matches(&self, observed_rate: T) -> bool {
         let expected = self.expected_rate();
-        let tolerance =
-            T::from_f64(0.25).unwrap_or_else(|| T::one() / T::from_usize(4).unwrap_or_else(T::one)); // 25% tolerance
+        let tolerance = T::from_f64_or_one(0.25); // 25% tolerance
         (observed_rate - expected).abs() < expected * tolerance
     }
 }
@@ -113,8 +104,7 @@ impl ConvergenceAnalysis {
 
         let mean_ratio =
             ratios.iter().copied().sum::<T>() / T::from_usize(ratios.len()).unwrap_or_else(T::one);
-        let tolerance = T::from_f64(0.05)
-            .unwrap_or_else(|| T::one() / T::from_usize(20).unwrap_or_else(T::one)); // 5% variation allowed
+        let tolerance = T::from_f64_or_one(0.05); // 5% variation allowed
 
         ratios
             .iter()

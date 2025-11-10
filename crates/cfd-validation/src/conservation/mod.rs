@@ -4,6 +4,7 @@
 //! conservation laws such as mass, momentum, and energy conservation.
 
 use nalgebra::{DMatrix, RealField};
+use cfd_core::conversion::SafeFromF64;
 use num_traits::{FromPrimitive, ToPrimitive};
 
 mod angular_momentum;
@@ -39,12 +40,12 @@ pub fn run_comprehensive_conservation_verification<T: RealField + Copy + FromPri
 
     // Mass conservation test
     println!("Test 1: Mass Conservation (Incompressible Navier-Stokes)");
-    let mass_checker = MassConservationChecker::<T>::new(T::from_f64(1e-6).unwrap(), 32, 32);
-    let velocity_u = DMatrix::from_element(32, 32, T::from_f64(1.0).unwrap());
+    let mass_checker = MassConservationChecker::<T>::new(<T as SafeFromF64>::from_f64_or_zero(1e-6), 32, 32);
+    let velocity_u = DMatrix::from_element(32, 32, <T as SafeFromF64>::from_f64_or_zero(1.0));
     let velocity_v = DMatrix::from_element(32, 32, T::zero());
 
     match mass_checker.check_divergence_2d(
-        &velocity_u, &velocity_v, T::from_f64(0.1).unwrap(), T::from_f64(0.1).unwrap()
+        &velocity_u, &velocity_v, <T as SafeFromF64>::from_f64_or_one(0.1), <T as SafeFromF64>::from_f64_or_one(0.1)
     ) {
         Ok(report) => {
             println!("  ✅ {}: Error = {:.2e}, Conserved: {}",
@@ -55,16 +56,16 @@ pub fn run_comprehensive_conservation_verification<T: RealField + Copy + FromPri
 
     // Momentum conservation test
     println!("\nTest 2: Momentum Conservation (Steady State)");
-    let momentum_checker = MomentumConservationChecker::<T>::new(T::from_f64(1e-6).unwrap(), 32, 32, T::one());
-    let u_prev = DMatrix::from_element(32, 32, T::from_f64(0.95).unwrap()); // Slightly different for time derivative
+    let momentum_checker = MomentumConservationChecker::<T>::new(<T as SafeFromF64>::from_f64_or_zero(1e-6), 32, 32, T::one());
+    let u_prev = DMatrix::from_element(32, 32, <T as SafeFromF64>::from_f64_or_zero(0.95)); // Slightly different for time derivative
     let v_prev = DMatrix::zeros(32, 32);
-    let pressure = DMatrix::from_element(32, 32, T::from_f64(101325.0).unwrap()); // Atmospheric pressure
+    let pressure = DMatrix::from_element(32, 32, <T as SafeFromF64>::from_f64_or_zero(101325.0)); // Atmospheric pressure
 
     match momentum_checker.check_momentum_2d(
         &velocity_u, &velocity_v, &u_prev, &v_prev, &pressure,
-        T::from_f64(1.5e-5).unwrap(), // Air viscosity
-        T::from_f64(1e-3).unwrap(), // dt
-        T::from_f64(0.1).unwrap(), T::from_f64(0.1).unwrap(), // dx, dy
+        <T as SafeFromF64>::from_f64_or_zero(1.5e-5), // Air viscosity
+        <T as SafeFromF64>::from_f64_or_one(1e-3), // dt
+        <T as SafeFromF64>::from_f64_or_one(0.1), <T as SafeFromF64>::from_f64_or_one(0.1), // dx, dy
         nalgebra::Vector2::zeros() // No gravity
     ) {
         Ok(report) => {
@@ -76,14 +77,14 @@ pub fn run_comprehensive_conservation_verification<T: RealField + Copy + FromPri
 
     // Energy conservation test (if temperature field available)
     println!("\nTest 3: Energy Conservation (Thermal)");
-    let energy_checker = EnergyConservationChecker::<T>::new(T::from_f64(1e-6).unwrap(), 32, 32, T::one(), T::from_f64(1000.0).unwrap());
-    let temperature = DMatrix::from_element(32, 32, T::from_f64(300.0).unwrap()); // Room temperature
+    let energy_checker = EnergyConservationChecker::<T>::new(<T as SafeFromF64>::from_f64_or_zero(1e-6), 32, 32, T::one(), <T as SafeFromF64>::from_f64_or_zero(1000.0));
+    let temperature = DMatrix::from_element(32, 32, <T as SafeFromF64>::from_f64_or_zero(300.0)); // Room temperature
 
     match energy_checker.check_energy_2d(
         &temperature, &temperature, &velocity_u, &velocity_v,
-        T::from_f64(0.025).unwrap(), // Thermal conductivity
-        T::from_f64(1e-3).unwrap(), // dt
-        T::from_f64(0.1).unwrap(), T::from_f64(0.1).unwrap(), // dx, dy
+        <T as SafeFromF64>::from_f64_or_zero(0.025), // Thermal conductivity
+        <T as SafeFromF64>::from_f64_or_one(1e-3), // dt
+        <T as SafeFromF64>::from_f64_or_one(0.1), <T as SafeFromF64>::from_f64_or_one(0.1), // dx, dy
         None, // No source term
     ) {
         Ok(report) => {
@@ -95,10 +96,10 @@ pub fn run_comprehensive_conservation_verification<T: RealField + Copy + FromPri
 
     // Angular momentum conservation test
     println!("\nTest 4: Angular Momentum Conservation (2D Cartesian)");
-    let am_checker = AngularMomentumChecker::<T>::new_centered(T::from_f64(1e-6).unwrap(), 32, 32);
+    let am_checker = AngularMomentumChecker::<T>::new_centered(<T as SafeFromF64>::from_f64_or_zero(1e-6), 32, 32);
 
     match am_checker.check_angular_momentum_2d(
-        &velocity_u, &velocity_v, T::from_f64(0.1).unwrap(), T::from_f64(0.1).unwrap()
+        &velocity_u, &velocity_v, <T as SafeFromF64>::from_f64_or_one(0.1), <T as SafeFromF64>::from_f64_or_one(0.1)
     ) {
         Ok(report) => {
             println!("  ✅ {}: Error = {:.2e}, Conserved: {}",
@@ -109,12 +110,12 @@ pub fn run_comprehensive_conservation_verification<T: RealField + Copy + FromPri
 
     // Vorticity conservation test
     println!("\nTest 5: Vorticity Transport Conservation");
-    let vorticity_checker = VorticityChecker::<T>::new(T::from_f64(1e-6).unwrap(), 32, 32);
+    let vorticity_checker = VorticityChecker::<T>::new(<T as SafeFromF64>::from_f64_or_zero(1e-6), 32, 32);
 
     match vorticity_checker.check_vorticity_transport_2d(
         &velocity_u, &velocity_v,
-        T::from_f64(1.5e-5).unwrap(), // viscosity
-        T::from_f64(0.1).unwrap(), T::from_f64(0.1).unwrap()
+        <T as SafeFromF64>::from_f64_or_zero(1.5e-5), // viscosity
+        <T as SafeFromF64>::from_f64_or_one(0.1), <T as SafeFromF64>::from_f64_or_one(0.1)
     ) {
         Ok(report) => {
             println!("  ✅ {}: Error = {:.2e}, Conserved: {}",
@@ -125,7 +126,7 @@ pub fn run_comprehensive_conservation_verification<T: RealField + Copy + FromPri
 
     // Geometric conservation law test
     println!("\nTest 6: Geometric Conservation Law");
-    let gcl_checker = GeometricConservationChecker::<T>::new(T::from_f64(1e-14).unwrap(), 32, 32);
+    let gcl_checker = GeometricConservationChecker::<T>::new(<T as SafeFromF64>::from_f64_or_zero(1e-14), 32, 32);
 
     match gcl_checker.run_comprehensive_gcl_tests() {
         Ok(results) => {

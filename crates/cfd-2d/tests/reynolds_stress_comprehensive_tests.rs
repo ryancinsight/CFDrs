@@ -55,11 +55,11 @@ fn test_production_term() {
     let mut stresses = model.initialize_reynolds_stresses(1.0, 0.1);
 
     // Test production for xx component: P_xx = -2 ⟨u'v'⟩ du/dy
-    let p_xx = model.production_term(&stresses, &velocity_gradient, 0, 0);
+    let p_xx = model.production_term(&stresses, &velocity_gradient, 0, 0, 2, 2);
     assert_relative_eq!(p_xx, 0.0, epsilon = 1e-10); // Initially zero shear stress
 
     // Test production for xy component: P_xy = -⟨u'u'⟩ du/dy - ⟨v'v'⟩ du/dy
-    let p_xy = model.production_term(&stresses, &velocity_gradient, 0, 1);
+    let p_xy = model.production_term(&stresses, &velocity_gradient, 0, 1, 2, 2);
     let expected_p_xy = -stresses.xx[(2, 2)] - stresses.yy[(2, 2)]; // Both terms equal
     assert_relative_eq!(p_xy, expected_p_xy, epsilon = 1e-10);
 }
@@ -76,7 +76,7 @@ fn test_pressure_strain_models() {
 
     // Test that pressure-strain terms are finite for different models
     // We can't directly set the model type due to private fields, but we can test the default
-    let phi = model.pressure_strain_term(&stresses, &strain_rate, &rotation_rate, 0, 1);
+    let phi = model.pressure_strain_term(&stresses, &strain_rate, &rotation_rate, 0, 1, 2, 2);
     assert!(phi.is_finite(), "Pressure-strain term should be finite");
     assert!(phi.abs() < 10.0, "Pressure-strain term should be reasonable magnitude");
 }
@@ -246,11 +246,11 @@ fn test_boundary_layer_anisotropy() {
         // Simplified single-point update (would need full field in practice)
         let velocity_gradient = [[0.0, shear_rate], [0.0, 0.0]];
 
-        let p_xy = model.production_term(&stresses, &velocity_gradient, 0, 1);
+        let p_xy = model.production_term(&stresses, &velocity_gradient, 0, 1, 0, 10);
         let strain_rate = [[0.0, 0.5 * shear_rate], [0.5 * shear_rate, 0.0]];
         let rotation_rate = [[0.0, 0.5 * shear_rate], [-0.5 * shear_rate, 0.0]];
 
-        let phi_xy = model.pressure_strain_term(&stresses, &strain_rate, &rotation_rate, 0, 1);
+        let phi_xy = model.pressure_strain_term(&stresses, &strain_rate, &rotation_rate, 0, 1, 0, 10);
 
         // Simple explicit update
         let dt = 0.001;
@@ -286,7 +286,7 @@ fn test_pressure_strain_model_comparison() {
 
     for ps_model in models {
         model.pressure_strain_model = ps_model;
-        let phi = model.pressure_strain_term(&stresses, &strain_rate, &rotation_rate, 0, 1);
+        let phi = model.pressure_strain_term(&stresses, &strain_rate, &rotation_rate, 0, 1, 2, 2);
         results.push(phi);
     }
 
@@ -350,7 +350,7 @@ fn test_turbulence_model_trait() {
     // Test production term (simplified) - create dummy stress tensor
     let dummy_stresses = model.initialize_reynolds_stresses(1.0, 0.1);
     let velocity_gradient = [[0.0, 1.0], [0.0, 0.0]];
-    let prod = model.production_term(&dummy_stresses, &velocity_gradient, 0, 1);
+    let prod = model.production_term(&dummy_stresses, &velocity_gradient, 0, 1, 2, 2);
     assert!(prod.is_finite(), "Production should be finite");
 }
 
@@ -369,12 +369,12 @@ fn test_numerical_stability() {
     let rotation_rate = [[0.0, 0.5], [-0.5, 0.0]];
 
     // Should handle near-zero values gracefully
-    let phi = model.pressure_strain_term(&stresses, &strain_rate, &rotation_rate, 0, 1);
+    let phi = model.pressure_strain_term(&stresses, &strain_rate, &rotation_rate, 0, 1, 5, 5);
     assert!(phi.is_finite(), "Should handle small k/ε gracefully");
 
     // Test with zero epsilon (should return zero)
     stresses.epsilon[(5, 5)] = 0.0;
-    let phi_zero = model.pressure_strain_term(&stresses, &strain_rate, &rotation_rate, 0, 1);
+    let phi_zero = model.pressure_strain_term(&stresses, &strain_rate, &rotation_rate, 0, 1, 5, 5);
     assert_relative_eq!(phi_zero, 0.0, epsilon = 1e-10);
 }
 
@@ -501,15 +501,15 @@ fn test_reynolds_stress_mms_convergence() {
         let mut num_xy = DMatrix::zeros(nx, ny);
         let mut num_yy = DMatrix::zeros(nx, ny);
 
-        // Evaluate MMS at grid points
+        // Evaluate MMS at grid points using the MMS captured in the study
         for i in 0..nx {
             for j in 0..ny {
                 let x = i as f64 * dx;
                 let y = j as f64 * dy;
 
-                num_xx[(i, j)] = mms.exact_reynolds_stress(0, 0, x, y, t);
-                num_xy[(i, j)] = mms.exact_reynolds_stress(0, 1, x, y, t);
-                num_yy[(i, j)] = mms.exact_reynolds_stress(1, 1, x, y, t);
+                num_xx[(i, j)] = study.mms.exact_reynolds_stress(0, 0, x, y, t);
+                num_xy[(i, j)] = study.mms.exact_reynolds_stress(0, 1, x, y, t);
+                num_yy[(i, j)] = study.mms.exact_reynolds_stress(1, 1, x, y, t);
             }
         }
 

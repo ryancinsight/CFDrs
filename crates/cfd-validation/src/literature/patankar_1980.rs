@@ -141,8 +141,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> PatankarLidDrivenCavity<
     /// Reference pressure coefficient
     pub fn reference_pressure_coefficient(&self) -> Result<T> {
         // From Patankar's convergence studies
-        T::from_f64(0.118)
-            .ok_or_else(|| Error::InvalidInput("Cannot convert pressure coefficient".to_string()))
+        <T as cfd_core::conversion::SafeFromF64>::try_from_f64(0.118)
     }
 }
 
@@ -156,20 +155,17 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
             (
                 0.5,
                 0.9375,
-                T::from_f64(-0.0625)
-                    .ok_or_else(|| Error::InvalidInput("Cannot convert psi value".to_string()))?,
+                <T as cfd_core::conversion::SafeFromF64>::try_from_f64(-0.0625)?,
             ), // ψ at center-top
             (
                 0.5,
                 0.5,
-                T::from_f64(-0.1)
-                    .ok_or_else(|| Error::InvalidInput("Cannot convert psi value".to_string()))?,
+                <T as cfd_core::conversion::SafeFromF64>::try_from_f64(-0.1)?,
             ), // ψ at center
             (
                 0.5,
                 0.0625,
-                T::from_f64(-0.0625)
-                    .ok_or_else(|| Error::InvalidInput("Cannot convert psi value".to_string()))?,
+                <T as cfd_core::conversion::SafeFromF64>::try_from_f64(-0.0625)?,
             ), // ψ at center-bottom
         ];
 
@@ -187,8 +183,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
         // Vorticity boundary conditions derived from stream function
 
         let max_iterations = 10000;
-        let tolerance = T::from_f64(1e-6)
-            .ok_or_else(|| Error::InvalidInput("Cannot convert tolerance".to_string()))?;
+        let tolerance = <T as cfd_core::conversion::SafeFromF64>::try_from_f64(1e-6)?;
         let mut iteration = 0;
         let mut max_change = T::one();
 
@@ -196,17 +191,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
             psi_prev.copy_from(&psi);
 
             // Interior points: solve ∇²ψ = -ω using SOR
-            let omega_sor = T::from_f64(1.5)
-                .ok_or_else(|| Error::InvalidInput("Cannot convert omega_sor".to_string()))?; // SOR relaxation factor
+            let omega_sor = <T as cfd_core::conversion::SafeFromF64>::try_from_f64(1.5)?; // SOR relaxation factor
 
             for i in 1..grid_points - 1 {
                 for j in 1..grid_points - 1 {
                     let psi_old = psi[(i, j)];
                     let psi_new =
                         (psi[(i + 1, j)] + psi[(i - 1, j)] + psi[(i, j + 1)] + psi[(i, j - 1)])
-                            / T::from_f64(4.0).ok_or_else(|| {
-                                Error::InvalidInput("Cannot calculate psi_new".to_string())
-                            })?;
+                            / <T as cfd_core::conversion::SafeFromF64>::try_from_f64(4.0)?;
                     psi[(i, j)] = psi_old + omega_sor * (psi_new - psi_old);
                 }
             }
@@ -233,10 +225,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
         for (x_ref, y_ref, psi_ref) in reference_data {
             let grid_size_t = T::from_usize(grid_points - 1)
                 .ok_or_else(|| Error::InvalidInput("Cannot convert grid size".to_string()))?;
-            let x_ref_t = T::from_f64(x_ref)
-                .ok_or_else(|| Error::InvalidInput("Cannot convert x_ref".to_string()))?;
-            let y_ref_t = T::from_f64(y_ref)
-                .ok_or_else(|| Error::InvalidInput("Cannot convert y_ref".to_string()))?;
+            let x_ref_t = <T as cfd_core::conversion::SafeFromF64>::try_from_f64(x_ref)?;
+            let y_ref_t = <T as cfd_core::conversion::SafeFromF64>::try_from_f64(y_ref)?;
             let i_float = x_ref_t * grid_size_t;
             let j_float = y_ref_t * grid_size_t;
             // Convert to f64 first, then to usize
@@ -257,8 +247,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
         let avg_error = sum_error
             / T::from_usize(count)
                 .ok_or_else(|| Error::InvalidInput("Cannot calculate avg_error".to_string()))?;
-        let tolerance_threshold = T::from_f64(0.01)
-            .ok_or_else(|| Error::InvalidInput("Cannot convert tolerance_threshold".to_string()))?;
+        let tolerance_threshold = <T as cfd_core::conversion::SafeFromF64>::try_from_f64(0.01)?;
 
         Ok(ValidationReport {
             test_name: "Patankar Lid-Driven Cavity".to_string(),

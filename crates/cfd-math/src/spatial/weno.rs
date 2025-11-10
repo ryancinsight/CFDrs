@@ -113,7 +113,7 @@ impl<T: RealField + Copy + FromPrimitive> Weno5<T> {
     /// # Returns
     ///
     /// Reconstructed value at i+1/2 interface
-    pub fn reconstruct_left(&self, q: &[T; 5]) -> T {
+    pub fn reconstruct_left5(&self, q: &[T; 5]) -> T {
         // Linear weights for 5th-order WENO
         let gamma = [
             T::from_f64(1.0 / 10.0).unwrap(),  // γ₀ = 1/10
@@ -149,11 +149,11 @@ impl<T: RealField + Copy + FromPrimitive> Weno5<T> {
     /// # Returns
     ///
     /// Reconstructed value at i+1/2 interface
-    pub fn reconstruct_right(&self, q: &[T; 5]) -> T {
+    pub fn reconstruct_right5(&self, q: &[T; 5]) -> T {
         // For right reconstruction, use mirrored stencils
         // This is equivalent to reconstructing from the right
         let q_mirror = [q[4], q[3], q[2], q[1], q[0]];
-        -self.reconstruct_left(&q_mirror)  // Negative because of flux difference
+        -self.reconstruct_left5(&q_mirror)  // Negative because of flux difference
     }
 
     /// Compute 3rd-order ENO reconstruction from stencil 0: {q_{i-2}, q_{i-1}, q_i}
@@ -277,7 +277,7 @@ impl<T: RealField + Copy + FromPrimitive> Weno7<T> {
     /// # Returns
     ///
     /// Reconstructed value at i+1/2 interface
-    pub fn reconstruct_left(&self, q: &[T; 8]) -> T {
+    pub fn reconstruct_left5(&self, q: &[T; 8]) -> T {
         // Linear weights for 7th-order WENO
         let gamma = [
             T::from_f64(1.0 / 35.0).unwrap(),   // γ₀ = 1/35
@@ -440,15 +440,344 @@ impl<T: RealField + Copy + FromPrimitive> Weno7<T> {
     /// # Returns
     ///
     /// Reconstructed value at i+1/2 interface
-    pub fn reconstruct_right(&self, q: &[T; 8]) -> T {
+    pub fn reconstruct_right5(&self, q: &[T; 8]) -> T {
         // For right reconstruction, use mirrored stencils
         // This is equivalent to reconstructing from the right
         let q_mirror = [q[7], q[6], q[5], q[4], q[3], q[2], q[1], q[0]];
-        -self.reconstruct_left(&q_mirror)  // Negative because of flux difference
+        -self.reconstruct_left5(&q_mirror)  // Negative because of flux difference
     }
 }
 
 impl<T: RealField + Copy + FromPrimitive> Default for Weno7<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// 9th-order Weighted Essentially Non-Oscillatory reconstruction
+#[derive(Debug, Clone)]
+pub struct Weno9<T: RealField + Copy> {
+    config: WenoConfig<T>,
+}
+
+impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> Weno9<T> {
+    /// Create WENO9 reconstruction with default configuration
+    pub fn new() -> Self {
+        Self {
+            config: WenoConfig::default(),
+        }
+    }
+
+    /// Create WENO9 reconstruction with custom configuration
+    pub fn with_config(config: WenoConfig<T>) -> Self {
+        Self { config }
+    }
+
+    /// Reconstruct left interface value (q_{i+1/2}^-) from cell-centered values
+    ///
+    /// Requires 11 cell-centered values: [q_{i-5}, ..., q_{i+5}]
+    ///
+    /// # Arguments
+    ///
+    /// * `q` - Array of cell-centered values (length 11)
+    ///
+    /// # Returns
+    ///
+    /// Reconstructed value at i+1/2 interface
+    pub fn reconstruct_left5(&self, q: &[T; 11]) -> T {
+        // Linear weights for 9th-order WENO (optimized by Henrick et al.)
+        let gamma = [
+            T::from_f64(1.0 / 126.0).unwrap(),    // γ₀ = 1/126
+            T::from_f64(10.0 / 126.0).unwrap(),   // γ₁ = 10/126
+            T::from_f64(45.0 / 126.0).unwrap(),   // γ₂ = 45/126
+            T::from_f64(60.0 / 126.0).unwrap(),   // γ₃ = 60/126
+            T::from_f64(10.0 / 126.0).unwrap(),   // γ₄ = 10/126
+        ];
+
+        // Compute candidate polynomials (7th-order ENO reconstructions)
+        let q0 = self.eno7_stencil0(q);
+        let q1 = self.eno7_stencil1(q);
+        let q2 = self.eno7_stencil2(q);
+        let q3 = self.eno7_stencil3(q);
+        let q4 = self.eno7_stencil4(q);
+
+        let candidates = [q0, q1, q2, q3, q4];
+
+        // Compute smoothness indicators
+        let beta = self.compute_smoothness_indicators9(q);
+
+        // Compute nonlinear weights
+        let weights = self.compute_weights(&gamma, &beta);
+
+        // Weighted combination
+        candidates.iter().zip(weights.iter()).map(|(&q, &w)| q * w).sum()
+    }
+
+    /// Reconstruct right interface value (q_{i+1/2}^+) from cell-centered values
+    ///
+    /// Requires 11 cell-centered values: [q_{i-5}, ..., q_{i+5}]
+    ///
+    /// # Arguments
+    ///
+    /// * `q` - Array of cell-centered values (length 11)
+    ///
+    /// # Returns
+    ///
+    /// Reconstructed value at i+1/2 interface
+    pub fn reconstruct_right5(&self, q: &[T; 11]) -> T {
+        // Linear weights for 9th-order WENO (symmetric for right reconstruction)
+        let gamma = [
+            T::from_f64(10.0 / 126.0).unwrap(),   // γ₀ = 10/126
+            T::from_f64(60.0 / 126.0).unwrap(),   // γ₁ = 60/126
+            T::from_f64(45.0 / 126.0).unwrap(),   // γ₂ = 45/126
+            T::from_f64(10.0 / 126.0).unwrap(),   // γ₃ = 10/126
+            T::from_f64(1.0 / 126.0).unwrap(),    // γ₄ = 1/126
+        ];
+
+        // Compute candidate polynomials (7th-order ENO reconstructions)
+        let q0 = self.eno7_stencil0_right(q);
+        let q1 = self.eno7_stencil1_right(q);
+        let q2 = self.eno7_stencil2_right(q);
+        let q3 = self.eno7_stencil3_right(q);
+        let q4 = self.eno7_stencil4_right(q);
+
+        let candidates = [q0, q1, q2, q3, q4];
+
+        // Compute smoothness indicators
+        let beta = self.compute_smoothness_indicators9(q);
+
+        // Compute nonlinear weights
+        let weights = self.compute_weights(&gamma, &beta);
+
+        // Weighted combination
+        candidates.iter().zip(weights.iter()).map(|(&q, &w)| q * w).sum()
+    }
+
+    /// 7th-order ENO reconstruction for stencil 0 (left-biased)
+    fn eno7_stencil0(&self, q: &[T; 11]) -> T {
+        // Coefficients for 7th-order ENO reconstruction
+        // Stencil: q[i-3], q[i-2], q[i-1], q[i], q[i+1], q[i+2], q[i+3]
+        let coeffs = [
+            T::from_f64(-1.0/4.0).unwrap(),
+            T::from_f64(5.0/4.0).unwrap(),
+            T::from_f64(-5.0).unwrap(),
+            T::from_f64(17.0/4.0).unwrap(),
+            T::from_f64(5.0/4.0).unwrap(),
+            T::from_f64(-1.0/4.0).unwrap(),
+            T::zero(),
+        ];
+
+        coeffs.iter().zip(&q[3..10]).map(|(&c, &q)| c * q).sum()
+    }
+
+    /// 7th-order ENO reconstruction for stencil 1
+    fn eno7_stencil1(&self, q: &[T; 11]) -> T {
+        let coeffs = [
+            T::from_f64(1.0/6.0).unwrap(),
+            T::from_f64(-7.0/6.0).unwrap(),
+            T::from_f64(23.0/6.0).unwrap(),
+            T::from_f64(1.0/2.0).unwrap(),
+            T::from_f64(-1.0/6.0).unwrap(),
+            T::zero(),
+            T::zero(),
+        ];
+
+        coeffs.iter().zip(&q[2..9]).map(|(&c, &q)| c * q).sum()
+    }
+
+    /// 7th-order ENO reconstruction for stencil 2
+    fn eno7_stencil2(&self, q: &[T; 11]) -> T {
+        let coeffs = [
+            T::from_f64(-1.0/6.0).unwrap(),
+            T::from_f64(5.0/6.0).unwrap(),
+            T::from_f64(13.0/6.0).unwrap(),
+            T::from_f64(1.0/3.0).unwrap(),
+            T::from_f64(-1.0/6.0).unwrap(),
+            T::zero(),
+            T::zero(),
+        ];
+
+        coeffs.iter().zip(&q[1..8]).map(|(&c, &q)| c * q).sum()
+    }
+
+    /// 7th-order ENO reconstruction for stencil 3
+    fn eno7_stencil3(&self, q: &[T; 11]) -> T {
+        let coeffs = [
+            T::from_f64(1.0/6.0).unwrap(),
+            T::from_f64(-1.0/2.0).unwrap(),
+            T::from_f64(13.0/6.0).unwrap(),
+            T::from_f64(5.0/6.0).unwrap(),
+            T::from_f64(-1.0/6.0).unwrap(),
+            T::zero(),
+            T::zero(),
+        ];
+
+        coeffs.iter().zip(&q[0..7]).map(|(&c, &q)| c * q).sum()
+    }
+
+    /// 7th-order ENO reconstruction for stencil 4 (right-biased)
+    fn eno7_stencil4(&self, q: &[T; 11]) -> T {
+        let coeffs = [
+            T::zero(),
+            T::from_f64(1.0/4.0).unwrap(),
+            T::from_f64(-5.0/4.0).unwrap(),
+            T::from_f64(17.0/4.0).unwrap(),
+            T::from_f64(5.0).unwrap(),
+            T::from_f64(-5.0/4.0).unwrap(),
+            T::from_f64(1.0/4.0).unwrap(),
+        ];
+
+        coeffs.iter().zip(&q[0..7]).map(|(&c, &q)| c * q).sum()
+    }
+
+    /// Right reconstruction stencils (shifted for right interface)
+    fn eno7_stencil0_right(&self, q: &[T; 11]) -> T {
+        // Shifted by 1 for right interface reconstruction
+        let coeffs = [
+            T::zero(),
+            T::from_f64(-1.0/4.0).unwrap(),
+            T::from_f64(5.0/4.0).unwrap(),
+            T::from_f64(-5.0).unwrap(),
+            T::from_f64(17.0/4.0).unwrap(),
+            T::from_f64(5.0/4.0).unwrap(),
+            T::from_f64(-1.0/4.0).unwrap(),
+        ];
+
+        coeffs.iter().zip(&q[4..11]).map(|(&c, &q)| c * q).sum()
+    }
+
+    fn eno7_stencil1_right(&self, q: &[T; 11]) -> T {
+        let coeffs = [
+            T::zero(),
+            T::from_f64(1.0/6.0).unwrap(),
+            T::from_f64(-7.0/6.0).unwrap(),
+            T::from_f64(23.0/6.0).unwrap(),
+            T::from_f64(1.0/2.0).unwrap(),
+            T::from_f64(-1.0/6.0).unwrap(),
+            T::zero(),
+        ];
+
+        coeffs.iter().zip(&q[3..10]).map(|(&c, &q)| c * q).sum()
+    }
+
+    fn eno7_stencil2_right(&self, q: &[T; 11]) -> T {
+        let coeffs = [
+            T::zero(),
+            T::from_f64(-1.0/6.0).unwrap(),
+            T::from_f64(5.0/6.0).unwrap(),
+            T::from_f64(13.0/6.0).unwrap(),
+            T::from_f64(1.0/3.0).unwrap(),
+            T::from_f64(-1.0/6.0).unwrap(),
+            T::zero(),
+        ];
+
+        coeffs.iter().zip(&q[2..9]).map(|(&c, &q)| c * q).sum()
+    }
+
+    fn eno7_stencil3_right(&self, q: &[T; 11]) -> T {
+        let coeffs = [
+            T::zero(),
+            T::from_f64(1.0/6.0).unwrap(),
+            T::from_f64(-1.0/2.0).unwrap(),
+            T::from_f64(13.0/6.0).unwrap(),
+            T::from_f64(5.0/6.0).unwrap(),
+            T::from_f64(-1.0/6.0).unwrap(),
+            T::zero(),
+        ];
+
+        coeffs.iter().zip(&q[1..8]).map(|(&c, &q)| c * q).sum()
+    }
+
+    fn eno7_stencil4_right(&self, q: &[T; 11]) -> T {
+        let coeffs = [
+            T::from_f64(1.0/4.0).unwrap(),
+            T::from_f64(-5.0/4.0).unwrap(),
+            T::from_f64(17.0/4.0).unwrap(),
+            T::from_f64(5.0).unwrap(),
+            T::from_f64(-5.0/4.0).unwrap(),
+            T::from_f64(1.0/4.0).unwrap(),
+            T::zero(),
+        ];
+
+        coeffs.iter().zip(&q[0..7]).map(|(&c, &q)| c * q).sum()
+    }
+
+    /// Compute smoothness indicators for 9th-order WENO
+    fn compute_smoothness_indicators9(&self, q: &[T; 11]) -> [T; 5] {
+        // Smoothness indicators for 9th-order WENO
+        // Based on Jiang & Shu formulation extended to 9th order
+
+        let mut beta = [T::zero(); 5];
+
+        // Beta for stencil 0 (q[i-3] to q[i+3])
+        let q_range = &q[3..10]; // 7 points
+        beta[0] = self.compute_beta_7point(q_range);
+
+        // Beta for stencil 1 (q[i-2] to q[i+4])
+        let q_range = &q[2..9]; // 7 points
+        beta[1] = self.compute_beta_7point(q_range);
+
+        // Beta for stencil 2 (q[i-1] to q[i+5])
+        let q_range = &q[1..8]; // 7 points
+        beta[2] = self.compute_beta_7point(q_range);
+
+        // Beta for stencil 3 (q[i] to q[i+6])
+        let q_range = &q[0..7]; // 7 points
+        beta[3] = self.compute_beta_7point(q_range);
+
+        // Beta for stencil 4 (q[i+1] to q[i+7])
+        let q_range = &q[1..8]; // 7 points shifted
+        beta[4] = self.compute_beta_7point(q_range);
+
+        beta
+    }
+
+    /// Compute smoothness indicator for 7-point stencil
+    fn compute_beta_7point(&self, q: &[T]) -> T {
+        debug_assert_eq!(q.len(), 7, "7-point smoothness indicator requires 7 values");
+
+        // Jiang-Shu smoothness indicator for 7 points
+        let d1 = q[1] - q[0];
+        let d2 = q[2] - q[1];
+        let d3 = q[3] - q[2];
+        let d4 = q[4] - q[3];
+        let d5 = q[5] - q[4];
+        let d6 = q[6] - q[5];
+
+        let beta1 = T::from_f64(1.0/4.0).unwrap() * d1*d1 +
+                    T::from_f64(13.0/12.0).unwrap() * (d1 - T::from_f64(2.0).unwrap()*d2 + d3).powi(2);
+
+        let beta2 = T::from_f64(1.0/4.0).unwrap() * d3*d3 +
+                    T::from_f64(13.0/12.0).unwrap() * (d3 - T::from_f64(2.0).unwrap()*d4 + d5).powi(2);
+
+        let beta3 = T::from_f64(1.0/4.0).unwrap() * d5*d5 +
+                    T::from_f64(13.0/12.0).unwrap() * (d5 - T::from_f64(2.0).unwrap()*d6 + q[6] - q[5]).powi(2);
+
+        beta1 + beta2 + beta3
+    }
+
+    /// Compute nonlinear weights from linear weights and smoothness indicators
+    fn compute_weights(&self, gamma: &[T; 5], beta: &[T; 5]) -> [T; 5] {
+        let epsilon = self.config.epsilon;
+
+        // Compute unnormalized weights
+        let mut alpha = [T::zero(); 5];
+        for i in 0..5 {
+            alpha[i] = gamma[i] / (epsilon + beta[i]).powi(2);
+        }
+
+        // Normalize
+        let sum: T = alpha.iter().cloned().sum();
+        let mut weights = [T::zero(); 5];
+        for i in 0..5 {
+            weights[i] = alpha[i] / sum;
+        }
+
+        weights
+    }
+}
+
+impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> Default for Weno9<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -461,9 +790,11 @@ pub enum WenoReconstruction<T: RealField + Copy> {
     Weno5(Weno5<T>),
     /// 7th-order WENO scheme
     Weno7(Weno7<T>),
+    /// 9th-order WENO scheme
+    Weno9(Weno9<T>),
 }
 
-impl<T: RealField + Copy + FromPrimitive> WenoReconstruction<T> {
+impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WenoReconstruction<T> {
     /// Create 5th-order WENO reconstruction
     pub fn weno5() -> Self {
         Self::Weno5(Weno5::new())
@@ -474,35 +805,62 @@ impl<T: RealField + Copy + FromPrimitive> WenoReconstruction<T> {
         Self::Weno7(Weno7::new())
     }
 
+    /// Create 9th-order WENO reconstruction
+    pub fn weno9() -> Self {
+        Self::Weno9(Weno9::new())
+    }
+
     /// Reconstruct left interface value (5th-order, requires 5 values)
-    pub fn reconstruct_left5(&self, q: &[T; 5]) -> T {
+    pub fn reconstruct_left55(&self, q: &[T; 5]) -> T {
         match self {
-            Self::Weno5(weno) => weno.reconstruct_left(q),
-            Self::Weno7(_) => panic!("WENO7 requires 8 values, use reconstruct_left8"),
+            Self::Weno5(weno) => weno.reconstruct_left5(q),
+            Self::Weno7(_) => panic!("WENO7 requires 8 values, use reconstruct_left58"),
+            Self::Weno9(_) => panic!("WENO9 requires 11 values, use reconstruct_left511"),
         }
     }
 
     /// Reconstruct left interface value (7th-order, requires 8 values)
-    pub fn reconstruct_left8(&self, q: &[T; 8]) -> T {
+    pub fn reconstruct_left58(&self, q: &[T; 8]) -> T {
         match self {
-            Self::Weno5(_) => panic!("WENO5 requires 5 values, use reconstruct_left5"),
-            Self::Weno7(weno) => weno.reconstruct_left(q),
+            Self::Weno5(_) => panic!("WENO5 requires 5 values, use reconstruct_left55"),
+            Self::Weno7(weno) => weno.reconstruct_left5(q),
+            Self::Weno9(_) => panic!("WENO9 requires 11 values, use reconstruct_left511"),
+        }
+    }
+
+    /// Reconstruct left interface value (9th-order, requires 11 values)
+    pub fn reconstruct_left511(&self, q: &[T; 11]) -> T {
+        match self {
+            Self::Weno5(_) => panic!("WENO5 requires 5 values, use reconstruct_left55"),
+            Self::Weno7(_) => panic!("WENO7 requires 8 values, use reconstruct_left58"),
+            Self::Weno9(weno) => weno.reconstruct_left5(q),
         }
     }
 
     /// Reconstruct right interface value (5th-order, requires 5 values)
-    pub fn reconstruct_right5(&self, q: &[T; 5]) -> T {
+    pub fn reconstruct_right55(&self, q: &[T; 5]) -> T {
         match self {
-            Self::Weno5(weno) => weno.reconstruct_right(q),
-            Self::Weno7(_) => panic!("WENO7 requires 8 values, use reconstruct_right8"),
+            Self::Weno5(weno) => weno.reconstruct_right5(q),
+            Self::Weno7(_) => panic!("WENO7 requires 8 values, use reconstruct_right58"),
+            Self::Weno9(_) => panic!("WENO9 requires 11 values, use reconstruct_right511"),
         }
     }
 
     /// Reconstruct right interface value (7th-order, requires 8 values)
-    pub fn reconstruct_right8(&self, q: &[T; 8]) -> T {
+    pub fn reconstruct_right58(&self, q: &[T; 8]) -> T {
         match self {
-            Self::Weno5(_) => panic!("WENO5 requires 5 values, use reconstruct_right5"),
-            Self::Weno7(weno) => weno.reconstruct_right(q),
+            Self::Weno5(_) => panic!("WENO5 requires 5 values, use reconstruct_right55"),
+            Self::Weno7(weno) => weno.reconstruct_right5(q),
+            Self::Weno9(_) => panic!("WENO9 requires 11 values, use reconstruct_right511"),
+        }
+    }
+
+    /// Reconstruct right interface value (9th-order, requires 11 values)
+    pub fn reconstruct_right511(&self, q: &[T; 11]) -> T {
+        match self {
+            Self::Weno5(_) => panic!("WENO5 requires 5 values, use reconstruct_right55"),
+            Self::Weno7(_) => panic!("WENO7 requires 8 values, use reconstruct_right58"),
+            Self::Weno9(weno) => weno.reconstruct_right5(q),
         }
     }
 }
@@ -526,7 +884,7 @@ mod tests {
         // Test with smooth sine function
         // Using uniform grid with Δx = 0.1
         let dx = 0.1;
-        let x_base = 1.0; // Center at x_i
+        let x_base: f64 = 1.0; // Center at x_i
 
         // Values: q_{i-2}, q_{i-1}, q_i, q_{i+1}, q_{i+2}
         let q = [
@@ -537,12 +895,12 @@ mod tests {
             (x_base + 2.0 * dx).sin(),
         ];
 
-        let q_left = weno.reconstruct_left(&q);
-        let q_right = weno.reconstruct_right(&q);
+        let q_left = weno.reconstruct_left5(&q);
+        let q_right = weno.reconstruct_right5(&q);
 
         // For smooth functions, WENO should give 5th-order accurate interface values
         // Analytical interface values at x_{i+1/2} ≈ x_i + 0.5*dx
-        let x_interface = x_base + 0.5 * dx;
+        let x_interface: f64 = x_base + 0.5 * dx;
         let analytical = x_interface.sin();
 
         // Should be very accurate (5th-order convergence)
@@ -559,8 +917,8 @@ mod tests {
         // Using interface at x = 0
         let q = [0.0, 0.0, 0.5, 1.0, 1.0]; // Approximate discontinuity
 
-        let q_left = weno.reconstruct_left(&q);
-        let q_right = weno.reconstruct_right(&q);
+        let q_left = weno.reconstruct_left5(&q);
+        let q_right = weno.reconstruct_right5(&q);
 
         // WENO should maintain the discontinuity without oscillations
         // Left reconstruction should be close to 0.5 (upwind value)
@@ -577,8 +935,8 @@ mod tests {
         // With Δx = 1, values should be [-2, -1, 0, 1, 2]
         let q = [-2.0, -1.0, 0.0, 1.0, 2.0];
 
-        let q_left = weno.reconstruct_left(&q);
-        let q_right = weno.reconstruct_right(&q);
+        let q_left = weno.reconstruct_left5(&q);
+        let q_right = weno.reconstruct_right5(&q);
 
         // For linear function, interface value should be exactly 0.5
         assert_relative_eq!(q_left, 0.5, epsilon = 1e-12);
@@ -631,8 +989,8 @@ mod tests {
         let weno = WenoReconstruction::<f64>::weno5();
 
         let q = [1.0, 2.0, 3.0, 4.0, 5.0];
-        let q_left = weno.reconstruct_left(&q);
-        let q_right = weno.reconstruct_right(&q);
+        let q_left = weno.reconstruct_left55(&q);
+        let q_right = weno.reconstruct_right55(&q);
 
         // Both should be finite
         assert!(q_left.is_finite());

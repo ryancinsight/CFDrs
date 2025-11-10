@@ -4,12 +4,13 @@
 //! where S is the manufactured source term
 
 use super::ManufacturedSolution;
-use nalgebra::RealField;
-use num_traits::Float;
+use nalgebra::{ComplexField, RealField};
+use num_traits::FromPrimitive;
 use std::f64::consts::PI;
 
 /// Manufactured solution for 2D heat diffusion
-pub struct ManufacturedDiffusion<T: RealField + Float> {
+#[derive(Clone, Copy)]
+pub struct ManufacturedDiffusion<T: RealField + Copy> {
     /// Thermal diffusivity
     pub alpha: T,
     /// Wave number in x-direction
@@ -20,10 +21,10 @@ pub struct ManufacturedDiffusion<T: RealField + Float> {
     pub omega: T,
 }
 
-impl<T: RealField + Float> ManufacturedDiffusion<T> {
+impl<T: RealField + Copy + FromPrimitive> ManufacturedDiffusion<T> {
     /// Create a new manufactured diffusion solution
     pub fn new(alpha: T) -> Self {
-        let pi = T::from(PI).unwrap();
+        let pi = <T as FromPrimitive>::from_f64(PI).unwrap();
         Self {
             alpha,
             kx: pi,
@@ -43,10 +44,10 @@ impl<T: RealField + Float> ManufacturedDiffusion<T> {
     }
 }
 
-impl<T: RealField + Float> ManufacturedSolution<T> for ManufacturedDiffusion<T> {
+impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedDiffusion<T> {
     /// Exact solution: u(x,y,t) = sin(kx*x) * sin(ky*y) * exp(-omega*t)
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
-        Float::sin(self.kx * x) * Float::sin(self.ky * y) * Float::exp(-self.omega * t)
+        ComplexField::sin(self.kx * x) * ComplexField::sin(self.ky * y) * ComplexField::exp(-self.omega * t)
     }
 
     /// Source term: S = ∂u/∂t - α∇²u
@@ -59,7 +60,7 @@ impl<T: RealField + Float> ManufacturedSolution<T> for ManufacturedDiffusion<T> 
 }
 
 /// Manufactured solution for 2D advection-diffusion
-pub struct ManufacturedAdvectionDiffusion<T: RealField + Float> {
+pub struct ManufacturedAdvectionDiffusion<T: RealField + Copy> {
     /// Thermal diffusivity
     pub alpha: T,
     /// Velocity in x-direction
@@ -68,17 +69,17 @@ pub struct ManufacturedAdvectionDiffusion<T: RealField + Float> {
     pub vy: T,
 }
 
-impl<T: RealField + Float> ManufacturedAdvectionDiffusion<T> {
+impl<T: RealField + Copy> ManufacturedAdvectionDiffusion<T> {
     /// Create a new manufactured advection-diffusion solution
     pub fn new(alpha: T, vx: T, vy: T) -> Self {
         Self { alpha, vx, vy }
     }
 }
 
-impl<T: RealField + Float> ManufacturedSolution<T> for ManufacturedAdvectionDiffusion<T> {
+impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedAdvectionDiffusion<T> {
     /// Exact solution: u(x,y,t) = cos(x - vx*t) * sin(y - vy*t)
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
-        Float::cos(x - self.vx * t) * Float::sin(y - self.vy * t)
+        ComplexField::cos(x - self.vx * t) * ComplexField::sin(y - self.vy * t)
     }
 
     /// Source term for advection-diffusion equation
@@ -89,15 +90,15 @@ impl<T: RealField + Float> ManufacturedSolution<T> for ManufacturedAdvectionDiff
 
         // Time derivative
         let dudt =
-            self.vx * Float::sin(xi) * Float::sin(eta) - self.vy * Float::cos(xi) * Float::cos(eta);
+            self.vx * ComplexField::sin(xi) * ComplexField::sin(eta) - self.vy * ComplexField::cos(xi) * ComplexField::cos(eta);
 
         // Advection term: v·∇u
-        let advection = -self.vx * Float::sin(xi) * Float::sin(eta)
-            + self.vy * Float::cos(xi) * Float::cos(eta);
+        let advection = -self.vx * ComplexField::sin(xi) * ComplexField::sin(eta)
+            + self.vy * ComplexField::cos(xi) * ComplexField::cos(eta);
 
         // Diffusion term: α∇²u
         let diffusion =
-            -self.alpha * (Float::cos(xi) * Float::sin(eta) + Float::cos(xi) * Float::sin(eta));
+            -self.alpha * (ComplexField::cos(xi) * ComplexField::sin(eta) + ComplexField::cos(xi) * ComplexField::sin(eta));
 
         // Source term: S = ∂u/∂t + v·∇u - α∇²u
         dudt + advection - diffusion

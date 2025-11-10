@@ -28,7 +28,7 @@
 
 use cfd_3d::vof::{
     CavitationVofSolver, CavitationVofConfig, BubbleDynamicsConfig,
-    VofConfig, AdvectionMethod, CavitationStatistics
+    VofConfig, CavitationStatistics
 };
 use cfd_core::cavitation::{
     models::CavitationModel,
@@ -60,7 +60,7 @@ struct CavitationSimulationConfig {
 /// Simulation results
 struct SimulationResults {
     time_steps: Vec<f64>,
-    cavitation_stats: Vec<cavitation_damage_simulation::CavitationStatistics>,
+    cavitation_stats: Vec<CavitationStatistics>,
     velocity_field: Vec<Vec<Vector3<f64>>>,
     pressure_field: Vec<Vec<f64>>,
     damage_field: Vec<Vec<f64>>,
@@ -111,12 +111,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create VOF configuration
     let vof_config = VofConfig {
-        surface_tension_coefficient: 0.072, // Water-air surface tension
-        interface_compression: 0.1,         // Interface compression factor
-        reconstruction_method: cfd_3d::vof::InterfaceReconstruction::PLIC,
-        advection_method: AdvectionMethod::Geometric,
-        max_iterations: 10,
+        max_iterations: 100,
         tolerance: 1e-6,
+        cfl_number: 0.5,
+        use_plic: true,
+        use_geometric_advection: true,
+        enable_compression: true,
     };
 
     // Create cavitation-VOF configuration
@@ -152,8 +152,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize simulation fields
     let dx = config.lx / config.nx as f64;
-    let dy = config.ly / config.ny as f64;
-    let dz = config.lz / config.nz as f64;
+    let _dy = config.ly / config.ny as f64;
+    let _dz = config.lz / config.nz as f64;
 
     // Create velocity field (simplified - uniform inlet, developing flow)
     let mut velocity_field = vec![Vector3::zeros(); config.nx * config.ny * config.nz];

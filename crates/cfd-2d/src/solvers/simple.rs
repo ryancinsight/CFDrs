@@ -17,7 +17,7 @@ use std::collections::HashMap;
 ///
 /// This is the standard algorithm for solving incompressible Navier-Stokes equations.
 /// It uses a predictor-corrector approach to handle the pressure-velocity coupling.
-pub struct SimpleAlgorithm<T: RealField + Copy + FromPrimitive> {
+pub struct SimpleAlgorithm<T: RealField + Copy + FromPrimitive + std::fmt::Debug> {
     /// Under-relaxation factor for pressure (typically 0.1-0.8)
     pressure_relaxation: T,
     /// Under-relaxation factor for velocity (typically 0.5-0.9)
@@ -28,7 +28,7 @@ pub struct SimpleAlgorithm<T: RealField + Copy + FromPrimitive> {
     tolerance: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> SimpleAlgorithm<T> {
+impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
     /// Create new SIMPLE algorithm with default parameters
     pub fn new() -> Self {
         Self {
@@ -196,7 +196,7 @@ impl<T: RealField + Copy + FromPrimitive> SimpleAlgorithm<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for SimpleAlgorithm<T> {
+impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> Default for SimpleAlgorithm<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -230,4 +230,3 @@ mod tests {
         assert_eq!(simple.tolerance, 1e-8);
     }
 }
-

@@ -4,7 +4,7 @@
 //! to verify proper boundary condition implementation.
 
 use cfd_2d::fields::SimulationFields;
-use cfd_2d::grid::StructuredGrid2D;
+use cfd_2d::grid::{Grid2D, StructuredGrid2D};
 use cfd_2d::physics::fluid::Fluid;
 use cfd_core::boundary::{BoundaryCondition, BoundaryConditionSet};
 use cfd_validation::error_metrics::{L2Norm, NormalizedRMSE};
@@ -57,7 +57,10 @@ fn test_mms_mixed_dirichlet_neumann_boundaries() {
     );
 
     // Create boundary condition set
-    let bc_set = BoundaryConditionSet::new(boundaries);
+    let mut bc_set = BoundaryConditionSet::new();
+    for (name, condition) in boundaries {
+        bc_set.add(name, condition);
+    }
 
     // Verify MMS satisfies boundary conditions
     verify_mms_boundary_conditions(&mms, &grid, &bc_set, 1.0);
@@ -69,7 +72,7 @@ fn test_mms_mixed_dirichlet_neumann_boundaries() {
 #[test]
 fn test_mms_robin_boundary_conditions() {
     // Create MMS that satisfies Robin BC: αu + β∂u/∂n = γ
-    let mms = TaylorGreenManufactured::new(1.0, 1.0, 1.0);
+    let mms = TaylorGreenManufactured::new(1.0);
 
     let nx = 32;
     let ny = 32;
@@ -94,7 +97,10 @@ fn test_mms_robin_boundary_conditions() {
     boundaries.insert("north".to_string(), robin_bc.clone());
     boundaries.insert("south".to_string(), robin_bc.clone());
 
-    let bc_set = BoundaryConditionSet::new(boundaries);
+    let mut bc_set = BoundaryConditionSet::new();
+    for (name, condition) in boundaries {
+        bc_set.add(name, condition);
+    }
 
     // Verify MMS satisfies Robin boundary conditions
     verify_mms_robin_conditions(&mms, &grid, &bc_set, 1.0);
@@ -106,7 +112,7 @@ fn test_mms_robin_boundary_conditions() {
 #[test]
 fn test_mms_periodic_boundary_conditions() {
     // Create MMS that is periodic
-    let mms = TaylorGreenManufactured::new(1.0, 1.0, 1.0);
+    let mms = TaylorGreenManufactured::new(1.0);
 
     let nx = 32;
     let ny = 32;
@@ -146,7 +152,10 @@ fn test_mms_periodic_boundary_conditions() {
         },
     );
 
-    let bc_set = BoundaryConditionSet::new(boundaries);
+    let mut bc_set = BoundaryConditionSet::new();
+    for (name, condition) in boundaries {
+        bc_set.add(name, condition);
+    }
 
     // Verify MMS satisfies periodic boundary conditions
     verify_mms_periodic_conditions(&mms, &grid, &bc_set, 1.0);
@@ -199,7 +208,10 @@ fn test_mms_pressure_driven_flow() {
         },
     );
 
-    let bc_set = BoundaryConditionSet::new(boundaries);
+    let mut bc_set = BoundaryConditionSet::new();
+    for (name, condition) in boundaries {
+        bc_set.add(name, condition);
+    }
 
     // Verify MMS satisfies pressure-driven flow boundary conditions
     verify_mms_pressure_conditions(&mms, &grid, &bc_set, 1.0);
@@ -219,10 +231,10 @@ fn verify_mms_boundary_conditions(
     // Check each boundary
     for (boundary_name, bc) in boundaries.iter() {
         match boundary_name.as_str() {
-            "west" => verify_boundary_condition(mms, grid, bc, 0, 0..grid.ny(), time, tolerance),
-            "east" => verify_boundary_condition(mms, grid, bc, grid.nx() - 1, 0..grid.ny(), time, tolerance),
-            "north" => verify_boundary_condition(mms, grid, bc, 0..grid.nx(), grid.ny() - 1, time, tolerance),
-            "south" => verify_boundary_condition(mms, grid, bc, 0..grid.nx(), 0, time, tolerance),
+            "west" => verify_boundary_condition(mms, grid, bc, 0..1, 0..grid.ny, time, tolerance),
+            "east" => verify_boundary_condition(mms, grid, bc, (grid.nx - 1)..grid.nx, 0..grid.ny, time, tolerance),
+            "north" => verify_boundary_condition(mms, grid, bc, 0..grid.nx, (grid.ny - 1)..grid.ny, time, tolerance),
+            "south" => verify_boundary_condition(mms, grid, bc, 0..grid.nx, 0..1, time, tolerance),
             _ => {}
         }
     }
@@ -302,10 +314,10 @@ fn verify_mms_robin_conditions(
                     let expected_u = gamma / alpha;
 
                     let (i_range, j_range) = match boundary_name.as_str() {
-                        "west" => (0..1, 0..grid.ny()),
-                        "east" => ((grid.nx()-1)..grid.nx(), 0..grid.ny()),
-                        "north" => (0..grid.nx(), (grid.ny()-1)..grid.ny()),
-                        "south" => (0..grid.nx(), 0..1),
+                        "west" => (0..1, 0..grid.ny),
+                        "east" => ((grid.nx-1)..grid.nx, 0..grid.ny),
+                        "north" => (0..grid.nx, (grid.ny-1)..grid.ny),
+                        "south" => (0..grid.nx, 0..1),
                         _ => continue,
                     };
 
@@ -340,9 +352,9 @@ fn verify_mms_periodic_conditions(
 
     // Check west-east periodicity
     if boundaries.contains_key("west") && boundaries.contains_key("east") {
-        for j in 0..grid.ny() {
+        for j in 0..grid.ny {
             let west_x = grid.x_at(0);
-            let east_x = grid.x_at(grid.nx() - 1);
+            let east_x = grid.x_at(grid.nx - 1);
             let y = grid.y_at(j);
 
             let west_u = mms.exact_solution(west_x, y, 0.0, time);
@@ -373,7 +385,7 @@ fn verify_mms_pressure_conditions(
                     // For pressure inlet, we expect the MMS pressure to match
                     // In practice, this would require the manufactured pressure
                     let x = grid.x_at(0);
-                    for j in 0..grid.ny() {
+                    for j in 0..grid.ny {
                         let y = grid.y_at(j);
                         // Note: This is a simplified check - real pressure BC validation
                         // would require the manufactured pressure field
@@ -422,7 +434,7 @@ mod property_tests {
         /// Test boundary condition verification with various tolerances
         #[test]
         fn test_bc_verification_tolerance(tol in 1e-8f64..1e-4) {
-            let mms = TaylorGreenManufactured::new(1.0, 1.0, 1.0);
+            let mms = TaylorGreenManufactured::new(1.0);
             let grid = StructuredGrid2D::new(16, 16, 0.0, 1.0, 0.0, 1.0).unwrap();
 
             let mut boundaries = HashMap::new();
@@ -433,7 +445,10 @@ mod property_tests {
                 },
             );
 
-            let bc_set = BoundaryConditionSet::new(boundaries);
+            let mut bc_set = BoundaryConditionSet::new();
+            for (name, condition) in boundaries {
+                bc_set.add(name, condition);
+            }
 
             // This should not panic with reasonable tolerances
             verify_mms_boundary_conditions(&mms, &grid, &bc_set, 1.0);

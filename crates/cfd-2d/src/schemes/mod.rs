@@ -22,7 +22,7 @@ pub use grid::Grid2D;
 pub use time::{TimeIntegrator, TimeScheme};
 pub use tvd::{FluxLimiter, MUSCLScheme, QUICKScheme};
 pub use upwind::{FirstOrderUpwind, SecondOrderUpwind};
-pub use weno::WENO5;
+pub use weno::{WENO5, WENO9};
 
 /// Spatial discretization scheme
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -39,6 +39,8 @@ pub enum SpatialScheme {
     Muscl,
     /// Fifth-order WENO
     Weno5,
+    /// Ninth-order WENO
+    Weno9,
     /// Fourth-order explicit central difference
     FourthOrderCentral,
 }

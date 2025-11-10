@@ -4,7 +4,7 @@
 //! equations in incompressible CFD. The primary algorithm is SIMPLE (Semi-Implicit
 //! Method for Pressure-Linked Equations).
 
-use crate::fields::SimulationFields;
+use crate::fields::{SimulationFields, Field2D};
 use crate::grid::StructuredGrid2D;
 use crate::physics::momentum::MomentumSolver;
 use crate::physics::turbulence::TurbulenceModel;
@@ -23,7 +23,7 @@ use std::collections::HashMap;
 ///
 /// This is the standard algorithm for solving incompressible Navier-Stokes equations.
 /// It uses a predictor-corrector approach to handle the pressure-velocity coupling.
-pub struct SimpleAlgorithm<T: RealField + Copy + FromPrimitive> {
+pub struct SimpleAlgorithm<T: RealField + Copy + FromPrimitive + std::fmt::Debug> {
     /// Under-relaxation factor for pressure (typically 0.1-0.8)
     pressure_relaxation: T,
     /// Under-relaxation factor for velocity (typically 0.5-0.9)
@@ -34,7 +34,7 @@ pub struct SimpleAlgorithm<T: RealField + Copy + FromPrimitive> {
     tolerance: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> SimpleAlgorithm<T> {
+impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
     /// Create new SIMPLE algorithm with default parameters
     pub fn new() -> Self {
         Self {
@@ -106,15 +106,30 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> SimpleAlgorithm<T
             dt,
         )?;
 
-        // Apply Rhie-Chow interpolation to prevent pressure oscillations
-        self.apply_rhie_chow_interpolation(
-            &u_star, &v_star, fields, grid, dt,
-        )?;
-
         // Extract predicted velocities from momentum solver
         // (In practice, these would be extracted from the linear system solution)
         let u_star = fields.u.clone(); // Predicted U-velocity
         let v_star = fields.v.clone(); // Predicted V-velocity
+
+        // Build previous velocity field as Vector2 for transient Rhie–Chow term
+        let mut u_old_vec = Field2D::new(grid.nx, grid.ny, Vector2::new(T::zero(), T::zero()));
+        for j in 0..grid.ny {
+            for i in 0..grid.nx {
+                u_old_vec[(i, j)] = Vector2::new(u_old[(i, j)], v_old[(i, j)]);
+            }
+        }
+
+        // Apply Rhie-Chow interpolation using actual A_p coefficients from momentum solver
+        self.apply_rhie_chow_interpolation(
+            &u_star,
+            &v_star,
+            fields,
+            grid,
+            dt,
+            &coeffs_u.ap,
+            &coeffs_v.ap,
+            &u_old_vec,
+        )?;
 
         // 2. PRESSURE CORRECTION STEP
         // Solve pressure Poisson equation: ∇²p' = ∇·u*
@@ -167,7 +182,8 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> SimpleAlgorithm<T
         }
 
         // 3. VELOCITY CORRECTION STEP
-        // Correct velocities: u = u* - (dt/ρ)∇p'
+        // Correct velocities using Rhie–Chow corrected prediction as base:
+        // u = u_RC* - (dt/ρ)∇p'
 
         let rho = fields.density.at(0, 0); // Assume constant density
         let correction_factor = dt / rho;
@@ -187,9 +203,11 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> SimpleAlgorithm<T
                     T::zero()
                 };
 
-                // Correct velocities
-                fields.u[(i, j)] = u_star[(i, j)] - correction_factor * dp_dx;
-                fields.v[(i, j)] = v_star[(i, j)] - correction_factor * dp_dy;
+                // Correct velocities on top of Rhie–Chow interpolated prediction
+                let base_u = fields.u[(i, j)];
+                let base_v = fields.v[(i, j)];
+                fields.u[(i, j)] = base_u - correction_factor * dp_dx;
+                fields.v[(i, j)] = base_v - correction_factor * dp_dy;
             }
         }
 
@@ -234,32 +252,33 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> SimpleAlgorithm<T
     /// flow past an airfoil with trailing edge separation." AIAA Journal, 21(11), 1525-1532.
     fn apply_rhie_chow_interpolation(
         &self,
-        u_star: &nalgebra::DMatrix<T>,
-        v_star: &nalgebra::DMatrix<T>,
+        u_star: &Field2D<T>,
+        v_star: &Field2D<T>,
         fields: &mut SimulationFields<T>,
         grid: &StructuredGrid2D<T>,
         dt: T,
+        ap_u: &Field2D<T>,
+        ap_v: &Field2D<T>,
+        u_old_vec: &Field2D<Vector2<T>>,
     ) -> Result<()> {
         // Create Rhie-Chow interpolator
         let mut rhie_chow = RhieChowInterpolation::new(grid);
 
         // Update momentum coefficients (A_p from discretized momentum equations)
-        // For now, use unit coefficients - in practice these should come from momentum solver
-        // TODO: Get actual A_p coefficients from momentum solver
-        let unit_coefficients = Field2D::from_value(T::from_f64(1.0).unwrap(), grid.nx, grid.ny);
-        rhie_chow.update_coefficients(&unit_coefficients);
+        // Use actual coefficients provided by momentum solver
+        rhie_chow.update_u_coefficients(ap_u);
+        rhie_chow.update_v_coefficients(ap_v);
 
-        // Convert velocity matrices to Field2D format for Rhie-Chow interpolation
-        let mut velocity_field = Field2D::from_value(
-            Vector2::new(T::zero(), T::zero()),
-            grid.nx,
-            grid.ny
-        );
+        // Provide previous velocity field for transient correction term
+        rhie_chow.update_old_velocity(u_old_vec);
+
+        // Convert predicted velocities to Vector2 field format for Rhie–Chow interpolation
+        let mut velocity_field = Field2D::new(grid.nx, grid.ny, Vector2::new(T::zero(), T::zero()));
 
         // Copy velocities to field format (interior cells only)
         for i in 0..grid.nx {
             for j in 0..grid.ny {
-                velocity_field[i][j] = Vector2::new(u_star[(i, j)], v_star[(i, j)]);
+                velocity_field[(i, j)] = Vector2::new(u_star[(i, j)], v_star[(i, j)]);
             }
         }
 
@@ -285,12 +304,8 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> SimpleAlgorithm<T
                         j,
                     );
 
-                    // Apply Rhie-Chow correction to u-velocity
-                    // Blend corrected and original velocities to maintain stability
-                    let correction_factor = T::from_f64(0.1).unwrap(); // Conservative correction
-                    let original_u = fields.u[i][j];
-                    fields.u[i][j] = original_u * (T::one() - correction_factor) +
-                                   u_face_corrected * correction_factor;
+                    // Apply Rhie-Chow correction to u-velocity (full correction, no blending)
+                    fields.u[(i, j)] = u_face_corrected;
                 }
 
                 // North face correction (affects v-velocity at cell i,j)
@@ -305,11 +320,8 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> SimpleAlgorithm<T
                         j,
                     );
 
-                    // Apply Rhie-Chow correction to v-velocity
-                    let correction_factor = T::from_f64(0.1).unwrap(); // Conservative correction
-                    let original_v = fields.v[i][j];
-                    fields.v[i][j] = original_v * (T::one() - correction_factor) +
-                                   v_face_corrected * correction_factor;
+                    // Apply Rhie-Chow correction to v-velocity (full correction, no blending)
+                    fields.v[(i, j)] = v_face_corrected;
                 }
             }
         }
@@ -320,8 +332,8 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> SimpleAlgorithm<T
     /// Construct the pressure correction equation RHS
     fn construct_pressure_correction_equation(
         &self,
-        u_star: &nalgebra::DMatrix<T>,
-        v_star: &nalgebra::DMatrix<T>,
+        u_star: &Field2D<T>,
+        v_star: &Field2D<T>,
         rhs: &mut DVector<T>,
         fields: &SimulationFields<T>,
         grid: &StructuredGrid2D<T>,
@@ -338,13 +350,13 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> SimpleAlgorithm<T
 
                 // Compute divergence of predicted velocity field
                 let du_dx = if i < (nx as usize) - 1 {
-                    (u_star[(i + 1, j)] - u_star[(i, j)]) / dx
+                    (u_star.at(i + 1, j) - u_star.at(i, j)) / dx
                 } else {
                     T::zero()
                 };
 
                 let dv_dy = if j < (ny as usize) - 1 {
-                    (v_star[(i, j + 1)] - v_star[(i, j)]) / dy
+                    (v_star.at(i, j + 1) - v_star.at(i, j)) / dy
                 } else {
                     T::zero()
                 };
@@ -484,7 +496,7 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> SimpleAlgorithm<T
             // Log progress (in debug builds)
             #[cfg(debug_assertions)]
             tracing::debug!(
-                "SIMPLE iteration {}: residual = {:.2e}, converged = {}",
+                "SIMPLE iteration {}: residual = {:?}, converged = {}",
                 iteration,
                 residual,
                 converged
@@ -503,10 +515,7 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> SimpleAlgorithm<T
     }
 }
 
-impl<T: RealField + Copy> Default for SimpleAlgorithm<T>
-where
-    T: FromPrimitive,
-{
+impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> Default for SimpleAlgorithm<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -515,10 +524,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fields::SimulationFields;
+    use crate::fields::{SimulationFields, Field2D};
     use crate::grid::StructuredGrid2D;
     use crate::physics::momentum::MomentumSolver;
-    use crate::solvers::poisson::PoissonSolver;
+    use crate::solvers::fdm::PoissonSolver;
+    use nalgebra::DVector;
     use approx::assert_relative_eq;
 
     #[test]
@@ -548,7 +558,7 @@ mod tests {
         let simple = SimpleAlgorithm::<f64>::new();
 
         // Create simple 2x2 grid
-        let grid = StructuredGrid2D::<f64>::new(2, 2, 0.0, 1.0, 0.0, 1.0);
+        let grid = StructuredGrid2D::<f64>::new(2, 2, 0.0, 1.0, 0.0, 1.0).unwrap();
         let mut fields = SimulationFields::<f64>::new(2, 2);
 
         // Set up a divergence-free velocity field: u = y, v = -x
@@ -582,22 +592,15 @@ mod tests {
         let simple = SimpleAlgorithm::<f64>::new();
 
         // Create 3x3 grid for better testing
-        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0);
+        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
         let mut fields = SimulationFields::<f64>::new(3, 3);
         let mut rhs = DVector::zeros(9);
 
         // Set up a simple divergent velocity field
-        let u_star = nalgebra::DMatrix::from_vec(3, 3, vec![
-            0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,  // u = 1 at center
-            0.0, 0.0, 0.0,
-        ]);
-
-        let v_star = nalgebra::DMatrix::from_vec(3, 3, vec![
-            0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,  // v = 1 at center
-            0.0, 0.0, 0.0,
-        ]);
+        let mut u_star = Field2D::new(3, 3, 0.0f64);
+        let mut v_star = Field2D::new(3, 3, 0.0f64);
+        u_star[(1, 1)] = 1.0;
+        v_star[(1, 1)] = 1.0;
 
         let dt = 0.01;
 
@@ -609,5 +612,79 @@ mod tests {
         // The center point should have significant RHS contribution
         let center_idx = 4; // (1,1) in row-major order
         assert!(rhs[center_idx].abs() > 0.0, "Pressure correction RHS should be non-zero at divergent points");
+    }
+
+    #[test]
+    fn test_rhie_chow_interpolation_uses_ap_coefficients() {
+        let simple = SimpleAlgorithm::<f64>::new();
+
+        // 3x3 grid
+        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+
+        // Two field states to compare effects of different A_p
+        let mut fields_high = SimulationFields::<f64>::new(3, 3);
+        let mut fields_low = SimulationFields::<f64>::new(3, 3);
+
+        // Impose a quadratic pressure field in x-direction to ensure
+        // (∇p)_cells ≠ (∇p)_face and produce a non-zero correction
+        for j in 0..3 {
+            for i in 0..3 {
+                let p_val = (i as f64).powi(2);
+                fields_high.p[(i, j)] = p_val;
+                fields_low.p[(i, j)] = p_val;
+            }
+        }
+
+        // Predicted velocities (zeros)
+        let u_star = Field2D::new(3, 3, 0.0f64);
+        let v_star = Field2D::new(3, 3, 0.0f64);
+
+        // Momentum coefficients A_p
+        let ap_high = Field2D::new(3, 3, 10.0f64);
+        let ap_low = Field2D::new(3, 3, 0.1f64);
+
+        // Old velocity buffer (zeros)
+        let u_old_vec = Field2D::new(3, 3, nalgebra::Vector2::new(0.0f64, 0.0f64));
+
+        let dt = 0.01f64;
+
+        // Apply Rhie–Chow with high A_p (smaller correction expected)
+        simple
+            .apply_rhie_chow_interpolation(
+                &u_star,
+                &v_star,
+                &mut fields_high,
+                &grid,
+                dt,
+                &ap_high,
+                &ap_high,
+                &u_old_vec,
+            )
+            .unwrap();
+
+        // Apply Rhie–Chow with low A_p (larger correction expected)
+        simple
+            .apply_rhie_chow_interpolation(
+                &u_star,
+                &v_star,
+                &mut fields_low,
+                &grid,
+                dt,
+                &ap_low,
+                &ap_low,
+                &u_old_vec,
+            )
+            .unwrap();
+
+        let u_center_high = fields_high.u[(1, 1)];
+        let u_center_low = fields_low.u[(1, 1)];
+
+        // Non-zero correction under a pressure gradient
+        assert!(u_center_high.abs() > 0.0, "Rhie–Chow must produce non-zero correction for pressure gradient");
+        // Verify correction magnitude depends on A_p via d_f = V / A_p
+        assert!(
+            u_center_low.abs() > u_center_high.abs(),
+            "Smaller A_p should increase Rhie–Chow correction magnitude",
+        );
     }
 }

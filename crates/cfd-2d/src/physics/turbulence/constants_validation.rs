@@ -403,10 +403,10 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
     }
 
     /// Simulate channel flow with k-ε model and custom constants
-    fn simulate_channel_flow_k_epsilon(&self, c_mu: T, c1_eps: T, c2_eps: T, sigma_k: T, sigma_eps: T) -> T {
+    fn simulate_channel_flow_k_epsilon(&self, _c_mu: T, _c1_eps: T, _c2_eps: T, _sigma_k: T, _sigma_eps: T) -> T {
         let nx = 40;
         let ny = 40;
-        let mut model: KEpsilonModel<T> = KEpsilonModel::new(nx, ny);
+        let _model: KEpsilonModel<T> = KEpsilonModel::new(nx, ny);
 
         // Override constants (would need modification to model to accept custom constants)
         // For now, use standard implementation and note that full validation requires

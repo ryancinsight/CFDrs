@@ -93,12 +93,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
             // Using fractional step method with cylinder forcing
 
             // Calculate residual based on continuity equation
-            let residual = T::from_f64(1.0).unwrap_or_else(|| T::one())
+            let residual = T::from_f64_or_one(1.0)
                 / T::from_usize(iter + 1).unwrap_or_else(|| T::one());
             convergence.push(residual);
 
             // Calculate forces on cylinder
-            let drag = T::from_f64(1.0).unwrap_or_else(|| T::one());
+            let drag = T::from_f64_or_one(1.0);
             let lift = T::zero();
             forces.push(drag);
             forces.push(lift);

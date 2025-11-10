@@ -1,5 +1,6 @@
 //! Error analysis utilities and convergence rate computation
 
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
@@ -67,8 +68,9 @@ impl ErrorAnalysis {
     pub fn error_reduction_factor<T: RealField + Copy>(coarse_error: T, fine_error: T) -> T {
         if fine_error == T::zero() {
             return T::max_value().unwrap_or_else(|| {
-                T::from_f64(1e10)
-                    .unwrap_or_else(|| T::from_f64(1000000.0).unwrap_or_else(|| T::one()))
+                // Fallback to a large finite value
+                <T as SafeFromF64>::try_from_f64(1e10)
+                    .unwrap_or(T::from_f64_or_one(1_000_000.0))
             });
         }
         coarse_error / fine_error

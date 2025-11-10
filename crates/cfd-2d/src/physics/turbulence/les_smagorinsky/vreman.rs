@@ -55,9 +55,8 @@
 //! - α_ij α_ij is checked to avoid division by zero
 //! - Natural damping in strain-dominated regions
 
-use nalgebra::{DMatrix, RealField, Vector2};
-use num_traits::{FromPrimitive, ToPrimitive};
-use crate::error::{Error, Result};
+use nalgebra::{DMatrix, RealField};
+use num_traits::FromPrimitive;
 
 /// Vreman SGS model configuration
 #[derive(Debug, Clone, Copy)]
