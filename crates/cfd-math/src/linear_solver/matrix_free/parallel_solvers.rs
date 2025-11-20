@@ -4,12 +4,12 @@
 //! communication overlap techniques and load balancing optimizations
 //! for large-scale distributed CFD simulations.
 
-#[cfg(feature = "mpi")]
-use cfd_core::compute::mpi::{DistributedVector, MpiCommunicator, MpiResult};
 use super::operator::LinearOperator;
 use super::traits::MatrixFreeSolver;
 use crate::linear_solver::config::IterativeSolverConfig;
-use cfd_core::error::{Error, Result, ConvergenceErrorKind, NumericalErrorKind};
+#[cfg(feature = "mpi")]
+use cfd_core::compute::mpi::{DistributedVector, MpiCommunicator, MpiResult};
+use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind, Result};
 use nalgebra::RealField;
 
 /// Communication overlap strategy for MPI operations
@@ -99,13 +99,48 @@ where
         let local_size = operator.size();
 
         // Initialize workspace vectors
-        let mut r = DistributedVector::new(local_size, &self.communicator, x.subdomain.clone(), x.ghost_manager.clone())?;
-        let mut r_hat = DistributedVector::new(local_size, &self.communicator, x.subdomain.clone(), x.ghost_manager.clone())?;
-        let mut p = DistributedVector::new(local_size, &self.communicator, x.subdomain.clone(), x.ghost_manager.clone())?;
-        let mut p_hat = DistributedVector::new(local_size, &self.communicator, x.subdomain.clone(), x.ghost_manager.clone())?;
-        let mut v = DistributedVector::new(local_size, &self.communicator, x.subdomain.clone(), x.ghost_manager.clone())?;
-        let mut s = DistributedVector::new(local_size, &self.communicator, x.subdomain.clone(), x.ghost_manager.clone())?;
-        let mut t = DistributedVector::new(local_size, &self.communicator, x.subdomain.clone(), x.ghost_manager.clone())?;
+        let mut r = DistributedVector::new(
+            local_size,
+            &self.communicator,
+            x.subdomain.clone(),
+            x.ghost_manager.clone(),
+        )?;
+        let mut r_hat = DistributedVector::new(
+            local_size,
+            &self.communicator,
+            x.subdomain.clone(),
+            x.ghost_manager.clone(),
+        )?;
+        let mut p = DistributedVector::new(
+            local_size,
+            &self.communicator,
+            x.subdomain.clone(),
+            x.ghost_manager.clone(),
+        )?;
+        let mut p_hat = DistributedVector::new(
+            local_size,
+            &self.communicator,
+            x.subdomain.clone(),
+            x.ghost_manager.clone(),
+        )?;
+        let mut v = DistributedVector::new(
+            local_size,
+            &self.communicator,
+            x.subdomain.clone(),
+            x.ghost_manager.clone(),
+        )?;
+        let mut s = DistributedVector::new(
+            local_size,
+            &self.communicator,
+            x.subdomain.clone(),
+            x.ghost_manager.clone(),
+        )?;
+        let mut t = DistributedVector::new(
+            local_size,
+            &self.communicator,
+            x.subdomain.clone(),
+            x.ghost_manager.clone(),
+        )?;
 
         // Initial residual: r = b - A*x
         operator.apply(&x.local_data, &mut r.local_data)?;
@@ -137,20 +172,47 @@ where
             match self.overlap_strategy {
                 CommunicationOverlap::ComputationOverlap => {
                     self.solve_with_computation_overlap(
-                        operator, &mut r, &mut r_hat, &mut p, &mut p_hat,
-                        &mut v, &mut s, &mut t, &mut rho_old, &mut alpha, &mut omega,
+                        operator,
+                        &mut r,
+                        &mut r_hat,
+                        &mut p,
+                        &mut p_hat,
+                        &mut v,
+                        &mut s,
+                        &mut t,
+                        &mut rho_old,
+                        &mut alpha,
+                        &mut omega,
                     )?;
                 }
                 CommunicationOverlap::PersistentRequests => {
                     self.solve_with_persistent_requests(
-                        operator, &mut r, &mut r_hat, &mut p, &mut p_hat,
-                        &mut v, &mut s, &mut t, &mut rho_old, &mut alpha, &mut omega,
+                        operator,
+                        &mut r,
+                        &mut r_hat,
+                        &mut p,
+                        &mut p_hat,
+                        &mut v,
+                        &mut s,
+                        &mut t,
+                        &mut rho_old,
+                        &mut alpha,
+                        &mut omega,
                     )?;
                 }
                 CommunicationOverlap::None => {
                     self.solve_synchronous(
-                        operator, &mut r, &mut r_hat, &mut p, &mut p_hat,
-                        &mut v, &mut s, &mut t, &mut rho_old, &mut alpha, &mut omega,
+                        operator,
+                        &mut r,
+                        &mut r_hat,
+                        &mut p,
+                        &mut p_hat,
+                        &mut v,
+                        &mut s,
+                        &mut t,
+                        &mut rho_old,
+                        &mut alpha,
+                        &mut omega,
                     )?;
                 }
             }
@@ -169,11 +231,12 @@ where
             iteration += 1;
         }
 
-        Err(Error::Convergence(
-            ConvergenceErrorKind::MaxIterationsExceeded {
+        Err(
+            Error::Convergence(ConvergenceErrorKind::MaxIterationsExceeded {
                 max: self.config.max_iterations,
-            },
-        ).into())
+            })
+            .into(),
+        )
     }
 
     /// Solve with computation-communication overlap.
@@ -246,7 +309,8 @@ where
         // Update search directions
         for i in 0..p.local_data.len() {
             p.local_data[i] = r.local_data[i] + beta * (p.local_data[i] - *omega * v.local_data[i]);
-            p_hat.local_data[i] = r_hat.local_data[i] + beta * (p_hat.local_data[i] - *omega * v.local_data[i]);
+            p_hat.local_data[i] =
+                r_hat.local_data[i] + beta * (p_hat.local_data[i] - *omega * v.local_data[i]);
         }
 
         Ok(())
@@ -269,9 +333,10 @@ where
     ) -> MpiResult<()> {
         // Implementation would use persistent MPI requests
         // For now, fall back to synchronous implementation
-        Err(Error::InvalidConfiguration(
-            "Persistent requests not yet implemented".to_string()
-        ).into())
+        Err(
+            Error::InvalidConfiguration("Persistent requests not yet implemented".to_string())
+                .into(),
+        )
     }
 
     /// Synchronous solve (no overlap).
@@ -332,7 +397,8 @@ where
 
         for i in 0..p.local_data.len() {
             p.local_data[i] = r.local_data[i] + beta * (p.local_data[i] - *omega * v.local_data[i]);
-            p_hat.local_data[i] = r_hat.local_data[i] + beta * (p_hat.local_data[i] - *omega * v.local_data[i]);
+            p_hat.local_data[i] =
+                r_hat.local_data[i] + beta * (p_hat.local_data[i] - *omega * v.local_data[i]);
         }
 
         Ok(())
@@ -393,12 +459,11 @@ impl<T: RealField + Copy> ParallelLoadBalancer<T> {
     /// Get load balancing recommendations.
     pub fn get_recommendations(&self) -> LoadBalancingRecommendations {
         match self.strategy {
-            LoadBalancingStrategy::Static => {
-                LoadBalancingRecommendations::Static
-            }
+            LoadBalancingStrategy::Static => LoadBalancingRecommendations::Static,
             LoadBalancingStrategy::Dynamic => {
                 // Simple dynamic balancing based on work estimates
-                let avg_work: f64 = self.work_estimates.iter().sum::<f64>() / self.work_estimates.len() as f64;
+                let avg_work: f64 =
+                    self.work_estimates.iter().sum::<f64>() / self.work_estimates.len() as f64;
                 let max_work = self.work_estimates.iter().cloned().fold(0.0, f64::max);
                 let imbalance_ratio = max_work / avg_work;
 
@@ -461,12 +526,19 @@ impl CommunicationOptimizer {
     }
 
     /// Analyze communication pattern and suggest optimizations.
-    pub fn analyze_and_optimize(&mut self, message_sizes: &[usize], frequencies: &[f64]) -> Vec<CommunicationOptimization> {
+    pub fn analyze_and_optimize(
+        &mut self,
+        message_sizes: &[usize],
+        frequencies: &[f64],
+    ) -> Vec<CommunicationOptimization> {
         let mut optimizations = Vec::new();
 
         // Analyze message size distribution
         let avg_size = message_sizes.iter().sum::<usize>() as f64 / message_sizes.len() as f64;
-        let large_messages = message_sizes.iter().filter(|&&size| size > avg_size as usize * 2).count();
+        let large_messages = message_sizes
+            .iter()
+            .filter(|&&size| size > avg_size as usize * 2)
+            .count();
 
         if large_messages > message_sizes.len() / 4 {
             optimizations.push(CommunicationOptimization::UseNonBlockingCommunication);
@@ -475,7 +547,10 @@ impl CommunicationOptimizer {
         // Analyze frequency patterns
         let total_freq: f64 = frequencies.iter().sum();
         let avg_freq = total_freq / frequencies.len() as f64;
-        let bursty_comm = frequencies.iter().filter(|&&freq| freq > avg_freq * 2.0).count();
+        let bursty_comm = frequencies
+            .iter()
+            .filter(|&&freq| freq > avg_freq * 2.0)
+            .count();
 
         if bursty_comm > frequencies.len() / 3 {
             optimizations.push(CommunicationOptimization::ImplementCommunicationAggregation);

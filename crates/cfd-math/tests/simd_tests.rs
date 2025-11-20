@@ -9,8 +9,8 @@
 //! - Performance regression tests vs scalar baseline
 //! - Accuracy validation across SIMD architectures
 
-use cfd_math::simd::{SimdCapability, SimdProcessor, SimdOperation};
 use approx::assert_relative_eq;
+use cfd_math::simd::{SimdCapability, SimdOperation, SimdProcessor};
 
 #[cfg(test)]
 mod tests {
@@ -23,7 +23,10 @@ mod tests {
 
         // Ensure we always get a valid capability
         match capability {
-            SimdCapability::Avx2 | SimdCapability::Sse42 | SimdCapability::Neon | SimdCapability::Swar => {
+            SimdCapability::Avx2
+            | SimdCapability::Sse42
+            | SimdCapability::Neon
+            | SimdCapability::Swar => {
                 // Valid capability detected
             }
         }
@@ -36,7 +39,10 @@ mod tests {
         let capability = processor.capability();
 
         match capability {
-            SimdCapability::Avx2 | SimdCapability::Sse42 | SimdCapability::Neon | SimdCapability::Swar => {
+            SimdCapability::Avx2
+            | SimdCapability::Sse42
+            | SimdCapability::Neon
+            | SimdCapability::Swar => {
                 // Valid capability
             }
         }
@@ -54,7 +60,9 @@ mod tests {
         let mut result = vec![0.0f32; 8];
 
         // Apply SIMD addition
-        processor.process_f32(&a, &b, &mut result, SimdOperation::Add).unwrap();
+        processor
+            .process_f32(&a, &b, &mut result, SimdOperation::Add)
+            .unwrap();
 
         // Verify accuracy
         let expected = vec![1.5f32, 3.5, 5.5, 7.5, 9.5, 11.5, 13.5, 15.5];
@@ -73,7 +81,9 @@ mod tests {
         let mut result = vec![0.0f32; 8];
 
         // Apply SIMD subtraction
-        processor.process_f32(&a, &b, &mut result, SimdOperation::Sub).unwrap();
+        processor
+            .process_f32(&a, &b, &mut result, SimdOperation::Sub)
+            .unwrap();
 
         // Verify accuracy
         let expected = vec![9.0f32, 7.0, 5.0, 3.0, 1.0, -1.0, -3.0, -5.0];
@@ -92,7 +102,9 @@ mod tests {
         let mut result = vec![0.0f32; 4];
 
         // Apply SIMD multiplication
-        processor.process_f32(&a, &b, &mut result, SimdOperation::Mul).unwrap();
+        processor
+            .process_f32(&a, &b, &mut result, SimdOperation::Mul)
+            .unwrap();
 
         // Verify accuracy
         let expected = vec![2.0f32, 6.0, 12.0, 20.0];
@@ -111,7 +123,9 @@ mod tests {
         let mut result = vec![0.0f64; 4];
 
         // Apply SIMD addition
-        processor.process_f64(&a, &b, &mut result, SimdOperation::Add).unwrap();
+        processor
+            .process_f64(&a, &b, &mut result, SimdOperation::Add)
+            .unwrap();
 
         // Verify accuracy
         let expected = vec![1.5f64, 3.5, 5.5, 7.5];
@@ -130,7 +144,9 @@ mod tests {
         let mut result = vec![0.0f64; 4];
 
         // Apply SIMD subtraction
-        processor.process_f64(&a, &b, &mut result, SimdOperation::Sub).unwrap();
+        processor
+            .process_f64(&a, &b, &mut result, SimdOperation::Sub)
+            .unwrap();
 
         // Verify accuracy
         let expected = vec![9.0f64, 7.0, 5.0, 3.0];
@@ -149,7 +165,9 @@ mod tests {
         let mut result = vec![0.0f32; 3];
 
         // Should fail with dimension mismatch
-        assert!(processor.process_f32(&a, &b, &mut result, SimdOperation::Add).is_err());
+        assert!(processor
+            .process_f32(&a, &b, &mut result, SimdOperation::Add)
+            .is_err());
     }
 
     /// Test SIMD performance regression (no degradation vs scalar)
@@ -169,8 +187,12 @@ mod tests {
         // Benchmark SIMD operations (multiple iterations for stability)
         let start = Instant::now();
         for _ in 0..10 {
-            processor.process_f32(&a, &b, &mut result_simd, SimdOperation::Add).unwrap();
-            processor.process_f32(&a, &b, &mut result_simd, SimdOperation::Mul).unwrap();
+            processor
+                .process_f32(&a, &b, &mut result_simd, SimdOperation::Add)
+                .unwrap();
+            processor
+                .process_f32(&a, &b, &mut result_simd, SimdOperation::Mul)
+                .unwrap();
         }
         let simd_time = start.elapsed();
 
@@ -217,7 +239,9 @@ mod tests {
             let mut result = vec![0.0f32; size];
 
             // Apply SIMD addition
-            processor.process_f32(&a, &b, &mut result, SimdOperation::Add).unwrap();
+            processor
+                .process_f32(&a, &b, &mut result, SimdOperation::Add)
+                .unwrap();
 
             // Verify accuracy
             for i in 0..size {
@@ -237,7 +261,9 @@ mod tests {
         let b = vec![1.0f32; 4];
         let mut result = vec![0.0f32; 4];
 
-        processor.process_f32(&a, &b, &mut result, SimdOperation::Add).unwrap();
+        processor
+            .process_f32(&a, &b, &mut result, SimdOperation::Add)
+            .unwrap();
         assert!(result.iter().all(|&v| v == 1.0));
 
         // Negative values
@@ -245,7 +271,9 @@ mod tests {
         let b = vec![1.0f32, 2.0, 3.0, 4.0];
         let mut result = vec![0.0f32; 4];
 
-        processor.process_f32(&a, &b, &mut result, SimdOperation::Add).unwrap();
+        processor
+            .process_f32(&a, &b, &mut result, SimdOperation::Add)
+            .unwrap();
         assert!(result.iter().all(|&v| v == 0.0));
     }
 }
@@ -267,11 +295,20 @@ mod cfd_integration_tests {
 
         // First multiply: dt * rhs
         let mut scaled_rhs = vec![0.0f32; 4];
-        processor.process_f32(&dt_vec, &rhs, &mut scaled_rhs, SimdOperation::Mul).unwrap();
+        processor
+            .process_f32(&dt_vec, &rhs, &mut scaled_rhs, SimdOperation::Mul)
+            .unwrap();
 
         // Then add: v_old + scaled_rhs
         let mut velocity_new = vec![0.0f32; 4];
-        processor.process_f32(&velocity_old, &scaled_rhs, &mut velocity_new, SimdOperation::Add).unwrap();
+        processor
+            .process_f32(
+                &velocity_old,
+                &scaled_rhs,
+                &mut velocity_new,
+                SimdOperation::Add,
+            )
+            .unwrap();
 
         // Expected: v[i] += dt * rhs[i]
         let expected = vec![1.001f32, 2.002, 3.003, 4.004];
@@ -287,11 +324,13 @@ mod cfd_integration_tests {
 
         // residual = rhs - A*x (simplified as rhs - ax)
         let rhs = vec![1.0f32, 2.0, 3.0, 4.0];
-        let ax = vec![0.8f32, 1.9, 2.9, 4.0];  // A*x result
+        let ax = vec![0.8f32, 1.9, 2.9, 4.0]; // A*x result
 
         // Compute rhs - ax
         let mut residual = vec![0.0f32; 4];
-        processor.process_f32(&rhs, &ax, &mut residual, SimdOperation::Sub).unwrap();
+        processor
+            .process_f32(&rhs, &ax, &mut residual, SimdOperation::Sub)
+            .unwrap();
 
         let expected = vec![0.2f32, 0.1, 0.1, 0.0];
         for (actual, expected) in residual.iter().zip(expected.iter()) {
@@ -305,11 +344,13 @@ mod cfd_integration_tests {
         let processor = SimdProcessor::new();
 
         // Simplified convection: convection = u * (du/dx)
-        let u = vec![1.0f32, 2.0, 3.0, 4.0];     // velocity field
-        let dudx = vec![0.1f32, 0.2, 0.3, 0.4];  // velocity gradient
+        let u = vec![1.0f32, 2.0, 3.0, 4.0]; // velocity field
+        let dudx = vec![0.1f32, 0.2, 0.3, 0.4]; // velocity gradient
 
         let mut convection = vec![0.0f32; 4];
-        processor.process_f32(&u, &dudx, &mut convection, SimdOperation::Mul).unwrap();
+        processor
+            .process_f32(&u, &dudx, &mut convection, SimdOperation::Mul)
+            .unwrap();
 
         let expected = vec![0.1f32, 0.4, 0.9, 1.6];
         for (actual, expected) in convection.iter().zip(expected.iter()) {

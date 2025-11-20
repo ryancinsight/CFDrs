@@ -17,8 +17,7 @@ mod compression_ratios {
 }
 
 /// Compression strategy for checkpoints
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub enum CompressionStrategy {
     /// No compression
     #[default]
@@ -26,7 +25,6 @@ pub enum CompressionStrategy {
     /// Zstandard compression with level (1-22, default 3)
     Zstd(u8),
 }
-
 
 impl CompressionStrategy {
     /// Get recommended compression for checkpoint size

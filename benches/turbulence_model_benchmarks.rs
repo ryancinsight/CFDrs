@@ -5,9 +5,9 @@
 //! - LES models: Smagorinsky LES, DES
 //! - Performance scaling with grid size and model complexity
 
+use cfd_2d::physics::turbulence::*;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use nalgebra::DVector;
-use cfd_2d::physics::turbulence::*;
 
 /// Benchmark RANS model performance (k-ε, k-ω SST, SA)
 fn bench_rans_models(c: &mut Criterion) {
@@ -25,16 +25,18 @@ fn bench_rans_models(c: &mut Criterion) {
             let velocity_field = vec![nalgebra::Vector2::new(1.0, 0.0); nx * ny];
 
             b.iter(|| {
-                k_model.update(
-                    &mut k_field,
-                    &mut eps_field,
-                    &velocity_field,
-                    black_box(1.0), // density
-                    black_box(1.5e-5), // viscosity
-                    black_box(1e-4), // dt
-                    black_box(0.01), // dx
-                    black_box(0.01), // dy
-                ).unwrap();
+                k_model
+                    .update(
+                        &mut k_field,
+                        &mut eps_field,
+                        &velocity_field,
+                        black_box(1.0),    // density
+                        black_box(1.5e-5), // viscosity
+                        black_box(1e-4),   // dt
+                        black_box(0.01),   // dx
+                        black_box(0.01),   // dy
+                    )
+                    .unwrap();
             });
         });
 
@@ -46,16 +48,18 @@ fn bench_rans_models(c: &mut Criterion) {
             let velocity_field = vec![nalgebra::Vector2::new(1.0, 0.0); nx * ny];
 
             b.iter(|| {
-                k_model.update(
-                    &mut k_field,
-                    &mut omega_field,
-                    &velocity_field,
-                    black_box(1.0),
-                    black_box(1.5e-5),
-                    black_box(1e-4),
-                    black_box(0.01),
-                    black_box(0.01),
-                ).unwrap();
+                k_model
+                    .update(
+                        &mut k_field,
+                        &mut omega_field,
+                        &velocity_field,
+                        black_box(1.0),
+                        black_box(1.5e-5),
+                        black_box(1e-4),
+                        black_box(0.01),
+                        black_box(0.01),
+                    )
+                    .unwrap();
             });
         });
 
@@ -66,14 +70,16 @@ fn bench_rans_models(c: &mut Criterion) {
             let velocity_field = vec![nalgebra::Vector2::new(1.0, 0.0); nx * ny];
 
             b.iter(|| {
-                sa_model.update(
-                    &mut nu_tilde_field,
-                    &velocity_field,
-                    black_box(1.5e-5),
-                    black_box(1e-4),
-                    black_box(0.01),
-                    black_box(0.01),
-                ).unwrap();
+                sa_model
+                    .update(
+                        &mut nu_tilde_field,
+                        &velocity_field,
+                        black_box(1.5e-5),
+                        black_box(1e-4),
+                        black_box(0.01),
+                        black_box(0.01),
+                    )
+                    .unwrap();
             });
         });
     }
@@ -104,16 +110,18 @@ fn bench_les_models(c: &mut Criterion) {
             let pressure = nalgebra::DMatrix::zeros(nx, ny);
 
             b.iter(|| {
-                les_model.update(
-                    &velocity_u,
-                    &velocity_v,
-                    &pressure,
-                    black_box(1.0),
-                    black_box(1.5e-5),
-                    black_box(1e-4),
-                    black_box(0.01),
-                    black_box(0.01),
-                ).unwrap();
+                les_model
+                    .update(
+                        &velocity_u,
+                        &velocity_v,
+                        &pressure,
+                        black_box(1.0),
+                        black_box(1.5e-5),
+                        black_box(1e-4),
+                        black_box(0.01),
+                        black_box(0.01),
+                    )
+                    .unwrap();
             });
         });
 
@@ -132,16 +140,18 @@ fn bench_les_models(c: &mut Criterion) {
             let pressure = nalgebra::DMatrix::zeros(nx, ny);
 
             b.iter(|| {
-                des_model.update(
-                    &velocity_u,
-                    &velocity_v,
-                    &pressure,
-                    black_box(1.0),
-                    black_box(1.5e-5),
-                    black_box(1e-4),
-                    black_box(0.01),
-                    black_box(0.01),
-                ).unwrap();
+                des_model
+                    .update(
+                        &velocity_u,
+                        &velocity_v,
+                        &pressure,
+                        black_box(1.0),
+                        black_box(1.5e-5),
+                        black_box(1e-4),
+                        black_box(0.01),
+                        black_box(0.01),
+                    )
+                    .unwrap();
             });
         });
     }
@@ -265,7 +275,4 @@ criterion_group! {
 }
 
 criterion_main!(turbulence_benchmarks);
-
-
-
 

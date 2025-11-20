@@ -15,11 +15,7 @@ fn bench_domain_decomposition_creation(c: &mut Criterion) {
         b.iter(|| {
             let global_extents = GlobalExtents::new_2d(1000, 1000, (0.0, 1.0, 0.0, 1.0));
             let strategy = DecompositionStrategy::Cartesian2D;
-            black_box(DomainDecomposition::new(
-                global_extents,
-                &world,
-                strategy
-            ).unwrap())
+            black_box(DomainDecomposition::new(global_extents, &world, strategy).unwrap())
         })
     });
 }
@@ -56,13 +52,16 @@ fn bench_ghost_cell_exchange(c: &mut Criterion) {
 
     c.bench_function("ghost_cell_exchange", |b| {
         b.iter(|| {
-            black_box(update_ghost_cells(
-                &world,
-                &decomp,
-                &mut velocity_u,
-                &mut velocity_v,
-                &mut pressure,
-            ).unwrap())
+            black_box(
+                update_ghost_cells(
+                    &world,
+                    &decomp,
+                    &mut velocity_u,
+                    &mut velocity_v,
+                    &mut pressure,
+                )
+                .unwrap(),
+            )
         })
     });
 }

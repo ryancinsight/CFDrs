@@ -47,7 +47,9 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedDiffusion<T> {
 impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedDiffusion<T> {
     /// Exact solution: u(x,y,t) = sin(kx*x) * sin(ky*y) * exp(-omega*t)
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
-        ComplexField::sin(self.kx * x) * ComplexField::sin(self.ky * y) * ComplexField::exp(-self.omega * t)
+        ComplexField::sin(self.kx * x)
+            * ComplexField::sin(self.ky * y)
+            * ComplexField::exp(-self.omega * t)
     }
 
     /// Source term: S = ∂u/∂t - α∇²u
@@ -89,16 +91,17 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedAdvectionDiffu
         let eta = y - self.vy * t;
 
         // Time derivative
-        let dudt =
-            self.vx * ComplexField::sin(xi) * ComplexField::sin(eta) - self.vy * ComplexField::cos(xi) * ComplexField::cos(eta);
+        let dudt = self.vx * ComplexField::sin(xi) * ComplexField::sin(eta)
+            - self.vy * ComplexField::cos(xi) * ComplexField::cos(eta);
 
         // Advection term: v·∇u
         let advection = -self.vx * ComplexField::sin(xi) * ComplexField::sin(eta)
             + self.vy * ComplexField::cos(xi) * ComplexField::cos(eta);
 
         // Diffusion term: α∇²u
-        let diffusion =
-            -self.alpha * (ComplexField::cos(xi) * ComplexField::sin(eta) + ComplexField::cos(xi) * ComplexField::sin(eta));
+        let diffusion = -self.alpha
+            * (ComplexField::cos(xi) * ComplexField::sin(eta)
+                + ComplexField::cos(xi) * ComplexField::sin(eta));
 
         // Source term: S = ∂u/∂t + v·∇u - α∇²u
         dudt + advection - diffusion

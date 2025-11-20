@@ -19,8 +19,7 @@ use cfd_2d::physics::momentum::{ConvectionScheme, MomentumComponent, MomentumSol
 fn test_momentum_solver_creation() -> CfdResult<()> {
     let nx = 3;
     let ny = 3;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0)
-        .expect("Valid grid");
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Valid grid");
 
     // Test default creation
     let solver = MomentumSolver::new(&grid);
@@ -30,13 +29,19 @@ fn test_momentum_solver_creation() -> CfdResult<()> {
 
     // Test boundary condition setting
     let mut solver_with_bc = MomentumSolver::new(&grid);
-    solver_with_bc.set_boundary("north".to_string(), BoundaryCondition::Dirichlet { value: 1.0 });
-    solver_with_bc.set_boundary("south".to_string(), BoundaryCondition::Dirichlet { value: 0.0 });
+    solver_with_bc.set_boundary(
+        "north".to_string(),
+        BoundaryCondition::Dirichlet { value: 1.0 },
+    );
+    solver_with_bc.set_boundary(
+        "south".to_string(),
+        BoundaryCondition::Dirichlet { value: 0.0 },
+    );
 
     // Test relaxation factor setting (should be within valid range)
     solver_with_bc.set_velocity_relaxation(0.7); // Valid range 0 < α ≤ 1
     solver_with_bc.set_velocity_relaxation(0.5); // More stable but slower
-    //solver_with_bc.set_velocity_relaxation(1.1); // This would be invalid, but not tested here
+                                                 //solver_with_bc.set_velocity_relaxation(1.1); // This would be invalid, but not tested here
 
     Ok(())
 }
@@ -46,8 +51,7 @@ fn test_momentum_solver_creation() -> CfdResult<()> {
 fn test_momentum_solver_basic_execution() -> CfdResult<()> {
     let nx = 3;
     let ny = 3;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0)
-        .expect("Valid grid");
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Valid grid");
 
     // Set up fields with initial values
     let mut fields = SimulationFields::new(nx, ny);
@@ -63,10 +67,22 @@ fn test_momentum_solver_basic_execution() -> CfdResult<()> {
 
     // Boundary conditions
     let mut solver = MomentumSolver::new(&grid);
-    solver.set_boundary("north".to_string(), BoundaryCondition::Dirichlet { value: 0.5 });
-    solver.set_boundary("south".to_string(), BoundaryCondition::Dirichlet { value: 0.0 });
-    solver.set_boundary("west".to_string(), BoundaryCondition::Dirichlet { value: 0.0 });
-    solver.set_boundary("east".to_string(), BoundaryCondition::Dirichlet { value: 0.0 });
+    solver.set_boundary(
+        "north".to_string(),
+        BoundaryCondition::Dirichlet { value: 0.5 },
+    );
+    solver.set_boundary(
+        "south".to_string(),
+        BoundaryCondition::Dirichlet { value: 0.0 },
+    );
+    solver.set_boundary(
+        "west".to_string(),
+        BoundaryCondition::Dirichlet { value: 0.0 },
+    );
+    solver.set_boundary(
+        "east".to_string(),
+        BoundaryCondition::Dirichlet { value: 0.0 },
+    );
 
     // Solve with simple time step
     let dt = 0.001;
@@ -84,8 +100,7 @@ fn test_momentum_solver_basic_execution() -> CfdResult<()> {
 fn test_pressure_velocity_coupling_setup() -> CfdResult<()> {
     let nx = 3;
     let ny = 3;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0)
-        .expect("Valid grid");
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Valid grid");
 
     let mut fields = SimulationFields::new(nx, ny);
 
@@ -116,18 +131,29 @@ fn test_simple_algorithm_foundation() -> CfdResult<()> {
     // Test that we have the components needed for a SIMPLE algorithm
     let nx = 3;
     let ny = 3;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0)
-        .expect("Valid grid");
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Valid grid");
 
     // U-momentum solver
     let mut u_solver = MomentumSolver::new(&grid);
-    u_solver.set_boundary("north".to_string(), BoundaryCondition::Dirichlet { value: 1.0 });
-    u_solver.set_boundary("south".to_string(), BoundaryCondition::Dirichlet { value: 0.0 });
+    u_solver.set_boundary(
+        "north".to_string(),
+        BoundaryCondition::Dirichlet { value: 1.0 },
+    );
+    u_solver.set_boundary(
+        "south".to_string(),
+        BoundaryCondition::Dirichlet { value: 0.0 },
+    );
 
     // V-momentum solver
     let mut v_solver = MomentumSolver::new(&grid);
-    v_solver.set_boundary("north".to_string(), BoundaryCondition::Dirichlet { value: 0.0 });
-    v_solver.set_boundary("south".to_string(), BoundaryCondition::Dirichlet { value: 0.0 });
+    v_solver.set_boundary(
+        "north".to_string(),
+        BoundaryCondition::Dirichlet { value: 0.0 },
+    );
+    v_solver.set_boundary(
+        "south".to_string(),
+        BoundaryCondition::Dirichlet { value: 0.0 },
+    );
 
     let mut fields = SimulationFields::new(nx, ny);
     let dt = 0.001;
@@ -147,7 +173,10 @@ fn test_simple_algorithm_foundation() -> CfdResult<()> {
 
     // Fields should have changed from initial values
     let has_nonzero_velocity = (0..nx).any(|i| (0..ny).any(|j| fields.u[(i, j)].abs() > 0.0));
-    assert!(has_nonzero_velocity, "U-solver should modify velocity fields");
+    assert!(
+        has_nonzero_velocity,
+        "U-solver should modify velocity fields"
+    );
 
     Ok(())
 }
@@ -157,16 +186,27 @@ fn test_simple_algorithm_foundation() -> CfdResult<()> {
 fn test_momentum_solver_boundaries() -> CfdResult<()> {
     let nx = 3;
     let ny = 3;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0)
-        .expect("Valid grid");
+    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Valid grid");
 
     let mut solver = MomentumSolver::new(&grid);
 
     // Test various boundary conditions
-    solver.set_boundary("north".to_string(), BoundaryCondition::Dirichlet { value: 2.0 });
-    solver.set_boundary("south".to_string(), BoundaryCondition::Dirichlet { value: -1.0 });
-    solver.set_boundary("west".to_string(), BoundaryCondition::Dirichlet { value: 0.5 });
-    solver.set_boundary("east".to_string(), BoundaryCondition::Dirichlet { value: -0.5 });
+    solver.set_boundary(
+        "north".to_string(),
+        BoundaryCondition::Dirichlet { value: 2.0 },
+    );
+    solver.set_boundary(
+        "south".to_string(),
+        BoundaryCondition::Dirichlet { value: -1.0 },
+    );
+    solver.set_boundary(
+        "west".to_string(),
+        BoundaryCondition::Dirichlet { value: 0.5 },
+    );
+    solver.set_boundary(
+        "east".to_string(),
+        BoundaryCondition::Dirichlet { value: -0.5 },
+    );
 
     let mut fields = SimulationFields::new(nx, ny);
     let dt = 0.001;
@@ -175,7 +215,10 @@ fn test_momentum_solver_boundaries() -> CfdResult<()> {
     let result = solver.solve(MomentumComponent::U, &mut fields, dt);
 
     // Should execute successfully with given boundary conditions
-    assert!(result.is_ok(), "Momentum solver should handle boundary conditions");
+    assert!(
+        result.is_ok(),
+        "Momentum solver should handle boundary conditions"
+    );
 
     Ok(())
 }

@@ -5,7 +5,7 @@ use nalgebra::RealField;
 use thiserror::Error;
 
 /// Type alias for custom refinement function to reduce complexity
-/// 
+///
 /// Takes a cell and its vertices, returns true if refinement is needed
 pub type CustomRefinementFn<T> = Box<dyn Fn(&Cell, &[Vertex<T>]) -> bool + Send + Sync>;
 

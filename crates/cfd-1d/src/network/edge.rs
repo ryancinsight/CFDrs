@@ -29,7 +29,8 @@ pub struct Edge<T: RealField + Copy> {
 
 impl<T: RealField + Copy> Edge<T> {
     /// Create a new edge
-    #[must_use] pub fn new(id: String, edge_type: EdgeType) -> Self {
+    #[must_use]
+    pub fn new(id: String, edge_type: EdgeType) -> Self {
         Self {
             id,
             edge_type,

@@ -25,7 +25,7 @@ impl<T: RealField + Copy> BoundaryConditionManager<T> {
     }
 
     /// Register a boundary region
-    /// 
+    ///
     /// # Errors
     /// Returns error if region with same ID already exists
     pub fn add_region(&mut self, region: BoundaryRegion<T>) -> Result<(), String> {
@@ -42,7 +42,7 @@ impl<T: RealField + Copy> BoundaryConditionManager<T> {
     }
 
     /// Apply all boundary conditions to a field
-    /// 
+    ///
     /// # Errors
     /// Returns error if any boundary condition application fails
     pub fn apply_all(&self, field: &mut [T], time: T) -> Result<(), String> {
@@ -83,7 +83,7 @@ impl<T: RealField + Copy> BoundaryConditionManager<T> {
     }
 
     /// Update boundary condition for a region
-    /// 
+    ///
     /// # Errors
     /// Returns error if region with specified ID is not found
     pub fn update_condition(
@@ -101,7 +101,7 @@ impl<T: RealField + Copy> BoundaryConditionManager<T> {
     }
 
     /// Remove a boundary region
-    /// 
+    ///
     /// # Errors
     /// Returns error if region with specified ID is not found
     pub fn remove_region(&mut self, id: &str) -> Result<(), String> {

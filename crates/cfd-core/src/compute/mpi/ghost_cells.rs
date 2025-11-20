@@ -66,26 +66,38 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
         neighbor_info: &NeighborInfo,
     ) -> MpiResult<()> {
         match neighbor_info.direction {
-            NeighborDirection::Left => {
-                self.exchange_left_right(
-                    velocity_u, velocity_v, pressure, subdomain, neighbor_rank, true
-                )
-            }
-            NeighborDirection::Right => {
-                self.exchange_left_right(
-                    velocity_u, velocity_v, pressure, subdomain, neighbor_rank, false
-                )
-            }
-            NeighborDirection::Bottom => {
-                self.exchange_bottom_top(
-                    velocity_u, velocity_v, pressure, subdomain, neighbor_rank, true
-                )
-            }
-            NeighborDirection::Top => {
-                self.exchange_bottom_top(
-                    velocity_u, velocity_v, pressure, subdomain, neighbor_rank, false
-                )
-            }
+            NeighborDirection::Left => self.exchange_left_right(
+                velocity_u,
+                velocity_v,
+                pressure,
+                subdomain,
+                neighbor_rank,
+                true,
+            ),
+            NeighborDirection::Right => self.exchange_left_right(
+                velocity_u,
+                velocity_v,
+                pressure,
+                subdomain,
+                neighbor_rank,
+                false,
+            ),
+            NeighborDirection::Bottom => self.exchange_bottom_top(
+                velocity_u,
+                velocity_v,
+                pressure,
+                subdomain,
+                neighbor_rank,
+                true,
+            ),
+            NeighborDirection::Top => self.exchange_bottom_top(
+                velocity_u,
+                velocity_v,
+                pressure,
+                subdomain,
+                neighbor_rank,
+                false,
+            ),
             _ => Ok(()), // 3D directions not implemented yet
         }
     }
@@ -146,9 +158,12 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
         if is_left {
             // Send to left, receive from left (standard MPI ordering)
             self.communicator.send(&send_u_x, neighbor_rank, tag_base);
-            self.communicator.send(&send_u_y, neighbor_rank, tag_base + 1);
-            self.communicator.send(&send_v_x, neighbor_rank, tag_base + 2);
-            self.communicator.send(&send_v_y, neighbor_rank, tag_base + 3);
+            self.communicator
+                .send(&send_u_y, neighbor_rank, tag_base + 1);
+            self.communicator
+                .send(&send_v_x, neighbor_rank, tag_base + 2);
+            self.communicator
+                .send(&send_v_y, neighbor_rank, tag_base + 3);
             self.communicator.send(&send_p, neighbor_rank, tag_base + 4);
 
             recv_u_x = self.communicator.receive(neighbor_rank, tag_base);
@@ -165,9 +180,12 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
             recv_p = self.communicator.receive(neighbor_rank, tag_base + 4);
 
             self.communicator.send(&send_u_x, neighbor_rank, tag_base);
-            self.communicator.send(&send_u_y, neighbor_rank, tag_base + 1);
-            self.communicator.send(&send_v_x, neighbor_rank, tag_base + 2);
-            self.communicator.send(&send_v_y, neighbor_rank, tag_base + 3);
+            self.communicator
+                .send(&send_u_y, neighbor_rank, tag_base + 1);
+            self.communicator
+                .send(&send_v_x, neighbor_rank, tag_base + 2);
+            self.communicator
+                .send(&send_v_y, neighbor_rank, tag_base + 3);
             self.communicator.send(&send_p, neighbor_rank, tag_base + 4);
         }
 
@@ -236,9 +254,12 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
         if is_bottom {
             // Send to bottom, receive from bottom
             self.communicator.send(&send_u_x, neighbor_rank, tag_base);
-            self.communicator.send(&send_u_y, neighbor_rank, tag_base + 1);
-            self.communicator.send(&send_v_x, neighbor_rank, tag_base + 2);
-            self.communicator.send(&send_v_y, neighbor_rank, tag_base + 3);
+            self.communicator
+                .send(&send_u_y, neighbor_rank, tag_base + 1);
+            self.communicator
+                .send(&send_v_x, neighbor_rank, tag_base + 2);
+            self.communicator
+                .send(&send_v_y, neighbor_rank, tag_base + 3);
             self.communicator.send(&send_p, neighbor_rank, tag_base + 4);
 
             recv_u_x = self.communicator.receive(neighbor_rank, tag_base);
@@ -255,9 +276,12 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
             recv_p = self.communicator.receive(neighbor_rank, tag_base + 4);
 
             self.communicator.send(&send_u_x, neighbor_rank, tag_base);
-            self.communicator.send(&send_u_y, neighbor_rank, tag_base + 1);
-            self.communicator.send(&send_v_x, neighbor_rank, tag_base + 2);
-            self.communicator.send(&send_v_y, neighbor_rank, tag_base + 3);
+            self.communicator
+                .send(&send_u_y, neighbor_rank, tag_base + 1);
+            self.communicator
+                .send(&send_v_x, neighbor_rank, tag_base + 2);
+            self.communicator
+                .send(&send_v_y, neighbor_rank, tag_base + 3);
             self.communicator.send(&send_p, neighbor_rank, tag_base + 4);
         }
 
@@ -336,26 +360,38 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
         neighbor_info: &NeighborInfo,
     ) -> MpiResult<Vec<mpi::request::Request<'_, Vec<T>>>> {
         match neighbor_info.direction {
-            NeighborDirection::Left => {
-                self.exchange_left_right_async(
-                    velocity_u, velocity_v, pressure, subdomain, neighbor_rank, true
-                )
-            }
-            NeighborDirection::Right => {
-                self.exchange_left_right_async(
-                    velocity_u, velocity_v, pressure, subdomain, neighbor_rank, false
-                )
-            }
-            NeighborDirection::Bottom => {
-                self.exchange_bottom_top_async(
-                    velocity_u, velocity_v, pressure, subdomain, neighbor_rank, true
-                )
-            }
-            NeighborDirection::Top => {
-                self.exchange_bottom_top_async(
-                    velocity_u, velocity_v, pressure, subdomain, neighbor_rank, false
-                )
-            }
+            NeighborDirection::Left => self.exchange_left_right_async(
+                velocity_u,
+                velocity_v,
+                pressure,
+                subdomain,
+                neighbor_rank,
+                true,
+            ),
+            NeighborDirection::Right => self.exchange_left_right_async(
+                velocity_u,
+                velocity_v,
+                pressure,
+                subdomain,
+                neighbor_rank,
+                false,
+            ),
+            NeighborDirection::Bottom => self.exchange_bottom_top_async(
+                velocity_u,
+                velocity_v,
+                pressure,
+                subdomain,
+                neighbor_rank,
+                true,
+            ),
+            NeighborDirection::Top => self.exchange_bottom_top_async(
+                velocity_u,
+                velocity_v,
+                pressure,
+                subdomain,
+                neighbor_rank,
+                false,
+            ),
             _ => Ok(Vec::new()), // 3D directions not implemented yet
         }
     }
@@ -408,11 +444,26 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
         // Start asynchronous sends and receives
         if is_left {
             // Send to left, receive from left
-            requests.push(self.communicator.send_async(&send_u_x, neighbor_rank, tag_base));
-            requests.push(self.communicator.send_async(&send_u_y, neighbor_rank, tag_base + 1));
-            requests.push(self.communicator.send_async(&send_v_x, neighbor_rank, tag_base + 2));
-            requests.push(self.communicator.send_async(&send_v_y, neighbor_rank, tag_base + 3));
-            requests.push(self.communicator.send_async(&send_p, neighbor_rank, tag_base + 4));
+            requests.push(
+                self.communicator
+                    .send_async(&send_u_x, neighbor_rank, tag_base),
+            );
+            requests.push(
+                self.communicator
+                    .send_async(&send_u_y, neighbor_rank, tag_base + 1),
+            );
+            requests.push(
+                self.communicator
+                    .send_async(&send_v_x, neighbor_rank, tag_base + 2),
+            );
+            requests.push(
+                self.communicator
+                    .send_async(&send_v_y, neighbor_rank, tag_base + 3),
+            );
+            requests.push(
+                self.communicator
+                    .send_async(&send_p, neighbor_rank, tag_base + 4),
+            );
 
             // Store receive requests for later completion
             let recv_u_x_req = self.communicator.receive_async(neighbor_rank, tag_base);
@@ -440,11 +491,26 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
             requests.push(recv_v_y_req);
             requests.push(recv_p_req);
 
-            requests.push(self.communicator.send_async(&send_u_x, neighbor_rank, tag_base));
-            requests.push(self.communicator.send_async(&send_u_y, neighbor_rank, tag_base + 1));
-            requests.push(self.communicator.send_async(&send_v_x, neighbor_rank, tag_base + 2));
-            requests.push(self.communicator.send_async(&send_v_y, neighbor_rank, tag_base + 3));
-            requests.push(self.communicator.send_async(&send_p, neighbor_rank, tag_base + 4));
+            requests.push(
+                self.communicator
+                    .send_async(&send_u_x, neighbor_rank, tag_base),
+            );
+            requests.push(
+                self.communicator
+                    .send_async(&send_u_y, neighbor_rank, tag_base + 1),
+            );
+            requests.push(
+                self.communicator
+                    .send_async(&send_v_x, neighbor_rank, tag_base + 2),
+            );
+            requests.push(
+                self.communicator
+                    .send_async(&send_v_y, neighbor_rank, tag_base + 3),
+            );
+            requests.push(
+                self.communicator
+                    .send_async(&send_p, neighbor_rank, tag_base + 4),
+            );
         }
 
         Ok(requests)
@@ -491,11 +557,26 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
         // Start asynchronous sends and receives
         if is_bottom {
             // Send to bottom, receive from bottom
-            requests.push(self.communicator.send_async(&send_u_x, neighbor_rank, tag_base));
-            requests.push(self.communicator.send_async(&send_u_y, neighbor_rank, tag_base + 1));
-            requests.push(self.communicator.send_async(&send_v_x, neighbor_rank, tag_base + 2));
-            requests.push(self.communicator.send_async(&send_v_y, neighbor_rank, tag_base + 3));
-            requests.push(self.communicator.send_async(&send_p, neighbor_rank, tag_base + 4));
+            requests.push(
+                self.communicator
+                    .send_async(&send_u_x, neighbor_rank, tag_base),
+            );
+            requests.push(
+                self.communicator
+                    .send_async(&send_u_y, neighbor_rank, tag_base + 1),
+            );
+            requests.push(
+                self.communicator
+                    .send_async(&send_v_x, neighbor_rank, tag_base + 2),
+            );
+            requests.push(
+                self.communicator
+                    .send_async(&send_v_y, neighbor_rank, tag_base + 3),
+            );
+            requests.push(
+                self.communicator
+                    .send_async(&send_p, neighbor_rank, tag_base + 4),
+            );
 
             let recv_u_x_req = self.communicator.receive_async(neighbor_rank, tag_base);
             let recv_u_y_req = self.communicator.receive_async(neighbor_rank, tag_base + 1);
@@ -522,11 +603,26 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> GhostCellManager<
             requests.push(recv_v_y_req);
             requests.push(recv_p_req);
 
-            requests.push(self.communicator.send_async(&send_u_x, neighbor_rank, tag_base));
-            requests.push(self.communicator.send_async(&send_u_y, neighbor_rank, tag_base + 1));
-            requests.push(self.communicator.send_async(&send_v_x, neighbor_rank, tag_base + 2));
-            requests.push(self.communicator.send_async(&send_v_y, neighbor_rank, tag_base + 3));
-            requests.push(self.communicator.send_async(&send_p, neighbor_rank, tag_base + 4));
+            requests.push(
+                self.communicator
+                    .send_async(&send_u_x, neighbor_rank, tag_base),
+            );
+            requests.push(
+                self.communicator
+                    .send_async(&send_u_y, neighbor_rank, tag_base + 1),
+            );
+            requests.push(
+                self.communicator
+                    .send_async(&send_v_x, neighbor_rank, tag_base + 2),
+            );
+            requests.push(
+                self.communicator
+                    .send_async(&send_v_y, neighbor_rank, tag_base + 3),
+            );
+            requests.push(
+                self.communicator
+                    .send_async(&send_p, neighbor_rank, tag_base + 4),
+            );
         }
 
         Ok(requests)

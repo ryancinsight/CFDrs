@@ -45,9 +45,9 @@
 //! - **SIMD vectorization**: Accelerate vector operations in stage computations
 //! - **Cache-aware implementations**: Optimize memory layout for CFD data structures
 
-use nalgebra::{DVector, RealField};
-use cfd_core::error::Result;
 use super::traits::TimeStepper;
+use cfd_core::error::Result;
+use nalgebra::{DVector, RealField};
 
 /// Classical 4th-order Runge-Kutta method
 ///
@@ -66,7 +66,9 @@ pub struct RungeKutta4<T: RealField> {
 
 impl<T: RealField> Default for RungeKutta4<T> {
     fn default() -> Self {
-        Self { _phantom: std::marker::PhantomData }
+        Self {
+            _phantom: std::marker::PhantomData,
+        }
     }
 }
 
@@ -107,16 +109,24 @@ impl<T: RealField + Copy> TimeStepper<T> for RungeKutta4<T> {
         let _coeff2 = dt / T::from_f64(3.0).unwrap();
 
         for i in 0..n {
-            u_new[i] = u[i] + coeff1 * (k1[i] + T::from_f64(2.0).unwrap() * k2[i] +
-                                      T::from_f64(2.0).unwrap() * k3[i] + k4[i]);
+            u_new[i] = u[i]
+                + coeff1
+                    * (k1[i]
+                        + T::from_f64(2.0).unwrap() * k2[i]
+                        + T::from_f64(2.0).unwrap() * k3[i]
+                        + k4[i]);
         }
 
         Ok(u_new)
     }
 
-    fn order(&self) -> usize { 4 }
+    fn order(&self) -> usize {
+        4
+    }
 
-    fn stages(&self) -> usize { 4 }
+    fn stages(&self) -> usize {
+        4
+    }
 
     fn stability_region(&self) -> Option<&str> {
         Some("Absolute stability for |z| < 2.78")
@@ -139,7 +149,9 @@ pub struct RungeKutta3<T: RealField> {
 
 impl<T: RealField> Default for RungeKutta3<T> {
     fn default() -> Self {
-        Self { _phantom: std::marker::PhantomData }
+        Self {
+            _phantom: std::marker::PhantomData,
+        }
     }
 }
 
@@ -186,9 +198,13 @@ impl<T: RealField + Copy> TimeStepper<T> for RungeKutta3<T> {
         Ok(u_new)
     }
 
-    fn order(&self) -> usize { 3 }
+    fn order(&self) -> usize {
+        3
+    }
 
-    fn stages(&self) -> usize { 3 }
+    fn stages(&self) -> usize {
+        3
+    }
 
     fn stability_region(&self) -> Option<&str> {
         Some("Absolute stability for |z| < 2.51")
@@ -207,7 +223,9 @@ pub struct LowStorageRK4<T: RealField> {
 
 impl<T: RealField> Default for LowStorageRK4<T> {
     fn default() -> Self {
-        Self { _phantom: std::marker::PhantomData }
+        Self {
+            _phantom: std::marker::PhantomData,
+        }
     }
 }
 
@@ -271,9 +289,13 @@ impl<T: RealField + Copy> TimeStepper<T> for LowStorageRK4<T> {
         Ok(u_new)
     }
 
-    fn order(&self) -> usize { 4 }
+    fn order(&self) -> usize {
+        4
+    }
 
-    fn stages(&self) -> usize { 5 }
+    fn stages(&self) -> usize {
+        5
+    }
 
     fn stability_region(&self) -> Option<&str> {
         Some("Large stability region, suitable for CFL > 1")

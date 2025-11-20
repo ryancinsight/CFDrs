@@ -14,7 +14,7 @@ use num_traits::FromPrimitive;
 /// Create water at 20°C and 1 atm
 ///
 /// Properties from NIST Chemistry `WebBook`
-/// 
+///
 /// # Errors
 /// Returns an error if numeric conversion from f64 fails for the target type T
 pub fn water_20c<T: RealField + FromPrimitive + Copy>() -> Result<ConstantPropertyFluid<T>, Error> {
@@ -37,7 +37,7 @@ pub fn water_20c<T: RealField + FromPrimitive + Copy>() -> Result<ConstantProper
 /// Create air at 20°C and 1 atm
 ///
 /// Properties from NIST Chemistry `WebBook`
-/// 
+///
 /// # Errors
 /// Returns an error if numeric conversion from f64 fails for the target type T
 pub fn air_20c<T: RealField + FromPrimitive + Copy>() -> Result<ConstantPropertyFluid<T>, Error> {
@@ -59,7 +59,7 @@ pub fn air_20c<T: RealField + FromPrimitive + Copy>() -> Result<ConstantProperty
 /// Create ideal air model for variable temperature/pressure
 ///
 /// Uses Sutherland's law for viscosity variation
-/// 
+///
 /// # Errors
 /// Returns an error if numeric conversion from f64 fails for the target type T
 pub fn ideal_air<T: RealField + FromPrimitive + Copy>() -> Result<IdealGas<T>, Error> {
@@ -82,7 +82,7 @@ pub fn ideal_air<T: RealField + FromPrimitive + Copy>() -> Result<IdealGas<T>, E
 }
 
 /// Create engine oil SAE 30 at 40°C
-/// 
+///
 /// # Errors
 /// Returns an error if numeric conversion from f64 fails for the target type T
 pub fn engine_oil_sae30<T: RealField + FromPrimitive + Copy>(
@@ -103,7 +103,7 @@ pub fn engine_oil_sae30<T: RealField + FromPrimitive + Copy>(
 }
 
 /// Create glycerin at 20°C
-/// 
+///
 /// # Errors
 /// Returns an error if numeric conversion from f64 fails for the target type T
 pub fn glycerin_20c<T: RealField + FromPrimitive + Copy>() -> Result<ConstantPropertyFluid<T>, Error>
@@ -126,7 +126,7 @@ pub fn glycerin_20c<T: RealField + FromPrimitive + Copy>() -> Result<ConstantPro
 }
 
 /// Create mercury at 20°C
-/// 
+///
 /// # Errors
 /// Returns an error if numeric conversion from f64 fails for the target type T
 pub fn mercury_20c<T: RealField + FromPrimitive + Copy>() -> Result<ConstantPropertyFluid<T>, Error>

@@ -31,16 +31,16 @@
 //! - **Multi-Scale Modeling**: From microscopic bubbles to macroscopic damage
 //! - **GPU Acceleration**: Optimized for large-scale cavitation simulations
 
-use crate::vof::solver::VofSolver;
 use crate::vof::config::VofConfig;
+use crate::vof::solver::VofSolver;
 use cfd_core::cavitation::{
-    models::{CavitationModel, ZgbParams},
     damage::CavitationDamage,
-    rayleigh_plesset::RayleighPlesset,
+    models::{CavitationModel, ZgbParams},
     number::CavitationNumber,
+    rayleigh_plesset::RayleighPlesset,
 };
 use cfd_core::error::Result;
-use nalgebra::{RealField, Vector3, DMatrix, DVector};
+use nalgebra::{DMatrix, DVector, RealField, Vector3};
 use num_traits::FromPrimitive;
 use std::collections::HashMap;
 
@@ -167,12 +167,7 @@ impl BubbleDynamicsSolver {
 
 impl CavitationVofSolver {
     /// Create new cavitation-VOF solver
-    pub fn new(
-        nx: usize,
-        ny: usize,
-        nz: usize,
-        config: CavitationVofConfig,
-    ) -> Result<Self> {
+    pub fn new(nx: usize, ny: usize, nz: usize, config: CavitationVofConfig) -> Result<Self> {
         let vof_solver = VofSolver::create(config.vof_config.clone(), nx, ny, nz, 0.01, 0.01, 0.01);
 
         let bubble_solver = if let Some(bubble_config) = &config.bubble_dynamics {
@@ -229,7 +224,8 @@ impl CavitationVofSolver {
                             let velocity = velocity_field[idx];
                             let density = density_field[idx];
 
-                            let radius = bubble_solver.update_bubble(i, j, k, pressure, velocity, density)?;
+                            let radius = bubble_solver
+                                .update_bubble(i, j, k, pressure, velocity, density)?;
                             radius_field[idx] = radius;
                         }
                     }
@@ -251,7 +247,7 @@ impl CavitationVofSolver {
 
                     // Calculate cavitation number
                     let cavitation_number = if void_fraction > 0.0 {
-                        (pressure - 2330.0) / (0.5 * density_liquid * 1.0 /* reference velocity */)
+                        (pressure - 2330.0) / (0.5 * density_liquid * 1.0/* reference velocity */)
                     } else {
                         1.0
                     };
@@ -276,7 +272,9 @@ impl CavitationVofSolver {
 
                     // Limit void fraction
                     let max_source = (self.config.max_void_fraction - void_fraction) / dt;
-                    cavitation_source[idx] = cavitation_source[idx].min(max_source).max(-void_fraction / dt);
+                    cavitation_source[idx] = cavitation_source[idx]
+                        .min(max_source)
+                        .max(-void_fraction / dt);
                 }
             }
         }
@@ -286,9 +284,7 @@ impl CavitationVofSolver {
         // For now, we'll update the volume fraction directly
         for idx in 0..cavitation_source.len() {
             self.vof_solver.alpha[idx] += cavitation_source[idx] * dt;
-            self.vof_solver.alpha[idx] = self.vof_solver.alpha[idx]
-                .max(0.0)
-                .min(1.0);
+            self.vof_solver.alpha[idx] = self.vof_solver.alpha[idx].max(0.0).min(1.0);
         }
 
         // 4. Update VOF interface tracking
@@ -296,7 +292,9 @@ impl CavitationVofSolver {
         self.vof_solver.advance(dt)?;
 
         // 5. Calculate cavitation damage if damage model is enabled
-        if let (Some(damage_model), Some(damage_field)) = (&self.damage_model, &mut self.damage_field) {
+        if let (Some(damage_model), Some(damage_field)) =
+            (&self.damage_model, &mut self.damage_field)
+        {
             for i in 0..nx {
                 for j in 0..ny {
                     for k in 0..nz {
@@ -304,13 +302,21 @@ impl CavitationVofSolver {
                         let pressure = pressure_field[idx];
                         let void_fraction = self.vof_solver.alpha[idx];
 
-                        if void_fraction > 0.01 { // Significant cavitation
+                        if void_fraction > 0.01 {
+                            // Significant cavitation
                             // Calculate impact pressure from bubble collapse
                             let impact_pressure = if let Some(bubble_solver) = &self.bubble_solver {
-                                bubble_solver.collapse_pressure(i, j, k, density_field[idx], 1500.0 /* sound speed */)
+                                bubble_solver.collapse_pressure(
+                                    i,
+                                    j,
+                                    k,
+                                    density_field[idx],
+                                    1500.0, /* sound speed */
+                                )
                             } else {
                                 // Simplified Rayleigh collapse pressure
-                                let bubble_radius = self.bubble_radius_field
+                                let bubble_radius = self
+                                    .bubble_radius_field
                                     .as_ref()
                                     .map(|f| f[idx])
                                     .unwrap_or(1e-6);
@@ -369,7 +375,9 @@ impl CavitationVofSolver {
         let total_void_fraction: f64 = self.vof_solver.alpha.iter().sum();
         let max_void_fraction = self.vof_solver.alpha.iter().cloned().fold(0.0, f64::max);
 
-        let max_damage = self.damage_field.as_ref()
+        let max_damage = self
+            .damage_field
+            .as_ref()
             .map(|field| field.iter().cloned().fold(0.0, f64::max))
             .unwrap_or(0.0);
 
@@ -403,7 +411,8 @@ pub struct CavitationStatistics {
 
 impl std::fmt::Display for CavitationStatistics {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f,
+        write!(
+            f,
             "Cavitation Statistics:\n\
              Cavitation Fraction: {:.3} ({}/{} cells)\n\
              Total Void Fraction: {:.6}\n\

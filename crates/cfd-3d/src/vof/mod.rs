@@ -10,9 +10,11 @@ mod initialization;
 mod reconstruction;
 mod solver;
 
+pub use cavitation_solver::{
+    BubbleDynamicsConfig, CavitationStatistics, CavitationVofConfig, CavitationVofSolver,
+};
 pub use config::{constants, VofConfig};
 pub use solver::VofSolver;
-pub use cavitation_solver::{CavitationVofSolver, CavitationVofConfig, CavitationStatistics, BubbleDynamicsConfig};
 
 // Re-export key types for convenience
 pub use advection::AdvectionMethod;

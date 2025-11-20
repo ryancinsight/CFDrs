@@ -268,8 +268,10 @@ where
 
         for j in 0..self.ny {
             for i in 0..self.nx {
-                let du = (self.macroscopic.velocity[j][i][0] - self.previous_velocity[j][i][0]).abs();
-                let dv = (self.macroscopic.velocity[j][i][1] - self.previous_velocity[j][i][1]).abs();
+                let du =
+                    (self.macroscopic.velocity[j][i][0] - self.previous_velocity[j][i][0]).abs();
+                let dv =
+                    (self.macroscopic.velocity[j][i][1] - self.previous_velocity[j][i][1]).abs();
                 let change = du.max(dv);
                 if change > max_change {
                     max_change = change;

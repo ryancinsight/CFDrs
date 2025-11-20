@@ -46,21 +46,20 @@
 //! - Ducros, F., et al. (1998). Wall-adapting local eddy-viscosity model.
 
 pub mod config;
+pub mod dynamic;
+pub mod gpu;
+pub mod miles;
+pub mod model;
+pub mod sigma;
 pub mod strain;
 pub mod viscosity;
-pub mod dynamic;
-pub mod miles;
-pub mod sigma;
-pub mod wale;
 pub mod vreman;
-pub mod gpu;
-pub mod model;
+pub mod wale;
 
 // Re-export main types
 pub use config::SmagorinskyConfig;
 pub use miles::MilesLES;
-pub use sigma::SigmaModel;
-pub use wale::WaleModel;
-pub use vreman::VremanModel;
 pub use model::SmagorinskyLES;
-
+pub use sigma::SigmaModel;
+pub use vreman::VremanModel;
+pub use wale::WaleModel;

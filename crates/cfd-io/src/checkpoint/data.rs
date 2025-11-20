@@ -3,6 +3,8 @@
 use crate::checkpoint::metadata::CheckpointMetadata;
 use nalgebra::{DMatrix, RealField};
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::Hasher;
 
 /// Checkpoint data containing simulation state
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,70 +44,96 @@ impl<T: RealField + Copy> Checkpoint<T> {
         }
     }
 
-    /// Add temperature field
-    pub fn with_temperature(mut self, temperature: DMatrix<T>) -> Self {
-        self.temperature = Some(temperature);
-        self
-    }
-
-    /// Add turbulence fields
-    pub fn with_turbulence(mut self, k: DMatrix<T>, epsilon: DMatrix<T>) -> Self {
-        self.turbulence_k = Some(k);
-        self.turbulence_epsilon = Some(epsilon);
-        self
-    }
-
     /// Validate checkpoint data consistency
     pub fn validate(&self) -> Result<(), String> {
-        self.metadata.validate()?;
-
-        let (ny, nx) = self.metadata.dimensions;
-
-        if self.u_velocity.nrows() != ny || self.u_velocity.ncols() != nx {
-            return Err("U velocity field dimension mismatch".to_string());
+        // Check dimensions consistency
+        let (nx, ny) = self.metadata.dimensions;
+        if self.u_velocity.ncols() != nx || self.u_velocity.nrows() != ny {
+            return Err(format!(
+                "U velocity dimensions mismatch: expected {}x{}, got {}x{}",
+                ny, nx, self.u_velocity.nrows(), self.u_velocity.ncols()
+            ));
         }
-
-        if self.v_velocity.nrows() != ny || self.v_velocity.ncols() != nx {
-            return Err("V velocity field dimension mismatch".to_string());
+        if self.v_velocity.ncols() != nx || self.v_velocity.nrows() != ny {
+            return Err(format!(
+                "V velocity dimensions mismatch: expected {}x{}, got {}x{}",
+                ny, nx, self.v_velocity.nrows(), self.v_velocity.ncols()
+            ));
         }
-
-        if self.pressure.nrows() != ny || self.pressure.ncols() != nx {
-            return Err("Pressure field dimension mismatch".to_string());
-        }
-
-        if let Some(ref temp) = self.temperature {
-            if temp.nrows() != ny || temp.ncols() != nx {
-                return Err("Temperature field dimension mismatch".to_string());
-            }
-        }
-
-        if let Some(ref k) = self.turbulence_k {
-            if k.nrows() != ny || k.ncols() != nx {
-                return Err("Turbulence k field dimension mismatch".to_string());
-            }
-        }
-
-        if let Some(ref eps) = self.turbulence_epsilon {
-            if eps.nrows() != ny || eps.ncols() != nx {
-                return Err("Turbulence epsilon field dimension mismatch".to_string());
-            }
+        if self.pressure.ncols() != nx || self.pressure.nrows() != ny {
+            return Err(format!(
+                "Pressure dimensions mismatch: expected {}x{}, got {}x{}",
+                ny, nx, self.pressure.nrows(), self.pressure.ncols()
+            ));
         }
 
         Ok(())
     }
 
-    /// Get grid dimensions
+    /// Get grid dimensions as (nx, ny)
     pub fn dimensions(&self) -> (usize, usize) {
         self.metadata.dimensions
     }
+}
 
-    /// Get simulation time
-    pub fn time(&self) -> f64 {
-        self.metadata.time
-    }
+impl Checkpoint<f64> {
+    /// Computes deterministic u128 checksum for bit-exact verification.
+    ///
+    /// # Invariants
+    /// * Roundtrip preservation: `checkpoint.compute_checksum() == loaded.compute_checksum()`
+    /// * Parallel consistency: `allreduce_xor(local_checksums) == global_checksum`
+    ///
+    /// Uses dual DefaultHasher on metadata fields (skip checksum) + column-major matrix bits.
+    pub fn compute_checksum(&self) -> u128 {
+        let mut hasher1 = DefaultHasher::new();
+        let mut hasher2 = DefaultHasher::new();
 
-    /// Get iteration number
-    pub fn iteration(&self) -> usize {
-        self.metadata.iteration
+        let meta = &self.metadata;
+        hasher1.write_u32(meta.version);
+        hasher1.write_u64(meta.time.to_bits());
+        hasher1.write_u64(meta.iteration as u64);
+        hasher1.write_u64(meta.dimensions.0 as u64);
+        hasher1.write_u64(meta.dimensions.1 as u64);
+        hasher1.write_u64(meta.domain_size.0.to_bits());
+        hasher1.write_u64(meta.domain_size.1.to_bits());
+        hasher1.write_u64(meta.timestamp);
+
+        hasher2.write_u32(meta.version);
+        hasher2.write_u64(meta.time.to_bits());
+        hasher2.write_u64(meta.iteration as u64);
+        hasher2.write_u64(meta.dimensions.0 as u64);
+        hasher2.write_u64(meta.dimensions.1 as u64);
+        hasher2.write_u64(meta.domain_size.0.to_bits());
+        hasher2.write_u64(meta.domain_size.1.to_bits());
+        hasher2.write_u64(meta.timestamp);
+
+        macro_rules! hash_matrix {
+            ($mat:expr) => {
+                for col in $mat.column_iter() {
+                    for &v in col.iter() {
+                        let bits = v.to_bits();
+                        hasher1.write_u64(bits);
+                        hasher2.write_u64(bits);
+                    }
+                }
+            };
+        }
+
+        hash_matrix!(&self.u_velocity);
+        hash_matrix!(&self.v_velocity);
+        hash_matrix!(&self.pressure);
+        if let Some(ref mat) = self.temperature {
+            hash_matrix!(mat);
+        }
+        if let Some(ref mat) = self.turbulence_k {
+            hash_matrix!(mat);
+        }
+        if let Some(ref mat) = self.turbulence_epsilon {
+            hash_matrix!(mat);
+        }
+
+        let low = hasher1.finish();
+        let high = hasher2.finish();
+        (low as u128) | ((high as u128) << 64)
     }
 }

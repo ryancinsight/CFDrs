@@ -51,22 +51,46 @@ impl<T: RealField + Copy> Geometry<T> for RectangularDomain<T> {
         let dy_bottom = point.y - self.y_min;
         let dy_top = self.y_max - point.y;
 
-        let min_x = if dx_left < dx_right { dx_left } else { dx_right };
-        let min_y = if dy_bottom < dy_top { dy_bottom } else { dy_top };
-        if min_x < min_y { min_x } else { min_y }
+        let min_x = if dx_left < dx_right {
+            dx_left
+        } else {
+            dx_right
+        };
+        let min_y = if dy_bottom < dy_top {
+            dy_bottom
+        } else {
+            dy_top
+        };
+        if min_x < min_y {
+            min_x
+        } else {
+            min_y
+        }
     }
 
     fn boundary_normal(&self, point: &Point2D<T>) -> Option<Point2D<T>> {
         let tol = T::from_f64_or_zero(1e-10);
 
         if (point.x - self.x_min).abs() < tol {
-            Some(Point2D { x: -T::one(), y: T::zero() }) // Left boundary
+            Some(Point2D {
+                x: -T::one(),
+                y: T::zero(),
+            }) // Left boundary
         } else if (point.x - self.x_max).abs() < tol {
-            Some(Point2D { x: T::one(), y: T::zero() }) // Right boundary
+            Some(Point2D {
+                x: T::one(),
+                y: T::zero(),
+            }) // Right boundary
         } else if (point.y - self.y_min).abs() < tol {
-            Some(Point2D { x: T::zero(), y: -T::one() }) // Bottom boundary
+            Some(Point2D {
+                x: T::zero(),
+                y: -T::one(),
+            }) // Bottom boundary
         } else if (point.y - self.y_max).abs() < tol {
-            Some(Point2D { x: T::zero(), y: T::one() }) // Top boundary
+            Some(Point2D {
+                x: T::zero(),
+                y: T::one(),
+            }) // Top boundary
         } else {
             None
         }
@@ -88,8 +112,14 @@ impl<T: RealField + Copy> Geometry<T> for RectangularDomain<T> {
 
     fn bounds(&self) -> (Point2D<T>, Point2D<T>) {
         (
-            Point2D { x: self.x_min, y: self.y_min },
-            Point2D { x: self.x_max, y: self.y_max },
+            Point2D {
+                x: self.x_min,
+                y: self.y_min,
+            },
+            Point2D {
+                x: self.x_max,
+                y: self.y_max,
+            },
         )
     }
 

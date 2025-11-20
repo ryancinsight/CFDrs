@@ -7,7 +7,9 @@
 use cfd_2d::fields::Field2D;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_validation::convergence::ConvergenceStudy;
-use cfd_validation::manufactured::{ManufacturedAdvection, ManufacturedDiffusion, ManufacturedSolution};
+use cfd_validation::manufactured::{
+    ManufacturedAdvection, ManufacturedDiffusion, ManufacturedSolution,
+};
 use std::f64::consts::PI;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -79,7 +81,8 @@ fn mms_diffusion_order_verification() -> Result<(), Box<dyn std::error::Error>> 
 
             for i in 1..n - 1 {
                 for j in 1..n - 1 {
-                    let laplacian = (field.at(i + 1, j) + field.at(i - 1, j)
+                    let laplacian = (field.at(i + 1, j)
+                        + field.at(i - 1, j)
                         + field.at(i, j + 1)
                         + field.at(i, j - 1)
                         - 4.0 * field.at(i, j))
@@ -115,12 +118,15 @@ fn mms_diffusion_order_verification() -> Result<(), Box<dyn std::error::Error>> 
         l2_error = (l2_error / count as f64).sqrt();
         errors.push(l2_error);
 
-        println!("   Grid {}x{}: dx={:.4e}, L2 error={:.4e}", n, n, dx, l2_error);
+        println!(
+            "   Grid {}x{}: dx={:.4e}, L2 error={:.4e}",
+            n, n, dx, l2_error
+        );
     }
 
     // Compute convergence rate
     let study = ConvergenceStudy::new(grid_sizes, errors)?;
-    
+
     println!("\n   Convergence Analysis:");
     println!("     Observed order: {:.2}", study.convergence_rate);
     println!("     R²: {:.6}", study.r_squared);
@@ -251,12 +257,15 @@ fn mms_advection_order_verification() -> Result<(), Box<dyn std::error::Error>> 
         l2_error = (l2_error / count as f64).sqrt();
         errors.push(l2_error);
 
-        println!("   Grid {}x{}: dx={:.4e}, L2 error={:.4e}", n, n, dx, l2_error);
+        println!(
+            "   Grid {}x{}: dx={:.4e}, L2 error={:.4e}",
+            n, n, dx, l2_error
+        );
     }
 
     // Compute convergence rate
     let study = ConvergenceStudy::new(grid_sizes, errors)?;
-    
+
     println!("\n   Convergence Analysis:");
     println!("     Observed order: {:.2}", study.convergence_rate);
     println!("     R²: {:.6}", study.r_squared);
@@ -297,10 +306,10 @@ fn mms_laplace_order_verification() -> Result<(), Box<dyn std::error::Error>> {
         for i in 1..n - 1 {
             for j in 1..n - 1 {
                 let idx = (i - 1) * (n - 2) + (j - 1);
-                
+
                 // 5-point stencil
                 a_matrix[idx][idx] = -4.0;
-                
+
                 if j > 1 {
                     let idx_left = (i - 1) * (n - 2) + (j - 2);
                     a_matrix[idx][idx_left] = 1.0;
@@ -339,15 +348,16 @@ fn mms_laplace_order_verification() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 u_new[i] = sum / a_matrix[i][i];
             }
-            
+
             // Check convergence
-            let max_change: f64 = u.iter()
+            let max_change: f64 = u
+                .iter()
                 .zip(u_new.iter())
                 .map(|(old, new)| (new - old).abs())
                 .fold(0.0, f64::max);
-            
+
             u = u_new;
-            
+
             if max_change < 1e-8 {
                 break;
             }
@@ -372,12 +382,15 @@ fn mms_laplace_order_verification() -> Result<(), Box<dyn std::error::Error>> {
         l2_error = (l2_error / count as f64).sqrt();
         errors.push(l2_error);
 
-        println!("   Grid {}x{}: dx={:.4e}, L2 error={:.4e}", n, n, dx, l2_error);
+        println!(
+            "   Grid {}x{}: dx={:.4e}, L2 error={:.4e}",
+            n, n, dx, l2_error
+        );
     }
 
     // Compute convergence rate
     let study = ConvergenceStudy::new(grid_sizes, errors)?;
-    
+
     println!("\n   Convergence Analysis:");
     println!("     Observed order: {:.2}", study.convergence_rate);
     println!("     R²: {:.6}", study.r_squared);

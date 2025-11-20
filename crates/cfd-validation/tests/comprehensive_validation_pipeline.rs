@@ -7,14 +7,16 @@
 //! 4. Automated report generation
 //! 5. Regression detection and quality assessment
 
-use cfd_validation::benchmarking::{BenchmarkSuite, BenchmarkConfig};
-use cfd_validation::reporting::Reporter;
-use cfd_validation::manufactured::{ManufacturedSolution,
-    ManufacturedDiffusion, ManufacturedNavierStokes, ManufacturedKEpsilon,
-    ManufacturedConjugateHeatTransfer, ManufacturedSpeciesTransport,
-    richardson::MmsRichardsonStudy,
+use cfd_validation::benchmarking::{BenchmarkConfig, BenchmarkSuite};
+use cfd_validation::manufactured::{
+    richardson::MmsRichardsonStudy, ManufacturedConjugateHeatTransfer, ManufacturedDiffusion,
+    ManufacturedKEpsilon, ManufacturedNavierStokes, ManufacturedSolution,
+    ManufacturedSpeciesTransport,
 };
-use cfd_validation::reporting::{AutomatedReporter, MarkdownReporter, ValidationReport, ValidationSummary};
+use cfd_validation::reporting::Reporter;
+use cfd_validation::reporting::{
+    AutomatedReporter, MarkdownReporter, ValidationReport, ValidationSummary,
+};
 use std::collections::HashMap;
 
 /// Complete validation pipeline test
@@ -28,33 +30,49 @@ fn test_comprehensive_validation_pipeline() {
     println!("------------------------------------------------------");
 
     let mms_results = run_mms_validation_suite();
-    assert!(mms_results.iter().all(|&passed| passed), "All MMS validations must pass");
+    assert!(
+        mms_results.iter().all(|&passed| passed),
+        "All MMS validations must pass"
+    );
 
     // Phase 2: Richardson Extrapolation Studies
     println!("\n📊 Phase 2: Richardson Extrapolation Convergence Studies");
     println!("------------------------------------------------------");
 
     let convergence_results = run_convergence_studies();
-    assert!(convergence_results.iter().all(|&valid| valid), "All convergence studies must be valid");
+    assert!(
+        convergence_results.iter().all(|&valid| valid),
+        "All convergence studies must be valid"
+    );
 
     // Phase 3: Performance Benchmarking
     println!("\n⚡ Phase 3: Performance Benchmarking Suite");
     println!("------------------------------------------");
 
     let benchmark_results = run_performance_benchmarks();
-    assert!(benchmark_results.is_some(), "Benchmark suite must execute successfully");
+    assert!(
+        benchmark_results.is_some(),
+        "Benchmark suite must execute successfully"
+    );
 
     // Phase 4: Automated Report Generation
     println!("\n📋 Phase 4: Automated Report Generation");
     println!("---------------------------------------");
 
-    let report = generate_validation_report(&mms_results, &convergence_results, benchmark_results.as_ref());
+    let report = generate_validation_report(
+        &mms_results,
+        &convergence_results,
+        benchmark_results.as_ref(),
+    );
     assert!(report.is_ok(), "Report generation must succeed");
 
     let report = report.unwrap();
     println!("📊 Validation Report Generated:");
     println!("  - Health Score: {:.3}", report.health_score());
-    println!("  - Test Coverage: {:.1}%", report.summary.coverage_percentage);
+    println!(
+        "  - Test Coverage: {:.1}%",
+        report.summary.coverage_percentage
+    );
     println!("  - Critical Issues: {}", report.critical_issues().len());
 
     // Phase 5: Quality Assessment
@@ -74,26 +92,50 @@ fn run_mms_validation_suite() -> Vec<bool> {
     // Single-physics MMS validations
     let test_cases = vec![
         ("Diffusion", ManufacturedDiffusion::new(1.0)),
-        ("Navier-Stokes", ManufacturedNavierStokes::new(1.0, 1.0, 1.0, 0.01)),
-        ("k-ε Turbulence", ManufacturedKEpsilon::<f64>::new(1.0, 1.0, 1.0, 0.01)),
+        (
+            "Navier-Stokes",
+            ManufacturedNavierStokes::new(1.0, 1.0, 1.0, 0.01),
+        ),
+        (
+            "k-ε Turbulence",
+            ManufacturedKEpsilon::<f64>::new(1.0, 1.0, 1.0, 0.01),
+        ),
     ];
 
     for (name, mms) in test_cases {
         let result = validate_mms_solution(&mms, name);
         results.push(result);
-        println!("  {} MMS: {}", name, if result { "✅ PASSED" } else { "❌ FAILED" });
+        println!(
+            "  {} MMS: {}",
+            name,
+            if result { "✅ PASSED" } else { "❌ FAILED" }
+        );
     }
 
     // Multi-physics MMS validations
     let conjugate_heat = ManufacturedConjugateHeatTransfer::<f64>::new(5.0, 2.0, 0.5, 1.0, 1.0);
     let conjugate_result = validate_conjugate_heat_transfer(&conjugate_heat);
     results.push(conjugate_result);
-    println!("  Conjugate Heat Transfer MMS: {}", if conjugate_result { "✅ PASSED" } else { "❌ FAILED" });
+    println!(
+        "  Conjugate Heat Transfer MMS: {}",
+        if conjugate_result {
+            "✅ PASSED"
+        } else {
+            "❌ FAILED"
+        }
+    );
 
     let species = ManufacturedSpeciesTransport::<f64>::new(0.01, 0.1, 1.0, 1.0, 1.0);
     let species_result = validate_species_transport(&species);
     results.push(species_result);
-    println!("  Species Transport MMS: {}", if species_result { "✅ PASSED" } else { "❌ FAILED" });
+    println!(
+        "  Species Transport MMS: {}",
+        if species_result {
+            "✅ PASSED"
+        } else {
+            "❌ FAILED"
+        }
+    );
 
     results
 }
@@ -102,43 +144,55 @@ fn run_mms_validation_suite() -> Vec<bool> {
 fn run_convergence_studies() -> Vec<bool> {
     let mut results = Vec::new();
 
-    let geometries = vec![
-        ("Rectangular", cfd_validation::geometry::RectangularDomain::new(0.0, 1.0, 0.0, 1.0)),
-    ];
+    let geometries = vec![(
+        "Rectangular",
+        cfd_validation::geometry::RectangularDomain::new(0.0, 1.0, 0.0, 1.0),
+    )];
 
     for (geom_name, geometry) in geometries {
         // Test different physics with Richardson extrapolation
         let test_cases = vec![
             ("Diffusion", ManufacturedDiffusion::new(1.0)),
-            ("Navier-Stokes", ManufacturedNavierStokes::new(1.0, 1.0, 1.0, 0.01)),
+            (
+                "Navier-Stokes",
+                ManufacturedNavierStokes::new(1.0, 1.0, 1.0, 0.01),
+            ),
         ];
 
         for (physics_name, mms) in test_cases {
             let study = MmsRichardsonStudy::with_geometric_refinement(
                 Box::new(mms),
                 Box::new(geometry.clone()),
-                4, // 4 grid levels for robust convergence
+                4,    // 4 grid levels for robust convergence
                 0.05, // base grid size
-                1.0, // evaluation time
+                1.0,  // evaluation time
             );
 
             match study {
-                Ok(study) => {
-                    match study.run_study() {
-                        Ok(result) => {
-                            let valid = validate_convergence_result(&result, physics_name, geom_name);
-                            results.push(valid);
-                            println!("  {} {} Richardson: {}", physics_name, geom_name,
-                                    if valid { "✅ PASSED" } else { "❌ FAILED" });
-                        }
-                        Err(e) => {
-                            println!("  {} {} Richardson: ❌ FAILED - {}", physics_name, geom_name, e);
-                            results.push(false);
-                        }
+                Ok(study) => match study.run_study() {
+                    Ok(result) => {
+                        let valid = validate_convergence_result(&result, physics_name, geom_name);
+                        results.push(valid);
+                        println!(
+                            "  {} {} Richardson: {}",
+                            physics_name,
+                            geom_name,
+                            if valid { "✅ PASSED" } else { "❌ FAILED" }
+                        );
                     }
-                }
+                    Err(e) => {
+                        println!(
+                            "  {} {} Richardson: ❌ FAILED - {}",
+                            physics_name, geom_name, e
+                        );
+                        results.push(false);
+                    }
+                },
                 Err(e) => {
-                    println!("  {} {} Study Setup: ❌ FAILED - {}", physics_name, geom_name, e);
+                    println!(
+                        "  {} {} Study Setup: ❌ FAILED - {}",
+                        physics_name, geom_name, e
+                    );
                     results.push(false);
                 }
             }
@@ -164,9 +218,22 @@ fn run_performance_benchmarks() -> Option<ValidationReport> {
         Ok(results) => {
             println!("  Benchmark Results: {} tests completed", results.len());
 
-            let passed = results.iter().filter(|r| matches!(r.status, cfd_validation::benchmarking::suite::BenchmarkStatus::Passed)).count();
+            let passed = results
+                .iter()
+                .filter(|r| {
+                    matches!(
+                        r.status,
+                        cfd_validation::benchmarking::suite::BenchmarkStatus::Passed
+                    )
+                })
+                .count();
             let total = results.len();
-            println!("  Pass Rate: {}/{} ({:.1}%)", passed, total, (passed as f64 / total as f64) * 100.0);
+            println!(
+                "  Pass Rate: {}/{} ({:.1}%)",
+                passed,
+                total,
+                (passed as f64 / total as f64) * 100.0
+            );
 
             // Generate a basic report for demonstration
             let summary = ValidationSummary {
@@ -222,26 +289,32 @@ fn generate_validation_report(
     let mut test_results = HashMap::new();
 
     // Add MMS category
-    test_results.insert("MMS_Validation".to_string(), cfd_validation::reporting::TestCategory {
-        name: "MMS Validation".to_string(),
-        passed: passed_mms,
-        failed: total_mms - passed_mms,
-        skipped: 0,
-        total: total_mms,
-        coverage_percentage: (passed_mms as f64 / total_mms as f64) * 100.0,
-        details: Vec::new(),
-    });
+    test_results.insert(
+        "MMS_Validation".to_string(),
+        cfd_validation::reporting::TestCategory {
+            name: "MMS Validation".to_string(),
+            passed: passed_mms,
+            failed: total_mms - passed_mms,
+            skipped: 0,
+            total: total_mms,
+            coverage_percentage: (passed_mms as f64 / total_mms as f64) * 100.0,
+            details: Vec::new(),
+        },
+    );
 
     // Add convergence category
-    test_results.insert("Convergence_Studies".to_string(), cfd_validation::reporting::TestCategory {
-        name: "Convergence Studies".to_string(),
-        passed: passed_convergence,
-        failed: total_convergence - passed_convergence,
-        skipped: 0,
-        total: total_convergence,
-        coverage_percentage: (passed_convergence as f64 / total_convergence as f64) * 100.0,
-        details: Vec::new(),
-    });
+    test_results.insert(
+        "Convergence_Studies".to_string(),
+        cfd_validation::reporting::TestCategory {
+            name: "Convergence Studies".to_string(),
+            passed: passed_convergence,
+            failed: total_convergence - passed_convergence,
+            skipped: 0,
+            total: total_convergence,
+            coverage_percentage: (passed_convergence as f64 / total_convergence as f64) * 100.0,
+            details: Vec::new(),
+        },
+    );
 
     let code_quality = cfd_validation::reporting::CodeQualityReport {
         lines_of_code: 15420,
@@ -260,7 +333,10 @@ fn generate_validation_report(
     ];
 
     if summary.failed_tests > 0 {
-        recommendations.insert(0, format!("Address {} failing validations", summary.failed_tests));
+        recommendations.insert(
+            0,
+            format!("Address {} failing validations", summary.failed_tests),
+        );
     }
 
     let report = ValidationReport {
@@ -268,7 +344,9 @@ fn generate_validation_report(
         title: "Comprehensive CFD Validation Report".to_string(),
         summary,
         test_results,
-        performance: benchmark_report.map(|r| r.performance.clone()).unwrap_or_default(),
+        performance: benchmark_report
+            .map(|r| r.performance.clone())
+            .unwrap_or_default(),
         code_quality,
         recommendations,
     };
@@ -313,10 +391,15 @@ fn assess_validation_quality(report: &ValidationReport) {
     // Performance assessment
     let perf_count = report.performance.len();
     if perf_count > 0 {
-        let regressions = report.performance.iter()
+        let regressions = report
+            .performance
+            .iter()
             .filter(|p| p.regression_detected.is_some())
             .count();
-        println!("  Performance Benchmarks: {} ({} regressions)", perf_count, regressions);
+        println!(
+            "  Performance Benchmarks: {} ({} regressions)",
+            perf_count, regressions
+        );
     }
 
     // Recommendations
@@ -335,7 +418,7 @@ fn assess_validation_quality(report: &ValidationReport) {
 
 fn validate_mms_solution<T: cfd_validation::manufactured::ManufacturedSolution<f64> + Clone>(
     mms: &T,
-    name: &str
+    name: &str,
 ) -> bool {
     let test_points = [
         (0.25, 0.25, 0.0, 0.5),
@@ -348,8 +431,10 @@ fn validate_mms_solution<T: cfd_validation::manufactured::ManufacturedSolution<f
         let source = mms.source_term(x, y, z, t);
 
         if !solution.is_finite() || !source.is_finite() {
-            println!("    {} failed at ({},{},t={}): solution={}, source={}",
-                    name, x, y, t, solution, source);
+            println!(
+                "    {} failed at ({},{},t={}): solution={}, source={}",
+                name, x, y, t, solution, source
+            );
             return false;
         }
     }
@@ -367,7 +452,10 @@ fn validate_conjugate_heat_transfer(cht: &ManufacturedConjugateHeatTransfer<f64>
     let t_solid = cht.solid_temperature(interface_x, y, t);
 
     if (t_fluid - t_solid).abs() > 1e-10 {
-        println!("  Interface temperature discontinuity: fluid={}, solid={}", t_fluid, t_solid);
+        println!(
+            "  Interface temperature discontinuity: fluid={}, solid={}",
+            t_fluid, t_solid
+        );
         return false;
     }
 
@@ -392,19 +480,25 @@ fn validate_species_transport(species: &ManufacturedSpeciesTransport<f64>) -> bo
 fn validate_convergence_result(
     result: &cfd_validation::manufactured::richardson::RichardsonMmsResult<f64>,
     physics_name: &str,
-    geom_name: &str
+    geom_name: &str,
 ) -> bool {
     // Check convergence rate is reasonable
-    if result.convergence_study.convergence_rate < 0.5 || result.convergence_study.convergence_rate > 4.0 {
-        println!("    {} {} convergence rate out of bounds: {:.3}",
-                physics_name, geom_name, result.convergence_study.convergence_rate);
+    if result.convergence_study.convergence_rate < 0.5
+        || result.convergence_study.convergence_rate > 4.0
+    {
+        println!(
+            "    {} {} convergence rate out of bounds: {:.3}",
+            physics_name, geom_name, result.convergence_study.convergence_rate
+        );
         return false;
     }
 
     // Check R-squared indicates good fit
     if result.convergence_study.r_squared < 0.8 {
-        println!("    {} {} poor convergence fit: R²={:.3}",
-                physics_name, geom_name, result.convergence_study.r_squared);
+        println!(
+            "    {} {} poor convergence fit: R²={:.3}",
+            physics_name, geom_name, result.convergence_study.r_squared
+        );
         return false;
     }
 
@@ -471,4 +565,3 @@ mod property_tests {
         }
     }
 }
-

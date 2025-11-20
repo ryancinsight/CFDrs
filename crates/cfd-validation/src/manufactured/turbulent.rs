@@ -3,9 +3,9 @@
 //! Implements manufactured solutions for turbulent Navier-Stokes equations
 //! including k-ε, k-ω, and Spalart-Allmaras turbulence models.
 
-use super::{ManufacturedSolution, ManufacturedFunctions};
-use nalgebra::RealField;
+use super::{ManufacturedFunctions, ManufacturedSolution};
 use cfd_core::conversion::SafeFromF64;
+use nalgebra::RealField;
 
 /// Manufactured solution for k-ε turbulence model
 ///
@@ -63,8 +63,10 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKEpsilon<T> {
         let u = sin_kx_x * nalgebra::ComplexField::cos(self.ky * y) * exp_t;
         let v = nalgebra::ComplexField::cos(self.kx * x) * sin_ky_y * exp_t;
 
-        let dk_dx = self.amplitude * self.kx * nalgebra::ComplexField::cos(self.kx * x) * sin_ky_y * exp_t;
-        let dk_dy = self.amplitude * sin_kx_x * self.ky * nalgebra::ComplexField::cos(self.ky * y) * exp_t;
+        let dk_dx =
+            self.amplitude * self.kx * nalgebra::ComplexField::cos(self.kx * x) * sin_ky_y * exp_t;
+        let dk_dy =
+            self.amplitude * sin_kx_x * self.ky * nalgebra::ComplexField::cos(self.ky * y) * exp_t;
 
         let convection = u * dk_dx + v * dk_dy;
 
@@ -75,16 +77,23 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKEpsilon<T> {
 
         // Exact production term: P_k = 2ν_t * S_ij * S_ij
         // Strain rate tensor from manufactured velocity field
-        let du_dx = self.kx * nalgebra::ComplexField::cos(self.kx * x) * nalgebra::ComplexField::cos(self.ky * y) * exp_t;
+        let du_dx = self.kx
+            * nalgebra::ComplexField::cos(self.kx * x)
+            * nalgebra::ComplexField::cos(self.ky * y)
+            * exp_t;
         let du_dy = -self.kx * sin_kx_x * nalgebra::ComplexField::sin(self.ky * y) * exp_t;
         let dv_dx = -self.ky * nalgebra::ComplexField::sin(self.kx * x) * sin_ky_y * exp_t;
-        let dv_dy = self.ky * nalgebra::ComplexField::cos(self.kx * x) * nalgebra::ComplexField::cos(self.ky * y) * exp_t;
+        let dv_dy = self.ky
+            * nalgebra::ComplexField::cos(self.kx * x)
+            * nalgebra::ComplexField::cos(self.ky * y)
+            * exp_t;
 
         let s_xx = du_dx;
         let s_xy = T::from_f64_or_one(0.5) * (du_dy + dv_dx);
         let s_yy = dv_dy;
 
-        let strain_rate_magnitude_sq = s_xx * s_xx + T::from_f64_or_one(2.0) * s_xy * s_xy + s_yy * s_yy;
+        let strain_rate_magnitude_sq =
+            s_xx * s_xx + T::from_f64_or_one(2.0) * s_xy * s_xy + s_yy * s_yy;
         let production = T::from_f64_or_one(2.0) * self.nu_t * strain_rate_magnitude_sq;
 
         // Exact dissipation rate from manufactured solution
@@ -153,8 +162,16 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKOmega<T> {
         let u = sin_kx_x * nalgebra::ComplexField::cos(self.ky * y) * exp_t;
         let v = nalgebra::ComplexField::cos(self.kx * x) * sin_ky_y * exp_t;
 
-        let dk_dx = self.k_amplitude * self.kx * nalgebra::ComplexField::cos(self.kx * x) * sin_ky_y * exp_t;
-        let dk_dy = self.k_amplitude * sin_kx_x * self.ky * nalgebra::ComplexField::cos(self.ky * y) * exp_t;
+        let dk_dx = self.k_amplitude
+            * self.kx
+            * nalgebra::ComplexField::cos(self.kx * x)
+            * sin_ky_y
+            * exp_t;
+        let dk_dy = self.k_amplitude
+            * sin_kx_x
+            * self.ky
+            * nalgebra::ComplexField::cos(self.ky * y)
+            * exp_t;
 
         let convection = u * dk_dx + v * dk_dy;
 
@@ -165,16 +182,23 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKOmega<T> {
 
         // Exact production term: P_k = 2ν_t * S_ij * S_ij
         // Strain rate tensor from manufactured velocity field
-        let du_dx = self.kx * nalgebra::ComplexField::cos(self.kx * x) * nalgebra::ComplexField::cos(self.ky * y) * exp_t;
+        let du_dx = self.kx
+            * nalgebra::ComplexField::cos(self.kx * x)
+            * nalgebra::ComplexField::cos(self.ky * y)
+            * exp_t;
         let du_dy = -self.kx * sin_kx_x * nalgebra::ComplexField::sin(self.ky * y) * exp_t;
         let dv_dx = -self.ky * nalgebra::ComplexField::sin(self.kx * x) * sin_ky_y * exp_t;
-        let dv_dy = self.ky * nalgebra::ComplexField::cos(self.kx * x) * nalgebra::ComplexField::cos(self.ky * y) * exp_t;
+        let dv_dy = self.ky
+            * nalgebra::ComplexField::cos(self.kx * x)
+            * nalgebra::ComplexField::cos(self.ky * y)
+            * exp_t;
 
         let s_xx = du_dx;
         let s_xy = T::from_f64_or_one(0.5) * (du_dy + dv_dx);
         let s_yy = dv_dy;
 
-        let strain_rate_magnitude_sq = s_xx * s_xx + T::from_f64_or_one(2.0) * s_xy * s_xy + s_yy * s_yy;
+        let strain_rate_magnitude_sq =
+            s_xx * s_xx + T::from_f64_or_one(2.0) * s_xy * s_xy + s_yy * s_yy;
         let production = T::from_f64_or_one(2.0) * self.nu_t * strain_rate_magnitude_sq;
 
         // Exact dissipation term: β* k ω (standard k-ω model)
@@ -214,7 +238,11 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedSpalartAllmara
     fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
         // Modified vorticity ν̃ = ν + ν_t
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
-        let wall_factor = if self.wall_distance < T::from_f64_or_one(10.0) { self.wall_distance } else { T::from_f64_or_one(10.0) }; // Damping near wall
+        let wall_factor = if self.wall_distance < T::from_f64_or_one(10.0) {
+            self.wall_distance
+        } else {
+            T::from_f64_or_one(10.0)
+        }; // Damping near wall
         base * self.amplitude * wall_factor
     }
 
@@ -233,10 +261,15 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedSpalartAllmara
         // Destruction term: C_w1 f_w (ν̃/d)²
         let cw1 = T::from_f64_or_one(3.239067816775729);
         let kappa = T::from_f64_or_one(0.41);
-        let d = if self.wall_distance > T::from_f64_or_zero(1e-10) { self.wall_distance } else { T::from_f64_or_zero(1e-10) };
+        let d = if self.wall_distance > T::from_f64_or_zero(1e-10) {
+            self.wall_distance
+        } else {
+            T::from_f64_or_zero(1e-10)
+        };
         let chi = nu_tilde / d;
         let chi3 = chi * chi * chi;
-        let denom = chi3 + T::from_f64_or_one(7.1) * T::from_f64_or_one(7.1) * T::from_f64_or_one(7.1);
+        let denom =
+            chi3 + T::from_f64_or_one(7.1) * T::from_f64_or_one(7.1) * T::from_f64_or_one(7.1);
         let fv1 = nalgebra::ComplexField::cbrt(chi3 / denom);
         let fv2 = T::one() - chi / (T::one() + chi * fv1);
         let s = vorticity + nu_tilde * fv2 / (kappa * kappa * d * d);

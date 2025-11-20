@@ -9,7 +9,9 @@
 //! - R. J. LeVeque, "Finite Volume Methods for Hyperbolic Problems", Cambridge University Press.
 //! - C. Hirsch, "Numerical Computation of Internal and External Flows", Vol. 2.
 
-use super::traits::{BoundaryCondition2D, ComputeBackend, ComputeBuffer, ComputeKernel, KernelParams};
+use super::traits::{
+    BoundaryCondition2D, ComputeBackend, ComputeBuffer, ComputeKernel, KernelParams,
+};
 use crate::error::Result;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;

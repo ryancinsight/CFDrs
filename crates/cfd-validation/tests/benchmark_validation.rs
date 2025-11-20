@@ -24,7 +24,11 @@ fn test_backward_facing_step_reference_solution() {
 
     let reference = reference.unwrap();
     assert_eq!(reference.name, "Backward Facing Step (Reference)");
-    assert_eq!(reference.values.len(), 1, "Should have one value (reattachment length)");
+    assert_eq!(
+        reference.values.len(),
+        1,
+        "Should have one value (reattachment length)"
+    );
 
     // Reference reattachment length should be around 6.0 * step_height
     // based on Gartling (1990) and Armaly et al. (1983)
@@ -58,7 +62,10 @@ fn test_backward_facing_step_validation_success() {
     };
 
     let is_valid = step.validate(&result).expect("Validation should not error");
-    assert!(is_valid, "Result within tolerance should validate successfully");
+    assert!(
+        is_valid,
+        "Result within tolerance should validate successfully"
+    );
 }
 
 #[test]
@@ -67,7 +74,7 @@ fn test_backward_facing_step_validation_tolerance() {
 
     // Test boundary of 30% tolerance
     // Reference is 6.0, so 30% tolerance means [4.2, 7.8]
-    
+
     // Just inside lower bound
     let result_low = BenchmarkResult {
         name: "Low Bound".to_string(),
@@ -126,7 +133,10 @@ fn test_backward_facing_step_validation_failure_no_convergence() {
     };
 
     let is_valid = step.validate(&result).unwrap();
-    assert!(!is_valid, "Result without convergence should fail validation");
+    assert!(
+        !is_valid,
+        "Result without convergence should fail validation"
+    );
 }
 
 #[test]
@@ -165,11 +175,7 @@ fn test_flow_over_cylinder_reference_solution() {
         reference.name,
         "Flow Over Cylinder (Schäfer & Turek 1996, Re=20)"
     );
-    assert_eq!(
-        reference.values.len(),
-        2,
-        "Should have two values (Cd, Cl)"
-    );
+    assert_eq!(reference.values.len(), 2, "Should have two values (Cd, Cl)");
 
     // Check reference values match Schäfer & Turek (1996)
     let cd = reference.values[0];
@@ -206,8 +212,13 @@ fn test_flow_over_cylinder_validation_success() {
         metadata: std::collections::HashMap::new(),
     };
 
-    let is_valid = cylinder.validate(&result).expect("Validation should not error");
-    assert!(is_valid, "Result within tolerance should validate successfully");
+    let is_valid = cylinder
+        .validate(&result)
+        .expect("Validation should not error");
+    assert!(
+        is_valid,
+        "Result within tolerance should validate successfully"
+    );
 }
 
 #[test]
@@ -369,7 +380,10 @@ fn test_benchmark_run_integration() {
 
     // Check that result has expected structure
     assert!(!result.values.is_empty(), "Should have reattachment length");
-    assert!(!result.convergence.is_empty(), "Should have convergence history");
+    assert!(
+        !result.convergence.is_empty(),
+        "Should have convergence history"
+    );
 
     // Validate the result (may pass or fail depending on solver implementation)
     let is_valid = step.validate(&result);

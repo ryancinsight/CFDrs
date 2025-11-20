@@ -3,12 +3,12 @@
 //! Benchmarks comparing GPU-accelerated turbulence models against CPU implementations
 //! to validate performance improvements and accuracy.
 
+use cfd_2d::physics::turbulence::{
+    des::{DESConfig, DESVariant, DetachedEddySimulation},
+    les_smagorinsky::{SmagorinskyConfig, SmagorinskyLES},
+};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use nalgebra::DMatrix;
-use cfd_2d::physics::turbulence::{
-    les_smagorinsky::{SmagorinskyLES, SmagorinskyConfig},
-    des::{DetachedEddySimulation, DESConfig, DESVariant},
-};
 
 /// Create test velocity fields for benchmarking
 fn create_benchmark_velocity_fields(nx: usize, ny: usize) -> (DMatrix<f64>, DMatrix<f64>) {
@@ -22,10 +22,11 @@ fn create_benchmark_velocity_fields(nx: usize, ny: usize) -> (DMatrix<f64>, DMat
             let y = j as f64 / ny as f64;
 
             // Base flow + turbulence
-            velocity_u[(i, j)] = 1.0 + 0.1 * (2.0 * std::f64::consts::PI * x).sin()
-                               + 0.05 * (4.0 * std::f64::consts::PI * y).cos();
+            velocity_u[(i, j)] = 1.0
+                + 0.1 * (2.0 * std::f64::consts::PI * x).sin()
+                + 0.05 * (4.0 * std::f64::consts::PI * y).cos();
             velocity_v[(i, j)] = 0.1 * (2.0 * std::f64::consts::PI * y).sin()
-                               + 0.05 * (4.0 * std::f64::consts::PI * x).cos();
+                + 0.05 * (4.0 * std::f64::consts::PI * x).cos();
         }
     }
 
@@ -48,9 +49,16 @@ fn bench_smagorinsky_les(c: &mut Criterion) {
         group.bench_function(format!("CPU {}x{}", size, size), |b| {
             b.iter(|| {
                 black_box(les_cpu.update(
-                    &velocity_u, &velocity_v, &pressure,
-                    1.0, 0.01, 0.001, 0.01, 0.01
-                )).unwrap();
+                    &velocity_u,
+                    &velocity_v,
+                    &pressure,
+                    1.0,
+                    0.01,
+                    0.001,
+                    0.01,
+                    0.01,
+                ))
+                .unwrap();
             });
         });
 
@@ -64,9 +72,16 @@ fn bench_smagorinsky_les(c: &mut Criterion) {
             group.bench_function(format!("GPU {}x{}", size, size), |b| {
                 b.iter(|| {
                     black_box(les_gpu.update(
-                        &velocity_u, &velocity_v, &pressure,
-                        1.0, 0.01, 0.001, 0.01, 0.01
-                    )).unwrap();
+                        &velocity_u,
+                        &velocity_v,
+                        &pressure,
+                        1.0,
+                        0.01,
+                        0.001,
+                        0.01,
+                        0.01,
+                    ))
+                    .unwrap();
                 });
             });
         }
@@ -93,9 +108,16 @@ fn bench_des(c: &mut Criterion) {
         group.bench_function(format!("CPU {}x{}", size, size), |b| {
             b.iter(|| {
                 black_box(des_cpu.update(
-                    &velocity_u, &velocity_v, &pressure,
-                    1.0, 0.01, 0.001, 0.01, 0.01
-                )).unwrap();
+                    &velocity_u,
+                    &velocity_v,
+                    &pressure,
+                    1.0,
+                    0.01,
+                    0.001,
+                    0.01,
+                    0.01,
+                ))
+                .unwrap();
             });
         });
 
@@ -111,9 +133,16 @@ fn bench_des(c: &mut Criterion) {
             group.bench_function(format!("GPU {}x{}", size, size), |b| {
                 b.iter(|| {
                     black_box(des_gpu.update(
-                        &velocity_u, &velocity_v, &pressure,
-                        1.0, 0.01, 0.001, 0.01, 0.01
-                    )).unwrap();
+                        &velocity_u,
+                        &velocity_v,
+                        &pressure,
+                        1.0,
+                        0.01,
+                        0.001,
+                        0.01,
+                        0.01,
+                    ))
+                    .unwrap();
                 });
             });
         }
@@ -132,18 +161,19 @@ fn bench_strain_rate_computation(c: &mut Criterion) {
         group.bench_function(format!("CPU {}x{}", size, size), |b| {
             b.iter(|| {
                 let mut strain = DMatrix::zeros(size, size);
-                for i in 1..size-1 {
-                    for j in 1..size-1 {
-                        let du_dx = (velocity_u[(i+1, j)] - velocity_u[(i-1, j)]) / 0.02;
-                        let du_dy = (velocity_u[(i, j+1)] - velocity_u[(i, j-1)]) / 0.02;
-                        let dv_dx = (velocity_v[(i+1, j)] - velocity_v[(i-1, j)]) / 0.02;
-                        let dv_dy = (velocity_v[(i, j+1)] - velocity_v[(i, j-1)]) / 0.02;
+                for i in 1..size - 1 {
+                    for j in 1..size - 1 {
+                        let du_dx = (velocity_u[(i + 1, j)] - velocity_u[(i - 1, j)]) / 0.02;
+                        let du_dy = (velocity_u[(i, j + 1)] - velocity_u[(i, j - 1)]) / 0.02;
+                        let dv_dx = (velocity_v[(i + 1, j)] - velocity_v[(i - 1, j)]) / 0.02;
+                        let dv_dy = (velocity_v[(i, j + 1)] - velocity_v[(i, j - 1)]) / 0.02;
 
                         let s11 = du_dx;
                         let s22 = dv_dy;
                         let s12 = 0.5 * (du_dy + dv_dx);
 
-                        strain[(i, j)] = black_box((2.0 * s11*s11 + 2.0 * s22*s22 + 4.0 * s12*s12).sqrt());
+                        strain[(i, j)] =
+                            black_box((2.0 * s11 * s11 + 2.0 * s22 * s22 + 4.0 * s12 * s12).sqrt());
                     }
                 }
                 black_box(strain);
@@ -169,7 +199,18 @@ fn bench_accuracy_validation(c: &mut Criterion) {
             let mut config_cpu = SmagorinskyConfig::default();
             config_cpu.use_gpu = false;
             let mut les_cpu = SmagorinskyLES::new(size, size, 0.01, 0.01, config_cpu);
-            les_cpu.update(&velocity_u, &velocity_v, &pressure, 1.0, 0.01, 0.001, 0.01, 0.01).unwrap();
+            les_cpu
+                .update(
+                    &velocity_u,
+                    &velocity_v,
+                    &pressure,
+                    1.0,
+                    0.01,
+                    0.001,
+                    0.01,
+                    0.01,
+                )
+                .unwrap();
             let cpu_viscosity = les_cpu.get_turbulent_viscosity_field().clone();
 
             #[cfg(feature = "gpu")]
@@ -178,7 +219,18 @@ fn bench_accuracy_validation(c: &mut Criterion) {
                 let mut config_gpu = SmagorinskyConfig::default();
                 config_gpu.use_gpu = true;
                 let mut les_gpu = SmagorinskyLES::new(size, size, 0.01, 0.01, config_gpu);
-                les_gpu.update(&velocity_u, &velocity_v, &pressure, 1.0, 0.01, 0.001, 0.01, 0.01).unwrap();
+                les_gpu
+                    .update(
+                        &velocity_u,
+                        &velocity_v,
+                        &pressure,
+                        1.0,
+                        0.01,
+                        0.001,
+                        0.01,
+                        0.01,
+                    )
+                    .unwrap();
                 let gpu_viscosity = les_gpu.get_turbulent_viscosity_field();
 
                 // Check accuracy (relative error should be small)
@@ -196,7 +248,11 @@ fn bench_accuracy_validation(c: &mut Criterion) {
                 }
 
                 black_box(max_relative_error);
-                assert!(max_relative_error < 1e-6, "GPU accuracy error too high: {}", max_relative_error);
+                assert!(
+                    max_relative_error < 1e-6,
+                    "GPU accuracy error too high: {}",
+                    max_relative_error
+                );
             }
 
             black_box(cpu_viscosity);
@@ -217,13 +273,17 @@ fn bench_memory_transfer(c: &mut Criterion) {
 
         group.bench_function(format!("GPU Transfer {}x{}", size, size), |b| {
             b.iter(|| {
-                if let Ok(gpu_compute) = cfd_core::compute::gpu::turbulence_compute::GpuTurbulenceCompute::new() {
+                if let Ok(gpu_compute) =
+                    cfd_core::compute::gpu::turbulence_compute::GpuTurbulenceCompute::new()
+                {
                     // Create GPU buffer
-                    let buffer = gpu_compute.read_buffer(
-                        &gpu_compute.compute_smagorinsky_sgs(
-                            &data, &data, size, size, 0.01, 0.01, 0.1
-                        ).unwrap()
-                    ).unwrap();
+                    let buffer = gpu_compute
+                        .read_buffer(
+                            &gpu_compute
+                                .compute_smagorinsky_sgs(&data, &data, size, size, 0.01, 0.01, 0.1)
+                                .unwrap(),
+                        )
+                        .unwrap();
                     black_box(buffer);
                 }
             });

@@ -80,18 +80,18 @@ pub trait TvdLimiter<T: RealField + Copy> {
     /// Limited face value: φ_face = φ_C + 0.5 * ψ(r) * (φ_D - φ_C)
     fn interpolate_face(&self, phi_u: T, phi_c: T, phi_d: T) -> T {
         let half = T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()));
-        
+
         // Compute gradient ratio r = (φ_C - φ_U) / (φ_D - φ_C)
         let denominator = phi_d - phi_c;
-        
+
         // Handle zero or near-zero denominator (uniform region)
         if denominator.abs() < T::default_epsilon() * T::from_i32(10).unwrap_or(T::one()) {
             return phi_c;
         }
-        
+
         let r = (phi_c - phi_u) / denominator;
         let psi = self.limit(r);
-        
+
         // φ_face = φ_C + 0.5 * ψ(r) * (φ_D - φ_C)
         phi_c + half * psi * denominator
     }
@@ -117,7 +117,7 @@ impl<T: RealField + Copy> TvdLimiter<T> for Superbee {
         let zero = T::zero();
         let one = T::one();
         let two = one + one;
-        
+
         if r <= zero {
             zero
         } else {
@@ -152,7 +152,7 @@ impl<T: RealField + Copy> TvdLimiter<T> for VanLeer {
     fn limit(&self, r: T) -> T {
         let zero = T::zero();
         let one = T::one();
-        
+
         if r <= zero {
             zero
         } else {
@@ -186,7 +186,7 @@ impl<T: RealField + Copy> TvdLimiter<T> for Minmod {
     fn limit(&self, r: T) -> T {
         let zero = T::zero();
         let one = T::one();
-        
+
         if r <= zero {
             zero
         } else {
@@ -220,7 +220,7 @@ impl<T: RealField + Copy> TvdLimiter<T> for MonotonizedCentral {
         let one = T::one();
         let two = one + one;
         let half = T::from_f64(0.5).unwrap_or(one / two);
-        
+
         if r <= zero {
             zero
         } else {
@@ -266,15 +266,15 @@ mod tests {
     #[test]
     fn test_superbee_limiter() {
         let limiter = Superbee;
-        
+
         // Test TVD region for r in [0, 1]
         assert_eq!(limiter.limit(0.0), 0.0); // Upwind at extrema
         assert_eq!(limiter.limit(0.5), 1.0); // min(2*0.5, 1) = 1.0
         assert_eq!(limiter.limit(1.0), 1.0); // min(2, 1) max min(1, 2) = 1
-        
+
         // Test TVD region for r > 1
         assert_eq!(limiter.limit(2.0), 2.0); // min(4, 1) max min(2, 2) = 2
-        
+
         // Test negative r (downwind of extremum)
         assert_eq!(limiter.limit(-1.0), 0.0);
     }
@@ -282,17 +282,17 @@ mod tests {
     #[test]
     fn test_van_leer_limiter() {
         let limiter = VanLeer;
-        
+
         assert_eq!(limiter.limit(0.0_f64), 0.0);
         assert!((limiter.limit(1.0_f64) - 1.0).abs() < 1e-10); // 2*1/(1+1) = 1
-        assert!((limiter.limit(2.0_f64) - 4.0/3.0).abs() < 1e-10); // 2*2/(1+2) = 4/3
+        assert!((limiter.limit(2.0_f64) - 4.0 / 3.0).abs() < 1e-10); // 2*2/(1+2) = 4/3
         assert_eq!(limiter.limit(-1.0_f64), 0.0);
     }
 
     #[test]
     fn test_minmod_limiter() {
         let limiter = Minmod;
-        
+
         assert_eq!(limiter.limit(0.0), 0.0);
         assert_eq!(limiter.limit(0.5), 0.5);
         assert_eq!(limiter.limit(1.0), 1.0);
@@ -303,7 +303,7 @@ mod tests {
     #[test]
     fn test_mc_limiter() {
         let limiter = MonotonizedCentral;
-        
+
         assert_eq!(limiter.limit(0.0_f64), 0.0);
         assert!((limiter.limit(1.0_f64) - 1.0).abs() < 1e-10); // min(2, 1, 2) = 1
         assert!((limiter.limit(2.0_f64) - 1.5).abs() < 1e-10); // min(4, 1.5, 2) = 1.5
@@ -313,11 +313,11 @@ mod tests {
     #[test]
     fn test_face_interpolation() {
         let limiter = Superbee;
-        
+
         // Uniform region: should return central value
         let face = limiter.interpolate_face(1.0_f64, 1.0, 1.0);
         assert!((face - 1.0).abs() < 1e-10);
-        
+
         // Smooth gradient: r = (2-1)/(3-2) = 1, ψ(1) = 1
         // φ_face = 2 + 0.5 * 1 * (3-2) = 2.5
         let face = limiter.interpolate_face(1.0_f64, 2.0, 3.0);
@@ -333,16 +333,16 @@ mod tests {
             Box::new(Minmod),
             Box::new(MonotonizedCentral),
         ];
-        
+
         for limiter in limiters {
             for r_int in 0..100 {
                 let r = f64::from(r_int) / 10.0; // Test r from 0 to 10
                 let psi = limiter.limit(r);
-                
+
                 // TVD constraint: 0 ≤ ψ(r) ≤ 2
                 assert!(psi >= 0.0, "{}: ψ({}) = {} < 0", limiter.name(), r, psi);
                 assert!(psi <= 2.0, "{}: ψ({}) = {} > 2", limiter.name(), r, psi);
-                
+
                 // TVD constraint for r ∈ [0,1]: ψ(r) ≤ 2r
                 if r <= 1.0 {
                     assert!(

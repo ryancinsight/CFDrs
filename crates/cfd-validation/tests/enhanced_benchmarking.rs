@@ -7,7 +7,10 @@
 //! - Automated performance reporting
 
 use cfd_validation::benchmarking::{
-    analysis::{PerformanceAnalyzer, PerformanceReport, PerformanceTrend, RegressionAlert, RegressionConfig, TrendType},
+    analysis::{
+        PerformanceAnalyzer, PerformanceReport, PerformanceTrend, RegressionAlert,
+        RegressionConfig, TrendType,
+    },
     suite::{BenchmarkConfig, BenchmarkSuite},
     PerformanceMetrics,
 };
@@ -22,11 +25,46 @@ fn test_performance_trend_analysis() {
 
     // Simulate improving performance over time
     let improving_data = vec![
-        PerformanceMetrics { mean: 1.0, std_dev: 0.05, min: 0.95, max: 1.05, median: 1.0, samples: 10 },
-        PerformanceMetrics { mean: 0.95, std_dev: 0.05, min: 0.90, max: 1.00, median: 0.95, samples: 10 },
-        PerformanceMetrics { mean: 0.90, std_dev: 0.05, min: 0.85, max: 0.95, median: 0.90, samples: 10 },
-        PerformanceMetrics { mean: 0.85, std_dev: 0.05, min: 0.80, max: 0.90, median: 0.85, samples: 10 },
-        PerformanceMetrics { mean: 0.80, std_dev: 0.05, min: 0.75, max: 0.85, median: 0.80, samples: 10 },
+        PerformanceMetrics {
+            mean: 1.0,
+            std_dev: 0.05,
+            min: 0.95,
+            max: 1.05,
+            median: 1.0,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 0.95,
+            std_dev: 0.05,
+            min: 0.90,
+            max: 1.00,
+            median: 0.95,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 0.90,
+            std_dev: 0.05,
+            min: 0.85,
+            max: 0.95,
+            median: 0.90,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 0.85,
+            std_dev: 0.05,
+            min: 0.80,
+            max: 0.90,
+            median: 0.85,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 0.80,
+            std_dev: 0.05,
+            min: 0.75,
+            max: 0.85,
+            median: 0.80,
+            samples: 10,
+        },
     ];
 
     for metric in improving_data {
@@ -36,11 +74,25 @@ fn test_performance_trend_analysis() {
     let trend = analyzer.analyze_trend("improving_benchmark").unwrap();
 
     assert_eq!(trend.trend_type, TrendType::Improving);
-    assert!(trend.slope < 0.0, "Slope should be negative for improvement");
-    assert!(trend.r_squared > 0.8, "Should have good correlation: R² = {}", trend.r_squared);
-    assert!(trend.p_value < 0.05, "Should be statistically significant: p = {}", trend.p_value);
+    assert!(
+        trend.slope < 0.0,
+        "Slope should be negative for improvement"
+    );
+    assert!(
+        trend.r_squared > 0.8,
+        "Should have good correlation: R² = {}",
+        trend.r_squared
+    );
+    assert!(
+        trend.p_value < 0.05,
+        "Should be statistically significant: p = {}",
+        trend.p_value
+    );
 
-    println!("✓ Performance trend analysis passed (slope: {:.4}, R²: {:.3})", trend.slope, trend.r_squared);
+    println!(
+        "✓ Performance trend analysis passed (slope: {:.4}, R²: {:.3})",
+        trend.slope, trend.r_squared
+    );
 }
 
 /// Test performance regression detection
@@ -59,11 +111,46 @@ fn test_regression_detection() {
 
     // Simulate degrading performance
     let degrading_data = vec![
-        PerformanceMetrics { mean: 1.0, std_dev: 0.01, min: 0.99, max: 1.01, median: 1.0, samples: 10 },
-        PerformanceMetrics { mean: 1.025, std_dev: 0.01, min: 1.015, max: 1.035, median: 1.025, samples: 10 },
-        PerformanceMetrics { mean: 1.050, std_dev: 0.01, min: 1.040, max: 1.060, median: 1.050, samples: 10 },
-        PerformanceMetrics { mean: 1.075, std_dev: 0.01, min: 1.065, max: 1.085, median: 1.075, samples: 10 },
-        PerformanceMetrics { mean: 1.100, std_dev: 0.01, min: 1.090, max: 1.110, median: 1.100, samples: 10 },
+        PerformanceMetrics {
+            mean: 1.0,
+            std_dev: 0.01,
+            min: 0.99,
+            max: 1.01,
+            median: 1.0,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 1.025,
+            std_dev: 0.01,
+            min: 1.015,
+            max: 1.035,
+            median: 1.025,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 1.050,
+            std_dev: 0.01,
+            min: 1.040,
+            max: 1.060,
+            median: 1.050,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 1.075,
+            std_dev: 0.01,
+            min: 1.065,
+            max: 1.085,
+            median: 1.075,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 1.100,
+            std_dev: 0.01,
+            min: 1.090,
+            max: 1.110,
+            median: 1.100,
+            samples: 10,
+        },
     ];
 
     for metric in degrading_data {
@@ -75,12 +162,23 @@ fn test_regression_detection() {
     assert!(regression.is_some(), "Should detect performance regression");
 
     let alert = regression.unwrap();
-    assert!(alert.degradation_rate > 2.0, "Degradation rate should exceed threshold: {:.2}%", alert.degradation_rate);
-    assert!(alert.confidence > 0.9, "Should have high confidence: {:.2}", alert.confidence);
+    assert!(
+        alert.degradation_rate > 2.0,
+        "Degradation rate should exceed threshold: {:.2}%",
+        alert.degradation_rate
+    );
+    assert!(
+        alert.confidence > 0.9,
+        "Should have high confidence: {:.2}",
+        alert.confidence
+    );
     assert_eq!(alert.trend.trend_type, TrendType::Degrading);
 
-    println!("✓ Regression detection passed (degradation: {:.2}%, confidence: {:.1}%)",
-             alert.degradation_rate, alert.confidence * 100.0);
+    println!(
+        "✓ Regression detection passed (degradation: {:.2}%, confidence: {:.1}%)",
+        alert.degradation_rate,
+        alert.confidence * 100.0
+    );
 }
 
 /// Test stable performance analysis
@@ -92,13 +190,62 @@ fn test_stable_performance_analysis() {
 
     // Simulate stable performance with some noise
     let stable_data = vec![
-        PerformanceMetrics { mean: 1.00, std_dev: 0.02, min: 0.98, max: 1.02, median: 1.00, samples: 10 },
-        PerformanceMetrics { mean: 1.01, std_dev: 0.02, min: 0.99, max: 1.03, median: 1.01, samples: 10 },
-        PerformanceMetrics { mean: 0.99, std_dev: 0.02, min: 0.97, max: 1.01, median: 0.99, samples: 10 },
-        PerformanceMetrics { mean: 1.02, std_dev: 0.02, min: 1.00, max: 1.04, median: 1.02, samples: 10 },
-        PerformanceMetrics { mean: 1.00, std_dev: 0.02, min: 0.98, max: 1.02, median: 1.00, samples: 10 },
-        PerformanceMetrics { mean: 1.01, std_dev: 0.02, min: 0.99, max: 1.03, median: 1.01, samples: 10 },
-        PerformanceMetrics { mean: 0.99, std_dev: 0.02, min: 0.97, max: 1.01, median: 0.99, samples: 10 },
+        PerformanceMetrics {
+            mean: 1.00,
+            std_dev: 0.02,
+            min: 0.98,
+            max: 1.02,
+            median: 1.00,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 1.01,
+            std_dev: 0.02,
+            min: 0.99,
+            max: 1.03,
+            median: 1.01,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 0.99,
+            std_dev: 0.02,
+            min: 0.97,
+            max: 1.01,
+            median: 0.99,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 1.02,
+            std_dev: 0.02,
+            min: 1.00,
+            max: 1.04,
+            median: 1.02,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 1.00,
+            std_dev: 0.02,
+            min: 0.98,
+            max: 1.02,
+            median: 1.00,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 1.01,
+            std_dev: 0.02,
+            min: 0.99,
+            max: 1.03,
+            median: 1.01,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 0.99,
+            std_dev: 0.02,
+            min: 0.97,
+            max: 1.01,
+            median: 0.99,
+            samples: 10,
+        },
     ];
 
     for metric in stable_data {
@@ -108,13 +255,23 @@ fn test_stable_performance_analysis() {
     let trend = analyzer.analyze_trend("stable_benchmark").unwrap();
 
     assert_eq!(trend.trend_type, TrendType::Stable);
-    assert!(trend.slope.abs() < 0.01, "Slope should be near zero for stable performance: {}", trend.slope);
+    assert!(
+        trend.slope.abs() < 0.01,
+        "Slope should be near zero for stable performance: {}",
+        trend.slope
+    );
 
     // Should not detect regression for stable performance
     let regression = analyzer.detect_regression("stable_benchmark").unwrap();
-    assert!(regression.is_none(), "Should not detect regression for stable performance");
+    assert!(
+        regression.is_none(),
+        "Should not detect regression for stable performance"
+    );
 
-    println!("✓ Stable performance analysis passed (slope: {:.6})", trend.slope);
+    println!(
+        "✓ Stable performance analysis passed (slope: {:.6})",
+        trend.slope
+    );
 }
 
 /// Test comprehensive performance reporting
@@ -133,7 +290,10 @@ fn test_comprehensive_performance_reporting() {
     let suite = BenchmarkSuite::with_config(config);
     let results = suite.run_full_suite();
 
-    assert!(results.is_ok(), "Benchmark suite should execute successfully");
+    assert!(
+        results.is_ok(),
+        "Benchmark suite should execute successfully"
+    );
 
     let results = results.unwrap();
     assert!(!results.is_empty(), "Should have benchmark results");
@@ -148,20 +308,33 @@ fn test_comprehensive_performance_reporting() {
 
     let reports = analyzer.generate_report(&results).unwrap();
 
-    assert_eq!(reports.len(), results.len(), "Should have report for each result");
+    assert_eq!(
+        reports.len(),
+        results.len(),
+        "Should have report for each result"
+    );
 
     for report in reports {
         // Each report should have current metrics
-        assert!(report.current_metrics.mean > 0.0, "Should have valid current metrics");
+        assert!(
+            report.current_metrics.mean > 0.0,
+            "Should have valid current metrics"
+        );
 
         // Check recommendations are generated
-        assert!(!report.recommendations.is_empty(), "Should have recommendations for {}", report.benchmark_name);
+        assert!(
+            !report.recommendations.is_empty(),
+            "Should have recommendations for {}",
+            report.benchmark_name
+        );
 
-        println!("  📊 {}: {:.3}ms ± {:.3}ms ({} recommendations)",
-                 report.benchmark_name,
-                 report.current_metrics.mean * 1000.0,
-                 report.current_metrics.std_dev * 1000.0,
-                 report.recommendations.len());
+        println!(
+            "  📊 {}: {:.3}ms ± {:.3}ms ({} recommendations)",
+            report.benchmark_name,
+            report.current_metrics.mean * 1000.0,
+            report.current_metrics.std_dev * 1000.0,
+            report.recommendations.len()
+        );
     }
 
     println!("✓ Comprehensive performance reporting passed");
@@ -180,21 +353,54 @@ fn test_statistical_analysis_robustness() {
     });
 
     // Test with minimal data
-    analyzer.add_result("minimal_test",
-        PerformanceMetrics { mean: 1.0, std_dev: 0.1, min: 0.9, max: 1.1, median: 1.0, samples: 10 });
+    analyzer.add_result(
+        "minimal_test",
+        PerformanceMetrics {
+            mean: 1.0,
+            std_dev: 0.1,
+            min: 0.9,
+            max: 1.1,
+            median: 1.0,
+            samples: 10,
+        },
+    );
 
     let trend_result = analyzer.analyze_trend("minimal_test");
     assert!(trend_result.is_err(), "Should reject insufficient data");
 
     // Add more data
-    analyzer.add_result("minimal_test",
-        PerformanceMetrics { mean: 1.05, std_dev: 0.1, min: 0.95, max: 1.15, median: 1.05, samples: 10 });
-    analyzer.add_result("minimal_test",
-        PerformanceMetrics { mean: 1.10, std_dev: 0.1, min: 1.0, max: 1.20, median: 1.10, samples: 10 });
+    analyzer.add_result(
+        "minimal_test",
+        PerformanceMetrics {
+            mean: 1.05,
+            std_dev: 0.1,
+            min: 0.95,
+            max: 1.15,
+            median: 1.05,
+            samples: 10,
+        },
+    );
+    analyzer.add_result(
+        "minimal_test",
+        PerformanceMetrics {
+            mean: 1.10,
+            std_dev: 0.1,
+            min: 1.0,
+            max: 1.20,
+            median: 1.10,
+            samples: 10,
+        },
+    );
 
     let trend = analyzer.analyze_trend("minimal_test").unwrap();
-    assert!(trend.r_squared >= 0.0 && trend.r_squared <= 1.0, "R-squared should be valid");
-    assert!(trend.p_value >= 0.0 && trend.p_value <= 1.0, "P-value should be valid");
+    assert!(
+        trend.r_squared >= 0.0 && trend.r_squared <= 1.0,
+        "R-squared should be valid"
+    );
+    assert!(
+        trend.p_value >= 0.0 && trend.p_value <= 1.0,
+        "P-value should be valid"
+    );
 
     println!("✓ Statistical analysis robustness passed");
 }
@@ -215,11 +421,21 @@ fn test_performance_metrics_calculations() {
 
     // Test coefficient of variation
     let cv = metrics.coefficient_of_variation();
-    assert!((cv - 0.2).abs() < 1e-10, "Coefficient of variation should be 0.2: {}", cv);
+    assert!(
+        (cv - 0.2).abs() < 1e-10,
+        "Coefficient of variation should be 0.2: {}",
+        cv
+    );
 
     // Test stability
-    assert!(metrics.is_stable(0.25), "Should be stable with CV < threshold");
-    assert!(!metrics.is_stable(0.15), "Should not be stable with CV > threshold");
+    assert!(
+        metrics.is_stable(0.25),
+        "Should be stable with CV < threshold"
+    );
+    assert!(
+        !metrics.is_stable(0.15),
+        "Should not be stable with CV > threshold"
+    );
 
     // Test edge cases
     let zero_std = PerformanceMetrics {
@@ -231,7 +447,11 @@ fn test_performance_metrics_calculations() {
         samples: 1,
     };
 
-    assert_eq!(zero_std.coefficient_of_variation(), 0.0, "Zero std dev should give CV = 0");
+    assert_eq!(
+        zero_std.coefficient_of_variation(),
+        0.0,
+        "Zero std dev should give CV = 0"
+    );
 
     let zero_mean = PerformanceMetrics {
         mean: 0.0,
@@ -243,7 +463,11 @@ fn test_performance_metrics_calculations() {
     };
 
     // CV is undefined for zero mean, should return 0
-    assert_eq!(zero_mean.coefficient_of_variation(), 0.0, "Zero mean should return CV = 0");
+    assert_eq!(
+        zero_mean.coefficient_of_variation(),
+        0.0,
+        "Zero mean should return CV = 0"
+    );
 
     println!("✓ Performance metrics calculations passed");
 }
@@ -266,33 +490,92 @@ fn test_performance_analysis_pipeline() {
     // Simulate a realistic benchmark history with gradual improvement
     let history = vec![
         // Initial performance (baseline)
-        PerformanceMetrics { mean: 2.0, std_dev: 0.1, min: 1.9, max: 2.1, median: 2.0, samples: 10 },
+        PerformanceMetrics {
+            mean: 2.0,
+            std_dev: 0.1,
+            min: 1.9,
+            max: 2.1,
+            median: 2.0,
+            samples: 10,
+        },
         // Some degradation (possible regression)
-        PerformanceMetrics { mean: 2.1, std_dev: 0.1, min: 2.0, max: 2.2, median: 2.1, samples: 10 },
-        PerformanceMetrics { mean: 2.15, std_dev: 0.1, min: 2.05, max: 2.25, median: 2.15, samples: 10 },
+        PerformanceMetrics {
+            mean: 2.1,
+            std_dev: 0.1,
+            min: 2.0,
+            max: 2.2,
+            median: 2.1,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 2.15,
+            std_dev: 0.1,
+            min: 2.05,
+            max: 2.25,
+            median: 2.15,
+            samples: 10,
+        },
         // Recovery and improvement
-        PerformanceMetrics { mean: 2.0, std_dev: 0.1, min: 1.9, max: 2.1, median: 2.0, samples: 10 },
-        PerformanceMetrics { mean: 1.9, std_dev: 0.1, min: 1.8, max: 2.0, median: 1.9, samples: 10 },
-        PerformanceMetrics { mean: 1.8, std_dev: 0.1, min: 1.7, max: 1.9, median: 1.8, samples: 10 },
+        PerformanceMetrics {
+            mean: 2.0,
+            std_dev: 0.1,
+            min: 1.9,
+            max: 2.1,
+            median: 2.0,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 1.9,
+            std_dev: 0.1,
+            min: 1.8,
+            max: 2.0,
+            median: 1.9,
+            samples: 10,
+        },
+        PerformanceMetrics {
+            mean: 1.8,
+            std_dev: 0.1,
+            min: 1.7,
+            max: 1.9,
+            median: 1.8,
+            samples: 10,
+        },
         // Stable improved performance
-        PerformanceMetrics { mean: 1.75, std_dev: 0.05, min: 1.7, max: 1.8, median: 1.75, samples: 10 },
+        PerformanceMetrics {
+            mean: 1.75,
+            std_dev: 0.05,
+            min: 1.7,
+            max: 1.8,
+            median: 1.75,
+            samples: 10,
+        },
     ];
 
     for (i, metric) in history.iter().enumerate() {
         analyzer.add_result("cfd_solver_benchmark", *metric);
-        println!("  Added data point {}: {:.3}ms ± {:.3}ms", i + 1, metric.mean * 1000.0, metric.std_dev * 1000.0);
+        println!(
+            "  Added data point {}: {:.3}ms ± {:.3}ms",
+            i + 1,
+            metric.mean * 1000.0,
+            metric.std_dev * 1000.0
+        );
     }
 
     // Analyze trend
     let trend = analyzer.analyze_trend("cfd_solver_benchmark").unwrap();
-    println!("  📈 Trend Analysis: slope={:.6}, R²={:.3}, p={:.4}, type={:?}",
-             trend.slope, trend.r_squared, trend.p_value, trend.trend_type);
+    println!(
+        "  📈 Trend Analysis: slope={:.6}, R²={:.3}, p={:.4}, type={:?}",
+        trend.slope, trend.r_squared, trend.p_value, trend.trend_type
+    );
 
     // Check for regressions
     let regression = analyzer.detect_regression("cfd_solver_benchmark").unwrap();
     if let Some(alert) = regression {
-        println!("  🚨 Regression Alert: {:.2}% degradation (confidence: {:.1}%)",
-                 alert.degradation_rate, alert.confidence * 100.0);
+        println!(
+            "  🚨 Regression Alert: {:.2}% degradation (confidence: {:.1}%)",
+            alert.degradation_rate,
+            alert.confidence * 100.0
+        );
     } else {
         println!("  ✅ No performance regression detected");
     }
@@ -314,7 +597,10 @@ fn test_performance_analysis_pipeline() {
         for report in &reports {
             let perf_ms = report.current_metrics.mean * 1000.0;
             let std_ms = report.current_metrics.std_dev * 1000.0;
-            println!("    • {}: {:.2}ms ± {:.2}ms", report.benchmark_name, perf_ms, std_ms);
+            println!(
+                "    • {}: {:.2}ms ± {:.2}ms",
+                report.benchmark_name, perf_ms, std_ms
+            );
 
             if !report.recommendations.is_empty() {
                 println!("      Recommendations: {}", report.recommendations.len());
@@ -401,4 +687,3 @@ mod property_tests {
         }
     }
 }
-

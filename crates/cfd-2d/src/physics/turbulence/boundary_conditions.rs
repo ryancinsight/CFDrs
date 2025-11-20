@@ -5,7 +5,7 @@
 //! - Inlet/outlet boundary conditions for turbulence quantities
 //! - Wall distance calculation for wall functions
 
-use super::constants::{EPSILON_MIN, OMEGA_MIN, SST_BETA_1, C_MU};
+use super::constants::{C_MU, EPSILON_MIN, OMEGA_MIN, SST_BETA_1};
 use super::wall_functions::WallTreatment;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -67,12 +67,20 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                 let idx = j * self.nx + i;
 
                 // Distance to left/right walls (from cell center)
-                let dist_left = (T::from_usize(i).unwrap_or_else(T::one) + T::from_f64(0.5).unwrap_or_else(T::one)) * self.dx;
-                let dist_right = (T::from_usize(self.nx - 1 - i).unwrap_or_else(T::one) + T::from_f64(0.5).unwrap_or_else(T::one)) * self.dx;
+                let dist_left = (T::from_usize(i).unwrap_or_else(T::one)
+                    + T::from_f64(0.5).unwrap_or_else(T::one))
+                    * self.dx;
+                let dist_right = (T::from_usize(self.nx - 1 - i).unwrap_or_else(T::one)
+                    + T::from_f64(0.5).unwrap_or_else(T::one))
+                    * self.dx;
 
                 // Distance to bottom/top walls (from cell center)
-                let dist_bottom = (T::from_usize(j).unwrap_or_else(T::one) + T::from_f64(0.5).unwrap_or_else(T::one)) * self.dy;
-                let dist_top = (T::from_usize(self.ny - 1 - j).unwrap_or_else(T::one) + T::from_f64(0.5).unwrap_or_else(T::one)) * self.dy;
+                let dist_bottom = (T::from_usize(j).unwrap_or_else(T::one)
+                    + T::from_f64(0.5).unwrap_or_else(T::one))
+                    * self.dy;
+                let dist_top = (T::from_usize(self.ny - 1 - j).unwrap_or_else(T::one)
+                    + T::from_f64(0.5).unwrap_or_else(T::one))
+                    * self.dy;
 
                 // Minimum distance to any wall
                 let min_dist = dist_left.min(dist_right).min(dist_bottom).min(dist_top);
@@ -210,9 +218,12 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                             let idx = j * self.nx;
                             k[idx] = T::zero();
                             // ω_wall = 6ν/(β₁ y_wall²) for SST model
-                            let y_wall = self.wall_distances[idx].max(T::from_f64(1e-6).unwrap_or_else(T::one));
+                            let y_wall = self.wall_distances[idx]
+                                .max(T::from_f64(1e-6).unwrap_or_else(T::one));
                             let omega_wall = T::from_f64(6.0).unwrap_or_else(T::one)
-                                / (T::from_f64(SST_BETA_1).unwrap_or_else(T::one) * y_wall * y_wall);
+                                / (T::from_f64(SST_BETA_1).unwrap_or_else(T::one)
+                                    * y_wall
+                                    * y_wall);
                             omega[idx] = omega_wall;
                         }
                     }
@@ -220,18 +231,24 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                         for j in 0..self.ny {
                             let idx = j * self.nx + (self.nx - 1);
                             k[idx] = T::zero();
-                            let y_wall = self.wall_distances[idx].max(T::from_f64(1e-6).unwrap_or_else(T::one));
+                            let y_wall = self.wall_distances[idx]
+                                .max(T::from_f64(1e-6).unwrap_or_else(T::one));
                             let omega_wall = T::from_f64(6.0).unwrap_or_else(T::one)
-                                / (T::from_f64(SST_BETA_1).unwrap_or_else(T::one) * y_wall * y_wall);
+                                / (T::from_f64(SST_BETA_1).unwrap_or_else(T::one)
+                                    * y_wall
+                                    * y_wall);
                             omega[idx] = omega_wall;
                         }
                     }
                     "south" => {
                         for i in 0..self.nx {
                             k[i] = T::zero();
-                            let y_wall = self.wall_distances[i].max(T::from_f64(1e-6).unwrap_or_else(T::one));
+                            let y_wall = self.wall_distances[i]
+                                .max(T::from_f64(1e-6).unwrap_or_else(T::one));
                             let omega_wall = T::from_f64(6.0).unwrap_or_else(T::one)
-                                / (T::from_f64(SST_BETA_1).unwrap_or_else(T::one) * y_wall * y_wall);
+                                / (T::from_f64(SST_BETA_1).unwrap_or_else(T::one)
+                                    * y_wall
+                                    * y_wall);
                             omega[i] = omega_wall;
                         }
                     }
@@ -240,9 +257,12 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                         for i in 0..self.nx {
                             let idx = base_idx + i;
                             k[idx] = T::zero();
-                            let y_wall = self.wall_distances[idx].max(T::from_f64(1e-6).unwrap_or_else(T::one));
+                            let y_wall = self.wall_distances[idx]
+                                .max(T::from_f64(1e-6).unwrap_or_else(T::one));
                             let omega_wall = T::from_f64(6.0).unwrap_or_else(T::one)
-                                / (T::from_f64(SST_BETA_1).unwrap_or_else(T::one) * y_wall * y_wall);
+                                / (T::from_f64(SST_BETA_1).unwrap_or_else(T::one)
+                                    * y_wall
+                                    * y_wall);
                             omega[idx] = omega_wall;
                         }
                     }
@@ -304,11 +324,15 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
             {
                 // k = (3/2) * (I * U_ref)²
                 let k_inlet = T::from_f64(1.5).unwrap_or_else(T::one)
-                    * *turbulence_intensity * *turbulence_intensity
-                    * *reference_velocity * *reference_velocity;
+                    * *turbulence_intensity
+                    * *turbulence_intensity
+                    * *reference_velocity
+                    * *reference_velocity;
 
                 // ε = C_μ^{3/4} * k^{3/2} / l
-                let c_mu_34 = T::from_f64(C_MU).unwrap_or_else(T::one).powf(T::from_f64(0.75).unwrap_or_else(T::one));
+                let c_mu_34 = T::from_f64(C_MU)
+                    .unwrap_or_else(T::one)
+                    .powf(T::from_f64(0.75).unwrap_or_else(T::one));
                 let k_32 = k_inlet.powf(T::from_f64(1.5).unwrap_or_else(T::one));
                 let eps_inlet = c_mu_34 * k_32 / *turbulence_length_scale;
 
@@ -362,11 +386,15 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
             {
                 // k = (3/2) * (I * U_ref)²
                 let k_inlet = T::from_f64(1.5).unwrap_or_else(T::one)
-                    * *turbulence_intensity * *turbulence_intensity
-                    * *reference_velocity * *reference_velocity;
+                    * *turbulence_intensity
+                    * *turbulence_intensity
+                    * *reference_velocity
+                    * *reference_velocity;
 
                 // ω = √k / (C_μ^{1/4} * l)
-                let c_mu_14 = T::from_f64(C_MU).unwrap_or_else(T::one).powf(T::from_f64(0.25).unwrap_or_else(T::one));
+                let c_mu_14 = T::from_f64(C_MU)
+                    .unwrap_or_else(T::one)
+                    .powf(T::from_f64(0.25).unwrap_or_else(T::one));
                 let omega_inlet = k_inlet.sqrt() / (c_mu_14 * *turbulence_length_scale);
 
                 match name.as_str() {
@@ -418,10 +446,13 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
             {
                 // For SA model, ν̃_inlet ≈ (3/2) * I² * U_ref * l / C_μ^{3/4}
                 let factor = T::from_f64(1.5).unwrap_or_else(T::one)
-                    * *turbulence_intensity * *turbulence_intensity
-                    * *reference_velocity * *turbulence_length_scale;
+                    * *turbulence_intensity
+                    * *turbulence_intensity
+                    * *reference_velocity
+                    * *turbulence_length_scale;
                 let c_mu_inv = T::from_f64(1.0 / C_MU).unwrap_or_else(T::one);
-                let nu_tilde_inlet = factor * c_mu_inv.powf(T::from_f64(0.75).unwrap_or_else(T::one));
+                let nu_tilde_inlet =
+                    factor * c_mu_inv.powf(T::from_f64(0.75).unwrap_or_else(T::one));
 
                 match name.as_str() {
                     "west" => {
@@ -452,7 +483,12 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
     }
 
     /// Apply outlet boundaries (zero gradient)
-    fn apply_outlet_boundaries(&self, field1: &mut [T], field2: &mut [T], boundaries: &[(String, TurbulenceBoundaryCondition<T>)]) {
+    fn apply_outlet_boundaries(
+        &self,
+        field1: &mut [T],
+        field2: &mut [T],
+        boundaries: &[(String, TurbulenceBoundaryCondition<T>)],
+    ) {
         for (name, bc) in boundaries {
             if let TurbulenceBoundaryCondition::Outlet = bc {
                 match name.as_str() {
@@ -503,7 +539,11 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
     }
 
     /// Apply outlet boundaries for single field (SA model)
-    fn apply_outlet_boundaries_sa(&self, field: &mut [T], boundaries: &[(String, TurbulenceBoundaryCondition<T>)]) {
+    fn apply_outlet_boundaries_sa(
+        &self,
+        field: &mut [T],
+        boundaries: &[(String, TurbulenceBoundaryCondition<T>)],
+    ) {
         for (name, bc) in boundaries {
             if let TurbulenceBoundaryCondition::Outlet = bc {
                 match name.as_str() {

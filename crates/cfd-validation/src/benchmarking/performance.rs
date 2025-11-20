@@ -50,16 +50,21 @@ impl TimingResult {
 
 impl fmt::Display for TimingResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {:.3}±{:.3}ms ({} samples)",
-               self.operation_name,
-               self.stats.mean * 1000.0,
-               self.stats.std_dev * 1000.0,
-               self.stats.samples)?;
+        write!(
+            f,
+            "{}: {:.3}±{:.3}ms ({} samples)",
+            self.operation_name,
+            self.stats.mean * 1000.0,
+            self.stats.std_dev * 1000.0,
+            self.stats.samples
+        )?;
 
         if !self.metadata.is_empty() {
             write!(f, " [")?;
             for (i, (key, value)) in self.metadata.iter().enumerate() {
-                if i > 0 { write!(f, ", ")?; }
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
                 write!(f, "{}={}", key, value)?;
             }
             write!(f, "]")?;
@@ -88,7 +93,7 @@ impl PerformanceBenchmark {
             warm_up_iterations: 5,
             measurement_iterations: 10,
             min_measurement_time: 0.001, // 1ms minimum
-            max_cv_threshold: 0.05, // 5% CV threshold
+            max_cv_threshold: 0.05,      // 5% CV threshold
         }
     }
 
@@ -153,7 +158,11 @@ impl PerformanceBenchmark {
     }
 
     /// Benchmark a simple closure (no result)
-    pub fn benchmark_simple<F>(&self, operation_name: &str, mut operation: F) -> Result<TimingResult>
+    pub fn benchmark_simple<F>(
+        &self,
+        operation_name: &str,
+        mut operation: F,
+    ) -> Result<TimingResult>
     where
         F: FnMut(),
     {
@@ -164,7 +173,10 @@ impl PerformanceBenchmark {
     }
 
     /// Run multiple benchmarks and return results
-    pub fn benchmark_suite(&self, benchmarks: Vec<(&str, Box<dyn FnMut()>)>) -> Result<Vec<TimingResult>> {
+    pub fn benchmark_suite(
+        &self,
+        benchmarks: Vec<(&str, Box<dyn FnMut()>)>,
+    ) -> Result<Vec<TimingResult>> {
         let mut results = Vec::new();
 
         for (name, mut operation) in benchmarks {
@@ -210,7 +222,7 @@ impl AlgorithmComplexity {
             space_complexity: "O(?)".to_string(),
             memory_pattern: "Unknown".to_string(),
             cache_efficiency: 0.5, // Default neutral rating
-            scalability: 0.5, // Default neutral rating
+            scalability: 0.5,      // Default neutral rating
             references: Vec::new(),
         }
     }
@@ -318,30 +330,52 @@ impl PerformanceProfile {
 
         // Time complexity recommendations
         match self.complexity.time_complexity.as_str() {
-            "O(N)" => self.recommendations.push("Excellent scalability - suitable for large problems".to_string()),
-            "O(N log N)" => self.recommendations.push("Good scalability - efficient for most CFD applications".to_string()),
-            "O(N²)" => self.recommendations.push("Poor scalability - consider fast algorithms for large problems".to_string()),
-            "O(N³)" => self.recommendations.push("Very poor scalability - use only for small problems".to_string()),
-            _ => self.recommendations.push("Unknown time complexity - requires further analysis".to_string()),
+            "O(N)" => self
+                .recommendations
+                .push("Excellent scalability - suitable for large problems".to_string()),
+            "O(N log N)" => self
+                .recommendations
+                .push("Good scalability - efficient for most CFD applications".to_string()),
+            "O(N²)" => self
+                .recommendations
+                .push("Poor scalability - consider fast algorithms for large problems".to_string()),
+            "O(N³)" => self
+                .recommendations
+                .push("Very poor scalability - use only for small problems".to_string()),
+            _ => self
+                .recommendations
+                .push("Unknown time complexity - requires further analysis".to_string()),
         }
 
         // Memory bandwidth recommendations
         if self.memory_bandwidth < 10.0 {
-            self.recommendations.push("Low memory bandwidth utilization - check data layout and access patterns".to_string());
+            self.recommendations.push(
+                "Low memory bandwidth utilization - check data layout and access patterns"
+                    .to_string(),
+            );
         } else if self.memory_bandwidth > 50.0 {
-            self.recommendations.push("Excellent memory bandwidth - algorithm is memory-efficient".to_string());
+            self.recommendations
+                .push("Excellent memory bandwidth - algorithm is memory-efficient".to_string());
         }
 
         // Cache efficiency recommendations
         if self.cache_miss_rate > 0.1 {
-            self.recommendations.push("High cache miss rate - consider cache-blocking or data restructuring".to_string());
+            self.recommendations.push(
+                "High cache miss rate - consider cache-blocking or data restructuring".to_string(),
+            );
         }
 
         // Scalability recommendations
         if self.complexity.scalability < 0.3 {
-            self.recommendations.push("Poor parallel scalability - algorithm may not benefit from multi-core systems".to_string());
+            self.recommendations.push(
+                "Poor parallel scalability - algorithm may not benefit from multi-core systems"
+                    .to_string(),
+            );
         } else if self.complexity.scalability > 0.8 {
-            self.recommendations.push("Excellent parallel scalability - well-suited for distributed computing".to_string());
+            self.recommendations.push(
+                "Excellent parallel scalability - well-suited for distributed computing"
+                    .to_string(),
+            );
         }
     }
 }
@@ -352,6 +386,16 @@ pub struct CfdPerformanceBenchmarks {
 }
 
 impl CfdPerformanceBenchmarks {
+    /// Create a new CFD performance benchmark suite with optimized configuration
+    ///
+    /// Initializes performance benchmarking with CFD-appropriate parameters:
+    /// - 3 warm-up iterations to stabilize CPU caches and branch prediction
+    /// - 20 measurement iterations for statistically significant timing results
+    /// - Automatic outlier detection and removal for measurement stability
+    /// - Memory barrier synchronization for accurate timing measurements
+    ///
+    /// This configuration balances measurement accuracy with reasonable execution time
+    /// for CFD algorithm performance analysis.
     pub fn new() -> Self {
         Self {
             benchmark: PerformanceBenchmark::new()
@@ -405,7 +449,9 @@ impl CfdPerformanceBenchmarks {
                 .with_cache_efficiency(0.7)
                 .with_scalability(0.8)
                 .with_reference("Saad (2003): Iterative Methods for Sparse Linear Systems")
-                .with_reference("Barrett et al. (1994): Templates for the Solution of Linear Systems")
+                .with_reference(
+                    "Barrett et al. (1994): Templates for the Solution of Linear Systems",
+                ),
         );
 
         // Sparse Matrix-Vector Multiplication (SPMV)
@@ -427,7 +473,7 @@ impl CfdPerformanceBenchmarks {
                 .with_memory_pattern("Bit-reversal permutation with regular access patterns")
                 .with_cache_efficiency(0.8)
                 .with_scalability(0.85)
-                .with_reference("Frigo & Johnson (2005): The design and implementation of FFTW3")
+                .with_reference("Frigo & Johnson (2005): The design and implementation of FFTW3"),
         );
 
         // Multigrid solver
@@ -439,7 +485,7 @@ impl CfdPerformanceBenchmarks {
                 .with_cache_efficiency(0.75)
                 .with_scalability(0.7)
                 .with_reference("Trottenberg et al. (2001): Multigrid methods")
-                .with_reference("Briggs et al. (2000): A multigrid tutorial")
+                .with_reference("Briggs et al. (2000): A multigrid tutorial"),
         );
 
         // Turbulence model evaluation (k-epsilon)
@@ -450,7 +496,9 @@ impl CfdPerformanceBenchmarks {
                 .with_memory_pattern("Point-wise operations on turbulence variables")
                 .with_cache_efficiency(0.9)
                 .with_scalability(0.95)
-                .with_reference("Launder & Spalding (1974): The numerical computation of turbulent flows")
+                .with_reference(
+                    "Launder & Spalding (1974): The numerical computation of turbulent flows",
+                ),
         );
 
         // Navier-Stokes time integration
@@ -461,7 +509,9 @@ impl CfdPerformanceBenchmarks {
                 .with_memory_pattern("Stencil operations with spatial derivatives")
                 .with_cache_efficiency(0.85)
                 .with_scalability(0.9)
-                .with_reference("Hirsch (2007): Numerical computation of internal and external flows")
+                .with_reference(
+                    "Hirsch (2007): Numerical computation of internal and external flows",
+                ),
         );
 
         // Richardson extrapolation
@@ -555,8 +605,10 @@ impl CfdPerformanceBenchmarks {
                 32768, // 32MB L3 cache
             )?;
 
-            println!("  Performance: {:.2} GFLOPS, {:.2} GB/s memory bandwidth",
-                    profile.gflops, profile.memory_bandwidth);
+            println!(
+                "  Performance: {:.2} GFLOPS, {:.2} GB/s memory bandwidth",
+                profile.gflops, profile.memory_bandwidth
+            );
             println!("  Cache miss rate: {:.1}%", profile.cache_miss_rate * 100.0);
             for rec in &profile.recommendations {
                 println!("  💡 {}", rec);
@@ -591,20 +643,25 @@ impl CfdPerformanceBenchmarks {
                 ms_complexity.clone(),
                 data_size,
                 1.0, // Dense evaluation
-                10, // operations per point (trig functions, etc.)
+                10,  // operations per point (trig functions, etc.)
                 grid_points,
                 32768,
             )?;
 
-            println!("  Performance: {:.2} GFLOPS, {:.2} GB/s memory bandwidth",
-                    profile.gflops, profile.memory_bandwidth);
+            println!(
+                "  Performance: {:.2} GFLOPS, {:.2} GB/s memory bandwidth",
+                profile.gflops, profile.memory_bandwidth
+            );
             println!("  Cache miss rate: {:.1}%", profile.cache_miss_rate * 100.0);
 
             profiles.push(profile);
         }
 
         println!("\n✅ Algorithm performance profiling completed!");
-        println!("   Analyzed {} algorithms with complexity and performance metrics", profiles.len());
+        println!(
+            "   Analyzed {} algorithms with complexity and performance metrics",
+            profiles.len()
+        );
 
         Ok(profiles)
     }
@@ -623,7 +680,7 @@ impl CfdPerformanceBenchmarks {
                 let vector_dv = nalgebra::DVector::from_vec(vector.to_vec());
                 let mut result_dv = nalgebra::DVector::from_vec(result.to_vec());
                 cfd_math::sparse::spmv(matrix, &vector_dv, &mut result_dv);
-            }
+            },
         )
     }
 
@@ -631,39 +688,33 @@ impl CfdPerformanceBenchmarks {
     pub fn benchmark_solver_convergence<T>(
         &self,
         solver_name: &str,
-        solver_fn: impl Fn() -> Result<Vec<T>>
+        solver_fn: impl Fn() -> Result<Vec<T>>,
     ) -> Result<TimingResult>
     where
         T: nalgebra::RealField + Copy,
     {
-        self.benchmark.benchmark(
-            &format!("Solver_{}", solver_name),
-            || solver_fn()
-        )
+        self.benchmark
+            .benchmark(&format!("Solver_{}", solver_name), || solver_fn())
     }
 
     /// Benchmark grid operations
     pub fn benchmark_grid_operation<T>(
         &self,
         operation_name: &str,
-        operation: impl Fn()
+        operation: impl Fn(),
     ) -> Result<TimingResult> {
-        self.benchmark.benchmark_simple(
-            &format!("Grid_{}", operation_name),
-            operation
-        )
+        self.benchmark
+            .benchmark_simple(&format!("Grid_{}", operation_name), operation)
     }
 
     /// Benchmark CFD time stepping
     pub fn benchmark_time_step<T>(
         &self,
         scheme_name: &str,
-        time_step_fn: impl Fn() -> Result<T>
+        time_step_fn: impl Fn() -> Result<T>,
     ) -> Result<TimingResult> {
-        self.benchmark.benchmark(
-            &format!("TimeStep_{}", scheme_name),
-            time_step_fn
-        )
+        self.benchmark
+            .benchmark(&format!("TimeStep_{}", scheme_name), time_step_fn)
     }
 
     /// Run comprehensive CFD benchmark suite
@@ -680,15 +731,23 @@ impl CfdPerformanceBenchmarks {
                 for i in 0..64 {
                     for j in 0..64 {
                         let idx = i * 64 + j;
-                        if i > 0 { builder.add_entry(idx, idx - 64, -1.0).unwrap(); }
-                        if i < 63 { builder.add_entry(idx, idx + 64, -1.0).unwrap(); }
-                        if j > 0 { builder.add_entry(idx, idx - 1, -1.0).unwrap(); }
-                        if j < 63 { builder.add_entry(idx, idx + 1, -1.0).unwrap(); }
+                        if i > 0 {
+                            builder.add_entry(idx, idx - 64, -1.0).unwrap();
+                        }
+                        if i < 63 {
+                            builder.add_entry(idx, idx + 64, -1.0).unwrap();
+                        }
+                        if j > 0 {
+                            builder.add_entry(idx, idx - 1, -1.0).unwrap();
+                        }
+                        if j < 63 {
+                            builder.add_entry(idx, idx + 1, -1.0).unwrap();
+                        }
                         builder.add_entry(idx, idx, 4.0).unwrap();
                     }
                 }
                 let _matrix = builder.build().unwrap();
-            }) as Box<dyn FnMut()>
+            }) as Box<dyn FnMut()>,
         ));
 
         // Vector operations benchmark
@@ -700,7 +759,7 @@ impl CfdPerformanceBenchmarks {
                 for i in 0..1000 {
                     v1[i] = v1[i] * v2[i] + v1[i].sin();
                 }
-            }) as Box<dyn FnMut()>
+            }) as Box<dyn FnMut()>,
         ));
 
         // Memory allocation benchmark
@@ -708,7 +767,7 @@ impl CfdPerformanceBenchmarks {
             "Memory_Allocation_1M",
             Box::new(|| {
                 let _data = vec![0.0f64; 1_000_000];
-            }) as Box<dyn FnMut()>
+            }) as Box<dyn FnMut()>,
         ));
 
         self.benchmark.benchmark_suite(benchmarks)
@@ -730,9 +789,11 @@ mod tests {
     fn test_performance_benchmark() {
         let benchmark = PerformanceBenchmark::new();
 
-        let result = benchmark.benchmark_simple("test_operation", || {
-            std::thread::sleep(std::time::Duration::from_millis(1));
-        }).unwrap();
+        let result = benchmark
+            .benchmark_simple("test_operation", || {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            })
+            .unwrap();
 
         assert_eq!(result.operation_name, "test_operation");
         assert!(!result.measurements.is_empty());

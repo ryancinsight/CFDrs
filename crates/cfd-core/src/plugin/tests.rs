@@ -23,7 +23,10 @@ impl Plugin for TestPlugin {
     }
 
     fn dependencies(&self) -> Vec<&str> {
-        self.dependencies.iter().map(std::string::String::as_str).collect()
+        self.dependencies
+            .iter()
+            .map(std::string::String::as_str)
+            .collect()
     }
 }
 

@@ -23,7 +23,7 @@ use nalgebra_sparse::CsrMatrix;
 /// Common in 1D heat/diffusion equations
 fn create_tridiagonal_csr_f64(size: usize) -> CsrMatrix<f64> {
     let mut builder = SparseMatrixBuilder::new(size, size);
-    
+
     for i in 0..size {
         builder.add_entry(i, i, 2.0).unwrap();
         if i > 0 {
@@ -33,14 +33,14 @@ fn create_tridiagonal_csr_f64(size: usize) -> CsrMatrix<f64> {
             builder.add_entry(i, i + 1, -1.0).unwrap();
         }
     }
-    
+
     builder.build().unwrap()
 }
 
 /// Create a tridiagonal CSR matrix (f32 for SIMD)
 fn create_tridiagonal_csr_f32(size: usize) -> CsrMatrix<f32> {
     let mut builder = SparseMatrixBuilder::new(size, size);
-    
+
     for i in 0..size {
         builder.add_entry(i, i, 2.0f32).unwrap();
         if i > 0 {
@@ -50,7 +50,7 @@ fn create_tridiagonal_csr_f32(size: usize) -> CsrMatrix<f32> {
             builder.add_entry(i, i + 1, -1.0f32).unwrap();
         }
     }
-    
+
     builder.build().unwrap()
 }
 
@@ -59,11 +59,11 @@ fn create_tridiagonal_csr_f32(size: usize) -> CsrMatrix<f32> {
 fn create_pentadiagonal_csr_f64(n: usize) -> CsrMatrix<f64> {
     let size = n * n;
     let mut builder = SparseMatrixBuilder::new(size, size);
-    
+
     for i in 0..size {
         let row = i / n;
         let col = i % n;
-        
+
         if col > 0 {
             builder.add_entry(i, i - 1, -1.0).unwrap();
         }
@@ -78,7 +78,7 @@ fn create_pentadiagonal_csr_f64(n: usize) -> CsrMatrix<f64> {
             builder.add_entry(i, i + 1, -1.0).unwrap();
         }
     }
-    
+
     builder.build().unwrap()
 }
 
@@ -86,11 +86,11 @@ fn create_pentadiagonal_csr_f64(n: usize) -> CsrMatrix<f64> {
 fn create_pentadiagonal_csr_f32(n: usize) -> CsrMatrix<f32> {
     let size = n * n;
     let mut builder = SparseMatrixBuilder::new(size, size);
-    
+
     for i in 0..size {
         let row = i / n;
         let col = i % n;
-        
+
         if col > 0 {
             builder.add_entry(i, i - 1, -1.0f32).unwrap();
         }
@@ -105,14 +105,14 @@ fn create_pentadiagonal_csr_f32(n: usize) -> CsrMatrix<f32> {
             builder.add_entry(i, i + 1, -1.0f32).unwrap();
         }
     }
-    
+
     builder.build().unwrap()
 }
 
 /// Benchmark scalar SpMV baseline (f64)
 fn bench_scalar_spmv(c: &mut Criterion) {
     let mut group = c.benchmark_group("spmv_scalar_f64");
-    
+
     // Small: 100x100 (300 non-zeros)
     let matrix = create_tridiagonal_csr_f64(100);
     let x = DVector::from_element(100, 1.0);
@@ -123,7 +123,7 @@ fn bench_scalar_spmv(c: &mut Criterion) {
             spmv(black_box(&matrix), black_box(&x), black_box(&mut y));
         });
     });
-    
+
     // Medium: 500x500 (1500 non-zeros)
     let matrix = create_tridiagonal_csr_f64(500);
     let x = DVector::from_element(500, 1.0);
@@ -134,7 +134,7 @@ fn bench_scalar_spmv(c: &mut Criterion) {
             spmv(black_box(&matrix), black_box(&x), black_box(&mut y));
         });
     });
-    
+
     // Large: 2000x2000 (6000 non-zeros)
     let matrix = create_tridiagonal_csr_f64(2000);
     let x = DVector::from_element(2000, 1.0);
@@ -145,14 +145,14 @@ fn bench_scalar_spmv(c: &mut Criterion) {
             spmv(black_box(&matrix), black_box(&x), black_box(&mut y));
         });
     });
-    
+
     group.finish();
 }
 
 /// Benchmark pentadiagonal matrices (denser, more realistic CFD)
 fn bench_pentadiagonal(c: &mut Criterion) {
     let mut group = c.benchmark_group("spmv_pentadiagonal");
-    
+
     // 32x32 grid = 1024 unknowns
     let matrix = create_pentadiagonal_csr_f64(32);
     let x = DVector::from_element(1024, 1.0);
@@ -163,7 +163,7 @@ fn bench_pentadiagonal(c: &mut Criterion) {
             spmv(black_box(&matrix), black_box(&x), black_box(&mut y));
         });
     });
-    
+
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
         let matrix_f32 = create_pentadiagonal_csr_f32(32);
@@ -171,11 +171,15 @@ fn bench_pentadiagonal(c: &mut Criterion) {
         let mut y_f32 = DVector::zeros(1024);
         group.bench_function("simd_32x32", |b| {
             b.iter(|| {
-                spmv_f32_simd(black_box(&matrix_f32), black_box(&x_f32), black_box(&mut y_f32));
+                spmv_f32_simd(
+                    black_box(&matrix_f32),
+                    black_box(&x_f32),
+                    black_box(&mut y_f32),
+                );
             });
         });
     }
-    
+
     // 64x64 grid = 4096 unknowns
     let matrix = create_pentadiagonal_csr_f64(64);
     let x = DVector::from_element(4096, 1.0);
@@ -186,7 +190,7 @@ fn bench_pentadiagonal(c: &mut Criterion) {
             spmv(black_box(&matrix), black_box(&x), black_box(&mut y));
         });
     });
-    
+
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
         let matrix_f32 = create_pentadiagonal_csr_f32(64);
@@ -194,18 +198,22 @@ fn bench_pentadiagonal(c: &mut Criterion) {
         let mut y_f32 = DVector::zeros(4096);
         group.bench_function("simd_64x64", |b| {
             b.iter(|| {
-                spmv_f32_simd(black_box(&matrix_f32), black_box(&x_f32), black_box(&mut y_f32));
+                spmv_f32_simd(
+                    black_box(&matrix_f32),
+                    black_box(&x_f32),
+                    black_box(&mut y_f32),
+                );
             });
         });
     }
-    
+
     group.finish();
 }
 
 /// Benchmark parallel SpMV (rayon-based, Sprint 1.67.0)
 fn bench_parallel_spmv(c: &mut Criterion) {
     let mut group = c.benchmark_group("spmv_parallel");
-    
+
     // Medium: 1000x1000 tridiagonal (3000 non-zeros)
     // Parallel benefit starts to show
     let matrix = create_tridiagonal_csr_f64(1000);
@@ -222,7 +230,7 @@ fn bench_parallel_spmv(c: &mut Criterion) {
             spmv_parallel(black_box(&matrix), black_box(&x), black_box(&mut y));
         });
     });
-    
+
     // Large: 5000x5000 tridiagonal (15000 non-zeros)
     // Expected 3-8x speedup on 4-8 cores
     let matrix = create_tridiagonal_csr_f64(5000);
@@ -239,7 +247,7 @@ fn bench_parallel_spmv(c: &mut Criterion) {
             spmv_parallel(black_box(&matrix), black_box(&x), black_box(&mut y));
         });
     });
-    
+
     // XL: 10000x10000 tridiagonal (30000 non-zeros)
     // Target: demonstrate scaling benefit
     let matrix = create_tridiagonal_csr_f64(10000);
@@ -256,14 +264,14 @@ fn bench_parallel_spmv(c: &mut Criterion) {
             spmv_parallel(black_box(&matrix), black_box(&x), black_box(&mut y));
         });
     });
-    
+
     group.finish();
 }
 
 /// Benchmark parallel pentadiagonal (realistic CFD matrices)
 fn bench_parallel_pentadiagonal(c: &mut Criterion) {
     let mut group = c.benchmark_group("spmv_parallel_pentadiagonal");
-    
+
     // 50x50 grid = 2500 unknowns (12500 non-zeros)
     let matrix = create_pentadiagonal_csr_f64(50);
     let x = DVector::from_element(2500, 1.0);
@@ -279,7 +287,7 @@ fn bench_parallel_pentadiagonal(c: &mut Criterion) {
             spmv_parallel(black_box(&matrix), black_box(&x), black_box(&mut y));
         });
     });
-    
+
     // 100x100 grid = 10000 unknowns (50000 non-zeros)
     // Target workload for CFD simulations
     let matrix = create_pentadiagonal_csr_f64(100);
@@ -296,7 +304,7 @@ fn bench_parallel_pentadiagonal(c: &mut Criterion) {
             spmv_parallel(black_box(&matrix), black_box(&x), black_box(&mut y));
         });
     });
-    
+
     // 200x200 grid = 40000 unknowns (200000 non-zeros)
     // Large-scale CFD simulation
     let matrix = create_pentadiagonal_csr_f64(200);
@@ -313,7 +321,7 @@ fn bench_parallel_pentadiagonal(c: &mut Criterion) {
             spmv_parallel(black_box(&matrix), black_box(&x), black_box(&mut y));
         });
     });
-    
+
     group.finish();
 }
 

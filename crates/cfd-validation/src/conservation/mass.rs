@@ -4,8 +4,8 @@
 
 use super::report::ConservationReport;
 use super::traits::ConservationChecker;
-use cfd_core::error::Result;
 use cfd_core::conversion::SafeFromF64;
+use cfd_core::error::Result;
 use nalgebra::{DMatrix, DVector, RealField};
 use num_traits::FromPrimitive;
 
@@ -45,12 +45,12 @@ impl<T: RealField + Copy + FromPrimitive> MassConservationChecker<T> {
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 // ∂u/∂x using central difference
-                let dudx =
-                    (u[(i + 1, j)] - u[(i - 1, j)]) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
+                let dudx = (u[(i + 1, j)] - u[(i - 1, j)])
+                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
 
                 // ∂v/∂y using central difference
-                let dvdy =
-                    (v[(i, j + 1)] - v[(i, j - 1)]) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
+                let dvdy = (v[(i, j + 1)] - v[(i, j - 1)])
+                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
 
                 // Divergence = ∂u/∂x + ∂v/∂y
                 let div = dudx + dvdy;

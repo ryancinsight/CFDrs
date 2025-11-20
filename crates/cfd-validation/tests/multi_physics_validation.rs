@@ -7,7 +7,8 @@
 //! - Multi-phase flows
 
 use cfd_validation::manufactured::multi_physics::{
-    ManufacturedConjugateHeatTransfer, ManufacturedMHD, ManufacturedMultiphase, ManufacturedSpeciesTransport,
+    ManufacturedConjugateHeatTransfer, ManufacturedMHD, ManufacturedMultiphase,
+    ManufacturedSpeciesTransport,
 };
 use cfd_validation::manufactured::ManufacturedSolution;
 
@@ -32,9 +33,12 @@ fn test_conjugate_heat_transfer_validation() {
     let t_solid_interface = cht.solid_temperature(0.5, y_test, t_test);
 
     // Temperature continuity at interface
-    assert!((t_fluid_interface - t_solid_interface).abs() < 1e-10,
-           "Temperature discontinuity at interface: fluid={}, solid={}",
-           t_fluid_interface, t_solid_interface);
+    assert!(
+        (t_fluid_interface - t_solid_interface).abs() < 1e-10,
+        "Temperature discontinuity at interface: fluid={}, solid={}",
+        t_fluid_interface,
+        t_solid_interface
+    );
 
     // Test heat flux continuity (more complex - would require derivatives)
     // For this simplified test, we verify the formulations are consistent
@@ -51,9 +55,27 @@ fn test_conjugate_heat_transfer_validation() {
         let source = cht.source_term(x, y, z, t);
 
         // Physical bounds
-        assert!(temp.abs() < 50.0, "Temperature out of bounds at ({},{}): {}", x, y, temp);
-        assert!(source.is_finite(), "Source term not finite at ({},{}): {}", x, y, source);
-        assert!(source.abs() < 1000.0, "Source term magnitude too large at ({},{}): {}", x, y, source);
+        assert!(
+            temp.abs() < 50.0,
+            "Temperature out of bounds at ({},{}): {}",
+            x,
+            y,
+            temp
+        );
+        assert!(
+            source.is_finite(),
+            "Source term not finite at ({},{}): {}",
+            x,
+            y,
+            source
+        );
+        assert!(
+            source.abs() < 1000.0,
+            "Source term magnitude too large at ({},{}): {}",
+            x,
+            y,
+            source
+        );
     }
 
     println!("✓ Conjugate heat transfer validation passed");
@@ -74,10 +96,10 @@ fn test_species_transport_reaction_validation() {
 
     // Test conservation and boundedness
     let test_points = vec![
-        (0.25, 0.25, 0.0, 0.0),   // Initial time
-        (0.5, 0.5, 0.0, 0.5),     // Intermediate time
-        (0.75, 0.75, 0.0, 1.0),   // Later time
-        (0.33, 0.67, 0.0, 2.0),   // Different spatial point
+        (0.25, 0.25, 0.0, 0.0), // Initial time
+        (0.5, 0.5, 0.0, 0.5),   // Intermediate time
+        (0.75, 0.75, 0.0, 1.0), // Later time
+        (0.33, 0.67, 0.0, 2.0), // Different spatial point
     ];
 
     let mut prev_concentrations = Vec::new();
@@ -87,24 +109,57 @@ fn test_species_transport_reaction_validation() {
         let source = species.source_term(x, y, z, t);
 
         // Physical constraints for species concentration
-        assert!(c >= 0.0, "Concentration must be non-negative: {} at ({},{},t={})", c, x, y, t);
-        assert!(c <= 2.0, "Concentration exceeds maximum bound: {} at ({},{},t={})", c, x, y, t);
+        assert!(
+            c >= 0.0,
+            "Concentration must be non-negative: {} at ({},{},t={})",
+            c,
+            x,
+            y,
+            t
+        );
+        assert!(
+            c <= 2.0,
+            "Concentration exceeds maximum bound: {} at ({},{},t={})",
+            c,
+            x,
+            y,
+            t
+        );
 
         // Source term should be finite and reasonable
-        assert!(source.is_finite(), "Source term not finite at ({},{},t={})", x, y, t);
-        assert!(source.abs() < 10.0, "Source term magnitude too large: {} at ({},{},t={})", source, x, y, t);
+        assert!(
+            source.is_finite(),
+            "Source term not finite at ({},{},t={})",
+            x,
+            y,
+            t
+        );
+        assert!(
+            source.abs() < 10.0,
+            "Source term magnitude too large: {} at ({},{},t={})",
+            source,
+            x,
+            y,
+            t
+        );
 
         prev_concentrations.push(c);
     }
 
     // Test temporal decay behavior
-    assert!(prev_concentrations[1] < prev_concentrations[0],
-           "Concentration should decay over time: t=0: {}, t=0.5: {}",
-           prev_concentrations[0], prev_concentrations[1]);
+    assert!(
+        prev_concentrations[1] < prev_concentrations[0],
+        "Concentration should decay over time: t=0: {}, t=0.5: {}",
+        prev_concentrations[0],
+        prev_concentrations[1]
+    );
 
-    assert!(prev_concentrations[2] < prev_concentrations[1],
-           "Concentration should continue decaying: t=0.5: {}, t=1.0: {}",
-           prev_concentrations[1], prev_concentrations[2]);
+    assert!(
+        prev_concentrations[2] < prev_concentrations[1],
+        "Concentration should continue decaying: t=0.5: {}, t=1.0: {}",
+        prev_concentrations[1],
+        prev_concentrations[2]
+    );
 
     println!("✓ Species transport with reaction validation passed");
 }
@@ -135,19 +190,53 @@ fn test_mhd_validation() {
         let source = mhd.source_term(x, y, z, t);
 
         // Physical constraints
-        assert!(velocity >= 0.0, "Velocity must be non-negative: {} at ({},{},t={})", velocity, x, y, t);
-        assert!(velocity < 2.0, "Velocity exceeds reasonable bounds: {} at ({},{},t={})", velocity, x, y, t);
+        assert!(
+            velocity >= 0.0,
+            "Velocity must be non-negative: {} at ({},{},t={})",
+            velocity,
+            x,
+            y,
+            t
+        );
+        assert!(
+            velocity < 2.0,
+            "Velocity exceeds reasonable bounds: {} at ({},{},t={})",
+            velocity,
+            x,
+            y,
+            t
+        );
 
         // Source term should be finite (represents Lorentz force contribution)
-        assert!(source.is_finite(), "MHD source term not finite at ({},{},t={})", x, y, t);
-        assert!(source.abs() < 10.0, "MHD source term magnitude too large: {} at ({},{},t={})", source, x, y, t);
+        assert!(
+            source.is_finite(),
+            "MHD source term not finite at ({},{},t={})",
+            x,
+            y,
+            t
+        );
+        assert!(
+            source.abs() < 10.0,
+            "MHD source term magnitude too large: {} at ({},{},t={})",
+            source,
+            x,
+            y,
+            t
+        );
     }
 
     // Test Alfvén wave characteristics (simplified)
     let alfven_speed = mhd.magnetic_amp / (mhd.mu_0 * mhd.sigma).sqrt();
-    assert!(alfven_speed > 0.0, "Alfvén speed must be positive: {}", alfven_speed);
+    assert!(
+        alfven_speed > 0.0,
+        "Alfvén speed must be positive: {}",
+        alfven_speed
+    );
 
-    println!("✓ MHD validation passed (Alfvén speed: {:.6})", alfven_speed);
+    println!(
+        "✓ MHD validation passed (Alfvén speed: {:.6})",
+        alfven_speed
+    );
 }
 
 /// Test multi-phase flow validation
@@ -156,12 +245,12 @@ fn test_multiphase_flow_validation() {
     println!("Testing Multi-Phase Flow MMS Validation...");
 
     let multiphase = ManufacturedMultiphase::<f64>::new(
-        2.0,  // density ratio (heavy/light)
-        5.0,  // viscosity ratio (viscous/light)
-        0.5,  // interface at y=0.5
-        0.8,  // phase indicator amplitude
-        1.5,  // kx
-        1.0,  // ky
+        2.0, // density ratio (heavy/light)
+        5.0, // viscosity ratio (viscous/light)
+        0.5, // interface at y=0.5
+        0.8, // phase indicator amplitude
+        1.5, // kx
+        1.0, // ky
     );
 
     // Test phase indicator function properties
@@ -176,16 +265,42 @@ fn test_multiphase_flow_validation() {
         let source = multiphase.source_term(x, y, z, t);
 
         // Phase indicator should be bounded
-        assert!(phi.abs() <= 1.0, "Phase indicator out of bounds: {} at ({},{},t={})", phi, x, y, t);
+        assert!(
+            phi.abs() <= 1.0,
+            "Phase indicator out of bounds: {} at ({},{},t={})",
+            phi,
+            x,
+            y,
+            t
+        );
 
         // Source term should be finite and reasonable
-        assert!(source.is_finite(), "Multi-phase source term not finite at ({},{},t={})", x, y, t);
-        assert!(source.abs() < 5.0, "Multi-phase source term magnitude too large: {} at ({},{},t={})", source, x, y, t);
+        assert!(
+            source.is_finite(),
+            "Multi-phase source term not finite at ({},{},t={})",
+            x,
+            y,
+            t
+        );
+        assert!(
+            source.abs() < 5.0,
+            "Multi-phase source term magnitude too large: {} at ({},{},t={})",
+            source,
+            x,
+            y,
+            t
+        );
     }
 
     // Test material property ratios
-    assert!(multiphase.density_ratio > 1.0, "Density ratio should be > 1");
-    assert!(multiphase.viscosity_ratio > 1.0, "Viscosity ratio should be > 1");
+    assert!(
+        multiphase.density_ratio > 1.0,
+        "Density ratio should be > 1"
+    );
+    assert!(
+        multiphase.viscosity_ratio > 1.0,
+        "Viscosity ratio should be > 1"
+    );
 
     println!("✓ Multi-phase flow validation passed");
 }
@@ -209,19 +324,31 @@ fn test_coupled_physics_interaction() {
     let concentration = species.exact_solution(interface_x, y_test, 0.0, t_test);
 
     // Verify continuity and coupling
-    assert!((temp_fluid - temp_solid).abs() < 0.1,
-           "Temperature coupling violated: fluid={}, solid={}",
-           temp_fluid, temp_solid);
+    assert!(
+        (temp_fluid - temp_solid).abs() < 0.1,
+        "Temperature coupling violated: fluid={}, solid={}",
+        temp_fluid,
+        temp_solid
+    );
 
-    assert!(concentration >= 0.0 && concentration <= 1.0,
-           "Species concentration out of bounds: {}", concentration);
+    assert!(
+        concentration >= 0.0 && concentration <= 1.0,
+        "Species concentration out of bounds: {}",
+        concentration
+    );
 
     // Test source terms are consistent
     let heat_source = heat_transfer.source_term(interface_x, y_test, 0.0, t_test);
     let species_source = species.source_term(interface_x, y_test, 0.0, t_test);
 
-    assert!(heat_source.is_finite(), "Heat source not finite at interface");
-    assert!(species_source.is_finite(), "Species source not finite at interface");
+    assert!(
+        heat_source.is_finite(),
+        "Heat source not finite at interface"
+    );
+    assert!(
+        species_source.is_finite(),
+        "Species source not finite at interface"
+    );
 
     println!("✓ Coupled physics interaction validation passed");
 }
@@ -310,6 +437,4 @@ mod property_tests {
         }
     }
 }
-
-
 

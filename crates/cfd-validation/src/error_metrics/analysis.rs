@@ -69,8 +69,7 @@ impl ErrorAnalysis {
         if fine_error == T::zero() {
             return T::max_value().unwrap_or_else(|| {
                 // Fallback to a large finite value
-                <T as SafeFromF64>::try_from_f64(1e10)
-                    .unwrap_or(T::from_f64_or_one(1_000_000.0))
+                <T as SafeFromF64>::try_from_f64(1e10).unwrap_or(T::from_f64_or_one(1_000_000.0))
             });
         }
         coarse_error / fine_error

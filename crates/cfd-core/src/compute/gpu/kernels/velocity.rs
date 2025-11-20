@@ -43,9 +43,9 @@ impl<T: RealField + Copy> GpuVelocityKernel<T> {
     }
 
     /// Get the shader module, initializing if necessary
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if the shader module fails to initialize, which should not happen
     /// under normal circumstances as initialization is performed in this method.
     pub fn get_shader_module(&mut self, device: &wgpu::Device) -> &wgpu::ShaderModule {

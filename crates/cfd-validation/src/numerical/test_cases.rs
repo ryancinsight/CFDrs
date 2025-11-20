@@ -174,11 +174,7 @@ pub fn create_2d_poisson_system<T: RealField + Copy + FromPrimitive>(
             analytical[idx] = T::zero();
         } else {
             // f = 2π²sin(πx)sin(πy)
-            b[idx] = T::from_f64_or_one(TWO)
-                * pi
-                * pi
-                * (pi * x).sin()
-                * (pi * y).sin();
+            b[idx] = T::from_f64_or_one(TWO) * pi * pi * (pi * x).sin() * (pi * y).sin();
             analytical[idx] = (pi * x).sin() * (pi * y).sin();
         }
     }

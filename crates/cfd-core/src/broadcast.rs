@@ -173,11 +173,13 @@ mod tests {
     fn test_broadcast_scalar() {
         let arr = [1.0, 2.0, 3.0];
         let broadcast = arr.broadcast_scalar(5.0);
-        
+
         // Scalar broadcast should always return an owned vector
-        assert!(matches!(broadcast, Cow::Owned(_)), 
-                "Expected owned vector for scalar broadcast, got borrowed");
-        
+        assert!(
+            matches!(broadcast, Cow::Owned(_)),
+            "Expected owned vector for scalar broadcast, got borrowed"
+        );
+
         if let Cow::Owned(v) = broadcast {
             assert_eq!(v, vec![5.0, 5.0, 5.0]);
         }

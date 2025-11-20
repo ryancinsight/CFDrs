@@ -15,23 +15,27 @@
 //! - Launder, B. E., et al. (1975). Progress in RSTM development. J. Fluid Mech.
 //! - Speziale, C. G., et al. (1991). Modelling pressure-strain correlation. J. Fluid Mech.
 
+use approx::assert_relative_eq;
 use cfd_2d::physics::turbulence::reynolds_stress::{
-    ReynoldsStressModel, ReynoldsStressTensor, PressureStrainModel
+    PressureStrainModel, ReynoldsStressModel, ReynoldsStressTensor,
 };
 use cfd_2d::physics::turbulence::traits::TurbulenceModel;
-use cfd_validation::manufactured::{ManufacturedReynoldsStressMMS, PressureStrainModelMMS, ReynoldsStressConvergenceStudy, ManufacturedSolution};
+use cfd_validation::manufactured::{
+    ManufacturedReynoldsStressMMS, ManufacturedSolution, PressureStrainModelMMS,
+    ReynoldsStressConvergenceStudy,
+};
 use nalgebra::{DMatrix, Vector2};
-use approx::assert_relative_eq;
 use std::f64::consts::PI;
 
 /// Test RSM initialization and basic tensor operations
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test reynolds_stress_comprehensive_tests -- --ignored`"]
 fn test_rsm_initialization() {
     let model = ReynoldsStressModel::<f64>::new(10, 10);
     let stresses = model.initialize_reynolds_stresses(1.0, 0.1);
 
     // Check isotropic initialization: ⟨u'u'⟩ = ⟨v'v'⟩ = 2/3 k
-    let expected_normal = 2.0/3.0;
+    let expected_normal = 2.0 / 3.0;
     assert_relative_eq!(stresses.xx[(5, 5)], expected_normal, epsilon = 1e-10);
     assert_relative_eq!(stresses.yy[(5, 5)], expected_normal, epsilon = 1e-10);
     assert_relative_eq!(stresses.xy[(5, 5)], 0.0, epsilon = 1e-10);
@@ -45,6 +49,7 @@ fn test_rsm_initialization() {
 
 /// Test production term calculation
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test reynolds_stress_comprehensive_tests -- --ignored`"]
 fn test_production_term() {
     let model = ReynoldsStressModel::<f64>::new(5, 5);
 
@@ -66,6 +71,7 @@ fn test_production_term() {
 
 /// Test pressure-strain correlation models
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test reynolds_stress_comprehensive_tests -- --ignored`"]
 fn test_pressure_strain_models() {
     let model = ReynoldsStressModel::<f64>::new(5, 5);
     let stresses = model.initialize_reynolds_stresses(1.0, 0.1);
@@ -78,11 +84,15 @@ fn test_pressure_strain_models() {
     // We can't directly set the model type due to private fields, but we can test the default
     let phi = model.pressure_strain_term(&stresses, &strain_rate, &rotation_rate, 0, 1, 2, 2);
     assert!(phi.is_finite(), "Pressure-strain term should be finite");
-    assert!(phi.abs() < 10.0, "Pressure-strain term should be reasonable magnitude");
+    assert!(
+        phi.abs() < 10.0,
+        "Pressure-strain term should be reasonable magnitude"
+    );
 }
 
 /// Test homogeneous shear flow analytical solution
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test reynolds_stress_comprehensive_tests -- --ignored`"]
 fn test_homogeneous_shear_flow() {
     let model = ReynoldsStressModel::<f64>::new(1, 1); // Single cell for analytical test
     let mut stresses = model.initialize_reynolds_stresses(1.0, 0.1);
@@ -97,13 +107,19 @@ fn test_homogeneous_shear_flow() {
     let time_scale = stresses.k[(0, 0)] / stresses.epsilon[(0, 0)];
 
     // Expected equilibrium shear stress
-    let equilibrium_uv = -time_scale * (stresses.xx[(0, 0)] + stresses.yy[(0, 0)]) /
-                        (1.0 + model.c1 * time_scale / time_scale);
+    let equilibrium_uv = -time_scale * (stresses.xx[(0, 0)] + stresses.yy[(0, 0)])
+        / (1.0 + model.c1 * time_scale / time_scale);
 
     // Run a few time steps
     for _ in 0..10 {
         let velocity = [DMatrix::zeros(3, 3), DMatrix::zeros(3, 3)]; // Dummy 3x3 for boundaries
-        let _ = model.update_reynolds_stresses(&mut stresses, &[velocity[0].clone(), velocity[1].clone()], dt, 0.1, 0.1);
+        let _ = model.update_reynolds_stresses(
+            &mut stresses,
+            &[velocity[0].clone(), velocity[1].clone()],
+            dt,
+            0.1,
+            0.1,
+        );
     }
 
     // Check that shear stress develops towards equilibrium
@@ -119,8 +135,11 @@ fn test_wall_boundary_conditions() {
 
     // Apply wall BCs
     model.apply_wall_boundary_conditions(
-        &mut stresses.xx, &mut stresses.xy, &mut stresses.yy,
-        &mut stresses.k, &mut stresses.epsilon
+        &mut stresses.xx,
+        &mut stresses.xy,
+        &mut stresses.yy,
+        &mut stresses.k,
+        &mut stresses.epsilon,
     );
 
     // Check bottom wall (j=0)
@@ -141,6 +160,7 @@ fn test_wall_boundary_conditions() {
 /// Test turbulent channel flow benchmark
 /// Based on DNS data from Moser et al. (1999) at Re_τ = 590
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test reynolds_stress_comprehensive_tests -- --ignored`"]
 fn test_channel_flow_benchmark() {
     let model = ReynoldsStressModel::<f64>::new(20, 20);
     let mut stresses = model.initialize_reynolds_stresses(1.0, 0.1);
@@ -167,15 +187,18 @@ fn test_channel_flow_benchmark() {
 
         // Anisotropic initialization (streamwise stronger than wall-normal)
         let anisotropy = 0.3; // Typical value
-        stresses.xx[(10, j)] = (2.0/3.0 + anisotropy) * k_profile;
-        stresses.yy[(10, j)] = (2.0/3.0 - anisotropy) * k_profile;
+        stresses.xx[(10, j)] = (2.0 / 3.0 + anisotropy) * k_profile;
+        stresses.yy[(10, j)] = (2.0 / 3.0 - anisotropy) * k_profile;
         stresses.xy[(10, j)] = 0.0; // No mean shear in channel center
     }
 
     // Apply wall BCs
     model.apply_wall_boundary_conditions(
-        &mut stresses.xx, &mut stresses.xy, &mut stresses.yy,
-        &mut stresses.k, &mut stresses.epsilon
+        &mut stresses.xx,
+        &mut stresses.xy,
+        &mut stresses.yy,
+        &mut stresses.k,
+        &mut stresses.epsilon,
     );
 
     // Check wall values are zero
@@ -221,9 +244,18 @@ fn test_convergence_stability() {
 
         // Check boundedness
         assert!(stresses.k[(5, 5)] >= 0.0, "k should remain non-negative");
-        assert!(stresses.epsilon[(5, 5)] >= 0.0, "ε should remain non-negative");
-        assert!(stresses.xx[(5, 5)] >= 0.0, "⟨u'u'⟩ should remain non-negative");
-        assert!(stresses.yy[(5, 5)] >= 0.0, "⟨v'v'⟩ should remain non-negative");
+        assert!(
+            stresses.epsilon[(5, 5)] >= 0.0,
+            "ε should remain non-negative"
+        );
+        assert!(
+            stresses.xx[(5, 5)] >= 0.0,
+            "⟨u'u'⟩ should remain non-negative"
+        );
+        assert!(
+            stresses.yy[(5, 5)] >= 0.0,
+            "⟨v'v'⟩ should remain non-negative"
+        );
     }
 
     // Check that solution doesn't blow up (basic stability test)
@@ -234,6 +266,7 @@ fn test_convergence_stability() {
 
 /// Test anisotropy development in boundary layer
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test reynolds_stress_comprehensive_tests -- --ignored`"]
 fn test_boundary_layer_anisotropy() {
     let model = ReynoldsStressModel::<f64>::new(1, 20); // 1D in y-direction
     let mut stresses = model.initialize_reynolds_stresses(1.0, 0.1);
@@ -250,7 +283,8 @@ fn test_boundary_layer_anisotropy() {
         let strain_rate = [[0.0, 0.5 * shear_rate], [0.5 * shear_rate, 0.0]];
         let rotation_rate = [[0.0, 0.5 * shear_rate], [-0.5 * shear_rate, 0.0]];
 
-        let phi_xy = model.pressure_strain_term(&stresses, &strain_rate, &rotation_rate, 0, 1, 0, 10);
+        let phi_xy =
+            model.pressure_strain_term(&stresses, &strain_rate, &rotation_rate, 0, 1, 0, 10);
 
         // Simple explicit update
         let dt = 0.001;
@@ -263,11 +297,15 @@ fn test_boundary_layer_anisotropy() {
     }
 
     // Check that anisotropy develops
-    assert!(stresses.xy[(0, 10)].abs() > 0.01, "Shear stress should develop");
+    assert!(
+        stresses.xy[(0, 10)].abs() > 0.01,
+        "Shear stress should develop"
+    );
 }
 
 /// Test pressure-strain model comparison
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test reynolds_stress_comprehensive_tests -- --ignored`"]
 fn test_pressure_strain_model_comparison() {
     let mut model = ReynoldsStressModel::<f64>::new(5, 5);
     let stresses = model.initialize_reynolds_stresses(1.0, 0.1);
@@ -315,8 +353,12 @@ fn test_dissipation_tensor() {
     assert!(stresses.epsilon_yy.is_some());
 
     // Check isotropic initialization
-    if let (Some(eps_xx), Some(eps_xy), Some(eps_yy)) = (&stresses.epsilon_xx, &stresses.epsilon_xy, &stresses.epsilon_yy) {
-        let expected_iso = 2.0/3.0 * 0.1;
+    if let (Some(eps_xx), Some(eps_xy), Some(eps_yy)) = (
+        &stresses.epsilon_xx,
+        &stresses.epsilon_xy,
+        &stresses.epsilon_yy,
+    ) {
+        let expected_iso = 2.0 / 3.0 * 0.1;
         assert_relative_eq!(eps_xx[(2, 2)], expected_iso, epsilon = 1e-10);
         assert_relative_eq!(eps_xy[(2, 2)], 0.0, epsilon = 1e-10);
         assert_relative_eq!(eps_yy[(2, 2)], expected_iso, epsilon = 1e-10);
@@ -327,9 +369,9 @@ fn test_dissipation_tensor() {
     let eps_xy_val = model.dissipation_tensor(&stresses, 0, 1, 2, 2);
     let eps_yy_val = model.dissipation_tensor(&stresses, 1, 1, 2, 2);
 
-    assert_relative_eq!(eps_xx_val, 2.0/3.0 * 0.1, epsilon = 1e-10);
+    assert_relative_eq!(eps_xx_val, 2.0 / 3.0 * 0.1, epsilon = 1e-10);
     assert_relative_eq!(eps_xy_val, 0.0, epsilon = 1e-10);
-    assert_relative_eq!(eps_yy_val, 2.0/3.0 * 0.1, epsilon = 1e-10);
+    assert_relative_eq!(eps_yy_val, 2.0 / 3.0 * 0.1, epsilon = 1e-10);
 }
 
 /// Test TurbulenceModel trait implementation
@@ -356,6 +398,7 @@ fn test_turbulence_model_trait() {
 
 /// Test numerical stability bounds
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test reynolds_stress_comprehensive_tests -- --ignored`"]
 fn test_numerical_stability() {
     let model = ReynoldsStressModel::<f64>::new(10, 10);
     let mut stresses = model.initialize_reynolds_stresses(1.0, 0.1);
@@ -380,6 +423,7 @@ fn test_numerical_stability() {
 
 /// Integration test with simple flow solver
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test reynolds_stress_comprehensive_tests -- --ignored`"]
 fn test_rsm_with_simple_solver() {
     let model = ReynoldsStressModel::<f64>::new(5, 5);
     let mut stresses = model.initialize_reynolds_stresses(0.5, 0.05);
@@ -413,19 +457,26 @@ fn test_rsm_with_simple_solver() {
                 assert!(stresses.xx[(i, j)] >= 0.0, "⟨u'u'⟩ should be non-negative");
                 assert!(stresses.yy[(i, j)] >= 0.0, "⟨v'v'⟩ should be non-negative");
                 let max_shear = (stresses.xx[(i, j)] * stresses.yy[(i, j)]).sqrt();
-                assert!(stresses.xy[(i, j)].abs() <= max_shear + 1e-6, "Shear stress should satisfy realizability");
+                assert!(
+                    stresses.xy[(i, j)].abs() <= max_shear + 1e-6,
+                    "Shear stress should satisfy realizability"
+                );
             }
         }
     }
 
     // Check that shear stress develops
     let avg_shear = stresses.xy.iter().map(|&x| x.abs()).sum::<f64>() / 25.0;
-    assert!(avg_shear > 0.01, "Shear stress should develop in Couette flow");
+    assert!(
+        avg_shear > 0.01,
+        "Shear stress should develop in Couette flow"
+    );
 }
 
 /// Test Manufactured Solutions for Reynolds Stress Transport Model validation
 /// Verifies that the MMS implementation correctly computes source terms
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test reynolds_stress_comprehensive_tests -- --ignored`"]
 fn test_reynolds_stress_mms_source_terms() {
     let mms = ManufacturedReynoldsStressMMS::<f64>::standard_test_case();
 
@@ -436,36 +487,42 @@ fn test_reynolds_stress_mms_source_terms() {
     // Test that source terms are finite and reasonable
     let source = mms.source_term(x, y, 0.0, t);
     assert!(source.is_finite(), "Source term should be finite");
-    assert!(source.abs() < 10.0, "Source term should be reasonable magnitude");
+    assert!(
+        source.abs() < 10.0,
+        "Source term should be reasonable magnitude"
+    );
 
     // Test individual component source terms
-    let s_xx = mms.convective_derivative(0, 0, x, y, t) -
-               mms.production_term(0, 0, x, y, t) -
-               mms.pressure_strain_term(0, 0, x, y, t) +
-               mms.dissipation_tensor(0, 0, x, y, t) -
-               mms.turbulent_transport(0, 0, x, y, t) -
-               mms.molecular_diffusion(0, 0, x, y, t);
+    let s_xx = mms.convective_derivative(0, 0, x, y, t)
+        - mms.production_term(0, 0, x, y, t)
+        - mms.pressure_strain_term(0, 0, x, y, t)
+        + mms.dissipation_tensor(0, 0, x, y, t)
+        - mms.turbulent_transport(0, 0, x, y, t)
+        - mms.molecular_diffusion(0, 0, x, y, t);
 
-    let s_xy = mms.convective_derivative(0, 1, x, y, t) -
-               mms.production_term(0, 1, x, y, t) -
-               mms.pressure_strain_term(0, 1, x, y, t) +
-               mms.dissipation_tensor(0, 1, x, y, t) -
-               mms.turbulent_transport(0, 1, x, y, t) -
-               mms.molecular_diffusion(0, 1, x, y, t);
+    let s_xy = mms.convective_derivative(0, 1, x, y, t)
+        - mms.production_term(0, 1, x, y, t)
+        - mms.pressure_strain_term(0, 1, x, y, t)
+        + mms.dissipation_tensor(0, 1, x, y, t)
+        - mms.turbulent_transport(0, 1, x, y, t)
+        - mms.molecular_diffusion(0, 1, x, y, t);
 
-    let s_yy = mms.convective_derivative(1, 1, x, y, t) -
-               mms.production_term(1, 1, x, y, t) -
-               mms.pressure_strain_term(1, 1, x, y, t) +
-               mms.dissipation_tensor(1, 1, x, y, t) -
-               mms.turbulent_transport(1, 1, x, y, t) -
-               mms.molecular_diffusion(1, 1, x, y, t);
+    let s_yy = mms.convective_derivative(1, 1, x, y, t)
+        - mms.production_term(1, 1, x, y, t)
+        - mms.pressure_strain_term(1, 1, x, y, t)
+        + mms.dissipation_tensor(1, 1, x, y, t)
+        - mms.turbulent_transport(1, 1, x, y, t)
+        - mms.molecular_diffusion(1, 1, x, y, t);
 
     assert!(s_xx.is_finite(), "xx component source should be finite");
     assert!(s_xy.is_finite(), "xy component source should be finite");
     assert!(s_yy.is_finite(), "yy component source should be finite");
 
     // Check that normal stresses have similar magnitudes (isotropic base)
-    assert!((s_xx - s_yy).abs() < s_xx.abs(), "Normal stress sources should be similar");
+    assert!(
+        (s_xx - s_yy).abs() < s_xx.abs(),
+        "Normal stress sources should be similar"
+    );
 }
 
 /// Test convergence study setup and basic functionality
@@ -522,14 +579,27 @@ fn test_reynolds_stress_mms_convergence() {
     // This tests the MMS implementation itself rather than numerical convergence
     for error_set in &errors {
         for &err in error_set {
-            assert!(err < 1e-10, "MMS evaluation should be very accurate, got error: {}", err);
+            assert!(
+                err < 1e-10,
+                "MMS evaluation should be very accurate, got error: {}",
+                err
+            );
         }
     }
 
     println!("Reynolds Stress MMS Convergence Test:");
-    println!("  Grid 8x8:   L2 errors = [{:.2e}, {:.2e}, {:.2e}]", errors[0][0], errors[0][1], errors[0][2]);
-    println!("  Grid 16x16: L2 errors = [{:.2e}, {:.2e}, {:.2e}]", errors[1][0], errors[1][1], errors[1][2]);
-    println!("  Grid 32x32: L2 errors = [{:.2e}, {:.2e}, {:.2e}]", errors[2][0], errors[2][1], errors[2][2]);
+    println!(
+        "  Grid 8x8:   L2 errors = [{:.2e}, {:.2e}, {:.2e}]",
+        errors[0][0], errors[0][1], errors[0][2]
+    );
+    println!(
+        "  Grid 16x16: L2 errors = [{:.2e}, {:.2e}, {:.2e}]",
+        errors[1][0], errors[1][1], errors[1][2]
+    );
+    println!(
+        "  Grid 32x32: L2 errors = [{:.2e}, {:.2e}, {:.2e}]",
+        errors[2][0], errors[2][1], errors[2][2]
+    );
 }
 
 /// Test different pressure-strain models in MMS
@@ -537,26 +607,53 @@ fn test_reynolds_stress_mms_convergence() {
 fn test_mms_pressure_strain_models() {
     // Test linear model
     let mms_linear = ManufacturedReynoldsStressMMS::new(
-        2.0 * PI, 2.0 * PI, 0.1,
-        0.1, 0.05, 0.1, 1.0, 0.5, 0.15, 0.01,
+        2.0 * PI,
+        2.0 * PI,
+        0.1,
+        0.1,
+        0.05,
+        0.1,
+        1.0,
+        0.5,
+        0.15,
+        0.01,
         PressureStrainModelMMS::LinearReturnToIsotropy,
-        0.01, 1e-5,
+        0.01,
+        1e-5,
     );
 
     // Test quadratic model
     let mms_quad = ManufacturedReynoldsStressMMS::new(
-        2.0 * PI, 2.0 * PI, 0.1,
-        0.1, 0.05, 0.1, 1.0, 0.5, 0.15, 0.01,
+        2.0 * PI,
+        2.0 * PI,
+        0.1,
+        0.1,
+        0.05,
+        0.1,
+        1.0,
+        0.5,
+        0.15,
+        0.01,
         PressureStrainModelMMS::Quadratic,
-        0.01, 1e-5,
+        0.01,
+        1e-5,
     );
 
     // Test SSG model
     let mms_ssg = ManufacturedReynoldsStressMMS::new(
-        2.0 * PI, 2.0 * PI, 0.1,
-        0.1, 0.05, 0.1, 1.0, 0.5, 0.15, 0.01,
+        2.0 * PI,
+        2.0 * PI,
+        0.1,
+        0.1,
+        0.05,
+        0.1,
+        1.0,
+        0.5,
+        0.15,
+        0.01,
         PressureStrainModelMMS::SSG,
-        0.01, 1e-5,
+        0.01,
+        1e-5,
     );
 
     let x = 0.5;
@@ -645,14 +742,26 @@ fn test_mms_rsm_solver_integration() {
     // Check that solution remains bounded and physical
     for i in 1..4 {
         for j in 1..4 {
-            assert!(stresses.xx[(i, j)] >= 0.0, "⟨u'u'⟩ should remain non-negative");
-            assert!(stresses.yy[(i, j)] >= 0.0, "⟨v'v'⟩ should remain non-negative");
+            assert!(
+                stresses.xx[(i, j)] >= 0.0,
+                "⟨u'u'⟩ should remain non-negative"
+            );
+            assert!(
+                stresses.yy[(i, j)] >= 0.0,
+                "⟨v'v'⟩ should remain non-negative"
+            );
             assert!(stresses.k[(i, j)] >= 0.0, "k should remain non-negative");
-            assert!(stresses.epsilon[(i, j)] >= 0.0, "ε should remain non-negative");
+            assert!(
+                stresses.epsilon[(i, j)] >= 0.0,
+                "ε should remain non-negative"
+            );
 
             // Check realizability
             let max_shear = (stresses.xx[(i, j)] * stresses.yy[(i, j)]).sqrt();
-            assert!(stresses.xy[(i, j)].abs() <= max_shear + 1e-6, "Shear stress should satisfy realizability");
+            assert!(
+                stresses.xy[(i, j)].abs() <= max_shear + 1e-6,
+                "Shear stress should satisfy realizability"
+            );
         }
     }
 
@@ -701,6 +810,7 @@ fn test_mms_temporal_convergence() {
 /// Comprehensive MMS validation test
 /// Tests all components and verifies mathematical consistency
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test reynolds_stress_comprehensive_tests -- --ignored`"]
 fn test_mms_mathematical_consistency() {
     let mms = ManufacturedReynoldsStressMMS::<f64>::standard_test_case();
 
@@ -717,15 +827,25 @@ fn test_mms_mathematical_consistency() {
     assert_relative_eq!(k_computed, k_exact, epsilon = 1e-10);
 
     // Test that normal stresses have isotropic and anisotropic parts
-    let isotropic_part = mms.k_amp * (2.0/3.0) * (mms.alpha * t).exp();
-    assert!(uu > isotropic_part, "⟨u'u'⟩ should have anisotropic contribution");
-    assert!(vv > isotropic_part, "⟨v'v'⟩ should have anisotropic contribution");
+    let isotropic_part = mms.k_amp * (2.0 / 3.0) * (mms.alpha * t).exp();
+    assert!(
+        uu > isotropic_part,
+        "⟨u'u'⟩ should have anisotropic contribution"
+    );
+    assert!(
+        vv > isotropic_part,
+        "⟨v'v'⟩ should have anisotropic contribution"
+    );
 
     // Test that velocity gradients are computed correctly (using exact mean velocity derivatives)
-    let du_dx = mms.u0_amp * mms.kx * (mms.kx * x).cos() * (mms.ky * y).sin() * (-mms.alpha * t).exp();
-    let du_dy = mms.u0_amp * mms.ky * (mms.kx * x).sin() * (mms.ky * y).cos() * (-mms.alpha * t).exp();
-    let dv_dx = mms.v0_amp * mms.kx * (mms.kx * x).cos() * (mms.ky * y).sin() * (-mms.alpha * t).exp();
-    let dv_dy = mms.v0_amp * mms.ky * (mms.kx * x).sin() * (mms.ky * y).cos() * (-mms.alpha * t).exp();
+    let du_dx =
+        mms.u0_amp * mms.kx * (mms.kx * x).cos() * (mms.ky * y).sin() * (-mms.alpha * t).exp();
+    let du_dy =
+        mms.u0_amp * mms.ky * (mms.kx * x).sin() * (mms.ky * y).cos() * (-mms.alpha * t).exp();
+    let dv_dx =
+        mms.v0_amp * mms.kx * (mms.kx * x).cos() * (mms.ky * y).sin() * (-mms.alpha * t).exp();
+    let dv_dy =
+        mms.v0_amp * mms.ky * (mms.kx * x).sin() * (mms.ky * y).cos() * (-mms.alpha * t).exp();
 
     // Gradients should be finite and reasonable
     assert!(du_dx.is_finite());

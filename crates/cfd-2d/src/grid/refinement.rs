@@ -43,7 +43,7 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
     }
 
     /// Mark cells for refinement based on criterion
-    /// 
+    ///
     /// # Errors
     /// Returns an error if criterion evaluation fails or refinement marking encounters invalid state
     pub fn mark_for_refinement<F>(
@@ -69,7 +69,7 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
     }
 
     /// Mark cells based on gradient threshold
-    /// 
+    ///
     /// # Errors
     /// Returns an error if gradient evaluation fails
     fn mark_by_gradient<F>(&mut self, threshold: T, evaluate: F) -> Result<()>
@@ -88,7 +88,7 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
     }
 
     /// Mark cells based on error estimate
-    /// 
+    ///
     /// # Errors
     /// Returns an error if error evaluation fails
     fn mark_by_error<F>(&mut self, threshold: T, evaluate: F) -> Result<()>
@@ -100,7 +100,7 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
     }
 
     /// Mark cells based on feature detection
-    /// 
+    ///
     /// # Errors
     /// Returns an error if feature detection fails
     fn mark_by_feature(&mut self) -> Result<()> {
@@ -109,10 +109,9 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
         for i in 1..self.base_grid.nx() - 1 {
             for j in 1..self.base_grid.ny() - 1 {
                 // Check for sharp gradients in neighboring cells
-                if self.detect_feature_at(i, j)
-                    && self.refinement_levels[i][j] < self.max_level {
-                        self.refinement_levels[i][j] += 1;
-                    }
+                if self.detect_feature_at(i, j) && self.refinement_levels[i][j] < self.max_level {
+                    self.refinement_levels[i][j] += 1;
+                }
             }
         }
         Ok(())
@@ -143,7 +142,7 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
     }
 
     /// Refine marked cells
-    /// 
+    ///
     /// # Errors
     /// Returns an error if grid refinement fails due to invalid configuration or memory constraints
     pub fn refine(&mut self) -> Result<()> {

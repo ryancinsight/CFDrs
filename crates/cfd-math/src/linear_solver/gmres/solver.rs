@@ -83,7 +83,10 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
     /// Panics if restart_dim is zero
     pub fn new(config: IterativeSolverConfig<T>, restart_dim: usize) -> Self {
         assert!(restart_dim > 0, "GMRES restart dimension must be positive");
-        Self { config, restart_dim }
+        Self {
+            config,
+            restart_dim,
+        }
     }
 
     /// Create with default configuration
@@ -159,7 +162,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
 
         let m = self.restart_dim.min(n);
         let b_norm = b.norm();
-        
+
         if b_norm < T::from_f64(1e-16).unwrap_or(T::zero()) {
             // RHS is zero, solution is zero
             x.fill(T::zero());
@@ -190,13 +193,10 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
             preconditioner.apply_to(&r, &mut z)?;
 
             let residual_norm = z.norm();
-            
+
             // Check convergence before starting Arnoldi
             if self.is_converged(residual_norm) {
-                tracing::debug!(
-                    "GMRES converged in {} total iterations",
-                    total_iterations
-                );
+                tracing::debug!("GMRES converged in {} total iterations", total_iterations);
                 return Ok(());
             }
 
@@ -325,8 +325,8 @@ impl<T: RealField + Copy + FromPrimitive + Debug> IterativeLinearSolver<T> for G
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::super::preconditioners::IdentityPreconditioner;
+    use super::*;
     use nalgebra_sparse::CooMatrix;
 
     #[test]
@@ -346,7 +346,9 @@ mod tests {
         let solver = GMRES::new(config, 10);
         let precond = IdentityPreconditioner;
 
-        solver.solve_preconditioned(&a, &b, &precond, &mut x).unwrap();
+        solver
+            .solve_preconditioned(&a, &b, &precond, &mut x)
+            .unwrap();
 
         // Expected solution: x = [1, 2, 3, 4]
         let expected = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0]);
@@ -375,7 +377,9 @@ mod tests {
         let solver = GMRES::new(config, 10);
         let precond = IdentityPreconditioner;
 
-        solver.solve_preconditioned(&a, &b, &precond, &mut x).unwrap();
+        solver
+            .solve_preconditioned(&a, &b, &precond, &mut x)
+            .unwrap();
 
         // Verify Ax = b
         let ax = &a * &x;
@@ -399,7 +403,9 @@ mod tests {
         let solver = GMRES::new(config, 10);
         let precond = IdentityPreconditioner;
 
-        solver.solve_preconditioned(&a, &b, &precond, &mut x).unwrap();
+        solver
+            .solve_preconditioned(&a, &b, &precond, &mut x)
+            .unwrap();
 
         assert!(x.norm() < 1e-14, "Solution should be zero for zero RHS");
     }
@@ -427,7 +433,9 @@ mod tests {
         let solver = GMRES::new(config, 3); // Small restart dimension
         let precond = IdentityPreconditioner;
 
-        solver.solve_preconditioned(&a, &b, &precond, &mut x).unwrap();
+        solver
+            .solve_preconditioned(&a, &b, &precond, &mut x)
+            .unwrap();
 
         // Verify solution
         let ax = &a * &x;
@@ -451,7 +459,9 @@ mod tests {
         let solver = GMRES::new(config, 10);
         let precond = IdentityPreconditioner;
 
-        solver.solve_preconditioned(&a, &b, &precond, &mut x).unwrap();
+        solver
+            .solve_preconditioned(&a, &b, &precond, &mut x)
+            .unwrap();
 
         // Expected solution: x = [1, 2, 3, 4]
         let expected = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0]);
@@ -482,7 +492,9 @@ mod tests {
         let solver = GMRES::new(config, 10);
         let precond = IdentityPreconditioner;
 
-        solver.solve_preconditioned(&a, &b, &precond, &mut x).unwrap();
+        solver
+            .solve_preconditioned(&a, &b, &precond, &mut x)
+            .unwrap();
 
         // Verify solution
         let ax = &a * &x;
@@ -554,7 +566,7 @@ mod tests {
     fn test_gmres_configurable_trait() {
         let config = IterativeSolverConfig::new(1e-8).with_max_iterations(200);
         let solver = GMRES::<f64>::new(config, 20);
-        
+
         let retrieved = solver.config();
         assert!((retrieved.tolerance - 1e-8).abs() < 1e-10);
         assert_eq!(retrieved.max_iterations, 200);

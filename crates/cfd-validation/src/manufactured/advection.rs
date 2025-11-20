@@ -96,7 +96,9 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T> for RotatingAd
         // Gaussian bump at rotated position
         let sigma = <T as FromPrimitive>::from_f64(0.1).unwrap();
         let r_squared = x_rot * x_rot + y_rot * y_rot;
-        ComplexField::exp(-r_squared / (<T as FromPrimitive>::from_f64(2.0).unwrap() * sigma * sigma))
+        ComplexField::exp(
+            -r_squared / (<T as FromPrimitive>::from_f64(2.0).unwrap() * sigma * sigma),
+        )
     }
 
     /// Source term for rotating advection
@@ -125,8 +127,13 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T> for Manufactur
     fn exact_solution(&self, x: T, _y: T, _z: T, t: T) -> T {
         let pi = <T as FromPrimitive>::from_f64(PI).unwrap();
         let exp_term = ComplexField::exp(-self.nu * pi * pi * t);
-        let numerator = <T as FromPrimitive>::from_f64(2.0).unwrap() * self.nu * pi * ComplexField::sin(pi * x) * exp_term;
-        let denominator = <T as FromPrimitive>::from_f64(2.0).unwrap() + ComplexField::cos(pi * x) * exp_term;
+        let numerator = <T as FromPrimitive>::from_f64(2.0).unwrap()
+            * self.nu
+            * pi
+            * ComplexField::sin(pi * x)
+            * exp_term;
+        let denominator =
+            <T as FromPrimitive>::from_f64(2.0).unwrap() + ComplexField::cos(pi * x) * exp_term;
         numerator / denominator
     }
 

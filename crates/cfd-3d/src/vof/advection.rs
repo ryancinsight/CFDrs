@@ -13,7 +13,8 @@ pub struct AdvectionMethod {
 
 impl AdvectionMethod {
     /// Create advection method based on configuration
-    #[must_use] pub fn create(config: &VofConfig) -> Self {
+    #[must_use]
+    pub fn create(config: &VofConfig) -> Self {
         Self {
             use_geometric: config.use_geometric_advection,
         }
@@ -63,7 +64,8 @@ impl AdvectionMethod {
                     solver.alpha_previous[idx] = solver.alpha[idx] - net_flux / cell_volume;
 
                     // Bound volume fraction
-                    solver.alpha_previous[idx] = solver.alpha_previous[idx].max(T::zero()).min(T::one());
+                    solver.alpha_previous[idx] =
+                        solver.alpha_previous[idx].max(T::zero()).min(T::one());
                 }
             }
         }
@@ -159,7 +161,8 @@ impl AdvectionMethod {
                         - dt * (vel.x * dalpha_dx + vel.y * dalpha_dy + vel.z * dalpha_dz);
 
                     // Bound volume fraction
-                    solver.alpha_previous[idx] = solver.alpha_previous[idx].max(T::zero()).min(T::one());
+                    solver.alpha_previous[idx] =
+                        solver.alpha_previous[idx].max(T::zero()).min(T::one());
                 }
             }
         }
@@ -216,7 +219,8 @@ impl AdvectionMethod {
                                 alpha - dt * compression_term * alpha * (T::one() - alpha);
 
                             // Bound volume fraction
-                            solver.alpha_previous[idx] = solver.alpha_previous[idx].max(T::zero()).min(T::one());
+                            solver.alpha_previous[idx] =
+                                solver.alpha_previous[idx].max(T::zero()).min(T::one());
                         }
                     }
                 }

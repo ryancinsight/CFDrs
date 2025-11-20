@@ -1,8 +1,8 @@
 //! Tests for matrix-free linear solvers.
 
-use super::*;
 use super::operator::{IdentityOperator, ScaledOperator};
 use super::traits::MatrixFreeSolver;
+use super::*;
 use crate::linear_solver::config::IterativeSolverConfig;
 use approx::assert_relative_eq;
 

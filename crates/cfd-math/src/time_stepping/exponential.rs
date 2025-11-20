@@ -75,7 +75,7 @@
 //!   stiff PDEs. *SIAM Journal on Scientific Computing*, 26(4), 1214-1233.
 
 use crate::error::Result;
-use nalgebra::{DMatrix, DVector, RealField, ComplexField};
+use nalgebra::{ComplexField, DMatrix, DVector, RealField};
 use num_traits::FromPrimitive;
 
 /// Configuration for exponential integrator
@@ -131,7 +131,13 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialTimeDifferen
     /// ETD1 scheme for du/dt = A*u + f(u)
     ///
     /// u_{n+1} = exp(h A) u_n + h φ₁(h A) f(u_n)
-    pub fn etd1(&self, u: &DVector<T>, matrix: &DMatrix<T>, rhs: &DVector<T>, dt: T) -> Result<DVector<T>> {
+    pub fn etd1(
+        &self,
+        u: &DVector<T>,
+        matrix: &DMatrix<T>,
+        rhs: &DVector<T>,
+        dt: T,
+    ) -> Result<DVector<T>> {
         // Compute matrix exponential: exp(h A) * u
         let exp_au = self.matrix_exponential_vector(matrix, u, dt)?;
 
@@ -147,7 +153,15 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialTimeDifferen
     /// u_{n+1} = exp(h A) u_n + h φ₂(h A) (f(u_{n+1}) - f(u_n))
     ///
     /// This requires solving a nonlinear system for u_{n+1}
-    pub fn etd2<F>(&self, u: &DVector<T>, matrix: &DMatrix<T>, rhs_function: F, dt: T, tolerance: T, max_iter: usize) -> Result<DVector<T>>
+    pub fn etd2<F>(
+        &self,
+        u: &DVector<T>,
+        matrix: &DMatrix<T>,
+        rhs_function: F,
+        dt: T,
+        tolerance: T,
+        max_iter: usize,
+    ) -> Result<DVector<T>>
     where
         F: Fn(&DVector<T>) -> DVector<T>,
     {
@@ -238,7 +252,12 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialRungeKutta4<
 /// Core exponential integration utilities
 impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialTimeDifferencing<T> {
     /// Compute matrix exponential applied to vector: exp(A) * v
-    fn matrix_exponential_vector(&self, matrix: &DMatrix<T>, vector: &DVector<T>, scale: T) -> Result<DVector<T>> {
+    fn matrix_exponential_vector(
+        &self,
+        matrix: &DMatrix<T>,
+        vector: &DVector<T>,
+        scale: T,
+    ) -> Result<DVector<T>> {
         // For now, use a simple implementation
         // In practice, this would use Krylov subspace methods
 
@@ -250,7 +269,12 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialTimeDifferen
     }
 
     /// Compute φ₁(A) * v where φ₁(z) = (exp(z) - 1) / z
-    fn phi1_vector(&self, matrix: &DMatrix<T>, vector: &DVector<T>, scale: T) -> Result<DVector<T>> {
+    fn phi1_vector(
+        &self,
+        matrix: &DMatrix<T>,
+        vector: &DVector<T>,
+        scale: T,
+    ) -> Result<DVector<T>> {
         // φ₁(z) = (exp(z) - 1) / z
         let exp_av = self.matrix_exponential_vector(matrix, vector, scale)?;
         let av = (matrix * scale) * vector;
@@ -264,7 +288,12 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialTimeDifferen
     }
 
     /// Compute φ₂(A) * v where φ₂(z) = (exp(z) - 1 - z) / z²
-    fn phi2_vector(&self, matrix: &DMatrix<T>, vector: &DVector<T>, scale: T) -> Result<DVector<T>> {
+    fn phi2_vector(
+        &self,
+        matrix: &DMatrix<T>,
+        vector: &DVector<T>,
+        scale: T,
+    ) -> Result<DVector<T>> {
         // φ₂(z) = (exp(z) - 1 - z) / z²
         let exp_av = self.matrix_exponential_vector(matrix, vector, scale)?;
         let av = (matrix * scale) * vector;
@@ -278,7 +307,11 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialTimeDifferen
     }
 
     /// Matrix exponential by scaling and squaring
-    fn exponential_by_scaling_squaring(&self, matrix: &DMatrix<T>, vector: &DVector<T>) -> Result<DVector<T>> {
+    fn exponential_by_scaling_squaring(
+        &self,
+        matrix: &DMatrix<T>,
+        vector: &DVector<T>,
+    ) -> Result<DVector<T>> {
         // Simple implementation for small matrices
         // For large sparse matrices, Krylov methods would be used
 
@@ -287,7 +320,8 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialTimeDifferen
         let mut term = vector.clone();
         let mut factorial = T::one();
 
-        for n in 1..20 { // Truncate series
+        for n in 1..20 {
+            // Truncate series
             factorial = factorial * T::from_f64(n as f64).unwrap();
             term = matrix * &term / factorial;
 

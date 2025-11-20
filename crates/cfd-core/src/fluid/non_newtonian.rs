@@ -68,7 +68,7 @@ impl<T: RealField + FromPrimitive + Copy> PowerLawFluid<T> {
     }
 
     /// Validate model parameters
-    /// 
+    ///
     /// # Errors
     /// Returns an error if any parameter is non-positive or physically invalid
     pub fn validate(&self) -> Result<(), Error> {

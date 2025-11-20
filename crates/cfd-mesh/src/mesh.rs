@@ -18,18 +18,27 @@ pub struct Mesh<T: RealField + Copy> {
     cells: Vec<Cell>,
     /// Boundary markers for faces
     boundary_markers: HashMap<usize, String>,
+    /// Partition ID (rank) that owns this mesh (for distributed meshes)
+    pub partition_id: Option<usize>,
 }
 
 impl<T: RealField + Copy> Mesh<T> {
     /// Create an empty mesh
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             vertices: Vec::new(),
             edges: Vec::new(),
             faces: Vec::new(),
             cells: Vec::new(),
             boundary_markers: HashMap::new(),
+            partition_id: None,
         }
+    }
+
+    /// Set the partition ID for this mesh
+    pub fn set_partition_id(&mut self, partition_id: usize) {
+        self.partition_id = Some(partition_id);
     }
 
     /// Add a vertex to the mesh
@@ -66,37 +75,44 @@ impl<T: RealField + Copy> Mesh<T> {
     }
 
     /// Get vertex by index
-    #[must_use] pub fn vertex(&self, idx: usize) -> Option<&Vertex<T>> {
+    #[must_use]
+    pub fn vertex(&self, idx: usize) -> Option<&Vertex<T>> {
         self.vertices.get(idx)
     }
 
     /// Get edge by index
-    #[must_use] pub fn edge(&self, idx: usize) -> Option<&Edge> {
+    #[must_use]
+    pub fn edge(&self, idx: usize) -> Option<&Edge> {
         self.edges.get(idx)
     }
 
     /// Get face by index
-    #[must_use] pub fn face(&self, idx: usize) -> Option<&Face> {
+    #[must_use]
+    pub fn face(&self, idx: usize) -> Option<&Face> {
         self.faces.get(idx)
     }
 
     /// Get cell by index
-    #[must_use] pub fn cell(&self, idx: usize) -> Option<&Cell> {
+    #[must_use]
+    pub fn cell(&self, idx: usize) -> Option<&Cell> {
         self.cells.get(idx)
     }
 
     /// Number of vertices
-    #[must_use] pub fn vertex_count(&self) -> usize {
+    #[must_use]
+    pub fn vertex_count(&self) -> usize {
         self.vertices.len()
     }
 
     /// Number of edges
-    #[must_use] pub fn edge_count(&self) -> usize {
+    #[must_use]
+    pub fn edge_count(&self) -> usize {
         self.edges.len()
     }
 
     /// Number of faces
-    #[must_use] pub fn face_count(&self) -> usize {
+    #[must_use]
+    pub fn face_count(&self) -> usize {
         self.faces.len()
     }
 
@@ -107,7 +123,8 @@ impl<T: RealField + Copy> Mesh<T> {
     }
 
     /// Get all boundary face indices
-    #[must_use] pub fn boundary_faces(&self) -> Vec<usize> {
+    #[must_use]
+    pub fn boundary_faces(&self) -> Vec<usize> {
         self.boundary_markers.keys().copied().collect()
     }
 
@@ -117,22 +134,26 @@ impl<T: RealField + Copy> Mesh<T> {
     }
 
     /// Get all cells
-    #[must_use] pub fn cells(&self) -> &[Cell] {
+    #[must_use]
+    pub fn cells(&self) -> &[Cell] {
         &self.cells
     }
 
     /// Get all vertices  
-    #[must_use] pub fn vertices(&self) -> &[Vertex<T>] {
+    #[must_use]
+    pub fn vertices(&self) -> &[Vertex<T>] {
         &self.vertices
     }
 
     /// Get all edges
-    #[must_use] pub fn edges(&self) -> &[Edge] {
+    #[must_use]
+    pub fn edges(&self) -> &[Edge] {
         &self.edges
     }
 
     /// Get all faces
-    #[must_use] pub fn faces(&self) -> &[Face] {
+    #[must_use]
+    pub fn faces(&self) -> &[Face] {
         &self.faces
     }
 
@@ -145,7 +166,8 @@ impl<T: RealField + Copy> Mesh<T> {
 
     /// Get faces of a cell (allocating version for compatibility)
     #[deprecated(note = "Use element_faces() iterator for zero-copy access")]
-    #[must_use] pub fn get_element_faces<'a>(&'a self, cell: &'a Cell) -> Vec<&'a Face> {
+    #[must_use]
+    pub fn get_element_faces<'a>(&'a self, cell: &'a Cell) -> Vec<&'a Face> {
         self.element_faces(cell).collect()
     }
 
@@ -172,8 +194,25 @@ impl<T: RealField + Copy> Mesh<T> {
 
     /// Get vertices of a cell (allocating version for compatibility)
     #[deprecated(note = "Use element_vertices() iterator for zero-copy access")]
-    #[must_use] pub fn get_element_vertices<'a>(&'a self, cell: &'a Cell) -> Vec<&'a Vertex<T>> {
+    #[must_use]
+    pub fn get_element_vertices<'a>(&'a self, cell: &'a Cell) -> Vec<&'a Vertex<T>> {
         self.element_vertices(cell).collect()
+    }
+
+    /// Get canonical ordered vertices for element quality metrics (sorted by vertex index)
+    /// Invariant: sequential idx order matches standard element ordering (v0 apex/base[0], etc.)
+    /// Lit: Required for Knupp Jacobian, Shewchuk linear elements
+    pub fn ordered_element_vertices<'a>(&'a self, cell: &'a Cell) -> Vec<&'a Vertex<T>> {
+        use std::collections::HashSet;
+        let mut vset: HashSet<usize> = HashSet::new();
+        for &face_idx in &cell.faces {
+            if let Some(face) = self.face(face_idx) {
+                vset.extend(face.vertices.iter().copied());
+            }
+        }
+        let mut vidx: Vec<usize> = vset.into_iter().collect();
+        vidx.sort_unstable();
+        vidx.into_iter().map(|idx| self.vertex(idx).expect("Valid vertex index")).collect()
     }
 
     /// Check mesh validity
@@ -207,7 +246,7 @@ impl<T: RealField + Copy> Mesh<T> {
     }
 
     /// Compute mesh statistics
-    #[must_use] 
+    #[must_use]
     #[allow(clippy::field_reassign_with_default)] // Clear, sequential initialization pattern
     pub fn statistics(&self) -> MeshStatistics {
         let mut stats = MeshStatistics::default();

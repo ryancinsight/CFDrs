@@ -55,17 +55,33 @@ impl PerformanceProfiler {
     /// Generate performance summary
     fn generate_summary(&self, profiles: &[PerformanceProfile]) -> PerformanceSummary {
         let total_gflops = profiles.iter().map(|p| p.gflops).sum::<f64>();
-        let avg_memory_bandwidth = profiles.iter().map(|p| p.memory_bandwidth).sum::<f64>() / profiles.len() as f64;
-        let avg_cache_efficiency = profiles.iter().map(|p| p.complexity.cache_efficiency).sum::<f64>() / profiles.len() as f64;
-        let avg_scalability = profiles.iter().map(|p| p.complexity.scalability).sum::<f64>() / profiles.len() as f64;
+        let avg_memory_bandwidth =
+            profiles.iter().map(|p| p.memory_bandwidth).sum::<f64>() / profiles.len() as f64;
+        let avg_cache_efficiency = profiles
+            .iter()
+            .map(|p| p.complexity.cache_efficiency)
+            .sum::<f64>()
+            / profiles.len() as f64;
+        let avg_scalability = profiles
+            .iter()
+            .map(|p| p.complexity.scalability)
+            .sum::<f64>()
+            / profiles.len() as f64;
 
-        let best_algorithm = profiles.iter()
+        let best_algorithm = profiles
+            .iter()
             .max_by(|a, b| a.gflops.partial_cmp(&b.gflops).unwrap())
             .map(|p| p.complexity.name.clone())
             .unwrap_or_else(|| "None".to_string());
 
-        let worst_algorithm = profiles.iter()
-            .min_by(|a, b| a.complexity.cache_efficiency.partial_cmp(&b.complexity.cache_efficiency).unwrap())
+        let worst_algorithm = profiles
+            .iter()
+            .min_by(|a, b| {
+                a.complexity
+                    .cache_efficiency
+                    .partial_cmp(&b.complexity.cache_efficiency)
+                    .unwrap()
+            })
             .map(|p| p.complexity.name.clone())
             .unwrap_or_else(|| "None".to_string());
 
@@ -81,56 +97,81 @@ impl PerformanceProfiler {
     }
 
     /// Generate system-wide performance recommendations
-    fn generate_system_recommendations(&self, profiles: &[PerformanceProfile]) -> Vec<PerformanceRecommendation> {
+    fn generate_system_recommendations(
+        &self,
+        profiles: &[PerformanceProfile],
+    ) -> Vec<PerformanceRecommendation> {
         let mut recommendations = Vec::new();
 
         // Memory bandwidth analysis
-        let avg_bandwidth = profiles.iter().map(|p| p.memory_bandwidth).sum::<f64>() / profiles.len() as f64;
+        let avg_bandwidth =
+            profiles.iter().map(|p| p.memory_bandwidth).sum::<f64>() / profiles.len() as f64;
         if avg_bandwidth < 20.0 {
             recommendations.push(PerformanceRecommendation {
                 category: "Memory Bandwidth".to_string(),
                 severity: "High".to_string(),
                 description: "Low memory bandwidth utilization detected".to_string(),
-                solution: "Consider cache-blocking, data structure reorganization, or SIMD vectorization".to_string(),
-                literature: "Williams et al. (2009): Roofline model for performance analysis".to_string(),
+                solution:
+                    "Consider cache-blocking, data structure reorganization, or SIMD vectorization"
+                        .to_string(),
+                literature: "Williams et al. (2009): Roofline model for performance analysis"
+                    .to_string(),
             });
         }
 
         // Cache efficiency analysis
-        let avg_cache_eff = profiles.iter().map(|p| p.complexity.cache_efficiency).sum::<f64>() / profiles.len() as f64;
+        let avg_cache_eff = profiles
+            .iter()
+            .map(|p| p.complexity.cache_efficiency)
+            .sum::<f64>()
+            / profiles.len() as f64;
         if avg_cache_eff < 0.5 {
             recommendations.push(PerformanceRecommendation {
                 category: "Cache Efficiency".to_string(),
                 severity: "Medium".to_string(),
                 description: "Poor cache utilization across algorithms".to_string(),
                 solution: "Implement cache-aware algorithms and data layouts".to_string(),
-                literature: "Gustavson (1978): Two-dimensional basic linear algebra subprograms".to_string(),
+                literature: "Gustavson (1978): Two-dimensional basic linear algebra subprograms"
+                    .to_string(),
             });
         }
 
         // Scalability analysis
-        let avg_scalability = profiles.iter().map(|p| p.complexity.scalability).sum::<f64>() / profiles.len() as f64;
+        let avg_scalability = profiles
+            .iter()
+            .map(|p| p.complexity.scalability)
+            .sum::<f64>()
+            / profiles.len() as f64;
         if avg_scalability < 0.6 {
             recommendations.push(PerformanceRecommendation {
                 category: "Parallel Scalability".to_string(),
                 severity: "Medium".to_string(),
                 description: "Limited parallel scalability detected".to_string(),
-                solution: "Optimize for distributed computing or consider algorithm redesign".to_string(),
+                solution: "Optimize for distributed computing or consider algorithm redesign"
+                    .to_string(),
                 literature: "Amdahl (1967): Validity of the single processor approach".to_string(),
             });
         }
 
         // Algorithm complexity recommendations
-        let complex_algorithms = profiles.iter()
-            .filter(|p| p.complexity.time_complexity == "O(N²)" || p.complexity.time_complexity == "O(N³)")
+        let complex_algorithms = profiles
+            .iter()
+            .filter(|p| {
+                p.complexity.time_complexity == "O(N²)" || p.complexity.time_complexity == "O(N³)"
+            })
             .count();
 
         if complex_algorithms > profiles.len() / 2 {
             recommendations.push(PerformanceRecommendation {
                 category: "Algorithm Complexity".to_string(),
                 severity: "High".to_string(),
-                description: format!("{} algorithms have poor complexity scaling", complex_algorithms),
-                solution: "Consider fast algorithms (FFT, multigrid, preconditioners) for large problems".to_string(),
+                description: format!(
+                    "{} algorithms have poor complexity scaling",
+                    complex_algorithms
+                ),
+                solution:
+                    "Consider fast algorithms (FFT, multigrid, preconditioners) for large problems"
+                        .to_string(),
                 literature: "Golub & Van Loan (1996): Matrix Computations".to_string(),
             });
         }
@@ -142,20 +183,50 @@ impl PerformanceProfiler {
     fn display_report(&self, report: &PerformanceReport) {
         println!("\n📊 Performance Profiling Summary");
         println!("===============================");
-        println!("Timestamp: {}", report.timestamp.format("%Y-%m-%d %H:%M:%S UTC"));
-        println!("Total Algorithms Profiled: {}", report.summary.total_profiles);
-        println!("Total Performance: {:.2} GFLOPS", report.summary.total_gflops);
-        println!("Average Memory Bandwidth: {:.2} GB/s", report.summary.avg_memory_bandwidth);
-        println!("Average Cache Efficiency: {:.1}%", report.summary.avg_cache_efficiency * 100.0);
-        println!("Average Parallel Scalability: {:.1}%", report.summary.avg_scalability * 100.0);
-        println!("Best Performing Algorithm: {}", report.summary.best_algorithm);
-        println!("Algorithm Needing Optimization: {}", report.summary.worst_algorithm);
+        println!(
+            "Timestamp: {}",
+            report.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
+        );
+        println!(
+            "Total Algorithms Profiled: {}",
+            report.summary.total_profiles
+        );
+        println!(
+            "Total Performance: {:.2} GFLOPS",
+            report.summary.total_gflops
+        );
+        println!(
+            "Average Memory Bandwidth: {:.2} GB/s",
+            report.summary.avg_memory_bandwidth
+        );
+        println!(
+            "Average Cache Efficiency: {:.1}%",
+            report.summary.avg_cache_efficiency * 100.0
+        );
+        println!(
+            "Average Parallel Scalability: {:.1}%",
+            report.summary.avg_scalability * 100.0
+        );
+        println!(
+            "Best Performing Algorithm: {}",
+            report.summary.best_algorithm
+        );
+        println!(
+            "Algorithm Needing Optimization: {}",
+            report.summary.worst_algorithm
+        );
 
         if !report.recommendations.is_empty() {
             println!("\n💡 Performance Recommendations");
             println!("=============================");
             for (i, rec) in report.recommendations.iter().enumerate() {
-                println!("{}. [{}] {}: {}", i + 1, rec.severity, rec.category, rec.description);
+                println!(
+                    "{}. [{}] {}: {}",
+                    i + 1,
+                    rec.severity,
+                    rec.category,
+                    rec.description
+                );
                 println!("   Solution: {}", rec.solution);
                 println!("   Reference: {}", rec.literature);
                 println!();

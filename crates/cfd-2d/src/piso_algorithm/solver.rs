@@ -28,7 +28,8 @@ pub struct PisoState<T: RealField + Copy> {
 
 impl<T: RealField + Copy> PisoState<T> {
     /// Create new state with initialized fields
-    #[must_use] pub fn new(fields: &SimulationFields<T>) -> Self {
+    #[must_use]
+    pub fn new(fields: &SimulationFields<T>) -> Self {
         Self {
             monitor: ConvergenceMonitor::new(),
             fields_buffer: fields.clone(),

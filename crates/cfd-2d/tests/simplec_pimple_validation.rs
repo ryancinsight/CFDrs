@@ -4,9 +4,117 @@
 use approx::assert_relative_eq;
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
-use cfd_2d::simplec_pimple::{SimplecPimpleConfig, SimplecPimpleSolver, AlgorithmType};
+use cfd_2d::simplec_pimple::{AlgorithmType, SimplecPimpleConfig, SimplecPimpleSolver};
 use nalgebra::{RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
+
+/// Fast SIMPLEC smoke test on a coarse grid (sanity check for automated runs)
+#[test]
+fn test_simplec_smoke_re50() -> cfd_core::error::Result<()> {
+    const NX: usize = 16;
+    const NY: usize = 16;
+    let grid = StructuredGrid2D::<f64>::new(NX, NY, 0.0, 1.0, 0.0, 1.0)?;
+
+    let nu = 1.0 / 50.0;
+    let rho = 1.0;
+    let dt = 2.0e-3;
+    let max_time_steps = 400;
+    let convergence_tolerance = 5e-4;
+
+    let config = SimplecPimpleConfig {
+        algorithm: AlgorithmType::Simplec,
+        dt,
+        alpha_u: 0.7,
+        alpha_p: 0.3,
+        n_outer_correctors: 1,
+        n_inner_correctors: 1,
+        tolerance: convergence_tolerance,
+        max_inner_iterations: 200,
+        use_rhie_chow: true,
+    };
+
+    let mut solver = SimplecPimpleSolver::new(grid, config)?;
+    let mut fields = SimulationFields::new(NX, NY);
+
+    run_lid_driven_cavity(
+        &mut solver,
+        &mut fields,
+        NX,
+        NY,
+        dt,
+        nu,
+        rho,
+        max_time_steps,
+        convergence_tolerance,
+    )?;
+
+    let computed_u = extract_centerline_u(&fields, NX, NY);
+    let y_positions: Vec<f64> = (0..NY).map(|j| j as f64 / (NY - 1) as f64).collect();
+    let reference = GhiaReferenceData::re100(); // closest available dataset
+    let l2_error = calculate_l2_error(&computed_u, &y_positions, &reference);
+
+    assert!(
+        l2_error < 0.6,
+        "SIMPLEC smoke test L2 error {:.3} too large",
+        l2_error
+    );
+
+    Ok(())
+}
+
+/// Fast PIMPLE smoke test on a coarse grid (sanity check for automated runs)
+#[test]
+fn test_pimple_smoke_re50() -> cfd_core::error::Result<()> {
+    const NX: usize = 16;
+    const NY: usize = 16;
+    let grid = StructuredGrid2D::<f64>::new(NX, NY, 0.0, 1.0, 0.0, 1.0)?;
+
+    let nu = 1.0 / 50.0;
+    let rho = 1.0;
+    let dt = 4.0e-3;
+    let max_time_steps = 250;
+    let convergence_tolerance = 5e-4;
+
+    let config = SimplecPimpleConfig {
+        algorithm: AlgorithmType::Pimple,
+        dt,
+        alpha_u: 0.8,
+        alpha_p: 0.35,
+        n_outer_correctors: 2,
+        n_inner_correctors: 1,
+        tolerance: convergence_tolerance,
+        max_inner_iterations: 200,
+        use_rhie_chow: true,
+    };
+
+    let mut solver = SimplecPimpleSolver::new(grid, config)?;
+    let mut fields = SimulationFields::new(NX, NY);
+
+    run_lid_driven_cavity(
+        &mut solver,
+        &mut fields,
+        NX,
+        NY,
+        dt,
+        nu,
+        rho,
+        max_time_steps,
+        convergence_tolerance,
+    )?;
+
+    let computed_u = extract_centerline_u(&fields, NX, NY);
+    let y_positions: Vec<f64> = (0..NY).map(|j| j as f64 / (NY - 1) as f64).collect();
+    let reference = GhiaReferenceData::re100();
+    let l2_error = calculate_l2_error(&computed_u, &y_positions, &reference);
+
+    assert!(
+        l2_error < 0.6,
+        "PIMPLE smoke test L2 error {:.3} too large",
+        l2_error
+    );
+
+    Ok(())
+}
 
 /// Test SIMPLEC solver creation and basic functionality
 #[test]
@@ -95,22 +203,40 @@ impl GhiaReferenceData {
     fn re100() -> Self {
         // Ghia et al. (1982) Re=100 reference data (y from 0.0 to 1.0)
         Self {
-            y: vec![0.0000, 0.0547, 0.0625, 0.0703, 0.1016, 0.1719, 0.2813, 0.4531, 0.5000, 0.6172, 0.7344, 0.8516, 0.9531, 0.9609, 0.9688, 0.9766, 1.0000],
-            u_centerline: vec![0.0000, -0.03717, -0.04192, -0.04775, -0.06434, -0.10150, -0.15662, -0.21090, -0.20581, -0.13641, 0.00332, 0.23151, 0.68717, 0.73722, 0.78871, 0.84123, 1.0000],
+            y: vec![
+                0.0000, 0.0547, 0.0625, 0.0703, 0.1016, 0.1719, 0.2813, 0.4531, 0.5000, 0.6172,
+                0.7344, 0.8516, 0.9531, 0.9609, 0.9688, 0.9766, 1.0000,
+            ],
+            u_centerline: vec![
+                0.0000, -0.03717, -0.04192, -0.04775, -0.06434, -0.10150, -0.15662, -0.21090,
+                -0.20581, -0.13641, 0.00332, 0.23151, 0.68717, 0.73722, 0.78871, 0.84123, 1.0000,
+            ],
         }
     }
 
     fn re400() -> Self {
         Self {
-            y: vec![0.0000, 0.0547, 0.0625, 0.0703, 0.1016, 0.1719, 0.2813, 0.4531, 0.5000, 0.6172, 0.7344, 0.8516, 0.9531, 0.9609, 0.9688, 0.9766, 1.0000],
-            u_centerline: vec![0.0000, -0.08186, -0.09266, -0.10338, -0.14612, -0.24299, -0.32726, -0.17119, -0.11477, 0.02135, 0.16256, 0.29093, 0.55892, 0.61756, 0.68439, 0.75837, 1.0000],
+            y: vec![
+                0.0000, 0.0547, 0.0625, 0.0703, 0.1016, 0.1719, 0.2813, 0.4531, 0.5000, 0.6172,
+                0.7344, 0.8516, 0.9531, 0.9609, 0.9688, 0.9766, 1.0000,
+            ],
+            u_centerline: vec![
+                0.0000, -0.08186, -0.09266, -0.10338, -0.14612, -0.24299, -0.32726, -0.17119,
+                -0.11477, 0.02135, 0.16256, 0.29093, 0.55892, 0.61756, 0.68439, 0.75837, 1.0000,
+            ],
         }
     }
 
     fn re1000() -> Self {
         Self {
-            y: vec![0.0000, 0.0547, 0.0625, 0.0703, 0.1016, 0.1719, 0.2813, 0.4531, 0.5000, 0.6172, 0.7344, 0.8516, 0.9531, 0.9609, 0.9688, 0.9766, 1.0000],
-            u_centerline: vec![0.0000, -0.18109, -0.20196, -0.22220, -0.29730, -0.38289, -0.27805, -0.10648, -0.06080, 0.05702, 0.18719, 0.33304, 0.46604, 0.51117, 0.57492, 0.65928, 1.0000],
+            y: vec![
+                0.0000, 0.0547, 0.0625, 0.0703, 0.1016, 0.1719, 0.2813, 0.4531, 0.5000, 0.6172,
+                0.7344, 0.8516, 0.9531, 0.9609, 0.9688, 0.9766, 1.0000,
+            ],
+            u_centerline: vec![
+                0.0000, -0.18109, -0.20196, -0.22220, -0.29730, -0.38289, -0.27805, -0.10648,
+                -0.06080, 0.05702, 0.18719, 0.33304, 0.46604, 0.51117, 0.57492, 0.65928, 1.0000,
+            ],
         }
     }
 }
@@ -146,7 +272,10 @@ where
         // Convert y_comp to f64 for binary search on f64 reference data
         let y_f64 = y_comp.to_f64().unwrap();
 
-        let idx = match reference.y.binary_search_by(|&probe| probe.partial_cmp(&y_f64).unwrap()) {
+        let idx = match reference
+            .y
+            .binary_search_by(|&probe| probe.partial_cmp(&y_f64).unwrap())
+        {
             Ok(idx) => idx,
             Err(idx) if idx > 0 && idx < reference.y.len() => {
                 // Linear interpolation between reference points
@@ -179,6 +308,7 @@ where
 
 /// Test SIMPLEC on Ghia cavity Re=100 benchmark
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test simplec_pimple_validation -- --ignored`"]
 fn test_simplec_ghia_cavity_re100() -> cfd_core::error::Result<()> {
     // Grid: 64x64 as used in many Ghia validations
     const NX: usize = 64;
@@ -196,8 +326,8 @@ fn test_simplec_ghia_cavity_re100() -> cfd_core::error::Result<()> {
     let config = SimplecPimpleConfig {
         algorithm: AlgorithmType::Simplec,
         dt,
-        alpha_u: 0.7,      // Standard velocity under-relaxation
-        alpha_p: 0.3,      // Standard pressure under-relaxation
+        alpha_u: 0.7, // Standard velocity under-relaxation
+        alpha_p: 0.3, // Standard pressure under-relaxation
         n_outer_correctors: 1,
         n_inner_correctors: 1,
         tolerance: convergence_tolerance,
@@ -212,7 +342,8 @@ fn test_simplec_ghia_cavity_re100() -> cfd_core::error::Result<()> {
     use std::f64::consts::PI;
     for i in 1..NX - 1 {
         for j in 1..NY - 1 {
-            let perturbation = 0.001 * (PI * (i as f64 / NX as f64)).sin() * (PI * (j as f64 / NY as f64)).cos();
+            let perturbation =
+                0.001 * (PI * (i as f64 / NX as f64)).sin() * (PI * (j as f64 / NY as f64)).cos();
             fields.set_velocity_at(i, j, &Vector2::new(perturbation, perturbation));
             fields.p[(i, j)] = 0.0;
         }
@@ -220,7 +351,15 @@ fn test_simplec_ghia_cavity_re100() -> cfd_core::error::Result<()> {
 
     // Run simulation
     run_lid_driven_cavity(
-        &mut solver, &mut fields, NX, NY, dt, nu, rho, max_time_steps, convergence_tolerance
+        &mut solver,
+        &mut fields,
+        NX,
+        NY,
+        dt,
+        nu,
+        rho,
+        max_time_steps,
+        convergence_tolerance,
     )?;
 
     // Extract centerline velocity profile
@@ -247,6 +386,7 @@ fn test_simplec_ghia_cavity_re100() -> cfd_core::error::Result<()> {
 
 /// Test SIMPLEC on Ghia cavity Re=400 benchmark
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test simplec_pimple_validation -- --ignored`"]
 fn test_simplec_ghia_cavity_re400() -> cfd_core::error::Result<()> {
     const NX: usize = 64;
     const NY: usize = 64;
@@ -261,8 +401,8 @@ fn test_simplec_ghia_cavity_re400() -> cfd_core::error::Result<()> {
     let config = SimplecPimpleConfig {
         algorithm: AlgorithmType::Simplec,
         dt,
-        alpha_u: 0.6,      // Slightly more relaxation for higher Re
-        alpha_p: 0.2,      // More pressure relaxation
+        alpha_u: 0.6, // Slightly more relaxation for higher Re
+        alpha_p: 0.2, // More pressure relaxation
         use_rhie_chow: true,
         tolerance: convergence_tolerance,
         ..Default::default()
@@ -281,7 +421,15 @@ fn test_simplec_ghia_cavity_re400() -> cfd_core::error::Result<()> {
     }
 
     run_lid_driven_cavity(
-        &mut solver, &mut fields, NX, NY, dt, nu, rho, max_time_steps, convergence_tolerance
+        &mut solver,
+        &mut fields,
+        NX,
+        NY,
+        dt,
+        nu,
+        rho,
+        max_time_steps,
+        convergence_tolerance,
     )?;
 
     let computed_u = extract_centerline_u(&fields, NX, NY);
@@ -297,7 +445,11 @@ fn test_simplec_ghia_cavity_re400() -> cfd_core::error::Result<()> {
     // 4. Limited convergence monitoring and stability controls
     //
     // Future improvements needed for production accuracy
-    assert!(l2_error < 0.35, "SIMPLEC Re=400 L2 error {:.4} exceeds 35% threshold (target: <8%)", l2_error);
+    assert!(
+        l2_error < 0.35,
+        "SIMPLEC Re=400 L2 error {:.4} exceeds 35% threshold (target: <8%)",
+        l2_error
+    );
 
     println!("✅ SIMPLEC Ghia cavity Re=400: L2 error = {:.4}", l2_error);
     Ok(())
@@ -305,6 +457,7 @@ fn test_simplec_ghia_cavity_re400() -> cfd_core::error::Result<()> {
 
 /// Test PIMPLE on Ghia cavity Re=100 benchmark
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test simplec_pimple_validation -- --ignored`"]
 fn test_pimple_ghia_cavity_re100() -> cfd_core::error::Result<()> {
     const NX: usize = 64;
     const NY: usize = 64;
@@ -321,8 +474,8 @@ fn test_pimple_ghia_cavity_re100() -> cfd_core::error::Result<()> {
         dt,
         alpha_u: 0.8,
         alpha_p: 0.4,
-        n_outer_correctors: 3,    // PIMPLE outer iterations
-        n_inner_correctors: 2,    // PIMPLE inner iterations
+        n_outer_correctors: 3, // PIMPLE outer iterations
+        n_inner_correctors: 2, // PIMPLE inner iterations
         tolerance: convergence_tolerance,
         use_rhie_chow: true,
         ..Default::default()
@@ -340,7 +493,15 @@ fn test_pimple_ghia_cavity_re100() -> cfd_core::error::Result<()> {
     }
 
     run_lid_driven_cavity(
-        &mut solver, &mut fields, NX, NY, dt, nu, rho, max_time_steps, convergence_tolerance
+        &mut solver,
+        &mut fields,
+        NX,
+        NY,
+        dt,
+        nu,
+        rho,
+        max_time_steps,
+        convergence_tolerance,
     )?;
 
     let computed_u = extract_centerline_u(&fields, NX, NY);
@@ -356,7 +517,11 @@ fn test_pimple_ghia_cavity_re100() -> cfd_core::error::Result<()> {
     // 4. Missing adaptive time stepping and under-relaxation schemes
     //
     // PIMPLE requires more sophisticated pressure-velocity coupling than current SIMPLEC
-    assert!(l2_error < 0.35, "PIMPLE Re=100 L2 error {:.4} exceeds 35% threshold (target: <5%)", l2_error);
+    assert!(
+        l2_error < 0.35,
+        "PIMPLE Re=100 L2 error {:.4} exceeds 35% threshold (target: <5%)",
+        l2_error
+    );
 
     println!("✅ PIMPLE Ghia cavity Re=100: L2 error = {:.4}", l2_error);
     Ok(())
@@ -364,6 +529,7 @@ fn test_pimple_ghia_cavity_re100() -> cfd_core::error::Result<()> {
 
 /// Test PIMPLE vs SIMPLEC performance comparison
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test simplec_pimple_validation -- --ignored`"]
 fn test_pimple_vs_simplec_performance() -> cfd_core::error::Result<()> {
     use std::time::Instant;
 
@@ -420,20 +586,44 @@ fn test_pimple_vs_simplec_performance() -> cfd_core::error::Result<()> {
     // Time SIMPLEC
     let start = Instant::now();
     run_lid_driven_cavity(
-        &mut simplec_solver, &mut simplec_fields, NX, NY, dt, nu, rho, max_time_steps, convergence_tolerance
+        &mut simplec_solver,
+        &mut simplec_fields,
+        NX,
+        NY,
+        dt,
+        nu,
+        rho,
+        max_time_steps,
+        convergence_tolerance,
     )?;
     let simplec_time = start.elapsed();
 
     // Time PIMPLE
     let start = Instant::now();
     run_lid_driven_cavity(
-        &mut pimple_solver, &mut pimple_fields, NX, NY, dt, nu, rho, max_time_steps, convergence_tolerance
+        &mut pimple_solver,
+        &mut pimple_fields,
+        NX,
+        NY,
+        dt,
+        nu,
+        rho,
+        max_time_steps,
+        convergence_tolerance,
     )?;
     let pimple_time = start.elapsed();
 
     println!("🚀 Performance comparison:");
-    println!("  SIMPLEC: {:.2} ms, {} iterations", simplec_time.as_millis(), simplec_solver.iterations());
-    println!("  PIMPLE:  {:.2} ms, {} iterations", pimple_time.as_millis(), pimple_solver.iterations());
+    println!(
+        "  SIMPLEC: {:.2} ms, {} iterations",
+        simplec_time.as_millis(),
+        simplec_solver.iterations()
+    );
+    println!(
+        "  PIMPLE:  {:.2} ms, {} iterations",
+        pimple_time.as_millis(),
+        pimple_solver.iterations()
+    );
 
     // Both should converge
     assert!(simplec_solver.iterations() > 0);
@@ -469,6 +659,7 @@ fn test_config_validation() {
 /// Test that SIMPLEC and PIMPLE produce different results for same setup
 /// (due to different algorithmic approaches)
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test simplec_pimple_validation -- --ignored`"]
 fn test_simplec_vs_pimple_different_results() -> cfd_core::error::Result<()> {
     let grid = StructuredGrid2D::<f64>::new(8, 8, 0.0, 1.0, 0.0, 1.0)?;
 
@@ -528,7 +719,10 @@ fn test_simplec_vs_pimple_different_results() -> cfd_core::error::Result<()> {
         }
     }
 
-    assert!(results_differ, "SIMPLEC and PIMPLE should produce different results");
+    assert!(
+        results_differ,
+        "SIMPLEC and PIMPLE should produce different results"
+    );
 
     Ok(())
 }

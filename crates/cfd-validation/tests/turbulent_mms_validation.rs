@@ -7,7 +7,8 @@
 //! - Reynolds stress transport
 
 use cfd_validation::manufactured::turbulent::{
-    ManufacturedKEpsilon, ManufacturedKOmega, ManufacturedReynoldsStress, ManufacturedSpalartAllmaras,
+    ManufacturedKEpsilon, ManufacturedKOmega, ManufacturedReynoldsStress,
+    ManufacturedSpalartAllmaras,
 };
 use cfd_validation::manufactured::ManufacturedSolution;
 
@@ -28,13 +29,26 @@ fn test_k_epsilon_mms() {
         let source = mms.source_term(x, y, z, t);
 
         // Verify physical constraints
-        assert!(k >= 0.0, "Turbulent kinetic energy must be non-negative: k={}", k);
-        assert!(source.is_finite(), "Source term must be finite: source={}", source);
+        assert!(
+            k >= 0.0,
+            "Turbulent kinetic energy must be non-negative: k={}",
+            k
+        );
+        assert!(
+            source.is_finite(),
+            "Source term must be finite: source={}",
+            source
+        );
 
         // Verify solution decays with time (exp(-t) behavior)
         if t > 0.0 {
             let k_at_t0 = mms.exact_solution(x, y, z, 0.0);
-            assert!(k < k_at_t0, "Solution should decay with time: k(t)={}, k(0)={}", k, k_at_t0);
+            assert!(
+                k < k_at_t0,
+                "Solution should decay with time: k(t)={}, k(0)={}",
+                k,
+                k_at_t0
+            );
         }
     }
 
@@ -64,7 +78,10 @@ fn test_k_omega_mms() {
     let k_wall = mms.exact_solution(x, 0.0, z, t);
     assert!(k_wall >= 0.0, "Wall k must be non-negative: {}", k_wall);
 
-    println!("✓ k-ω MMS validation passed: k={:.6}, source={:.6}", k, source);
+    println!(
+        "✓ k-ω MMS validation passed: k={:.6}, source={:.6}",
+        k, source
+    );
 }
 
 /// Test Spalart-Allmaras turbulence model MMS
@@ -73,9 +90,9 @@ fn test_spalart_allmaras_mms() {
     let mms = ManufacturedSpalartAllmaras::<f64>::new(1.0, 1.0, 0.1, 0.01);
 
     let test_points = [
-        (0.5, 0.5, 0.0, 1.0),   // Interior point
-        (0.5, 0.01, 0.0, 1.0),  // Near wall
-        (0.5, 0.1, 0.0, 1.0),   // Log layer
+        (0.5, 0.5, 0.0, 1.0),  // Interior point
+        (0.5, 0.01, 0.0, 1.0), // Near wall
+        (0.5, 0.1, 0.0, 1.0),  // Log layer
     ];
 
     for (x, y, z, t) in test_points {
@@ -90,7 +107,11 @@ fn test_spalart_allmaras_mms() {
 
         // Near wall, ν̃ should be small (damping)
         if y < 0.05 {
-            assert!(nu_tilde < 0.01, "ν̃ should be damped near wall: ν̃={}", nu_tilde);
+            assert!(
+                nu_tilde < 0.01,
+                "ν̃ should be damped near wall: ν̃={}",
+                nu_tilde
+            );
         }
     }
 
@@ -116,7 +137,10 @@ fn test_reynolds_stress_mms() {
     // Source term should be finite
     assert!(source.is_finite(), "Reynolds stress source must be finite");
 
-    println!("✓ Reynolds stress MMS validation passed: -uv={:.6}, source={:.6}", uv, source);
+    println!(
+        "✓ Reynolds stress MMS validation passed: -uv={:.6}, source={:.6}",
+        uv, source
+    );
 }
 
 /// Test turbulence model consistency
@@ -205,8 +229,12 @@ fn test_turbulence_time_evolution() {
 
         // For our manufactured solution, ν̃ should decay with time (exp(-t) behavior)
         if t > 0.0 {
-            assert!(nu_tilde < prev_nu_tilde || (nu_tilde - prev_nu_tilde).abs() < 1e-10,
-                   "ν̃ should generally decay with time: prev={}, current={}", prev_nu_tilde, nu_tilde);
+            assert!(
+                nu_tilde < prev_nu_tilde || (nu_tilde - prev_nu_tilde).abs() < 1e-10,
+                "ν̃ should generally decay with time: prev={}, current={}",
+                prev_nu_tilde,
+                nu_tilde
+            );
         }
 
         prev_nu_tilde = nu_tilde;
@@ -266,6 +294,4 @@ mod property_tests {
         }
     }
 }
-
-
 

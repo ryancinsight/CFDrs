@@ -93,8 +93,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
             // Using fractional step method with cylinder forcing
 
             // Calculate residual based on continuity equation
-            let residual = T::from_f64_or_one(1.0)
-                / T::from_usize(iter + 1).unwrap_or_else(|| T::one());
+            let residual =
+                T::from_f64_or_one(1.0) / T::from_usize(iter + 1).unwrap_or_else(|| T::one());
             convergence.push(residual);
 
             // Calculate forces on cylinder
@@ -138,15 +138,15 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
         //
         // For general implementation, we provide Re=20 steady reference
         // as the baseline validation case
-        
+
         let reference_cd = T::from_f64_or_one(5.57);
         let reference_cl = T::from_f64_or_one(0.0106);
-        
+
         Some(BenchmarkResult {
             name: "Flow Over Cylinder (Schäfer & Turek 1996, Re=20)".to_string(),
             values: vec![reference_cd, reference_cl],
             errors: vec![
-                T::from_f64_or_one(0.01),  // Cd uncertainty
+                T::from_f64_or_one(0.01),   // Cd uncertainty
                 T::from_f64_or_one(0.0001), // Cl uncertainty
             ],
             convergence: vec![],
@@ -161,54 +161,57 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
         if result.values.len() < 2 {
             return Ok(false);
         }
-        
+
         let computed_cd = result.values[0];
         let computed_cl = result.values[1];
-        
+
         // Get reference solution
         if let Some(reference) = self.reference_solution() {
             let reference_cd = reference.values[0];
             let _reference_cl = reference.values[1]; // Near-zero for Re=20, used for context
-            
+
             // Validation criteria based on Schäfer & Turek benchmark tolerances
             // Allow 5% error for drag coefficient (robust for different numerical schemes)
             let cd_tolerance = T::from_f64_or_one(0.05); // 5% relative error
             let cd_relative_error = ((computed_cd - reference_cd).abs()) / reference_cd;
             let cd_valid = cd_relative_error <= cd_tolerance;
-            
+
             // For lift coefficient at Re=20, expect near-zero with absolute tolerance
             // (symmetry breaking is minimal at low Re)
             let cl_tolerance = T::from_f64_or_one(0.1); // Absolute tolerance for near-zero value
             let cl_valid = computed_cl.abs() < cl_tolerance;
-            
+
             // Additional sanity checks
-            let cd_physically_reasonable = computed_cd > T::zero() 
-                && computed_cd < T::from_f64_or_one(20.0);
+            let cd_physically_reasonable =
+                computed_cd > T::zero() && computed_cd < T::from_f64_or_one(20.0);
             let cl_physically_reasonable = computed_cl.abs() < T::from_f64_or_one(5.0);
-            
+
             // Check convergence occurred
             let converged = if let Some(last_residual) = result.convergence.last() {
                 last_residual.abs() < T::from_f64_or_one(1e-4)
             } else {
                 false
             };
-            
-            return Ok(cd_valid && cl_valid && cd_physically_reasonable 
-                     && cl_physically_reasonable && converged);
+
+            return Ok(cd_valid
+                && cl_valid
+                && cd_physically_reasonable
+                && cl_physically_reasonable
+                && converged);
         }
-        
+
         // Fallback: basic sanity checks without reference
-        let cd_physically_reasonable = computed_cd > T::zero() 
-            && computed_cd < T::from_f64_or_one(20.0);
+        let cd_physically_reasonable =
+            computed_cd > T::zero() && computed_cd < T::from_f64_or_one(20.0);
         let cl_physically_reasonable = computed_cl.abs() < T::from_f64_or_one(5.0);
-        
+
         // Check convergence
         let converged = if let Some(last_residual) = result.convergence.last() {
             last_residual.abs() < T::from_f64_or_one(1e-4)
         } else {
             false
         };
-        
+
         Ok(cd_physically_reasonable && cl_physically_reasonable && converged)
     }
 }

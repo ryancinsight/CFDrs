@@ -1,8 +1,11 @@
 //! Algebraic Multigrid (AMG) preconditioner implementation
 
-use super::{MultigridLevel, AMGConfig, AMGStatistics, CoarseningStrategy, InterpolationStrategy, MultigridSmoother, SmootherType, GaussSeidelSmoother, SymmetricGaussSeidelSmoother, JacobiSmoother};
-use crate::linear_solver::traits::Preconditioner;
+use super::{
+    AMGConfig, AMGStatistics, CoarseningStrategy, GaussSeidelSmoother, InterpolationStrategy,
+    JacobiSmoother, MultigridLevel, MultigridSmoother, SmootherType, SymmetricGaussSeidelSmoother,
+};
 use crate::error::Result;
+use crate::linear_solver::traits::Preconditioner;
 use nalgebra::{DMatrix, DVector};
 use std::time::Instant;
 
@@ -75,18 +78,10 @@ impl AlgebraicMultigrid {
             CoarseningStrategy::Aggregation => {
                 self.aggregation_coarsening(&current_level.matrix)?
             }
-            CoarseningStrategy::Hybrid => {
-                self.hybrid_coarsening(&current_level.matrix)?
-            }
-            CoarseningStrategy::Falgout => {
-                self.falgout_coarsening(&current_level.matrix)?
-            }
-            CoarseningStrategy::PMIS => {
-                self.pmis_coarsening(&current_level.matrix)?
-            }
-            CoarseningStrategy::HMIS => {
-                self.hmis_coarsening(&current_level.matrix)?
-            }
+            CoarseningStrategy::Hybrid => self.hybrid_coarsening(&current_level.matrix)?,
+            CoarseningStrategy::Falgout => self.falgout_coarsening(&current_level.matrix)?,
+            CoarseningStrategy::PMIS => self.pmis_coarsening(&current_level.matrix)?,
+            CoarseningStrategy::HMIS => self.hmis_coarsening(&current_level.matrix)?,
         };
 
         // Create interpolation operator
@@ -249,10 +244,7 @@ impl AlgebraicMultigrid {
     }
 
     /// Hybrid coarsening (wrapper for external function)
-    fn hybrid_coarsening(
-        &self,
-        matrix: &DMatrix<f64>,
-    ) -> Result<(Vec<usize>, Vec<Option<usize>>)> {
+    fn hybrid_coarsening(&self, matrix: &DMatrix<f64>) -> Result<(Vec<usize>, Vec<Option<usize>>)> {
         use super::coarsening::hybrid_coarsening;
         let result = hybrid_coarsening(matrix, self.config.strength_threshold, 4)?;
         Ok((result.coarse_points, result.fine_to_coarse_map))
@@ -269,20 +261,14 @@ impl AlgebraicMultigrid {
     }
 
     /// PMIS coarsening (wrapper for external function)
-    fn pmis_coarsening(
-        &self,
-        matrix: &DMatrix<f64>,
-    ) -> Result<(Vec<usize>, Vec<Option<usize>>)> {
+    fn pmis_coarsening(&self, matrix: &DMatrix<f64>) -> Result<(Vec<usize>, Vec<Option<usize>>)> {
         use super::coarsening::pmis_coarsening;
         let result = pmis_coarsening(matrix, self.config.strength_threshold)?;
         Ok((result.coarse_points, result.fine_to_coarse_map))
     }
 
     /// HMIS coarsening (wrapper for external function)
-    fn hmis_coarsening(
-        &self,
-        matrix: &DMatrix<f64>,
-    ) -> Result<(Vec<usize>, Vec<Option<usize>>)> {
+    fn hmis_coarsening(&self, matrix: &DMatrix<f64>) -> Result<(Vec<usize>, Vec<Option<usize>>)> {
         use super::coarsening::hmis_coarsening;
         let result = hmis_coarsening(matrix, self.config.strength_threshold, 0.5)?;
         Ok((result.coarse_points, result.fine_to_coarse_map))
@@ -327,7 +313,8 @@ impl AlgebraicMultigrid {
 
                             // Normalize weights
                             for (cp, weight) in weights {
-                                let coarse_idx = coarse_points.iter().position(|&x| x == cp).unwrap();
+                                let coarse_idx =
+                                    coarse_points.iter().position(|&x| x == cp).unwrap();
                                 let normalized_weight = if total_weight > 0.0 {
                                     weight / total_weight
                                 } else {
@@ -358,12 +345,10 @@ impl AlgebraicMultigrid {
             SmootherType::GaussSeidel => {
                 Box::new(GaussSeidelSmoother::new(self.config.relaxation_factor))
             }
-            SmootherType::SymmetricGaussSeidel => {
-                Box::new(SymmetricGaussSeidelSmoother::new(self.config.relaxation_factor))
-            }
-            SmootherType::Jacobi => {
-                Box::new(JacobiSmoother::new(self.config.relaxation_factor))
-            }
+            SmootherType::SymmetricGaussSeidel => Box::new(SymmetricGaussSeidelSmoother::new(
+                self.config.relaxation_factor,
+            )),
+            SmootherType::Jacobi => Box::new(JacobiSmoother::new(self.config.relaxation_factor)),
             _ => Box::new(GaussSeidelSmoother::new(self.config.relaxation_factor)),
         }
     }
@@ -374,7 +359,11 @@ impl AlgebraicMultigrid {
             return;
         }
 
-        let fine_nnz = self.levels[0].matrix.iter().filter(|&&x| x.abs() > 1e-15).count();
+        let fine_nnz = self.levels[0]
+            .matrix
+            .iter()
+            .filter(|&&x| x.abs() > 1e-15)
+            .count();
         let mut total_nnz = 0;
         let mut total_vars = 0;
 
@@ -394,7 +383,7 @@ impl AlgebraicMultigrid {
                 let (correction, _) = super::cycles::apply_v_cycle(
                     &self.levels,
                     residual,
-                    1, // Single cycle
+                    1,     // Single cycle
                     1e-12, // Internal tolerance
                 )?;
                 correction
@@ -422,7 +411,6 @@ impl AlgebraicMultigrid {
         Ok(result)
     }
 
-
     /// Get AMG statistics
     pub fn statistics(&self) -> &AMGStatistics {
         &self.statistics
@@ -432,7 +420,10 @@ impl AlgebraicMultigrid {
 impl Preconditioner<f64> for AlgebraicMultigrid {
     fn apply_to(&self, r: &DVector<f64>, z: &mut DVector<f64>) -> Result<()> {
         if !self.is_setup {
-            return Err(crate::error::MathError::InvalidInput("AMG preconditioner not properly set up".to_string()).into());
+            return Err(crate::error::MathError::InvalidInput(
+                "AMG preconditioner not properly set up".to_string(),
+            )
+            .into());
         }
 
         // Apply multigrid cycle to residual
@@ -459,10 +450,18 @@ mod tests {
                 matrix[(idx, idx)] = 4.0; // Main diagonal
 
                 // Neighbors
-                if i > 0 { matrix[(idx, (i-1)*n + j)] = -1.0; }
-                if i < n-1 { matrix[(idx, (i+1)*n + j)] = -1.0; }
-                if j > 0 { matrix[(idx, i*n + (j-1))] = -1.0; }
-                if j < n-1 { matrix[(idx, i*n + (j+1))] = -1.0; }
+                if i > 0 {
+                    matrix[(idx, (i - 1) * n + j)] = -1.0;
+                }
+                if i < n - 1 {
+                    matrix[(idx, (i + 1) * n + j)] = -1.0;
+                }
+                if j > 0 {
+                    matrix[(idx, i * n + (j - 1))] = -1.0;
+                }
+                if j < n - 1 {
+                    matrix[(idx, i * n + (j + 1))] = -1.0;
+                }
             }
         }
 

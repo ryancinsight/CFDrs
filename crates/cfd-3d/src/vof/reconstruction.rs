@@ -17,7 +17,8 @@ pub struct InterfaceReconstruction {
 
 impl InterfaceReconstruction {
     /// Create reconstruction method based on configuration
-    #[must_use] pub fn create(config: &VofConfig) -> Self {
+    #[must_use]
+    pub fn create(config: &VofConfig) -> Self {
         Self {
             use_plic: config.use_plic,
         }
@@ -190,79 +191,80 @@ impl InterfaceReconstruction {
         dy: T,
         dz: T,
     ) -> T {
-        #[allow(clippy::no_effect_underscore_binding)] // Context variables for Scardovelli & Zaleski formula
+        #[allow(clippy::no_effect_underscore_binding)]
+        // Context variables for Scardovelli & Zaleski formula
         {
-        let cell_volume = dx * dy * dz;
+            let cell_volume = dx * dy * dz;
 
-        // Normalize the normal vector components by cell dimensions
-        let mut n = [
-            normal.x.abs() * dx,
-            normal.y.abs() * dy,
-            normal.z.abs() * dz,
-        ];
+            // Normalize the normal vector components by cell dimensions
+            let mut n = [
+                normal.x.abs() * dx,
+                normal.y.abs() * dy,
+                normal.z.abs() * dz,
+            ];
 
-        // Sort components in ascending order
-        n.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            // Sort components in ascending order
+            n.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
-        let n1 = n[0];
-        let n2 = n[1];
-        let n3 = n[2];
+            let n1 = n[0];
+            let n2 = n[1];
+            let n3 = n[2];
 
-        // Check for degenerate case
-        let epsilon = T::from_f64(1e-10).expect("Failed to represent epsilon");
-        if n3 < epsilon {
-            let half = T::from_f64(0.5).expect("Failed to represent 0.5");
-            return half * cell_volume;
-        }
+            // Check for degenerate case
+            let epsilon = T::from_f64(1e-10).expect("Failed to represent epsilon");
+            if n3 < epsilon {
+                let half = T::from_f64(0.5).expect("Failed to represent 0.5");
+                return half * cell_volume;
+            }
 
-        // Normalized plane constant
-        let alpha = plane_constant / (n1 + n2 + n3);
+            // Normalized plane constant
+            let alpha = plane_constant / (n1 + n2 + n3);
 
-        if alpha <= T::zero() {
-            return T::zero();
-        } else if alpha >= T::one() {
-            return cell_volume;
-        }
+            if alpha <= T::zero() {
+                return T::zero();
+            } else if alpha >= T::one() {
+                return cell_volume;
+            }
 
-        // Constants for the analytical formula
-        let six = T::from_f64(6.0).expect("Failed to represent 6.0");
-        let two = T::from_f64(2.0).expect("Failed to represent 2.0");
-        let three = T::from_f64(3.0).expect("Failed to represent 3.0");
+            // Constants for the analytical formula
+            let six = T::from_f64(6.0).expect("Failed to represent 6.0");
+            let two = T::from_f64(2.0).expect("Failed to represent 2.0");
+            let three = T::from_f64(3.0).expect("Failed to represent 3.0");
 
-        // Compute volume fraction based on the region
-        // These are the analytical formulas from Scardovelli & Zaleski (2000)
-        let m1 = n1 / n3;
-        let m2 = n2 / n3;
-        let m12 = m1 + m2;
+            // Compute volume fraction based on the region
+            // These are the analytical formulas from Scardovelli & Zaleski (2000)
+            let m1 = n1 / n3;
+            let m2 = n2 / n3;
+            let m12 = m1 + m2;
 
-        let volume_fraction = if alpha <= m1 {
-            // Region 1: Small alpha, pyramid shape
-            alpha * alpha * alpha / (six * m1 * m2)
-        } else if alpha <= m2 {
-            // Region 2: Intermediate, pentahedron
-            let _alpha_m1 = alpha - m1;
-            (alpha * alpha * (three * m2 - alpha) + m1 * m1 * (alpha - three * m2))
-                / (six * m1 * m2)
-        } else if alpha <= T::one() - m12 {
-            // Region 3: Central region, hexahedron
-            (alpha * alpha * (three - two * alpha)
-                + m1 * m1 * (three * alpha - T::one())
-                + m2 * m2 * (three * alpha - T::one()))
-                / (six * m1 * m2)
-        } else if alpha <= T::one() - m1 {
-            // Region 4: Mirror of region 2
-            let one_minus_alpha = T::one() - alpha;
-            T::one()
-                - (one_minus_alpha * one_minus_alpha * one_minus_alpha) / (six * m1 * m2)
-                - (m1 - one_minus_alpha) * (m1 - one_minus_alpha) * (m1 - one_minus_alpha)
+            let volume_fraction = if alpha <= m1 {
+                // Region 1: Small alpha, pyramid shape
+                alpha * alpha * alpha / (six * m1 * m2)
+            } else if alpha <= m2 {
+                // Region 2: Intermediate, pentahedron
+                let _alpha_m1 = alpha - m1;
+                (alpha * alpha * (three * m2 - alpha) + m1 * m1 * (alpha - three * m2))
                     / (six * m1 * m2)
-        } else {
-            // Region 5: Large alpha, inverted pyramid
-            let one_minus_alpha = T::one() - alpha;
-            T::one() - (one_minus_alpha * one_minus_alpha * one_minus_alpha) / (six * m1 * m2)
-        };
+            } else if alpha <= T::one() - m12 {
+                // Region 3: Central region, hexahedron
+                (alpha * alpha * (three - two * alpha)
+                    + m1 * m1 * (three * alpha - T::one())
+                    + m2 * m2 * (three * alpha - T::one()))
+                    / (six * m1 * m2)
+            } else if alpha <= T::one() - m1 {
+                // Region 4: Mirror of region 2
+                let one_minus_alpha = T::one() - alpha;
+                T::one()
+                    - (one_minus_alpha * one_minus_alpha * one_minus_alpha) / (six * m1 * m2)
+                    - (m1 - one_minus_alpha) * (m1 - one_minus_alpha) * (m1 - one_minus_alpha)
+                        / (six * m1 * m2)
+            } else {
+                // Region 5: Large alpha, inverted pyramid
+                let one_minus_alpha = T::one() - alpha;
+                T::one() - (one_minus_alpha * one_minus_alpha * one_minus_alpha) / (six * m1 * m2)
+            };
 
-        volume_fraction * cell_volume
+            volume_fraction * cell_volume
         }
     }
 

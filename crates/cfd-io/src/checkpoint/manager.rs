@@ -2,10 +2,9 @@
 
 use crate::checkpoint::{Checkpoint, CompressionStrategy};
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
-use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
-use std::io::{BufReader, BufWriter, Read, Write};
+
+use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 
 /// Magic number for checkpoint files
@@ -51,16 +50,23 @@ impl CheckpointManager {
     }
 
     /// Save a checkpoint with self-describing file format
-    pub fn save<T>(&self, checkpoint: &Checkpoint<T>) -> Result<PathBuf>
-    where
-        T: RealField + Copy + Serialize,
-        for<'de> T: Deserialize<'de>,
-    {
+    ///
+    /// # Invariants
+    /// * Bit-exact preservation: `checksum(stored_data) == metadata.checksum`
+    pub fn save(&self, checkpoint: &Checkpoint<f64>) -> Result<PathBuf> {
         let filename = format!(
             "checkpoint_iter_{:08}_t_{:.6}.bin",
             checkpoint.metadata.iteration, checkpoint.metadata.time
         );
         let path = self.base_dir.join(filename);
+
+        let mut cp = checkpoint.clone();
+        cp.metadata.checksum = cp.compute_checksum();
+        cp.metadata.validate()?;
+
+        let encoded = serde_json::to_vec(&cp).map_err(|e| {
+            Error::Serialization(format!("serde encode error: {e}"))
+        })?;
 
         let file = File::create(&path)?;
         let mut writer = BufWriter::new(file);
@@ -76,24 +82,14 @@ impl CheckpointManager {
         // Write checkpoint data with appropriate compression
         match self.compression {
             CompressionStrategy::None => {
-                bincode::serialize_into(writer, checkpoint).map_err(|e| {
-                    Error::Io(std::io::Error::other(
-                        format!("Serialization error: {e}"),
-                    ))
-                })?;
+                writer.write_all(&encoded)?;
             }
             CompressionStrategy::Zstd(level) => {
-                let encoder = zstd::stream::Encoder::new(writer, i32::from(level)).map_err(|e| {
-                    Error::Io(std::io::Error::other(
-                        format!("Compression error: {e}"),
-                    ))
+                let mut encoder = zstd::stream::Encoder::new(writer, i32::from(level)).map_err(|e| {
+                    Error::Io(std::io::Error::other(format!("Compression error: {e}")))
                 })?;
-
-                bincode::serialize_into(encoder.auto_finish(), checkpoint).map_err(|e| {
-                    Error::Io(std::io::Error::other(
-                        format!("Serialization error: {e}"),
-                    ))
-                })?;
+                encoder.write_all(&encoded)?;
+                encoder.finish()?;
             }
         }
 
@@ -106,10 +102,10 @@ impl CheckpointManager {
     }
 
     /// Load a checkpoint from self-describing file format
-    pub fn load<T>(&self, path: impl AsRef<Path>) -> Result<Checkpoint<T>>
-    where
-        T: RealField + Copy + for<'de> Deserialize<'de>,
-    {
+    ///
+    /// # Invariants
+    /// * Bit-exact verification: `compute_checksum(loaded) == metadata.checksum`
+    pub fn load(&self, path: impl AsRef<Path>) -> Result<Checkpoint<f64>> {
         let file = File::open(path)?;
         let mut reader = BufReader::new(file);
 
@@ -118,7 +114,7 @@ impl CheckpointManager {
         reader.read_exact(&mut magic)?;
         if &magic != CHECKPOINT_MAGIC {
             return Err(Error::Io(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
+                ErrorKind::InvalidData,
                 "Not a valid checkpoint file: incorrect magic number",
             )));
         }
@@ -127,33 +123,36 @@ impl CheckpointManager {
         let mut compression_type = [0u8; 1];
         reader.read_exact(&mut compression_type)?;
 
-        // Load checkpoint based on stored compression type
-        let checkpoint = match compression_type[0] {
-            COMPRESSION_NONE => bincode::deserialize_from(reader).map_err(|e| {
-                Error::Io(std::io::Error::other(
-                    format!("Deserialization error: {e}"),
-                ))
-            })?,
-            COMPRESSION_ZSTD => {
-                let decoder = zstd::stream::Decoder::new(reader).map_err(|e| {
-                    Error::Io(std::io::Error::other(
-                        format!("Decompression error: {e}"),
-                    ))
-                })?;
+        let mut buffer = Vec::new();
+        reader.read_to_end(&mut buffer)?;
 
-                bincode::deserialize_from(decoder).map_err(|e| {
-                    Error::Io(std::io::Error::other(
-                        format!("Deserialization error: {e}"),
-                    ))
-                })?
-            }
+
+        let data = match compression_type[0] {
+            COMPRESSION_NONE => buffer,
+            COMPRESSION_ZSTD => zstd::decode_all(&buffer[..]).map_err(|e| {
+                Error::Io(std::io::Error::other(format!("Zstd decompression error: {e}")))
+            })?,
             _ => {
                 return Err(Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
+                    ErrorKind::InvalidData,
                     format!("Unsupported compression type: {}", compression_type[0]),
                 )));
             }
         };
+
+        let checkpoint: Checkpoint<f64> = serde_json::from_slice(&data).map_err(|e| {
+            Error::Io(std::io::Error::other(format!("Serde deserialization error: {e}")))
+        })?;
+
+        checkpoint.metadata.validate()?;
+
+        let recomputed = checkpoint.compute_checksum();
+        if checkpoint.metadata.checksum != recomputed {
+            return Err(Error::Io(std::io::Error::new(
+                ErrorKind::InvalidData,
+                "Checkpoint checksum mismatch: data corrupted or tampered",
+            )));
+        }
 
         Ok(checkpoint)
     }

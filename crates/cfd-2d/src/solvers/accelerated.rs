@@ -50,7 +50,8 @@ impl AcceleratedPoissonSolver {
 
         // Check for SIMD capability
         let simd_cap = cfd_math::simd::SimdCapability::detect();
-        #[allow(clippy::match_wildcard_for_single_variants)] // Wildcard handles future SIMD variants
+        #[allow(clippy::match_wildcard_for_single_variants)]
+        // Wildcard handles future SIMD variants
         let backend = match simd_cap {
             cfd_math::simd::SimdCapability::Avx2
             | cfd_math::simd::SimdCapability::Sse42
@@ -198,7 +199,8 @@ impl AcceleratedPoissonSolver {
 
             for iteration_block in 0..(max_iterations / iterations_per_step).max(1) {
                 // Perform iterations_per_step iterations
-                let remaining_iterations = max_iterations.saturating_sub(iteration_block * iterations_per_step);
+                let remaining_iterations =
+                    max_iterations.saturating_sub(iteration_block * iterations_per_step);
                 let iterations_this_block = iterations_per_step.min(remaining_iterations);
 
                 gpu_solver.solve_jacobi(
@@ -212,8 +214,11 @@ impl AcceleratedPoissonSolver {
                 let residual = gpu_solver.calculate_residual(phi.as_slice(), source.as_slice())?;
 
                 if residual < tolerance {
-                    tracing::debug!("GPU solver converged in {} iterations, residual: {}", 
-                        (iteration_block + 1) * iterations_per_step, residual);
+                    tracing::debug!(
+                        "GPU solver converged in {} iterations, residual: {}",
+                        (iteration_block + 1) * iterations_per_step,
+                        residual
+                    );
                     return Ok(residual);
                 }
 
@@ -224,16 +229,23 @@ impl AcceleratedPoissonSolver {
             }
 
             // Final residual check
-            let final_residual = gpu_solver.calculate_residual(phi.as_slice(), source.as_slice())?;
-            tracing::debug!("GPU solver reached max iterations, final residual: {}", final_residual);
+            let final_residual =
+                gpu_solver.calculate_residual(phi.as_slice(), source.as_slice())?;
+            tracing::debug!(
+                "GPU solver reached max iterations, final residual: {}",
+                final_residual
+            );
             Ok(final_residual)
         } else {
-            Err(Error::InvalidConfiguration("GPU solver not available".to_string()))
+            Err(Error::InvalidConfiguration(
+                "GPU solver not available".to_string(),
+            ))
         }
     }
 
     /// Get active backend
-    #[must_use] pub fn backend(&self) -> Backend {
+    #[must_use]
+    pub fn backend(&self) -> Backend {
         self.backend
     }
 }
@@ -287,16 +299,18 @@ impl AcceleratedNavierStokesSolver {
         let dx = 1.0 / (nx as f32 - 1.0);
         let dy = 1.0 / (ny as f32 - 1.0);
 
-        if self.backend == Backend::Simd { super::simd_kernels::calculate_divergence_simd(
-            u.as_slice(),
-            v.as_slice(),
-            divergence.as_mut_slice(),
-            nx,
-            ny,
-            dx,
-            dy,
-        )
-        .map_err(|e| Error::from(format!("Failed to calculate divergence: {e:?}"))) } else {
+        if self.backend == Backend::Simd {
+            super::simd_kernels::calculate_divergence_simd(
+                u.as_slice(),
+                v.as_slice(),
+                divergence.as_mut_slice(),
+                nx,
+                ny,
+                dx,
+                dy,
+            )
+            .map_err(|e| Error::from(format!("Failed to calculate divergence: {e:?}")))
+        } else {
             // CPU fallback
             for i in 1..nx - 1 {
                 for j in 1..ny - 1 {
@@ -310,7 +324,8 @@ impl AcceleratedNavierStokesSolver {
     }
 
     /// Get active backend
-    #[must_use] pub fn backend(&self) -> Backend {
+    #[must_use]
+    pub fn backend(&self) -> Backend {
         self.backend
     }
 }

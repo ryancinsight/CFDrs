@@ -198,3 +198,12 @@ fn simple_iteration(&self, fields: &mut SimulationFields<T>, dt: T, grid: &Struc
 
 
 
+
+
+
+
+
+
+
+
+

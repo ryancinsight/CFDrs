@@ -177,16 +177,22 @@ impl<T: RealField + Copy + FromPrimitive> VremanModel<T> {
             }
         }
 
-        // Compute B_β = β₁₁β₂₂ - β₁₂²
-        // For 2D: B_β = β₁₁β₂₂ - β₁₂²
+        // Compute B_β for 2D flow
+        // For 2D LES, assume isotropy in spanwise direction: β_33 = (β_11 + β_22)/2
+        // B_β = β₁₁β₂₂ - β₁₂² + β₁₁β₃₃ + β₂₂β₃₃
         let b11 = beta[(0, 0)];
         let b12 = beta[(0, 1)];
         let b22 = beta[(1, 1)];
+        let b33 = (b11 + b22) * T::from_f64(0.5).unwrap(); // Isotropic assumption
 
-        let b_beta = b11 * b22 - b12 * b12;
+        let b_beta = b11 * b22 - b12 * b12 + b11 * b33 + b22 * b33;
 
         // Clamp to non-negative to ensure numerical stability
-        let b_beta_clamped = if b_beta > T::zero() { b_beta } else { T::zero() };
+        let b_beta_clamped = if b_beta > T::zero() {
+            b_beta
+        } else {
+            T::zero()
+        };
 
         // Compute ν_SGS = C_V √(B_β / α_ij α_ij) Δ²
         let ratio = b_beta_clamped / alpha_squared;
@@ -253,13 +259,20 @@ mod tests {
         velocity_gradient[(0, 1)] = 1.0; // ∂u/∂y = γ = 1
 
         let nu_sgs = model.sgs_viscosity(&velocity_gradient);
-        assert!(nu_sgs > 0.0, "SGS viscosity should be positive for shear flow");
+        assert!(
+            nu_sgs > 0.0,
+            "SGS viscosity should be positive for shear flow"
+        );
 
         let stress = model.sgs_stress(&velocity_gradient);
         // For simple shear, S_12 = S_21 = 0.5γ
         // τ_12 = τ_21 = -2 ν_SGS S_12 = -ν_SGS γ
         assert!(stress[(0, 1)] < 0.0, "Shear stress should be negative");
-        assert_eq!(stress[(0, 1)], stress[(1, 0)], "Stress tensor should be symmetric");
+        assert_eq!(
+            stress[(0, 1)],
+            stress[(1, 0)],
+            "Stress tensor should be symmetric"
+        );
     }
 
     #[test]
@@ -307,6 +320,9 @@ mod tests {
         // Test with zero velocity gradients
         let zero_gradient = DMatrix::zeros(2, 2);
         let nu_sgs_zero = model.sgs_viscosity(&zero_gradient);
-        assert_eq!(nu_sgs_zero, 0.0, "Zero velocity gradient should give zero SGS viscosity");
+        assert_eq!(
+            nu_sgs_zero, 0.0,
+            "Zero velocity gradient should give zero SGS viscosity"
+        );
     }
 }

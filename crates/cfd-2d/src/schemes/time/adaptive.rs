@@ -15,7 +15,6 @@ use nalgebra::{DVector, RealField};
 use num_traits::{FromPrimitive, ToPrimitive};
 use std::fmt;
 
-
 /// Adaptation strategy for time step control
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum AdaptationStrategy {
@@ -109,8 +108,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
     /// Optimal time step based on CFL condition
     pub fn cfl_based_dt(&self, u_max: T, v_max: T, dx: T, dy: T) -> T {
         let (cfl_target, safety_factor) = match self.strategy {
-            AdaptationStrategy::CFLBased { cfl_target, safety_factor } => (cfl_target, safety_factor),
-            AdaptationStrategy::Combined { cfl_target, safety_factor, .. } => (cfl_target, safety_factor),
+            AdaptationStrategy::CFLBased {
+                cfl_target,
+                safety_factor,
+            } => (cfl_target, safety_factor),
+            AdaptationStrategy::Combined {
+                cfl_target,
+                safety_factor,
+                ..
+            } => (cfl_target, safety_factor),
             _ => (0.7, 0.8), // Default values
         };
 
@@ -149,7 +155,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
 
         for i in 0..n {
             let diff = (y1[i] - y2[i]).abs();
-            let error = diff / (T::from_f64(2.0_f64.powi(p as i32)).unwrap_or_else(T::one) - T::one());
+            let error =
+                diff / (T::from_f64(2.0_f64.powi(p as i32)).unwrap_or_else(T::one) - T::one());
             error_max = error_max.max(error);
         }
 
@@ -165,8 +172,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
     /// (new_dt, step_accepted)
     pub fn adapt_step(&mut self, error_estimate: T) -> (T, bool) {
         let (error_tolerance, safety_factor) = match self.strategy {
-            AdaptationStrategy::ErrorBased { error_tolerance, safety_factor, .. } => (error_tolerance, safety_factor),
-            AdaptationStrategy::Combined { error_tolerance, safety_factor, .. } => (error_tolerance, safety_factor),
+            AdaptationStrategy::ErrorBased {
+                error_tolerance,
+                safety_factor,
+                ..
+            } => (error_tolerance, safety_factor),
+            AdaptationStrategy::Combined {
+                error_tolerance,
+                safety_factor,
+                ..
+            } => (error_tolerance, safety_factor),
             _ => return (self.dt_current, true), // No error-based adaptation
         };
 
@@ -177,7 +192,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
             self.steps_accepted += 1;
 
             let factor = T::from_f64(safety_factor).unwrap_or_else(T::one)
-                * (error_tolerance_t / error_estimate).powf(T::from_f64(1.0 / 4.0).unwrap_or_else(T::one));
+                * (error_tolerance_t / error_estimate)
+                    .powf(T::from_f64(1.0 / 4.0).unwrap_or_else(T::one));
 
             let new_dt = (self.dt_current * factor).min(self.dt_max);
             self.dt_current = new_dt;
@@ -186,10 +202,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
             // Step rejected - reduce time step
             self.steps_rejected += 1;
 
-            assert!(self.steps_rejected <= self.max_rejections, "Too many step rejections in adaptive time stepping");
+            assert!(
+                self.steps_rejected <= self.max_rejections,
+                "Too many step rejections in adaptive time stepping"
+            );
 
             let factor = T::from_f64(safety_factor).unwrap_or_else(T::one)
-                * (error_tolerance_t / error_estimate).powf(T::from_f64(1.0 / 3.0).unwrap_or_else(T::one));
+                * (error_tolerance_t / error_estimate)
+                    .powf(T::from_f64(1.0 / 3.0).unwrap_or_else(T::one));
 
             let new_dt = (self.dt_current * factor).max(self.dt_min);
             self.dt_current = new_dt;
@@ -298,12 +318,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveTimeIntegrator<T
     ///
     /// # Returns
     /// (solution, new_time, new_dt, step_accepted)
-    pub fn step_error_adaptive<F>(
-        &mut self,
-        f: F,
-        y: &DVector<T>,
-        t: T,
-    ) -> (DVector<T>, T, T, bool)
+    pub fn step_error_adaptive<F>(&mut self, f: F, y: &DVector<T>, t: T) -> (DVector<T>, T, T, bool)
     where
         F: Fn(T, &DVector<T>) -> DVector<T>,
     {
@@ -312,7 +327,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveTimeIntegrator<T
 
         loop {
             attempts += 1;
-            assert!(attempts <= max_attempts, "Failed to converge in adaptive time stepping after {max_attempts} attempts");
+            assert!(
+                attempts <= max_attempts,
+                "Failed to converge in adaptive time stepping after {max_attempts} attempts"
+            );
 
             let dt_current = self.controller.dt_current;
 
@@ -320,12 +338,26 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveTimeIntegrator<T
             let y_full = self.base_integrator.step(&f, y, t, dt_current);
 
             // Take two half steps for error estimation
-            let y_half = self.base_integrator.step(&f, y, t, dt_current / T::from_f64(2.0).unwrap_or_else(T::one));
+            let y_half = self.base_integrator.step(
+                &f,
+                y,
+                t,
+                dt_current / T::from_f64(2.0).unwrap_or_else(T::one),
+            );
             let t_half = t + dt_current / T::from_f64(2.0).unwrap_or_else(T::one);
-            let y_full_from_half = self.base_integrator.step(&f, &y_half, t_half, dt_current / T::from_f64(2.0).unwrap_or_else(T::one));
+            let y_full_from_half = self.base_integrator.step(
+                &f,
+                &y_half,
+                t_half,
+                dt_current / T::from_f64(2.0).unwrap_or_else(T::one),
+            );
 
             // Estimate error using Richardson extrapolation
-            let error_estimate = self.controller.richardson_error(&y_full, &y_full_from_half, self.base_integrator.order());
+            let error_estimate = self.controller.richardson_error(
+                &y_full,
+                &y_full_from_half,
+                self.base_integrator.order(),
+            );
 
             // Adapt step size based on error
             let (new_dt, accepted) = self.controller.adapt_step(error_estimate);
@@ -387,16 +419,32 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveTimeIntegrator<T
             let y_full = self.base_integrator.step(&f, y, t, dt_current);
 
             // Take two half steps for error estimation
-            let y_half = self.base_integrator.step(&f, y, t, dt_current / T::from_f64(2.0).unwrap_or_else(T::one));
+            let y_half = self.base_integrator.step(
+                &f,
+                y,
+                t,
+                dt_current / T::from_f64(2.0).unwrap_or_else(T::one),
+            );
             let t_half = t + dt_current / T::from_f64(2.0).unwrap_or_else(T::one);
-            let y_full_from_half = self.base_integrator.step(&f, &y_half, t_half, dt_current / T::from_f64(2.0).unwrap_or_else(T::one));
+            let y_full_from_half = self.base_integrator.step(
+                &f,
+                &y_half,
+                t_half,
+                dt_current / T::from_f64(2.0).unwrap_or_else(T::one),
+            );
 
             // Estimate error using Richardson extrapolation
-            let error_estimate = self.controller.richardson_error(&y_full, &y_full_from_half, self.base_integrator.order());
+            let error_estimate = self.controller.richardson_error(
+                &y_full,
+                &y_full_from_half,
+                self.base_integrator.order(),
+            );
 
             // Check if error is acceptable
             let error_tolerance = match self.controller.strategy {
-                AdaptationStrategy::Combined { error_tolerance, .. } => T::from_f64(error_tolerance).unwrap_or_else(T::one),
+                AdaptationStrategy::Combined {
+                    error_tolerance, ..
+                } => T::from_f64(error_tolerance).unwrap_or_else(T::one),
                 _ => T::from_f64(1e-6).unwrap_or_else(T::one), // Default tolerance
             };
 
@@ -406,7 +454,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveTimeIntegrator<T
 
                 // Try to increase step size for next step
                 let factor = T::from_f64(0.9).unwrap_or_else(T::one)
-                    * (error_tolerance / error_estimate).powf(T::from_f64(1.0 / 4.0).unwrap_or_else(T::one));
+                    * (error_tolerance / error_estimate)
+                        .powf(T::from_f64(1.0 / 4.0).unwrap_or_else(T::one));
                 self.controller.dt_current = (dt_current * factor).min(self.controller.dt_max);
 
                 self.y_prev = Some(y.clone());
@@ -415,7 +464,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveTimeIntegrator<T
                 // Step rejected - reduce step size
                 self.controller.steps_rejected += 1;
                 let factor = T::from_f64(0.9).unwrap_or_else(T::one)
-                    * (error_tolerance / error_estimate).powf(T::from_f64(1.0 / 3.0).unwrap_or_else(T::one));
+                    * (error_tolerance / error_estimate)
+                        .powf(T::from_f64(1.0 / 3.0).unwrap_or_else(T::one));
                 self.controller.dt_current = (dt_current * factor).max(self.controller.dt_min);
 
                 // Retry with smaller step
@@ -442,7 +492,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveTimeIntegrator<T
 
     /// Get controller statistics
     pub fn statistics(&self) -> (usize, usize) {
-        (self.controller.steps_accepted, self.controller.steps_rejected)
+        (
+            self.controller.steps_accepted,
+            self.controller.steps_rejected,
+        )
     }
 
     /// Reset controller statistics
@@ -532,18 +585,14 @@ mod tests {
         };
 
         let controller = AdaptiveController::new(0.01, strategy);
-        let mut integrator = AdaptiveTimeIntegrator::new(
-            TimeScheme::RungeKutta4,
-            controller,
-        );
+        let mut integrator = AdaptiveTimeIntegrator::new(TimeScheme::RungeKutta4, controller);
 
         let y0 = DVector::from_vec(vec![1.0]);
         let t0 = 0.0;
 
         // Single step with CFL adaptation
-        let (y1, t1, dt1, accepted) = integrator.step_cfl_adaptive(
-            test_ode, &y0, t0, 1.0, 0.5, 0.01, 0.01
-        );
+        let (y1, t1, dt1, accepted) =
+            integrator.step_cfl_adaptive(test_ode, &y0, t0, 1.0, 0.5, 0.01, 0.01);
 
         assert!(accepted);
         assert!(t1 > t0);
@@ -564,10 +613,7 @@ mod tests {
         };
 
         let controller = AdaptiveController::new(0.01, strategy);
-        let mut integrator = AdaptiveTimeIntegrator::new(
-            TimeScheme::RungeKutta4,
-            controller,
-        );
+        let mut integrator = AdaptiveTimeIntegrator::new(TimeScheme::RungeKutta4, controller);
 
         let y0 = DVector::from_vec(vec![1.0]);
         let t0 = 0.0;

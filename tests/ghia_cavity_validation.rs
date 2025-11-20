@@ -24,7 +24,7 @@ fn test_ghia_cavity_re100_with_gmres() {
     // Configure benchmark for Re=100 (standard test case)
     let config = BenchmarkConfig {
         reynolds_number: 100.0,
-        resolution: 32, // Coarse grid for testing (Ghia used 129x129)
+        resolution: 32,  // Coarse grid for testing (Ghia used 129x129)
         tolerance: 1e-3, // Relaxed for testing speed
         max_iterations: 1000,
         time_step: None,
@@ -78,7 +78,7 @@ fn test_ghia_cavity_re100_with_gmres() {
         !result.convergence.is_empty(),
         "Convergence history should be recorded"
     );
-    
+
     let final_residual = result.convergence.last().expect("Should have residual");
     assert!(
         *final_residual < 0.2,
@@ -96,10 +96,10 @@ fn test_ghia_cavity_re100_with_gmres() {
 fn test_cavity_linear_solver_comparison() {
     // This test verifies that GMRES, BiCGSTAB, and CG produce similar results
     // (when all are applicable) to ensure correct integration.
-    
+
     // Create simple cavity setup
     let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64);
-    
+
     let config = BenchmarkConfig {
         reynolds_number: 100.0,
         resolution: 16, // Small grid for quick testing
@@ -114,11 +114,13 @@ fn test_cavity_linear_solver_comparison() {
 
     // Verify basic physics
     assert!(!result.values.is_empty(), "Should produce velocity field");
-    
+
     // Check that velocities are bounded
-    let max_velocity = result.values.iter()
+    let max_velocity = result
+        .values
+        .iter()
         .fold(0.0_f64, |acc, &v| acc.max(v.abs()));
-    
+
     assert!(
         max_velocity <= 1.1,
         "Maximum velocity {max_velocity:.3} should be bounded by lid velocity"
@@ -132,10 +134,10 @@ fn test_cavity_linear_solver_comparison() {
 #[test]
 fn test_gmres_configuration() {
     // Verify that GMRES can be configured with different restart dimensions
-    
-    let config_default = PressureVelocityConfig::<f64>::new()
-        .expect("Should create default config");
-    
+
+    let config_default =
+        PressureVelocityConfig::<f64>::new().expect("Should create default config");
+
     // Check that GMRES is the default
     match config_default.pressure_linear_solver {
         PressureLinearSolver::GMRES { restart_dim } => {
@@ -156,9 +158,9 @@ fn test_gmres_configuration() {
 fn test_cavity_reynolds_scaling() {
     // Verify that higher Reynolds numbers produce higher velocities
     // (basic physics sanity check)
-    
+
     let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64);
-    
+
     // Re=100 case
     let config_low = BenchmarkConfig {
         reynolds_number: 100.0,
@@ -168,19 +170,18 @@ fn test_cavity_reynolds_scaling() {
         time_step: None,
         parallel: false,
     };
-    
+
     let result_low = cavity.run(&config_low).expect("Should complete");
-    
+
     // Get maximum velocity magnitude
-    let max_u_low = result_low.values.iter()
+    let max_u_low = result_low
+        .values
+        .iter()
         .fold(0.0_f64, |acc, &v| acc.max(v.abs()));
 
     // Basic sanity: velocity should be non-zero
-    assert!(
-        max_u_low > 0.01,
-        "Velocity should be non-zero for Re=100"
-    );
-    
+    assert!(max_u_low > 0.01, "Velocity should be non-zero for Re=100");
+
     // Verify convergence improved from Sprint 1.35.0 baseline
     assert!(
         result_low.convergence.len() < 1000,

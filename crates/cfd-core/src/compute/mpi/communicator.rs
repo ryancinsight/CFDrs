@@ -24,21 +24,19 @@ impl MpiUniverse {
     pub fn new() -> MpiResult<Self> {
         let mut initialized = false;
 
-        MPI_INIT.call_once(|| {
-            match environment::initialize() {
-                Ok(_) => {
-                    unsafe { MPI_INITIALIZED = true };
-                    initialized = true;
-                }
-                Err(e) => {
-                    initialized = false;
-                }
+        MPI_INIT.call_once(|| match environment::initialize() {
+            Ok(_) => {
+                unsafe { MPI_INITIALIZED = true };
+                initialized = true;
+            }
+            Err(e) => {
+                initialized = false;
             }
         });
 
         if !initialized {
             return Err(MpiError::InitializationError(
-                "Failed to initialize MPI environment".to_string()
+                "Failed to initialize MPI environment".to_string(),
             ));
         }
 
@@ -95,19 +93,22 @@ impl MpiCommunicator {
     /// All-reduce operation (sum all values across processes)
     pub fn all_reduce_sum<T: Equivalence + std::ops::AddAssign>(&self, value: &mut T) {
         let mut result = *value;
-        self.comm.all_reduce_into(&result, value, mpi::collective::SystemOperation::sum());
+        self.comm
+            .all_reduce_into(&result, value, mpi::collective::SystemOperation::sum());
     }
 
     /// All-reduce operation (find maximum across processes)
     pub fn all_reduce_max<T: Equivalence + PartialOrd + Copy>(&self, value: &mut T) {
         let mut result = *value;
-        self.comm.all_reduce_into(&result, value, mpi::collective::SystemOperation::max());
+        self.comm
+            .all_reduce_into(&result, value, mpi::collective::SystemOperation::max());
     }
 
     /// All-reduce operation (find minimum across processes)
     pub fn all_reduce_min<T: Equivalence + PartialOrd + Copy>(&self, value: &mut T) {
         let mut result = *value;
-        self.comm.all_reduce_into(&result, value, mpi::collective::SystemOperation::min());
+        self.comm
+            .all_reduce_into(&result, value, mpi::collective::SystemOperation::min());
     }
 
     /// Send data to another rank
@@ -122,13 +123,25 @@ impl MpiCommunicator {
     }
 
     /// Non-blocking send
-    pub fn send_async<T: Equivalence>(&self, data: &[T], destination: Rank, tag: i32) -> mpi::request::Request<'_, Vec<T>> {
+    pub fn send_async<T: Equivalence>(
+        &self,
+        data: &[T],
+        destination: Rank,
+        tag: i32,
+    ) -> mpi::request::Request<'_, Vec<T>> {
         self.comm.process_at_rank(destination).immediate_send(data)
     }
 
     /// Non-blocking receive
-    pub fn receive_async<T: Equivalence>(&self, source: Rank, tag: i32, buffer: &mut [T]) -> mpi::request::Request<'_, Vec<T>> {
-        self.comm.process_at_rank(source).immediate_receive_into(buffer)
+    pub fn receive_async<T: Equivalence>(
+        &self,
+        source: Rank,
+        tag: i32,
+        buffer: &mut [T],
+    ) -> mpi::request::Request<'_, Vec<T>> {
+        self.comm
+            .process_at_rank(source)
+            .immediate_receive_into(buffer)
     }
 
     /// Wait for async operation to complete

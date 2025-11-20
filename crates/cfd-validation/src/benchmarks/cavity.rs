@@ -90,7 +90,9 @@ impl<T: RealField + Copy> LidDrivenCavity<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive> Benchmark<T> for LidDrivenCavity<T> {
+impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive> Benchmark<T>
+    for LidDrivenCavity<T>
+{
     fn name(&self) -> &'static str {
         "Lid-Driven Cavity"
     }
@@ -139,14 +141,14 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
             for i in 1..n - 1 {
                 for j in 1..n - 1 {
                     // Advection terms
-                    let dpsi_dx = (psi[(i + 1, j)] - psi[(i - 1, j)])
-                        / (T::from_f64_or_one(2.0) * dx);
-                    let dpsi_dy = (psi[(i, j + 1)] - psi[(i, j - 1)])
-                        / (T::from_f64_or_one(2.0) * dx);
-                    let domega_dx = (omega[(i + 1, j)] - omega[(i - 1, j)])
-                        / (T::from_f64_or_one(2.0) * dx);
-                    let domega_dy = (omega[(i, j + 1)] - omega[(i, j - 1)])
-                        / (T::from_f64_or_one(2.0) * dx);
+                    let dpsi_dx =
+                        (psi[(i + 1, j)] - psi[(i - 1, j)]) / (T::from_f64_or_one(2.0) * dx);
+                    let dpsi_dy =
+                        (psi[(i, j + 1)] - psi[(i, j - 1)]) / (T::from_f64_or_one(2.0) * dx);
+                    let domega_dx =
+                        (omega[(i + 1, j)] - omega[(i - 1, j)]) / (T::from_f64_or_one(2.0) * dx);
+                    let domega_dy =
+                        (omega[(i, j + 1)] - omega[(i, j - 1)]) / (T::from_f64_or_one(2.0) * dx);
 
                     // Diffusion term
                     let laplacian = (omega[(i + 1, j)]
@@ -157,7 +159,8 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
                         / (dx * dx);
 
                     // Update vorticity (explicit time stepping)
-                    omega[(i, j)] += dt * (-dpsi_dy * domega_dx + dpsi_dx * domega_dy + viscosity * laplacian);
+                    omega[(i, j)] +=
+                        dt * (-dpsi_dy * domega_dx + dpsi_dx * domega_dy + viscosity * laplacian);
                 }
             }
 
@@ -170,10 +173,10 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
                         let psi_previous = psi[(i, j)];
                         let psi_candidate = <T as SafeFromF64>::try_from_f64(0.25)?
                             * (psi[(i + 1, j)]
-                            + psi[(i - 1, j)]
-                            + psi[(i, j + 1)]
-                            + psi[(i, j - 1)]
-                            + dx * dx * omega[(i, j)]);
+                                + psi[(i - 1, j)]
+                                + psi[(i, j + 1)]
+                                + psi[(i, j - 1)]
+                                + dx * dx * omega[(i, j)]);
                         psi[(i, j)] = psi_previous + omega_sor * (psi_candidate - psi_previous);
                     }
                 }
@@ -253,7 +256,8 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
                     // Find closest grid point (simplified - assumes regular grid)
                     let grid_size_float = self.size.to_f64().unwrap_or(0.0);
                     let y_ref_f64 = y_ref.to_f64().unwrap_or(0.0);
-                    let grid_idx = ((y_ref_f64 * (grid_size_float - 1.0)) as usize).min(result.values.len() - 1);
+                    let grid_idx = ((y_ref_f64 * (grid_size_float - 1.0)) as usize)
+                        .min(result.values.len() - 1);
 
                     if grid_idx < result.values.len() {
                         let u_computed = result.values[grid_idx];
@@ -279,8 +283,10 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
                     // Log validation results
                     let l2_error_pct = l2_error.to_f64().unwrap_or(0.0) * 100.0;
                     let target_pct = ghia_tolerance.to_f64().unwrap_or(0.05) * 100.0;
-                    println!("Ghia et al. validation - L2 error: {:.6}%, Target: <{:.1}%, Converged: {}",
-                             l2_error_pct, target_pct, converged);
+                    println!(
+                        "Ghia et al. validation - L2 error: {:.6}%, Target: <{:.1}%, Converged: {}",
+                        l2_error_pct, target_pct, converged
+                    );
 
                     return Ok(l2_error < ghia_tolerance && converged);
                 }

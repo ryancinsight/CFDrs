@@ -81,7 +81,8 @@ impl UnifiedCompute {
     }
 
     /// Get active backend
-    #[must_use] pub fn backend(&self) -> Backend {
+    #[must_use]
+    pub fn backend(&self) -> Backend {
         self.backend
     }
 
@@ -153,7 +154,7 @@ impl UnifiedCompute {
 
 /// CFD-specific accelerated kernels
 pub mod kernels {
-    use super::{Arc, UnifiedCompute, Result};
+    use super::{Arc, Result, UnifiedCompute};
 
     /// Configuration for pressure Poisson solver
     #[derive(Debug, Clone, Copy)]
@@ -172,8 +173,15 @@ pub mod kernels {
 
     impl PoissonConfig {
         /// Create new Poisson solver configuration
-        #[must_use] pub fn new(nx: usize, ny: usize, dx: f32, dy: f32, iterations: usize) -> Self {
-            Self { nx, ny, dx, dy, iterations }
+        #[must_use]
+        pub fn new(nx: usize, ny: usize, dx: f32, dy: f32, iterations: usize) -> Self {
+            Self {
+                nx,
+                ny,
+                dx,
+                dy,
+                iterations,
+            }
         }
     }
 
@@ -194,7 +202,8 @@ pub mod kernels {
 
     impl AdvectionConfig {
         /// Create new advection solver configuration
-        #[must_use] pub fn new(nx: usize, ny: usize, dt: f32, dx: f32, dy: f32) -> Self {
+        #[must_use]
+        pub fn new(nx: usize, ny: usize, dt: f32, dx: f32, dy: f32) -> Self {
             Self { nx, ny, dt, dx, dy }
         }
     }
@@ -207,7 +216,8 @@ pub mod kernels {
 
     impl PressureSolver {
         /// Create a new pressure solver with the given compute context
-        #[must_use] pub fn new(compute: Arc<UnifiedCompute>) -> Self {
+        #[must_use]
+        pub fn new(compute: Arc<UnifiedCompute>) -> Self {
             Self { compute }
         }
 
@@ -230,8 +240,12 @@ pub mod kernels {
                     for j in 1..config.ny - 1 {
                         let idx = i * config.ny + j;
                         pressure_new[idx] = factor
-                            * ((pressure[(i - 1) * config.ny + j] + pressure[(i + 1) * config.ny + j]) / dx2
-                                + (pressure[i * config.ny + j - 1] + pressure[i * config.ny + j + 1]) / dy2
+                            * ((pressure[(i - 1) * config.ny + j]
+                                + pressure[(i + 1) * config.ny + j])
+                                / dx2
+                                + (pressure[i * config.ny + j - 1]
+                                    + pressure[i * config.ny + j + 1])
+                                    / dy2
                                 - divergence[idx]);
                     }
                 }
@@ -239,11 +253,13 @@ pub mod kernels {
                 // Boundary conditions
                 for i in 0..config.nx {
                     pressure_new[i * config.ny] = pressure_new[i * config.ny + 1];
-                    pressure_new[i * config.ny + config.ny - 1] = pressure_new[i * config.ny + config.ny - 2];
+                    pressure_new[i * config.ny + config.ny - 1] =
+                        pressure_new[i * config.ny + config.ny - 2];
                 }
                 for j in 0..config.ny {
                     pressure_new[j] = pressure_new[config.ny + j];
-                    pressure_new[(config.nx - 1) * config.ny + j] = pressure_new[(config.nx - 2) * config.ny + j];
+                    pressure_new[(config.nx - 1) * config.ny + j] =
+                        pressure_new[(config.nx - 2) * config.ny + j];
                 }
 
                 pressure.copy_from_slice(&pressure_new);
@@ -261,7 +277,8 @@ pub mod kernels {
 
     impl AdvectionSolver {
         /// Create a new advection solver with the given compute context
-        #[must_use] pub fn new(compute: Arc<UnifiedCompute>) -> Self {
+        #[must_use]
+        pub fn new(compute: Arc<UnifiedCompute>) -> Self {
             Self { compute }
         }
 
@@ -336,9 +353,7 @@ mod tests {
         let divergence = vec![0.1f32; nx * ny];
         let mut pressure = vec![0.0f32; nx * ny];
 
-        solver
-            .solve(&divergence, &mut pressure, config)
-            .unwrap();
+        solver.solve(&divergence, &mut pressure, config).unwrap();
 
         // Should produce non-zero pressure
         let sum: f32 = pressure.iter().sum();

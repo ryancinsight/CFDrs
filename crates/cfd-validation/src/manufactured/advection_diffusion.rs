@@ -50,7 +50,7 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedAdvectionDiffusion<T> {
     ///
     /// // Create solution with moderate Peclet number
     /// let coupled = ManufacturedAdvectionDiffusion::new(
-    ///     2.0*std::f64::consts::PI, 
+    ///     2.0*std::f64::consts::PI,
     ///     2.0*std::f64::consts::PI,
     ///     0.01,
     ///     1.0,
@@ -58,7 +58,13 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedAdvectionDiffusion<T> {
     /// );
     /// ```
     pub fn new(kx: T, ky: T, alpha: T, vx: T, vy: T) -> Self {
-        Self { kx, ky, alpha, vx, vy }
+        Self {
+            kx,
+            ky,
+            alpha,
+            vx,
+            vy,
+        }
     }
 
     /// Create default solution with Pe ≈ 10 (advection-dominated)
@@ -66,11 +72,11 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedAdvectionDiffusion<T> {
         let pi = <T as FromPrimitive>::from_f64(PI).unwrap();
         let two = <T as FromPrimitive>::from_f64(2.0).unwrap();
         Self::new(
-            two * pi,                    // kx = 2π
-            two * pi,                    // ky = 2π
-            <T as FromPrimitive>::from_f64(0.01).unwrap(),  // α = 0.01
-            T::one(),                    // vx = 1
-            <T as FromPrimitive>::from_f64(0.5).unwrap(),   // vy = 0.5
+            two * pi,                                      // kx = 2π
+            two * pi,                                      // ky = 2π
+            <T as FromPrimitive>::from_f64(0.01).unwrap(), // α = 0.01
+            T::one(),                                      // vx = 1
+            <T as FromPrimitive>::from_f64(0.5).unwrap(),  // vy = 0.5
         )
     }
 
@@ -79,11 +85,11 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedAdvectionDiffusion<T> {
         let pi = <T as FromPrimitive>::from_f64(PI).unwrap();
         let two = <T as FromPrimitive>::from_f64(2.0).unwrap();
         Self::new(
-            two * pi,                    // kx = 2π
-            two * pi,                    // ky = 2π
-            <T as FromPrimitive>::from_f64(0.1).unwrap(),   // α = 0.1
-            T::one(),                    // vx = 1
-            <T as FromPrimitive>::from_f64(0.5).unwrap(),   // vy = 0.5
+            two * pi,                                     // kx = 2π
+            two * pi,                                     // ky = 2π
+            <T as FromPrimitive>::from_f64(0.1).unwrap(), // α = 0.1
+            T::one(),                                     // vx = 1
+            <T as FromPrimitive>::from_f64(0.5).unwrap(), // vy = 0.5
         )
     }
 
@@ -92,11 +98,11 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedAdvectionDiffusion<T> {
         let pi = <T as FromPrimitive>::from_f64(PI).unwrap();
         let two = <T as FromPrimitive>::from_f64(2.0).unwrap();
         Self::new(
-            two * pi,                    // kx = 2π
-            two * pi,                    // ky = 2π
-            T::one(),                    // α = 1.0
-            T::one(),                    // vx = 1
-            <T as FromPrimitive>::from_f64(0.5).unwrap(),   // vy = 0.5
+            two * pi,                                     // kx = 2π
+            two * pi,                                     // ky = 2π
+            T::one(),                                     // α = 1.0
+            T::one(),                                     // vx = 1
+            <T as FromPrimitive>::from_f64(0.5).unwrap(), // vy = 0.5
         )
     }
 
@@ -213,7 +219,7 @@ mod tests {
         // For the chosen form, source term should be very small (near zero)
         // because the exact solution already satisfies the homogeneous equation
         let source = coupled.source_term(0.5, 0.5, 0.0, 0.1);
-        
+
         // Source should be near zero (within numerical precision)
         assert!(
             source.abs() < 1e-8,
@@ -243,7 +249,10 @@ mod tests {
         let pe_adv = advection_dom.peclet_number(h);
         let pe_diff = diffusion_dom.peclet_number(h);
 
-        assert!(pe_adv > pe_diff, "Advection-dominated should have higher Pe");
+        assert!(
+            pe_adv > pe_diff,
+            "Advection-dominated should have higher Pe"
+        );
         assert!(pe_diff < 1.0, "Diffusion-dominated should have Pe < 1");
     }
 }

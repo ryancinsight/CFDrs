@@ -3,8 +3,8 @@
 //! Implements the Smagorinsky SGS viscosity formula with wall damping
 //! and dynamic constant support.
 
-use nalgebra::DMatrix;
 use super::config::SmagorinskyConfig;
+use nalgebra::DMatrix;
 
 /// Compute SGS viscosity using Smagorinsky model
 ///
@@ -27,15 +27,16 @@ pub fn compute_sgs_viscosity(
             let strain_mag = strain_magnitude[(i, j)];
 
             // Get Smagorinsky constant (fixed or dynamic)
-            let c_s = dynamic_constant
-                .map_or(config.smagorinsky_constant, |dynamic| dynamic[(i, j)]);
+            let c_s =
+                dynamic_constant.map_or(config.smagorinsky_constant, |dynamic| dynamic[(i, j)]);
 
             // Smagorinsky SGS viscosity
             let mut nu_sgs = (c_s * delta).powi(2) * strain_mag;
 
             // Apply wall damping if enabled
             if config.wall_damping {
-                nu_sgs *= compute_wall_damping_factor(i, j, nx, ny, delta, config.van_driest_constant);
+                nu_sgs *=
+                    compute_wall_damping_factor(i, j, nx, ny, delta, config.van_driest_constant);
             }
 
             // Ensure minimum viscosity for numerical stability
@@ -53,7 +54,14 @@ pub fn compute_sgs_viscosity(
 ///
 /// D = 1 - exp(-y⁺/A⁺) where y⁺ is the wall distance in wall units
 /// and A⁺ = 25.5/κ ≈ 26 (van Driest constant ≈ 0.4 gives A⁺ ≈ 26)
-fn compute_wall_damping_factor(i: usize, j: usize, nx: usize, ny: usize, delta: f64, van_driest_constant: f64) -> f64 {
+fn compute_wall_damping_factor(
+    i: usize,
+    j: usize,
+    nx: usize,
+    ny: usize,
+    delta: f64,
+    van_driest_constant: f64,
+) -> f64 {
     // Simplified wall distance calculation (approximate)
     // In a real implementation, this should use proper wall distance computation
     let wall_distance = compute_approximate_wall_distance(i, j, nx, ny);
@@ -76,7 +84,10 @@ fn compute_approximate_wall_distance(i: usize, j: usize, nx: usize, ny: usize) -
     let dist_to_top = (ny - 1 - j) as f64;
 
     // Use the minimum distance (closest wall)
-    dist_to_left.min(dist_to_right).min(dist_to_bottom).min(dist_to_top)
+    dist_to_left
+        .min(dist_to_right)
+        .min(dist_to_bottom)
+        .min(dist_to_top)
 }
 
 /// Compute SGS viscosity without wall damping (for comparison/debugging)
@@ -96,8 +107,7 @@ pub fn compute_sgs_viscosity_no_damping(
             let delta = filter_width[(i, j)];
             let strain_mag = strain_magnitude[(i, j)];
 
-            let nu_sgs = ((smagorinsky_constant * delta).powi(2) * strain_mag)
-                .max(min_viscosity);
+            let nu_sgs = ((smagorinsky_constant * delta).powi(2) * strain_mag).max(min_viscosity);
 
             sgs_viscosity[(i, j)] = nu_sgs * density;
         }
@@ -160,7 +170,8 @@ mod tests {
             wall_damping: false,
             ..config
         };
-        let viscosity_no_damping = compute_sgs_viscosity(&strain, &filter, None, &config_no_damping, 1.0);
+        let viscosity_no_damping =
+            compute_sgs_viscosity(&strain, &filter, None, &config_no_damping, 1.0);
 
         // Wall damping should reduce viscosity near walls
         // (This is a weak test since our wall distance approximation is simple)
@@ -178,7 +189,8 @@ mod tests {
         };
         let dynamic_constant = DMatrix::from_element(10, 10, 0.2); // Higher constant
 
-        let viscosity_dynamic = compute_sgs_viscosity(&strain, &filter, Some(&dynamic_constant), &config, 1.0);
+        let viscosity_dynamic =
+            compute_sgs_viscosity(&strain, &filter, Some(&dynamic_constant), &config, 1.0);
         let viscosity_fixed = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0);
 
         // Dynamic constant should give 4x higher viscosity (0.2/0.1 = 2, squared = 4)

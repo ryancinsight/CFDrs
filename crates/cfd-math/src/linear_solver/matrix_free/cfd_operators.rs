@@ -52,8 +52,11 @@ impl<T: RealField + Copy + From<f64>> LinearOperator<T> for LaplacianOperator2D<
                 let center = x[idx];
 
                 // Second derivatives
-                let d2x_dx2 = (x[idx - 1] + x[idx + 1] - T::from_f64(2.0).unwrap() * center) * dx2_inv;
-                let d2x_dy2 = (x[idx - self.nx] + x[idx + self.nx] - T::from_f64(2.0).unwrap() * center) * dy2_inv;
+                let d2x_dx2 =
+                    (x[idx - 1] + x[idx + 1] - T::from_f64(2.0).unwrap() * center) * dx2_inv;
+                let d2x_dy2 = (x[idx - self.nx] + x[idx + self.nx]
+                    - T::from_f64(2.0).unwrap() * center)
+                    * dy2_inv;
 
                 y[idx] = -(d2x_dx2 + d2x_dy2); // Negative Laplacian
             }
@@ -122,7 +125,12 @@ pub struct MomentumOperator1D<T: RealField + Copy> {
 impl<T: RealField + Copy> MomentumOperator1D<T> {
     /// Create a new 1D momentum operator.
     pub fn new(n: usize, dx: T, viscosity: T, convection_velocity: T) -> Self {
-        Self { n, dx, viscosity, convection_velocity }
+        Self {
+            n,
+            dx,
+            viscosity,
+            convection_velocity,
+        }
     }
 }
 
@@ -142,7 +150,9 @@ impl<T: RealField + Copy + From<f64>> LinearOperator<T> for MomentumOperator1D<T
             let center = x[i];
 
             // Diffusion term: ν*d²u/dx²
-            let diffusion = self.viscosity * (x[i - 1] + x[i + 1] - T::from_f64(2.0).unwrap() * center) * dx2_inv;
+            let diffusion = self.viscosity
+                * (x[i - 1] + x[i + 1] - T::from_f64(2.0).unwrap() * center)
+                * dx2_inv;
 
             // Convection term: -u*du/dx (upwind approximation)
             let du_dx = (center - x[i - 1]) * dx_inv; // Backward difference
@@ -181,7 +191,14 @@ pub struct PoissonOperator3D<T: RealField + Copy> {
 impl<T: RealField + Copy> PoissonOperator3D<T> {
     /// Create a new 3D Poisson operator.
     pub fn new(nx: usize, ny: usize, nz: usize, dx: T, dy: T, dz: T) -> Self {
-        Self { nx, ny, nz, dx, dy, dz }
+        Self {
+            nx,
+            ny,
+            nz,
+            dx,
+            dy,
+            dz,
+        }
     }
 }
 
@@ -204,9 +221,14 @@ impl<T: RealField + Copy + From<f64>> LinearOperator<T> for PoissonOperator3D<T>
                     let idx = k * self.ny * self.nx + j * self.nx + i;
 
                     // Second derivatives in all directions
-                    let d2x_dx2 = (x[idx - 1] + x[idx + 1] - T::from_f64(2.0).unwrap() * x[idx]) * dx2_inv;
-                    let d2x_dy2 = (x[idx - self.nx] + x[idx + self.nx] - T::from_f64(2.0).unwrap() * x[idx]) * dy2_inv;
-                    let d2x_dz2 = (x[idx - self.nx * self.ny] + x[idx + self.nx * self.ny] - T::from_f64(2.0).unwrap() * x[idx]) * dz2_inv;
+                    let d2x_dx2 =
+                        (x[idx - 1] + x[idx + 1] - T::from_f64(2.0).unwrap() * x[idx]) * dx2_inv;
+                    let d2x_dy2 = (x[idx - self.nx] + x[idx + self.nx]
+                        - T::from_f64(2.0).unwrap() * x[idx])
+                        * dy2_inv;
+                    let d2x_dz2 = (x[idx - self.nx * self.ny] + x[idx + self.nx * self.ny]
+                        - T::from_f64(2.0).unwrap() * x[idx])
+                        * dz2_inv;
 
                     // Negative Laplacian
                     y[idx] = -(d2x_dx2 + d2x_dy2 + d2x_dz2);
@@ -297,8 +319,13 @@ impl<T: RealField + Copy> MomentumOperator2D<T> {
         assert_eq!(velocity_u.len(), nx * ny);
         assert_eq!(velocity_v.len(), nx * ny);
         Self {
-            nx, ny, dx, dy, viscosity,
-            velocity_u, velocity_v
+            nx,
+            ny,
+            dx,
+            dy,
+            viscosity,
+            velocity_u,
+            velocity_v,
         }
     }
 }
@@ -323,16 +350,18 @@ impl<T: RealField + Copy + From<f64>> LinearOperator<T> for MomentumOperator2D<T
                 let center = x[idx];
 
                 // Laplacian term: ν∇²u
-                let laplacian = self.viscosity * (
-                    (x[idx - 1] + x[idx + 1] - T::from_f64(2.0).unwrap() * center) * dx2_inv +
-                    (x[idx - self.nx] + x[idx + self.nx] - T::from_f64(2.0).unwrap() * center) * dy2_inv
-                );
+                let laplacian = self.viscosity
+                    * ((x[idx - 1] + x[idx + 1] - T::from_f64(2.0).unwrap() * center) * dx2_inv
+                        + (x[idx - self.nx] + x[idx + self.nx]
+                            - T::from_f64(2.0).unwrap() * center)
+                            * dy2_inv);
 
                 // Simplified convection term: u·∇u (central difference approximation)
                 let ui = self.velocity_u[idx];
                 let vi = self.velocity_v[idx];
                 let du_dx = (x[idx + 1] - x[idx - 1]) * T::from_f64(0.5).unwrap() * dx_inv;
-                let du_dy = (x[idx + self.nx] - x[idx - self.nx]) * T::from_f64(0.5).unwrap() * dy_inv;
+                let du_dy =
+                    (x[idx + self.nx] - x[idx - self.nx]) * T::from_f64(0.5).unwrap() * dy_inv;
                 let convection = ui * du_dx + vi * du_dy;
 
                 // Combine terms: result = -ν∇²u + convection
@@ -401,8 +430,13 @@ impl<T: RealField + Copy> EnergyOperator2D<T> {
         assert_eq!(velocity_u.len(), nx * ny);
         assert_eq!(velocity_v.len(), nx * ny);
         Self {
-            nx, ny, dx, dy, thermal_diffusivity,
-            velocity_u, velocity_v
+            nx,
+            ny,
+            dx,
+            dy,
+            thermal_diffusivity,
+            velocity_u,
+            velocity_v,
         }
     }
 }
@@ -427,16 +461,18 @@ impl<T: RealField + Copy + From<f64>> LinearOperator<T> for EnergyOperator2D<T> 
                 let center = x[idx];
 
                 // Diffusion: α∇²T
-                let diffusion = self.thermal_diffusivity * (
-                    (x[idx - 1] + x[idx + 1] - T::from_f64(2.0).unwrap() * center) * dx2_inv +
-                    (x[idx - self.nx] + x[idx + self.nx] - T::from_f64(2.0).unwrap() * center) * dy2_inv
-                );
+                let diffusion = self.thermal_diffusivity
+                    * ((x[idx - 1] + x[idx + 1] - T::from_f64(2.0).unwrap() * center) * dx2_inv
+                        + (x[idx - self.nx] + x[idx + self.nx]
+                            - T::from_f64(2.0).unwrap() * center)
+                            * dy2_inv);
 
                 // Advection: -(u·∇)T
                 let ui = self.velocity_u[idx];
                 let vi = self.velocity_v[idx];
                 let d_t_dx = (x[idx + 1] - x[idx - 1]) * T::from_f64(0.5).unwrap() * dx_inv;
-                let d_t_dy = (x[idx + self.nx] - x[idx - self.nx]) * T::from_f64(0.5).unwrap() * dy_inv;
+                let d_t_dy =
+                    (x[idx + self.nx] - x[idx - self.nx]) * T::from_f64(0.5).unwrap() * dy_inv;
                 let advection = ui * d_t_dx + vi * d_t_dy;
 
                 y[idx] = diffusion - advection;
@@ -504,7 +540,12 @@ mod tests {
         for j in 1..4 {
             for i in 1..4 {
                 let idx = j * 5 + i;
-                assert!((y[idx] as f64).abs() < 1e-10, "Interior point {} should be near zero, got {}", idx, y[idx]);
+                assert!(
+                    (y[idx] as f64).abs() < 1e-10,
+                    "Interior point {} should be near zero, got {}",
+                    idx,
+                    y[idx]
+                );
             }
         }
     }
@@ -538,7 +579,11 @@ mod tests {
 
         // Interior points should be zero for constant field
         let center_idx = 1 * 9 + 1 * 3 + 1; // (k=1,j=1,i=1) in 3x3x3 grid
-        assert!((y[center_idx] as f64).abs() < 1e-10, "Center should be near zero, got {}", y[center_idx]);
+        assert!(
+            (y[center_idx] as f64).abs() < 1e-10,
+            "Center should be near zero, got {}",
+            y[center_idx]
+        );
     }
 
     #[test]

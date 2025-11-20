@@ -96,8 +96,8 @@ mod tests {
         let shift = dt * (u * a + v * b);
 
         // Validate exactness for interior points (away from boundaries)
-        for j in 1..ny-1 {
-            for i in 1..nx-1 {
+        for j in 1..ny - 1 {
+            for i in 1..nx - 1 {
                 let idx = j * nx + i;
                 let expected = input[idx] - shift;
                 assert!((output[idx] - expected).abs() < 1e-12);

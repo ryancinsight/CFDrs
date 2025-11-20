@@ -167,7 +167,9 @@ use super::config::{AlgorithmType, SimplecPimpleConfig};
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::physics::{MomentumComponent, MomentumSolver};
-use crate::pressure_velocity::{PressureCorrectionSolver, PressureVelocityConfig, RhieChowInterpolation};
+use crate::pressure_velocity::{
+    PressureCorrectionSolver, PressureVelocityConfig, RhieChowInterpolation,
+};
 use nalgebra::{RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
 
@@ -192,7 +194,9 @@ pub struct SimplecPimpleSolver<T: RealField + Copy> {
     iterations: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> SimplecPimpleSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
+    SimplecPimpleSolver<T>
+{
     /// Create new SIMPLEC/PIMPLE solver
     pub fn new(
         grid: StructuredGrid2D<T>,
@@ -218,7 +222,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
             implicit_momentum: true,
             pressure_linear_solver: Default::default(),
         };
-        let pressure_solver = PressureCorrectionSolver::new(grid.clone(), pv_config.pressure_linear_solver)?;
+        let pressure_solver =
+            PressureCorrectionSolver::new(grid.clone(), pv_config.pressure_linear_solver)?;
 
         let rhie_chow = if config.use_rhie_chow {
             let mut rhie_chow = RhieChowInterpolation::new(&grid);
@@ -278,7 +283,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
         let mut last_residual = T::max_value().unwrap_or(T::from_f64(1e10).unwrap_or(T::one()));
 
         // Adaptive stepping parameters
-        let dt_increase_factor = T::from_f64(1.2).unwrap_or_else(|| T::one() + T::from_f64(0.2).unwrap());
+        let dt_increase_factor =
+            T::from_f64(1.2).unwrap_or_else(|| T::one() + T::from_f64(0.2).unwrap());
         let dt_decrease_factor = T::from_f64(0.7).unwrap_or_else(|| T::from_f64(0.7).unwrap());
         let min_dt = dt_initial * T::from_f64(0.1).unwrap_or_else(|| T::from_f64(0.1).unwrap());
         let max_dt = dt_initial * T::from_f64(5.0).unwrap_or_else(|| T::from_f64(5.0).unwrap());
@@ -296,18 +302,23 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
             // Try Aitken's delta-squared acceleration if we have enough history
             if residuals.len() >= 3 {
                 let n = residuals.len();
-                let r0 = residuals[n-3];
-                let r1 = residuals[n-2];
-                let r2 = residuals[n-1];
+                let r0 = residuals[n - 3];
+                let r1 = residuals[n - 2];
+                let r2 = residuals[n - 1];
 
                 // Aitken's formula: r_accelerated = r0 - (r1 - r0)² / (r2 - 2*r1 + r0)
-                let denominator = r2 - r1 * T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()) + r0;
+                let denominator =
+                    r2 - r1 * T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()) + r0;
                 if denominator.abs() > T::default_epsilon() {
                     let numerator = (r1 - r0) * (r1 - r0);
                     let r_accelerated = r0 - numerator / denominator;
 
                     if r_accelerated > T::zero() && r_accelerated < residual {
-                        tracing::debug!("Aitken acceleration applied: {:.6e} -> {:.6e}", residual, r_accelerated);
+                        tracing::debug!(
+                            "Aitken acceleration applied: {:.6e} -> {:.6e}",
+                            residual,
+                            r_accelerated
+                        );
                         // If acceleration gives better residual, we could potentially accelerate convergence
                         // For now, just log the accelerated value
                     }
@@ -315,14 +326,26 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
             }
 
             // Adaptive time step adjustment based on convergence behavior
-            if residual < last_residual * T::from_f64(0.95).unwrap_or_else(|| T::from_f64(0.95).unwrap()) {
+            if residual
+                < last_residual * T::from_f64(0.95).unwrap_or_else(|| T::from_f64(0.95).unwrap())
+            {
                 // Residual decreasing well - can increase time step
                 dt = (dt * dt_increase_factor).min(max_dt);
-                tracing::debug!("Time step increased to {:.6}, residual: {:.6e}", dt, residual);
-            } else if residual > last_residual * T::from_f64(1.05).unwrap_or_else(|| T::from_f64(1.05).unwrap()) {
+                tracing::debug!(
+                    "Time step increased to {:.6}, residual: {:.6e}",
+                    dt,
+                    residual
+                );
+            } else if residual
+                > last_residual * T::from_f64(1.05).unwrap_or_else(|| T::from_f64(1.05).unwrap())
+            {
                 // Residual increasing - need to decrease time step
                 dt = (dt * dt_decrease_factor).max(min_dt);
-                tracing::debug!("Time step decreased to {:.6}, residual: {:.6e}", dt, residual);
+                tracing::debug!(
+                    "Time step decreased to {:.6}, residual: {:.6e}",
+                    dt,
+                    residual
+                );
             }
 
             last_residual = residual;
@@ -330,7 +353,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
             step_count += 1;
         }
 
-        let final_residual = *residuals.last().unwrap_or(&T::max_value().unwrap_or(T::from_f64(1e10).unwrap_or(T::one())));
+        let final_residual = *residuals
+            .last()
+            .unwrap_or(&T::max_value().unwrap_or(T::from_f64(1e10).unwrap_or(T::one())));
         Ok((dt, final_residual))
     }
 
@@ -370,8 +395,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
 
         for iter in 0..max_iterations {
             // Step 1: Solve momentum equations to get predicted velocities u*
-            let coeffs_u = self.momentum_solver.solve_with_coefficients(MomentumComponent::U, fields, dt)?;
-            let coeffs_v = self.momentum_solver.solve_with_coefficients(MomentumComponent::V, fields, dt)?;
+            let coeffs_u =
+                self.momentum_solver
+                    .solve_with_coefficients(MomentumComponent::U, fields, dt)?;
+            let coeffs_v =
+                self.momentum_solver
+                    .solve_with_coefficients(MomentumComponent::V, fields, dt)?;
 
             // Step 2: Update Rhie-Chow coefficients for consistent interpolation
             if let Some(ref mut rhie_chow) = self.rhie_chow {
@@ -388,7 +417,27 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
             }
 
             // Step 4: Solve pressure correction equation ∇²p' = (ρ/Δt) ∇·u*
-            let p_correction = self.pressure_solver.solve_pressure_correction(&u_star, dt, rho)?;
+            let p_correction = if let Some(ref rhie_chow) = self.rhie_chow {
+                // Use Rhie-Chow consistent velocities
+                let consistent_velocity = self.interpolate_consistent_velocity(rhie_chow, fields);
+
+                // Extract u_face and v_face
+                let mut u_face = vec![vec![T::zero(); self.grid.ny]; self.grid.nx];
+                let mut v_face = vec![vec![T::zero(); self.grid.ny]; self.grid.nx];
+                for i in 0..self.grid.nx {
+                    for j in 0..self.grid.ny {
+                        u_face[i][j] = consistent_velocity[i][j].x;
+                        v_face[i][j] = consistent_velocity[i][j].y;
+                    }
+                }
+
+                self.pressure_solver.solve_pressure_correction_from_faces(
+                    &u_face, &v_face, dt, rho,
+                )?
+            } else {
+                self.pressure_solver
+                    .solve_pressure_correction(&u_star, dt, rho)?
+            };
 
             // Step 5: Correct velocities using pressure gradients with under-relaxation
             let mut u_corrected = u_star.clone();
@@ -402,14 +451,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
 
             // Step 6: Correct pressure with under-relaxation
             let mut p_vec = self.field2d_to_vec2d(&fields.p);
-            self.pressure_solver.correct_pressure(&mut p_vec, &p_correction, self.config.alpha_p);
+            self.pressure_solver
+                .correct_pressure(&mut p_vec, &p_correction, self.config.alpha_p);
             self.vec2d_to_field2d(&mut fields.p, &p_vec);
 
             // Step 7: Update velocity fields with corrected values
             self.update_velocity_fields(fields, &u_corrected);
 
             // Step 8: Check convergence based on multiple criteria
-            let velocity_residual = self.calculate_velocity_residual_from_vectors(&u_prev, &u_corrected);
+            let velocity_residual =
+                self.calculate_velocity_residual_from_vectors(&u_prev, &u_corrected);
             continuity_residual = self.calculate_continuity_residual(fields);
 
             // Update previous velocity for next iteration
@@ -417,7 +468,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
 
             // Convergence criteria: both velocity change and continuity must be satisfied
             let velocity_converged = velocity_residual < self.config.tolerance;
-            let continuity_converged = continuity_residual < T::from_f64(1e-6).unwrap_or_else(|| self.config.tolerance);
+            let continuity_converged =
+                continuity_residual < T::from_f64(1e-6).unwrap_or_else(|| self.config.tolerance);
 
             residual = velocity_residual.max(continuity_residual);
 
@@ -432,7 +484,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
             if iter > 5 && !velocity_converged {
                 // Slightly reduce under-relaxation to improve convergence
                 // This is a simple adaptive scheme
-                tracing::debug!("Reducing under-relaxation at iteration {} for better convergence", iter + 1);
+                tracing::debug!(
+                    "Reducing under-relaxation at iteration {} for better convergence",
+                    iter + 1
+                );
             }
         }
 
@@ -476,8 +531,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
 
             // Step 1: Solve momentum equations (explicit or semi-implicit)
             // For PIMPLE, typically uses larger time steps with subcycling
-            let coeffs_u = self.momentum_solver.solve_with_coefficients(MomentumComponent::U, fields, dt)?;
-            let _coeffs_v = self.momentum_solver.solve_with_coefficients(MomentumComponent::V, fields, dt)?;
+            let coeffs_u =
+                self.momentum_solver
+                    .solve_with_coefficients(MomentumComponent::U, fields, dt)?;
+            let _coeffs_v =
+                self.momentum_solver
+                    .solve_with_coefficients(MomentumComponent::V, fields, dt)?;
 
             // Update Rhie-Chow coefficients if enabled (improves consistency)
             if let Some(ref mut rhie_chow) = self.rhie_chow {
@@ -489,15 +548,27 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
 
             // Step 3: Inner PISO-like corrections for subcycling
             for _inner_iter in 0..self.config.n_inner_correctors {
-                // Get consistent velocity interpolation for pressure equation
-                let u_consistent = if let Some(ref rhie_chow) = self.rhie_chow {
-                    self.interpolate_consistent_velocity(rhie_chow, fields)
-                } else {
-                    u_star.clone()
-                };
-
                 // Solve pressure Poisson equation: ∇²p' = ∇·u_consistent/Δt
-                let p_correction = self.pressure_solver.solve_pressure_correction(&u_consistent, dt, rho)?;
+                let p_correction = if let Some(ref rhie_chow) = self.rhie_chow {
+                    let u_consistent = self.interpolate_consistent_velocity(rhie_chow, fields);
+                    
+                    // Extract u_face and v_face
+                    let mut u_face = vec![vec![T::zero(); self.grid.ny]; self.grid.nx];
+                    let mut v_face = vec![vec![T::zero(); self.grid.ny]; self.grid.nx];
+                    for i in 0..self.grid.nx {
+                        for j in 0..self.grid.ny {
+                            u_face[i][j] = u_consistent[i][j].x;
+                            v_face[i][j] = u_consistent[i][j].y;
+                        }
+                    }
+
+                    self.pressure_solver.solve_pressure_correction_from_faces(
+                        &u_face, &v_face, dt, rho,
+                    )?
+                } else {
+                    self.pressure_solver
+                        .solve_pressure_correction(&u_star, dt, rho)?
+                };
 
                 // Velocity correction: u = u* - (dt/ρ)∇p'
                 let mut u_corrected = u_star.clone();
@@ -511,7 +582,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
 
                 // Pressure correction: p = p + α_p * p'
                 let mut p_vec = self.field2d_to_vec2d(&fields.p);
-                self.pressure_solver.correct_pressure(&mut p_vec, &p_correction, self.config.alpha_p);
+                self.pressure_solver.correct_pressure(
+                    &mut p_vec,
+                    &p_correction,
+                    self.config.alpha_p,
+                );
                 self.vec2d_to_field2d(&mut fields.p, &p_vec);
 
                 // Update velocity fields
@@ -520,7 +595,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
 
             // Check outer loop convergence
             let u_current = self.extract_velocity_field(fields);
-            let outer_residual = self.calculate_velocity_residual_from_vectors(&u_before_outer, &u_current);
+            let outer_residual =
+                self.calculate_velocity_residual_from_vectors(&u_before_outer, &u_current);
 
             // PIMPLE convergence based on velocity continuity
             if outer_residual < self.config.tolerance * T::from_f64(5.0).unwrap() {
@@ -528,15 +604,21 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
             }
 
             // Global convergence monitoring (relative to initial state)
-            _global_residual = self.calculate_velocity_residual_from_vectors(&u_initial, &u_current);
+            _global_residual =
+                self.calculate_velocity_residual_from_vectors(&u_initial, &u_current);
         }
 
         // Final convergence check
-        let final_residual = self.calculate_velocity_residual_from_vectors(&u_initial, &self.extract_velocity_field(fields));
+        let final_residual = self.calculate_velocity_residual_from_vectors(
+            &u_initial,
+            &self.extract_velocity_field(fields),
+        );
 
         if final_residual > self.config.tolerance * T::from_f64(10.0).unwrap() {
-            tracing::warn!("PIMPLE did not achieve desired convergence, residual: {:.2e}",
-                          final_residual);
+            tracing::warn!(
+                "PIMPLE did not achieve desired convergence, residual: {:.2e}",
+                final_residual
+            );
         }
 
         self.iterations += 1;
@@ -591,7 +673,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
         fields: &SimulationFields<T>,
     ) -> Vec<Vec<Vector2<T>>> {
         // Create a Field2D<Vector2<T>> from the u and v components
-        let mut velocity_field = crate::fields::Field2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
+        let mut velocity_field =
+            crate::fields::Field2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
         for i in 0..self.grid.nx {
             for j in 0..self.grid.ny {
                 velocity_field.set(i, j, Vector2::new(fields.u.at(i, j), fields.v.at(i, j)));
@@ -679,7 +762,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
     }
 
     /// Update simulation fields with velocity
-    fn _update_simulation_fields(&self, fields: &mut SimulationFields<T>, velocity: &[Vec<Vector2<T>>]) {
+    fn _update_simulation_fields(
+        &self,
+        fields: &mut SimulationFields<T>,
+        velocity: &[Vec<Vector2<T>>],
+    ) {
         for i in 0..self.grid.nx {
             for j in 0..self.grid.ny {
                 fields.set_velocity_at(i, j, &velocity[i][j]);
@@ -688,12 +775,17 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
     }
 
     /// Update velocity fields in simulation fields with under-relaxation
-    fn update_velocity_fields(&self, fields: &mut SimulationFields<T>, new_velocity: &[Vec<Vector2<T>>]) {
+    fn update_velocity_fields(
+        &self,
+        fields: &mut SimulationFields<T>,
+        new_velocity: &[Vec<Vector2<T>>],
+    ) {
         for i in 0..self.grid.nx {
             for j in 0..self.grid.ny {
                 // Under-relaxation: u_new = α * u_computed + (1-α) * u_old
                 let u_old = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
-                let u_new = new_velocity[i][j].scale(self.config.alpha_u) + u_old.scale(T::one() - self.config.alpha_u);
+                let u_new = new_velocity[i][j].scale(self.config.alpha_u)
+                    + u_old.scale(T::one() - self.config.alpha_u);
 
                 fields.set_velocity_at(i, j, &u_new);
             }
@@ -754,8 +846,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
         for i in 1..self.grid.nx - 1 {
             for j in 1..self.grid.ny - 1 {
                 // Central difference approximation of divergence
-                let du_dx = (fields.u.at(i + 1, j) - fields.u.at(i - 1, j)) / (T::from_f64(2.0).unwrap() * self.grid.dx);
-                let dv_dy = (fields.v.at(i, j + 1) - fields.v.at(i, j - 1)) / (T::from_f64(2.0).unwrap() * self.grid.dy);
+                let du_dx = (fields.u.at(i + 1, j) - fields.u.at(i - 1, j))
+                    / (T::from_f64(2.0).unwrap() * self.grid.dx);
+                let dv_dy = (fields.v.at(i, j + 1) - fields.v.at(i, j - 1))
+                    / (T::from_f64(2.0).unwrap() * self.grid.dy);
 
                 let divergence = du_dx + dv_dy;
                 let abs_divergence = divergence.abs();
@@ -779,8 +873,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
         self.iterations
     }
 
-
-
     /// Reset iteration counter
     pub fn reset_iterations(&mut self) {
         self.iterations = 0;
@@ -797,7 +889,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp> Sim
             BoundaryCondition::Wall {
                 wall_type: WallType::Moving {
                     velocity: Vector3::new(T::one(), T::zero(), T::zero()), // u = 1, v = 0
-                }
+                },
             },
         );
 

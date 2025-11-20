@@ -6,10 +6,8 @@
 //! References:
 //! - Spalart, P. R., & Allmaras, S. R. (1994). "A one-equation turbulence model...". AIAA Paper 92-0439
 
+use cfd_2d::physics::turbulence::constants::{SA_CB1, SA_CB2, SA_CW1, SA_KAPPA_SQ, SA_SIGMA};
 use cfd_2d::physics::turbulence::spalart_allmaras::SpalartAllmaras;
-use cfd_2d::physics::turbulence::constants::{
-    SA_CB1, SA_CB2, SA_CW1, SA_SIGMA, SA_KAPPA_SQ
-};
 
 /// Test SA model core functionality with public interface
 #[test]
@@ -32,7 +30,11 @@ fn test_sa_model_basic() {
     assert!(eddy_visc >= 0.0, "Eddy viscosity should be non-negative");
 
     let wall_distances = model.wall_distance_field(0.1, 0.1);
-    assert_eq!(wall_distances.len(), 10 * 10, "Wall distance field size correct");
+    assert_eq!(
+        wall_distances.len(),
+        10 * 10,
+        "Wall distance field size correct"
+    );
 }
 
 /// Test SA coefficient validation
@@ -82,11 +84,17 @@ fn test_eddy_viscosity_asymptotics() {
     // Small ratio (laminar limit)
     let nu_tilde_small = 1e-8;
     let nu_t_small = model.eddy_viscosity(nu_tilde_small, nu);
-    assert!(nu_t_small < nu_tilde_small, "Eddy viscosity should be much smaller in laminar limit");
+    assert!(
+        nu_t_small < nu_tilde_small,
+        "Eddy viscosity should be much smaller in laminar limit"
+    );
 
     // Large ratio (turbulent limit)
     let nu_tilde_large = 1e-3;
     let nu_t_large = model.eddy_viscosity(nu_tilde_large, nu);
     let ratio = nu_t_large / nu_tilde_large;
-    assert!(ratio > 0.95, "Eddy viscosity should approach molecular limit in turbulent limit");
+    assert!(
+        ratio > 0.95,
+        "Eddy viscosity should approach molecular limit in turbulent limit"
+    );
 }

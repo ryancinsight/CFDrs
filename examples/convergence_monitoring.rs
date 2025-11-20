@@ -58,7 +58,8 @@ fn test_simple_diffusion() -> Result<(), Box<dyn std::error::Error>> {
         // Apply explicit diffusion
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
-                let laplacian = (temperature[i + 1][j] + temperature[i - 1][j]
+                let laplacian = (temperature[i + 1][j]
+                    + temperature[i - 1][j]
                     + temperature[i][j + 1]
                     + temperature[i][j - 1]
                     - 4.0 * temperature[i][j])
@@ -91,14 +92,20 @@ fn test_simple_diffusion() -> Result<(), Box<dyn std::error::Error>> {
                 break;
             }
             ConvergenceStatus::Diverging { growth_rate, .. } => {
-                println!("\n   ✗ Divergence detected! Growth rate: {:.2}", growth_rate);
+                println!(
+                    "\n   ✗ Divergence detected! Growth rate: {:.2}",
+                    growth_rate
+                );
                 break;
             }
             ConvergenceStatus::Stalled {
                 stall_error,
                 stall_iterations,
             } => {
-                println!("\n   ⚠ Convergence stalled at iteration {}", stall_iterations);
+                println!(
+                    "\n   ⚠ Convergence stalled at iteration {}",
+                    stall_iterations
+                );
                 println!("     Stall error: {:.2e}", stall_error);
                 break;
             }
@@ -191,11 +198,11 @@ fn test_poiseuille_with_monitoring() -> Result<(), Box<dyn std::error::Error>> {
 
         if vel_status.is_converged() && res_status.is_converged() {
             println!("\n   ✓ Converged after {} iterations", iteration);
-            
+
             // Validate against analytical solution
             let dy = channel_height / (ny - 1) as f64;
             let mut max_error: f64 = 0.0;
-            
+
             for j in 0..ny {
                 let y = j as f64 * dy;
                 let u_numerical = fields.u.at(nx / 2, j);
@@ -204,15 +211,15 @@ fn test_poiseuille_with_monitoring() -> Result<(), Box<dyn std::error::Error>> {
                 let error = (u_numerical - u_analytical).abs();
                 max_error = max_error.max(error);
             }
-            
+
             println!("     Max error vs analytical: {:.2e}", max_error);
-            
+
             if max_error < 1.0 {
                 println!("     ✓ Solution within acceptable error");
             } else {
                 println!("     ⚠ Solution error exceeds tolerance");
             }
-            
+
             break;
         }
 

@@ -36,11 +36,11 @@ proptest! {
         diffusivity in 0.001f64..0.01
     ) {
         use std::f64::consts::PI;
-        
+
         // Pe = u*L/D where L is characteristic length
         // For Pe > 2, upwind schemes are typically required
         let peclet_number = velocity / diffusivity;
-        
+
         // Create MMS with wavenumbers and velocity components
         let mms = ManufacturedAdvectionDiffusion::new(
             2.0 * PI,      // kx
@@ -49,16 +49,16 @@ proptest! {
             velocity,      // vx
             velocity * 0.5 // vy
         );
-        
+
         // Test at representative point
         let x = 0.5;
         let y = 0.5;
         let t = 0.1;
-        
+
         // Verify solution and source term are finite
         let solution = mms.exact_solution(x, y, 0.0, t);
         let source = mms.source_term(x, y, 0.0, t);
-        
+
         prop_assert!(
             solution.is_finite(),
             "Solution must be finite even at Pe = {:.1}", peclet_number
@@ -81,7 +81,7 @@ proptest! {
         diffusivity in 1e-6f64..1e-3
     ) {
         use std::f64::consts::PI;
-        
+
         let mms = ManufacturedAdvectionDiffusion::new(
             2.0 * PI,      // kx
             2.0 * PI,      // ky
@@ -89,15 +89,15 @@ proptest! {
             velocity,      // vx
             velocity * 0.5 // vy
         );
-        
+
         // Test solution properties in near-inviscid regime
         let x = 0.3;
         let y = 0.7;
         let t = 0.01; // Small time to avoid numerical issues
-        
+
         let solution = mms.exact_solution(x, y, 0.0, t);
         let source = mms.source_term(x, y, 0.0, t);
-        
+
         // Solution should remain bounded even with tiny viscosity
         prop_assert!(
             solution.abs() < 1000.0,
@@ -127,7 +127,7 @@ proptest! {
         viscosity in 0.001f64..0.1
     ) {
         use std::f64::consts::PI;
-        
+
         let burgers = ManufacturedBurgers::new(
             1.0,           // mean velocity
             amplitude,     // large amplitude
@@ -135,14 +135,14 @@ proptest! {
             1.0,           // frequency
             viscosity,
         );
-        
+
         // Test at multiple points to check gradient handling
         let test_points = vec![0.0, 0.25, 0.5, 0.75, 1.0];
-        
+
         for &x in &test_points {
             let solution = burgers.exact_solution(x, 0.0, 0.0, 0.1);
             let source = burgers.source_term(x, 0.0, 0.0, 0.1);
-            
+
             prop_assert!(
                 solution.is_finite(),
                 "Burgers solution must be finite at x={}, amplitude={}", x, amplitude
@@ -166,7 +166,7 @@ proptest! {
         viscosity in 1e-6f64..1e-3
     ) {
         use std::f64::consts::PI;
-        
+
         let burgers = ManufacturedBurgers::new(
             1.0,
             amplitude,
@@ -174,15 +174,15 @@ proptest! {
             1.0,           // frequency
             viscosity,     // very small viscosity
         );
-        
+
         // Test gradient at different times
         let times = vec![0.0, 0.05, 0.1];
-        
+
         for &t in &times {
             let x = 0.5;
             let solution = burgers.exact_solution(x, 0.0, 0.0, t);
             let source = burgers.source_term(x, 0.0, 0.0, t);
-            
+
             prop_assert!(
                 solution.abs() < 100.0,
                 "Solution should remain bounded at low viscosity"
@@ -212,7 +212,7 @@ proptest! {
         diffusivity in 0.01f64..1.0
     ) {
         use std::f64::consts::PI;
-        
+
         let mms = ManufacturedAdvectionDiffusion::new(
             2.0 * PI,      // kx
             2.0 * PI,      // ky
@@ -220,37 +220,37 @@ proptest! {
             velocity,      // vx
             velocity * 0.5 // vy
         );
-        
+
         // Test at three different grid resolutions
         let resolutions = vec![10, 20, 40];
         let t = 0.1;
-        
+
         let mut errors = Vec::new();
-        
+
         for &n in &resolutions {
             let dx = 1.0 / f64::from(n);
             let mut max_error: f64 = 0.0;
-            
+
             // Sample solution at grid points
             for i in 0..n {
                 let x = f64::from(i) * dx;
                 let y = 0.5;
-                
+
                 let exact = mms.exact_solution(x, y, 0.0, t);
-                
+
                 // In a real implementation, we'd compute numerical solution
                 // Here we just verify the exact solution is well-behaved
                 prop_assert!(
                     exact.is_finite(),
                     "Exact solution must be finite at all grid points"
                 );
-                
+
                 max_error = max_error.max(exact.abs());
             }
-            
+
             errors.push(max_error);
         }
-        
+
         // Verify solutions are bounded
         prop_assert!(
             errors.iter().all(|&e| e < 1000.0),
@@ -277,7 +277,7 @@ proptest! {
         dt in 0.001f64..0.01
     ) {
         use std::f64::consts::PI;
-        
+
         let mms = ManufacturedAdvectionDiffusion::new(
             2.0 * PI,      // kx
             2.0 * PI,      // ky
@@ -285,19 +285,19 @@ proptest! {
             velocity,      // vx
             velocity * 0.5 // vy
         );
-        
+
         let x = 0.5;
         let y = 0.5;
-        
+
         // Test solution at multiple time steps
         let n_steps = 10;
-        
+
         for i in 0..n_steps {
             let t = f64::from(i) * dt;
-            
+
             let solution = mms.exact_solution(x, y, 0.0, t);
             let source = mms.source_term(x, y, 0.0, t);
-            
+
             prop_assert!(
                 solution.is_finite(),
                 "Solution must remain finite over time evolution at t={}", t
@@ -322,10 +322,10 @@ proptest! {
         dt in 1e-5f64..1e-4
     ) {
         use std::f64::consts::PI;
-        
+
         // High velocity / low diffusivity creates stiff temporal behavior
         let stiffness_ratio = fast_velocity / slow_diffusivity;
-        
+
         let mms = ManufacturedAdvectionDiffusion::new(
             2.0 * PI,          // kx
             2.0 * PI,          // ky
@@ -333,14 +333,14 @@ proptest! {
             fast_velocity,     // vx (large)
             fast_velocity * 0.5 // vy
         );
-        
+
         // Test at short times relevant to stiff scales
         let times = vec![0.0, dt, 2.0 * dt, 5.0 * dt];
-        
+
         for &t in &times {
             let solution = mms.exact_solution(0.5, 0.5, 0.0, t);
             let source = mms.source_term(0.5, 0.5, 0.0, t);
-            
+
             prop_assert!(
                 solution.is_finite(),
                 "Stiff MMS solution must be finite at stiffness ratio = {:.1}", stiffness_ratio
@@ -366,9 +366,9 @@ proptest! {
 #[test]
 fn test_mms_boundary_values() {
     use std::f64::consts::PI;
-    
+
     let burgers = ManufacturedBurgers::new(1.0, 0.5, 2.0 * PI, 1.0, 0.01);
-    
+
     // Test at domain corners and edges
     let boundary_points = vec![
         (0.0, 0.0),
@@ -378,13 +378,13 @@ fn test_mms_boundary_values() {
         (0.5, 0.0),
         (0.5, 1.0),
     ];
-    
+
     let t = 0.1;
-    
+
     for &(x, y) in &boundary_points {
         let solution = burgers.exact_solution(x, y, 0.0, t);
         let boundary = burgers.boundary_condition(x, y, 0.0, t);
-        
+
         assert!(
             solution.is_finite(),
             "Boundary solution must be finite at ({x}, {y})"
@@ -405,23 +405,23 @@ fn test_mms_boundary_values() {
 #[test]
 fn test_mms_periodic_consistency() {
     use std::f64::consts::PI;
-    
+
     let burgers = ManufacturedBurgers::new(1.0, 0.5, 2.0 * PI, 1.0, 0.01);
-    
+
     // For periodic solutions, u(x+L) = u(x) where L is domain size
     let domain_size = 1.0;
     let t = 0.1;
-    
+
     let test_points = vec![0.0, 0.25, 0.5, 0.75];
-    
+
     for &x in &test_points {
         let u_left = burgers.exact_solution(x, 0.0, 0.0, t);
         let u_right = burgers.exact_solution(x + domain_size, 0.0, 0.0, t);
-        
+
         // For 2π periodic functions, u(x + 1) ≈ u(x) if k = 2π
         // Small numerical differences expected due to floating point
         let diff = (u_left - u_right).abs();
-        
+
         assert!(
             diff < 1e-10,
             "Periodic MMS solution should repeat: diff = {diff} at x = {x}"
@@ -438,17 +438,17 @@ fn test_mms_periodic_consistency() {
 #[test]
 fn test_mms_domain_corners() {
     use std::f64::consts::PI;
-    
+
     let mms = ManufacturedAdvectionDiffusion::new(
-        2.0 * PI,  // kx
-        2.0 * PI,  // ky
-        0.01,      // alpha
-        1.0,       // vx
-        1.0        // vy
+        2.0 * PI, // kx
+        2.0 * PI, // ky
+        0.01,     // alpha
+        1.0,      // vx
+        1.0,      // vy
     );
-    
+
     let t = 0.1;
-    
+
     // Test all four corners of unit domain
     let corners = vec![
         (0.0, 0.0), // bottom-left
@@ -456,11 +456,11 @@ fn test_mms_domain_corners() {
         (0.0, 1.0), // top-left
         (1.0, 1.0), // top-right
     ];
-    
+
     for &(x, y) in &corners {
         let solution = mms.exact_solution(x, y, 0.0, t);
         let source = mms.source_term(x, y, 0.0, t);
-        
+
         assert!(
             solution.is_finite() && solution.abs() < 1e10,
             "Corner solution at ({x}, {y}) must be finite and bounded"
@@ -480,35 +480,35 @@ fn test_mms_domain_corners() {
 #[test]
 fn test_mms_temporal_extremes() {
     use std::f64::consts::PI;
-    
+
     let burgers = ManufacturedBurgers::new(1.0, 0.5, 2.0 * PI, 1.0, 0.01);
-    
+
     let x = 0.5;
     let y = 0.5;
-    
+
     // Test very small time (near initial condition)
     let t_small = 1e-8;
     let u_small = burgers.exact_solution(x, y, 0.0, t_small);
     let u_initial = burgers.exact_solution(x, y, 0.0, 0.0);
-    
+
     assert!(
         (u_small - u_initial).abs() < 0.1,
         "Solution at t={t_small} should be close to initial condition"
     );
-    
+
     // Test moderate time
     let t_moderate = 1.0;
     let u_moderate = burgers.exact_solution(x, y, 0.0, t_moderate);
-    
+
     assert!(
         u_moderate.is_finite(),
         "Solution at t={t_moderate} must remain finite"
     );
-    
+
     // Test larger time (ensure no exponential blowup for stable schemes)
     let t_large = 10.0;
     let u_large = burgers.exact_solution(x, y, 0.0, t_large);
-    
+
     assert!(
         u_large.is_finite() && u_large.abs() < 1e6,
         "Solution at t={t_large} must remain bounded for stable scheme"
@@ -524,27 +524,23 @@ fn test_mms_temporal_extremes() {
 #[test]
 fn test_mms_zero_velocity_diffusion() {
     use std::f64::consts::PI;
-    
+
     let mms = ManufacturedAdvectionDiffusion::new(
-        2.0 * PI,  // kx
-        2.0 * PI,  // ky
-        0.1,       // alpha (diffusivity)
-        0.0,       // vx = 0 (no advection)
-        0.0        // vy = 0 (no advection)
+        2.0 * PI, // kx
+        2.0 * PI, // ky
+        0.1,      // alpha (diffusivity)
+        0.0,      // vx = 0 (no advection)
+        0.0,      // vy = 0 (no advection)
     );
-    
-    let test_points = vec![
-        (0.25, 0.25),
-        (0.5, 0.5),
-        (0.75, 0.75),
-    ];
-    
+
+    let test_points = vec![(0.25, 0.25), (0.5, 0.5), (0.75, 0.75)];
+
     let t = 0.1;
-    
+
     for &(x, y) in &test_points {
         let solution = mms.exact_solution(x, y, 0.0, t);
         let source = mms.source_term(x, y, 0.0, t);
-        
+
         // Pure diffusion with zero velocity should still work
         assert!(
             solution.is_finite(),
@@ -554,7 +550,7 @@ fn test_mms_zero_velocity_diffusion() {
             source.is_finite(),
             "Pure diffusion source at ({x}, {y}) must be finite"
         );
-        
+
         // Solution should decay over time for diffusion (no advection to transport)
         // This is a sanity check on the physics
         assert!(

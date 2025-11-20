@@ -345,7 +345,10 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                         }
                     }
                 }
-                BoundaryCondition::PressureInlet { pressure, velocity_direction } => {
+                BoundaryCondition::PressureInlet {
+                    pressure,
+                    velocity_direction,
+                } => {
                     // Pressure inlet: fixed pressure, optional velocity direction
                     let pressure_dof = dof + constants::VELOCITY_COMPONENTS;
                     builder.add_entry(pressure_dof, pressure_dof, penalty)?;
@@ -407,7 +410,11 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                         }
                     }
                 }
-                BoundaryCondition::Robin { alpha, beta: _, gamma } => {
+                BoundaryCondition::Robin {
+                    alpha,
+                    beta: _,
+                    gamma,
+                } => {
                     // Robin: αu + β∂u/∂n = γ
                     // This is complex to implement properly in FEM without boundary elements
                     // Simplified implementation using penalty method

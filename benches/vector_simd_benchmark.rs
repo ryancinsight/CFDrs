@@ -7,7 +7,7 @@
 //! - Eliminates 27-32% SIMD regression from Sprint 1.55.0
 //! - Restores competitive CFD performance vs OpenFOAM/SU2
 
-use cfd_math::simd::{SimdProcessor, SimdOperation};
+use cfd_math::simd::{SimdOperation, SimdProcessor};
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
 /// Benchmark SIMD vector addition (f32)
@@ -24,7 +24,14 @@ fn bench_simd_add_f32(c: &mut Criterion) {
         group.throughput(Throughput::Elements(size as u64));
         group.bench_function(format!("size_{}", size), |bencher| {
             bencher.iter(|| {
-                processor.process_f32(black_box(&a), black_box(&b), black_box(&mut result), SimdOperation::Add).unwrap();
+                processor
+                    .process_f32(
+                        black_box(&a),
+                        black_box(&b),
+                        black_box(&mut result),
+                        SimdOperation::Add,
+                    )
+                    .unwrap();
             });
         });
     }
@@ -44,7 +51,14 @@ fn bench_simd_mul_f32(c: &mut Criterion) {
         group.throughput(Throughput::Elements(size as u64));
         group.bench_function(format!("size_{}", size), |bencher| {
             bencher.iter(|| {
-                processor.process_f32(black_box(&a), black_box(&b), black_box(&mut result), SimdOperation::Mul).unwrap();
+                processor
+                    .process_f32(
+                        black_box(&a),
+                        black_box(&b),
+                        black_box(&mut result),
+                        SimdOperation::Mul,
+                    )
+                    .unwrap();
             });
         });
     }
@@ -58,21 +72,32 @@ fn bench_simd_momentum_update(c: &mut Criterion) {
 
     // Time step and velocity update: v_new = v_old + dt * rhs
     for &size in &[1_000, 10_000, 50_000] {
-        let v_old = vec![1.0f32; size];  // Old velocity
-        let rhs = (0..size).map(|i| 0.001 * (i % 100) as f32).collect::<Vec<f32>>();
+        let v_old = vec![1.0f32; size]; // Old velocity
+        let rhs = (0..size)
+            .map(|i| 0.001 * (i % 100) as f32)
+            .collect::<Vec<f32>>();
         let dt = 0.01f32;
         let dt_vec = vec![dt; size];
 
         // Compute dt * rhs
         let mut dt_rhs = vec![0.0f32; size];
-        processor.process_f32(&dt_vec, &rhs, &mut dt_rhs, SimdOperation::Mul).unwrap();
+        processor
+            .process_f32(&dt_vec, &rhs, &mut dt_rhs, SimdOperation::Mul)
+            .unwrap();
 
         group.throughput(Throughput::Elements(size as u64));
         group.bench_function(format!("momentum_update_{}", size), |bencher| {
             let mut v_new = v_old.clone();
             bencher.iter(|| {
                 // v_new = v_old + dt_rhs (momentum update)
-                processor.process_f32(black_box(&v_old), black_box(&dt_rhs), black_box(&mut v_new), SimdOperation::Add).unwrap();
+                processor
+                    .process_f32(
+                        black_box(&v_old),
+                        black_box(&dt_rhs),
+                        black_box(&mut v_new),
+                        SimdOperation::Add,
+                    )
+                    .unwrap();
             });
         });
     }
@@ -92,7 +117,14 @@ fn bench_scalar_vs_simd(c: &mut Criterion) {
     // SIMD benchmark
     group.bench_function("simd_add", |bencher| {
         bencher.iter(|| {
-            processor.process_f32(black_box(&a), black_box(&b), black_box(&mut result_simd), SimdOperation::Add).unwrap();
+            processor
+                .process_f32(
+                    black_box(&a),
+                    black_box(&b),
+                    black_box(&mut result_simd),
+                    SimdOperation::Add,
+                )
+                .unwrap();
         });
     });
 
@@ -117,14 +149,25 @@ fn bench_simd_convection_flux(c: &mut Criterion) {
 
     // Convection flux: F = u * phi (velocity * scalar field)
     for &size in &[2_000, 10_000, 50_000] {
-        let u = (0..size).map(|i| 1.0 + 0.01 * (i % 10) as f32).collect::<Vec<f32>>();
-        let phi = (0..size).map(|i| 0.5 + 0.001 * (i % 100) as f32).collect::<Vec<f32>>();
+        let u = (0..size)
+            .map(|i| 1.0 + 0.01 * (i % 10) as f32)
+            .collect::<Vec<f32>>();
+        let phi = (0..size)
+            .map(|i| 0.5 + 0.001 * (i % 100) as f32)
+            .collect::<Vec<f32>>();
         let mut flux = vec![0.0f32; size];
 
         group.throughput(Throughput::Elements(size as u64));
         group.bench_function(format!("convection_flux_{}", size), |bencher| {
             bencher.iter(|| {
-                processor.process_f32(black_box(&u), black_box(&phi), black_box(&mut flux), SimdOperation::Mul).unwrap();
+                processor
+                    .process_f32(
+                        black_box(&u),
+                        black_box(&phi),
+                        black_box(&mut flux),
+                        SimdOperation::Mul,
+                    )
+                    .unwrap();
             });
         });
     }

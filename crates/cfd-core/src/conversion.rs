@@ -26,7 +26,7 @@ pub trait SafeFromF64: RealField + FromPrimitive {
     }
 
     /// Try to convert from f64, returning Result
-    /// 
+    ///
     /// # Errors
     /// Returns `ConversionError` if the f64 value cannot be represented in the target type
     #[inline]
@@ -51,7 +51,7 @@ pub trait SafeFromI32: RealField + FromPrimitive {
     }
 
     /// Try to convert from i32, returning Result
-    /// 
+    ///
     /// # Errors
     /// Returns `ConversionError` if the i32 value cannot be represented in the target type
     #[inline]
@@ -75,7 +75,7 @@ pub trait SafeFromUsize: RealField + FromPrimitive {
     }
 
     /// Try to convert from usize, returning Result
-    /// 
+    ///
     /// # Errors
     /// Returns `ConversionError` if the usize value cannot be represented in the target type
     #[inline]

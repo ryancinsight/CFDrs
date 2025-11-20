@@ -30,7 +30,9 @@ pub struct ComprehensiveCFDValidationSuite<T: RealField + Copy> {
 }
 
 /// Validation test runner for comprehensive CFD verification
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> ComprehensiveCFDValidationSuite<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
+    ComprehensiveCFDValidationSuite<T>
+{
     /// Create new validation suite
     pub fn new() -> Self {
         Self {
@@ -143,7 +145,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
         score += 0.05 * edge_case_score;
         total_weight += 0.05;
 
-        self.validation_score = if total_weight > 0.0 { score / total_weight } else { 0.0 };
+        self.validation_score = if total_weight > 0.0 {
+            score / total_weight
+        } else {
+            0.0
+        };
 
         // Confidence level based on mathematical validation quality following ASME V&V 20-2009
         self.confidence_level = self.compute_mathematical_confidence();
@@ -197,11 +203,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
             cfl_range_end: T::from_f64(1.0).unwrap_or_else(T::one),
             von_neumann_analysis: Some(VonNeumannAnalysis {
                 amplification_factors: vec![T::from_f64(0.9).unwrap_or_else(T::one)],
-                wavenumber_range: (T::from_f64(0.1).unwrap_or_else(T::zero), T::from_f64(3.0).unwrap_or_else(T::one)),
+                wavenumber_range: (
+                    T::from_f64(0.1).unwrap_or_else(T::zero),
+                    T::from_f64(3.0).unwrap_or_else(T::one),
+                ),
                 max_amplification: T::from_f64(0.9).unwrap_or_else(T::one),
             }),
         };
-        self.numerical_stability_analysis.stability_regions.push(sample_region);
+        self.numerical_stability_analysis
+            .stability_regions
+            .push(sample_region);
 
         // Add sample conservation error data
         let sample_conservation = ConservationErrors {
@@ -210,7 +221,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
             energy_conservation_error: T::from_f64(1e-8).unwrap_or_else(T::zero),
             angular_momentum_error: T::from_f64(1e-10).unwrap_or_else(T::zero),
         };
-        self.conservation_analysis.conservation_errors.push(sample_conservation);
+        self.conservation_analysis
+            .conservation_errors
+            .push(sample_conservation);
 
         // Add sample edge case data
         let sample_edge_case = EdgeCaseResult {
@@ -220,7 +233,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
             convergence_algorithm_robustness_passed: true,
             implementation_edge_cases_passed: true,
         };
-        self.edge_case_testing.edge_case_results.push(sample_edge_case);
+        self.edge_case_testing
+            .edge_case_results
+            .push(sample_edge_case);
 
         println!("MMS validation completed successfully");
         Ok(())
@@ -238,7 +253,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
             physical_consistency_passed: true,
             validated_boundaries: vec!["inlet".to_string(), "outlet".to_string()],
         };
-        self.boundary_validation_results.push(sample_boundary_result);
+        self.boundary_validation_results
+            .push(sample_boundary_result);
 
         println!("Boundary condition validation completed successfully");
         Ok(())
@@ -291,9 +307,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
             // Check convergence quality (40% of MMS score)
             if let Some(order) = result.final_estimated_order() {
                 let order_f64 = num_traits::ToPrimitive::to_f64(&order).unwrap_or(0.0);
-                if order_f64 > 1.8 && order_f64 < 2.2 { // Expect 2nd order for diffusion
+                if order_f64 > 1.8 && order_f64 < 2.2 {
+                    // Expect 2nd order for diffusion
                     result_score += 0.4;
-                } else if order_f64 > 0.5 { // At least some convergence
+                } else if order_f64 > 0.5 {
+                    // At least some convergence
                     result_score += 0.2;
                 }
             }
@@ -336,7 +354,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
             let mut result_score = 0.0;
 
             // Boundary condition error magnitude (50% of boundary score)
-            let max_error_f64 = num_traits::ToPrimitive::to_f64(&result.max_bc_error).unwrap_or(1.0);
+            let max_error_f64 =
+                num_traits::ToPrimitive::to_f64(&result.max_bc_error).unwrap_or(1.0);
             if max_error_f64 < 1e-6 {
                 result_score += 0.5; // Excellent boundary accuracy
             } else if max_error_f64 < 1e-4 {
@@ -375,7 +394,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
     /// Score stability analysis results
     fn score_stability_analysis(&self) -> f64 {
         // Placeholder scoring - in practice would analyze stability regions
-        if self.numerical_stability_analysis.stability_regions.is_empty() {
+        if self
+            .numerical_stability_analysis
+            .stability_regions
+            .is_empty()
+        {
             0.0
         } else {
             0.7
@@ -442,7 +465,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
                 cfl_range_end: T::from_f64(0.5).unwrap_or_else(T::one),
                 von_neumann_analysis: Some(VonNeumannAnalysis {
                     amplification_factors: vec![T::from_f64(0.9).unwrap_or_else(T::one)],
-                    wavenumber_range: (T::from_f64(0.1).unwrap_or_else(T::zero), T::from_f64(3.0).unwrap_or_else(T::one)),
+                    wavenumber_range: (
+                        T::from_f64(0.1).unwrap_or_else(T::zero),
+                        T::from_f64(3.0).unwrap_or_else(T::one),
+                    ),
                     max_amplification: T::from_f64(0.9).unwrap_or_else(T::one),
                 }),
             },
@@ -469,14 +495,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
     /// Update conservation analysis with collected results
     fn update_conservation_analysis(&mut self) {
         // Document conservation properties verified
-        self.conservation_analysis.conservation_errors = vec![
-            ConservationErrors {
-                mass_conservation_error: T::from_f64(1e-15).unwrap_or_else(T::zero),
-                momentum_conservation_error: T::from_f64(1e-12).unwrap_or_else(T::zero),
-                energy_conservation_error: T::from_f64(1e-10).unwrap_or_else(T::zero),
-                angular_momentum_error: T::from_f64(1e-12).unwrap_or_else(T::zero),
-            },
-        ];
+        self.conservation_analysis.conservation_errors = vec![ConservationErrors {
+            mass_conservation_error: T::from_f64(1e-15).unwrap_or_else(T::zero),
+            momentum_conservation_error: T::from_f64(1e-12).unwrap_or_else(T::zero),
+            energy_conservation_error: T::from_f64(1e-10).unwrap_or_else(T::zero),
+            angular_momentum_error: T::from_f64(1e-12).unwrap_or_else(T::zero),
+        }];
 
         self.conservation_analysis.conservation_properties = vec![
             "Global conservation: Total mass, momentum, energy conserved".to_string(),
@@ -488,15 +512,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
     /// Update edge case testing with collected results
     fn update_edge_case_testing(&mut self) {
         // Document edge cases tested
-        self.edge_case_testing.edge_case_results = vec![
-            EdgeCaseResult {
-                boundary_condition_edge_cases_passed: true,
-                numerical_stability_edge_cases_passed: true,
-                physical_constraint_validation_passed: true,
-                convergence_algorithm_robustness_passed: true,
-                implementation_edge_cases_passed: true,
-            },
-        ];
+        self.edge_case_testing.edge_case_results = vec![EdgeCaseResult {
+            boundary_condition_edge_cases_passed: true,
+            numerical_stability_edge_cases_passed: true,
+            physical_constraint_validation_passed: true,
+            convergence_algorithm_robustness_passed: true,
+            implementation_edge_cases_passed: true,
+        }];
     }
 
     /// Assess confidence in MMS validation results
@@ -514,9 +536,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
             // Convergence order accuracy (40% of MMS confidence)
             if let Some(order) = result.final_estimated_order() {
                 let order_f64 = num_traits::ToPrimitive::to_f64(&order).unwrap_or(0.0);
-                if order_f64 > 1.8 && order_f64 < 2.2 { // Expect 2nd order for diffusion
+                if order_f64 > 1.8 && order_f64 < 2.2 {
+                    // Expect 2nd order for diffusion
                     result_confidence += 0.4;
-                } else if order_f64 > 0.5 { // At least some convergence
+                } else if order_f64 > 0.5 {
+                    // At least some convergence
                     result_confidence += 0.2;
                 }
             }
@@ -559,7 +583,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
             let mut result_confidence = 0.0;
 
             // Boundary condition error magnitude (50% of boundary confidence)
-            let max_error_f64 = num_traits::ToPrimitive::to_f64(&result.max_bc_error).unwrap_or(1.0);
+            let max_error_f64 =
+                num_traits::ToPrimitive::to_f64(&result.max_bc_error).unwrap_or(1.0);
             if max_error_f64 < 1e-6 {
                 result_confidence += 0.5; // Excellent boundary accuracy
             } else if max_error_f64 < 1e-4 {
@@ -614,7 +639,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
 
             // Stability region coverage (30% of stability confidence)
             // Check if stability region includes common CFL ranges
-            let cfl_start_f64 = num_traits::ToPrimitive::to_f64(&region.cfl_range_start).unwrap_or(0.0);
+            let cfl_start_f64 =
+                num_traits::ToPrimitive::to_f64(&region.cfl_range_start).unwrap_or(0.0);
             let cfl_end_f64 = num_traits::ToPrimitive::to_f64(&region.cfl_range_end).unwrap_or(1.0);
             if cfl_start_f64 <= 0.5 && cfl_end_f64 >= 0.5 {
                 region_confidence += 0.3;
@@ -623,7 +649,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
             // Von Neumann stability analysis (30% of stability confidence)
             if let Some(von_neumann) = &region.von_neumann_analysis {
                 // Check if amplification factor |G| <= 1 for all resolved wavenumbers
-                let max_amplification = von_neumann.amplification_factors
+                let max_amplification = von_neumann
+                    .amplification_factors
                     .iter()
                     .map(|amp| num_traits::ToPrimitive::to_f64(amp).unwrap_or(0.0))
                     .fold(0.0f64, f64::max);
@@ -662,7 +689,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
             let mut property_confidence = 0.0;
 
             // Mass conservation (30% of conservation confidence)
-            let mass_error = num_traits::ToPrimitive::to_f64(&error.mass_conservation_error).unwrap_or(0.0).abs();
+            let mass_error = num_traits::ToPrimitive::to_f64(&error.mass_conservation_error)
+                .unwrap_or(0.0)
+                .abs();
             if mass_error < 1e-12 {
                 property_confidence += 0.3; // Excellent conservation
             } else if mass_error < 1e-8 {
@@ -672,7 +701,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
             }
 
             // Momentum conservation (25% of conservation confidence)
-            let momentum_error = num_traits::ToPrimitive::to_f64(&error.momentum_conservation_error).unwrap_or(0.0).abs();
+            let momentum_error =
+                num_traits::ToPrimitive::to_f64(&error.momentum_conservation_error)
+                    .unwrap_or(0.0)
+                    .abs();
             if momentum_error < 1e-10 {
                 property_confidence += 0.25; // Excellent conservation
             } else if momentum_error < 1e-6 {
@@ -682,7 +714,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
             }
 
             // Energy conservation (25% of conservation confidence)
-            let energy_error = num_traits::ToPrimitive::to_f64(&error.energy_conservation_error).unwrap_or(0.0).abs();
+            let energy_error = num_traits::ToPrimitive::to_f64(&error.energy_conservation_error)
+                .unwrap_or(0.0)
+                .abs();
             if energy_error < 1e-8 {
                 property_confidence += 0.25; // Excellent conservation
             } else if energy_error < 1e-4 {
@@ -692,7 +726,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Comp
             }
 
             // Angular momentum conservation (20% of conservation confidence)
-            let angular_momentum_error = num_traits::ToPrimitive::to_f64(&error.angular_momentum_error).unwrap_or(0.0).abs();
+            let angular_momentum_error =
+                num_traits::ToPrimitive::to_f64(&error.angular_momentum_error)
+                    .unwrap_or(0.0)
+                    .abs();
             if angular_momentum_error < 1e-10 {
                 property_confidence += 0.2; // Excellent conservation
             } else if angular_momentum_error < 1e-6 {

@@ -155,7 +155,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
         // "A test problem for outflow boundary conditions"
         // For expansion ratio ER = 2.0 (typical backward-facing step):
         // Re = 100:  x_r/h ≈ 3.0
-        // Re = 200:  x_r/h ≈ 5.0  
+        // Re = 200:  x_r/h ≈ 5.0
         // Re = 400:  x_r/h ≈ 6.8
         // Re = 800:  x_r/h ≈ 10.0
         //
@@ -166,11 +166,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
         // At Re=200: x_r/h ≈ 2.51 * h
         // At Re=400: x_r/h ≈ 3.98 * h
         // At Re=800: x_r/h ≈ 6.31 * h
-        
+
         // Default reference for moderate Reynolds number (Re~200-400)
-        let reference_reattachment = T::from_f64(6.0).unwrap_or_else(|| T::from_i32(6).unwrap()) 
-            * self.step_height;
-        
+        let reference_reattachment =
+            T::from_f64(6.0).unwrap_or_else(|| T::from_i32(6).unwrap()) * self.step_height;
+
         Some(BenchmarkResult {
             name: "Backward Facing Step (Reference)".to_string(),
             values: vec![reference_reattachment],
@@ -186,45 +186,47 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
         if result.values.is_empty() {
             return Ok(false);
         }
-        
+
         let computed_reattachment = result.values[0];
-        
+
         // Get reference solution
         if let Some(reference) = self.reference_solution() {
             let reference_reattachment = reference.values[0];
-            
+
             // Allow 30% tolerance due to:
             // 1. Different numerical schemes yield different reattachment points
             // 2. Grid resolution effects (coarse grids over-predict)
             // 3. Reference data variability across different studies
             // This is consistent with literature comparisons (Gartling 1990, Armaly et al. 1983)
             let tolerance = T::from_f64(0.30).unwrap_or_else(|| T::from_f64(0.3).unwrap());
-            let relative_error = ((computed_reattachment - reference_reattachment).abs()) 
-                / reference_reattachment;
-            
+            let relative_error =
+                ((computed_reattachment - reference_reattachment).abs()) / reference_reattachment;
+
             // Validation passes if within 30% of reference
             let within_tolerance = relative_error <= tolerance;
-            
+
             // Additional sanity checks
-            let physically_reasonable = computed_reattachment > T::zero() 
-                && computed_reattachment < T::from_f64(20.0).unwrap_or_else(|| T::from_i32(20).unwrap()) 
-                    * self.step_height;
-            
+            let physically_reasonable = computed_reattachment > T::zero()
+                && computed_reattachment
+                    < T::from_f64(20.0).unwrap_or_else(|| T::from_i32(20).unwrap())
+                        * self.step_height;
+
             // Check convergence occurred
             let converged = if let Some(last_residual) = result.convergence.last() {
-                last_residual.abs() < T::from_f64(1e-4).unwrap_or_else(|| T::from_f64(0.0001).unwrap())
+                last_residual.abs()
+                    < T::from_f64(1e-4).unwrap_or_else(|| T::from_f64(0.0001).unwrap())
             } else {
                 false
             };
-            
+
             return Ok(within_tolerance && physically_reasonable && converged);
         }
-        
+
         // Fallback: basic sanity checks without reference
-        let physically_reasonable = computed_reattachment > T::zero() 
-            && computed_reattachment < T::from_f64(20.0).unwrap_or_else(|| T::from_i32(20).unwrap()) 
-                * self.step_height;
-        
+        let physically_reasonable = computed_reattachment > T::zero()
+            && computed_reattachment
+                < T::from_f64(20.0).unwrap_or_else(|| T::from_i32(20).unwrap()) * self.step_height;
+
         Ok(physically_reasonable)
     }
 }

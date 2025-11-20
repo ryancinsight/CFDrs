@@ -4,8 +4,8 @@ use nalgebra::{ComplexField, RealField};
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 use std::collections::HashMap;
 
-use super::types::*;
 use super::core::*;
+use super::types::*;
 use crate::convergence::ConvergenceStudy;
 use crate::error_metrics::L2Norm;
 use crate::geometry::Geometry;
@@ -59,8 +59,8 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
     pub fn run_study(&self) -> Result<RichardsonMmsResult<T>, String> {
         // Default grid sizes for geometric refinement
         let grid_sizes = vec![
-            T::from_f64(0.25).unwrap(), // coarse
-            T::from_f64(0.125).unwrap(), // medium
+            T::from_f64(0.25).unwrap(),   // coarse
+            T::from_f64(0.125).unwrap(),  // medium
             T::from_f64(0.0625).unwrap(), // fine
         ];
 
@@ -92,7 +92,8 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         let gci_values = Self::compute_gci_values(grid_sizes, &l2_errors)?;
 
         // Check asymptotic range
-        let is_asymptotic = Self::check_asymptotic_range(grid_sizes, &l2_errors, &richardson_results)?;
+        let is_asymptotic =
+            Self::check_asymptotic_range(grid_sizes, &l2_errors, &richardson_results)?;
 
         Ok(RichardsonMmsResult {
             grid_sizes: grid_sizes.to_vec(),
@@ -127,38 +128,53 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
     pub fn richardson_extrapolation_error(
         &self,
         grid_sizes: &[usize],
-        solution_computer: impl Fn(usize) -> T
+        solution_computer: impl Fn(usize) -> T,
     ) -> RichardsonResult<T> {
-        assert!(grid_sizes.len() >= 3, "Need at least 3 grid levels for Richardson extrapolation");
+        assert!(
+            grid_sizes.len() >= 3,
+            "Need at least 3 grid levels for Richardson extrapolation"
+        );
 
         // Validate grid ordering: ensure grids go from coarse to fine
-        for i in 0..grid_sizes.len()-1 {
-            assert!(grid_sizes[i] < grid_sizes[i+1],
-                   "Grid sizes must be ordered from coarse to fine: {} >= {}",
-                   grid_sizes[i], grid_sizes[i+1]);
+        for i in 0..grid_sizes.len() - 1 {
+            assert!(
+                grid_sizes[i] < grid_sizes[i + 1],
+                "Grid sizes must be ordered from coarse to fine: {} >= {}",
+                grid_sizes[i],
+                grid_sizes[i + 1]
+            );
         }
 
         // Validate reasonable grid refinement ratios
-        for i in 0..grid_sizes.len()-1 {
-            let ratio = grid_sizes[i+1] as f64 / grid_sizes[i] as f64;
-            assert!(ratio >= 1.1 && ratio <= 10.0,
-                   "Grid refinement ratio {:.2} unreasonable. Expected 1.1-10.0",
-                   ratio);
+        for i in 0..grid_sizes.len() - 1 {
+            let ratio = grid_sizes[i + 1] as f64 / grid_sizes[i] as f64;
+            assert!(
+                ratio >= 1.1 && ratio <= 10.0,
+                "Grid refinement ratio {:.2} unreasonable. Expected 1.1-10.0",
+                ratio
+            );
         }
 
         // Compute solutions for all grid levels
-        let solutions: Vec<T> = grid_sizes.iter().map(|&size| solution_computer(size)).collect();
+        let solutions: Vec<T> = grid_sizes
+            .iter()
+            .map(|&size| solution_computer(size))
+            .collect();
 
         // Compute refinement ratios between consecutive grids
         let mut refinement_ratios = Vec::new();
-        for i in 0..grid_sizes.len()-1 {
-            let r = T::from_usize(grid_sizes[i]).unwrap() / T::from_usize(grid_sizes[i+1]).unwrap();
+        for i in 0..grid_sizes.len() - 1 {
+            let r =
+                T::from_usize(grid_sizes[i]).unwrap() / T::from_usize(grid_sizes[i + 1]).unwrap();
             refinement_ratios.push(r);
         }
 
         // Estimate convergence order using data-driven approach (no hardcoded assumptions)
         // Use the solutions-based estimator to avoid ambiguity with error-based estimator
-        let estimated_order = DataDrivenOrderEstimation::estimate_order_from_solutions(&solutions, &refinement_ratios);
+        let estimated_order = DataDrivenOrderEstimation::estimate_order_from_solutions(
+            &solutions,
+            &refinement_ratios,
+        );
 
         // Perform Richardson extrapolation for each grid pair
         let mut extrapolated_solutions = Vec::new();
@@ -167,7 +183,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
 
         for i in 0..solutions.len().saturating_sub(1) {
             let phi_coarse = solutions[i];
-            let phi_fine = solutions[i+1];
+            let phi_fine = solutions[i + 1];
             let r = refinement_ratios[i];
 
             // Richardson extrapolation: φ_exact = φ_fine + (φ_fine - φ_coarse) / (r^p - 1)
@@ -194,15 +210,21 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
             grid_errors.push(error_fine);
 
             // Convergence rate
-            if ComplexField::abs(error_coarse) > T::from_f64(1e-12).unwrap() &&
-               ComplexField::abs(error_fine) > T::from_f64(1e-12).unwrap() {
-                let convergence_rate = ComplexField::ln(ComplexField::abs(error_fine)) / ComplexField::ln(ComplexField::abs(error_coarse)) / ComplexField::ln(r);
+            if ComplexField::abs(error_coarse) > T::from_f64(1e-12).unwrap()
+                && ComplexField::abs(error_fine) > T::from_f64(1e-12).unwrap()
+            {
+                let convergence_rate = ComplexField::ln(ComplexField::abs(error_fine))
+                    / ComplexField::ln(ComplexField::abs(error_coarse))
+                    / ComplexField::ln(r);
                 convergence_rates.push(convergence_rate);
             }
         }
 
         // Use the finest grid extrapolation as the final estimate
-        let final_extrapolated = extrapolated_solutions.last().copied().unwrap_or(solutions[0]);
+        let final_extrapolated = extrapolated_solutions
+            .last()
+            .copied()
+            .unwrap_or(solutions[0]);
 
         RichardsonResult {
             extrapolated_solution: final_extrapolated,
@@ -215,10 +237,149 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
 
     /// Compute L2 error for a given grid size
     fn compute_l2_error(&self, grid_size: T) -> Result<T, String> {
-        // Simplified implementation - would integrate against exact manufactured solution
-        // For now, return a dummy error that decreases with grid refinement
-        let h_f64 = grid_size.to_f64().unwrap_or(0.1);
-        Ok(T::from_f64(h_f64 * h_f64).unwrap()) // O(h^2) convergence for demonstration
+        // Compute actual L2 error between numerical solution and manufactured exact solution
+        //
+        // L2 error: ||u_h - u_exact||_L2 = sqrt(∫_Ω (u_h - u_exact)² dΩ)
+        //
+        // For MMS validation, we solve the PDE with manufactured source term and compare
+        // the numerical solution against the exact manufactured solution.
+
+        // Create numerical grid with specified size
+        let nx = (T::one() / grid_size).to_usize().unwrap_or(32);
+        let ny = nx; // Assume square domain for simplicity
+        let dx = T::one() / T::from_usize(nx).unwrap();
+        let dy = T::one() / T::from_usize(ny).unwrap();
+
+        // Evaluate manufactured solution and source at grid points
+        let mut numerical_solution = vec![vec![T::zero(); ny]; nx];
+        let mut exact_solution = vec![vec![T::zero(); ny]; nx];
+        let mut source_term = vec![vec![T::zero(); ny]; nx];
+
+        // Sample manufactured solution and source term on grid
+        for i in 0..nx {
+            for j in 0..ny {
+                let x = T::from_usize(i).unwrap() * dx;
+                let y = T::from_usize(j).unwrap() * dy;
+                let t = T::zero(); // Evaluation at t=0 for steady problems
+
+                // Get exact manufactured solution
+                exact_solution[i][j] =
+                    self.manufactured_solution
+                        .exact_solution(x, y, T::zero(), t);
+
+                // Get source term for numerical solution
+                source_term[i][j] = self.manufactured_solution.source_term(x, y, T::zero(), t);
+            }
+        }
+
+        // Solve the PDE numerically with manufactured source term
+        // This is a simplified Laplace equation solver for demonstration
+        // In practice, this would use the actual CFD solver
+        self.solve_numerical_system(&source_term, &mut numerical_solution, dx, dy)?;
+
+        // Compute L2 error norm
+        let mut l2_error_squared = T::zero();
+        let mut domain_area = T::zero();
+
+        for i in 0..nx {
+            for j in 0..ny {
+                let error = numerical_solution[i][j] - exact_solution[i][j];
+                let cell_area = dx * dy;
+                l2_error_squared = l2_error_squared + error * error * cell_area;
+                domain_area = domain_area + cell_area;
+            }
+        }
+
+        // L2 norm: sqrt(∫ error² dΩ / |Ω|)
+        let l2_error = ComplexField::sqrt(l2_error_squared / domain_area);
+
+        Ok(l2_error)
+    }
+
+    /// Solve numerical system with manufactured source term
+    /// This is a simplified implementation - in practice would use actual CFD solver
+    fn solve_numerical_system(
+        &self,
+        source: &[Vec<T>],
+        solution: &mut [Vec<T>],
+        dx: T,
+        dy: T,
+    ) -> Result<(), String> {
+        let nx = source.len();
+        let ny = source[0].len();
+        let dx_inv2 = T::one() / (dx * dx);
+        let dy_inv2 = T::one() / (dy * dy);
+
+        // Simple Jacobi iteration for -∇²u = f (Laplace equation)
+        // In practice, this would be replaced with actual CFD solver
+        let max_iter = 1000;
+        let tolerance = T::from_f64(1e-10).unwrap();
+
+        for _iter in 0..max_iter {
+            let mut max_residual = T::zero();
+
+            for i in 1..nx - 1 {
+                for j in 1..ny - 1 {
+                    let old_value = solution[i][j];
+
+                    // Laplace operator: -∇²u = f ⇒ ∇²u = -f ⇒ u[i][j] = (u[i-1][j] + u[i+1][j]) * dx_inv2 + (u[i][j-1] + u[i][j+1]) * dy_inv2 + source[i][j]) / (2*dx_inv2 + 2*dy_inv2)
+                    let laplacian = (solution[i - 1][j] + solution[i + 1][j]) * dx_inv2
+                        + (solution[i][j - 1] + solution[i][j + 1]) * dy_inv2;
+
+                    let rhs = source[i][j];
+                    let denom = T::from_f64(2.0).unwrap() * (dx_inv2 + dy_inv2);
+                    solution[i][j] = (laplacian - rhs) / denom;
+
+                    let residual = ComplexField::abs(solution[i][j] - old_value);
+                    max_residual = RealField::max(max_residual, residual);
+                }
+            }
+
+            // Apply boundary conditions from geometry
+            self.apply_boundary_conditions(solution, dx, dy)?;
+
+            if max_residual < tolerance {
+                break;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Apply boundary conditions based on geometry
+    fn apply_boundary_conditions(
+        &self,
+        solution: &mut [Vec<T>],
+        _dx: T,
+        _dy: T,
+    ) -> Result<(), String> {
+        let nx = solution.len();
+        let ny = solution[0].len();
+
+        // Apply Dirichlet boundary conditions based on manufactured solution
+        // Top and bottom boundaries
+        for i in 0..nx {
+            let x = T::from_usize(i).unwrap() * _dx;
+            solution[i][0] =
+                self.manufactured_solution
+                    .exact_solution(x, T::zero(), T::zero(), T::zero());
+            solution[i][ny - 1] =
+                self.manufactured_solution
+                    .exact_solution(x, T::one(), T::zero(), T::zero());
+        }
+
+        // Left and right boundaries
+        for j in 0..ny {
+            let y = T::from_usize(j).unwrap() * _dy;
+            solution[0][j] =
+                self.manufactured_solution
+                    .exact_solution(T::zero(), y, T::zero(), T::zero());
+            solution[nx - 1][j] =
+                self.manufactured_solution
+                    .exact_solution(T::one(), y, T::zero(), T::zero());
+        }
+
+        Ok(())
     }
 }
 
@@ -307,7 +468,9 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
             let f_medium = l2_errors[i + 1];
             let f_fine = l2_errors[i + 2];
 
-            let estimated_order = richardson_results.get(i).map(|(_, order)| *order)
+            let estimated_order = richardson_results
+                .get(i)
+                .map(|(_, order)| *order)
                 .unwrap_or_else(|| T::from_f64(2.0).unwrap());
 
             // Use ratio between medium and fine (> 1)
@@ -337,10 +500,7 @@ mod tests {
         let mms = ManufacturedDiffusion::new(0.1);
         let geometry = crate::geometry::RectangularDomain::new(0.0, 1.0, 0.0, 1.0);
 
-        let study = MmsRichardsonStudy::new(
-            Box::new(mms),
-            Box::new(geometry),
-        );
+        let study = MmsRichardsonStudy::new(Box::new(mms), Box::new(geometry));
 
         let result = study.run_study().unwrap();
 
@@ -351,7 +511,10 @@ mod tests {
 
         // With the fixed implementation, errors should be non-zero
         for &error in &result.l2_errors {
-            assert!(error > 0.0, "Error should be positive with fixed implementation");
+            assert!(
+                error > 0.0,
+                "Error should be positive with fixed implementation"
+            );
         }
     }
 
@@ -361,10 +524,7 @@ mod tests {
         let mms = ManufacturedDiffusion::new(0.1);
         let geometry = crate::geometry::RectangularDomain::new(0.0, 1.0, 0.0, 1.0);
 
-        let study = MmsRichardsonStudy::new(
-            Box::new(mms),
-            Box::new(geometry),
-        );
+        let study = MmsRichardsonStudy::new(Box::new(mms), Box::new(geometry));
 
         // Test the enhanced Richardson extrapolation method
         let grid_sizes = vec![32, 16, 8, 4]; // From coarse to fine
@@ -378,10 +538,22 @@ mod tests {
         let result = study.richardson_extrapolation_error(&grid_sizes, solution_computer);
 
         // Check that we get reasonable results
-        assert!(result.estimated_order > 1.8 && result.estimated_order < 2.2,
-               "Should estimate order close to 2.0, got {}", result.estimated_order);
-        assert!(result.extrapolated_solution >= 0.0, "Extrapolated solution should be non-negative");
-        assert!(!result.grid_errors.is_empty(), "Should have grid error estimates");
-        assert!(!result.convergence_rates.is_empty(), "Should have convergence rate estimates");
+        assert!(
+            result.estimated_order > 1.8 && result.estimated_order < 2.2,
+            "Should estimate order close to 2.0, got {}",
+            result.estimated_order
+        );
+        assert!(
+            result.extrapolated_solution >= 0.0,
+            "Extrapolated solution should be non-negative"
+        );
+        assert!(
+            !result.grid_errors.is_empty(),
+            "Should have grid error estimates"
+        );
+        assert!(
+            !result.convergence_rates.is_empty(),
+            "Should have convergence rate estimates"
+        );
     }
 }

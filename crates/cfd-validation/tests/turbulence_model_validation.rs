@@ -144,10 +144,7 @@ fn test_sst_constants_validation() {
 
     assert!(sigma_k1 > 0.5 && sigma_k1 < 2.0, "σ_k1 should be O(1)");
     assert!(sigma_k2 > 0.5 && sigma_k2 < 2.0, "σ_k2 should be O(1)");
-    assert!(
-        beta_star > 0.05 && beta_star < 0.15,
-        "β* should be ≈ 0.09"
-    );
+    assert!(beta_star > 0.05 && beta_star < 0.15, "β* should be ≈ 0.09");
 
     // Blending function validation (conceptual)
     // F1 = tanh(arg1^4) where arg1 = min(max(√k/(β*ω*y), 500ν/(y²ω)), 4ρσ_ω2 k/(CDkω y²))

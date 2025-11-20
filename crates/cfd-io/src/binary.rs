@@ -3,7 +3,6 @@
 //! This module provides efficient binary serialization/deserialization
 //! using iterator-based streaming and zero-copy operations.
 
-use bincode;
 use cfd_core::error::{Error, Result};
 use nalgebra::{DMatrix, DVector, RealField};
 use serde::{Deserialize, Serialize};
@@ -24,9 +23,11 @@ impl<W: Write> BinaryWriter<W> {
         }
     }
 
-    /// Write serializable data using bincode
+    /// Write serializable data using serde
     pub fn write<T: Serialize>(&mut self, data: &T) -> Result<()> {
-        bincode::serialize_into(&mut self.writer, data)
+        let encoded = serde_json::to_vec(data)
+            .map_err(|e| Error::Io(std::io::Error::other(format!("Serialization error: {e}"))))?;
+        self.writer.write_all(&encoded)
             .map_err(|e| Error::Io(std::io::Error::other(format!("Binary write error: {e}"))))?;
         Ok(())
     }
@@ -84,13 +85,13 @@ impl<R: Read> BinaryReader<R> {
         }
     }
 
-    /// Read deserializable data using bincode
+    /// Read deserializable data using serde
     pub fn read<T: for<'de> Deserialize<'de>>(&mut self) -> Result<T> {
-        bincode::deserialize_from(&mut self.reader).map_err(|e| {
-            Error::Io(std::io::Error::other(
-                format!("Binary read error: {e}"),
-            ))
-        })
+        let mut buffer = Vec::new();
+        self.reader.read_to_end(&mut buffer)
+            .map_err(|e| Error::Io(std::io::Error::other(format!("Binary read error: {e}"))))?;
+        serde_json::from_slice(&buffer)
+            .map_err(|e| Error::Io(std::io::Error::other(format!("Deserialization error: {e}"))))
     }
 
     /// Read vector data using iterator-based construction

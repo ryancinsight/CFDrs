@@ -117,10 +117,8 @@ mod chebyshev_tests {
         let points = cheb.collocation_points();
 
         // Quadratic function u = x²
-        let u: nalgebra::DVector<f64> = nalgebra::DVector::from_iterator(
-            n,
-            points.iter().map(|&x| x * x),
-        );
+        let u: nalgebra::DVector<f64> =
+            nalgebra::DVector::from_iterator(n, points.iter().map(|&x| x * x));
         let du_dx = d_matrix * &u;
 
         // Derivative should be 2x
@@ -141,10 +139,8 @@ mod chebyshev_tests {
         let points = cheb.collocation_points();
 
         // Function u = sin(πx)
-        let u: nalgebra::DVector<f64> = nalgebra::DVector::from_iterator(
-            n,
-            points.iter().map(|&x| (PI * x).sin()),
-        );
+        let u: nalgebra::DVector<f64> =
+            nalgebra::DVector::from_iterator(n, points.iter().map(|&x| (PI * x).sin()));
         let du_dx = d_matrix * &u;
 
         // Analytical derivative: π*cos(πx)
@@ -168,10 +164,8 @@ mod chebyshev_tests {
         let d2_matrix = d_matrix * d_matrix;
 
         // Function u = sin(πx)
-        let u: nalgebra::DVector<f64> = nalgebra::DVector::from_iterator(
-            n,
-            points.iter().map(|&x| (PI * x).sin()),
-        );
+        let u: nalgebra::DVector<f64> =
+            nalgebra::DVector::from_iterator(n, points.iter().map(|&x| (PI * x).sin()));
         let d2u_dx2 = d2_matrix * &u;
 
         // Analytical second derivative: -π²*sin(πx)
@@ -222,10 +216,8 @@ mod chebyshev_tests {
             let d_matrix = cheb.diff_matrix();
             let points = cheb.collocation_points();
 
-            let u: nalgebra::DVector<f64> = nalgebra::DVector::from_iterator(
-                n,
-                points.iter().map(|&x| f(x)),
-            );
+            let u: nalgebra::DVector<f64> =
+                nalgebra::DVector::from_iterator(n, points.iter().map(|&x| f(x)));
             let du_dx = d_matrix * &u;
 
             // Compute error at interior points
@@ -267,10 +259,8 @@ mod chebyshev_tests {
         let points = cheb.collocation_points();
 
         // Function with specific boundary values
-        let u: nalgebra::DVector<f64> = nalgebra::DVector::from_iterator(
-            n,
-            points.iter().map(|&x| x * x),
-        );
+        let u: nalgebra::DVector<f64> =
+            nalgebra::DVector::from_iterator(n, points.iter().map(|&x| x * x));
 
         // Boundary values should be exactly 1 (at x = ±1)
         assert_relative_eq!(u[0], 1.0, epsilon = 1e-14);
@@ -292,14 +282,14 @@ mod chebyshev_tests {
         for i in 0..n {
             let x = points[i];
             let f_val = x * x;
-            
+
             // Clenshaw-Curtis weights (simplified)
             let weight = if i == 0 || i == n - 1 {
                 1.0 / ((n - 1) * (n - 1)) as f64
             } else {
                 1.0 / (n - 1) as f64
             };
-            
+
             integral += f_val * weight * 2.0; // Factor of 2 for [-1, 1] interval
         }
 

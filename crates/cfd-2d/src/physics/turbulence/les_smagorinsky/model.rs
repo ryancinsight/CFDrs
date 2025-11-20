@@ -214,13 +214,13 @@
 //! - **Pope, S. B. (2000)**. *Turbulent Flows*. Cambridge University Press.
 //! - **Sagaut, P. (2006)**. *Large Eddy Simulation for Incompressible Flows*. Springer.
 
-use nalgebra::DMatrix;
 use super::config::SmagorinskyConfig;
+use super::dynamic::update_dynamic_constant;
 use super::strain::compute_strain_rate_magnitude;
 use super::viscosity::compute_sgs_viscosity;
-use super::dynamic::update_dynamic_constant;
 use crate::physics::turbulence::boundary_conditions;
 use crate::physics::turbulence::traits::LESTurbulenceModel;
+use nalgebra::DMatrix;
 
 #[cfg(feature = "gpu")]
 use cfd_core::compute::gpu::turbulence_compute::GpuTurbulenceCompute;
@@ -266,7 +266,10 @@ impl SmagorinskyLES {
             match GpuTurbulenceCompute::new() {
                 Ok(compute) => Some(compute),
                 Err(e) => {
-                    tracing::warn!("Failed to initialize GPU compute for Smagorinsky LES: {}", e);
+                    tracing::warn!(
+                        "Failed to initialize GPU compute for Smagorinsky LES: {}",
+                        e
+                    );
                     None
                 }
             }
@@ -296,7 +299,8 @@ impl SmagorinskyLES {
         density: f64,
     ) -> cfd_core::error::Result<()> {
         // Compute strain rate magnitude
-        let strain_magnitude = compute_strain_rate_magnitude(velocity_u, velocity_v, self.dx, self.dy);
+        let strain_magnitude =
+            compute_strain_rate_magnitude(velocity_u, velocity_v, self.dx, self.dy);
 
         // Update dynamic constant if using dynamic procedure
         if self.config.dynamic_procedure {
@@ -422,7 +426,10 @@ impl LESTurbulenceModel for SmagorinskyLES {
     fn get_model_constants(&self) -> Vec<(&str, f64)> {
         let mut constants = vec![
             ("Smagorinsky Constant", self.config.smagorinsky_constant),
-            ("Wall Damping", if self.config.wall_damping { 1.0 } else { 0.0 }),
+            (
+                "Wall Damping",
+                if self.config.wall_damping { 1.0 } else { 0.0 },
+            ),
         ];
 
         if let Some(dynamic) = &self.dynamic_constant {
@@ -478,7 +485,16 @@ mod tests {
         let (velocity_u, velocity_v) = create_test_velocity_fields(10, 10);
         let pressure = DMatrix::zeros(10, 10);
 
-        let result = les.update(&velocity_u, &velocity_v, &pressure, 1.0, 0.01, 0.001, 0.1, 0.1);
+        let result = les.update(
+            &velocity_u,
+            &velocity_v,
+            &pressure,
+            1.0,
+            0.01,
+            0.001,
+            0.1,
+            0.1,
+        );
         assert!(result.is_ok());
 
         // Check that SGS viscosity was computed
@@ -506,7 +522,9 @@ mod tests {
 
         let constants = les.get_model_constants();
         assert!(!constants.is_empty());
-        assert!(constants.iter().any(|(name, _)| *name == "Smagorinsky Constant"));
+        assert!(constants
+            .iter()
+            .any(|(name, _)| *name == "Smagorinsky Constant"));
     }
 
     #[test]
@@ -517,7 +535,16 @@ mod tests {
         let pressure = DMatrix::zeros(10, 10);
 
         // Update with different grid spacing
-        let result = les.update(&velocity_u, &velocity_v, &pressure, 1.0, 0.01, 0.001, 0.2, 0.2);
+        let result = les.update(
+            &velocity_u,
+            &velocity_v,
+            &pressure,
+            1.0,
+            0.01,
+            0.001,
+            0.2,
+            0.2,
+        );
         assert!(result.is_ok());
 
         // Check that filter width was updated

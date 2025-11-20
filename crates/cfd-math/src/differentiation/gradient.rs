@@ -23,7 +23,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
     }
 
     /// Compute gradient of a 1D field
-    /// 
+    ///
     /// # Errors
     /// Returns an error if differentiation fails or field has insufficient points
     pub fn gradient_1d(&self, field: &[T]) -> Result<Vec<T>> {
@@ -35,7 +35,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
     }
 
     /// Compute gradient of a 2D field (stored row-major)
-    /// 
+    ///
     /// # Errors
     /// Returns an error if field dimensions don't match grid size or differentiation fails
     pub fn gradient_2d(&self, field: &[T], nx: usize, ny: usize) -> Result<Vec<Vector3<T>>> {

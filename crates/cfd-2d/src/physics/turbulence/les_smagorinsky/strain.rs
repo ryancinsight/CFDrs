@@ -20,13 +20,13 @@ pub fn compute_strain_rate_magnitude(
     let mut strain_magnitude = DMatrix::zeros(nx, ny);
 
     // Interior points - central differences
-    for i in 1..nx-1 {
-        for j in 1..ny-1 {
+    for i in 1..nx - 1 {
+        for j in 1..ny - 1 {
             // Velocity gradients (central differences)
-            let du_dx = (velocity_u[(i+1, j)] - velocity_u[(i-1, j)]) / (2.0 * dx);
-            let du_dy = (velocity_u[(i, j+1)] - velocity_u[(i, j-1)]) / (2.0 * dy);
-            let dv_dx = (velocity_v[(i+1, j)] - velocity_v[(i-1, j)]) / (2.0 * dx);
-            let dv_dy = (velocity_v[(i, j+1)] - velocity_v[(i, j-1)]) / (2.0 * dy);
+            let du_dx = (velocity_u[(i + 1, j)] - velocity_u[(i - 1, j)]) / (2.0 * dx);
+            let du_dy = (velocity_u[(i, j + 1)] - velocity_u[(i, j - 1)]) / (2.0 * dy);
+            let dv_dx = (velocity_v[(i + 1, j)] - velocity_v[(i - 1, j)]) / (2.0 * dx);
+            let dv_dy = (velocity_v[(i, j + 1)] - velocity_v[(i, j - 1)]) / (2.0 * dy);
 
             // Strain rate tensor components
             let s11 = du_dx;
@@ -45,11 +45,11 @@ pub fn compute_strain_rate_magnitude(
     // Boundary conditions (zero strain at boundaries)
     for i in 0..nx {
         strain_magnitude[(i, 0)] = 0.0;
-        strain_magnitude[(i, ny-1)] = 0.0;
+        strain_magnitude[(i, ny - 1)] = 0.0;
     }
     for j in 0..ny {
         strain_magnitude[(0, j)] = 0.0;
-        strain_magnitude[(nx-1, j)] = 0.0;
+        strain_magnitude[(nx - 1, j)] = 0.0;
     }
 
     strain_magnitude
@@ -72,13 +72,13 @@ pub fn compute_strain_rate_components(
     let mut s12 = DMatrix::zeros(nx, ny);
 
     // Interior points - central differences
-    for i in 1..nx-1 {
-        for j in 1..ny-1 {
+    for i in 1..nx - 1 {
+        for j in 1..ny - 1 {
             // Velocity gradients (central differences)
-            let du_dx = (velocity_u[(i+1, j)] - velocity_u[(i-1, j)]) / (2.0 * dx);
-            let du_dy = (velocity_u[(i, j+1)] - velocity_u[(i, j-1)]) / (2.0 * dy);
-            let dv_dx = (velocity_v[(i+1, j)] - velocity_v[(i-1, j)]) / (2.0 * dx);
-            let dv_dy = (velocity_v[(i, j+1)] - velocity_v[(i, j-1)]) / (2.0 * dy);
+            let du_dx = (velocity_u[(i + 1, j)] - velocity_u[(i - 1, j)]) / (2.0 * dx);
+            let du_dy = (velocity_u[(i, j + 1)] - velocity_u[(i, j - 1)]) / (2.0 * dy);
+            let dv_dx = (velocity_v[(i + 1, j)] - velocity_v[(i - 1, j)]) / (2.0 * dx);
+            let dv_dy = (velocity_v[(i, j + 1)] - velocity_v[(i, j - 1)]) / (2.0 * dy);
 
             s11[(i, j)] = du_dx;
             s22[(i, j)] = dv_dy;

@@ -108,10 +108,10 @@ where
                     // QUICK scheme: 6φ_i - 2φ_{i-1} + 8φ_{i+1} - φ_{i+2}) / 12
                     // But with limiter applied to maintain monotonicity
                     let quick = (T::from_f64(6.0).unwrap() * phi_i
-                               - T::from_f64(2.0).unwrap() * phi_im1
-                               + T::from_f64(8.0).unwrap() * phi_ip1
-                               - phi_ip2)
-                              / T::from_f64(12.0).unwrap();
+                        - T::from_f64(2.0).unwrap() * phi_im1
+                        + T::from_f64(8.0).unwrap() * phi_ip1
+                        - phi_ip2)
+                        / T::from_f64(12.0).unwrap();
 
                     // Blend QUICK with MUSCL2 based on limiter
                     let muscl2 = phi_i + slope1 / (T::one() + T::one());
@@ -187,7 +187,7 @@ where
 /// Convenience constructors for common MUSCL schemes
 pub mod schemes {
     use super::MusclScheme;
-    use crate::physics::momentum::tvd_limiters::{Superbee, VanLeer, Minmod};
+    use crate::physics::momentum::tvd_limiters::{Minmod, Superbee, VanLeer};
 
     /// MUSCL2 with Superbee limiter (most accurate for shocks)
     pub type Muscl2Superbee<T> = MusclScheme<T, Superbee>;
@@ -208,7 +208,7 @@ pub mod schemes {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::physics::momentum::tvd_limiters::{Superbee, VanLeer, Minmod};
+    use crate::physics::momentum::tvd_limiters::{Minmod, Superbee, VanLeer};
     use approx::assert_relative_eq;
 
     #[test]

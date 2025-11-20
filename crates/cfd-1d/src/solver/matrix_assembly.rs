@@ -53,7 +53,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         }
 
         // Add boundary conditions
-        for (node_idx, bc) in network.boundary_conditions() {
+        for (&node_idx, bc) in network.boundary_conditions() {
             let idx = node_idx.index();
             match bc {
                 crate::network::BoundaryCondition::Dirichlet { value: pressure } => {
@@ -65,13 +65,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
                     // Note: In COO format, we're adding to existing diagonal entries
                     // The large number will dominate the conductance terms
                     coo.push(idx, idx, large_number);
-                    rhs[idx] = pressure * large_number;
+                    rhs[idx] = *pressure * large_number;
                 }
                 crate::network::BoundaryCondition::Neumann {
                     gradient: flow_rate,
                 } => {
                     // Neumann boundary condition
-                    rhs[idx] += flow_rate;
+                    rhs[idx] += *flow_rate;
                 }
                 _ => {
                     return Err(Error::Solver(format!(

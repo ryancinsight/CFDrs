@@ -33,7 +33,7 @@ fn test_hagen_poiseuille_analytical_solution() -> Result<()> {
     let model = HagenPoiseuilleModel::new(diameter, length);
     let fluid = fluid::database::water_20c::<f64>()?;
     let viscosity = fluid.viscosity;
-    
+
     let mut conditions = FlowConditions::new(0.1);
     conditions.reynolds_number = Some(100.0); // Laminar regime
 
@@ -96,7 +96,7 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
     // For laminar flow, friction factor f = 64/Re
     let f_laminar: f64 = 64.0 / 1000.0;
     let area: f64 = std::f64::consts::PI * diameter.powi(2) / 4.0;
-    let expected_resistance_laminar: f64 = 
+    let expected_resistance_laminar: f64 =
         f_laminar * length * fluid.density / (2.0 * area * diameter.powi(2));
 
     assert_relative_eq!(
@@ -114,7 +114,7 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
     // For smooth pipes at Re=10,000, Moody chart gives f ≈ 0.0309
     // Colebrook-White iterative solution gives slightly different value
     let f_expected: f64 = 0.0308449; // More precise value from Colebrook-White
-    let expected_resistance_turbulent: f64 = 
+    let expected_resistance_turbulent: f64 =
         f_expected * length * fluid.density / (2.0 * area * diameter.powi(2));
 
     // Allow 0.2% tolerance for iterative convergence (max_relative for better control)
@@ -151,7 +151,7 @@ fn test_darcy_weisbach_rough_pipe() -> Result<()> {
     // (fully rough asymptote) - Colebrook-White gives slightly different value
     let f_expected: f64 = 0.01721; // Adjusted for Colebrook-White iteration
     let area: f64 = std::f64::consts::PI * diameter.powi(2) / 4.0;
-    let expected_resistance: f64 = 
+    let expected_resistance: f64 =
         f_expected * length * fluid.density / (2.0 * area * diameter.powi(2));
 
     // Allow 0.05% tolerance for Colebrook-White iteration vs Moody chart
@@ -182,7 +182,7 @@ fn test_rectangular_channel_analytical() -> Result<()> {
 
     let model = RectangularChannelModel::new(width, height, length);
     let fluid = fluid::database::water_20c::<f64>()?;
-    
+
     let mut conditions = FlowConditions::new(0.1);
     conditions.reynolds_number = Some(100.0);
 
@@ -242,11 +242,7 @@ fn test_colebrook_white_convergence() -> Result<()> {
         f_haaland * 10.0 * fluid.density / (2.0 * area * diameter.powi(2));
 
     // Colebrook-White should match Haaland within 2%
-    assert_relative_eq!(
-        resistance,
-        expected_resistance_haaland,
-        epsilon = 0.02
-    );
+    assert_relative_eq!(resistance, expected_resistance_haaland, epsilon = 0.02);
 
     Ok(())
 }
@@ -266,9 +262,9 @@ fn test_resistance_positivity() -> Result<()> {
             for &re in &reynolds {
                 let mut conditions = FlowConditions::new(0.1);
                 conditions.reynolds_number = Some(re);
-                
+
                 let resistance = model.calculate_resistance(&fluid, &conditions)?;
-                
+
                 // Physical constraint: resistance must be positive
                 assert!(resistance > 0.0, "Resistance must be positive");
                 assert!(resistance.is_finite(), "Resistance must be finite");
@@ -303,7 +299,11 @@ fn test_resistance_scaling_laws() -> Result<()> {
 
     // Verify R ∝ D^(-4) (fourth-power inverse scaling with diameter)
     let expected_diameter_scaling = scale_factor.powi(4);
-    assert_relative_eq!(r_base / r_scaled_diameter, expected_diameter_scaling, epsilon = 1e-4);
+    assert_relative_eq!(
+        r_base / r_scaled_diameter,
+        expected_diameter_scaling,
+        epsilon = 1e-4
+    );
 
     Ok(())
 }
@@ -400,9 +400,12 @@ fn test_entrance_effects_reynolds_dependence() -> Result<()> {
     let resistance_high = model.calculate_resistance(&fluid, &conditions_high)?;
 
     // Higher Reynolds number should give lower resistance (less entrance effects)
-    assert!(resistance_high < resistance_low,
+    assert!(
+        resistance_high < resistance_low,
         "Entrance resistance should decrease with increasing Re: {} vs {}",
-        resistance_high, resistance_low);
+        resistance_high,
+        resistance_low
+    );
 
     // Verify the ratio matches theoretical expectation
     let area_ratio = upstream_area / downstream_area;
@@ -445,9 +448,11 @@ fn test_entrance_effects_area_ratio_dependence() -> Result<()> {
 
         // Larger area ratio should give higher resistance
         if previous_resistance > 0.0 {
-            assert!(resistance > previous_resistance,
+            assert!(
+                resistance > previous_resistance,
                 "Entrance resistance should increase with area ratio: {} vs previous",
-                resistance);
+                resistance
+            );
         }
 
         previous_resistance = resistance;

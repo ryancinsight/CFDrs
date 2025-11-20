@@ -75,8 +75,8 @@
 //! - **Boundary Resolution**: Sufficient boundary point density required
 //! - **Force Regularization**: Prevents numerical instabilities
 
-use nalgebra::{DMatrix, Vector2};
 use crate::error::{Error, Result};
+use nalgebra::{DMatrix, Vector2};
 
 /// Immersed boundary configuration
 #[derive(Debug, Clone, Copy)]
@@ -153,7 +153,11 @@ impl ImmersedBoundaryMethod {
     }
 
     /// Create with custom configuration
-    pub fn with_config(config: ImmersedBoundaryConfig, grid_size: (usize, usize), domain_size: (f64, f64)) -> Self {
+    pub fn with_config(
+        config: ImmersedBoundaryConfig,
+        grid_size: (usize, usize),
+        domain_size: (f64, f64),
+    ) -> Self {
         let dx = domain_size.0 / grid_size.0 as f64;
         let dy = domain_size.1 / grid_size.1 as f64;
 
@@ -179,7 +183,13 @@ impl ImmersedBoundaryMethod {
     /// * `radius` - Circle radius
     /// * `num_points` - Number of boundary points
     /// * `velocity` - Desired boundary velocity
-    pub fn add_circle(&mut self, center: Vector2<f64>, radius: f64, num_points: usize, velocity: Vector2<f64>) {
+    pub fn add_circle(
+        &mut self,
+        center: Vector2<f64>,
+        radius: f64,
+        num_points: usize,
+        velocity: Vector2<f64>,
+    ) {
         let segment_length = 2.0 * std::f64::consts::PI * radius / num_points as f64;
 
         for i in 0..num_points {
@@ -188,10 +198,8 @@ impl ImmersedBoundaryMethod {
             let cos_angle = angle.cos();
             let sin_angle = angle.sin();
 
-            let position = Vector2::new(
-                center.x + radius * cos_angle,
-                center.y + radius * sin_angle,
-            );
+            let position =
+                Vector2::new(center.x + radius * cos_angle, center.y + radius * sin_angle);
 
             let point = BoundaryPoint {
                 position,
@@ -221,7 +229,11 @@ impl ImmersedBoundaryMethod {
     }
 
     /// Spread force from single boundary point to nearby grid points
-    fn spread_single_force(&self, point: &BoundaryPoint, force_matrix: &mut DMatrix<f64>) -> Result<()> {
+    fn spread_single_force(
+        &self,
+        point: &BoundaryPoint,
+        force_matrix: &mut DMatrix<f64>,
+    ) -> Result<()> {
         let pos_x = point.position.x / self.dx;
         let pos_y = point.position.y / self.dy;
 
@@ -270,7 +282,10 @@ impl ImmersedBoundaryMethod {
     /// # Arguments
     ///
     /// * `velocity_matrix` - Fluid velocity field (nx x ny x 2)
-    pub fn interpolate_velocities(&self, velocity_matrix: &DMatrix<f64>) -> Result<Vec<Vector2<f64>>> {
+    pub fn interpolate_velocities(
+        &self,
+        velocity_matrix: &DMatrix<f64>,
+    ) -> Result<Vec<Vector2<f64>>> {
         let mut interpolated_velocities = Vec::with_capacity(self.boundary_points.len());
 
         for boundary_point in &self.boundary_points {
@@ -282,7 +297,11 @@ impl ImmersedBoundaryMethod {
     }
 
     /// Interpolate velocity at single boundary point
-    fn interpolate_single_velocity(&self, point: &BoundaryPoint, velocity_matrix: &DMatrix<f64>) -> Result<Vector2<f64>> {
+    fn interpolate_single_velocity(
+        &self,
+        point: &BoundaryPoint,
+        velocity_matrix: &DMatrix<f64>,
+    ) -> Result<Vector2<f64>> {
         let pos_x = point.position.x / self.dx;
         let pos_y = point.position.y / self.dy;
 
@@ -334,7 +353,7 @@ impl ImmersedBoundaryMethod {
     pub fn update_forces(&mut self, current_velocities: &[Vector2<f64>]) -> Result<()> {
         if current_velocities.len() != self.boundary_points.len() {
             return Err(Error::InvalidConfiguration(
-                "Velocity array size mismatch with boundary points".to_string()
+                "Velocity array size mismatch with boundary points".to_string(),
             ));
         }
 
@@ -355,13 +374,12 @@ impl ImmersedBoundaryMethod {
 
         if abs_r <= 1.0 {
             // 4-point delta function
-            0.25 * (1.0 + (std::f64::consts::PI * r).cos()) *
-            (1.0 + (std::f64::consts::PI * r * 0.5).cos())
+            0.25 * (1.0 + (std::f64::consts::PI * r).cos())
+                * (1.0 + (std::f64::consts::PI * r * 0.5).cos())
         } else if abs_r <= 2.0 {
             // Smooth transition
             let pi = std::f64::consts::PI;
-            0.25 * (-4.0 * r * r + 8.0 * abs_r - 3.0) *
-            (1.0 + (pi * r * 0.5).cos())
+            0.25 * (-4.0 * r * r + 8.0 * abs_r - 3.0) * (1.0 + (pi * r * 0.5).cos())
         } else {
             0.0
         }
@@ -515,7 +533,11 @@ mod tests {
 
         // Force should be (1/regularization, 0)
         let expected_force_x = 1.0 / ibm.config().regularization.to_f64().unwrap();
-        assert_relative_eq!(ibm.boundary_points[0].force.x, expected_force_x, epsilon = 1e-10);
+        assert_relative_eq!(
+            ibm.boundary_points[0].force.x,
+            expected_force_x,
+            epsilon = 1e-10
+        );
         assert_eq!(ibm.boundary_points[0].force.y, 0.0);
     }
 }

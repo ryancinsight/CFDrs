@@ -1,4 +1,127 @@
-//! Level Set solver implementation
+//! # Level Set Method for 3D Interface Tracking
+//!
+//! This module implements the Level Set method for accurate tracking of evolving
+//! interfaces in multiphase flows using signed distance functions.
+//!
+//! ## Mathematical Foundation
+//!
+//! ### Signed Distance Function Theorem
+//!
+//! **Statement**: A signed distance function φ(x,t) represents the interface Γ(t)
+//! as its zero level set, with φ > 0 outside the interface and φ < 0 inside.
+//!
+//! **Mathematical Properties**:
+//!
+//! ```math
+//! φ(x,t) = ±d(x, Γ(t))    where d is Euclidean distance
+//! |∇φ| = 1                 (unit normal magnitude)
+//! φ(Γ(t), t) = 0           (zero level set condition)
+//! ```
+//!
+//! **Evolution Properties**:
+//! - **Smoothness**: φ ∈ C¹(Ω) for smooth interfaces
+//! - **Distance Property**: |φ(x,t)| = min distance to Γ(t)
+//! - **Normal Vector**: n = ∇φ / |∇φ| points outward
+//! - **Curvature**: κ = ∇·(∇φ / |∇φ|) at interface
+//!
+//! **Reinitialization**: The signed distance property |∇φ| = 1 must be maintained
+//! through periodic reinitialization to prevent numerical degradation.
+//!
+//! **Literature**: Osher, S., Fedkiw, R. (2003). "Level Set Methods and Dynamic
+//! Implicit Surfaces". Cambridge University Press.
+//!
+//! ### Level Set Evolution Theorem
+//!
+//! **Statement**: The evolution of interfaces in a velocity field u(x,t) is governed
+//! by the level set equation ∂φ/∂t + u·∇φ = 0.
+//!
+//! **Mathematical Derivation**: Consider a moving interface Γ(t) with normal velocity V_n:
+//!
+//! ```math
+//! dX/dt = u(X,t)    for X ∈ Γ(t)
+//! ```
+//!
+//! The level set representation gives:
+//!
+//! ```math
+//! φ(X + dX, t + dt) = 0
+//! φ(X + u dt, t + dt) = 0
+//! ```
+//!
+//! Taylor expansion yields:
+//!
+//! ```math
+//! φ + dt ∂φ/∂t + u·∇φ dt = 0
+//! ```
+//!
+//! Thus:
+//!
+//! ```math
+//! ∂φ/∂t + u·∇φ = 0
+//! ```
+//!
+//! **Physical Interpretation**:
+//! - **Advection Equation**: Interface moves with local fluid velocity
+//! - **Hamilton-Jacobi Form**: ∂φ/∂t + H(x, ∇φ) = 0 where H = u·∇φ
+//! - **Conservation**: Level set values conserved along characteristics
+//!
+//! **Numerical Solution**: The equation is solved using high-order WENO schemes
+//! for the advection term to maintain interface sharpness.
+//!
+//! **Literature**: Sethian, J.A. (1999). "Level Set Methods and Fast Marching Methods".
+//! Cambridge University Press.
+//!
+//! ### Reinitialization Theorem
+//!
+//! **Statement**: The signed distance property |∇φ| = 1 can be restored through
+//! solution of the reinitialization equation ∂φ/∂τ = sign(φ₀)(1 - |∇φ|).
+//!
+//! **Mathematical Formulation**:
+//!
+//! ```math
+//! ∂φ/∂τ = S(φ₀)(1 - |∇φ|)    where S(φ₀) = φ₀ / √(φ₀² + ε²)
+//! ```
+//!
+//! **Properties**:
+//! - **Steady State**: When |∇φ| = 1, ∂φ/∂τ = 0
+//! - **Convergence**: φ → φ₀ as τ → ∞ while maintaining |∇φ| = 1
+//! - **Stability**: The equation is stable and preserves the zero level set
+//!
+//! **Sussman Method**: Uses a smoothed sign function and subcell resolution
+//! for accurate interface position preservation.
+//!
+//! **Literature**: Sussman, M., Smereka, P., Osher, S. (1994). "A level set approach
+//! for computing solutions to incompressible two-phase flow". Journal of Computational Physics, 114(1), 146-159.
+//!
+//! ### Algorithm Implementation
+//!
+//! 1. **Initialization**: Construct signed distance function from interface geometry
+//! 2. **Evolution**: Solve ∂φ/∂t + u·∇φ = 0 using high-order advection schemes
+//! 3. **Reinitialization**: Restore |∇φ| = 1 every few time steps
+//! 4. **Interface Reconstruction**: Extract zero level set for geometric operations
+//! 5. **Narrow Band**: Optional optimization using narrow band around interface
+//!
+//! ### Accuracy and Stability
+//!
+//! **Theorem (Level Set Accuracy)**: For smooth interfaces and CFL ≤ 0.5,
+//! the level set method maintains second-order accuracy in interface position.
+//!
+//! **Theorem (Mass Conservation)**: With proper reinitialization, the level set
+//! method conserves the topological properties of the interface.
+//!
+//! **Numerical Considerations**:
+//! - **CFL Condition**: Δt ≤ Δx / |u_max| for stability
+//! - **Reinitialization Frequency**: Every 5-10 time steps typically
+//! - **WENO Schemes**: Fifth-order accurate for smooth regions
+//! - **Subcell Resolution**: Maintains interface position accuracy
+//!
+//! **Literature**: Osher, S., Sethian, J.A. (1988). "Fronts propagating with
+//! curvature-dependent speed: Algorithms based on Hamilton-Jacobi formulations".
+//! Journal of Computational Physics, 79(1), 12-49.
+//!
+//! Fedkiw, R.P., Aslam, T., Merriman, B., Osher, S. (1999). "A non-oscillatory
+//! Eulerian approach to interfaces in multimaterial flows (the ghost fluid method)".
+//! Journal of Computational Physics, 152(2), 457-492.
 
 use super::config::LevelSetConfig;
 use cfd_core::error::Result;
@@ -104,7 +227,10 @@ impl<T: RealField + FromPrimitive + Copy> LevelSetSolver<T> {
 
         // Check for reinitialization
         self.time_step += 1;
-        if self.time_step.is_multiple_of(self.config.reinitialization_interval) {
+        if self
+            .time_step
+            .is_multiple_of(self.config.reinitialization_interval)
+        {
             self.reinitialize()?;
         }
 

@@ -179,7 +179,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     }
 
     /// Calculate hydraulic resistance using physics models
-    /// 
+    ///
     /// # Errors
     /// Returns an error if flow state calculation or resistance computation fails
     pub fn calculate_resistance(&mut self, fluid: &Fluid<T>) -> Result<T> {
@@ -247,7 +247,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     // Moving only the essential parts for brevity
 
     /// Calculate Stokes flow resistance
-    /// 
+    ///
     /// # Errors
     /// Returns an error if geometric calculations fail
     fn calculate_stokes_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
@@ -265,7 +265,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     }
 
     /// Calculate laminar flow resistance
-    /// 
+    ///
     /// # Errors
     /// Returns an error if resistance calculation fails
     fn calculate_laminar_resistance(&self, _fluid: &Fluid<T>) -> Result<T> {
@@ -274,7 +274,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     }
 
     /// Calculate transitional flow resistance
-    /// 
+    ///
     /// # Errors
     /// Returns an error if resistance calculation fails
     fn calculate_transitional_resistance(&self, _fluid: &Fluid<T>) -> Result<T> {
@@ -283,7 +283,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     }
 
     /// Calculate turbulent flow resistance
-    /// 
+    ///
     /// # Errors
     /// Returns an error if resistance calculation fails
     fn calculate_turbulent_resistance(&self, _fluid: &Fluid<T>) -> Result<T> {
@@ -292,7 +292,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     }
 
     /// Calculate slip flow resistance
-    /// 
+    ///
     /// # Errors
     /// Returns an error if resistance calculation fails
     fn calculate_slip_flow_resistance(&self, _fluid: &Fluid<T>) -> Result<T> {

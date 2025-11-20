@@ -5,7 +5,7 @@
 
 use cfd_3d::fem::{FemConfig, FemSolver};
 use cfd_core::domains::mesh_operations::ElementType;
-use cfd_core::fluid::{ConstantPropertyFluid, ConstantFluid};
+use cfd_core::fluid::{ConstantFluid, ConstantPropertyFluid};
 use cfd_mesh::prelude::{Cell, Mesh, Vertex};
 use nalgebra::Point3;
 
@@ -81,8 +81,8 @@ fn create_unit_cube_mesh() -> Result<Mesh<f64>, Box<dyn std::error::Error>> {
     // A cube can be divided into 5 or 6 tetrahedra
     let cells = vec![
         // Tetrahedron 1
-        Cell::tetrahedron(0, 1, 2, 3),   // Tetrahedron with faces 0,1,2,3
-        Cell::tetrahedron(4, 5, 6, 7),   // Tetrahedron with faces 4,5,6,7
+        Cell::tetrahedron(0, 1, 2, 3), // Tetrahedron with faces 0,1,2,3
+        Cell::tetrahedron(4, 5, 6, 7), // Tetrahedron with faces 4,5,6,7
         Cell::tetrahedron(8, 9, 10, 11), // Tetrahedron with faces 8,9,10,11
         Cell::tetrahedron(12, 13, 14, 15), // Tetrahedron with faces 12,13,14,15
         Cell::tetrahedron(16, 17, 18, 19), // Tetrahedron with faces 16,17,18,19

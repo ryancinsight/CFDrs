@@ -1,11 +1,16 @@
 //! Benchmarks for preconditioner performance comparison
 
+#[cfg(feature = "mpi")]
+use cfd_math::linear_solver::preconditioners::{
+    AdditiveSchwarzPreconditioner, CoarseningStrategy, ParallelAMGPreconditioner,
+    ParallelBlockJacobiPreconditioner,
+};
+use cfd_math::linear_solver::preconditioners::{
+    IdentityPreconditioner, IncompleteLU, JacobiPreconditioner, SORPreconditioner,
+};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
-use cfd_math::linear_solver::preconditioners::{IdentityPreconditioner, JacobiPreconditioner, SORPreconditioner, IncompleteLU};
-#[cfg(feature = "mpi")]
-use cfd_math::linear_solver::preconditioners::{ParallelBlockJacobiPreconditioner, AdditiveSchwarzPreconditioner, ParallelAMGPreconditioner, CoarseningStrategy};
 
 /// Create a test matrix for benchmarking
 fn create_benchmark_matrix(size: usize) -> CsrMatrix<f64> {
@@ -58,7 +63,9 @@ fn bench_identity_preconditioner(c: &mut Criterion) {
 
     c.bench_function("identity_preconditioner_1000", |b| {
         b.iter(|| {
-            preconditioner.apply_to(black_box(&r), black_box(&mut z)).unwrap();
+            preconditioner
+                .apply_to(black_box(&r), black_box(&mut z))
+                .unwrap();
         });
     });
 }
@@ -71,7 +78,9 @@ fn bench_jacobi_preconditioner(c: &mut Criterion) {
 
     c.bench_function("jacobi_preconditioner_1000", |b| {
         b.iter(|| {
-            preconditioner.apply_to(black_box(&r), black_box(&mut z)).unwrap();
+            preconditioner
+                .apply_to(black_box(&r), black_box(&mut z))
+                .unwrap();
         });
     });
 }
@@ -84,7 +93,9 @@ fn bench_sor_preconditioner(c: &mut Criterion) {
 
     c.bench_function("sor_preconditioner_1000", |b| {
         b.iter(|| {
-            preconditioner.apply_to(black_box(&r), black_box(&mut z)).unwrap();
+            preconditioner
+                .apply_to(black_box(&r), black_box(&mut z))
+                .unwrap();
         });
     });
 }
@@ -97,7 +108,9 @@ fn bench_incomplete_lu_preconditioner(c: &mut Criterion) {
 
     c.bench_function("ilu0_preconditioner_1000", |b| {
         b.iter(|| {
-            preconditioner.apply_to(black_box(&r), black_box(&mut z)).unwrap();
+            preconditioner
+                .apply_to(black_box(&r), black_box(&mut z))
+                .unwrap();
         });
     });
 }

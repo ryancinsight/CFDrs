@@ -40,7 +40,7 @@ impl TimeIntegrationValidator {
         let lambda = T::from_f64_or_zero(DECAY_LAMBDA);
         let dt = T::from_f64_or_zero(TIME_STEP_VALIDATION);
         let final_time = T::one();
-        
+
         // Safe conversion with bounds checking: clamp to reasonable range [1, 1M]
         let n_steps_f64: f64 = (final_time / dt).to_subset().unwrap_or(100.0);
         #[allow(clippy::cast_possible_truncation)] // Clamped to [1, 1M], rounded - safe for usize
@@ -120,9 +120,9 @@ impl TimeIntegrationValidator {
 
         let omega = T::from_f64_or_zero(OSCILLATOR_OMEGA);
         let dt = T::from_f64_or_zero(TIME_STEP_VALIDATION);
-        let final_time = <T as SafeFromF64>::try_from_f64(2.0 * PI)
-            .unwrap_or(T::from_f64_or_one(6.28318)); // One period
-        
+        let final_time =
+            <T as SafeFromF64>::try_from_f64(2.0 * PI).unwrap_or(T::from_f64_or_one(6.28318)); // One period
+
         // Safe conversion with bounds checking: clamp to reasonable range [1, 1M]
         let n_steps_f64: f64 = (final_time / dt).to_subset().unwrap_or(628.0);
         #[allow(clippy::cast_possible_truncation)] // Clamped to [1, 1M], rounded - safe for usize

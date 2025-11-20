@@ -58,9 +58,7 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
         // Check if n is power of 2 (required for efficient radix-2 FFT)
         if n & (n - 1) == 0 {
             // Use efficient FFT for power-of-2 sizes
-            let mut data: Vec<Complex<T>> = u.iter()
-                .map(|&x| Complex::new(x, T::zero()))
-                .collect();
+            let mut data: Vec<Complex<T>> = u.iter().map(|&x| Complex::new(x, T::zero())).collect();
             self.fft_inplace(&mut data, false);
             Ok(DVector::from_vec(data))
         } else {
@@ -92,17 +90,17 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
         // Iterative FFT using Danielson-Lanczos lemma
         let mut length = 2;
         while length <= n {
-            let angle = sign * T::from_f64(2.0 * PI).unwrap_or(T::one()) /
-                       T::from_usize(length).unwrap_or(T::one());
+            let angle = sign * T::from_f64(2.0 * PI).unwrap_or(T::one())
+                / T::from_usize(length).unwrap_or(T::one());
             let wlen = Complex::new(angle.cos(), angle.sin());
 
             for i in (0..n).step_by(length) {
                 let mut w = Complex::new(T::one(), T::zero());
-                for j in 0..length/2 {
+                for j in 0..length / 2 {
                     let u_val = data[i + j];
-                    let v_val = data[i + j + length/2] * w;
+                    let v_val = data[i + j + length / 2] * w;
                     data[i + j] = u_val + v_val;
-                    data[i + j + length/2] = u_val - v_val;
+                    data[i + j + length / 2] = u_val - v_val;
                     w = w * wlen;
                 }
             }
@@ -121,9 +119,9 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
         for k in 0..n {
             let mut sum = Complex::new(T::zero(), T::zero());
             for j in 0..n {
-                let phase = -two_pi * self.wavenumbers[k] *
-                           T::from_usize(j).unwrap_or_else(|| T::zero()) /
-                           T::from_usize(n).unwrap_or_else(|| T::zero());
+                let phase =
+                    -two_pi * self.wavenumbers[k] * T::from_usize(j).unwrap_or_else(|| T::zero())
+                        / T::from_usize(n).unwrap_or_else(|| T::zero());
                 let exp = Complex::new(phase.cos(), phase.sin());
                 sum += exp * Complex::new(u[j], T::zero());
             }
@@ -147,9 +145,7 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
 
             // Scale by 1/n for inverse transform and extract real part
             let scale = T::from_usize(n).unwrap_or(T::one());
-            let real_part: Vec<T> = data.into_iter()
-                .map(|x| x.re / scale)
-                .collect();
+            let real_part: Vec<T> = data.into_iter().map(|x| x.re / scale).collect();
 
             Ok(DVector::from_vec(real_part))
         } else {
@@ -169,9 +165,9 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
         for j in 0..n {
             let mut sum = Complex::new(T::zero(), T::zero());
             for k in 0..n {
-                let phase = two_pi * self.wavenumbers[k] *
-                           T::from_usize(j).unwrap_or_else(|| T::zero()) /
-                           T::from_usize(n).unwrap_or_else(|| T::zero());
+                let phase =
+                    two_pi * self.wavenumbers[k] * T::from_usize(j).unwrap_or_else(|| T::zero())
+                        / T::from_usize(n).unwrap_or_else(|| T::zero());
                 let exp = Complex::new(phase.cos(), phase.sin());
                 sum += exp * u_hat[k];
             }

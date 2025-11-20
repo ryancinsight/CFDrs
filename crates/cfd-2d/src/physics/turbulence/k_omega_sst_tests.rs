@@ -4,7 +4,7 @@
 //! including the Bradshaw assumption limiter, blending functions, and boundary conditions.
 //!
 //! References:
-//! - Menter, F.R. (1994). "Two-equation eddy-viscosity turbulence models for 
+//! - Menter, F.R. (1994). "Two-equation eddy-viscosity turbulence models for
 //!   engineering applications." AIAA Journal, 32(8), 1598-1605.
 //! - Wilcox, D.C. (2006). "Turbulence Modeling for CFD" (3rd ed.). DCW Industries.
 
@@ -26,13 +26,8 @@ mod k_omega_sst_tests {
         let f2 = 0.5; // Mid-range blending function
 
         // With low strain rate, limiter should not activate significantly
-        let nu_t_limited = model.turbulent_viscosity_with_limiter(
-            k,
-            omega,
-            density,
-            strain_rate_magnitude,
-            f2,
-        );
+        let nu_t_limited =
+            model.turbulent_viscosity_with_limiter(k, omega, density, strain_rate_magnitude, f2);
 
         // Expected: νt ≈ a1*k / max(a1*ω, S*F2)
         // a1 = 0.31 (SST constant)
@@ -55,13 +50,8 @@ mod k_omega_sst_tests {
         let strain_rate_magnitude = 1000.0; // High strain rate
         let f2 = 1.0; // Near-wall value
 
-        let nu_t_limited = model.turbulent_viscosity_with_limiter(
-            k,
-            omega,
-            density,
-            strain_rate_magnitude,
-            f2,
-        );
+        let nu_t_limited =
+            model.turbulent_viscosity_with_limiter(k, omega, density, strain_rate_magnitude, f2);
 
         // With high S*F2, denominator should be dominated by strain rate
         let a1 = 0.31;
@@ -81,13 +71,8 @@ mod k_omega_sst_tests {
         let strain_rate_magnitude = 100.0; // Arbitrary, should not matter when F2 = 0
         let f2 = 0.0; // Freestream condition
 
-        let nu_t_full = model.turbulent_viscosity_with_limiter(
-            k,
-            omega,
-            density,
-            strain_rate_magnitude,
-            f2,
-        );
+        let nu_t_full =
+            model.turbulent_viscosity_with_limiter(k, omega, density, strain_rate_magnitude, f2);
 
         // When F2 = 0, S*F2 = 0, so denominator is max(a1*ω, 0) = a1*ω
         let a1 = 0.31;
@@ -102,7 +87,7 @@ mod k_omega_sst_tests {
     #[test]
     fn test_sst_production_term_shear_flow() {
         let model: KOmegaSSTModel<f64> = KOmegaSSTModel::new(10, 10);
-        
+
         // Simple shear flow: ∂u/∂y = 10 s⁻¹, other gradients zero
         let velocity_gradient = [[0.0, 10.0], [0.0, 0.0]];
         let turbulent_viscosity = 0.001; // [kg/(m·s)]
@@ -139,23 +124,17 @@ mod k_omega_sst_tests {
     #[test]
     fn test_sst_positive_turbulent_viscosity() {
         let model: KOmegaSSTModel<f64> = KOmegaSSTModel::new(10, 10);
-        
+
         // Test various conditions
         let test_cases = vec![
-            (0.01, 1.0, 1.0, 1.0, 0.5),    // Low k
-            (10.0, 0.1, 1.0, 10.0, 0.5),   // Low omega
-            (1.0, 100.0, 1.0, 50.0, 0.5),  // High omega
+            (0.01, 1.0, 1.0, 1.0, 0.5),         // Low k
+            (10.0, 0.1, 1.0, 10.0, 0.5),        // Low omega
+            (1.0, 100.0, 1.0, 50.0, 0.5),       // High omega
             (100.0, 1000.0, 1.225, 100.0, 1.0), // High k, high omega
         ];
 
         for (k, omega, density, strain_rate, f2) in test_cases {
-            let nu_t = model.turbulent_viscosity_with_limiter(
-                k,
-                omega,
-                density,
-                strain_rate,
-                f2,
-            );
+            let nu_t = model.turbulent_viscosity_with_limiter(k, omega, density, strain_rate, f2);
             assert!(
                 nu_t >= 0.0,
                 "Turbulent viscosity must be non-negative: got {nu_t}"
@@ -167,7 +146,7 @@ mod k_omega_sst_tests {
     #[test]
     fn test_sst_limiter_numerical_stability() {
         let model: KOmegaSSTModel<f64> = KOmegaSSTModel::new(10, 10);
-        
+
         // Edge case: very small omega (near-zero)
         let k = 1.0;
         let omega = 1e-10;
@@ -175,13 +154,7 @@ mod k_omega_sst_tests {
         let strain_rate = 1.0;
         let f2 = 0.5;
 
-        let nu_t = model.turbulent_viscosity_with_limiter(
-            k,
-            omega,
-            density,
-            strain_rate,
-            f2,
-        );
+        let nu_t = model.turbulent_viscosity_with_limiter(k, omega, density, strain_rate, f2);
 
         // Should not panic or produce infinity
         assert!(nu_t.is_finite(), "Turbulent viscosity must be finite");
@@ -199,13 +172,7 @@ mod k_omega_sst_tests {
         let strain_rate = 50.0;
         let f2 = 1.0; // Near-wall value (F2 = 1)
 
-        let nu_t = model.turbulent_viscosity_with_limiter(
-            k,
-            omega,
-            density,
-            strain_rate,
-            f2,
-        );
+        let nu_t = model.turbulent_viscosity_with_limiter(k, omega, density, strain_rate, f2);
 
         // Near wall with F2 = 1, limiter is fully active
         let a1 = 0.31;
@@ -226,12 +193,12 @@ mod k_omega_sst_tests {
     #[test]
     fn test_sst_reynolds_validity() {
         let model: KOmegaSSTModel<f64> = KOmegaSSTModel::new(10, 10);
-        
+
         // SST is valid for all positive Reynolds numbers
         assert!(model.is_valid_for_reynolds(100.0));
         assert!(model.is_valid_for_reynolds(1e6));
         assert!(model.is_valid_for_reynolds(1e-3));
-        
+
         // Invalid for zero or negative
         assert!(!model.is_valid_for_reynolds(0.0));
         assert!(!model.is_valid_for_reynolds(-100.0));
@@ -242,7 +209,7 @@ mod k_omega_sst_tests {
     #[test]
     fn test_sst_limiter_is_limiter() {
         use proptest::prelude::*;
-        
+
         proptest!(|(
             k in 0.001f64..100.0,
             omega in 0.1f64..1000.0,
@@ -251,7 +218,7 @@ mod k_omega_sst_tests {
         )| {
             let model: KOmegaSSTModel<f64> = KOmegaSSTModel::new(10, 10);
             let density = 1.0;
-            
+
             let nu_t_unlimited = density * k / omega;
             let nu_t_limited = model.turbulent_viscosity_with_limiter(
                 k,
@@ -260,10 +227,10 @@ mod k_omega_sst_tests {
                 strain_rate,
                 f2,
             );
-            
+
             // Limiter should never increase turbulent viscosity
-            prop_assert!(nu_t_limited <= nu_t_unlimited * 1.001, 
-                        "Limiter increased turbulent viscosity: {} > {}", 
+            prop_assert!(nu_t_limited <= nu_t_unlimited * 1.001,
+                        "Limiter increased turbulent viscosity: {} > {}",
                         nu_t_limited, nu_t_unlimited);
         });
     }

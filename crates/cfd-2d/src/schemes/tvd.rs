@@ -447,28 +447,36 @@ impl<T: RealField + Copy + ToPrimitive> MUSCLScheme<T> {
     /// Reconstruct left interface value at cell face for MUSCL2
     fn reconstruct_left_muscl2(&self, phi_im1: T, phi_i: T, phi_ip1: T) -> T {
         let slope = self.limited_slope(phi_im1, phi_i, phi_ip1);
-        phi_i + slope * T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one())) // φ_i + (1/2) * slope
+        phi_i + slope * T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()))
+        // φ_i + (1/2) * slope
     }
 
     /// Reconstruct right interface value at cell face for MUSCL2
     fn reconstruct_right_muscl2(&self, phi_im1: T, phi_i: T, phi_ip1: T) -> T {
         let slope = self.limited_slope(phi_im1, phi_i, phi_ip1);
-        phi_i - slope * T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one())) // φ_i - (1/2) * slope
+        phi_i - slope * T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()))
+        // φ_i - (1/2) * slope
     }
 
     /// Reconstruct left interface value at cell face for MUSCL3
-    fn reconstruct_left_muscl3(&self, _phi_im2: T, phi_im1: T, phi_i: T, phi_ip1: T, phi_ip2: Option<T>) -> T {
+    fn reconstruct_left_muscl3(
+        &self,
+        _phi_im2: T,
+        phi_im1: T,
+        phi_i: T,
+        phi_ip1: T,
+        phi_ip2: Option<T>,
+    ) -> T {
         if let Some(phi_ip2) = phi_ip2 {
             // Use 4-point stencil for 3rd order
             let slope1 = self.limited_slope(phi_im1, phi_i, phi_ip1);
             let slope2 = self.limited_slope(phi_i, phi_ip1, phi_ip2);
 
             // QUICK-like scheme with limiter blending
-            let quick = (T::from_f64(6.0).unwrap() * phi_i
-                       - T::from_f64(2.0).unwrap() * phi_im1
-                       + T::from_f64(8.0).unwrap() * phi_ip1
-                       - phi_ip2)
-                      / T::from_f64(12.0).unwrap();
+            let quick = (T::from_f64(6.0).unwrap() * phi_i - T::from_f64(2.0).unwrap() * phi_im1
+                + T::from_f64(8.0).unwrap() * phi_ip1
+                - phi_ip2)
+                / T::from_f64(12.0).unwrap();
 
             // Blend QUICK with MUSCL2 based on limiter
             let muscl2 = self.reconstruct_left_muscl2(phi_im1, phi_i, phi_ip1);
@@ -490,7 +498,14 @@ impl<T: RealField + Copy + ToPrimitive> MUSCLScheme<T> {
     }
 
     /// Reconstruct right interface value at cell face for MUSCL3
-    fn reconstruct_right_muscl3(&self, _phi_im2: T, phi_im1: T, phi_i: T, phi_ip1: T, phi_ip2: Option<T>) -> T {
+    fn reconstruct_right_muscl3(
+        &self,
+        _phi_im2: T,
+        phi_im1: T,
+        phi_i: T,
+        phi_ip1: T,
+        phi_ip2: Option<T>,
+    ) -> T {
         if let Some(phi_ip2) = phi_ip2 {
             // For right interface, use symmetric QUICK-like formula
             let slope1 = self.limited_slope(phi_im1, phi_i, phi_ip1);
@@ -585,7 +600,9 @@ impl<T: RealField + Copy> QUICKScheme<T> {
 }
 
 // FaceReconstruction implementation for MUSCL schemes
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstruction<T> for MUSCLScheme<T> {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstruction<T>
+    for MUSCLScheme<T>
+{
     fn reconstruct_face_value_x(
         &self,
         phi: &Grid2D<T>,
@@ -610,7 +627,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
                             phi_0
                         } else {
                             // One-sided backward reconstruction: φ_{1/2}^L = φ_0 - (1/2)δφ for inflow
-                            phi_0 - T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one())) * (phi_1 - phi_0)
+                            phi_0
+                                - T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()))
+                                    * (phi_1 - phi_0)
                         }
                     } else {
                         phi.data[(0, j)]
@@ -625,7 +644,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
                         if velocity_at_face >= T::zero() {
                             phi_0
                         } else {
-                            phi_0 - T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one())) * (phi_1 - phi_0)
+                            phi_0
+                                - T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()))
+                                    * (phi_1 - phi_0)
                         }
                     } else {
                         phi.data[(0, j)]
@@ -644,7 +665,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
                             phi_nm1
                         } else {
                             // One-sided forward reconstruction: φ_{N-1/2}^L = φ_{N-1} + (1/2)δφ for outflow
-                            phi_nm1 + T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one())) * (phi_nm1 - phi_nm2)
+                            phi_nm1
+                                + T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()))
+                                    * (phi_nm1 - phi_nm2)
                         }
                     } else {
                         phi.data[(nx - 1, j)]
@@ -659,7 +682,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
                         if velocity_at_face <= T::zero() {
                             phi_nm1
                         } else {
-                            phi_nm1 + T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one())) * (phi_nm1 - phi_nm2)
+                            phi_nm1
+                                + T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()))
+                                    * (phi_nm1 - phi_nm2)
                         }
                     } else {
                         phi.data[(nx - 1, j)]
@@ -685,7 +710,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
                 MUSCLOrder::ThirdOrder => {
                     // MUSCL3 needs additional points
                     let phi_im2 = if i > 1 { phi.data[(i - 2, j)] } else { phi_im1 };
-                    let phi_ip2 = if i + 2 < nx { Some(phi.data[(i + 2, j)]) } else { None };
+                    let phi_ip2 = if i + 2 < nx {
+                        Some(phi.data[(i + 2, j)])
+                    } else {
+                        None
+                    };
 
                     if velocity_at_face >= T::zero() {
                         // Flow from left to right - reconstruct φ_{i+1/2}^L
@@ -721,7 +750,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
                         if velocity_at_face >= T::zero() {
                             phi_0
                         } else {
-                            phi_0 - T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one())) * (phi_1 - phi_0)
+                            phi_0
+                                - T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()))
+                                    * (phi_1 - phi_0)
                         }
                     } else {
                         phi.data[(i, 0)]
@@ -735,7 +766,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
                         if velocity_at_face >= T::zero() {
                             phi_0
                         } else {
-                            phi_0 - T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one())) * (phi_1 - phi_0)
+                            phi_0
+                                - T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()))
+                                    * (phi_1 - phi_0)
                         }
                     } else {
                         phi.data[(i, 0)]
@@ -753,7 +786,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
                         if velocity_at_face <= T::zero() {
                             phi_nm1
                         } else {
-                            phi_nm1 + T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one())) * (phi_nm1 - phi_nm2)
+                            phi_nm1
+                                + T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()))
+                                    * (phi_nm1 - phi_nm2)
                         }
                     } else {
                         phi.data[(i, ny - 1)]
@@ -767,7 +802,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
                         if velocity_at_face <= T::zero() {
                             phi_nm1
                         } else {
-                            phi_nm1 + T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one())) * (phi_nm1 - phi_nm2)
+                            phi_nm1
+                                + T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()))
+                                    * (phi_nm1 - phi_nm2)
                         }
                     } else {
                         phi.data[(i, ny - 1)]
@@ -790,7 +827,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
                 }
                 MUSCLOrder::ThirdOrder => {
                     let phi_jm2 = if j > 1 { phi.data[(i, j - 2)] } else { phi_jm1 };
-                    let phi_jp2 = if j + 2 < ny { Some(phi.data[(i, j + 2)]) } else { None };
+                    let phi_jp2 = if j + 2 < ny {
+                        Some(phi.data[(i, j + 2)])
+                    } else {
+                        None
+                    };
 
                     if velocity_at_face >= T::zero() {
                         self.reconstruct_left_muscl3(phi_jm2, phi_jm1, phi_j, phi_jp1, phi_jp2)

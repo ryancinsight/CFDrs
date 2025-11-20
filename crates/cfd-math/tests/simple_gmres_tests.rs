@@ -1,7 +1,7 @@
 //! Basic GMRES solver tests to validate core functionality
 
-use cfd_math::linear_solver::{GMRES, IterativeLinearSolver};
 use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
+use cfd_math::linear_solver::{IterativeLinearSolver, GMRES};
 use cfd_math::sparse;
 use nalgebra::DVector;
 use nalgebra_sparse::CsrMatrix;
@@ -11,11 +11,19 @@ use nalgebra_sparse::CsrMatrix;
 fn test_gmres_basic() {
     let n = 5;
     let mut coo = nalgebra_sparse::CooMatrix::new(n, n);
-    coo.push(0, 0, 2.0); coo.push(0, 1, -1.0);
-    coo.push(1, 0, -1.0); coo.push(1, 1, 2.0); coo.push(1, 2, -1.0);
-    coo.push(2, 1, -1.0); coo.push(2, 2, 3.0); coo.push(2, 3, -1.0);
-    coo.push(3, 2, -1.0); coo.push(3, 3, 2.0); coo.push(3, 4, -1.0);
-    coo.push(4, 3, -1.0); coo.push(4, 4, 2.0);
+    coo.push(0, 0, 2.0);
+    coo.push(0, 1, -1.0);
+    coo.push(1, 0, -1.0);
+    coo.push(1, 1, 2.0);
+    coo.push(1, 2, -1.0);
+    coo.push(2, 1, -1.0);
+    coo.push(2, 2, 3.0);
+    coo.push(2, 3, -1.0);
+    coo.push(3, 2, -1.0);
+    coo.push(3, 3, 2.0);
+    coo.push(3, 4, -1.0);
+    coo.push(4, 3, -1.0);
+    coo.push(4, 4, 2.0);
     let a = CsrMatrix::from(&coo);
 
     let b = DVector::from_vec(vec![1.0, 2.0, 3.0, 2.0, 1.0]);
@@ -40,8 +48,12 @@ fn test_gmres_restart() {
     let mut coo = nalgebra_sparse::CooMatrix::new(n, n);
     for i in 0..n {
         coo.push(i, i, 2.0);
-        if i > 0 { coo.push(i, i-1, -1.0); }
-        if i < n-1 { coo.push(i, i+1, -1.0); }
+        if i > 0 {
+            coo.push(i, i - 1, -1.0);
+        }
+        if i < n - 1 {
+            coo.push(i, i + 1, -1.0);
+        }
     }
     let a = CsrMatrix::from(&coo);
 
@@ -76,5 +88,9 @@ fn test_gmres_with_preconditioner() {
     assert!(result.is_ok(), "GMRES with preconditioner should work");
 
     let final_residual = (&a * &x - &b).norm();
-    assert!(final_residual < 1e-8, "Final residual {} too large", final_residual);
+    assert!(
+        final_residual < 1e-8,
+        "Final residual {} too large",
+        final_residual
+    );
 }

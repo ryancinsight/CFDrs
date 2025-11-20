@@ -11,10 +11,10 @@
 //! - Trefthen (1996): Finite Difference and Spectral Methods for Ordinary and Partial Differential Equations
 //! - LeVeque (2002): Finite Volume Methods for Hyperbolic Problems
 
+use cfd_core::error::{Error, Result};
 use nalgebra::{DMatrix, DVector, RealField};
 use num_complex::Complex as NumComplex;
 use num_traits::ToPrimitive;
-use cfd_core::error::{Error, Result};
 use std::f64::consts::PI;
 
 /// Stability analysis for time-stepping schemes
@@ -62,7 +62,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         &self,
         a: &DMatrix<T>,
         b: &DVector<T>,
-        c: &DVector<T>
+        c: &DVector<T>,
     ) -> Result<StabilityRegion<T>> {
         let s = b.len();
 
@@ -70,18 +70,25 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         if a.nrows() != s || a.ncols() != s || c.len() != s {
             return Err(Error::InvalidInput(format!(
                 "Invalid Butcher tableau dimensions: A is {}x{}, b has {}, c has {}",
-                a.nrows(), a.ncols(), b.len(), c.len()
+                a.nrows(),
+                a.ncols(),
+                b.len(),
+                c.len()
             )));
         }
 
         // Check if method is explicit (lower triangular A with zero diagonal)
         for i in 0..s {
             if a[(i, i)] != T::zero() {
-                return Err(Error::InvalidInput("Not an explicit Runge-Kutta method".to_string()));
+                return Err(Error::InvalidInput(
+                    "Not an explicit Runge-Kutta method".to_string(),
+                ));
             }
             for j in (i + 1)..s {
                 if a[(i, j)] != T::zero() {
-                    return Err(Error::InvalidInput("Not a lower triangular A matrix".to_string()));
+                    return Err(Error::InvalidInput(
+                        "Not a lower triangular A matrix".to_string(),
+                    ));
                 }
             }
         }
@@ -139,7 +146,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         a: &DMatrix<T>,
         b: &DVector<T>,
         _c: &DVector<T>,
-        z: NumComplex<f64>
+        z: NumComplex<f64>,
     ) -> Result<NumComplex<f64>> {
         let s = b.len();
 
@@ -200,14 +207,20 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         }
 
         // Order 2: sum b_i * c_i = 1/2
-        let sum_b_c = _b.iter().zip(_c.iter()).fold(T::zero(), |acc, (&bi, &ci)| acc + bi * ci);
+        let sum_b_c = _b
+            .iter()
+            .zip(_c.iter())
+            .fold(T::zero(), |acc, (&bi, &ci)| acc + bi * ci);
         if (sum_b_c - T::from_f64(0.5).unwrap()).abs() > T::from_f64(1e-10).unwrap() {
             return 1;
         }
 
         // Order 3: sum b_i * c_i^2 = 1/3
-        let sum_b_c2 = _b.iter().zip(_c.iter()).fold(T::zero(), |acc, (&bi, &ci)| acc + bi * ci * ci);
-        if (sum_b_c2 - T::from_f64(1.0/3.0).unwrap()).abs() > T::from_f64(1e-10).unwrap() {
+        let sum_b_c2 = _b
+            .iter()
+            .zip(_c.iter())
+            .fold(T::zero(), |acc, (&bi, &ci)| acc + bi * ci * ci);
+        if (sum_b_c2 - T::from_f64(1.0 / 3.0).unwrap()).abs() > T::from_f64(1e-10).unwrap() {
             return 2;
         }
 
@@ -233,7 +246,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         velocity: T,
         dt: T,
         dx: T,
-        scheme: NumericalScheme
+        scheme: NumericalScheme,
     ) -> CFLAnalysis<T> {
         let cfl_number = velocity.abs() * dt / dx;
         let max_cfl = scheme.max_cfl_number();
@@ -272,7 +285,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         &self,
         spatial_operator: F,
         dt: T,
-        wave_numbers: &[T]
+        wave_numbers: &[T],
     ) -> Result<VonNeumannAnalysis<T>>
     where
         F: Fn(NumComplex<f64>) -> NumComplex<f64>, // L_hat(k) - spatial operator in frequency domain
@@ -482,10 +495,10 @@ mod tests {
 
         // Test stable case
         let result = analyzer.analyze_cfl_condition(
-            1.0,   // velocity
-            0.1,   // dt
-            0.2,   // dx
-            NumericalScheme::ForwardEuler
+            1.0, // velocity
+            0.1, // dt
+            0.2, // dx
+            NumericalScheme::ForwardEuler,
         );
 
         assert_eq!(result.cfl_number, 0.5);
@@ -499,13 +512,14 @@ mod tests {
 
         // Test unstable case
         let result = analyzer.analyze_cfl_condition(
-            1.0,   // velocity
-            0.3,   // dt
-            0.1,   // dx
-            NumericalScheme::ForwardEuler
+            1.0, // velocity
+            0.3, // dt
+            0.1, // dx
+            NumericalScheme::ForwardEuler,
         );
 
-        assert_eq!(result.cfl_number, 3.0);
+        use approx::assert_relative_eq;
+        assert_relative_eq!(result.cfl_number, 3.0, epsilon = 1e-10);
         assert!(matches!(result.stability, StabilityStatus::Unstable));
     }
 
@@ -514,14 +528,15 @@ mod tests {
         let analyzer = StabilityAnalyzer::<f64>::new();
 
         // Classic RK4 Butcher tableau
-        let a = DMatrix::from_row_slice(4, 4, &[
-            0.0, 0.0, 0.0, 0.0,
-            0.5, 0.0, 0.0, 0.0,
-            0.0, 0.5, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-        ]);
+        let a = DMatrix::from_row_slice(
+            4,
+            4,
+            &[
+                0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+            ],
+        );
 
-        let b = DVector::from_vec(vec![1.0/6.0, 1.0/3.0, 1.0/3.0, 1.0/6.0]);
+        let b = DVector::from_vec(vec![1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0]);
         let c = DVector::from_vec(vec![0.0, 0.5, 0.5, 1.0]);
 
         let result = analyzer.compute_rk_stability_region(&a, &b, &c);

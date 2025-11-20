@@ -178,7 +178,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
             return ConvergenceStatus::NotConverged {
                 current_error: <T as SafeFromF64>::from_f64_or_zero(f64::INFINITY),
                 iterations: 0,
-            }
+            };
         };
         let iterations = self.history.len();
 
@@ -204,8 +204,9 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
 
                 // Stalled if CV is very small (< 1% of relative tolerance)
                 // AND error is still above absolute tolerance (otherwise it's converged)
-                if cv < self.rel_tolerance * <T as SafeFromF64>::from_f64_or_zero(0.01) 
-                   && current_error > self.abs_tolerance {
+                if cv < self.rel_tolerance * <T as SafeFromF64>::from_f64_or_zero(0.01)
+                    && current_error > self.abs_tolerance
+                {
                     return ConvergenceStatus::Stalled {
                         stall_error: current_error,
                         stall_iterations: self.stall_window,
@@ -217,7 +218,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
         // Check relative convergence
         if iterations > 1 {
             let prev_error = self.history[iterations - 2];
-            
+
             // Avoid division by zero
             if prev_error > T::zero() {
                 let rel_change = (current_error - prev_error).abs() / prev_error;

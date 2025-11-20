@@ -21,6 +21,7 @@ tracing.workspace = true
 serde = { workspace = true, features = ["derive"] }
 bytemuck.workspace = true
 wgpu = { workspace = true, optional = true }
+futures = { version = "0.3", optional = true }
 
 [dev-dependencies]
 proptest.workspace = true
@@ -30,7 +31,7 @@ tokio = { version = "1.0", features = ["rt", "macros"] }
 
 [features]
 default = []
-gpu = []
+gpu = ["dep:wgpu", "dep:futures"]
 mpi = []
 
 [[bench]]

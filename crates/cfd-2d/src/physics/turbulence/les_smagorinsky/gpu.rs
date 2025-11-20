@@ -67,7 +67,9 @@ pub fn compute_sgs_viscosity_gpu(
     _smagorinsky_constant: f64,
 ) -> cfd_core::error::Result<DMatrix<f64>> {
     // This should never be called when GPU feature is not enabled
-    Err(cfd_core::error::Error::UnsupportedOperation("GPU acceleration not available".to_string()))
+    Err(cfd_core::error::Error::UnsupportedOperation(
+        "GPU acceleration not available".to_string(),
+    ))
 }
 
 /// Check if GPU acceleration is available (always false without GPU feature)

@@ -14,6 +14,7 @@ pub struct CoarseningResult {
 }
 
 /// Ruge-Stüben coarsening algorithm
+/// Ruge-Stüben coarsening algorithm
 pub fn ruge_stueben_coarsening(
     matrix: &DMatrix<f64>,
     strength_threshold: f64,
@@ -23,43 +24,85 @@ pub fn ruge_stueben_coarsening(
     let mut fine_to_coarse_map = vec![None; n];
 
     // Step 1: Compute strength of connection matrix
+    // S[i, j] > 0 means i depends strongly on j (j strongly influences i)
     let strength_matrix = compute_strength_matrix(matrix, strength_threshold)?;
 
-    // Step 2: Initial classification - all points are unassigned
-    let mut lambda = vec![0.0; n];
-    let mut unassigned = (0..n).collect::<Vec<_>>();
+    // Transpose strength matrix to get S^T (influence graph)
+    // S_T[i, j] > 0 means i strongly influences j
+    let mut strength_transpose = DMatrix::zeros(n, n);
+    for i in 0..n {
+        for j in 0..n {
+            if strength_matrix[(j, i)] > 0.0 {
+                strength_transpose[(i, j)] = strength_matrix[(j, i)];
+            }
+        }
+    }
 
-    // Step 3: Select coarse points using lambda values
-    while !unassigned.is_empty() {
-        // Find point with maximum lambda value
-        let mut max_lambda = f64::NEG_INFINITY;
-        let mut max_idx = None;
+    // Step 2: Initialize lambda (measure of importance)
+    // lambda[i] = number of points strongly influenced by i (that are currently undecided)
+    let mut lambda = vec![0; n];
+    for i in 0..n {
+        for j in 0..n {
+            if strength_transpose[(i, j)] > 0.0 {
+                lambda[i] += 1;
+            }
+        }
+    }
 
-        for &i in &unassigned {
-            if lambda[i] > max_lambda {
-                max_lambda = lambda[i];
-                max_idx = Some(i);
+    // Status: 0 = Undecided, 1 = C-point, 2 = F-point
+    let mut status = vec![0; n];
+    let mut undecided_count = n;
+
+    // Step 3: C/F Splitting (Standard Ruge-Stueben First Pass)
+    while undecided_count > 0 {
+        // Pick point with max lambda among undecided
+        let mut max_lambda = -1;
+        let mut i_opt = None;
+
+        for k in 0..n {
+            if status[k] == 0 {
+                if lambda[k] > max_lambda {
+                    max_lambda = lambda[k];
+                    i_opt = Some(k);
+                }
             }
         }
 
-        if let Some(i) = max_idx {
-            // Mark as coarse point
+        if let Some(i) = i_opt {
+            // Make i a C-point
+            status[i] = 1;
+            undecided_count -= 1;
             coarse_points.push(i);
             fine_to_coarse_map[i] = Some(coarse_points.len() - 1);
-            unassigned.retain(|&x| x != i);
 
-            // Update lambda for neighboring points
+            // For all undecided j that are strongly influenced by i (j in S_i^T)
             for j in 0..n {
-                if strength_matrix[(i, j)] > 0.0 {
-                    lambda[j] += strength_matrix[(i, j)];
+                if strength_transpose[(i, j)] > 0.0 && status[j] == 0 {
+                    // Make j an F-point
+                    status[j] = 2;
+                    undecided_count -= 1;
+
+                    // For all undecided k that strongly influence j (k in S_j)
+                    // Increase lambda[k] because k is now more valuable to cover j
+                    for k in 0..n {
+                        if strength_matrix[(j, k)] > 0.0 && status[k] == 0 {
+                            lambda[k] += 1;
+                        }
+                    }
                 }
             }
+            
+            // Also, for all undecided j that strongly influence i (j in S_i)
+            // Decrease lambda[j] because i is already covered (as a C point)?
+            // Standard algorithm usually just does the above.
         } else {
+            // Should not happen if undecided_count > 0
             break;
         }
     }
 
-    // Step 4: Handle remaining unassigned points
+    // Step 4: Handle remaining unassigned points (or just F-points mapping)
+    // Map F-points to their strongest connected C-point
     for i in 0..n {
         if fine_to_coarse_map[i].is_none() {
             // Find strongest connection to a coarse point
@@ -75,7 +118,13 @@ pub fn ruge_stueben_coarsening(
             }
 
             if let Some(c) = best_coarse {
-                fine_to_coarse_map[i] = fine_to_coarse_map[c];
+                // CRITICAL-009 Fix: Explicitly find the index of the coarse point
+                // This ensures we are mapping to the correct coarse DOF index
+                let coarse_idx = coarse_points
+                    .iter()
+                    .position(|&x| x == c)
+                    .expect("Coarse point must exist in coarse_points list");
+                fine_to_coarse_map[i] = Some(coarse_idx);
             }
         }
     }
@@ -148,7 +197,11 @@ pub fn hybrid_coarsening(
     match ruge_stueben_coarsening(matrix, strength_threshold) {
         Ok(result) => {
             // Check if result is reasonable (not too many isolated points)
-            let assigned_points = result.fine_to_coarse_map.iter().filter(|x| x.is_some()).count();
+            let assigned_points = result
+                .fine_to_coarse_map
+                .iter()
+                .filter(|x| x.is_some())
+                .count();
             let assignment_ratio = assigned_points as f64 / matrix.nrows() as f64;
 
             if assignment_ratio > 0.8 {
@@ -406,7 +459,12 @@ impl AlgebraicDistances {
                         min_distance = min_distance.min(1.0);
                     } else {
                         // Compute algebraic distance through intermediate points
-                        let distance = compute_algebraic_distance(i, coarse_idx, matrix, &coarsening.strength_matrix);
+                        let distance = compute_algebraic_distance(
+                            i,
+                            coarse_idx,
+                            matrix,
+                            &coarsening.strength_matrix,
+                        );
                         min_distance = min_distance.min(distance);
                     }
                 }
@@ -418,7 +476,8 @@ impl AlgebraicDistances {
                 }
 
                 // Track points with high algebraic distance
-                if min_distance > 2.0 { // Threshold for "high distance"
+                if min_distance > 2.0 {
+                    // Threshold for "high distance"
                     high_distance_points.push((i, min_distance));
                 }
             }
@@ -444,15 +503,16 @@ impl AlgebraicDistances {
     /// Assess coarsening quality based on algebraic distances
     pub fn quality_assessment(&self) -> CoarseningQuality {
         let mut quality = CoarseningQuality {
-            coarsening_ratio: 0.0, // Not computed in this method
-            assignment_ratio: 0.0, // Not computed in this method
-            avg_interpolation_points: 0.0, // Not computed in this method
-            max_interpolation_points: 0, // Not computed in this method
-            coarse_points: 0, // Not computed in this method
+            coarsening_ratio: 0.0,              // Not computed in this method
+            assignment_ratio: 0.0,              // Not computed in this method
+            avg_interpolation_points: 0.0,      // Not computed in this method
+            max_interpolation_points: 0,        // Not computed in this method
+            coarse_points: 0,                   // Not computed in this method
             total_points: self.distances.len(), // Use distances length as total points
             average_distance: self.average_distance,
             max_distance: self.max_distance,
-            high_distance_ratio: self.high_distance_points.len() as f64 / self.distances.len() as f64,
+            high_distance_ratio: self.high_distance_points.len() as f64
+                / self.distances.len() as f64,
             quality_score: 0.0,
             recommendations: Vec::new(),
         };
@@ -483,15 +543,23 @@ impl AlgebraicDistances {
 
         // Generate recommendations
         if quality.quality_score < 0.7 {
-            quality.recommendations.push("Consider using Falgout or PMIS coarsening for better connectivity".to_string());
+            quality.recommendations.push(
+                "Consider using Falgout or PMIS coarsening for better connectivity".to_string(),
+            );
         }
 
         if self.high_distance_points.len() > self.distances.len() / 10 {
-            quality.recommendations.push("High number of poorly connected points - consider adjusting strength threshold".to_string());
+            quality.recommendations.push(
+                "High number of poorly connected points - consider adjusting strength threshold"
+                    .to_string(),
+            );
         }
 
         if self.max_distance > 5.0 {
-            quality.recommendations.push("Some points are very far from coarse levels - may cause slow convergence".to_string());
+            quality.recommendations.push(
+                "Some points are very far from coarse levels - may cause slow convergence"
+                    .to_string(),
+            );
         }
 
         quality
@@ -566,9 +634,9 @@ fn compute_strength_matrix(
     let n = matrix.nrows();
     let mut strength = DMatrix::zeros(n, n);
 
-        for i in 0..n {
-            // Find maximum off-diagonal element in row i
-            let mut max_off_diag: f64 = 0.0;
+    for i in 0..n {
+        // Find maximum off-diagonal element in row i
+        let mut max_off_diag: f64 = 0.0;
         for j in 0..n {
             if i != j {
                 max_off_diag = max_off_diag.max(matrix[(i, j)].abs());
@@ -591,7 +659,11 @@ fn compute_strength_matrix(
 pub fn analyze_coarsening_quality(result: &CoarseningResult) -> CoarseningQuality {
     let total_points = result.fine_to_coarse_map.len();
     let coarse_points = result.coarse_points.len();
-    let assigned_points = result.fine_to_coarse_map.iter().filter(|x| x.is_some()).count();
+    let assigned_points = result
+        .fine_to_coarse_map
+        .iter()
+        .filter(|x| x.is_some())
+        .count();
 
     let coarsening_ratio = coarse_points as f64 / total_points as f64;
     let assignment_ratio = assigned_points as f64 / total_points as f64;
@@ -626,10 +698,10 @@ pub fn analyze_coarsening_quality(result: &CoarseningResult) -> CoarseningQualit
         max_interpolation_points,
         coarse_points,
         total_points,
-        average_distance: 0.0, // Not computed in this basic analysis
-        max_distance: 0.0, // Not computed in this basic analysis
-        high_distance_ratio: 0.0, // Not computed in this basic analysis
-        quality_score: 0.0, // Not computed in this basic analysis
+        average_distance: 0.0,       // Not computed in this basic analysis
+        max_distance: 0.0,           // Not computed in this basic analysis
+        high_distance_ratio: 0.0,    // Not computed in this basic analysis
+        quality_score: 0.0,          // Not computed in this basic analysis
         recommendations: Vec::new(), // Not computed in this basic analysis
     }
 }
@@ -687,10 +759,18 @@ mod tests {
                 matrix[(idx, idx)] = 4.0; // Main diagonal
 
                 // Neighbors
-                if i > 0 { matrix[(idx, (i-1)*n + j)] = -1.0; }
-                if i < n-1 { matrix[(idx, (i+1)*n + j)] = -1.0; }
-                if j > 0 { matrix[(idx, i*n + (j-1))] = -1.0; }
-                if j < n-1 { matrix[(idx, i*n + (j+1))] = -1.0; }
+                if i > 0 {
+                    matrix[(idx, (i - 1) * n + j)] = -1.0;
+                }
+                if i < n - 1 {
+                    matrix[(idx, (i + 1) * n + j)] = -1.0;
+                }
+                if j > 0 {
+                    matrix[(idx, i * n + (j - 1))] = -1.0;
+                }
+                if j < n - 1 {
+                    matrix[(idx, i * n + (j + 1))] = -1.0;
+                }
             }
         }
 
@@ -742,4 +822,131 @@ mod tests {
         assert!(!result.coarse_points.is_empty());
         assert_eq!(result.fine_to_coarse_map.len(), matrix.nrows());
     }
+
+    #[test]
+    fn test_mapping_correctness() {
+        let matrix = create_test_matrix();
+        let result = ruge_stueben_coarsening(&matrix, 0.25).unwrap();
+
+        // Verify that all mapped points point to valid coarse indices
+        for (i, &map) in result.fine_to_coarse_map.iter().enumerate() {
+            if let Some(coarse_idx) = map {
+                assert!(coarse_idx < result.coarse_points.len(), "Mapped index out of bounds");
+                
+                // If i is a coarse point, it should map to its own index
+                if result.coarse_points.contains(&i) {
+                    assert_eq!(result.coarse_points[coarse_idx], i, "Coarse point mapped to wrong index");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_coarsening_ratio_bounds() {
+        // Create larger test matrix for more realistic coarsening
+        // 10x10 grid = 100 points (versus 4x4 = 16 which is too small)
+        let n = 10;
+        let mut matrix = DMatrix::zeros(n * n, n * n);
+
+        for i in 0..n {
+            for j in 0..n {
+                let idx = i * n + j;
+                matrix[(idx, idx)] = 4.0; // Main diagonal
+
+                // Neighbors (5-point stencil)
+                if i > 0 {
+                    matrix[(idx, (i - 1) * n + j)] = -1.0;
+                }
+                if i < n - 1 {
+                    matrix[(idx, (i + 1) * n + j)] = -1.0;
+                }
+                if j > 0 {
+                    matrix[(idx, i * n + (j - 1))] = -1.0;
+                }
+                if j < n - 1 {
+                    matrix[(idx, i * n + (j + 1))] = -1.0;
+                }
+            }
+        }
+
+        let result = ruge_stueben_coarsening(&matrix, 0.25).unwrap();
+        
+        let n_total = matrix.nrows();
+        let n_coarse = result.coarse_points.len();
+        let ratio = n_coarse as f64 / n_total as f64;
+
+        println!("Coarsening ratio: {} ({} coarse / {} total)", ratio, n_coarse, n_total);
+        
+        // For a 2D Laplacian, Ruge-Stüben typically produces ratio ~0.25 - 0.5
+        // Standard coarsening picks roughly every other point in each direction
+        assert!(ratio >= 0.15, "Coarsening ratio too low: {}", ratio);
+        assert!(ratio <= 0.65, "Coarsening ratio too high: {}", ratio);
+    }
+
+    #[test]
+    fn test_interpolation_operator_shape() {
+        let matrix = create_test_matrix();
+        let result = ruge_stueben_coarsening(&matrix, 0.25).unwrap();
+
+        let n_fine = matrix.nrows();
+        let n_coarse = result.coarse_points.len();
+
+        // Verify fine_to_coarse_map length
+        assert_eq!(result.fine_to_coarse_map.len(), n_fine);
+
+        // Verify that all mapped indices are within [0, n_coarse)
+        for &map in &result.fine_to_coarse_map {
+            if let Some(idx) = map {
+                assert!(idx < n_coarse, "Coarse index {} out of bounds (n_coarse={})", idx, n_coarse);
+            }
+        }
+
+        // Verify that every coarse index is used at least once (by the coarse point itself)
+        let mut used_indices = vec![false; n_coarse];
+        for &map in &result.fine_to_coarse_map {
+            if let Some(idx) = map {
+                used_indices[idx] = true;
+            }
+        }
+        assert!(used_indices.iter().all(|&x| x), "Not all coarse indices are utilized");
+    }
+
+    #[test]
+    fn test_coarsening_convergence_behavior() {
+        // This test verifies that the coarsening produces a hierarchy that
+        // *should* lead to convergence. It checks:
+        // 1. Coarsening ratio is within reasonable bounds (0.1 < ratio < 0.8)
+        // 2. All fine points are either C-points or strongly connected to a C-point
+        // 3. No isolated points (unless the matrix has them)
+
+        let n = 8;
+        let mut matrix = DMatrix::zeros(n * n, n * n);
+        // Create 8x8 Laplacian
+        for i in 0..n {
+            for j in 0..n {
+                let idx = i * n + j;
+                matrix[(idx, idx)] = 4.0;
+                if i > 0 { matrix[(idx, (i - 1) * n + j)] = -1.0; }
+                if i < n - 1 { matrix[(idx, (i + 1) * n + j)] = -1.0; }
+                if j > 0 { matrix[(idx, i * n + (j - 1))] = -1.0; }
+                if j < n - 1 { matrix[(idx, i * n + (j + 1))] = -1.0; }
+            }
+        }
+
+        let result = ruge_stueben_coarsening(&matrix, 0.25).unwrap();
+        let quality = analyze_coarsening_quality(&result);
+
+        // Check 1: Coarsening ratio
+        assert!(quality.coarsening_ratio > 0.1, "Coarsening too aggressive");
+        assert!(quality.coarsening_ratio < 0.8, "Coarsening too weak");
+
+        // Check 2: Assignment ratio (should be 1.0 for this connected problem)
+        assert!(quality.assignment_ratio > 0.95, "Not all points assigned to coarse grid");
+
+        // Check 3: Interpolation points
+        // Every F-point should interpolate from at least one C-point
+        // (Average should be > 0)
+        assert!(quality.avg_interpolation_points > 0.0, "F-points have no interpolation sources");
+    }
 }
+

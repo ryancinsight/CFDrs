@@ -21,7 +21,8 @@ impl<T: RealField + Copy> Default for PressureAnalyzer<T> {
 
 impl<T: RealField + Copy> PressureAnalyzer<T> {
     /// Create new pressure analyzer
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }

@@ -47,15 +47,15 @@
 //! solver.solve(&operator, &b, &mut x)?;
 //! ```
 
-mod operator;
-mod cg;
-mod gmres;
 mod bicgstab;
 mod cfd_operators;
-mod traits;
+mod cg;
+mod gmres;
 mod gpu_compute;
+mod operator;
 #[cfg(feature = "mpi")]
 mod parallel_solvers;
+mod traits;
 
 // GPU modules are conditionally compiled only when the 'gpu' feature is enabled
 #[cfg(feature = "gpu")]
@@ -63,31 +63,30 @@ mod gpu_operators;
 #[cfg(feature = "gpu")]
 mod gpu_solvers;
 
-pub use operator::{LinearOperator, IdentityOperator, ScaledOperator};
+pub use bicgstab::MatrixFreeBiCGSTAB;
+pub use cfd_operators::{
+    EnergyOperator2D, LaplacianOperator2D, MomentumOperator1D, MomentumOperator2D,
+    PoissonOperator3D,
+};
 pub use cg::MatrixFreeCG;
 pub use gmres::MatrixFreeGMRES;
-pub use bicgstab::MatrixFreeBiCGSTAB;
-pub use cfd_operators::{LaplacianOperator2D, MomentumOperator1D, PoissonOperator3D, MomentumOperator2D, EnergyOperator2D};
+pub use operator::{IdentityOperator, LinearOperator, ScaledOperator};
 pub use traits::MatrixFreeSolver;
 
 // Conditionally re-export GPU-related types when the 'gpu' feature is enabled
 #[cfg(feature = "gpu")]
-pub use gpu_solvers::{GpuMatrixFreeGMRES, GpuMatrixFreeBiCGSTAB};
+pub use gpu_operators::{GpuLaplacianOperator2D, GpuMomentumOperator2D, GpuPoissonOperator3D};
+#[cfg(feature = "gpu")]
+pub use gpu_solvers::{GpuMatrixFreeBiCGSTAB, GpuMatrixFreeGMRES};
 #[cfg(feature = "gpu")]
 pub use operator::GpuLinearOperator;
-#[cfg(feature = "gpu")]
-pub use gpu_operators::{GpuLaplacianOperator2D, GpuPoissonOperator3D, GpuMomentumOperator2D};
 
 // Conditionally re-export MPI-related types when the 'mpi' feature is enabled
 #[cfg(feature = "mpi")]
 pub use parallel_solvers::{
+    CommunicationOptimization, CommunicationOptimizer, CommunicationOverlap,
+    LoadBalancingRecommendations, LoadBalancingStrategy, ParallelLoadBalancer,
     ParallelMatrixFreeBiCGSTAB,
-    ParallelLoadBalancer,
-    CommunicationOptimizer,
-    CommunicationOverlap,
-    LoadBalancingStrategy,
-    LoadBalancingRecommendations,
-    CommunicationOptimization,
 };
 
 #[cfg(test)]

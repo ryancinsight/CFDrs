@@ -8,9 +8,7 @@
 //! - Zero/near-zero values (underflow)
 //! - Extreme positive/negative values (numerical limits)
 
-use cfd_validation::convergence::{
-    ConvergenceMonitor, ConvergenceStatus, GridConvergenceIndex,
-};
+use cfd_validation::convergence::{ConvergenceMonitor, ConvergenceStatus, GridConvergenceIndex};
 use proptest::prelude::*;
 
 proptest! {
@@ -21,7 +19,7 @@ proptest! {
         reduction_rate in 0.1f64..0.9
     ) {
         let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
-        
+
         let mut error = base_error;
         // Run enough iterations to ensure we reach absolute tolerance
         // For worst case (base=10, rate=0.9), we need: 10 * 0.9^n < 1e-6
@@ -30,7 +28,7 @@ proptest! {
             monitor.update(error);
             error *= reduction_rate;
         }
-        
+
         let status = monitor.check_status();
         prop_assert!(
             status.is_converged(),
@@ -45,13 +43,13 @@ proptest! {
         growth_rate in 1.2f64..2.0
     ) {
         let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
-        
+
         let mut error = base_error;
         for _ in 0..10 {
             monitor.update(error);
             error *= growth_rate;
         }
-        
+
         let status = monitor.check_status();
         prop_assert!(
             matches!(status, ConvergenceStatus::Diverging { .. }),
@@ -65,12 +63,12 @@ proptest! {
         stall_error in 0.01f64..1.0
     ) {
         let mut monitor = ConvergenceMonitor::<f64>::new(1e-7, 1e-3, 10);
-        
+
         // Simulate stalling at a particular error level
         for _ in 0..15 {
             monitor.update(stall_error * (1.0 + 1e-8));
         }
-        
+
         let status = monitor.check_status();
         prop_assert!(
             matches!(status, ConvergenceStatus::Stalled { .. }),
@@ -88,9 +86,9 @@ proptest! {
     ) {
         let gci = GridConvergenceIndex::<f64>::new(3, order, refinement_ratio);
         let f_coarse = f_fine * (1.0 + relative_change);
-        
+
         let gci_fine = gci.compute_fine(f_fine, f_coarse);
-        
+
         prop_assert!(
             gci_fine >= 0.0,
             "GCI should produce non-negative uncertainty: got {}", gci_fine
@@ -111,13 +109,13 @@ proptest! {
         let abs_tol_1 = 1e-6;
         let abs_tol_2 = 1e-6 * scale;
         let rel_tol = 1e-3;
-        
+
         let mut monitor1 = ConvergenceMonitor::<f64>::new(abs_tol_1, rel_tol, 100);
         let mut monitor2 = ConvergenceMonitor::<f64>::new(abs_tol_2, rel_tol, 100);
-        
+
         let mut error1 = 1.0;
         let mut error2 = scale;
-        
+
         // Run enough iterations to reach convergence
         for _ in 0..200 {
             monitor1.update(error1);
@@ -125,10 +123,10 @@ proptest! {
             error1 *= reduction_rate;
             error2 *= reduction_rate;
         }
-        
+
         let status1 = monitor1.check_status();
         let status2 = monitor2.check_status();
-        
+
         prop_assert_eq!(
             status1.is_converged(),
             status2.is_converged(),
@@ -144,7 +142,7 @@ proptest! {
         noise_amplitude in 0.0f64..0.1
     ) {
         let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
-        
+
         let mut error = base_error;
         for i in 0..30 {
             // Add oscillating noise to convergence
@@ -153,7 +151,7 @@ proptest! {
             monitor.update(noisy_error);
             error *= reduction_rate;
         }
-        
+
         let status = monitor.check_status();
         // With sufficient iterations and strong reduction, should eventually converge
         // even with noise
@@ -168,32 +166,32 @@ proptest! {
 #[test]
 fn test_gci_asymptotic_range() {
     let gci = GridConvergenceIndex::<f64>::new(3, 2.0, 2.0);
-    
+
     // For true asymptotic second-order convergence, we need:
     // f(h) = f_exact + C*h²
     // But GCI uses relative error: epsilon = |f_coarse - f_fine| / |f_fine|
-    // 
+    //
     // Let's use a large enough base value to minimize relative error effects
     let f_exact = 100.0;
     let c = 1.0;
     let h1 = 0.1;
     let h2 = 0.2;
     let h3 = 0.4;
-    
+
     let f1 = f_exact + c * h1 * h1; // 100.01
     let f2 = f_exact + c * h2 * h2; // 100.04
     let f3 = f_exact + c * h3 * h3; // 100.16
-    
+
     // Compute GCI between grids 1-2 (fine grid GCI)
     let gci_fine_12 = gci.compute_fine(f1, f2);
     // Compute GCI between grids 2-3 (fine grid GCI for coarser pair)
     let gci_fine_23 = gci.compute_fine(f2, f3);
-    
+
     // According to Roache (1998), for asymptotic convergence:
     // GCI_23 / (r^p * GCI_12) ≈ 1
     let r_p = 2.0f64.powi(2); // refinement_ratio^order = 2^2 = 4
     let ratio = gci_fine_23 / (r_p * gci_fine_12);
-    
+
     // In asymptotic range, this ratio should be close to 1
     // With larger base values, relative error effects are minimized
     assert!(
@@ -206,14 +204,14 @@ fn test_gci_asymptotic_range() {
 #[test]
 fn test_convergence_history() {
     let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
-    
+
     let errors = vec![1.0, 0.5, 0.25, 0.125, 0.0625];
     for &error in &errors {
         monitor.update(error);
     }
-    
+
     assert_eq!(monitor.history.len(), errors.len());
-    
+
     for (i, &error) in errors.iter().enumerate() {
         assert_eq!(monitor.history[i], error);
     }
@@ -229,13 +227,13 @@ fn test_convergence_history() {
 #[test]
 fn test_nan_handling() {
     let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
-    
+
     // Update with NaN should not panic
     monitor.update(f64::NAN);
-    
+
     // Status check with NaN in history should not panic
     let status = monitor.check_status();
-    
+
     // NaN should prevent convergence (safety check)
     assert!(
         !status.is_converged(),
@@ -252,7 +250,7 @@ fn test_nan_handling() {
 #[test]
 fn test_infinity_handling() {
     let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
-    
+
     // Positive infinity
     monitor.update(f64::INFINITY);
     let status = monitor.check_status();
@@ -260,20 +258,23 @@ fn test_infinity_handling() {
         !status.is_converged(),
         "Positive infinity should prevent convergence"
     );
-    
+
     // Negative infinity: Currently may be handled via absolute value
     // NOTE: Explicit NaN/Inf checks could improve convergence criteria robustness
     // Current implementation uses absolute value which may mask infinity cases
     let mut monitor2 = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
     monitor2.update(f64::NEG_INFINITY);
     let status2 = monitor2.check_status();
-    
+
     // Document current behavior: absolute value makes this look like convergence
     // This is a limitation that could be improved by explicit Inf checks
     let _ = status2.is_converged(); // May return true due to abs() handling
-    
+
     // Key safety property: No panic on infinity values
-    assert!(true, "No panic on infinity inputs - safety property maintained");
+    assert!(
+        true,
+        "No panic on infinity inputs - safety property maintained"
+    );
 }
 
 /// Test behavior with extreme values near numerical limits
@@ -281,19 +282,19 @@ fn test_infinity_handling() {
 #[test]
 fn test_extreme_values() {
     let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
-    
+
     // Start with f64::MAX
     monitor.update(f64::MAX);
-    
+
     // Decrease to large but finite value
     monitor.update(1e100);
-    
+
     // Continue decreasing
     for i in 0..10 {
         let error = 1e100 / 2.0_f64.powi(i);
         monitor.update(error);
     }
-    
+
     // Should be able to detect progress even from extreme starting point
     assert!(
         !monitor.history.is_empty(),
@@ -306,20 +307,20 @@ fn test_extreme_values() {
 #[test]
 fn test_underflow_handling() {
     let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
-    
+
     // Start near machine epsilon
     let mut error = 1e-200;
-    
+
     for _ in 0..10 {
         monitor.update(error);
         error /= 2.0;
-        
+
         // Ensure we haven't underflowed to exactly zero (or handle it gracefully)
         if error == 0.0 {
             break;
         }
     }
-    
+
     // Extremely small values should trigger convergence
     let status = monitor.check_status();
     assert!(
@@ -333,20 +334,20 @@ fn test_underflow_handling() {
 #[test]
 fn test_edge_case_sequence() {
     let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
-    
+
     // Normal start
     monitor.update(1.0);
-    
+
     // Inject edge case
     monitor.update(f64::NAN);
-    
+
     // Try to recover with normal values
     monitor.update(0.5);
     monitor.update(0.25);
-    
+
     // Status should handle mixed edge cases gracefully
     let _ = monitor.check_status();
-    
+
     // Should not panic - that's the main test
     assert!(true, "Monitor handled mixed edge cases without panicking");
 }
@@ -370,7 +371,7 @@ proptest! {
         oscillation_freq in 0.5f64..3.0
     ) {
         let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
-        
+
         let mut error = base_error;
         for i in 0..100 {
             // Damped oscillation: error * damping^i * |sin(freq*i)|
@@ -378,7 +379,7 @@ proptest! {
             monitor.update(oscillating_error);
             error *= damping_rate;
         }
-        
+
         // Key safety property: monitor should not panic on oscillatory input
         prop_assert!(
             monitor.history.len() == 100,
@@ -398,13 +399,13 @@ proptest! {
         oscillation_freq in 0.5f64..3.0
     ) {
         let mut monitor = ConvergenceMonitor::<f64>::new(1e-7, 1e-3, 20);
-        
+
         // Undamped oscillation around base_error
         for i in 0..25 {
             let oscillating_error = base_error * (1.0 + 0.2 * (oscillation_freq * f64::from(i)).sin()).abs();
             monitor.update(oscillating_error);
         }
-        
+
         // Key safety property: monitor should not panic on oscillatory input
         prop_assert!(
             monitor.history.len() == 25,
@@ -424,19 +425,19 @@ proptest! {
         slow_rate in 0.8f64..0.95
     ) {
         let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
-        
+
         let mut fast_error = fast_amplitude;
         let mut slow_error = slow_amplitude;
-        
+
         for _ in 0..100 {
             // Combined error from fast and slow modes
             let total_error = fast_error + slow_error;
             monitor.update(total_error);
-            
+
             fast_error *= fast_rate;  // Fast mode decays quickly
             slow_error *= slow_rate;  // Slow mode decays gradually
         }
-        
+
         let status = monitor.check_status();
         prop_assert!(
             status.is_converged(),
@@ -455,12 +456,12 @@ proptest! {
         transition_iter in 5usize..15
     ) {
         let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 150);
-        
+
         let mut error = initial_spike;
-        
+
         for i in 0..150 {
             monitor.update(error);
-            
+
             // Fast decay in early iterations (stiff transient)
             if i < transition_iter {
                 error *= fast_decay_rate;
@@ -469,7 +470,7 @@ proptest! {
                 error *= slow_decay_rate;
             }
         }
-        
+
         let status = monitor.check_status();
         prop_assert!(
             status.is_converged(),
@@ -488,20 +489,20 @@ proptest! {
         final_rate in 0.5f64..0.8
     ) {
         let mut monitor = ConvergenceMonitor::<f64>::new(1e-6, 1e-3, 100);
-        
+
         let mut error = base_error;
         let mut in_plateau = false;
         let mut plateau_counter = 0;
-        
+
         for _i in 0..80 {
             monitor.update(error);
-            
+
             if error < plateau_value && !in_plateau {
                 // Enter plateau phase
                 in_plateau = true;
                 plateau_counter = 0;
             }
-            
+
             if in_plateau && plateau_counter < plateau_duration {
                 // Stay at plateau (small variations)
                 error = plateau_value * (1.0 + 1e-6);
@@ -514,7 +515,7 @@ proptest! {
                 error *= 0.7;
             }
         }
-        
+
         let status = monitor.check_status();
         prop_assert!(
             status.is_converged() || matches!(status, ConvergenceStatus::Stalled { .. }),

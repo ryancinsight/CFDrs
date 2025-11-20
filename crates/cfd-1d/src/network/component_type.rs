@@ -3,8 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Physical component type for network edges
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum ComponentType {
     /// Standard pipe segment
     #[default]
@@ -27,7 +26,8 @@ pub enum ComponentType {
 
 impl ComponentType {
     /// Get string representation for display
-    #[must_use] pub fn as_str(&self) -> &'static str {
+    #[must_use]
+    pub fn as_str(&self) -> &'static str {
         match self {
             Self::Pipe => "pipe",
             Self::Valve => "valve",
@@ -40,4 +40,3 @@ impl ComponentType {
         }
     }
 }
-

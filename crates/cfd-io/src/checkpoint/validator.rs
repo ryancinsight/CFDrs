@@ -93,15 +93,15 @@ impl CheckpointValidator {
         // a physical limitation (4 petabytes of memory for f64 arrays)
         let nx_f64 = nx.to_f64().unwrap_or(1.0);
         let ny_f64 = ny.to_f64().unwrap_or(1.0);
-        
+
         let dx = T::from_f64(domain_x / nx_f64).unwrap_or_else(T::one);
         let dy = T::from_f64(domain_y / ny_f64).unwrap_or_else(T::one);
 
         let mut max_divergence = T::zero();
 
         // Check interior points
-        for i in 1..ny - 1 {
-            for j in 1..nx - 1 {
+        for i in 1..(ny.saturating_sub(1)) {
+            for j in 1..(nx.saturating_sub(1)) {
                 let dudx = (checkpoint.u_velocity[(i, j + 1)] - checkpoint.u_velocity[(i, j - 1)])
                     / (T::from_f64(numerical_constants::CENTRAL_DIFFERENCE_FACTOR)
                         .unwrap_or_else(T::one)

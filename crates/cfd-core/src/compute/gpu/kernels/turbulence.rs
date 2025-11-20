@@ -7,7 +7,6 @@ use nalgebra::RealField;
 use std::marker::PhantomData;
 use wgpu::util::DeviceExt;
 
-
 /// GPU Smagorinsky LES kernel
 #[derive(Debug)]
 pub struct GpuSmagorinskyKernel<T: RealField + Copy> {
@@ -88,8 +87,14 @@ impl<T: RealField + Copy> GpuSmagorinskyKernel<T> {
         let params_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Turbulence Params"),
             contents: bytemuck::cast_slice(&[
-                nx, ny, 0, 0, // nx, ny, padding to 16 bytes
-                dx.to_bits(), dy.to_bits(), c_s.to_bits(), ((dx * dy).sqrt()).to_bits(), // dx, dy, c_s, delta (filter width)
+                nx,
+                ny,
+                0,
+                0, // nx, ny, padding to 16 bytes
+                dx.to_bits(),
+                dy.to_bits(),
+                c_s.to_bits(),
+                ((dx * dy).sqrt()).to_bits(), // dx, dy, c_s, delta (filter width)
             ]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
@@ -149,13 +154,13 @@ impl<T: RealField + Copy> ComputeKernel<T> for GpuSmagorinskyKernel<T> {
 
     fn complexity(&self, size: usize) -> usize {
         // SGS computation is O(N) with some overhead for strain rate calculation
-        size * 8  // Estimate: 8 operations per grid point
+        size * 8 // Estimate: 8 operations per grid point
     }
 
     fn execute(&self, _input: &[T], _output: &mut [T], _params: KernelParams) -> Result<()> {
         // GPU kernels execute asynchronously, not synchronously like CPU kernels
         Err(crate::error::Error::InvalidConfiguration(
-            "GPU kernels must be executed through the GPU compute manager".to_string()
+            "GPU kernels must be executed through the GPU compute manager".to_string(),
         ))
     }
 
@@ -232,8 +237,14 @@ impl<T: RealField + Copy> GpuDesKernel<T> {
         let params_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Turbulence Params"),
             contents: bytemuck::cast_slice(&[
-                nx, ny, 0, 0, // nx, ny, padding to 16 bytes
-                dx.to_bits(), dy.to_bits(), des_constant.to_bits(), ((dx * dy).sqrt()).to_bits(), // dx, dy, des_constant, delta (filter width)
+                nx,
+                ny,
+                0,
+                0, // nx, ny, padding to 16 bytes
+                dx.to_bits(),
+                dy.to_bits(),
+                des_constant.to_bits(),
+                ((dx * dy).sqrt()).to_bits(), // dx, dy, des_constant, delta (filter width)
             ]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
@@ -292,13 +303,13 @@ impl<T: RealField + Copy> ComputeKernel<T> for GpuDesKernel<T> {
     }
 
     fn complexity(&self, size: usize) -> usize {
-        size * 6  // Estimate: 6 operations per grid point
+        size * 6 // Estimate: 6 operations per grid point
     }
 
     fn execute(&self, _input: &[T], _output: &mut [T], _params: KernelParams) -> Result<()> {
         // GPU kernels execute asynchronously, not synchronously like CPU kernels
         Err(crate::error::Error::InvalidConfiguration(
-            "GPU kernels must be executed through the GPU compute manager".to_string()
+            "GPU kernels must be executed through the GPU compute manager".to_string(),
         ))
     }
 

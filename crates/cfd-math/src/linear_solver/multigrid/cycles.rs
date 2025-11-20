@@ -350,9 +350,13 @@ mod tests {
     fn create_test_multigrid_level() -> MultigridLevel<f64> {
         // Create a simple 3x3 matrix
         let mut matrix = DMatrix::zeros(3, 3);
-        matrix[(0, 0)] = 2.0; matrix[(0, 1)] = -1.0;
-        matrix[(1, 0)] = -1.0; matrix[(1, 1)] = 2.0; matrix[(1, 2)] = -1.0;
-        matrix[(2, 1)] = -1.0; matrix[(2, 2)] = 2.0;
+        matrix[(0, 0)] = 2.0;
+        matrix[(0, 1)] = -1.0;
+        matrix[(1, 0)] = -1.0;
+        matrix[(1, 1)] = 2.0;
+        matrix[(1, 2)] = -1.0;
+        matrix[(2, 1)] = -1.0;
+        matrix[(2, 2)] = 2.0;
 
         // Simple Gauss-Seidel smoother
         let smoother = super::super::smoothers::GaussSeidelSmoother::new(1.0);

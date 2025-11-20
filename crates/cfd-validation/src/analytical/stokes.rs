@@ -1,8 +1,8 @@
 //! Stokes flow solutions - low Reynolds number flows
 
 use super::AnalyticalSolution;
-use nalgebra::{RealField, Vector3};
 use cfd_core::conversion::SafeFromF64;
+use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 use std::f64::consts::PI;
 

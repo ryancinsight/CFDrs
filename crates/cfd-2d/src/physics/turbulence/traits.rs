@@ -6,7 +6,7 @@ use num_traits::ToPrimitive;
 /// Trait for RANS turbulence models (k-ε, k-ω, SA)
 pub trait TurbulenceModel<T: RealField + Copy + ToPrimitive> {
     /// Calculate turbulent viscosity
-    /// 
+    ///
     /// # Arguments
     /// * `k` - Turbulent kinetic energy
     /// * `epsilon_or_omega` - Dissipation rate (ε) or specific dissipation rate (ω)
@@ -14,10 +14,10 @@ pub trait TurbulenceModel<T: RealField + Copy + ToPrimitive> {
     fn turbulent_viscosity(&self, k: T, epsilon_or_omega: T, density: T) -> T;
 
     /// Calculate turbulent viscosity with strain rate limiter (for SST model)
-    /// 
+    ///
     /// This method implements the Bradshaw assumption per Menter (1994):
     /// νt = a1*k / max(a1*ω, S*F2) where S is strain rate magnitude
-    /// 
+    ///
     /// # Arguments
     /// * `k` - Turbulent kinetic energy
     /// * `omega` - Specific dissipation rate

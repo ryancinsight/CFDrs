@@ -5,11 +5,11 @@
 //! - k-ω SST model (Menter's Shear Stress Transport)
 //! - Spalart-Allmaras model (one-equation model for aerospace)
 
-use cfd_2d::physics::turbulence::{
-    KEpsilonModel, KOmegaSSTModel, SpalartAllmaras, TurbulenceModel
-};
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
+use cfd_2d::physics::turbulence::{
+    KEpsilonModel, KOmegaSSTModel, SpalartAllmaras, TurbulenceModel,
+};
 use nalgebra::Vector2;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -18,8 +18,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create a simple 2D grid (20x20 cells)
     let grid = StructuredGrid2D::<f64>::new(20, 20, 0.0, 2.0, 0.0, 2.0)?;
-    println!("Grid: {}x{} cells, domain: [{:.1}, {:.1}] x [{:.1}, {:.1}]",
-             grid.nx, grid.ny, 0.0, 2.0, 0.0, 2.0);
+    println!(
+        "Grid: {}x{} cells, domain: [{:.1}, {:.1}] x [{:.1}, {:.1}]",
+        grid.nx, grid.ny, 0.0, 2.0, 0.0, 2.0
+    );
 
     // Initialize simulation fields
     let mut fields = SimulationFields::new(20, 20);
@@ -93,7 +95,7 @@ fn demonstrate_k_epsilon_model(
     let mut model = KEpsilonModel::new(20, 20);
 
     // Typical values for moderate turbulence
-    let k = 0.01;      // Turbulent kinetic energy [m²/s²]
+    let k = 0.01; // Turbulent kinetic energy [m²/s²]
     let epsilon = 0.1; // Dissipation rate [m²/s³]
     let density = 1.0; // Density [kg/m³]
 
@@ -125,7 +127,7 @@ fn demonstrate_k_omega_sst_model(
     let mut model = KOmegaSSTModel::new(20, 20);
 
     // Typical values for moderate turbulence
-    let k = 0.01;      // Turbulent kinetic energy [m²/s²]
+    let k = 0.01; // Turbulent kinetic energy [m²/s²]
     let omega = 100.0; // Specific dissipation rate [1/s]
     let density = 1.0; // Density [kg/m³]
 
@@ -134,7 +136,8 @@ fn demonstrate_k_omega_sst_model(
     // Test strain rate limiter (important for SST)
     let strain_rate_magnitude = 50.0; // High strain rate [1/s]
     let f2 = 0.5; // Mid-range blending function
-    let nu_t_limited = model.turbulent_viscosity_with_limiter(k, omega, density, strain_rate_magnitude, f2);
+    let nu_t_limited =
+        model.turbulent_viscosity_with_limiter(k, omega, density, strain_rate_magnitude, f2);
 
     let p_k = model.production_term(&[[0.0, 1.0], [0.0, 0.0]], nu_t);
     let d_k = model.dissipation_term(k, omega);
@@ -144,7 +147,10 @@ fn demonstrate_k_omega_sst_model(
     println!("  ω = {:.1} 1/s (specific dissipation rate)", omega);
     println!("Model predictions:");
     println!("  ν_t = {:.6} m²/s (turbulent viscosity)", nu_t);
-    println!("  ν_t_limited = {:.6} m²/s (with strain limiter)", nu_t_limited);
+    println!(
+        "  ν_t_limited = {:.6} m²/s (with strain limiter)",
+        nu_t_limited
+    );
     println!("  P_k = {:.6} m²/s³ (production)", p_k);
     println!("  D_k = {:.6} m²/s³ (destruction)", d_k);
     println!("Characteristics:");
@@ -182,7 +188,10 @@ fn demonstrate_spalart_allmaras_model(
 
     println!("Input conditions:");
     println!("  ν̃ = {:.2e} m²/s (modified turbulent viscosity)", nu_tilde);
-    println!("  ν = {:.2e} m²/s (molecular viscosity)", molecular_viscosity);
+    println!(
+        "  ν = {:.2e} m²/s (molecular viscosity)",
+        molecular_viscosity
+    );
     println!("  Ω = {:.1} 1/s (vorticity magnitude)", vorticity_magnitude);
     println!("  d = {:.3} m (wall distance)", wall_distance);
     println!("Model predictions:");
@@ -219,7 +228,8 @@ fn compare_model_predictions(
     let k_omega_model = KOmegaSSTModel::new(10, 10);
     let omega = epsilon / (0.09 * k); // ω = ε / (C_μ * k)
     let nu_t_k_omega = k_omega_model.turbulent_viscosity(k, omega, density);
-    let nu_t_k_omega_limited = k_omega_model.turbulent_viscosity_with_limiter(k, omega, density, strain_rate, 0.5);
+    let nu_t_k_omega_limited =
+        k_omega_model.turbulent_viscosity_with_limiter(k, omega, density, strain_rate, 0.5);
 
     // SA model (approximate ν̃ from ν_t)
     let sa_model = SpalartAllmaras::<f64>::new(10, 10);
@@ -229,11 +239,17 @@ fn compare_model_predictions(
     let nu_t_sa = sa_model.eddy_viscosity(nu_tilde, molecular_viscosity);
 
     println!("Comparison for moderate turbulence conditions:");
-    println!("  k = {:.2e} m²/s², strain rate = {:.1} 1/s", k, strain_rate);
+    println!(
+        "  k = {:.2e} m²/s², strain rate = {:.1} 1/s",
+        k, strain_rate
+    );
     println!();
     println!("  k-ε model:         ν_t = {:.2e} m²/s", nu_t_k_eps);
     println!("  k-ω SST model:     ν_t = {:.2e} m²/s", nu_t_k_omega);
-    println!("  k-ω SST limited:   ν_t = {:.2e} m²/s", nu_t_k_omega_limited);
+    println!(
+        "  k-ω SST limited:   ν_t = {:.2e} m²/s",
+        nu_t_k_omega_limited
+    );
     println!("  SA model:          ν_t = {:.2e} m²/s", nu_t_sa);
     println!();
     println!("Key differences:");

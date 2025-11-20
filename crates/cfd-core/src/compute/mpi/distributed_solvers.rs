@@ -56,6 +56,20 @@ pub trait DistributedLinearOperator<T: RealField> {
 
     /// Get global dimension across all processes
     fn global_dimension(&self) -> usize;
+
+    /// Extract the diagonal of the local operator
+    fn extract_diagonal(&self) -> DVector<T>;
+
+    /// Assemble the local matrix (optional, for Schwarz/ILU)
+    fn assemble_local_matrix(&self) -> Option<nalgebra::DMatrix<T>> {
+        None
+    }
+}
+
+/// Preconditioner trait for distributed solvers
+pub trait Preconditioner<T: RealField> {
+    /// Apply preconditioner: z = M^-1 * r
+    fn apply(&self, r: &DistributedVector<T>, z: &mut DistributedVector<T>) -> MpiResult<()>;
 }
 
 /// Distributed vector with MPI-aware data distribution
@@ -115,7 +129,8 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedVector
     pub fn norm(&self) -> MpiResult<T> {
         let local_norm_sq = self.local_data.norm_squared();
         let mut global_norm_sq = T::zero();
-        self.communicator.all_reduce_sum(&mut global_norm_sq, local_norm_sq);
+        self.communicator
+            .all_reduce_sum(&mut global_norm_sq, local_norm_sq);
         Ok(global_norm_sq.sqrt())
     }
 
@@ -182,15 +197,23 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedLinear
         // Update ghost cells in the result
         if let Some(ref ghost_mgr) = y.ghost_manager {
             // Convert data layout for ghost cell exchange
-            let mut velocity_u = vec![vec![nalgebra::Vector2::zeros(); self.subdomain.total_ny()]; self.subdomain.total_nx()];
-            let mut velocity_v = vec![vec![nalgebra::Vector2::zeros(); self.subdomain.total_ny()]; self.subdomain.total_nx()];
-            let mut pressure = vec![vec![T::zero(); self.subdomain.total_ny()]; self.subdomain.total_nx()];
+            let mut velocity_u = vec![
+                vec![nalgebra::Vector2::zeros(); self.subdomain.total_ny()];
+                self.subdomain.total_nx()
+            ];
+            let mut velocity_v = vec![
+                vec![nalgebra::Vector2::zeros(); self.subdomain.total_ny()];
+                self.subdomain.total_nx()
+            ];
+            let mut pressure =
+                vec![vec![T::zero(); self.subdomain.total_ny()]; self.subdomain.total_nx()];
 
             // Pack scalar field into pressure array for ghost exchange
             for i in 0..self.subdomain.nx_local {
                 for j in 0..self.subdomain.ny_local {
                     let idx = i * self.subdomain.ny_local + j;
-                    pressure[i + self.subdomain.ghost_layers][j + self.subdomain.ghost_layers] = y.local_data[idx];
+                    pressure[i + self.subdomain.ghost_layers][j + self.subdomain.ghost_layers] =
+                        y.local_data[idx];
                 }
             }
 
@@ -212,7 +235,9 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedLinear
                         if self.subdomain.owns_global_cell(global_i, global_j, 0) {
                             let local_i = global_i - self.subdomain.i_start_global;
                             let local_j = global_j - self.subdomain.j_start_global;
-                            if local_i < self.subdomain.nx_local && local_j < self.subdomain.ny_local {
+                            if local_i < self.subdomain.nx_local
+                                && local_j < self.subdomain.ny_local
+                            {
                                 let idx = local_i * self.subdomain.ny_local + local_j;
                                 y.local_data[idx] = pressure[i][j];
                             }
@@ -231,6 +256,73 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedLinear
 
     fn global_dimension(&self) -> usize {
         self.nx_global * self.ny_global
+    }
+
+    fn extract_diagonal(&self) -> DVector<T> {
+        let nx = self.subdomain.nx_local;
+        let ny = self.subdomain.ny_local;
+        let dx_sq = self.dx * self.dx;
+        let dy_sq = self.dy * self.dy;
+        let mut diag = DVector::zeros(nx * ny);
+
+        for i in 0..nx {
+            for j in 0..ny {
+                let idx = i * ny + j;
+                let mut val = T::zero();
+
+                // x-direction
+                if i > 0 { val -= T::one() / dx_sq; }
+                if i < nx - 1 { val -= T::one() / dx_sq; }
+
+                // y-direction
+                if j > 0 { val -= T::one() / dy_sq; }
+                if j < ny - 1 { val -= T::one() / dy_sq; }
+
+                diag[idx] = val;
+            }
+        }
+        diag
+    }
+
+    fn assemble_local_matrix(&self) -> Option<nalgebra::DMatrix<T>> {
+        let nx = self.subdomain.nx_local;
+        let ny = self.subdomain.ny_local;
+        let n = nx * ny;
+        let dx_sq = self.dx * self.dx;
+        let dy_sq = self.dy * self.dy;
+        let mut mat = nalgebra::DMatrix::zeros(n, n);
+
+        for i in 0..nx {
+            for j in 0..ny {
+                let row = i * ny + j;
+                
+                // Diagonal (calculated same as extract_diagonal)
+                let mut diag_val = T::zero();
+                
+                // x-direction
+                if i > 0 { 
+                    diag_val -= T::one() / dx_sq;
+                    mat[(row, (i - 1) * ny + j)] = T::one() / dx_sq;
+                }
+                if i < nx - 1 { 
+                    diag_val -= T::one() / dx_sq;
+                    mat[(row, (i + 1) * ny + j)] = T::one() / dx_sq;
+                }
+
+                // y-direction
+                if j > 0 { 
+                    diag_val -= T::one() / dy_sq;
+                    mat[(row, i * ny + (j - 1))] = T::one() / dy_sq;
+                }
+                if j < ny - 1 { 
+                    diag_val -= T::one() / dy_sq;
+                    mat[(row, i * ny + (j + 1))] = T::one() / dy_sq;
+                }
+
+                mat[(row, row)] = diag_val;
+            }
+        }
+        Some(mat)
     }
 }
 
@@ -292,12 +384,17 @@ impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>>
         let local_dim = operator.local_dimension();
         let mut local_blocks = Vec::with_capacity(local_dim);
 
-        // For Jacobi, we use diagonal elements
-        // In practice, this would extract the diagonal of the local operator
-        for _ in 0..local_dim {
-            // Simplified: assume unit diagonal for now
-            // Real implementation would extract actual diagonal elements
-            local_blocks.push(DVector::from_element(1, T::one()));
+        // Use the actual diagonal from the operator
+        let diagonal = operator.extract_diagonal();
+        
+        for i in 0..local_dim {
+            // Store inverse of diagonal for fast application
+            let val = if diagonal[i].is_zero() {
+                T::one() // Avoid division by zero, effectively identity
+            } else {
+                T::one() / diagonal[i]
+            };
+            local_blocks.push(DVector::from_element(1, val));
         }
 
         Ok(Self {
@@ -306,12 +403,16 @@ impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>>
             communicator: communicator.clone(),
         })
     }
+}
 
+impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>> Preconditioner<T>
+    for BlockJacobiPreconditioner<T, Op>
+{
     /// Apply preconditioner: solve M * z = r for each block
-    pub fn apply(&self, r: &DistributedVector<T>, z: &mut DistributedVector<T>) -> MpiResult<()> {
-        // For Jacobi, z_i = r_i / diagonal_i
+    fn apply(&self, r: &DistributedVector<T>, z: &mut DistributedVector<T>) -> MpiResult<()> {
+        // For Jacobi, z_i = r_i * inv_diagonal_i
         for i in 0..r.local_data.len() {
-            z.local_data[i] = r.local_data[i] / self.local_blocks[i][0];
+            z.local_data[i] = r.local_data[i] * self.local_blocks[i][0];
         }
         Ok(())
     }
@@ -352,8 +453,49 @@ impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>>
         })
     }
 
+    /// Create local solvers for overlapping subdomains
+    fn create_local_solvers(
+        operator: &Op,
+        _decomp: &DomainDecomposition,
+        _overlap: usize,
+    ) -> MpiResult<Vec<Box<dyn Fn(&DVector<T>, &mut DVector<T>)>>> {
+        // Try to assemble local matrix for direct solve
+        if let Some(mat) = operator.assemble_local_matrix() {
+            // Use LU decomposition if matrix is available
+            // Note: This is a simplified local solver that doesn't account for overlap yet
+            // Proper Schwarz requires extracting the overlapping submatrix
+            let lu = mat.lu();
+            let solver = Box::new(move |r: &DVector<T>, z: &mut DVector<T>| {
+                if let Some(sol) = lu.solve(r) {
+                    z.copy_from(&sol);
+                } else {
+                    // Fallback if singular (should not happen for Laplacian)
+                    z.copy_from(r);
+                }
+            });
+            Ok(vec![solver])
+        } else {
+            // Fallback to Jacobi if matrix assembly not supported
+            let diagonal = operator.extract_diagonal();
+            let solver = Box::new(move |r: &DVector<T>, z: &mut DVector<T>| {
+                for i in 0..r.len() {
+                    if !diagonal[i].is_zero() {
+                        z[i] = r[i] / diagonal[i];
+                    } else {
+                        z[i] = r[i];
+                    }
+                }
+            });
+            Ok(vec![solver])
+        }
+    }
+}
+
+impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>> Preconditioner<T>
+    for AdditiveSchwarzPreconditioner<T, Op>
+{
     /// Apply additive Schwarz preconditioner
-    pub fn apply(&self, r: &DistributedVector<T>, z: &mut DistributedVector<T>) -> MpiResult<()> {
+    fn apply(&self, r: &DistributedVector<T>, z: &mut DistributedVector<T>) -> MpiResult<()> {
         // Apply each local solver and accumulate results
         let mut local_result = DVector::zeros(r.local_data.len());
 
@@ -365,24 +507,6 @@ impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>>
 
         z.local_data.copy_from(&local_result);
         Ok(())
-    }
-
-    /// Create local solvers for overlapping subdomains
-    fn create_local_solvers(
-        _operator: &Op,
-        _decomp: &DomainDecomposition,
-        _overlap: usize,
-    ) -> MpiResult<Vec<Box<dyn Fn(&DVector<T>, &mut DVector<T>)>>> {
-        // Simplified implementation - in practice, this would create
-        // overlapping subdomain solvers with proper boundary conditions
-        let solver = Box::new(|r: &DVector<T>, z: &mut DVector<T>| {
-            // Simple Jacobi-like solve for demonstration
-            for i in 0..r.len() {
-                z[i] = r[i]; // Identity for now
-            }
-        });
-
-        Ok(vec![solver])
     }
 }
 
@@ -400,18 +524,17 @@ pub struct DistributedGMRES<T: RealField, Op: DistributedLinearOperator<T>, Prec
     work_vectors: Vec<DistributedVector<T>>,
     /// Hessenberg matrix
     hessenberg: Vec<T>,
-    /// Givens rotations
-    givens_cos: Vec<T>,
-    givens_sin: Vec<T>,
+    /// Givens rotations (cos, sin)
+    givens_rotations: Vec<(T, T)>,
     /// Residual vector
     residual: DistributedVector<T>,
 }
 
 impl<
-    T: RealField + Copy + FromPrimitive + std::fmt::LowerExp,
-    Op: DistributedLinearOperator<T>,
-    Prec: BlockJacobiPreconditioner<T, Op>,
-> DistributedGMRES<T, Op, Prec>
+        T: RealField + Copy + FromPrimitive + std::fmt::LowerExp,
+        Op: DistributedLinearOperator<T>,
+        Prec: Preconditioner<T>,
+    > DistributedGMRES<T, Op, Prec>
 {
     /// Create new distributed GMRES solver
     pub fn new(
@@ -445,8 +568,7 @@ impl<
             communicator: communicator.clone(),
             work_vectors,
             hessenberg: vec![T::zero(); krylov_dim * (krylov_dim + 1)],
-            givens_cos: vec![T::zero(); krylov_dim],
-            givens_sin: vec![T::zero(); krylov_dim],
+            givens_rotations: vec![(T::zero(), T::zero()); krylov_dim],
             residual,
         }
     }
@@ -479,6 +601,20 @@ impl<
         Ok(x)
     }
 
+    /// Compute Givens rotation parameters (c, s, r) such that
+    /// [ c  s ] [ a ] = [ r ]
+    /// [-s  c ] [ b ]   [ 0 ]
+    fn compute_givens(&self, a: T, b: T) -> (T, T, T) {
+        if b == T::zero() {
+            (T::one(), T::zero(), a)
+        } else if a == T::zero() {
+            (T::zero(), T::one(), b)
+        } else {
+            let hypot = (a * a + b * b).sqrt();
+            (a / hypot, b / hypot, hypot)
+        }
+    }
+
     /// Single GMRES iteration
     fn gmres_iteration(
         &mut self,
@@ -496,33 +632,90 @@ impl<
             v0.scale(T::one() / beta);
         }
 
-        // Arnoldi process (simplified)
-        for j in 0..self.krylov_dim.min(self.work_vectors.len().saturating_sub(1)) {
+        // RHS for the least squares problem (g)
+        let mut g = vec![T::zero(); self.krylov_dim + 1];
+        g[0] = beta;
+
+        let mut k = 0; // Actual number of iterations performed
+
+        // Arnoldi process
+        for j in 0..self
+            .krylov_dim
+            .min(self.work_vectors.len().saturating_sub(1))
+        {
+            k = j + 1;
             self.work_vectors[j].copy_from(&v0);
 
             // Apply operator: v_{j+1} = A * v_j
-            self.operator.apply(&self.work_vectors[j], &mut self.work_vectors[j + 1])?;
-            self.preconditioner.apply(&self.work_vectors[j + 1], &mut self.work_vectors[j + 1])?;
+            self.operator
+                .apply(&self.work_vectors[j], &mut self.work_vectors[j + 1])?;
+            self.preconditioner
+                .apply(&self.work_vectors[j + 1], &mut self.work_vectors[j + 1])?;
 
-            // Orthogonalization (simplified Gram-Schmidt)
+            // Orthogonalization (Gram-Schmidt)
             for i in 0..=j {
                 let h_ij = self.work_vectors[j + 1].dot(&self.work_vectors[i])?;
                 self.work_vectors[j + 1].axpy(-h_ij, &self.work_vectors[i]);
-                self.hessenberg[j * (self.krylov_dim + 1) + i] = h_ij;
+                self.hessenberg[i * self.krylov_dim + j] = h_ij;
             }
 
             // Normalize
             let norm = self.work_vectors[j + 1].norm()?;
+            self.hessenberg[(j + 1) * self.krylov_dim + j] = norm;
+            
             if norm > T::zero() {
                 self.work_vectors[j + 1].scale(T::one() / norm);
-                self.hessenberg[j * (self.krylov_dim + 1) + j + 1] = norm;
             }
+
+            // Apply previous Givens rotations to the new column
+            for i in 0..j {
+                let (c, s) = self.givens_rotations[i];
+                let h_ij = self.hessenberg[i * self.krylov_dim + j];
+                let h_ip1j = self.hessenberg[(i + 1) * self.krylov_dim + j];
+                
+                self.hessenberg[i * self.krylov_dim + j] = c * h_ij + s * h_ip1j;
+                self.hessenberg[(i + 1) * self.krylov_dim + j] = -s * h_ij + c * h_ip1j;
+            }
+
+            // Compute new Givens rotation
+            let h_jj = self.hessenberg[j * self.krylov_dim + j];
+            let h_jp1j = self.hessenberg[(j + 1) * self.krylov_dim + j];
+            let (c, s, r) = self.compute_givens(h_jj, h_jp1j);
+
+            self.givens_rotations[j] = (c, s);
+            
+            // Apply rotation to H and g
+            self.hessenberg[j * self.krylov_dim + j] = r;
+            self.hessenberg[(j + 1) * self.krylov_dim + j] = T::zero();
+            
+            let g_j = g[j];
+            g[j] = c * g_j;
+            g[j + 1] = -s * g_j;
+
+            *residual_norm = g[j + 1].abs();
         }
 
-        // Solve least squares problem (simplified)
-        // In practice, this would solve the Hessenberg system
+        // Backward substitution to solve R * y = g
+        let mut y = vec![T::zero(); k];
+        for i in (0..k).rev() {
+            let mut sum = g[i];
+            for j in (i + 1)..k {
+                sum -= self.hessenberg[i * self.krylov_dim + j] * y[j];
+            }
+            y[i] = sum / self.hessenberg[i * self.krylov_dim + i];
+        }
 
-        *residual_norm = T::zero(); // Placeholder
+        // Update solution: x = x + V * y
+        for j in 0..k {
+            x.axpy(y[j], &self.work_vectors[j]);
+        }
+
+        // Recompute residual for next restart
+        self.operator.apply(x, &mut self.residual)?;
+        self.residual.axpy(-T::one(), b);
+        self.residual.scale(-T::one());
+        *residual_norm = self.residual.norm()?;
+
         Ok(())
     }
 }
@@ -666,7 +859,9 @@ mod tests {
     #[test]
     fn test_parallel_io_types() {
         // Test that parallel I/O types can be created (compile-time check)
-        let _vtk_marker: std::marker::PhantomData<parallel_io::ParallelVtkWriter<f64>> = std::marker::PhantomData;
-        let _hdf5_marker: std::marker::PhantomData<parallel_io::ParallelHdf5Writer<f64>> = std::marker::PhantomData;
+        let _vtk_marker: std::marker::PhantomData<parallel_io::ParallelVtkWriter<f64>> =
+            std::marker::PhantomData;
+        let _hdf5_marker: std::marker::PhantomData<parallel_io::ParallelHdf5Writer<f64>> =
+            std::marker::PhantomData;
     }
 }

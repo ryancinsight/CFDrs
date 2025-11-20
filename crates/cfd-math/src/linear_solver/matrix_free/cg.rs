@@ -12,9 +12,9 @@ use super::operator::LinearOperator;
 use super::traits::MatrixFreeSolver;
 use crate::error::Result;
 use crate::linear_solver::config::IterativeSolverConfig;
+use cfd_core::error::{ConvergenceErrorKind, Error};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
-use cfd_core::error::{Error, ConvergenceErrorKind};
 
 /// Matrix-free Conjugate Gradient solver.
 ///
@@ -141,7 +141,9 @@ impl<T: RealField + Copy + FromPrimitive> MatrixFreeSolver<T> for MatrixFreeCG<T
 
         if !converged && iterations >= self.config.max_iterations {
             return Err(Error::Convergence(
-                ConvergenceErrorKind::MaxIterationsExceeded { max: self.config.max_iterations },
+                ConvergenceErrorKind::MaxIterationsExceeded {
+                    max: self.config.max_iterations,
+                },
             ));
         }
 
@@ -163,8 +165,8 @@ impl<T: RealField + Copy> MatrixFreeCG<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::operator::IdentityOperator;
+    use super::*;
     use approx::assert_relative_eq;
 
     #[test]
@@ -199,11 +201,17 @@ mod tests {
                 Ok(())
             }
 
-            fn size(&self) -> usize { 2 }
+            fn size(&self) -> usize {
+                2
+            }
 
-            fn is_symmetric(&self) -> bool { true }
+            fn is_symmetric(&self) -> bool {
+                true
+            }
 
-            fn is_positive_definite(&self) -> Option<bool> { Some(true) }
+            fn is_positive_definite(&self) -> Option<bool> {
+                Some(true)
+            }
         }
 
         let operator = SimpleOperator;

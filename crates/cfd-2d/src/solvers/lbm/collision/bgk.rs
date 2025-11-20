@@ -38,12 +38,7 @@ impl<T: RealField + Copy + FromPrimitive> BgkCollision<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for BgkCollision<T> {
-    fn collide(
-        &self,
-        f: &mut Vec<Vec<[T; 9]>>,
-        density: &[Vec<T>],
-        velocity: &[Vec<[T; 2]>],
-    ) {
+    fn collide(&self, f: &mut Vec<Vec<[T; 9]>>, density: &[Vec<T>], velocity: &[Vec<[T; 2]>]) {
         let ny = f.len();
         let nx = if ny > 0 { f[0].len() } else { 0 };
 

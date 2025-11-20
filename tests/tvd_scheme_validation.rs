@@ -17,10 +17,10 @@
 //! - Yee, H.C. (1987). "Upwind and Symmetric Shock-Capturing Schemes"
 //! - Roe, P.L. (1986). "Characteristic-Based Schemes for the Euler Equations"
 
-use cfd_2d::schemes::tvd::{MUSCLScheme, MUSCLOrder, FluxLimiter};
-use cfd_2d::schemes::{FaceReconstruction, Grid2D};
-use cfd_2d::schemes::grid::Grid2D as Grid2DT;
 use approx::assert_relative_eq;
+use cfd_2d::schemes::grid::Grid2D as Grid2DT;
+use cfd_2d::schemes::tvd::{FluxLimiter, MUSCLOrder, MUSCLScheme};
+use cfd_2d::schemes::{FaceReconstruction, Grid2D};
 use std::f64;
 
 /// Test grid parameters
@@ -48,12 +48,25 @@ fn square_wave(phi: &mut Grid2D<f64>, amplitude: f64, width: f64, center: f64) {
 }
 
 /// Create linear advection exact solution
-fn exact_solution_advection(x: f64, t: f64, amplitude: f64, width: f64, center: f64, velocity: f64) -> f64 {
+fn exact_solution_advection(
+    x: f64,
+    t: f64,
+    amplitude: f64,
+    width: f64,
+    center: f64,
+    velocity: f64,
+) -> f64 {
     let center_t = center + velocity * t;
     let x_rel = (x - center_t) / width;
 
     // Periodic domain wrapping
-    let x_wrapped = if x_rel > L { x_rel - L } else if x_rel < 0.0 { x_rel + L } else { x_rel };
+    let x_wrapped = if x_rel > L {
+        x_rel - L
+    } else if x_rel < 0.0 {
+        x_rel + L
+    } else {
+        x_rel
+    };
 
     if x_wrapped.abs() < 0.5 {
         amplitude
@@ -77,9 +90,9 @@ fn test_muscl2_superbee_monotonicity() {
     let dt = DX * 0.5; // CFL = 0.5
     let mut phi_new = create_test_grid();
 
-    for i in 0..NX-1 {
+    for i in 0..NX - 1 {
         let face_value = scheme.reconstruct_face_value_x(&phi, velocity, i, 0);
-        let face_value_next = scheme.reconstruct_face_value_x(&phi, velocity, i+1, 0);
+        let face_value_next = scheme.reconstruct_face_value_x(&phi, velocity, i + 1, 0);
 
         // Apply upwind advection: φ_new[i] = φ[i] - velocity * dt/dx * (face_value_next - face_value)
         let flux_diff = face_value_next - face_value;
@@ -88,19 +101,23 @@ fn test_muscl2_superbee_monotonicity() {
 
     // Check monotonicity: no new extrema created
     // Also check TVD property: no oscillations
-    for i in 1..NX-1 {
+    for i in 1..NX - 1 {
         let phi_i = phi.data[(i, 0)];
-        let phi_im1 = phi.data[(i-1, 0)];
-        let phi_ip1 = phi.data[(i+1, 0)];
+        let phi_im1 = phi.data[(i - 1, 0)];
+        let phi_ip1 = phi.data[(i + 1, 0)];
 
         // TVD condition: total variation should not increase
         let tv_original = (phi_i - phi_im1).abs() + (phi_ip1 - phi_i).abs();
-        let tv_new = (phi_new.data[(i, 0)] - phi_new.data[(i-1, 0)]).abs() +
-                     (phi_new.data[(i+1, 0)] - phi_new.data[(i, 0)]).abs();
+        let tv_new = (phi_new.data[(i, 0)] - phi_new.data[(i - 1, 0)]).abs()
+            + (phi_new.data[(i + 1, 0)] - phi_new.data[(i, 0)]).abs();
 
         // Total variation should not increase significantly (allowing for some numerical diffusion)
         // Relaxed check for current limiter implementation
-        assert!(tv_new <= tv_original * 2.0, "TVD condition severely violated at i={}", i);
+        assert!(
+            tv_new <= tv_original * 2.0,
+            "TVD condition severely violated at i={}",
+            i
+        );
     }
 }
 
@@ -108,7 +125,11 @@ fn test_muscl2_superbee_monotonicity() {
 fn test_muscl3_vs_muscl2_accuracy() {
     // Test convergence order by comparing solutions at different grid resolutions
     let velocities: [f64; 2] = [0.5, 1.0];
-    let limiters = [FluxLimiter::Superbee, FluxLimiter::VanLeer, FluxLimiter::Minmod];
+    let limiters = [
+        FluxLimiter::Superbee,
+        FluxLimiter::VanLeer,
+        FluxLimiter::Minmod,
+    ];
 
     for &limiter in &limiters {
         for &velocity in velocities.iter() {
@@ -127,24 +148,37 @@ fn test_muscl3_vs_muscl2_accuracy() {
                 let mut phi_muscl3 = phi.clone();
 
                 for _step in 0..10 {
-                    for i in 0..NX-1 {
-                        let face_muscl2 = scheme_muscl2.reconstruct_face_value_x(&phi_muscl2, velocity, i, 0);
-                        let face_next_muscl2 = scheme_muscl2.reconstruct_face_value_x(&phi_muscl2, velocity, i+1, 0);
+                    for i in 0..NX - 1 {
+                        let face_muscl2 =
+                            scheme_muscl2.reconstruct_face_value_x(&phi_muscl2, velocity, i, 0);
+                        let face_next_muscl2 =
+                            scheme_muscl2.reconstruct_face_value_x(&phi_muscl2, velocity, i + 1, 0);
 
-                        let face_muscl3 = scheme_muscl3.reconstruct_face_value_x(&phi_muscl3, velocity, i, 0);
-                        let face_next_muscl3 = scheme_muscl3.reconstruct_face_value_x(&phi_muscl3, velocity, i+1, 0);
+                        let face_muscl3 =
+                            scheme_muscl3.reconstruct_face_value_x(&phi_muscl3, velocity, i, 0);
+                        let face_next_muscl3 =
+                            scheme_muscl3.reconstruct_face_value_x(&phi_muscl3, velocity, i + 1, 0);
 
-                        phi_muscl2.data[(i, 0)] -= velocity * dt / DX * (face_next_muscl2 - face_muscl2);
-                        phi_muscl3.data[(i, 0)] -= velocity * dt / DX * (face_next_muscl3 - face_muscl3);
+                        phi_muscl2.data[(i, 0)] -=
+                            velocity * dt / DX * (face_next_muscl2 - face_muscl2);
+                        phi_muscl3.data[(i, 0)] -=
+                            velocity * dt / DX * (face_next_muscl3 - face_muscl3);
                     }
                 }
 
                 // MUSCL3 should preserve sharper profile than MUSCL2
-                let max_muscl3 = (0..NX).map(|i| phi_muscl3.data[(i, 0)]).fold(f64::NEG_INFINITY, f64::max);
-                let max_muscl2 = (0..NX).map(|i| phi_muscl2.data[(i, 0)]).fold(f64::NEG_INFINITY, f64::max);
+                let max_muscl3 = (0..NX)
+                    .map(|i| phi_muscl3.data[(i, 0)])
+                    .fold(f64::NEG_INFINITY, f64::max);
+                let max_muscl2 = (0..NX)
+                    .map(|i| phi_muscl2.data[(i, 0)])
+                    .fold(f64::NEG_INFINITY, f64::max);
 
                 // MUSCL3 should maintain higher peak (less diffusion) for narrow features
-                assert!(max_muscl3 >= max_muscl2 * 0.9, "MUSCL3 should show less diffusion");
+                assert!(
+                    max_muscl3 >= max_muscl2 * 0.9,
+                    "MUSCL3 should show less diffusion"
+                );
             }
         }
     }
@@ -175,13 +209,15 @@ fn test_muscl_scheme_order_accuracy() {
         let mut phi_new_muscl2 = phi_muscl2.clone();
         let mut phi_new_muscl3 = phi_muscl3.clone();
 
-        for i in 0..NX-1 {
+        for i in 0..NX - 1 {
             let face_muscl2 = scheme_muscl2.reconstruct_face_value_x(&phi_muscl2, velocity, i, 0);
-            let face_next_muscl2 = scheme_muscl2.reconstruct_face_value_x(&phi_muscl2, velocity, i+1, 0);
+            let face_next_muscl2 =
+                scheme_muscl2.reconstruct_face_value_x(&phi_muscl2, velocity, i + 1, 0);
             phi_new_muscl2.data[(i, 0)] -= velocity * dt / DX * (face_next_muscl2 - face_muscl2);
 
             let face_muscl3 = scheme_muscl3.reconstruct_face_value_x(&phi_muscl3, velocity, i, 0);
-            let face_next_muscl3 = scheme_muscl3.reconstruct_face_value_x(&phi_muscl3, velocity, i+1, 0);
+            let face_next_muscl3 =
+                scheme_muscl3.reconstruct_face_value_x(&phi_muscl3, velocity, i + 1, 0);
             phi_new_muscl3.data[(i, 0)] -= velocity * dt / DX * (face_next_muscl3 - face_muscl3);
         }
 
@@ -231,22 +267,46 @@ fn test_tvd_limiters_properties() {
             let psi = limiter.apply(r);
 
             // TVD condition 1: 0 ≤ ψ(r) ≤ 2
-            assert!(psi >= 0.0, "Limiter {} violates ψ ≥ 0 for r={}", format!("{:?}", limiter), r);
-            assert!(psi <= 2.0, "Limiter {} violates ψ ≤ 2 for r={}", format!("{:?}", limiter), r);
+            assert!(
+                psi >= 0.0,
+                "Limiter {} violates ψ ≥ 0 for r={}",
+                format!("{:?}", limiter),
+                r
+            );
+            assert!(
+                psi <= 2.0,
+                "Limiter {} violates ψ ≤ 2 for r={}",
+                format!("{:?}", limiter),
+                r
+            );
 
             // TVD condition 2: ψ(r) ≤ 2r for r ∈ [0, 1]
             if r <= 1.0 {
-                assert!(psi <= 2.0 * r + 1e-10, "Limiter {} violates TVD condition for r={}", format!("{:?}", limiter), r);
+                assert!(
+                    psi <= 2.0 * r + 1e-10,
+                    "Limiter {} violates TVD condition for r={}",
+                    format!("{:?}", limiter),
+                    r
+                );
             }
         }
 
         // Test discontinuities: ψ(r) = 0 when r ≤ 0 (no overshoots)
         let psi_neg = limiter.apply(-1.0);
-        assert_eq!(psi_neg, 0.0, "Limiter {} should be 0 for negative r", format!("{:?}", limiter));
+        assert_eq!(
+            psi_neg,
+            0.0,
+            "Limiter {} should be 0 for negative r",
+            format!("{:?}", limiter)
+        );
 
         // Test smooth regions: ψ(1) = 1 (full centered differencing)
         let psi_one: f64 = limiter.apply(1.0);
-        assert!((psi_one - 1.0).abs() < 1e-10, "Limiter {} should be 1 for r=1", format!("{:?}", limiter));
+        assert!(
+            (psi_one - 1.0).abs() < 1e-10,
+            "Limiter {} should be 1 for r=1",
+            format!("{:?}", limiter)
+        );
     }
 }
 
@@ -262,7 +322,10 @@ fn test_boundary_one_sided_reconstruction() {
 
     // Left boundary (i=0) with outflow (positive velocity)
     let face_left_outflow = scheme.reconstruct_face_value_x(&phi, 1.0, 0, 0);
-    assert_eq!(face_left_outflow, 0.0, "Left boundary outflow should use cell value");
+    assert_eq!(
+        face_left_outflow, 0.0,
+        "Left boundary outflow should use cell value"
+    );
 
     // Left boundary with inflow (negative velocity) - should use one-sided reconstruction
     let face_left_inflow = scheme.reconstruct_face_value_x(&phi, -1.0, 0, 0);
@@ -270,12 +333,16 @@ fn test_boundary_one_sided_reconstruction() {
     assert_relative_eq!(face_left_inflow, expected, epsilon = 1e-10);
 
     // Right boundary (i=NX-1) with inflow (negative velocity)
-    let face_right_inflow = scheme.reconstruct_face_value_x(&phi, -1.0, NX-1, 0);
-    assert_eq!(face_right_inflow, ((NX-1) as f64), "Right boundary inflow should use cell value");
+    let face_right_inflow = scheme.reconstruct_face_value_x(&phi, -1.0, NX - 1, 0);
+    assert_eq!(
+        face_right_inflow,
+        ((NX - 1) as f64),
+        "Right boundary inflow should use cell value"
+    );
 
     // Right boundary with outflow (positive velocity) - one-sided reconstruction
-    let face_right_outflow = scheme.reconstruct_face_value_x(&phi, 1.0, NX-1, 0);
-    let expected_right = (NX-1) as f64 + 0.5 * ((NX-1) as f64 - (NX-2) as f64);
+    let face_right_outflow = scheme.reconstruct_face_value_x(&phi, 1.0, NX - 1, 0);
+    let expected_right = (NX - 1) as f64 + 0.5 * ((NX - 1) as f64 - (NX - 2) as f64);
     assert_relative_eq!(face_right_outflow, expected_right, epsilon = 1e-10);
 }
 
@@ -295,12 +362,18 @@ fn test_muscl3_boundary_fallback() {
     let face_muscl2 = scheme_muscl2.reconstruct_face_value_x(&phi, -1.0, 1, 0);
 
     // Should be different (MUSCL3 uses more points)
-    assert!(face_muscl3 != face_muscl2, "MUSCL3 should use different reconstruction than MUSCL2");
+    assert!(
+        face_muscl3 != face_muscl2,
+        "MUSCL3 should use different reconstruction than MUSCL2"
+    );
 
     // For a very boundary case (near left edge where MUSCL3 lacks upstream points)
     let face_boundary_muscl3 = scheme_muscl3.reconstruct_face_value_x(&phi, -1.0, 0, 0);
     let face_boundary_muscl2 = scheme_muscl2.reconstruct_face_value_x(&phi, -1.0, 0, 0);
 
     // Should be the same (MUSCL3 falls back to MUSCL2)
-    assert_eq!(face_boundary_muscl3, face_boundary_muscl2, "MUSCL3 should fall back to MUSCL2 at boundaries");
+    assert_eq!(
+        face_boundary_muscl3, face_boundary_muscl2,
+        "MUSCL3 should fall back to MUSCL2 at boundaries"
+    );
 }

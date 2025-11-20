@@ -4,20 +4,20 @@
 //! including memory profiling, scaling analysis, and regression detection capabilities.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use std::time::{Duration, Instant};
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 // Core CFD operation benchmarks
 mod core_operations;
 mod memory_profiling;
-mod scaling_analysis;
 mod regression_detection;
+mod scaling_analysis;
 
 // Re-export for external use
 pub use core_operations::*;
 pub use memory_profiling::*;
-pub use scaling_analysis::*;
 pub use regression_detection::*;
+pub use scaling_analysis::*;
 
 /// Main benchmark configuration
 #[derive(Debug, Clone)]

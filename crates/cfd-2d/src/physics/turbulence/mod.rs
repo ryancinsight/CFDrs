@@ -25,19 +25,22 @@ pub mod traits;
 pub mod validation;
 pub mod wall_functions;
 
-pub use boundary_conditions::{
-    TurbulenceBoundaryCondition, TurbulenceBoundaryManager,
-};
+pub use boundary_conditions::{TurbulenceBoundaryCondition, TurbulenceBoundaryManager};
 pub use constants::*;
-pub use constants_validation::{run_turbulence_constants_validation, TurbulenceConstantsValidator, ConstantsValidationResult};
+pub use constants_validation::{
+    run_turbulence_constants_validation, ConstantsValidationResult, TurbulenceConstantsValidator,
+};
 pub use des::DetachedEddySimulation;
 pub use k_epsilon::KEpsilonModel;
 pub use k_omega_sst::KOmegaSSTModel;
-pub use les_smagorinsky::{MilesLES, SmagorinskyLES, SigmaModel, VremanModel};
-pub use reynolds_stress::{ReynoldsStressModel, ReynoldsStressTensor, PressureStrainModel};
+pub use les_smagorinsky::{MilesLES, SigmaModel, SmagorinskyLES, VremanModel};
+pub use reynolds_stress::{PressureStrainModel, ReynoldsStressModel, ReynoldsStressTensor};
 pub use spalart_allmaras::SpalartAllmaras;
-pub use traits::{TurbulenceModel, LESTurbulenceModel};
-pub use validation::{run_turbulence_validation, run_rans_benchmark_suite, run_les_benchmark_suite, TurbulenceValidator, ValidationResult};
+pub use traits::{LESTurbulenceModel, TurbulenceModel};
+pub use validation::{
+    run_les_benchmark_suite, run_rans_benchmark_suite, run_turbulence_validation,
+    TurbulenceValidator, ValidationResult,
+};
 pub use wall_functions::{WallFunction, WallTreatment};
 
 // Literature-based validation tests

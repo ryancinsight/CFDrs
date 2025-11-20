@@ -196,7 +196,8 @@ pub struct KOmegaSSTModel<T: RealField + Copy> {
 
 impl<T: RealField + FromPrimitive + Copy> KOmegaSSTModel<T> {
     /// Create a new k-ω SST model
-    #[must_use] pub fn new(nx: usize, ny: usize) -> Self {
+    #[must_use]
+    pub fn new(nx: usize, ny: usize) -> Self {
         let size = nx * ny;
         Self {
             nx,
@@ -325,7 +326,9 @@ impl<T: RealField + FromPrimitive + Copy> KOmegaSSTModel<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceModel<T> for KOmegaSSTModel<T> {
+impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceModel<T>
+    for KOmegaSSTModel<T>
+{
     fn turbulent_viscosity(&self, k: T, omega: T, density: T) -> T {
         let omega_min = T::from_f64(OMEGA_MIN).unwrap_or_else(T::zero);
         let a1 = T::from_f64(SST_ALPHA_1).unwrap_or_else(T::one);
@@ -350,15 +353,15 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
         // Full SST limiter - Bradshaw assumption per Menter (1994)
         // νt = a1*k / max(a1*ω, S*F2)
         // where S is strain rate magnitude and F2 is blending function
-        // 
+        //
         // This ensures that the turbulent viscosity satisfies the Bradshaw
         // assumption: τ = ρ*a1*k in the logarithmic layer and wake region
-        // 
-        // Reference: Menter, F.R. (1994). "Two-equation eddy-viscosity turbulence 
+        //
+        // Reference: Menter, F.R. (1994). "Two-equation eddy-viscosity turbulence
         // models for engineering applications." AIAA Journal, 32(8), 1598-1605.
         let denominator = (a1 * omega).max(strain_rate_magnitude * f2);
         let nu_t = a1 * k / denominator.max(omega_min);
-        
+
         density * nu_t
     }
 

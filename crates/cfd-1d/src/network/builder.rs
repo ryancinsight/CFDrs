@@ -11,7 +11,8 @@ pub struct NetworkBuilder<T: RealField + Copy> {
 
 impl<T: RealField + Copy> NetworkBuilder<T> {
     /// Create a new network builder
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             graph: NetworkGraph::new(),
         }

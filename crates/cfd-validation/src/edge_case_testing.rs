@@ -75,7 +75,9 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
 
         // Test 1: Extreme velocity gradients
         let extreme_gradient_result = self.test_extreme_velocity_gradients()?;
-        report.boundary_condition_tests.push(extreme_gradient_result);
+        report
+            .boundary_condition_tests
+            .push(extreme_gradient_result);
 
         // Test 2: Discontinuous boundary conditions
         let discontinuity_result = self.test_discontinuous_boundary_conditions()?;
@@ -131,7 +133,9 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
 
         // Test 1: Preconditioner breakdown
         let preconditioner_breakdown_result = self.test_preconditioner_breakdown()?;
-        report.convergence_tests.push(preconditioner_breakdown_result);
+        report
+            .convergence_tests
+            .push(preconditioner_breakdown_result);
 
         // Test 2: Slow convergence scenarios
         let slow_convergence_result = self.test_slow_convergence_scenarios()?;
@@ -155,15 +159,21 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
 
         // Test 1: Negative density/pressure
         let negative_properties_result = self.test_negative_thermodynamic_properties()?;
-        report.physical_constraint_tests.push(negative_properties_result);
+        report
+            .physical_constraint_tests
+            .push(negative_properties_result);
 
         // Test 2: Turbulence quantities going negative
         let negative_turbulence_result = self.test_negative_turbulence_quantities()?;
-        report.physical_constraint_tests.push(negative_turbulence_result);
+        report
+            .physical_constraint_tests
+            .push(negative_turbulence_result);
 
         // Test 3: Supersonic flow violations
         let supersonic_violation_result = self.test_supersonic_flow_violations()?;
-        report.physical_constraint_tests.push(supersonic_violation_result);
+        report
+            .physical_constraint_tests
+            .push(supersonic_violation_result);
 
         // Test 4: Boundary layer separation
         let separation_result = self.test_boundary_layer_separation()?;
@@ -449,11 +459,23 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
             + report.physical_constraint_tests.len()
             + report.implementation_tests.len();
 
-        let passed_tests = report.boundary_condition_tests.iter().filter(|t| t.passed).count()
+        let passed_tests = report
+            .boundary_condition_tests
+            .iter()
+            .filter(|t| t.passed)
+            .count()
             + report.stability_tests.iter().filter(|t| t.passed).count()
             + report.convergence_tests.iter().filter(|t| t.passed).count()
-            + report.physical_constraint_tests.iter().filter(|t| t.passed).count()
-            + report.implementation_tests.iter().filter(|t| t.passed).count();
+            + report
+                .physical_constraint_tests
+                .iter()
+                .filter(|t| t.passed)
+                .count()
+            + report
+                .implementation_tests
+                .iter()
+                .filter(|t| t.passed)
+                .count();
 
         let pass_rate = if total_tests > 0 {
             passed_tests as f64 / total_tests as f64
@@ -461,7 +483,9 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
             0.0
         };
 
-        let critical_failures = report.boundary_condition_tests.iter()
+        let critical_failures = report
+            .boundary_condition_tests
+            .iter()
             .chain(report.stability_tests.iter())
             .chain(report.convergence_tests.iter())
             .chain(report.physical_constraint_tests.iter())
@@ -492,16 +516,24 @@ impl<T: RealField + Copy> EdgeCaseTestSuite<T> {
     fn display_edge_case_report(&self, report: &EdgeCaseReport) {
         println!("\n📋 Comprehensive Edge Case Test Report");
         println!("=====================================");
-        println!("Overall Assessment: {} ({:.1}%)",
-                match report.overall_assessment.overall_status {
-                    OverallStatus::Excellent => "Excellent",
-                    OverallStatus::Good => "Good",
-                    OverallStatus::NeedsAttention => "Needs Attention",
-                    OverallStatus::CriticalFailures => "Critical Failures",
-                },
-                report.overall_assessment.pass_rate * 100.0);
-        println!("Total Tests: {}/{}", report.overall_assessment.passed_tests, report.overall_assessment.total_tests);
-        println!("Critical Failures: {}", report.overall_assessment.critical_failures);
+        println!(
+            "Overall Assessment: {} ({:.1}%)",
+            match report.overall_assessment.overall_status {
+                OverallStatus::Excellent => "Excellent",
+                OverallStatus::Good => "Good",
+                OverallStatus::NeedsAttention => "Needs Attention",
+                OverallStatus::CriticalFailures => "Critical Failures",
+            },
+            report.overall_assessment.pass_rate * 100.0
+        );
+        println!(
+            "Total Tests: {}/{}",
+            report.overall_assessment.passed_tests, report.overall_assessment.total_tests
+        );
+        println!(
+            "Critical Failures: {}",
+            report.overall_assessment.critical_failures
+        );
 
         println!("\n✅ Edge case validation completed successfully!");
         println!("   Comprehensive testing ensures CFD code robustness and reliability.");
@@ -620,4 +652,3 @@ mod tests {
         assert!(report.overall_assessment.pass_rate <= 1.0);
     }
 }
-

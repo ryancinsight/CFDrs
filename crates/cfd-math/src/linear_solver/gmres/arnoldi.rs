@@ -86,7 +86,7 @@ mod tests {
         // Test Arnoldi on identity matrix
         let n = 3;
         let a = CsrMatrix::identity(n);
-        
+
         let mut v = DMatrix::zeros(n, 3);
         let mut h = DMatrix::zeros(3, 2);
         let mut work = DVector::zeros(n);

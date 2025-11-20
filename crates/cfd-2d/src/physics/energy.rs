@@ -65,7 +65,9 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
         }
         // Right boundaries copy from left
         for j in 0..self.ny {
-            if let Some(BoundaryCondition::Periodic { .. }) = boundary_conditions.get(&(self.nx - 1, j)) {
+            if let Some(BoundaryCondition::Periodic { .. }) =
+                boundary_conditions.get(&(self.nx - 1, j))
+            {
                 new_temperature[self.nx - 1][j] = self.temperature[0][j];
             }
         }
@@ -77,7 +79,9 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
         }
         // Bottom boundaries copy from top
         for i in 0..self.nx {
-            if let Some(BoundaryCondition::Periodic { .. }) = boundary_conditions.get(&(i, self.ny - 1)) {
+            if let Some(BoundaryCondition::Periodic { .. }) =
+                boundary_conditions.get(&(i, self.ny - 1))
+            {
                 new_temperature[i][self.ny - 1] = self.temperature[i][0];
             }
         }
@@ -97,7 +101,7 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
 
                 // Convection terms (upwind scheme)
                 let dt_dx = if u > T::zero() {
-                    (t - new_temperature[i - 1][j]) / dx  // Use updated boundary values
+                    (t - new_temperature[i - 1][j]) / dx // Use updated boundary values
                 } else {
                     (new_temperature[i + 1][j] - t) / dx
                 };
@@ -110,10 +114,10 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
 
                 // Diffusion terms (central difference) - use updated boundary values
                 let coeff = T::from_f64(constants::CENTRAL_DIFF_COEFF).unwrap_or_else(|| T::zero());
-                let d2t_dx2 = (new_temperature[i + 1][j] - coeff * t + new_temperature[i - 1][j])
-                    / (dx * dx);
-                let d2t_dy2 = (new_temperature[i][j + 1] - coeff * t + new_temperature[i][j - 1])
-                    / (dy * dy);
+                let d2t_dx2 =
+                    (new_temperature[i + 1][j] - coeff * t + new_temperature[i - 1][j]) / (dx * dx);
+                let d2t_dy2 =
+                    (new_temperature[i][j + 1] - coeff * t + new_temperature[i][j - 1]) / (dy * dy);
 
                 // Update temperature
                 new_temperature[i][j] = t + dt
@@ -186,7 +190,7 @@ mod tests {
         let solver = EnergyEquationSolver::<f64>::new(10, 10, 300.0, 0.01);
         assert_eq!(solver.nx, 10);
         assert_eq!(solver.ny, 10);
-        
+
         // Check initial temperature field
         for i in 0..10 {
             for j in 0..10 {
@@ -203,8 +207,15 @@ mod tests {
         let u_velocity = vec![vec![0.0; 5]; 5];
         let v_velocity = vec![vec![0.0; 5]; 5];
         let boundary_conditions = HashMap::new();
-        
-        let result = solver.solve_explicit(&u_velocity, &v_velocity, 0.001, 0.1, 0.1, &boundary_conditions);
+
+        let result = solver.solve_explicit(
+            &u_velocity,
+            &v_velocity,
+            0.001,
+            0.1,
+            0.1,
+            &boundary_conditions,
+        );
         assert!(result.is_ok());
     }
 
@@ -214,10 +225,17 @@ mod tests {
         let u_velocity = vec![vec![1.0; 5]; 5];
         let v_velocity = vec![vec![0.0; 5]; 5];
         let boundary_conditions = HashMap::new();
-        
-        let result = solver.solve_explicit(&u_velocity, &v_velocity, 0.001, 0.1, 0.1, &boundary_conditions);
+
+        let result = solver.solve_explicit(
+            &u_velocity,
+            &v_velocity,
+            0.001,
+            0.1,
+            0.1,
+            &boundary_conditions,
+        );
         assert!(result.is_ok());
-        
+
         // With uniform temperature and zero source, temperature should remain approximately constant
         for i in 1..4 {
             for j in 1..4 {
@@ -233,13 +251,20 @@ mod tests {
         let u_velocity = vec![vec![0.0; 5]; 5];
         let v_velocity = vec![vec![0.0; 5]; 5];
         let mut boundary_conditions = HashMap::new();
-        
+
         // Apply Dirichlet BC at point (0, 0)
         boundary_conditions.insert((0, 0), BoundaryCondition::Dirichlet { value: 350.0 });
-        
-        let result = solver.solve_explicit(&u_velocity, &v_velocity, 0.001, 0.1, 0.1, &boundary_conditions);
+
+        let result = solver.solve_explicit(
+            &u_velocity,
+            &v_velocity,
+            0.001,
+            0.1,
+            0.1,
+            &boundary_conditions,
+        );
         assert!(result.is_ok());
-        
+
         // Check that Dirichlet BC is applied
         assert_relative_eq!(solver.temperature[0][0], 350.0, epsilon = 1e-10);
     }
@@ -250,11 +275,18 @@ mod tests {
         let u_velocity = vec![vec![0.0; 5]; 5];
         let v_velocity = vec![vec![0.0; 5]; 5];
         let mut boundary_conditions = HashMap::new();
-        
+
         // Apply Neumann BC at left boundary
         boundary_conditions.insert((0, 2), BoundaryCondition::Neumann { gradient: 10.0 });
-        
-        let result = solver.solve_explicit(&u_velocity, &v_velocity, 0.001, 0.1, 0.1, &boundary_conditions);
+
+        let result = solver.solve_explicit(
+            &u_velocity,
+            &v_velocity,
+            0.001,
+            0.1,
+            0.1,
+            &boundary_conditions,
+        );
         assert!(result.is_ok());
     }
 
@@ -264,11 +296,18 @@ mod tests {
         let u_velocity = vec![vec![0.0; 5]; 5];
         let v_velocity = vec![vec![0.0; 5]; 5];
         let mut boundary_conditions = HashMap::new();
-        
+
         // Apply Neumann BC at right boundary
         boundary_conditions.insert((4, 2), BoundaryCondition::Neumann { gradient: -10.0 });
-        
-        let result = solver.solve_explicit(&u_velocity, &v_velocity, 0.001, 0.1, 0.1, &boundary_conditions);
+
+        let result = solver.solve_explicit(
+            &u_velocity,
+            &v_velocity,
+            0.001,
+            0.1,
+            0.1,
+            &boundary_conditions,
+        );
         assert!(result.is_ok());
     }
 
@@ -278,12 +317,29 @@ mod tests {
         let u_velocity = vec![vec![0.0; 5]; 5];
         let v_velocity = vec![vec![0.0; 5]; 5];
         let mut boundary_conditions = HashMap::new();
-        
+
         // Apply periodic BC at left/right boundaries
-        boundary_conditions.insert((0, 2), BoundaryCondition::Periodic { partner: "right".to_string() });
-        boundary_conditions.insert((4, 2), BoundaryCondition::Periodic { partner: "left".to_string() });
-        
-        let result = solver.solve_explicit(&u_velocity, &v_velocity, 0.001, 0.1, 0.1, &boundary_conditions);
+        boundary_conditions.insert(
+            (0, 2),
+            BoundaryCondition::Periodic {
+                partner: "right".to_string(),
+            },
+        );
+        boundary_conditions.insert(
+            (4, 2),
+            BoundaryCondition::Periodic {
+                partner: "left".to_string(),
+            },
+        );
+
+        let result = solver.solve_explicit(
+            &u_velocity,
+            &v_velocity,
+            0.001,
+            0.1,
+            0.1,
+            &boundary_conditions,
+        );
         assert!(result.is_ok());
     }
 
@@ -293,33 +349,51 @@ mod tests {
         let u_velocity = vec![vec![0.0; 5]; 5];
         let v_velocity = vec![vec![0.0; 5]; 5];
         let mut boundary_conditions = HashMap::new();
-        
+
         // Apply symmetry BC at bottom boundary
         boundary_conditions.insert((2, 0), BoundaryCondition::Symmetry);
-        
-        let result = solver.solve_explicit(&u_velocity, &v_velocity, 0.001, 0.1, 0.1, &boundary_conditions);
+
+        let result = solver.solve_explicit(
+            &u_velocity,
+            &v_velocity,
+            0.001,
+            0.1,
+            0.1,
+            &boundary_conditions,
+        );
         assert!(result.is_ok());
-        
+
         // Symmetry should set T(i, 0) = T(i, 1)
-        assert_relative_eq!(solver.temperature[2][0], solver.temperature[2][1], epsilon = 1e-10);
+        assert_relative_eq!(
+            solver.temperature[2][0],
+            solver.temperature[2][1],
+            epsilon = 1e-10
+        );
     }
 
     #[test]
     fn test_heat_source_effect() {
         let mut solver = EnergyEquationSolver::<f64>::new(5, 5, 300.0, 0.01);
-        
+
         // Add heat source at center
         solver.heat_source[2][2] = 1000.0;
-        
+
         let u_velocity = vec![vec![0.0; 5]; 5];
         let v_velocity = vec![vec![0.0; 5]; 5];
         let boundary_conditions = HashMap::new();
-        
+
         let initial_temp = solver.temperature[2][2];
-        
-        let result = solver.solve_explicit(&u_velocity, &v_velocity, 0.001, 0.1, 0.1, &boundary_conditions);
+
+        let result = solver.solve_explicit(
+            &u_velocity,
+            &v_velocity,
+            0.001,
+            0.1,
+            0.1,
+            &boundary_conditions,
+        );
         assert!(result.is_ok());
-        
+
         // Temperature at center should increase due to heat source
         assert!(solver.temperature[2][2] > initial_temp);
     }
@@ -327,59 +401,80 @@ mod tests {
     #[test]
     fn test_convection_positive_u_velocity() {
         let mut solver = EnergyEquationSolver::<f64>::new(5, 5, 300.0, 0.01);
-        
+
         // Set hot spot at upstream location
         solver.temperature[1][2] = 350.0;
-        
+
         // Positive u velocity (flow in positive x direction)
         let mut u_velocity = vec![vec![1.0; 5]; 5];
         u_velocity[2][2] = 1.0;
         let v_velocity = vec![vec![0.0; 5]; 5];
         let boundary_conditions = HashMap::new();
-        
-        let result = solver.solve_explicit(&u_velocity, &v_velocity, 0.001, 0.1, 0.1, &boundary_conditions);
+
+        let result = solver.solve_explicit(
+            &u_velocity,
+            &v_velocity,
+            0.001,
+            0.1,
+            0.1,
+            &boundary_conditions,
+        );
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_convection_negative_u_velocity() {
         let mut solver = EnergyEquationSolver::<f64>::new(5, 5, 300.0, 0.01);
-        
+
         // Set hot spot at downstream location
         solver.temperature[3][2] = 350.0;
-        
+
         // Negative u velocity (flow in negative x direction)
         let mut u_velocity = vec![vec![-1.0; 5]; 5];
         u_velocity[2][2] = -1.0;
         let v_velocity = vec![vec![0.0; 5]; 5];
         let boundary_conditions = HashMap::new();
-        
-        let result = solver.solve_explicit(&u_velocity, &v_velocity, 0.001, 0.1, 0.1, &boundary_conditions);
+
+        let result = solver.solve_explicit(
+            &u_velocity,
+            &v_velocity,
+            0.001,
+            0.1,
+            0.1,
+            &boundary_conditions,
+        );
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_diffusion_smoothing() {
         let mut solver = EnergyEquationSolver::<f64>::new(5, 5, 300.0, 0.1);
-        
+
         // Create temperature gradient
         for i in 0..5 {
             solver.temperature[i][2] = 300.0 + (i as f64) * 10.0;
         }
-        
+
         let u_velocity = vec![vec![0.0; 5]; 5];
         let v_velocity = vec![vec![0.0; 5]; 5];
         let boundary_conditions = HashMap::new();
-        
+
         let initial_gradient = solver.temperature[3][2] - solver.temperature[1][2];
-        
+
         // Run multiple time steps
         for _ in 0..5 {
-            let _ = solver.solve_explicit(&u_velocity, &v_velocity, 0.001, 0.1, 0.1, &boundary_conditions);
+            let _ = solver.solve_explicit(
+                &u_velocity,
+                &v_velocity,
+                0.001,
+                0.1,
+                0.1,
+                &boundary_conditions,
+            );
         }
-        
+
         let final_gradient = solver.temperature[3][2] - solver.temperature[1][2];
-        
+
         // Diffusion should reduce gradient
         assert!(final_gradient.abs() < initial_gradient.abs());
     }
@@ -387,11 +482,11 @@ mod tests {
     #[test]
     fn test_nusselt_number_positive() {
         let mut solver = EnergyEquationSolver::<f64>::new(5, 5, 300.0, 0.01);
-        
+
         // Create temperature gradient at wall
         solver.temperature[0][0] = 350.0;
         solver.temperature[0][1] = 340.0;
-        
+
         let nu = solver.nusselt_number(350.0, 300.0, 1.0, 0.1);
         assert!(nu.is_finite());
     }
@@ -412,7 +507,14 @@ mod tests {
 
         // Run 10 time steps
         for _ in 0..10 {
-            let result = solver.solve_explicit(&u_velocity, &v_velocity, 0.0001, 0.1, 0.1, &boundary_conditions);
+            let result = solver.solve_explicit(
+                &u_velocity,
+                &v_velocity,
+                0.0001,
+                0.1,
+                0.1,
+                &boundary_conditions,
+            );
             assert!(result.is_ok());
 
             // Check stability (no blow-up)
@@ -434,12 +536,32 @@ mod tests {
 
         // Set up periodic boundaries
         for j in 0..10 {
-            boundary_conditions.insert((0, j), BoundaryCondition::Periodic { partner: "right".to_string() });
-            boundary_conditions.insert((9, j), BoundaryCondition::Periodic { partner: "left".to_string() });
+            boundary_conditions.insert(
+                (0, j),
+                BoundaryCondition::Periodic {
+                    partner: "right".to_string(),
+                },
+            );
+            boundary_conditions.insert(
+                (9, j),
+                BoundaryCondition::Periodic {
+                    partner: "left".to_string(),
+                },
+            );
         }
         for i in 0..10 {
-            boundary_conditions.insert((i, 0), BoundaryCondition::Periodic { partner: "top".to_string() });
-            boundary_conditions.insert((i, 9), BoundaryCondition::Periodic { partner: "bottom".to_string() });
+            boundary_conditions.insert(
+                (i, 0),
+                BoundaryCondition::Periodic {
+                    partner: "top".to_string(),
+                },
+            );
+            boundary_conditions.insert(
+                (i, 9),
+                BoundaryCondition::Periodic {
+                    partner: "bottom".to_string(),
+                },
+            );
         }
 
         let u_velocity = vec![vec![0.0; 10]; 10]; // Zero velocity (pure diffusion)
@@ -449,7 +571,8 @@ mod tests {
         // Set non-uniform temperature field
         for i in 0..10 {
             for j in 0..10 {
-                solver.temperature[i][j] = 300.0 + 20.0 * ((i as f64 - 5.0).abs() + (j as f64 - 5.0).abs()) / 10.0;
+                solver.temperature[i][j] =
+                    300.0 + 20.0 * ((i as f64 - 5.0).abs() + (j as f64 - 5.0).abs()) / 10.0;
             }
         }
         solver.heat_source = no_source.clone();
@@ -457,7 +580,16 @@ mod tests {
         let initial_energy: f64 = solver.temperature.iter().flatten().sum();
 
         // Run one diffusion step
-        solver.solve_explicit(&u_velocity, &v_velocity, 0.001, 0.1, 0.1, &boundary_conditions).unwrap();
+        solver
+            .solve_explicit(
+                &u_velocity,
+                &v_velocity,
+                0.001,
+                0.1,
+                0.1,
+                &boundary_conditions,
+            )
+            .unwrap();
 
         let final_energy: f64 = solver.temperature.iter().flatten().sum();
 
@@ -494,7 +626,16 @@ mod tests {
         // Initially, both positions are at 300, difference is 0
         let initial_temp_diff = 0.0;
 
-        solver.solve_explicit(&u_velocity, &v_velocity, 0.01, 0.1, 0.1, &boundary_conditions).unwrap();
+        solver
+            .solve_explicit(
+                &u_velocity,
+                &v_velocity,
+                0.01,
+                0.1,
+                0.1,
+                &boundary_conditions,
+            )
+            .unwrap();
 
         let final_temp_diff = solver.temperature[2][3] - solver.temperature[4][3];
 
@@ -507,9 +648,14 @@ mod tests {
     #[test]
     fn test_convergence_order_verification() {
         // Manufacture solution: T(x,y,t) = exp(-t) * sin(πx) * cos(πy)
-        let manufacture_temp = |x: f64, y: f64, t: f64| (-t).exp() * (std::f64::consts::PI * x).sin() * (std::f64::consts::PI * y).cos();
+        let manufacture_temp = |x: f64, y: f64, t: f64| {
+            (-t).exp() * (std::f64::consts::PI * x).sin() * (std::f64::consts::PI * y).cos()
+        };
 
-        let nx = 21; let ny = 21; let dx = 0.1; let dy = 0.1;
+        let nx = 21;
+        let ny = 21;
+        let dx = 0.1;
+        let dy = 0.1;
         let mut solver = EnergyEquationSolver::<f64>::new(nx, ny, 300.0, 1.0); // α = 1 for simplicity
 
         // Initialize with manufactured solution at t=0
@@ -533,35 +679,75 @@ mod tests {
                 let t = 0.0;
 
                 // Analytical velocities from MMS
-                u_velocity[i][j] = -2.0 * std::f64::consts::PI * (std::f64::consts::PI * x).cos() * (std::f64::consts::PI * y).sin();
-                v_velocity[i][j] = 2.0 * std::f64::consts::PI * (std::f64::consts::PI * x).sin() * (std::f64::consts::PI * y).cos();
+                u_velocity[i][j] = -2.0
+                    * std::f64::consts::PI
+                    * (std::f64::consts::PI * x).cos()
+                    * (std::f64::consts::PI * y).sin();
+                v_velocity[i][j] = 2.0
+                    * std::f64::consts::PI
+                    * (std::f64::consts::PI * x).sin()
+                    * (std::f64::consts::PI * y).cos();
                 solver.heat_source[i][j] = -manufacture_temp(x, y, t); // Source = ∂T/∂t = -T
             }
         }
 
         let mut boundary_conditions = HashMap::new();
         for j in 0..ny {
-            boundary_conditions.insert((0, j), BoundaryCondition::Dirichlet { value: manufacture_temp(0.0, j as f64 * dy, 0.001) });
-            boundary_conditions.insert((nx-1, j), BoundaryCondition::Dirichlet { value: manufacture_temp((nx-1) as f64 * dx, j as f64 * dy, 0.001) });
+            boundary_conditions.insert(
+                (0, j),
+                BoundaryCondition::Dirichlet {
+                    value: manufacture_temp(0.0, j as f64 * dy, 0.001),
+                },
+            );
+            boundary_conditions.insert(
+                (nx - 1, j),
+                BoundaryCondition::Dirichlet {
+                    value: manufacture_temp((nx - 1) as f64 * dx, j as f64 * dy, 0.001),
+                },
+            );
         }
         for i in 0..nx {
-            boundary_conditions.insert((i, 0), BoundaryCondition::Dirichlet { value: manufacture_temp(i as f64 * dx, 0.0, 0.001) });
-            boundary_conditions.insert((i, ny-1), BoundaryCondition::Dirichlet { value: manufacture_temp(i as f64 * dx, (ny-1) as f64 * dy, 0.001) });
+            boundary_conditions.insert(
+                (i, 0),
+                BoundaryCondition::Dirichlet {
+                    value: manufacture_temp(i as f64 * dx, 0.0, 0.001),
+                },
+            );
+            boundary_conditions.insert(
+                (i, ny - 1),
+                BoundaryCondition::Dirichlet {
+                    value: manufacture_temp(i as f64 * dx, (ny - 1) as f64 * dy, 0.001),
+                },
+            );
         }
 
-        solver.solve_explicit(&u_velocity, &v_velocity, 0.001, dx, dy, &boundary_conditions).unwrap();
+        solver
+            .solve_explicit(
+                &u_velocity,
+                &v_velocity,
+                0.001,
+                dx,
+                dy,
+                &boundary_conditions,
+            )
+            .unwrap();
 
         // Verify against exact solution at t=0.001
         let temp_clone = solver.temperature.clone();
-        let max_error = (0..nx).flat_map(|i| (0..ny).map({
-            let value = temp_clone.clone();
-            move |j| {
-                let x = i as f64 * dx;
-                let y = j as f64 * dy;
-                let exact = manufacture_temp(x, y, 0.001);
-                (value[i][j] - exact).abs()
-            }
-        })).max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
+        let max_error = (0..nx)
+            .flat_map(|i| {
+                (0..ny).map({
+                    let value = temp_clone.clone();
+                    move |j| {
+                        let x = i as f64 * dx;
+                        let y = j as f64 * dy;
+                        let exact = manufacture_temp(x, y, 0.001);
+                        (value[i][j] - exact).abs()
+                    }
+                })
+            })
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap();
 
         // Should be reasonably accurate (relaxed tolerance for numerical stability)
         assert!(max_error < 0.1, "Max error too high: {}", max_error);
@@ -581,14 +767,32 @@ mod tests {
 
         let initial_temp = solver.temperature[2][2];
 
-        solver.solve_explicit(&u_velocity, &v_velocity, 1e-6, 0.1, 0.1, &boundary_conditions).unwrap();
+        solver
+            .solve_explicit(
+                &u_velocity,
+                &v_velocity,
+                1e-6,
+                0.1,
+                0.1,
+                &boundary_conditions,
+            )
+            .unwrap();
 
         // Temperature should increase dramatically (but not explode due to small dt)
         assert!(solver.temperature[2][2] > initial_temp);
 
         // Test negative heat source (cooling)
         solver.heat_source[2][2] = -1e6;
-        solver.solve_explicit(&u_velocity, &v_velocity, 1e-6, 0.1, 0.1, &boundary_conditions).unwrap();
+        solver
+            .solve_explicit(
+                &u_velocity,
+                &v_velocity,
+                1e-6,
+                0.1,
+                0.1,
+                &boundary_conditions,
+            )
+            .unwrap();
 
         // Temperature should decrease
         assert!(solver.temperature[2][2] < initial_temp);
@@ -608,14 +812,25 @@ mod tests {
 
         // Neumann on top and bottom (lower priority - don't overwrite existing)
         for i in 0..5 {
-            boundary_conditions.entry((i, 0)).or_insert(BoundaryCondition::Neumann { gradient: 10.0 });
-            boundary_conditions.entry((i, 4)).or_insert(BoundaryCondition::Neumann { gradient: -5.0 });
+            boundary_conditions
+                .entry((i, 0))
+                .or_insert(BoundaryCondition::Neumann { gradient: 10.0 });
+            boundary_conditions
+                .entry((i, 4))
+                .or_insert(BoundaryCondition::Neumann { gradient: -5.0 });
         }
 
         let u_velocity = vec![vec![0.0; 5]; 5];
         let v_velocity = vec![vec![0.0; 5]; 5];
 
-        let result = solver.solve_explicit(&u_velocity, &v_velocity, 0.001, 0.1, 0.1, &boundary_conditions);
+        let result = solver.solve_explicit(
+            &u_velocity,
+            &v_velocity,
+            0.001,
+            0.1,
+            0.1,
+            &boundary_conditions,
+        );
         assert!(result.is_ok());
 
         // Check Dirichlet boundaries
@@ -640,7 +855,16 @@ mod tests {
         let boundary_conditions = HashMap::new();
 
         // Small time step for stability
-        solver.solve_explicit(&u_velocity, &v_velocity, 0.01, 1.0, 1.0, &boundary_conditions).unwrap();
+        solver
+            .solve_explicit(
+                &u_velocity,
+                &v_velocity,
+                0.01,
+                1.0,
+                1.0,
+                &boundary_conditions,
+            )
+            .unwrap();
 
         // With leftward flow, hot fluid should move left (to lower indices)
         // Position 4 should be warmer than position 6
@@ -669,7 +893,16 @@ mod tests {
         let boundary_conditions = HashMap::new();
 
         // Very small time step for stability
-        solver.solve_explicit(&u_velocity, &v_velocity, 1e-15, 0.1, 0.1, &boundary_conditions).unwrap();
+        solver
+            .solve_explicit(
+                &u_velocity,
+                &v_velocity,
+                1e-15,
+                0.1,
+                0.1,
+                &boundary_conditions,
+            )
+            .unwrap();
 
         // With very small α, temperature should barely change
         for i in 0..5 {
@@ -697,7 +930,10 @@ mod tests {
                 for j in 0..n {
                     let x = i as f64 * dx;
                     let y = j as f64 * dy;
-                    solver.temperature[i][j] = 300.0 + 50.0 * (std::f64::consts::PI * x).sin() * (std::f64::consts::PI * y).cos();
+                    solver.temperature[i][j] = 300.0
+                        + 50.0
+                            * (std::f64::consts::PI * x).sin()
+                            * (std::f64::consts::PI * y).cos();
                 }
             }
 
@@ -706,28 +942,52 @@ mod tests {
             for j in 0..n {
                 let x_left = 0.0;
                 let y = j as f64 * dy;
-                let t_left = 300.0 + 50.0 * (std::f64::consts::PI * x_left).sin() * (std::f64::consts::PI * y).cos();
+                let t_left = 300.0
+                    + 50.0
+                        * (std::f64::consts::PI * x_left).sin()
+                        * (std::f64::consts::PI * y).cos();
                 boundary_conditions.insert((0, j), BoundaryCondition::Dirichlet { value: t_left });
 
                 let x_right = 1.0;
-                let t_right = 300.0 + 50.0 * (std::f64::consts::PI * x_right).sin() * (std::f64::consts::PI * y).cos();
-                boundary_conditions.insert((n-1, j), BoundaryCondition::Dirichlet { value: t_right });
+                let t_right = 300.0
+                    + 50.0
+                        * (std::f64::consts::PI * x_right).sin()
+                        * (std::f64::consts::PI * y).cos();
+                boundary_conditions
+                    .insert((n - 1, j), BoundaryCondition::Dirichlet { value: t_right });
             }
             for i in 0..n {
                 let x = i as f64 * dx;
                 let y_bottom = 0.0;
-                let t_bottom = 300.0 + 50.0 * (std::f64::consts::PI * x).sin() * (std::f64::consts::PI * y_bottom).cos();
-                boundary_conditions.insert((i, 0), BoundaryCondition::Dirichlet { value: t_bottom });
+                let t_bottom = 300.0
+                    + 50.0
+                        * (std::f64::consts::PI * x).sin()
+                        * (std::f64::consts::PI * y_bottom).cos();
+                boundary_conditions
+                    .insert((i, 0), BoundaryCondition::Dirichlet { value: t_bottom });
 
                 let y_top = 1.0;
-                let t_top = 300.0 + 50.0 * (std::f64::consts::PI * x).sin() * (std::f64::consts::PI * y_top).cos();
-                boundary_conditions.insert((i, n-1), BoundaryCondition::Dirichlet { value: t_top });
+                let t_top = 300.0
+                    + 50.0
+                        * (std::f64::consts::PI * x).sin()
+                        * (std::f64::consts::PI * y_top).cos();
+                boundary_conditions
+                    .insert((i, n - 1), BoundaryCondition::Dirichlet { value: t_top });
             }
 
             // Run diffusion step (zero velocity)
             let u_velocity = vec![vec![0.0; n]; n];
             let v_velocity = vec![vec![0.0; n]; n];
-            solver.solve_explicit(&u_velocity, &v_velocity, 0.001, dx, dy, &boundary_conditions).unwrap();
+            solver
+                .solve_explicit(
+                    &u_velocity,
+                    &v_velocity,
+                    0.001,
+                    dx,
+                    dy,
+                    &boundary_conditions,
+                )
+                .unwrap();
 
             // Compute L2 error against analytical solution at t=dt
             let mut l2_error = 0.0;
@@ -737,8 +997,12 @@ mod tests {
                     let x = i as f64 * dx;
                     let y = j as f64 * dy;
                     // Exact solution (diffusion operator applied to sinusoidal field)
-                    let analytical = 300.0 + 50.0 * (std::f64::consts::PI * x).sin() * (std::f64::consts::PI * y).cos() *
-                                   (1.0 - 0.001 * 0.01 * std::f64::consts::PI * std::f64::consts::PI * 2.0); // α(Y'' + X'') effect
+                    let analytical = 300.0
+                        + 50.0
+                            * (std::f64::consts::PI * x).sin()
+                            * (std::f64::consts::PI * y).cos()
+                            * (1.0
+                                - 0.001 * 0.01 * std::f64::consts::PI * std::f64::consts::PI * 2.0); // α(Y'' + X'') effect
                     l2_error += (solver.temperature[i][j] - analytical).powi(2);
                     pt_count += 1;
                 }
@@ -750,7 +1014,11 @@ mod tests {
         // Grid refinement should reduce error (relaxed for numerical stability)
         if errors.len() >= 2 {
             let convergence_ratio = errors[0] / errors[1];
-            assert!(convergence_ratio > 1.2, "No convergence observed: ratio = {}", convergence_ratio); // More realistic for small grids
+            assert!(
+                convergence_ratio > 1.2,
+                "No convergence observed: ratio = {}",
+                convergence_ratio
+            ); // More realistic for small grids
         }
     }
 
@@ -769,7 +1037,14 @@ mod tests {
         let u_velocity = vec![vec![0.0; 5]; 5];
         let v_velocity = vec![vec![0.0; 5]; 5];
 
-        let result = solver.solve_explicit(&u_velocity, &v_velocity, 0.001, 0.1, 0.1, &boundary_conditions);
+        let result = solver.solve_explicit(
+            &u_velocity,
+            &v_velocity,
+            0.001,
+            0.1,
+            0.1,
+            &boundary_conditions,
+        );
         assert!(result.is_ok());
 
         // Check that corners are set correctly
@@ -790,7 +1065,14 @@ mod tests {
         let dt_cfl_unsafe = 0.01; // Way larger than dx/|u| = 0.001
 
         // Should still complete without NaN (implicit stability in explicit thermo)
-        let result = solver.solve_explicit(&u_velocity, &v_velocity, dt_cfl_unsafe, 0.1, 0.1, &boundary_conditions);
+        let result = solver.solve_explicit(
+            &u_velocity,
+            &v_velocity,
+            dt_cfl_unsafe,
+            0.1,
+            0.1,
+            &boundary_conditions,
+        );
         assert!(result.is_ok());
 
         // Temperatures should remain finite (numerical dissipation prevents blow-up)
@@ -814,10 +1096,20 @@ mod tests {
         let v_velocity = vec![vec![0.0; 3]; 3];
         let boundary_conditions = HashMap::new();
 
-        solver.solve_explicit(&u_velocity, &v_velocity, 0.1, 0.1, 0.1, &boundary_conditions).unwrap();
+        solver
+            .solve_explicit(
+                &u_velocity,
+                &v_velocity,
+                0.1,
+                0.1,
+                0.1,
+                &boundary_conditions,
+            )
+            .unwrap();
 
         // With effectively zero diffusivity and no convection, temperature should barely change
-        let change = (solver.temperature[0][1] - 400.0).abs() + (solver.temperature[2][1] - 200.0).abs();
+        let change =
+            (solver.temperature[0][1] - 400.0).abs() + (solver.temperature[2][1] - 200.0).abs();
         assert!(change < 0.1); // Very small change due to numerical precision
     }
 
@@ -843,15 +1135,35 @@ mod tests {
             let x_left = 0.0;
             let x_right = 1.0;
             let y = j as f64 * 0.25;
-            boundary_conditions.insert((0, j), BoundaryCondition::Dirichlet { value: 300.0 + x_left*x_left + y*y });
-            boundary_conditions.insert((4, j), BoundaryCondition::Dirichlet { value: 300.0 + x_right*x_right + y*y });
+            boundary_conditions.insert(
+                (0, j),
+                BoundaryCondition::Dirichlet {
+                    value: 300.0 + x_left * x_left + y * y,
+                },
+            );
+            boundary_conditions.insert(
+                (4, j),
+                BoundaryCondition::Dirichlet {
+                    value: 300.0 + x_right * x_right + y * y,
+                },
+            );
         }
         for i in 0..5 {
             let y_bottom = 0.0;
             let y_top = 1.0;
             let x = i as f64 * 0.25;
-            boundary_conditions.insert((i, 0), BoundaryCondition::Dirichlet { value: 300.0 + x*x + y_bottom*y_bottom });
-            boundary_conditions.insert((i, 4), BoundaryCondition::Dirichlet { value: 300.0 + x*x + y_top*y_top });
+            boundary_conditions.insert(
+                (i, 0),
+                BoundaryCondition::Dirichlet {
+                    value: 300.0 + x * x + y_bottom * y_bottom,
+                },
+            );
+            boundary_conditions.insert(
+                (i, 4),
+                BoundaryCondition::Dirichlet {
+                    value: 300.0 + x * x + y_top * y_top,
+                },
+            );
         }
 
         let u_velocity = vec![vec![0.0; 5]; 5];
@@ -862,16 +1174,32 @@ mod tests {
 
         // Run many time steps to reach steady state (fewer steps for stability)
         for _ in 0..20 {
-            solver.solve_explicit(&u_velocity, &v_velocity, 0.0005, 0.25, 0.25, &boundary_conditions).unwrap();
+            solver
+                .solve_explicit(
+                    &u_velocity,
+                    &v_velocity,
+                    0.0005,
+                    0.25,
+                    0.25,
+                    &boundary_conditions,
+                )
+                .unwrap();
         }
 
         // Check that field remained essentially unchanged (steady state preserved) - relaxed
         let temperature_clone = solver.temperature.clone();
-        let total_change: f64 = initial_field.iter().flatten().zip(temperature_clone.iter().flatten())
+        let total_change: f64 = initial_field
+            .iter()
+            .flatten()
+            .zip(temperature_clone.iter().flatten())
             .map(|(initial_val, current_val)| (initial_val - current_val).abs())
             .sum();
 
         // Use more realistic tolerance for explicit diffusion solver with updated BC handling
-        assert!(total_change < 1.0, "Total change too large: {}", total_change);
+        assert!(
+            total_change < 1.0,
+            "Total change too large: {}",
+            total_change
+        );
     }
 }

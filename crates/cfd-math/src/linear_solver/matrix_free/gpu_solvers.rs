@@ -27,7 +27,15 @@
 //!     let mut solver = GpuMatrixFreeGMRES::new(Default::default(), 30).await?;
 //!
 //!     // Create GPU operator (integrates with WGSL shaders)
-//!     let operator = GpuLaplacianOperator2D::new(solver.gpu_context().clone(), 100, 100, 0.01, 0.01);
+//!     use cfd_math::linear_solver::matrix_free::BoundaryType;
+//!     let operator = GpuLaplacianOperator2D::new(
+//!         solver.gpu_context().clone(),
+//!         100,
+//!         100,
+//!         0.01,
+//!         0.01,
+//!         BoundaryType::Neumann,
+//!     );
 //!
 //!     // Solve system
 //!     let mut x = vec![0.0f32; 10000];
@@ -46,15 +54,15 @@
 //! - **Fallback**: Automatic CPU fallback for small problems or unsupported hardware
 
 #[cfg(feature = "gpu")]
-use super::gpu_compute::{GpuComputeContext, GpuBuffer};
+use super::gpu_compute::{GpuBuffer, GpuComputeContext};
 #[cfg(feature = "gpu")]
 use super::operator::{GpuLinearOperator, LinearOperator};
 #[cfg(feature = "gpu")]
 use super::traits::MatrixFreeSolver;
 #[cfg(feature = "gpu")]
-use crate::linear_solver::config::IterativeSolverConfig;
-#[cfg(feature = "gpu")]
 use crate::error::Result;
+#[cfg(feature = "gpu")]
+use crate::linear_solver::config::IterativeSolverConfig;
 #[cfg(feature = "gpu")]
 use nalgebra::DVector;
 #[cfg(feature = "gpu")]
@@ -71,13 +79,22 @@ pub struct GpuMatrixFreeGMRES<T: nalgebra::RealField + Copy + bytemuck::Pod + by
 }
 
 #[cfg(feature = "gpu")]
-impl<T: nalgebra::RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + FromPrimitive + std::fmt::Debug> GpuMatrixFreeGMRES<T> {
+impl<
+        T: nalgebra::RealField
+            + Copy
+            + bytemuck::Pod
+            + bytemuck::Zeroable
+            + FromPrimitive
+            + std::fmt::Debug,
+    > GpuMatrixFreeGMRES<T>
+{
     /// Create a new GPU-accelerated GMRES solver.
-    pub async fn new(
-        config: IterativeSolverConfig<T>,
-        restart_dim: usize,
-    ) -> Result<Self> {
-        let gpu_context = Arc::new(GpuComputeContext::new().await?);
+    pub async fn new(config: IterativeSolverConfig<T>, restart_dim: usize) -> Result<Self> {
+        let gpu_context = Arc::new(
+            GpuComputeContext::new()
+                .await
+                .map_err(|e| cfd_core::error::Error::from(format!("GPU init failed: {:?}", e)))?,
+        );
         let cpu_solver = super::gmres::MatrixFreeGMRES::new(config, restart_dim);
 
         Ok(Self {
@@ -112,7 +129,8 @@ impl<T: nalgebra::RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + FromPr
         b: &DVector<T>,
         x: &mut DVector<T>,
     ) -> Result<()> {
-        self.cpu_solver.solve(operator, b, x)
+        self.cpu_solver
+            .solve(operator, b.as_slice(), x.as_mut_slice())
     }
 
     /// Force GPU execution.
@@ -136,16 +154,33 @@ impl<T: nalgebra::RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + FromPr
 /// GPU-accelerated BiCGSTAB solver for matrix-free operators.
 #[cfg(feature = "gpu")]
 #[derive(Debug)]
-pub struct GpuMatrixFreeBiCGSTAB<T: nalgebra::RealField + Copy + bytemuck::Pod + bytemuck::Zeroable> {
+pub struct GpuMatrixFreeBiCGSTAB<
+    T: nalgebra::RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + Default + From<f64> + 'static,
+> {
     cpu_solver: super::bicgstab::MatrixFreeBiCGSTAB<T>,
     gpu_context: Arc<GpuComputeContext>,
 }
 
 #[cfg(feature = "gpu")]
-impl<T: nalgebra::RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + FromPrimitive + std::fmt::Debug + Default + From<f64> + 'static> GpuMatrixFreeBiCGSTAB<T> {
+impl<
+        T: nalgebra::RealField
+            + Copy
+            + bytemuck::Pod
+            + bytemuck::Zeroable
+            + FromPrimitive
+            + std::fmt::Debug
+            + Default
+            + From<f64>
+            + 'static,
+    > GpuMatrixFreeBiCGSTAB<T>
+{
     /// Create a new GPU-accelerated BiCGSTAB solver.
     pub async fn new(config: IterativeSolverConfig<T>) -> Result<Self> {
-        let gpu_context = Arc::new(GpuComputeContext::new().await?);
+        let gpu_context = Arc::new(
+            GpuComputeContext::new()
+                .await
+                .map_err(|e| cfd_core::error::Error::from(format!("GPU init failed: {:?}", e)))?,
+        );
         let cpu_solver = super::bicgstab::MatrixFreeBiCGSTAB::new(config);
 
         Ok(Self {
@@ -180,7 +215,8 @@ impl<T: nalgebra::RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + FromPr
         b: &DVector<T>,
         x: &mut DVector<T>,
     ) -> Result<()> {
-        self.cpu_solver.solve(operator, b, x)
+        self.cpu_solver
+            .solve(operator, b.as_slice(), x.as_mut_slice())
     }
 
     /// Force GPU execution.
@@ -218,12 +254,16 @@ pub struct GpuMatrixFreeBiCGSTAB<T> {
 impl<T> GpuMatrixFreeGMRES<T> {
     /// Create a new GPU GMRES solver (unavailable without GPU feature).
     pub async fn new(_config: (), _restart_dim: usize) -> Result<Self, crate::error::Error> {
-        Err(crate::error::Error::UnsupportedFeature("GPU feature not enabled".to_string()))
+        Err(crate::error::Error::UnsupportedFeature(
+            "GPU feature not enabled".to_string(),
+        ))
     }
 
     /// Create with default configuration (unavailable without GPU feature).
     pub async fn default() -> Result<Self, crate::error::Error> {
-        Err(crate::error::Error::UnsupportedFeature("GPU feature not enabled".to_string()))
+        Err(crate::error::Error::UnsupportedFeature(
+            "GPU feature not enabled".to_string(),
+        ))
     }
 }
 
@@ -231,11 +271,15 @@ impl<T> GpuMatrixFreeGMRES<T> {
 impl<T> GpuMatrixFreeBiCGSTAB<T> {
     /// Create a new GPU BiCGSTAB solver (unavailable without GPU feature).
     pub async fn new(_config: ()) -> Result<Self, crate::error::Error> {
-        Err(crate::error::Error::UnsupportedFeature("GPU feature not enabled".to_string()))
+        Err(crate::error::Error::UnsupportedFeature(
+            "GPU feature not enabled".to_string(),
+        ))
     }
 
     /// Create with default configuration (unavailable without GPU feature).
     pub async fn default() -> Result<Self, crate::error::Error> {
-        Err(crate::error::Error::UnsupportedFeature("GPU feature not enabled".to_string()))
+        Err(crate::error::Error::UnsupportedFeature(
+            "GPU feature not enabled".to_string(),
+        ))
     }
 }

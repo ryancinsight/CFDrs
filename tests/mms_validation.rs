@@ -138,7 +138,10 @@ fn test_mms_integration_pattern() {
 }
 
 /// Helper to compute L2 error norm.
-fn compute_l2_error(numerical: &HashMap<(usize, usize), f64>, exact: &HashMap<(usize, usize), f64>) -> f64 {
+fn compute_l2_error(
+    numerical: &HashMap<(usize, usize), f64>,
+    exact: &HashMap<(usize, usize), f64>,
+) -> f64 {
     let mut sum_sq_error = 0.0;
     for (pos, &num_val) in numerical {
         if let Some(&ex_val) = exact.get(pos) {
@@ -150,7 +153,10 @@ fn compute_l2_error(numerical: &HashMap<(usize, usize), f64>, exact: &HashMap<(u
 }
 
 /// Helper to compute L∞ error norm.
-fn compute_linf_error(numerical: &HashMap<(usize, usize), f64>, exact: &HashMap<(usize, usize), f64>) -> f64 {
+fn compute_linf_error(
+    numerical: &HashMap<(usize, usize), f64>,
+    exact: &HashMap<(usize, usize), f64>,
+) -> f64 {
     let mut max_error = 0.0;
     for (pos, &num_val) in numerical {
         if let Some(&ex_val) = exact.get(pos) {

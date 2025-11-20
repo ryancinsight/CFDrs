@@ -257,18 +257,30 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> KEpsilonMode
 
         // Define default boundary conditions (walls on all sides)
         let boundaries = vec![
-            ("west".to_string(), TurbulenceBoundaryCondition::Wall {
-                wall_treatment: WallTreatment::new(WallFunction::Standard),
-            }),
-            ("east".to_string(), TurbulenceBoundaryCondition::Wall {
-                wall_treatment: WallTreatment::new(WallFunction::Standard),
-            }),
-            ("south".to_string(), TurbulenceBoundaryCondition::Wall {
-                wall_treatment: WallTreatment::new(WallFunction::Standard),
-            }),
-            ("north".to_string(), TurbulenceBoundaryCondition::Wall {
-                wall_treatment: WallTreatment::new(WallFunction::Standard),
-            }),
+            (
+                "west".to_string(),
+                TurbulenceBoundaryCondition::Wall {
+                    wall_treatment: WallTreatment::new(WallFunction::Standard),
+                },
+            ),
+            (
+                "east".to_string(),
+                TurbulenceBoundaryCondition::Wall {
+                    wall_treatment: WallTreatment::new(WallFunction::Standard),
+                },
+            ),
+            (
+                "south".to_string(),
+                TurbulenceBoundaryCondition::Wall {
+                    wall_treatment: WallTreatment::new(WallFunction::Standard),
+                },
+            ),
+            (
+                "north".to_string(),
+                TurbulenceBoundaryCondition::Wall {
+                    wall_treatment: WallTreatment::new(WallFunction::Standard),
+                },
+            ),
         ];
 
         // Apply boundary conditions
@@ -276,7 +288,9 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> KEpsilonMode
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceModel<T> for KEpsilonModel<T> {
+impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceModel<T>
+    for KEpsilonModel<T>
+{
     fn turbulent_viscosity(&self, k: T, epsilon: T, density: T) -> T {
         let eps_min = T::from_f64(EPSILON_MIN).unwrap_or_else(T::zero);
         density * self.c_mu * k * k / epsilon.max(eps_min)
@@ -369,7 +383,8 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                 // Update epsilon with realizability constraints
                 let k_denom = k_previous[idx].max(T::from_f64(EPSILON_MIN).unwrap_or_else(T::zero));
                 let eps_source = self.c1_epsilon * epsilon_previous[idx] / k_denom * p_k;
-                let eps_sink = self.c2_epsilon * epsilon_previous[idx] * epsilon_previous[idx] / k_denom;
+                let eps_sink =
+                    self.c2_epsilon * epsilon_previous[idx] * epsilon_previous[idx] / k_denom;
                 let eps_new = epsilon_previous[idx] + dt * (eps_source - eps_sink + diff_eps);
                 let eps_min = T::from_f64(EPSILON_MIN).unwrap_or_else(T::zero);
                 epsilon[idx] = eps_new.max(eps_min); // Enforce ε ≥ ε_min for realizability
@@ -494,9 +509,9 @@ mod tests {
         let model = KEpsilonModel::<f64>::new(5, 5);
         let mut k = vec![-1.0; 25]; // Negative values
         let mut epsilon = vec![-2.0; 25];
-        
+
         model.apply_boundary_conditions(&mut k, &mut epsilon);
-        
+
         // All values should be non-negative
         for &val in &k {
             assert!(val >= 0.0);
@@ -511,15 +526,15 @@ mod tests {
         let model = KEpsilonModel::<f64>::new(5, 5);
         let mut k = vec![1.0; 25];
         let mut epsilon = vec![1.0; 25];
-        
+
         model.apply_boundary_conditions(&mut k, &mut epsilon);
-        
+
         // Bottom wall (j=0)
         for i in 0..5 {
             assert_relative_eq!(k[i], 0.0, epsilon = 1e-10);
             assert!(epsilon[i] >= EPSILON_MIN);
         }
-        
+
         // Top wall (j=4)
         for i in 0..5 {
             let idx = i + 4 * 5;
@@ -539,12 +554,20 @@ mod tests {
         let dt = 0.001;
         let dx = 0.1;
         let dy = 0.1;
-        
-        let result = model.update(&mut k, &mut epsilon, &velocity, density, 
-                                  molecular_viscosity, dt, dx, dy);
-        
+
+        let result = model.update(
+            &mut k,
+            &mut epsilon,
+            &velocity,
+            density,
+            molecular_viscosity,
+            dt,
+            dx,
+            dy,
+        );
+
         assert!(result.is_ok());
-        
+
         // All values should remain non-negative
         for &val in &k {
             assert!(val >= 0.0);
@@ -593,10 +616,18 @@ mod tests {
         let dt = 0.001;
         let dx = 0.1;
         let dy = 0.1;
-        
-        let result = model.update(&mut k, &mut epsilon, &velocity, density, 
-                                  molecular_viscosity, dt, dx, dy);
-        
+
+        let result = model.update(
+            &mut k,
+            &mut epsilon,
+            &velocity,
+            density,
+            molecular_viscosity,
+            dt,
+            dx,
+            dy,
+        );
+
         assert!(result.is_ok());
     }
 
@@ -605,10 +636,10 @@ mod tests {
         let model = KEpsilonModel::<f64>::new(10, 10);
         let epsilon = 1.0;
         let density = 1.0;
-        
+
         let nu_t_1 = model.turbulent_viscosity(1.0, epsilon, density);
         let nu_t_2 = model.turbulent_viscosity(2.0, epsilon, density);
-        
+
         // nu_t ~ k^2, so doubling k should quadruple nu_t
         assert_relative_eq!(nu_t_2 / nu_t_1, 4.0, epsilon = 1e-10);
     }
@@ -665,14 +696,33 @@ mod tests {
 
         // Run one time step
         let velocity = vec![nalgebra::Vector2::new(0.0, 0.0); nx * ny];
-        model.update(&mut k_field, &mut epsilon_field, &velocity, 1.0, 1e-5, dt, dx, dy).unwrap();
+        model
+            .update(
+                &mut k_field,
+                &mut epsilon_field,
+                &velocity,
+                1.0,
+                1e-5,
+                dt,
+                dx,
+                dy,
+            )
+            .unwrap();
 
         // Verify solution maintains stability (no NaN/inf)
-        for i in 0..nx*ny {
+        for i in 0..nx * ny {
             assert!(k_field[i].is_finite(), "k became non-finite at index {}", i);
-            assert!(epsilon_field[i].is_finite(), "epsilon became non-finite at index {}", i);
+            assert!(
+                epsilon_field[i].is_finite(),
+                "epsilon became non-finite at index {}",
+                i
+            );
             assert!(k_field[i] >= 0.0, "k became negative at index {}", i);
-            assert!(epsilon_field[i] >= 0.0, "epsilon became negative at index {}", i);
+            assert!(
+                epsilon_field[i] >= 0.0,
+                "epsilon became negative at index {}",
+                i
+            );
         }
 
         // Energy conservation check (within reasonable bounds for explicit scheme)
@@ -683,8 +733,16 @@ mod tests {
         let k_conservation_error = (initial_k_sum - final_k_sum).abs() / initial_k_sum;
         let eps_conservation_error = (initial_eps_sum - final_eps_sum).abs() / initial_eps_sum;
 
-        assert!(k_conservation_error < 0.1, "k conservation error too high: {}", k_conservation_error);
-        assert!(eps_conservation_error < 0.2, "epsilon conservation error too high: {}", eps_conservation_error);
+        assert!(
+            k_conservation_error < 0.1,
+            "k conservation error too high: {}",
+            k_conservation_error
+        );
+        assert!(
+            eps_conservation_error < 0.2,
+            "epsilon conservation error too high: {}",
+            eps_conservation_error
+        );
     }
 
     /// Test k-ε model numerical stability across different mesh sizes
@@ -703,7 +761,7 @@ mod tests {
 
             // Initialize with smaller turbulent field for stability test
             // Use values that are more appropriate for coarse grids
-            let k_init = 0.01;  // Smaller initial k
+            let k_init = 0.01; // Smaller initial k
             let eps_init = 0.005; // Smaller initial epsilon
             let mut k_field = vec![k_init; n * n];
             let mut epsilon_field = vec![eps_init; n * n];
@@ -728,7 +786,18 @@ mod tests {
                 }
             }
 
-            model.update(&mut k_field, &mut epsilon_field, &velocity, 1.0, 1e-5, dt, dx, dy).unwrap();
+            model
+                .update(
+                    &mut k_field,
+                    &mut epsilon_field,
+                    &velocity,
+                    1.0,
+                    1e-5,
+                    dt,
+                    dx,
+                    dy,
+                )
+                .unwrap();
 
             // Check stability metrics
             let mut finite_count = 0;
@@ -740,38 +809,61 @@ mod tests {
             let mut eps_max = f64::NEG_INFINITY;
 
             for &k_val in &k_field {
-                if k_val.is_finite() { finite_count += 1; }
-                if k_val >= 0.0 { positive_count += 1; } // Allow zero values
-                if k_val >= 0.0 && k_val < 1e3 { reasonable_range_count += 1; } // Focus on non-negative and bounded
+                if k_val.is_finite() {
+                    finite_count += 1;
+                }
+                if k_val >= 0.0 {
+                    positive_count += 1;
+                } // Allow zero values
+                if k_val >= 0.0 && k_val < 1e3 {
+                    reasonable_range_count += 1;
+                } // Focus on non-negative and bounded
                 k_min = k_min.min(k_val);
                 k_max = k_max.max(k_val);
             }
 
             for &eps_val in &epsilon_field {
-                if eps_val.is_finite() { finite_count += 1; }
-                if eps_val >= 0.0 { positive_count += 1; } // Allow zero values
-                if eps_val >= 0.0 && eps_val < 1e3 { reasonable_range_count += 1; } // Focus on non-negative and bounded
+                if eps_val.is_finite() {
+                    finite_count += 1;
+                }
+                if eps_val >= 0.0 {
+                    positive_count += 1;
+                } // Allow zero values
+                if eps_val >= 0.0 && eps_val < 1e3 {
+                    reasonable_range_count += 1;
+                } // Focus on non-negative and bounded
                 eps_min = eps_min.min(eps_val);
                 eps_max = eps_max.max(eps_val);
             }
 
-
             let total_points = 2 * n * n; // k and epsilon fields
-            let stability_score = (finite_count + positive_count + reasonable_range_count) as f64 / (3 * total_points) as f64;
+            let stability_score = (finite_count + positive_count + reasonable_range_count) as f64
+                / (3 * total_points) as f64;
             stability_scores.push(stability_score);
         }
 
         // All mesh sizes should maintain reasonable stability scores (>85% for CFD realism)
         for (i, &score) in stability_scores.iter().enumerate() {
             let grid_size = grid_sizes[i];
-            assert!(score > 0.85, "Poor stability on {}x{} grid: score = {}", grid_size, grid_size, score);
+            assert!(
+                score > 0.85,
+                "Poor stability on {}x{} grid: score = {}",
+                grid_size,
+                grid_size,
+                score
+            );
         }
 
         // Larger meshes shouldn't be significantly less stable (within 10%)
         if stability_scores.len() > 1 {
-            let max_score = stability_scores.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+            let max_score = stability_scores
+                .iter()
+                .fold(f64::NEG_INFINITY, |a, &b| a.max(b));
             for &score in &stability_scores {
-                assert!((score / max_score) > 0.9, "Inconsistent stability across mesh sizes");
+                assert!(
+                    (score / max_score) > 0.9,
+                    "Inconsistent stability across mesh sizes"
+                );
             }
         }
     }
@@ -822,7 +914,12 @@ mod tests {
 
             // Test all fundamental operations remain stable
             let nu_t = model.turbulent_viscosity(k_val, eps_val, 1.0);
-            assert!(nu_t.is_finite(), "Turbulence viscosity non-finite: k={}, ε={}", k_val, eps_val);
+            assert!(
+                nu_t.is_finite(),
+                "Turbulence viscosity non-finite: k={}, ε={}",
+                k_val,
+                eps_val
+            );
             assert!(nu_t >= 0.0, "Negative viscosity: {}", nu_t);
 
             let strain_rate_magnitude = rng.gen_range(1e-3..1e3);
@@ -866,7 +963,11 @@ mod tests {
         // Should be approximately in equilibrium (within numerical precision)
         let ratio = production / dissipation;
         assert_relative_eq!(ratio, 1.0, epsilon = 0.2);
-        assert!(ratio >= 0.8 && ratio <= 1.2, "Equilibrium not maintained: P/ε = {}", ratio);
+        assert!(
+            ratio >= 0.8 && ratio <= 1.2,
+            "Equilibrium not maintained: P/ε = {}",
+            ratio
+        );
     }
 
     /// Test turbulence model consistency across different grid sizes
@@ -888,14 +989,28 @@ mod tests {
 
             // Run one time step with zero velocity (pure diffusion/dissipation)
             let velocity = vec![nalgebra::Vector2::new(0.0, 0.0); n * n];
-            model.update(&mut k_field, &mut epsilon_field, &velocity, 1.0, 0.0, 0.001, dx, dy).unwrap();
+            model
+                .update(
+                    &mut k_field,
+                    &mut epsilon_field,
+                    &velocity,
+                    1.0,
+                    0.0,
+                    0.001,
+                    dx,
+                    dy,
+                )
+                .unwrap();
 
             // Count interior points with finite, positive values
-            let interior_count = (1..n-1).flat_map(|j| (1..n-1).map(move |i| (i, j)))
+            let interior_count = (1..n - 1)
+                .flat_map(|j| (1..n - 1).map(move |i| (i, j)))
                 .filter(|&(i, j)| {
                     let idx = j * n + i;
-                    k_field[idx].is_finite() && k_field[idx] > 0.0 &&
-                    epsilon_field[idx].is_finite() && epsilon_field[idx] > 0.0
+                    k_field[idx].is_finite()
+                        && k_field[idx] > 0.0
+                        && epsilon_field[idx].is_finite()
+                        && epsilon_field[idx] > 0.0
                 })
                 .count();
 
@@ -905,9 +1020,12 @@ mod tests {
         // Solution stability should be similar across grid sizes
         let avg_stability = results.iter().sum::<f64>() / results.len() as f64;
         for &stability in &results {
-            assert!((stability - avg_stability).abs() < 0.1,
-                   "Inconsistent stability across grids: {} vs avg {}",
-                   stability, avg_stability);
+            assert!(
+                (stability - avg_stability).abs() < 0.1,
+                "Inconsistent stability across grids: {} vs avg {}",
+                stability,
+                avg_stability
+            );
         }
     }
 
@@ -934,14 +1052,25 @@ mod tests {
 
             // Production should be:
             // 1. Finite and positive
-            assert!(production.is_finite(), "Non-finite production for gradient {:?}", gradient);
-            assert!(production > 0.0, "Negative production for gradient {:?}", gradient);
+            assert!(
+                production.is_finite(),
+                "Non-finite production for gradient {:?}",
+                gradient
+            );
+            assert!(
+                production > 0.0,
+                "Negative production for gradient {:?}",
+                gradient
+            );
 
             // 2. Proportional to ν_t
             let production_scaled = model.production_term(gradient, nu_t * 3.0);
             assert_relative_eq!(production_scaled / production, 3.0, epsilon = 1e-10);
-            assert!((production_scaled / production - 3.0).abs() < 1e-9,
-                   "Production not proportional to ν_t for gradient {:?}", gradient);
+            assert!(
+                (production_scaled / production - 3.0).abs() < 1e-9,
+                "Production not proportional to ν_t for gradient {:?}",
+                gradient
+            );
         }
     }
 
@@ -949,19 +1078,33 @@ mod tests {
     #[test]
     fn test_constants_physical_validation() {
         // C_mu validation: typical range [0.07, 0.11] for realizability
-        assert!(C_MU >= 0.07 && C_MU <= 0.11,
-               "C_mu = {} not in realizable range [0.07, 0.11]", C_MU);
+        assert!(
+            C_MU >= 0.07 && C_MU <= 0.11,
+            "C_mu = {} not in realizable range [0.07, 0.11]",
+            C_MU
+        );
 
         // C1_epsilon validation: ensures production-importance weighting
-        assert!(C1_EPSILON > 1.0,
-               "C1_epsilon = {} should be > 1.0 for realizability", C1_EPSILON);
+        assert!(
+            C1_EPSILON > 1.0,
+            "C1_epsilon = {} should be > 1.0 for realizability",
+            C1_EPSILON
+        );
 
         // C2_epsilon validation: dissipation constant range
-        assert!(C2_EPSILON > C1_EPSILON,
-               "C2_epsilon = {} should be > C1_epsilon = {}", C2_EPSILON, C1_EPSILON);
+        assert!(
+            C2_EPSILON > C1_EPSILON,
+            "C2_epsilon = {} should be > C1_epsilon = {}",
+            C2_EPSILON,
+            C1_EPSILON
+        );
 
         // Sigma constants should be positive
-        assert!(SIGMA_K > 0.0 && SIGMA_EPSILON > 0.0,
-               "Sigma constants negative: σ_k={}, σ_ε={}", SIGMA_K, SIGMA_EPSILON);
+        assert!(
+            SIGMA_K > 0.0 && SIGMA_EPSILON > 0.0,
+            "Sigma constants negative: σ_k={}, σ_ε={}",
+            SIGMA_K,
+            SIGMA_EPSILON
+        );
     }
 }

@@ -41,8 +41,8 @@
 //! ```
 
 use super::communicator::MpiCommunicator;
-use super::error::{MpiError, MpiResult};
 use super::decomposition::{DomainDecomposition, LoadBalancer};
+use super::error::{MpiError, MpiResult};
 use super::{Rank, Size};
 use nalgebra::{DVector, RealField};
 use std::collections::HashMap;
@@ -102,8 +102,8 @@ impl PerformanceMetrics {
     /// Calculate derived metrics from raw timing data
     pub fn calculate_derived_metrics(&mut self) {
         if self.total_time.as_secs_f64() > 0.0 {
-            self.communication_overhead_percent = self.communication_time.as_secs_f64()
-                / self.total_time.as_secs_f64() * 100.0;
+            self.communication_overhead_percent =
+                self.communication_time.as_secs_f64() / self.total_time.as_secs_f64() * 100.0;
         }
 
         // Parallel efficiency assumes linear scaling from single process
@@ -147,24 +147,33 @@ impl ScalingTestResult {
         let baseline_time = self.metrics[0].total_time.as_secs_f64();
         let baseline_cores = self.core_counts[0] as f64;
 
-        self.scaling_efficiency = self.metrics.iter().enumerate().map(|(i, metric)| {
-            let cores = self.core_counts[i] as f64;
-            let time = metric.total_time.as_secs_f64();
+        self.scaling_efficiency = self
+            .metrics
+            .iter()
+            .enumerate()
+            .map(|(i, metric)| {
+                let cores = self.core_counts[i] as f64;
+                let time = metric.total_time.as_secs_f64();
 
-            if time > 0.0 {
-                // Efficiency = (baseline_time / time) / (cores / baseline_cores)
-                // Simplified: (baseline_time * baseline_cores) / (time * cores)
-                (baseline_time * baseline_cores) / (time * cores)
-            } else {
-                0.0
-            }
-        }).collect();
+                if time > 0.0 {
+                    // Efficiency = (baseline_time / time) / (cores / baseline_cores)
+                    // Simplified: (baseline_time * baseline_cores) / (time * cores)
+                    (baseline_time * baseline_cores) / (time * cores)
+                } else {
+                    0.0
+                }
+            })
+            .collect();
 
-        self.communication_trend = self.metrics.iter()
+        self.communication_trend = self
+            .metrics
+            .iter()
             .map(|m| m.communication_overhead_percent)
             .collect();
 
-        self.load_imbalance_trend = self.metrics.iter()
+        self.load_imbalance_trend = self
+            .metrics
+            .iter()
             .map(|m| m.load_imbalance_ratio)
             .collect();
     }
@@ -215,25 +224,37 @@ impl ScalingAssessment {
 
         // Find metrics for 64 cores
         if let Some(idx_64) = results.core_counts.iter().position(|&c| c == 64) {
-            assessment.efficiency_at_64_cores = results.scaling_efficiency.get(idx_64)
-                .copied().unwrap_or(0.0);
-            assessment.comm_overhead_at_64_cores = results.communication_trend.get(idx_64)
-                .copied().unwrap_or(0.0);
-            assessment.load_imbalance_at_64_cores = results.load_imbalance_trend.get(idx_64)
-                .copied().unwrap_or(1.0);
+            assessment.efficiency_at_64_cores = results
+                .scaling_efficiency
+                .get(idx_64)
+                .copied()
+                .unwrap_or(0.0);
+            assessment.comm_overhead_at_64_cores = results
+                .communication_trend
+                .get(idx_64)
+                .copied()
+                .unwrap_or(0.0);
+            assessment.load_imbalance_at_64_cores = results
+                .load_imbalance_trend
+                .get(idx_64)
+                .copied()
+                .unwrap_or(1.0);
         }
 
         // Assess overall grade
         assessment.grade = if assessment.efficiency_at_64_cores >= 0.8
             && assessment.comm_overhead_at_64_cores <= 10.0
-            && assessment.load_imbalance_at_64_cores <= 1.2 {
+            && assessment.load_imbalance_at_64_cores <= 1.2
+        {
             ScalingGrade::A
         } else if assessment.efficiency_at_64_cores >= 0.7
             && assessment.comm_overhead_at_64_cores <= 15.0
-            && assessment.load_imbalance_at_64_cores <= 1.3 {
+            && assessment.load_imbalance_at_64_cores <= 1.3
+        {
             ScalingGrade::B
         } else if assessment.efficiency_at_64_cores >= 0.6
-            && assessment.comm_overhead_at_64_cores <= 20.0 {
+            && assessment.comm_overhead_at_64_cores <= 20.0
+        {
             ScalingGrade::C
         } else if assessment.efficiency_at_64_cores >= 0.5 {
             ScalingGrade::D
@@ -250,55 +271,72 @@ impl ScalingAssessment {
 
     fn generate_notes(&mut self, results: &ScalingTestResult) {
         if results.scaling_efficiency.iter().any(|&e| e < 0.5) {
-            self.notes.push("Poor scaling efficiency detected (<50%)".to_string());
+            self.notes
+                .push("Poor scaling efficiency detected (<50%)".to_string());
         }
 
         if results.communication_trend.iter().any(|&c| c > 20.0) {
-            self.notes.push("High communication overhead (>20%)".to_string());
+            self.notes
+                .push("High communication overhead (>20%)".to_string());
         }
 
         if results.load_imbalance_trend.iter().any(|&l| l > 1.5) {
-            self.notes.push("Significant load imbalance detected".to_string());
+            self.notes
+                .push("Significant load imbalance detected".to_string());
         }
 
         match self.grade {
             ScalingGrade::A => {
-                self.notes.push("Excellent scaling performance - production ready".to_string());
+                self.notes
+                    .push("Excellent scaling performance - production ready".to_string());
             }
             ScalingGrade::B => {
-                self.notes.push("Good scaling performance with minor optimization opportunities".to_string());
+                self.notes.push(
+                    "Good scaling performance with minor optimization opportunities".to_string(),
+                );
             }
             ScalingGrade::C => {
-                self.notes.push("Acceptable scaling but needs optimization".to_string());
+                self.notes
+                    .push("Acceptable scaling but needs optimization".to_string());
             }
             ScalingGrade::D => {
-                self.notes.push("Poor scaling - significant improvements needed".to_string());
+                self.notes
+                    .push("Poor scaling - significant improvements needed".to_string());
             }
             ScalingGrade::F => {
-                self.notes.push("Failing scaling - fundamental issues present".to_string());
+                self.notes
+                    .push("Failing scaling - fundamental issues present".to_string());
             }
         }
     }
 
     fn generate_recommendations(&mut self) {
         if self.comm_overhead_at_64_cores > 15.0 {
-            self.recommendations.push("Optimize MPI communication patterns".to_string());
-            self.recommendations.push("Consider non-blocking communication".to_string());
+            self.recommendations
+                .push("Optimize MPI communication patterns".to_string());
+            self.recommendations
+                .push("Consider non-blocking communication".to_string());
         }
 
         if self.load_imbalance_at_64_cores > 1.3 {
-            self.recommendations.push("Improve load balancing algorithms".to_string());
-            self.recommendations.push("Implement dynamic load balancing".to_string());
+            self.recommendations
+                .push("Improve load balancing algorithms".to_string());
+            self.recommendations
+                .push("Implement dynamic load balancing".to_string());
         }
 
         if self.efficiency_at_64_cores < 0.7 {
-            self.recommendations.push("Profile hotspots and optimize compute kernels".to_string());
-            self.recommendations.push("Consider algorithmic improvements".to_string());
+            self.recommendations
+                .push("Profile hotspots and optimize compute kernels".to_string());
+            self.recommendations
+                .push("Consider algorithmic improvements".to_string());
         }
 
         if self.grade == ScalingGrade::A {
-            self.recommendations.push("Monitor performance in production".to_string());
-            self.recommendations.push("Consider advanced optimizations for larger scales".to_string());
+            self.recommendations
+                .push("Monitor performance in production".to_string());
+            self.recommendations
+                .push("Consider advanced optimizations for larger scales".to_string());
         }
     }
 }
@@ -509,12 +547,14 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> PerformanceValida
         // Collect communication statistics from simulation data
         // This would integrate with actual simulation timing data
         analysis.total_comm_time = simulation_data.comm_time;
-        analysis.comm_time_per_process = vec![simulation_data.comm_time; self.communicator.size() as usize];
+        analysis.comm_time_per_process =
+            vec![simulation_data.comm_time; self.communicator.size() as usize];
 
         // Calculate bandwidth utilization
         if simulation_data.comm_time.as_secs_f64() > 0.0 {
             let total_data_mb = simulation_data.total_data_transferred as f64 / (1024.0 * 1024.0);
-            analysis.bandwidth_utilization = total_data_mb / simulation_data.comm_time.as_secs_f64();
+            analysis.bandwidth_utilization =
+                total_data_mb / simulation_data.comm_time.as_secs_f64();
         }
 
         Ok(analysis)
@@ -532,7 +572,8 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> PerformanceValida
             1.0
         };
 
-        let imbalance_reduction = initial_metrics.load_imbalance_ratio - balanced_metrics.load_imbalance_ratio;
+        let imbalance_reduction =
+            initial_metrics.load_imbalance_ratio - balanced_metrics.load_imbalance_ratio;
 
         LoadBalancingValidation {
             initial_imbalance: initial_metrics.load_imbalance_ratio,
@@ -567,11 +608,21 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> PerformanceValida
         };
 
         // Assess each component
-        report.component_scores.insert("MPI Communication".to_string(), 85);
-        report.component_scores.insert("Load Balancing".to_string(), 90);
-        report.component_scores.insert("Scalability".to_string(), 80);
-        report.component_scores.insert("Memory Usage".to_string(), 75);
-        report.component_scores.insert("I/O Performance".to_string(), 70);
+        report
+            .component_scores
+            .insert("MPI Communication".to_string(), 85);
+        report
+            .component_scores
+            .insert("Load Balancing".to_string(), 90);
+        report
+            .component_scores
+            .insert("Scalability".to_string(), 80);
+        report
+            .component_scores
+            .insert("Memory Usage".to_string(), 75);
+        report
+            .component_scores
+            .insert("I/O Performance".to_string(), 70);
 
         // Calculate overall score
         let total_score: u8 = report.component_scores.values().sum();
@@ -580,10 +631,15 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> PerformanceValida
         // Generate issues and recommendations based on scores
         for (component, score) in &report.component_scores {
             if *score < 70 {
-                report.critical_issues.push(format!("{} needs improvement (score: {})", component, score));
+                report.critical_issues.push(format!(
+                    "{} needs improvement (score: {})",
+                    component, score
+                ));
             }
             if *score < 85 {
-                report.optimization_opportunities.push(format!("Optimize {} performance", component.to_lowercase()));
+                report
+                    .optimization_opportunities
+                    .push(format!("Optimize {} performance", component.to_lowercase()));
             }
         }
 
@@ -755,7 +811,9 @@ mod tests {
             ..PerformanceMetrics::new()
         };
 
-        let validator = PerformanceValidator::<f64>::new(&super::super::communicator::MpiCommunicator::new().unwrap());
+        let validator = PerformanceValidator::<f64>::new(
+            &super::super::communicator::MpiCommunicator::new().unwrap(),
+        );
         let validation = validator.validate_load_balancing(&initial_metrics, &balanced_metrics);
 
         assert_eq!(validation.initial_imbalance, 1.5);

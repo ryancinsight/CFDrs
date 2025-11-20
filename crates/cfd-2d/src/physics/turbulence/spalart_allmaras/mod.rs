@@ -289,7 +289,8 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
     /// where fv1 = χ³/(χ³ + Cv1³) and χ = ν̃/ν
     #[instrument(skip(self))]
     pub fn eddy_viscosity(&self, nu_tilde: T, molecular_viscosity: T) -> T {
-        let chi = nu_tilde / molecular_viscosity.max(T::from_f64(EPSILON_MIN).unwrap_or_else(T::one));
+        let chi =
+            nu_tilde / molecular_viscosity.max(T::from_f64(EPSILON_MIN).unwrap_or_else(T::one));
         let chi_cubed = chi * chi * chi;
         let cv1_cubed = self.cv1 * self.cv1 * self.cv1;
         let fv1 = chi_cubed / (chi_cubed + cv1_cubed);
@@ -325,7 +326,8 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
         molecular_viscosity: T,
         wall_distance: T,
     ) -> T {
-        let chi = nu_tilde / molecular_viscosity.max(T::from_f64(EPSILON_MIN).unwrap_or_else(T::one));
+        let chi =
+            nu_tilde / molecular_viscosity.max(T::from_f64(EPSILON_MIN).unwrap_or_else(T::one));
         let chi_cubed = chi * chi * chi;
         let cv1_cubed = self.cv1 * self.cv1 * self.cv1;
         let fv1 = chi_cubed / (chi_cubed + cv1_cubed);
@@ -336,7 +338,8 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
 
         // S̃ = Ω + ν̃/(κ²d²) * fv2
         let d_sq = wall_distance * wall_distance;
-        let modification = (nu_tilde / (self.kappa_sq * d_sq.max(T::from_f64(EPSILON_MIN).unwrap_or_else(T::one))))
+        let modification = (nu_tilde
+            / (self.kappa_sq * d_sq.max(T::from_f64(EPSILON_MIN).unwrap_or_else(T::one))))
             * fv2;
 
         vorticity + modification
@@ -469,7 +472,8 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
                 let production = self.production(nu_tilde[idx], s_tilde);
 
                 // Wall destruction function
-                let fw = self.wall_destruction_function(nu_tilde[idx], s_tilde, wall_distances[idx]);
+                let fw =
+                    self.wall_destruction_function(nu_tilde[idx], s_tilde, wall_distances[idx]);
 
                 // Destruction term
                 let destruction = self.destruction(nu_tilde[idx], wall_distances[idx], fw);
@@ -535,7 +539,9 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
 }
 
 // Implement TurbulenceModel trait for Spalart-Allmaras
-impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> crate::physics::turbulence::TurbulenceModel<T> for SpalartAllmaras<T> {
+impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>
+    crate::physics::turbulence::TurbulenceModel<T> for SpalartAllmaras<T>
+{
     fn turbulent_viscosity(&self, _k: T, epsilon_or_omega: T, density: T) -> T {
         // For SA model, k is not used, epsilon_or_omega represents ν̃ (modified viscosity)
         let nu_tilde = epsilon_or_omega;
@@ -582,7 +588,15 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> crate::physi
     ) -> Result<()> {
         // For SA model, k is not used, epsilon_or_omega represents ν̃ (modified viscosity)
         // Update the SA transport equation
-        SpalartAllmaras::update(self, epsilon_or_omega, velocity, molecular_viscosity, dx, dy, dt)?;
+        SpalartAllmaras::update(
+            self,
+            epsilon_or_omega,
+            velocity,
+            molecular_viscosity,
+            dx,
+            dy,
+            dt,
+        )?;
 
         // k is not updated in SA model (single equation model)
         // Set k to zero or some reference value if needed

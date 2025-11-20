@@ -184,19 +184,25 @@ impl BenchmarkSuite {
     /// Calculate suite statistics
     pub fn statistics(&self) -> SuiteStatistics {
         let total = self.results.len();
-        let passed = self.results.iter()
+        let passed = self
+            .results
+            .iter()
             .filter(|r| matches!(r.status, BenchmarkStatus::Passed))
             .count();
-        let failed = self.results.iter()
+        let failed = self
+            .results
+            .iter()
             .filter(|r| matches!(r.status, BenchmarkStatus::Failed))
             .count();
-        let regressions = self.results.iter()
-            .filter(|r| matches!(r.status, BenchmarkStatus::Regression) || r.regression_detected.is_some())
+        let regressions = self
+            .results
+            .iter()
+            .filter(|r| {
+                matches!(r.status, BenchmarkStatus::Regression) || r.regression_detected.is_some()
+            })
             .count();
 
-        let total_duration = self.results.iter()
-            .map(|r| r.duration)
-            .sum();
+        let total_duration = self.results.iter().map(|r| r.duration).sum();
 
         SuiteStatistics {
             total_benchmarks: total,
@@ -204,34 +210,51 @@ impl BenchmarkSuite {
             failed,
             regressions,
             total_duration,
-            average_duration: if total > 0 { total_duration / total as u32 } else { Duration::ZERO },
+            average_duration: if total > 0 {
+                total_duration / total as u32
+            } else {
+                Duration::ZERO
+            },
         }
     }
 
     /// Generate comprehensive report
     pub fn generate_report(&self) -> Result<String> {
         let stats = self.statistics();
-        let mut report = format!(
-            "CFD Benchmark Suite Report\n{}\n\n",
-            "=".repeat(50)
-        );
+        let mut report = format!("CFD Benchmark Suite Report\n{}\n\n", "=".repeat(50));
 
         report.push_str(&format!("Configuration:\n"));
         report.push_str(&format!("  Iterations: {}\n", self.config.iterations));
-        report.push_str(&format!("  Memory Profiling: {}\n", self.config.enable_memory));
-        report.push_str(&format!("  Scaling Analysis: {}\n", self.config.enable_scaling));
-        report.push_str(&format!("  Problem Sizes: {:?}\n\n", self.config.problem_sizes));
+        report.push_str(&format!(
+            "  Memory Profiling: {}\n",
+            self.config.enable_memory
+        ));
+        report.push_str(&format!(
+            "  Scaling Analysis: {}\n",
+            self.config.enable_scaling
+        ));
+        report.push_str(&format!(
+            "  Problem Sizes: {:?}\n\n",
+            self.config.problem_sizes
+        ));
 
         report.push_str(&format!("Suite Statistics:\n"));
         report.push_str(&format!("  Total Benchmarks: {}\n", stats.total_benchmarks));
-        report.push_str(&format!("  Passed: {} ({:.1}%)\n",
+        report.push_str(&format!(
+            "  Passed: {} ({:.1}%)\n",
             stats.passed,
             (stats.passed as f64 / stats.total_benchmarks as f64) * 100.0
         ));
         report.push_str(&format!("  Failed: {}\n", stats.failed));
         report.push_str(&format!("  Regressions: {}\n", stats.regressions));
-        report.push_str(&format!("  Total Duration: {:.3}s\n", stats.total_duration.as_secs_f64()));
-        report.push_str(&format!("  Average Duration: {:.3}s\n\n", stats.average_duration.as_secs_f64()));
+        report.push_str(&format!(
+            "  Total Duration: {:.3}s\n",
+            stats.total_duration.as_secs_f64()
+        ));
+        report.push_str(&format!(
+            "  Average Duration: {:.3}s\n\n",
+            stats.average_duration.as_secs_f64()
+        ));
 
         report.push_str("Benchmark Results:\n");
         for result in &self.results {
@@ -243,7 +266,8 @@ impl BenchmarkSuite {
                 BenchmarkStatus::Running => "⏳",
             };
 
-            report.push_str(&format!("  {} {} (size: {}): {:.3}ms",
+            report.push_str(&format!(
+                "  {} {} (size: {}): {:.3}ms",
                 status_icon,
                 result.name,
                 result.problem_size,
@@ -260,14 +284,50 @@ impl BenchmarkSuite {
     }
 }
 
-/// Suite-level statistics
+/// Comprehensive statistics for a complete benchmark suite execution
+///
+/// Aggregates performance and reliability metrics across all benchmarks in a suite,
+/// providing high-level assessment of CFD validation framework health and performance.
+/// Used for automated quality gates and performance regression monitoring.
 #[derive(Debug, Clone)]
 pub struct SuiteStatistics {
+    /// Total number of individual benchmarks executed in the suite
+    ///
+    /// Count of all CFD operations, algorithms, and validation tests that were run.
+    /// Includes both successful and failed benchmarks for complete assessment.
     pub total_benchmarks: usize,
+
+    /// Number of benchmarks that completed successfully without errors
+    ///
+    /// Benchmarks that executed to completion with valid results and within
+    /// expected performance bounds. Indicates functional correctness.
     pub passed: usize,
+
+    /// Number of benchmarks that failed to execute or produced invalid results
+    ///
+    /// Benchmarks that encountered errors, crashed, or produced mathematically
+    /// incorrect results. Requires immediate investigation and correction.
     pub failed: usize,
+
+    /// Number of benchmarks showing statistically significant performance regressions
+    ///
+    /// Benchmarks that have degraded in performance beyond acceptable thresholds
+    /// compared to baseline measurements. Indicates optimization opportunities or
+    /// system degradation issues.
     pub regressions: usize,
+
+    /// Total wall-clock time for complete suite execution
+    ///
+    /// End-to-end execution time from suite start to finish, including setup,
+    /// benchmark execution, and result aggregation. Used for throughput assessment
+    /// and execution time budgeting.
     pub total_duration: Duration,
+
+    /// Average execution time per individual benchmark
+    ///
+    /// Computed as total_duration / total_benchmarks. Provides a normalized
+    /// metric for comparing benchmark suite efficiency across different
+    /// hardware configurations and CFD problem sizes.
     pub average_duration: Duration,
 }
 
@@ -293,13 +353,17 @@ mod tests {
         let mut suite = BenchmarkSuite::default();
 
         // Add test results
-        suite.add_result(BenchmarkResult::new("op1".to_string(), 100)
-            .with_status(BenchmarkStatus::Passed)
-            .with_duration(Duration::from_millis(100)));
+        suite.add_result(
+            BenchmarkResult::new("op1".to_string(), 100)
+                .with_status(BenchmarkStatus::Passed)
+                .with_duration(Duration::from_millis(100)),
+        );
 
-        suite.add_result(BenchmarkResult::new("op2".to_string(), 100)
-            .with_status(BenchmarkStatus::Failed)
-            .with_duration(Duration::from_millis(50)));
+        suite.add_result(
+            BenchmarkResult::new("op2".to_string(), 100)
+                .with_status(BenchmarkStatus::Failed)
+                .with_duration(Duration::from_millis(50)),
+        );
 
         let stats = suite.statistics();
         assert_eq!(stats.total_benchmarks, 2);

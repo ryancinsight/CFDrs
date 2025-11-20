@@ -6,8 +6,7 @@
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::physics::momentum::{
-    DiscretizationScheme, MusclDiscretization, MusclOrder, MusclScheme,
-    Superbee, VanLeer
+    DiscretizationScheme, MusclDiscretization, MusclOrder, MusclScheme, Superbee, VanLeer,
 };
 use nalgebra::Vector2;
 
@@ -26,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for i in 0..10 {
         for j in 0..10 {
             let y_pos = j as f64 * 0.1; // Normalized y position
-            // Linear velocity profile: u = y, v = 0
+                                        // Linear velocity profile: u = y, v = 0
             fields.set_velocity_at(i, j, &Vector2::new(y_pos, 0.0));
             fields.p[(i, j)] = 0.0;
         }
@@ -49,7 +48,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn demonstrate_muscl2_superbee(fields: &SimulationFields<f64>) -> Result<(), Box<dyn std::error::Error>> {
+fn demonstrate_muscl2_superbee(
+    fields: &SimulationFields<f64>,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n--- MUSCL2 with Superbee Limiter ---");
 
     let limiter = Superbee;
@@ -58,23 +59,27 @@ fn demonstrate_muscl2_superbee(fields: &SimulationFields<f64>) -> Result<(), Box
 
     println!("Testing convective flux calculation:");
     println!("Position: i=5, j=5 (interior cell)");
-    println!("Upwind: {:.3}, Central: {:.3}, Downwind: {:.3}",
-             fields.u.at(4, 5), fields.u.at(5, 5), fields.u.at(6, 5));
+    println!(
+        "Upwind: {:.3}, Central: {:.3}, Downwind: {:.3}",
+        fields.u.at(4, 5),
+        fields.u.at(5, 5),
+        fields.u.at(6, 5)
+    );
 
     // Test with positive velocity (flow from left to right)
     let flux_pos = scheme.convective_flux(
-        fields.u.at(4, 5),  // upwind
-        fields.u.at(5, 5),  // central
-        fields.u.at(6, 5),  // downwind
-        1.0  // positive velocity
+        fields.u.at(4, 5), // upwind
+        fields.u.at(5, 5), // central
+        fields.u.at(6, 5), // downwind
+        1.0,               // positive velocity
     );
 
     // Test with negative velocity (flow from right to left)
     let flux_neg = scheme.convective_flux(
-        fields.u.at(4, 5),  // upwind
-        fields.u.at(5, 5),  // central
-        fields.u.at(6, 5),  // downwind
-        -1.0 // negative velocity
+        fields.u.at(4, 5), // upwind
+        fields.u.at(5, 5), // central
+        fields.u.at(6, 5), // downwind
+        -1.0,              // negative velocity
     );
 
     println!("Superbee limiter results:");
@@ -84,7 +89,9 @@ fn demonstrate_muscl2_superbee(fields: &SimulationFields<f64>) -> Result<(), Box
     Ok(())
 }
 
-fn demonstrate_muscl2_vanleer(fields: &SimulationFields<f64>) -> Result<(), Box<dyn std::error::Error>> {
+fn demonstrate_muscl2_vanleer(
+    fields: &SimulationFields<f64>,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n--- MUSCL2 with van Leer Limiter ---");
 
     let limiter = VanLeer;
@@ -93,10 +100,10 @@ fn demonstrate_muscl2_vanleer(fields: &SimulationFields<f64>) -> Result<(), Box<
 
     // Test with positive velocity
     let flux_pos = scheme.convective_flux(
-        fields.u.at(4, 5),  // upwind
-        fields.u.at(5, 5),  // central
-        fields.u.at(6, 5),  // downwind
-        1.0  // positive velocity
+        fields.u.at(4, 5), // upwind
+        fields.u.at(5, 5), // central
+        fields.u.at(6, 5), // downwind
+        1.0,               // positive velocity
     );
 
     println!("van Leer limiter results:");

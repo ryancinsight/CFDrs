@@ -26,10 +26,10 @@
 //! - Trottenberg, U., et al. (2001). *Multigrid*. Academic Press. Chapter 4.
 //! - Wesseling, P. (1992). *An introduction to multigrid methods*. Wiley.
 
-use nalgebra::{DMatrix, DVector, RealField};
-use num_traits::FromPrimitive;
 use crate::error::Result;
 use cfd_core::error::Error;
+use nalgebra::{DMatrix, DVector, RealField};
+use num_traits::FromPrimitive;
 
 /// Trait for nonlinear operators in multigrid methods
 ///
@@ -84,7 +84,9 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
     /// Geometric multigrid solver configured for 2D Poisson equation
     pub fn new(nx: usize, ny: usize, max_levels: usize) -> Result<Self> {
         if nx == 0 || ny == 0 {
-            return Err(Error::InvalidConfiguration("Grid dimensions must be positive".to_string()));
+            return Err(Error::InvalidConfiguration(
+                "Grid dimensions must be positive".to_string(),
+            ));
         }
 
         let mut grid_sizes = Vec::new();
@@ -120,8 +122,8 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
             mesh_sizes,
             matrices,
             relaxation_param: T::from_f64(0.8).unwrap(), // Weighted Jacobi
-            nu1: 2, // Pre-smoothing iterations
-            nu2: 2, // Post-smoothing iterations
+            nu1: 2,                                      // Pre-smoothing iterations
+            nu2: 2,                                      // Post-smoothing iterations
             max_levels,
         })
     }
@@ -166,7 +168,14 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
     }
 
     /// Apply weighted Jacobi relaxation
-    fn jacobi_relaxation(&self, matrix: &DMatrix<T>, u: &mut DVector<T>, f: &DVector<T>, omega: T, iterations: usize) {
+    fn jacobi_relaxation(
+        &self,
+        matrix: &DMatrix<T>,
+        u: &mut DVector<T>,
+        f: &DVector<T>,
+        omega: T,
+        iterations: usize,
+    ) {
         let n = matrix.nrows();
 
         for _ in 0..iterations {
@@ -191,7 +200,14 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
     }
 
     /// Restrict residual to coarser grid using full weighting
-    fn restrict_residual(&self, fine_residual: &DVector<T>, fine_nx: usize, fine_ny: usize, coarse_nx: usize, coarse_ny: usize) -> DVector<T> {
+    fn restrict_residual(
+        &self,
+        fine_residual: &DVector<T>,
+        fine_nx: usize,
+        fine_ny: usize,
+        coarse_nx: usize,
+        coarse_ny: usize,
+    ) -> DVector<T> {
         let mut coarse_residual = DVector::zeros(coarse_nx * coarse_ny);
 
         // Full weighting restriction operator
@@ -223,7 +239,14 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
     }
 
     /// Prolongate correction to finer grid using bilinear interpolation
-    fn prolongate_correction(&self, coarse_correction: &DVector<T>, coarse_nx: usize, coarse_ny: usize, fine_nx: usize, fine_ny: usize) -> DVector<T> {
+    fn prolongate_correction(
+        &self,
+        coarse_correction: &DVector<T>,
+        coarse_nx: usize,
+        coarse_ny: usize,
+        fine_nx: usize,
+        fine_ny: usize,
+    ) -> DVector<T> {
         let mut fine_correction = DVector::zeros(fine_nx * fine_ny);
 
         // Bilinear prolongation
@@ -288,7 +311,9 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
         max_iterations: usize,
     ) -> Result<(DVector<T>, usize, T)> {
         if rhs.len() != self.matrices[0].nrows() {
-            return Err(Error::InvalidConfiguration("RHS vector size mismatch".to_string()));
+            return Err(Error::InvalidConfiguration(
+                "RHS vector size mismatch".to_string(),
+            ));
         }
 
         let n = rhs.len();
@@ -317,9 +342,16 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
     }
 
     /// Solve linear system using standard geometric multigrid
-    pub fn solve(&self, rhs: &DVector<T>, tolerance: T, max_iterations: usize) -> Result<(DVector<T>, usize, T)> {
+    pub fn solve(
+        &self,
+        rhs: &DVector<T>,
+        tolerance: T,
+        max_iterations: usize,
+    ) -> Result<(DVector<T>, usize, T)> {
         if rhs.len() != self.matrices[0].nrows() {
-            return Err(Error::InvalidConfiguration("RHS vector size mismatch".to_string()));
+            return Err(Error::InvalidConfiguration(
+                "RHS vector size mismatch".to_string(),
+            ));
         }
 
         let n = rhs.len();
@@ -356,16 +388,26 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
 
         // Restrict to coarse grid (if not coarsest level)
         if level < self.matrices.len() - 1 {
-            let coarse_residual = self.restrict_residual(&residual, nx, ny,
-                self.grid_sizes[level + 1].0, self.grid_sizes[level + 1].1);
+            let coarse_residual = self.restrict_residual(
+                &residual,
+                nx,
+                ny,
+                self.grid_sizes[level + 1].0,
+                self.grid_sizes[level + 1].1,
+            );
 
             // Recursively solve on coarse grid
             let mut coarse_correction = DVector::zeros(coarse_residual.len());
             self.v_cycle(&mut coarse_correction, &coarse_residual, level + 1);
 
             // Prolongate correction back to fine grid
-            let fine_correction = self.prolongate_correction(&coarse_correction,
-                self.grid_sizes[level + 1].0, self.grid_sizes[level + 1].1, nx, ny);
+            let fine_correction = self.prolongate_correction(
+                &coarse_correction,
+                self.grid_sizes[level + 1].0,
+                self.grid_sizes[level + 1].1,
+                nx,
+                ny,
+            );
 
             // Add correction
             *u += fine_correction;
@@ -403,7 +445,8 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
             let fine_residual = operator.residual(u);
 
             // Restrict the residual
-            let coarse_residual_restricted = operator.restrict(&fine_residual, self.matrices[level + 1].nrows());
+            let coarse_residual_restricted =
+                operator.restrict(&fine_residual, self.matrices[level + 1].nrows());
 
             // Compute F_coarse(u_coarse_restricted)
             let coarse_operator_applied = operator.apply(&coarse_u_restricted);
@@ -419,7 +462,8 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
             let coarse_correction_delta = &coarse_correction - &coarse_u_restricted;
 
             // Prolongate correction to fine grid
-            let fine_correction = operator.prolongate(&coarse_correction_delta, self.matrices[level].nrows());
+            let fine_correction =
+                operator.prolongate(&coarse_correction_delta, self.matrices[level].nrows());
 
             // Add correction to fine grid solution
             *u += fine_correction;

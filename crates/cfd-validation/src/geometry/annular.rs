@@ -20,7 +20,10 @@ pub struct AnnularDomain<T: RealField> {
 impl<T: RealField + Copy> AnnularDomain<T> {
     /// Create a new annular domain
     pub fn new(center_x: T, center_y: T, inner_radius: T, outer_radius: T) -> Self {
-        assert!(inner_radius < outer_radius, "Inner radius must be less than outer radius");
+        assert!(
+            inner_radius < outer_radius,
+            "Inner radius must be less than outer radius"
+        );
         Self {
             center_x,
             center_y,
@@ -34,12 +37,7 @@ impl<T: RealField + Copy> AnnularDomain<T> {
     where
         T: SafeFromF64,
     {
-        Self::new(
-            T::zero(),
-            T::zero(),
-            T::from_f64_or_zero(0.5),
-            T::one()
-        )
+        Self::new(T::zero(), T::zero(), T::from_f64_or_zero(0.5), T::one())
     }
 
     /// Get the distance from center to a point
@@ -76,7 +74,11 @@ impl<T: RealField + Copy + SafeFromF64> Geometry<T> for AnnularDomain<T> {
             // Between inner and outer, distance to nearest boundary
             let to_inner = distance_from_center - self.inner_radius;
             let to_outer = self.outer_radius - distance_from_center;
-            if to_inner < to_outer { to_inner } else { to_outer }
+            if to_inner < to_outer {
+                to_inner
+            } else {
+                to_outer
+            }
         }
     }
 
@@ -97,7 +99,10 @@ impl<T: RealField + Copy + SafeFromF64> Geometry<T> for AnnularDomain<T> {
                 })
             } else {
                 // Point is at center, return arbitrary normal
-                Some(Point2D { x: -T::one(), y: T::zero() })
+                Some(Point2D {
+                    x: -T::one(),
+                    y: T::zero(),
+                })
             }
         } else if (distance - self.outer_radius).abs() < tol {
             // Point is on outer boundary, outward normal (away from center)
@@ -112,7 +117,10 @@ impl<T: RealField + Copy + SafeFromF64> Geometry<T> for AnnularDomain<T> {
                 })
             } else {
                 // Point is at center, return arbitrary normal
-                Some(Point2D { x: T::one(), y: T::zero() })
+                Some(Point2D {
+                    x: T::one(),
+                    y: T::zero(),
+                })
             }
         } else {
             None
@@ -160,8 +168,13 @@ impl<T: RealField + Copy + SafeFromF64> Geometry<T> for AnnularDomain<T> {
                     // Point is on inner boundary, return angular parameter [0, 2π)
                     let angle = self.angle_from_center(point);
                     // Normalize to [0, 2π)
-                    let two_pi = T::from_f64(2.0 * std::f64::consts::PI).unwrap_or(T::from_f64(6.28).unwrap_or(T::zero()));
-                    Some(if angle >= T::zero() { angle } else { angle + two_pi })
+                    let two_pi = T::from_f64(2.0 * std::f64::consts::PI)
+                        .unwrap_or(T::from_f64(6.28).unwrap_or(T::zero()));
+                    Some(if angle >= T::zero() {
+                        angle
+                    } else {
+                        angle + two_pi
+                    })
                 } else {
                     None
                 }
@@ -174,8 +187,13 @@ impl<T: RealField + Copy + SafeFromF64> Geometry<T> for AnnularDomain<T> {
                     // Point is on outer boundary, return angular parameter [0, 2π)
                     let angle = self.angle_from_center(point);
                     // Normalize to [0, 2π)
-                    let two_pi = T::from_f64(2.0 * std::f64::consts::PI).unwrap_or(T::from_f64(6.28).unwrap_or(T::zero()));
-                    Some(if angle >= T::zero() { angle } else { angle + two_pi })
+                    let two_pi = T::from_f64(2.0 * std::f64::consts::PI)
+                        .unwrap_or(T::from_f64(6.28).unwrap_or(T::zero()));
+                    Some(if angle >= T::zero() {
+                        angle
+                    } else {
+                        angle + two_pi
+                    })
                 } else {
                     None
                 }
@@ -188,19 +206,16 @@ impl<T: RealField + Copy + SafeFromF64> Geometry<T> for AnnularDomain<T> {
         let distance = self.distance_from_center(point);
 
         match face {
-            BoundaryFace::Inner => {
-                (distance - self.inner_radius).abs() < tolerance
-            }
-            BoundaryFace::Outer => {
-                (distance - self.outer_radius).abs() < tolerance
-            }
+            BoundaryFace::Inner => (distance - self.inner_radius).abs() < tolerance,
+            BoundaryFace::Outer => (distance - self.outer_radius).abs() < tolerance,
             _ => false,
         }
     }
 
     fn measure(&self) -> T {
         // Area of annulus: π(R² - r²) where R is outer radius, r is inner radius
-        let pi = T::from_f64(std::f64::consts::PI).unwrap_or(T::from_f64(3.14159).unwrap_or(T::zero()));
+        let pi =
+            T::from_f64(std::f64::consts::PI).unwrap_or(T::from_f64(3.14159).unwrap_or(T::zero()));
         let outer_area = pi.clone() * self.outer_radius.clone() * self.outer_radius.clone();
         let inner_area = pi * self.inner_radius.clone() * self.inner_radius;
         outer_area - inner_area

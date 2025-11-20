@@ -15,13 +15,13 @@
 
 use cfd_core::cavitation::{
     constants::*,
-    venturi::VenturiCavitation,
-    models::{CavitationModel, ZgbParams},
     damage::CavitationDamage,
+    models::{CavitationModel, ZgbParams},
     number::CavitationNumber,
+    venturi::VenturiCavitation,
 };
 use cfd_validation::benchmarking::visualization::{
-    ChartData, Dataset, VisualizationConfig, HtmlReportGenerator, ChartType
+    ChartData, ChartType, Dataset, HtmlReportGenerator, VisualizationConfig,
 };
 use std::f64::consts::PI;
 
@@ -42,20 +42,21 @@ struct CavitationAnalysisResult {
 }
 
 /// Complete venturi cavitation analysis
-fn analyze_venturi_cavitation() -> Result<Vec<CavitationAnalysisResult>, Box<dyn std::error::Error>> {
+fn analyze_venturi_cavitation() -> Result<Vec<CavitationAnalysisResult>, Box<dyn std::error::Error>>
+{
     println!("🔬 Hydrodynamic Cavitation Analysis in Venturi Throat");
     println!("====================================================");
 
     // Venturi geometry (typical microfluidic venturi)
-    let inlet_diameter = 0.001;  // 1 mm inlet
+    let inlet_diameter = 0.001; // 1 mm inlet
     let throat_diameter = 0.0005; // 0.5 mm throat
     let outlet_diameter = 0.001; // 1 mm outlet
     let convergent_angle = 15.0 * PI / 180.0; // 15 degrees
-    let divergent_angle = 7.0 * PI / 180.0;   // 7 degrees
+    let divergent_angle = 7.0 * PI / 180.0; // 7 degrees
 
     // Fluid properties (water at 20°C)
-    let density = 998.0;           // kg/m³
-    let vapor_pressure = 2330.0;   // Pa (water vapor pressure at 20°C)
+    let density = 998.0; // kg/m³
+    let vapor_pressure = 2330.0; // Pa (water vapor pressure at 20°C)
     let inlet_pressure = 101325.0; // Pa (atmospheric pressure)
 
     // Operating conditions - range of inlet velocities
@@ -63,11 +64,21 @@ fn analyze_venturi_cavitation() -> Result<Vec<CavitationAnalysisResult>, Box<dyn
 
     let mut results = Vec::new();
 
-    println!("Geometry: Inlet {:.1}mm → Throat {:.1}mm → Outlet {:.1}mm",
-             inlet_diameter * 1000.0, throat_diameter * 1000.0, outlet_diameter * 1000.0);
-    println!("Angles: Convergent {:.1}°, Divergent {:.1}°",
-             convergent_angle * 180.0 / PI, divergent_angle * 180.0 / PI);
-    println!("Fluid: Water (ρ = {:.0} kg/m³, p_v = {:.0} Pa)", density, vapor_pressure);
+    println!(
+        "Geometry: Inlet {:.1}mm → Throat {:.1}mm → Outlet {:.1}mm",
+        inlet_diameter * 1000.0,
+        throat_diameter * 1000.0,
+        outlet_diameter * 1000.0
+    );
+    println!(
+        "Angles: Convergent {:.1}°, Divergent {:.1}°",
+        convergent_angle * 180.0 / PI,
+        divergent_angle * 180.0 / PI
+    );
+    println!(
+        "Fluid: Water (ρ = {:.0} kg/m³, p_v = {:.0} Pa)",
+        density, vapor_pressure
+    );
     println!("Inlet pressure: {:.0} Pa", inlet_pressure);
     println!();
 
@@ -128,18 +139,33 @@ fn analyze_venturi_cavitation() -> Result<Vec<CavitationAnalysisResult>, Box<dyn
 
         results.push(result);
 
-        if inlet_velocity == inlet_velocities[0] || inlet_velocity == inlet_velocities[inlet_velocities.len() - 1] ||
-           inlet_velocity == inlet_velocities[inlet_velocities.len() / 2] || is_cavitating {
+        if inlet_velocity == inlet_velocities[0]
+            || inlet_velocity == inlet_velocities[inlet_velocities.len() - 1]
+            || inlet_velocity == inlet_velocities[inlet_velocities.len() / 2]
+            || is_cavitating
+        {
             println!("V_in = {:.2} m/s:", inlet_velocity);
-            println!("  V_throat = {:.2} m/s, P_throat = {:.0} Pa", throat_velocity, throat_pressure);
-            println!("  σ = {:.3} (cavitating: {})", cavitation_number, is_cavitating);
+            println!(
+                "  V_throat = {:.2} m/s, P_throat = {:.0} Pa",
+                throat_velocity, throat_pressure
+            );
+            println!(
+                "  σ = {:.3} (cavitating: {})",
+                cavitation_number, is_cavitating
+            );
 
             if is_cavitating {
-                println!("  Cavity: L = {:.3}mm, Closure = {:.3}mm, Volume = {:.2e} m³",
-                        cavity_length * 1000.0, cavity_closure_position * 1000.0, cavity_volume);
+                println!(
+                    "  Cavity: L = {:.3}mm, Closure = {:.3}mm, Volume = {:.2e} m³",
+                    cavity_length * 1000.0,
+                    cavity_closure_position * 1000.0,
+                    cavity_volume
+                );
             }
-            println!("  Pressure recovery: C_p = {:.3}, Loss coeff = {:.3}",
-                     pressure_recovery_coefficient, loss_coefficient);
+            println!(
+                "  Pressure recovery: C_p = {:.3}, Loss coeff = {:.3}",
+                pressure_recovery_coefficient, loss_coefficient
+            );
             println!();
         }
     }
@@ -148,7 +174,9 @@ fn analyze_venturi_cavitation() -> Result<Vec<CavitationAnalysisResult>, Box<dyn
 }
 
 /// Generate cavitation visualization plots
-fn generate_cavitation_plots(results: &[CavitationAnalysisResult]) -> Result<String, Box<dyn std::error::Error>> {
+fn generate_cavitation_plots(
+    results: &[CavitationAnalysisResult],
+) -> Result<String, Box<dyn std::error::Error>> {
     println!("📊 Generating Cavitation Analysis Plots...");
 
     // Extract data for plotting
@@ -163,52 +191,62 @@ fn generate_cavitation_plots(results: &[CavitationAnalysisResult]) -> Result<Str
 
     // Create pressure distribution chart
     let pressure_chart = ChartData {
-        labels: inlet_velocities.iter().map(|v| format!("{:.1}", v)).collect(),
-        datasets: vec![
-            Dataset {
-                label: "Throat Pressure (kPa)".to_string(),
-                data: throat_pressures,
-                color: "#1f77b4".to_string(),
-            }
-        ],
+        labels: inlet_velocities
+            .iter()
+            .map(|v| format!("{:.1}", v))
+            .collect(),
+        datasets: vec![Dataset {
+            label: "Throat Pressure (kPa)".to_string(),
+            data: throat_pressures,
+            color: "#1f77b4".to_string(),
+        }],
     };
 
     // Create cavitation number chart
     let cavitation_chart = ChartData {
-        labels: inlet_velocities.iter().map(|v| format!("{:.1}", v)).collect(),
-        datasets: vec![
-            Dataset {
-                label: "Cavitation Number σ".to_string(),
-                data: cavitation_numbers.clone(),
-                color: "#ff7f0e".to_string(),
-            }
-        ],
+        labels: inlet_velocities
+            .iter()
+            .map(|v| format!("{:.1}", v))
+            .collect(),
+        datasets: vec![Dataset {
+            label: "Cavitation Number σ".to_string(),
+            data: cavitation_numbers.clone(),
+            color: "#ff7f0e".to_string(),
+        }],
     };
 
     // Create cavity length chart (only for cavitating cases)
     let cavity_chart = ChartData {
-        labels: inlet_velocities.iter().enumerate()
-            .filter(|(_, &v)| results.iter().find(|r| r.inlet_velocity == v).unwrap().is_cavitating)
-            .map(|(_, v)| format!("{:.1}", v)).collect(),
-        datasets: vec![
-            Dataset {
-                label: "Cavity Length (mm)".to_string(),
-                data: cavity_lengths.into_iter().filter(|&l| l > 0.0).collect(),
-                color: "#d62728".to_string(),
-            }
-        ],
+        labels: inlet_velocities
+            .iter()
+            .enumerate()
+            .filter(|(_, &v)| {
+                results
+                    .iter()
+                    .find(|r| r.inlet_velocity == v)
+                    .unwrap()
+                    .is_cavitating
+            })
+            .map(|(_, v)| format!("{:.1}", v))
+            .collect(),
+        datasets: vec![Dataset {
+            label: "Cavity Length (mm)".to_string(),
+            data: cavity_lengths.into_iter().filter(|&l| l > 0.0).collect(),
+            color: "#d62728".to_string(),
+        }],
     };
 
     // Create loss coefficient chart
     let loss_chart = ChartData {
-        labels: inlet_velocities.iter().map(|v| format!("{:.1}", v)).collect(),
-        datasets: vec![
-            Dataset {
-                label: "Loss Coefficient".to_string(),
-                data: loss_coefficients,
-                color: "#2ca02c".to_string(),
-            }
-        ],
+        labels: inlet_velocities
+            .iter()
+            .map(|v| format!("{:.1}", v))
+            .collect(),
+        datasets: vec![Dataset {
+            label: "Loss Coefficient".to_string(),
+            data: loss_coefficients,
+            color: "#2ca02c".to_string(),
+        }],
     };
 
     // Generate HTML report
@@ -219,13 +257,18 @@ fn generate_cavitation_plots(results: &[CavitationAnalysisResult]) -> Result<Str
         x_label: "Inlet Velocity (m/s)".to_string(),
         y_label: "Value".to_string(),
         show_grid: true,
-        colors: vec!["#1f77b4".to_string(), "#ff7f0e".to_string(), "#2ca02c".to_string()],
+        colors: vec![
+            "#1f77b4".to_string(),
+            "#ff7f0e".to_string(),
+            "#2ca02c".to_string(),
+        ],
     };
 
     let generator = HtmlReportGenerator::new(config);
 
     // Create custom HTML with cavitation-specific analysis
-    let mut html = format!(r#"
+    let mut html = format!(
+        r#"
 <!DOCTYPE html>
 <html>
 <head>
@@ -285,16 +328,24 @@ fn generate_cavitation_plots(results: &[CavitationAnalysisResult]) -> Result<Str
         </tr>
 "#,
         sigma_threshold,
-        inlet_velocities.iter().zip(&cavitation_numbers)
+        inlet_velocities
+            .iter()
+            .zip(&cavitation_numbers)
             .find(|(_, &sigma)| sigma <= sigma_threshold)
             .map(|(v, sigma)| (v, sigma))
-            .unwrap_or((&0.0, &1.0)).0,
-        inlet_velocities.iter().zip(&cavitation_numbers)
+            .unwrap_or((&0.0, &1.0))
+            .0,
+        inlet_velocities
+            .iter()
+            .zip(&cavitation_numbers)
             .find(|(_, &sigma)| sigma <= sigma_threshold)
             .map(|(_, sigma)| sigma)
             .unwrap_or(&1.0),
         cavity_lengths.iter().cloned().fold(0.0, f64::max),
-        if cavitation_numbers.iter().any(|&sigma| sigma < sigma_threshold) {
+        if cavitation_numbers
+            .iter()
+            .any(|&sigma| sigma < sigma_threshold)
+        {
             "Cavitating Flow"
         } else {
             "Non-Cavitating Flow"
@@ -303,10 +354,19 @@ fn generate_cavitation_plots(results: &[CavitationAnalysisResult]) -> Result<Str
 
     // Add table rows
     for result in results {
-        let status = if result.is_cavitating { "Cavitating" } else { "Safe" };
-        let status_class = if result.is_cavitating { "cavitation-zone" } else { "safe-zone" };
+        let status = if result.is_cavitating {
+            "Cavitating"
+        } else {
+            "Safe"
+        };
+        let status_class = if result.is_cavitating {
+            "cavitation-zone"
+        } else {
+            "safe-zone"
+        };
 
-        html.push_str(&format!(r#"
+        html.push_str(&format!(
+            r#"
         <tr class="{}">
             <td>{:.2}</td>
             <td>{:.0}</td>
@@ -326,7 +386,8 @@ fn generate_cavitation_plots(results: &[CavitationAnalysisResult]) -> Result<Str
         ));
     }
 
-    html.push_str(r#"
+    html.push_str(
+        r#"
     </table>
 
     <script>
@@ -335,26 +396,34 @@ fn generate_cavitation_plots(results: &[CavitationAnalysisResult]) -> Result<Str
         new Chart(pressureCtx, {
             type: 'line',
             data: {
-                labels: ["#);
+                labels: ["#,
+    );
 
     // Add labels for pressure chart
     for (i, &vel) in inlet_velocities.iter().enumerate() {
-        if i > 0 { html.push_str(","); }
+        if i > 0 {
+            html.push_str(",");
+        }
         html.push_str(&format!("\"{:.1}\"", vel));
     }
 
-    html.push_str(r#"],
+    html.push_str(
+        r#"],
                 datasets: [{
                     label: 'Throat Pressure (kPa)',
-                    data: ["#);
+                    data: ["#,
+    );
 
     // Add pressure data
     for (i, &press) in throat_pressures.iter().enumerate() {
-        if i > 0 { html.push_str(","); }
+        if i > 0 {
+            html.push_str(",");
+        }
         html.push_str(&format!("{:.1}", press));
     }
 
-    html.push_str(r#"],
+    html.push_str(
+        r#"],
                     borderColor: '#1f77b4',
                     backgroundColor: 'rgba(31, 119, 180, 0.1)',
                     tension: 0.1
@@ -390,26 +459,34 @@ fn generate_cavitation_plots(results: &[CavitationAnalysisResult]) -> Result<Str
         new Chart(cavitationCtx, {
             type: 'line',
             data: {
-                labels: ["#);
+                labels: ["#,
+    );
 
     // Add labels for cavitation chart
     for (i, &vel) in inlet_velocities.iter().enumerate() {
-        if i > 0 { html.push_str(","); }
+        if i > 0 {
+            html.push_str(",");
+        }
         html.push_str(&format!("\"{:.1}\"", vel));
     }
 
-    html.push_str(r#"],
+    html.push_str(
+        r#"],
                 datasets: [{
                     label: 'Cavitation Number σ',
-                    data: ["#);
+                    data: ["#,
+    );
 
     // Add cavitation number data
     for (i, &sigma) in cavitation_numbers.iter().enumerate() {
-        if i > 0 { html.push_str(","); }
+        if i > 0 {
+            html.push_str(",");
+        }
         html.push_str(&format!("{:.3}", sigma));
     }
 
-    html.push_str(&format!(r#"],
+    html.push_str(&format!(
+        r#"],
                     borderColor: '#ff7f0e',
                     backgroundColor: 'rgba(255, 127, 14, 0.1)',
                     tension: 0.1
@@ -456,25 +533,34 @@ fn generate_cavitation_plots(results: &[CavitationAnalysisResult]) -> Result<Str
     ));
 
     // Add cavity labels (only cavitating cases)
-    let cavitating_cases: Vec<_> = results.iter().enumerate()
+    let cavitating_cases: Vec<_> = results
+        .iter()
+        .enumerate()
         .filter(|(_, r)| r.is_cavitating)
         .collect();
 
     for (i, (idx, _)) in cavitating_cases.iter().enumerate() {
-        if i > 0 { html.push_str(","); }
+        if i > 0 {
+            html.push_str(",");
+        }
         html.push_str(&format!("\"{:.1}\"", inlet_velocities[*idx]));
     }
 
-    html.push_str(r#"];
-        const cavityData = ["#);
+    html.push_str(
+        r#"];
+        const cavityData = ["#,
+    );
 
     // Add cavity length data
     for (i, (_, result)) in cavitating_cases.iter().enumerate() {
-        if i > 0 { html.push_str(","); }
+        if i > 0 {
+            html.push_str(",");
+        }
         html.push_str(&format!("{:.3}", result.cavity_length * 1000.0));
     }
 
-    html.push_str(r#"];
+    html.push_str(
+        r#"];
         new Chart(cavityCtx, {
             type: 'bar',
             data: {
@@ -517,26 +603,34 @@ fn generate_cavitation_plots(results: &[CavitationAnalysisResult]) -> Result<Str
         new Chart(lossCtx, {
             type: 'line',
             data: {
-                labels: ["#);
+                labels: ["#,
+    );
 
     // Add labels for loss chart
     for (i, &vel) in inlet_velocities.iter().enumerate() {
-        if i > 0 { html.push_str(","); }
+        if i > 0 {
+            html.push_str(",");
+        }
         html.push_str(&format!("\"{:.1}\"", vel));
     }
 
-    html.push_str(r#"],
+    html.push_str(
+        r#"],
                 datasets: [{
                     label: 'Loss Coefficient',
-                    data: ["#);
+                    data: ["#,
+    );
 
     // Add loss coefficient data
     for (i, &loss) in loss_coefficients.iter().enumerate() {
-        if i > 0 { html.push_str(","); }
+        if i > 0 {
+            html.push_str(",");
+        }
         html.push_str(&format!("{:.3}", loss));
     }
 
-    html.push_str(r#"],
+    html.push_str(
+        r#"],
                     borderColor: '#2ca02c',
                     backgroundColor: 'rgba(44, 160, 44, 0.1)',
                     tension: 0.1
@@ -569,19 +663,25 @@ fn generate_cavitation_plots(results: &[CavitationAnalysisResult]) -> Result<Str
     </script>
 </body>
 </html>
-"#);
+"#,
+    );
 
     println!("✅ Generated cavitation analysis report with interactive plots");
     Ok(html)
 }
 
 /// Demonstrate cavitation damage prediction
-fn demonstrate_cavitation_damage(results: &[CavitationAnalysisResult]) -> Result<(), Box<dyn std::error::Error>> {
+fn demonstrate_cavitation_damage(
+    results: &[CavitationAnalysisResult],
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("💥 Cavitation Damage Assessment");
     println!("================================");
 
     // Get the most severe cavitation case
-    if let Some(severe_case) = results.iter().find(|r| r.is_cavitating && r.cavity_length > 0.0) {
+    if let Some(severe_case) = results
+        .iter()
+        .find(|r| r.is_cavitating && r.cavity_length > 0.0)
+    {
         let cavitation_number = severe_case.cavitation_number;
         let cavity_length = severe_case.cavity_length;
         let throat_velocity = severe_case.throat_velocity;
@@ -591,7 +691,9 @@ fn demonstrate_cavitation_damage(results: &[CavitationAnalysisResult]) -> Result
 
         // Damage intensity parameter (dimensionless)
         let damage_intensity = if cavitation_number > 0.0 {
-            (1.0 / cavitation_number - 1.0).powf(2.0) * (cavity_length / 0.001) * (throat_velocity / 10.0)
+            (1.0 / cavitation_number - 1.0).powf(2.0)
+                * (cavity_length / 0.001)
+                * (throat_velocity / 10.0)
         } else {
             0.0
         };
@@ -599,7 +701,10 @@ fn demonstrate_cavitation_damage(results: &[CavitationAnalysisResult]) -> Result
         // Estimated erosion rate (mm/year) - rough empirical estimate
         let erosion_rate = damage_intensity * 0.01; // Conservative estimate
 
-        println!("Severe cavitation case: V_in = {:.2} m/s", severe_case.inlet_velocity);
+        println!(
+            "Severe cavitation case: V_in = {:.2} m/s",
+            severe_case.inlet_velocity
+        );
         println!("Cavitation parameters:");
         println!("  σ = {:.3}", cavitation_number);
         println!("  Cavity length = {:.3} mm", cavity_length * 1000.0);
@@ -617,7 +722,6 @@ fn demonstrate_cavitation_damage(results: &[CavitationAnalysisResult]) -> Result
             println!("  ✓ LOW RISK: Minimal cavitation damage expected");
         }
         println!();
-
     } else {
         println!("No significant cavitation detected in analyzed range.");
         println!("✓ Safe operating conditions for material integrity");
@@ -632,32 +736,46 @@ fn demonstrate_multiphase_models() -> Result<(), Box<dyn std::error::Error>> {
     println!("===============================");
 
     // Example conditions for multi-phase analysis
-    let pressure = 50000.0;        // 50 kPa (cavitating condition)
-    let vapor_pressure = 2330.0;   // Water vapor pressure
-    let void_fraction = 0.1;       // 10% void fraction
-    let density_liquid = 998.0;    // Water density
-    let density_vapor = 0.023;     // Steam density
+    let pressure = 50000.0; // 50 kPa (cavitating condition)
+    let vapor_pressure = 2330.0; // Water vapor pressure
+    let void_fraction = 0.1; // 10% void fraction
+    let density_liquid = 998.0; // Water density
+    let density_vapor = 0.023; // Steam density
 
-    println!("Conditions: P = {:.0} Pa, α = {:.1}%, ρ_l = {:.0} kg/m³, ρ_v = {:.3} kg/m³",
-             pressure, void_fraction * 100.0, density_liquid, density_vapor);
+    println!(
+        "Conditions: P = {:.0} Pa, α = {:.1}%, ρ_l = {:.0} kg/m³, ρ_v = {:.3} kg/m³",
+        pressure,
+        void_fraction * 100.0,
+        density_liquid,
+        density_vapor
+    );
     println!();
 
     // Test different cavitation models
     let models = vec![
-        ("Kunz", CavitationModel::Kunz {
-            vaporization_coeff: 100.0,
-            condensation_coeff: 100.0,
-        }),
-        ("Schnerr-Sauer", CavitationModel::SchnerrSauer {
-            bubble_density: 1e13, // #/m³
-            initial_radius: 1e-6, // m
-        }),
-        ("ZGB", CavitationModel::ZGB {
-            nucleation_fraction: 5e-4,
-            bubble_radius: 1e-6, // m
-            f_vap: 50.0,
-            f_cond: 0.01,
-        }),
+        (
+            "Kunz",
+            CavitationModel::Kunz {
+                vaporization_coeff: 100.0,
+                condensation_coeff: 100.0,
+            },
+        ),
+        (
+            "Schnerr-Sauer",
+            CavitationModel::SchnerrSauer {
+                bubble_density: 1e13, // #/m³
+                initial_radius: 1e-6, // m
+            },
+        ),
+        (
+            "ZGB",
+            CavitationModel::ZGB {
+                nucleation_fraction: 5e-4,
+                bubble_radius: 1e-6, // m
+                f_vap: 50.0,
+                f_cond: 0.01,
+            },
+        ),
     ];
 
     for (name, model) in models {
@@ -671,7 +789,14 @@ fn demonstrate_multiphase_models() -> Result<(), Box<dyn std::error::Error>> {
 
         println!("{} Model:", name);
         println!("  Mass transfer rate = {:.2e} kg/m³/s", mass_transfer);
-        println!("  Direction: {}", if mass_transfer > 0.0 { "Vaporization" } else { "Condensation" });
+        println!(
+            "  Direction: {}",
+            if mass_transfer > 0.0 {
+                "Vaporization"
+            } else {
+                "Condensation"
+            }
+        );
         println!();
     }
 

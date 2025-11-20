@@ -9,31 +9,94 @@
 //! - Interactive visualization using Chart.js
 //! - Regression alert visualization and analysis
 
-use super::{BenchmarkResult, BenchmarkStatus};
-use super::analysis::{RegressionAlert, AlertSeverity};
+use super::analysis::{AlertSeverity, RegressionAlert};
 use super::scaling::ScalingResult;
+use super::{BenchmarkResult, BenchmarkStatus};
 use crate::reporting::PerformanceMetrics;
 use std::collections::HashMap;
 use std::fmt;
 
-/// Chart types for performance visualization
+/// Chart types for CFD performance data visualization
+///
+/// Defines the available chart types for visualizing benchmark results,
+/// performance trends, and scaling analysis in CFD validation reports.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChartType {
+    /// Line chart for temporal performance trends and time series data
+    ///
+    /// Ideal for showing performance evolution over time, regression analysis,
+    /// and historical benchmark comparisons. Best for continuous data visualization.
     Line,
+
+    /// Bar chart for categorical performance comparisons
+    ///
+    /// Suitable for comparing performance across different CFD algorithms,
+    /// problem sizes, or hardware configurations. Effective for discrete comparisons.
     Bar,
+
+    /// Scatter plot for correlation analysis and outlier detection
+    ///
+    /// Used for analyzing relationships between performance variables,
+    /// identifying correlations, and detecting measurement outliers in CFD benchmarks.
     Scatter,
+
+    /// Histogram for performance distribution analysis
+    ///
+    /// Visualizes the distribution of performance measurements, helping identify
+    /// measurement stability, variability, and potential performance clusters
+    /// in CFD benchmark results.
     Histogram,
 }
 
-/// Visualization configuration
+/// Configuration parameters for CFD performance visualization
+///
+/// Defines the visual properties and layout parameters for generating
+/// performance charts, graphs, and data visualizations in CFD validation reports.
+/// Controls both aesthetic and functional aspects of benchmark result presentation.
 #[derive(Debug, Clone)]
 pub struct VisualizationConfig {
+    /// Chart width in pixels for output image or display
+    ///
+    /// Determines the horizontal resolution of generated visualizations.
+    /// Higher values provide more detail but increase file size and rendering time.
     pub width: usize,
+
+    /// Chart height in pixels for output image or display
+    ///
+    /// Determines the vertical resolution of generated visualizations.
+    /// Should be proportional to width for optimal aspect ratio in CFD reports.
     pub height: usize,
+
+    /// Chart title text displayed at the top of the visualization
+    ///
+    /// Descriptive title explaining the benchmark data being visualized.
+    /// Should clearly indicate the CFD operation, algorithm, or analysis type.
     pub title: String,
+
+    /// Label for the X-axis describing the independent variable
+    ///
+    /// Typically represents time, problem size, processor count, or other
+    /// benchmark parameters in CFD performance analysis.
     pub x_label: String,
+
+    /// Label for the Y-axis describing the dependent variable
+    ///
+    /// Usually represents performance metrics like execution time, throughput,
+    /// memory usage, or efficiency measures in CFD benchmarks.
     pub y_label: String,
+
+    /// Whether to display grid lines on the chart background
+    ///
+    /// Grid lines aid in reading precise values from performance charts.
+    /// Recommended for detailed performance analysis but can be disabled
+    /// for cleaner presentation in executive summaries.
     pub show_grid: bool,
+
+    /// Color palette for chart elements (lines, bars, points)
+    ///
+    /// Array of color specifications (hex codes, names) for different data series.
+    /// Should provide sufficient contrast for accessibility and clear differentiation
+    /// of multiple CFD benchmark results in the same visualization.
     pub colors: Vec<String>,
 }
 
@@ -57,17 +120,51 @@ impl Default for VisualizationConfig {
     }
 }
 
-/// Performance chart data
-#[derive(Debug, Clone)]
+/// Complete chart data structure for CFD performance visualization
+///
+/// Contains all data series and metadata needed to render a complete
+/// performance chart for CFD benchmark analysis and validation reporting.
 pub struct ChartData {
+    /// X-axis labels for categorical or discrete data points
+    ///
+    /// Labels corresponding to each data point on the independent axis.
+    /// For time-series data, these might be timestamps or iteration numbers.
+    /// For scaling analysis, these could be processor counts or problem sizes.
     pub labels: Vec<String>,
+
+    /// Data series to be plotted on the chart
+    ///
+    /// Collection of datasets representing different CFD benchmarks, algorithms,
+    /// or performance metrics. Each dataset can have its own color and styling.
     pub datasets: Vec<Dataset>,
 }
 
+/// Individual data series for CFD performance visualization
+///
+/// Represents a single performance metric or benchmark result series
+/// that can be plotted on a chart with consistent styling and labeling.
+/// Multiple datasets can be combined in a single chart for comparative analysis.
 #[derive(Debug, Clone)]
 pub struct Dataset {
+    /// Human-readable label for this data series
+    ///
+    /// Descriptive name that appears in legends and identifies the CFD operation,
+    /// algorithm, or performance metric being visualized (e.g., "Navier-Stokes CPU",
+    /// "Memory Usage", "GPU Throughput").
     pub label: String,
+
+    /// Performance measurement values for this series [units vary by metric]
+    ///
+    /// Array of numerical values representing performance measurements.
+    /// Could be execution times, throughput rates, memory usage, or other
+    /// CFD performance metrics. Must correspond 1:1 with chart labels.
     pub data: Vec<f64>,
+
+    /// Color specification for rendering this data series
+    ///
+    /// Color used to draw lines, bars, or points for this dataset.
+    /// Should be specified as hex color code (e.g., "#FF0000") or named color.
+    /// Must provide sufficient contrast for accessibility and clear differentiation.
     pub color: String,
 }
 
@@ -77,10 +174,31 @@ pub struct HtmlReportGenerator {
 }
 
 impl HtmlReportGenerator {
+    /// Create a new HTML report generator with custom visualization configuration
+    ///
+    /// Initializes the report generator with user-specified chart dimensions,
+    /// styling preferences, and output parameters for CFD performance visualization.
+    /// Use this constructor when you need fine control over report appearance
+    /// and chart formatting for specific CFD validation requirements.
+    ///
+    /// # Parameters
+    ///
+    /// * `config` - Visualization configuration specifying chart dimensions,
+    ///   colors, labels, and other display parameters for performance reports
     pub fn new(config: VisualizationConfig) -> Self {
         Self { config }
     }
 
+    /// Create a new HTML report generator with default visualization configuration
+    ///
+    /// Initializes the report generator with sensible defaults optimized for
+    /// CFD performance analysis:
+    /// - 800x600 pixel charts for good readability
+    /// - Grid lines enabled for precise value reading
+    /// - Standard color palette for accessibility
+    /// - Appropriate labels for CFD performance metrics
+    ///
+    /// Suitable for most CFD benchmarking scenarios without requiring manual styling configuration.
     pub fn with_default_config() -> Self {
         Self::new(VisualizationConfig::default())
     }
@@ -539,9 +657,17 @@ impl HtmlReportGenerator {
                 </div>
             </div>"#,
             total_operations,
-            if avg_improvement >= 0.0 { "#28a745" } else { "#dc3545" },
+            if avg_improvement >= 0.0 {
+                "#28a745"
+            } else {
+                "#dc3545"
+            },
             avg_improvement,
-            if critical_alerts > 0 { "#dc3545" } else { "#28a745" },
+            if critical_alerts > 0 {
+                "#dc3545"
+            } else {
+                "#28a745"
+            },
             critical_alerts,
             total_alerts
         )
@@ -642,11 +768,14 @@ impl HtmlReportGenerator {
             return r#"<div class="chart-container">
                 <h2>Performance Alerts</h2>
                 <p style="color: #28a745;">✅ No performance regressions detected</p>
-            </div>"#.to_string();
+            </div>"#
+                .to_string();
         }
 
-        let mut alerts_html = String::from(r#"<div class="chart-container">
-            <h2>Performance Alerts</h2>"#);
+        let mut alerts_html = String::from(
+            r#"<div class="chart-container">
+            <h2>Performance Alerts</h2>"#,
+        );
 
         for alert in alerts {
             // Determine severity based on degradation rate (architectural mapping)
@@ -691,23 +820,34 @@ impl HtmlReportGenerator {
                         <th>Status</th>
                     </tr>
                 </thead>
-                <tbody>"#.to_string();
+                <tbody>"#
+            .to_string();
 
         for result in results {
             // Extract performance metrics
-            let perf_time = result.performance.as_ref()
-                .map(|p| format!("{:.3}ms ± {:.3}ms",
-                    p.stats.mean * 1000.0,
-                    p.stats.std_dev * 1000.0))
+            let perf_time = result
+                .performance
+                .as_ref()
+                .map(|p| {
+                    format!(
+                        "{:.3}ms ± {:.3}ms",
+                        p.stats.mean * 1000.0,
+                        p.stats.std_dev * 1000.0
+                    )
+                })
                 .unwrap_or_else(|| "N/A".to_string());
 
             // Extract memory metrics
-            let memory_usage = result.memory.as_ref()
+            let memory_usage = result
+                .memory
+                .as_ref()
                 .map(|m| format!("{:.1}MB", m.total_allocated as f64 / 1_048_576.0))
                 .unwrap_or_else(|| "N/A".to_string());
 
             // Extract scaling info
-            let scaling_info = result.scaling.as_ref()
+            let scaling_info = result
+                .scaling
+                .as_ref()
                 .and_then(|s| {
                     // Get average speedup across all measurements
                     if s.speedup_factors.is_empty() {
@@ -723,8 +863,12 @@ impl HtmlReportGenerator {
             // Determine status color and text
             let (status_color, status_text) = match (&result.status, &result.regression_detected) {
                 (BenchmarkStatus::Passed, None) => ("#28a745", "✅ Passed"),
-                (BenchmarkStatus::Passed, Some(reg)) if *reg > 10.0 => ("#ffc107", "⚠️ Minor Regression"),
-                (BenchmarkStatus::Passed, Some(reg)) if *reg > 25.0 => ("#dc3545", "🚨 Major Regression"),
+                (BenchmarkStatus::Passed, Some(reg)) if *reg > 10.0 => {
+                    ("#ffc107", "⚠️ Minor Regression")
+                }
+                (BenchmarkStatus::Passed, Some(reg)) if *reg > 25.0 => {
+                    ("#dc3545", "🚨 Major Regression")
+                }
                 (BenchmarkStatus::Passed, Some(_)) => ("#17a2b8", "⚠️ Regression"),
                 (BenchmarkStatus::Failed, _) => ("#dc3545", "❌ Failed"),
                 (BenchmarkStatus::Regression, _) => ("#dc3545", "📉 Regression"),
@@ -755,45 +899,61 @@ impl HtmlReportGenerator {
         table_html
     }
 
-    fn generate_recommendations(&self, results: &[BenchmarkResult], alerts: &[RegressionAlert]) -> String {
+    fn generate_recommendations(
+        &self,
+        results: &[BenchmarkResult],
+        alerts: &[RegressionAlert],
+    ) -> String {
         let mut recommendations = Vec::new();
 
         // Analyze results for recommendations with architectural purity
-        let critical_alerts = alerts.iter()
-            .filter(|a| a.degradation_rate > 25.0)
-            .count();
+        let critical_alerts = alerts.iter().filter(|a| a.degradation_rate > 25.0).count();
 
         if critical_alerts > 0 {
-            recommendations.push(format!("🚨 Address {} critical performance regressions immediately", critical_alerts));
+            recommendations.push(format!(
+                "🚨 Address {} critical performance regressions immediately",
+                critical_alerts
+            ));
         }
 
-        let failed_tests = results.iter()
+        let failed_tests = results
+            .iter()
             .filter(|r| matches!(r.status, BenchmarkStatus::Failed))
             .count();
 
         if failed_tests > 0 {
-            recommendations.push(format!("❌ Fix {} failed benchmark operations", failed_tests));
+            recommendations.push(format!(
+                "❌ Fix {} failed benchmark operations",
+                failed_tests
+            ));
         }
 
         let avg_improvement = self.calculate_average_improvement(results);
         if avg_improvement < -10.0 {
             recommendations.push("📉 Significant performance degradation detected - investigate recent architectural changes".to_string());
         } else if avg_improvement < -5.0 {
-            recommendations.push("⚠️ Performance degradation detected - review recent modifications".to_string());
+            recommendations.push(
+                "⚠️ Performance degradation detected - review recent modifications".to_string(),
+            );
         }
 
         // Memory efficiency analysis
-        let high_memory_usage = results.iter()
+        let high_memory_usage = results
+            .iter()
             .filter_map(|r| r.memory.as_ref())
             .filter(|m| m.total_allocated > 100_000_000) // 100MB
             .count();
 
         if high_memory_usage > 0 {
-            recommendations.push(format!("🧠 Optimize memory usage in {} operations (>100MB)", high_memory_usage));
+            recommendations.push(format!(
+                "🧠 Optimize memory usage in {} operations (>100MB)",
+                high_memory_usage
+            ));
         }
 
         // Scaling efficiency analysis
-        let poor_scaling = results.iter()
+        let poor_scaling = results
+            .iter()
             .filter_map(|r| r.scaling.as_ref())
             .filter(|s| {
                 // Calculate average efficiency
@@ -808,24 +968,33 @@ impl HtmlReportGenerator {
             .count();
 
         if poor_scaling > 0 {
-            recommendations.push(format!("⚡ Improve parallel scaling efficiency in {} operations", poor_scaling));
+            recommendations.push(format!(
+                "⚡ Improve parallel scaling efficiency in {} operations",
+                poor_scaling
+            ));
         }
 
         if recommendations.is_empty() {
-            recommendations.push("✅ Performance is stable - continue monitoring for architectural consistency".to_string());
+            recommendations.push(
+                "✅ Performance is stable - continue monitoring for architectural consistency"
+                    .to_string(),
+            );
         }
 
         let mut rec_html = r#"<div class="recommendations">
-            <h2>Architectural Recommendations</h2>"#.to_string();
+            <h2>Architectural Recommendations</h2>"#
+            .to_string();
 
         for rec in recommendations {
-            rec_html.push_str(&format!(r#"<div class="recommendation-item">• {}</div>"#, rec));
+            rec_html.push_str(&format!(
+                r#"<div class="recommendation-item">• {}</div>"#,
+                rec
+            ));
         }
 
         rec_html.push_str("</div>");
         rec_html
     }
-
 
     /// Generate Chart.js performance chart
     fn generate_performance_chart(&self, results: &[BenchmarkResult]) -> String {
@@ -840,13 +1009,16 @@ impl HtmlReportGenerator {
             execution_times.push(format!("{:.3}", result.duration.as_secs_f64() * 1000.0));
 
             // Extract memory usage (convert to MB)
-            let mem_mb = result.memory.as_ref()
+            let mem_mb = result
+                .memory
+                .as_ref()
                 .map(|m| m.total_allocated as f64 / 1_048_576.0)
                 .unwrap_or(0.0);
             memory_usage.push(format!("{:.1}", mem_mb));
         }
 
-        format!(r#"
+        format!(
+            r#"
         <div class="chart-container">
             <h2>Performance Metrics Overview</h2>
             <div class="chart-legend">
@@ -959,9 +1131,9 @@ impl HtmlReportGenerator {
                 }}
             }});
         </script>"#,
-        labels.join(","),
-        execution_times.join(","),
-        memory_usage.join(",")
+            labels.join(","),
+            execution_times.join(","),
+            memory_usage.join(",")
         )
     }
 
@@ -983,14 +1155,23 @@ impl HtmlReportGenerator {
             problem_sizes.push(problem_size.to_string());
 
             // Get speedup and efficiency from the metrics
-            let speedup = result.speedup_factors.get(&(problem_size, processor_count)).copied().unwrap_or(1.0);
-            let efficiency = result.parallel_efficiency.get(&(problem_size, processor_count)).copied().unwrap_or(1.0);
+            let speedup = result
+                .speedup_factors
+                .get(&(problem_size, processor_count))
+                .copied()
+                .unwrap_or(1.0);
+            let efficiency = result
+                .parallel_efficiency
+                .get(&(problem_size, processor_count))
+                .copied()
+                .unwrap_or(1.0);
 
             speedups.push(format!("{:.2}", speedup));
             efficiencies.push(format!("{:.1}", efficiency * 100.0));
         }
 
-        format!(r#"
+        format!(
+            r#"
         <div class="chart-container">
             <h2>Parallel Scaling Analysis</h2>
             <div class="chart-legend">
@@ -1116,9 +1297,13 @@ impl HtmlReportGenerator {
                 }}
             }});
         </script>"#,
-        problem_sizes.join("\",\"").split(",").collect::<Vec<&str>>().join("\",\""),
-        speedups.join(","),
-        efficiencies.join(",")
+            problem_sizes
+                .join("\",\"")
+                .split(",")
+                .collect::<Vec<&str>>()
+                .join("\",\""),
+            speedups.join(","),
+            efficiencies.join(",")
         )
     }
 
@@ -1130,7 +1315,8 @@ impl HtmlReportGenerator {
 
         // For now, return a simple metric based on successful operations
         // In a real implementation, this would compare against baseline performance
-        let successful = results.iter()
+        let successful = results
+            .iter()
             .filter(|r| matches!(r.status, BenchmarkStatus::Passed))
             .count();
 
@@ -1147,7 +1333,8 @@ impl HtmlReportGenerator {
 
         for result in results {
             // Use name as operation name and duration as execution time
-            operations.entry(result.name.clone())
+            operations
+                .entry(result.name.clone())
                 .or_insert_with(Vec::new)
                 .push((0, result.duration.as_secs_f64() * 1000.0)); // Use 0 as problem size placeholder
         }
@@ -1208,7 +1395,8 @@ impl HtmlReportGenerator {
             let avg_efficiency = if result.parallel_efficiency.is_empty() {
                 1.0
             } else {
-                result.parallel_efficiency.values().sum::<f64>() / result.parallel_efficiency.len() as f64
+                result.parallel_efficiency.values().sum::<f64>()
+                    / result.parallel_efficiency.len() as f64
             };
             efficiencies.push(avg_efficiency * 100.0); // Convert to percentage
         }
@@ -1224,7 +1412,6 @@ impl HtmlReportGenerator {
             }]
         })
     }
-
 }
 
 /// Performance dashboard generator
@@ -1247,7 +1434,9 @@ impl PerformanceDashboard {
         alerts: Option<&[RegressionAlert]>,
         output_path: &str,
     ) -> std::io::Result<()> {
-        let html_content = self.generator.generate_report(results, scaling_results, alerts);
+        let html_content = self
+            .generator
+            .generate_report(results, scaling_results, alerts);
 
         std::fs::write(output_path, html_content)?;
 
@@ -1264,22 +1453,33 @@ impl PerformanceDashboard {
         report.push_str("CFD Performance Benchmark Summary\n");
         report.push_str("==================================\n\n");
 
-        report.push_str(&format!("Total Operations Benchmarked: {}\n", results.len()));
-        report.push_str(&format!("Report Generated: {}\n\n", chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")));
+        report.push_str(&format!(
+            "Total Operations Benchmarked: {}\n",
+            results.len()
+        ));
+        report.push_str(&format!(
+            "Report Generated: {}\n\n",
+            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+        ));
 
         // Summary statistics
-        let total_time: f64 = results.iter()
-            .map(|r| r.duration.as_secs_f64())
-            .sum();
+        let total_time: f64 = results.iter().map(|r| r.duration.as_secs_f64()).sum();
 
         let avg_time = total_time / results.len() as f64;
-        let max_time = results.iter()
+        let max_time = results
+            .iter()
             .map(|r| r.duration.as_secs_f64())
             .fold(0.0, f64::max);
 
         report.push_str("Performance Statistics:\n");
-        report.push_str(&format!("  Average Execution Time: {:.3} ms\n", avg_time * 1000.0));
-        report.push_str(&format!("  Maximum Execution Time: {:.3} ms\n", max_time * 1000.0));
+        report.push_str(&format!(
+            "  Average Execution Time: {:.3} ms\n",
+            avg_time * 1000.0
+        ));
+        report.push_str(&format!(
+            "  Maximum Execution Time: {:.3} ms\n",
+            max_time * 1000.0
+        ));
         report.push_str(&format!("  Total Execution Time: {:.3} s\n\n", total_time));
 
         // Operation breakdown
@@ -1287,18 +1487,25 @@ impl PerformanceDashboard {
         let mut operations: HashMap<String, Vec<&BenchmarkResult>> = HashMap::new();
 
         for result in results {
-            operations.entry(result.name.clone())
+            operations
+                .entry(result.name.clone())
                 .or_insert_with(Vec::new)
                 .push(result);
         }
 
         for (operation, op_results) in operations {
-            let op_avg_time = op_results.iter()
+            let op_avg_time = op_results
+                .iter()
                 .map(|r| r.duration.as_secs_f64())
-                .sum::<f64>() / op_results.len() as f64;
+                .sum::<f64>()
+                / op_results.len() as f64;
 
-            report.push_str(&format!("  {}: {:.3} ms ({} runs)\n",
-                operation, op_avg_time * 1000.0, op_results.len()));
+            report.push_str(&format!(
+                "  {}: {:.3} ms ({} runs)\n",
+                operation,
+                op_avg_time * 1000.0,
+                op_results.len()
+            ));
         }
 
         report
@@ -1311,12 +1518,39 @@ impl Default for PerformanceDashboard {
     }
 }
 
-/// Export formats for benchmark results
+/// Export formats for CFD benchmark results and performance reports
+///
+/// Defines the available output formats for exporting benchmark data,
+/// analysis results, and performance visualizations from CFD validation runs.
+/// Each format is optimized for different use cases in CFD development workflows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExportFormat {
+    /// Interactive HTML report with embedded charts and visualizations
+    ///
+    /// Generates comprehensive web-based reports with interactive performance charts,
+    /// scaling analysis graphs, and detailed CFD benchmark results. Ideal for
+    /// sharing results with stakeholders and detailed performance analysis.
     Html,
+
+    /// Machine-readable JSON format for programmatic analysis
+    ///
+    /// Structured data format suitable for automated processing, CI/CD integration,
+    /// and further analysis with external tools. Contains all raw benchmark data,
+    /// statistical analysis, and metadata in a parseable format.
     Json,
+
+    /// Comma-separated values for spreadsheet analysis
+    ///
+    /// Tabular format optimized for import into Excel, Google Sheets, or other
+    /// spreadsheet applications. Contains summarized benchmark results and key
+    /// performance metrics in a human-readable table format.
     Csv,
+
+    /// Plain text format for command-line and log analysis
+    ///
+    /// Simple text-based format suitable for terminal output, log files, and
+    /// basic reporting. Contains formatted benchmark summaries and key metrics
+    /// without complex formatting or visualizations.
     Text,
 }
 
@@ -1361,7 +1595,13 @@ impl BenchmarkExporter {
                 result.name,
                 0, // Use 0 as placeholder for problem size
                 result.duration.as_secs_f64() * 1000.0,
-                result.memory.as_ref().map_or("N/A".to_string(), |m| format!("{:.1}", m.total_allocated as f64 / 1024.0 / 1024.0)),
+                result
+                    .memory
+                    .as_ref()
+                    .map_or("N/A".to_string(), |m| format!(
+                        "{:.1}",
+                        m.total_allocated as f64 / 1024.0 / 1024.0
+                    )),
                 "N/A", // No throughput field available
                 result.regression_detected.is_some()
             ));

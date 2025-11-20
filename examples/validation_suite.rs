@@ -365,10 +365,10 @@ fn validate_grid_convergence() -> Result<(), Box<dyn std::error::Error>> {
         let f3 = results[2].1;
 
         let r: f64 = 2.0; // Grid refinement ratio
-        // Estimate order of accuracy using Richardson extrapolation formula
-        // Assumes error e_i = C * h_i^p, so e_2/e_3 ≈ r^p
-        // Without knowing exact solution, we use: p ≈ ln((f1-f2)/(f2-f3)) / ln(r)
-        // This works when f1, f2, f3 are monotonically approaching the exact value
+                          // Estimate order of accuracy using Richardson extrapolation formula
+                          // Assumes error e_i = C * h_i^p, so e_2/e_3 ≈ r^p
+                          // Without knowing exact solution, we use: p ≈ ln((f1-f2)/(f2-f3)) / ln(r)
+                          // This works when f1, f2, f3 are monotonically approaching the exact value
         let numerator = (f1 - f2).abs();
         let denominator = (f2 - f3).abs();
         let p = (numerator / denominator).ln() / r.ln();

@@ -13,9 +13,9 @@
 //! - Minimal overhead for small matrices (<1000 rows)
 //! - Near-linear scaling with core count
 
-use cfd_2d::physics::momentum::{MomentumSolver, MomentumComponent};
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
+use cfd_2d::physics::momentum::{MomentumComponent, MomentumSolver};
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -25,10 +25,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test different grid sizes
     let grid_sizes = vec![
-        (32, 32),    // Small: 1024 cells
-        (64, 64),    // Medium: 4096 cells
-        (128, 128),  // Large: 16384 cells
-        (256, 128),  // XL: 32768 cells
+        (32, 32),   // Small: 1024 cells
+        (64, 64),   // Medium: 4096 cells
+        (128, 128), // Large: 16384 cells
+        (256, 128), // XL: 32768 cells
     ];
 
     println!("Testing grid sizes: {:?}", grid_sizes);
@@ -78,33 +78,59 @@ fn benchmark_grid_size(nx: usize, ny: usize) -> Result<(), Box<dyn std::error::E
     for j in 0..ny {
         for i in 0..nx {
             fields.viscosity.set(i, j, 0.01); // Constant viscosity
-            fields.density.set(i, j, 1.0);   // Constant density
+            fields.density.set(i, j, 1.0); // Constant density
         }
     }
 
     // Set boundary conditions (simple walls)
-    serial_solver.set_boundary("west".to_string(), cfd_core::boundary::BoundaryCondition::Dirichlet { value: 0.0 });
-    serial_solver.set_boundary("east".to_string(), cfd_core::boundary::BoundaryCondition::Dirichlet { value: 0.0 });
-    serial_solver.set_boundary("south".to_string(), cfd_core::boundary::BoundaryCondition::Dirichlet { value: 0.0 });
-    serial_solver.set_boundary("north".to_string(), cfd_core::boundary::BoundaryCondition::Dirichlet { value: 0.0 });
+    serial_solver.set_boundary(
+        "west".to_string(),
+        cfd_core::boundary::BoundaryCondition::Dirichlet { value: 0.0 },
+    );
+    serial_solver.set_boundary(
+        "east".to_string(),
+        cfd_core::boundary::BoundaryCondition::Dirichlet { value: 0.0 },
+    );
+    serial_solver.set_boundary(
+        "south".to_string(),
+        cfd_core::boundary::BoundaryCondition::Dirichlet { value: 0.0 },
+    );
+    serial_solver.set_boundary(
+        "north".to_string(),
+        cfd_core::boundary::BoundaryCondition::Dirichlet { value: 0.0 },
+    );
 
-    parallel_solver.set_boundary("west".to_string(), cfd_core::boundary::BoundaryCondition::Dirichlet { value: 0.0 });
-    parallel_solver.set_boundary("east".to_string(), cfd_core::boundary::BoundaryCondition::Dirichlet { value: 0.0 });
-    parallel_solver.set_boundary("south".to_string(), cfd_core::boundary::BoundaryCondition::Dirichlet { value: 0.0 });
-    parallel_solver.set_boundary("north".to_string(), cfd_core::boundary::BoundaryCondition::Dirichlet { value: 0.0 });
+    parallel_solver.set_boundary(
+        "west".to_string(),
+        cfd_core::boundary::BoundaryCondition::Dirichlet { value: 0.0 },
+    );
+    parallel_solver.set_boundary(
+        "east".to_string(),
+        cfd_core::boundary::BoundaryCondition::Dirichlet { value: 0.0 },
+    );
+    parallel_solver.set_boundary(
+        "south".to_string(),
+        cfd_core::boundary::BoundaryCondition::Dirichlet { value: 0.0 },
+    );
+    parallel_solver.set_boundary(
+        "north".to_string(),
+        cfd_core::boundary::BoundaryCondition::Dirichlet { value: 0.0 },
+    );
 
     // Time step
     let dt = 0.001;
 
     // Warm up (run once to initialize any lazy allocations)
     let _ = serial_solver.solve_with_coefficients(MomentumComponent::U, &mut fields.clone(), dt)?;
-    let _ = parallel_solver.solve_with_coefficients(MomentumComponent::U, &mut fields.clone(), dt)?;
+    let _ =
+        parallel_solver.solve_with_coefficients(MomentumComponent::U, &mut fields.clone(), dt)?;
 
     // Benchmark serial solver
     let serial_start = Instant::now();
     const SERIAL_ITERATIONS: u32 = 10;
     for _ in 0..SERIAL_ITERATIONS {
-        let _ = serial_solver.solve_with_coefficients(MomentumComponent::U, &mut fields.clone(), dt)?;
+        let _ =
+            serial_solver.solve_with_coefficients(MomentumComponent::U, &mut fields.clone(), dt)?;
     }
     let serial_time = serial_start.elapsed();
 
@@ -112,7 +138,11 @@ fn benchmark_grid_size(nx: usize, ny: usize) -> Result<(), Box<dyn std::error::E
     let parallel_start = Instant::now();
     const PARALLEL_ITERATIONS: u32 = 10;
     for _ in 0..PARALLEL_ITERATIONS {
-        let _ = parallel_solver.solve_with_coefficients(MomentumComponent::U, &mut fields.clone(), dt)?;
+        let _ = parallel_solver.solve_with_coefficients(
+            MomentumComponent::U,
+            &mut fields.clone(),
+            dt,
+        )?;
     }
     let parallel_time = parallel_start.elapsed();
 

@@ -109,9 +109,7 @@ impl<T: RealField + Copy + ToPrimitive> VtkWriter<T> {
                     let v = value.to_f64().ok_or_else(|| {
                         std::io::Error::new(
                             std::io::ErrorKind::InvalidData,
-                            format!(
-                                "Failed to convert cell scalar '{name}' to f64 for VTK output"
-                            ),
+                            format!("Failed to convert cell scalar '{name}' to f64 for VTK output"),
                         )
                     })?;
                     writeln!(writer, "{v}")?;

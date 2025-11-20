@@ -14,7 +14,7 @@ pub mod summary;
 pub use html::HtmlReporter;
 pub use json::JsonReporter;
 pub use markdown::MarkdownReporter;
-pub use summary::{ValidationSummary, PerformanceMetrics};
+pub use summary::{PerformanceMetrics, ValidationSummary};
 
 use cfd_core::error::{Error, Result};
 use std::collections::HashMap;
@@ -191,23 +191,37 @@ impl ValidationReport {
         let mut issues = Vec::new();
 
         if self.summary.failed_tests > 0 {
-            issues.push(format!("{} test failures detected", self.summary.failed_tests));
+            issues.push(format!(
+                "{} test failures detected",
+                self.summary.failed_tests
+            ));
         }
 
         if self.code_quality.test_coverage < 80.0 {
-            issues.push(format!("Test coverage below 80%: {:.1}%", self.code_quality.test_coverage));
+            issues.push(format!(
+                "Test coverage below 80%: {:.1}%",
+                self.code_quality.test_coverage
+            ));
         }
 
         if self.code_quality.clippy_warnings > 10 {
-            issues.push(format!("High number of clippy warnings: {}", self.code_quality.clippy_warnings));
+            issues.push(format!(
+                "High number of clippy warnings: {}",
+                self.code_quality.clippy_warnings
+            ));
         }
 
-        let regressions: Vec<_> = self.performance.iter()
+        let regressions: Vec<_> = self
+            .performance
+            .iter()
             .filter(|p| p.regression_detected.is_some())
             .collect();
 
         if !regressions.is_empty() {
-            issues.push(format!("{} performance regressions detected", regressions.len()));
+            issues.push(format!(
+                "{} performance regressions detected",
+                regressions.len()
+            ));
         }
 
         issues
@@ -224,7 +238,10 @@ pub struct AutomatedReporter;
 
 impl AutomatedReporter {
     /// Generate comprehensive validation report from test results
-    pub fn generate_from_tests(test_output: &str, coverage_data: Option<&str>) -> Result<ValidationReport> {
+    pub fn generate_from_tests(
+        test_output: &str,
+        coverage_data: Option<&str>,
+    ) -> Result<ValidationReport> {
         let mut builder = ReportBuilder::new("CFD Validation Report".to_string());
 
         // Parse test output (simplified - would need actual parsing logic)

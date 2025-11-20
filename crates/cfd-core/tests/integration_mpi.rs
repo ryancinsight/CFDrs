@@ -91,8 +91,8 @@ mod integration_tests {
 
         // Set interior values to rank-specific values for verification
         let rank_offset = world.rank() as f64 * 10.0;
-        for i in 1..nx_total-1 {
-            for j in 1..ny_total-1 {
+        for i in 1..nx_total - 1 {
+            for j in 1..ny_total - 1 {
                 velocity_u[i][j] = Vector2::new(10.0 + rank_offset, 20.0 + rank_offset);
                 velocity_v[i][j] = Vector2::new(30.0 + rank_offset, 40.0 + rank_offset);
                 pressure[i][j] = 50.0 + rank_offset;
@@ -106,7 +106,8 @@ mod integration_tests {
             &mut velocity_u,
             &mut velocity_v,
             &mut pressure,
-        ).unwrap();
+        )
+        .unwrap();
 
         // Verify ghost cells were updated (non-trivial verification would require
         // coordinating expected values across processes)
@@ -199,8 +200,14 @@ mod integration_tests {
         let operator = DistributedLaplacian2D::new(&decomp, &world, dx, dy).unwrap();
 
         // Verify operator properties
-        assert_eq!(operator.local_dimension(), (decomp.local_subdomain().nx_local * decomp.local_subdomain().ny_local));
-        assert_eq!(operator.global_dimension(), (global_extents.nx_global * global_extents.ny_global));
+        assert_eq!(
+            operator.local_dimension(),
+            (decomp.local_subdomain().nx_local * decomp.local_subdomain().ny_local)
+        );
+        assert_eq!(
+            operator.global_dimension(),
+            (global_extents.nx_global * global_extents.ny_global)
+        );
 
         // Create distributed vectors
         let local_size = operator.local_dimension();
@@ -231,12 +238,20 @@ mod integration_tests {
 
         // Verify component scores are reasonable
         for (&component, &score) in &readiness_report.component_scores {
-            assert!(score >= 0 && score <= 100, "Invalid score for {}: {}", component, score);
+            assert!(
+                score >= 0 && score <= 100,
+                "Invalid score for {}: {}",
+                component,
+                score
+            );
         }
 
         // Verify deployment configuration
         assert!(readiness_report.recommended_config.cores_per_node > 0);
-        assert!(!readiness_report.recommended_config.mpi_implementation.is_empty());
+        assert!(!readiness_report
+            .recommended_config
+            .mpi_implementation
+            .is_empty());
         assert!(readiness_report.recommended_config.memory_per_core_mb > 0);
 
         // Verify scaling limits
@@ -280,7 +295,9 @@ mod integration_tests {
         // 7. Solve system
         let tolerance = 1e-6;
         let max_iter = 100;
-        let solution = solver.solve(&rhs, &initial_guess, tolerance, max_iter).unwrap();
+        let solution = solver
+            .solve(&rhs, &initial_guess, tolerance, max_iter)
+            .unwrap();
 
         // 8. Verify solution exists and is reasonable
         assert_eq!(solution.local_dimension(), local_size);

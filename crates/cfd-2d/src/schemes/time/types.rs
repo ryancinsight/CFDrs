@@ -18,12 +18,12 @@ pub enum TimeScheme {
     /// Adams-Bashforth (2nd order)
     AdamsBashforth2,
     /// BDF2 (Backward Differentiation Formula, 2nd order, A-stable)
-    /// 
+    ///
     /// Reference: Curtiss & Hirschfelder (1952)
     /// Formula: y_{n+1} - (4/3)y_n + (1/3)y_{n-1} = (2/3)h*f(t_{n+1}, y_{n+1})
     BDF2,
     /// BDF3 (Backward Differentiation Formula, 3rd order)
-    /// 
+    ///
     /// Reference: Curtiss & Hirschfelder (1952)
     /// Formula: y_{n+1} - (18/11)y_n + (9/11)y_{n-1} - (2/11)y_{n-2} = (6/11)h*f(t_{n+1}, y_{n+1})
     BDF3,

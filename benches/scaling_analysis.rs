@@ -8,9 +8,9 @@
 
 use super::{BenchmarkConfig, PerformanceMetrics};
 use criterion::{black_box, BenchmarkId, Criterion, Throughput};
+use rayon;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use rayon;
 
 /// Scaling analysis configuration
 #[derive(Debug, Clone)]
@@ -83,10 +83,13 @@ pub struct ScalingMetrics {
 
 /// Run comprehensive scaling analysis
 pub fn run_scaling_analysis(config: &ScalingConfig) -> ScalingMetrics {
-    println!("Running {} scaling analysis...", match config.scaling_type {
-        ScalingType::Weak => "weak",
-        ScalingType::Strong => "strong",
-    });
+    println!(
+        "Running {} scaling analysis...",
+        match config.scaling_type {
+            ScalingType::Weak => "weak",
+            ScalingType::Strong => "strong",
+        }
+    );
 
     let mut results = Vec::new();
 
@@ -119,7 +122,8 @@ pub fn run_scaling_analysis(config: &ScalingConfig) -> ScalingMetrics {
                 ScalingType::Strong => base_size,
             };
 
-            let parallel_result = benchmark_with_threads(thread_count, problem_size, config, config.scaling_type);
+            let parallel_result =
+                benchmark_with_threads(thread_count, problem_size, config, config.scaling_type);
             let parallel_time = parallel_result.timing_stats.mean;
 
             let speedup = serial_time.as_secs_f64() / parallel_time.as_secs_f64();
@@ -136,21 +140,30 @@ pub fn run_scaling_analysis(config: &ScalingConfig) -> ScalingMetrics {
                 parallel_time,
             });
 
-            println!("  Threads: {}, Size: {}, Speedup: {:.2}x, Efficiency: {:.1}%",
-                    thread_count, problem_size, speedup, efficiency * 100.0);
+            println!(
+                "  Threads: {}, Size: {}, Speedup: {:.2}x, Efficiency: {:.1}%",
+                thread_count,
+                problem_size,
+                speedup,
+                efficiency * 100.0
+            );
         }
     }
 
     // Calculate overall metrics
     let average_speedup = results.iter().map(|r| r.speedup).sum::<f64>() / results.len() as f64;
-    let average_efficiency = results.iter().map(|r| r.efficiency).sum::<f64>() / results.len() as f64;
+    let average_efficiency =
+        results.iter().map(|r| r.efficiency).sum::<f64>() / results.len() as f64;
 
     // Calculate scaling efficiency (how well we maintain efficiency as we scale)
     let scaling_efficiency = if results.is_empty() {
         0.0
     } else {
         let max_efficiency = results.iter().map(|r| r.efficiency).fold(0.0, f64::max);
-        let min_efficiency = results.iter().map(|r| r.efficiency).fold(f64::INFINITY, f64::min);
+        let min_efficiency = results
+            .iter()
+            .map(|r| r.efficiency)
+            .fold(f64::INFINITY, f64::min);
         if max_efficiency > 0.0 {
             min_efficiency / max_efficiency
         } else {
@@ -160,8 +173,13 @@ pub fn run_scaling_analysis(config: &ScalingConfig) -> ScalingMetrics {
 
     let max_speedup = results.iter().map(|r| r.speedup).fold(0.0, f64::max);
 
-    let optimal_thread_count = results.iter()
-        .max_by(|a, b| a.efficiency.partial_cmp(&b.efficiency).unwrap_or(std::cmp::Ordering::Equal))
+    let optimal_thread_count = results
+        .iter()
+        .max_by(|a, b| {
+            a.efficiency
+                .partial_cmp(&b.efficiency)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
         .map(|r| r.thread_count)
         .unwrap_or(1);
 
@@ -183,13 +201,20 @@ pub fn run_scaling_analysis(config: &ScalingConfig) -> ScalingMetrics {
 }
 
 /// Benchmark a CFD operation with specific thread count
-fn benchmark_with_threads(thread_count: usize, problem_size: usize, config: &ScalingConfig, scaling_type: ScalingType) -> BenchmarkResult {
+fn benchmark_with_threads(
+    thread_count: usize,
+    problem_size: usize,
+    config: &ScalingConfig,
+    scaling_type: ScalingType,
+) -> BenchmarkResult {
     // Set the number of threads for this benchmark
     let _guard = if thread_count > 1 {
-        Some(rayon::ThreadPoolBuilder::new()
-            .num_threads(thread_count)
-            .build_global()
-            .expect("Failed to set thread pool"))
+        Some(
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(thread_count)
+                .build_global()
+                .expect("Failed to set thread pool"),
+        )
     } else {
         None
     };
@@ -211,12 +236,14 @@ fn benchmark_with_threads(thread_count: usize, problem_size: usize, config: &Sca
 
     // Calculate statistics
     let mean = measurements.iter().sum::<Duration>() / measurements.len() as u32;
-    let variance = measurements.iter()
+    let variance = measurements
+        .iter()
         .map(|&d| {
             let diff = if d > mean { d - mean } else { mean - d };
             diff.as_secs_f64().powi(2)
         })
-        .sum::<f64>() / measurements.len() as f64;
+        .sum::<f64>()
+        / measurements.len() as f64;
 
     let std_dev = Duration::from_secs_f64(variance.sqrt());
     let min = *measurements.iter().min().unwrap();
@@ -255,8 +282,11 @@ fn run_cfd_benchmark_operation(size: usize) -> f64 {
             row.iter_mut().enumerate().for_each(|(j, cell)| {
                 if i > 0 && i < size - 1 && j > 0 && j < size - 1 {
                     // Simple Jacobi iteration for pressure
-                    let new_value = (pressure[(i-1, j)] + pressure[(i+1, j)] +
-                                   pressure[(i, j-1)] + pressure[(i, j+1)]) / 4.0;
+                    let new_value = (pressure[(i - 1, j)]
+                        + pressure[(i + 1, j)]
+                        + pressure[(i, j - 1)]
+                        + pressure[(i, j + 1)])
+                        / 4.0;
                     let residual = (new_value - *cell).abs();
                     *cell = new_value;
                     // Note: This is a simplified version - in practice we'd use atomic operations
@@ -293,20 +323,26 @@ pub fn benchmark_scaling_behavior(c: &mut Criterion, config: &BenchmarkConfig) {
 
             group.bench_with_input(
                 BenchmarkId::new(
-                    format!("scaling_{}_{}threads", match scaling_config.scaling_type {
-                        ScalingType::Weak => "weak",
-                        ScalingType::Strong => "strong",
-                    }, thread_count),
-                    problem_size
+                    format!(
+                        "scaling_{}_{}threads",
+                        match scaling_config.scaling_type {
+                            ScalingType::Weak => "weak",
+                            ScalingType::Strong => "strong",
+                        },
+                        thread_count
+                    ),
+                    problem_size,
                 ),
                 &(thread_count, problem_size),
                 |b, &(thread_count, problem_size)| {
                     // Set thread count for this benchmark
                     let _guard = if thread_count > 1 {
-                        Some(rayon::ThreadPoolBuilder::new()
-                            .num_threads(thread_count)
-                            .build_global()
-                            .expect("Failed to set thread pool"))
+                        Some(
+                            rayon::ThreadPoolBuilder::new()
+                                .num_threads(thread_count)
+                                .build_global()
+                                .expect("Failed to set thread pool"),
+                        )
                     } else {
                         None
                     };
@@ -335,7 +371,10 @@ fn save_scaling_results(metrics: &ScalingMetrics) {
     let dir_path = Path::new(output_dir);
 
     if let Err(e) = fs::create_dir_all(dir_path) {
-        eprintln!("Failed to create scaling output directory {}: {}", output_dir, e);
+        eprintln!(
+            "Failed to create scaling output directory {}: {}",
+            output_dir, e
+        );
         return;
     }
 
@@ -343,7 +382,11 @@ fn save_scaling_results(metrics: &ScalingMetrics) {
     let results_path = dir_path.join("scaling_results.json");
     if let Ok(json) = serde_json::to_string_pretty(&metrics.results) {
         if let Err(e) = fs::write(&results_path, json) {
-            eprintln!("Failed to save scaling results to {}: {}", results_path.display(), e);
+            eprintln!(
+                "Failed to save scaling results to {}: {}",
+                results_path.display(),
+                e
+            );
         } else {
             println!("Scaling results saved to {}", results_path.display());
         }
@@ -361,7 +404,11 @@ fn save_scaling_results(metrics: &ScalingMetrics) {
     let summary_path = dir_path.join("scaling_summary.json");
     if let Ok(json) = serde_json::to_string_pretty(&summary) {
         if let Err(e) = fs::write(&summary_path, json) {
-            eprintln!("Failed to save scaling summary to {}: {}", summary_path.display(), e);
+            eprintln!(
+                "Failed to save scaling summary to {}: {}",
+                summary_path.display(),
+                e
+            );
         } else {
             println!("Scaling summary saved to {}", summary_path.display());
         }
@@ -393,7 +440,8 @@ pub fn generate_scaling_recommendations(metrics: &ScalingMetrics) -> Vec<String>
         ));
     } else {
         recommendations.push(
-            "Single-threaded performance is optimal. Consider if parallelization is necessary.".to_string()
+            "Single-threaded performance is optimal. Consider if parallelization is necessary."
+                .to_string(),
         );
     }
 

@@ -2,8 +2,8 @@
 //!
 //! Implements Richardson extrapolation following ASME V&V 20-2009 guidelines.
 
-use cfd_core::error::{Error, Result};
 use cfd_core::conversion::SafeFromF64;
+use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
@@ -78,9 +78,8 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
         let epsilon_21 = f_medium - f_fine;
         let epsilon_32 = f_coarse - f_medium;
 
-        let epsilon_tolerance = T::from_f64_or_zero(
-            cfd_core::constants::numerical::solver::EPSILON_TOLERANCE,
-        );
+        let epsilon_tolerance =
+            T::from_f64_or_zero(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE);
 
         if epsilon_21.abs() < epsilon_tolerance {
             return Err(Error::InvalidInput(
@@ -101,9 +100,8 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
         let epsilon_21 = (f_medium - f_fine).abs();
         let epsilon_32 = (f_coarse - f_medium).abs();
 
-        let epsilon_tolerance = T::from_f64_or_zero(
-            cfd_core::constants::numerical::solver::EPSILON_TOLERANCE,
-        );
+        let epsilon_tolerance =
+            T::from_f64_or_zero(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE);
 
         if epsilon_21 < epsilon_tolerance {
             return false;

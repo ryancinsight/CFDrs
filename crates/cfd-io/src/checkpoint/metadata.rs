@@ -20,6 +20,8 @@ pub struct CheckpointMetadata {
     pub domain_size: (f64, f64),
     /// Timestamp of checkpoint creation
     pub timestamp: u64,
+    /// Bit-exact checksum of data fields
+    pub checksum: u128,
 }
 
 impl CheckpointMetadata {
@@ -40,8 +42,10 @@ impl CheckpointMetadata {
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs())
                 .unwrap_or(0),
+            checksum: 0,
         }
     }
+
 
     /// Check if version is compatible
     pub fn is_version_compatible(&self) -> bool {

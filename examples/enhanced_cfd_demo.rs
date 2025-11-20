@@ -21,8 +21,8 @@
 //! - Advanced time integration for stability
 
 use cfd_2d::physics::{
-    turbulence::{VremanModel, SigmaModel, MilesLES},
-    ImmersedBoundaryMethod
+    turbulence::{MilesLES, SigmaModel, VremanModel},
+    ImmersedBoundaryMethod,
 };
 use cfd_math::spatial::WenoReconstruction;
 use cfd_math::time_stepping::RungeKuttaChebyshev;
@@ -43,7 +43,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("✅ Sigma SGS Model: C_σ = {:.3}", sigma.config.c_sigma);
 
     let miles = MilesLES::new();
-    println!("✅ MILES LES: Min resolution ratio = {:.1}", miles.config().min_resolution_ratio);
+    println!(
+        "✅ MILES LES: Min resolution ratio = {:.1}",
+        miles.config().min_resolution_ratio
+    );
 
     // Initialize high-order spatial discretization
     println!("\n📐 Initializing High-Order Spatial Schemes:");
@@ -58,7 +61,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n⏰ Initializing Advanced Time Integration:");
 
     let rkc: RungeKuttaChebyshev<f64> = RungeKuttaChebyshev::new();
-    println!("✅ RKC: {}-stage Chebyshev method for stiff problems", rkc.config().num_stages);
+    println!(
+        "✅ RKC: {}-stage Chebyshev method for stiff problems",
+        rkc.config().num_stages
+    );
 
     // Setup immersed boundary for complex geometry
     println!("\n🏗️  Setting up Complex Geometry:");
@@ -68,20 +74,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cylinder_radius = 0.5;
 
     // Add circular cylinder boundary
-    ibm.add_circle(cylinder_center, cylinder_radius, 64,
-                   Vector2::new(0.0, 0.0)); // Stationary cylinder
+    ibm.add_circle(cylinder_center, cylinder_radius, 64, Vector2::new(0.0, 0.0)); // Stationary cylinder
 
-    println!("✅ Immersed Boundary: Circular cylinder with {} boundary points",
-             ibm.boundary_points().len());
+    println!(
+        "✅ Immersed Boundary: Circular cylinder with {} boundary points",
+        ibm.boundary_points().len()
+    );
 
     // Demonstrate turbulence model capabilities
     println!("\n🌪️  Turbulence Model Demonstration:");
 
     // Create a sample velocity gradient tensor for SGS stress computation
-    let velocity_gradient = nalgebra::DMatrix::from_row_slice(2, 2, &[
-        1.0, 0.5,  // ∂u/∂x, ∂u/∂y
-        0.2, -0.8  // ∂v/∂x, ∂v/∂y
-    ]);
+    let velocity_gradient = nalgebra::DMatrix::from_row_slice(
+        2,
+        2,
+        &[
+            1.0, 0.5, // ∂u/∂x, ∂u/∂y
+            0.2, -0.8, // ∂v/∂x, ∂v/∂y
+        ],
+    );
 
     let nu_vreman = vreman.sgs_viscosity(&velocity_gradient);
     let nu_sigma = sigma.sgs_viscosity(&velocity_gradient);
@@ -101,9 +112,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🎯 MILES LES Assessment:");
     println!("   Grid resolution ratio: L/Δx = {:.1}", ratio);
     println!("   Adequate resolution: {}", adequate);
-    println!("   Applicability score: {:.2} ({})",
-             applicability,
-             if applicability > 0.7 { "Excellent" } else if applicability > 0.5 { "Good" } else { "Limited" });
+    println!(
+        "   Applicability score: {:.2} ({})",
+        applicability,
+        if applicability > 0.7 {
+            "Excellent"
+        } else if applicability > 0.5 {
+            "Good"
+        } else {
+            "Limited"
+        }
+    );
 
     // Demonstrate high-order reconstruction
     println!("\n🔬 High-Order Reconstruction Demonstration:");
@@ -157,13 +176,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let boundary_velocities = ibm.interpolate_velocities(&velocity_field)?;
 
     // Update forces to enforce no-slip condition
-    ibm.update_forces(&boundary_velocities.iter()
-        .map(|&v| Vector2::new(v.x, v.y))
-        .collect::<Vec<_>>())?;
+    ibm.update_forces(
+        &boundary_velocities
+            .iter()
+            .map(|&v| Vector2::new(v.x, v.y))
+            .collect::<Vec<_>>(),
+    )?;
 
     println!("🏊 Boundary Force Enforcement:");
-    println!("   Interpolated {} boundary velocities", boundary_velocities.len());
-    println!("   Applied forces to {} boundary points", ibm.boundary_points().len());
+    println!(
+        "   Interpolated {} boundary velocities",
+        boundary_velocities.len()
+    );
+    println!(
+        "   Applied forces to {} boundary points",
+        ibm.boundary_points().len()
+    );
     println!("   No-slip boundary condition enforced");
 
     // Performance summary

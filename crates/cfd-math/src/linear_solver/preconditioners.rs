@@ -331,11 +331,13 @@ impl<T: RealField + Copy + FromPrimitive> IncompleteLU<T> {
         // Initialize with original matrix elements and add fill-in positions
         for i in 0..n {
             for &j in &sparsity_pattern[i] {
-                if j < n { // Ensure valid column index
+                if j < n {
+                    // Ensure valid column index
                     // Get original value if it exists, otherwise use zero
-                    let original_value = Self::find_position(a.col_indices(), a.row_offsets(), i, j)
-                        .map(|pos| a.values()[pos])
-                        .unwrap_or_else(T::zero);
+                    let original_value =
+                        Self::find_position(a.col_indices(), a.row_offsets(), i, j)
+                            .map(|pos| a.values()[pos])
+                            .unwrap_or_else(T::zero);
 
                     builder.add_entry(i, j, original_value)?;
                 }
@@ -417,7 +419,13 @@ impl<T: RealField + Copy + FromPrimitive> IncompleteLU<T> {
     ///
     /// # Returns
     /// True if element should be included in factorization
-    fn should_include_fill(_levels: &[Vec<Option<usize>>], _i: usize, _j: usize, current_level: usize, k: usize) -> bool {
+    fn should_include_fill(
+        _levels: &[Vec<Option<usize>>],
+        _i: usize,
+        _j: usize,
+        current_level: usize,
+        k: usize,
+    ) -> bool {
         current_level <= k
     }
 
@@ -455,7 +463,14 @@ impl<T: RealField + Copy + FromPrimitive> IncompleteLU<T> {
     }
 
     /// Find position of element (i,j) in the sparse matrix, or create it if within fill level
-    fn find_or_create_position(col_indices: &mut Vec<usize>, row_offsets: &mut Vec<usize>, values: &mut Vec<T>, i: usize, j: usize, k: usize) -> Option<usize> {
+    fn find_or_create_position(
+        col_indices: &mut Vec<usize>,
+        row_offsets: &mut Vec<usize>,
+        values: &mut Vec<T>,
+        i: usize,
+        j: usize,
+        k: usize,
+    ) -> Option<usize> {
         // First try to find existing position
         if let Some(pos) = Self::find_position(col_indices, row_offsets, i, j) {
             return Some(pos);
@@ -488,12 +503,16 @@ impl<T: RealField + Copy + FromPrimitive> IncompleteLU<T> {
     }
 
     /// Find position of element (i,j) in the sparse matrix
-    fn find_position(col_indices: &[usize], row_offsets: &[usize], i: usize, j: usize) -> Option<usize> {
+    fn find_position(
+        col_indices: &[usize],
+        row_offsets: &[usize],
+        i: usize,
+        j: usize,
+    ) -> Option<usize> {
         let row_start = row_offsets[i];
         let row_end = row_offsets[i + 1];
 
-        (row_start..row_end)
-            .find(|&pos| col_indices[pos] == j)
+        (row_start..row_end).find(|&pos| col_indices[pos] == j)
     }
 }
 
@@ -694,7 +713,8 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
         let _n = fine_matrix.nrows();
 
         // Ruge-Stüben coarsening algorithm
-        let (coarse_indices, fine_to_coarse) = Self::ruge_stueben_coarsening(fine_matrix, coarsening)?;
+        let (coarse_indices, fine_to_coarse) =
+            Self::ruge_stueben_coarsening(fine_matrix, coarsening)?;
 
         if coarse_indices.is_empty() {
             return Err(Error::InvalidConfiguration(
@@ -703,7 +723,8 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
         }
 
         // Create interpolation operator
-        let interpolation = Self::create_interpolation_operator(fine_matrix, &coarse_indices, &fine_to_coarse)?;
+        let interpolation =
+            Self::create_interpolation_operator(fine_matrix, &coarse_indices, &fine_to_coarse)?;
 
         // Restriction is transpose of interpolation
         let restriction = interpolation.transpose();
@@ -748,7 +769,12 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
 
                     // Find strongly connected neighbors
                     let mut strongly_connected = Vec::new();
-                    for (&j, &strength) in strength_matrix.row(i).col_indices().iter().zip(strength_matrix.row(i).values()) {
+                    for (&j, &strength) in strength_matrix
+                        .row(i)
+                        .col_indices()
+                        .iter()
+                        .zip(strength_matrix.row(i).values())
+                    {
                         if j != i && strength > T::from_f64(0.5_f64).unwrap_or_else(|| T::one()) {
                             strongly_connected.push(j);
                         }
@@ -756,7 +782,10 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
 
                     // Select as coarse point if it has the strongest connections
                     let should_be_coarse = strongly_connected.iter().all(|&j| {
-                        let j_connections = strength_matrix.row(j).values().iter()
+                        let j_connections = strength_matrix
+                            .row(j)
+                            .values()
+                            .iter()
                             .filter(|&s| *s > T::from_f64(0.5_f64).unwrap_or_else(|| T::one()))
                             .count();
                         let i_connections = strongly_connected.len();
@@ -806,7 +835,9 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
 
         for i in 0..n {
             let row = matrix.row(i);
-       let _diag_val = row.values().iter()
+            let _diag_val = row
+                .values()
+                .iter()
                 .zip(row.col_indices().iter())
                 .find(|(_, &col)| col == i)
                 .map(|(val, _)| *val)
@@ -815,7 +846,9 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
             for (&j, &val) in row.col_indices().iter().zip(row.values()) {
                 if j != i {
                     // Classical strength measure: |a_ij| >= theta * max_k |a_ik|
-                    let max_off_diag = row.values().iter()
+                    let max_off_diag = row
+                        .values()
+                        .iter()
                         .zip(row.col_indices().iter())
                         .filter(|(_, &col)| col != i)
                         .map(|(v, _)| v.abs())
@@ -837,7 +870,9 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
         }
 
         CsrMatrix::try_from_csr_data(n, n, strength_indptr, strength_indices, strength_data)
-            .map_err(|e| Error::InvalidConfiguration(format!("Failed to create strength matrix: {:?}", e)))
+            .map_err(|e| {
+                Error::InvalidConfiguration(format!("Failed to create strength matrix: {:?}", e))
+            })
     }
 
     /// Create interpolation operator for AMG
@@ -865,7 +900,10 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
 
                 if neighbors.is_empty() {
                     // Fallback: interpolate from closest coarse point
-                    if let Some(closest) = coarse_indices.iter().min_by_key(|&&j| (i as i32 - j as i32).abs()) {
+                    if let Some(closest) = coarse_indices
+                        .iter()
+                        .min_by_key(|&&j| (i as i32 - j as i32).abs())
+                    {
                         if let Some(coarse_idx) = fine_to_coarse[*closest] {
                             interpolation_indices.push(coarse_idx);
                             interpolation_data.push(T::one());
@@ -873,7 +911,10 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
                     }
                 } else {
                     // Distribute interpolation weights
-                    let total_weight: T = neighbors.iter().map(|(_, w)| *w).fold(T::zero(), |acc, x| acc + x);
+                    let total_weight: T = neighbors
+                        .iter()
+                        .map(|(_, w)| *w)
+                        .fold(T::zero(), |acc, x| acc + x);
                     for (coarse_idx, weight) in neighbors {
                         interpolation_indices.push(coarse_idx);
                         interpolation_data.push(weight / total_weight);
@@ -889,7 +930,10 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
             interpolation_indptr,
             interpolation_indices,
             interpolation_data,
-        ).map_err(|e| Error::InvalidConfiguration(format!("Failed to create interpolation matrix: {:?}", e)))
+        )
+        .map_err(|e| {
+            Error::InvalidConfiguration(format!("Failed to create interpolation matrix: {:?}", e))
+        })
     }
 
     /// Find interpolation neighbors for fine points
@@ -905,7 +949,9 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
         for (&j, &val) in row.col_indices().iter().zip(row.values()) {
             if j != fine_point {
                 if let Some(&coarse_idx) = coarse_indices.iter().find(|&&idx| idx == j) {
-                    if let Some(coarse_map_idx) = coarse_indices.iter().position(|&x| x == coarse_idx) {
+                    if let Some(coarse_map_idx) =
+                        coarse_indices.iter().position(|&x| x == coarse_idx)
+                    {
                         neighbors.push((coarse_map_idx, val.abs()));
                     }
                 }
@@ -916,7 +962,8 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
         if neighbors.is_empty() {
             for (coarse_map_idx, &coarse_point) in coarse_indices.iter().enumerate() {
                 let distance = (fine_point as i32 - coarse_point as i32).abs() as f64;
-                if distance <= 3.0 { // Only consider nearby points
+                if distance <= 3.0 {
+                    // Only consider nearby points
                     let weight = T::from_f64(1.0 / (distance + 1.0)).unwrap_or_else(|| T::one());
                     neighbors.push((coarse_map_idx, weight));
                 }
@@ -963,7 +1010,8 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
             MultigridCycle::F => {
                 // F-cycle: solve on all intermediate levels
                 for l in level + 1..self.levels.len() {
-                    let mut level_correction = DVector::zeros(self.levels[l - 1].restriction.ncols());
+                    let mut level_correction =
+                        DVector::zeros(self.levels[l - 1].restriction.ncols());
                     self.apply_cycle(l, &coarse_residual, &mut level_correction)?;
                     if l == level + 1 {
                         coarse_correction = level_correction;
@@ -974,7 +1022,11 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
 
         // Interpolate correction back to fine grid
         let mut fine_correction = DVector::zeros(z.len());
-        crate::sparse::spmv(&current_level.interpolation, &coarse_correction, &mut fine_correction);
+        crate::sparse::spmv(
+            &current_level.interpolation,
+            &coarse_correction,
+            &mut fine_correction,
+        );
 
         // Add correction
         *z += &fine_correction;
@@ -1017,8 +1069,8 @@ impl Default for AMGConfig {
     fn default() -> Self {
         Self {
             cycle_type: MultigridCycle::V,
-            nu1: 2,  // 2 pre-smoothing iterations
-            nu2: 2,  // 2 post-smoothing iterations
+            nu1: 2, // 2 pre-smoothing iterations
+            nu2: 2, // 2 post-smoothing iterations
             max_levels: 10,
             min_coarse_size: 50,
             coarsening: CoarseningStrategy::RugeStueben,
@@ -1145,7 +1197,8 @@ mod tests {
         let ilu = IncompleteLU::new(&a).expect("ILU(0) construction should succeed");
         assert_eq!(ilu.fill_level(), 0);
 
-        let ilu_k = IncompleteLU::with_fill_level(&a, 1).expect("ILU(1) construction should succeed");
+        let ilu_k =
+            IncompleteLU::with_fill_level(&a, 1).expect("ILU(1) construction should succeed");
         assert_eq!(ilu_k.fill_level(), 1);
     }
 
@@ -1160,7 +1213,10 @@ mod tests {
         ilu.apply_to(&r, &mut z).expect("ILU apply should succeed");
 
         // Basic sanity check - result should not be zero
-        assert!(z.iter().any(|&x| x.abs() > 0.0), "ILU result should not be zero");
+        assert!(
+            z.iter().any(|&x| x.abs() > 0.0),
+            "ILU result should not be zero"
+        );
     }
 
     #[test]
@@ -1172,10 +1228,15 @@ mod tests {
         let mut z = DVector::zeros(a.nrows());
 
         // Test preconditioner trait implementation
-        <IncompleteLU<f64> as Preconditioner<f64>>::apply_to(&ilu, &r, &mut z).expect("Preconditioner apply should succeed");
+        <IncompleteLU<f64> as Preconditioner<f64>>::apply_to(&ilu, &r, &mut z)
+            .expect("Preconditioner apply should succeed");
 
         // Verify result is not identical to input (preconditioner should modify it)
-        assert_ne!(z.as_slice(), r.as_slice(), "Preconditioner should modify the input vector");
+        assert_ne!(
+            z.as_slice(),
+            r.as_slice(),
+            "Preconditioner should modify the input vector"
+        );
     }
 
     #[test]
@@ -1201,185 +1262,11 @@ mod tests {
         amg.apply_to(&r, &mut z).expect("AMG apply should succeed");
 
         // AMG should produce a valid result
-        assert!(z.iter().any(|&x| x.abs() > 0.0), "AMG result should not be zero");
+        assert!(
+            z.iter().any(|&x| x.abs() > 0.0),
+            "AMG result should not be zero"
+        );
     }
-
-/// Incomplete LU factorization preconditioner with fill level k
-///
-/// ## Mathematical Foundation
-/// ILU(k) creates an incomplete factorization $A ≈ LU$ where only entries
-/// within k levels of the main diagonal are kept, providing a good balance
-/// between preconditioning quality and computational cost.
-///
-/// ## Performance Characteristics
-/// - **Memory**: O(n) with bounded fill-in
-/// - **Setup**: O(n) for ILU(0), O(n^{3/2}) for higher fill levels
-/// - **Application**: O(n) per solve
-/// - **Convergence**: Superior to Jacobi for many CFD problems
-#[derive(Clone)]
-pub struct ILUPreconditioner<T: RealField + Copy> {
-    /// Lower triangular factor L
-    l_factor: CsrMatrix<T>,
-    /// Upper triangular factor U
-    u_factor: CsrMatrix<T>,
-    /// Fill level parameter
-    fill_level: usize,
-}
-
-impl<T: RealField + Copy + FromPrimitive> ILUPreconditioner<T> {
-    /// Create ILU(k) preconditioner with specified fill level
-    ///
-    /// # Arguments
-    /// * `matrix` - Input sparse matrix (must be square)
-    /// * `fill_level` - Fill level k (0 for ILU(0), higher for more fill-in)
-    ///
-    /// # Returns
-    /// ILU preconditioner or error if factorization fails
-    pub fn new(matrix: &CsrMatrix<T>, fill_level: usize) -> Result<Self> {
-        let n = matrix.nrows();
-        if matrix.ncols() != n {
-            return Err(Error::InvalidInput("Matrix must be square for ILU factorization".to_string()));
-        }
-
-        // For now, implement ILU(0) - can be extended to higher fill levels
-        if fill_level > 0 {
-            return Err(Error::InvalidInput("ILU(k) with k > 0 not yet implemented".to_string()));
-        }
-
-        let (l_factor, u_factor) = Self::ilu0_factorization(matrix)?;
-
-        Ok(Self {
-            l_factor,
-            u_factor,
-            fill_level,
-        })
-    }
-
-    /// Perform ILU(0) factorization (no fill-in)
-    fn ilu0_factorization(matrix: &CsrMatrix<T>) -> Result<(CsrMatrix<T>, CsrMatrix<T>)> {
-        let n = matrix.nrows();
-        let mut l_data = Vec::new();
-        let mut l_indices = Vec::new();
-        let mut l_indptr = vec![0];
-
-        let mut u_data = Vec::new();
-        let mut u_indices = Vec::new();
-        let mut u_indptr = vec![0];
-
-        for i in 0..n {
-            // Process row i
-            let row = matrix.row(i);
-            let mut row_values = vec![T::zero(); n];
-
-            // Copy original row values
-            for (&col_idx, &val) in row.col_indices().iter().zip(row.values()) {
-                row_values[col_idx] = val;
-            }
-
-            // ILU(0) factorization: no fill-in allowed
-            for k in 0..i {
-                if row_values[k] != T::zero() {
-                    // Apply previously computed factors
-                    let l_kk = l_data[l_indptr[k + 1] - 1]; // L[k,k] is last element in row k
-                    if l_kk != T::zero() {
-                        let factor = row_values[k] / l_kk;
-
-                        // Update L[i,k]
-                        l_data.push(factor);
-                        l_indices.push(k);
-
-                        // Update U[k,i] = factor
-                        u_data.push(factor);
-                        u_indices.push(i);
-
-                        // Eliminate: row_values[j] -= factor * U[k,j] for j > k
-                        for j in (k + 1)..n {
-                            if let Some(u_pos) = u_indices.iter().position(|&idx| idx == j)
-                                .filter(|&pos| pos >= u_indptr[k] && pos < u_indptr[k + 1]) {
-                                row_values[j] = row_values[j] - factor * u_data[u_pos];
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Store diagonal and upper triangular part in U
-            for j in i..n {
-                if row_values[j] != T::zero() {
-                    if j == i {
-                        // Diagonal element of U (should be 1 for unit diagonal L)
-                        u_data.push(row_values[j]);
-                        u_indices.push(j);
-                        // Diagonal of L is 1 (implicit)
-                    } else {
-                        u_data.push(row_values[j]);
-                        u_indices.push(j);
-                    }
-                }
-            }
-
-            l_indptr.push(l_data.len());
-            u_indptr.push(u_data.len());
-        }
-
-        // Build CSR matrices
-        let l_factor = CsrMatrix::try_from_csr_data(
-            n, n,
-            l_indptr,
-            l_indices,
-            l_data
-        ).map_err(|_| Error::Numerical(NumericalErrorKind::SingularMatrix))?;
-
-        let u_factor = CsrMatrix::try_from_csr_data(
-            n, n,
-            u_indptr,
-            u_indices,
-            u_data
-        ).map_err(|_| Error::Numerical(NumericalErrorKind::SingularMatrix))?;
-
-        Ok((l_factor, u_factor))
-    }
-}
-
-impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for ILUPreconditioner<T> {
-    fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
-        let n = r.len();
-        assert_eq!(z.len(), n, "Output vector must have same size as input");
-
-        // Forward substitution: L * y = r
-        let mut y = vec![T::zero(); n];
-        for i in 0..n {
-            let mut sum = r[i];
-            let l_row = self.l_factor.row(i);
-            for (&col_idx, &val) in l_row.col_indices().iter().zip(l_row.values()) {
-                if col_idx < i {
-                    sum = sum - val * y[col_idx];
-                }
-            }
-            y[i] = sum; // L[i,i] = 1 (unit diagonal)
-        }
-
-        // Backward substitution: U * z = y
-        for i in (0..n).rev() {
-            let mut sum = y[i];
-            let u_row = self.u_factor.row(i);
-            for (&col_idx, &val) in u_row.col_indices().iter().zip(u_row.values()) {
-                if col_idx > i {
-                    sum = sum - val * z[col_idx];
-                }
-            }
-            let diag_idx = u_row.col_indices().iter().position(|&idx| idx == i)
-                .ok_or_else(|| Error::Numerical(NumericalErrorKind::DivisionByZero))?;
-            let diag_val = u_row.values()[diag_idx];
-            if diag_val.abs() < T::from_f64(1e-14).unwrap_or(T::zero()) {
-                return Err(Error::Numerical(NumericalErrorKind::DivisionByZero));
-            }
-            z[i] = sum / diag_val;
-        }
-
-        Ok(())
-    }
-}
 
     #[test]
     fn test_ilu_preconditioner() {
@@ -1394,7 +1281,7 @@ impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for ILUPreconditione
         builder.add_entry(2, 2, 4.0).unwrap();
         let matrix = builder.build().unwrap();
 
-        let ilu = ILUPreconditioner::new(&matrix, 0).unwrap();
+        let ilu = IncompleteLU::new(&matrix).unwrap();
 
         // Test preconditioner application using apply_to
         let residual = DVector::from_vec(vec![1.0, 2.0, 3.0]);
@@ -1428,7 +1315,8 @@ impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for ILUPreconditione
         };
 
         let matrix = create_test_matrix();
-        let amg = AlgebraicMultigrid::with_config(&matrix, config).expect("AMG with custom config should succeed");
+        let amg = AlgebraicMultigrid::with_config(&matrix, config)
+            .expect("AMG with custom config should succeed");
 
         assert_eq!(amg.cycle_type, MultigridCycle::W);
         assert_eq!(amg.nu1, 3);
@@ -1462,9 +1350,13 @@ impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for ILUPreconditione
 /// - Dryja & Widlund (1987): An additive variant of Schwarz alternating method
 /// - Smith et al. (1996): Domain Decomposition: Parallel Multilevel Methods for Elliptic PDEs
 
-/// Overlapping Schwarz domain decomposition preconditioner
+/// Overlapping Schwarz domain decomposition preconditioner (Serial Implementation)
+///
+/// This implementation performs domain decomposition on a single process, solving
+/// subdomains sequentially. It is intended for testing or as a building block
+/// for parallel implementations, but does not provide parallelism itself.
 #[derive(Debug)]
-pub struct SchwarzPreconditioner<T: RealField + Copy> {
+pub struct SerialSchwarzPreconditioner<T: RealField + Copy> {
     /// Local subdomain solvers (one per subdomain)
     local_solvers: Vec<IncompleteLU<T>>,
     /// Subdomain boundaries and mappings
@@ -1473,7 +1365,7 @@ pub struct SchwarzPreconditioner<T: RealField + Copy> {
     overlap: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive> SchwarzPreconditioner<T> {
+impl<T: RealField + Copy + FromPrimitive> SerialSchwarzPreconditioner<T> {
     /// Create overlapping Schwarz preconditioner
     ///
     /// # Arguments
@@ -1488,15 +1380,16 @@ impl<T: RealField + Copy + FromPrimitive> SchwarzPreconditioner<T> {
     pub fn new(matrix: &CsrMatrix<T>, num_subdomains: usize, overlap: usize) -> Result<Self> {
         if num_subdomains < 2 {
             return Err(Error::InvalidConfiguration(
-                "Need at least 2 subdomains for domain decomposition".to_string()
+                "Need at least 2 subdomains for domain decomposition".to_string(),
             ));
         }
 
         let n = matrix.nrows();
         if n < num_subdomains {
-            return Err(Error::InvalidConfiguration(
-                format!("Matrix size {} too small for {} subdomains", n, num_subdomains)
-            ));
+            return Err(Error::InvalidConfiguration(format!(
+                "Matrix size {} too small for {} subdomains",
+                n, num_subdomains
+            )));
         }
 
         // Create subdomain partitioning (simple 1D decomposition for now)
@@ -1522,7 +1415,11 @@ impl<T: RealField + Copy + FromPrimitive> SchwarzPreconditioner<T> {
     }
 
     /// Create subdomain partitioning with overlap
-    fn create_subdomain_partitioning(n: usize, num_subdomains: usize, overlap: usize) -> Vec<Vec<usize>> {
+    fn create_subdomain_partitioning(
+        n: usize,
+        num_subdomains: usize,
+        overlap: usize,
+    ) -> Vec<Vec<usize>> {
         let mut subdomain_map = Vec::with_capacity(num_subdomains);
 
         // Simple 1D domain decomposition
@@ -1656,7 +1553,7 @@ impl<T: RealField + Copy + FromPrimitive> SchwarzPreconditioner<T> {
     }
 }
 
-impl<T: RealField + Copy> Preconditioner<T> for SchwarzPreconditioner<T> {
+impl<T: RealField + Copy> Preconditioner<T> for SerialSchwarzPreconditioner<T> {
     fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
         // Use additive Schwarz by default (more parallelizable)
         let result = self.apply_additive(r)?;
@@ -1715,7 +1612,7 @@ impl<T: RealField + Copy> DeflationPreconditioner<T> {
     ) -> Result<Self> {
         if eigenvectors.len() != eigenvalues.len() {
             return Err(Error::InvalidConfiguration(
-                "Number of eigenvectors must match number of eigenvalues".to_string()
+                "Number of eigenvectors must match number of eigenvalues".to_string(),
             ));
         }
 
@@ -1724,10 +1621,12 @@ impl<T: RealField + Copy> DeflationPreconditioner<T> {
             let n = first_vec.len();
             for (i, vec) in eigenvectors.iter().enumerate() {
                 if vec.len() != n {
-                    return Err(Error::InvalidConfiguration(
-                        format!("Eigenvector {} has wrong dimension: expected {}, got {}",
-                               i, n, vec.len())
-                    ));
+                    return Err(Error::InvalidConfiguration(format!(
+                        "Eigenvector {} has wrong dimension: expected {}, got {}",
+                        i,
+                        n,
+                        vec.len()
+                    )));
                 }
             }
         }
@@ -1744,10 +1643,11 @@ impl<T: RealField + Copy> DeflationPreconditioner<T> {
         // Check dimension against first eigenvector if available
         if let Some(first_vec) = self.eigenvectors.first() {
             if eigenvector.len() != first_vec.len() {
-                return Err(Error::InvalidConfiguration(
-                    format!("Eigenvector dimension mismatch: expected {}, got {}",
-                           first_vec.len(), eigenvector.len())
-                ));
+                return Err(Error::InvalidConfiguration(format!(
+                    "Eigenvector dimension mismatch: expected {}, got {}",
+                    first_vec.len(),
+                    eigenvector.len()
+                )));
             }
         }
 
@@ -1791,10 +1691,17 @@ mod deflation_tests {
         let eigenvalues = vec![1.0, 2.0];
 
         let deflation = DeflationPreconditioner::new(base, eigenvectors, eigenvalues);
-        assert!(deflation.is_ok(), "Deflation preconditioner creation should succeed");
+        assert!(
+            deflation.is_ok(),
+            "Deflation preconditioner creation should succeed"
+        );
 
         let deflation = deflation.unwrap();
-        assert_eq!(deflation.eigenvectors.len(), 2, "Should have 2 eigenvectors");
+        assert_eq!(
+            deflation.eigenvectors.len(),
+            2,
+            "Should have 2 eigenvectors"
+        );
         assert_eq!(deflation.eigenvalues.len(), 2, "Should have 2 eigenvalues");
     }
 
@@ -1802,12 +1709,16 @@ mod deflation_tests {
     fn test_deflation_preconditioner_wrong_dimensions() {
         let base = Box::new(IdentityPreconditioner);
         let eigenvectors = vec![
-            DVector::from_vec(vec![1.0, 0.0]), // Wrong dimension
+            DVector::from_vec(vec![1.0, 0.0]),      // Dimension 2
+            DVector::from_vec(vec![1.0, 0.0, 0.0]), // Dimension 3 (mismatch)
         ];
-        let eigenvalues = vec![1.0];
+        let eigenvalues = vec![1.0, 2.0];
 
         let deflation = DeflationPreconditioner::new(base, eigenvectors, eigenvalues);
-        assert!(deflation.is_err(), "Should fail with wrong eigenvector dimension");
+        assert!(
+            deflation.is_err(),
+            "Should fail with mismatched eigenvector dimensions"
+        );
     }
 
     #[test]
@@ -1817,7 +1728,10 @@ mod deflation_tests {
         let eigenvalues = vec![1.0, 2.0]; // Mismatched count
 
         let deflation = DeflationPreconditioner::new(base, eigenvectors, eigenvalues);
-        assert!(deflation.is_err(), "Should fail with mismatched eigenvector/eigenvalue counts");
+        assert!(
+            deflation.is_err(),
+            "Should fail with mismatched eigenvector/eigenvalue counts"
+        );
     }
 
     #[test]
@@ -1856,10 +1770,18 @@ mod schwarz_tests {
             builder.add_entry(i, i, 4.0).unwrap();
 
             // Off-diagonal elements (5-point stencil)
-            if i > 3 { builder.add_entry(i, i-4, -1.0).unwrap(); } // North
-            if i < 12 { builder.add_entry(i, i+4, -1.0).unwrap(); } // South
-            if i % 4 != 0 { builder.add_entry(i, i-1, -1.0).unwrap(); } // West
-            if i % 4 != 3 { builder.add_entry(i, i+1, -1.0).unwrap(); } // East
+            if i > 3 {
+                builder.add_entry(i, i - 4, -1.0).unwrap();
+            } // North
+            if i < 12 {
+                builder.add_entry(i, i + 4, -1.0).unwrap();
+            } // South
+            if i % 4 != 0 {
+                builder.add_entry(i, i - 1, -1.0).unwrap();
+            } // West
+            if i % 4 != 3 {
+                builder.add_entry(i, i + 1, -1.0).unwrap();
+            } // East
         }
 
         builder.build().unwrap()
@@ -1868,45 +1790,66 @@ mod schwarz_tests {
     #[test]
     fn test_schwarz_preconditioner_creation() {
         let matrix = create_test_matrix();
-        let schwarz = SchwarzPreconditioner::new(&matrix, 4, 1);
+        let schwarz = SerialSchwarzPreconditioner::new(&matrix, 4, 1);
 
-        assert!(schwarz.is_ok(), "Schwarz preconditioner creation should succeed");
+        assert!(
+            schwarz.is_ok(),
+            "Schwarz preconditioner creation should succeed"
+        );
         let schwarz = schwarz.unwrap();
 
-        assert_eq!(schwarz.local_solvers.len(), 4, "Should have 4 local solvers");
+        assert_eq!(
+            schwarz.local_solvers.len(),
+            4,
+            "Should have 4 local solvers"
+        );
         assert_eq!(schwarz.overlap, 1, "Overlap should be 1");
     }
 
     #[test]
     fn test_schwarz_subdomain_partitioning() {
-        let subdomain_map = SchwarzPreconditioner::<f64>::create_subdomain_partitioning(16, 4, 1);
+        let subdomain_map = SerialSchwarzPreconditioner::<f64>::create_subdomain_partitioning(16, 4, 1);
 
         assert_eq!(subdomain_map.len(), 4, "Should have 4 subdomains");
 
         // Check subdomain sizes (should be roughly equal with overlap)
-        assert!(subdomain_map[0].len() >= 4, "First subdomain should have at least 4 elements");
-        assert!(subdomain_map[3].len() >= 4, "Last subdomain should have at least 4 elements");
+        assert!(
+            subdomain_map[0].len() >= 4,
+            "First subdomain should have at least 4 elements"
+        );
+        assert!(
+            subdomain_map[3].len() >= 4,
+            "Last subdomain should have at least 4 elements"
+        );
 
         // Check overlap - adjacent subdomains should share elements
         let last_of_first = *subdomain_map[0].last().unwrap();
         let first_of_second = *subdomain_map[1].first().unwrap();
-        assert!(last_of_first >= first_of_second.saturating_sub(1),
-                "Adjacent subdomains should overlap");
+        assert!(
+            last_of_first >= first_of_second.saturating_sub(1),
+            "Adjacent subdomains should overlap"
+        );
     }
 
     #[test]
     fn test_schwarz_additive_application() {
         let matrix = create_test_matrix();
-        let schwarz = SchwarzPreconditioner::new(&matrix, 4, 1).unwrap();
+        let schwarz = SerialSchwarzPreconditioner::new(&matrix, 4, 1).unwrap();
 
         let r = DVector::from_element(16, 1.0);
         let result = schwarz.apply_additive(&r);
 
-        assert!(result.is_ok(), "Additive Schwarz application should succeed");
+        assert!(
+            result.is_ok(),
+            "Additive Schwarz application should succeed"
+        );
         let result = result.unwrap();
 
         assert_eq!(result.len(), 16, "Result should have correct size");
         // Result should be non-zero (actual preconditioning effectiveness tested elsewhere)
-        assert!(result.iter().any(|&x| x != 0.0), "Result should be non-zero");
+        assert!(
+            result.iter().any(|&x| x != 0.0),
+            "Result should be non-zero"
+        );
     }
 }

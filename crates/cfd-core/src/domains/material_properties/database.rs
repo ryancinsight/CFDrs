@@ -85,7 +85,7 @@ impl<T: RealField + Copy> MaterialDatabase<T> {
     {
         use super::interfaces::FluidSolidInterface;
         use super::solids::ElasticSolid;
-        
+
         let mut db = Self::new();
 
         // Add common fluids

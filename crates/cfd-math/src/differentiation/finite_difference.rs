@@ -33,7 +33,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
     }
 
     /// Compute first derivative using iterator combinators and zero-copy operations
-    /// 
+    ///
     /// # Errors
     /// Returns an error if the input array has fewer than 2 points
     pub fn first_derivative(&self, values: &[T]) -> Result<DVector<T>> {
@@ -147,7 +147,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
     }
 
     /// Compute first derivative using SIMD acceleration for f32 arrays
-    /// 
+    ///
     /// # Errors
     /// Returns an error if the input array has fewer than 2 points
     pub fn first_derivative_simd_f32(&self, values: &[f32]) -> Result<Vec<f32>> {
@@ -191,7 +191,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
     }
 
     /// Compute second derivative using central differences
-    /// 
+    ///
     /// # Errors
     /// Returns an error if the input array has fewer than 3 points
     pub fn second_derivative(&self, values: &[T]) -> Result<DVector<T>> {
@@ -244,7 +244,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Default for FiniteDifferen
 }
 
 /// Compute 1D differentiation using central differences
-/// 
+///
 /// # Errors
 /// Returns an error if the input array has fewer than 2 points
 pub fn differentiate_1d<T: RealField + From<f64> + FromPrimitive + Copy>(
@@ -255,7 +255,7 @@ pub fn differentiate_1d<T: RealField + From<f64> + FromPrimitive + Copy>(
 }
 
 /// Compute 2D differentiation (gradient) using central differences
-/// 
+///
 /// # Errors
 /// Returns an error if field dimensions are invalid or insufficient data points
 pub fn differentiate_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
@@ -277,7 +277,7 @@ pub fn differentiate_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
 }
 
 /// Compute 2D Laplacian using central differences
-/// 
+///
 /// # Errors
 /// Returns an error if field dimensions are invalid or insufficient data points
 #[allow(clippy::similar_names)] // Mathematical derivatives use standard notation

@@ -88,7 +88,7 @@ pub struct RegressionAnalysis {
     pub current_performance: BenchmarkResult,
     pub baseline_performance: Option<BenchmarkBaseline>,
     pub regression_detected: bool,
-    pub regression_magnitude: f64, // percentage change
+    pub regression_magnitude: f64,     // percentage change
     pub statistical_significance: f64, // p-value
     pub trend: PerformanceTrend,
     pub alert_level: AlertLevel,
@@ -144,7 +144,8 @@ impl RegressionDetector {
             if baseline_path.exists() {
                 match fs::read_to_string(baseline_path) {
                     Ok(content) => {
-                        if let Ok(baseline) = serde_json::from_str::<PerformanceBaseline>(&content) {
+                        if let Ok(baseline) = serde_json::from_str::<PerformanceBaseline>(&content)
+                        {
                             data.push(baseline);
                         }
                     }
@@ -159,14 +160,17 @@ impl RegressionDetector {
             if let Ok(entries) = fs::read_dir(historical_dir) {
                 for entry in entries.flatten() {
                     if let Ok(content) = fs::read_to_string(entry.path()) {
-                        if let Ok(baseline) = serde_json::from_str::<PerformanceBaseline>(&content) {
+                        if let Ok(baseline) = serde_json::from_str::<PerformanceBaseline>(&content)
+                        {
                             // Check if data is within retention period
                             let current_time = SystemTime::now()
                                 .duration_since(UNIX_EPOCH)
                                 .unwrap_or_default()
                                 .as_secs();
 
-                            if current_time.saturating_sub(baseline.timestamp) <= config.retention_days * 24 * 3600 {
+                            if current_time.saturating_sub(baseline.timestamp)
+                                <= config.retention_days * 24 * 3600
+                            {
                                 data.push(baseline);
                             }
                         }
@@ -180,7 +184,10 @@ impl RegressionDetector {
     }
 
     /// Analyze current results against baseline
-    pub fn analyze_regression(&self, current_results: &[BenchmarkResult]) -> Vec<RegressionAnalysis> {
+    pub fn analyze_regression(
+        &self,
+        current_results: &[BenchmarkResult],
+    ) -> Vec<RegressionAnalysis> {
         let mut analyses = Vec::new();
 
         for current in current_results {
@@ -209,7 +216,11 @@ impl RegressionDetector {
     }
 
     /// Analyze regression for a single benchmark
-    fn analyze_single_benchmark(&self, current: &BenchmarkResult, baseline: Option<&BenchmarkBaseline>) -> RegressionAnalysis {
+    fn analyze_single_benchmark(
+        &self,
+        current: &BenchmarkResult,
+        baseline: Option<&BenchmarkBaseline>,
+    ) -> RegressionAnalysis {
         let regression_detected;
         let regression_magnitude;
         let statistical_significance;
@@ -220,20 +231,28 @@ impl RegressionDetector {
             let current_time_ns = current.mean_time.as_nanos() as f64;
             let baseline_time_ns = baseline.mean_time_ns as f64;
 
-            regression_magnitude = ((current_time_ns - baseline_time_ns) / baseline_time_ns) * 100.0;
+            regression_magnitude =
+                ((current_time_ns - baseline_time_ns) / baseline_time_ns) * 100.0;
 
             // Simple statistical significance test (t-test approximation)
             let current_std = current.std_dev.as_nanos() as f64;
             let baseline_std = baseline.std_dev_ns as f64;
 
-            let se = (current_std.powi(2) / current.samples as f64 +
-                     baseline_std.powi(2) / baseline.samples as f64).sqrt();
+            let se = (current_std.powi(2) / current.samples as f64
+                + baseline_std.powi(2) / baseline.samples as f64)
+                .sqrt();
 
             let t_stat = (current_time_ns - baseline_time_ns) / se;
-            statistical_significance = if t_stat.abs() > 2.0 { 0.01 } else if t_stat.abs() > 1.96 { 0.05 } else { 0.1 };
+            statistical_significance = if t_stat.abs() > 2.0 {
+                0.01
+            } else if t_stat.abs() > 1.96 {
+                0.05
+            } else {
+                0.1
+            };
 
-            regression_detected = regression_magnitude.abs() > self.config.regression_threshold_pct &&
-                                 statistical_significance < self.config.significance_threshold;
+            regression_detected = regression_magnitude.abs() > self.config.regression_threshold_pct
+                && statistical_significance < self.config.significance_threshold;
 
             // Determine trend
             trend = if regression_magnitude < -5.0 {
@@ -243,7 +262,6 @@ impl RegressionDetector {
             } else {
                 PerformanceTrend::Stable
             };
-
         } else {
             // No baseline available
             regression_detected = false;
@@ -362,7 +380,11 @@ impl RegressionDetector {
         if let Some(baseline_path) = &self.config.baseline_path {
             if let Ok(json) = serde_json::to_string_pretty(&new_baseline) {
                 if let Err(e) = fs::write(baseline_path, json) {
-                    eprintln!("Failed to save baseline to {}: {}", baseline_path.display(), e);
+                    eprintln!(
+                        "Failed to save baseline to {}: {}",
+                        baseline_path.display(),
+                        e
+                    );
                 } else {
                     println!("Baseline updated: {}", baseline_path.display());
                 }
@@ -419,10 +441,12 @@ pub fn benchmark_regression_detection(c: &mut Criterion, config: &BenchmarkConfi
     for analysis in &analyses {
         if analysis.regression_detected {
             regressions_found += 1;
-            println!("🚨 REGRESSION: {} - {:.1}% (p={:.3})",
-                    analysis.benchmark_name,
-                    analysis.regression_magnitude,
-                    analysis.statistical_significance);
+            println!(
+                "🚨 REGRESSION: {} - {:.1}% (p={:.3})",
+                analysis.benchmark_name,
+                analysis.regression_magnitude,
+                analysis.statistical_significance
+            );
         } else {
             println!("✅ STABLE: {}", analysis.benchmark_name);
         }
@@ -431,7 +455,10 @@ pub fn benchmark_regression_detection(c: &mut Criterion, config: &BenchmarkConfi
     if regressions_found == 0 {
         println!("🎉 No performance regressions detected!");
     } else {
-        println!("⚠️  {} performance regressions detected!", regressions_found);
+        println!(
+            "⚠️  {} performance regressions detected!",
+            regressions_found
+        );
     }
 
     // Update baseline with current results
@@ -489,12 +516,14 @@ fn run_memory_allocation_benchmark(size: usize) -> (Duration, Duration) {
     }
 
     let mean = times.iter().sum::<Duration>() / times.len() as u32;
-    let variance = times.iter()
+    let variance = times
+        .iter()
         .map(|&t| {
             let diff = if t > mean { t - mean } else { mean - t };
             diff.as_secs_f64().powi(2)
         })
-        .sum::<f64>() / times.len() as f64;
+        .sum::<f64>()
+        / times.len() as f64;
 
     let std_dev = Duration::from_secs_f64(variance.sqrt());
     (mean, std_dev)
@@ -518,12 +547,14 @@ fn run_cfd_computation_benchmark(size: usize) -> (Duration, Duration) {
     }
 
     let mean = times.iter().sum::<Duration>() / times.len() as u32;
-    let variance = times.iter()
+    let variance = times
+        .iter()
         .map(|&t| {
             let diff = if t > mean { t - mean } else { mean - t };
             diff.as_secs_f64().powi(2)
         })
-        .sum::<f64>() / times.len() as f64;
+        .sum::<f64>()
+        / times.len() as f64;
 
     let std_dev = Duration::from_secs_f64(variance.sqrt());
     (mean, std_dev)
@@ -538,12 +569,11 @@ fn calculate_throughput(duration: Duration, problem_size: usize) -> f64 {
 pub fn generate_regression_recommendations(analyses: &[RegressionAnalysis]) -> Vec<String> {
     let mut recommendations = Vec::new();
 
-    let regressions: Vec<_> = analyses.iter()
-        .filter(|a| a.regression_detected)
-        .collect();
+    let regressions: Vec<_> = analyses.iter().filter(|a| a.regression_detected).collect();
 
     if regressions.is_empty() {
-        recommendations.push("✅ No performance regressions detected. Performance is stable.".to_string());
+        recommendations
+            .push("✅ No performance regressions detected. Performance is stable.".to_string());
         return recommendations;
     }
 
@@ -552,7 +582,8 @@ pub fn generate_regression_recommendations(analyses: &[RegressionAnalysis]) -> V
         regressions.len()
     ));
 
-    let critical_regressions: Vec<_> = regressions.iter()
+    let critical_regressions: Vec<_> = regressions
+        .iter()
         .filter(|a| matches!(a.alert_level, AlertLevel::Critical))
         .collect();
 
@@ -564,7 +595,8 @@ pub fn generate_regression_recommendations(analyses: &[RegressionAnalysis]) -> V
     }
 
     // Analyze trends
-    let improving: Vec<_> = analyses.iter()
+    let improving: Vec<_> = analyses
+        .iter()
         .filter(|a| matches!(a.trend, PerformanceTrend::Improving))
         .collect();
 
@@ -575,7 +607,8 @@ pub fn generate_regression_recommendations(analyses: &[RegressionAnalysis]) -> V
         ));
     }
 
-    let degrading: Vec<_> = analyses.iter()
+    let degrading: Vec<_> = analyses
+        .iter()
         .filter(|a| matches!(a.trend, PerformanceTrend::Degrading))
         .collect();
 
@@ -586,7 +619,8 @@ pub fn generate_regression_recommendations(analyses: &[RegressionAnalysis]) -> V
         ));
     }
 
-    recommendations.push("💡 Consider reviewing recent code changes and running profiling tools.".to_string());
+    recommendations
+        .push("💡 Consider reviewing recent code changes and running profiling tools.".to_string());
 
     recommendations
 }

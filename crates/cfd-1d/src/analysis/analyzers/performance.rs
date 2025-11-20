@@ -22,7 +22,8 @@ impl<T: RealField + Copy> Default for PerformanceAnalyzer<T> {
 
 impl<T: RealField + Copy> PerformanceAnalyzer<T> {
     /// Create new performance analyzer
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }

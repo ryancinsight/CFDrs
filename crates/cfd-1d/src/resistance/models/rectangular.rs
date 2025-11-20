@@ -57,7 +57,6 @@ use serde::{Deserialize, Serialize};
 const HYDRAULIC_DIAMETER_FACTOR: f64 = 4.0;
 const PERIMETER_FACTOR: f64 = 2.0;
 
-
 /// Rectangular channel resistance model with exact solution
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RectangularChannelModel<T: RealField + Copy> {
@@ -89,12 +88,14 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
 
         // Calculate hydraulic diameter
         let area = self.width * self.height;
-        let perimeter = T::from_f64(PERIMETER_FACTOR).unwrap_or_else(|| T::zero())
-            * (self.width + self.height);
-        let dh = T::from_f64(HYDRAULIC_DIAMETER_FACTOR).unwrap_or_else(|| T::zero()) * area / perimeter;
+        let perimeter =
+            T::from_f64(PERIMETER_FACTOR).unwrap_or_else(|| T::zero()) * (self.width + self.height);
+        let dh =
+            T::from_f64(HYDRAULIC_DIAMETER_FACTOR).unwrap_or_else(|| T::zero()) * area / perimeter;
 
         // Calculate aspect ratio (always ≥ 1 for consistency)
-        let aspect_ratio = RealField::max(self.width, self.height) / RealField::min(self.width, self.height);
+        let aspect_ratio =
+            RealField::max(self.width, self.height) / RealField::min(self.width, self.height);
 
         // Calculate Poiseuille number using Shah-London correlations
         let poiseuille_number = self.calculate_poiseuille_number(aspect_ratio);
@@ -105,12 +106,14 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
         // So R = (Po/Re) * L * ρ / (2 * A * Dh²)
 
         // Get Reynolds number from flow conditions, defaulting to 100 for backward compatibility
-        let reynolds = conditions.reynolds_number
+        let reynolds = conditions
+            .reynolds_number
             .unwrap_or_else(|| T::from_f64(100.0).unwrap_or_else(|| T::one()));
         let f_fanning = poiseuille_number / reynolds; // Fanning friction factor
 
         // Hydraulic resistance using standard Darcy-Weisbach formulation
-        let resistance = f_fanning * self.length * density / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * dh * dh);
+        let resistance = f_fanning * self.length * density
+            / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * dh * dh);
 
         Ok(resistance)
     }
@@ -158,9 +161,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> RectangularChannel
             let a5 = T::from_f64(0.2537).unwrap_or_else(|| T::zero());
 
             let base = T::from_f64(24.0).unwrap_or_else(|| T::zero());
-            let correction = T::one()
-                - a1 / alpha
-                + a2 / (alpha * alpha)
+            let correction = T::one() - a1 / alpha + a2 / (alpha * alpha)
                 - a3 / (alpha * alpha * alpha)
                 + a4 / (alpha * alpha * alpha * alpha)
                 - a5 / (alpha * alpha * alpha * alpha * alpha);
@@ -178,9 +179,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> RectangularChannel
             let b5 = T::from_f64(0.013).unwrap_or_else(|| T::zero());
 
             let base = T::from_f64(24.0).unwrap_or_else(|| T::zero());
-            let correction = T::one()
-                - b1 / inv_alpha
-                + b2 / (inv_alpha * inv_alpha)
+            let correction = T::one() - b1 / inv_alpha + b2 / (inv_alpha * inv_alpha)
                 - b3 / (inv_alpha * inv_alpha * inv_alpha)
                 + b4 / (inv_alpha * inv_alpha * inv_alpha * inv_alpha)
                 - b5 / (inv_alpha * inv_alpha * inv_alpha * inv_alpha * inv_alpha);

@@ -27,13 +27,9 @@
 //! - **Bubble Dynamics**: Rayleigh (1917), Plesset (1949)
 
 use cfd_3d::vof::{
-    CavitationVofSolver, CavitationVofConfig, BubbleDynamicsConfig,
-    VofConfig, CavitationStatistics
+    BubbleDynamicsConfig, CavitationStatistics, CavitationVofConfig, CavitationVofSolver, VofConfig,
 };
-use cfd_core::cavitation::{
-    models::CavitationModel,
-    damage::CavitationDamage,
-};
+use cfd_core::cavitation::{damage::CavitationDamage, models::CavitationModel};
 use nalgebra::Vector3;
 use std::time::Instant;
 
@@ -75,18 +71,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         nx: 50,
         ny: 20,
         nz: 20,
-        lx: 0.1,  // 10 cm domain
-        ly: 0.04, // 4 cm height
-        lz: 0.04, // 4 cm width
+        lx: 0.1,             // 10 cm domain
+        ly: 0.04,            // 4 cm height
+        lz: 0.04,            // 4 cm width
         inlet_velocity: 8.0, // 8 m/s inlet velocity (cavitating)
-        dt: 1e-5,  // 10 μs time step
-        total_time: 0.001, // 1 ms simulation
+        dt: 1e-5,            // 10 μs time step
+        total_time: 0.001,   // 1 ms simulation
         output_frequency: 100,
     };
 
     println!("Simulation Configuration:");
     println!("  Grid: {}×{}×{}", config.nx, config.ny, config.nz);
-    println!("  Domain: {:.1}×{:.1}×{:.1} cm³", config.lx*100.0, config.ly*100.0, config.lz*100.0);
+    println!(
+        "  Domain: {:.1}×{:.1}×{:.1} cm³",
+        config.lx * 100.0,
+        config.ly * 100.0,
+        config.lz * 100.0
+    );
     println!("  Inlet velocity: {:.1} m/s", config.inlet_velocity);
     println!("  Time step: {:.0} μs", config.dt * 1e6);
     println!("  Total time: {:.1} ms", config.total_time * 1000.0);
@@ -94,19 +95,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create cavitation damage model (stainless steel properties)
     let damage_model = CavitationDamage {
-        yield_strength: 200e6,      // 200 MPa
-        ultimate_strength: 500e6,   // 500 MPa
-        hardness: 200e6,            // 200 MPa (Vickers)
-        fatigue_strength: 150e6,    // 150 MPa
-        cycles: 0, // Will be updated during simulation
+        yield_strength: 200e6,    // 200 MPa
+        ultimate_strength: 500e6, // 500 MPa
+        hardness: 200e6,          // 200 MPa (Vickers)
+        fatigue_strength: 150e6,  // 150 MPa
+        cycles: 0,                // Will be updated during simulation
     };
 
     // Create bubble dynamics configuration
     let bubble_config = BubbleDynamicsConfig {
-        initial_radius: 1e-6,       // 1 μm initial bubble radius
-        number_density: 1e13,       // 10^13 bubbles/m³
-        polytropic_exponent: 1.4,   // Air polytropic exponent
-        surface_tension: 0.072,     // Water surface tension (N/m)
+        initial_radius: 1e-6,     // 1 μm initial bubble radius
+        number_density: 1e13,     // 10^13 bubbles/m³
+        polytropic_exponent: 1.4, // Air polytropic exponent
+        surface_tension: 0.072,   // Water surface tension (N/m)
     };
 
     // Create VOF configuration
@@ -123,25 +124,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cavitation_config = CavitationVofConfig {
         vof_config,
         cavitation_model: CavitationModel::ZGB {
-            nucleation_fraction: 5e-4,     // 0.05% nucleation sites
-            bubble_radius: 1e-6,           // 1 μm bubble radius
-            f_vap: 50.0,                   // Vaporization coefficient
-            f_cond: 0.01,                  // Condensation coefficient
+            nucleation_fraction: 5e-4, // 0.05% nucleation sites
+            bubble_radius: 1e-6,       // 1 μm bubble radius
+            f_vap: 50.0,               // Vaporization coefficient
+            f_cond: 0.01,              // Condensation coefficient
         },
         damage_model: Some(damage_model),
         bubble_dynamics: Some(bubble_config),
-        inception_threshold: 0.3,          // σ < 0.3 triggers cavitation
-        max_void_fraction: 0.8,            // Maximum 80% void fraction
-        relaxation_time: 1e-6,             // 1 μs relaxation time
+        inception_threshold: 0.3, // σ < 0.3 triggers cavitation
+        max_void_fraction: 0.8,   // Maximum 80% void fraction
+        relaxation_time: 1e-6,    // 1 μs relaxation time
     };
 
     // Initialize cavitation-VOF solver
-    let mut solver = CavitationVofSolver::new(
-        config.nx,
-        config.ny,
-        config.nz,
-        cavitation_config,
-    )?;
+    let mut solver = CavitationVofSolver::new(config.nx, config.ny, config.nz, cavitation_config)?;
 
     println!("✅ Initialized Cavitation-VOF solver with:");
     println!("   • ZGB cavitation model");
@@ -231,11 +227,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             results.time_steps.push(time);
             results.cavitation_stats.push(stats.clone());
 
-            println!("Time: {:.1} ms | Cavitation: {:.1}% | Void: {:.3} | Damage: {:.2e}",
-                    time * 1000.0,
-                    stats.cavitation_fraction * 100.0,
-                    stats.total_void_fraction / (config.nx * config.ny * config.nz) as f64,
-                    stats.max_damage);
+            println!(
+                "Time: {:.1} ms | Cavitation: {:.1}% | Void: {:.3} | Damage: {:.2e}",
+                time * 1000.0,
+                stats.cavitation_fraction * 100.0,
+                stats.total_void_fraction / (config.nx * config.ny * config.nz) as f64,
+                stats.max_damage
+            );
 
             // Store field data for visualization
             results.velocity_field.push(velocity_field.clone());
@@ -249,7 +247,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let elapsed = start_time.elapsed();
     println!();
-    println!("✅ Simulation completed in {:.2} seconds", elapsed.as_secs_f64());
+    println!(
+        "✅ Simulation completed in {:.2} seconds",
+        elapsed.as_secs_f64()
+    );
     println!("   {} time steps completed", step);
     println!();
 
@@ -261,13 +262,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         if final_stats.max_damage > 0.0 {
             println!("💥 Cavitation Damage Assessment:");
-            println!("   Maximum damage: {:.2e} m (material removal depth)", final_stats.max_damage);
-            println!("   Affected area: {:.1}% of domain", final_stats.cavitation_fraction * 100.0);
+            println!(
+                "   Maximum damage: {:.2e} m (material removal depth)",
+                final_stats.max_damage
+            );
+            println!(
+                "   Affected area: {:.1}% of domain",
+                final_stats.cavitation_fraction * 100.0
+            );
 
             // Estimate erosion rate
             let erosion_rate = final_stats.max_damage / config.total_time; // m/s
             println!("   Erosion rate: {:.2e} m/s", erosion_rate);
-            println!("   Annual erosion: {:.1} mm/year", erosion_rate * 365.0 * 24.0 * 3600.0 * 1000.0);
+            println!(
+                "   Annual erosion: {:.1} mm/year",
+                erosion_rate * 365.0 * 24.0 * 3600.0 * 1000.0
+            );
 
             // Damage severity assessment
             if final_stats.max_damage > 1e-6 {

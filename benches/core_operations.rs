@@ -4,10 +4,10 @@
 //! grid management, linear solvers, turbulence modeling, and GPU acceleration.
 
 use super::{BenchmarkConfig, PerformanceMetrics};
-use criterion::{black_box, BenchmarkId, Criterion, Throughput};
 use cfd_2d::grid::{Grid2D, StructuredGrid2D};
-use cfd_math::sparse::SparseMatrixBuilder;
 use cfd_math::linear_solver::{ConjugateGradient, IterativeLinearSolver, LinearSolver};
+use cfd_math::sparse::SparseMatrixBuilder;
+use criterion::{black_box, BenchmarkId, Criterion, Throughput};
 use nalgebra::DVector;
 use std::time::Instant;
 
@@ -22,7 +22,8 @@ pub fn benchmark_grid_operations(c: &mut Criterion, config: &BenchmarkConfig) {
             &size,
             |b, &size| {
                 b.iter(|| {
-                    let grid = StructuredGrid2D::<f64>::new(size, size, 0.0, 1.0, 0.0, 1.0).unwrap();
+                    let grid =
+                        StructuredGrid2D::<f64>::new(size, size, 0.0, 1.0, 0.0, 1.0).unwrap();
                     black_box(grid);
                 });
             },
@@ -33,21 +34,17 @@ pub fn benchmark_grid_operations(c: &mut Criterion, config: &BenchmarkConfig) {
         let total_elements = size * size;
 
         group.throughput(Throughput::Elements(total_elements as u64));
-        group.bench_with_input(
-            BenchmarkId::new("grid_indexing", size),
-            &size,
-            |b, _| {
-                b.iter(|| {
-                    let mut sum = 0.0;
-                    for i in 0..grid.nx() {
-                        for j in 0..grid.ny() {
-                            sum += black_box(i as f64 * j as f64);
-                        }
+        group.bench_with_input(BenchmarkId::new("grid_indexing", size), &size, |b, _| {
+            b.iter(|| {
+                let mut sum = 0.0;
+                for i in 0..grid.nx() {
+                    for j in 0..grid.ny() {
+                        sum += black_box(i as f64 * j as f64);
                     }
-                    black_box(sum);
-                });
-            },
-        );
+                }
+                black_box(sum);
+            });
+        });
 
         // Grid interpolation benchmark
         group.bench_with_input(
@@ -117,16 +114,12 @@ pub fn benchmark_solver_operations(c: &mut Criterion, config: &BenchmarkConfig) 
         let mut y = DVector::zeros(size);
 
         group.throughput(Throughput::Elements(size as u64));
-        group.bench_with_input(
-            BenchmarkId::new("spmv", size),
-            &size,
-            |b, _| {
-                b.iter(|| {
-                    y.copy_from(&(&matrix * &x));
-                    black_box(&y);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("spmv", size), &size, |b, _| {
+            b.iter(|| {
+                y.copy_from(&(&matrix * &x));
+                black_box(&y);
+            });
+        });
 
         // Conjugate gradient solver
         let b_vec = DVector::from_element(size, 1.0);
@@ -139,7 +132,9 @@ pub fn benchmark_solver_operations(c: &mut Criterion, config: &BenchmarkConfig) 
                 let solver = ConjugateGradient::<f64>::default();
                 b.iter(|| {
                     x.fill(0.0);
-                    let solution = solver.solve::<IdentityPreconditioner>(&matrix, &b_vec, &mut x, None).unwrap();
+                    let solution = solver
+                        .solve::<IdentityPreconditioner>(&matrix, &b_vec, &mut x, None)
+                        .unwrap();
                     black_box(solution);
                 });
             },
@@ -172,7 +167,10 @@ pub fn benchmark_turbulence_operations(c: &mut Criterion, config: &BenchmarkConf
 
                             // Strain rate magnitude
                             strain_rate[idx] = black_box(
-                                (2.0 * du_dx * du_dx + 2.0 * dv_dy * dv_dy + (du_dy + dv_dx).powi(2)).sqrt()
+                                (2.0 * du_dx * du_dx
+                                    + 2.0 * dv_dy * dv_dy
+                                    + (du_dy + dv_dx).powi(2))
+                                .sqrt(),
                             );
                         }
                     }
@@ -268,11 +266,13 @@ pub fn benchmark_gpu_operations(c: &mut Criterion, config: &BenchmarkConfig) {
                                 let idx = i * size + j;
                                 // Simulate a simple CFD kernel (e.g., Laplacian)
                                 result[idx] = black_box(
-                                    (i as f32).sin() + (j as f32).cos() +
-                                    0.25 * ((i.saturating_sub(1) as f32).sin() +
-                                           (i.saturating_add(1).min(size-1) as f32).sin() +
-                                           (j.saturating_sub(1) as f32).cos() +
-                                           (j.saturating_add(1).min(size-1) as f32).cos())
+                                    (i as f32).sin()
+                                        + (j as f32).cos()
+                                        + 0.25
+                                            * ((i.saturating_sub(1) as f32).sin()
+                                                + (i.saturating_add(1).min(size - 1) as f32).sin()
+                                                + (j.saturating_sub(1) as f32).cos()
+                                                + (j.saturating_add(1).min(size - 1) as f32).cos()),
                                 );
                             }
                         }

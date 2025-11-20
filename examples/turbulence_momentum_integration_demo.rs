@@ -14,7 +14,9 @@ use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::physics::momentum::{ConvectionScheme, MomentumComponent, MomentumSolver};
 use cfd_2d::physics::turbulence::{KOmegaSSTModel, TurbulenceModel};
-use cfd_2d::schemes::time::{AdaptiveController, AdaptiveTimeIntegrator, AdaptationStrategy, TimeScheme};
+use cfd_2d::schemes::time::{
+    AdaptationStrategy, AdaptiveController, AdaptiveTimeIntegrator, TimeScheme,
+};
 use nalgebra::{DVector, Vector2};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -23,7 +25,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create a 2D channel flow grid
     let grid = StructuredGrid2D::<f64>::new(32, 16, 0.0, 3.2, 0.0, 0.8)?;
-    println!("Channel flow domain: {}x{} cells ({}x{} m)", grid.nx, grid.ny, 3.2, 0.8);
+    println!(
+        "Channel flow domain: {}x{} cells ({}x{} m)",
+        grid.nx, grid.ny, 3.2, 0.8
+    );
 
     // Initialize simulation fields
     let mut fields = SimulationFields::new(grid.nx, grid.ny);
@@ -78,7 +83,10 @@ fn setup_channel_flow(grid: &StructuredGrid2D<f64>, fields: &mut SimulationField
 
     println!("Channel flow setup:");
     println!("  Inlet velocity profile: Parabolic (max {:.2} m/s)", u_max);
-    println!("  Molecular viscosity: {:.2e} kg/(m·s)", molecular_viscosity);
+    println!(
+        "  Molecular viscosity: {:.2e} kg/(m·s)",
+        molecular_viscosity
+    );
 }
 
 /// Demonstrate laminar flow with TVD and adaptive time stepping
@@ -127,7 +135,10 @@ fn demonstrate_laminar_tvd_adaptive(
         }
     }
 
-    println!("Laminar simulation completed: {} steps, final time {:.4}", steps, t);
+    println!(
+        "Laminar simulation completed: {} steps, final time {:.4}",
+        steps, t
+    );
 
     Ok(())
 }
@@ -169,7 +180,10 @@ fn demonstrate_turbulent_k_omega_tvd(
             let center_i = grid.nx / 2;
             let center_j = grid.ny / 2;
             let nu_eff = fields.viscosity.at(center_i, center_j);
-            println!("  Step {}: Effective viscosity at center = {:.2e} m²/s", steps, nu_eff);
+            println!(
+                "  Step {}: Effective viscosity at center = {:.2e} m²/s",
+                steps, nu_eff
+            );
         }
     }
 
@@ -231,7 +245,7 @@ fn demonstrate_combined_turbulence_adaptive(
         // Time integration with error control
         let (y_new, t_new, dt_new, accepted) = time_integrator.step_error_adaptive(
             |_, y| DVector::from_vec(vec![0.0; y.len()]), // Placeholder RHS for demo
-            &DVector::from_vec(vec![1.0]), // Placeholder solution
+            &DVector::from_vec(vec![1.0]),                // Placeholder solution
             t,
         );
 
@@ -247,15 +261,23 @@ fn demonstrate_combined_turbulence_adaptive(
 
         if steps % 10 == 0 {
             let nu_eff = fields.viscosity.at(grid.nx / 2, grid.ny / 2);
-            println!("  Step {}: t = {:.4}, dt = {:.6}, ν_eff = {:.2e}, accepted: {}",
-                     steps, t, dt_new, nu_eff, accepted);
+            println!(
+                "  Step {}: t = {:.4}, dt = {:.6}, ν_eff = {:.2e}, accepted: {}",
+                steps, t, dt_new, nu_eff, accepted
+            );
         }
     }
 
     println!("Integrated simulation completed:");
-    println!("  Total steps: {}, Accepted: {}, Rejected: {}", steps, accepted_steps, rejected_steps);
+    println!(
+        "  Total steps: {}, Accepted: {}, Rejected: {}",
+        steps, accepted_steps, rejected_steps
+    );
     println!("  Final time: {:.4}", t);
-    println!("  Average efficiency: {:.1}% steps accepted", 100.0 * accepted_steps as f32 / steps as f32);
+    println!(
+        "  Average efficiency: {:.1}% steps accepted",
+        100.0 * accepted_steps as f32 / steps as f32
+    );
 
     Ok(())
 }

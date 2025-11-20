@@ -98,9 +98,9 @@ mod tests {
 
     #[test]
     fn test_spmv_basic() {
+        use crate::sparse::spmv;
         use nalgebra::DVector;
         use nalgebra_sparse::CsrMatrix;
-        use crate::sparse::spmv;
 
         // Create a simple 3x3 matrix:
         // [2  0  1]
@@ -125,9 +125,9 @@ mod tests {
 
     #[test]
     fn test_spmv_parallel_correctness() {
+        use crate::sparse::{spmv, spmv_parallel};
         use nalgebra::DVector;
         use nalgebra_sparse::CsrMatrix;
-        use crate::sparse::{spmv, spmv_parallel};
 
         // Create a simple 3x3 matrix:
         // [2  0  1]
@@ -140,7 +140,7 @@ mod tests {
 
         // Test with x = [1, 2, 3]
         let x = DVector::from_vec(vec![1.0, 2.0, 3.0]);
-        
+
         // Compute with scalar version
         let mut y_scalar = DVector::zeros(3);
         spmv(&a, &x, &mut y_scalar);
@@ -157,13 +157,13 @@ mod tests {
 
     #[test]
     fn test_spmv_parallel_large_matrix() {
-        use nalgebra::DVector;
         use crate::sparse::{spmv, spmv_parallel};
+        use nalgebra::DVector;
 
         // Create a larger matrix to benefit from parallelization (1000x1000)
         let n = 1000;
         let mut builder = SparseMatrixBuilder::new(n, n);
-        
+
         // Create a tridiagonal matrix
         for i in 0..n {
             builder.add_triplets(vec![(i, i, 4.0f64)]).unwrap();
@@ -178,7 +178,7 @@ mod tests {
 
         // Test vector
         let x = DVector::from_fn(n, |i, _| (i + 1) as f64);
-        
+
         // Compute with scalar version
         let mut y_scalar = DVector::zeros(n);
         spmv(&a, &x, &mut y_scalar);
@@ -195,8 +195,8 @@ mod tests {
 
     #[test]
     fn test_spmv_parallel_five_point_stencil() {
-        use nalgebra::DVector;
         use crate::sparse::{spmv, spmv_parallel};
+        use nalgebra::DVector;
 
         // Create a 50x50 five-point stencil (2500x2500 matrix, ~12k non-zeros)
         let nx = 50;
@@ -206,7 +206,7 @@ mod tests {
         // Test vector with varying values
         let n = nx * ny;
         let x = DVector::from_fn(n, |i, _| ((i % 10) as f64) * 0.1 + 1.0);
-        
+
         // Compute with scalar version
         let mut y_scalar = DVector::zeros(n);
         spmv(&matrix, &x, &mut y_scalar);
@@ -223,8 +223,8 @@ mod tests {
 
     #[test]
     fn test_spmv_parallel_sparse_pattern() {
-        use nalgebra::DVector;
         use crate::sparse::{spmv, spmv_parallel};
+        use nalgebra::DVector;
 
         // Test with very sparse rows (edge case for parallel overhead)
         let mut builder = SparseMatrixBuilder::new(100, 100);
@@ -238,7 +238,7 @@ mod tests {
         let a = builder.build().unwrap();
 
         let x = DVector::from_element(100, 2.0f64);
-        
+
         let mut y_scalar = DVector::zeros(100);
         spmv(&a, &x, &mut y_scalar);
 
@@ -252,8 +252,8 @@ mod tests {
 
     #[test]
     fn test_spmv_parallel_dense_block() {
-        use nalgebra::DVector;
         use crate::sparse::{spmv, spmv_parallel};
+        use nalgebra::DVector;
 
         // Test with denser structure (pentadiagonal-like pattern)
         let n = 500;
@@ -278,7 +278,7 @@ mod tests {
         let a = builder.build().unwrap();
 
         let x = DVector::from_fn(n, |i, _| (i as f64).sin());
-        
+
         let mut y_scalar = DVector::zeros(n);
         spmv(&a, &x, &mut y_scalar);
 

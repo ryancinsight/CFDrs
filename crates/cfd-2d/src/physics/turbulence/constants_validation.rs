@@ -40,33 +40,79 @@ impl DnsChannelFlowDatabase {
     pub fn moser_1999_re590() -> Self {
         // Mean velocity profile (simplified from Moser et al. 1999)
         let mean_velocity_profile = vec![
-            (0.0, 0.0), (1.0, 1.0), (5.0, 5.0), (10.0, 8.6), (20.0, 11.8), (30.0, 13.8),
-            (40.0, 15.0), (60.0, 16.6), (80.0, 17.3), (100.0, 17.9), (150.0, 18.8), (200.0, 19.3),
-            (300.0, 20.0), (400.0, 20.6), (500.0, 21.1), (590.0, 21.6)
+            (0.0, 0.0),
+            (1.0, 1.0),
+            (5.0, 5.0),
+            (10.0, 8.6),
+            (20.0, 11.8),
+            (30.0, 13.8),
+            (40.0, 15.0),
+            (60.0, 16.6),
+            (80.0, 17.3),
+            (100.0, 17.9),
+            (150.0, 18.8),
+            (200.0, 19.3),
+            (300.0, 20.0),
+            (400.0, 20.6),
+            (500.0, 21.1),
+            (590.0, 21.6),
         ];
 
         // Reynolds stress <u'v'>+ profile
         let reynolds_stress_profile = vec![
-            (0.0, 0.0), (5.0, -0.4), (10.0, -0.8), (20.0, -1.0), (30.0, -0.9), (50.0, -0.6),
-            (100.0, -0.2), (200.0, 0.0), (400.0, 0.0), (590.0, 0.0)
+            (0.0, 0.0),
+            (5.0, -0.4),
+            (10.0, -0.8),
+            (20.0, -1.0),
+            (30.0, -0.9),
+            (50.0, -0.6),
+            (100.0, -0.2),
+            (200.0, 0.0),
+            (400.0, 0.0),
+            (590.0, 0.0),
         ];
 
         // Turbulent kinetic energy k+ = (3/2)(<u'^2> + <v'^2> + <w'^2>)/u_τ²
         let turbulent_ke_profile = vec![
-            (0.0, 0.0), (5.0, 0.2), (10.0, 0.5), (20.0, 1.0), (30.0, 1.4), (50.0, 1.8),
-            (100.0, 2.2), (200.0, 2.8), (400.0, 3.0), (590.0, 3.1)
+            (0.0, 0.0),
+            (5.0, 0.2),
+            (10.0, 0.5),
+            (20.0, 1.0),
+            (30.0, 1.4),
+            (50.0, 1.8),
+            (100.0, 2.2),
+            (200.0, 2.8),
+            (400.0, 3.0),
+            (590.0, 3.1),
         ];
 
         // Dissipation rate ε+ = ε ν / u_τ^4
         let dissipation_profile = vec![
-            (0.0, 0.0), (5.0, 0.1), (10.0, 0.3), (20.0, 0.8), (30.0, 1.2), (50.0, 1.5),
-            (100.0, 1.8), (200.0, 2.0), (400.0, 2.1), (590.0, 2.1)
+            (0.0, 0.0),
+            (5.0, 0.1),
+            (10.0, 0.3),
+            (20.0, 0.8),
+            (30.0, 1.2),
+            (50.0, 1.5),
+            (100.0, 1.8),
+            (200.0, 2.0),
+            (400.0, 2.1),
+            (590.0, 2.1),
         ];
 
         // Specific dissipation rate ω+ = ω ν / u_τ^2
         let omega_profile = vec![
-            (0.0, 1e6), (1.0, 1e5), (5.0, 1e4), (10.0, 5000.0), (20.0, 2000.0), (30.0, 1000.0),
-            (50.0, 500.0), (100.0, 100.0), (200.0, 20.0), (400.0, 5.0), (590.0, 2.0)
+            (0.0, 1e6),
+            (1.0, 1e5),
+            (5.0, 1e4),
+            (10.0, 5000.0),
+            (20.0, 2000.0),
+            (30.0, 1000.0),
+            (50.0, 500.0),
+            (100.0, 100.0),
+            (200.0, 20.0),
+            (400.0, 5.0),
+            (590.0, 2.0),
         ];
 
         Self {
@@ -114,9 +160,9 @@ impl DnsChannelFlowDatabase {
             return profile.last().unwrap().1;
         }
 
-        for i in 0..profile.len()-1 {
+        for i in 0..profile.len() - 1 {
             let (y1, v1) = profile[i];
-            let (y2, v2) = profile[i+1];
+            let (y2, v2) = profile[i + 1];
             if y_plus >= y1 && y_plus <= y2 {
                 return v1 + (v2 - v1) * (y_plus - y1) / (y2 - y1);
             }
@@ -144,7 +190,10 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
 
     /// Validate k-ε model constants against DNS channel flow
     pub fn validate_k_epsilon_constants(&self) -> ConstantsValidationResult<T> {
-        println!("🔬 Validating k-ε model constants against DNS channel flow (Re_τ = {})", self.dns_database.re_tau);
+        println!(
+            "🔬 Validating k-ε model constants against DNS channel flow (Re_τ = {})",
+            self.dns_database.re_tau
+        );
 
         // Baseline constants
         let c_mu_baseline = T::from_f64(C_MU).unwrap();
@@ -155,7 +204,11 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
 
         // Run baseline simulation
         let baseline_error = self.simulate_channel_flow_k_epsilon(
-            c_mu_baseline, c1_eps_baseline, c2_eps_baseline, sigma_k_baseline, sigma_eps_baseline
+            c_mu_baseline,
+            c1_eps_baseline,
+            c2_eps_baseline,
+            sigma_k_baseline,
+            sigma_eps_baseline,
         );
 
         // Sensitivity analysis: ±10% variations
@@ -165,84 +218,140 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         let c_mu_plus = c_mu_baseline * T::from_f64(1.1).unwrap();
         let c_mu_minus = c_mu_baseline * T::from_f64(0.9).unwrap();
         let error_plus = self.simulate_channel_flow_k_epsilon(
-            c_mu_plus, c1_eps_baseline, c2_eps_baseline, sigma_k_baseline, sigma_eps_baseline
+            c_mu_plus,
+            c1_eps_baseline,
+            c2_eps_baseline,
+            sigma_k_baseline,
+            sigma_eps_baseline,
         );
         let error_minus = self.simulate_channel_flow_k_epsilon(
-            c_mu_minus, c1_eps_baseline, c2_eps_baseline, sigma_k_baseline, sigma_eps_baseline
+            c_mu_minus,
+            c1_eps_baseline,
+            c2_eps_baseline,
+            sigma_k_baseline,
+            sigma_eps_baseline,
         );
-        sensitivity_results.insert("C_μ".to_string(), SensitivityResult {
-            baseline_error,
-            plus_10_error: error_plus,
-            minus_10_error: error_minus,
-            uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
-        });
+        sensitivity_results.insert(
+            "C_μ".to_string(),
+            SensitivityResult {
+                baseline_error,
+                plus_10_error: error_plus,
+                minus_10_error: error_minus,
+                uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
+            },
+        );
 
         // C1_ε sensitivity
         let c1_plus = c1_eps_baseline * T::from_f64(1.1).unwrap();
         let c1_minus = c1_eps_baseline * T::from_f64(0.9).unwrap();
         let error_plus = self.simulate_channel_flow_k_epsilon(
-            c_mu_baseline, c1_plus, c2_eps_baseline, sigma_k_baseline, sigma_eps_baseline
+            c_mu_baseline,
+            c1_plus,
+            c2_eps_baseline,
+            sigma_k_baseline,
+            sigma_eps_baseline,
         );
         let error_minus = self.simulate_channel_flow_k_epsilon(
-            c_mu_baseline, c1_minus, c2_eps_baseline, sigma_k_baseline, sigma_eps_baseline
+            c_mu_baseline,
+            c1_minus,
+            c2_eps_baseline,
+            sigma_k_baseline,
+            sigma_eps_baseline,
         );
-        sensitivity_results.insert("C1_ε".to_string(), SensitivityResult {
-            baseline_error,
-            plus_10_error: error_plus,
-            minus_10_error: error_minus,
-            uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
-        });
+        sensitivity_results.insert(
+            "C1_ε".to_string(),
+            SensitivityResult {
+                baseline_error,
+                plus_10_error: error_plus,
+                minus_10_error: error_minus,
+                uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
+            },
+        );
 
         // C2_ε sensitivity
         let c2_plus = c2_eps_baseline * T::from_f64(1.1).unwrap();
         let c2_minus = c2_eps_baseline * T::from_f64(0.9).unwrap();
         let error_plus = self.simulate_channel_flow_k_epsilon(
-            c_mu_baseline, c1_eps_baseline, c2_plus, sigma_k_baseline, sigma_eps_baseline
+            c_mu_baseline,
+            c1_eps_baseline,
+            c2_plus,
+            sigma_k_baseline,
+            sigma_eps_baseline,
         );
         let error_minus = self.simulate_channel_flow_k_epsilon(
-            c_mu_baseline, c1_eps_baseline, c2_minus, sigma_k_baseline, sigma_eps_baseline
+            c_mu_baseline,
+            c1_eps_baseline,
+            c2_minus,
+            sigma_k_baseline,
+            sigma_eps_baseline,
         );
-        sensitivity_results.insert("C2_ε".to_string(), SensitivityResult {
-            baseline_error,
-            plus_10_error: error_plus,
-            minus_10_error: error_minus,
-            uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
-        });
+        sensitivity_results.insert(
+            "C2_ε".to_string(),
+            SensitivityResult {
+                baseline_error,
+                plus_10_error: error_plus,
+                minus_10_error: error_minus,
+                uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
+            },
+        );
 
         // σ_k sensitivity
         let sigk_plus = sigma_k_baseline * T::from_f64(1.1).unwrap();
         let sigk_minus = sigma_k_baseline * T::from_f64(0.9).unwrap();
         let error_plus = self.simulate_channel_flow_k_epsilon(
-            c_mu_baseline, c1_eps_baseline, c2_eps_baseline, sigk_plus, sigma_eps_baseline
+            c_mu_baseline,
+            c1_eps_baseline,
+            c2_eps_baseline,
+            sigk_plus,
+            sigma_eps_baseline,
         );
         let error_minus = self.simulate_channel_flow_k_epsilon(
-            c_mu_baseline, c1_eps_baseline, c2_eps_baseline, sigk_minus, sigma_eps_baseline
+            c_mu_baseline,
+            c1_eps_baseline,
+            c2_eps_baseline,
+            sigk_minus,
+            sigma_eps_baseline,
         );
-        sensitivity_results.insert("σ_k".to_string(), SensitivityResult {
-            baseline_error,
-            plus_10_error: error_plus,
-            minus_10_error: error_minus,
-            uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
-        });
+        sensitivity_results.insert(
+            "σ_k".to_string(),
+            SensitivityResult {
+                baseline_error,
+                plus_10_error: error_plus,
+                minus_10_error: error_minus,
+                uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
+            },
+        );
 
         // σ_ε sensitivity
         let sigeps_plus = sigma_eps_baseline * T::from_f64(1.1).unwrap();
         let sigeps_minus = sigma_eps_baseline * T::from_f64(0.9).unwrap();
         let error_plus = self.simulate_channel_flow_k_epsilon(
-            c_mu_baseline, c1_eps_baseline, c2_eps_baseline, sigma_k_baseline, sigeps_plus
+            c_mu_baseline,
+            c1_eps_baseline,
+            c2_eps_baseline,
+            sigma_k_baseline,
+            sigeps_plus,
         );
         let error_minus = self.simulate_channel_flow_k_epsilon(
-            c_mu_baseline, c1_eps_baseline, c2_eps_baseline, sigma_k_baseline, sigeps_minus
+            c_mu_baseline,
+            c1_eps_baseline,
+            c2_eps_baseline,
+            sigma_k_baseline,
+            sigeps_minus,
         );
-        sensitivity_results.insert("σ_ε".to_string(), SensitivityResult {
-            baseline_error,
-            plus_10_error: error_plus,
-            minus_10_error: error_minus,
-            uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
-        });
+        sensitivity_results.insert(
+            "σ_ε".to_string(),
+            SensitivityResult {
+                baseline_error,
+                plus_10_error: error_plus,
+                minus_10_error: error_minus,
+                uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
+            },
+        );
 
         // Overall validation result
-        let max_uncertainty = sensitivity_results.values()
+        let max_uncertainty = sensitivity_results
+            .values()
             .map(|s| s.uncertainty_bound)
             .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(T::zero());
@@ -262,7 +371,10 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
 
     /// Validate k-ω SST model constants against DNS
     pub fn validate_k_omega_sst_constants(&self) -> ConstantsValidationResult<T> {
-        println!("🔬 Validating k-ω SST model constants against DNS channel flow (Re_τ = {})", self.dns_database.re_tau);
+        println!(
+            "🔬 Validating k-ω SST model constants against DNS channel flow (Re_τ = {})",
+            self.dns_database.re_tau
+        );
 
         // Baseline constants
         let alpha1_baseline = T::from_f64(SST_ALPHA_1).unwrap();
@@ -273,7 +385,11 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
 
         // Run baseline simulation
         let baseline_error = self.simulate_channel_flow_k_omega_sst(
-            alpha1_baseline, beta1_baseline, beta_star_baseline, sigma_k1_baseline, sigma_omega1_baseline
+            alpha1_baseline,
+            beta1_baseline,
+            beta_star_baseline,
+            sigma_k1_baseline,
+            sigma_omega1_baseline,
         );
 
         // Sensitivity analysis
@@ -283,51 +399,85 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         let alpha1_plus = alpha1_baseline * T::from_f64(1.1).unwrap();
         let alpha1_minus = alpha1_baseline * T::from_f64(0.9).unwrap();
         let error_plus = self.simulate_channel_flow_k_omega_sst(
-            alpha1_plus, beta1_baseline, beta_star_baseline, sigma_k1_baseline, sigma_omega1_baseline
+            alpha1_plus,
+            beta1_baseline,
+            beta_star_baseline,
+            sigma_k1_baseline,
+            sigma_omega1_baseline,
         );
         let error_minus = self.simulate_channel_flow_k_omega_sst(
-            alpha1_minus, beta1_baseline, beta_star_baseline, sigma_k1_baseline, sigma_omega1_baseline
+            alpha1_minus,
+            beta1_baseline,
+            beta_star_baseline,
+            sigma_k1_baseline,
+            sigma_omega1_baseline,
         );
-        sensitivity_results.insert("α₁".to_string(), SensitivityResult {
-            baseline_error,
-            plus_10_error: error_plus,
-            minus_10_error: error_minus,
-            uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
-        });
+        sensitivity_results.insert(
+            "α₁".to_string(),
+            SensitivityResult {
+                baseline_error,
+                plus_10_error: error_plus,
+                minus_10_error: error_minus,
+                uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
+            },
+        );
 
         // β₁ sensitivity
         let beta1_plus = beta1_baseline * T::from_f64(1.1).unwrap();
         let beta1_minus = beta1_baseline * T::from_f64(0.9).unwrap();
         let error_plus = self.simulate_channel_flow_k_omega_sst(
-            alpha1_baseline, beta1_plus, beta_star_baseline, sigma_k1_baseline, sigma_omega1_baseline
+            alpha1_baseline,
+            beta1_plus,
+            beta_star_baseline,
+            sigma_k1_baseline,
+            sigma_omega1_baseline,
         );
         let error_minus = self.simulate_channel_flow_k_omega_sst(
-            alpha1_baseline, beta1_minus, beta_star_baseline, sigma_k1_baseline, sigma_omega1_baseline
+            alpha1_baseline,
+            beta1_minus,
+            beta_star_baseline,
+            sigma_k1_baseline,
+            sigma_omega1_baseline,
         );
-        sensitivity_results.insert("β₁".to_string(), SensitivityResult {
-            baseline_error,
-            plus_10_error: error_plus,
-            minus_10_error: error_minus,
-            uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
-        });
+        sensitivity_results.insert(
+            "β₁".to_string(),
+            SensitivityResult {
+                baseline_error,
+                plus_10_error: error_plus,
+                minus_10_error: error_minus,
+                uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
+            },
+        );
 
         // β* sensitivity
         let beta_star_plus = beta_star_baseline * T::from_f64(1.1).unwrap();
         let beta_star_minus = beta_star_baseline * T::from_f64(0.9).unwrap();
         let error_plus = self.simulate_channel_flow_k_omega_sst(
-            alpha1_baseline, beta1_baseline, beta_star_plus, sigma_k1_baseline, sigma_omega1_baseline
+            alpha1_baseline,
+            beta1_baseline,
+            beta_star_plus,
+            sigma_k1_baseline,
+            sigma_omega1_baseline,
         );
         let error_minus = self.simulate_channel_flow_k_omega_sst(
-            alpha1_baseline, beta1_baseline, beta_star_minus, sigma_k1_baseline, sigma_omega1_baseline
+            alpha1_baseline,
+            beta1_baseline,
+            beta_star_minus,
+            sigma_k1_baseline,
+            sigma_omega1_baseline,
         );
-        sensitivity_results.insert("β*".to_string(), SensitivityResult {
-            baseline_error,
-            plus_10_error: error_plus,
-            minus_10_error: error_minus,
-            uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
-        });
+        sensitivity_results.insert(
+            "β*".to_string(),
+            SensitivityResult {
+                baseline_error,
+                plus_10_error: error_plus,
+                minus_10_error: error_minus,
+                uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
+            },
+        );
 
-        let max_uncertainty = sensitivity_results.values()
+        let max_uncertainty = sensitivity_results
+            .values()
             .map(|s| s.uncertainty_bound)
             .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(T::zero());
@@ -347,7 +497,10 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
 
     /// Validate Spalart-Allmaras constants
     pub fn validate_spalart_allmaras_constants(&self) -> ConstantsValidationResult<T> {
-        println!("🔬 Validating Spalart-Allmaras constants against DNS channel flow (Re_τ = {})", self.dns_database.re_tau);
+        println!(
+            "🔬 Validating Spalart-Allmaras constants against DNS channel flow (Re_τ = {})",
+            self.dns_database.re_tau
+        );
 
         // Baseline constants
         let cb1_baseline = T::from_f64(SA_CB1).unwrap();
@@ -355,7 +508,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         let sigma_baseline = T::from_f64(SA_SIGMA).unwrap();
 
         // Run baseline simulation
-        let baseline_error = self.simulate_channel_flow_spalart_allmaras(cb1_baseline, cb2_baseline, sigma_baseline);
+        let baseline_error =
+            self.simulate_channel_flow_spalart_allmaras(cb1_baseline, cb2_baseline, sigma_baseline);
 
         // Sensitivity analysis
         let mut sensitivity_results = HashMap::new();
@@ -363,28 +517,39 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         // cb1 sensitivity
         let cb1_plus = cb1_baseline * T::from_f64(1.1).unwrap();
         let cb1_minus = cb1_baseline * T::from_f64(0.9).unwrap();
-        let error_plus = self.simulate_channel_flow_spalart_allmaras(cb1_plus, cb2_baseline, sigma_baseline);
-        let error_minus = self.simulate_channel_flow_spalart_allmaras(cb1_minus, cb2_baseline, sigma_baseline);
-        sensitivity_results.insert("Cb1".to_string(), SensitivityResult {
-            baseline_error,
-            plus_10_error: error_plus,
-            minus_10_error: error_minus,
-            uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
-        });
+        let error_plus =
+            self.simulate_channel_flow_spalart_allmaras(cb1_plus, cb2_baseline, sigma_baseline);
+        let error_minus =
+            self.simulate_channel_flow_spalart_allmaras(cb1_minus, cb2_baseline, sigma_baseline);
+        sensitivity_results.insert(
+            "Cb1".to_string(),
+            SensitivityResult {
+                baseline_error,
+                plus_10_error: error_plus,
+                minus_10_error: error_minus,
+                uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
+            },
+        );
 
         // cb2 sensitivity
         let cb2_plus = cb2_baseline * T::from_f64(1.1).unwrap();
         let cb2_minus = cb2_baseline * T::from_f64(0.9).unwrap();
-        let error_plus = self.simulate_channel_flow_spalart_allmaras(cb1_baseline, cb2_plus, sigma_baseline);
-        let error_minus = self.simulate_channel_flow_spalart_allmaras(cb1_baseline, cb2_minus, sigma_baseline);
-        sensitivity_results.insert("Cb2".to_string(), SensitivityResult {
-            baseline_error,
-            plus_10_error: error_plus,
-            minus_10_error: error_minus,
-            uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
-        });
+        let error_plus =
+            self.simulate_channel_flow_spalart_allmaras(cb1_baseline, cb2_plus, sigma_baseline);
+        let error_minus =
+            self.simulate_channel_flow_spalart_allmaras(cb1_baseline, cb2_minus, sigma_baseline);
+        sensitivity_results.insert(
+            "Cb2".to_string(),
+            SensitivityResult {
+                baseline_error,
+                plus_10_error: error_plus,
+                minus_10_error: error_minus,
+                uncertainty_bound: (error_plus.max(error_minus) - baseline_error).abs(),
+            },
+        );
 
-        let max_uncertainty = sensitivity_results.values()
+        let max_uncertainty = sensitivity_results
+            .values()
             .map(|s| s.uncertainty_bound)
             .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(T::zero());
@@ -403,7 +568,14 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
     }
 
     /// Simulate channel flow with k-ε model and custom constants
-    fn simulate_channel_flow_k_epsilon(&self, _c_mu: T, _c1_eps: T, _c2_eps: T, _sigma_k: T, _sigma_eps: T) -> T {
+    fn simulate_channel_flow_k_epsilon(
+        &self,
+        _c_mu: T,
+        _c1_eps: T,
+        _c2_eps: T,
+        _sigma_k: T,
+        _sigma_eps: T,
+    ) -> T {
         let nx = 40;
         let ny = 40;
         let _model: KEpsilonModel<T> = KEpsilonModel::new(nx, ny);
@@ -416,8 +588,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         let mut rms_error = T::zero();
         let mut num_points = 0;
 
-        for j in 1..ny-1 {
-            let y_plus = (j as f64 / (ny-1) as f64) * self.dns_database.re_tau;
+        for j in 1..ny - 1 {
+            let y_plus = (j as f64 / (ny - 1) as f64) * self.dns_database.re_tau;
             let dns_velocity = self.dns_database.interpolate_velocity(y_plus);
 
             // Simplified CFD result (would be computed from actual simulation)
@@ -432,7 +604,14 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
     }
 
     /// Simulate channel flow with k-ω SST model and custom constants
-    fn simulate_channel_flow_k_omega_sst(&self, _alpha1: T, _beta1: T, _beta_star: T, _sigma_k1: T, _sigma_omega1: T) -> T {
+    fn simulate_channel_flow_k_omega_sst(
+        &self,
+        _alpha1: T,
+        _beta1: T,
+        _beta_star: T,
+        _sigma_k1: T,
+        _sigma_omega1: T,
+    ) -> T {
         // Similar to k-ε implementation
         let nx = 40;
         let ny = 40;
@@ -442,8 +621,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         let mut rms_error = T::zero();
         let mut num_points = 0;
 
-        for j in 1..ny-1 {
-            let y_plus = (j as f64 / (ny-1) as f64) * self.dns_database.re_tau;
+        for j in 1..ny - 1 {
+            let y_plus = (j as f64 / (ny - 1) as f64) * self.dns_database.re_tau;
             let dns_velocity = self.dns_database.interpolate_velocity(y_plus);
             let cfd_velocity = T::from_f64(dns_velocity).unwrap() * T::from_f64(0.98).unwrap(); // 2% error for SST
 
@@ -465,8 +644,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         let mut rms_error = T::zero();
         let mut num_points = 0;
 
-        for j in 1..ny-1 {
-            let y_plus = (j as f64 / (ny-1) as f64) * self.dns_database.re_tau;
+        for j in 1..ny - 1 {
+            let y_plus = (j as f64 / (ny - 1) as f64) * self.dns_database.re_tau;
             let dns_velocity = self.dns_database.interpolate_velocity(y_plus);
             let cfd_velocity = T::from_f64(dns_velocity).unwrap() * T::from_f64(0.92).unwrap(); // 8% error for SA
 
@@ -524,18 +703,24 @@ impl<T: RealField + Copy + ToPrimitive> ConstantsValidationResult<T> {
         let status = if self.passed { "✅ PASS" } else { "❌ FAIL" };
         println!("{}: {} Constants Validation", status, self.model_name);
         println!("  Reference: {}", self.reference);
-        println!("  Baseline RMS Error: {:.4}",
-                 self.baseline_error.to_f64().unwrap_or(0.0));
-        println!("  Max Uncertainty Bound: {:.4}",
-                 self.max_uncertainty_bound.to_f64().unwrap_or(0.0));
+        println!(
+            "  Baseline RMS Error: {:.4}",
+            self.baseline_error.to_f64().unwrap_or(0.0)
+        );
+        println!(
+            "  Max Uncertainty Bound: {:.4}",
+            self.max_uncertainty_bound.to_f64().unwrap_or(0.0)
+        );
 
         println!("  Constant Sensitivity Analysis:");
         for (constant_name, sensitivity) in &self.sensitivity_results {
-            println!("    {}: Δε = {:.4} (bounds: {:.4}, {:.4})",
-                     constant_name,
-                     sensitivity.uncertainty_bound.to_f64().unwrap_or(0.0),
-                     sensitivity.minus_10_error.to_f64().unwrap_or(0.0),
-                     sensitivity.plus_10_error.to_f64().unwrap_or(0.0));
+            println!(
+                "    {}: Δε = {:.4} (bounds: {:.4}, {:.4})",
+                constant_name,
+                sensitivity.uncertainty_bound.to_f64().unwrap_or(0.0),
+                sensitivity.minus_10_error.to_f64().unwrap_or(0.0),
+                sensitivity.plus_10_error.to_f64().unwrap_or(0.0)
+            );
         }
         println!();
     }
@@ -562,7 +747,10 @@ pub fn run_turbulence_constants_validation<T: RealField + FromPrimitive + ToPrim
 
     println!("📊 Constants Validation Summary:");
     println!("  Models Validated: {}/{}", passed_count, results.len());
-    println!("  Success Rate: {:.1}%", 100.0 * passed_count as f32 / results.len() as f32);
+    println!(
+        "  Success Rate: {:.1}%",
+        100.0 * passed_count as f32 / results.len() as f32
+    );
 
     if passed_count == results.len() {
         println!("🎉 All turbulence model constants validated against DNS!");

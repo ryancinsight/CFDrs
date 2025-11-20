@@ -4,7 +4,7 @@
 //! integrating with the CFD solver pipeline for high-performance turbulence calculations.
 
 use super::{GpuBuffer, GpuContext};
-use crate::compute::gpu::kernels::turbulence::{GpuSmagorinskyKernel, GpuDesKernel};
+use crate::compute::gpu::kernels::turbulence::{GpuDesKernel, GpuSmagorinskyKernel};
 use crate::compute::traits::ComputeBuffer;
 use crate::error::Result;
 use std::sync::Arc;
@@ -203,7 +203,10 @@ mod tests {
     #[test]
     fn test_gpu_turbulence_compute_creation() {
         let compute = GpuTurbulenceCompute::new();
-        assert!(compute.is_ok(), "GPU turbulence compute should create successfully");
+        assert!(
+            compute.is_ok(),
+            "GPU turbulence compute should create successfully"
+        );
     }
 
     #[cfg(feature = "gpu")]

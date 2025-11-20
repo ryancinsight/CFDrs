@@ -24,17 +24,20 @@ impl Edge {
     }
 
     /// Get the vertices of this edge
-    #[must_use] pub fn vertices(&self) -> [usize; 2] {
+    #[must_use]
+    pub fn vertices(&self) -> [usize; 2] {
         [self.start, self.end]
     }
 
     /// Check if edge contains a vertex
-    #[must_use] pub fn contains(&self, vertex: usize) -> bool {
+    #[must_use]
+    pub fn contains(&self, vertex: usize) -> bool {
         self.start == vertex || self.end == vertex
     }
 
     /// Get the other vertex of an edge given one vertex
-    #[must_use] pub fn other(&self, vertex: usize) -> Option<usize> {
+    #[must_use]
+    pub fn other(&self, vertex: usize) -> Option<usize> {
         if self.start == vertex {
             Some(self.end)
         } else if self.end == vertex {

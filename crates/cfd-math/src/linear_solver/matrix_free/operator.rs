@@ -118,7 +118,6 @@ pub trait GpuLinearOperator<T: RealField + Copy + bytemuck::Pod + bytemuck::Zero
     }
 }
 
-
 /// Identity operator for testing and preconditioning.
 pub struct IdentityOperator {
     size: usize,
@@ -191,7 +190,9 @@ where
     }
 
     fn norm_estimate(&self) -> Option<T> {
-        self.operator.norm_estimate().map(|norm| norm * self.scale.abs())
+        self.operator
+            .norm_estimate()
+            .map(|norm| norm * self.scale.abs())
     }
 
     fn apply_transpose(&self, x: &[T], y: &mut [T]) -> Result<()> {
@@ -236,7 +237,10 @@ mod tests {
 
         assert_eq!(<IdentityOperator as LinearOperator<f64>>::size(&op), 5);
         assert!(<IdentityOperator as LinearOperator<f64>>::is_symmetric(&op));
-        assert_eq!(<IdentityOperator as LinearOperator<f64>>::is_positive_definite(&op), Some(true));
+        assert_eq!(
+            <IdentityOperator as LinearOperator<f64>>::is_positive_definite(&op),
+            Some(true)
+        );
     }
 
     #[test]

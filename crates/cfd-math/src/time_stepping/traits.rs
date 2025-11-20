@@ -1,7 +1,7 @@
 //! Traits for time-stepping methods.
 
-use nalgebra::{DVector, RealField};
 use cfd_core::error::Result;
+use nalgebra::{DVector, RealField};
 
 /// Time-stepping method for ODE integration du/dt = f(t,u)
 pub trait TimeStepper<T: RealField + Copy> {
@@ -74,7 +74,13 @@ pub trait EmbeddedMethod<T: RealField + Copy>: TimeStepper<T> {
     ///
     /// # Returns
     /// Tuple of (solution, error_estimate)
-    fn embedded_step<F>(&self, f: F, t: T, u: &DVector<T>, dt: T) -> Result<(DVector<T>, DVector<T>)>
+    fn embedded_step<F>(
+        &self,
+        f: F,
+        t: T,
+        u: &DVector<T>,
+        dt: T,
+    ) -> Result<(DVector<T>, DVector<T>)>
     where
         F: Fn(T, &DVector<T>) -> Result<DVector<T>>;
 }

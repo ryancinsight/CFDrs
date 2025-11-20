@@ -9,6 +9,8 @@ pub enum MeshError {
     InvalidMesh(String),
     /// Refinement failed
     RefinementFailed(String),
+    /// Feature not implemented
+    NotImplemented(String),
     /// Grid generation error
     GridError(String),
 }
@@ -18,6 +20,7 @@ impl fmt::Display for MeshError {
         match self {
             MeshError::InvalidMesh(msg) => write!(f, "Invalid mesh: {msg}"),
             MeshError::RefinementFailed(msg) => write!(f, "Refinement failed: {msg}"),
+            MeshError::NotImplemented(msg) => write!(f, "Not implemented: {msg}"),
             MeshError::GridError(msg) => write!(f, "Grid error: {msg}"),
         }
     }

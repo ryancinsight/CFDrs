@@ -156,8 +156,10 @@ impl<T: RealField + std::fmt::LowerExp> ParallelVtkWriter<T> {
         let mut total_points = local_points as i32;
         let mut total_cells = local_cells as i32;
 
-        self.communicator.all_reduce_sum(&mut total_points, total_points);
-        self.communicator.all_reduce_sum(&mut total_cells, total_cells);
+        self.communicator
+            .all_reduce_sum(&mut total_points, total_points);
+        self.communicator
+            .all_reduce_sum(&mut total_cells, total_cells);
 
         Ok(GlobalMeshInfo {
             total_points: total_points as usize,
@@ -233,7 +235,10 @@ impl<T: RealField + std::fmt::LowerExp> ParallelVtkWriter<T> {
                     writeln!(
                         file,
                         "4 {} {} {} {}",
-                        cells[i], cells[i + 1], cells[i + 2], cells[i + 3]
+                        cells[i],
+                        cells[i + 1],
+                        cells[i + 2],
+                        cells[i + 3]
                     )?;
                 }
             }
@@ -257,7 +262,11 @@ impl<T: RealField + std::fmt::LowerExp> ParallelVtkWriter<T> {
         if self.is_root && !point_data.is_empty() {
             let mut file = File::options().append(true).open(filename)?;
 
-            writeln!(file, "POINT_DATA {}", point_data.values().next().unwrap().local_data.len())?;
+            writeln!(
+                file,
+                "POINT_DATA {}",
+                point_data.values().next().unwrap().local_data.len()
+            )?;
 
             for (name, data) in point_data {
                 self.write_scalar_field(&mut file, name, data)?;
@@ -276,7 +285,11 @@ impl<T: RealField + std::fmt::LowerExp> ParallelVtkWriter<T> {
         if self.is_root && !cell_data.is_empty() {
             let mut file = File::options().append(true).open(filename)?;
 
-            writeln!(file, "CELL_DATA {}", cell_data.values().next().unwrap().local_data.len())?;
+            writeln!(
+                file,
+                "CELL_DATA {}",
+                cell_data.values().next().unwrap().local_data.len()
+            )?;
 
             for (name, data) in cell_data {
                 self.write_scalar_field(&mut file, name, data)?;
@@ -382,7 +395,9 @@ mod tests {
     #[test]
     fn test_parallel_vtk_writer_creation() {
         // Compile-time test - types can be instantiated
-        let _writer_type: std::marker::PhantomData<ParallelVtkWriter<f64>> = std::marker::PhantomData;
-        let _reader_type: std::marker::PhantomData<ParallelVtkReader<f64>> = std::marker::PhantomData;
+        let _writer_type: std::marker::PhantomData<ParallelVtkWriter<f64>> =
+            std::marker::PhantomData;
+        let _reader_type: std::marker::PhantomData<ParallelVtkReader<f64>> =
+            std::marker::PhantomData;
     }
 }

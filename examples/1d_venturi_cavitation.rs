@@ -190,7 +190,9 @@ impl<T: RealField + Copy + FromPrimitive> CavitatingChannel1D<T> {
         if cavitation_number < sigma_incipient && cavitation_number > T::zero() {
             let term = T::one() / cavitation_number - T::one() / sigma_incipient;
             let throat_diameter = T::from_f64(2.0).unwrap_or_else(|| T::one())
-                * (self.throat_area / T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::one())).sqrt();
+                * (self.throat_area
+                    / T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::one()))
+                .sqrt();
 
             if term > T::zero() {
                 k_coefficient * term.powf(exponent) * throat_diameter
@@ -227,13 +229,16 @@ impl<T: RealField + Copy + FromPrimitive> CavitatingChannel1D<T> {
 
             // Estimate void fraction based on cavity length
             let throat_diameter = T::from_f64(2.0).unwrap_or_else(|| T::one())
-                * (self.throat_area / T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::one())).sqrt();
+                * (self.throat_area
+                    / T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::one()))
+                .sqrt();
 
-            let local_void_fraction = if local_cavity_length > T::zero() && throat_diameter > T::zero() {
-                (local_cavity_length / throat_diameter).min(T::one())
-            } else {
-                T::zero()
-            };
+            let local_void_fraction =
+                if local_cavity_length > T::zero() && throat_diameter > T::zero() {
+                    (local_cavity_length / throat_diameter).min(T::one())
+                } else {
+                    T::zero()
+                };
 
             position.push(x);
             area.push(local_area);
@@ -265,20 +270,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create a venturi geometry (typical microfluidic venturi)
     let venturi = CavitatingChannel1D::venturi(
-        0.1,      // Total length: 10 cm
-        0.001,    // Inlet diameter: 1 mm
-        0.0005,   // Throat diameter: 0.5 mm
-        0.04,     // Converging section: 4 cm
-        0.04,     // Diverging section: 4 cm
+        0.1,    // Total length: 10 cm
+        0.001,  // Inlet diameter: 1 mm
+        0.0005, // Throat diameter: 0.5 mm
+        0.04,   // Converging section: 4 cm
+        0.04,   // Diverging section: 4 cm
     );
 
     println!("1D Venturi Geometry (represented as a line):");
     println!("===========================================");
     println!("Total length: {:.1} cm", venturi.length * 100.0);
-    println!("Inlet diameter: {:.1} mm", (venturi.inlet_area * 4.0 / std::f64::consts::PI).sqrt() * 2000.0);
-    println!("Throat diameter: {:.1} mm", (venturi.throat_area * 4.0 / std::f64::consts::PI).sqrt() * 2000.0);
-    println!("Converging section: {:.1} cm", venturi.converging_length * 100.0);
-    println!("Diverging section: {:.1} cm", venturi.diverging_length * 100.0);
+    println!(
+        "Inlet diameter: {:.1} mm",
+        (venturi.inlet_area * 4.0 / std::f64::consts::PI).sqrt() * 2000.0
+    );
+    println!(
+        "Throat diameter: {:.1} mm",
+        (venturi.throat_area * 4.0 / std::f64::consts::PI).sqrt() * 2000.0
+    );
+    println!(
+        "Converging section: {:.1} cm",
+        venturi.converging_length * 100.0
+    );
+    println!(
+        "Diverging section: {:.1} cm",
+        venturi.diverging_length * 100.0
+    );
     println!();
 
     println!("Flow Conditions:");
@@ -294,10 +311,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Cavitation Analysis Results:");
     println!("============================");
-    println!("{:<8} {:<8} {:<10} {:<8} {:<10} {:<10}",
-             "V_in", "V_max", "P_min", "σ_min", "Cavitating", "Max Cavity");
-    println!("{:<8} {:<8} {:<10} {:<8} {:<10} {:<10}",
-             "(m/s)", "(m/s)", "(Pa)", "", "", "Length (mm)");
+    println!(
+        "{:<8} {:<8} {:<10} {:<8} {:<10} {:<10}",
+        "V_in", "V_max", "P_min", "σ_min", "Cavitating", "Max Cavity"
+    );
+    println!(
+        "{:<8} {:<8} {:<10} {:<8} {:<10} {:<10}",
+        "(m/s)", "(m/s)", "(Pa)", "", "", "Length (mm)"
+    );
     println!("{}", "─".repeat(70));
 
     for &vel in &inlet_velocities {
@@ -307,15 +328,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let analysis = test_venturi.analyze_cavitation(100);
 
         // Find minimum values
-        let min_pressure = analysis.pressure.iter().cloned().fold(f64::INFINITY, |a, b| {
-            let b_val = b as f64;
-            a.min(b_val)
-        });
+        let min_pressure = analysis
+            .pressure
+            .iter()
+            .cloned()
+            .fold(f64::INFINITY, |a, b| {
+                let b_val = b as f64;
+                a.min(b_val)
+            });
 
-        let min_sigma = analysis.cavitation_number.iter().cloned().fold(f64::INFINITY, |a, b| {
-            let b_val = b as f64;
-            a.min(b_val)
-        });
+        let min_sigma = analysis
+            .cavitation_number
+            .iter()
+            .cloned()
+            .fold(f64::INFINITY, |a, b| {
+                let b_val = b as f64;
+                a.min(b_val)
+            });
 
         let max_velocity = analysis.velocity.iter().cloned().fold(0.0, |a, b| {
             let b_val = b as f64;
@@ -329,13 +358,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let has_cavitation = analysis.is_cavitating.iter().any(|&x| x);
 
-        println!("{:<8.1} {:<8.1} {:<10.0} {:<8.3} {:<10} {:<10.3}",
-                 vel,
-                 max_velocity,
-                 min_pressure,
-                 min_sigma,
-                 if has_cavitation { "YES" } else { "NO" },
-                 max_cavity * 1000.0);
+        println!(
+            "{:<8.1} {:<8.1} {:<10.0} {:<8.3} {:<10} {:<10.3}",
+            vel,
+            max_velocity,
+            min_pressure,
+            min_sigma,
+            if has_cavitation { "YES" } else { "NO" },
+            max_cavity * 1000.0
+        );
     }
 
     println!();
@@ -360,9 +391,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let cavitating = analysis.is_cavitating[i];
         let cavity_mm = analysis.cavity_length[i] as f64 * 1000.0;
 
-        println!("{:>11.1} | {:>10.1} | {:>13.1} | {:>12.0} | {:>4.3} | {:>10} | {:>10.3}",
-                 pos_cm, area_mm2, vel, press, sigma,
-                 if cavitating { "YES" } else { "NO" }, cavity_mm);
+        println!(
+            "{:>11.1} | {:>10.1} | {:>13.1} | {:>12.0} | {:>4.3} | {:>10} | {:>10.3}",
+            pos_cm,
+            area_mm2,
+            vel,
+            press,
+            sigma,
+            if cavitating { "YES" } else { "NO" },
+            cavity_mm
+        );
     }
 
     println!();

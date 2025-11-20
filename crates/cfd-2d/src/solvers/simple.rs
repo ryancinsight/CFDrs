@@ -103,7 +103,11 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
                 let dv_dy = (fields.v[(i, j + 1)] - fields.v[(i, j - 1)]) / (grid.dy + grid.dy);
                 let residual = du_dx + dv_dy;
 
-                let abs_residual = if residual >= T::zero() { residual } else { -residual };
+                let abs_residual = if residual >= T::zero() {
+                    residual
+                } else {
+                    -residual
+                };
                 if abs_residual > max_residual {
                     max_residual = abs_residual;
                 }
@@ -135,10 +139,10 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
         // Apply velocity under-relaxation
         for i in 0..nx {
             for j in 0..ny {
-                fields.u[(i, j)] = self.velocity_relaxation * fields.u[(i, j)] +
-                                  (T::one() - self.velocity_relaxation) * u_old[(i, j)];
-                fields.v[(i, j)] = self.velocity_relaxation * fields.v[(i, j)] +
-                                  (T::one() - self.velocity_relaxation) * v_old[(i, j)];
+                fields.u[(i, j)] = self.velocity_relaxation * fields.u[(i, j)]
+                    + (T::one() - self.velocity_relaxation) * u_old[(i, j)];
+                fields.v[(i, j)] = self.velocity_relaxation * fields.v[(i, j)]
+                    + (T::one() - self.velocity_relaxation) * v_old[(i, j)];
             }
         }
 

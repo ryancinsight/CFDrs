@@ -8,7 +8,7 @@
 use super::operator::LinearOperator;
 use super::traits::MatrixFreeSolver;
 use crate::linear_solver::config::IterativeSolverConfig;
-use cfd_core::error::{Error, Result, ConvergenceErrorKind, NumericalErrorKind};
+use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind, Result};
 use nalgebra::RealField;
 
 /// Matrix-free BiCGSTAB solver.
@@ -17,7 +17,8 @@ use nalgebra::RealField;
 /// for solving general (non-symmetric) linear systems using operator
 /// abstraction. BiCGSTAB typically converges faster than GMRES for
 /// many CFD applications while being more memory-efficient.
-pub struct MatrixFreeBiCGSTAB<T> 
+#[derive(Debug)]
+pub struct MatrixFreeBiCGSTAB<T>
 where
     T: RealField + Copy + Default + From<f64> + 'static,
 {
@@ -25,7 +26,7 @@ where
     config: IterativeSolverConfig<T>,
 }
 
-impl<T> MatrixFreeBiCGSTAB<T> 
+impl<T> MatrixFreeBiCGSTAB<T>
 where
     T: RealField + Copy + Default + From<f64> + 'static,
 {
@@ -46,7 +47,7 @@ where
 
 use crate::linear_solver::traits::Configurable;
 
-impl<T> Configurable<T> for MatrixFreeBiCGSTAB<T> 
+impl<T> Configurable<T> for MatrixFreeBiCGSTAB<T>
 where
     T: RealField + Copy + Default + From<f64> + 'static,
 {
@@ -57,7 +58,7 @@ where
     }
 }
 
-impl<T> MatrixFreeSolver<T> for MatrixFreeBiCGSTAB<T> 
+impl<T> MatrixFreeSolver<T> for MatrixFreeBiCGSTAB<T>
 where
     T: RealField + Copy + Default + From<f64> + std::fmt::Debug + 'static,
 {
@@ -84,13 +85,12 @@ where
         }
 
         // BiCGSTAB workspace vectors
-        let mut r = vec![T::zero(); n];     // Residual vector
+        let mut r = vec![T::zero(); n]; // Residual vector
         let mut r_hat = vec![T::zero(); n]; // Shadow residual
-        let mut p = vec![T::zero(); n];     // Search direction
-        let mut p_hat = vec![T::zero(); n]; // Shadow search direction
-        let mut v = vec![T::zero(); n];     // A * p
-        let mut s = vec![T::zero(); n];     // Intermediate vector
-        let mut t = vec![T::zero(); n];     // A * s
+        let mut p = vec![T::zero(); n]; // Search direction
+        let mut v = vec![T::zero(); n]; // A * p
+        let mut s = vec![T::zero(); n]; // Intermediate vector
+        let mut t = vec![T::zero(); n]; // A * s
 
         // Initial residual: r = b - A*x
         operator.apply(x, &mut r)?;
@@ -113,13 +113,12 @@ where
 
         // Initial search directions
         p.copy_from_slice(&r);
-        p_hat.copy_from_slice(&r);
 
         let mut iteration = 0;
 
         while iteration < self.config.max_iterations {
-            // v = A * p̂
-            operator.apply(&p_hat, &mut v)?;
+            // v = A * p
+            operator.apply(&p, &mut v)?;
 
             // alpha = rho_old / (r̂·v)
             let rho_new = self.dot_product(&r_hat, &v);
@@ -181,10 +180,8 @@ where
             let beta = (rho_old / rho_new) * (_alpha / _omega);
 
             // p = r + beta * (p - omega * v)
-            // p̂ = r̂ + beta * (p̂ - omega * v̂)  (but v̂ is approximated by v)
             for i in 0..n {
                 p[i] = r[i] + beta * (p[i] - _omega * v[i]);
-                p_hat[i] = r_hat[i] + beta * (p_hat[i] - _omega * v[i]);
             }
 
             iteration += 1;
@@ -198,7 +195,7 @@ where
     }
 }
 
-impl<T> MatrixFreeBiCGSTAB<T> 
+impl<T> MatrixFreeBiCGSTAB<T>
 where
     T: RealField + Copy + Default + From<f64> + 'static,
 {
@@ -220,8 +217,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::operator::IdentityOperator;
+    use super::*;
     use approx::assert_relative_eq;
 
     #[test]
@@ -255,11 +252,13 @@ mod tests {
                 Ok(())
             }
 
-            fn size(&self) -> usize { 2 }
+            fn size(&self) -> usize {
+                2
+            }
         }
 
         let operator = UpperTriangularOperator;
-        let b = vec![5.0, 6.0]; // Solution should be [1, 2]
+        let b = vec![4.0, 6.0]; // Solution should be [1, 2]
         let mut x = vec![0.0; 2];
 
         solver.solve(&operator, &b, &mut x).unwrap();
@@ -283,7 +282,9 @@ mod tests {
                 Ok(())
             }
 
-            fn size(&self) -> usize { 3 }
+            fn size(&self) -> usize {
+                3
+            }
         }
 
         let operator = DiagonalOperator;

@@ -7,9 +7,9 @@
 //! - Shock-capturing schemes
 //! - Hypersonic flows
 
-use super::{ManufacturedSolution, ManufacturedFunctions};
-use nalgebra::RealField;
+use super::{ManufacturedFunctions, ManufacturedSolution};
 use cfd_core::conversion::SafeFromF64;
+use nalgebra::RealField;
 
 /// Manufactured solution for compressible Euler equations
 ///
@@ -64,7 +64,9 @@ impl<T: RealField + Copy> ManufacturedCompressibleEuler<T> {
 
     /// Perturbation function for velocity
     fn velocity_perturbation(&self, x: T, y: T, t: T) -> T {
-        self.amplitude * T::from_f64_or_one(0.1) * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky)
+        self.amplitude
+            * T::from_f64_or_one(0.1)
+            * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky)
     }
 }
 
@@ -174,7 +176,15 @@ pub struct ManufacturedTCI<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> ManufacturedTCI<T> {
-    pub fn new(schmidt_t: T, damkohler: T, reaction_rate: T, diffusivity_t: T, amplitude: T, kx: T, ky: T) -> Self {
+    pub fn new(
+        schmidt_t: T,
+        damkohler: T,
+        reaction_rate: T,
+        diffusivity_t: T,
+        amplitude: T,
+        kx: T,
+        ky: T,
+    ) -> Self {
         Self {
             schmidt_t,
             damkohler,
@@ -211,7 +221,10 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedTCI<T> {
 
         // Diffusion term (simplified Laplacian)
         let k_sq = self.kx * self.kx + self.ky * self.ky;
-        let diffusion = self.diffusivity_t * k_sq * self.amplitude * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
+        let diffusion = self.diffusivity_t
+            * k_sq
+            * self.amplitude
+            * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
 
         // Source = ∂Z/∂t - ∇·(D_t ∇Z) + ω(Z)
         dz_dt - diffusion + omega
@@ -242,7 +255,16 @@ pub struct ManufacturedHypersonic<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> ManufacturedHypersonic<T> {
-    pub fn new(mach_inf: T, reynolds: T, prandtl: T, gamma: T, twall_ratio: T, amplitude: T, kx: T, ky: T) -> Self {
+    pub fn new(
+        mach_inf: T,
+        reynolds: T,
+        prandtl: T,
+        gamma: T,
+        twall_ratio: T,
+        amplitude: T,
+        kx: T,
+        ky: T,
+    ) -> Self {
         Self {
             mach_inf,
             reynolds,
@@ -333,11 +355,13 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedShockCapturing
 
         if x < shock_x {
             // Pre-shock region with smooth perturbation
-            let perturbation = self.amplitude * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
+            let perturbation =
+                self.amplitude * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
             self.rho_pre() + perturbation
         } else {
             // Post-shock region with smooth perturbation
-            let perturbation = self.amplitude * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
+            let perturbation =
+                self.amplitude * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
             self.rho_post() + perturbation
         }
     }
@@ -347,11 +371,13 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedShockCapturing
 
         if x < shock_x {
             // Pre-shock source term
-            let perturbation = self.amplitude * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
+            let perturbation =
+                self.amplitude * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
             -perturbation // Simplified time derivative
         } else {
             // Post-shock source term (different due to density jump)
-            let perturbation = self.amplitude * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
+            let perturbation =
+                self.amplitude * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
             -perturbation / self.shock_strength // Account for density ratio
         }
     }
@@ -365,12 +391,12 @@ mod tests {
     #[test]
     fn test_compressible_euler() {
         let euler = ManufacturedCompressibleEuler::<f64>::new(
-            2.0,   // Mach 2
-            1.4,   // γ for air
-            0.1,   // 10° flow angle
-            0.1,   // small amplitude
-            1.0,   // kx
-            1.0,   // ky
+            2.0, // Mach 2
+            1.4, // γ for air
+            0.1, // 10° flow angle
+            0.1, // small amplitude
+            1.0, // kx
+            1.0, // ky
         );
 
         let x = 0.5;
@@ -381,8 +407,16 @@ mod tests {
         let source = euler.source_term(x, y, 0.0, t);
 
         // Density should be close to reference state
-        assert!(rho > 0.9 && rho < 1.2, "Density out of expected range: {}", rho);
-        assert!(source.is_finite(), "Source term should be finite: {}", source);
+        assert!(
+            rho > 0.9 && rho < 1.2,
+            "Density out of expected range: {}",
+            rho
+        );
+        assert!(
+            source.is_finite(),
+            "Source term should be finite: {}",
+            source
+        );
 
         // Check reference state properties
         assert!(euler.u_0() > 1.0, "Sonic speed should be reasonable");
@@ -392,13 +426,13 @@ mod tests {
     #[test]
     fn test_tci_validation() {
         let tci = ManufacturedTCI::<f64>::new(
-            0.7,   // turbulent Schmidt number
-            2.0,   // Damkohler number
-            1.0,   // reaction rate
-            0.01,  // turbulent diffusivity
-            0.2,   // amplitude
-            2.0,   // kx
-            1.5,   // ky
+            0.7,  // turbulent Schmidt number
+            2.0,  // Damkohler number
+            1.0,  // reaction rate
+            0.01, // turbulent diffusivity
+            0.2,  // amplitude
+            2.0,  // kx
+            1.5,  // ky
         );
 
         let x = 0.3;
@@ -409,28 +443,42 @@ mod tests {
         let source = tci.source_term(x, y, 0.0, t);
 
         // Mixture fraction should be in [0,1]
-        assert!(z >= 0.0 && z <= 1.0, "Mixture fraction out of bounds: {}", z);
-        assert!(source.is_finite(), "TCI source term should be finite: {}", source);
+        assert!(
+            z >= 0.0 && z <= 1.0,
+            "Mixture fraction out of bounds: {}",
+            z
+        );
+        assert!(
+            source.is_finite(),
+            "TCI source term should be finite: {}",
+            source
+        );
 
         // Test at multiple points
         let test_points = vec![(0.1, 0.1), (0.5, 0.5), (0.9, 0.9)];
         for (x_test, y_test) in test_points {
             let z_test = tci.exact_solution(x_test, y_test, 0.0, t);
-            assert!(z_test >= 0.0 && z_test <= 1.0, "Mixture fraction bounds violated at ({},{}): {}", x_test, y_test, z_test);
+            assert!(
+                z_test >= 0.0 && z_test <= 1.0,
+                "Mixture fraction bounds violated at ({},{}): {}",
+                x_test,
+                y_test,
+                z_test
+            );
         }
     }
 
     #[test]
     fn test_hypersonic_flow() {
         let hypersonic = ManufacturedHypersonic::<f64>::new(
-            10.0,  // Mach 10
-            1e6,   // Reynolds number
-            0.72,  // Prandtl number
-            1.4,   // γ
-            3.0,   // wall temperature ratio
-            0.1,   // amplitude
-            1.0,   // kx
-            1.0,   // ky
+            10.0, // Mach 10
+            1e6,  // Reynolds number
+            0.72, // Prandtl number
+            1.4,  // γ
+            3.0,  // wall temperature ratio
+            0.1,  // amplitude
+            1.0,  // kx
+            1.0,  // ky
         );
 
         let x = 0.5;
@@ -441,22 +489,33 @@ mod tests {
         let source = hypersonic.source_term(x, y, 0.0, t);
 
         // Temperature should be reasonable for hypersonic flow
-        assert!(temp > 2.0 && temp < 5.0, "Temperature out of expected range: {}", temp);
-        assert!(source.is_finite(), "Hypersonic source term should be finite: {}", source);
+        assert!(
+            temp > 2.0 && temp < 5.0,
+            "Temperature out of expected range: {}",
+            temp
+        );
+        assert!(
+            source.is_finite(),
+            "Hypersonic source term should be finite: {}",
+            source
+        );
 
         // Check flow parameters
-        assert!(hypersonic.mach_inf >= 5.0, "Should be hypersonic Mach number");
+        assert!(
+            hypersonic.mach_inf >= 5.0,
+            "Should be hypersonic Mach number"
+        );
     }
 
     #[test]
     fn test_shock_capturing() {
         let shock = ManufacturedShockCapturing::<f64>::new(
-            4.0,   // shock strength (density ratio)
-            1.5,   // shock speed
-            0.3,   // initial shock position
-            0.05,  // amplitude for smooth part
-            2.0,   // kx
-            1.0,   // ky
+            4.0,  // shock strength (density ratio)
+            1.5,  // shock speed
+            0.3,  // initial shock position
+            0.05, // amplitude for smooth part
+            2.0,  // kx
+            1.0,  // ky
         );
 
         let t = 0.5;
@@ -473,15 +532,32 @@ mod tests {
         let source_post = shock.source_term(x_post, 0.5, 0.0, t);
 
         // Post-shock density should be higher due to shock compression
-        assert!(rho_post > rho_pre, "Post-shock density should be higher: pre={}, post={}", rho_pre, rho_post);
-        assert!(rho_post / rho_pre >= 3.5, "Density ratio should match shock strength");
+        assert!(
+            rho_post > rho_pre,
+            "Post-shock density should be higher: pre={}, post={}",
+            rho_pre,
+            rho_post
+        );
+        assert!(
+            rho_post / rho_pre >= 3.5,
+            "Density ratio should match shock strength"
+        );
 
         // Both source terms should be finite
-        assert!(source_pre.is_finite(), "Pre-shock source term should be finite");
-        assert!(source_post.is_finite(), "Post-shock source term should be finite");
+        assert!(
+            source_pre.is_finite(),
+            "Pre-shock source term should be finite"
+        );
+        assert!(
+            source_post.is_finite(),
+            "Post-shock source term should be finite"
+        );
 
         // Shock should move with correct speed
-        assert!((shock_x - 0.3) >= 0.7, "Shock should have moved at least 0.7 units");
+        assert!(
+            (shock_x - 0.3) >= 0.7,
+            "Shock should have moved at least 0.7 units"
+        );
     }
 
     #[test]
@@ -493,9 +569,20 @@ mod tests {
 
         for &t in &times[1..] {
             let pos = shock.shock_position(t);
-            assert!(pos > prev_pos, "Shock should move forward: t={}, pos={}", t, pos);
-            assert!((pos - prev_pos - 2.0 * (t - times[times.iter().position(|&x| x == prev_pos / 2.0).unwrap_or(0)])) < 1e-10,
-                   "Shock speed should be constant");
+            assert!(
+                pos > prev_pos,
+                "Shock should move forward: t={}, pos={}",
+                t,
+                pos
+            );
+            assert!(
+                (pos - prev_pos
+                    - 2.0
+                        * (t - times
+                            [times.iter().position(|&x| x == prev_pos / 2.0).unwrap_or(0)]))
+                    < 1e-10,
+                "Shock speed should be constant"
+            );
             prev_pos = pos;
         }
     }

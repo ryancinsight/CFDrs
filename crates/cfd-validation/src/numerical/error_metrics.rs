@@ -1,7 +1,7 @@
 //! Error metrics computation for validation
 
-use nalgebra::{ComplexField, DVector, RealField};
 use cfd_core::conversion::SafeFromF64;
+use nalgebra::{ComplexField, DVector, RealField};
 
 /// Error metrics for validation
 #[derive(Debug, Clone)]

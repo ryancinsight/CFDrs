@@ -84,9 +84,12 @@ pub fn bench_vof_plic_reconstruction(c: &mut Criterion) {
                         let dalpha_dy = (alpha[idx + 10] - alpha[idx - 10]) * 0.5;
                         let dalpha_dz = (alpha[idx + 100] - alpha[idx - 100]) * 0.5;
 
-                        let norm = (dalpha_dx * dalpha_dx + dalpha_dy * dalpha_dy + dalpha_dz * dalpha_dz).sqrt();
+                        let norm =
+                            (dalpha_dx * dalpha_dx + dalpha_dy * dalpha_dy + dalpha_dz * dalpha_dz)
+                                .sqrt();
                         if norm > 1e-10 {
-                            normals[idx] = Vector3::new(dalpha_dx / norm, dalpha_dy / norm, dalpha_dz / norm);
+                            normals[idx] =
+                                Vector3::new(dalpha_dx / norm, dalpha_dy / norm, dalpha_dz / norm);
                         }
                     }
                 }
@@ -131,9 +134,11 @@ pub fn bench_level_set_reinitialization(c: &mut Criterion) {
                         // Calculate gradients
                         let dphi_dx = (phi_previous[idx + 1] - phi_previous[idx - 1]) * 0.5 / dx;
                         let dphi_dy = (phi_previous[idx + 32] - phi_previous[idx - 32]) * 0.5 / dx;
-                        let dphi_dz = (phi_previous[idx + 1024] - phi_previous[idx - 1024]) * 0.5 / dx;
+                        let dphi_dz =
+                            (phi_previous[idx + 1024] - phi_previous[idx - 1024]) * 0.5 / dx;
 
-                        let grad_magnitude = (dphi_dx * dphi_dx + dphi_dy * dphi_dy + dphi_dz * dphi_dz).sqrt();
+                        let grad_magnitude =
+                            (dphi_dx * dphi_dx + dphi_dy * dphi_dy + dphi_dz * dphi_dz).sqrt();
                         let sign_phi = phi_previous[idx] / (phi_previous[idx].abs() + 1e-6);
 
                         phi[idx] = phi_previous[idx] - dtau * sign_phi * (grad_magnitude - 1.0);
@@ -212,7 +217,4 @@ criterion_group!(
     bench_ibm_interpolation
 );
 criterion_main!(benches);
-
-
-
 

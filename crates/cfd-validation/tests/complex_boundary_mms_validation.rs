@@ -8,7 +8,9 @@ use cfd_2d::grid::{Grid2D, StructuredGrid2D};
 use cfd_2d::physics::fluid::Fluid;
 use cfd_core::boundary::{BoundaryCondition, BoundaryConditionSet};
 use cfd_validation::error_metrics::{L2Norm, NormalizedRMSE};
-use cfd_validation::manufactured::{ManufacturedNavierStokes, ManufacturedSolution, TaylorGreenManufactured};
+use cfd_validation::manufactured::{
+    ManufacturedNavierStokes, ManufacturedSolution, TaylorGreenManufactured,
+};
 use nalgebra::Vector3;
 use std::collections::HashMap;
 
@@ -232,8 +234,24 @@ fn verify_mms_boundary_conditions(
     for (boundary_name, bc) in boundaries.iter() {
         match boundary_name.as_str() {
             "west" => verify_boundary_condition(mms, grid, bc, 0..1, 0..grid.ny, time, tolerance),
-            "east" => verify_boundary_condition(mms, grid, bc, (grid.nx - 1)..grid.nx, 0..grid.ny, time, tolerance),
-            "north" => verify_boundary_condition(mms, grid, bc, 0..grid.nx, (grid.ny - 1)..grid.ny, time, tolerance),
+            "east" => verify_boundary_condition(
+                mms,
+                grid,
+                bc,
+                (grid.nx - 1)..grid.nx,
+                0..grid.ny,
+                time,
+                tolerance,
+            ),
+            "north" => verify_boundary_condition(
+                mms,
+                grid,
+                bc,
+                0..grid.nx,
+                (grid.ny - 1)..grid.ny,
+                time,
+                tolerance,
+            ),
             "south" => verify_boundary_condition(mms, grid, bc, 0..grid.nx, 0..1, time, tolerance),
             _ => {}
         }
@@ -263,7 +281,10 @@ fn verify_boundary_condition(
                     assert!(
                         (exact_u - value).abs() < tolerance,
                         "Dirichlet BC violated at ({}, {}): expected {}, got {}",
-                        x, y, value, exact_u
+                        x,
+                        y,
+                        value,
+                        exact_u
                     );
                 }
                 BoundaryCondition::Neumann { gradient } => {
@@ -272,14 +293,19 @@ fn verify_boundary_condition(
                     assert!(
                         gradient.abs() < tolerance,
                         "Neumann BC gradient check failed at ({}, {}): expected {}, got ~0",
-                        x, y, gradient
+                        x,
+                        y,
+                        gradient
                     );
                 }
                 BoundaryCondition::VelocityInlet { velocity } => {
                     assert!(
                         (exact_u - velocity.x).abs() < tolerance,
                         "Velocity inlet BC violated at ({}, {}): expected {}, got {}",
-                        x, y, velocity.x, exact_u
+                        x,
+                        y,
+                        velocity.x,
+                        exact_u
                     );
                 }
                 BoundaryCondition::Wall { wall_type: _ } => {
@@ -287,7 +313,10 @@ fn verify_boundary_condition(
                     assert!(
                         exact_u.abs() < tolerance && exact_v.abs() < tolerance,
                         "Wall BC violated at ({}, {}): u={}, v={}",
-                        x, y, exact_u, exact_v
+                        x,
+                        y,
+                        exact_u,
+                        exact_v
                     );
                 }
                 _ => {} // Other BC types not checked in this basic validation
@@ -315,8 +344,8 @@ fn verify_mms_robin_conditions(
 
                     let (i_range, j_range) = match boundary_name.as_str() {
                         "west" => (0..1, 0..grid.ny),
-                        "east" => ((grid.nx-1)..grid.nx, 0..grid.ny),
-                        "north" => (0..grid.nx, (grid.ny-1)..grid.ny),
+                        "east" => ((grid.nx - 1)..grid.nx, 0..grid.ny),
+                        "north" => (0..grid.nx, (grid.ny - 1)..grid.ny),
                         "south" => (0..grid.nx, 0..1),
                         _ => continue,
                     };
@@ -330,7 +359,10 @@ fn verify_mms_robin_conditions(
                             assert!(
                                 (exact_u - expected_u).abs() < tolerance,
                                 "Robin BC violated at ({}, {}): αu + β∂u/∂n = γ gives u={}, got {}",
-                                x, y, expected_u, exact_u
+                                x,
+                                y,
+                                expected_u,
+                                exact_u
                             );
                         }
                     }
@@ -363,7 +395,9 @@ fn verify_mms_periodic_conditions(
             assert!(
                 (west_u - east_u).abs() < tolerance,
                 "Periodic BC violated at y={}: west={}, east={}",
-                y, west_u, east_u
+                y,
+                west_u,
+                east_u
             );
         }
     }
@@ -455,4 +489,3 @@ mod property_tests {
         }
     }
 }
-

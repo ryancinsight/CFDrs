@@ -7,16 +7,13 @@
 //! - Bubble dynamics integration
 //! - Conservation properties
 
-use cfd_3d::vof::{
-    CavitationVofSolver, CavitationVofConfig, BubbleDynamicsConfig,
-    VofConfig, AdvectionMethod, InterfaceReconstruction, CavitationStatistics
-};
-use cfd_core::cavitation::{
-    models::CavitationModel,
-    damage::CavitationDamage,
-};
-use nalgebra::{Vector3, DMatrix};
 use approx::assert_relative_eq;
+use cfd_3d::vof::{
+    AdvectionMethod, BubbleDynamicsConfig, CavitationStatistics, CavitationVofConfig,
+    CavitationVofSolver, InterfaceReconstruction, VofConfig,
+};
+use cfd_core::cavitation::{damage::CavitationDamage, models::CavitationModel};
+use nalgebra::{DMatrix, Vector3};
 
 #[test]
 fn test_cavitation_inception() {
@@ -51,11 +48,16 @@ fn test_cavitation_inception() {
     let density_field = DMatrix::from_element(10, 100, 998.0);
 
     // Step simulation
-    solver.step(1e-5, &velocity_field, &pressure_field, &density_field).unwrap();
+    solver
+        .step(1e-5, &velocity_field, &pressure_field, &density_field)
+        .unwrap();
 
     // Check that cavitation was detected
     let stats = solver.cavitation_statistics();
-    assert!(stats.cavitating_cells > 0, "Cavitation should be detected in low pressure regions");
+    assert!(
+        stats.cavitating_cells > 0,
+        "Cavitation should be detected in low pressure regions"
+    );
 
     println!("✓ Cavitation inception test passed");
 }
@@ -108,12 +110,17 @@ fn test_damage_accumulation() {
 
     // Run multiple steps to accumulate damage
     for _ in 0..10 {
-        solver.step(1e-5, &velocity_field, &pressure_field, &density_field).unwrap();
+        solver
+            .step(1e-5, &velocity_field, &pressure_field, &density_field)
+            .unwrap();
     }
 
     // Check damage accumulation
     let stats = solver.cavitation_statistics();
-    assert!(stats.max_damage > 0.0, "Damage should accumulate in cavitating flow");
+    assert!(
+        stats.max_damage > 0.0,
+        "Damage should accumulate in cavitating flow"
+    );
 
     if let Some(damage_field) = solver.damage_field() {
         let total_damage: f64 = damage_field.iter().sum();
@@ -154,7 +161,8 @@ fn test_mass_conservation() {
         let volume_fraction = solver.volume_fraction().clone();
         for i in 0..volume_fraction.nrows() {
             for j in 0..volume_fraction.ncols() {
-                if i > 10 && i < 15 { // Central region
+                if i > 10 && i < 15 {
+                    // Central region
                     volume_fraction[(i, j)] = 0.1; // 10% void fraction
                 }
             }
@@ -170,7 +178,9 @@ fn test_mass_conservation() {
 
     // Run simulation steps
     for _ in 0..50 {
-        solver.step(1e-5, &velocity_field, &pressure_field, &density_field).unwrap();
+        solver
+            .step(1e-5, &velocity_field, &pressure_field, &density_field)
+            .unwrap();
     }
 
     // Check volume conservation (should be close, cavitation adds/removes mass)
@@ -178,9 +188,16 @@ fn test_mass_conservation() {
     let volume_change = (final_volume - initial_volume).abs();
 
     // Volume change should be reasonable (not explosive growth)
-    assert!(volume_change < initial_volume * 0.1, "Volume change too large: {}", volume_change);
+    assert!(
+        volume_change < initial_volume * 0.1,
+        "Volume change too large: {}",
+        volume_change
+    );
 
-    println!("✓ Mass conservation test passed (volume change: {:.2e})", volume_change);
+    println!(
+        "✓ Mass conservation test passed (volume change: {:.2e})",
+        volume_change
+    );
 }
 
 #[test]
@@ -233,7 +250,9 @@ fn test_bubble_dynamics_integration() {
         }
 
         let density_field = DMatrix::from_element(5, 25, 998.0);
-        solver.step(1e-6, &velocity_field, &pressure_field, &density_field).unwrap();
+        solver
+            .step(1e-6, &velocity_field, &pressure_field, &density_field)
+            .unwrap();
 
         // Check that bubble radii are updated
         if let Some(radius_field) = solver.bubble_radius_field() {
@@ -284,7 +303,8 @@ fn test_cavitation_statistics() {
     // Set some cells to cavitating pressure
     for i in 0..10 {
         for j in 0..100 {
-            if i < 3 { // First 3 rows cavitating
+            if i < 3 {
+                // First 3 rows cavitating
                 pressure_field[(i, j)] = 1000.0; // Low pressure
             } else {
                 pressure_field[(i, j)] = 101325.0; // Atmospheric
@@ -306,7 +326,9 @@ fn test_cavitation_statistics() {
         }
     }
 
-    solver.step(1e-5, &velocity_field, &pressure_field, &density_field).unwrap();
+    solver
+        .step(1e-5, &velocity_field, &pressure_field, &density_field)
+        .unwrap();
 
     let stats = solver.cavitation_statistics();
 
@@ -317,7 +339,10 @@ fn test_cavitation_statistics() {
     assert!(stats.cavitating_cells <= stats.total_cells);
 
     // Should have cavitation in the low-pressure regions
-    assert!(stats.cavitating_cells > 0, "Should detect cavitation in low-pressure regions");
+    assert!(
+        stats.cavitating_cells > 0,
+        "Should detect cavitation in low-pressure regions"
+    );
 
     println!("✓ Cavitation statistics test passed");
     println!("   Cavitation fraction: {:.3}", stats.cavitation_fraction);
@@ -329,20 +354,29 @@ fn test_cavitation_model_comparison() {
     println!("Testing cavitation model comparison...");
 
     let models = vec![
-        ("Kunz", CavitationModel::Kunz {
-            vaporization_coeff: 100.0,
-            condensation_coeff: 100.0,
-        }),
-        ("Schnerr-Sauer", CavitationModel::SchnerrSauer {
-            bubble_density: 1e13,
-            initial_radius: 1e-6,
-        }),
-        ("ZGB", CavitationModel::ZGB {
-            nucleation_fraction: 5e-4,
-            bubble_radius: 1e-6,
-            f_vap: 50.0,
-            f_cond: 0.01,
-        }),
+        (
+            "Kunz",
+            CavitationModel::Kunz {
+                vaporization_coeff: 100.0,
+                condensation_coeff: 100.0,
+            },
+        ),
+        (
+            "Schnerr-Sauer",
+            CavitationModel::SchnerrSauer {
+                bubble_density: 1e13,
+                initial_radius: 1e-6,
+            },
+        ),
+        (
+            "ZGB",
+            CavitationModel::ZGB {
+                nucleation_fraction: 5e-4,
+                bubble_radius: 1e-6,
+                f_vap: 50.0,
+                f_cond: 0.01,
+            },
+        ),
     ];
 
     for (name, model) in models {
@@ -370,15 +404,23 @@ fn test_cavitation_model_comparison() {
         let pressure_field = DMatrix::from_element(5, 25, 1000.0); // Very low pressure
         let density_field = DMatrix::from_element(5, 25, 998.0);
 
-        solver.step(1e-5, &velocity_field, &pressure_field, &density_field).unwrap();
+        solver
+            .step(1e-5, &velocity_field, &pressure_field, &density_field)
+            .unwrap();
 
         let stats = solver.cavitation_statistics();
 
         // All models should predict some cavitation under these conditions
-        assert!(stats.cavitating_cells > 0,
-            "{} model should predict cavitation under low pressure", name);
+        assert!(
+            stats.cavitating_cells > 0,
+            "{} model should predict cavitation under low pressure",
+            name
+        );
 
-        println!("✓ {} model: {} cavitating cells", name, stats.cavitating_cells);
+        println!(
+            "✓ {} model: {} cavitating cells",
+            name, stats.cavitating_cells
+        );
     }
 
     println!("✓ Cavitation model comparison test passed");

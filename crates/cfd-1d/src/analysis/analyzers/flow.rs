@@ -23,7 +23,8 @@ impl<T: RealField + Copy> Default for FlowAnalyzer<T> {
 
 impl<T: RealField + Copy> FlowAnalyzer<T> {
     /// Create new flow analyzer
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }

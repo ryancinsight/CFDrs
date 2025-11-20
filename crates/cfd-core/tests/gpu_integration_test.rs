@@ -12,7 +12,9 @@ mod gpu_tests {
     #[test]
     fn test_gpu_context_creation() {
         // Skip test if no GPU available
-        let context = if let Ok(ctx) = GpuContext::create() { Arc::new(ctx) } else {
+        let context = if let Ok(ctx) = GpuContext::create() {
+            Arc::new(ctx)
+        } else {
             println!("Skipping GPU test - no GPU available");
             return;
         };

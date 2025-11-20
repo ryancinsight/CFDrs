@@ -17,7 +17,7 @@ mod multistep;
 mod tests;
 mod types;
 
-pub use adaptive::{AdaptiveController, AdaptiveTimeIntegrator, AdaptationStrategy};
+pub use adaptive::{AdaptationStrategy, AdaptiveController, AdaptiveTimeIntegrator};
 pub use types::TimeScheme;
 
 /// Time integrator for ODEs

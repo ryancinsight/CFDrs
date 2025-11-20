@@ -31,7 +31,8 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
     }
 
     /// Get the number of collocation points
-    #[must_use] pub fn num_points(&self) -> usize {
+    #[must_use]
+    pub fn num_points(&self) -> usize {
         self.n
     }
 
@@ -129,14 +130,16 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
     }
 
     /// Interpolate function values to arbitrary point
-    /// 
+    ///
     /// Uses barycentric Lagrange interpolation for stability
     /// Reference: Berrut & Trefethen (2004). "Barycentric Lagrange Interpolation"
     pub fn interpolate(&self, values: &[T], x: T) -> Result<T> {
         if values.len() != self.n {
-            return Err(cfd_core::error::Error::InvalidConfiguration(
-                format!("Expected {} values, got {}", self.n, values.len()),
-            ));
+            return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                "Expected {} values, got {}",
+                self.n,
+                values.len()
+            )));
         }
 
         let two = T::from_f64(2.0).ok_or_else(|| {
@@ -146,10 +149,14 @@ impl<T: RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
         // Barycentric weights for Chebyshev points
         let mut weights = vec![T::one(); self.n];
         weights[0] = T::one() / two;
-        weights[self.n - 1] = T::from_i32(if (self.n - 1).is_multiple_of(2) { 1 } else { -1 })
-            .ok_or_else(|| {
-                cfd_core::error::Error::InvalidConfiguration("Cannot convert sign".into())
-            })? / two;
+        weights[self.n - 1] = T::from_i32(if (self.n - 1).is_multiple_of(2) {
+            1
+        } else {
+            -1
+        })
+        .ok_or_else(|| {
+            cfd_core::error::Error::InvalidConfiguration("Cannot convert sign".into())
+        })? / two;
 
         for (j, weight) in weights.iter_mut().enumerate().take(self.n - 1).skip(1) {
             *weight = T::from_i32(if j % 2 == 0 { 1 } else { -1 }).ok_or_else(|| {

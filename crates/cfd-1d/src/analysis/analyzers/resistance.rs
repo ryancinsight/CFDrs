@@ -22,7 +22,8 @@ impl<T: RealField + Copy> Default for ResistanceAnalyzer<T> {
 
 impl<T: RealField + Copy> ResistanceAnalyzer<T> {
     /// Create new resistance analyzer
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
@@ -66,7 +67,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T>
         // NOTE: Critical path analysis is not currently implemented
         // The ResistanceAnalysis struct has a critical_paths field and add_critical_path method,
         // but the algorithm to identify critical paths in the network is not yet implemented.
-        // 
+        //
         // A complete implementation would require:
         // 1. Graph traversal to identify all flow paths from sources to sinks
         // 2. Calculation of total resistance for each path

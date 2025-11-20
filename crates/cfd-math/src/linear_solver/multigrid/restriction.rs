@@ -6,9 +6,7 @@ use nalgebra::DMatrix;
 ///
 /// The restriction operator is typically the transpose of the interpolation operator.
 /// This ensures that the Galerkin condition (coarse_matrix = R * fine_matrix * P) is satisfied.
-pub fn create_restriction_from_interpolation(
-    interpolation: &DMatrix<f64>,
-) -> DMatrix<f64> {
+pub fn create_restriction_from_interpolation(interpolation: &DMatrix<f64>) -> DMatrix<f64> {
     interpolation.transpose()
 }
 
@@ -36,10 +34,7 @@ pub fn create_injection_restriction(
 ///
 /// Full weighting averages all fine values in a neighborhood.
 /// This is commonly used for geometric multigrid.
-pub fn create_full_weighting_restriction(
-    fine_n: usize,
-    coarse_n: usize,
-) -> DMatrix<f64> {
+pub fn create_full_weighting_restriction(fine_n: usize, coarse_n: usize) -> DMatrix<f64> {
     // Assuming 1D grid for simplicity
     // In practice, this would depend on the grid topology
     let mut restriction = DMatrix::zeros(coarse_n, fine_n);
@@ -61,10 +56,7 @@ pub fn create_full_weighting_restriction(
 /// Create half weighting restriction operator
 ///
 /// Half weighting uses a weighted average with emphasis on direct neighbors.
-pub fn create_half_weighting_restriction(
-    fine_n: usize,
-    coarse_n: usize,
-) -> DMatrix<f64> {
+pub fn create_half_weighting_restriction(fine_n: usize, coarse_n: usize) -> DMatrix<f64> {
     // Assuming 1D grid for simplicity
     let mut restriction = DMatrix::zeros(coarse_n, fine_n);
 
@@ -159,9 +151,8 @@ pub struct RestrictionQuality {
 impl RestrictionQuality {
     /// Check if restriction quality is acceptable
     pub fn is_acceptable(&self) -> bool {
-        self.transpose_error < 1e-10
-            && self.avg_row_sum > 0.0
-            && self.sparsity_ratio < 0.1 // Less than 10% non-zeros
+        self.transpose_error < 1e-10 && self.avg_row_sum > 0.0 && self.sparsity_ratio < 0.1
+        // Less than 10% non-zeros
     }
 }
 
@@ -213,14 +204,15 @@ mod tests {
         assert_eq!(restriction.ncols(), interpolation.nrows());
 
         // Check transpose property
-        assert!((restriction - interpolation.transpose()).abs().iter().all(|&x| x < 1e-15));
+        assert!((restriction - interpolation.transpose())
+            .abs()
+            .iter()
+            .all(|&x| x < 1e-15));
     }
 
     #[test]
     fn test_injection_restriction() {
-        let fine_to_coarse_map = vec![
-            Some(0), None, Some(1), None, Some(2)
-        ];
+        let fine_to_coarse_map = vec![Some(0), None, Some(1), None, Some(2)];
 
         let restriction = create_injection_restriction(&fine_to_coarse_map, 5, 3);
 

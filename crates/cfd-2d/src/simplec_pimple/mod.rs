@@ -8,8 +8,8 @@
 //! - Van Doormaal, J. P., & Raithby, G. D. (1984). Enhancements of the SIMPLE method for predicting incompressible fluid flows.
 //! - OpenFOAM PIMPLE implementation
 
-pub mod solver;
 pub mod config;
+pub mod solver;
 
 pub use config::{AlgorithmType, SimplecPimpleConfig};
 pub use solver::SimplecPimpleSolver;

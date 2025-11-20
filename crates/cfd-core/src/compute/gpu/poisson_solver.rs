@@ -37,7 +37,7 @@ pub struct GpuPoissonSolver {
 
 impl GpuPoissonSolver {
     /// Create a new GPU Poisson solver
-    /// 
+    ///
     /// # Errors
     /// Returns error if GPU device creation fails or shader compilation fails
     pub fn new(
@@ -164,12 +164,12 @@ impl GpuPoissonSolver {
     }
 
     /// Solve Poisson equation using Jacobi iteration
-    /// 
+    ///
     /// # Errors
     /// Returns error if GPU buffer creation fails or command submission fails
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// May panic if GPU buffer operations fail unexpectedly or if communication
     /// channels between GPU and CPU operations are corrupted.
     #[allow(clippy::too_many_lines)]
@@ -337,7 +337,7 @@ impl GpuPoissonSolver {
     }
 
     /// Solve using Red-Black Gauss-Seidel iteration (potentially more efficient)
-    /// 
+    ///
     /// # Errors
     /// Returns error if GPU buffer creation fails or command submission fails
     pub fn solve_red_black(
@@ -361,17 +361,21 @@ impl GpuPoissonSolver {
     /// Returns error if GPU compute pipeline execution fails
     pub fn calculate_residual(&self, phi: &[f32], source: &[f32]) -> Result<f32> {
         // Create staging buffer for phi and source
-        let phi_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Phi Staging Buffer"),
-            contents: bytemuck::cast_slice(phi),
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        });
+        let phi_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Phi Staging Buffer"),
+                contents: bytemuck::cast_slice(phi),
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            });
 
-        let source_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Source Staging Buffer"),
-            contents: bytemuck::cast_slice(source),
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        });
+        let source_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Source Staging Buffer"),
+                contents: bytemuck::cast_slice(source),
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            });
 
         // Create residual buffer (output)
         let residual_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
@@ -414,9 +418,11 @@ impl GpuPoissonSolver {
         });
 
         // Execute residual computation
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Residual Encoder"),
-        });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Residual Encoder"),
+            });
 
         {
             let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -462,7 +468,9 @@ impl GpuPoissonSolver {
 
                 Ok(l2_norm)
             }
-            _ => Err(crate::error::Error::GpuCompute("Failed to map residual buffer".to_string()))
+            _ => Err(crate::error::Error::GpuCompute(
+                "Failed to map residual buffer".to_string(),
+            )),
         }
     }
 

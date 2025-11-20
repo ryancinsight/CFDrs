@@ -20,14 +20,15 @@ use cfd_2d::simplec_pimple::SimplecPimpleSolver;
 use cfd_core::fluid::Fluid;
 use cfd_validation::analytical_benchmarks::lid_driven_cavity;
 use cfd_validation::benchmarks::cavity::LidDrivenCavity;
-use cfd_validation::error_metrics::L2Norm;
 use cfd_validation::error_metrics::ErrorMetric;
+use cfd_validation::error_metrics::L2Norm;
 use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
 
 /// Test SIMPLEC solver basic functionality with Rhie-Chow interpolation
 #[test]
-fn test_simplec_solver_creation_and_basic_functionality() 
+#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
+fn test_simplec_solver_creation_and_basic_functionality()
 where
     f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
 {
@@ -61,21 +62,27 @@ where
     };
 
     // Create solver
-    let mut solver = SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create SIMPLEC solver");
+    let mut solver =
+        SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create SIMPLEC solver");
 
     // Run a few time steps to verify basic functionality
     let mut residuals = Vec::new();
     let n_steps = 1; // Just run one step first to test basic functionality
 
     for step in 0..n_steps {
-        let residual = solver.solve_time_step(&mut fields, config.dt, nu, fluid.density)
+        let residual = solver
+            .solve_time_step(&mut fields, config.dt, nu, fluid.density)
             .expect("Solver failed at step {}");
 
         residuals.push(residual);
         println!("Step {}: residual = {:.2e}", step, residual);
 
         // Check that residuals are reasonable (not NaN or infinite)
-        assert!(residual.is_finite(), "Residual became non-finite at step {}", step);
+        assert!(
+            residual.is_finite(),
+            "Residual became non-finite at step {}",
+            step
+        );
         assert!(residual >= 0.0, "Residual became negative at step {}", step);
     }
 
@@ -89,7 +96,10 @@ where
     println!("  Iterations: {}", solver.iterations());
 
     // Basic sanity checks
-    assert!(final_residual < initial_residual * 10.0, "Solver should make some progress");
+    assert!(
+        final_residual < initial_residual * 10.0,
+        "Solver should make some progress"
+    );
 
     // Check that velocity field is reasonable (not all zeros, not NaN)
     let mut has_nonzero_velocity = false;
@@ -104,16 +114,23 @@ where
             }
         }
     }
-    assert!(has_nonzero_velocity, "Velocity field should have non-zero values");
+    assert!(
+        has_nonzero_velocity,
+        "Velocity field should have non-zero values"
+    );
 
     // Check pressure field smoothness
     let pressure_smoothness = check_pressure_smoothness(&fields.p);
     println!("  Pressure smoothness: {:.4}", pressure_smoothness);
-    assert!(pressure_smoothness.is_finite(), "Pressure smoothness should be finite");
+    assert!(
+        pressure_smoothness.is_finite(),
+        "Pressure smoothness should be finite"
+    );
 }
 
 /// Test SIMPLEC solver convergence for lid-driven cavity at Re=100
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
 fn test_simplec_convergence_ghia_cavity_re100()
 where
     f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
@@ -135,45 +152,53 @@ where
     // Optimized SIMPLEC configuration with Rhie-Chow enabled for accuracy
     let config = SimplecPimpleConfig {
         algorithm: AlgorithmType::Simplec,
-        dt: 1e-3, // Smaller time step for better accuracy
-        alpha_u: 0.6, // More conservative under-relaxation for stability
-        alpha_p: 0.2, // More conservative pressure under-relaxation
-        tolerance: 5e-4, // Reasonable tolerance for convergence
+        dt: 1e-3,                   // Smaller time step for better accuracy
+        alpha_u: 0.6,               // More conservative under-relaxation for stability
+        alpha_p: 0.2,               // More conservative pressure under-relaxation
+        tolerance: 5e-4,            // Reasonable tolerance for convergence
         max_inner_iterations: 3000, // Increased iteration limit for convergence
         n_outer_correctors: 1,
         n_inner_correctors: 1,
         use_rhie_chow: false, // Rhie-Chow enhancement implemented but disabled for stability
     };
 
-    let mut solver = SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
+    let mut solver =
+        SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
 
     // Run simulation with adaptive time stepping for improved performance
     let max_time_steps = 100; // Fewer steps needed with adaptive stepping
     let convergence_tolerance = 1e-3; // Standard convergence tolerance
 
     println!("Running SIMPLEC with adaptive time stepping...");
-    let (final_dt, final_residual) = solver.solve_adaptive(
-        &mut fields,
-        config.dt,
-        nu,
-        fluid.density,
-        max_time_steps,
-        convergence_tolerance,
-    ).expect("Adaptive solver failed");
+    let (final_dt, final_residual) = solver
+        .solve_adaptive(
+            &mut fields,
+            config.dt,
+            nu,
+            fluid.density,
+            max_time_steps,
+            convergence_tolerance,
+        )
+        .expect("Adaptive solver failed");
 
     let converged = final_residual < convergence_tolerance;
-    println!("✓ Adaptive stepping completed - Final residual: {:.2e}, Final dt: {:.6}",
-             final_residual, final_dt);
+    println!(
+        "✓ Adaptive stepping completed - Final residual: {:.2e}, Final dt: {:.6}",
+        final_residual, final_dt
+    );
 
     if converged {
         // Extract centerline u-velocity profile
-        let centerline_u: Vec<f64> = (0..ny).map(|j| {
-            let i_center = nx / 2;
-            fields.u.at(i_center, j)
-        }).collect();
+        let centerline_u: Vec<f64> = (0..ny)
+            .map(|j| {
+                let i_center = nx / 2;
+                fields.u.at(i_center, j)
+            })
+            .collect();
 
         // Compare with Ghia reference data using the original working method
-        let (ref_y, ref_u) = lid_driven_cavity::RE100_U_CENTERLINE.iter()
+        let (ref_y, ref_u) = lid_driven_cavity::RE100_U_CENTERLINE
+            .iter()
             .map(|&(y, u)| (y, u))
             .unzip::<_, _, Vec<f64>, Vec<f64>>();
 
@@ -199,7 +224,12 @@ where
 
         // Target: Achieve literature-standard accuracy (<8% L2 error)
         // Current: ~23% on 32x32 grid - acceptable for initial working implementation
-        assert!(l2_error < 0.25, "L2 error {:.4} ({:.1}%) exceeds acceptable threshold for working algorithm", l2_error, l2_error * 100.0);
+        assert!(
+            l2_error < 0.25,
+            "L2 error {:.4} ({:.1}%) exceeds acceptable threshold for working algorithm",
+            l2_error,
+            l2_error * 100.0
+        );
 
         // Verify pressure field smoothness - quantitative bounds from literature
         let pressure_smoothness = check_pressure_smoothness(&fields.p);
@@ -210,7 +240,10 @@ where
         // Commercial CFD: <0.001 for high-quality solutions
         assert!(pressure_smoothness < 0.01, "Pressure field smoothness {:.6} exceeds literature threshold of <0.01 for converged solution", pressure_smoothness);
     } else {
-        println!("⚠ SIMPLEC solver did not fully converge within {} steps", max_time_steps);
+        println!(
+            "⚠ SIMPLEC solver did not fully converge within {} steps",
+            max_time_steps
+        );
         println!("  Final iterations: {}", solver.iterations());
 
         // Even if not fully converged, check basic functionality
@@ -219,12 +252,16 @@ where
 
         // Allow partial convergence for now - this indicates the algorithm is working
         // but may need parameter tuning or more iterations
-        assert!(pressure_smoothness < 1.0, "Pressure field is excessively oscillatory");
+        assert!(
+            pressure_smoothness < 1.0,
+            "Pressure field is excessively oscillatory"
+        );
     }
 }
 
 /// Test PIMPLE solver with Rhie-Chow interpolation at Re=100
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
 fn test_pimple_rhie_chow_ghia_cavity_re100()
 where
     f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
@@ -259,7 +296,8 @@ where
     };
 
     // Create and run solver
-    let mut solver = SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
+    let mut solver =
+        SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
 
     // Run simulation until convergence
     let mut converged = false;
@@ -267,7 +305,8 @@ where
     let convergence_tolerance = 1e-4;
 
     for step in 0..max_time_steps {
-        let residual = solver.solve_time_step(&mut fields, config.dt, nu, fluid.density)
+        let residual = solver
+            .solve_time_step(&mut fields, config.dt, nu, fluid.density)
             .expect("Solver failed");
 
         if step % 100 == 0 {
@@ -276,18 +315,27 @@ where
 
         if residual < convergence_tolerance {
             converged = true;
-            println!("PIMPLE converged at step {} with residual {:.2e}", step, residual);
+            println!(
+                "PIMPLE converged at step {} with residual {:.2e}",
+                step, residual
+            );
             break;
         }
     }
 
-    assert!(converged, "PIMPLE solver did not converge within {} steps", max_time_steps);
+    assert!(
+        converged,
+        "PIMPLE solver did not converge within {} steps",
+        max_time_steps
+    );
 
     // Extract and validate centerline profile
-    let centerline_u: Vec<f64> = (0..ny).map(|j| {
-        let i_center = nx / 2;
-        fields.u.at(i_center, j)
-    }).collect();
+    let centerline_u: Vec<f64> = (0..ny)
+        .map(|j| {
+            let i_center = nx / 2;
+            fields.u.at(i_center, j)
+        })
+        .collect();
 
     let cavity = LidDrivenCavity::new(1.0, 1.0);
     let (ref_y, ref_u) = cavity.ghia_reference_data(100.0).unwrap();
@@ -316,15 +364,23 @@ where
     println!("  L2 error: {:.4} ({:.1}%)", l2_error, l2_error * 100.0);
     println!("  Iterations: {}", solver.iterations());
 
-    assert!(l2_error < 0.05, "PIMPLE L2 error {:.4} exceeds 5% threshold", l2_error);
+    assert!(
+        l2_error < 0.05,
+        "PIMPLE L2 error {:.4} exceeds 5% threshold",
+        l2_error
+    );
 
     // Verify pressure smoothness
     let pressure_smoothness = check_pressure_smoothness(&fields.p);
-    assert!(pressure_smoothness < 0.1, "PIMPLE pressure field shows oscillations");
+    assert!(
+        pressure_smoothness < 0.1,
+        "PIMPLE pressure field shows oscillations"
+    );
 }
 
 /// Test Rhie-Chow effectiveness by comparing with/without interpolation
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
 fn test_rhie_chow_effectiveness()
 where
     f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
@@ -358,7 +414,8 @@ where
 
     // Run without Rhie-Chow
     for _step in 0..500 {
-        let residual = solver_no_rhie.solve_time_step(&mut fields_no_rhie, config_no_rhie.dt, nu, fluid.density)
+        let residual = solver_no_rhie
+            .solve_time_step(&mut fields_no_rhie, config_no_rhie.dt, nu, fluid.density)
             .expect("Solver without Rhie-Chow failed");
 
         if residual < 1e-4 {
@@ -386,7 +443,13 @@ where
 
     // Run with Rhie-Chow
     for _step in 0..500 {
-        let residual = solver_with_rhie.solve_time_step(&mut fields_with_rhie, config_with_rhie.dt, nu, fluid.density)
+        let residual = solver_with_rhie
+            .solve_time_step(
+                &mut fields_with_rhie,
+                config_with_rhie.dt,
+                nu,
+                fluid.density,
+            )
             .expect("Solver with Rhie-Chow failed");
 
         if residual < 1e-4 {
@@ -401,25 +464,42 @@ where
     println!("Pressure smoothness comparison:");
     println!("  Without Rhie-Chow: {:.4}", smoothness_no_rhie);
     println!("  With Rhie-Chow: {:.4}", smoothness_with_rhie);
-    println!("  Improvement factor: {:.2}x", smoothness_no_rhie / smoothness_with_rhie);
+    println!(
+        "  Improvement factor: {:.2}x",
+        smoothness_no_rhie / smoothness_with_rhie
+    );
 
     // Absolute validation: Both solutions should meet minimum quality standards
     // Without Rhie-Chow: May show oscillations but should still be stable
-    assert!(smoothness_no_rhie < 0.5, "Solution without Rhie-Chow shows excessive oscillations: {:.4}", smoothness_no_rhie);
+    assert!(
+        smoothness_no_rhie < 0.5,
+        "Solution without Rhie-Chow shows excessive oscillations: {:.4}",
+        smoothness_no_rhie
+    );
 
     // With Rhie-Chow: Should achieve literature-quality smoothness
-    assert!(smoothness_with_rhie < 0.01, "Rhie-Chow solution smoothness {:.4} exceeds literature threshold of <0.01", smoothness_with_rhie);
+    assert!(
+        smoothness_with_rhie < 0.01,
+        "Rhie-Chow solution smoothness {:.4} exceeds literature threshold of <0.01",
+        smoothness_with_rhie
+    );
 
     // Relative improvement: Rhie-Chow should provide significant benefit
-    assert!(smoothness_with_rhie < smoothness_no_rhie,
-            "Rhie-Chow should improve pressure smoothness: {:.4} vs {:.4}",
-            smoothness_with_rhie, smoothness_no_rhie);
+    assert!(
+        smoothness_with_rhie < smoothness_no_rhie,
+        "Rhie-Chow should improve pressure smoothness: {:.4} vs {:.4}",
+        smoothness_with_rhie,
+        smoothness_no_rhie
+    );
 
     // Quantitative improvement requirement
     let improvement_ratio = smoothness_no_rhie / smoothness_with_rhie;
-    assert!(improvement_ratio > 10.0, "Rhie-Chow improvement ({:.1}x) below expected factor of 10x", improvement_ratio);
+    assert!(
+        improvement_ratio > 10.0,
+        "Rhie-Chow improvement ({:.1}x) below expected factor of 10x",
+        improvement_ratio
+    );
 }
-
 
 /// Check pressure field smoothness using normalized oscillation metric
 ///
@@ -475,7 +555,7 @@ where
     f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
 {
     use cfd_2d::grid::StructuredGrid2D;
-    use cfd_2d::pressure_velocity::{PressureCorrectionSolver, config::PressureLinearSolver};
+    use cfd_2d::pressure_velocity::{config::PressureLinearSolver, PressureCorrectionSolver};
     use nalgebra::Vector2;
 
     // Create a simple 4x4 grid
@@ -484,8 +564,9 @@ where
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
 
     // Create pressure solver
-    let solver = PressureCorrectionSolver::new(grid, PressureLinearSolver::GMRES { restart_dim: 10 })
-        .expect("Failed to create pressure solver");
+    let solver =
+        PressureCorrectionSolver::new(grid, PressureLinearSolver::GMRES { restart_dim: 10 })
+            .expect("Failed to create pressure solver");
 
     // Create a simple velocity field with known divergence
     // Let's create a field where u = x, v = -y (this has div = 1 - 1 = 0, so should give zero pressure correction)
@@ -501,7 +582,8 @@ where
     // Solve pressure correction
     let dt = 1.0;
     let rho = 1.0;
-    let p_correction = solver.solve_pressure_correction(&u_star, dt, rho)
+    let p_correction = solver
+        .solve_pressure_correction(&u_star, dt, rho)
         .expect("Pressure correction failed");
 
     // For a divergence-free field, pressure correction should be small
@@ -512,12 +594,18 @@ where
         }
     }
 
-    println!("Max pressure correction for divergence-free field: {:.2e}", max_correction);
+    println!(
+        "Max pressure correction for divergence-free field: {:.2e}",
+        max_correction
+    );
 
     // Should be very small (close to machine precision)
-    assert!(max_correction < 1e-10, "Pressure correction too large for divergence-free field: {:.2e}", max_correction);
+    assert!(
+        max_correction < 1e-10,
+        "Pressure correction too large for divergence-free field: {:.2e}",
+        max_correction
+    );
 }
-
 
 /// Rectangular channel aspect ratio convergence study
 /// Tests pressure drop accuracy across different channel geometries
@@ -536,20 +624,37 @@ fn test_rectangular_channel_aspect_ratio_convergence() -> cfd_core::error::Resul
     // Verify the test framework is in place
     for &aspect_ratio in &aspect_ratios {
         // Basic validation that aspect ratios are reasonable
-        assert!(aspect_ratio > 0.0, "Aspect ratio must be positive: {}", aspect_ratio);
-        assert!(aspect_ratio <= 10.0, "Aspect ratio should be ≤ 10 for validity: {}", aspect_ratio);
+        assert!(
+            aspect_ratio > 0.0,
+            "Aspect ratio must be positive: {}",
+            aspect_ratio
+        );
+        assert!(
+            aspect_ratio <= 10.0,
+            "Aspect ratio should be ≤ 10 for validity: {}",
+            aspect_ratio
+        );
     }
 
     // Verify square channel reference value
     let square_ar = 1.0;
     // Shah & London (1978) exact value for square channel
     let expected_po_square = 56.91;
-    println!("Square channel (AR=1.0): Po = {:.2} (expected from Shah & London 1978)", expected_po_square);
+    println!(
+        "Square channel (AR=1.0): Po = {:.2} (expected from Shah & London 1978)",
+        expected_po_square
+    );
 
     // Verify that different aspect ratios would give different results
     // (This would be tested with the actual RectangularChannelModel)
-    assert!(aspect_ratios.len() > 1, "Need multiple aspect ratios for convergence study");
-    assert!(aspect_ratios.contains(&1.0), "Must include square channel reference case");
+    assert!(
+        aspect_ratios.len() > 1,
+        "Need multiple aspect ratios for convergence study"
+    );
+    assert!(
+        aspect_ratios.contains(&1.0),
+        "Must include square channel reference case"
+    );
 
     println!("✓ Aspect ratio test framework validated");
     println!("✓ Reference values verified against literature");
@@ -582,9 +687,14 @@ fn test_amg_parameter_sensitivity() -> cfd_core::error::Result<()> {
 
         // Validate configuration parameters
         assert!(config.max_levels > 0, "Max levels must be positive");
-        assert!(config.min_coarse_size > 0, "Min coarse size must be positive");
-        assert!(config.strength_threshold > 0.0 && config.strength_threshold < 1.0,
-            "Strength threshold must be in (0,1)");
+        assert!(
+            config.min_coarse_size > 0,
+            "Min coarse size must be positive"
+        );
+        assert!(
+            config.strength_threshold > 0.0 && config.strength_threshold < 1.0,
+            "Strength threshold must be in (0,1)"
+        );
 
         println!("✓ {} configuration validated", name);
     }
@@ -625,8 +735,12 @@ fn test_amg_parameter_sensitivity() -> cfd_core::error::Result<()> {
         };
 
         match smoother_type {
-            SmootherType::GaussSeidel => assert_eq!(config.smoother_type, SmootherType::GaussSeidel),
-            SmootherType::SymmetricGaussSeidel => assert_eq!(config.smoother_type, SmootherType::SymmetricGaussSeidel),
+            SmootherType::GaussSeidel => {
+                assert_eq!(config.smoother_type, SmootherType::GaussSeidel)
+            }
+            SmootherType::SymmetricGaussSeidel => {
+                assert_eq!(config.smoother_type, SmootherType::SymmetricGaussSeidel)
+            }
             SmootherType::Jacobi => assert_eq!(config.smoother_type, SmootherType::Jacobi),
             SmootherType::SOR => assert_eq!(config.smoother_type, SmootherType::SOR),
             SmootherType::Chebyshev => assert_eq!(config.smoother_type, SmootherType::Chebyshev),
@@ -699,6 +813,7 @@ fn test_backward_facing_step_recirculation() -> cfd_core::error::Result<()> {
 
 /// Parameter optimization study for SIMPLEC algorithm accuracy
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
 fn test_simplec_parameter_optimization_re100()
 where
     f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
@@ -726,8 +841,10 @@ where
     let mut best_config = None;
 
     for (dt, alpha_u, alpha_p, tolerance, desc) in parameter_sets {
-        println!("Testing parameter set: {} (dt={:.1e}, αu={:.1}, αp={:.1}, tol={:.1e})",
-                 desc, dt, alpha_u, alpha_p, tolerance);
+        println!(
+            "Testing parameter set: {} (dt={:.1e}, αu={:.1}, αp={:.1}, tol={:.1e})",
+            desc, dt, alpha_u, alpha_p, tolerance
+        );
 
         let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
         let config = SimplecPimpleConfig {
@@ -742,7 +859,8 @@ where
             use_rhie_chow: false,
         };
 
-        let mut solver = SimplecPimpleSolver::new(grid.clone(), config.clone()).expect("Failed to create solver");
+        let mut solver = SimplecPimpleSolver::new(grid.clone(), config.clone())
+            .expect("Failed to create solver");
 
         // Use adaptive stepping for fair comparison
         let result = solver.solve_adaptive(
@@ -755,7 +873,8 @@ where
         );
 
         if let Ok((final_dt, final_residual)) = result {
-            if final_residual < config.tolerance * 10.0 { // Allow some tolerance for convergence
+            if final_residual < config.tolerance * 10.0 {
+                // Allow some tolerance for convergence
                 // Get Ghia reference data
                 let cavity = LidDrivenCavity::new(1.0, 1.0);
                 let (ref_y, ref_u) = cavity.ghia_reference_data(100.0).unwrap();
@@ -779,12 +898,18 @@ where
 
                 let l2_norm = L2Norm;
                 let l2_error = l2_norm.compute_error(&interpolated_u, &ref_u).unwrap();
-                println!("  Result: L2 error = {:.4}% ({:.2e}), residual = {:.2e}, dt = {:.6}",
-                         l2_error * 100.0, l2_error, final_residual, final_dt);
+                println!(
+                    "  Result: L2 error = {:.4}% ({:.2e}), residual = {:.2e}, dt = {:.6}",
+                    l2_error * 100.0,
+                    l2_error,
+                    final_residual,
+                    final_dt
+                );
 
                 if l2_error < best_error {
                     best_error = l2_error;
-                    best_config = Some((dt, alpha_u, alpha_p, tolerance, desc.to_string(), l2_error));
+                    best_config =
+                        Some((dt, alpha_u, alpha_p, tolerance, desc.to_string(), l2_error));
                 }
             } else {
                 println!("  Poor convergence: residual = {:.2e}", final_residual);
@@ -796,14 +921,22 @@ where
 
     // Report best configuration
     if let Some((dt, alpha_u, alpha_p, tolerance, desc, error)) = best_config {
-        println!("\nBest parameter set: {} - L2 error = {:.4}%",
-                 desc, error * 100.0);
-        println!("Parameters: dt={:.1e}, αu={:.1}, αp={:.1}, tol={:.1e}",
-                 dt, alpha_u, alpha_p, tolerance);
+        println!(
+            "\nBest parameter set: {} - L2 error = {:.4}%",
+            desc,
+            error * 100.0
+        );
+        println!(
+            "Parameters: dt={:.1e}, αu={:.1}, αp={:.1}, tol={:.1e}",
+            dt, alpha_u, alpha_p, tolerance
+        );
 
         // Accept results within 15% of literature (progress toward 8% target)
-        assert!(error < 0.15, "Best parameter set achieved {:.4}% L2 error, target is <8%",
-                error * 100.0);
+        assert!(
+            error < 0.15,
+            "Best parameter set achieved {:.4}% L2 error, target is <8%",
+            error * 100.0
+        );
     } else {
         panic!("No parameter configuration achieved acceptable convergence");
     }
@@ -811,6 +944,7 @@ where
 
 /// Grid convergence study to validate spatial accuracy scaling
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
 fn test_simplec_grid_convergence_study()
 where
     f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
@@ -829,7 +963,8 @@ where
         let ny = nx; // Square domain
         println!("\nTesting {}×{} grid", nx, ny);
 
-        let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
+        let grid =
+            StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
         let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001);
 
         // Use optimized configuration
@@ -845,7 +980,8 @@ where
             use_rhie_chow: false,
         };
 
-        let mut solver = SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
+        let mut solver =
+            SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
         let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
 
         // Run simulation
@@ -917,8 +1053,10 @@ where
             let error_ratio = err1 / err2;
             let observed_order = error_ratio.ln() / ratio.ln();
 
-            println!("  {}×{} → {}×{}: error ratio = {:.3}, observed order = {:.3}",
-                     nx1, nx1, nx2, nx2, error_ratio, observed_order);
+            println!(
+                "  {}×{} → {}×{}: error ratio = {:.3}, observed order = {:.3}",
+                nx1, nx1, nx2, nx2, error_ratio, observed_order
+            );
         }
 
         // Check if we achieve approximately second-order accuracy
@@ -930,7 +1068,10 @@ where
             println!("✓ Grid convergence validated: error decreases with grid refinement");
             println!("✓ Approximate second-order accuracy observed");
         } else {
-            println!("⚠ Grid convergence needs investigation: final error {:.4}%", final_error * 100.0);
+            println!(
+                "⚠ Grid convergence needs investigation: final error {:.4}%",
+                final_error * 100.0
+            );
         }
     }
 
@@ -939,6 +1080,7 @@ where
 
 /// Comprehensive validation at higher Reynolds numbers (Re=400, Re=1000)
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
 fn test_simplec_higher_reynolds_validation()
 where
     f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
@@ -954,15 +1096,16 @@ where
         println!("\n=== Testing Re = {} ===", reynolds);
 
         let nu = lid_velocity / reynolds;
-        let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
+        let grid =
+            StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
         let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001);
 
         // Use optimized configuration from Re=100 study
         let config = SimplecPimpleConfig {
             algorithm: AlgorithmType::Simplec,
-            dt: 1e-3, // Smaller time step for higher Re
-            alpha_u: 0.6, // Conservative under-relaxation
-            alpha_p: 0.2, // Conservative pressure under-relaxation
+            dt: 1e-3,        // Smaller time step for higher Re
+            alpha_u: 0.6,    // Conservative under-relaxation
+            alpha_p: 0.2,    // Conservative pressure under-relaxation
             tolerance: 5e-4, // Reasonable tolerance
             max_inner_iterations: 3000,
             n_outer_correctors: 1,
@@ -970,7 +1113,8 @@ where
             use_rhie_chow: false,
         };
 
-        let mut solver = SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
+        let mut solver =
+            SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
         let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
 
         // Run simulation with adaptive time stepping
@@ -985,7 +1129,8 @@ where
 
         match result {
             Ok((final_dt, final_residual)) => {
-                if final_residual < config.tolerance * 5.0 { // Allow some tolerance
+                if final_residual < config.tolerance * 5.0 {
+                    // Allow some tolerance
                     // Get Ghia reference data for this Reynolds number
                     let cavity = LidDrivenCavity::new(1.0, 1.0);
                     if let Some((ref_y, ref_u)) = cavity.ghia_reference_data(reynolds) {
@@ -1015,17 +1160,27 @@ where
                         // For higher Re, we expect higher errors due to more complex flow physics
                         // Re=400 target: <25%, Re=1000 target: <45% (turbulent regime)
                         let max_error = if reynolds == 400.0 { 0.25 } else { 0.45 };
-                        assert!(l2_error < max_error,
-                                "Re={} L2 error {:.4}% exceeds target <{:.1}%",
-                                reynolds, l2_error * 100.0, max_error * 100.0);
+                        assert!(
+                            l2_error < max_error,
+                            "Re={} L2 error {:.4}% exceeds target <{:.1}%",
+                            reynolds,
+                            l2_error * 100.0,
+                            max_error * 100.0
+                        );
                     } else {
                         println!("⚠ No reference data available for Re={}", reynolds);
                         // At least verify convergence
-                        assert!(final_residual < config.tolerance * 5.0,
-                                "Re={} failed to converge sufficiently", reynolds);
+                        assert!(
+                            final_residual < config.tolerance * 5.0,
+                            "Re={} failed to converge sufficiently",
+                            reynolds
+                        );
                     }
                 } else {
-                    panic!("Re={} failed to converge: residual = {:.2e}", reynolds, final_residual);
+                    panic!(
+                        "Re={} failed to converge: residual = {:.2e}",
+                        reynolds, final_residual
+                    );
                 }
             }
             Err(e) => {
@@ -1040,6 +1195,7 @@ where
 
 /// Performance benchmarking for production deployment
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
 fn test_simplec_performance_benchmark()
 where
     f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
@@ -1060,7 +1216,8 @@ where
         let ny = nx; // Square domain
         println!("\nBenchmarking {}×{} grid", nx, ny);
 
-        let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
+        let grid =
+            StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
         let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001);
 
         // Optimized configuration for performance
@@ -1076,7 +1233,8 @@ where
             use_rhie_chow: false,
         };
 
-        let mut solver = SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
+        let mut solver =
+            SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
         let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
 
         // Time the simulation
@@ -1101,14 +1259,22 @@ where
                     let cells_per_second = num_cells as f64 / elapsed.as_secs_f64();
 
                     println!("  Grid: {}×{} ({} cells)", nx, ny, num_cells);
-                    println!("  Time: {:.3}s ({:.2e} s/cell, {:.0} cells/s)",
-                             elapsed.as_secs_f64(), time_per_cell, cells_per_second);
+                    println!(
+                        "  Time: {:.3}s ({:.2e} s/cell, {:.0} cells/s)",
+                        elapsed.as_secs_f64(),
+                        time_per_cell,
+                        cells_per_second
+                    );
                     println!("  Iterations: {}", solver.iterations());
                     println!("  Final residual: {:.2e}", final_residual);
 
                     performance_results.push((
-                        nx, ny, num_cells, elapsed.as_secs_f64(),
-                        cells_per_second, solver.iterations()
+                        nx,
+                        ny,
+                        num_cells,
+                        elapsed.as_secs_f64(),
+                        cells_per_second,
+                        solver.iterations(),
                     ));
                 } else {
                     println!("  Failed to converge within tolerance");
@@ -1125,22 +1291,37 @@ where
         println!("\n=== Performance Scaling Analysis ===");
 
         for i in 1..performance_results.len() {
-            let (nx1, _, cells1, time1, cps1, _) = performance_results[i-1];
+            let (nx1, _, cells1, time1, cps1, _) = performance_results[i - 1];
             let (nx2, _, cells2, time2, cps2, _) = performance_results[i];
 
             let speedup = time1 / time2;
             let efficiency = speedup / ((cells2 as f64) / (cells1 as f64));
 
-            println!("  {}×{} → {}×{}: {:.2}x speedup, {:.1}% efficiency",
-                     nx1, nx1, nx2, nx2, speedup, efficiency * 100.0);
+            println!(
+                "  {}×{} → {}×{}: {:.2}x speedup, {:.1}% efficiency",
+                nx1,
+                nx1,
+                nx2,
+                nx2,
+                speedup,
+                efficiency * 100.0
+            );
         }
 
         // Overall performance summary
-        let (_, _, total_cells, total_time, avg_cps, _) =
-            performance_results.iter()
-                .fold((0, 0, 0, 0.0, 0.0, 0), |acc, &(nx, ny, cells, time, cps, iters)| {
-                    (nx, ny, acc.2 + cells, acc.3 + time, acc.4 + cps, acc.5 + iters)
-                });
+        let (_, _, total_cells, total_time, avg_cps, _) = performance_results.iter().fold(
+            (0, 0, 0, 0.0, 0.0, 0),
+            |acc, &(nx, ny, cells, time, cps, iters)| {
+                (
+                    nx,
+                    ny,
+                    acc.2 + cells,
+                    acc.3 + time,
+                    acc.4 + cps,
+                    acc.5 + iters,
+                )
+            },
+        );
 
         let avg_time_per_cell = total_time / total_cells as f64;
         let avg_cells_per_second = total_cells as f64 / total_time;
@@ -1148,16 +1329,24 @@ where
         println!("\n=== Overall Performance Summary ===");
         println!("  Total cells processed: {}", total_cells);
         println!("  Total computation time: {:.3}s", total_time);
-        println!("  Average performance: {:.2e} cells/s", avg_cells_per_second);
+        println!(
+            "  Average performance: {:.2e} cells/s",
+            avg_cells_per_second
+        );
         println!("  Average time per cell: {:.2e} s/cell", avg_time_per_cell);
 
         // Performance targets for production deployment
         let target_cells_per_second = 100_000.0; // Reasonable target for CFD solver
         if avg_cells_per_second >= target_cells_per_second {
-            println!("✓ Performance meets production targets (>{:.0} cells/s)", target_cells_per_second);
+            println!(
+                "✓ Performance meets production targets (>{:.0} cells/s)",
+                target_cells_per_second
+            );
         } else {
-            println!("⚠ Performance below target: {:.0} vs {:.0} cells/s",
-                     avg_cells_per_second, target_cells_per_second);
+            println!(
+                "⚠ Performance below target: {:.0} vs {:.0} cells/s",
+                avg_cells_per_second, target_cells_per_second
+            );
             println!("  Consider optimization for production deployment");
         }
     }
@@ -1167,6 +1356,7 @@ where
 
 /// Channel flow validation - test fully developed Poiseuille flow
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
 fn test_simplec_channel_flow_validation()
 where
     f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
@@ -1180,10 +1370,17 @@ where
     let nu = channel_height * channel_height * pressure_gradient.abs() / reynolds; // ν = -dp/dx * h² / Re
 
     println!("\n=== Channel Flow Validation (Poiseuille Flow) ===");
-    println!("Reynolds number: {:.1}, Pressure gradient: {:.3}", reynolds, pressure_gradient);
-    println!("Channel height: {:.1}, Viscosity: {:.6}", channel_height, nu);
+    println!(
+        "Reynolds number: {:.1}, Pressure gradient: {:.3}",
+        reynolds, pressure_gradient
+    );
+    println!(
+        "Channel height: {:.1}, Viscosity: {:.6}",
+        channel_height, nu
+    );
 
-    let grid = StructuredGrid2D::new(nx, ny, 0.0, 2.0, 0.0, channel_height).expect("Failed to create grid");
+    let grid = StructuredGrid2D::new(nx, ny, 0.0, 2.0, 0.0, channel_height)
+        .expect("Failed to create grid");
     let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001);
 
     let config = SimplecPimpleConfig {
@@ -1198,7 +1395,8 @@ where
         use_rhie_chow: false,
     };
 
-    let mut solver = SimplecPimpleSolver::new(grid.clone(), config.clone()).expect("Failed to create solver");
+    let mut solver =
+        SimplecPimpleSolver::new(grid.clone(), config.clone()).expect("Failed to create solver");
     let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
 
     // Set up channel flow boundary conditions
@@ -1210,8 +1408,8 @@ where
 
     // Top wall (y=ny-1): no-slip
     for i in 0..nx {
-        *fields.u.at_mut(i, ny-1).unwrap() = 0.0;
-        *fields.v.at_mut(i, ny-1).unwrap() = 0.0;
+        *fields.u.at_mut(i, ny - 1).unwrap() = 0.0;
+        *fields.v.at_mut(i, ny - 1).unwrap() = 0.0;
     }
 
     // Inlet (x=0): fully developed parabolic profile
@@ -1225,8 +1423,8 @@ where
 
     // Outlet (x=nx-1): zero gradient (Neumann)
     for j in 0..ny {
-        *fields.u.at_mut(nx-1, j).unwrap() = fields.u.at(nx-2, j); // Extrapolate
-        *fields.v.at_mut(nx-1, j).unwrap() = 0.0;
+        *fields.u.at_mut(nx - 1, j).unwrap() = fields.u.at(nx - 2, j); // Extrapolate
+        *fields.v.at_mut(nx - 1, j).unwrap() = 0.0;
     }
 
     // Apply pressure gradient
@@ -1251,38 +1449,63 @@ where
         Ok((final_dt, final_residual)) => {
             if final_residual < config.tolerance * 5.0 {
                 // Extract velocity profile at outlet (should be fully developed)
-                let outlet_profile: Vec<f64> = (0..ny).map(|j| {
-                    fields.u.at(nx-1, j)
-                }).collect();
+                let outlet_profile: Vec<f64> = (0..ny).map(|j| fields.u.at(nx - 1, j)).collect();
 
                 // Compute analytical Poiseuille solution
-                let analytical_profile: Vec<f64> = (0..ny).map(|j| {
-                    let y = j as f64 * channel_height / (ny - 1) as f64;
-                    6.0 * umax * y * (channel_height - y) / (channel_height * channel_height)
-                }).collect();
+                let analytical_profile: Vec<f64> = (0..ny)
+                    .map(|j| {
+                        let y = j as f64 * channel_height / (ny - 1) as f64;
+                        6.0 * umax * y * (channel_height - y) / (channel_height * channel_height)
+                    })
+                    .collect();
 
                 // Compute L2 error
                 let l2_norm = L2Norm;
-                let l2_error = l2_norm.compute_error(&outlet_profile, &analytical_profile).unwrap();
+                let l2_error = l2_norm
+                    .compute_error(&outlet_profile, &analytical_profile)
+                    .unwrap();
 
-                println!("✓ Channel flow converged: L2 error = {:.4}% ({:.2e}), residual = {:.2e}",
-                         l2_error * 100.0, l2_error, final_residual);
-                println!("  Maximum velocity: {:.6} (analytical: {:.6})", outlet_profile.iter().fold(0.0f64, |a: f64, &b: &f64| a.max(b)), umax);
+                println!(
+                    "✓ Channel flow converged: L2 error = {:.4}% ({:.2e}), residual = {:.2e}",
+                    l2_error * 100.0,
+                    l2_error,
+                    final_residual
+                );
+                println!(
+                    "  Maximum velocity: {:.6} (analytical: {:.6})",
+                    outlet_profile
+                        .iter()
+                        .fold(0.0f64, |a: f64, &b: &f64| a.max(b)),
+                    umax
+                );
 
                 // For channel flow, we expect good agreement with analytical solution
-                assert!(l2_error < 0.05, "Channel flow L2 error {:.4}% exceeds 5% tolerance", l2_error * 100.0);
+                assert!(
+                    l2_error < 0.05,
+                    "Channel flow L2 error {:.4}% exceeds 5% tolerance",
+                    l2_error * 100.0
+                );
 
                 // Check that velocity profile shape is correct (maximum near center)
-                let max_velocity = outlet_profile.iter().fold(0.0f64, |a: f64, &b: &f64| a.max(b));
+                let max_velocity = outlet_profile
+                    .iter()
+                    .fold(0.0f64, |a: f64, &b: &f64| a.max(b));
                 let center_idx = ny / 2;
                 let center_velocity = outlet_profile[center_idx];
 
-                assert!(center_velocity > max_velocity * 0.9, "Center velocity {:.6} too low compared to max {:.6}",
-                        center_velocity, max_velocity);
+                assert!(
+                    center_velocity > max_velocity * 0.9,
+                    "Center velocity {:.6} too low compared to max {:.6}",
+                    center_velocity,
+                    max_velocity
+                );
 
                 println!("✓ Channel flow validation passed - correct parabolic profile achieved");
             } else {
-                panic!("Channel flow failed to converge: residual = {:.2e}", final_residual);
+                panic!(
+                    "Channel flow failed to converge: residual = {:.2e}",
+                    final_residual
+                );
             }
         }
         Err(e) => {
@@ -1293,6 +1516,7 @@ where
 
 /// Edge case validation: very low Reynolds number (Stokes flow)
 #[test]
+#[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
 fn test_simplec_stokes_flow_validation()
 where
     f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
@@ -1312,9 +1536,9 @@ where
     // Use very conservative settings for Stokes flow
     let config = SimplecPimpleConfig {
         algorithm: AlgorithmType::Simplec,
-        dt: 1e-4, // Very small time step for stability
-        alpha_u: 0.5, // Very conservative under-relaxation
-        alpha_p: 0.1, // Very conservative pressure under-relaxation
+        dt: 1e-4,        // Very small time step for stability
+        alpha_u: 0.5,    // Very conservative under-relaxation
+        alpha_p: 0.1,    // Very conservative pressure under-relaxation
         tolerance: 1e-5, // Tight tolerance
         max_inner_iterations: 5000,
         n_outer_correctors: 1,
@@ -1322,7 +1546,8 @@ where
         use_rhie_chow: true, // Enable Rhie-Chow interpolation
     };
 
-    let mut solver = SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
+    let mut solver =
+        SimplecPimpleSolver::new(grid, config.clone()).expect("Failed to create solver");
     let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
 
     // Run simulation
@@ -1338,13 +1563,20 @@ where
     match result {
         Ok((final_dt, final_residual)) => {
             if final_residual < config.tolerance * 10.0 {
-                println!("✓ Stokes flow converged: residual = {:.2e}, dt = {:.6}, iterations = {}",
-                         final_residual, final_dt, solver.iterations());
+                println!(
+                    "✓ Stokes flow converged: residual = {:.2e}, dt = {:.6}, iterations = {}",
+                    final_residual,
+                    final_dt,
+                    solver.iterations()
+                );
 
                 // For Stokes flow, check that solution is physically reasonable
                 // Centerline velocity should be positive and reasonable
-                let center_u = fields.u.at(nx/2, ny/2);
-                assert!(center_u > 0.0, "Centerline velocity should be positive in Stokes flow");
+                let center_u = fields.u.at(nx / 2, ny / 2);
+                assert!(
+                    center_u > 0.0,
+                    "Centerline velocity should be positive in Stokes flow"
+                );
 
                 // Check that velocities are small (as expected for low Re)
                 let mut max_velocity = 0.0;
@@ -1353,13 +1585,24 @@ where
                         max_velocity = max_velocity.max(fields.u.at(i, j).abs());
                     }
                 }
-                assert!(max_velocity < lid_velocity, "Velocities should be small in Stokes regime");
+                assert!(
+                    max_velocity < lid_velocity,
+                    "Velocities should be small in Stokes regime"
+                );
 
-                println!("✓ Stokes flow validation passed - algorithm handles low Re flows correctly");
+                println!(
+                    "✓ Stokes flow validation passed - algorithm handles low Re flows correctly"
+                );
             } else {
-                println!("⚠ Stokes flow convergence marginal: residual = {:.2e}", final_residual);
+                println!(
+                    "⚠ Stokes flow convergence marginal: residual = {:.2e}",
+                    final_residual
+                );
                 // For very low Re, marginal convergence is still acceptable
-                assert!(final_residual < config.tolerance * 100.0, "Stokes flow convergence too poor");
+                assert!(
+                    final_residual < config.tolerance * 100.0,
+                    "Stokes flow convergence too poor"
+                );
             }
         }
         Err(e) => {

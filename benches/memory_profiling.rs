@@ -9,8 +9,8 @@
 
 use super::{BenchmarkConfig, PerformanceMetrics};
 use criterion::{black_box, BenchmarkId, Criterion, Throughput};
-use std::time::{Duration, Instant};
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 /// Comprehensive benchmark configuration system
 #[derive(Debug, Clone)]
@@ -90,7 +90,9 @@ impl PerformanceTimer {
     }
 
     pub fn stop(&mut self) -> Duration {
-        let elapsed = self.start_time.take()
+        let elapsed = self
+            .start_time
+            .take()
             .map(|start| start.elapsed())
             .unwrap_or(Duration::ZERO);
         self.measurements.push(elapsed);
@@ -113,12 +115,15 @@ impl PerformanceTimer {
         let n = sorted.len() as f64;
         let mean = self.measurements.iter().sum::<Duration>() / self.measurements.len() as u32;
 
-        let variance = self.measurements.iter()
+        let variance = self
+            .measurements
+            .iter()
             .map(|&d| {
                 let diff = if d > mean { d - mean } else { mean - d };
                 diff.as_secs_f64().powi(2)
             })
-            .sum::<f64>() / n;
+            .sum::<f64>()
+            / n;
 
         let std_dev = Duration::from_secs_f64(variance.sqrt());
 
@@ -179,7 +184,8 @@ impl MemoryTracker {
             return 1.0;
         }
         let avg_allocation = self.total_allocated as f64 / self.allocation_count as f64;
-        let efficiency = 1.0 - (self.peak_allocated as f64 - avg_allocation) / self.peak_allocated as f64;
+        let efficiency =
+            1.0 - (self.peak_allocated as f64 - avg_allocation) / self.peak_allocated as f64;
         efficiency.max(0.0)
     }
 
@@ -314,8 +320,15 @@ pub fn benchmark_memory_usage(c: &mut Criterion, config: &BenchmarkConfig) {
                         }
                     }
 
-                    black_box((velocity_u, velocity_v, pressure, temperature,
-                              turbulent_viscosity, k, epsilon));
+                    black_box((
+                        velocity_u,
+                        velocity_v,
+                        pressure,
+                        temperature,
+                        turbulent_viscosity,
+                        k,
+                        epsilon,
+                    ));
                 });
             },
         );
@@ -349,43 +362,35 @@ pub fn benchmark_memory_access_patterns(c: &mut Criterion, config: &BenchmarkCon
         );
 
         // Random access pattern (cache-unfriendly)
-        group.bench_with_input(
-            BenchmarkId::new("random_access", size),
-            &size,
-            |b, _| {
-                let mut data: Vec<f64> = (0..data_size).map(|i| i as f64).collect();
-                let indices: Vec<usize> = (0..data_size).rev().collect(); // Reverse order
-                b.iter(|| {
-                    let mut sum = 0.0;
-                    for &idx in &indices {
+        group.bench_with_input(BenchmarkId::new("random_access", size), &size, |b, _| {
+            let mut data: Vec<f64> = (0..data_size).map(|i| i as f64).collect();
+            let indices: Vec<usize> = (0..data_size).rev().collect(); // Reverse order
+            b.iter(|| {
+                let mut sum = 0.0;
+                for &idx in &indices {
+                    sum += black_box(data[idx]);
+                    data[idx] += 1.0;
+                }
+                black_box(sum);
+            });
+        });
+
+        // Strided access pattern (CFD grid access simulation)
+        group.bench_with_input(BenchmarkId::new("strided_access", size), &size, |b, _| {
+            let mut data: Vec<f64> = (0..data_size).map(|i| i as f64).collect();
+            let stride = size; // Simulate 2D grid access
+            b.iter(|| {
+                let mut sum = 0.0;
+                for i in 0..size {
+                    for j in 0..size {
+                        let idx = i * stride + j;
                         sum += black_box(data[idx]);
                         data[idx] += 1.0;
                     }
-                    black_box(sum);
-                });
-            },
-        );
-
-        // Strided access pattern (CFD grid access simulation)
-        group.bench_with_input(
-            BenchmarkId::new("strided_access", size),
-            &size,
-            |b, _| {
-                let mut data: Vec<f64> = (0..data_size).map(|i| i as f64).collect();
-                let stride = size; // Simulate 2D grid access
-                b.iter(|| {
-                    let mut sum = 0.0;
-                    for i in 0..size {
-                        for j in 0..size {
-                            let idx = i * stride + j;
-                            sum += black_box(data[idx]);
-                            data[idx] += 1.0;
-                        }
-                    }
-                    black_box(sum);
-                });
-            },
-        );
+                }
+                black_box(sum);
+            });
+        });
     }
 
     group.finish();
@@ -428,9 +433,9 @@ where
     // Use the last result (most common pattern)
     let final_result = results.into_iter().last().unwrap();
 
-    let timing_stats = timer.statistics().unwrap_or_else(|| {
-        panic!("No timing measurements collected for {}", operation_name)
-    });
+    let timing_stats = timer
+        .statistics()
+        .unwrap_or_else(|| panic!("No timing measurements collected for {}", operation_name));
 
     let memory_report = memory_tracker.report();
 
@@ -453,7 +458,7 @@ pub struct PerformanceAnalysis {
     pub problem_size: usize,
     pub timing: TimingStatistics,
     pub memory: MemoryReport,
-    pub throughput: f64, // operations per second
+    pub throughput: f64,       // operations per second
     pub efficiency_score: f64, // 0.0 to 1.0, higher is better
 }
 
@@ -470,7 +475,9 @@ fn calculate_efficiency_score(timing: &TimingStatistics, memory: &MemoryReport) 
 }
 
 /// Run comprehensive performance benchmarking suite
-pub fn run_performance_benchmark_suite(config: &PerformanceBenchmarkConfig) -> Vec<PerformanceAnalysis> {
+pub fn run_performance_benchmark_suite(
+    config: &PerformanceBenchmarkConfig,
+) -> Vec<PerformanceAnalysis> {
     println!("Running CFD Performance Benchmark Suite...");
     println!("Configuration: {:?}", config);
 
@@ -480,72 +487,71 @@ pub fn run_performance_benchmark_suite(config: &PerformanceBenchmarkConfig) -> V
     for &size in &config.problem_sizes {
         println!("Benchmarking memory usage for size {}x{}", size, size);
 
-        let (_, analysis) = analyze_memory_usage(
-            "vector_allocation",
-            size,
-            config,
-            || {
-                let data_size = size * size;
-                let vector: Vec<f64> = black_box(vec![0.0; data_size]);
-                let _sum: f64 = vector.iter().sum();
-                drop(vector);
-            },
-        );
+        let (_, analysis) = analyze_memory_usage("vector_allocation", size, config, || {
+            let data_size = size * size;
+            let vector: Vec<f64> = black_box(vec![0.0; data_size]);
+            let _sum: f64 = vector.iter().sum();
+            drop(vector);
+        });
         results.push(analysis);
     }
 
     // Memory access pattern benchmarks
     for &size in &config.problem_sizes {
-        println!("Benchmarking memory access patterns for size {}x{}", size, size);
-
-        let (_, analysis) = analyze_memory_usage(
-            "sequential_access",
-            size,
-            config,
-            || {
-                let data_size = size * size;
-                let mut data: Vec<f64> = (0..data_size).map(|i| i as f64).collect();
-                let mut sum = 0.0;
-                for i in 0..data.len() {
-                    sum += black_box(data[i]);
-                    data[i] += 1.0;
-                }
-                black_box(sum);
-            },
+        println!(
+            "Benchmarking memory access patterns for size {}x{}",
+            size, size
         );
+
+        let (_, analysis) = analyze_memory_usage("sequential_access", size, config, || {
+            let data_size = size * size;
+            let mut data: Vec<f64> = (0..data_size).map(|i| i as f64).collect();
+            let mut sum = 0.0;
+            for i in 0..data.len() {
+                sum += black_box(data[i]);
+                data[i] += 1.0;
+            }
+            black_box(sum);
+        });
         results.push(analysis);
     }
 
     // CFD data structure benchmarks
     for &size in &config.problem_sizes {
-        println!("Benchmarking CFD data structures for size {}x{}", size, size);
-
-        let (_, analysis) = analyze_memory_usage(
-            "cfd_data_structures",
-            size,
-            config,
-            || {
-                use nalgebra::DMatrix;
-                let velocity_u = DMatrix::<f64>::zeros(size, size);
-                let velocity_v = DMatrix::<f64>::zeros(size, size);
-                let pressure = DMatrix::<f64>::zeros(size, size);
-                black_box((velocity_u, velocity_v, pressure));
-            },
+        println!(
+            "Benchmarking CFD data structures for size {}x{}",
+            size, size
         );
+
+        let (_, analysis) = analyze_memory_usage("cfd_data_structures", size, config, || {
+            use nalgebra::DMatrix;
+            let velocity_u = DMatrix::<f64>::zeros(size, size);
+            let velocity_v = DMatrix::<f64>::zeros(size, size);
+            let pressure = DMatrix::<f64>::zeros(size, size);
+            black_box((velocity_u, velocity_v, pressure));
+        });
         results.push(analysis);
     }
 
-    println!("Performance benchmark suite completed. {} analyses collected.", results.len());
+    println!(
+        "Performance benchmark suite completed. {} analyses collected.",
+        results.len()
+    );
     results
 }
 
 /// Generate performance optimization recommendations
-pub fn generate_performance_recommendations(analyses: &[PerformanceAnalysis], config: &PerformanceBenchmarkConfig) -> Vec<String> {
+pub fn generate_performance_recommendations(
+    analyses: &[PerformanceAnalysis],
+    config: &PerformanceBenchmarkConfig,
+) -> Vec<String> {
     let mut recommendations = Vec::new();
 
     for analysis in analyses {
         // Memory usage recommendations
-        if analysis.memory.total_allocated > (config.thresholds.max_memory_mb * 1_048_576.0) as usize {
+        if analysis.memory.total_allocated
+            > (config.thresholds.max_memory_mb * 1_048_576.0) as usize
+        {
             recommendations.push(format!(
                 "High memory usage in {} (size {}): {:.2}MB. Consider memory optimization.",
                 analysis.operation_name,
@@ -619,7 +625,10 @@ fn generate_comprehensive_performance_report(config: &PerformanceBenchmarkConfig
     use std::fs;
     use std::path::Path;
 
-    let output_dir = config.output_dir.as_deref().unwrap_or("performance_results");
+    let output_dir = config
+        .output_dir
+        .as_deref()
+        .unwrap_or("performance_results");
     let dir_path = Path::new(output_dir);
 
     if let Err(e) = fs::create_dir_all(dir_path) {
@@ -630,28 +639,56 @@ fn generate_comprehensive_performance_report(config: &PerformanceBenchmarkConfig
     // Generate summary report
     let mut report = String::new();
     report.push_str("# CFD Performance Benchmark Report\n\n");
-    report.push_str(&format!("Generated: {}\n\n", chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")));
+    report.push_str(&format!(
+        "Generated: {}\n\n",
+        chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+    ));
 
     report.push_str("## Configuration\n\n");
     report.push_str(&format!("- Problem Sizes: {:?}\n", config.problem_sizes));
     report.push_str(&format!("- Iterations: {}\n", config.iterations));
-    report.push_str(&format!("- Warm-up Iterations: {}\n", config.warmup_iterations));
-    report.push_str(&format!("- Memory Profiling: {}\n", config.memory_profiling));
-    report.push_str(&format!("- Scaling Analysis: {}\n", config.scaling_analysis));
-    report.push_str(&format!("- Regression Detection: {}\n\n", config.regression_detection));
+    report.push_str(&format!(
+        "- Warm-up Iterations: {}\n",
+        config.warmup_iterations
+    ));
+    report.push_str(&format!(
+        "- Memory Profiling: {}\n",
+        config.memory_profiling
+    ));
+    report.push_str(&format!(
+        "- Scaling Analysis: {}\n",
+        config.scaling_analysis
+    ));
+    report.push_str(&format!(
+        "- Regression Detection: {}\n\n",
+        config.regression_detection
+    ));
 
     report.push_str("## Performance Thresholds\n\n");
-    report.push_str(&format!("- Max Memory Usage: {:.1} MB\n", config.thresholds.max_memory_mb));
-    report.push_str(&format!("- Min Throughput: {:.0} ops/sec\n", config.thresholds.min_throughput));
-    report.push_str(&format!("- Max Latency: {:.1} ms\n", config.thresholds.max_latency_ms));
-    report.push_str(&format!("- Regression Threshold: {:.1}%\n\n", config.thresholds.regression_threshold_pct));
+    report.push_str(&format!(
+        "- Max Memory Usage: {:.1} MB\n",
+        config.thresholds.max_memory_mb
+    ));
+    report.push_str(&format!(
+        "- Min Throughput: {:.0} ops/sec\n",
+        config.thresholds.min_throughput
+    ));
+    report.push_str(&format!(
+        "- Max Latency: {:.1} ms\n",
+        config.thresholds.max_latency_ms
+    ));
+    report.push_str(&format!(
+        "- Regression Threshold: {:.1}%\n\n",
+        config.thresholds.regression_threshold_pct
+    ));
 
     report.push_str("## Recommendations\n\n");
 
     // Add memory recommendations
     let memory_recs = generate_memory_recommendations();
     if memory_recs.is_empty() {
-        report.push_str("### Memory Analysis\n✅ No memory optimization recommendations needed.\n\n");
+        report
+            .push_str("### Memory Analysis\n✅ No memory optimization recommendations needed.\n\n");
     } else {
         report.push_str("### Memory Analysis\n");
         for rec in memory_recs {
@@ -673,9 +710,16 @@ fn generate_comprehensive_performance_report(config: &PerformanceBenchmarkConfig
     // Save report
     let report_path = dir_path.join("comprehensive_performance_report.md");
     if let Err(e) = fs::write(&report_path, report) {
-        eprintln!("Failed to save comprehensive report to {}: {}", report_path.display(), e);
+        eprintln!(
+            "Failed to save comprehensive report to {}: {}",
+            report_path.display(),
+            e
+        );
     } else {
-        println!("📋 Comprehensive performance report saved to {}", report_path.display());
+        println!(
+            "📋 Comprehensive performance report saved to {}",
+            report_path.display()
+        );
     }
 }
 
@@ -698,11 +742,13 @@ pub fn benchmark_performance_suite(c: &mut Criterion, config: &PerformanceBenchm
 
     println!("\n=== Performance Analysis Summary ===");
     for analysis in &analyses {
-        println!("Operation: {}, Size: {}, Throughput: {:.2} ops/sec, Efficiency: {:.3}",
-                analysis.operation_name,
-                analysis.problem_size,
-                analysis.throughput,
-                analysis.efficiency_score);
+        println!(
+            "Operation: {}, Size: {}, Throughput: {:.2} ops/sec, Efficiency: {:.3}",
+            analysis.operation_name,
+            analysis.problem_size,
+            analysis.throughput,
+            analysis.efficiency_score
+        );
     }
 
     println!("\n=== Performance Recommendations ===");
@@ -749,7 +795,10 @@ pub fn benchmark_memory_usage_detailed(c: &mut Criterion, config: &PerformanceBe
 }
 
 /// Detailed memory access pattern benchmarking
-pub fn benchmark_memory_access_patterns_detailed(c: &mut Criterion, config: &PerformanceBenchmarkConfig) {
+pub fn benchmark_memory_access_patterns_detailed(
+    c: &mut Criterion,
+    config: &PerformanceBenchmarkConfig,
+) {
     let mut group = c.benchmark_group("memory_access_detailed");
 
     for &size in &config.problem_sizes {
@@ -796,7 +845,10 @@ pub fn benchmark_memory_access_patterns_detailed(c: &mut Criterion, config: &Per
 }
 
 /// Detailed CFD data structure benchmarking
-pub fn benchmark_cfd_data_structures_detailed(c: &mut Criterion, config: &PerformanceBenchmarkConfig) {
+pub fn benchmark_cfd_data_structures_detailed(
+    c: &mut Criterion,
+    config: &PerformanceBenchmarkConfig,
+) {
     let mut group = c.benchmark_group("cfd_data_structures_detailed");
 
     for &size in &config.problem_sizes {
@@ -827,8 +879,15 @@ pub fn benchmark_cfd_data_structures_detailed(c: &mut Criterion, config: &Perfor
                         }
                     }
 
-                    black_box((velocity_u, velocity_v, pressure, temperature,
-                              turbulent_viscosity, k, epsilon));
+                    black_box((
+                        velocity_u,
+                        velocity_v,
+                        pressure,
+                        temperature,
+                        turbulent_viscosity,
+                        k,
+                        epsilon,
+                    ));
                 });
             },
         );
@@ -838,7 +897,11 @@ pub fn benchmark_cfd_data_structures_detailed(c: &mut Criterion, config: &Perfor
 }
 
 /// Save performance results to files
-fn save_performance_results(analyses: &[PerformanceAnalysis], recommendations: &[String], output_dir: &str) {
+fn save_performance_results(
+    analyses: &[PerformanceAnalysis],
+    recommendations: &[String],
+    output_dir: &str,
+) {
     use std::fs;
     use std::path::Path;
 
@@ -852,7 +915,11 @@ fn save_performance_results(analyses: &[PerformanceAnalysis], recommendations: &
     let analysis_path = dir_path.join("performance_analysis.json");
     if let Ok(json) = serde_json::to_string_pretty(analyses) {
         if let Err(e) = fs::write(&analysis_path, json) {
-            eprintln!("Failed to save analysis to {}: {}", analysis_path.display(), e);
+            eprintln!(
+                "Failed to save analysis to {}: {}",
+                analysis_path.display(),
+                e
+            );
         } else {
             println!("Performance analysis saved to {}", analysis_path.display());
         }
@@ -862,8 +929,15 @@ fn save_performance_results(analyses: &[PerformanceAnalysis], recommendations: &
     let recommendations_path = dir_path.join("performance_recommendations.txt");
     let recommendations_text = recommendations.join("\n");
     if let Err(e) = fs::write(&recommendations_path, recommendations_text) {
-        eprintln!("Failed to save recommendations to {}: {}", recommendations_path.display(), e);
+        eprintln!(
+            "Failed to save recommendations to {}: {}",
+            recommendations_path.display(),
+            e
+        );
     } else {
-        println!("Performance recommendations saved to {}", recommendations_path.display());
+        println!(
+            "Performance recommendations saved to {}",
+            recommendations_path.display()
+        );
     }
 }

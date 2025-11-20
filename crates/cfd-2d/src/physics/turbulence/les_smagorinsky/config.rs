@@ -23,11 +23,11 @@ pub struct SmagorinskyConfig {
 impl Default for SmagorinskyConfig {
     fn default() -> Self {
         Self {
-            smagorinsky_constant: 0.1, // Standard value for homogeneous turbulence
-            dynamic_procedure: false,  // Use fixed constant by default
-            wall_damping: true,        // Enable wall damping
-            van_driest_constant: 0.4, // Standard van Driest constant
-            min_sgs_viscosity: 1e-8,  // Prevent division by zero
+            smagorinsky_constant: 0.1,      // Standard value for homogeneous turbulence
+            dynamic_procedure: false,       // Use fixed constant by default
+            wall_damping: true,             // Enable wall damping
+            van_driest_constant: 0.4,       // Standard van Driest constant
+            min_sgs_viscosity: 1e-8,        // Prevent division by zero
             use_gpu: cfg!(feature = "gpu"), // Use GPU if feature is enabled
         }
     }
@@ -58,7 +58,4 @@ impl SmagorinskyConfig {
         self
     }
 }
-
-
-
 

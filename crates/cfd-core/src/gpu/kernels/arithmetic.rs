@@ -97,7 +97,7 @@ impl FieldAddKernel {
 
         // Try GPU computation with error handling
         match self.execute_gpu(a, b, result) {
-            Ok(()) => {},
+            Ok(()) => {}
             Err(_) => {
                 // Fall back to CPU computation on GPU failure
                 for i in 0..a.len() {
@@ -112,18 +112,24 @@ impl FieldAddKernel {
         // Create GPU buffers with proper alignment
         let data_size = (a.len() * std::mem::size_of::<f32>()) as u64;
         let aligned_size = ((data_size + 255) / 256) * 256; // Align to 256 bytes
-        
-        let buffer_a = self.context.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Field A Buffer"),
-            contents: bytemuck::cast_slice(a),
-            usage: wgpu::BufferUsages::STORAGE,
-        });
 
-        let buffer_b = self.context.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Field B Buffer"),
-            contents: bytemuck::cast_slice(b),
-            usage: wgpu::BufferUsages::STORAGE,
-        });
+        let buffer_a = self
+            .context
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Field A Buffer"),
+                contents: bytemuck::cast_slice(a),
+                usage: wgpu::BufferUsages::STORAGE,
+            });
+
+        let buffer_b = self
+            .context
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Field B Buffer"),
+                contents: bytemuck::cast_slice(b),
+                usage: wgpu::BufferUsages::STORAGE,
+            });
 
         let buffer_result = self.context.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Result Buffer"),
@@ -133,29 +139,35 @@ impl FieldAddKernel {
         });
 
         // Create bind group using the pipeline's layout
-        let bind_group = self.context.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Field Add Bind Group"),
-            layout: &self.pipeline.get_bind_group_layout(0),
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: buffer_a.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: buffer_b.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: buffer_result.as_entire_binding(),
-                },
-            ],
-        });
+        let bind_group = self
+            .context
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Field Add Bind Group"),
+                layout: &self.pipeline.get_bind_group_layout(0),
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: buffer_a.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: buffer_b.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: buffer_result.as_entire_binding(),
+                    },
+                ],
+            });
 
         // Execute compute pass with proper workgroup dispatch
-        let mut encoder = self.context.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Field Add Command Encoder"),
-        });
+        let mut encoder =
+            self.context
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Field Add Command Encoder"),
+                });
 
         {
             let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -186,7 +198,7 @@ impl FieldAddKernel {
         buffer_slice.map_async(wgpu::MapMode::Read, move |r| {
             let _ = tx.send(r);
         });
-        
+
         // Poll with timeout to prevent hanging
         let start = std::time::Instant::now();
         while rx.try_recv().is_err() {
@@ -204,9 +216,7 @@ impl FieldAddKernel {
                 staging_buffer.unmap();
                 Ok(())
             }
-            Ok(Err(_)) | Err(_) => {
-                Err("GPU readback failed")
-            }
+            Ok(Err(_)) | Err(_) => Err("GPU readback failed"),
         }
     }
 }
@@ -301,7 +311,7 @@ impl FieldMulKernel {
         }
 
         match self.execute_gpu(field, scalar, result) {
-            Ok(()) => {},
+            Ok(()) => {}
             Err(_) => {
                 // Fallback to CPU implementation
                 for i in 0..field.len() {
@@ -311,11 +321,16 @@ impl FieldMulKernel {
         }
     }
 
-    fn execute_gpu(&self, field: &[f32], scalar: f32, result: &mut [f32]) -> Result<(), Box<dyn std::error::Error>> {
+    fn execute_gpu(
+        &self,
+        field: &[f32],
+        scalar: f32,
+        result: &mut [f32],
+    ) -> Result<(), Box<dyn std::error::Error>> {
         // Create buffers with proper alignment
         let data_size = (field.len() * std::mem::size_of::<f32>()) as u64;
         let aligned_size = ((data_size + 255) / 256) * 256; // Align to 256 bytes
-        
+
         let field_buffer =
             self.context
                 .device
@@ -402,7 +417,7 @@ impl FieldMulKernel {
         buffer_slice.map_async(wgpu::MapMode::Read, move |r| {
             let _ = tx.send(r);
         });
-        
+
         // Poll with timeout to prevent hanging
         let start = std::time::Instant::now();
         while rx.try_recv().is_err() {
@@ -420,9 +435,7 @@ impl FieldMulKernel {
                 staging_buffer.unmap();
                 Ok(())
             }
-            Ok(Err(_)) | Err(_) => {
-                Err("GPU readback failed".into())
-            }
+            Ok(Err(_)) | Err(_) => Err("GPU readback failed".into()),
         }
     }
 }

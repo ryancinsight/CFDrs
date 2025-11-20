@@ -1,8 +1,8 @@
 //! Couette flow - shear-driven flow between parallel plates
 
 use super::AnalyticalSolution;
-use nalgebra::{RealField, Vector3};
 use cfd_core::conversion::SafeFromF64;
+use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 
 /// Couette flow analytical solution
@@ -49,8 +49,8 @@ impl<T: RealField + Copy + FromPrimitive> CouetteFlow<T> {
     /// Get the wall shear stress
     pub fn wall_shear_stress(&self) -> T {
         let base_shear = self.viscosity * self.wall_velocity / self.gap_height;
-        let pressure_contribution = self.pressure_gradient * self.gap_height
-            / T::from_f64_or_one(2.0);
+        let pressure_contribution =
+            self.pressure_gradient * self.gap_height / T::from_f64_or_one(2.0);
         base_shear + pressure_contribution
     }
 

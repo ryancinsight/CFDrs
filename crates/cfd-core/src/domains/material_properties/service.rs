@@ -20,7 +20,7 @@ impl<T: RealField + Copy> MaterialPropertiesService<T> {
         use super::property_calculators::{
             KinematicViscosityCalculator, PrandtlNumberCalculator, ReynoldsNumberCalculator,
         };
-        
+
         let mut service = Self {
             database: MaterialDatabase::new(),
             calculators: HashMap::new(),

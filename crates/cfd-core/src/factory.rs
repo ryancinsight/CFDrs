@@ -19,7 +19,7 @@ pub trait ConcreteSolverFactory<T: RealField + Copy>: Send + Sync {
     type Config: SolverConfiguration<T> + Clone;
 
     /// Create a solver with the given configuration
-    /// 
+    ///
     /// # Errors
     /// Returns an error if solver creation fails due to invalid configuration or resource constraints
     fn create(&self, config: Self::Config) -> Result<Self::Solver>;
@@ -44,7 +44,7 @@ pub trait FactoryCapability {
 /// Dynamic solver trait for runtime polymorphism
 pub trait DynamicSolver<T: RealField + Copy>: Send + Sync {
     /// Solve the problem
-    /// 
+    ///
     /// # Errors
     /// Returns an error if problem solving fails due to invalid input or computational issues
     fn solve(&mut self, problem: &dyn Any) -> Result<Box<dyn Any>>;

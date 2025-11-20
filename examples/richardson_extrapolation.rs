@@ -67,7 +67,8 @@ fn richardson_heat_equation() -> Result<(), Box<dyn std::error::Error>> {
 
             for i in 1..n - 1 {
                 for j in 1..n - 1 {
-                    let laplacian = (field.at(i + 1, j) + field.at(i - 1, j)
+                    let laplacian = (field.at(i + 1, j)
+                        + field.at(i - 1, j)
                         + field.at(i, j + 1)
                         + field.at(i, j - 1)
                         - 4.0 * field.at(i, j))
@@ -129,7 +130,7 @@ fn richardson_poisson_equation() -> Result<(), Box<dyn std::error::Error>> {
 
     // Manufactured solution: u(x,y) = sin(πx)sin(πy)
     // Source term: f = -2π² sin(πx)sin(πy)
-    
+
     let resolutions = vec![16, 32, 64, 128];
     let mut grid_sizes = Vec::new();
     let mut l2_errors = Vec::new();
@@ -147,7 +148,7 @@ fn richardson_poisson_equation() -> Result<(), Box<dyn std::error::Error>> {
         let tolerance = 1e-10;
 
         let mut u = vec![vec![0.0; n]; n];
-        
+
         for _iter in 0..max_iterations {
             let mut u_new = u.clone();
             let mut max_change: f64 = 0.0;
@@ -156,15 +157,15 @@ fn richardson_poisson_equation() -> Result<(), Box<dyn std::error::Error>> {
                 for j in 1..n - 1 {
                     let x = i as f64 * dx;
                     let y = j as f64 * dx;
-                    
+
                     let f = -2.0 * PI * PI * (PI * x).sin() * (PI * y).sin();
-                    
+
                     let laplacian_u = (u[i + 1][j] + u[i - 1][j] + u[i][j + 1] + u[i][j - 1]
                         - 4.0 * u[i][j])
                         / (dx * dx);
-                    
+
                     u_new[i][j] = u[i][j] + 0.25 * (f - laplacian_u) * dx * dx;
-                    
+
                     max_change = max_change.max((u_new[i][j] - u[i][j]).abs());
                 }
             }
@@ -198,12 +199,15 @@ fn richardson_poisson_equation() -> Result<(), Box<dyn std::error::Error>> {
         l2_errors.push(l2_error);
         max_errors.push(max_error);
 
-        println!("   Grid {}×{}: L2={:.4e}, L∞={:.4e}", n, n, l2_error, max_error);
+        println!(
+            "   Grid {}×{}: L2={:.4e}, L∞={:.4e}",
+            n, n, l2_error, max_error
+        );
     }
 
     // Convergence analysis
     let study = ConvergenceStudy::new(grid_sizes.clone(), l2_errors.clone())?;
-    
+
     println!("\n   Convergence Study:");
     println!("     Observed order (L2): {:.2}", study.convergence_rate);
     println!("     R²: {:.6}", study.r_squared);
@@ -212,14 +216,19 @@ fn richardson_poisson_equation() -> Result<(), Box<dyn std::error::Error>> {
     // Predict error for even finer grid
     let h_predict = grid_sizes.last().unwrap() / 2.0;
     let error_predict = study.predict_error(h_predict);
-    println!("     Predicted error (h={:.4e}): {:.4e}", h_predict, error_predict);
+    println!(
+        "     Predicted error (h={:.4e}): {:.4e}",
+        h_predict, error_predict
+    );
 
     // Grid size for target accuracy
     let target_error = 1e-6;
     let h_target = study.grid_size_for_error(target_error)?;
     let n_target = (1.0 / h_target).ceil() as usize;
-    println!("     Grid for ε<{:.0e}: {}×{} (h={:.4e})", 
-        target_error, n_target, n_target, h_target);
+    println!(
+        "     Grid for ε<{:.0e}: {}×{} (h={:.4e})",
+        target_error, n_target, n_target, h_target
+    );
 
     Ok(())
 }
@@ -241,11 +250,11 @@ fn gci_uncertainty_quantification() -> Result<(), Box<dyn std::error::Error>> {
 
     for &n in &resolutions {
         let dx = 1.0 / (n - 1) as f64;
-        
+
         // Quick solve (reduced iterations for speed)
         let max_iterations = 1000;
         let mut u = vec![vec![0.0; n]; n];
-        
+
         for _ in 0..max_iterations {
             let mut u_new = u.clone();
 
@@ -253,12 +262,12 @@ fn gci_uncertainty_quantification() -> Result<(), Box<dyn std::error::Error>> {
                 for j in 1..n - 1 {
                     let x = i as f64 * dx;
                     let y = j as f64 * dx;
-                    
+
                     let f = -2.0 * PI * PI * (PI * x).sin() * (PI * y).sin();
                     let laplacian_u = (u[i + 1][j] + u[i - 1][j] + u[i][j + 1] + u[i][j - 1]
                         - 4.0 * u[i][j])
                         / (dx * dx);
-                    
+
                     u_new[i][j] = u[i][j] + 0.25 * (f - laplacian_u) * dx * dx;
                 }
             }

@@ -43,7 +43,7 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     }
 
     /// Validate that all properties are physically reasonable
-    /// 
+    ///
     /// # Errors
     /// Returns an error if any physical property is non-positive or invalid
     pub fn validate(&self) -> Result<(), Error> {
@@ -70,7 +70,7 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
 
     /// Water at 20°C and standard pressure
     /// Properties from NIST webbook
-    /// 
+    ///
     /// # Errors
     /// Returns an error if numeric conversion from f64 fails for the target type T
     pub fn water_20c() -> Result<Self, Error>
@@ -90,7 +90,7 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
 
     /// Air at 20°C and standard pressure
     /// Properties from NIST webbook
-    /// 
+    ///
     /// # Errors
     /// Returns an error if numeric conversion from f64 fails for the target type T
     pub fn air_20c() -> Result<Self, Error>

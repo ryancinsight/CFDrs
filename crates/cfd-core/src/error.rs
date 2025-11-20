@@ -47,6 +47,10 @@ pub enum Error {
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 
+    /// Serialization/deserialization errors
+    #[error("Serialization error: {0}")]
+    Serialization(String),
+
     /// Unsupported operation
     #[error("Unsupported operation: {0}")]
     UnsupportedOperation(String),
@@ -292,7 +296,7 @@ pub trait ErrorContext<T> {
     fn context(self, msg: impl Into<String>) -> Result<T>;
 
     /// Add context with a closure (lazy evaluation)
-    /// 
+    ///
     /// # Errors
     /// Returns the original error with context added via the closure
     fn with_context<F>(self, f: F) -> Result<T>

@@ -108,7 +108,6 @@ where
         });
 }
 
-
 /// Extension trait for sparse matrix operations
 pub trait SparseMatrixExt<T: RealField + Copy> {
     /// Extract diagonal elements

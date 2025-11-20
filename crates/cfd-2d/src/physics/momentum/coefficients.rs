@@ -77,7 +77,7 @@ pub enum ConvectionScheme {
         relaxation_factor: f64,
     },
     /// TVD scheme with Superbee limiter (Roe 1986)
-    /// 
+    ///
     /// Excellent for high-Peclet flows with shock-like features.
     /// Most compressive limiter, best shock resolution.
     ///
@@ -153,8 +153,8 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
         // For a control volume, coefficient in discretized equation:
         // coeff_e = μ * A_e / Δx_e = μ * dy / dx (for east/west faces)
         // coeff_n = μ * A_n / Δy_n = μ * dx / dy (for north/south faces)
-        let diff_coeff_ew = dy / dx;  // East-West diffusion scaling
-        let diff_coeff_ns = dx / dy;  // North-South diffusion scaling
+        let diff_coeff_ew = dy / dx; // East-West diffusion scaling
+        let diff_coeff_ns = dx / dy; // North-South diffusion scaling
 
         for j in 1..ny - 1 {
             for i in 1..nx - 1 {
@@ -179,7 +179,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 // Convection coefficients for momentum equation
                 // The nonlinear convective term is: ρ * (u * ∂φ/∂x + v * ∂φ/∂y)
                 // where φ is the velocity component being solved (u or v)
-                // 
+                //
                 // Deferred correction approach (Patankar 1980 §5.4.3):
                 // - Implicit part: Use first-order upwind for unconditional stability
                 // - Explicit part: Add QUICK correction to source term for accuracy
@@ -207,7 +207,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 // Implicit part: Always use upwind for stability (added to coefficients)
                 let mass_flux_x = rho * u * dy;
                 let mass_flux_y = rho * v * dx;
-                
+
                 if u > T::zero() {
                     let aw_val = coeffs.aw.at(i, j);
                     if let Some(aw) = coeffs.aw.at_mut(i, j) {
@@ -239,9 +239,8 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         // Pure upwind - no correction needed
                     }
                     ConvectionScheme::DeferredCorrectionQuick { relaxation_factor } => {
-                        let alpha = T::from_f64(relaxation_factor).unwrap_or_else(|| {
-                            T::from_f64(0.7).unwrap_or_else(T::one)
-                        });
+                        let alpha = T::from_f64(relaxation_factor)
+                            .unwrap_or_else(|| T::from_f64(0.7).unwrap_or_else(T::one));
 
                         // Compute QUICK-upwind correction for X-direction
                         let quick_correction_x = if i >= 2 && i < nx - 2 {
@@ -265,11 +264,10 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         }
                     }
                     ConvectionScheme::TvdSuperbee { relaxation_factor } => {
-                        let alpha = T::from_f64(relaxation_factor).unwrap_or_else(|| {
-                            T::from_f64(0.8).unwrap_or_else(T::one)
-                        });
+                        let alpha = T::from_f64(relaxation_factor)
+                            .unwrap_or_else(|| T::from_f64(0.8).unwrap_or_else(T::one));
                         let limiter = Superbee;
-                        
+
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
                             compute_tvd_correction_x(i, j, u, rho, dy, fields, component, &limiter)
                         } else {
@@ -288,11 +286,10 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         }
                     }
                     ConvectionScheme::TvdVanLeer { relaxation_factor } => {
-                        let alpha = T::from_f64(relaxation_factor).unwrap_or_else(|| {
-                            T::from_f64(0.8).unwrap_or_else(T::one)
-                        });
+                        let alpha = T::from_f64(relaxation_factor)
+                            .unwrap_or_else(|| T::from_f64(0.8).unwrap_or_else(T::one));
                         let limiter = VanLeer;
-                        
+
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
                             compute_tvd_correction_x(i, j, u, rho, dy, fields, component, &limiter)
                         } else {
@@ -311,11 +308,10 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         }
                     }
                     ConvectionScheme::TvdMinmod { relaxation_factor } => {
-                        let alpha = T::from_f64(relaxation_factor).unwrap_or_else(|| {
-                            T::from_f64(0.8).unwrap_or_else(T::one)
-                        });
+                        let alpha = T::from_f64(relaxation_factor)
+                            .unwrap_or_else(|| T::from_f64(0.8).unwrap_or_else(T::one));
                         let limiter = Minmod;
-                        
+
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
                             compute_tvd_correction_x(i, j, u, rho, dy, fields, component, &limiter)
                         } else {
@@ -340,7 +336,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 // For incompressible flow, ΔF = 0, so no additional convection term needed
                 let volume = dx * dy;
                 let rho = fields.density.at(i, j);
-                
+
                 let ap_sum = coeffs.ae.at(i, j)
                     + coeffs.aw.at(i, j)
                     + coeffs.an.at(i, j)
@@ -387,8 +383,8 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                     // where pressure_force = -∂p/∂x * V (total force on control volume)
                     // and V = dx * dy (cell volume in 2D, per unit depth)
                     let volume = dx * dy;
-                    *source = fields.density.at(i, j) * volume * previous_velocity / dt 
-                            + pressure_gradient * volume;
+                    *source = fields.density.at(i, j) * volume * previous_velocity / dt
+                        + pressure_gradient * volume;
                 }
             }
         }

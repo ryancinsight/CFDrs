@@ -58,9 +58,9 @@ mod tests {
         // Test only runs if GPU is available
         if let Ok(context) = GpuContext::create() {
             let context = Arc::new(context);
-            
+
             // Test field addition with smaller array first
-            let a = vec![1.0_f32; 64];  // Smaller size to test
+            let a = vec![1.0_f32; 64]; // Smaller size to test
             let b = vec![2.0_f32; 64];
             let mut result = vec![0.0_f32; 64];
 
@@ -78,9 +78,9 @@ mod tests {
         // Test only runs if GPU is available
         if let Ok(context) = GpuContext::create() {
             let context = Arc::new(context);
-            
+
             // Test scalar multiplication with smaller array first
-            let field = vec![2.0_f32; 64];  // Smaller size to test
+            let field = vec![2.0_f32; 64]; // Smaller size to test
             let mut result = vec![0.0_f32; 64];
 
             let mul_kernel = FieldMulKernel::new(context);
@@ -97,7 +97,7 @@ mod tests {
         // Test only runs if GPU is available
         if let Ok(context) = GpuContext::create() {
             let context = Arc::new(context);
-            
+
             // Test field addition
             let a = vec![1.0_f32; 1024];
             let b = vec![2.0_f32; 1024];

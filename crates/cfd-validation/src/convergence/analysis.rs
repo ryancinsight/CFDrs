@@ -2,8 +2,8 @@
 //!
 //! Provides tools for analyzing and classifying convergence behavior.
 
-use nalgebra::RealField;
 use cfd_core::conversion::SafeFromF64;
+use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
 /// Convergence order classification
@@ -36,22 +36,15 @@ impl<T: RealField + Copy + FromPrimitive> ConvergenceOrder<T> {
             Self::SubLinear
         } else if (rate - T::one()).abs() < tolerance {
             Self::FirstOrder
-        } else if (rate - T::from_f64_or_one(2.0)).abs() < tolerance
-        {
+        } else if (rate - T::from_f64_or_one(2.0)).abs() < tolerance {
             Self::SecondOrder
-        } else if (rate - T::from_f64_or_one(3.0)).abs()
-            < tolerance
-        {
+        } else if (rate - T::from_f64_or_one(3.0)).abs() < tolerance {
             Self::ThirdOrder
-        } else if (rate - T::from_f64_or_one(4.0)).abs()
-            < tolerance
-        {
+        } else if (rate - T::from_f64_or_one(4.0)).abs() < tolerance {
             Self::FourthOrder
-        } else if rate > T::from_f64_or_one(6.0)
-        {
+        } else if rate > T::from_f64_or_one(6.0) {
             Self::Spectral
-        } else if rate > T::one() && rate < T::from_f64_or_one(2.0)
-        {
+        } else if rate > T::one() && rate < T::from_f64_or_one(2.0) {
             Self::SuperLinear
         } else {
             Self::Custom(rate)

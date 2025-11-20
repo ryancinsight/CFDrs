@@ -70,12 +70,29 @@ impl<T: RealField + Copy + FromPrimitive> DiffusionSolver<T> {
             for i in 1..self.nx - 1 {
                 for j in 1..self.ny - 1 {
                     let un = self.solution.get(&(i, j)).copied().unwrap_or_else(T::zero);
-                    let un_e = self.solution.get(&(i + 1, j)).copied().unwrap_or_else(T::zero);
-                    let un_w = self.solution.get(&(i - 1, j)).copied().unwrap_or_else(T::zero);
-                    let un_n = self.solution.get(&(i, j + 1)).copied().unwrap_or_else(T::zero);
-                    let un_s = self.solution.get(&(i, j - 1)).copied().unwrap_or_else(T::zero);
+                    let un_e = self
+                        .solution
+                        .get(&(i + 1, j))
+                        .copied()
+                        .unwrap_or_else(T::zero);
+                    let un_w = self
+                        .solution
+                        .get(&(i - 1, j))
+                        .copied()
+                        .unwrap_or_else(T::zero);
+                    let un_n = self
+                        .solution
+                        .get(&(i, j + 1))
+                        .copied()
+                        .unwrap_or_else(T::zero);
+                    let un_s = self
+                        .solution
+                        .get(&(i, j - 1))
+                        .copied()
+                        .unwrap_or_else(T::zero);
 
-                    let laplacian = (un_e - T::from_f64(2.0).unwrap() * un + un_w) / (self.dx * self.dx)
+                    let laplacian = (un_e - T::from_f64(2.0).unwrap() * un + un_w)
+                        / (self.dx * self.dx)
                         + (un_n - T::from_f64(2.0).unwrap() * un + un_s) / (self.dy * self.dy);
 
                     let x = T::from_usize(i).unwrap() * self.dx;

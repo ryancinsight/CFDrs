@@ -68,7 +68,14 @@ pub fn update_dynamic_constant(
         for j in margin..(ny - margin) {
             // Compute Leonard tensor L_11 = <û û> - <û><û>
             let leonard_11 = compute_leonard_tensor_component(
-                velocity_u, velocity_v, &u_filtered, &v_filtered, i, j, dx, dy
+                velocity_u,
+                velocity_v,
+                &u_filtered,
+                &v_filtered,
+                i,
+                j,
+                dx,
+                dy,
             );
 
             // Compute resolved stress M_11 = |Ŝ|² - α²|S|²
@@ -93,7 +100,8 @@ pub fn update_dynamic_constant(
     // Apply smoothing to avoid oscillations (common in dynamic procedures)
     let current_avg = dynamic_constant.iter().sum::<f64>() / (nx * ny) as f64;
     let smoothing_factor = 0.1; // Gradual update
-    let smoothed_c_s_squared = current_avg * (1.0 - smoothing_factor) + c_s_squared * smoothing_factor;
+    let smoothed_c_s_squared =
+        current_avg * (1.0 - smoothing_factor) + c_s_squared * smoothing_factor;
 
     // Set constant value across domain (homogeneous assumption)
     // Advanced implementations could use local C_s values
@@ -137,7 +145,11 @@ fn apply_box_filter(field: &DMatrix<f64>, filter_width: usize) -> DMatrix<f64> {
                 }
             }
 
-            filtered[(i, j)] = if count > 0 { sum / count as f64 } else { field[(i, j)] };
+            filtered[(i, j)] = if count > 0 {
+                sum / count as f64
+            } else {
+                field[(i, j)]
+            };
         }
     }
 
@@ -167,10 +179,10 @@ fn compute_strain_rate_magnitude(
 ///
 /// For the dynamic procedure, we use the (1,1) component of the Leonard tensor.
 fn compute_leonard_tensor_component(
-    u_grid: &DMatrix<f64>,    // Grid-filtered u velocity
-    _v_grid: &DMatrix<f64>,    // Grid-filtered v velocity
-    u_test: &DMatrix<f64>,    // Test-filtered u velocity
-    _v_test: &DMatrix<f64>,    // Test-filtered v velocity
+    u_grid: &DMatrix<f64>,  // Grid-filtered u velocity
+    _v_grid: &DMatrix<f64>, // Grid-filtered v velocity
+    u_test: &DMatrix<f64>,  // Test-filtered u velocity
+    _v_test: &DMatrix<f64>, // Test-filtered v velocity
     i: usize,
     j: usize,
     _dx: f64,
@@ -260,5 +272,4 @@ mod tests {
             assert!(val <= 0.3); // Upper bound from implementation
         }
     }
-
 }

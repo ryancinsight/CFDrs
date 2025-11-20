@@ -23,7 +23,7 @@
 //! - Optimal for complex CFD problems
 
 use cfd_2d::schemes::time::{
-    AdaptiveController, AdaptiveTimeIntegrator, AdaptationStrategy, TimeScheme
+    AdaptationStrategy, AdaptiveController, AdaptiveTimeIntegrator, TimeScheme,
 };
 use nalgebra::DVector;
 
@@ -68,7 +68,10 @@ fn exact_solution(t: f64, y0: f64) -> f64 {
     y0 * (-2.0 * t).exp()
 }
 
-fn demonstrate_cfl_adaptation(y0: &DVector<f64>, t_final: f64) -> Result<(), Box<dyn std::error::Error>> {
+fn demonstrate_cfl_adaptation(
+    y0: &DVector<f64>,
+    t_final: f64,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("--- CFL-Based Adaptive Time Stepping ---");
 
     // CFL-based adaptation strategy
@@ -100,7 +103,9 @@ fn demonstrate_cfl_adaptation(y0: &DVector<f64>, t_final: f64) -> Result<(), Box
             0.01 * 0.7 / cfl_current // Simplified CFL-based dt
         } else {
             0.01
-        }.min(0.1).max(0.001); // Clamp to reasonable bounds
+        }
+        .min(0.1)
+        .max(0.001); // Clamp to reasonable bounds
 
         // For this demo, simulate the integration step
         let y_new = integrate_step(&test_ode, &y, t, dt_adaptive);
@@ -109,7 +114,8 @@ fn demonstrate_cfl_adaptation(y0: &DVector<f64>, t_final: f64) -> Result<(), Box
         steps += 1;
         total_time += dt_adaptive;
 
-        if steps > 1000 { // Prevent infinite loop
+        if steps > 1000 {
+            // Prevent infinite loop
             break;
         }
     }
@@ -128,7 +134,10 @@ fn demonstrate_cfl_adaptation(y0: &DVector<f64>, t_final: f64) -> Result<(), Box
     Ok(())
 }
 
-fn demonstrate_error_adaptation(y0: &DVector<f64>, t_final: f64) -> Result<(), Box<dyn std::error::Error>> {
+fn demonstrate_error_adaptation(
+    y0: &DVector<f64>,
+    t_final: f64,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("--- Error-Based Adaptive Time Stepping ---");
 
     // Error-based adaptation strategy
@@ -175,7 +184,8 @@ fn demonstrate_error_adaptation(y0: &DVector<f64>, t_final: f64) -> Result<(), B
         // Update controller for next step
         integrator.set_current_dt(dt_new);
 
-        if steps > 1000 { // Prevent infinite loop
+        if steps > 1000 {
+            // Prevent infinite loop
             break;
         }
     }
@@ -187,14 +197,22 @@ fn demonstrate_error_adaptation(y0: &DVector<f64>, t_final: f64) -> Result<(), B
     println!("Solution: {:.6}", y[0]);
     println!("Exact: {:.6}", exact);
     println!("Error: {:.2e}", error);
-    println!("Steps taken: {} ({} accepted, {} rejected)", steps + rejected, steps, rejected);
+    println!(
+        "Steps taken: {} ({} accepted, {} rejected)",
+        steps + rejected,
+        steps,
+        rejected
+    );
     println!("Average dt: {:.4}", total_time / steps as f64);
     println!();
 
     Ok(())
 }
 
-fn demonstrate_combined_adaptation(y0: &DVector<f64>, t_final: f64) -> Result<(), Box<dyn std::error::Error>> {
+fn demonstrate_combined_adaptation(
+    y0: &DVector<f64>,
+    t_final: f64,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("--- Combined CFL + Error Adaptive Time Stepping ---");
 
     // Combined adaptation strategy
@@ -226,7 +244,9 @@ fn demonstrate_combined_adaptation(y0: &DVector<f64>, t_final: f64) -> Result<()
             0.01 * 0.7 / cfl_current
         } else {
             0.01
-        }.min(0.1).max(0.001);
+        }
+        .min(0.1)
+        .max(0.001);
 
         // Get current adaptive time step
         let dt_adaptive = integrator.current_dt();
@@ -252,7 +272,8 @@ fn demonstrate_combined_adaptation(y0: &DVector<f64>, t_final: f64) -> Result<()
         // Update for next step
         integrator.set_current_dt(dt_new);
 
-        if steps > 1000 { // Prevent infinite loop
+        if steps > 1000 {
+            // Prevent infinite loop
             break;
         }
     }
@@ -264,7 +285,12 @@ fn demonstrate_combined_adaptation(y0: &DVector<f64>, t_final: f64) -> Result<()
     println!("Solution: {:.6}", y[0]);
     println!("Exact: {:.6}", exact);
     println!("Error: {:.2e}", error);
-    println!("Steps taken: {} ({} accepted, {} rejected)", steps + rejected, steps, rejected);
+    println!(
+        "Steps taken: {} ({} accepted, {} rejected)",
+        steps + rejected,
+        steps,
+        rejected
+    );
     println!("Average dt: {:.4}", total_time / steps as f64);
     println!("Combined adaptation balances stability (CFL) and accuracy (error control).");
     println!();
@@ -273,12 +299,7 @@ fn demonstrate_combined_adaptation(y0: &DVector<f64>, t_final: f64) -> Result<()
 }
 
 /// Simple Euler integration for demonstration
-fn integrate_step<F>(
-    f: F,
-    y: &DVector<f64>,
-    t: f64,
-    dt: f64
-) -> DVector<f64>
+fn integrate_step<F>(f: F, y: &DVector<f64>, t: f64, dt: f64) -> DVector<f64>
 where
     F: Fn(f64, &DVector<f64>) -> DVector<f64>,
 {

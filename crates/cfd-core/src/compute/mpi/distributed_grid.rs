@@ -33,11 +33,8 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedGrid<T
         communicator: &MpiCommunicator,
         decomposition_strategy: super::decomposition::DecompositionStrategy,
     ) -> MpiResult<Self> {
-        let decomposition = DomainDecomposition::new(
-            global_extents,
-            communicator,
-            decomposition_strategy,
-        )?;
+        let decomposition =
+            DomainDecomposition::new(global_extents, communicator, decomposition_strategy)?;
 
         let local_subdomain = decomposition.local_subdomain();
         let local_nx = local_subdomain.total_nx();
@@ -116,7 +113,10 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedGrid<T
     }
 
     /// Apply boundary conditions to owned cells only
-    pub fn apply_boundary_conditions(&mut self, bc_function: impl Fn(usize, usize) -> (Vector2<T>, T)) -> Result<()> {
+    pub fn apply_boundary_conditions(
+        &mut self,
+        bc_function: impl Fn(usize, usize) -> (Vector2<T>, T),
+    ) -> Result<()> {
         let subdomain = self.local_subdomain();
 
         // Apply BCs only to owned cells (not ghost cells)
@@ -168,7 +168,8 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedGrid<T
 
     /// Gather statistics across all processes
     pub fn gather_statistics(&self) -> GridStatistics<T> {
-        let local_owned = (self.local_subdomain().nx_local * self.local_subdomain().ny_local) as f64;
+        let local_owned =
+            (self.local_subdomain().nx_local * self.local_subdomain().ny_local) as f64;
         let local_total = (self.local_nx * self.local_ny) as f64;
 
         let global_owned = self.global_reduce_sum(T::from_f64(local_owned).unwrap());
@@ -182,7 +183,8 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedGrid<T
             num_processes: self.decomposition.communicator.size() as usize,
             load_imbalance: Self::compute_load_imbalance(
                 local_owned as usize,
-                global_owned.to_f64().unwrap() as usize / self.decomposition.communicator.size() as usize
+                global_owned.to_f64().unwrap() as usize
+                    / self.decomposition.communicator.size() as usize,
             ),
         }
     }
@@ -217,8 +219,16 @@ pub struct GridStatistics<T: RealField> {
 impl<T: RealField + std::fmt::Display> std::fmt::Display for GridStatistics<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Distributed Grid Statistics:")?;
-        writeln!(f, "  Local: {} owned, {} total cells", self.local_owned_cells, self.local_total_cells)?;
-        writeln!(f, "  Global: {} owned, {} total cells", self.global_owned_cells, self.global_total_cells)?;
+        writeln!(
+            f,
+            "  Local: {} owned, {} total cells",
+            self.local_owned_cells, self.local_total_cells
+        )?;
+        writeln!(
+            f,
+            "  Global: {} owned, {} total cells",
+            self.global_owned_cells, self.global_total_cells
+        )?;
         writeln!(f, "  Processes: {}", self.num_processes)?;
         writeln!(f, "  Load imbalance: {:.3}", self.load_imbalance)?;
         Ok(())

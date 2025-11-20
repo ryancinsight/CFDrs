@@ -36,9 +36,9 @@
 //! - Nicoud, F. & Ducros, F. (1999). Subgrid-scale stress modelling based on the square of the velocity gradient tensor. Flow, Turbulence and Combustion, 62(1), 183-200.
 //! - Ducros, F., et al. (1998). Wall-adapting local eddy-viscosity model. AIAA Paper 98-0714.
 
+use crate::fields::Field2D;
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
-use crate::fields::Field2D;
 
 /// WALE model constant (literature value: 0.5)
 const C_WALE: f64 = 0.5;
@@ -169,13 +169,7 @@ impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
     ///
     /// |S^d|² = S_ij^d S_ij^d where
     /// S_ij^d = (1/2)(∂_i u_k ∂_k u_j + ∂_j u_k ∂_k u_i) - (1/3)δ_ij ∂_k u_l ∂_l u_k
-    fn wale_tensor_magnitude_squared(
-        &self,
-        du_dx: T,
-        du_dy: T,
-        dv_dx: T,
-        dv_dy: T,
-    ) -> T {
+    fn wale_tensor_magnitude_squared(&self, du_dx: T, du_dy: T, dv_dx: T, dv_dy: T) -> T {
         // Velocity gradient tensor G_ij = ∂u_i/∂x_j
         let g_xx = du_dx;
         let g_xy = du_dy;
@@ -197,9 +191,9 @@ impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
         let trace_s2 = s2_xx + s2_yy;
 
         // WALE tensor: S_ij^d = S²_ij - (1/3)δ_ij tr(S²)
-        let sd_xx = s2_xx - T::from_f64(1.0/3.0).unwrap() * trace_s2;
+        let sd_xx = s2_xx - T::from_f64(1.0 / 3.0).unwrap() * trace_s2;
         let sd_xy = s2_xy; // Off-diagonal terms unchanged
-        let sd_yy = s2_yy - T::from_f64(1.0/3.0).unwrap() * trace_s2;
+        let sd_yy = s2_yy - T::from_f64(1.0 / 3.0).unwrap() * trace_s2;
 
         // Magnitude squared: S^d_ij S^d_ij
         sd_xx * sd_xx + T::from_f64(2.0).unwrap() * sd_xy * sd_xy + sd_yy * sd_yy
@@ -214,13 +208,13 @@ mod tests {
     #[test]
     fn test_wale_viscosity() {
         let model = WaleModel::<f64>::new();
-        let mut velocity = Field2D::from_value(Vector2::new(1.0, 0.0), 5, 5);
+        let mut velocity = Field2D::new(5, 5, Vector2::new(1.0, 0.0));
 
         // Set up a simple shear flow: u = y, v = 0
         for i in 0..5 {
             for j in 0..5 {
                 let y = j as f64 * 0.1;
-                velocity[i][j] = Vector2::new(y, 0.0);
+                velocity[(i, j)] = Vector2::new(y, 0.0);
             }
         }
 
@@ -234,12 +228,12 @@ mod tests {
     #[test]
     fn test_wale_at_wall() {
         let model = WaleModel::<f64>::new();
-        let mut velocity = Field2D::from_value(Vector2::new(0.0, 0.0), 5, 5);
+        let mut velocity = Field2D::new(5, 5, Vector2::new(0.0, 0.0));
 
         // Set up no-slip boundary conditions (walls)
         for i in 0..5 {
-            velocity[i][0] = Vector2::new(0.0, 0.0); // Bottom wall
-            velocity[i][4] = Vector2::new(0.0, 0.0); // Top wall
+            velocity[(i, 0)] = Vector2::new(0.0, 0.0); // Bottom wall
+            velocity[(i, 4)] = Vector2::new(0.0, 0.0); // Top wall
         }
 
         let nu_sgs_wall = model.sgs_viscosity(&velocity, 2, 0, 0.1, 0.1, 0.1);

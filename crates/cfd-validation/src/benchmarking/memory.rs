@@ -130,18 +130,34 @@ impl MemoryProfiler {
 
     /// Stop profiling and return statistics for the session
     pub fn stop_profiling(&self) -> MemoryStats {
-        let start_stats = self.start_snapshot.lock().unwrap().take()
+        let start_stats = self
+            .start_snapshot
+            .lock()
+            .unwrap()
+            .take()
             .unwrap_or_else(|| MemoryStats::default());
 
         let current_stats = self.get_stats();
 
         MemoryStats {
-            current_allocated: current_stats.current_allocated.saturating_sub(start_stats.current_allocated),
-            peak_allocated: current_stats.peak_allocated.saturating_sub(start_stats.peak_allocated),
-            allocation_count: current_stats.allocation_count.saturating_sub(start_stats.allocation_count),
-            deallocation_count: current_stats.deallocation_count.saturating_sub(start_stats.deallocation_count),
-            total_allocated: current_stats.total_allocated.saturating_sub(start_stats.total_allocated),
-            total_deallocated: current_stats.total_deallocated.saturating_sub(start_stats.total_deallocated),
+            current_allocated: current_stats
+                .current_allocated
+                .saturating_sub(start_stats.current_allocated),
+            peak_allocated: current_stats
+                .peak_allocated
+                .saturating_sub(start_stats.peak_allocated),
+            allocation_count: current_stats
+                .allocation_count
+                .saturating_sub(start_stats.allocation_count),
+            deallocation_count: current_stats
+                .deallocation_count
+                .saturating_sub(start_stats.deallocation_count),
+            total_allocated: current_stats
+                .total_allocated
+                .saturating_sub(start_stats.total_allocated),
+            total_deallocated: current_stats
+                .total_deallocated
+                .saturating_sub(start_stats.total_deallocated),
             avg_allocation_size: if current_stats.allocation_count > start_stats.allocation_count {
                 let net_allocations = current_stats.allocation_count - start_stats.allocation_count;
                 let net_bytes = current_stats.total_allocated - start_stats.total_allocated;
@@ -282,6 +298,12 @@ pub struct CfdMemoryProfiler {
 }
 
 impl CfdMemoryProfiler {
+    /// Create a new CFD memory profiler with default configuration
+    ///
+    /// Initializes memory profiling capabilities optimized for CFD workloads,
+    /// including tracking of memory allocations for matrices, grids, and solver data structures.
+    /// Configured with appropriate sampling rates and memory tracking thresholds for
+    /// CFD simulation performance analysis.
     pub fn new() -> Self {
         Self {
             profiler: MemoryProfiler::new(),
@@ -290,60 +312,76 @@ impl CfdMemoryProfiler {
 
     /// Profile memory usage of CFD matrix operations
     pub fn profile_matrix_operations(&self) -> Result<MemoryStats> {
-        Ok(self.profiler.profile_closure(|| {
-            // Create and manipulate CFD-style matrices
-            let mut builder = cfd_math::sparse::SparseMatrixBuilder::new(1000, 1000);
+        Ok(self
+            .profiler
+            .profile_closure(|| {
+                // Create and manipulate CFD-style matrices
+                let mut builder = cfd_math::sparse::SparseMatrixBuilder::new(1000, 1000);
 
-            // Simulate CFD matrix assembly (5-point stencil)
-            for i in 0..32 {
-                for j in 0..32 {
-                    let idx = i * 32 + j;
+                // Simulate CFD matrix assembly (5-point stencil)
+                for i in 0..32 {
+                    for j in 0..32 {
+                        let idx = i * 32 + j;
 
-                    // Add stencil entries
-                    builder.add_entry(idx, idx, 4.0).unwrap(); // Center
-                    if i > 0 { builder.add_entry(idx, idx - 32, -1.0).unwrap(); } // North
-                    if i < 31 { builder.add_entry(idx, idx + 32, -1.0).unwrap(); } // South
-                    if j > 0 { builder.add_entry(idx, idx - 1, -1.0).unwrap(); } // West
-                    if j < 31 { builder.add_entry(idx, idx + 1, -1.0).unwrap(); } // East
+                        // Add stencil entries
+                        builder.add_entry(idx, idx, 4.0).unwrap(); // Center
+                        if i > 0 {
+                            builder.add_entry(idx, idx - 32, -1.0).unwrap();
+                        } // North
+                        if i < 31 {
+                            builder.add_entry(idx, idx + 32, -1.0).unwrap();
+                        } // South
+                        if j > 0 {
+                            builder.add_entry(idx, idx - 1, -1.0).unwrap();
+                        } // West
+                        if j < 31 {
+                            builder.add_entry(idx, idx + 1, -1.0).unwrap();
+                        } // East
+                    }
                 }
-            }
 
-            let matrix = builder.build().unwrap();
-            let vector = vec![1.0f64; 1000];
-            let mut result = vec![0.0f64; 1000];
+                let matrix = builder.build().unwrap();
+                let vector = vec![1.0f64; 1000];
+                let mut result = vec![0.0f64; 1000];
 
-            // Perform SPMV operations
-            for _ in 0..10 {
-                let vector_dv = nalgebra::DVector::from_vec(vector.clone());
-                let mut result_dv = nalgebra::DVector::zeros(matrix.nrows());
-                cfd_math::sparse::spmv(&matrix, &vector_dv, &mut result_dv);
-            }
-        }).1)
+                // Perform SPMV operations
+                for _ in 0..10 {
+                    let vector_dv = nalgebra::DVector::from_vec(vector.clone());
+                    let mut result_dv = nalgebra::DVector::zeros(matrix.nrows());
+                    cfd_math::sparse::spmv(&matrix, &vector_dv, &mut result_dv);
+                }
+            })
+            .1)
     }
 
     /// Profile memory usage of CFD grid operations
     pub fn profile_grid_operations(&self) -> Result<MemoryStats> {
         use cfd_2d::grid::StructuredGrid2D;
 
-        Ok(self.profiler.profile_closure(|| {
-            // Create multiple grids of different sizes
-            let grids = vec![
-                StructuredGrid2D::new(32, 32, 0.0, 1.0, 0.0, 1.0).unwrap(),
-                StructuredGrid2D::new(64, 64, 0.0, 1.0, 0.0, 1.0).unwrap(),
-                StructuredGrid2D::new(128, 128, 0.0, 1.0, 0.0, 1.0).unwrap(),
-            ];
+        Ok(self
+            .profiler
+            .profile_closure(|| {
+                // Create multiple grids of different sizes
+                let grids = vec![
+                    StructuredGrid2D::new(32, 32, 0.0, 1.0, 0.0, 1.0).unwrap(),
+                    StructuredGrid2D::new(64, 64, 0.0, 1.0, 0.0, 1.0).unwrap(),
+                    StructuredGrid2D::new(128, 128, 0.0, 1.0, 0.0, 1.0).unwrap(),
+                ];
 
-            // Perform grid operations
-            for grid in grids {
-                let nx = grid.nx();
-                let ny = grid.ny();
-                // Access grid data for memory profiling
-                let _centers: Vec<_> = (0..nx.min(10)).flat_map(|i| {
-                    let grid_ref = &grid;
-                    (0..ny.min(10)).map(move |j| grid_ref.cell_center(i, j).ok())
-                }).collect();
-            }
-        }).1)
+                // Perform grid operations
+                for grid in grids {
+                    let nx = grid.nx();
+                    let ny = grid.ny();
+                    // Access grid data for memory profiling
+                    let _centers: Vec<_> = (0..nx.min(10))
+                        .flat_map(|i| {
+                            let grid_ref = &grid;
+                            (0..ny.min(10)).map(move |j| grid_ref.cell_center(i, j).ok())
+                        })
+                        .collect();
+                }
+            })
+            .1)
     }
 
     /// Profile memory usage of CFD simulation fields
@@ -351,21 +389,24 @@ impl CfdMemoryProfiler {
         use cfd_2d::fields::SimulationFields;
         use cfd_core::fluid::Fluid;
 
-        Ok(self.profiler.profile_closure(|| {
-            let fluid = Fluid::new("Test".to_string(), 1.0, 0.01, 1000.0, 0.001);
+        Ok(self
+            .profiler
+            .profile_closure(|| {
+                let fluid = Fluid::new("Test".to_string(), 1.0, 0.01, 1000.0, 0.001);
 
-            // Create fields of increasing size
-            let sizes = vec![32, 64, 128];
+                // Create fields of increasing size
+                let sizes = vec![32, 64, 128];
 
-            for &size in &sizes {
-                let fields = SimulationFields::with_fluid(size, size, &fluid);
+                for &size in &sizes {
+                    let fields = SimulationFields::with_fluid(size, size, &fluid);
 
-                // Access all field data to ensure it's in memory
-                let _u_sum: f64 = fields.u.data().iter().sum();
-                let _v_sum: f64 = fields.v.data().iter().sum();
-                let _p_sum: f64 = fields.p.data().iter().sum();
-            }
-        }).1)
+                    // Access all field data to ensure it's in memory
+                    let _u_sum: f64 = fields.u.data().iter().sum();
+                    let _v_sum: f64 = fields.v.data().iter().sum();
+                    let _p_sum: f64 = fields.p.data().iter().sum();
+                }
+            })
+            .1)
     }
 
     /// Run comprehensive CFD memory profiling suite
@@ -387,15 +428,18 @@ impl CfdMemoryProfiler {
         results.push(("Simulation_Fields".to_string(), field_stats));
 
         // Memory allocation patterns
-        let alloc_stats = self.profiler.profile_closure(|| {
-            let mut allocations = Vec::new();
-            for size in [100, 1000, 10000, 100000] {
-                allocations.push(vec![0.0f64; size]);
-            }
-            // Hold onto allocations briefly
-            std::thread::sleep(std::time::Duration::from_millis(1));
-            drop(allocations);
-        }).1;
+        let alloc_stats = self
+            .profiler
+            .profile_closure(|| {
+                let mut allocations = Vec::new();
+                for size in [100, 1000, 10000, 100000] {
+                    allocations.push(vec![0.0f64; size]);
+                }
+                // Hold onto allocations briefly
+                std::thread::sleep(std::time::Duration::from_millis(1));
+                drop(allocations);
+            })
+            .1;
         results.push(("Allocation_Patterns".to_string(), alloc_stats));
 
         Ok(results)
@@ -410,11 +454,14 @@ impl Default for CfdMemoryProfiler {
 
 impl std::fmt::Display for MemoryStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Memory: current={:.2}MB, peak={:.2}MB, allocations={}, deallocations={}",
-               self.current_allocated as f64 / 1_048_576.0,
-               self.peak_allocated as f64 / 1_048_576.0,
-               self.allocation_count,
-               self.deallocation_count)
+        write!(
+            f,
+            "Memory: current={:.2}MB, peak={:.2}MB, allocations={}, deallocations={}",
+            self.current_allocated as f64 / 1_048_576.0,
+            self.peak_allocated as f64 / 1_048_576.0,
+            self.allocation_count,
+            self.deallocation_count
+        )
     }
 }
 

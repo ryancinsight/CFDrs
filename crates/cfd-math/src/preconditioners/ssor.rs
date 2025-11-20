@@ -27,10 +27,7 @@ impl<T: RealField + Copy + FromPrimitive> SSOR<T> {
 
     /// Create SSOR preconditioner with specified relaxation parameter
     pub fn with_omega(matrix: CsrMatrix<T>, omega: T) -> Result<Self> {
-        Ok(Self {
-            matrix,
-            omega,
-        })
+        Ok(Self { matrix, omega })
     }
 
     /// Forward SOR sweep
@@ -99,7 +96,7 @@ impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for SSOR<T> {
 
         // Forward sweep: solve (D + ωL)z = ωr
         self.forward_sweep(r, z);
-        
+
         // Backward sweep: solve (D + ωU)z = ωr using result from forward sweep
         self.backward_sweep(r, z);
 

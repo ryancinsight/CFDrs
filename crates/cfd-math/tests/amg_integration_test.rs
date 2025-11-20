@@ -1,7 +1,11 @@
 //! Integration test for AMG preconditioner with BiCGSTAB and GMRES solvers
 
-use cfd_math::linear_solver::preconditioners::{AlgebraicMultigrid, AMGConfig, MultigridCycle, CoarseningStrategy};
-use cfd_math::linear_solver::{BiCGSTAB, GMRES, IterativeSolverConfig, IterativeLinearSolver, Preconditioner};
+use cfd_math::linear_solver::preconditioners::{
+    AMGConfig, AlgebraicMultigrid, CoarseningStrategy, MultigridCycle,
+};
+use cfd_math::linear_solver::{
+    BiCGSTAB, IterativeLinearSolver, IterativeSolverConfig, Preconditioner, GMRES,
+};
 use cfd_math::sparse::spmv;
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
@@ -56,7 +60,10 @@ fn create_exact_solution<T: RealField + From<f64>>(size: usize) -> DVector<T> {
     DVector::from_fn(size, |i, _| T::from_f64((i as f64).sin()).unwrap())
 }
 
-fn create_rhs<T: RealField + From<f64> + Copy>(matrix: &CsrMatrix<T>, solution: &DVector<T>) -> DVector<T> {
+fn create_rhs<T: RealField + From<f64> + Copy>(
+    matrix: &CsrMatrix<T>,
+    solution: &DVector<T>,
+) -> DVector<T> {
     let mut rhs = DVector::zeros(matrix.nrows());
     spmv(matrix, solution, &mut rhs);
     rhs
@@ -136,16 +143,24 @@ fn test_amg_different_cycles() {
     let rhs = create_rhs(&matrix, &exact_solution);
 
     // Test V-cycle
-    let amg_v = AlgebraicMultigrid::with_config(&matrix, AMGConfig {
-        cycle_type: MultigridCycle::V,
-        ..Default::default()
-    }).unwrap();
+    let amg_v = AlgebraicMultigrid::with_config(
+        &matrix,
+        AMGConfig {
+            cycle_type: MultigridCycle::V,
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
     // Test W-cycle
-    let amg_w = AlgebraicMultigrid::with_config(&matrix, AMGConfig {
-        cycle_type: MultigridCycle::W,
-        ..Default::default()
-    }).unwrap();
+    let amg_w = AlgebraicMultigrid::with_config(
+        &matrix,
+        AMGConfig {
+            cycle_type: MultigridCycle::W,
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
     // Both should work
     let mut solution_v = DVector::zeros(matrix.nrows());
@@ -155,8 +170,14 @@ fn test_amg_different_cycles() {
     amg_w.apply_to(&rhs, &mut solution_w).unwrap();
 
     // Solutions should be reasonable (not checking exactness since AMG is a preconditioner)
-    assert!(solution_v.norm() > 0.0, "V-cycle solution should be non-zero");
-    assert!(solution_w.norm() > 0.0, "W-cycle solution should be non-zero");
+    assert!(
+        solution_v.norm() > 0.0,
+        "V-cycle solution should be non-zero"
+    );
+    assert!(
+        solution_w.norm() > 0.0,
+        "W-cycle solution should be non-zero"
+    );
 }
 
 #[test]
@@ -181,5 +202,8 @@ fn test_amg_construction_edge_cases() {
         coarsening: CoarseningStrategy::Classical,
     };
     let amg_custom = AlgebraicMultigrid::with_config(&large_matrix, custom_config);
-    assert!(amg_custom.is_ok(), "AMG should accept custom configurations");
+    assert!(
+        amg_custom.is_ok(),
+        "AMG should accept custom configurations"
+    );
 }

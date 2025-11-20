@@ -1,5 +1,5 @@
-use cfd_validation::manufactured::richardson::MmsRichardsonStudy;
 use cfd_validation::geometry::RectangularDomain;
+use cfd_validation::manufactured::richardson::MmsRichardsonStudy;
 use cfd_validation::manufactured::ManufacturedDiffusion;
 use nalgebra::RealField;
 
@@ -13,7 +13,7 @@ fn richardson_estimates_third_order_uniform_ratio() {
     let study = MmsRichardsonStudy::with_geometric_refinement(
         Box::new(mms),
         Box::new(geometry),
-        4, // number of grid levels (coarse to fine)
+        4,   // number of grid levels (coarse to fine)
         1.0, // base grid size (unused by this test path)
         0.0, // evaluation time
     )
@@ -65,6 +65,9 @@ fn richardson_estimates_third_order_nonuniform_ratio() {
     let result = study.richardson_extrapolation_error(&grid_sizes, solution_computer);
 
     let p = result.estimated_order;
-    assert!(p > 2.6 && p < 3.4, "Estimated order not near 3.0 with nonuniform ratios, got {}", p);
+    assert!(
+        p > 2.6 && p < 3.4,
+        "Estimated order not near 3.0 with nonuniform ratios, got {}",
+        p
+    );
 }
-

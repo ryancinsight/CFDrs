@@ -9,8 +9,8 @@
 
 use super::report::ConservationReport;
 use super::traits::ConservationChecker;
-use cfd_core::error::Result;
 use cfd_core::conversion::SafeFromF64;
+use cfd_core::error::Result;
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
 
@@ -76,7 +76,10 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
         report.add_detail("max_error".to_string(), max_error);
         report.add_detail("avg_error".to_string(), avg_error);
         report.add_detail("constant_value".to_string(), constant_value);
-        report.add_detail("time_steps".to_string(), T::from_usize(10).unwrap_or(T::one()));
+        report.add_detail(
+            "time_steps".to_string(),
+            T::from_usize(10).unwrap_or(T::one()),
+        );
         report.add_detail("dt".to_string(), dt);
 
         Ok(report)
@@ -84,7 +87,11 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
 
     /// Test GCL for Runge-Kutta schemes
     /// RK schemes should preserve constants if the RHS evaluation is consistent
-    pub fn test_runge_kutta_gcl(&self, constant_value: T, stages: usize) -> Result<ConservationReport<T>> {
+    pub fn test_runge_kutta_gcl(
+        &self,
+        constant_value: T,
+        stages: usize,
+    ) -> Result<ConservationReport<T>> {
         let mut max_error = T::zero();
         let mut total_error = T::zero();
         let mut count = 0;
@@ -128,7 +135,10 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
 
         report.add_detail("max_error".to_string(), max_error);
         report.add_detail("avg_error".to_string(), avg_error);
-        report.add_detail("stages".to_string(), T::from_usize(stages).unwrap_or(T::one()));
+        report.add_detail(
+            "stages".to_string(),
+            T::from_usize(stages).unwrap_or(T::one()),
+        );
         report.add_detail("constant_value".to_string(), constant_value);
 
         Ok(report)
@@ -152,14 +162,21 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 // Central difference ∂u/∂x
-                let dudx = (u[(i+1, j)] - u[(i-1, j)]) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
+                let dudx = (u[(i + 1, j)] - u[(i - 1, j)])
+                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
 
                 // Central difference ∂u/∂y
-                let dudy = (u[(i, j+1)] - u[(i, j-1)]) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
+                let dudy = (u[(i, j + 1)] - u[(i, j - 1)])
+                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
 
                 // Laplacian ∇²u
-                let laplacian = (u[(i+1, j)] - <T as SafeFromF64>::from_f64_or_one(2.0) * u[(i, j)] + u[(i-1, j)]) / (dx * dx)
-                              + (u[(i, j+1)] - <T as SafeFromF64>::from_f64_or_one(2.0) * u[(i, j)] + u[(i, j-1)]) / (dy * dy);
+                let laplacian = (u[(i + 1, j)]
+                    - <T as SafeFromF64>::from_f64_or_one(2.0) * u[(i, j)]
+                    + u[(i - 1, j)])
+                    / (dx * dx)
+                    + (u[(i, j + 1)] - <T as SafeFromF64>::from_f64_or_one(2.0) * u[(i, j)]
+                        + u[(i, j - 1)])
+                        / (dy * dy);
 
                 // All derivatives should be zero for constant field
                 let error = dudx.abs() + dudy.abs() + laplacian.abs();
@@ -228,7 +245,10 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
 
         println!("\n📊 GCL Test Summary:");
         println!("  Tests Passed: {}/{}", passed_tests, total_tests);
-        println!("  Success Rate: {:.1}%", 100.0 * passed_tests as f32 / total_tests as f32);
+        println!(
+            "  Success Rate: {:.1}%",
+            100.0 * passed_tests as f32 / total_tests as f32
+        );
 
         if passed_tests == total_tests {
             println!("🎉 All GCL tests passed - schemes preserve constants correctly!");
@@ -241,7 +261,9 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for GeometricConservationChecker<T> {
+impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T>
+    for GeometricConservationChecker<T>
+{
     type FlowField = DMatrix<T>;
 
     fn check_conservation(&self, field: &Self::FlowField) -> Result<ConservationReport<T>> {
@@ -308,7 +330,11 @@ mod tests {
 
         // All tests should pass for perfect GCL implementation
         for result in results {
-            assert!(result.is_conserved, "GCL test failed: {}", result.check_name);
+            assert!(
+                result.is_conserved,
+                "GCL test failed: {}",
+                result.check_name
+            );
         }
     }
 }

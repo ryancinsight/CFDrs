@@ -167,7 +167,8 @@ pub fn validate_interpolation_operator(
     // Check conservation property (interpolation should preserve constants)
     let constant_vector = nalgebra::DVector::from_element(coarse_n, 1.0);
     let interpolated = interpolation * constant_vector;
-    let constant_error: f64 = interpolated.iter().map(|&x| (x - 1.0).abs()).sum::<f64>() / fine_n as f64;
+    let constant_error: f64 =
+        interpolated.iter().map(|&x| (x - 1.0).abs()).sum::<f64>() / fine_n as f64;
 
     // Sparsity metrics
     let total_entries = fine_n * coarse_n;
@@ -223,8 +224,12 @@ mod tests {
 
         for i in 0..n {
             matrix[(i, i)] = 2.0;
-            if i > 0 { matrix[(i, i-1)] = -1.0; }
-            if i < n-1 { matrix[(i, i+1)] = -1.0; }
+            if i > 0 {
+                matrix[(i, i - 1)] = -1.0;
+            }
+            if i < n - 1 {
+                matrix[(i, i + 1)] = -1.0;
+            }
         }
 
         matrix
@@ -232,9 +237,7 @@ mod tests {
 
     fn create_simple_coarsening() -> (Vec<usize>, Vec<Option<usize>>) {
         let coarse_points = vec![0, 2, 4]; // Every other point
-        let fine_to_coarse_map = vec![
-            Some(0), None, Some(1), None, Some(2)
-        ];
+        let fine_to_coarse_map = vec![Some(0), None, Some(1), None, Some(2)];
 
         (coarse_points, fine_to_coarse_map)
     }
@@ -273,12 +276,8 @@ mod tests {
             }
         }
 
-        let interpolation = create_classical_interpolation(
-            &matrix,
-            &coarse_points,
-            &strength_matrix,
-            2,
-        ).unwrap();
+        let interpolation =
+            create_classical_interpolation(&matrix, &coarse_points, &strength_matrix, 2).unwrap();
 
         // Check dimensions
         assert_eq!(interpolation.nrows(), 5);

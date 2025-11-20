@@ -32,12 +32,26 @@ pub use bicgstab::BiCGSTAB;
 pub use config::IterativeSolverConfig;
 pub use conjugate_gradient::ConjugateGradient;
 pub use gmres::GMRES;
-pub use matrix_free::{LinearOperator, MatrixFreeCG, MatrixFreeGMRES, MatrixFreeBiCGSTAB, LaplacianOperator2D, MomentumOperator1D, PoissonOperator3D, MomentumOperator2D, EnergyOperator2D};
 #[cfg(feature = "mpi")]
-pub use matrix_free::{ParallelMatrixFreeBiCGSTAB, ParallelLoadBalancer, CommunicationOptimizer, CommunicationOverlap, LoadBalancingStrategy, LoadBalancingRecommendations, CommunicationOptimization};
-pub use preconditioners::{IdentityPreconditioner, JacobiPreconditioner, SORPreconditioner, IncompleteLU, AlgebraicMultigrid, SchwarzPreconditioner, DeflationPreconditioner, AMGConfig, MultigridCycle, CoarseningStrategy};
+pub use matrix_free::{
+    CommunicationOptimization, CommunicationOptimizer, CommunicationOverlap,
+    LoadBalancingRecommendations, LoadBalancingStrategy, ParallelLoadBalancer,
+    ParallelMatrixFreeBiCGSTAB,
+};
+pub use matrix_free::{
+    EnergyOperator2D, LaplacianOperator2D, LinearOperator, MatrixFreeBiCGSTAB, MatrixFreeCG,
+    MatrixFreeGMRES, MomentumOperator1D, MomentumOperator2D, PoissonOperator3D,
+};
+pub use preconditioners::{
+    AMGConfig, AlgebraicMultigrid, CoarseningStrategy, DeflationPreconditioner,
+    IdentityPreconditioner, IncompleteLU, JacobiPreconditioner, MultigridCycle, SORPreconditioner,
+    SerialSchwarzPreconditioner,
+};
 #[cfg(feature = "mpi")]
-pub use preconditioners::{ParallelBlockJacobiPreconditioner, AdditiveSchwarzPreconditioner, ParallelAMGPreconditioner, CoarseningStrategy};
+pub use preconditioners::{
+    AdditiveSchwarzPreconditioner, CoarseningStrategy, ParallelAMGPreconditioner,
+    ParallelBlockJacobiPreconditioner,
+};
 pub use traits::{Configurable, IterativeLinearSolver, LinearSolver, Preconditioner};
 
 // REMOVED: Dependencies on cfd-core break the dependency hierarchy.

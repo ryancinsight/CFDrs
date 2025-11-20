@@ -272,7 +272,9 @@ mod performance_validation;
 mod tests;
 
 pub use communicator::*;
-pub use decomposition::{AdaptiveMeshRefinement, LoadBalanceMetrics, LoadBalancer, RefinementCriteria};
+pub use decomposition::{
+    AdaptiveMeshRefinement, LoadBalanceMetrics, LoadBalancer, RefinementCriteria,
+};
 pub use distributed_grid::*;
 pub use distributed_solvers::*;
 pub use error::*;
@@ -356,16 +358,21 @@ impl LocalSubdomain {
 
     /// Check if local indices are within owned region (excluding ghost cells)
     pub fn is_owned_cell(&self, i: usize, j: usize, k: usize) -> bool {
-        i >= self.ghost_layers &&
-        i < self.ghost_layers + self.nx_local &&
-        j >= self.ghost_layers &&
-        j < self.ghost_layers + self.ny_local &&
-        k >= self.ghost_layers &&
-        k < self.ghost_layers + self.nz_local
+        i >= self.ghost_layers
+            && i < self.ghost_layers + self.nx_local
+            && j >= self.ghost_layers
+            && j < self.ghost_layers + self.ny_local
+            && k >= self.ghost_layers
+            && k < self.ghost_layers + self.nz_local
     }
 
     /// Convert local index (including ghosts) to global index
-    pub fn local_to_global(&self, i_local: usize, j_local: usize, k_local: usize) -> (usize, usize, usize) {
+    pub fn local_to_global(
+        &self,
+        i_local: usize,
+        j_local: usize,
+        k_local: usize,
+    ) -> (usize, usize, usize) {
         let i_global = self.i_start_global + (i_local - self.ghost_layers);
         let j_global = self.j_start_global + (j_local - self.ghost_layers);
         let k_global = self.k_start_global + (k_local - self.ghost_layers);
@@ -374,11 +381,11 @@ impl LocalSubdomain {
 
     /// Check if this subdomain owns a global cell
     pub fn owns_global_cell(&self, i_global: usize, j_global: usize, k_global: usize) -> bool {
-        i_global >= self.i_start_global &&
-        i_global < self.i_start_global + self.nx_local &&
-        j_global >= self.j_start_global &&
-        j_global < self.j_start_global + self.ny_local &&
-        k_global >= self.k_start_global &&
-        k_global < self.k_start_global + self.nz_local
+        i_global >= self.i_start_global
+            && i_global < self.i_start_global + self.nx_local
+            && j_global >= self.j_start_global
+            && j_global < self.j_start_global + self.ny_local
+            && k_global >= self.k_start_global
+            && k_global < self.k_start_global + self.nz_local
     }
 }

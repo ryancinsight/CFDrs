@@ -99,7 +99,7 @@ mod tests {
         // [ 2  1 ] [ y0 ]   [ 5 ]
         // [ 0  3 ] [ y1 ] = [ 6 ]
         // Solution: y1 = 2, y0 = 1.5
-        
+
         let mut h = DMatrix::zeros(2, 2);
         h[(0, 0)] = 2.0;
         h[(0, 1)] = 1.0;
@@ -120,7 +120,7 @@ mod tests {
         let mut h = DMatrix::zeros(3, 2);
         h[(0, 0)] = 3.0;
         h[(1, 0)] = 4.0;
-        
+
         let mut cs = vec![0.0; 2];
         let mut sn = vec![0.0; 2];
         let mut g = DVector::from_vec(vec![5.0, 0.0, 0.0]);
@@ -129,7 +129,7 @@ mod tests {
 
         // After rotation, H[1,0] should be zero
         assert_relative_eq!(h[(1, 0)], 0.0, epsilon = 1e-10);
-        
+
         // H[0,0] should be hypotenuse = 5
         assert_relative_eq!(h[(0, 0)], 5.0, epsilon = 1e-10);
 

@@ -12,12 +12,12 @@ use super::config::FdmConfig;
 /// Shared Gauss-Seidel linear solver implementation
 ///
 /// Solves the linear system Ax = b using Gauss-Seidel iteration with relaxation.
-/// 
+///
 /// True Gauss-Seidel method: Uses most recently updated solution values (not all old values).
 /// For each row i, the update is: x_i^(k+1) = (b_i - Σ_{j<i} a_ij*x_j^(k+1) - Σ_{j>i} a_ij*x_j^(k)) / a_ii
-/// 
+///
 /// This provides better convergence than Jacobi (which uses all old values).
-/// 
+///
 /// Returns an error if convergence is not achieved within `max_iterations`.
 pub fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive + Copy>(
     matrix: &SparseMatrix<T>,
@@ -56,7 +56,7 @@ pub fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive + Copy>(
 
             // Compute new value: x_i = (b_i - sum) / a_ii
             let new_value = (rhs[row_idx] - sum) / diagonal;
-            
+
             // Calculate residual before applying relaxation
             let residual = (new_value - solution[row_idx]).abs();
             if residual > max_residual {
@@ -64,8 +64,8 @@ pub fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive + Copy>(
             }
 
             // Apply successive over-relaxation (SOR): x_i = x_i + ω(x_i_new - x_i)
-            solution[row_idx] = solution[row_idx]
-                + config.relaxation_factor() * (new_value - solution[row_idx]);
+            solution[row_idx] =
+                solution[row_idx] + config.relaxation_factor() * (new_value - solution[row_idx]);
         }
 
         if config.verbose() && iteration % crate::constants::solver::LOG_INTERVAL == 0 {

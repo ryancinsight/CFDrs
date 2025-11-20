@@ -81,7 +81,10 @@ impl<T: RealField + Copy> Geometry<T> for CircularDomain<T> {
                 })
             } else {
                 // Point is at the center, return arbitrary normal (e.g., along x-axis)
-                Some(Point2D { x: T::one(), y: T::zero() })
+                Some(Point2D {
+                    x: T::one(),
+                    y: T::zero(),
+                })
             }
         } else {
             None
@@ -128,7 +131,11 @@ impl<T: RealField + Copy> Geometry<T> for CircularDomain<T> {
                     // Normalize to [0, 2π)
                     let two_pi = <T as SafeFromF64>::try_from_f64(2.0 * std::f64::consts::PI)
                         .unwrap_or(T::from_f64_or_one(6.28318));
-                    Some(if angle >= T::zero() { angle } else { angle + two_pi })
+                    Some(if angle >= T::zero() {
+                        angle
+                    } else {
+                        angle + two_pi
+                    })
                 } else {
                     None
                 }

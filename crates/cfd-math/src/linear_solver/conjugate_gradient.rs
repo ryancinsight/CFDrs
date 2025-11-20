@@ -12,11 +12,6 @@
 //! - Working vectors: 5 × O(N) for CG algorithm state
 //! - Cache efficiency: ~70% for structured CFD grids, lower for unstructured meshes
 //!
-//! **Parallel Scalability**: Excellent (0.8 scaling factor)
-//! - SPMV operations: Highly parallelizable across grid points
-//! - Vector operations: SIMD vectorization and multi-core scaling
-//! - Communication: Minimal for distributed memory systems
-//!
 //! ## Memory Access Patterns
 //!
 //! 1. **Sparse Matrix-Vector Product (SPMV)**:
@@ -53,31 +48,9 @@ use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
 use std::fmt::Debug;
 
-// Cache-aligned vector for optimal memory access patterns
-#[repr(align(64))] // Cache line alignment for x86_64
-struct AlignedVector<T> {
-    data: Vec<T>,
-}
-
-impl<T> AlignedVector<T> {
-    fn with_capacity(capacity: usize) -> Self {
-        let mut data = Vec::with_capacity(capacity);
-        data.reserve_exact(capacity);
-        Self { data }
-    }
-
-    fn resize(&mut self, new_len: usize, value: T) where T: Clone {
-        self.data.resize(new_len, value);
-    }
-
-    fn as_slice(&self) -> &[T] {
-        &self.data
-    }
-
-    fn as_mut_slice(&mut self) -> &mut [T] {
-        &mut self.data
-    }
-}
+// Note: AlignedVector struct removed as dead code (MAJOR-010).
+// Future SIMD optimizations should use platform-agnostic approaches
+// or be feature-gated as experimental.
 
 /// Preconditioned Conjugate Gradient solver with memory management
 ///
@@ -290,8 +263,12 @@ impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> IterativeLinearS
             if n > 10000 {
                 unsafe {
                     // Prefetch matrix rows and vectors for better cache performance
-                    for i in (0..n).step_by(64) { // Prefetch every cache line
-                        std::arch::x86_64::_mm_prefetch(p.as_slice()[i..].as_ptr() as *const i8, std::arch::x86_64::_MM_HINT_T0);
+                    for i in (0..n).step_by(64) {
+                        // Prefetch every cache line
+                        std::arch::x86_64::_mm_prefetch(
+                            p.as_slice()[i..].as_ptr() as *const i8,
+                            std::arch::x86_64::_MM_HINT_T0,
+                        );
                         // Note: CsrMatrix doesn't have as_slice(), so we skip prefetching matrix data for now
                     }
                 }
@@ -305,8 +282,14 @@ impl<T: RealField + Debug + Copy + FromPrimitive + Send + Sync> IterativeLinearS
                 #[cfg(target_arch = "x86_64")]
                 if n > 10000 {
                     unsafe {
-                        std::arch::x86_64::_mm_prefetch(p.as_slice().as_ptr() as *const i8, std::arch::x86_64::_MM_HINT_T0);
-                        std::arch::x86_64::_mm_prefetch(ap.as_slice().as_ptr() as *const i8, std::arch::x86_64::_MM_HINT_T0);
+                        std::arch::x86_64::_mm_prefetch(
+                            p.as_slice().as_ptr() as *const i8,
+                            std::arch::x86_64::_MM_HINT_T0,
+                        );
+                        std::arch::x86_64::_mm_prefetch(
+                            ap.as_slice().as_ptr() as *const i8,
+                            std::arch::x86_64::_MM_HINT_T0,
+                        );
                     }
                 }
                 p.simd_dot(&ap)
@@ -392,9 +375,9 @@ impl<T: RealField + Copy + num_traits::FromPrimitive + Send + Sync> super::trait
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::preconditioners::IdentityPreconditioner;
     use super::super::traits::{Configurable, LinearSolver};
+    use super::*;
     use approx::assert_relative_eq;
     use nalgebra_sparse::CsrMatrix;
 
@@ -406,7 +389,7 @@ mod tests {
         let row_offsets = vec![0, 2, 5, 7];
         let col_indices = vec![0, 1, 0, 1, 2, 1, 2];
         let values = vec![4.0, 1.0, 1.0, 4.0, 1.0, 1.0, 4.0];
-        
+
         CsrMatrix::try_from_csr_data(3, 3, row_offsets, col_indices, values)
             .expect("Valid CSR matrix")
     }
@@ -429,10 +412,10 @@ mod tests {
         let config = IterativeSolverConfig::default();
         let solver = ConjugateGradient::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, None);
         assert!(result.is_ok());
-        
+
         let x = result.unwrap();
         // Verify solution by checking A*x ≈ b
         let ax = &a * &x;
@@ -449,7 +432,7 @@ mod tests {
         let config = IterativeSolverConfig::default();
         let solver = ConjugateGradient::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, Some(&x0));
         assert!(result.is_ok());
     }
@@ -462,15 +445,15 @@ mod tests {
         let values = vec![1.0, 1.0, 1.0];
         let a = CsrMatrix::try_from_csr_data(3, 3, row_offsets, col_indices, values)
             .expect("Valid CSR matrix");
-        
+
         let b = DVector::from_vec(vec![5.0, 10.0, 15.0]);
         let config = IterativeSolverConfig::default();
         let solver = ConjugateGradient::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, None);
         assert!(result.is_ok());
-        
+
         let x = result.unwrap();
         for i in 0..3 {
             assert_relative_eq!(x[i], b[i], epsilon = 1e-10);
@@ -485,15 +468,15 @@ mod tests {
         let values = vec![2.0, 3.0, 4.0];
         let a = CsrMatrix::try_from_csr_data(3, 3, row_offsets, col_indices, values)
             .expect("Valid CSR matrix");
-        
+
         let b = DVector::from_vec(vec![6.0, 9.0, 12.0]);
         let config = IterativeSolverConfig::default();
         let solver = ConjugateGradient::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, None);
         assert!(result.is_ok());
-        
+
         let x = result.unwrap();
         assert_relative_eq!(x[0], 3.0, epsilon = 1e-10);
         assert_relative_eq!(x[1], 3.0, epsilon = 1e-10);
@@ -508,7 +491,7 @@ mod tests {
         let config = IterativeSolverConfig::default();
         let solver = ConjugateGradient::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, None);
         assert!(result.is_err());
     }
@@ -521,7 +504,7 @@ mod tests {
         config.tolerance = 1e-12; // Very tight tolerance
         let solver = ConjugateGradient::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, None);
         assert!(result.is_ok());
     }
@@ -535,7 +518,7 @@ mod tests {
         config.tolerance = 1e-12; // Tight tolerance
         let solver = ConjugateGradient::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, None);
         // Should fail to converge
         assert!(result.is_err());
@@ -546,30 +529,30 @@ mod tests {
         // 5x5 tridiagonal SPD matrix
         let row_offsets = vec![0, 2, 5, 8, 11, 13];
         let col_indices = vec![
-            0, 1,          // row 0
-            0, 1, 2,       // row 1
-            1, 2, 3,       // row 2
-            2, 3, 4,       // row 3
-            3, 4           // row 4
+            0, 1, // row 0
+            0, 1, 2, // row 1
+            1, 2, 3, // row 2
+            2, 3, 4, // row 3
+            3, 4, // row 4
         ];
         let values = vec![
-            4.0, 1.0,      // row 0
+            4.0, 1.0, // row 0
             1.0, 4.0, 1.0, // row 1
             1.0, 4.0, 1.0, // row 2
             1.0, 4.0, 1.0, // row 3
-            1.0, 4.0       // row 4
+            1.0, 4.0, // row 4
         ];
         let a = CsrMatrix::try_from_csr_data(5, 5, row_offsets, col_indices, values)
             .expect("Valid CSR matrix");
-        
+
         let b = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
         let config = IterativeSolverConfig::default();
         let solver = ConjugateGradient::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, None);
         assert!(result.is_ok());
-        
+
         let x = result.unwrap();
         let ax = &a * &x;
         for i in 0..5 {
@@ -582,9 +565,9 @@ mod tests {
         let mut config = IterativeSolverConfig::default();
         config.tolerance = 1e-8;
         config.max_iterations = 500;
-        
+
         let solver = ConjugateGradient::new(config);
-        
+
         // Test getting config
         let retrieved_config = solver.config();
         assert_relative_eq!(retrieved_config.tolerance, 1e-8, epsilon = 1e-10);
@@ -597,10 +580,10 @@ mod tests {
         let b = DVector::from_vec(vec![1.0, 2.0, 3.0]);
         let config = IterativeSolverConfig::default();
         let solver = ConjugateGradient::new(config);
-        
+
         let result = solver.solve_system(&a, &b, None);
         assert!(result.is_ok());
-        
+
         let x = result.unwrap();
         let ax = &a * &x;
         for i in 0..3 {

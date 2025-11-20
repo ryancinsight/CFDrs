@@ -12,9 +12,9 @@ use super::operator::LinearOperator;
 use super::traits::MatrixFreeSolver;
 use crate::error::Result;
 use crate::linear_solver::config::IterativeSolverConfig;
+use cfd_core::error::{ConvergenceErrorKind, Error};
 use nalgebra::{DMatrix, DVector, RealField};
 use num_traits::FromPrimitive;
-use cfd_core::error::{Error, ConvergenceErrorKind};
 
 /// Matrix-free GMRES solver.
 ///
@@ -22,6 +22,7 @@ use cfd_core::error::{Error, ConvergenceErrorKind};
 /// general linear systems using operator abstraction. It maintains
 /// a Krylov subspace of dimension m and restarts when this limit
 /// is reached.
+#[derive(Debug)]
 pub struct MatrixFreeGMRES<T: RealField + Copy> {
     /// Solver configuration
     config: IterativeSolverConfig<T>,
@@ -37,7 +38,10 @@ impl<T: RealField + Copy> MatrixFreeGMRES<T> {
     /// * `config` - Solver configuration
     /// * `restart_dim` - Krylov subspace dimension (m in GMRES(m))
     pub fn new(config: IterativeSolverConfig<T>, restart_dim: usize) -> Self {
-        Self { config, restart_dim }
+        Self {
+            config,
+            restart_dim,
+        }
     }
 
     /// Create with default configuration and restart dimension.
@@ -101,7 +105,7 @@ impl<T: RealField + Copy + FromPrimitive> MatrixFreeSolver<T> for MatrixFreeGMRE
         if !converged && total_iterations >= self.config.max_iterations {
             return Err(Error::Convergence(
                 ConvergenceErrorKind::MaxIterationsExceeded {
-                    max: self.config.max_iterations
+                    max: self.config.max_iterations,
                 },
             ));
         }
@@ -270,8 +274,8 @@ impl<T: RealField + Copy + FromPrimitive> MatrixFreeGMRES<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::operator::IdentityOperator;
+    use super::*;
     use approx::assert_relative_eq;
 
     #[test]
@@ -305,11 +309,13 @@ mod tests {
                 Ok(())
             }
 
-            fn size(&self) -> usize { 2 }
+            fn size(&self) -> usize {
+                2
+            }
         }
 
         let operator = UpperTriangularOperator;
-        let b = vec![5.0, 6.0]; // Solution should be [1, 2]
+        let b = vec![4.0, 6.0]; // Solution should be [1, 2]
         let mut x = vec![0.0; 2];
 
         solver.solve(&operator, &b, &mut x).unwrap();

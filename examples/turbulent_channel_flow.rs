@@ -4,9 +4,9 @@
 //! validating against DNS data from Moser, Kim & Mansour (1999).
 //!
 //! References:
-//! - Moser, R.D., Kim, J., & Mansour, N.N. (1999). "Direct numerical simulation of 
+//! - Moser, R.D., Kim, J., & Mansour, N.N. (1999). "Direct numerical simulation of
 //!   turbulent channel flow up to Re_τ=590." Physics of Fluids, 11(4), 943-945.
-//! - Menter, F.R. (1994). "Two-equation eddy-viscosity turbulence models for 
+//! - Menter, F.R. (1994). "Two-equation eddy-viscosity turbulence models for
 //!   engineering applications." AIAA Journal, 32(8), 1598-1605.
 //!
 //! The simulation solves the RANS equations with k-ω SST turbulence closure
@@ -24,11 +24,11 @@ fn main() {
     let nx = 10; // Streamwise (homogeneous, so minimal grid)
     let h = 1.0; // Half-height [m]
     let re_tau = 395.0; // Friction Reynolds number
-    
+
     // Fluid properties (air at standard conditions)
     let density = 1.225; // [kg/m³]
     let molecular_viscosity = 1.5e-5; // [m²/s]
-    
+
     // Calculate friction velocity from Re_τ = u_τ * h / ν
     let u_tau = re_tau * molecular_viscosity / h;
     println!("Friction Reynolds number: Re_τ = {}", re_tau);
@@ -59,10 +59,10 @@ fn main() {
             let idx = j * nx + i;
             let y = (j as f64) * dy;
             let y_plus = y * u_tau / molecular_viscosity;
-            
+
             // Distance from nearest wall
             let y_wall = y.min(2.0 * h - y);
-            
+
             // Turbulent kinetic energy (typically 10% of mean flow kinetic energy)
             // In near-wall region: k ≈ u_τ²/sqrt(C_μ)
             k[idx] = if y_wall < 0.1 * h {
@@ -71,7 +71,7 @@ fn main() {
                 // Core region: lower turbulence intensity
                 0.01 * u_tau * u_tau / c_mu
             };
-            
+
             // Specific dissipation rate
             // Near wall: ω = 6ν/(β*y²) per Wilcox (2006)
             // Core region: ω = ε/(Cμ*k)
@@ -85,7 +85,7 @@ fn main() {
                 // Log layer and core
                 u_tau / (kappa * y_wall * c_mu)
             };
-            
+
             // Velocity profile (logarithmic law of the wall)
             velocity[idx].x = if y_plus < 11.0 {
                 // Viscous sublayer: u+ = y+
@@ -100,31 +100,34 @@ fn main() {
     println!("Initial conditions:");
     println!("  Near-wall k = {:.6} m²/s²", k[nx * 5]);
     println!("  Near-wall ω = {:.2} 1/s", omega[nx * 5]);
-    println!("  Centerline k = {:.6} m²/s²", k[nx * (ny/2)]);
-    println!("  Centerline ω = {:.2} 1/s\n", omega[nx * (ny/2)]);
+    println!("  Centerline k = {:.6} m²/s²", k[nx * (ny / 2)]);
+    println!("  Centerline ω = {:.2} 1/s\n", omega[nx * (ny / 2)]);
 
     // Calculate turbulent viscosity profile using full SST limiter
     println!("Turbulent viscosity profile (with full Bradshaw limiter):");
-    println!("{:>8} {:>10} {:>12} {:>12} {:>12}", "y [m]", "y+", "νt [m²/s]", "νt/ν", "u+ [m/s]");
+    println!(
+        "{:>8} {:>10} {:>12} {:>12} {:>12}",
+        "y [m]", "y+", "νt [m²/s]", "νt/ν", "u+ [m/s]"
+    );
     println!("{}", "-".repeat(60));
 
     for j in (0..ny).step_by(ny / 10) {
         let idx = j * nx;
         let y = (j as f64) * dy;
         let y_plus = y * u_tau / molecular_viscosity;
-        
+
         // Calculate strain rate magnitude for SST limiter
         let strain_rate = if j > 0 && j < ny - 1 {
             // Simple central difference: S ≈ |∂u/∂y|
-            let du_dy = (velocity[(j+1) * nx].x - velocity[(j-1) * nx].x) / (2.0 * dy);
+            let du_dy = (velocity[(j + 1) * nx].x - velocity[(j - 1) * nx].x) / (2.0 * dy);
             du_dy.abs()
         } else {
             1.0 // Near boundaries
         };
-        
+
         // F2 blending function (simplified: 1 near wall, 0 in core)
         let f2 = (-2.0 * (y / h - 1.0).powi(2)).exp();
-        
+
         // Calculate turbulent viscosity with full limiter
         let nu_t = sst_model.turbulent_viscosity_with_limiter(
             k[idx],
@@ -133,12 +136,16 @@ fn main() {
             strain_rate,
             f2,
         ) / density; // Convert to kinematic viscosity
-        
+
         let u_plus = velocity[idx].x / u_tau;
-        
+
         println!(
             "{:8.4} {:10.2} {:12.6} {:12.2} {:12.4}",
-            y, y_plus, nu_t, nu_t / molecular_viscosity, u_plus
+            y,
+            y_plus,
+            nu_t,
+            nu_t / molecular_viscosity,
+            u_plus
         );
     }
 
@@ -164,19 +171,25 @@ fn main() {
 
     let production_wall = sst_model.production_term(&velocity_gradient_wall, nu_t_wall * density);
     let dissipation_wall = sst_model.dissipation_term(k[idx_wall], omega[idx_wall]);
-    
+
     let production_core = sst_model.production_term(&velocity_gradient_core, nu_t_core * density);
     let dissipation_core = sst_model.dissipation_term(k[idx_core], omega[idx_core]);
 
     println!("Near-wall region (y+ ≈ 10):");
     println!("  Production P_k = {:.6} m²/s³", production_wall);
     println!("  Dissipation ε_k = {:.6} m²/s³", dissipation_wall);
-    println!("  Balance ratio P_k/ε_k = {:.3}", production_wall / dissipation_wall.max(1e-10));
+    println!(
+        "  Balance ratio P_k/ε_k = {:.3}",
+        production_wall / dissipation_wall.max(1e-10)
+    );
 
     println!("\nCenterline:");
     println!("  Production P_k = {:.6} m²/s³", production_core);
     println!("  Dissipation ε_k = {:.6} m²/s³", dissipation_core);
-    println!("  Balance ratio P_k/ε_k = {:.3}", production_core / dissipation_core.max(1e-10));
+    println!(
+        "  Balance ratio P_k/ε_k = {:.3}",
+        production_core / dissipation_core.max(1e-10)
+    );
 
     println!("\n=== Example Complete ===");
     println!("Successfully demonstrated k-ω SST turbulence model with:");

@@ -109,22 +109,33 @@ fn test_poisson_debug_5x5() {
     let y = 0.5;
     let analytical = (PI * x).sin() * (PI * y).sin();
     let computed = solution[&(2, 2)];
-    
+
     println!("Center point (2,2) at (0.5, 0.5):");
     println!("  Analytical: {}", analytical);
     println!("  Computed: {}", computed);
     println!("  Error: {}", (computed - analytical).abs());
-    println!("  Relative error: {}%", 100.0 * (computed - analytical).abs() / analytical);
-    
+    println!(
+        "  Relative error: {}%",
+        100.0 * (computed - analytical).abs() / analytical
+    );
+
     // Check all interior points
-    for i in 1..nx-1 {
-        for j in 1..ny-1 {
+    for i in 1..nx - 1 {
+        for j in 1..ny - 1 {
             let x = i as f64 / (nx - 1) as f64;
             let y = j as f64 / (ny - 1) as f64;
             let analytical = (PI * x).sin() * (PI * y).sin();
             let computed = solution[&(i, j)];
-            println!("({},{}) at ({:.2},{:.2}): analytical={:.4}, computed={:.4}, error={:.4}",
-                     i, j, x, y, analytical, computed, (computed - analytical).abs());
+            println!(
+                "({},{}) at ({:.2},{:.2}): analytical={:.4}, computed={:.4}, error={:.4}",
+                i,
+                j,
+                x,
+                y,
+                analytical,
+                computed,
+                (computed - analytical).abs()
+            );
         }
     }
 }
@@ -161,7 +172,7 @@ fn test_poisson_2d_laplace_equation() {
     let solution = solver.solve(&grid, &source, &boundary_values).unwrap();
 
     // Solution should be approximately monotonic in y-direction
-    // Note: Near boundaries with large gradients (0→1 over small distance), 
+    // Note: Near boundaries with large gradients (0→1 over small distance),
     // iterative solvers may show non-monotonic behavior due to numerical limitations.
     // The Gauss-Seidel method can produce oscillations near Dirichlet boundaries.
     // We verify the solution is reasonable but allow significant deviations near boundaries.
@@ -171,9 +182,16 @@ fn test_poisson_2d_laplace_equation() {
             let phi_j = solution[&(i, j)];
             let phi_jp1 = solution[&(i, j + 1)];
             // Allow some violation near sharp boundaries
-            assert!(phi_jp1 >= phi_j - monotonic_tol, 
-                    "Solution significantly non-monotonic at ({}, {}): phi[{}]={} > phi[{}]={}", 
-                    i, j, j, phi_j, j+1, phi_jp1);
+            assert!(
+                phi_jp1 >= phi_j - monotonic_tol,
+                "Solution significantly non-monotonic at ({}, {}): phi[{}]={} > phi[{}]={}",
+                i,
+                j,
+                j,
+                phi_j,
+                j + 1,
+                phi_jp1
+            );
         }
     }
 
@@ -226,7 +244,7 @@ fn test_poisson_2d_solver_stability() {
                 }
             }
             source
-        }
+        },
     ];
 
     for (config_idx, source) in source_configs.into_iter().enumerate() {
@@ -248,30 +266,74 @@ fn test_poisson_2d_solver_stability() {
         // 1. No catastrophic values (solver doesn't explode)
         for (i, j) in grid.iter() {
             let phi = solution[&(i, j)];
-            assert!(phi.is_finite(), "Config {}, non-finite value at ({}, {}): {}", config_idx, i, j, phi);
-            assert!(phi.abs() < 1e6, "Config {}, excessively large value at ({}, {}): {}", config_idx, i, j, phi);
+            assert!(
+                phi.is_finite(),
+                "Config {}, non-finite value at ({}, {}): {}",
+                config_idx,
+                i,
+                j,
+                phi
+            );
+            assert!(
+                phi.abs() < 1e6,
+                "Config {}, excessively large value at ({}, {}): {}",
+                config_idx,
+                i,
+                j,
+                phi
+            );
         }
 
         // 2. Boundary conditions satisfied
         for i in 0..nx {
-            assert!(solution[&(i, 0)].abs() < 1e-10, "Config {}, bottom BC violated at ({}): {}", config_idx, i, solution[&(i, 0)]);
-            assert!(solution[&(i, ny-1)].abs() < 1e-10, "Config {}, top BC violated at ({}): {}", config_idx, i, solution[&(i, ny-1)]);
+            assert!(
+                solution[&(i, 0)].abs() < 1e-10,
+                "Config {}, bottom BC violated at ({}): {}",
+                config_idx,
+                i,
+                solution[&(i, 0)]
+            );
+            assert!(
+                solution[&(i, ny - 1)].abs() < 1e-10,
+                "Config {}, top BC violated at ({}): {}",
+                config_idx,
+                i,
+                solution[&(i, ny - 1)]
+            );
         }
         for j in 0..ny {
-            assert!(solution[&(0, j)].abs() < 1e-10, "Config {}, left BC violated at ({}): {}", config_idx, j, solution[&(0, j)]);
-            assert!(solution[&(nx-1, j)].abs() < 1e-10, "Config {}, right BC violated at ({}): {}", config_idx, j, solution[&(nx-1, j)]);
+            assert!(
+                solution[&(0, j)].abs() < 1e-10,
+                "Config {}, left BC violated at ({}): {}",
+                config_idx,
+                j,
+                solution[&(0, j)]
+            );
+            assert!(
+                solution[&(nx - 1, j)].abs() < 1e-10,
+                "Config {}, right BC violated at ({}): {}",
+                config_idx,
+                j,
+                solution[&(nx - 1, j)]
+            );
         }
 
         // 3. Physical reasonableness (interior values should be smooth)
         let mut min_interior = f64::INFINITY;
         let mut max_interior = f64::NEG_INFINITY;
-        for i in 1..nx-1 {
-            for j in 1..ny-1 {
+        for i in 1..nx - 1 {
+            for j in 1..ny - 1 {
                 min_interior = min_interior.min(solution[&(i, j)]);
                 max_interior = max_interior.max(solution[&(i, j)]);
             }
         }
-        assert!(max_interior - min_interior < 10.0, "Config {}, excessive interior range: {} to {}", config_idx, min_interior, max_interior);
+        assert!(
+            max_interior - min_interior < 10.0,
+            "Config {}, excessive interior range: {} to {}",
+            config_idx,
+            min_interior,
+            max_interior
+        );
     }
 }
 

@@ -113,8 +113,8 @@ fn apply_rotating_wall_bc<T: RealField + Copy + FromPrimitive>(
 
     // Velocity = ω × r = ω_z * (-r_y, r_x) for 2D rotation
     match component {
-        MomentumComponent::U => -omega_z * r_y,  // u = -ω_z * r_y
-        MomentumComponent::V => omega_z * r_x,   // v = ω_z * r_x
+        MomentumComponent::U => -omega_z * r_y, // u = -ω_z * r_y
+        MomentumComponent::V => omega_z * r_x,  // v = ω_z * r_x
     }
 }
 
@@ -166,15 +166,13 @@ where
     for (name, bc) in boundaries {
         if let BoundaryCondition::Wall { wall_type } = bc {
             match wall_type {
-                cfd_core::boundary::WallType::NoSlip => {
-                    match name.as_str() {
-                        "west" => apply_higher_order_west_wall(matrix, rhs, component, grid, nx, ny)?,
-                        "east" => apply_higher_order_east_wall(matrix, rhs, component, grid, nx, ny)?,
-                        "north" => apply_higher_order_north_wall(matrix, rhs, component, grid, nx, ny)?,
-                        "south" => apply_higher_order_south_wall(matrix, rhs, component, grid, nx, ny)?,
-                        _ => {}
-                    }
-                }
+                cfd_core::boundary::WallType::NoSlip => match name.as_str() {
+                    "west" => apply_higher_order_west_wall(matrix, rhs, component, grid, nx, ny)?,
+                    "east" => apply_higher_order_east_wall(matrix, rhs, component, grid, nx, ny)?,
+                    "north" => apply_higher_order_north_wall(matrix, rhs, component, grid, nx, ny)?,
+                    "south" => apply_higher_order_south_wall(matrix, rhs, component, grid, nx, ny)?,
+                    _ => {}
+                },
                 cfd_core::boundary::WallType::Moving { .. } => {
                     // For moving walls, use standard Dirichlet BC for now
                     // Could be extended to higher-order moving wall BCs
@@ -201,9 +199,9 @@ fn apply_higher_order_west_wall<T: RealField + Copy + FromPrimitive>(
     let three = T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one());
 
     for j in 0..ny {
-        let idx_0 = j * nx;           // Boundary cell (i=0)
-        let idx_1 = j * nx + 1;       // First interior cell (i=1)
-        let idx_2 = j * nx + 2;       // Second interior cell (i=2)
+        let idx_0 = j * nx; // Boundary cell (i=0)
+        let idx_1 = j * nx + 1; // First interior cell (i=1)
+        let idx_2 = j * nx + 2; // Second interior cell (i=2)
 
         // Quadratic extrapolation: u_0 = (4*u_1 - u_2)/3
         // Rearranged: 3*u_0 - 4*u_1 + u_2 = 0
@@ -229,9 +227,9 @@ fn apply_higher_order_east_wall<T: RealField + Copy + FromPrimitive>(
     let three = T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one());
 
     for j in 0..ny {
-        let idx_0 = j * nx + nx - 1;  // Boundary cell (i=nx-1)
-        let idx_1 = j * nx + nx - 2;  // First interior cell (i=nx-2)
-        let idx_2 = j * nx + nx - 3;  // Second interior cell (i=nx-3)
+        let idx_0 = j * nx + nx - 1; // Boundary cell (i=nx-1)
+        let idx_1 = j * nx + nx - 2; // First interior cell (i=nx-2)
+        let idx_2 = j * nx + nx - 3; // Second interior cell (i=nx-3)
 
         // Quadratic extrapolation: u_0 = (4*u_1 - u_2)/3
         matrix.add_entry(idx_0, idx_0, three)?;
@@ -256,9 +254,9 @@ fn apply_higher_order_north_wall<T: RealField + Copy + FromPrimitive>(
     let three = T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one());
 
     for i in 0..nx {
-        let idx_0 = (ny - 1) * nx + i;  // Boundary cell (j=ny-1)
-        let idx_1 = (ny - 2) * nx + i;  // First interior cell (j=ny-2)
-        let idx_2 = (ny - 3) * nx + i;  // Second interior cell (j=ny-3)
+        let idx_0 = (ny - 1) * nx + i; // Boundary cell (j=ny-1)
+        let idx_1 = (ny - 2) * nx + i; // First interior cell (j=ny-2)
+        let idx_2 = (ny - 3) * nx + i; // Second interior cell (j=ny-3)
 
         // Quadratic extrapolation: u_0 = (4*u_1 - u_2)/3
         matrix.add_entry(idx_0, idx_0, three)?;
@@ -283,9 +281,9 @@ fn apply_higher_order_south_wall<T: RealField + Copy + FromPrimitive>(
     let three = T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one());
 
     for i in 0..nx {
-        let idx_0 = i;                 // Boundary cell (j=0)
-        let idx_1 = nx + i;            // First interior cell (j=1)
-        let idx_2 = 2 * nx + i;        // Second interior cell (j=2)
+        let idx_0 = i; // Boundary cell (j=0)
+        let idx_1 = nx + i; // First interior cell (j=1)
+        let idx_2 = 2 * nx + i; // Second interior cell (j=2)
 
         // Quadratic extrapolation: u_0 = (4*u_1 - u_2)/3
         matrix.add_entry(idx_0, idx_0, three)?;
@@ -393,7 +391,10 @@ fn apply_west_boundary<T: RealField + Copy + FromPrimitive>(
                     rhs[idx] = T::zero();
                 }
             }
-            BoundaryCondition::CharacteristicOutlet { extrapolate_velocity, .. } => {
+            BoundaryCondition::CharacteristicOutlet {
+                extrapolate_velocity,
+                ..
+            } => {
                 // Characteristic-based outlet: extrapolate velocity if requested
                 if *extrapolate_velocity {
                     // Extrapolate from interior: u_boundary = u_interior

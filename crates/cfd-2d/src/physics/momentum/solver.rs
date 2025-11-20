@@ -189,12 +189,13 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
 
                 // Turbulent length scale estimate: l ≈ 0.1 * min(grid spacing, distance to wall)
                 // For now, use grid-based estimate
-                let length_scale = (self.grid.dx.min(self.grid.dy)) * T::from_f64(0.1).unwrap_or(T::one());
+                let length_scale =
+                    (self.grid.dx.min(self.grid.dy)) * T::from_f64(0.1).unwrap_or(T::one());
 
                 // Estimate k from velocity gradients: k ≈ (l * |∇u|)^2 / 2
                 let strain_rate = (du_dx * du_dx + dv_dy * dv_dy).sqrt();
-                let k_estimate = T::from_f64(0.5).unwrap_or(T::one()) *
-                    (length_scale * strain_rate).powf(T::from_f64(2.0).unwrap_or(T::one()));
+                let k_estimate = T::from_f64(0.5).unwrap_or(T::one())
+                    * (length_scale * strain_rate).powf(T::from_f64(2.0).unwrap_or(T::one()));
 
                 // Ensure minimum k for numerical stability
                 let k = k_estimate.max(T::from_f64(1e-6).unwrap_or(T::zero()));
@@ -202,7 +203,8 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                 // Estimate dissipation rate ε ≈ k^{3/2} / l (k-ε model scaling)
                 // or ω ≈ ε / k (k-ω model scaling)
                 let epsilon_estimate = k.powf(T::from_f64(1.5).unwrap_or(T::one())) / length_scale;
-                let omega_estimate = epsilon_estimate / k.max(T::from_f64(1e-10).unwrap_or(T::zero()));
+                let omega_estimate =
+                    epsilon_estimate / k.max(T::from_f64(1e-10).unwrap_or(T::zero()));
 
                 // Use ε for k-ε models, ω for k-ω models
                 // This is a heuristic - in production, use actual model type detection
@@ -219,11 +221,8 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                 let density = fields.density.at(i, j);
 
                 // Compute turbulent viscosity using the turbulence model
-                let turbulent_viscosity = turbulence_model.turbulent_viscosity(
-                    k,
-                    epsilon_or_omega,
-                    density,
-                );
+                let turbulent_viscosity =
+                    turbulence_model.turbulent_viscosity(k, epsilon_or_omega, density);
 
                 // Effective viscosity = molecular + turbulent
                 // This is the fundamental equation: ν_eff = ν + ν_t
@@ -295,14 +294,14 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         #[cfg(debug_assertions)]
         {
             let matrix_nnz = matrix.nnz();
-            
+
             tracing::debug!(
                 "Linear system: matrix {}x{}, {} nnz",
                 matrix.nrows(),
                 matrix.ncols(),
                 matrix_nnz,
             );
-            
+
             if matrix_nnz == 0 {
                 tracing::error!("CRITICAL: Matrix has ZERO non-zero entries - system is empty!");
             }
@@ -349,20 +348,44 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
     /// Check if a node is on a boundary with Dirichlet BC or Wall BC (which requires Dirichlet treatment)
     fn is_dirichlet_boundary(&self, i: usize, j: usize) -> bool {
         // Check if node is on any boundary with Dirichlet BC or Wall BC (NoSlip/Moving walls)
-        if i == 0 && self.boundary_conditions.get("west").is_some_and(|bc|
-            matches!(bc, BoundaryCondition::Dirichlet { .. } | BoundaryCondition::Wall { .. })) {
+        if i == 0
+            && self.boundary_conditions.get("west").is_some_and(|bc| {
+                matches!(
+                    bc,
+                    BoundaryCondition::Dirichlet { .. } | BoundaryCondition::Wall { .. }
+                )
+            })
+        {
             return true;
         }
-        if i == self.grid.nx - 1 && self.boundary_conditions.get("east").is_some_and(|bc|
-            matches!(bc, BoundaryCondition::Dirichlet { .. } | BoundaryCondition::Wall { .. })) {
+        if i == self.grid.nx - 1
+            && self.boundary_conditions.get("east").is_some_and(|bc| {
+                matches!(
+                    bc,
+                    BoundaryCondition::Dirichlet { .. } | BoundaryCondition::Wall { .. }
+                )
+            })
+        {
             return true;
         }
-        if j == 0 && self.boundary_conditions.get("south").is_some_and(|bc|
-            matches!(bc, BoundaryCondition::Dirichlet { .. } | BoundaryCondition::Wall { .. })) {
+        if j == 0
+            && self.boundary_conditions.get("south").is_some_and(|bc| {
+                matches!(
+                    bc,
+                    BoundaryCondition::Dirichlet { .. } | BoundaryCondition::Wall { .. }
+                )
+            })
+        {
             return true;
         }
-        if j == self.grid.ny - 1 && self.boundary_conditions.get("north").is_some_and(|bc|
-            matches!(bc, BoundaryCondition::Dirichlet { .. } | BoundaryCondition::Wall { .. })) {
+        if j == self.grid.ny - 1
+            && self.boundary_conditions.get("north").is_some_and(|bc| {
+                matches!(
+                    bc,
+                    BoundaryCondition::Dirichlet { .. } | BoundaryCondition::Wall { .. }
+                )
+            })
+        {
             return true;
         }
         false

@@ -1,317 +1,75 @@
-use cfd_math::iterators::NormIteratorExt;
-use cfd_math::{
-    differentiation::FiniteDifference,
-    integration::{GaussQuadrature, Quadrature},
-    interpolation::{CubicSplineInterpolation, Interpolation, LinearInterpolation},
-    linear_solver::{preconditioners::IdentityPreconditioner, BiCGSTAB, ConjugateGradient, IterativeLinearSolver},
-    sparse::{SparseMatrix, SparseMatrixBuilder},
-};
+use cfd_math::linear_solver::matrix_free::{LaplacianOperator2D, LinearOperator};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use nalgebra::DVector;
 
-fn benchmark_linear_solvers(c: &mut Criterion) {
-    let mut group = c.benchmark_group("linear_solvers");
-
-    for size in [100, 500, 1000].iter() {
-        let (matrix, rhs) = create_test_linear_system(*size);
-
-        let cg_solver = ConjugateGradient::default();
-        let bicgstab_solver = BiCGSTAB::default();
-        let identity_precond = IdentityPreconditioner;
-
-        group.bench_with_input(
-            BenchmarkId::new("conjugate_gradient", size),
-            size,
-            |b, _| {
-                b.iter(|| {
-                    let mut x = DVector::zeros(rhs.len());
-                    cg_solver.solve(&matrix, &rhs, &mut x, Some(&identity_precond)).unwrap();
-                    black_box(x)
-                })
-            },
-        );
-
-        group.bench_with_input(BenchmarkId::new("bicgstab", size), size, |b, _| {
+fn bench_laplacian_cpu(c: &mut Criterion) {
+    let mut group = c.benchmark_group("laplacian_cpu");
+    for &n in &[64usize, 128usize, 256usize] {
+        let nx = n;
+        let ny = n;
+        let dx = 1.0f64 / (nx as f64 - 1.0);
+        let dy = 1.0f64 / (ny as f64 - 1.0);
+        let op = LaplacianOperator2D::new(nx, ny, dx, dy);
+        let mut field = vec![0.0f64; nx * ny];
+        for j in 0..ny {
+            for i in 0..nx {
+                let x = i as f64 * dx;
+                let y = j as f64 * dy;
+                field[j * nx + i] = x * (1.0 - x) + y * (1.0 - y);
+            }
+        }
+        let mut out = vec![0.0f64; nx * ny];
+        group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &_| {
             b.iter(|| {
-                let mut x = DVector::zeros(rhs.len());
-                // BiCGSTAB can be more sensitive to matrix conditioning
-                // Handle potential failures gracefully in benchmarks
-                let _ = bicgstab_solver.solve(&matrix, &rhs, &mut x, Some(&identity_precond));
-                black_box(x)
-            })
+                black_box(op.apply(&field, &mut out)).unwrap();
+            });
         });
     }
-
     group.finish();
 }
 
-fn benchmark_sparse_matrix_operations(c: &mut Criterion) {
-    let mut group = c.benchmark_group("sparse_matrix");
+fn bench_cg_small_spd(c: &mut Criterion) {
+    use cfd_math::linear_solver::{
+        preconditioners::IdentityPreconditioner, ConjugateGradient, IterativeSolverConfig,
+    };
+    use nalgebra::DVector;
+    use nalgebra_sparse::CsrMatrix;
 
-    for size in [1000, 5000, 10000].iter() {
-        let sparse_matrix = create_test_sparse_matrix(*size);
-        let vector = DVector::from_fn(*size, |i, _| (i as f64).sin());
-
-        group.bench_with_input(
-            BenchmarkId::new("matrix_vector_multiply", size),
-            size,
-            |b, _| b.iter(|| black_box(&sparse_matrix * &vector)),
-        );
-
-        group.bench_with_input(
-            BenchmarkId::new("matrix_construction", size),
-            size,
-            |b, _| b.iter(|| black_box(create_test_sparse_matrix(*size))),
-        );
+    fn spd(n: usize) -> CsrMatrix<f64> {
+        let mut row_offsets = Vec::with_capacity(n + 1);
+        let mut col_indices = Vec::new();
+        let mut values = Vec::new();
+        row_offsets.push(0);
+        for i in 0..n {
+            if i > 0 {
+                col_indices.push(i - 1);
+                values.push(1.0);
+            }
+            col_indices.push(i);
+            values.push(4.0);
+            if i + 1 < n {
+                col_indices.push(i + 1);
+                values.push(1.0);
+            }
+            row_offsets.push(col_indices.len());
+        }
+        CsrMatrix::try_from_csr_data(n, n, row_offsets, col_indices, values).unwrap()
     }
 
-    group.finish();
-}
-
-fn benchmark_spmv_comparison(c: &mut Criterion) {
-    use cfd_math::sparse::{spmv, spmv_parallel};
-    
-    let mut group = c.benchmark_group("spmv_comparison");
-    
-    // Test various matrix sizes to show scaling behavior
-    for size in [1000, 5000, 10000, 20000].iter() {
-        let sparse_matrix = create_test_sparse_matrix(*size);
-        let x = DVector::from_fn(*size, |i, _| (i as f64).sin());
-        
-        // Scalar SpMV baseline
-        group.bench_with_input(
-            BenchmarkId::new("scalar", size),
-            size,
-            |b, _| {
-                let mut y = DVector::zeros(*size);
-                b.iter(|| {
-                    spmv(&sparse_matrix, &x, &mut y);
-                    black_box(&y);
-                })
-            },
-        );
-        
-        // Parallel SpMV with rayon
-        group.bench_with_input(
-            BenchmarkId::new("parallel", size),
-            size,
-            |b, _| {
-                let mut y = DVector::zeros(*size);
-                b.iter(|| {
-                    spmv_parallel(&sparse_matrix, &x, &mut y);
-                    black_box(&y);
-                })
-            },
-        );
-    }
-    
-    group.finish();
-}
-
-fn benchmark_interpolation(c: &mut Criterion) {
-    let mut group = c.benchmark_group("interpolation");
-
-    for size in [100, 1000, 10000].iter() {
-        let x_data: Vec<f64> = (0..*size).map(|i| i as f64 / *size as f64).collect();
-        let y_data: Vec<f64> = x_data.iter().map(|&x| x.sin()).collect();
-        let query_points: Vec<f64> = (0..(*size / 2))
-            .map(|i| (i as f64 + 0.5) / *size as f64)
-            .collect();
-
-        let linear_interp = LinearInterpolation::new(x_data.clone(), y_data.clone()).unwrap();
-        let cubic_interp = CubicSplineInterpolation::new(x_data, y_data).unwrap();
-
-        group.bench_with_input(
-            BenchmarkId::new("linear_interpolation", size),
-            size,
-            |b, _| {
-                b.iter(|| {
-                    for &x in &query_points {
-                        black_box(linear_interp.interpolate(x));
-                    }
-                })
-            },
-        );
-
-        group.bench_with_input(
-            BenchmarkId::new("cubic_spline_interpolation", size),
-            size,
-            |b, _| {
-                b.iter(|| {
-                    for &x in &query_points {
-                        black_box(cubic_interp.interpolate(x));
-                    }
-                })
-            },
-        );
-    }
-
-    group.finish();
-}
-
-fn benchmark_integration(c: &mut Criterion) {
-    let mut group = c.benchmark_group("integration");
-
-    let test_function = |x: f64| x.sin() * x.exp();
-
-    // Only use implemented orders (1-4)
-    for order in [1, 2, 3, 4].iter() {
-        let gauss_quad = GaussQuadrature::new(*order).unwrap();
-
-        group.bench_with_input(
-            BenchmarkId::new("gauss_quadrature", order),
-            order,
-            |b, _| b.iter(|| black_box(gauss_quad.integrate(test_function, 0.0, 1.0))),
-        );
-    }
-
-    group.finish();
-}
-
-fn benchmark_differentiation(c: &mut Criterion) {
-    let mut group = c.benchmark_group("differentiation");
-
-    for size in [1000, 10_000, 100_000].iter() {
-        let field: Vec<f64> = (0..*size).map(|i| (i as f64 * 0.01).sin()).collect();
-        let dx = 0.01;
-
-        let finite_diff = FiniteDifference::central(dx);
-
-        group.bench_with_input(
-            BenchmarkId::new("finite_difference_first_derivative", size),
-            size,
-            |b, _| b.iter(|| black_box(finite_diff.first_derivative(&field).unwrap())),
-        );
-
-        group.bench_with_input(
-            BenchmarkId::new("finite_difference_second_derivative", size),
-            size,
-            |b, _| b.iter(|| black_box(finite_diff.second_derivative(&field).unwrap())),
-        );
-    }
-
-    group.finish();
-}
-
-fn benchmark_vectorized_operations(c: &mut Criterion) {
-    let mut group = c.benchmark_group("vectorized_operations");
-
-    for size in [10_000, 100_000, 1_000_000].iter() {
-        let vec1: Vec<f64> = (0..*size).map(|i| i as f64).collect();
-        let vec2: Vec<f64> = (0..*size).map(|i| (i as f64).sin()).collect();
-
-        group.bench_with_input(BenchmarkId::new("vector_add", size), size, |b, _| {
-            b.iter(|| {
-                let result: Vec<f64> = vec1.iter().zip(vec2.iter()).map(|(a, b)| a + b).collect();
-                black_box(result)
-            })
-        });
-
-        group.bench_with_input(BenchmarkId::new("dot_product", size), size, |b, _| {
-            b.iter(|| {
-                let result: f64 = vec1.iter().zip(vec2.iter()).map(|(a, b)| a * b).sum();
-                black_box(result)
-            })
-        });
-
-        group.bench_with_input(BenchmarkId::new("l2_norm", size), size, |b, _| {
-            b.iter(|| {
-                let result = vec1.iter().copied().l2_norm();
-                black_box(result)
-            })
+    let mut group = c.benchmark_group("cg_spd");
+    for &n in &[128usize, 256usize, 512usize] {
+        let a = spd(n);
+        let b = DVector::from_element(n, 1.0);
+        let solver =
+            ConjugateGradient::new(IterativeSolverConfig::new(1e-8).with_max_iterations(1000));
+        let pre = IdentityPreconditioner;
+        group.bench_with_input(BenchmarkId::from_parameter(n), &n, |bmk, &_| {
+            bmk.iter(|| {
+                let _x = black_box(solver.solve_preconditioned(&a, &b, &pre, None)).unwrap();
+            });
         });
     }
-
     group.finish();
 }
 
-fn benchmark_iterator_operations(c: &mut Criterion) {
-    let mut group = c.benchmark_group("iterator_operations");
-
-    for size in [10_000, 100_000, 1_000_000].iter() {
-        let data: Vec<f64> = (0..*size).map(|i| (i as f64).sin()).collect();
-
-        group.bench_with_input(
-            BenchmarkId::new("windowed_operations", size),
-            size,
-            |b, _| {
-                b.iter(|| {
-                    let result: Vec<f64> = data.windows(3).map(|w| w[2] - w[0]).collect();
-                    black_box(result)
-                })
-            },
-        );
-
-        group.bench_with_input(BenchmarkId::new("cumulative_sum", size), size, |b, _| {
-            b.iter(|| {
-                let result: Vec<f64> = data
-                    .iter()
-                    .scan(0.0, |acc, &x| {
-                        *acc += x;
-                        Some(*acc)
-                    })
-                    .collect();
-                black_box(result)
-            })
-        });
-    }
-
-    group.finish();
-}
-
-// Helper functions
-fn create_test_linear_system(size: usize) -> (SparseMatrix<f64>, DVector<f64>) {
-    let mut builder = SparseMatrixBuilder::new(size, size);
-
-    // Create a symmetric positive definite matrix (tridiagonal)
-    for i in 0..size {
-        let _ = builder.add_entry(i, i, 2.0);
-        if i > 0 {
-            let _ = builder.add_entry(i, i - 1, -1.0);
-        }
-        if i < size - 1 {
-            let _ = builder.add_entry(i, i + 1, -1.0);
-        }
-    }
-
-    let rhs = DVector::from_fn(size, |i, _| (i as f64).sin());
-    let matrix = builder.build().expect("Failed to build sparse matrix");
-
-    (matrix, rhs)
-}
-
-fn create_test_sparse_matrix(size: usize) -> SparseMatrix<f64> {
-    let mut builder = SparseMatrixBuilder::new(size, size);
-
-    // Create a 5-point stencil pattern
-    for i in 0..size {
-        let _ = builder.add_entry(i, i, 4.0);
-        if i > 0 {
-            let _ = builder.add_entry(i, i - 1, -1.0);
-        }
-        if i < size - 1 {
-            let _ = builder.add_entry(i, i + 1, -1.0);
-        }
-        if i >= 10 {
-            let _ = builder.add_entry(i, i - 10, -1.0);
-        }
-        if i < size - 10 {
-            let _ = builder.add_entry(i, i + 10, -1.0);
-        }
-    }
-
-    builder.build().expect("Failed to build sparse matrix")
-}
-
-criterion_group!(
-    benches,
-    benchmark_linear_solvers,
-    benchmark_sparse_matrix_operations,
-    benchmark_spmv_comparison,
-    benchmark_interpolation,
-    benchmark_integration,
-    benchmark_differentiation,
-    benchmark_vectorized_operations,
-    benchmark_iterator_operations
-);
+criterion_group!(benches, bench_laplacian_cpu, bench_cg_small_spd);
 criterion_main!(benches);

@@ -13,9 +13,9 @@ pub enum PressureLinearSolver {
     BiCGSTAB,
     /// GMRES(m) with restart (industry standard for SIMPLE/PISO)
     /// Reference: Saad & Schultz (1986), Saad (2003) §6.5
-    GMRES { 
+    GMRES {
         /// Restart dimension (typically 20-50 for CFD, default 30)
-        restart_dim: usize 
+        restart_dim: usize,
     },
 }
 

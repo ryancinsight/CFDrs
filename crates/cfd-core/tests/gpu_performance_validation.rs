@@ -71,15 +71,17 @@ mod gpu_performance_tests {
 
                 // Simplified strain rate calculation (same as GPU shader)
                 let du_dx = (velocity_u_f32[idx + 1] - velocity_u_f32[idx - 1]) / (2.0f32 * 0.1f32);
-                let du_dy = (velocity_u_f32[idx + nx] - velocity_u_f32[idx - nx]) / (2.0f32 * 0.1f32);
+                let du_dy =
+                    (velocity_u_f32[idx + nx] - velocity_u_f32[idx - nx]) / (2.0f32 * 0.1f32);
                 let dv_dx = (velocity_v_f32[idx + 1] - velocity_v_f32[idx - 1]) / (2.0f32 * 0.1f32);
-                let dv_dy = (velocity_v_f32[idx + nx] - velocity_v_f32[idx - nx]) / (2.0f32 * 0.1f32);
+                let dv_dy =
+                    (velocity_v_f32[idx + nx] - velocity_v_f32[idx - nx]) / (2.0f32 * 0.1f32);
 
                 let s11 = du_dx;
                 let s22 = dv_dy;
                 let s12 = 0.5f32 * (du_dy + dv_dx);
 
-                let s_magnitude = (2.0f32 * (s11*s11 + s22*s22 + 2.0f32*s12*s12)).sqrt();
+                let s_magnitude = (2.0f32 * (s11 * s11 + s22 * s22 + 2.0f32 * s12 * s12)).sqrt();
                 let delta = (0.1f32 * 0.1f32).sqrt();
 
                 cpu_sgs[idx] = (0.1f32 * delta * delta * s_magnitude).max(0.0f32);
@@ -102,8 +104,10 @@ mod gpu_performance_tests {
         println!("GPU Ops/sec: {:.0}", gpu_ops_per_sec);
         println!("CPU Ops/sec: {:.0}", cpu_ops_per_sec);
         println!("Speedup: {:.2}x", speedup);
-        println!("Estimated Problem Scaling: {:.1}x",
-                 gpu_perf_info.estimated_speedup(size as usize));
+        println!(
+            "Estimated Problem Scaling: {:.1}x",
+            gpu_perf_info.estimated_speedup(size as usize)
+        );
 
         // Basic validation - GPU and CPU should produce reasonable results
         let gpu_avg: f32 = gpu_sgs.iter().sum::<f32>() / gpu_sgs.len() as f32;
@@ -144,7 +148,10 @@ mod gpu_performance_tests {
         println!("100K cells: {:.2}x speedup", speedup_100k);
 
         // Larger problems should benefit more from GPU
-        assert!(speedup_100k >= speedup_1k, "GPU speedup should increase with problem size");
+        assert!(
+            speedup_100k >= speedup_1k,
+            "GPU speedup should increase with problem size"
+        );
     }
 
     /// Test GPU buffer operations performance
@@ -162,16 +169,25 @@ mod gpu_performance_tests {
             let start = Instant::now();
 
             // Create buffer and perform round-trip
-            let buffer = gpu_compute.context().device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Performance Test Buffer"),
-                size: (size * std::mem::size_of::<f32>()) as u64,
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
-                mapped_at_creation: false,
-            });
+            let buffer = gpu_compute
+                .context()
+                .device
+                .create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("Performance Test Buffer"),
+                    size: (size * std::mem::size_of::<f32>()) as u64,
+                    usage: wgpu::BufferUsages::STORAGE
+                        | wgpu::BufferUsages::COPY_DST
+                        | wgpu::BufferUsages::COPY_SRC,
+                    mapped_at_creation: false,
+                });
 
             let elapsed = start.elapsed();
 
-            println!("Buffer creation ({} elements): {:.4} ms", size, elapsed.as_secs_f64() * 1000.0);
+            println!(
+                "Buffer creation ({} elements): {:.4} ms",
+                size,
+                elapsed.as_secs_f64() * 1000.0
+            );
 
             // Verify buffer was created successfully
             assert!(buffer.size() > 0);

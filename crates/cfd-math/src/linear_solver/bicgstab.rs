@@ -302,9 +302,9 @@ impl<T: RealField + Copy + num_traits::FromPrimitive> super::traits::LinearSolve
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::preconditioners::IdentityPreconditioner;
     use super::super::traits::{Configurable, LinearSolver};
+    use super::*;
     use approx::assert_relative_eq;
     use nalgebra_sparse::CsrMatrix;
 
@@ -316,7 +316,7 @@ mod tests {
         let row_offsets = vec![0, 2, 5, 7];
         let col_indices = vec![0, 1, 0, 1, 2, 1, 2];
         let values = vec![5.0, 1.0, 2.0, 4.0, 1.0, 2.0, 3.0];
-        
+
         CsrMatrix::try_from_csr_data(3, 3, row_offsets, col_indices, values)
             .expect("Valid CSR matrix")
     }
@@ -326,7 +326,7 @@ mod tests {
         let row_offsets = vec![0, 1, 2, 3];
         let col_indices = vec![0, 1, 2];
         let values = vec![2.0, 3.0, 4.0];
-        
+
         CsrMatrix::try_from_csr_data(3, 3, row_offsets, col_indices, values)
             .expect("Valid CSR matrix")
     }
@@ -350,10 +350,10 @@ mod tests {
         let config = IterativeSolverConfig::default();
         let solver = BiCGSTAB::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
         assert!(result.is_ok());
-        
+
         // Verify solution by checking A*x ≈ b
         let mut ax = DVector::zeros(3);
         spmv(&a, &x, &mut ax);
@@ -370,10 +370,10 @@ mod tests {
         let config = IterativeSolverConfig::default();
         let solver = BiCGSTAB::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
         assert!(result.is_ok());
-        
+
         // Solution should be [3.0, 3.0, 3.0]
         assert_relative_eq!(x[0], 3.0, epsilon = 1e-10);
         assert_relative_eq!(x[1], 3.0, epsilon = 1e-10);
@@ -388,10 +388,10 @@ mod tests {
         let config = IterativeSolverConfig::default();
         let solver = BiCGSTAB::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
         assert!(result.is_ok());
-        
+
         // Verify solution
         let mut ax = DVector::zeros(3);
         spmv(&a, &x, &mut ax);
@@ -408,7 +408,7 @@ mod tests {
         let config = IterativeSolverConfig::default();
         let solver = BiCGSTAB::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
         assert!(result.is_err());
     }
@@ -421,7 +421,7 @@ mod tests {
         let config = IterativeSolverConfig::default();
         let solver = BiCGSTAB::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
         assert!(result.is_err());
     }
@@ -435,7 +435,7 @@ mod tests {
         config.tolerance = 1e-12; // Very tight tolerance
         let solver = BiCGSTAB::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
         assert!(result.is_ok());
     }
@@ -450,7 +450,7 @@ mod tests {
         config.tolerance = 1e-12; // Tight tolerance
         let solver = BiCGSTAB::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
         // Should fail to converge
         assert!(result.is_err());
@@ -464,10 +464,10 @@ mod tests {
         let config = IterativeSolverConfig::default();
         let solver = BiCGSTAB::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
         assert!(result.is_ok());
-        
+
         // Solution should remain unchanged
         assert_relative_eq!(x[0], 1.0, epsilon = 1e-10);
         assert_relative_eq!(x[1], 1.0, epsilon = 1e-10);
@@ -479,9 +479,9 @@ mod tests {
         let mut config = IterativeSolverConfig::default();
         config.tolerance = 1e-8;
         config.max_iterations = 500;
-        
+
         let solver = BiCGSTAB::new(config);
-        
+
         // Test getting config
         let retrieved_config = solver.config();
         assert_relative_eq!(retrieved_config.tolerance, 1e-8, epsilon = 1e-10);
@@ -494,10 +494,10 @@ mod tests {
         let b = DVector::from_vec(vec![6.0, 11.0, 8.0]);
         let config = IterativeSolverConfig::default();
         let solver = BiCGSTAB::new(config);
-        
+
         let result = solver.solve_system(&a, &b, None);
         assert!(result.is_ok());
-        
+
         let x = result.unwrap();
         let mut ax = DVector::zeros(3);
         spmv(&a, &x, &mut ax);
@@ -511,31 +511,31 @@ mod tests {
         // 5x5 nonsymmetric tridiagonal matrix
         let row_offsets = vec![0, 2, 5, 8, 11, 13];
         let col_indices = vec![
-            0, 1,          // row 0
-            0, 1, 2,       // row 1
-            1, 2, 3,       // row 2
-            2, 3, 4,       // row 3
-            3, 4           // row 4
+            0, 1, // row 0
+            0, 1, 2, // row 1
+            1, 2, 3, // row 2
+            2, 3, 4, // row 3
+            3, 4, // row 4
         ];
         let values = vec![
-            5.0, 1.0,      // row 0
+            5.0, 1.0, // row 0
             2.0, 4.0, 1.0, // row 1
             2.0, 4.0, 1.0, // row 2
             2.0, 4.0, 1.0, // row 3
-            2.0, 3.0       // row 4
+            2.0, 3.0, // row 4
         ];
         let a = CsrMatrix::try_from_csr_data(5, 5, row_offsets, col_indices, values)
             .expect("Valid CSR matrix");
-        
+
         let b = DVector::from_vec(vec![6.0, 11.0, 11.0, 11.0, 8.0]);
         let mut x = DVector::zeros(5);
         let config = IterativeSolverConfig::default();
         let solver = BiCGSTAB::new(config);
         let precond = IdentityPreconditioner;
-        
+
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
         assert!(result.is_ok());
-        
+
         let mut ax = DVector::zeros(5);
         spmv(&a, &x, &mut ax);
         for i in 0..5 {

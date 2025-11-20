@@ -163,7 +163,8 @@ impl<T: RealField + Copy + FromPrimitive> MilesLES<T> {
         let divergence = velocity_gradient[(0, 0)] + velocity_gradient[(1, 1)];
 
         // Shock indicator combines divergence and pressure gradient
-        let shock_indicator = divergence.abs() + pressure_gradient.abs() * T::from_f64(0.1).unwrap();
+        let shock_indicator =
+            divergence.abs() + pressure_gradient.abs() * T::from_f64(0.1).unwrap();
 
         // Normalize and clamp
         if shock_indicator > self.config.shock_threshold {
@@ -187,14 +188,20 @@ impl<T: RealField + Copy + FromPrimitive> MilesLES<T> {
     /// # Returns
     ///
     /// Numerical flux with implicit SGS dissipation
-    pub fn numerical_flux(&self, left_state: T, right_state: T,
-                         velocity_gradient: &DMatrix<T>, pressure_gradient: T) -> T {
+    pub fn numerical_flux(
+        &self,
+        left_state: T,
+        right_state: T,
+        velocity_gradient: &DMatrix<T>,
+        pressure_gradient: T,
+    ) -> T {
         // Compute shock detection
         let _shock_strength = self.shock_detector(velocity_gradient, pressure_gradient);
 
         // Base flux (Lax-Friedrichs for simplicity)
         let alpha = (left_state.abs() + right_state.abs()) * T::from_f64(0.5).unwrap();
-        let base_flux = T::from_f64(0.5).unwrap() * (left_state.powi(2) + right_state.powi(2)) - alpha * (right_state - left_state);
+        let base_flux = T::from_f64(0.5).unwrap() * (left_state.powi(2) + right_state.powi(2))
+            - alpha * (right_state - left_state);
 
         // Add implicit dissipation based on shock strength
         // In MILES, the shock-capturing scheme provides the dissipation
@@ -212,7 +219,12 @@ impl<T: RealField + Copy + FromPrimitive> MilesLES<T> {
     /// # Returns
     ///
     /// Validation score (0 = not applicable, 1 = optimal)
-    pub fn validate_applicability(&self, reynolds_number: T, mach_number: T, grid_resolution: T) -> T {
+    pub fn validate_applicability(
+        &self,
+        reynolds_number: T,
+        mach_number: T,
+        grid_resolution: T,
+    ) -> T {
         // MILES works best for:
         // 1. High Reynolds numbers (turbulent flows)
         // 2. Compressible flows (shock-containing)
@@ -288,9 +300,9 @@ mod tests {
     fn test_implicit_dissipation() {
         let miles = MilesLES::<f64>::new();
 
-        // Test normal dissipation
+        // Test normal dissipation - use relative equality for floating-point precision
         let dissipation = miles.implicit_dissipation(1.0, 0.9);
-        assert_eq!(dissipation, 0.1);
+        assert_relative_eq!(dissipation, 0.1, epsilon = 1e-12);
 
         // Test maximum dissipation clamping
         let dissipation = miles.implicit_dissipation(2.0, 0.0);

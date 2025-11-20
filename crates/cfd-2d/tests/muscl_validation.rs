@@ -21,10 +21,15 @@ fn test_muscl_scheme_creation() {
 /// Test MUSCL discretization schemes
 #[test]
 fn test_muscl_discretization_schemes() {
-    use cfd_2d::physics::momentum::{DiscretizationScheme, MusclDiscretization, MusclScheme, VanLeer};
+    use cfd_2d::physics::momentum::{
+        DiscretizationScheme, MusclDiscretization, MusclScheme, VanLeer,
+    };
 
     let limiter = VanLeer;
-    let muscl = MusclScheme::<f64, VanLeer>::new(limiter, cfd_2d::physics::momentum::MusclOrder::SecondOrder);
+    let muscl = MusclScheme::<f64, VanLeer>::new(
+        limiter,
+        cfd_2d::physics::momentum::MusclOrder::SecondOrder,
+    );
     let scheme = MusclDiscretization::new(muscl);
 
     // Test positive velocity (upwind-like behavior)

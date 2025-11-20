@@ -7,9 +7,9 @@
 //! - Roache, P.J. (2002) "Code Verification by the Method of Manufactured Solutions"
 //! - Salari, K. & Knupp, P. (2000) "Code Verification by the Method of Manufactured Solutions"
 
+use cfd_core::conversion::SafeFromF64;
 use nalgebra::{ComplexField, RealField};
 use num_traits::FromPrimitive;
-use cfd_core::conversion::SafeFromF64;
 
 pub mod advanced_physics;
 pub mod advection;
@@ -22,16 +22,32 @@ pub mod reynolds_stress_mms;
 pub mod richardson;
 pub mod turbulent;
 
-pub use advanced_physics::{ManufacturedCompressibleEuler, ManufacturedHypersonic, ManufacturedShockCapturing, ManufacturedTCI};
+pub use advanced_physics::{
+    ManufacturedCompressibleEuler, ManufacturedHypersonic, ManufacturedShockCapturing,
+    ManufacturedTCI,
+};
 pub use advection::ManufacturedAdvection;
 pub use advection_diffusion::ManufacturedAdvectionDiffusion;
 pub use burgers::ManufacturedBurgers;
 pub use diffusion::ManufacturedDiffusion;
-pub use multi_physics::{ManufacturedConjugateHeatTransfer, ManufacturedMHD, ManufacturedMultiphase, ManufacturedSpeciesTransport};
-pub use navier_stokes::{TaylorGreenManufactured, NavierStokesManufacturedSolution, PolynomialNavierStokesMMS};
-pub use reynolds_stress_mms::{ManufacturedReynoldsStressMMS, PressureStrainModelMMS, ReynoldsStressConvergenceStudy};
-pub use richardson::{MmsRichardsonStudy, RichardsonMmsResult, ComprehensiveCFDValidationSuite, RichardsonResult, BoundaryValidationResult};
-pub use turbulent::{ManufacturedKEpsilon, ManufacturedKOmega, ManufacturedReynoldsStress, ManufacturedSpalartAllmaras};
+pub use multi_physics::{
+    ManufacturedConjugateHeatTransfer, ManufacturedMHD, ManufacturedMultiphase,
+    ManufacturedSpeciesTransport,
+};
+pub use navier_stokes::{
+    NavierStokesManufacturedSolution, PolynomialNavierStokesMMS, TaylorGreenManufactured,
+};
+pub use reynolds_stress_mms::{
+    ManufacturedReynoldsStressMMS, PressureStrainModelMMS, ReynoldsStressConvergenceStudy,
+};
+pub use richardson::{
+    BoundaryValidationResult, ComprehensiveCFDValidationSuite, MmsRichardsonStudy,
+    RichardsonMmsResult, RichardsonResult,
+};
+pub use turbulent::{
+    ManufacturedKEpsilon, ManufacturedKOmega, ManufacturedReynoldsStress,
+    ManufacturedSpalartAllmaras,
+};
 
 /// Trait for manufactured solutions
 pub trait ManufacturedSolution<T: RealField + Copy + FromPrimitive> {
@@ -71,7 +87,7 @@ pub trait ManufacturedSolution<T: RealField + Copy + FromPrimitive> {
             .zip(exact.iter())
             .map(|(num, ex)| ComplexField::abs(*num - *ex))
             .fold(T::zero(), |max, val| if val > max { val } else { max })
-}
+    }
 }
 
 /// Common manufactured solution functions
@@ -95,6 +111,8 @@ impl ManufacturedFunctions {
 
     /// Trigonometric-exponential: cos(x) * sin(y) * exp(-2t)
     pub fn trig_exp<T: RealField + Copy>(x: T, y: T, t: T) -> T {
-        ComplexField::cos(x) * ComplexField::sin(y) * ComplexField::exp(T::from_f64_or_one(-2.0) * t)
+        ComplexField::cos(x)
+            * ComplexField::sin(y)
+            * ComplexField::exp(T::from_f64_or_one(-2.0) * t)
     }
 }

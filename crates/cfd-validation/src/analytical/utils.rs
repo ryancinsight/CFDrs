@@ -1,7 +1,7 @@
 //! Utility functions for analytical solutions
 
-use nalgebra::RealField;
 use cfd_core::conversion::SafeFromF64;
+use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
 /// Analytical utilities for common calculations
@@ -96,14 +96,16 @@ impl AnalyticalUtils {
         geometry: FlowGeometry,
     ) -> bool {
         let critical_re = match geometry {
-            FlowGeometry::Pipe => T::try_from_f64(2300.0)
-                .unwrap_or(T::from_f64_or_one(2000.0)),
-            FlowGeometry::FlatPlate => T::try_from_f64(500_000.0)
-                .unwrap_or(T::from_f64_or_one(100_000.0)),
-            FlowGeometry::Sphere => T::try_from_f64(200_000.0)
-                .unwrap_or(T::from_f64_or_one(100_000.0)),
-            FlowGeometry::Cylinder => T::try_from_f64(200_000.0)
-                .unwrap_or(T::from_f64_or_one(100_000.0)),
+            FlowGeometry::Pipe => T::try_from_f64(2300.0).unwrap_or(T::from_f64_or_one(2000.0)),
+            FlowGeometry::FlatPlate => {
+                T::try_from_f64(500_000.0).unwrap_or(T::from_f64_or_one(100_000.0))
+            }
+            FlowGeometry::Sphere => {
+                T::try_from_f64(200_000.0).unwrap_or(T::from_f64_or_one(100_000.0))
+            }
+            FlowGeometry::Cylinder => {
+                T::try_from_f64(200_000.0).unwrap_or(T::from_f64_or_one(100_000.0))
+            }
         };
         reynolds < critical_re
     }

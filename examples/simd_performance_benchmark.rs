@@ -24,10 +24,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test different grid sizes
     let grid_sizes = vec![
-        (16, 16),    // Small: 256 cells
-        (32, 32),    // Medium: 1024 cells
-        (64, 64),    // Large: 4096 cells
-        (128, 64),   // XL: 8192 cells
+        (16, 16),  // Small: 256 cells
+        (32, 32),  // Medium: 1024 cells
+        (64, 64),  // Large: 4096 cells
+        (128, 64), // XL: 8192 cells
     ];
 
     println!("Benchmarking gradient computations:");
@@ -140,8 +140,12 @@ fn scalar_gradient_2d(u: &[f64], nx: usize, ny: usize, dx: f64, dy: f64) -> (Vec
             if i == 0 || i == nx - 1 || j == 0 || j == ny - 1 {
                 let idx = j * nx + i;
                 // Simple extrapolation (not accurate, just for benchmarking)
-                if i > 0 { dudx[idx] = dudx[j * nx + i - 1]; }
-                if j > 0 { dudy[idx] = dudy[(j - 1) * nx + i]; }
+                if i > 0 {
+                    dudx[idx] = dudx[j * nx + i - 1];
+                }
+                if j > 0 {
+                    dudy[idx] = dudy[(j - 1) * nx + i];
+                }
             }
         }
     }

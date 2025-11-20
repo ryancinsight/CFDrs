@@ -9,7 +9,7 @@ pub trait NetworkAnalyzer<T: RealField + Copy> {
     type Result;
 
     /// Perform analysis on the network
-    /// 
+    ///
     /// # Errors
     /// Returns an error if network analysis fails due to invalid network structure or computation errors
     fn analyze(&mut self, network: &crate::network::Network<T>) -> Result<Self::Result>;

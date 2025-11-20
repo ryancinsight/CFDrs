@@ -47,96 +47,98 @@ impl<T: RealField + Copy + FromPrimitive> MomentumConservationChecker<T> {
     ) -> Result<ConservationReport<T>> {
         #[allow(clippy::no_effect_underscore_binding)] // Context variables documented inline
         {
-        assert_eq!(u.nrows(), self.nx);
-        assert_eq!(u.ncols(), self.ny);
+            assert_eq!(u.nrows(), self.nx);
+            assert_eq!(u.ncols(), self.ny);
 
-        let mut max_residual_x = T::zero();
-        let mut max_residual_y = T::zero();
-        let mut total_residual = T::zero();
-        let mut count = 0;
+            let mut max_residual_x = T::zero();
+            let mut max_residual_y = T::zero();
+            let mut total_residual = T::zero();
+            let mut count = 0;
 
-        // Check momentum conservation at interior points
-        for i in 1..self.nx - 1 {
-            for j in 1..self.ny - 1 {
-                // Time derivative: ∂(ρu)/∂t
-                let dudt = self.density * (u[(i, j)] - u_prev[(i, j)]) / dt;
-                let dvdt = self.density * (v[(i, j)] - v_prev[(i, j)]) / dt;
+            // Check momentum conservation at interior points
+            for i in 1..self.nx - 1 {
+                for j in 1..self.ny - 1 {
+                    // Time derivative: ∂(ρu)/∂t
+                    let dudt = self.density * (u[(i, j)] - u_prev[(i, j)]) / dt;
+                    let dvdt = self.density * (v[(i, j)] - v_prev[(i, j)]) / dt;
 
-                // Convective term: ∇·(ρuu) using central differences
-                let _u_center = u[(i, j)];
-                let _v_center = v[(i, j)];
+                    // Convective term: ∇·(ρuu) using central differences
+                    let _u_center = u[(i, j)];
+                    let _v_center = v[(i, j)];
 
-                // x-momentum convection
-                let conv_x = self.density
-                    * ((u[(i + 1, j)].powi(2) - u[(i - 1, j)].powi(2))
-                        / (T::from_f64_or_one(2.0) * dx)
-                        + (u[(i, j + 1)] * v[(i, j + 1)] - u[(i, j - 1)] * v[(i, j - 1)])
-                            / (T::from_f64_or_one(2.0) * dy));
+                    // x-momentum convection
+                    let conv_x = self.density
+                        * ((u[(i + 1, j)].powi(2) - u[(i - 1, j)].powi(2))
+                            / (T::from_f64_or_one(2.0) * dx)
+                            + (u[(i, j + 1)] * v[(i, j + 1)] - u[(i, j - 1)] * v[(i, j - 1)])
+                                / (T::from_f64_or_one(2.0) * dy));
 
-                // y-momentum convection
-                let conv_y = self.density
-                    * ((u[(i + 1, j)] * v[(i + 1, j)] - u[(i - 1, j)] * v[(i - 1, j)])
-                        / (T::from_f64_or_one(2.0) * dx)
-                        + (v[(i, j + 1)].powi(2) - v[(i, j - 1)].powi(2))
-                            / (T::from_f64_or_one(2.0) * dy));
+                    // y-momentum convection
+                    let conv_y = self.density
+                        * ((u[(i + 1, j)] * v[(i + 1, j)] - u[(i - 1, j)] * v[(i - 1, j)])
+                            / (T::from_f64_or_one(2.0) * dx)
+                            + (v[(i, j + 1)].powi(2) - v[(i, j - 1)].powi(2))
+                                / (T::from_f64_or_one(2.0) * dy));
 
-                // Pressure gradient: -∇p
-                let dpdx =
-                    -(pressure[(i + 1, j)] - pressure[(i - 1, j)]) / (T::from_f64_or_one(2.0) * dx);
-                let dpdy =
-                    -(pressure[(i, j + 1)] - pressure[(i, j - 1)]) / (T::from_f64_or_one(2.0) * dy);
+                    // Pressure gradient: -∇p
+                    let dpdx = -(pressure[(i + 1, j)] - pressure[(i - 1, j)])
+                        / (T::from_f64_or_one(2.0) * dx);
+                    let dpdy = -(pressure[(i, j + 1)] - pressure[(i, j - 1)])
+                        / (T::from_f64_or_one(2.0) * dy);
 
-                // Viscous term: μ∇²u (using central differences)
-                let visc_x = viscosity
-                    * ((u[(i + 1, j)] - T::from_f64_or_one(2.0) * u[(i, j)] + u[(i - 1, j)])
-                        / (dx * dx)
-                        + (u[(i, j + 1)] - T::from_f64_or_one(2.0) * u[(i, j)] + u[(i, j - 1)])
-                            / (dy * dy));
+                    // Viscous term: μ∇²u (using central differences)
+                    let visc_x = viscosity
+                        * ((u[(i + 1, j)] - T::from_f64_or_one(2.0) * u[(i, j)] + u[(i - 1, j)])
+                            / (dx * dx)
+                            + (u[(i, j + 1)] - T::from_f64_or_one(2.0) * u[(i, j)]
+                                + u[(i, j - 1)])
+                                / (dy * dy));
 
-                let visc_y = viscosity
-                    * ((v[(i + 1, j)] - T::from_f64_or_one(2.0) * v[(i, j)] + v[(i - 1, j)])
-                        / (dx * dx)
-                        + (v[(i, j + 1)] - T::from_f64_or_one(2.0) * v[(i, j)] + v[(i, j - 1)])
-                            / (dy * dy));
+                    let visc_y = viscosity
+                        * ((v[(i + 1, j)] - T::from_f64_or_one(2.0) * v[(i, j)] + v[(i - 1, j)])
+                            / (dx * dx)
+                            + (v[(i, j + 1)] - T::from_f64_or_one(2.0) * v[(i, j)]
+                                + v[(i, j - 1)])
+                                / (dy * dy));
 
-                // Body force: ρg
-                let body_x = self.density * gravity[0];
-                let body_y = self.density * gravity[1];
+                    // Body force: ρg
+                    let body_x = self.density * gravity[0];
+                    let body_y = self.density * gravity[1];
 
-                // Momentum residuals
-                let residual_x = dudt + conv_x - dpdx - visc_x - body_x;
-                let residual_y = dvdt + conv_y - dpdy - visc_y - body_y;
+                    // Momentum residuals
+                    let residual_x = dudt + conv_x - dpdx - visc_x - body_x;
+                    let residual_y = dvdt + conv_y - dpdy - visc_y - body_y;
 
-                max_residual_x = max_residual_x.max(residual_x.abs());
-                max_residual_y = max_residual_y.max(residual_y.abs());
-                total_residual = total_residual + residual_x.abs() + residual_y.abs();
-                count += 1;
+                    max_residual_x = max_residual_x.max(residual_x.abs());
+                    max_residual_y = max_residual_y.max(residual_y.abs());
+                    total_residual = total_residual + residual_x.abs() + residual_y.abs();
+                    count += 1;
+                }
             }
-        }
 
-        let avg_residual = if count > 0 {
-            total_residual / T::from_usize(count * 2).unwrap_or(T::one())
-        } else {
-            T::zero()
-        };
+            let avg_residual = if count > 0 {
+                total_residual / T::from_usize(count * 2).unwrap_or(T::one())
+            } else {
+                T::zero()
+            };
 
-        let max_residual = max_residual_x.max(max_residual_y);
+            let max_residual = max_residual_x.max(max_residual_y);
 
-        let mut report = ConservationReport::new(
-            "Momentum Conservation (2D)".to_string(),
-            max_residual,
-            self.tolerance,
-        );
+            let mut report = ConservationReport::new(
+                "Momentum Conservation (2D)".to_string(),
+                max_residual,
+                self.tolerance,
+            );
 
-        report.add_detail("max_residual_x".to_string(), max_residual_x);
-        report.add_detail("max_residual_y".to_string(), max_residual_y);
-        report.add_detail("avg_residual".to_string(), avg_residual);
-        report.add_detail(
-            "grid_points_checked".to_string(),
-            T::from_usize(count).unwrap_or(T::zero()),
-        );
+            report.add_detail("max_residual_x".to_string(), max_residual_x);
+            report.add_detail("max_residual_y".to_string(), max_residual_y);
+            report.add_detail("avg_residual".to_string(), avg_residual);
+            report.add_detail(
+                "grid_points_checked".to_string(),
+                T::from_usize(count).unwrap_or(T::zero()),
+            );
 
-        Ok(report)
+            Ok(report)
         }
     }
 }

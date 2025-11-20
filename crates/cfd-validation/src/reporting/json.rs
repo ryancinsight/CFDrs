@@ -24,7 +24,11 @@ impl Reporter for JsonReporter {
   "critical_issues": {}
 }}"#,
             report.title,
-            report.timestamp.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs(),
+            report
+                .timestamp
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
             report.summary.total_tests,
             report.summary.passed_tests,
             report.summary.failed_tests,

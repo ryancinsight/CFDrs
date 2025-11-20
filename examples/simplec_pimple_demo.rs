@@ -17,7 +17,7 @@
 
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
-use cfd_2d::simplec_pimple::{SimplecPimpleConfig, SimplecPimpleSolver, AlgorithmType};
+use cfd_2d::simplec_pimple::{AlgorithmType, SimplecPimpleConfig, SimplecPimpleSolver};
 use nalgebra::Vector2;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -74,12 +74,14 @@ fn run_algorithm(
     // Create algorithm configuration
     let config = match algorithm {
         AlgorithmType::Simplec => {
-            println!("Using SIMPLEC (Semi-Implicit Method for Pressure-Linked Equations - Consistent)");
+            println!(
+                "Using SIMPLEC (Semi-Implicit Method for Pressure-Linked Equations - Consistent)"
+            );
             SimplecPimpleConfig {
                 algorithm,
-                dt: 0.01,           // Time step
-                alpha_u: 0.7,       // Velocity under-relaxation
-                alpha_p: 0.3,       // Pressure under-relaxation
+                dt: 0.01,            // Time step
+                alpha_u: 0.7,        // Velocity under-relaxation
+                alpha_p: 0.3,        // Pressure under-relaxation
                 use_rhie_chow: true, // Enable Rhie-Chow interpolation
                 ..Default::default()
             }
@@ -91,8 +93,8 @@ fn run_algorithm(
                 dt: 0.01,
                 alpha_u: 0.7,
                 alpha_p: 0.3,
-                n_outer_correctors: 2,  // PIMPLE outer iterations
-                n_inner_correctors: 1,  // PIMPLE inner iterations
+                n_outer_correctors: 2, // PIMPLE outer iterations
+                n_inner_correctors: 1, // PIMPLE inner iterations
                 ..Default::default()
             }
         }
@@ -109,8 +111,12 @@ fn run_algorithm(
         // Solve one time step
         let residual = solver.solve_time_step(fields, 0.01, 0.01, 1.0)?;
 
-        println!("Step {:2}: residual = {:.2e}, iterations = {}",
-                 step, residual, solver.iterations());
+        println!(
+            "Step {:2}: residual = {:.2e}, iterations = {}",
+            step,
+            residual,
+            solver.iterations()
+        );
 
         // Check convergence
         if residual < 1e-6 {
@@ -136,11 +142,4 @@ fn run_algorithm(
 
     Ok(())
 }
-
-
-
-
-
-
-
 

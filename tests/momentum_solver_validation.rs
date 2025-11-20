@@ -109,7 +109,8 @@ fn test_momentum_solver_pure_diffusion() {
 
     let u_numerical = fields.u.at(center_i, center_j);
     let y_center = center_j as f64 * dy;
-    let u_analytical = poiseuille_analytical(y_center, channel_height, pressure_gradient, viscosity);
+    let u_analytical =
+        poiseuille_analytical(y_center, channel_height, pressure_gradient, viscosity);
 
     let error_percent = ((u_numerical - u_analytical) / u_analytical * 100.0).abs();
 
@@ -117,8 +118,10 @@ fn test_momentum_solver_pure_diffusion() {
 
     // With upwind convection on high-Peclet flow, expect significant error
     // This documents the known limitation
-    assert!(error_percent < 100.0, 
-            "Error should be high but not completely broken: {error_percent}%");
+    assert!(
+        error_percent < 100.0,
+        "Error should be high but not completely broken: {error_percent}%"
+    );
 }
 
 #[test]
@@ -205,7 +208,10 @@ fn test_momentum_solver_deferred_correction() {
 
     // Deferred correction should converge faster than pure upwind
     assert!(converged_steps > 0, "Should converge");
-    assert!(converged_steps < 50, "Should converge quickly with under-relaxation");
+    assert!(
+        converged_steps < 50,
+        "Should converge quickly with under-relaxation"
+    );
 
     let dy = channel_height / (ny - 1) as f64;
     let center_i = nx / 2;
@@ -213,7 +219,8 @@ fn test_momentum_solver_deferred_correction() {
 
     let u_numerical = fields.u.at(center_i, center_j);
     let y_center = center_j as f64 * dy;
-    let u_analytical = poiseuille_analytical(y_center, channel_height, pressure_gradient, viscosity);
+    let u_analytical =
+        poiseuille_analytical(y_center, channel_height, pressure_gradient, viscosity);
 
     let error_percent = ((u_numerical - u_analytical) / u_analytical * 100.0).abs();
 
@@ -221,5 +228,8 @@ fn test_momentum_solver_deferred_correction() {
 
     // Deferred correction improves convergence rate but doesn't fully solve high-Peclet issue
     // This is a known limitation documented in Sprint 1.33.0/1.34.0
-    assert!(error_percent < 100.0, "Deferred correction should provide some improvement");
+    assert!(
+        error_percent < 100.0,
+        "Deferred correction should provide some improvement"
+    );
 }

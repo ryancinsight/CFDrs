@@ -5,8 +5,10 @@
 //!
 //! Run with: `cargo run --example matrix_free_demo`
 
-use cfd_math::linear_solver::matrix_free::{LinearOperator, MatrixFreeCG, LaplacianOperator2D, MatrixFreeSolver};
 use cfd_math::error::Result;
+use cfd_math::linear_solver::matrix_free::{
+    LaplacianOperator2D, LinearOperator, MatrixFreeCG, MatrixFreeSolver,
+};
 
 /// Simple 1D diffusion operator for demonstration
 struct DiffusionOperator1D {
@@ -79,8 +81,8 @@ fn main() -> Result<()> {
     }
 
     // Solve using matrix-free CG
-    let config = cfd_math::linear_solver::IterativeSolverConfig::new(1e-10)
-        .with_max_iterations(1000);
+    let config =
+        cfd_math::linear_solver::IterativeSolverConfig::new(1e-10).with_max_iterations(1000);
     let solver = MatrixFreeCG::new(config);
 
     let mut x = vec![0.0; n];

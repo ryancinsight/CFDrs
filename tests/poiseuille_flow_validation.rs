@@ -43,7 +43,8 @@ fn test_poiseuille_flow_convergence() {
     for i in 0..nx {
         for j in 0..ny {
             let y = j as f64 * dy;
-            let u_analytical = poiseuille_analytical(y, channel_height, pressure_gradient, viscosity);
+            let u_analytical =
+                poiseuille_analytical(y, channel_height, pressure_gradient, viscosity);
             fields.u.set(i, j, u_analytical);
             fields.v.set(i, j, 0.0); // No vertical velocity
         }
@@ -158,9 +159,7 @@ fn test_poiseuille_flow_convergence() {
         l2_error += error * error * dy;
 
         if j % 5 == 0 {
-            println!(
-                "{y:.3}\t\t{u_numerical:.6}\t{u_analytical:.6}\t{error:.2e}"
-            );
+            println!("{y:.3}\t\t{u_numerical:.6}\t{u_analytical:.6}\t{error:.2e}");
         }
     }
 
@@ -178,7 +177,8 @@ fn test_poiseuille_flow_convergence() {
         max_error < max_acceptable_error,
         "SOLVER LIMITATION: Max error {:.2e} exceeds acceptable limit {:.2e}. \
         Current momentum solver needs integration with pressure solver for full accuracy.",
-        max_error, max_acceptable_error
+        max_error,
+        max_acceptable_error
     );
 
     let l2_acceptable_error = 10.0; // Relaxed L2 norm requirement
@@ -236,9 +236,7 @@ fn test_poiseuille_mass_conservation() {
         }
     }
 
-    println!(
-        "Maximum divergence in Poiseuille flow: {max_divergence:.2e}"
-    );
+    println!("Maximum divergence in Poiseuille flow: {max_divergence:.2e}");
     assert!(max_divergence < 1e-10, "Flow is not divergence-free");
 
     // Check mass flux conservation (inlet = outlet)
@@ -251,9 +249,7 @@ fn test_poiseuille_mass_conservation() {
     }
 
     let flux_error = (inlet_flux - outlet_flux).abs();
-    println!(
-        "Inlet flux: {inlet_flux:.6}, Outlet flux: {outlet_flux:.6}, Error: {flux_error:.2e}"
-    );
+    println!("Inlet flux: {inlet_flux:.6}, Outlet flux: {outlet_flux:.6}, Error: {flux_error:.2e}");
 
     assert!(flux_error < 1e-10, "Mass flux not conserved");
 }

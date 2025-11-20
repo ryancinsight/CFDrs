@@ -69,7 +69,9 @@ impl DomainDecomposition {
         let local_subdomain = match strategy {
             DecompositionStrategy::Simple1D => Self::decompose_1d(&global_extents, rank, size)?,
             DecompositionStrategy::Cartesian2D => Self::decompose_2d(&global_extents, rank, size)?,
-            DecompositionStrategy::RecursiveBisection => Self::decompose_bisection(&global_extents, rank, size)?,
+            DecompositionStrategy::RecursiveBisection => {
+                Self::decompose_bisection(&global_extents, rank, size)?
+            }
             DecompositionStrategy::Metis => Self::decompose_metis(&global_extents, rank, size)?,
         };
 
@@ -136,9 +138,10 @@ impl DomainDecomposition {
         let (px, py) = Self::find_optimal_2d_grid(size as usize);
 
         if px * py != size as usize {
-            return Err(MpiError::DecompositionError(
-                format!("Cannot create {} x {} grid for {} processes", px, py, size)
-            ));
+            return Err(MpiError::DecompositionError(format!(
+                "Cannot create {} x {} grid for {} processes",
+                px, py, size
+            )));
         }
 
         // Convert rank to 2D coordinates
@@ -166,16 +169,28 @@ impl DomainDecomposition {
     }
 
     /// Recursive bisection decomposition (placeholder - would use Zoltan/ParMETIS in practice)
-    fn decompose_bisection(_global: &GlobalExtents, _rank: Rank, _size: Size) -> MpiResult<LocalSubdomain> {
+    fn decompose_bisection(
+        _global: &GlobalExtents,
+        _rank: Rank,
+        _size: Size,
+    ) -> MpiResult<LocalSubdomain> {
         // For now, fall back to 1D decomposition
         // In practice, this would use a graph partitioning library
-        Err(MpiError::NotAvailable("Recursive bisection not implemented".to_string()))
+        Err(MpiError::NotAvailable(
+            "Recursive bisection not implemented".to_string(),
+        ))
     }
 
     /// METIS-based decomposition (placeholder)
-    fn decompose_metis(_global: &GlobalExtents, _rank: Rank, _size: Size) -> MpiResult<LocalSubdomain> {
+    fn decompose_metis(
+        _global: &GlobalExtents,
+        _rank: Rank,
+        _size: Size,
+    ) -> MpiResult<LocalSubdomain> {
         // METIS integration would go here
-        Err(MpiError::NotAvailable("METIS decomposition not implemented".to_string()))
+        Err(MpiError::NotAvailable(
+            "METIS decomposition not implemented".to_string(),
+        ))
     }
 
     /// Find optimal 2D processor grid
@@ -223,19 +238,25 @@ impl DomainDecomposition {
         // Left neighbor
         if local.i_start_global > 0 {
             let left_rank = Self::find_rank_for_global_i(local.i_start_global - 1, global, size)?;
-            neighbors.insert(left_rank, NeighborInfo {
-                direction: NeighborDirection::Left,
-                overlap: 1,
-            });
+            neighbors.insert(
+                left_rank,
+                NeighborInfo {
+                    direction: NeighborDirection::Left,
+                    overlap: 1,
+                },
+            );
         }
 
         // Right neighbor
         if i_end_global < global.nx_global - 1 {
             let right_rank = Self::find_rank_for_global_i(i_end_global + 1, global, size)?;
-            neighbors.insert(right_rank, NeighborInfo {
-                direction: NeighborDirection::Right,
-                overlap: 1,
-            });
+            neighbors.insert(
+                right_rank,
+                NeighborInfo {
+                    direction: NeighborDirection::Right,
+                    overlap: 1,
+                },
+            );
         }
 
         // For 2D decomposition, would also check top/bottom neighbors
@@ -245,7 +266,11 @@ impl DomainDecomposition {
     }
 
     /// Find which rank owns a given global i-index
-    fn find_rank_for_global_i(global_i: usize, global: &GlobalExtents, size: Size) -> MpiResult<Rank> {
+    fn find_rank_for_global_i(
+        global_i: usize,
+        global: &GlobalExtents,
+        size: Size,
+    ) -> MpiResult<Rank> {
         // For 1D decomposition
         let cells_per_proc = global.nx_global / size as usize;
         let remainder = global.nx_global % size as usize;
@@ -261,9 +286,10 @@ impl DomainDecomposition {
             current_i += proc_cells;
         }
 
-        Err(MpiError::DecompositionError(
-            format!("Global index {} not found in decomposition", global_i)
-        ))
+        Err(MpiError::DecompositionError(format!(
+            "Global index {} not found in decomposition",
+            global_i
+        )))
     }
 }
 
@@ -379,14 +405,12 @@ impl LoadBalancer {
         let target_work_per_proc = total_work / size as usize;
 
         // Create new subdomain assignment
-        let new_subdomain = self.compute_new_subdomain(rank, target_work_per_proc, new_workloads)?;
+        let new_subdomain =
+            self.compute_new_subdomain(rank, target_work_per_proc, new_workloads)?;
 
         // Update neighbor relationships
-        let neighbors = Self::compute_neighbors(
-            &new_subdomain,
-            self.current_decomp.global_extents(),
-            size,
-        )?;
+        let neighbors =
+            Self::compute_neighbors(&new_subdomain, self.current_decomp.global_extents(), size)?;
 
         // Create new decomposition
         let new_decomp = DomainDecomposition {
@@ -494,8 +518,8 @@ impl AdaptiveMeshRefinement {
         error_estimates
             .iter()
             .map(|&error| {
-                error > self.refinement_criteria.error_threshold &&
-                self.refinement_level < self.max_refinement_level
+                error > self.refinement_criteria.error_threshold
+                    && self.refinement_level < self.max_refinement_level
             })
             .collect()
     }
@@ -505,8 +529,7 @@ impl AdaptiveMeshRefinement {
         error_estimates
             .iter()
             .map(|&error| {
-                error < self.refinement_criteria.coarsening_threshold &&
-                self.refinement_level > 0
+                error < self.refinement_criteria.coarsening_threshold && self.refinement_level > 0
             })
             .collect()
     }
@@ -532,7 +555,8 @@ impl AdaptiveMeshRefinement {
                 let metrics = balancer.assess_load_balance(local_workload)?;
 
                 if balancer.should_repartition(&metrics) {
-                    let new_workloads = vec![local_workload; current_decomp.communicator.size() as usize];
+                    let new_workloads =
+                        vec![local_workload; current_decomp.communicator.size() as usize];
                     return balancer.repartition(&new_workloads);
                 }
             }

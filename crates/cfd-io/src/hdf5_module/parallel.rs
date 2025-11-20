@@ -164,7 +164,8 @@ impl<T: RealField + std::fmt::LowerExp> ParallelHdf5Writer<T> {
 
             // All-reduce to get global dataset size
             let mut global_size = local_size;
-            self.communicator.all_reduce_sum(&mut global_size, local_size);
+            self.communicator
+                .all_reduce_sum(&mut global_size, local_size);
 
             // Calculate data distribution
             let info = GlobalDatasetInfo {
@@ -243,6 +244,9 @@ impl<T: RealField + std::fmt::LowerExp> ParallelHdf5Writer<T> {
     }
 
     /// Write checkpoint file for restart capability
+    ///
+    /// # Invariants (STUB)
+    /// * Parallel checksum: `allreduce_xor(local_checksums) == global_checksum`
     pub fn write_checkpoint<P: AsRef<Path>>(
         &self,
         filename: P,
@@ -250,11 +254,32 @@ impl<T: RealField + std::fmt::LowerExp> ParallelHdf5Writer<T> {
         simulation_time: T,
         datasets: &HashMap<String, &DistributedVector<T>>,
     ) -> IoResult<()> {
+        // STUB: Compute local checksum (TODO: SipHasher13 on metadata + datasets.to_bits() column-major)
+        let mut local_checksum: u128 = 0;
+        // Example: hash time_step, simulation_time, dataset shapes/sizes
+        use std::hash::{SipHasher13, Hasher};
+        let mut hasher = SipHasher13::new_with_keys(0, 0);
+        hasher.write_usize(time_step);
+        hasher.write_u64(simulation_time.to_bits());
+        for (name, data) in datasets {
+            hasher.write(name.as_bytes());
+            hasher.write_usize(data.local_data.len());
+        }
+        local_checksum = hasher.finish() as u128;
+
+        // Parallel allreduce_xor for global checksum invariant
+        let mut global_checksum = local_checksum;
+        self.communicator.allreduce_xor(&mut global_checksum);
+
         let mut metadata = HashMap::new();
         metadata.insert("time_step".to_string(), time_step.to_string());
-        metadata.insert("simulation_time".to_string(), format!("{:.10}", simulation_time));
+        metadata.insert(
+            "simulation_time".to_string(),
+            format!("{:.10}", simulation_time),
+        );
         metadata.insert("checkpoint_version".to_string(), "1.0".to_string());
         metadata.insert("mpi_processes".to_string(), self.num_procs.to_string());
+        metadata.insert("global_checksum".to_string(), format!("{global_checksum}"));
 
         self.write_hdf5_file(filename, datasets, &metadata)
     }
@@ -404,8 +429,10 @@ mod tests {
     #[test]
     fn test_parallel_hdf5_writer_creation() {
         // Compile-time test - types can be instantiated
-        let _writer_type: std::marker::PhantomData<ParallelHdf5Writer<f64>> = std::marker::PhantomData;
-        let _reader_type: std::marker::PhantomData<ParallelHdf5Reader<f64>> = std::marker::PhantomData;
+        let _writer_type: std::marker::PhantomData<ParallelHdf5Writer<f64>> =
+            std::marker::PhantomData;
+        let _reader_type: std::marker::PhantomData<ParallelHdf5Reader<f64>> =
+            std::marker::PhantomData;
     }
 
     #[cfg(feature = "mpi")]

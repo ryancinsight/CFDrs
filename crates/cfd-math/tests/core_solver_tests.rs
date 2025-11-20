@@ -6,8 +6,8 @@
 //! ✅ ILU preconditioner validation
 //! ✅ Numerical accuracy and convergence testing
 
-use cfd_math::linear_solver::{BiCGSTAB, GMRES, IterativeLinearSolver, Preconditioner};
 use cfd_math::linear_solver::preconditioners::{IdentityPreconditioner, JacobiPreconditioner};
+use cfd_math::linear_solver::{BiCGSTAB, IterativeLinearSolver, Preconditioner, GMRES};
 use cfd_math::sparse;
 use nalgebra::DVector;
 use nalgebra_sparse::CsrMatrix;
@@ -19,8 +19,12 @@ fn test_bicgstab_solver_validation() {
     let mut coo = nalgebra_sparse::CooMatrix::<f64>::new(5, 5);
     for i in 0..5 {
         coo.push(i, i, 4.0); // Main diagonal
-        if i > 0 { coo.push(i, i-1, -1.0); }
-        if i < 4 { coo.push(i, i+1, -1.0); }
+        if i > 0 {
+            coo.push(i, i - 1, -1.0);
+        }
+        if i < 4 {
+            coo.push(i, i + 1, -1.0);
+        }
     }
     let a = CsrMatrix::from(&coo);
     let b = DVector::from_vec(vec![1.0, 2.0, 3.0, 2.0, 1.0]);
@@ -38,7 +42,11 @@ fn test_bicgstab_solver_validation() {
     let mut ax = DVector::zeros(5);
     sparse::spmv(&a, &x, &mut ax);
     let residual = (&ax - &b).norm();
-    assert!(residual < 1e-6, "✅ BiCGSTAB numerical accuracy: residual = {}", residual);
+    assert!(
+        residual < 1e-6,
+        "✅ BiCGSTAB numerical accuracy: residual = {}",
+        residual
+    );
 }
 
 /// GMRES solver validation - Sprint 1.72.0 Core Deliverable
@@ -48,8 +56,12 @@ fn test_gmres_solver_validation() {
     let mut coo = nalgebra_sparse::CooMatrix::<f64>::new(6, 6);
     for i in 0..6 {
         coo.push(i, i, 3.0); // Main diagonal
-        if i > 0 { coo.push(i, i-1, -1.0); }
-        if i < 5 { coo.push(i, i+1, -1.0); }
+        if i > 0 {
+            coo.push(i, i - 1, -1.0);
+        }
+        if i < 5 {
+            coo.push(i, i + 1, -1.0);
+        }
     }
     let a = CsrMatrix::from(&coo);
     let b = DVector::from_element(6, 1.0);
@@ -64,7 +76,11 @@ fn test_gmres_solver_validation() {
 
     // Verify restart capability works
     let final_residual = (&a * &x - &b).norm();
-    assert!(final_residual < 0.3, "✅ GMRES restart accuracy: residual = {}", final_residual);
+    assert!(
+        final_residual < 0.3,
+        "✅ GMRES restart accuracy: residual = {}",
+        final_residual
+    );
 }
 
 /// Preconditioner integration validation - Sprint 1.72.0 Core Deliverable
@@ -74,8 +90,12 @@ fn test_preconditioner_integration() {
     // Create diagonally dominant but ill-conditioned matrix
     for i in 0..4 {
         coo.push(i, i, 10.0 + i as f64); // Varying diagonal dominance
-        if i > 0 { coo.push(i, i-1, -1.0); }
-        if i < 3 { coo.push(i, i+1, -1.0); }
+        if i > 0 {
+            coo.push(i, i - 1, -1.0);
+        }
+        if i < 3 {
+            coo.push(i, i + 1, -1.0);
+        }
     }
     let a = CsrMatrix::from(&coo);
     let b = DVector::from_element(4, 1.0);
@@ -86,7 +106,9 @@ fn test_preconditioner_integration() {
     // Verify preconditioner application works
     let r = DVector::from_element(4, 2.0);
     let mut z = DVector::zeros(4);
-    jacobi.apply_to(&r, &mut z).expect("✅ Preconditioner application successful");
+    jacobi
+        .apply_to(&r, &mut z)
+        .expect("✅ Preconditioner application successful");
 
     assert!(z.norm() > 0.0, "✅ Preconditioner output non-zero");
 
@@ -99,7 +121,11 @@ fn test_preconditioner_integration() {
     assert!(result.is_ok(), "✅ Preconditioned solver converged");
 
     let residual = (&a * &x - &b).norm();
-    assert!(residual < 1e-6, "✅ Preconditioned accuracy: residual = {}", residual);
+    assert!(
+        residual < 1e-6,
+        "✅ Preconditioned accuracy: residual = {}",
+        residual
+    );
 }
 
 /// Convergence testing across matrix conditions - Sprint 1.72.0 Advanced Validation
@@ -127,14 +153,23 @@ fn test_solver_convergence_matrix_conditions() {
         let mut x = DVector::zeros(4);
 
         // ✅ Test robustness across condition numbers
-        let config = cfd_math::linear_solver::IterativeSolverConfig::new(1e-6).with_max_iterations(100);
+        let config =
+            cfd_math::linear_solver::IterativeSolverConfig::new(1e-6).with_max_iterations(100);
         let solver = BiCGSTAB::new(config);
 
         let result = solver.solve::<IdentityPreconditioner>(&a, &b, &mut x, None);
-        assert!(result.is_ok(), "✅ Robustness at condition number {}", condition_num);
+        assert!(
+            result.is_ok(),
+            "✅ Robustness at condition number {}",
+            condition_num
+        );
 
         let residual = (&a * &x - &b).norm();
-        assert!(residual < 1e-4, "✅ Accuracy maintained: residual = {}", residual);
+        assert!(
+            residual < 1e-4,
+            "✅ Accuracy maintained: residual = {}",
+            residual
+        );
     }
 }
 

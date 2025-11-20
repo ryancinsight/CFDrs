@@ -9,7 +9,7 @@ pub use integrators::{
     ForwardEuler, RungeKutta2, RungeKutta4, TimeIntegratorEnum, TimeIntegratorTrait,
 };
 pub use results::TimeIntegrationResult;
-pub use stability_analysis::{StabilityAnalysisRunner, StabilityAnalysisReport};
+pub use stability_analysis::{StabilityAnalysisReport, StabilityAnalysisRunner};
 pub use validation::TimeIntegrationValidator;
 
 // Edge case tests

@@ -7,8 +7,10 @@
 //! - Convergence studies and accuracy assessment
 
 use super::constants::{C2_EPSILON, EPSILON_MIN, SST_BETA_1};
-use super::traits::{TurbulenceModel, LESTurbulenceModel};
-use super::{KEpsilonModel, KOmegaSSTModel, SpalartAllmaras, SmagorinskyLES, DetachedEddySimulation};
+use super::traits::{LESTurbulenceModel, TurbulenceModel};
+use super::{
+    DetachedEddySimulation, KEpsilonModel, KOmegaSSTModel, SmagorinskyLES, SpalartAllmaras,
+};
 use nalgebra::{DMatrix, RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
 
@@ -30,8 +32,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
 
         // Initial conditions for homogeneous turbulence decay
         // Based on Comte-Bellot & Corrsin (1971) experimental data
-        let k0 = T::from_f64(1.0).unwrap();    // Initial turbulent kinetic energy
-        let eps0 = T::from_f64(0.1).unwrap();  // Initial dissipation rate
+        let k0 = T::from_f64(1.0).unwrap(); // Initial turbulent kinetic energy
+        let eps0 = T::from_f64(0.1).unwrap(); // Initial dissipation rate
         let _density = T::from_f64(1.0).unwrap();
 
         // Time integration parameters
@@ -55,7 +57,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             // Analytical solution for homogeneous decay (approximate)
             // dk/dt = -ε, dε/dt = -C2 * ε² / k
             let dk_dt = -eps;
-            let deps_dt = -T::from_f64(C2_EPSILON).unwrap() * eps * eps / k.max(T::from_f64(1e-10).unwrap());
+            let deps_dt =
+                -T::from_f64(C2_EPSILON).unwrap() * eps * eps / k.max(T::from_f64(1e-10).unwrap());
 
             k = (k + dk_dt * dt).max(T::zero());
             eps = (eps + deps_dt * dt).max(T::from_f64(EPSILON_MIN).unwrap());
@@ -69,9 +72,13 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
 
         ValidationResult {
             test_name: "k-ε Homogeneous Turbulence Decay".to_string(),
-            passed: decay_rate > T::from_f64(0.05).unwrap() && decay_rate < T::from_f64(0.5).unwrap(),
+            passed: decay_rate > T::from_f64(0.05).unwrap()
+                && decay_rate < T::from_f64(0.5).unwrap(),
             metric: format!("Decay rate: {:.4}", decay_rate.to_f64().unwrap_or(0.0)),
-            details: format!("k_final/k_initial = {:.4}", final_k_ratio.to_f64().unwrap_or(0.0)),
+            details: format!(
+                "k_final/k_initial = {:.4}",
+                final_k_ratio.to_f64().unwrap_or(0.0)
+            ),
         }
     }
 
@@ -85,14 +92,16 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
 
         // Expected ω_wall from SST theory
         let beta1 = T::from_f64(SST_BETA_1).unwrap();
-        let expected_omega_wall = T::from_f64(6.0).unwrap() * molecular_viscosity / (beta1 * y_wall * y_wall);
+        let expected_omega_wall =
+            T::from_f64(6.0).unwrap() * molecular_viscosity / (beta1 * y_wall * y_wall);
 
         // Test the boundary condition application
         let _k = [T::zero()]; // Wall value
         let mut omega = [T::one()]; // Will be set by BC
 
         // Apply boundary conditions (this would normally be done by TurbulenceBoundaryManager)
-        let omega_wall = T::from_f64(6.0).unwrap() * molecular_viscosity / (beta1 * y_wall * y_wall);
+        let omega_wall =
+            T::from_f64(6.0).unwrap() * molecular_viscosity / (beta1 * y_wall * y_wall);
         omega[0] = omega_wall;
 
         let omega_ratio = omega[0] / expected_omega_wall;
@@ -101,9 +110,11 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             test_name: "k-ω SST Wall Boundary Condition".to_string(),
             passed: (omega_ratio - T::one()).abs() < self.tolerance,
             metric: format!("ω_wall ratio: {:.4}", omega_ratio.to_f64().unwrap_or(0.0)),
-            details: format!("Expected: {:.2e}, Got: {:.2e}",
-                           expected_omega_wall.to_f64().unwrap_or(0.0),
-                           omega[0].to_f64().unwrap_or(0.0)),
+            details: format!(
+                "Expected: {:.2e}, Got: {:.2e}",
+                expected_omega_wall.to_f64().unwrap_or(0.0),
+                omega[0].to_f64().unwrap_or(0.0)
+            ),
         }
     }
 
@@ -113,8 +124,16 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
 
         // Test cases from Spalart-Allmaras paper
         let test_cases = vec![
-            (T::from_f64(1e-4).unwrap(), T::from_f64(1e-5).unwrap(), T::from_f64(7.36e-5).unwrap()), // Low ν̃
-            (T::from_f64(1e-2).unwrap(), T::from_f64(1e-5).unwrap(), T::from_f64(9.41e-4).unwrap()), // High ν̃
+            (
+                T::from_f64(1e-4).unwrap(),
+                T::from_f64(1e-5).unwrap(),
+                T::from_f64(7.36e-5).unwrap(),
+            ), // Low ν̃
+            (
+                T::from_f64(1e-2).unwrap(),
+                T::from_f64(1e-5).unwrap(),
+                T::from_f64(9.41e-4).unwrap(),
+            ), // High ν̃
         ];
 
         let mut passed_all = true;
@@ -126,12 +145,14 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             let passed = (ratio - T::one()).abs() < T::from_f64(0.01).unwrap(); // 1% tolerance
 
             passed_all &= passed;
-            details.push_str(&format!("ν̃={:.2e}, ν={:.2e}: got {:.2e}, expected {:.2e}, ratio={:.4}\n",
-                                    nu_tilde.to_f64().unwrap_or(0.0),
-                                    nu.to_f64().unwrap_or(0.0),
-                                    nu_t.to_f64().unwrap_or(0.0),
-                                    expected_nu_t.to_f64().unwrap_or(0.0),
-                                    ratio.to_f64().unwrap_or(0.0)));
+            details.push_str(&format!(
+                "ν̃={:.2e}, ν={:.2e}: got {:.2e}, expected {:.2e}, ratio={:.4}\n",
+                nu_tilde.to_f64().unwrap_or(0.0),
+                nu.to_f64().unwrap_or(0.0),
+                nu_t.to_f64().unwrap_or(0.0),
+                expected_nu_t.to_f64().unwrap_or(0.0),
+                ratio.to_f64().unwrap_or(0.0)
+            ));
         }
 
         ValidationResult {
@@ -156,9 +177,18 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
 
                 // Run a few iterations
                 for _ in 0..5 {
-                    model.update(&mut k, &mut epsilon, &vec![nalgebra::Vector2::zeros(); nx * ny],
-                               T::one(), T::from_f64(1e-5).unwrap(), T::from_f64(0.01).unwrap(),
-                               T::from_f64(0.1).unwrap(), T::from_f64(0.1).unwrap()).unwrap();
+                    model
+                        .update(
+                            &mut k,
+                            &mut epsilon,
+                            &vec![nalgebra::Vector2::zeros(); nx * ny],
+                            T::one(),
+                            T::from_f64(1e-5).unwrap(),
+                            T::from_f64(0.01).unwrap(),
+                            T::from_f64(0.1).unwrap(),
+                            T::from_f64(0.1).unwrap(),
+                        )
+                        .unwrap();
                 }
 
                 (k, epsilon, vec![], vec![])
@@ -170,9 +200,18 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
 
                 // Run a few iterations
                 for _ in 0..5 {
-                    model.update(&mut k, &mut omega, &vec![nalgebra::Vector2::zeros(); nx * ny],
-                               T::one(), T::from_f64(1e-5).unwrap(), T::from_f64(0.01).unwrap(),
-                               T::from_f64(0.1).unwrap(), T::from_f64(0.1).unwrap()).unwrap();
+                    model
+                        .update(
+                            &mut k,
+                            &mut omega,
+                            &vec![nalgebra::Vector2::zeros(); nx * ny],
+                            T::one(),
+                            T::from_f64(1e-5).unwrap(),
+                            T::from_f64(0.01).unwrap(),
+                            T::from_f64(0.1).unwrap(),
+                            T::from_f64(0.1).unwrap(),
+                        )
+                        .unwrap();
                 }
 
                 (k, vec![], omega, vec![])
@@ -183,32 +222,41 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
 
                 // Run a few iterations
                 for _ in 0..5 {
-                    _model.update(&mut nu_tilde, &vec![nalgebra::Vector2::zeros(); nx * ny],
-                               T::from_f64(1e-5).unwrap(), T::from_f64(0.01).unwrap(),
-                               T::from_f64(0.1).unwrap(), T::from_f64(0.1).unwrap()).unwrap();
+                    _model
+                        .update(
+                            &mut nu_tilde,
+                            &vec![nalgebra::Vector2::zeros(); nx * ny],
+                            T::from_f64(1e-5).unwrap(),
+                            T::from_f64(0.01).unwrap(),
+                            T::from_f64(0.1).unwrap(),
+                            T::from_f64(0.1).unwrap(),
+                        )
+                        .unwrap();
                 }
 
                 (vec![], vec![], vec![], nu_tilde)
             }
-            _ => return ValidationResult {
-                test_name: format!("{model_name} Convergence"),
-                passed: false,
-                metric: "Unknown model".to_string(),
-                details: "Model not recognized".to_string(),
+            _ => {
+                return ValidationResult {
+                    test_name: format!("{model_name} Convergence"),
+                    passed: false,
+                    metric: "Unknown model".to_string(),
+                    details: "Model not recognized".to_string(),
+                }
             }
         };
 
         // Check for NaN/inf values (indicates numerical instability)
-        let has_nan_inf = k.iter().any(|&x| !x.is_finite()) ||
-                          epsilon.iter().any(|&x| !x.is_finite()) ||
-                          omega.iter().any(|&x| !x.is_finite()) ||
-                          nu_tilde.iter().any(|&x| !x.is_finite());
+        let has_nan_inf = k.iter().any(|&x| !x.is_finite())
+            || epsilon.iter().any(|&x| !x.is_finite())
+            || omega.iter().any(|&x| !x.is_finite())
+            || nu_tilde.iter().any(|&x| !x.is_finite());
 
         // Check for positivity
-        let all_positive = k.iter().all(|&x| x >= T::zero()) &&
-                          epsilon.iter().all(|&x| x >= T::zero()) &&
-                          omega.iter().all(|&x| x >= T::zero()) &&
-                          nu_tilde.iter().all(|&x| x >= T::zero());
+        let all_positive = k.iter().all(|&x| x >= T::zero())
+            && epsilon.iter().all(|&x| x >= T::zero())
+            && omega.iter().all(|&x| x >= T::zero())
+            && nu_tilde.iter().all(|&x| x >= T::zero());
 
         let passed = !has_nan_inf && all_positive;
 
@@ -273,7 +321,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
         let mut total_sgs = 0.0f64;
         let mut count = 0;
 
-        for j in 1..15 { // Interior points
+        for j in 1..15 {
+            // Interior points
             for i in 1..15 {
                 let sgs = sgs_viscosity[(i, j)];
                 if sgs < 0.0 {
@@ -291,7 +340,9 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             test_name: "Smagorinsky LES SGS Viscosity".to_string(),
             passed: all_positive && reasonable_magnitude,
             metric: format!("Avg SGS: {avg_sgs_f64:.2e}"),
-            details: format!("Positive: {all_positive}, Reasonable magnitude: {reasonable_magnitude}"),
+            details: format!(
+                "Positive: {all_positive}, Reasonable magnitude: {reasonable_magnitude}"
+            ),
         }
     }
 
@@ -400,7 +451,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
                 // Simplified velocity profile: u(y) = U_inf * (y/δ)^{1/7}
                 let y_over_delta = j as f64 / (ny - 1) as f64;
                 let u_velocity = if y_over_delta < 1.0 {
-                    free_stream_velocity * y_over_delta.powf(1.0/7.0)
+                    free_stream_velocity * y_over_delta.powf(1.0 / 7.0)
                 } else {
                     free_stream_velocity
                 };
@@ -414,21 +465,24 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
         let dy = 0.001;
 
         for _ in 0..10 {
-            k_model.update(
-                &mut k_field,
-                &mut eps_field,
-                &velocity_field,
-                1.0, // density
-                kinematic_viscosity,
-                dt,
-                dx,
-                dy,
-            ).unwrap();
+            k_model
+                .update(
+                    &mut k_field,
+                    &mut eps_field,
+                    &velocity_field,
+                    1.0, // density
+                    kinematic_viscosity,
+                    dt,
+                    dx,
+                    dy,
+                )
+                .unwrap();
         }
 
         // Calculate skin friction coefficient
         // Cf = τ_wall / (0.5 * ρ * U_inf²) = ν * (du/dy)|wall / U_inf
-        let wall_shear_stress = kinematic_viscosity * (velocity_field[ny].x - velocity_field[0].x) / dy;
+        let wall_shear_stress =
+            kinematic_viscosity * (velocity_field[ny].x - velocity_field[0].x) / dy;
         let calculated_cf = wall_shear_stress / (0.5 * free_stream_velocity * free_stream_velocity);
 
         let cf_ratio = calculated_cf / expected_cf;
@@ -438,7 +492,10 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             test_name: "Flat Plate Boundary Layer - k-ε Model".to_string(),
             passed,
             metric: format!("Cf ratio: {:.3}", cf_ratio),
-            details: format!("Expected Cf: {:.6}, Calculated: {:.6}", expected_cf, calculated_cf),
+            details: format!(
+                "Expected Cf: {:.6}, Calculated: {:.6}",
+                expected_cf, calculated_cf
+            ),
         }
     }
 
@@ -466,7 +523,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             } else if y_plus <= 30.0_f64 {
                 5.0_f64 * (y_plus / 5.0_f64).ln() + 5.17_f64 // Log law
             } else {
-                2.5_f64 * (y_plus / 30.0_f64).ln() + 5.17_f64 + 2.5_f64 * (30.0_f64 / 5.0_f64).ln() // Outer layer
+                2.5_f64 * (y_plus / 30.0_f64).ln() + 5.17_f64 + 2.5_f64 * (30.0_f64 / 5.0_f64).ln()
+                // Outer layer
             };
             let u_velocity = u_plus * kinematic_viscosity * re_tau; // Convert to physical velocity
 
@@ -482,16 +540,18 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
         let dy = 0.001;
 
         for _ in 0..15 {
-            k_model.update(
-                &mut k_field,
-                &mut omega_field,
-                &velocity_field,
-                1.0,
-                kinematic_viscosity,
-                dt,
-                dx,
-                dy,
-            ).unwrap();
+            k_model
+                .update(
+                    &mut k_field,
+                    &mut omega_field,
+                    &velocity_field,
+                    1.0,
+                    kinematic_viscosity,
+                    dt,
+                    dx,
+                    dy,
+                )
+                .unwrap();
         }
 
         // Extract mean velocity profile and compare
@@ -561,10 +621,12 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
                 let x = i as f64 * 0.05_f64;
                 let y = j as f64 * 0.05_f64;
                 // Create isotropic turbulence with multiple wavenumbers
-                let fluctuation_u = 0.1_f64 * ((2.0_f64 * PI * x / 0.5_f64).sin() + (4.0_f64 * PI * x / 0.5_f64).sin()) *
-                                   ((2.0_f64 * PI * y / 0.5_f64).cos() + (4.0_f64 * PI * y / 0.5_f64).cos());
-                let fluctuation_v = 0.1_f64 * ((2.0_f64 * PI * x / 0.5_f64).cos() + (4.0_f64 * PI * x / 0.5_f64).cos()) *
-                                   ((2.0_f64 * PI * y / 0.5_f64).sin() + (4.0_f64 * PI * y / 0.5_f64).sin());
+                let fluctuation_u = 0.1_f64
+                    * ((2.0_f64 * PI * x / 0.5_f64).sin() + (4.0_f64 * PI * x / 0.5_f64).sin())
+                    * ((2.0_f64 * PI * y / 0.5_f64).cos() + (4.0_f64 * PI * y / 0.5_f64).cos());
+                let fluctuation_v = 0.1_f64
+                    * ((2.0_f64 * PI * x / 0.5_f64).cos() + (4.0_f64 * PI * x / 0.5_f64).cos())
+                    * ((2.0_f64 * PI * y / 0.5_f64).sin() + (4.0_f64 * PI * y / 0.5_f64).sin());
                 velocity_u[(i, j)] = fluctuation_u;
                 velocity_v[(i, j)] = fluctuation_v;
             }
@@ -582,16 +644,18 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
 
         // Run LES simulation for several time steps
         for step in 0..20 {
-            les_model.update(
-                &velocity_u,
-                &velocity_v,
-                &DMatrix::zeros(nx, ny), // pressure
-                density,
-                viscosity,
-                dt,
-                dx,
-                dy,
-            ).unwrap();
+            les_model
+                .update(
+                    &velocity_u,
+                    &velocity_v,
+                    &DMatrix::zeros(nx, ny), // pressure
+                    density,
+                    viscosity,
+                    dt,
+                    dx,
+                    dy,
+                )
+                .unwrap();
 
             if step % 5 == 0 {
                 let current_ke = Self::calculate_kinetic_energy(&velocity_u, &velocity_v);
@@ -617,8 +681,10 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             test_name: "LES Decaying Homogeneous Turbulence".to_string(),
             passed,
             metric: format!("Decay rate ratio: {:.2}", decay_ratio),
-            details: format!("Expected: {:.2}, Calculated: {:.3}, Final energy ratio: {:.4}",
-                           expected_decay_rate, decay_rate, final_energy_ratio),
+            details: format!(
+                "Expected: {:.2}, Calculated: {:.3}, Final energy ratio: {:.4}",
+                expected_decay_rate, decay_rate, final_energy_ratio
+            ),
         }
     }
 
@@ -664,16 +730,18 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
                 let pressure = nalgebra::DMatrix::zeros(nx, ny);
 
                 for _ in 0..iterations {
-                    model.update(
-                        &velocity_u,
-                        &velocity_v,
-                        &pressure,
-                        1.0,
-                        1e-5,
-                        0.001,
-                        0.1,
-                        0.1,
-                    ).unwrap();
+                    model
+                        .update(
+                            &velocity_u,
+                            &velocity_v,
+                            &pressure,
+                            1.0,
+                            1e-5,
+                            0.001,
+                            0.1,
+                            0.1,
+                        )
+                        .unwrap();
                 }
             }
             "des" => {
@@ -691,23 +759,27 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
                 let pressure = nalgebra::DMatrix::zeros(nx, ny);
 
                 for _ in 0..iterations {
-                    model.update(
-                        &velocity_u,
-                        &velocity_v,
-                        &pressure,
-                        1.0,
-                        1e-5,
-                        0.001,
-                        0.1,
-                        0.1,
-                    ).unwrap();
+                    model
+                        .update(
+                            &velocity_u,
+                            &velocity_v,
+                            &pressure,
+                            1.0,
+                            1e-5,
+                            0.001,
+                            0.1,
+                            0.1,
+                        )
+                        .unwrap();
                 }
             }
-            _ => return ValidationResult {
-                test_name: format!("{model_name} Performance"),
-                passed: false,
-                metric: "Unknown model".to_string(),
-                details: "Performance test not implemented".to_string(),
+            _ => {
+                return ValidationResult {
+                    test_name: format!("{model_name} Performance"),
+                    passed: false,
+                    metric: "Unknown model".to_string(),
+                    details: "Performance test not implemented".to_string(),
+                }
             }
         }
 
@@ -729,21 +801,17 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             self.validate_k_epsilon_homogeneous_decay(),
             self.validate_k_omega_sst_wall_behavior(),
             self.validate_sa_eddy_viscosity(),
-
             // Experimental benchmark validations (Sprint 1.93.0 focus)
             self.validate_flat_plate_boundary_layer(),
             self.validate_channel_flow_dns(),
             self.validate_les_decaying_turbulence(),
-
             // Model convergence and stability
             self.validate_model_convergence("k-epsilon"),
             self.validate_model_convergence("k-omega-sst"),
             self.validate_model_convergence("spalart-allmaras"),
-
             // LES/DES specific validations
             self.validate_smagorinsky_sgs(),
             self.validate_des_length_scale(),
-
             // Performance benchmarks
             self.validate_model_performance("smagorinsky-les"),
             self.validate_model_performance("des"),
@@ -817,7 +885,10 @@ pub fn run_turbulence_validation<T: RealField + FromPrimitive + ToPrimitive + Co
     let mut les_results = Vec::new();
 
     for result in &results {
-        if result.test_name.contains("k-ε") || result.test_name.contains("k-ω") || result.test_name.contains("SA") {
+        if result.test_name.contains("k-ε")
+            || result.test_name.contains("k-ω")
+            || result.test_name.contains("SA")
+        {
             if !result.test_name.contains("LES") && !result.test_name.contains("DES") {
                 rans_results.push(result.clone());
             }
@@ -831,14 +902,22 @@ pub fn run_turbulence_validation<T: RealField + FromPrimitive + ToPrimitive + Co
     println!("-------------------------");
     for result in &rans_results {
         result.display();
-        if result.passed { passed += 1; } else { failed += 1; }
+        if result.passed {
+            passed += 1;
+        } else {
+            failed += 1;
+        }
     }
 
     println!("\n🌪️  LES/DES Model Validations:");
     println!("----------------------------");
     for result in &les_results {
         result.display();
-        if result.passed { passed += 1; } else { failed += 1; }
+        if result.passed {
+            passed += 1;
+        } else {
+            failed += 1;
+        }
     }
 
     // Performance results
@@ -847,15 +926,30 @@ pub fn run_turbulence_validation<T: RealField + FromPrimitive + ToPrimitive + Co
     for result in &results {
         if result.test_name.contains("Performance") {
             result.display();
-            if result.passed { passed += 1; } else { failed += 1; }
+            if result.passed {
+                passed += 1;
+            } else {
+                failed += 1;
+            }
         }
     }
 
     println!("\n📊 Validation Summary:");
-    println!("  RANS Tests: {} passed, {} total", rans_results.iter().filter(|r| r.passed).count(), rans_results.len());
-    println!("  LES/DES Tests: {} passed, {} total", les_results.iter().filter(|r| r.passed).count(), les_results.len());
+    println!(
+        "  RANS Tests: {} passed, {} total",
+        rans_results.iter().filter(|r| r.passed).count(),
+        rans_results.len()
+    );
+    println!(
+        "  LES/DES Tests: {} passed, {} total",
+        les_results.iter().filter(|r| r.passed).count(),
+        les_results.len()
+    );
     println!("  Total: {passed} passed, {failed} failed, {total_tests} total");
-    println!("  Success Rate: {:.1}%", 100.0 * passed as f32 / total_tests as f32);
+    println!(
+        "  Success Rate: {:.1}%",
+        100.0 * passed as f32 / total_tests as f32
+    );
 
     if failed == 0 {
         println!("🎉 All turbulence validation tests passed!");
@@ -881,12 +975,19 @@ pub fn run_rans_benchmark_suite<T: RealField + FromPrimitive + ToPrimitive + Cop
 
     for result in &results {
         result.display();
-        if result.passed { passed += 1; } else { _failed += 1; }
+        if result.passed {
+            passed += 1;
+        } else {
+            _failed += 1;
+        }
     }
 
     println!("\n📊 RANS Benchmark Summary:");
     println!("  Passed: {passed}/{}", results.len());
-    println!("  Success Rate: {:.1}%", 100.0 * passed as f32 / results.len() as f32);
+    println!(
+        "  Success Rate: {:.1}%",
+        100.0 * passed as f32 / results.len() as f32
+    );
 }
 
 /// Run LES/DES benchmark suite
@@ -904,12 +1005,19 @@ pub fn run_les_benchmark_suite<T: RealField + FromPrimitive + ToPrimitive + Copy
 
     for result in &results {
         result.display();
-        if result.passed { passed += 1; } else { _failed += 1; }
+        if result.passed {
+            passed += 1;
+        } else {
+            _failed += 1;
+        }
     }
 
     println!("\n📊 LES/DES Benchmark Summary:");
     println!("  Passed: {passed}/{}", results.len());
-    println!("  Success Rate: {:.1}%", 100.0 * passed as f32 / results.len() as f32);
+    println!(
+        "  Success Rate: {:.1}%",
+        100.0 * passed as f32 / results.len() as f32
+    );
 }
 
 #[cfg(test)]

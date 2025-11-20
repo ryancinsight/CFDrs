@@ -32,7 +32,7 @@ impl<T: RealField + FromPrimitive + Copy> StructuredGrid2D<T> {
                 "Grid dimensions must be positive".to_string(),
             ));
         }
-        
+
         if nx == 1 || ny == 1 {
             return Err(Error::InvalidConfiguration(
                 "Grid must have at least 2 points in each direction".to_string(),

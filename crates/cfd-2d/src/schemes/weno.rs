@@ -228,29 +228,99 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
         let mut beta = [T::zero(); 5];
 
         // Beta_0 (stencil 0: u[j-5..j])
-        beta[0] = T::from_f64(0.0015308084989341916).unwrap_or_else(T::zero) * (v[0] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[1] + T::from_f64(5.0).unwrap_or_else(T::zero) * v[2]).powi(2)
-            + T::from_f64(0.0027409884219028647).unwrap_or_else(T::zero) * (v[0] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[1] + T::from_f64(4.0).unwrap_or_else(T::zero) * v[2] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3] + v[4]).powi(2)
-            + T::from_f64(0.031254897785245544).unwrap_or_else(T::zero) * (v[0] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[1] + T::from_f64(4.0).unwrap_or_else(T::zero) * v[2] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4] + T::from_f64(5.0).unwrap_or_else(T::zero) * v[5]).powi(2);
+        beta[0] = T::from_f64(0.0015308084989341916).unwrap_or_else(T::zero)
+            * (v[0] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[1]
+                + T::from_f64(5.0).unwrap_or_else(T::zero) * v[2])
+                .powi(2)
+            + T::from_f64(0.0027409884219028647).unwrap_or_else(T::zero)
+                * (v[0] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[1]
+                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[2]
+                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
+                    + v[4])
+                    .powi(2)
+            + T::from_f64(0.031254897785245544).unwrap_or_else(T::zero)
+                * (v[0] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[1]
+                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[2]
+                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
+                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
+                    + T::from_f64(5.0).unwrap_or_else(T::zero) * v[5])
+                    .powi(2);
 
         // Beta_1 (stencil 1: u[j-4..j+1])
-        beta[1] = T::from_f64(0.0015308084989341916).unwrap_or_else(T::zero) * (v[1] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[2] + T::from_f64(5.0).unwrap_or_else(T::zero) * v[3]).powi(2)
-            + T::from_f64(0.0027409884219028647).unwrap_or_else(T::zero) * (v[1] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[2] + T::from_f64(4.0).unwrap_or_else(T::zero) * v[3] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4] + v[5]).powi(2)
-            + T::from_f64(0.031254897785245544).unwrap_or_else(T::zero) * (v[1] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[2] + T::from_f64(4.0).unwrap_or_else(T::zero) * v[3] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5] + T::from_f64(5.0).unwrap_or_else(T::zero) * v[6]).powi(2);
+        beta[1] = T::from_f64(0.0015308084989341916).unwrap_or_else(T::zero)
+            * (v[1] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[2]
+                + T::from_f64(5.0).unwrap_or_else(T::zero) * v[3])
+                .powi(2)
+            + T::from_f64(0.0027409884219028647).unwrap_or_else(T::zero)
+                * (v[1] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[2]
+                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
+                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
+                    + v[5])
+                    .powi(2)
+            + T::from_f64(0.031254897785245544).unwrap_or_else(T::zero)
+                * (v[1] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[2]
+                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
+                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
+                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
+                    + T::from_f64(5.0).unwrap_or_else(T::zero) * v[6])
+                    .powi(2);
 
         // Beta_2 (stencil 2: u[j-3..j+2])
-        beta[2] = T::from_f64(0.0015308084989341916).unwrap_or_else(T::zero) * (v[2] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3] + T::from_f64(5.0).unwrap_or_else(T::zero) * v[4]).powi(2)
-            + T::from_f64(0.0027409884219028647).unwrap_or_else(T::zero) * (v[2] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3] + T::from_f64(4.0).unwrap_or_else(T::zero) * v[4] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5] + v[6]).powi(2)
-            + T::from_f64(0.031254897785245544).unwrap_or_else(T::zero) * (v[2] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3] + T::from_f64(4.0).unwrap_or_else(T::zero) * v[4] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[6] + T::from_f64(5.0).unwrap_or_else(T::zero) * v[7]).powi(2);
+        beta[2] = T::from_f64(0.0015308084989341916).unwrap_or_else(T::zero)
+            * (v[2] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
+                + T::from_f64(5.0).unwrap_or_else(T::zero) * v[4])
+                .powi(2)
+            + T::from_f64(0.0027409884219028647).unwrap_or_else(T::zero)
+                * (v[2] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
+                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
+                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
+                    + v[6])
+                    .powi(2)
+            + T::from_f64(0.031254897785245544).unwrap_or_else(T::zero)
+                * (v[2] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
+                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
+                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
+                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[6]
+                    + T::from_f64(5.0).unwrap_or_else(T::zero) * v[7])
+                    .powi(2);
 
         // Beta_3 (stencil 3: u[j-2..j+3])
-        beta[3] = T::from_f64(0.0015308084989341916).unwrap_or_else(T::zero) * (v[3] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4] + T::from_f64(5.0).unwrap_or_else(T::zero) * v[5]).powi(2)
-            + T::from_f64(0.0027409884219028647).unwrap_or_else(T::zero) * (v[3] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4] + T::from_f64(4.0).unwrap_or_else(T::zero) * v[5] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[6] + v[7]).powi(2)
-            + T::from_f64(0.031254897785245544).unwrap_or_else(T::zero) * (v[3] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4] + T::from_f64(4.0).unwrap_or_else(T::zero) * v[5] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[6] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[7] + T::from_f64(5.0).unwrap_or_else(T::zero) * v[8]).powi(2);
+        beta[3] = T::from_f64(0.0015308084989341916).unwrap_or_else(T::zero)
+            * (v[3] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
+                + T::from_f64(5.0).unwrap_or_else(T::zero) * v[5])
+                .powi(2)
+            + T::from_f64(0.0027409884219028647).unwrap_or_else(T::zero)
+                * (v[3] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
+                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
+                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[6]
+                    + v[7])
+                    .powi(2)
+            + T::from_f64(0.031254897785245544).unwrap_or_else(T::zero)
+                * (v[3] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
+                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
+                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[6]
+                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[7]
+                    + T::from_f64(5.0).unwrap_or_else(T::zero) * v[8])
+                    .powi(2);
 
         // Beta_4 (stencil 4: u[j-1..j+4])
-        beta[4] = T::from_f64(0.0015308084989341916).unwrap_or_else(T::zero) * (v[4] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5] + T::from_f64(5.0).unwrap_or_else(T::zero) * v[6]).powi(2)
-            + T::from_f64(0.0027409884219028647).unwrap_or_else(T::zero) * (v[4] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5] + T::from_f64(4.0).unwrap_or_else(T::zero) * v[6] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[7] + v[8]).powi(2)
-            + T::from_f64(0.031254897785245544).unwrap_or_else(T::zero) * (v[4] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5] + T::from_f64(4.0).unwrap_or_else(T::zero) * v[6] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[7] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[8] + T::from_f64(5.0).unwrap_or_else(T::zero) * v[9]).powi(2);
+        beta[4] = T::from_f64(0.0015308084989341916).unwrap_or_else(T::zero)
+            * (v[4] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
+                + T::from_f64(5.0).unwrap_or_else(T::zero) * v[6])
+                .powi(2)
+            + T::from_f64(0.0027409884219028647).unwrap_or_else(T::zero)
+                * (v[4] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
+                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[6]
+                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[7]
+                    + v[8])
+                    .powi(2)
+            + T::from_f64(0.031254897785245544).unwrap_or_else(T::zero)
+                * (v[4] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
+                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[6]
+                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[7]
+                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[8]
+                    + T::from_f64(5.0).unwrap_or_else(T::zero) * v[9])
+                    .powi(2);
 
         beta
     }
@@ -259,11 +329,11 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
     fn weno_weights(&self, beta: &[T; 5]) -> [T; 5] {
         // Optimized weights for WENO9 (Henrick et al. 2005)
         let d = [
-            T::from_f64(1.0/126.0).unwrap_or_else(T::zero),  // d0
-            T::from_f64(10.0/63.0).unwrap_or_else(T::zero),  // d1
-            T::from_f64(10.0/21.0).unwrap_or_else(T::zero),  // d2
-            T::from_f64(10.0/63.0).unwrap_or_else(T::zero),  // d3
-            T::from_f64(1.0/126.0).unwrap_or_else(T::zero),  // d4
+            T::from_f64(1.0 / 126.0).unwrap_or_else(T::zero), // d0
+            T::from_f64(10.0 / 63.0).unwrap_or_else(T::zero), // d1
+            T::from_f64(10.0 / 21.0).unwrap_or_else(T::zero), // d2
+            T::from_f64(10.0 / 63.0).unwrap_or_else(T::zero), // d3
+            T::from_f64(1.0 / 126.0).unwrap_or_else(T::zero), // d4
         ];
 
         let mut alpha = [T::zero(); 5];

@@ -62,33 +62,29 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
         let dx_inv_val = dx_inv;
         let dy_inv_val = dy_inv;
 
-        dudy.par_iter_mut()
-            .enumerate()
-            .for_each(|(idx, dudy_val)| {
-                let j = idx / nx;
-                let i = idx % nx;
+        dudy.par_iter_mut().enumerate().for_each(|(idx, dudy_val)| {
+            let j = idx / nx;
+            let i = idx % nx;
 
-                if i > 0 && i < nx - 1 && j > 0 && j < ny - 1 {
-                    // ∂u/∂y = (u[i,j+1] - u[i,j-1]) / (2*dy)
-                    let u_up = u_slice[(j + 1) * nx + i];
-                    let u_down = u_slice[(j - 1) * nx + i];
-                    *dudy_val = (u_up - u_down) * dy_inv_val;
-                }
-            });
+            if i > 0 && i < nx - 1 && j > 0 && j < ny - 1 {
+                // ∂u/∂y = (u[i,j+1] - u[i,j-1]) / (2*dy)
+                let u_up = u_slice[(j + 1) * nx + i];
+                let u_down = u_slice[(j - 1) * nx + i];
+                *dudy_val = (u_up - u_down) * dy_inv_val;
+            }
+        });
 
-        dudx.par_iter_mut()
-            .enumerate()
-            .for_each(|(idx, dudx_val)| {
-                let j = idx / nx;
-                let i = idx % nx;
+        dudx.par_iter_mut().enumerate().for_each(|(idx, dudx_val)| {
+            let j = idx / nx;
+            let i = idx % nx;
 
-                if i > 0 && i < nx - 1 && j > 0 && j < ny - 1 {
-                    // ∂u/∂x = (u[i+1,j] - u[i-1,j]) / (2*dx)
-                    let u_right = u_slice[j * nx + (i + 1)];
-                    let u_left = u_slice[j * nx + (i - 1)];
-                    *dudx_val = (u_right - u_left) * dx_inv_val;
-                }
-            });
+            if i > 0 && i < nx - 1 && j > 0 && j < ny - 1 {
+                // ∂u/∂x = (u[i+1,j] - u[i-1,j]) / (2*dx)
+                let u_right = u_slice[j * nx + (i + 1)];
+                let u_left = u_slice[j * nx + (i - 1)];
+                *dudx_val = (u_right - u_left) * dx_inv_val;
+            }
+        });
 
         // For boundary points, use one-sided differences (non-parallelized for simplicity)
         self.apply_boundary_gradients(u, &mut dudx, &mut dudy, nx, ny, dx_inv, dy_inv);
@@ -164,12 +160,7 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
     /// Compute convective fluxes with SIMD acceleration
     ///
     /// Computes F = u*φ and G = v*φ using SIMD operations
-    pub fn convective_fluxes_simd(
-        &self,
-        phi: &[T],
-        u: &[T],
-        v: &[T],
-    ) -> Result<(Vec<T>, Vec<T>)> {
+    pub fn convective_fluxes_simd(&self, phi: &[T], u: &[T], v: &[T]) -> Result<(Vec<T>, Vec<T>)> {
         if phi.len() != u.len() || phi.len() != v.len() {
             return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Field dimensions don't match".to_string(),
@@ -181,14 +172,16 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
 
         // Use parallel execution for better performance on large arrays
         if phi.len() > 1000 {
-            f_flux.par_iter_mut()
+            f_flux
+                .par_iter_mut()
                 .zip(phi.par_iter())
                 .zip(u.par_iter())
                 .for_each(|((f, &p), &vel)| {
                     *f = p * vel;
                 });
 
-            g_flux.par_iter_mut()
+            g_flux
+                .par_iter_mut()
                 .zip(phi.par_iter())
                 .zip(v.par_iter())
                 .for_each(|((g, &p), &vel)| {
@@ -229,13 +222,15 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
 
         if dphi_dx.len() > 1000 {
             // Parallel execution for large arrays
-            f_viscous.par_iter_mut()
+            f_viscous
+                .par_iter_mut()
                 .zip(dphi_dx.par_iter())
                 .for_each(|(f, &grad)| {
                     *f = neg_viscosity * grad;
                 });
 
-            g_viscous.par_iter_mut()
+            g_viscous
+                .par_iter_mut()
                 .zip(dphi_dy.par_iter())
                 .for_each(|(g, &grad)| {
                     *g = neg_viscosity * grad;
@@ -275,7 +270,8 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> CfdFieldOps<T> {
 
         if a.len() > 1000 {
             // Parallel addition for large fields
-            result.par_iter_mut()
+            result
+                .par_iter_mut()
                 .zip(a.par_iter())
                 .zip(b.par_iter())
                 .for_each(|((r, &x), &y)| {
@@ -300,7 +296,8 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> CfdFieldOps<T> {
 
         if field.len() > 1000 {
             // Parallel scaling for large fields
-            result.par_iter_mut()
+            result
+                .par_iter_mut()
                 .zip(field.par_iter())
                 .for_each(|(r, &x)| {
                     *r = x * scalar;
@@ -322,9 +319,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> CfdFieldOps<T> {
 
         if field.len() > 1000 {
             // Parallel norm computation
-            let sum_sq: T = field.par_iter()
-                .map(|&x| x * x)
-                .sum();
+            let sum_sq: T = field.par_iter().map(|&x| x * x).sum();
             Ok(sum_sq.sqrt())
         } else {
             // Sequential norm computation

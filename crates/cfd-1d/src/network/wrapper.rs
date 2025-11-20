@@ -2,7 +2,11 @@
 
 use super::{NetworkGraph, Node};
 use crate::channel::ChannelGeometry;
-use cfd_core::fluid::{ConstantPropertyFluid, Fluid};
+use cfd_core::{
+    boundary::BoundaryCondition,
+    error::{Error, Result},
+    fluid::{ConstantPropertyFluid, Fluid},
+};
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
 use petgraph::graph::{EdgeIndex, NodeIndex};
@@ -16,6 +20,8 @@ pub struct Network<T: RealField + Copy> {
     pub graph: NetworkGraph<T>,
     /// Fluid properties for the network
     pub fluid: ConstantPropertyFluid<T>,
+    /// Prescribed boundary conditions
+    boundary_conditions: HashMap<NodeIndex, BoundaryCondition<T>>,
     /// Node pressures
     pub pressures: HashMap<NodeIndex, T>,
     /// Edge flow rates
@@ -71,6 +77,7 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
         Self {
             graph,
             fluid,
+            boundary_conditions: HashMap::new(),
             pressures: HashMap::new(),
             flow_rates: HashMap::new(),
             properties: HashMap::new(),
@@ -117,14 +124,37 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
         &self.flow_rates
     }
 
-    /// Set pressure at a node
+    /// Set a Dirichlet pressure boundary condition
     pub fn set_pressure(&mut self, node: NodeIndex, pressure: T) {
+        self.boundary_conditions
+            .insert(node, BoundaryCondition::Dirichlet { value: pressure });
         self.pressures.insert(node, pressure);
+    }
+
+    /// Set a Neumann (flow) boundary condition
+    pub fn set_neumann_flow(&mut self, node: NodeIndex, flow_rate: T) {
+        self.boundary_conditions.insert(
+            node,
+            BoundaryCondition::Neumann {
+                gradient: flow_rate,
+            },
+        );
+    }
+
+    /// Explicitly set a boundary condition
+    pub fn set_boundary_condition(&mut self, node: NodeIndex, condition: BoundaryCondition<T>) {
+        if let BoundaryCondition::Dirichlet { value } = &condition {
+            self.pressures.insert(node, *value);
+        }
+        self.boundary_conditions.insert(node, condition);
     }
 
     /// Set flow rate for an edge
     pub fn set_flow_rate(&mut self, edge: EdgeIndex, flow_rate: T) {
         self.flow_rates.insert(edge, flow_rate);
+        if let Some(edge_data) = self.graph.edge_weight_mut(edge) {
+            edge_data.flow_rate = flow_rate;
+        }
     }
 
     /// Add properties for an edge
@@ -158,32 +188,52 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
     }
 
     /// Update network state from solution vector
-    pub fn update_from_solution(&mut self, solution: &DVector<T>) {
+    pub fn update_from_solution(&mut self, solution: &DVector<T>) -> Result<()> {
+        self.pressures.clear();
         for (idx, &value) in solution.iter().enumerate() {
             let node_idx = NodeIndex::new(idx);
             self.pressures.insert(node_idx, value);
         }
+
+        self.flow_rates.clear();
+        let epsilon = T::default_epsilon();
+        let edge_indices: Vec<_> = self.graph.edge_indices().collect();
+
+        for edge_idx in edge_indices {
+            let (from, to) = self
+                .graph
+                .edge_endpoints(edge_idx)
+                .ok_or_else(|| Error::InvalidConfiguration("Missing edge endpoints".into()))?;
+            let resistance = self
+                .graph
+                .edge_weight(edge_idx)
+                .map(|edge| edge.resistance)
+                .ok_or_else(|| Error::InvalidConfiguration("Missing edge resistance".into()))?;
+
+            if resistance.abs() < epsilon {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Edge {} has zero resistance, cannot infer flow",
+                    edge_idx.index()
+                )));
+            }
+
+            let p_from = solution[from.index()];
+            let p_to = solution[to.index()];
+            let flow = (p_from - p_to) / resistance;
+
+            self.flow_rates.insert(edge_idx, flow);
+
+            if let Some(edge) = self.graph.edge_weight_mut(edge_idx) {
+                edge.flow_rate = flow;
+            }
+        }
+
+        Ok(())
     }
 
     /// Get boundary conditions for the network
-    ///
-    /// Returns boundary conditions based on node pressures.
-    /// For 1D network flow, boundary conditions are typically pressure specifications
-    /// at inlet/outlet nodes represented as Dirichlet conditions.
-    pub fn boundary_conditions(
-        &self,
-    ) -> HashMap<NodeIndex, cfd_core::boundary::BoundaryCondition<T>> {
-        // Generate boundary conditions from node pressures
-        // Nodes with specified pressures become Dirichlet boundary conditions
-        self.pressures
-            .iter()
-            .map(|(&node, &pressure)| {
-                (
-                    node,
-                    cfd_core::boundary::BoundaryCondition::Dirichlet { value: pressure },
-                )
-            })
-            .collect()
+    pub fn boundary_conditions(&self) -> &HashMap<NodeIndex, BoundaryCondition<T>> {
+        &self.boundary_conditions
     }
 
     /// Process edges in parallel

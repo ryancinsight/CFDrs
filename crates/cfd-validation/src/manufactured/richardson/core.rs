@@ -135,10 +135,7 @@ impl DataDrivenOrderEstimation {
     /// - Validates order estimates within reasonable CFD ranges (0.5 ≤ p ≤ 6.0)
     /// - Supports non-uniform refinement ratios r21 != r32 via bracketing root-finding
     /// - Falls back to second-order default only when no reliable data available
-    pub fn estimate_order_from_solutions<T>(
-        solutions: &[T],
-        refinement_ratios: &[T],
-    ) -> T
+    pub fn estimate_order_from_solutions<T>(solutions: &[T], refinement_ratios: &[T]) -> T
     where
         T: RealField + Copy + Float + FromPrimitive,
     {
@@ -155,7 +152,7 @@ impl DataDrivenOrderEstimation {
 
             // Check for sufficient solution variation (avoid division by near-zero)
             let e21 = phi_medium - phi_coarse; // change from coarse->medium
-            let e32 = phi_fine - phi_medium;   // change from medium->fine
+            let e32 = phi_fine - phi_medium; // change from medium->fine
 
             let eps = <T as FromPrimitive>::from_f64(1e-12).unwrap();
             let e21_abs = ComplexField::abs(e21);
@@ -170,7 +167,9 @@ impl DataDrivenOrderEstimation {
                 let r = r32;
                 let ratio = e21_abs / e32_abs;
                 let p_est = ComplexField::ln(ratio) / ComplexField::ln(r);
-                if p_est > <T as FromPrimitive>::from_f64(0.1).unwrap() && p_est < <T as FromPrimitive>::from_f64(6.0).unwrap() {
+                if p_est > <T as FromPrimitive>::from_f64(0.1).unwrap()
+                    && p_est < <T as FromPrimitive>::from_f64(6.0).unwrap()
+                {
                     order_estimates.push(p_est);
                 }
                 continue;
@@ -188,7 +187,9 @@ impl DataDrivenOrderEstimation {
                 let r32_p = ComplexField::powf(r32, p);
                 let num = r21_p - T::one();
                 let den = r32_p - T::one();
-                if ComplexField::abs(den) <= eps { return <T as FromPrimitive>::from_f64(1e12).unwrap(); }
+                if ComplexField::abs(den) <= eps {
+                    return <T as FromPrimitive>::from_f64(1e12).unwrap();
+                }
                 // General non-uniform refinement formula:
                 // |e21|/|e32| = r32^p * (r21^p - 1) / (r32^p - 1)
                 r32_p * (num / den) - target
@@ -200,14 +201,18 @@ impl DataDrivenOrderEstimation {
             // Expand hi if needed to achieve a bracket
             let mut expand_iters = 0;
             while (f_lo > T::zero() && f_hi > T::zero()) || (f_lo < T::zero() && f_hi < T::zero()) {
-                if expand_iters >= 5 { break; }
+                if expand_iters >= 5 {
+                    break;
+                }
                 hi = hi + hi; // exponential expansion
                 f_hi = f(hi);
                 expand_iters += 1;
             }
 
             // If still not bracketed, skip this triplet
-            if !((f_lo <= T::zero() && f_hi >= T::zero()) || (f_lo >= T::zero() && f_hi <= T::zero())) {
+            if !((f_lo <= T::zero() && f_hi >= T::zero())
+                || (f_lo >= T::zero() && f_hi <= T::zero()))
+            {
                 continue;
             }
 
@@ -218,17 +223,25 @@ impl DataDrivenOrderEstimation {
                 let mid = (lo + hi) / two;
                 let f_mid = f(mid);
                 if ComplexField::abs(f_mid) <= tol {
-                    lo = mid; hi = mid; break;
+                    lo = mid;
+                    hi = mid;
+                    break;
                 }
-                if (f_lo <= T::zero() && f_mid >= T::zero()) || (f_lo >= T::zero() && f_mid <= T::zero()) {
-                    hi = mid; f_hi = f_mid;
+                if (f_lo <= T::zero() && f_mid >= T::zero())
+                    || (f_lo >= T::zero() && f_mid <= T::zero())
+                {
+                    hi = mid;
+                    f_hi = f_mid;
                 } else {
-                    lo = mid; f_lo = f_mid;
+                    lo = mid;
+                    f_lo = f_mid;
                 }
             }
 
             let p_est = (lo + hi) / <T as FromPrimitive>::from_f64(2.0).unwrap();
-            if p_est > <T as FromPrimitive>::from_f64(0.1).unwrap() && p_est < <T as FromPrimitive>::from_f64(6.0).unwrap() {
+            if p_est > <T as FromPrimitive>::from_f64(0.1).unwrap()
+                && p_est < <T as FromPrimitive>::from_f64(6.0).unwrap()
+            {
                 order_estimates.push(p_est);
             }
         }
@@ -255,24 +268,33 @@ mod tests {
     fn test_richardson_extrapolation_basic() {
         // Test basic Richardson extrapolation with known second-order convergence
         // Solution: φ(h) = φ_exact + C h²
-        let h1 = 1.0;  // coarse grid
-        let h2 = 0.5;  // medium grid
+        let h1 = 1.0; // coarse grid
+        let h2 = 0.5; // medium grid
         let h3 = 0.25; // fine grid
 
         // Second-order convergence: φ(h) = 1.0 + h²
-        let phi1 = 1.0 + h1 * h1;  // 1.0 + 1.0 = 2.0
-        let phi2 = 1.0 + h2 * h2;  // 1.0 + 0.25 = 1.25
-        let phi3 = 1.0 + h3 * h3;  // 1.0 + 0.0625 = 1.0625
+        let phi1 = 1.0 + h1 * h1; // 1.0 + 1.0 = 2.0
+        let phi2 = 1.0 + h2 * h2; // 1.0 + 0.25 = 1.25
+        let phi3 = 1.0 + h3 * h3; // 1.0 + 0.0625 = 1.0625
 
         let r = 2.0; // refinement ratio
 
-        let (extrapolated, order) = RichardsonExtrapolation::extrapolate(phi1, phi2, phi3, r).unwrap();
+        let (extrapolated, order) =
+            RichardsonExtrapolation::extrapolate(phi1, phi2, phi3, r).unwrap();
 
         // Should extrapolate to very close to exact solution (1.0)
-        assert!(nalgebra::ComplexField::abs(extrapolated - 1.0) < 1e-10, "Extrapolation error too large: {}", extrapolated);
+        assert!(
+            nalgebra::ComplexField::abs(extrapolated - 1.0) < 1e-10,
+            "Extrapolation error too large: {}",
+            extrapolated
+        );
 
         // Should estimate order close to 2.0
-        assert!(nalgebra::ComplexField::abs(order - 2.0) < 0.1, "Order estimation error: {}", order);
+        assert!(
+            nalgebra::ComplexField::abs(order - 2.0) < 0.1,
+            "Order estimation error: {}",
+            order
+        );
     }
 
     #[test]
@@ -291,12 +313,23 @@ mod tests {
         match result {
             Ok((extrapolated, order)) => {
                 // If it succeeds, results should be reasonable
-                assert!(extrapolated.is_finite(), "Extrapolated value should be finite");
-                assert!(order > 0.0 && order < 10.0, "Order should be reasonable: {}", order);
+                assert!(
+                    extrapolated.is_finite(),
+                    "Extrapolated value should be finite"
+                );
+                assert!(
+                    order > 0.0 && order < 10.0,
+                    "Order should be reasonable: {}",
+                    order
+                );
             }
             Err(msg) => {
                 // If it fails, should be due to numerical instability
-                assert!(msg.contains("unstable") || msg.contains("Insufficient"), "Should fail for numerical reasons: {}", msg);
+                assert!(
+                    msg.contains("unstable") || msg.contains("Insufficient"),
+                    "Should fail for numerical reasons: {}",
+                    msg
+                );
             }
         }
     }
@@ -306,7 +339,8 @@ mod tests {
         // Test edge cases that could cause numerical issues
 
         // Case 1: Very small differences (near convergence)
-        let result = RichardsonExtrapolation::estimate_order(1.0000001, 1.00000005, 1.000000025, 2.0);
+        let result =
+            RichardsonExtrapolation::estimate_order(1.0000001, 1.00000005, 1.000000025, 2.0);
         assert!(result.is_err(), "Should detect insufficient variation");
 
         // Case 2: Zero differences (exact solution)
@@ -328,18 +362,25 @@ mod tests {
 
         // Solutions with known second-order convergence: φ(h) = 1.0 + h²
         let solutions = vec![
-            1.0 + 1.0,     // h = 1.0
-            1.0 + 0.25,    // h = 0.5
-            1.0 + 0.0625,  // h = 0.25
-            1.0 + 0.015625 // h = 0.125
+            1.0 + 1.0,      // h = 1.0
+            1.0 + 0.25,     // h = 0.5
+            1.0 + 0.0625,   // h = 0.25
+            1.0 + 0.015625, // h = 0.125
         ];
 
         let refinement_ratios = vec![2.0, 2.0, 2.0];
 
-        let estimated_order = DataDrivenOrderEstimation::estimate_order_from_solutions(&solutions, &refinement_ratios);
+        let estimated_order = DataDrivenOrderEstimation::estimate_order_from_solutions(
+            &solutions,
+            &refinement_ratios,
+        );
 
         // Should estimate order close to 2.0
-        assert!(nalgebra::ComplexField::abs(estimated_order - 2.0) < 0.1, "Data-driven order estimation failed: {}", estimated_order);
+        assert!(
+            nalgebra::ComplexField::abs(estimated_order - 2.0) < 0.1,
+            "Data-driven order estimation failed: {}",
+            estimated_order
+        );
     }
 
     #[test]
@@ -348,17 +389,24 @@ mod tests {
 
         // Solutions with known 1.5-order convergence: φ(h) = 1.0 + h^1.5
         let solutions = vec![
-            1.0 + 1.0_f64.powf(1.5),       // h = 1.0
-            1.0 + 0.5_f64.powf(1.5),       // h = 0.5
-            1.0 + 0.25_f64.powf(1.5),      // h = 0.25
+            1.0 + 1.0_f64.powf(1.5),  // h = 1.0
+            1.0 + 0.5_f64.powf(1.5),  // h = 0.5
+            1.0 + 0.25_f64.powf(1.5), // h = 0.25
         ];
 
         let refinement_ratios = vec![2.0, 2.0]; // Non-uniform in general case
 
-        let estimated_order = DataDrivenOrderEstimation::estimate_order_from_solutions(&solutions, &refinement_ratios);
+        let estimated_order = DataDrivenOrderEstimation::estimate_order_from_solutions(
+            &solutions,
+            &refinement_ratios,
+        );
 
         // Should estimate order close to 1.5
-        assert!(nalgebra::ComplexField::abs(estimated_order - 1.5) < 0.2, "Non-uniform grid order estimation failed: {}", estimated_order);
+        assert!(
+            nalgebra::ComplexField::abs(estimated_order - 1.5) < 0.2,
+            "Non-uniform grid order estimation failed: {}",
+            estimated_order
+        );
     }
 
     #[test]
@@ -368,20 +416,38 @@ mod tests {
         // Case 1: Insufficient data points
         let solutions = vec![1.0, 1.1];
         let refinement_ratios = vec![2.0];
-        let estimated_order = DataDrivenOrderEstimation::estimate_order_from_solutions(&solutions, &refinement_ratios);
-        assert!(nalgebra::ComplexField::abs(estimated_order - 2.0) < 1e-10, "Should fall back to 2.0 with insufficient data");
+        let estimated_order = DataDrivenOrderEstimation::estimate_order_from_solutions(
+            &solutions,
+            &refinement_ratios,
+        );
+        assert!(
+            nalgebra::ComplexField::abs(estimated_order - 2.0) < 1e-10,
+            "Should fall back to 2.0 with insufficient data"
+        );
 
         // Case 2: All solutions identical (no convergence)
         let solutions = vec![1.0, 1.0, 1.0, 1.0];
         let refinement_ratios = vec![2.0, 2.0, 2.0];
-        let estimated_order = DataDrivenOrderEstimation::estimate_order_from_solutions(&solutions, &refinement_ratios);
-        assert!(nalgebra::ComplexField::abs(estimated_order - 2.0) < 1e-10, "Should fall back to 2.0 with no convergence");
+        let estimated_order = DataDrivenOrderEstimation::estimate_order_from_solutions(
+            &solutions,
+            &refinement_ratios,
+        );
+        assert!(
+            nalgebra::ComplexField::abs(estimated_order - 2.0) < 1e-10,
+            "Should fall back to 2.0 with no convergence"
+        );
 
         // Case 3: Empty input
         let solutions: Vec<f64> = vec![];
         let refinement_ratios: Vec<f64> = vec![];
-        let estimated_order = DataDrivenOrderEstimation::estimate_order_from_solutions(&solutions, &refinement_ratios);
-        assert!(nalgebra::ComplexField::abs(estimated_order - 2.0) < 1e-10, "Should fall back to 2.0 with empty input");
+        let estimated_order = DataDrivenOrderEstimation::estimate_order_from_solutions(
+            &solutions,
+            &refinement_ratios,
+        );
+        assert!(
+            nalgebra::ComplexField::abs(estimated_order - 2.0) < 1e-10,
+            "Should fall back to 2.0 with empty input"
+        );
     }
 
     #[test]
@@ -389,16 +455,28 @@ mod tests {
         // Test asymptotic range detection
 
         // Case 1: Proper asymptotic convergence (error decreasing)
-        assert!(RichardsonExtrapolation::is_asymptotic(1.0, 0.75, 0.5), "Should detect asymptotic convergence");
+        assert!(
+            RichardsonExtrapolation::is_asymptotic(1.0, 0.75, 0.5),
+            "Should detect asymptotic convergence"
+        );
 
         // Case 2: Not asymptotic (error not decreasing)
-        assert!(!RichardsonExtrapolation::is_asymptotic(1.0, 1.1, 1.2), "Should detect non-asymptotic behavior");
+        assert!(
+            !RichardsonExtrapolation::is_asymptotic(1.0, 1.1, 1.2),
+            "Should detect non-asymptotic behavior"
+        );
 
         // Case 3: Insufficient variation
-        assert!(!RichardsonExtrapolation::is_asymptotic(1.0, 1.0000001, 1.00000005), "Should detect insufficient variation");
+        assert!(
+            !RichardsonExtrapolation::is_asymptotic(1.0, 1.0000001, 1.00000005),
+            "Should detect insufficient variation"
+        );
 
         // Case 4: Zero differences
-        assert!(!RichardsonExtrapolation::is_asymptotic(1.0, 1.0, 1.0), "Should detect zero variation");
+        assert!(
+            !RichardsonExtrapolation::is_asymptotic(1.0, 1.0, 1.0),
+            "Should detect zero variation"
+        );
     }
 
     #[test]
@@ -410,17 +488,24 @@ mod tests {
         let phi3 = 1.25;
         let r = 2.0;
 
-        let (extrapolated1, order1) = RichardsonExtrapolation::extrapolate(phi1, phi2, phi3, r).unwrap();
+        let (extrapolated1, order1) =
+            RichardsonExtrapolation::extrapolate(phi1, phi2, phi3, r).unwrap();
 
         // Scale all values by constant factor
         let scale = 3.14159;
-        let (extrapolated2, order2) = RichardsonExtrapolation::extrapolate(
-            phi1 * scale, phi2 * scale, phi3 * scale, r
-        ).unwrap();
+        let (extrapolated2, order2) =
+            RichardsonExtrapolation::extrapolate(phi1 * scale, phi2 * scale, phi3 * scale, r)
+                .unwrap();
 
         // Extrapolated value should scale, order should be invariant
-        assert!(nalgebra::ComplexField::abs(extrapolated2 - extrapolated1 * scale) < 1e-12, "Extrapolation should be linear");
-        assert!(nalgebra::ComplexField::abs(order2 - order1) < 1e-12, "Order should be invariant under scaling");
+        assert!(
+            nalgebra::ComplexField::abs(extrapolated2 - extrapolated1 * scale) < 1e-12,
+            "Extrapolation should be linear"
+        );
+        assert!(
+            nalgebra::ComplexField::abs(order2 - order1) < 1e-12,
+            "Order should be invariant under scaling"
+        );
     }
 
     #[test]
@@ -429,9 +514,9 @@ mod tests {
 
         // Generate test cases with known orders
         let test_cases: Vec<(f64, Box<dyn Fn(f64) -> f64>)> = vec![
-            (2.0, Box::new(|h: f64| 1.0 + h * h)),           // Second order
-            (1.5, Box::new(|h: f64| 1.0 + h.powf(1.5))),     // 1.5 order
-            (3.0, Box::new(|h: f64| 1.0 + h * h * h)),       // Third order
+            (2.0, Box::new(|h: f64| 1.0 + h * h)),       // Second order
+            (1.5, Box::new(|h: f64| 1.0 + h.powf(1.5))), // 1.5 order
+            (3.0, Box::new(|h: f64| 1.0 + h * h * h)),   // Third order
         ];
 
         for (expected_order, solution_fn) in test_cases {
@@ -439,13 +524,24 @@ mod tests {
             let solutions: Vec<f64> = h_vals.iter().map(|&h| solution_fn(h)).collect();
             let refinement_ratios = vec![2.0, 2.0];
 
-            let estimated_order = DataDrivenOrderEstimation::estimate_order_from_solutions(&solutions, &refinement_ratios);
+            let estimated_order = DataDrivenOrderEstimation::estimate_order_from_solutions(
+                &solutions,
+                &refinement_ratios,
+            );
 
             // Order should be within reasonable CFD bounds (0.5 to 6.0) and close to expected
-            assert!(estimated_order > 0.5 && estimated_order < 6.0,
-                   "Order out of bounds: {} (expected ~{})", estimated_order, expected_order);
-            assert!(nalgebra::ComplexField::abs(estimated_order - expected_order) < 0.5,
-                   "Order estimation too inaccurate: {} vs {}", estimated_order, expected_order);
+            assert!(
+                estimated_order > 0.5 && estimated_order < 6.0,
+                "Order out of bounds: {} (expected ~{})",
+                estimated_order,
+                expected_order
+            );
+            assert!(
+                nalgebra::ComplexField::abs(estimated_order - expected_order) < 0.5,
+                "Order estimation too inaccurate: {} vs {}",
+                estimated_order,
+                expected_order
+            );
         }
     }
 }

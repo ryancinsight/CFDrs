@@ -22,9 +22,9 @@ pub struct GpuBuffer<T: RealField + Pod + Zeroable> {
 
 impl<T: RealField + Pod + Zeroable + Copy> GpuBuffer<T> {
     /// Create a new GPU buffer
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if the GPU buffer creation fails due to insufficient memory,
     /// invalid size parameters, or GPU device issues.
     pub fn new(context: Arc<GpuContext>, size: usize) -> Result<Self> {
@@ -46,9 +46,9 @@ impl<T: RealField + Pod + Zeroable + Copy> GpuBuffer<T> {
     }
 
     /// Create buffer with initial data
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if buffer creation fails due to data size issues,
     /// memory allocation failures, or GPU device limitations.
     pub fn from_data(context: Arc<GpuContext>, data: &[T]) -> Result<Self> {
@@ -170,7 +170,7 @@ impl<T: RealField + Pod + Zeroable> std::fmt::Debug for GpuBuffer<T> {
         f.debug_struct("GpuBuffer")
             .field("size", &self.size)
             .field("buffer_id", &format!("{:?}", self.buffer.global_id()))
-            .field("context", &"<GpuContext>")  // Avoid recursive Debug
+            .field("context", &"<GpuContext>") // Avoid recursive Debug
             .finish()
     }
 }

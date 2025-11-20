@@ -165,15 +165,11 @@ fn create_pipe_mesh(
             let x = radius * theta.cos();
             let y = radius * theta.sin();
 
-            vertices.push(Vertex {
-                position: Point3::new(x, y, z),
-            });
+            vertices.push(Vertex::new(Point3::new(x, y, z)));
         }
 
         // Add center vertex for each cross-section
-        vertices.push(Vertex {
-            position: Point3::new(0.0, 0.0, z),
-        });
+        vertices.push(Vertex::new(Point3::new(0.0, 0.0, z)));
     }
 
     // Create simple triangular faces (very basic mesh)

@@ -7,7 +7,7 @@
 //! - Multi-phase flows
 //! - Turbulent combustion
 
-use super::{ManufacturedSolution, ManufacturedFunctions};
+use super::{ManufacturedFunctions, ManufacturedSolution};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
@@ -30,7 +30,13 @@ pub struct ManufacturedConjugateHeatTransfer<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> ManufacturedConjugateHeatTransfer<T> {
-    pub fn new(conductivity_ratio: T, capacity_ratio: T, interface_x: T, amplitude: T, frequency: T) -> Self {
+    pub fn new(
+        conductivity_ratio: T,
+        capacity_ratio: T,
+        interface_x: T,
+        amplitude: T,
+        frequency: T,
+    ) -> Self {
         Self {
             conductivity_ratio,
             capacity_ratio,
@@ -134,11 +140,14 @@ impl<T: RealField + Copy> ManufacturedSpeciesTransport<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T> for ManufacturedSpeciesTransport<T> {
+impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T>
+    for ManufacturedSpeciesTransport<T>
+{
     fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
         // C = A * sin(kx*x) * sin(ky*y) * exp(-t) * exp(-k²t)
         let spatial = ManufacturedFunctions::sinusoidal(x, y, T::zero(), self.kx, self.ky);
-        let temporal_decay = <T as FromPrimitive>::from_f64(-1.0).unwrap() - (self.kx * self.kx + self.ky * self.ky) * self.diffusivity;
+        let temporal_decay = <T as FromPrimitive>::from_f64(-1.0).unwrap()
+            - (self.kx * self.kx + self.ky * self.ky) * self.diffusivity;
         let temporal = nalgebra::ComplexField::exp(temporal_decay * t);
         self.amplitude * spatial * temporal
     }
@@ -150,7 +159,8 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T> for Manufactur
         // We want S such that the MMS satisfies this equation
 
         // Time derivative
-        let k_total = <T as FromPrimitive>::from_f64(-1.0).unwrap() - (self.kx * self.kx + self.ky * self.ky) * self.diffusivity;
+        let k_total = <T as FromPrimitive>::from_f64(-1.0).unwrap()
+            - (self.kx * self.kx + self.ky * self.ky) * self.diffusivity;
         let dc_dt = k_total * c;
 
         // Diffusion term
@@ -232,7 +242,14 @@ pub struct ManufacturedMultiphase<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> ManufacturedMultiphase<T> {
-    pub fn new(density_ratio: T, viscosity_ratio: T, interface_y: T, amplitude: T, kx: T, ky: T) -> Self {
+    pub fn new(
+        density_ratio: T,
+        viscosity_ratio: T,
+        interface_y: T,
+        amplitude: T,
+        kx: T,
+        ky: T,
+    ) -> Self {
         Self {
             density_ratio,
             viscosity_ratio,
@@ -315,12 +332,12 @@ mod tests {
     #[test]
     fn test_mhd() {
         let mhd = ManufacturedMHD::<f64>::new(
-            1.0,  // mu_0
-            1.0,  // sigma
-            1.0,  // velocity amplitude
-            0.1,  // magnetic amplitude
-            1.0,  // kx
-            1.0,  // ky
+            1.0, // mu_0
+            1.0, // sigma
+            1.0, // velocity amplitude
+            0.1, // magnetic amplitude
+            1.0, // kx
+            1.0, // ky
         );
 
         let u = mhd.exact_solution(0.5, 0.5, 0.0, 1.0);
@@ -333,12 +350,12 @@ mod tests {
     #[test]
     fn test_multiphase() {
         let multiphase = ManufacturedMultiphase::<f64>::new(
-            2.0,  // density ratio
-            5.0,  // viscosity ratio
-            0.5,  // interface
-            1.0,  // amplitude
-            1.0,  // kx
-            1.0,  // ky
+            2.0, // density ratio
+            5.0, // viscosity ratio
+            0.5, // interface
+            1.0, // amplitude
+            1.0, // kx
+            1.0, // ky
         );
 
         let phi = multiphase.exact_solution(0.5, 0.5, 0.0, 1.0);
@@ -348,4 +365,3 @@ mod tests {
         assert!(source.is_finite());
     }
 }
-

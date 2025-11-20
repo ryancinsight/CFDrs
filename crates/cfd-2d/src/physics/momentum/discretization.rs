@@ -1,8 +1,8 @@
 //! Discretization schemes for momentum equations
 
 // MusclReconstruction and MusclOrder integrated into TVD module
-use nalgebra::RealField;
 use super::muscl::MusclReconstruction;
+use nalgebra::RealField;
 
 /// Trait for discretization schemes
 pub trait DiscretizationScheme<T: RealField + Copy> {

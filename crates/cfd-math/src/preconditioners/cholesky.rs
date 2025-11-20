@@ -35,9 +35,7 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
         // Perform IC(0) factorization
         let l_factor = Self::factorize(a)?;
 
-        Ok(Self {
-            l_factor,
-        })
+        Ok(Self { l_factor })
     }
 
     /// Check matrix symmetry
@@ -157,8 +155,9 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
             l_offsets.push(l_indices.len());
         }
 
-        CsrMatrix::try_from_csr_data(n, n, l_offsets, l_indices, l_vals)
-            .map_err(|_| Error::InvalidInput("Failed to create CSR matrix from IC(0) factorization".to_string()))
+        CsrMatrix::try_from_csr_data(n, n, l_offsets, l_indices, l_vals).map_err(|_| {
+            Error::InvalidInput("Failed to create CSR matrix from IC(0) factorization".to_string())
+        })
     }
 
     /// Forward substitution: solve L*y = b
@@ -222,7 +221,7 @@ impl<T: RealField + Copy> IncompleteCholesky<T> {
 impl<T: RealField + Copy> Preconditioner<T> for IncompleteCholesky<T> {
     fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
         let n = r.len();
-        
+
         // Allocate intermediate result for two-stage solve
         // NOTE: Cannot use pre-allocated workspace with immutable &self API
         let mut y = DVector::zeros(n);

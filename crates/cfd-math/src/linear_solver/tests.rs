@@ -4,7 +4,7 @@
 mod tests {
 
     use crate::linear_solver::preconditioners::{
-        IdentityPreconditioner, JacobiPreconditioner, SORPreconditioner,
+        IdentityPreconditioner, IncompleteLU, JacobiPreconditioner, SORPreconditioner,
     };
     use crate::linear_solver::traits::IterativeLinearSolver;
     use crate::linear_solver::IterativeSolverConfig;
@@ -150,8 +150,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ilu_preconditioner_fails_on_non_tridiagonal(
-    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    fn test_ilu_works_on_non_tridiagonal() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let n = 3;
         let mut builder = SparseMatrixBuilder::new(n, n);
 
@@ -159,11 +158,11 @@ mod tests {
         builder.add_entry(0, 2, 1.0)?; // Non-adjacent entry
         builder.add_entry(1, 1, 2.0)?;
         builder.add_entry(2, 2, 2.0)?;
-        let _non_tridiag = builder.build()?;
+        let non_tridiag = builder.build()?;
 
-        // ILU(0) preconditioner not yet implemented
-        // let result = ILUPreconditioner::new(&non_tridiag);
-        // assert!(result.is_err());
+        // ILU(0) should work on general sparse matrices
+        let result = IncompleteLU::new(&non_tridiag);
+        assert!(result.is_ok());
         Ok(())
     }
 

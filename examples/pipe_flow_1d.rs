@@ -21,12 +21,12 @@ fn main() -> Result<()> {
     // Create fluid using proper constructor
     let water = ConstantPropertyFluid::new(
         "Water (20°C)".to_string(),
-        998.2,   // density [kg/m³]
+        998.2,    // density [kg/m³]
         0.001002, // viscosity [Pa·s]
-        4186.0,  // specific heat [J/(kg·K)]
-        0.599,   // thermal conductivity [W/(m·K)]
+        4186.0,   // specific heat [J/(kg·K)]
+        0.599,    // thermal conductivity [W/(m·K)]
     );
-    
+
     println!("Fluid Properties:");
     println!("  Density: {} kg/m³", water.density);
     println!("  Viscosity: {} Pa·s", water.viscosity);
@@ -75,22 +75,29 @@ fn main() -> Result<()> {
     }
 
     // Calculate derived quantities for validation
-    if let Some((&first_pressure, &second_pressure)) = pressures.values().take(2).collect::<Vec<_>>().iter().zip(pressures.values().skip(1)).next() {
+    if let Some((&first_pressure, &second_pressure)) = pressures
+        .values()
+        .take(2)
+        .collect::<Vec<_>>()
+        .iter()
+        .zip(pressures.values().skip(1))
+        .next()
+    {
         let pressure_drop = first_pressure - second_pressure;
         println!("\nDerived Quantities:");
         println!("  Pressure drop: {:.2} Pa", pressure_drop);
-        
+
         if let Some(&flow_rate) = flow_rates.values().next() {
             println!("  Volumetric flow rate: {:.6} m³/s", flow_rate);
-            
+
             let pipe_diameter: f64 = 0.01; // 1 cm diameter
             let pipe_area = PI * (pipe_diameter / 2.0).powi(2);
             let velocity = flow_rate / pipe_area;
             let reynolds = fluid_density * velocity * pipe_diameter / fluid_viscosity;
-            
+
             println!("  Average velocity: {:.4} m/s", velocity);
             println!("  Reynolds number: {:.2}", reynolds);
-            
+
             if reynolds < 2300.0 {
                 println!("  ✓ Flow regime: Laminar (Re < 2300)");
             } else {
@@ -102,7 +109,9 @@ fn main() -> Result<()> {
     // Statistical analysis of results
     let pressure_values: Vec<f64> = pressures.values().cloned().collect();
     if !pressure_values.is_empty() {
-        let max_p = pressure_values.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        let max_p = pressure_values
+            .iter()
+            .fold(f64::NEG_INFINITY, |a, &b| a.max(b));
         let min_p = pressure_values.iter().fold(f64::INFINITY, |a, &b| a.min(b));
         let avg_p: f64 = pressure_values.iter().sum::<f64>() / pressure_values.len() as f64;
 

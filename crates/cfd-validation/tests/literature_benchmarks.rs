@@ -31,12 +31,12 @@ fn test_poiseuille_parallel_plates_white_2006() {
     let half_height: f64 = 0.01; // 1 cm half-height (total height 2 cm)
     let viscosity: f64 = 1.0e-3; // Water at 20°C: 1.002e-3 Pa·s
     let pressure_grad_mag: f64 = 100.0; // Pa/m
-    
+
     let geometry = PoiseuilleGeometry::Plates;
-    
+
     // Analytical maximum velocity at centerline (White 2006, Eq. 3-35)
     let u_max_analytical = half_height.powi(2) / (2.0 * viscosity) * pressure_grad_mag;
-    
+
     let flow = PoiseuilleFlow::create(
         u_max_analytical,
         half_height,
@@ -44,20 +44,20 @@ fn test_poiseuille_parallel_plates_white_2006() {
         viscosity,
         geometry,
     );
-    
+
     // Evaluate at centerline (y = 0)
     let velocity = flow.evaluate(0.0, 0.0, 0.0, 0.0);
-    
+
     // White (2006) states analytical solution should be exact to machine precision
     assert_relative_eq!(velocity.x, u_max_analytical, epsilon = 1.0e-10);
-    
+
     // Verify parabolic profile at several points
     let test_points = vec![
         (0.0, u_max_analytical),                      // Centerline, (1 - 0²)
         (half_height / 2.0, 0.75 * u_max_analytical), // y = h/2, (1 - 0.5²) = 0.75
         (half_height, 0.0),                           // Wall (no-slip)
     ];
-    
+
     for (y, expected_u) in test_points {
         let vel = flow.evaluate(0.0, y, 0.0, 0.0);
         assert_relative_eq!(vel.x, expected_u, epsilon = 1.0e-10);
@@ -77,12 +77,12 @@ fn test_poiseuille_circular_pipe_hagen_equation() {
     let radius: f64 = 0.01; // 1 cm radius
     let viscosity: f64 = 1.0e-3; // Pa·s
     let pressure_grad_mag: f64 = 100.0; // Pa/m
-    
+
     let geometry = PoiseuilleGeometry::Pipe;
-    
+
     // Hagen-Poiseuille: u_max = R²/(4μ) * |dp/dx|
     let u_max_analytical = radius.powi(2) / (4.0 * viscosity) * pressure_grad_mag;
-    
+
     let flow = PoiseuilleFlow::create(
         u_max_analytical,
         radius,
@@ -90,20 +90,20 @@ fn test_poiseuille_circular_pipe_hagen_equation() {
         viscosity,
         geometry,
     );
-    
+
     let velocity = flow.evaluate(0.0, 0.0, 0.0, 0.0); // Center of pipe (r=0)
-    
+
     // Should match Hagen-Poiseuille to machine precision
     assert_relative_eq!(velocity.x, u_max_analytical, epsilon = 1.0e-10);
-    
+
     // Verify parabolic profile: u(r) = u_max * (1 - (r/R)²)
     let test_cases = vec![
-        (0.0, 1.0),      // Center: (1 - 0²) = 1.0
-        (radius / 2.0, 0.75),  // r = R/2: (1 - 0.5²) = 0.75
+        (0.0, 1.0),              // Center: (1 - 0²) = 1.0
+        (radius / 2.0, 0.75),    // r = R/2: (1 - 0.5²) = 0.75
         (0.75 * radius, 0.4375), // r = 0.75R: (1 - 0.75²) = 0.4375
-        (radius, 0.0),   // Wall: (1 - 1²) = 0
+        (radius, 0.0),           // Wall: (1 - 1²) = 0
     ];
-    
+
     for (r, factor) in test_cases {
         let vel = flow.evaluate(0.0, r, 0.0, 0.0);
         let expected = u_max_analytical * factor;
@@ -122,19 +122,19 @@ fn test_flow_rate_ferziger_2019() {
     let radius: f64 = 0.01;
     let viscosity: f64 = 1.0e-3;
     let pressure_grad_mag: f64 = 100.0;
-    
+
     let geometry = PoiseuilleGeometry::Pipe;
     let u_max = radius.powi(2) / (4.0 * viscosity) * pressure_grad_mag;
-    
+
     let flow = PoiseuilleFlow::create(u_max, radius, pressure_grad_mag, viscosity, geometry);
-    
+
     // Analytical flow rate (Ferziger & Perić 2019, Eq. 8.45)
     let flow_rate_analytical =
         std::f64::consts::PI * radius.powi(4) / (8.0 * viscosity) * pressure_grad_mag;
-    
+
     // Use built-in method
     let flow_rate_computed = flow.flow_rate();
-    
+
     // Should match analytical to high precision
     assert_relative_eq!(
         flow_rate_computed,
@@ -154,24 +154,24 @@ fn test_flow_rate_ferziger_2019() {
 fn test_reynolds_number_laminar_criterion_white_2006() {
     let radius: f64 = 0.01;
     let density: f64 = 1000.0; // kg/m³ (water)
-    let viscosity: f64 = 1.0e-3; // Pa·s  
+    let viscosity: f64 = 1.0e-3; // Pa·s
     let pressure_grad_mag: f64 = 1.0; // Very low pressure gradient for laminar flow
-    
+
     let geometry = PoiseuilleGeometry::Pipe;
     let u_max = radius.powi(2) / (4.0 * viscosity) * pressure_grad_mag;
-    
+
     let flow = PoiseuilleFlow::create(u_max, radius, pressure_grad_mag, viscosity, geometry);
-    
+
     // Reynolds number using built-in method
     let reynolds = flow.reynolds_number(density);
-    
+
     // Should be well within laminar regime (Re < 2300)
     assert!(
         reynolds < 2300.0,
         "Reynolds number {:.1} exceeds laminar limit 2300",
         reynolds
     );
-    
+
     // Verify Reynolds number calculation
     // For Poiseuille flow with u_max, diameter 2R: Re = ρ * u_max * 2R / μ
     let expected_re = density * u_max * (2.0 * radius) / viscosity;
@@ -190,24 +190,24 @@ fn test_wall_shear_stress_white_2006() {
     let half_height: f64 = 0.01;
     let viscosity: f64 = 1.0e-3;
     let pressure_grad_mag: f64 = 100.0;
-    
+
     let geometry = PoiseuilleGeometry::Plates;
     let u_max = half_height.powi(2) / (2.0 * viscosity) * pressure_grad_mag;
-    
+
     let flow = PoiseuilleFlow::create(u_max, half_height, pressure_grad_mag, viscosity, geometry);
-    
+
     // Analytical wall shear stress (White 2006, Eq. 3-37)
     // τ_w = h * |dp/dx| where h is half-height
     let tau_wall_analytical = half_height * pressure_grad_mag;
-    
+
     // Compute velocity gradient at wall using finite difference
     let dy = 1.0e-8; // Small distance from wall
     let u_wall = flow.evaluate(0.0, half_height, 0.0, 0.0).x; // Should be 0
     let u_near_wall = flow.evaluate(0.0, half_height - dy, 0.0, 0.0).x;
-    
+
     let du_dy = (u_near_wall - u_wall) / dy;
     let tau_wall_computed = viscosity * du_dy.abs();
-    
+
     // Should match analytical to within numerical differentiation error
     assert_relative_eq!(
         tau_wall_computed,
@@ -225,18 +225,18 @@ fn test_velocity_profile_symmetry() {
     let half_height: f64 = 0.01;
     let viscosity: f64 = 1.0e-3;
     let pressure_grad_mag: f64 = 100.0;
-    
+
     let geometry = PoiseuilleGeometry::Plates;
     let u_max = half_height.powi(2) / (2.0 * viscosity) * pressure_grad_mag;
-    
+
     let flow = PoiseuilleFlow::create(u_max, half_height, pressure_grad_mag, viscosity, geometry);
-    
+
     // Test symmetry about centerline for parallel plates
     for i in 1..10 {
         let y = half_height * (i as f64 / 10.0);
         let vel_above = flow.evaluate(0.0, y, 0.0, 0.0);
         let vel_below = flow.evaluate(0.0, -y, 0.0, 0.0);
-        
+
         // Should be symmetric
         assert_relative_eq!(vel_above.x, vel_below.x, epsilon = 1.0e-10);
     }
@@ -252,12 +252,12 @@ fn test_no_slip_boundary_condition_white_2006() {
     let radius: f64 = 0.01;
     let viscosity: f64 = 1.0e-3;
     let pressure_grad_mag: f64 = 100.0;
-    
+
     let geometry = PoiseuilleGeometry::Pipe;
     let u_max = radius.powi(2) / (4.0 * viscosity) * pressure_grad_mag;
-    
+
     let flow = PoiseuilleFlow::create(u_max, radius, pressure_grad_mag, viscosity, geometry);
-    
+
     // Velocity at wall should be exactly zero (no-slip condition)
     let vel_at_wall = flow.evaluate(0.0, radius, 0.0, 0.0);
     assert!(
@@ -286,15 +286,15 @@ mod property_tests {
             let geometry = PoiseuilleGeometry::Pipe;
             let u_max = radius.powi(2) / (4.0 * viscosity) * pressure_grad_mag;
             let flow = PoiseuilleFlow::create(u_max, radius, pressure_grad_mag, viscosity, geometry);
-            
+
             // Test at various radial positions
             for i in 0..=10 {
                 let r = radius * (i as f64 / 10.0);
                 let vel = flow.evaluate(0.0, r, 0.0, 0.0);
-                
+
                 // Velocity should be non-negative
                 prop_assert!(vel.x >= 0.0, "Negative velocity at r = {}: {}", r, vel.x);
-                
+
                 // Velocity should not exceed maximum
                 prop_assert!(vel.x <= u_max * 1.001, "Velocity exceeds max at r = {}: {} > {}", r, vel.x, u_max);
             }
@@ -315,7 +315,7 @@ mod property_tests {
             let geometry = PoiseuilleGeometry::Pipe;
             let u_max = radius.powi(2) / (4.0 * viscosity) * pressure_grad_mag;
             let flow = PoiseuilleFlow::create(u_max, radius, pressure_grad_mag, viscosity, geometry);
-            
+
             // Velocity at wall should be zero
             let vel_at_wall = flow.evaluate(0.0, radius, 0.0, 0.0);
             prop_assert!(vel_at_wall.x.abs() < 1.0e-10, "No-slip violated: u_wall = {}", vel_at_wall.x);
@@ -336,14 +336,14 @@ mod property_tests {
             let geometry = PoiseuilleGeometry::Pipe;
             let u_max = radius.powi(2) / (4.0 * viscosity) * pressure_grad_mag;
             let flow = PoiseuilleFlow::create(u_max, radius, pressure_grad_mag, viscosity, geometry);
-            
+
             // Velocity should decrease as we move from center to wall
             let mut prev_vel = f64::INFINITY;
             for i in 0..=10 {
                 let r = radius * (i as f64 / 10.0);
                 let vel = flow.evaluate(0.0, r, 0.0, 0.0).x;
-                
-                prop_assert!(vel <= prev_vel, "Velocity increases from r = {} to {}: {} > {}", 
+
+                prop_assert!(vel <= prev_vel, "Velocity increases from r = {} to {}: {} > {}",
                     radius * ((i-1) as f64 / 10.0), r, vel, prev_vel);
                 prev_vel = vel;
             }
@@ -364,13 +364,13 @@ mod property_tests {
             let geometry = PoiseuilleGeometry::Pipe;
             let u_max = radius.powi(2) / (4.0 * viscosity) * pressure_grad_mag;
             let flow = PoiseuilleFlow::create(u_max, radius, pressure_grad_mag, viscosity, geometry);
-            
+
             let Q = flow.flow_rate();
-            
+
             // Analytical: Q = (πR⁴/8μ) * |dp/dx|
             let Q_expected = std::f64::consts::PI * radius.powi(4) / (8.0 * viscosity) * pressure_grad_mag;
-            
-            prop_assert!((Q - Q_expected).abs() / Q_expected < 1.0e-10, 
+
+            prop_assert!((Q - Q_expected).abs() / Q_expected < 1.0e-10,
                 "Flow rate mismatch: {} vs {}", Q, Q_expected);
         }
     }

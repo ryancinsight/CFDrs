@@ -83,7 +83,7 @@ mod tests {
         // When GPU feature is disabled, create() should fail with clear error
         let result = GpuContext::create();
         assert!(result.is_err());
-        
+
         if let Err(crate::error::Error::InvalidConfiguration(msg)) = result {
             assert!(msg.contains("GPU support is not enabled"));
             assert!(msg.contains("--features gpu"));

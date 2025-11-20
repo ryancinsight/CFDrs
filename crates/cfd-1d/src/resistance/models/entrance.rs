@@ -125,8 +125,10 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
         // Convert loss coefficient to hydraulic resistance
         // R = K_entry / (2 A_downstream²)
         // This gives R such that ΔP = R * Q²
-        let resistance = k_entry / (T::from_f64(2.0).unwrap_or_else(|| T::zero())
-            * self.downstream_area * self.downstream_area);
+        let resistance = k_entry
+            / (T::from_f64(2.0).unwrap_or_else(|| T::zero())
+                * self.downstream_area
+                * self.downstream_area);
 
         Ok(resistance)
     }
@@ -152,7 +154,8 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> EntranceEffectsMod
         let k_base = contraction_ratio * contraction_ratio;
 
         // Reynolds number correction (Idelchik correlation)
-        let re_correction = T::from_f64(SUDDEN_CONTRACTION_CONSTANT).unwrap_or_else(|| T::zero()) / reynolds;
+        let re_correction =
+            T::from_f64(SUDDEN_CONTRACTION_CONSTANT).unwrap_or_else(|| T::zero()) / reynolds;
 
         k_base * (T::one() + re_correction)
     }

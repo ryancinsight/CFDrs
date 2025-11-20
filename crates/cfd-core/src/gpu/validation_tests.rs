@@ -13,7 +13,9 @@ mod tests {
     #[test]
     fn test_gpu_cpu_parity_add() {
         // Create GPU context
-        let context = if let Ok(ctx) = GpuContext::create() { Arc::new(ctx) } else {
+        let context = if let Ok(ctx) = GpuContext::create() {
+            Arc::new(ctx)
+        } else {
             eprintln!("GPU not available, skipping test");
             return;
         };
@@ -39,7 +41,9 @@ mod tests {
 
     #[test]
     fn test_gpu_laplacian_2d() {
-        let context = if let Ok(ctx) = GpuContext::create() { Arc::new(ctx) } else {
+        let context = if let Ok(ctx) = GpuContext::create() {
+            Arc::new(ctx)
+        } else {
             eprintln!("GPU not available, skipping test");
             return;
         };
@@ -86,7 +90,9 @@ mod tests {
     fn test_gpu_performance_characteristics() {
         // This test verifies GPU operations complete without error
         // Performance benchmarking would be done separately
-        let context = if let Ok(ctx) = GpuContext::create() { Arc::new(ctx) } else {
+        let context = if let Ok(ctx) = GpuContext::create() {
+            Arc::new(ctx)
+        } else {
             eprintln!("GPU not available, skipping test");
             return;
         };

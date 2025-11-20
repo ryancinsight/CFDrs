@@ -100,171 +100,225 @@ impl AlgorithmComplexityRegistry {
         let mut registry = HashMap::new();
 
         // Linear solvers
-        registry.insert("ConjugateGradient".to_string(), AlgorithmComplexityInfo::new("ConjugateGradient")
-            .time_complexity("O(N^{3/2})")
-            .space_complexity("O(N²)")
-            .memory_pattern("Sparse matrix-vector products with irregular access")
-            .cache_efficiency(0.7)
-            .scalability(0.8)
-            .reference("Saad (2003): Iterative Methods for Sparse Linear Systems")
-            .reference("Barrett et al. (1994): Templates for the Solution of Linear Systems")
-            .note("SPMV bottleneck: memory bandwidth critical")
-            .note("Preconditioning reduces iterations from O(N) to O(√N)"));
+        registry.insert(
+            "ConjugateGradient".to_string(),
+            AlgorithmComplexityInfo::new("ConjugateGradient")
+                .time_complexity("O(N^{3/2})")
+                .space_complexity("O(N²)")
+                .memory_pattern("Sparse matrix-vector products with irregular access")
+                .cache_efficiency(0.7)
+                .scalability(0.8)
+                .reference("Saad (2003): Iterative Methods for Sparse Linear Systems")
+                .reference("Barrett et al. (1994): Templates for the Solution of Linear Systems")
+                .note("SPMV bottleneck: memory bandwidth critical")
+                .note("Preconditioning reduces iterations from O(N) to O(√N)"),
+        );
 
-        registry.insert("GMRES".to_string(), AlgorithmComplexityInfo::new("GMRES")
-            .time_complexity("O(N^{3/2})")
-            .space_complexity("O(N²)")
-            .memory_pattern("Arnoldi orthogonalization with dense matrix operations")
-            .cache_efficiency(0.6)
-            .scalability(0.75)
-            .reference("Saad & Schultz (1986): GMRES: A generalized minimal residual algorithm")
-            .note("Restarted GMRES (GMRES(m)) reduces memory to O(m*N)")
-            .note("Orthogonalization dominates compute time"));
+        registry.insert(
+            "GMRES".to_string(),
+            AlgorithmComplexityInfo::new("GMRES")
+                .time_complexity("O(N^{3/2})")
+                .space_complexity("O(N²)")
+                .memory_pattern("Arnoldi orthogonalization with dense matrix operations")
+                .cache_efficiency(0.6)
+                .scalability(0.75)
+                .reference("Saad & Schultz (1986): GMRES: A generalized minimal residual algorithm")
+                .note("Restarted GMRES (GMRES(m)) reduces memory to O(m*N)")
+                .note("Orthogonalization dominates compute time"),
+        );
 
-        registry.insert("BiCGSTAB".to_string(), AlgorithmComplexityInfo::new("BiCGSTAB")
-            .time_complexity("O(N^{3/2})")
-            .space_complexity("O(N²)")
-            .memory_pattern("Bi-orthogonalization with two matrix-vector products per iteration")
-            .cache_efficiency(0.65)
-            .scalability(0.8)
-            .reference("van der Vorst (1992): Bi-CGSTAB: A fast and smoothly converging variant")
-            .note("More stable than CGS for non-symmetric systems")
-            .note("Two SPMV operations per iteration"));
+        registry.insert(
+            "BiCGSTAB".to_string(),
+            AlgorithmComplexityInfo::new("BiCGSTAB")
+                .time_complexity("O(N^{3/2})")
+                .space_complexity("O(N²)")
+                .memory_pattern(
+                    "Bi-orthogonalization with two matrix-vector products per iteration",
+                )
+                .cache_efficiency(0.65)
+                .scalability(0.8)
+                .reference(
+                    "van der Vorst (1992): Bi-CGSTAB: A fast and smoothly converging variant",
+                )
+                .note("More stable than CGS for non-symmetric systems")
+                .note("Two SPMV operations per iteration"),
+        );
 
-        registry.insert("Multigrid".to_string(), AlgorithmComplexityInfo::new("Multigrid")
-            .time_complexity("O(N)")
-            .space_complexity("O(N)")
-            .memory_pattern("Hierarchical grid operations with smoothing and restriction")
-            .cache_efficiency(0.75)
-            .scalability(0.7)
-            .reference("Trottenberg et al. (2001): Multigrid methods")
-            .reference("Briggs et al. (2000): A multigrid tutorial")
-            .note("Optimal complexity: O(N) vs O(N^{3/2}) for Krylov methods")
-            .note("Setup cost amortized over many solves"));
+        registry.insert(
+            "Multigrid".to_string(),
+            AlgorithmComplexityInfo::new("Multigrid")
+                .time_complexity("O(N)")
+                .space_complexity("O(N)")
+                .memory_pattern("Hierarchical grid operations with smoothing and restriction")
+                .cache_efficiency(0.75)
+                .scalability(0.7)
+                .reference("Trottenberg et al. (2001): Multigrid methods")
+                .reference("Briggs et al. (2000): A multigrid tutorial")
+                .note("Optimal complexity: O(N) vs O(N^{3/2}) for Krylov methods")
+                .note("Setup cost amortized over many solves"),
+        );
 
         // Time integration schemes
-        registry.insert("RungeKutta4".to_string(), AlgorithmComplexityInfo::new("RungeKutta4")
-            .time_complexity("O(N)")
-            .space_complexity("O(N)")
-            .memory_pattern("Sequential stage computations with vector operations")
-            .cache_efficiency(0.85)
-            .scalability(0.9)
-            .reference("Hairer & Nørsett (1993): Solving Ordinary Differential Equations I")
-            .note("4 RHS evaluations per step")
-            .note("CFL limit ≈ 2.8 for linear advection"));
+        registry.insert(
+            "RungeKutta4".to_string(),
+            AlgorithmComplexityInfo::new("RungeKutta4")
+                .time_complexity("O(N)")
+                .space_complexity("O(N)")
+                .memory_pattern("Sequential stage computations with vector operations")
+                .cache_efficiency(0.85)
+                .scalability(0.9)
+                .reference("Hairer & Nørsett (1993): Solving Ordinary Differential Equations I")
+                .note("4 RHS evaluations per step")
+                .note("CFL limit ≈ 2.8 for linear advection"),
+        );
 
-        registry.insert("RungeKutta3".to_string(), AlgorithmComplexityInfo::new("RungeKutta3")
-            .time_complexity("O(N)")
-            .space_complexity("O(N)")
-            .memory_pattern("Sequential stage computations with vector operations")
-            .cache_efficiency(0.85)
-            .scalability(0.9)
-            .reference("Kennedy & Carpenter (2003): Additive Runge-Kutta schemes")
-            .note("3 RHS evaluations per step")
-            .note("CFL limit ≈ 1.7, good for nonlinear problems"));
+        registry.insert(
+            "RungeKutta3".to_string(),
+            AlgorithmComplexityInfo::new("RungeKutta3")
+                .time_complexity("O(N)")
+                .space_complexity("O(N)")
+                .memory_pattern("Sequential stage computations with vector operations")
+                .cache_efficiency(0.85)
+                .scalability(0.9)
+                .reference("Kennedy & Carpenter (2003): Additive Runge-Kutta schemes")
+                .note("3 RHS evaluations per step")
+                .note("CFL limit ≈ 1.7, good for nonlinear problems"),
+        );
 
-        registry.insert("LowStorageRK4".to_string(), AlgorithmComplexityInfo::new("LowStorageRK4")
-            .time_complexity("O(N)")
-            .space_complexity("O(N)")
-            .memory_pattern("In-place stage updates with minimal memory overhead")
-            .cache_efficiency(0.9)
-            .scalability(0.95)
-            .reference("Bijl & Carpenter (2009): Low-order Runge-Kutta methods for CFD")
-            .note("Memory efficient: O(N) vs O(5N) for classical RK4")
-            .note("Same CFL limit as classical RK4"));
+        registry.insert(
+            "LowStorageRK4".to_string(),
+            AlgorithmComplexityInfo::new("LowStorageRK4")
+                .time_complexity("O(N)")
+                .space_complexity("O(N)")
+                .memory_pattern("In-place stage updates with minimal memory overhead")
+                .cache_efficiency(0.9)
+                .scalability(0.95)
+                .reference("Bijl & Carpenter (2009): Low-order Runge-Kutta methods for CFD")
+                .note("Memory efficient: O(N) vs O(5N) for classical RK4")
+                .note("Same CFL limit as classical RK4"),
+        );
 
         // Turbulence models
-        registry.insert("KEpsilon".to_string(), AlgorithmComplexityInfo::new("KEpsilon")
-            .time_complexity("O(N)")
-            .space_complexity("O(N)")
-            .memory_pattern("Point-wise operations on turbulence variables")
-            .cache_efficiency(0.9)
-            .scalability(0.95)
-            .reference("Launder & Spalding (1974): The numerical computation of turbulent flows")
-            .note("Two transport equations: k and ε")
-            .note("Gradient computations dominate cost"));
+        registry.insert(
+            "KEpsilon".to_string(),
+            AlgorithmComplexityInfo::new("KEpsilon")
+                .time_complexity("O(N)")
+                .space_complexity("O(N)")
+                .memory_pattern("Point-wise operations on turbulence variables")
+                .cache_efficiency(0.9)
+                .scalability(0.95)
+                .reference(
+                    "Launder & Spalding (1974): The numerical computation of turbulent flows",
+                )
+                .note("Two transport equations: k and ε")
+                .note("Gradient computations dominate cost"),
+        );
 
-        registry.insert("KOmegaSST".to_string(), AlgorithmComplexityInfo::new("KOmegaSST")
-            .time_complexity("O(N)")
-            .space_complexity("O(N)")
-            .memory_pattern("Point-wise operations with cross-diffusion terms")
-            .cache_efficiency(0.9)
-            .scalability(0.95)
-            .reference("Menter (1994): Two-equation eddy-viscosity turbulence models")
-            .note("Superior near-wall behavior vs k-ε")
-            .note("Additional cross-diffusion term increases complexity"));
+        registry.insert(
+            "KOmegaSST".to_string(),
+            AlgorithmComplexityInfo::new("KOmegaSST")
+                .time_complexity("O(N)")
+                .space_complexity("O(N)")
+                .memory_pattern("Point-wise operations with cross-diffusion terms")
+                .cache_efficiency(0.9)
+                .scalability(0.95)
+                .reference("Menter (1994): Two-equation eddy-viscosity turbulence models")
+                .note("Superior near-wall behavior vs k-ε")
+                .note("Additional cross-diffusion term increases complexity"),
+        );
 
-        registry.insert("SpalartAllmaras".to_string(), AlgorithmComplexityInfo::new("SpalartAllmaras")
-            .time_complexity("O(N)")
-            .space_complexity("O(N)")
-            .memory_pattern("Single transport equation with wall distance")
-            .cache_efficiency(0.9)
-            .scalability(0.95)
-            .reference("Spalart & Allmaras (1994): A one-equation turbulence model")
-            .note("One-equation model, simpler than two-equation")
-            .note("Excellent for aerospace applications"));
+        registry.insert(
+            "SpalartAllmaras".to_string(),
+            AlgorithmComplexityInfo::new("SpalartAllmaras")
+                .time_complexity("O(N)")
+                .space_complexity("O(N)")
+                .memory_pattern("Single transport equation with wall distance")
+                .cache_efficiency(0.9)
+                .scalability(0.95)
+                .reference("Spalart & Allmaras (1994): A one-equation turbulence model")
+                .note("One-equation model, simpler than two-equation")
+                .note("Excellent for aerospace applications"),
+        );
 
-        registry.insert("WALE".to_string(), AlgorithmComplexityInfo::new("WALE")
-            .time_complexity("O(N)")
-            .space_complexity("O(N)")
-            .memory_pattern("Strain rate tensor computation with velocity gradients")
-            .cache_efficiency(0.85)
-            .scalability(0.9)
-            .reference("Nicoud & Ducros (1999): Subgrid-scale stress modelling")
-            .note("Superior near-wall behavior for LES")
-            .note("More expensive than Smagorinsky due to tensor operations"));
+        registry.insert(
+            "WALE".to_string(),
+            AlgorithmComplexityInfo::new("WALE")
+                .time_complexity("O(N)")
+                .space_complexity("O(N)")
+                .memory_pattern("Strain rate tensor computation with velocity gradients")
+                .cache_efficiency(0.85)
+                .scalability(0.9)
+                .reference("Nicoud & Ducros (1999): Subgrid-scale stress modelling")
+                .note("Superior near-wall behavior for LES")
+                .note("More expensive than Smagorinsky due to tensor operations"),
+        );
 
-        registry.insert("Smagorinsky".to_string(), AlgorithmComplexityInfo::new("Smagorinsky")
-            .time_complexity("O(N)")
-            .space_complexity("O(N)")
-            .memory_pattern("Strain rate magnitude computation")
-            .cache_efficiency(0.9)
-            .scalability(0.95)
-            .reference("Smagorinsky (1963): General circulation experiments")
-            .note("Simple and efficient eddy viscosity model")
-            .note("Isotropic assumption may be too restrictive"));
+        registry.insert(
+            "Smagorinsky".to_string(),
+            AlgorithmComplexityInfo::new("Smagorinsky")
+                .time_complexity("O(N)")
+                .space_complexity("O(N)")
+                .memory_pattern("Strain rate magnitude computation")
+                .cache_efficiency(0.9)
+                .scalability(0.95)
+                .reference("Smagorinsky (1963): General circulation experiments")
+                .note("Simple and efficient eddy viscosity model")
+                .note("Isotropic assumption may be too restrictive"),
+        );
 
         // Spatial discretization
-        registry.insert("FiniteDifference".to_string(), AlgorithmComplexityInfo::new("FiniteDifference")
-            .time_complexity("O(N)")
-            .space_complexity("O(N)")
-            .memory_pattern("Stencil operations on structured grids")
-            .cache_efficiency(0.95)
-            .scalability(0.98)
-            .reference("Hirsch (2007): Numerical computation of internal and external flows")
-            .note("Excellent cache performance on structured grids")
-            .note("Limited to simple geometries"));
+        registry.insert(
+            "FiniteDifference".to_string(),
+            AlgorithmComplexityInfo::new("FiniteDifference")
+                .time_complexity("O(N)")
+                .space_complexity("O(N)")
+                .memory_pattern("Stencil operations on structured grids")
+                .cache_efficiency(0.95)
+                .scalability(0.98)
+                .reference("Hirsch (2007): Numerical computation of internal and external flows")
+                .note("Excellent cache performance on structured grids")
+                .note("Limited to simple geometries"),
+        );
 
-        registry.insert("FiniteVolume".to_string(), AlgorithmComplexityInfo::new("FiniteVolume")
-            .time_complexity("O(N)")
-            .space_complexity("O(N)")
-            .memory_pattern("Face-based flux computations")
-            .cache_efficiency(0.8)
-            .scalability(0.9)
-            .reference("LeVeque (2002): Finite Volume Methods for Hyperbolic Problems")
-            .note("Conservative by construction")
-            .note("Flexible for complex geometries"));
+        registry.insert(
+            "FiniteVolume".to_string(),
+            AlgorithmComplexityInfo::new("FiniteVolume")
+                .time_complexity("O(N)")
+                .space_complexity("O(N)")
+                .memory_pattern("Face-based flux computations")
+                .cache_efficiency(0.8)
+                .scalability(0.9)
+                .reference("LeVeque (2002): Finite Volume Methods for Hyperbolic Problems")
+                .note("Conservative by construction")
+                .note("Flexible for complex geometries"),
+        );
 
-        registry.insert("DiscontinuousGalerkin".to_string(), AlgorithmComplexityInfo::new("DiscontinuousGalerkin")
-            .time_complexity("O(N * p^d)")
-            .space_complexity("O(N * p^d)")
-            .memory_pattern("Element-local operations with surface flux exchanges")
-            .cache_efficiency(0.7)
-            .scalability(0.8)
-            .reference("Cockburn & Shu (2001): Runge-Kutta discontinuous Galerkin methods")
-            .note("Arbitrary order accuracy with p refinement")
-            .note("Higher memory per degree of freedom"));
+        registry.insert(
+            "DiscontinuousGalerkin".to_string(),
+            AlgorithmComplexityInfo::new("DiscontinuousGalerkin")
+                .time_complexity("O(N * p^d)")
+                .space_complexity("O(N * p^d)")
+                .memory_pattern("Element-local operations with surface flux exchanges")
+                .cache_efficiency(0.7)
+                .scalability(0.8)
+                .reference("Cockburn & Shu (2001): Runge-Kutta discontinuous Galerkin methods")
+                .note("Arbitrary order accuracy with p refinement")
+                .note("Higher memory per degree of freedom"),
+        );
 
         // Validation and analysis
-        registry.insert("RichardsonExtrapolation".to_string(), AlgorithmComplexityInfo::new("RichardsonExtrapolation")
-            .time_complexity("O(N * M)")
-            .space_complexity("O(N)")
-            .memory_pattern("Multiple grid evaluations with convergence analysis")
-            .cache_efficiency(0.7)
-            .scalability(0.8)
-            .reference("Roache (1998): Verification and Validation in Computational Science")
-            .note("M = number of grid levels for extrapolation")
-            .note("Provides error estimates and convergence rates"));
+        registry.insert(
+            "RichardsonExtrapolation".to_string(),
+            AlgorithmComplexityInfo::new("RichardsonExtrapolation")
+                .time_complexity("O(N * M)")
+                .space_complexity("O(N)")
+                .memory_pattern("Multiple grid evaluations with convergence analysis")
+                .cache_efficiency(0.7)
+                .scalability(0.8)
+                .reference("Roache (1998): Verification and Validation in Computational Science")
+                .note("M = number of grid levels for extrapolation")
+                .note("Provides error estimates and convergence rates"),
+        );
 
         registry.insert("ManufacturedSolutions".to_string(), AlgorithmComplexityInfo::new("ManufacturedSolutions")
             .time_complexity("O(N)")
@@ -276,7 +330,9 @@ impl AlgorithmComplexityRegistry {
             .note("Exact solution known for error analysis")
             .note("Function evaluation is typically cheap"));
 
-        Self { algorithms: registry }
+        Self {
+            algorithms: registry,
+        }
     }
 
     /// Get complexity information for an algorithm
@@ -291,13 +347,17 @@ impl AlgorithmComplexityRegistry {
 
     /// Find algorithms by time complexity class
     pub fn by_time_complexity(&self, complexity: &str) -> Vec<&AlgorithmComplexityInfo> {
-        self.algorithms.values()
+        self.algorithms
+            .values()
             .filter(|algo| algo.time_complexity == complexity)
             .collect()
     }
 
     /// Find best algorithms for a given problem size
-    pub fn recommend_for_size(&self, problem_size: usize) -> Vec<(&AlgorithmComplexityInfo, String)> {
+    pub fn recommend_for_size(
+        &self,
+        problem_size: usize,
+    ) -> Vec<(&AlgorithmComplexityInfo, String)> {
         let mut recommendations = Vec::new();
 
         // For small problems (N < 10^4), higher-order methods are feasible
@@ -339,14 +399,27 @@ impl AlgorithmComplexityRegistry {
         report.push_str("# CFD Algorithm Complexity Analysis Report\n\n");
 
         report.push_str("## Summary\n\n");
-        report.push_str(&format!("Registry contains {} algorithms\n\n", self.algorithms.len()));
+        report.push_str(&format!(
+            "Registry contains {} algorithms\n\n",
+            self.algorithms.len()
+        ));
 
         report.push_str("## Algorithms by Time Complexity\n\n");
 
-        let complexities = ["O(1)", "O(log N)", "O(N)", "O(N log N)", "O(N²)", "O(N^{3/2})", "O(N³)"];
+        let complexities = [
+            "O(1)",
+            "O(log N)",
+            "O(N)",
+            "O(N log N)",
+            "O(N²)",
+            "O(N^{3/2})",
+            "O(N³)",
+        ];
 
         for complexity in &complexities {
-            let algorithms: Vec<_> = self.algorithms.values()
+            let algorithms: Vec<_> = self
+                .algorithms
+                .values()
                 .filter(|algo| algo.time_complexity == *complexity)
                 .collect();
 
@@ -427,4 +500,3 @@ mod tests {
         assert!(!large_recs.is_empty());
     }
 }
-

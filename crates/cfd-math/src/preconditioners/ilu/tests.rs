@@ -14,42 +14,40 @@ use nalgebra_sparse::CsrMatrix;
 fn create_tridiagonal_matrix() -> CsrMatrix<f64> {
     let row_offsets = vec![0, 2, 5, 8, 10];
     let col_indices = vec![
-        0, 1,       // row 0
-        0, 1, 2,    // row 1
-        1, 2, 3,    // row 2
-        2, 3,       // row 3
+        0, 1, // row 0
+        0, 1, 2, // row 1
+        1, 2, 3, // row 2
+        2, 3, // row 3
     ];
     let values = vec![
-        4.0, -1.0,          // row 0
-        -1.0, 4.0, -1.0,    // row 1
-        -1.0, 4.0, -1.0,    // row 2
-        -1.0, 4.0,          // row 3
+        4.0, -1.0, // row 0
+        -1.0, 4.0, -1.0, // row 1
+        -1.0, 4.0, -1.0, // row 2
+        -1.0, 4.0, // row 3
     ];
 
-    CsrMatrix::try_from_csr_data(4, 4, row_offsets, col_indices, values)
-        .expect("Valid CSR matrix")
+    CsrMatrix::try_from_csr_data(4, 4, row_offsets, col_indices, values).expect("Valid CSR matrix")
 }
 
 /// Create a 5x5 sparse matrix with more complex structure
 fn create_sparse_matrix() -> CsrMatrix<f64> {
     let row_offsets = vec![0, 3, 6, 9, 13, 15];
     let col_indices = vec![
-        0, 1, 3,       // row 0: connections to 1, 3
-        0, 1, 2,       // row 1: connections to 0, 2
-        1, 2, 3,       // row 2: connections to 1, 3
-        0, 2, 3, 4,    // row 3: connections to 0, 2, 4
-        3, 4,          // row 4: connection to 3
+        0, 1, 3, // row 0: connections to 1, 3
+        0, 1, 2, // row 1: connections to 0, 2
+        1, 2, 3, // row 2: connections to 1, 3
+        0, 2, 3, 4, // row 3: connections to 0, 2, 4
+        3, 4, // row 4: connection to 3
     ];
     let values = vec![
-        5.0, -1.0, -1.0,        // row 0
-        -1.0, 5.0, -1.0,        // row 1
-        -1.0, 5.0, -1.0,        // row 2
-        -1.0, -1.0, 5.0, -1.0,  // row 3
-        -1.0, 5.0,              // row 4
+        5.0, -1.0, -1.0, // row 0
+        -1.0, 5.0, -1.0, // row 1
+        -1.0, 5.0, -1.0, // row 2
+        -1.0, -1.0, 5.0, -1.0, // row 3
+        -1.0, 5.0, // row 4
     ];
 
-    CsrMatrix::try_from_csr_data(5, 5, row_offsets, col_indices, values)
-        .expect("Valid CSR matrix")
+    CsrMatrix::try_from_csr_data(5, 5, row_offsets, col_indices, values).expect("Valid CSR matrix")
 }
 
 #[test]

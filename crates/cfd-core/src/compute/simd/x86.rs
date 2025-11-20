@@ -11,9 +11,9 @@ use std::arch::x86_64::{
 };
 
 /// AVX2 implementation for advection kernel (256-bit vectors, 8 floats)
-/// 
+///
 /// # Safety
-/// 
+///
 /// This function requires AVX2 instruction set support. Caller must ensure
 /// the target hardware supports AVX2 and all slice inputs have compatible lengths
 /// for the given grid dimensions (nx, ny).
@@ -109,9 +109,9 @@ pub unsafe fn advection_avx2(
 }
 
 /// SSE4.1 implementation for advection kernel (128-bit vectors, 4 floats)
-/// 
+///
 /// # Safety
-/// 
+///
 /// This function requires SSE4.1 instruction set support. Caller must ensure
 /// the target hardware supports SSE4.1 and all slice inputs have compatible lengths
 /// for the given grid dimensions (nx, ny).
@@ -207,9 +207,9 @@ pub unsafe fn advection_sse41(
 }
 
 /// AVX2 implementation for diffusion kernel
-/// 
+///
 /// # Safety
-/// 
+///
 /// This function requires AVX2 instruction set support. Caller must ensure
 /// the target hardware supports AVX2 and all slice inputs have compatible lengths
 /// for the given grid dimensions (nx, ny).

@@ -5,8 +5,8 @@
 
 use super::report::ConservationReport;
 use super::traits::ConservationChecker;
-use cfd_core::error::Result;
 use cfd_core::conversion::SafeFromF64;
+use cfd_core::error::Result;
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
 
@@ -48,8 +48,10 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 // Compute vorticity ω = ∂v/∂x - ∂u/∂y
-                let dv_dx = (v[(i + 1, j)] - v[(i - 1, j)]) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
-                let du_dy = (u[(i, j + 1)] - u[(i, j - 1)]) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
+                let dv_dx = (v[(i + 1, j)] - v[(i - 1, j)])
+                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
+                let du_dy = (u[(i, j + 1)] - u[(i, j - 1)])
+                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
                 let omega = dv_dx - du_dy;
 
                 // Convective term: u·∇ω
@@ -58,8 +60,10 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
                 let u_dot_grad_omega = u[(i, j)] * domega_dx + v[(i, j)] * domega_dy;
 
                 // Viscous diffusion: ν∇²ω
-                let d2omega_dx2 = (omega - <T as SafeFromF64>::from_f64_or_one(2.0) * omega + omega) / (dx * dx); // Placeholder
-                let d2omega_dy2 = (omega - <T as SafeFromF64>::from_f64_or_one(2.0) * omega + omega) / (dy * dy); // Placeholder
+                let d2omega_dx2 =
+                    (omega - <T as SafeFromF64>::from_f64_or_one(2.0) * omega + omega) / (dx * dx); // Placeholder
+                let d2omega_dy2 =
+                    (omega - <T as SafeFromF64>::from_f64_or_one(2.0) * omega + omega) / (dy * dy); // Placeholder
                 let viscous_diffusion = viscosity * (d2omega_dx2 + d2omega_dy2);
 
                 // Vorticity transport equation residual: ∂ω/∂t + u·∇ω - ν∇²ω
@@ -88,7 +92,10 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
             error: max_error,
             is_conserved,
             tolerance: self.tolerance,
-            details: [("rms_error".to_string(), rms_error)].iter().cloned().collect(),
+            details: [("rms_error".to_string(), rms_error)]
+                .iter()
+                .cloned()
+                .collect(),
         })
     }
 
@@ -106,7 +113,7 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
     ) -> Result<ConservationReport<T>> {
         if curve_points.len() < 3 {
             return Err(cfd_core::error::Error::InvalidInput(
-                "Need at least 3 points to define a closed curve".to_string()
+                "Need at least 3 points to define a closed curve".to_string(),
             ));
         }
 
@@ -168,8 +175,10 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
         // Compute vorticity at all points
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
-                let dv_dx = (v[(i + 1, j)] - v[(i - 1, j)]) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
-                let du_dy = (u[(i, j + 1)] - u[(i, j - 1)]) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
+                let dv_dx = (v[(i + 1, j)] - v[(i - 1, j)])
+                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
+                let du_dy = (u[(i, j + 1)] - u[(i, j - 1)])
+                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
                 let vorticity = dv_dx - du_dy;
 
                 let abs_vorticity = vorticity.abs();
@@ -213,7 +222,7 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for VorticityCh
     fn check_conservation(&self, field: &Self::FlowField) -> Result<ConservationReport<T>> {
         if field.len() < 2 {
             return Err(cfd_core::error::Error::InvalidInput(
-                "Vorticity check requires at least u,v velocity fields".to_string()
+                "Vorticity check requires at least u,v velocity fields".to_string(),
             ));
         }
 
@@ -222,7 +231,12 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for VorticityCh
 
         // Use Kelvin circulation as the primary vorticity conservation check
         // Define a simple closed curve for circulation check
-        let curve_points = vec![(0, 0), (u.ncols()-1, 0), (u.ncols()-1, u.nrows()-1), (0, u.nrows()-1)];
+        let curve_points = vec![
+            (0, 0),
+            (u.ncols() - 1, 0),
+            (u.ncols() - 1, u.nrows() - 1),
+            (0, u.nrows() - 1),
+        ];
         self.check_kelvin_circulation(u, v, &curve_points, T::one(), T::one())
     }
 
@@ -230,4 +244,3 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for VorticityCh
         self.tolerance
     }
 }
-

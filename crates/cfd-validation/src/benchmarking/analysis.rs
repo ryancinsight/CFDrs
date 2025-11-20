@@ -3,11 +3,11 @@
 //! Provides statistical analysis, trend detection, and performance regression
 //! monitoring for CFD operations.
 
-use crate::reporting::PerformanceMetrics;
-use super::suite::BenchmarkResult;
 use super::memory::MemoryStats;
 use super::performance::TimingResult;
 use super::scaling::ScalingResult;
+use super::suite::BenchmarkResult;
+use crate::reporting::PerformanceMetrics;
 use cfd_core::error::{Error, Result};
 use std::collections::HashMap;
 
@@ -24,21 +24,67 @@ pub struct PerformanceTrend {
     pub trend_type: TrendType,
 }
 
-/// Performance trend classification
+/// Performance trend classification for temporal analysis
+///
+/// Classifies the direction and consistency of performance changes over time,
+/// enabling automated detection of performance improvements, degradations,
+/// and stability issues in CFD benchmark results.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum TrendType {
+    /// Performance is consistently improving over time
+    ///
+    /// Indicates successful optimizations, algorithm improvements, or hardware upgrades.
+    /// Requires statistical significance to avoid false positives from measurement noise.
     Improving,
+
+    /// Performance is consistently degrading over time
+    ///
+    /// Indicates performance regressions, resource contention, or system degradation.
+    /// Requires immediate investigation to identify root causes and prevent further decline.
     Degrading,
+
+    /// Performance is stable with minimal variation
+    ///
+    /// Indicates consistent performance with acceptable measurement noise.
+    /// Represents the ideal state for production CFD systems.
     Stable,
+
+    /// Performance shows high variability with no clear trend
+    ///
+    /// Indicates measurement instability, system interference, or inconsistent workloads.
+    /// May mask underlying performance issues or improvements.
     Volatile,
 }
 
-/// Alert severity levels
+/// Alert severity levels for regression detection and performance monitoring
+///
+/// Hierarchical classification of performance issues by their impact and urgency,
+/// enabling appropriate response strategies for different types of performance problems.
+/// Higher severity levels require more immediate attention and resources.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum AlertSeverity {
+    /// Minor performance variation requiring monitoring
+    ///
+    /// Small performance changes that may be within normal operating ranges.
+    /// Requires monitoring but does not typically require immediate action.
     Low,
+
+    /// Moderate performance issue requiring investigation
+    ///
+    /// Performance degradation that exceeds normal variation but may be acceptable
+    /// depending on operational requirements. Requires investigation and potential optimization.
     Medium,
+
+    /// Significant performance degradation requiring action
+    ///
+    /// Major performance issues that significantly impact CFD simulation efficiency.
+    /// Requires immediate investigation and corrective action planning.
     High,
+
+    /// Critical performance failure requiring immediate response
+    ///
+    /// Severe performance degradation that makes CFD simulations impractical or unusable.
+    /// Requires immediate emergency response, rollback, or system intervention.
     Critical,
 }
 
@@ -73,6 +119,16 @@ pub struct PerformanceAnalyzer {
 }
 
 impl PerformanceAnalyzer {
+    /// Create a new performance analyzer with custom regression detection configuration
+    ///
+    /// Initializes the analyzer with user-specified thresholds for regression detection,
+    /// statistical significance requirements, and analysis parameters. Use this constructor
+    /// when you need fine-tuned control over regression detection sensitivity.
+    ///
+    /// # Parameters
+    ///
+    /// * `config` - Regression detection configuration specifying thresholds, confidence levels,
+    ///   and analysis window parameters for performance monitoring
     pub fn new(config: RegressionConfig) -> Self {
         Self {
             config,
@@ -80,6 +136,15 @@ impl PerformanceAnalyzer {
         }
     }
 
+    /// Create a new performance analyzer with default regression detection configuration
+    ///
+    /// Initializes the analyzer with sensible default settings for regression detection:
+    /// - 5% degradation threshold
+    /// - Minimum 5 samples for analysis
+    /// - 95% confidence level for statistical tests
+    /// - 10-run lookback window for trend analysis
+    ///
+    /// Suitable for most CFD benchmarking scenarios without requiring manual configuration tuning.
     pub fn with_default_config() -> Self {
         Self::new(RegressionConfig::default())
     }
@@ -94,13 +159,18 @@ impl PerformanceAnalyzer {
 
     /// Analyze performance trend for a benchmark
     pub fn analyze_trend(&self, benchmark_name: &str) -> Result<PerformanceTrend> {
-        let data = self.historical_data.get(benchmark_name)
-            .ok_or_else(|| Error::InvalidInput(format!("No historical data for benchmark: {}", benchmark_name)))?;
+        let data = self.historical_data.get(benchmark_name).ok_or_else(|| {
+            Error::InvalidInput(format!(
+                "No historical data for benchmark: {}",
+                benchmark_name
+            ))
+        })?;
 
         if data.len() < self.config.min_samples {
             return Err(Error::InvalidInput(format!(
                 "Insufficient data for trend analysis: {} samples, need {}",
-                data.len(), self.config.min_samples
+                data.len(),
+                self.config.min_samples
             )));
         }
 
@@ -115,10 +185,10 @@ impl PerformanceAnalyzer {
     pub fn detect_regression(&self, benchmark_name: &str) -> Result<Option<RegressionAlert>> {
         let trend = self.analyze_trend(benchmark_name)?;
 
-        if trend.trend_type == TrendType::Degrading &&
-           trend.slope.abs() > self.config.degradation_threshold / 100.0 &&
-           trend.p_value < (1.0 - self.config.confidence_level) {
-
+        if trend.trend_type == TrendType::Degrading
+            && trend.slope.abs() > self.config.degradation_threshold / 100.0
+            && trend.p_value < (1.0 - self.config.confidence_level)
+        {
             let degradation_rate = trend.slope * 100.0; // Convert to percentage
             return Ok(Some(RegressionAlert {
                 benchmark_name: benchmark_name.to_string(),
@@ -160,7 +230,11 @@ impl PerformanceAnalyzer {
             denominator += x * x;
         }
 
-        let slope = if denominator > 0.0 { numerator / denominator } else { 0.0 };
+        let slope = if denominator > 0.0 {
+            numerator / denominator
+        } else {
+            0.0
+        };
 
         // Calculate R-squared
         let mut ss_res = 0.0;
@@ -173,7 +247,11 @@ impl PerformanceAnalyzer {
             ss_tot += (y - y_mean).powi(2);
         }
 
-        let r_squared = if ss_tot > 0.0 { 1.0 - (ss_res / ss_tot) } else { 0.0 };
+        let r_squared = if ss_tot > 0.0 {
+            1.0 - (ss_res / ss_tot)
+        } else {
+            0.0
+        };
 
         // Simplified p-value calculation (t-test approximation)
         let se_slope = if denominator > 0.0 {
@@ -183,7 +261,11 @@ impl PerformanceAnalyzer {
             0.0
         };
 
-        let t_stat = if se_slope > 0.0 { slope.abs() / se_slope } else { 0.0 };
+        let t_stat = if se_slope > 0.0 {
+            slope.abs() / se_slope
+        } else {
+            0.0
+        };
         let p_value = 2.0 * (1.0 - Self::t_cdf(t_stat, (n - 2.0) as usize));
 
         // Classify trend
@@ -218,12 +300,12 @@ impl PerformanceAnalyzer {
     /// Normal cumulative distribution function approximation
     fn normal_cdf(x: f64) -> f64 {
         // Abramowitz & Stegun approximation
-        let a1 =  0.254829592;
+        let a1 = 0.254829592;
         let a2 = -0.284496736;
-        let a3 =  1.421413741;
+        let a3 = 1.421413741;
         let a4 = -1.453152027;
-        let a5 =  1.061405429;
-        let p  =  0.3275911;
+        let a5 = 1.061405429;
+        let p = 0.3275911;
 
         let sign = if x < 0.0 { -1.0 } else { 1.0 };
         let x = x.abs();
@@ -235,23 +317,89 @@ impl PerformanceAnalyzer {
     }
 }
 
-/// Performance regression alert
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+/// Performance regression alert with statistical significance assessment
+///
+/// Automatically generated alert when statistical analysis detects significant
+/// performance degradation beyond configured thresholds. Includes quantitative
+/// measures of degradation magnitude and statistical confidence in the detection.
+#[derive(Debug, Clone)]
 pub struct RegressionAlert {
+    /// Name of the benchmark operation showing performance regression
+    ///
+    /// Identifier of the CFD operation experiencing performance degradation,
+    /// enabling targeted investigation and remediation efforts.
     pub benchmark_name: String,
-    pub degradation_rate: f64, // percentage
+
+    /// Performance degradation rate as percentage change from baseline
+    ///
+    /// Quantified performance loss expressed as percentage (e.g., 15.7 means 15.7% slower).
+    /// Computed as (current_time - baseline_time) / baseline_time * 100.
+    /// Positive values indicate performance degradation (slower execution).
+    pub degradation_rate: f64,
+
+    /// Statistical confidence level in the regression detection [0.0-1.0]
+    ///
+    /// Probability that the detected regression is not due to random measurement variation.
+    /// Higher values indicate greater confidence in the regression detection.
+    /// Typically requires >95% confidence for actionable alerts.
     pub confidence: f64,
+
+    /// Detailed performance trend analysis supporting the regression alert
+    ///
+    /// Comprehensive trend analysis including slope, statistical significance,
+    /// and classification of the performance degradation pattern.
     pub trend: PerformanceTrend,
 }
 
-/// Comprehensive performance report
+/// Comprehensive performance analysis report for individual CFD benchmarks
+///
+/// Provides detailed performance assessment for a specific CFD benchmark operation,
+/// including current performance metrics, historical comparison, trend analysis,
+/// regression detection, and actionable recommendations for optimization.
+///
+/// # Report Components
+///
+/// - **Current Performance**: Latest benchmark execution metrics and statistics
+/// - **Baseline Comparison**: Historical performance reference for change detection
+/// - **Trend Analysis**: Long-term performance evolution and stability assessment
+/// - **Regression Alerts**: Automated detection of performance degradation
+/// - **Optimization Recommendations**: Actionable suggestions for performance improvement
 #[derive(Debug, Clone)]
 pub struct PerformanceReport {
+    /// Name/identifier of the benchmark operation being analyzed
+    ///
+    /// Human-readable identifier for the CFD operation (e.g., "Navier-Stokes Solver",
+    /// "FFT Transform", "Matrix Factorization"). Used for report organization and cross-referencing.
     pub benchmark_name: String,
+
+    /// Current performance metrics from the latest benchmark execution
+    ///
+    /// Statistical analysis of the most recent benchmark run, including timing statistics,
+    /// variability measures, and sample characteristics. Represents the current performance state.
     pub current_metrics: PerformanceMetrics,
+
+    /// Baseline performance metrics for historical comparison
+    ///
+    /// Reference performance metrics from a stable baseline period. Used for detecting
+    /// performance changes and regression analysis. None if no baseline is established.
     pub baseline_metrics: Option<PerformanceMetrics>,
+
+    /// Performance trend analysis over the analysis window
+    ///
+    /// Temporal analysis of performance evolution, classifying trends as improving,
+    /// degrading, stable, or volatile. None if insufficient historical data for analysis.
     pub trend: Option<PerformanceTrend>,
+
+    /// Regression alert if performance degradation is detected
+    ///
+    /// Automated alert triggered when statistical analysis detects significant performance
+    /// degradation beyond acceptable thresholds. Includes severity classification and confidence metrics.
     pub regression_alert: Option<RegressionAlert>,
+
+    /// Actionable recommendations for performance optimization
+    ///
+    /// Generated suggestions for improving performance based on current metrics, trends,
+    /// and detected issues. May include algorithmic changes, parameter tuning, or system optimizations.
     pub recommendations: Vec<String>,
 }
 
@@ -265,19 +413,22 @@ impl PerformanceAnalyzer {
             let regression = self.detect_regression(&result.name).unwrap_or(None);
 
             let baseline = self.get_baseline_metrics(&result.name);
-            let recommendations = self.generate_recommendations(&result, trend.as_ref(), regression.as_ref());
+            let recommendations =
+                self.generate_recommendations(&result, trend.as_ref(), regression.as_ref());
 
             // Convert TimingResult to PerformanceMetrics if available
-            let current_metrics = result.performance.as_ref().map(|perf| {
-                crate::reporting::PerformanceMetrics {
+            let current_metrics = result
+                .performance
+                .as_ref()
+                .map(|perf| crate::reporting::PerformanceMetrics {
                     mean: perf.stats.mean,
                     std_dev: perf.stats.std_dev,
                     min: perf.stats.min,
                     max: perf.stats.max,
                     median: perf.stats.median,
                     samples: perf.stats.samples,
-                }
-            }).unwrap_or_default();
+                })
+                .unwrap_or_default();
 
             reports.push(PerformanceReport {
                 benchmark_name: result.name.clone(),
@@ -294,7 +445,8 @@ impl PerformanceAnalyzer {
 
     /// Get baseline metrics for comparison
     fn get_baseline_metrics(&self, benchmark_name: &str) -> Option<PerformanceMetrics> {
-        self.historical_data.get(benchmark_name)
+        self.historical_data
+            .get(benchmark_name)
             .and_then(|data: &Vec<PerformanceMetrics>| data.first().cloned())
     }
 
@@ -313,8 +465,12 @@ impl PerformanceAnalyzer {
                 recommendations.push("High performance variance detected. Consider increasing sample size or stabilizing test environment.".to_string());
             }
 
-            if perf.stats.mean > 0.1 { // More than 100ms
-                recommendations.push("High execution time detected. Consider optimization opportunities.".to_string());
+            if perf.stats.mean > 0.1 {
+                // More than 100ms
+                recommendations.push(
+                    "High execution time detected. Consider optimization opportunities."
+                        .to_string(),
+                );
             }
         }
 
@@ -322,17 +478,24 @@ impl PerformanceAnalyzer {
         if let Some(trend) = trend {
             match trend.trend_type {
                 TrendType::Degrading => {
-                    recommendations.push(format!("Performance degrading at {:.2}% per run. Investigate recent changes.", trend.slope * 100.0));
+                    recommendations.push(format!(
+                        "Performance degrading at {:.2}% per run. Investigate recent changes.",
+                        trend.slope * 100.0
+                    ));
                 }
                 TrendType::Improving => {
-                    recommendations.push(format!("Performance improving at {:.2}% per run. Good trend!", trend.slope.abs() * 100.0));
+                    recommendations.push(format!(
+                        "Performance improving at {:.2}% per run. Good trend!",
+                        trend.slope.abs() * 100.0
+                    ));
                 }
                 TrendType::Volatile => {
                     recommendations.push("Performance is volatile. Consider stabilizing factors affecting benchmark.".to_string());
                 }
                 TrendType::Stable => {
                     if trend.r_squared > 0.8 {
-                        recommendations.push("Performance is stable. Continue monitoring.".to_string());
+                        recommendations
+                            .push("Performance is stable. Continue monitoring.".to_string());
                     }
                 }
             }
@@ -362,11 +525,46 @@ mod tests {
 
         // Add some historical data
         let metrics = vec![
-            PerformanceMetrics { mean: 1.0, std_dev: 0.1, min: 0.9, max: 1.1, median: 1.0, samples: 10 },
-            PerformanceMetrics { mean: 1.05, std_dev: 0.1, min: 0.95, max: 1.15, median: 1.05, samples: 10 },
-            PerformanceMetrics { mean: 1.10, std_dev: 0.1, min: 1.0, max: 1.20, median: 1.10, samples: 10 },
-            PerformanceMetrics { mean: 1.08, std_dev: 0.1, min: 0.98, max: 1.18, median: 1.08, samples: 10 },
-            PerformanceMetrics { mean: 1.12, std_dev: 0.1, min: 1.02, max: 1.22, median: 1.12, samples: 10 },
+            PerformanceMetrics {
+                mean: 1.0,
+                std_dev: 0.1,
+                min: 0.9,
+                max: 1.1,
+                median: 1.0,
+                samples: 10,
+            },
+            PerformanceMetrics {
+                mean: 1.05,
+                std_dev: 0.1,
+                min: 0.95,
+                max: 1.15,
+                median: 1.05,
+                samples: 10,
+            },
+            PerformanceMetrics {
+                mean: 1.10,
+                std_dev: 0.1,
+                min: 1.0,
+                max: 1.20,
+                median: 1.10,
+                samples: 10,
+            },
+            PerformanceMetrics {
+                mean: 1.08,
+                std_dev: 0.1,
+                min: 0.98,
+                max: 1.18,
+                median: 1.08,
+                samples: 10,
+            },
+            PerformanceMetrics {
+                mean: 1.12,
+                std_dev: 0.1,
+                min: 1.02,
+                max: 1.22,
+                median: 1.12,
+                samples: 10,
+            },
         ];
 
         for metric in metrics {
@@ -396,11 +594,46 @@ mod tests {
 
         // Add degrading performance data
         let metrics = vec![
-            PerformanceMetrics { mean: 1.0, std_dev: 0.01, min: 0.99, max: 1.01, median: 1.0, samples: 10 },
-            PerformanceMetrics { mean: 1.02, std_dev: 0.01, min: 1.01, max: 1.03, median: 1.02, samples: 10 },
-            PerformanceMetrics { mean: 1.04, std_dev: 0.01, min: 1.03, max: 1.05, median: 1.04, samples: 10 },
-            PerformanceMetrics { mean: 1.06, std_dev: 0.01, min: 1.05, max: 1.07, median: 1.06, samples: 10 },
-            PerformanceMetrics { mean: 1.08, std_dev: 0.01, min: 1.07, max: 1.09, median: 1.08, samples: 10 },
+            PerformanceMetrics {
+                mean: 1.0,
+                std_dev: 0.01,
+                min: 0.99,
+                max: 1.01,
+                median: 1.0,
+                samples: 10,
+            },
+            PerformanceMetrics {
+                mean: 1.02,
+                std_dev: 0.01,
+                min: 1.01,
+                max: 1.03,
+                median: 1.02,
+                samples: 10,
+            },
+            PerformanceMetrics {
+                mean: 1.04,
+                std_dev: 0.01,
+                min: 1.03,
+                max: 1.05,
+                median: 1.04,
+                samples: 10,
+            },
+            PerformanceMetrics {
+                mean: 1.06,
+                std_dev: 0.01,
+                min: 1.05,
+                max: 1.07,
+                median: 1.06,
+                samples: 10,
+            },
+            PerformanceMetrics {
+                mean: 1.08,
+                std_dev: 0.01,
+                min: 1.07,
+                max: 1.09,
+                median: 1.08,
+                samples: 10,
+            },
         ];
 
         for metric in metrics {
@@ -421,14 +654,27 @@ mod tests {
         // Test some known values
         assert_relative_eq!(PerformanceAnalyzer::normal_cdf(0.0), 0.5, epsilon = 1e-3);
         assert_relative_eq!(PerformanceAnalyzer::normal_cdf(1.0), 0.8413, epsilon = 1e-3);
-        assert_relative_eq!(PerformanceAnalyzer::normal_cdf(-1.0), 0.1587, epsilon = 1e-3);
+        assert_relative_eq!(
+            PerformanceAnalyzer::normal_cdf(-1.0),
+            0.1587,
+            epsilon = 1e-3
+        );
     }
 
     #[test]
     fn test_insufficient_data() {
         let mut analyzer = PerformanceAnalyzer::with_default_config();
-        analyzer.add_result("sparse_benchmark",
-            PerformanceMetrics { mean: 1.0, std_dev: 0.1, min: 0.9, max: 1.1, median: 1.0, samples: 10 });
+        analyzer.add_result(
+            "sparse_benchmark",
+            PerformanceMetrics {
+                mean: 1.0,
+                std_dev: 0.1,
+                min: 0.9,
+                max: 1.1,
+                median: 1.0,
+                samples: 10,
+            },
+        );
 
         // Should fail with insufficient data
         let result = analyzer.analyze_trend("sparse_benchmark");

@@ -62,11 +62,11 @@ impl<T: RealField + Copy> ManufacturedBurgers<T> {
         let pi = <T as FromPrimitive>::from_f64(PI).unwrap();
         let two = <T as FromPrimitive>::from_f64(2.0).unwrap();
         Self::new(
-            T::one(),                    // a = 1
-            <T as FromPrimitive>::from_f64(0.5).unwrap(),   // b = 0.5
-            two * pi,                    // k = 2π
-            T::one(),                    // ω = 1
-            <T as FromPrimitive>::from_f64(0.01).unwrap(),  // ν = 0.01
+            T::one(),                                      // a = 1
+            <T as FromPrimitive>::from_f64(0.5).unwrap(),  // b = 0.5
+            two * pi,                                      // k = 2π
+            T::one(),                                      // ω = 1
+            <T as FromPrimitive>::from_f64(0.01).unwrap(), // ν = 0.01
         )
     }
 }
@@ -155,10 +155,7 @@ mod tests {
         let u2 = burgers.exact_solution(x, 0.0, 0.0, t2);
 
         // Solution should evolve in time
-        assert!(
-            (u1 - u2).abs() > 1e-10,
-            "Solution should change over time"
-        );
+        assert!((u1 - u2).abs() > 1e-10, "Solution should change over time");
     }
 
     #[test]
@@ -171,7 +168,10 @@ mod tests {
             let x = f64::from(i) * 0.01;
             let t = 0.5;
             let u = burgers.exact_solution(x, 0.0, 0.0, t);
-            assert!((0.5 - 1e-10..=1.5 + 1e-10).contains(&u), "u={u} out of bounds");
+            assert!(
+                (0.5 - 1e-10..=1.5 + 1e-10).contains(&u),
+                "u={u} out of bounds"
+            );
         }
     }
 }

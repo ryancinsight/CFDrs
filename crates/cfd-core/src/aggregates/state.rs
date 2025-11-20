@@ -3,8 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Simulation state enumeration
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum SimulationState {
     /// Initial state
     #[default]
@@ -18,7 +17,6 @@ pub enum SimulationState {
     /// Simulation failed with error
     Failed,
 }
-
 
 impl SimulationState {
     /// Check if simulation is active

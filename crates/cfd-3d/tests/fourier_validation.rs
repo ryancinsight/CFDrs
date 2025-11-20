@@ -29,10 +29,13 @@ fn test_fourier_transform_identity() {
         // Sine wave (exactly representable)
         DVector::from_iterator(n, (0..n).map(|i| (2.0 * PI * i as f64 / n as f64).sin())),
         // Complex pattern (sum of multiple modes)
-        DVector::from_iterator(n, (0..n).map(|i| {
-            let x = 2.0 * PI * i as f64 / n as f64;
-            x.sin() + 0.5 * (2.0 * x).cos() + 0.25 * (3.0 * x).sin()
-        })),
+        DVector::from_iterator(
+            n,
+            (0..n).map(|i| {
+                let x = 2.0 * PI * i as f64 / n as f64;
+                x.sin() + 0.5 * (2.0 * x).cos() + 0.25 * (3.0 * x).sin()
+            }),
+        ),
     ];
 
     for u in test_signals {
@@ -55,10 +58,13 @@ fn test_parsevals_theorem() {
     let transform = FourierTransform::<f64>::new(n).unwrap();
 
     // Create test signal with known energy
-    let u = DVector::from_iterator(n, (0..n).map(|i| {
-        let x = 2.0 * PI * i as f64 / n as f64;
-        x.sin() + 0.3 * (3.0 * x).cos()
-    }));
+    let u = DVector::from_iterator(
+        n,
+        (0..n).map(|i| {
+            let x = 2.0 * PI * i as f64 / n as f64;
+            x.sin() + 0.3 * (3.0 * x).cos()
+        }),
+    );
 
     let u_hat = transform.forward(&u).unwrap();
 
@@ -137,15 +143,18 @@ fn test_fourier_transform_odd_size() {
 #[test]
 fn test_spectral_derivative_cosine() {
     let n = 32;
-    let k = 2.0; // Wave number  
+    let k = 2.0; // Wave number
     let derivative = SpectralDerivative::<f64>::new(n).unwrap();
 
     // Create cosine function u(x) = cos(kx) on [0, 2π]
     // This is periodic and exactly representable
-    let u = DVector::from_iterator(n, (0..n).map(|i| {
-        let x = 2.0 * PI * i as f64 / n as f64;
-        (k * x).cos()
-    }));
+    let u = DVector::from_iterator(
+        n,
+        (0..n).map(|i| {
+            let x = 2.0 * PI * i as f64 / n as f64;
+            (k * x).cos()
+        }),
+    );
 
     // Compute first derivative
     let du_dx = derivative.derivative(&u, 1).unwrap();
@@ -170,10 +179,13 @@ fn test_spectral_derivative_trigonometric() {
     let derivative = SpectralDerivative::<f64>::new(n).unwrap();
 
     // Create sine function u(x) = sin(kx)
-    let u = DVector::from_iterator(n, (0..n).map(|i| {
-        let x = 2.0 * PI * i as f64 / n as f64;
-        (k * x).sin()
-    }));
+    let u = DVector::from_iterator(
+        n,
+        (0..n).map(|i| {
+            let x = 2.0 * PI * i as f64 / n as f64;
+            (k * x).sin()
+        }),
+    );
 
     // Compute second derivative
     let d2u_dx2 = derivative.derivative(&u, 2).unwrap();
@@ -232,10 +244,13 @@ fn test_high_order_derivative_stability() {
     let derivative = SpectralDerivative::<f64>::new(n).unwrap();
 
     // Smooth test function
-    let u = DVector::from_iterator(n, (0..n).map(|i| {
-        let x = 2.0 * PI * i as f64 / n as f64;
-        x.sin() * x.cos()
-    }));
+    let u = DVector::from_iterator(
+        n,
+        (0..n).map(|i| {
+            let x = 2.0 * PI * i as f64 / n as f64;
+            x.sin() * x.cos()
+        }),
+    );
 
     // Compute up to 4th derivative
     for order in 1..=4 {
@@ -243,7 +258,11 @@ fn test_high_order_derivative_stability() {
 
         // Verify result is finite and bounded
         for i in 0..n {
-            assert!(du[i].is_finite(), "Derivative order {} has non-finite values", order);
+            assert!(
+                du[i].is_finite(),
+                "Derivative order {} has non-finite values",
+                order
+            );
             assert!(
                 du[i].abs() < 100.0,
                 "Derivative order {} has unbounded values: {}",
@@ -263,10 +282,13 @@ fn test_fourier_symmetry_real_signal() {
     let transform = FourierTransform::<f64>::new(n).unwrap();
 
     // Real signal
-    let u = DVector::from_iterator(n, (0..n).map(|i| {
-        let x = 2.0 * PI * i as f64 / n as f64;
-        x.cos() + (2.0 * x).sin()
-    }));
+    let u = DVector::from_iterator(
+        n,
+        (0..n).map(|i| {
+            let x = 2.0 * PI * i as f64 / n as f64;
+            x.cos() + (2.0 * x).sin()
+        }),
+    );
 
     let u_hat = transform.forward(&u).unwrap();
 
@@ -292,10 +314,13 @@ fn test_spectral_vs_finite_difference() {
     let derivative = SpectralDerivative::<f64>::new(n).unwrap();
 
     // Test function: exp(sin(x))
-    let u = DVector::from_iterator(n, (0..n).map(|i| {
-        let x = l * i as f64 / n as f64;
-        x.sin().exp()
-    }));
+    let u = DVector::from_iterator(
+        n,
+        (0..n).map(|i| {
+            let x = l * i as f64 / n as f64;
+            x.sin().exp()
+        }),
+    );
 
     // Spectral derivative
     let du_spectral = derivative.derivative(&u, 1).unwrap();

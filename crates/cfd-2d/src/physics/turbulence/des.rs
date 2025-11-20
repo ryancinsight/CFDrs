@@ -66,7 +66,7 @@ impl Default for DESConfig {
         Self {
             variant: DESVariant::DDES,
             des_constant: 0.65,
-            max_sgs_ratio: 0.5, // Prevent excessive SGS viscosity
+            max_sgs_ratio: 0.5,   // Prevent excessive SGS viscosity
             rans_viscosity: 1e-5, // Default molecular viscosity
             use_gpu: false,
         }
@@ -101,8 +101,10 @@ impl DetachedEddySimulation {
                 let dist_to_right = (nx - 1 - i) as f64;
                 let dist_to_bottom = j as f64;
                 let dist_to_top = (ny - 1 - j) as f64;
-                wall_distance[(i, j)] = dist_to_left.min(dist_to_right)
-                    .min(dist_to_bottom).min(dist_to_top);
+                wall_distance[(i, j)] = dist_to_left
+                    .min(dist_to_right)
+                    .min(dist_to_bottom)
+                    .min(dist_to_top);
             }
         }
 
@@ -149,7 +151,7 @@ impl DetachedEddySimulation {
                 // Grid spacing (max of dx, dy for simplicity)
                 let delta = dx.max(dy);
 
-                        // Simplified RANS length scale (would be computed from actual RANS model)
+                // Simplified RANS length scale (would be computed from actual RANS model)
                 // For now, use a characteristic length based on strain rate
                 let characteristic_velocity = 1.0; // Placeholder
                 let strain_mag = strain_magnitude[(i, j)];
@@ -216,13 +218,7 @@ impl DetachedEddySimulation {
     }
 
     /// Compute IDDES length scale
-    fn compute_iddes_length_scale(
-        &self,
-        rans_length: f64,
-        delta: f64,
-        i: usize,
-        j: usize,
-    ) -> f64 {
+    fn compute_iddes_length_scale(&self, rans_length: f64, delta: f64, i: usize, j: usize) -> f64 {
         // IDDES is more complex - simplified implementation
         // In practice, this involves additional terms for WMLES capability
 
@@ -287,20 +283,21 @@ impl DetachedEddySimulation {
         let ny = velocity_u.ncols();
         let mut strain_magnitude = DMatrix::zeros(nx, ny);
 
-        for i in 1..nx-1 {
-            for j in 1..ny-1 {
+        for i in 1..nx - 1 {
+            for j in 1..ny - 1 {
                 // Velocity gradients
-                let du_dx = (velocity_u[(i+1, j)] - velocity_u[(i-1, j)]) / (2.0 * dx);
-                let du_dy = (velocity_u[(i, j+1)] - velocity_u[(i, j-1)]) / (2.0 * dy);
-                let dv_dx = (velocity_v[(i+1, j)] - velocity_v[(i-1, j)]) / (2.0 * dx);
-                let dv_dy = (velocity_v[(i, j+1)] - velocity_v[(i, j-1)]) / (2.0 * dy);
+                let du_dx = (velocity_u[(i + 1, j)] - velocity_u[(i - 1, j)]) / (2.0 * dx);
+                let du_dy = (velocity_u[(i, j + 1)] - velocity_u[(i, j - 1)]) / (2.0 * dy);
+                let dv_dx = (velocity_v[(i + 1, j)] - velocity_v[(i - 1, j)]) / (2.0 * dx);
+                let dv_dy = (velocity_v[(i, j + 1)] - velocity_v[(i, j - 1)]) / (2.0 * dy);
 
                 // Strain rate tensor magnitude
                 let s11 = du_dx;
                 let s22 = dv_dy;
                 let s12 = 0.5 * (du_dy + dv_dx);
 
-                strain_magnitude[(i, j)] = (2.0 * s11*s11 + 2.0 * s22*s22 + 4.0 * s12*s12).sqrt();
+                strain_magnitude[(i, j)] =
+                    (2.0 * s11 * s11 + 2.0 * s22 * s22 + 4.0 * s12 * s12).sqrt();
             }
         }
 
@@ -324,9 +321,8 @@ impl LESTurbulenceModel for DetachedEddySimulation {
         self.des_length_scale = self.compute_des_length_scale(velocity_u, velocity_v, dx, dy);
 
         // Compute SGS viscosity for LES regions
-        self.sgs_viscosity = self.compute_sgs_viscosity(
-            velocity_u, velocity_v, &self.des_length_scale, dx, dy
-        );
+        self.sgs_viscosity =
+            self.compute_sgs_viscosity(velocity_u, velocity_v, &self.des_length_scale, dx, dy);
 
         Ok(())
     }
@@ -353,7 +349,7 @@ impl LESTurbulenceModel for DetachedEddySimulation {
             // Estimate k from SGS viscosity: k ≈ (ν_sgs / C_k)^{2/3}
             // Using C_k ≈ 0.1 (typical value for Smagorinsky-based models)
             let c_k = 0.1;
-            (nu_sgs / c_k).powf(2.0/3.0)
+            (nu_sgs / c_k).powf(2.0 / 3.0)
         } else {
             0.0
         }
@@ -517,7 +513,16 @@ mod tests {
         let mut des = DetachedEddySimulation::new(10, 10, config);
         let (velocity_u, velocity_v, pressure) = create_test_fields(10, 10);
 
-        let result = des.update(&velocity_u, &velocity_v, &pressure, 1.0, 0.01, 0.001, 0.1, 0.1);
+        let result = des.update(
+            &velocity_u,
+            &velocity_v,
+            &pressure,
+            1.0,
+            0.01,
+            0.001,
+            0.1,
+            0.1,
+        );
         assert!(result.is_ok());
     }
 
