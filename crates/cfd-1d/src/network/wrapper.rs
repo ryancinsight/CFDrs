@@ -239,13 +239,16 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
     /// Process edges in parallel
     pub fn edges_parallel(&self) -> impl Iterator<Item = ParallelEdge<T>> + '_ {
         self.graph.edge_references().map(move |edge_ref| {
-            let _edge_idx = edge_ref.id();
             let (from, to) = (edge_ref.source(), edge_ref.target());
             let edge_data = edge_ref.weight();
 
+            let q = edge_data.flow_rate.abs();
+            let two = T::from_f64(2.0).unwrap_or_else(|| T::one());
+            let r_eff = edge_data.resistance + two * edge_data.quad_coeff * q;
+
             ParallelEdge {
                 nodes: (from.index(), to.index()),
-                conductance: edge_data.resistance.recip(), // conductance = 1/resistance
+                conductance: r_eff.recip(),
             }
         })
     }

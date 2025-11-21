@@ -668,10 +668,19 @@ pub fn analyze_coarsening_quality(result: &CoarseningResult) -> CoarseningQualit
     let coarsening_ratio = coarse_points as f64 / total_points as f64;
     let assignment_ratio = assigned_points as f64 / total_points as f64;
 
+    // Create fast lookup for coarse points
+    let mut is_coarse = vec![false; total_points];
+    for &cp in &result.coarse_points {
+        if cp < total_points {
+            is_coarse[cp] = true;
+        }
+    }
+
     // Analyze interpolation complexity
     let mut interpolation_points = Vec::new();
     for i in 0..total_points {
-        if result.fine_to_coarse_map[i].is_none() {
+        // If point is NOT coarse (i.e., it's an F-point), calculate interpolation
+        if !is_coarse[i] {
             // Count how many coarse points this fine point connects to
             let mut connections = 0;
             for &cp in &result.coarse_points {
@@ -937,16 +946,16 @@ mod tests {
         let quality = analyze_coarsening_quality(&result);
 
         // Check 1: Coarsening ratio
-        assert!(quality.coarsening_ratio > 0.1, "Coarsening too aggressive");
-        assert!(quality.coarsening_ratio < 0.8, "Coarsening too weak");
+        assert!(quality.coarsening_ratio > 0.1, "Coarsening too aggressive: {}", quality.coarsening_ratio);
+        assert!(quality.coarsening_ratio < 0.8, "Coarsening too weak: {}", quality.coarsening_ratio);
 
         // Check 2: Assignment ratio (should be 1.0 for this connected problem)
-        assert!(quality.assignment_ratio > 0.95, "Not all points assigned to coarse grid");
+        assert!(quality.assignment_ratio > 0.95, "Not all points assigned to coarse grid: {}", quality.assignment_ratio);
 
         // Check 3: Interpolation points
         // Every F-point should interpolate from at least one C-point
         // (Average should be > 0)
-        assert!(quality.avg_interpolation_points > 0.0, "F-points have no interpolation sources");
+        assert!(quality.avg_interpolation_points > 0.0, "F-points have no interpolation sources: {}", quality.avg_interpolation_points);
     }
 }
 

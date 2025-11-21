@@ -124,6 +124,14 @@
 //! 3. **Steady State**: No time derivatives (no inductive effects)
 //! 4. **Passive Elements**: No active pressure sources (pumps, etc.) in basic analogy
 //!
+//! ## Invariants and Boundary Handling
+//!
+//! - Units: `[A] = [Pa·s/m³]`, `[x] = [Pa]`, `[b] = [Pa]`
+//! - Positivity: all edge conductances `G = 1/R` strictly positive
+//! - Dirichlet BCs: enforced exactly via identity rows; preserves SPD
+//! - Neumann BCs: applied as source terms in `b`; discrete conservation holds at junctions
+//! - Nonlinear losses: if `ΔP = R·Q + k·Q²`, assemble with `R_eff = R + 2k|Q|` per iteration
+//!
 //! **Extensions**: Pumps can be modeled as voltage sources, valves as variable resistors.
 //!
 //! **Literature**: White, F.M. (2015). Fluid Mechanics (8th ed.). McGraw-Hill. §6.8.
@@ -185,6 +193,7 @@ use cfd_core::solver::{Configurable, Solver, Validatable};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
+use crate::solver::linear_system::LinearSolverMethod;
 
 /// Solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -270,10 +279,64 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
             //    This is the linearization step for non-linear problems
             let (matrix, rhs) = self.assembler.assemble(&network)?;
 
+            // Heuristic SPD detection: positive diagonal, non-positive off-diagonals,
+            // and diagonal dominance on non-Dirichlet rows (identity rows allowed)
+            let mut is_spd = true;
+            for i in 0..matrix.nrows() {
+                let row = matrix.row(i);
+                let mut diag = T::zero();
+                let mut sum_off = T::zero();
+                for (j, val) in row.col_indices().iter().zip(row.values()) {
+                    if *j == i {
+                        diag = *val;
+                    } else {
+                        // Laplacian structure: off-diagonals should be <= 0
+                        if *val > T::zero() {
+                            is_spd = false;
+                            break;
+                        }
+                        sum_off += val.abs();
+                    }
+                }
+                // Identity rows for Dirichlet are fine (diag == 1)
+                if diag <= T::zero() {
+                    is_spd = false;
+                    break;
+                }
+                // Allow equality to support exact Laplacian rows
+                if diag < sum_off {
+                    is_spd = false;
+                    break;
+                }
+            }
+
+            // Choose solver method adaptively
+            let mut adaptive_solver = LinearSystemSolver::new();
+            adaptive_solver = adaptive_solver.with_method(if is_spd {
+                LinearSolverMethod::ConjugateGradient
+            } else {
+                LinearSolverMethod::BiCGSTAB
+            });
+
             // 2. Solve the linearized system
-            let solution = self.linear_solver.solve(&matrix, &rhs)?;
+            let solution = adaptive_solver.solve(&matrix, &rhs)?;
 
             // 3. Check for convergence using the convergence checker
+            // Diagnostics: residual norm and solution change
+            let residual_norm = {
+                let mut norm = T::zero();
+                for i in 0..n {
+                    let row = matrix.row(i);
+                    let mut ax_i = T::zero();
+                    for (j, val) in row.col_indices().iter().zip(row.values()) {
+                        ax_i += *val * solution[*j];
+                    }
+                    let r_i = ax_i - rhs[i];
+                    norm += r_i * r_i;
+                }
+                norm.sqrt()
+            };
+
             let converged = self.convergence.has_converged(&solution, &last_solution)?;
 
             // Check if solution has converged
@@ -287,8 +350,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
             self.update_network_solution(&mut network, &solution)?;
             last_solution = solution;
 
-            // Optional: Add logging for iteration progress
-            // log::debug!("Iteration {}: change = {}", iter + 1, change);
+            // Optional: Add logging for iteration progress (residual)
+            let _ = residual_norm; // placeholder to avoid unused warnings if logging disabled
         }
 
         // Failed to converge within max iterations

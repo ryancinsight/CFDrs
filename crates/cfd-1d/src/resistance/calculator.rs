@@ -111,6 +111,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> Default for Resist
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use cfd_core::fluid::ConstantFluid;
 
     #[test]
     fn test_hagen_poiseuille() -> Result<()> {
@@ -148,7 +149,14 @@ mod tests {
     fn test_rectangular_channel() -> Result<()> {
         let model = RectangularChannelModel::new(100e-6, 50e-6, 0.001);
         let fluid = cfd_core::fluid::database::water_20c::<f64>()?;
-        let conditions = FlowConditions::new(0.001);
+        let mut conditions = FlowConditions::new(0.001);
+        // Compute Reynolds number based on hydraulic diameter and set it
+        let dh = 2.0 * model.width * model.height / (model.width + model.height);
+        let density = fluid.density;
+        let viscosity = fluid.dynamic_viscosity();
+        let velocity = conditions.velocity.unwrap();
+        let re = density * velocity * dh / viscosity;
+        conditions.reynolds_number = Some(re);
 
         let resistance = model.calculate_resistance(&fluid, &conditions)?;
 
@@ -225,7 +233,7 @@ mod tests {
     fn test_calculator_auto_selection() -> Result<()> {
         let calculator = ResistanceCalculator::<f64>::new();
         let fluid = cfd_core::fluid::database::water_20c::<f64>()?;
-        let conditions = FlowConditions::new(0.001);
+        let mut conditions = FlowConditions::new(0.001);
 
         // Test circular geometry
         let circular = ChannelGeometry::Circular {
@@ -241,6 +249,14 @@ mod tests {
             height: 50e-6,
             length: 0.001,
         };
+        // Provide Reynolds number for rectangular geometry
+        let dh = 2.0 * 100e-6 * 50e-6 / (100e-6 + 50e-6);
+        let density = fluid.density;
+        let viscosity = fluid.dynamic_viscosity();
+        let velocity = conditions.velocity.unwrap();
+        let re = density * velocity * dh / viscosity;
+        conditions.reynolds_number = Some(re);
+
         let resistance_rectangular =
             calculator.calculate_auto(&rectangular, &fluid, &conditions)?;
         assert!(resistance_rectangular > 0.0);

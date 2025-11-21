@@ -105,10 +105,12 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
         // Since Po = f_fanning * Re, then f_fanning = Po / Re
         // So R = (Po/Re) * L * ρ / (2 * A * Dh²)
 
-        // Get Reynolds number from flow conditions, defaulting to 100 for backward compatibility
-        let reynolds = conditions
-            .reynolds_number
-            .unwrap_or_else(|| T::from_f64(100.0).unwrap_or_else(|| T::one()));
+        // Require Reynolds number from flow conditions
+        let reynolds = conditions.reynolds_number.ok_or_else(|| {
+            cfd_core::error::Error::InvalidConfiguration(
+                "Reynolds number required for rectangular channel model".to_string(),
+            )
+        })?;
         let f_fanning = poiseuille_number / reynolds; // Fanning friction factor
 
         // Hydraulic resistance using standard Darcy-Weisbach formulation

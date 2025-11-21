@@ -25,6 +25,8 @@ pub struct Edge<T: RealField + Copy> {
     pub flow_rate: T,
     /// Resistance coefficient
     pub resistance: T,
+    /// Quadratic loss coefficient (ΔP = R·Q + quad_coeff·Q²)
+    pub quad_coeff: T,
 }
 
 impl<T: RealField + Copy> Edge<T> {
@@ -36,6 +38,7 @@ impl<T: RealField + Copy> Edge<T> {
             edge_type,
             flow_rate: T::zero(),
             resistance: T::one(),
+            quad_coeff: T::zero(),
         }
     }
 }
