@@ -74,4 +74,40 @@ impl<T: RealField + Copy> ConvergenceChecker<T> {
         // Check if change is within tolerance
         Ok(change < self.tolerance)
     }
+
+    /// Check if solution has converged using both solution change and residual norm
+    pub fn has_converged_dual(
+        &self,
+        current: &DVector<T>,
+        previous: &DVector<T>,
+        residual_norm: T,
+        rhs_norm: T,
+    ) -> Result<bool> {
+        // Check for NaN/Inf values indicating divergence
+        if current.iter().any(|x| !x.is_finite()) {
+            return Err(cfd_core::error::Error::Convergence(
+                cfd_core::error::ConvergenceErrorKind::Diverged { norm: 0.0 },
+            ));
+        }
+
+        // 1. Solution change convergence
+        let change = (current - previous).norm();
+        let solution_norm = current.norm();
+        let relative_change = if solution_norm > T::default_epsilon() {
+            change / solution_norm
+        } else {
+            change
+        };
+
+        // 2. Residual convergence
+        let relative_residual = if rhs_norm > T::default_epsilon() {
+            residual_norm / rhs_norm
+        } else {
+            residual_norm
+        };
+
+        // Converged if EITHER relative change OR relative residual is below tolerance
+        // This is a robust check for non-linear systems.
+        Ok(relative_change < self.tolerance || relative_residual < self.tolerance)
+    }
 }

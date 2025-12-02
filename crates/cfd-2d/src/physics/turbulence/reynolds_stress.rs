@@ -108,172 +108,13 @@ use super::traits::TurbulenceModel;
 use cfd_core::error::Result;
 use nalgebra::{DMatrix, RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
+use std::any::TypeId;
 
-// Performance optimization: SIMD vectorization for computational kernels
-// SIMD support is architecture-specific and optional for portability
-#[cfg(target_arch = "aarch64")]
-use std::arch::aarch64::*;
-#[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
-// Fallback for unsupported architectures - SIMD kernels will not be available
-const SIMD_AVAILABLE: bool = false;
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-const SIMD_AVAILABLE: bool = true;
 
-// SIMD-optimized computational kernels for Reynolds stress calculations
-// Only available on supported architectures (x86_64 with AVX2, aarch64)
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-mod simd_kernels {
-    use super::*;
+// Performance optimization: SIMD vectorization removed in favor of compiler auto-vectorization
+// and architectural purity. Single-point SIMD intrinsics introduced unnecessary complexity
+// and potential performance degradation due to pack/unpack overhead.
 
-    /// SIMD-optimized Reynolds stress production term calculation using AVX2
-    /// Implements: P_ij = -⟨u_i'u_k'⟩∂U_j/∂x_k - ⟨u_j'u_k'⟩∂U_i/∂x_k
-    /// (Pope, 2000; Launder et al., 1975)
-    #[target_feature(enable = "avx2,fma")]
-    pub unsafe fn production_term_simd(
-        xx: f64,
-        xy: f64,
-        yy: f64, // Reynolds stresses ⟨u_x'u_x'⟩, ⟨u_x'u_y'⟩, ⟨u_y'u_y'⟩
-        du_dx: f64,
-        du_dy: f64, // ∂u/∂x, ∂u/∂y
-        dv_dx: f64,
-        dv_dy: f64, // ∂v/∂x, ∂v/∂y
-    ) -> (f64, f64, f64) {
-        // Reynolds stress production term (exact implementation)
-        // P_xx = -⟨u_x'u_k'⟩∂u/∂x_k - ⟨u_x'u_k'⟩∂u/∂x_k = -2⟨u_x'u_x'⟩∂u/∂x - 2⟨u_x'u_y'⟩∂u/∂y
-        // P_xy = -⟨u_x'u_k'⟩∂v/∂x_k - ⟨u_y'u_k'⟩∂u/∂x_k = -⟨u_x'u_x'⟩∂v/∂x - ⟨u_x'u_y'⟩∂v/∂y - ⟨u_y'u_x'⟩∂u/∂x - ⟨u_y'u_y'⟩∂u/∂y
-        // P_yy = -⟨u_y'u_k'⟩∂v/∂x_k - ⟨u_y'u_k'⟩∂v/∂x_k = -2⟨u_y'u_x'⟩∂v/∂x - 2⟨u_y'u_y'⟩∂v/∂y
-
-        // Load Reynolds stresses: [xx, xy, yy, 0]
-        let stresses = _mm256_set_pd(xx, xy, yy, 0.0);
-
-        // Compute production terms using velocity gradients
-        // P_xx = -2*xx*du_dx - 2*xy*du_dy
-        let p_xx = -2.0 * xx * du_dx - 2.0 * xy * du_dy;
-
-        // P_xy = -xx*dv_dx - xy*dv_dy - xy*du_dx - yy*du_dy
-        let p_xy = -xx * dv_dx - xy * dv_dy - xy * du_dx - yy * du_dy;
-
-        // P_yy = -2*xy*dv_dx - 2*yy*dv_dy
-        let p_yy = -2.0 * xy * dv_dx - 2.0 * yy * dv_dy;
-
-        (p_xx, p_xy, p_yy)
-    }
-
-    /// SIMD-optimized pressure-strain correlation calculation
-    #[target_feature(enable = "avx2,fma")]
-    pub unsafe fn pressure_strain_simd(
-        xx: f64,
-        xy: f64,
-        yy: f64,
-        k: f64,
-        epsilon: f64,
-        c1: f64,
-        c2: f64,
-        s11: f64,
-        s12: f64,
-        s22: f64,
-        w12: f64,
-    ) -> (f64, f64, f64) {
-        // Linear return-to-isotropy model: Φ_ij = -c1 * ε/k * (⟨u_i'u_j'⟩ - 2/3 * k * δ_ij)
-        // + c2 * (P_ij - 2/3 * P_kk * δ_ij)
-
-        let k_ratio = epsilon / k.max(1e-12);
-        let c1_term = -c1 * k_ratio;
-
-        // Isotropic part: -2/3 * k * δ_ij
-        let iso_xx = -2.0 / 3.0 * k;
-        let iso_xy = 0.0;
-        let iso_yy = -2.0 / 3.0 * k;
-
-        // Anisotropic part: ⟨u_i'u_j'⟩ - 2/3 * k * δ_ij
-        let aniso_xx = xx - iso_xx;
-        let aniso_xy = xy - iso_xy;
-        let aniso_yy = yy - iso_yy;
-
-        // Production terms
-        let p_xx = -2.0 * xx * s11 - 4.0 * xy * s12;
-        let p_xy = -2.0 * xy * s11 - 2.0 * (xx + yy) * s12 - 2.0 * xy * s22;
-        let p_yy = -4.0 * xy * s12 - 2.0 * yy * s22;
-
-        let p_kk = p_xx + p_yy;
-
-        // Load into SIMD registers for vectorized computation
-        let aniso = _mm256_set_pd(aniso_xx, aniso_xy, aniso_yy, 0.0);
-        let production = _mm256_set_pd(p_xx, p_xy, p_yy, 0.0);
-
-        let c1_vec = _mm256_set1_pd(c1_term);
-        let c2_vec = _mm256_set1_pd(c2);
-        let p_kk_vec = _mm256_set1_pd(-2.0 / 3.0 * p_kk);
-
-        // Φ_ij = c1_term * aniso_ij + c2 * (P_ij - 2/3 * P_kk * δ_ij)
-        let phi1 = _mm256_mul_pd(c1_vec, aniso);
-        let phi2 = _mm256_mul_pd(c2_vec, _mm256_add_pd(production, p_kk_vec));
-
-        let phi = _mm256_add_pd(phi1, phi2);
-
-        let mut results = [0.0f64; 4];
-        _mm256_storeu_pd(results.as_mut_ptr(), phi);
-
-        (results[3], results[2], results[1]) // Φ_xx, Φ_xy, Φ_yy
-    }
-}
-
-#[cfg(target_arch = "aarch64")]
-mod simd_kernels {
-    use super::*;
-
-    /// NEON-optimized production term calculation
-    pub fn production_term_simd(
-        xx: f64,
-        xy: f64,
-        yy: f64,
-        s11: f64,
-        s12: f64,
-        s22: f64,
-    ) -> (f64, f64, f64) {
-        // Fallback to scalar for now - NEON implementation would go here
-        let p_xx = -2.0 * xx * s11 - 4.0 * xy * s12;
-        let p_xy = -2.0 * xy * s11 - 2.0 * (xx + yy) * s12 - 2.0 * xy * s22;
-        let p_yy = -4.0 * xy * s12 - 2.0 * yy * s22;
-        (p_xx, p_xy, p_yy)
-    }
-
-    /// NEON-optimized pressure-strain correlation calculation
-    pub fn pressure_strain_simd(
-        xx: f64,
-        xy: f64,
-        yy: f64,
-        k: f64,
-        epsilon: f64,
-        c1: f64,
-        c2: f64,
-        s11: f64,
-        s12: f64,
-        s22: f64,
-        w12: f64,
-    ) -> (f64, f64, f64) {
-        // Fallback to scalar - NEON implementation would go here
-        let k_ratio = epsilon / k.max(1e-12);
-        let c1_term = -c1 * k_ratio;
-
-        let aniso_xx = xx + 2.0 / 3.0 * k;
-        let aniso_xy = xy;
-        let aniso_yy = yy + 2.0 / 3.0 * k;
-
-        let p_xx = -2.0 * xx * s11 - 4.0 * xy * s12;
-        let p_xy = -2.0 * xy * s11 - 2.0 * (xx + yy) * s12 - 2.0 * xy * s22;
-        let p_yy = -4.0 * xy * s12 - 2.0 * yy * s22;
-        let p_kk = p_xx + p_yy;
-
-        let phi_xx = c1_term * aniso_xx + c2 * (p_xx + 2.0 / 3.0 * p_kk);
-        let phi_xy = c1_term * aniso_xy + c2 * p_xy;
-        let phi_yy = c1_term * aniso_yy + c2 * (p_yy + 2.0 / 3.0 * p_kk);
-
-        (phi_xx, phi_xy, phi_yy)
-    }
-}
 
 // Numerical stability constant
 const EPSILON_MIN: f64 = 1e-12;
@@ -317,6 +158,8 @@ pub struct ReynoldsStressModel<T: RealField + Copy + FromPrimitive + ToPrimitive
     c2_star: T, // Quadratic pressure-strain constant
     c3: T,      // Wall-reflection constant
     c3_star: T, // Wall-reflection constant
+    c4: T,      // SSG constant
+    c5: T,      // SSG constant
     /// Pressure-strain model type
     pub pressure_strain_model: PressureStrainModel,
     /// Wall-reflection correction
@@ -340,6 +183,12 @@ pub enum PressureStrainModel {
 }
 
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
+    /// Helper for structural constants that must be representable
+    #[inline(always)]
+    fn constant(val: f64) -> T {
+        T::from_f64(val).expect("Structural constant must be representable in scalar type")
+    }
+
     /// Create new Reynolds stress model with default constants
     ///
     /// # Panics
@@ -355,13 +204,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
             nx,
             ny,
             wall_distance: None,
-            c_mu: T::from_f64(C_MU).unwrap(),
-            c1: T::from_f64(1.8).unwrap(),      // Launder et al. (1975)
-            c2: T::from_f64(0.6).unwrap(),      // Launder et al. (1975)
-            c1_star: T::from_f64(1.7).unwrap(), // Speziale et al. (1991)
-            c2_star: T::from_f64(-1.05).unwrap(), // Speziale et al. (1991)
-            c3: T::from_f64(0.8).unwrap(),      // Lumley (1978)
-            c3_star: T::from_f64(1.3).unwrap(), // Speziale et al. (1991)
+            c_mu: Self::constant(C_MU),
+            c1: Self::constant(1.8),      // Launder et al. (1975)
+            c2: Self::constant(0.6),      // Launder et al. (1975)
+            c1_star: Self::constant(1.7), // Speziale et al. (1991)
+            c2_star: Self::constant(-1.05), // Speziale et al. (1991)
+            c3: Self::constant(0.8),      // Lumley (1978) / SSG
+            c3_star: Self::constant(1.3), // Speziale et al. (1991)
+            c4: Self::constant(1.25),     // SSG
+            c5: Self::constant(0.40),     // SSG
             pressure_strain_model: PressureStrainModel::Quadratic,
             wall_reflection: true,
             curvature_correction: true,
@@ -406,7 +257,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     /// Vector of wall distances for each cell
     pub fn compute_wall_distance_field(&self, wall_mask: &[bool], dx: T, dy: T) -> Vec<T> {
         let n = self.nx * self.ny;
-        let mut distance = vec![T::max_value().unwrap(); n];
+        let mut distance = vec![T::max_value().expect("Max value required for wall distance initialization"); n];
 
         // Initialize wall cells with distance 0
         for i in 0..n {
@@ -483,12 +334,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         assert!(
             initial_k > T::zero(),
             "Initial turbulent kinetic energy must be positive: k={}",
-            initial_k.to_f64().unwrap_or(0.0)
+            initial_k.to_f64().expect("Failed to convert initial_k to f64")
         );
         assert!(
             initial_epsilon > T::zero(),
             "Initial dissipation rate must be positive: ε={}",
-            initial_epsilon.to_f64().unwrap_or(0.0)
+            initial_epsilon.to_f64().expect("Failed to convert initial_epsilon to f64")
         );
         let mut xx = DMatrix::zeros(self.nx, self.ny);
         let mut xy = DMatrix::zeros(self.nx, self.ny);
@@ -497,7 +348,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let mut epsilon = DMatrix::zeros(self.nx, self.ny);
 
         // Initialize with isotropic turbulence (2/3 of k on diagonal)
-        let isotropic_normal = initial_k * T::from_f64(2.0 / 3.0).unwrap();
+        let isotropic_normal = initial_k * Self::constant(2.0 / 3.0);
         let zero = T::zero();
 
         for i in 0..self.nx {
@@ -533,7 +384,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let mut epsilon_yy = DMatrix::zeros(self.nx, self.ny);
 
         // Initialize with isotropic dissipation (2/3 ε on diagonal)
-        let isotropic_dissipation = initial_epsilon * T::from_f64(2.0 / 3.0).unwrap();
+        let isotropic_dissipation = initial_epsilon * Self::constant(2.0 / 3.0);
         let zero = T::zero();
 
         for i in 0..self.nx {
@@ -559,12 +410,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     /// The production term represents the rate at which turbulent kinetic energy
     /// is converted to Reynolds stress anisotropy through interaction with mean strain.
     ///
-    /// Calculate production term P_ij with SIMD optimization for f64
-    ///
-    /// ## Performance Enhancement: SIMD Vectorization
-    /// - **x86_64/AVX2**: 3-4x speedup for tensor production calculations
-    /// - **Memory bandwidth**: Reduced cache misses through vectorized operations
-    /// - **Branch elimination**: Vectorized computation eliminates conditional branches
+    /// ## Performance Note
+    /// Implemented using scalar operations to allow compiler auto-vectorization.
+    #[inline]
     pub fn production_term(
         &self,
         reynolds_stress: &ReynoldsStressTensor<T>,
@@ -584,50 +432,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let xy = reynolds_stress.xy[(x, y)];
         let yy = reynolds_stress.yy[(x, y)];
 
-        // SIMD optimization for f64 precision calculations
-        #[cfg(target_arch = "x86_64")]
-        {
-            if let (
-                Some(xx_f64),
-                Some(xy_f64),
-                Some(yy_f64),
-                Some(du_dx_f64),
-                Some(du_dy_f64),
-                Some(dv_dx_f64),
-                Some(dv_dy_f64),
-            ) = (
-                xx.to_f64(),
-                xy.to_f64(),
-                yy.to_f64(),
-                du_dx.to_f64(),
-                du_dy.to_f64(),
-                dv_dx.to_f64(),
-                dv_dy.to_f64(),
-            ) {
-                // Use SIMD for Reynolds stress production term calculation
-                // Now correctly passes velocity gradients for exact tensor contraction
-                let (p_xx_simd, p_xy_simd, p_yy_simd) = unsafe {
-                    simd_kernels::production_term_simd(
-                        xx_f64, xy_f64, yy_f64, du_dx_f64, du_dy_f64, dv_dx_f64, dv_dy_f64,
-                    )
-                };
-
-                match (i, j) {
-                    (0, 0) => return T::from_f64(p_xx_simd).unwrap_or(T::zero()),
-                    (0, 1) | (1, 0) => return T::from_f64(p_xy_simd).unwrap_or(T::zero()),
-                    (1, 1) => return T::from_f64(p_yy_simd).unwrap_or(T::zero()),
-                    _ => return T::zero(),
-                }
-            }
-        }
-
-        // Fallback to scalar computation (exact Reynolds stress production)
+        // Exact Reynolds stress production
         // P_ij = -⟨u_i'u_k'⟩∂U_j/∂x_k - ⟨u_j'u_k'⟩∂U_i/∂x_k
         match (i, j) {
             (0, 0) => {
                 // P_xx = -⟨u_x'u_x'⟩∂u/∂x - ⟨u_x'u_y'⟩∂u/∂y - ⟨u_x'u_x'⟩∂u/∂x - ⟨u_x'u_y'⟩∂u/∂y
                 //      = -2⟨u_x'u_x'⟩∂u/∂x - 2⟨u_x'u_y'⟩∂u/∂y
-                -T::from_f64(2.0).unwrap() * xx * du_dx - T::from_f64(2.0).unwrap() * xy * du_dy
+                -Self::constant(2.0) * xx * du_dx - Self::constant(2.0) * xy * du_dy
             }
             (0, 1) | (1, 0) => {
                 // P_xy = -⟨u_x'u_x'⟩∂v/∂x - ⟨u_x'u_y'⟩∂v/∂y - ⟨u_y'u_x'⟩∂u/∂x - ⟨u_y'u_y'⟩∂u/∂y
@@ -637,7 +448,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
             (1, 1) => {
                 // P_yy = -⟨u_y'u_x'⟩∂v/∂x - ⟨u_y'u_y'⟩∂v/∂y - ⟨u_y'u_x'⟩∂v/∂x - ⟨u_y'u_y'⟩∂v/∂y
                 //      = -2⟨u_y'u_x'⟩∂v/∂x - 2⟨u_y'u_y'⟩∂v/∂y
-                -T::from_f64(2.0).unwrap() * xy * dv_dx - T::from_f64(2.0).unwrap() * yy * dv_dy
+                -Self::constant(2.0) * xy * dv_dx - Self::constant(2.0) * yy * dv_dy
             }
             _ => T::zero(),
         }
@@ -673,9 +484,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         }
 
         let time_scale = k / epsilon;
-        let anisotropy_xx = xx / k - T::from_f64(2.0 / 3.0).unwrap();
+        let anisotropy_xx = xx / k - Self::constant(2.0 / 3.0);
         let anisotropy_xy = xy / k;
-        let anisotropy_yy = yy / k - T::from_f64(2.0 / 3.0).unwrap();
+        let anisotropy_yy = yy / k - Self::constant(2.0 / 3.0);
 
         let s11 = strain_rate[0][0];
         let s12 = strain_rate[0][1];
@@ -687,58 +498,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
             PressureStrainModel::LinearReturnToIsotropy => {
                 // Linear return-to-isotropy: Φ_ij = -C_1 ε/k (⟨u_i'u_j'⟩ - (2/3)k δ_ij)
 
-                // SIMD optimization for f64 precision calculations
-                #[cfg(target_arch = "x86_64")]
-                {
-                    if let (
-                        Some(xx_f64),
-                        Some(xy_f64),
-                        Some(yy_f64),
-                        Some(k_f64),
-                        Some(epsilon_f64),
-                        Some(s11_f64),
-                        Some(s12_f64),
-                        Some(s22_f64),
-                        Some(w12_f64),
-                    ) = (
-                        xx.to_f64(),
-                        xy.to_f64(),
-                        yy.to_f64(),
-                        k.to_f64(),
-                        epsilon.to_f64(),
-                        s11.to_f64(),
-                        s12.to_f64(),
-                        s22.to_f64(),
-                        w12.to_f64(),
-                    ) {
-                        let (phi_xx_simd, phi_xy_simd, phi_yy_simd) = unsafe {
-                            simd_kernels::pressure_strain_simd(
-                                xx_f64,
-                                xy_f64,
-                                yy_f64,
-                                k_f64,
-                                epsilon_f64,
-                                self.c1.to_f64().unwrap_or(1.8),
-                                self.c2.to_f64().unwrap_or(0.6),
-                                s11_f64,
-                                s12_f64,
-                                s22_f64,
-                                w12_f64,
-                            )
-                        };
-
-                        match (i, j) {
-                            (0, 0) => return T::from_f64(phi_xx_simd).unwrap_or(T::zero()),
-                            (0, 1) | (1, 0) => {
-                                return T::from_f64(phi_xy_simd).unwrap_or(T::zero())
-                            }
-                            (1, 1) => return T::from_f64(phi_yy_simd).unwrap_or(T::zero()),
-                            _ => return T::zero(),
-                        }
-                    }
-                }
-
-                // Fallback to scalar computation
+                // Scalar computation allowing compiler auto-vectorization
                 let c1_term = -self.c1 * epsilon / k;
 
                 match (i, j) {
@@ -767,23 +527,120 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
             }
 
             PressureStrainModel::SSG => {
-                // SSG model (Speziale-Sarkar-Gatski, 1991)
-                // Includes strain-dependent pressure-strain correlation
-                let c1_term = -self.c1 * epsilon / k;
-                let c3_term = self.c3 * epsilon / k;
+                // SSG model (Speziale-Sarkar-Gatski, 1991) - Full Implementation
+                // Includes strain, vorticity, and nonlinear anisotropy terms
 
+                // 1. Calculate invariants and auxiliary terms
+                // Assuming 2D mean flow (b_xz = b_yz = 0), trace-free (b_zz = -(b_xx + b_yy))
+                let a_zz = -(anisotropy_xx + anisotropy_yy);
+                let ii_b = anisotropy_xx * anisotropy_xx
+                    + anisotropy_yy * anisotropy_yy
+                    + a_zz * a_zz
+                    + Self::constant(2.0) * anisotropy_xy * anisotropy_xy;
+                let sqrt_ii_b = ii_b.sqrt();
+
+                // Production P = -2 * k * b_ij * S_ij
+                let production = Self::constant(-2.0)
+                    * k
+                    * (anisotropy_xx * s11
+                        + anisotropy_yy * s22
+                        + Self::constant(2.0) * anisotropy_xy * s12);
+
+                // 2. Calculate coefficients
+                // C1_eff = -(C1 * eps + C1* * P)
+                let c1_coeff = -(self.c1 * epsilon + self.c1_star * production);
+                let c2_coeff = self.c2 * epsilon;
+                // C3_eff = (C3 - C3* * sqrt(II_b)) * k
+                let c3_coeff = (self.c3 - self.c3_star * sqrt_ii_b) * k;
+                let c4_coeff = self.c4 * k;
+                let c5_coeff = self.c5 * k;
+
+                let one_third = Self::constant(1.0 / 3.0);
+                let two_thirds = Self::constant(2.0 / 3.0);
+
+                // 3. Calculate tensor terms
                 match (i, j) {
                     (0, 0) => {
-                        c1_term * anisotropy_xx
-                            + c3_term * (anisotropy_xx * s11 + anisotropy_xy * s12)
+                        // Term 1: C1_eff * b_xx
+                        let term1 = c1_coeff * anisotropy_xx;
+
+                        // Term 2: C2 * eps * (b^2_xx - 1/3 * II_b)
+                        let b_sq_xx = anisotropy_xx * anisotropy_xx + anisotropy_xy * anisotropy_xy;
+                        let term2 = c2_coeff * (b_sq_xx - one_third * ii_b);
+
+                        // Term 3: C3_eff * S_xx
+                        let term3 = c3_coeff * s11;
+
+                        // Term 4: C4 * k * (M_xx - 2/3 * b:S)
+                        // M_xx = 2 * (b_xx * S_xx + b_xy * S_xy)
+                        let m_xx = Self::constant(2.0)
+                            * (anisotropy_xx * s11 + anisotropy_xy * s12);
+                        // b:S = -P / (2k)
+                        let b_colon_s = anisotropy_xx * s11
+                            + anisotropy_yy * s22
+                            + Self::constant(2.0) * anisotropy_xy * s12;
+                        let term4 = c4_coeff * (m_xx - two_thirds * b_colon_s);
+
+                        // Term 5: C5 * k * (b_x_k * W_x_k + b_x_k * W_x_k) = 2 * b_x_k * W_x_k
+                        // W_xx=0, W_xy=w12, W_yx=w21
+                        // b_xx*W_xx + b_xy*W_yx = b_xy * w21
+                        let term5 = c5_coeff * Self::constant(2.0) * anisotropy_xy * w21;
+
+                        term1 + term2 + term3 + term4 + term5
                     }
                     (0, 1) | (1, 0) => {
-                        c1_term * anisotropy_xy
-                            + c3_term * (anisotropy_xx * s12 + anisotropy_xy * s22)
+                        // Term 1: C1_eff * b_xy
+                        let term1 = c1_coeff * anisotropy_xy;
+
+                        // Term 2: C2 * eps * (b^2_xy) (delta_ij = 0)
+                        let b_sq_xy = anisotropy_xx * anisotropy_xy + anisotropy_xy * anisotropy_yy;
+                        let term2 = c2_coeff * b_sq_xy;
+
+                        // Term 3: C3_eff * S_xy
+                        let term3 = c3_coeff * s12;
+
+                        // Term 4: C4 * k * M_xy
+                        // M_xy = b_xx * S_xy + b_xy * S_yy + b_yx * S_xx + b_yy * S_xy
+                        let m_xy = anisotropy_xx * s12
+                            + anisotropy_xy * s22
+                            + anisotropy_xy * s11
+                            + anisotropy_yy * s12;
+                        let term4 = c4_coeff * m_xy;
+
+                        // Term 5: C5 * k * N_xy
+                        // N_xy = b_xx * W_xy + b_xy * W_yy + b_yx * W_xx + b_yy * W_yx
+                        //      = b_xx * w12 + 0 + 0 + b_yy * w21
+                        let n_xy = anisotropy_xx * w12 + anisotropy_yy * w21;
+                        let term5 = c5_coeff * n_xy;
+
+                        term1 + term2 + term3 + term4 + term5
                     }
                     (1, 1) => {
-                        c1_term * anisotropy_yy
-                            + c3_term * (anisotropy_xy * s12 + anisotropy_yy * s22)
+                        // Term 1: C1_eff * b_yy
+                        let term1 = c1_coeff * anisotropy_yy;
+
+                        // Term 2: C2 * eps * (b^2_yy - 1/3 * II_b)
+                        let b_sq_yy = anisotropy_xy * anisotropy_xy + anisotropy_yy * anisotropy_yy;
+                        let term2 = c2_coeff * (b_sq_yy - one_third * ii_b);
+
+                        // Term 3: C3_eff * S_yy
+                        let term3 = c3_coeff * s22;
+
+                        // Term 4: C4 * k * (M_yy - 2/3 * b:S)
+                        // M_yy = 2 * (b_yx * S_xy + b_yy * S_yy)
+                        let m_yy = Self::constant(2.0)
+                            * (anisotropy_xy * s12 + anisotropy_yy * s22);
+                        let b_colon_s = anisotropy_xx * s11
+                            + anisotropy_yy * s22
+                            + Self::constant(2.0) * anisotropy_xy * s12;
+                        let term4 = c4_coeff * (m_yy - two_thirds * b_colon_s);
+
+                        // Term 5: C5 * k * N_yy
+                        // N_yy = 2 * b_y_k * W_y_k
+                        // b_yx * W_xy + b_yy * W_yy = b_xy * w12
+                        let term5 = c5_coeff * Self::constant(2.0) * anisotropy_xy * w12;
+
+                        term1 + term2 + term3 + term4 + term5
                     }
                     _ => T::zero(),
                 }
@@ -850,8 +707,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         };
 
         // Rapid pressure-strain (quadratic terms)
-        let two_thirds = T::from_f64(2.0 / 3.0).unwrap();
-        let four_thirds = T::from_f64(4.0 / 3.0).unwrap();
+        let two_thirds = Self::constant(2.0 / 3.0);
+        let four_thirds = Self::constant(4.0 / 3.0);
 
         let phi_rapid_ij = match (i, j) {
             (0, 0) => {
@@ -860,7 +717,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                         * (a_xx * s22 - a_xy * s12 + two_thirds * (a_xx + a_yy) * (s11 + s22))
             }
             (0, 1) | (1, 0) => {
-                let four_thirds = T::from_f64(4.0 / 3.0).unwrap();
+                let four_thirds = Self::constant(4.0 / 3.0);
                 self.c1_star * (a_xx * s12 + a_xy * s22)
                     + self.c2_star
                         * (a_xy * (s11 - s22) + a_yy * s12 - four_thirds * a_xy * (s11 + s22))
@@ -892,9 +749,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     fn calculate_wall_distance(&self, x: usize, y: usize) -> T {
         // Wall distance is required for proper RSTM wall treatments
         // No fallback simplifications allowed - must use accurate distance field
-        self.wall_distance.as_ref().unwrap_or_else(|| {
-            panic!("Wall distance field required for Reynolds Stress model. Call set_wall_distance() before using wall-reflection corrections.")
-        })[y * self.nx + x]
+        self.wall_distance.as_ref().expect("Wall distance field required for Reynolds Stress model. Call set_wall_distance() before using wall-reflection corrections.")[y * self.nx + x]
     }
 
     /// Determine wall-normal direction index (0=x, 1=y)
@@ -923,8 +778,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let wall_distance = self.calculate_wall_distance(x, y);
 
         // Gibson & Launder (1978) wall-reflection constants
-        let c_w1 = T::from_f64(0.5).unwrap(); // Wall-reflection constant for normal stresses
-        let c_w2 = T::from_f64(0.3).unwrap(); // Wall-reflection constant for shear stresses
+        let c_w1 = Self::constant(0.5); // Wall-reflection constant for normal stresses
+        let c_w2 = Self::constant(0.3); // Wall-reflection constant for shear stresses
 
         // Wall-normal direction (simplified for 2D: assume walls at y=0 and y=ny-1)
         let wall_normal_index = self.get_wall_normal_index(y);
@@ -947,7 +802,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         // Φ_wall = [1 - exp(-y+/A)] / y+ where A ≈ 25
         let y_plus = wall_distance * (self.c_mu * time_scale).sqrt(); // Rough y+ estimate
         let damping_factor = if y_plus > T::zero() {
-            let a_damping = T::from_f64(25.0).unwrap();
+            let a_damping = Self::constant(25.0);
             (T::one() - (-y_plus / a_damping).exp()) / y_plus
         } else {
             T::zero()
@@ -965,7 +820,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                 -c_w1
                     * damping_factor
                     * (a_nn * a_nn + a_pp * a_pp
-                        - T::from_f64(2.0 / 3.0).unwrap() * (a_nn + a_pp) * delta_xx)
+                        - Self::constant(2.0 / 3.0) * (a_nn + a_pp) * delta_xx)
             }
             (0, 1) | (1, 0) => -c_w2 * damping_factor * (a_nn * a_ps + a_pp * a_ps),
             (1, 1) => {
@@ -977,7 +832,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                 -c_w1
                     * damping_factor
                     * (a_nn * a_nn + a_pp * a_pp
-                        - T::from_f64(2.0 / 3.0).unwrap() * (a_nn + a_pp) * delta_yy)
+                        - Self::constant(2.0 / 3.0) * (a_nn + a_pp) * delta_yy)
             }
             _ => T::zero(),
         };
@@ -1002,8 +857,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         j: usize,
     ) -> T {
         // Suga & Craft (2003) curvature correction constants
-        let c_curv1 = T::from_f64(0.15).unwrap(); // Convex curvature constant
-        let c_curv2 = T::from_f64(-0.1).unwrap(); // Concave curvature constant
+        let c_curv1 = Self::constant(0.15); // Convex curvature constant
+        let c_curv2 = Self::constant(-0.1); // Concave curvature constant
 
         // Calculate curvature tensor components
         // For 2D flow, curvature affects the redistribution of anisotropy
@@ -1015,27 +870,27 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
 
         // Curvature correction depends on flow curvature (Suga & Craft, 2003)
         // Φ_ij^curv = C_curv * (k/ε) * K * (terms involving anisotropy and strain)
-        let curvature_correction = if curvature_strength > T::from_f64(1e-6).unwrap() {
+        let curvature_correction = if curvature_strength > Self::constant(1e-6) {
             let curvature_factor = if is_convex { c_curv1 } else { c_curv2 };
 
             match (i, j) {
                 (0, 0) => {
                     curvature_factor
                         * curvature_strength
-                        * (a_xx * s11 + T::from_f64(2.0).unwrap() * a_xy * s12
-                            - T::from_f64(2.0 / 3.0).unwrap() * (a_xx + a_yy) * s11)
+                        * (a_xx * s11 + Self::constant(2.0) * a_xy * s12
+                            - Self::constant(2.0 / 3.0) * (a_xx + a_yy) * s11)
                 }
                 (0, 1) | (1, 0) => {
                     curvature_factor
                         * curvature_strength
                         * (a_xx * s12 + a_xy * s22 + a_yy * s12
-                            - T::from_f64(2.0 / 3.0).unwrap() * (a_xx + a_yy) * s12)
+                            - Self::constant(2.0 / 3.0) * (a_xx + a_yy) * s12)
                 }
                 (1, 1) => {
                     curvature_factor
                         * curvature_strength
                         * (a_xy * s12 + a_yy * s22
-                            - T::from_f64(2.0 / 3.0).unwrap() * (a_xx + a_yy) * s22)
+                            - Self::constant(2.0 / 3.0) * (a_xx + a_yy) * s22)
                 }
                 _ => T::zero(),
             }
@@ -1053,11 +908,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         // Positive K: convex curvature (strain-dominated)
         // Negative K: concave curvature (rotation-dominated)
 
-        let strain_magnitude_sq = s11 * s11 + T::from_f64(2.0).unwrap() * s12 * s12 + s22 * s22;
-        let rotation_magnitude_sq = T::from_f64(2.0).unwrap() * w12 * w12; // w12 = w21 for 2D
+        let strain_magnitude_sq = s11 * s11 + Self::constant(2.0) * s12 * s12 + s22 * s22;
+        let rotation_magnitude_sq = Self::constant(2.0) * w12 * w12; // w12 = w21 for 2D
 
         let denominator = strain_magnitude_sq + rotation_magnitude_sq;
-        if denominator > T::from_f64(1e-12).unwrap() {
+        if denominator > Self::constant(1e-12) {
             (strain_magnitude_sq - rotation_magnitude_sq) / denominator
         } else {
             T::zero()
@@ -1087,7 +942,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
             }
         } else {
             // Fallback to isotropic dissipation
-            let two_thirds = T::from_f64(2.0 / 3.0).unwrap();
+            let two_thirds = Self::constant(2.0 / 3.0);
             let epsilon = reynolds_stress.epsilon[(x, y)];
             match (i, j) {
                 (0, 0) | (1, 1) => two_thirds * epsilon,
@@ -1111,7 +966,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         // ⟨u_i'u_j'u_k'⟩ ≈ -C_s * (k³/ε²) * ∂⟨u_i'u_j'⟩/∂x_k
         // where C_s is the triple correlation constant (Launder et al., 1975)
 
-        let c_s = T::from_f64(0.11).unwrap(); // Triple correlation constant
+        let c_s = Self::constant(0.11); // Triple correlation constant
         let diffusion_coeff = c_s * k * k * k / (epsilon * epsilon);
 
         // Triple correlation transport: T_ij = -∂⟨u_i'u_j'u_k'⟩/∂x_k
@@ -1121,7 +976,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
             (0, 1) | (1, 0) => {
                 -diffusion_coeff
                     * (stress_gradient[0][1] + stress_gradient[1][0])
-                    * T::from_f64(0.5).unwrap()
+                    * Self::constant(0.5)
             }
             (1, 1) => -diffusion_coeff * stress_gradient[1][1], // -∂⟨v'v'v'⟩/∂x - ∂⟨v'v'v'⟩/∂y
             _ => T::zero(),
@@ -1192,9 +1047,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         // Pre-compute constants to avoid repeated calculations
         let dx_inv = T::one() / dx;
         let dy_inv = T::one() / dy;
-        let half = T::from_f64(0.5).unwrap();
-        let two_thirds = T::from_f64(2.0 / 3.0).unwrap();
-        let epsilon_min = T::from_f64(EPSILON_MIN).unwrap();
+        let half = Self::constant(0.5);
+        let two_thirds = Self::constant(2.0 / 3.0);
+        let epsilon_min = Self::constant(EPSILON_MIN);
 
         // Create temporary arrays for updated values (avoid cloning large matrices)
         let mut xx_new = DMatrix::zeros(nx, ny);
@@ -1261,9 +1116,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                         let epsilon = reynolds_stress.epsilon[(i, j)];
 
                         // Optimized production terms (unrolled for 2D)
-                        let p_xx = -T::from_f64(2.0).unwrap() * xy * du_dy;
+                        let p_xx = -Self::constant(2.0) * xy * du_dy;
                         let p_xy = -xx * dv_dx - yy * du_dy;
-                        let p_yy = -T::from_f64(2.0).unwrap() * xy * dv_dy;
+                        let p_yy = -Self::constant(2.0) * xy * dv_dy;
 
                         // Optimized pressure-strain terms
                         let phi_xx = self.pressure_strain_optimized(
@@ -1396,7 +1251,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         }
 
         let time_scale = k / epsilon;
-        let two_thirds = T::from_f64(2.0 / 3.0).unwrap();
+        let two_thirds = Self::constant(2.0 / 3.0);
 
         // Pre-compute anisotropy
         let a_xx = xx / k - two_thirds;
@@ -1440,7 +1295,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                             / time_scale
                     }
                     (0, 1) | (1, 0) => {
-                        let four_thirds = T::from_f64(4.0 / 3.0).unwrap();
+                        let four_thirds = Self::constant(4.0 / 3.0);
                         (-c1_a_xy
                             + self.c1_star * (a_xx * s12 + a_xy * s22)
                             + self.c2_star
@@ -1516,14 +1371,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         i: usize,
         j: usize,
     ) -> T {
-        let c_s = T::from_f64(0.11).unwrap();
+        let c_s = Self::constant(0.11);
         let diffusion_coeff = c_s * k * k * k / (epsilon * epsilon);
 
         match (i, j) {
             (0, 0) => -diffusion_coeff * stress_gradient[0][0],
             (0, 1) | (1, 0) => {
                 -diffusion_coeff
-                    * T::from_f64(0.5).unwrap()
+                    * Self::constant(0.5)
                     * (stress_gradient[0][1] + stress_gradient[1][0])
             }
             (1, 1) => -diffusion_coeff * stress_gradient[1][1],
@@ -1552,19 +1407,19 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         // Production of k
         let du_dy = velocity_gradient[0][1];
         let dv_dx = velocity_gradient[1][0];
-        let p_k = T::from_f64(0.5).unwrap()
-            * (-T::from_f64(2.0).unwrap() * xx_new * du_dy
-                - T::from_f64(2.0).unwrap() * yy_new * dv_dx);
+        let p_k = Self::constant(0.5)
+            * (-Self::constant(2.0) * xx_new * du_dy
+                - Self::constant(2.0) * yy_new * dv_dx);
 
         // Standard k-ε constants
-        let c_eps1 = T::from_f64(1.44).unwrap();
-        let c_eps2 = T::from_f64(1.92).unwrap();
+        let c_eps1 = Self::constant(1.44);
+        let c_eps2 = Self::constant(1.92);
 
         let production_term = c_eps1 * p_k * epsilon_old / k_new;
         let destruction_term = c_eps2 * epsilon_old * epsilon_old / k_new;
 
         // Simple diffusion (should be ∇·(ν_t σ_ε ∇ε))
-        let sigma_eps = T::from_f64(1.3).unwrap();
+        let sigma_eps = Self::constant(1.3);
         let nu_t = self.c_mu * k_new * k_new / epsilon_old;
         let diffusion_term = (nu_t / sigma_eps) * T::zero(); // Simplified, would need Laplacian
 
@@ -1606,14 +1461,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         if dt <= T::zero() {
             return Err(cfd_core::error::Error::InvalidInput(format!(
                 "Time step must be positive: dt={}",
-                dt.to_f64().unwrap_or(0.0)
+                dt.to_f64().expect("Failed to convert dt to f64")
             )));
         }
         if dx <= T::zero() || dy <= T::zero() {
             return Err(cfd_core::error::Error::InvalidInput(format!(
                 "Grid spacing must be positive: dx={}, dy={}",
-                dx.to_f64().unwrap_or(0.0),
-                dy.to_f64().unwrap_or(0.0)
+                dx.to_f64().expect("Failed to convert dx to f64"),
+                dy.to_f64().expect("Failed to convert dy to f64")
             )));
         }
 
@@ -1690,7 +1545,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                 }
 
                 // Update k = (1/2)(⟨u'u'⟩ + ⟨v'v'⟩)
-                k_new[(i, j)] = T::from_f64(0.5).unwrap() * (xx_new[(i, j)] + yy_new[(i, j)]);
+                k_new[(i, j)] = Self::constant(0.5) * (xx_new[(i, j)] + yy_new[(i, j)]);
 
                 // Update dissipation rate ε using full transport equation
                 // dε/dt = C_ε1 P_k / k - C_ε2 ε² / k + ∇·(ν_t σ_ε ∇ε) + molecular diffusion
@@ -1706,16 +1561,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                         self.production_term(reynolds_stress, &velocity_gradient, 0, 0, i, j);
                     let p_yy =
                         self.production_term(reynolds_stress, &velocity_gradient, 1, 1, i, j);
-                    let p_k = T::from_f64(0.5).unwrap() * (p_xx + p_yy); // Production of k
+                    let p_k = Self::constant(0.5) * (p_xx + p_yy); // Production of k
 
-                    let c_eps1 = T::from_f64(1.44).unwrap(); // Standard k-ε constant
-                    let c_eps2 = T::from_f64(1.92).unwrap(); // Standard k-ε constant
+                    let c_eps1 = Self::constant(1.44); // Standard k-ε constant
+                    let c_eps2 = Self::constant(1.92); // Standard k-ε constant
 
                     let production_term = c_eps1 * p_k * epsilon / k;
                     let destruction_term = c_eps2 * epsilon * epsilon / k;
 
                     // Simple diffusion approximation (should be ∇·(ν_t σ_ε ∇ε))
-                    let sigma_eps = T::from_f64(1.3).unwrap();
+                    let sigma_eps = Self::constant(1.3);
                     let nu_t = self.c_mu * k * k / epsilon;
                     let diffusion_coeff = nu_t / sigma_eps;
 
@@ -1729,10 +1584,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                     let deps_dt = production_term - destruction_term + diffusion_term;
 
                     epsilon_new[(i, j)] =
-                        (epsilon + dt * deps_dt).max(T::from_f64(EPSILON_MIN).unwrap());
+                        (epsilon + dt * deps_dt).max(Self::constant(EPSILON_MIN));
                 } else {
                     // Fallback for numerical stability
-                    let epsilon_k_ratio = T::from_f64(0.09).unwrap();
+                    let epsilon_k_ratio = Self::constant(0.09);
                     epsilon_new[(i, j)] = epsilon_k_ratio * k * k.sqrt();
                 }
             }
@@ -1772,18 +1627,18 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         // du/dx, du/dy
         let du_dx = dx_inv
             * (velocity[0][(i + 1, j)] - velocity[0][(i - 1, j)])
-            * T::from_f64(0.5).unwrap();
+            * Self::constant(0.5);
         let du_dy = dy_inv
             * (velocity[0][(i, j + 1)] - velocity[0][(i, j - 1)])
-            * T::from_f64(0.5).unwrap();
+            * Self::constant(0.5);
 
         // dv/dx, dv/dy
         let dv_dx = dx_inv
             * (velocity[1][(i + 1, j)] - velocity[1][(i - 1, j)])
-            * T::from_f64(0.5).unwrap();
+            * Self::constant(0.5);
         let dv_dy = dy_inv
             * (velocity[1][(i, j + 1)] - velocity[1][(i, j - 1)])
-            * T::from_f64(0.5).unwrap();
+            * Self::constant(0.5);
 
         [[du_dx, du_dy], [dv_dx, dv_dy]]
     }
@@ -1800,11 +1655,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
 
         // Strain rate tensor S_ij = (1/2)(∂u_i/∂x_j + ∂u_j/∂x_i)
         let s11 = du_dx;
-        let s12 = T::from_f64(0.5).unwrap() * (du_dy + dv_dx);
+        let s12 = Self::constant(0.5) * (du_dy + dv_dx);
         let s22 = dv_dy;
 
         // Rotation rate tensor W_ij = (1/2)(∂u_i/∂x_j - ∂u_j/∂x_i)
-        let w12 = T::from_f64(0.5).unwrap() * (du_dy - dv_dx);
+        let w12 = Self::constant(0.5) * (du_dy - dv_dx);
         let w21 = -w12;
 
         (
@@ -1828,17 +1683,17 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         // Simplified central differences
         let dxx_dx = dx_inv
             * (reynolds_stress.xx[(i + 1, j)] - reynolds_stress.xx[(i - 1, j)])
-            * T::from_f64(0.5).unwrap();
+            * Self::constant(0.5);
         let dxx_dy = dy_inv
             * (reynolds_stress.xx[(i, j + 1)] - reynolds_stress.xx[(i, j - 1)])
-            * T::from_f64(0.5).unwrap();
+            * Self::constant(0.5);
 
         let dxy_dx = dx_inv
             * (reynolds_stress.xy[(i + 1, j)] - reynolds_stress.xy[(i - 1, j)])
-            * T::from_f64(0.5).unwrap();
+            * Self::constant(0.5);
         let dxy_dy = dy_inv
             * (reynolds_stress.xy[(i, j + 1)] - reynolds_stress.xy[(i, j - 1)])
-            * T::from_f64(0.5).unwrap();
+            * Self::constant(0.5);
 
         [[dxx_dx, dxx_dy], [dxy_dx, dxy_dy]]
     }
@@ -1857,10 +1712,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let dy_sq_inv = T::one() / (dy * dy);
 
         // Central differences for Laplacian
-        let d2x = (scalar_field[(i + 1, j)] - T::from_f64(2.0).unwrap() * scalar_field[(i, j)]
+        let d2x = (scalar_field[(i + 1, j)] - Self::constant(2.0) * scalar_field[(i, j)]
             + scalar_field[(i - 1, j)])
             * dx_sq_inv;
-        let d2y = (scalar_field[(i, j + 1)] - T::from_f64(2.0).unwrap() * scalar_field[(i, j)]
+        let d2y = (scalar_field[(i, j + 1)] - Self::constant(2.0) * scalar_field[(i, j)]
             + scalar_field[(i, j - 1)])
             * dy_sq_inv;
 
@@ -1916,8 +1771,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> TurbulenceModel<T>
         let s12 = velocity_gradient[0][1];
         let s22 = velocity_gradient[1][1];
 
-        let strain_rate_magnitude = (T::from_f64(2.0).unwrap()
-            * (s11 * s11 + T::from_f64(2.0).unwrap() * s12 * s12 + s22 * s22))
+        let strain_rate_magnitude = (Self::constant(2.0)
+            * (s11 * s11 + Self::constant(2.0) * s12 * s12 + s22 * s22))
             .sqrt();
         turbulent_viscosity * strain_rate_magnitude * strain_rate_magnitude
     }
@@ -1951,7 +1806,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> TurbulenceModel<T>
     fn is_valid_for_reynolds(&self, reynolds: T) -> bool {
         // RSTM is suitable for a wide range of Reynolds numbers
         // but particularly beneficial for complex flows where anisotropy matters
-        reynolds >= T::from_f64(1000.0).unwrap() // Generally suitable for turbulent flows
+        reynolds >= Self::constant(1000.0) // Generally suitable for turbulent flows
     }
 }
 
@@ -2335,5 +2190,81 @@ mod tests {
         println!("  Exact Reynolds stress formulation: ✓");
         println!("  Not Boussinesq approximation: ✓");
         println!("  Tensor contraction accuracy: ✓");
+    }
+
+    /// Validation of the SSG (Speziale-Sarkar-Gatski) Pressure-Strain Model
+    /// Tests that the full implementation with vorticity terms functions correctly
+    #[test]
+    fn test_ssg_pressure_strain_physical_behavior() {
+        let mut model = ReynoldsStressModel::<f64>::new(3, 3);
+        // Explicitly use SSG model
+        model.pressure_strain_model = PressureStrainModel::SSG;
+        
+        let mut stresses = model.initialize_reynolds_stresses(1.0, 0.1);
+
+        // Homogeneous shear flow parameters
+        let shear_rate = 1.0; 
+        let center_i = 1;
+        let center_j = 1;
+
+        // Create velocity field for shear: u = S * y
+        let mut u = DMatrix::zeros(3, 3);
+        let mut v = DMatrix::zeros(3, 3);
+        for j in 0..3 {
+            let y = j as f64 * 0.1;
+            for i in 0..3 {
+                u[(i, j)] = shear_rate * y;
+                v[(i, j)] = 0.0;
+            }
+        }
+        let velocity = [u, v];
+        let dt = 0.001;
+        let dx = 0.1;
+        let dy = 0.1;
+
+        // Run evolution
+        for _ in 0..50 {
+            let result =
+                model.update_reynolds_stresses_optimized(&mut stresses, &velocity, dt, dx, dy);
+            assert!(result.is_ok(), "SSG model update failed");
+        }
+
+        let computed_uv = stresses.xy[(center_i, center_j)];
+
+        // 1. Verify physical correctness: Shear stress should be negative in simple shear flow
+        assert!(
+            computed_uv < 0.0,
+            "SSG model should predict negative shear stress: {:.6}",
+            computed_uv
+        );
+
+        // 2. Verify anisotropy evolution (should be distinct from isotropic state)
+        let computed_xx = stresses.xx[(center_i, center_j)];
+        let computed_yy = stresses.yy[(center_i, center_j)];
+        
+        // In shear flow, usually <u'u'> > <v'v'>
+        assert!(
+            computed_xx > computed_yy,
+            "Streamwise fluctuations should exceed wall-normal fluctuations in shear flow"
+        );
+        
+        // 3. Verify realizability is maintained
+        let k = stresses.k[(center_i, center_j)];
+        assert!(k > 0.0, "Kinetic energy must be positive");
+        assert!(computed_xx >= 0.0, "Normal stress xx must be positive");
+        assert!(computed_yy >= 0.0, "Normal stress yy must be positive");
+        
+        let max_shear = (computed_xx * computed_yy).sqrt();
+        assert!(
+            computed_uv.abs() <= max_shear + 1e-10,
+            "SSG model violated realizability: |uv|={} > sqrt(xx*yy)={}",
+            computed_uv,
+            max_shear
+        );
+
+        println!("SSG Model Physical Validation: PASSED");
+        println!("  Computed shear stress: {:.6}", computed_uv);
+        println!("  Realizability: ✓");
+        println!("  Anisotropy correct (xx > yy): ✓");
     }
 }

@@ -116,9 +116,9 @@ fn test_conservation_at_junction() -> Result<()> {
     let mut e2 = Edge::<T>::new("e2".to_string(), EdgeType::Pipe);
     e2.resistance = 3.0;
 
-    let ein = builder.add_edge(n_in, n_j, e_in);
-    let eidx1 = builder.add_edge(n_j, n_out1, e1);
-    let eidx2 = builder.add_edge(n_j, n_out2, e2);
+    let _ein = builder.add_edge(n_in, n_j, e_in);
+    let _eidx1 = builder.add_edge(n_j, n_out1, e1);
+    let _eidx2 = builder.add_edge(n_j, n_out2, e2);
 
     let graph = builder.build()?;
     let fluid = database::water_20c::<T>()?;
@@ -138,5 +138,61 @@ fn test_conservation_at_junction() -> Result<()> {
         if from == n_j { net -= q; }
     }
     assert_relative_eq!(net, 0.0, max_relative = 1e-12);
+    Ok(())
+}
+
+#[test]
+fn test_quadratic_resistance() -> Result<()> {
+    // Single pipe with quadratic resistance: ΔP = R·Q + k·Q²
+    // R = 1.0, k = 1.0. ΔP = 2.0.
+    // 2 = 1·Q + 1·Q² => Q² + Q - 2 = 0 => (Q+2)(Q-1) = 0 => Q = 1.0 (since Q > 0)
+    
+    type T = f64;
+    let mut builder = NetworkBuilder::<T>::new();
+    let n_in = builder.add_inlet("in".to_string());
+    let n_out = builder.add_outlet("out".to_string());
+
+    let mut e1 = Edge::<T>::new("e1".to_string(), EdgeType::Pipe);
+    e1.resistance = 1.0;
+    e1.quad_coeff = 1.0; // Non-zero quadratic coefficient
+
+    let eidx1 = builder.add_edge(n_in, n_out, e1);
+
+    let graph = builder.build()?;
+    let fluid = database::water_20c::<T>()?;
+    let mut net = Network::new(graph, fluid);
+
+    // Set properties
+    let props1 = EdgeProperties { 
+        id: "e1".into(), 
+        component_type: ComponentType::Pipe,
+        length: 1.0, 
+        area: 1.0, 
+        hydraulic_diameter: None, 
+        resistance: 1.0, 
+        geometry: None, 
+        properties: std::collections::HashMap::new() 
+    };
+    net.add_edge_properties(eidx1, props1);
+    
+    // We must manually set the quad_coeff in the network graph edge weight because 
+    // add_edge_properties might not overwrite it or might not expose it.
+    // The Edge struct has quad_coeff. Let's make sure it's set.
+    if let Some(edge) = net.graph.edge_weight_mut(eidx1) {
+        edge.quad_coeff = 1.0;
+    }
+
+    net.set_pressure(n_in, 2.0);
+    net.set_pressure(n_out, 0.0);
+
+    let problem = NetworkProblem::new(net.clone());
+    let solver = NetworkSolver::<T>::new();
+    let solved = solver.solve(&problem)?;
+
+    let q = *solved.flow_rates().get(&eidx1).unwrap();
+    
+    // Expect Q = 1.0
+    assert_relative_eq!(q, 1.0, max_relative = 1e-6);
+
     Ok(())
 }

@@ -49,12 +49,12 @@ A deep algorithm audit following the Elite Mathematically-Verified Code Auditor 
   - [x] Verify interpolation operator dimensions
   - [x] Test mapping correctness added (lines 784-799 in coarsening.rs)
 
-- [ ] **Priority 2**: Add AMG Coarsening Tests (1 additional hour needed)
+- [x] **Priority 2**: Add AMG Coarsening Tests (1 additional hour) ✅ **COMPLETED**
   - [x] Test mapping correctness (all indices valid) ✅
   - [x] Test coarse point self-mapping ✅
-  - [ ] Test convergence improvement (factor < 0.1/V-cycle) - One test failing, needs fix
-  - [ ] Test interpolation operator shape
-  - [ ] Test coarsening ratio bounds - Currently failing for small test matrix
+  - [x] Test convergence improvement (factor < 0.1/V-cycle) ✅
+  - [x] Test interpolation operator shape ✅
+  - [x] Test coarsening ratio bounds ✅
 
 - [x] **Priority 3**: Clean Up Dead Code (1 hour) ✅ **COMPLETED**
   - [x] Removed AlignedVector struct from conjugate_gradient.rs (MAJOR-010)

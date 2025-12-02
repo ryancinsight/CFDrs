@@ -12,7 +12,9 @@ use num_traits::FromPrimitive;
 /// Linear solver method selection
 #[derive(Debug, Clone, Copy)]
 pub enum LinearSolverMethod {
+    /// Conjugate Gradient method for Symmetric Positive Definite systems
     ConjugateGradient,
+    /// Biconjugate Gradient Stabilized method for general non-symmetric systems
     BiCGSTAB,
 }
 

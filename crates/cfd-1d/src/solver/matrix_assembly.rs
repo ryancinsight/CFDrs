@@ -1,4 +1,36 @@
 //! Matrix assembly for network flow equations
+//!
+//! # Mathematical Foundation
+//!
+//! This module assembles the discrete Laplacian operator for the network flow equations:
+//!
+//! $$ \mathbf{A}\mathbf{x} = \mathbf{b} $$
+//!
+//! where $\mathbf{A}$ is the conductance matrix, $\mathbf{x}$ is the pressure vector, and $\mathbf{b}$
+//! contains source terms and boundary condition contributions.
+//!
+//! ## Dirichlet Boundary Conditions
+//!
+//! Exact Dirichlet enforcement is achieved via **Row Replacement with Column Elimination**.
+//! For a node $i$ with fixed pressure $P_i$:
+//!
+//! 1. **Row Replacement**: The equation for node $i$ becomes trivial: $1 \cdot x_i = P_i$.
+//!    This is implemented by skipping edge contributions to row $i$ and injecting a diagonal 1 later.
+//!
+//! 2. **Column Elimination**: For every neighbor $j$ connected to $i$, the term $A_{ji} x_i$ is known ($A_{ji} P_i$).
+//!    We move this to the RHS: $b_j \leftarrow b_j - A_{ji} P_i$.
+//!    Since $A_{ji} = -G_{ij}$ (negative conductance), this becomes $b_j \leftarrow b_j + G_{ij} P_i$.
+//!    The matrix entry $A_{ji}$ is then set to 0 (skipped).
+//!
+//! This preserves the symmetry of the active submatrix for the remaining unknowns, which is crucial for
+//! solvers like Conjugate Gradient (CG).
+//!
+//! ## Positivity Invariants
+//!
+//! Conductances $G_{ij}$ must be strictly positive.
+//! - $G_{ij} \le 0$ represents a physical impossibility (negative resistance) or a disconnected edge.
+//! - Non-finite values (NaN/Inf) indicate numerical instability and are rejected immediately.
+
 
 use crate::network::Network;
 use cfd_core::error::{Error, Result};
@@ -69,7 +101,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
             let (i, j) = edge.nodes;
             let conductance = edge.conductance;
 
-            // Basic validity: conductance must be positive
+            // Basic validity: conductance must be finite and positive
+            if !conductance.is_finite() {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Non-finite conductance encountered in network assembly: {:?}",
+                    conductance
+                )));
+            }
+
             if conductance <= T::zero() {
                 return Err(Error::InvalidConfiguration(
                     "Non-positive conductance encountered in network assembly".to_string(),

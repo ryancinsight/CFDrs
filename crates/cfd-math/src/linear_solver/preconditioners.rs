@@ -813,6 +813,33 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
                         point_types[i] = PointType::Fine;
                     }
                 }
+
+                // Step 3: Map F-points to strongest connected C-point
+                for i in 0..n {
+                    if fine_to_coarse[i].is_none() {
+                        // Find strongest connection to a coarse point
+                        let mut max_strength = T::zero();
+                        let mut best_coarse = None;
+
+                        let row = strength_matrix.row(i);
+                        for (&j, &strength) in row.col_indices().iter().zip(row.values()) {
+                            if let Some(c_idx) = fine_to_coarse[j] {
+                                // j is a coarse point (mapped to c_idx)
+                                // Check if it's actually a C-point (it should be if mapped)
+                                if point_types[j] == PointType::Coarse {
+                                    if strength > max_strength {
+                                        max_strength = strength;
+                                        best_coarse = Some(c_idx);
+                                    }
+                                }
+                            }
+                        }
+
+                        if let Some(c_idx) = best_coarse {
+                            fine_to_coarse[i] = Some(c_idx);
+                        }
+                    }
+                }
             }
             _ => {
                 // Fallback to simple coarsening

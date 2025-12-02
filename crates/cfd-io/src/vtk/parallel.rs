@@ -39,7 +39,18 @@
 //! ```
 
 #[cfg(feature = "mpi")]
+use std::fs::File;
+#[cfg(feature = "mpi")]
+use std::io::{BufWriter, Write};
+#[cfg(feature = "mpi")]
+use std::path::{Path, PathBuf};
+
+#[cfg(feature = "mpi")]
 use cfd_core::compute::mpi::{DistributedVector, MpiCommunicator};
+#[cfg(feature = "mpi")]
+use nalgebra::RealField;
+#[cfg(feature = "mpi")]
+use std::collections::HashMap;
 
 /// I/O result type
 pub type IoResult<T> = Result<T, IoError>;
@@ -111,6 +122,8 @@ impl<T: RealField + std::fmt::LowerExp> ParallelVtkWriter<T> {
     }
 
     /// Write a distributed VTK unstructured grid file
+    ///
+    /// This writes a .pvtu file on the root process and .vtu files on all processes.
     pub fn write_vtk_file<P: AsRef<Path>>(
         &self,
         filename: P,
@@ -120,284 +133,199 @@ impl<T: RealField + std::fmt::LowerExp> ParallelVtkWriter<T> {
         point_data: &HashMap<String, &DistributedVector<T>>,
         cell_data: &HashMap<String, &DistributedVector<T>>,
     ) -> IoResult<()> {
-        // Gather global mesh information
-        let global_info = self.gather_global_mesh_info(points, cells, cell_types)?;
+        let path = filename.as_ref();
+        let file_stem = path.file_stem().unwrap_or_default().to_string_lossy();
+        let parent = path.parent().unwrap_or_else(|| Path::new("."));
 
+        // 1. Write local .vtu file
+        let local_filename = format!("{}_{}.vtu", file_stem, self.rank);
+        let local_path = parent.join(&local_filename);
+
+        self.write_local_vtu(
+            &local_path,
+            points,
+            cells,
+            cell_types,
+            point_data,
+            cell_data,
+        )?;
+
+        // 2. Root writes .pvtu file
         if self.is_root {
-            // Root process writes the complete VTK file
-            self.write_vtk_header(&filename, &global_info)?;
-            self.write_points(&filename, points)?;
-            self.write_cells(&filename, cells, cell_types)?;
-            self.write_point_data(&filename, point_data)?;
-            self.write_cell_data(&filename, cell_data)?;
-            self.write_vtk_footer(&filename)?;
-        }
+            let pvtu_filename = if path.extension().map_or(false, |ext| ext == "pvtu") {
+                path.to_path_buf()
+            } else {
+                parent.join(format!("{}.pvtu", file_stem))
+            };
 
-        Ok(())
-    }
-
-    /// Gather global mesh information from all processes
-    fn gather_global_mesh_info(
-        &self,
-        points: &DistributedVector<T>,
-        cells: &[u32],
-        cell_types: &[u8],
-    ) -> IoResult<GlobalMeshInfo> {
-        // In a full implementation, this would gather:
-        // - Total number of points across all processes
-        // - Total number of cells across all processes
-        // - Global point and cell data offsets
-
-        // For now, simplified implementation
-        let local_points = points.local_data.len() / 3usize; // Assuming 3D points
-        let local_cells = cells.len() / 4; // Assuming tetrahedral cells
-
-        // Global reduction to get totals
-        let mut total_points = local_points as i32;
-        let mut total_cells = local_cells as i32;
-
-        self.communicator
-            .all_reduce_sum(&mut total_points, total_points);
-        self.communicator
-            .all_reduce_sum(&mut total_cells, total_cells);
-
-        Ok(GlobalMeshInfo {
-            total_points: total_points as usize,
-            total_cells: total_cells as usize,
-            points_offset: 0, // Would be calculated based on rank
-            cells_offset: 0,  // Would be calculated based on rank
-        })
-    }
-
-    /// Write VTK file header
-    fn write_vtk_header<P: AsRef<Path>>(
-        &self,
-        filename: P,
-        global_info: &GlobalMeshInfo,
-    ) -> IoResult<()> {
-        let mut file = File::create(filename)?;
-
-        writeln!(file, "# vtk DataFile Version 3.0")?;
-        writeln!(file, "CFD Simulation Output")?;
-        writeln!(file, "ASCII")?;
-        writeln!(file, "DATASET UNSTRUCTURED_GRID")?;
-        writeln!(file, "POINTS {} double", global_info.total_points)?;
-
-        Ok(())
-    }
-
-    /// Write distributed point coordinates
-    fn write_points<P: AsRef<Path>>(
-        &self,
-        filename: P,
-        points: &DistributedVector<T>,
-    ) -> IoResult<()> {
-        // In a real implementation, this would gather all points
-        // from all processes and write them in order
-
-        if self.is_root {
-            let mut file = File::options().append(true).open(filename)?;
-
-            // Write local points (simplified)
-            for i in (0..points.local_data.len()).step_by(3) {
-                if i + 2 < points.local_data.len() {
-                    writeln!(
-                        file,
-                        "{:.6} {:.6} {:.6}",
-                        points.local_data[i],
-                        points.local_data[i + 1],
-                        points.local_data[i + 2]
-                    )?;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Write cell connectivity and types
-    fn write_cells<P: AsRef<Path>>(
-        &self,
-        filename: P,
-        cells: &[u32],
-        cell_types: &[u8],
-    ) -> IoResult<()> {
-        if self.is_root {
-            let mut file = File::options().append(true).open(filename)?;
-
-            // Write cells section
-            let total_cell_entries: usize = cells.iter().map(|&size| size as usize + 1).sum();
-            writeln!(file, "CELLS {} {}", cells.len() / 4, total_cell_entries)?;
-
-            // Write cell connectivity (assuming tetrahedral cells)
-            for i in (0..cells.len()).step_by(4) {
-                if i + 3 < cells.len() {
-                    writeln!(
-                        file,
-                        "4 {} {} {} {}",
-                        cells[i],
-                        cells[i + 1],
-                        cells[i + 2],
-                        cells[i + 3]
-                    )?;
-                }
-            }
-
-            // Write cell types
-            writeln!(file, "CELL_TYPES {}", cell_types.len())?;
-            for &cell_type in cell_types {
-                writeln!(file, "{}", cell_type)?;
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Write point data arrays
-    fn write_point_data<P: AsRef<Path>>(
-        &self,
-        filename: P,
-        point_data: &HashMap<String, &DistributedVector<T>>,
-    ) -> IoResult<()> {
-        if self.is_root && !point_data.is_empty() {
-            let mut file = File::options().append(true).open(filename)?;
-
-            writeln!(
-                file,
-                "POINT_DATA {}",
-                point_data.values().next().unwrap().local_data.len()
+            self.write_pvtu(
+                &pvtu_filename,
+                &file_stem,
+                point_data,
+                cell_data
             )?;
-
-            for (name, data) in point_data {
-                self.write_scalar_field(&mut file, name, data)?;
-            }
         }
+
+        // Barrier to ensure all files are written before returning
+        self.communicator.barrier();
 
         Ok(())
     }
 
-    /// Write cell data arrays
-    fn write_cell_data<P: AsRef<Path>>(
+    /// Write local data to a .vtu file (XML UnstructuredGrid)
+    fn write_local_vtu(
         &self,
-        filename: P,
+        path: &Path,
+        points: &DistributedVector<T>,
+        cells: &[u32],
+        cell_types: &[u8],
+        point_data: &HashMap<String, &DistributedVector<T>>,
         cell_data: &HashMap<String, &DistributedVector<T>>,
     ) -> IoResult<()> {
-        if self.is_root && !cell_data.is_empty() {
-            let mut file = File::options().append(true).open(filename)?;
+        let file = File::create(path)?;
+        let mut writer = BufWriter::new(file);
 
-            writeln!(
-                file,
-                "CELL_DATA {}",
-                cell_data.values().next().unwrap().local_data.len()
-            )?;
+        writeln!(writer, "<?xml version=\"1.0\"?>")?;
+        writeln!(writer, "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">")?;
+        writeln!(writer, "  <UnstructuredGrid>")?;
 
-            for (name, data) in cell_data {
-                self.write_scalar_field(&mut file, name, data)?;
+        let num_points = points.local_data.len() / 3;
+        let num_cells = cell_types.len();
+
+        writeln!(writer, "    <Piece NumberOfPoints=\"{}\" NumberOfCells=\"{}\">", num_points, num_cells)?;
+
+        // Points
+        writeln!(writer, "      <Points>")?;
+        writeln!(writer, "        <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">")?;
+        for i in 0..num_points {
+            writeln!(writer, "          {:e} {:e} {:e}", points.local_data[3*i], points.local_data[3*i+1], points.local_data[3*i+2])?;
+        }
+        writeln!(writer, "        </DataArray>")?;
+        writeln!(writer, "      </Points>")?;
+
+        // Cells
+        writeln!(writer, "      <Cells>")?;
+
+        // Connectivity
+        writeln!(writer, "        <DataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\">")?;
+        let mut idx = 0;
+        let mut offsets = Vec::with_capacity(num_cells);
+        let mut current_offset = 0;
+
+        while idx < cells.len() {
+            let n = cells[idx] as usize;
+            idx += 1; // Skip count
+            for _ in 0..n {
+                write!(writer, "{} ", cells[idx])?;
+                idx += 1;
             }
+            writeln!(writer)?;
+            current_offset += n as i32;
+            offsets.push(current_offset);
         }
+        writeln!(writer, "        </DataArray>")?;
+
+        // Offsets
+        writeln!(writer, "        <DataArray type=\"Int32\" Name=\"offsets\" format=\"ascii\">")?;
+        for offset in &offsets {
+            writeln!(writer, "{}", offset)?;
+        }
+        writeln!(writer, "        </DataArray>")?;
+
+        // Types
+        writeln!(writer, "        <DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">")?;
+        for &t in cell_types {
+            writeln!(writer, "{}", t)?;
+        }
+        writeln!(writer, "        </DataArray>")?;
+        writeln!(writer, "      </Cells>")?;
+
+        // Point Data
+        if !point_data.is_empty() {
+             writeln!(writer, "      <PointData>")?;
+             for (name, data) in point_data {
+                 writeln!(writer, "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">", name)?;
+                 for val in data.local_data.iter() {
+                     writeln!(writer, "          {:e}", val)?;
+                 }
+                 writeln!(writer, "        </DataArray>")?;
+             }
+             writeln!(writer, "      </PointData>")?;
+        }
+
+        // Cell Data
+        if !cell_data.is_empty() {
+             writeln!(writer, "      <CellData>")?;
+             for (name, data) in cell_data {
+                 writeln!(writer, "        <DataArray type=\"Float64\" Name=\"{}\" format=\"ascii\">", name)?;
+                 for val in data.local_data.iter() {
+                     writeln!(writer, "          {:e}", val)?;
+                 }
+                 writeln!(writer, "        </DataArray>")?;
+             }
+             writeln!(writer, "      </CellData>")?;
+        }
+
+        writeln!(writer, "    </Piece>")?;
+        writeln!(writer, "  </UnstructuredGrid>")?;
+        writeln!(writer, "</VTKFile>")?;
 
         Ok(())
     }
 
-    /// Write scalar field data
-    fn write_scalar_field(
+    /// Write PVTU header on root
+    fn write_pvtu(
         &self,
-        file: &mut File,
-        name: &str,
-        data: &DistributedVector<T>,
+        path: &Path,
+        file_stem: &str,
+        point_data: &HashMap<String, &DistributedVector<T>>,
+        cell_data: &HashMap<String, &DistributedVector<T>>,
     ) -> IoResult<()> {
-        writeln!(file, "SCALARS {} double 1", name)?;
-        writeln!(file, "LOOKUP_TABLE default")?;
+        let file = File::create(path)?;
+        let mut writer = BufWriter::new(file);
 
-        // Write local data (in real implementation, this would be gathered)
-        for &value in &data.local_data {
-            writeln!(file, "{:.6}", value)?;
+        writeln!(writer, "<?xml version=\"1.0\"?>")?;
+        writeln!(writer, "<VTKFile type=\"PUnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">")?;
+        writeln!(writer, "  <PUnstructuredGrid GhostLevel=\"0\">")?;
+
+        // PPoints
+        writeln!(writer, "    <PPoints>")?;
+        writeln!(writer, "      <PDataArray type=\"Float64\" NumberOfComponents=\"3\"/>")?;
+        writeln!(writer, "    </PPoints>")?;
+
+        // PCells
+        writeln!(writer, "    <PCells>")?;
+        writeln!(writer, "      <PDataArray type=\"Int32\" Name=\"connectivity\"/>")?;
+        writeln!(writer, "      <PDataArray type=\"Int32\" Name=\"offsets\"/>")?;
+        writeln!(writer, "      <PDataArray type=\"UInt8\" Name=\"types\"/>")?;
+        writeln!(writer, "    </PCells>")?;
+
+        // PPointData
+        if !point_data.is_empty() {
+             writeln!(writer, "    <PPointData>")?;
+             for (name, _) in point_data {
+                 writeln!(writer, "      <PDataArray type=\"Float64\" Name=\"{}\"/>", name)?;
+             }
+             writeln!(writer, "    </PPointData>")?;
         }
 
+        // PCellData
+        if !cell_data.is_empty() {
+             writeln!(writer, "    <PCellData>")?;
+             for (name, _) in cell_data {
+                 writeln!(writer, "      <PDataArray type=\"Float64\" Name=\"{}\"/>", name)?;
+             }
+             writeln!(writer, "    </PCellData>")?;
+        }
+
+        // Pieces
+        for r in 0..self.num_procs {
+            writeln!(writer, "    <Piece Source=\"{}_{}.vtu\"/>", file_stem, r)?;
+        }
+
+        writeln!(writer, "  </PUnstructuredGrid>")?;
+        writeln!(writer, "</VTKFile>")?;
+
         Ok(())
-    }
-
-    /// Write VTK file footer
-    fn write_vtk_footer<P: AsRef<Path>>(&self, _filename: P) -> IoResult<()> {
-        // VTK files don't have explicit footers
-        Ok(())
-    }
-}
-
-/// Global mesh information gathered from all processes
-struct GlobalMeshInfo {
-    /// Total number of points across all processes
-    total_points: usize,
-    /// Total number of cells across all processes
-    total_cells: usize,
-    /// Point data offset for this process
-    points_offset: usize,
-    /// Cell data offset for this process
-    cells_offset: usize,
-}
-
-/// Parallel VTK reader for distributed data loading
-#[cfg(feature = "mpi")]
-pub struct ParallelVtkReader<T: RealField> {
-    communicator: MpiCommunicator,
-    is_root: bool,
-}
-
-#[cfg(feature = "mpi")]
-impl<T: RealField> ParallelVtkReader<T> {
-    /// Create a new parallel VTK reader
-    pub fn new(communicator: &MpiCommunicator) -> IoResult<Self> {
-        Ok(Self {
-            communicator: communicator.clone(),
-            is_root: communicator.is_root(),
-        })
-    }
-
-    /// Read distributed VTK file
-    pub fn read_vtk_file<P: AsRef<Path>>(
-        &self,
-        filename: P,
-        subdomain: &cfd_core::compute::mpi::LocalSubdomain,
-    ) -> IoResult<DistributedVector<T>> {
-        // Implementation would read VTK file and distribute data
-        // according to subdomain ownership
-
-        // Placeholder implementation
-        let local_data = nalgebra::DVector::zeros(subdomain.nx_local * subdomain.ny_local);
-
-        Ok(DistributedVector::from_local_data(
-            local_data,
-            &self.communicator,
-            subdomain.clone(),
-            None,
-        ))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_global_mesh_info_creation() {
-        let info = GlobalMeshInfo {
-            total_points: 1000,
-            total_cells: 500,
-            points_offset: 0,
-            cells_offset: 0,
-        };
-
-        assert_eq!(info.total_points, 1000);
-        assert_eq!(info.total_cells, 500);
-    }
-
-    #[cfg(feature = "mpi")]
-    #[test]
-    fn test_parallel_vtk_writer_creation() {
-        // Compile-time test - types can be instantiated
-        let _writer_type: std::marker::PhantomData<ParallelVtkWriter<f64>> =
-            std::marker::PhantomData;
-        let _reader_type: std::marker::PhantomData<ParallelVtkReader<f64>> =
-            std::marker::PhantomData;
     }
 }

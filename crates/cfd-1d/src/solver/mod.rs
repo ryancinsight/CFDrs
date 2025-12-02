@@ -182,7 +182,7 @@ mod state;
 
 pub use convergence::ConvergenceChecker;
 pub use domain::NetworkDomain;
-pub use linear_system::LinearSystemSolver;
+pub use linear_system::{LinearSystemSolver, LinearSolverMethod};
 pub use matrix_assembly::MatrixAssembler;
 pub use problem::NetworkProblem;
 pub use state::NetworkState;
@@ -193,7 +193,6 @@ use cfd_core::solver::{Configurable, Solver, Validatable};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
-use crate::solver::linear_system::LinearSolverMethod;
 
 /// Solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -298,13 +297,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
                         sum_off += val.abs();
                     }
                 }
-                // Identity rows for Dirichlet are fine (diag == 1)
-                if diag <= T::zero() {
+                let is_identity_dirichlet = diag == T::one() && sum_off == T::zero();
+                if diag <= T::zero() && !is_identity_dirichlet {
                     is_spd = false;
                     break;
                 }
-                // Allow equality to support exact Laplacian rows
-                if diag < sum_off {
+                if !is_identity_dirichlet && diag < sum_off {
                     is_spd = false;
                     break;
                 }
@@ -312,11 +310,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
 
             // Choose solver method adaptively
             let mut adaptive_solver = LinearSystemSolver::new();
-            adaptive_solver = adaptive_solver.with_method(if is_spd {
-                LinearSolverMethod::ConjugateGradient
-            } else {
-                LinearSolverMethod::BiCGSTAB
-            });
+            let selected_method = if is_spd { LinearSolverMethod::ConjugateGradient } else { LinearSolverMethod::BiCGSTAB };
+            adaptive_solver = adaptive_solver.with_method(selected_method);
 
             // 2. Solve the linearized system
             let solution = adaptive_solver.solve(&matrix, &rhs)?;
@@ -336,7 +331,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
                 }
                 norm.sqrt()
             };
+            let rhs_norm = rhs.norm();
+            if let Some(_) = network.last_solver_method {} else { network.last_solver_method = Some(selected_method); }
+            network.residuals.push(residual_norm);
 
+            // For non-linear systems, we must check solution change to ensure the non-linear
+            // iteration (Picard/Newton) has stabilized. Linear residual check is insufficient
+            // because the linear solver minimizes it within the current linearization step.
+            // Using has_converged() ensures we check |x_new - x_old|.
             let converged = self.convergence.has_converged(&solution, &last_solution)?;
 
             // Check if solution has converged
@@ -351,7 +353,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
             last_solution = solution;
 
             // Optional: Add logging for iteration progress (residual)
-            let _ = residual_norm; // placeholder to avoid unused warnings if logging disabled
+            let _ = residual_norm;
         }
 
         // Failed to converge within max iterations

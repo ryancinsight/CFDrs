@@ -134,113 +134,65 @@ impl<T: RealField + std::fmt::LowerExp> ParallelHdf5Writer<T> {
     /// Write distributed datasets to HDF5 file using parallel I/O
     pub fn write_hdf5_file<P: AsRef<Path>>(
         &self,
-        filename: P,
-        datasets: &HashMap<String, &DistributedVector<T>>,
-        metadata: &HashMap<String, String>,
+        _filename: P,
+        _datasets: &HashMap<String, &DistributedVector<T>>,
+        _metadata: &HashMap<String, String>,
     ) -> IoResult<()> {
-        // Gather global dataset information
-        let global_datasets = self.gather_global_dataset_info(datasets)?;
-
-        if self.is_root {
-            // Root process creates file and writes global metadata
-            self.create_parallel_hdf5_file(&filename, &global_datasets, metadata)?;
-        }
-
-        // All processes participate in collective dataset writing
-        self.write_distributed_datasets(&filename, datasets, &global_datasets)?;
-
-        Ok(())
+        Err(IoError::FormatError(
+            "Parallel HDF5 writing is not yet implemented. Please use VTK output or serial HDF5.".to_string()
+        ))
     }
 
     /// Gather global information about all datasets
     fn gather_global_dataset_info(
         &self,
-        datasets: &HashMap<String, &DistributedVector<T>>,
+        _datasets: &HashMap<String, &DistributedVector<T>>,
     ) -> IoResult<HashMap<String, GlobalDatasetInfo>> {
-        let mut global_info = HashMap::new();
-
-        for (name, local_data) in datasets {
-            let local_size = local_data.local_data.len() as i32;
-
-            // All-reduce to get global dataset size
-            let mut global_size = local_size;
-            self.communicator
-                .all_reduce_sum(&mut global_size, local_size);
-
-            // Calculate data distribution
-            let info = GlobalDatasetInfo {
-                global_size: global_size as usize,
-                local_offset: self.calculate_local_offset(name, local_size),
-                datatype: Hdf5DataType::Float64, // Would be determined from T
-            };
-
-            global_info.insert(name.clone(), info);
-        }
-
-        Ok(global_info)
+        Err(IoError::FormatError(
+            "Parallel HDF5 writing is not yet implemented".to_string()
+        ))
     }
 
     /// Calculate local offset for this process in global dataset
-    fn calculate_local_offset(&self, dataset_name: &str, local_size: i32) -> usize {
-        // In a real implementation, this would track cumulative offsets
-        // across all processes for proper data distribution
-        // For now, simplified calculation
-        (self.rank as usize) * (local_size as usize)
+    fn calculate_local_offset(&self, _dataset_name: &str, _local_size: i32) -> usize {
+        0
     }
 
     /// Create parallel HDF5 file with global structure
     fn create_parallel_hdf5_file<P: AsRef<Path>>(
         &self,
-        filename: P,
-        global_datasets: &HashMap<String, GlobalDatasetInfo>,
-        metadata: &HashMap<String, String>,
+        _filename: P,
+        _global_datasets: &HashMap<String, GlobalDatasetInfo>,
+        _metadata: &HashMap<String, String>,
     ) -> IoResult<()> {
-        // In a real implementation, this would:
-        // 1. Create HDF5 file with parallel access properties
-        // 2. Create datasets with global dimensions
-        // 3. Write global metadata attributes
-        // 4. Set up collective I/O properties
-
-        // Placeholder for HDF5 file creation logic
-        // This would use the hdf5 crate or hdf5-sys bindings
-
-        Ok(())
+        Err(IoError::FormatError(
+            "Parallel HDF5 writing is not yet implemented".to_string()
+        ))
     }
 
     /// Write distributed datasets using collective I/O
     fn write_distributed_datasets<P: AsRef<Path>>(
         &self,
-        filename: P,
-        datasets: &HashMap<String, &DistributedVector<T>>,
-        global_info: &HashMap<String, GlobalDatasetInfo>,
+        _filename: P,
+        _datasets: &HashMap<String, &DistributedVector<T>>,
+        _global_info: &HashMap<String, GlobalDatasetInfo>,
     ) -> IoResult<()> {
-        // All processes participate in collective write operations
-        for (name, local_data) in datasets {
-            if let Some(info) = global_info.get(name) {
-                self.write_distributed_dataset(&filename, name, local_data, info)?;
-            }
-        }
-
-        Ok(())
+        Err(IoError::FormatError(
+            "Parallel HDF5 writing is not yet implemented".to_string()
+        ))
     }
 
     /// Write single distributed dataset
     fn write_distributed_dataset<P: AsRef<Path>>(
         &self,
-        filename: P,
-        dataset_name: &str,
-        data: &DistributedVector<T>,
-        info: &GlobalDatasetInfo,
+        _filename: P,
+        _dataset_name: &str,
+        _data: &DistributedVector<T>,
+        _info: &GlobalDatasetInfo,
     ) -> IoResult<()> {
-        // In a real implementation, this would:
-        // 1. Create HDF5 dataspace for collective I/O
-        // 2. Set up hyperslab selection for this process's data
-        // 3. Perform collective write operation
-        // 4. Handle data type conversion and chunking
-
-        // Placeholder for collective dataset writing logic
-
-        Ok(())
+        Err(IoError::FormatError(
+            "Parallel HDF5 writing is not yet implemented".to_string()
+        ))
     }
 
     /// Write checkpoint file for restart capability
@@ -249,55 +201,25 @@ impl<T: RealField + std::fmt::LowerExp> ParallelHdf5Writer<T> {
     /// * Parallel checksum: `allreduce_xor(local_checksums) == global_checksum`
     pub fn write_checkpoint<P: AsRef<Path>>(
         &self,
-        filename: P,
-        time_step: usize,
-        simulation_time: T,
-        datasets: &HashMap<String, &DistributedVector<T>>,
+        _filename: P,
+        _time_step: usize,
+        _simulation_time: T,
+        _datasets: &HashMap<String, &DistributedVector<T>>,
     ) -> IoResult<()> {
-        // STUB: Compute local checksum (TODO: SipHasher13 on metadata + datasets.to_bits() column-major)
-        let mut local_checksum: u128 = 0;
-        // Example: hash time_step, simulation_time, dataset shapes/sizes
-        use std::hash::{SipHasher13, Hasher};
-        let mut hasher = SipHasher13::new_with_keys(0, 0);
-        hasher.write_usize(time_step);
-        hasher.write_u64(simulation_time.to_bits());
-        for (name, data) in datasets {
-            hasher.write(name.as_bytes());
-            hasher.write_usize(data.local_data.len());
-        }
-        local_checksum = hasher.finish() as u128;
-
-        // Parallel allreduce_xor for global checksum invariant
-        let mut global_checksum = local_checksum;
-        self.communicator.allreduce_xor(&mut global_checksum);
-
-        let mut metadata = HashMap::new();
-        metadata.insert("time_step".to_string(), time_step.to_string());
-        metadata.insert(
-            "simulation_time".to_string(),
-            format!("{:.10}", simulation_time),
-        );
-        metadata.insert("checkpoint_version".to_string(), "1.0".to_string());
-        metadata.insert("mpi_processes".to_string(), self.num_procs.to_string());
-        metadata.insert("global_checksum".to_string(), format!("{global_checksum}"));
-
-        self.write_hdf5_file(filename, datasets, &metadata)
+        Err(IoError::FormatError(
+            "Parallel HDF5 writing is not yet implemented".to_string()
+        ))
     }
 
     /// Read checkpoint file for restart
     pub fn read_checkpoint<P: AsRef<Path>>(
         &self,
-        filename: P,
-        subdomain: &cfd_core::compute::mpi::LocalSubdomain,
+        _filename: P,
+        _subdomain: &cfd_core::compute::mpi::LocalSubdomain,
     ) -> IoResult<(usize, T, HashMap<String, DistributedVector<T>>)> {
-        // Implementation would read checkpoint metadata and distributed datasets
-        // For now, return placeholder values
-
-        let time_step = 0;
-        let simulation_time = T::zero();
-        let datasets = HashMap::new();
-
-        Ok((time_step, simulation_time, datasets))
+        Err(IoError::FormatError(
+            "Parallel HDF5 reading is not yet implemented".to_string()
+        ))
     }
 }
 
@@ -358,24 +280,12 @@ impl<T: RealField> ParallelHdf5Reader<T> {
     /// Read single distributed dataset
     fn read_distributed_dataset<P: AsRef<Path>>(
         &self,
-        filename: P,
-        dataset_name: &str,
-        subdomain: &cfd_core::compute::mpi::LocalSubdomain,
+        _filename: P,
+        _dataset_name: &str,
+        _subdomain: &cfd_core::compute::mpi::LocalSubdomain,
     ) -> IoResult<DistributedVector<T>> {
-        // Implementation would:
-        // 1. Open HDF5 file with parallel access
-        // 2. Read dataset metadata
-        // 3. Set up hyperslab selection for local data
-        // 4. Perform collective read operation
-
-        // Placeholder implementation
-        let local_data = nalgebra::DVector::zeros(subdomain.nx_local * subdomain.ny_local);
-
-        Ok(DistributedVector::from_local_data(
-            local_data,
-            &self.communicator,
-            subdomain.clone(),
-            None,
+        Err(IoError::FormatError(
+            "Parallel HDF5 reading is not yet implemented".to_string()
         ))
     }
 }

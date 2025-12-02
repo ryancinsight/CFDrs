@@ -28,6 +28,10 @@ pub struct Network<T: RealField + Copy> {
     pub flow_rates: HashMap<EdgeIndex, T>,
     /// Edge properties
     pub properties: HashMap<EdgeIndex, EdgeProperties<T>>,
+    /// Residuals from the last solver run
+    pub residuals: Vec<T>,
+    /// Last used solver method
+    pub last_solver_method: Option<crate::solver::LinearSolverMethod>,
 }
 
 /// Properties for edges in the network
@@ -81,6 +85,8 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
             pressures: HashMap::new(),
             flow_rates: HashMap::new(),
             properties: HashMap::new(),
+            residuals: Vec::new(),
+            last_solver_method: None,
         }
     }
 
@@ -204,22 +210,47 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
                 .graph
                 .edge_endpoints(edge_idx)
                 .ok_or_else(|| Error::InvalidConfiguration("Missing edge endpoints".into()))?;
-            let resistance = self
+            
+            let (resistance, quad_coeff) = self
                 .graph
                 .edge_weight(edge_idx)
-                .map(|edge| edge.resistance)
-                .ok_or_else(|| Error::InvalidConfiguration("Missing edge resistance".into()))?;
+                .map(|edge| (edge.resistance, edge.quad_coeff))
+                .ok_or_else(|| Error::InvalidConfiguration("Missing edge data".into()))?;
 
-            if resistance.abs() < epsilon {
+            if resistance.abs() < epsilon && quad_coeff.abs() < epsilon {
                 return Err(Error::InvalidConfiguration(format!(
-                    "Edge {} has zero resistance, cannot infer flow",
+                    "Edge {} has zero resistance and zero quadratic coefficient, cannot infer flow",
                     edge_idx.index()
                 )));
             }
 
             let p_from = solution[from.index()];
             let p_to = solution[to.index()];
-            let flow = (p_from - p_to) / resistance;
+            let dp = p_from - p_to;
+            let dp_abs = dp.abs();
+            let sign = if dp >= T::zero() { T::one() } else { -T::one() };
+
+            // Calculate flow rate solving the quadratic equation:
+            // |dP| = R*|Q| + k*|Q|^2
+            // k*|Q|^2 + R*|Q| - |dP| = 0
+            // |Q| = (-R + sqrt(R^2 + 4*k*|dP|)) / (2*k)
+            
+            let flow = if quad_coeff.abs() < epsilon {
+                // Linear case: Q = dP / R
+                dp / resistance
+            } else {
+                // Quadratic case
+                let two = T::from_f64(2.0).expect("Field must support 2.0");
+                let four = T::from_f64(4.0).expect("Field must support 4.0");
+                
+                let discriminant = resistance * resistance + four * quad_coeff * dp_abs;
+                let sqrt_disc = discriminant.sqrt();
+                
+                // Numerator: -R + sqrt(Delta)
+                // Denominator: 2k
+                let q_mag = (sqrt_disc - resistance) / (two * quad_coeff);
+                sign * q_mag
+            };
 
             self.flow_rates.insert(edge_idx, flow);
 
@@ -243,13 +274,18 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
             let edge_data = edge_ref.weight();
 
             let q = edge_data.flow_rate.abs();
-            let two = T::from_f64(2.0).unwrap_or_else(|| T::one());
+            // Derivation: For quadratic loss ΔP = R·Q + k·Q|Q|, the local linearization around Q_k is:
+            // ΔP ≈ (R + 2k|Q_k|)·Q.
+            // Thus, effective resistance R_eff = R + 2k|Q_k|.
+            // We use 2.0 explicitly; failure to represent 2.0 is a critical system failure.
+            let two = T::from_f64(2.0).expect("Field must support value 2.0");
             let r_eff = edge_data.resistance + two * edge_data.quad_coeff * q;
+            let eps = T::default_epsilon();
+            // Conductance is 1/R_eff. We enforce R_eff > ε to avoid division by zero.
+            // If R_eff is effectively zero or invalid, we return zero conductance (infinite resistance).
+            let conductance = if r_eff > eps && r_eff.is_finite() { r_eff.recip() } else { T::zero() };
 
-            ParallelEdge {
-                nodes: (from.index(), to.index()),
-                conductance: r_eff.recip(),
-            }
+            ParallelEdge { nodes: (from.index(), to.index()), conductance }
         })
     }
 }
