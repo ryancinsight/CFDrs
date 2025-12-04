@@ -10,17 +10,20 @@
 - Exact Dirichlet (row replacement + RHS substitution) is already implemented in `crates/cfd-1d/src/solver/matrix_assembly.rs:91–117`; retain and formalize invariants in module docs.
 - Strict conductance positivity check exists in `crates/cfd-1d/src/solver/matrix_assembly.rs:72–77`; add explicit guard for `NaN/Inf` and epsilon floor to prevent division by zero in rare edge cases.
 - Keep non-linear relinearization at the edge level: `r_eff = R + 2*k*|Q|` in `crates/cfd-1d/src/network/wrapper.rs:245–253`; additionally assert `r_eff > 0` before reciprocals.
+- Early physical coefficient validation added:
+  - Builder-time: `NetworkBuilder::build` enforces `R >= 0`, `k >= 0`, and not both zero.
+  - Runtime: `Network::validate_coefficients` invoked from `NetworkSolver::validate_problem` to fail fast before assembly.
 
 ## Quadratic Loss Relinearization
-- Derivation: for `ΔP = R·Q + k·Q²`, linearize around current `Q_k` → effective resistance `R_eff = R + 2k|Q_k|`; already used in parallel edge iterator (`wrapper.rs:245–253`). Ensure consistent absolute value usage and monotonic positivity.
+- Derivation: for `ΔP = R·Q + k·Q|Q|`, linearize around current `Q_k` → effective resistance `R_eff = R + 2k|Q_k|`; already used in parallel edge iterator (`crates/cfd-1d/src/network/wrapper.rs:276–287`). Ensure consistent absolute value usage and monotonic positivity.
 
-## Residual Tracking & Convergence
-- Compute residual `||Ax − b||₂` each iteration (currently in `crates/cfd-1d/src/solver/mod.rs:325–338`); store per-iteration residuals in a `NetworkState` field and expose via API.
-- Update `ConvergenceChecker` (`crates/cfd-1d/src/solver/convergence.rs`) to support dual criteria: solution change norm and residual norm, both below tolerance; add relative residual option.
+- ## Residual Tracking & Convergence
+- Compute residual `||Ax − b||₂` each iteration (currently in `crates/cfd-1d/src/solver/mod.rs:321–333`); stored in `Network.residuals` and exposed via `Network::residuals()`.
+- Use dual convergence criteria via `ConvergenceChecker::has_converged_dual` with relative residual and solution-change norms (`crates/cfd-1d/src/solver/convergence.rs:79–112`). Solver updated to call dual check (`crates/cfd-1d/src/solver/mod.rs:319–347`).
 - Provide structured tracing for residuals and iteration progress; keep zero-copy updates.
 
-## SPD Heuristics & Adaptive Solver Selection
-- Refine SPD detection (existing in `crates/cfd-1d/src/solver/mod.rs:282–311`) to:
+- ## SPD Heuristics & Adaptive Solver Selection
+- SPD detection in `crates/cfd-1d/src/solver/mod.rs:282–311`:
   - Ignore identity Dirichlet rows in diagonal-dominance check
   - Enforce non-positive off-diagonals and positive diagonal for Laplacian rows
 - Solver selection: use CG when SPD; otherwise BiCGSTAB (already in `crates/cfd-1d/src/solver/mod.rs:313–319`). Expose method choice in result metadata.
@@ -33,11 +36,13 @@
   - Parallel conductance addition (present: `test_parallel_additivity` at lines 52–101) → add asymmetric branch resistances and verify totals
   - Junction conservation (present: `test_conservation_at_junction` at lines 103–142) → add multi-outlet cases and numerical edge cases
   - Quadratic-loss edges: set `quad_coeff = k > 0`; verify convergence and correct `R_eff` application
+  - New: `test_parallel_quadratic_branches` verifies closed-form branch flows under `ΔP` with differing `(R,k)` per branch and checks inlet conservation.
 
 ## Analytical Validations
 - Single pipe (Hagen–Poiseuille): verify `Q = ΔP / R` using `R` from `resistance/models/hagen_poiseuille.rs`
 - Parallel/series analytical composites: compare computed flows vs analytical predictions
 - Positivity failure tests: inject invalid conductance/resistance and assert `InvalidConfiguration`
+  - New validations: builder and solver reject negative or degenerate `(R,k)` coefficients; covered by unit tests.
 - SPD heuristic tests: construct non-symmetric coupling to trigger BiCGSTAB; verify method selection
 
 # Rustdoc & CHANGELOG
@@ -52,6 +57,7 @@
 - Residual histories are exposed in the result and available for tracing
 - SPD heuristic selects CG for Laplacian-structured matrices and BiCGSTAB otherwise
 - Rustdoc updated with formal statements, assumptions, and proofs; CHANGELOG includes precise changes and rationale
+  - Document updates reflect new tests and coefficient validation path; release-mode tests and clippy run clean (warnings only).
 
 # Notes
 - No behavioral masking: failures throw explicit errors, never clamped or hidden

@@ -25,7 +25,10 @@ pub struct Edge<T: RealField + Copy> {
     pub flow_rate: T,
     /// Resistance coefficient
     pub resistance: T,
-    /// Quadratic loss coefficient (ΔP = R·Q + quad_coeff·Q²)
+    /// Quadratic loss coefficient for dissipative term in the form ΔP = R·Q + k·Q|Q|
+    /// where `k = quad_coeff ≥ 0`. This ensures the nonlinear loss opposes the flow
+    /// direction and preserves monotonic positivity in the effective resistance
+    /// linearization: R_eff = R + 2k|Q_k|.
     pub quad_coeff: T,
 }
 

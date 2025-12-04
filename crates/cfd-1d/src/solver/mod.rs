@@ -339,7 +339,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
             // iteration (Picard/Newton) has stabilized. Linear residual check is insufficient
             // because the linear solver minimizes it within the current linearization step.
             // Using has_converged() ensures we check |x_new - x_old|.
-            let converged = self.convergence.has_converged(&solution, &last_solution)?;
+            let converged = self
+                .convergence
+                .has_converged_dual(&solution, &last_solution, residual_norm, rhs_norm)?;
 
             // Check if solution has converged
             if converged {
@@ -415,6 +417,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Validatable<T> for NetworkSolve
                 "Tolerance must be positive".to_string(),
             ));
         }
+        problem.network.validate_coefficients()?;
         Ok(())
     }
 }

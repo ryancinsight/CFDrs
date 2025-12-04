@@ -130,6 +130,11 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
         &self.flow_rates
     }
 
+    /// Get residuals from the last solver run
+    pub fn residuals(&self) -> &Vec<T> {
+        &self.residuals
+    }
+
     /// Set a Dirichlet pressure boundary condition
     pub fn set_pressure(&mut self, node: NodeIndex, pressure: T) {
         self.boundary_conditions
@@ -217,6 +222,20 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
                 .map(|edge| (edge.resistance, edge.quad_coeff))
                 .ok_or_else(|| Error::InvalidConfiguration("Missing edge data".into()))?;
 
+            // Invariant checks: physical coefficients must be non-negative
+            if resistance < T::zero() {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Edge {} has negative resistance: {}",
+                    edge_idx.index(), resistance
+                )));
+            }
+            if quad_coeff < T::zero() {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Edge {} has negative quadratic coefficient: {}",
+                    edge_idx.index(), quad_coeff
+                )));
+            }
+
             if resistance.abs() < epsilon && quad_coeff.abs() < epsilon {
                 return Err(Error::InvalidConfiguration(format!(
                     "Edge {} has zero resistance and zero quadratic coefficient, cannot infer flow",
@@ -259,6 +278,35 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
             }
         }
 
+        Ok(())
+    }
+
+    pub fn validate_coefficients(&self) -> Result<()> {
+        let eps = T::default_epsilon();
+        for edge_ref in self.graph.edge_references() {
+            let idx = edge_ref.id();
+            let w = edge_ref.weight();
+            let r = w.resistance;
+            let k = w.quad_coeff;
+            if r < T::zero() {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Edge {} has negative resistance: {}",
+                    idx.index(), r
+                )));
+            }
+            if k < T::zero() {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Edge {} has negative quadratic coefficient: {}",
+                    idx.index(), k
+                )));
+            }
+            if r.abs() < eps && k.abs() < eps {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Edge {} has zero resistance and zero quadratic coefficient",
+                    idx.index()
+                )));
+            }
+        }
         Ok(())
     }
 

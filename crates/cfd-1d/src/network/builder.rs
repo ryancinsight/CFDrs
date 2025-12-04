@@ -2,6 +2,7 @@
 
 use super::{Edge, EdgeType, NetworkGraph, Node, NodeType};
 use cfd_core::error::Result;
+use petgraph::visit::EdgeRef;
 use nalgebra::RealField;
 
 /// Builder for constructing network graphs
@@ -95,6 +96,33 @@ impl<T: RealField + Copy> NetworkBuilder<T> {
             return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Network has disconnected components".to_string(),
             ));
+        }
+
+        // Early physical coefficient validation
+        let eps = T::default_epsilon();
+        for edge_ref in self.graph.edge_references() {
+            let idx = edge_ref.id();
+            let w = edge_ref.weight();
+            let r = w.resistance;
+            let k = w.quad_coeff;
+            if r < T::zero() {
+                return Err(cfd_core::error::Error::InvalidConfiguration(
+                    format!("Edge {} has negative resistance: {}", idx.index(), r),
+                ));
+            }
+            if k < T::zero() {
+                return Err(cfd_core::error::Error::InvalidConfiguration(
+                    format!("Edge {} has negative quadratic coefficient: {}", idx.index(), k),
+                ));
+            }
+            if r.abs() < eps && k.abs() < eps {
+                return Err(cfd_core::error::Error::InvalidConfiguration(
+                    format!(
+                        "Edge {} has zero resistance and zero quadratic coefficient",
+                        idx.index()
+                    ),
+                ));
+            }
         }
 
         Ok(self.graph)
