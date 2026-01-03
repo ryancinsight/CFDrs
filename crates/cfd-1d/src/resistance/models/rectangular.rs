@@ -48,7 +48,7 @@
 
 use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::Result;
-use cfd_core::fluid::{ConstantFluid, Fluid};
+use cfd_core::fluid::Fluid;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -79,12 +79,18 @@ impl<T: RealField + Copy> RectangularChannelModel<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
+impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
     for RectangularChannelModel<T>
 {
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
-        let _viscosity = fluid.dynamic_viscosity();
-        let density = fluid.density;
+        let (r, k) = self.calculate_coefficients(fluid, conditions)?;
+        let q = conditions.flow_rate.unwrap_or_else(T::zero);
+        let q_abs = if q >= T::zero() { q } else { -q };
+        Ok(r + k * q_abs)
+    }
+
+    fn calculate_coefficients(&self, fluid: &Fluid<T>, _conditions: &FlowConditions<T>) -> Result<(T, T)> {
+        let viscosity = fluid.viscosity;
 
         // Calculate hydraulic diameter
         let area = self.width * self.height;
@@ -98,30 +104,44 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
             RealField::max(self.width, self.height) / RealField::min(self.width, self.height);
 
         // Calculate Poiseuille number using Shah-London correlations
+        // Po = f_darcy * Re (Note: Shah-London often use f_fanning * Re = Po_darcy / 4)
         let poiseuille_number = self.calculate_poiseuille_number(aspect_ratio);
 
-        // For laminar flow, the Poiseuille number Po = f_fanning * Re
-        // The test expects: R = f_fanning * L * ρ / (2 * A * Dh²)
-        // Since Po = f_fanning * Re, then f_fanning = Po / Re
-        // So R = (Po/Re) * L * ρ / (2 * A * Dh²)
-
-        // Require Reynolds number from flow conditions
-        let reynolds = conditions.reynolds_number.ok_or_else(|| {
-            cfd_core::error::Error::InvalidConfiguration(
-                "Reynolds number required for rectangular channel model".to_string(),
-            )
-        })?;
-        let f_fanning = poiseuille_number / reynolds; // Fanning friction factor
-
-        // Hydraulic resistance using standard Darcy-Weisbach formulation
-        let resistance = f_fanning * self.length * density
+        // For laminar flow, the hydraulic resistance is constant:
+        // R = (Po * mu * L) / (2 * A * Dh^2)
+        let r = (poiseuille_number * viscosity * self.length)
             / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * dh * dh);
 
-        Ok(resistance)
+        Ok((r, T::zero()))
     }
 
     fn model_name(&self) -> &'static str {
         "Rectangular Channel (Exact)"
+    }
+
+    fn validate_invariants(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<()> {
+        // Call Mach number validation
+        self.validate_mach_number(fluid, conditions)?;
+
+        // Entrance length validation: L/Dh > 10
+        let area = self.width * self.height;
+        let perimeter =
+            T::from_f64(PERIMETER_FACTOR).unwrap_or_else(|| T::zero()) * (self.width + self.height);
+        let dh =
+            T::from_f64(HYDRAULIC_DIAMETER_FACTOR).unwrap_or_else(|| T::zero()) * area / perimeter;
+
+        let ratio = self.length / dh;
+        let limit = T::from_f64(10.0).unwrap_or_else(|| T::zero());
+
+        if ratio < limit {
+            return Err(cfd_core::error::Error::PhysicsViolation(format!(
+                "Entrance length violation: L/Dh = {:.2} < 10. Flow may not be fully developed for model '{}'",
+                ratio,
+                self.model_name()
+            )));
+        }
+
+        Ok(())
     }
 
     fn reynolds_range(&self) -> (T, T) {
@@ -133,12 +153,12 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::Float> RectangularChannelModel<T> {
+impl<T: RealField + Copy + FromPrimitive> RectangularChannelModel<T> {
     /// Calculate Poiseuille number for rectangular channels using Shah-London correlations
     ///
     /// # Implementation Details
     /// Based on Shah & London (1978) exact series solutions for rectangular ducts:
-    /// - Po = f * Re where f is the Fanning friction factor
+    /// - Po = f_D * Re where f_D is the Darcy friction factor
     /// - Valid for aspect ratios between 0.1 and 10.0
     /// - Exact solution for laminar flow in rectangular ducts
     ///
@@ -151,40 +171,22 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> RectangularChannel
         let alpha = RealField::max(aspect_ratio, T::one() / aspect_ratio);
 
         if alpha == T::one() {
-            // Square duct: Po = 56.91 (exact value from Shah & London)
+            // Square duct: Po_Darcy = 56.91
             T::from_f64(56.91).unwrap_or_else(|| T::zero())
-        } else if alpha >= T::one() {
-            // Wide rectangular duct (α ≥ 1.0)
-            // Po = 24 * (1 - 1.3553/α + 1.9467/α² - 1.7012/α³ + 0.9564/α⁴ - 0.2537/α⁵)
+        } else {
+            // Po_Darcy = 4 * Po_Fanning
+            // Po_Fanning = 24 * (1 - 1.3553/α + 1.9467/α² - 1.7012/α³ + 0.9564/α⁴ - 0.2537/α⁵)
             let a1 = T::from_f64(1.3553).unwrap_or_else(|| T::zero());
             let a2 = T::from_f64(1.9467).unwrap_or_else(|| T::zero());
             let a3 = T::from_f64(1.7012).unwrap_or_else(|| T::zero());
             let a4 = T::from_f64(0.9564).unwrap_or_else(|| T::zero());
             let a5 = T::from_f64(0.2537).unwrap_or_else(|| T::zero());
 
-            let base = T::from_f64(24.0).unwrap_or_else(|| T::zero());
+            let base = T::from_f64(96.0).unwrap_or_else(|| T::zero()); // 4 * 24.0
             let correction = T::one() - a1 / alpha + a2 / (alpha * alpha)
                 - a3 / (alpha * alpha * alpha)
                 + a4 / (alpha * alpha * alpha * alpha)
                 - a5 / (alpha * alpha * alpha * alpha * alpha);
-
-            base * correction
-        } else {
-            // Tall rectangular duct (α < 1.0, but we use α ≥ 1)
-            // This case shouldn't occur due to the max() above, but kept for completeness
-            let inv_alpha = T::one() / alpha;
-
-            let b1 = T::from_f64(0.628).unwrap_or_else(|| T::zero());
-            let b2 = T::from_f64(0.300).unwrap_or_else(|| T::zero());
-            let b3 = T::from_f64(0.238).unwrap_or_else(|| T::zero());
-            let b4 = T::from_f64(0.091).unwrap_or_else(|| T::zero());
-            let b5 = T::from_f64(0.013).unwrap_or_else(|| T::zero());
-
-            let base = T::from_f64(24.0).unwrap_or_else(|| T::zero());
-            let correction = T::one() - b1 / inv_alpha + b2 / (inv_alpha * inv_alpha)
-                - b3 / (inv_alpha * inv_alpha * inv_alpha)
-                + b4 / (inv_alpha * inv_alpha * inv_alpha * inv_alpha)
-                - b5 / (inv_alpha * inv_alpha * inv_alpha * inv_alpha * inv_alpha);
 
             base * correction
         }

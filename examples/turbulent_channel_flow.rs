@@ -38,10 +38,10 @@ fn main() {
 
     // Grid spacing
     let dy = 2.0 * h / (ny as f64 - 1.0);
-    let dx = 0.1 * h; // Streamwise spacing (arbitrary for 2D slice)
+    let _dx = 0.1 * h; // Streamwise spacing (arbitrary for 2D slice)
 
     // Initialize k-ω SST model
-    let mut sst_model = KOmegaSSTModel::new(nx, ny);
+    let sst_model = KOmegaSSTModel::new(nx, ny);
     println!("Turbulence model: {}", sst_model.name());
 
     // Initialize turbulence quantities

@@ -29,16 +29,21 @@ impl ResistanceModelFactory {
         }
     }
 
-    /// Create Darcy-Weisbach model for turbulent flow
-    pub fn darcy_weisbach<T: RealField + Copy + FromPrimitive + Copy>(
+    /// Create Darcy-Weisbach model for turbulent flow in any geometry
+    pub fn darcy_weisbach<T: RealField + Copy + FromPrimitive>(
         hydraulic_diameter: T,
         length: T,
         roughness: T,
     ) -> DarcyWeisbachModel<T> {
-        DarcyWeisbachModel {
-            hydraulic_diameter,
-            length,
-            roughness,
-        }
+           DarcyWeisbachModel::circular(hydraulic_diameter, length, roughness)
+    }
+
+    /// Create Darcy-Weisbach model for turbulent flow in a circular channel
+    pub fn darcy_weisbach_circular<T: RealField + Copy + FromPrimitive>(
+        diameter: T,
+        length: T,
+        roughness: T,
+    ) -> DarcyWeisbachModel<T> {
+        DarcyWeisbachModel::circular(diameter, length, roughness)
     }
 }

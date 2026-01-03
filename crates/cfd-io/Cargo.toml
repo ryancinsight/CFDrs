@@ -34,3 +34,4 @@ mpi = ["cfd-core/mpi"]
 [dev-dependencies]
 tempfile = "3.8"
 proptest.workspace = true
+approx.workspace = true

@@ -3,7 +3,7 @@
 //! This module provides orthogonal polynomial basis functions and their derivatives
 //! for use in DG methods, including both modal and nodal representations.
 
-use super::*;
+use super::{Result, DGError};
 use nalgebra::{DVector, DMatrix};
 use std::f64::consts::PI;
 
@@ -50,8 +50,14 @@ impl DGBasis {
         
         let num_basis = order + 1;
         
-        // Use Gauss-Lobatto quadrature with enough points to integrate 2*order exactly
-        let num_quad = order + 1;
+        // Use enough quadrature points to integrate the mass matrix exactly
+        // For Orthogonal basis (Legendre), degree is 2*order, so we need at least order+1 Gauss-Legendre
+        // or order+2 Gauss-Lobatto points.
+        // For Nodal basis, we must use order+1 points to maintain the interpolation property.
+        let num_quad = match basis_type {
+            BasisType::Orthogonal => order + 2,
+            BasisType::Nodal => order + 1,
+        };
         
         // Compute quadrature points and weights
         let (quad_points, quad_weights) = gauss_lobatto_quadrature(num_quad)?;
@@ -69,8 +75,8 @@ impl DGBasis {
                         dphi_dx[(i, q)] = legendre_poly_deriv(i, xq);
                     }
                     BasisType::Nodal => {
-                        phi[(i, q)] = lagrange_basis(i, xq, &quad_points);
-                        dphi_dx[(i, q)] = lagrange_basis_deriv(i, xq, &quad_points);
+                        phi[(i, q)] = lagrange_basis(i, xq, quad_points.as_slice());
+                        dphi_dx[(i, q)] = lagrange_basis_deriv(i, xq, quad_points.as_slice());
                     }
                 }
             }
@@ -106,7 +112,7 @@ impl DGBasis {
             for j in 0..num_basis {
                 diff_matrix[(i, j)] = match basis_type {
                     BasisType::Orthogonal => legendre_poly_deriv(j, quad_points[i]),
-                    BasisType::Nodal => lagrange_basis_deriv(j, quad_points[i], &quad_points),
+                    BasisType::Nodal => lagrange_basis_deriv(j, quad_points[i], quad_points.as_slice()),
                 };
             }
         }
@@ -131,7 +137,7 @@ impl DGBasis {
             BasisType::Orthogonal => legendre_poly(i, x),
             BasisType::Nodal => {
                 // For nodal basis, we need the original nodes
-                lagrange_basis(i, x, &self.quad_points)
+                lagrange_basis(i, x, self.quad_points.as_slice())
             }
         }
     }
@@ -142,7 +148,7 @@ impl DGBasis {
             BasisType::Orthogonal => legendre_poly_deriv(i, x),
             BasisType::Nodal => {
                 // For nodal basis, we need the original nodes
-                lagrange_basis_deriv(i, x, &self.quad_points)
+                lagrange_basis_deriv(i, x, self.quad_points.as_slice())
             }
         }
     }
@@ -152,47 +158,25 @@ impl DGBasis {
     where
         F: Fn(f64) -> f64,
     {
-        let mut coefficients = DVector::zeros(self.num_basis);
+        let mut rhs = DVector::zeros(self.num_basis);
         
-        // For orthogonal bases, we can use the orthogonality property
-        if self.basis_type == BasisType::Orthogonal {
-            for i in 0..self.num_basis {
-                let mut integral = 0.0;
-                
-                for q in 0..self.quad_points.len() {
-                    let x = self.quad_points[q];
-                    let w = self.quad_weights[q];
-                    integral += w * f(x) * self.phi[(i, q)];
-                }
-                
-                // Normalize by the L2 norm squared of the basis function
-                let norm_sq = 2.0 / (2.0 * i as f64 + 1.0);
-                coefficients[i] = (2.0 * i as f64 + 1.0) / 2.0 * integral / norm_sq;
+        for i in 0..self.num_basis {
+            for q in 0..self.quad_points.len() {
+                let x = self.quad_points[q];
+                let w = self.quad_weights[q];
+                rhs[i] += w * f(x) * self.phi[(i, q)];
             }
-        } else {
-            // For nodal bases, we need to solve a linear system
-            let mut rhs = DVector::zeros(self.num_basis);
-            
-            for i in 0..self.num_basis {
-                for q in 0..self.quad_points.len() {
-                    let x = self.quad_points[q];
-                    let w = self.quad_weights[q];
-                    rhs[i] += w * f(x) * self.phi[(i, q)];
-                }
-            }
-            
-            // Solve M c = rhs, where M is the mass matrix
-            coefficients = self.mass_matrix.lu().solve(&rhs).unwrap_or_else(|| {
-                // Fall back to interpolation if the mass matrix is singular
-                let mut c = DVector::zeros(self.num_basis);
-                for i in 0..self.num_basis {
-                    c[i] = f(self.quad_points[i]);
-                }
-                c
-            });
         }
         
-        coefficients
+        // Solve M c = rhs, where M is the mass matrix
+        self.mass_matrix.clone().lu().solve(&rhs).unwrap_or_else(|| {
+            // Fall back to interpolation if the mass matrix is singular
+            let mut c = DVector::zeros(self.num_basis);
+            for i in 0..self.num_basis {
+                c[i] = f(self.quad_points[i]);
+            }
+            c
+        })
     }
 }
 
@@ -220,6 +204,15 @@ pub fn legendre_poly(n: usize, x: f64) -> f64 {
 pub fn legendre_poly_deriv(n: usize, x: f64) -> f64 {
     if n == 0 {
         return 0.0;
+    }
+    
+    // Handle endpoints to avoid division by zero
+    if (x - 1.0).abs() < 1e-15 {
+        return (n * (n + 1)) as f64 / 2.0;
+    }
+    if (x + 1.0).abs() < 1e-15 {
+        let val = (n * (n + 1)) as f64 / 2.0;
+        return if (n - 1) % 2 == 0 { val } else { -val };
     }
     
     n as f64 / (1.0 - x * x) * (legendre_poly(n - 1, x) - x * legendre_poly(n, x))
@@ -293,13 +286,20 @@ pub fn gauss_lobatto_quadrature(n: usize) -> Result<(DVector<f64>, DVector<f64>)
         while delta > tol && iter < max_iter {
             let (p, dp) = legendre_poly_deriv_with_prev(n - 1, x);
             
-            if dp.abs() < f64::EPSILON {
+            // P''_{n-1} = (2x P'_{n-1} - (n-1)n P_{n-1}) / (1-x^2)
+            let denominator = 1.0 - x * x;
+            if denominator.abs() < 1e-15 {
+                 return Err(DGError::NumericalError(format!("Newton iteration hit endpoint at x={}", x)));
+            }
+            let d2p = (2.0 * x * dp - ((n - 1) * n) as f64 * p) / denominator;
+
+            if d2p.abs() < f64::EPSILON {
                 return Err(DGError::NumericalError(
-                    format!("Zero derivative at x = {} for n = {}", x, n - 1)
+                    format!("Zero second derivative at x = {} for n = {}", x, n - 1)
                 ));
             }
             
-            let dx = p / dp;
+            let dx = dp / d2p;
             x -= dx;
             delta = dx.abs();
             iter += 1;
@@ -307,7 +307,7 @@ pub fn gauss_lobatto_quadrature(n: usize) -> Result<(DVector<f64>, DVector<f64>)
         
         if iter >= max_iter {
             return Err(DGError::NumericalError(
-                format!("Failed to converge for node {} of {}", i, n)
+                format!("Failed to converge for node {i} of {n}")
             ));
         }
         
@@ -318,7 +318,13 @@ pub fn gauss_lobatto_quadrature(n: usize) -> Result<(DVector<f64>, DVector<f64>)
     for i in 0..n {
         let x = nodes[i];
         let p = legendre_poly(n - 1, x);
+        if p.abs() < 1e-15 {
+            return Err(DGError::NumericalError(format!("P_{}({}) is zero", n-1, x)));
+        }
         weights[i] = 2.0 / (n as f64 * (n - 1) as f64) / (p * p);
+        if weights[i].is_nan() {
+             return Err(DGError::NumericalError(format!("Weight {} is NaN (n={}, x={}, p={})", i, n, x, p)));
+        }
     }
     
     Ok((nodes, weights))
@@ -363,7 +369,8 @@ mod tests {
         
         // Test orthogonality
         let n = 4;
-        let quad = gauss_lobatto_quadrature(n + 1).unwrap();
+        // Use more points for better accuracy of P_n^2 (degree 2n)
+        let quad = gauss_lobatto_quadrature(2 * n + 1).unwrap();
         
         for i in 0..=n {
             for j in 0..=n {
@@ -470,8 +477,11 @@ mod tests {
                     integral += weights[i] * points[i].powi(d as i32);
                 }
                 
-                assert_relative_eq!(integral, exact, epsilon = 1e-10,
-                    "Failed for n={}, d={}", n, d);
+                assert!(
+                    (integral - exact).abs() < 1e-10,
+                    "Failed for n={}, d={}: integral={}, exact={}",
+                    n, d, integral, exact
+                );
             }
         }
     }

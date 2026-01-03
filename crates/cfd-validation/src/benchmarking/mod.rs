@@ -178,8 +178,8 @@ pub mod utils {
 
             let min = *sorted.first().unwrap();
             let max = *sorted.last().unwrap();
-            let median = if samples % 2 == 0 {
-                (sorted[samples / 2 - 1] + sorted[samples / 2]) / 2.0
+            let median = if samples.is_multiple_of(2) {
+                f64::midpoint(sorted[samples / 2 - 1], sorted[samples / 2])
             } else {
                 sorted[samples / 2]
             };

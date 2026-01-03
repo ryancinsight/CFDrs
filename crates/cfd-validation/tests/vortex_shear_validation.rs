@@ -240,10 +240,10 @@ mod property_tests {
     use super::*;
     use proptest::prelude::*;
 
-    /// Property test: Couette flow velocity should be linear
-    ///
-    /// # Reference
-    /// Fundamental property of simple shear flow
+    // Property test: Couette flow velocity should be linear
+    //
+    // # Reference
+    // Fundamental property of simple shear flow
     proptest! {
         #[test]
         fn couette_velocity_is_linear(
@@ -265,10 +265,10 @@ mod property_tests {
         }
     }
 
-    /// Property test: Taylor-Green energy decreases monotonically
-    ///
-    /// # Reference
-    /// Physical requirement from Navier-Stokes dissipation
+    // Property test: Taylor-Green energy decreases monotonically
+    //
+    // # Reference
+    // Physical requirement from Navier-Stokes dissipation
     proptest! {
         #[test]
         fn taylor_green_energy_decreases(
@@ -287,10 +287,10 @@ mod property_tests {
         }
     }
 
-    /// Property test: Couette flow has constant shear rate
-    ///
-    /// # Reference
-    /// Fundamental property: du/dy = U/h = constant
+    // Property test: Couette flow has constant shear rate
+    //
+    // # Reference
+    // Fundamental property: du/dy = U/h = constant
     proptest! {
         #[test]
         fn couette_constant_shear_rate(
@@ -317,10 +317,10 @@ mod property_tests {
         }
     }
 
-    /// Property test: Reynolds number scales correctly
-    ///
-    /// # Reference
-    /// Definition: Re = UL/ν
+    // Property test: Reynolds number scales correctly
+    //
+    // # Reference
+    // Definition: Re = UL/ν
     proptest! {
         #[test]
         fn reynolds_number_scaling(

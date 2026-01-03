@@ -28,7 +28,7 @@
 //! ### DG Method Example
 //! ```no_run
 //! use cfd_math::high_order::*;
-//! use nalgebra::DVector;
+//! use nalgebra::{DVector, DMatrix};
 //!
 //! // Create a DG operator
 //! let order = 3;
@@ -51,7 +51,12 @@
 //! 
 //! // Initialize and solve
 //! solver.initialize(|x| DVector::from_vec(vec![x.sin()])).unwrap();
-//! solver.solve(|_t, u| Ok(-u.clone()), None::<fn(_, _) -> _>).unwrap();
+//! 
+//! fn rhs(_t: f64, u: &DMatrix<f64>) -> Result<DMatrix<f64>> {
+//!     Ok(-u.clone())
+//! }
+//! 
+//! solver.solve(rhs, None::<fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>>).unwrap();
 //! ```
 //!
 //! ## Performance Considerations
@@ -80,5 +85,5 @@ pub mod weno;
 
 /// Re-export commonly used items
 pub use dg::*;
-pub use spectral::*;
+pub use spectral::{SpectralElement, SpectralDiffOp, SpectralInterp, SpectralQuadrature, SpectralFilter, SpectralError};
 pub use weno::*;

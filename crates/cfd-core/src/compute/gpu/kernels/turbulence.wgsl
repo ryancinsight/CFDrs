@@ -8,6 +8,8 @@ struct TurbulenceParams {
     dy: f32,
     constant: f32,  // C_S for Smagorinsky, C_DES for DES
     delta: f32,     // Filter width
+    _pad1: u32,
+    _pad2: u32,
 }
 
 @group(0) @binding(0) var<uniform> params: TurbulenceParams;

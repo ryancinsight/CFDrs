@@ -53,7 +53,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
                 for j in 0..self.ny {
                     let error = (u_next[(i, j)] - constant_value).abs();
                     max_error = max_error.max(error);
-                    total_error = total_error + error;
+                    total_error += error;
                     count += 1;
                 }
             }
@@ -100,7 +100,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
         let u = DMatrix::from_element(self.nx, self.ny, constant_value);
 
         // Simulate RK time integration (simplified)
-        let dt = <T as SafeFromF64>::from_f64_or_one(0.01);
+        let _dt = <T as SafeFromF64>::from_f64_or_one(0.01);
         let mut u_current = u.clone();
 
         for _step in 0..5 {
@@ -113,7 +113,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
                 for j in 0..self.ny {
                     let error = (u_next[(i, j)] - constant_value).abs();
                     max_error = max_error.max(error);
-                    total_error = total_error + error;
+                    total_error += error;
                     count += 1;
                 }
             }
@@ -128,7 +128,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
         };
 
         let mut report = ConservationReport::new(
-            format!("Geometric Conservation Law (RK{})", stages),
+            format!("Geometric Conservation Law (RK{stages})"),
             max_error,
             self.tolerance,
         );
@@ -181,7 +181,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
                 // All derivatives should be zero for constant field
                 let error = dudx.abs() + dudy.abs() + laplacian.abs();
                 max_error = max_error.max(error);
-                total_error = total_error + error;
+                total_error += error;
                 count += 1;
             }
         }
@@ -244,7 +244,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricConservationChecker<T> {
         let total_tests = results.len();
 
         println!("\n📊 GCL Test Summary:");
-        println!("  Tests Passed: {}/{}", passed_tests, total_tests);
+        println!("  Tests Passed: {passed_tests}/{total_tests}");
         println!(
             "  Success Rate: {:.1}%",
             100.0 * passed_tests as f32 / total_tests as f32

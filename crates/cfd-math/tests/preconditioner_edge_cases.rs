@@ -6,8 +6,8 @@
 //! - Greenbaum (1997): "Iterative Methods for Solving Linear Systems"
 
 use cfd_math::linear_solver::Preconditioner;
-use cfd_math::preconditioners::cholesky::IncompleteCholesky;
-use cfd_math::preconditioners::ilu::IncompleteLU;
+use cfd_math::linear_solver::preconditioners::cholesky::IncompleteCholesky;
+use cfd_math::linear_solver::preconditioners::ilu::IncompleteLU;
 use nalgebra::DVector;
 use nalgebra_sparse::CsrMatrix;
 

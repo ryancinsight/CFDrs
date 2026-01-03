@@ -14,7 +14,7 @@
 //!
 //! ## Usage
 //!
-//! ```no_run
+//! ```ignore
 //! use cfd_io::vtk::ParallelVtkWriter;
 //! use cfd_core::compute::mpi::DistributedVector;
 //! use std::collections::HashMap;

@@ -71,9 +71,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         let mut coo = CooMatrix::new(n, n);
         let mut rhs = DVector::zeros(n);
 
-        // Invariants: units [A]=[Pa·s/m³], [b]=[Pa]
-        // Enforce positivity of conductances and exact Dirichlet constraints
-        // Gather boundary conditions for exact enforcement decisions
+        // Invariants: units [A]=conductance [m³/(Pa·s)] or dimensionless, [b]=flow rate [m³/s] or pressure [Pa]
+        // Interior rows: sum(G_ij * (P_i - P_j)) = Q_ext_i => G_ii*P_i + sum(G_ij*P_j) = Q_ext_i
+        // Dirichlet rows: 1 * P_i = P_fixed_i
         let mut dirichlet_values: std::collections::HashMap<usize, T> = std::collections::HashMap::new();
         let mut neumann_sources: std::collections::HashMap<usize, T> = std::collections::HashMap::new();
         for (&node_idx, bc) in network.boundary_conditions() {
@@ -104,8 +104,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
             // Basic validity: conductance must be finite and positive
             if !conductance.is_finite() {
                 return Err(Error::InvalidConfiguration(format!(
-                    "Non-finite conductance encountered in network assembly: {:?}",
-                    conductance
+                    "Non-finite conductance encountered in network assembly: {conductance:?}"
                 )));
             }
 
@@ -145,12 +144,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         }
 
         // Apply Neumann sources to RHS
-        for (idx, flow_rate) in neumann_sources.into_iter() {
+        for (idx, flow_rate) in neumann_sources {
             rhs[idx] += flow_rate;
         }
 
         // Inject identity rows for Dirichlet nodes with exact values
-        for (idx, pressure) in dirichlet_values.into_iter() {
+        for (idx, pressure) in dirichlet_values {
             coo.push(idx, idx, T::one());
             rhs[idx] = pressure;
         }

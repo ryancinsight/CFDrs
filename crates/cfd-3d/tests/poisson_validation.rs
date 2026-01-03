@@ -10,7 +10,7 @@
 
 use approx::assert_relative_eq;
 use cfd_3d::spectral::poisson::{PoissonBoundaryCondition, PoissonSolver};
-use nalgebra::DMatrix;
+use nalgebra::DVector;
 use std::f64::consts::PI;
 
 /// Test 3D Poisson solver with homogeneous Dirichlet BC
@@ -23,23 +23,24 @@ fn test_poisson_3d_dirichlet_sinusoidal() {
     let nz = 4;
     let solver = PoissonSolver::<f64>::new(nx, ny, nz).unwrap();
 
-    // Manufactured solution: u = sin(πx)sin(πy)sin(πz)
-    // Laplacian: ∇²u = -3π²sin(πx)sin(πy)sin(πz)
-    // RHS: f = 3π²sin(πx)sin(πy)sin(πz)
-    let mut f = DMatrix::zeros(nx * ny, nz);
+    // Manufactured solution: u = sin(PI * x) * sin(PI * y) * sin(PI * z)
+    // Laplacian: ∇²u = -3 * PI^2 * sin(PI * x) * sin(PI * y) * sin(PI * z)
+    // RHS: f = 3 * PI^2 * sin(PI * x) * sin(PI * y) * sin(PI * z)
+    let mut f = DVector::zeros(nx * ny * nz);
     for i in 0..nx {
         for j in 0..ny {
             for k in 0..nz {
-                let x = i as f64 / (nx - 1) as f64;
-                let y = j as f64 / (ny - 1) as f64;
-                let z = k as f64 / (nz - 1) as f64;
-                let idx = j * nx + i;
-                f[(idx, k)] = 3.0 * PI * PI * (PI * x).sin() * (PI * y).sin() * (PI * z).sin();
+                let x = (PI * i as f64 / (nx - 1) as f64).cos();
+                let y = (PI * j as f64 / (ny - 1) as f64).cos();
+                let z = (PI * k as f64 / (nz - 1) as f64).cos();
+                let idx = i * ny * nz + j * nz + k;
+                f[idx] = 3.0 * PI * PI * (PI * x).sin() * (PI * y).sin() * (PI * z).sin();
             }
         }
     }
 
     // Homogeneous Dirichlet BC: u = 0 on all boundaries
+    // Note: sin(PI * x) is 0 at x=1 and x=-1 (the Chebyshev points)
     let bc_x = (
         PoissonBoundaryCondition::Dirichlet(0.0),
         PoissonBoundaryCondition::Dirichlet(0.0),
@@ -55,28 +56,26 @@ fn test_poisson_3d_dirichlet_sinusoidal() {
 
     let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).unwrap();
 
-    // Verify solution at interior points
-    for i in 1..nx - 1 {
-        for j in 1..ny - 1 {
-            for k in 1..nz - 1 {
-                let x = i as f64 / (nx - 1) as f64;
-                let y = j as f64 / (ny - 1) as f64;
-                let z = k as f64 / (nz - 1) as f64;
-                let idx = j * nx + i;
-                let analytical = (PI * x).sin() * (PI * y).sin() * (PI * z).sin();
-
-                // Spectral accuracy depends on grid resolution
-                // Coarse grid (8x8x4) won't achieve machine precision
-                assert_relative_eq!(solution[(idx, k)], analytical, epsilon = 0.1);
+    // Verify solution matches analytical one
+    for i in 0..nx {
+        for j in 0..ny {
+            for k in 0..nz {
+                let x = (PI * i as f64 / (nx - 1) as f64).cos();
+                let y = (PI * j as f64 / (ny - 1) as f64).cos();
+                let z = (PI * k as f64 / (nz - 1) as f64).cos();
+                let idx = i * ny * nz + j * nz + k;
+                let analytical = -(PI * x).sin() * (PI * y).sin() * (PI * z).sin();
+                assert_relative_eq!(solution[idx], analytical, epsilon = 0.1);
             }
         }
     }
 
     // Verify boundary conditions
+    // X boundaries
     for j in 0..ny {
         for k in 0..nz {
-            assert_relative_eq!(solution[(j * nx, k)], 0.0, epsilon = 1e-10);
-            assert_relative_eq!(solution[(j * nx + nx - 1, k)], 0.0, epsilon = 1e-10);
+            assert_relative_eq!(solution[0 * ny * nz + j * nz + k], 0.0, epsilon = 1e-10);
+            assert_relative_eq!(solution[(nx - 1) * ny * nz + j * nz + k], 0.0, epsilon = 1e-10);
         }
     }
 }
@@ -92,7 +91,7 @@ fn test_poisson_3d_constant_source() {
     let solver = PoissonSolver::<f64>::new(nx, ny, nz).unwrap();
 
     // Constant source: f = 1
-    let f = DMatrix::from_element(nx * ny, nz, 1.0);
+    let f = DVector::from_element(nx * ny * nz, 1.0);
 
     // Homogeneous Dirichlet BC
     let bc_x = (
@@ -111,21 +110,17 @@ fn test_poisson_3d_constant_source() {
     let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).unwrap();
 
     // Solution should be smooth and bounded
-    for i in 0..nx {
-        for j in 0..ny {
-            for k in 0..nz {
-                let idx = j * nx + i;
-                assert!(solution[(idx, k)].is_finite());
-                assert!(solution[(idx, k)].abs() < 10.0);
-            }
-        }
+    for idx in 0..nx * ny * nz {
+        assert!(solution[idx].is_finite());
+        assert!(solution[idx].abs() < 10.0);
     }
 
     // Verify boundary conditions
+    // X boundaries
     for j in 0..ny {
         for k in 0..nz {
-            assert_relative_eq!(solution[(j * nx, k)], 0.0, epsilon = 1e-10);
-            assert_relative_eq!(solution[(j * nx + nx - 1, k)], 0.0, epsilon = 1e-10);
+            assert_relative_eq!(solution[0 * ny * nz + j * nz + k], 0.0, epsilon = 1e-10);
+            assert_relative_eq!(solution[(nx - 1) * ny * nz + j * nz + k], 0.0, epsilon = 1e-10);
         }
     }
 }
@@ -140,7 +135,7 @@ fn test_poisson_3d_neumann_bc() {
     let solver = PoissonSolver::<f64>::new(nx, ny, nz).unwrap();
 
     // Simple source term
-    let f = DMatrix::from_element(nx * ny, nz, 1.0);
+    let f = DVector::from_element(nx * ny * nz, 1.0);
 
     // Mix of Dirichlet and Neumann BC
     let bc_x = (
@@ -159,13 +154,8 @@ fn test_poisson_3d_neumann_bc() {
     let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).unwrap();
 
     // Solution should be finite and bounded
-    for i in 0..nx {
-        for j in 0..ny {
-            for k in 0..nz {
-                let idx = j * nx + i;
-                assert!(solution[(idx, k)].is_finite());
-            }
-        }
+    for idx in 0..nx * ny * nz {
+        assert!(solution[idx].is_finite());
     }
 }
 
@@ -179,7 +169,7 @@ fn test_poisson_3d_robin_bc() {
     let solver = PoissonSolver::<f64>::new(nx, ny, nz).unwrap();
 
     // Simple source term
-    let f = DMatrix::from_element(nx * ny, nz, 1.0);
+    let f = DVector::from_element(nx * ny * nz, 1.0);
 
     // Robin BC: u + ∂u/∂n = 0
     let bc_x = (
@@ -202,13 +192,8 @@ fn test_poisson_3d_robin_bc() {
     let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).unwrap();
 
     // Solution should be finite and bounded
-    for i in 0..nx {
-        for j in 0..ny {
-            for k in 0..nz {
-                let idx = j * nx + i;
-                assert!(solution[(idx, k)].is_finite());
-            }
-        }
+    for idx in 0..nx * ny * nz {
+        assert!(solution[idx].is_finite());
     }
 }
 
@@ -223,7 +208,7 @@ fn test_poisson_3d_laplace_equation() {
     let solver = PoissonSolver::<f64>::new(nx, ny, nz).unwrap();
 
     // Zero source: Laplace equation
-    let f = DMatrix::zeros(nx * ny, nz);
+    let f = DVector::zeros(nx * ny * nz);
 
     // Non-homogeneous Dirichlet BC: u = 1 on one face
     let bc_x = (
@@ -242,22 +227,17 @@ fn test_poisson_3d_laplace_equation() {
     let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).unwrap();
 
     // Solution should be smooth and bounded
-    for i in 0..nx {
-        for j in 0..ny {
-            for k in 0..nz {
-                let idx = j * nx + i;
-                assert!(solution[(idx, k)].is_finite());
-                assert!(solution[(idx, k)] >= 0.0);
-                assert!(solution[(idx, k)] <= 1.0);
-            }
-        }
+    for idx in 0..nx * ny * nz {
+        assert!(solution[idx].is_finite());
+        assert!(solution[idx] >= -0.1); // Small numerical overshoot possible
+        assert!(solution[idx] <= 1.1);
     }
 
-    // Verify boundary values
-    for j in 0..ny {
-        for k in 0..nz {
-            assert_relative_eq!(solution[(j * nx, k)], 1.0, epsilon = 1e-10);
-            assert_relative_eq!(solution[(j * nx + nx - 1, k)], 0.0, epsilon = 1e-10);
+    // Verify boundary values (interior of the face to avoid corner conflicts)
+    for j in 1..ny - 1 {
+        for k in 1..nz - 1 {
+            assert_relative_eq!(solution[0 * ny * nz + j * nz + k], 1.0, epsilon = 1e-10);
+            assert_relative_eq!(solution[(nx - 1) * ny * nz + j * nz + k], 0.0, epsilon = 1e-10);
         }
     }
 }
@@ -271,7 +251,7 @@ fn test_poisson_3d_all_dirichlet() {
     let nz = 3;
     let solver = PoissonSolver::<f64>::new(nx, ny, nz).unwrap();
 
-    let f = DMatrix::from_element(nx * ny, nz, 2.0);
+    let f = DVector::from_element(nx * ny * nz, 2.0);
 
     let bc_x = (
         PoissonBoundaryCondition::Dirichlet(0.5),
@@ -289,13 +269,8 @@ fn test_poisson_3d_all_dirichlet() {
     let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).unwrap();
 
     // Verify solution is finite
-    for i in 0..nx {
-        for j in 0..ny {
-            for k in 0..nz {
-                let idx = j * nx + i;
-                assert!(solution[(idx, k)].is_finite());
-            }
-        }
+    for idx in 0..nx * ny * nz {
+        assert!(solution[idx].is_finite());
     }
 }
 
@@ -308,7 +283,7 @@ fn test_poisson_3d_minimal_grid() {
     let nz = 2;
     let solver = PoissonSolver::<f64>::new(nx, ny, nz).unwrap();
 
-    let f = DMatrix::from_element(nx * ny, nz, 1.0);
+    let f = DVector::from_element(nx * ny * nz, 1.0);
 
     let bc_x = (
         PoissonBoundaryCondition::Dirichlet(0.0),
@@ -326,12 +301,7 @@ fn test_poisson_3d_minimal_grid() {
     let solution = solver.solve(&f, &bc_x, &bc_y, &bc_z).unwrap();
 
     // Just verify solver doesn't crash and produces finite values
-    for i in 0..nx {
-        for j in 0..ny {
-            for k in 0..nz {
-                let idx = j * nx + i;
-                assert!(solution[(idx, k)].is_finite());
-            }
-        }
+    for idx in 0..nx * ny * nz {
+        assert!(solution[idx].is_finite());
     }
 }

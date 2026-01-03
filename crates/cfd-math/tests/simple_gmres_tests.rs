@@ -31,7 +31,7 @@ fn test_gmres_basic() {
     let config = cfd_math::linear_solver::IterativeSolverConfig::new(1e-8).with_max_iterations(100);
     let solver = GMRES::new(config, 4); // Restart after 4 iterations
 
-    let result = solver.solve::<IdentityPreconditioner>(&a, &b, &mut x, None);
+    let result = solver.solve(&a, &b, &mut x, None::<&IdentityPreconditioner>);
     assert!(result.is_ok(), "GMRES should converge");
 
     // Verify residual is reasonable
@@ -64,7 +64,7 @@ fn test_gmres_restart() {
     let config = cfd_math::linear_solver::IterativeSolverConfig::new(1e-8).with_max_iterations(200);
     let solver = GMRES::new(config, 3); // Small restart dimension
 
-    let result = solver.solve::<IdentityPreconditioner>(&a, &b, &mut x, None);
+    let result = solver.solve(&a, &b, &mut x, None::<&IdentityPreconditioner>);
     assert!(result.is_ok(), "GMRES with restart should converge");
 }
 

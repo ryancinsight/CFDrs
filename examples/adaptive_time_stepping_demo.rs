@@ -81,7 +81,7 @@ fn demonstrate_cfl_adaptation(
     };
 
     let controller = AdaptiveController::new(0.01, strategy);
-    let mut integrator = AdaptiveTimeIntegrator::new(TimeScheme::RungeKutta4, controller);
+    let _integrator = AdaptiveTimeIntegrator::new(TimeScheme::RungeKutta4, controller);
 
     println!("Strategy: CFL-based (target CFL = 0.7, safety = 0.8)");
     println!("Base scheme: Runge-Kutta 4th order");

@@ -39,10 +39,11 @@ fn main() -> Result<()> {
     // Create fluid with all required parameters
     let fluid = ConstantPropertyFluid::new(
         "Water".to_string(),
-        fluid_viscosity,
         fluid_density,
+        fluid_viscosity,
         4186.0, // Specific heat (J/kg·K)
         0.6,    // Thermal conductivity (W/m·K)
+        1482.0, // Speed of sound (m/s)
     );
 
     // Build network using builder pattern

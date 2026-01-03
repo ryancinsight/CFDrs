@@ -43,27 +43,15 @@
 #![allow(clippy::ptr_arg)] // &Vec used for API compatibility
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
 
-pub mod aggregates;
-pub mod boundary;
-pub mod broadcast;
-pub mod cavitation;
+pub mod abstractions;
 pub mod compute;
-pub mod constants;
-pub mod conversion;
 pub mod domain;
-pub mod domains;
 pub mod error;
-pub mod factory;
-pub mod fluid;
-pub mod gpu;
 pub mod interpolation;
-pub mod plugin;
-pub mod problem;
-pub mod services;
-pub mod solver;
-pub mod state;
-pub mod time;
-pub mod values;
+pub use crate::management::conversion;
+/// Domain management, coordination, and plugin system
+pub mod management;
+pub mod physics;
 
 /// Prelude module for convenient imports of commonly used types
 ///
@@ -75,18 +63,18 @@ pub mod values;
 pub mod prelude {
 
     // Essential types that users will directly interact with
-    pub use crate::boundary::{BoundaryCondition, WallType};
-    pub use crate::domain::Domain;
     pub use crate::error::{Error, Result};
-    pub use crate::fluid::{ConstantPropertyFluid, Fluid};
-    pub use crate::problem::Problem;
-    pub use crate::solver::{Solver, SolverConfig, SolverConfiguration};
-    pub use crate::state::SimulationState;
-    pub use crate::time::TimeIntegrator;
-    pub use crate::values::{Pressure, ReynoldsNumber, Temperature, Velocity};
+    pub use crate::domain::Domain;
+    pub use crate::physics::boundary::{BoundaryCondition, WallType};
+    pub use crate::physics::fluid::{ConstantPropertyFluid, Fluid};
+    pub use crate::abstractions::problem::Problem;
+    pub use crate::compute::solver::{Solver, SolverConfig, SolverConfiguration};
+    pub use crate::abstractions::state::SimulationState;
+    pub use crate::compute::time::TimeIntegrator;
+    pub use crate::physics::values::{Pressure, ReynoldsNumber, Temperature, Velocity};
 
     // Plugin system - only expose the main trait
-    pub use crate::plugin::{Plugin, SimulationPlugin};
+    pub use crate::management::plugin::{Plugin, SimulationPlugin};
 }
 
 // Extended API - for plugin developers and advanced users
@@ -94,47 +82,33 @@ pub mod prelude {
 
 /// Factory system for dynamic solver creation (advanced usage)
 pub mod factories {
-    pub use crate::factory::{ConcreteSolverFactory, FactoryCapability, SolverFactoryRegistry};
+    pub use crate::management::factory::{ConcreteSolverFactory, FactoryCapability, SolverFactoryRegistry};
 }
 
 /// Plugin system internals (for plugin developers)
 pub mod plugins {
-    pub use crate::plugin::{
+    pub use crate::management::plugin::{
         PluginHealthStatus, PluginMetrics, PluginRegistry, SystemHealthSummary, SystemStatus,
     };
 }
 
 /// Extended solver traits (for solver implementors)
 pub mod solvers {
-    pub use crate::solver::configuration::{LinearSolverConfig, NetworkSolverConfig};
-    pub use crate::solver::{Configurable, DirectSolver, IterativeSolver, Validatable};
-}
-
-// Extended API - Advanced types in organized namespaces
-// These are intentionally not in the prelude to avoid cluttering the namespace
-
-/// Domain-specific abstractions, traits, and types.
-///
-/// This module provides a curated set of traits that define the
-/// core physics and numerical behaviors for CFD simulations.
-pub mod domain_traits {
-    pub use crate::domains::{
-        BoundaryConditionApplicator, DiscretizationScheme, FlowField, FluidProperties,
-        InterfaceProperties, LinearSystemSolver, MeshGeneration, MeshQuality, MeshRefinement,
-        PressureField, SolidProperties, TimeIntegrationScheme, TurbulenceModel, VelocityField,
-    };
+    pub use crate::compute::solver::{Configurable, DirectSolver, IterativeSolver, Validatable};
 }
 
 /// Aggregate types for complex simulations
 pub mod aggregates_api {
-    pub use crate::aggregates::{
+    pub use crate::management::aggregates::{
         PhysicalParameters, ProblemAggregate, SimulationAggregate, SimulationMetadata,
     };
 }
 
 /// Service layer abstractions
 pub mod services_api {
-    pub use crate::services::{FlowRegime, FluidDynamicsService, MeshQualityService, QualityLevel};
+    pub use crate::physics::fluid_dynamics::flow_regimes::FlowRegime;
+    pub use crate::physics::fluid_dynamics::service::FluidDynamicsService;
+    pub use crate::domain::mesh::{MeshQualityService, QualityLevel};
 }
 
 // Note: TypeErasedFactory and TypeErasedSolver are internal implementation details

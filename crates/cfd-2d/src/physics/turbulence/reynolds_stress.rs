@@ -108,7 +108,6 @@ use super::traits::TurbulenceModel;
 use cfd_core::error::Result;
 use nalgebra::{DMatrix, RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
-use std::any::TypeId;
 
 
 // Performance optimization: SIMD vectorization removed in favor of compiler auto-vectorization
@@ -152,7 +151,8 @@ pub struct ReynoldsStressModel<T: RealField + Copy + FromPrimitive + ToPrimitive
     wall_distance: Option<Vec<T>>,
     /// Model constants
     c_mu: T,
-    pub c1: T,  // Pressure-strain constant
+    /// Pressure-strain constant (return-to-isotropy term)
+    pub c1: T,
     c2: T,      // Dissipation constant
     c1_star: T, // Quadratic pressure-strain constant
     c2_star: T, // Quadratic pressure-strain constant
@@ -693,8 +693,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         s11: T,
         s12: T,
         s22: T,
-        w12: T,
-        w21: T,
+        _w12: T,
+        _w21: T,
         i: usize,
         j: usize,
     ) -> T {
@@ -717,7 +717,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                         * (a_xx * s22 - a_xy * s12 + two_thirds * (a_xx + a_yy) * (s11 + s22))
             }
             (0, 1) | (1, 0) => {
-                let four_thirds = Self::constant(4.0 / 3.0);
                 self.c1_star * (a_xx * s12 + a_xy * s22)
                     + self.c2_star
                         * (a_xy * (s11 - s22) + a_yy * s12 - four_thirds * a_xy * (s11 + s22))
@@ -955,7 +954,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     /// T_ij = -∂⟨u_i'u_j'u_k'⟩/∂x_k (Launder et al., 1975)
     pub fn turbulent_transport(
         &self,
-        reynolds_stress: &ReynoldsStressTensor<T>,
+        _reynolds_stress: &ReynoldsStressTensor<T>,
         k: T,
         epsilon: T,
         stress_gradient: &[[T; 2]; 2],
@@ -1262,7 +1261,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let s11 = strain_rate[0][0];
         let s12 = strain_rate[0][1];
         let s22 = strain_rate[1][1];
-        let w12 = rotation_rate[0][1];
+        let _w12 = rotation_rate[0][1];
 
         match self.pressure_strain_model {
             PressureStrainModel::LinearReturnToIsotropy => {
@@ -1282,8 +1281,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                 let c1_a_yy = self.c1 * a_yy;
 
                 let c1_star_a_xx_s11 = self.c1_star * a_xx * s11;
-                let c1_star_a_xy_s22 = self.c1_star * a_xy * s22;
-                let c1_star_a_yy_s22 = self.c1_star * a_yy * s22;
+                let _c1_star_a_xy_s22 = self.c1_star * a_xy * s22;
+                let _c1_star_a_yy_s22 = self.c1_star * a_yy * s22;
 
                 let two_thirds_sum = two_thirds * (a_xx + a_yy);
                 let c2_term_s11 =
@@ -1396,8 +1395,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         epsilon_old: T,
         velocity_gradient: &[[T; 2]; 2],
         dt: T,
-        dx: T,
-        dy: T,
+        _dx: T,
+        _dy: T,
         epsilon_min: T,
     ) -> T {
         if k_new <= T::zero() || epsilon_old <= T::zero() {

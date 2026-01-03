@@ -10,6 +10,7 @@ pub struct MarkdownReporter {
 }
 
 impl MarkdownReporter {
+    /// Create a new Markdown reporter with default settings
     pub fn new() -> Self {
         Self {
             include_details: true,
@@ -17,11 +18,13 @@ impl MarkdownReporter {
         }
     }
 
+    /// Configure whether to include detailed test results
     pub fn with_details(mut self, include: bool) -> Self {
         self.include_details = include;
         self
     }
 
+    /// Configure whether to include performance benchmarks
     pub fn with_performance(mut self, include: bool) -> Self {
         self.include_performance = include;
         self
@@ -83,9 +86,9 @@ impl Reporter for MarkdownReporter {
         if !critical_issues.is_empty() {
             markdown.push_str("### 🚨 Critical Issues\n\n");
             for issue in &critical_issues {
-                markdown.push_str(&format!("- {}\n", issue));
+                markdown.push_str(&format!("- {issue}\n"));
             }
-            markdown.push_str("\n");
+            markdown.push('\n');
         }
 
         // Test Results by Category
@@ -93,7 +96,7 @@ impl Reporter for MarkdownReporter {
             markdown.push_str("## Test Results\n\n");
 
             for (category_name, category) in &report.test_results {
-                markdown.push_str(&format!("### {}\n\n", category_name));
+                markdown.push_str(&format!("### {category_name}\n\n"));
                 markdown.push_str(&format!("- **Total:** {}\n", category.total));
                 markdown.push_str(&format!(
                     "- **Passed:** {} ({:.1}%)\n",
@@ -125,7 +128,7 @@ impl Reporter for MarkdownReporter {
                         ));
                     }
                 }
-                markdown.push_str("\n");
+                markdown.push('\n');
             }
         }
 
@@ -201,7 +204,7 @@ impl Reporter for MarkdownReporter {
                     ));
                 }
 
-                markdown.push_str("\n");
+                markdown.push('\n');
             }
         }
 
@@ -209,9 +212,9 @@ impl Reporter for MarkdownReporter {
         if !report.recommendations.is_empty() {
             markdown.push_str("## Recommendations\n\n");
             for recommendation in &report.recommendations {
-                markdown.push_str(&format!("- {}\n", recommendation));
+                markdown.push_str(&format!("- {recommendation}\n"));
             }
-            markdown.push_str("\n");
+            markdown.push('\n');
         }
 
         // Footer
@@ -225,7 +228,7 @@ impl Reporter for MarkdownReporter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::benchmarking::PerformanceReport;
+    // use crate::benchmarking::PerformanceReport;
     use crate::reporting::{CodeQualityReport, TestCategory, ValidationSummary};
     use std::collections::HashMap;
 
@@ -291,8 +294,8 @@ mod tests {
 
         // Verify key sections are present
         assert!(markdown.contains("# CFD Validation Report"));
-        assert!(markdown.contains("95 passed"));
-        assert!(markdown.contains("5 failed"));
+        assert!(markdown.contains("Passed:** 95"));
+        assert!(markdown.contains("Failed:** 5"));
         assert!(markdown.contains("Matrix Multiplication"));
         assert!(markdown.contains("Recommendations"));
         assert!(markdown.contains("87.5%"));

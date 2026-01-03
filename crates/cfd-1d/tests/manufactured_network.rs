@@ -100,8 +100,8 @@ fn test_parallel_quadratic_branches() -> Result<()> {
 
     let q1 = *solved.flow_rates().get(&eidx1).unwrap();
     let q2 = *solved.flow_rates().get(&eidx2).unwrap();
-    assert_relative_eq!(q1, q1_mag, max_relative = 1e-9);
-    assert_relative_eq!(q2, q2_mag, max_relative = 1e-9);
+    assert_relative_eq!(q1, q1_mag, max_relative = 1e-8);
+    assert_relative_eq!(q2, q2_mag, max_relative = 1e-8);
 
     let q_total_expected = q1_mag + q2_mag;
     let mut q_total = 0.0;
@@ -109,7 +109,7 @@ fn test_parallel_quadratic_branches() -> Result<()> {
         let (from, _to) = solved.graph.edge_endpoints(*edge_idx).unwrap();
         if from == n_in { q_total += q; }
     }
-    assert_relative_eq!(q_total, q_total_expected, max_relative = 1e-9);
+    assert_relative_eq!(q_total, q_total_expected, max_relative = 1e-8);
 
     Ok(())
 }

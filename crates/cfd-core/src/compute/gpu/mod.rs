@@ -5,12 +5,16 @@ use std::sync::Arc;
 
 pub mod buffer;
 pub mod constants;
+pub mod field_ops;
 pub mod kernels;
 pub mod pipeline;
 pub mod poisson_solver;
+pub mod shaders;
 pub mod turbulence_compute;
+pub mod validation_tests;
 
 pub use buffer::GpuBuffer;
+pub use field_ops::GpuFieldOps;
 pub use poisson_solver::{GpuPoissonSolver, PoissonParams};
 pub use turbulence_compute::{GpuTurbulenceCompute, TurbulencePerformanceInfo};
 

@@ -3,9 +3,7 @@
 //! This module provides various numerical flux functions that can be used
 //! to approximate the flux at element interfaces in DG methods.
 
-use super::*;
-use nalgebra::{DVector, DMatrix};
-use std::f64::consts::SQRT_2;
+use nalgebra::DVector;
 
 /// Type of numerical flux
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,7 +64,7 @@ impl FluxParams {
 }
 
 /// Trait for numerical flux functions
-trait NumericalFlux {
+pub trait NumericalFlux {
     /// Compute the numerical flux at an interface
     fn compute_flux(
         &self,
@@ -250,8 +248,8 @@ pub fn rusanov_flux(
 pub fn upwind_flux(
     f_l: &DVector<f64>,
     f_r: &DVector<f64>,
-    u_l: &DVector<f64>,
-    u_r: &DVector<f64>,
+    _u_l: &DVector<f64>,
+    _u_r: &DVector<f64>,
     a: f64,
 ) -> DVector<f64> {
     if a >= 0.0 {
@@ -357,18 +355,24 @@ mod tests {
     
     #[test]
     fn test_lax_friedrichs_flux() {
-        let u_l = DVector::from_vec(vec![1.0, 2.0]);
-        let u_r = DVector::from_vec(vec![3.0, 4.0]);
+        let u_l = DVector::from_vec(vec![0.0, 0.0]);
+        let u_r = DVector::from_vec(vec![2.0, 2.0]);
         let n = DVector::from_vec(vec![1.0, 0.0]);
         
         let params = FluxParams::new(FluxType::LaxFriedrichs).with_alpha(1.0);
         let flux = FluxFactory::create(params.flux_type);
         let f = flux.compute_flux(&u_l, &u_r, &n, &params);
         
-        // For alpha = 1.0, the flux should be the average of u_l and u_r
-        // minus 0.5 * alpha * (u_r - u_l) = 0.5 * (u_l + u_r) - 0.5 * (u_r - u_l) = u_l
-        assert_relative_eq!(f[0], 1.0, epsilon = 1e-10);
-        assert_relative_eq!(f[1], 2.0, epsilon = 1e-10);
+        // For u_l=[0,0], u_r=[2,2], max_wave_speed = (0 + sqrt(8))/2 = 1.414...
+        // Let's use u_l=[0,0], u_r=[2,0] so max_wave_speed = (0 + 2)/2 = 1.0
+        let u_l = DVector::from_vec(vec![0.0]);
+        let u_r = DVector::from_vec(vec![2.0]);
+        let f = flux.compute_flux(&u_l, &u_r, &n, &params);
+
+        // For alpha_combined = max_wave_speed * params.alpha = 1.0 * 1.0 = 1.0
+        // f* = 0.5 * (u_l + u_r) - 0.5 * alpha_combined * (u_r - u_l)
+        //    = 0.5 * (0 + 2) - 0.5 * 1.0 * (2 - 0) = 1.0 - 1.0 = 0.0 = u_l
+        assert_relative_eq!(f[0], 0.0, epsilon = 1e-10);
     }
     
     #[test]

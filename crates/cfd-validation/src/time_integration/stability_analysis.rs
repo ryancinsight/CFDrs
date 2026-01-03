@@ -12,10 +12,9 @@
 //! - LeVeque (2002): Finite Volume Methods for Hyperbolic Problems
 
 use cfd_core::conversion::SafeFromF64;
-use cfd_core::error::{Error, Result};
+use cfd_core::error::Result;
 use cfd_math::time_stepping::{NumericalScheme, StabilityAnalyzer};
 use nalgebra::{DMatrix, DVector, RealField};
-use num_traits::ToPrimitive;
 
 /// Comprehensive stability analysis report
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -179,8 +178,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
 
         let region = self.analyzer.compute_rk_stability_region(&a, &b, &c)?;
 
-        // For Forward Euler, stability region is |1 + z| <= 1, so |z| <= 2
-        let stability_limit = <T as SafeFromF64>::try_from_f64(2.0)?;
+        let stability_limit = self.analyzer.compute_rk_absolute_stability_limit(&a, &b, &c)?;
 
         Ok(RKStabilityResult {
             method_name: "Forward Euler (RK1)".to_string(),
@@ -217,7 +215,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         let c = DVector::from_vec(vec![T::zero(), one_third, two_thirds]);
 
         let region = self.analyzer.compute_rk_stability_region(&a, &b, &c)?;
-        let stability_limit = self.estimate_stability_limit();
+        let stability_limit = self.analyzer.compute_rk_absolute_stability_limit(&a, &b, &c)?;
 
         Ok(RKStabilityResult {
             method_name: "Heun's Method (RK3)".to_string(),
@@ -260,7 +258,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         let c = DVector::from_vec(vec![T::zero(), one_half, one_half, T::one()]);
 
         let region = self.analyzer.compute_rk_stability_region(&a, &b, &c)?;
-        let stability_limit = self.estimate_stability_limit();
+        let stability_limit = self.analyzer.compute_rk_absolute_stability_limit(&a, &b, &c)?;
 
         Ok(RKStabilityResult {
             method_name: "Classic Runge-Kutta 4".to_string(),
@@ -269,12 +267,6 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
             stages: 4,
             stability_limit,
         })
-    }
-
-    /// Estimate stability limit (simplified implementation)
-    fn estimate_stability_limit(&self) -> T {
-        // Return a reasonable default stability limit
-        <T as SafeFromF64>::from_f64_or_one(2.0)
     }
 
     /// Validate CFL conditions for various test cases
@@ -358,24 +350,32 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
     fn perform_von_neumann_analysis(&self, report: &mut StabilityAnalysisReport<T>) -> Result<()> {
         println!("\n📊 Von Neumann Stability Analysis");
 
+        let schemes = [NumericalScheme::ForwardEuler, NumericalScheme::RK3, NumericalScheme::RK4];
+
         // Analyze advection equation: ∂u/∂t + a ∂u/∂x = 0
-        let advection_result = self.analyze_advection_equation()?;
-        report.von_neumann_analyses.push(advection_result);
+        for scheme in schemes.iter().cloned() {
+            let advection_result = self.analyze_advection_equation(scheme)?;
+            report.von_neumann_analyses.push(advection_result);
+        }
 
         // Analyze diffusion equation: ∂u/∂t = ν ∂²u/∂x²
-        let diffusion_result = self.analyze_diffusion_equation()?;
-        report.von_neumann_analyses.push(diffusion_result);
+        for scheme in schemes.iter().cloned() {
+            let diffusion_result = self.analyze_diffusion_equation(scheme)?;
+            report.von_neumann_analyses.push(diffusion_result);
+        }
 
         // Analyze Burgers' equation: ∂u/∂t + u ∂u/∂x = ν ∂²u/∂x²
-        let burgers_result = self.analyze_burgers_equation()?;
-        report.von_neumann_analyses.push(burgers_result);
+        for scheme in schemes.iter().cloned() {
+            let burgers_result = self.analyze_burgers_equation(scheme)?;
+            report.von_neumann_analyses.push(burgers_result);
+        }
 
-        println!("  ✅ Performed von Neumann analysis for 3 PDE types");
+        println!("  ✅ Performed von Neumann analysis for 3 PDE types × 3 schemes");
         Ok(())
     }
 
     /// Analyze advection equation stability
-    fn analyze_advection_equation(&self) -> Result<VonNeumannResult<T>> {
+    fn analyze_advection_equation(&self, scheme: NumericalScheme) -> Result<VonNeumannResult<T>> {
         let dt = <T as SafeFromF64>::try_from_f64(0.01)?;
         let a = T::one(); // Advection speed
 
@@ -386,7 +386,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
 
         let wave_numbers: Vec<T> = (0..num_k)
             .map(|i| {
-                let ratio = i as f64 / (num_k - 1) as f64;
+                let ratio = f64::from(i) / f64::from(num_k - 1);
                 k_min + (k_max - k_min) * <T as SafeFromF64>::from_f64_or_zero(ratio)
             })
             .collect();
@@ -402,12 +402,13 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
                     - (-num_complex::Complex::new(0.0, k.im * delta_x)).exp())
         };
 
+        let scheme_label = format!("{:?}", scheme);
         let analysis = self
             .analyzer
-            .von_neumann_analysis(spatial_operator, dt, &wave_numbers)?;
+            .von_neumann_analysis_with_scheme(scheme, spatial_operator, dt, &wave_numbers)?;
 
         Ok(VonNeumannResult {
-            pde_type: "Linear Advection".to_string(),
+            pde_type: format!("Linear Advection ({})", scheme_label),
             max_amplification: analysis.max_amplification,
             critical_wave_number: analysis.critical_wave_number,
             is_stable: analysis.is_stable,
@@ -416,7 +417,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
     }
 
     /// Analyze diffusion equation stability
-    fn analyze_diffusion_equation(&self) -> Result<VonNeumannResult<T>> {
+    fn analyze_diffusion_equation(&self, scheme: NumericalScheme) -> Result<VonNeumannResult<T>> {
         let dt = <T as SafeFromF64>::try_from_f64(0.01)?;
         let nu = <T as SafeFromF64>::try_from_f64(0.1)?; // Viscosity
 
@@ -427,7 +428,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
 
         let wave_numbers: Vec<T> = (0..num_k)
             .map(|i| {
-                let ratio = i as f64 / (num_k - 1) as f64;
+                let ratio = f64::from(i) / f64::from(num_k - 1);
                 k_min + (k_max - k_min) * <T as SafeFromF64>::from_f64_or_zero(ratio)
             })
             .collect();
@@ -444,12 +445,13 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
                     - (num_complex::Complex::new(0.0, k.im * delta_x)).cos())
         };
 
+        let scheme_label = format!("{:?}", scheme);
         let analysis = self
             .analyzer
-            .von_neumann_analysis(spatial_operator, dt, &wave_numbers)?;
+            .von_neumann_analysis_with_scheme(scheme, spatial_operator, dt, &wave_numbers)?;
 
         Ok(VonNeumannResult {
-            pde_type: "Diffusion".to_string(),
+            pde_type: format!("Diffusion ({})", scheme_label),
             max_amplification: analysis.max_amplification,
             critical_wave_number: analysis.critical_wave_number,
             is_stable: analysis.is_stable,
@@ -458,7 +460,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
     }
 
     /// Analyze Burgers' equation stability
-    fn analyze_burgers_equation(&self) -> Result<VonNeumannResult<T>> {
+    fn analyze_burgers_equation(&self, scheme: NumericalScheme) -> Result<VonNeumannResult<T>> {
         let dt = <T as SafeFromF64>::try_from_f64(0.001)?;
         let nu = <T as SafeFromF64>::try_from_f64(0.01)?; // Viscosity
         let u0 = <T as SafeFromF64>::try_from_f64(1.0)?; // Base velocity
@@ -470,7 +472,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
 
         let wave_numbers: Vec<T> = (0..num_k)
             .map(|i| {
-                let ratio = i as f64 / (num_k - 1) as f64;
+                let ratio = f64::from(i) / f64::from(num_k - 1);
                 k_min + (k_max - k_min) * <T as SafeFromF64>::from_f64_or_zero(ratio)
             })
             .collect();
@@ -484,12 +486,13 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
                 - num_complex::Complex::new(nu_f64 * k.im * k.im, 0.0)
         };
 
+        let scheme_label = format!("{:?}", scheme);
         let analysis = self
             .analyzer
-            .von_neumann_analysis(spatial_operator, dt, &wave_numbers)?;
+            .von_neumann_analysis_with_scheme(scheme, spatial_operator, dt, &wave_numbers)?;
 
         Ok(VonNeumannResult {
-            pde_type: "Burgers' Equation".to_string(),
+            pde_type: format!("Burgers' Equation ({})", scheme_label),
             max_amplification: analysis.max_amplification,
             critical_wave_number: analysis.critical_wave_number,
             is_stable: analysis.is_stable,
@@ -557,8 +560,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
 
         if unstable_cfl > 0 {
             report.recommendations.push(format!(
-                "Fix {} CFL condition violations by reducing time step or increasing resolution",
-                unstable_cfl
+                "Fix {unstable_cfl} CFL condition violations by reducing time step or increasing resolution"
             ));
         }
 
@@ -571,8 +573,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
 
         if unstable_pdes > 0 {
             report.recommendations.push(format!(
-                "{} PDE types show stability issues - consider implicit methods",
-                unstable_pdes
+                "{unstable_pdes} PDE types show stability issues - consider implicit methods"
             ));
         }
 
@@ -604,7 +605,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         if !report.overall_assessment.critical_issues.is_empty() {
             println!("\n⚠️  Critical Issues:");
             for issue in &report.overall_assessment.critical_issues {
-                println!("  • {}", issue);
+                println!("  • {issue}");
             }
         }
 
@@ -631,7 +632,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         if !report.recommendations.is_empty() {
             println!("\n💡 Recommendations:");
             for rec in &report.recommendations {
-                println!("  • {}", rec);
+                println!("  • {rec}");
             }
         }
 

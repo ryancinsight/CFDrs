@@ -16,6 +16,15 @@ pub struct GpuTurbulenceCompute {
     des_kernel: GpuDesKernel<f32>,
 }
 
+impl std::fmt::Debug for GpuTurbulenceCompute {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GpuTurbulenceCompute")
+            .field("smagorinsky_kernel", &self.smagorinsky_kernel)
+            .field("des_kernel", &self.des_kernel)
+            .finish_non_exhaustive()
+    }
+}
+
 impl GpuTurbulenceCompute {
     /// Create a new GPU turbulence compute manager
     ///
@@ -31,6 +40,22 @@ impl GpuTurbulenceCompute {
             smagorinsky_kernel,
             des_kernel,
         })
+    }
+
+    /// Get reference to GPU context Arc
+    #[must_use]
+    pub fn context_arc(&self) -> Arc<GpuContext> {
+        self.context.clone()
+    }
+
+    /// Get mutable reference to Smagorinsky kernel
+    pub fn smagorinsky_kernel_mut(&mut self) -> &mut GpuSmagorinskyKernel<f32> {
+        &mut self.smagorinsky_kernel
+    }
+
+    /// Get mutable reference to DES kernel
+    pub fn des_kernel_mut(&mut self) -> &mut GpuDesKernel<f32> {
+        &mut self.des_kernel
     }
 
     /// Get reference to GPU context
@@ -70,7 +95,7 @@ impl GpuTurbulenceCompute {
 
         let velocity_v_buffer = GpuBuffer::from_data(self.context.clone(), velocity_v)?;
 
-        let sgs_viscosity_buffer = GpuBuffer::from_data(self.context.clone(), &vec![0.0; size])?;
+        let sgs_viscosity_buffer = GpuBuffer::new(self.context.clone(), size)?;
 
         // Execute SGS computation
         self.smagorinsky_kernel.compute_sgs_viscosity(
@@ -120,7 +145,7 @@ impl GpuTurbulenceCompute {
 
         let velocity_v_buffer = GpuBuffer::from_data(self.context.clone(), velocity_v)?;
 
-        let des_length_buffer = GpuBuffer::from_data(self.context.clone(), &vec![0.0; size])?;
+        let des_length_buffer = GpuBuffer::new(self.context.clone(), size)?;
 
         // Execute DES length scale computation
         self.des_kernel.compute_des_length_scale(
@@ -197,7 +222,6 @@ impl TurbulencePerformanceInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
 
     #[cfg(feature = "gpu")]
     #[test]

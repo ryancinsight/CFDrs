@@ -6,18 +6,22 @@ use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
+use serde::{Deserialize, Serialize};
+
 /// Advection method for VOF
-pub struct AdvectionMethod {
-    use_geometric: bool,
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum AdvectionMethod {
+    /// Geometric VOF advection (accurate, volume conserving)
+    Geometric,
+    /// Algebraic VOF advection (simple, faster)
+    Algebraic,
 }
 
 impl AdvectionMethod {
     /// Create advection method based on configuration
     #[must_use]
     pub fn create(config: &VofConfig) -> Self {
-        Self {
-            use_geometric: config.use_geometric_advection,
-        }
+        config.advection_method
     }
 
     /// Advect volume fraction field
@@ -26,10 +30,9 @@ impl AdvectionMethod {
         solver: &mut VofSolver<T>,
         dt: T,
     ) -> Result<()> {
-        if self.use_geometric {
-            self.geometric_advection(solver, dt)
-        } else {
-            self.algebraic_advection(solver, dt)
+        match self {
+            Self::Geometric => self.geometric_advection(solver, dt),
+            Self::Algebraic => self.algebraic_advection(solver, dt),
         }
     }
 

@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     // Detect SIMD capability
-    let ops = CfdSimdOps::<f64>::new();
+    let _ops = CfdSimdOps::<f64>::new();
     println!("SIMD Capability: Parallel processing enabled");
     println!();
 
@@ -76,7 +76,7 @@ fn benchmark_gradient_computation(nx: usize, ny: usize) -> Result<(), Box<dyn st
     let dy = 0.1;
 
     // Benchmark SIMD version (using parallel processing)
-    let simd_start = Instant::now();
+    let _simd_start = Instant::now();
     const SIMD_ITERATIONS: u32 = 50;
     let mut total_simd_time = 0.0;
 
@@ -88,7 +88,7 @@ fn benchmark_gradient_computation(nx: usize, ny: usize) -> Result<(), Box<dyn st
     let simd_avg = total_simd_time / SIMD_ITERATIONS as f64;
 
     // Benchmark scalar version (manual implementation)
-    let scalar_start = Instant::now();
+    let _scalar_start = Instant::now();
     const SCALAR_ITERATIONS: u32 = 50;
     let mut total_scalar_time = 0.0;
 
@@ -173,7 +173,7 @@ fn benchmark_flux_calculations(nx: usize, ny: usize) -> Result<(), Box<dyn std::
     }
 
     // Benchmark SIMD flux calculation
-    let flux_start = Instant::now();
+    let _flux_start = Instant::now();
     const FLUX_ITERATIONS: u32 = 100;
     let mut total_flux_time = 0.0;
 
@@ -190,7 +190,7 @@ fn benchmark_flux_calculations(nx: usize, ny: usize) -> Result<(), Box<dyn std::
     let field_ops = ops.field_operations_simd();
     let mut result = vec![0.0; n];
 
-    let field_start = Instant::now();
+    let _field_start = Instant::now();
     const FIELD_ITERATIONS: u32 = 1000;
     let mut total_field_time = 0.0;
 

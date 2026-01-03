@@ -14,14 +14,15 @@ pub mod backend;
 /// - Iterator-based operations for zero-copy
 pub mod backend_example;
 
+pub mod cpu;
 pub mod dispatch;
-pub mod traits;
-
 #[cfg(feature = "gpu")]
 pub mod gpu;
-
-pub mod cpu;
+pub mod numerical_methods;
 pub mod simd;
+pub mod solver;
+pub mod time;
+pub mod traits;
 
 /// MPI-based distributed computing for large-scale CFD
 #[cfg(feature = "mpi")]

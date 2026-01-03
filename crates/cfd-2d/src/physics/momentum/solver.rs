@@ -1,7 +1,7 @@
 //! Core momentum equation solver
 
 use super::coefficients::{ConvectionScheme, MomentumCoefficients};
-use crate::fields::SimulationFields;
+use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::physics::turbulence::TurbulenceModel;
 use cfd_core::boundary::BoundaryCondition;
@@ -37,6 +37,14 @@ pub struct MomentumSolver<T: RealField + Copy> {
     velocity_relaxation: T,
     /// Optional turbulence model for computing turbulent viscosity
     turbulence_model: Option<Box<dyn TurbulenceModel<T>>>,
+    /// Last computed A_p coefficients for U
+    ap_u: Field2D<T>,
+    /// Last computed A_p_consistent coefficients for U (SIMPLEC)
+    ap_consistent_u: Field2D<T>,
+    /// Last computed A_p coefficients for V
+    ap_v: Field2D<T>,
+    /// Last computed A_p_consistent coefficients for V (SIMPLEC)
+    ap_consistent_v: Field2D<T>,
 }
 
 impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolver<T> {
@@ -59,6 +67,10 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
             convection_scheme: ConvectionScheme::default(),
             velocity_relaxation: T::from_f64(0.7).unwrap_or_else(T::one),
             turbulence_model: None,
+            ap_u: Field2D::new(grid.nx, grid.ny, T::one()),
+            ap_consistent_u: Field2D::new(grid.nx, grid.ny, T::one()),
+            ap_v: Field2D::new(grid.nx, grid.ny, T::one()),
+            ap_consistent_v: Field2D::new(grid.nx, grid.ny, T::one()),
         }
     }
 
@@ -74,20 +86,14 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
             convection_scheme: scheme,
             velocity_relaxation: T::from_f64(0.7).unwrap_or_else(T::one),
             turbulence_model: None,
+            ap_u: Field2D::new(grid.nx, grid.ny, T::one()),
+            ap_consistent_u: Field2D::new(grid.nx, grid.ny, T::one()),
+            ap_v: Field2D::new(grid.nx, grid.ny, T::one()),
+            ap_consistent_v: Field2D::new(grid.nx, grid.ny, T::one()),
         }
     }
 
     /// Create new momentum solver with parallel SpMV enabled for multi-core performance
-    ///
-    /// # Performance Impact
-    /// - 3-5x speedup on 4-8 core systems for large matrices
-    /// - Minimal overhead for small problems
-    /// - Thread-safe and allocation-free
-    ///
-    /// # When to Use
-    /// - Large grids (>1000 cells)
-    /// - Multi-core systems
-    /// - Performance-critical applications
     #[must_use]
     pub fn with_parallel_spmv(grid: &StructuredGrid2D<T>) -> Self {
         let config = IterativeSolverConfig::default().with_parallel_spmv();
@@ -100,6 +106,10 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
             convection_scheme: ConvectionScheme::default(),
             velocity_relaxation: T::from_f64(0.7).unwrap_or_else(T::one),
             turbulence_model: None,
+            ap_u: Field2D::new(grid.nx, grid.ny, T::one()),
+            ap_consistent_u: Field2D::new(grid.nx, grid.ny, T::one()),
+            ap_v: Field2D::new(grid.nx, grid.ny, T::one()),
+            ap_consistent_v: Field2D::new(grid.nx, grid.ny, T::one()),
         }
     }
 
@@ -125,6 +135,12 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
     /// Set boundary condition
     pub fn set_boundary(&mut self, name: String, bc: BoundaryCondition<T>) {
         self.boundary_conditions.insert(name, bc);
+    }
+
+    /// Get boundary conditions
+    #[must_use]
+    pub fn boundary_conditions(&self) -> &HashMap<String, BoundaryCondition<T>> {
+        &self.boundary_conditions
     }
 
     /// Set turbulence model for computing turbulent viscosity
@@ -319,12 +335,34 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         // Update velocity field
         self.update_velocity(component, fields, &solution);
 
+        // Store A_p and A_p_consistent coefficients for pressure correction
+        match component {
+            MomentumComponent::U => {
+                self.ap_u = coeffs.ap.clone();
+                self.ap_consistent_u = coeffs.ap_consistent.clone();
+            }
+            MomentumComponent::V => {
+                self.ap_v = coeffs.ap.clone();
+                self.ap_consistent_v = coeffs.ap_consistent.clone();
+            }
+        }
+
         // Restore original molecular viscosity if turbulence was used
         if let Some(original) = original_viscosity {
             fields.viscosity = original;
         }
 
         Ok(coeffs)
+    }
+
+    /// Get the last computed A_p and A_p_consistent coefficients for both velocity components
+    pub fn get_ap_coefficients(&self) -> (Field2D<T>, Field2D<T>, Field2D<T>, Field2D<T>) {
+        (
+            self.ap_u.clone(),
+            self.ap_consistent_u.clone(),
+            self.ap_v.clone(),
+            self.ap_consistent_v.clone(),
+        )
     }
 
     fn compute_coefficients(

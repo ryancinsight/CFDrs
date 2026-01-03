@@ -27,10 +27,12 @@ pub struct ManufacturedCompressibleEuler<T: RealField + Copy> {
     pub amplitude: T,
     /// Wave numbers
     pub kx: T,
+    /// Wave number in y-direction
     pub ky: T,
 }
 
 impl<T: RealField + Copy> ManufacturedCompressibleEuler<T> {
+    /// Create a new manufactured solution for compressible Euler equations
     pub fn new(mach_number: T, gamma: T, flow_angle: T, amplitude: T, kx: T, ky: T) -> Self {
         Self {
             mach_number,
@@ -71,13 +73,13 @@ impl<T: RealField + Copy> ManufacturedCompressibleEuler<T> {
 }
 
 impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedCompressibleEuler<T> {
-    fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
+    fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Return density as the primary solution
         // In practice, this should return a vector of conserved variables
         self.rho_0() + self.density_perturbation(x, y, t)
     }
 
-    fn source_term(&self, x: T, y: T, z: T, t: T) -> T {
+    fn source_term(&self, x: T, y: T, _z: T, t: T) -> T {
         // For compressible Euler equations: ∂U/∂t + ∇·F(U) = S
         // U = [ρ, ρu, ρv, ρE]ᵀ (conserved variables)
         // This implements exact analytical source term computation
@@ -144,9 +146,9 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedCompressibleEu
 
         // Source terms for each conserved equation
         let s_rho = drho_dt + d_f1_dx + d_g1_dy;
-        let s_rho_u = d_rho_u_dt + d_f2_dx + d_g2_dy;
-        let s_rho_v = d_rho_v_dt + d_f3_dx + d_g3_dy;
-        let s_rho_e = d_rho_e_dt + d_f4_dx + d_g4_dy;
+        let _s_rho_u = d_rho_u_dt + d_f2_dx + d_g2_dy;
+        let _s_rho_v = d_rho_v_dt + d_f3_dx + d_g3_dy;
+        let _s_rho_e = d_rho_e_dt + d_f4_dx + d_g4_dy;
 
         // Return the mass equation source term as representative
         // In practice, this should return a vector of all source terms
@@ -172,10 +174,12 @@ pub struct ManufacturedTCI<T: RealField + Copy> {
     pub amplitude: T,
     /// Wave numbers
     pub kx: T,
+    /// Wave number in y-direction
     pub ky: T,
 }
 
 impl<T: RealField + Copy> ManufacturedTCI<T> {
+    /// Create a new manufactured solution for TCI
     pub fn new(
         schmidt_t: T,
         damkohler: T,
@@ -198,7 +202,7 @@ impl<T: RealField + Copy> ManufacturedTCI<T> {
 }
 
 impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedTCI<T> {
-    fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
+    fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Mixture fraction Z
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
         let z = T::from_f64(0.5).unwrap() + self.amplitude * base;
@@ -251,10 +255,12 @@ pub struct ManufacturedHypersonic<T: RealField + Copy> {
     pub amplitude: T,
     /// Wave numbers
     pub kx: T,
+    /// Wave number in y-direction
     pub ky: T,
 }
 
 impl<T: RealField + Copy> ManufacturedHypersonic<T> {
+    /// Create a new manufactured solution for hypersonic flows
     pub fn new(
         mach_inf: T,
         reynolds: T,
@@ -279,7 +285,7 @@ impl<T: RealField + Copy> ManufacturedHypersonic<T> {
 }
 
 impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedHypersonic<T> {
-    fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
+    fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Return temperature field (simplified)
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
         self.twall_ratio + self.amplitude * base
@@ -318,10 +324,12 @@ pub struct ManufacturedShockCapturing<T: RealField + Copy> {
     pub amplitude: T,
     /// Wave numbers for smooth part
     pub kx: T,
+    /// Wave number in y-direction
     pub ky: T,
 }
 
 impl<T: RealField + Copy> ManufacturedShockCapturing<T> {
+    /// Create a new manufactured solution for shock capturing
     pub fn new(shock_strength: T, shock_speed: T, shock_x0: T, amplitude: T, kx: T, ky: T) -> Self {
         Self {
             shock_strength,
@@ -350,35 +358,31 @@ impl<T: RealField + Copy> ManufacturedShockCapturing<T> {
 }
 
 impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedShockCapturing<T> {
-    fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
+    fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         let shock_x = self.shock_position(t);
+        let perturbation =
+            self.amplitude * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
 
         if x < shock_x {
-            // Pre-shock region with smooth perturbation
-            let perturbation =
-                self.amplitude * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
-            self.rho_pre() + perturbation
+            // Pre-shock region with relative perturbation
+            self.rho_pre() * (T::one() + perturbation)
         } else {
-            // Post-shock region with smooth perturbation
-            let perturbation =
-                self.amplitude * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
-            self.rho_post() + perturbation
+            // Post-shock region with relative perturbation
+            self.rho_post() * (T::one() + perturbation)
         }
     }
 
-    fn source_term(&self, x: T, y: T, z: T, t: T) -> T {
+    fn source_term(&self, x: T, y: T, _z: T, t: T) -> T {
         let shock_x = self.shock_position(t);
+        let perturbation =
+            self.amplitude * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
 
         if x < shock_x {
-            // Pre-shock source term
-            let perturbation =
-                self.amplitude * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
-            -perturbation // Simplified time derivative
+            // Pre-shock source term (∂ρ/∂t = -ρ_0 * pert)
+            -self.rho_pre() * perturbation
         } else {
-            // Post-shock source term (different due to density jump)
-            let perturbation =
-                self.amplitude * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
-            -perturbation / self.shock_strength // Account for density ratio
+            // Post-shock source term
+            -self.rho_post() * perturbation
         }
     }
 }
@@ -386,7 +390,7 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedShockCapturing
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    // use approx::assert_relative_eq;
 
     #[test]
     fn test_compressible_euler() {

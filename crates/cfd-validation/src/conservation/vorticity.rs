@@ -74,7 +74,7 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
                 if abs_residual > max_error {
                     max_error = abs_residual;
                 }
-                total_error = total_error + residual * residual;
+                total_error += residual * residual;
                 count += 1;
             }
         }
@@ -129,8 +129,8 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
             let dj = j2 as i32 - j1 as i32;
 
             // Velocity at midpoint
-            let i_mid = ((i1 + i2) / 2).min(self.nx - 1);
-            let j_mid = ((j1 + j2) / 2).min(self.ny - 1);
+            let i_mid = usize::midpoint(i1, i2).min(self.nx - 1);
+            let j_mid = usize::midpoint(j1, j2).min(self.ny - 1);
 
             let u_mid = u[(i_mid, j_mid)];
             let v_mid = v[(i_mid, j_mid)];
@@ -185,7 +185,7 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
                 if abs_vorticity > max_vorticity {
                     max_vorticity = abs_vorticity;
                 }
-                total_vorticity_sq = total_vorticity_sq + vorticity * vorticity;
+                total_vorticity_sq += vorticity * vorticity;
                 count += 1;
             }
         }
@@ -215,7 +215,7 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
 impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for VorticityChecker<T> {
     type FlowField = Vec<DMatrix<T>>;
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Vorticity Conservation Checker"
     }
 

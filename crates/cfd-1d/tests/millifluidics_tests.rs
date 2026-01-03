@@ -91,16 +91,16 @@ fn test_microvalve_characteristics() -> Result<()> {
     // For closed valve, the implementation returns 1e12 fixed value
     assert_relative_eq!(resistance_closed, 1e12, epsilon = 1.0);
 
-    // Test partial opening - should have higher resistance than fully open
+    // Test partial opening - should have higher pressure drop than fully open for same flow
     valve.set_parameter("opening", 0.5)?; // Half open
-    let resistance_half = valve.resistance(&fluid);
+    let dp_half = valve.pressure_drop(1e-6, &fluid);
 
     // Reopen valve to compare
     valve.set_parameter("opening", 1.0)?; // Fully open
-    let resistance_reopen = valve.resistance(&fluid);
+    let dp_open = valve.pressure_drop(1e-6, &fluid);
 
-    // Half open should have higher resistance than fully open
-    assert!(resistance_half > resistance_reopen);
+    // Half open should have higher pressure drop than fully open
+    assert!(dp_half > dp_open);
 
     // Test parameter bounds
     valve.set_parameter("opening", 1.5)?; // Should clamp to 1.0

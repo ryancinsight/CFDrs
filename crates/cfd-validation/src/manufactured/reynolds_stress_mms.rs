@@ -38,19 +38,24 @@ use std::f64::consts::PI;
 pub struct ManufacturedReynoldsStressMMS<T: RealField + Copy + FromPrimitive> {
     /// Wave numbers for spatial variation
     pub kx: T,
+    /// Wave number in y-direction
     pub ky: T,
     /// Temporal decay rate
     pub alpha: T,
     /// Amplitudes for Reynolds stress components
     pub a_uu: T, // ⟨u'u'⟩ amplitude
-    pub a_uv: T, // ⟨u'v'⟩ amplitude
-    pub a_vv: T, // ⟨v'v'⟩ amplitude
+    /// ⟨u'v'⟩ amplitude
+    pub a_uv: T,
+    /// ⟨v'v'⟩ amplitude
+    pub a_vv: T,
     /// Mean velocity field amplitudes (for production terms)
     pub u0_amp: T, // Mean u velocity amplitude
-    pub v0_amp: T, // Mean v velocity amplitude
+    /// Mean v velocity amplitude
+    pub v0_amp: T,
     /// Turbulent kinetic energy and dissipation amplitudes
     pub k_amp: T, // Turbulent kinetic energy amplitude
-    pub eps_amp: T, // Dissipation rate amplitude
+    /// Dissipation rate amplitude
+    pub eps_amp: T,
     /// Pressure-strain model type
     pub pressure_strain_model: PressureStrainModelMMS,
     /// Turbulent viscosity (for transport terms)
@@ -184,10 +189,10 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
     /// Compute the production term P_ij = -⟨u_i'u_k'⟩∂U_j/∂x_k - ⟨u_j'u_k'⟩∂U_i/∂x_k
     pub fn production_term(&self, i: usize, j: usize, x: T, y: T, t: T) -> T {
         // Velocity gradients
-        let du_dx = self.velocity_gradient(0, 0, x, y, t);
+        let _du_dx = self.velocity_gradient(0, 0, x, y, t);
         let du_dy = self.velocity_gradient(0, 1, x, y, t);
         let dv_dx = self.velocity_gradient(1, 0, x, y, t);
-        let dv_dy = self.velocity_gradient(1, 1, x, y, t);
+        let _dv_dy = self.velocity_gradient(1, 1, x, y, t);
 
         // Reynolds stress components
         let uu = self.exact_reynolds_stress(0, 0, x, y, t);
@@ -284,7 +289,7 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedReynoldsStressMMS<T> {
         s11: T,
         s12: T,
         s22: T,
-        w12: T,
+        _w12: T,
         i: usize,
         j: usize,
     ) -> T {
@@ -541,10 +546,12 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T>
 
 /// Convergence study utilities for Reynolds stress MMS validation
 pub struct ReynoldsStressConvergenceStudy<T: RealField + Copy + FromPrimitive> {
+    /// The manufactured solution to use for convergence study
     pub mms: ManufacturedReynoldsStressMMS<T>,
 }
 
 impl<T: RealField + Copy + FromPrimitive> ReynoldsStressConvergenceStudy<T> {
+    /// Create a new convergence study utility
     pub fn new(mms: ManufacturedReynoldsStressMMS<T>) -> Self {
         Self { mms }
     }

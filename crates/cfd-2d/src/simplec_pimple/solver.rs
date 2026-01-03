@@ -168,7 +168,7 @@ use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::physics::{MomentumComponent, MomentumSolver};
 use crate::pressure_velocity::{
-    PressureCorrectionSolver, PressureVelocityConfig, RhieChowInterpolation,
+    PressureCorrectionSolver, RhieChowInterpolation,
 };
 use nalgebra::{RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -204,26 +204,30 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     ) -> cfd_core::error::Result<Self> {
         config.validate()?;
 
-        let mut momentum_solver = MomentumSolver::new(&grid);
-
-        // Set default boundary conditions for lid-driven cavity
-        // These can be overridden by calling set_boundary_conditions later
-        Self::set_default_boundary_conditions(&mut momentum_solver);
-
-        // Create pressure solver using default configuration
-        use crate::schemes::SpatialScheme;
-        let pv_config = PressureVelocityConfig {
-            base: Default::default(),
-            dt: config.dt,
-            alpha_u: config.alpha_u,
-            alpha_p: config.alpha_p,
-            use_rhie_chow: config.use_rhie_chow,
-            convection_scheme: SpatialScheme::CentralDifference, // Use central differencing as default
-            implicit_momentum: true,
-            pressure_linear_solver: Default::default(),
+        // Convert SimplecPimple convection scheme to Momentum convection scheme
+        let momentum_convection = match config.convection_scheme {
+            crate::schemes::SpatialScheme::FirstOrderUpwind => {
+                crate::physics::momentum::ConvectionScheme::Upwind
+            }
+            crate::schemes::SpatialScheme::QuadraticUpstreamInterpolation => {
+                crate::physics::momentum::ConvectionScheme::DeferredCorrectionQuick {
+                    relaxation_factor: 0.7,
+                }
+            }
+            crate::schemes::SpatialScheme::Muscl => {
+                crate::physics::momentum::ConvectionScheme::TvdVanLeer {
+                    relaxation_factor: 0.7,
+                }
+            }
+            _ => crate::physics::momentum::ConvectionScheme::Upwind, // Fallback for Central/SecondOrder/WENO
         };
+
+        let mut momentum_solver = MomentumSolver::with_convection_scheme(&grid, momentum_convection);
+        momentum_solver.set_velocity_relaxation(config.alpha_u);
+
+        // Create pressure solver using configuration
         let pressure_solver =
-            PressureCorrectionSolver::new(grid.clone(), pv_config.pressure_linear_solver)?;
+            PressureCorrectionSolver::new(grid.clone(), config.pressure_linear_solver)?;
 
         let rhie_chow = if config.use_rhie_chow {
             let mut rhie_chow = RhieChowInterpolation::new(&grid);
@@ -260,6 +264,17 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         nu: T,
         rho: T,
     ) -> cfd_core::error::Result<T> {
+        // Update Rhie-Chow old velocity buffer for transient correction
+        if let Some(ref mut rhie_chow) = self.rhie_chow {
+            let mut u_old = Field2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
+            for i in 0..self.grid.nx {
+                for j in 0..self.grid.ny {
+                    u_old.set(i, j, Vector2::new(fields.u.at(i, j), fields.v.at(i, j)));
+                }
+            }
+            rhie_chow.update_old_velocity(&u_old);
+        }
+
         match self.config.algorithm {
             AlgorithmType::Simplec => self.solve_simplec(fields, dt, nu, rho),
             AlgorithmType::Pimple => self.solve_pimple(fields, dt, nu, rho),
@@ -381,12 +396,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         _nu: T,
         rho: T,
     ) -> cfd_core::error::Result<T> {
-        // Initialize boundary velocities for lid-driven cavity
-        Self::initialize_boundary_velocity(fields);
-
         // Enhanced SIMPLEC algorithm with improved convergence
         let mut residual = T::zero();
-        let max_iterations = 50; // Allow more iterations for better convergence
+        let max_iterations = self.config.max_inner_iterations;
         let mut converged = false;
 
         // Store previous iteration for convergence check
@@ -395,17 +407,18 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
 
         for iter in 0..max_iterations {
             // Step 1: Solve momentum equations to get predicted velocities u*
-            let coeffs_u =
+            let _coeffs_u =
                 self.momentum_solver
                     .solve_with_coefficients(MomentumComponent::U, fields, dt)?;
-            let coeffs_v =
+            let _coeffs_v =
                 self.momentum_solver
                     .solve_with_coefficients(MomentumComponent::V, fields, dt)?;
 
             // Step 2: Update Rhie-Chow coefficients for consistent interpolation
             if let Some(ref mut rhie_chow) = self.rhie_chow {
-                rhie_chow.update_u_coefficients(&coeffs_u.ap);
-                rhie_chow.update_v_coefficients(&coeffs_v.ap);
+                let (_, ap_c_u, _, ap_c_v) = self.momentum_solver.get_ap_coefficients();
+                rhie_chow.update_u_coefficients(&ap_c_u);
+                rhie_chow.update_v_coefficients(&ap_c_v);
             }
 
             // Step 3: Extract predicted velocity field u* (after momentum solve)
@@ -419,20 +432,33 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             // Step 4: Solve pressure correction equation ∇²p' = (ρ/Δt) ∇·u*
             let p_correction = if let Some(ref rhie_chow) = self.rhie_chow {
                 // Use Rhie-Chow consistent velocities
-                let consistent_velocity = self.interpolate_consistent_velocity(rhie_chow, fields);
+                let consistent_velocity = self.interpolate_consistent_velocity(rhie_chow, fields, Some(dt));
 
-                // Extract u_face and v_face
-                let mut u_face = vec![vec![T::zero(); self.grid.ny]; self.grid.nx];
-                let mut v_face = vec![vec![T::zero(); self.grid.ny]; self.grid.nx];
-                for i in 0..self.grid.nx {
+                // Extract face velocities and coefficients
+                let mut u_face = vec![vec![T::zero(); self.grid.ny]; self.grid.nx - 1];
+                let mut v_face = vec![vec![T::zero(); self.grid.ny - 1]; self.grid.nx];
+                let mut d_x = vec![vec![T::zero(); self.grid.ny]; self.grid.nx - 1];
+                let mut d_y = vec![vec![T::zero(); self.grid.ny - 1]; self.grid.nx];
+
+                for i in 0..self.grid.nx - 1 {
                     for j in 0..self.grid.ny {
                         u_face[i][j] = consistent_velocity[i][j].x;
+                        d_x[i][j] = rhie_chow.d_face_x(i, j, self.grid.dx, self.grid.dy);
+                    }
+                }
+                for i in 0..self.grid.nx {
+                    for j in 0..self.grid.ny - 1 {
                         v_face[i][j] = consistent_velocity[i][j].y;
+                        d_y[i][j] = rhie_chow.d_face_y(i, j, self.grid.dx, self.grid.dy);
                     }
                 }
 
                 self.pressure_solver.solve_pressure_correction_from_faces(
-                    &u_face, &v_face, dt, rho,
+                    &u_face,
+                    &v_face,
+                    &d_x,
+                    &d_y,
+                    rho,
                 )?
             } else {
                 self.pressure_solver
@@ -441,13 +467,17 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
 
             // Step 5: Correct velocities using pressure gradients with under-relaxation
             let mut u_corrected = u_star.clone();
-            self.pressure_solver.correct_velocity(
-                &mut u_corrected,
-                &p_correction,
-                dt,
-                rho,
-                self.config.alpha_u, // Apply velocity under-relaxation
-            );
+            {
+                let (_, ap_c_u, _, ap_c_v) = self.momentum_solver.get_ap_coefficients();
+                self.pressure_solver.correct_velocity(
+                    &mut u_corrected,
+                    &p_correction,
+                    &ap_c_u,
+                    &ap_c_v,
+                    rho,
+                    T::one(), // Don't double relax here; MomentumSolver already relaxed u*
+                );
+            }
 
             // Step 6: Correct pressure with under-relaxation
             let mut p_vec = self.field2d_to_vec2d(&fields.p);
@@ -456,12 +486,25 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             self.vec2d_to_field2d(&mut fields.p, &p_vec);
 
             // Step 7: Update velocity fields with corrected values
-            self.update_velocity_fields(fields, &u_corrected);
+            // We use alpha=1.0 here because u_star was already relaxed during momentum solve
+            // and the correction term should be applied fully in SIMPLEC
+            for i in 0..self.grid.nx {
+                for j in 0..self.grid.ny {
+                    fields.set_velocity_at(i, j, &u_corrected[i][j]);
+                }
+            }
 
             // Step 8: Check convergence based on multiple criteria
             let velocity_residual =
                 self.calculate_velocity_residual_from_vectors(&u_prev, &u_corrected);
-            continuity_residual = self.calculate_continuity_residual(fields);
+            
+            // Calculate continuity residual using consistent face fluxes if Rhie-Chow is active
+            continuity_residual = if let Some(ref rhie_chow) = self.rhie_chow {
+                let u_consistent = self.interpolate_consistent_velocity(rhie_chow, fields, Some(dt));
+                self.calculate_continuity_residual_from_faces(&u_consistent)
+            } else {
+                self.calculate_continuity_residual(fields)
+            };
 
             // Update previous velocity for next iteration
             u_prev = self.extract_velocity_field(fields);
@@ -531,7 +574,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
 
             // Step 1: Solve momentum equations (explicit or semi-implicit)
             // For PIMPLE, typically uses larger time steps with subcycling
-            let coeffs_u =
+            let _coeffs_u =
                 self.momentum_solver
                     .solve_with_coefficients(MomentumComponent::U, fields, dt)?;
             let _coeffs_v =
@@ -540,7 +583,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
 
             // Update Rhie-Chow coefficients if enabled (improves consistency)
             if let Some(ref mut rhie_chow) = self.rhie_chow {
-                rhie_chow.update_coefficients(&coeffs_u.ap);
+                let (_, ap_c_u, _, ap_c_v) = self.momentum_solver.get_ap_coefficients();
+                rhie_chow.update_u_coefficients(&ap_c_u);
+                rhie_chow.update_v_coefficients(&ap_c_v);
             }
 
             // Step 2: Extract predicted velocity field u*
@@ -548,49 +593,79 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
 
             // Step 3: Inner PISO-like corrections for subcycling
             for _inner_iter in 0..self.config.n_inner_correctors {
-                // Solve pressure Poisson equation: ∇²p' = ∇·u_consistent/Δt
+                // Update Rhie-Chow with latest momentum coefficients before use
+                if let Some(ref mut rhie_chow) = self.rhie_chow {
+                    let (_, ap_c_u, _, ap_c_v) = self.momentum_solver.get_ap_coefficients();
+                    rhie_chow.update_u_coefficients(&ap_c_u);
+                    rhie_chow.update_v_coefficients(&ap_c_v);
+                }
+
+                // Step 3: Solve pressure correction equation
                 let p_correction = if let Some(ref rhie_chow) = self.rhie_chow {
-                    let u_consistent = self.interpolate_consistent_velocity(rhie_chow, fields);
-                    
-                    // Extract u_face and v_face
-                    let mut u_face = vec![vec![T::zero(); self.grid.ny]; self.grid.nx];
-                    let mut v_face = vec![vec![T::zero(); self.grid.ny]; self.grid.nx];
-                    for i in 0..self.grid.nx {
+                    // Interpolate velocities and compute face pressure coefficients
+                    let u_consistent =
+                        self.interpolate_consistent_velocity(rhie_chow, fields, Some(dt));
+
+                    let mut u_face = vec![vec![T::zero(); self.grid.ny]; self.grid.nx - 1];
+                    let mut v_face = vec![vec![T::zero(); self.grid.ny - 1]; self.grid.nx];
+                    let mut d_x = vec![vec![T::zero(); self.grid.ny]; self.grid.nx - 1];
+                    let mut d_y = vec![vec![T::zero(); self.grid.ny - 1]; self.grid.nx];
+
+                    for i in 0..self.grid.nx - 1 {
                         for j in 0..self.grid.ny {
                             u_face[i][j] = u_consistent[i][j].x;
+                            d_x[i][j] = rhie_chow.d_face_x(i, j, self.grid.dx, self.grid.dy);
+                        }
+                    }
+                    for i in 0..self.grid.nx {
+                        for j in 0..self.grid.ny - 1 {
                             v_face[i][j] = u_consistent[i][j].y;
+                            d_y[i][j] = rhie_chow.d_face_y(i, j, self.grid.dx, self.grid.dy);
                         }
                     }
 
                     self.pressure_solver.solve_pressure_correction_from_faces(
-                        &u_face, &v_face, dt, rho,
+                        &u_face,
+                        &v_face,
+                        &d_x,
+                        &d_y,
+                        rho,
                     )?
                 } else {
-                    self.pressure_solver
-                        .solve_pressure_correction(&u_star, dt, rho)?
+                    self.pressure_solver.solve_pressure_correction(&u_star, dt, rho)?
                 };
 
-                // Velocity correction: u = u* - (dt/ρ)∇p'
-                let mut u_corrected = u_star.clone();
-                self.pressure_solver.correct_velocity(
-                    &mut u_corrected,
-                    &p_correction,
-                    dt,
-                    rho,
-                    self.config.alpha_u,
-                );
+                // Step 4: Correct velocities and pressure
+                {
+                    let (_, ap_c_u, _, ap_c_v) = self.momentum_solver.get_ap_coefficients();
 
-                // Pressure correction: p = p + α_p * p'
-                let mut p_vec = self.field2d_to_vec2d(&fields.p);
-                self.pressure_solver.correct_pressure(
-                    &mut p_vec,
-                    &p_correction,
-                    self.config.alpha_p,
-                );
-                self.vec2d_to_field2d(&mut fields.p, &p_vec);
+                    // Velocity correction: u = u* - (Vol/Ap)∇p'
+                    let mut u_corrected = u_star.clone();
+                    self.pressure_solver.correct_velocity(
+                        &mut u_corrected,
+                        &p_correction,
+                        &ap_c_u,
+                        &ap_c_v,
+                        rho,
+                        T::one(), // Don't double relax here
+                    );
 
-                // Update velocity fields
-                self.update_velocity_fields(fields, &u_corrected);
+                    // Pressure correction: p = p + α_p * p'
+                    let mut p_vec = self.field2d_to_vec2d(&fields.p);
+                    self.pressure_solver.correct_pressure(
+                        &mut p_vec,
+                        &p_correction,
+                        self.config.alpha_p,
+                    );
+                    self.vec2d_to_field2d(&mut fields.p, &p_vec);
+
+                    // Update velocity fields without further relaxation
+                    for i in 0..self.grid.nx {
+                        for j in 0..self.grid.ny {
+                            fields.set_velocity_at(i, j, &u_corrected[i][j]);
+                        }
+                    }
+                }
             }
 
             // Check outer loop convergence
@@ -671,6 +746,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         &self,
         rhie_chow: &RhieChowInterpolation<T>,
         fields: &SimulationFields<T>,
+        dt: Option<T>,
     ) -> Vec<Vec<Vector2<T>>> {
         // Create a Field2D<Vector2<T>> from the u and v components
         let mut velocity_field =
@@ -696,7 +772,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                         &fields.p,
                         self.grid.dx,
                         self.grid.dy,
-                        None, // Steady state for now
+                        dt,
                         i,
                         j,
                     );
@@ -710,7 +786,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                         &fields.p,
                         self.grid.dx,
                         self.grid.dy,
-                        None, // Steady state for now
+                        dt,
                         i,
                         j,
                     );
@@ -731,33 +807,86 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         face_velocity: &mut Vec<Vec<Vector2<T>>>,
         _fields: &SimulationFields<T>,
     ) {
-        // Apply no-slip boundary conditions where needed
-        // For lid-driven cavity: top wall moves, others are no-slip
+        use cfd_core::boundary::{BoundaryCondition, WallType};
 
-        // Bottom boundary (j=0): no-slip
-        for i in 0..self.grid.nx {
-            face_velocity[i][0].x = T::zero();
-            face_velocity[i][0].y = T::zero();
+        let bcs = self.momentum_solver.boundary_conditions();
+
+        // North boundary (j = ny-1)
+        if let Some(bc) = bcs.get("north") {
+            for i in 0..self.grid.nx {
+                match bc {
+                    BoundaryCondition::Wall { wall_type } => match wall_type {
+                        WallType::NoSlip => {
+                            face_velocity[i][self.grid.ny - 1] = Vector2::zeros();
+                        }
+                        WallType::Moving { velocity } => {
+                            face_velocity[i][self.grid.ny - 1] =
+                                Vector2::new(velocity[0], velocity[1]);
+                        }
+                        _ => {}
+                    },
+                    BoundaryCondition::Dirichlet { value: _ } => {
+                        // For scalar Dirichlet, we might need more context,
+                        // but usually velocity BCs are Wall or Vector Dirichlet
+                    }
+                    _ => {}
+                }
+            }
         }
 
-        // Top boundary (j=ny-1): moving lid (u=1, v=0) or no-slip
-        for i in 0..self.grid.nx {
-            // For lid-driven cavity, top boundary has u=1, v=0
-            // For general case, this should be configurable
-            face_velocity[i][self.grid.ny - 1].x = T::one(); // Lid velocity
-            face_velocity[i][self.grid.ny - 1].y = T::zero();
+        // South boundary (j = 0)
+        if let Some(bc) = bcs.get("south") {
+            for i in 0..self.grid.nx {
+                match bc {
+                    BoundaryCondition::Wall { wall_type } => match wall_type {
+                        WallType::NoSlip => {
+                            face_velocity[i][0] = Vector2::zeros();
+                        }
+                        WallType::Moving { velocity } => {
+                            face_velocity[i][0] = Vector2::new(velocity[0], velocity[1]);
+                        }
+                        _ => {}
+                    },
+                    _ => {}
+                }
+            }
         }
 
-        // Left boundary (i=0): no-slip
-        for j in 0..self.grid.ny {
-            face_velocity[0][j].x = T::zero();
-            face_velocity[0][j].y = T::zero();
+        // West boundary (i = 0)
+        if let Some(bc) = bcs.get("west") {
+            for j in 0..self.grid.ny {
+                match bc {
+                    BoundaryCondition::Wall { wall_type } => match wall_type {
+                        WallType::NoSlip => {
+                            face_velocity[0][j] = Vector2::zeros();
+                        }
+                        WallType::Moving { velocity } => {
+                            face_velocity[0][j] = Vector2::new(velocity[0], velocity[1]);
+                        }
+                        _ => {}
+                    },
+                    _ => {}
+                }
+            }
         }
 
-        // Right boundary (i=nx-1): no-slip
-        for j in 0..self.grid.ny {
-            face_velocity[self.grid.nx - 1][j].x = T::zero();
-            face_velocity[self.grid.nx - 1][j].y = T::zero();
+        // East boundary (i = nx-1)
+        if let Some(bc) = bcs.get("east") {
+            for j in 0..self.grid.ny {
+                match bc {
+                    BoundaryCondition::Wall { wall_type } => match wall_type {
+                        WallType::NoSlip => {
+                            face_velocity[self.grid.nx - 1][j] = Vector2::zeros();
+                        }
+                        WallType::Moving { velocity } => {
+                            face_velocity[self.grid.nx - 1][j] =
+                                Vector2::new(velocity[0], velocity[1]);
+                        }
+                        _ => {}
+                    },
+                    _ => {}
+                }
+            }
         }
     }
 
@@ -774,23 +903,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         }
     }
 
-    /// Update velocity fields in simulation fields with under-relaxation
-    fn update_velocity_fields(
-        &self,
-        fields: &mut SimulationFields<T>,
-        new_velocity: &[Vec<Vector2<T>>],
-    ) {
-        for i in 0..self.grid.nx {
-            for j in 0..self.grid.ny {
-                // Under-relaxation: u_new = α * u_computed + (1-α) * u_old
-                let u_old = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
-                let u_new = new_velocity[i][j].scale(self.config.alpha_u)
-                    + u_old.scale(T::one() - self.config.alpha_u);
 
-                fields.set_velocity_at(i, j, &u_new);
-            }
-        }
-    }
 
     /// Calculate velocity residual between current fields and new velocity
     fn _calculate_velocity_residual(
@@ -863,9 +976,46 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         max_divergence
     }
 
+    /// Calculate continuity residual from face velocities ||∇·u_face||_∞
+    ///
+    /// This is more accurate for Rhie-Chow consistency as it uses the same
+    /// flux balance that the pressure correction equation is solving.
+    fn calculate_continuity_residual_from_faces(
+        &self,
+        face_velocity: &[Vec<Vector2<T>>],
+    ) -> T {
+        let mut max_divergence = T::zero();
+
+        for i in 1..self.grid.nx - 1 {
+            for j in 1..self.grid.ny - 1 {
+                // Divergence = (u_e - u_w) / dx + (v_n - v_s) / dy
+                // face_velocity[i][j] is East face
+                // face_velocity[i-1][j] is West face
+                // face_velocity[i][j] is North face
+                // face_velocity[i][j-1] is South face
+                let du_dx = (face_velocity[i][j].x - face_velocity[i - 1][j].x) / self.grid.dx;
+                let dv_dy = (face_velocity[i][j].y - face_velocity[i][j - 1].y) / self.grid.dy;
+
+                let divergence = du_dx + dv_dy;
+                let abs_divergence = divergence.abs();
+
+                if abs_divergence > max_divergence {
+                    max_divergence = abs_divergence;
+                }
+            }
+        }
+
+        max_divergence
+    }
+
     /// Get algorithm type
     pub fn algorithm(&self) -> AlgorithmType {
         self.config.algorithm
+    }
+
+    /// Set boundary condition
+    pub fn set_boundary(&mut self, name: String, bc: cfd_core::boundary::BoundaryCondition<T>) {
+        self.momentum_solver.set_boundary(name, bc);
     }
 
     /// Get current iteration count
@@ -876,76 +1026,5 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     /// Reset iteration counter
     pub fn reset_iterations(&mut self) {
         self.iterations = 0;
-    }
-
-    /// Set default boundary conditions for lid-driven cavity
-    fn set_default_boundary_conditions(momentum_solver: &mut MomentumSolver<T>) {
-        use cfd_core::boundary::{BoundaryCondition, WallType};
-        use nalgebra::Vector3;
-
-        // Top boundary (north): moving lid, u = 1, v = 0
-        momentum_solver.set_boundary(
-            "north".to_string(),
-            BoundaryCondition::Wall {
-                wall_type: WallType::Moving {
-                    velocity: Vector3::new(T::one(), T::zero(), T::zero()), // u = 1, v = 0
-                },
-            },
-        );
-
-        // Bottom boundary (south): no-slip, u = 0, v = 0
-        momentum_solver.set_boundary(
-            "south".to_string(),
-            BoundaryCondition::Wall {
-                wall_type: WallType::NoSlip,
-            },
-        );
-
-        // Left boundary (west): no-slip, u = 0, v = 0
-        momentum_solver.set_boundary(
-            "west".to_string(),
-            BoundaryCondition::Wall {
-                wall_type: WallType::NoSlip,
-            },
-        );
-
-        // Right boundary (east): no-slip, u = 0, v = 0
-        momentum_solver.set_boundary(
-            "east".to_string(),
-            BoundaryCondition::Wall {
-                wall_type: WallType::NoSlip,
-            },
-        );
-    }
-
-    /// Initialize velocity field with boundary conditions
-    /// This ensures proper initial conditions for the lid-driven cavity
-    fn initialize_boundary_velocity(fields: &mut SimulationFields<T>) {
-        let nx = fields.u.nx();
-        let ny = fields.u.ny();
-
-        // Top boundary (north): moving lid, u = 1, v = 0
-        for i in 0..nx {
-            fields.u.set(i, ny - 1, T::one()); // u = 1 on top boundary
-            fields.v.set(i, ny - 1, T::zero()); // v = 0 on top boundary
-        }
-
-        // Bottom boundary (south): no-slip, u = 0, v = 0
-        for i in 0..nx {
-            fields.u.set(i, 0, T::zero());
-            fields.v.set(i, 0, T::zero());
-        }
-
-        // Left boundary (west): no-slip, u = 0, v = 0
-        for j in 0..ny {
-            fields.u.set(0, j, T::zero());
-            fields.v.set(0, j, T::zero());
-        }
-
-        // Right boundary (east): no-slip, u = 0, v = 0
-        for j in 0..ny {
-            fields.u.set(nx - 1, j, T::zero());
-            fields.v.set(nx - 1, j, T::zero());
-        }
     }
 }

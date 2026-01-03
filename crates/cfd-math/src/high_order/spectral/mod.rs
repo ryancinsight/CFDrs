@@ -17,7 +17,7 @@ pub use element::*;
 pub use operators::*;
 pub use assembly::*;
 
-use nalgebra::{DMatrix, DVector, DMatrixSlice};
+use nalgebra::DMatrix;
 use std::f64::consts::PI;
 
 /// Error types for spectral element methods
@@ -60,9 +60,19 @@ fn legendre_poly(n: usize, x: f64) -> f64 {
 }
 
 /// Derivative of Legendre polynomial
+#[allow(dead_code)]
 fn legendre_poly_deriv(n: usize, x: f64) -> f64 {
     if n == 0 {
         return 0.0;
+    }
+    
+    // Handle endpoints to avoid division by zero
+    if (x - 1.0).abs() < 1e-15 {
+        return (n * (n + 1)) as f64 / 2.0;
+    }
+    if (x + 1.0).abs() < 1e-15 {
+        let val = (n * (n + 1)) as f64 / 2.0;
+        return if (n - 1) % 2 == 0 { val } else { -val };
     }
     
     (n as f64 / (1.0 - x * x)) * (legendre_poly(n - 1, x) - x * legendre_poly(n, x))
@@ -83,7 +93,7 @@ fn compute_lgl_nodes(n: usize) -> Result<Vec<f64>> {
         nodes[i] = -((i as f64 * PI) / n as f64).cos();
     }
     
-    // Newton iteration to refine nodes
+    // Newton iteration to find roots of P_n'
     let max_iter = 100;
     let tol = 1e-15;
     
@@ -95,13 +105,20 @@ fn compute_lgl_nodes(n: usize) -> Result<Vec<f64>> {
         while delta > tol && iter < max_iter {
             let (p, dp) = legendre_poly_deriv_with_prev(n, x);
             
-            if dp.abs() < f64::EPSILON {
+            // P''_n = (2x P'_n - n(n+1) P_n) / (1-x^2)
+            let denominator = 1.0 - x * x;
+            if denominator.abs() < 1e-15 {
+                 return Err(SpectralError::NodeComputation(format!("Newton iteration hit endpoint at x={}", x)));
+            }
+            let d2p = (2.0 * x * dp - (n * (n + 1)) as f64 * p) / denominator;
+
+            if d2p.abs() < f64::EPSILON {
                 return Err(SpectralError::NodeComputation(format!(
-                    "Zero derivative at x = {} for n = {}", x, n
+                    "Zero second derivative at x = {x} for n = {n}"
                 )));
             }
             
-            let dx = p / dp;
+            let dx = dp / d2p;
             x -= dx;
             delta = dx.abs();
             iter += 1;
@@ -109,7 +126,7 @@ fn compute_lgl_nodes(n: usize) -> Result<Vec<f64>> {
         
         if iter >= max_iter {
             return Err(SpectralError::NodeComputation(format!(
-                "Failed to converge for node {} of {}", i, n
+                "Failed to converge for node {i} of {n}"
             )));
         }
         
@@ -118,7 +135,9 @@ fn compute_lgl_nodes(n: usize) -> Result<Vec<f64>> {
     
     // Ensure symmetry
     for i in 0..=(n / 2) {
-        nodes[n - i] = nodes[i].abs();
+        let val = nodes[i].abs();
+        nodes[i] = -val;
+        nodes[n - i] = val;
     }
     
     Ok(nodes)
@@ -166,26 +185,29 @@ fn compute_derivative_matrix(nodes: &[f64], n: usize) -> DMatrix<f64> {
     let mut d = DMatrix::zeros(np, np);
     
     for i in 0..np {
+        let pi = legendre_poly(n, nodes[i]);
         for j in 0..np {
             if i != j {
-                let prod = (0..np)
-                    .filter(|&k| k != i && k != j)
-                    .map(|k| (nodes[i] - nodes[k]) / (nodes[j] - nodes[k]))
-                    .product::<f64>();
-                
-                d[(i, j)] = prod / (nodes[j] - nodes[i]);
-                
-                if i == 0 || i == np - 1 {
-                    d[(i, j)] *= 2.0 / (n as f64 * (n + 1) as f64);
-                } else {
-                    d[(i, j)] *= (1.0 - nodes[j] * nodes[j]) / 
-                                ((1.0 - nodes[i] * nodes[i]) * (nodes[i] - nodes[j]));
-                }
+                let pj = legendre_poly(n, nodes[j]);
+                d[(i, j)] = (pi / pj) / (nodes[i] - nodes[j]);
             }
         }
-        
-        // Diagonal entries
-        d[(i, i)] = -d.row(i).sum();
+    }
+    
+    // Diagonal entries
+    d[(0, 0)] = -(n as f64 * (n + 1) as f64) / 4.0;
+    d[(np - 1, np - 1)] = (n as f64 * (n + 1) as f64) / 4.0;
+    
+    // For interior points, the diagonal is 0.0
+    // But it's more robust to enforce sum to zero property: d_ii = -sum_{j != i} d_ij
+    for i in 1..np - 1 {
+        let mut sum = 0.0;
+        for j in 0..np {
+            if i != j {
+                sum += d[(i, j)];
+            }
+        }
+        d[(i, i)] = -sum;
     }
     
     d
@@ -195,6 +217,7 @@ fn compute_derivative_matrix(nodes: &[f64], n: usize) -> DMatrix<f64> {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use nalgebra::DVector;
     
     #[test]
     fn test_legendre_poly() {

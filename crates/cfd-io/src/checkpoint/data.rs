@@ -134,6 +134,6 @@ impl Checkpoint<f64> {
 
         let low = hasher1.finish();
         let high = hasher2.finish();
-        (low as u128) | ((high as u128) << 64)
+        u128::from(low) | (u128::from(high) << 64)
     }
 }

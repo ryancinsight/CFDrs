@@ -38,6 +38,7 @@ fn create_tridiagonal_csr_f64(size: usize) -> CsrMatrix<f64> {
 }
 
 /// Create a tridiagonal CSR matrix (f32 for SIMD)
+#[allow(dead_code)]
 fn create_tridiagonal_csr_f32(size: usize) -> CsrMatrix<f32> {
     let mut builder = SparseMatrixBuilder::new(size, size);
 
@@ -169,13 +170,11 @@ fn bench_pentadiagonal(c: &mut Criterion) {
         let matrix_f32 = create_pentadiagonal_csr_f32(32);
         let x_f32 = DVector::from_element(1024, 1.0f32);
         let mut y_f32 = DVector::zeros(1024);
-        group.bench_function("simd_32x32", |b| {
+        group.bench_function("simd_32x32_deprecated", |b| {
             b.iter(|| {
-                spmv_f32_simd(
-                    black_box(&matrix_f32),
-                    black_box(&x_f32),
-                    black_box(&mut y_f32),
-                );
+                // SIMD implementation was removed due to 27-32% regression
+                // Replaced with scalar f32 for comparison
+                spmv(black_box(&matrix_f32), black_box(&x_f32), black_box(&mut y_f32));
             });
         });
     }
@@ -196,13 +195,11 @@ fn bench_pentadiagonal(c: &mut Criterion) {
         let matrix_f32 = create_pentadiagonal_csr_f32(64);
         let x_f32 = DVector::from_element(4096, 1.0f32);
         let mut y_f32 = DVector::zeros(4096);
-        group.bench_function("simd_64x64", |b| {
+        group.bench_function("simd_64x64_deprecated", |b| {
             b.iter(|| {
-                spmv_f32_simd(
-                    black_box(&matrix_f32),
-                    black_box(&x_f32),
-                    black_box(&mut y_f32),
-                );
+                // SIMD implementation was removed due to 27-32% regression
+                // Replaced with scalar f32 for comparison
+                spmv(black_box(&matrix_f32), black_box(&x_f32), black_box(&mut y_f32));
             });
         });
     }

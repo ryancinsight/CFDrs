@@ -1,25 +1,47 @@
 # Project Checklist
 
-## Sprint 1.82.0 Status: ✅ COMPLETE
+## Sprint 1.86.0 Status: ✅ COMPLETE
 
-- [x] Resolve all build errors
-- [x] Resolve all test errors
+- [x] Resolve Richardson extrapolation validation errors
+- [x] Fix benchmarking framework thread-safety and accuracy
+- [x] Verify multi-physics coupled validation tests
+- [x] Ensure all benchmark suites are executable
 
-### Build Errors Fixed:
-1. **cfd-io/src/checkpoint/metadata.rs** - Removed stray markdown code block syntax (```)
-2. **cfd-io/src/binary.rs** - Updated bincode calls to use `bincode::serde::encode_into_std_write` and `bincode::serde::decode_from_std_read`
-3. **cfd-2d/src/pressure_velocity/pressure.rs** - Added missing closing brace for `solve_pressure_correction_from_faces`
+### Validation & Benchmarking Fixes:
+1. **Richardson Extrapolation** - Fixed grid ordering reversal and ratio calculation in `validation.rs`.
+2. **MMS Tests** - Corrected sign error in Laplace equation solver.
+3. **Memory Profiling** - Replaced `Relaxed` with `Acquire/Release` ordering in `memory.rs`.
+4. **Scaling Analysis** - Fixed thread pool reinitialization panic and unified `BenchmarkConfig`.
+5. **Multi-Physics** - Resolved MHD property test and coupled physics interaction failures.
+6. **Reporting** - Fixed markdown report generation tests.
 
-### Test Errors Fixed:
-1. **examples/pipe_flow_validation.rs** - Updated Vertex initialization to use `Vertex::new()` constructor for new `global_id` and `partition_id` fields
+---
 
-All builds and tests pass successfully!
+## Sprint 1.84.0: CFD-1D NUMERICAL AUDIT (IMMEDIATE)
+**Status**: ✅ COMPLETE - Audited 1D CFD Physics and Numerical Methods
+
+### CFD-1D Numerical Audit (December 20, 2025)
+A deep audit of the 1D CFD implementation has identified and resolved several mathematical and physical correctness issues:
+
+- ✅ **FIXED-1D-001**: RectangularChannelModel uses constant resistance for laminar flow.
+- ✅ **FIXED-1D-002**: DarcyWeisbachModel corrected units and split into linear/quadratic coefficients.
+- ✅ **FIXED-Gap**: MatrixAssembler units documentation corrected.
+- ✅ **FIXED-Gap**: Mach number validation (Ma < 0.3) implemented.
+- ✅ **FIXED-Gap**: Entrance length validation (L/Dh > 10) implemented.
+
+### Sprint 1.84.0 Tasks
+- [x] **Priority 1**: Fix RectangularChannelModel Math ✅
+- [x] **Priority 2**: Fix DarcyWeisbachModel Math and Units ✅
+- [x] **Priority 3**: Correct MatrixAssembler and Solver Documentation ✅
+- [x] **Priority 4**: Add Physical Invariant Validation ✅
+- [x] **Priority 5**: Verification ✅
+
 
 ---
 
 ## Sprint 1.83.0: CRITICAL AMG FIX (IMMEDIATE - 8-12 hours)
 
-**Status**: ⚠️ IN PROGRESS - Critical Mathematical Correctness Issue Discovered
+**Status**: ✅ COMPLETE - All critical AMG issues resolved
 
 ### Comprehensive Audit Completed (November 18, 2025)
 

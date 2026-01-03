@@ -183,8 +183,8 @@ fn test_shock_capturing_validation() {
         );
 
         // Test solution across shock
-        let x_pre = shock_pos - 0.05;
-        let x_post = shock_pos + 0.05;
+        let x_pre = shock_pos - 1e-4;
+        let x_post = shock_pos + 1e-4;
         let y = 0.5;
 
         let rho_pre = shock.exact_solution(x_pre, y, 0.0, t);
@@ -193,7 +193,7 @@ fn test_shock_capturing_validation() {
         // Density jump should match shock strength
         let density_ratio = rho_post / rho_pre;
         assert!(
-            (density_ratio - shock.shock_strength).abs() < 0.1,
+            (density_ratio - shock.shock_strength).abs() < 1e-3,
             "Density ratio doesn't match shock strength: expected={}, got={}",
             shock.shock_strength,
             density_ratio
@@ -365,13 +365,13 @@ mod property_tests {
             prop_assert!((shock_pos - shock_x0 - shock_speed * t).abs() < 1e-10, "Shock speed constant");
 
             // Test density jump
-            let x_pre = shock_pos - 0.02;
-            let x_post = shock_pos + 0.02;
+            let x_pre = shock_pos - 1e-4;
+            let x_post = shock_pos + 1e-4;
             let rho_pre = shock.exact_solution(x_pre, 0.5, 0.0, t);
             let rho_post = shock.exact_solution(x_post, 0.5, 0.0, t);
 
             prop_assert!(rho_post > rho_pre, "Post-shock density higher");
-            prop_assert!((rho_post / rho_pre - shock_strength).abs() < 0.1, "Density ratio matches shock strength");
+            prop_assert!((rho_post / rho_pre - shock_strength).abs() < 1e-3, "Density ratio matches shock strength");
         }
 
         /// Test TCI with various reaction parameters

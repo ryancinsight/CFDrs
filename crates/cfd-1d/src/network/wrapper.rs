@@ -278,9 +278,63 @@ impl<T: RealField + Copy + FromPrimitive> Network<T> {
             }
         }
 
+        // After updating flow rates, re-calculate resistances and quadratic coefficients 
+        // if they are flow-rate dependent.
+        self.update_resistances()?;
+
         Ok(())
     }
 
+    /// Re-calculate resistances and quadratic coefficients for all edges based on current flow rates.
+    pub fn update_resistances(&mut self) -> Result<()> {
+        let edge_indices: Vec<_> = self.graph.edge_indices().collect();
+        let calculator = crate::resistance::ResistanceCalculator::new();
+
+        for edge_idx in edge_indices {
+            let flow_rate = *self.flow_rates.get(&edge_idx).unwrap_or(&T::zero());
+            
+            // Get geometry and other properties from self.properties
+            if let Some(props) = self.properties.get(&edge_idx) {
+                if let Some(geometry) = &props.geometry {
+                    // Map channel::ChannelGeometry to resistance::ChannelGeometry
+                    let res_geometry = match &geometry.cross_section {
+                        crate::channel::CrossSection::Circular { diameter } => {
+                            crate::resistance::ChannelGeometry::Circular {
+                                diameter: *diameter,
+                                length: geometry.length,
+                            }
+                        }
+                        crate::channel::CrossSection::Rectangular { width, height } => {
+                            crate::resistance::ChannelGeometry::Rectangular {
+                                width: *width,
+                                height: *height,
+                                length: geometry.length,
+                            }
+                        }
+                        _ => continue, // Skip unsupported geometries for now
+                    };
+
+                    // Prepare flow conditions
+                    let mut conditions = crate::resistance::FlowConditions::new(T::zero());
+                    conditions.flow_rate = Some(flow_rate.abs());
+
+                    // Re-calculate coefficients
+                    let (r, k) = calculator.calculate_coefficients_auto(&res_geometry, &self.fluid, &conditions)?;
+
+                    // Update the edge in the graph
+                    if let Some(edge) = self.graph.edge_weight_mut(edge_idx) {
+                        edge.resistance = r;
+                        edge.quad_coeff = k;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Validate network edge coefficients (resistance and quadratic coefficients).
+    ///
+    /// Returns an error if any edge has negative resistance or quadratic coefficient.
     pub fn validate_coefficients(&self) -> Result<()> {
         let eps = T::default_epsilon();
         for edge_ref in self.graph.edge_references() {

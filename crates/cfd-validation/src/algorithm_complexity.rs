@@ -371,7 +371,7 @@ impl AlgorithmComplexityRegistry {
         }
 
         // For medium problems (10^4 < N < 10^7), efficient iterative methods
-        if problem_size >= 10_000 && problem_size < 10_000_000 {
+        if (10_000..10_000_000).contains(&problem_size) {
             if let Some(algo) = self.get("Multigrid") {
                 recommendations.push((algo, "Multigrid optimal for medium problems".to_string()));
             }
@@ -424,11 +424,11 @@ impl AlgorithmComplexityRegistry {
                 .collect();
 
             if !algorithms.is_empty() {
-                report.push_str(&format!("### {}\n\n", complexity));
+                report.push_str(&format!("### {complexity}\n\n"));
                 for algo in algorithms {
                     report.push_str(&format!("- **{}**: {}\n", algo.name, algo.memory_pattern));
                 }
-                report.push_str("\n");
+                report.push('\n');
             }
         }
 

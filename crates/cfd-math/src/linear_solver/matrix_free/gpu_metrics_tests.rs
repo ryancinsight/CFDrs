@@ -1,12 +1,12 @@
 #![cfg(feature = "gpu")]
 
-use super::gpu_compute::{GpuComputeContext};
-use super::gpu_operators::{GpuLaplacianOperator2D, BoundaryType};
+use super::{GpuContext};
+use crate::linear_solver::operators::gpu::{GpuLaplacianOperator2D, BoundaryType};
 
 #[tokio::test]
 async fn test_gpu_dispatch_metrics_present_or_skip() {
     // Try to create a GPU context; if unavailable, skip
-    let ctx = match GpuComputeContext::new().await {
+    let ctx = match GpuContext::create() {
         Ok(c) => c,
         Err(_) => return, // Skip on systems without GPU adapter
     };

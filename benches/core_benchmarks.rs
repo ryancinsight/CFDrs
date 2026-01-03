@@ -1,6 +1,5 @@
-use cfd_core::domain::Domain;
-use cfd_math::differentiation::finite_difference::FiniteDifference;
-use cfd_math::differentiation::schemes::FiniteDifferenceScheme;
+use cfd_core::domain::Domain3D;
+use cfd_math::differentiation::{FiniteDifference, FiniteDifferenceScheme};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
 fn benchmark_finite_difference(c: &mut Criterion) {
@@ -24,7 +23,7 @@ fn benchmark_finite_difference(c: &mut Criterion) {
 fn benchmark_domain_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("domain");
 
-    let domain = Domain::<f64>::new(
+    let domain = Domain3D::<f64>::new(
         nalgebra::Point3::new(0.0, 0.0, 0.0),
         nalgebra::Point3::new(1.0, 1.0, 1.0),
     );
@@ -35,7 +34,7 @@ fn benchmark_domain_operations(c: &mut Criterion) {
 
     group.bench_function("contains_point", |b| {
         let point = nalgebra::Point3::new(0.5, 0.5, 0.5);
-        b.iter(|| black_box(domain.contains_point(&point)));
+        b.iter(|| black_box(domain.contains(&point)));
     });
 
     group.finish();

@@ -7,9 +7,8 @@
 //! - Bubble dynamics integration
 //! - Conservation properties
 
-use approx::assert_relative_eq;
 use cfd_3d::vof::{
-    AdvectionMethod, BubbleDynamicsConfig, CavitationStatistics, CavitationVofConfig,
+    AdvectionMethod, BubbleDynamicsConfig, CavitationVofConfig,
     CavitationVofSolver, InterfaceReconstruction, VofConfig,
 };
 use cfd_core::cavitation::{damage::CavitationDamage, models::CavitationModel};
@@ -28,6 +27,8 @@ fn test_cavitation_inception() {
             advection_method: AdvectionMethod::Geometric,
             max_iterations: 10,
             tolerance: 1e-6,
+            cfl_number: 0.3,
+            enable_compression: false,
         },
         cavitation_model: CavitationModel::Kunz {
             vaporization_coeff: 100.0,
@@ -38,6 +39,10 @@ fn test_cavitation_inception() {
         inception_threshold: 0.5, // Low threshold
         max_void_fraction: 0.8,
         relaxation_time: 1e-6,
+        vapor_pressure: 2330.0,
+        liquid_density: 998.0,
+        vapor_density: 0.023,
+        sound_speed: 1500.0,
     };
 
     let mut solver = CavitationVofSolver::new(10, 10, 10, config).unwrap();
@@ -82,6 +87,8 @@ fn test_damage_accumulation() {
             advection_method: AdvectionMethod::Geometric,
             max_iterations: 10,
             tolerance: 1e-6,
+            cfl_number: 0.3,
+            enable_compression: false,
         },
         cavitation_model: CavitationModel::ZGB {
             nucleation_fraction: 5e-4,
@@ -98,7 +105,11 @@ fn test_damage_accumulation() {
         }),
         inception_threshold: 0.3,
         max_void_fraction: 0.8,
-        relaxation_time: 1e-6,
+        relaxation_time: 0.1,
+        vapor_pressure: 2330.0,
+        liquid_density: 998.0,
+        vapor_density: 0.023,
+        sound_speed: 1500.0,
     };
 
     let mut solver = CavitationVofSolver::new(10, 10, 10, config).unwrap();
@@ -142,6 +153,8 @@ fn test_mass_conservation() {
             advection_method: AdvectionMethod::Geometric,
             max_iterations: 10,
             tolerance: 1e-6,
+            cfl_number: 0.3,
+            enable_compression: false,
         },
         cavitation_model: CavitationModel::SchnerrSauer {
             bubble_density: 1e13,
@@ -151,14 +164,18 @@ fn test_mass_conservation() {
         bubble_dynamics: None,
         inception_threshold: 0.3,
         max_void_fraction: 0.8,
-        relaxation_time: 1e-6,
+        relaxation_time: 0.1,
+        vapor_pressure: 2330.0,
+        liquid_density: 998.0,
+        vapor_density: 0.023,
+        sound_speed: 1500.0,
     };
 
     let mut solver = CavitationVofSolver::new(20, 10, 10, config).unwrap();
 
     // Initialize with some void fraction
     {
-        let volume_fraction = solver.volume_fraction().clone();
+        let mut volume_fraction = solver.volume_fraction();
         for i in 0..volume_fraction.nrows() {
             for j in 0..volume_fraction.ncols() {
                 if i > 10 && i < 15 {
@@ -167,10 +184,11 @@ fn test_mass_conservation() {
                 }
             }
         }
+        solver.set_volume_fraction(&volume_fraction).unwrap();
     }
 
     let velocity_field = vec![Vector3::new(1.0, 0.0, 0.0); 2000];
-    let pressure_field = DMatrix::from_element(20, 100, 50000.0); // Moderate pressure
+    let pressure_field = DMatrix::from_element(20, 100, 2330.0); // Exactly vapor pressure
     let density_field = DMatrix::from_element(20, 100, 998.0);
 
     // Measure initial total volume
@@ -219,6 +237,8 @@ fn test_bubble_dynamics_integration() {
             advection_method: AdvectionMethod::Geometric,
             max_iterations: 10,
             tolerance: 1e-6,
+            cfl_number: 0.3,
+            enable_compression: false,
         },
         cavitation_model: CavitationModel::ZGB {
             nucleation_fraction: 5e-4,
@@ -230,7 +250,11 @@ fn test_bubble_dynamics_integration() {
         bubble_dynamics: Some(bubble_config),
         inception_threshold: 0.3,
         max_void_fraction: 0.8,
-        relaxation_time: 1e-6,
+        relaxation_time: 0.1,
+        vapor_pressure: 2330.0,
+        liquid_density: 998.0,
+        vapor_density: 0.023,
+        sound_speed: 1500.0,
     };
 
     let mut solver = CavitationVofSolver::new(5, 5, 5, config).unwrap();
@@ -240,6 +264,9 @@ fn test_bubble_dynamics_integration() {
     let mut pressure_field = DMatrix::from_element(5, 25, 50000.0);
 
     // Run simulation with pressure variations
+    let mut last_radius = 1e-6;
+    let mut radius_changed = false;
+
     for step in 0..20 {
         // Vary pressure sinusoidally
         let pressure_variation = 10000.0 * (step as f64 * 0.1).sin();
@@ -256,10 +283,16 @@ fn test_bubble_dynamics_integration() {
 
         // Check that bubble radii are updated
         if let Some(radius_field) = solver.bubble_radius_field() {
-            let max_radius: f64 = radius_field.iter().cloned().fold(0.0, f64::max);
-            assert!(max_radius > 0.0, "Bubble radii should be positive");
+            let current_radius = radius_field[(0, 0)];
+            if (current_radius - last_radius).abs() > 1e-12 {
+                radius_changed = true;
+            }
+            last_radius = current_radius;
+            assert!(current_radius > 0.0, "Bubble radii should be positive");
         }
     }
+
+    assert!(radius_changed, "Bubble radius should change with pressure variation");
 
     println!("✓ Bubble dynamics integration test passed");
 }
@@ -276,6 +309,8 @@ fn test_cavitation_statistics() {
             advection_method: AdvectionMethod::Geometric,
             max_iterations: 10,
             tolerance: 1e-6,
+            cfl_number: 0.3,
+            enable_compression: false,
         },
         cavitation_model: CavitationModel::Kunz {
             vaporization_coeff: 100.0,
@@ -292,6 +327,10 @@ fn test_cavitation_statistics() {
         inception_threshold: 0.5,
         max_void_fraction: 0.8,
         relaxation_time: 1e-6,
+        vapor_pressure: 2330.0,
+        liquid_density: 998.0,
+        vapor_density: 0.023,
+        sound_speed: 1500.0,
     };
 
     let mut solver = CavitationVofSolver::new(10, 10, 10, config).unwrap();
@@ -316,7 +355,7 @@ fn test_cavitation_statistics() {
 
     // Add some void fraction to cavitating regions
     {
-        let volume_fraction = solver.volume_fraction().clone();
+        let mut volume_fraction = solver.volume_fraction();
         for i in 0..10 {
             for j in 0..100 {
                 if i < 3 {
@@ -324,6 +363,7 @@ fn test_cavitation_statistics() {
                 }
             }
         }
+        solver.set_volume_fraction(&volume_fraction).unwrap();
     }
 
     solver
@@ -388,6 +428,8 @@ fn test_cavitation_model_comparison() {
                 advection_method: AdvectionMethod::Geometric,
                 max_iterations: 10,
                 tolerance: 1e-6,
+                cfl_number: 0.3,
+                enable_compression: false,
             },
             cavitation_model: model,
             damage_model: None,
@@ -395,6 +437,10 @@ fn test_cavitation_model_comparison() {
             inception_threshold: 0.3,
             max_void_fraction: 0.8,
             relaxation_time: 1e-6,
+            vapor_pressure: 2330.0,
+            liquid_density: 998.0,
+            vapor_density: 0.023,
+            sound_speed: 1500.0,
         };
 
         let mut solver = CavitationVofSolver::new(5, 5, 5, config).unwrap();

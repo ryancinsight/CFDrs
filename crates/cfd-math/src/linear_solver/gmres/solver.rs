@@ -1,12 +1,10 @@
 //! GMRES solver implementation with Arnoldi iteration and Givens rotations
 
 use super::super::config::IterativeSolverConfig;
-use super::super::traits::{Configurable, IterativeLinearSolver, Preconditioner};
+use super::super::traits::{Configurable, IterativeLinearSolver, LinearOperator, Preconditioner};
 use super::{arnoldi, givens};
-use crate::sparse::spmv;
 use cfd_core::error::{ConvergenceErrorKind, Error, Result};
 use nalgebra::{DMatrix, DVector, RealField};
-use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
 use std::fmt::Debug;
 
@@ -90,212 +88,119 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
     }
 
     /// Create with default configuration
-    ///
-    /// Uses restart dimension of 30 (standard for CFD applications)
     #[must_use]
     pub fn default() -> Self {
         Self::new(IterativeSolverConfig::default(), 30)
     }
 
     /// Solve without preconditioning using GMRES(m) algorithm
-    ///
-    /// Uses identity preconditioner (M = I), equivalent to solving A*x = b directly
-    ///
-    /// # Arguments
-    ///
-    /// * `a` - System matrix (n × n sparse CSR)
-    /// * `b` - Right-hand side vector (n)
-    /// * `x` - Initial guess on entry, solution on exit (n)
-    ///
-    /// # Errors
-    ///
-    /// Returns error if:
-    /// - Matrix dimensions are incompatible
-    /// - Maximum iterations exceeded without convergence
-    /// - Numerical breakdown occurs (rare with MGS)
-    pub fn solve_unpreconditioned(
+    pub fn solve_unpreconditioned<Op: LinearOperator<T> + ?Sized>(
         &self,
-        a: &CsrMatrix<T>,
+        a: &Op,
         b: &DVector<T>,
         x: &mut DVector<T>,
     ) -> Result<()> {
-        // Use identity preconditioner
-        use super::super::preconditioners::IdentityPreconditioner;
-        let identity = IdentityPreconditioner;
-        self.solve_preconditioned(a, b, &identity, x)
+        use crate::linear_solver::preconditioners::IdentityPreconditioner;
+        let preconditioner = IdentityPreconditioner;
+        self.solve_preconditioned(a, b, &preconditioner, x)
     }
 
-    /// Solve with preconditioning using GMRES(m) algorithm
-    ///
-    /// # Arguments
-    ///
-    /// * `a` - System matrix (n × n sparse CSR)
-    /// * `b` - Right-hand side vector (n)
-    /// * `preconditioner` - Preconditioner operator
-    /// * `x` - Initial guess on entry, solution on exit (n)
-    ///
-    /// # Errors
-    ///
-    /// Returns error if:
-    /// - Matrix dimensions are incompatible
-    /// - Maximum iterations exceeded without convergence
-    /// - Numerical breakdown occurs (rare with MGS)
-    pub fn solve_preconditioned<P: Preconditioner<T>>(
+    /// Solve with left preconditioning using GMRES(m) algorithm
+    pub fn solve_preconditioned<Op: LinearOperator<T> + ?Sized, P: Preconditioner<T>>(
         &self,
-        a: &CsrMatrix<T>,
+        a: &Op,
         b: &DVector<T>,
         preconditioner: &P,
         x: &mut DVector<T>,
     ) -> Result<()> {
         let n = b.len();
-        if a.nrows() != n || a.ncols() != n {
+        let a_size = a.size();
+        if a_size != 0 && a_size != n {
             return Err(Error::InvalidConfiguration(
-                "Matrix dimensions don't match RHS vector".to_string(),
+                format!("Operator size ({}) doesn't match RHS vector ({})", a_size, n),
             ));
         }
 
-        if x.len() != n {
-            return Err(Error::InvalidConfiguration(
-                "Solution vector dimension doesn't match system size".to_string(),
-            ));
-        }
+        let m = self.restart_dim;
 
-        let m = self.restart_dim.min(n);
-        let b_norm = b.norm();
-
-        if b_norm < T::from_f64(1e-16).unwrap_or(T::zero()) {
-            // RHS is zero, solution is zero
-            x.fill(T::zero());
-            return Ok(());
-        }
-
-        // Workspace allocations (reused across restarts)
-        let mut r = DVector::zeros(n);
-        let mut z = DVector::zeros(n);
-        let mut work = DVector::zeros(n);
+        // Workspace vectors and matrices
         let mut v = DMatrix::zeros(n, m + 1);
         let mut h = DMatrix::zeros(m + 1, m);
         let mut g = DVector::zeros(m + 1);
-        let mut y = DVector::zeros(m);
-        let mut cs = vec![T::zero(); m];
-        let mut sn = vec![T::zero(); m];
+        let mut c = DVector::zeros(m);
+        let mut s = DVector::zeros(m);
+        let mut work = DVector::zeros(n);
+        let mut precond_work = DVector::zeros(n);
+        let mut ax = DVector::zeros(n);
 
-        let mut total_iterations = 0;
+        for _outer_iter in 0..self.config.max_iterations / m + 1 {
+            // 1. Initial residual: r0 = b - A*x
+            a.apply(x, &mut ax)?;
+            let mut r0 = b.clone();
+            r0 -= &ax;
 
-        // GMRES(m) restart loop
-        while total_iterations < self.config.max_iterations {
-            // Compute initial residual: r = b - A*x
-            spmv(a, x, &mut work);
-            r.copy_from(b);
-            r -= &work;
+            // Apply preconditioning to initial residual if needed (Left Preconditioning)
+            preconditioner.apply_to(&r0, &mut work)?;
+            let beta = work.norm();
 
-            // Apply preconditioner: z = M^{-1} * r
-            preconditioner.apply_to(&r, &mut z)?;
-
-            let residual_norm = z.norm();
-
-            // Check convergence before starting Arnoldi
-            if self.is_converged(residual_norm) {
-                tracing::debug!("GMRES converged in {} total iterations", total_iterations);
+            if beta < self.config.tolerance {
                 return Ok(());
             }
 
-            // Initialize first basis vector: v_0 = z / ||z||
-            let inv_norm = T::one() / residual_norm;
-            for i in 0..n {
-                v[(i, 0)] = z[i] * inv_norm;
-            }
-
-            // Initialize RHS for least-squares problem
+            // 2. Initialize first basis vector: v1 = r0 / beta
+            v.column_mut(0).copy_from(&(work.clone() / beta));
             g.fill(T::zero());
-            g[0] = residual_norm;
+            g[0] = beta;
 
-            // Arnoldi iteration with Givens rotations
-            let mut k = 0;
-            while k < m && total_iterations < self.config.max_iterations {
-                // Arnoldi step: generate next Krylov basis vector
-                match arnoldi::arnoldi_iteration(a, &mut v, &mut h, k, &mut work) {
-                    Ok(_norm) => {
-                        // Apply Givens rotations to transform H to upper triangular
-                        givens::apply_givens_rotation(&mut h, &mut cs, &mut sn, &mut g, k);
+            // 3. Arnoldi iterations
+            let mut converged_iter = None;
+            for k in 0..m {
+                // Arnoldi step: build orthonormal basis
+                arnoldi::arnoldi_iteration(
+                    a,
+                    &mut v,
+                    &mut h,
+                    k,
+                    &mut work,
+                    Some(preconditioner),
+                    Some(&mut precond_work),
+                )?;
 
-                        // Current residual estimate: |g[k+1]|
-                        let current_residual = g[k + 1].abs();
+                // Apply previous Givens rotations to new column of H
+                givens::apply_previous_rotations(&mut h, &c, &s, k);
 
-                        if self.is_converged(current_residual) {
-                            // Converged within this cycle
-                            givens::back_substitution(&h, &g, &mut y, k + 1);
+                // Compute new Givens rotation to zero out H(k+1, k)
+                let (ck, sk) = givens::compute_rotation(h[(k, k)], h[(k + 1, k)]);
+                c[k] = ck;
+                s[k] = sk;
 
-                            // Update solution: x = x + V * y
-                            for i in 0..n {
-                                let mut correction = T::zero();
-                                for j in 0..=k {
-                                    correction += v[(i, j)] * y[j];
-                                }
-                                x[i] += correction;
-                            }
+                // Apply new Givens rotation to H and g
+                givens::apply_new_rotation(&mut h, &mut g, ck, sk, k);
 
-                            tracing::debug!(
-                                "GMRES converged in {} total iterations ({} in last restart)",
-                                total_iterations + k + 1,
-                                k + 1
-                            );
-                            return Ok(());
-                        }
-
-                        k += 1;
-                        total_iterations += 1;
-                    }
-                    Err(e) => {
-                        // Arnoldi breakdown (happy breakdown): residual in Krylov subspace
-                        // Compute solution and return
-                        if k > 0 {
-                            givens::back_substitution(&h, &g, &mut y, k);
-
-                            for i in 0..n {
-                                let mut correction = T::zero();
-                                for j in 0..k {
-                                    correction += v[(i, j)] * y[j];
-                                }
-                                x[i] += correction;
-                            }
-
-                            tracing::debug!(
-                                "GMRES converged via breakdown in {} iterations",
-                                total_iterations
-                            );
-                            return Ok(());
-                        }
-                        return Err(e);
-                    }
+                // Check convergence using residual norm estimate
+                let residual_estimate = g[k + 1].abs();
+                if residual_estimate < self.config.tolerance {
+                    converged_iter = Some(k + 1);
+                    break;
                 }
             }
 
-            // End of restart cycle: update solution with partial result
-            givens::back_substitution(&h, &g, &mut y, k);
+            // 4. Update solution: x = x + V_k * y_k
+            let k_final = converged_iter.unwrap_or(m);
+            let y = givens::solve_upper_triangular(&h, &g, k_final)?;
 
-            for i in 0..n {
-                let mut correction = T::zero();
-                for j in 0..k {
-                    correction += v[(i, j)] * y[j];
-                }
-                x[i] += correction;
+            for i in 0..k_final {
+                x.axpy(y[i], &v.column(i), T::one());
             }
 
-            // Continue to next restart
+            if converged_iter.is_some() {
+                return Ok(());
+            }
         }
 
-        Err(Error::Convergence(
-            ConvergenceErrorKind::MaxIterationsExceeded {
-                max: self.config.max_iterations,
-            },
-        ))
-    }
-
-    /// Check if residual satisfies convergence criterion
-    #[inline]
-    fn is_converged(&self, residual_norm: T) -> bool {
-        residual_norm < self.config.tolerance
+        Err(Error::Convergence(ConvergenceErrorKind::MaxIterationsExceeded {
+            max: self.config.max_iterations,
+        }))
     }
 }
 
@@ -307,10 +212,10 @@ impl<T: RealField + Copy + FromPrimitive + Debug> Configurable<T> for GMRES<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Debug> IterativeLinearSolver<T> for GMRES<T> {
-    fn solve<P: Preconditioner<T>>(
+impl<T: RealField + Debug + Copy + FromPrimitive> IterativeLinearSolver<T> for GMRES<T> {
+    fn solve<Op: LinearOperator<T> + ?Sized, P: Preconditioner<T>>(
         &self,
-        a: &CsrMatrix<T>,
+        a: &Op,
         b: &DVector<T>,
         x: &mut DVector<T>,
         preconditioner: Option<&P>,
@@ -323,11 +228,36 @@ impl<T: RealField + Copy + FromPrimitive + Debug> IterativeLinearSolver<T> for G
     }
 }
 
+impl<T: RealField + Copy + FromPrimitive + Debug> super::super::traits::LinearSolver<T>
+    for GMRES<T>
+{
+    fn solve_system(
+        &self,
+        a: &dyn LinearOperator<T>,
+        b: &DVector<T>,
+        x0: Option<&DVector<T>>,
+    ) -> Result<DVector<T>> {
+        let mut x = if let Some(initial) = x0 {
+            initial.clone()
+        } else {
+            DVector::zeros(b.len())
+        };
+
+        self.solve(
+            a,
+            b,
+            &mut x,
+            None::<&crate::linear_solver::preconditioners::IdentityPreconditioner>,
+        )?;
+        Ok(x)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::super::preconditioners::IdentityPreconditioner;
     use super::*;
-    use nalgebra_sparse::CooMatrix;
+    use nalgebra_sparse::{CooMatrix, CsrMatrix};
 
     #[test]
     fn test_gmres_diagonal_matrix() {

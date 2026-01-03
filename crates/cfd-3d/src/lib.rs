@@ -129,7 +129,7 @@ pub use vof::{VofConfig, VofSolver};
 
 // CSG integration from cfd-mesh - feature-gated for optional dependency
 #[cfg(feature = "csg")]
-pub use cfd_mesh::csg::CsgMeshAdapter;
+pub use cfd_mesh::csg::CsgError;
 
 #[cfg(test)]
 mod tests {
@@ -166,7 +166,7 @@ mod tests {
         // VOF configuration test
         let vof_config = VofConfig::default();
         assert!(vof_config.tolerance > 0.0);
-        assert!(vof_config.use_plic);
+        assert!(vof_config.reconstruction_method == vof::InterfaceReconstruction::PLIC);
     }
 
     /// Test spectral solver instantiation and basic operations

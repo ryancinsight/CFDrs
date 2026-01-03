@@ -71,6 +71,7 @@ use serde::{Deserialize, Serialize};
 
 // Named constants
 const HAGEN_POISEUILLE_COEFFICIENT: f64 = 128.0;
+#[allow(dead_code)]
 const POWER_FOUR: f64 = 4.0;
 
 /// Hagen-Poiseuille resistance model for circular channels
@@ -89,23 +90,28 @@ impl<T: RealField + Copy> HagenPoiseuilleModel<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
+impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
     for HagenPoiseuilleModel<T>
 {
-    fn calculate_resistance(&self, fluid: &Fluid<T>, _conditions: &FlowConditions<T>) -> Result<T> {
+    fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
+        let (r, k) = self.calculate_coefficients(fluid, conditions)?;
+        let q = conditions.flow_rate.unwrap_or_else(T::zero);
+        let q_abs = if q >= T::zero() { q } else { -q };
+        Ok(r + k * q_abs)
+    }
+
+    fn calculate_coefficients(&self, fluid: &Fluid<T>, _conditions: &FlowConditions<T>) -> Result<(T, T)> {
         let viscosity = fluid.viscosity;
         let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
 
         let coefficient = T::from_f64(HAGEN_POISEUILLE_COEFFICIENT).unwrap_or_else(|| T::zero());
 
         // R = (128 * μ * L) / (π * D^4)
-        let d4 = num_traits::Float::powf(
-            self.diameter,
-            T::from_f64(POWER_FOUR).unwrap_or_else(|| T::zero()),
-        );
-        let resistance = coefficient * viscosity * self.length / (pi * d4);
+        let d2 = self.diameter * self.diameter;
+        let d4 = d2 * d2;
+        let r = coefficient * viscosity * self.length / (pi * d4);
 
-        Ok(resistance)
+        Ok((r, T::zero()))
     }
 
     fn model_name(&self) -> &'static str {
@@ -115,8 +121,26 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     fn reynolds_range(&self) -> (T, T) {
         (
             T::zero(),
-            T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER)
-                .unwrap_or_else(|| T::zero()),
+            T::from_f64(2300.0).unwrap_or_else(|| T::zero()),
         )
+    }
+
+    fn validate_invariants(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<()> {
+        // Call Mach number validation
+        self.validate_mach_number(fluid, conditions)?;
+
+        // Entrance length validation: L/D > 10
+        let ratio = self.length / self.diameter;
+        let limit = T::from_f64(10.0).unwrap_or_else(|| T::zero());
+
+        if ratio < limit {
+            return Err(cfd_core::error::Error::PhysicsViolation(format!(
+                "Entrance length violation: L/D = {:.2} < 10. Flow may not be fully developed for model '{}'",
+                ratio,
+                self.model_name()
+            )));
+        }
+
+        Ok(())
     }
 }

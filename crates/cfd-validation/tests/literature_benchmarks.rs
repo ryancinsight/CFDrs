@@ -272,10 +272,10 @@ mod property_tests {
     use super::*;
     use proptest::prelude::*;
 
-    /// Property test: Velocity should always be non-negative and bounded
-    ///
-    /// # Reference
-    /// Physical constraint from Navier-Stokes equations
+    // Property test: Velocity should always be non-negative and bounded
+    //
+    // # Reference
+    // Physical constraint from Navier-Stokes equations
     proptest! {
         #[test]
         fn velocity_is_non_negative_and_bounded(
@@ -301,10 +301,10 @@ mod property_tests {
         }
     }
 
-    /// Property test: No-slip boundary condition at walls
-    ///
-    /// # Reference
-    /// Fundamental boundary condition in viscous flow (White 2006, §1.6)
+    // Property test: No-slip boundary condition at walls
+    //
+    // # Reference
+    // Fundamental boundary condition in viscous flow (White 2006, §1.6)
     proptest! {
         #[test]
         fn no_slip_at_walls(
@@ -322,10 +322,10 @@ mod property_tests {
         }
     }
 
-    /// Property test: Velocity decreases monotonically from center to wall
-    ///
-    /// # Reference
-    /// Physical property of pressure-driven pipe flow
+    // Property test: Velocity decreases monotonically from center to wall
+    //
+    // # Reference
+    // Physical property of pressure-driven pipe flow
     proptest! {
         #[test]
         fn velocity_decreases_from_center(
@@ -350,10 +350,10 @@ mod property_tests {
         }
     }
 
-    /// Property test: Flow rate scales correctly with pressure gradient
-    ///
-    /// # Reference
-    /// Hagen-Poiseuille law: Q ∝ Δp
+    // Property test: Flow rate scales correctly with pressure gradient
+    //
+    // # Reference
+    // Hagen-Poiseuille law: Q ∝ Δp
     proptest! {
         #[test]
         fn flow_rate_scales_with_pressure(
@@ -365,13 +365,13 @@ mod property_tests {
             let u_max = radius.powi(2) / (4.0 * viscosity) * pressure_grad_mag;
             let flow = PoiseuilleFlow::create(u_max, radius, pressure_grad_mag, viscosity, geometry);
 
-            let Q = flow.flow_rate();
+            let q = flow.flow_rate();
 
             // Analytical: Q = (πR⁴/8μ) * |dp/dx|
-            let Q_expected = std::f64::consts::PI * radius.powi(4) / (8.0 * viscosity) * pressure_grad_mag;
+            let q_expected = std::f64::consts::PI * radius.powi(4) / (8.0 * viscosity) * pressure_grad_mag;
 
-            prop_assert!((Q - Q_expected).abs() / Q_expected < 1.0e-10,
-                "Flow rate mismatch: {} vs {}", Q, Q_expected);
+            prop_assert!((q - q_expected).abs() / q_expected < 1.0e-10,
+                "Flow rate mismatch: {} vs {}", q, q_expected);
         }
     }
 }

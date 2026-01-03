@@ -10,18 +10,22 @@ const CACHE_BLOCK_SIZE_I: usize = 8;
 const CACHE_BLOCK_SIZE_J: usize = 8;
 const CACHE_BLOCK_SIZE_K: usize = 8;
 
+use serde::{Deserialize, Serialize};
+
 /// Interface reconstruction strategy
-pub struct InterfaceReconstruction {
-    use_plic: bool,
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum InterfaceReconstruction {
+    /// Piecewise Linear Interface Calculation (PLIC)
+    PLIC,
+    /// Simple gradient-based reconstruction
+    Gradient,
 }
 
 impl InterfaceReconstruction {
     /// Create reconstruction method based on configuration
     #[must_use]
     pub fn create(config: &VofConfig) -> Self {
-        Self {
-            use_plic: config.use_plic,
-        }
+        config.reconstruction_method
     }
 
     /// Reconstruct interface normals and curvature
@@ -58,19 +62,22 @@ impl InterfaceReconstruction {
                                     .expect("Failed to represent VOF_INTERFACE_UPPER constant");
 
                                 if alpha > interface_lower && alpha < interface_upper {
-                                    if self.use_plic {
-                                        let (normal, _) = self.plic_reconstruction(solver, i, j, k);
-                                        solver.normals[idx] = normal;
-                                    } else {
-                                        // Simple gradient-based normal
-                                        let normal = self.calculate_gradient(solver, i, j, k);
-                                        let epsilon = T::from_f64(VOF_EPSILON)
-                                            .expect("Failed to represent VOF_EPSILON constant");
-                                        if normal.norm() > epsilon {
-                                            solver.normals[idx] = normal.normalize();
-                                        } else {
-                                            solver.normals[idx] =
-                                                Vector3::new(T::zero(), T::zero(), T::one());
+                                    match self {
+                                        Self::PLIC => {
+                                            let (normal, _) = self.plic_reconstruction(solver, i, j, k);
+                                            solver.normals[idx] = normal;
+                                        }
+                                        Self::Gradient => {
+                                            // Simple gradient-based normal
+                                            let normal = self.calculate_gradient(solver, i, j, k);
+                                            let epsilon = T::from_f64(VOF_EPSILON)
+                                                .expect("Failed to represent VOF_EPSILON constant");
+                                            if normal.norm() > epsilon {
+                                                solver.normals[idx] = normal.normalize();
+                                            } else {
+                                                solver.normals[idx] =
+                                                    Vector3::new(T::zero(), T::zero(), T::one());
+                                            }
                                         }
                                     }
                                 } else {

@@ -3,7 +3,6 @@
 use super::config::IterativeSolverConfig;
 use cfd_core::error::Result;
 use nalgebra::{DVector, RealField};
-use nalgebra_sparse::CsrMatrix;
 
 /// Configuration trait for solvers
 pub trait Configurable<T: RealField + Copy> {
@@ -19,10 +18,57 @@ pub trait LinearSolver<T: RealField + Copy>: Send + Sync {
     /// Solve Ax = b, returning the solution vector
     fn solve_system(
         &self,
-        a: &CsrMatrix<T>,
+        a: &dyn LinearOperator<T>,
         b: &DVector<T>,
         x0: Option<&DVector<T>>,
     ) -> Result<DVector<T>>;
+}
+
+/// Trait for linear operators that can compute matrix-vector products.
+///
+/// This is the fundamental abstraction for matrix-free and matrix-based solvers.
+pub trait LinearOperator<T: RealField + Copy>: Send + Sync {
+    /// Apply the linear operator to a vector: y = A * x
+    fn apply(&self, x: &DVector<T>, y: &mut DVector<T>) -> Result<()>;
+
+    /// Return the dimension of the operator
+    fn size(&self) -> usize;
+
+    /// Check if the operator is symmetric
+    fn is_symmetric(&self) -> bool {
+        false
+    }
+
+    /// Optional: Return an estimate of the operator norm.
+    fn norm_estimate(&self) -> Option<T> {
+        None
+    }
+
+    /// Optional: Apply the transpose operator.
+    fn apply_transpose(&self, _x: &DVector<T>, _y: &mut DVector<T>) -> Result<()> {
+        Err(cfd_core::error::Error::InvalidConfiguration(
+            "Transpose operator not implemented".to_string(),
+        ))
+    }
+}
+
+/// Extended trait for GPU-accelerated linear operators.
+#[cfg(feature = "gpu")]
+pub trait GpuLinearOperator<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable>:
+    LinearOperator<T>
+{
+    /// Apply the operator using GPU acceleration.
+    fn apply_gpu(
+        &self,
+        gpu_context: &std::sync::Arc<cfd_core::compute::gpu::GpuContext>,
+        input_buffer: &cfd_core::compute::gpu::GpuBuffer<T>,
+        output_buffer: &mut cfd_core::compute::gpu::GpuBuffer<T>,
+    ) -> Result<()>;
+
+    /// Check if GPU acceleration is supported for this operator.
+    fn supports_gpu(&self) -> bool {
+        true
+    }
 }
 
 /// Trait for iterative linear solvers
@@ -33,16 +79,16 @@ pub trait IterativeLinearSolver<T: RealField + Copy>:
     /// Solve Ax = b in-place
     ///
     /// # Arguments
-    /// * `a` - System matrix
+    /// * `a` - System operator (matrix or matrix-free)
     /// * `b` - Right-hand side vector
     /// * `x` - Solution vector (also serves as initial guess)
     /// * `preconditioner` - Optional preconditioner
     ///
     /// # Errors
     /// Returns error if solver fails to converge or encounters numerical issues
-    fn solve<P: Preconditioner<T>>(
+    fn solve<Op: LinearOperator<T> + ?Sized, P: Preconditioner<T>>(
         &self,
-        a: &CsrMatrix<T>,
+        a: &Op,
         b: &DVector<T>,
         x: &mut DVector<T>,
         preconditioner: Option<&P>,
@@ -128,6 +174,7 @@ impl<T: RealField + Copy> ConvergenceMonitor<T> {
     }
 
     /// Get theoretical GMRES convergence bound (approximate)
+    #[allow(dead_code)]
     pub fn gmres_theoretical_bound(&self, _kappa: f64) -> Option<T> {
         // GMRES bound is more complex, depends on field of values
         // For now, return a conservative estimate
@@ -142,9 +189,7 @@ impl<T: RealField + Copy> ConvergenceMonitor<T> {
         {
             let safety_multiplier = T::from_f64_or(1.5, T::one() + T::one());
             if factor > theoretical * safety_multiplier {
-                return Err(cfd_core::error::Error::InvalidConfiguration(format!(
-                    "Convergence factor exceeds theoretical bound"
-                )));
+                return Err(cfd_core::error::Error::InvalidConfiguration("Convergence factor exceeds theoretical bound".to_string()));
             }
         }
         Ok(())

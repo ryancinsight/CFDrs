@@ -2,6 +2,7 @@
 
 #[cfg(all(feature = "mpi", test))]
 use mpi::collective::CommunicatorCollectives;
+#[cfg(all(feature = "mpi", test))]
 use mpi::test::mpi_test;
 
 #[cfg(all(feature = "mpi", test))]

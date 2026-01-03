@@ -67,7 +67,6 @@ fn test_circular_channel_resistance_analytical() -> Result<()> {
 /// implementation gives lower resistance than expected compared to circular
 /// channels. Further investigation needed into the correlation used.
 #[test]
-#[ignore = "Rectangular channel resistance behavior differs from expected"]
 fn test_rectangular_channel_resistance() -> Result<()> {
     let length: f64 = 0.1; // 10 cm
     let width: f64 = 2e-3; // 2 mm

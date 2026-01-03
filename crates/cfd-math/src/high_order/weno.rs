@@ -42,7 +42,7 @@
 //! - Shu, C.-W. (1997). "Essentially non-oscillatory and weighted essentially non-oscillatory schemes for hyperbolic conservation laws"
 //! - Borges, R. et al. (2008). "An improved weighted essentially non-oscillatory scheme for hyperbolic conservation laws"
 
-use nalgebra::{RealField, Scalar};
+use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
 /// WENO5 reconstruction scheme for shock-capturing
@@ -150,10 +150,6 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
     /// 3rd-order ENO stencil 0 (left reconstruction): {u_{j-2}, u_{j-1}, u_j}
     #[must_use]
     fn eno3_stencil_0(&self, cells: &[T; 5]) -> T {
-        let one_third = T::from_f64(1.0 / 3.0).unwrap_or_else(T::one);
-        let thirteen_twelfth = T::from_f64(13.0 / 12.0).unwrap_or_else(T::one);
-        let one_fourth = T::from_f64(1.0 / 4.0).unwrap_or_else(T::one);
-
         // 3rd order ENO reconstruction: (2u_{j-2} - 7u_{j-1} + 11u_j)/6
         let two = T::from_f64(2.0).unwrap_or_else(T::one);
         let seven = T::from_f64(7.0).unwrap_or_else(T::one);
@@ -166,8 +162,6 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
     /// 3rd-order ENO stencil 1 (left reconstruction): {u_{j-1}, u_j, u_{j+1}}
     #[must_use]
     fn eno3_stencil_1(&self, cells: &[T; 5]) -> T {
-        let one_sixth = T::from_f64(1.0 / 6.0).unwrap_or_else(T::one);
-
         // 3rd order ENO reconstruction: (-u_{j-1} + 5u_j + 2u_{j+1})/6
         let five = T::from_f64(5.0).unwrap_or_else(T::one);
         let two = T::from_f64(2.0).unwrap_or_else(T::one);
@@ -179,8 +173,6 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
     /// 3rd-order ENO stencil 2 (left reconstruction): {u_j, u_{j+1}, u_{j+2}}
     #[must_use]
     fn eno3_stencil_2(&self, cells: &[T; 5]) -> T {
-        let one_sixth = T::from_f64(1.0 / 6.0).unwrap_or_else(T::one);
-
         // 3rd order ENO reconstruction: (2u_j + 5u_{j+1} - u_{j+2})/6
         let two = T::from_f64(2.0).unwrap_or_else(T::one);
         let five = T::from_f64(5.0).unwrap_or_else(T::one);
@@ -225,6 +217,7 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
 
     /// Smoothness indicator β_0 for stencil r=0
     #[must_use]
+    #[inline]
     fn smoothness_indicator_0(&self, cells: &[T; 5]) -> T {
         let thirteen_twelfth = T::from_f64(13.0 / 12.0).unwrap_or_else(T::one);
         let one_fourth = T::from_f64(1.0 / 4.0).unwrap_or_else(T::one);
@@ -288,41 +281,52 @@ mod tests {
     #[test]
     fn test_weno5_smooth_function() {
         // Test on a smooth function: sin(x)
-        // For smooth functions, WENO5 should achieve 5th-order accuracy
         let weno = WENO5::<f64>::new();
-
-        // Cell averages of sin(x) over [0,2π]
+        let dx = 0.1;
+        let x_j = 1.0; // Center of middle cell
+        
+        // Interface we want to reconstruct is x_{j+1/2} = x_j + dx/2
+        let x_interface = x_j + 0.5 * dx;
+        
+        // Cell averages: 1/dx * \int_{x-dx/2}^{x+dx/2} sin(t) dt = (cos(x-dx/2) - cos(x+dx/2)) / dx
+        let avg = |x: f64| ( (x - 0.5 * dx).cos() - (x + 0.5 * dx).cos() ) / dx;
+        
         let cells = [
-            0.5 * (0.0_f64.sin() + (std::f64::consts::PI / 4.0).sin()), // [0, π/4]
-            0.5 * ((std::f64::consts::PI / 4.0).sin() + (std::f64::consts::PI / 2.0).sin()), // [π/4, π/2]
-            0.5 * ((std::f64::consts::PI / 2.0).sin() + (3.0 * std::f64::consts::PI / 4.0).sin()), // [π/2, 3π/4]
-            0.5 * ((3.0 * std::f64::consts::PI / 4.0).sin() + std::f64::consts::PI.sin()), // [3π/4, π]
-            0.5 * ((std::f64::consts::PI).sin() + (5.0 * std::f64::consts::PI / 4.0).sin()), // [π, 5π/4]
+            avg(x_j - 2.0 * dx),
+            avg(x_j - dx),
+            avg(x_j),
+            avg(x_j + dx),
+            avg(x_j + 2.0 * dx),
         ];
 
         let reconstructed = weno.reconstruct_left(&cells);
+        let analytical = x_interface.sin();
 
-        // Should be close to analytical interface value
-        let analytical = (std::f64::consts::PI / 2.0).sin();
-
-        // Allow some tolerance for numerical approximation
-        assert!((reconstructed - analytical).abs() < 1e-3);
+        // For smooth functions and dx=0.1, WENO5 should be very accurate
+        assert!((reconstructed - analytical).abs() < 1e-6);
     }
 
     #[test]
     fn test_weno5_smoothness_indicators() {
         let weno = WENO5::<f64>::new();
 
-        // Test with smooth data
-        let smooth_cells = [1.0, 1.1, 1.21, 1.331, 1.4641]; // x^2
-        let beta0 = weno.smoothness_indicator_0(&smooth_cells);
-        let beta1 = weno.smoothness_indicator_1(&smooth_cells);
-        let beta2 = weno.smoothness_indicator_2(&smooth_cells);
+        // Test with constant data
+        let constant_cells = [1.0, 1.0, 1.0, 1.0, 1.0];
+        assert_relative_eq!(weno.smoothness_indicator_0(&constant_cells), 0.0);
+        assert_relative_eq!(weno.smoothness_indicator_1(&constant_cells), 0.0);
+        assert_relative_eq!(weno.smoothness_indicator_2(&constant_cells), 0.0);
 
-        // Smoothness indicators should be small for smooth data
-        assert!(beta0 < 1e-6);
-        assert!(beta1 < 1e-6);
-        assert!(beta2 < 1e-6);
+        // Test with linear data: u = x
+        // For dx = 0.1, cells = [0.8, 0.9, 1.0, 1.1, 1.2]
+        let linear_cells = [0.8, 0.9, 1.0, 1.1, 1.2];
+        let beta0 = weno.smoothness_indicator_0(&linear_cells);
+        let beta1 = weno.smoothness_indicator_1(&linear_cells);
+        let beta2 = weno.smoothness_indicator_2(&linear_cells);
+
+        // For linear data u=x, beta_r should be (dx)^2 = 0.01
+        assert_relative_eq!(beta0, 0.01, epsilon = 1e-12);
+        assert_relative_eq!(beta1, 0.01, epsilon = 1e-12);
+        assert_relative_eq!(beta2, 0.01, epsilon = 1e-12);
     }
 
     #[test]

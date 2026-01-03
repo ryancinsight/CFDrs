@@ -1,0 +1,682 @@
+[
+  {
+    "problem_size": 64,
+    "thread_count": 1,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 122272
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 22762
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 85400
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 178100
+      },
+      "samples": 50
+    },
+    "speedup": 1.0,
+    "efficiency": 1.0,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 122272
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 122272
+    }
+  },
+  {
+    "problem_size": 64,
+    "thread_count": 2,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 148692
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 59947
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 74500
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 362900
+      },
+      "samples": 50
+    },
+    "speedup": 0.8223172732897535,
+    "efficiency": 0.41115863664487673,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 122272
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 148692
+    }
+  },
+  {
+    "problem_size": 64,
+    "thread_count": 4,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 169382
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 78107
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 73200
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 478100
+      },
+      "samples": 50
+    },
+    "speedup": 0.7218712732167527,
+    "efficiency": 0.18046781830418818,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 122272
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 169382
+    }
+  },
+  {
+    "problem_size": 64,
+    "thread_count": 8,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 241198
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 128616
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 118500
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 763300
+      },
+      "samples": 50
+    },
+    "speedup": 0.5069362100846607,
+    "efficiency": 0.06336702626058259,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 122272
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 241198
+    }
+  },
+  {
+    "problem_size": 64,
+    "thread_count": 16,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 415966
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 164264
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 203500
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 848700
+      },
+      "samples": 50
+    },
+    "speedup": 0.2939471014457913,
+    "efficiency": 0.018371693840361955,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 122272
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 415966
+    }
+  },
+  {
+    "problem_size": 128,
+    "thread_count": 1,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 544592
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 100346
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 349500
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 773800
+      },
+      "samples": 50
+    },
+    "speedup": 1.0,
+    "efficiency": 1.0,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 544592
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 544592
+    }
+  },
+  {
+    "problem_size": 128,
+    "thread_count": 2,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 437318
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 105712
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 221400
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 699700
+      },
+      "samples": 50
+    },
+    "speedup": 1.2452997589854522,
+    "efficiency": 0.6226498794927261,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 544592
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 437318
+    }
+  },
+  {
+    "problem_size": 128,
+    "thread_count": 4,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 489966
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 151544
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 244800
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 918400
+      },
+      "samples": 50
+    },
+    "speedup": 1.1114893686500695,
+    "efficiency": 0.2778723421625174,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 544592
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 489966
+    }
+  },
+  {
+    "problem_size": 128,
+    "thread_count": 8,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 561074
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 178533
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 293700
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 1079100
+      },
+      "samples": 50
+    },
+    "speedup": 0.9706241957388866,
+    "efficiency": 0.12132802446736082,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 544592
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 561074
+    }
+  },
+  {
+    "problem_size": 128,
+    "thread_count": 16,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 719186
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 203037
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 370400
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 1192000
+      },
+      "samples": 50
+    },
+    "speedup": 0.7572338727394582,
+    "efficiency": 0.04732711704621614,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 544592
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 719186
+    }
+  },
+  {
+    "problem_size": 256,
+    "thread_count": 1,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 2319360
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 727510
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 1285400
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 4731900
+      },
+      "samples": 50
+    },
+    "speedup": 1.0,
+    "efficiency": 1.0,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 2319360
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 2319360
+    }
+  },
+  {
+    "problem_size": 256,
+    "thread_count": 2,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 1722206
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 452343
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 998800
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 2926600
+      },
+      "samples": 50
+    },
+    "speedup": 1.3467378466919753,
+    "efficiency": 0.6733689233459876,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 2319360
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 1722206
+    }
+  },
+  {
+    "problem_size": 256,
+    "thread_count": 4,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 1586718
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 363632
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 881100
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 2302600
+      },
+      "samples": 50
+    },
+    "speedup": 1.4617342212037678,
+    "efficiency": 0.36543355530094196,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 2319360
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 1586718
+    }
+  },
+  {
+    "problem_size": 256,
+    "thread_count": 8,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 1705146
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 328376
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 942600
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 2393000
+      },
+      "samples": 50
+    },
+    "speedup": 1.3602119701186877,
+    "efficiency": 0.17002649626483596,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 2319360
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 1705146
+    }
+  },
+  {
+    "problem_size": 256,
+    "thread_count": 16,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 2085360
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 312441
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 1327800
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 2907400
+      },
+      "samples": 50
+    },
+    "speedup": 1.1122108412935896,
+    "efficiency": 0.06951317758084935,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 2319360
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 2085360
+    }
+  },
+  {
+    "problem_size": 512,
+    "thread_count": 1,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 18497234
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 984136
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 16848900
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 21812700
+      },
+      "samples": 50
+    },
+    "speedup": 1.0,
+    "efficiency": 1.0,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 18497234
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 18497234
+    }
+  },
+  {
+    "problem_size": 512,
+    "thread_count": 2,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 17376308
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 2311046
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 14899500
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 21945900
+      },
+      "samples": 50
+    },
+    "speedup": 1.0645088703538175,
+    "efficiency": 0.5322544351769087,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 18497234
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 17376308
+    }
+  },
+  {
+    "problem_size": 512,
+    "thread_count": 4,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 15330450
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 2254009
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 13292200
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 22173900
+      },
+      "samples": 50
+    },
+    "speedup": 1.2065682351137768,
+    "efficiency": 0.3016420587784442,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 18497234
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 15330450
+    }
+  },
+  {
+    "problem_size": 512,
+    "thread_count": 8,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 14928108
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 544542
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 13805000
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 16069800
+      },
+      "samples": 50
+    },
+    "speedup": 1.2390876325385642,
+    "efficiency": 0.15488595406732053,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 18497234
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 14928108
+    }
+  },
+  {
+    "problem_size": 512,
+    "thread_count": 16,
+    "scaling_type": "Strong",
+    "timing_stats": {
+      "mean": {
+        "secs": 0,
+        "nanos": 16399046
+      },
+      "std_dev": {
+        "secs": 0,
+        "nanos": 646808
+      },
+      "min": {
+        "secs": 0,
+        "nanos": 15275400
+      },
+      "max": {
+        "secs": 0,
+        "nanos": 17790800
+      },
+      "samples": 50
+    },
+    "speedup": 1.1279457353799727,
+    "efficiency": 0.07049660846124829,
+    "serial_time": {
+      "secs": 0,
+      "nanos": 18497234
+    },
+    "parallel_time": {
+      "secs": 0,
+      "nanos": 16399046
+    }
+  }
+]

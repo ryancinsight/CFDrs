@@ -4,7 +4,7 @@ use super::Component;
 use cfd_core::error::Result;
 use cfd_core::fluid::Fluid;
 use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -32,7 +32,7 @@ pub struct Microvalve<T: RealField + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Float> Microvalve<T> {
+impl<T: RealField + Copy + FromPrimitive> Microvalve<T> {
     /// Create a new microvalve
     pub fn new(cv: T) -> Self {
         Self {
@@ -43,15 +43,27 @@ impl<T: RealField + Copy + FromPrimitive + Float> Microvalve<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Float> Component<T> for Microvalve<T> {
+impl<T: RealField + Copy + FromPrimitive> Component<T> for Microvalve<T> {
     fn resistance(&self, _fluid: &Fluid<T>) -> T {
         if self.opening <= T::zero() {
-            // Closed valve - infinite resistance
+            // Closed valve - very high linear resistance to simulate no flow
             T::from_f64(1e12).unwrap_or_else(T::one)
         } else {
-            // Resistance inversely proportional to opening
-            let base_resistance = T::one() / (self.cv * self.cv);
-            base_resistance / (self.opening * self.opening)
+            // Valves typically have small linear resistance compared to quadratic losses
+            // Returning a small value to keep the matrix well-conditioned
+            T::from_f64(1e-6).unwrap_or_else(T::zero)
+        }
+    }
+
+    fn coefficients(&self, _fluid: &Fluid<T>) -> (T, T) {
+        if self.opening <= T::zero() {
+            (T::from_f64(1e12).unwrap_or_else(T::one), T::zero())
+        } else {
+            // For a valve, ΔP = k * Q^2 where k = 1/Cv^2
+            // Accounting for opening fraction: k = 1 / (Cv * opening)^2
+            let denom = self.cv * self.opening;
+            let k = T::one() / (denom * denom);
+            (self.resistance(_fluid), k)
         }
     }
 

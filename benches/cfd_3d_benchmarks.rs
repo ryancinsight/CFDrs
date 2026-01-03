@@ -8,8 +8,7 @@
 //! - IBM interpolation
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use nalgebra::{DMatrix, DVector, RealField, Vector3};
-use num_traits::FromPrimitive;
+use nalgebra::{DMatrix, Vector3};
 
 /// Benchmark FEM element matrix assembly
 pub fn bench_fem_element_assembly(c: &mut Criterion) {
@@ -41,7 +40,7 @@ pub fn bench_fem_element_assembly(c: &mut Criterion) {
 pub fn bench_spectral_fft(c: &mut Criterion) {
     let mut group = c.benchmark_group("spectral_fft");
 
-    for &size in &[8, 16, 32, 64].iter() {
+    for &size in [8, 16, 32, 64].iter() {
         group.bench_with_input(format!("fft_{}", size), &size, |b, &size| {
             let mut data = vec![nalgebra::Complex::new(1.0, 0.0); size];
             b.iter(|| {
@@ -71,7 +70,7 @@ pub fn bench_vof_plic_reconstruction(c: &mut Criterion) {
         b.iter(|| {
             // Simulate PLIC reconstruction for a 10x10x10 grid
             let mut normals = vec![Vector3::<f64>::zeros(); 1000];
-            let alpha = vec![0.5; 1000]; // 50% volume fraction
+            let alpha = vec![0.5f64; 1000]; // 50% volume fraction
 
             // Calculate normals using central differences
             for k in 1..9 {

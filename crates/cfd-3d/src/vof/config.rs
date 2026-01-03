@@ -1,5 +1,7 @@
 //! VOF configuration and constants
 
+use super::reconstruction::InterfaceReconstruction;
+use super::advection::AdvectionMethod;
 use serde::{Deserialize, Serialize};
 
 // Named constants for VOF - SSOT principle
@@ -28,10 +30,14 @@ pub struct VofConfig {
     pub tolerance: f64,
     /// CFL number for time stepping
     pub cfl_number: f64,
-    /// Use PLIC (Piecewise Linear Interface Calculation)
-    pub use_plic: bool,
-    /// Use geometric advection
-    pub use_geometric_advection: bool,
+    /// Surface tension coefficient (σ) [N/m]
+    pub surface_tension_coefficient: f64,
+    /// Interface compression factor
+    pub interface_compression: f64,
+    /// Reconstruction method
+    pub reconstruction_method: InterfaceReconstruction,
+    /// Advection method
+    pub advection_method: AdvectionMethod,
     /// Enable compression to sharpen interface
     pub enable_compression: bool,
 }
@@ -42,8 +48,10 @@ impl Default for VofConfig {
             max_iterations: DEFAULT_MAX_ITERATIONS,
             tolerance: DEFAULT_TOLERANCE,
             cfl_number: DEFAULT_CFL_NUMBER,
-            use_plic: true,
-            use_geometric_advection: true,
+            surface_tension_coefficient: 0.072, // Water-Air at 20°C
+            interface_compression: 0.0,
+            reconstruction_method: InterfaceReconstruction::PLIC,
+            advection_method: AdvectionMethod::Geometric,
             enable_compression: false,
         }
     }

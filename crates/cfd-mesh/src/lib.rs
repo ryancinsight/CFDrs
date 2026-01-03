@@ -49,6 +49,7 @@ pub mod prelude {
     pub use crate::csg::CsgError;
     pub use crate::{
         connectivity::Connectivity,
+        error::{FaceError, MeshError},
         geometry::Geometry,
         mesh::{Mesh, MeshStatistics},
         topology::{Cell, Edge, Face, Vertex},

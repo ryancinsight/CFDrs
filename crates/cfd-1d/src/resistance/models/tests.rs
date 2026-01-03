@@ -20,7 +20,7 @@ fn test_hagen_poiseuille_resistance_matches_formula() {
 fn test_darcy_weisbach_laminar_limit_friction_factor() {
     // Laminar regime: Re=1000 < 2000, expect f ≈ 64/Re
     let fluid = Fluid { density: 1000.0f64, viscosity: 1.0e-3f64 };
-    let model = DarcyWeisbachModel::new(0.01f64, 1.0f64, 0.0f64);
+    let model = DarcyWeisbachModel::circular(0.01f64, 1.0f64, 0.0f64);
     let mut cond = FlowConditions::new(0.0f64);
     cond.reynolds_number = Some(1000.0f64);
 

@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 3b931a5607016199d4547db76581d78fd99f743dd0e7f5637bc1595ce4542510 # shrinks to shock_strength = 9.074802547607886, shock_speed = 0.5, shock_x0 = 0.1, amplitude = 0.035973961107719464, kx = 4.4104177167650604, ky = 4.951068639627686

@@ -133,6 +133,32 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         self.ap_v_coefficients.data.copy_from_slice(&ap.data);
     }
 
+    /// Compute face pressure coefficient d_f = (Volume/A_p)_f for x-direction (east face)
+    pub fn d_face_x(&self, i: usize, j: usize, dx: T, dy: T) -> T {
+        let two = T::from_f64(TWO).expect("Failed to represent 2.0 in numeric type T");
+        let volume = dx * dy;
+        let d_p = volume / self.ap_u_coefficients.at(i, j);
+        let d_e = volume / self.ap_u_coefficients.at(i + 1, j);
+        if d_p + d_e != T::zero() {
+            two * d_p * d_e / (d_p + d_e) // Harmonic averaging
+        } else {
+            T::zero()
+        }
+    }
+
+    /// Compute face pressure coefficient d_f = (Volume/A_p)_f for y-direction (north face)
+    pub fn d_face_y(&self, i: usize, j: usize, dx: T, dy: T) -> T {
+        let two = T::from_f64(TWO).expect("Failed to represent 2.0 in numeric type T");
+        let volume = dx * dy;
+        let d_p = volume / self.ap_v_coefficients.at(i, j);
+        let d_n = volume / self.ap_v_coefficients.at(i, j + 1);
+        if d_p + d_n != T::zero() {
+            two * d_p * d_n / (d_p + d_n) // Harmonic averaging
+        } else {
+            T::zero()
+        }
+    }
+
     /// Compute face velocity with complete Rhie-Chow interpolation
     ///
     /// The complete formulation according to Rhie & Chow (1983), Eq. 13:

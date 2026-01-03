@@ -1,7 +1,6 @@
 use cfd_validation::geometry::RectangularDomain;
 use cfd_validation::manufactured::richardson::MmsRichardsonStudy;
 use cfd_validation::manufactured::ManufacturedDiffusion;
-use nalgebra::RealField;
 
 #[test]
 fn richardson_estimates_third_order_uniform_ratio() {
@@ -19,8 +18,8 @@ fn richardson_estimates_third_order_uniform_ratio() {
     )
     .expect("failed to create MmsRichardsonStudy");
 
-    // Use uniform refinement ratios: coarse→fine as 16, 8, 4, 2
-    let grid_sizes = vec![16usize, 8, 4, 2];
+    // Use uniform refinement ratios: coarse→fine as 2, 4, 8, 16
+    let grid_sizes = vec![2usize, 4, 8, 16];
 
     // Manufactured convergence: f(h) = h^3 (third-order)
     let solution_computer = |size: usize| {
@@ -54,8 +53,8 @@ fn richardson_estimates_third_order_nonuniform_ratio() {
     )
     .expect("failed to create MmsRichardsonStudy");
 
-    // Use mildly nonuniform sizes to avoid perfect uniformity
-    let grid_sizes = vec![12usize, 6, 3, 2];
+    // Use mildly nonuniform sizes to avoid perfect uniformity: 2, 3, 6, 12
+    let grid_sizes = vec![2usize, 3, 6, 12];
 
     let solution_computer = |size: usize| {
         let h = 1.0 / size as f64;

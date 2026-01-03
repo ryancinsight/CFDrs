@@ -3,10 +3,8 @@
 //! This module provides various slope limiters that can be used to control
 //! oscillations in DG solutions, especially in the presence of shocks or discontinuities.
 
-use super::*;
-use nalgebra::{DVector, DMatrix, DVectorSlice};
-use std::f64::consts::PI;
-use std::cmp::Ordering;
+use super::{DGSolution, Result};
+
 
 /// Type of slope limiter
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,6 +34,7 @@ pub struct LimiterParams {
     pub tvb_m: f64,
     /// WENO parameters (epsilon and p)
     pub weno_epsilon: f64,
+    /// Power parameter for WENO weights
     pub weno_p: f64,
     /// Whether to apply the limiter adaptively
     pub adaptive: bool,
@@ -149,10 +148,10 @@ impl Limiter for MinmodLimiter {
             let u_avg = solution.average();
             
             // Get neighbor averages
-            let u_left = if !neighbors.is_empty() {
-                neighbors[0].average()
-            } else {
+            let u_left = if neighbors.is_empty() {
                 u_avg.clone()
+            } else {
+                neighbors[0].average()
             };
             
             let u_right = if neighbors.len() > 1 {
@@ -234,10 +233,10 @@ impl Limiter for TVBLimiter {
             let u_avg = solution.average();
             
             // Get neighbor averages
-            let u_left = if !neighbors.is_empty() {
-                neighbors[0].average()
-            } else {
+            let u_left = if neighbors.is_empty() {
                 u_avg.clone()
+            } else {
+                neighbors[0].average()
             };
             
             let u_right = if neighbors.len() > 1 {
@@ -324,10 +323,10 @@ impl Limiter for MomentLimiter {
             let u_avg = solution.average();
             
             // Get neighbor averages
-            let u_left = if !neighbors.is_empty() {
-                neighbors[0].average()
-            } else {
+            let u_left = if neighbors.is_empty() {
                 u_avg.clone()
+            } else {
+                neighbors[0].average()
             };
             
             let u_right = if neighbors.len() > 1 {
@@ -373,21 +372,21 @@ impl Limiter for MomentLimiter {
                         
                         let mut c_min = c;
                         
-                        if c * c_left > 0.0 && c_left.abs() < c_min.abs() {
+                        // Check left neighbor: if sign differs or neighbor is zero, result is zero
+                        if c * c_left <= 0.0 {
+                            c_min = 0.0;
+                        } else if c_left.abs() < c_min.abs() {
                             c_min = c_left;
                         }
                         
-                        if c * c_right > 0.0 && c_right.abs() < c_min.abs() {
+                        // Check right neighbor: if sign differs or neighbor is zero, result is zero
+                        if c_min * c_right <= 0.0 {
+                            c_min = 0.0;
+                        } else if c_right.abs() < c_min.abs() {
                             c_min = c_right;
                         }
                         
-                        if c * c_min <= 0.0 {
-                            0.0
-                        } else if c > 0.0 {
-                            c_min.min(c)
-                        } else {
-                            c_min.max(c)
-                        }
+                        c_min
                     };
                     
                     // Update the coefficient
@@ -504,27 +503,25 @@ impl WENOLimiter {
         let weights = self.compute_weights(&beta, epsilon);
         
         // Compute the reconstructed value
-        let mut u_rec = 0.0;
+        
         
         match self.k {
             2 => {
                 // Second-order WENO
-                u_rec = weights[0] * (1.5 * u[0] - 0.5 * u[1])
-                    + weights[1] * (0.5 * u[0] + 0.5 * u[1]);
+                weights[0] * (1.5 * u[0] - 0.5 * u[1])
+                    + weights[1] * (0.5 * u[0] + 0.5 * u[1])
             }
             3 => {
                 // Third-order WENO
-                u_rec = weights[0] * (11.0 / 6.0 * u[0] - 7.0 / 6.0 * u[1] + 1.0 / 3.0 * u[2])
+                weights[0] * (11.0 / 6.0 * u[0] - 7.0 / 6.0 * u[1] + 1.0 / 3.0 * u[2])
                     + weights[1] * (1.0 / 3.0 * u[1] + 5.0 / 6.0 * u[2] - 1.0 / 6.0 * u[3])
-                    + weights[2] * (-1.0 / 6.0 * u[2] + 5.0 / 6.0 * u[3] + 1.0 / 3.0 * u[4]);
+                    + weights[2] * (-1.0 / 6.0 * u[2] + 5.0 / 6.0 * u[3] + 1.0 / 3.0 * u[4])
             }
             _ => {
                 // Should not happen
-                u_rec = u[0];
+                u[0]
             }
         }
-        
-        u_rec
     }
 }
 
@@ -543,10 +540,10 @@ impl Limiter for WENOLimiter {
             let u_avg = solution.average();
             
             // Get neighbor averages
-            let u_left = if !neighbors.is_empty() {
-                neighbors[0].average()
-            } else {
+            let u_left = if neighbors.is_empty() {
                 u_avg.clone()
+            } else {
+                neighbors[0].average()
             };
             
             let u_right = if neighbors.len() > 1 {
@@ -650,6 +647,7 @@ impl LimiterFactory {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use nalgebra::DMatrix;
     
     #[test]
     fn test_minmod_limiter() {
@@ -666,7 +664,8 @@ mod tests {
         
         // Apply the limiter
         let limiter = MinmodLimiter;
-        let params = LimiterParams::new(LimiterType::Minmod);
+        let mut params = LimiterParams::new(LimiterType::Minmod);
+        params.adaptive = false; // Force limiting
         
         limiter.limit(&mut solution, &[left, right], &params).unwrap();
         
@@ -716,7 +715,8 @@ mod tests {
         
         // Apply the limiter
         let limiter = MomentLimiter;
-        let params = LimiterParams::new(LimiterType::Moment);
+        let mut params = LimiterParams::new(LimiterType::Moment);
+        params.adaptive = false; // Force limiting
         
         limiter.limit(&mut solution, &[left, right], &params).unwrap();
         

@@ -42,20 +42,24 @@ impl<T: RealField + Copy> AnnularDomain<T> {
 
     /// Get the distance from center to a point
     fn distance_from_center(&self, point: &Point2D<T>) -> T {
-        let dx = point.x.clone() - self.center_x.clone();
-        let dy = point.y.clone() - self.center_y.clone();
-        ComplexField::sqrt(dx.clone() * dx + dy.clone() * dy)
+        let dx = point.x - self.center_x;
+        let dy = point.y - self.center_y;
+        ComplexField::sqrt(dx * dx + dy * dy)
     }
 
     /// Get the angle (in radians) from center to a point
     fn angle_from_center(&self, point: &Point2D<T>) -> T {
-        let dx = point.x.clone() - self.center_x.clone();
-        let dy = point.y.clone() - self.center_y.clone();
+        let dx = point.x - self.center_x;
+        let dy = point.y - self.center_y;
         RealField::atan2(dy, dx)
     }
 }
 
 impl<T: RealField + Copy + SafeFromF64> Geometry<T> for AnnularDomain<T> {
+    fn clone_box(&self) -> Box<dyn Geometry<T>> {
+        Box::new(self.clone())
+    }
+
     fn contains(&self, point: &Point2D<T>) -> bool {
         let distance = self.distance_from_center(point);
         distance >= self.inner_radius && distance <= self.outer_radius
@@ -88,13 +92,13 @@ impl<T: RealField + Copy + SafeFromF64> Geometry<T> for AnnularDomain<T> {
 
         if (distance - self.inner_radius).abs() < tol {
             // Point is on inner boundary, inward normal (towards center)
-            let dx = self.center_x.clone() - point.x.clone();
-            let dy = self.center_y.clone() - point.y.clone();
-            let norm = ComplexField::sqrt(dx.clone() * dx + dy.clone() * dy);
+            let dx = self.center_x - point.x;
+            let dy = self.center_y - point.y;
+            let norm = ComplexField::sqrt(dx * dx + dy * dy);
 
             if norm > T::zero() {
                 Some(Point2D {
-                    x: dx / norm.clone(),
+                    x: dx / norm,
                     y: dy / norm,
                 })
             } else {
@@ -106,13 +110,13 @@ impl<T: RealField + Copy + SafeFromF64> Geometry<T> for AnnularDomain<T> {
             }
         } else if (distance - self.outer_radius).abs() < tol {
             // Point is on outer boundary, outward normal (away from center)
-            let dx = point.x.clone() - self.center_x.clone();
-            let dy = point.y.clone() - self.center_y.clone();
-            let norm = ComplexField::sqrt(dx.clone() * dx + dy.clone() * dy);
+            let dx = point.x - self.center_x;
+            let dy = point.y - self.center_y;
+            let norm = ComplexField::sqrt(dx * dx + dy * dy);
 
             if norm > T::zero() {
                 Some(Point2D {
-                    x: dx / norm.clone(),
+                    x: dx / norm,
                     y: dy / norm,
                 })
             } else {
@@ -148,12 +152,12 @@ impl<T: RealField + Copy + SafeFromF64> Geometry<T> for AnnularDomain<T> {
     fn bounds(&self) -> (Point2D<T>, Point2D<T>) {
         (
             Point2D {
-                x: self.center_x.clone() - self.outer_radius.clone(),
-                y: self.center_y.clone() - self.outer_radius.clone(),
+                x: self.center_x - self.outer_radius,
+                y: self.center_y - self.outer_radius,
             },
             Point2D {
-                x: self.center_x.clone() + self.outer_radius.clone(),
-                y: self.center_y.clone() + self.outer_radius.clone(),
+                x: self.center_x + self.outer_radius,
+                y: self.center_y + self.outer_radius,
             },
         )
     }
@@ -216,8 +220,8 @@ impl<T: RealField + Copy + SafeFromF64> Geometry<T> for AnnularDomain<T> {
         // Area of annulus: π(R² - r²) where R is outer radius, r is inner radius
         let pi =
             T::from_f64(std::f64::consts::PI).unwrap_or(T::from_f64(3.14159).unwrap_or(T::zero()));
-        let outer_area = pi.clone() * self.outer_radius.clone() * self.outer_radius.clone();
-        let inner_area = pi * self.inner_radius.clone() * self.inner_radius;
+        let outer_area = pi * self.outer_radius * self.outer_radius;
+        let inner_area = pi * self.inner_radius * self.inner_radius;
         outer_area - inner_area
     }
 }

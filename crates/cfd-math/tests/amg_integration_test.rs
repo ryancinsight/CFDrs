@@ -1,7 +1,7 @@
 //! Integration test for AMG preconditioner with BiCGSTAB and GMRES solvers
 
-use cfd_math::linear_solver::preconditioners::{
-    AMGConfig, AlgebraicMultigrid, CoarseningStrategy, MultigridCycle,
+use cfd_math::linear_solver::preconditioners::multigrid::{
+    AMGConfig, AlgebraicMultigrid, CoarseningStrategy, CycleType,
 };
 use cfd_math::linear_solver::{
     BiCGSTAB, IterativeLinearSolver, IterativeSolverConfig, Preconditioner, GMRES,
@@ -78,14 +78,15 @@ fn test_amg_with_bicgstab() {
 
     // Create AMG preconditioner
     let amg_config = AMGConfig {
-        cycle_type: MultigridCycle::V,
-        nu1: 2,
-        nu2: 2,
+        cycle_type: CycleType::VCycle,
+        pre_smooth_iterations: 2,
+        post_smooth_iterations: 2,
         max_levels: 5,
         min_coarse_size: 10,
-        coarsening: CoarseningStrategy::RugeStueben,
+        coarsening_strategy: CoarseningStrategy::RugeStueben,
+        ..Default::default()
     };
-    let amg = AlgebraicMultigrid::with_config(&matrix, amg_config).unwrap();
+    let amg = AlgebraicMultigrid::new(&matrix, amg_config).unwrap();
 
     // Create BiCGSTAB solver and solve with AMG preconditioner
     let solver_config = IterativeSolverConfig {
@@ -99,6 +100,9 @@ fn test_amg_with_bicgstab() {
     let mut solution = DVector::zeros(matrix.nrows());
     let result = solver.solve_preconditioned(&matrix, &rhs, &amg, &mut solution);
 
+    if let Err(ref e) = result {
+        println!("BiCGSTAB Error: {:?}", e);
+    }
     assert!(result.is_ok(), "BiCGSTAB with AMG should converge");
 
     // Check solution accuracy
@@ -114,7 +118,7 @@ fn test_amg_with_gmres() {
     let rhs = create_rhs(&matrix, &exact_solution);
 
     // Create AMG preconditioner
-    let amg = AlgebraicMultigrid::new(&matrix).unwrap();
+    let amg = AlgebraicMultigrid::new(&matrix, AMGConfig::default()).unwrap();
 
     // Create GMRES solver with AMG preconditioner
     let solver_config = IterativeSolverConfig {
@@ -128,6 +132,9 @@ fn test_amg_with_gmres() {
     let mut solution = DVector::zeros(matrix.nrows());
     let result = solver.solve_preconditioned(&matrix, &rhs, &amg, &mut solution);
 
+    if let Err(ref e) = result {
+        println!("GMRES Error: {:?}", e);
+    }
     assert!(result.is_ok(), "GMRES with AMG should converge");
 
     // Check solution accuracy
@@ -143,20 +150,20 @@ fn test_amg_different_cycles() {
     let rhs = create_rhs(&matrix, &exact_solution);
 
     // Test V-cycle
-    let amg_v = AlgebraicMultigrid::with_config(
+    let amg_v = AlgebraicMultigrid::new(
         &matrix,
         AMGConfig {
-            cycle_type: MultigridCycle::V,
+            cycle_type: CycleType::VCycle,
             ..Default::default()
         },
     )
     .unwrap();
 
     // Test W-cycle
-    let amg_w = AlgebraicMultigrid::with_config(
+    let amg_w = AlgebraicMultigrid::new(
         &matrix,
         AMGConfig {
-            cycle_type: MultigridCycle::W,
+            cycle_type: CycleType::WCycle,
             ..Default::default()
         },
     )
@@ -184,24 +191,25 @@ fn test_amg_different_cycles() {
 fn test_amg_construction_edge_cases() {
     // Test with very small matrix
     let small_matrix = create_poisson_matrix::<f64>(2); // 4 unknowns
-    let amg_small = AlgebraicMultigrid::new(&small_matrix);
+    let amg_small = AlgebraicMultigrid::new(&small_matrix, AMGConfig::default());
     assert!(amg_small.is_ok(), "AMG should handle small matrices");
 
     // Test with larger matrix
     let large_matrix = create_poisson_matrix::<f64>(16); // 256 unknowns
-    let amg_large = AlgebraicMultigrid::new(&large_matrix);
+    let amg_large = AlgebraicMultigrid::new(&large_matrix, AMGConfig::default());
     assert!(amg_large.is_ok(), "AMG should handle larger matrices");
 
     // Test custom configuration
     let custom_config = AMGConfig {
-        cycle_type: MultigridCycle::F,
-        nu1: 3,
-        nu2: 3,
+        cycle_type: CycleType::FCycle,
+        pre_smooth_iterations: 3,
+        post_smooth_iterations: 3,
         max_levels: 8,
         min_coarse_size: 5,
-        coarsening: CoarseningStrategy::Classical,
+        coarsening_strategy: CoarseningStrategy::RugeStueben, // Classical was renamed or doesn't exist
+        ..Default::default()
     };
-    let amg_custom = AlgebraicMultigrid::with_config(&large_matrix, custom_config);
+    let amg_custom = AlgebraicMultigrid::new(&large_matrix, custom_config);
     assert!(
         amg_custom.is_ok(),
         "AMG should accept custom configurations"

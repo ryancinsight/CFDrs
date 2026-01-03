@@ -77,7 +77,7 @@
 use super::basis::SpectralBasis;
 use super::poisson::{PoissonBoundaryCondition, PoissonSolver};
 use cfd_core::error::Result;
-use nalgebra::{DMatrix, RealField};
+use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
@@ -85,7 +85,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone)]
 pub struct PoissonProblem<T: RealField + Copy> {
     /// Source term field (right-hand side of Poisson equation)
-    pub source_term: DMatrix<T>,
+    /// Flattened 3D field of size nx * ny * nz
+    pub source_term: DVector<T>,
     /// Boundary conditions in x-direction (min, max)
     pub bc_x: (PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
     /// Boundary conditions in y-direction (min, max)
@@ -183,8 +184,8 @@ impl<T: RealField + FromPrimitive + Copy> SpectralSolver<T> {
 
 /// Solution from spectral solver
 pub struct SpectralSolution<T: RealField + Copy> {
-    /// Solution field
-    pub u: DMatrix<T>,
+    /// Solution field (flattened 3D)
+    pub u: DVector<T>,
     /// Grid dimensions
     pub nx: usize,
     /// Number of grid points in y-direction
@@ -198,7 +199,7 @@ impl<T: RealField + Copy> SpectralSolution<T> {
     #[must_use]
     pub fn new(nx: usize, ny: usize, nz: usize) -> Self {
         Self {
-            u: DMatrix::zeros(nx * ny, nz),
+            u: DVector::zeros(nx * ny * nz),
             nx,
             ny,
             nz,
@@ -211,7 +212,7 @@ impl<T: RealField + Copy> SpectralSolution<T> {
     where
         T: Clone,
     {
-        let idx = i * self.ny + j;
-        self.u[(idx, k)]
+        let idx = i * self.ny * self.nz + j * self.nz + k;
+        self.u[idx].clone()
     }
 }

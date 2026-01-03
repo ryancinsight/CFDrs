@@ -216,6 +216,8 @@
 
 use super::config::SmagorinskyConfig;
 use super::dynamic::update_dynamic_constant;
+#[cfg(feature = "gpu")]
+use super::gpu::compute_sgs_viscosity_gpu;
 use super::strain::compute_strain_rate_magnitude;
 use super::viscosity::compute_sgs_viscosity;
 use crate::physics::turbulence::boundary_conditions;

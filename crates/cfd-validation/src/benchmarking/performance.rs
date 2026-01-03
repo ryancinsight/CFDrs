@@ -65,7 +65,7 @@ impl fmt::Display for TimingResult {
                 if i > 0 {
                     write!(f, ", ")?;
                 }
-                write!(f, "{}={}", key, value)?;
+                write!(f, "{key}={value}")?;
             }
             write!(f, "]")?;
         }
@@ -129,7 +129,7 @@ impl PerformanceBenchmark {
     {
         // Warm-up phase
         for _ in 0..self.warm_up_iterations {
-            operation().map_err(|e| Error::InvalidInput(format!("Warm-up failed: {}", e)))?;
+            operation().map_err(|e| Error::InvalidInput(format!("Warm-up failed: {e}")))?;
         }
 
         // Measurement phase
@@ -141,7 +141,7 @@ impl PerformanceBenchmark {
 
             // Ensure minimum measurement time
             let start_instant = std::time::Instant::now();
-            operation().map_err(|e| Error::InvalidInput(format!("Operation failed: {}", e)))?;
+            operation().map_err(|e| Error::InvalidInput(format!("Operation failed: {e}")))?;
 
             // Pad measurement if too fast
             let elapsed = start_instant.elapsed().as_secs_f64();
@@ -585,7 +585,7 @@ impl CfdPerformanceBenchmarks {
 
             let matrix = builder.build()?;
             let vector = vec![1.0; matrix_size];
-            let mut result = vec![0.0; matrix_size];
+            let result = vec![0.0; matrix_size];
 
             let data_size = matrix.nnz() * 8 * 2; // nnz * 8 bytes * 2 (indices + values)
             let matrix_density = matrix.nnz() as f64 / (matrix_size * matrix_size) as f64;
@@ -611,7 +611,7 @@ impl CfdPerformanceBenchmarks {
             );
             println!("  Cache miss rate: {:.1}%", profile.cache_miss_rate * 100.0);
             for rec in &profile.recommendations {
-                println!("  💡 {}", rec);
+                println!("  💡 {rec}");
             }
 
             profiles.push(profile);
@@ -632,8 +632,8 @@ impl CfdPerformanceBenchmarks {
                 || {
                     for i in 0..100 {
                         for j in 0..100 {
-                            let x = i as f64 * 0.01;
-                            let y = j as f64 * 0.01;
+                            let x = f64::from(i) * 0.01;
+                            let y = f64::from(j) * 0.01;
                             let t = 0.0;
                             let _velocity = mms.exact_velocity(x, y, t);
                             let _pressure = mms.exact_pressure(x, y, t);
@@ -671,14 +671,14 @@ impl CfdPerformanceBenchmarks {
     where
         T: RealField + Copy + Scalar + std::fmt::Display,
     {
-        let mut result = vec![T::zero(); matrix.nrows()];
+        let result = vec![T::zero(); matrix.nrows()];
 
         self.benchmark.benchmark_simple(
             &format!("SPMV_{}x{}", matrix.nrows(), matrix.ncols()),
             || {
                 let matrix = &matrix;
                 let vector_dv = nalgebra::DVector::from_vec(vector.to_vec());
-                let mut result_dv = nalgebra::DVector::from_vec(result.to_vec());
+                let mut result_dv = nalgebra::DVector::from_vec(result.clone());
                 cfd_math::sparse::spmv(matrix, &vector_dv, &mut result_dv);
             },
         )
@@ -694,7 +694,7 @@ impl CfdPerformanceBenchmarks {
         T: nalgebra::RealField + Copy,
     {
         self.benchmark
-            .benchmark(&format!("Solver_{}", solver_name), || solver_fn())
+            .benchmark(&format!("Solver_{solver_name}"), solver_fn)
     }
 
     /// Benchmark grid operations
@@ -704,7 +704,7 @@ impl CfdPerformanceBenchmarks {
         operation: impl Fn(),
     ) -> Result<TimingResult> {
         self.benchmark
-            .benchmark_simple(&format!("Grid_{}", operation_name), operation)
+            .benchmark_simple(&format!("Grid_{operation_name}"), operation)
     }
 
     /// Benchmark CFD time stepping
@@ -714,7 +714,7 @@ impl CfdPerformanceBenchmarks {
         time_step_fn: impl Fn() -> Result<T>,
     ) -> Result<TimingResult> {
         self.benchmark
-            .benchmark(&format!("TimeStep_{}", scheme_name), time_step_fn)
+            .benchmark(&format!("TimeStep_{scheme_name}"), time_step_fn)
     }
 
     /// Run comprehensive CFD benchmark suite
@@ -783,7 +783,7 @@ impl Default for CfdPerformanceBenchmarks {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    // use approx::assert_relative_eq;
 
     #[test]
     fn test_performance_benchmark() {

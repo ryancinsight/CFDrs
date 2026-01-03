@@ -150,18 +150,10 @@ mod tests {
         let mut mesh = Mesh::new();
 
         // Add 4 vertices
-        mesh.add_vertex(cfd_mesh::topology::Vertex {
-            position: Point3::new(0.0, 0.0, 0.0),
-        });
-        mesh.add_vertex(cfd_mesh::topology::Vertex {
-            position: Point3::new(1.0, 0.0, 0.0),
-        });
-        mesh.add_vertex(cfd_mesh::topology::Vertex {
-            position: Point3::new(0.5, 1.0, 0.0),
-        });
-        mesh.add_vertex(cfd_mesh::topology::Vertex {
-            position: Point3::new(0.5, 0.5, 1.0),
-        });
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.0, 0.0, 0.0)));
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(1.0, 0.0, 0.0)));
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.5, 1.0, 0.0)));
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.5, 0.5, 1.0)));
 
         // Add 4 triangular faces
         let f0 = mesh.add_face(Face::triangle(0, 1, 2)); // bottom
@@ -191,21 +183,11 @@ mod tests {
         let mut mesh = Mesh::new();
 
         // Add 5 vertices
-        mesh.add_vertex(cfd_mesh::topology::Vertex {
-            position: Point3::new(0.0, 0.0, 0.0),
-        });
-        mesh.add_vertex(cfd_mesh::topology::Vertex {
-            position: Point3::new(1.0, 0.0, 0.0),
-        });
-        mesh.add_vertex(cfd_mesh::topology::Vertex {
-            position: Point3::new(0.5, 1.0, 0.0),
-        });
-        mesh.add_vertex(cfd_mesh::topology::Vertex {
-            position: Point3::new(0.5, 0.5, 1.0),
-        });
-        mesh.add_vertex(cfd_mesh::topology::Vertex {
-            position: Point3::new(1.5, 0.5, 1.0),
-        });
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.0, 0.0, 0.0)));
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(1.0, 0.0, 0.0)));
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.5, 1.0, 0.0)));
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(0.5, 0.5, 1.0)));
+        mesh.add_vertex(cfd_mesh::topology::Vertex::new(Point3::new(1.5, 0.5, 1.0)));
 
         // First tetrahedron faces
         let f0 = mesh.add_face(Face::triangle(0, 1, 2)); // bottom tet1

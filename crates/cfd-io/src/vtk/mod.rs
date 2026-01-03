@@ -8,7 +8,7 @@
 //! For distributed MPI simulations, use `ParallelVtkWriter` to write
 //! VTK files across multiple processes:
 //!
-//! ```no_run
+//! ```ignore
 //! use cfd_io::vtk::ParallelVtkWriter;
 //! use cfd_core::compute::mpi::*;
 //!

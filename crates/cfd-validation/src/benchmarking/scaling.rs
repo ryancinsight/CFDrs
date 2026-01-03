@@ -3,7 +3,6 @@
 //! Analyzes weak and strong scaling behavior, parallel efficiency,
 //! and identifies scaling bottlenecks in CFD algorithms.
 
-use super::performance::TimingResult;
 use cfd_core::error::{Error, Result};
 use std::collections::HashMap;
 
@@ -142,7 +141,7 @@ impl ScalingAnalysis {
             .ok_or_else(|| Error::InvalidInput("No reference timing found".to_string()))?;
 
         for (processor_count, exec_time) in timing_results {
-            let problem_sizes = vec![problem_size];
+            let _problem_sizes = [problem_size];
             let key = (problem_size, *processor_count);
 
             execution_times.insert(key, *exec_time);
@@ -150,8 +149,8 @@ impl ScalingAnalysis {
             parallel_efficiency.insert(key, (reference_time / exec_time) / *processor_count as f64);
         }
 
-        let metrics =
-            self.calculate_scaling_metrics(&processor_counts, &parallel_efficiency, problem_size);
+        let keys: Vec<(usize, usize)> = processor_counts.iter().map(|&p| (problem_size, p)).collect();
+        let metrics = self.calculate_scaling_metrics(&keys, &parallel_efficiency);
 
         Ok(ScalingResult {
             scaling_type: ScalingType::Strong,
@@ -191,26 +190,25 @@ impl ScalingAnalysis {
             })?;
 
         let reference_time = reference_result.2;
-        let reference_problem_size = reference_result.1;
+        let _reference_problem_size = reference_result.1;
 
         for (processor_count, problem_size, exec_time) in scaling_results {
             let key = (*problem_size, *processor_count);
 
             execution_times.insert(key, *exec_time);
 
-            // For weak scaling, speedup should be 1.0 for perfect scaling
-            // (time should remain constant as problem size scales with processors)
-            let expected_time = reference_time
-                * (*processor_count as f64)
-                * (*problem_size as f64 / reference_problem_size as f64);
-            let speedup = expected_time / exec_time;
-            speedup_factors.insert(key, speedup);
+            // For weak scaling, ideal behavior is constant execution time
+            // Efficiency E = T(1) / T(p)
+            let efficiency = reference_time / exec_time;
+            parallel_efficiency.insert(key, efficiency);
 
-            // Efficiency is speedup / ideal speedup (which is processor_count for weak scaling)
-            parallel_efficiency.insert(key, speedup / *processor_count as f64);
+            // Speedup S = p * E = p * T(1) / T(p)
+            let speedup = (*processor_count as f64) * efficiency;
+            speedup_factors.insert(key, speedup);
         }
 
-        let metrics = self.calculate_scaling_metrics(&processor_counts, &parallel_efficiency, 0);
+        let keys: Vec<(usize, usize)> = scaling_results.iter().map(|(p, s, _)| (*s, *p)).collect();
+        let metrics = self.calculate_scaling_metrics(&keys, &parallel_efficiency);
 
         Ok(ScalingResult {
             scaling_type: ScalingType::Weak,
@@ -226,20 +224,24 @@ impl ScalingAnalysis {
     /// Calculate overall scaling metrics
     fn calculate_scaling_metrics(
         &self,
-        processor_counts: &[usize],
+        keys: &[(usize, usize)],
         parallel_efficiency: &HashMap<(usize, usize), f64>,
-        problem_size: usize,
     ) -> ScalingMetrics {
         let mut total_efficiency = 0.0;
         let mut count = 0;
         let mut max_speedup = 0.0;
         let mut scaling_limit = None;
 
-        for &procs in processor_counts {
+        for &(problem_size, procs) in keys {
             let key = (problem_size, procs);
             if let Some(&efficiency) = parallel_efficiency.get(&key) {
                 total_efficiency += efficiency;
                 count += 1;
+
+                let speedup = procs as f64 * efficiency;
+                if speedup > max_speedup {
+                    max_speedup = speedup;
+                }
 
                 if efficiency < self.config.efficiency_threshold && scaling_limit.is_none() {
                     scaling_limit = Some(procs);
@@ -248,29 +250,26 @@ impl ScalingAnalysis {
         }
 
         let avg_parallel_efficiency = if count > 0 {
-            total_efficiency / count as f64
+            total_efficiency / f64::from(count)
         } else {
             0.0
         };
 
         // Calculate scaling efficiency at maximum processors
-        let max_procs = *processor_counts.iter().max().unwrap_or(&1);
-        let scaling_efficiency = parallel_efficiency
-            .get(&(problem_size, max_procs))
+        let max_procs_key = keys
+            .iter()
+            .max_by_key(|(_, procs)| procs)
             .copied()
-            .unwrap_or(0.0);
+            .unwrap_or((0, 1));
+        let scaling_efficiency = parallel_efficiency.get(&max_procs_key).copied().unwrap_or(0.0);
 
         // Estimate communication overhead (simplified)
-        let communication_overhead = if processor_counts.len() > 1 {
-            let single_proc_time = parallel_efficiency
-                .get(&(problem_size, 1))
-                .copied()
-                .unwrap_or(1.0);
-            let multi_proc_efficiency = parallel_efficiency
-                .get(&(problem_size, processor_counts[1]))
-                .copied()
-                .unwrap_or(1.0);
-            1.0 - multi_proc_efficiency / single_proc_time
+        let communication_overhead = if keys.len() > 1 {
+            let first_key = keys[0];
+            let second_key = keys[1];
+            let single_proc_efficiency = parallel_efficiency.get(&first_key).copied().unwrap_or(1.0);
+            let multi_proc_efficiency = parallel_efficiency.get(&second_key).copied().unwrap_or(1.0);
+            1.0 - multi_proc_efficiency / single_proc_efficiency
         } else {
             0.0
         };
@@ -312,8 +311,7 @@ impl ScalingAnalysis {
 
         if let Some(limit) = result.metrics.scaling_limit {
             recommendations.push(format!(
-                "Scaling limit reached at {} processors - efficiency drops below threshold",
-                limit
+                "Scaling limit reached at {limit} processors - efficiency drops below threshold"
             ));
         }
 
@@ -418,13 +416,13 @@ impl CfdScalingAnalysis {
         // Solver scaling
         match self.analyze_cfd_solver_scaling() {
             Ok(result) => results.push(("CFD_Solver_Scaling".to_string(), result)),
-            Err(e) => println!("Warning: CFD solver scaling analysis failed: {}", e),
+            Err(e) => println!("Warning: CFD solver scaling analysis failed: {e}"),
         }
 
         // Grid scaling
         match self.analyze_grid_scaling() {
             Ok(result) => results.push(("CFD_Grid_Scaling".to_string(), result)),
-            Err(e) => println!("Warning: CFD grid scaling analysis failed: {}", e),
+            Err(e) => println!("Warning: CFD grid scaling analysis failed: {e}"),
         }
 
         Ok(results)
@@ -459,7 +457,7 @@ impl std::fmt::Display for ScalingResult {
             self.metrics.scaling_efficiency
         )?;
         if let Some(limit) = self.metrics.scaling_limit {
-            writeln!(f, "  Scaling Limit: {} processors", limit)?;
+            writeln!(f, "  Scaling Limit: {limit} processors")?;
         }
         writeln!(
             f,

@@ -188,8 +188,6 @@ fn test_turbulent_boundary_layer() {
     // Test profile across boundary layer
     let y_points = [0.001, 0.01, 0.05, 0.1, 0.2, 0.5];
 
-    let mut prev_k = f64::INFINITY;
-
     for &y in &y_points {
         let k = mms.exact_solution(x, y, 0.0, t);
         let source = mms.source_term(x, y, 0.0, t);
@@ -200,8 +198,6 @@ fn test_turbulent_boundary_layer() {
         // k should generally increase away from wall (though this is simplified)
         // In reality, k peaks in log layer, but our simple MMS may not capture this
         assert!(k.is_finite(), "k must be finite");
-
-        prev_k = k;
     }
 
     println!("✓ Turbulent boundary layer behavior validated");

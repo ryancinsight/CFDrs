@@ -65,8 +65,8 @@
 //! - Girault, V. & Raviart, P.A. (1986). *Finite Element Methods for Navier-Stokes Equations*
 
 use cfd_core::boundary::BoundaryCondition;
-use cfd_core::error::Result;
-use cfd_math::linear_solver::{ConjugateGradient, LinearSolver};
+use cfd_core::error::{Error, Result};
+use cfd_math::linear_solver::{BiCGSTAB, LinearSolver};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use nalgebra::{DVector, RealField, Vector3};
 use num_traits::{Float, FromPrimitive};
@@ -86,15 +86,14 @@ pub struct FemSolver<T: RealField + Copy> {
 }
 
 /// Extract vertex indices from a cell
-fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) -> Vec<usize> {
+fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) -> Result<Vec<usize>> {
     // For tetrahedral elements, extract 4 unique vertex indices from faces
     let mut indices = Vec::with_capacity(4);
-    let mut seen = std::collections::HashSet::new();
 
     for &face_idx in &cell.faces {
         if let Some(face) = mesh.face(face_idx) {
             for &vertex_idx in &face.vertices {
-                if seen.insert(vertex_idx) && indices.len() < 4 {
+                if !indices.contains(&vertex_idx) {
                     indices.push(vertex_idx);
                 }
             }
@@ -105,17 +104,20 @@ fn extract_vertex_indices<T: RealField + Copy>(cell: &Cell, mesh: &Mesh<T>) -> V
     }
 
     // Ensure we have exactly 4 indices for tetrahedral element
-    while indices.len() < 4 {
-        indices.push(0);
+    if indices.len() != 4 {
+        return Err(Error::InvalidConfiguration(format!(
+            "Invalid cell topology: expected 4 unique vertices for tetrahedral element, found {}",
+            indices.len()
+        )));
     }
 
-    indices
+    Ok(indices)
 }
 
 impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
     /// Create a new FEM solver
     pub fn new(config: FemConfig<T>) -> Self {
-        let linear_solver: Box<dyn LinearSolver<T>> = Box::new(ConjugateGradient::new(
+        let linear_solver: Box<dyn LinearSolver<T>> = Box::new(BiCGSTAB::new(
             cfd_math::linear_solver::IterativeSolverConfig::default(),
         ));
 
@@ -127,6 +129,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
 
     /// Solve the Stokes flow problem
     pub fn solve(&mut self, problem: &StokesFlowProblem<T>) -> Result<StokesFlowSolution<T>> {
+        tracing::info!("Starting Stokes flow solver");
         // Validate problem setup
         problem.validate()?;
 
@@ -134,6 +137,8 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         let n_velocity_dof = n_nodes * constants::VELOCITY_COMPONENTS;
         let n_pressure_dof = n_nodes;
         let n_total_dof = n_velocity_dof + n_pressure_dof;
+
+        tracing::debug!("System size: {} nodes, {} total DOFs", n_nodes, n_total_dof);
 
         // Assemble global system
         let (matrix, rhs) = self.assemble_system(problem)?;
@@ -162,10 +167,10 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         &self,
         problem: &StokesFlowProblem<T>,
     ) -> Result<(SparseMatrix<T>, DVector<T>)> {
-        let n_nodes = problem.mesh.vertex_count();
-        let n_velocity_dof = n_nodes * constants::VELOCITY_COMPONENTS;
-        let n_pressure_dof = n_nodes;
-        let n_total_dof = n_velocity_dof + n_pressure_dof;
+        let n_nodes: usize = problem.mesh.vertex_count();
+        let n_velocity_dof: usize = n_nodes * constants::VELOCITY_COMPONENTS;
+        let n_pressure_dof: usize = n_nodes;
+        let n_total_dof: usize = n_velocity_dof + n_pressure_dof;
 
         let mut builder = SparseMatrixBuilder::new(n_total_dof, n_total_dof);
         let mut rhs = DVector::zeros(n_total_dof);
@@ -176,7 +181,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         // Loop over elements
         for cell in problem.mesh.cells() {
             // Get vertex indices for this cell
-            let vertex_indices = extract_vertex_indices(cell, &problem.mesh);
+            let vertex_indices = extract_vertex_indices(cell, &problem.mesh)?;
 
             // Create element
             let mut element = FluidElement::new(vertex_indices);
@@ -212,10 +217,10 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
         element: &FluidElement<T>,
         viscosity: T,
     ) -> ElementMatrices<T> {
-        let n_nodes = element.nodes.len();
-        let n_velocity_dof = n_nodes * constants::VELOCITY_COMPONENTS;
-        let n_pressure_dof = n_nodes;
-        let n_dof = n_velocity_dof + n_pressure_dof;
+        let n_nodes: usize = element.nodes.len();
+        let n_velocity_dof: usize = n_nodes * constants::VELOCITY_COMPONENTS;
+        let n_pressure_dof: usize = n_nodes;
+        let n_dof: usize = n_velocity_dof + n_pressure_dof;
 
         let mut matrices = ElementMatrices::new(n_dof);
 
@@ -385,7 +390,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                     // General Dirichlet: fixed value for all components
                     // This is a simplified implementation - in practice, different
                     // components may have different boundary values
-                    for i in 0..(constants::VELOCITY_COMPONENTS + 1) {
+                    for i in 0..=constants::VELOCITY_COMPONENTS {
                         let component_dof = dof + i;
                         builder.add_entry(component_dof, component_dof, penalty)?;
                         if component_dof < rhs.len() {
@@ -399,7 +404,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                     // This simplified implementation uses weak enforcement
                     // For proper implementation, boundary element matrices would be needed
                     // For now, we apply a weak form via penalty method
-                    for i in 0..(constants::VELOCITY_COMPONENTS + 1) {
+                    for i in 0..=constants::VELOCITY_COMPONENTS {
                         let component_dof = dof + i;
                         // For Neumann, we modify the RHS instead of adding penalty to diagonal
                         // This is a simplified approach - proper implementation needs boundary elements
@@ -418,7 +423,7 @@ impl<T: RealField + FromPrimitive + Copy + Float> FemSolver<T> {
                     // Robin: αu + β∂u/∂n = γ
                     // This is complex to implement properly in FEM without boundary elements
                     // Simplified implementation using penalty method
-                    for i in 0..(constants::VELOCITY_COMPONENTS + 1) {
+                    for i in 0..=constants::VELOCITY_COMPONENTS {
                         let component_dof = dof + i;
                         let robin_penalty = penalty * *alpha; // Weight by α coefficient
                         builder.add_entry(component_dof, component_dof, robin_penalty)?;

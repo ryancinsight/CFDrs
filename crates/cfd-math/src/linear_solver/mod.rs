@@ -22,11 +22,11 @@
 mod bicgstab;
 mod config;
 mod conjugate_gradient;
+mod traits;
+pub mod operators;
 pub mod gmres;
 pub mod matrix_free;
-pub mod multigrid;
 pub mod preconditioners;
-mod traits;
 
 pub use bicgstab::BiCGSTAB;
 pub use config::IterativeSolverConfig;
@@ -39,19 +39,16 @@ pub use matrix_free::{
     ParallelMatrixFreeBiCGSTAB,
 };
 pub use matrix_free::{
-    EnergyOperator2D, LaplacianOperator2D, LinearOperator, MatrixFreeBiCGSTAB, MatrixFreeCG,
-    MatrixFreeGMRES, MomentumOperator1D, MomentumOperator2D, PoissonOperator3D,
+    EnergyOperator2D, LaplacianOperator2D, LinearOperator,
+    MomentumOperator1D, MomentumOperator2D, PoissonOperator3D,
 };
+
 pub use preconditioners::{
-    AMGConfig, AlgebraicMultigrid, CoarseningStrategy, DeflationPreconditioner,
-    IdentityPreconditioner, IncompleteLU, JacobiPreconditioner, MultigridCycle, SORPreconditioner,
-    SerialSchwarzPreconditioner,
+    AlgebraicMultigrid, DeflationPreconditioner, IdentityPreconditioner, IncompleteLU,
+    JacobiPreconditioner, SORPreconditioner, SerialSchwarzPreconditioner, SSOR,
 };
-#[cfg(feature = "mpi")]
-pub use preconditioners::{
-    AdditiveSchwarzPreconditioner, CoarseningStrategy, ParallelAMGPreconditioner,
-    ParallelBlockJacobiPreconditioner,
-};
+pub use preconditioners::multigrid::AMGConfig;
+
 pub use traits::{Configurable, IterativeLinearSolver, LinearSolver, Preconditioner};
 
 // REMOVED: Dependencies on cfd-core break the dependency hierarchy.

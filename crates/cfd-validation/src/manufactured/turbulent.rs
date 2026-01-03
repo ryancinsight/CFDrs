@@ -39,12 +39,12 @@ impl<T: RealField + Copy> ManufacturedKEpsilon<T> {
 }
 
 impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKEpsilon<T> {
-    fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
+    fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Turbulent kinetic energy: k = A * sin(kx*x) * sin(ky*y) * exp(-t)
         ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky) * self.amplitude
     }
 
-    fn source_term(&self, x: T, y: T, z: T, t: T) -> T {
+    fn source_term(&self, x: T, y: T, _z: T, t: T) -> T {
         // Exact analytical source term for k-ε MMS validation
         // k-equation: ∂k/∂t + U_j ∂k/∂x_j = P_k - ε + ∇·(ν_t ∇k)
 
@@ -124,6 +124,7 @@ pub struct ManufacturedKOmega<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> ManufacturedKOmega<T> {
+    /// Create a new manufactured k-ω solution
     pub fn new(kx: T, ky: T, k_amplitude: T, omega_amplitude: T, nu_t: T) -> Self {
         Self {
             kx,
@@ -136,12 +137,12 @@ impl<T: RealField + Copy> ManufacturedKOmega<T> {
 }
 
 impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKOmega<T> {
-    fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
+    fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Return k for now - in practice would need to specify which quantity
         ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky) * self.k_amplitude
     }
 
-    fn source_term(&self, x: T, y: T, z: T, t: T) -> T {
+    fn source_term(&self, x: T, y: T, _z: T, t: T) -> T {
         // Exact analytical source term for k-ω MMS validation
         // k-equation: ∂k/∂t + U_j ∂k/∂x_j = P_k - β* k ω + ∇·(ν_t ∇k)
 
@@ -224,6 +225,7 @@ pub struct ManufacturedSpalartAllmaras<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> ManufacturedSpalartAllmaras<T> {
+    /// Create a new manufactured solution for Spalart-Allmaras
     pub fn new(kx: T, ky: T, amplitude: T, wall_distance: T) -> Self {
         Self {
             kx,
@@ -235,7 +237,7 @@ impl<T: RealField + Copy> ManufacturedSpalartAllmaras<T> {
 }
 
 impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedSpalartAllmaras<T> {
-    fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
+    fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Modified vorticity ν̃ = ν + ν_t
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
         let wall_factor = if self.wall_distance < T::from_f64_or_one(10.0) {
@@ -301,16 +303,20 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedSpalartAllmara
 pub struct ManufacturedReynoldsStress<T: RealField + Copy> {
     /// Wave numbers
     pub kx: T,
+    /// Wave number in y-direction
     pub ky: T,
     /// Amplitudes for different stress components
     pub uu_amp: T,
+    /// Amplitude for vv stress component
     pub vv_amp: T,
+    /// Amplitude for uv stress component
     pub uv_amp: T,
     /// Mean strain rate
     pub strain_rate: T,
 }
 
 impl<T: RealField + Copy> ManufacturedReynoldsStress<T> {
+    /// Create a new manufactured solution for Reynolds stress components
     pub fn new(kx: T, ky: T, uu_amp: T, vv_amp: T, uv_amp: T, strain_rate: T) -> Self {
         Self {
             kx,
@@ -324,7 +330,7 @@ impl<T: RealField + Copy> ManufacturedReynoldsStress<T> {
 }
 
 impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedReynoldsStress<T> {
-    fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
+    fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Return -uv (Reynolds shear stress) as primary quantity
         ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky) * self.uv_amp
     }
@@ -355,7 +361,7 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedReynoldsStress
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    // use approx::assert_relative_eq;
 
     #[test]
     fn test_k_epsilon_manufactured_solution() {

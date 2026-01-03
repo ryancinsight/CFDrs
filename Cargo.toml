@@ -108,6 +108,7 @@ gpu = ["cfd-core/gpu", "dep:wgpu"]
 hdf5 = ["cfd-io/hdf5"]
 csg = ["cfd-mesh/csg", "cfd-3d/csg"]
 mpi = ["cfd-core/mpi", "dep:mpi"]
+simd = ["cfd-core/simd"]
 scheme-integration = []
 
 [dependencies]
@@ -210,4 +211,33 @@ harness = false
 
 [[bench]]
 name = "comprehensive_cfd_benchmarks"
+harness = false
+
+[[bench]]
+name = "gpu_turbulence_benchmark"
+harness = false
+
+[[bench]]
+name = "solver_performance"
+harness = false
+
+[[bench]]
+name = "preconditioner_benchmark"
+harness = false
+
+[[bench]]
+name = "turbulence_model_benchmarks"
+harness = false
+
+[[bench]]
+name = "vector_simd_benchmark"
+harness = false
+
+[[bench]]
+name = "cfd_3d_benchmarks"
+harness = false
+
+[[bench]]
+name = "scaling_analysis"
+path = "benches/cfd_suite/scaling_analysis.rs"
 harness = false

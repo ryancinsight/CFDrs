@@ -16,7 +16,7 @@ pub use json::JsonReporter;
 pub use markdown::MarkdownReporter;
 pub use summary::{PerformanceMetrics, ValidationSummary};
 
-use cfd_core::error::{Error, Result};
+use cfd_core::error::Result;
 use std::collections::HashMap;
 use std::time::SystemTime;
 
@@ -42,52 +42,79 @@ pub struct ValidationReport {
 /// Test category results
 #[derive(Debug, Clone)]
 pub struct TestCategory {
+    /// Name of the test category
     pub name: String,
+    /// Number of passed tests
     pub passed: usize,
+    /// Number of failed tests
     pub failed: usize,
+    /// Number of skipped tests
     pub skipped: usize,
+    /// Total number of tests
     pub total: usize,
+    /// Test coverage percentage
     pub coverage_percentage: f64,
+    /// Detailed test results
     pub details: Vec<TestResult>,
 }
 
 /// Individual test result
 #[derive(Debug, Clone)]
 pub struct TestResult {
+    /// Name of the test
     pub name: String,
+    /// Execution status
     pub status: TestStatus,
+    /// Execution duration in milliseconds
     pub duration_ms: f64,
+    /// Error message if failed
     pub error_message: Option<String>,
+    /// Coverage data if available
     pub coverage_data: Option<String>,
 }
 
 /// Test execution status
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TestStatus {
+    /// Test passed
     Passed,
+    /// Test failed
     Failed,
+    /// Test was skipped
     Skipped,
+    /// Test timed out
     Timeout,
 }
 
 /// Performance benchmark report
 #[derive(Debug, Clone)]
 pub struct PerformanceReport {
+    /// Name of the benchmark
     pub benchmark_name: String,
+    /// Performance metrics
     pub metrics: PerformanceMetrics,
+    /// Percentage change if regression detected
     pub regression_detected: Option<f64>, // percentage change
+    /// Baseline metrics for comparison
     pub baseline_comparison: Option<PerformanceMetrics>,
 }
 
 /// Code quality report
 #[derive(Debug, Clone)]
 pub struct CodeQualityReport {
+    /// Total lines of code
     pub lines_of_code: usize,
+    /// Test coverage percentage
     pub test_coverage: f64,
+    /// Documentation coverage percentage
     pub documentation_coverage: f64,
+    /// Number of clippy warnings
     pub clippy_warnings: usize,
+    /// Number of compiler errors
     pub compiler_errors: usize,
+    /// Cyclomatic complexity score
     pub cyclomatic_complexity: f64,
+    /// Maintainability index
     pub maintainability_index: f64,
 }
 
@@ -102,6 +129,7 @@ pub struct ReportBuilder {
 }
 
 impl ReportBuilder {
+    /// Create a new report builder with the specified title
     pub fn new(title: String) -> Self {
         Self {
             title,
@@ -113,31 +141,37 @@ impl ReportBuilder {
         }
     }
 
+    /// Set the validation summary
     pub fn with_summary(mut self, summary: ValidationSummary) -> Self {
         self.summary = summary;
         self
     }
 
+    /// Add a test category result
     pub fn add_test_category(mut self, category: TestCategory) -> Self {
         self.test_results.insert(category.name.clone(), category);
         self
     }
 
+    /// Add a performance benchmark report
     pub fn add_performance_report(mut self, report: PerformanceReport) -> Self {
         self.performance.push(report);
         self
     }
 
+    /// Set code quality metrics
     pub fn with_code_quality(mut self, quality: CodeQualityReport) -> Self {
         self.code_quality = quality;
         self
     }
 
+    /// Add a recommendation for improvement
     pub fn add_recommendation(mut self, recommendation: String) -> Self {
         self.recommendations.push(recommendation);
         self
     }
 
+    /// Build the final validation report
     pub fn build(self) -> ValidationReport {
         ValidationReport {
             timestamp: SystemTime::now(),
@@ -230,6 +264,7 @@ impl ValidationReport {
 
 /// Reporter trait for different output formats
 pub trait Reporter {
+    /// Generate report string from validation report data
     fn generate_report(&self, report: &ValidationReport) -> Result<String>;
 }
 
@@ -240,7 +275,7 @@ impl AutomatedReporter {
     /// Generate comprehensive validation report from test results
     pub fn generate_from_tests(
         test_output: &str,
-        coverage_data: Option<&str>,
+        _coverage_data: Option<&str>,
     ) -> Result<ValidationReport> {
         let mut builder = ReportBuilder::new("CFD Validation Report".to_string());
 
@@ -295,13 +330,12 @@ impl AutomatedReporter {
         // Simplified parsing - would need more robust implementation
         let lines: Vec<&str> = output.lines().collect();
 
-        let mut total_tests = 0;
         let mut passed_tests = 0;
-        let mut failed_tests = 0;
+        let failed_tests = 0;
 
         for line in lines {
-            if line.contains("test result:") {
-                if line.contains("ok") {
+            if line.contains("test result:")
+                && line.contains("ok") {
                     // Parse "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
                     if let Some(passed_str) = line.split("passed").next() {
                         if let Some(num_str) = passed_str.split("ok. ").nth(1) {
@@ -311,10 +345,9 @@ impl AutomatedReporter {
                         }
                     }
                 }
-            }
         }
 
-        total_tests = passed_tests; // Simplified - assuming no failures in this example
+        let total_tests = passed_tests; // Simplified - assuming no failures in this example
 
         Ok(ValidationSummary {
             total_tests,

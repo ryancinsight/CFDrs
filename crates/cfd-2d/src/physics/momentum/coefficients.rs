@@ -53,6 +53,8 @@ use num_traits::FromPrimitive;
 pub struct MomentumCoefficients<T: RealField + Copy> {
     /// Central coefficient (aP)
     pub ap: Field2D<T>,
+    /// Consistent diagonal coefficient (aP - sum(aNb)) for SIMPLEC
+    pub ap_consistent: Field2D<T>,
     /// East coefficient (aE)
     pub ae: Field2D<T>,
     /// West coefficient (aW)
@@ -141,6 +143,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
     ) -> cfd_core::error::Result<Self> {
         let mut coeffs = Self {
             ap: Field2D::new(nx, ny, T::zero()),
+            ap_consistent: Field2D::new(nx, ny, T::zero()),
             ae: Field2D::new(nx, ny, T::zero()),
             aw: Field2D::new(nx, ny, T::zero()),
             an: Field2D::new(nx, ny, T::zero()),
@@ -343,6 +346,20 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                     + coeffs.as_.at(i, j);
                 if let Some(ap) = coeffs.ap.at_mut(i, j) {
                     *ap = ap_sum + rho * volume / dt;
+                }
+
+                // SIMPLEC consistent diagonal: aP - sum(aNb)
+                // This represents the part of aP that does not depend on neighbor velocities.
+                // For SIMPLEC consistency, we use this in the velocity correction equation.
+                if let Some(ap_c) = coeffs.ap_consistent.at_mut(i, j) {
+                    // Start with the time term
+                    let time_term = rho * volume / dt;
+                    
+                    // Add a small epsilon to ensure we never divide by zero in steady state
+                    // This is standard practice in SIMPLEC implementations
+                    let eps = T::from_f64(1e-10).unwrap_or_else(T::zero);
+                    
+                    *ap_c = time_term + eps;
                 }
 
                 // Source term (including previous time step and pressure gradient)

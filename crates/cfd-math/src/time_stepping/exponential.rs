@@ -57,12 +57,18 @@
 //!
 //! ```rust
 //! use cfd_math::time_stepping::exponential::*;
+//! use nalgebra::DVector;
 //!
 //! // Create exponential integrator for stiff system
 //! let integrator = ExponentialRungeKutta4::new();
 //!
+//! // Define stiff ODE system: du/dt = f(u)
+//! let u = DVector::from_element(10, 1.0);
+//! let dt = 0.01;
+//! let rhs_function = |u: &DVector<f64>| -u.clone();
+//!
 //! // Solve stiff ODE system
-//! let solution = integrator.step(&u, &rhs_function, dt)?;
+//! let solution = integrator.step(&u, &rhs_function, dt).unwrap();
 //! ```
 //!
 //! ## References
@@ -107,6 +113,7 @@ impl Default for ExponentialConfig {
 
 /// Exponential Time Differencing (ETD) schemes
 pub struct ExponentialTimeDifferencing<T: RealField + Copy> {
+    #[allow(dead_code)]
     config: ExponentialConfig,
     _phantom: std::marker::PhantomData<T>,
 }
@@ -195,6 +202,7 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialTimeDifferen
 
 /// Exponential Runge-Kutta methods
 pub struct ExponentialRungeKutta4<T: RealField + Copy> {
+    #[allow(dead_code)]
     config: ExponentialConfig,
     _phantom: std::marker::PhantomData<T>,
 }
@@ -322,7 +330,7 @@ impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialTimeDifferen
 
         for n in 1..20 {
             // Truncate series
-            factorial = factorial * T::from_f64(n as f64).unwrap();
+            factorial *= T::from_f64(f64::from(n)).unwrap();
             term = matrix * &term / factorial;
 
             if term.norm() < T::from_f64(1e-14).unwrap() {

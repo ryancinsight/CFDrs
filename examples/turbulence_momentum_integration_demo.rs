@@ -13,7 +13,7 @@
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::physics::momentum::{ConvectionScheme, MomentumComponent, MomentumSolver};
-use cfd_2d::physics::turbulence::{KOmegaSSTModel, TurbulenceModel};
+use cfd_2d::physics::turbulence::KOmegaSSTModel;
 use cfd_2d::schemes::time::{
     AdaptationStrategy, AdaptiveController, AdaptiveTimeIntegrator, TimeScheme,
 };
@@ -109,7 +109,7 @@ fn demonstrate_laminar_tvd_adaptive(
         safety_factor: 0.8,
     };
     let controller = AdaptiveController::new(0.001, adaptive_strategy);
-    let mut time_integrator = AdaptiveTimeIntegrator::new(TimeScheme::RungeKutta4, controller);
+    let time_integrator = AdaptiveTimeIntegrator::new(TimeScheme::RungeKutta4, controller);
 
     println!("Configuration:");
     println!("  Discretization: TVD Superbee (higher-order upwind)");
@@ -243,7 +243,7 @@ fn demonstrate_combined_turbulence_adaptive(
         solver.solve(MomentumComponent::U, fields, dt)?;
 
         // Time integration with error control
-        let (y_new, t_new, dt_new, accepted) = time_integrator.step_error_adaptive(
+        let (_y_new, t_new, dt_new, accepted) = time_integrator.step_error_adaptive(
             |_, y| DVector::from_vec(vec![0.0; y.len()]), // Placeholder RHS for demo
             &DVector::from_vec(vec![1.0]),                // Placeholder solution
             t,

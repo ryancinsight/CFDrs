@@ -4,8 +4,7 @@
 //! communication overlap techniques and load balancing optimizations
 //! for large-scale distributed CFD simulations.
 
-use super::operator::LinearOperator;
-use super::traits::MatrixFreeSolver;
+use crate::linear_solver::traits::LinearOperator;
 use crate::linear_solver::config::IterativeSolverConfig;
 #[cfg(feature = "mpi")]
 use cfd_core::compute::mpi::{DistributedVector, MpiCommunicator, MpiResult};

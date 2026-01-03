@@ -93,7 +93,7 @@ const RESISTANCE_DIVISOR: f64 = 2.0;
 
 // Named constants for friction factor calculations
 const LAMINAR_FRICTION_COEFFICIENT: f64 = 64.0;
-const LAMINAR_TRANSITION_RE: f64 = 2000.0;
+const LAMINAR_TRANSITION_RE: f64 = 2300.0;
 const HAALAND_ROUGHNESS_DIVISOR: f64 = 3.6;
 const HAALAND_REYNOLDS_FACTOR: f64 = 6.9;
 const LOG_BASE_10: f64 = 10.0;
@@ -106,54 +106,94 @@ const MAX_REYNOLDS: f64 = 1e8;
 pub struct DarcyWeisbachModel<T: RealField + Copy> {
     /// Hydraulic diameter [m]
     pub hydraulic_diameter: T,
+    /// Channel cross-sectional area [m²]
+    pub area: T,
     /// Channel length [m]
     pub length: T,
     /// Surface roughness [m]
     pub roughness: T,
 }
 
-impl<T: RealField + Copy> DarcyWeisbachModel<T> {
+impl<T: RealField + Copy + FromPrimitive> DarcyWeisbachModel<T> {
     /// Create a new Darcy-Weisbach model
-    pub fn new(hydraulic_diameter: T, length: T, roughness: T) -> Self {
+    pub fn new(hydraulic_diameter: T, area: T, length: T, roughness: T) -> Self {
         Self {
             hydraulic_diameter,
+            area,
+            length,
+            roughness,
+        }
+    }
+
+    /// Create a new Darcy-Weisbach model for a circular pipe
+    pub fn circular(diameter: T, length: T, roughness: T) -> Self {
+        let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero());
+        let area = pi * diameter * diameter / T::from_f64(4.0).unwrap_or_else(|| T::zero());
+        Self {
+            hydraulic_diameter: diameter,
+            area,
             length,
             roughness,
         }
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
+impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
     for DarcyWeisbachModel<T>
 {
     fn calculate_resistance(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<T> {
+        let (r, k) = self.calculate_coefficients(fluid, conditions)?;
+
+        // For automatic model selection and basic analyzers that expect a single R value,
+        // we return the effective resistance R_eff = R + k|Q| such that ΔP = R_eff * Q.
+        let q_mag = if let Some(q) = conditions.flow_rate {
+            if q >= T::zero() { q } else { -q }
+        } else if let Some(v) = conditions.velocity {
+            let v_abs = if v >= T::zero() { v } else { -v };
+            v_abs * self.area
+        } else {
+            T::zero()
+        };
+
+        Ok(r + k * q_mag)
+    }
+
+    fn calculate_coefficients(
+        &self,
+        fluid: &Fluid<T>,
+        conditions: &FlowConditions<T>,
+    ) -> Result<(T, T)> {
         let reynolds = conditions.reynolds_number.ok_or_else(|| {
             Error::InvalidConfiguration(
                 "Reynolds number required for Darcy-Weisbach model".to_string(),
             )
         })?;
 
-        // Calculate friction factor using Colebrook-White equation iteratively
         let friction_factor = self.calculate_friction_factor(reynolds);
-
-        let area = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::zero())
-            * num_traits::Float::powf(
-                self.hydraulic_diameter,
-                T::from_f64(POWER_TWO).unwrap_or_else(|| T::zero()),
-            )
-            / T::from_f64(AREA_DIVISOR).unwrap_or_else(|| T::zero());
-
-        // Convert Darcy friction factor to hydraulic resistance
         let density = fluid.density;
-        let resistance = friction_factor * self.length * density
-            / (T::from_f64(RESISTANCE_DIVISOR).unwrap_or_else(|| T::zero())
-                * area
-                * num_traits::Float::powf(
-                    self.hydraulic_diameter,
-                    T::from_f64(POWER_TWO).unwrap_or_else(|| T::zero()),
-                ));
+        let viscosity = fluid.viscosity;
+        let area = self.area;
 
-        Ok(resistance)
+        let re_transition = T::from_f64(LAMINAR_TRANSITION_RE).unwrap_or_else(|| T::one());
+
+        if reynolds < re_transition {
+            // Laminar regime: ΔP = R·Q
+            // R = (f·ρ·L·V) / (2·A·Dh)
+            // With f = 64/Re = 64μ / (ρ·V·Dh)
+            // R = (64μ / (ρ·V·Dh)) · ρ·L·V / (2·A·Dh) = 32μL / (A·Dh²)
+            let r = (T::from_f64(32.0).unwrap_or_else(|| T::zero()) * viscosity * self.length)
+                / (area * self.hydraulic_diameter * self.hydraulic_diameter);
+            Ok((r, T::zero()))
+        } else {
+            // Turbulent regime: ΔP = k·Q|Q|
+            // k = (f·ρ·L) / (2·A²·Dh)
+            let k = (friction_factor * density * self.length)
+                / (T::from_f64(2.0).unwrap_or_else(|| T::zero())
+                    * area
+                    * area
+                    * self.hydraulic_diameter);
+            Ok((T::zero(), k))
+        }
     }
 
     fn model_name(&self) -> &'static str {
@@ -162,14 +202,44 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
 
     fn reynolds_range(&self) -> (T, T) {
         (
-            T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_UPPER)
+            T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER)
                 .unwrap_or_else(|| T::zero()),
             T::from_f64(MAX_REYNOLDS).unwrap_or_else(|| T::zero()),
         )
     }
+
+    fn validate_invariants(&self, fluid: &Fluid<T>, conditions: &FlowConditions<T>) -> Result<()> {
+        // Call Mach number validation
+        self.validate_mach_number(fluid, conditions)?;
+
+        // Entrance length validation: L/Dh > 10
+        let ratio = self.length / self.hydraulic_diameter;
+        let limit = T::from_f64(10.0).unwrap_or_else(|| T::zero());
+
+        if ratio < limit {
+            return Err(cfd_core::error::Error::PhysicsViolation(format!(
+                "Entrance length violation: L/Dh = {:.2} < 10. Flow may not be fully developed for model '{}'",
+                ratio,
+                self.model_name()
+            )));
+        }
+
+        // Roughness ratio validation: ε/Dh < 0.05
+        let roughness_ratio = self.roughness / self.hydraulic_diameter;
+        let roughness_limit = T::from_f64(0.05).unwrap_or_else(|| T::zero());
+        if roughness_ratio > roughness_limit {
+            return Err(cfd_core::error::Error::PhysicsViolation(format!(
+                "Roughness ratio violation: ε/Dh = {:.4} > 0.05. Darcy-Weisbach model '{}' may be inaccurate",
+                roughness_ratio,
+                self.model_name()
+            )));
+        }
+
+        Ok(())
+    }
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::Float> DarcyWeisbachModel<T> {
+impl<T: RealField + Copy + FromPrimitive> DarcyWeisbachModel<T> {
     /// Calculate friction factor using iterative Colebrook-White equation
     fn calculate_friction_factor(&self, reynolds: T) -> T {
         use crate::components::constants::COLEBROOK_TOLERANCE;
@@ -192,13 +262,11 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> DarcyWeisbachModel
             let term = relative_roughness
                 / T::from_f64(HAALAND_ROUGHNESS_DIVISOR).unwrap_or_else(|| T::one())
                 + T::from_f64(HAALAND_REYNOLDS_FACTOR).unwrap_or_else(|| T::one()) / reynolds;
-            let log_term = num_traits::Float::ln(term)
+            let log_term = term.ln()
                 / T::from_f64(LOG_BASE_10.ln()).unwrap_or_else(|| T::one());
             T::one()
-                / num_traits::Float::powi(
-                    T::from_f64(HAALAND_EXPONENT_FACTOR).unwrap_or_else(|| T::one()) * log_term,
-                    2,
-                )
+                / (T::from_f64(HAALAND_EXPONENT_FACTOR).unwrap_or_else(|| T::one()) * log_term)
+                    .powi(2)
         };
 
         // Iterative solution of Colebrook-White equation
@@ -209,7 +277,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> DarcyWeisbachModel
         let ln10 = T::from_f64(LOG_BASE_10.ln()).unwrap_or_else(|| T::one());
 
         for _ in 0..max_iter {
-            let sqrt_f = num_traits::Float::sqrt(f);
+            let sqrt_f = f.sqrt();
             let term1 = relative_roughness
                 / T::from_f64(COLEBROOK_ROUGHNESS_DIVISOR).unwrap_or_else(|| T::one());
             let term2 = T::from_f64(COLEBROOK_REYNOLDS_NUMERATOR).unwrap_or_else(|| T::one())
@@ -222,11 +290,13 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> DarcyWeisbachModel
             }
 
             let inv_sqrt_f = -T::from_f64(COLEBROOK_COEFFICIENT).unwrap_or_else(|| T::one())
-                * (num_traits::Float::ln(log_arg) / ln10);
+                * (log_arg.ln() / ln10);
             let f_next = T::one() / (inv_sqrt_f * inv_sqrt_f);
 
             // Check convergence
-            if num_traits::Float::abs(f_next - f) < tolerance {
+            let diff = f_next - f;
+            let diff_abs = if diff >= T::zero() { diff } else { -diff };
+            if diff_abs < tolerance {
                 f = f_next;
                 break;
             }

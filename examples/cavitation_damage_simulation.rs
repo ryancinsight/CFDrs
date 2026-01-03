@@ -27,7 +27,8 @@
 //! - **Bubble Dynamics**: Rayleigh (1917), Plesset (1949)
 
 use cfd_3d::vof::{
-    BubbleDynamicsConfig, CavitationStatistics, CavitationVofConfig, CavitationVofSolver, VofConfig,
+    AdvectionMethod, BubbleDynamicsConfig, CavitationStatistics, CavitationVofConfig,
+    CavitationVofSolver, InterfaceReconstruction, VofConfig,
 };
 use cfd_core::cavitation::{damage::CavitationDamage, models::CavitationModel};
 use nalgebra::Vector3;
@@ -115,8 +116,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         max_iterations: 100,
         tolerance: 1e-6,
         cfl_number: 0.5,
-        use_plic: true,
-        use_geometric_advection: true,
+        surface_tension_coefficient: 0.072,
+        interface_compression: 0.0,
+        reconstruction_method: InterfaceReconstruction::PLIC,
+        advection_method: AdvectionMethod::Geometric,
         enable_compression: true,
     };
 
@@ -134,6 +137,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         inception_threshold: 0.3, // σ < 0.3 triggers cavitation
         max_void_fraction: 0.8,   // Maximum 80% void fraction
         relaxation_time: 1e-6,    // 1 μs relaxation time
+        vapor_pressure: 2330.0,   // 2.33 kPa (Water @ 20°C)
+        liquid_density: 998.2,    // 998.2 kg/m³
+        vapor_density: 0.017,     // 0.017 kg/m³
+        sound_speed: 1482.0,      // 1482 m/s
     };
 
     // Initialize cavitation-VOF solver

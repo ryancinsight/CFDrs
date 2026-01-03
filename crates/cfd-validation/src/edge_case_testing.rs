@@ -11,9 +11,8 @@
 //! - **Physical Constraints**: Negative values, non-physical states
 //! - **Implementation Edge Cases**: Memory limits, precision issues, overflow/underflow
 
-use cfd_core::error::{Error, Result};
-use nalgebra::{DMatrix, DVector, RealField};
-use num_traits::FromPrimitive;
+use cfd_core::error::Result;
+use nalgebra::RealField;
 
 /// Comprehensive edge case test suite
 #[derive(Debug, Clone)]

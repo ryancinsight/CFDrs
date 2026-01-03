@@ -28,12 +28,19 @@ pub use valves::{Microvalve, ValveType};
 
 /// Trait for all microfluidic components
 pub trait Component<T: RealField + Copy> {
-    /// Get the hydraulic resistance of the component
+    /// Get the hydraulic resistance of the component (linear part R)
     fn resistance(&self, fluid: &Fluid<T>) -> T;
+
+    /// Get the linear (R) and quadratic (k) resistance coefficients
+    /// such that ΔP = R·Q + k·Q|Q|
+    fn coefficients(&self, fluid: &Fluid<T>) -> (T, T) {
+        (self.resistance(fluid), T::zero())
+    }
 
     /// Get the pressure drop across the component for a given flow rate
     fn pressure_drop(&self, flow_rate: T, fluid: &Fluid<T>) -> T {
-        flow_rate * self.resistance(fluid)
+        let (r, k) = self.coefficients(fluid);
+        r * flow_rate + k * flow_rate * flow_rate.abs()
     }
 
     /// Get the component type identifier

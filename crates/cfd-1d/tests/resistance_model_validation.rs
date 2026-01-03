@@ -84,7 +84,7 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
     let length: f64 = 10.0; // 10 m
     let roughness: f64 = 0.0; // Smooth pipe
 
-    let model = DarcyWeisbachModel::new(diameter, length, roughness);
+    let model = DarcyWeisbachModel::circular(diameter, length, roughness);
     let fluid = fluid::database::water_20c::<f64>()?;
 
     // Test 1: Laminar flow (Re = 1000)
@@ -93,11 +93,11 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
 
     let resistance_laminar = model.calculate_resistance(&fluid, &conditions_laminar)?;
 
-    // For laminar flow, friction factor f = 64/Re
-    let f_laminar: f64 = 64.0 / 1000.0;
     let area: f64 = std::f64::consts::PI * diameter.powi(2) / 4.0;
+    // Laminar regime yields a linear hydraulic resistance independent of velocity:
+    // R = 128 μ L / (π D^4) = 32 μ L / (A D^2)
     let expected_resistance_laminar: f64 =
-        f_laminar * length * fluid.density / (2.0 * area * diameter.powi(2));
+        32.0 * fluid.viscosity * length / (area * diameter.powi(2));
 
     assert_relative_eq!(
         resistance_laminar,
@@ -114,8 +114,12 @@ fn test_darcy_weisbach_smooth_pipe() -> Result<()> {
     // For smooth pipes at Re=10,000, Moody chart gives f ≈ 0.0309
     // Colebrook-White iterative solution gives slightly different value
     let f_expected: f64 = 0.0308449; // More precise value from Colebrook-White
+    // Turbulent Darcy–Weisbach is quadratic in flow. `calculate_resistance()` returns
+    // an effective linearization R_eff = k|Q|. With Q = V·A (circular):
+    // R_eff = f ρ L V / (2 A D)
+    let v: f64 = conditions_turbulent.velocity.unwrap();
     let expected_resistance_turbulent: f64 =
-        f_expected * length * fluid.density / (2.0 * area * diameter.powi(2));
+        f_expected * fluid.density * length * v / (2.0 * area * diameter);
 
     // Allow 0.2% tolerance for iterative convergence (max_relative for better control)
     assert_relative_eq!(
@@ -138,7 +142,7 @@ fn test_darcy_weisbach_rough_pipe() -> Result<()> {
     let length: f64 = 100.0; // 100 m
     let roughness: f64 = 5e-5; // 0.05 mm (commercial steel)
 
-    let model = DarcyWeisbachModel::new(diameter, length, roughness);
+    let model = DarcyWeisbachModel::circular(diameter, length, roughness);
     let fluid = fluid::database::water_20c::<f64>()?;
 
     // Test at high Reynolds number (Re = 10^6, fully rough regime)
@@ -151,20 +155,73 @@ fn test_darcy_weisbach_rough_pipe() -> Result<()> {
     // (fully rough asymptote) - Colebrook-White gives slightly different value
     let f_expected: f64 = 0.01721; // Adjusted for Colebrook-White iteration
     let area: f64 = std::f64::consts::PI * diameter.powi(2) / 4.0;
-    let expected_resistance: f64 =
-        f_expected * length * fluid.density / (2.0 * area * diameter.powi(2));
+    let v: f64 = conditions.velocity.unwrap();
+    let expected_resistance: f64 = f_expected * fluid.density * length * v
+        / (2.0 * area * diameter);
 
     // Allow 0.05% tolerance for Colebrook-White iteration vs Moody chart
     assert_relative_eq!(resistance, expected_resistance, max_relative = 0.0005);
 
     // Verify friction factor increases with roughness
-    let model_smooth = DarcyWeisbachModel::new(diameter, length, 0.0);
+    let model_smooth = DarcyWeisbachModel::circular(diameter, length, 0.0);
     let resistance_smooth = model_smooth.calculate_resistance(&fluid, &conditions)?;
 
     assert!(
         resistance > resistance_smooth,
         "Rough pipe should have higher resistance than smooth pipe"
     );
+
+    Ok(())
+}
+
+/// Test physical invariant enforcement (Mach number violation).
+#[test]
+fn test_mach_number_violation() -> Result<()> {
+    let diameter: f64 = 0.01;
+    let length: f64 = 1.0;
+    let roughness: f64 = 0.0;
+    let model = DarcyWeisbachModel::circular(diameter, length, roughness);
+
+    let fluid = fluid::database::water_20c::<f64>()?;
+    // Mach number Ma = V / c. For water, c ≈ 1480 m/s.
+    // To get Ma > 0.3, V > 0.3 * 1480 ≈ 444 m/s.
+    let high_velocity = 500.0;
+    let mut conditions = FlowConditions::new(high_velocity);
+    conditions.reynolds_number = Some(1e6); // High Re for turbulent
+
+    let result = model.validate_invariants(&fluid, &conditions);
+
+    assert!(result.is_err());
+    if let Err(cfd_core::error::Error::PhysicsViolation(msg)) = result {
+        assert!(msg.contains("Mach number violation"));
+    } else {
+        panic!("Expected PhysicsViolation error for high Mach number");
+    }
+
+    Ok(())
+}
+
+/// Test physical invariant enforcement (Entrance length violation).
+#[test]
+fn test_entrance_length_violation() -> Result<()> {
+    let width: f64 = 1e-3;
+    let height: f64 = 1e-3;
+    // L/Dh < 10 for entrance length violation
+    let short_length: f64 = 0.005; // Dh = 1mm, L = 5mm => L/Dh = 5
+    let model = RectangularChannelModel::new(width, height, short_length);
+
+    let fluid = fluid::database::water_20c::<f64>()?;
+    let mut conditions = FlowConditions::new(0.1);
+    conditions.reynolds_number = Some(100.0);
+
+    let result = model.validate_invariants(&fluid, &conditions);
+
+    assert!(result.is_err());
+    if let Err(cfd_core::error::Error::PhysicsViolation(msg)) = result {
+        assert!(msg.contains("Entrance length violation"));
+    } else {
+        panic!("Expected PhysicsViolation error for short entrance length");
+    }
 
     Ok(())
 }
@@ -193,16 +250,34 @@ fn test_rectangular_channel_analytical() -> Result<()> {
 
     // From Shah & London: Po = f*Re = 56.91 for square channel
     let po_square: f64 = 56.91;
-    let f_square: f64 = po_square / 100.0; // Re = 100
     let area_square: f64 = width * height;
     let expected_resistance_square: f64 =
-        f_square * length * fluid.density / (2.0 * area_square * d_h_square.powi(2));
+        po_square * fluid.viscosity * length / (2.0 * area_square * d_h_square.powi(2));
 
     assert_relative_eq!(
         resistance_square,
         expected_resistance_square,
-        epsilon = 0.05
+        max_relative = 0.01
     );
+
+    // Aspect ratio α = 0.5: Po = 62.19
+    let model_05 = RectangularChannelModel::new(1e-3, 0.5e-3, length);
+    let resistance_05 = model_05.calculate_resistance(&fluid, &conditions)?;
+    // Dh = 2*w*h/(w+h) = 2*1*0.5/1.5 = 0.666 mm
+    let d_h_05: f64 = (2.0 * 1e-3 * 0.5e-3) / (1e-3 + 0.5e-3);
+    let area_05 = 1e-3 * 0.5e-3;
+    let po_05 = 62.19;
+    let expected_resistance_05 = (po_05 * fluid.viscosity * length) / (2.0 * area_05 * d_h_05.powi(2));
+    assert_relative_eq!(resistance_05, expected_resistance_05, max_relative = 0.01);
+
+    // High aspect ratio (approaches parallel plates): Po = 96.0
+    let model_inf = RectangularChannelModel::new(10e-3, 0.1e-3, length);
+    let resistance_inf = model_inf.calculate_resistance(&fluid, &conditions)?;
+    let d_h_inf: f64 = (2.0 * 10e-3 * 0.1e-3) / (10e-3 + 0.1e-3);
+    let area_inf = 10e-3 * 0.1e-3;
+    let po_inf = 96.0;
+    let expected_resistance_inf = (po_inf * fluid.viscosity * length) / (2.0 * area_inf * d_h_inf.powi(2));
+    assert_relative_eq!(resistance_inf, expected_resistance_inf, max_relative = 0.05);
 
     Ok(())
 }
@@ -222,7 +297,7 @@ fn test_rectangular_channel_analytical() -> Result<()> {
 fn test_colebrook_white_convergence() -> Result<()> {
     let diameter: f64 = 0.05;
     let roughness: f64 = 5e-5; // ε/D = 0.001
-    let model = DarcyWeisbachModel::new(diameter, 10.0, roughness);
+    let model = DarcyWeisbachModel::circular(diameter, 10.0, roughness);
     let fluid = fluid::database::water_20c::<f64>()?;
 
     // Test at Re = 10^5 (turbulent, not fully rough)
@@ -238,8 +313,9 @@ fn test_colebrook_white_convergence() -> Result<()> {
     let f_haaland: f64 = 1.0 / (-1.8_f64 * term.log10()).powi(2);
 
     let area: f64 = std::f64::consts::PI * diameter.powi(2) / 4.0;
+    let v: f64 = conditions.velocity.unwrap();
     let expected_resistance_haaland: f64 =
-        f_haaland * 10.0 * fluid.density / (2.0 * area * diameter.powi(2));
+        f_haaland * fluid.density * 10.0 * v / (2.0 * area * diameter);
 
     // Colebrook-White should match Haaland within 2%
     assert_relative_eq!(resistance, expected_resistance_haaland, epsilon = 0.02);

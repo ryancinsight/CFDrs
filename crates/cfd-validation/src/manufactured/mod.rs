@@ -35,7 +35,9 @@ pub use multi_physics::{
     ManufacturedSpeciesTransport,
 };
 pub use navier_stokes::{
-    NavierStokesManufacturedSolution, PolynomialNavierStokesMMS, TaylorGreenManufactured,
+    NavierStokesManufacturedSolution, PolynomialNavierStokesMMS,
+    PolynomialNavierStokesMMS as ManufacturedNavierStokes, TaylorGreenManufactured,
+    TaylorGreenManufactured as ManufacturedTaylorGreen,
 };
 pub use reynolds_stress_mms::{
     ManufacturedReynoldsStressMMS, PressureStrainModelMMS, ReynoldsStressConvergenceStudy,

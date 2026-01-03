@@ -1,7 +1,6 @@
 //! Linear system solver for network equations
 
 use cfd_core::error::Result;
-use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
 use cfd_math::linear_solver::Preconditioner;
 use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver};
 use cfd_math::sparse::SparseMatrixExt;

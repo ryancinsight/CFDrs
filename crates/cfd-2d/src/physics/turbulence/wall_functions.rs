@@ -42,7 +42,7 @@ use super::constants::{
     Y_PLUS_LOG_LAW, Y_PLUS_VISCOUS_SUBLAYER,
 };
 use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use num_traits::FromPrimitive;
 
 /// Wall function types with enhanced physics
 #[derive(Debug, Clone, Copy)]
@@ -271,7 +271,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatmen
         } else {
             // Rough wall log-law: u⁺ = (1/κ) ln((y + k_s)/k_s) + B - ΔB
             let y_visc = T::from_f64(Y_PLUS_VISCOUS_SUBLAYER).unwrap_or_else(T::one);
-            let y_log = T::from_f64(Y_PLUS_LOG_LAW).unwrap_or_else(T::one);
+            let _y_log = T::from_f64(Y_PLUS_LOG_LAW).unwrap_or_else(T::one);
 
             if y_plus <= y_visc {
                 // Viscous sublayer (roughness doesn't affect)
@@ -346,7 +346,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatmen
 
         if y_plus >= y_log {
             // Check log-law slope
-            let expected_slope = T::one() / self.kappa;
+            let _expected_slope = T::one() / self.kappa;
             let log_law_value =
                 (y_plus.ln() / self.kappa) + T::from_f64(5.5).unwrap_or_else(T::one);
             let relative_error = (u_plus - log_law_value).abs() / log_law_value;

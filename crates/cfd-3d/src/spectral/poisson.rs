@@ -69,26 +69,75 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
     /// Using tensor product of 1D operators
     pub fn solve(
         &self,
-        f: &DMatrix<T>,
+        f: &DVector<T>,
         bc_x: &(PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
         bc_y: &(PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
         bc_z: &(PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
-    ) -> Result<DMatrix<T>> {
+    ) -> Result<DVector<T>> {
         // Build the discrete Laplacian operator
         let mut laplacian = self.build_laplacian_matrix()?;
-        let mut rhs = self.flatten_rhs(f);
+        let mut rhs = f.clone();
 
-        // Apply boundary conditions
-        let boundary_indices_x = vec![0, self.nx - 1];
-        let boundary_indices_y = vec![0, self.ny - 1];
-        let boundary_indices_z = vec![0, self.nz - 1];
+        // Apply boundary conditions to all nodes on the boundary surfaces
+        // X-boundaries
+        self.apply_boundary_conditions(
+            &mut laplacian,
+            &mut rhs,
+            &bc_x.0,
+            &self.get_indices_x(0),
+            &self.basis_x,
+            0,
+            self.ny * self.nz,
+        )?;
+        self.apply_boundary_conditions(
+            &mut laplacian,
+            &mut rhs,
+            &bc_x.1,
+            &self.get_indices_x(self.nx - 1),
+            &self.basis_x,
+            self.nx - 1,
+            self.ny * self.nz,
+        )?;
 
-        self.apply_boundary_conditions(&mut laplacian, &mut rhs, &bc_x.0, &boundary_indices_x)?;
-        self.apply_boundary_conditions(&mut laplacian, &mut rhs, &bc_x.1, &boundary_indices_x)?;
-        self.apply_boundary_conditions(&mut laplacian, &mut rhs, &bc_y.0, &boundary_indices_y)?;
-        self.apply_boundary_conditions(&mut laplacian, &mut rhs, &bc_y.1, &boundary_indices_y)?;
-        self.apply_boundary_conditions(&mut laplacian, &mut rhs, &bc_z.0, &boundary_indices_z)?;
-        self.apply_boundary_conditions(&mut laplacian, &mut rhs, &bc_z.1, &boundary_indices_z)?;
+        // Y-boundaries
+        self.apply_boundary_conditions(
+            &mut laplacian,
+            &mut rhs,
+            &bc_y.0,
+            &self.get_indices_y(0),
+            &self.basis_y,
+            0,
+            self.nz,
+        )?;
+        self.apply_boundary_conditions(
+            &mut laplacian,
+            &mut rhs,
+            &bc_y.1,
+            &self.get_indices_y(self.ny - 1),
+            &self.basis_y,
+            self.ny - 1,
+            self.nz,
+        )?;
+
+        // Z-boundaries
+        self.apply_boundary_conditions(
+            &mut laplacian,
+            &mut rhs,
+            &bc_z.0,
+            &self.get_indices_z(0),
+            &self.basis_z,
+            0,
+            1,
+        )?;
+        self.apply_boundary_conditions(
+            &mut laplacian,
+            &mut rhs,
+            &bc_z.1,
+            &self.get_indices_z(self.nz - 1),
+            &self.basis_z,
+            self.nz - 1,
+            1,
+        )?;
 
         // Solve the linear system using LU decomposition
         let lu = laplacian.lu();
@@ -96,8 +145,37 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
             cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::SingularMatrix)
         })?;
 
-        // Reshape solution back to matrix form
-        Ok(self.unflatten_solution(&solution))
+        Ok(solution)
+    }
+
+    fn get_indices_x(&self, i: usize) -> Vec<usize> {
+        let mut indices = Vec::with_capacity(self.ny * self.nz);
+        for j in 0..self.ny {
+            for k in 0..self.nz {
+                indices.push(i * self.ny * self.nz + j * self.nz + k);
+            }
+        }
+        indices
+    }
+
+    fn get_indices_y(&self, j: usize) -> Vec<usize> {
+        let mut indices = Vec::with_capacity(self.nx * self.nz);
+        for i in 0..self.nx {
+            for k in 0..self.nz {
+                indices.push(i * self.ny * self.nz + j * self.nz + k);
+            }
+        }
+        indices
+    }
+
+    fn get_indices_z(&self, k: usize) -> Vec<usize> {
+        let mut indices = Vec::with_capacity(self.nx * self.ny);
+        for i in 0..self.nx {
+            for j in 0..self.ny {
+                indices.push(i * self.ny * self.nz + j * self.nz + k);
+            }
+        }
+        indices
     }
 
     /// Build the discrete Laplacian matrix using Kronecker products
@@ -131,18 +209,6 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
         (ix, iy, iz)
     }
 
-    /// Flatten RHS matrix to vector
-    fn flatten_rhs(&self, f: &DMatrix<T>) -> DVector<T> {
-        // Use nalgebra's iterators to perform the copy efficiently
-        DVector::from_iterator(f.len(), f.iter().copied())
-    }
-
-    /// Unflatten solution vector to matrix
-    fn unflatten_solution(&self, solution: &DVector<T>) -> DMatrix<T> {
-        // Reconstruct the matrix directly from the solution vector's iterator
-        DMatrix::from_iterator(self.nx * self.ny, self.nz, solution.iter().copied())
-    }
-
     /// Apply boundary conditions to the system
     fn apply_boundary_conditions(
         &self,
@@ -150,7 +216,22 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
         rhs: &mut DVector<T>,
         bc: &PoissonBoundaryCondition<T>,
         boundary_indices: &[usize],
+        basis: &ChebyshevPolynomial<T>,
+        local_idx: usize,
+        stride: usize,
     ) -> Result<()> {
+        let n = basis.num_points();
+        let diff_matrix = basis.diff_matrix();
+
+        // Normal direction factor:
+        // Index 0 is x=1, normal is +direction
+        // Index n-1 is x=-1, normal is -direction
+        let normal_factor = if local_idx == 0 {
+            T::one()
+        } else {
+            -T::one()
+        };
+
         match bc {
             PoissonBoundaryCondition::Dirichlet(value) => {
                 for &idx in boundary_indices {
@@ -162,29 +243,53 @@ impl<T: RealField + FromPrimitive + Copy> PoissonSolver<T> {
                 }
             }
             PoissonBoundaryCondition::Neumann(value) => {
-                // Implement Neumann BC using ghost points or modified stencil
-                // This requires modifying the differentiation matrix
                 for &idx in boundary_indices {
-                    rhs[idx] += *value;
+                    // Clear row
+                    for j in 0..matrix.ncols() {
+                        matrix[(idx, j)] = T::zero();
+                    }
+
+                    // ∂u/∂n = normal_factor * ∂u/∂x = value
+                    // Row idx should be: normal_factor * sum_m D[local_idx, m] * u(m, pencil)
+                    for m in 0..n {
+                        let pencil_idx = if m >= local_idx {
+                            idx + (m - local_idx) * stride
+                        } else {
+                            idx - (local_idx - m) * stride
+                        };
+                        matrix[(idx, pencil_idx)] = normal_factor * diff_matrix[(local_idx, m)];
+                    }
+                    rhs[idx] = *value;
                 }
             }
-            PoissonBoundaryCondition::Robin { alpha, beta, value } => {
-                // Implement Robin BC: αu + β∂u/∂n = g
+            PoissonBoundaryCondition::Robin {
+                alpha,
+                beta,
+                value,
+            } => {
                 for &idx in boundary_indices {
-                    matrix[(idx, idx)] += *alpha;
-                    // Apply Robin boundary condition: alpha*u + beta*du/dn = value
-                    // For spectral methods, the normal derivative is incorporated through
-                    // modification of the spectral coefficients
-                    if beta.abs() > T::from_f64(1e-10).unwrap_or_else(|| T::zero()) {
-                        // Modify RHS to account for normal derivative term
-                        // This requires spectral differentiation in the normal direction
-                        let normal_derivative_factor =
-                            *beta / (*alpha + T::from_f64(1e-10).unwrap_or_else(|| T::zero()));
-                        rhs[idx] = *value - normal_derivative_factor * rhs[idx];
-                    } else {
-                        // Pure Dirichlet case when beta = 0
-                        rhs[idx] = *value / *alpha;
+                    // Clear row
+                    for j in 0..matrix.ncols() {
+                        matrix[(idx, j)] = T::zero();
                     }
+
+                    // αu + β∂u/∂n = value
+                    // Row idx: α * u(local_idx) + β * normal_factor * sum_m D[local_idx, m] * u(m, pencil)
+                    for m in 0..n {
+                        let pencil_idx = if m >= local_idx {
+                            idx + (m - local_idx) * stride
+                        } else {
+                            idx - (local_idx - m) * stride
+                        };
+
+                        let mut coeff =
+                            *beta * normal_factor * diff_matrix[(local_idx, m)];
+                        if m == local_idx {
+                            coeff += *alpha;
+                        }
+                        matrix[(idx, pencil_idx)] = coeff;
+                    }
+                    rhs[idx] = *value;
                 }
             }
             PoissonBoundaryCondition::Periodic => {

@@ -86,7 +86,7 @@ impl<T: RealField + Copy + FromPrimitive> AngularMomentumChecker<T> {
                     if abs_divergence > max_error {
                         max_error = abs_divergence;
                     }
-                    total_error = total_error + divergence * divergence;
+                    total_error += divergence * divergence;
                     count += 1;
                 }
             }
@@ -121,7 +121,7 @@ impl<T: RealField + Copy + FromPrimitive> AngularMomentumChecker<T> {
         u_z: &DMatrix<T>,   // Axial velocity
         omega: &DMatrix<T>, // Angular velocity (vorticity in θ direction)
         viscosity: T,
-        density: T,
+        _density: T,
         dr: T,
         dz: T,
     ) -> Result<ConservationReport<T>> {
@@ -172,7 +172,7 @@ impl<T: RealField + Copy + FromPrimitive> AngularMomentumChecker<T> {
                     if abs_residual > max_error {
                         max_error = abs_residual;
                     }
-                    total_error = total_error + residual * residual;
+                    total_error += residual * residual;
                     count += 1;
                 }
             }
@@ -225,7 +225,7 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for AngularMome
         self.tolerance
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Angular Momentum Conservation Checker"
     }
 }

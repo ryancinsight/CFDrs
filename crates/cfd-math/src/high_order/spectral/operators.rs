@@ -3,9 +3,8 @@
 //! This module provides implementations of differential operators and numerical
 //! integration for spectral element methods.
 
-use super::*;
-use nalgebra::{DMatrix, DVector, DMatrixSlice, DVectorSlice, Matrix, Vector};
-use std::ops::{Add, Sub, Mul, Div};
+use super::{SpectralElement, Result, SpectralError, compute_lgl_nodes, compute_lgl_weights};
+use nalgebra::{DMatrix, DVector};
 
 /// Spectral differentiation operator
 pub struct SpectralDiffOp {
@@ -141,16 +140,19 @@ impl SpectralInterp {
 pub struct SpectralQuadrature {
     /// Quadrature weights
     weights: DVector<f64>,
+    /// Quadrature nodes
+    nodes: DVector<f64>,
     /// Number of quadrature points
     num_points: usize,
 }
 
 impl SpectralQuadrature {
     /// Create a new spectral quadrature rule
-    pub fn new(weights: DVector<f64>) -> Self {
+    pub fn new(weights: DVector<f64>, nodes: DVector<f64>) -> Self {
         Self {
             num_points: weights.len(),
             weights,
+            nodes,
         }
     }
     
@@ -160,12 +162,14 @@ impl SpectralQuadrature {
             return Err(SpectralError::InvalidOrder(n));
         }
         
-        let nodes = compute_lgl_nodes(n - 1)?; // n points for order 2n-3
-        let weights = DVector::from_vec(compute_lgl_weights(&nodes, n - 1));
+        let nodes_vec = compute_lgl_nodes(n - 1)?; // n points for order 2n-3
+        let weights = DVector::from_vec(compute_lgl_weights(&nodes_vec, n - 1));
+        let nodes = DVector::from_vec(nodes_vec);
         
         Ok(Self {
             num_points: n,
             weights,
+            nodes,
         })
     }
     
@@ -176,14 +180,9 @@ impl SpectralQuadrature {
     {
         let mut integral = 0.0;
         
-        for (i, &w) in self.weights.iter().enumerate() {
-            // For Gauss-Lobatto, nodes are at -1 and 1
-            let x = if self.num_points == 1 {
-                0.0
-            } else {
-                -1.0 + 2.0 * (i as f64) / ((self.num_points - 1) as f64)
-            };
-            
+        for i in 0..self.num_points {
+            let x = self.nodes[i];
+            let w = self.weights[i];
             integral += w * f(x);
         }
         
@@ -222,6 +221,7 @@ pub struct SpectralFilter {
     /// Filter coefficients
     filter_coeffs: DVector<f64>,
     /// Filter order
+    #[allow(dead_code)]
     order: usize,
 }
 
@@ -262,7 +262,7 @@ impl SpectralFilter {
 
 /// Spectral time integration methods
 pub mod time_integration {
-    use super::*;
+    use super::DVector;
     
     /// Runge-Kutta time integration for spectral methods
     pub struct RungeKutta {
@@ -331,7 +331,7 @@ pub mod time_integration {
                 let mut sum = DVector::zeros(u.len());
                 
                 for j in 0..i {
-                    sum += &k[j] * self.a[i-1][j];
+                    sum += &k[j] * self.a[i][j];
                 }
                 
                 let t_stage = t + self.c[i] * dt;
@@ -384,7 +384,7 @@ pub mod time_integration {
         where
             F: Fn(f64, &DVector<f64>) -> DVector<f64>,
         {
-            let mut f_new = f(t, u);
+            let f_new = f(t, u);
             let mut sum = &f_new * self.coeffs[0];
             
             for (i, f_prev_i) in f_prev.iter().take(self.order - 1).enumerate() {
@@ -483,20 +483,20 @@ mod tests {
         // Exact solution: u(t) = exp(-t)
         let rk = time_integration::RungeKutta::rk4();
         let f = |_t: f64, u: &DVector<f64>| -u.clone();
-        
-        let t0 = 0.0;
-        let t_final = 1.0;
-        let dt = 0.1;
-        
+
+        let t0: f64 = 0.0;
+        let t_final: f64 = 1.0;
+        let dt: f64 = 0.1;
+
         let mut t = t0;
         let mut u = DVector::from_vec(vec![1.0]);
-        
+
         while t < t_final - 1e-10 {
             let dt_step = dt.min(t_final - t);
             u = rk.step(&f, t, dt_step, &u);
             t += dt_step;
         }
-        
+
         let u_exact = (-t_final).exp();
         assert_relative_eq!(u[0], u_exact, epsilon = 1e-5);
     }

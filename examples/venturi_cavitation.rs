@@ -190,20 +190,20 @@ fn generate_cavitation_plots(
     let sigma_threshold = SIGMA_INCIPIENT;
 
     // Create pressure distribution chart
-    let pressure_chart = ChartData {
+    let _pressure_chart = ChartData {
         labels: inlet_velocities
             .iter()
             .map(|v| format!("{:.1}", v))
             .collect(),
         datasets: vec![Dataset {
             label: "Throat Pressure (kPa)".to_string(),
-            data: throat_pressures,
+            data: throat_pressures.clone(),
             color: "#1f77b4".to_string(),
         }],
     };
 
     // Create cavitation number chart
-    let cavitation_chart = ChartData {
+    let _cavitation_chart = ChartData {
         labels: inlet_velocities
             .iter()
             .map(|v| format!("{:.1}", v))
@@ -216,7 +216,7 @@ fn generate_cavitation_plots(
     };
 
     // Create cavity length chart (only for cavitating cases)
-    let cavity_chart = ChartData {
+    let _cavity_chart = ChartData {
         labels: inlet_velocities
             .iter()
             .enumerate()
@@ -231,20 +231,20 @@ fn generate_cavitation_plots(
             .collect(),
         datasets: vec![Dataset {
             label: "Cavity Length (mm)".to_string(),
-            data: cavity_lengths.into_iter().filter(|&l| l > 0.0).collect(),
+            data: cavity_lengths.clone().into_iter().filter(|&l| l > 0.0).collect(),
             color: "#d62728".to_string(),
         }],
     };
 
     // Create loss coefficient chart
-    let loss_chart = ChartData {
+    let _loss_chart = ChartData {
         labels: inlet_velocities
             .iter()
             .map(|v| format!("{:.1}", v))
             .collect(),
         datasets: vec![Dataset {
             label: "Loss Coefficient".to_string(),
-            data: loss_coefficients,
+            data: loss_coefficients.clone(),
             color: "#2ca02c".to_string(),
         }],
     };
@@ -490,7 +490,7 @@ fn generate_cavitation_plots(
                     borderColor: '#ff7f0e',
                     backgroundColor: 'rgba(255, 127, 14, 0.1)',
                     tension: 0.1
-                },
+                }},
                 {{
                     label: 'Cavitation Threshold (σ = {})',
                     data: Array({}).fill({}),

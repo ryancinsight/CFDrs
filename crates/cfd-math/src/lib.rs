@@ -156,18 +156,15 @@
 
 pub mod differentiation;
 pub mod error;
-// pub mod high_order; // Temporarily disabled - needs implementation
-pub mod cfd_simd;
+pub mod high_order;
 pub mod integration;
 pub mod interpolation;
 pub mod iterators;
 pub mod linear_solver;
-pub mod preconditioners;
 pub mod simd;
 pub mod sparse;
 pub mod spatial;
 pub mod time_stepping;
-pub mod vector_ops;
 pub mod vectorization;
 
 // --- Curated Top-Level API ---

@@ -8,10 +8,10 @@
 //! - Roache, P.J. (2002) "Code Verification by the Method of Manufactured Solutions"
 //! - Salari, K. & Knupp, P. (2000) "Code Verification by the Method of Manufactured Solutions"
 
-use super::ManufacturedSolution;
+use crate::manufactured::ManufacturedSolution;
 use cfd_core::conversion::SafeFromF64;
 use nalgebra::{RealField, Vector2};
-use num_traits::{Float, FromPrimitive};
+use num_traits::FromPrimitive;
 use std::f64::consts::PI;
 
 /// Complete manufactured solution for 2D incompressible Navier-Stokes equations
@@ -30,7 +30,7 @@ pub trait NavierStokesManufacturedSolution<T: RealField + Copy> {
 
     /// Verify continuity equation (∇·u = 0) is satisfied
     fn verify_continuity(&self, x: T, y: T, t: T) -> T {
-        let vel = self.exact_velocity(x, y, t);
+        let _vel = self.exact_velocity(x, y, t);
         let du_dx = self.velocity_derivative_x(x, y, t);
         let dv_dy = self.velocity_derivative_y(x, y, t);
         du_dx + dv_dy
@@ -38,7 +38,9 @@ pub trait NavierStokesManufacturedSolution<T: RealField + Copy> {
 
     /// Velocity derivatives (needed for source term computation)
     fn velocity_derivative_x(&self, x: T, y: T, t: T) -> T;
+    /// Velocity derivative in y-direction
     fn velocity_derivative_y(&self, x: T, y: T, t: T) -> T;
+    /// Velocity derivative with respect to time
     fn velocity_derivative_t(&self, x: T, y: T, t: T) -> Vector2<T>;
 
     /// Laplacian of velocity field
@@ -54,6 +56,7 @@ pub struct PolynomialNavierStokesMMS<T: RealField + Copy> {
     pub rho: T,
     /// Amplitude coefficients for velocity
     pub u_amp: T,
+    /// Amplitude coefficient for v-velocity
     pub v_amp: T,
     /// Amplitude coefficient for pressure
     pub p_amp: T,
@@ -331,6 +334,26 @@ impl<T: RealField + Copy + FromPrimitive> NavierStokesManufacturedSolution<T>
     }
 }
 
+impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T> for PolynomialNavierStokesMMS<T> {
+    fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
+        self.exact_velocity(x, y, t).x
+    }
+
+    fn source_term(&self, x: T, y: T, _z: T, t: T) -> T {
+        self.momentum_source_u(x, y, t)
+    }
+}
+
+impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T> for TaylorGreenManufactured<T> {
+    fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
+        self.velocity(x, y, t).x
+    }
+
+    fn source_term(&self, _x: T, _y: T, _z: T, _t: T) -> T {
+        T::zero()
+    }
+}
+
 /// Taylor-Green vortex solution for 2D Navier-Stokes
 #[derive(Clone, Copy)]
 pub struct TaylorGreenManufactured<T: RealField + Copy> {
@@ -456,31 +479,31 @@ mod tests {
 
     #[test]
     fn test_kovasznay_flow() {
-        let solution = KovasznayFlow::new(40.0);
+        let solution = KovasznayFlow::<f64>::new(40.0);
 
         // At x=0, y=0, velocity should be (1, 0)
         let vel = solution.velocity(0.0, 0.0);
-        assert!((vel.x - 0.0).abs() < 1e-10);
+        assert!((vel.x - 0.0_f64).abs() < 1e-10);
         assert!(vel.y.abs() < 1e-10);
     }
 
     #[test]
     fn test_incompressibility() {
-        let solution = TaylorGreenManufactured::new(0.01);
+        let solution = TaylorGreenManufactured::<f64>::new(0.01);
 
         // Check divergence-free condition
-        let h = 0.001;
-        let x = 0.5;
-        let y = 0.5;
-        let t = 0.0;
+        let h: f64 = 0.001;
+        let x: f64 = 0.5;
+        let y: f64 = 0.5;
+        let t: f64 = 0.0;
 
         let v_center = solution.velocity(x, y, t);
         let v_right = solution.velocity(x + h, y, t);
         let v_top = solution.velocity(x, y + h, t);
 
-        let dudx = (v_right.x - v_center.x) / h;
-        let dvdy = (v_top.y - v_center.y) / h;
-        let divergence = dudx + dvdy;
+        let dudx: f64 = (v_right.x - v_center.x) / h;
+        let dvdy: f64 = (v_top.y - v_center.y) / h;
+        let divergence: f64 = dudx + dvdy;
 
         assert!(divergence.abs() < 1e-6);
     }

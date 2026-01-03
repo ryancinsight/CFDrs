@@ -1,12 +1,9 @@
 //! BiCGSTAB solver implementation
 
 use super::config::IterativeSolverConfig;
-use super::preconditioners::IdentityPreconditioner;
-use super::traits::{Configurable, IterativeLinearSolver, Preconditioner};
-use crate::sparse::{spmv, spmv_parallel};
+use super::traits::{Configurable, IterativeLinearSolver, LinearOperator, Preconditioner};
 use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind, Result};
 use nalgebra::{DVector, RealField};
-use nalgebra_sparse::CsrMatrix;
 use num_traits::FromPrimitive;
 use std::fmt::Debug;
 
@@ -61,17 +58,6 @@ pub struct BiCGSTAB<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> BiCGSTAB<T> {
-    /// Perform matrix-vector multiplication, choosing serial or parallel based on config
-    fn spmv(&self, a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVector<T>)
-    where
-        T: Send + Sync,
-    {
-        if self.config.use_parallel_spmv {
-            spmv_parallel(a, x, y);
-        } else {
-            spmv(a, x, y);
-        }
-    }
     /// Create new BiCGSTAB solver
     pub const fn new(config: IterativeSolverConfig<T>) -> Self {
         Self { config }
@@ -89,7 +75,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
     /// Solve with preconditioning using efficient memory management
     ///
     /// # Arguments
-    /// * `a` - The coefficient matrix (must be square)
+    /// * `a` - The coefficient operator
     /// * `b` - The right-hand side vector
     /// * `preconditioner` - The preconditioner to use
     /// * `x` - On entry: initial guess; On exit: solution vector
@@ -97,18 +83,18 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
     /// # Returns
     /// * `Ok(())` if converged successfully
     /// * `Err(...)` if failed to converge or numerical breakdown occurred
-    pub fn solve_preconditioned<P: Preconditioner<T>>(
+    pub fn solve_preconditioned<Op: LinearOperator<T> + ?Sized, P: Preconditioner<T>>(
         &self,
-        a: &CsrMatrix<T>,
+        a: &Op,
         b: &DVector<T>,
         preconditioner: &P,
-        x: &mut DVector<T>, // Changed: mutable reference instead of Option
+        x: &mut DVector<T>,
     ) -> Result<()> {
-        // Changed: returns Result<()> instead of Result<DVector<T>>
         let n = b.len();
-        if a.nrows() != n || a.ncols() != n {
+        let a_size = a.size();
+        if a_size != 0 && a_size != n {
             return Err(Error::InvalidConfiguration(
-                "Matrix dimensions don't match RHS vector".to_string(),
+                format!("Operator size ({}) doesn't match RHS vector ({})", a_size, n),
             ));
         }
 
@@ -122,15 +108,15 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
         let mut r = DVector::zeros(n);
         let mut r0_hat = DVector::zeros(n);
         let mut p = DVector::zeros(n);
-        let mut v = DVector::zeros(n); // Pre-allocated for matrix-vector product
+        let mut v = DVector::zeros(n);
         let mut s = DVector::zeros(n);
-        let mut t = DVector::zeros(n); // Pre-allocated for matrix-vector product
+        let mut t = DVector::zeros(n);
         let mut z = DVector::zeros(n);
         let mut z2 = DVector::zeros(n);
-        let mut ax = DVector::zeros(n); // Pre-allocated for initial residual
+        let mut ax = DVector::zeros(n);
 
         // Compute initial residual: r = b - A*x
-        self.spmv(a, x, &mut ax); // Allocation-free multiplication
+        a.apply(x, &mut ax)?;
         r.copy_from(b);
         r -= &ax;
 
@@ -152,7 +138,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
         let mut alpha = T::one();
         let mut omega = T::one();
 
-        for iter in 0..self.config.max_iterations {
+        for _iter in 0..self.config.max_iterations {
             let rho_new = r0_hat.dot(&r);
 
             // Primary breakdown condition: rho approaching zero
@@ -162,89 +148,73 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
 
             let beta = (rho_new / rho) * (alpha / omega);
 
-            // p = r + beta * (p - omega * v) - using in-place operations
             p.axpy(-omega, &v, T::one());
             p *= beta;
             p += &r;
 
-            // Solve M*z = p and compute v = A*z
             preconditioner.apply_to(&p, &mut z)?;
-            self.spmv(a, &z, &mut v); // Allocation-free multiplication
+            a.apply(&z, &mut v)?;
 
             alpha = rho_new / r0_hat.dot(&v);
 
-            // s = r - alpha * v
             s.copy_from(&r);
             s.axpy(-alpha, &v, T::one());
 
-            // REMOVED: Redundant convergence check on s
-            // The standard BiCGSTAB algorithm only checks at the end of iteration
-
-            // Solve M*z2 = s and compute t = A*z2
             preconditioner.apply_to(&s, &mut z2)?;
-            self.spmv(a, &z2, &mut t); // Allocation-free multiplication
+            a.apply(&z2, &mut t)?;
 
             let t_dot_t = t.dot(&t);
             if t_dot_t.abs() < breakdown_tolerance {
-                // If t is nearly zero, we can't compute omega
-                // But we can still update x with what we have
                 x.axpy(alpha, &z, T::one());
-                // Check if this partial update achieved convergence
-                self.spmv(a, x, &mut ax);
+                a.apply(x, &mut ax)?;
                 r.copy_from(b);
                 r -= &ax;
                 if self.is_converged(r.norm()) {
-                    tracing::debug!(
-                        "BiCGSTAB converged in {} iterations (t breakdown)",
-                        iter + 1
-                    );
                     return Ok(());
                 }
-                return Err(Error::Numerical(NumericalErrorKind::SingularMatrix));
+                return Err(Error::Convergence(ConvergenceErrorKind::StagnatedResidual {
+                    residual: r.norm().to_subset().unwrap_or(0.0),
+                }));
             }
 
-            omega = s.dot(&t) / t_dot_t;
-
-            // Update solution: x = x + alpha*z + omega*z2
+            omega = t.dot(&s) / t_dot_t;
             x.axpy(alpha, &z, T::one());
             x.axpy(omega, &z2, T::one());
 
-            // Update residual efficiently using swap
-            // Instead of r = s - omega * t, we swap and update
-            std::mem::swap(&mut r, &mut s); // O(1) swap instead of O(n) copy
-            r.axpy(-omega, &t, T::one()); // Now r contains the new residual
+            r.copy_from(&s);
+            r.axpy(-omega, &t, T::one());
 
-            // Single convergence check per iteration (standard BiCGSTAB)
-            if self.is_converged(r.norm()) {
-                tracing::debug!("BiCGSTAB converged in {} iterations", iter + 1);
+            let residual_norm = r.norm();
+            if self.is_converged(residual_norm) {
                 return Ok(());
             }
 
-            // REMOVED: Check on omega - not a standard breakdown condition
-            // The primary breakdown is caught by the rho check at loop start
+            if omega.abs() < breakdown_tolerance {
+                return Err(Error::Convergence(ConvergenceErrorKind::StagnatedResidual {
+                    residual: residual_norm.to_subset().unwrap_or(0.0),
+                }));
+            }
 
             rho = rho_new;
         }
 
-        Err(Error::Convergence(
-            ConvergenceErrorKind::MaxIterationsExceeded {
-                max: self.config.max_iterations,
-            },
-        ))
+        Err(Error::Convergence(ConvergenceErrorKind::MaxIterationsExceeded {
+            max: self.config.max_iterations,
+        }))
     }
 
     /// Solve without preconditioning
-    pub fn solve_unpreconditioned(
+    pub fn solve_unpreconditioned<Op: LinearOperator<T> + ?Sized>(
         &self,
-        a: &CsrMatrix<T>,
+        a: &Op,
         b: &DVector<T>,
         x: &mut DVector<T>,
     ) -> Result<()> {
-        let identity = IdentityPreconditioner;
-        self.solve_preconditioned(a, b, &identity, x)
+        use super::preconditioners::IdentityPreconditioner;
+        let preconditioner = IdentityPreconditioner;
+        self.solve_preconditioned(a, b, &preconditioner, x)
     }
 
-    /// Check if residual satisfies convergence criteria
     fn is_converged(&self, residual_norm: T) -> bool {
         residual_norm < self.config.tolerance
     }
@@ -259,9 +229,9 @@ impl<T: RealField + Debug + Copy> Configurable<T> for BiCGSTAB<T> {
 }
 
 impl<T: RealField + Debug + Copy> IterativeLinearSolver<T> for BiCGSTAB<T> {
-    fn solve<P: Preconditioner<T>>(
+    fn solve<Op: LinearOperator<T> + ?Sized, P: Preconditioner<T>>(
         &self,
-        a: &CsrMatrix<T>,
+        a: &Op,
         b: &DVector<T>,
         x: &mut DVector<T>,
         preconditioner: Option<&P>,
@@ -274,20 +244,19 @@ impl<T: RealField + Debug + Copy> IterativeLinearSolver<T> for BiCGSTAB<T> {
     }
 }
 
-// Implement object-safe LinearSolver trait for trait objects
 impl<T: RealField + Copy + num_traits::FromPrimitive> super::traits::LinearSolver<T>
     for BiCGSTAB<T>
 {
     fn solve_system(
         &self,
-        a: &nalgebra_sparse::CsrMatrix<T>,
-        b: &nalgebra::DVector<T>,
-        x0: Option<&nalgebra::DVector<T>>,
-    ) -> cfd_core::error::Result<nalgebra::DVector<T>> {
+        a: &dyn LinearOperator<T>,
+        b: &DVector<T>,
+        x0: Option<&DVector<T>>,
+    ) -> Result<DVector<T>> {
         let mut x = if let Some(initial) = x0 {
             initial.clone()
         } else {
-            nalgebra::DVector::zeros(b.len())
+            DVector::zeros(b.len())
         };
 
         self.solve(
@@ -305,6 +274,7 @@ mod tests {
     use super::super::preconditioners::IdentityPreconditioner;
     use super::super::traits::{Configurable, LinearSolver};
     use super::*;
+    use crate::sparse::spmv;
     use approx::assert_relative_eq;
     use nalgebra_sparse::CsrMatrix;
 

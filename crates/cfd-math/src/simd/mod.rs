@@ -4,8 +4,11 @@
 //! Follows SSOT principle with single implementation per operation.
 
 mod arch_detect;
+pub mod cfd;
 mod ops;
 mod swar;
+pub mod vector;
+pub mod vectorization;
 
 #[cfg(test)]
 mod tests;

@@ -9,10 +9,9 @@
 //! - Interactive visualization using Chart.js
 //! - Regression alert visualization and analysis
 
-use super::analysis::{AlertSeverity, RegressionAlert};
+use super::analysis::RegressionAlert;
 use super::scaling::ScalingResult;
 use super::{BenchmarkResult, BenchmarkStatus};
-use crate::reporting::PerformanceMetrics;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -207,7 +206,7 @@ impl HtmlReportGenerator {
     pub fn generate_report(
         &self,
         results: &[BenchmarkResult],
-        scaling_results: Option<&[ScalingResult]>,
+        _scaling_results: Option<&[ScalingResult]>,
         alerts: Option<&[RegressionAlert]>,
     ) -> String {
         let mut html = String::new();
@@ -216,15 +215,14 @@ impl HtmlReportGenerator {
         html.push_str(&self.generate_html_header());
 
         // Title and summary
-        html.push_str(&self.generate_summary_section(results));
+        html.push_str(&self.generate_summary_section(results, alerts.unwrap_or(&[])));
 
         // Performance charts with Chart.js
         html.push_str(&self.generate_performance_chart(results));
 
-        // Scaling analysis (if available)
-        if let Some(scaling) = scaling_results {
-            html.push_str(&self.generate_scaling_chart(scaling));
-        }
+        // Scaling analysis
+        // Use results which contain scaling info directly
+        html.push_str(&self.generate_scaling_chart(results));
 
         // Regression alerts (if available)
         if let Some(alerts) = alerts {
@@ -631,11 +629,11 @@ impl HtmlReportGenerator {
         )
     }
 
-    fn generate_summary_section(&self, results: &[BenchmarkResult]) -> String {
+    fn generate_summary_section(&self, results: &[BenchmarkResult], alerts: &[RegressionAlert]) -> String {
         let total_operations = results.len();
-        let avg_improvement = self.calculate_average_improvement(results);
-        let critical_alerts = 0; // Would be calculated from alerts
-        let total_alerts = 0; // Would be calculated from alerts
+        let success_rate = self.calculate_success_rate(results);
+        let total_alerts = alerts.len();
+        let critical_alerts = alerts.iter().filter(|a| a.degradation_rate > 25.0).count();
 
         format!(
             r#"<div class="summary-grid">
@@ -644,7 +642,7 @@ impl HtmlReportGenerator {
                     <p style="font-size: 2em; margin: 0;">{}</p>
                 </div>
                 <div class="summary-card">
-                    <h3>Average Improvement</h3>
+                    <h3>Success Rate</h3>
                     <p style="font-size: 2em; margin: 0; color: {};">{:.1}%</p>
                 </div>
                 <div class="summary-card">
@@ -657,12 +655,14 @@ impl HtmlReportGenerator {
                 </div>
             </div>"#,
             total_operations,
-            if avg_improvement >= 0.0 {
+            if success_rate >= 95.0 {
                 "#28a745"
+            } else if success_rate >= 80.0 {
+                "#ffc107"
             } else {
                 "#dc3545"
             },
-            avg_improvement,
+            success_rate,
             if critical_alerts > 0 {
                 "#dc3545"
             } else {
@@ -670,96 +670,6 @@ impl HtmlReportGenerator {
             },
             critical_alerts,
             total_alerts
-        )
-    }
-
-    fn generate_performance_charts(&self, results: &[BenchmarkResult]) -> String {
-        let chart_data = self.prepare_performance_chart_data(results);
-
-        format!(
-            r#"<div class="chart-container">
-                <h2>Performance Overview</h2>
-                <canvas id="performanceChart" width="{}" height="{}"></canvas>
-            </div>
-            <script>
-                const ctx = document.getElementById('performanceChart').getContext('2d');
-                new Chart(ctx, {{
-                    type: 'line',
-                    data: {},
-                    options: {{
-                        responsive: true,
-                        plugins: {{
-                            title: {{
-                                display: true,
-                                text: 'Execution Time vs Problem Size'
-                            }}
-                        }},
-                        scales: {{
-                            x: {{
-                                title: {{
-                                    display: true,
-                                    text: '{}'
-                                }}
-                            }},
-                            y: {{
-                                title: {{
-                                    display: true,
-                                    text: '{}'
-                                }}
-                            }}
-                        }}
-                    }}
-                }});
-            </script>"#,
-            self.config.width,
-            self.config.height,
-            serde_json::to_string(&chart_data).unwrap_or_default(),
-            self.config.x_label,
-            self.config.y_label
-        )
-    }
-
-    fn generate_scaling_charts(&self, scaling_results: &[ScalingResult]) -> String {
-        let chart_data = self.prepare_scaling_chart_data(scaling_results);
-
-        format!(
-            r#"<div class="chart-container">
-                <h2>Scaling Analysis</h2>
-                <canvas id="scalingChart" width="{}" height="{}"></canvas>
-            </div>
-            <script>
-                const ctxScaling = document.getElementById('scalingChart').getContext('2d');
-                new Chart(ctxScaling, {{
-                    type: 'line',
-                    data: {},
-                    options: {{
-                        responsive: true,
-                        plugins: {{
-                            title: {{
-                                display: true,
-                                text: 'Parallel Scaling Efficiency'
-                            }}
-                        }},
-                        scales: {{
-                            x: {{
-                                title: {{
-                                    display: true,
-                                    text: 'Number of Cores'
-                                }}
-                            }},
-                            y: {{
-                                title: {{
-                                    display: true,
-                                    text: 'Efficiency (%)'
-                                }}
-                            }}
-                        }}
-                    }}
-                }});
-            </script>"#,
-            self.config.width,
-            self.config.height,
-            serde_json::to_string(&chart_data).unwrap_or_default()
         )
     }
 
@@ -837,12 +747,10 @@ impl HtmlReportGenerator {
                 })
                 .unwrap_or_else(|| "N/A".to_string());
 
-            // Extract memory metrics
+            // Extract memory metrics (use peak memory usage for footprint analysis)
             let memory_usage = result
                 .memory
-                .as_ref()
-                .map(|m| format!("{:.1}MB", m.total_allocated as f64 / 1_048_576.0))
-                .unwrap_or_else(|| "N/A".to_string());
+                .as_ref().map_or_else(|| "N/A".to_string(), |m| format!("{:.1}MB", m.peak_allocated as f64 / 1_048_576.0));
 
             // Extract scaling info
             let scaling_info = result
@@ -855,7 +763,7 @@ impl HtmlReportGenerator {
                     } else {
                         let total: f64 = s.speedup_factors.values().sum();
                         let avg = total / s.speedup_factors.len() as f64;
-                        Some(format!("{:.2}x avg speedup", avg))
+                        Some(format!("{avg:.2}x avg speedup"))
                     }
                 })
                 .unwrap_or_else(|| "N/A".to_string());
@@ -895,7 +803,7 @@ impl HtmlReportGenerator {
             ));
         }
 
-        table_html.push_str(r#"</tbody></table></div>"#);
+        table_html.push_str(r"</tbody></table></div>");
         table_html
     }
 
@@ -911,8 +819,7 @@ impl HtmlReportGenerator {
 
         if critical_alerts > 0 {
             recommendations.push(format!(
-                "🚨 Address {} critical performance regressions immediately",
-                critical_alerts
+                "🚨 Address {critical_alerts} critical performance regressions immediately"
             ));
         }
 
@@ -923,18 +830,20 @@ impl HtmlReportGenerator {
 
         if failed_tests > 0 {
             recommendations.push(format!(
-                "❌ Fix {} failed benchmark operations",
-                failed_tests
+                "❌ Fix {failed_tests} failed benchmark operations"
             ));
         }
 
-        let avg_improvement = self.calculate_average_improvement(results);
-        if avg_improvement < -10.0 {
-            recommendations.push("📉 Significant performance degradation detected - investigate recent architectural changes".to_string());
-        } else if avg_improvement < -5.0 {
-            recommendations.push(
-                "⚠️ Performance degradation detected - review recent modifications".to_string(),
-            );
+        // Check for general regressions (any regression > 5% but < 25%)
+        let minor_regressions = alerts
+            .iter()
+            .filter(|a| a.degradation_rate > 5.0 && a.degradation_rate <= 25.0)
+            .count();
+        
+        if minor_regressions > 0 {
+             recommendations.push(format!(
+                "⚠️ Review {minor_regressions} minor performance regressions"
+            ));
         }
 
         // Memory efficiency analysis
@@ -946,8 +855,7 @@ impl HtmlReportGenerator {
 
         if high_memory_usage > 0 {
             recommendations.push(format!(
-                "🧠 Optimize memory usage in {} operations (>100MB)",
-                high_memory_usage
+                "🧠 Optimize memory usage in {high_memory_usage} operations (>100MB)"
             ));
         }
 
@@ -969,8 +877,7 @@ impl HtmlReportGenerator {
 
         if poor_scaling > 0 {
             recommendations.push(format!(
-                "⚡ Improve parallel scaling efficiency in {} operations",
-                poor_scaling
+                "⚡ Improve parallel scaling efficiency in {poor_scaling} operations"
             ));
         }
 
@@ -987,8 +894,7 @@ impl HtmlReportGenerator {
 
         for rec in recommendations {
             rec_html.push_str(&format!(
-                r#"<div class="recommendation-item">• {}</div>"#,
-                rec
+                r#"<div class="recommendation-item">• {rec}</div>"#
             ));
         }
 
@@ -1008,13 +914,12 @@ impl HtmlReportGenerator {
             // Extract execution time (convert to milliseconds)
             execution_times.push(format!("{:.3}", result.duration.as_secs_f64() * 1000.0));
 
-            // Extract memory usage (convert to MB)
+            // Extract memory usage (convert to MB) - use peak memory usage
             let mem_mb = result
                 .memory
                 .as_ref()
-                .map(|m| m.total_allocated as f64 / 1_048_576.0)
-                .unwrap_or(0.0);
-            memory_usage.push(format!("{:.1}", mem_mb));
+                .map_or(0.0, |m| m.peak_allocated as f64 / 1_048_576.0);
+            memory_usage.push(format!("{mem_mb:.1}"));
         }
 
         format!(
@@ -1137,280 +1042,153 @@ impl HtmlReportGenerator {
         )
     }
 
-    /// Generate scaling analysis chart
-    fn generate_scaling_chart(&self, scaling_results: &[super::scaling::ScalingResult]) -> String {
-        if scaling_results.is_empty() {
+    /// Generate scaling analysis chart (Speedup vs Processors)
+    fn generate_scaling_chart(&self, results: &[BenchmarkResult]) -> String {
+        let scaling_benchmarks: Vec<&BenchmarkResult> = results
+            .iter()
+            .filter(|r| r.scaling.is_some())
+            .collect();
+
+        if scaling_benchmarks.is_empty() {
             return String::new();
         }
 
-        let mut problem_sizes = Vec::new();
-        let mut speedups = Vec::new();
-        let mut efficiencies = Vec::new();
-
-        for result in scaling_results {
-            // Use first problem size and processor count for display
-            let problem_size = result.problem_sizes.first().copied().unwrap_or(0);
-            let processor_count = result.processor_counts.first().copied().unwrap_or(1);
-
-            problem_sizes.push(problem_size.to_string());
-
-            // Get speedup and efficiency from the metrics
-            let speedup = result
-                .speedup_factors
-                .get(&(problem_size, processor_count))
-                .copied()
-                .unwrap_or(1.0);
-            let efficiency = result
-                .parallel_efficiency
-                .get(&(problem_size, processor_count))
-                .copied()
-                .unwrap_or(1.0);
-
-            speedups.push(format!("{:.2}", speedup));
-            efficiencies.push(format!("{:.1}", efficiency * 100.0));
+        // Collect all unique processor counts to define the X-axis
+        let mut all_processor_counts = Vec::new();
+        for result in &scaling_benchmarks {
+            if let Some(scaling) = &result.scaling {
+                for &count in &scaling.processor_counts {
+                    if !all_processor_counts.contains(&count) {
+                        all_processor_counts.push(count);
+                    }
+                }
+            }
+        }
+        all_processor_counts.sort_unstable();
+        
+        if all_processor_counts.is_empty() {
+            return String::new();
         }
 
+        // Prepare datasets
+        let mut datasets = Vec::new();
+        let colors = [
+            "#4e79a7", "#f28e2c", "#e15759", "#76b7b2", "#59a14f", 
+            "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#bab0ac"
+        ];
+
+        for (i, result) in scaling_benchmarks.iter().enumerate() {
+            if let Some(scaling) = &result.scaling {
+                let mut data = Vec::new();
+                for &proc_count in &all_processor_counts {
+                    // Look up speedup for this processor count and the benchmark's problem size
+                    let key = (result.problem_size, proc_count);
+                    if let Some(&speedup) = scaling.speedup_factors.get(&key) {
+                        data.push(Some(speedup));
+                    } else {
+                        data.push(None);
+                    }
+                }
+
+                datasets.push(serde_json::json!({
+                    "label": format!("{} (N={})", result.name, result.problem_size),
+                    "data": data,
+                    "borderColor": colors[i % colors.len()],
+                    "backgroundColor": colors[i % colors.len()],
+                    "fill": false,
+                    "tension": 0.4
+                }));
+            }
+        }
+
+        let chart_data = serde_json::json!({
+            "labels": all_processor_counts,
+            "datasets": datasets
+        });
+
         format!(
-            r#"
-        <div class="chart-container">
-            <h2>Parallel Scaling Analysis</h2>
-            <div class="chart-legend">
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #9b59b6;"></div>
-                    <span>Speedup Factor</span>
+            r#"<div class="chart-container">
+                <div class="chart-header">
+                    <h2>Parallel Scaling Performance</h2>
+                    <p class="chart-subtitle">Speedup vs Processor Count</p>
                 </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #f39c12;"></div>
-                    <span>Parallel Efficiency (%)</span>
+                <div class="chart-wrapper">
+                    <canvas id="scalingChart"></canvas>
                 </div>
             </div>
-            <div class="chart-wrapper">
-                <canvas id="scalingChart"></canvas>
-            </div>
-        </div>
-        <script>
-            const scalingCtx = document.getElementById('scalingChart').getContext('2d');
-            new Chart(scalingCtx, {{
-                type: 'line',
-                data: {{
-                    labels: [{}],
-                    datasets: [{{
-                        label: 'Speedup',
-                        data: [{}],
-                        backgroundColor: 'rgba(155, 89, 182, 0.2)',
-                        borderColor: 'rgba(155, 89, 182, 1)',
-                        borderWidth: 3,
-                        fill: false,
-                        tension: 0.4,
-                        pointBackgroundColor: 'rgba(155, 89, 182, 1)',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2,
-                        pointRadius: 6,
-                        pointHoverRadius: 8
-                    }}, {{
-                        label: 'Efficiency (%)',
-                        data: [{}],
-                        backgroundColor: 'rgba(243, 156, 18, 0.2)',
-                        borderColor: 'rgba(243, 156, 18, 1)',
-                        borderWidth: 3,
-                        fill: false,
-                        tension: 0.4,
-                        yAxisID: 'y1',
-                        pointBackgroundColor: 'rgba(243, 156, 18, 1)',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2,
-                        pointRadius: 6,
-                        pointHoverRadius: 8
-                    }}]
-                }},
-                options: {{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: {{
-                        mode: 'index',
-                        intersect: false,
-                    }},
-                    plugins: {{
-                        title: {{
-                            display: true,
-                            text: 'Parallel Scaling Performance',
-                            font: {{
-                                size: 16,
-                                weight: 'bold'
-                            }}
+            <script>
+                const scalingCtx = document.getElementById('scalingChart').getContext('2d');
+                new Chart(scalingCtx, {{
+                    type: 'line',
+                    data: {},
+                    options: {{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {{
+                            mode: 'index',
+                            intersect: false,
                         }},
-                        legend: {{
-                            display: true,
-                            position: 'top'
-                        }},
-                        tooltip: {{
-                            callbacks: {{
-                                label: function(context) {{
-                                    let label = context.dataset.label || '';
-                                    if (label) {{
-                                        label += ': ';
+                        plugins: {{
+                            title: {{
+                                display: false
+                            }},
+                            legend: {{
+                                display: true,
+                                position: 'top'
+                            }},
+                            tooltip: {{
+                                callbacks: {{
+                                    label: function(context) {{
+                                        let label = context.dataset.label || '';
+                                        if (label) {{
+                                            label += ': ';
+                                        }}
+                                        if (context.parsed.y !== null) {{
+                                            label += context.parsed.y.toFixed(2) + 'x';
+                                        }}
+                                        return label;
                                     }}
-                                    if (context.parsed.y !== null) {{
-                                        label += context.parsed.y.toLocaleString();
-                                        if (context.datasetIndex === 1) label += '%';
-                                    }}
-                                    return label;
                                 }}
                             }}
-                        }}
-                    }},
-                    scales: {{
-                        x: {{
-                            display: true,
-                            title: {{
-                                display: true,
-                                text: 'Problem Size'
+                        }},
+                        scales: {{
+                            x: {{
+                                title: {{
+                                    display: true,
+                                    text: 'Processor Count'
+                                }}
+                            }},
+                            y: {{
+                                title: {{
+                                    display: true,
+                                    text: 'Speedup Factor'
+                                }},
+                                min: 0
                             }}
-                        }},
-                        y: {{
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            title: {{
-                                display: true,
-                                text: 'Speedup Factor'
-                            }},
-                            grid: {{
-                                drawOnChartArea: false,
-                            }},
-                        }},
-                        y1: {{
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: {{
-                                display: true,
-                                text: 'Parallel Efficiency (%)'
-                            }},
-                            min: 0,
-                            max: 100,
-                            grid: {{
-                                drawOnChartArea: false,
-                            }},
                         }}
                     }}
-                }}
-            }});
-        </script>"#,
-            problem_sizes
-                .join("\",\"")
-                .split(",")
-                .collect::<Vec<&str>>()
-                .join("\",\""),
-            speedups.join(","),
-            efficiencies.join(",")
+                }});
+            </script>"#,
+            serde_json::to_string(&chart_data).unwrap_or_default()
         )
     }
 
-    /// Calculate average performance improvement across all results
-    fn calculate_average_improvement(&self, results: &[BenchmarkResult]) -> f64 {
+    /// Calculate success rate across all results
+    fn calculate_success_rate(&self, results: &[BenchmarkResult]) -> f64 {
         if results.is_empty() {
             return 0.0;
         }
 
-        // For now, return a simple metric based on successful operations
-        // In a real implementation, this would compare against baseline performance
         let successful = results
             .iter()
             .filter(|r| matches!(r.status, BenchmarkStatus::Passed))
             .count();
 
-        ((successful as f64 / results.len() as f64) - 0.5) * 200.0 // Convert to percentage around 0
+        (successful as f64 / results.len() as f64) * 100.0
     }
 
     fn generate_html_footer(&self) -> String {
-        r#"</div></body></html>"#.to_string()
-    }
-
-    fn prepare_performance_chart_data(&self, results: &[BenchmarkResult]) -> serde_json::Value {
-        // Group results by operation
-        let mut operations: HashMap<String, Vec<(usize, f64)>> = HashMap::new();
-
-        for result in results {
-            // Use name as operation name and duration as execution time
-            operations
-                .entry(result.name.clone())
-                .or_insert_with(Vec::new)
-                .push((0, result.duration.as_secs_f64() * 1000.0)); // Use 0 as problem size placeholder
-        }
-
-        // Sort by problem size for each operation
-        for data in operations.values_mut() {
-            data.sort_by_key(|(size, _)| *size);
-        }
-
-        // Create Chart.js compatible data
-        let mut datasets = Vec::new();
-        let mut all_labels = Vec::new();
-        let mut color_idx = 0;
-
-        for (operation, data) in operations {
-            let (labels, values): (Vec<_>, Vec<_>) = data.into_iter().unzip();
-
-            // Collect all unique labels
-            for label in labels {
-                if !all_labels.contains(&label) {
-                    all_labels.push(label);
-                }
-            }
-
-            datasets.push(serde_json::json!({
-                "label": operation,
-                "data": values,
-                "borderColor": self.config.colors[color_idx % self.config.colors.len()],
-                "backgroundColor": self.config.colors[color_idx % self.config.colors.len()],
-                "fill": false
-            }));
-
-            color_idx += 1;
-        }
-
-        // Sort labels
-        all_labels.sort();
-
-        serde_json::json!({
-            "labels": all_labels,
-            "datasets": datasets
-        })
-    }
-
-    fn prepare_scaling_chart_data(&self, scaling_results: &[ScalingResult]) -> serde_json::Value {
-        let mut cores = Vec::new();
-        let mut efficiencies = Vec::new();
-
-        for result in scaling_results {
-            // Use processor counts as cores
-            for &processor_count in &result.processor_counts {
-                if !cores.contains(&processor_count) {
-                    cores.push(processor_count);
-                }
-            }
-
-            // Get average efficiency across all measurements
-            let avg_efficiency = if result.parallel_efficiency.is_empty() {
-                1.0
-            } else {
-                result.parallel_efficiency.values().sum::<f64>()
-                    / result.parallel_efficiency.len() as f64
-            };
-            efficiencies.push(avg_efficiency * 100.0); // Convert to percentage
-        }
-
-        serde_json::json!({
-            "labels": cores,
-            "datasets": [{
-                "label": "Scaling Efficiency",
-                "data": efficiencies,
-                "borderColor": "#1f77b4",
-                "backgroundColor": "#1f77b4",
-                "fill": false
-            }]
-        })
+        r"</div></body></html>".to_string()
     }
 }
 
@@ -1420,6 +1198,7 @@ pub struct PerformanceDashboard {
 }
 
 impl PerformanceDashboard {
+    /// Create a new performance dashboard generator with default configuration
     pub fn new() -> Self {
         Self {
             generator: HtmlReportGenerator::with_default_config(),
@@ -1440,7 +1219,7 @@ impl PerformanceDashboard {
 
         std::fs::write(output_path, html_content)?;
 
-        println!("Performance dashboard generated: {}", output_path);
+        println!("Performance dashboard generated: {output_path}");
         println!("Open in browser to view interactive charts and detailed analysis");
 
         Ok(())
@@ -1480,7 +1259,7 @@ impl PerformanceDashboard {
             "  Maximum Execution Time: {:.3} ms\n",
             max_time * 1000.0
         ));
-        report.push_str(&format!("  Total Execution Time: {:.3} s\n\n", total_time));
+        report.push_str(&format!("  Total Execution Time: {total_time:.3} s\n\n"));
 
         // Operation breakdown
         report.push_str("Operation Breakdown:\n");
@@ -1489,7 +1268,7 @@ impl PerformanceDashboard {
         for result in results {
             operations
                 .entry(result.name.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(result);
         }
 
@@ -1587,13 +1366,19 @@ impl BenchmarkExporter {
 
     /// Convert benchmark results to CSV format
     fn results_to_csv(results: &[BenchmarkResult]) -> String {
-        let mut csv = String::from("benchmark_name,problem_size,duration_ms,memory_usage_mb,throughput_ops_per_sec,status\n");
+        let mut csv = String::from("benchmark_name,problem_size,duration_ms,memory_usage_mb,throughput_ops_per_sec,status,regression_detected\n");
 
         for result in results {
+            let throughput = if result.duration.as_secs_f64() > 0.0 {
+                result.problem_size as f64 / result.duration.as_secs_f64()
+            } else {
+                0.0
+            };
+
             csv.push_str(&format!(
-                "{},{},{:.3},{},{},{}\n",
+                "{},{},{:.3},{},{:.2},{:?},{}\n",
                 result.name,
-                0, // Use 0 as placeholder for problem size
+                result.problem_size,
                 result.duration.as_secs_f64() * 1000.0,
                 result
                     .memory
@@ -1602,7 +1387,8 @@ impl BenchmarkExporter {
                         "{:.1}",
                         m.total_allocated as f64 / 1024.0 / 1024.0
                     )),
-                "N/A", // No throughput field available
+                throughput,
+                result.status,
                 result.regression_detected.is_some()
             ));
         }
@@ -1656,11 +1442,17 @@ impl PerformanceComparator {
 /// Performance comparison result
 #[derive(Debug, Clone)]
 pub struct PerformanceComparison {
+    /// Name of the benchmark
     pub benchmark_name: String,
+    /// Size of the problem (e.g., number of grid points)
     pub problem_size: usize,
+    /// Execution time in baseline (seconds)
     pub baseline_time: f64,
+    /// Execution time in current run (seconds)
     pub current_time: f64,
+    /// Percentage change in execution time
     pub time_change_percent: f64,
+    /// Whether the change represents an improvement (lower time)
     pub is_improvement: bool,
 }
 

@@ -58,6 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         fluid_viscosity,
         4184.0, // specific heat of water (J/kg·K)
         0.6,    // thermal conductivity of water (W/m·K)
+        1482.0, // speed of sound of water (m/s)
     );
 
     // Set up boundary conditions
@@ -184,9 +185,7 @@ fn create_pipe_mesh(
             let current_next_level = next_base_idx + j;
 
             // Create triangular face
-            faces.push(Face {
-                vertices: vec![current, next_j, current_next_level],
-            });
+            faces.push(Face::triangle(current, next_j, current_next_level));
         }
     }
 

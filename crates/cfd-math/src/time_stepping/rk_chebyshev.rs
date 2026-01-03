@@ -263,7 +263,7 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
             let f_prev = rhs.evaluate(t0, &y_prev1)?; // Using t0 for simplicity (first order in time for t)
             
             // Y_j = (1 - mu - nu) Y_0 + mu Y_{j-1} + nu Y_{j-2} + mu_tilde dt F_{j-1} + gamma_tilde dt F_0
-            let term_y0 = (T::one() - coeff.mu - coeff.nu);
+            let term_y0 = T::one() - coeff.mu - coeff.nu;
             
             let mut y_curr = DVector::zeros(n);
             for i in 0..n {
@@ -302,12 +302,13 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
 
             // Simple step without error control for now (RKC error est is complex)
             y = self.step(rhs, t, &y, dt)?;
-            t = t + dt;
+            t += dt;
         }
 
         Ok((y, dt))
     }
     
+    /// Get the configuration of the RKC solver
     pub fn config(&self) -> &RkcConfig<T> {
         &self.config
     }

@@ -48,6 +48,7 @@ fn square_wave(phi: &mut Grid2D<f64>, amplitude: f64, width: f64, center: f64) {
 }
 
 /// Create linear advection exact solution
+#[allow(dead_code)]
 fn exact_solution_advection(
     x: f64,
     t: f64,
@@ -143,7 +144,7 @@ fn test_muscl3_vs_muscl2_accuracy() {
             // Evolve both schemes
             let dt = DX / velocity.abs() * 0.4; // CFL = 0.4
 
-            for t in 0..3 {
+            for _t in 0..3 {
                 let mut phi_muscl2 = phi.clone();
                 let mut phi_muscl3 = phi.clone();
 

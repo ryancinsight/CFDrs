@@ -5,6 +5,7 @@
 use crate::error::{Error, Result};
 use crate::fields::Field2D;
 use crate::grid::StructuredGrid2D;
+#[cfg(feature = "gpu")]
 use std::sync::Arc;
 
 /// Acceleration backend selection
@@ -77,7 +78,7 @@ impl AcceleratedPoissonSolver {
         match self.backend {
             #[cfg(feature = "gpu")]
             Backend::Gpu => {
-                if let Some(ref gpu_solver) = self.gpu_solver {
+                if let Some(ref _gpu_solver) = self.gpu_solver {
                     self.solve_gpu_with_convergence(phi, source, max_iterations, omega, 1e-6)
                 } else {
                     self.solve_simd(phi, source, max_iterations, omega)

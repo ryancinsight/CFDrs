@@ -15,6 +15,8 @@
 
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
+use cfd_2d::pressure_velocity::PressureLinearSolver;
+use cfd_2d::schemes::SpatialScheme;
 use cfd_2d::simplec_pimple::config::{AlgorithmType, SimplecPimpleConfig};
 use cfd_2d::simplec_pimple::SimplecPimpleSolver;
 use cfd_core::fluid::Fluid;
@@ -43,7 +45,14 @@ where
 
     // Create grid and fluid
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001);
+    let fluid = Fluid::new(
+        "Test Fluid".to_string(),
+        1.0,
+        nu,
+        1000.0,
+        0.001,
+        1482.0,
+    );
 
     // Create simulation fields
     let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
@@ -59,6 +68,8 @@ where
         n_outer_correctors: 1,
         n_inner_correctors: 1,
         use_rhie_chow: true,
+        convection_scheme: SpatialScheme::SecondOrderUpwind,
+        pressure_linear_solver: PressureLinearSolver::default(),
     };
 
     // Create solver
@@ -144,7 +155,7 @@ where
 
     // Create grid and fluid
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001);
+    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Create simulation fields
     let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
@@ -160,6 +171,8 @@ where
         n_outer_correctors: 1,
         n_inner_correctors: 1,
         use_rhie_chow: false, // Rhie-Chow enhancement implemented but disabled for stability
+        convection_scheme: SpatialScheme::SecondOrderUpwind,
+        pressure_linear_solver: PressureLinearSolver::default(),
     };
 
     let mut solver =
@@ -277,7 +290,7 @@ where
 
     // Create grid and fluid
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001);
+    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Create simulation fields (boundary conditions handled by solver)
     let mut fields = SimulationFields::with_fluid(nx, ny, &fluid);
@@ -293,6 +306,8 @@ where
         n_outer_correctors: 3, // PIMPLE outer correctors
         n_inner_correctors: 2, // PIMPLE inner correctors
         use_rhie_chow: true,
+        convection_scheme: SpatialScheme::SecondOrderUpwind,
+        pressure_linear_solver: PressureLinearSolver::default(),
     };
 
     // Create and run solver
@@ -392,7 +407,7 @@ where
     let nu = lid_velocity / reynolds;
 
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001);
+    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Test without Rhie-Chow
     let mut fields_no_rhie = SimulationFields::with_fluid(nx, ny, &fluid);
@@ -407,6 +422,8 @@ where
         n_outer_correctors: 1,
         n_inner_correctors: 1,
         use_rhie_chow: false, // Disabled
+        convection_scheme: SpatialScheme::SecondOrderUpwind,
+        pressure_linear_solver: PressureLinearSolver::default(),
     };
 
     let mut solver_no_rhie = SimplecPimpleSolver::new(grid.clone(), config_no_rhie.clone())
@@ -436,6 +453,8 @@ where
         n_outer_correctors: 1,
         n_inner_correctors: 1,
         use_rhie_chow: true, // Enabled
+        convection_scheme: SpatialScheme::SecondOrderUpwind,
+        pressure_linear_solver: PressureLinearSolver::default(),
     };
 
     let mut solver_with_rhie = SimplecPimpleSolver::new(grid, config_with_rhie.clone())
@@ -827,7 +846,7 @@ where
 
     // Create grid and fluid
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001);
+    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Parameter study: try different configurations
     let parameter_sets = vec![
@@ -857,6 +876,8 @@ where
             n_outer_correctors: 1,
             n_inner_correctors: 1,
             use_rhie_chow: false,
+            convection_scheme: SpatialScheme::SecondOrderUpwind,
+            pressure_linear_solver: PressureLinearSolver::default(),
         };
 
         let mut solver = SimplecPimpleSolver::new(grid.clone(), config.clone())
@@ -965,7 +986,7 @@ where
 
         let grid =
             StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-        let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001);
+        let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
         // Use optimized configuration
         let config = SimplecPimpleConfig {
@@ -978,6 +999,8 @@ where
             n_outer_correctors: 1,
             n_inner_correctors: 1,
             use_rhie_chow: false,
+            convection_scheme: SpatialScheme::SecondOrderUpwind,
+            pressure_linear_solver: PressureLinearSolver::default(),
         };
 
         let mut solver =
@@ -1098,7 +1121,7 @@ where
         let nu = lid_velocity / reynolds;
         let grid =
             StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-        let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001);
+        let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
         // Use optimized configuration from Re=100 study
         let config = SimplecPimpleConfig {
@@ -1111,6 +1134,8 @@ where
             n_outer_correctors: 1,
             n_inner_correctors: 1,
             use_rhie_chow: false,
+            convection_scheme: SpatialScheme::SecondOrderUpwind,
+            pressure_linear_solver: PressureLinearSolver::default(),
         };
 
         let mut solver =
@@ -1218,7 +1243,7 @@ where
 
         let grid =
             StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-        let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001);
+        let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
         // Optimized configuration for performance
         let config = SimplecPimpleConfig {
@@ -1231,6 +1256,8 @@ where
             n_outer_correctors: 1,
             n_inner_correctors: 1,
             use_rhie_chow: false,
+            convection_scheme: SpatialScheme::SecondOrderUpwind,
+            pressure_linear_solver: PressureLinearSolver::default(),
         };
 
         let mut solver =
@@ -1381,7 +1408,7 @@ where
 
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 2.0, 0.0, channel_height)
         .expect("Failed to create grid");
-    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001);
+    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
     let config = SimplecPimpleConfig {
         algorithm: AlgorithmType::Simplec,
@@ -1393,6 +1420,8 @@ where
         n_outer_correctors: 1,
         n_inner_correctors: 1,
         use_rhie_chow: false,
+        convection_scheme: SpatialScheme::SecondOrderUpwind,
+        pressure_linear_solver: PressureLinearSolver::default(),
     };
 
     let mut solver =
@@ -1531,7 +1560,7 @@ where
     println!("\n=== Stokes Flow Validation (Re={:.4}) ===", reynolds);
 
     let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Failed to create grid");
-    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001);
+    let fluid = Fluid::new("Test Fluid".to_string(), 1.0, nu, 1000.0, 0.001, 1482.0);
 
     // Use very conservative settings for Stokes flow
     let config = SimplecPimpleConfig {
@@ -1544,6 +1573,8 @@ where
         n_outer_correctors: 1,
         n_inner_correctors: 1,
         use_rhie_chow: true, // Enable Rhie-Chow interpolation
+        convection_scheme: SpatialScheme::SecondOrderUpwind,
+        pressure_linear_solver: PressureLinearSolver::default(),
     };
 
     let mut solver =

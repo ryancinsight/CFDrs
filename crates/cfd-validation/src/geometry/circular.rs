@@ -35,20 +35,24 @@ impl<T: RealField + Copy> CircularDomain<T> {
 
     /// Get the distance from center to a point
     fn distance_from_center(&self, point: &Point2D<T>) -> T {
-        let dx = point.x.clone() - self.center_x.clone();
-        let dy = point.y.clone() - self.center_y.clone();
-        ComplexField::sqrt(dx.clone() * dx + dy.clone() * dy)
+        let dx = point.x - self.center_x;
+        let dy = point.y - self.center_y;
+        ComplexField::sqrt(dx * dx + dy * dy)
     }
 
     /// Get the angle (in radians) from center to a point
     fn angle_from_center(&self, point: &Point2D<T>) -> T {
-        let dx = point.x.clone() - self.center_x.clone();
-        let dy = point.y.clone() - self.center_y.clone();
+        let dx = point.x - self.center_x;
+        let dy = point.y - self.center_y;
         RealField::atan2(dy, dx)
     }
 }
 
 impl<T: RealField + Copy> Geometry<T> for CircularDomain<T> {
+    fn clone_box(&self) -> Box<dyn Geometry<T>> {
+        Box::new(self.clone())
+    }
+
     fn contains(&self, point: &Point2D<T>) -> bool {
         self.distance_from_center(point) <= self.radius
     }
@@ -70,13 +74,13 @@ impl<T: RealField + Copy> Geometry<T> for CircularDomain<T> {
 
         if (distance - self.radius).abs() < tol {
             // Point is on the boundary, compute outward normal
-            let dx = point.x.clone() - self.center_x.clone();
-            let dy = point.y.clone() - self.center_y.clone();
-            let norm = ComplexField::sqrt(dx.clone() * dx.clone() + dy.clone() * dy.clone());
+            let dx = point.x - self.center_x;
+            let dy = point.y - self.center_y;
+            let norm = ComplexField::sqrt(dx * dx + dy * dy);
 
             if norm > T::zero() {
                 Some(Point2D {
-                    x: dx / norm.clone(),
+                    x: dx / norm,
                     y: dy / norm,
                 })
             } else {
@@ -158,6 +162,6 @@ impl<T: RealField + Copy> Geometry<T> for CircularDomain<T> {
         // Area of circle: πr²
         let pi = <T as SafeFromF64>::try_from_f64(std::f64::consts::PI)
             .unwrap_or(T::from_f64_or_one(3.14159));
-        pi * self.radius.clone() * self.radius
+        pi * self.radius * self.radius
     }
 }

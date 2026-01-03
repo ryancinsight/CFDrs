@@ -6,8 +6,8 @@
 //! - Performance recommendations based on empirical data
 //! - Literature-backed complexity analysis
 
-use super::performance::{AlgorithmComplexity, CfdPerformanceBenchmarks, PerformanceProfile};
-use cfd_core::error::{Error, Result};
+use super::performance::{CfdPerformanceBenchmarks, PerformanceProfile};
+use cfd_core::error::Result;
 
 /// Comprehensive performance profiling runner
 pub struct PerformanceProfiler {
@@ -70,9 +70,7 @@ impl PerformanceProfiler {
 
         let best_algorithm = profiles
             .iter()
-            .max_by(|a, b| a.gflops.partial_cmp(&b.gflops).unwrap())
-            .map(|p| p.complexity.name.clone())
-            .unwrap_or_else(|| "None".to_string());
+            .max_by(|a, b| a.gflops.partial_cmp(&b.gflops).unwrap()).map_or_else(|| "None".to_string(), |p| p.complexity.name.clone());
 
         let worst_algorithm = profiles
             .iter()
@@ -81,9 +79,7 @@ impl PerformanceProfiler {
                     .cache_efficiency
                     .partial_cmp(&b.complexity.cache_efficiency)
                     .unwrap()
-            })
-            .map(|p| p.complexity.name.clone())
-            .unwrap_or_else(|| "None".to_string());
+            }).map_or_else(|| "None".to_string(), |p| p.complexity.name.clone());
 
         PerformanceSummary {
             total_profiles: profiles.len(),
@@ -166,8 +162,7 @@ impl PerformanceProfiler {
                 category: "Algorithm Complexity".to_string(),
                 severity: "High".to_string(),
                 description: format!(
-                    "{} algorithms have poor complexity scaling",
-                    complex_algorithms
+                    "{complex_algorithms} algorithms have poor complexity scaling"
                 ),
                 solution:
                     "Consider fast algorithms (FFT, multigrid, preconditioners) for large problems"
@@ -303,7 +298,7 @@ mod tests {
 
     #[test]
     fn test_performance_report_structure() {
-        let profiler = PerformanceProfiler::new();
+        let _profiler = PerformanceProfiler::new();
 
         // This test would run actual profiling in a real scenario
         // For now, just test that the profiler can be created

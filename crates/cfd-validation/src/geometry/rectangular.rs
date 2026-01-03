@@ -38,6 +38,10 @@ impl<T: RealField> RectangularDomain<T> {
 }
 
 impl<T: RealField + Copy> Geometry<T> for RectangularDomain<T> {
+    fn clone_box(&self) -> Box<dyn Geometry<T>> {
+        Box::new(self.clone())
+    }
+
     fn contains(&self, point: &Point2D<T>) -> bool {
         point.x >= self.x_min
             && point.x <= self.x_max

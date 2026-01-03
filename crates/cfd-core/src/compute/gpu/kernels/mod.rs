@@ -1,10 +1,15 @@
 //! GPU compute kernels for CFD operations
 
 pub mod advection;
+pub mod arithmetic;
 pub mod diffusion;
+pub mod laplacian;
 pub mod pressure;
 pub mod turbulence;
 pub mod velocity;
+
+pub use arithmetic::{FieldAddKernel, FieldMulKernel};
+pub use laplacian::Laplacian2DKernel;
 
 use crate::compute::traits::{ComputeKernel, KernelParams};
 use crate::error::Result;

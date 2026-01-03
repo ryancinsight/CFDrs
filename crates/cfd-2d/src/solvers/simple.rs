@@ -166,7 +166,7 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
         let mut converged = false;
 
         while iteration < self.max_iterations && !converged {
-            let (residual, conv) = self.simple_iteration(
+            let (_residual, conv) = self.simple_iteration(
                 momentum_solver,
                 poisson_solver,
                 fields,
@@ -183,7 +183,7 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
             tracing::debug!(
                 "SIMPLE iteration {}: residual = {:?}, converged = {}",
                 iteration,
-                residual,
+                _residual,
                 converged
             );
         }

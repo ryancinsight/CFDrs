@@ -6,9 +6,12 @@
 //! Run with: `cargo run --example matrix_free_demo`
 
 use cfd_math::error::Result;
-use cfd_math::linear_solver::matrix_free::{
-    LaplacianOperator2D, LinearOperator, MatrixFreeCG, MatrixFreeSolver,
+use cfd_math::linear_solver::{
+    ConjugateGradient, IterativeSolverConfig,
+    operators::{LaplacianOperator2D, LinearOperator},
+    traits::IterativeLinearSolver,
 };
+use nalgebra::DVector;
 
 /// Simple 1D diffusion operator for demonstration
 struct DiffusionOperator1D {
@@ -23,7 +26,7 @@ impl DiffusionOperator1D {
 }
 
 impl LinearOperator<f64> for DiffusionOperator1D {
-    fn apply(&self, x: &[f64], y: &mut [f64]) -> Result<()> {
+    fn apply(&self, x: &DVector<f64>, y: &mut DVector<f64>) -> Result<()> {
         if x.len() != self.size() || y.len() != self.size() {
             return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Vector dimensions don't match operator size".to_string(),
@@ -72,21 +75,21 @@ fn main() -> Result<()> {
 
     // Create a manufactured solution: u(x) = sin(πx)
     // RHS: -d²u/dx² = π² sin(πx)
-    let mut b = vec![0.0; n];
+    let mut b_data = vec![0.0; n];
     let pi = std::f64::consts::PI;
 
     for i in 0..n {
         let x = i as f64 * dx;
-        b[i] = pi * pi * (x).sin();
+        b_data[i] = pi * pi * (x).sin();
     }
+    let b = DVector::from_vec(b_data);
 
     // Solve using matrix-free CG
-    let config =
-        cfd_math::linear_solver::IterativeSolverConfig::new(1e-10).with_max_iterations(1000);
-    let solver = MatrixFreeCG::new(config);
+    let config = IterativeSolverConfig::new(1e-10).with_max_iterations(1000);
+    let solver = ConjugateGradient::new(config);
 
-    let mut x = vec![0.0; n];
-    solver.solve(&operator, &b, &mut x)?;
+    let mut x = DVector::zeros(n);
+    solver.solve(&operator, &b, &mut x, None::<&cfd_math::linear_solver::preconditioners::IdentityPreconditioner<f64>>)?;
 
     // Check solution
     let mut max_error: f64 = 0.0;
@@ -116,10 +119,10 @@ fn main() -> Result<()> {
 
     // Simple test: solve -∇²p = 1 with homogeneous Neumann BC
     let size = laplacian.size();
-    let b_laplace = vec![1.0; size];
+    let b_laplace = DVector::from_element(size, 1.0);
 
-    let mut p = vec![0.0; size];
-    solver.solve(&laplacian, &b_laplace, &mut p)?;
+    let mut p = DVector::zeros(size);
+    solver.solve(&laplacian, &b_laplace, &mut p, None::<&cfd_math::linear_solver::preconditioners::IdentityPreconditioner<f64>>)?;
 
     println!("  Grid: {}x{}", nx, ny);
     println!("  Total DOF: {}", size);

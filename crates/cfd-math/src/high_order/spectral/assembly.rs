@@ -3,10 +3,7 @@
 //! This module provides functionality for assembling global matrices and vectors
 //! from element-local contributions in spectral element methods.
 
-use super::*;
-use nalgebra::{DMatrix, DVector, DMatrixSlice, DVectorSlice, Matrix, Vector};
-use std::collections::HashMap;
-use std::ops::{Add, AddAssign, Mul};
+use nalgebra::{DMatrix, DVector};
 
 /// Represents a global sparse matrix in compressed sparse row (CSR) format
 #[derive(Debug, Clone)]
@@ -184,42 +181,66 @@ impl GlobalAssembly {
     
     /// Assemble the global sparse matrix in CSR format
     pub fn assemble_matrix(&self) -> SparseMatrixCSR {
-        let nnz = self.coo_vals.len();
+        if self.coo_rows.is_empty() {
+            return SparseMatrixCSR::new(self.num_dofs, self.num_dofs);
+        }
+
+        // 1. Collect and sort COO entries
+        let mut entries: Vec<(usize, usize, f64)> = self.coo_rows.iter()
+            .zip(self.coo_cols.iter())
+            .zip(self.coo_vals.iter())
+            .map(|((&r, &c), &v)| (r, c, v))
+            .collect();
+        
+        // Sort by row, then by column
+        entries.sort_by(|a, b| {
+            if a.0 != b.0 {
+                a.0.cmp(&b.0)
+            } else {
+                a.1.cmp(&b.1)
+            }
+        });
+
+        // 2. Consolidate duplicates
+        let mut consolidated = Vec::with_capacity(entries.len());
+        if !entries.is_empty() {
+            let (mut curr_r, mut curr_c, mut curr_v) = entries[0];
+            for i in 1..entries.len() {
+                let (r, c, v) = entries[i];
+                if r == curr_r && c == curr_c {
+                    curr_v += v;
+                } else {
+                    consolidated.push((curr_r, curr_c, curr_v));
+                    curr_r = r;
+                    curr_c = c;
+                    curr_v = v;
+                }
+            }
+            consolidated.push((curr_r, curr_c, curr_v));
+        }
+
+        // 3. Build CSR
         let mut mat = SparseMatrixCSR::new(self.num_dofs, self.num_dofs);
-        
-        // Count non-zeros per row
-        let mut row_counts = vec![0; self.num_dofs];
-        
-        for &i in &self.coo_rows {
-            row_counts[i] += 1;
+        mat.row_ptr = vec![0; self.num_dofs + 1];
+        mat.col_ind = Vec::with_capacity(consolidated.len());
+        mat.values = Vec::with_capacity(consolidated.len());
+
+        let mut current_row = 0;
+        for (r, c, v) in consolidated {
+            while current_row < r {
+                current_row += 1;
+                mat.row_ptr[current_row] = mat.col_ind.len();
+            }
+            mat.col_ind.push(c);
+            mat.values.push(v);
         }
         
-        // Set up row pointers
-        mat.row_ptr[0] = 0;
-        
-        for i in 0..self.num_dofs {
-            mat.row_ptr[i + 1] = mat.row_ptr[i] + row_counts[i];
+        // Fill remaining row pointers
+        while current_row < self.num_dofs {
+            current_row += 1;
+            mat.row_ptr[current_row] = mat.col_ind.len();
         }
-        
-        // Allocate storage
-        let nnz = mat.row_ptr[self.num_dofs];
-        mat.col_ind = vec![0; nnz];
-        mat.values = vec![0.0; nnz];
-        
-        // Fill column indices and values
-        let mut row_pos = mat.row_ptr.clone();
-        
-        for k in 0..nnz {
-            let i = self.coo_rows[k];
-            let j = self.coo_cols[k];
-            let val = self.coo_vals[k];
-            
-            let pos = row_pos[i];
-            mat.col_ind[pos] = j;
-            mat.values[pos] = val;
-            row_pos[i] += 1;
-        }
-        
+
         mat
     }
     
@@ -297,7 +318,6 @@ impl SpectralMesh {
         // Interior nodes
         for e in 0..num_elements {
             let x0 = x_min + e as f64 * dx;
-            let x1 = x0 + dx;
             
             // Interior nodes of the element
             for k in 1..nodes_per_element {
@@ -435,7 +455,7 @@ mod tests {
         }
         
         // Assemble global matrix
-        let mat = assembly.assembly_matrix();
+        let mat = assembly.assemble_matrix();
         
         // Check that the matrix has the correct structure
         assert_eq!(mat.nrows(), 5);  // 2 elements * 3 nodes - 1 shared node
@@ -489,7 +509,7 @@ mod tests {
         );
         
         // Assemble global matrix
-        let mat = assembly.assembly_matrix();
+        let mat = assembly.assemble_matrix();
         let rhs = assembly.rhs();
         
         // Check boundary conditions

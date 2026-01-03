@@ -30,6 +30,7 @@ pub struct ManufacturedConjugateHeatTransfer<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> ManufacturedConjugateHeatTransfer<T> {
+    /// Create a new manufactured solution for conjugate heat transfer
     pub fn new(
         conductivity_ratio: T,
         capacity_ratio: T,
@@ -55,13 +56,13 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedConjugateHeatTransfer<T> {
     /// Evaluate temperature in solid domain (x > interface_x)
     pub fn solid_temperature(&self, x: T, y: T, t: T) -> T {
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.frequency, self.frequency);
-        // Account for different thermal properties
-        self.amplitude * self.conductivity_ratio * base
+        // Remove conductivity_ratio to ensure continuity at interface
+        self.amplitude * base
     }
 }
 
 impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedConjugateHeatTransfer<T> {
-    fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
+    fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         if x < self.interface_x {
             self.fluid_temperature(x, y, t)
         } else {
@@ -69,7 +70,7 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedConjugateHeatT
         }
     }
 
-    fn source_term(&self, x: T, y: T, z: T, t: T) -> T {
+    fn source_term(&self, x: T, y: T, _z: T, t: T) -> T {
         if x < self.interface_x {
             // Fluid domain: ∂T/∂t = α ∇²T + S
             self.fluid_heat_source(x, y, t)
@@ -83,12 +84,12 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedConjugateHeatT
 impl<T: RealField + Copy + FromPrimitive> ManufacturedConjugateHeatTransfer<T> {
     fn fluid_heat_source(&self, x: T, y: T, t: T) -> T {
         let t_exact = self.fluid_temperature(x, y, t);
-        let alpha = <T as FromPrimitive>::from_f64(0.01f64).unwrap(); // Thermal diffusivity
+        let alpha = <T as FromPrimitive>::from_f64(0.01f64).unwrap(); // Base thermal diffusivity
 
-        // Time derivative
-        let dt_dt = -t_exact; // ∂T/∂t from exp(-t) factor
+        // Time derivative: ∂T/∂t = -T (from exp(-t))
+        let dt_dt = -t_exact;
 
-        // Laplacian
+        // Laplacian: ∇²T = -(kx² + ky²) * T
         let kx_sq = self.frequency * self.frequency;
         let ky_sq = self.frequency * self.frequency;
         let laplacian = -(kx_sq + ky_sq) * t_exact;
@@ -99,7 +100,9 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedConjugateHeatTransfer<T> {
 
     fn solid_heat_source(&self, x: T, y: T, t: T) -> T {
         let t_exact = self.solid_temperature(x, y, t);
-        let alpha_s = <T as FromPrimitive>::from_f64(0.01f64).unwrap() / self.capacity_ratio; // Solid thermal diffusivity
+        // Solid thermal diffusivity α_s = α * (k_ratio / capacity_ratio)
+        let alpha = <T as FromPrimitive>::from_f64(0.01f64).unwrap();
+        let alpha_s = alpha * self.conductivity_ratio / self.capacity_ratio;
 
         // Time derivative
         let dt_dt = -t_exact;
@@ -107,7 +110,7 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedConjugateHeatTransfer<T> {
         // Laplacian
         let kx_sq = self.frequency * self.frequency;
         let ky_sq = self.frequency * self.frequency;
-        let laplacian = -(kx_sq + ky_sq) * t_exact / self.conductivity_ratio;
+        let laplacian = -(kx_sq + ky_sq) * t_exact;
 
         // Source = ∂T/∂t - α_s ∇²T
         dt_dt - alpha_s * laplacian
@@ -125,10 +128,12 @@ pub struct ManufacturedSpeciesTransport<T: RealField + Copy> {
     pub amplitude: T,
     /// Wave numbers
     pub kx: T,
+    /// Wave number in y-direction
     pub ky: T,
 }
 
 impl<T: RealField + Copy> ManufacturedSpeciesTransport<T> {
+    /// Create a new manufactured solution for species transport
     pub fn new(diffusivity: T, reaction_rate: T, amplitude: T, kx: T, ky: T) -> Self {
         Self {
             diffusivity,
@@ -143,7 +148,7 @@ impl<T: RealField + Copy> ManufacturedSpeciesTransport<T> {
 impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T>
     for ManufacturedSpeciesTransport<T>
 {
-    fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
+    fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // C = A * sin(kx*x) * sin(ky*y) * exp(-t) * exp(-k²t)
         let spatial = ManufacturedFunctions::sinusoidal(x, y, T::zero(), self.kx, self.ky);
         let temporal_decay = <T as FromPrimitive>::from_f64(-1.0).unwrap()
@@ -188,10 +193,12 @@ pub struct ManufacturedMHD<T: RealField + Copy> {
     pub magnetic_amp: T,
     /// Wave numbers
     pub kx: T,
+    /// Wave number in y-direction
     pub ky: T,
 }
 
 impl<T: RealField + Copy> ManufacturedMHD<T> {
+    /// Create a new manufactured solution for MHD
     pub fn new(mu_0: T, sigma: T, velocity_amp: T, magnetic_amp: T, kx: T, ky: T) -> Self {
         Self {
             mu_0,
@@ -205,7 +212,7 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
 }
 
 impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedMHD<T> {
-    fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
+    fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Return velocity magnitude (simplified - in practice would need vector components)
         let spatial = ManufacturedFunctions::sinusoidal(x, y, T::zero(), self.kx, self.ky);
         self.velocity_amp * spatial * nalgebra::ComplexField::exp(-t)
@@ -216,12 +223,13 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedMHD<T> {
         // This is highly simplified - real MHD MMS would be much more complex
         let u = self.exact_solution(x, y, z, t);
 
-        // Simplified source term
-        let du_dt = -u; // Time derivative
-        let viscous = -u; // Simplified viscous term
-        let lorentz = self.magnetic_amp * u; // Simplified Lorentz force
+        // Simplified source term where we want the source to balance the equation
+        // S = ∂u/∂t - Viscous - Lorentz
+        let du_dt = -u; // Time derivative from exp(-t)
+        let viscous = -u; // Simplified viscous term (assumes ν∇²u ≈ -u)
+        let lorentz = self.sigma * self.magnetic_amp * self.magnetic_amp * u; // Lorentz force ∝ σ B² u
 
-        du_dt + viscous + lorentz
+        du_dt - viscous - lorentz
     }
 }
 
@@ -238,10 +246,12 @@ pub struct ManufacturedMultiphase<T: RealField + Copy> {
     pub amplitude: T,
     /// Wave numbers
     pub kx: T,
+    /// Wave number in y-direction
     pub ky: T,
 }
 
 impl<T: RealField + Copy> ManufacturedMultiphase<T> {
+    /// Create a new manufactured solution for multi-phase flows
     pub fn new(
         density_ratio: T,
         viscosity_ratio: T,
@@ -262,7 +272,7 @@ impl<T: RealField + Copy> ManufacturedMultiphase<T> {
 }
 
 impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedMultiphase<T> {
-    fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
+    fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Phase indicator function (simplified)
         let spatial = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
         self.amplitude * spatial
@@ -279,7 +289,7 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedMultiphase<T> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    // use approx::assert_relative_eq;
 
     #[test]
     fn test_conjugate_heat_transfer() {

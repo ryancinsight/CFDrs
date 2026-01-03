@@ -29,21 +29,21 @@
 //! let decomp = DomainDecomposition::new(global_extents, &world, DecompositionStrategy::Cartesian2D)?;
 //!
 //! // Create distributed linear operator
-//! let operator = DistributedLaplacian2D::new(&decomp, &world, 0.1, 0.1)?;
+//! let operator = DistributedLaplacian2D::new(&decomp, &world)?;
 //!
 //! // Setup parallel preconditioner
 //! let preconditioner = BlockJacobiPreconditioner::new(&operator, &decomp, &world)?;
 //!
 //! // Solve distributed system
-//! let solver = DistributedGMRES::new(operator, preconditioner, &world, 30);
-//! // let solution = solver.solve(&rhs, &initial_guess, tolerance, max_iter)?;
+//! let solver = DistributedGMRES::new(operator, preconditioner, &world);
+//! let solution = solver.solve(&rhs, &initial_guess, tolerance, max_iter)?;
 //! ```
 
 use super::communicator::MpiCommunicator;
 use super::decomposition::{DomainDecomposition, LocalSubdomain};
 use super::error::{MpiError, MpiResult};
 use super::ghost_cells::GhostCellManager;
-use nalgebra::{DVector, RealField, Vector2};
+use nalgebra::{DVector, RealField};
 use std::collections::HashMap;
 
 /// Distributed linear operator trait for matrix-free operations
@@ -60,18 +60,8 @@ pub trait DistributedLinearOperator<T: RealField> {
     /// Extract the diagonal of the local operator
     fn extract_diagonal(&self) -> DVector<T>;
 
-    /// Assemble the local matrix (interior only)
+    /// Assemble the local matrix (optional, for Schwarz/ILU)
     fn assemble_local_matrix(&self) -> Option<nalgebra::DMatrix<T>> {
-        None
-    }
-
-    /// Assemble the matrix for the extended domain (including overlap)
-    ///
-    /// This is required for Additive Schwarz with overlap.
-    /// The matrix should correspond to the domain extended by `overlap` layers of ghost cells.
-    ///
-    /// Returns `None` if not supported or if `overlap` is too large.
-    fn assemble_overlap_matrix(&self, overlap: usize) -> Option<nalgebra::DMatrix<T>> {
         None
     }
 }
@@ -201,51 +191,61 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedLinear
     for DistributedLaplacian2D<T>
 {
     fn apply(&self, x: &DistributedVector<T>, y: &mut DistributedVector<T>) -> MpiResult<()> {
-        // 1. Prepare data with ghost cells (CRITICAL-011: Must exchange ghosts on INPUT vector x)
-        let ghost_layers = self.subdomain.ghost_layers;
-        let total_nx = self.subdomain.total_nx();
-        let total_ny = self.subdomain.total_ny();
+        // Apply local Laplacian operator
+        self.apply_local_laplacian(&x.local_data, &mut y.local_data);
 
-        // Create temporary buffers for ghost exchange
-        // TODO: Refactor GhostCellManager to support scalar-only exchange to avoid allocating dummy velocity fields
-        let mut velocity_u = vec![
-            vec![nalgebra::Vector2::zeros(); total_ny];
-            total_nx
-        ];
-        let mut velocity_v = vec![
-            vec![nalgebra::Vector2::zeros(); total_ny];
-            total_nx
-        ];
-        let mut pressure = vec![vec![T::zero(); total_ny]; total_nx];
+        // Update ghost cells in the result
+        if let Some(ref ghost_mgr) = y.ghost_manager {
+            // Convert data layout for ghost cell exchange
+            let mut velocity_u = vec![
+                vec![nalgebra::Vector2::zeros(); self.subdomain.total_ny()];
+                self.subdomain.total_nx()
+            ];
+            let mut velocity_v = vec![
+                vec![nalgebra::Vector2::zeros(); self.subdomain.total_ny()];
+                self.subdomain.total_nx()
+            ];
+            let mut pressure =
+                vec![vec![T::zero(); self.subdomain.total_ny()]; self.subdomain.total_nx()];
 
-        // Pack local data from x into the pressure array (interior region)
-        for i in 0..self.subdomain.nx_local {
-            for j in 0..self.subdomain.ny_local {
-                let idx = i * self.subdomain.ny_local + j;
-                pressure[i + ghost_layers][j + ghost_layers] = x.local_data[idx];
+            // Pack scalar field into pressure array for ghost exchange
+            for i in 0..self.subdomain.nx_local {
+                for j in 0..self.subdomain.ny_local {
+                    let idx = i * self.subdomain.ny_local + j;
+                    pressure[i + self.subdomain.ghost_layers][j + self.subdomain.ghost_layers] =
+                        y.local_data[idx];
+                }
+            }
+
+            ghost_mgr.update_ghost_cells(
+                &mut velocity_u,
+                &mut velocity_v,
+                &mut pressure,
+                &self.subdomain,
+            )?;
+
+            // Unpack ghost cells back to distributed vector
+            for i in 0..self.subdomain.total_nx() {
+                for j in 0..self.subdomain.total_ny() {
+                    if !self.subdomain.is_owned_cell(i, j, 0) {
+                        // This is a ghost cell - update the corresponding local index
+                        let global_i = self.subdomain.local_to_global(i, j, 0).0;
+                        let global_j = self.subdomain.local_to_global(i, j, 0).1;
+
+                        if self.subdomain.owns_global_cell(global_i, global_j, 0) {
+                            let local_i = global_i - self.subdomain.i_start_global;
+                            let local_j = global_j - self.subdomain.j_start_global;
+                            if local_i < self.subdomain.nx_local
+                                && local_j < self.subdomain.ny_local
+                            {
+                                let idx = local_i * self.subdomain.ny_local + local_j;
+                                y.local_data[idx] = pressure[i][j];
+                            }
+                        }
+                    }
+                }
             }
         }
-
-        // 2. Update ghost cells
-        if let Some(ref ghost_mgr) = x.ghost_manager {
-            ghost_mgr.update_ghost_cells(
-                &mut velocity_u,
-                &mut velocity_v,
-                &mut pressure,
-                &self.subdomain,
-            )?;
-        } else if let Some(ref ghost_mgr) = y.ghost_manager {
-            // Fallback to y's ghost manager if x doesn't have one (should be same structure)
-            ghost_mgr.update_ghost_cells(
-                &mut velocity_u,
-                &mut velocity_v,
-                &mut pressure,
-                &self.subdomain,
-            )?;
-        }
-
-        // 3. Apply local Laplacian operator using the ghost-augmented data
-        self.apply_local_laplacian(&pressure, &mut y.local_data);
 
         Ok(())
     }
@@ -324,96 +324,38 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedLinear
         }
         Some(mat)
     }
-
-    fn assemble_overlap_matrix(&self, overlap: usize) -> Option<nalgebra::DMatrix<T>> {
-        // Validate overlap
-        if overlap > self.subdomain.ghost_layers {
-            // Cannot support overlap larger than available ghost layers
-            return None;
-        }
-
-        let nx_local = self.subdomain.nx_local;
-        let ny_local = self.subdomain.ny_local;
-        
-        // Dimensions of the extended domain we are solving for
-        let nx_ext = nx_local + 2 * overlap;
-        let ny_ext = ny_local + 2 * overlap;
-        let n_ext = nx_ext * ny_ext;
-        
-        let dx_sq = self.dx * self.dx;
-        let dy_sq = self.dy * self.dy;
-        let mut mat = nalgebra::DMatrix::zeros(n_ext, n_ext);
-        
-        // Loop over the EXTENDED grid
-        for i in 0..nx_ext {
-            for j in 0..ny_ext {
-                let row = i * ny_ext + j;
-                let mut diag_val = T::zero();
-                
-                // x-direction
-                // i corresponds to index in extended grid.
-                // i=0 is the left boundary of the extended domain.
-                // We use Dirichlet-zero BCs at the boundary of the extended domain
-                // (Restricted Additive Schwarz pattern)
-                if i > 0 { 
-                    diag_val -= T::one() / dx_sq;
-                    mat[(row, (i - 1) * ny_ext + j)] = T::one() / dx_sq;
-                }
-                if i < nx_ext - 1 { 
-                    diag_val -= T::one() / dx_sq;
-                    mat[(row, (i + 1) * ny_ext + j)] = T::one() / dx_sq;
-                }
-
-                // y-direction
-                if j > 0 { 
-                    diag_val -= T::one() / dy_sq;
-                    mat[(row, i * ny_ext + (j - 1))] = T::one() / dy_sq;
-                }
-                if j < ny_ext - 1 { 
-                    diag_val -= T::one() / dy_sq;
-                    mat[(row, i * ny_ext + (j + 1))] = T::one() / dy_sq;
-                }
-
-                mat[(row, row)] = diag_val;
-            }
-        }
-        Some(mat)
-    }
 }
 
 impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp> DistributedLaplacian2D<T> {
     /// Apply local Laplacian operator (interior points only)
-    fn apply_local_laplacian(&self, x_with_ghosts: &[Vec<T>], y_local: &mut DVector<T>) {
+    fn apply_local_laplacian(&self, x: &DVector<T>, y: &mut DVector<T>) {
         let nx = self.subdomain.nx_local;
         let ny = self.subdomain.ny_local;
-        let g = self.subdomain.ghost_layers;
         let dx_sq = self.dx * self.dx;
         let dy_sq = self.dy * self.dy;
 
         for i in 0..nx {
             for j in 0..ny {
                 let idx = i * ny + j;
-                let grid_i = i + g;
-                let grid_j = j + g;
-                
-                let center = x_with_ghosts[grid_i][grid_j];
                 let mut laplacian = T::zero();
 
                 // x-direction second derivatives
-                // (u_{i+1} - 2u_i + u_{i-1}) / dx^2
-                // We access grid_i-1 and grid_i+1 which are guaranteed to exist 
-                // because x_with_ghosts has ghost layers
-                let left = x_with_ghosts[grid_i - 1][grid_j];
-                let right = x_with_ghosts[grid_i + 1][grid_j];
-                laplacian += (left - T::from_f64(2.0).unwrap() * center + right) / dx_sq;
+                if i > 0 {
+                    laplacian += (x[(i - 1) * ny + j] - x[idx]) / dx_sq;
+                }
+                if i < nx - 1 {
+                    laplacian += (x[(i + 1) * ny + j] - x[idx]) / dx_sq;
+                }
 
                 // y-direction second derivatives
-                // (u_{j+1} - 2u_j + u_{j-1}) / dy^2
-                let bottom = x_with_ghosts[grid_i][grid_j - 1];
-                let top = x_with_ghosts[grid_i][grid_j + 1];
-                laplacian += (bottom - T::from_f64(2.0).unwrap() * center + top) / dy_sq;
+                if j > 0 {
+                    laplacian += (x[i * ny + (j - 1)] - x[idx]) / dy_sq;
+                }
+                if j < ny - 1 {
+                    laplacian += (x[i * ny + (j + 1)] - x[idx]) / dy_sq;
+                }
 
-                y_local[idx] = laplacian;
+                y[idx] = laplacian;
             }
         }
     }
@@ -435,7 +377,7 @@ impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>>
     /// Create new block Jacobi preconditioner
     pub fn new(
         operator: &Op,
-        _decomp: &DomainDecomposition,
+        decomp: &DomainDecomposition,
         communicator: &MpiCommunicator,
     ) -> MpiResult<Self> {
         // Extract local diagonal blocks
@@ -477,24 +419,10 @@ impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>> Prec
 }
 
 /// Additive Schwarz preconditioner with overlapping domains
-///
-/// # Implementation Details
-///
-/// Implements Restricted Additive Schwarz (RAS) if overlap > 0.
-/// - Extracts overlapping subdomains from neighbors
-/// - Solves local Dirichlet problem on extended domain
-/// - Restricts solution to local interior (RAS)
-///
-/// If overlap = 0 or operator doesn't support overlap assembly,
-/// falls back to Block Jacobi / RAS-0.
 pub struct AdditiveSchwarzPreconditioner<T: RealField, Op: DistributedLinearOperator<T>> {
-    /// Overlap size requested
+    /// Overlap size between subdomains
     overlap: usize,
-    /// Actual overlap used by solvers (may be 0 if fallback occurred)
-    active_overlap: usize,
     /// Local solvers for each overlapping subdomain
-    /// Closure takes (r_extended, z_extended) if active_overlap > 0
-    /// or (r_local, z_local) if active_overlap == 0
     local_solvers: Vec<Box<dyn Fn(&DVector<T>, &mut DVector<T>)>>,
     /// MPI communicator
     communicator: MpiCommunicator,
@@ -503,7 +431,7 @@ pub struct AdditiveSchwarzPreconditioner<T: RealField, Op: DistributedLinearOper
     _operator: std::marker::PhantomData<Op>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp, Op: DistributedLinearOperator<T>>
+impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>>
     AdditiveSchwarzPreconditioner<T, Op>
 {
     /// Create new additive Schwarz preconditioner
@@ -514,11 +442,10 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp, Op: DistributedLi
         overlap: usize,
     ) -> MpiResult<Self> {
         // Create overlapping subdomain solvers
-        let (local_solvers, active_overlap) = Self::create_local_solvers(operator, decomp, overlap)?;
+        let local_solvers = Self::create_local_solvers(operator, decomp, overlap)?;
 
         Ok(Self {
             overlap,
-            active_overlap,
             local_solvers,
             communicator: communicator.clone(),
             decomp: decomp.clone(),
@@ -527,157 +454,58 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp, Op: DistributedLi
     }
 
     /// Create local solvers for overlapping subdomains
-    /// Returns (solvers, active_overlap)
     fn create_local_solvers(
         operator: &Op,
         _decomp: &DomainDecomposition,
-        overlap: usize,
-    ) -> MpiResult<(Vec<Box<dyn Fn(&DVector<T>, &mut DVector<T>)>>, usize)> {
-        // Try to assemble overlap matrix first
-        if overlap > 0 {
-            if let Some(mat) = operator.assemble_overlap_matrix(overlap) {
-                // Use LU decomposition on the extended matrix
-                let lu = mat.lu();
-                let solver = Box::new(move |r: &DVector<T>, z: &mut DVector<T>| {
-                    if let Some(sol) = lu.solve(r) {
-                        z.copy_from(&sol);
-                    } else {
-                        z.copy_from(r);
-                    }
-                });
-                return Ok((vec![solver], overlap));
-            }
-        }
-
-        // Fallback to local matrix (overlap = 0)
+        _overlap: usize,
+    ) -> MpiResult<Vec<Box<dyn Fn(&DVector<T>, &mut DVector<T>)>>> {
+        // Try to assemble local matrix for direct solve
         if let Some(mat) = operator.assemble_local_matrix() {
+            // Use LU decomposition if matrix is available
+            // Note: This is a simplified local solver that doesn't account for overlap yet
+            // Proper Schwarz requires extracting the overlapping submatrix
             let lu = mat.lu();
             let solver = Box::new(move |r: &DVector<T>, z: &mut DVector<T>| {
                 if let Some(sol) = lu.solve(r) {
                     z.copy_from(&sol);
                 } else {
+                    // Fallback if singular (should not happen for Laplacian)
                     z.copy_from(r);
                 }
             });
-            return Ok((vec![solver], 0));
-        } 
-        
-        // Fallback to Jacobi if matrix assembly not supported
-        let diagonal = operator.extract_diagonal();
-        let solver = Box::new(move |r: &DVector<T>, z: &mut DVector<T>| {
-            for i in 0..r.len() {
-                if !diagonal[i].is_zero() {
-                    z[i] = r[i] / diagonal[i];
-                } else {
-                    z[i] = r[i];
+            Ok(vec![solver])
+        } else {
+            // Fallback to Jacobi if matrix assembly not supported
+            let diagonal = operator.extract_diagonal();
+            let solver = Box::new(move |r: &DVector<T>, z: &mut DVector<T>| {
+                for i in 0..r.len() {
+                    if !diagonal[i].is_zero() {
+                        z[i] = r[i] / diagonal[i];
+                    } else {
+                        z[i] = r[i];
+                    }
                 }
-            }
-        });
-        Ok((vec![solver], 0))
+            });
+            Ok(vec![solver])
+        }
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + std::fmt::LowerExp, Op: DistributedLinearOperator<T>> Preconditioner<T>
+impl<T: RealField + Copy + FromPrimitive, Op: DistributedLinearOperator<T>> Preconditioner<T>
     for AdditiveSchwarzPreconditioner<T, Op>
 {
     /// Apply additive Schwarz preconditioner
     fn apply(&self, r: &DistributedVector<T>, z: &mut DistributedVector<T>) -> MpiResult<()> {
-        let active_overlap = self.active_overlap;
+        // Apply each local solver and accumulate results
+        let mut local_result = DVector::zeros(r.local_data.len());
 
-        if active_overlap > 0 {
-            // Overlap Case: Extract extended vector, solve, restrict
-            let ghost_layers = self.decomp.local_subdomain().ghost_layers;
-            let total_nx = self.decomp.local_subdomain().total_nx();
-            let total_ny = self.decomp.local_subdomain().total_ny();
-            
-            // 1. Prepare ghost exchange
-            // Use dummy velocity buffers (inefficient but safe)
-            let mut velocity_u = vec![vec![Vector2::zeros(); total_ny]; total_nx];
-            let mut velocity_v = vec![vec![Vector2::zeros(); total_ny]; total_nx];
-            let mut pressure = vec![vec![T::zero(); total_ny]; total_nx];
-
-            // Pack local residual
-            let nx_local = self.decomp.local_subdomain().nx_local;
-            let ny_local = self.decomp.local_subdomain().ny_local;
-            
-            for i in 0..nx_local {
-                for j in 0..ny_local {
-                    let idx = i * ny_local + j;
-                    pressure[i + ghost_layers][j + ghost_layers] = r.local_data[idx];
-                }
-            }
-
-            // Update ghosts
-            if let Some(ref ghost_mgr) = r.ghost_manager {
-                ghost_mgr.update_ghost_cells(
-                    &mut velocity_u, 
-                    &mut velocity_v, 
-                    &mut pressure, 
-                    &self.decomp.local_subdomain()
-                )?;
-            }
-
-            // 2. Build extended residual vector
-            // The extended domain has size (nx + 2*overlap) x (ny + 2*overlap)
-            // It is centered around the local domain.
-            let nx_ext = nx_local + 2 * active_overlap;
-            let ny_ext = ny_local + 2 * active_overlap;
-            let mut r_ext = DVector::zeros(nx_ext * ny_ext);
-            let mut z_ext = DVector::zeros(nx_ext * ny_ext);
-
-            // Copy data from pressure array (which has full ghost layers) to r_ext
-            // We need to map from the full ghost array to the extended array
-            // The full ghost array interior starts at (ghost_layers, ghost_layers)
-            // The extended array starts at (ghost_layers - active_overlap, ...)
-            let offset = ghost_layers - active_overlap;
-
-            for i in 0..nx_ext {
-                for j in 0..ny_ext {
-                    let grid_i = i + offset;
-                    let grid_j = j + offset;
-                    let ext_idx = i * ny_ext + j;
-                    r_ext[ext_idx] = pressure[grid_i][grid_j];
-                }
-            }
-
-            // 3. Apply solvers
-            // For now, assuming single local solver covers the whole domain
-            // (Standard domain decomposition)
-            for solver in &self.local_solvers {
-                solver(&r_ext, &mut z_ext);
-            }
-
-            // 4. Restrict solution to interior (RAS)
-            // Copy interior of z_ext to z.local_data
-            // The interior of z_ext starts at (active_overlap, active_overlap)
-            for i in 0..nx_local {
-                for j in 0..ny_local {
-                    let ext_i = i + active_overlap;
-                    let ext_j = j + active_overlap;
-                    let ext_idx = ext_i * ny_ext + ext_j;
-                    let local_idx = i * ny_local + j;
-                    
-                    // Additive update? Usually we overwrite z in apply() 
-                    // or assume z is zero. The trait says "Apply preconditioner: z = M^-1 * r"
-                    // So we write to z.
-                    z.local_data[local_idx] = z_ext[ext_idx];
-                }
-            }
-
-        } else {
-            // No overlap (Block Jacobi / RAS-0)
-            // Apply each local solver and accumulate results
-            let mut local_result = DVector::zeros(r.local_data.len());
-    
-            for solver in &self.local_solvers {
-                let mut temp = DVector::zeros(r.local_data.len());
-                solver(&r.local_data, &mut temp);
-                local_result += temp;
-            }
-    
-            z.local_data.copy_from(&local_result);
+        for solver in &self.local_solvers {
+            let mut temp = DVector::zeros(r.local_data.len());
+            solver(&r.local_data, &mut temp);
+            local_result += temp;
         }
 
+        z.local_data.copy_from(&local_result);
         Ok(())
     }
 }
@@ -754,86 +582,286 @@ impl<
         max_iter: usize,
     ) -> MpiResult<DistributedVector<T>> {
         let mut x = x0.clone();
-        
-        // Initial residual: r = b - A * x0
+        let mut iter = 0;
+        let mut residual_norm = T::zero();
+
+        // Initial residual: r = b - A*x0
         self.operator.apply(&x, &mut self.residual)?;
-        self.residual.scale(T::from_f64(-1.0).unwrap());
-        self.residual.axpy(T::one(), b);
+        self.residual.axpy(-T::one(), b);
+        self.residual.scale(-T::one()); // r = b - A*x0
 
-        let initial_residual_norm = self.residual.norm()?;
-        if initial_residual_norm <= tolerance {
-            return Ok(x);
-        }
+        residual_norm = self.residual.norm()?;
 
-        for _iter in 0..max_iter {
-            // Arnoldi process
-            self.work_vectors[0].copy_from(&self.residual);
-            let beta = self.work_vectors[0].norm()?;
-            self.work_vectors[0].scale(T::one() / beta);
-
-            // Construct Krylov basis
-            let mut m = 0;
-            while m < self.krylov_dim {
-                // v = A * V_m
-                let (v_next, v_current) = {
-                    let (left, right) = self.work_vectors.split_at_mut(m + 1);
-                    (&mut right[0], &left[m])
-                };
-                
-                // Preconditioned step: z = M^-1 * v_current, then v = A * z
-                // For simplicity assuming right preconditioning or A*M^-1
-                // Here implementing standard Left Preconditioned GMRES:
-                // M^-1 A x = M^-1 b
-                // But typically we do: v = A * v_current, then orthogonalize.
-                // For preconditioning, it's:
-                // z = M^-1 * v_current
-                // w = A * z
-                // But wait, the standard Arnoldi is on A.
-                // With preconditioner M:
-                // Solve M * w = v_current (apply M^-1)
-                // v_next = A * w
-                
-                // Temp vector for preconditioned vector
-                let mut z = DistributedVector::new(
-                    v_current.local_data.len(),
-                    &self.communicator,
-                    v_current.subdomain.clone(),
-                    v_current.ghost_manager.clone()
-                );
-                
-                self.preconditioner.apply(v_current, &mut z)?;
-                self.operator.apply(&z, v_next)?;
-
-                // Gram-Schmidt orthogonalization
-                for i in 0..=m {
-                    let h = v_next.dot(&self.work_vectors[i])?;
-                    self.hessenberg[i * self.krylov_dim + m] = h;
-                    v_next.axpy(-h, &self.work_vectors[i]);
-                }
-
-                let h_next = v_next.norm()?;
-                self.hessenberg[(m + 1) * self.krylov_dim + m] = h_next;
-                
-                if h_next.abs() < T::default_epsilon() {
-                    m += 1;
-                    break;
-                }
-                
-                v_next.scale(T::one() / h_next);
-                m += 1;
-            }
-
-            // Solve least squares problem (omitted for brevity in this snippet)
-            // In a real implementation, we would solve the small Hessenberg system
-            // and update x.
-            
-            // Check convergence
-            let current_residual_norm = T::zero(); // Placeholder
-            if current_residual_norm < tolerance {
-                break;
-            }
+        while residual_norm > tolerance && iter < max_iter {
+            // Arnoldi process with preconditioning
+            self.gmres_iteration(&mut x, b, &mut residual_norm)?;
+            iter += 1;
         }
 
         Ok(x)
+    }
+
+    /// Compute Givens rotation parameters (c, s, r) such that
+    /// [ c  s ] [ a ] = [ r ]
+    /// [-s  c ] [ b ]   [ 0 ]
+    fn compute_givens(&self, a: T, b: T) -> (T, T, T) {
+        if b == T::zero() {
+            (T::one(), T::zero(), a)
+        } else if a == T::zero() {
+            (T::zero(), T::one(), b)
+        } else {
+            let hypot = (a * a + b * b).sqrt();
+            (a / hypot, b / hypot, hypot)
+        }
+    }
+
+    /// Single GMRES iteration
+    fn gmres_iteration(
+        &mut self,
+        x: &mut DistributedVector<T>,
+        b: &DistributedVector<T>,
+        residual_norm: &mut T,
+    ) -> MpiResult<()> {
+        // Precondition residual
+        let mut v0 = self.residual.clone();
+        self.preconditioner.apply(&self.residual, &mut v0)?;
+
+        // Normalize v0
+        let beta = v0.norm()?;
+        if beta != T::zero() {
+            v0.scale(T::one() / beta);
+        }
+
+        // RHS for the least squares problem (g)
+        let mut g = vec![T::zero(); self.krylov_dim + 1];
+        g[0] = beta;
+
+        let mut k = 0; // Actual number of iterations performed
+
+        // Arnoldi process
+        for j in 0..self
+            .krylov_dim
+            .min(self.work_vectors.len().saturating_sub(1))
+        {
+            k = j + 1;
+            self.work_vectors[j].copy_from(&v0);
+
+            // Apply operator: v_{j+1} = A * v_j
+            self.operator
+                .apply(&self.work_vectors[j], &mut self.work_vectors[j + 1])?;
+            self.preconditioner
+                .apply(&self.work_vectors[j + 1], &mut self.work_vectors[j + 1])?;
+
+            // Orthogonalization (Gram-Schmidt)
+            for i in 0..=j {
+                let h_ij = self.work_vectors[j + 1].dot(&self.work_vectors[i])?;
+                self.work_vectors[j + 1].axpy(-h_ij, &self.work_vectors[i]);
+                self.hessenberg[i * self.krylov_dim + j] = h_ij;
+            }
+
+            // Normalize
+            let norm = self.work_vectors[j + 1].norm()?;
+            self.hessenberg[(j + 1) * self.krylov_dim + j] = norm;
+            
+            if norm > T::zero() {
+                self.work_vectors[j + 1].scale(T::one() / norm);
+            }
+
+            // Apply previous Givens rotations to the new column
+            for i in 0..j {
+                let (c, s) = self.givens_rotations[i];
+                let h_ij = self.hessenberg[i * self.krylov_dim + j];
+                let h_ip1j = self.hessenberg[(i + 1) * self.krylov_dim + j];
+                
+                self.hessenberg[i * self.krylov_dim + j] = c * h_ij + s * h_ip1j;
+                self.hessenberg[(i + 1) * self.krylov_dim + j] = -s * h_ij + c * h_ip1j;
+            }
+
+            // Compute new Givens rotation
+            let h_jj = self.hessenberg[j * self.krylov_dim + j];
+            let h_jp1j = self.hessenberg[(j + 1) * self.krylov_dim + j];
+            let (c, s, r) = self.compute_givens(h_jj, h_jp1j);
+
+            self.givens_rotations[j] = (c, s);
+            
+            // Apply rotation to H and g
+            self.hessenberg[j * self.krylov_dim + j] = r;
+            self.hessenberg[(j + 1) * self.krylov_dim + j] = T::zero();
+            
+            let g_j = g[j];
+            g[j] = c * g_j;
+            g[j + 1] = -s * g_j;
+
+            *residual_norm = g[j + 1].abs();
+        }
+
+        // Backward substitution to solve R * y = g
+        let mut y = vec![T::zero(); k];
+        for i in (0..k).rev() {
+            let mut sum = g[i];
+            for j in (i + 1)..k {
+                sum -= self.hessenberg[i * self.krylov_dim + j] * y[j];
+            }
+            y[i] = sum / self.hessenberg[i * self.krylov_dim + i];
+        }
+
+        // Update solution: x = x + V * y
+        for j in 0..k {
+            x.axpy(y[j], &self.work_vectors[j]);
+        }
+
+        // Recompute residual for next restart
+        self.operator.apply(x, &mut self.residual)?;
+        self.residual.axpy(-T::one(), b);
+        self.residual.scale(-T::one());
+        *residual_norm = self.residual.norm()?;
+
+        Ok(())
+    }
+}
+
+/// Parallel I/O operations for distributed data
+pub mod parallel_io {
+    use super::*;
+    use std::path::Path;
+
+    /// Parallel VTK writer for distributed meshes
+    pub struct ParallelVtkWriter<T: RealField> {
+        communicator: MpiCommunicator,
+        is_root: bool,
+    }
+
+    impl<T: RealField> ParallelVtkWriter<T> {
+        /// Create new parallel VTK writer
+        pub fn new(communicator: &MpiCommunicator) -> Self {
+            Self {
+                communicator: communicator.clone(),
+                is_root: communicator.is_root(),
+            }
+        }
+
+        /// Write distributed VTK file
+        pub fn write_vtk_file<P: AsRef<Path>>(
+            &self,
+            filename: P,
+            points: &DistributedVector<T>,
+            cells: &[u32],
+            cell_types: &[u8],
+            point_data: &HashMap<String, &DistributedVector<T>>,
+            cell_data: &HashMap<String, &DistributedVector<T>>,
+        ) -> MpiResult<()> {
+            if self.is_root {
+                // Root process writes header and collects data from other processes
+                self.write_vtk_header(filename, points, cells, cell_types)?;
+            }
+
+            // Each process writes its portion of point/cell data
+            self.write_distributed_data(filename, point_data, cell_data)?;
+
+            Ok(())
+        }
+
+        /// Write VTK header (root process only)
+        fn write_vtk_header<P: AsRef<Path>>(
+            &self,
+            _filename: P,
+            _points: &DistributedVector<T>,
+            _cells: &[u32],
+            _cell_types: &[u8],
+        ) -> MpiResult<()> {
+            // Implementation would write VTK header
+            // This is a placeholder for the actual VTK writing logic
+            Ok(())
+        }
+
+        /// Write distributed point and cell data
+        fn write_distributed_data<P: AsRef<Path>>(
+            &self,
+            _filename: P,
+            _point_data: &HashMap<String, &DistributedVector<T>>,
+            _cell_data: &HashMap<String, &DistributedVector<T>>,
+        ) -> MpiResult<()> {
+            // Implementation would write distributed data
+            // This is a placeholder for the actual distributed data writing
+            Ok(())
+        }
+    }
+
+    /// Parallel HDF5 writer for distributed datasets
+    pub struct ParallelHdf5Writer<T: RealField> {
+        communicator: MpiCommunicator,
+        is_root: bool,
+    }
+
+    impl<T: RealField> ParallelHdf5Writer<T> {
+        /// Create new parallel HDF5 writer
+        pub fn new(communicator: &MpiCommunicator) -> Self {
+            Self {
+                communicator: communicator.clone(),
+                is_root: communicator.is_root(),
+            }
+        }
+
+        /// Write distributed HDF5 file
+        pub fn write_hdf5_file<P: AsRef<Path>>(
+            &self,
+            filename: P,
+            datasets: &HashMap<String, &DistributedVector<T>>,
+            metadata: &HashMap<String, String>,
+        ) -> MpiResult<()> {
+            if self.is_root {
+                // Root process creates file and writes metadata
+                self.write_hdf5_header(filename, metadata)?;
+            }
+
+            // Collective write of distributed data
+            self.write_distributed_datasets(filename, datasets)?;
+
+            Ok(())
+        }
+
+        /// Write HDF5 header and metadata (root process only)
+        fn write_hdf5_header<P: AsRef<Path>>(
+            &self,
+            _filename: P,
+            _metadata: &HashMap<String, String>,
+        ) -> MpiResult<()> {
+            // Implementation would write HDF5 header and metadata
+            // This is a placeholder for the actual HDF5 writing logic
+            Ok(())
+        }
+
+        /// Write distributed datasets using collective I/O
+        fn write_distributed_datasets<P: AsRef<Path>>(
+            &self,
+            _filename: P,
+            _datasets: &HashMap<String, &DistributedVector<T>>,
+        ) -> MpiResult<()> {
+            // Implementation would use HDF5 collective I/O operations
+            // This is a placeholder for the actual distributed dataset writing
+            Ok(())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nalgebra::RealField;
+
+    #[test]
+    fn test_distributed_vector_creation() {
+        // This would require MPI initialization in a real test
+        // Placeholder for compile-time validation
+        let _marker: std::marker::PhantomData<DistributedVector<f64>> = std::marker::PhantomData;
+    }
+
+    #[test]
+    fn test_parallel_io_types() {
+        // Test that parallel I/O types can be created (compile-time check)
+        let _vtk_marker: std::marker::PhantomData<parallel_io::ParallelVtkWriter<f64>> =
+            std::marker::PhantomData;
+        let _hdf5_marker: std::marker::PhantomData<parallel_io::ParallelHdf5Writer<f64>> =
+            std::marker::PhantomData;
     }
 }

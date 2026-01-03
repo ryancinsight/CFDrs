@@ -79,6 +79,7 @@ struct CavitationAnalysis1D<T: RealField + Copy> {
     /// Cavity length at each position (m)
     cavity_length: Vec<T>,
     /// Void fraction α
+    #[allow(dead_code)]
     void_fraction: Vec<T>,
 }
 

@@ -2,7 +2,7 @@
 
 use cfd_math::high_order::dg::*;
 use criterion::{criterion_group, criterion_main, Criterion};
-use nalgebra::DVector;
+use nalgebra::{DMatrix, DVector};
 
 fn dg_advection_benchmark(c: &mut Criterion) {
     let orders = [2, 4, 8];
@@ -26,13 +26,15 @@ fn dg_advection_benchmark(c: &mut Criterion) {
                         TimeIntegrationParams::new(TimeIntegration::SSPRK3)
                             .with_t_final(0.1)
                             .with_cfl(0.1),
-                    )
-                    .unwrap();
+                    );
 
                     solver.initialize(u0).unwrap();
 
                     b.iter(|| {
-                        solver.step(|_, u| Ok(-u.clone())).unwrap();
+                        let f = |_: f64, u: &DMatrix<f64>| -> Result<DMatrix<f64>> {
+                            Ok(-u.clone())
+                        };
+                        solver.step(&f, None::<&fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>>).unwrap();
                     });
                 },
             );
@@ -54,6 +56,7 @@ fn dg_burgers_benchmark(c: &mut Criterion) {
                         .with_surface_flux(FluxType::LaxFriedrichs);
 
                     let dg_op = DGOperator::new(order, 1, Some(params)).unwrap();
+                    let dg_op_clone = dg_op.clone();
                     let u0 = |x: f64| DVector::from_vec(vec![0.5 + x]);
 
                     let mut solver = DGSolver::new(
@@ -62,17 +65,17 @@ fn dg_burgers_benchmark(c: &mut Criterion) {
                         TimeIntegrationParams::new(TimeIntegration::SSPRK3)
                             .with_t_final(0.1)
                             .with_cfl(0.1),
-                    )
-                    .unwrap();
+                    );
 
                     solver.initialize(u0).unwrap();
 
                     b.iter(|| {
+                        let f = |_: f64, u: &DMatrix<f64>| -> Result<DMatrix<f64>> {
+                            let du_dx = dg_op_clone.compute_derivative(u)?;
+                            Ok(-u.component_mul(&du_dx))
+                        };
                         solver
-                            .step(|_, u| {
-                                let du_dx = solver.operator.compute_derivative(u)?;
-                                Ok(-u.component_mul(&du_dx))
-                            })
+                            .step(&f, None::<&fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>>)
                             .unwrap();
                     });
                 },

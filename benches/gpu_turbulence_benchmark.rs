@@ -4,8 +4,9 @@
 //! to validate performance improvements and accuracy.
 
 use cfd_2d::physics::turbulence::{
-    des::{DESConfig, DESVariant, DetachedEddySimulation},
+    des::{DESConfig, DetachedEddySimulation},
     les_smagorinsky::{SmagorinskyConfig, SmagorinskyLES},
+    LESTurbulenceModel,
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use nalgebra::DMatrix;
@@ -37,7 +38,7 @@ fn create_benchmark_velocity_fields(nx: usize, ny: usize) -> (DMatrix<f64>, DMat
 fn bench_smagorinsky_les(c: &mut Criterion) {
     let mut group = c.benchmark_group("Smagorinsky LES");
 
-    for &size in &[32, 64, 128].iter() {
+    for &size in [32, 64, 128].iter() {
         let (velocity_u, velocity_v) = create_benchmark_velocity_fields(size, size);
         let pressure = DMatrix::zeros(size, size);
 
@@ -94,12 +95,12 @@ fn bench_smagorinsky_les(c: &mut Criterion) {
 fn bench_des(c: &mut Criterion) {
     let mut group = c.benchmark_group("DES");
 
-    for &size in &[32, 64, 128].iter() {
+    for &size in [32, 64, 128].iter() {
         let (velocity_u, velocity_v) = create_benchmark_velocity_fields(size, size);
         let pressure = DMatrix::zeros(size, size);
 
         // CPU benchmark
-        let mut config_cpu = DESConfig {
+        let config_cpu = DESConfig {
             use_gpu: false,
             ..Default::default()
         };
@@ -124,7 +125,7 @@ fn bench_des(c: &mut Criterion) {
         // GPU benchmark (if available)
         #[cfg(feature = "gpu")]
         {
-            let mut config_gpu = DESConfig {
+            let config_gpu = DESConfig {
                 use_gpu: true,
                 ..Default::default()
             };
@@ -155,7 +156,7 @@ fn bench_des(c: &mut Criterion) {
 fn bench_strain_rate_computation(c: &mut Criterion) {
     let mut group = c.benchmark_group("Strain Rate Computation");
 
-    for &size in &[64, 128, 256].iter() {
+    for &size in [64, 128, 256].iter() {
         let (velocity_u, velocity_v) = create_benchmark_velocity_fields(size, size);
 
         group.bench_function(format!("CPU {}x{}", size, size), |b| {
@@ -267,23 +268,20 @@ fn bench_memory_transfer(c: &mut Criterion) {
     let mut group = c.benchmark_group("GPU Memory Transfer");
 
     #[cfg(feature = "gpu")]
-    for &size in &[64, 128, 256].iter() {
+    for &size in [64, 128, 256].iter() {
         let data_size = size * size;
         let data: Vec<f32> = (0..data_size).map(|i| i as f32).collect();
 
         group.bench_function(format!("GPU Transfer {}x{}", size, size), |b| {
             b.iter(|| {
-                if let Ok(gpu_compute) =
+                if let Ok(mut gpu_compute) =
                     cfd_core::compute::gpu::turbulence_compute::GpuTurbulenceCompute::new()
                 {
                     // Create GPU buffer
-                    let buffer = gpu_compute
-                        .read_buffer(
-                            &gpu_compute
-                                .compute_smagorinsky_sgs(&data, &data, size, size, 0.01, 0.01, 0.1)
-                                .unwrap(),
-                        )
+                    let result_buffer = gpu_compute
+                        .compute_smagorinsky_sgs(&data, &data, size, size, 0.01, 0.01, 0.1)
                         .unwrap();
+                    let buffer = gpu_compute.read_buffer(&result_buffer).unwrap();
                     black_box(buffer);
                 }
             });

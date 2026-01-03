@@ -272,7 +272,6 @@ mod tests {
     use super::*;
     use crate::mesh::Mesh;
     use crate::topology::{Cell, Face, Vertex};
-    use nalgebra::Point3;
 
     #[test]
     fn test_knupp_unit_tetrahedron() {
@@ -290,12 +289,12 @@ mod tests {
 
         mesh.add_cell(Cell::tetrahedron(f0, f1, f2, f3));
 
-        let criteria = QualityCriteria::default();
+        let criteria = QualityCriteria::default_cfd();
         let analyzer = QualityAnalyzer::new(criteria);
         let report = analyzer.analyze(&mesh);
 
         assert!(report.is_acceptable());
         // Unit tet should have high quality
-        assert!(report.statistics.mean > 0.8);
+        assert!(report.statistics.mean().unwrap_or(0.0) > 0.8);
     }
 }

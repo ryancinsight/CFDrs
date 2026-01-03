@@ -2,6 +2,8 @@
 
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
+use crate::schemes::SpatialScheme;
+use crate::pressure_velocity::PressureLinearSolver;
 
 /// Algorithm selection
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -33,6 +35,10 @@ pub struct SimplecPimpleConfig<T: RealField + Copy> {
     pub max_inner_iterations: usize,
     /// Use Rhie-Chow interpolation for momentum interpolation
     pub use_rhie_chow: bool,
+    /// Convection scheme for momentum equations
+    pub convection_scheme: SpatialScheme,
+    /// Linear solver for pressure Poisson equation
+    pub pressure_linear_solver: PressureLinearSolver,
 }
 
 impl<T: RealField + Copy + FromPrimitive> Default for SimplecPimpleConfig<T> {
@@ -47,6 +53,8 @@ impl<T: RealField + Copy + FromPrimitive> Default for SimplecPimpleConfig<T> {
             tolerance: T::from_f64(1e-6).unwrap_or_else(|| T::from_f64(1e-6).unwrap()),
             max_inner_iterations: 50,
             use_rhie_chow: true,
+            convection_scheme: SpatialScheme::SecondOrderUpwind,
+            pressure_linear_solver: PressureLinearSolver::default(),
         }
     }
 }

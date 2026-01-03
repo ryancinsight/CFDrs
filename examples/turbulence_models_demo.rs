@@ -76,6 +76,7 @@ fn setup_test_conditions(fields: &mut SimulationFields<f64>) {
         // For k-ε: ε = C_μ^{3/4} * k^{3/2} / l, where l ≈ 0.07 * hydraulic diameter
         // For k-ω: ω = ε / (C_μ * k), with ε ≈ k^{3/2} / l
         let length_scale = 0.1; // Characteristic length
+        #[allow(unused_variables)]
         let dissipation = k.powf(1.5) / length_scale; // ε ≈ k^{3/2} / l
 
         // Store in fields (using pressure for k)
@@ -88,18 +89,18 @@ fn setup_test_conditions(fields: &mut SimulationFields<f64>) {
 
 fn demonstrate_k_epsilon_model(
     _grid: &StructuredGrid2D<f64>,
-    fields: &SimulationFields<f64>,
+    _fields: &SimulationFields<f64>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n--- k-ε Turbulence Model ---");
 
-    let mut model = KEpsilonModel::new(20, 20);
+    let model = KEpsilonModel::new(20, 20);
 
     // Typical values for moderate turbulence
     let k = 0.01; // Turbulent kinetic energy [m²/s²]
     let epsilon = 0.1; // Dissipation rate [m²/s³]
-    let density = 1.0; // Density [kg/m³]
+    let _density = 1.0; // Density [kg/m³]
 
-    let nu_t = model.turbulent_viscosity(k, epsilon, density);
+    let nu_t = model.turbulent_viscosity(k, epsilon, _density);
     let p_k = model.production_term(&[[0.0, 1.0], [0.0, 0.0]], nu_t); // Simple shear
     let d_k = model.dissipation_term(k, epsilon);
 
@@ -120,24 +121,24 @@ fn demonstrate_k_epsilon_model(
 
 fn demonstrate_k_omega_sst_model(
     _grid: &StructuredGrid2D<f64>,
-    fields: &SimulationFields<f64>,
+    _fields: &SimulationFields<f64>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n--- k-ω SST Turbulence Model ---");
 
-    let mut model = KOmegaSSTModel::new(20, 20);
+    let model = KOmegaSSTModel::new(20, 20);
 
     // Typical values for moderate turbulence
     let k = 0.01; // Turbulent kinetic energy [m²/s²]
     let omega = 100.0; // Specific dissipation rate [1/s]
-    let density = 1.0; // Density [kg/m³]
+    let _density = 1.0; // Density [kg/m³]
 
-    let nu_t = model.turbulent_viscosity(k, omega, density);
+    let nu_t = model.turbulent_viscosity(k, omega, _density);
 
     // Test strain rate limiter (important for SST)
     let strain_rate_magnitude = 50.0; // High strain rate [1/s]
     let f2 = 0.5; // Mid-range blending function
     let nu_t_limited =
-        model.turbulent_viscosity_with_limiter(k, omega, density, strain_rate_magnitude, f2);
+        model.turbulent_viscosity_with_limiter(k, omega, _density, strain_rate_magnitude, f2);
 
     let p_k = model.production_term(&[[0.0, 1.0], [0.0, 0.0]], nu_t);
     let d_k = model.dissipation_term(k, omega);
@@ -164,7 +165,7 @@ fn demonstrate_k_omega_sst_model(
 
 fn demonstrate_spalart_allmaras_model(
     _grid: &StructuredGrid2D<f64>,
-    fields: &SimulationFields<f64>,
+    _fields: &SimulationFields<f64>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n--- Spalart-Allmaras Turbulence Model ---");
 
@@ -173,7 +174,7 @@ fn demonstrate_spalart_allmaras_model(
     // For SA model: ν̃ is the modified turbulent viscosity
     let nu_tilde = 1e-4; // Modified viscosity [m²/s]
     let molecular_viscosity = 1e-5; // Molecular viscosity [m²/s]
-    let density = 1.0; // Density [kg/m³]
+    let _density = 1.0; // Density [kg/m³]
 
     let nu_t = model.eddy_viscosity(nu_tilde, molecular_viscosity);
 

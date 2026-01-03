@@ -63,7 +63,7 @@ pub fn run_comprehensive_conservation_verification<
                 report.is_conserved
             );
         }
-        Err(e) => println!("  ❌ Mass conservation test failed: {}", e),
+        Err(e) => println!("  ❌ Mass conservation test failed: {e}"),
     }
 
     // Momentum conservation test
@@ -98,7 +98,7 @@ pub fn run_comprehensive_conservation_verification<
                 report.is_conserved
             );
         }
-        Err(e) => println!("  ❌ Momentum conservation test failed: {}", e),
+        Err(e) => println!("  ❌ Momentum conservation test failed: {e}"),
     }
 
     // Energy conservation test (if temperature field available)
@@ -131,7 +131,7 @@ pub fn run_comprehensive_conservation_verification<
                 report.is_conserved
             );
         }
-        Err(e) => println!("  ❌ Energy conservation test failed: {}", e),
+        Err(e) => println!("  ❌ Energy conservation test failed: {e}"),
     }
 
     // Angular momentum conservation test
@@ -156,7 +156,7 @@ pub fn run_comprehensive_conservation_verification<
                 report.is_conserved
             );
         }
-        Err(e) => println!("  ❌ Angular momentum conservation test failed: {}", e),
+        Err(e) => println!("  ❌ Angular momentum conservation test failed: {e}"),
     }
 
     // Vorticity conservation test
@@ -179,7 +179,7 @@ pub fn run_comprehensive_conservation_verification<
                 report.is_conserved
             );
         }
-        Err(e) => println!("  ❌ Vorticity conservation test failed: {}", e),
+        Err(e) => println!("  ❌ Vorticity conservation test failed: {e}"),
     }
 
     // Geometric conservation law test
@@ -199,7 +199,7 @@ pub fn run_comprehensive_conservation_verification<
                 );
             }
         }
-        Err(e) => println!("  ❌ GCL test failed: {}", e),
+        Err(e) => println!("  ❌ GCL test failed: {e}"),
     }
 
     println!("\n✅ Complete conservation property verification completed!");

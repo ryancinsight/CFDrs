@@ -7,7 +7,6 @@
 
 use cfd_2d::physics::turbulence::*;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use nalgebra::DVector;
 
 /// Benchmark RANS model performance (k-ε, k-ω SST, SA)
 fn bench_rans_models(c: &mut Criterion) {
@@ -19,7 +18,7 @@ fn bench_rans_models(c: &mut Criterion) {
     for (nx, ny) in grid_sizes {
         // k-ε model benchmark
         group.bench_function(format!("k_epsilon_{}x{}", nx, ny), |b| {
-            let mut k_model = KEpsilonModel::new(nx, ny);
+            let mut k_model = KEpsilonModel::<f64>::new(nx, ny);
             let mut k_field = vec![0.1; nx * ny];
             let mut eps_field = vec![0.01; nx * ny];
             let velocity_field = vec![nalgebra::Vector2::new(1.0, 0.0); nx * ny];
@@ -42,7 +41,7 @@ fn bench_rans_models(c: &mut Criterion) {
 
         // k-ω SST model benchmark
         group.bench_function(format!("k_omega_sst_{}x{}", nx, ny), |b| {
-            let mut k_model = KOmegaSSTModel::new(nx, ny);
+            let mut k_model = KOmegaSSTModel::<f64>::new(nx, ny);
             let mut k_field = vec![0.1; nx * ny];
             let mut omega_field = vec![10.0; nx * ny];
             let velocity_field = vec![nalgebra::Vector2::new(1.0, 0.0); nx * ny];
@@ -65,7 +64,7 @@ fn bench_rans_models(c: &mut Criterion) {
 
         // Spalart-Allmaras model benchmark
         group.bench_function(format!("spalart_allmaras_{}x{}", nx, ny), |b| {
-            let mut sa_model = SpalartAllmaras::new(nx, ny);
+            let sa_model = SpalartAllmaras::<f64>::new(nx, ny);
             let mut nu_tilde_field = vec![1e-4; nx * ny];
             let velocity_field = vec![nalgebra::Vector2::new(1.0, 0.0); nx * ny];
 
@@ -165,19 +164,19 @@ fn bench_model_initialization(c: &mut Criterion) {
 
     group.bench_function("k_epsilon_init", |b| {
         b.iter(|| {
-            black_box(KEpsilonModel::new(64, 64));
+            black_box(KEpsilonModel::<f64>::new(64, 64));
         });
     });
 
     group.bench_function("k_omega_sst_init", |b| {
         b.iter(|| {
-            black_box(KOmegaSSTModel::new(64, 64));
+            black_box(KOmegaSSTModel::<f64>::new(64, 64));
         });
     });
 
     group.bench_function("spalart_allmaras_init", |b| {
         b.iter(|| {
-            black_box(SpalartAllmaras::new(64, 64));
+            black_box(SpalartAllmaras::<f64>::new(64, 64));
         });
     });
 
@@ -217,21 +216,21 @@ fn bench_turbulence_properties(c: &mut Criterion) {
 
     // Turbulent viscosity calculations
     group.bench_function("k_epsilon_viscosity", |b| {
-        let model = KEpsilonModel::new(1, 1);
+        let model = KEpsilonModel::<f64>::new(1, 1);
         b.iter(|| {
             black_box(model.turbulent_viscosity(0.1, 0.01, 1.0));
         });
     });
 
     group.bench_function("k_omega_sst_viscosity", |b| {
-        let model = KOmegaSSTModel::new(1, 1);
+        let model = KOmegaSSTModel::<f64>::new(1, 1);
         b.iter(|| {
             black_box(model.turbulent_viscosity_with_limiter(0.1, 10.0, 1.0, 100.0, 1.0));
         });
     });
 
     group.bench_function("spalart_allmaras_viscosity", |b| {
-        let model = SpalartAllmaras::new(1, 1);
+        let model = SpalartAllmaras::<f64>::new(1, 1);
         b.iter(|| {
             black_box(model.eddy_viscosity(1e-4, 1.5e-5));
         });

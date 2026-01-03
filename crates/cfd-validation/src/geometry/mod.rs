@@ -46,7 +46,14 @@ pub enum BoundaryCondition<T: RealField> {
     /// Neumann boundary condition: ∂φ/∂n = g
     Neumann(T),
     /// Robin boundary condition: αφ + β∂φ/∂n = γ
-    Robin { alpha: T, beta: T, gamma: T },
+    Robin {
+        /// Coefficient for the value term (α)
+        alpha: T,
+        /// Coefficient for the normal derivative term (β)
+        beta: T,
+        /// Source term (γ)
+        gamma: T,
+    },
 }
 
 /// Boundary face identifier
@@ -71,7 +78,10 @@ pub enum BoundaryFace {
 }
 
 /// Geometry trait for computational domains used in MMS
-pub trait Geometry<T: RealField + Copy> {
+pub trait Geometry<T: RealField + Copy>: Send + Sync {
+    /// Clone the geometry as a boxed trait object
+    fn clone_box(&self) -> Box<dyn Geometry<T>>;
+
     /// Check if a point is inside the computational domain
     fn contains(&self, point: &Point2D<T>) -> bool;
 

@@ -146,19 +146,25 @@ fn test_species_transport_reaction_validation() {
         prev_concentrations.push(c);
     }
 
-    // Test temporal decay behavior
+    // Test temporal decay behavior at the same spatial point
+    let x_fixed = 0.5;
+    let y_fixed = 0.5;
+    let c0 = species.exact_solution(x_fixed, y_fixed, 0.0, 0.0);
+    let c1 = species.exact_solution(x_fixed, y_fixed, 0.0, 0.5);
+    let c2 = species.exact_solution(x_fixed, y_fixed, 0.0, 1.0);
+
     assert!(
-        prev_concentrations[1] < prev_concentrations[0],
+        c1 < c0,
         "Concentration should decay over time: t=0: {}, t=0.5: {}",
-        prev_concentrations[0],
-        prev_concentrations[1]
+        c0,
+        c1
     );
 
     assert!(
-        prev_concentrations[2] < prev_concentrations[1],
+        c2 < c1,
         "Concentration should continue decaying: t=0.5: {}, t=1.0: {}",
-        prev_concentrations[1],
-        prev_concentrations[2]
+        c1,
+        c2
     );
 
     println!("✓ Species transport with reaction validation passed");

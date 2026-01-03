@@ -7,10 +7,13 @@
 
 #[cfg(test)]
 mod extended_edge_case_tests {
-    use crate::linear_solver::preconditioners::{IdentityPreconditioner, JacobiPreconditioner};
+    use crate::linear_solver::preconditioners::{
+        AlgebraicMultigrid, IdentityPreconditioner, JacobiPreconditioner,
+    };
+    use crate::linear_solver::preconditioners::multigrid::AMGConfig;
     use crate::linear_solver::traits::{IterativeLinearSolver, Preconditioner};
     use crate::linear_solver::IterativeSolverConfig;
-    use crate::linear_solver::{BiCGSTAB, ConjugateGradient};
+    use crate::linear_solver::{BiCGSTAB, ConjugateGradient, GMRES};
     use crate::sparse::SparseMatrixBuilder;
     use approx::assert_relative_eq;
     use nalgebra::DVector;
@@ -36,6 +39,72 @@ mod extended_edge_case_tests {
 
         // x = b/A = 10.0/5.0 = 2.0
         assert_relative_eq!(x[0], 2.0, epsilon = 1e-10);
+        Ok(())
+    }
+
+    /// Convergence test: 2D Poisson system with AMG preconditioning
+    /// Validates that AMG + GMRES/BiCGSTAB converges for a standard 2D problem
+    #[test]
+    fn test_poisson_2d_amg_convergence() -> Result<(), Box<dyn std::error::Error>> {
+        let n = 32; // 32x32 grid = 1024 variables
+        let mut builder = SparseMatrixBuilder::new(n * n, n * n);
+
+        for i in 0..n {
+            for j in 0..n {
+                let idx = i * n + j;
+                builder.add_entry(idx, idx, 4.0)?;
+                if i > 0 {
+                    builder.add_entry(idx, (i - 1) * n + j, -1.0)?;
+                }
+                if i < n - 1 {
+                    builder.add_entry(idx, (i + 1) * n + j, -1.0)?;
+                }
+                if j > 0 {
+                    builder.add_entry(idx, i * n + (j - 1), -1.0)?;
+                }
+                if j < n - 1 {
+                    builder.add_entry(idx, i * n + (j + 1), -1.0)?;
+                }
+            }
+        }
+        let a = builder.build()?;
+
+        let b = DVector::from_element(n * n, 1.0);
+        let mut x = DVector::zeros(n * n);
+
+        let config = IterativeSolverConfig::new(1e-8).with_max_iterations(100);
+        let amg_config = AMGConfig {
+            max_levels: 5,
+            min_coarse_size: 20,
+            ..Default::default()
+        };
+        let amg = AlgebraicMultigrid::new(&a, amg_config)?;
+
+        // Test with GMRES
+        let solver_gmres = GMRES::new(config.clone(), 30);
+        solver_gmres.solve(&a, &b, &mut x, Some(&amg))?;
+
+        let ax = &a * &x;
+        let residual = (&ax - &b).norm();
+        assert!(
+            residual < 1e-7,
+            "GMRES + AMG failed to converge, residual: {}",
+            residual
+        );
+
+        // Test with BiCGSTAB
+        x.fill(0.0);
+        let solver_bicg = BiCGSTAB::new(config);
+        solver_bicg.solve(&a, &b, &mut x, Some(&amg))?;
+
+        let ax = &a * &x;
+        let residual = (&ax - &b).norm();
+        assert!(
+            residual < 1e-7,
+            "BiCGSTAB + AMG failed to converge, residual: {}",
+            residual
+        );
+
         Ok(())
     }
 

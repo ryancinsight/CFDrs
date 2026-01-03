@@ -55,6 +55,10 @@ pub enum Error {
     #[error("Unsupported operation: {0}")]
     UnsupportedOperation(String),
 
+    /// Physical invariant violation
+    #[error("Physical invariant violation: {0}")]
+    PhysicsViolation(String),
+
     /// Dimension mismatch
     #[error("Dimension mismatch: expected {expected}, got {actual}")]
     DimensionMismatch {

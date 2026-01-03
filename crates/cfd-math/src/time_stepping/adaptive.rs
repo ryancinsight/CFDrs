@@ -96,6 +96,7 @@ pub struct StandardController<T: RealField + Copy> {
     /// Controller gain for integral term
     ki: T,
     /// Previous error ratio (for integral term)
+    #[allow(dead_code)]
     prev_error_ratio: Option<T>,
 }
 

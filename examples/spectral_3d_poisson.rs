@@ -8,7 +8,7 @@
 //! - Literature-validated spectral methods
 
 use cfd_3d::spectral::{PoissonBoundaryCondition, PoissonSolver};
-use nalgebra::DMatrix;
+use nalgebra::DVector;
 use std::f64::consts::PI;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -28,7 +28,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     // Define right-hand side function f(x,y,z) = sin(πx)sin(πy)sin(πz)
     // This has exact solution u(x,y,z) = -sin(πx)sin(πy)sin(πz)/(3π²)
-    let mut rhs = DMatrix::zeros(nx * ny, nz);
+    let mut rhs = DVector::zeros(nx * ny * nz);
 
     for i in 0..nx {
         for j in 0..ny {
@@ -38,7 +38,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                 let z = -1.0 + 2.0 * k as f64 / (nz - 1) as f64;
 
                 let value = (PI * x).sin() * (PI * y).sin() * (PI * z).sin();
-                rhs[(i * ny + j, k)] = value;
+                rhs[i * ny * nz + j * nz + k] = value;
             }
         }
     }
@@ -69,17 +69,18 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         Ok(solution) => {
             println!("Spectral solution converged successfully!");
             println!(
-                "Solution matrix dimensions: {}×{}",
-                solution.nrows(),
-                solution.ncols()
+                "Solution vector length: {}",
+                solution.len()
             );
             println!();
 
             // Display some sample values
             println!("Sample solution values:");
-            for i in 0..3.min(solution.nrows()) {
-                for j in 0..3.min(solution.ncols()) {
-                    println!("  u[{},{}] = {:.6}", i, j, solution[(i, j)]);
+            for i in 0..3.min(nx) {
+                for j in 0..3.min(ny) {
+                    for k in 0..3.min(nz) {
+                        println!("  u[{},{},{}] = {:.6}", i, j, k, solution[i * ny * nz + j * nz + k]);
+                    }
                 }
             }
 

@@ -137,6 +137,7 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
     }
 
     /// Convert 3D indices to linear index
+    #[inline(always)]
     pub(crate) fn index(&self, i: usize, j: usize, k: usize) -> usize {
         k * self.ny * self.nx + j * self.nx + i
     }
@@ -156,6 +157,18 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
     /// Get volume fraction field
     pub fn get_volume_fraction(&self) -> &[T] {
         &self.alpha
+    }
+
+    /// Set volume fraction field
+    pub fn set_volume_fraction(&mut self, alpha: Vec<T>) -> Result<()> {
+        if alpha.len() != self.alpha.len() {
+            return Err(cfd_core::error::Error::DimensionMismatch {
+                expected: self.alpha.len(),
+                actual: alpha.len(),
+            });
+        }
+        self.alpha = alpha;
+        Ok(())
     }
 
     /// Get interface normals

@@ -4,6 +4,8 @@
 use approx::assert_relative_eq;
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
+use cfd_2d::pressure_velocity::PressureLinearSolver;
+use cfd_2d::schemes::SpatialScheme;
 use cfd_2d::simplec_pimple::{AlgorithmType, SimplecPimpleConfig, SimplecPimpleSolver};
 use nalgebra::{RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -31,6 +33,8 @@ fn test_simplec_smoke_re50() -> cfd_core::error::Result<()> {
         tolerance: convergence_tolerance,
         max_inner_iterations: 200,
         use_rhie_chow: true,
+        convection_scheme: SpatialScheme::SecondOrderUpwind,
+        pressure_linear_solver: PressureLinearSolver::default(),
     };
 
     let mut solver = SimplecPimpleSolver::new(grid, config)?;
@@ -85,6 +89,8 @@ fn test_pimple_smoke_re50() -> cfd_core::error::Result<()> {
         tolerance: convergence_tolerance,
         max_inner_iterations: 200,
         use_rhie_chow: true,
+        convection_scheme: SpatialScheme::SecondOrderUpwind,
+        pressure_linear_solver: PressureLinearSolver::default(),
     };
 
     let mut solver = SimplecPimpleSolver::new(grid, config)?;
@@ -333,6 +339,8 @@ fn test_simplec_ghia_cavity_re100() -> cfd_core::error::Result<()> {
         tolerance: convergence_tolerance,
         max_inner_iterations: 50,
         use_rhie_chow: true, // Enable for consistent discretization
+        convection_scheme: SpatialScheme::SecondOrderUpwind,
+        pressure_linear_solver: PressureLinearSolver::default(),
     };
 
     let mut solver = SimplecPimpleSolver::new(grid, config)?;

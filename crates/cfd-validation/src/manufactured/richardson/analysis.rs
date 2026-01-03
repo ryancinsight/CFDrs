@@ -1,12 +1,9 @@
 //! Comprehensive CFD validation analysis suite
 
 use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive, ToPrimitive};
-use std::collections::HashMap;
+use num_traits::{FromPrimitive, ToPrimitive};
 
-use super::types::*;
-use crate::geometry::Geometry;
-use crate::manufactured::ManufacturedSolution;
+use super::types::{RichardsonMmsResult, BoundaryValidationResult, PerformanceProfile, NumericalStabilityAnalysis, ConservationAnalysis, EdgeCaseTesting, AlgorithmComplexity, MemoryBandwidthAnalysis, CacheEfficiencyMetrics, ScalabilityAnalysis, StabilityRegion, VonNeumannAnalysis, ConservationErrors, EdgeCaseResult};
 
 /// Comprehensive CFD validation suite
 #[derive(Debug, Clone)]
@@ -335,7 +332,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
         }
 
         if valid_results > 0 {
-            total_score / valid_results as f64
+            total_score / f64::from(valid_results)
         } else {
             0.0
         }
@@ -379,7 +376,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
         }
 
         if valid_results > 0 {
-            total_score / valid_results as f64
+            total_score / f64::from(valid_results)
         } else {
             0.0
         }
@@ -564,7 +561,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
         }
 
         if valid_results > 0 {
-            total_confidence / valid_results as f64
+            total_confidence / f64::from(valid_results)
         } else {
             0.3
         }
@@ -608,7 +605,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
         }
 
         if valid_results > 0 {
-            total_confidence / valid_results as f64
+            total_confidence / f64::from(valid_results)
         } else {
             0.4
         }
@@ -633,7 +630,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
             let cfl_max_f64 = num_traits::ToPrimitive::to_f64(&region.cfl_max).unwrap_or(0.0);
             if cfl_max_f64 > 0.0 && cfl_max_f64 < 1.0 {
                 region_confidence += 0.4;
-            } else if cfl_max_f64 >= 1.0 && cfl_max_f64 < 2.0 {
+            } else if (1.0..2.0).contains(&cfl_max_f64) {
                 region_confidence += 0.2; // Marginally stable
             }
 
@@ -667,7 +664,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
         }
 
         if valid_regions > 0 {
-            total_confidence / valid_regions as f64
+            total_confidence / f64::from(valid_regions)
         } else {
             0.2
         }
@@ -743,7 +740,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
         }
 
         if valid_properties > 0 {
-            total_confidence / valid_properties as f64
+            total_confidence / f64::from(valid_properties)
         } else {
             0.2
         }
@@ -793,7 +790,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
         }
 
         if valid_cases > 0 {
-            total_confidence / valid_cases as f64
+            total_confidence / f64::from(valid_cases)
         } else {
             0.2
         }

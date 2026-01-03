@@ -7,10 +7,25 @@ use nalgebra::RealField;
 use std::marker::PhantomData;
 use wgpu::util::DeviceExt;
 
+/// Parameters for turbulence compute kernels.
+/// Matches the uniform struct in turbulence.wgsl.
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct TurbulenceParams {
+    nx: u32,
+    ny: u32,
+    dx: f32,
+    dy: f32,
+    constant: f32,
+    delta: f32,
+    _padding: [u32; 2], // 16-byte alignment
+}
+
 /// GPU Smagorinsky LES kernel
 #[derive(Debug)]
 pub struct GpuSmagorinskyKernel<T: RealField + Copy> {
     shader_module: Option<wgpu::ShaderModule>,
+    compute_pipeline: Option<wgpu::ComputePipeline>,
     _phantom: PhantomData<T>,
 }
 
@@ -29,6 +44,7 @@ impl<T: RealField + Copy> GpuSmagorinskyKernel<T> {
     pub fn new() -> Self {
         Self {
             shader_module: None,
+            compute_pipeline: None,
             _phantom: PhantomData,
         }
     }
@@ -53,18 +69,21 @@ impl<T: RealField + Copy> GpuSmagorinskyKernel<T> {
         self.shader_module.as_ref().unwrap()
     }
 
-    /// Create compute pipeline for Smagorinsky LES
-    pub fn create_pipeline(&mut self, device: &wgpu::Device) -> Result<wgpu::ComputePipeline> {
-        let shader_module = self.get_shader_module(device);
+    /// Get or create compute pipeline for Smagorinsky LES
+    pub fn get_pipeline(&mut self, device: &wgpu::Device) -> Result<&wgpu::ComputePipeline> {
+        if self.compute_pipeline.is_none() {
+            let shader_module = self.get_shader_module(device);
 
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Smagorinsky LES Pipeline"),
-            layout: None,
-            module: shader_module,
-            entry_point: "smagorinsky_sgs",
-        });
+            let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("Smagorinsky LES Pipeline"),
+                layout: None,
+                module: shader_module,
+                entry_point: "smagorinsky_sgs",
+            });
+            self.compute_pipeline = Some(pipeline);
+        }
 
-        Ok(pipeline)
+        Ok(self.compute_pipeline.as_ref().unwrap())
     }
 
     /// Execute Smagorinsky LES SGS computation
@@ -81,21 +100,22 @@ impl<T: RealField + Copy> GpuSmagorinskyKernel<T> {
         dy: f32,
         c_s: f32,
     ) -> Result<()> {
-        let pipeline = self.create_pipeline(device)?;
+        let pipeline = self.get_pipeline(device)?;
 
         // Create uniform buffer with turbulence parameters
+        let params = TurbulenceParams {
+            nx,
+            ny,
+            dx,
+            dy,
+            constant: c_s,
+            delta: (dx * dy).sqrt(),
+            _padding: [0, 0],
+        };
+
         let params_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Turbulence Params"),
-            contents: bytemuck::cast_slice(&[
-                nx,
-                ny,
-                0,
-                0, // nx, ny, padding to 16 bytes
-                dx.to_bits(),
-                dy.to_bits(),
-                c_s.to_bits(),
-                ((dx * dy).sqrt()).to_bits(), // dx, dy, c_s, delta (filter width)
-            ]),
+            contents: bytemuck::bytes_of(&params),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -134,7 +154,7 @@ impl<T: RealField + Copy> GpuSmagorinskyKernel<T> {
                 timestamp_writes: None,
             });
 
-            compute_pass.set_pipeline(&pipeline);
+            compute_pass.set_pipeline(pipeline);
             compute_pass.set_bind_group(0, &bind_group, &[]);
 
             let workgroups_x = nx.div_ceil(8);
@@ -199,6 +219,8 @@ impl<T: RealField + Copy> GpuKernel<T> for GpuSmagorinskyKernel<T> {
 /// GPU DES kernel for length scale computation
 #[derive(Debug)]
 pub struct GpuDesKernel<T: RealField + Copy> {
+    shader_module: Option<wgpu::ShaderModule>,
+    compute_pipeline: Option<wgpu::ComputePipeline>,
     _phantom: PhantomData<T>,
 }
 
@@ -209,12 +231,51 @@ impl<T: RealField + Copy> Default for GpuDesKernel<T> {
 }
 
 impl<T: RealField + Copy> GpuDesKernel<T> {
+    /// Shader source code for DES length scale computation
+    const SHADER_SOURCE: &'static str = include_str!("turbulence.wgsl");
+
     /// Creates a new GPU DES kernel
     #[must_use]
     pub fn new() -> Self {
         Self {
+            shader_module: None,
+            compute_pipeline: None,
             _phantom: PhantomData,
         }
+    }
+
+    /// Initialize the shader module with the given device
+    pub fn initialize(&mut self, device: &wgpu::Device) {
+        if self.shader_module.is_none() {
+            let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("DES Length Scale Shader"),
+                source: wgpu::ShaderSource::Wgsl(Self::SHADER_SOURCE.into()),
+            });
+            self.shader_module = Some(module);
+        }
+    }
+
+    /// Get the shader module, initializing if necessary
+    pub fn get_shader_module(&mut self, device: &wgpu::Device) -> &wgpu::ShaderModule {
+        self.initialize(device);
+        self.shader_module.as_ref().unwrap()
+    }
+
+    /// Get or create compute pipeline for DES length scale
+    pub fn get_pipeline(&mut self, device: &wgpu::Device) -> Result<&wgpu::ComputePipeline> {
+        if self.compute_pipeline.is_none() {
+            let shader_module = self.get_shader_module(device);
+
+            let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("DES Length Scale Pipeline"),
+                layout: None,
+                module: shader_module,
+                entry_point: "des_length_scale",
+            });
+            self.compute_pipeline = Some(pipeline);
+        }
+
+        Ok(self.compute_pipeline.as_ref().unwrap())
     }
 
     /// Compute DES length scale on GPU
@@ -231,21 +292,22 @@ impl<T: RealField + Copy> GpuDesKernel<T> {
         dy: f32,
         des_constant: f32,
     ) -> Result<()> {
-        let pipeline = self.create_pipeline(device)?;
+        let pipeline = self.get_pipeline(device)?;
 
         // Create uniform buffer with turbulence parameters
+        let params = TurbulenceParams {
+            nx,
+            ny,
+            dx,
+            dy,
+            constant: des_constant,
+            delta: (dx * dy).sqrt(),
+            _padding: [0, 0],
+        };
+
         let params_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Turbulence Params"),
-            contents: bytemuck::cast_slice(&[
-                nx,
-                ny,
-                0,
-                0, // nx, ny, padding to 16 bytes
-                dx.to_bits(),
-                dy.to_bits(),
-                des_constant.to_bits(),
-                ((dx * dy).sqrt()).to_bits(), // dx, dy, des_constant, delta (filter width)
-            ]),
+            contents: bytemuck::bytes_of(&params),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -284,7 +346,7 @@ impl<T: RealField + Copy> GpuDesKernel<T> {
                 timestamp_writes: None,
             });
 
-            compute_pass.set_pipeline(&pipeline);
+            compute_pass.set_pipeline(pipeline);
             compute_pass.set_bind_group(0, &bind_group, &[]);
 
             let workgroups_x = nx.div_ceil(8);
@@ -342,8 +404,4 @@ impl<T: RealField + Copy> GpuKernel<T> for GpuDesKernel<T> {
     fn dispatch(&self, _encoder: &mut wgpu::CommandEncoder, _params: KernelParams) {
         // Placeholder implementation
     }
-}
-
-impl<T: RealField + Copy> GpuDesKernel<T> {
-    const SHADER_SOURCE: &'static str = include_str!("turbulence.wgsl");
 }

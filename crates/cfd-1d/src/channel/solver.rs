@@ -268,36 +268,103 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     ///
     /// # Errors
     /// Returns an error if resistance calculation fails
-    fn calculate_laminar_resistance(&self, _fluid: &Fluid<T>) -> Result<T> {
-        // Implementation would go here
-        Ok(T::zero())
+    fn calculate_laminar_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
+        let area = self.geometry.area();
+        let dh = self.geometry.hydraulic_diameter();
+        let length = self.geometry.length;
+        let viscosity = fluid.dynamic_viscosity();
+
+        let shape_factor = self.get_shape_factor();
+        let resistance = shape_factor * viscosity * length
+            / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * area * dh * dh);
+
+        Ok(resistance)
     }
 
     /// Calculate transitional flow resistance
     ///
     /// # Errors
     /// Returns an error if resistance calculation fails
-    fn calculate_transitional_resistance(&self, _fluid: &Fluid<T>) -> Result<T> {
-        // Implementation would go here
-        Ok(T::zero())
+    fn calculate_transitional_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
+        let re = self.flow_state.reynolds_number.ok_or_else(|| {
+            cfd_core::error::Error::InvalidConfiguration("Reynolds number required for transitional resistance".to_string())
+        })?;
+
+        // Linear interpolation between laminar and turbulent at transition bounds
+        let re_l = T::from_f64(PIPE_CRITICAL_LOWER).unwrap_or_else(|| T::zero());
+        let re_u = T::from_f64(PIPE_CRITICAL_UPPER).unwrap_or_else(|| T::zero());
+
+        let r_l = self.calculate_laminar_resistance(fluid)?;
+        let r_u = self.calculate_turbulent_resistance(fluid)?;
+
+        let weight = (re - re_l) / (re_u - re_l);
+        Ok(r_l * (T::one() - weight) + r_u * weight)
     }
 
     /// Calculate turbulent flow resistance
     ///
     /// # Errors
     /// Returns an error if resistance calculation fails
-    fn calculate_turbulent_resistance(&self, _fluid: &Fluid<T>) -> Result<T> {
-        // Implementation would go here
-        Ok(T::zero())
+    fn calculate_turbulent_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
+        let re = self.flow_state.reynolds_number.ok_or_else(|| {
+            cfd_core::error::Error::InvalidConfiguration("Reynolds number required for turbulent resistance".to_string())
+        })?;
+
+        let area = self.geometry.area();
+        let dh = self.geometry.hydraulic_diameter();
+        let length = self.geometry.length;
+        let density = fluid.density;
+
+        // Get friction factor using Haaland approximation
+        let f = self.calculate_friction_factor(re);
+
+        // For turbulent flow, R_eff = (f * rho * L * |V|) / (2 * Dh * A)
+        // Since V = Q/A, R_eff = (f * rho * L * |Q|) / (2 * Dh * A^2)
+        // However, if we want Delta P = R_eff * Q, we need velocity.
+        // Assuming update_flow_state has been called, we can derive velocity from Re.
+        let viscosity = fluid.dynamic_viscosity();
+        let velocity = (re * viscosity) / (density * dh);
+
+        let resistance = (f * density * length * velocity)
+            / (T::from_f64(2.0).unwrap_or_else(|| T::zero()) * dh * area);
+
+        Ok(resistance)
     }
 
     /// Calculate slip flow resistance
     ///
     /// # Errors
     /// Returns an error if resistance calculation fails
-    fn calculate_slip_flow_resistance(&self, _fluid: &Fluid<T>) -> Result<T> {
-        // Implementation would go here
-        Ok(T::zero())
+    fn calculate_slip_flow_resistance(&self, fluid: &Fluid<T>) -> Result<T> {
+        // Slip flow resistance (Knudsen number effects)
+        // R_slip = R_laminar / (1 + 4*Kn)
+        let r_l = self.calculate_laminar_resistance(fluid)?;
+
+        // Approximation for Knudsen number
+        // Kn = lambda / Dh where lambda is mean free path
+        // For simplicity, using a small correction factor if not explicitly provided
+        let kn = T::from_f64(0.01).unwrap_or_else(|| T::zero());
+        let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
+
+        Ok(r_l / (T::one() + four * kn))
+    }
+
+    fn calculate_friction_factor(&self, reynolds: T) -> T {
+        let re_val = reynolds.to_f64().unwrap_or(0.0);
+        let roughness = self.geometry.surface.roughness;
+        let dh = self.geometry.hydraulic_diameter();
+        let roughness_ratio = (roughness / dh).to_f64().unwrap_or(0.0);
+
+        if re_val < 0.1 {
+            return T::from_f64(64.0 / 0.1).unwrap_or_else(|| T::zero());
+        }
+
+        // Haaland approximation for Darcy friction factor
+        let factor = -1.8 * f64::log10(
+            f64::powf(roughness_ratio / 3.7, 1.11) + 6.9 / re_val
+        );
+        let f = 1.0 / (factor * factor);
+        T::from_f64(f).unwrap_or_else(|| T::one())
     }
 
     fn get_shape_factor(&self) -> T {

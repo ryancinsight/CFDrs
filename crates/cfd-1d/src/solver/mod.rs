@@ -224,6 +224,7 @@ pub struct NetworkSolver<T: RealField + Copy> {
     /// Matrix assembler for building the linear system
     assembler: MatrixAssembler<T>,
     /// Linear system solver
+    #[allow(dead_code)]
     linear_solver: LinearSystemSolver<T>,
     /// Convergence checker
     convergence: ConvergenceChecker<T>,
@@ -332,7 +333,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> NetworkSolver<T> {
                 norm.sqrt()
             };
             let rhs_norm = rhs.norm();
-            if let Some(_) = network.last_solver_method {} else { network.last_solver_method = Some(selected_method); }
+            if network.last_solver_method.is_some() {} else { network.last_solver_method = Some(selected_method); }
             network.residuals.push(residual_norm);
 
             // For non-linear systems, we must check solution change to ensure the non-linear

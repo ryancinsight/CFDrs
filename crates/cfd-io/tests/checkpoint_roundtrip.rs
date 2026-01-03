@@ -1,8 +1,8 @@
 //! Bit-exact roundtrip tests for CheckpointManager
 
-use approx::assert_relative_eq;
 use cfd_io::checkpoint::{Checkpoint, CheckpointManager, CheckpointMetadata, CompressionStrategy};
 use nalgebra::{dmatrix, DMatrix};
+use proptest::prelude::*;
 use tempfile::tempdir;
 
 #[test]
@@ -69,7 +69,7 @@ proptest::proptest! {
     ) {
         let n = (u_data.len() as f64).sqrt() as usize;
         if n * n != u_data.len() || n * n != v_data.len() || n * n != p_data.len() {
-            return;
+            return Ok(());
         }
 
         let ny = n;
@@ -81,9 +81,9 @@ proptest::proptest! {
             (1.0, 1.0),
         );
 
-        let u = DMatrix::from_row_slice(ny * nx, &u_data);
-        let v = DMatrix::from_row_slice(ny * nx, &v_data);
-        let p = DMatrix::from_row_slice(ny * nx, &p_data);
+        let u = DMatrix::from_row_slice(ny, nx, &u_data);
+        let v = DMatrix::from_row_slice(ny, nx, &v_data);
+        let p = DMatrix::from_row_slice(ny, nx, &p_data);
 
         let checkpoint = Checkpoint::new(metadata, u.clone(), v.clone(), p.clone());
 
@@ -95,9 +95,9 @@ proptest::proptest! {
 
         prop_assert_eq!(loaded.metadata.iteration, iteration);
         prop_assert_eq!(loaded.metadata.time.to_bits(), time.to_bits());
-        prop_assert_eq!(loaded.u_velocity, u);
-        prop_assert_eq!(loaded.v_velocity, v);
-        prop_assert_eq!(loaded.pressure, p);
+        prop_assert_eq!(&loaded.u_velocity, &u);
+        prop_assert_eq!(&loaded.v_velocity, &v);
+        prop_assert_eq!(&loaded.pressure, &p);
         prop_assert_eq!(loaded.compute_checksum(), checkpoint.compute_checksum());
     }
 }

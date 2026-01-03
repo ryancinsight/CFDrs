@@ -380,7 +380,7 @@ impl GpuPoissonSolver {
         // Create residual buffer (output)
         let residual_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Residual Buffer"),
-            size: (phi.len() * std::mem::size_of::<f32>()) as u64,
+            size: std::mem::size_of_val(phi) as u64,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
@@ -388,7 +388,7 @@ impl GpuPoissonSolver {
         // Create staging buffer for reading back residual
         let staging_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Residual Staging Buffer"),
-            size: (phi.len() * std::mem::size_of::<f32>()) as u64,
+            size: std::mem::size_of_val(phi) as u64,
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -431,7 +431,7 @@ impl GpuPoissonSolver {
             });
             compute_pass.set_pipeline(&self.residual_pipeline);
             compute_pass.set_bind_group(0, &residual_bind_group, &[]);
-            compute_pass.dispatch_workgroups((phi.len() as u32 + 255) / 256, 1, 1);
+            compute_pass.dispatch_workgroups((phi.len() as u32).div_ceil(256), 1, 1);
         }
 
         // Copy residual buffer to staging buffer for CPU readback
@@ -440,7 +440,7 @@ impl GpuPoissonSolver {
             0,
             &staging_buffer,
             0,
-            (phi.len() * std::mem::size_of::<f32>()) as u64,
+            std::mem::size_of_val(phi) as u64,
         );
 
         self.queue.submit(Some(encoder.finish()));

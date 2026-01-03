@@ -54,16 +54,27 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
     /// - Press, W.H. et al. (1992). "Numerical Recipes in C" §12.2
     pub fn forward(&self, u: &DVector<T>) -> Result<DVector<Complex<T>>> {
         let n = self.n;
+        let scale = T::from_usize(n).unwrap_or(T::one());
 
         // Check if n is power of 2 (required for efficient radix-2 FFT)
-        if n & (n - 1) == 0 {
+        if n.is_power_of_two() {
             // Use efficient FFT for power-of-2 sizes
             let mut data: Vec<Complex<T>> = u.iter().map(|&x| Complex::new(x, T::zero())).collect();
             self.fft_inplace(&mut data, false);
+
+            // Normalize by 1/n to get physical amplitudes
+            for val in &mut data {
+                *val /= scale;
+            }
+
             Ok(DVector::from_vec(data))
         } else {
             // Fall back to DFT for non-power-of-2 sizes
-            self.dft_forward(u)
+            let mut u_hat = self.dft_forward(u)?;
+            for val in u_hat.iter_mut() {
+                *val /= scale;
+            }
+            Ok(u_hat)
         }
     }
 
@@ -101,7 +112,7 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
                     let v_val = data[i + j + length / 2] * w;
                     data[i + j] = u_val + v_val;
                     data[i + j + length / 2] = u_val - v_val;
-                    w = w * wlen;
+                    w *= wlen;
                 }
             }
             length <<= 1;
@@ -138,14 +149,13 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
     pub fn inverse(&self, u_hat: &DVector<Complex<T>>) -> Result<DVector<T>> {
         let n = self.n;
 
-        if n & (n - 1) == 0 {
+        if n.is_power_of_two() {
             // Use efficient IFFT for power-of-2 sizes
-            let mut data = u_hat.iter().cloned().collect::<Vec<_>>();
+            let mut data = u_hat.iter().copied().collect::<Vec<_>>();
             self.fft_inplace(&mut data, true);
 
-            // Scale by 1/n for inverse transform and extract real part
-            let scale = T::from_usize(n).unwrap_or(T::one());
-            let real_part: Vec<T> = data.into_iter().map(|x| x.re / scale).collect();
+            // Extract real part (normalization already done in forward)
+            let real_part: Vec<T> = data.into_iter().map(|x| x.re).collect();
 
             Ok(DVector::from_vec(real_part))
         } else {
@@ -171,7 +181,7 @@ impl<T: RealField + FromPrimitive + Copy> FourierTransform<T> {
                 let exp = Complex::new(phase.cos(), phase.sin());
                 sum += exp * u_hat[k];
             }
-            u[j] = sum.re / T::from_usize(n).unwrap_or(T::one());
+            u[j] = sum.re;
         }
 
         Ok(u)

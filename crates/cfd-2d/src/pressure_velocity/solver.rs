@@ -115,10 +115,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
 
         // Step 3: Correct velocity field
         let mut u_corrected = u_star;
+        let (ap_u, _, ap_v, _) = self.momentum_solver.get_ap_coefficients();
         self.pressure_solver.correct_velocity(
             &mut u_corrected,
             &p_correction,
-            self.config.dt,
+            &ap_u,
+            &ap_v,
             rho,
             self.config.alpha_u,
         );

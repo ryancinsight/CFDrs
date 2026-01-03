@@ -25,6 +25,7 @@ fn main() -> Result<()> {
         0.001002, // viscosity [Pa·s]
         4186.0,   // specific heat [J/(kg·K)]
         0.599,    // thermal conductivity [W/(m·K)]
+        1482.0,   // speed of sound [m/s]
     );
 
     println!("Fluid Properties:");

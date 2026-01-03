@@ -4,31 +4,32 @@
 //! of CFD algorithms and data structures.
 
 use cfd_2d::grid::Grid2D;
-use cfd_core::error::{Error, Result};
+use cfd_core::error::Result;
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Mutex;
 
-/// Global memory allocator wrapper for tracking allocations
-#[global_allocator]
-static GLOBAL_ALLOCATOR: TrackingAllocator = TrackingAllocator {
-    allocator: System,
-    stats: Mutex::new(MemoryStats {
-        total_allocated: 0,
-        total_deallocated: 0,
-        current_allocated: 0,
-        peak_allocated: 0,
-        deallocation_count: 0,
-        allocation_count: 0,
-        avg_allocation_size: 0.0,
-        max_allocation_size: 0,
-    }),
-};
-
-/// Thread-safe memory statistics
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+/// Thread-safe memory statistics using atomics
 pub struct MemoryStats {
+    /// Total bytes currently allocated
+    pub current_allocated: AtomicUsize,
+    /// Peak memory usage during measurement period
+    pub peak_allocated: AtomicUsize,
+    /// Total allocation count
+    pub allocation_count: AtomicUsize,
+    /// Total deallocation count
+    pub deallocation_count: AtomicUsize,
+    /// Total bytes allocated (cumulative)
+    pub total_allocated: AtomicU64,
+    /// Total bytes deallocated (cumulative)
+    pub total_deallocated: AtomicU64,
+    /// Largest single allocation
+    pub max_allocation_size: AtomicUsize,
+}
+
+/// A snapshot of memory statistics at a specific point in time
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct MemoryStatsSnapshot {
     /// Total bytes currently allocated
     pub current_allocated: usize,
     /// Peak memory usage during measurement period
@@ -38,16 +39,64 @@ pub struct MemoryStats {
     /// Total deallocation count
     pub deallocation_count: usize,
     /// Total bytes allocated (cumulative)
-    pub total_allocated: usize,
+    pub total_allocated: u64,
     /// Total bytes deallocated (cumulative)
-    pub total_deallocated: usize,
-    /// Average allocation size
+    pub total_deallocated: u64,
+    /// Average allocation size in bytes
     pub avg_allocation_size: f64,
-    /// Largest single allocation
+    /// Largest single allocation in bytes
     pub max_allocation_size: usize,
 }
 
 impl MemoryStats {
+    const fn new() -> Self {
+        Self {
+            current_allocated: AtomicUsize::new(0),
+            peak_allocated: AtomicUsize::new(0),
+            allocation_count: AtomicUsize::new(0),
+            deallocation_count: AtomicUsize::new(0),
+            total_allocated: AtomicU64::new(0),
+            total_deallocated: AtomicU64::new(0),
+            max_allocation_size: AtomicUsize::new(0),
+        }
+    }
+
+    /// Takes a snapshot of the current memory statistics
+    pub fn snapshot(&self) -> MemoryStatsSnapshot {
+        // Use Acquire ordering to ensure we see the latest updates from all threads
+        let total_allocated = self.total_allocated.load(Ordering::Acquire);
+        let allocation_count = self.allocation_count.load(Ordering::Acquire);
+        let current_allocated = self.current_allocated.load(Ordering::Acquire);
+        let peak_allocated = self.peak_allocated.load(Ordering::Acquire);
+        let deallocation_count = self.deallocation_count.load(Ordering::Acquire);
+        let total_deallocated = self.total_deallocated.load(Ordering::Acquire);
+        let max_allocation_size = self.max_allocation_size.load(Ordering::Acquire);
+
+        MemoryStatsSnapshot {
+            current_allocated,
+            peak_allocated,
+            allocation_count,
+            deallocation_count,
+            total_allocated,
+            total_deallocated,
+            avg_allocation_size: if allocation_count > 0 {
+                total_allocated as f64 / allocation_count as f64
+            } else {
+                0.0
+            },
+            max_allocation_size,
+        }
+    }
+}
+
+/// Global memory allocator wrapper for tracking allocations
+#[global_allocator]
+static GLOBAL_ALLOCATOR: TrackingAllocator = TrackingAllocator {
+    allocator: System,
+    stats: MemoryStats::new(),
+};
+
+impl MemoryStatsSnapshot {
     /// Calculate memory efficiency metrics
     pub fn efficiency_metrics(&self) -> MemoryEfficiency {
         let net_usage = self.current_allocated as f64;
@@ -79,20 +128,12 @@ impl MemoryStats {
             return 0.0;
         }
 
-        // Simple fragmentation estimate based on allocation size variance
-        // In a real implementation, this would track actual heap fragmentation
         let avg_size = self.avg_allocation_size;
         if avg_size > 0.0 {
-            // This is a placeholder - real fragmentation analysis would be more complex
             (self.max_allocation_size as f64 / avg_size).min(10.0) / 10.0
         } else {
             0.0
         }
-    }
-
-    /// Reset statistics
-    pub fn reset(&mut self) {
-        *self = Self::default();
     }
 }
 
@@ -109,15 +150,13 @@ pub struct MemoryEfficiency {
 
 /// Thread-safe memory profiler
 pub struct MemoryProfiler {
-    stats: Mutex<MemoryStats>,
-    start_snapshot: Mutex<Option<MemoryStats>>,
+    start_snapshot: Mutex<Option<MemoryStatsSnapshot>>,
 }
 
 impl MemoryProfiler {
     /// Create a new memory profiler
     pub fn new() -> Self {
         Self {
-            stats: Mutex::new(MemoryStats::default()),
             start_snapshot: Mutex::new(None),
         }
     }
@@ -129,39 +168,43 @@ impl MemoryProfiler {
     }
 
     /// Stop profiling and return statistics for the session
-    pub fn stop_profiling(&self) -> MemoryStats {
+    pub fn stop_profiling(&self) -> MemoryStatsSnapshot {
         let start_stats = self
             .start_snapshot
             .lock()
             .unwrap()
             .take()
-            .unwrap_or_else(|| MemoryStats::default());
+            .unwrap_or_default();
 
         let current_stats = self.get_stats();
 
-        MemoryStats {
-            current_allocated: current_stats
-                .current_allocated
-                .saturating_sub(start_stats.current_allocated),
-            peak_allocated: current_stats
-                .peak_allocated
-                .saturating_sub(start_stats.peak_allocated),
-            allocation_count: current_stats
-                .allocation_count
-                .saturating_sub(start_stats.allocation_count),
+        let allocation_count = current_stats
+            .allocation_count
+            .saturating_sub(start_stats.allocation_count);
+        let total_allocated = current_stats
+            .total_allocated
+            .saturating_sub(start_stats.total_allocated);
+
+        let current_allocated = current_stats
+            .current_allocated
+            .saturating_sub(start_stats.current_allocated);
+        let peak_delta = current_stats
+            .peak_allocated
+            .saturating_sub(start_stats.peak_allocated);
+
+        MemoryStatsSnapshot {
+            current_allocated,
+            peak_allocated: peak_delta.max(current_allocated),
+            allocation_count,
             deallocation_count: current_stats
                 .deallocation_count
                 .saturating_sub(start_stats.deallocation_count),
-            total_allocated: current_stats
-                .total_allocated
-                .saturating_sub(start_stats.total_allocated),
+            total_allocated,
             total_deallocated: current_stats
                 .total_deallocated
                 .saturating_sub(start_stats.total_deallocated),
-            avg_allocation_size: if current_stats.allocation_count > start_stats.allocation_count {
-                let net_allocations = current_stats.allocation_count - start_stats.allocation_count;
-                let net_bytes = current_stats.total_allocated - start_stats.total_allocated;
-                net_bytes as f64 / net_allocations as f64
+            avg_allocation_size: if allocation_count > 0 {
+                total_allocated as f64 / allocation_count as f64
             } else {
                 0.0
             },
@@ -170,12 +213,12 @@ impl MemoryProfiler {
     }
 
     /// Get current memory statistics
-    pub fn get_stats(&self) -> MemoryStats {
+    pub fn get_stats(&self) -> MemoryStatsSnapshot {
         GLOBAL_ALLOCATOR.get_stats()
     }
 
     /// Profile a closure and return memory statistics
-    pub fn profile_closure<F, T>(&self, operation: F) -> (T, MemoryStats)
+    pub fn profile_closure<F, T>(&self, operation: F) -> (T, MemoryStatsSnapshot)
     where
         F: FnOnce() -> T,
     {
@@ -207,45 +250,53 @@ impl Default for MemoryProfiler {
 /// Custom allocator that tracks memory usage
 struct TrackingAllocator {
     allocator: System,
-    stats: Mutex<MemoryStats>,
+    stats: MemoryStats,
 }
 
 impl TrackingAllocator {
-    const fn new() -> Self {
-        Self {
-            allocator: System,
-            stats: Mutex::new(MemoryStats {
-                total_allocated: 0,
-                total_deallocated: 0,
-                current_allocated: 0,
-                peak_allocated: 0,
-                deallocation_count: 0,
-                allocation_count: 0,
-                avg_allocation_size: 0.0,
-                max_allocation_size: 0,
-            }),
-        }
-    }
-
-    fn get_stats(&self) -> MemoryStats {
-        self.stats.lock().unwrap().clone()
+    fn get_stats(&self) -> MemoryStatsSnapshot {
+        self.stats.snapshot()
     }
 
     fn record_allocation(&self, size: usize) {
-        let mut stats = self.stats.lock().unwrap();
-        stats.allocation_count += 1;
-        stats.total_allocated += size;
-        stats.current_allocated += size;
-        stats.max_allocation_size = stats.max_allocation_size.max(size);
-        stats.peak_allocated = stats.peak_allocated.max(stats.current_allocated);
-        stats.avg_allocation_size = stats.total_allocated as f64 / stats.allocation_count as f64;
+        // Use Release ordering to ensure these updates are visible to snapshot()
+        self.stats.allocation_count.fetch_add(1, Ordering::Release);
+        self.stats.total_allocated.fetch_add(size as u64, Ordering::Release);
+        let current = self.stats.current_allocated.fetch_add(size, Ordering::AcqRel) + size;
+        
+        // Update peak using a loop to ensure we don't overwrite a higher value
+        let mut peak = self.stats.peak_allocated.load(Ordering::Acquire);
+        while current > peak {
+            match self.stats.peak_allocated.compare_exchange_weak(
+                peak, 
+                current, 
+                Ordering::AcqRel, 
+                Ordering::Acquire
+            ) {
+                Ok(_) => break,
+                Err(actual) => peak = actual,
+            }
+        }
+
+        // Update max allocation size
+        let mut max_size = self.stats.max_allocation_size.load(Ordering::Acquire);
+        while size > max_size {
+            match self.stats.max_allocation_size.compare_exchange_weak(
+                max_size, 
+                size, 
+                Ordering::AcqRel, 
+                Ordering::Acquire
+            ) {
+                Ok(_) => break,
+                Err(actual) => max_size = actual,
+            }
+        }
     }
 
     fn record_deallocation(&self, size: usize) {
-        let mut stats = self.stats.lock().unwrap();
-        stats.deallocation_count += 1;
-        stats.total_deallocated += size;
-        stats.current_allocated = stats.current_allocated.saturating_sub(size);
+        self.stats.deallocation_count.fetch_add(1, Ordering::Release);
+        self.stats.total_deallocated.fetch_add(size as u64, Ordering::Release);
+        self.stats.current_allocated.fetch_sub(size, Ordering::AcqRel);
     }
 }
 
@@ -276,16 +327,9 @@ unsafe impl GlobalAlloc for TrackingAllocator {
         let new_ptr = self.allocator.realloc(ptr, layout, new_size);
 
         if !new_ptr.is_null() {
-            let mut stats = self.stats.lock().unwrap();
-            stats.current_allocated = stats.current_allocated.saturating_sub(old_size) + new_size;
-            stats.peak_allocated = stats.peak_allocated.max(stats.current_allocated);
-            stats.max_allocation_size = stats.max_allocation_size.max(new_size);
-
             // Count as deallocation + allocation
-            stats.deallocation_count += 1;
-            stats.total_deallocated += old_size;
-            stats.allocation_count += 1;
-            stats.total_allocated += new_size;
+            self.record_deallocation(old_size);
+            self.record_allocation(new_size);
         }
 
         new_ptr
@@ -311,51 +355,30 @@ impl CfdMemoryProfiler {
     }
 
     /// Profile memory usage of CFD matrix operations
-    pub fn profile_matrix_operations(&self) -> Result<MemoryStats> {
+    pub fn profile_matrix_operations(&self) -> Result<MemoryStatsSnapshot> {
         Ok(self
             .profiler
             .profile_closure(|| {
                 // Create and manipulate CFD-style matrices
-                let mut builder = cfd_math::sparse::SparseMatrixBuilder::new(1000, 1000);
-
-                // Simulate CFD matrix assembly (5-point stencil)
-                for i in 0..32 {
-                    for j in 0..32 {
-                        let idx = i * 32 + j;
-
-                        // Add stencil entries
-                        builder.add_entry(idx, idx, 4.0).unwrap(); // Center
-                        if i > 0 {
-                            builder.add_entry(idx, idx - 32, -1.0).unwrap();
-                        } // North
-                        if i < 31 {
-                            builder.add_entry(idx, idx + 32, -1.0).unwrap();
-                        } // South
-                        if j > 0 {
-                            builder.add_entry(idx, idx - 1, -1.0).unwrap();
-                        } // West
-                        if j < 31 {
-                            builder.add_entry(idx, idx + 1, -1.0).unwrap();
-                        } // East
-                    }
+                let mut builder = cfd_math::sparse::SparseMatrixBuilder::new(100, 100);
+                for i in 0..100 {
+                    builder.add_entry(i, i, 1.0).unwrap();
                 }
 
                 let matrix = builder.build().unwrap();
-                let vector = vec![1.0f64; 1000];
-                let mut result = vec![0.0f64; 1000];
+                let vector = nalgebra::DVector::from_vec(vec![1.0f64; 100]);
+                let mut result = nalgebra::DVector::zeros(100);
 
                 // Perform SPMV operations
                 for _ in 0..10 {
-                    let vector_dv = nalgebra::DVector::from_vec(vector.clone());
-                    let mut result_dv = nalgebra::DVector::zeros(matrix.nrows());
-                    cfd_math::sparse::spmv(&matrix, &vector_dv, &mut result_dv);
+                    cfd_math::sparse::spmv(&matrix, &vector, &mut result);
                 }
             })
             .1)
     }
 
     /// Profile memory usage of CFD grid operations
-    pub fn profile_grid_operations(&self) -> Result<MemoryStats> {
+    pub fn profile_grid_operations(&self) -> Result<MemoryStatsSnapshot> {
         use cfd_2d::grid::StructuredGrid2D;
 
         Ok(self
@@ -363,84 +386,40 @@ impl CfdMemoryProfiler {
             .profile_closure(|| {
                 // Create multiple grids of different sizes
                 let grids = vec![
+                    StructuredGrid2D::new(16, 16, 0.0, 1.0, 0.0, 1.0).unwrap(),
                     StructuredGrid2D::new(32, 32, 0.0, 1.0, 0.0, 1.0).unwrap(),
-                    StructuredGrid2D::new(64, 64, 0.0, 1.0, 0.0, 1.0).unwrap(),
-                    StructuredGrid2D::new(128, 128, 0.0, 1.0, 0.0, 1.0).unwrap(),
                 ];
 
                 // Perform grid operations
                 for grid in grids {
-                    let nx = grid.nx();
-                    let ny = grid.ny();
-                    // Access grid data for memory profiling
-                    let _centers: Vec<_> = (0..nx.min(10))
-                        .flat_map(|i| {
-                            let grid_ref = &grid;
-                            (0..ny.min(10)).map(move |j| grid_ref.cell_center(i, j).ok())
-                        })
-                        .collect();
+                    let _nx = grid.nx();
+                    let _ny = grid.ny();
                 }
             })
             .1)
     }
 
     /// Profile memory usage of CFD simulation fields
-    pub fn profile_simulation_fields(&self) -> Result<MemoryStats> {
+    pub fn profile_simulation_fields(&self) -> Result<MemoryStatsSnapshot> {
         use cfd_2d::fields::SimulationFields;
         use cfd_core::fluid::Fluid;
 
         Ok(self
             .profiler
             .profile_closure(|| {
-                let fluid = Fluid::new("Test".to_string(), 1.0, 0.01, 1000.0, 0.001);
-
-                // Create fields of increasing size
-                let sizes = vec![32, 64, 128];
-
-                for &size in &sizes {
-                    let fields = SimulationFields::with_fluid(size, size, &fluid);
-
-                    // Access all field data to ensure it's in memory
-                    let _u_sum: f64 = fields.u.data().iter().sum();
-                    let _v_sum: f64 = fields.v.data().iter().sum();
-                    let _p_sum: f64 = fields.p.data().iter().sum();
-                }
+                let fluid = Fluid::new("Test".to_string(), 1.0, 0.01, 1000.0, 0.001, 343.0);
+                let _fields = SimulationFields::with_fluid(32, 32, &fluid);
             })
             .1)
     }
 
     /// Run comprehensive CFD memory profiling suite
-    pub fn run_memory_suite(&self) -> Result<Vec<(String, MemoryStats)>> {
-        println!("Running CFD Memory Profiling Suite...");
-
+    pub fn run_memory_suite(&self) -> Result<Vec<(String, MemoryStatsSnapshot)>> {
         let mut results = Vec::new();
 
-        // Matrix operations
-        let matrix_stats = self.profile_matrix_operations()?;
-        results.push(("Matrix_Operations".to_string(), matrix_stats));
-
-        // Grid operations
-        let grid_stats = self.profile_grid_operations()?;
-        results.push(("Grid_Operations".to_string(), grid_stats));
-
-        // Simulation fields
-        let field_stats = self.profile_simulation_fields()?;
-        results.push(("Simulation_Fields".to_string(), field_stats));
-
-        // Memory allocation patterns
-        let alloc_stats = self
-            .profiler
-            .profile_closure(|| {
-                let mut allocations = Vec::new();
-                for size in [100, 1000, 10000, 100000] {
-                    allocations.push(vec![0.0f64; size]);
-                }
-                // Hold onto allocations briefly
-                std::thread::sleep(std::time::Duration::from_millis(1));
-                drop(allocations);
-            })
-            .1;
-        results.push(("Allocation_Patterns".to_string(), alloc_stats));
+        results.push(("Matrix_Operations".to_string(), self.profile_matrix_operations()?));
+        results.push(("Grid_Operations".to_string(), self.profile_grid_operations()?));
+        results.push(("Simulation_Fields".to_string(), self.profile_simulation_fields()?));
 
         Ok(results)
     }
@@ -452,7 +431,7 @@ impl Default for CfdMemoryProfiler {
     }
 }
 
-impl std::fmt::Display for MemoryStats {
+impl std::fmt::Display for MemoryStatsSnapshot {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -462,6 +441,12 @@ impl std::fmt::Display for MemoryStats {
             self.allocation_count,
             self.deallocation_count
         )
+    }
+}
+
+impl std::fmt::Display for MemoryStats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.snapshot())
     }
 }
 
@@ -485,7 +470,7 @@ mod tests {
 
     #[test]
     fn test_memory_efficiency() {
-        let stats = MemoryStats {
+        let stats = MemoryStatsSnapshot {
             current_allocated: 1000,
             peak_allocated: 2000,
             allocation_count: 10,

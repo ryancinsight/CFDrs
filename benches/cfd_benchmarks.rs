@@ -88,24 +88,34 @@ fn benchmark_sparse_matrix_operations(c: &mut Criterion) {
 }
 
 fn benchmark_fluid_calculations(c: &mut Criterion) {
-    use cfd_core::Fluid;
+    use cfd_core::fluid::traits::Fluid as FluidTrait;
+    use cfd_core::fluid::Fluid;
 
     let mut group = c.benchmark_group("fluid_calculations");
 
-    let fluid = Fluid::constant_viscosity("water", 1000.0, 0.001);
+    let fluid = Fluid::new(
+        "water".to_string(),
+        1000.0,
+        0.001,
+        4182.0,
+        0.6,
+        1482.0,
+    );
+
+    let state = fluid.properties_at(0.0, 0.0).unwrap();
 
     group.bench_function("reynolds_number", |b| {
         b.iter(|| {
             let velocity = black_box(1.0);
             let length = black_box(0.1);
-            let re = fluid.reynolds_number(velocity, length);
+            let re = state.reynolds_number(velocity, length);
             black_box(re);
         });
     });
 
     group.bench_function("kinematic_viscosity", |b| {
         b.iter(|| {
-            let nu = fluid.kinematic_viscosity();
+            let nu = state.kinematic_viscosity();
             black_box(nu);
         });
     });

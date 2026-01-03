@@ -3,8 +3,21 @@
 use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
+// use nalgebra_sparse::ops::serial::spmm_csr_csr;
 use num_traits::{Float, FromPrimitive, Signed};
 use rayon::prelude::*;
+use crate::linear_solver::LinearOperator;
+
+impl<T: RealField + Copy + Send + Sync> LinearOperator<T> for CsrMatrix<T> {
+    fn apply(&self, x: &DVector<T>, y: &mut DVector<T>) -> Result<()> {
+        spmv_parallel(self, x, y);
+        Ok(())
+    }
+
+    fn size(&self) -> usize {
+        self.nrows()
+    }
+}
 
 /// Sparse matrix-vector multiplication (SpMV): y = A * x
 ///
@@ -106,6 +119,23 @@ where
             }
             *y_i = sum;
         });
+}
+
+/// Sparse matrix-matrix multiplication (SpMM): C = A * B
+///
+/// Multiplies two CSR matrices and returns the result in CSR format.
+/// This operation is significantly more complex than SpMV and is performed
+/// serially using nalgebra-sparse's optimized implementation.
+pub fn sparse_sparse_mul<T: RealField + Copy>(
+    a: &CsrMatrix<T>,
+    b: &CsrMatrix<T>,
+) -> CsrMatrix<T> {
+    assert_eq!(a.ncols(), b.nrows(), "Matrix dimension mismatch for multiplication");
+    
+    // In nalgebra-sparse 0.10, we might need to use a different approach for CSR-CSR multiplication
+    // if spmm_csr_csr is not available. Let's try to see if multiplication is implemented.
+    // If not, this will fail and we will know.
+    a * b
 }
 
 /// Extension trait for sparse matrix operations

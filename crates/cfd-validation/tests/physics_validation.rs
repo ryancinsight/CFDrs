@@ -36,9 +36,9 @@ fn validate_couette_flow_profile() {
 fn validate_poiseuille_parabolic_profile() {
     // Test case: Channel flow with pressure gradient
     let flow = PoiseuilleFlow {
-        h: 0.01,      // 1 cm half-height
-        dp_dx: 100.0, // 100 Pa/m pressure gradient
-        mu: 0.001,    // 1 mPa·s (water-like)
+        h: 0.01,       // 1 cm half-height
+        dp_dx: -100.0, // -100 Pa/m pressure gradient (pressure drop in +x)
+        mu: 0.001,     // 1 mPa·s (water-like)
     };
 
     // Validate parabolic profile

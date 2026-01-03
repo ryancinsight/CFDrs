@@ -157,7 +157,7 @@ fn test_solver_convergence_matrix_conditions() {
             cfd_math::linear_solver::IterativeSolverConfig::new(1e-6).with_max_iterations(100);
         let solver = BiCGSTAB::new(config);
 
-        let result = solver.solve::<IdentityPreconditioner>(&a, &b, &mut x, None);
+        let result = solver.solve(&a, &b, &mut x, None::<&IdentityPreconditioner>);
         assert!(
             result.is_ok(),
             "✅ Robustness at condition number {}",

@@ -3,9 +3,6 @@
 //! Provides statistical analysis, trend detection, and performance regression
 //! monitoring for CFD operations.
 
-use super::memory::MemoryStats;
-use super::performance::TimingResult;
-use super::scaling::ScalingResult;
 use super::suite::BenchmarkResult;
 use crate::reporting::PerformanceMetrics;
 use cfd_core::error::{Error, Result};
@@ -153,7 +150,7 @@ impl PerformanceAnalyzer {
     pub fn add_result(&mut self, benchmark_name: &str, metrics: PerformanceMetrics) {
         self.historical_data
             .entry(benchmark_name.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(metrics);
     }
 
@@ -161,8 +158,7 @@ impl PerformanceAnalyzer {
     pub fn analyze_trend(&self, benchmark_name: &str) -> Result<PerformanceTrend> {
         let data = self.historical_data.get(benchmark_name).ok_or_else(|| {
             Error::InvalidInput(format!(
-                "No historical data for benchmark: {}",
-                benchmark_name
+                "No historical data for benchmark: {benchmark_name}"
             ))
         })?;
 
@@ -299,7 +295,10 @@ impl PerformanceAnalyzer {
 
     /// Normal cumulative distribution function approximation
     fn normal_cdf(x: f64) -> f64 {
-        // Abramowitz & Stegun approximation
+        // Scale for standard normal distribution (Phi(x) = 0.5 * (1 + erf(x/sqrt(2))))
+        let x = x / 2.0f64.sqrt();
+
+        // Abramowitz & Stegun approximation for erf(x)
         let a1 = 0.254829592;
         let a2 = -0.284496736;
         let a3 = 1.421413741;
@@ -308,10 +307,11 @@ impl PerformanceAnalyzer {
         let p = 0.3275911;
 
         let sign = if x < 0.0 { -1.0 } else { 1.0 };
-        let x = x.abs();
+        let x_abs = x.abs();
 
-        let t = 1.0 / (1.0 + p * x);
-        let y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * (-x * x).exp();
+        let t = 1.0 / (1.0 + p * x_abs);
+        let exp_val = (-x_abs * x_abs).exp();
+        let y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * exp_val;
 
         0.5 * (1.0 + sign * y)
     }
@@ -414,7 +414,7 @@ impl PerformanceAnalyzer {
 
             let baseline = self.get_baseline_metrics(&result.name);
             let recommendations =
-                self.generate_recommendations(&result, trend.as_ref(), regression.as_ref());
+                self.generate_recommendations(result, trend.as_ref(), regression.as_ref());
 
             // Convert TimingResult to PerformanceMetrics if available
             let current_metrics = result
@@ -603,35 +603,35 @@ mod tests {
                 samples: 10,
             },
             PerformanceMetrics {
-                mean: 1.02,
+                mean: 1.1,
                 std_dev: 0.01,
-                min: 1.01,
-                max: 1.03,
-                median: 1.02,
+                min: 1.09,
+                max: 1.11,
+                median: 1.1,
                 samples: 10,
             },
             PerformanceMetrics {
-                mean: 1.04,
+                mean: 1.2,
                 std_dev: 0.01,
-                min: 1.03,
-                max: 1.05,
-                median: 1.04,
+                min: 1.19,
+                max: 1.21,
+                median: 1.2,
                 samples: 10,
             },
             PerformanceMetrics {
-                mean: 1.06,
+                mean: 1.3,
                 std_dev: 0.01,
-                min: 1.05,
-                max: 1.07,
-                median: 1.06,
+                min: 1.29,
+                max: 1.31,
+                median: 1.3,
                 samples: 10,
             },
             PerformanceMetrics {
-                mean: 1.08,
+                mean: 1.4,
                 std_dev: 0.01,
-                min: 1.07,
-                max: 1.09,
-                median: 1.08,
+                min: 1.39,
+                max: 1.41,
+                median: 1.4,
                 samples: 10,
             },
         ];

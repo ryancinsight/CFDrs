@@ -5,11 +5,11 @@ use cfd_math::linear_solver::preconditioners::{
     AdditiveSchwarzPreconditioner, CoarseningStrategy, ParallelAMGPreconditioner,
     ParallelBlockJacobiPreconditioner,
 };
-use cfd_math::linear_solver::preconditioners::{
-    IdentityPreconditioner, IncompleteLU, JacobiPreconditioner, SORPreconditioner,
+use cfd_math::linear_solver::{
+    IdentityPreconditioner, IncompleteLU, JacobiPreconditioner, Preconditioner, SORPreconditioner,
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use nalgebra::{DVector, RealField};
+use nalgebra::DVector;
 use nalgebra_sparse::CsrMatrix;
 
 /// Create a test matrix for benchmarking
@@ -56,7 +56,7 @@ fn create_test_vector(size: usize) -> DVector<f64> {
 }
 
 fn bench_identity_preconditioner(c: &mut Criterion) {
-    let matrix = create_benchmark_matrix(1000);
+    let _matrix = create_benchmark_matrix(1000);
     let preconditioner = IdentityPreconditioner;
     let r = create_test_vector(1000);
     let mut z = DVector::zeros(1000);

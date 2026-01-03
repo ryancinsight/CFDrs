@@ -5,7 +5,7 @@
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
-use cfd_core::error::{Error, Result};
+use cfd_core::error::Result;
 use nalgebra::{DMatrix, RealField};
 use num_traits::FromPrimitive;
 
@@ -262,13 +262,13 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
                     if grid_idx < result.values.len() {
                         let u_computed = result.values[grid_idx];
                         let error = u_computed - u_ref;
-                        l2_error_sq = l2_error_sq + error * error;
+                        l2_error_sq += error * error;
                         num_points += 1;
                     }
                 }
 
                 if num_points > 0 {
-                    let l2_error = (l2_error_sq / T::from_f64_or_one(num_points as f64)).sqrt();
+                    let l2_error = (l2_error_sq / T::from_f64_or_one(f64::from(num_points))).sqrt();
 
                     // Ghia et al. (1982) requires <5% L2 error for accurate CFD solutions
                     let ghia_tolerance = T::from_f64_or_one(0.05);
@@ -284,8 +284,7 @@ impl<T: RealField + Copy + FromPrimitive + SafeFromF64 + num_traits::ToPrimitive
                     let l2_error_pct = l2_error.to_f64().unwrap_or(0.0) * 100.0;
                     let target_pct = ghia_tolerance.to_f64().unwrap_or(0.05) * 100.0;
                     println!(
-                        "Ghia et al. validation - L2 error: {:.6}%, Target: <{:.1}%, Converged: {}",
-                        l2_error_pct, target_pct, converged
+                        "Ghia et al. validation - L2 error: {l2_error_pct:.6}%, Target: <{target_pct:.1}%, Converged: {converged}"
                     );
 
                     return Ok(l2_error < ghia_tolerance && converged);
