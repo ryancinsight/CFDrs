@@ -92,7 +92,7 @@ pub trait IterativeLinearSolver<T: RealField + Copy>:
         b: &DVector<T>,
         x: &mut DVector<T>,
         preconditioner: Option<&P>,
-    ) -> Result<()>;
+    ) -> Result<ConvergenceMonitor<T>>;
 }
 
 /// Preconditioner trait for linear system solvers

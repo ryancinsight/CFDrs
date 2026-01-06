@@ -4,7 +4,7 @@
 //! ∂T/∂t + (u·∇)T = α∇²T + Q/(ρCp)
 //! where α = k/(ρCp) is thermal diffusivity
 
-use cfd_core::boundary::BoundaryCondition;
+use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::error::Result;
 use nalgebra::RealField;
 use std::collections::HashMap;
@@ -128,40 +128,37 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
         }
 
         // Apply remaining boundary conditions (non-periodic)
-        for ((i, j), bc) in boundary_conditions {
+        for (&(i, j), bc) in boundary_conditions {
             match bc {
                 BoundaryCondition::Dirichlet { value } => {
-                    new_temperature[*i][*j] = *value;
+                    new_temperature[i][j] = *value;
                 }
                 BoundaryCondition::Neumann { gradient } => {
                     // Apply gradient boundary condition using interior points
-                    if *i == 0 {
-                        new_temperature[0][*j] = new_temperature[1][*j] - *gradient * dx;
-                    } else if *i == self.nx - 1 {
-                        new_temperature[self.nx - 1][*j] =
-                            new_temperature[self.nx - 2][*j] + *gradient * dx;
+                    if i == 0 {
+                        new_temperature[0][j] = new_temperature[1][j] - *gradient * dx;
+                    } else if i == self.nx - 1 {
+                        new_temperature[self.nx - 1][j] =
+                            new_temperature[self.nx - 2][j] + *gradient * dx;
                     }
-                    if *j == 0 {
-                        new_temperature[*i][0] = new_temperature[*i][1] - *gradient * dy;
-                    } else if *j == self.ny - 1 {
-                        new_temperature[*i][self.ny - 1] =
-                            new_temperature[*i][self.ny - 2] + *gradient * dy;
+                    if j == 0 {
+                        new_temperature[i][0] = new_temperature[i][1] - *gradient * dy;
+                    } else if j == self.ny - 1 {
+                        new_temperature[i][self.ny - 1] =
+                            new_temperature[i][self.ny - 2] + *gradient * dy;
                     }
-                }
-                BoundaryCondition::Periodic { .. } => {
-                    // Already handled above
                 }
                 BoundaryCondition::Symmetry => {
                     // Symmetry BC: zero normal gradient
-                    if *i == 0 {
-                        new_temperature[0][*j] = new_temperature[1][*j];
-                    } else if *i == self.nx - 1 {
-                        new_temperature[self.nx - 1][*j] = new_temperature[self.nx - 2][*j];
+                    if i == 0 {
+                        new_temperature[0][j] = new_temperature[1][j];
+                    } else if i == self.nx - 1 {
+                        new_temperature[self.nx - 1][j] = new_temperature[self.nx - 2][j];
                     }
-                    if *j == 0 {
-                        new_temperature[*i][0] = new_temperature[*i][1];
-                    } else if *j == self.ny - 1 {
-                        new_temperature[*i][self.ny - 1] = new_temperature[*i][self.ny - 2];
+                    if j == 0 {
+                        new_temperature[i][0] = new_temperature[i][1];
+                    } else if j == self.ny - 1 {
+                        new_temperature[i][self.ny - 1] = new_temperature[i][self.ny - 2];
                     }
                 }
                 _ => {}

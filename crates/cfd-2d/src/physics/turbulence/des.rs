@@ -223,7 +223,6 @@ impl DetachedEddySimulation {
         // In practice, this involves additional terms for WMLES capability
 
         let l_rans = rans_length;
-        let _l_les = self.config.des_constant * delta;
 
         // Simplified IDDES logic
         let d_w = self.wall_distance[(i, j)];

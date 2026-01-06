@@ -155,7 +155,7 @@ impl<T: RealField + Copy + FromPrimitive> VremanModel<T> {
         for i in 0..2 {
             for j in 0..2 {
                 let val = velocity_gradient[(i, j)];
-                alpha_squared = alpha_squared + val * val;
+                alpha_squared += val * val;
             }
         }
 
@@ -172,7 +172,7 @@ impl<T: RealField + Copy + FromPrimitive> VremanModel<T> {
             for j in 0..2 {
                 let mut sum = T::zero();
                 for k in 0..2 {
-                    sum = sum + velocity_gradient[(k, i)] * velocity_gradient[(k, j)];
+                    sum += velocity_gradient[(k, i)] * velocity_gradient[(k, j)];
                 }
                 beta[(i, j)] = delta_squared * sum;
             }

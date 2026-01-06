@@ -11,6 +11,7 @@ pub struct MomentumOperator1D<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> MomentumOperator1D<T> {
+    /// Create a new 1D momentum operator
     pub fn new(n: usize, dx: T, u: T, nu: T) -> Self {
         Self { n, dx, u, nu }
     }
@@ -57,6 +58,7 @@ pub struct MomentumOperator2D<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> MomentumOperator2D<T> {
+    /// Create a new 2D momentum operator
     pub fn new(nx: usize, ny: usize, dx: T, dy: T, u: T, v: T, nu: T) -> Self {
         Self { nx, ny, dx, dy, u, v, nu }
     }
@@ -113,6 +115,7 @@ pub struct EnergyOperator2D<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> EnergyOperator2D<T> {
+    /// Create a new 2D energy operator
     pub fn new(nx: usize, ny: usize, dx: T, dy: T, u: T, v: T, alpha: T) -> Self {
         Self { nx, ny, dx, dy, u, v, alpha }
     }

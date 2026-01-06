@@ -291,7 +291,7 @@ mod tests {
     /// Test FEM element type configuration
     #[test]
     fn test_fem_element_types() {
-        use cfd_core::domains::mesh_operations::ElementType;
+        use cfd_core::domain::ElementType;
 
         let mut config: FemConfig<f64> = FemConfig::default();
 

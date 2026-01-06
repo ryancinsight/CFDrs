@@ -13,7 +13,7 @@
 //! Based on literature: Brennen (1995), Franc & Michel (2004),
 //! Nurick (1976), Callenaere et al. (2001)
 
-use cfd_core::cavitation::{
+use cfd_core::physics::cavitation::{
     constants::*,
     damage::CavitationDamage,
     models::{CavitationModel, ZgbParams},

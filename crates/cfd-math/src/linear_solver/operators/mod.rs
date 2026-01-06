@@ -48,7 +48,7 @@ impl<'a, T: RealField + Copy> ScaledOperator<'a, T> {
     }
 }
 
-impl<'a, T: RealField + Copy> LinearOperator<T> for ScaledOperator<'a, T> {
+impl<T: RealField + Copy> LinearOperator<T> for ScaledOperator<'_, T> {
     fn apply(&self, x: &DVector<T>, y: &mut DVector<T>) -> Result<()> {
         self.inner.apply(x, y)?;
         y.scale_mut(self.alpha);

@@ -7,8 +7,8 @@ use approx::assert_relative_eq;
 use cfd_1d::solver::SolverConfig;
 use cfd_1d::*;
 use cfd_core::error::Result;
-use cfd_core::fluid;
-use cfd_core::solver::{Configurable, Solver};
+use cfd_core::physics::fluid;
+use cfd_core::compute::solver::{Configurable, Solver};
 use std::collections::HashMap;
 
 /// Test micropump component behavior and pressure-flow characteristics  

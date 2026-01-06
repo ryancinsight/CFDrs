@@ -11,6 +11,7 @@ pub struct LaplacianOperator2D<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> LaplacianOperator2D<T> {
+    /// Create a new 2D Laplacian operator
     pub fn new(nx: usize, ny: usize, dx: T, dy: T) -> Self {
         Self { nx, ny, dx, dy }
     }
@@ -86,6 +87,7 @@ pub struct PoissonOperator3D<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy> PoissonOperator3D<T> {
+    /// Create a new 3D Poisson operator
     pub fn new(nx: usize, ny: usize, nz: usize, dx: T, dy: T, dz: T) -> Self {
         Self { nx, ny, nz, dx, dy, dz }
     }

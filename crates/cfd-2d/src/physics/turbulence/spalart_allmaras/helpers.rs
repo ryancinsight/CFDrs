@@ -2,7 +2,7 @@
 //!
 //! Extracted utility functions to maintain <500 line limit per file
 
-use cfd_core::constants::mathematical::numeric::{THREE, TWO};
+use cfd_core::physics::constants::mathematical::numeric::{THREE, TWO};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use tracing::instrument;

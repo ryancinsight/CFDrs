@@ -191,7 +191,7 @@
 use super::constants::{C1_EPSILON, C2_EPSILON, C_MU, EPSILON_MIN, K_MIN, SIGMA_EPSILON, SIGMA_K};
 use super::traits::TurbulenceModel;
 use cfd_core::{
-    constants::mathematical::numeric::{ONE_HALF, TWO},
+    physics::constants::mathematical::numeric::{ONE_HALF, TWO},
     error::Result,
 };
 use nalgebra::{RealField, Vector2};

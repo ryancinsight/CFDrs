@@ -4,12 +4,13 @@
 //! communication overlap techniques and load balancing optimizations
 //! for large-scale distributed CFD simulations.
 
-use crate::linear_solver::traits::LinearOperator;
 use crate::linear_solver::config::IterativeSolverConfig;
+use crate::linear_solver::traits::{ConvergenceMonitor, LinearOperator};
 #[cfg(feature = "mpi")]
 use cfd_core::compute::mpi::{DistributedVector, MpiCommunicator, MpiResult};
 use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind, Result};
 use nalgebra::RealField;
+use std::fmt::Debug;
 
 /// Communication overlap strategy for MPI operations
 #[cfg(feature = "mpi")]
@@ -94,7 +95,7 @@ where
         operator: &Op,
         b: &DistributedVector<T>,
         x: &mut DistributedVector<T>,
-    ) -> MpiResult<()> {
+    ) -> MpiResult<ConvergenceMonitor<T>> {
         let local_size = operator.size();
 
         // Initialize workspace vectors
@@ -148,8 +149,10 @@ where
         }
 
         let mut r_norm = r.norm()?;
+        let mut monitor = ConvergenceMonitor::new(r_norm);
+
         if r_norm < self.config.tolerance {
-            return Ok(());
+            return Ok(monitor);
         }
 
         // Initialize shadow residual
@@ -223,8 +226,10 @@ where
 
             // Check convergence
             r_norm = r.norm()?;
+            monitor.record_residual(r_norm);
+
             if r_norm < self.config.tolerance {
-                return Ok(());
+                return Ok(monitor);
             }
 
             iteration += 1;

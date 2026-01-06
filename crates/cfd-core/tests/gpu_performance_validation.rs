@@ -6,8 +6,7 @@
 #[cfg(feature = "gpu")]
 mod gpu_performance_tests {
     use cfd_core::compute::gpu::{GpuBuffer, GpuTurbulenceCompute};
-    use cfd_core::compute::traits::ComputeBuffer;
-    use cfd_core::error::Result;
+    
     use std::time::Instant;
 
     /// Benchmark Smagorinsky LES SGS computation on GPU vs CPU
@@ -130,7 +129,7 @@ mod gpu_performance_tests {
 
         // Performance analysis
         let speedup = gpu_ops_per_sec / cpu_ops_per_sec;
-        let gpu_perf_info = gpu_compute.performance_info();
+        let _gpu_perf_info = gpu_compute.performance_info();
 
         println!("GPU Performance Validation Results:");
         println!("====================================");
@@ -182,12 +181,12 @@ mod gpu_performance_tests {
     fn test_gpu_buffer_performance() {
         let gpu_compute = GpuTurbulenceCompute::new().unwrap();
 
-        use std::sync::Arc;
+        
 
         let sizes = [1000, 10000, 100000];
 
         for &size in &sizes {
-            let test_data: Vec<f32> = (0..size).map(|i| i as f32 * 0.1).collect();
+            let _test_data: Vec<f32> = (0..size).map(|i| i as f32 * 0.1).collect();
 
             let start = Instant::now();
 

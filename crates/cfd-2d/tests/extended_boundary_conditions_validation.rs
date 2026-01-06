@@ -12,7 +12,7 @@
 //! - Versteeg, H.K. & Malalasekera, W. (2007). An Introduction to CFD, Chapter 11
 
 use cfd_2d::physics::EnergyEquationSolver;
-use cfd_core::boundary::BoundaryCondition;
+use cfd_core::physics::boundary::BoundaryCondition;
 use std::collections::HashMap;
 
 /// Test periodic boundary conditions with fully-developed channel flow
@@ -29,9 +29,9 @@ use std::collections::HashMap;
 fn test_periodic_channel_flow() {
     let nx = 10;
     let ny = 21;
-    let lx = 1.0; // Channel length [m]
+    let _lx = 1.0; // Channel length [m]
     let ly = 0.1; // Channel height [m]
-    let dy = ly / (ny - 1) as f64;
+    let _dy = ly / (ny - 1) as f64;
 
     // Flow parameters
     let dp_dx = -10.0; // Pressure gradient [Pa/m]

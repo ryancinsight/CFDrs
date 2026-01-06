@@ -3,7 +3,7 @@
 //! Modified Gram-Schmidt orthogonalization to build Krylov subspace basis
 
 use crate::linear_solver::traits::{LinearOperator, Preconditioner};
-use cfd_core::error::{Error, NumericalErrorKind, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::{DMatrix, DVector, RealField};
 use num_traits::FromPrimitive;
 

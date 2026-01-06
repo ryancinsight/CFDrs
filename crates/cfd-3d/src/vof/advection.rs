@@ -26,7 +26,7 @@ impl AdvectionMethod {
 
     /// Advect volume fraction field
     pub fn advect<T: RealField + FromPrimitive + Copy>(
-        &self,
+        self,
         solver: &mut VofSolver<T>,
         dt: T,
     ) -> Result<()> {
@@ -38,7 +38,7 @@ impl AdvectionMethod {
 
     /// Geometric advection (more accurate, conserves volume)
     fn geometric_advection<T: RealField + FromPrimitive + Copy>(
-        &self,
+        self,
         solver: &mut VofSolver<T>,
         dt: T,
     ) -> Result<()> {
@@ -80,7 +80,7 @@ impl AdvectionMethod {
 
     /// Calculate flux through a face
     fn calculate_flux<T: RealField + FromPrimitive + Copy>(
-        &self,
+        self,
         solver: &VofSolver<T>,
         i1: usize,
         j1: usize,
@@ -134,7 +134,7 @@ impl AdvectionMethod {
 
     /// Algebraic advection (simpler but less accurate)
     fn algebraic_advection<T: RealField + FromPrimitive + Copy>(
-        &self,
+        self,
         solver: &mut VofSolver<T>,
         dt: T,
     ) -> Result<()> {
@@ -177,7 +177,7 @@ impl AdvectionMethod {
 
     /// Apply artificial compression to sharpen interface
     pub fn apply_compression<T: RealField + FromPrimitive + Copy>(
-        &self,
+        self,
         solver: &mut VofSolver<T>,
         dt: T,
     ) -> Result<()> {

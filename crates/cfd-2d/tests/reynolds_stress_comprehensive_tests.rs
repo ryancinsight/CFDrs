@@ -24,7 +24,7 @@ use cfd_validation::manufactured::{
     ManufacturedReynoldsStressMMS, ManufacturedSolution, PressureStrainModelMMS,
     ReynoldsStressConvergenceStudy,
 };
-use nalgebra::{DMatrix, Vector2};
+use nalgebra::DMatrix;
 use std::f64::consts::PI;
 
 /// Test RSM initialization and basic tensor operations
@@ -57,7 +57,7 @@ fn test_production_term() {
     let velocity_gradient = [[0.0, 1.0], [0.0, 0.0]]; // du/dy = 1
 
     // Isotropic initial stresses
-    let mut stresses = model.initialize_reynolds_stresses(1.0, 0.1);
+    let stresses = model.initialize_reynolds_stresses(1.0, 0.1);
 
     // Test production for xx component: P_xx = -2 ⟨u'v'⟩ du/dy
     let p_xx = model.production_term(&stresses, &velocity_gradient, 0, 0, 2, 2);
@@ -99,7 +99,7 @@ fn test_homogeneous_shear_flow() {
 
     // Homogeneous shear: constant du/dy = S
     let shear_rate = 1.0;
-    let velocity_gradient = [[0.0, shear_rate], [0.0, 0.0]];
+    let _velocity_gradient = [[0.0, shear_rate], [0.0, 0.0]];
 
     // Analytical solution for linear pressure-strain model
     // d⟨u'v'⟩/dt = -⟨u'u'⟩ S - ⟨v'v'⟩ S - C1 ε/k ⟨u'v'⟩
@@ -107,7 +107,7 @@ fn test_homogeneous_shear_flow() {
     let time_scale = stresses.k[(0, 0)] / stresses.epsilon[(0, 0)];
 
     // Expected equilibrium shear stress
-    let equilibrium_uv = -time_scale * (stresses.xx[(0, 0)] + stresses.yy[(0, 0)])
+    let _equilibrium_uv = -time_scale * (stresses.xx[(0, 0)] + stresses.yy[(0, 0)])
         / (1.0 + model.c1 * time_scale / time_scale);
 
     // Run a few time steps
@@ -275,7 +275,7 @@ fn test_boundary_layer_anisotropy() {
     let shear_rate = 100.0; // Strong shear near wall
 
     // Run evolution near wall
-    for step in 0..20 {
+    for _step in 0..20 {
         // Simplified single-point update (would need full field in practice)
         let velocity_gradient = [[0.0, shear_rate], [0.0, 0.0]];
 
@@ -407,7 +407,7 @@ fn test_numerical_stability() {
     stresses.k[(5, 5)] = 1e-6; // Very small k
     stresses.epsilon[(5, 5)] = 1e-8; // Very small ε
 
-    let velocity_gradient = [[0.0, 1.0], [0.0, 0.0]];
+    let _velocity_gradient = [[0.0, 1.0], [0.0, 0.0]];
     let strain_rate = [[0.0, 0.5], [0.5, 0.0]];
     let rotation_rate = [[0.0, 0.5], [-0.5, 0.0]];
 
@@ -685,7 +685,7 @@ fn test_mms_pressure_strain_models() {
 #[test]
 fn test_mms_rsm_solver_integration() {
     let mms = ManufacturedReynoldsStressMMS::<f64>::standard_test_case();
-    let mut rsm_model = ReynoldsStressModel::<f64>::new(5, 5);
+    let rsm_model = ReynoldsStressModel::<f64>::new(5, 5);
 
     // Initialize with MMS exact solution at t=0
     let mut stresses = ReynoldsStressTensor {
@@ -856,7 +856,7 @@ fn test_mms_mathematical_consistency() {
     // Test production terms are computed correctly
     let p_xx = mms.production_term(0, 0, x, y, t);
     let p_xy = mms.production_term(0, 1, x, y, t);
-    let p_yy = mms.production_term(1, 1, x, y, t);
+    let _p_yy = mms.production_term(1, 1, x, y, t);
 
     // P_xx = -2⟨u'v'⟩∂U/∂y
     let expected_p_xx = -2.0 * mms.exact_reynolds_stress(0, 1, x, y, t) * du_dy;

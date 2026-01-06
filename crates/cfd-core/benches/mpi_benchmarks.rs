@@ -4,6 +4,7 @@
 
 #[cfg(feature = "mpi")]
 use cfd_core::compute::mpi::*;
+#[cfg(feature = "mpi")]
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 #[cfg(feature = "mpi")]

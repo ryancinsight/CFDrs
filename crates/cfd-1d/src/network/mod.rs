@@ -19,4 +19,4 @@ pub use node::{Node, NodeProperties, NodeType};
 pub use wrapper::{EdgeProperties, EdgeWithProperties, Network, ParallelEdge};
 
 // Re-export boundary conditions from core
-pub use cfd_core::boundary::BoundaryCondition;
+pub use cfd_core::physics::boundary::BoundaryCondition;

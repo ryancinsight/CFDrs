@@ -17,8 +17,8 @@ pub struct PoissonSolver<T: RealField + Copy> {
     config: FdmConfig<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
-    /// Create a new Poisson solver
+impl<T: RealField + Copy + FromPrimitive> PoissonSolver<T> {
+    /// Create new Poisson solver
     pub fn new(config: FdmConfig<T>) -> Self {
         Self { config }
     }
@@ -26,7 +26,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PoissonSolver<T> {
     /// Create with default configuration
     #[must_use]
     pub fn default() -> Self {
-        Self::new(FdmConfig::default())
+        Self::new(FdmConfig::<T>::default())
     }
 
     /// Solve Poisson equation on structured grid

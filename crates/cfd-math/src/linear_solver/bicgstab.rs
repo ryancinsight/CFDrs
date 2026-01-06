@@ -1,7 +1,7 @@
 //! BiCGSTAB solver implementation
 
 use super::config::IterativeSolverConfig;
-use super::traits::{Configurable, IterativeLinearSolver, LinearOperator, Preconditioner};
+use super::traits::{Configurable, ConvergenceMonitor, IterativeLinearSolver, LinearOperator, Preconditioner};
 use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind, Result};
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
@@ -81,7 +81,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
     /// * `x` - On entry: initial guess; On exit: solution vector
     ///
     /// # Returns
-    /// * `Ok(())` if converged successfully
+    /// * `Ok(ConvergenceMonitor)` if converged successfully
     /// * `Err(...)` if failed to converge or numerical breakdown occurred
     pub fn solve_preconditioned<Op: LinearOperator<T> + ?Sized, P: Preconditioner<T>>(
         &self,
@@ -89,12 +89,12 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
         b: &DVector<T>,
         preconditioner: &P,
         x: &mut DVector<T>,
-    ) -> Result<()> {
+    ) -> Result<ConvergenceMonitor<T>> {
         let n = b.len();
         let a_size = a.size();
         if a_size != 0 && a_size != n {
             return Err(Error::InvalidConfiguration(
-                format!("Operator size ({}) doesn't match RHS vector ({})", a_size, n),
+                format!("Operator size ({a_size}) doesn't match RHS vector ({n})"),
             ));
         }
 
@@ -121,11 +121,12 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
         r -= &ax;
 
         let initial_residual_norm = r.norm();
+        let mut monitor = ConvergenceMonitor::new(initial_residual_norm);
 
         // Check if already converged
         if self.is_converged(initial_residual_norm) {
             tracing::debug!("BiCGSTAB converged at initial guess");
-            return Ok(());
+            return Ok(monitor);
         }
 
         // Use a robust breakdown tolerance based on machine epsilon
@@ -169,11 +170,13 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
                 a.apply(x, &mut ax)?;
                 r.copy_from(b);
                 r -= &ax;
-                if self.is_converged(r.norm()) {
-                    return Ok(());
+                let final_norm = r.norm();
+                monitor.record_residual(final_norm);
+                if self.is_converged(final_norm) {
+                    return Ok(monitor);
                 }
                 return Err(Error::Convergence(ConvergenceErrorKind::StagnatedResidual {
-                    residual: r.norm().to_subset().unwrap_or(0.0),
+                    residual: final_norm.to_subset().unwrap_or(0.0),
                 }));
             }
 
@@ -185,8 +188,10 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
             r.axpy(-omega, &t, T::one());
 
             let residual_norm = r.norm();
+            monitor.record_residual(residual_norm);
+
             if self.is_converged(residual_norm) {
-                return Ok(());
+                return Ok(monitor);
             }
 
             if omega.abs() < breakdown_tolerance {
@@ -209,7 +214,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
         a: &Op,
         b: &DVector<T>,
         x: &mut DVector<T>,
-    ) -> Result<()> {
+    ) -> Result<ConvergenceMonitor<T>> {
         use super::preconditioners::IdentityPreconditioner;
         let preconditioner = IdentityPreconditioner;
         self.solve_preconditioned(a, b, &preconditioner, x)
@@ -235,7 +240,7 @@ impl<T: RealField + Debug + Copy> IterativeLinearSolver<T> for BiCGSTAB<T> {
         b: &DVector<T>,
         x: &mut DVector<T>,
         preconditioner: Option<&P>,
-    ) -> Result<()> {
+    ) -> Result<ConvergenceMonitor<T>> {
         if let Some(p) = preconditioner {
             self.solve_preconditioned(a, b, p, x)
         } else {

@@ -194,10 +194,10 @@ impl GlobalAssembly {
         
         // Sort by row, then by column
         entries.sort_by(|a, b| {
-            if a.0 != b.0 {
-                a.0.cmp(&b.0)
-            } else {
+            if a.0 == b.0 {
                 a.1.cmp(&b.1)
+            } else {
+                a.0.cmp(&b.0)
             }
         });
 

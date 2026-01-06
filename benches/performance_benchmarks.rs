@@ -2,7 +2,7 @@
 //!
 //! These benchmarks measure actual performance of core operations
 
-use cfd_core::domains::fluid_dynamics::{FlowField, FlowOperations};
+use cfd_core::physics::fluid_dynamics::{FlowField, FlowOperations};
 use cfd_math::linear_solver::{ConjugateGradient, IterativeLinearSolver};
 use cfd_math::sparse::SparseMatrixBuilder;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};

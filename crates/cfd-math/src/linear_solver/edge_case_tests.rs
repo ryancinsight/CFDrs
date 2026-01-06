@@ -4,16 +4,15 @@
 //! All tests maintain <30s runtime via granular cargo nextest execution
 
 #[cfg(test)]
-mod edge_case_tests {
-    use crate::linear_solver::preconditioners::{
-        IdentityPreconditioner, JacobiPreconditioner, SORPreconditioner,
-    };
-    use crate::linear_solver::traits::{IterativeLinearSolver, Preconditioner};
-    use crate::linear_solver::IterativeSolverConfig;
-    use crate::linear_solver::{BiCGSTAB, ConjugateGradient};
-    use crate::sparse::SparseMatrixBuilder;
-    use approx::assert_relative_eq;
-    use nalgebra::DVector;
+use crate::linear_solver::preconditioners::{
+    IdentityPreconditioner, JacobiPreconditioner, SORPreconditioner,
+};
+use crate::linear_solver::traits::{IterativeLinearSolver, Preconditioner};
+use crate::linear_solver::IterativeSolverConfig;
+use crate::linear_solver::{BiCGSTAB, ConjugateGradient};
+use crate::sparse::SparseMatrixBuilder;
+use approx::assert_relative_eq;
+use nalgebra::DVector;
 
     /// Test BiCGSTAB with zero RHS vector (edge case: b = 0)
     #[test]
@@ -255,7 +254,7 @@ mod edge_case_tests {
         let result = solver.solve(&a, &b, &mut x, Some(&identity));
 
         // Either solver succeeds or correctly identifies numerical issues
-        if let Ok(()) = result {
+        if result.is_ok() {
             // If it succeeds, verify solution is reasonable
             assert!(x.iter().all(|&xi: &f64| xi.is_finite()));
         } else {
@@ -292,11 +291,11 @@ mod edge_case_tests {
         let config = IterativeSolverConfig::new(1e-12).with_max_iterations(100);
         let solver = ConjugateGradient::new(config);
         let identity = IdentityPreconditioner;
-        solver.solve(&a, &b, &mut x_exact, Some(&identity))?;
+        let _ = solver.solve(&a, &b, &mut x_exact, Some(&identity))?;
 
         // Now solve again with exact solution as initial guess
         let mut x = x_exact.clone();
-        solver.solve(&a, &b, &mut x, Some(&identity))?;
+        let _ = solver.solve(&a, &b, &mut x, Some(&identity))?;
 
         // Solution should remain unchanged (or converge in 1 iteration)
         for i in 0..n {
@@ -389,4 +388,3 @@ mod edge_case_tests {
             "Expected convergence failure with max_iter=1"
         );
     }
-}

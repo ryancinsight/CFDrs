@@ -1,7 +1,7 @@
 //! Traits and common types for resistance models.
 
 use cfd_core::error::Result;
-use cfd_core::fluid::Fluid;
+use cfd_core::physics::fluid::Fluid;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 
@@ -91,7 +91,7 @@ pub struct FlowConditions<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive> FlowConditions<T> {
     /// Create new flow conditions with default temperature and pressure
     pub fn new(velocity: T) -> Self {
-        use cfd_core::constants::physics::thermo::{P_ATM, T_STANDARD};
+        use cfd_core::physics::constants::physics::thermo::{P_ATM, T_STANDARD};
 
         Self {
             reynolds_number: None,

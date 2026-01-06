@@ -132,10 +132,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let q_slice: &[f64] = &q_values[1..6];
     let q_array: &[f64; 5] = q_slice.try_into().unwrap();
-    let q_left_weno5 = weno5.reconstruct_left55(q_array);
-    let q_slice8: &[f64] = &q_values;
-    let q_array8: &[f64; 8] = q_slice8.try_into().unwrap();
-    let q_left_weno7 = weno7.reconstruct_left58(q_array8);
+    let q_left_weno5 = weno5.reconstruct_left(q_array);
+
+    let q_array8 = &[1.0, 1.2, 1.5, 2.0, 2.2, 2.1, 2.0]; // 7 cells for WENO7
+    let q_left_weno7 = weno7.reconstruct_left(q_array8);
 
     println!("⚡ Shock-Capturing Reconstruction:");
     println!("   WENO5: q_left = {:.4}", q_left_weno5);

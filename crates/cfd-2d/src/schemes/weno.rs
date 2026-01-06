@@ -60,7 +60,7 @@
 //!   nonlinear hyperbolic equations* (pp. 325-432). Springer.
 
 use super::{constants, weno_constants, Grid2D, SpatialDiscretization};
-use cfd_core::constants::mathematical::numeric::{THREE, TWO};
+use cfd_core::physics::constants::mathematical::numeric::{THREE, TWO};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
@@ -232,7 +232,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
             * (v[0] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[1]
                 + T::from_f64(5.0).unwrap_or_else(T::zero) * v[2])
                 .powi(2)
-            + T::from_f64(0.0027409884219028647).unwrap_or_else(T::zero)
+            + T::from_f64(0.002_740_988_421_902_865).unwrap_or_else(T::zero)
                 * (v[0] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[1]
                     + T::from_f64(4.0).unwrap_or_else(T::zero) * v[2]
                     - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
@@ -251,7 +251,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
             * (v[1] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[2]
                 + T::from_f64(5.0).unwrap_or_else(T::zero) * v[3])
                 .powi(2)
-            + T::from_f64(0.0027409884219028647).unwrap_or_else(T::zero)
+            + T::from_f64(0.002_740_988_421_902_865).unwrap_or_else(T::zero)
                 * (v[1] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[2]
                     + T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
                     - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
@@ -270,7 +270,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
             * (v[2] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
                 + T::from_f64(5.0).unwrap_or_else(T::zero) * v[4])
                 .powi(2)
-            + T::from_f64(0.0027409884219028647).unwrap_or_else(T::zero)
+            + T::from_f64(0.002_740_988_421_902_865).unwrap_or_else(T::zero)
                 * (v[2] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
                     + T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
                     - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
@@ -289,7 +289,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
             * (v[3] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
                 + T::from_f64(5.0).unwrap_or_else(T::zero) * v[5])
                 .powi(2)
-            + T::from_f64(0.0027409884219028647).unwrap_or_else(T::zero)
+            + T::from_f64(0.002_740_988_421_902_865).unwrap_or_else(T::zero)
                 * (v[3] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
                     + T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
                     - T::from_f64(4.0).unwrap_or_else(T::zero) * v[6]
@@ -308,7 +308,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
             * (v[4] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
                 + T::from_f64(5.0).unwrap_or_else(T::zero) * v[6])
                 .powi(2)
-            + T::from_f64(0.0027409884219028647).unwrap_or_else(T::zero)
+            + T::from_f64(0.002_740_988_421_902_865).unwrap_or_else(T::zero)
                 * (v[4] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
                     + T::from_f64(4.0).unwrap_or_else(T::zero) * v[6]
                     - T::from_f64(4.0).unwrap_or_else(T::zero) * v[7]
@@ -341,7 +341,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
             alpha[i] = d[i] / (self.epsilon + beta[i]).powi(2);
         }
 
-        let sum: T = alpha.iter().cloned().sum();
+        let sum: T = alpha.iter().copied().sum();
         let mut weights = [T::zero(); 5];
         for i in 0..5 {
             weights[i] = alpha[i] / sum;

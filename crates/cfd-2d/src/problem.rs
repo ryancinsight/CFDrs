@@ -4,8 +4,8 @@
 //! Navier-Stokes equations, enabling integration with the framework's solver abstractions.
 
 use crate::grid::{Grid2D, StructuredGrid2D};
-use cfd_core::boundary::BoundaryCondition;
-use cfd_core::fluid::ConstantPropertyFluid;
+use cfd_core::physics::boundary::BoundaryCondition;
+use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::{RealField, Vector2};
 use std::collections::HashMap;
 

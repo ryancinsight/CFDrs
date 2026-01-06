@@ -1,13 +1,11 @@
 //! Tests for compute backend
 
-#[cfg(test)]
-mod tests {
-    use super::super::*;
-    use crate::compute::cpu::CpuAdvectionKernel;
-    use crate::compute::traits::{BoundaryCondition2D, ComputeBackend, DomainParams, KernelParams};
+use super::*;
+use crate::compute::cpu::CpuAdvectionKernel;
+use crate::compute::traits::{BoundaryCondition2D, ComputeBackend, DomainParams, KernelParams};
 
-    #[test]
-    fn test_backend_detection() {
+#[test]
+fn test_backend_detection() {
         let capability = ComputeCapability::detect();
 
         // CPU should always be available
@@ -179,4 +177,3 @@ mod tests {
         let read_data = buffer.read().unwrap();
         assert_eq!(read_data, updated_data);
     }
-}

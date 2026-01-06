@@ -111,13 +111,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
             AdaptationStrategy::CFLBased {
                 cfl_target,
                 safety_factor,
-            } => (cfl_target, safety_factor),
-            AdaptationStrategy::Combined {
+            }
+            | AdaptationStrategy::Combined {
                 cfl_target,
                 safety_factor,
                 ..
             } => (cfl_target, safety_factor),
-            _ => (0.7, 0.8), // Default values
+            AdaptationStrategy::ErrorBased { .. } => (0.7, 0.8), // Default values
         };
 
         // CFL condition: dt ≤ CFL_target * min(dx/|u_max|, dy/|v_max|)
@@ -176,13 +176,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
                 error_tolerance,
                 safety_factor,
                 ..
-            } => (error_tolerance, safety_factor),
-            AdaptationStrategy::Combined {
+            }
+            | AdaptationStrategy::Combined {
                 error_tolerance,
                 safety_factor,
                 ..
             } => (error_tolerance, safety_factor),
-            _ => return (self.dt_current, true), // No error-based adaptation
+            AdaptationStrategy::CFLBased { .. } => return (self.dt_current, true), // No error-based adaptation
         };
 
         let error_tolerance_t = T::from_f64(error_tolerance).unwrap_or_else(T::one);
@@ -368,7 +368,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveTimeIntegrator<T
                 return (y_full, t + dt_current, new_dt, true);
             }
             // Step rejected - try again with smaller step
-            continue;
         }
     }
 
@@ -453,24 +452,23 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveTimeIntegrator<T
                 self.controller.steps_accepted += 1;
 
                 // Try to increase step size for next step
-                let factor = T::from_f64(0.9).unwrap_or_else(T::one)
+                let factor = T::from_f64(0.9).unwrap_or(T::one())
                     * (error_tolerance / error_estimate)
-                        .powf(T::from_f64(1.0 / 4.0).unwrap_or_else(T::one));
+                        .powf(T::from_f64(1.0 / 4.0).unwrap_or(T::one()));
                 self.controller.dt_current = (dt_current * factor).min(self.controller.dt_max);
 
                 self.y_prev = Some(y.clone());
                 return (y_full, t + dt_current, self.controller.dt_current, true);
-            } else {
-                // Step rejected - reduce step size
-                self.controller.steps_rejected += 1;
-                let factor = T::from_f64(0.9).unwrap_or_else(T::one)
-                    * (error_tolerance / error_estimate)
-                        .powf(T::from_f64(1.0 / 3.0).unwrap_or_else(T::one));
-                self.controller.dt_current = (dt_current * factor).max(self.controller.dt_min);
-
-                // Retry with smaller step
-                continue;
             }
+
+            // Step rejected - reduce step size
+            self.controller.steps_rejected += 1;
+            let factor = T::from_f64(0.9).unwrap_or(T::one())
+                * (error_tolerance / error_estimate)
+                    .powf(T::from_f64(1.0 / 3.0).unwrap_or(T::one()));
+            self.controller.dt_current = (dt_current * factor).max(self.controller.dt_min);
+
+            // Retry with smaller step
         }
     }
 
@@ -524,7 +522,7 @@ mod tests {
     use approx::assert_relative_eq;
 
     /// Test ODE: dy/dt = -2y, exact solution: y(t) = y0 * exp(-2t)
-    fn test_ode(t: f64, y: &DVector<f64>) -> DVector<f64> {
+    fn test_ode(_t: f64, y: &DVector<f64>) -> DVector<f64> {
         let mut f = DVector::zeros(y.len());
         for i in 0..y.len() {
             f[i] = -2.0 * y[i];
@@ -543,7 +541,7 @@ mod tests {
             safety_factor: 0.8,
         };
 
-        let mut controller = AdaptiveController::new(0.01, strategy);
+        let controller = AdaptiveController::new(0.01, strategy);
 
         // Test CFL-based dt calculation
         let dt = controller.cfl_based_dt(1.0, 0.5, 0.01, 0.01);

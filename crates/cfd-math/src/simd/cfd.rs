@@ -392,8 +392,7 @@ mod tests {
 
     #[test]
     fn test_basic_functionality() {
-        let ops = CfdSimdOps::<f64>::new();
+        let _ops = CfdSimdOps::<f64>::new();
         // Just verify it doesn't panic
-        let _ops = ops;
     }
 }

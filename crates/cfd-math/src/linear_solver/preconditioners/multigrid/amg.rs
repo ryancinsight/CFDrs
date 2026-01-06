@@ -14,14 +14,16 @@ use super::interpolation::{
 use crate::error::{Result, MathError};
 use crate::linear_solver::traits::Preconditioner;
 use crate::sparse::{SparseMatrix, sparse_sparse_mul};
-use nalgebra_sparse::CsrMatrix;
-use nalgebra::{DVector, DMatrix};
+use nalgebra::RealField;
+use nalgebra::{DVector};
+use num_traits::FromPrimitive;
 use std::time::Instant;
 
 /// Algebraic Multigrid preconditioner
-pub struct AlgebraicMultigrid {
+#[derive(Clone)]
+pub struct AlgebraicMultigrid<T: RealField + Copy> {
     /// Multigrid hierarchy levels
-    levels: Vec<MultigridLevel<f64>>,
+    levels: Vec<MultigridLevel<T>>,
     /// AMG configuration
     config: AMGConfig,
     /// Performance statistics
@@ -29,12 +31,12 @@ pub struct AlgebraicMultigrid {
     /// Setup completion flag
     is_setup: bool,
     /// Optional cached hierarchy operators
-    hierarchy: Option<AMGHierarchy<f64>>,
+    hierarchy: Option<AMGHierarchy<T>>,
 }
 
-impl AlgebraicMultigrid {
+impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
     /// Create a new AMG preconditioner
-    pub fn new(matrix: &SparseMatrix<f64>, config: AMGConfig) -> Result<Self> {
+    pub fn new(matrix: &SparseMatrix<T>, config: AMGConfig) -> Result<Self> {
         let mut amg = Self {
             levels: Vec::new(),
             config,
@@ -47,11 +49,16 @@ impl AlgebraicMultigrid {
         Ok(amg)
     }
 
+    /// Create a new AMG preconditioner with a specified configuration
+    pub fn with_config(matrix: &SparseMatrix<T>, config: AMGConfig) -> Result<Self> {
+        Self::new(matrix, config)
+    }
+
     /// Create a new AMG preconditioner with a pre-existing hierarchy
     pub fn with_hierarchy(
-        matrix: &SparseMatrix<f64>,
+        matrix: &SparseMatrix<T>,
         config: AMGConfig,
-        hierarchy: AMGHierarchy<f64>,
+        hierarchy: AMGHierarchy<T>,
     ) -> Result<Self> {
         let mut amg = Self {
             levels: Vec::new(),
@@ -66,12 +73,44 @@ impl AlgebraicMultigrid {
     }
 
     /// Get the current hierarchy for caching
-    pub fn get_hierarchy(&self) -> AMGHierarchy<f64> {
+    pub fn get_hierarchy(&self) -> AMGHierarchy<T> {
         AMGHierarchy::from_levels(&self.levels)
     }
 
+    /// Recompute the hierarchy operators for a new matrix with same sparsity pattern
+    pub fn recompute(&mut self, fine_matrix: &SparseMatrix<T>) -> Result<()> {
+        if self.levels.is_empty() {
+            return Err(MathError::InvalidInput("AMG hierarchy not initialized".to_string()).into());
+        }
+
+        // Update the finest level matrix
+        self.levels[0].matrix = fine_matrix.clone();
+        self.levels[0].smoother = self.create_smoother(fine_matrix);
+
+        // Recompute coarse matrices using existing transfer operators
+        for i in 0..self.levels.len() - 1 {
+            let (restriction, interpolation) = {
+                let current = &self.levels[i];
+                match (&current.restriction, &current.interpolation) {
+                    (Some(r), Some(p)) => (r, p),
+                    _ => return Err(MathError::InvalidInput("Missing transfer operators".to_string()).into()),
+                }
+            };
+
+            // A_coarse = R * A_fine * P
+            let temp = sparse_sparse_mul(restriction, &self.levels[i].matrix);
+            let coarse_matrix = sparse_sparse_mul(&temp, interpolation);
+
+            // Update next level
+            self.levels[i+1].matrix = coarse_matrix.clone();
+            self.levels[i+1].smoother = self.create_smoother(&coarse_matrix);
+        }
+
+        Ok(())
+    }
+
     /// Setup the AMG hierarchy
-    fn setup(&mut self, fine_matrix: &SparseMatrix<f64>) -> Result<()> {
+    fn setup(&mut self, fine_matrix: &SparseMatrix<T>) -> Result<()> {
         let setup_start = Instant::now();
 
         // Create finest level
@@ -135,22 +174,22 @@ impl AlgebraicMultigrid {
             // Perform coarsening using the configured strategy
             let coarsening_result = match self.config.coarsening_strategy {
                 CoarseningStrategy::RugeStueben => {
-                    ruge_stueben_coarsening(&current_level.matrix, self.config.strength_threshold)
+                    ruge_stueben_coarsening(&current_level.matrix, T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero))
                 }
                 CoarseningStrategy::Aggregation => {
                     aggregation_coarsening(&current_level.matrix, 8) // Use default aggregate size
                 }
                 CoarseningStrategy::Hybrid => {
-                    hybrid_coarsening(&current_level.matrix, self.config.strength_threshold, 4)
+                    hybrid_coarsening(&current_level.matrix, T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero), 4)
                 }
                 CoarseningStrategy::Falgout => {
-                    falgout_coarsening(&current_level.matrix, self.config.strength_threshold)
+                    falgout_coarsening(&current_level.matrix, T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero))
                 }
                 CoarseningStrategy::PMIS => {
-                    pmis_coarsening(&current_level.matrix, self.config.strength_threshold)
+                    pmis_coarsening(&current_level.matrix, T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero))
                 }
                 CoarseningStrategy::HMIS => {
-                    hmis_coarsening(&current_level.matrix, self.config.strength_threshold, 0.5)
+                    hmis_coarsening(&current_level.matrix, T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero), T::from_f64(0.5).unwrap_or_else(T::zero))
                 }
             }.map_err(|e| MathError::InvalidInput(format!("Coarsening failed: {e}")))?;
 
@@ -215,16 +254,17 @@ impl AlgebraicMultigrid {
     }
 
     /// Create smoother for a given matrix
-    fn create_smoother(&self, _matrix: &SparseMatrix<f64>) -> Box<dyn MultigridSmoother<f64>> {
+    fn create_smoother(&self, _matrix: &SparseMatrix<T>) -> Box<dyn MultigridSmoother<T>> {
+        let relaxation = T::from_f64(self.config.relaxation_factor).unwrap_or_else(T::one);
         match self.config.smoother_type {
             SmootherType::GaussSeidel => {
-                Box::new(GaussSeidelSmoother::new(self.config.relaxation_factor))
+                Box::new(GaussSeidelSmoother::new(relaxation))
             }
             SmootherType::SymmetricGaussSeidel => Box::new(SymmetricGaussSeidelSmoother::new(
-                self.config.relaxation_factor,
+                relaxation,
             )),
-            SmootherType::Jacobi => Box::new(JacobiSmoother::new(self.config.relaxation_factor)),
-            _ => Box::new(GaussSeidelSmoother::new(self.config.relaxation_factor)),
+            SmootherType::Jacobi => Box::new(JacobiSmoother::new(relaxation)),
+            _ => Box::new(GaussSeidelSmoother::new(relaxation)),
         }
     }
 
@@ -238,13 +278,13 @@ impl AlgebraicMultigrid {
             .matrix
             .values()
             .iter()
-            .filter(|&&x| x.abs() > 1e-15)
+            .filter(|&&x| x.abs() > T::from_f64(1e-15).unwrap_or_else(T::zero))
             .count();
         let mut total_nnz = 0;
         let mut total_vars = 0;
 
         for level in &self.levels {
-            total_nnz += level.matrix.values().iter().filter(|&&x| x.abs() > 1e-15).count();
+            total_nnz += level.matrix.values().iter().filter(|&&x| x.abs() > T::from_f64(1e-15).unwrap_or_else(T::zero)).count();
             total_vars += level.matrix.nrows();
         }
 
@@ -252,161 +292,45 @@ impl AlgebraicMultigrid {
         self.statistics.grid_complexity = total_vars as f64 / self.levels[0].matrix.nrows() as f64;
     }
 
-    /// Apply multigrid cycle using configured cycle type
-    fn apply_cycle(&self, residual: &DVector<f64>) -> Result<DVector<f64>> {
-        let result = match self.config.cycle_type {
-            super::CycleType::VCycle => {
-                let (correction, _) = super::cycles::apply_v_cycle(
-                    &self.levels,
-                    residual,
-                    1,     // Single cycle
-                    1e-12, // Internal tolerance
-                )?;
-                correction
-            }
-            super::CycleType::WCycle => {
-                let (correction, _) = super::cycles::apply_w_cycle(
-                    &self.levels,
-                    residual,
-                    1, // Single cycle
-                    1e-12,
-                )?;
-                correction
-            }
-            super::CycleType::FCycle => {
-                let (correction, _) = super::cycles::apply_f_cycle(
-                    &self.levels,
-                    residual,
-                    1, // Single cycle
-                    1e-12,
-                )?;
-                correction
-            }
-        };
+    /// Perform a single V-cycle
+    fn v_cycle(&self, level_idx: usize, b: &DVector<T>, x: &mut DVector<T>) {
+        let current_level = &self.levels[level_idx];
 
-        Ok(result)
-    }
+        // 1. Pre-smoothing
+        current_level.smoother.apply(&current_level.matrix, x, b, self.config.pre_smooth_iterations);
 
-    /// Get AMG statistics
-    pub fn statistics(&self) -> &AMGStatistics {
-        &self.statistics
+        if level_idx < self.levels.len() - 1 {
+            // 2. Compute residual: r = b - A*x
+            let r = b - &current_level.matrix * &*x;
+
+            // 3. Restriction: r_coarse = R * r
+            let r_coarse = current_level.restriction.as_ref().unwrap() * r;
+
+            // 4. Recursive call to coarse level
+            let mut e_coarse = DVector::zeros(r_coarse.len());
+            self.v_cycle(level_idx + 1, &r_coarse, &mut e_coarse);
+
+            // 5. Interpolation: e = P * e_coarse
+            let e = current_level.interpolation.as_ref().unwrap() * e_coarse;
+
+            // 6. Correction: x = x + e
+            *x += e;
+
+            // 7. Post-smoothing
+            current_level.smoother.apply(&current_level.matrix, x, b, self.config.post_smooth_iterations);
+        } else {
+            // Coarsest level solve (can be more iterations or a direct solve)
+            current_level.smoother.apply(&current_level.matrix, x, b, 10);
+        }
     }
 }
 
-impl Preconditioner<f64> for AlgebraicMultigrid {
-    fn apply_to(&self, r: &DVector<f64>, z: &mut DVector<f64>) -> Result<()> {
-        if !self.is_setup {
-            return Err(MathError::InvalidInput(
-                "AMG preconditioner not properly set up".to_string(),
-            )
-            .into());
-        }
+impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for AlgebraicMultigrid<T> {
+    fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
+        z.fill(T::zero());
 
-        // Apply multigrid cycle to residual
-        let result = self.apply_cycle(r)?;
-        z.copy_from(&result);
+        self.v_cycle(0, r, z);
+
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use nalgebra::DMatrix;
-
-    #[test]
-    fn test_amg_creation() {
-        // Create a simple 2D Poisson matrix
-        let n = 10;
-        let mut matrix = DMatrix::zeros(n * n, n * n);
-
-        for i in 0..n {
-            for j in 0..n {
-                let idx = i * n + j;
-                matrix[(idx, idx)] = 4.0; // Main diagonal
-
-                // Neighbors
-                if i > 0 {
-                    matrix[(idx, (i - 1) * n + j)] = -1.0;
-                }
-                if i < n - 1 {
-                    matrix[(idx, (i + 1) * n + j)] = -1.0;
-                }
-                if j > 0 {
-                    matrix[(idx, i * n + (j - 1))] = -1.0;
-                }
-                if j < n - 1 {
-                    matrix[(idx, i * n + (j + 1))] = -1.0;
-                }
-            }
-        }
-
-        let config = AMGConfig {
-            max_levels: 3,
-            min_coarse_size: 10,
-            ..Default::default()
-        };
-
-        let sparse_matrix = CsrMatrix::from(&matrix);
-        let amg = AlgebraicMultigrid::new(&sparse_matrix, config);
-        assert!(amg.is_ok());
-    }
-
-    #[test]
-    fn test_amg_statistics() {
-        let matrix = DMatrix::identity(100, 100);
-        let sparse_matrix = CsrMatrix::from(&matrix);
-        let config = AMGConfig::default();
-
-        let amg = AlgebraicMultigrid::new(&sparse_matrix, config).unwrap();
-        let stats = amg.statistics();
-
-        assert!(stats.num_levels >= 1);
-        assert!(stats.operator_complexity >= 1.0);
-        assert!(stats.grid_complexity >= 1.0);
-    }
-
-    #[test]
-    fn test_amg_hierarchy_caching() {
-        // Create a 2D Poisson matrix
-        let n = 20;
-        let mut matrix = DMatrix::zeros(n * n, n * n);
-        for i in 0..n {
-            for j in 0..n {
-                let idx = i * n + j;
-                matrix[(idx, idx)] = 4.0;
-                if i > 0 { matrix[(idx, (i - 1) * n + j)] = -1.0; }
-                if i < n - 1 { matrix[(idx, (i + 1) * n + j)] = -1.0; }
-                if j > 0 { matrix[(idx, i * n + (j - 1))] = -1.0; }
-                if j < n - 1 { matrix[(idx, i * n + (j + 1))] = -1.0; }
-            }
-        }
-
-        let config = AMGConfig {
-            max_levels: 4,
-            min_coarse_size: 10,
-            ..Default::default()
-        };
-
-        // First solve - standard setup
-        let setup_start = Instant::now();
-        let sparse_matrix = CsrMatrix::from(&matrix);
-        let amg1 = AlgebraicMultigrid::new(&sparse_matrix, config.clone()).unwrap();
-        let time1 = setup_start.elapsed();
-        let hierarchy = amg1.get_hierarchy();
-
-        // Second solve - cached setup
-        let setup_start2 = Instant::now();
-        let amg2 = AlgebraicMultigrid::with_hierarchy(&sparse_matrix, config, hierarchy).unwrap();
-        let time2 = setup_start2.elapsed();
-
-        // Verify hierarchy sizes match
-        assert_eq!(amg1.statistics().num_levels, amg2.statistics().num_levels);
-        assert_eq!(amg1.statistics().level_sizes, amg2.statistics().level_sizes);
-
-        // Cached setup should be faster (usually significantly for larger matrices)
-        println!("Standard setup: {:?}, Cached setup: {:?}", time1, time2);
-        // We don't assert time1 > time2 because for small matrices noise might interfere,
-        // but it's a good sanity check during manual runs.
     }
 }

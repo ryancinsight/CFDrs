@@ -118,6 +118,12 @@ pub struct ExponentialTimeDifferencing<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+impl<T: RealField + Copy + FromPrimitive + ComplexField> Default for ExponentialTimeDifferencing<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialTimeDifferencing<T> {
     /// Create new ETD integrator
     pub fn new() -> Self {
@@ -205,6 +211,12 @@ pub struct ExponentialRungeKutta4<T: RealField + Copy> {
     #[allow(dead_code)]
     config: ExponentialConfig,
     _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T: RealField + Copy + FromPrimitive + ComplexField> Default for ExponentialRungeKutta4<T> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<T: RealField + Copy + FromPrimitive + ComplexField> ExponentialRungeKutta4<T> {

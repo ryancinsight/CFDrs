@@ -208,7 +208,7 @@ pub mod schemes {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::physics::momentum::tvd_limiters::{Minmod, Superbee, VanLeer};
+    use crate::physics::momentum::tvd_limiters::{Superbee, VanLeer};
     use approx::assert_relative_eq;
 
     #[test]

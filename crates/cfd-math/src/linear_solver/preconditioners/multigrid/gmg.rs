@@ -510,7 +510,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    
 
     #[test]
     fn test_geometric_multigrid_creation() {

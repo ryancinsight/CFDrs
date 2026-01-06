@@ -12,7 +12,7 @@
 use approx::assert_relative_eq;
 use cfd_1d::*;
 use cfd_core::error::Result;
-use cfd_core::fluid;
+use cfd_core::physics::fluid;
 use std::collections::HashMap;
 
 /// Test circular channel Hagen-Poiseuille resistance.

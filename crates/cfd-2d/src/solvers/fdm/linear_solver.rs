@@ -19,7 +19,7 @@ use super::config::FdmConfig;
 /// This provides better convergence than Jacobi (which uses all old values).
 ///
 /// Returns an error if convergence is not achieved within `max_iterations`.
-pub fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive + Copy>(
+pub fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive>(
     matrix: &SparseMatrix<T>,
     rhs: &DVector<T>,
     config: &FdmConfig<T>,

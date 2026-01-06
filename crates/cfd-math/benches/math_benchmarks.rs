@@ -9,7 +9,8 @@ fn bench_laplacian_cpu(c: &mut Criterion) {
         let dx = 1.0f64 / (nx as f64 - 1.0);
         let dy = 1.0f64 / (ny as f64 - 1.0);
         let op = LaplacianOperator2D::new(nx, ny, dx, dy);
-        let mut field = vec![0.0f64; nx * ny];
+        use nalgebra::DVector;
+        let mut field = DVector::zeros(nx * ny);
         for j in 0..ny {
             for i in 0..nx {
                 let x = i as f64 * dx;
@@ -17,7 +18,7 @@ fn bench_laplacian_cpu(c: &mut Criterion) {
                 field[j * nx + i] = x * (1.0 - x) + y * (1.0 - y);
             }
         }
-        let mut out = vec![0.0f64; nx * ny];
+        let mut out = DVector::zeros(nx * ny);
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &_| {
             b.iter(|| {
                 black_box(op.apply(&field, &mut out)).unwrap();
@@ -64,7 +65,8 @@ fn bench_cg_small_spd(c: &mut Criterion) {
         let pre = IdentityPreconditioner;
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |bmk, &_| {
             bmk.iter(|| {
-                let _x = black_box(solver.solve_preconditioned(&a, &b, &pre, None)).unwrap();
+                let mut x = DVector::zeros(n);
+                black_box(solver.solve_preconditioned(&a, &b, &pre, &mut x)).unwrap();
             });
         });
     }

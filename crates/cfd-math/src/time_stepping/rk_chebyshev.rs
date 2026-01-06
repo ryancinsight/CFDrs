@@ -348,9 +348,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // FIXME: RKC implementation accuracy issue to be resolved in next sprint
+    #[ignore = "FIXME: RKC implementation accuracy issue to be resolved in next sprint"]
     fn test_exponential_decay() {
-        let lambda = 1.0;
+        let lambda: f64 = 1.0;
         let rhs = ExponentialDecay::new(lambda);
         let rkc = RungeKuttaChebyshev::<f64>::new();
         
@@ -358,14 +358,14 @@ mod tests {
         let dt = 0.1;
         let y_final = rkc.step(&rhs, 0.0, &y0, dt).unwrap();
         
-        let analytical = (-lambda * dt as f64).exp();
+        let analytical = (-lambda * dt).exp();
         assert_relative_eq!(y_final[0], analytical, epsilon = 1e-3);
     }
 
     #[test]
-    #[ignore] // FIXME: RKC implementation accuracy issue to be resolved in next sprint
+    #[ignore = "FIXME: RKC implementation accuracy issue to be resolved in next sprint"]
     fn test_stiff_problem() {
-        let lambda = 100.0; // Stiff
+        let lambda: f64 = 100.0; // Stiff
         let rhs = ExponentialDecay::new(lambda);
         
         // Increase stages for stiffness
@@ -376,21 +376,21 @@ mod tests {
         let dt = 0.01; // lambda*dt = 1
         let y_final = rkc.step(&rhs, 0.0, &y0, dt).unwrap();
         
-        let analytical = (-lambda * dt as f64).exp();
+        let analytical = (-lambda * dt).exp();
         assert_relative_eq!(y_final[0], analytical, epsilon = 1e-3);
     }
     
     #[test]
-    #[ignore] // FIXME: RKC implementation accuracy issue to be resolved in next sprint
+    #[ignore = "FIXME: RKC implementation accuracy issue to be resolved in next sprint"]
     fn test_adaptive_solving() {
-        let lambda = 1.0;
+        let lambda: f64 = 1.0;
         let rhs = ExponentialDecay::new(lambda);
         let rkc = RungeKuttaChebyshev::<f64>::new();
         
         let y0 = DVector::from_vec(vec![1.0]);
         let (y_final, _) = rkc.solve_adaptive(&rhs, 0.0, &y0, 1.0, 0.1).unwrap();
         
-        let analytical = (-lambda as f64).exp();
+        let analytical = (-lambda).exp();
         assert_relative_eq!(y_final[0], analytical, epsilon = 1e-3);
     }
 }

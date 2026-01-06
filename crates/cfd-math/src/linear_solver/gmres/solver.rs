@@ -1,7 +1,9 @@
 //! GMRES solver implementation with Arnoldi iteration and Givens rotations
 
 use super::super::config::IterativeSolverConfig;
-use super::super::traits::{Configurable, IterativeLinearSolver, LinearOperator, Preconditioner};
+use super::super::traits::{
+    Configurable, ConvergenceMonitor, IterativeLinearSolver, LinearOperator, Preconditioner,
+};
 use super::{arnoldi, givens};
 use cfd_core::error::{ConvergenceErrorKind, Error, Result};
 use nalgebra::{DMatrix, DVector, RealField};
@@ -99,7 +101,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
         a: &Op,
         b: &DVector<T>,
         x: &mut DVector<T>,
-    ) -> Result<()> {
+    ) -> Result<ConvergenceMonitor<T>> {
         use crate::linear_solver::preconditioners::IdentityPreconditioner;
         let preconditioner = IdentityPreconditioner;
         self.solve_preconditioned(a, b, &preconditioner, x)
@@ -112,12 +114,12 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
         b: &DVector<T>,
         preconditioner: &P,
         x: &mut DVector<T>,
-    ) -> Result<()> {
+    ) -> Result<ConvergenceMonitor<T>> {
         let n = b.len();
         let a_size = a.size();
         if a_size != 0 && a_size != n {
             return Err(Error::InvalidConfiguration(
-                format!("Operator size ({}) doesn't match RHS vector ({})", a_size, n),
+                format!("Operator size ({a_size}) doesn't match RHS vector ({n})"),
             ));
         }
 
@@ -133,24 +135,45 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
         let mut precond_work = DVector::zeros(n);
         let mut ax = DVector::zeros(n);
 
-        for _outer_iter in 0..self.config.max_iterations / m + 1 {
-            // 1. Initial residual: r0 = b - A*x
-            a.apply(x, &mut ax)?;
-            let mut r0 = b.clone();
-            r0 -= &ax;
+        // 1. Initial residual: r0 = b - A*x
+        a.apply(x, &mut ax)?;
+        let mut r0 = b.clone();
+        r0 -= &ax;
 
-            // Apply preconditioning to initial residual if needed (Left Preconditioning)
-            preconditioner.apply_to(&r0, &mut work)?;
-            let beta = work.norm();
+        // Apply preconditioning to initial residual if needed (Left Preconditioning)
+        preconditioner.apply_to(&r0, &mut work)?;
+        let beta = work.norm();
 
-            if beta < self.config.tolerance {
-                return Ok(());
+        let mut monitor = ConvergenceMonitor::new(beta);
+
+        if beta < self.config.tolerance {
+            return Ok(monitor);
+        }
+
+        for _outer_iter in 0..=(self.config.max_iterations / m) {
+            if _outer_iter > 0 {
+                // Compute residual for restart
+                a.apply(x, &mut ax)?;
+                let mut r_restart = b.clone();
+                r_restart -= &ax;
+                preconditioner.apply_to(&r_restart, &mut work)?;
+                let beta_restart = work.norm();
+                monitor.record_residual(beta_restart);
+
+                if beta_restart < self.config.tolerance {
+                    return Ok(monitor);
+                }
+                
+                // Initialize first basis vector for restart
+                v.column_mut(0).copy_from(&(work.clone() / beta_restart));
+                g.fill(T::zero());
+                g[0] = beta_restart;
+            } else {
+                // 2. Initialize first basis vector: v1 = r0 / beta
+                v.column_mut(0).copy_from(&(work.clone() / beta));
+                g.fill(T::zero());
+                g[0] = beta;
             }
-
-            // 2. Initialize first basis vector: v1 = r0 / beta
-            v.column_mut(0).copy_from(&(work.clone() / beta));
-            g.fill(T::zero());
-            g[0] = beta;
 
             // 3. Arnoldi iterations
             let mut converged_iter = None;
@@ -179,6 +202,8 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
 
                 // Check convergence using residual norm estimate
                 let residual_estimate = g[k + 1].abs();
+                monitor.record_residual(residual_estimate);
+
                 if residual_estimate < self.config.tolerance {
                     converged_iter = Some(k + 1);
                     break;
@@ -194,7 +219,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
             }
 
             if converged_iter.is_some() {
-                return Ok(());
+                return Ok(monitor);
             }
         }
 
@@ -219,7 +244,7 @@ impl<T: RealField + Debug + Copy + FromPrimitive> IterativeLinearSolver<T> for G
         b: &DVector<T>,
         x: &mut DVector<T>,
         preconditioner: Option<&P>,
-    ) -> Result<()> {
+    ) -> Result<ConvergenceMonitor<T>> {
         if let Some(p) = preconditioner {
             self.solve_preconditioned(a, b, p, x)
         } else {

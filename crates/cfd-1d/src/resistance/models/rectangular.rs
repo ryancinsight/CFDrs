@@ -48,7 +48,7 @@
 
 use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::Result;
-use cfd_core::fluid::Fluid;
+use cfd_core::physics::fluid::Fluid;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -147,7 +147,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
     fn reynolds_range(&self) -> (T, T) {
         (
             T::zero(),
-            T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER)
+            T::from_f64(cfd_core::physics::constants::physics::dimensionless::reynolds::PIPE_LAMINAR_MAX)
                 .unwrap_or_else(|| T::zero()),
         )
     }

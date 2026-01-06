@@ -6,8 +6,8 @@
 use cfd_1d::network::{Network, NetworkBuilder};
 use cfd_1d::solver::{NetworkProblem, NetworkSolver};
 use cfd_core::error::Result;
-use cfd_core::fluid::ConstantPropertyFluid;
-use cfd_core::solver::Solver;
+use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::compute::solver::Solver;
 use std::f64::consts::PI;
 
 fn main() -> Result<()> {
@@ -35,7 +35,6 @@ fn main() -> Result<()> {
     println!("  Pressure drop: {} Pa", pressure_drop);
     println!("  Pressure gradient: {} Pa/m", pressure_drop / pipe_length);
 
-    // Create fluid with specified properties
     // Create fluid with all required parameters
     let fluid = ConstantPropertyFluid::new(
         "Water".to_string(),
@@ -61,7 +60,6 @@ fn main() -> Result<()> {
     builder.connect_with_pipe(inlet, outlet, "pipe".to_string());
 
     // Build the network
-    // Build the network
     let graph = builder.build()?;
     let network = Network::new(graph, fluid);
 
@@ -86,7 +84,7 @@ fn main() -> Result<()> {
 
     // Convert HashMap to Vec for ordered processing
     let mut pressure_entries: Vec<_> = pressures.iter().collect();
-    pressure_entries.sort_by_key(|&(idx, _)| idx.index());
+    pressure_entries.sort_by_key(|(idx, _)| idx.index());
     let pressure_values: Vec<f64> = pressure_entries.iter().map(|(_, &p)| p).collect();
 
     if pressure_values.len() >= 2 {

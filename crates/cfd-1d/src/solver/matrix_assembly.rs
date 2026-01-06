@@ -77,7 +77,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         let mut dirichlet_values: std::collections::HashMap<usize, T> = std::collections::HashMap::new();
         let mut neumann_sources: std::collections::HashMap<usize, T> = std::collections::HashMap::new();
         for (&node_idx, bc) in network.boundary_conditions() {
-            let idx = node_idx.index();
+            let idx: usize = node_idx.index();
             match bc {
                 crate::network::BoundaryCondition::Dirichlet { value } => {
                     dirichlet_values.insert(idx, *value);

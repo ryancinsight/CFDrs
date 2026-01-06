@@ -11,7 +11,7 @@ use cfd_3d::vof::{
     AdvectionMethod, BubbleDynamicsConfig, CavitationVofConfig,
     CavitationVofSolver, InterfaceReconstruction, VofConfig,
 };
-use cfd_core::cavitation::{damage::CavitationDamage, models::CavitationModel};
+use cfd_core::physics::cavitation::{damage::CavitationDamage, models::CavitationModel};
 use nalgebra::{DMatrix, Vector3};
 
 #[test]

@@ -5,7 +5,6 @@
 
 #[cfg(feature = "mpi")]
 use cfd_core::compute::mpi::*;
-use std::collections::HashMap;
 
 #[cfg(feature = "mpi")]
 mod integration_tests {

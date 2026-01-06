@@ -3,7 +3,7 @@
 //! This example demonstrates basic hydrodynamic cavitation analysis
 //! in a venturi throat using CFDrs cavitation models.
 
-use cfd_core::cavitation::{models::CavitationModel, venturi::VenturiCavitation};
+use cfd_core::physics::cavitation::{models::CavitationModel, venturi::VenturiCavitation};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔬 CFDrs: Hydrodynamic Cavitation Analysis");
@@ -115,7 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     // Test different cavitation models
-    let models = vec![
+    let models: Vec<(&str, CavitationModel<f64>)> = vec![
         (
             "Kunz",
             CavitationModel::Kunz {

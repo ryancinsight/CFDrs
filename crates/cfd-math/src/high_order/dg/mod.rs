@@ -82,7 +82,7 @@ mod operators;
 mod solver;
 
 // Import from parent modules
-use super::spectral::{SpectralElement, SpectralError};
+use super::spectral::SpectralError;
 
 // Re-export all public types and traits
 pub use basis::*;

@@ -75,7 +75,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
     /// Perform one pressure-velocity coupling iteration
     pub fn step(
         &mut self,
-        _bc: &cfd_core::boundary::BoundaryCondition<T>,
+        _bc: &cfd_core::physics::boundary::BoundaryCondition<T>,
         _nu: T,
         rho: T,
     ) -> cfd_core::error::Result<T> {
@@ -142,7 +142,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
     /// Run solver until convergence or max iterations
     pub fn solve(
         &mut self,
-        bc: &cfd_core::boundary::BoundaryCondition<T>,
+        bc: &cfd_core::physics::boundary::BoundaryCondition<T>,
         nu: T,
         rho: T,
     ) -> cfd_core::error::Result<()> {

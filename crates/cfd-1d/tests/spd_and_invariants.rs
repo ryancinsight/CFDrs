@@ -1,8 +1,8 @@
-use cfd_1d::network::{Network, NetworkBuilder, Edge, EdgeType, Node, NodeType};
+use cfd_1d::network::{Network, NetworkBuilder, Edge, EdgeType};
 use cfd_1d::solver::{NetworkProblem, NetworkSolver, LinearSolverMethod};
-use cfd_core::solver::Solver;
+use cfd_core::compute::solver::Solver;
 use cfd_core::error::Result;
-use cfd_core::fluid::newtonian::ConstantPropertyFluid;
+use cfd_core::physics::fluid::ConstantPropertyFluid;
 
 fn network_two_node<T: nalgebra::RealField + Copy + num_traits::FromPrimitive>() -> (Network<T>, petgraph::graph::EdgeIndex, petgraph::graph::NodeIndex, petgraph::graph::NodeIndex) {
     let mut builder = NetworkBuilder::<T>::new();
@@ -18,7 +18,7 @@ fn network_two_node<T: nalgebra::RealField + Copy + num_traits::FromPrimitive>()
 #[test]
 fn spd_heuristic_selects_cg() -> Result<()> {
     type F = f64;
-    let (mut net, edge, inlet, outlet) = network_two_node::<F>();
+    let (mut net, edge, inlet, _outlet) = network_two_node::<F>();
     if let Some(e) = net.graph.edge_weight_mut(edge) { e.resistance = 4.0; e.quad_coeff = 0.0; }
     net.set_pressure(inlet, 10.0);
     let problem = NetworkProblem::new(net.clone());

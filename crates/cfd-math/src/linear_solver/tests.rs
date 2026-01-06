@@ -1,17 +1,15 @@
 //! Tests for linear solvers
 
 #[cfg(test)]
-mod tests {
-
-    use crate::linear_solver::preconditioners::{
-        IdentityPreconditioner, IncompleteLU, JacobiPreconditioner, SORPreconditioner,
-    };
-    use crate::linear_solver::traits::IterativeLinearSolver;
-    use crate::linear_solver::IterativeSolverConfig;
-    use crate::linear_solver::{BiCGSTAB, ConjugateGradient, Preconditioner};
-    use crate::sparse::{SparseMatrix, SparseMatrixBuilder};
-    use approx::assert_relative_eq;
-    use nalgebra::DVector;
+use crate::linear_solver::preconditioners::{
+    IdentityPreconditioner, IncompleteLU, JacobiPreconditioner, SORPreconditioner,
+};
+use crate::linear_solver::traits::IterativeLinearSolver;
+use crate::linear_solver::IterativeSolverConfig;
+use crate::linear_solver::{BiCGSTAB, ConjugateGradient, Preconditioner};
+use crate::sparse::{SparseMatrix, SparseMatrixBuilder};
+use approx::assert_relative_eq;
+use nalgebra::DVector;
 
     fn create_tridiagonal_matrix(
         n: usize,
@@ -262,4 +260,3 @@ mod tests {
         }
         Ok(())
     }
-}

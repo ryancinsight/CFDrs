@@ -4,7 +4,7 @@ use super::coefficients::{ConvectionScheme, MomentumCoefficients};
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::physics::turbulence::TurbulenceModel;
-use cfd_core::boundary::BoundaryCondition;
+use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
 use cfd_math::linear_solver::IterativeSolverConfig;
 use cfd_math::linear_solver::{BiCGSTAB, IterativeLinearSolver};
@@ -179,7 +179,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         &self,
         _component: MomentumComponent,
         fields: &mut SimulationFields<T>,
-        turbulence_model: &Box<dyn TurbulenceModel<T>>,
+        turbulence_model: &dyn TurbulenceModel<T>,
     ) -> cfd_core::error::Result<()> {
         // Store original molecular viscosity for restoration
         let original_viscosity = fields.viscosity.clone();
@@ -279,7 +279,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
 
         // Update effective viscosity if turbulence model is active
         if let Some(ref turbulence_model) = self.turbulence_model {
-            self.update_effective_viscosity(component, fields, turbulence_model)?;
+            self.update_effective_viscosity(component, fields, turbulence_model.as_ref())?;
         }
 
         // Compute coefficients

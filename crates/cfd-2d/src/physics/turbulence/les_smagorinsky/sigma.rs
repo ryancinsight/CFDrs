@@ -117,7 +117,7 @@ impl<T: RealField + Copy + FromPrimitive> SigmaModel<T> {
         for i in 0..2 {
             for j in 0..2 {
                 let grad_ij = velocity_gradient[(i, j)];
-                gradient_squared_sum = gradient_squared_sum + grad_ij * grad_ij;
+                gradient_squared_sum += grad_ij * grad_ij;
             }
         }
 
@@ -188,7 +188,7 @@ impl<T: RealField + Copy + FromPrimitive> SigmaModel<T> {
         for i in 0..2 {
             for j in 0..2 {
                 let grad_ij = velocity_gradient[(i, j)];
-                sum = sum + grad_ij * grad_ij;
+                sum += grad_ij * grad_ij;
             }
         }
         sum

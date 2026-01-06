@@ -10,8 +10,8 @@
 use cfd_1d::network::{Network, NetworkBuilder};
 use cfd_1d::solver::{NetworkProblem, NetworkSolver};
 use cfd_core::error::Result;
-use cfd_core::fluid::ConstantPropertyFluid;
-use cfd_core::solver::Solver;
+use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::compute::solver::Solver;
 use std::f64::consts::PI;
 
 fn main() -> Result<()> {
@@ -67,11 +67,13 @@ fn main() -> Result<()> {
 
     println!("\nPressure Results:");
     for (node_idx, pressure) in pressures {
+        let pressure: f64 = *pressure;
         println!("  Node {}: {:.2} Pa", node_idx.index(), pressure);
     }
 
     println!("\nFlow Rate Results:");
     for (edge_idx, flow_rate) in flow_rates {
+        let flow_rate: f64 = *flow_rate;
         println!("  Edge {}: {:.6} m³/s", edge_idx.index(), flow_rate);
     }
 
@@ -112,8 +114,8 @@ fn main() -> Result<()> {
     if !pressure_values.is_empty() {
         let max_p = pressure_values
             .iter()
-            .fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-        let min_p = pressure_values.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+            .fold(f64::NEG_INFINITY, |a: f64, &b| a.max(b));
+        let min_p = pressure_values.iter().fold(f64::INFINITY, |a: f64, &b| a.min(b));
         let avg_p: f64 = pressure_values.iter().sum::<f64>() / pressure_values.len() as f64;
 
         println!("\nStatistical Summary:");

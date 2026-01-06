@@ -126,7 +126,7 @@ where
     let denominator = n * sum_log_h2 - sum_log_h * sum_log_h;
 
     if denominator.abs()
-        < T::try_from_f64(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE)
+        < T::try_from_f64(cfd_core::physics::constants::numerical::solver::EPSILON_TOLERANCE)
             .unwrap_or_else(|_| T::from_f64_or_zero(1e-10))
     {
         return Err(Error::Numerical(

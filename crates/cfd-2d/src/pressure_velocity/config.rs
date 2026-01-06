@@ -31,7 +31,7 @@ impl Default for PressureLinearSolver {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PressureVelocityConfig<T: RealField + Copy> {
     /// Base solver configuration
-    pub base: cfd_core::solver::SolverConfig<T>,
+    pub base: cfd_core::compute::solver::SolverConfig<T>,
     /// Time step (for unsteady problems)
     pub dt: T,
     /// Velocity under-relaxation factor (0 < α < 1)
@@ -49,14 +49,14 @@ pub struct PressureVelocityConfig<T: RealField + Copy> {
     pub pressure_linear_solver: PressureLinearSolver,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> PressureVelocityConfig<T> {
+impl<T: RealField + Copy + FromPrimitive> PressureVelocityConfig<T> {
     /// Create new configuration with validation
     pub fn new() -> cfd_core::error::Result<Self> {
         Ok(Self {
-            base: cfd_core::solver::SolverConfig::builder()
+            base: cfd_core::compute::solver::SolverConfig::builder()
                 .max_iterations(crate::constants::solver::LOG_INTERVAL)
                 .tolerance(
-                    T::from_f64(cfd_core::constants::numerical::solver::CONVERGENCE_TOLERANCE)
+                    T::from_f64(cfd_core::physics::constants::numerical::solver::CONVERGENCE_TOLERANCE)
                         .ok_or_else(|| {
                             cfd_core::error::Error::InvalidConfiguration(
                                 "Cannot convert tolerance".into(),
@@ -65,19 +65,19 @@ impl<T: RealField + Copy + FromPrimitive + Copy> PressureVelocityConfig<T> {
                 )
                 .build(),
             dt: T::from_f64(
-                cfd_core::constants::numerical::time::DEFAULT_CFL
-                    * cfd_core::constants::numerical::time::TIME_STEP_SAFETY,
+                cfd_core::physics::constants::numerical::time::DEFAULT_CFL
+                    * crate::constants::cfl::SAFETY_FACTOR,
             )
             .ok_or_else(|| {
                 cfd_core::error::Error::InvalidConfiguration("Cannot convert time step".into())
             })?,
-            alpha_u: T::from_f64(cfd_core::constants::numerical::relaxation::VELOCITY_RELAXATION)
+            alpha_u: T::from_f64(cfd_core::physics::constants::numerical::relaxation::VELOCITY_RELAXATION)
                 .ok_or_else(|| {
                 cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert velocity relaxation".into(),
                 )
             })?,
-            alpha_p: T::from_f64(cfd_core::constants::numerical::relaxation::PRESSURE_RELAXATION)
+            alpha_p: T::from_f64(cfd_core::physics::constants::numerical::relaxation::PRESSURE_RELAXATION)
                 .ok_or_else(|| {
                 cfd_core::error::Error::InvalidConfiguration(
                     "Cannot convert pressure relaxation".into(),

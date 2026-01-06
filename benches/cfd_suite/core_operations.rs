@@ -135,7 +135,7 @@ pub fn benchmark_linear_solvers(c: &mut Criterion, config: &BenchmarkConfig) {
                 b.iter(|| {
                     x.fill(0.0);
                     let solution = solver
-                        .solve::<IdentityPreconditioner>(&matrix, &b_vec, &mut x, None)
+                        .solve(&matrix, &b_vec, &mut x, None::<&IdentityPreconditioner>)
                         .unwrap();
                     black_box(solution);
                 });

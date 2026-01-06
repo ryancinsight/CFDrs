@@ -10,7 +10,10 @@
 //! - Pope (2000): Turbulence modeling requirements
 //! - Wilcox (2008): Uncertainty quantification for turbulence constants
 
-use super::constants::*;
+use super::constants::{
+    C1_EPSILON, C2_EPSILON, C_MU, SA_CB1, SA_CB2, SA_SIGMA, SIGMA_EPSILON, SIGMA_K, SST_ALPHA_1,
+    SST_BETA_1, SST_BETA_STAR, SST_SIGMA_K1, SST_SIGMA_OMEGA1,
+};
 use super::{KEpsilonModel, KOmegaSSTModel, SpalartAllmaras};
 use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -179,13 +182,19 @@ pub struct TurbulenceConstantsValidator<T: RealField + Copy> {
     pub tolerance: T,
 }
 
-impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValidator<T> {
-    /// Create new validator with DNS database
-    pub fn new() -> Self {
+impl<T: RealField + FromPrimitive + ToPrimitive + Copy> Default for TurbulenceConstantsValidator<T> {
+    fn default() -> Self {
         Self {
             dns_database: DnsChannelFlowDatabase::moser_1999_re590(),
             tolerance: T::from_f64(0.05).unwrap(), // 5% tolerance
         }
+    }
+}
+
+impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValidator<T> {
+    /// Create new validator with DNS database
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Validate k-ε model constants against DNS channel flow
@@ -596,11 +605,11 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
             let cfd_velocity = T::from_f64(dns_velocity).unwrap() * T::from_f64(0.95).unwrap(); // 5% error for demo
 
             let error = cfd_velocity - T::from_f64(dns_velocity).unwrap();
-            rms_error = rms_error + error * error;
+            rms_error += error * error;
             num_points += 1;
         }
 
-        (rms_error / T::from_f64(num_points as f64).unwrap()).sqrt()
+        (rms_error / T::from_f64(f64::from(num_points)).unwrap()).sqrt()
     }
 
     /// Simulate channel flow with k-ω SST model and custom constants
@@ -627,11 +636,11 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
             let cfd_velocity = T::from_f64(dns_velocity).unwrap() * T::from_f64(0.98).unwrap(); // 2% error for SST
 
             let error = cfd_velocity - T::from_f64(dns_velocity).unwrap();
-            rms_error = rms_error + error * error;
+            rms_error += error * error;
             num_points += 1;
         }
 
-        (rms_error / T::from_f64(num_points as f64).unwrap()).sqrt()
+        (rms_error / T::from_f64(f64::from(num_points)).unwrap()).sqrt()
     }
 
     /// Simulate channel flow with Spalart-Allmaras model
@@ -650,11 +659,11 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
             let cfd_velocity = T::from_f64(dns_velocity).unwrap() * T::from_f64(0.92).unwrap(); // 8% error for SA
 
             let error = cfd_velocity - T::from_f64(dns_velocity).unwrap();
-            rms_error = rms_error + error * error;
+            rms_error += error * error;
             num_points += 1;
         }
 
-        (rms_error / T::from_f64(num_points as f64).unwrap()).sqrt()
+        (rms_error / T::from_f64(f64::from(num_points)).unwrap()).sqrt()
     }
 
     /// Run complete constants validation suite

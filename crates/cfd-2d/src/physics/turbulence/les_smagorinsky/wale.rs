@@ -50,12 +50,18 @@ pub struct WaleModel<T: RealField + Copy + FromPrimitive> {
     c_w: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
-    /// Create new WALE model with default parameters
-    pub fn new() -> Self {
+impl<T: RealField + Copy + FromPrimitive> Default for WaleModel<T> {
+    fn default() -> Self {
         Self {
             c_w: T::from_f64(C_WALE).unwrap(),
         }
+    }
+}
+
+impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
+    /// Create new WALE model
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Create WALE model with custom constant

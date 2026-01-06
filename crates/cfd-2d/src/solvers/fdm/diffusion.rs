@@ -47,7 +47,7 @@ impl<T: RealField + Copy + FromPrimitive> DiffusionSolver<T> {
     /// The solver uses the provided `HashMap` to initialize the entire solution field,
     /// including interior points and boundary nodes.
     pub fn set_boundary_conditions(&mut self, boundary_conditions: &HashMap<(usize, usize), T>) {
-        self.solution = boundary_conditions.clone();
+        self.solution.clone_from(boundary_conditions);
     }
 
     /// Solves the diffusion equation up to a specified final time using an explicit

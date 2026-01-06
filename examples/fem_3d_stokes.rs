@@ -4,8 +4,8 @@
 //! the Stokes equations in a simple tetrahedral domain.
 
 use cfd_3d::fem::{FemConfig, FemSolver};
-use cfd_core::domains::mesh_operations::ElementType;
-use cfd_core::fluid::{ConstantFluid, ConstantPropertyFluid};
+use cfd_core::domain::mesh::ElementType;
+use cfd_core::physics::fluid::{ConstantFluid, ConstantPropertyFluid};
 use cfd_mesh::prelude::{Cell, Mesh, Vertex};
 use nalgebra::Point3;
 
@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Create FEM solver configuration
-    let base = cfd_core::solver::SolverConfig::builder()
+    let base = cfd_core::compute::solver::SolverConfig::builder()
         .tolerance(1e-6)
         .max_iterations(1000)
         .build();

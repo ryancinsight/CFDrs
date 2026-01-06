@@ -210,7 +210,6 @@ impl Laplacian2DKernel {
     ///     assert!((out[0] - 40.0).abs() < 1e-5);
     /// }
     /// ```
-
     /// Execute 2D Laplacian computation (default Dirichlet BC)
     pub fn execute(
         &self,
@@ -728,8 +727,7 @@ mod tests {
         // Allow small numerical error from floating-point rounding.
         assert!(
             max_error < 1e-3,
-            "Max error {} too large for polynomial test",
-            max_error
+            "Max error {max_error} too large for polynomial test"
         );
     }
 
@@ -780,8 +778,7 @@ mod tests {
             let rate = (errors[i - 1] / errors[i]).log2();
             assert!(
                 rate > 1.8,
-                "Convergence rate {} too low, expected ~2.0",
-                rate
+                "Convergence rate {rate} too low, expected ~2.0"
             );
         }
     }
@@ -815,15 +812,11 @@ mod tests {
             for i in 0..n {
                 assert!(
                     !result[j * n + i].is_nan(),
-                    "Boundary point ({},{}) is NaN",
-                    i,
-                    j
+                    "Boundary point ({i},{j}) is NaN"
                 );
                 assert!(
                     result[j * n + i].is_finite(),
-                    "Boundary point ({},{}) is infinite",
-                    i,
-                    j
+                    "Boundary point ({i},{j}) is infinite"
                 );
             }
         }
@@ -859,15 +852,11 @@ mod tests {
             for i in 0..n {
                 assert!(
                     !result[j * n + i].is_nan(),
-                    "Boundary point ({},{}) is NaN",
-                    i,
-                    j
+                    "Boundary point ({i},{j}) is NaN"
                 );
                 assert!(
                     result[j * n + i].is_finite(),
-                    "Boundary point ({},{}) is infinite",
-                    i,
-                    j
+                    "Boundary point ({i},{j}) is infinite"
                 );
             }
         }
@@ -878,13 +867,11 @@ mod tests {
         for j in 0..n {
             for i in 0..n {
                 if i == 0 || i == n - 1 || j == 0 || j == n - 1 {
-                    let error = (result[j * n + i] - 4.0).abs();
+                    let val = result[j * n + i];
+                    let error = (val - 4.0).abs();
                     assert!(
                         error < tolerance,
-                        "Boundary point ({},{}) has ∇²u = {}, expected ~4.0",
-                        i,
-                        j,
-                        result[j * n + i]
+                        "Boundary point ({i},{j}) has ∇²u = {val}, expected ~4.0"
                     );
                 }
             }
@@ -922,15 +909,11 @@ mod tests {
             for i in 0..n {
                 assert!(
                     !result[j * n + i].is_nan(),
-                    "Boundary point ({},{}) is NaN",
-                    i,
-                    j
+                    "Boundary point ({i},{j}) is NaN"
                 );
                 assert!(
                     result[j * n + i].is_finite(),
-                    "Boundary point ({},{}) is infinite",
-                    i,
-                    j
+                    "Boundary point ({i},{j}) is infinite"
                 );
             }
         }
@@ -941,29 +924,23 @@ mod tests {
 
         // Check left-right periodicity
         for j in 0..n {
-            let left_val = result[j * n + 0];
+            let left_val = result[j * n];
             let right_val = result[j * n + (n - 1)];
             let error = (left_val - right_val).abs();
             assert!(
                 error < tolerance,
-                "Periodicity violation at j={}: left={}, right={}",
-                j,
-                left_val,
-                right_val
+                "Periodicity violation at j={j}: left={left_val}, right={right_val}"
             );
         }
 
         // Check bottom-top periodicity
         for i in 0..n {
-            let bottom_val = result[0 * n + i];
+            let bottom_val = result[i];
             let top_val = result[(n - 1) * n + i];
             let error = (bottom_val - top_val).abs();
             assert!(
                 error < tolerance,
-                "Periodicity violation at i={}: bottom={}, top={}",
-                i,
-                bottom_val,
-                top_val
+                "Periodicity violation at i={i}: bottom={bottom_val}, top={top_val}"
             );
         }
     }
@@ -1014,7 +991,6 @@ mod tests {
             }
 
             let bc = match bc_type {
-                "Dirichlet" => BoundaryType::Dirichlet,
                 "Neumann" => BoundaryType::Neumann,
                 "Periodic" => BoundaryType::Periodic,
                 _ => BoundaryType::Dirichlet,
@@ -1043,13 +1019,11 @@ mod tests {
 
             assert_eq!(
                 nan_count, 0,
-                "{} BC: Found {} NaN values",
-                bc_type, nan_count
+                "{bc_type} BC: Found {nan_count} NaN values"
             );
             assert_eq!(
                 inf_count, 0,
-                "{} BC: Found {} infinite values",
-                bc_type, inf_count
+                "{bc_type} BC: Found {inf_count} infinite values"
             );
 
             // Verify reasonable range (Laplacian should not explode)
@@ -1057,9 +1031,7 @@ mod tests {
             let range_limit = if bc_type == "Periodic" { 200.0 } else { 100.0 };
             assert!(
                 range < range_limit,
-                "{} BC: Result range {} is too large",
-                bc_type,
-                range
+                "{bc_type} BC: Result range {range} is too large"
             );
 
             // Verify boundary behavior based on BC type
@@ -1068,23 +1040,19 @@ mod tests {
                     // Check periodicity for periodic BC
                     let tolerance = 0.2;
                     for j in 0..n {
-                        let left = result[j * n + 0];
+                        let left = result[j * n];
                         let right = result[j * n + (n - 1)];
                         assert!(
                             (left - right).abs() < tolerance,
-                            "{} BC: Periodicity violation at j={}",
-                            bc_type,
-                            j
+                            "{bc_type} BC: Periodicity violation at j={j}"
                         );
                     }
                     for i in 0..n {
-                        let bottom = result[0 * n + i];
+                        let bottom = result[i];
                         let top = result[(n - 1) * n + i];
                         assert!(
                             (bottom - top).abs() < tolerance,
-                            "{} BC: Periodicity violation at i={}",
-                            bc_type,
-                            i
+                            "{bc_type} BC: Periodicity violation at i={i}"
                         );
                     }
                 }
@@ -1094,22 +1062,14 @@ mod tests {
                     let tolerance = 0.5;
                     for j in 0..n {
                         for i in 0..n {
-                            let error = (result[j * n + i] - expected_laplacian).abs();
+                            let val = result[j * n + i];
+                            let error = (val - expected_laplacian).abs();
                             assert!(
                                 error < tolerance,
-                                "{} BC: Point ({},{}) has ∇²u={}, expected ~{}",
-                                bc_type,
-                                i,
-                                j,
-                                result[j * n + i],
-                                expected_laplacian
+                                "{bc_type} BC: Point ({i},{j}) has ∇²u={val}, expected ~{expected_laplacian}"
                             );
                         }
                     }
-                }
-                "Dirichlet" => {
-                    // For Dirichlet BC, just verify finite values (already done above)
-                    // The specific values depend on the interior stencil implementation
                 }
                 _ => {}
             }
@@ -1131,8 +1091,8 @@ mod tests {
         let mut cpu_result = vec![0.0; n * n];
 
         // Initialize with random field
-        for i in 0..field.len() {
-            field[i] = (i as f32).sin() * 0.5 + 0.5;
+        for (i, val) in field.iter_mut().enumerate() {
+            *val = (i as f32).sin() * 0.5 + 0.5;
         }
 
         // Force CPU execution by using small array
@@ -1166,8 +1126,7 @@ mod tests {
 
         assert!(
             max_diff < 1e-6,
-            "GPU/CPU inconsistency: max difference {}",
-            max_diff
+            "GPU/CPU inconsistency: max difference {max_diff}"
         );
     }
 
@@ -1235,7 +1194,7 @@ mod tests {
                     );
                 }
                 let elapsed = start.elapsed();
-                elapsed.as_secs_f64() / num_timing_runs as f64 * 1000.0 // Convert to ms
+                elapsed.as_secs_f64() / f64::from(num_timing_runs) * 1000.0 // Convert to ms
             };
 
             // GPU benchmarking
@@ -1267,7 +1226,7 @@ mod tests {
                     );
                 }
                 let elapsed = start.elapsed();
-                elapsed.as_secs_f64() / num_timing_runs as f64 * 1000.0 // Convert to ms
+                elapsed.as_secs_f64() / f64::from(num_timing_runs) * 1000.0 // Convert to ms
             };
 
             // Calculate metrics
@@ -1277,12 +1236,11 @@ mod tests {
             let gpu_throughput = total_cells / (gpu_time / 1000.0) / 1e6; // MCells/s
 
             println!(
-                "{:9} | {:13.3} | {:13.3} | {:7.2}x | {:18.1} (CPU)",
-                n, cpu_time, gpu_time, speedup, cpu_throughput
+                "{n:9} | {cpu_time:13.3} | {gpu_time:13.3} | {speedup:7.2}x | {cpu_throughput:18.1} (CPU)"
             );
             println!(
-                "{:9} | {:13} | {:13} | {:7} | {:18.1} (GPU)",
-                "", "", "", "", gpu_throughput
+                "{:9} | {:13} | {:13} | {:7} | {gpu_throughput:18.1} (GPU)",
+                "", "", "", ""
             );
 
             // Verify correctness for this grid size
@@ -1293,8 +1251,7 @@ mod tests {
             }
 
             println!(
-                "          | Max Error: {:10.2e} | Verification: {}",
-                max_error,
+                "          | Max Error: {max_error:10.2e} | Verification: {}",
                 if max_error < 1e-5 { "PASS" } else { "FAIL" }
             );
             println!();
@@ -1348,10 +1305,9 @@ mod tests {
         let flops_per_cell = 9.0; // 5 multiplications + 4 additions
         let total_flops = total_cells * flops_per_cell;
 
-        println!("Grid size: {} x {} = {:.1e} cells", n, n, total_cells);
+        println!("Grid size: {n} x {n} = {total_cells:.1e} cells");
         println!(
-            "Memory traffic: {:.2} GB (read) + {:.2} GB (write) = {:.2} GB total",
-            memory_read_gb, memory_write_gb, total_memory_gb
+            "Memory traffic: {memory_read_gb:.2} GB (read) + {memory_write_gb:.2} GB (write) = {total_memory_gb:.2} GB total",
         );
         println!(
             "Computational intensity: {:.2} FLOPs/byte",
@@ -1385,12 +1341,10 @@ mod tests {
 
         println!("\nPerformance Results:");
         println!(
-            "CPU: {:.2} GFLOPS, {:.2} GB/s bandwidth",
-            cpu_gflops, cpu_bandwidth
+            "CPU: {cpu_gflops:.2} GFLOPS, {cpu_bandwidth:.2} GB/s bandwidth",
         );
         println!(
-            "GPU: {:.2} GFLOPS, {:.2} GB/s bandwidth",
-            gpu_gflops, gpu_bandwidth
+            "GPU: {gpu_gflops:.2} GFLOPS, {gpu_bandwidth:.2} GB/s bandwidth",
         );
         println!("Speedup: {:.2}x", cpu_time / gpu_time);
 

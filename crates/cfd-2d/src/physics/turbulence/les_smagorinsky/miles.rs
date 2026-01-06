@@ -200,12 +200,10 @@ impl<T: RealField + Copy + FromPrimitive> MilesLES<T> {
 
         // Base flux (Lax-Friedrichs for simplicity)
         let alpha = (left_state.abs() + right_state.abs()) * T::from_f64(0.5).unwrap();
-        let base_flux = T::from_f64(0.5).unwrap() * (left_state.powi(2) + right_state.powi(2))
-            - alpha * (right_state - left_state);
-
         // Add implicit dissipation based on shock strength
         // In MILES, the shock-capturing scheme provides the dissipation
-        base_flux
+        T::from_f64(0.5).unwrap() * (left_state.powi(2) + right_state.powi(2))
+            - alpha * (right_state - left_state)
     }
 
     /// Validate MILES applicability for given flow conditions

@@ -1,7 +1,6 @@
-use cfd_1d::network::{Network, NetworkBuilder, Edge, EdgeType, Node, NodeType};
-use cfd_1d::solver::{NetworkProblem, NetworkSolver};
+use cfd_1d::network::{Network, NetworkBuilder, Edge, EdgeType};
 use cfd_core::error::Result;
-use cfd_core::fluid::newtonian::ConstantPropertyFluid;
+use cfd_core::physics::fluid::newtonian::ConstantPropertyFluid;
 use nalgebra::DVector;
 
 fn build_simple_network<T: nalgebra::RealField + Copy + num_traits::FromPrimitive>() -> (Network<T>, petgraph::graph::EdgeIndex, petgraph::graph::NodeIndex, petgraph::graph::NodeIndex) {
@@ -13,7 +12,7 @@ fn build_simple_network<T: nalgebra::RealField + Copy + num_traits::FromPrimitiv
     let graph = builder.build().unwrap();
 
     let fluid = ConstantPropertyFluid::<T>::water_20c().unwrap();
-    let mut network = Network::new(graph, fluid);
+    let network = Network::new(graph, fluid);
     (network, edge_idx, inlet, outlet)
 }
 

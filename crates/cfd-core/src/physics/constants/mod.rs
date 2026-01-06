@@ -98,7 +98,7 @@ pub mod physics {
         /// Water specific heat [J/(kg·K)]
         pub const WATER_SPECIFIC_HEAT: f64 = 4182.0;
         /// Water thermal conductivity [W/(m·K)]
-        pub const WATER_THERMAL_CONDUCTIVITY: f64 = 0.598;
+        pub const WATER_THERMAL_CONDUCTIVITY: f64 = 0.606;
         /// Water speed of sound [m/s]
         pub const WATER_SPEED_OF_SOUND: f64 = 1482.0;
 
@@ -157,30 +157,31 @@ pub mod physics {
         pub const HAALAND_ROUGHNESS_EXPONENT: f64 = 1.11;
     }
 
-    /// Dimensionless number thresholds
+    /// Dimensionless numbers constants
     pub mod dimensionless {
-        /// Reynolds number thresholds for flow regime classification
+        /// Reynolds number limits
         pub mod reynolds {
-            /// Pipe flow transition limits
+            /// Lower critical Reynolds number for pipe flow (laminar limit)
             pub const PIPE_LAMINAR_MAX: f64 = 2300.0;
-            /// Minimum Reynolds for fully turbulent pipe flow
+            /// Upper critical Reynolds number for pipe flow (turbulent onset)
             pub const PIPE_TURBULENT_MIN: f64 = 4000.0;
-            /// Flat plate critical Reynolds
-            pub const FLAT_PLATE_CRITICAL: f64 = 5e5;
+            /// Critical Reynolds number for flow over a flat plate
+            pub const PLATE_CRITICAL: f64 = 500_000.0;
         }
 
-        /// Mach number thresholds for compressibility effects
+        /// Mach number limits and regimes
         pub mod mach {
-            /// Incompressible flow limit (Ma < 0.3)
+            /// Limit for incompressible flow assumption (Ma < 0.3)
             pub const INCOMPRESSIBLE_LIMIT: f64 = 0.3;
-            /// Transonic lower bound
+            /// Lower limit for transonic regime (Ma ~ 0.8)
             pub const TRANSONIC_LOWER: f64 = 0.8;
-            /// Transonic upper bound
+            /// Upper limit for transonic regime (Ma ~ 1.2)
             pub const TRANSONIC_UPPER: f64 = 1.2;
-            /// Hypersonic lower bound
+            /// Limit for hypersonic flow (Ma > 5.0)
             pub const HYPERSONIC: f64 = 5.0;
         }
     }
+
 }
 
 /// Numerical and solver constants

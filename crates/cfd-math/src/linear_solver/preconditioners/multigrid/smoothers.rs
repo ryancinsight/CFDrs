@@ -45,6 +45,10 @@ impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for GaussSeidelSmoother
             }
         }
     }
+
+    fn clone_box(&self) -> Box<dyn MultigridSmoother<T>> {
+        Box::new(self.clone())
+    }
 }
 
 /// Symmetric Gauss-Seidel smoother
@@ -93,6 +97,10 @@ impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for SymmetricGaussSeide
             }
         }
     }
+
+    fn clone_box(&self) -> Box<dyn MultigridSmoother<T>> {
+        Box::new(self.clone())
+    }
 }
 
 /// Jacobi smoother
@@ -138,6 +146,10 @@ impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for JacobiSmoother<T> {
             }
         }
     }
+
+    fn clone_box(&self) -> Box<dyn MultigridSmoother<T>> {
+        Box::new(self.clone())
+    }
 }
 
 /// SOR (Successive Over-Relaxation) smoother
@@ -180,6 +192,10 @@ impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for SORSmoother<T> {
                 }
             }
         }
+    }
+
+    fn clone_box(&self) -> Box<dyn MultigridSmoother<T>> {
+        Box::new(self.clone())
     }
 }
 
@@ -286,6 +302,10 @@ impl<T: nalgebra::RealField + Copy> MultigridSmoother<T> for ChebyshevSmoother<T
             }
             r = b - matrix * &*x;
         }
+    }
+
+    fn clone_box(&self) -> Box<dyn MultigridSmoother<T>> {
+        Box::new(self.clone())
     }
 }
 

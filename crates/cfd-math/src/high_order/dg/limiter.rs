@@ -634,11 +634,10 @@ impl LimiterFactory {
     pub fn create(limiter_type: LimiterType) -> Box<dyn Limiter> {
         match limiter_type {
             LimiterType::None => Box::new(NoLimiter),
-            LimiterType::Minmod => Box::new(MinmodLimiter),
             LimiterType::TVB => Box::new(TVBLimiter),
             LimiterType::Moment => Box::new(MomentLimiter),
             LimiterType::WENO => Box::new(WENOLimiter::new(3)), // Default to 3rd order WENO
-            _ => Box::new(MinmodLimiter), // Default to Minmod
+            LimiterType::Minmod | LimiterType::MC | LimiterType::Superbee => Box::new(MinmodLimiter),
         }
     }
 }

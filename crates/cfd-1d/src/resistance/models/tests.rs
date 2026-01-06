@@ -1,6 +1,6 @@
 use super::traits::{FlowConditions, ResistanceModel};
 use super::{hagen_poiseuille::HagenPoiseuilleModel, darcy_weisbach::DarcyWeisbachModel};
-use cfd_core::fluid::Fluid;
+use cfd_core::physics::fluid::Fluid;
 
 #[test]
 fn test_hagen_poiseuille_resistance_matches_formula() {

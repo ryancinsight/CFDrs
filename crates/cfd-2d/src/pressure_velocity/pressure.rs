@@ -3,8 +3,11 @@
 use super::config::PressureLinearSolver;
 use crate::fields::Field2D;
 use crate::grid::StructuredGrid2D;
+use cfd_math::linear_solver::preconditioners::multigrid::{
+    AMGConfig, CoarseningStrategy, CycleType, InterpolationStrategy, SmootherType,
+};
 use cfd_math::linear_solver::preconditioners::{
-    AMGConfig, AlgebraicMultigrid, CoarseningStrategy, IdentityPreconditioner, MultigridCycle,
+    AlgebraicMultigrid, IdentityPreconditioner,
 };
 use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver, GMRES};
 use cfd_math::sparse::SparseMatrixBuilder;
@@ -103,12 +106,10 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
         let system_size = n - 1;
 
         let map_index = |idx: usize| -> Option<usize> {
-            if idx == reference_idx {
-                None
-            } else if idx < reference_idx {
-                Some(idx)
-            } else {
-                Some(idx - 1)
+            match idx.cmp(&reference_idx) {
+                std::cmp::Ordering::Equal => None,
+                std::cmp::Ordering::Less => Some(idx),
+                std::cmp::Ordering::Greater => Some(idx - 1),
             }
         };
 
@@ -130,7 +131,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                 let row_idx = map_index(idx).expect("row index must exist");
 
                 // Laplacian stencil - diagonal is negative sum of neighbor coefficients
-                let two = T::from_f64(cfd_core::constants::numerical::common::TWO)
+                let two = T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
                     .unwrap_or_else(|| T::one() + T::one());
                 let ap = -two * (dx2_inv + dy2_inv);
 
@@ -164,11 +165,11 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
                 // Divergence of predicted velocity
                 let div_u = (u_star[i + 1][j].x - u_star[i - 1][j].x)
-                    / (T::from_f64(cfd_core::constants::numerical::common::TWO)
+                    / (T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
                         .unwrap_or_else(|| T::zero())
                         * dx)
                     + (u_star[i][j + 1].y - u_star[i][j - 1].y)
-                        / (T::from_f64(cfd_core::constants::numerical::common::TWO)
+                        / (T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
                             .unwrap_or_else(|| T::zero())
                             * dy);
 
@@ -182,12 +183,17 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
         // Create AMG preconditioner for this solve
         let amg_config = AMGConfig {
-            cycle_type: MultigridCycle::V,
-            nu1: 2,
-            nu2: 2,
+            cycle_type: CycleType::VCycle,
+            pre_smooth_iterations: 2,
+            post_smooth_iterations: 2,
             max_levels: 5,
             min_coarse_size: 10,
-            coarsening: CoarseningStrategy::RugeStueben,
+            coarsening_strategy: CoarseningStrategy::RugeStueben,
+            interpolation_strategy: InterpolationStrategy::Classical,
+            smoother_type: SmootherType::GaussSeidel,
+            relaxation_factor: 1.0,
+            strength_threshold: 0.25,
+            max_interpolation_points: 4,
         };
 
         let mut amg_preconditioner_opt = self.amg_preconditioner.borrow_mut();
@@ -326,12 +332,10 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
         // Map (i, j) interior indices to linear system index
         let map_index = |idx: usize| -> Option<usize> {
-            if idx == reference_idx {
-                None
-            } else if idx < reference_idx {
-                Some(idx)
-            } else {
-                Some(idx - 1)
+            match idx.cmp(&reference_idx) {
+                std::cmp::Ordering::Equal => None,
+                std::cmp::Ordering::Less => Some(idx),
+                std::cmp::Ordering::Greater => Some(idx - 1),
             }
         };
 
@@ -409,12 +413,17 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
         // Create AMG preconditioner for this solve
         let amg_config = AMGConfig {
-            cycle_type: MultigridCycle::V,
-            nu1: 2,
-            nu2: 2,
+            cycle_type: CycleType::VCycle,
+            pre_smooth_iterations: 2,
+            post_smooth_iterations: 2,
             max_levels: 5,
             min_coarse_size: 10,
-            coarsening: CoarseningStrategy::RugeStueben,
+            coarsening_strategy: CoarseningStrategy::RugeStueben,
+            interpolation_strategy: InterpolationStrategy::Classical,
+            smoother_type: SmootherType::GaussSeidel,
+            relaxation_factor: 1.0,
+            strength_threshold: 0.25,
+            max_interpolation_points: 4,
         };
 
         let mut amg_preconditioner_opt = self.amg_preconditioner.borrow_mut();
@@ -544,11 +553,11 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                 // SIMPLEC: u' = -(Vol/Ap) * grad(p')
                 
                 let dp_dx = (p_correction[i + 1][j] - p_correction[i - 1][j])
-                    / (T::from_f64(cfd_core::constants::numerical::common::TWO)
+                    / (T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
                         .unwrap_or_else(|| T::zero())
                         * dx);
                 let dp_dy = (p_correction[i][j + 1] - p_correction[i][j - 1])
-                    / (T::from_f64(cfd_core::constants::numerical::common::TWO)
+                    / (T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
                         .unwrap_or_else(|| T::zero())
                         * dy);
 

@@ -257,8 +257,8 @@ mod boundary_edge_cases {
             applicator.apply(&mut field, &spec, 0.0).unwrap();
 
             // Property: Interior points (indices 1..9) should be unchanged
-            for i in 1..9 {
-                assert_eq!(field[i], interior_val, "Interior should remain unchanged");
+            for &val in field.iter().take(9).skip(1) {
+                assert_eq!(val, interior_val, "Interior should remain unchanged");
             }
         }
     }

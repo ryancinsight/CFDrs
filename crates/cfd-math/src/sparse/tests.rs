@@ -1,10 +1,9 @@
 //! Tests for sparse matrix module
 
 #[cfg(test)]
-mod tests {
-    use super::super::*;
-    use approx::assert_relative_eq;
-    use cfd_core::error::Result;
+use super::*;
+use approx::assert_relative_eq;
+use cfd_core::error::Result;
 
     #[test]
     fn test_matrix_builder() -> Result<()> {
@@ -289,4 +288,3 @@ mod tests {
             assert_relative_eq!(y_parallel[i], y_scalar[i], epsilon = 1e-10);
         }
     }
-}

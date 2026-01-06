@@ -29,7 +29,7 @@ impl InterfaceReconstruction {
     }
 
     /// Reconstruct interface normals and curvature
-    pub fn reconstruct<T: RealField + FromPrimitive + Copy>(&self, solver: &mut VofSolver<T>) {
+    pub fn reconstruct<T: RealField + FromPrimitive + Copy>(self, solver: &mut VofSolver<T>) {
         // Calculate interface normals
         self.calculate_normals(solver);
 
@@ -39,7 +39,7 @@ impl InterfaceReconstruction {
 
     /// Calculate interface normal vectors using gradient of volume fraction
     /// Uses cache blocking for improved memory access patterns
-    fn calculate_normals<T: RealField + FromPrimitive + Copy>(&self, solver: &mut VofSolver<T>) {
+    fn calculate_normals<T: RealField + FromPrimitive + Copy>(self, solver: &mut VofSolver<T>) {
         // Process domain in cache-friendly blocks
         for k_block in (1..solver.nz - 1).step_by(CACHE_BLOCK_SIZE_K) {
             for j_block in (1..solver.ny - 1).step_by(CACHE_BLOCK_SIZE_J) {
@@ -93,7 +93,7 @@ impl InterfaceReconstruction {
 
     /// Calculate gradient of volume fraction using central differences
     fn calculate_gradient<T: RealField + FromPrimitive + Copy>(
-        &self,
+        self,
         solver: &VofSolver<T>,
         i: usize,
         j: usize,
@@ -120,7 +120,7 @@ impl InterfaceReconstruction {
     /// The normal is calculated from the gradient of the volume fraction field.
     /// Note: This is NOT an iterative Newton-Raphson solver - it's a direct calculation.
     fn plic_reconstruction<T: RealField + FromPrimitive + Copy>(
-        &self,
+        self,
         solver: &VofSolver<T>,
         i: usize,
         j: usize,
@@ -150,7 +150,7 @@ impl InterfaceReconstruction {
     /// The search terminates when the interval width is smaller than the tolerance,
     /// not after a fixed number of iterations.
     fn find_plane_constant<T: RealField + FromPrimitive + Copy>(
-        &self,
+        self,
         normal: Vector3<T>,
         target_volume: T,
         dx: T,
@@ -191,7 +191,7 @@ impl InterfaceReconstruction {
     /// The formula requires sorting the normal components and using different expressions
     /// based on their relative magnitudes.
     fn calculate_volume_under_plane_3d<T: RealField + FromPrimitive + Copy>(
-        &self,
+        self,
         normal: Vector3<T>,
         plane_constant: T,
         dx: T,
@@ -276,7 +276,7 @@ impl InterfaceReconstruction {
     }
 
     /// Calculate interface curvature from normals using cache blocking
-    fn calculate_curvature<T: RealField + FromPrimitive + Copy>(&self, solver: &mut VofSolver<T>) {
+    fn calculate_curvature<T: RealField + FromPrimitive + Copy>(self, solver: &mut VofSolver<T>) {
         let two = T::from_f64(2.0).expect("Failed to represent constant 2.0");
         let interface_lower = T::from_f64(VOF_INTERFACE_LOWER)
             .expect("Failed to represent VOF_INTERFACE_LOWER constant");

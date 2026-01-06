@@ -99,7 +99,7 @@ pub struct PoissonProblem<T: RealField + Copy> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpectralConfig<T: RealField + Copy> {
     /// Base solver configuration
-    pub base: cfd_core::solver::SolverConfig<T>,
+    pub base: cfd_core::compute::solver::SolverConfig<T>,
     /// Number of modes in x direction
     pub nx_modes: usize,
     /// Number of modes in y direction
@@ -120,7 +120,7 @@ impl<T: RealField + FromPrimitive + Copy> SpectralConfig<T> {
     /// Create new configuration with validation
     pub fn new(nx: usize, ny: usize, nz: usize) -> Result<Self> {
         Ok(Self {
-            base: cfd_core::solver::SolverConfig::builder()
+            base: cfd_core::compute::solver::SolverConfig::builder()
                 .tolerance(T::from_f64(1e-10).ok_or_else(|| {
                     cfd_core::error::Error::InvalidConfiguration("Cannot convert tolerance".into())
                 })?)
@@ -208,11 +208,8 @@ impl<T: RealField + Copy> SpectralSolution<T> {
 
     /// Get solution at a point
     #[must_use]
-    pub fn at(&self, i: usize, j: usize, k: usize) -> T
-    where
-        T: Clone,
-    {
+    pub fn at(&self, i: usize, j: usize, k: usize) -> T {
         let idx = i * self.ny * self.nz + j * self.nz + k;
-        self.u[idx].clone()
+        self.u[idx]
     }
 }

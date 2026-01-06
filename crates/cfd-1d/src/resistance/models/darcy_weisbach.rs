@@ -81,15 +81,10 @@
 
 use super::traits::{FlowConditions, ResistanceModel};
 use cfd_core::error::{Error, Result};
-use cfd_core::fluid::Fluid;
+use cfd_core::physics::fluid::Fluid;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 use serde::{Deserialize, Serialize};
-
-// Named constants for power operations
-const POWER_TWO: f64 = 2.0;
-const AREA_DIVISOR: f64 = 4.0;
-const RESISTANCE_DIVISOR: f64 = 2.0;
 
 // Named constants for friction factor calculations
 const LAMINAR_FRICTION_COEFFICIENT: f64 = 64.0;
@@ -202,7 +197,9 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T>
 
     fn reynolds_range(&self) -> (T, T) {
         (
-            T::from_f64(cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_LOWER)
+            T::from_f64(
+                cfd_core::physics::constants::physics::dimensionless::reynolds::PIPE_LAMINAR_MAX,
+            )
                 .unwrap_or_else(|| T::zero()),
             T::from_f64(MAX_REYNOLDS).unwrap_or_else(|| T::zero()),
         )
@@ -243,7 +240,7 @@ impl<T: RealField + Copy + FromPrimitive> DarcyWeisbachModel<T> {
     /// Calculate friction factor using iterative Colebrook-White equation
     fn calculate_friction_factor(&self, reynolds: T) -> T {
         use crate::components::constants::COLEBROOK_TOLERANCE;
-        use cfd_core::constants::physics::hydraulics::{
+        use cfd_core::physics::constants::physics::hydraulics::{
             COLEBROOK_REYNOLDS_NUMERATOR, COLEBROOK_ROUGHNESS_DIVISOR,
         };
 

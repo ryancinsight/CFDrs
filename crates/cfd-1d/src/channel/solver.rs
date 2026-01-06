@@ -3,11 +3,11 @@
 use super::cross_section::CrossSection;
 use super::flow::{Channel, FlowRegime, FlowState, NumericalParameters};
 use super::geometry::ChannelGeometry;
-use cfd_core::constants::dimensionless::reynolds::{PIPE_CRITICAL_LOWER, PIPE_CRITICAL_UPPER};
-use cfd_core::constants::mathematical::{numeric, PI};
+use cfd_core::physics::constants::physics::dimensionless::reynolds::{PIPE_LAMINAR_MAX, PIPE_TURBULENT_MIN};
+use cfd_core::physics::constants::mathematical::{numeric, PI};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
-use cfd_core::fluid::{ConstantFluid, Fluid};
+use cfd_core::physics::fluid::{ConstantFluid, Fluid};
 use nalgebra::RealField;
 use num_traits::{cast::FromPrimitive, Float};
 
@@ -234,9 +234,9 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
 
         if re_val < 0.1 {
             FlowRegime::Stokes
-        } else if re_val < PIPE_CRITICAL_LOWER {
+        } else if re_val < PIPE_LAMINAR_MAX {
             FlowRegime::Laminar
-        } else if re_val <= PIPE_CRITICAL_UPPER {
+        } else if re_val <= PIPE_TURBULENT_MIN {
             FlowRegime::Transitional
         } else {
             FlowRegime::Turbulent
@@ -291,8 +291,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         })?;
 
         // Linear interpolation between laminar and turbulent at transition bounds
-        let re_l = T::from_f64(PIPE_CRITICAL_LOWER).unwrap_or_else(|| T::zero());
-        let re_u = T::from_f64(PIPE_CRITICAL_UPPER).unwrap_or_else(|| T::zero());
+        let re_l = T::from_f64(PIPE_LAMINAR_MAX).unwrap_or_else(|| T::zero());
+        let re_u = T::from_f64(PIPE_TURBULENT_MIN).unwrap_or_else(|| T::zero());
 
         let r_l = self.calculate_laminar_resistance(fluid)?;
         let r_u = self.calculate_turbulent_resistance(fluid)?;

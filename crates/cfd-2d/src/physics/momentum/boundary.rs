@@ -78,7 +78,7 @@
 
 use super::solver::MomentumComponent;
 use crate::grid::traits::Grid2D;
-use cfd_core::boundary::BoundaryCondition;
+use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -134,6 +134,7 @@ where
     let ny = grid.ny;
     // Apply boundary conditions based on location
     for (name, bc) in boundaries {
+        let name: &String = name;
         match name.as_str() {
             "west" => apply_west_boundary(matrix, rhs, bc, component, grid, nx, ny)?,
             "east" => apply_east_boundary(matrix, rhs, bc, component, grid, nx, ny)?,
@@ -164,19 +165,16 @@ where
 
     // Apply higher-order boundary conditions for walls to improve near-wall gradients
     for (name, bc) in boundaries {
-        if let BoundaryCondition::Wall { wall_type } = bc {
-            match wall_type {
-                cfd_core::boundary::WallType::NoSlip => match name.as_str() {
-                    "west" => apply_higher_order_west_wall(matrix, rhs, component, grid, nx, ny)?,
-                    "east" => apply_higher_order_east_wall(matrix, rhs, component, grid, nx, ny)?,
-                    "north" => apply_higher_order_north_wall(matrix, rhs, component, grid, nx, ny)?,
-                    "south" => apply_higher_order_south_wall(matrix, rhs, component, grid, nx, ny)?,
-                    _ => {}
-                },
-                cfd_core::boundary::WallType::Moving { .. } => {
-                    // For moving walls, use standard Dirichlet BC for now
-                    // Could be extended to higher-order moving wall BCs
-                }
+        let name: &String = name;
+        if let BoundaryCondition::Wall {
+            wall_type: cfd_core::physics::boundary::WallType::NoSlip,
+        } = bc
+        {
+            match name.as_str() {
+                "west" => apply_higher_order_west_wall(matrix, rhs, component, grid, nx, ny)?,
+                "east" => apply_higher_order_east_wall(matrix, rhs, component, grid, nx, ny)?,
+                "north" => apply_higher_order_north_wall(matrix, rhs, component, grid, nx, ny)?,
+                "south" => apply_higher_order_south_wall(matrix, rhs, component, grid, nx, ny)?,
                 _ => {}
             }
         }
@@ -323,15 +321,15 @@ fn apply_west_boundary<T: RealField + Copy + FromPrimitive>(
             }
             BoundaryCondition::Wall { wall_type } => {
                 match wall_type {
-                    cfd_core::boundary::WallType::NoSlip => {
+                    cfd_core::physics::boundary::WallType::NoSlip => {
                         // For no-slip wall: set velocity to zero
                         rhs[idx] = T::zero();
                     }
-                    cfd_core::boundary::WallType::Slip => {
+                    cfd_core::physics::boundary::WallType::Slip => {
                         // For slip wall: zero normal gradient (handled in assemble_system)
                         // RHS is already set correctly
                     }
-                    cfd_core::boundary::WallType::Moving { velocity } => {
+                    cfd_core::physics::boundary::WallType::Moving { velocity } => {
                         // For moving wall: set velocity to wall velocity
                         let component_idx = match component {
                             MomentumComponent::U => 0,
@@ -339,7 +337,7 @@ fn apply_west_boundary<T: RealField + Copy + FromPrimitive>(
                         };
                         rhs[idx] = velocity[component_idx];
                     }
-                    cfd_core::boundary::WallType::Rotating { omega, center } => {
+                    cfd_core::physics::boundary::WallType::Rotating { omega, center } => {
                         rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                     }
                 }
@@ -443,15 +441,15 @@ fn apply_east_boundary<T: RealField + Copy + FromPrimitive>(
             }
             BoundaryCondition::Wall { wall_type } => {
                 match wall_type {
-                    cfd_core::boundary::WallType::NoSlip => {
+                    cfd_core::physics::boundary::WallType::NoSlip => {
                         // For no-slip wall: set velocity to zero
                         rhs[idx] = T::zero();
                     }
-                    cfd_core::boundary::WallType::Slip => {
+                    cfd_core::physics::boundary::WallType::Slip => {
                         // For slip wall: zero normal gradient (handled in assemble_system)
                         // RHS is already set correctly
                     }
-                    cfd_core::boundary::WallType::Moving { velocity } => {
+                    cfd_core::physics::boundary::WallType::Moving { velocity } => {
                         // For moving wall: set velocity to wall velocity
                         let component_idx = match component {
                             MomentumComponent::U => 0,
@@ -459,7 +457,7 @@ fn apply_east_boundary<T: RealField + Copy + FromPrimitive>(
                         };
                         rhs[idx] = velocity[component_idx];
                     }
-                    cfd_core::boundary::WallType::Rotating { omega, center } => {
+                    cfd_core::physics::boundary::WallType::Rotating { omega, center } => {
                         rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                     }
                 }
@@ -531,15 +529,15 @@ fn apply_north_boundary<T: RealField + Copy + FromPrimitive>(
             }
             BoundaryCondition::Wall { wall_type } => {
                 match wall_type {
-                    cfd_core::boundary::WallType::NoSlip => {
+                    cfd_core::physics::boundary::WallType::NoSlip => {
                         // For no-slip wall: set velocity to zero
                         rhs[idx] = T::zero();
                     }
-                    cfd_core::boundary::WallType::Slip => {
+                    cfd_core::physics::boundary::WallType::Slip => {
                         // For slip wall: zero normal gradient (handled in assemble_system)
                         // RHS is already set correctly
                     }
-                    cfd_core::boundary::WallType::Moving { velocity } => {
+                    cfd_core::physics::boundary::WallType::Moving { velocity } => {
                         // For moving wall: set velocity to wall velocity
                         let component_idx = match component {
                             MomentumComponent::U => 0,
@@ -547,7 +545,7 @@ fn apply_north_boundary<T: RealField + Copy + FromPrimitive>(
                         };
                         rhs[idx] = velocity[component_idx];
                     }
-                    cfd_core::boundary::WallType::Rotating { omega, center } => {
+                    cfd_core::physics::boundary::WallType::Rotating { omega, center } => {
                         rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                     }
                 }
@@ -619,15 +617,15 @@ fn apply_south_boundary<T: RealField + Copy + FromPrimitive>(
             }
             BoundaryCondition::Wall { wall_type } => {
                 match wall_type {
-                    cfd_core::boundary::WallType::NoSlip => {
+                    cfd_core::physics::boundary::WallType::NoSlip => {
                         // For no-slip wall: set velocity to zero
                         rhs[idx] = T::zero();
                     }
-                    cfd_core::boundary::WallType::Slip => {
+                    cfd_core::physics::boundary::WallType::Slip => {
                         // For slip wall: zero normal gradient (handled in assemble_system)
                         // RHS is already set correctly
                     }
-                    cfd_core::boundary::WallType::Moving { velocity } => {
+                    cfd_core::physics::boundary::WallType::Moving { velocity } => {
                         // For moving wall: set velocity to wall velocity
                         let component_idx = match component {
                             MomentumComponent::U => 0,
@@ -635,7 +633,7 @@ fn apply_south_boundary<T: RealField + Copy + FromPrimitive>(
                         };
                         rhs[idx] = velocity[component_idx];
                     }
-                    cfd_core::boundary::WallType::Rotating { omega, center } => {
+                    cfd_core::physics::boundary::WallType::Rotating { omega, center } => {
                         rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                     }
                 }

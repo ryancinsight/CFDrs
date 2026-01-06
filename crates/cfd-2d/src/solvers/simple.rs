@@ -7,7 +7,7 @@ use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
 use crate::physics::momentum::MomentumSolver;
 use crate::solvers::fdm::PoissonSolver;
-use cfd_core::boundary::BoundaryCondition;
+use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::error::Result;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -131,8 +131,8 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
                 let dp_dy = (fields.p[(i, j + 1)] - fields.p[(i, j - 1)]) / (grid.dy + grid.dy);
 
                 // Correct velocities using pressure gradients
-                fields.u[(i, j)] = fields.u[(i, j)] - correction_factor * dp_dx;
-                fields.v[(i, j)] = fields.v[(i, j)] - correction_factor * dp_dy;
+                fields.u[(i, j)] -= correction_factor * dp_dx;
+                fields.v[(i, j)] -= correction_factor * dp_dy;
             }
         }
 
@@ -209,8 +209,8 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> Default for SimpleAl
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fields::SimulationFields;
-    use crate::grid::StructuredGrid2D;
+    
+    
 
     #[test]
     fn test_simple_algorithm_creation() {

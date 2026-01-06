@@ -3,7 +3,6 @@
 use super::MultigridLevel;
 use cfd_core::error::{Error, NumericalErrorKind, Result};
 use nalgebra::{DMatrix, DVector};
-use nalgebra_sparse::CsrMatrix;
 use std::time::Instant;
 use crate::SparseMatrix;
 
@@ -167,9 +166,6 @@ pub fn apply_f_cycle(
         return Err(cfd_core::error::Error::InvalidConfiguration("No multigrid levels available".to_string()));
     }
 
-    let _solution: DVector<f64> = DVector::zeros(rhs.len());
-    let _cycle_count = 0;
-
     // F-cycle starts from coarsest level and works up
     // This is a simplified implementation
 
@@ -245,10 +241,10 @@ fn solve_coarsest_level(
                 let mut diag: f64 = 0.0;
                 
                 for (&j, &val) in row.col_indices().iter().zip(row.values().iter()) {
-                    if i != j {
-                        sum += val * solution_old[j];
-                    } else {
+                    if i == j {
                         diag = val;
+                    } else {
+                        sum += val * solution_old[j];
                     }
                 }
 
@@ -305,7 +301,7 @@ fn gaussian_elimination_solve(
         // Eliminate
         for k in i + 1..n {
             let factor = augmented[(k, i)] / augmented[(i, i)];
-            for j in i..n + 1 {
+            for j in i..=n {
                 augmented[(k, j)] -= factor * augmented[(i, j)];
             }
         }
@@ -326,7 +322,7 @@ fn gaussian_elimination_solve(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::DMatrix;
+    
 
     fn create_test_multigrid_level() -> MultigridLevel<f64> {
         // Create a simple 3x3 matrix

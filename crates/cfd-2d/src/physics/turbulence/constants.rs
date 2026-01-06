@@ -1,10 +1,10 @@
 //! Turbulence model constants
 
 /// von Kármán constant
-pub const KAPPA: f64 = cfd_core::constants::fluid::VON_KARMAN;
+pub const KAPPA: f64 = cfd_core::physics::constants::physics::fluid::VON_KARMAN;
 
 /// Roughness parameter for smooth walls
-pub const E_WALL_FUNCTION: f64 = cfd_core::constants::fluid::WALL_FUNCTION_E;
+pub const E_WALL_FUNCTION: f64 = 9.793;
 
 /// k-ε model constants
 pub const C_MU: f64 = 0.09;
@@ -49,7 +49,7 @@ pub const OMEGA_MIN: f64 = 1e-10;
 /// Wall treatment thresholds
 pub const Y_PLUS_VISCOUS_SUBLAYER: f64 = 5.0;
 /// Dimensionless wall distance threshold for log-law region onset
-pub const Y_PLUS_LOG_LAW: f64 = cfd_core::constants::fluid::Y_PLUS_LAMINAR;
+pub const Y_PLUS_LOG_LAW: f64 = 11.06;
 /// Dimensionless wall distance for buffer layer start (Spalding 1961)
 pub const Y_PLUS_BUFFER_START: f64 = 5.0;
 /// Dimensionless wall distance for buffer layer end (Pope 2000)
@@ -90,4 +90,4 @@ pub const SA_SIGMA: f64 = 2.0 / 3.0;
 pub const SA_CW1_COMPUTED: f64 = 3.239; // CB1/κ² + (1+CB2)/σ
 /// von Kármán constant squared for SA model
 pub const SA_KAPPA_SQ: f64 =
-    cfd_core::constants::fluid::VON_KARMAN * cfd_core::constants::fluid::VON_KARMAN;
+    cfd_core::physics::constants::physics::fluid::VON_KARMAN * cfd_core::physics::constants::physics::fluid::VON_KARMAN;

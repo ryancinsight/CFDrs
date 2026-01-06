@@ -29,4 +29,4 @@ pub use face::{Face, MIN_FACE_VERTICES};
 pub use vertex::Vertex;
 
 // Re-export ElementType for convenience
-pub use cfd_core::domains::mesh_operations::ElementType;
+pub use cfd_core::domain::ElementType;

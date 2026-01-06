@@ -6,8 +6,8 @@ use cfd_1d::network::{ComponentType, EdgeProperties};
 use cfd_1d::solver::{NetworkProblem, NetworkSolver};
 use cfd_1d::{Network, NetworkBuilder};
 use cfd_core::error::Result;
-use cfd_core::fluid::{ConstantPropertyFluid, FluidTrait};
-use cfd_core::solver::Solver;
+use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
+use cfd_core::compute::solver::Solver;
 use std::collections::HashMap;
 
 fn main() -> Result<()> {
@@ -15,7 +15,7 @@ fn main() -> Result<()> {
     println!("========================\n");
 
     // Create fluid with proper error handling
-    let fluid = ConstantPropertyFluid::water_20c()?;
+    let fluid = ConstantPropertyFluid::<f64>::water_20c()?;
     println!("Fluid: {}", fluid.name());
     println!("Density: {} kg/m³", fluid.density);
     println!("Viscosity: {} Pa·s", fluid.viscosity);

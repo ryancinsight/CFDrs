@@ -40,7 +40,9 @@
 //! - **Memory alignment**: 64-byte alignment for optimal cache line usage
 
 use super::config::IterativeSolverConfig;
-use super::traits::{Configurable, IterativeLinearSolver, LinearOperator, Preconditioner};
+use super::traits::{
+    Configurable, ConvergenceMonitor, IterativeLinearSolver, LinearOperator, Preconditioner,
+};
 use cfd_core::error::{ConvergenceErrorKind, Error, Result};
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
@@ -125,12 +127,12 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
         b: &DVector<T>,
         preconditioner: &P,
         x: &mut DVector<T>,
-    ) -> Result<()> {
+    ) -> Result<ConvergenceMonitor<T>> {
         let n = b.len();
         let a_size = a.size();
         if a_size != 0 && a_size != n {
             return Err(Error::InvalidConfiguration(
-                format!("Operator size ({}) doesn't match RHS vector ({})", a_size, n),
+                format!("Operator size ({a_size}) doesn't match RHS vector ({n})"),
             ));
         }
 
@@ -147,8 +149,10 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
         r -= &ax;
 
         let initial_residual_norm = r.norm();
+        let mut monitor = ConvergenceMonitor::new(initial_residual_norm);
+
         if initial_residual_norm < self.config.tolerance {
-            return Ok(());
+            return Ok(monitor);
         }
 
         // Apply preconditioner to initial residual: z = M^{-1}*r
@@ -175,8 +179,10 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
             r.axpy(-alpha, &ap, T::one());
 
             let residual_norm = r.norm();
+            monitor.record_residual(residual_norm);
+
             if residual_norm < self.config.tolerance {
-                return Ok(());
+                return Ok(monitor);
             }
 
             // Apply preconditioner: z = M^{-1}*r
@@ -203,7 +209,7 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
         a: &Op,
         b: &DVector<T>,
         x: &mut DVector<T>,
-    ) -> Result<()> {
+    ) -> Result<ConvergenceMonitor<T>> {
         use super::preconditioners::IdentityPreconditioner;
         let preconditioner = IdentityPreconditioner;
         self.solve_preconditioned(a, b, &preconditioner, x)
@@ -225,7 +231,7 @@ impl<T: RealField + Debug + Copy> IterativeLinearSolver<T> for ConjugateGradient
         b: &DVector<T>,
         x: &mut DVector<T>,
         preconditioner: Option<&P>,
-    ) -> Result<()> {
+    ) -> Result<ConvergenceMonitor<T>> {
         if let Some(p) = preconditioner {
             self.solve_preconditioned(a, b, p, x)
         } else {

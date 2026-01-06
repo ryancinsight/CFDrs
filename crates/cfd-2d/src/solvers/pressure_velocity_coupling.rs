@@ -10,7 +10,7 @@ use crate::physics::momentum::MomentumSolver;
 use crate::physics::turbulence::TurbulenceModel;
 use crate::pressure_velocity::rhie_chow::RhieChowInterpolation;
 use crate::solvers::fdm::PoissonSolver;
-use cfd_core::boundary::BoundaryCondition;
+use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::error::{Error, Result};
 use cfd_math::linear_solver::{ConjugateGradient, IterativeSolverConfig, preconditioners::IncompleteLU};
 use cfd_math::sparse::SparseMatrixBuilder;

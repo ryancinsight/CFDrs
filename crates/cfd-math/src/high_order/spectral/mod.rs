@@ -72,7 +72,7 @@ fn legendre_poly_deriv(n: usize, x: f64) -> f64 {
     }
     if (x + 1.0).abs() < 1e-15 {
         let val = (n * (n + 1)) as f64 / 2.0;
-        return if (n - 1) % 2 == 0 { val } else { -val };
+        return if (n - 1).is_multiple_of(2) { val } else { -val };
     }
     
     (n as f64 / (1.0 - x * x)) * (legendre_poly(n - 1, x) - x * legendre_poly(n, x))
@@ -108,7 +108,7 @@ fn compute_lgl_nodes(n: usize) -> Result<Vec<f64>> {
             // P''_n = (2x P'_n - n(n+1) P_n) / (1-x^2)
             let denominator = 1.0 - x * x;
             if denominator.abs() < 1e-15 {
-                 return Err(SpectralError::NodeComputation(format!("Newton iteration hit endpoint at x={}", x)));
+                 return Err(SpectralError::NodeComputation(format!("Newton iteration hit endpoint at x={x}")));
             }
             let d2p = (2.0 * x * dp - (n * (n + 1)) as f64 * p) / denominator;
 

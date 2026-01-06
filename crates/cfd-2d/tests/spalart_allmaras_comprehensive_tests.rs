@@ -6,7 +6,7 @@
 //! References:
 //! - Spalart, P. R., & Allmaras, S. R. (1994). "A one-equation turbulence model...". AIAA Paper 92-0439
 
-use cfd_2d::physics::turbulence::constants::{SA_CB1, SA_CB2, SA_CW1, SA_KAPPA_SQ, SA_SIGMA};
+use cfd_2d::physics::turbulence::constants::{SA_CB1, SA_CW1};
 use cfd_2d::physics::turbulence::spalart_allmaras::SpalartAllmaras;
 
 /// Test SA model core functionality with public interface

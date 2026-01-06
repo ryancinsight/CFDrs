@@ -1,10 +1,9 @@
 //! Tests for SIMD and SWAR implementations
 
 #[cfg(test)]
-mod tests {
-    use super::super::*;
-    use crate::simd::arch_detect::ArchDetect;
-    use approx::assert_relative_eq;
+use super::*;
+use crate::simd::arch_detect::ArchDetect;
+use approx::assert_relative_eq;
 
     #[test]
     fn test_arch_detection() {
@@ -220,4 +219,3 @@ mod tests {
         println!("Vector width (f32): {}", arch.vector_width_f32());
         println!("Vector width (f64): {}", arch.vector_width_f64());
     }
-}

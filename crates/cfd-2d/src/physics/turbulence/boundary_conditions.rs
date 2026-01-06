@@ -590,7 +590,7 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
 mod tests {
     use super::*;
     use crate::physics::turbulence::wall_functions::WallFunction;
-    use approx::assert_relative_eq;
+    
 
     #[test]
     fn test_wall_distance_calculation() {

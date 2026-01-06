@@ -12,7 +12,7 @@ use approx::assert_relative_eq;
 use cfd_1d::solver::SolverConfig;
 use cfd_1d::{Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 use cfd_core::error::Result;
-use cfd_core::fluid::database;
+use cfd_core::physics::fluid::database;
 use petgraph::visit::EdgeRef;
 
 /// Helper function to compute flow rates from pressure solution

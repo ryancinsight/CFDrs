@@ -679,11 +679,11 @@ impl NumericalScheme {
     /// Maximum CFL number for stability
     pub fn max_cfl_number<T: RealField + Copy>(&self) -> T {
         match self {
-            NumericalScheme::ForwardEuler => T::from_f64(1.0).unwrap(),
+            NumericalScheme::ForwardEuler
+            | NumericalScheme::LaxWendroff
+            | NumericalScheme::Upwind => T::from_f64(1.0).unwrap(),
             NumericalScheme::RK3 => T::from_f64(1.7).unwrap(),
             NumericalScheme::RK4 => T::from_f64(2.8).unwrap(),
-            NumericalScheme::LaxWendroff => T::from_f64(1.0).unwrap(),
-            NumericalScheme::Upwind => T::from_f64(1.0).unwrap(),
             NumericalScheme::CentralDifference => T::from_f64(0.0).unwrap(), // Unstable
         }
     }

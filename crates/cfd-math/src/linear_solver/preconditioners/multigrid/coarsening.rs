@@ -1,26 +1,26 @@
 //! Coarsening strategies for AMG hierarchy construction
 
 use crate::SparseMatrix;
-use nalgebra_sparse::CsrMatrix;
-use nalgebra::DMatrix;
+use nalgebra::RealField;
+use num_traits::{FromPrimitive, ToPrimitive};
 use cfd_core::error::{Error, NumericalErrorKind, Result};
 
 /// Result of coarsening operation
 #[derive(Debug, Clone)]
-pub struct CoarseningResult {
+pub struct CoarseningResult<T: RealField + Copy> {
     /// Indices of coarse points (C-points)
     pub coarse_points: Vec<usize>,
     /// Mapping from fine points to coarse points (None for F-points)
     pub fine_to_coarse_map: Vec<Option<usize>>,
     /// Strength of connection matrix
-    pub strength_matrix: SparseMatrix<f64>,
+    pub strength_matrix: SparseMatrix<T>,
 }
 
 /// Ruge-Stüben coarsening algorithm
-pub fn ruge_stueben_coarsening(
-    matrix: &SparseMatrix<f64>,
-    strength_threshold: f64,
-) -> Result<CoarseningResult> {
+pub fn ruge_stueben_coarsening<T: RealField + Copy + FromPrimitive>(
+    matrix: &SparseMatrix<T>,
+    strength_threshold: T,
+) -> Result<CoarseningResult<T>> {
     let n = matrix.nrows();
     let mut coarse_points = Vec::new();
     let mut fine_to_coarse_map = vec![None; n];
@@ -91,7 +91,7 @@ pub fn ruge_stueben_coarsening(
     // Step 4: Map F-points to their strongest connected C-point
     for i in 0..n {
         if fine_to_coarse_map[i].is_none() {
-            let mut max_strength = -1.0;
+            let mut max_strength = T::from_f64(-1.0).unwrap_or_else(T::zero);
             let mut best_coarse_idx = None;
 
             for k in s_offsets[i]..s_offsets[i + 1] {
@@ -121,17 +121,17 @@ pub fn ruge_stueben_coarsening(
 }
 
 /// Aggregation-based coarsening
-pub fn aggregation_coarsening(
-    matrix: &SparseMatrix<f64>,
+pub fn aggregation_coarsening<T: RealField + Copy + FromPrimitive>(
+    matrix: &SparseMatrix<T>,
     max_aggregate_size: usize,
-) -> Result<CoarseningResult> {
+) -> Result<CoarseningResult<T>> {
     let n = matrix.nrows();
     let mut coarse_points = Vec::new();
     let mut fine_to_coarse_map = vec![None; n];
     let mut aggregated = vec![false; n];
 
     // Compute strength matrix for aggregation decisions
-    let strength_matrix = compute_strength_matrix(matrix, 0.5)?;
+    let strength_matrix = compute_strength_matrix(matrix, T::from_f64(0.5).unwrap_or_else(T::zero))?;
     let s_offsets = strength_matrix.row_offsets();
     let s_indices = strength_matrix.col_indices();
 
@@ -172,11 +172,11 @@ pub fn aggregation_coarsening(
 }
 
 /// Hybrid coarsening (Ruge-Stüben with aggregation fallback)
-pub fn hybrid_coarsening(
-    matrix: &SparseMatrix<f64>,
-    strength_threshold: f64,
+pub fn hybrid_coarsening<T: RealField + Copy + FromPrimitive>(
+    matrix: &SparseMatrix<T>,
+    strength_threshold: T,
     max_aggregate_size: usize,
-) -> Result<CoarseningResult> {
+) -> Result<CoarseningResult<T>> {
     // Try Ruge-Stüben first
     match ruge_stueben_coarsening(matrix, strength_threshold) {
         Ok(result) => {
@@ -204,10 +204,10 @@ pub fn hybrid_coarsening(
 
 /// Falgout coarsening algorithm (CLJP method)
 /// Reference: Falgout, R. D. (2006). An introduction to algebraic multigrid
-pub fn falgout_coarsening(
-    matrix: &SparseMatrix<f64>,
-    strength_threshold: f64,
-) -> Result<CoarseningResult> {
+pub fn falgout_coarsening<T: RealField + Copy + FromPrimitive>(
+    matrix: &SparseMatrix<T>,
+    strength_threshold: T,
+) -> Result<CoarseningResult<T>> {
     let n = matrix.nrows();
     let mut coarse_points = Vec::new();
     let mut fine_to_coarse_map = vec![None; n];
@@ -256,7 +256,7 @@ pub fn falgout_coarsening(
 
         // Apply lambda criterion
         if total_strong_connections > 0 {
-            let ratio = coarse_neighbors as f64 / total_strong_connections as f64;
+            let ratio = f64::from(coarse_neighbors) / total_strong_connections as f64;
             if ratio >= lambda {
                 should_be_coarse = false;
             }
@@ -295,10 +295,10 @@ pub fn falgout_coarsening(
 
 /// PMIS (Parallel Modified Independent Set) coarsening
 /// Reference: Luby's algorithm adapted for parallel coarsening
-pub fn pmis_coarsening(
-    matrix: &SparseMatrix<f64>,
-    strength_threshold: f64,
-) -> Result<CoarseningResult> {
+pub fn pmis_coarsening<T: RealField + Copy + FromPrimitive>(
+    matrix: &SparseMatrix<T>,
+    strength_threshold: T,
+) -> Result<CoarseningResult<T>> {
     let n = matrix.nrows();
     let mut coarse_points = Vec::new();
     let mut fine_to_coarse_map = vec![None; n];
@@ -370,18 +370,18 @@ pub fn pmis_coarsening(
 
 /// HMIS (Hybrid Modified Independent Set) coarsening
 /// Combines PMIS with aggressive coarsening for better parallel performance
-pub fn hmis_coarsening(
-    matrix: &SparseMatrix<f64>,
-    strength_threshold: f64,
-    aggressive_threshold: f64,
-) -> Result<CoarseningResult> {
+pub fn hmis_coarsening<T: RealField + Copy + FromPrimitive>(
+    matrix: &SparseMatrix<T>,
+    strength_threshold: T,
+    aggressive_threshold: T,
+) -> Result<CoarseningResult<T>> {
     let n = matrix.nrows();
 
     // First try PMIS
     match pmis_coarsening(matrix, strength_threshold) {
         Ok(result) => {
             // Check coarsening ratio
-            let coarsening_ratio = result.coarse_points.len() as f64 / n as f64;
+            let coarsening_ratio = T::from_f64(result.coarse_points.len() as f64 / n as f64).unwrap_or_else(T::zero);
 
             // If coarsening ratio is too low, apply aggressive coarsening
             if coarsening_ratio < aggressive_threshold {
@@ -398,14 +398,11 @@ pub fn hmis_coarsening(
 }
 
 /// Aggressive coarsening strategy for difficult matrices
-fn aggressive_coarsening(
-    matrix: &SparseMatrix<f64>,
-    _strength_threshold: f64,
-    target_ratio: f64,
-) -> Result<CoarseningResult> {
-    let n = matrix.nrows();
-    let _target_coarse = (n as f64 * target_ratio) as usize;
-
+fn aggressive_coarsening<T: RealField + Copy + FromPrimitive>(
+    matrix: &SparseMatrix<T>,
+    _strength_threshold: T,
+    _target_ratio: T,
+) -> Result<CoarseningResult<T>> {
     // Use modified aggregation with larger aggregates
     let max_aggregate_size = 8; // Larger than standard
     aggregation_coarsening(matrix, max_aggregate_size)
@@ -414,46 +411,46 @@ fn aggressive_coarsening(
 /// Algebraic distance-based coarsening quality measures
 /// Reference: Cleary, A. J., Falgout, R. D., Henson, V. E., & Jones, J. E. (2001)
 #[derive(Debug, Clone)]
-pub struct AlgebraicDistances {
+pub struct AlgebraicDistances<T: RealField + Copy> {
     /// Algebraic distance from each point to nearest coarse point
-    pub distances: Vec<f64>,
+    pub distances: Vec<T>,
     /// Average algebraic distance
-    pub average_distance: f64,
+    pub average_distance: T,
     /// Maximum algebraic distance
-    pub max_distance: f64,
+    pub max_distance: T,
     /// Points with high algebraic distance (problematic areas)
-    pub high_distance_points: Vec<(usize, f64)>,
+    pub high_distance_points: Vec<(usize, T)>,
 }
 
-impl AlgebraicDistances {
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AlgebraicDistances<T> {
     /// Compute algebraic distances for a coarsening result
     /// Based on the concept that fine points should be "close" to coarse points
-    pub fn compute(coarsening: &CoarseningResult, matrix: &SparseMatrix<f64>) -> Self {
+    pub fn compute(coarsening: &CoarseningResult<T>, matrix: &SparseMatrix<T>) -> Self {
         let n = matrix.nrows();
-        let mut distances = vec![f64::INFINITY; n];
-        let mut total_distance = 0.0;
-        let mut max_distance = 0.0;
+        let mut distances = vec![T::max_value().unwrap_or_else(T::zero); n];
+        let mut total_distance = T::zero();
+        let mut max_distance = T::zero();
         let mut high_distance_points = Vec::new();
 
         // For each fine point, find minimum algebraic distance to coarse points
         for i in 0..n {
             if coarsening.coarse_points.contains(&i) {
                 // Coarse points have distance 0
-                distances[i] = 0.0;
+                distances[i] = T::zero();
             } else {
                 // Find minimum distance to coarse points via strongly connected paths
-                let mut min_distance = f64::INFINITY;
+                let mut min_distance = T::max_value().unwrap_or_else(T::zero);
 
                 for &coarse_idx in &coarsening.coarse_points {
                     let is_strong = if let Some(val) = coarsening.strength_matrix.get_entry(i, coarse_idx) {
-                        val.into_value() > 0.0
+                        val.into_value() > T::zero()
                     } else {
                         false
                     };
 
                     if is_strong {
                         // Direct strong connection - distance 1
-                        min_distance = min_distance.min(1.0);
+                        min_distance = if min_distance < T::one() { min_distance } else { T::one() };
                     } else {
                         // Compute algebraic distance through intermediate points
                         let distance = compute_algebraic_distance(
@@ -462,7 +459,7 @@ impl AlgebraicDistances {
                             matrix,
                             &coarsening.strength_matrix,
                         );
-                        min_distance = min_distance.min(distance);
+                        min_distance = if min_distance < distance { min_distance } else { distance };
                     }
                 }
 
@@ -473,7 +470,7 @@ impl AlgebraicDistances {
                 }
 
                 // Track points with high algebraic distance
-                if min_distance > 2.0 {
+                if min_distance > T::from_f64(2.0).unwrap_or_else(T::zero) {
                     // Threshold for "high distance"
                     high_distance_points.push((i, min_distance));
                 }
@@ -481,9 +478,9 @@ impl AlgebraicDistances {
         }
 
         let average_distance = if n > 0 {
-            total_distance / n as f64
+            total_distance / T::from_usize(n).unwrap_or_else(T::one)
         } else {
-            0.0
+            T::zero()
         };
 
         // Sort by distance (highest first)
@@ -506,9 +503,9 @@ impl AlgebraicDistances {
             max_interpolation_points: 0,        // Not computed in this method
             coarse_points: 0,                   // Not computed in this method
             total_points: self.distances.len(), // Use distances length as total points
-            average_distance: self.average_distance,
-            max_distance: self.max_distance,
-            high_distance_ratio: self.high_distance_points.len() as f64
+            average_distance: self.average_distance.to_f64().unwrap_or(0.0),
+            max_distance: self.max_distance.to_f64().unwrap_or(0.0),
+            high_distance_ratio: f64::from(self.high_distance_points.len() as u32)
                 / self.distances.len() as f64,
             quality_score: 0.0,
             recommendations: Vec::new(),
@@ -516,27 +513,27 @@ impl AlgebraicDistances {
 
         // Quality score based on distance metrics
         // Lower distances = better quality
-        let distance_score = if self.average_distance <= 1.5 {
+        let distance_score: f64 = if quality.average_distance <= 1.5 {
             1.0 // Excellent
-        } else if self.average_distance <= 2.0 {
+        } else if quality.average_distance <= 2.0 {
             0.8 // Good
-        } else if self.average_distance <= 3.0 {
+        } else if quality.average_distance <= 3.0 {
             0.6 // Fair
         } else {
             0.3 // Poor
         };
 
-        let max_score = if self.max_distance <= 3.0 {
+        let max_score: f64 = if quality.max_distance <= 3.0 {
             1.0
-        } else if self.max_distance <= 5.0 {
+        } else if quality.max_distance <= 5.0 {
             0.8
-        } else if self.max_distance <= 8.0 {
+        } else if quality.max_distance <= 8.0 {
             0.5
         } else {
             0.2
         };
 
-        quality.quality_score = f64::midpoint(distance_score, max_score);
+        quality.quality_score = distance_score.midpoint(max_score);
 
         // Generate recommendations
         if quality.quality_score < 0.7 {
@@ -552,7 +549,7 @@ impl AlgebraicDistances {
             );
         }
 
-        if self.max_distance > 5.0 {
+        if quality.max_distance > 5.0 {
             quality.recommendations.push(
                 "Some points are very far from coarse levels - may cause slow convergence"
                     .to_string(),
@@ -565,19 +562,19 @@ impl AlgebraicDistances {
 
 /// Compute algebraic distance between two points
 /// Uses a simplified breadth-first search on the strength graph
-fn compute_algebraic_distance(
+fn compute_algebraic_distance<T: RealField + Copy + FromPrimitive>(
     start: usize,
     target: usize,
-    matrix: &SparseMatrix<f64>,
-    strength_matrix: &SparseMatrix<f64>,
-) -> f64 {
+    matrix: &SparseMatrix<T>,
+    strength_matrix: &SparseMatrix<T>,
+) -> T {
     let n = matrix.nrows();
-    let mut distances = vec![f64::INFINITY; n];
+    let mut distances = vec![T::max_value().unwrap_or_else(T::zero); n];
     let mut visited = vec![false; n];
     let mut queue = std::collections::VecDeque::new();
 
     queue.push_back(start);
-    distances[start] = 0.0;
+    distances[start] = T::zero();
     visited[start] = true;
 
     while let Some(node) = queue.pop_front() {
@@ -590,11 +587,11 @@ fn compute_algebraic_distance(
         // Explore neighbors via strong connections
         let row = strength_matrix.row(node);
         for (&j, &val) in row.col_indices().iter().zip(row.values().iter()) {
-            if val > 0.0 && !visited[j] {
-                let edge_weight = if val > 0.5 {
-                    1.0 // Strong connection
+            if val > T::zero() && !visited[j] {
+                let edge_weight = if val > T::from_f64(0.5).unwrap_or_else(T::zero) {
+                    T::one() // Strong connection
                 } else {
-                    2.0 // Weaker connection
+                    T::from_f64(2.0).unwrap_or_else(T::zero) // Weaker connection
                 };
 
                 let new_dist = current_dist + edge_weight;
@@ -609,8 +606,8 @@ fn compute_algebraic_distance(
         // Also consider direct matrix connections (weaker)
         let matrix_row = matrix.row(node);
         for (&j, &val) in matrix_row.col_indices().iter().zip(matrix_row.values().iter()) {
-            if j != node && val.abs() > 1e-12 && !visited[j] {
-                let edge_weight = 3.0; // Direct matrix connection (weaker)
+            if j != node && val.abs() > T::from_f64(1e-12).unwrap_or_else(T::zero) && !visited[j] {
+                let edge_weight = T::from_f64(3.0).unwrap_or_else(T::zero); // Direct matrix connection (weaker)
                 let new_dist = current_dist + edge_weight;
                 if new_dist < distances[j] {
                     distances[j] = new_dist;
@@ -622,14 +619,14 @@ fn compute_algebraic_distance(
     }
 
     // If no path found, return large distance
-    100.0
+    T::from_f64(100.0).unwrap_or_else(T::zero)
 }
 
 /// Compute strength of connection matrix
-fn compute_strength_matrix(
-    matrix: &SparseMatrix<f64>,
-    strength_threshold: f64,
-) -> Result<SparseMatrix<f64>> {
+fn compute_strength_matrix<T: RealField + Copy + FromPrimitive>(
+    matrix: &SparseMatrix<T>,
+    strength_threshold: T,
+) -> Result<SparseMatrix<T>> {
     let n = matrix.nrows();
     let mut row_offsets = vec![0; n + 1];
     let mut col_indices = Vec::new();
@@ -641,11 +638,11 @@ fn compute_strength_matrix(
 
     for i in 0..n {
         // Find maximum off-diagonal element in row i
-        let mut max_off_diag: f64 = 0.0;
+        let mut max_off_diag: T = T::zero();
         for k in m_offsets[i]..m_offsets[i + 1] {
             let j = m_indices[k];
             if i != j {
-                max_off_diag = max_off_diag.max(m_values[k].abs());
+                max_off_diag = if max_off_diag > m_values[k].abs() { max_off_diag } else { m_values[k].abs() };
             }
         }
 
@@ -675,7 +672,7 @@ fn compute_strength_matrix(
 }
 
 /// Analyze coarsening quality
-pub fn analyze_coarsening_quality(result: &CoarseningResult) -> CoarseningQuality {
+pub fn analyze_coarsening_quality<T: RealField + Copy + FromPrimitive>(result: &CoarseningResult<T>) -> CoarseningQuality {
     let total_points = result.fine_to_coarse_map.len();
     let coarse_points = result.coarse_points.len();
     let assigned_points = result

@@ -5,7 +5,7 @@
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::physics::momentum::{MomentumComponent, MomentumSolver};
-use cfd_core::boundary::BoundaryCondition;
+use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_validation::convergence::{ConvergenceMonitor, ConvergenceStatus};
 
 /// Analytical solution for Poiseuille flow

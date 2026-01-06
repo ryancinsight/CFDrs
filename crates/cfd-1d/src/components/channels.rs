@@ -3,7 +3,7 @@
 use super::{constants, Component};
 use crate::resistance::models::ResistanceModel;
 use cfd_core::error::Result;
-use cfd_core::fluid::Fluid;
+use cfd_core::physics::fluid::Fluid;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};

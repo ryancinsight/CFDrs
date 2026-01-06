@@ -1,6 +1,6 @@
 //! Explicit time integration methods
 
-use cfd_core::constants::mathematical::numeric::{ONE_HALF, SIX, TWO};
+use cfd_core::physics::constants::mathematical::numeric::{ONE_HALF, SIX, TWO};
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
 

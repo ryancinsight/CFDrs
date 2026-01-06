@@ -49,14 +49,13 @@ impl ElementType {
         match self {
             Self::Line => 2,
             Self::Line3 | Self::Triangle => 3,
-            Self::Triangle6 => 6,
+            Self::Triangle6 | Self::Prism => 6,
             Self::Quadrilateral | Self::Tetrahedron => 4,
             Self::Quadrilateral9 => 9,
             Self::Tetrahedron10 => 10,
             Self::Hexahedron => 8,
             Self::Hexahedron20 => 20,
             Self::Pyramid => 5,
-            Self::Prism => 6,
         }
     }
 
@@ -153,13 +152,13 @@ impl<T: RealField + Copy> Mesh<T> {
         for (i, element) in self.elements.iter().enumerate() {
             if element.nodes.len() != element.element_type.num_nodes() {
                 return Err(Error::InvalidInput(format!(
-                    "Element {} has incorrect number of nodes", i
+                    "Element {i} has incorrect number of nodes"
                 )));
             }
             for &node_idx in &element.nodes {
                 if node_idx >= self.nodes.len() {
                     return Err(Error::InvalidInput(format!(
-                        "Element {} references non-existent node {}", i, node_idx
+                        "Element {i} references non-existent node {node_idx}"
                     )));
                 }
             }

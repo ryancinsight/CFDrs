@@ -284,7 +284,7 @@ impl AcceleratedNavierStokesSolver {
             pressure,
             divergence,
             iterations,
-            cfd_core::constants::numerical::relaxation::SOR_OMEGA_DEFAULT as f32,
+            crate::constants::relaxation::SOR_OMEGA as f32,
         )
     }
 

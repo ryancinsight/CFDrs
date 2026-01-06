@@ -250,17 +250,6 @@ pub enum InterpolationStrategy {
     Standard,
 }
 
-/// Multigrid cycle type
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CycleType {
-    /// V-cycle: down to coarsest, up to finest
-    VCycle,
-    /// W-cycle: multiple visits to intermediate levels
-    WCycle,
-    /// Full multigrid cycle
-    FCycle,
-}
-
 /// Smoother type for multigrid levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SmootherType {
@@ -277,6 +266,7 @@ pub enum SmootherType {
 }
 
 /// Multigrid level representation
+#[derive(Clone)]
 pub struct MultigridLevel<T: nalgebra::RealField + Copy> {
     /// System matrix for this level
     pub matrix: SparseMatrix<T>,
@@ -317,6 +307,15 @@ impl<T: nalgebra::RealField + Copy> AMGHierarchy<T> {
 pub trait MultigridSmoother<T: nalgebra::RealField + Copy>: Send + Sync {
     /// Apply the smoother to the system Ax = b
     fn apply(&self, matrix: &SparseMatrix<T>, x: &mut DVector<T>, b: &DVector<T>, iterations: usize);
+
+    /// Clone the smoother into a box
+    fn clone_box(&self) -> Box<dyn MultigridSmoother<T>>;
+}
+
+impl<T: nalgebra::RealField + Copy> Clone for Box<dyn MultigridSmoother<T>> {
+    fn clone(&self) -> Self {
+        self.clone_box()
+    }
 }
 
 /// AMG statistics and diagnostics

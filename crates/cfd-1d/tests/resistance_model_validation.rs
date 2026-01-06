@@ -18,7 +18,7 @@ use cfd_1d::resistance::{
     RectangularChannelModel, ResistanceModel,
 };
 use cfd_core::error::Result;
-use cfd_core::fluid;
+use cfd_core::physics::fluid;
 
 /// Test Hagen-Poiseuille law for laminar flow in circular pipes.
 ///
@@ -339,7 +339,7 @@ fn test_resistance_positivity() -> Result<()> {
                 let mut conditions = FlowConditions::new(0.1);
                 conditions.reynolds_number = Some(re);
 
-                let resistance = model.calculate_resistance(&fluid, &conditions)?;
+                let resistance: f64 = model.calculate_resistance(&fluid, &conditions)?;
 
                 // Physical constraint: resistance must be positive
                 assert!(resistance > 0.0, "Resistance must be positive");

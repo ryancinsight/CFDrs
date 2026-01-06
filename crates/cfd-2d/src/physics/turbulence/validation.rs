@@ -13,6 +13,7 @@ use super::{
 };
 use nalgebra::{DMatrix, RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
+use std::fmt::Write;
 
 /// Turbulence validation framework
 pub struct TurbulenceValidator<T: RealField + Copy> {
@@ -74,10 +75,10 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             test_name: "k-ε Homogeneous Turbulence Decay".to_string(),
             passed: decay_rate > T::from_f64(0.05).unwrap()
                 && decay_rate < T::from_f64(0.5).unwrap(),
-            metric: format!("Decay rate: {:.4}", decay_rate.to_f64().unwrap_or(0.0)),
+            metric: format!("Decay rate: {rate:.4}", rate = decay_rate.to_f64().unwrap_or(0.0)),
             details: format!(
-                "k_final/k_initial = {:.4}",
-                final_k_ratio.to_f64().unwrap_or(0.0)
+                "k_final/k_initial = {ratio:.4}",
+                ratio = final_k_ratio.to_f64().unwrap_or(0.0)
             ),
         }
     }
@@ -109,11 +110,11 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
         ValidationResult {
             test_name: "k-ω SST Wall Boundary Condition".to_string(),
             passed: (omega_ratio - T::one()).abs() < self.tolerance,
-            metric: format!("ω_wall ratio: {:.4}", omega_ratio.to_f64().unwrap_or(0.0)),
+            metric: format!("ω_wall ratio: {ratio:.4}", ratio = omega_ratio.to_f64().unwrap_or(0.0)),
             details: format!(
-                "Expected: {:.2e}, Got: {:.2e}",
-                expected_omega_wall.to_f64().unwrap_or(0.0),
-                omega[0].to_f64().unwrap_or(0.0)
+                "Expected: {expected:.2e}, Got: {got:.2e}",
+                expected = expected_omega_wall.to_f64().unwrap_or(0.0),
+                got = omega[0].to_f64().unwrap_or(0.0)
             ),
         }
     }
@@ -145,14 +146,15 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             let passed = (ratio - T::one()).abs() < T::from_f64(0.01).unwrap(); // 1% tolerance
 
             passed_all &= passed;
-            details.push_str(&format!(
-                "ν̃={:.2e}, ν={:.2e}: got {:.2e}, expected {:.2e}, ratio={:.4}\n",
+            let _ = writeln!(
+                details,
+                "ν̃={:.2e}, ν={:.2e}: got {:.2e}, expected {:.2e}, ratio={:.4}",
                 nu_tilde.to_f64().unwrap_or(0.0),
                 nu.to_f64().unwrap_or(0.0),
                 nu_t.to_f64().unwrap_or(0.0),
                 expected_nu_t.to_f64().unwrap_or(0.0),
                 ratio.to_f64().unwrap_or(0.0)
-            ));
+            );
         }
 
         ValidationResult {
@@ -333,7 +335,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             }
         }
 
-        let avg_sgs_f64 = total_sgs / count as f64;
+        let avg_sgs_f64 = total_sgs / f64::from(count);
         let reasonable_magnitude = (1e-6..=1e-2).contains(&avg_sgs_f64);
 
         ValidationResult {
@@ -491,10 +493,9 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
         ValidationResult {
             test_name: "Flat Plate Boundary Layer - k-ε Model".to_string(),
             passed,
-            metric: format!("Cf ratio: {:.3}", cf_ratio),
+            metric: format!("Cf ratio: {cf_ratio:.3}"),
             details: format!(
-                "Expected Cf: {:.6}, Calculated: {:.6}",
-                expected_cf, calculated_cf
+                "Expected Cf: {expected_cf:.6}, Calculated: {calculated_cf:.6}"
             ),
         }
     }
@@ -589,8 +590,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
         ValidationResult {
             test_name: "Channel Flow DNS - k-ω SST Model".to_string(),
             passed,
-            metric: format!("RMS error: {:.3} wall units", rms_error),
-            details: format!("Re_τ = {}, Profile points: {}", re_tau, ny),
+            metric: format!("RMS error: {rms_error:.3} wall units"),
+            details: format!("Re_τ = {re_tau}, Profile points: {ny}"),
         }
     }
 
@@ -680,10 +681,9 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
         ValidationResult {
             test_name: "LES Decaying Homogeneous Turbulence".to_string(),
             passed,
-            metric: format!("Decay rate ratio: {:.2}", decay_ratio),
+            metric: format!("Decay rate ratio: {decay_ratio:.2}"),
             details: format!(
-                "Expected: {:.2}, Calculated: {:.3}, Final energy ratio: {:.4}",
-                expected_decay_rate, decay_rate, final_energy_ratio
+                "Expected: {expected_decay_rate:.2}, Calculated: {decay_rate:.3}, Final energy ratio: {final_energy_ratio:.4}"
             ),
         }
     }
@@ -885,13 +885,13 @@ pub fn run_turbulence_validation<T: RealField + FromPrimitive + ToPrimitive + Co
     let mut les_results = Vec::new();
 
     for result in &results {
-        if result.test_name.contains("k-ε")
+        if (result.test_name.contains("k-ε")
             || result.test_name.contains("k-ω")
-            || result.test_name.contains("SA")
+            || result.test_name.contains("SA"))
+            && !result.test_name.contains("LES")
+            && !result.test_name.contains("DES")
         {
-            if !result.test_name.contains("LES") && !result.test_name.contains("DES") {
-                rans_results.push(result.clone());
-            }
+            rans_results.push(result.clone());
         }
         if result.test_name.contains("LES") || result.test_name.contains("DES") {
             les_results.push(result.clone());
@@ -938,7 +938,7 @@ pub fn run_turbulence_validation<T: RealField + FromPrimitive + ToPrimitive + Co
     println!(
         "  RANS Tests: {} passed, {} total",
         rans_results.iter().filter(|r| r.passed).count(),
-        rans_results.len()
+        rans_results.len(),
     );
     println!(
         "  LES/DES Tests: {} passed, {} total",

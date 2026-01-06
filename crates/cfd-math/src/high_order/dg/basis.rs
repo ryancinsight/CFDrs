@@ -212,7 +212,7 @@ pub fn legendre_poly_deriv(n: usize, x: f64) -> f64 {
     }
     if (x + 1.0).abs() < 1e-15 {
         let val = (n * (n + 1)) as f64 / 2.0;
-        return if (n - 1) % 2 == 0 { val } else { -val };
+        return if (n - 1).is_multiple_of(2) { val } else { -val };
     }
     
     n as f64 / (1.0 - x * x) * (legendre_poly(n - 1, x) - x * legendre_poly(n, x))
@@ -289,13 +289,13 @@ pub fn gauss_lobatto_quadrature(n: usize) -> Result<(DVector<f64>, DVector<f64>)
             // P''_{n-1} = (2x P'_{n-1} - (n-1)n P_{n-1}) / (1-x^2)
             let denominator = 1.0 - x * x;
             if denominator.abs() < 1e-15 {
-                 return Err(DGError::NumericalError(format!("Newton iteration hit endpoint at x={}", x)));
+                 return Err(DGError::NumericalError(format!("Newton iteration hit endpoint at x={x}")));
             }
             let d2p = (2.0 * x * dp - ((n - 1) * n) as f64 * p) / denominator;
 
             if d2p.abs() < f64::EPSILON {
                 return Err(DGError::NumericalError(
-                    format!("Zero second derivative at x = {} for n = {}", x, n - 1)
+                    format!("Zero second derivative at x = {x} for n = {}", n - 1)
                 ));
             }
             
@@ -319,11 +319,11 @@ pub fn gauss_lobatto_quadrature(n: usize) -> Result<(DVector<f64>, DVector<f64>)
         let x = nodes[i];
         let p = legendre_poly(n - 1, x);
         if p.abs() < 1e-15 {
-            return Err(DGError::NumericalError(format!("P_{}({}) is zero", n-1, x)));
+            return Err(DGError::NumericalError(format!("P_{}({x}) is zero", n-1)));
         }
         weights[i] = 2.0 / (n as f64 * (n - 1) as f64) / (p * p);
         if weights[i].is_nan() {
-             return Err(DGError::NumericalError(format!("Weight {} is NaN (n={}, x={}, p={})", i, n, x, p)));
+             return Err(DGError::NumericalError(format!("Weight {i} is NaN (n={n}, x={x}, p={p})")));
         }
     }
     
@@ -398,7 +398,7 @@ mod tests {
         let nodes = vec![-1.0, 0.0, 1.0]; // Quadratic elements
         
         // Test cardinality: φ_i(x_j) = δ_ij
-        for (i, &xi) in nodes.iter().enumerate() {
+        for (i, &_xi) in nodes.iter().enumerate() {
             for (j, &xj) in nodes.iter().enumerate() {
                 let phi = lagrange_basis(i, xj, &nodes);
                 let expected = if i == j { 1.0 } else { 0.0 };

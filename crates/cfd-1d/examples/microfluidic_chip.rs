@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("================================");
 
     // Create a microfluidic network
-    let fluid = cfd_core::fluid::database::water_20c::<f64>()?;
+    let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
 
     // Build network using NetworkBuilder
     let mut builder = NetworkBuilder::new();

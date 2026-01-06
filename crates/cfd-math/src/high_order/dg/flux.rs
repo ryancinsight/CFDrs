@@ -204,9 +204,8 @@ impl FluxFactory {
     pub fn create(flux_type: FluxType) -> Box<dyn NumericalFlux> {
         match flux_type {
             FluxType::Central => Box::new(CentralFlux),
-            FluxType::LaxFriedrichs => Box::new(LaxFriedrichsFlux),
             FluxType::HLL | FluxType::HLLC => Box::new(HLLFlux),
-            _ => Box::new(LaxFriedrichsFlux), // Default to Lax-Friedrichs
+            FluxType::LaxFriedrichs | FluxType::Upwind => Box::new(LaxFriedrichsFlux),
         }
     }
 }
@@ -361,7 +360,7 @@ mod tests {
         
         let params = FluxParams::new(FluxType::LaxFriedrichs).with_alpha(1.0);
         let flux = FluxFactory::create(params.flux_type);
-        let f = flux.compute_flux(&u_l, &u_r, &n, &params);
+        let _f = flux.compute_flux(&u_l, &u_r, &n, &params);
         
         // For u_l=[0,0], u_r=[2,2], max_wave_speed = (0 + sqrt(8))/2 = 1.414...
         // Let's use u_l=[0,0], u_r=[2,0] so max_wave_speed = (0 + 2)/2 = 1.0

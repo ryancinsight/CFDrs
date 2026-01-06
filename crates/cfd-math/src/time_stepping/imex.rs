@@ -323,7 +323,7 @@ impl<T: RealField + Copy> TimeStepper<T> for IMEXTimeStepper<T> {
     {
         // For simple TimeStepper interface, assume f is the explicit part
         // and implicit part is zero (falls back to explicit method)
-        let jacobian_zero = |_t: T, _u: &DVector<T>| Ok(DMatrix::identity(u.len(), u.len()));
+        let jacobian_zero = |_t: T, _u: &DVector<T>| Ok(DMatrix::zeros(u.len(), u.len()));
         self.imex_step(
             f,
             |_t, _u| Ok(DVector::zeros(u.len())),
@@ -369,9 +369,9 @@ mod tests {
         let imex = IMEXTimeStepper::<f64>::ars343();
 
         // Simple test: du/dt = -u (explicit) + 0 (implicit)
-        let f_explicit = |t: f64, u: &DVector<f64>| Ok(-u.clone());
-        let f_implicit = |t: f64, u: &DVector<f64>| Ok(DVector::zeros(u.len()));
-        let jacobian_zero = |_t: f64, _u: &DVector<f64>| Ok(DMatrix::identity(_u.len(), _u.len()));
+        let f_explicit = |_t: f64, u: &DVector<f64>| Ok(-u.clone());
+        let f_implicit = |_t: f64, u: &DVector<f64>| Ok(DVector::zeros(u.len()));
+        let jacobian_zero = |_t: f64, _u: &DVector<f64>| Ok(DMatrix::zeros(_u.len(), _u.len()));
 
         let u0 = DVector::from_vec(vec![1.0]);
         let dt = 0.1;
@@ -391,9 +391,10 @@ mod tests {
         // Analytical solution: u(t) = u0 * exp(-t)
         let imex = IMEXTimeStepper::<f64>::ars343();
 
-        let f_explicit = |t: f64, u: &DVector<f64>| Ok(u.clone()); // +u
-        let f_implicit = |t: f64, u: &DVector<f64>| Ok(-2.0 * u); // -2u
-        let jacobian_implicit = |t: f64, u: &DVector<f64>| {
+        // Use closures that match the expected signature
+        let f_explicit = |_t: f64, u: &DVector<f64>| Ok(u.clone());
+        let f_implicit = |_t: f64, u: &DVector<f64>| Ok(-2.0 * u);
+        let jacobian_implicit = |_t: f64, u: &DVector<f64>| {
             let mut jac = DMatrix::zeros(u.len(), u.len());
             jac[(0, 0)] = -2.0;
             Ok(jac)
@@ -414,9 +415,9 @@ mod tests {
                 let step_size = (t_final - t).min(dt);
                 u = imex
                     .imex_step(
-                        &f_explicit,
-                        &f_implicit,
-                        &jacobian_implicit,
+                        f_explicit,
+                        f_implicit,
+                        jacobian_implicit,
                         t,
                         &u,
                         step_size,
@@ -438,13 +439,12 @@ mod tests {
             let observed_order = ratio;
 
             println!(
-                "dt ratio: {:.1}, error ratio: {:.2}, expected ratio: {:.2}",
-                dt_ratio, observed_order, expected_ratio
+                "dt ratio: {dt_ratio:.1}, error ratio: {observed_order:.2}, expected ratio: {expected_ratio:.2}"
             );
 
             // Check that observed convergence is reasonably close
             // For ARS343 (3rd order), we expect ratio ~8
-            assert!(ratio > 2.0, "Error not decreasing significantly: ratio = {}", ratio);
+            assert!(ratio > 2.0, "Error not decreasing significantly: ratio = {ratio}");
         }
     }
 
@@ -453,16 +453,16 @@ mod tests {
         let imex = IMEXTimeStepper::<f64>::ars343();
 
         // Problem: du/dt = -u (entirely implicit for stiffness)
-        let f_explicit = |t: f64, u: &DVector<f64>| Ok(DVector::zeros(u.len()));
-        let f_implicit = |t: f64, u: &DVector<f64>| Ok(-u.clone());
-        let jacobian_implicit = |t: f64, u: &DVector<f64>| Ok(-DMatrix::identity(u.len(), u.len()));
+        let f_explicit = |_t: f64, u: &DVector<f64>| Ok(DVector::zeros(u.len()));
+        let f_implicit = |_t: f64, u: &DVector<f64>| Ok(-u.clone());
+        let jacobian_implicit = |_t: f64, u: &DVector<f64>| Ok(-DMatrix::identity(u.len(), u.len()));
 
         let u0 = DVector::from_vec(vec![2.0, -1.0, 0.5]);
         let dt = 0.01;
         let t = 0.0;
 
         let u1 = imex
-            .imex_step(&f_explicit, &f_implicit, &jacobian_implicit, t, &u0, dt)
+            .imex_step(f_explicit, f_implicit, jacobian_implicit, t, &u0, dt)
             .unwrap();
 
         let analytical = u0.map(|x| x * (-dt).exp());
@@ -477,13 +477,13 @@ mod tests {
     fn test_imex_newton_convergence() {
         let imex = IMEXTimeStepper::<f64>::ars343();
 
-        // Problem: dy/dt = -100*y (stiff decay, tests implicit solver)
+        // Problem: dy/dt = -100*y^3 (non-linear stiff decay, tests Newton solver)
         let lambda = -100.0;
-        let f_explicit = |t: f64, u: &DVector<f64>| Ok(DVector::zeros(u.len()));
-        let f_implicit = |t: f64, u: &DVector<f64>| Ok(lambda * u);
-        let jacobian_implicit = |t: f64, u: &DVector<f64>| {
+        let f_explicit = |_t: f64, u: &DVector<f64>| Ok(DVector::zeros(u.len()));
+        let f_implicit = |_t: f64, u: &DVector<f64>| Ok(lambda * u.map(|x| x.powi(3)));
+        let jacobian_implicit = |_t: f64, u: &DVector<f64>| {
             let mut jac = DMatrix::zeros(u.len(), u.len());
-            jac[(0, 0)] = lambda;
+            jac[(0, 0)] = 3.0 * lambda * u[0].powi(2);
             Ok(jac)
         };
 
@@ -492,11 +492,11 @@ mod tests {
         let t = 0.0;
 
         let u1 = imex
-            .imex_step(&f_explicit, &f_implicit, &jacobian_implicit, t, &u0, dt)
+            .imex_step(f_explicit, f_implicit, jacobian_implicit, t, &u0, dt)
             .unwrap();
 
-        // Analytical: u(t+dt) = u0 * exp(λ * dt)
-        let analytical = u0[0] * (lambda * dt).exp();
+        // Analytical solution for dy/dt = λy^3: y(t) = 1 / sqrt(y0^-2 - 2λt)
+        let analytical = 1.0 / (u0[0].powi(-2) - 2.0 * lambda * dt).sqrt();
 
         // ARS343 is L-stable, should handle this well
         assert_relative_eq!(u1[0], analytical, epsilon = 5e-2);

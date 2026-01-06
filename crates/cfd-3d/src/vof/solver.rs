@@ -137,7 +137,7 @@ impl<T: RealField + FromPrimitive + Copy> VofSolver<T> {
     }
 
     /// Convert 3D indices to linear index
-    #[inline(always)]
+    #[inline]
     pub(crate) fn index(&self, i: usize, j: usize, k: usize) -> usize {
         k * self.ny * self.nx + j * self.nx + i
     }

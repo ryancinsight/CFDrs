@@ -30,7 +30,7 @@ use cfd_3d::vof::{
     AdvectionMethod, BubbleDynamicsConfig, CavitationStatistics, CavitationVofConfig,
     CavitationVofSolver, InterfaceReconstruction, VofConfig,
 };
-use cfd_core::cavitation::{damage::CavitationDamage, models::CavitationModel};
+use cfd_core::physics::cavitation::{damage::CavitationDamage, models::CavitationModel};
 use nalgebra::Vector3;
 use std::time::Instant;
 

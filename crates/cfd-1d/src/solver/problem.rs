@@ -3,10 +3,10 @@
 use super::domain::NetworkDomain;
 use super::state::NetworkState;
 use crate::network::Network;
-use cfd_core::boundary::BoundaryConditionSet;
+use cfd_core::physics::boundary::BoundaryConditionSet;
 use cfd_core::error::Result;
-use cfd_core::fluid::{ConstantPropertyFluid, Fluid};
-use cfd_core::problem::Problem;
+use cfd_core::physics::fluid::ConstantPropertyFluid;
+use cfd_core::abstractions::problem::Problem;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
@@ -45,11 +45,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Problem<T> for NetworkProblem<T
     type Domain = NetworkDomain<T>;
     type State = NetworkState<T>;
 
-    fn domain(&self) -> &Self::Domain {
+    fn domain(&self) -> &NetworkDomain<T> {
         &self.domain
     }
 
-    fn fluid(&self) -> &Fluid<T> {
+    fn fluid(&self) -> &ConstantPropertyFluid<T> {
         &self.fluid
     }
 
@@ -57,7 +57,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Problem<T> for NetworkProblem<T
         &self.boundary_conditions
     }
 
-    fn initial_state(&self) -> Result<Self::State> {
+    fn initial_state(&self) -> Result<NetworkState<T>> {
         Ok(NetworkState::from_network(&self.network))
     }
 }

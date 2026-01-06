@@ -11,7 +11,7 @@ extern crate cfd_core;
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::physics::momentum::{ConvectionScheme, MomentumComponent, MomentumSolver};
-use cfd_core::boundary::BoundaryCondition;
+use cfd_core::physics::boundary::BoundaryCondition;
 
 /// Analytical solution for Poiseuille flow
 /// u(y) = (1/2μ) * (dp/dx) * y * (H - y)

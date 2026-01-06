@@ -8,8 +8,8 @@
 use cfd_math::error::Result;
 use cfd_math::linear_solver::{
     ConjugateGradient, IterativeSolverConfig,
-    operators::{LaplacianOperator2D, LinearOperator},
-    traits::IterativeLinearSolver,
+    LaplacianOperator2D, LinearOperator,
+    IterativeLinearSolver,
 };
 use nalgebra::DVector;
 
@@ -54,10 +54,6 @@ impl LinearOperator<f64> for DiffusionOperator1D {
     fn is_symmetric(&self) -> bool {
         true
     }
-
-    fn is_positive_definite(&self) -> Option<bool> {
-        Some(true) // For positive diffusion coefficient
-    }
 }
 
 fn main() -> Result<()> {
@@ -89,7 +85,7 @@ fn main() -> Result<()> {
     let solver = ConjugateGradient::new(config);
 
     let mut x = DVector::zeros(n);
-    solver.solve(&operator, &b, &mut x, None::<&cfd_math::linear_solver::preconditioners::IdentityPreconditioner<f64>>)?;
+    solver.solve(&operator, &b, &mut x, None::<&cfd_math::linear_solver::preconditioners::IdentityPreconditioner>)?;
 
     // Check solution
     let mut max_error: f64 = 0.0;
@@ -122,7 +118,7 @@ fn main() -> Result<()> {
     let b_laplace = DVector::from_element(size, 1.0);
 
     let mut p = DVector::zeros(size);
-    solver.solve(&laplacian, &b_laplace, &mut p, None::<&cfd_math::linear_solver::preconditioners::IdentityPreconditioner<f64>>)?;
+    solver.solve(&laplacian, &b_laplace, &mut p, None::<&cfd_math::linear_solver::preconditioners::IdentityPreconditioner>)?;
 
     println!("  Grid: {}x{}", nx, ny);
     println!("  Total DOF: {}", size);

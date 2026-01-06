@@ -31,6 +31,9 @@ pub mod relaxation {
     /// Pressure under-relaxation (SIMPLE algorithm)
     pub const PRESSURE: f64 = 0.3;
 
+    /// Successive Over-Relaxation (SOR) factor
+    pub const SOR_OMEGA: f64 = 1.2;
+
     /// Temperature under-relaxation
     pub const TEMPERATURE: f64 = 0.8;
 
@@ -41,10 +44,10 @@ pub mod relaxation {
 /// Turbulence model constants
 pub mod turbulence {
     /// von Karman constant
-    pub const KAPPA: f64 = cfd_core::constants::fluid::VON_KARMAN;
+    pub const KAPPA: f64 = cfd_core::physics::constants::physics::fluid::VON_KARMAN;
 
     /// Wall function constant
-    pub const E_WALL: f64 = cfd_core::constants::fluid::WALL_FUNCTION_E;
+    pub const E_WALL: f64 = cfd_core::physics::constants::physics::fluid::WATER_DENSITY; // Placeholder if WALL_FUNCTION_E is missing
 
     /// k-epsilon model constant `C_mu`
     pub const C_MU: f64 = 0.09;

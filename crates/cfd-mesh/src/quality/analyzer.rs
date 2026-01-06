@@ -31,6 +31,7 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
     pub fn analyze(&self, mesh: &Mesh<T>) -> MeshQualityReport<T> {
         let mut metrics = Vec::new();
         let mut failed_elements = Vec::new();
+        let mut samples = Vec::new();
 
         for (idx, element) in mesh.cells().iter().enumerate() {
             let quality = self.compute_element_quality(element, mesh);
@@ -39,16 +40,14 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
                 failed_elements.push(idx);
             }
 
+            samples.push(quality.overall_quality_score);
+
             if self.store_detailed {
                 metrics.push(quality);
             }
         }
 
-        let statistics = if metrics.is_empty() {
-            QualityStatistics::default()
-        } else {
-            self.compute_statistics(&metrics)
-        };
+        let statistics = QualityStatistics::from_samples(samples);
 
         MeshQualityReport {
             statistics,
@@ -189,7 +188,8 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
                 let ji_norm = j_inv.norm();
 
                 if j_norm > T::zero() && ji_norm > T::zero() {
-                    RealField::min(det / (j_norm * ji_norm), T::one())
+                    let three = T::from_f64(3.0).unwrap_or(T::one());
+                    RealField::min(three * det / (j_norm * ji_norm), T::one())
                 } else {
                     T::zero()
                 }
@@ -221,22 +221,14 @@ impl<T: RealField + Copy + Float + Sum + FromPrimitive> QualityAnalyzer<T> {
                 let ji_norm = j_inv.norm();
 
                 if j_norm > T::zero() && ji_norm > T::zero() {
-                    RealField::min(det / (j_norm * ji_norm), T::one())
+                    let three = T::from_f64(3.0).unwrap_or(T::one());
+                    RealField::min(three * det / (j_norm * ji_norm), T::one())
                 } else {
                     T::zero()
                 }
             }
-            ElementType::Pyramid | ElementType::Prism => T::zero(), // Pending dispatch
             _ => T::zero(),
         }
-    }
-
-    /// Compute statistics from metrics
-    #[allow(clippy::unused_self)] // Trait interface consistency
-    fn compute_statistics(&self, metrics: &[QualityMetrics<T>]) -> QualityStatistics<T> {
-        let samples: Vec<T> = metrics.iter().map(|m| m.overall_quality_score).collect();
-
-        QualityStatistics::from_samples(samples)
     }
 }
 

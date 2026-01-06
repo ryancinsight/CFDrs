@@ -7,6 +7,12 @@ use super::{Result, DGError, DGOperator, legendre_poly};
 use nalgebra::{DVector, DMatrix};
 use std::time::Instant;
 
+/// Type for the right-hand side function
+pub type RhsFn<'a> = dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>> + 'a;
+
+/// Type for the Jacobian function
+pub type JacobianFn<'a> = dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>> + 'a;
+
 /// Type of time integration method
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TimeIntegration {
@@ -36,6 +42,27 @@ pub enum TimeIntegration {
     IMEXRK3,
 }
 
+/// Configuration for time stepping strategy
+#[derive(Debug, Clone, Copy)]
+pub struct SteppingConfig {
+    /// Whether to use adaptive time stepping
+    pub adaptive: bool,
+    /// Whether to use local time stepping
+    pub local: bool,
+    /// Whether to use CFL-based time stepping
+    pub use_cfl: bool,
+}
+
+impl Default for SteppingConfig {
+    fn default() -> Self {
+        Self {
+            adaptive: true,
+            local: false,
+            use_cfl: true,
+        }
+    }
+}
+
 /// Parameters for time integration
 #[derive(Debug, Clone)]
 pub struct TimeIntegrationParams {
@@ -57,12 +84,8 @@ pub struct TimeIntegrationParams {
     pub dt_min: f64,
     /// Maximum time step size
     pub dt_max: f64,
-    /// Whether to use adaptive time stepping
-    pub adaptive: bool,
-    /// Whether to use local time stepping
-    pub local_time_stepping: bool,
-    /// Whether to use CFL-based time stepping
-    pub use_cfl: bool,
+    /// Stepping strategy configuration
+    pub stepping: SteppingConfig,
     /// CFL number
     pub cfl: f64,
     /// Whether to output solution at each time step
@@ -83,9 +106,7 @@ impl Default for TimeIntegrationParams {
             safety_factor: 0.9,
             dt_min: 1e-10,
             dt_max: 0.1,
-            adaptive: true,
-            local_time_stepping: false,
-            use_cfl: true,
+            stepping: SteppingConfig::default(),
             cfl: 0.1,
             verbose: false,
             output_interval: 10,
@@ -142,19 +163,19 @@ impl TimeIntegrationParams {
     
     /// Enable or disable adaptive time stepping
     pub fn with_adaptive(mut self, adaptive: bool) -> Self {
-        self.adaptive = adaptive;
+        self.stepping.adaptive = adaptive;
         self
     }
     
     /// Enable or disable local time stepping
     pub fn with_local_time_stepping(mut self, local_time_stepping: bool) -> Self {
-        self.local_time_stepping = local_time_stepping;
+        self.stepping.local = local_time_stepping;
         self
     }
     
     /// Enable or disable CFL-based time stepping
     pub fn with_cfl(mut self, cfl: f64) -> Self {
-        self.use_cfl = true;
+        self.stepping.use_cfl = true;
         self.cfl = cfl;
         self
     }
@@ -219,8 +240,8 @@ pub trait TimeIntegrator: Send + Sync {
         t: f64,
         dt: f64,
         y: &DMatrix<f64>,
-        f: &dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>,
-        jac: Option<&dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>>,
+        f: &RhsFn<'_>,
+        jac: Option<&JacobianFn<'_>>,
     ) -> Result<(DMatrix<f64>, Option<f64>)>;
     
     /// Get the order of the method
@@ -242,8 +263,8 @@ impl TimeIntegrator for ForwardEuler {
         t: f64,
         dt: f64,
         y: &DMatrix<f64>,
-        f: &dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>,
-        _jac: Option<&dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>>,
+        f: &RhsFn<'_>,
+        _jac: Option<&JacobianFn<'_>>,
     ) -> Result<(DMatrix<f64>, Option<f64>)>
     {
         let k1 = f(t, y)?;
@@ -265,8 +286,8 @@ impl TimeIntegrator for RK4 {
         t: f64,
         dt: f64,
         y: &DMatrix<f64>,
-        f: &dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>,
-        _jac: Option<&dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>>,
+        f: &RhsFn<'_>,
+        _jac: Option<&JacobianFn<'_>>,
     ) -> Result<(DMatrix<f64>, Option<f64>)>
     {
         let k1 = f(t, y)?;
@@ -292,8 +313,8 @@ impl TimeIntegrator for SSPRK3 {
         t: f64,
         dt: f64,
         y: &DMatrix<f64>,
-        f: &dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>,
-        _jac: Option<&dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>>,
+        f: &RhsFn<'_>,
+        _jac: Option<&JacobianFn<'_>>,
     ) -> Result<(DMatrix<f64>, Option<f64>)>
     {
         // Standard SSP-RK3 (Shu-Osher form)
@@ -347,8 +368,8 @@ impl TimeIntegrator for ImplicitEuler {
         t: f64,
         dt: f64,
         y: &DMatrix<f64>,
-        f: &dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>,
-        jac: Option<&dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>>,
+        f: &RhsFn<'_>,
+        jac: Option<&JacobianFn<'_>>,
     ) -> Result<(DMatrix<f64>, Option<f64>)>
     {
         // Initial guess (explicit Euler step)
@@ -407,7 +428,7 @@ impl ImplicitEuler {
         &self,
         t: f64,
         y: &DMatrix<f64>,
-        f: &dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>,
+        f: &RhsFn<'_>,
     ) -> Result<DMatrix<f64>>
     {
         let eps = 1e-8;
@@ -447,7 +468,6 @@ impl TimeIntegratorFactory {
         match method {
             TimeIntegration::ForwardEuler => Box::new(ForwardEuler),
             TimeIntegration::RK4 => Box::new(RK4),
-            TimeIntegration::SSPRK3 => Box::new(SSPRK3),
             TimeIntegration::ImplicitEuler => Box::new(ImplicitEuler::default()),
             _ => Box::new(SSPRK3), // Default to SSPRK3
         }
@@ -535,7 +555,7 @@ impl DGSolver {
             return Ok(dt);
         }
         
-        if self.params.use_cfl {
+        if self.params.stepping.use_cfl {
             // Compute the maximum wave speed
             let max_wave_speed = self.compute_max_wave_speed()?;
             
@@ -609,7 +629,7 @@ impl DGSolver {
         self.step_count += 1;
         
         // Update time step for next iteration
-        if self.params.adaptive {
+        if self.params.stepping.adaptive {
             if let Some(err) = error {
                 // Compute the optimal time step
                 let scale = (self.params.safety_factor * self.params.rtol / (err + f64::EPSILON))
@@ -749,7 +769,7 @@ impl DGSolver {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use std::f64::consts::PI;
+    
     use crate::high_order::{DGOperatorParams, FluxType, LimiterType};
     
     #[test]

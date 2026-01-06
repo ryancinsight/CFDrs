@@ -9,7 +9,7 @@
 //! - Minimal overhead on unsupported architectures (SWAR fallback)
 //! - Scalable performance with problem size
 
-use cfd_math::cfd_simd::CfdSimdOps;
+use cfd_math::simd::cfd::CfdSimdOps;
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

@@ -103,7 +103,7 @@
 //! - **Lumley, J. L. (1978)**. Computational modeling of turbulent flows.
 //!   Advances in Applied Mechanics, 18, 123-176.
 
-use super::constants::*;
+use super::constants::C_MU;
 use super::traits::TurbulenceModel;
 use cfd_core::error::Result;
 use nalgebra::{DMatrix, RealField, Vector2};
@@ -184,7 +184,6 @@ pub enum PressureStrainModel {
 
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     /// Helper for structural constants that must be representable
-    #[inline(always)]
     fn constant(val: f64) -> T {
         T::from_f64(val).expect("Structural constant must be representable in scalar type")
     }
@@ -196,9 +195,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     pub fn new(nx: usize, ny: usize) -> Self {
         assert!(
             nx > 0 && ny > 0,
-            "Grid dimensions must be positive: nx={}, ny={}",
-            nx,
-            ny
+            "Grid dimensions must be positive: nx={nx}, ny={ny}"
         );
         Self {
             nx,
@@ -649,8 +646,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
 
         // Add wall-reflection correction if enabled
         if self.wall_reflection {
-            phi_ij = phi_ij
-                + self.wall_reflection_correction(
+            phi_ij += self.wall_reflection_correction(
                     anisotropy_xx,
                     anisotropy_xy,
                     anisotropy_yy,
@@ -664,8 +660,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
 
         // Add curvature correction if enabled
         if self.curvature_correction {
-            phi_ij = phi_ij
-                + self.curvature_correction_term(
+            phi_ij += self.curvature_correction_term(
                     anisotropy_xx,
                     anisotropy_xy,
                     anisotropy_yy,
@@ -785,14 +780,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
 
         // Wall-normal anisotropy component
         let a_nn = match wall_normal_index {
-            1 => a_yy, // y-direction is wall-normal
             0 => a_xx, // x-direction is wall-normal (rare in channels)
             _ => a_yy, // Default to y-direction
         };
 
         // Wall-parallel anisotropy components
         let (a_pp, a_ps) = match wall_normal_index {
-            1 => (a_xx, a_xy), // x-direction parallel, xy is shear
             0 => (a_yy, a_xy), // y-direction parallel, xy is shear
             _ => (a_xx, a_xy),
         };
@@ -1231,7 +1224,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     }
 
     /// Optimized pressure-strain correlation calculation
-    #[inline(always)]
     fn pressure_strain_optimized(
         &self,
         xx: T,
@@ -1240,7 +1232,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         k: T,
         epsilon: T,
         strain_rate: &[[T; 2]; 2],
-        rotation_rate: &[[T; 2]; 2],
+        _rotation_rate: &[[T; 2]; 2],
         i: usize,
         j: usize,
     ) -> T {
@@ -1261,7 +1253,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let s11 = strain_rate[0][0];
         let s12 = strain_rate[0][1];
         let s22 = strain_rate[1][1];
-        let _w12 = rotation_rate[0][1];
 
         match self.pressure_strain_model {
             PressureStrainModel::LinearReturnToIsotropy => {
@@ -1281,8 +1272,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                 let c1_a_yy = self.c1 * a_yy;
 
                 let c1_star_a_xx_s11 = self.c1_star * a_xx * s11;
-                let _c1_star_a_xy_s22 = self.c1_star * a_xy * s22;
-                let _c1_star_a_yy_s22 = self.c1_star * a_yy * s22;
 
                 let two_thirds_sum = two_thirds * (a_xx + a_yy);
                 let c2_term_s11 =
@@ -1328,7 +1317,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     }
 
     /// Optimized dissipation tensor calculation
-    #[inline(always)]
     fn dissipation_tensor_optimized(
         &self,
         reynolds_stress: &ReynoldsStressTensor<T>,
@@ -1361,7 +1349,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     }
 
     /// Optimized transport term calculation
-    #[inline(always)]
     fn transport_optimized(
         &self,
         k: T,
@@ -1386,7 +1373,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     }
 
     /// Optimized epsilon update with full transport equation
-    #[inline(always)]
     fn update_epsilon_optimized(
         &self,
         xx_new: T,
@@ -1438,6 +1424,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     /// - Explicit Euler integration requires CFL < 0.1 for stability
     /// - Tensor coupling can cause oscillations - may need implicit coupling
     /// - Wall boundary conditions must be applied carefully to maintain realizability
+    ///
     /// Update Reynolds stress tensor using transport equations (legacy implementation)
     /// This function provides backward compatibility but is deprecated.
     /// Use update_reynolds_stresses() instead, which now uses the optimized implementation.
@@ -1533,11 +1520,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                         let rhs = p_ij + phi_ij - eps_ij + t_ij;
 
                         match (ii, jj) {
-                            (0, 0) => xx_new[(i, j)] = reynolds_stress.xx[(i, j)] + dt * rhs,
-                            (0, 1) | (1, 0) => {
-                                xy_new[(i, j)] = reynolds_stress.xy[(i, j)] + dt * rhs
+                            (0, 0) => {
+                                xx_new[(i, j)] = reynolds_stress.xx[(i, j)] + dt * rhs;
                             }
-                            (1, 1) => yy_new[(i, j)] = reynolds_stress.yy[(i, j)] + dt * rhs,
+                            (0, 1) | (1, 0) => {
+                                xy_new[(i, j)] = reynolds_stress.xy[(i, j)] + dt * rhs;
+                            }
+                            (1, 1) => {
+                                yy_new[(i, j)] = reynolds_stress.yy[(i, j)] + dt * rhs;
+                            }
                             _ => {}
                         }
                     }
@@ -1798,7 +1789,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> TurbulenceModel<T>
         ))
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Reynolds Stress Transport Model (RSTM)"
     }
 
@@ -1937,7 +1928,7 @@ mod tests {
         // At equilibrium: 0 = -S (⟨u'u'⟩ + ⟨v'v'⟩) - (C1 ε/k) ⟨u'v'⟩
         // Solution: ⟨u'v'⟩ = -S (⟨u'u'⟩ + ⟨v'v'⟩) / (C1 ε/k) = -time_scale * S (⟨u'u'⟩ + ⟨v'v'⟩) / C1
         let c1 = 1.8; // Launder et al. (1975)
-        let analytical_uv_equilibrium = -time_scale
+        let _analytical_uv_equilibrium = -time_scale
             * shear_rate
             * (stresses.xx[(center_i, center_j)] + stresses.yy[(center_i, center_j)])
             / c1;
@@ -2058,7 +2049,7 @@ mod tests {
         /// Test realizability constraints (Lumley, 1978)
         /// Validates that solutions satisfy physical constraints on Reynolds stresses
         let model = ReynoldsStressModel::<f64>::new(10, 10);
-        let mut stresses = model.initialize_reynolds_stresses(1.0, 0.1);
+        let stresses = model.initialize_reynolds_stresses(1.0, 0.1);
 
         // Test realizability for all grid points
         for y in 0..10 {

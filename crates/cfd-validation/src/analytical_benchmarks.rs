@@ -3,7 +3,7 @@
 //! These are exact solutions to the Navier-Stokes equations
 //! used to validate numerical implementations.
 
-use cfd_core::constants::mathematical::{
+use cfd_core::physics::constants::mathematical::{
     numeric::{ONE_HALF, TWO, TWO_THIRDS},
     TWO_PI,
 };

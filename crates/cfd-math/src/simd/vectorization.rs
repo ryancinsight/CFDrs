@@ -36,16 +36,16 @@ impl VectorizedOps {
         // Try to use SIMD for f32/f64
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
             // Safe transmute for f32
-            let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
-            let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
-            let result_f32 = unsafe { std::slice::from_raw_parts_mut(result.as_mut_ptr() as *mut f32, result.len()) };
+            let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr().cast::<f32>(), a.len()) };
+            let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr().cast::<f32>(), b.len()) };
+            let result_f32 = unsafe { std::slice::from_raw_parts_mut(result.as_mut_ptr().cast::<f32>(), result.len()) };
             return self.simd_ops.add(a_f32, b_f32, result_f32);
         }
 
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
-            let a_f64 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f64, a.len()) };
-            let b_f64 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f64, b.len()) };
-            let result_f64 = unsafe { std::slice::from_raw_parts_mut(result.as_mut_ptr() as *mut f64, result.len()) };
+            let a_f64 = unsafe { std::slice::from_raw_parts(a.as_ptr().cast::<f64>(), a.len()) };
+            let b_f64 = unsafe { std::slice::from_raw_parts(b.as_ptr().cast::<f64>(), b.len()) };
+            let result_f64 = unsafe { std::slice::from_raw_parts_mut(result.as_mut_ptr().cast::<f64>(), result.len()) };
             return self.simd_ops.add_f64(a_f64, b_f64, result_f64);
         }
 
@@ -73,16 +73,16 @@ impl VectorizedOps {
 
         // Try to use SIMD for f32/f64
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
-            let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
-            let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
-            let result_f32 = unsafe { std::slice::from_raw_parts_mut(result.as_mut_ptr() as *mut f32, result.len()) };
+            let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr().cast::<f32>(), a.len()) };
+            let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr().cast::<f32>(), b.len()) };
+            let result_f32 = unsafe { std::slice::from_raw_parts_mut(result.as_mut_ptr().cast::<f32>(), result.len()) };
             return self.simd_ops.mul(a_f32, b_f32, result_f32);
         }
 
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
-            let a_f64 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f64, a.len()) };
-            let b_f64 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f64, b.len()) };
-            let result_f64 = unsafe { std::slice::from_raw_parts_mut(result.as_mut_ptr() as *mut f64, result.len()) };
+            let a_f64 = unsafe { std::slice::from_raw_parts(a.as_ptr().cast::<f64>(), a.len()) };
+            let b_f64 = unsafe { std::slice::from_raw_parts(b.as_ptr().cast::<f64>(), b.len()) };
+            let result_f64 = unsafe { std::slice::from_raw_parts_mut(result.as_mut_ptr().cast::<f64>(), result.len()) };
             return self.simd_ops.mul_f64(a_f64, b_f64, result_f64);
         }
 
@@ -111,16 +111,16 @@ impl VectorizedOps {
         // Try to use SIMD for f32/f64
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
             if let Some(scalar_f32) = scalar.to_f32() {
-                let input_f32 = unsafe { std::slice::from_raw_parts(input.as_ptr() as *const f32, input.len()) };
-                let result_f32 = unsafe { std::slice::from_raw_parts_mut(result.as_mut_ptr() as *mut f32, result.len()) };
+                let input_f32 = unsafe { std::slice::from_raw_parts(input.as_ptr().cast::<f32>(), input.len()) };
+                let result_f32 = unsafe { std::slice::from_raw_parts_mut(result.as_mut_ptr().cast::<f32>(), result.len()) };
                 return self.simd_ops.scale(input_f32, scalar_f32, result_f32);
             }
         }
 
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
             if let Some(scalar_f64) = scalar.to_f64() {
-                let input_f64 = unsafe { std::slice::from_raw_parts(input.as_ptr() as *const f64, input.len()) };
-                let result_f64 = unsafe { std::slice::from_raw_parts_mut(result.as_mut_ptr() as *mut f64, result.len()) };
+                let input_f64 = unsafe { std::slice::from_raw_parts(input.as_ptr().cast::<f64>(), input.len()) };
+                let result_f64 = unsafe { std::slice::from_raw_parts_mut(result.as_mut_ptr().cast::<f64>(), result.len()) };
                 return self.simd_ops.scale_f64(input_f64, scalar_f64, result_f64);
             }
         }
@@ -148,8 +148,8 @@ impl VectorizedOps {
 
         // Try to use SIMD for f32
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
-            let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
-            let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
+            let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr().cast::<f32>(), a.len()) };
+            let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr().cast::<f32>(), b.len()) };
             let result = self.simd_ops.dot(a_f32, b_f32)?;
             // Safe because we checked the type
             return Ok(unsafe { std::mem::transmute_copy(&result) });
@@ -157,8 +157,8 @@ impl VectorizedOps {
 
         // Try to use SIMD for f64
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
-            let a_f64 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f64, a.len()) };
-            let b_f64 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f64, b.len()) };
+            let a_f64 = unsafe { std::slice::from_raw_parts(a.as_ptr().cast::<f64>(), a.len()) };
+            let b_f64 = unsafe { std::slice::from_raw_parts(b.as_ptr().cast::<f64>(), b.len()) };
             let result = self.simd_ops.dot_f64(a_f64, b_f64)?;
             return Ok(unsafe { std::mem::transmute_copy(&result) });
         }

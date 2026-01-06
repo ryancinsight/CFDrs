@@ -2,7 +2,7 @@
 
 use super::Component;
 use cfd_core::error::Result;
-use cfd_core::fluid::Fluid;
+use cfd_core::physics::fluid::Fluid;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -44,7 +44,7 @@ impl<T: RealField + Copy + FromPrimitive> Microvalve<T> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> Component<T> for Microvalve<T> {
-    fn resistance(&self, _fluid: &Fluid<T>) -> T {
+    fn resistance(&self, fluid: &Fluid<T>) -> T {
         if self.opening <= T::zero() {
             // Closed valve - very high linear resistance to simulate no flow
             T::from_f64(1e12).unwrap_or_else(T::one)
@@ -55,7 +55,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for Microvalve<T> {
         }
     }
 
-    fn coefficients(&self, _fluid: &Fluid<T>) -> (T, T) {
+    fn coefficients(&self, fluid: &Fluid<T>) -> (T, T) {
         if self.opening <= T::zero() {
             (T::from_f64(1e12).unwrap_or_else(T::one), T::zero())
         } else {
@@ -63,7 +63,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for Microvalve<T> {
             // Accounting for opening fraction: k = 1 / (Cv * opening)^2
             let denom = self.cv * self.opening;
             let k = T::one() / (denom * denom);
-            (self.resistance(_fluid), k)
+            (self.resistance(fluid), k)
         }
     }
 

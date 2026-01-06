@@ -2,7 +2,7 @@
 //!
 //! Provides unified configuration following SSOT principle.
 
-use cfd_core::solver::SolverConfig;
+use cfd_core::compute::solver::SolverConfig;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -15,7 +15,7 @@ pub struct FdmConfig<T: RealField + Copy> {
     pub base: SolverConfig<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> Default for FdmConfig<T> {
+impl<T: RealField + Copy + FromPrimitive> Default for FdmConfig<T> {
     fn default() -> Self {
         Self {
             base: SolverConfig::default(),

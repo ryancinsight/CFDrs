@@ -9,7 +9,7 @@
 //! - Versteeg, H.K. & Malalasekera, W. (2007). An Introduction to CFD
 
 use cfd_2d::physics::EnergyEquationSolver;
-use cfd_core::boundary::BoundaryCondition;
+use cfd_core::physics::boundary::BoundaryCondition;
 use std::collections::HashMap;
 
 /// Test 1D steady-state conduction with linear temperature profile

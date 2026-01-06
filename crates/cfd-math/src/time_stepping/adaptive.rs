@@ -100,6 +100,12 @@ pub struct StandardController<T: RealField + Copy> {
     prev_error_ratio: Option<T>,
 }
 
+impl<T: RealField + Copy> Default for StandardController<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: RealField + Copy> StandardController<T> {
     /// Create a new PI controller for adaptive time stepping
     pub fn new() -> Self {
@@ -293,7 +299,7 @@ impl<T: RealField + Copy> EmbeddedMethod<T> for DormandPrince54<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::runge_kutta::RungeKutta4;
+    
     use super::*;
     use approx::assert_relative_eq;
 

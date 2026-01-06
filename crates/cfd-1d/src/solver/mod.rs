@@ -189,7 +189,7 @@ pub use state::NetworkState;
 
 use crate::network::Network;
 use cfd_core::error::Result;
-use cfd_core::solver::{Configurable, Solver, Validatable};
+use cfd_core::compute::solver::{Configurable, Solver, Validatable};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -203,7 +203,7 @@ pub struct SolverConfig<T: RealField + Copy> {
     pub max_iterations: usize,
 }
 
-impl<T: RealField + Copy> cfd_core::solver::SolverConfiguration<T> for SolverConfig<T> {
+impl<T: RealField + Copy> cfd_core::compute::solver::SolverConfiguration<T> for SolverConfig<T> {
     fn max_iterations(&self) -> usize {
         self.max_iterations
     }

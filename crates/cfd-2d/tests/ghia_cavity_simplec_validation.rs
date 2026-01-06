@@ -19,7 +19,7 @@ use cfd_2d::pressure_velocity::PressureLinearSolver;
 use cfd_2d::schemes::SpatialScheme;
 use cfd_2d::simplec_pimple::config::{AlgorithmType, SimplecPimpleConfig};
 use cfd_2d::simplec_pimple::SimplecPimpleSolver;
-use cfd_core::fluid::Fluid;
+use cfd_core::physics::fluid::Fluid;
 use cfd_validation::analytical_benchmarks::lid_driven_cavity;
 use cfd_validation::benchmarks::cavity::LidDrivenCavity;
 use cfd_validation::error_metrics::ErrorMetric;
@@ -345,7 +345,7 @@ where
     );
 
     // Extract and validate centerline profile
-    let centerline_u: Vec<f64> = (0..ny)
+    let _centerline_u: Vec<f64> = (0..ny)
         .map(|j| {
             let i_center = nx / 2;
             fields.u.at(i_center, j)
@@ -656,7 +656,7 @@ fn test_rectangular_channel_aspect_ratio_convergence() -> cfd_core::error::Resul
     }
 
     // Verify square channel reference value
-    let square_ar = 1.0;
+    let _square_ar = 1.0;
     // Shah & London (1978) exact value for square channel
     let expected_po_square = 56.91;
     println!(
@@ -685,7 +685,7 @@ fn test_rectangular_channel_aspect_ratio_convergence() -> cfd_core::error::Resul
 /// Tests convergence behavior with different AMG configurations
 #[test]
 fn test_amg_parameter_sensitivity() -> cfd_core::error::Result<()> {
-    use cfd_math::linear_solver::multigrid::*;
+    use cfd_math::linear_solver::preconditioners::multigrid::*;
 
     println!("\nAMG Parameter Sensitivity Analysis:");
     println!("This test validates the AMG framework and configuration options.");
@@ -1084,7 +1084,7 @@ where
 
         // Check if we achieve approximately second-order accuracy
         let (_, _, _, final_error) = sorted_results.last().unwrap();
-        let target_order = 2.0;
+        let _target_order = 2.0;
         let expected_error = 0.01; // Rough estimate for second-order convergence
 
         if *final_error < expected_error {
@@ -1279,7 +1279,7 @@ where
         let elapsed = start_time.elapsed();
 
         match result {
-            Ok((final_dt, final_residual)) => {
+            Ok((_final_dt, final_residual)) => {
                 if final_residual < config.tolerance * 2.0 {
                     let num_cells = nx * ny;
                     let time_per_cell = elapsed.as_secs_f64() / num_cells as f64;
@@ -1318,8 +1318,8 @@ where
         println!("\n=== Performance Scaling Analysis ===");
 
         for i in 1..performance_results.len() {
-            let (nx1, _, cells1, time1, cps1, _) = performance_results[i - 1];
-            let (nx2, _, cells2, time2, cps2, _) = performance_results[i];
+            let (nx1, _, cells1, time1, _cps1, _) = performance_results[i - 1];
+            let (nx2, _, cells2, time2, _cps2, _) = performance_results[i];
 
             let speedup = time1 / time2;
             let efficiency = speedup / ((cells2 as f64) / (cells1 as f64));
@@ -1336,7 +1336,7 @@ where
         }
 
         // Overall performance summary
-        let (_, _, total_cells, total_time, avg_cps, _) = performance_results.iter().fold(
+        let (_, _, total_cells, total_time, _avg_cps, _) = performance_results.iter().fold(
             (0, 0, 0, 0.0, 0.0, 0),
             |acc, &(nx, ny, cells, time, cps, iters)| {
                 (
@@ -1475,7 +1475,7 @@ where
     );
 
     match result {
-        Ok((final_dt, final_residual)) => {
+        Ok((_final_dt, final_residual)) => {
             if final_residual < config.tolerance * 5.0 {
                 // Extract velocity profile at outlet (should be fully developed)
                 let outlet_profile: Vec<f64> = (0..ny).map(|j| fields.u.at(nx - 1, j)).collect();

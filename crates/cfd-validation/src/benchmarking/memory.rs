@@ -402,7 +402,7 @@ impl CfdMemoryProfiler {
     /// Profile memory usage of CFD simulation fields
     pub fn profile_simulation_fields(&self) -> Result<MemoryStatsSnapshot> {
         use cfd_2d::fields::SimulationFields;
-        use cfd_core::fluid::Fluid;
+        use cfd_core::physics::fluid::Fluid;
 
         Ok(self
             .profiler

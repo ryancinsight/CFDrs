@@ -1,7 +1,6 @@
 //! Validation tests for SIMPLEC and PIMPLE algorithms
 //! including Ghia cavity benchmark comparisons
 
-use approx::assert_relative_eq;
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::pressure_velocity::PressureLinearSolver;
@@ -149,7 +148,6 @@ fn test_pimple_solver_creation() -> cfd_core::error::Result<()> {
     Ok(())
 }
 
-use cfd_core::boundary::BoundaryCondition;
 
 /// Run SIMPLEC algorithm on lid-driven cavity problem
 fn run_lid_driven_cavity<T>(

@@ -6,7 +6,7 @@ use super::models::{
     ResistanceModel,
 };
 use cfd_core::error::{Error, Result};
-use cfd_core::fluid::Fluid;
+use cfd_core::physics::fluid::Fluid;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
 
@@ -36,7 +36,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
         // Compute Reynolds number if not provided.
         if local_conditions.reynolds_number.is_none() {
             let density = fluid.density;
-            let viscosity = cfd_core::domains::FluidProperties::dynamic_viscosity(fluid);
+            let viscosity = fluid.viscosity;
 
             let velocity = if let Some(v) = local_conditions.velocity {
                 v
@@ -137,7 +137,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
         // Compute Reynolds number if not provided.
         if local_conditions.reynolds_number.is_none() {
             let density = fluid.density;
-            let viscosity = cfd_core::domains::FluidProperties::dynamic_viscosity(fluid);
+            let viscosity = fluid.viscosity;
 
             let velocity = if let Some(v) = local_conditions.velocity {
                 v
@@ -329,7 +329,7 @@ impl<T: RealField + Copy + FromPrimitive> Default for ResistanceCalculator<T> {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use cfd_core::fluid::ConstantFluid;
+    use cfd_core::physics::fluid::ConstantFluid;
 
     #[test]
     fn test_hagen_poiseuille() -> Result<()> {
@@ -337,7 +337,7 @@ mod tests {
         let diameter = 100e-6; // 100 μm
         let length = 0.001; // 1 mm
         let model = HagenPoiseuilleModel::new(diameter, length);
-        let fluid = cfd_core::fluid::database::water_20c::<f64>()?;
+        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
         let conditions = FlowConditions::new(0.001);
 
         let resistance = model.calculate_resistance(&fluid, &conditions)?;
@@ -366,12 +366,12 @@ mod tests {
     #[test]
     fn test_rectangular_channel() -> Result<()> {
         let model = RectangularChannelModel::new(100e-6, 50e-6, 0.001);
-        let fluid = cfd_core::fluid::database::water_20c::<f64>()?;
+        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
         let mut conditions = FlowConditions::new(0.001);
         // Compute Reynolds number based on hydraulic diameter and set it
         let dh = 2.0 * model.width * model.height / (model.width + model.height);
         let density = fluid.density;
-        let viscosity = fluid.dynamic_viscosity();
+        let viscosity = fluid.viscosity;
         let velocity = conditions.velocity.unwrap();
         let re = density * velocity * dh / viscosity;
         conditions.reynolds_number = Some(re);
@@ -396,15 +396,15 @@ mod tests {
 
     #[test]
     fn test_darcy_weisbach() -> Result<()> {
-        use cfd_core::constants::physical::fluid::WATER_DENSITY_STD;
+        use cfd_core::physics::constants::physics::fluid::WATER_DENSITY;
 
         let diameter = 10e-3; // 10mm pipe for turbulent flow
         let model = DarcyWeisbachModel::circular(diameter, 0.001, 1e-6);
 
         // Test with turbulent flow
-        let fluid = cfd_core::fluid::database::water_20c::<f64>()?;
+        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
         let velocity = 1.0;
-        let density = WATER_DENSITY_STD;
+        let density = WATER_DENSITY;
         let viscosity = fluid.viscosity;
         let re = density * velocity * diameter / viscosity;
 
@@ -412,7 +412,7 @@ mod tests {
         let mut conditions = FlowConditions::new(velocity);
         conditions.reynolds_number = Some(re);
 
-        assert!(re > cfd_core::constants::dimensionless::reynolds::PIPE_CRITICAL_UPPER);
+        assert!(re > cfd_core::physics::constants::physics::dimensionless::reynolds::PIPE_TURBULENT_MIN);
 
         let resistance = model.calculate_resistance(&fluid, &conditions)?;
         assert!(resistance > 0.0);
@@ -450,7 +450,7 @@ mod tests {
     #[test]
     fn test_calculator_auto_selection() -> Result<()> {
         let calculator = ResistanceCalculator::<f64>::new();
-        let fluid = cfd_core::fluid::database::water_20c::<f64>()?;
+        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
         let mut conditions = FlowConditions::new(0.001);
 
         // Test circular geometry

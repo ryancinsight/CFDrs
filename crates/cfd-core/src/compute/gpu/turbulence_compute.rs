@@ -213,7 +213,7 @@ impl TurbulencePerformanceInfo {
         };
 
         // Scale by problem size - GPU becomes more effective for larger problems
-        let size_factor = (problem_size as f64 / 10000.0).min(5.0).max(1.0);
+        let size_factor = (problem_size as f64 / 10000.0).clamp(1.0, 5.0);
 
         gpu_factor * size_factor
     }

@@ -129,6 +129,8 @@
 //!   In *Advanced numerical approximation of nonlinear hyperbolic equations* (pp. 325-432). Springer.
 //! - van Leer, B. (1979). Towards the ultimate conservative difference scheme, V.
 //!   *Journal of Computational Physics*, 32(1), 101-136.
+//!
+//! ```math
 //! u_{i+1/2}^L = \frac{1}{6} \left[ -u_{i-1} + 5u_i + 2u_{i+1} \right] + \frac{1}{6} \phi(r_i) \left[ u_{i-1} - 3u_i + 2u_{i+1} \right]
 //! ```
 //!
@@ -136,7 +138,7 @@
 //!
 //! ### Van Leer Limiter
 //!
-//! ```math
+//! ```text
 //! \phi(r) = \frac{r + |r|}{1 + |r|} = \frac{2r}{1 + r} \quad (r > 0)
 //! ```
 //!
@@ -146,7 +148,7 @@
 //!
 //! ### Van Albada Limiter
 //!
-//! ```math
+//! ```text
 //! \phi(r) = \frac{r(r + 1)}{r^2 + 1} = \frac{r^2 + r}{r^2 + 1}
 //! ```
 //!
@@ -156,7 +158,7 @@
 //!
 //! ### Superbee Limiter
 //!
-//! ```math
+//! ```text
 //! \phi(r) = \max[0, \min(1, 2r), \min(2, r)]
 //! ```
 //!
@@ -166,7 +168,7 @@
 //!
 //! ### MC (Monotonized Central) Limiter
 //!
-//! ```math
+//! ```text
 //! \phi(r) = \max\left[0, \min\left(\frac{1 + r}{2}, 2, 2r\right)\right]
 //! ```
 //!
@@ -176,7 +178,7 @@
 //!
 //! ### Minmod Limiter
 //!
-//! ```math
+//! ```text
 //! \phi(r) = \max[0, \min(1, r)]
 //! ```
 //!
@@ -617,7 +619,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
         if i == 0 {
             // Left boundary - use one-sided reconstruction
             match self.order {
-                MUSCLOrder::SecondOrder => {
+                MUSCLOrder::SecondOrder | MUSCLOrder::ThirdOrder => {
+                    // Fall back to MUSCL2 at boundary (not enough points for 3rd order)
                     if nx > 1usize {
                         let phi_0 = phi.data[(0, j)];
                         let phi_1 = phi.data[(1, j)];
@@ -635,45 +638,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
                         phi.data[(0, j)]
                     }
                 }
-                MUSCLOrder::ThirdOrder => {
-                    // Fall back to MUSCL2 at boundary (not enough points for 3rd order)
-                    if nx > 1usize {
-                        let phi_0 = phi.data[(0, j)];
-                        let phi_1 = phi.data[(1, j)];
-
-                        if velocity_at_face >= T::zero() {
-                            phi_0
-                        } else {
-                            phi_0
-                                - T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()))
-                                    * (phi_1 - phi_0)
-                        }
-                    } else {
-                        phi.data[(0, j)]
-                    }
-                }
             }
         } else if i >= nx - 1 {
             // Right boundary - use one-sided reconstruction
             match self.order {
-                MUSCLOrder::SecondOrder => {
-                    if nx > 1usize {
-                        let phi_nm1 = phi.data[(nx - 1, j)];
-                        let phi_nm2 = phi.data[(nx - 2, j)];
-
-                        if velocity_at_face <= T::zero() {
-                            phi_nm1
-                        } else {
-                            // One-sided forward reconstruction: φ_{N-1/2}^L = φ_{N-1} + (1/2)δφ for outflow
-                            phi_nm1
-                                + T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()))
-                                    * (phi_nm1 - phi_nm2)
-                        }
-                    } else {
-                        phi.data[(nx - 1, j)]
-                    }
-                }
-                MUSCLOrder::ThirdOrder => {
+                MUSCLOrder::SecondOrder | MUSCLOrder::ThirdOrder => {
                     // Fall back to MUSCL2 at boundary
                     if nx > 1usize {
                         let phi_nm1 = phi.data[(nx - 1, j)];
@@ -682,6 +651,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
                         if velocity_at_face <= T::zero() {
                             phi_nm1
                         } else {
+                            // One-sided forward reconstruction: φ_{N-1/2}^L = φ_{N-1} + (1/2)δφ for outflow
                             phi_nm1
                                 + T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()))
                                     * (phi_nm1 - phi_nm2)
@@ -742,23 +712,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
         if j == 0 {
             // Bottom boundary
             match self.order {
-                MUSCLOrder::SecondOrder => {
-                    if ny > 1usize {
-                        let phi_0 = phi.data[(i, 0)];
-                        let phi_1 = phi.data[(i, 1)];
-
-                        if velocity_at_face >= T::zero() {
-                            phi_0
-                        } else {
-                            phi_0
-                                - T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()))
-                                    * (phi_1 - phi_0)
-                        }
-                    } else {
-                        phi.data[(i, 0)]
-                    }
-                }
-                MUSCLOrder::ThirdOrder => {
+                MUSCLOrder::SecondOrder | MUSCLOrder::ThirdOrder => {
                     if ny > 1usize {
                         let phi_0 = phi.data[(i, 0)];
                         let phi_1 = phi.data[(i, 1)];
@@ -778,23 +732,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Copy> FaceReconstructio
         } else if j >= ny - 1 {
             // Top boundary
             match self.order {
-                MUSCLOrder::SecondOrder => {
-                    if ny > 1usize {
-                        let phi_nm1 = phi.data[(i, ny - 1)];
-                        let phi_nm2 = phi.data[(i, ny - 2)];
-
-                        if velocity_at_face <= T::zero() {
-                            phi_nm1
-                        } else {
-                            phi_nm1
-                                + T::from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()))
-                                    * (phi_nm1 - phi_nm2)
-                        }
-                    } else {
-                        phi.data[(i, ny - 1)]
-                    }
-                }
-                MUSCLOrder::ThirdOrder => {
+                MUSCLOrder::SecondOrder | MUSCLOrder::ThirdOrder => {
                     if ny > 1usize {
                         let phi_nm1 = phi.data[(i, ny - 1)];
                         let phi_nm2 = phi.data[(i, ny - 2)];

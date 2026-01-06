@@ -6,8 +6,7 @@
 //! - Patankar, S. V. (1980). "Numerical Heat Transfer and Fluid Flow"
 //! - Versteeg, H. K. & Malalasekera, W. (2007). "An Introduction to Computational Fluid Dynamics"
 
-use approx::assert_relative_eq;
-use cfd_core::boundary::BoundaryCondition;
+use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::error::Result as CfdResult;
 
 use cfd_2d::fields::SimulationFields;
@@ -22,7 +21,7 @@ fn test_momentum_solver_creation() -> CfdResult<()> {
     let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Valid grid");
 
     // Test default creation
-    let solver = MomentumSolver::new(&grid);
+    let _solver = MomentumSolver::new(&grid);
 
     // Test solver with specific convection scheme
     let _solver_upwind = MomentumSolver::with_convection_scheme(&grid, ConvectionScheme::Upwind);
@@ -100,7 +99,7 @@ fn test_momentum_solver_basic_execution() -> CfdResult<()> {
 fn test_pressure_velocity_coupling_setup() -> CfdResult<()> {
     let nx = 3;
     let ny = 3;
-    let grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Valid grid");
+    let _grid = StructuredGrid2D::<f64>::new(nx, ny, 0.0, 1.0, 0.0, 1.0).expect("Valid grid");
 
     let mut fields = SimulationFields::new(nx, ny);
 

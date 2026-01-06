@@ -2,7 +2,7 @@
 //!
 //! This example shows usage of the CFD library components.
 
-use cfd_core::domains::fluid_dynamics::{
+use cfd_core::physics::fluid_dynamics::{
     FlowField, FlowOperations, KEpsilonModel, TurbulenceModel,
 };
 use cfd_math::linear_solver::IterativeLinearSolver;
@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 4. Test Reynolds number calculation
     println!("\n4. Reynolds number calculation...");
-    use cfd_core::values::{FlowGeometry, ReynoldsNumber};
+    use cfd_core::physics::values::{FlowGeometry, ReynoldsNumber};
 
     let re = ReynoldsNumber::new(2300.0, FlowGeometry::Pipe)?;
     println!("   Re = 2300 (pipe flow)");

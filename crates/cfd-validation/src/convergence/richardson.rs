@@ -79,7 +79,7 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
         let epsilon_32 = f_coarse - f_medium;
 
         let epsilon_tolerance =
-            T::from_f64_or_zero(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE);
+            T::from_f64_or_zero(cfd_core::physics::constants::numerical::solver::EPSILON_TOLERANCE);
 
         if epsilon_21.abs() < epsilon_tolerance {
             return Err(Error::InvalidInput(
@@ -101,7 +101,7 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
         let epsilon_32 = (f_coarse - f_medium).abs();
 
         let epsilon_tolerance =
-            T::from_f64_or_zero(cfd_core::constants::numerical::solver::EPSILON_TOLERANCE);
+            T::from_f64_or_zero(cfd_core::physics::constants::numerical::solver::EPSILON_TOLERANCE);
 
         if epsilon_21 < epsilon_tolerance {
             return false;

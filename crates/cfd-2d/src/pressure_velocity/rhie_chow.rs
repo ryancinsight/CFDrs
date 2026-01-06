@@ -139,10 +139,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         let volume = dx * dy;
         let d_p = volume / self.ap_u_coefficients.at(i, j);
         let d_e = volume / self.ap_u_coefficients.at(i + 1, j);
-        if d_p + d_e != T::zero() {
-            two * d_p * d_e / (d_p + d_e) // Harmonic averaging
-        } else {
+        if d_p + d_e == T::zero() {
             T::zero()
+        } else {
+            two * d_p * d_e / (d_p + d_e) // Harmonic averaging
         }
     }
 
@@ -152,10 +152,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         let volume = dx * dy;
         let d_p = volume / self.ap_v_coefficients.at(i, j);
         let d_n = volume / self.ap_v_coefficients.at(i, j + 1);
-        if d_p + d_n != T::zero() {
-            two * d_p * d_n / (d_p + d_n) // Harmonic averaging
-        } else {
+        if d_p + d_n == T::zero() {
             T::zero()
+        } else {
+            two * d_p * d_n / (d_p + d_n) // Harmonic averaging
         }
     }
 
@@ -194,10 +194,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         let volume = dx * dy; // Correct 2D cell area for rectangular cells
         let d_p = volume / self.ap_u_coefficients.at(i, j);
         let d_e = volume / self.ap_u_coefficients.at(i + 1, j);
-        let d_face = if d_p + d_e != T::zero() {
-            two * d_p * d_e / (d_p + d_e) // Harmonic averaging
-        } else {
+        let d_face = if d_p + d_e == T::zero() {
             T::zero() // Avoid division by zero
+        } else {
+            two * d_p * d_e / (d_p + d_e) // Harmonic averaging
         };
 
         // Cell-centered pressure gradients (from momentum equation)
@@ -279,10 +279,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         let volume = dx * dy; // Correct 2D cell area for rectangular cells
         let d_p = volume / self.ap_v_coefficients.at(i, j);
         let d_n = volume / self.ap_v_coefficients.at(i, j + 1);
-        let d_face = if d_p + d_n != T::zero() {
-            two * d_p * d_n / (d_p + d_n) // Harmonic averaging
-        } else {
+        let d_face = if d_p + d_n == T::zero() {
             T::zero() // Avoid division by zero
+        } else {
+            two * d_p * d_n / (d_p + d_n) // Harmonic averaging
         };
 
         // Cell-centered pressure gradients

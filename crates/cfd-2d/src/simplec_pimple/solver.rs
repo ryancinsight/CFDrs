@@ -512,7 +512,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             // Convergence criteria: both velocity change and continuity must be satisfied
             let velocity_converged = velocity_residual < self.config.tolerance;
             let continuity_converged =
-                continuity_residual < T::from_f64(1e-6).unwrap_or_else(|| self.config.tolerance);
+                continuity_residual < T::from_f64(1e-6).unwrap_or(self.config.tolerance);
 
             residual = velocity_residual.max(continuity_residual);
 
@@ -565,7 +565,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         let u_initial = self.extract_velocity_field(fields);
         let _p_initial = self.field2d_to_vec2d(&fields.p);
 
-        let mut _global_residual = T::from_f64(std::f64::INFINITY).unwrap();
+        let mut _global_residual = T::from_f64(f64::INFINITY).unwrap();
         let max_outer_iterations = self.config.n_outer_correctors.max(3); // At least 3 for quality
 
         // Outer PIMPLE correctors (time-step level)
@@ -807,27 +807,19 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         face_velocity: &mut Vec<Vec<Vector2<T>>>,
         _fields: &SimulationFields<T>,
     ) {
-        use cfd_core::boundary::{BoundaryCondition, WallType};
+        use cfd_core::physics::boundary::{BoundaryCondition, WallType};
 
         let bcs = self.momentum_solver.boundary_conditions();
 
         // North boundary (j = ny-1)
-        if let Some(bc) = bcs.get("north") {
+        if let Some(BoundaryCondition::Wall { wall_type }) = bcs.get("north") {
             for i in 0..self.grid.nx {
-                match bc {
-                    BoundaryCondition::Wall { wall_type } => match wall_type {
-                        WallType::NoSlip => {
-                            face_velocity[i][self.grid.ny - 1] = Vector2::zeros();
-                        }
-                        WallType::Moving { velocity } => {
-                            face_velocity[i][self.grid.ny - 1] =
-                                Vector2::new(velocity[0], velocity[1]);
-                        }
-                        _ => {}
-                    },
-                    BoundaryCondition::Dirichlet { value: _ } => {
-                        // For scalar Dirichlet, we might need more context,
-                        // but usually velocity BCs are Wall or Vector Dirichlet
+                match wall_type {
+                    WallType::NoSlip => {
+                        face_velocity[i][self.grid.ny - 1] = Vector2::zeros();
+                    }
+                    WallType::Moving { velocity } => {
+                        face_velocity[i][self.grid.ny - 1] = Vector2::new(velocity[0], velocity[1]);
                     }
                     _ => {}
                 }
@@ -835,55 +827,45 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         }
 
         // South boundary (j = 0)
-        if let Some(bc) = bcs.get("south") {
+        if let Some(BoundaryCondition::Wall { wall_type }) = bcs.get("south") {
             for i in 0..self.grid.nx {
-                match bc {
-                    BoundaryCondition::Wall { wall_type } => match wall_type {
-                        WallType::NoSlip => {
-                            face_velocity[i][0] = Vector2::zeros();
-                        }
-                        WallType::Moving { velocity } => {
-                            face_velocity[i][0] = Vector2::new(velocity[0], velocity[1]);
-                        }
-                        _ => {}
-                    },
+                match wall_type {
+                    WallType::NoSlip => {
+                        face_velocity[i][0] = Vector2::zeros();
+                    }
+                    WallType::Moving { velocity } => {
+                        face_velocity[i][0] = Vector2::new(velocity[0], velocity[1]);
+                    }
                     _ => {}
                 }
             }
         }
 
         // West boundary (i = 0)
-        if let Some(bc) = bcs.get("west") {
+        if let Some(BoundaryCondition::Wall { wall_type }) = bcs.get("west") {
             for j in 0..self.grid.ny {
-                match bc {
-                    BoundaryCondition::Wall { wall_type } => match wall_type {
-                        WallType::NoSlip => {
-                            face_velocity[0][j] = Vector2::zeros();
-                        }
-                        WallType::Moving { velocity } => {
-                            face_velocity[0][j] = Vector2::new(velocity[0], velocity[1]);
-                        }
-                        _ => {}
-                    },
+                match wall_type {
+                    WallType::NoSlip => {
+                        face_velocity[0][j] = Vector2::zeros();
+                    }
+                    WallType::Moving { velocity } => {
+                        face_velocity[0][j] = Vector2::new(velocity[0], velocity[1]);
+                    }
                     _ => {}
                 }
             }
         }
 
         // East boundary (i = nx-1)
-        if let Some(bc) = bcs.get("east") {
+        if let Some(BoundaryCondition::Wall { wall_type }) = bcs.get("east") {
             for j in 0..self.grid.ny {
-                match bc {
-                    BoundaryCondition::Wall { wall_type } => match wall_type {
-                        WallType::NoSlip => {
-                            face_velocity[self.grid.nx - 1][j] = Vector2::zeros();
-                        }
-                        WallType::Moving { velocity } => {
-                            face_velocity[self.grid.nx - 1][j] =
-                                Vector2::new(velocity[0], velocity[1]);
-                        }
-                        _ => {}
-                    },
+                match wall_type {
+                    WallType::NoSlip => {
+                        face_velocity[self.grid.nx - 1][j] = Vector2::zeros();
+                    }
+                    WallType::Moving { velocity } => {
+                        face_velocity[self.grid.nx - 1][j] = Vector2::new(velocity[0], velocity[1]);
+                    }
                     _ => {}
                 }
             }
@@ -1014,7 +996,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     }
 
     /// Set boundary condition
-    pub fn set_boundary(&mut self, name: String, bc: cfd_core::boundary::BoundaryCondition<T>) {
+    pub fn set_boundary(&mut self, name: String, bc: cfd_core::physics::boundary::BoundaryCondition<T>) {
         self.momentum_solver.set_boundary(name, bc);
     }
 

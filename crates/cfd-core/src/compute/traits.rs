@@ -140,7 +140,9 @@ impl ComputeBackend {
     fn detect_simd_support() -> bool {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
-            is_x86_feature_detected!("avx2") || is_x86_feature_detected!("sse4.1")
+            let has_avx2 = is_x86_feature_detected!("avx2");
+            let has_sse41 = is_x86_feature_detected!("sse4.1");
+            has_avx2 || has_sse41
         }
         #[cfg(target_arch = "aarch64")]
         {

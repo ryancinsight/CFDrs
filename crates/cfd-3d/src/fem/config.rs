@@ -7,13 +7,13 @@ use serde::{Deserialize, Serialize};
 use super::constants;
 
 // Use ElementType from cfd-core as the single source of truth
-pub use cfd_core::domains::mesh_operations::ElementType;
+pub use cfd_core::domain::mesh::ElementType;
 
 /// FEM configuration for fluid dynamics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FemConfig<T: RealField + Copy> {
     /// Base solver configuration
-    pub base: cfd_core::solver::SolverConfig<T>,
+    pub base: cfd_core::compute::solver::SolverConfig<T>,
     /// Use SUPG/PSPG stabilization
     pub use_stabilization: bool,
     /// Stabilization parameter
@@ -31,7 +31,7 @@ pub struct FemConfig<T: RealField + Copy> {
 impl<T: RealField + FromPrimitive + Copy> Default for FemConfig<T> {
     fn default() -> Self {
         Self {
-            base: cfd_core::solver::SolverConfig::default(),
+            base: cfd_core::compute::solver::SolverConfig::default(),
             use_stabilization: true,
             tau: T::from_f64(constants::DEFAULT_STABILIZATION).unwrap_or_else(|| T::zero()),
             dt: Some(T::from_f64(constants::DEFAULT_TIME_STEP).unwrap_or_else(|| T::zero())),

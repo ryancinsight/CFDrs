@@ -4,7 +4,7 @@
 //! to verify proper boundary condition implementation.
 
 use cfd_2d::grid::StructuredGrid2D;
-use cfd_core::boundary::{BoundaryCondition, BoundaryConditionSet, WallType};
+use cfd_core::physics::boundary::{BoundaryCondition, BoundaryConditionSet, WallType};
 use cfd_validation::manufactured::{ManufacturedDiffusion, TaylorGreenManufactured};
 use nalgebra::Vector3;
 use num_traits::FromPrimitive;

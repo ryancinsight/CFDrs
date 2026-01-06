@@ -92,7 +92,7 @@ pub fn update_dynamic_constant(
 
     // Solve for C_s² using least squares: C_s² = <L_ij M_ij> / <M_ij M_ij>
     let c_s_squared = if point_count > 0 && denominator_sum > 1e-12 {
-        (numerator_sum / denominator_sum).max(0.0).min(1.0) // Clip to reasonable range
+        (numerator_sum / denominator_sum).clamp(0.0, 1.0) // Clip to reasonable range
     } else {
         0.1 // Default fallback value
     };
@@ -146,7 +146,7 @@ fn apply_box_filter(field: &DMatrix<f64>, filter_width: usize) -> DMatrix<f64> {
             }
 
             filtered[(i, j)] = if count > 0 {
-                sum / count as f64
+                sum / f64::from(count)
             } else {
                 field[(i, j)]
             };
@@ -244,7 +244,7 @@ mod tests {
         let (velocity_u, velocity_v) = create_test_velocity_fields(10, 10);
         let mut dynamic_constant = initialize_dynamic_constant(10, 10, 0.1);
 
-        let initial_avg = dynamic_constant.iter().sum::<f64>() / 100.0;
+        let _initial_avg = dynamic_constant.iter().sum::<f64>() / 100.0;
 
         update_dynamic_constant(&mut dynamic_constant, &velocity_u, &velocity_v, 0.1, 0.1);
 

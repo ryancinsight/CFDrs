@@ -3,9 +3,9 @@
 use super::{NetworkGraph, Node};
 use crate::channel::ChannelGeometry;
 use cfd_core::{
-    boundary::BoundaryCondition,
+    physics::boundary::BoundaryCondition,
     error::{Error, Result},
-    fluid::{ConstantPropertyFluid, Fluid},
+    physics::fluid::{ConstantPropertyFluid, Fluid},
 };
 use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;

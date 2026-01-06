@@ -78,7 +78,7 @@ fn test_poiseuille_flow_convergence() {
     solver.set_velocity_relaxation(0.5);
 
     // Register boundary conditions for no-slip walls
-    use cfd_core::boundary::BoundaryCondition;
+    use cfd_core::physics::boundary::BoundaryCondition;
     solver.set_boundary(
         "south".to_string(),
         BoundaryCondition::Dirichlet { value: 0.0 },
