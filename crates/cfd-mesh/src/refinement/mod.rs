@@ -388,7 +388,9 @@ impl<T: RealField + Copy> RefinementStrategy<T> for AdaptiveRefinement<T> {
                     // The opposite vertex is the one NOT in involved_verts.
                     // Actually, if 3 edges form a triangle, they involve exactly 3 vertices.
 
-                    let face_verts: Vec<usize> = involved_verts.into_iter().collect();
+                    let mut face_verts: Vec<usize> = involved_verts.into_iter().collect();
+                    face_verts.sort_unstable(); // Ensure deterministic ordering
+
                     let op_vert = [v0, v1, v2, v3].iter()
                         .find(|&&x| !face_verts.contains(&x))
                         .copied()
