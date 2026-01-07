@@ -244,46 +244,80 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
     ) -> Result<NumComplex<f64>> {
         let s = b.len();
 
-        // For explicit methods, R(z) = 1 + z*b^T * (I - z*A)^(-1) * 1
-        // This is equivalent to the ratio of polynomials for explicit methods
-
-        // Build the polynomial representation
-        // For explicit RK methods, we can compute this directly
-        // TODO: Implement full stability polynomial
-
-        // Simplified computation for explicit methods
-        // R(z) = sum_{k=0}^s (z^k / k!) * sum_{stages} for order k
-        // For practical computation, we use the matrix form
-
-        // Convert matrices to complex
-        let mut a_complex = DMatrix::<NumComplex<f64>>::zeros(s, s);
-        let mut b_complex = DVector::<NumComplex<f64>>::zeros(s);
-
+        // Check if method is explicit (strictly lower triangular A)
+        let mut is_explicit = true;
         for i in 0..s {
-            b_complex[i] = NumComplex::new(b[i].to_f64().unwrap(), 0.0);
-            for j in 0..s {
-                a_complex[(i, j)] = NumComplex::new(a[(i, j)].to_f64().unwrap(), 0.0);
+            for j in i..s {
+                if a[(i, j)] != T::zero() {
+                    is_explicit = false;
+                    break;
+                }
+            }
+            if !is_explicit {
+                break;
             }
         }
 
-        // Compute (I - z*A)
-        let identity = DMatrix::<NumComplex<f64>>::identity(s, s);
-        let z_a = &a_complex * z; // Matrix * scalar, not scalar * matrix
-        let matrix = &identity - &z_a;
+        if is_explicit {
+            // For explicit methods, R(z) = 1 + z*b^T * (I - z*A)^(-1) * 1
+            // We can compute w = (I - z*A)^(-1) * 1 using forward substitution
+            // w = 1 + z*A*w
+            // w_i = 1 + z * sum_{j=0}^{i-1} a_{ij} * w_j
 
-        // Compute inverse
-        match matrix.try_inverse() {
-            Some(inv_matrix) => {
-                // Compute b^T * inv_matrix * 1 (ones vector)
-                let ones = DVector::<NumComplex<f64>>::from_element(s, NumComplex::new(1.0, 0.0));
-                let temp = &inv_matrix * &ones;
-                let coeff = b_complex.dot(&temp);
-                let r_z = NumComplex::new(1.0, 0.0) + z * coeff;
-                Ok(r_z)
+            let mut w = vec![NumComplex::new(0.0, 0.0); s];
+            let one = NumComplex::new(1.0, 0.0);
+
+            for i in 0..s {
+                let mut sum_aw = NumComplex::new(0.0, 0.0);
+                for j in 0..i {
+                    // a[(i, j)] is T, convert to f64 then complex
+                    let a_val = a[(i, j)].to_f64().unwrap();
+                    sum_aw += NumComplex::new(a_val, 0.0) * w[j];
+                }
+                w[i] = one + z * sum_aw;
             }
-            None => {
-                // Singular matrix - method is unstable for this z
-                Ok(NumComplex::new(f64::INFINITY, f64::INFINITY))
+
+            // R(z) = 1 + z * sum_{i=0}^{s-1} b_i * w_i
+            let mut sum_bw = NumComplex::new(0.0, 0.0);
+            for i in 0..s {
+                let b_val = b[i].to_f64().unwrap();
+                sum_bw += NumComplex::new(b_val, 0.0) * w[i];
+            }
+
+            let r_z = one + z * sum_bw;
+            Ok(r_z)
+        } else {
+            // Convert matrices to complex
+            let mut a_complex = DMatrix::<NumComplex<f64>>::zeros(s, s);
+            let mut b_complex = DVector::<NumComplex<f64>>::zeros(s);
+
+            for i in 0..s {
+                b_complex[i] = NumComplex::new(b[i].to_f64().unwrap(), 0.0);
+                for j in 0..s {
+                    a_complex[(i, j)] = NumComplex::new(a[(i, j)].to_f64().unwrap(), 0.0);
+                }
+            }
+
+            // Compute (I - z*A)
+            let identity = DMatrix::<NumComplex<f64>>::identity(s, s);
+            let z_a = &a_complex * z; // Matrix * scalar, not scalar * matrix
+            let matrix = &identity - &z_a;
+
+            // Compute inverse
+            match matrix.try_inverse() {
+                Some(inv_matrix) => {
+                    // Compute b^T * inv_matrix * 1 (ones vector)
+                    let ones =
+                        DVector::<NumComplex<f64>>::from_element(s, NumComplex::new(1.0, 0.0));
+                    let temp = &inv_matrix * &ones;
+                    let coeff = b_complex.dot(&temp);
+                    let r_z = NumComplex::new(1.0, 0.0) + z * coeff;
+                    Ok(r_z)
+                }
+                None => {
+                    // Singular matrix - method is unstable for this z
+                    Ok(NumComplex::new(f64::INFINITY, f64::INFINITY))
+                }
             }
         }
     }
